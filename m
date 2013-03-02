@@ -1,55 +1,48 @@
-From: Andre Heider <a.heider@gmail.com>
-Subject: atl1c: DMA: Out of SW-IOMMU space
-Date: Sat, 2 Mar 2013 18:28:57 +0100
-Message-ID: <CAHsu+b8JkVPbh7p7pj4u2XFJ3oA+HfxiGVJyz7TLG3FNQzBZCQ@mail.gmail.com>
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: Re: tg3: regression of netdev stats
+Date: Sat, 2 Mar 2013 10:56:06 -0800
+Message-ID: <51324B46.1050700@broadcom.com>
+References: <878v67xnkr.fsf@devron.myhome.or.jp>
+ <1362152836.6212.27.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+ <87y5e6wcv1.fsf@devron.myhome.or.jp>
+ <87txouwcf8.fsf@devron.myhome.or.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org, xiong@qca.qualcomm.com
+Content-Type: text/plain;
+ charset=iso-8859-1;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Michael Chan" <mchan@broadcom.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: "OGAWA Hirofumi" <hirofumi@mail.parknet.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:40343 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751980Ab3CBR26 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Mar 2013 12:28:58 -0500
-Received: by mail-pb0-f45.google.com with SMTP id ro8so2325311pbb.18
-        for <netdev@vger.kernel.org>; Sat, 02 Mar 2013 09:28:57 -0800 (PST)
+Received: from mms1.broadcom.com ([216.31.210.17]:1209 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752369Ab3CBS4T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Mar 2013 13:56:19 -0500
+In-Reply-To: <87txouwcf8.fsf@devron.myhome.or.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-my "AR8151 v2.0 Gigabit Ethernet (rev c0)" becomes unusable on v3.8
-after some usage.
 
-It's easily reproducible with "dd if=/dev/zero of=<nfsshare>/test
-bs=1M count=2048. Point of failure varies, but somewhat after >1.5gb
-of data written to the nfs server dmesg gets spammed with "DMA: Out of
-SW-IOMMU space for x bytes at device 0000:06:00.0" (where x varies)
-and all sorts of follow up problems start occurring.
-Apparently I'm not the only one affected:
-https://www.google.com/search?q=atl1c+%22DMA%3A+Out+of+SW-IOMMU+space%22
+On 3/1/2013 10:20 PM, OGAWA Hirofumi wrote:
+> OGAWA Hirofumi <hirofumi@mail.parknet.co.jp> writes:
+>
+>> zero). But, e.g. ping/nfs itself works fine.
+>>
+>> BTW, chip is
+>>
+>> 02:00.0 Ethernet controller [0200]: Broadcom Corporation NetLink BCM57788 Gigabit Ethernet PCIe [14e4:1691] (rev 01)
+>>
+>> tg3 0000:02:00.0 eth0: Tigon3 [partno(BCM57788) rev 57780001] (PCI Express) MAC address d4:be:d9:a6:a3:3b
+>> tg3 0000:02:00.0 eth0: attached PHY driver [Broadcom BCM57780] (mii_bus:phy_addr=200:01)
+>
+> With some read, this chip seems to be using PHYLIB, and PHYLIB modify
+> carrier state, so ->link_up confuses with it?
+>
 
-The problem doesn't exist on v3.8-rc7.
+Yes, this may be relevant. I'll investigate further with this device.
 
-The only atl1c commit in v3.8-rc7..v3.8 is:
 
-commit ac574804d412047e52de4dd887615cc88f58aeb0
-Author: Huang, Xiong <xiong@qca.qualcomm.com>
-Date:   Mon Feb 11 14:44:40 2013 +0000
-
-    atl1c: add error checking for pci_map_single functions
-
-    it is reported that code hit DMA-API errors on 3.8-rc6+,
-    (see https://bugzilla.redhat.com/show_bug.cgi?id=908436, and
-         https://bugzilla.redhat.com/show_bug.cgi?id=908550)
-
-    this patch just adds error handler for
-        pci_map_single and skb_frag_dma_map.
-
-    Signed-off-by: xiong <xiong@qca.qualcomm.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-Reverting that on top of v3.8 seems to fix the problem in my little
-testing, so it sounds like that fix introduced a iommu leak?
-
-Thanks,
-Andre
+> Thanks.
+>
