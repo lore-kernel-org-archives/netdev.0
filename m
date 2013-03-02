@@ -1,75 +1,55 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH V2] lglock: add read-preference local-global rwlock
-Date: Sat, 2 Mar 2013 18:20:03 +0100
-Message-ID: <20130302172003.GC29769@redhat.com>
-References: <CACvQF51RvhM8XNqu3-1OTQ=cZUZ=pAX+_zx0a29+W67N1X+BgQ@mail.gmail.com>
- <512CC509.1050000@linux.vnet.ibm.com>
- <CACvQF50UgiqPpDk3HCmV86zKSf6tPjqr0bZowfPEOJs0g0r0MQ@mail.gmail.com>
- <512D0D67.9010609@linux.vnet.ibm.com>
- <CACvQF53ph2ixdM-otzetjM5cR+2kcZj6sckOp3TnzzA_x-EZ8w@mail.gmail.com>
- <512E7879.20109@linux.vnet.ibm.com> <5130E8E2.50206@cn.fujitsu.com>
- <20130301182854.GA3631@redhat.com>
- <CANN689HEW=b5S93J27p+rBX-5m7jkW4FER=eHDCp7OgMaTWLPw@mail.gmail.com>
- <5131FB4C.7070408@cn.fujitsu.com>
+From: Andre Heider <a.heider@gmail.com>
+Subject: atl1c: DMA: Out of SW-IOMMU space
+Date: Sat, 2 Mar 2013 18:28:57 +0100
+Message-ID: <CAHsu+b8JkVPbh7p7pj4u2XFJ3oA+HfxiGVJyz7TLG3FNQzBZCQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Lai Jiangshan <eag0628@gmail.com>, linux-doc@vger.kernel.org,
- peterz@infradead.org, fweisbec@gmail.com,
- Michel Lespinasse <walken@google.com>, mingo@kernel.org,
- linux-arch@vger.kernel.org, linux@arm.linux.org.uk,
- xiaoguangrong@linux.vnet.ibm.com, wangyun@linux.vnet.ibm.com,
- paulmck@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
- linux-pm@vger.kernel.org, rusty@rustcorp.com.au, rostedt@goodmis.org,
- rjw@sisk.pl, namhyung@kernel.org, tglx@linutronix.de,
- linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, vincent.guittot@linaro.org, sbw@mit.edu,
- "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>, tj@kernel.org,
- akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
-To: Lai Jiangshan <laijs@cn.fujitsu.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <5131FB4C.7070408@cn.fujitsu.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org, xiong@qca.qualcomm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:40343 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751980Ab3CBR26 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Mar 2013 12:28:58 -0500
+Received: by mail-pb0-f45.google.com with SMTP id ro8so2325311pbb.18
+        for <netdev@vger.kernel.org>; Sat, 02 Mar 2013 09:28:57 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/02, Lai Jiangshan wrote:
->
-> +void lg_rwlock_local_read_unlock(struct lgrwlock *lgrw)
-> +{
-> +	switch (__this_cpu_read(*lgrw->reader_refcnt)) {
-> +	case 1:
-> +		__this_cpu_write(*lgrw->reader_refcnt, 0);
-> +		lg_local_unlock(&lgrw->lglock);
-> +		return;
-> +	case FALLBACK_BASE:
-> +		__this_cpu_write(*lgrw->reader_refcnt, 0);
-> +		read_unlock(&lgrw->fallback_rwlock);
-> +		rwlock_release(&lg->lock_dep_map, 1, _RET_IP_);
+Hi,
 
-I guess "case 1:" should do rwlock_release() too.
+my "AR8151 v2.0 Gigabit Ethernet (rev c0)" becomes unusable on v3.8
+after some usage.
 
-Otherwise, at first glance looks correct...
+It's easily reproducible with "dd if=/dev/zero of=<nfsshare>/test
+bs=1M count=2048. Point of failure varies, but somewhat after >1.5gb
+of data written to the nfs server dmesg gets spammed with "DMA: Out of
+SW-IOMMU space for x bytes at device 0000:06:00.0" (where x varies)
+and all sorts of follow up problems start occurring.
+Apparently I'm not the only one affected:
+https://www.google.com/search?q=atl1c+%22DMA%3A+Out+of+SW-IOMMU+space%22
 
-However, I still think that FALLBACK_BASE only adds the unnecessary
-complications. But even if I am right this is subjective of course, please
-feel free to ignore.
+The problem doesn't exist on v3.8-rc7.
 
-And btw, I am not sure about lg->lock_dep_map, perhaps we should use
-fallback_rwlock->dep_map ?
+The only atl1c commit in v3.8-rc7..v3.8 is:
 
-We need rwlock_acquire_read() even in the fast-path, and this acquire_read
-should be paired with rwlock_acquire() in _write_lock(), but it does
-spin_acquire(lg->lock_dep_map). Yes, currently this is the same (afaics)
-but perhaps fallback_rwlock->dep_map would be more clean.
+commit ac574804d412047e52de4dd887615cc88f58aeb0
+Author: Huang, Xiong <xiong@qca.qualcomm.com>
+Date:   Mon Feb 11 14:44:40 2013 +0000
 
-Oleg.
+    atl1c: add error checking for pci_map_single functions
+
+    it is reported that code hit DMA-API errors on 3.8-rc6+,
+    (see https://bugzilla.redhat.com/show_bug.cgi?id=908436, and
+         https://bugzilla.redhat.com/show_bug.cgi?id=908550)
+
+    this patch just adds error handler for
+        pci_map_single and skb_frag_dma_map.
+
+    Signed-off-by: xiong <xiong@qca.qualcomm.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Reverting that on top of v3.8 seems to fix the problem in my little
+testing, so it sounds like that fix introduced a iommu leak?
+
+Thanks,
+Andre
