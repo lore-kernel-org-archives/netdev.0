@@ -1,38 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ircomm: release tty before sleeping potentially
- indefintely
-Date: Sun, 03 Mar 2013 17:47:39 -0500 (EST)
-Message-ID: <20130303.174739.1195645942179862011.davem@davemloft.net>
-References: <1362350153-26225-1-git-send-email-sasha.levin@oracle.com>
+Subject: Re: [PATCH] CAIF: fix sparse warning for caif_usb
+Date: Sun, 03 Mar 2013 17:49:25 -0500 (EST)
+Message-ID: <20130303.174925.982387903456722818.davem@davemloft.net>
+References: <1362316188-2927-1-git-send-email-silviupopescu1990@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, gregkh@linuxfoundation.org, jslaby@suse.cz,
-	peter@hurleysoftware.com, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org, sjur.brandeland@stericsson.com,
 	linux-kernel@vger.kernel.org
-To: sasha.levin@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57021 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754551Ab3CCWrn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Mar 2013 17:47:43 -0500
-In-Reply-To: <1362350153-26225-1-git-send-email-sasha.levin@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: silviupopescu1990@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1362316188-2927-1-git-send-email-silviupopescu1990@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Sun,  3 Mar 2013 17:35:53 -0500
+From: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+Date: Sun,  3 Mar 2013 15:09:48 +0200
 
-> ircomm_tty_block_til_ready would hold tty lock while blocking. Since the sleep
-> might take a long time we can prevent other processes from accessing the tty,
-> causing hung tasks and a dead tty.
+> This fixes the following sparse warning:
+> net/caif/caif_usb.c:84:16: warning: symbol 'cfusbl_create' was not
+> declared. Should it be static?
 > 
-> Diagnosed-by: Peter Hurley <peter@hurleysoftware.com>
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+> ---
+>  net/caif/caif_usb.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/caif/caif_usb.c b/net/caif/caif_usb.c
+> index 3ebc8cb..cbae9b0 100644
+> --- a/net/caif/caif_usb.c
+> +++ b/net/caif/caif_usb.c
+> @@ -81,7 +81,7 @@ static void cfusbl_ctrlcmd(struct cflayer *layr, enum caif_ctrlcmd ctrl,
+>  		layr->up->ctrlcmd(layr->up, ctrl, layr->id);
+>  }
+>  
+> -struct cflayer *cfusbl_create(int phyid, u8 ethaddr[ETH_ALEN],
+> +static struct cflayer *cfusbl_create(int phyid, u8 ethaddr[ETH_ALEN],
+>  					u8 braddr[ETH_ALEN])
 
-But then you invalidate all of the tty state tests made under
-the lock at the beginning of this function, before enterring
-the loop.  If you drop the lock, those pieces of state could
-change.
+You need to fix up the indentation of the second line of
+function arguments if you move the location of the openning
+parenthesis on the first line, because all arguments on the
+second and subsequent line must line up exactly at the first
+column after the openning parenthesis of the first line.
 
-I'm not applying this.
+Thanks.
