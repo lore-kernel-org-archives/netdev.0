@@ -1,39 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 1/5] net: implement support for low latency socket
- polling
-Date: Sun, 03 Mar 2013 13:20:01 -0800
-Message-ID: <1362345601.15793.83.camel@edumazet-glaptop>
-References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>
-	 <20130227175555.10611.42794.stgit@gitlad.jf.intel.com>
-	 <1362335704.15793.81.camel@edumazet-glaptop>
-	 <20130303192153.GC3401@two.firstfloor.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [ANNOUNCE] libnetfilter_acct 1.0.2 release
+Date: Sun, 3 Mar 2013 23:01:27 +0100
+Message-ID: <20130303220127.GA19632@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Dave Miller <davem@davemloft.net>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>, HPA <hpa@zytor.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130303192153.GC3401@two.firstfloor.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="uAKRQypu60I7Lcqm"
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:37634 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754503Ab3CCWBs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Mar 2013 17:01:48 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-03-03 at 20:21 +0100, Andi Kleen wrote:
-> > Alternative to 2) would be to use a generation id, incremented every
-> > time a napi used in spin polling enabled driver is dismantled (and freed
-> > after RCU grace period)
-> > 
-> > And store in sockets not only the pointer to napi_struct, but the
-> > current generation id : If the generation id doesnt match, disable
-> > the spinpoll until next packet rebuilds the cache again.
-> 
-> This would require rcu_read_lock, aka preempt off, during polling, right?
-> 
 
-Of course, polling probably needs BH disabling as well to get the per
-napi lock
+--uAKRQypu60I7Lcqm
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi!
+
+The Netfilter project proudly presents:
+
+        libnetfilter_acct 1.0.2
+
+libnetfilter_acct is the userspace library providing interface to
+extended accounting infrastructure starting Linux kernel 3.3.
+
+See ChangeLog that comes attached to this email for more details.
+
+You can download it from:
+
+http://www.netfilter.org/projects/libnetfilter_acct/downloads.html
+ftp://ftp.netfilter.org/pub/libnetfilter_acct/
+
+Have fun!
+
+
+--uAKRQypu60I7Lcqm
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="changes-libnetfilter_acct-1.0.2.txt"
+
+Eric Leblond (2):
+      Add include needed for integer types definition.
+      Fix packets and bytes inversion.
+
+Jan Engelhardt (3):
+      build: resolve automake-1.12 warnings
+      build: resolve compile abort on RHEL5 #1
+      build: resolve compile abort on RHEL5 #2
+
+Pablo Neira Ayuso (3):
+      Merge git://git.inai.de/libnetfilter_acct master
+      Partially revert "src: remove unnecessary castings"
+      build: bump version to 1.0.2
+
+
+--uAKRQypu60I7Lcqm--
