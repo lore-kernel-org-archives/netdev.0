@@ -1,38 +1,38 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH] ircomm: release tty before sleeping potentially indefintely
-Date: Sun,  3 Mar 2013 17:35:53 -0500
-Message-ID: <1362350153-26225-1-git-send-email-sasha.levin@oracle.com>
-Cc: davem@davemloft.net, gregkh@linuxfoundation.org, jslaby@suse.cz,
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ircomm: release tty before sleeping potentially
+ indefintely
+Date: Sun, 03 Mar 2013 17:47:39 -0500 (EST)
+Message-ID: <20130303.174739.1195645942179862011.davem@davemloft.net>
+References: <1362350153-26225-1-git-send-email-sasha.levin@oracle.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: samuel@sortiz.org, gregkh@linuxfoundation.org, jslaby@suse.cz,
 	peter@hurleysoftware.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
-To: samuel@sortiz.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	linux-kernel@vger.kernel.org
+To: sasha.levin@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57021 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754551Ab3CCWrn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Mar 2013 17:47:43 -0500
+In-Reply-To: <1362350153-26225-1-git-send-email-sasha.levin@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ircomm_tty_block_til_ready would hold tty lock while blocking. Since the sleep
-might take a long time we can prevent other processes from accessing the tty,
-causing hung tasks and a dead tty.
+From: Sasha Levin <sasha.levin@oracle.com>
+Date: Sun,  3 Mar 2013 17:35:53 -0500
 
-Diagnosed-by: Peter Hurley <peter@hurleysoftware.com>
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
----
- net/irda/ircomm/ircomm_tty.c | 2 ++
- 1 file changed, 2 insertions(+)
+> ircomm_tty_block_til_ready would hold tty lock while blocking. Since the sleep
+> might take a long time we can prevent other processes from accessing the tty,
+> causing hung tasks and a dead tty.
+> 
+> Diagnosed-by: Peter Hurley <peter@hurleysoftware.com>
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 
-diff --git a/net/irda/ircomm/ircomm_tty.c b/net/irda/ircomm/ircomm_tty.c
-index 9a5fd3c..7844cb3 100644
---- a/net/irda/ircomm/ircomm_tty.c
-+++ b/net/irda/ircomm/ircomm_tty.c
-@@ -355,7 +355,9 @@ static int ircomm_tty_block_til_ready(struct ircomm_tty_cb *self,
- 		IRDA_DEBUG(1, "%s(%d):block_til_ready blocking on %s open_count=%d\n",
- 		      __FILE__, __LINE__, tty->driver->name, port->count);
- 
-+		tty_unlock(tty);
- 		schedule();
-+		tty_lock(tty);
- 	}
- 
- 	__set_current_state(TASK_RUNNING);
--- 
-1.8.1.4
+But then you invalidate all of the tty state tests made under
+the lock at the beginning of this function, before enterring
+the loop.  If you drop the lock, those pieces of state could
+change.
+
+I'm not applying this.
