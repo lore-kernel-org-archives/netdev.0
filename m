@@ -1,103 +1,49 @@
-From: Eric Leblond <eric@regit.org>
-Subject: [ANNOUNCE] ulogd 2.0.2 release
-Date: Sun, 03 Mar 2013 23:49:12 +0100
-Message-ID: <1362350952.4930.61.camel@tiger2>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: Re: [PATCH] ircomm: release tty before sleeping potentially indefintely
+Date: Sun, 03 Mar 2013 18:17:38 -0500
+Message-ID: <5133DA12.8020907@oracle.com>
+References: <1362350153-26225-1-git-send-email-sasha.levin@oracle.com> <20130303.174739.1195645942179862011.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-AFkOm2ukfHKxiIIkD0CM"
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-announce@lists.netfilter.org, lwn@lwn.net
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---=-AFkOm2ukfHKxiIIkD0CM
-Content-Type: multipart/mixed; boundary="=-1OZquf5YgPi3OucUbiFM"
-
-
---=-1OZquf5YgPi3OucUbiFM
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-Hi!
-
-The Netfilter project proudly presents:
-
-        ulogd 2.0.2
-
-ulogd is a userspace logging daemon for netfilter/iptables related
-logging. This includes per-packet logging of security violations,
-per-packet logging for accounting, per-flow logging and flexible
-user-defined accounting.
-
-See ChangeLog that comes attached to this email for more details.
-
-You can download it from:
-
-http://www.netfilter.org/projects/ulogd/downloads.html
-ftp://ftp.netfilter.org/pub/ulogd/
-
-Have fun!
---=20
-Eric Leblond <eric@regit.org>
-Blog: https://home.regit.org/
-
---=-1OZquf5YgPi3OucUbiFM
-Content-Disposition: attachment; filename="changes-ulogd-2.0.2.txt"
-Content-Type: text/plain; name="changes-ulogd-2.0.2.txt"; charset="UTF-8"
-Content-Transfer-Encoding: base64
-
-Qm9iIEhvY2tuZXkgKDMpOg0KICAgICAgRml4IHBhcnNpbmcgb2YgaXB2NiBmbG93bGFiZWwgYW5k
-IHRjIGZpZWxkcw0KICAgICAgSGFuZGxlIHBvc3RncmVzcWwgc2NoZW1hcyBjb3JyZWN0bHkNCiAg
-ICAgIEFkZCBhZGRpdGlvbmFsIGlwNiBoZWFkZXIgZmllbGRzIHRvIGRhdGFiYXNlIHNjcmlwdHMN
-Cg0KRXJpYyBMZWJsb25kICgzMik6DQogICAgICBjb25maWd1cmU6IGFkZCBmbGFnIHRvIGRpc2Fi
-bGUgTkZBQ0NUIGJ1aWxkDQogICAgICBjb25maWd1cmU6IGFkZCBmbGFnIHRvIGRpc2FibGUgTkZD
-VCBidWlsZA0KICAgICAgY29uZmlndXJlOiBhZGQgZmxhZyB0byBkaXNhYmxlIE5GTE9HIGJ1aWxk
-DQogICAgICBjb25maWd1cmU6IGRpc3BsYXkgaW5mbyBhYm91dCBidWlsZCBwbHVnaW5zDQogICAg
-ICBVc2UgUFJJdTY0IHRvIHByaW50IHVuc2lnbmVkIDY0Yml0IGludA0KICAgICAgWE1MOiBhZGQg
-bWlzc2luZyBpbmNsdWRlDQogICAgICBBZGQgbWlzc2luZyB1NjQgZnVuY3Rpb24uDQogICAgICBB
-ZGQgR1JBUEhJVEUgb3V0cHV0IG1vZHVsZS4NCiAgICAgIG5mY3Q6IGNhbGwgcmVnaXN0ZXIgY2Fs
-bGJhY2sgb24gb3BlbmVkIGhhbmRsZXINCiAgICAgIGFkZHI6IGFkZCBmaWxlIGNvbnRhaW5pbmcg
-YWRkciB1dGlsaXR5IGZ1bmN0aW9ucy4NCiAgICAgIG5mY3Q6IGltcGxlbWVudCBzcmMgYW5kIGRz
-dCBmaWx0ZXINCiAgICAgIG5mY3Q6IGFkZCBwcm90b2NvbCBmaWx0ZXINCiAgICAgIGFkZHI6IGZp
-eCBjb21waWxhdGlvbiB3YXJuaW5nDQogICAgICB1bG9nZDogYWRkIC12IG9wdGlvbiB0byBkaXNw
-bGF5IG1lc3NhZ2Ugb24gc3RkZXJyLg0KICAgICAgY29uZjogYWRkIGZsYWcgdG8gYWxsb3cgb3B0
-aW9uIHNldHVwIHR1bmluZw0KICAgICAgQWRkIC1sIG9wdGlvbiB0byBzZXQgbG9nIGxldmVsIGZy
-b20gY29tbWFuZCBsaW5lDQogICAgICBHZXQgcmlkIG9mIFNWTiB0YWcgaW4gY29tbWVudC4NCiAg
-ICAgIEZpeCB3YXJuaW5nIG9uIGZvcm1hdA0KICAgICAgYmFzZTogZml4IHdhcm5pbmcgb24gcG9p
-bnRlciBoYW5kbGluZw0KICAgICAgZ3JhcGhpdGU6IGZpeCB3YXJuaW5nIGFib3V0IGdudSBleHRl
-bnNpb24gdXNhZ2UNCiAgICAgIEFkZCBUQUdTIHRvIC5naXRpZ25vcmUNCiAgICAgIEZpeCBtYWtl
-IGRpc3RjaGVjaw0KICAgICAgZ3JhcGhpdGU6IGZpeCBjcmFzaCBvbiBpMzg2DQogICAgICBVcGRh
-dGUgVE9ETy4NCiAgICAgIFN1cHByZXNzIGRlYWQgRklYTUUuDQogICAgICBVc2UgYWNjZXNzIHRv
-IGVuc3VyZSByZWFkYWJpbGl0eSBvZiBjb25maWcgZ2lsZQ0KICAgICAgRml4IHR5cG8gaW4gY29t
-bWVudHMuDQogICAgICBBZGQgaGFuZGxpbmcgb2YgdG9vIGxvbmcgbGluZSBhbmQgYXJndW1lbnRz
-Lg0KICAgICAgbG9nZW11OiByZXR1cm4gZXJyb3IgaWYgY29uZmlndXJhdGlvbiBpcyBpbnZhbGlk
-Lg0KICAgICAgVXBkYXRlIG1hbiBwYWdlLg0KICAgICAgVXBkYXRlIFJFQURNRQ0KICAgICAgUHJl
-cGFyZSByZWxlYXNlIG51bWJlciB0byAyLjAuMg0KDQpHdXN0YXZvIFphY2FyaWFzICgxKToNCiAg
-ICAgIGF1dG9jb25mL3Vsb2dkOiBmaXggYnJva2VuIGxpYnBjYXAgQU1fQ09ORElUSU9OQUwNCg0K
-SmFuIEVuZ2VsaGFyZHQgKDQpOg0KICAgICAgYnVpbGQ6IHJlc29sdmUgYXV0b21ha2UtMS4xMiB3
-YXJuaW5ncw0KICAgICAgYnVpbGQ6IHJlc29sdmUgY29tcGlsZSBlcnJvciBkdWUgdG8gbWlzc2lu
-ZyBuZmFjY3QgQ1BQRkxBR1MNCiAgICAgIGJ1aWxkOiBhdm9pZCBwZXItdGFyZ2V0IENGTEFHUw0K
-ICAgICAgYnVpbGQ6IG1vdmUgcmVtYWluaW5nIHByZXByb2Nlc3NvciBmbGFncyBpbnRvIENQUEZM
-QUdTDQoNCg==
-
-
---=-1OZquf5YgPi3OucUbiFM--
-
---=-AFkOm2ukfHKxiIIkD0CM
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+Cc: samuel@sortiz.org, gregkh@linuxfoundation.org, jslaby@suse.cz,
+	peter@hurleysoftware.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:46100 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753027Ab3CCXSe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Mar 2013 18:18:34 -0500
+In-Reply-To: <20130303.174739.1195645942179862011.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+On 03/03/2013 05:47 PM, David Miller wrote:
+> From: Sasha Levin <sasha.levin@oracle.com>
+> Date: Sun,  3 Mar 2013 17:35:53 -0500
+> 
+>> ircomm_tty_block_til_ready would hold tty lock while blocking. Since the sleep
+>> might take a long time we can prevent other processes from accessing the tty,
+>> causing hung tasks and a dead tty.
+>>
+>> Diagnosed-by: Peter Hurley <peter@hurleysoftware.com>
+>> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> 
+> But then you invalidate all of the tty state tests made under
+> the lock at the beginning of this function, before enterring
+> the loop.  If you drop the lock, those pieces of state could
+> change.
+> 
+> I'm not applying this.
 
-iEYEABECAAYFAlEz02gACgkQnxA7CdMWjzJvBQCfZJWF5jzKtGoBdF8NmbiTvuCS
-5KEAn3XH1J33pen3wYo0gpbKryzZOwdU
-=VV9+
------END PGP SIGNATURE-----
+I'm unsure. A similar patch was applied back in 2010 that does the same thing
+to a bunch of drivers, including the core tty code (e142a31da "tty: release
+BTM while sleeping in block_til_ready").
 
---=-AFkOm2ukfHKxiIIkD0CM--
+This IR code looks very much like tty_port_block_til_ready() where it was
+okay to do that change, so I should be the same with ircomm_tty_block_til_ready.
 
+
+Thanks,
+Sasha
