@@ -1,76 +1,60 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH V2] lglock: add read-preference local-global rwlock
-Date: Sun, 3 Mar 2013 18:40:56 +0100
-Message-ID: <20130303174056.GA30176@redhat.com>
-References: <512CC509.1050000@linux.vnet.ibm.com> <CACvQF50UgiqPpDk3HCmV86zKSf6tPjqr0bZowfPEOJs0g0r0MQ@mail.gmail.com> <512D0D67.9010609@linux.vnet.ibm.com> <CACvQF53ph2ixdM-otzetjM5cR+2kcZj6sckOp3TnzzA_x-EZ8w@mail.gmail.com> <512E7879.20109@linux.vnet.ibm.com> <5130E8E2.50206@cn.fujitsu.com> <20130301182854.GA3631@redhat.com> <CANN689HEW=b5S93J27p+rBX-5m7jkW4FER=eHDCp7OgMaTWLPw@mail.gmail.com> <5131FB4C.7070408@cn.fujitsu.com> <20130302172003.GC29769@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 1/5] net: implement support for low latency socket
+ polling
+Date: Sun, 03 Mar 2013 10:35:04 -0800
+Message-ID: <1362335704.15793.81.camel@edumazet-glaptop>
+References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>
+	 <20130227175555.10611.42794.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michel Lespinasse <walken@google.com>,
-	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	Lai Jiangshan <eag0628@gmail.com>, linux-doc@vger.kernel.org,
-	peterz@infradead.org, fweisbec@gmail.com,
-	linux-kernel@vger.kernel.org, namhyung@kernel.org,
-	mingo@kernel.org, linux-arch@vger.kernel.org,
-	linux@arm.linux.org.uk, xiaoguangrong@linux.vnet.ibm.com,
-	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	rusty@rustcorp.com.au, rostedt@goodmis.org, rjw@sisk.pl,
-	vincent.guittot@linaro.org, tglx@linutronix.de,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	sbw@mit.edu, tj@kernel.org, akpm@linux-foundation.org,
-	linuxppc-dev@lists.ozlabs.org
-To: Lai Jiangshan <laijs@cn.fujitsu.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130302172003.GC29769@redhat.com>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Dave Miller <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130227175555.10611.42794.stgit@gitlad.jf.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/02, Oleg Nesterov wrote:
->
-> On 03/02, Lai Jiangshan wrote:
-> >
-> > +void lg_rwlock_local_read_unlock(struct lgrwlock *lgrw)
-> > +{
-> > +	switch (__this_cpu_read(*lgrw->reader_refcnt)) {
-> > +	case 1:
-> > +		__this_cpu_write(*lgrw->reader_refcnt, 0);
-> > +		lg_local_unlock(&lgrw->lglock);
-> > +		return;
-> > +	case FALLBACK_BASE:
-> > +		__this_cpu_write(*lgrw->reader_refcnt, 0);
-> > +		read_unlock(&lgrw->fallback_rwlock);
-> > +		rwlock_release(&lg->lock_dep_map, 1, _RET_IP_);
->
-> I guess "case 1:" should do rwlock_release() too.
->
-> Otherwise, at first glance looks correct...
->
-> However, I still think that FALLBACK_BASE only adds the unnecessary
-> complications. But even if I am right this is subjective of course, please
-> feel free to ignore.
+On Wed, 2013-02-27 at 09:55 -0800, Eliezer Tamir wrote:
 
-Yes, but...
+> index 821c7f4..d1d1016 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -408,6 +408,10 @@ struct sk_buff {
+>  	struct sock		*sk;
+>  	struct net_device	*dev;
+>  
+> +#ifdef CONFIG_INET_LL_RX_POLL
+> +	struct napi_struct	*dev_ref; /* where this skb came from */
+> +#endif
+> +
+>  	/*
+>  	 * This is the control buffer. It is free to use for every
+>  	 * layer. Please put your private variables there. If you
 
-> And btw, I am not sure about lg->lock_dep_map, perhaps we should use
-> fallback_rwlock->dep_map ?
->
-> We need rwlock_acquire_read() even in the fast-path, and this acquire_read
-> should be paired with rwlock_acquire() in _write_lock(), but it does
-> spin_acquire(lg->lock_dep_map). Yes, currently this is the same (afaics)
-> but perhaps fallback_rwlock->dep_map would be more clean.
+Yes, thats the killer, because :
 
-Please ignore this part.
+1) It adds 8 bytes per skb, and we are going to reach the 256 bytes per
+sk_buff boundary. cloned skbs will use an extra cache line.
 
-I missed that lg_rwlock_global_write_lock() relies on lg_global_lock(),
-and I just noticed that it does rwlock_acquire(lg->lock_dep_map).
+It might make sense to union this on dma_cookie, as dma_cookie is only
+used on TX path.
 
-Hmm. But then I do not understand the lglock annotations. Obviously,
-rwlock_acquire_read() in lg_local_lock() can't even detect the simplest
-deadlock, say, lg_local_lock(LOCK) + lg_local_lock(LOCK). Not to mention
-spin_lock(X) + lg_local_lock(Y) vs lg_local_lock(Y) + spin_lock(X).
+2) We need to reference count napi structs.
 
-OK, I understand that it is not easy to make these annotations correct...
+For 2) , we would need to add a percpu ref counter (a bit like struct
+netdevice -> pcpu_refcnt)
 
-Oleg.
+Alternative to 2) would be to use a generation id, incremented every
+time a napi used in spin polling enabled driver is dismantled (and freed
+after RCU grace period)
 
+And store in sockets not only the pointer to napi_struct, but the
+current generation id : If the generation id doesnt match, disable
+the spinpoll until next packet rebuilds the cache again.
