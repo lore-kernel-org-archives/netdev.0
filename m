@@ -1,24 +1,23 @@
 From: Cesar Eduardo Barros <cesarb@cesarb.net>
-Subject: [PATCH 05/14] MAINTAINERS: remove drivers/net/wan/cycx*
-Date: Sat,  2 Mar 2013 22:53:43 -0300
-Message-ID: <1362275632-20242-6-git-send-email-cesarb@cesarb.net>
+Subject: [PATCH 07/14] MAINTAINERS: remove eexpress
+Date: Sat,  2 Mar 2013 22:53:45 -0300
+Message-ID: <1362275632-20242-8-git-send-email-cesarb@cesarb.net>
 References: <1362275632-20242-1-git-send-email-cesarb@cesarb.net>
 Cc: linux-kernel@vger.kernel.org, Joe Perches <joe@perches.com>,
 	Cesar Eduardo Barros <cesarb@cesarb.net>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	netdev@vger.kernel.org
+	Philip Blundell <philb@gnu.org>, netdev@vger.kernel.org
 To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1362275632-20242-1-git-send-email-cesarb@cesarb.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This driver was removed by commit 6fcdf4f (wanrouter: delete now
-orphaned header content, files/drivers).
+This driver was removed by commit f84932d (drivers/net: delete ISA intel
+eexpress and eepro i825xx drivers).
 
 Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
+Cc: Philip Blundell <philb@gnu.org>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Cesar Eduardo Barros <cesarb@cesarb.net>
 ---
@@ -26,21 +25,21 @@ Signed-off-by: Cesar Eduardo Barros <cesarb@cesarb.net>
  1 file changed, 6 deletions(-)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 261b245..e909cd3 100644
+index 2e1443c..92718d8 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -2357,12 +2357,6 @@ W:	http://www.arm.linux.org.uk/
- S:	Maintained
- F:	drivers/video/cyber2000fb.*
+@@ -3057,12 +3057,6 @@ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/kristoffer/linux-hpc.git
+ F:	drivers/video/s1d13xxxfb.c
+ F:	include/video/s1d13xxxfb.h
  
--CYCLADES 2X SYNC CARD DRIVER
--M:	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
--W:	http://oops.ghostprotocols.net:81/blog
+-ETHEREXPRESS-16 NETWORK DRIVER
+-M:	Philip Blundell <philb@gnu.org>
+-L:	netdev@vger.kernel.org
 -S:	Maintained
--F:	drivers/net/wan/cycx*
+-F:	drivers/net/ethernet/i825xx/eexpress.*
 -
- CYCLADES ASYNC MUX DRIVER
- W:	http://www.cyclades.com/
- S:	Orphan
+ ETHERNET BRIDGE
+ M:	Stephen Hemminger <stephen@networkplumber.org>
+ L:	bridge@lists.linux-foundation.org
 -- 
 1.7.11.7
