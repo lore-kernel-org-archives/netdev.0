@@ -1,53 +1,92 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [RFC PATCH 1/5] net: implement support for low latency socket
- polling
-Date: Mon, 4 Mar 2013 04:55:27 +0100
-Message-ID: <20130304035527.GF3401@two.firstfloor.org>
-References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>
- <20130227175555.10611.42794.stgit@gitlad.jf.intel.com>
- <1362335704.15793.81.camel@edumazet-glaptop>
- <20130303192153.GC3401@two.firstfloor.org>
- <1362345601.15793.83.camel@edumazet-glaptop>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: Re: [PATCH] ircomm: release tty before sleeping potentially
+ indefintely
+Date: Sun, 03 Mar 2013 23:24:23 -0500
+Message-ID: <1362371063.3221.185.camel@thor.lan>
+References: <1362355465.3221.82.camel@thor.lan>
+	 <20130303.193313.408641189137321065.davem@davemloft.net>
+	 <1362359178.3221.118.camel@thor.lan>
+	 <20130303.213601.1201168888595187293.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Dave Miller <davem@davemloft.net>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>, HPA <hpa@zytor.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from two.firstfloor.org ([193.170.194.197]:35118 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757109Ab3CDDz3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Mar 2013 22:55:29 -0500
-Content-Disposition: inline
-In-Reply-To: <1362345601.15793.83.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: sasha.levin@oracle.com, samuel@sortiz.org,
+	gregkh@linuxfoundation.org, jslaby@suse.cz, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130303.213601.1201168888595187293.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 03, 2013 at 01:20:01PM -0800, Eric Dumazet wrote:
-> On Sun, 2013-03-03 at 20:21 +0100, Andi Kleen wrote:
-> > > Alternative to 2) would be to use a generation id, incremented every
-> > > time a napi used in spin polling enabled driver is dismantled (and freed
-> > > after RCU grace period)
-> > > 
-> > > And store in sockets not only the pointer to napi_struct, but the
-> > > current generation id : If the generation id doesnt match, disable
-> > > the spinpoll until next packet rebuilds the cache again.
-> > 
-> > This would require rcu_read_lock, aka preempt off, during polling, right?
-> > 
+On Sun, 2013-03-03 at 21:36 -0500, David Miller wrote:
+> From: Peter Hurley <peter@hurleysoftware.com>
+> Date: Sun, 03 Mar 2013 20:06:18 -0500
 > 
-> Of course, polling probably needs BH disabling as well to get the per
-> napi lock
+> > But regardless, this function __cannot__ sleep holding the tty_lock().
+> 
+> So drop it across the schedule(), but recheck the termios after
+> regrabbing it.
 
-Ok maybe the cond_resched() is good enough.
+I'll have to do some research on that.
 
--Andi
+1) The code is using a deliberate snapshot.
 
--- 
-ak@linux.intel.com -- Speaking for myself only.
+	if (tty->termios.c_cflag & CLOCAL) {
+		IRDA_DEBUG(1, "%s(), doing CLOCAL!\n", __func__ );
+		do_clocal = 1;
+	}
+
+	.....
+
+	while (1) {
+
+		.........
+
+		/*
+		 * Check if link is ready now. Even if CLOCAL is
+		 * specified, we cannot return before the IrCOMM link is
+		 * ready
+		 */
+		if (!test_bit(ASYNCB_CLOSING, &port->flags) &&
+		    (do_clocal || tty_port_carrier_raised(port)) &&
+		    self->state == IRCOMM_TTY_READY)
+		{
+			break;
+		}
+
+
+2) The only reason this driver isn't using tty_port_block_til_ready() is
+the lone state check:
+		    self->state == IRCOMM_TTY_READY
+
+I take it IRDA has some kind of virtual cabling protocol. But it's
+unclear why this can't be implemented in the driver without duplicating
+tty_port_block_til_ready(). For example, if the device can't do CLOCAL
+open (meaning no underlying device attached prior to open) then why
+specify that in the driver flags? Additionally, CLOCAL can be masked out
+by the driver's set_termios() method. And then it could implement the
+state check in its .carrier_raised() method.
+
+3) The do_clocal snapshot is universally employed by every tty driver. I
+don't mean that as some kind of lame excuse. But if this should change,
+it should change across every tty driver with a really good reason.
+
+4) Rechecking termios will change the way the user-space open() for this
+device behaves. And I need to think more on how that might or might not
+be a problem.
+
+5) The code behavior pre-dates the 2005 check-in so I'll probably have
+to do some code archaeology.
+
+
+That's probably going to take some time.
+
+In the meantime, while reviewing that code, I noticed there's a handful
+of serious bugs in that one function that I'll send a patchset for.
+
+Plus, someone could be back to me on if and why the driver needs to be
+virtually cabled to open().
+
+Regards,
+Peter Hurley
