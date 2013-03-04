@@ -1,27 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ircomm: release tty before sleeping potentially
- indefintely
-Date: Sun, 03 Mar 2013 21:36:01 -0500 (EST)
-Message-ID: <20130303.213601.1201168888595187293.davem@davemloft.net>
-References: <1362355465.3221.82.camel@thor.lan>
-	<20130303.193313.408641189137321065.davem@davemloft.net>
-	<1362359178.3221.118.camel@thor.lan>
+From: Greg Ungerer <gerg@uclinux.org>
+Subject: Re: NET: FEC: dynamtic check DMA desc buff type
+Date: Mon, 04 Mar 2013 13:32:17 +1000
+Message-ID: <513415C1.2070904@uclinux.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sasha.levin@oracle.com, samuel@sortiz.org,
-	gregkh@linuxfoundation.org, jslaby@suse.cz, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: peter@hurleysoftware.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1362359178.3221.118.camel@thor.lan>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org,
+	lkml@vger.kernel.org
+To: Frank Li <Frank.Li@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outbound-mail04.westnet.com.au ([203.10.1.245]:39633 "EHLO
+	outbound-mail04.westnet.com.au" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752080Ab3CDDcY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Mar 2013 22:32:24 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Peter Hurley <peter@hurleysoftware.com>
-Date: Sun, 03 Mar 2013 20:06:18 -0500
 
-> But regardless, this function __cannot__ sleep holding the tty_lock().
+Hi Frank,
 
-So drop it across the schedule(), but recheck the termios after
-regrabbing it.
+Commit ff43da86c69d76a726ffe7d1666148960dc1d108 ("NET: FEC: dynamtic
+check DMA desc buff type") breaks building of the fec ethernet driver
+for non CONFIG_ARCH_MXC targets.
+
+=46or example building for ColdFire devices with FEC hardware now
+fails like this
+
+drivers/net/ethernet/freescale/fec.c: In function =91fec_enet_get_nextd=
+esc=92:
+drivers/net/ethernet/freescale/fec.c:215:18: error: invalid use of unde=
+fined type =91struct bufdesc_ex=92
+drivers/net/ethernet/freescale/fec.c: In function =91fec_enet_get_prevd=
+esc=92:
+drivers/net/ethernet/freescale/fec.c:224:18: error: invalid use of unde=
+fined type =91struct bufdesc_ex=92
+drivers/net/ethernet/freescale/fec.c: In function =91fec_enet_start_xmi=
+t=92:
+drivers/net/ethernet/freescale/fec.c:286:37: error: arithmetic on point=
+er to an incomplete type
+drivers/net/ethernet/freescale/fec.c:287:13: error: arithmetic on point=
+er to an incomplete type
+drivers/net/ethernet/freescale/fec.c:324:7: error: dereferencing pointe=
+r to incomplete type
+etc....
+
+These where generated on 3.9-rc1.
+
+Can you please fix?
+
+Regards
+Greg
+
+ =20
