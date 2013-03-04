@@ -1,64 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [PATCH] net/rds: using strlcpy instead of strncpy
-Date: Mon, 4 Mar 2013 18:34:50 +0000
-Message-ID: <1362422090.2956.18.camel@bwh-desktop.uk.solarflarecom.com>
-References: <512F1534.9020404@asianux.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B716D@saturn3.aculab.com>
-	 <1362421944.2956.15.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 3.8-stable] usbnet: smsc95xx: fix suspend failure
+Date: Mon, 04 Mar 2013 13:56:08 -0500 (EST)
+Message-ID: <20130304.135608.2045232567964504683.davem@davemloft.net>
+References: <1362391633-27551-1-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Chen Gang <gang.chen@asianux.com>,
-	<venkat.x.venkatsubra@oracle.com>,
-	David Miller <davem@davemloft.net>, <rds-devel@oss.oracle.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:41601 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758499Ab3CDSey (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 13:34:54 -0500
-In-Reply-To: <1362421944.2956.15.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, oneukum-l3A5Bk7waGM@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org
+To: ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1362391633-27551-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-03-04 at 18:32 +0000, Ben Hutchings wrote:
-> On Thu, 2013-02-28 at 09:36 +0000, David Laight wrote:
-> > >   when src strlen is sizeof(ctr.name) - 1, the dest str is not '\0' end.
-> > >   better use strlcpy instead.
-> > > 
-> > > Signed-off-by: Chen Gang <gang.chen@asianux.com>
-> > > ---
-> > >  net/rds/stats.c |    2 +-
-> > >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > > 
-> > > diff --git a/net/rds/stats.c b/net/rds/stats.c
-> > > index 7be790d..b9ac1df 100644
-> > > --- a/net/rds/stats.c
-> > > +++ b/net/rds/stats.c
-> > > @@ -86,7 +86,7 @@ void rds_stats_info_copy(struct rds_info_iterator *iter,
-> > > 
-> > >  	for (i = 0; i < nr; i++) {
-> > >  		BUG_ON(strlen(names[i]) >= sizeof(ctr.name));
-> > > -		strncpy(ctr.name, names[i], sizeof(ctr.name) - 1);
-> > > +		strlcpy(ctr.name, names[i], sizeof(ctr.name));
-> > >  		ctr.value = values[i];
-> > > 
-> > 
-> > If the target buffer ends up being copied to userspace that
-> > might lead to random kernel memory being leaked.
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Date: Mon,  4 Mar 2013 18:07:13 +0800
+
+> The three below functions:
 > 
-> Seems it is.  The last byte of 'name' is not currently initialised and
-> therefore is already leaked to userland.
+>         smsc95xx_enter_suspend0()
+>         smsc95xx_enter_suspend1()
+>         smsc95xx_enter_suspend2()
 > 
-> But it's OK because rds_info_copy() uses memcpy() not __copy_to_user(),
-> so SMAP will block this leak. :-)
+> return > 0 in case of success, so they will cause smsc95xx_suspend()
+> to return > 0 and suspend failure.
+> 
+> This patch is backported from the upstream commit:
+> 
+> 	From 7643721471117d5f62ca36f328d3dc8d84af4402 Mon Sep 17 00:00:00 2001
+> 	Subject: [PATCH] usbnet: smsc95xx: fix suspend failure
+> 
+> Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+> Cc: Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>
+> Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-Or not, as kmap() presumably evades that.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+This is fine, Greg please apply to 3.8-stable, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
