@@ -1,39 +1,63 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: nfnetlink: silence warning if
- CONFIG_PROVE_RCU isn't set
-Date: Mon, 4 Mar 2013 16:59:46 +0100
-Message-ID: <20130304155946.GA25980@localhost>
-References: <1362401141.16460.24.camel@x61.thuisdomein>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1362401141.16460.24.camel@x61.thuisdomein>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Zang MingJie <zealot0630@gmail.com>
+Subject: [PATCH 1/1] reset nf before xmit vxlan encapsulated packet
+Date: Tue,  5 Mar 2013 00:07:34 +0800
+Message-ID: <1362413254-10520-1-git-send-email-zealot0630@gmail.com>
+Cc: Zang MingJie <zealot0630@gmail.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:35095 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754493Ab3CDQHy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 11:07:54 -0500
+Received: by mail-pb0-f51.google.com with SMTP id un15so3150884pbc.24
+        for <netdev@vger.kernel.org>; Mon, 04 Mar 2013 08:07:54 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 04, 2013 at 01:45:41PM +0100, Paul Bolle wrote:
-> Since commit c14b78e7decd0d1d5add6a4604feb8609fe920a9 ("netfilter:
-> nfnetlink: add mutex per subsystem") building nefnetlink.o without
-> CONFIG_PROVE_RCU set, triggers this GCC warning:
->     net/netfilter/nfnetlink.c:65:22: warning: =E2=80=98nfnl_get_lock=E2=
-=80=99 defined but not used [-Wunused-function]
->=20
-> The cause of that warning is, in short, that rcu_lockdep_assert()
-> compiles away if CONFIG_PROVE_RCU is not set. Silence this warning by
-> open coding nfnl_get_lock() in the sole place it was called, which
-> allows to remove that function.
 
-Applied, thanks Paul.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+We should reset nf settings bond to the skb as ipip/ipgre do.
+
+If not, the conntrack/nat info bond to the origin packet may continually
+redirect the packet to vxlan interface causing a routing loop.
+
+this is the scenario:
+
+     VETP     VXLAN Gateway
+    /----\  /---------------\
+    |    |  |               |
+    |  vx+--+vx --NAT-> eth0+--> Internet
+    |    |  |               |
+    \----/  \---------------/
+
+when there are any packet coming from internet to the vetp, there will be lots
+of garbage packets coming out the gateway's vxlan interface, but none actually
+sent to the physical interface, because they are redirected back to the vxlan
+interface in the postrouting chain of NAT rule, and dmesg complains:
+
+    Mar  1 21:52:53 debian kernel: [ 8802.997699] Dead loop on virtual device vxlan0, fix it urgently!
+    Mar  1 21:52:54 debian kernel: [ 8804.004907] Dead loop on virtual device vxlan0, fix it urgently!
+    Mar  1 21:52:55 debian kernel: [ 8805.012189] Dead loop on virtual device vxlan0, fix it urgently!
+    Mar  1 21:52:56 debian kernel: [ 8806.020593] Dead loop on virtual device vxlan0, fix it urgently!
+
+the patch should fix the problem
+
+Signed-off-by: Zang MingJie <zealot0630@gmail.com>
+---
+ drivers/net/vxlan.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index f10e58a..c3e3d29 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -961,6 +961,8 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	iph->ttl	= ttl ? : ip4_dst_hoplimit(&rt->dst);
+ 	tunnel_ip_select_ident(skb, old_iph, &rt->dst);
+ 
++	nf_reset(skb);
++
+ 	vxlan_set_owner(dev, skb);
+ 
+ 	/* See iptunnel_xmit() */
+-- 
+1.7.10.4
