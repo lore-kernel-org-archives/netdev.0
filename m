@@ -1,55 +1,60 @@
-From: Greg Ungerer <gerg@uclinux.org>
-Subject: Re: NET: FEC: dynamtic check DMA desc buff type
-Date: Mon, 04 Mar 2013 13:32:17 +1000
-Message-ID: <513415C1.2070904@uclinux.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org,
-	lkml@vger.kernel.org
-To: Frank Li <Frank.Li@freescale.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net] garp: fix a NULL pointer dereference bug
+Date: Mon,  4 Mar 2013 11:36:57 +0800
+Message-ID: <1362368217-30984-1-git-send-email-amwang@redhat.com>
+Cc: bugs@syam.in, David Ward <david.ward@ll.mit.edu>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-mail04.westnet.com.au ([203.10.1.245]:39633 "EHLO
-	outbound-mail04.westnet.com.au" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752080Ab3CDDcY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Mar 2013 22:32:24 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:32567 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755151Ab3CDDhX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Mar 2013 22:37:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Cong Wang <amwang@redhat.com>
 
-Hi Frank,
+A NULL-deref bug was reported in:
+https://bugzilla.kernel.org/show_bug.cgi?id=54281
+when deleting a vlan interface:
 
-Commit ff43da86c69d76a726ffe7d1666148960dc1d108 ("NET: FEC: dynamtic
-check DMA desc buff type") breaks building of the fec ethernet driver
-for non CONFIG_ARCH_MXC targets.
+# ip link  del em1.57
+BUG: unable to handle kernel NULL pointer dereference at (null)
+IP: [<ffffffffa03c356f>] garp_uninit_applicant+0x2f/0xd0 [garp]
+...
 
-=46or example building for ColdFire devices with FEC hardware now
-fails like this
+This is probably app->pdu is NULL'ed in garp_pdu_rcv()
+in BH, while garp_uninit_applicant() only holds rtnl lock
+which is not enough to prevent this. 
 
-drivers/net/ethernet/freescale/fec.c: In function =91fec_enet_get_nextd=
-esc=92:
-drivers/net/ethernet/freescale/fec.c:215:18: error: invalid use of unde=
-fined type =91struct bufdesc_ex=92
-drivers/net/ethernet/freescale/fec.c: In function =91fec_enet_get_prevd=
-esc=92:
-drivers/net/ethernet/freescale/fec.c:224:18: error: invalid use of unde=
-fined type =91struct bufdesc_ex=92
-drivers/net/ethernet/freescale/fec.c: In function =91fec_enet_start_xmi=
-t=92:
-drivers/net/ethernet/freescale/fec.c:286:37: error: arithmetic on point=
-er to an incomplete type
-drivers/net/ethernet/freescale/fec.c:287:13: error: arithmetic on point=
-er to an incomplete type
-drivers/net/ethernet/freescale/fec.c:324:7: error: dereferencing pointe=
-r to incomplete type
-etc....
+OTOH, garp_pdu_queue() should ways be called with the spin lock.
 
-These where generated on 3.9-rc1.
 
-Can you please fix?
+Reported-by: bugs@syam.in
+Cc: bugs@syam.in
+Cc: David Ward <david.ward@ll.mit.edu>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Regards
-Greg
-
- =20
+---
+diff --git a/net/802/garp.c b/net/802/garp.c
+index 8456f5d..5d9630a 100644
+--- a/net/802/garp.c
++++ b/net/802/garp.c
+@@ -609,8 +609,12 @@ void garp_uninit_applicant(struct net_device *dev, struct garp_application *appl
+ 	/* Delete timer and generate a final TRANSMIT_PDU event to flush out
+ 	 * all pending messages before the applicant is gone. */
+ 	del_timer_sync(&app->join_timer);
++
++	spin_lock_bh(&app->lock);
+ 	garp_gid_event(app, GARP_EVENT_TRANSMIT_PDU);
+ 	garp_pdu_queue(app);
++	spin_unlock_bh(&app->lock);
++
+ 	garp_queue_xmit(app);
+ 
+ 	dev_mc_del(dev, appl->proto.group_address);
