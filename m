@@ -1,59 +1,154 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] tcp: fix double-counted receiver RTT when leaving
- receiver fast path
-Date: Mon, 04 Mar 2013 08:55:33 -0800
-Message-ID: <1362416133.15793.105.camel@edumazet-glaptop>
-References: <1362414185-9874-1-git-send-email-ncardwell@google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC PATCH 0/5] net: low latency Ethernet device polling
+Date: Mon, 4 Mar 2013 09:19:16 -0800
+Message-ID: <20130304091916.1fae5788@nehalam.linuxnetplumber.net>
+References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, edumazet@google.com,
-	ycheng@google.com, nanditad@google.com, netdev@vger.kernel.org
-To: Neal Cardwell <ncardwell@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f54.google.com ([209.85.210.54]:36626 "EHLO
-	mail-da0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756866Ab3CDQzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 11:55:37 -0500
-Received: by mail-da0-f54.google.com with SMTP id p1so2630851dad.27
-        for <netdev@vger.kernel.org>; Mon, 04 Mar 2013 08:55:37 -0800 (PST)
-In-Reply-To: <1362414185-9874-1-git-send-email-ncardwell@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Dave Miller <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-03-04 at 11:23 -0500, Neal Cardwell wrote:
-> We should not update ts_recent and call tcp_rcv_rtt_measure_ts() both
-> before and after going to step5. That wastes CPU and double-counts the
-> receiver-side RTT sample.
-> 
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> ---
->  net/ipv4/tcp_input.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index a759e19..0d9bdac 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -5485,6 +5485,9 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
->  				if (tcp_checksum_complete_user(sk, skb))
->  					goto csum_error;
->  
-> +				if ((int)skb->truesize > sk->sk_forward_alloc)
-> +					goto step5;
-> +
->  				/* Predicted packet is in window by definition.
->  				 * seq == rcv_nxt and rcv_wup <= rcv_nxt.
->  				 * Hence, check seq<=rcv_wup reduces to:
-> @@ -5496,9 +5499,6 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
->  
->  				tcp_rcv_rtt_measure_ts(sk, skb);
->  
-> -				if ((int)skb->truesize > sk->sk_forward_alloc)
-> -					goto step5;
-> -
->  				NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPHPHITS);
->  
->  				/* Bulk data transfer: receiver */
+On Wed, 27 Feb 2013 09:55:49 -0800
+Eliezer Tamir <eliezer.tamir@linux.jf.intel.com> wrote:
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+> This patchset adds the ability for the socket layer code to poll directly 
+> on an Ethernet device's RX queue. This eliminates the cost of the interrupt
+> and context switch and with proper tuning allows us to get very close
+> to the HW latency.
+> 
+> This is a follow up to Jesse Brandeburg's Kernel Plumbers talk from last year
+> http://www.linuxplumbersconf.org/2012/wp-content/uploads/2012/09/2012-lpc-Low-Latency-Sockets-slides-brandeburg.pdf
+> 
+> Patch 1 adds ndo_ll_poll and the IP code to use it.
+> Patch 2 is an example of how TCP can use ndo_ll_poll.
+> Patch 3 shows how this method would be implemented for the ixgbe driver.
+> Patch 4 adds statistics to the ixgbe driver for ndo_ll_poll events.
+> (Optional) Patch 5 is a handy kprobes module to measure detailed latency 
+> numbers.
+> 
+> this patchset is also available in the following git branch
+> git://github.com/jbrandeb/lls.git rfc
+> 
+> Performance numbers:
+> Kernel   Config     C3/6  rx-usecs  TCP  UDP
+> 3.8rc6   typical    off   adaptive  37k  40k
+> 3.8rc6   typical    off   0*        50k  56k
+> 3.8rc6   optimized  off   0*        61k  67k
+> 3.8rc6   optimized  on    adaptive  26k  29k
+> patched  typical    off   adaptive  70k  78k
+> patched  optimized  off   adaptive  79k  88k
+> patched  optimized  off   100       84k  92k
+> patched  optimized  on    adaptive  83k  91k
+> *rx-usecs=0 is usually not useful in a production environment.
+> 
+> Notice that the patched kernel gives good results even with no tweaking.
+> Performance for the default configuration is up by almost 100%,
+> tuning will get you another 14%. Comparing best-case performance
+> patched vs. unpatched, we are up 36%.
+> 
+> Test setup details:
+> Machines: each with two Intel Xeon 2680 CPUs and X520 (82599) optical NICs
+> Tests: Netperf tcp_rr and udp_rr, 1 byte (round trips per second)
+> Kernel: unmodified 3.8rc6 and patched 3.8rc6
+> Config: typical is derived from RH6.2, optimized is a stripped down config
+> Interrupt coalescing (ethtool rx-usecs) settings: 0=off, 1=adaptive, 100 us
+> C3/6 states were turned on and off through BIOS.
+> When C states were on the performance governor was used.
+> 
+> Design:
+> Pointers to a napi_struct were added both to struct sk_buff and struct sk.
+> These are used to track which NAPI we need to poll for a specific socket.
+> (more about this in the open issues section)
+> The device driver marks every incoming skb.
+> This info is propagated to the sk when an skb is added to the socket queue.
+> When the socket code does not find any more data on the socket queue,
+> it now may call ndo_ll_poll which will crank the device's rx queue and feed
+> incoming packets to the stack directly from the context of the socket.
+> A sysctl value (net.ipv4.ip_low_latency_poll) controls how many cycles we 
+> busy-wait before giving up. (setting to 0 globally disables busy-polling)
+> 
+> Locking: 
+> Since what needs to be locked between a device's NAPI poll and ndo_ll_poll,
+> is highly device / configuration dependent, we do this inside the
+> Ethernet driver. For example, when packets for high priority connections
+> are sent to separate rx queues, you might not need locking at all.
+> For ixgbe we only lock the RX queue.
+> ndo_ll_poll does not touch the interrupt state or the TX queues.
+> (earlier versions of this patchset did touch them,
+> but this design is simpler and works better.)
+> Ndo_ll_poll is called with local BHs disabled. 
+> 
+> If a queue is actively polled by a socket (on another CPU) napi poll
+> will not service it, but will wait until the queue can be locked 
+> and cleaned before doing a napi_complete().
+> If a socket can't lock the queue because another CPU has it,
+> either from NAPI or from another socket polling on it,
+> the socket code can busy wait on the socket's skb queue.
+> Ndo_ll_poll does not have preferential treatment for the data from the
+> calling socket vs. data from others, so if another CPU is polling,
+> you will see your data on this socket's queue when it arrives.
+> 
+> Open issues:
+> 1. Find a way to avoid the need to change the sk and skb structs.
+> One big disadvantage of how we do this right now is that when a device is
+> removed, it's hard to prevent it from getting polled by a socket
+> which holds a stale reference. 
+> 
+> 2. How do we decide which sockets are eligible to do busy polling?
+> Do we add a socket option to control this?
+> How do we provide sane defaults while allowing flexibility and performance?
+> 
+> 3. Andi Kleen and HPA pointed out that using get_cycles() is not portable.
+> 
+> 4. How and where do we call ndo_ll_poll from the socket code?
+> One good place seems to be wherever the kernel puts the process to sleep,
+> waiting for more data, but this makes doing something intelligent about
+> poll (the system call) hard. From the perspective of how ndo_ll_poll
+> itself is implemented this does not seem to matter.
+> 
+> 5. I would like to hear suggestions on naming conventions and where
+> to put the code that for now I have put in include/net/ll_poll.h 
+> 
+> How to test:
+> 1. The patchset should apply cleanly to either net  or Linux 3.8 
+> (don't forget to configure INET_LL_RX_POLL and INET_LL_TCP_POLL).
+> 
+> 2. The ethtool -c setting for rx-usecs should be on the order of 100.
+> 
+> 3. Sysctl value net.ipv4.ip_low_latency_poll controls how long
+> (in cycles) to busy-wait for more data, You are encouraged to play
+> with this and see what works for you. (setting it to 0 would
+> globally disable the new mechanism altogether.)
+> 
+> 4. benchmark thread and IRQ should be bound to separate cores.
+> Both cores should be on the same CPU NUMA node as the NIC.
+> When the app and the IRQ run on the same CPU  you get a ~5% penalty.
+> If interrupt coalescing is set to a low value this penalty
+> can be very large.
+> 
+> 5. If you suspect that your machine is not configured properly,
+> use numademo to make sure that the CPU to memory BW is OK.
+> numademo 128m memcpy local copy numbers should be more than  
+> 8GB/s on a properly configured machine.
+> 
+> Credit:
+> Jesse Brandeburg, Arun Chekhov Ilango, Alexander Duyck, Eric Geisler,
+> Jason Neighbors, Yadong Li, Mike Polehn, Anil Vasudevan, Don Wood
+> Special thanks for finding bugs in earlier versions:
+> Willem de Bruijn and Andi Kleen
+
+This is not a criticism of this patch, but it seems that gradually, we have gotten
+worse and worse at making network devices generic. There are more and more features
+that require special case code in every device driver. This is fine for Intel devices but makes
+the feature less generally useable and more error prone. 
