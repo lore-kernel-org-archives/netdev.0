@@ -1,49 +1,42 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: [PATCH] net: ipv6: Don't purge default router if accept_ra=2
-Date: Mon, 04 Mar 2013 06:58:55 -0800
-Message-ID: <1362409135.15793.93.camel@edumazet-glaptop>
-References: <CAKD1Yr2e8Z8CDAM3tgp=nUR58OO9QZYEx8zkWwwcQ1S=14D2Qw@mail.gmail.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [RFC PATCH 1/5] net: implement support for low latency socket
+ polling
+Date: Mon, 04 Mar 2013 17:28:27 +0200
+Message-ID: <5134BD9B.2080003@linux.intel.com>
+References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>   <20130227175555.10611.42794.stgit@gitlad.jf.intel.com>  <1362335704.15793.81.camel@edumazet-glaptop>  <51345EB8.9050309@linux.intel.com> <1362408768.15793.89.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-To: Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:64508 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756870Ab3CDO67 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 09:58:59 -0500
-Received: by mail-pb0-f52.google.com with SMTP id ma3so3139399pbc.39
-        for <netdev@vger.kernel.org>; Mon, 04 Mar 2013 06:58:58 -0800 (PST)
-In-Reply-To: <CAKD1Yr2e8Z8CDAM3tgp=nUR58OO9QZYEx8zkWwwcQ1S=14D2Qw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Dave Miller <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1362408768.15793.89.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-03-04 at 15:46 +0900, Lorenzo Colitti wrote:
-> Setting net.ipv6.conf.<interface>.accept_ra=2 causes the kernel
-> to accept RAs even when forwarding is enabled. However, enabling
-> forwarding purges all default routes on the system, breaking
-> connectivity until the next RA is received. Fix this by not
-> purging default routes on interfaces that have accept_ra=2.
-> 
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
-> ---
->  net/ipv6/route.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 9282665..e5fe004 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1915,7 +1915,8 @@ void rt6_purge_dflt_routers(struct net *net)
->  restart:
->  	read_lock_bh(&table->tb6_lock);
->  	for (rt = table->tb6_root.leaf; rt; rt = rt->dst.rt6_next) {
-> -		if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF)) {
-> +		if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF) &&
-> +		    (!rt->rt6i_idev || rt->rt6i_idev->cnf.accept_ra != 2)) {
->  			dst_hold(&rt->dst);
->  			read_unlock_bh(&table->tb6_lock);
->  			ip6_del_rt(rt);
+On 04/03/2013 16:52, Eric Dumazet wrote:
+> On Mon, 2013-03-04 at 10:43 +0200, Eliezer Tamir wrote:
+>
+>> One could for example increment the generation id every time the RTNL is
+>> taken. or is this too much?
+>
+> RTNL is taken for a lot of operations, it would be better to have a
+> finer grained increment.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+If is taken rarely enough it will still be worth it.
+
+Otherwise it may be hard to know what operations need to invalidate the 
+napi reference. It can very well be HW dependent, and then you end up 
+adding a function for drivers to call to do the invalidation.
+
+Or we can decide that we only care about catastrophic events and only 
+worry about a napi completely going away and not worry about 
+configuration changes.(Polling the wrong queue will not kill you, it's 
+just a waste of perfectly good CPU cycles.)
