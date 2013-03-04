@@ -1,63 +1,58 @@
-From: Zang MingJie <zealot0630@gmail.com>
-Subject: [PATCH 1/1] reset nf before xmit vxlan encapsulated packet
-Date: Tue,  5 Mar 2013 00:07:34 +0800
-Message-ID: <1362413254-10520-1-git-send-email-zealot0630@gmail.com>
-Cc: Zang MingJie <zealot0630@gmail.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:35095 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754493Ab3CDQHy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 11:07:54 -0500
-Received: by mail-pb0-f51.google.com with SMTP id un15so3150884pbc.24
-        for <netdev@vger.kernel.org>; Mon, 04 Mar 2013 08:07:54 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 1/5] net: implement support for low latency socket
+ polling
+Date: Mon, 04 Mar 2013 08:15:59 -0800
+Message-ID: <1362413759.15793.98.camel@edumazet-glaptop>
+References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>
+	   <20130227175555.10611.42794.stgit@gitlad.jf.intel.com>
+	  <1362335704.15793.81.camel@edumazet-glaptop>
+	  <51345EB8.9050309@linux.intel.com>
+	 <1362408768.15793.89.camel@edumazet-glaptop>
+	 <5134BD9B.2080003@linux.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Dave Miller <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5134BD9B.2080003@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, 2013-03-04 at 17:28 +0200, Eliezer Tamir wrote:
+> On 04/03/2013 16:52, Eric Dumazet wrote:
+> > On Mon, 2013-03-04 at 10:43 +0200, Eliezer Tamir wrote:
+> >
+> >> One could for example increment the generation id every time the RTNL is
+> >> taken. or is this too much?
+> >
+> > RTNL is taken for a lot of operations, it would be better to have a
+> > finer grained increment.
+> 
+> If is taken rarely enough it will still be worth it.
+> 
 
-We should reset nf settings bond to the skb as ipip/ipgre do.
+Yes, but eventually it makes attempts to get rid of RTNL a nightmare.
 
-If not, the conntrack/nat info bond to the origin packet may continually
-redirect the packet to vxlan interface causing a routing loop.
+When adding new network features, just use the right semantic from the
+beginning.
 
-this is the scenario:
+> Otherwise it may be hard to know what operations need to invalidate the 
+> napi reference. It can very well be HW dependent, and then you end up 
+> adding a function for drivers to call to do the invalidation.
+> 
+> Or we can decide that we only care about catastrophic events and only 
+> worry about a napi completely going away and not worry about 
+> configuration changes.(Polling the wrong queue will not kill you, it's 
+> just a waste of perfectly good CPU cycles.)
 
-     VETP     VXLAN Gateway
-    /----\  /---------------\
-    |    |  |               |
-    |  vx+--+vx --NAT-> eth0+--> Internet
-    |    |  |               |
-    \----/  \---------------/
-
-when there are any packet coming from internet to the vetp, there will be lots
-of garbage packets coming out the gateway's vxlan interface, but none actually
-sent to the physical interface, because they are redirected back to the vxlan
-interface in the postrouting chain of NAT rule, and dmesg complains:
-
-    Mar  1 21:52:53 debian kernel: [ 8802.997699] Dead loop on virtual device vxlan0, fix it urgently!
-    Mar  1 21:52:54 debian kernel: [ 8804.004907] Dead loop on virtual device vxlan0, fix it urgently!
-    Mar  1 21:52:55 debian kernel: [ 8805.012189] Dead loop on virtual device vxlan0, fix it urgently!
-    Mar  1 21:52:56 debian kernel: [ 8806.020593] Dead loop on virtual device vxlan0, fix it urgently!
-
-the patch should fix the problem
-
-Signed-off-by: Zang MingJie <zealot0630@gmail.com>
----
- drivers/net/vxlan.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index f10e58a..c3e3d29 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -961,6 +961,8 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- 	iph->ttl	= ttl ? : ip4_dst_hoplimit(&rt->dst);
- 	tunnel_ip_select_ident(skb, old_iph, &rt->dst);
+As long as the incoming packets are able to update the information, who
+cares if one packet missed the poll ?
  
-+	nf_reset(skb);
-+
- 	vxlan_set_owner(dev, skb);
- 
- 	/* See iptunnel_xmit() */
--- 
-1.7.10.4
