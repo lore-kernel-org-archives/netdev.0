@@ -1,82 +1,38 @@
-From: "Arend van Spriel" <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH -v3 16/23] drivers/net: rename random32() to
- prandom_u32()
-Date: Mon, 4 Mar 2013 14:37:01 +0100
-Message-ID: <5134A37D.9000704@broadcom.com>
-References: <1362401911-14074-1-git-send-email-akinobu.mita@gmail.com>
- <1362401911-14074-17-git-send-email-akinobu.mita@gmail.com>
+From: venkat venkatsubra <venkat.x.venkatsubra@oracle.com>
+Subject: Re: [Patch net] rds: limit the size allocated by rds_message_alloc()
+Date: Mon, 04 Mar 2013 08:43:03 -0600
+Message-ID: <5134B2F7.3000207@oracle.com>
+References: <1362363491-24501-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1;
- format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Michael Chan" <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Thomas Sailer" <t.sailer-aAjG49QhEdKVRmA6MYkXiA@public.gmane.org>,
-	"Jean-Paul Roubelat" <jpr-3OwtVqItl4LYtjvyW6yDsg@public.gmane.org>,
-	"Bing Zhao" <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	"Brett Rudley" <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Hante Meuleman" <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-hams-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Akinobu Mita" <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1362401911-14074-17-git-send-email-akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
+	Dave Jones <davej@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:28344 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758011Ab3CDOnL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 09:43:11 -0500
+In-Reply-To: <1362363491-24501-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/04/13 13:58, Akinobu Mita wrote:
-> Use more preferable function name which implies using a pseudo-random
-> number generator.
+
+On 3/3/2013 8:18 PM, Cong Wang wrote:
+> From: Cong Wang <amwang@redhat.com>
 >
-> Signed-off-by: Akinobu Mita<akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Acked-by: Thomas Sailer<t.sailer-aAjG49QhEdKVRmA6MYkXiA@public.gmane.org>
-> Acked-by: Bing Zhao<bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>  [mwifiex]
-> Cc: "David S. Miller"<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: Michael Chan<mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Cc: Thomas Sailer<t.sailer-aAjG49QhEdKVRmA6MYkXiA@public.gmane.org>
-> Cc: Jean-Paul Roubelat<jpr-3OwtVqItl4LYtjvyW6yDsg@public.gmane.org>
-> Cc: Bing Zhao<bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-> Cc: Brett Rudley<brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Cc: Arend van Spriel<arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Cc: "Franky (Zhenhui) Lin"<frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Cc: Hante Meuleman<meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Cc: brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: linux-hams-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> ---
-> * Changes from v2
-> - add Acked-by: line
-> - add rename for brcm80211
+> Dave Jones reported the following bug:
 >
->   drivers/net/ethernet/broadcom/cnic.c          | 4 ++--
->   drivers/net/hamradio/baycom_epp.c             | 2 +-
->   drivers/net/hamradio/hdlcdrv.c                | 2 +-
->   drivers/net/hamradio/yam.c                    | 2 +-
->   drivers/net/wireless/brcm80211/brcmfmac/p2p.c | 2 +-
->   drivers/net/wireless/mwifiex/cfg80211.c       | 4 ++--
->   6 files changed, 8 insertions(+), 8 deletions(-)
+> "When fed mangled socket data, rds will trust what userspace gives it,
+> and tries to allocate enormous amounts of memory larger than what
+> kmalloc can satisfy."
 >
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/p2p.c b/drivers/net/wireless/brcm80211/brcmfmac/p2p.c
-> index 4166e64..bca31a8 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/p2p.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/p2p.c
-> @@ -1118,7 +1118,7 @@ static void brcmf_p2p_afx_handler(struct work_struct *work)
->   	if (afx_hdl->is_listen&&  afx_hdl->my_listen_chan)
->   		/* 100ms ~ 300ms */
->   		err = brcmf_p2p_discover_listen(p2p, afx_hdl->my_listen_chan,
-> -						100 * (1 + (random32() % 3)));
-> +					100 * (1 + (prandom_u32() % 3)));
-
-Seems like indentation is wrong now. Please retain the alignment.
-
-Regards,
-Arend
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Reported-by: Dave Jones <davej@redhat.com>
+> Cc: Dave Jones <davej@redhat.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+>
+Acked-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
