@@ -1,51 +1,78 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] net: ipv6: Don't purge default router if accept_ra=2
-Date: Mon, 04 Mar 2013 19:09:19 +0900
-Message-ID: <513472CF.7020308@linux-ipv6.org>
-References: <CAKD1Yr2e8Z8CDAM3tgp=nUR58OO9QZYEx8zkWwwcQ1S=14D2Qw@mail.gmail.com>
+From: "Perla, Sathya" <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH 2/2] benet: Wait I/O while resuming device
+Date: Mon, 4 Mar 2013 11:11:21 +0000
+Message-ID: <67feeaf6-cd7c-4892-b76d-0344f9367ff4@CMEXHTCAS1.ad.emulex.com>
+References: <1362383327-32362-1-git-send-email-shangw@linux.vnet.ibm.com>
+ <1362383327-32362-2-git-send-email-shangw@linux.vnet.ibm.com>
+ <1433171e-68da-4ebb-924f-e18b3f43858c@CMEXHTCAS2.ad.emulex.com>
+ <20130304101841.GA20882@shangw.(null)>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Lorenzo Colitti <lorenzo@google.com>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Seetharaman, Subramanian" <subbu.seetharaman@emulex.com>,
+	"Khaparde, Ajit" <Ajit.Khaparde@Emulex.Com>
+To: Gavin Shan <shangw@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:54279 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756219Ab3CDKJV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 05:09:21 -0500
-In-Reply-To: <CAKD1Yr2e8Z8CDAM3tgp=nUR58OO9QZYEx8zkWwwcQ1S=14D2Qw@mail.gmail.com>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:29027 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756222Ab3CDLL1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 06:11:27 -0500
+In-Reply-To: <20130304101841.GA20882@shangw.(null)>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lorenzo Colitti wrote:
-> Setting net.ipv6.conf.<interface>.accept_ra=2 causes the kernel
-> to accept RAs even when forwarding is enabled. However, enabling
-> forwarding purges all default routes on the system, breaking
-> connectivity until the next RA is received. Fix this by not
-> purging default routes on interfaces that have accept_ra=2.
+> -----Original Message-----
+> From: Gavin Shan [mailto:shangw@linux.vnet.ibm.com]
 > 
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
-> ---
->  net/ipv6/route.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
+> On Mon, Mar 04, 2013 at 09:17:22AM +0000, Perla, Sathya wrote:
+> >> -----Original Message-----
+> >> From: Gavin Shan [mailto:shangw@linux.vnet.ibm.com]
+> >>
+> >> After resetting the adapter, the config space register (0x7c) might
+> >> give fake information to indicate the f/w is ready. In turn, 0xFF's
+> >> is always returned while accessing on I/O space registers. The patch
+> >> adds more check to make sure the I/O space is ready for access before
+> accessing that region.
+> >>
+> >...
+> >>
+> >> +int be_cmd_fw_wait_io(struct be_adapter *adapter) {
+> >> +	void __iomem *db = adapter->db + MPU_MAILBOX_DB_OFFSET;
+> >> +	int timeout = 0;
+> >> +	u32 val;
+> >> +
+> >> +	if (lancer_chip(adapter))
+> >> +		return 0;
+> >> +
+> >> +	do {
+> >> +		val = ioread32(db);
+> >> +		if (val != 0xffffffff)
+> >> +			return 0;
+> >Wouldn't reading 0xffffffff from a register cause a new EEH flow to be
+> triggered?
+> >
 > 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 9282665..e5fe004 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1915,7 +1915,8 @@ void rt6_purge_dflt_routers(struct net *net)
->  restart:
->  	read_lock_bh(&table->tb6_lock);
->  	for (rt = table->tb6_root.leaf; rt; rt = rt->dst.rt6_next) {
-> -		if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF)) {
-> +		if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF) &&
-> +		    (!rt->rt6i_idev || rt->rt6i_idev->cnf.accept_ra != 2)) {
->  			dst_hold(&rt->dst);
->  			read_unlock_bh(&table->tb6_lock);
->  			ip6_del_rt(rt);
-> 
+> I don't think 0xffffffff here indicates a new EEH error and the adapter was
+> recovering from EEH error, which already happened before.
 
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> 
+> Actually, I'm developing new feature to support EEH for PowerNV (PPC)
+> platform. While the benet adapter detected EEH error and tried to resume, the
+> I/O access always returned 0xffffffff even through I could get correct values
+> from the config space. Since I don't have the specification, I would guess the
+> config space becomes ready prior to I/O space after resetting the adapter and
+> its firmware.
 
---yoshfuji
+The root-cause here is that the config-space/0x7c register is incorrectly
+reflecting the POST state to be FW_READY. This causes the driver to go ahead
+and read I/O space "prematurely" causing a 0xffffffff read. 
+The config-space/0x7c register reflects the correct
+value a little later. This happens only for BE2/3 chips.
+
+I propose to fix this by polling instead on CSR-BAR/0xac register for POST status
+for BE2/3 chips.
+
+thanks,
+-Sathya
