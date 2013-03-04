@@ -1,320 +1,66 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH 8/8] netfront: split event channels support
-Date: Mon, 4 Mar 2013 16:24:16 -0500
-Message-ID: <20130304212416.GI16762@phenom.dumpdata.com>
-References: <1360944010-15336-1-git-send-email-wei.liu2@citrix.com>
- <1360944010-15336-9-git-send-email-wei.liu2@citrix.com>
+From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Subject: Re: [PATCHi v2] net: sh_eth: Add support of device tree probe
+Date: Tue, 05 Mar 2013 06:37:12 +0900
+Message-ID: <51351408.8060806@renesas.com>
+References: <1360803091-26400-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+ <87mwv7ofgj.wl%kuninori.morimoto.gx@renesas.com>
+ <511C5279.3070008@renesas.com> <20130304080509.EDF323E206B@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	ian.campbell@citrix.com, annie.li@oracle.com
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	magnus.damm@gmail.com, kda@linux-powerpc.org,
+	horms+renesas@verge.net.au
+To: Grant Likely <grant.likely@secretlab.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:20960 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932236Ab3CDVYy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 16:24:54 -0500
-Content-Disposition: inline
-In-Reply-To: <1360944010-15336-9-git-send-email-wei.liu2@citrix.com>
+Received: from relmlor3.renesas.com ([210.160.252.173]:33989 "EHLO
+	relmlor3.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932516Ab3CDVhO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 16:37:14 -0500
+Received: from relmlir1.idc.renesas.com ([10.200.68.151])
+ by relmlor3.idc.renesas.com ( SJSMS)
+ with ESMTP id <0MJ500D6TO20ZJ20@relmlor3.idc.renesas.com> for
+ netdev@vger.kernel.org; Tue, 05 Mar 2013 06:37:12 +0900 (JST)
+Received: from relmlac2.idc.renesas.com ([10.200.69.22])
+ by relmlir1.idc.renesas.com (SJSMS)
+ with ESMTP id <0MJ500485O20SRF0@relmlir1.idc.renesas.com> for
+ netdev@vger.kernel.org; Tue, 05 Mar 2013 06:37:12 +0900 (JST)
+In-reply-to: <20130304080509.EDF323E206B@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 15, 2013 at 04:00:09PM +0000, Wei Liu wrote:
-> If this feature is not activated, rx_irq = tx_irq. See corresponding netback
-> change log for details.
-
-To make it easier for people that use 'git log --grep' one usually says:
-"See xen/netfront: Use .. " for the frontend implementation. That way
-you can just copy-n-paste the title of the patch in the search functionality.
-
-You should also include in this patch the description of the protocol.
-
-And explain how it benefits the networking subsystem?
-
-
+(2013/03/04 17:05), Grant Likely wrote:
+> On Thu, 14 Feb 2013 11:56:57 +0900, Nobuhiro Iwamatsu<nobuhiro.iwamatsu.yj@renesas.com>  wrote:
+>> (2013/02/14 10:24), Kuninori Morimoto wrote:
+>>>> +#ifdef CONFIG_OF
+>>>> +	if (np&&   of_device_is_available(np)) {
+>>>> +		pd = sh_eth_parse_dt(&pdev->dev, ndev);
+>>>> +		if (pdev->dev.platform_data) {
+>>>> +			struct sh_eth_plat_data *tmp =
+>>>> +				pdev->dev.platform_data;
+>>>> +			pd->set_mdio_gate = tmp->set_mdio_gate;
+>>>> +			pd->needs_init = tmp->needs_init;
+>>>> +		}
+>>>> +	} else
+>>>> +#endif
+>>>
+>>> sh_eth_parse_dt() was defined for both CONFIG_OF and !CONFIG_OF.
+>>> But it is called only from CONFIG_OF ?
+>>>
+>>
+>> Because of_device_is_available needs CONFIG_OF.
+>> I already send a patch which add empty function of of_device_is_available.
+>> If this was apply, this ifdef becomes without need.
 > 
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> ---
->  drivers/net/xen-netfront.c |  184 ++++++++++++++++++++++++++++++++++++--------
->  1 file changed, 152 insertions(+), 32 deletions(-)
+> Actually, there shouldn't be any reason for a device driver to call
+> of_device_is_available() on its own node at all. If the device is not
+> available, then a platform_device won't be created. "if (np)" here is
+> sufficient.
 > 
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index de73a71..ea9b656 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -100,7 +100,12 @@ struct netfront_info {
->  
->  	struct napi_struct napi;
->  
-> -	unsigned int evtchn;
-> +	/* 
-> +	 * Split event channels support, tx_* == rx_* when using
-> +	 * single event channel.
-> +	 */
-> +	unsigned int tx_evtchn, rx_evtchn;
-> +	unsigned int tx_irq, rx_irq;
->  	struct xenbus_device *xbdev;
->  
->  	spinlock_t   tx_lock;
-> @@ -344,7 +349,7 @@ no_skb:
->   push:
->  	RING_PUSH_REQUESTS_AND_CHECK_NOTIFY(&np->rx, notify);
->  	if (notify)
-> -		notify_remote_via_irq(np->netdev->irq);
-> +		notify_remote_via_irq(np->rx_irq);
->  }
->  
->  static int xennet_open(struct net_device *dev)
-> @@ -633,7 +638,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  
->  	RING_PUSH_REQUESTS_AND_CHECK_NOTIFY(&np->tx, notify);
->  	if (notify)
-> -		notify_remote_via_irq(np->netdev->irq);
-> +		notify_remote_via_irq(np->tx_irq);
->  
->  	u64_stats_update_begin(&stats->syncp);
->  	stats->tx_bytes += skb->len;
-> @@ -1263,26 +1268,41 @@ static int xennet_set_features(struct net_device *dev,
->  	return 0;
->  }
->  
-> -static irqreturn_t xennet_interrupt(int irq, void *dev_id)
-> +/* Used for tx completion */
-> +static irqreturn_t xennet_tx_interrupt(int tx_irq, void *dev_id)
->  {
-> -	struct net_device *dev = dev_id;
-> -	struct netfront_info *np = netdev_priv(dev);
-> +	struct netfront_info *np = dev_id;
-> +	struct net_device *dev = np->netdev;
->  	unsigned long flags;
->  
->  	spin_lock_irqsave(&np->tx_lock, flags);
-> +	xennet_tx_buf_gc(dev);
-> +	spin_unlock_irqrestore(&np->tx_lock, flags);
->  
-> -	if (likely(netif_carrier_ok(dev))) {
-> -		xennet_tx_buf_gc(dev);
-> -		/* Under tx_lock: protects access to rx shared-ring indexes. */
-> -		if (RING_HAS_UNCONSUMED_RESPONSES(&np->rx))
-> -			napi_schedule(&np->napi);
-> -	}
-> +	return IRQ_HANDLED;
-> +}
->  
-> -	spin_unlock_irqrestore(&np->tx_lock, flags);
-> +/* Used for rx */
-> +static irqreturn_t xennet_rx_interrupt(int rx_irq, void *dev_id)
-> +{
-> +	struct netfront_info *np = dev_id;
-> +	struct net_device *dev = np->netdev;
-> +
-> +	if (likely(netif_carrier_ok(dev) &&
-> +		   RING_HAS_UNCONSUMED_RESPONSES(&np->rx)))
-> +		napi_schedule(&np->napi);
->  
->  	return IRQ_HANDLED;
->  }
->  
-> +/* Used for single event channel configuration */
-> +static irqreturn_t xennet_interrupt(int irq, void *dev_id)
-> +{
-> +	xennet_tx_interrupt(irq, dev_id);
-> +	xennet_rx_interrupt(irq, dev_id);
-> +	return IRQ_HANDLED;
-> +}
-> +
->  #ifdef CONFIG_NET_POLL_CONTROLLER
->  static void xennet_poll_controller(struct net_device *dev)
->  {
-> @@ -1451,9 +1471,14 @@ static void xennet_disconnect_backend(struct netfront_info *info)
->  	spin_unlock_irq(&info->tx_lock);
->  	spin_unlock_bh(&info->rx_lock);
->  
-> -	if (info->netdev->irq)
-> -		unbind_from_irqhandler(info->netdev->irq, info->netdev);
-> -	info->evtchn = info->netdev->irq = 0;
-> +	if (info->tx_irq && (info->tx_irq == info->rx_irq))
-> +		unbind_from_irqhandler(info->tx_irq, info);
-> +	if (info->tx_irq && (info->tx_irq != info->rx_irq)) {
-> +		unbind_from_irqhandler(info->tx_irq, info);
-> +		unbind_from_irqhandler(info->rx_irq, info);
-> +	}
-> +	info->tx_evtchn = info->rx_evtchn = 0;
-> +	info->tx_irq = info->rx_irq = 0;
->  
->  	xenbus_unmap_ring_vfree(info->xbdev, (void *)info->tx.sring);
->  	free_pages((unsigned long)info->tx.sring, info->tx_ring_page_order);
-> @@ -1503,11 +1528,86 @@ static int xen_net_read_mac(struct xenbus_device *dev, u8 mac[])
->  	return 0;
->  }
->  
-> +static int setup_netfront_single(struct netfront_info *info)
-> +{
-> +	int err;
-> +
-> +	err = xenbus_alloc_evtchn(info->xbdev, &info->tx_evtchn);
-> +	if (err < 0)
-> +		goto fail;
-> +
-> +	err = bind_evtchn_to_irqhandler(info->tx_evtchn,
-> +					xennet_interrupt,
-> +					0, info->netdev->name, info);
-> +	if (err < 0)
-> +		goto bind_fail;
-> +	info->rx_evtchn = info->tx_evtchn;
-> +	info->rx_irq = info->tx_irq = err;
-> +	dev_info(&info->xbdev->dev,
-> +		 "single event channel, evtchn = %d, irq = %d\n",
-> +		 info->tx_evtchn, info->tx_irq);
-> +
-> +	return 0;
-> +
-> +bind_fail:
-> +	xenbus_free_evtchn(info->xbdev, info->tx_evtchn);
-> +	info->tx_evtchn = 0;
-> +fail:
-> +	return err;
-> +}
-> +
-> +static int setup_netfront_split(struct netfront_info *info)
-> +{
-> +	int err;
-> +
-> +	err = xenbus_alloc_evtchn(info->xbdev, &info->tx_evtchn);
-> +	if (err)
-> +		goto fail;
-> +	err = xenbus_alloc_evtchn(info->xbdev, &info->rx_evtchn);
-> +	if (err)
-> +		goto alloc_rx_evtchn_fail;
-> +
-> +	err = bind_evtchn_to_irqhandler(info->tx_evtchn,
-> +					xennet_tx_interrupt,
-> +					0, info->netdev->name, info);
-> +	if (err < 0)
-> +		goto bind_tx_fail;
-> +	info->tx_irq = err;
-> +
-> +	err = bind_evtchn_to_irqhandler(info->rx_evtchn,
-> +					xennet_rx_interrupt,
-> +					0, info->netdev->name, info);
-> +	if (err < 0)
-> +		goto bind_rx_fail;
-> +
-> +	info->rx_irq = err;
-> +
-> +	dev_info(&info->xbdev->dev,
-> +		 "split event channels, tx_evtchn/irq = %d/%d, rx_evtchn/irq = %d/%d",
-> +		 info->tx_evtchn, info->tx_irq,
-> +		 info->rx_evtchn, info->rx_irq);
-> +
-> +	return 0;
-> +
-> +bind_rx_fail:
-> +	unbind_from_irqhandler(info->tx_irq, info);
-> +	info->tx_irq = 0;
-> +bind_tx_fail:
-> +	xenbus_free_evtchn(info->xbdev, info->rx_evtchn);
-> +	info->rx_evtchn = 0;
-> +alloc_rx_evtchn_fail:
-> +	xenbus_free_evtchn(info->xbdev, info->tx_evtchn);
-> +	info->tx_evtchn = 0;
-> +fail:
-> +	return err;
-> +}
-> +
->  static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
->  {
->  	struct xen_netif_tx_sring *txs;
->  	struct xen_netif_rx_sring *rxs;
->  	int err;
-> +	unsigned int feature_split_evtchn;
->  	struct net_device *netdev = info->netdev;
->  	unsigned int max_tx_ring_page_order, max_rx_ring_page_order;
->  	int i;
-> @@ -1527,6 +1627,12 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
->  	}
->  
->  	err = xenbus_scanf(XBT_NIL, info->xbdev->otherend,
-> +			   "feature-split-event-channels", "%u",
-> +			   &feature_split_evtchn);
-> +	if (err < 0)
-> +		feature_split_evtchn = 0;
-> +
-> +	err = xenbus_scanf(XBT_NIL, info->xbdev->otherend,
->  			   "max-tx-ring-page-order", "%u",
->  			   &max_tx_ring_page_order);
->  	if (err < 0) {
-> @@ -1598,20 +1704,17 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
->  	if (err < 0)
->  		goto grant_rx_ring_fail;
->  
-> -	err = xenbus_alloc_evtchn(dev, &info->evtchn);
-> +	if (feature_split_evtchn)
-> +		err = setup_netfront_split(info);
-> +	else
-> +		err = setup_netfront_single(info);
-> +
->  	if (err)
-> -		goto alloc_evtchn_fail;
-> +		goto setup_evtchn_fail;
->  
-> -	err = bind_evtchn_to_irqhandler(info->evtchn, xennet_interrupt,
-> -					0, netdev->name, netdev);
-> -	if (err < 0)
-> -		goto bind_fail;
-> -	netdev->irq = err;
->  	return 0;
->  
-> -bind_fail:
-> -	xenbus_free_evtchn(dev, info->evtchn);
-> -alloc_evtchn_fail:
-> +setup_evtchn_fail:
->  	xenbus_unmap_ring_vfree(info->xbdev, (void *)info->rx.sring);
->  grant_rx_ring_fail:
->  	free_pages((unsigned long)info->rx.sring, info->rx_ring_page_order);
-> @@ -1696,11 +1799,26 @@ again:
->  		}
->  	}
->  
-> -	err = xenbus_printf(xbt, dev->nodename,
-> -			    "event-channel", "%u", info->evtchn);
-> -	if (err) {
-> -		message = "writing event-channel";
-> -		goto abort_transaction;
-> +	if (info->tx_evtchn == info->rx_evtchn) {
-> +		err = xenbus_printf(xbt, dev->nodename,
-> +				    "event-channel", "%u", info->tx_evtchn);
-> +		if (err) {
-> +			message = "writing event-channel";
-> +			goto abort_transaction;
-> +		}
-> +	} else {
-> +		err = xenbus_printf(xbt, dev->nodename,
-> +				    "event-channel-tx", "%u", info->tx_evtchn);
-> +		if (err) {
-> +			message = "writing event-channel-tx";
-> +			goto abort_transaction;
-> +		}
-> +		err = xenbus_printf(xbt, dev->nodename,
-> +				    "event-channel-rx", "%u", info->rx_evtchn);
-> +		if (err) {
-> +			message = "writing event-channel-rx";
-> +			goto abort_transaction;
-> +		}
->  	}
->  
->  	err = xenbus_printf(xbt, dev->nodename, "request-rx-copy", "%u",
-> @@ -1814,7 +1932,9 @@ static int xennet_connect(struct net_device *dev)
->  	 * packets.
->  	 */
->  	netif_carrier_on(np->netdev);
-> -	notify_remote_via_irq(np->netdev->irq);
-> +	notify_remote_via_irq(np->tx_irq);
-> +	if (np->tx_irq != np->rx_irq)
-> +		notify_remote_via_irq(np->rx_irq);
->  	xennet_tx_buf_gc(dev);
->  	xennet_alloc_rx_buffers(dev);
->  
-> -- 
-> 1.7.10.4
-> 
+
+Yes, you are right.
+I re-writed code without of_device_is_available(). I will send new patch soon.
+
+Best regards,
+  Nobuhiro
