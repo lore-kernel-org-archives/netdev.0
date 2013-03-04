@@ -1,26 +1,62 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: [ANNOUNCE] iptables 1.4.18 release
-Date: Mon, 4 Mar 2013 22:23:07 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1303042220530.14520@nerf07.vanv.qr>
-References: <20130303222008.GA28215@localhost>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] net: netfilter: nfnetlink: Fixed warning for
+ nfnl_get_lock
+Date: Mon, 4 Mar 2013 22:23:38 +0100
+Message-ID: <20130304212338.GA3594@localhost>
+References: <1362426192-2921-1-git-send-email-gheorghiuandru@gmail.com>
+ <20130304210551.GA22306@pd.tnic>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, netfilter-announce@lists.netfilter.org,
-	lwn@lwn.net
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <20130303222008.GA28215@localhost>
-Sender: netfilter-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Borislav Petkov <bp@alien8.de>,
+	Alexandru Gheorghiu <gheorghiuandru@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130304210551.GA22306@pd.tnic>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Mar 04, 2013 at 10:05:51PM +0100, Borislav Petkov wrote:
+> On Mon, Mar 04, 2013 at 09:43:11PM +0200, Alexandru Gheorghiu wrote:
+> > Removed unused function nfnl_get_lock which fixed the following war=
+ning:
+> > net/netfilter/nfnetlink.c:65:22: warning: =E2=80=98nfnl_get_lock=E2=
+=80=99 defined but not used [-Wunused-function]
+> >=20
+> > Signed-off-by: Alexandru Gheorghiu <gheorghiuandru@gmail.com>
+> > ---
+> >  net/netfilter/nfnetlink.c |    5 -----
+> >  1 file changed, 5 deletions(-)
+> >=20
+> > diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+> > index d578ec2..44aa0a7 100644
+> > --- a/net/netfilter/nfnetlink.c
+> > +++ b/net/netfilter/nfnetlink.c
+> > @@ -62,11 +62,6 @@ void nfnl_unlock(__u8 subsys_id)
+> >  }
+> >  EXPORT_SYMBOL_GPL(nfnl_unlock);
+> >=20
+> > -static struct mutex *nfnl_get_lock(__u8 subsys_id)
+> > -{
+> > -	return &table[subsys_id].mutex;
+> > -}
+> > -
+>=20
+> I see the same warning here, gcc (Debian 4.7.2-5) 4.7.2.
+>=20
+> Actually this function *is* used a bit further in the same file in
+> nfnetlink_rcv_msg().
+>=20
+> But gcc complains for some reason of which I don't even have the
+> slightest idea. However, if you declare the above function "static
+> inline..." the warning is gone.
 
-On Sunday 2013-03-03 23:20, Pablo Neira Ayuso wrote:
->The Netfilter project proudly presents:
->
->        iptables 1.4.18
->
->iptables is the userspace command line program used to configure the
->Linux 2.4.x and later packet filtering ruleset.
+Already got a fix for compilation warning in my tree:
 
-This ought to be updated to "Linux 3.0.x".
+http://1984.lsi.us.es/git/nf/commit/?id=3D9df9e7832391cf699abbf39fc8d95=
+d7e78297462
+
+Thanks!
