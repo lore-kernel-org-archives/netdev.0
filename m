@@ -1,58 +1,63 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 1/5] net: implement support for low latency socket
- polling
-Date: Mon, 04 Mar 2013 08:15:59 -0800
-Message-ID: <1362413759.15793.98.camel@edumazet-glaptop>
-References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>
-	   <20130227175555.10611.42794.stgit@gitlad.jf.intel.com>
-	  <1362335704.15793.81.camel@edumazet-glaptop>
-	  <51345EB8.9050309@linux.intel.com>
-	 <1362408768.15793.89.camel@edumazet-glaptop>
-	 <5134BD9B.2080003@linux.intel.com>
+Subject: Re: Multicast/Broadcast enhancement: SKB read-only with
+ copy-on-write
+Date: Mon, 04 Mar 2013 08:28:06 -0800
+Message-ID: <1362414486.15793.104.camel@edumazet-glaptop>
+References: <CAJ4BwwGs2FebA0jgedDxxmQEXSV=g2B07KBgu4C+0nigLbyvnA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Dave Miller <davem@davemloft.net>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5134BD9B.2080003@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Yannick Koehler <yannick@koehler.name>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:49745 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932104Ab3CDQ2M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 11:28:12 -0500
+Received: by mail-da0-f46.google.com with SMTP id z8so2632258dad.19
+        for <netdev@vger.kernel.org>; Mon, 04 Mar 2013 08:28:12 -0800 (PST)
+In-Reply-To: <CAJ4BwwGs2FebA0jgedDxxmQEXSV=g2B07KBgu4C+0nigLbyvnA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-03-04 at 17:28 +0200, Eliezer Tamir wrote:
-> On 04/03/2013 16:52, Eric Dumazet wrote:
-> > On Mon, 2013-03-04 at 10:43 +0200, Eliezer Tamir wrote:
-> >
-> >> One could for example increment the generation id every time the RTNL is
-> >> taken. or is this too much?
-> >
-> > RTNL is taken for a lot of operations, it would be better to have a
-> > finer grained increment.
+On Mon, 2013-03-04 at 10:29 -0500, Yannick Koehler wrote:
+> Hi,
 > 
-> If is taken rarely enough it will still be worth it.
+>   Recently I was working into the kernel area where the code handle
+> broadcast/multicast in bridge logical interface for example.  It seems
+> today inevitable that when we flood, the bridge code has to duplicate
+> the full SKB, metadata as well as data, in order to transmit to each
+> link under it.  I was wondering if there was way for the SKB system to
+> support copy-on-write, such that, from a starting point, the SKB would
+> be "frozen" into a read-only mode and then if someone wants to modify
+> the SKB metadata/data it is done in a way to preserve the original SKB
+> memory, as to ensure that after the SKB has been transmitted over that
+> particular link, it can also be used without a full memory copy to be
+> sent to subsequent link, simultaneously on multi-core/mutli-interface
+> system.
+> 
+>   I am wondering at what level such work would be consider, is it
+> relatively easy, does Linux have anything like that, is it major work,
+> since pretty much everyone expect SKB data to be writable (like
+> skb_may_pull could be used to obtain a specific client SKB version
+> area).  It would probably require a new field in the SKB to indicate
+> that this is a read-only/copy-on-write version of a specific "original
+> SKB".
+> 
+>   Anyway, just wanted some thoughts/opinions on the topic regarding
+> the scale of such a change.
 > 
 
-Yes, but eventually it makes attempts to get rid of RTNL a nightmare.
+Current skb handling already provides this "read-only" and
+"copy-on-write" management.
 
-When adding new network features, just use the right semantic from the
-beginning.
+We only have to use the correct API where it matters, like
+skb_share_check()
 
-> Otherwise it may be hard to know what operations need to invalidate the 
-> napi reference. It can very well be HW dependent, and then you end up 
-> adding a function for drivers to call to do the invalidation.
-> 
-> Or we can decide that we only care about catastrophic events and only 
-> worry about a napi completely going away and not worry about 
-> configuration changes.(Polling the wrong queue will not kill you, it's 
-> just a waste of perfectly good CPU cycles.)
+For an example, take a look at commit de063b7040dcd9
+(bonding: remove packet cloning in recv_probe())
 
-As long as the incoming packets are able to update the information, who
-cares if one packet missed the poll ?
- 
+ARP packets for example could be handled in a read-only way.
+
+(You dont really explain what particular problem you have,
+ARP is only a guess...)
