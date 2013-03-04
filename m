@@ -1,79 +1,53 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [Patch net] sctp: use KMALLOC_MAX_SIZE instead of its own
- MAX_KMALLOC_SIZE
-Date: Sun, 3 Mar 2013 22:52:26 -0500
-Message-ID: <20130304035226.GA4273@neilslaptop.think-freely.org>
-References: <1362364107-26908-1-git-send-email-amwang@redhat.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC PATCH 1/5] net: implement support for low latency socket
+ polling
+Date: Mon, 4 Mar 2013 04:55:27 +0100
+Message-ID: <20130304035527.GF3401@two.firstfloor.org>
+References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>
+ <20130227175555.10611.42794.stgit@gitlad.jf.intel.com>
+ <1362335704.15793.81.camel@edumazet-glaptop>
+ <20130303192153.GC3401@two.firstfloor.org>
+ <1362345601.15793.83.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Dave Miller <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>, HPA <hpa@zytor.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51954 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757316Ab3CDDws (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Mar 2013 22:52:48 -0500
+Received: from two.firstfloor.org ([193.170.194.197]:35118 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757109Ab3CDDz3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Mar 2013 22:55:29 -0500
 Content-Disposition: inline
-In-Reply-To: <1362364107-26908-1-git-send-email-amwang@redhat.com>
+In-Reply-To: <1362345601.15793.83.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 04, 2013 at 10:28:27AM +0800, Cong Wang wrote:
-> From: Cong Wang <amwang@redhat.com>
+On Sun, Mar 03, 2013 at 01:20:01PM -0800, Eric Dumazet wrote:
+> On Sun, 2013-03-03 at 20:21 +0100, Andi Kleen wrote:
+> > > Alternative to 2) would be to use a generation id, incremented every
+> > > time a napi used in spin polling enabled driver is dismantled (and freed
+> > > after RCU grace period)
+> > > 
+> > > And store in sockets not only the pointer to napi_struct, but the
+> > > current generation id : If the generation id doesnt match, disable
+> > > the spinpoll until next packet rebuilds the cache again.
+> > 
+> > This would require rcu_read_lock, aka preempt off, during polling, right?
+> > 
 > 
-> Don't definite its own MAX_KMALLOC_SIZE, use the one
-> defined in mm.
-> 
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> Cc: Sridhar Samudrala <sri@us.ibm.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> Of course, polling probably needs BH disabling as well to get the per
+> napi lock
 
-> ---
-> diff --git a/net/sctp/ssnmap.c b/net/sctp/ssnmap.c
-> index 442ad4e..825ea94 100644
-> --- a/net/sctp/ssnmap.c
-> +++ b/net/sctp/ssnmap.c
-> @@ -41,8 +41,6 @@
->  #include <net/sctp/sctp.h>
->  #include <net/sctp/sm.h>
->  
-> -#define MAX_KMALLOC_SIZE	131072
-> -
->  static struct sctp_ssnmap *sctp_ssnmap_init(struct sctp_ssnmap *map, __u16 in,
->  					    __u16 out);
->  
-> @@ -65,7 +63,7 @@ struct sctp_ssnmap *sctp_ssnmap_new(__u16 in, __u16 out,
->  	int size;
->  
->  	size = sctp_ssnmap_size(in, out);
-> -	if (size <= MAX_KMALLOC_SIZE)
-> +	if (size <= KMALLOC_MAX_SIZE)
->  		retval = kmalloc(size, gfp);
->  	else
->  		retval = (struct sctp_ssnmap *)
-> @@ -82,7 +80,7 @@ struct sctp_ssnmap *sctp_ssnmap_new(__u16 in, __u16 out,
->  	return retval;
->  
->  fail_map:
-> -	if (size <= MAX_KMALLOC_SIZE)
-> +	if (size <= KMALLOC_MAX_SIZE)
->  		kfree(retval);
->  	else
->  		free_pages((unsigned long)retval, get_order(size));
-> @@ -124,7 +122,7 @@ void sctp_ssnmap_free(struct sctp_ssnmap *map)
->  		int size;
->  
->  		size = sctp_ssnmap_size(map->in.len, map->out.len);
-> -		if (size <= MAX_KMALLOC_SIZE)
-> +		if (size <= KMALLOC_MAX_SIZE)
->  			kfree(map);
->  		else
->  			free_pages((unsigned long)map, get_order(size));
-> 
+Ok maybe the cond_resched() is good enough.
+
+-Andi
+
+-- 
+ak@linux.intel.com -- Speaking for myself only.
