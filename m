@@ -1,77 +1,98 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net] rds: limit the size allocated by rds_message_alloc()
-Date: Mon,  4 Mar 2013 10:18:11 +0800
-Message-ID: <1362363491-24501-1-git-send-email-amwang@redhat.com>
-Cc: rds-devel@oss.oracle.com, Dave Jones <davej@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27211 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752080Ab3CDCSh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Mar 2013 21:18:37 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: Re: [PATCH] ircomm: release tty before sleeping potentially
+ indefintely
+Date: Sun, 03 Mar 2013 21:23:04 -0500
+Message-ID: <1362363784.3221.141.camel@thor.lan>
+References: <1362350153-26225-1-git-send-email-sasha.levin@oracle.com>
+	 <20130303.174739.1195645942179862011.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: sasha.levin@oracle.com, samuel@sortiz.org,
+	gregkh@linuxfoundation.org, jslaby@suse.cz, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130303.174739.1195645942179862011.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
+On Sun, 2013-03-03 at 17:47 -0500, David Miller wrote:
+> From: Sasha Levin <sasha.levin@oracle.com>
+> Date: Sun,  3 Mar 2013 17:35:53 -0500
+> 
+> > ircomm_tty_block_til_ready would hold tty lock while blocking. Since the sleep
+> > might take a long time we can prevent other processes from accessing the tty,
+> > causing hung tasks and a dead tty.
+> > 
+> > Diagnosed-by: Peter Hurley <peter@hurleysoftware.com>
+> > Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> 
+> But then you invalidate all of the tty state tests made under
+> the lock at the beginning of this function, before enterring
+> the loop.  If you drop the lock, those pieces of state could
+> change.
+> 
+> I'm not applying this.
 
-Dave Jones reported the following bug:
+BTW, Sasha deserves a medal for finding and fixing this. Here's the
+initial report [1] by him from Halloween. And he doesn't even have an IR
+device.
 
-"When fed mangled socket data, rds will trust what userspace gives it,
-and tries to allocate enormous amounts of memory larger than what
-kmalloc can satisfy."
+So this fix needs to be cc'd to stable too.
 
-WARNING: at mm/page_alloc.c:2393 __alloc_pages_nodemask+0xa0d/0xbe0()
-Hardware name: GA-MA78GM-S2H
-Modules linked in: vmw_vsock_vmci_transport vmw_vmci vsock fuse bnep dlci bridge 8021q garp stp mrp binfmt_misc l2tp_ppp l2tp_core rfcomm s
-Pid: 24652, comm: trinity-child2 Not tainted 3.8.0+ #65
-Call Trace:
- [<ffffffff81044155>] warn_slowpath_common+0x75/0xa0
- [<ffffffff8104419a>] warn_slowpath_null+0x1a/0x20
- [<ffffffff811444ad>] __alloc_pages_nodemask+0xa0d/0xbe0
- [<ffffffff8100a196>] ? native_sched_clock+0x26/0x90
- [<ffffffff810b2128>] ? trace_hardirqs_off_caller+0x28/0xc0
- [<ffffffff810b21cd>] ? trace_hardirqs_off+0xd/0x10
- [<ffffffff811861f8>] alloc_pages_current+0xb8/0x180
- [<ffffffff8113eaaa>] __get_free_pages+0x2a/0x80
- [<ffffffff811934fe>] kmalloc_order_trace+0x3e/0x1a0
- [<ffffffff81193955>] __kmalloc+0x2f5/0x3a0
- [<ffffffff8104df0c>] ? local_bh_enable_ip+0x7c/0xf0
- [<ffffffffa0401ab3>] rds_message_alloc+0x23/0xb0 [rds]
- [<ffffffffa04043a1>] rds_sendmsg+0x2b1/0x990 [rds]
- [<ffffffff810b21cd>] ? trace_hardirqs_off+0xd/0x10
- [<ffffffff81564620>] sock_sendmsg+0xb0/0xe0
- [<ffffffff810b2052>] ? get_lock_stats+0x22/0x70
- [<ffffffff810b24be>] ? put_lock_stats.isra.23+0xe/0x40
- [<ffffffff81567f30>] sys_sendto+0x130/0x180
- [<ffffffff810b872d>] ? trace_hardirqs_on+0xd/0x10
- [<ffffffff816c547b>] ? _raw_spin_unlock_irq+0x3b/0x60
- [<ffffffff816cd767>] ? sysret_check+0x1b/0x56
- [<ffffffff810b8695>] ? trace_hardirqs_on_caller+0x115/0x1a0
- [<ffffffff81341d8e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
- [<ffffffff816cd742>] system_call_fastpath+0x16/0x1b
----[ end trace eed6ae990d018c8b ]---
+Regards,
+Peter Hurley
 
-Reported-by: Dave Jones <davej@redhat.com>
-Cc: Dave Jones <davej@redhat.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Signed-off-by: Cong Wang <amwang@redhat.com>
 
----
-diff --git a/net/rds/message.c b/net/rds/message.c
-index f0a4658..aff589c 100644
---- a/net/rds/message.c
-+++ b/net/rds/message.c
-@@ -197,6 +197,9 @@ struct rds_message *rds_message_alloc(unsigned int extra_len, gfp_t gfp)
- {
- 	struct rds_message *rm;
- 
-+	if (extra_len > KMALLOC_MAX_SIZE - sizeof(struct rds_message))
-+		return NULL;
-+
- 	rm = kzalloc(sizeof(struct rds_message) + extra_len, gfp);
- 	if (!rm)
- 		goto out;
+[1]
+
+On Wed, 2012-10-31 at 16:10 -0400, Sasha Levin wrote:
+On 10/31/2012 11:32 AM, Jiri Slaby wrote:
+> > On 10/31/2012 04:30 PM, Sasha Levin wrote:
+> >> On Wed, Oct 31, 2012 at 8:53 AM, Jiri Slaby <jslaby@suse.cz> wrote:
+> >>> On 10/25/2012 08:02 PM, Sasha Levin wrote:
+> >>>> Fuzzing with trinity inside a KVM tools (lkvm) guest with -next kernel
+> >>>> uncovered the following warning:
+> >>>
+> >>> I cannot reproduce that :(. Do you still see it?
+> >>
+> >> Yes, it reproduces pretty easily while fuzzing.
+> > 
+> > What is your exact setup? I tried trinity with 100 000 syscalls inside
+> > KVM with an LDEP-enabled kernel. How many serial ports do you have in
+> > the guest? Any USB serials in there?
+> 
+> btw, I'm also seeing the following lockups, don't know if it's related:
+> 
+> 
+> [ 2283.070569] INFO: task trinity-child20:9161 blocked for more than 120 seconds.
+> [ 2283.071775] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+> [ 2283.074673] trinity-child20 D ffff8800276cb000  5424  9161   6364 0x00000000
+> [ 2283.076018]  ffff880059d9da58 0000000000000002 0000000000000002 0000000000000000
+> [ 2283.077393]  ffff880059d7b000 ffff880059d9dfd8 ffff880059d9dfd8 ffff880059d9dfd8
+> [ 2283.078763]  ffff8800276cb000 ffff880059d7b000 ffff880059d9da78 ffff88001a095180
+> [ 2283.084144] Call Trace:
+> [ 2283.085039]  [<ffffffff83a98bd5>] schedule+0x55/0x60
+> [ 2283.086748]  [<ffffffff83a98bf3>] schedule_preempt_disabled+0x13/0x20
+> [ 2283.089000]  [<ffffffff83a9735d>] __mutex_lock_common+0x36d/0x5a0
+> [ 2283.090658]  [<ffffffff83a9afb3>] ? tty_lock_nested+0x73/0x80
+> [ 2283.091691]  [<ffffffff83a9afb3>] ? tty_lock_nested+0x73/0x80
+> [ 2283.092779]  [<ffffffff83a975cf>] mutex_lock_nested+0x3f/0x50
+> [ 2283.093875]  [<ffffffff83a9afb3>] tty_lock_nested+0x73/0x80
+> [ 2283.094872]  [<ffffffff83a9afcb>] tty_lock+0xb/0x10
+> [ 2283.095443]  [<ffffffff81bae880>] tty_open+0x270/0x5f0
+> [ 2283.096181]  [<ffffffff8127cda8>] chrdev_open+0xf8/0x1d0
+> [ 2283.097054]  [<ffffffff8127693c>] do_dentry_open+0x1fc/0x310
+> [ 2283.098015]  [<ffffffff8127ccb0>] ? cdev_put+0x20/0x20
+> [ 2283.098943]  [<ffffffff8127777a>] finish_open+0x4a/0x60
+> [ 2283.099935]  [<ffffffff81286947>] do_last+0xb87/0xe70
+> [ 2283.100910]  [<ffffffff812844b0>] ? link_path_walk+0x70/0x900
+> [ 2283.101553]  [<ffffffff81286cf2>] path_openat+0xc2/0x500
+> [ 2283.102282]  [<ffffffff83a9a314>] ? _raw_spin_unlock_irqrestore+0x84/0xb0
+> [ 2283.103506]  [<ffffffff8128716c>] do_filp_open+0x3c/0xa0
+> [ 2283.104282]  [<ffffffff81296c11>] ? __alloc_fd+0x1e1/0x200
+> [ 2283.105278]  [<ffffffff81277c0c>] do_sys_open+0x11c/0x1c0
+> [ 2283.106519]  [<ffffffff81277ccc>] sys_open+0x1c/0x20
+> [ 2283.107241]  [<ffffffff81277d01>] sys_creat+0x11/0x20
+> [ 2283.107975]  [<ffffffff83a9be18>] tracesys+0xe1/0xe6
