@@ -1,101 +1,82 @@
-From: Gavin Shan <shangw@linux.vnet.ibm.com>
-Subject: [PATCH 1/2] benet: Wait f/w POST until timeout
-Date: Mon,  4 Mar 2013 15:48:46 +0800
-Message-ID: <1362383327-32362-1-git-send-email-shangw@linux.vnet.ibm.com>
-Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com, Gavin Shan <shangw@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: Frank Li <Frank.Li@freescale.com>
+Subject: [PATCH 1/1] net: fec: fix build error in no MXC platform
+Date: Mon, 4 Mar 2013 14:52:38 +0800
+Message-ID: <1362379958-12972-1-git-send-email-Frank.Li@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <s.hauer@pengutronix.de>, Frank Li <Frank.Li@freescale.com>
+To: <lznuaa@gmail.com>, <shawn.guo@linaro.org>, <B38611@freescale.com>,
+	<davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
+	<netdev@vger.kernel.org>, <gerg@uclinux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:45258 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755116Ab3CDHuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Mar 2013 02:50:09 -0500
-Received: from /spool/local
-	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <shangw@linux.vnet.ibm.com>;
-	Mon, 4 Mar 2013 02:48:54 -0500
-Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
-	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id BD564C90025
-	for <netdev@vger.kernel.org>; Mon,  4 Mar 2013 02:48:51 -0500 (EST)
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r247mpSP273258
-	for <netdev@vger.kernel.org>; Mon, 4 Mar 2013 02:48:51 -0500
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r247mpDm007735
-	for <netdev@vger.kernel.org>; Mon, 4 Mar 2013 04:48:51 -0300
+Received: from co1ehsobe001.messaging.microsoft.com ([216.32.180.184]:38410
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753251Ab3CDH5d convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Mar 2013 02:57:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While PCI card faces EEH errors, reset (usually hot reset) is
-expected to recover from the EEH errors. After EEH core finishes
-the reset, the driver callback (be_eeh_reset) is called and wait
-the firmware to complete POST successfully. The original code would
-return with error once detecting failure during POST stage. That
-seems not enough.
+build error cause by
+Commit ff43da86c69d76a726ffe7d1666148960dc1d108
+("NET: FEC: dynamtic check DMA desc buff type")
 
-The patch forces the driver (be_eeh_reset) to wait the firmware
-completes POST until timeout, instead of returning error upon
-detection POST failure immediately. Also, it would improve the
-reliability of the EEH funtionality of the driver.
+drivers/net/ethernet/freescale/fec.c: In function =E2=80=98fec_enet_get=
+_nextdesc=E2=80=99:
+drivers/net/ethernet/freescale/fec.c:215:18: error: invalid use of unde=
+fined type =E2=80=98struct bufdesc_ex=E2=80=99
+drivers/net/ethernet/freescale/fec.c: In function =E2=80=98fec_enet_get=
+_prevdesc=E2=80=99:
+drivers/net/ethernet/freescale/fec.c:224:18: error: invalid use of unde=
+fined type =E2=80=98struct bufdesc_ex=E2=80=99
+drivers/net/ethernet/freescale/fec.c: In function =E2=80=98fec_enet_sta=
+rt_xmit=E2=80=99:
+drivers/net/ethernet/freescale/fec.c:286:37: error: arithmetic on point=
+er to an incomplete type
+drivers/net/ethernet/freescale/fec.c:287:13: error: arithmetic on point=
+er to an incomplete type
+drivers/net/ethernet/freescale/fec.c:324:7: error: dereferencing pointe=
+r to incomplete type etc....
 
-Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |   27 ++++++++++-----------------
- 1 files changed, 10 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/freescale/fec.h |   15 +++++++--------
+ 1 files changed, 7 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 071aea7..813407f 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -473,7 +473,7 @@ static int be_mbox_notify_wait(struct be_adapter *adapter)
- 	return 0;
- }
- 
--static int be_POST_stage_get(struct be_adapter *adapter, u16 *stage)
-+static void be_POST_stage_get(struct be_adapter *adapter, u16 *stage)
- {
- 	u32 sem;
- 	u32 reg = skyhawk_chip(adapter) ? SLIPORT_SEMAPHORE_OFFSET_SH :
-@@ -481,11 +481,6 @@ static int be_POST_stage_get(struct be_adapter *adapter, u16 *stage)
- 
- 	pci_read_config_dword(adapter->pdev, reg, &sem);
- 	*stage = sem & POST_STAGE_MASK;
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/etherne=
+t/freescale/fec.h
+index 01579b8..a53150c 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -97,6 +97,13 @@ struct bufdesc {
+ 	unsigned short cbd_sc;	/* Control and status info */
+ 	unsigned long cbd_bufaddr;	/* Buffer address */
+ };
++#else
++struct bufdesc {
++	unsigned short	cbd_sc;			/* Control and status info */
++	unsigned short	cbd_datlen;		/* Data length */
++	unsigned long	cbd_bufaddr;		/* Buffer address */
++};
++#endif
+=20
+ struct bufdesc_ex {
+ 	struct bufdesc desc;
+@@ -107,14 +114,6 @@ struct bufdesc_ex {
+ 	unsigned short res0[4];
+ };
+=20
+-#else
+-struct bufdesc {
+-	unsigned short	cbd_sc;			/* Control and status info */
+-	unsigned short	cbd_datlen;		/* Data length */
+-	unsigned long	cbd_bufaddr;		/* Buffer address */
+-};
+-#endif
 -
--	if ((sem >> POST_ERR_SHIFT) & POST_ERR_MASK)
--		return -1;
--	else
--		return 0;
- }
- 
- int lancer_wait_ready(struct be_adapter *adapter)
-@@ -579,19 +574,17 @@ int be_fw_wait_ready(struct be_adapter *adapter)
- 	}
- 
- 	do {
--		status = be_POST_stage_get(adapter, &stage);
--		if (status) {
--			dev_err(dev, "POST error; stage=0x%x\n", stage);
--			return -1;
--		} else if (stage != POST_STAGE_ARMFW_RDY) {
--			if (msleep_interruptible(2000)) {
--				dev_err(dev, "Waiting for POST aborted\n");
--				return -EINTR;
--			}
--			timeout += 2;
--		} else {
-+		be_POST_stage_get(adapter, &stage);
-+		if (stage == POST_STAGE_ARMFW_RDY)
- 			return 0;
-+
-+		dev_info(dev, "Waiting for POST, %ds elapsed\n",
-+			 timeout);
-+		if (msleep_interruptible(2000)) {
-+			dev_err(dev, "Waiting for POST aborted\n");
-+			return -EINTR;
- 		}
-+		timeout += 2;
- 	} while (timeout < 60);
- 
- 	dev_err(dev, "POST timeout; stage=0x%x\n", stage);
--- 
-1.7.5.4
+ /*
+  *	The following definitions courtesy of commproc.h, which where
+  *	Copyright (c) 1997 Dan Malek (dmalek@jlc.net).
+--=20
+1.7.1
