@@ -1,67 +1,48 @@
 From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH -v3 21/23] net/core: remove duplicate statements by do-while loop
-Date: Mon,  4 Mar 2013 21:58:29 +0900
-Message-ID: <1362401911-14074-22-git-send-email-akinobu.mita@gmail.com>
+Subject: [PATCH -v3 18/23] net/sched: rename random32() to prandom_u32()
+Date: Mon,  4 Mar 2013 21:58:26 +0900
+Message-ID: <1362401911-14074-19-git-send-email-akinobu.mita@gmail.com>
 References: <1362401911-14074-1-git-send-email-akinobu.mita@gmail.com>
 Cc: Akinobu Mita <akinobu.mita@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netem@lists.linux-foundation.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org, akpm@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f50.google.com ([209.85.210.50]:49928 "EHLO
-	mail-da0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758119Ab3CDNAA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 08:00:00 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1362401911-14074-1-git-send-email-akinobu.mita@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Remove duplicate statements by using do-while loop instead of while loop.
-
-- A;
-- while (e) {
-+ do {
-	A;
-- }
-+ } while (e);
+Use more preferable function name which implies using a pseudo-random
+number generator.
 
 Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netem@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org
 Cc: netdev@vger.kernel.org
 ---
 
 No change from v2
 
- net/core/pktgen.c | 15 ++++++---------
- 1 file changed, 6 insertions(+), 9 deletions(-)
+ net/sched/sch_choke.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 4582275..5c21742 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2396,18 +2396,15 @@ static void mod_cur_headers(struct pktgen_dev *pkt_dev)
- 				__be32 s;
- 				if (pkt_dev->flags & F_IPDST_RND) {
+diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
+index cc37dd5..ef53ab8 100644
+--- a/net/sched/sch_choke.c
++++ b/net/sched/sch_choke.c
+@@ -80,7 +80,7 @@ struct choke_sched_data {
+ /* deliver a random number between 0 and N - 1 */
+ static u32 random_N(unsigned int N)
+ {
+-	return reciprocal_divide(random32(), N);
++	return reciprocal_divide(prandom_u32(), N);
+ }
  
--					t = prandom_u32() % (imx - imn) + imn;
--					s = htonl(t);
--
--					while (ipv4_is_loopback(s) ||
--					       ipv4_is_multicast(s) ||
--					       ipv4_is_lbcast(s) ||
--					       ipv4_is_zeronet(s) ||
--					       ipv4_is_local_multicast(s)) {
-+					do {
- 						t = prandom_u32() %
- 							(imx - imn) + imn;
- 						s = htonl(t);
--					}
-+					} while (ipv4_is_loopback(s) ||
-+						ipv4_is_multicast(s) ||
-+						ipv4_is_lbcast(s) ||
-+						ipv4_is_zeronet(s) ||
-+						ipv4_is_local_multicast(s));
- 					pkt_dev->cur_daddr = s;
- 				} else {
- 					t = ntohl(pkt_dev->cur_daddr);
+ /* number of elements in queue including holes */
 -- 
 1.8.1.2
