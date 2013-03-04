@@ -1,33 +1,49 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 1/5] net: implement support for low latency socket
- polling
-Date: Mon, 04 Mar 2013 06:52:48 -0800
-Message-ID: <1362408768.15793.89.camel@edumazet-glaptop>
-References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>
-	  <20130227175555.10611.42794.stgit@gitlad.jf.intel.com>
-	 <1362335704.15793.81.camel@edumazet-glaptop>
-	 <51345EB8.9050309@linux.intel.com>
+Subject: Re: [Patch net] garp: fix a NULL pointer dereference bug
+Date: Mon, 04 Mar 2013 06:56:15 -0800
+Message-ID: <1362408975.15793.92.camel@edumazet-glaptop>
+References: <1362368217-30984-1-git-send-email-amwang@redhat.com>
+	 <1362374790.15793.87.camel@edumazet-glaptop> <1362390955.2383.2.camel@cr0>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Dave Miller <davem@davemloft.net>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51345EB8.9050309@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, bugs@syam.in,
+	David Ward <david.ward@ll.mit.edu>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:46051 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756641Ab3CDO4S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 09:56:18 -0500
+Received: by mail-pa0-f52.google.com with SMTP id fb1so3206692pad.25
+        for <netdev@vger.kernel.org>; Mon, 04 Mar 2013 06:56:17 -0800 (PST)
+In-Reply-To: <1362390955.2383.2.camel@cr0>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-03-04 at 10:43 +0200, Eliezer Tamir wrote:
+On Mon, 2013-03-04 at 17:55 +0800, Cong Wang wrote:
+> On Sun, 2013-03-03 at 21:26 -0800, Eric Dumazet wrote:
+> > 
+> > Nope this patch doesnt solve the problem
+> > 
+> > Crash is in :
+> > 
+> > 49 8b 1c c6             mov    (%r14,%rax,8),%rbx 
+> > 
+> > Thats because r14 (port) is NULL
+> > 
+> > 
+> > 
+> 
+> Hmm, but I can't see how it can be NULL, the only place of NULL'ing it
+> is inside garp_release_port(), right after the piece of code that I
+> patched.
+> 
+> Thanks!
+> 
 
-> One could for example increment the generation id every time the RTNL is 
-> taken. or is this too much?
+Maybe port is NULL from the beginning.
 
-RTNL is taken for a lot of operations, it would be better to have a
-finer grained increment.
+Try to inject memory allocations error in garp_init_port()
