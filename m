@@ -1,82 +1,49 @@
-From: Frank Li <Frank.Li@freescale.com>
-Subject: [PATCH 1/1] net: fec: fix build error in no MXC platform
-Date: Mon, 4 Mar 2013 14:52:38 +0800
-Message-ID: <1362379958-12972-1-git-send-email-Frank.Li@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <s.hauer@pengutronix.de>, Frank Li <Frank.Li@freescale.com>
-To: <lznuaa@gmail.com>, <shawn.guo@linaro.org>, <B38611@freescale.com>,
-	<davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
-	<netdev@vger.kernel.org>, <gerg@uclinux.org>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCHi v2] net: sh_eth: Add support of device tree probe
+Date: Mon, 04 Mar 2013 16:05:09 +0800
+Message-ID: <20130304080509.EDF323E206B@localhost>
+References: <1360803091-26400-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com> <87mwv7ofgj.wl%kuninori.morimoto.gx@renesas.com> <511C5279.3070008@renesas.com>
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	magnus.damm@gmail.com, kda@linux-powerpc.org,
+	horms+renesas@verge.net.au
+To: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe001.messaging.microsoft.com ([216.32.180.184]:38410
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753251Ab3CDH5d convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Mar 2013 02:57:33 -0500
+Received: from mail-da0-f53.google.com ([209.85.210.53]:61426 "EHLO
+	mail-da0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756024Ab3CDIFO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 03:05:14 -0500
+Received: by mail-da0-f53.google.com with SMTP id n34so2404320dal.40
+        for <netdev@vger.kernel.org>; Mon, 04 Mar 2013 00:05:14 -0800 (PST)
+In-Reply-To: <511C5279.3070008@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-build error cause by
-Commit ff43da86c69d76a726ffe7d1666148960dc1d108
-("NET: FEC: dynamtic check DMA desc buff type")
+On Thu, 14 Feb 2013 11:56:57 +0900, Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com> wrote:
+> (2013/02/14 10:24), Kuninori Morimoto wrote:
+> >> +#ifdef CONFIG_OF
+> >> +	if (np&&  of_device_is_available(np)) {
+> >> +		pd = sh_eth_parse_dt(&pdev->dev, ndev);
+> >> +		if (pdev->dev.platform_data) {
+> >> +			struct sh_eth_plat_data *tmp =
+> >> +				pdev->dev.platform_data;
+> >> +			pd->set_mdio_gate = tmp->set_mdio_gate;
+> >> +			pd->needs_init = tmp->needs_init;
+> >> +		}
+> >> +	} else
+> >> +#endif
+> >
+> > sh_eth_parse_dt() was defined for both CONFIG_OF and !CONFIG_OF.
+> > But it is called only from CONFIG_OF ?
+> >
+> 
+> Because of_device_is_available needs CONFIG_OF.
+> I already send a patch which add empty function of of_device_is_available.
+> If this was apply, this ifdef becomes without need.
 
-drivers/net/ethernet/freescale/fec.c: In function =E2=80=98fec_enet_get=
-_nextdesc=E2=80=99:
-drivers/net/ethernet/freescale/fec.c:215:18: error: invalid use of unde=
-fined type =E2=80=98struct bufdesc_ex=E2=80=99
-drivers/net/ethernet/freescale/fec.c: In function =E2=80=98fec_enet_get=
-_prevdesc=E2=80=99:
-drivers/net/ethernet/freescale/fec.c:224:18: error: invalid use of unde=
-fined type =E2=80=98struct bufdesc_ex=E2=80=99
-drivers/net/ethernet/freescale/fec.c: In function =E2=80=98fec_enet_sta=
-rt_xmit=E2=80=99:
-drivers/net/ethernet/freescale/fec.c:286:37: error: arithmetic on point=
-er to an incomplete type
-drivers/net/ethernet/freescale/fec.c:287:13: error: arithmetic on point=
-er to an incomplete type
-drivers/net/ethernet/freescale/fec.c:324:7: error: dereferencing pointe=
-r to incomplete type etc....
+Actually, there shouldn't be any reason for a device driver to call
+of_device_is_available() on its own node at all. If the device is not
+available, then a platform_device won't be created. "if (np)" here is
+sufficient.
 
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
----
- drivers/net/ethernet/freescale/fec.h |   15 +++++++--------
- 1 files changed, 7 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/etherne=
-t/freescale/fec.h
-index 01579b8..a53150c 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -97,6 +97,13 @@ struct bufdesc {
- 	unsigned short cbd_sc;	/* Control and status info */
- 	unsigned long cbd_bufaddr;	/* Buffer address */
- };
-+#else
-+struct bufdesc {
-+	unsigned short	cbd_sc;			/* Control and status info */
-+	unsigned short	cbd_datlen;		/* Data length */
-+	unsigned long	cbd_bufaddr;		/* Buffer address */
-+};
-+#endif
-=20
- struct bufdesc_ex {
- 	struct bufdesc desc;
-@@ -107,14 +114,6 @@ struct bufdesc_ex {
- 	unsigned short res0[4];
- };
-=20
--#else
--struct bufdesc {
--	unsigned short	cbd_sc;			/* Control and status info */
--	unsigned short	cbd_datlen;		/* Data length */
--	unsigned long	cbd_bufaddr;		/* Buffer address */
--};
--#endif
--
- /*
-  *	The following definitions courtesy of commproc.h, which where
-  *	Copyright (c) 1997 Dan Malek (dmalek@jlc.net).
---=20
-1.7.1
+g.
