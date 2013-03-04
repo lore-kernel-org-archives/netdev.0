@@ -1,43 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 3.8-stable] usbnet: smsc95xx: fix suspend failure
-Date: Mon, 04 Mar 2013 13:56:08 -0500 (EST)
-Message-ID: <20130304.135608.2045232567964504683.davem@davemloft.net>
-References: <1362391633-27551-1-git-send-email-ming.lei@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net] rds: limit the size allocated by
+ rds_message_alloc()
+Date: Mon, 04 Mar 2013 14:14:42 -0500 (EST)
+Message-ID: <20130304.141442.2136706050807177427.davem@davemloft.net>
+References: <1362363491-24501-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, oneukum-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org
-To: ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1362391633-27551-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com, davej@redhat.com,
+	venkat.x.venkatsubra@oracle.com
+To: amwang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40616 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757555Ab3CDTOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 14:14:45 -0500
+In-Reply-To: <1362363491-24501-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Date: Mon,  4 Mar 2013 18:07:13 +0800
+From: Cong Wang <amwang@redhat.com>
+Date: Mon,  4 Mar 2013 10:18:11 +0800
 
-> The three below functions:
+> From: Cong Wang <amwang@redhat.com>
 > 
->         smsc95xx_enter_suspend0()
->         smsc95xx_enter_suspend1()
->         smsc95xx_enter_suspend2()
+> Dave Jones reported the following bug:
 > 
-> return > 0 in case of success, so they will cause smsc95xx_suspend()
-> to return > 0 and suspend failure.
-> 
-> This patch is backported from the upstream commit:
-> 
-> 	From 7643721471117d5f62ca36f328d3dc8d84af4402 Mon Sep 17 00:00:00 2001
-> 	Subject: [PATCH] usbnet: smsc95xx: fix suspend failure
-> 
-> Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-> Cc: Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>
-> Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> "When fed mangled socket data, rds will trust what userspace gives it,
+> and tries to allocate enormous amounts of memory larger than what
+> kmalloc can satisfy."
+ ...
+> Reported-by: Dave Jones <davej@redhat.com>
+> Cc: Dave Jones <davej@redhat.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-This is fine, Greg please apply to 3.8-stable, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied and queued up for -stable, thanks.
