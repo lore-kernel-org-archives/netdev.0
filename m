@@ -1,39 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: fec: fix build error in no MXC platform
-Date: Mon, 04 Mar 2013 14:15:44 -0500 (EST)
-Message-ID: <20130304.141544.1354907717393768867.davem@davemloft.net>
-References: <1362379958-12972-1-git-send-email-Frank.Li@freescale.com>
+Subject: Re: [PATCH net] tcp: fix double-counted receiver RTT when leaving
+ receiver fast path
+Date: Mon, 04 Mar 2013 14:16:08 -0500 (EST)
+Message-ID: <20130304.141608.981016306872498634.davem@davemloft.net>
+References: <1362414185-9874-1-git-send-email-ncardwell@google.com>
+	<1362416133.15793.105.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: lznuaa@gmail.com, shawn.guo@linaro.org, B38611@freescale.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	gerg@uclinux.org, s.hauer@pengutronix.de
-To: Frank.Li@freescale.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ncardwell@google.com, edumazet@google.com, ycheng@google.com,
+	nanditad@google.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40662 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40677 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758520Ab3CDTPq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 14:15:46 -0500
-In-Reply-To: <1362379958-12972-1-git-send-email-Frank.Li@freescale.com>
+	with ESMTP id S1758158Ab3CDTQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 14:16:09 -0500
+In-Reply-To: <1362416133.15793.105.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRnJhbmsgTGkgPEZyYW5rLkxpQGZyZWVzY2FsZS5jb20+DQpEYXRlOiBNb24sIDQgTWFy
-IDIwMTMgMTQ6NTI6MzggKzA4MDANCg0KPiBidWlsZCBlcnJvciBjYXVzZSBieQ0KPiBDb21taXQg
-ZmY0M2RhODZjNjlkNzZhNzI2ZmZlN2QxNjY2MTQ4OTYwZGMxZDEwOA0KPiAoIk5FVDogRkVDOiBk
-eW5hbXRpYyBjaGVjayBETUEgZGVzYyBidWZmIHR5cGUiKQ0KPiANCj4gZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvZnJlZXNjYWxlL2ZlYy5jOiBJbiBmdW5jdGlvbiChZmVjX2VuZXRfZ2V0X25leHRkZXNj
-ojoNCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5jOjIxNToxODogZXJyb3I6
-IGludmFsaWQgdXNlIG9mIHVuZGVmaW5lZCB0eXBlIKFzdHJ1Y3QgYnVmZGVzY19leKINCj4gZHJp
-dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5jOiBJbiBmdW5jdGlvbiChZmVjX2VuZXRf
-Z2V0X3ByZXZkZXNjojoNCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5jOjIy
-NDoxODogZXJyb3I6IGludmFsaWQgdXNlIG9mIHVuZGVmaW5lZCB0eXBlIKFzdHJ1Y3QgYnVmZGVz
-Y19leKINCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5jOiBJbiBmdW5jdGlv
-biChZmVjX2VuZXRfc3RhcnRfeG1pdKI6DQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2Fs
-ZS9mZWMuYzoyODY6Mzc6IGVycm9yOiBhcml0aG1ldGljIG9uIHBvaW50ZXIgdG8gYW4gaW5jb21w
-bGV0ZSB0eXBlDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWMuYzoyODc6MTM6
-IGVycm9yOiBhcml0aG1ldGljIG9uIHBvaW50ZXIgdG8gYW4gaW5jb21wbGV0ZSB0eXBlDQo+IGRy
-aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWMuYzozMjQ6NzogZXJyb3I6IGRlcmVmZXJl
-bmNpbmcgcG9pbnRlciB0byBpbmNvbXBsZXRlIHR5cGUgZXRjLi4uLg0KPiANCj4gU2lnbmVkLW9m
-Zi1ieTogRnJhbmsgTGkgPEZyYW5rLkxpQGZyZWVzY2FsZS5jb20+DQoNCkFwcGxpZWQuDQo=
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 04 Mar 2013 08:55:33 -0800
+
+> On Mon, 2013-03-04 at 11:23 -0500, Neal Cardwell wrote:
+>> We should not update ts_recent and call tcp_rcv_rtt_measure_ts() both
+>> before and after going to step5. That wastes CPU and double-counts the
+>> receiver-side RTT sample.
+>> 
+>> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+ ...
+> Acked-by: Eric Dumazet <edumazet@google.com>
+
+Applied and queued up for -stable.
