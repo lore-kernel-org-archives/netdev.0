@@ -1,86 +1,88 @@
-From: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
-Subject: Re: [PATCH -v3 17/23] net/sunrpc: rename random32() to prandom_u32()
-Date: Mon, 4 Mar 2013 22:44:13 +0000
-Message-ID: <4FA345DA4F4AE44899BD2B03EEEC2FA9286AF0DB@sacexcmbx05-prd.hq.netapp.com>
-References: <1362401911-14074-1-git-send-email-akinobu.mita@gmail.com>
-	 <1362401911-14074-18-git-send-email-akinobu.mita@gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: Fw: [Bug 54601] New: PPP regression on 3.2.39 stop work need
+ restart server ont version 3.2.21 not found this problem.
+Date: Mon, 4 Mar 2013 22:48:37 +0000
+Message-ID: <20130304224837.GX9079@decadent.org.uk>
+References: <20130301084705.4169c429@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="=-SQIidN/DRVZ2+Ig/p9iA"
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>
-To: Akinobu Mita <akinobu.mita@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1362401911-14074-18-git-send-email-akinobu.mita@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, micron10@gmail.com,
+	Eric Dumazet <edumazet@google.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:40639 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758655Ab3CDWsm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 17:48:42 -0500
+Content-Disposition: inline
+In-Reply-To: <20130301084705.4169c429@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---=-SQIidN/DRVZ2+Ig/p9iA
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: quoted-printable
+On Fri, Mar 01, 2013 at 08:47:05AM -0800, Stephen Hemminger wrote:
+> 
+> 
+> Begin forwarded message:
+> 
+> Date: Fri, 1 Mar 2013 01:24:14 -0800
+> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+> To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+> Subject: [Bug 54601] New: PPP regression on 3.2.39 stop work need restart server ont version 3.2.21 not found this problem.
+> 
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=54601
+> 
+>            Summary: PPP regression on 3.2.39 stop work need restart server
+>                     ont version 3.2.21 not found this problem.
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 3.2.39
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: high
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: micron10@gmail.com
+>         Regression: Yes
+> 
+> 
+> Hi
+> watch a problem with PPP after upgrade to version 3.2.39 ppp service stop work
+> 2 hours after start with this crash :
+> 
+> [79619.180026] unregister_netdevice: waiting for ppp618 to become free. Usage
+> count = 562
+[...]
+> [79862.540040] unregister_netdevice: waiting for ppp618 to become free. Usage
+> count = 30
+> [79872.680037] unregister_netdevice: waiting for ppp618 to become free. Usage
+> count = 9
+[...]
 
-On Mon, 2013-03-04 at 21:58 +0900, Akinobu Mita wrote:
-> Use more preferable function name which implies using a pseudo-random
-> number generator.
->=20
-> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-> Cc: "J. Bruce Fields" <bfields@fieldses.org>
-> Cc: Trond Myklebust <Trond.Myklebust@netapp.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-nfs@vger.kernel.org
-> ---
->=20
-> No change from v2
->=20
->  net/sunrpc/auth_gss/gss_krb5_wrap.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->=20
-> diff --git a/net/sunrpc/auth_gss/gss_krb5_wrap.c b/net/sunrpc/auth_gss/gs=
-s_krb5_wrap.c
-> index 88edec9..1da52d1 100644
-> --- a/net/sunrpc/auth_gss/gss_krb5_wrap.c
-> +++ b/net/sunrpc/auth_gss/gss_krb5_wrap.c
-> @@ -130,8 +130,8 @@ gss_krb5_make_confounder(char *p, u32 conflen)
-> =20
->  	/* initialize to random value */
->  	if (i =3D=3D 0) {
-> -		i =3D random32();
-> -		i =3D (i << 32) | random32();
-> +		i =3D prandom_u32();
-> +		i =3D (i << 32) | prandom_u32();
->  	}
-> =20
->  	switch (conflen) {
+So there are many references left to the device, which slowly go away
+(very slowly, about 2 per second).  Maybe there are skbs in a queue somewhere
+that still refer to the PPP device.
 
-Acked-by: Trond Myklebust <Trond.Myklebust@netapp.com>
+Since this a regression between 3.2.21 and 3.2.29, it might have been
+introduced by:
 
---=-SQIidN/DRVZ2+Ig/p9iA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+commit 73a3346556281fd56f39f0a9475249e5039d8807
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Thu Jun 14 06:42:44 2012 +0000
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
+    net: remove skb_orphan_try()
+    
+    commit 62b1a8ab9b3660bb820d8dfe23148ed6cda38574 upstream.
 
-iQIcBAABAgAGBQJRNSPAAAoJEGcL54qWCgDywo0P+gJT0QdtovcdlKjovq/XK/kY
-HvzP26Z0Agri5kA5xLdQvhWEjUe+G1j+rraNLO6iUMF09EwG4rqnlYSAMHq0SsL5
-f9SuBNFdRK7Vd/jvnQjyL2Sf05PFT9OEAYplMcMgI0Cew5NMMYXtI7GQU4y+ucxF
-vyzw7WeKqbYrUsQV99plJ5fpq63lSmEgn4uzURudzbIq0cuz8uYGkWTfQllZRdaa
-bJ3Ov375udPvNHN696s+KopVelg28TEA9ooBufwJr7ynUzNjSs9VgyJPPvpB/+NA
-QFVfdbpCrh/n4/cucmtLh6OBoCl1I0uzHZCXU9Px/thR7Nr2lZ78jaTE1qR8QJh1
-MYQOe3ugzc4IFouhgKYic+MgTrRtEALa/8sZ7rYjx2/rz/gHCkc6CSzuZy5w7jf0
-FJ4a8hBSz0fEGkgz5NcgGPsCG8xOOjA9uQnB2GcyN4Ni2p3USAaSoriLT+gr8zqX
-oC05AU5IaxO29c+wYC7EyKLJjfGJeDR6I/7CKfRnjBmvFg+2/4fwAnoI0vGd03US
-o99gDvGEQ3S9uw4zMGuwirBEP73V5OhqENpqEMn39F0+nuG0u4QXpOsB5IXRTiNT
-UXmvQWCG4kdGK98/Ra+z8TrBL+JpowuKGhaoMgQgLNW0wp+wJW8Ftw7nLAAbL4Ed
-/8LAEAJGld12kQ+CiiXN
-=K/Tl
------END PGP SIGNATURE-----
+But this is a bit of a guess.  And I don't think that this change
+would do more than expose/exacerbate a bug that already existed.
 
---=-SQIidN/DRVZ2+Ig/p9iA--
+Ben.
+
+-- 
+Ben Hutchings
+We get into the habit of living before acquiring the habit of thinking.
+                                                              - Albert Camus
