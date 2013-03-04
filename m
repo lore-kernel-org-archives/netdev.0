@@ -1,60 +1,107 @@
 From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH 1/8] netback: don't bind kthread to cpu
-Date: Mon, 4 Mar 2013 15:51:54 -0500
-Message-ID: <20130304205154.GB16762@phenom.dumpdata.com>
+Subject: Re: [Xen-devel] [PATCH 2/8] netback: add module unload function
+Date: Mon, 4 Mar 2013 15:55:30 -0500
+Message-ID: <20130304205530.GC16762@phenom.dumpdata.com>
 References: <1360944010-15336-1-git-send-email-wei.liu2@citrix.com>
- <1360944010-15336-2-git-send-email-wei.liu2@citrix.com>
+ <1360944010-15336-3-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
 	ian.campbell@citrix.com, annie.li@oracle.com
 To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:39635 "EHLO
+Received: from userp1040.oracle.com ([156.151.31.81]:41434 "EHLO
 	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758717Ab3CDUwC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 15:52:02 -0500
+	with ESMTP id S1758751Ab3CDUzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 15:55:37 -0500
 Content-Disposition: inline
-In-Reply-To: <1360944010-15336-2-git-send-email-wei.liu2@citrix.com>
+In-Reply-To: <1360944010-15336-3-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 15, 2013 at 04:00:02PM +0000, Wei Liu wrote:
-> The initialization process makes an assumption that the online cpus are
-> numbered from 0 to xen_netbk_group_nr-1,  which is not always true.
+On Fri, Feb 15, 2013 at 04:00:03PM +0000, Wei Liu wrote:
+> Enable users to unload netback module. Users should make sure there is not vif
+> runnig.
 
-And xen_netbk_group_nr is num_online_cpus()?
+'sure there are no vif's running.'
 
-So under what conditions does this change? Is this when the CPU hotplug
-is involved and the CPUs go offline? In which case should there be a
-CPU hotplug notifier to re-bind the workers are appropiate?
+Any way of making this VIF part be automatic? Meaning that netback
+can figure out if there are VIFs running and if so don't unload
+all of the parts and just mention that you are leaking memory.
 
-> 
-> As we only need a pool of worker threads, simply don't bind them to specific
-> cpus.
-
-OK. Is there another method of doing this? Are there patches to make the thread
-try to be vCPU->guest affinite?
+This looks quite dangerous - meaning if there are guests running and
+we for fun do 'rmmod xen_netback' it looks like we could crash dom0?
 
 > 
 > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
 > ---
->  drivers/net/xen-netback/netback.c |    2 --
->  1 file changed, 2 deletions(-)
+>  drivers/net/xen-netback/common.h  |    1 +
+>  drivers/net/xen-netback/netback.c |   18 ++++++++++++++++++
+>  drivers/net/xen-netback/xenbus.c  |    5 +++++
+>  3 files changed, 24 insertions(+)
 > 
+> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+> index 9d7f172..35d8772 100644
+> --- a/drivers/net/xen-netback/common.h
+> +++ b/drivers/net/xen-netback/common.h
+> @@ -120,6 +120,7 @@ void xenvif_get(struct xenvif *vif);
+>  void xenvif_put(struct xenvif *vif);
+>  
+>  int xenvif_xenbus_init(void);
+> +void xenvif_xenbus_exit(void);
+>  
+>  int xenvif_schedulable(struct xenvif *vif);
+>  
 > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 3ae49b1..db8d45a 100644
+> index db8d45a..de59098 100644
 > --- a/drivers/net/xen-netback/netback.c
 > +++ b/drivers/net/xen-netback/netback.c
-> @@ -1729,8 +1729,6 @@ static int __init netback_init(void)
->  			goto failed_init;
->  		}
+> @@ -1761,5 +1761,23 @@ failed_init:
 >  
-> -		kthread_bind(netbk->task, group);
-> -
->  		INIT_LIST_HEAD(&netbk->net_schedule_list);
+>  module_init(netback_init);
 >  
->  		spin_lock_init(&netbk->net_schedule_list_lock);
+> +static void __exit netback_exit(void)
+> +{
+> +	int group, i;
+> +	xenvif_xenbus_exit();
+
+You should check the return code of this function.
+
+> +	for (group = 0; group < xen_netbk_group_nr; group++) {
+> +		struct xen_netbk *netbk = &xen_netbk[group];
+> +		for (i = 0; i < MAX_PENDING_REQS; i++) {
+> +			if (netbk->mmap_pages[i])
+> +				__free_page(netbk->mmap_pages[i]);
+> +		}
+> +		del_timer_sync(&netbk->net_timer);
+> +		kthread_stop(netbk->task);
+> +	}
+> +	vfree(xen_netbk);
+> +}
+> +
+> +module_exit(netback_exit);
+> +
+>  MODULE_LICENSE("Dual BSD/GPL");
+>  MODULE_ALIAS("xen-backend:vif");
+> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+> index 410018c..65d14f2 100644
+> --- a/drivers/net/xen-netback/xenbus.c
+> +++ b/drivers/net/xen-netback/xenbus.c
+> @@ -485,3 +485,8 @@ int xenvif_xenbus_init(void)
+>  {
+>  	return xenbus_register_backend(&netback_driver);
+>  }
+> +
+> +void xenvif_xenbus_exit(void)
+> +{
+> +	return xenbus_unregister_driver(&netback_driver);
+> +}
 > -- 
 > 1.7.10.4
+> 
+> 
+> _______________________________________________
+> Xen-devel mailing list
+> Xen-devel@lists.xen.org
+> http://lists.xen.org/xen-devel
 > 
