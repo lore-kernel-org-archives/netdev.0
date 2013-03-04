@@ -1,8 +1,8 @@
 From: Peter Hurley <peter@hurleysoftware.com>
 Subject: Re: [PATCH] ircomm: release tty before sleeping potentially
  indefintely
-Date: Sun, 03 Mar 2013 23:24:23 -0500
-Message-ID: <1362371063.3221.185.camel@thor.lan>
+Date: Sun, 03 Mar 2013 23:30:09 -0500
+Message-ID: <1362371409.23313.2.camel@thor.lan>
 References: <1362355465.3221.82.camel@thor.lan>
 	 <20130303.193313.408641189137321065.davem@davemloft.net>
 	 <1362359178.3221.118.camel@thor.lan>
@@ -18,6 +18,7 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20130303.213601.1201168888595187293.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
 
 On Sun, 2013-03-03 at 21:36 -0500, David Miller wrote:
 > From: Peter Hurley <peter@hurleysoftware.com>
@@ -67,6 +68,9 @@ open (meaning no underlying device attached prior to open) then why
 specify that in the driver flags? Additionally, CLOCAL can be masked out
 by the driver's set_termios() method. And then it could implement the
 state check in its .carrier_raised() method.
+
+The net result of which would obviate the need for
+ircomm_tty_block_til_ready() at all.
 
 3) The do_clocal snapshot is universally employed by every tty driver. I
 don't mean that as some kind of lame excuse. But if this should change,
