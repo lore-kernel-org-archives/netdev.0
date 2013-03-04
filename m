@@ -1,49 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net] garp: fix a NULL pointer dereference bug
-Date: Mon, 04 Mar 2013 06:56:15 -0800
-Message-ID: <1362408975.15793.92.camel@edumazet-glaptop>
-References: <1362368217-30984-1-git-send-email-amwang@redhat.com>
-	 <1362374790.15793.87.camel@edumazet-glaptop> <1362390955.2383.2.camel@cr0>
+From: Eric Dumazet <erdnetdev@gmail.com>
+Subject: Re: [PATCH] net: ipv6: Don't purge default router if accept_ra=2
+Date: Mon, 04 Mar 2013 06:58:55 -0800
+Message-ID: <1362409135.15793.93.camel@edumazet-glaptop>
+References: <CAKD1Yr2e8Z8CDAM3tgp=nUR58OO9QZYEx8zkWwwcQ1S=14D2Qw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugs@syam.in,
-	David Ward <david.ward@ll.mit.edu>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:46051 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756641Ab3CDO4S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 09:56:18 -0500
-Received: by mail-pa0-f52.google.com with SMTP id fb1so3206692pad.25
-        for <netdev@vger.kernel.org>; Mon, 04 Mar 2013 06:56:17 -0800 (PST)
-In-Reply-To: <1362390955.2383.2.camel@cr0>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:64508 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756870Ab3CDO67 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 09:58:59 -0500
+Received: by mail-pb0-f52.google.com with SMTP id ma3so3139399pbc.39
+        for <netdev@vger.kernel.org>; Mon, 04 Mar 2013 06:58:58 -0800 (PST)
+In-Reply-To: <CAKD1Yr2e8Z8CDAM3tgp=nUR58OO9QZYEx8zkWwwcQ1S=14D2Qw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-03-04 at 17:55 +0800, Cong Wang wrote:
-> On Sun, 2013-03-03 at 21:26 -0800, Eric Dumazet wrote:
-> > 
-> > Nope this patch doesnt solve the problem
-> > 
-> > Crash is in :
-> > 
-> > 49 8b 1c c6             mov    (%r14,%rax,8),%rbx 
-> > 
-> > Thats because r14 (port) is NULL
-> > 
-> > 
-> > 
+On Mon, 2013-03-04 at 15:46 +0900, Lorenzo Colitti wrote:
+> Setting net.ipv6.conf.<interface>.accept_ra=2 causes the kernel
+> to accept RAs even when forwarding is enabled. However, enabling
+> forwarding purges all default routes on the system, breaking
+> connectivity until the next RA is received. Fix this by not
+> purging default routes on interfaces that have accept_ra=2.
 > 
-> Hmm, but I can't see how it can be NULL, the only place of NULL'ing it
-> is inside garp_release_port(), right after the piece of code that I
-> patched.
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+> ---
+>  net/ipv6/route.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
 > 
-> Thanks!
-> 
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 9282665..e5fe004 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1915,7 +1915,8 @@ void rt6_purge_dflt_routers(struct net *net)
+>  restart:
+>  	read_lock_bh(&table->tb6_lock);
+>  	for (rt = table->tb6_root.leaf; rt; rt = rt->dst.rt6_next) {
+> -		if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF)) {
+> +		if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF) &&
+> +		    (!rt->rt6i_idev || rt->rt6i_idev->cnf.accept_ra != 2)) {
+>  			dst_hold(&rt->dst);
+>  			read_unlock_bh(&table->tb6_lock);
+>  			ip6_del_rt(rt);
 
-Maybe port is NULL from the beginning.
-
-Try to inject memory allocations error in garp_init_port()
+Acked-by: Eric Dumazet <edumazet@google.com>
