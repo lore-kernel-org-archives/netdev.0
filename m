@@ -1,30 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] rds: simplify a warning message
-Date: Mon, 04 Mar 2013 14:15:30 -0500 (EST)
-Message-ID: <20130304.141530.1588235247341071318.davem@davemloft.net>
-References: <1362380238-10435-1-git-send-email-amwang@redhat.com>
+Subject: Re: [PATCH v3] CAIF: fix sparse warning for caif_usb
+Date: Mon, 04 Mar 2013 14:15:36 -0500 (EST)
+Message-ID: <20130304.141536.814115651801542145.davem@davemloft.net>
+References: <1362380971-23007-1-git-send-email-silviupopescu1990@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, venkat.x.venkatsubra@oracle.com
-To: amwang@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40650 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758520Ab3CDTPb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 14:15:31 -0500
-In-Reply-To: <1362380238-10435-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, sjur.brandeland@stericsson.com,
+	linux-kernel@vger.kernel.org
+To: silviupopescu1990@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1362380971-23007-1-git-send-email-silviupopescu1990@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
-Date: Mon,  4 Mar 2013 14:57:18 +0800
+From: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+Date: Mon,  4 Mar 2013 09:09:31 +0200
 
-> From: Cong Wang <amwang@redhat.com>
+> This fixes the following sparse warning:
+> net/caif/caif_usb.c:84:16: warning: symbol 'cfusbl_create' was not
+> declared. Should it be static?
 > 
-> 
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+> Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
 
 Applied.
