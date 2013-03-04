@@ -1,88 +1,125 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: Fw: [Bug 54601] New: PPP regression on 3.2.39 stop work need
- restart server ont version 3.2.21 not found this problem.
-Date: Mon, 4 Mar 2013 22:48:37 +0000
-Message-ID: <20130304224837.GX9079@decadent.org.uk>
-References: <20130301084705.4169c429@nehalam.linuxnetplumber.net>
+From: Mihai =?UTF-8?B?RG9uyJt1?= <mihai.dontu@gmail.com>
+Subject: Re: e1000e 3.9-rc1 suspend failure (was: Re: e1000e:
+ nic does not work properly after cold power on)
+Date: Tue, 5 Mar 2013 00:58:36 +0200
+Message-ID: <20130305005836.4f84c065@mdontu-l.dsd.ro>
+References: <20130304124631.2ac730f3@mdontu-l.dsd.ro>
+	<5134E4AB.2010504@imt-systems.com> <20130304214830.GB22306@pd.tnic>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, micron10@gmail.com,
-	Eric Dumazet <edumazet@google.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:40639 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758655Ab3CDWsm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 17:48:42 -0500
-Content-Disposition: inline
-In-Reply-To: <20130301084705.4169c429@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, "Rafael J.
+	Wysocki" <rjw@sisk.pl>, Borislav Petkov <bp@alien8.de>,
+	Jiri Slaby <jslaby@suse.cz>
+To: Morten Stevens <mstevens@imt-systems.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130304214830.GB22306@pd.tnic>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 01, 2013 at 08:47:05AM -0800, Stephen Hemminger wrote:
-> 
-> 
-> Begin forwarded message:
-> 
-> Date: Fri, 1 Mar 2013 01:24:14 -0800
-> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-> To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-> Subject: [Bug 54601] New: PPP regression on 3.2.39 stop work need restart server ont version 3.2.21 not found this problem.
-> 
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=54601
-> 
->            Summary: PPP regression on 3.2.39 stop work need restart server
->                     ont version 3.2.21 not found this problem.
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 3.2.39
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: high
->           Priority: P1
->          Component: Other
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: micron10@gmail.com
->         Regression: Yes
-> 
-> 
-> Hi
-> watch a problem with PPP after upgrade to version 3.2.39 ppp service stop work
-> 2 hours after start with this crash :
-> 
-> [79619.180026] unregister_netdevice: waiting for ppp618 to become free. Usage
-> count = 562
-[...]
-> [79862.540040] unregister_netdevice: waiting for ppp618 to become free. Usage
-> count = 30
-> [79872.680037] unregister_netdevice: waiting for ppp618 to become free. Usage
-> count = 9
-[...]
-
-So there are many references left to the device, which slowly go away
-(very slowly, about 2 per second).  Maybe there are skbs in a queue somewhere
-that still refer to the PPP device.
-
-Since this a regression between 3.2.21 and 3.2.29, it might have been
-introduced by:
-
-commit 73a3346556281fd56f39f0a9475249e5039d8807
-Author: Eric Dumazet <edumazet@google.com>
-Date:   Thu Jun 14 06:42:44 2012 +0000
-
-    net: remove skb_orphan_try()
-    
-    commit 62b1a8ab9b3660bb820d8dfe23148ed6cda38574 upstream.
-
-But this is a bit of a guess.  And I don't think that this change
-would do more than expose/exacerbate a bug that already existed.
-
-Ben.
-
--- 
-Ben Hutchings
-We get into the habit of living before acquiring the habit of thinking.
-                                                              - Albert Camus
+T24gTW9uLCA0IE1hciAyMDEzIDIyOjQ4OjMwICswMTAwIEJvcmlzbGF2IFBldGtvdiB3cm90ZToK
+PiBPbiBNb24sIE1hciAwNCwgMjAxMyBhdCAwNzoxNTowN1BNICswMTAwLCBNb3J0ZW4gU3RldmVu
+cyB3cm90ZToKPiA+IENhbiB5b3UgcmVwcm9kdWNlIHRoaXMgd2l0aCBsaW51eCAzLjktcmMxPyAz
+LjktcmMxIGhhcyB0aGUgbGF0ZXN0Cj4gPiB1cHN0cmVhbSBkcml2ZXIgKGUxMDAwZSAyLjIuMTQp
+IHdoaWNoIGNvbnRhaW5zIG1hbnkgYnVnZml4ZXMuCj4gCgpPbiBteSBzeXN0ZW0gKFRoaW5rUGFk
+IFQ0MjApIEkgZ2V0OgoKWyAgIDEwLjY5NDc0M10gZTEwMDBlOiBJbnRlbChSKSBQUk8vMTAwMCBO
+ZXR3b3JrIERyaXZlciAtIDIuMi4xNC1rClsgICAxMC42OTQ3NDZdIGUxMDAwZTogQ29weXJpZ2h0
+KGMpIDE5OTkgLSAyMDEzIEludGVsIENvcnBvcmF0aW9uLgpbICAgMTAuNjk0ODUyXSBlMTAwMGUg
+MDAwMDowMDoxOS4wOiBzZXR0aW5nIGxhdGVuY3kgdGltZXIgdG8gNjQKWyAgIDEwLjY5NDkxMV0g
+ZTEwMDBlIDAwMDA6MDA6MTkuMDogSW50ZXJydXB0IFRocm90dGxpbmcgUmF0ZSAoaW50cy9zZWMp
+IHNldCB0byBkeW5hbWljIGNvbnNlcnZhdGl2ZSBtb2RlClsgICAxMC42OTQ5NDldIGUxMDAwZSAw
+MDAwOjAwOjE5LjA6IGlycSA0NyBmb3IgTVNJL01TSS1YClsgICAxMC45NzUwODZdIGUxMDAwZSAw
+MDAwOjAwOjE5LjAgZXRoMDogcmVnaXN0ZXJlZCBQSEMgY2xvY2sKWyAgIDEwLjk3NTA5MV0gZTEw
+MDBlIDAwMDA6MDA6MTkuMCBldGgwOiAoUENJIEV4cHJlc3M6Mi41R1QvczpXaWR0aCB4MSkgMDA6
+MjE6Y2M6NzA6MTc6YTAKWyAgIDEwLjk3NTA5M10gZTEwMDBlIDAwMDA6MDA6MTkuMCBldGgwOiBJ
+bnRlbChSKSBQUk8vMTAwMCBOZXR3b3JrIENvbm5lY3Rpb24KWyAgIDEwLjk3NTEyN10gZTEwMDBl
+IDAwMDA6MDA6MTkuMCBldGgwOiBNQUM6IDEwLCBQSFk6IDExLCBQQkEgTm86IDEwMDBGRi0wRkYK
+WyAgIDg5LjcxNjY5NV0gZTEwMDBlIDAwMDA6MDA6MTkuMCBldGgwOiBIYXJkd2FyZSBFcnJvcgpb
+ICAgOTAuMDI1NDAzXSBlMTAwMGUgMDAwMDowMDoxOS4wIGV0aDA6IFRpbWVzeW5jIFR4IENvbnRy
+b2wgcmVnaXN0ZXIgbm90IHNldCBhcyBleHBlY3RlZApbICAgOTAuMzQ5MTk3XSBlMTAwMGUgMDAw
+MDowMDoxOS4wOiBpcnEgNDcgZm9yIE1TSS9NU0ktWApbICAgOTAuNDQ5NzYwXSBlMTAwMGUgMDAw
+MDowMDoxOS4wOiBpcnEgNDcgZm9yIE1TSS9NU0ktWAoKVGhlICdoYXJkd2FyZSBlcnJvcicgbGlu
+ZSBjYXVnaHQgbXkgYXR0ZW50aW9uLgoKPiBUaGlzIGUxMDAwZSB0aGluZyBnZXRzIG1vcmUgYjBy
+a2VkIGJ5IHRoZSBtaW51dGUuIFRoaXMgaXMgd2hhdCBoYXBwZW5zCj4gd2hlbiBJIHRyeSB0byBz
+dXNwZW5kIHdpdGggMy45LXJjMToKPiAKPiBbICAgODMuNTAyOTA4XSBQTTogU3luY2luZyBmaWxl
+c3lzdGVtcyAuLi4gZG9uZS4KPiBbICAgODMuNTA5ODg2XSBGcmVlemluZyB1c2VyIHNwYWNlIHBy
+b2Nlc3NlcyAuLi4gKGVsYXBzZWQgMC4wMQo+IHNlY29uZHMpIGRvbmUuIFsgICA4My41MjMzNTJd
+IFBNOiBQcmVhbGxvY2F0aW5nIGltYWdlIG1lbW9yeS4uLiBkb25lCj4gKGFsbG9jYXRlZCA5NTY1
+MiBwYWdlcykgWyAgIDgzLjY3NTA4M10gUE06IEFsbG9jYXRlZCAzODI2MDgga2J5dGVzIGluCj4g
+MC4xNSBzZWNvbmRzICgyNTUwLjcyIE1CL3MpIFsgICA4My42NzU3ODJdIEZyZWV6aW5nIHJlbWFp
+bmluZwo+IGZyZWV6YWJsZSB0YXNrcyAuLi4gKGVsYXBzZWQgMC4wMSBzZWNvbmRzKSBkb25lLiBb
+ICAgODMuNjg4NTI0XQo+IFN1c3BlbmRpbmcgY29uc29sZShzKSAodXNlIG5vX2NvbnNvbGVfc3Vz
+cGVuZCB0byBkZWJ1ZykKPiBbICAgODQuMjUxMDI0XSBlMTAwMGUgMDAwMDowMDoxOS4wIGV0aDA6
+IEhhcmR3YXJlIEVycm9yCj4gWyAgIDg0LjQ1ODg2Nl0gLS0tLS0tLS0tLS0tWyBjdXQgaGVyZSBd
+LS0tLS0tLS0tLS0tIFsgICA4NC40NTg4NzFdCj4gV0FSTklORzogYXQga2VybmVsL2lycS9tYW5h
+Z2UuYzoxMjQ5IF9fZnJlZV9pcnErMHhhMy8weDFlMCgpCj4gWyAgIDg0LjQ1ODg3Ml0gSGFyZHdh
+cmUgbmFtZTogMjMyMENUTyBbICAgODQuNDU4ODcyXSBUcnlpbmcgdG8gZnJlZQo+IGFscmVhZHkt
+ZnJlZSBJUlEgMjAgWyAgIDg0LjQ1ODg5OF0gTW9kdWxlcyBsaW5rZWQgaW46Cj4gY3B1ZnJlcV9w
+b3dlcnNhdmUgY3B1ZnJlcV91c2Vyc3BhY2UgY3B1ZnJlcV9jb25zZXJ2YXRpdmUKPiBjcHVmcmVx
+X3N0YXRzIHVpbnB1dCBsb29wIGhpZF9nZW5lcmljIHVzYiBoaWQgaGlkIGNvcmV0ZW1wIGt2bV9p
+bnRlbAo+IGFyYzQga3ZtIGNyYzMyX3BjbG11bCBpd2xkdm0gY3JjMzJjX2ludGVsIGdoYXNoX2Ns
+bXVsbmlfaW50ZWwKPiBtYWM4MDIxMSBhZXNuaV9pbnRlbCB4dHMgaXB2NiBhZXNfeDg2XzY0IGxy
+IHcgZ2YxMjhtdWwgYWJsa19oZWxwZXIKPiBjcnlwdGQgaVRDT193ZHQgaVRDT192ZW5kb3Jfc3Vw
+cG9ydCBpd2x3aWZpIHNkaGNpX3BjaSBzZGhjaSBjZmc4MDIxMQo+IHNuZF9oZGFfY29kZWNfaGRt
+aSBzbmRfaGRhX2NvZGVjX3JlYWx0ZWsgbW1jX2NvcmUgbWljcm9jb2RlIGUxMDAwZQo+IHRoaW5r
+cGFkX2FjcGkgcGNzcGtyIGxwY19pY2ggaTJjX2k4MDEgbWZkX2NvcmUgbnZyYW0gc25kX2hkYV9p
+bnRlbAo+IHJma2lsbCBzbmRfaGRhX2NvZGVjIGJhdHRlcnkgYWMgc25kX2h3IGRlcCBsZWRfY2xh
+c3Mgc25kX3BjbQo+IHNuZF9wYWdlX2FsbG9jIHNuZF90aW1lciBzbmQgYWNwaV9jcHVmcmVxIHNv
+dW5kY29yZSBtcGVyZiBwdHAgd21pCj4gcHBzX2NvcmUgeGhjaV9oY2QgZWhjaV9wY2kgZWhjaV9o
+Y2QgcHJvY2Vzc28gciB0aGVybWFsIFsgICA4NC40NTg5MDBdCj4gUGlkOiAzMzUzLCBjb21tOiBr
+d29ya2VyL3U6MzUgVGFpbnRlZDogRyAgICAgICAgVyAgICAzLjkuMC1yYzEgIzEKPiBbICAgODQu
+NDU4OTAxXSBDYWxsIFRyYWNlOiBbICAgODQuNDU4OTA1XSAgWzxmZmZmZmZmZjgxMDNlZjdmPl0K
+PiB3YXJuX3Nsb3dwYXRoX2NvbW1vbisweDdmLzB4YzAgWyAgIDg0LjQ1ODkwN10gIFs8ZmZmZmZm
+ZmY4MTAzZjA3Nj5dCj4gd2Fybl9zbG93cGF0aF9mbXQrMHg0Ni8weDUwIFsgICA4NC40NTg5MTBd
+ICBbPGZmZmZmZmZmODE1MzdiZmU+XSA/Cj4gX3Jhd19zcGluX2xvY2tfaXJxc2F2ZSsweDRlLzB4
+NjAgWyAgIDg0LjQ1ODkxMV0KPiBbPGZmZmZmZmZmODEwYmM4ZDU+XSA/IF9fZnJlZV9pcnErMHg1
+NS8weDFlMCBbICAgODQuNDU4OTEzXQo+IFs8ZmZmZmZmZmY4MTBiYzkyMz5dIF9fZnJlZV9pcnEr
+MHhhMy8weDFlMCBbICAgODQuNDU4OTE0XQo+IFs8ZmZmZmZmZmY4MTBiY2FiND5dIGZyZWVfaXJx
+KzB4NTQvMHhjMCBbICAgODQuNDU4OTE5XQo+IFs8ZmZmZmZmZmZhMDE3NzQ1ZD5dIGUxMDAwX2Zy
+ZWVfaXJxKzB4N2QvMHg5MCBbZTEwMDBlXQo+IFsgICA4NC40NTg5MjJdICBbPGZmZmZmZmZmYTAx
+ODM0YWY+XSBfX2UxMDAwX3NodXRkb3duKzB4OGYvMHg4YTAKPiBbZTEwMDBlXSBbICAgODQuNDU4
+OTI0XSAgWzxmZmZmZmZmZjgxM2M5MmE3Pl0gPwo+IF9fZGV2aWNlX3N1c3BlbmQrMHhiNy8weDIw
+MCBbICAgODQuNDU4OTI3XSAgWzxmZmZmZmZmZjgxMDczYjcxPl0gPwo+IGdldF9wYXJlbnRfaXAr
+MHgxMS8weDUwIFsgICA4NC40NTg5MzFdICBbPGZmZmZmZmZmYTAxODNkMzM+XQo+IGUxMDAwX3N1
+c3BlbmQrMHgyMy8weDUwIFtlMTAwMGVdIFsgICA4NC40NTg5MzJdCj4gWzxmZmZmZmZmZjgxM2M5
+MmE3Pl0gPyBfX2RldmljZV9zdXNwZW5kKzB4YjcvMHgyMDAgWyAgIDg0LjQ1ODkzM10KPiBbPGZm
+ZmZmZmZmODE1M2MwNDk+XSA/IHN1Yl9wcmVlbXB0X2NvdW50KzB4NzkvMHhkMCBbICAgODQuNDU4
+OTM2XQo+IFs8ZmZmZmZmZmY4MTJhMmZmNT5dIHBjaV9wbV9mcmVlemUrMHg1NS8weGMwIFsgICA4
+NC40NTg5MzddCj4gWzxmZmZmZmZmZjgxMmEyZmEwPl0gPyBwY2lfcG1fcmVzdW1lX25vaXJxKzB4
+ZDAvMHhkMCBbICAgODQuNDU4OTM4XQo+IFs8ZmZmZmZmZmY4MTNjOGI0NT5dIGRwbV9ydW5fY2Fs
+bGJhY2suaXNyYS41KzB4MjUvMHg1MAo+IFsgICA4NC40NTg5MzldICBbPGZmZmZmZmZmODEzYzky
+ZDM+XSBfX2RldmljZV9zdXNwZW5kKzB4ZTMvMHgyMDAKPiBbICAgODQuNDU4OTQxXSAgWzxmZmZm
+ZmZmZjgxM2M5NDBmPl0gYXN5bmNfc3VzcGVuZCsweDFmLzB4YTAKPiBbICAgODQuNDU4OTQyXSAg
+WzxmZmZmZmZmZjgxMDZiY2ZiPl0gYXN5bmNfcnVuX2VudHJ5X2ZuKzB4M2IvMHgxNDAKPiBbICAg
+ODQuNDU4OTQ0XSAgWzxmZmZmZmZmZjgxMDVkMDBkPl0gcHJvY2Vzc19vbmVfd29yaysweDFlZC8w
+eDUxMAo+IFsgICA4NC40NTg5NDZdICBbPGZmZmZmZmZmODEwNWNmYWI+XSA/IHByb2Nlc3Nfb25l
+X3dvcmsrMHgxOGIvMHg1MTAKPiBbICAgODQuNDU4OTQ4XSAgWzxmZmZmZmZmZjgxMDVlN2I1Pl0g
+d29ya2VyX3RocmVhZCsweDExNS8weDM5MAo+IFsgICA4NC40NTg5NDldICBbPGZmZmZmZmZmODEw
+NWU2YTA+XSA/IG1hbmFnZV93b3JrZXJzKzB4MzAwLzB4MzAwCj4gWyAgIDg0LjQ1ODk1MV0gIFs8
+ZmZmZmZmZmY4MTA2NGUyYT5dIGt0aHJlYWQrMHhlYS8weGYwCj4gWyAgIDg0LjQ1ODk1M10gIFs8
+ZmZmZmZmZmY4MTA2NGQ0MD5dID8KPiBrdGhyZWFkX2NyZWF0ZV9vbl9ub2RlKzB4MTYwLzB4MTYw
+IFsgICA4NC40NTg5NTRdCj4gWzxmZmZmZmZmZjgxNTNmZjljPl0gcmV0X2Zyb21fZm9yaysweDdj
+LzB4YjAgWyAgIDg0LjQ1ODk1NV0KPiBbPGZmZmZmZmZmODEwNjRkNDA+XSA/IGt0aHJlYWRfY3Jl
+YXRlX29uX25vZGUrMHgxNjAvMHgxNjAKPiBbICAgODQuNDU4OTU2XSAtLS1bIGVuZCB0cmFjZSAz
+MTE0ZTIzY2U1MGQyMzU3IF0tLS0gWyAgIDg1LjA4MjI3Nl0KPiBwY2lfcG1fZnJlZXplKCk6IGUx
+MDAwX3N1c3BlbmQrMHgwLzB4NTAgW2UxMDAwZV0gcmV0dXJucyAtMgo+IFsgICA4NS4wODIyNzhd
+IGRwbV9ydW5fY2FsbGJhY2soKTogcGNpX3BtX2ZyZWV6ZSsweDAvMHhjMCByZXR1cm5zIC0yCj4g
+WyAgIDg1LjA4MjI4MV0gUE06IERldmljZSAwMDAwOjAwOjE5LjAgZmFpbGVkIHRvIGZyZWV6ZSBh
+c3luYzogZXJyb3IKPiAtMgo+IAo+IExldCdzIGFkZCBtb3JlIGZvbGtzIHRvIENDLgo+IAoKLS0g
+Ck1paGFpIERvbsibdQoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkV2ZXJ5b25lIGhhdGVzIHNsb3cg
+d2Vic2l0ZXMuIFNvIGRvIHdlLgpNYWtlIHlvdXIgd2ViIGFwcHMgZmFzdGVyIHdpdGggQXBwRHlu
+YW1pY3MKRG93bmxvYWQgQXBwRHluYW1pY3MgTGl0ZSBmb3IgZnJlZSB0b2RheToKaHR0cDovL3Au
+c2YubmV0L3NmdS9hcHBkeW5fZDJkX2ZlYgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlz
+dHMuc291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xp
+c3RpbmZvL2UxMDAwLWRldmVsClRvIGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRoZXJu
+ZXQsIHZpc2l0IGh0dHA6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVkCg==
