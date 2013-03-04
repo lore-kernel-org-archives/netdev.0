@@ -1,37 +1,40 @@
-From: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
-Subject: [PATCH v2] CAIF: fix sparse warning for caif_usb
-Date: Mon,  4 Mar 2013 08:52:00 +0200
-Message-ID: <1362379920-26126-1-git-send-email-silviupopescu1990@gmail.com>
-Cc: sjur.brandeland@stericsson.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net] rds: simplify a warning message
+Date: Mon,  4 Mar 2013 14:57:18 +0800
+Message-ID: <1362380238-10435-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52045 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750727Ab3CDG5e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Mar 2013 01:57:34 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This fixes the following sparse warning:
-net/caif/caif_usb.c:84:16: warning: symbol 'cfusbl_create' was not
-declared. Should it be static?
+From: Cong Wang <amwang@redhat.com>
 
-Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
 ---
- net/caif/caif_usb.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/caif/caif_usb.c b/net/caif/caif_usb.c
-index 3ebc8cb..1c6ded9 100644
---- a/net/caif/caif_usb.c
-+++ b/net/caif/caif_usb.c
-@@ -81,8 +81,8 @@ static void cfusbl_ctrlcmd(struct cflayer *layr, enum caif_ctrlcmd ctrl,
- 		layr->up->ctrlcmd(layr->up, ctrl, layr->id);
- }
- 
--struct cflayer *cfusbl_create(int phyid, u8 ethaddr[ETH_ALEN],
--					u8 braddr[ETH_ALEN])
-+static struct cflayer *cfusbl_create(int phyid, u8 ethaddr[ETH_ALEN],
-+							u8 braddr[ETH_ALEN])
+diff --git a/net/rds/message.c b/net/rds/message.c
+index f0a4658..5586cae 100644
+--- a/net/rds/message.c
++++ b/net/rds/message.c
+@@ -82,10 +82,7 @@ static void rds_message_purge(struct rds_message *rm)
+ void rds_message_put(struct rds_message *rm)
  {
- 	struct cfusbl *this = kmalloc(sizeof(struct cfusbl), GFP_ATOMIC);
- 
--- 
-1.7.9.5
+ 	rdsdebug("put rm %p ref %d\n", rm, atomic_read(&rm->m_refcount));
+-	if (atomic_read(&rm->m_refcount) == 0) {
+-printk(KERN_CRIT "danger refcount zero on %p\n", rm);
+-WARN_ON(1);
+-	}
++	WARN(!atomic_read(&rm->m_refcount), "danger refcount zero on %p\n", rm);
+ 	if (atomic_dec_and_test(&rm->m_refcount)) {
+ 		BUG_ON(!list_empty(&rm->m_sock_item));
+ 		BUG_ON(!list_empty(&rm->m_conn_item));
