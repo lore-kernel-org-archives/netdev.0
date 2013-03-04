@@ -1,90 +1,355 @@
-From: Borislav Petkov <bp@alien8.de>
-Subject: e1000e 3.9-rc1 suspend failure (was: Re: e1000e: nic does not work
- properly after cold power on)
-Date: Mon, 4 Mar 2013 22:48:30 +0100
-Message-ID: <20130304214830.GB22306@pd.tnic>
-References: <20130304124631.2ac730f3@mdontu-l.dsd.ro>
- <5134E4AB.2010504@imt-systems.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Mihai =?utf-8?B?RG9uyJt1?= <mihai.dontu@gmail.com>,
-	linux-kernel@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Jiri Slaby <jslaby@suse.cz>
-To: Morten Stevens <mstevens@imt-systems.com>
+From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Subject: [PATCH v5] net: sh_eth: Add support of device tree probe
+Date: Tue,  5 Mar 2013 06:52:20 +0900
+Message-ID: <1362433940-20533-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Cc: grant.likely@secretlab.ca, kuninori.morimoto.gx@renesas.com,
+	devicetree-discuss@lists.ozlabs.org, magnus.damm@gmail.com,
+	horms+renesas@verge.net.au, kda@linux-powerpc.org,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.skyhub.de ([78.46.96.112]:37835 "EHLO mail.skyhub.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932538Ab3CDVsr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Mar 2013 16:48:47 -0500
-Content-Disposition: inline
-In-Reply-To: <5134E4AB.2010504@imt-systems.com>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:45998 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932596Ab3CDVwc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 16:52:32 -0500
+Received: by mail-pb0-f48.google.com with SMTP id wy12so3464484pbc.35
+        for <netdev@vger.kernel.org>; Mon, 04 Mar 2013 13:52:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 04, 2013 at 07:15:07PM +0100, Morten Stevens wrote:
-> Can you reproduce this with linux 3.9-rc1? 3.9-rc1 has the latest
-> upstream driver (e1000e 2.2.14) which contains many bugfixes.
+This adds support of device tree probe for Renesas sh-ether driver.
 
-This e1000e thing gets more b0rked by the minute. This is what happens
-when I try to suspend with 3.9-rc1:
+Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 
-[   83.502908] PM: Syncing filesystems ... done.
-[   83.509886] Freezing user space processes ... (elapsed 0.01 seconds) done.
-[   83.523352] PM: Preallocating image memory... done (allocated 95652 pages)
-[   83.675083] PM: Allocated 382608 kbytes in 0.15 seconds (2550.72 MB/s)
-[   83.675782] Freezing remaining freezable tasks ... (elapsed 0.01 seconds) done.
-[   83.688524] Suspending console(s) (use no_console_suspend to debug)
-[   84.251024] e1000e 0000:00:19.0 eth0: Hardware Error
-[   84.458866] ------------[ cut here ]------------
-[   84.458871] WARNING: at kernel/irq/manage.c:1249 __free_irq+0xa3/0x1e0()
-[   84.458872] Hardware name: 2320CTO
-[   84.458872] Trying to free already-free IRQ 20
-[   84.458898] Modules linked in: cpufreq_powersave cpufreq_userspace cpufreq_conservative cpufreq_stats uinput loop hid_generic usb
-hid hid coretemp kvm_intel arc4 kvm crc32_pclmul iwldvm crc32c_intel ghash_clmulni_intel mac80211 aesni_intel xts ipv6 aes_x86_64 lr
-w gf128mul ablk_helper cryptd iTCO_wdt iTCO_vendor_support iwlwifi sdhci_pci sdhci cfg80211 snd_hda_codec_hdmi snd_hda_codec_realtek
- mmc_core microcode e1000e thinkpad_acpi pcspkr lpc_ich i2c_i801 mfd_core nvram snd_hda_intel rfkill snd_hda_codec battery ac snd_hw
-dep led_class snd_pcm snd_page_alloc snd_timer snd acpi_cpufreq soundcore mperf ptp wmi pps_core xhci_hcd ehci_pci ehci_hcd processo
-r thermal
-[   84.458900] Pid: 3353, comm: kworker/u:35 Tainted: G        W    3.9.0-rc1 #1
-[   84.458901] Call Trace:
-[   84.458905]  [<ffffffff8103ef7f>] warn_slowpath_common+0x7f/0xc0
-[   84.458907]  [<ffffffff8103f076>] warn_slowpath_fmt+0x46/0x50
-[   84.458910]  [<ffffffff81537bfe>] ? _raw_spin_lock_irqsave+0x4e/0x60
-[   84.458911]  [<ffffffff810bc8d5>] ? __free_irq+0x55/0x1e0
-[   84.458913]  [<ffffffff810bc923>] __free_irq+0xa3/0x1e0
-[   84.458914]  [<ffffffff810bcab4>] free_irq+0x54/0xc0
-[   84.458919]  [<ffffffffa017745d>] e1000_free_irq+0x7d/0x90 [e1000e]
-[   84.458922]  [<ffffffffa01834af>] __e1000_shutdown+0x8f/0x8a0 [e1000e]
-[   84.458924]  [<ffffffff813c92a7>] ? __device_suspend+0xb7/0x200
-[   84.458927]  [<ffffffff81073b71>] ? get_parent_ip+0x11/0x50
-[   84.458931]  [<ffffffffa0183d33>] e1000_suspend+0x23/0x50 [e1000e]
-[   84.458932]  [<ffffffff813c92a7>] ? __device_suspend+0xb7/0x200
-[   84.458933]  [<ffffffff8153c049>] ? sub_preempt_count+0x79/0xd0
-[   84.458936]  [<ffffffff812a2ff5>] pci_pm_freeze+0x55/0xc0
-[   84.458937]  [<ffffffff812a2fa0>] ? pci_pm_resume_noirq+0xd0/0xd0
-[   84.458938]  [<ffffffff813c8b45>] dpm_run_callback.isra.5+0x25/0x50
-[   84.458939]  [<ffffffff813c92d3>] __device_suspend+0xe3/0x200
-[   84.458941]  [<ffffffff813c940f>] async_suspend+0x1f/0xa0
-[   84.458942]  [<ffffffff8106bcfb>] async_run_entry_fn+0x3b/0x140
-[   84.458944]  [<ffffffff8105d00d>] process_one_work+0x1ed/0x510
-[   84.458946]  [<ffffffff8105cfab>] ? process_one_work+0x18b/0x510
-[   84.458948]  [<ffffffff8105e7b5>] worker_thread+0x115/0x390
-[   84.458949]  [<ffffffff8105e6a0>] ? manage_workers+0x300/0x300
-[   84.458951]  [<ffffffff81064e2a>] kthread+0xea/0xf0
-[   84.458953]  [<ffffffff81064d40>] ? kthread_create_on_node+0x160/0x160
-[   84.458954]  [<ffffffff8153ff9c>] ret_from_fork+0x7c/0xb0
-[   84.458955]  [<ffffffff81064d40>] ? kthread_create_on_node+0x160/0x160
-[   84.458956] ---[ end trace 3114e23ce50d2357 ]---
-[   85.082276] pci_pm_freeze(): e1000_suspend+0x0/0x50 [e1000e] returns -2
-[   85.082278] dpm_run_callback(): pci_pm_freeze+0x0/0xc0 returns -2
-[   85.082281] PM: Device 0000:00:19.0 failed to freeze async: error -2
+V5: - Rewrite sh_eth_parse_dt().
+      Remove of_device_is_available() and CONFIG_OF from support OF
+      checking function and re-add empty sh_eth_parse_dt().
+    - Add CONFIG_PM to definition of dev_pm_ops.
+	- Add CONFIG_OF to definition of of_device_id.
+V4: - Remove empty sh_eth_parse_dt().
+V3: - Remove empty sh_eth_parse_dt().
+V3: - Removed sentnece of "needs-init" from document.
+V2: - Removed ether_setup().
+    - Fixed typo from "sh-etn" to "sh-eth".
+	- Removed "needs-init" and sh-eth,endian from definition of DT.
+	- Changed "sh-eth,edmac-endian" instead of "sh-eth,edmac-big-endain"
+	  in definition of DT.
+---
+ Documentation/devicetree/bindings/net/sh_ether.txt |   39 +++++
+ drivers/net/ethernet/renesas/sh_eth.c              |  164 +++++++++++++++++---
+ 2 files changed, 178 insertions(+), 25 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/sh_ether.txt
 
-Let's add more folks to CC.
-
+diff --git a/Documentation/devicetree/bindings/net/sh_ether.txt b/Documentation/devicetree/bindings/net/sh_ether.txt
+new file mode 100644
+index 0000000..2deb841
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/sh_ether.txt
+@@ -0,0 +1,39 @@
++* Renesas Electronics SuperH EMAC
++
++This file provides information, what the device node
++for the sh_eth interface contains.
++
++Required properties:
++- compatible:                   "renesas,sh-eth";
++- interrupt-parent:             The phandle for the interrupt controller that
++                                services interrupts for this device.
++- reg:                          Offset and length of the register set for the
++                                device.
++- interrupts:                   Interrupt mapping for the sh_eth interrupt
++                                sources (vector id).
++- phy-mode:                     String, operation mode of the PHY interface.
++- sh-eth,register-type:         String, register type of sh_eth.
++                                Please select "gigabit", "fast-sh4" or
++                                "fast-sh3-sh2".
++- sh-eth,phy-id:                PHY id.
++
++Optional properties:
++- local-mac-address:            6 bytes, mac address
++- sh-eth,no-ether-link:         Set link control by software. When device does
++                                not support ether-link, set.
++- sh-eth,ether-link-active-low: Set link check method.
++                                When detection of link is treated as active-low,
++                                set.
++- sh-eth,edmac-big-endian:      Set big endian for sh_eth dmac.
++                                It work as little endian when this is not set.
++
++Example (armadillo800eva):
++	sh-eth@e9a00000 {
++		compatible = "renesas,sh-eth";
++		interrupt-parent = <&intca>;
++		reg = <0xe9a00000 0x800>, <0xe9a01800 0x800>;
++		interrupts = <0x500>;
++		phy-mode = "mii";
++		sh-eth,register-type = "gigabit";
++		sh-eth,phy-id = <0>;
++	};
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 3d70586..a97d208 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1,7 +1,7 @@
+ /*
+  *  SuperH Ethernet device driver
+  *
+- *  Copyright (C) 2006-2012 Nobuhiro Iwamatsu
++ *  Copyright (C) 2006-2013 Nobuhiro Iwamatsu
+  *  Copyright (C) 2008-2012 Renesas Solutions Corp.
+  *
+  *  This program is free software; you can redistribute it and/or modify it
+@@ -31,6 +31,12 @@
+ #include <linux/platform_device.h>
+ #include <linux/mdio-bitbang.h>
+ #include <linux/netdevice.h>
++#include <linux/of.h>
++#include <linux/of_device.h>
++#include <linux/of_platform.h>
++#include <linux/of_address.h>
++#include <linux/of_irq.h>
++#include <linux/of_net.h>
+ #include <linux/phy.h>
+ #include <linux/cache.h>
+ #include <linux/io.h>
+@@ -2347,26 +2353,109 @@ static const struct net_device_ops sh_eth_netdev_ops = {
+ 	.ndo_change_mtu		= eth_change_mtu,
+ };
+ 
++#ifdef CONFIG_OF
++static int
++sh_eth_of_get_register_type(struct device_node *np)
++{
++	const char *of_str;
++	int ret = of_property_read_string(np, "sh-eth,register-type", &of_str);
++	if (ret)
++		return ret;
++
++	if (of_str && !strcmp(of_str, "gigabit"))
++		return SH_ETH_REG_GIGABIT;
++
++	else if (of_str && !strcmp(of_str, "fast-sh4"))
++		return SH_ETH_REG_FAST_SH4;
++	else if (of_str && !strcmp(of_str, "fast-sh3-sh2"))
++		return SH_ETH_REG_FAST_SH3_SH2;
++	else
++		return -EINVAL;
++}
++
++static struct sh_eth_plat_data *
++sh_eth_parse_dt(struct device *dev, struct net_device *ndev,
++				struct device_node *np)
++{
++	int ret;
++	struct sh_eth_plat_data *pdata;
++
++	pdata = devm_kzalloc(dev, sizeof(struct sh_eth_plat_data),
++					GFP_KERNEL);
++	if (!pdata) {
++		dev_err(dev, "%s: failed to allocate config data\n", __func__);
++		return NULL;
++	}
++
++	pdata->phy_interface = of_get_phy_mode(np);
++
++	of_property_read_u32(np, "sh-eth,phy-id", &pdata->phy);
++
++	if (of_find_property(np, "sh-eth,edmac-big-endian", NULL))
++		pdata->edmac_endian = EDMAC_BIG_ENDIAN;
++	else
++		pdata->edmac_endian = EDMAC_LITTLE_ENDIAN;
++
++	if (of_find_property(np, "sh-eth,no-ether-link", NULL))
++		pdata->no_ether_link = 1;
++	else
++		pdata->no_ether_link = 0;
++
++	if (of_find_property(np, "sh-eth,ether-link-active-low", NULL))
++		pdata->ether_link_active_low = 1;
++	else
++		pdata->ether_link_active_low = 0;
++
++	ret = sh_eth_of_get_register_type(np);
++	if (ret < 0)
++		goto error;
++	pdata->register_type = ret;
++
++#ifdef CONFIG_OF_NET
++	if (!is_valid_ether_addr(ndev->dev_addr)) {
++		const char *macaddr = of_get_mac_address(np);
++		if (macaddr)
++			memcpy(pdata->mac_addr, macaddr, ETH_ALEN);
++	}
++#endif
++
++	return pdata;
++
++error:
++	devm_kfree(dev, pdata);
++	return NULL;
++}
++#else
++static inline struct sh_eth_plat_data *
++sh_eth_parse_dt(struct device *dev, struct net_device *ndev,
++				struct device_node *np)
++{
++	return NULL;
++}
++#endif
++
+ static int sh_eth_drv_probe(struct platform_device *pdev)
+ {
+-	int ret, devno = 0;
++	int ret = 0, devno = 0;
+ 	struct resource *res;
+ 	struct net_device *ndev = NULL;
+ 	struct sh_eth_private *mdp = NULL;
+ 	struct sh_eth_plat_data *pd;
++	struct device_node *np = pdev->dev.of_node;
+ 
++	ndev = alloc_etherdev(sizeof(struct sh_eth_private));
++	if (!ndev) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	mdp = netdev_priv(ndev);
+ 	/* get base addr */
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (unlikely(res == NULL)) {
+ 		dev_err(&pdev->dev, "invalid resource\n");
+ 		ret = -EINVAL;
+-		goto out;
+-	}
+-
+-	ndev = alloc_etherdev(sizeof(struct sh_eth_private));
+-	if (!ndev) {
+-		ret = -ENOMEM;
+-		goto out;
++		goto out_release;
+ 	}
+ 
+ 	/* The sh Ether-specific entries in the device structure. */
+@@ -2383,14 +2472,6 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	}
+ 	ndev->irq = ret;
+ 
+-	SET_NETDEV_DEV(ndev, &pdev->dev);
+-
+-	/* Fill in the fields of the device structure with ethernet values. */
+-	ether_setup(ndev);
+-
+-	mdp = netdev_priv(ndev);
+-	mdp->num_tx_ring = TX_RING_SIZE;
+-	mdp->num_rx_ring = RX_RING_SIZE;
+ 	mdp->addr = ioremap(res->start, resource_size(res));
+ 	if (mdp->addr == NULL) {
+ 		ret = -ENOMEM;
+@@ -2398,12 +2479,33 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 		goto out_release;
+ 	}
+ 
++	if (np) {
++		pd = sh_eth_parse_dt(&pdev->dev, ndev, np);
++		if (pdev->dev.platform_data && pd) {
++			struct sh_eth_plat_data *tmp =
++				pdev->dev.platform_data;
++			pd->set_mdio_gate = tmp->set_mdio_gate;
++			pd->needs_init = tmp->needs_init;
++		}
++	} else
++		pd = pdev->dev.platform_data;
++
++	if (!pd) {
++		dev_err(&pdev->dev, "no setup data defined\n");
++		ret = -EINVAL;
++		goto out_release;
++	}
++
++	SET_NETDEV_DEV(ndev, &pdev->dev);
++
++	mdp->num_tx_ring = TX_RING_SIZE;
++	mdp->num_rx_ring = RX_RING_SIZE;
++
+ 	spin_lock_init(&mdp->lock);
+ 	mdp->pdev = pdev;
+ 	pm_runtime_enable(&pdev->dev);
+ 	pm_runtime_resume(&pdev->dev);
+ 
+-	pd = (struct sh_eth_plat_data *)(pdev->dev.platform_data);
+ 	/* get PHY ID */
+ 	mdp->phy_id = pd->phy;
+ 	mdp->phy_interface = pd->phy_interface;
+@@ -2412,6 +2514,8 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	mdp->no_ether_link = pd->no_ether_link;
+ 	mdp->ether_link_active_low = pd->ether_link_active_low;
+ 	mdp->reg_offset = sh_eth_get_register_offset(pd->register_type);
++	/* read and set MAC address */
++	read_mac_address(ndev, pd->mac_addr);
+ 
+ 	/* set cpu data */
+ #if defined(SH_ETH_HAS_BOTH_MODULES)
+@@ -2429,20 +2533,16 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	/* debug message level */
+ 	mdp->msg_enable = SH_ETH_DEF_MSG_ENABLE;
+ 
+-	/* read and set MAC address */
+-	read_mac_address(ndev, pd->mac_addr);
+-
+ 	/* ioremap the TSU registers */
+ 	if (mdp->cd->tsu) {
+ 		struct resource *rtsu;
+ 		rtsu = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+ 		if (!rtsu) {
+ 			dev_err(&pdev->dev, "Not found TSU resource\n");
+-			ret = -ENODEV;
+ 			goto out_release;
+ 		}
+ 		mdp->tsu_addr = ioremap(rtsu->start,
+-					resource_size(rtsu));
++				resource_size(rtsu));
+ 		mdp->port = devno % 2;
+ 		ndev->features = NETIF_F_HW_VLAN_FILTER;
+ 	}
+@@ -2509,6 +2609,7 @@ static int sh_eth_drv_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_PM
+ static int sh_eth_runtime_nop(struct device *dev)
+ {
+ 	/*
+@@ -2522,17 +2623,30 @@ static int sh_eth_runtime_nop(struct device *dev)
+ 	return 0;
+ }
+ 
+-static struct dev_pm_ops sh_eth_dev_pm_ops = {
++static const struct dev_pm_ops sh_eth_dev_pm_ops = {
+ 	.runtime_suspend = sh_eth_runtime_nop,
+ 	.runtime_resume = sh_eth_runtime_nop,
+ };
++#define SH_ETH_PM_OPS (&sh_eth_dev_pm_ops)
++#else
++#define SH_ETH_PM_OPS NULL
++#endif
++
++#ifdef CONFIG_OF
++static const struct of_device_id sh_eth_match[] = {
++	{ .compatible = "renesas,sh-eth", },
++	{},
++};
++MODULE_DEVICE_TABLE(of, sh_eth_match);
++#endif
+ 
+ static struct platform_driver sh_eth_driver = {
+ 	.probe = sh_eth_drv_probe,
+ 	.remove = sh_eth_drv_remove,
+ 	.driver = {
+ 		   .name = CARDNAME,
+-		   .pm = &sh_eth_dev_pm_ops,
++		   .pm = SH_ETH_PM_OPS,
++		   .of_match_table = of_match_ptr(sh_eth_match),
+ 	},
+ };
+ 
 -- 
-Regards/Gruss,
-    Boris.
-
-Sent from a fat crate under my desk. Formatting is fine.
---
+1.7.10.4
