@@ -1,113 +1,101 @@
 From: Gavin Shan <shangw@linux.vnet.ibm.com>
-Subject: [PATCH 2/2] benet: Wait I/O while resuming device
-Date: Mon,  4 Mar 2013 15:48:47 +0800
-Message-ID: <1362383327-32362-2-git-send-email-shangw@linux.vnet.ibm.com>
-References: <1362383327-32362-1-git-send-email-shangw@linux.vnet.ibm.com>
+Subject: [PATCH 1/2] benet: Wait f/w POST until timeout
+Date: Mon,  4 Mar 2013 15:48:46 +0800
+Message-ID: <1362383327-32362-1-git-send-email-shangw@linux.vnet.ibm.com>
 Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
 	ajit.khaparde@emulex.com, Gavin Shan <shangw@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:38723 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755216Ab3CDHs7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 02:48:59 -0500
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:45258 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755116Ab3CDHuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Mar 2013 02:50:09 -0500
 Received: from /spool/local
-	by e32.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <shangw@linux.vnet.ibm.com>;
-	Mon, 4 Mar 2013 00:48:58 -0700
-Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 839D33E4003E
-	for <netdev@vger.kernel.org>; Mon,  4 Mar 2013 00:48:46 -0700 (MST)
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r247mt6A093492
-	for <netdev@vger.kernel.org>; Mon, 4 Mar 2013 00:48:55 -0700
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r247mtYI014966
-	for <netdev@vger.kernel.org>; Mon, 4 Mar 2013 00:48:55 -0700
-In-Reply-To: <1362383327-32362-1-git-send-email-shangw@linux.vnet.ibm.com>
+	Mon, 4 Mar 2013 02:48:54 -0500
+Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
+	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id BD564C90025
+	for <netdev@vger.kernel.org>; Mon,  4 Mar 2013 02:48:51 -0500 (EST)
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r247mpSP273258
+	for <netdev@vger.kernel.org>; Mon, 4 Mar 2013 02:48:51 -0500
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r247mpDm007735
+	for <netdev@vger.kernel.org>; Mon, 4 Mar 2013 04:48:51 -0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After resetting the adapter, the config space register (0x7c) might
-give fake information to indicate the f/w is ready. In turn, 0xFF's
-is always returned while accessing on I/O space registers. The patch
-adds more check to make sure the I/O space is ready for access before
-accessing that region.
+While PCI card faces EEH errors, reset (usually hot reset) is
+expected to recover from the EEH errors. After EEH core finishes
+the reset, the driver callback (be_eeh_reset) is called and wait
+the firmware to complete POST successfully. The original code would
+return with error once detecting failure during POST stage. That
+seems not enough.
+
+The patch forces the driver (be_eeh_reset) to wait the firmware
+completes POST until timeout, instead of returning error upon
+detection POST failure immediately. Also, it would improve the
+reliability of the EEH funtionality of the driver.
 
 Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |   29 +++++++++++++++++++++++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h |    1 +
- drivers/net/ethernet/emulex/benet/be_main.c |    5 ++++
- 3 files changed, 35 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   27 ++++++++++-----------------
+ 1 files changed, 10 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 813407f..3e8824e 100644
+index 071aea7..813407f 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.c
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -696,6 +696,35 @@ static struct be_mcc_wrb *wrb_from_mccq(struct be_adapter *adapter)
- 	return wrb;
+@@ -473,7 +473,7 @@ static int be_mbox_notify_wait(struct be_adapter *adapter)
+ 	return 0;
  }
  
-+int be_cmd_fw_wait_io(struct be_adapter *adapter)
-+{
-+	void __iomem *db = adapter->db + MPU_MAILBOX_DB_OFFSET;
-+	int timeout = 0;
-+	u32 val;
+-static int be_POST_stage_get(struct be_adapter *adapter, u16 *stage)
++static void be_POST_stage_get(struct be_adapter *adapter, u16 *stage)
+ {
+ 	u32 sem;
+ 	u32 reg = skyhawk_chip(adapter) ? SLIPORT_SEMAPHORE_OFFSET_SH :
+@@ -481,11 +481,6 @@ static int be_POST_stage_get(struct be_adapter *adapter, u16 *stage)
+ 
+ 	pci_read_config_dword(adapter->pdev, reg, &sem);
+ 	*stage = sem & POST_STAGE_MASK;
+-
+-	if ((sem >> POST_ERR_SHIFT) & POST_ERR_MASK)
+-		return -1;
+-	else
+-		return 0;
+ }
+ 
+ int lancer_wait_ready(struct be_adapter *adapter)
+@@ -579,19 +574,17 @@ int be_fw_wait_ready(struct be_adapter *adapter)
+ 	}
+ 
+ 	do {
+-		status = be_POST_stage_get(adapter, &stage);
+-		if (status) {
+-			dev_err(dev, "POST error; stage=0x%x\n", stage);
+-			return -1;
+-		} else if (stage != POST_STAGE_ARMFW_RDY) {
+-			if (msleep_interruptible(2000)) {
+-				dev_err(dev, "Waiting for POST aborted\n");
+-				return -EINTR;
+-			}
+-			timeout += 2;
+-		} else {
++		be_POST_stage_get(adapter, &stage);
++		if (stage == POST_STAGE_ARMFW_RDY)
+ 			return 0;
 +
-+	if (lancer_chip(adapter))
-+		return 0;
-+
-+	do {
-+		val = ioread32(db);
-+		if (val != 0xffffffff)
-+			return 0;
-+
-+		dev_info(&adapter->pdev->dev,
-+			"Wating for I/O (0x%08x), %ds elapsed\n",
-+			val, timeout);
++		dev_info(dev, "Waiting for POST, %ds elapsed\n",
++			 timeout);
 +		if (msleep_interruptible(2000)) {
-+			dev_err(&adapter->pdev->dev,
-+				"Waiting for I/O aborted\n");
-+			return -EIO;
-+		}
++			dev_err(dev, "Waiting for POST aborted\n");
++			return -EINTR;
+ 		}
 +		timeout += 2;
-+	} while (timeout < 60);
-+
-+	dev_err(&adapter->pdev->dev, "Timeout waiting for I/O (%d)\n", timeout);
-+	return -1;
-+}
-+
- /* Tell fw we're about to start firing cmds by writing a
-  * special pattern across the wrb hdr; uses mbox
-  */
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 9697086..9d03cb1 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1888,6 +1888,7 @@ int be_cmd_get_flash_crc(struct be_adapter *adapter, u8 *flashed_crc,
- 				int offset);
- extern int be_cmd_enable_magic_wol(struct be_adapter *adapter, u8 *mac,
- 				struct be_dma_mem *nonemb_cmd);
-+extern int be_cmd_fw_wait_io(struct be_adapter *adapter);
- extern int be_cmd_fw_init(struct be_adapter *adapter);
- extern int be_cmd_fw_clean(struct be_adapter *adapter);
- extern void be_async_mcc_enable(struct be_adapter *adapter);
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 3860888..7609424 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4347,6 +4347,11 @@ static void be_eeh_resume(struct pci_dev *pdev)
+ 	} while (timeout < 60);
  
- 	pci_save_state(pdev);
- 
-+	/* Wating for I/O ready */
-+	status = be_cmd_fw_wait_io(adapter);
-+	if (status)
-+		goto err;
-+
- 	/* tell fw we're ready to fire cmds */
- 	status = be_cmd_fw_init(adapter);
- 	if (status)
+ 	dev_err(dev, "POST timeout; stage=0x%x\n", stage);
 -- 
 1.7.5.4
