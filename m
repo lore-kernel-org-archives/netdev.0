@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 4/4] igb: Fix for lockdep issue in igb_get_i2c_client
-Date: Tue,  5 Mar 2013 01:48:37 -0800
-Message-ID: <1362476917-5189-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 3/4] igb: Fix link setup for I210 devices
+Date: Tue,  5 Mar 2013 01:48:36 -0800
+Message-ID: <1362476917-5189-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1362476917-5189-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:65351 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:43723 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755591Ab3CEJsn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755464Ab3CEJsn (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 5 Mar 2013 04:48:43 -0500
 In-Reply-To: <1362476917-5189-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,172 +18,41 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-This patch fixes a lockdep warning in igb_get_i2c_client by
-refactoring the initialization and usage of the i2c_client
-completely.  There is no on the fly allocation of the single
-client needed today.
+This patch changes the setup copper link function to use a switch
+statement for the PHY id's available for the given PHY types.  It
+also adds a case for the I210 PHY id, so the appropriate setup link
+function is called for it.
 
 Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h       |  2 +-
- drivers/net/ethernet/intel/igb/igb_hwmon.c | 14 ++++++
- drivers/net/ethernet/intel/igb/igb_main.c  | 69 +-----------------------------
- 3 files changed, 17 insertions(+), 68 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_82575.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index d27edbc..2515140 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -447,7 +447,7 @@ struct igb_adapter {
- #endif
- 	struct i2c_algo_bit_data i2c_algo;
- 	struct i2c_adapter i2c_adap;
--	struct igb_i2c_client_list *i2c_clients;
-+	struct i2c_client *i2c_client;
- };
- 
- #define IGB_FLAG_HAS_MSI		(1 << 0)
-diff --git a/drivers/net/ethernet/intel/igb/igb_hwmon.c b/drivers/net/ethernet/intel/igb/igb_hwmon.c
-index 0a9b073..4623502 100644
---- a/drivers/net/ethernet/intel/igb/igb_hwmon.c
-+++ b/drivers/net/ethernet/intel/igb/igb_hwmon.c
-@@ -39,6 +39,10 @@
- #include <linux/pci.h>
- 
- #ifdef CONFIG_IGB_HWMON
-+struct i2c_board_info i350_sensor_info = {
-+	I2C_BOARD_INFO("i350bb", (0Xf8 >> 1)),
-+};
-+
- /* hwmon callback functions */
- static ssize_t igb_hwmon_show_location(struct device *dev,
- 					 struct device_attribute *attr,
-@@ -188,6 +192,7 @@ int igb_sysfs_init(struct igb_adapter *adapter)
- 	unsigned int i;
- 	int n_attrs;
- 	int rc = 0;
-+	struct i2c_client *client = NULL;
- 
- 	/* If this method isn't defined we don't support thermals */
- 	if (adapter->hw.mac.ops.init_thermal_sensor_thresh == NULL)
-@@ -198,6 +203,15 @@ int igb_sysfs_init(struct igb_adapter *adapter)
- 		if (rc)
- 			goto exit;
- 
-+	/* init i2c_client */
-+	client = i2c_new_device(&adapter->i2c_adap, &i350_sensor_info);
-+	if (client == NULL) {
-+		dev_info(&adapter->pdev->dev,
-+			"Failed to create new i2c device..\n");
-+		goto exit;
-+	}
-+	adapter->i2c_client = client;
-+
- 	/* Allocation space for max attributes
- 	 * max num sensors * values (loc, temp, max, caution)
- 	 */
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 4d53a17..4dbd629 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1923,10 +1923,6 @@ void igb_set_fw_version(struct igb_adapter *adapter)
- 	return;
- }
- 
--static const struct i2c_board_info i350_sensor_info = {
--	I2C_BOARD_INFO("i350bb", 0Xf8),
--};
--
- /*  igb_init_i2c - Init I2C interface
-  *  @adapter: pointer to adapter structure
-  *
-@@ -7717,67 +7713,6 @@ static void igb_init_dmac(struct igb_adapter *adapter, u32 pba)
- 	}
- }
- 
--static DEFINE_SPINLOCK(i2c_clients_lock);
--
--/*  igb_get_i2c_client - returns matching client
-- *  in adapters's client list.
-- *  @adapter: adapter struct
-- *  @dev_addr: device address of i2c needed.
-- */
--static struct i2c_client *
--igb_get_i2c_client(struct igb_adapter *adapter, u8 dev_addr)
--{
--	ulong flags;
--	struct igb_i2c_client_list *client_list;
--	struct i2c_client *client = NULL;
--	struct i2c_board_info client_info = {
--		I2C_BOARD_INFO("igb", 0x00),
--	};
--
--	spin_lock_irqsave(&i2c_clients_lock, flags);
--	client_list = adapter->i2c_clients;
--
--	/* See if we already have an i2c_client */
--	while (client_list) {
--		if (client_list->client->addr == (dev_addr >> 1)) {
--			client = client_list->client;
--			goto exit;
--		} else {
--			client_list = client_list->next;
--		}
--	}
--
--	/* no client_list found, create a new one */
--	client_list = kzalloc(sizeof(*client_list), GFP_ATOMIC);
--	if (client_list == NULL)
--		goto exit;
--
--	/* dev_addr passed to us is left-shifted by 1 bit
--	 * i2c_new_device call expects it to be flush to the right.
--	 */
--	client_info.addr = dev_addr >> 1;
--	client_info.platform_data = adapter;
--	client_list->client = i2c_new_device(&adapter->i2c_adap, &client_info);
--	if (client_list->client == NULL) {
--		dev_info(&adapter->pdev->dev,
--			"Failed to create new i2c device..\n");
--		goto err_no_client;
--	}
--
--	/* insert new client at head of list */
--	client_list->next = adapter->i2c_clients;
--	adapter->i2c_clients = client_list;
--
--	client = client_list->client;
--	goto exit;
--
--err_no_client:
--	kfree(client_list);
--exit:
--	spin_unlock_irqrestore(&i2c_clients_lock, flags);
--	return client;
--}
--
- /*  igb_read_i2c_byte - Reads 8 bit word over I2C
-  *  @hw: pointer to hardware structure
-  *  @byte_offset: byte offset to read
-@@ -7791,7 +7726,7 @@ s32 igb_read_i2c_byte(struct e1000_hw *hw, u8 byte_offset,
- 				u8 dev_addr, u8 *data)
- {
- 	struct igb_adapter *adapter = container_of(hw, struct igb_adapter, hw);
--	struct i2c_client *this_client = igb_get_i2c_client(adapter, dev_addr);
-+	struct i2c_client *this_client = adapter->i2c_client;
- 	s32 status;
- 	u16 swfw_mask = 0;
- 
-@@ -7828,7 +7763,7 @@ s32 igb_write_i2c_byte(struct e1000_hw *hw, u8 byte_offset,
- 				 u8 dev_addr, u8 data)
- {
- 	struct igb_adapter *adapter = container_of(hw, struct igb_adapter, hw);
--	struct i2c_client *this_client = igb_get_i2c_client(adapter, dev_addr);
-+	struct i2c_client *this_client = adapter->i2c_client;
- 	s32 status;
- 	u16 swfw_mask = E1000_SWFW_PHY0_SM;
- 
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index 84e7e09..b64542a 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -1361,11 +1361,16 @@ static s32 igb_setup_copper_link_82575(struct e1000_hw *hw)
+ 	switch (hw->phy.type) {
+ 	case e1000_phy_i210:
+ 	case e1000_phy_m88:
+-		if (hw->phy.id == I347AT4_E_PHY_ID ||
+-		    hw->phy.id == M88E1112_E_PHY_ID)
++		switch (hw->phy.id) {
++		case I347AT4_E_PHY_ID:
++		case M88E1112_E_PHY_ID:
++		case I210_I_PHY_ID:
+ 			ret_val = igb_copper_link_setup_m88_gen2(hw);
+-		else
++			break;
++		default:
+ 			ret_val = igb_copper_link_setup_m88(hw);
++			break;
++		}
+ 		break;
+ 	case e1000_phy_igp_3:
+ 		ret_val = igb_copper_link_setup_igp(hw);
 -- 
 1.7.11.7
