@@ -1,38 +1,48 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: network-namespace and NETLINK_INET_DIAG - kernel v3.2.39-longterm
-Date: Tue, 05 Mar 2013 13:01:43 -0800
-Message-ID: <87boaxd0i0.fsf@xmission.com>
-References: <1362507649.2840.55.camel@pro6455b.example.com>
+From: Martin Mokrejs <mmokrejs@fold.natur.cuni.cz>
+Subject: Re: [PATCH] SCTP: Free the per-net sysctl table on net exit. v2
+Date: Tue, 05 Mar 2013 22:04:05 +0100
+Message-ID: <51365DC5.5010003@fold.natur.cuni.cz>
+References: <87libe3w69.fsf@xmission.com> <87obgayoo8.fsf_-_@xmission.com> <5135B542.8020905@fold.natur.cuni.cz> <20130305.143233.739103204837913775.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: dilip.daya@hp.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, vyasevich@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, stable@kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:59387 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755845Ab3CEVBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 16:01:53 -0500
-In-Reply-To: <1362507649.2840.55.camel@pro6455b.example.com> (Dilip Daya's
-	message of "Tue, 05 Mar 2013 13:20:49 -0500")
+Received: from fold.natur.cuni.cz ([195.113.57.32]:38164 "HELO
+	fold.natur.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1756163Ab3CEVEM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 16:04:12 -0500
+In-Reply-To: <20130305.143233.739103204837913775.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dilip Daya <dilip.daya@hp.com> writes:
+David Miller wrote:
+> From: Martin Mokrejs <mmokrejs@fold.natur.cuni.cz>
+> Date: Tue, 05 Mar 2013 10:05:06 +0100
+> 
+>>   this is to let you know that this patch is still not in stable.
+>> I just fetched 3.7.10 and reproduced the original problem.
+> 
+> 3.7.x is end of life and no longer being actively maintained.
 
-> Hi Eric et al,
->
-> Re: Network-namespace and NETLINK_INET_DIAG
->
-> => Network namespace (kernel v3.2.39-longterm) not allowing /bin/ss
->    missing information from structs tcp_info  and  inet_diag_meminfo.
->    This is fixed in kernel v3.6-rc1. Are there identifiable patchsets
->    from kernel v3.6-rc1 that can be easily backported to
->    kernel v3.2.x-longterm ??
+??? 3.7.10 was released on 2013-02-27.
 
-Possibly.  Certainly the patches that changed this were INET_DIAG
-specific.  Take a look in the git history.
+I disagree with making a kernel line 3.7 released on 2012-12-11 unsupported
+while 3.8.0 was released just on 2013-02-18. That is way too new. Sorry
+to say that but I don't expect 3.8 to be tested properly like 3.7.4 was
+NOT in January 2013 when I reported the particular sctp bug, and several
+others in USB, pci/e hotplug, etc. Now, with 3.8.2 being out one day
+already I will hit for sure other bugs. I really want something stable.
+For USB3.0 I need 3.2.x at least, actually 3.5 for some better URB handling
+... The already buggy (in 3.2.x PCI/e hotplug) got reworked in about 3.5
+into another buggy behavior so another workaround had to be invented.
 
-Not having a feature implemented is not the same as a bug.  So I don't
-expect anyone is in a rush to backport this.
+Of course I do appreciate your work but if somebody bothered to report a bug
+and some devs bothered to provide patches, you should let the fix go into life.
+It is waiting in the patchwork since 1,5 month. By that time, 3.7.x was the
+current, latest&greatest stable. I just don't agree.
 
-Eric
+Sorry for such a rant, I couldn't resist. ;)
+Martin
