@@ -1,165 +1,53 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/4] e1000e: workaround DMA unit hang on I218
-Date: Tue,  5 Mar 2013 01:48:34 -0800
-Message-ID: <1362476917-5189-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 2/4] igb: Drop BUILD_BUG_ON check from igb_build_rx_buffer
+Date: Tue,  5 Mar 2013 01:48:35 -0800
+Message-ID: <1362476917-5189-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1362476917-5189-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:43723 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:40681 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755522Ab3CEJsm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755540Ab3CEJsm (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 5 Mar 2013 04:48:42 -0500
 In-Reply-To: <1362476917-5189-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-At 1000Mbps link speed, one of the MAC's internal clocks can be stopped for
-up to 4us when entering K1 (a power mode of the MAC-PHY interconnect).  If
-the MAC is waiting for completion indications for 2 DMA write requests into
-Host memory (e.g. descriptor writeback or Rx packet writing) and the
-indications occur while the clock is stopped, both indications will be
-missed by the MAC causing the MAC to wait for the completion indications
-and be unable to generate further DMA write requests.  This results in an
-apparent hardware hang.
+On s390 the igb driver was throwing a build error due to the fact that a frame
+built using build_skb would be larger than 2K.  Since this is not likely to
+change at any point in the future we are better off just dropping the check
+since we already had a check in igb_set_rx_buffer_len that will just disable
+the usage of build_skb anyway.
 
-Work-around the issue by disabling the de-assertion of the clock request
-when 1000Mbps link is acquired (K1 must be disabled while doing this).
-
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 71 ++++++++++++++++++++++++++++-
- drivers/net/ethernet/intel/e1000e/ich8lan.h |  2 +
- drivers/net/ethernet/intel/e1000e/regs.h    |  1 +
- 3 files changed, 73 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 7 -------
+ 1 file changed, 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index dff7bff..121a865 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -782,6 +782,59 @@ release:
- }
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index ed79a1c..4d53a17 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -6227,13 +6227,6 @@ static struct sk_buff *igb_build_rx_buffer(struct igb_ring *rx_ring,
+ 	/* If we spanned a buffer we have a huge mess so test for it */
+ 	BUG_ON(unlikely(!igb_test_staterr(rx_desc, E1000_RXD_STAT_EOP)));
  
- /**
-+ *  e1000_k1_workaround_lpt_lp - K1 workaround on Lynxpoint-LP
-+ *  @hw:   pointer to the HW structure
-+ *  @link: link up bool flag
-+ *
-+ *  When K1 is enabled for 1Gbps, the MAC can miss 2 DMA completion indications
-+ *  preventing further DMA write requests.  Workaround the issue by disabling
-+ *  the de-assertion of the clock request when in 1Gpbs mode.
-+ **/
-+static s32 e1000_k1_workaround_lpt_lp(struct e1000_hw *hw, bool link)
-+{
-+	u32 fextnvm6 = er32(FEXTNVM6);
-+	s32 ret_val = 0;
-+
-+	if (link && (er32(STATUS) & E1000_STATUS_SPEED_1000)) {
-+		u16 kmrn_reg;
-+
-+		ret_val = hw->phy.ops.acquire(hw);
-+		if (ret_val)
-+			return ret_val;
-+
-+		ret_val =
-+		    e1000e_read_kmrn_reg_locked(hw, E1000_KMRNCTRLSTA_K1_CONFIG,
-+						&kmrn_reg);
-+		if (ret_val)
-+			goto release;
-+
-+		ret_val =
-+		    e1000e_write_kmrn_reg_locked(hw,
-+						 E1000_KMRNCTRLSTA_K1_CONFIG,
-+						 kmrn_reg &
-+						 ~E1000_KMRNCTRLSTA_K1_ENABLE);
-+		if (ret_val)
-+			goto release;
-+
-+		usleep_range(10, 20);
-+
-+		ew32(FEXTNVM6, fextnvm6 | E1000_FEXTNVM6_REQ_PLL_CLK);
-+
-+		ret_val =
-+		    e1000e_write_kmrn_reg_locked(hw,
-+						 E1000_KMRNCTRLSTA_K1_CONFIG,
-+						 kmrn_reg);
-+release:
-+		hw->phy.ops.release(hw);
-+	} else {
-+		/* clear FEXTNVM6 bit 8 on link down or 10/100 */
-+		ew32(FEXTNVM6, fextnvm6 & ~E1000_FEXTNVM6_REQ_PLL_CLK);
-+	}
-+
-+	return ret_val;
-+}
-+
-+/**
-  *  e1000_check_for_copper_link_ich8lan - Check for link (Copper)
-  *  @hw: pointer to the HW structure
-  *
-@@ -818,6 +871,14 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
- 			return ret_val;
- 	}
- 
-+	/* Work-around I218 hang issue */
-+	if ((hw->adapter->pdev->device == E1000_DEV_ID_PCH_LPTLP_I218_LM) ||
-+	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_LPTLP_I218_V)) {
-+		ret_val = e1000_k1_workaround_lpt_lp(hw, link);
-+		if (ret_val)
-+			return ret_val;
-+	}
-+
- 	/* Clear link partner's EEE ability */
- 	hw->dev_spec.ich8lan.eee_lp_ability = 0;
- 
-@@ -3954,8 +4015,16 @@ void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
- 
- 	phy_ctrl = er32(PHY_CTRL);
- 	phy_ctrl |= E1000_PHY_CTRL_GBE_DISABLE;
-+
- 	if (hw->phy.type == e1000_phy_i217) {
--		u16 phy_reg;
-+		u16 phy_reg, device_id = hw->adapter->pdev->device;
-+
-+		if ((device_id == E1000_DEV_ID_PCH_LPTLP_I218_LM) ||
-+		    (device_id == E1000_DEV_ID_PCH_LPTLP_I218_V)) {
-+			u32 fextnvm6 = er32(FEXTNVM6);
-+
-+			ew32(FEXTNVM6, fextnvm6 & ~E1000_FEXTNVM6_REQ_PLL_CLK);
-+		}
- 
- 		ret_val = hw->phy.ops.acquire(hw);
- 		if (ret_val)
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.h b/drivers/net/ethernet/intel/e1000e/ich8lan.h
-index b6d3174..8bf4655 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.h
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.h
-@@ -92,6 +92,8 @@
- #define E1000_FEXTNVM4_BEACON_DURATION_8USEC	0x7
- #define E1000_FEXTNVM4_BEACON_DURATION_16USEC	0x3
- 
-+#define E1000_FEXTNVM6_REQ_PLL_CLK	0x00000100
-+
- #define PCIE_ICH8_SNOOP_ALL	PCIE_NO_SNOOP_ALL
- 
- #define E1000_ICH_RAR_ENTRIES	7
-diff --git a/drivers/net/ethernet/intel/e1000e/regs.h b/drivers/net/ethernet/intel/e1000e/regs.h
-index 794fe14..a7e6a3e 100644
---- a/drivers/net/ethernet/intel/e1000e/regs.h
-+++ b/drivers/net/ethernet/intel/e1000e/regs.h
-@@ -42,6 +42,7 @@
- #define E1000_FEXTNVM	0x00028	/* Future Extended NVM - RW */
- #define E1000_FEXTNVM3	0x0003C	/* Future Extended NVM 3 - RW */
- #define E1000_FEXTNVM4	0x00024	/* Future Extended NVM 4 - RW */
-+#define E1000_FEXTNVM6	0x00010	/* Future Extended NVM 6 - RW */
- #define E1000_FEXTNVM7	0x000E4	/* Future Extended NVM 7 - RW */
- #define E1000_FCT	0x00030	/* Flow Control Type - RW */
- #define E1000_VET	0x00038	/* VLAN Ether Type - RW */
+-	/* Guarantee this function can be used by verifying buffer sizes */
+-	BUILD_BUG_ON(SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) < (NET_SKB_PAD +
+-							NET_IP_ALIGN +
+-							IGB_TS_HDR_LEN +
+-							ETH_FRAME_LEN +
+-							ETH_FCS_LEN));
+-
+ 	rx_buffer = &rx_ring->rx_buffer_info[rx_ring->next_to_clean];
+ 	page = rx_buffer->page;
+ 	prefetchw(page);
 -- 
 1.7.11.7
