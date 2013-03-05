@@ -1,64 +1,60 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: [PATCH] drivers/isdn: checkng length to be sure not memory overflow
-Date: Tue, 05 Mar 2013 10:34:55 +0100
-Message-ID: <5135BC3F.8070507@suse.cz>
-References: <512DCC4A.6060106@asianux.com> <512DD66E.4040409@suse.cz> <512DDF03.10107@asianux.com> <512DE380.8080804@suse.cz> <512EB6CA.6030609@asianux.com> <512F2AA7.4040204@suse.cz> <512F38F8.2060804@asianux.com> <512F5F14.6070801@suse.cz> <51355653.9090404@asianux.com>
+From: "Ferre, Nicolas" <Nicolas.FERRE@atmel.com>
+Subject: RE : [PATCH 3/3] net: macb: Use module_platform_driver_probe macro
+Date: Tue, 5 Mar 2013 09:36:32 +0000
+Message-ID: <EABCC4A72A203F4BA2E04297CF0282C427C4F0C1@hnombx01.corp.atmel.com>
+References: <1362457882-12892-1-git-send-email-sachin.kamat@linaro.org>,<1362457882-12892-3-git-send-email-sachin.kamat@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Kosina <jkosina@suse.cz>, isdn@linux-pingi.de,
-	Greg KH <gregkh@linuxfoundation.org>, alan@linux.intel.com,
-	netdev <netdev@vger.kernel.org>
-To: Chen Gang <gang.chen@asianux.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>
+To: Sachin Kamat <sachin.kamat@linaro.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f41.google.com ([74.125.83.41]:63180 "EHLO
-	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752148Ab3CEJfA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 04:35:00 -0500
-Received: by mail-ee0-f41.google.com with SMTP id c13so4640677eek.0
-        for <netdev@vger.kernel.org>; Tue, 05 Mar 2013 01:34:58 -0800 (PST)
-In-Reply-To: <51355653.9090404@asianux.com>
+Received: from eusmtp01.atmel.com ([212.144.249.243]:31168 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755838Ab3CEJgg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 04:36:36 -0500
+In-Reply-To: <1362457882-12892-3-git-send-email-sachin.kamat@linaro.org>
+Content-Language: fr-FR
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/05/2013 03:20 AM, Chen Gang wrote:
-> =E4=BA=8E 2013=E5=B9=B402=E6=9C=8828=E6=97=A5 21:43, Jiri Slaby =E5=86=
-=99=E9=81=93:
->>
->> Nah, there *are* still people using ISDN.
->>
->=20
->   ok, thanks.
->=20
->   it seems, we need maintaining ISDN:
->     need fix bugs.
->     need not add new features.
->     need keep current features no touch.
->=20
->=20
->> No, we cannot be sure that a user gives us less than that. Your patc=
-h
->> just throws the rest to fix that overflow, right? What I'm saying I
->> wouldn't fix more than that.
->=20
->   what you said is: this patch need improving, is it correct ?
->   if it is correct.
->     I still prefer to throw the rest contents (but need improving, to=
-o)
->       for maintaining, we need fix bug, but not need add new features
->       so what we should do:
->         a) fix the bug (should not memory overflow)
->         b) keep the original buffer length no touch
->            it is not sizeof(cmd.parm.cmsg.para) - 2)
->            it should be sizeof(cmd.param) - sizeof(cmd.param.cmsg) + =
-sizeof(cmd.param.cmsg.para) - 2
->         c) need complete the relative document to export the limitati=
-on.
->=20
->   is it ok ?
+> module_platform_driver_probe() eliminates the boilerplate and simplifies
+> the code.
+> 
+> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+> Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-Yes, it is -- just fix the bug with minimal effort.
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
---=20
-js
-suse labs
+> ---
+>  drivers/net/ethernet/cadence/macb.c |   13 +------------
+>  1 files changed, 1 insertions(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index 7903943..3a5d680 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -1737,18 +1737,7 @@ static struct platform_driver macb_driver = {
+>         },
+>  };
+> 
+> -static int __init macb_init(void)
+> -{
+> -       return platform_driver_probe(&macb_driver, macb_probe);
+> -}
+> -
+> -static void __exit macb_exit(void)
+> -{
+> -       platform_driver_unregister(&macb_driver);
+> -}
+> -
+> -module_init(macb_init);
+> -module_exit(macb_exit);
+> +module_platform_driver_probe(macb_driver, macb_probe);
+> 
+>  MODULE_LICENSE("GPL");
+>  MODULE_DESCRIPTION("Cadence MACB/GEM Ethernet driver");
+> --
+> 1.7.4.1
+> 
