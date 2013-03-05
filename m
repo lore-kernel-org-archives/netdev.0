@@ -1,9 +1,10 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: [RFC PATCH 3/5] ixgbe: Add support for ndo_ll_poll
-Date: Tue, 5 Mar 2013 17:26:50 +0000
-Message-ID: <1362504410.2791.44.camel@bwh-desktop.uk.solarflarecom.com>
+Date: Tue, 5 Mar 2013 17:28:40 +0000
+Message-ID: <1362504520.2791.46.camel@bwh-desktop.uk.solarflarecom.com>
 References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>
 	<20130227175606.10611.55498.stgit@gitlad.jf.intel.com>
+	<1362504410.2791.44.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -14,7 +15,7 @@ Cc: Willem de Bruijn <willemb@google.com>, e1000-devel@lists.sourceforge.net,
 	Dave Miller <davem@davemloft.net>
 To: Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130227175606.10611.55498.stgit@gitlad.jf.intel.com>
+In-Reply-To: <1362504410.2791.44.camel@bwh-desktop.uk.solarflarecom.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -25,35 +26,18 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-02-27 at 09:56 -0800, Eliezer Tamir wrote:
-> Add the ixgbe driver code implementing ndo_ll_poll.
-> It should be easy for other drivers to do something similar
-> in order to enable support for CONFIG_INET_LL_RX_POLL
-
-Yes... in fact I wonder whether the lock and state couldn't be added to
-napi_struct instead of being driver-specific.
-
+On Tue, 2013-03-05 at 17:26 +0000, Ben Hutchings wrote:
+> On Wed, 2013-02-27 at 09:56 -0800, Eliezer Tamir wrote:
+> > Add the ixgbe driver code implementing ndo_ll_poll.
+> > It should be easy for other drivers to do something similar
+> > in order to enable support for CONFIG_INET_LL_RX_POLL
+> 
+> Yes... in fact I wonder whether the lock and state couldn't be added to
+> napi_struct instead of being driver-specific.
 [...]
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-[...]
->  static void ixgbe_napi_disable_all(struct ixgbe_adapter *adapter)
->  {
->  	int q_idx;
->  
-> -	for (q_idx = 0; q_idx < adapter->num_q_vectors; q_idx++)
-> +	local_bh_disable(); /* for ixgbe_qv_lock_napi() */
-> +	for (q_idx = 0; q_idx < adapter->num_q_vectors; q_idx++) {
->  		napi_disable(&adapter->q_vector[q_idx]->napi);
-> +		while (!ixgbe_qv_lock_napi(adapter->q_vector[q_idx])) {
-> +			pr_info("QV %d locked\n", q_idx);
-> +			msleep(1);
-> +		}
-> +	}
-> +	local_bh_enable();
->  }
 
-Sleeping with preemption disabled?
+That would potentially allow GRO to detect that it's being called in
+low-latency context...
 
 Ben.
 
