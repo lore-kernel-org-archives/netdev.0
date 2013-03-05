@@ -1,110 +1,62 @@
-From: Lai Jiangshan <laijs@cn.fujitsu.com>
-Subject: Re: [PATCH V2] lglock: add read-preference local-global rwlock
-Date: Tue, 05 Mar 2013 23:41:48 +0800
-Message-ID: <5136123C.3040508@cn.fujitsu.com>
-References: <512BBAD8.8010006@linux.vnet.ibm.com> <CACvQF51jCxk5jUqmhD=QBBtUsBkQWZzakacrKO4Gsk=w61rNwQ@mail.gmail.com> <512C7A38.8060906@linux.vnet.ibm.com> <CACvQF51RvhM8XNqu3-1OTQ=cZUZ=pAX+_zx0a29+W67N1X+BgQ@mail.gmail.com> <512CC509.1050000@linux.vnet.ibm.com> <CACvQF50UgiqPpDk3HCmV86zKSf6tPjqr0bZowfPEOJs0g0r0MQ@mail.gmail.com> <512D0D67.9010609@linux.vnet.ibm.com> <CACvQF53ph2ixdM-otzetjM5cR+2kcZj6sckOp3TnzzA_x-EZ8w@mail.gmail.com> <512E7879.20109@linux.vnet.ibm.com>	<5130E8E2.50206@cn.fujitsu.com> <20130301182854.GA3631@redhat.com> <CANN689HEW=b5S93J27p+rBX-5m7jkW4FER=eHDCp7OgMaTWLPw@mail.gmail.com> <5131FB4C.7070408@cn.fujitsu.com> <513232B6.9060905@linux.vnet.ibm.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [Xen-devel] [PATCH 1/8] netback: don't bind kthread to cpu
+Date: Tue, 5 Mar 2013 10:52:41 -0500
+Message-ID: <20130305155241.GB15431@phenom.dumpdata.com>
+References: <1360944010-15336-1-git-send-email-wei.liu2@citrix.com>
+ <1360944010-15336-2-git-send-email-wei.liu2@citrix.com>
+ <20130304205154.GB16762@phenom.dumpdata.com>
+ <1362490210.4748.23.camel@zion.uk.xensource.com>
+ <20130305135649.GA2589@phenom.dumpdata.com>
+ <51360452.5070200@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Michel Lespinasse <walken@google.com>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Lai Jiangshan <eag0628@gmail.com>, linux-doc@vger.kernel.org,
-	peterz@infradead.org, fweisbec@gmail.com,
-	linux-kernel@vger.kernel.org, namhyung@kernel.org,
-	mingo@kernel.org, linux-arch@vger.kernel.org,
-	linux@arm.linux.org.uk, xiaoguangrong@linux.vnet.ibm.com,
-	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	rusty@rustcorp.com.au, rostedt@goodmis.org, rjw@sisk.pl,
-	vincent.guittot@linaro.org, tglx@linutronix.de,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	sbw@mit.edu, tj@kernel.org, akpm@linux-foundation.org,
-	linuxppc-dev@lists.ozlabs.org
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <513232B6.9060905@linux.vnet.ibm.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:50992 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751778Ab3CEPwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 10:52:49 -0500
+Content-Disposition: inline
+In-Reply-To: <51360452.5070200@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/03/13 01:11, Srivatsa S. Bhat wrote:
-> On 03/02/2013 06:44 PM, Lai Jiangshan wrote:
->> From 345a7a75c314ff567be48983e0892bc69c4452e7 Mon Sep 17 00:00:00 2001
->> From: Lai Jiangshan <laijs@cn.fujitsu.com>
->> Date: Sat, 2 Mar 2013 20:33:14 +0800
->> Subject: [PATCH] lglock: add read-preference local-global rwlock
->>
->> Current lglock is not read-preference, so it can't be used on some cases
->> which read-preference rwlock can do. Example, get_cpu_online_atomic().
->>
-> [...]
->> diff --git a/kernel/lglock.c b/kernel/lglock.c
->> index 6535a66..52e9b2c 100644
->> --- a/kernel/lglock.c
->> +++ b/kernel/lglock.c
->> @@ -87,3 +87,71 @@ void lg_global_unlock(struct lglock *lg)
->>  	preempt_enable();
->>  }
->>  EXPORT_SYMBOL(lg_global_unlock);
->> +
->> +#define FALLBACK_BASE	(1UL << 30)
->> +
->> +void lg_rwlock_local_read_lock(struct lgrwlock *lgrw)
->> +{
->> +	struct lglock *lg = &lgrw->lglock;
->> +
->> +	preempt_disable();
->> +	if (likely(!__this_cpu_read(*lgrw->reader_refcnt))) {
->> +		rwlock_acquire_read(&lg->lock_dep_map, 0, 0, _RET_IP_);
->> +		if (unlikely(!arch_spin_trylock(this_cpu_ptr(lg->lock)))) {
->> +			read_lock(&lgrw->fallback_rwlock);
->> +			__this_cpu_write(*lgrw->reader_refcnt, FALLBACK_BASE);
->> +			return;
->> +		}
->> +	}
->> +
->> +	__this_cpu_inc(*lgrw->reader_refcnt);
->> +}
->> +EXPORT_SYMBOL(lg_rwlock_local_read_lock);
->> +
->> +void lg_rwlock_local_read_unlock(struct lgrwlock *lgrw)
->> +{
->> +	switch (__this_cpu_read(*lgrw->reader_refcnt)) {
->> +	case 1:
->> +		__this_cpu_write(*lgrw->reader_refcnt, 0);
->> +		lg_local_unlock(&lgrw->lglock);
->> +		return;
+On Tue, Mar 05, 2013 at 02:42:26PM +0000, David Vrabel wrote:
+> On 05/03/13 13:56, Konrad Rzeszutek Wilk wrote:
+> > On Tue, Mar 05, 2013 at 01:30:10PM +0000, Wei Liu wrote:
+> >> On Mon, 2013-03-04 at 20:51 +0000, Konrad Rzeszutek Wilk wrote:
+> >>> On Fri, Feb 15, 2013 at 04:00:02PM +0000, Wei Liu wrote:
+> >>>> The initialization process makes an assumption that the online cpus are
+> >>>> numbered from 0 to xen_netbk_group_nr-1,  which is not always true.
+> >>>
+> >>> And xen_netbk_group_nr is num_online_cpus()?
+> >>>
+> >>
+> >> Yes.
+> >>
+> >>> So under what conditions does this change? Is this when the CPU hotplug
+> >>> is involved and the CPUs go offline? In which case should there be a
+> >>
+> >> Yes, the hotplug path.
+> >>
+> >>> CPU hotplug notifier to re-bind the workers are appropiate?
+> > 
+> > ?
+> > Can't that option be explored?
 > 
-> This should be a break, instead of a return, right?
-> Otherwise, there will be a preempt imbalance...
+> I'm not sure binding netback threads to particular VCPUs is useful
+> without also binding the events to the corresponding VCPUs.
+> 
+> I would hope that the scheduler would tend to the correct behavior if
+> threads aren't bound, anyway.
 
-
-"lockdep" and "preempt" are handled in lg_local_unlock(&lgrw->lglock);
-
-Thanks,
-Lai
-
+That is fine too. If that is what we want we just need to make the git
+commit message be more descriptive of why we don't want to bind
+to VCPUs.
 > 
->> +	case FALLBACK_BASE:
->> +		__this_cpu_write(*lgrw->reader_refcnt, 0);
->> +		read_unlock(&lgrw->fallback_rwlock);
->> +		rwlock_release(&lg->lock_dep_map, 1, _RET_IP_);
->> +		break;
->> +	default:
->> +		__this_cpu_dec(*lgrw->reader_refcnt);
->> +		break;
->> +	}
->> +
->> +	preempt_enable();
->> +}
-> 
-> 
-> Regards,
-> Srivatsa S. Bhat
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
-
+> David
