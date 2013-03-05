@@ -1,67 +1,59 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] net/wireless/brcm80211: remove PCI_BUS define from defs.h
- to fix warnings
-Date: Mon, 04 Mar 2013 19:28:08 -0600
-Message-ID: <51354A28.3040607@lwfinger.net>
-References: <1362445374.4591.28.camel@lorien2>
+From: Michel Lespinasse <walken@google.com>
+Subject: Re: [PATCH V2] lglock: add read-preference local-global rwlock
+Date: Mon, 4 Mar 2013 17:37:09 -0800
+Message-ID: <CANN689F6RHCtDAiBGu=n60UKUEE5Ld50gkwS3rNdE2GN2+v3nA@mail.gmail.com>
+References: <512CC509.1050000@linux.vnet.ibm.com>
+	<CACvQF50UgiqPpDk3HCmV86zKSf6tPjqr0bZowfPEOJs0g0r0MQ@mail.gmail.com>
+	<512D0D67.9010609@linux.vnet.ibm.com>
+	<CACvQF53ph2ixdM-otzetjM5cR+2kcZj6sckOp3TnzzA_x-EZ8w@mail.gmail.com>
+	<512E7879.20109@linux.vnet.ibm.com>
+	<5130E8E2.50206@cn.fujitsu.com>
+	<20130301182854.GA3631@redhat.com>
+	<CANN689HEW=b5S93J27p+rBX-5m7jkW4FER=eHDCp7OgMaTWLPw@mail.gmail.com>
+	<5131FB4C.7070408@cn.fujitsu.com>
+	<20130302172003.GC29769@redhat.com>
+	<20130303174056.GA30176@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: brudley@broadcom.com, arend@broadcom.com, frankyl@broadcom.com,
-	linville@tuxdriver.com, seth.forshee@canonical.com,
-	pieterpg@broadcom.com, linux-wireless@vger.kernel.org,
-	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, shuahkhan@gmail.com
-To: shuah.khan@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:34596 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932589Ab3CEB2N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 20:28:13 -0500
-In-Reply-To: <1362445374.4591.28.camel@lorien2>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Lai Jiangshan <laijs@cn.fujitsu.com>,
+	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
+	Lai Jiangshan <eag0628@gmail.com>, linux-doc@vger.kernel.org,
+	peterz@infradead.org, fweisbec@gmail.com,
+	linux-kernel@vger.kernel.org, namhyung@kernel.org,
+	mingo@kernel.org, linux-arch@vger.kernel.org,
+	linux@arm.linux.org.uk, xiaoguangrong@linux.vnet.ibm.com,
+	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	rusty@rustcorp.com.au, rostedt@goodmis.org, rjw@sisk.pl,
+	vincent.guittot@linaro.org, tglx@linutronix.de,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	sbw@mit.edu, tj@kernel.org, akpm@linux-foundation.org,
+	linuxppc-dev@lists.ozlabs.org
+To: Oleg Nesterov <oleg@redhat.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20130303174056.GA30176@redhat.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/04/2013 07:02 PM, Shuah Khan wrote:
-> PCI_BUS defined in defs.h results in warnings from all brcm80211 source files
-> including defs.h. This define is not used in brcm80211. Removing this define
-> fixes the warning.
->
-> In file included from drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c:35:0:
-> drivers/net/wireless/brcm80211/include/defs.h:23:0: warning: "PCI_BUS" redefined [enabled by default]
-> include/uapi/linux/pci.h:36:0: note: this is the location of the previous definition
->    CC [M]  drivers/net/wireless/b43legacy/dma.o
->    CC [M]  drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.o
->    CC [M]  drivers/net/wireless/b43legacy/pio.o
-> In file included from drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c:29:0:
-> drivers/net/wireless/brcm80211/include/defs.h:23:0: warning: "PCI_BUS" redefined [enabled by default]
-> include/uapi/linux/pci.h:36:0: note: this is the location of the previous definition
-> In file included from drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c:29:0:
-> drivers/net/wireless/brcm80211/include/defs.h:23:0: warning: "PCI_BUS" redefined [enabled by default]
-> include/uapi/linux/pci.h:36:0: note: this is the location of the previous definition
+On Sun, Mar 3, 2013 at 9:40 AM, Oleg Nesterov <oleg@redhat.com> wrote:
+>> However, I still think that FALLBACK_BASE only adds the unnecessary
+>> complications. But even if I am right this is subjective of course, please
+>> feel free to ignore.
 
-Strange, I do not see PCI_BUS defined anywhere in the include/ branch in either 
-3.8 or 3.9. In addition, I don't get these warnings. What is different in your 
-system?
+Would it help if I sent out that version (without FALLBACK_BASE) as a
+formal proposal ?
 
-Larry
+> Hmm. But then I do not understand the lglock annotations. Obviously,
+> rwlock_acquire_read() in lg_local_lock() can't even detect the simplest
+> deadlock, say, lg_local_lock(LOCK) + lg_local_lock(LOCK). Not to mention
+> spin_lock(X) + lg_local_lock(Y) vs lg_local_lock(Y) + spin_lock(X).
+>
+> OK, I understand that it is not easy to make these annotations correct...
 
->
-> Signed-off-by: Shuah Khan <shuah.khan@hp.com>
-> ---
->   drivers/net/wireless/brcm80211/include/defs.h |    1 -
->   1 file changed, 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/brcm80211/include/defs.h b/drivers/net/wireless/brcm80211/include/defs.h
-> index fb7cbcf..3608436 100644
-> --- a/drivers/net/wireless/brcm80211/include/defs.h
-> +++ b/drivers/net/wireless/brcm80211/include/defs.h
-> @@ -20,7 +20,6 @@
->   #include <linux/types.h>
->
->   #define	SI_BUS			0
-> -#define	PCI_BUS			1
->   #define	PCMCIA_BUS		2
->   #define SDIO_BUS		3
->   #define JTAG_BUS		4
->
+I am going to send out a proposal to fix the existing lglock
+annotations and detect the two cases you noticed. It's actually not
+that hard :)
+
+-- 
+Michel "Walken" Lespinasse
+A program is never fully debugged until the last user dies.
