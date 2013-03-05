@@ -1,42 +1,35 @@
-From: Corey Richardson <corey@octayn.net>
-Subject: Re: mac80211: regression: fd0f979 no long authenticates w/ath9k_htc
-Date: Tue, 5 Mar 2013 16:49:29 -0500
-Message-ID: <CA++BO6QA9cFmM2kU4u8ASxWqJeGwUB1385awKfXLP=O0fA87NA@mail.gmail.com>
+From: "Outlook Team." <rfai@lex.unict.it>
+Subject: Verify Your Account.
+Date: Wed, 06 Mar 2013 03:48:07 +0530
+Message-ID: <SRVFRONT02cgDIQjOnf0002cb53@mbox-fe2.lex.unict.it>
+Reply-To: sbirep.vijaykumar@ymail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: "John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Johannes Berg <johannes.berg@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpout3.unict.it ([151.97.0.53]:37909 "EHLO mailgw.unict.it"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755456Ab3CFAHA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 19:07:00 -0500
+Received: from mbox-fe2.lex.unict.it (ns2.lex.unict.it [151.97.70.131])
+	by mailgw.unict.it (Postfix) with ESMTP id ED41013F99EB
+	for <netdev@vger.kernel.org>; Tue,  5 Mar 2013 23:18:21 +0100 (CET)
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 4, 2013 at 3:42 AM, Corey Richardson <corey@octayn.net> wrote:
-> ath9k_htc driver , AR9271 (at least according to lsusb)
->
-> commit fd0f979a1b67f0889aea24a7c7d2a54d6706a1cf
-> Author: Johannes Berg <johannes.berg@intel.com>
-> Date:   Thu Feb 7 00:14:51 2013 +0100
->
->     mac80211: simplify idle handling
->
->     Now that we have channel contexts, idle is (pretty
->     much) equivalent to not having a channel context.
->     Change the code to use this relation so that there
->     no longer is a need for a lot of idle recalculate
->     calls everywhere.
->
->     Signed-off-by: Johannes Berg <johannes.berg@intel.com>
->
-> :040000 040000 85b3d4d114efb012773b4c7e1728b5bcae2e6b37
-> 3ff33170763520b03e84e067f91cc0a8334e4d36 M    net
->
-> any more info needed?
+Dear Webmail User, 
 
-I noticed the mail didn't get through to all lists, perhaps the
-attachments were too large? (~135K)
+Due to Spam mails,Web E-mail account needs to be Re validated and
+Re-confirmed by using/clicking the link below:
 
-Files are at https://gist.github.com/cmr/a5ace41e765fca073201
+https://docs.google.com/a/blumail.org/spreadsheet/viewform?formkey=dEhZS25ZQmZFbTNpY21rWkdvZkFRanc6MQ
+
+Warning:Failure to comply to this message, your account will be
+deactivated from our database in 24 hrs
+
+We are sorry for this inconveniences this may cause you.
+
+Thank You,
+Outlook Team.
