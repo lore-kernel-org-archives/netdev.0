@@ -1,65 +1,67 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 3/3] net: cs89x0: use module_platform_driver_probe()
-Date: Tue, 05 Mar 2013 11:43:50 +0900
-Message-ID: <005301ce194b$44ca8e10$ce5faa30$%han@samsung.com>
-References: <005101ce194b$04f4d980$0ede8c80$%han@samsung.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net/rds: using strlcpy instead of strncpy
+Date: Tue, 5 Mar 2013 03:16:59 +0000
+Message-ID: <1362453419.3768.380.camel@deadeye.wl.decadent.org.uk>
+References: <512F1534.9020404@asianux.com>
+	  <AE90C24D6B3A694183C094C60CF0A2F6026B716D@saturn3.aculab.com>
+	  <1362421944.2956.15.camel@bwh-desktop.uk.solarflarecom.com>
+	 <1362422090.2956.18.camel@bwh-desktop.uk.solarflarecom.com>
+	 <51355936.3060307@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	<venkat.x.venkatsubra@oracle.com>,
+	David Miller <davem@davemloft.net>, <rds-devel@oss.oracle.com>,
+	netdev <netdev@vger.kernel.org>
+To: Chen Gang <gang.chen@asianux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.samsung.com ([203.254.224.25]:11600 "EHLO
-	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758979Ab3CECnw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 21:43:52 -0500
-Received: from epcpsbgr5.samsung.com
- (u145.gpu120.samsung.co.kr [203.254.230.145])
- by mailout2.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MJ6004S528Z4VF0@mailout2.samsung.com> for
- netdev@vger.kernel.org; Tue, 05 Mar 2013 11:43:51 +0900 (KST)
-Received: from DOJG1HAN02 ([12.23.120.99])
- by mmp1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTPA id <0MJ600B3Z292SR60@mmp1.samsung.com> for netdev@vger.kernel.org;
- Tue, 05 Mar 2013 11:43:50 +0900 (KST)
-In-reply-to: <005101ce194b$04f4d980$0ede8c80$%han@samsung.com>
-Content-language: ko
+Received: from webmail.solarflare.com ([12.187.104.25]:28538 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759287Ab3CEDRV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 22:17:21 -0500
+In-Reply-To: <51355936.3060307@asianux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch uses module_platform_driver_probe() macro which makes
-the code smaller and simpler.
+On Tue, 2013-03-05 at 10:32 +0800, Chen Gang wrote:
+> =E4=BA=8E 2013=E5=B9=B403=E6=9C=8805=E6=97=A5 02:34, Ben Hutchings =E5=
+=86=99=E9=81=93:
+> > On Mon, 2013-03-04 at 18:32 +0000, Ben Hutchings wrote:
+> >> > On Thu, 2013-02-28 at 09:36 +0000, David Laight wrote:
+> >>> > >=20
+> >>> > > If the target buffer ends up being copied to userspace that
+> >>> > > might lead to random kernel memory being leaked.
+> >> >=20
+> >> > Seems it is.  The last byte of 'name' is not currently initialis=
+ed and
+> >> > therefore is already leaked to userland.
+> >> >=20
+> >> > But it's OK because rds_info_copy() uses memcpy() not __copy_to_=
+user(),
+> >> > so SMAP will block this leak. :-)
+> > Or not, as kmap() presumably evades that.
+>=20
+>  is this patch ok, or need improving ?
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
----
- drivers/net/ethernet/cirrus/cs89x0.c |   14 +-------------
- 1 files changed, 1 insertions(+), 13 deletions(-)
+I think it is wrong, and the code should be changed to do either:
 
-diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
-index 1384469..73c1c8c 100644
---- a/drivers/net/ethernet/cirrus/cs89x0.c
-+++ b/drivers/net/ethernet/cirrus/cs89x0.c
-@@ -1978,18 +1978,6 @@ static struct platform_driver cs89x0_driver = {
- 	.remove	= cs89x0_platform_remove,
- };
- 
--static int __init cs89x0_init(void)
--{
--	return platform_driver_probe(&cs89x0_driver, cs89x0_platform_probe);
--}
--
--module_init(cs89x0_init);
--
--static void __exit cs89x0_cleanup(void)
--{
--	platform_driver_unregister(&cs89x0_driver);
--}
--
--module_exit(cs89x0_cleanup);
-+module_platform_driver_probe(cs89x0_driver, cs89x0_platform_probe);
- 
- #endif /* CONFIG_CS89x0_PLATFORM */
--- 
-1.7.2.5
+1. Zero-initialise the whole of the name, then use strlcpy().
+2. Keep using strncpy(), and also set the last byte of name to 0.
+
+> BTW:
+>   excuse me, maybe my reply will be late during this week.
+>   the reason:
+>     my father had a serious heart disease, and is in hospital.
+>     during these days, most of my time has to be in hospital.
+>       (God Bless, and thank Jesus Christ, my father is safe, now).
+>     within my company (Asianux), I also have something to do.
+
+Best wishes to you both.
+
+Ben.
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
