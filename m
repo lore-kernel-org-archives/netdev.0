@@ -1,75 +1,44 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH 4/7] usbnet: cdc_mbim: don't recover device if suspend
- fails in system sleep
-Date: Tue, 5 Mar 2013 19:07:57 +0800
-Message-ID: <CACVXFVMRpf0REYxfi1wtzUpXn2PTCeS6qNfYQP12tW8ca3Sp=g@mail.gmail.com>
-References: <1362456103-24956-1-git-send-email-ming.lei@canonical.com>
-	<1362456103-24956-5-git-send-email-ming.lei@canonical.com>
-	<87boayqq5c.fsf@nemi.mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-input@vger.kernel.org
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <87boayqq5c.fsf@nemi.mork.no>
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Subject: [PATCH 1/1] net: ipv4: Remove redundant NULL check
+Date: Tue,  5 Mar 2013 16:57:09 +0530
+Message-ID: <1362482829-10455-1-git-send-email-sachin.kamat@linaro.org>
+Cc: davem@davemloft.net, sachin.kamat@linaro.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:53450 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754830Ab3CELhk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 06:37:40 -0500
+Received: by mail-pb0-f47.google.com with SMTP id rp2so4312199pbb.6
+        for <netdev@vger.kernel.org>; Tue, 05 Mar 2013 03:37:39 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 5, 2013 at 3:09 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
-> Ming Lei <ming.lei@canonical.com> writes:
->
->> If suspend callback fails in system sleep context, usb core will
->> ignore the failure and let system sleep go ahead further, so
->> this patch doesn't recover device under this situation.
->>
->> Cc: Bj=F8rn Mork <bjorn@mork.no>
->> Signed-off-by: Ming Lei <ming.lei@canonical.com>
->> ---
->>  drivers/net/usb/cdc_mbim.c |    2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
->> index 248d2dc..da83546 100644
->> --- a/drivers/net/usb/cdc_mbim.c
->> +++ b/drivers/net/usb/cdc_mbim.c
->> @@ -338,7 +338,7 @@ static int cdc_mbim_suspend(struct usb_interface=
- *intf, pm_message_t message)
->>
->>       if (intf =3D=3D ctx->control && info->subdriver && info->subdr=
-iver->suspend)
->>               ret =3D info->subdriver->suspend(intf, message);
->> -     if (ret < 0)
->> +     if (ret < 0 && PMSG_IS_AUTO(msg))
->>               usbnet_resume(intf);
->>
->>  error:
->
-> NAK. We if the device cannot suspend, then it cannot do suspend halfw=
-ays
+kfree on a null pointer is a NO-OP. Hence null check is not necessary.
 
-Sorry, what do you mean that the device cannot suspend?  If you mean
-usb_suspend_device(), its failure is still ignored, and generally it is=
- OK
-since the suspend action is driven by upstream port.
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+---
+Compile tested on linux-next tree (20130305).
+---
+ net/ipv4/tcp.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-> either. Whether the caller will ignore the error or not, is irrelevan=
-t.
-
-Anyway, usbnet_resume() can't be called to submit new URBs in
-the failure path of system suspend, so the patch should be correct.
-
-
-Thanks,
---
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-input" =
-in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 47e854f..3aa5d54 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -992,10 +992,8 @@ static inline int select_size(const struct sock *sk, bool sg)
+ 
+ void tcp_free_fastopen_req(struct tcp_sock *tp)
+ {
+-	if (tp->fastopen_req != NULL) {
+-		kfree(tp->fastopen_req);
+-		tp->fastopen_req = NULL;
+-	}
++	kfree(tp->fastopen_req);
++	tp->fastopen_req = NULL;
+ }
+ 
+ static int tcp_sendmsg_fastopen(struct sock *sk, struct msghdr *msg, int *size)
+-- 
+1.7.4.1
