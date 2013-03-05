@@ -1,9 +1,9 @@
 From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH 4/7] usbnet: cdc_mbim: don't recover device if suspend fails in system sleep
-Date: Tue, 05 Mar 2013 08:09:19 +0100
-Message-ID: <87boayqq5c.fsf@nemi.mork.no>
+Subject: Re: [PATCH 7/7] usbnet: qmi_wwan: don't recover device if suspend fails in system sleep
+Date: Tue, 05 Mar 2013 08:09:35 +0100
+Message-ID: <877glmqq4w.fsf@nemi.mork.no>
 References: <1362456103-24956-1-git-send-email-ming.lei@canonical.com>
-	<1362456103-24956-5-git-send-email-ming.lei@canonical.com>
+	<1362456103-24956-8-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -15,8 +15,8 @@ Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1362456103-24956-5-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> (Ming
-	Lei's message of "Tue, 5 Mar 2013 12:01:40 +0800")
+In-Reply-To: <1362456103-24956-8-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> (Ming
+	Lei's message of "Tue, 5 Mar 2013 12:01:43 +0800")
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
@@ -29,24 +29,25 @@ Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> writes:
 > Cc: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 > Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 > ---
->  drivers/net/usb/cdc_mbim.c |    2 +-
+>  drivers/net/usb/qmi_wwan.c |    2 +-
 >  1 file changed, 1 insertion(+), 1 deletion(-)
 >
-> diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
-> index 248d2dc..da83546 100644
-> --- a/drivers/net/usb/cdc_mbim.c
-> +++ b/drivers/net/usb/cdc_mbim.c
-> @@ -338,7 +338,7 @@ static int cdc_mbim_suspend(struct usb_interface =
+> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+> index efb5c7c..fce18be 100644
+> --- a/drivers/net/usb/qmi_wwan.c
+> +++ b/drivers/net/usb/qmi_wwan.c
+> @@ -294,7 +294,7 @@ static int qmi_wwan_suspend(struct usb_interface =
 *intf, pm_message_t message)
 > =20
->  	if (intf =3D=3D ctx->control && info->subdriver && info->subdriver-=
->suspend)
+>  	if (intf =3D=3D info->control && info->subdriver && info->subdriver=
+->suspend)
 >  		ret =3D info->subdriver->suspend(intf, message);
 > -	if (ret < 0)
-> +	if (ret < 0 && PMSG_IS_AUTO(msg))
+> +	if (ret < 0  && PMSG_IS_AUTO(msg))
 >  		usbnet_resume(intf);
-> =20
->  error:
+>  err:
+>  	return ret;
+
 
 NAK. We if the device cannot suspend, then it cannot do suspend halfway=
 s
