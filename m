@@ -1,66 +1,76 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH V2] lglock: add read-preference local-global rwlock
-Date: Tue, 5 Mar 2013 17:41:06 +0100
-Message-ID: <20130305164106.GA4329@redhat.com>
-References: <CACvQF50UgiqPpDk3HCmV86zKSf6tPjqr0bZowfPEOJs0g0r0MQ@mail.gmail.com> <512D0D67.9010609@linux.vnet.ibm.com> <CACvQF53ph2ixdM-otzetjM5cR+2kcZj6sckOp3TnzzA_x-EZ8w@mail.gmail.com> <512E7879.20109@linux.vnet.ibm.com> <5130E8E2.50206@cn.fujitsu.com> <20130301182854.GA3631@redhat.com> <CANN689HEW=b5S93J27p+rBX-5m7jkW4FER=eHDCp7OgMaTWLPw@mail.gmail.com> <5131FB4C.7070408@cn.fujitsu.com> <20130302172003.GC29769@redhat.com> <51360ED1.3030104@cn.fujitsu.com>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: Re: [PATCH 4/7] usbnet: cdc_mbim: don't recover device if suspend
+ fails in system sleep
+Date: Tue, 5 Mar 2013 11:54:21 -0500 (EST)
+Message-ID: <Pine.LNX.4.44L0.1303051147300.1308-100000@iolanthe.rowland.org>
+References: <87wqtlommw.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michel Lespinasse <walken@google.com>,
-	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	Lai Jiangshan <eag0628@gmail.com>, linux-doc@vger.kernel.org,
-	peterz@infradead.org, fweisbec@gmail.com,
-	linux-kernel@vger.kernel.org, namhyung@kernel.org,
-	mingo@kernel.org, linux-arch@vger.kernel.org,
-	linux@arm.linux.org.uk, xiaoguangrong@linux.vnet.ibm.com,
-	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	rusty@rustcorp.com.au, rostedt@goodmis.org, rjw@sisk.pl,
-	vincent.guittot@linaro.org, tglx@linutronix.de,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	sbw@mit.edu, tj@kernel.org, akpm@linux-foundation.org,
-	linuxppc-dev@lists.ozlabs.org
-To: Lai Jiangshan <laijs@cn.fujitsu.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <51360ED1.3030104@cn.fujitsu.com>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87wqtlommw.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 03/05, Lai Jiangshan wrote:
->
-> On 03/03/13 01:20, Oleg Nesterov wrote:
-> > On 03/02, Lai Jiangshan wrote:
-> >>
-> >> +void lg_rwlock_local_read_unlock(struct lgrwlock *lgrw)
-> >> +{
-> >> +	switch (__this_cpu_read(*lgrw->reader_refcnt)) {
-> >> +	case 1:
-> >> +		__this_cpu_write(*lgrw->reader_refcnt, 0);
-> >> +		lg_local_unlock(&lgrw->lglock);
-> >> +		return;
-> >> +	case FALLBACK_BASE:
-> >> +		__this_cpu_write(*lgrw->reader_refcnt, 0);
-> >> +		read_unlock(&lgrw->fallback_rwlock);
-> >> +		rwlock_release(&lg->lock_dep_map, 1, _RET_IP_);
-> >
-> > I guess "case 1:" should do rwlock_release() too.
->
-> Already do it in "lg_local_unlock(&lgrw->lglock);" before it returns.
-> (I like reuse old code)
+On Tue, 5 Mar 2013, Bj=C3=B8rn Mork wrote:
 
-Yes, I was wrong thanks. Another case when I didn't notice that you
-re-use the regular lg_ code...
+> Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> writes:
+>=20
+> > Yes, USB core will flush any outstanding URBs, but the driver still=
+ need
+> > to deal with suspend failure carefully, for example, suppose usb_re=
+sume()
+> > is called in suspend failure path, and the submitted URBs are kille=
+d
+> > by USB core later. But after the device is wakeup, and the resume()=
+ will
+> > do nothing since the suspend count is leaked. So it is what the pat=
+ches
+> > are fixing, and it is better to not depend on the default flushing =
+URBs of
+> > USB core.
+>=20
+> I am starting to wonder why the USB core has combined system suspend =
+and
+> runtime suspend if we are going to end up with every driver testing
+> PMSG_IS_AUTO(message) and selecting a completely different code path.
 
-> > We need rwlock_acquire_read() even in the fast-path, and this acquire_read
-> > should be paired with rwlock_acquire() in _write_lock(), but it does
-> > spin_acquire(lg->lock_dep_map). Yes, currently this is the same (afaics)
-> > but perhaps fallback_rwlock->dep_map would be more clean.
->
-> I can't tell which one is better. I try to use fallback_rwlock->dep_map later.
+Mainly for historical reasons.  System suspend existed long before=20
+runtime suspend did.  When runtime suspend was added, it piggybacked=20
+off the existing code.  Furthermore, originally there was no=20
+requirement that system suspend always succeed; that was added later.
 
-I am not sure which one should be better too, please check.
+Also, the code paths are not completely different.  They differ mainly=20
+in their error handling.  But when you think about it, how serious an=20
+error can you encounter when you try to _stop_ using a device?
 
-Again, I forgot that _write_lock/unlock use lg_global_*() code.
+> You are right that we will end up with problems if usbnet_resume is
+> called for a device usbnet hasn't suspended.  But I'd still claim tha=
+t
+> is a bug in the USB core, which is the one that decided to ignore the
+> suspend error and still call resume.
+>=20
+> I guess proper error handling here require the USB core to see the
+> interface driver as dead if it fails to suspend on system suspend, an=
+d
+> do forced rebinding on resume.
 
-Oleg.
+You are welcome to submit a patch to do this.  It shouldn't be hard; we
+already have a flag indicating that an interface needs to be unbound at
+reprobed at resume time.  You can update the kerneldoc in addition; as
+you noticed, it currently does not describe the actual code completely
+accurately.
 
+Alan Stern
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
