@@ -1,44 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: reduce net_rx_action() latency to 2 HZ
-Date: Tue, 05 Mar 2013 09:15:13 -0800
-Message-ID: <1362503713.15793.121.camel@edumazet-glaptop>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [RFC PATCH 1/5] net: implement support for low latency socket
+ polling
+Date: Tue, 05 Mar 2013 19:15:26 +0200
+Message-ID: <5136282E.9080307@linux.intel.com>
+References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>  <20130227175555.10611.42794.stgit@gitlad.jf.intel.com> <1362501781.2791.19.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:52876 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754951Ab3CERPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 12:15:17 -0500
-Received: by mail-pb0-f52.google.com with SMTP id ma3so4728520pbc.39
-        for <netdev@vger.kernel.org>; Tue, 05 Mar 2013 09:15:17 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Dave Miller <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1362501781.2791.19.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazt@google.com>
+On 05/03/2013 18:43, Ben Hutchings wrote:
+> On Wed, 2013-02-27 at 09:55 -0800, Eliezer Tamir wrote:
+>
+> Should the units really be cycles or, say, microseconds?  I assume that
+> a sysctl setter can do a conversion to cycles so that there's no need to
+> multiply every time the value is used.  (If the CPU doesn't have
+> constant_tsc or equivalent then this conversion doesn't quite work, but
+> then low-latency tunng usually includes disabling frequency scaling.)
 
-We should use time_after_eq() to get maximum latency of two ticks,
-instead of three.
+We are not very sensitive to this setting, anything on the order of your 
+half round time trip plus a few standard deviations works well.
+We are busy waiting, so setting a higher value does not change the 
+results much.
 
-Bug added in commit 24f8b2385 (net: increase receive packet quantum)
+It does make sense to have this in ms, and it might not matter if the 
+dynamic cycles mess with the value too much.
 
-Signed-off-by: Eric Dumazet <edumazt@google.com>
----
- net/core/dev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+BTW on my machines enabling frequency scaling improves performance in 
+many cases.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 18d8b5a..461b315 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4107,7 +4107,7 @@ static void net_rx_action(struct softirq_action *h)
- 		 * Allow this to run for 2 jiffies since which will allow
- 		 * an average latency of 1.5/HZ.
- 		 */
--		if (unlikely(budget <= 0 || time_after(jiffies, time_limit)))
-+		if (unlikely(budget <= 0 || time_after_eq(jiffies, time_limit)))
- 			goto softnet_break;
- 
- 		local_irq_enable();
+> Also, this should be a per-device (or even per-NAPI-context?) setting.
+
+Again, I would expect this to depend more on your workload than on the 
+NIC, so I would keep this global.
+User knobs should be as simple as possible.
+
+ >>+int sysctl_net_ll_poll __read_mostly = 150000;
+> Nicely tuned for your specific test system, no doubt. :-)
+
+why don't you try this on your NIC and see ;-)
+
+Thanks for the input,
+Eliezer
