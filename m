@@ -1,43 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] benet: Wait f/w POST until timeout
-Date: Tue, 05 Mar 2013 16:34:31 -0500 (EST)
-Message-ID: <20130305.163431.2055740152739079020.davem@davemloft.net>
-References: <1362383327-32362-1-git-send-email-shangw@linux.vnet.ibm.com>
+From: Corey Richardson <corey@octayn.net>
+Subject: Re: mac80211: regression: fd0f979 no long authenticates w/ath9k_htc
+Date: Tue, 5 Mar 2013 16:49:29 -0500
+Message-ID: <CA++BO6QA9cFmM2kU4u8ASxWqJeGwUB1385awKfXLP=O0fA87NA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sathya.perla@emulex.com,
-	subbu.seetharaman@emulex.com, ajit.khaparde@emulex.com
-To: shangw@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54769 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750931Ab3CEVee (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 16:34:34 -0500
-In-Reply-To: <1362383327-32362-1-git-send-email-shangw@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: "John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Johannes Berg <johannes.berg@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gavin Shan <shangw@linux.vnet.ibm.com>
-Date: Mon,  4 Mar 2013 15:48:46 +0800
+On Mon, Mar 4, 2013 at 3:42 AM, Corey Richardson <corey@octayn.net> wrote:
+> ath9k_htc driver , AR9271 (at least according to lsusb)
+>
+> commit fd0f979a1b67f0889aea24a7c7d2a54d6706a1cf
+> Author: Johannes Berg <johannes.berg@intel.com>
+> Date:   Thu Feb 7 00:14:51 2013 +0100
+>
+>     mac80211: simplify idle handling
+>
+>     Now that we have channel contexts, idle is (pretty
+>     much) equivalent to not having a channel context.
+>     Change the code to use this relation so that there
+>     no longer is a need for a lot of idle recalculate
+>     calls everywhere.
+>
+>     Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+>
+> :040000 040000 85b3d4d114efb012773b4c7e1728b5bcae2e6b37
+> 3ff33170763520b03e84e067f91cc0a8334e4d36 M    net
+>
+> any more info needed?
 
-> While PCI card faces EEH errors, reset (usually hot reset) is
-> expected to recover from the EEH errors. After EEH core finishes
-> the reset, the driver callback (be_eeh_reset) is called and wait
-> the firmware to complete POST successfully. The original code would
-> return with error once detecting failure during POST stage. That
-> seems not enough.
-> 
-> The patch forces the driver (be_eeh_reset) to wait the firmware
-> completes POST until timeout, instead of returning error upon
-> detection POST failure immediately. Also, it would improve the
-> reliability of the EEH funtionality of the driver.
-> 
-> Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
+I noticed the mail didn't get through to all lists, perhaps the
+attachments were too large? (~135K)
 
-I know that patch #2 of this series needs to be implemented differently,
-but this patch seems fine.
-
-So can I get an ACK from one of the benet driver folks?
-
-Thanks.
+Files are at https://gist.github.com/cmr/a5ace41e765fca073201
