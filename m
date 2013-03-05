@@ -1,82 +1,69 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [Xen-devel] [PATCH 3/8] netback: get/put module along with vif
- connect/disconnect
-Date: Tue, 5 Mar 2013 10:53:35 -0500
-Message-ID: <20130305155335.GC15431@phenom.dumpdata.com>
-References: <1360944010-15336-1-git-send-email-wei.liu2@citrix.com>
- <1360944010-15336-4-git-send-email-wei.liu2@citrix.com>
- <5135C2C8.8030708@citrix.com>
- <1362490213.4748.24.camel@zion.uk.xensource.com>
- <5135FC2E.9050705@citrix.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH 4/7] usbnet: cdc_mbim: don't recover device if suspend fails in system sleep
+Date: Tue, 05 Mar 2013 17:08:07 +0100
+Message-ID: <87wqtlommw.fsf@nemi.mork.no>
+References: <1362456103-24956-1-git-send-email-ming.lei@canonical.com>
+	<1362456103-24956-5-git-send-email-ming.lei@canonical.com>
+	<87boayqq5c.fsf@nemi.mork.no>
+	<CACVXFVMRpf0REYxfi1wtzUpXn2PTCeS6qNfYQP12tW8ca3Sp=g@mail.gmail.com>
+	<87d2veot6t.fsf@nemi.mork.no>
+	<CACVXFVOg9cVNYsRuAVkexwy4hvD_iJm_vARRksBAeiWppWnoXA@mail.gmail.com>
+	<871ubtq47a.fsf@nemi.mork.no>
+	<CACVXFVMDNtJOp+8jMOuhCBjrqq-L=jicEJBr_=ErG19Vr+7OGw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-input@vger.kernel.org
+To: Ming Lei <ming.lei@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:51689 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755027Ab3CEPxl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 10:53:41 -0500
-Content-Disposition: inline
-In-Reply-To: <5135FC2E.9050705@citrix.com>
+Received: from canardo.mork.no ([148.122.252.1]:33803 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751792Ab3CEQJr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 11:09:47 -0500
+In-Reply-To: <CACVXFVMDNtJOp+8jMOuhCBjrqq-L=jicEJBr_=ErG19Vr+7OGw@mail.gmail.com>
+	(Ming Lei's message of "Tue, 5 Mar 2013 23:29:15 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 05, 2013 at 02:07:42PM +0000, David Vrabel wrote:
-> On 05/03/13 13:30, Wei Liu wrote:
-> > On Tue, 2013-03-05 at 10:02 +0000, David Vrabel wrote:
-> >> On 15/02/13 16:00, Wei Liu wrote:
-> >>> If there is vif running and user unloads netback, guest's network interface
-> >>> just mysteriously stops working. So we need to prevent unloading netback
-> >>> module if there is vif running.
-> >>
-> >> It's not mysterious -- it is cleanly disconnected, and will reconnect
-> >> when the module is reinserted.
-> >>
-> > 
-> > From a guest's POV, it just stops without any sign. This should be
-> > prevented IMHO.
-> 
-> This is a bug in the frontend or a bug in the backend failing to
-> disconnect correctly.
-> 
-> I posted a series of "xen-foofront: handle backend CLOSED without
-> CLOSING" patches that may help here. (I didn't get applied to netfront
-> for some reason.)
+Ming Lei <ming.lei@canonical.com> writes:
 
-Hm, could you resent it please and make sure that the networking
-maintainer is on the To list?
+> Yes, USB core will flush any outstanding URBs, but the driver still n=
+eed
+> to deal with suspend failure carefully, for example, suppose usb_resu=
+me()
+> is called in suspend failure path, and the submitted URBs are killed
+> by USB core later. But after the device is wakeup, and the resume() w=
+ill
+> do nothing since the suspend count is leaked. So it is what the patch=
+es
+> are fixing, and it is better to not depend on the default flushing UR=
+Bs of
+> USB core.
 
-> 
-> Disabling module unload doesn't prevent this from happening away.  You
-> can always manually unbind the backend device from the xen-netback
-> driver which has the same effect as unloading the module.
-> 
-> > Netback / netfront lose all states when netback is unloaded. And
-> > netfront doesn't support reconfiguration at the moment. My guess is that
-> > this is the reason why netback doesn't even have unload function at
-> > first.
-> 
-> If netfront cannot handle reconnect then that's a bug in the frontend or
-> a bug in the backend xenbus code not setting up the reconnect correctly.
-> 
-> >> Being able to unload modules while they are in use is standard so I
-> >> don't think this should be applied.
-> > 
-> > I don't think this is true from a module dependency point of view - just
-> > try to unload any in use module, rmmod / modprobe will give you a fatal
-> > error.
-> 
-> Try it with any other network interface driver and it will unload just fine.
-> 
-> David
-> 
-> _______________________________________________
-> Xen-devel mailing list
-> Xen-devel@lists.xen.org
-> http://lists.xen.org/xen-devel
-> 
+I am starting to wonder why the USB core has combined system suspend an=
+d
+runtime suspend if we are going to end up with every driver testing
+PMSG_IS_AUTO(message) and selecting a completely different code path.
+
+You are right that we will end up with problems if usbnet_resume is
+called for a device usbnet hasn't suspended.  But I'd still claim that
+is a bug in the USB core, which is the one that decided to ignore the
+suspend error and still call resume.
+
+I guess proper error handling here require the USB core to see the
+interface driver as dead if it fails to suspend on system suspend, and
+do forced rebinding on resume.
+
+I am not going to fight this any longer.  The per-driver
+PMSG_IS_AUTO(message) testing is an ugly workround for a core problem,
+but they are already all over the place...  Still, please make sure the
+drivers all return 0 if they are pretending to suspend. No error code
+return if the driver ignores the error.
+
+
+Bj=C3=B8rn
