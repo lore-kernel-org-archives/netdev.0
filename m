@@ -1,68 +1,38 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH 7/7] usbnet: qmi_wwan: don't recover device if suspend
- fails in system sleep
-Date: Tue, 5 Mar 2013 20:27:17 +0800
-Message-ID: <CACVXFVMTers3amn8Jj4N+FU0bbs3DVOuF4Zq9X0+JijL=rcHYA@mail.gmail.com>
-References: <1362456103-24956-1-git-send-email-ming.lei@canonical.com>
-	<1362456103-24956-8-git-send-email-ming.lei@canonical.com>
-	<877glmqq4w.fsf@nemi.mork.no>
+From: =?ISO-8859-1?Q?Sebastian_P=F6hn?= <sebastian.poehn@googlemail.com>
+Subject: tipc: MTU discovery
+Date: Tue, 5 Mar 2013 13:43:29 +0100
+Message-ID: <CAGUzgdKJ4pPdhx7VkGCGS8CynXgOrxhTu8dZ+s77C+WKrCcCeA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-input@vger.kernel.org
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <877glmqq4w.fsf@nemi.mork.no>
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jon.maloy@ericsson.com, allan.stephens@windriver.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:40761 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750998Ab3CEMnb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 07:43:31 -0500
+Received: by mail-la0-f52.google.com with SMTP id fs12so5986636lab.25
+        for <netdev@vger.kernel.org>; Tue, 05 Mar 2013 04:43:29 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 5, 2013 at 3:09 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
-> Ming Lei <ming.lei@canonical.com> writes:
->
->> If suspend callback fails in system sleep context, usb core will
->> ignore the failure and let system sleep go ahead further, so
->> this patch doesn't recover device under this situation.
->>
->> Cc: Bj=F8rn Mork <bjorn@mork.no>
->> Signed-off-by: Ming Lei <ming.lei@canonical.com>
->> ---
->>  drivers/net/usb/qmi_wwan.c |    2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
->> index efb5c7c..fce18be 100644
->> --- a/drivers/net/usb/qmi_wwan.c
->> +++ b/drivers/net/usb/qmi_wwan.c
->> @@ -294,7 +294,7 @@ static int qmi_wwan_suspend(struct usb_interface=
- *intf, pm_message_t message)
->>
->>       if (intf =3D=3D info->control && info->subdriver && info->subd=
-river->suspend)
->>               ret =3D info->subdriver->suspend(intf, message);
->> -     if (ret < 0)
->> +     if (ret < 0  && PMSG_IS_AUTO(msg))
->>               usbnet_resume(intf);
->>  err:
->>       return ret;
->
->
-> NAK. We if the device cannot suspend, then it cannot do suspend halfw=
-ays
-> either. Whether the caller will ignore the error or not, is irrelevan=
-t.
+I am trying to run TIPC over a link with a MTU higher than standard
+1500 (actually 2k or more).
 
-See my same comments on 4/7.
+I have a Ethernet Device configured with this MTU and an overlying
+VLAN with the same MTU. Link Layer looks ok, as MTU sized ICMP traffic
+is sent and received unfragmented.
 
-Thanks,
---
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-input" =
-in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+TIPC does not discover the higher MTU, it always keeps at 1500.
+Smaller ones (1.4k) are detected correctly.
+
+Doing some deeper investigation into the TIPC stack leaded to this observation:
+State Messages larger than 1500 which as used for the MTU negotiation
+do not appear in the TIPC stack. But I am able to seen them entering
+the correct device.
+Because of that no reply with the correct max_packet field set can be
+send and the negotiation will always end up at 1.5k.
+
+So my questions are:
+# Is TIPC meant to detect and use the MTU larger than 1.5k?
+# Why are the packets not passed to the TIPC stack?
