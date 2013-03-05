@@ -1,61 +1,70 @@
-From: dormando <dormando@rydia.net>
-Subject: Re: BUG: IPv4: Attempt to release TCP socket in state 1
-Date: Mon, 4 Mar 2013 21:44:34 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1303042138330.7811@localhost6.localdomain6>
-References: <alpine.DEB.2.02.1303041547080.7811@localhost6.localdomain6>  <51356AC1.4090302@gmail.com> <1362460046.15793.111.camel@edumazet-glaptop>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH 0/7] USB: don't recover device if suspend fails in system sleep
+Date: Tue, 05 Mar 2013 08:03:46 +0100
+Message-ID: <87fw0aqqel.fsf@nemi.mork.no>
+References: <1362456103-24956-1-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1362460046.15793.111.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-input@vger.kernel.org
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:56261 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752467Ab3CEHF0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 02:05:26 -0500
+In-Reply-To: <1362456103-24956-1-git-send-email-ming.lei@canonical.com> (Ming
+	Lei's message of "Tue, 5 Mar 2013 12:01:36 +0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Ming Lei <ming.lei@canonical.com> writes:
 
-
-On Mon, 4 Mar 2013, Eric Dumazet wrote:
-
-> On Tue, 2013-03-05 at 11:47 +0800, Cong Wang wrote:
-> > (Cc'ing the right netdev mailing list...)
-> >
-> > On 03/05/2013 08:01 AM, dormando wrote:
-> > > Hi!
-> > >
-> > > I have a (core lockup?) with 3.7.6+ and 3.8.2 which appears to be under
-> > > ixgbe. The machine appears to still be up but network stays in a severely
-> > > hobbled state. Either lagging or not responding to the network at all.
-> > >
-> > > On a new box the hang happens within 8-24 hours of giving it production
-> > > network traffic. On an older machine (6 cores instead of 8, etc) it can
-> > > run for a week or more before hanging.
-> > >
-> > > The hang from 3.7 might be slightly different than 3.8. They seem to be
-> > > mostly the same aside from 3.8 hanging in the GRO path. Don't see anything
-> > > obvious in 3.9-rc1 that would fix it, and haven't tried 3.9-rc1.
-> > >
-> > > I've not yet figured out how to reproduce outside of production (as
-> > > always, sigh). This doesn't seem to happen with 3.6.6, but we have
-> > > different and less frequent kernel panics there.
-> > >
+> Hi,
 >
-> Dornando, do you use any kind of special setup, external modules,
-> or netfilter ? (iptables-save output would help)
->
-> Is it a pristine kernel, or a modified one ?
->
+> This patch adds comments on interface driver suspend callback
+> to emphasize that the failure return value is ignored by
+> USB core in system sleep context, so do not try to recover
+> device for this case, otherwise the URB traffic scheduled
+> in recovery of failure path may cross system sleep, and may
+> cause problems.
 
-(Sigh. sorry for the misfire, thanks for fixing cc).
+Well, an unexpected error did happen so problems are to be expected,
+yes.
 
-No 3rd party modules. There's a tiny patch for controlling initcwnd from
-userspace and another one for the extra_free_kbytes tunable that I brought
-up in another thread. We've had the initcwnd patch in for a long time
-without trouble. The extra_free_kbytes tunable isn't even being used yet,
-so all that's doing is adding a 0 somewhere.
+> Also fixes the USB serial, HID and several usbnet drivers
+> which may recover device in suspend failure path of system sleep.
 
-Only two iptables rules loaded: global NOTRACK rules for PREROUTING/OUTPUT
-in raw.
+I believe all of these are wrong unless you have any real bug which is
+fixed by this.
 
-Kernel's as close to pristine as I can make it. We had the 10g patch in
-but I've dropped it.
+All these drivers suspend in multiple steps, where each step can
+fail. If a later step fails then they revert any previously successful
+step before returning the failure, thereby ensuring that the
+device/driver state when suspend returns is consistently either
+suspended or resumed.
+
+The error recovery they do in suspend is not about preventing suspend a=
+t
+all.  It is about ensuring that that the driver and device is in a
+consistent state, which is "resumed" if suspend fails.
+
+Your patch set make the drivers return from suspend in some intermediat=
+e
+state, where the device and/or driver is neither suspended nor resumed.
+This is wrong.  You still did not necessarily kill all URBs, but you
+killed some of them.  What is resume() going to do then?
+
+I am going to NAK the cdc_mbim and qmi_wwan pacthes unless you can
+convince me that we need to add a "partly-suspended" state for the
+system suspend error case.  In which case the patch will need to includ=
+e
+the corresponding resume fix for the "partly-suspended" state.
+
+
+Bj=C3=B8rn
