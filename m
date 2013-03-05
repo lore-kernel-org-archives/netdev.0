@@ -1,39 +1,157 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BUG: IPv4: Attempt to release TCP socket in state 1
-Date: Tue, 05 Mar 2013 06:46:35 -0800
-Message-ID: <1362494795.15793.113.camel@edumazet-glaptop>
-References: <alpine.DEB.2.02.1303041547080.7811@localhost6.localdomain6>
-	  <51356AC1.4090302@gmail.com> <1362460046.15793.111.camel@edumazet-glaptop>
-	 <alpine.DEB.2.02.1303042138330.7811@localhost6.localdomain6>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH 4/7] usbnet: cdc_mbim: don't recover device if suspend
+ fails in system sleep
+Date: Tue, 5 Mar 2013 22:50:43 +0800
+Message-ID: <CACVXFVOg9cVNYsRuAVkexwy4hvD_iJm_vARRksBAeiWppWnoXA@mail.gmail.com>
+References: <1362456103-24956-1-git-send-email-ming.lei@canonical.com>
+	<1362456103-24956-5-git-send-email-ming.lei@canonical.com>
+	<87boayqq5c.fsf@nemi.mork.no>
+	<CACVXFVMRpf0REYxfi1wtzUpXn2PTCeS6qNfYQP12tW8ca3Sp=g@mail.gmail.com>
+	<87d2veot6t.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: dormando <dormando@rydia.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1303042138330.7811@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-input@vger.kernel.org
+To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Return-path: <linux-input-owner@vger.kernel.org>
+In-Reply-To: <87d2veot6t.fsf@nemi.mork.no>
+Sender: linux-input-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-03-04 at 21:44 -0800, dormando wrote:
+On Tue, Mar 5, 2013 at 9:46 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
+> Ming Lei <ming.lei@canonical.com> writes:
+>
+>> On Tue, Mar 5, 2013 at 3:09 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
+>>> Ming Lei <ming.lei@canonical.com> writes:
+>>>
+>>>> If suspend callback fails in system sleep context, usb core will
+>>>> ignore the failure and let system sleep go ahead further, so
+>>>> this patch doesn't recover device under this situation.
+>>>>
+>>>> Cc: Bj=F8rn Mork <bjorn@mork.no>
+>>>> Signed-off-by: Ming Lei <ming.lei@canonical.com>
+>>>> ---
+>>>>  drivers/net/usb/cdc_mbim.c |    2 +-
+>>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>>>
+>>>> diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim=
+=2Ec
+>>>> index 248d2dc..da83546 100644
+>>>> --- a/drivers/net/usb/cdc_mbim.c
+>>>> +++ b/drivers/net/usb/cdc_mbim.c
+>>>> @@ -338,7 +338,7 @@ static int cdc_mbim_suspend(struct usb_interfa=
+ce *intf, pm_message_t message)
+>>>>
+>>>>       if (intf =3D=3D ctx->control && info->subdriver && info->sub=
+driver->suspend)
+>>>>               ret =3D info->subdriver->suspend(intf, message);
+>>>> -     if (ret < 0)
+>>>> +     if (ret < 0 && PMSG_IS_AUTO(msg))
+>>>>               usbnet_resume(intf);
+>>>>
+>>>>  error:
+>>>
+>>> NAK. We if the device cannot suspend, then it cannot do suspend hal=
+fways
+>>
+>> Sorry, what do you mean that the device cannot suspend?
+>
+>
+> Now, after inspecting wdm_suspend() which hides behind
+> info->subdriver->suspend(), I see that this is a completely theoretic=
+al
+> discussion as it always will return 0 if PMSG_IS_AUTO(msg) is true...
+>
+> Which means that your change really is a noop().  I still don't like =
+it,
+> because it gives the impression that errors from info->subdriver->sus=
+pend()
+> isn't dealt with.
 
-> No 3rd party modules. There's a tiny patch for controlling initcwnd from
-> userspace and another one for the extra_free_kbytes tunable that I brought
-> up in another thread. We've had the initcwnd patch in for a long time
-> without trouble. The extra_free_kbytes tunable isn't even being used yet,
-> so all that's doing is adding a 0 somewhere.
-> 
-> Only two iptables rules loaded: global NOTRACK rules for PREROUTING/OUTPUT
-> in raw.
-> 
-> Kernel's as close to pristine as I can make it. We had the 10g patch in
-> but I've dropped it.
-> --
+Yes, it needn't dealt with in system sleep, so it has the document bene=
+fit.
 
-Hmm, I spent time on this bug report but found nothing.
+>
+>>  If you mean
+>> usb_suspend_device(), its failure is still ignored, and generally it=
+ is OK
+>> since the suspend action is driven by upstream port.
+>
+>
+> I mean that we do two operations here: first we suspend usbnet, then =
+we
+> suspend wdm:
+>
+>         ret =3D usbnet_suspend(intf, message);
+>         if (ret < 0)
+>                 goto error;
+>         if (intf =3D=3D ctx->control && info->subdriver && info->subd=
+river->suspend)
+>                 ret =3D info->subdriver->suspend(intf, message);
+>         if (ret < 0)
+>                 usbnet_resume(intf);
+> error:
+>         return ret;
+>
+>
+> The case you are trying to modify is when the second fails after the
+> first succeeded. You know suspend has already failed at this point.  =
+It
+> is the implication of the error.  Your only task is to decide what to=
+ do
+> about that failure.  You seem to think that you can fix it.  You
+> cannot.  It already has failed.  If you are going to fix that, then y=
+ou
+> have to go back to where it failed.
+>
+> So your next step if going down this route will naturally be looking
+> into how you can prevent info->subdriver->suspend() from ever failing=
+=2E
+> Which will be easy as it won't.  But assuming for this argument that =
+it
+> can fail, which I guess can be true for some of the serial driver
+> callback errors etc you also fixed this way.  I am pretty sure that w=
+hen
+> you look into those to make sure they never can fail, you will find
+> another function you have to ensure never can fail.
+>
+> Forget it.  suspend can and will fail.   Deal with it in the upper
+> layers.  In fact, the USB core already does.  If you think it doesn't
+> then that's where you fix it.
 
-Please post as much information as you can on your setup.
+No, USB core does not handle it, and will always ignore the return
+failure from driver's suspend, see usb_suspend_both() for non-autosuspe=
+nd
+case.
 
-I see you use macvlan, bridge, so maybe there is a configuration issue
-(and a kernel bug of course)
+>
+>>> either. Whether the caller will ignore the error or not, is irrelev=
+ant.
+>>
+>> Anyway, usbnet_resume() can't be called to submit new URBs in
+>> the failure path of system suspend, so the patch should be correct.
+>
+> I fail to see how this is any different from a composite device with
+> e.g. a usbnet function and a serial function where suspending the ser=
+ial
+> function fails after successfully suspending the usbnet function.
+> usb_suspend_both() will then resume the usbnet function and return th=
+e
+> error.
+
+No, usb_suspend_both() always ignores the suspend failure from drivers
+and does not resume a non-root-hub device during system sleep.
+
+Thanks,
+--
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-input" =
+in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
