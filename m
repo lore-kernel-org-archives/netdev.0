@@ -1,63 +1,53 @@
-From: Shuah Khan <shuahkhan@gmail.com>
-Subject: Re: [PATCH] net/wireless/brcm80211: remove PCI_BUS define from defs.h
- to fix warnings
-Date: Mon, 4 Mar 2013 21:08:16 -0700
-Message-ID: <CAKocOOOJRpaq-e=XX584e1JQDYq_N4q8rka0otZBWbdvzdLyuA@mail.gmail.com>
-References: <1362445374.4591.28.camel@lorien2>
-	<51354A28.3040607@lwfinger.net>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH] net/rds: using strlcpy instead of strncpy
+Date: Tue, 05 Mar 2013 12:09:17 +0800
+Message-ID: <51356FED.4070909@asianux.com>
+References: <512F1534.9020404@asianux.com>    <AE90C24D6B3A694183C094C60CF0A2F6026B716D@saturn3.aculab.com>    <1362421944.2956.15.camel@bwh-desktop.uk.solarflarecom.com>   <1362422090.2956.18.camel@bwh-desktop.uk.solarflarecom.com>   <51355936.3060307@asianux.com>  <1362453419.3768.380.camel@deadeye.wl.decadent.org.uk>  <51356735.4020405@asianux.com> <1362454672.3768.383.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: shuah.khan@hp.com, brudley@broadcom.com, arend@broadcom.com,
-	frankyl@broadcom.com, linville@tuxdriver.com,
-	seth.forshee@canonical.com, pieterpg@broadcom.com,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51354A28.3040607@lwfinger.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	venkat.x.venkatsubra@oracle.com,
+	David Miller <davem@davemloft.net>, rds-devel@oss.oracle.com,
+	netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from intranet.asianux.com ([58.214.24.6]:42272 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758900Ab3CEEJk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 23:09:40 -0500
+In-Reply-To: <1362454672.3768.383.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 4, 2013 at 6:28 PM, Larry Finger <Larry.Finger@lwfinger.net> wrote:
-> On 03/04/2013 07:02 PM, Shuah Khan wrote:
->>
->> PCI_BUS defined in defs.h results in warnings from all brcm80211 source
->> files
->> including defs.h. This define is not used in brcm80211. Removing this
->> define
->> fixes the warning.
->>
->> In file included from
->> drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c:35:0:
->> drivers/net/wireless/brcm80211/include/defs.h:23:0: warning: "PCI_BUS"
->> redefined [enabled by default]
->> include/uapi/linux/pci.h:36:0: note: this is the location of the previous
->> definition
->>    CC [M]  drivers/net/wireless/b43legacy/dma.o
->>    CC [M]  drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.o
->>    CC [M]  drivers/net/wireless/b43legacy/pio.o
->> In file included from
->> drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c:29:0:
->> drivers/net/wireless/brcm80211/include/defs.h:23:0: warning: "PCI_BUS"
->> redefined [enabled by default]
->> include/uapi/linux/pci.h:36:0: note: this is the location of the previous
->> definition
->> In file included from
->> drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c:29:0:
->> drivers/net/wireless/brcm80211/include/defs.h:23:0: warning: "PCI_BUS"
->> redefined [enabled by default]
->> include/uapi/linux/pci.h:36:0: note: this is the location of the previous
->> definition
->
->
-> Strange, I do not see PCI_BUS defined anywhere in the include/ branch in
-> either 3.8 or 3.9. In addition, I don't get these warnings. What is
-> different in your system?
->
-> Larry
+=E4=BA=8E 2013=E5=B9=B403=E6=9C=8805=E6=97=A5 11:37, Ben Hutchings =E5=86=
+=99=E9=81=93:
+>>   I think what I have done is just like your choice "2."
+>> >   for me, I think they are equal:
+>> >=20
+>> > -		strncpy(ctr.name, names[i], sizeof(ctr.name) - 1);
+>> > +		strlcpy(ctr.name, names[i], sizeof(ctr.name));
+>> >=20
+>> >=20
+>> > 		strncpy(ctr.name, names[i], sizeof(ctr.name) - 1);
+>> > + 		ctr.name[sizeof(ctr.name) - 1] =3D '\0';
+> They are not.  strncpy() pads with zeroes to the end of the given buf=
+fer
+> whereas strlcpy() adds only a single zero byte (and truncates if
+> necessary to fit the zero byte).
 
-I am sorry. Please ignore this patch. I had a old commit for a change
-I was working on
-and I thought I undid the changes. My apologies for the noise.
+  ok, thank you. they are really not the same (originally, I did not
+notice it)
 
--- Shuah
+  could you supply the reason:
+    why need we zero all of ctr.name ?
+    (for me, I think, keeping ctr.name just a zero-based string is ok)
+
+  thanks.
+
+  :-)
+
+--=20
+Chen Gang
+
+Asianux Corporation
