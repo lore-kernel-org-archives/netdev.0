@@ -1,38 +1,47 @@
-From: =?ISO-8859-1?Q?Sebastian_P=F6hn?= <sebastian.poehn@googlemail.com>
-Subject: tipc: MTU discovery
-Date: Tue, 5 Mar 2013 13:43:29 +0100
-Message-ID: <CAGUzgdKJ4pPdhx7VkGCGS8CynXgOrxhTu8dZ+s77C+WKrCcCeA@mail.gmail.com>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH 0/7] USB: don't recover device if suspend fails in system sleep
+Date: Tue, 05 Mar 2013 13:50:35 +0100
+Message-ID: <3703451.5FViJ58GpZ@linux-5eaq.site>
+References: <1362456103-24956-1-git-send-email-ming.lei@canonical.com> <87fw0aqqel.fsf@nemi.mork.no> <CACVXFVM=PcxTLb1-Bo-11Lz0FzthQJTRKt5=sn6W85K9p8xE4A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: jon.maloy@ericsson.com, allan.stephens@windriver.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:40761 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750998Ab3CEMnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 07:43:31 -0500
-Received: by mail-la0-f52.google.com with SMTP id fs12so5986636lab.25
-        for <netdev@vger.kernel.org>; Tue, 05 Mar 2013 04:43:29 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	"David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Alan Stern <stern@rowland.harvard.edu>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-input@vger.kernel.org
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <linux-input-owner@vger.kernel.org>
+In-Reply-To: <CACVXFVM=PcxTLb1-Bo-11Lz0FzthQJTRKt5=sn6W85K9p8xE4A@mail.gmail.com>
+Sender: linux-input-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I am trying to run TIPC over a link with a MTU higher than standard
-1500 (actually 2k or more).
+On Tuesday 05 March 2013 18:55:42 Ming Lei wrote:
+> > All these drivers suspend in multiple steps, where each step can
+> > fail. If a later step fails then they revert any previously successful
+> > step before returning the failure, thereby ensuring that the
+> > device/driver state when suspend returns is consistently either
+> > suspended or resumed.
+> 
+> IMO, for autosuspend, that is right, but it is not for system suspend,
+> and the driver's suspend callback can't return in resumed state
+> because the USB core will ignore the failure return value and force
+> to suspend the device.
 
-I have a Ethernet Device configured with this MTU and an overlying
-VLAN with the same MTU. Link Layer looks ok, as MTU sized ICMP traffic
-is sent and received unfragmented.
+It seems to me that in this case you just need to make sure that
+suspend() not fail for system suspend. Or revisit the decision to
+ignore failures.
+In other words, if we don't handle errors, there must be no errors,
+otherwise it doesn't matter what we do in the error case. We'd leave
+the problem to generic layers.
 
-TIPC does not discover the higher MTU, it always keeps at 1500.
-Smaller ones (1.4k) are detected correctly.
+Furthermore there is a small chance that although the device tree
+is walked, teh system suspend fails for another later reason that
+is not ignored. In that case the drivers need to do error recovery,
+albeit in resume().
 
-Doing some deeper investigation into the TIPC stack leaded to this observation:
-State Messages larger than 1500 which as used for the MTU negotiation
-do not appear in the TIPC stack. But I am able to seen them entering
-the correct device.
-Because of that no reply with the correct max_packet field set can be
-send and the negotiation will always end up at 1.5k.
+	Regards
+		Oliver
 
-So my questions are:
-# Is TIPC meant to detect and use the MTU larger than 1.5k?
-# Why are the packets not passed to the TIPC stack?
