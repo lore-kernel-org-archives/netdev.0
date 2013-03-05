@@ -1,87 +1,133 @@
 From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: e1000e disabling already-disabled device
-Date: Tue, 5 Mar 2013 02:11:39 +0000
-Message-ID: <804857E1F29AAC47BF68C404FC60A1844D02FD70@ORSMSX102.amr.corp.intel.com>
-References: <20130303162124.GA31371@redhat.com>
- <20130303233624.GA28784@electric-eye.fr.zoreil.com>
+Subject: RE: [E1000-devel] e1000e 3.9-rc1 suspend failure (was: Re: e1000e:
+ nic does not work properly after cold power on)
+Date: Tue, 5 Mar 2013 02:11:56 +0000
+Message-ID: <804857E1F29AAC47BF68C404FC60A1844D02FD84@ORSMSX102.amr.corp.intel.com>
+References: <20130304124631.2ac730f3@mdontu-l.dsd.ro>
+	<5134E4AB.2010504@imt-systems.com> <20130304214830.GB22306@pd.tnic>
+ <20130305005836.4f84c065@mdontu-l.dsd.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"khlebnikov@openvz.org" <khlebnikov@openvz.org>
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Dave Jones <davej@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Borislav Petkov <bp@alien8.de>,
+	Jiri Slaby <jslaby@suse.cz>
+To: =?utf-8?B?TWloYWkgRG9uyJt1?= <mihai.dontu@gmail.com>,
+	Morten Stevens <mstevens@imt-systems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:63327 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:16249 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932831Ab3CECLl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Mar 2013 21:11:41 -0500
-In-Reply-To: <20130303233624.GA28784@electric-eye.fr.zoreil.com>
+	id S932732Ab3CECL6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Mar 2013 21:11:58 -0500
+In-Reply-To: <20130305005836.4f84c065@mdontu-l.dsd.ro>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Francois Romieu [mailto:romieu@fr.zoreil.com]
-> Sent: Sunday, March 03, 2013 3:36 PM
-> To: Dave Jones
-> Cc: netdev@vger.kernel.org; Allan, Bruce W
-> Subject: Re: e1000e disabling already-disabled device
-> 
-> Dave Jones <davej@redhat.com> :
-> [...]
-> >  ------------[ cut here ]------------
-> >  WARNING: at drivers/pci/pci.c:1397 pci_disable_device+0x90/0xa0()
-> >  Hardware name: 2356JK8
-> >  Device e1000e
-> > disabling already-disabled device
-> > Modules linked in:
-> >  dm_crypt arc4 iwldvm mac80211 ipv6 iTCO_wdt xfs iTCO_vendor_support
-> libcrc32c coretemp kvm_intel kvm crc32c_intel ghash_clmulni_intel
-> microcode snd_hda_codec_hdmi snd_hda_codec_realtek btusb bluetooth
-> iwlwifi pcspkr snd_hda_intel cfg80211 snd_hda_codec snd_pcm lpc_ich
-> mfd_core e1000e snd_page_alloc ptp pps_core thinkpad_acpi hwmon
-> led_class rfkill wmi nfsd auth_rpcgss nfs_acl lockd sunrpc i915 i2c_algo_bit
-> drm_kms_helper drm i2c_core video
-> > Pid: 19776, comm: kworker/u:11 Not tainted 3.8.0+ #6
-> > Call Trace:
-> >  [<ffffffff81049855>] warn_slowpath_common+0x75/0xa0
-> >  [<ffffffff81049936>] warn_slowpath_fmt+0x46/0x50
-> >  [<ffffffff81359760>] pci_disable_device+0x90/0xa0
-> >  [<ffffffffa0251092>] __e1000_shutdown+0x262/0x8a0 [e1000e]
-> >  [<ffffffffa0251743>] e1000_suspend+0x23/0x50 [e1000e]
-> >  [<ffffffff816284b9>] ? sub_preempt_count+0x79/0xd0
-> >  [<ffffffff8135bd97>] pci_pm_suspend+0x77/0x140
-> >  [<ffffffff8135bd20>] ? pci_pm_poweroff+0xf0/0xf0
-> >  [<ffffffff8140c678>] dpm_run_callback+0x58/0x90
-> >  [<ffffffff8140c79d>] __device_suspend+0xed/0x280
-> >  [<ffffffff8140d1ef>] async_suspend+0x1f/0xa0
-> 
-> Could it be that runtime power management is also enabled, you have no
-> link and thus end running both runtime_suspend and suspend at different
-> times ?
-> 
-> I wonder why the driver disables the PCI device here btw.
-> 
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c
-> b/drivers/net/ethernet/intel/e1000e/netdev.c
-> index a177b8b..5c643c6 100644
-> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> @@ -5986,8 +5986,6 @@ static int __e1000_shutdown(struct pci_dev
-> *pdev, bool *enable_wake,
->  	 */
->  	e1000e_release_hw_control(adapter);
-> 
-> -	pci_disable_device(pdev);
-> -
->  	return 0;
->  }
-> 
-> ---
-> Ueimor
-
-This is a known issue and a patch from Konstantin Khlebnikov <khlebnikov@openvz.org> is currently under test.
-
-Thanks,
-Bruce.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNaWhhaSBEb27Im3UgW21haWx0
+bzptaWhhaS5kb250dUBnbWFpbC5jb21dDQo+IFNlbnQ6IE1vbmRheSwgTWFyY2ggMDQsIDIwMTMg
+Mjo1OSBQTQ0KPiBUbzogTW9ydGVuIFN0ZXZlbnMNCj4gQ2M6IGUxMDAwLWRldmVsQGxpc3RzLnNv
+dXJjZWZvcmdlLm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgtDQo+IGtlcm5lbEB2
+Z2VyLmtlcm5lbC5vcmc7IFJhZmFlbCBKLiBXeXNvY2tpOyBCb3Jpc2xhdiBQZXRrb3Y7IEppcmkg
+U2xhYnkNCj4gU3ViamVjdDogUmU6IFtFMTAwMC1kZXZlbF0gZTEwMDBlIDMuOS1yYzEgc3VzcGVu
+ZCBmYWlsdXJlICh3YXM6IFJlOiBlMTAwMGU6DQo+IG5pYyBkb2VzIG5vdCB3b3JrIHByb3Blcmx5
+IGFmdGVyIGNvbGQgcG93ZXIgb24pDQo+IA0KPiBPbiBNb24sIDQgTWFyIDIwMTMgMjI6NDg6MzAg
+KzAxMDAgQm9yaXNsYXYgUGV0a292IHdyb3RlOg0KPiA+IE9uIE1vbiwgTWFyIDA0LCAyMDEzIGF0
+IDA3OjE1OjA3UE0gKzAxMDAsIE1vcnRlbiBTdGV2ZW5zIHdyb3RlOg0KPiA+ID4gQ2FuIHlvdSBy
+ZXByb2R1Y2UgdGhpcyB3aXRoIGxpbnV4IDMuOS1yYzE/IDMuOS1yYzEgaGFzIHRoZSBsYXRlc3QN
+Cj4gPiA+IHVwc3RyZWFtIGRyaXZlciAoZTEwMDBlIDIuMi4xNCkgd2hpY2ggY29udGFpbnMgbWFu
+eSBidWdmaXhlcy4NCj4gPg0KPiANCj4gT24gbXkgc3lzdGVtIChUaGlua1BhZCBUNDIwKSBJIGdl
+dDoNCj4gDQo+IFsgICAxMC42OTQ3NDNdIGUxMDAwZTogSW50ZWwoUikgUFJPLzEwMDAgTmV0d29y
+ayBEcml2ZXIgLSAyLjIuMTQtaw0KPiBbICAgMTAuNjk0NzQ2XSBlMTAwMGU6IENvcHlyaWdodChj
+KSAxOTk5IC0gMjAxMyBJbnRlbCBDb3Jwb3JhdGlvbi4NCj4gWyAgIDEwLjY5NDg1Ml0gZTEwMDBl
+IDAwMDA6MDA6MTkuMDogc2V0dGluZyBsYXRlbmN5IHRpbWVyIHRvIDY0DQo+IFsgICAxMC42OTQ5
+MTFdIGUxMDAwZSAwMDAwOjAwOjE5LjA6IEludGVycnVwdCBUaHJvdHRsaW5nIFJhdGUgKGludHMv
+c2VjKSBzZXQgdG8NCj4gZHluYW1pYyBjb25zZXJ2YXRpdmUgbW9kZQ0KPiBbICAgMTAuNjk0OTQ5
+XSBlMTAwMGUgMDAwMDowMDoxOS4wOiBpcnEgNDcgZm9yIE1TSS9NU0ktWA0KPiBbICAgMTAuOTc1
+MDg2XSBlMTAwMGUgMDAwMDowMDoxOS4wIGV0aDA6IHJlZ2lzdGVyZWQgUEhDIGNsb2NrDQo+IFsg
+ICAxMC45NzUwOTFdIGUxMDAwZSAwMDAwOjAwOjE5LjAgZXRoMDogKFBDSSBFeHByZXNzOjIuNUdU
+L3M6V2lkdGggeDEpDQo+IDAwOjIxOmNjOjcwOjE3OmEwDQo+IFsgICAxMC45NzUwOTNdIGUxMDAw
+ZSAwMDAwOjAwOjE5LjAgZXRoMDogSW50ZWwoUikgUFJPLzEwMDAgTmV0d29yaw0KPiBDb25uZWN0
+aW9uDQo+IFsgICAxMC45NzUxMjddIGUxMDAwZSAwMDAwOjAwOjE5LjAgZXRoMDogTUFDOiAxMCwg
+UEhZOiAxMSwgUEJBIE5vOiAxMDAwRkYtDQo+IDBGRg0KPiBbICAgODkuNzE2Njk1XSBlMTAwMGUg
+MDAwMDowMDoxOS4wIGV0aDA6IEhhcmR3YXJlIEVycm9yDQo+IFsgICA5MC4wMjU0MDNdIGUxMDAw
+ZSAwMDAwOjAwOjE5LjAgZXRoMDogVGltZXN5bmMgVHggQ29udHJvbCByZWdpc3RlciBub3Qgc2V0
+DQo+IGFzIGV4cGVjdGVkDQo+IFsgICA5MC4zNDkxOTddIGUxMDAwZSAwMDAwOjAwOjE5LjA6IGly
+cSA0NyBmb3IgTVNJL01TSS1YDQo+IFsgICA5MC40NDk3NjBdIGUxMDAwZSAwMDAwOjAwOjE5LjA6
+IGlycSA0NyBmb3IgTVNJL01TSS1YDQo+IA0KPiBUaGUgJ2hhcmR3YXJlIGVycm9yJyBsaW5lIGNh
+dWdodCBteSBhdHRlbnRpb24uDQo+IA0KPiA+IFRoaXMgZTEwMDBlIHRoaW5nIGdldHMgbW9yZSBi
+MHJrZWQgYnkgdGhlIG1pbnV0ZS4gVGhpcyBpcyB3aGF0IGhhcHBlbnMNCj4gPiB3aGVuIEkgdHJ5
+IHRvIHN1c3BlbmQgd2l0aCAzLjktcmMxOg0KPiA+DQo+ID4gWyAgIDgzLjUwMjkwOF0gUE06IFN5
+bmNpbmcgZmlsZXN5c3RlbXMgLi4uIGRvbmUuDQo+ID4gWyAgIDgzLjUwOTg4Nl0gRnJlZXppbmcg
+dXNlciBzcGFjZSBwcm9jZXNzZXMgLi4uIChlbGFwc2VkIDAuMDENCj4gPiBzZWNvbmRzKSBkb25l
+LiBbICAgODMuNTIzMzUyXSBQTTogUHJlYWxsb2NhdGluZyBpbWFnZSBtZW1vcnkuLi4gZG9uZQ0K
+PiA+IChhbGxvY2F0ZWQgOTU2NTIgcGFnZXMpIFsgICA4My42NzUwODNdIFBNOiBBbGxvY2F0ZWQg
+MzgyNjA4IGtieXRlcyBpbg0KPiA+IDAuMTUgc2Vjb25kcyAoMjU1MC43MiBNQi9zKSBbICAgODMu
+Njc1NzgyXSBGcmVlemluZyByZW1haW5pbmcNCj4gPiBmcmVlemFibGUgdGFza3MgLi4uIChlbGFw
+c2VkIDAuMDEgc2Vjb25kcykgZG9uZS4gWyAgIDgzLjY4ODUyNF0NCj4gPiBTdXNwZW5kaW5nIGNv
+bnNvbGUocykgKHVzZSBub19jb25zb2xlX3N1c3BlbmQgdG8gZGVidWcpDQo+ID4gWyAgIDg0LjI1
+MTAyNF0gZTEwMDBlIDAwMDA6MDA6MTkuMCBldGgwOiBIYXJkd2FyZSBFcnJvcg0KPiA+IFsgICA4
+NC40NTg4NjZdIC0tLS0tLS0tLS0tLVsgY3V0IGhlcmUgXS0tLS0tLS0tLS0tLSBbICAgODQuNDU4
+ODcxXQ0KPiA+IFdBUk5JTkc6IGF0IGtlcm5lbC9pcnEvbWFuYWdlLmM6MTI0OSBfX2ZyZWVfaXJx
+KzB4YTMvMHgxZTAoKQ0KPiA+IFsgICA4NC40NTg4NzJdIEhhcmR3YXJlIG5hbWU6IDIzMjBDVE8g
+WyAgIDg0LjQ1ODg3Ml0gVHJ5aW5nIHRvIGZyZWUNCj4gPiBhbHJlYWR5LWZyZWUgSVJRIDIwIFsg
+ICA4NC40NTg4OThdIE1vZHVsZXMgbGlua2VkIGluOg0KPiA+IGNwdWZyZXFfcG93ZXJzYXZlIGNw
+dWZyZXFfdXNlcnNwYWNlIGNwdWZyZXFfY29uc2VydmF0aXZlDQo+ID4gY3B1ZnJlcV9zdGF0cyB1
+aW5wdXQgbG9vcCBoaWRfZ2VuZXJpYyB1c2IgaGlkIGhpZCBjb3JldGVtcCBrdm1faW50ZWwNCj4g
+PiBhcmM0IGt2bSBjcmMzMl9wY2xtdWwgaXdsZHZtIGNyYzMyY19pbnRlbCBnaGFzaF9jbG11bG5p
+X2ludGVsDQo+ID4gbWFjODAyMTEgYWVzbmlfaW50ZWwgeHRzIGlwdjYgYWVzX3g4Nl82NCBsciB3
+IGdmMTI4bXVsIGFibGtfaGVscGVyDQo+ID4gY3J5cHRkIGlUQ09fd2R0IGlUQ09fdmVuZG9yX3N1
+cHBvcnQgaXdsd2lmaSBzZGhjaV9wY2kgc2RoY2kgY2ZnODAyMTENCj4gPiBzbmRfaGRhX2NvZGVj
+X2hkbWkgc25kX2hkYV9jb2RlY19yZWFsdGVrIG1tY19jb3JlIG1pY3JvY29kZQ0KPiBlMTAwMGUN
+Cj4gPiB0aGlua3BhZF9hY3BpIHBjc3BrciBscGNfaWNoIGkyY19pODAxIG1mZF9jb3JlIG52cmFt
+IHNuZF9oZGFfaW50ZWwNCj4gPiByZmtpbGwgc25kX2hkYV9jb2RlYyBiYXR0ZXJ5IGFjIHNuZF9o
+dyBkZXAgbGVkX2NsYXNzIHNuZF9wY20NCj4gPiBzbmRfcGFnZV9hbGxvYyBzbmRfdGltZXIgc25k
+IGFjcGlfY3B1ZnJlcSBzb3VuZGNvcmUgbXBlcmYgcHRwIHdtaQ0KPiA+IHBwc19jb3JlIHhoY2lf
+aGNkIGVoY2lfcGNpIGVoY2lfaGNkIHByb2Nlc3NvIHIgdGhlcm1hbCBbICAgODQuNDU4OTAwXQ0K
+PiA+IFBpZDogMzM1MywgY29tbToga3dvcmtlci91OjM1IFRhaW50ZWQ6IEcgICAgICAgIFcgICAg
+My45LjAtcmMxICMxDQo+ID4gWyAgIDg0LjQ1ODkwMV0gQ2FsbCBUcmFjZTogWyAgIDg0LjQ1ODkw
+NV0gIFs8ZmZmZmZmZmY4MTAzZWY3Zj5dDQo+ID4gd2Fybl9zbG93cGF0aF9jb21tb24rMHg3Zi8w
+eGMwIFsgICA4NC40NTg5MDddICBbPGZmZmZmZmZmODEwM2YwNzY+XQ0KPiA+IHdhcm5fc2xvd3Bh
+dGhfZm10KzB4NDYvMHg1MCBbICAgODQuNDU4OTEwXSAgWzxmZmZmZmZmZjgxNTM3YmZlPl0gPw0K
+PiA+IF9yYXdfc3Bpbl9sb2NrX2lycXNhdmUrMHg0ZS8weDYwIFsgICA4NC40NTg5MTFdDQo+ID4g
+WzxmZmZmZmZmZjgxMGJjOGQ1Pl0gPyBfX2ZyZWVfaXJxKzB4NTUvMHgxZTAgWyAgIDg0LjQ1ODkx
+M10NCj4gPiBbPGZmZmZmZmZmODEwYmM5MjM+XSBfX2ZyZWVfaXJxKzB4YTMvMHgxZTAgWyAgIDg0
+LjQ1ODkxNF0NCj4gPiBbPGZmZmZmZmZmODEwYmNhYjQ+XSBmcmVlX2lycSsweDU0LzB4YzAgWyAg
+IDg0LjQ1ODkxOV0NCj4gPiBbPGZmZmZmZmZmYTAxNzc0NWQ+XSBlMTAwMF9mcmVlX2lycSsweDdk
+LzB4OTAgW2UxMDAwZV0NCj4gPiBbICAgODQuNDU4OTIyXSAgWzxmZmZmZmZmZmEwMTgzNGFmPl0g
+X19lMTAwMF9zaHV0ZG93bisweDhmLzB4OGEwDQo+ID4gW2UxMDAwZV0gWyAgIDg0LjQ1ODkyNF0g
+IFs8ZmZmZmZmZmY4MTNjOTJhNz5dID8NCj4gPiBfX2RldmljZV9zdXNwZW5kKzB4YjcvMHgyMDAg
+WyAgIDg0LjQ1ODkyN10gIFs8ZmZmZmZmZmY4MTA3M2I3MT5dID8NCj4gPiBnZXRfcGFyZW50X2lw
+KzB4MTEvMHg1MCBbICAgODQuNDU4OTMxXSAgWzxmZmZmZmZmZmEwMTgzZDMzPl0NCj4gPiBlMTAw
+MF9zdXNwZW5kKzB4MjMvMHg1MCBbZTEwMDBlXSBbICAgODQuNDU4OTMyXQ0KPiA+IFs8ZmZmZmZm
+ZmY4MTNjOTJhNz5dID8gX19kZXZpY2Vfc3VzcGVuZCsweGI3LzB4MjAwIFsgICA4NC40NTg5MzNd
+DQo+ID4gWzxmZmZmZmZmZjgxNTNjMDQ5Pl0gPyBzdWJfcHJlZW1wdF9jb3VudCsweDc5LzB4ZDAg
+WyAgIDg0LjQ1ODkzNl0NCj4gPiBbPGZmZmZmZmZmODEyYTJmZjU+XSBwY2lfcG1fZnJlZXplKzB4
+NTUvMHhjMCBbICAgODQuNDU4OTM3XQ0KPiA+IFs8ZmZmZmZmZmY4MTJhMmZhMD5dID8gcGNpX3Bt
+X3Jlc3VtZV9ub2lycSsweGQwLzB4ZDAgWyAgIDg0LjQ1ODkzOF0NCj4gPiBbPGZmZmZmZmZmODEz
+YzhiNDU+XSBkcG1fcnVuX2NhbGxiYWNrLmlzcmEuNSsweDI1LzB4NTANCj4gPiBbICAgODQuNDU4
+OTM5XSAgWzxmZmZmZmZmZjgxM2M5MmQzPl0gX19kZXZpY2Vfc3VzcGVuZCsweGUzLzB4MjAwDQo+
+ID4gWyAgIDg0LjQ1ODk0MV0gIFs8ZmZmZmZmZmY4MTNjOTQwZj5dIGFzeW5jX3N1c3BlbmQrMHgx
+Zi8weGEwDQo+ID4gWyAgIDg0LjQ1ODk0Ml0gIFs8ZmZmZmZmZmY4MTA2YmNmYj5dIGFzeW5jX3J1
+bl9lbnRyeV9mbisweDNiLzB4MTQwDQo+ID4gWyAgIDg0LjQ1ODk0NF0gIFs8ZmZmZmZmZmY4MTA1
+ZDAwZD5dIHByb2Nlc3Nfb25lX3dvcmsrMHgxZWQvMHg1MTANCj4gPiBbICAgODQuNDU4OTQ2XSAg
+WzxmZmZmZmZmZjgxMDVjZmFiPl0gPyBwcm9jZXNzX29uZV93b3JrKzB4MThiLzB4NTEwDQo+ID4g
+WyAgIDg0LjQ1ODk0OF0gIFs8ZmZmZmZmZmY4MTA1ZTdiNT5dIHdvcmtlcl90aHJlYWQrMHgxMTUv
+MHgzOTANCj4gPiBbICAgODQuNDU4OTQ5XSAgWzxmZmZmZmZmZjgxMDVlNmEwPl0gPyBtYW5hZ2Vf
+d29ya2VycysweDMwMC8weDMwMA0KPiA+IFsgICA4NC40NTg5NTFdICBbPGZmZmZmZmZmODEwNjRl
+MmE+XSBrdGhyZWFkKzB4ZWEvMHhmMA0KPiA+IFsgICA4NC40NTg5NTNdICBbPGZmZmZmZmZmODEw
+NjRkNDA+XSA/DQo+ID4ga3RocmVhZF9jcmVhdGVfb25fbm9kZSsweDE2MC8weDE2MCBbICAgODQu
+NDU4OTU0XQ0KPiA+IFs8ZmZmZmZmZmY4MTUzZmY5Yz5dIHJldF9mcm9tX2ZvcmsrMHg3Yy8weGIw
+IFsgICA4NC40NTg5NTVdDQo+ID4gWzxmZmZmZmZmZjgxMDY0ZDQwPl0gPyBrdGhyZWFkX2NyZWF0
+ZV9vbl9ub2RlKzB4MTYwLzB4MTYwDQo+ID4gWyAgIDg0LjQ1ODk1Nl0gLS0tWyBlbmQgdHJhY2Ug
+MzExNGUyM2NlNTBkMjM1NyBdLS0tIFsgICA4NS4wODIyNzZdDQo+ID4gcGNpX3BtX2ZyZWV6ZSgp
+OiBlMTAwMF9zdXNwZW5kKzB4MC8weDUwIFtlMTAwMGVdIHJldHVybnMgLTINCj4gPiBbICAgODUu
+MDgyMjc4XSBkcG1fcnVuX2NhbGxiYWNrKCk6IHBjaV9wbV9mcmVlemUrMHgwLzB4YzAgcmV0dXJu
+cyAtMg0KPiA+IFsgICA4NS4wODIyODFdIFBNOiBEZXZpY2UgMDAwMDowMDoxOS4wIGZhaWxlZCB0
+byBmcmVlemUgYXN5bmM6IGVycm9yDQo+ID4gLTINCj4gPg0KPiA+IExldCdzIGFkZCBtb3JlIGZv
+bGtzIHRvIENDLg0KDQpUaGlzIG1heSBiZSByZWxhdGVkIHRvIHNvbWUgcnVudGltZSBwb3dlciBt
+YW5hZ2VtZW50IGlzc3VlcyBmb3Igd2hpY2ggdGhlcmUgYXJlIGENCm51bWJlciBvZiBwYXRjaGVz
+IGN1cnJlbnRseSBpbiB0ZXN0Lg0KDQo=
