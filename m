@@ -1,210 +1,66 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH 1/5] net: implement support for low
- latency socket polling
-Date: Tue, 5 Mar 2013 16:43:01 +0000
-Message-ID: <1362501781.2791.19.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>
-	<20130227175555.10611.42794.stgit@gitlad.jf.intel.com>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH V2] lglock: add read-preference local-global rwlock
+Date: Tue, 5 Mar 2013 17:41:06 +0100
+Message-ID: <20130305164106.GA4329@redhat.com>
+References: <CACvQF50UgiqPpDk3HCmV86zKSf6tPjqr0bZowfPEOJs0g0r0MQ@mail.gmail.com> <512D0D67.9010609@linux.vnet.ibm.com> <CACvQF53ph2ixdM-otzetjM5cR+2kcZj6sckOp3TnzzA_x-EZ8w@mail.gmail.com> <512E7879.20109@linux.vnet.ibm.com> <5130E8E2.50206@cn.fujitsu.com> <20130301182854.GA3631@redhat.com> <CANN689HEW=b5S93J27p+rBX-5m7jkW4FER=eHDCp7OgMaTWLPw@mail.gmail.com> <5131FB4C.7070408@cn.fujitsu.com> <20130302172003.GC29769@redhat.com> <51360ED1.3030104@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
-	HPA <hpa@zytor.com>, Eliezer Tamir <eliezer@tamir.org.il>,
-	Dave Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130227175555.10611.42794.stgit@gitlad.jf.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Michel Lespinasse <walken@google.com>,
+	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
+	Lai Jiangshan <eag0628@gmail.com>, linux-doc@vger.kernel.org,
+	peterz@infradead.org, fweisbec@gmail.com,
+	linux-kernel@vger.kernel.org, namhyung@kernel.org,
+	mingo@kernel.org, linux-arch@vger.kernel.org,
+	linux@arm.linux.org.uk, xiaoguangrong@linux.vnet.ibm.com,
+	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	rusty@rustcorp.com.au, rostedt@goodmis.org, rjw@sisk.pl,
+	vincent.guittot@linaro.org, tglx@linutronix.de,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	sbw@mit.edu, tj@kernel.org, akpm@linux-foundation.org,
+	linuxppc-dev@lists.ozlabs.org
+To: Lai Jiangshan <laijs@cn.fujitsu.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <51360ED1.3030104@cn.fujitsu.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-02-27 at 09:55 -0800, Eliezer Tamir wrote:
-> Adds a new ndo_ll_poll method and the code that supports and uses it.
-> This method can be used by low latency applications to busy poll ethernet
-> device queues directly from the socket code. The ip_low_latency_poll sysctl
-> entry controls how many cycles to poll. Set to zero to disable.
-[...]
-> --- /dev/null
-> +++ b/include/net/ll_poll.h
-> @@ -0,0 +1,71 @@
-> +/*
-> + * low latency device queue flush
-> + */
-> +
-> +#ifndef _LINUX_NET_LL_POLL_H
-> +#define _LINUX_NET_LL_POLL_H
-> +#ifdef CONFIG_INET_LL_RX_POLL
-> +#include <linux/netdevice.h>
-> +struct napi_struct;
-> +extern int sysctl_net_ll_poll __read_mostly;
-> +
-> +/* return values from ndo_ll_poll */
-> +#define LL_FLUSH_DONE		0
-> +#define LL_FLUSH_FAILED		1
-> +#define LL_FLUSH_BUSY		2
-> +
-> +static inline int sk_valid_ll(struct sock *sk)
+On 03/05, Lai Jiangshan wrote:
+>
+> On 03/03/13 01:20, Oleg Nesterov wrote:
+> > On 03/02, Lai Jiangshan wrote:
+> >>
+> >> +void lg_rwlock_local_read_unlock(struct lgrwlock *lgrw)
+> >> +{
+> >> +	switch (__this_cpu_read(*lgrw->reader_refcnt)) {
+> >> +	case 1:
+> >> +		__this_cpu_write(*lgrw->reader_refcnt, 0);
+> >> +		lg_local_unlock(&lgrw->lglock);
+> >> +		return;
+> >> +	case FALLBACK_BASE:
+> >> +		__this_cpu_write(*lgrw->reader_refcnt, 0);
+> >> +		read_unlock(&lgrw->fallback_rwlock);
+> >> +		rwlock_release(&lg->lock_dep_map, 1, _RET_IP_);
+> >
+> > I guess "case 1:" should do rwlock_release() too.
+>
+> Already do it in "lg_local_unlock(&lgrw->lglock);" before it returns.
+> (I like reuse old code)
 
-bool
+Yes, I was wrong thanks. Another case when I didn't notice that you
+re-use the regular lg_ code...
 
-> +{
-> +	return sysctl_net_ll_poll && sk->dev_ref &&
-> +		!need_resched() && !signal_pending(current);
-> +}
-> +
-> +/*
-> + * TODO: how do we know that we have a working get_cycles?
-> + * do we limit this by a configure dependacy?
+> > We need rwlock_acquire_read() even in the fast-path, and this acquire_read
+> > should be paired with rwlock_acquire() in _write_lock(), but it does
+> > spin_acquire(lg->lock_dep_map). Yes, currently this is the same (afaics)
+> > but perhaps fallback_rwlock->dep_map would be more clean.
+>
+> I can't tell which one is better. I try to use fallback_rwlock->dep_map later.
 
-In general it appears to require a run-time check.  You might need to
-augment <asm/timex.h>.
+I am not sure which one should be better too, please check.
 
-> + * TODO: this is not safe when the device can be removed,
-> + * but simple refcounting may prevent removal indefinatly
-> + */
-> +static inline int sk_poll_ll(struct sock *sk)
-> +{
-> +	struct napi_struct *napi = sk->dev_ref;
-> +	const struct net_device_ops *ops;
-> +	unsigned long end_time = sysctl_net_ll_poll + get_cycles();
+Again, I forgot that _write_lock/unlock use lg_global_*() code.
 
-ACCESS_ONCE(sysctl_net_ll_poll)
+Oleg.
 
-> +	if (!napi->dev || !napi->dev->netdev_ops ||
-> +	    !napi->dev->netdev_ops->ndo_ll_poll)
-> +		return false;
-> +
-> +	local_bh_disable();
-> +
-> +	ops = napi->dev->netdev_ops;
-> +	while (skb_queue_empty(&sk->sk_receive_queue) &&
-> +			!time_after((unsigned long)get_cycles(), end_time))
-
-cycles_t may be narrower than unsigned long, in which case time_after()
-will not compare correctly.  I think you need to open-code the
-equivalent of time_after() but using cycles_t.
-
-> +		if (ops->ndo_ll_poll(napi) == LL_FLUSH_FAILED)
-> +				break; /* premanent failure */
-> +
-> +	local_bh_enable();
-> +
-> +	return !skb_queue_empty(&sk->sk_receive_queue);
-> +}
-> +
-> +static inline void skb_mark_ll(struct napi_struct *napi, struct sk_buff *skb)
-> +{
-> +	skb->dev_ref = napi;
-> +}
-
-Slightly odd - I would expect skb to be the first parameter.
-
-[...]
-> --- a/net/ipv4/Kconfig
-> +++ b/net/ipv4/Kconfig
-> @@ -402,6 +402,18 @@ config INET_LRO
->  
->  	  If unsure, say Y.
->  
-> +config INET_LL_RX_POLL
-> +	bool "Low Latency Receive Poll"
-> +	default n
-> +	---help---
-> +	  Support Low Latency Receive Queue Poll.
-> +	  (For network card drivers which support this option.)
-> +	  When waiting for data in read or poll call directly into the the device driver
-> +	  to flush packets which may be pending on the device queues into the stack.
-> +
-> +
-> +	  If unsure, say N.
-
-Of course, all distributions will be expected to enable this.  So I'm
-not sure what the point of the compile-time option is.  You might as
-well enable it at compile-time but leave the default set to 0.
-
->  config INET_DIAG
->  	tristate "INET: socket monitoring interface"
->  	default y
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index 960fd29..0c060c6 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -25,6 +25,7 @@
->  #include <net/inet_frag.h>
->  #include <net/ping.h>
->  #include <net/tcp_memcontrol.h>
-> +#include <net/ll_poll.h>
->  
->  static int zero;
->  static int one = 1;
-> @@ -326,6 +327,15 @@ static struct ctl_table ipv4_table[] = {
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec
->  	},
-> +#ifdef CONFIG_INET_LL_RX_POLL
-> +	{
-> +		.procname	= "ip_low_latency_poll",
-> +		.data		= &sysctl_net_ll_poll,
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec
-> +	},
-> +#endif
-
-This would need to be added to Documentation/networking/ip-sysctl.txt.
-
-Should the units really be cycles or, say, microseconds?  I assume that
-a sysctl setter can do a conversion to cycles so that there's no need to
-multiply every time the value is used.  (If the CPU doesn't have
-constant_tsc or equivalent then this conversion doesn't quite work, but
-then low-latency tunng usually includes disabling frequency scaling.)
-
-Also, this should be a per-device (or even per-NAPI-context?) setting.
-
->  	{
->  		.procname	= "tcp_syn_retries",
->  		.data		= &sysctl_tcp_syn_retries,
-> diff --git a/net/socket.c b/net/socket.c
-> index ee0d029..86da082 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -105,6 +105,12 @@
->  #include <linux/sockios.h>
->  #include <linux/atalk.h>
->  
-> +#ifdef CONFIG_INET_LL_RX_POLL
-> +#include <net/ll_poll.h>
-> +int sysctl_net_ll_poll __read_mostly = 150000;
-
-Nicely tuned for your specific test system, no doubt. :-)
-
-> +EXPORT_SYMBOL_GPL(sysctl_net_ll_poll);
-> +#endif
-[...]
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
-
-------------------------------------------------------------------------------
-Everyone hates slow websites. So do we.
-Make your web apps faster with AppDynamics
-Download AppDynamics Lite for free today:
-http://p.sf.net/sfu/appdyn_d2d_feb
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
