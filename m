@@ -1,62 +1,89 @@
-From: Lai Jiangshan <laijs@cn.fujitsu.com>
-Subject: Re: [PATCH] lglock: add read-preference local-global rwlock
-Date: Tue, 05 Mar 2013 23:54:40 +0800
-Message-ID: <51361540.3060603@cn.fujitsu.com>
-References: <512C7A38.8060906@linux.vnet.ibm.com> <CACvQF51RvhM8XNqu3-1OTQ=cZUZ=pAX+_zx0a29+W67N1X+BgQ@mail.gmail.com> <512CC509.1050000@linux.vnet.ibm.com> <CACvQF50UgiqPpDk3HCmV86zKSf6tPjqr0bZowfPEOJs0g0r0MQ@mail.gmail.com> <512D0D67.9010609@linux.vnet.ibm.com> <CACvQF53ph2ixdM-otzetjM5cR+2kcZj6sckOp3TnzzA_x-EZ8w@mail.gmail.com> <512E7879.20109@linux.vnet.ibm.com> <5130E8E2.50206@cn.fujitsu.com> <20130301182854.GA3631@redhat.com> <CANN689HEW=b5S93J27p+rBX-5m7jkW4FER=eHDCp7OgMaTWLPw@mail.gmail.com> <20130302170656.GB29769@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 54861] New: r6040 net-driver on new kernels not
+ work(3.X.X)
+Date: Tue, 5 Mar 2013 08:30:32 -0800
+Message-ID: <20130305083032.3a43c194@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Michel Lespinasse <walken@google.com>,
-	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	Lai Jiangshan <eag0628@gmail.com>, linux-doc@vger.kernel.org,
-	peterz@infradead.org, fweisbec@gmail.com,
-	linux-kernel@vger.kernel.org, namhyung@kernel.org,
-	mingo@kernel.org, linux-arch@vger.kernel.org,
-	linux@arm.linux.org.uk, xiaoguangrong@linux.vnet.ibm.com,
-	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	rusty@rustcorp.com.au, rostedt@goodmis.org, rjw@sisk.pl,
-	vincent.guittot@linaro.org, tglx@linutronix.de,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	sbw@mit.edu, tj@kernel.org, akpm@linux-foundation.org,
-	linuxppc-dev@lists.ozlabs.org
-To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20130302170656.GB29769@redhat.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On 03/03/13 01:06, Oleg Nesterov wrote:
-> On 03/02, Michel Lespinasse wrote:
->>
->> My version would be slower if it needs to take the
->> slow path in a reentrant way, but I'm not sure it matters either :)
-> 
-> I'd say, this doesn't matter at all, simply because this can only happen
-> if we race with the active writer.
-> 
-
-It can also happen when interrupted. (still very rarely)
-
-arch_spin_trylock()
-	------->interrupted,
-		__this_cpu_read() returns 0.
-		arch_spin_trylock() fails
-		slowpath, any nested will be slowpath too.
-		...
-		..._read_unlock()
-	<-------interrupt
-__this_cpu_inc()
-....
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:50913 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757247Ab3CEQag (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 11:30:36 -0500
+Received: by mail-pb0-f54.google.com with SMTP id rr4so4655913pbb.13
+        for <netdev@vger.kernel.org>; Tue, 05 Mar 2013 08:30:35 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-I saw get_online_cpu_atomic() is called very frequent.
-And the above thing happens in one CPU rarely, but how often it
-happens in the whole system if we have 4096 CPUs?
-(I worries to much. I tend to remove FALLBACK_BASE now, we should
-add it only after we proved we needed it, this part is not proved)
 
-Thanks,
-Lai
+Begin forwarded message:
+
+Date: Tue, 5 Mar 2013 08:02:27 -0800
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 54861] New: r6040 net-driver on new kernels not work(3.X.X)
 
 
+https://bugzilla.kernel.org/show_bug.cgi?id=54861
+
+           Summary: r6040 net-driver on new kernels not work(3.X.X)
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.6.8 (3.7.8), possible all new versions
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: sunheretic13@gmail.com
+        Regression: No
+
+
+Created an attachment (id=94581)
+ --> (https://bugzilla.kernel.org/attachment.cgi?id=94581)
+kernel config files (2.6.37.2 , 3.6.8, 3.7.8)
+
+Hello.
+
+I have a problem.
+
+I have a motherboard with processor RDC8610. As PHY-chip used tlk100 (Texas
+Instruments). tlk100 uses "Generic PHY-driver" from kernel.
+
+When I compile a kernel 2.6.37.2 works fine.
+
+When I compile a kernel 3.6.8 or 3.7.8 I have problems in the network.
+The built-in network card (r6040) does not work pings.
+ifconfig shows no errors, but the "RX bytes"> 0 while the "TX bytes" = 0! It
+seems that the transmitter is not initialized or not working.
+
+Rarely get messages on the console:
+
+eth1: link UP
+eth1: link DOWN
+
+As I see it, the value "TX bytes" from ifconfig increased (but not
+significantly)
+
+
+Network cable is connected and not damaged.
+
+I can see that from the kernel version 2.6.37.2 to 3.6.8, the NIC driver r6040
+upgraded from 0.26 (30May2010) to 0.28 (07Oct2011).
+
+I attach the configuration files of the kernel.
+
+What is it? Bug in the new driver r6040?
+Or am I doing wrong?
+
+-- 
+Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
