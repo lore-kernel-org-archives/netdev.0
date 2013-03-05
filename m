@@ -1,88 +1,89 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 4/7] usbnet: cdc_mbim: don't recover device if suspend fails in system sleep
-Date: Tue, 05 Mar 2013 18:35:31 +0100
-Message-ID: <87sj49oil8.fsf@nemi.mork.no>
-References: <Pine.LNX.4.44L0.1303051147300.1308-100000@iolanthe.rowland.org>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: [PATCH V2] lglock: add read-preference local-global rwlock
+Date: Tue, 05 Mar 2013 23:25:05 +0530
+Message-ID: <51363179.2030109@linux.vnet.ibm.com>
+References: <512BBAD8.8010006@linux.vnet.ibm.com> <CACvQF51jCxk5jUqmhD=QBBtUsBkQWZzakacrKO4Gsk=w61rNwQ@mail.gmail.com> <512C7A38.8060906@linux.vnet.ibm.com> <CACvQF51RvhM8XNqu3-1OTQ=cZUZ=pAX+_zx0a29+W67N1X+BgQ@mail.gmail.com> <512CC509.1050000@linux.vnet.ibm.com> <CACvQF50UgiqPpDk3HCmV86zKSf6tPjqr0bZowfPEOJs0g0r0MQ@mail.gmail.com> <512D0D67.9010609@linux.vnet.ibm.com> <CACvQF53ph2ixdM-otzetjM5cR+2kcZj6sckOp3TnzzA_x-EZ8w@mail.gmail.com> <512E7879.20109@linux.vnet.ibm.com>	<5130E8E2.50206@cn.fujitsu.com> <20130301182854.GA3631@redhat.com> <CANN689HEW=b5S93J27p+rBX-5m7jkW4FER=eHDCp7OgMaTWLPw@mail.gmail.com> <5131FB4C.7070408@cn.fujitsu.com> <513232B6.9060905@linux.vnet.ibm.com> <5136123C.3040508@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ming Lei <ming.lei@canonical.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Kosina <jkosina@suse.cz>, Oliver Neukum <oneukum@suse.de>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<linux-input@vger.kernel.org>
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:34709 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751832Ab3CERhL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 12:37:11 -0500
-In-Reply-To: <Pine.LNX.4.44L0.1303051147300.1308-100000@iolanthe.rowland.org>
-	(Alan Stern's message of "Tue, 5 Mar 2013 11:54:21 -0500 (EST)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Michel Lespinasse <walken@google.com>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Lai Jiangshan <eag0628@gmail.com>, linux-doc@vger.kernel.org,
+	peterz@infradead.org, fweisbec@gmail.com,
+	linux-kernel@vger.kernel.org, namhyung@kernel.org,
+	mingo@kernel.org, linux-arch@vger.kernel.org,
+	linux@arm.linux.org.uk, xiaoguangrong@linux.vnet.ibm.com,
+	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	rusty@rustcorp.com.au, rostedt@goodmis.org, rjw@sisk.pl,
+	vincent.guittot@linaro.org, tglx@linutronix.de,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	sbw@mit.edu, tj@kernel.org, akpm@linux-foundation.org,
+	linuxppc-dev@lists.ozlabs.org
+To: Lai Jiangshan <laijs@cn.fujitsu.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <5136123C.3040508@cn.fujitsu.com>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Alan Stern <stern@rowland.harvard.edu> writes:
-> On Tue, 5 Mar 2013, Bj=C3=B8rn Mork wrote:
->> Ming Lei <ming.lei@canonical.com> writes:
->>=20
->> > Yes, USB core will flush any outstanding URBs, but the driver stil=
-l need
->> > to deal with suspend failure carefully, for example, suppose usb_r=
-esume()
->> > is called in suspend failure path, and the submitted URBs are kill=
-ed
->> > by USB core later. But after the device is wakeup, and the resume(=
-) will
->> > do nothing since the suspend count is leaked. So it is what the pa=
-tches
->> > are fixing, and it is better to not depend on the default flushing=
- URBs of
->> > USB core.
->>=20
->> I am starting to wonder why the USB core has combined system suspend=
- and
->> runtime suspend if we are going to end up with every driver testing
->> PMSG_IS_AUTO(message) and selecting a completely different code path=
-=2E
->
-> Mainly for historical reasons.  System suspend existed long before=20
-> runtime suspend did.  When runtime suspend was added, it piggybacked=20
-> off the existing code.  Furthermore, originally there was no=20
-> requirement that system suspend always succeed; that was added later.
->
-> Also, the code paths are not completely different.  They differ mainl=
-y=20
-> in their error handling.  But when you think about it, how serious an=
-=20
-> error can you encounter when you try to _stop_ using a device?
+On 03/05/2013 09:11 PM, Lai Jiangshan wrote:
+> On 03/03/13 01:11, Srivatsa S. Bhat wrote:
+>> On 03/02/2013 06:44 PM, Lai Jiangshan wrote:
+>>> From 345a7a75c314ff567be48983e0892bc69c4452e7 Mon Sep 17 00:00:00 2001
+>>> From: Lai Jiangshan <laijs@cn.fujitsu.com>
+>>> Date: Sat, 2 Mar 2013 20:33:14 +0800
+>>> Subject: [PATCH] lglock: add read-preference local-global rwlock
+>>>
+>>> Current lglock is not read-preference, so it can't be used on some cases
+>>> which read-preference rwlock can do. Example, get_cpu_online_atomic().
+>>>
+>> [...]
+>>> diff --git a/kernel/lglock.c b/kernel/lglock.c
+>>> index 6535a66..52e9b2c 100644
+>>> --- a/kernel/lglock.c
+>>> +++ b/kernel/lglock.c
+>>> @@ -87,3 +87,71 @@ void lg_global_unlock(struct lglock *lg)
+>>>  	preempt_enable();
+>>>  }
+>>>  EXPORT_SYMBOL(lg_global_unlock);
+>>> +
+>>> +#define FALLBACK_BASE	(1UL << 30)
+>>> +
+>>> +void lg_rwlock_local_read_lock(struct lgrwlock *lgrw)
+>>> +{
+>>> +	struct lglock *lg = &lgrw->lglock;
+>>> +
+>>> +	preempt_disable();
+>>> +	if (likely(!__this_cpu_read(*lgrw->reader_refcnt))) {
+>>> +		rwlock_acquire_read(&lg->lock_dep_map, 0, 0, _RET_IP_);
+>>> +		if (unlikely(!arch_spin_trylock(this_cpu_ptr(lg->lock)))) {
+>>> +			read_lock(&lgrw->fallback_rwlock);
+>>> +			__this_cpu_write(*lgrw->reader_refcnt, FALLBACK_BASE);
+>>> +			return;
+>>> +		}
+>>> +	}
+>>> +
+>>> +	__this_cpu_inc(*lgrw->reader_refcnt);
+>>> +}
+>>> +EXPORT_SYMBOL(lg_rwlock_local_read_lock);
+>>> +
+>>> +void lg_rwlock_local_read_unlock(struct lgrwlock *lgrw)
+>>> +{
+>>> +	switch (__this_cpu_read(*lgrw->reader_refcnt)) {
+>>> +	case 1:
+>>> +		__this_cpu_write(*lgrw->reader_refcnt, 0);
+>>> +		lg_local_unlock(&lgrw->lglock);
+>>> +		return;
+>>
+>> This should be a break, instead of a return, right?
+>> Otherwise, there will be a preempt imbalance...
+> 
+> 
+> "lockdep" and "preempt" are handled in lg_local_unlock(&lgrw->lglock);
+> 
 
-Thanks for explaining.
+Ah, ok.. I had missed that.
 
->> You are right that we will end up with problems if usbnet_resume is
->> called for a device usbnet hasn't suspended.  But I'd still claim th=
-at
->> is a bug in the USB core, which is the one that decided to ignore th=
-e
->> suspend error and still call resume.
->>=20
->> I guess proper error handling here require the USB core to see the
->> interface driver as dead if it fails to suspend on system suspend, a=
-nd
->> do forced rebinding on resume.
->
-> You are welcome to submit a patch to do this.  It shouldn't be hard; =
-we
-> already have a flag indicating that an interface needs to be unbound =
-at
-> reprobed at resume time.  You can update the kerneldoc in addition; a=
-s
-> you noticed, it currently does not describe the actual code completel=
-y
-> accurately.
+Regards,
+Srivatsa S. Bhat
 
-I guess I saw that coming :)  Will take a shot at it when time permits.
-
-
-Bj=C3=B8rn
