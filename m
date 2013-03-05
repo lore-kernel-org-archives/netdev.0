@@ -1,11 +1,10 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH 3/8] netback: get/put module along with vif
- connect/disconnect
-Date: Tue, 5 Mar 2013 13:30:13 +0000
-Message-ID: <1362490213.4748.24.camel@zion.uk.xensource.com>
+Subject: Re: [PATCH 1/8] netback: don't bind kthread to cpu
+Date: Tue, 5 Mar 2013 13:30:10 +0000
+Message-ID: <1362490210.4748.23.camel@zion.uk.xensource.com>
 References: <1360944010-15336-1-git-send-email-wei.liu2@citrix.com>
-	 <1360944010-15336-4-git-send-email-wei.liu2@citrix.com>
-	 <5135C2C8.8030708@citrix.com>
+	 <1360944010-15336-2-git-send-email-wei.liu2@citrix.com>
+	 <20130304205154.GB16762@phenom.dumpdata.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -13,47 +12,43 @@ Cc: <wei.liu2@citrix.com>,
 	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Ian Campbell <Ian.Campbell@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
 	"annie.li@oracle.com" <annie.li@oracle.com>
-To: David Vrabel <david.vrabel@citrix.com>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:54643 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756333Ab3CENaP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 08:30:15 -0500
-In-Reply-To: <5135C2C8.8030708@citrix.com>
+Received: from smtp.citrix.com ([66.165.176.89]:19863 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756385Ab3CENaV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Mar 2013 08:30:21 -0500
+In-Reply-To: <20130304205154.GB16762@phenom.dumpdata.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-03-05 at 10:02 +0000, David Vrabel wrote:
-> On 15/02/13 16:00, Wei Liu wrote:
-> > If there is vif running and user unloads netback, guest's network interface
-> > just mysteriously stops working. So we need to prevent unloading netback
-> > module if there is vif running.
+On Mon, 2013-03-04 at 20:51 +0000, Konrad Rzeszutek Wilk wrote:
+> On Fri, Feb 15, 2013 at 04:00:02PM +0000, Wei Liu wrote:
+> > The initialization process makes an assumption that the online cpus are
+> > numbered from 0 to xen_netbk_group_nr-1,  which is not always true.
 > 
-> It's not mysterious -- it is cleanly disconnected, and will reconnect
-> when the module is reinserted.
+> And xen_netbk_group_nr is num_online_cpus()?
 > 
 
->From a guest's POV, it just stops without any sign. This should be
-prevented IMHO.
+Yes.
 
-Netback / netfront lose all states when netback is unloaded. And
-netfront doesn't support reconfiguration at the moment. My guess is that
-this is the reason why netback doesn't even have unload function at
-first.
+> So under what conditions does this change? Is this when the CPU hotplug
+> is involved and the CPUs go offline? In which case should there be a
 
-> Being able to unload modules while they are in use is standard so I
-> don't think this should be applied.
+Yes, the hotplug path.
+
+> CPU hotplug notifier to re-bind the workers are appropiate?
+> 
+> > 
+> > As we only need a pool of worker threads, simply don't bind them to specific
+> > cpus.
+> 
+> OK. Is there another method of doing this? Are there patches to make the thread
+> try to be vCPU->guest affinite?
 > 
 
-I don't think this is true from a module dependency point of view - just
-try to unload any in use module, rmmod / modprobe will give you a fatal
-error.
-
-The situation for netback is a bit different. The module dependency is
-not within the same kernel, we can only do this by explicitly get/put
-this module.
+No, not at the moment.
 
 
 Wei.
