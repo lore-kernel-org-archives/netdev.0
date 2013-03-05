@@ -1,67 +1,42 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH 3/8] netback: get/put module along with vif
- connect/disconnect
-Date: Tue, 5 Mar 2013 14:07:42 +0000
-Message-ID: <5135FC2E.9050705@citrix.com>
-References: <1360944010-15336-1-git-send-email-wei.liu2@citrix.com>	 <1360944010-15336-4-git-send-email-wei.liu2@citrix.com>	 <5135C2C8.8030708@citrix.com> <1362490213.4748.24.camel@zion.uk.xensource.com>
+From: Erik Hugne <erik.hugne@ericsson.com>
+Subject: Re: tipc: MTU discovery
+Date: Tue, 5 Mar 2013 15:18:24 +0100
+Message-ID: <20130305141824.GG15384@eerihug-hybrid.ki.sw.ericsson.se>
+References: <CAGUzgdKJ4pPdhx7VkGCGS8CynXgOrxhTu8dZ+s77C+WKrCcCeA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"annie.li@oracle.com" <annie.li@oracle.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, jon.maloy@ericsson.com,
+	allan.stephens@windriver.com
+To: Sebastian =?iso-8859-1?Q?P=F6hn?= <sebastian.poehn@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:20901 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755355Ab3CEOHq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Mar 2013 09:07:46 -0500
-In-Reply-To: <1362490213.4748.24.camel@zion.uk.xensource.com>
+Received: from mailgw2.ericsson.se ([193.180.251.37]:54792 "EHLO
+	mailgw2.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754580Ab3CEOWP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 09:22:15 -0500
+Content-Disposition: inline
+In-Reply-To: <CAGUzgdKJ4pPdhx7VkGCGS8CynXgOrxhTu8dZ+s77C+WKrCcCeA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/03/13 13:30, Wei Liu wrote:
-> On Tue, 2013-03-05 at 10:02 +0000, David Vrabel wrote:
->> On 15/02/13 16:00, Wei Liu wrote:
->>> If there is vif running and user unloads netback, guest's network interface
->>> just mysteriously stops working. So we need to prevent unloading netback
->>> module if there is vif running.
->>
->> It's not mysterious -- it is cleanly disconnected, and will reconnect
->> when the module is reinserted.
->>
-> 
-> From a guest's POV, it just stops without any sign. This should be
-> prevented IMHO.
+On Tue, Mar 05, 2013 at 01:43:29PM +0100, Sebastian P=F6hn wrote:
+> State Messages larger than 1500 which as used for the MTU negotiation
+> do not appear in the TIPC stack. But I am able to seen them entering
+> the correct device.
+> Because of that no reply with the correct max_packet field set can be
+> send and the negotiation will always end up at 1.5k.
+>=20
+> So my questions are:
+> # Is TIPC meant to detect and use the MTU larger than 1.5k?
+Yes, it should probe and detect MTU's up to ~66k
 
-This is a bug in the frontend or a bug in the backend failing to
-disconnect correctly.
+> # Why are the packets not passed to the TIPC stack?
+TIPC just registers itself as a handler for ETH_P_TIPC through dev_add_=
+pack.
+If link mtu probes >1.5k are not passed to TIPC, it sounds to me that t=
+he NIC driver
+is to blame. What NIC type and kernel version are you running?
 
-I posted a series of "xen-foofront: handle backend CLOSED without
-CLOSING" patches that may help here. (I didn't get applied to netfront
-for some reason.)
+Do you see any packet drops in ethtool statistics?
 
-Disabling module unload doesn't prevent this from happening away.  You
-can always manually unbind the backend device from the xen-netback
-driver which has the same effect as unloading the module.
-
-> Netback / netfront lose all states when netback is unloaded. And
-> netfront doesn't support reconfiguration at the moment. My guess is that
-> this is the reason why netback doesn't even have unload function at
-> first.
-
-If netfront cannot handle reconnect then that's a bug in the frontend or
-a bug in the backend xenbus code not setting up the reconnect correctly.
-
->> Being able to unload modules while they are in use is standard so I
->> don't think this should be applied.
-> 
-> I don't think this is true from a module dependency point of view - just
-> try to unload any in use module, rmmod / modprobe will give you a fatal
-> error.
-
-Try it with any other network interface driver and it will unload just fine.
-
-David
+//E
