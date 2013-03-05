@@ -1,7 +1,7 @@
 From: Peter Hurley <peter@hurleysoftware.com>
-Subject: [PATCH 4/4] net/irda: Raise dtr in non-blocking open
-Date: Tue,  5 Mar 2013 11:09:07 -0500
-Message-ID: <1362499747-4262-5-git-send-email-peter@hurleysoftware.com>
+Subject: [PATCH 1/4] net/irda: Fix port open counts
+Date: Tue,  5 Mar 2013 11:09:04 -0500
+Message-ID: <1362499747-4262-2-git-send-email-peter@hurleysoftware.com>
 References: <1362371063.3221.185.camel@thor.lan>
  <1362499747-4262-1-git-send-email-peter@hurleysoftware.com>
 Cc: Sasha Levin <sasha.levin@oracle.com>,
@@ -16,35 +16,57 @@ In-Reply-To: <1362499747-4262-1-git-send-email-peter@hurleysoftware.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DTR/RTS need to be raised, regardless of the open() mode, but not
-if the port has already shutdown.
+Saving the port count bump is unsafe. If the tty is hung up while
+this open was blocking, the port count is zeroed.
+
+Explicitly check if the tty was hung up while blocking, and correct
+the port count if not.
 
 Signed-off-by: Peter Hurley <peter@hurleysoftware.com>
 ---
- net/irda/ircomm/ircomm_tty.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+ net/irda/ircomm/ircomm_tty.c | 14 +++++---------
+ 1 file changed, 5 insertions(+), 9 deletions(-)
 
 diff --git a/net/irda/ircomm/ircomm_tty.c b/net/irda/ircomm/ircomm_tty.c
-index 522543d..362ba47 100644
+index 9a5fd3c..1721dc7 100644
 --- a/net/irda/ircomm/ircomm_tty.c
 +++ b/net/irda/ircomm/ircomm_tty.c
-@@ -289,8 +289,15 @@ static int ircomm_tty_block_til_ready(struct ircomm_tty_cb *self,
- 	 * If non-blocking mode is set, or the port is not enabled,
- 	 * then make the check up front and then exit.
- 	 */
--	if (filp->f_flags & O_NONBLOCK || tty->flags & (1 << TTY_IO_ERROR)){
--		/* nonblock mode is set or port is not enabled */
-+	if (test_bit(TTY_IO_ERROR, &tty->flags)) {
-+		port->flags |= ASYNC_NORMAL_ACTIVE;
-+		return 0;
-+	}
-+
-+	if (filp->f_flags & O_NONBLOCK) {
-+		/* nonblock mode is set */
-+		if (tty->termios.c_cflag & CBAUD)
-+			tty_port_raise_dtr_rts(port);
- 		port->flags |= ASYNC_NORMAL_ACTIVE;
- 		IRDA_DEBUG(1, "%s(), O_NONBLOCK requested!\n", __func__ );
- 		return 0;
+@@ -280,7 +280,7 @@ static int ircomm_tty_block_til_ready(struct ircomm_tty_cb *self,
+ 	struct tty_port *port = &self->port;
+ 	DECLARE_WAITQUEUE(wait, current);
+ 	int		retval;
+-	int		do_clocal = 0, extra_count = 0;
++	int		do_clocal = 0;
+ 	unsigned long	flags;
+ 
+ 	IRDA_DEBUG(2, "%s()\n", __func__ );
+@@ -315,10 +315,8 @@ static int ircomm_tty_block_til_ready(struct ircomm_tty_cb *self,
+ 	      __FILE__, __LINE__, tty->driver->name, port->count);
+ 
+ 	spin_lock_irqsave(&port->lock, flags);
+-	if (!tty_hung_up_p(filp)) {
+-		extra_count = 1;
++	if (!tty_hung_up_p(filp))
+ 		port->count--;
+-	}
+ 	spin_unlock_irqrestore(&port->lock, flags);
+ 	port->blocked_open++;
+ 
+@@ -361,12 +359,10 @@ static int ircomm_tty_block_til_ready(struct ircomm_tty_cb *self,
+ 	__set_current_state(TASK_RUNNING);
+ 	remove_wait_queue(&port->open_wait, &wait);
+ 
+-	if (extra_count) {
+-		/* ++ is not atomic, so this should be protected - Jean II */
+-		spin_lock_irqsave(&port->lock, flags);
++	spin_lock_irqsave(&port->lock, flags);
++	if (!tty_hung_up_p(filp))
+ 		port->count++;
+-		spin_unlock_irqrestore(&port->lock, flags);
+-	}
++	spin_unlock_irqrestore(&port->lock, flags);
+ 	port->blocked_open--;
+ 
+ 	IRDA_DEBUG(1, "%s(%d):block_til_ready after blocking on %s open_count=%d\n",
 -- 
 1.8.1.2
