@@ -1,33 +1,139 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next,repost 0/2] team: introduce random mode
-Date: Wed,  6 Mar 2013 12:31:11 +0100
-Message-ID: <1362569473-4310-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next,repost 1/2] team: introduce two default team_modeop functions and use them in modes
+Date: Wed,  6 Mar 2013 12:31:12 +0100
+Message-ID: <1362569473-4310-2-git-send-email-jiri@resnulli.us>
+References: <1362569473-4310-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, fbl@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f172.google.com ([74.125.82.172]:60815 "EHLO
-	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757210Ab3CFLbR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 06:31:17 -0500
-Received: by mail-we0-f172.google.com with SMTP id d46so3547734wer.31
-        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 03:31:16 -0800 (PST)
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:48606 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757210Ab3CFLbT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 06:31:19 -0500
+Received: by mail-wg0-f47.google.com with SMTP id dr13so7164326wgb.26
+        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 03:31:18 -0800 (PST)
+In-Reply-To: <1362569473-4310-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko (2):
-  team: introduce two default team_modeop functions and use them in
-    modes
-  team: introduce random mode
+No need to duplicate code for this.
 
- drivers/net/team/Kconfig                | 12 ++++++
- drivers/net/team/Makefile               |  1 +
- drivers/net/team/team.c                 | 19 +++++++--
- drivers/net/team/team_mode_broadcast.c  | 14 +------
- drivers/net/team/team_mode_random.c     | 71 +++++++++++++++++++++++++++++++++
- drivers/net/team/team_mode_roundrobin.c | 36 ++---------------
- include/linux/if_team.h                 | 25 +++++++++++-
- 7 files changed, 129 insertions(+), 49 deletions(-)
- create mode 100644 drivers/net/team/team_mode_random.c
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ drivers/net/team/team.c                 | 19 ++++++++++++++++---
+ drivers/net/team/team_mode_broadcast.c  | 14 ++------------
+ drivers/net/team/team_mode_roundrobin.c | 14 ++------------
+ include/linux/if_team.h                 |  5 ++++-
+ 4 files changed, 24 insertions(+), 28 deletions(-)
 
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 05c5efe..ece70a4 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -73,11 +73,24 @@ static int team_port_set_orig_dev_addr(struct team_port *port)
+ 	return __set_port_dev_addr(port->dev, port->orig.dev_addr);
+ }
+ 
+-int team_port_set_team_dev_addr(struct team_port *port)
++static int team_port_set_team_dev_addr(struct team *team,
++				       struct team_port *port)
++{
++	return __set_port_dev_addr(port->dev, team->dev->dev_addr);
++}
++
++int team_modeop_port_enter(struct team *team, struct team_port *port)
++{
++	return team_port_set_team_dev_addr(team, port);
++}
++EXPORT_SYMBOL(team_modeop_port_enter);
++
++void team_modeop_port_change_dev_addr(struct team *team,
++				      struct team_port *port)
+ {
+-	return __set_port_dev_addr(port->dev, port->team->dev->dev_addr);
++	team_port_set_team_dev_addr(team, port);
+ }
+-EXPORT_SYMBOL(team_port_set_team_dev_addr);
++EXPORT_SYMBOL(team_modeop_port_change_dev_addr);
+ 
+ static void team_refresh_port_linkup(struct team_port *port)
+ {
+diff --git a/drivers/net/team/team_mode_broadcast.c b/drivers/net/team/team_mode_broadcast.c
+index c5db428..c366cd2 100644
+--- a/drivers/net/team/team_mode_broadcast.c
++++ b/drivers/net/team/team_mode_broadcast.c
+@@ -46,20 +46,10 @@ static bool bc_transmit(struct team *team, struct sk_buff *skb)
+ 	return sum_ret;
+ }
+ 
+-static int bc_port_enter(struct team *team, struct team_port *port)
+-{
+-	return team_port_set_team_dev_addr(port);
+-}
+-
+-static void bc_port_change_dev_addr(struct team *team, struct team_port *port)
+-{
+-	team_port_set_team_dev_addr(port);
+-}
+-
+ static const struct team_mode_ops bc_mode_ops = {
+ 	.transmit		= bc_transmit,
+-	.port_enter		= bc_port_enter,
+-	.port_change_dev_addr	= bc_port_change_dev_addr,
++	.port_enter		= team_modeop_port_enter,
++	.port_change_dev_addr	= team_modeop_port_change_dev_addr,
+ };
+ 
+ static const struct team_mode bc_mode = {
+diff --git a/drivers/net/team/team_mode_roundrobin.c b/drivers/net/team/team_mode_roundrobin.c
+index 105135a..ed63a6b 100644
+--- a/drivers/net/team/team_mode_roundrobin.c
++++ b/drivers/net/team/team_mode_roundrobin.c
+@@ -64,20 +64,10 @@ drop:
+ 	return false;
+ }
+ 
+-static int rr_port_enter(struct team *team, struct team_port *port)
+-{
+-	return team_port_set_team_dev_addr(port);
+-}
+-
+-static void rr_port_change_dev_addr(struct team *team, struct team_port *port)
+-{
+-	team_port_set_team_dev_addr(port);
+-}
+-
+ static const struct team_mode_ops rr_mode_ops = {
+ 	.transmit		= rr_transmit,
+-	.port_enter		= rr_port_enter,
+-	.port_change_dev_addr	= rr_port_change_dev_addr,
++	.port_enter		= team_modeop_port_enter,
++	.port_change_dev_addr	= team_modeop_port_change_dev_addr,
+ };
+ 
+ static const struct team_mode rr_mode = {
+diff --git a/include/linux/if_team.h b/include/linux/if_team.h
+index cfd21e3..3283def 100644
+--- a/include/linux/if_team.h
++++ b/include/linux/if_team.h
+@@ -112,6 +112,10 @@ struct team_mode_ops {
+ 	void (*port_disabled)(struct team *team, struct team_port *port);
+ };
+ 
++extern int team_modeop_port_enter(struct team *team, struct team_port *port);
++extern void team_modeop_port_change_dev_addr(struct team *team,
++					     struct team_port *port);
++
+ enum team_option_type {
+ 	TEAM_OPTION_TYPE_U32,
+ 	TEAM_OPTION_TYPE_STRING,
+@@ -236,7 +240,6 @@ static inline struct team_port *team_get_port_by_index_rcu(struct team *team,
+ 	return NULL;
+ }
+ 
+-extern int team_port_set_team_dev_addr(struct team_port *port);
+ extern int team_options_register(struct team *team,
+ 				 const struct team_option *option,
+ 				 size_t option_count);
 -- 
 1.8.1.2
