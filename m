@@ -1,59 +1,87 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH 3/3 net-next] tcp: implement RFC5682 F-RTO
-Date: Wed, 6 Mar 2013 16:08:40 -0500
-Message-ID: <CADVnQykNC_tVucfu62SdY4CBBNfvCvf-ob7Vg6=14HSPgun+oA@mail.gmail.com>
-References: <1362603130-16501-1-git-send-email-ycheng@google.com>
-	<1362603130-16501-3-git-send-email-ycheng@google.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next 03/12] ipvs: prefer NETDEV_DOWN event to free
+ cached dsts
+Date: Wed, 6 Mar 2013 23:21:17 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1303062310520.1899@ja.ssi.bg>
+References: <1362559342-18784-1-git-send-email-ja@ssi.bg>  <1362559342-18784-4-git-send-email-ja@ssi.bg> <1362563789.17102.69.camel@hawk.mlab.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Nandita Dukkipati <nanditad@google.com>,
-	ilpo.jarvinen@cs.helsinki.fi, Netdev <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Hans Schillstrom <hans@schillstrom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f44.google.com ([74.125.83.44]:63392 "EHLO
-	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753509Ab3CFVIl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 16:08:41 -0500
-Received: by mail-ee0-f44.google.com with SMTP id l10so6272743eei.31
-        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 13:08:40 -0800 (PST)
-In-Reply-To: <1362603130-16501-3-git-send-email-ycheng@google.com>
+Received: from ja.ssi.bg ([178.16.129.10]:33200 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755527Ab3CFVUV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Mar 2013 16:20:21 -0500
+In-Reply-To: <1362563789.17102.69.camel@hawk.mlab.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 6, 2013 at 3:52 PM, Yuchung Cheng <ycheng@google.com> wrote:
-> This patch implements F-RTO (foward RTO recovery):
->
-> When the first retransmission after timeout is acknowledged, F-RTO
-> sends new data instead of old data. If the next ACK acknowledges
-> some never-retransmitted data, then the timeout was spurious and the
-> congestion state is reverted.  Otherwise if the next ACK selectively
-> acknowledges the new data, then the timeout was genuine and the
-> loss recovery continues. This idea applies to recurring timeouts
-> as well. While F-RTO sends different data during timeout recovery,
-> it does not (and should not) change the congestion control.
->
-> The implementaion follows the three steps of SACK enhanced algorithm
-> (section 3) in RFC5682. Step 1 is in tcp_enter_loss(). Step 2 and
-> 3 are in tcp_process_loss().  The basic version is not supported
-> because SACK enhanced version also works for non-SACK connections.
->
-> The new implementation is functionally in parity with the old F-RTO
-> implementation except the one case where it increases undo events:
-> In addition to the RFC algorithm, a spurious timeout may be detected
-> without sending data in step 2, as long as the SACK confirms not
-> all the original data are dropped. When this happens, the sender
-> will undo the cwnd and perhaps enter fast recovery instead. This
-> additional check increases the F-RTO undo events by 5x compared
-> to the prior implementation on Google Web servers, since the sender
-> often does not have new data to send for HTTP.
->
-> Note F-RTO may detect spurious timeout before Eifel with timestamps
-> does so.
->
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+	Hello,
 
-neal
+On Wed, 6 Mar 2013, Hans Schillstrom wrote:
+
+> Hi Julian
+> 
+> On Wed, 2013-03-06 at 10:42 +0200, Julian Anastasov wrote:
+> > 	The real server becomes unreachable on down event,
+> > no need to wait device unregistration. Should help in
+> > releasing dsts early before dst->dev is replaced with lo.
+> 
+> Have you test this in a network namespace ?
+> i.e. kill the namespace with heave traffic through it
+
+	This should not be a problem. Even without ns exit
+situation, we can have a case where device goes down,
+the output routes will start to fail and we will
+not cache route anymore. It can happen while the
+input device floods us with requests.
+
+> From what I remember this was a tricky area...
+> 
+> I have some test cases for this, should I run them ?
+
+	If it is easy...
+
+> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> > ---
+> >  net/netfilter/ipvs/ip_vs_ctl.c |    8 +++-----
+> >  1 files changed, 3 insertions(+), 5 deletions(-)
+> > 
+> > diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> > index c68198b..76fc8f2 100644
+> > --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> > +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> > @@ -1512,10 +1512,8 @@ __ip_vs_dev_reset(struct ip_vs_dest *dest, struct net_device *dev)
+> >  	spin_unlock_bh(&dest->dst_lock);
+> >  
+> >  }
+> > -/*
+> > - * Netdev event receiver
+> > - * Currently only NETDEV_UNREGISTER is handled, i.e. if we hold a reference to
+> > - * a device that is "unregister" it must be released.
+> > +/* Netdev event receiver
+> > + * Currently only NETDEV_DOWN is handled to release refs to cached dsts
+> >   */
+> >  static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
+> >  			    void *ptr)
+> > @@ -1527,7 +1525,7 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
+> >  	struct ip_vs_dest *dest;
+> >  	unsigned int idx;
+> >  
+> > -	if (event != NETDEV_UNREGISTER || !ipvs)
+> > +	if (event != NETDEV_DOWN || !ipvs)
+> >  		return NOTIFY_DONE;
+> >  	IP_VS_DBG(3, "%s() dev=%s\n", __func__, dev->name);
+> >  	EnterFunction(2);
+> 
+> 
+> Regards
+> Hans
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
