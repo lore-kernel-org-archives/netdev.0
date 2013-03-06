@@ -1,66 +1,50 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH net-next] r6040: check MDIO register busy waiting result
-Date: Wed,  6 Mar 2013 11:41:32 +0100
-Message-ID: <1362566492-28176-1-git-send-email-florian@openwrt.org>
-Cc: davem@davemloft.net, Florian Fainelli <florian@openwrt.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Spinlock spinning in __inet_hash_connect
+Date: Wed, 6 Mar 2013 11:10:06 +0000 (UTC)
+Message-ID: <kh786e$r70$1@ger.gmane.org>
+References: <CAKF7Hnf_EyF38OEKk2rJEvEvn+eftJ4CaHN7-SszqbZius81yg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zmc.proxad.net ([212.27.53.206]:44658 "EHLO zmc.proxad.net"
+Received: from plane.gmane.org ([80.91.229.3]:44000 "EHLO plane.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755557Ab3CFKzW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Mar 2013 05:55:22 -0500
+	id S1757149Ab3CFLK3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Mar 2013 06:10:29 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UDCFB-0004c5-Go
+	for netdev@vger.kernel.org; Wed, 06 Mar 2013 12:10:45 +0100
+Received: from 180.129.197.13 ([180.129.197.13])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 12:10:45 +0100
+Received: from xiyou.wangcong by 180.129.197.13 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 12:10:45 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are currently busy waiting for MDIO registers to complete their
-operation but we did not propagate the result back to the caller.
-Update r6040_phy_{read,write} to report the busy waiting result
-accordingly.
+On Wed, 06 Mar 2013 at 09:52 GMT, Johannes Rudolph <johannes.rudolph@googlemail.com> wrote:
+> Hello all,
+>
+> I hope I'm on the correct mailing list for raising this issue. We are
+> seeing an issue while running a load test with jmeter against a web
+> server [1]. The test suite uses 50 threads to connect to a localhost
+> web server, runs one http request per connection and then loops. What
+> happens is that after the test runs for about 10 seconds (~ 100000
+> connections established / closed) the CPU load goes up and connection
+> rates slow down massively (see [1] for a chart). With `perf top` I'm
+> observing this on the _client_ side:
+>
+>  41.39%  [kernel]                                    [k] __ticket_spin_lock
+>  16.83%  [kernel]                                    [k]
+> __inet_check_established
+>  12.50%  [kernel]                                    [k] __inet_hash_connect
+>   4.35%  [kernel]                                    [k] __ticket_spin_unlock
+>
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
- drivers/net/ethernet/rdc/r6040.c |   11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
-index 5b4103d..d5622ab 100644
---- a/drivers/net/ethernet/rdc/r6040.c
-+++ b/drivers/net/ethernet/rdc/r6040.c
-@@ -224,11 +224,14 @@ static int r6040_phy_read(void __iomem *ioaddr, int phy_addr, int reg)
- 			break;
- 	}
- 
-+	if (limit < 0)
-+		return -ETIMEDOUT;
-+
- 	return ioread16(ioaddr + MMRD);
- }
- 
- /* Write a word data from PHY Chip */
--static void r6040_phy_write(void __iomem *ioaddr,
-+static int r6040_phy_write(void __iomem *ioaddr,
- 					int phy_addr, int reg, u16 val)
- {
- 	int limit = MAC_DEF_TIMEOUT;
-@@ -243,6 +246,8 @@ static void r6040_phy_write(void __iomem *ioaddr,
- 		if (!(cmd & MDIO_WRITE))
- 			break;
- 	}
-+
-+	return (limit < 0) ? -ETIMEDOUT : 0;
- }
- 
- static int r6040_mdiobus_read(struct mii_bus *bus, int phy_addr, int reg)
-@@ -261,9 +266,7 @@ static int r6040_mdiobus_write(struct mii_bus *bus, int phy_addr,
- 	struct r6040_private *lp = netdev_priv(dev);
- 	void __iomem *ioaddr = lp->base;
- 
--	r6040_phy_write(ioaddr, phy_addr, reg, value);
--
--	return 0;
-+	return r6040_phy_write(ioaddr, phy_addr, reg, value);
- }
- 
- static int r6040_mdiobus_reset(struct mii_bus *bus)
--- 
-1.7.10.4
+It seems both IPv6 and IPv4 call paths contest for spin_lock(&head->lock),
+so I am just wondering if we could use RCU to protect the iteration of
+inet_bind_bucket_for_each().
