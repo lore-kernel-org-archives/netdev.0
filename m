@@ -1,91 +1,100 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: destroy_conntrack GPF in 3.7.9
-Date: Wed, 06 Mar 2013 15:46:41 -0500 (EST)
-Message-ID: <20130306.154641.1893414808816499940.davem@davemloft.net>
-References: <20130306155955.GA24215@redhat.com>
-	<1362588847.15793.180.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, netdev@vger.kernel.org,
-	kernel-team@fedoraproject.org
-To: eric.dumazet@gmail.com
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH 2/3 net-next] tcp: refactor CA_Loss state processing
+Date: Wed,  6 Mar 2013 12:52:09 -0800
+Message-ID: <1362603130-16501-2-git-send-email-ycheng@google.com>
+References: <1362603130-16501-1-git-send-email-ycheng@google.com>
+Cc: ilpo.jarvinen@cs.helsinki.fi, netdev@vger.kernel.org,
+	Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, ncardwell@google.com, edumazet@google.com,
+	nanditad@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59353 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753805Ab3CFUqn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 15:46:43 -0500
-In-Reply-To: <1362588847.15793.180.camel@edumazet-glaptop>
+Received: from mail-ye0-f201.google.com ([209.85.213.201]:61782 "EHLO
+	mail-ye0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752551Ab3CFUwV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 15:52:21 -0500
+Received: by mail-ye0-f201.google.com with SMTP id m12so914126yen.2
+        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 12:52:21 -0800 (PST)
+In-Reply-To: <1362603130-16501-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 06 Mar 2013 08:54:07 -0800
+Consolidate all of TCP CA_Loss state processing in
+tcp_fastretrans_alert() into a new function called tcp_process_loss().
+This is to prepare the new F-RTO implementation in the next patch.
 
-> tun driver lacks a nf_reset(skb) call
-> 
-> I would try :
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 2c6a22e..b7c457a 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -747,6 +747,8 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
->  		goto drop;
->  	skb_orphan(skb);
->  
-> +	nf_reset(skb);
-> +
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_input.c | 42 ++++++++++++++++++++++++++----------------
+ 1 file changed, 26 insertions(+), 16 deletions(-)
 
-We just recently fixed a similar bug in the VXLAN driver too.
-
-Eric please submit the TUN fix formally, thanks.
-
-commit 88c4c066c6b4db26dc4909ee94e6bf377e8e8e81
-Author: Zang MingJie <zealot0630@gmail.com>
-Date:   Mon Mar 4 06:07:34 2013 +0000
-
-    reset nf before xmit vxlan encapsulated packet
-    
-    We should reset nf settings bond to the skb as ipip/ipgre do.
-    
-    If not, the conntrack/nat info bond to the origin packet may continually
-    redirect the packet to vxlan interface causing a routing loop.
-    
-    this is the scenario:
-    
-         VETP     VXLAN Gateway
-        /----\  /---------------\
-        |    |  |               |
-        |  vx+--+vx --NAT-> eth0+--> Internet
-        |    |  |               |
-        \----/  \---------------/
-    
-    when there are any packet coming from internet to the vetp, there will be lots
-    of garbage packets coming out the gateway's vxlan interface, but none actually
-    sent to the physical interface, because they are redirected back to the vxlan
-    interface in the postrouting chain of NAT rule, and dmesg complains:
-    
-        Mar  1 21:52:53 debian kernel: [ 8802.997699] Dead loop on virtual device vxlan0, fix it urgently!
-        Mar  1 21:52:54 debian kernel: [ 8804.004907] Dead loop on virtual device vxlan0, fix it urgently!
-        Mar  1 21:52:55 debian kernel: [ 8805.012189] Dead loop on virtual device vxlan0, fix it urgently!
-        Mar  1 21:52:56 debian kernel: [ 8806.020593] Dead loop on virtual device vxlan0, fix it urgently!
-    
-    the patch should fix the problem
-    
-    Signed-off-by: Zang MingJie <zealot0630@gmail.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index f10e58a..c3e3d29 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -961,6 +961,8 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- 	iph->ttl	= ttl ? : ip4_dst_hoplimit(&rt->dst);
- 	tunnel_ip_select_ident(skb, old_iph, &rt->dst);
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 9933b6b..07a05e0 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2662,6 +2662,30 @@ static void tcp_enter_recovery(struct sock *sk, bool ece_ack)
+ 	tcp_set_ca_state(sk, TCP_CA_Recovery);
+ }
  
-+	nf_reset(skb);
++/* Process an ACK in CA_Loss state. Move to CA_Open if lost data are
++ * recovered or spurious. Otherwise retransmits more on partial ACKs.
++ */
++static void tcp_process_loss(struct sock *sk, int flag)
++{
++	struct inet_connection_sock *icsk = inet_csk(sk);
++	struct tcp_sock *tp = tcp_sk(sk);
 +
- 	vxlan_set_owner(dev, skb);
- 
- 	/* See iptunnel_xmit() */
++	if (!before(tp->snd_una, tp->high_seq)) {
++		icsk->icsk_retransmits = 0;
++		tcp_try_undo_recovery(sk);
++		return;
++	}
++
++	if (flag & FLAG_DATA_ACKED)
++		icsk->icsk_retransmits = 0;
++	if (tcp_is_reno(tp) && flag & FLAG_SND_UNA_ADVANCED)
++		tcp_reset_reno_sack(tp);
++	if (tcp_try_undo_loss(sk))
++		return;
++	tcp_moderate_cwnd(tp);
++	tcp_xmit_retransmit_queue(sk);
++}
++
+ /* Process an event, which can update packets-in-flight not trivially.
+  * Main goal of this function is to calculate new estimate for left_out,
+  * taking into account both packets sitting in receiver's buffer and
+@@ -2708,12 +2732,6 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
+ 		tp->retrans_stamp = 0;
+ 	} else if (!before(tp->snd_una, tp->high_seq)) {
+ 		switch (icsk->icsk_ca_state) {
+-		case TCP_CA_Loss:
+-			icsk->icsk_retransmits = 0;
+-			if (tcp_try_undo_recovery(sk))
+-				return;
+-			break;
+-
+ 		case TCP_CA_CWR:
+ 			/* CWR is to be held something *above* high_seq
+ 			 * is ACKed for CWR bit to reach receiver. */
+@@ -2744,18 +2762,10 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
+ 		newly_acked_sacked = pkts_acked + tp->sacked_out - prior_sacked;
+ 		break;
+ 	case TCP_CA_Loss:
+-		if (flag & FLAG_DATA_ACKED)
+-			icsk->icsk_retransmits = 0;
+-		if (tcp_is_reno(tp) && flag & FLAG_SND_UNA_ADVANCED)
+-			tcp_reset_reno_sack(tp);
+-		if (!tcp_try_undo_loss(sk)) {
+-			tcp_moderate_cwnd(tp);
+-			tcp_xmit_retransmit_queue(sk);
+-			return;
+-		}
++		tcp_process_loss(sk, flag);
+ 		if (icsk->icsk_ca_state != TCP_CA_Open)
+ 			return;
+-		/* Loss is undone; fall through to processing in Open state. */
++		/* Fall through to processing in Open state. */
+ 	default:
+ 		if (tcp_is_reno(tp)) {
+ 			if (flag & FLAG_SND_UNA_ADVANCED)
+-- 
+1.8.1.3
