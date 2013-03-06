@@ -1,132 +1,113 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] htb: add HTB_DIRECT_QLEN attribute
-Date: Wed, 06 Mar 2013 08:49:21 -0800
-Message-ID: <1362588561.15793.178.camel@edumazet-glaptop>
+Subject: Re: destroy_conntrack GPF in 3.7.9
+Date: Wed, 06 Mar 2013 08:54:07 -0800
+Message-ID: <1362588847.15793.180.camel@edumazet-glaptop>
+References: <20130306155955.GA24215@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org,
+	Fedora Kernel Team <kernel-team@fedoraproject.org>
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:33264 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751027Ab3CFQt0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 11:49:26 -0500
-Received: by mail-pb0-f47.google.com with SMTP id rp2so6252003pbb.34
-        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 08:49:26 -0800 (PST)
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:42373 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752809Ab3CFQyN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 11:54:13 -0500
+Received: by mail-pb0-f53.google.com with SMTP id un1so6246693pbc.12
+        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 08:54:13 -0800 (PST)
+In-Reply-To: <20130306155955.GA24215@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, 2013-03-06 at 10:59 -0500, Dave Jones wrote:
+> I know 3.7.9 is EOL, but this code doesn't look like it's changed in current.
+> (unless the cause/fix was in code unrelated to these paths)
+> 
+> A user reported the following GPF..
+> 
+> general protection fault: 0000 [#1] SMP 
+> Modules linked in: ipheth fuse ebtable_nat xt_CHECKSUM bridge stp llc ip6t_REJECT iptable_mangle nf_conntrack(-) ebtable_filter ebtables snd_hda_codec_realtek snd_hda_intel snd_hda_codec snd_hwdep snd_seq snd_seq_device snd_pcm snd_page_alloc hp_wmi snd_timer coretemp iTCO_wdt tg3 snd sparse_keymap rfkill soundcore iTCO_vendor_support lpc_ich i7core_edac edac_core serio_raw microcode mfd_core vhost_net tun macvtap macvlan kvm_intel kvm binfmt_misc uinput nouveau mxm_wmi crc32c_intel video i2c_algo_bit drm_kms_helper ttm firewire_ohci firewire_core drm crc_itu_t i2c_core wmi [last unloaded: xt_conntrack]
+> CPU 2 
+> Pid: 25407, comm: qemu-kvm Not tainted 3.7.9-205.fc18.x86_64 #1 Hewlett-Packard HP Z400 Workstation/0B4Ch
+> RIP: 0010:[<ffffffffa0399bd5>]  [<ffffffffa0399bd5>] destroy_conntrack+0x35/0x120 [nf_conntrack]
+> RSP: 0018:ffff880276913d78  EFLAGS: 00010206
+> RAX: 50626b6b7876376c RBX: ffff88026e530d68 RCX: ffff88028d158e00
+> RDX: ffff88026d0d5470 RSI: 0000000000000011 RDI: 0000000000000002
+> RBP: ffff880276913d88 R08: 0000000000000000 R09: ffff880295002900
+> R10: 0000000000000000 R11: 0000000000000003 R12: ffffffff81ca3b40
+> R13: ffffffff8151a8e0 R14: ffff880270875000 R15: 0000000000000002
+> FS:  00007ff3bce38a00(0000) GS:ffff88029fc40000(0000) knlGS:0000000000000000
+> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+> CR2: 00007fd1430bd000 CR3: 000000027042b000 CR4: 00000000000027e0
+> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> Process qemu-kvm (pid: 25407, threadinfo ffff880276912000, task ffff88028c369720)
+> Stack:
+>  ffff880156f59100 ffff880156f59100 ffff880276913d98 ffffffff815534f7
+>  ffff880276913db8 ffffffff8151a74b ffff880270875000 ffff880156f59100
+>  ffff880276913dd8 ffffffff8151a5a6 ffff880276913dd8 ffff88026d0d5470
+> Call Trace:
+>  [<ffffffff815534f7>] nf_conntrack_destroy+0x17/0x20
+>  [<ffffffff8151a74b>] skb_release_head_state+0x7b/0x100
+>  [<ffffffff8151a5a6>] __kfree_skb+0x16/0xa0
+>  [<ffffffff8151a666>] kfree_skb+0x36/0xa0
+>  [<ffffffff8151a8e0>] skb_queue_purge+0x20/0x40
+>  [<ffffffffa02205f7>] __tun_detach+0x117/0x140 [tun]
+>  [<ffffffffa022184c>] tun_chr_close+0x3c/0xd0 [tun]
+>  [<ffffffff8119669c>] __fput+0xec/0x240
+>  [<ffffffff811967fe>] ____fput+0xe/0x10
+>  [<ffffffff8107eb27>] task_work_run+0xa7/0xe0
+>  [<ffffffff810149e1>] do_notify_resume+0x71/0xb0
+>  [<ffffffff81640152>] int_signal+0x12/0x17
+> Code: 00 00 04 48 89 e5 41 54 53 48 89 fb 4c 8b a7 e8 00 00 00 0f 85 de 00 00 00 0f b6 73 3e 0f b7 7b 2a e8 10 40 00 00 48 85 c0 74 0e <48> 8b 40 28 48 85 c0 74 05 48 89 df ff d0 48 c7 c7 08 6a 3a a0 
+> RIP  [<ffffffffa0399bd5>] destroy_conntrack+0x35/0x120 [nf_conntrack]
+>  RSP <ffff880276913d78>
+> 
+> 
+> 
+>         /* To make sure we don't get any weird locking issues here:
+>          * destroy_conntrack() MUST NOT be called with a write lock
+>          * to nf_conntrack_lock!!! -HW */
+>         rcu_read_lock();
+>         l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
+>     1378:       0f b6 b3 86 00 00 00    movzbl 0x86(%rbx),%esi
+>     137f:       0f b7 7b 72             movzwl 0x72(%rbx),%edi
+>     1383:       e8 00 00 00 00          callq  1388 <destroy_conntrack+0x78>
+>         if (l4proto && l4proto->destroy)
+>     1388:       48 85 c0                test   %rax,%rax
+>     138b:       74 0e                   je     139b <destroy_conntrack+0x8b>
+>     138d:       48 8b 40 28             mov    0x28(%rax),%rax    <-----  HERE
+>     1391:       48 85 c0                test   %rax,%rax
+>     1394:       74 05                   je     139b <destroy_conntrack+0x8b>
+>                 l4proto->destroy(ct);
+>     1396:       48 89 df                mov    %rbx,%rdi
+>     1399:       ff d0                   callq  *%rax
+> 
+> 
+> l4proto (%rax) is garbage (0x50626b6b7876376c) which looks a little like ascii,
+> but P>kkxv7l doesn't mean much to me.
+> 
+> https://bugzilla.redhat.com/show_bug.cgi?id=917792 is the original report, but
+> there aren't any further details yet.
+> 
+> 	Dave
+> 
 
-HTB uses an internal pfifo queue, which limit is not reported
-to userland tools (tc), and value inherited from device tx_queue_len
-at setup time.
+tun driver lacks a nf_reset(skb) call
 
-Introduce TCA_HTB_DIRECT_QLEN attribute to allow finer control.
+I would try :
 
-Remove two obsolete pr_err() calls as well.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
----
- include/uapi/linux/pkt_sched.h |    1 +
- net/sched/sch_htb.c            |   31 ++++++++++++++++---------------
- 2 files changed, 17 insertions(+), 15 deletions(-)
-
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index 32aef0a..dbd71b0 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -348,6 +348,7 @@ enum {
- 	TCA_HTB_INIT,
- 	TCA_HTB_CTAB,
- 	TCA_HTB_RTAB,
-+	TCA_HTB_DIRECT_QLEN,
- 	__TCA_HTB_MAX,
- };
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 2c6a22e..b7c457a 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -747,6 +747,8 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		goto drop;
+ 	skb_orphan(skb);
  
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 571f1d2..79b1876 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -981,6 +981,7 @@ static const struct nla_policy htb_policy[TCA_HTB_MAX + 1] = {
- 	[TCA_HTB_INIT]	= { .len = sizeof(struct tc_htb_glob) },
- 	[TCA_HTB_CTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
- 	[TCA_HTB_RTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
-+	[TCA_HTB_DIRECT_QLEN] = { .type = NLA_U32 },
- };
- 
- static void htb_work_func(struct work_struct *work)
-@@ -994,7 +995,7 @@ static void htb_work_func(struct work_struct *work)
- static int htb_init(struct Qdisc *sch, struct nlattr *opt)
- {
- 	struct htb_sched *q = qdisc_priv(sch);
--	struct nlattr *tb[TCA_HTB_INIT + 1];
-+	struct nlattr *tb[TCA_HTB_MAX + 1];
- 	struct tc_htb_glob *gopt;
- 	int err;
- 	int i;
-@@ -1002,20 +1003,16 @@ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
- 	if (!opt)
- 		return -EINVAL;
- 
--	err = nla_parse_nested(tb, TCA_HTB_INIT, opt, htb_policy);
-+	err = nla_parse_nested(tb, TCA_HTB_MAX, opt, htb_policy);
- 	if (err < 0)
- 		return err;
- 
--	if (tb[TCA_HTB_INIT] == NULL) {
--		pr_err("HTB: hey probably you have bad tc tool ?\n");
-+	if (!tb[TCA_HTB_INIT])
- 		return -EINVAL;
--	}
++	nf_reset(skb);
 +
- 	gopt = nla_data(tb[TCA_HTB_INIT]);
--	if (gopt->version != HTB_VER >> 16) {
--		pr_err("HTB: need tc/htb version %d (minor is %d), you have %d\n",
--		       HTB_VER >> 16, HTB_VER & 0xffff, gopt->version);
-+	if (gopt->version != HTB_VER >> 16)
- 		return -EINVAL;
--	}
+ 	/* Enqueue packet */
+ 	skb_queue_tail(&tfile->socket.sk->sk_receive_queue, skb);
  
- 	err = qdisc_class_hash_init(&q->clhash);
- 	if (err < 0)
-@@ -1027,10 +1024,13 @@ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
- 	INIT_WORK(&q->work, htb_work_func);
- 	skb_queue_head_init(&q->direct_queue);
- 
--	q->direct_qlen = qdisc_dev(sch)->tx_queue_len;
--	if (q->direct_qlen < 2)	/* some devices have zero tx_queue_len */
--		q->direct_qlen = 2;
--
-+	if (tb[TCA_HTB_DIRECT_QLEN])
-+		q->direct_qlen = nla_get_u32(tb[TCA_HTB_DIRECT_QLEN]);
-+	else {
-+		q->direct_qlen = qdisc_dev(sch)->tx_queue_len;
-+		if (q->direct_qlen < 2)	/* some devices have zero tx_queue_len */
-+			q->direct_qlen = 2;
-+	}
- 	if ((q->rate2quantum = gopt->rate2quantum) < 1)
- 		q->rate2quantum = 1;
- 	q->defcls = gopt->defcls;
-@@ -1056,7 +1056,8 @@ static int htb_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	nest = nla_nest_start(skb, TCA_OPTIONS);
- 	if (nest == NULL)
- 		goto nla_put_failure;
--	if (nla_put(skb, TCA_HTB_INIT, sizeof(gopt), &gopt))
-+	if (nla_put(skb, TCA_HTB_INIT, sizeof(gopt), &gopt) ||
-+	    nla_put_u32(skb, TCA_HTB_DIRECT_QLEN, q->direct_qlen))
- 		goto nla_put_failure;
- 	nla_nest_end(skb, nest);
- 
-@@ -1311,7 +1312,7 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 	struct htb_sched *q = qdisc_priv(sch);
- 	struct htb_class *cl = (struct htb_class *)*arg, *parent;
- 	struct nlattr *opt = tca[TCA_OPTIONS];
--	struct nlattr *tb[__TCA_HTB_MAX];
-+	struct nlattr *tb[TCA_HTB_MAX + 1];
- 	struct tc_htb_opt *hopt;
- 
- 	/* extract all subattrs from opt attr */
