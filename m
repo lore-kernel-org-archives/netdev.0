@@ -1,128 +1,108 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH net-next] bond: add support to read speed and duplex via ethtool
-Date: Wed,  6 Mar 2013 13:39:33 -0500
-Message-ID: <1362595173-11442-1-git-send-email-andy@greyhouse.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44649 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753938Ab3CFSnf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Mar 2013 13:43:35 -0500
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r26IhZGM008835
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 6 Mar 2013 13:43:35 -0500
-Received: from eeepc.redhat.com (vpn-52-27.rdu2.redhat.com [10.10.52.27])
-	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id r26IhY26028759
-	for <netdev@vger.kernel.org>; Wed, 6 Mar 2013 13:43:34 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: anil dahiya <anildahiya80@gmail.com>
+Subject: Re: igb_down from bottom half context
+Date: Thu, 7 Mar 2013 00:18:07 +0530
+Message-ID: <CAHGPgw0EV3-U+h5S0SFdEweUVcT68h5tdRkZbAwRqrNG5z2P+w@mail.gmail.com>
+References: <CAGZFCEHrzDDtO8HGaUhuUb_vNddKyiXPzasnkvTqLOqS9SwaDw@mail.gmail.com>
+	<1362591486.3126.1.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============4481052004879087128=="
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-newbie <linux-newbie@vger.kernel.org>,
+	ratheesh kannoth <ratheesh.ksz@gmail.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1362591486.3126.1.camel@bwh-desktop.uk.solarflarecom.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-This patch adds support for the get_settings ethtool op to the bonding
-driver.  This was motivated by users who wanted to get the speed of the
-bond and compare that against throughput to understand utilization.
-The behavior before this patch was added was problematic when computing
-line utilization after trying to get link-speed and throughput via SNMP.
+--===============4481052004879087128==
+Content-Type: multipart/alternative; boundary=14dae9cc9fbee8ac7b04d746073d
 
-The general plan for computing link-speed was as follows:
+--14dae9cc9fbee8ac7b04d746073d
+Content-Type: text/plain; charset=ISO-8859-1
 
-Mode                 Formula
-----                 -------
-active-backup        speed of current active slave
-broadcast            speed of first slave with known speed
-all other modes      aggregate speed of all slaves with known speed
+You know, you are doing wrong thing i.e sleeping in interrupt context.
 
-Output from ethtool looks like this for a round-robin bond:
+As suggested by Ben, move code work queue or somewhere else. Other option
+is dont sleep here.
 
-Settings for bond0:
-	Supported ports: [ ]
-	Supported link modes:   Not reported
-	Supported pause frame use: No
-	Supports auto-negotiation: No
-	Advertised link modes:  Not reported
-	Advertised pause frame use: No
-	Advertised auto-negotiation: No
-	Speed: 11000Mb/s
-	Duplex: Full
-	Port: Twisted Pair
-	PHYAD: 0
-	Transceiver: internal
-	Auto-negotiation: off
-	MDI-X: Unknown
-	Link detected: yes
+--Anil
+On Wed, Mar 6, 2013 at 11:08 PM, Ben Hutchings <bhutchings@solarflare.com>wrote:
 
-I tested this and verified it works as expected.  A test was also done
-on a version backported to an older kernel and it worked well there.
+> On Wed, 2013-03-06 at 09:38 +0530, ratheesh kannoth wrote:
+> > I  have kernel timer which  check for flag.
+> >
+> > if(flag ) {
+> >           igb_down(adapter);
+> >  } else {
+> >          igb_up(adapter);
+> >  }
+> >
+> >
+> > I could see a kernel crash; because  there are a lot of  msleep() in
+> > igb_down function.
+> >
+> > #define msleep(x)    do { set_current_state(TASK_UNINTERRUPTIBLE); \
+> >                                 schedule_timeout((x * HZ)/1000 + 2); \
+> >                               } while (0)
+> >
+> > sleep() is called from bottom half context; this is the cause of kernel
+> crash.
+> >
+> > 1) Since timer call back dont have process context associated with it;
+> > i think , "current" points to the last preempted task ?
+> > 2) How can i introduce delays in interrupt context to avoid the kernel
+> > crash. mdelay()  will work ?
+> > 3) is there any better mechanism to do this job ?
+>
+> Use a work item and schedule_work().
+>
+> Ben.
+>
+> --
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-newbie" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at http://www.linux-learn.org/faqs
+>
 
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
----
- drivers/net/bonding/bond_main.c | 47 +++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 47 insertions(+)
+--14dae9cc9fbee8ac7b04d746073d--
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 7bd068a..6e70ff0 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4224,6 +4224,52 @@ void bond_set_mode_ops(struct bonding *bond, int mode)
- 	}
- }
- 
-+static int bond_ethtool_get_settings(struct net_device *bond_dev,
-+				     struct ethtool_cmd *ecmd)
-+{
-+	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave;
-+	int i;
-+	unsigned long speed = 0;
-+
-+	ecmd->speed = SPEED_UNKNOWN;
-+	ecmd->duplex = DUPLEX_UNKNOWN;
-+
-+	read_lock(&bond->lock);
-+	switch (bond->params.mode) {
-+	case BOND_MODE_ACTIVEBACKUP:
-+		read_lock(&bond->curr_slave_lock);
-+		if (bond->curr_active_slave &&
-+		    bond->curr_active_slave->speed != SPEED_UNKNOWN) {
-+			ecmd->speed = bond->curr_active_slave->speed;
-+			ecmd->duplex = bond->curr_active_slave->duplex;
-+		}
-+		read_unlock(&bond->curr_slave_lock);
-+		break;
-+	case BOND_MODE_BROADCAST:
-+		bond_for_each_slave(bond, slave, i) {
-+			if (slave->speed != SPEED_UNKNOWN) {
-+				ecmd->speed = slave->speed;
-+				ecmd->duplex = slave->duplex;
-+				break;
-+			}
-+		}
-+		break;
-+	default:
-+		bond_for_each_slave(bond, slave, i) {
-+			if (slave->speed != SPEED_UNKNOWN) {
-+				speed += slave->speed;
-+			}
-+			if (ecmd->duplex == DUPLEX_UNKNOWN &&
-+			    slave->duplex != DUPLEX_UNKNOWN)
-+				ecmd->duplex = slave->duplex;
-+		}
-+		ecmd->speed = speed;
-+	}
-+	read_unlock(&bond->lock);
-+	return 0;
-+}
-+
- static void bond_ethtool_get_drvinfo(struct net_device *bond_dev,
- 				     struct ethtool_drvinfo *drvinfo)
- {
-@@ -4235,6 +4281,7 @@ static void bond_ethtool_get_drvinfo(struct net_device *bond_dev,
- 
- static const struct ethtool_ops bond_ethtool_ops = {
- 	.get_drvinfo		= bond_ethtool_get_drvinfo,
-+	.get_settings		= bond_ethtool_get_settings,
- 	.get_link		= ethtool_op_get_link,
- };
- 
--- 
-1.7.11.7
+
+--===============4481052004879087128==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+Symantec Endpoint Protection 12 positioned as A LEADER in The Forrester  
+Wave(TM): Endpoint Security, Q1 2013 and "remains a good choice" in the  
+endpoint security space. For insight on selecting the right partner to 
+tackle endpoint security challenges, access the full report. 
+http://p.sf.net/sfu/symantec-dev2dev
+--===============4481052004879087128==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============4481052004879087128==--
