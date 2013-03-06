@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH BUGFIX 0/6] pkt_sched: fix little service anomalies and
- possible crashes of qfq+
-Date: Tue, 05 Mar 2013 23:50:06 -0500 (EST)
-Message-ID: <20130305.235006.1904081547083683406.davem@davemloft.net>
-References: <20130226.173700.882998504986475149.davem@davemloft.net>
-	<1362506702-4985-1-git-send-email-paolo.valente@unimore.it>
+Subject: Re: [PATCH] net: docs: document multiqueue tuntap API
+Date: Tue, 05 Mar 2013 23:54:01 -0500 (EST)
+Message-ID: <20130305.235401.548455441771005291.davem@davemloft.net>
+References: <1362539123-24863-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, shemminger@vyatta.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fchecconi@gmail.com,
-	rizzo@iet.unipi.it
-To: paolo.valente@unimore.it
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1362506702-4985-1-git-send-email-paolo.valente@unimore.it>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: maxk@qti.qualcomm.com, rob@landley.net, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	mst@redhat.com, hkchu@google.com
+To: jasowang@redhat.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1362539123-24863-1-git-send-email-jasowang@redhat.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paolo valente <paolo.valente@unimore.it>
-Date: Tue,  5 Mar 2013 19:04:56 +0100
+From: Jason Wang <jasowang@redhat.com>
+Date: Wed,  6 Mar 2013 11:05:23 +0800
 
-> Split, and inserted a detailed description of both the problem and the fix
-> in each patch.
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Series applied, thanks.
+Please fix these warnings emitted by GIT:
 
-Although two topics for possibly resolving later:
-
-1) That 1ULL bit mask fix is quite expensive on 32-bit, it would
-   probably be cheaper to test for that case using a helper function
-   that nops out on 64-bit.  Although this is not so important.
-
-2) That static inline forward declaration is ugly, better to remove
-   the inline tag (let the compiler handle it) or move the function
-   above all the call sites.
+Applying: net: docs: document multiqueue tuntap API
+/home/davem/src/GIT/net/.git/rebase-apply/patch:31: space before tab in indent.
+  	struct ifreq ifr;
+/home/davem/src/GIT/net/.git/rebase-apply/patch:32: space before tab in indent.
+  	int fd, err, i;
+/home/davem/src/GIT/net/.git/rebase-apply/patch:34: space before tab in indent.
+  	if (!dev)
+/home/davem/src/GIT/net/.git/rebase-apply/patch:35: space before tab in indent.
+  		return -1;
+/home/davem/src/GIT/net/.git/rebase-apply/patch:37: space before tab in indent.
+  	memset(&ifr, 0, sizeof(ifr));
+warning: squelched 29 whitespace errors
+warning: 34 lines add whitespace errors.
