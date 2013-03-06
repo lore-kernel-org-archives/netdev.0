@@ -1,115 +1,128 @@
-From: Phil Sutter <phil.sutter@viprinet.com>
-Subject: [PATCH] fix mv643xx_eth for disabled autoneg
-Date: Wed,  6 Mar 2013 18:49:02 +0100
-Message-ID: <1362592142-4049-1-git-send-email-phil.sutter@viprinet.com>
-Cc: netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@marvell.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH net-next] bond: add support to read speed and duplex via ethtool
+Date: Wed,  6 Mar 2013 13:39:33 -0500
+Message-ID: <1362595173-11442-1-git-send-email-andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.vipri.net ([89.207.250.15]:53767 "EHLO zimbra.vipri.net"
+Received: from mx1.redhat.com ([209.132.183.28]:44649 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753222Ab3CFRuL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Mar 2013 12:50:11 -0500
+	id S1753938Ab3CFSnf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Mar 2013 13:43:35 -0500
+Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r26IhZGM008835
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 6 Mar 2013 13:43:35 -0500
+Received: from eeepc.redhat.com (vpn-52-27.rdu2.redhat.com [10.10.52.27])
+	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id r26IhY26028759
+	for <netdev@vger.kernel.org>; Wed, 6 Mar 2013 13:43:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When autoneg has been disabled in the PHY (Marvell 88E1118 here), auto
-negotiation between MAC and PHY seem non-functional anymore. The only
-way I found to workaround this is to manually configure the MAC with the
-settings sent to the PHY earlier.
+This patch adds support for the get_settings ethtool op to the bonding
+driver.  This was motivated by users who wanted to get the speed of the
+bond and compare that against throughput to understand utilization.
+The behavior before this patch was added was problematic when computing
+line utilization after trying to get link-speed and throughput via SNMP.
 
-Signed-off-by: Phil Sutter <phil.sutter@viprinet.com>
+The general plan for computing link-speed was as follows:
+
+Mode                 Formula
+----                 -------
+active-backup        speed of current active slave
+broadcast            speed of first slave with known speed
+all other modes      aggregate speed of all slaves with known speed
+
+Output from ethtool looks like this for a round-robin bond:
+
+Settings for bond0:
+	Supported ports: [ ]
+	Supported link modes:   Not reported
+	Supported pause frame use: No
+	Supports auto-negotiation: No
+	Advertised link modes:  Not reported
+	Advertised pause frame use: No
+	Advertised auto-negotiation: No
+	Speed: 11000Mb/s
+	Duplex: Full
+	Port: Twisted Pair
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: off
+	MDI-X: Unknown
+	Link detected: yes
+
+I tested this and verified it works as expected.  A test was also done
+on a version backported to an older kernel and it worked well there.
+
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 ---
- drivers/net/ethernet/marvell/mv643xx_eth.c |   55 ++++++++++++++++++++++++++--
- 1 files changed, 51 insertions(+), 4 deletions(-)
+ drivers/net/bonding/bond_main.c | 47 +++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 47 insertions(+)
 
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 5e1ca0f..5435833 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -1082,6 +1082,45 @@ static void txq_set_fixed_prio_mode(struct tx_queue *txq)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 7bd068a..6e70ff0 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4224,6 +4224,52 @@ void bond_set_mode_ops(struct bonding *bond, int mode)
+ 	}
+ }
  
- 
- /* mii management interface *************************************************/
-+static void mv643xx_adjust_pscr(struct mv643xx_eth_private *mp)
++static int bond_ethtool_get_settings(struct net_device *bond_dev,
++				     struct ethtool_cmd *ecmd)
 +{
-+	u32 pscr = rdlp(mp, PORT_SERIAL_CONTROL);
-+	u32 autoneg_disable = FORCE_LINK_PASS |
-+	             DISABLE_AUTO_NEG_SPEED_GMII |
-+		     DISABLE_AUTO_NEG_FOR_FLOW_CTRL |
-+		     DISABLE_AUTO_NEG_FOR_DUPLEX;
++	struct bonding *bond = netdev_priv(bond_dev);
++	struct slave *slave;
++	int i;
++	unsigned long speed = 0;
 +
-+	if (mp->phy->autoneg == AUTONEG_ENABLE) {
-+		/* enable auto negotiation */
-+		pscr &= ~autoneg_disable;
-+		goto out_write;
++	ecmd->speed = SPEED_UNKNOWN;
++	ecmd->duplex = DUPLEX_UNKNOWN;
++
++	read_lock(&bond->lock);
++	switch (bond->params.mode) {
++	case BOND_MODE_ACTIVEBACKUP:
++		read_lock(&bond->curr_slave_lock);
++		if (bond->curr_active_slave &&
++		    bond->curr_active_slave->speed != SPEED_UNKNOWN) {
++			ecmd->speed = bond->curr_active_slave->speed;
++			ecmd->duplex = bond->curr_active_slave->duplex;
++		}
++		read_unlock(&bond->curr_slave_lock);
++		break;
++	case BOND_MODE_BROADCAST:
++		bond_for_each_slave(bond, slave, i) {
++			if (slave->speed != SPEED_UNKNOWN) {
++				ecmd->speed = slave->speed;
++				ecmd->duplex = slave->duplex;
++				break;
++			}
++		}
++		break;
++	default:
++		bond_for_each_slave(bond, slave, i) {
++			if (slave->speed != SPEED_UNKNOWN) {
++				speed += slave->speed;
++			}
++			if (ecmd->duplex == DUPLEX_UNKNOWN &&
++			    slave->duplex != DUPLEX_UNKNOWN)
++				ecmd->duplex = slave->duplex;
++		}
++		ecmd->speed = speed;
 +	}
-+
-+	pscr |= autoneg_disable;
-+
-+	if (mp->phy->speed == SPEED_1000) {
-+		/* force gigabit, half duplex not supported */
-+		pscr |= SET_GMII_SPEED_TO_1000;
-+		pscr |= SET_FULL_DUPLEX_MODE;
-+		goto out_write;
-+	}
-+
-+	pscr &= ~SET_GMII_SPEED_TO_1000;
-+
-+	if (mp->phy->speed == SPEED_100)
-+		pscr |= SET_MII_SPEED_TO_100;
-+	else
-+		pscr &= ~SET_MII_SPEED_TO_100;
-+
-+	if (mp->phy->duplex == DUPLEX_FULL)
-+		pscr |= SET_FULL_DUPLEX_MODE;
-+	else
-+		pscr &= ~SET_FULL_DUPLEX_MODE;
-+
-+out_write:
-+	wrlp(mp, PORT_SERIAL_CONTROL, pscr);
++	read_unlock(&bond->lock);
++	return 0;
 +}
 +
- static irqreturn_t mv643xx_eth_err_irq(int irq, void *dev_id)
+ static void bond_ethtool_get_drvinfo(struct net_device *bond_dev,
+ 				     struct ethtool_drvinfo *drvinfo)
  {
- 	struct mv643xx_eth_shared_private *msp = dev_id;
-@@ -1500,6 +1539,7 @@ static int
- mv643xx_eth_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct mv643xx_eth_private *mp = netdev_priv(dev);
-+	int ret;
+@@ -4235,6 +4281,7 @@ static void bond_ethtool_get_drvinfo(struct net_device *bond_dev,
  
- 	if (mp->phy == NULL)
- 		return -EINVAL;
-@@ -1509,7 +1549,10 @@ mv643xx_eth_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	 */
- 	cmd->advertising &= ~ADVERTISED_1000baseT_Half;
+ static const struct ethtool_ops bond_ethtool_ops = {
+ 	.get_drvinfo		= bond_ethtool_get_drvinfo,
++	.get_settings		= bond_ethtool_get_settings,
+ 	.get_link		= ethtool_op_get_link,
+ };
  
--	return phy_ethtool_sset(mp->phy, cmd);
-+	ret = phy_ethtool_sset(mp->phy, cmd);
-+	if (!ret)
-+		mv643xx_adjust_pscr(mp);
-+	return ret;
- }
- 
- static void mv643xx_eth_get_drvinfo(struct net_device *dev,
-@@ -2448,11 +2491,15 @@ static int mv643xx_eth_stop(struct net_device *dev)
- static int mv643xx_eth_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
- 	struct mv643xx_eth_private *mp = netdev_priv(dev);
-+	int ret;
- 
--	if (mp->phy != NULL)
--		return phy_mii_ioctl(mp->phy, ifr, cmd);
-+	if (mp->phy == NULL)
-+		return -ENOTSUPP;
- 
--	return -EOPNOTSUPP;
-+	ret = phy_mii_ioctl(mp->phy, ifr, cmd);
-+	if (!ret)
-+		mv643xx_adjust_pscr(mp);
-+	return ret;
- }
- 
- static int mv643xx_eth_change_mtu(struct net_device *dev, int new_mtu)
 -- 
-1.7.3.4
+1.7.11.7
