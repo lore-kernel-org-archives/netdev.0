@@ -1,137 +1,214 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next,repost 1/2] team: introduce two default team_modeop functions and use them in modes
-Date: Wed,  6 Mar 2013 12:31:12 +0100
-Message-ID: <1362569473-4310-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next,repost 2/2] team: introduce random mode
+Date: Wed,  6 Mar 2013 12:31:13 +0100
+Message-ID: <1362569473-4310-3-git-send-email-jiri@resnulli.us>
 References: <1362569473-4310-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, fbl@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:48606 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757210Ab3CFLbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 06:31:19 -0500
-Received: by mail-wg0-f47.google.com with SMTP id dr13so7164326wgb.26
-        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 03:31:18 -0800 (PST)
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:52972 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757282Ab3CFLbV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 06:31:21 -0500
+Received: by mail-wg0-f43.google.com with SMTP id e12so7469823wge.22
+        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 03:31:19 -0800 (PST)
 In-Reply-To: <1362569473-4310-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No need to duplicate code for this.
+As suggested by Eric Dumazet, allow user to select mode which chooses
+TX port randomly. Functionality should be more of less similar to
+round-robin mode with even lower overhead.
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/team/team.c                 | 19 ++++++++++++++++---
- drivers/net/team/team_mode_broadcast.c  | 14 ++------------
- drivers/net/team/team_mode_roundrobin.c | 14 ++------------
- include/linux/if_team.h                 |  5 ++++-
- 4 files changed, 24 insertions(+), 28 deletions(-)
+ drivers/net/team/Kconfig                | 12 ++++++
+ drivers/net/team/Makefile               |  1 +
+ drivers/net/team/team_mode_random.c     | 71 +++++++++++++++++++++++++++++++++
+ drivers/net/team/team_mode_roundrobin.c | 22 +---------
+ include/linux/if_team.h                 | 20 ++++++++++
+ 5 files changed, 105 insertions(+), 21 deletions(-)
+ create mode 100644 drivers/net/team/team_mode_random.c
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 05c5efe..ece70a4 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -73,11 +73,24 @@ static int team_port_set_orig_dev_addr(struct team_port *port)
- 	return __set_port_dev_addr(port->dev, port->orig.dev_addr);
- }
+diff --git a/drivers/net/team/Kconfig b/drivers/net/team/Kconfig
+index c3011af..c853d84 100644
+--- a/drivers/net/team/Kconfig
++++ b/drivers/net/team/Kconfig
+@@ -37,6 +37,18 @@ config NET_TEAM_MODE_ROUNDROBIN
+ 	  To compile this team mode as a module, choose M here: the module
+ 	  will be called team_mode_roundrobin.
  
--int team_port_set_team_dev_addr(struct team_port *port)
-+static int team_port_set_team_dev_addr(struct team *team,
-+				       struct team_port *port)
++config NET_TEAM_MODE_RANDOM
++	tristate "Random mode support"
++	depends on NET_TEAM
++	---help---
++	  Basic mode where port used for transmitting packets is selected
++	  randomly.
++
++	  All added ports are setup to have team's device address.
++
++	  To compile this team mode as a module, choose M here: the module
++	  will be called team_mode_random.
++
+ config NET_TEAM_MODE_ACTIVEBACKUP
+ 	tristate "Active-backup mode support"
+ 	depends on NET_TEAM
+diff --git a/drivers/net/team/Makefile b/drivers/net/team/Makefile
+index 9757630..c57e858 100644
+--- a/drivers/net/team/Makefile
++++ b/drivers/net/team/Makefile
+@@ -5,5 +5,6 @@
+ obj-$(CONFIG_NET_TEAM) += team.o
+ obj-$(CONFIG_NET_TEAM_MODE_BROADCAST) += team_mode_broadcast.o
+ obj-$(CONFIG_NET_TEAM_MODE_ROUNDROBIN) += team_mode_roundrobin.o
++obj-$(CONFIG_NET_TEAM_MODE_RANDOM) += team_mode_random.o
+ obj-$(CONFIG_NET_TEAM_MODE_ACTIVEBACKUP) += team_mode_activebackup.o
+ obj-$(CONFIG_NET_TEAM_MODE_LOADBALANCE) += team_mode_loadbalance.o
+diff --git a/drivers/net/team/team_mode_random.c b/drivers/net/team/team_mode_random.c
+new file mode 100644
+index 0000000..9eabfaa
+--- /dev/null
++++ b/drivers/net/team/team_mode_random.c
+@@ -0,0 +1,71 @@
++/*
++ * drivers/net/team/team_mode_random.c - Random mode for team
++ * Copyright (c) 2013 Jiri Pirko <jiri@resnulli.us>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/skbuff.h>
++#include <linux/reciprocal_div.h>
++#include <linux/if_team.h>
++
++static u32 random_N(unsigned int N)
 +{
-+	return __set_port_dev_addr(port->dev, team->dev->dev_addr);
++	return reciprocal_divide(random32(), N);
 +}
 +
-+int team_modeop_port_enter(struct team *team, struct team_port *port)
++static bool rnd_transmit(struct team *team, struct sk_buff *skb)
 +{
-+	return team_port_set_team_dev_addr(team, port);
-+}
-+EXPORT_SYMBOL(team_modeop_port_enter);
++	struct team_port *port;
++	int port_index;
 +
-+void team_modeop_port_change_dev_addr(struct team *team,
-+				      struct team_port *port)
- {
--	return __set_port_dev_addr(port->dev, port->team->dev->dev_addr);
-+	team_port_set_team_dev_addr(team, port);
- }
--EXPORT_SYMBOL(team_port_set_team_dev_addr);
-+EXPORT_SYMBOL(team_modeop_port_change_dev_addr);
- 
- static void team_refresh_port_linkup(struct team_port *port)
- {
-diff --git a/drivers/net/team/team_mode_broadcast.c b/drivers/net/team/team_mode_broadcast.c
-index c5db428..c366cd2 100644
---- a/drivers/net/team/team_mode_broadcast.c
-+++ b/drivers/net/team/team_mode_broadcast.c
-@@ -46,20 +46,10 @@ static bool bc_transmit(struct team *team, struct sk_buff *skb)
- 	return sum_ret;
- }
- 
--static int bc_port_enter(struct team *team, struct team_port *port)
--{
--	return team_port_set_team_dev_addr(port);
--}
--
--static void bc_port_change_dev_addr(struct team *team, struct team_port *port)
--{
--	team_port_set_team_dev_addr(port);
--}
--
- static const struct team_mode_ops bc_mode_ops = {
- 	.transmit		= bc_transmit,
--	.port_enter		= bc_port_enter,
--	.port_change_dev_addr	= bc_port_change_dev_addr,
++	port_index = random_N(team->en_port_count);
++	port = team_get_port_by_index_rcu(team, port_index);
++	port = team_get_first_port_txable_rcu(team, port);
++	if (unlikely(!port))
++		goto drop;
++	if (team_dev_queue_xmit(team, port, skb))
++		return false;
++	return true;
++
++drop:
++	dev_kfree_skb_any(skb);
++	return false;
++}
++
++static const struct team_mode_ops rnd_mode_ops = {
++	.transmit		= rnd_transmit,
 +	.port_enter		= team_modeop_port_enter,
 +	.port_change_dev_addr	= team_modeop_port_change_dev_addr,
- };
- 
- static const struct team_mode bc_mode = {
++};
++
++static const struct team_mode rnd_mode = {
++	.kind		= "random",
++	.owner		= THIS_MODULE,
++	.ops		= &rnd_mode_ops,
++};
++
++static int __init rnd_init_module(void)
++{
++	return team_mode_register(&rnd_mode);
++}
++
++static void __exit rnd_cleanup_module(void)
++{
++	team_mode_unregister(&rnd_mode);
++}
++
++module_init(rnd_init_module);
++module_exit(rnd_cleanup_module);
++
++MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Jiri Pirko <jiri@resnulli.us>");
++MODULE_DESCRIPTION("Random mode for team");
++MODULE_ALIAS("team-mode-random");
 diff --git a/drivers/net/team/team_mode_roundrobin.c b/drivers/net/team/team_mode_roundrobin.c
-index 105135a..ed63a6b 100644
+index ed63a6b..d268e4d 100644
 --- a/drivers/net/team/team_mode_roundrobin.c
 +++ b/drivers/net/team/team_mode_roundrobin.c
-@@ -64,20 +64,10 @@ drop:
- 	return false;
+@@ -25,26 +25,6 @@ static struct rr_priv *rr_priv(struct team *team)
+ 	return (struct rr_priv *) &team->mode_priv;
  }
  
--static int rr_port_enter(struct team *team, struct team_port *port)
+-static struct team_port *__get_first_port_up(struct team *team,
+-					     struct team_port *port)
 -{
--	return team_port_set_team_dev_addr(port);
+-	struct team_port *cur;
+-
+-	if (team_port_txable(port))
+-		return port;
+-	cur = port;
+-	list_for_each_entry_continue_rcu(cur, &team->port_list, list)
+-		if (team_port_txable(port))
+-			return cur;
+-	list_for_each_entry_rcu(cur, &team->port_list, list) {
+-		if (cur == port)
+-			break;
+-		if (team_port_txable(port))
+-			return cur;
+-	}
+-	return NULL;
 -}
 -
--static void rr_port_change_dev_addr(struct team *team, struct team_port *port)
--{
--	team_port_set_team_dev_addr(port);
--}
--
- static const struct team_mode_ops rr_mode_ops = {
- 	.transmit		= rr_transmit,
--	.port_enter		= rr_port_enter,
--	.port_change_dev_addr	= rr_port_change_dev_addr,
-+	.port_enter		= team_modeop_port_enter,
-+	.port_change_dev_addr	= team_modeop_port_change_dev_addr,
- };
+ static bool rr_transmit(struct team *team, struct sk_buff *skb)
+ {
+ 	struct team_port *port;
+@@ -52,7 +32,7 @@ static bool rr_transmit(struct team *team, struct sk_buff *skb)
  
- static const struct team_mode rr_mode = {
+ 	port_index = rr_priv(team)->sent_packets++ % team->en_port_count;
+ 	port = team_get_port_by_index_rcu(team, port_index);
+-	port = __get_first_port_up(team, port);
++	port = team_get_first_port_txable_rcu(team, port);
+ 	if (unlikely(!port))
+ 		goto drop;
+ 	if (team_dev_queue_xmit(team, port, skb))
 diff --git a/include/linux/if_team.h b/include/linux/if_team.h
-index cfd21e3..3283def 100644
+index 3283def..4474557 100644
 --- a/include/linux/if_team.h
 +++ b/include/linux/if_team.h
-@@ -112,6 +112,10 @@ struct team_mode_ops {
- 	void (*port_disabled)(struct team *team, struct team_port *port);
- };
- 
-+extern int team_modeop_port_enter(struct team *team, struct team_port *port);
-+extern void team_modeop_port_change_dev_addr(struct team *team,
-+					     struct team_port *port);
-+
- enum team_option_type {
- 	TEAM_OPTION_TYPE_U32,
- 	TEAM_OPTION_TYPE_STRING,
-@@ -236,7 +240,6 @@ static inline struct team_port *team_get_port_by_index_rcu(struct team *team,
+@@ -240,6 +240,26 @@ static inline struct team_port *team_get_port_by_index_rcu(struct team *team,
  	return NULL;
  }
  
--extern int team_port_set_team_dev_addr(struct team_port *port);
++static inline struct team_port *
++team_get_first_port_txable_rcu(struct team *team, struct team_port *port)
++{
++	struct team_port *cur;
++
++	if (likely(team_port_txable(port)))
++		return port;
++	cur = port;
++	list_for_each_entry_continue_rcu(cur, &team->port_list, list)
++		if (team_port_txable(port))
++			return cur;
++	list_for_each_entry_rcu(cur, &team->port_list, list) {
++		if (cur == port)
++			break;
++		if (team_port_txable(port))
++			return cur;
++	}
++	return NULL;
++}
++
  extern int team_options_register(struct team *team,
  				 const struct team_option *option,
  				 size_t option_count);
