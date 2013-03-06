@@ -1,100 +1,262 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH 2/3 net-next] tcp: refactor CA_Loss state processing
-Date: Wed,  6 Mar 2013 12:52:09 -0800
-Message-ID: <1362603130-16501-2-git-send-email-ycheng@google.com>
+Subject: [PATCH 3/3 net-next] tcp: implement RFC5682 F-RTO
+Date: Wed,  6 Mar 2013 12:52:10 -0800
+Message-ID: <1362603130-16501-3-git-send-email-ycheng@google.com>
 References: <1362603130-16501-1-git-send-email-ycheng@google.com>
 Cc: ilpo.jarvinen@cs.helsinki.fi, netdev@vger.kernel.org,
 	Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net, ncardwell@google.com, edumazet@google.com,
 	nanditad@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ye0-f201.google.com ([209.85.213.201]:61782 "EHLO
-	mail-ye0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752551Ab3CFUwV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 15:52:21 -0500
-Received: by mail-ye0-f201.google.com with SMTP id m12so914126yen.2
+Received: from mail-vb0-f74.google.com ([209.85.212.74]:51050 "EHLO
+	mail-vb0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753547Ab3CFUwW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 15:52:22 -0500
+Received: by mail-vb0-f74.google.com with SMTP id r6so339760vbi.1
         for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 12:52:21 -0800 (PST)
 In-Reply-To: <1362603130-16501-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Consolidate all of TCP CA_Loss state processing in
-tcp_fastretrans_alert() into a new function called tcp_process_loss().
-This is to prepare the new F-RTO implementation in the next patch.
+This patch implements F-RTO (foward RTO recovery):
+
+When the first retransmission after timeout is acknowledged, F-RTO
+sends new data instead of old data. If the next ACK acknowledges
+some never-retransmitted data, then the timeout was spurious and the
+congestion state is reverted.  Otherwise if the next ACK selectively
+acknowledges the new data, then the timeout was genuine and the
+loss recovery continues. This idea applies to recurring timeouts
+as well. While F-RTO sends different data during timeout recovery,
+it does not (and should not) change the congestion control.
+
+The implementaion follows the three steps of SACK enhanced algorithm
+(section 3) in RFC5682. Step 1 is in tcp_enter_loss(). Step 2 and
+3 are in tcp_process_loss().  The basic version is not supported
+because SACK enhanced version also works for non-SACK connections.
+
+The new implementation is functionally in parity with the old F-RTO
+implementation except the one case where it increases undo events:
+In addition to the RFC algorithm, a spurious timeout may be detected
+without sending data in step 2, as long as the SACK confirms not
+all the original data are dropped. When this happens, the sender
+will undo the cwnd and perhaps enter fast recovery instead. This
+additional check increases the F-RTO undo events by 5x compared
+to the prior implementation on Google Web servers, since the sender
+often does not have new data to send for HTTP.
+
+Note F-RTO may detect spurious timeout before Eifel with timestamps
+does so.
 
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 ---
- net/ipv4/tcp_input.c | 42 ++++++++++++++++++++++++++----------------
- 1 file changed, 26 insertions(+), 16 deletions(-)
+ Documentation/networking/ip-sysctl.txt | 18 +++------
+ include/linux/tcp.h                    |  3 +-
+ net/ipv4/tcp_input.c                   | 74 ++++++++++++++++++++++++++++------
+ 3 files changed, 69 insertions(+), 26 deletions(-)
 
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index df03fcb..7dcc8bf 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -229,19 +229,13 @@ tcp_fin_timeout - INTEGER
+ 	Default: 60 seconds
+ 
+ tcp_frto - INTEGER
+-	Enables Forward RTO-Recovery (F-RTO) defined in RFC4138.
++	Enables Forward RTO-Recovery (F-RTO) defined in RFC5682.
+ 	F-RTO is an enhanced recovery algorithm for TCP retransmission
+-	timeouts.  It is particularly beneficial in wireless environments
+-	where packet loss is typically due to random radio interference
+-	rather than intermediate router congestion.  F-RTO is sender-side
+-	only modification. Therefore it does not require any support from
+-	the peer.
+-
+-	If set to 1, basic version is enabled.  2 enables SACK enhanced
+-	F-RTO if flow uses SACK.  The basic version can be used also when
+-	SACK is in use though scenario(s) with it exists where F-RTO
+-	interacts badly with the packet counting of the SACK enabled TCP
+-	flow.
++	timeouts.  It is particularly beneficial in networks where the
++	RTT fluctuates (e.g., wireless). F-RTO is sender-side only
++	modification. It does not require any support from the peer.
++
++	By default it's enabled with a non-zero value. 0 disables F-RTO.
+ 
+ tcp_keepalive_time - INTEGER
+ 	How often TCP sends out keepalive messages when keepalive is enabled.
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 7319831..d7d6ea0 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -196,7 +196,8 @@ struct tcp_sock {
+ 	u8	nonagle     : 4,/* Disable Nagle algorithm?             */
+ 		thin_lto    : 1,/* Use linear timeouts for thin streams */
+ 		thin_dupack : 1,/* Fast retransmit on first dupack      */
+-		repair      : 1;
++		repair      : 1,
++		frto        : 1;/* F-RTO (RFC5682) activated in CA_Loss */
+ 	u8	repair_queue;
+ 	u8	do_early_retrans:1,/* Enable RFC5827 early-retransmit  */
+ 		early_retrans_delayed:1, /* Delayed ER timer installed */
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 9933b6b..07a05e0 100644
+index 07a05e0..a56657f 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -2662,6 +2662,30 @@ static void tcp_enter_recovery(struct sock *sk, bool ece_ack)
- 	tcp_set_ca_state(sk, TCP_CA_Recovery);
+@@ -107,6 +107,7 @@ int sysctl_tcp_early_retrans __read_mostly = 2;
+ #define FLAG_DATA_SACKED	0x20 /* New SACK.				*/
+ #define FLAG_ECE		0x40 /* ECE in this ACK				*/
+ #define FLAG_SLOWPATH		0x100 /* Do not skip RFC checks for window update.*/
++#define FLAG_ORIG_SACK_ACKED	0x200 /* Never retransmitted data are (s)acked	*/
+ #define FLAG_SND_UNA_ADVANCED	0x400 /* Snd_una was changed (!= FLAG_DATA_ACKED) */
+ #define FLAG_DSACKING_ACK	0x800 /* SACK blocks contained D-SACK info */
+ #define FLAG_SACK_RENEGING	0x2000 /* snd_una advanced to a sacked seq */
+@@ -1155,6 +1156,8 @@ static u8 tcp_sacktag_one(struct sock *sk,
+ 					   tcp_highest_sack_seq(tp)))
+ 					state->reord = min(fack_count,
+ 							   state->reord);
++				if (!after(end_seq, tp->high_seq))
++					state->flag |= FLAG_ORIG_SACK_ACKED;
+ 			}
+ 
+ 			if (sacked & TCPCB_LOST) {
+@@ -1835,10 +1838,13 @@ void tcp_enter_loss(struct sock *sk, int how)
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct sk_buff *skb;
++	bool new_recovery = false;
+ 
+ 	/* Reduce ssthresh if it has not yet been made inside this window. */
+-	if (icsk->icsk_ca_state <= TCP_CA_Disorder || tp->snd_una == tp->high_seq ||
++	if (icsk->icsk_ca_state <= TCP_CA_Disorder ||
++	    !after(tp->high_seq, tp->snd_una) ||
+ 	    (icsk->icsk_ca_state == TCP_CA_Loss && !icsk->icsk_retransmits)) {
++		new_recovery = true;
+ 		tp->prior_ssthresh = tcp_current_ssthresh(sk);
+ 		tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
+ 		tcp_ca_event(sk, CA_EVENT_LOSS);
+@@ -1883,6 +1889,15 @@ void tcp_enter_loss(struct sock *sk, int how)
+ 	tcp_set_ca_state(sk, TCP_CA_Loss);
+ 	tp->high_seq = tp->snd_nxt;
+ 	TCP_ECN_queue_cwr(tp);
++
++	/* F-RTO RFC5682 sec 3.1 step 1: retransmit SND.UNA if no previous 
++	 * loss recovery is underway except recurring timeout(s) on
++	 * the same SND.UNA (sec 3.2). Disable F-RTO on path MTU probing or
++	 * other abnormal timeouts (e.g., sack reneging).
++	 */
++	tp->frto = sysctl_tcp_frto &&
++		   (new_recovery || icsk->icsk_retransmits) &&
++		   !inet_csk(sk)->icsk_mtup.probe_size && !how;
  }
  
-+/* Process an ACK in CA_Loss state. Move to CA_Open if lost data are
-+ * recovered or spurious. Otherwise retransmits more on partial ACKs.
-+ */
-+static void tcp_process_loss(struct sock *sk, int flag)
-+{
-+	struct inet_connection_sock *icsk = inet_csk(sk);
-+	struct tcp_sock *tp = tcp_sk(sk);
-+
-+	if (!before(tp->snd_una, tp->high_seq)) {
-+		icsk->icsk_retransmits = 0;
-+		tcp_try_undo_recovery(sk);
-+		return;
+ /* If ACK arrived pointing to a remembered SACK, it means that our
+@@ -2425,12 +2440,12 @@ static int tcp_try_undo_partial(struct sock *sk, int acked)
+ 	return failed;
+ }
+ 
+-/* Undo during loss recovery after partial ACK. */
+-static bool tcp_try_undo_loss(struct sock *sk)
++/* Undo during loss recovery after partial ACK or using F-RTO. */
++static bool tcp_try_undo_loss(struct sock *sk, bool frto_undo)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+-	if (tcp_may_undo(tp)) {
++	if (frto_undo || tcp_may_undo(tp)) {
+ 		struct sk_buff *skb;
+ 		tcp_for_write_queue(skb, sk) {
+ 			if (skb == tcp_send_head(sk))
+@@ -2444,9 +2459,12 @@ static bool tcp_try_undo_loss(struct sock *sk)
+ 		tp->lost_out = 0;
+ 		tcp_undo_cwr(sk, true);
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPLOSSUNDO);
++		if (frto_undo)
++			NET_INC_STATS_BH(sock_net(sk),
++					 LINUX_MIB_TCPSPURIOUSRTOS);
+ 		inet_csk(sk)->icsk_retransmits = 0;
+ 		tp->undo_marker = 0;
+-		if (tcp_is_sack(tp))
++		if (frto_undo || tcp_is_sack(tp))
+ 			tcp_set_ca_state(sk, TCP_CA_Open);
+ 		return true;
+ 	}
+@@ -2665,24 +2683,52 @@ static void tcp_enter_recovery(struct sock *sk, bool ece_ack)
+ /* Process an ACK in CA_Loss state. Move to CA_Open if lost data are
+  * recovered or spurious. Otherwise retransmits more on partial ACKs.
+  */
+-static void tcp_process_loss(struct sock *sk, int flag)
++static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack)
+ {
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	bool recovered = !before(tp->snd_una, tp->high_seq);
+ 
+-	if (!before(tp->snd_una, tp->high_seq)) {
++	if (tp->frto) { /* F-RTO RFC5682 sec 3.1 (sack enhanced version). */
++		if (flag & FLAG_ORIG_SACK_ACKED) {
++			/* Step 3.b. A timeout is spurious if not all data are 
++			 * lost, i.e., never-retransmitted data are (s)acked.
++			 */
++			tcp_try_undo_loss(sk, true);
++			return;
++		}
++		if (after(tp->snd_nxt, tp->high_seq) &&
++		    (flag & FLAG_DATA_SACKED || is_dupack)) {
++			tp->frto = 0; /* Loss was real: 2nd part of step 3.a */
++		} else if (flag & FLAG_SND_UNA_ADVANCED && !recovered) {
++			tp->high_seq = tp->snd_nxt;
++			__tcp_push_pending_frames(sk, tcp_current_mss(sk),
++						  TCP_NAGLE_OFF);
++			if (after(tp->snd_nxt, tp->high_seq))
++				return; /* Step 2.b */
++			tp->frto = 0;
++		}
 +	}
 +
-+	if (flag & FLAG_DATA_ACKED)
-+		icsk->icsk_retransmits = 0;
-+	if (tcp_is_reno(tp) && flag & FLAG_SND_UNA_ADVANCED)
-+		tcp_reset_reno_sack(tp);
-+	if (tcp_try_undo_loss(sk))
-+		return;
-+	tcp_moderate_cwnd(tp);
-+	tcp_xmit_retransmit_queue(sk);
-+}
-+
- /* Process an event, which can update packets-in-flight not trivially.
-  * Main goal of this function is to calculate new estimate for left_out,
-  * taking into account both packets sitting in receiver's buffer and
-@@ -2708,12 +2732,6 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
- 		tp->retrans_stamp = 0;
- 	} else if (!before(tp->snd_una, tp->high_seq)) {
- 		switch (icsk->icsk_ca_state) {
--		case TCP_CA_Loss:
--			icsk->icsk_retransmits = 0;
--			if (tcp_try_undo_recovery(sk))
--				return;
--			break;
++	if (recovered) {
++		/* F-RTO RFC5682 sec 3.1 step 2.a and 1st part of step 3.a */
+ 		icsk->icsk_retransmits = 0;
+ 		tcp_try_undo_recovery(sk);
+ 		return;
+ 	}
 -
- 		case TCP_CA_CWR:
- 			/* CWR is to be held something *above* high_seq
- 			 * is ACKed for CWR bit to reach receiver. */
-@@ -2744,18 +2762,10 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
+ 	if (flag & FLAG_DATA_ACKED)
+ 		icsk->icsk_retransmits = 0;
+-	if (tcp_is_reno(tp) && flag & FLAG_SND_UNA_ADVANCED)
+-		tcp_reset_reno_sack(tp);
+-	if (tcp_try_undo_loss(sk))
++	if (tcp_is_reno(tp)) {
++		/* A Reno DUPACK means new data in F-RTO step 2.b above are 
++		 * delivered. Lower inflight to clock out (re)tranmissions.
++		 */
++		if (after(tp->snd_nxt, tp->high_seq) && is_dupack)
++			tcp_add_reno_sack(sk);
++		else if (flag & FLAG_SND_UNA_ADVANCED)
++			tcp_reset_reno_sack(tp);
++	}
++	if (tcp_try_undo_loss(sk, false))
+ 		return;
+-	tcp_moderate_cwnd(tp);
+ 	tcp_xmit_retransmit_queue(sk);
+ }
+ 
+@@ -2762,7 +2808,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
  		newly_acked_sacked = pkts_acked + tp->sacked_out - prior_sacked;
  		break;
  	case TCP_CA_Loss:
--		if (flag & FLAG_DATA_ACKED)
--			icsk->icsk_retransmits = 0;
--		if (tcp_is_reno(tp) && flag & FLAG_SND_UNA_ADVANCED)
--			tcp_reset_reno_sack(tp);
--		if (!tcp_try_undo_loss(sk)) {
--			tcp_moderate_cwnd(tp);
--			tcp_xmit_retransmit_queue(sk);
--			return;
--		}
-+		tcp_process_loss(sk, flag);
+-		tcp_process_loss(sk, flag);
++		tcp_process_loss(sk, flag, is_dupack);
  		if (icsk->icsk_ca_state != TCP_CA_Open)
  			return;
--		/* Loss is undone; fall through to processing in Open state. */
-+		/* Fall through to processing in Open state. */
- 	default:
- 		if (tcp_is_reno(tp)) {
- 			if (flag & FLAG_SND_UNA_ADVANCED)
+ 		/* Fall through to processing in Open state. */
+@@ -3000,6 +3046,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 			}
+ 			if (!(sacked & TCPCB_SACKED_ACKED))
+ 				reord = min(pkts_acked, reord);
++			if (!after(scb->end_seq, tp->high_seq))
++				flag |= FLAG_ORIG_SACK_ACKED;
+ 		}
+ 
+ 		if (sacked & TCPCB_SACKED_ACKED)
 -- 
 1.8.1.3
