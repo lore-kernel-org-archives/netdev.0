@@ -1,35 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] other ircomm_tty fixes
-Date: Tue, 05 Mar 2013 23:44:07 -0500 (EST)
-Message-ID: <20130305.234407.1723377842328472099.davem@davemloft.net>
-References: <1362371063.3221.185.camel@thor.lan>
-	<1362499747-4262-1-git-send-email-peter@hurleysoftware.com>
+From: "Perla, Sathya" <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH 1/2] benet: Wait f/w POST until timeout
+Date: Wed, 6 Mar 2013 04:45:03 +0000
+Message-ID: <dd3bebd7-d92d-4485-b4a6-413df763b985@CMEXHTCAS1.ad.emulex.com>
+References: <1362383327-32362-1-git-send-email-shangw@linux.vnet.ibm.com>
+ <20130305.163431.2055740152739079020.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, sasha.levin@oracle.com,
-	gregkh@linuxfoundation.org, netdev@vger.kernel.org, jslaby@suse.cz,
-	linux-kernel@vger.kernel.org
-To: peter@hurleysoftware.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1362499747-4262-1-git-send-email-peter@hurleysoftware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Seetharaman, Subramanian" <subbu.seetharaman@emulex.com>,
+	"Khaparde, Ajit" <Ajit.Khaparde@Emulex.Com>
+To: David Miller <davem@davemloft.net>,
+	"shangw@linux.vnet.ibm.com" <shangw@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:42667 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752536Ab3CFEpJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 23:45:09 -0500
+In-Reply-To: <20130305.163431.2055740152739079020.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Peter Hurley <peter@hurleysoftware.com>
-Date: Tue,  5 Mar 2013 11:09:03 -0500
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> 
+> From: Gavin Shan <shangw@linux.vnet.ibm.com>
+> Date: Mon,  4 Mar 2013 15:48:46 +0800
+> 
+> > While PCI card faces EEH errors, reset (usually hot reset) is expected
+> > to recover from the EEH errors. After EEH core finishes the reset, the
+> > driver callback (be_eeh_reset) is called and wait the firmware to
+> > complete POST successfully. The original code would return with error
+> > once detecting failure during POST stage. That seems not enough.
+> >
+> > The patch forces the driver (be_eeh_reset) to wait the firmware
+> > completes POST until timeout, instead of returning error upon
+> > detection POST failure immediately. Also, it would improve the
+> > reliability of the EEH funtionality of the driver.
+> >
+> > Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
+> 
+> I know that patch #2 of this series needs to be implemented differently, but this
+> patch seems fine.
+> 
+> So can I get an ACK from one of the benet driver folks?
 
-> On Sun, 2013-03-03 at 23:24 -0500, Peter Hurley wrote:
->> In the meantime, while reviewing that code, I noticed there's a handful
->> of serious bugs in that one function that I'll send a patchset for.
-> 
-> As promised.
-> 
-> 
-> Peter Hurley (4):
->   net/irda: Fix port open counts
->   net/irda: Hold port lock while bumping blocked_open
->   net/irda: Use barrier to set task state
->   net/irda: Raise dtr in non-blocking open
+Acked-by: Sathya Perla <sathya.perla@emulex.com>
 
-Series looks good, all applied, thanks Peter!
+thanks!
