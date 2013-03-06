@@ -1,56 +1,66 @@
-From: =?ISO-8859-1?Q?Sebastian_P=F6hn?= <sebastian.poehn@googlemail.com>
-Subject: Re: tipc: MTU discovery
-Date: Wed, 6 Mar 2013 10:50:15 +0100
-Message-ID: <CAGUzgdLeQD3DMfWtYXphn=P9izoAnbwxBuNdaDcBDS7DFkfYTA@mail.gmail.com>
-References: <CAGUzgdKJ4pPdhx7VkGCGS8CynXgOrxhTu8dZ+s77C+WKrCcCeA@mail.gmail.com>
-	<20130305141824.GG15384@eerihug-hybrid.ki.sw.ericsson.se>
+From: Johannes Rudolph <johannes.rudolph@googlemail.com>
+Subject: Spinlock spinning in __inet_hash_connect
+Date: Wed, 6 Mar 2013 10:52:05 +0100
+Message-ID: <CAKF7Hnf_EyF38OEKk2rJEvEvn+eftJ4CaHN7-SszqbZius81yg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, jon.maloy@ericsson.com,
-	allan.stephens@windriver.com
-To: Erik Hugne <erik.hugne@ericsson.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:48928 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756165Ab3CFJuQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 04:50:16 -0500
-Received: by mail-pb0-f52.google.com with SMTP id ma3so5761765pbc.25
-        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 01:50:15 -0800 (PST)
-In-Reply-To: <20130305141824.GG15384@eerihug-hybrid.ki.sw.ericsson.se>
+Received: from mail-vc0-f181.google.com ([209.85.220.181]:61386 "EHLO
+	mail-vc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752454Ab3CFJw0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 04:52:26 -0500
+Received: by mail-vc0-f181.google.com with SMTP id f13so4660119vcb.40
+        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 01:52:25 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is actually cause by the NIC. It is dropping everything larger than
-MTU 1500 on the RX side. But TX is working ...
+Hello all,
 
-So I'll gonna do it like always:
-If the SW does not work, change the HW
+I hope I'm on the correct mailing list for raising this issue. We are
+seeing an issue while running a load test with jmeter against a web
+server [1]. The test suite uses 50 threads to connect to a localhost
+web server, runs one http request per connection and then loops. What
+happens is that after the test runs for about 10 seconds (~ 100000
+connections established / closed) the CPU load goes up and connection
+rates slow down massively (see [1] for a chart). With `perf top` I'm
+observing this on the _client_ side:
 
-Thanks for the hint
+ 41.39%  [kernel]                                    [k] __ticket_spin_lock
+ 16.83%  [kernel]                                    [k]
+__inet_check_established
+ 12.50%  [kernel]                                    [k] __inet_hash_connect
+  4.35%  [kernel]                                    [k] __ticket_spin_unlock
 
-On Tue, Mar 5, 2013 at 3:18 PM, Erik Hugne <erik.hugne@ericsson.com> wr=
-ote:
-> On Tue, Mar 05, 2013 at 01:43:29PM +0100, Sebastian P=F6hn wrote:
->> State Messages larger than 1500 which as used for the MTU negotiatio=
-n
->> do not appear in the TIPC stack. But I am able to seen them entering
->> the correct device.
->> Because of that no reply with the correct max_packet field set can b=
-e
->> send and the negotiation will always end up at 1.5k.
->>
->> So my questions are:
->> # Is TIPC meant to detect and use the MTU larger than 1.5k?
-> Yes, it should probe and detect MTU's up to ~66k
->
->> # Why are the packets not passed to the TIPC stack?
-> TIPC just registers itself as a handler for ETH_P_TIPC through dev_ad=
-d_pack.
-> If link mtu probes >1.5k are not passed to TIPC, it sounds to me that=
- the NIC driver
-> is to blame. What NIC type and kernel version are you running?
->
-> Do you see any packet drops in ethtool statistics?
->
-> //E
+I've also recorded a call graph a log of which you can find in [2].
+This was on Ubuntu 12.10 Linux 3.6.3-030603-generic x86_64. The same
+test run against another webserver doesn't show this behavior under
+the particular setup.
+
+I've found a related issue for totally different application and setup
+[3]. The problem seems related to handing out ephemeral ports when
+there are only few ephemeral ports available and (I guess) there's
+much congestion on the ephemeral ports hashtable. As suggested in [3]
+setting `tcp_tw_reuse=1` seems to fix the issue in the particular test
+case but it could be that it is only because it takes pressure from
+the ports available.
+
+Before doing more research I wanted to put that here for the record
+and for suggestions how to proceed further. What I could do:
+
+ * run the test on a more recent kernel (3.8.2)
+ * provide you with instructions how to reproduce the behavior
+ * upload the `perf report` if that helps
+
+Thanks,
+
+--
+Johannes
+
+[1] https://groups.google.com/d/topic/spray-user/76klWTHtsr4/discussion
+[2] https://gist.github.com/jrudolph/5098113
+[3] https://bugs.launchpad.net/percona-playback/+bug/1059330
+
+-----------------------------------------------
+Johannes Rudolph
+http://virtual-void.net
