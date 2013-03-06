@@ -1,55 +1,50 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH v1 1/7] USB: adds comment on suspend callback
-Date: Wed,  6 Mar 2013 18:25:50 +0800
-Message-ID: <1362565557-15884-2-git-send-email-ming.lei@canonical.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH v1 2/7] USB: serial: handle suspend failure path correctly
+Date: Wed,  6 Mar 2013 18:25:51 +0800
+Message-ID: <1362565557-15884-3-git-send-email-ming.lei@canonical.com>
 References: <1362565557-15884-1-git-send-email-ming.lei@canonical.com>
-Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1362565557-15884-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-input@vger.kernel.org,
+	Ming Lei <ming.lei@canonical.com>,
+	Johan Hovold <jhovold@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Kosina <jkosina@suse.cz>
+Return-path: <linux-input-owner@vger.kernel.org>
+In-Reply-To: <1362565557-15884-1-git-send-email-ming.lei@canonical.com>
+Sender: linux-input-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds comments on interface driver suspend callback
-to emphasize that the failure return value is ignored by
-USB core in system sleep context, so do not try to recover
-device for this case and let resume/reset_resume callback
-handle the suspend failure if needed.
+This patch kills traffic even though type->suspend returns
+failure inside usb_serial_suspend from system sleep context
+because USB core ignores the failiure and lets system sleep
+go ahread, so the serial URB traffic need to be killed
+in this case.
 
-Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Cc: Johan Hovold <jhovold@gmail.com>
+Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- include/linux/usb.h |    9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ drivers/usb/serial/usb-serial.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/usb.h b/include/linux/usb.h
-index 4d22d0f..6e66dc4 100644
---- a/include/linux/usb.h
-+++ b/include/linux/usb.h
-@@ -978,7 +978,14 @@ struct usbdrv_wrap {
-  *	the "usbfs" filesystem.  This lets devices provide ways to
-  *	expose information to user space regardless of where they
-  *	do (or don't) show up otherwise in the filesystem.
-- * @suspend: Called when the device is going to be suspended by the system.
-+ * @suspend: Called when the device is going to be suspended by the
-+ *	system either from system sleep or runtime suspend context, and
-+ *	its failure return value will be ignored in system sleep context,
-+ *	so do NOT try to recover device for this case. It is suggested
-+ *	the callback always return 0 if resume/reset_resume callback can
-+ *	handle system sususpend failure at default, otherwise driver
-+ *	need to record the suspend failure and let resume/reset_resume
-+ *	handle previous system suspend failure to recover device.
-  * @resume: Called when the device is being resumed by the system.
-  * @reset_resume: Called when the suspended device has been reset instead
-  *	of being resumed.
+diff --git a/drivers/usb/serial/usb-serial.c b/drivers/usb/serial/usb-serial.c
+index a19ed74..9d0b9c8 100644
+--- a/drivers/usb/serial/usb-serial.c
++++ b/drivers/usb/serial/usb-serial.c
+@@ -1142,10 +1142,11 @@ int usb_serial_suspend(struct usb_interface *intf, pm_message_t message)
+ 
+ 	if (serial->type->suspend) {
+ 		r = serial->type->suspend(serial, message);
+-		if (r < 0) {
++		if (r < 0 && PMSG_IS_AUTO(message)) {
+ 			serial->suspending = 0;
+ 			goto err_out;
+ 		}
++		/* TODO: resume() might need to handle suspend failure */
+ 	}
+ 
+ 	for (i = 0; i < serial->num_ports; ++i) {
 -- 
 1.7.9.5
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
