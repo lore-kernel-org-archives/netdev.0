@@ -1,71 +1,140 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: hv_netvsc: WARNING in softirq.c
-Date: Wed, 6 Mar 2013 22:45:11 +0000
-Message-ID: <4147bb5a7cf547c19c6a5a6b459a957d@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <20130228083437.GA28143@lnx-rg>
- <78fd1c1df13b449887de6e0b3505a988@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <CACQ1gAgyYp+Dxmk-0C3zfKK+CkEwQX51NvWjzkV7=8GC3CD=Qg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: uninline tcp_prequeue()
+Date: Wed, 06 Mar 2013 14:58:01 -0800
+Message-ID: <1362610681.15793.205.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_002_4147bb5a7cf547c19c6a5a6b459a957dDFMDB3MBX1506exchangeco_"
-Cc: KY Srinivasan <kys@microsoft.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Richard Genoud <richard.genoud@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACQ1gAgyYp+Dxmk-0C3zfKK+CkEwQX51NvWjzkV7=8GC3CD=Qg@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:49026 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756295Ab3CFW6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 17:58:05 -0500
+Received: by mail-pb0-f43.google.com with SMTP id md12so6720776pbc.30
+        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 14:58:04 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---_002_4147bb5a7cf547c19c6a5a6b459a957dDFMDB3MBX1506exchangeco_
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+From: Eric Dumazet <edumazet@google.com>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogUmljaGFyZCBHZW5vdWQg
-W21haWx0bzpyaWNoYXJkLmdlbm91ZEBnbWFpbC5jb21dDQo+IFNlbnQ6IEZyaWRheSwgTWFyY2gg
-MDEsIDIwMTMgMzozOSBBTQ0KPiBUbzogSGFpeWFuZyBaaGFuZw0KPiBDYzogS1kgU3Jpbml2YXNh
-bjsgZGV2ZWxAbGludXhkcml2ZXJwcm9qZWN0Lm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsN
-Cj4gbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogaHZfbmV0dnNj
-OiBXQVJOSU5HIGluIHNvZnRpcnEuYw0KPiANCj4gMjAxMy8yLzI4IEhhaXlhbmcgWmhhbmcgPGhh
-aXlhbmd6QG1pY3Jvc29mdC5jb20+Og0KPiA+IFdlIHdpbGwgbG9vayBpbnRvIHRoaXMuIEFuZCBm
-dXJ0aGVyIGluZm8gYXJvdW5kIHRoZSB0aW1lIHdpbGwgYWxzbyBiZQ0KPiBoZWxwZnVsLg0KPiA+
-DQo+ID4gVGhhbmtzLA0KPiA+IC0gSGFpeWFuZw0KPiANCj4gVGhlIG9ubHkgdGhpbmcgdGhlIGFk
-bWluIHN5cyBjb3VsZCB0aGluayBhYm91dCBpcyBhIHJzeW5jIHByb2Nlc3MNCj4gYmV0d2VlbiB0
-aGUgd2luZG93cyBob3N0IGFuZCBBTk9USEVSIGxpbnV4IGd1ZXN0IHRoYXQgZW5kcyBhdCAyMmgz
-MA0KPiBtb3JlIG9yIGxlc3MuDQo+ICh0aGUgb3RoZXIgbGludXggZ3Vlc3QgaXMgYSBkZWJpYW4g
-Niwgd2l0aG91dCBhbnkgSFYgZHJpdmVyKQ0KDQpJIGhhdmUgZm91bmQgYSBzaW1wbGUgd2F5IHRv
-IHJlcHJvZHVjZSB0aGlzIGtpbmQgb2Ygd2FybmluZzoNCjEpIHJlYm9vdCB0aGUgVk0gKGJlY2F1
-c2UgdGhpcyB3YXJuaW5nIGNhbiBiZSBkaXNwbGF5ZWQgb25seSBvbmNlLikNCjIpIGxvZ2luIHRv
-IHRoZSBob3N0IGFuZCBvcGVuIHRoZSBWTSBbU2V0dGluZ3NdDQozKSBUZW1wb3JhcmlseSBjaGFu
-Z2UgdGhlIE5ldHdvcmsgYWRhcHRlcidzIG9wdGlvbiBbVmlydHVhbCBTd2l0Y2hdIHRvICJOb3Qg
-Y29ubmVjdGVkIi4NCjQpIHJ1biBkbWVzZywgeW91IHNob3VsZCBzZWUgdGhlIHdhcm5pbmcuDQoN
-ClRoZSByZWFzb24gZm9yIHRoZSB3YXJuaW5nIGlzIC0tIG5ldGlmX3R4X2Rpc2FibGUoKSBpcyBj
-YWxsZWQgd2hlbiB0aGUgTklDDQppcyBkaXNjb25uZWN0ZWQuIEFuZCBpdCdzIGNhbGxlZCB3aXRo
-aW4gaXJxIGNvbnRleHQuIG5ldGlmX3R4X2Rpc2FibGUoKQ0KY2FsbHMgbG9jYWxfYmhfZW5hYmxl
-KCkgd2hpY2ggZGlzcGxheXMgd2FybmluZyBpZiBpbiBpcnEuDQoNClRoZSBmaXggaXMgdG8gcmVt
-b3ZlIHRoZSB1bm5lY2Vzc2FyeSBuZXRpZl90eF9kaXNhYmxlKCkgaW4gdGhlIG5ldHZzY19saW5r
-c3RhdHVzX2NhbGxiYWNrKCkuDQpJIGF0dGFjaGVkIGEgcGF0Y2guIFdvdWxkIHlvdSBsaWtlIHRv
-IHRlc3QgaXQgb24geW91ciBzaWRlIGFzIHdlbGw/DQoNClRoYW5rcywNCi0gSGFpeWFuZw0KDQo=
+tcp_prequeue() became too big to be inlined.
 
---_002_4147bb5a7cf547c19c6a5a6b459a957dDFMDB3MBX1506exchangeco_
-Content-Type: application/octet-stream; name="net_stat_warn_test.patch"
-Content-Description: net_stat_warn_test.patch
-Content-Disposition: attachment; filename="net_stat_warn_test.patch";
-	size=562; creation-date="Wed, 06 Mar 2013 22:31:09 GMT";
-	modification-date="Wed, 06 Mar 2013 22:57:28 GMT"
-Content-Transfer-Encoding: base64
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/tcp.h   |   45 ------------------------------------------
+ net/ipv4/tcp_ipv4.c |   44 +++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 45 insertions(+), 44 deletions(-)
 
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMgYi9kcml2ZXJzL25l
-dC9oeXBlcnYvbmV0dnNjX2Rydi5jCmluZGV4IDVmODUyMDUuLjgzNDFiNjIgMTAwNjQ0Ci0tLSBh
-L2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMKKysrIGIvZHJpdmVycy9uZXQvaHlwZXJ2
-L25ldHZzY19kcnYuYwpAQCAtMjQxLDEzICsyNDEsMTEgQEAgdm9pZCBuZXR2c2NfbGlua3N0YXR1
-c19jYWxsYmFjayhzdHJ1Y3QgaHZfZGV2aWNlICpkZXZpY2Vfb2JqLAogCiAJaWYgKHN0YXR1cyA9
-PSAxKSB7CiAJCW5ldGlmX2NhcnJpZXJfb24obmV0KTsKLQkJbmV0aWZfd2FrZV9xdWV1ZShuZXQp
-OwogCQluZGV2X2N0eCA9IG5ldGRldl9wcml2KG5ldCk7CiAJCXNjaGVkdWxlX2RlbGF5ZWRfd29y
-aygmbmRldl9jdHgtPmR3b3JrLCAwKTsKIAkJc2NoZWR1bGVfZGVsYXllZF93b3JrKCZuZGV2X2N0
-eC0+ZHdvcmssIG1zZWNzX3RvX2ppZmZpZXMoMjApKTsKIAl9IGVsc2UgewogCQluZXRpZl9jYXJy
-aWVyX29mZihuZXQpOwotCQluZXRpZl90eF9kaXNhYmxlKG5ldCk7CiAJfQogfQogCg==
-
---_002_4147bb5a7cf547c19c6a5a6b459a957dDFMDB3MBX1506exchangeco_--
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index cf0694d..a2baa5e 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1030,50 +1030,7 @@ static inline void tcp_prequeue_init(struct tcp_sock *tp)
+ #endif
+ }
+ 
+-/* Packet is added to VJ-style prequeue for processing in process
+- * context, if a reader task is waiting. Apparently, this exciting
+- * idea (VJ's mail "Re: query about TCP header on tcp-ip" of 07 Sep 93)
+- * failed somewhere. Latency? Burstiness? Well, at least now we will
+- * see, why it failed. 8)8)				  --ANK
+- *
+- * NOTE: is this not too big to inline?
+- */
+-static inline bool tcp_prequeue(struct sock *sk, struct sk_buff *skb)
+-{
+-	struct tcp_sock *tp = tcp_sk(sk);
+-
+-	if (sysctl_tcp_low_latency || !tp->ucopy.task)
+-		return false;
+-
+-	if (skb->len <= tcp_hdrlen(skb) &&
+-	    skb_queue_len(&tp->ucopy.prequeue) == 0)
+-		return false;
+-
+-	__skb_queue_tail(&tp->ucopy.prequeue, skb);
+-	tp->ucopy.memory += skb->truesize;
+-	if (tp->ucopy.memory > sk->sk_rcvbuf) {
+-		struct sk_buff *skb1;
+-
+-		BUG_ON(sock_owned_by_user(sk));
+-
+-		while ((skb1 = __skb_dequeue(&tp->ucopy.prequeue)) != NULL) {
+-			sk_backlog_rcv(sk, skb1);
+-			NET_INC_STATS_BH(sock_net(sk),
+-					 LINUX_MIB_TCPPREQUEUEDROPPED);
+-		}
+-
+-		tp->ucopy.memory = 0;
+-	} else if (skb_queue_len(&tp->ucopy.prequeue) == 1) {
+-		wake_up_interruptible_sync_poll(sk_sleep(sk),
+-					   POLLIN | POLLRDNORM | POLLRDBAND);
+-		if (!inet_csk_ack_scheduled(sk))
+-			inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
+-						  (3 * tcp_rto_min(sk)) / 4,
+-						  TCP_RTO_MAX);
+-	}
+-	return true;
+-}
+-
++extern bool tcp_prequeue(struct sock *sk, struct sk_buff *skb);
+ 
+ #undef STATE_TRACE
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 4a8ec45..8cdee12 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1950,6 +1950,50 @@ void tcp_v4_early_demux(struct sk_buff *skb)
+ 	}
+ }
+ 
++/* Packet is added to VJ-style prequeue for processing in process
++ * context, if a reader task is waiting. Apparently, this exciting
++ * idea (VJ's mail "Re: query about TCP header on tcp-ip" of 07 Sep 93)
++ * failed somewhere. Latency? Burstiness? Well, at least now we will
++ * see, why it failed. 8)8)				  --ANK
++ *
++ */
++bool tcp_prequeue(struct sock *sk, struct sk_buff *skb)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++
++	if (sysctl_tcp_low_latency || !tp->ucopy.task)
++		return false;
++
++	if (skb->len <= tcp_hdrlen(skb) &&
++	    skb_queue_len(&tp->ucopy.prequeue) == 0)
++		return false;
++
++	__skb_queue_tail(&tp->ucopy.prequeue, skb);
++	tp->ucopy.memory += skb->truesize;
++	if (tp->ucopy.memory > sk->sk_rcvbuf) {
++		struct sk_buff *skb1;
++
++		BUG_ON(sock_owned_by_user(sk));
++
++		while ((skb1 = __skb_dequeue(&tp->ucopy.prequeue)) != NULL) {
++			sk_backlog_rcv(sk, skb1);
++			NET_INC_STATS_BH(sock_net(sk),
++					 LINUX_MIB_TCPPREQUEUEDROPPED);
++		}
++
++		tp->ucopy.memory = 0;
++	} else if (skb_queue_len(&tp->ucopy.prequeue) == 1) {
++		wake_up_interruptible_sync_poll(sk_sleep(sk),
++					   POLLIN | POLLRDNORM | POLLRDBAND);
++		if (!inet_csk_ack_scheduled(sk))
++			inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
++						  (3 * tcp_rto_min(sk)) / 4,
++						  TCP_RTO_MAX);
++	}
++	return true;
++}
++EXPORT_SYMBOL(tcp_prequeue);
++
+ /*
+  *	From tcp_input.c
+  */
