@@ -1,140 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: uninline tcp_prequeue()
-Date: Wed, 06 Mar 2013 14:58:01 -0800
-Message-ID: <1362610681.15793.205.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Sony Chacko <sony.chacko@qlogic.com>
+Subject: [PATCH] MAINTAINERS: Update qlcnic maintainers list
+Date: Wed,  6 Mar 2013 18:03:25 -0500
+Message-ID: <1362611005-6226-1-git-send-email-sony.chacko@qlogic.com>
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
+	Sony Chacko <sony.chacko@qlogic.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:49026 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756295Ab3CFW6F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 17:58:05 -0500
-Received: by mail-pb0-f43.google.com with SMTP id md12so6720776pbc.30
-        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 14:58:04 -0800 (PST)
+Received: from mvnat01.qlogic.com ([198.186.3.73]:29027 "HELO linux-zupk.site"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1753043Ab3CFXZq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Mar 2013 18:25:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Sony Chacko <sony.chacko@qlogic.com>
 
-tcp_prequeue() became too big to be inlined.
+Please apply.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Thanks.
+
+Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
 ---
- include/net/tcp.h   |   45 ------------------------------------------
- net/ipv4/tcp_ipv4.c |   44 +++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 45 insertions(+), 44 deletions(-)
+ MAINTAINERS | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index cf0694d..a2baa5e 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1030,50 +1030,7 @@ static inline void tcp_prequeue_init(struct tcp_sock *tp)
- #endif
- }
+diff --git a/MAINTAINERS b/MAINTAINERS
+index cdb8fe8..0ac189c 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -6211,6 +6211,8 @@ F:	Documentation/networking/LICENSE.qla3xxx
+ F:	drivers/net/ethernet/qlogic/qla3xxx.*
  
--/* Packet is added to VJ-style prequeue for processing in process
-- * context, if a reader task is waiting. Apparently, this exciting
-- * idea (VJ's mail "Re: query about TCP header on tcp-ip" of 07 Sep 93)
-- * failed somewhere. Latency? Burstiness? Well, at least now we will
-- * see, why it failed. 8)8)				  --ANK
-- *
-- * NOTE: is this not too big to inline?
-- */
--static inline bool tcp_prequeue(struct sock *sk, struct sk_buff *skb)
--{
--	struct tcp_sock *tp = tcp_sk(sk);
--
--	if (sysctl_tcp_low_latency || !tp->ucopy.task)
--		return false;
--
--	if (skb->len <= tcp_hdrlen(skb) &&
--	    skb_queue_len(&tp->ucopy.prequeue) == 0)
--		return false;
--
--	__skb_queue_tail(&tp->ucopy.prequeue, skb);
--	tp->ucopy.memory += skb->truesize;
--	if (tp->ucopy.memory > sk->sk_rcvbuf) {
--		struct sk_buff *skb1;
--
--		BUG_ON(sock_owned_by_user(sk));
--
--		while ((skb1 = __skb_dequeue(&tp->ucopy.prequeue)) != NULL) {
--			sk_backlog_rcv(sk, skb1);
--			NET_INC_STATS_BH(sock_net(sk),
--					 LINUX_MIB_TCPPREQUEUEDROPPED);
--		}
--
--		tp->ucopy.memory = 0;
--	} else if (skb_queue_len(&tp->ucopy.prequeue) == 1) {
--		wake_up_interruptible_sync_poll(sk_sleep(sk),
--					   POLLIN | POLLRDNORM | POLLRDBAND);
--		if (!inet_csk_ack_scheduled(sk))
--			inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
--						  (3 * tcp_rto_min(sk)) / 4,
--						  TCP_RTO_MAX);
--	}
--	return true;
--}
--
-+extern bool tcp_prequeue(struct sock *sk, struct sk_buff *skb);
- 
- #undef STATE_TRACE
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 4a8ec45..8cdee12 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1950,6 +1950,50 @@ void tcp_v4_early_demux(struct sk_buff *skb)
- 	}
- }
- 
-+/* Packet is added to VJ-style prequeue for processing in process
-+ * context, if a reader task is waiting. Apparently, this exciting
-+ * idea (VJ's mail "Re: query about TCP header on tcp-ip" of 07 Sep 93)
-+ * failed somewhere. Latency? Burstiness? Well, at least now we will
-+ * see, why it failed. 8)8)				  --ANK
-+ *
-+ */
-+bool tcp_prequeue(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+
-+	if (sysctl_tcp_low_latency || !tp->ucopy.task)
-+		return false;
-+
-+	if (skb->len <= tcp_hdrlen(skb) &&
-+	    skb_queue_len(&tp->ucopy.prequeue) == 0)
-+		return false;
-+
-+	__skb_queue_tail(&tp->ucopy.prequeue, skb);
-+	tp->ucopy.memory += skb->truesize;
-+	if (tp->ucopy.memory > sk->sk_rcvbuf) {
-+		struct sk_buff *skb1;
-+
-+		BUG_ON(sock_owned_by_user(sk));
-+
-+		while ((skb1 = __skb_dequeue(&tp->ucopy.prequeue)) != NULL) {
-+			sk_backlog_rcv(sk, skb1);
-+			NET_INC_STATS_BH(sock_net(sk),
-+					 LINUX_MIB_TCPPREQUEUEDROPPED);
-+		}
-+
-+		tp->ucopy.memory = 0;
-+	} else if (skb_queue_len(&tp->ucopy.prequeue) == 1) {
-+		wake_up_interruptible_sync_poll(sk_sleep(sk),
-+					   POLLIN | POLLRDNORM | POLLRDBAND);
-+		if (!inet_csk_ack_scheduled(sk))
-+			inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
-+						  (3 * tcp_rto_min(sk)) / 4,
-+						  TCP_RTO_MAX);
-+	}
-+	return true;
-+}
-+EXPORT_SYMBOL(tcp_prequeue);
-+
- /*
-  *	From tcp_input.c
-  */
+ QLOGIC QLCNIC (1/10)Gb ETHERNET DRIVER
++M:	Rajesh Borundia <rajesh.borundia@qlogic.com>
++M:	Shahed Shaikh <shahed.shaikh@qlogic.com>
+ M:	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+ M:	Sony Chacko <sony.chacko@qlogic.com>
+ M:	linux-driver@qlogic.com
+-- 
+1.8.0.2
