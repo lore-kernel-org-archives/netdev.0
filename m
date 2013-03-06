@@ -1,111 +1,81 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [V2 PATCH] net: docs: document multiqueue tuntap API
-Date: Wed,  6 Mar 2013 13:10:26 +0800
-Message-ID: <1362546626-29119-1-git-send-email-jasowang@redhat.com>
-Cc: mst@redhat.com, hkchu@google.com, Jason Wang <jasowang@redhat.com>
-To: davem@davemloft.net, maxk@qti.qualcomm.com, rob@landley.net,
-	linux-doc@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/2] bnx2x: use the default NAPI weight
+Date: Tue, 05 Mar 2013 23:03:18 -0800
+Message-ID: <1362553398.15793.168.camel@edumazet-glaptop>
+References: <1362535067.15793.146.camel@edumazet-glaptop>
+	 <20130305.210909.1826827522208936437.davem@davemloft.net>
+	 <1362540509.15793.158.camel@edumazet-glaptop>
+	 <20130305.233744.498353801662910535.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16680 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750753Ab3CFFTc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Mar 2013 00:19:32 -0500
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:45824 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753378Ab3CFHDV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 02:03:21 -0500
+Received: by mail-ie0-f179.google.com with SMTP id k11so9049453iea.10
+        for <netdev@vger.kernel.org>; Tue, 05 Mar 2013 23:03:21 -0800 (PST)
+In-Reply-To: <20130305.233744.498353801662910535.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- Documentation/networking/tuntap.txt |   77 +++++++++++++++++++++++++++++++++++
- 1 files changed, 77 insertions(+), 0 deletions(-)
+On Tue, 2013-03-05 at 23:37 -0500, David Miller wrote:
 
-diff --git a/Documentation/networking/tuntap.txt b/Documentation/networking/tuntap.txt
-index c0aab98..949d5dc 100644
---- a/Documentation/networking/tuntap.txt
-+++ b/Documentation/networking/tuntap.txt
-@@ -105,6 +105,83 @@ Copyright (C) 1999-2000 Maxim Krasnyansky <max_mk@yahoo.com>
-      Proto [2 bytes]
-      Raw protocol(IP, IPv6, etc) frame.
+> Thanks for the explanation.
+> 
+> Since you haven't completely resolved the issues you were running into
+> I'll target this to net-next for now.
+
+Thanks David
+
+An other issue is the spin_trylock() attempted in net_tx_action()
+
+It seems we can miss a qdisc_run(), and have to wait the following
+NET_TX softirq(s) to send more data. NET_RX being interleaved, we can
+have to wait a long time (not mentioning other softirq handlers like
+RCU ...)
+
+I might be too tired right now, but cant see the reason of the trylock.
+
+qdisc lock is already BH safe, so we should do a spinlock
+
+I'll test the following patch tomorrow :
+
+ net/core/dev.c |   21 +++++----------------
+ 1 file changed, 5 insertions(+), 16 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a06a7a5..d5d4573 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3201,22 +3201,11 @@ static void net_tx_action(struct softirq_action *h)
+ 			head = head->next_sched;
  
-+  3.3 Multiqueue tuntap interface:
-+
-+  From version 3.8, Linux supports multiqueue tuntap which can uses multiple
-+  file descriptors (queues) to parallelize packets sending or receiving. The
-+  device allocation is the same as before, and if user wants to create multiple
-+  queues, TUNSETIFF with the same device name must be called many times with
-+  IFF_MULTI_QUEUE flag.
-+
-+  char *dev should be the name of the device, queues is the number of queues to
-+  be created, fds is used to store and return the file descriptors (queues)
-+  created to the caller. Each file descriptor were served as the interface of a
-+  queue which could be accessed by userspace.
-+
-+  #include <linux/if.h>
-+  #include <linux/if_tun.h>
-+
-+  int tun_alloc_mq(char *dev, int queues, int *fds)
-+  {
-+      struct ifreq ifr;
-+      int fd, err, i;
-+
-+      if (!dev)
-+          return -1;
-+
-+      memset(&ifr, 0, sizeof(ifr));
-+      /* Flags: IFF_TUN   - TUN device (no Ethernet headers)
-+       *        IFF_TAP   - TAP device
-+       *
-+       *        IFF_NO_PI - Do not provide packet information
-+       *        IFF_MULTI_QUEUE - Create a queue of multiqueue device
-+       */
-+      ifr.ifr_flags = IFF_TAP | IFF_NO_PI | IFF_MULTI_QUEUE;
-+      strcpy(ifr.ifr_name, dev);
-+
-+      for (i = 0; i < queues; i++) {
-+          if ((fd = open("/dev/net/tun", O_RDWR)) < 0)
-+             goto err;
-+          err = ioctl(fd, TUNSETIFF, (void *)&ifr);
-+          if (err) {
-+             close(fd);
-+             goto err;
-+          }
-+          fds[i] = fd;
-+      }
-+
-+      return 0;
-+  err:
-+      for (--i; i >= 0; i--)
-+          close(fds[i]);
-+      return err;
-+  }
-+
-+  A new ioctl(TUNSETQUEUE) were introduced to enable or disable a queue. When
-+  calling it with IFF_DETACH_QUEUE flag, the queue were disabled. And when
-+  calling it with IFF_ATTACH_QUEUE flag, the queue were enabled. The queue were
-+  enabled by default after it was created through TUNSETIFF.
-+
-+  fd is the file descriptor (queue) that we want to enable or disable, when
-+  enable is true we enable it, otherwise we disable it
-+
-+  #include <linux/if.h>
-+  #include <linux/if_tun.h>
-+
-+  int tun_set_queue(int fd, int enable)
-+  {
-+      struct ifreq ifr;
-+
-+      memset(&ifr, 0, sizeof(ifr));
-+
-+      if (enable)
-+         ifr.ifr_flags = IFF_ATTACH_QUEUE;
-+      else
-+         ifr.ifr_flags = IFF_DETACH_QUEUE;
-+
-+      return ioctl(fd, TUNSETQUEUE, (void *)&ifr);
-+  }
-+
- Universal TUN/TAP device driver Frequently Asked Question.
-    
- 1. What platforms are supported by TUN/TAP driver ?
--- 
-1.7.1
+ 			root_lock = qdisc_lock(q);
+-			if (spin_trylock(root_lock)) {
+-				smp_mb__before_clear_bit();
+-				clear_bit(__QDISC_STATE_SCHED,
+-					  &q->state);
+-				qdisc_run(q);
+-				spin_unlock(root_lock);
+-			} else {
+-				if (!test_bit(__QDISC_STATE_DEACTIVATED,
+-					      &q->state)) {
+-					__netif_reschedule(q);
+-				} else {
+-					smp_mb__before_clear_bit();
+-					clear_bit(__QDISC_STATE_SCHED,
+-						  &q->state);
+-				}
+-			}
++			spin_lock(root_lock);
++			smp_mb__before_clear_bit();
++			clear_bit(__QDISC_STATE_SCHED, &q->state);
++			qdisc_run(q);
++			spin_unlock(root_lock);
+ 		}
+ 	}
+ }
