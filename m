@@ -1,45 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 06/12] ipvs: optimize dst usage for real server
-Date: Wed, 06 Mar 2013 17:06:37 -0500 (EST)
-Message-ID: <20130306.170637.1142655516995808574.davem@davemloft.net>
-References: <1362559342-18784-7-git-send-email-ja@ssi.bg>
-	<20130306.151810.1494132480233578627.davem@davemloft.net>
-	<alpine.LFD.2.00.1303062321230.1899@ja.ssi.bg>
+Subject: Re: [PATCH net-next] vmxnet3: prevent div-by-zero panic when ring
+ resizing uninitialized dev
+Date: Wed, 06 Mar 2013 17:09:37 -0500 (EST)
+Message-ID: <20130306.170937.1089663491363176160.davem@davemloft.net>
+References: <1362591984-16587-1-git-send-email-bhavesh@vmware.com>
+	<1362607493-5634-1-git-send-email-bhavesh@vmware.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: ja@ssi.bg
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60440 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754154Ab3CFWGl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 17:06:41 -0500
-In-Reply-To: <alpine.LFD.2.00.1303062321230.1899@ja.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pv-drivers@vmware.com, sbhatewara@vmware.com
+To: bhavesh@vmware.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1362607493-5634-1-git-send-email-bhavesh@vmware.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Wed, 6 Mar 2013 23:58:09 +0200 (EET)
+From: Bhavesh Davda <bhavesh@vmware.com>
+Date: Wed,  6 Mar 2013 14:04:53 -0800
 
-> 	There are two choices: __ip_vs_get_out_rt
-> to return refdst as implemented in this patchset or
-> to return dst with additional 'bool *noref' argument,
-> so that caller can decide between skb_dst_set or
-> skb_set_dst_noref. Then may be we will need just
-> a new skb_dst_set_noref_{always,force} func that will
-> contain the old skb_set_dst_noref code, i.e. without
-> dst_hold? Not sure which variant sounds better.
+> Linux is free to call ethtool ops as soon as a netdev exists when probe
+> finishes. However, we only allocate vmxnet3 tx/rx queues and initialize the
+> rx_buf_per_pkt field in struct vmxnet3_adapter when the interface is
+> opened (UP).
+> 
+> Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
+> Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
 
-Both variants are starting to sound equally ugly :-)
-
-Let me ask about this situation in another way.
-
-IP input route lookup clients handle this transparently,
-even for routes with next-hop exceptions and nocache
-routes, by passing the SKB into the lookup function and
-there it will sort out whether noref is actually possible.
-
-Is there a reason that IPVS's route lookup architecture
-can't work this way too?
+Maybe this is more appropriate for 'net' rather than 'net-next'?
