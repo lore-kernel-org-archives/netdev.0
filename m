@@ -1,36 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] bnx2x: use the default NAPI weight
-Date: Tue, 05 Mar 2013 23:59:22 -0500 (EST)
-Message-ID: <20130305.235922.483938589207493211.davem@davemloft.net>
-References: <1362535067.15793.146.camel@edumazet-glaptop>
+Subject: net-next is open for business
+Date: Wed, 06 Mar 2013 00:01:47 -0500 (EST)
+Message-ID: <20130306.000147.516861672448064524.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60891 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60904 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755163Ab3CFE7X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 23:59:23 -0500
-In-Reply-To: <1362535067.15793.146.camel@edumazet-glaptop>
+	with ESMTP id S1750710Ab3CFFBs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 00:01:48 -0500
+Received: from localhost (cpe-66-108-118-205.nyc.res.rr.com [66.108.118.205])
+	(Authenticated sender: davem-davemloft)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 233ED5870E5
+	for <netdev@vger.kernel.org>; Tue,  5 Mar 2013 21:01:52 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 05 Mar 2013 17:57:47 -0800
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> BQL (Byte Queue Limits) proper operation needs TX completion
-> being serviced in a timely fashion.
-> 
-> bnx2x uses a non standard NAPI poll weight, and thats not fair to other
-> napi poll handlers, and even not reasonable.
-> 
-> Use the default value instead.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Eilon Greenstein <eilong@broadcom.com>
+I've sync'd net-next with Linus now that he pulled in my 'net'
+bug fix pull request from yesterday.
 
-Applied.
+So now net-next patches may be submitted again.
+
+Thanks.
