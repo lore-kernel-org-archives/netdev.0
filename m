@@ -1,38 +1,60 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH] netconsole: release the spinlock before
- __netpoll_cleanup()
-Date: Wed, 06 Mar 2013 22:51:21 +0800
-Message-ID: <1362581481.4435.23.camel@cr0>
-References: <1362581203-8994-1-git-send-email-vfalico@redhat.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH v1 4/7] usbnet: cdc_mbim: don't recover device if suspend fails in system sleep
+Date: Wed, 06 Mar 2013 15:53:52 +0100
+Message-ID: <87ppzcmven.fsf@nemi.mork.no>
+References: <1362565557-15884-1-git-send-email-ming.lei@canonical.com>
+	<1362565557-15884-5-git-send-email-ming.lei@canonical.com>
+	<877glkohu2.fsf@nemi.mork.no>
+	<CACVXFVMS4JNphgcU4oy7VQ1S6AoXQUcpRT2ODE_DP79AsnAY4g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Veaceslav Falico <vfalico@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9024 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758527Ab3CFOve (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Mar 2013 09:51:34 -0500
-In-Reply-To: <1362581203-8994-1-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-input@vger.kernel.org
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <linux-input-owner@vger.kernel.org>
+In-Reply-To: <CACVXFVMS4JNphgcU4oy7VQ1S6AoXQUcpRT2ODE_DP79AsnAY4g@mail.gmail.com>
+	(Ming Lei's message of "Wed, 6 Mar 2013 21:48:19 +0800")
+Sender: linux-input-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-03-06 at 15:46 +0100, Veaceslav Falico wrote:
-> Commit 3335f0ca130c201f8680e97f63612053fbc16e22 removed spinlock unlocking
-> before __netpoll_cleanup() in netconsole_netdev_event(), however we still
-> might sleep in __netpoll_cleanup() - via synchronize_srcu(). Revert it and
-> add a comment.
-> 
+Ming Lei <ming.lei@canonical.com> writes:
+> On Wed, Mar 6, 2013 at 8:04 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wrote=
+:
+>
+>> I believe the correct here is to document the fact that we require t=
+he
+>> subdriver->suspend() callback to always return 0 if !PMSG_IS_AUTO(me=
+ssage).
+>> That is best done with a comment. No need to add any redundant code.
+>
+> Considered that the subdriver might change its return value in future=
+,
 
-synchronize_srcu() was actually introduced by Neil:
+Not likely.  It lives under the exact same restrictions as a standalone
+USB interface driver.  If it starts returning something else, then this
+driver should probably do so as well.
 
-commit ca99ca14c95ae49fb4c9cd3abf5f84d11a7e8a61
-Author: Neil Horman <nhorman@tuxdriver.com>
-Date:   Tue Feb 5 08:05:43 2013 +0000
+> how about just add the below comment?
+>
+>         /* TODO: resume() might need to handle suspend failure from s=
+ubdriver */
 
-    netpoll: protect napi_poll and poll_controller during dev_[open|
-close]
+OK with me if that includes dropping the redundant code change.
 
-Cc'ing him.
+Note that the same issue and comment applies to the usbnet_suspend()
+call as well.  We currently rely on both calls to always return 0 on
+system suspend.  Which they are guaranteed to do, because they are both
+directly used as .suspend callbacks in other USB interface drivers.
+
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-input" =
+in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
