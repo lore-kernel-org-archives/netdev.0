@@ -1,89 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] bnx2x: use the default NAPI weight
-Date: Wed, 06 Mar 2013 13:52:57 -0800
-Message-ID: <1362606777.15793.198.camel@edumazet-glaptop>
-References: <1362540509.15793.158.camel@edumazet-glaptop>
-	 <20130305.233744.498353801662910535.davem@davemloft.net>
-	 <1362553398.15793.168.camel@edumazet-glaptop>
-	 <20130306.145947.1445904594058156164.davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next 06/12] ipvs: optimize dst usage for real
+ server
+Date: Wed, 6 Mar 2013 23:58:09 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1303062321230.1899@ja.ssi.bg>
+References: <1362559342-18784-1-git-send-email-ja@ssi.bg> <1362559342-18784-7-git-send-email-ja@ssi.bg> <20130306.151810.1494132480233578627.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com, jhs@mojatatu.com,
-	herbert@gondor.apana.org.au, Tom Herbert <therbert@google.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: horms@verge.net.au, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:36015 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752611Ab3CFVxB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 16:53:01 -0500
-Received: by mail-pb0-f45.google.com with SMTP id ro8so6600695pbb.18
-        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 13:53:00 -0800 (PST)
-In-Reply-To: <20130306.145947.1445904594058156164.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20130306.151810.1494132480233578627.davem@davemloft.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-03-06 at 14:59 -0500, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 05 Mar 2013 23:03:18 -0800
+
+	Hello,
+
+On Wed, 6 Mar 2013, David Miller wrote:
+
+> From: Julian Anastasov <ja@ssi.bg>
+> Date: Wed,  6 Mar 2013 10:42:16 +0200
 > 
-> > On Tue, 2013-03-05 at 23:37 -0500, David Miller wrote:
+> > 	Currently when forwarding requests to real servers
+> > we use dst_lock and atomic operations when cloning the
+> > dst_cache value. As the dst_cache value does not change
+> > most of the time it is better to use RCU and to lock
+> > dst_lock only when we need to replace the obsoleted dst.
+> > For this to work we keep dst_cache in new structure protected
+> > by RCU. For packets to remote real servers we will use noref
+> > version of dst_cache, it will be valid while we are in RCU
+> > read-side critical section because now dst_release for replaced
+> > dsts will be invoked after the grace period. NAT-ed packets
+> > via loopback that are not sent but are passed to local stack
+> > with NF_ACCEPT need a dst clone (skb_dst_force).
 > > 
-> >> Thanks for the explanation.
-> >> 
-> >> Since you haven't completely resolved the issues you were running into
-> >> I'll target this to net-next for now.
-> > 
-> > Thanks David
-> > 
-> > An other issue is the spin_trylock() attempted in net_tx_action()
-> > 
-> > It seems we can miss a qdisc_run(), and have to wait the following
-> > NET_TX softirq(s) to send more data. NET_RX being interleaved, we can
-> > have to wait a long time (not mentioning other softirq handlers like
-> > RCU ...)
-> > 
-> > I might be too tired right now, but cant see the reason of the trylock.
-> > 
-> > qdisc lock is already BH safe, so we should do a spinlock
->  ...
-> > @@ -3201,22 +3201,11 @@ static void net_tx_action(struct softirq_action *h)
-> >  			head = head->next_sched;
-> >  
-> >  			root_lock = qdisc_lock(q);
-> > -			if (spin_trylock(root_lock)) {
-> > -				smp_mb__before_clear_bit();
-> > -				clear_bit(__QDISC_STATE_SCHED,
-> > -					  &q->state);
-> > -				qdisc_run(q);
-> > -				spin_unlock(root_lock);
+> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
 > 
-> I think this trylock is intentional, but not to deal with BH safeness,
-> but rather to allow another cpu already processing the qdisc to
-> continue doing so.
-> 
-> I think this is what Jamal's amazing flash animations back at netconf
-> in Toronto were all about :-)
+> It think it's much cleaner to have the callers of route lookups do
+> skb_set_dst_noref().
 
-Yes, but with :
+	This was my first thought but commit 27b75c95f1
+(net: avoid RCU for NOCACHE dst) uses dst_hold for
+DST_NOCACHE dsts. IPVS wants to cache DST_NOCACHE entries
+(due to known-NH reasons) and later to use them for
+noref dsts...
 
-- BQL (incurring more TX completion rounds and possibility to
-block/unblock a qdisc)
-- ticket spinlocks, and even with the guard of qdisc busylock
+	Also, in the IPVS case we can not set skb_dst
+at the time when route is looked up because due to
+MTU and other checks we can fail, functions like
+icmp_send() will need the original skb_dst in
+such case.
 
--> we can have a starvation problem.
+	There are two choices: __ip_vs_get_out_rt
+to return refdst as implemented in this patchset or
+to return dst with additional 'bool *noref' argument,
+so that caller can decide between skb_dst_set or
+skb_set_dst_noref. Then may be we will need just
+a new skb_dst_set_noref_{always,force} func that will
+contain the old skb_set_dst_noref code, i.e. without
+dst_hold? Not sure which variant sounds better.
 
-I noticed on perf top sessions once cpu kept scheduling NET_TX softirqs
-in (almost) infinite loops.
+> Then you don't need any new interfaces, and you therefore don't need
+> to expose bits of the noref implementation and semantics at all.
 
-(if trylock() doesn't succeed, this cpu requeue this qdisc for another
-net_tx_action() run)
+Regards
 
-BTW, I wonder if we should not exchange NET_TX_SOFTIRQ & NET_RX_SOFTIRQ 
-
-Usually the net_rx_action() calls napi poll() and TX completion, and
-netdev_tx_completed_queue() unblocks a qdisc (requesting a
-netif_schedule_queue() -> scheduling a NT_TX_SOFTIRQ)
-
-Or... maybe netdev_tx_completed_queue() should directly call qdisc_run()
-instead of deferring it ?
+--
+Julian Anastasov <ja@ssi.bg>
