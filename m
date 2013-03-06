@@ -1,142 +1,87 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next 11/12] ipvs: reorder keys in connection
- structure
-Date: Wed, 6 Mar 2013 23:01:50 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1303062246480.1899@ja.ssi.bg>
-References: <1362559342-18784-1-git-send-email-ja@ssi.bg>  <1362559342-18784-12-git-send-email-ja@ssi.bg> <1362563014.17102.63.camel@hawk.mlab.se>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tun: add a missing nf_reset() in tun_net_xmit()
+Date: Wed, 06 Mar 2013 13:02:37 -0800
+Message-ID: <1362603757.15793.186.camel@edumazet-glaptop>
+References: <20130306155955.GA24215@redhat.com>
+	 <1362588847.15793.180.camel@edumazet-glaptop>
+	 <20130306.154641.1893414808816499940.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Hans Schillstrom <hans@schillstrom.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davej@redhat.com, netdev@vger.kernel.org,
+	kernel-team@fedoraproject.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:33194 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752551Ab3CFVBA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Mar 2013 16:01:00 -0500
-In-Reply-To: <1362563014.17102.63.camel@hawk.mlab.se>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:58548 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752971Ab3CFVCl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 16:02:41 -0500
+Received: by mail-pb0-f49.google.com with SMTP id xa12so6585954pbc.36
+        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 13:02:40 -0800 (PST)
+In-Reply-To: <20130306.154641.1893414808816499940.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
-	Hello,
+Dave reported following crash :
 
-On Wed, 6 Mar 2013, Hans Schillstrom wrote:
+general protection fault: 0000 [#1] SMP 
+CPU 2 
+Pid: 25407, comm: qemu-kvm Not tainted 3.7.9-205.fc18.x86_64 #1 Hewlett-Packard HP Z400 Workstation/0B4Ch
+RIP: 0010:[<ffffffffa0399bd5>]  [<ffffffffa0399bd5>] destroy_conntrack+0x35/0x120 [nf_conntrack]
+RSP: 0018:ffff880276913d78  EFLAGS: 00010206
+RAX: 50626b6b7876376c RBX: ffff88026e530d68 RCX: ffff88028d158e00
+RDX: ffff88026d0d5470 RSI: 0000000000000011 RDI: 0000000000000002
+RBP: ffff880276913d88 R08: 0000000000000000 R09: ffff880295002900
+R10: 0000000000000000 R11: 0000000000000003 R12: ffffffff81ca3b40
+R13: ffffffff8151a8e0 R14: ffff880270875000 R15: 0000000000000002
+FS:  00007ff3bce38a00(0000) GS:ffff88029fc40000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: 00007fd1430bd000 CR3: 000000027042b000 CR4: 00000000000027e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process qemu-kvm (pid: 25407, threadinfo ffff880276912000, task ffff88028c369720)
+Stack:
+ ffff880156f59100 ffff880156f59100 ffff880276913d98 ffffffff815534f7
+ ffff880276913db8 ffffffff8151a74b ffff880270875000 ffff880156f59100
+ ffff880276913dd8 ffffffff8151a5a6 ffff880276913dd8 ffff88026d0d5470
+Call Trace:
+ [<ffffffff815534f7>] nf_conntrack_destroy+0x17/0x20
+ [<ffffffff8151a74b>] skb_release_head_state+0x7b/0x100
+ [<ffffffff8151a5a6>] __kfree_skb+0x16/0xa0
+ [<ffffffff8151a666>] kfree_skb+0x36/0xa0
+ [<ffffffff8151a8e0>] skb_queue_purge+0x20/0x40
+ [<ffffffffa02205f7>] __tun_detach+0x117/0x140 [tun]
+ [<ffffffffa022184c>] tun_chr_close+0x3c/0xd0 [tun]
+ [<ffffffff8119669c>] __fput+0xec/0x240
+ [<ffffffff811967fe>] ____fput+0xe/0x10
+ [<ffffffff8107eb27>] task_work_run+0xa7/0xe0
+ [<ffffffff810149e1>] do_notify_resume+0x71/0xb0
+ [<ffffffff81640152>] int_signal+0x12/0x17
+Code: 00 00 04 48 89 e5 41 54 53 48 89 fb 4c 8b a7 e8 00 00 00 0f 85 de 00 00 00 0f b6 73 3e 0f b7 7b 2a e8 10 40 00 00 48 85 c0 74 0e <48> 8b 40 28 48 85 c0 74 05 48 89 df ff d0 48 c7 c7 08 6a 3a a0 
+RIP  [<ffffffffa0399bd5>] destroy_conntrack+0x35/0x120 [nf_conntrack]
+ RSP <ffff880276913d78>
 
-> Hi Julian
-> Great job you have done !
-> I'll test it immediate...
+This is because tun_net_xmit() needs to call nf_reset()
+before queuing skb into receive_queue
 
-	Thanks, it would be good to catch the problems
-in early phase...
+Reported-by: Dave Jones <davej@redhat.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ drivers/net/tun.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-> On Wed, 2013-03-06 at 10:42 +0200, Julian Anastasov wrote:
-> > 	__ip_vs_conn_in_get and ip_vs_conn_out_get are
-> > hot places. Optimize them, so that ports are matched first.
-> > By moving net and fwmark below, on 32-bit arch we can fit
-> > caddr in 32-byte cache line and all addresses in 64-byte
-> > cache line.
-> 
-> Earlier I made some rearrangements like the one you have made.
-> My conclusion at that time was that the best gain was to have
-> fwmark and net within the first 64 bytes, and move daddr to the next
-> cache line.
-
-	But fwmark is used only for lookups in backup
-server. The net field is checked first only in
-ip_vs_ct_in_get (on scheduling), it can be optimized too.
-Modern CPUs have 64-byte cache line and may be the
-places of these fields do not play much because checking
-the two ports is enough to differentiate most of the
-connections. The addresses play when ports do not
-differ, i.e. mostly for persistent connections. So,
-on 64-byte cache line it would be more difficult to
-see any difference.
-
-> I uesd UDP at ~7Gbit/sec and 256k source address into a x86_64 machine,
-> and a 50/50 mix of fwmarks and port in that tests. 
-> 
-> I guess that you have made similar test, and even take
-> ip_vs_conn_out_get() into your calculations ?
-
-	No, I have only virtual boxes for tests...
-
-> Regards
-> Hans
-> 
-> > 
-> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> > ---
-> >  include/net/ip_vs.h             |   12 ++++++------
-> >  net/netfilter/ipvs/ip_vs_conn.c |    8 ++++----
-> >  2 files changed, 10 insertions(+), 10 deletions(-)
-> > 
-> > diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-> > index 9059360..2bc30e6 100644
-> > --- a/include/net/ip_vs.h
-> > +++ b/include/net/ip_vs.h
-> > @@ -566,20 +566,19 @@ struct ip_vs_conn_param {
-> >   */
-> >  struct ip_vs_conn {
-> >  	struct hlist_node	c_list;         /* hashed list heads */
-> > -#ifdef CONFIG_NET_NS
-> > -	struct net              *net;           /* Name space */
-> > -#endif
-> >  	/* Protocol, addresses and port numbers */
-> > -	u16                     af;             /* address family */
-> >  	__be16                  cport;
-> > -	__be16                  vport;
-> >  	__be16                  dport;
-> > -	__u32                   fwmark;         /* Fire wall mark from skb */
-> > +	__be16                  vport;
-> > +	u16			af;		/* address family */
-> >  	union nf_inet_addr      caddr;          /* client address */
-> >  	union nf_inet_addr      vaddr;          /* virtual address */
-> >  	union nf_inet_addr      daddr;          /* destination address */
-> >  	volatile __u32          flags;          /* status flags */
-> >  	__u16                   protocol;       /* Which protocol (TCP/UDP) */
-> > +#ifdef CONFIG_NET_NS
-> > +	struct net              *net;           /* Name space */
-> > +#endif
-> >  
-> >  	/* counter and timer */
-> >  	atomic_t		refcnt;		/* reference count */
-> > @@ -593,6 +592,7 @@ struct ip_vs_conn {
-> >  						 * state transition triggerd
-> >  						 * synchronization
-> >  						 */
-> > +	__u32			fwmark;		/* Fire wall mark from skb */
-> >  	unsigned long		sync_endtime;	/* jiffies + sent_retries */
-> >  
-> >  	/* Control members */
-> > diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-> > index b0cd2be..a4d8ec5 100644
-> > --- a/net/netfilter/ipvs/ip_vs_conn.c
-> > +++ b/net/netfilter/ipvs/ip_vs_conn.c
-> > @@ -265,8 +265,8 @@ __ip_vs_conn_in_get(const struct ip_vs_conn_param *p)
-> >  	rcu_read_lock();
-> >  
-> >  	hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[hash], c_list) {
-> > -		if (cp->af == p->af &&
-> > -		    p->cport == cp->cport && p->vport == cp->vport &&
-> > +		if (p->cport == cp->cport && p->vport == cp->vport &&
-> > +		    cp->af == p->af &&
-> >  		    ip_vs_addr_equal(p->af, p->caddr, &cp->caddr) &&
-> >  		    ip_vs_addr_equal(p->af, p->vaddr, &cp->vaddr) &&
-> >  		    ((!p->cport) ^ (!(cp->flags & IP_VS_CONN_F_NO_CPORT))) &&
-> > @@ -404,8 +404,8 @@ struct ip_vs_conn *ip_vs_conn_out_get(const struct ip_vs_conn_param *p)
-> >  	rcu_read_lock();
-> >  
-> >  	hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[hash], c_list) {
-> > -		if (cp->af == p->af &&
-> > -		    p->vport == cp->cport && p->cport == cp->dport &&
-> > +		if (p->vport == cp->cport && p->cport == cp->dport &&
-> > +		    cp->af == p->af &&
-> >  		    ip_vs_addr_equal(p->af, p->vaddr, &cp->caddr) &&
-> >  		    ip_vs_addr_equal(p->af, p->caddr, &cp->daddr) &&
-> >  		    p->protocol == cp->protocol &&
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 2c6a22e..b7c457a 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -747,6 +747,8 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		goto drop;
+ 	skb_orphan(skb);
+ 
++	nf_reset(skb);
++
+ 	/* Enqueue packet */
+ 	skb_queue_tail(&tfile->socket.sk->sk_receive_queue, skb);
+ 
