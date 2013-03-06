@@ -1,70 +1,49 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next 06/12] ipvs: optimize dst usage for real
- server
-Date: Wed, 6 Mar 2013 23:58:09 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1303062321230.1899@ja.ssi.bg>
-References: <1362559342-18784-1-git-send-email-ja@ssi.bg> <1362559342-18784-7-git-send-email-ja@ssi.bg> <20130306.151810.1494132480233578627.davem@davemloft.net>
+From: Bhavesh Davda <bhavesh@vmware.com>
+Subject: Re: [PATCH net-next] vmxnet3: prevent div-by-zero panic when ring
+ resizing uninitialized dev
+Date: Wed, 6 Mar 2013 14:00:11 -0800 (PST)
+Message-ID: <591552351.12774238.1362607211741.JavaMail.root@vmware.com>
+References: <20130306.153841.784919874486534382.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: horms@verge.net.au, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pv-drivers@vmware.com, sbhatewara@vmware.com
 To: David Miller <davem@davemloft.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20130306.151810.1494132480233578627.davem@davemloft.net>
-Sender: lvs-devel-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130306.153841.784919874486534382.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Wed, 6 Mar 2013, David Miller wrote:
-
-> From: Julian Anastasov <ja@ssi.bg>
-> Date: Wed,  6 Mar 2013 10:42:16 +0200
-> 
-> > 	Currently when forwarding requests to real servers
-> > we use dst_lock and atomic operations when cloning the
-> > dst_cache value. As the dst_cache value does not change
-> > most of the time it is better to use RCU and to lock
-> > dst_lock only when we need to replace the obsoleted dst.
-> > For this to work we keep dst_cache in new structure protected
-> > by RCU. For packets to remote real servers we will use noref
-> > version of dst_cache, it will be valid while we are in RCU
-> > read-side critical section because now dst_release for replaced
-> > dsts will be invoked after the grace period. NAT-ed packets
-> > via loopback that are not sent but are passed to local stack
-> > with NF_ACCEPT need a dst clone (skb_dst_force).
+> > ---
+> >  drivers/net/vmxnet3/vmxnet3_drv.c     |    3 ++-
+> >  drivers/net/vmxnet3/vmxnet3_ethtool.c |    6 ++++++
+> >  drivers/net/vmxnet3/vmxnet3_int.h     |    4 ++--
+> >  3 files changed, 10 insertions(+), 3 deletions(-)
 > > 
-> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> > diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c
+> > b/drivers/net/vmxnet3/vmxnet3_drv.c
+> > index 4aad350..bfc5898 100644
+> > --- a/drivers/net/vmxnet3/vmxnet3_drv.c
+> > +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+> > @@ -2922,7 +2922,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+> >  				    (int)num_online_cpus());
+> >  	else
+> >  #endif
+> > -		num_rx_queues = 1;
+> > +	num_rx_queues = 1;
 > 
-> It think it's much cleaner to have the callers of route lookups do
-> skb_set_dst_noref().
+> Why are you un-indenting this else branch?  Please don't do that
+> 
 
-	This was my first thought but commit 27b75c95f1
-(net: avoid RCU for NOCACHE dst) uses dst_hold for
-DST_NOCACHE dsts. IPVS wants to cache DST_NOCACHE entries
-(due to known-NH reasons) and later to use them for
-noref dsts...
+Just to annoy you :) [Sorry, couldn't resist.]
 
-	Also, in the IPVS case we can not set skb_dst
-at the time when route is looked up because due to
-MTU and other checks we can fail, functions like
-icmp_send() will need the original skb_dst in
-such case.
+I'm sorry I didn't notice I was breaking the indent of the else branch. For some reason checkpatch didn't complain.
 
-	There are two choices: __ip_vs_get_out_rt
-to return refdst as implemented in this patchset or
-to return dst with additional 'bool *noref' argument,
-so that caller can decide between skb_dst_set or
-skb_set_dst_noref. Then may be we will need just
-a new skb_dst_set_noref_{always,force} func that will
-contain the old skb_set_dst_noref code, i.e. without
-dst_hold? Not sure which variant sounds better.
+While at it, I'm also changing the netdev_info to netdev_err in vmxnet3_ethtool.c.
 
-> Then you don't need any new interfaces, and you therefore don't need
-> to expose bits of the noref implementation and semantics at all.
+You didn't explicitly ask for it, so I wasn't sure if I should repost the patch. I'm going to repost it any way and leave it up to you on which patch you want to apply.
 
-Regards
+Thanks.
 
---
-Julian Anastasov <ja@ssi.bg>
+- Bhavesh
