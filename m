@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: ipv6: bind() use stronger condition for
- bind_conflict
-Date: Tue, 05 Mar 2013 23:54:44 -0500 (EST)
-Message-ID: <20130305.235444.1139109745031015500.davem@davemloft.net>
-References: <1362507061-22475-1-git-send-email-fbl@redhat.com>
+Subject: Re: [PATCH] net: fix new kernel-doc warnings in net core
+Date: Tue, 05 Mar 2013 23:56:20 -0500 (EST)
+Message-ID: <20130305.235620.1048477356760189481.davem@davemloft.net>
+References: <5135210B.6090207@infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: fbl@redhat.com
+Cc: netdev@vger.kernel.org, torvalds@linux-foundation.org
+To: rdunlap@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60827 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60837 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752595Ab3CFEyp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 23:54:45 -0500
-In-Reply-To: <1362507061-22475-1-git-send-email-fbl@redhat.com>
+	with ESMTP id S1752509Ab3CFE4W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 23:56:22 -0500
+In-Reply-To: <5135210B.6090207@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Flavio Leitner <fbl@redhat.com>
-Date: Tue,  5 Mar 2013 15:11:01 -0300
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Mon, 04 Mar 2013 14:32:43 -0800
 
-> We must try harder to get unique (addr, port) pairs when
-> doing port autoselection for sockets with SO_REUSEADDR
-> option set.
+> From: Randy Dunlap <rdunlap@infradead.org>
 > 
-> This is a continuation of commit aacd9289af8b82f5fb01bcdd53d0e3406d1333c7
-> for IPv6.
+> Fix new kernel-doc warnings in net/core/dev.c:
 > 
-> Signed-off-by: Flavio Leitner <fbl@redhat.com>
+> Warning(net/core/dev.c:4788): No description found for parameter 'new_carrier'
+> Warning(net/core/dev.c:4788): Excess function parameter 'new_carries' description in 'dev_change_carrier'
+> 
+> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
 
-I think this is 'net' material, therefore that's will I will apply
-this, thanks Flavio.
+Applied, thanks Randy.
