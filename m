@@ -1,60 +1,63 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH v1 4/7] usbnet: cdc_mbim: don't recover device if suspend fails in system sleep
-Date: Wed, 06 Mar 2013 15:53:52 +0100
-Message-ID: <87ppzcmven.fsf@nemi.mork.no>
-References: <1362565557-15884-1-git-send-email-ming.lei@canonical.com>
-	<1362565557-15884-5-git-send-email-ming.lei@canonical.com>
-	<877glkohu2.fsf@nemi.mork.no>
-	<CACVXFVMS4JNphgcU4oy7VQ1S6AoXQUcpRT2ODE_DP79AsnAY4g@mail.gmail.com>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [PATCH v1 1/7] USB: adds comment on suspend callback
+Date: Wed, 6 Mar 2013 10:25:27 -0500 (EST)
+Message-ID: <Pine.LNX.4.44L0.1303061012330.1955-100000@iolanthe.rowland.org>
+References: <1362565557-15884-2-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-input@vger.kernel.org
+	Jiri Kosina <jkosina@suse.cz>, Oliver Neukum <oneukum@suse.de>,
+	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	<linux-input@vger.kernel.org>
 To: Ming Lei <ming.lei@canonical.com>
 Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <CACVXFVMS4JNphgcU4oy7VQ1S6AoXQUcpRT2ODE_DP79AsnAY4g@mail.gmail.com>
-	(Ming Lei's message of "Wed, 6 Mar 2013 21:48:19 +0800")
+In-Reply-To: <1362565557-15884-2-git-send-email-ming.lei@canonical.com>
 Sender: linux-input-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ming Lei <ming.lei@canonical.com> writes:
-> On Wed, Mar 6, 2013 at 8:04 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wrote=
-:
->
->> I believe the correct here is to document the fact that we require t=
-he
->> subdriver->suspend() callback to always return 0 if !PMSG_IS_AUTO(me=
-ssage).
->> That is best done with a comment. No need to add any redundant code.
->
-> Considered that the subdriver might change its return value in future=
-,
+On Wed, 6 Mar 2013, Ming Lei wrote:
 
-Not likely.  It lives under the exact same restrictions as a standalone
-USB interface driver.  If it starts returning something else, then this
-driver should probably do so as well.
+> This patch adds comments on interface driver suspend callback
+> to emphasize that the failure return value is ignored by
+> USB core in system sleep context, so do not try to recover
+> device for this case and let resume/reset_resume callback
+> handle the suspend failure if needed.
 
-> how about just add the below comment?
->
->         /* TODO: resume() might need to handle suspend failure from s=
-ubdriver */
+In this same patch you should also update the kerneldoc for 
+usb_suspend_both().  It should mention that errors returned by the 
+suspend method for @udev will be ignored during system suspend.
 
-OK with me if that includes dropping the redundant code change.
+> Signed-off-by: Ming Lei <ming.lei@canonical.com>
+> ---
+>  include/linux/usb.h |    9 ++++++++-
+>  1 file changed, 8 insertions(+), 1 deletion(-)
+> 
+> diff --git a/include/linux/usb.h b/include/linux/usb.h
+> index 4d22d0f..6e66dc4 100644
+> --- a/include/linux/usb.h
+> +++ b/include/linux/usb.h
+> @@ -978,7 +978,14 @@ struct usbdrv_wrap {
+>   *	the "usbfs" filesystem.  This lets devices provide ways to
+>   *	expose information to user space regardless of where they
+>   *	do (or don't) show up otherwise in the filesystem.
+> - * @suspend: Called when the device is going to be suspended by the system.
+> + * @suspend: Called when the device is going to be suspended by the
+> + *	system either from system sleep or runtime suspend context, and
+> + *	its failure return value will be ignored in system sleep context,
 
-Note that the same issue and comment applies to the usbnet_suspend()
-call as well.  We currently rely on both calls to always return 0 on
-system suspend.  Which they are guaranteed to do, because they are both
-directly used as .suspend callbacks in other USB interface drivers.
+This is an ungrammatical run-on sentence.  s/, and its failure/. The/
 
+> + *	so do NOT try to recover device for this case. It is suggested
+> + *	the callback always return 0 if resume/reset_resume callback can
+> + *	handle system sususpend failure at default, otherwise driver
+> + *	need to record the suspend failure and let resume/reset_resume
+> + *	handle previous system suspend failure to recover device.
 
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-input" =
-in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I don't understand what this is supposed to mean.  How about this
+instead?  "so do NOT try to continue using the device if suspend fails
+in this case.  Instead, let the resume or reset-resume routine recover
+from the failure."
+
+Alan Stern
+
