@@ -1,87 +1,96 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH v1 4/7] usbnet: cdc_mbim: don't recover device if suspend
- fails in system sleep
-Date: Wed, 6 Mar 2013 21:48:19 +0800
-Message-ID: <CACVXFVMS4JNphgcU4oy7VQ1S6AoXQUcpRT2ODE_DP79AsnAY4g@mail.gmail.com>
-References: <1362565557-15884-1-git-send-email-ming.lei@canonical.com>
-	<1362565557-15884-5-git-send-email-ming.lei@canonical.com>
-	<877glkohu2.fsf@nemi.mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <877glkohu2.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-On Wed, Mar 6, 2013 at 8:04 PM, Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
-> Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> writes:
->
->> If suspend callback fails in system sleep context, usb core will
->> ignore the failure and let system sleep go ahead further, so
->> this patch doesn't recover device under this situation.
->>
->> Cc: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
->> Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
->> ---
->>  drivers/net/usb/cdc_mbim.c |    2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
->> index 248d2dc..ec58c2c 100644
->> --- a/drivers/net/usb/cdc_mbim.c
->> +++ b/drivers/net/usb/cdc_mbim.c
->> @@ -338,7 +338,7 @@ static int cdc_mbim_suspend(struct usb_interface=
- *intf, pm_message_t message)
->>
->>       if (intf =3D=3D ctx->control && info->subdriver && info->subdr=
-iver->suspend)
->>               ret =3D info->subdriver->suspend(intf, message);
->> -     if (ret < 0)
->> +     if (ret < 0 && PMSG_IS_AUTO(message))
->>               usbnet_resume(intf);
->>
->>  error:
->
-> This condition will never happen because the subdriver callback alway=
-s
-> return 0 if !PMSG_IS_AUTO(message), so adding anything here is purely
-> for documentation purposes.  That is OK for me.  But I do not see any
-> point adding incomplete or wrong documentation.
->
-> The above is incomplete because it ignores the failure and still retu=
-rn
-> an error. And it is wrong because we ignore an error we cannot possib=
-ly
-> handle in resume.  Only the subdriver can do that, which is why we mu=
-st
-> delegate this to the subdriver.
->
-> I believe the correct here is to document the fact that we require th=
-e
-> subdriver->suspend() callback to always return 0 if !PMSG_IS_AUTO(mes=
-sage).
-> That is best done with a comment. No need to add any redundant code.
-
-Considered that the subdriver might change its return value in future, =
-how about
-just add the below comment?
-
-        /* TODO: resume() might need to handle suspend failure from sub=
-driver */
+From: Zang MingJie <zealot0630@gmail.com>
+Subject: [PATCH 1/1] vxlan: fix oops when delete netns containing vxlan
+Date: Wed,  6 Mar 2013 22:37:37 +0800
+Message-ID: <1362580657-25580-1-git-send-email-zealot0630@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Zang MingJie <zealot0630@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:40165 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758429Ab3CFOjC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 09:39:02 -0500
+Received: by mail-pb0-f42.google.com with SMTP id xb4so6081339pbc.29
+        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 06:39:02 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Thanks,
---
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The following script will produce a kernel oops:
+
+    sudo ip netns add v
+    sudo ip netns exec v ip ad add 127.0.0.1/8 dev lo
+    sudo ip netns exec v ip link set lo up
+    sudo ip netns exec v ip ro add 224.0.0.0/4 dev lo
+    sudo ip netns exec v ip li add vxlan0 type vxlan id 42 group 239.1.1.1 dev lo
+    sudo ip netns exec v ip link set vxlan0 up
+    sudo ip netns del v
+
+where inspect by gdb:
+
+    Program received signal SIGSEGV, Segmentation fault.
+    [Switching to Thread 107]
+    0xffffffffa0289e33 in ?? ()
+    (gdb) bt
+    #0  vxlan_leave_group (dev=0xffff88001bafa000) at drivers/net/vxlan.c:533
+    #1  vxlan_stop (dev=0xffff88001bafa000) at drivers/net/vxlan.c:1087
+    #2  0xffffffff812cc498 in __dev_close_many (head=head@entry=0xffff88001f2e7dc8) at net/core/dev.c:1299
+    #3  0xffffffff812cd920 in dev_close_many (head=head@entry=0xffff88001f2e7dc8) at net/core/dev.c:1335
+    #4  0xffffffff812cef31 in rollback_registered_many (head=head@entry=0xffff88001f2e7dc8) at net/core/dev.c:4851
+    #5  0xffffffff812cf040 in unregister_netdevice_many (head=head@entry=0xffff88001f2e7dc8) at net/core/dev.c:5752
+    #6  0xffffffff812cf1ba in default_device_exit_batch (net_list=0xffff88001f2e7e18) at net/core/dev.c:6170
+    #7  0xffffffff812cab27 in cleanup_net (work=<optimized out>) at net/core/net_namespace.c:302
+    #8  0xffffffff810540ef in process_one_work (worker=0xffff88001ba9ed40, work=0xffffffff8167d020) at kernel/workqueue.c:2157
+    #9  0xffffffff810549d0 in worker_thread (__worker=__worker@entry=0xffff88001ba9ed40) at kernel/workqueue.c:2276
+    #10 0xffffffff8105870c in kthread (_create=0xffff88001f2e5d68) at kernel/kthread.c:168
+    #11 <signal handler called>
+    #12 0x0000000000000000 in ?? ()
+    #13 0x0000000000000000 in ?? ()
+    (gdb) fr 0
+    #0  vxlan_leave_group (dev=0xffff88001bafa000) at drivers/net/vxlan.c:533
+    533		struct sock *sk = vn->sock->sk;
+    (gdb) l
+    528	static int vxlan_leave_group(struct net_device *dev)
+    529	{
+    530		struct vxlan_dev *vxlan = netdev_priv(dev);
+    531		struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
+    532		int err = 0;
+    533		struct sock *sk = vn->sock->sk;
+    534		struct ip_mreqn mreq = {
+    535			.imr_multiaddr.s_addr	= vxlan->gaddr,
+    536			.imr_ifindex		= vxlan->link,
+    537		};
+    (gdb) p vn->sock
+    $4 = (struct socket *) 0x0
+
+The kernel calls `vxlan_exit_net` when deleting the netns before shutting down
+vxlan interfaces. Later the removal of all vxlan interfaces, where `vn->sock`
+is already gone causes the oops. so we should manually shutdown all interfaces
+before deleting `vn->sock` as the patch does.
+
+Signed-off-by: Zang MingJie <zealot0630@gmail.com>
+---
+ drivers/net/vxlan.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index c3e3d29..7cee7a3 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1506,6 +1506,14 @@ static __net_init int vxlan_init_net(struct net *net)
+ static __net_exit void vxlan_exit_net(struct net *net)
+ {
+ 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
++	struct vxlan_dev *vxlan;
++	unsigned h;
++
++	rtnl_lock();
++	for (h = 0; h < VNI_HASH_SIZE; ++h)
++		hlist_for_each_entry(vxlan, &vn->vni_list[h], hlist)
++			dev_close(vxlan->dev);
++	rtnl_unlock();
+ 
+ 	if (vn->sock) {
+ 		sk_release_kernel(vn->sock->sk);
+-- 
+1.7.10.4
