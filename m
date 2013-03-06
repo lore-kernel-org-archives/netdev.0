@@ -1,82 +1,115 @@
-From: Bhavesh Davda <bhavesh@vmware.com>
-Subject: [PATCH net-next] vmxnet3: prevent div-by-zero panic when ring resizing uninitialized dev
-Date: Wed,  6 Mar 2013 09:46:24 -0800
-Message-ID: <1362591984-16587-1-git-send-email-bhavesh@vmware.com>
-Cc: pv-drivers@vmware.com, Bhavesh Davda <bhavesh@vmware.com>,
-	Shreyas N Bhatewara <sbhatewara@vmware.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil.sutter@viprinet.com>
+Subject: [PATCH] fix mv643xx_eth for disabled autoneg
+Date: Wed,  6 Mar 2013 18:49:02 +0100
+Message-ID: <1362592142-4049-1-git-send-email-phil.sutter@viprinet.com>
+Cc: netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@marvell.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.vipri.net ([89.207.250.15]:53767 "EHLO zimbra.vipri.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753222Ab3CFRuL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Mar 2013 12:50:11 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Linux is free to call ethtool ops as soon as a netdev exists when probe
-finishes. However, we only allocate vmxnet3 tx/rx queues and initialize the
-rx_buf_per_pkt field in struct vmxnet3_adapter when the interface is
-opened (UP).
+When autoneg has been disabled in the PHY (Marvell 88E1118 here), auto
+negotiation between MAC and PHY seem non-functional anymore. The only
+way I found to workaround this is to manually configure the MAC with the
+settings sent to the PHY earlier.
 
-Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
-Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
+Signed-off-by: Phil Sutter <phil.sutter@viprinet.com>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c     |    3 ++-
- drivers/net/vmxnet3/vmxnet3_ethtool.c |    6 ++++++
- drivers/net/vmxnet3/vmxnet3_int.h     |    4 ++--
- 3 files changed, 10 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/marvell/mv643xx_eth.c |   55 ++++++++++++++++++++++++++--
+ 1 files changed, 51 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 4aad350..bfc5898 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -2922,7 +2922,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
- 				    (int)num_online_cpus());
- 	else
- #endif
--		num_rx_queues = 1;
-+	num_rx_queues = 1;
- 	num_rx_queues = rounddown_pow_of_two(num_rx_queues);
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 5e1ca0f..5435833 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -1082,6 +1082,45 @@ static void txq_set_fixed_prio_mode(struct tx_queue *txq)
  
- 	if (enable_mq)
-@@ -2958,6 +2958,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
  
- 	adapter->num_rx_queues = num_rx_queues;
- 	adapter->num_tx_queues = num_tx_queues;
-+	adapter->rx_buf_per_pkt = 1;
- 
- 	size = sizeof(struct Vmxnet3_TxQueueDesc) * adapter->num_tx_queues;
- 	size += sizeof(struct Vmxnet3_RxQueueDesc) * adapter->num_rx_queues;
-diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-index a0feb17..0a4fc9e 100644
---- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
-+++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-@@ -472,6 +472,12 @@ vmxnet3_set_ringparam(struct net_device *netdev,
- 						VMXNET3_RX_RING_MAX_SIZE)
- 		return -EINVAL;
- 
-+	/* if adapter not yet initialized, do nothing */
-+	if (adapter->rx_buf_per_pkt == 0) {
-+		netdev_info(netdev,
-+				"adapter not completely initialized, ring size cannot be changed yet\n");
-+		return -EOPNOTSUPP;
+ /* mii management interface *************************************************/
++static void mv643xx_adjust_pscr(struct mv643xx_eth_private *mp)
++{
++	u32 pscr = rdlp(mp, PORT_SERIAL_CONTROL);
++	u32 autoneg_disable = FORCE_LINK_PASS |
++	             DISABLE_AUTO_NEG_SPEED_GMII |
++		     DISABLE_AUTO_NEG_FOR_FLOW_CTRL |
++		     DISABLE_AUTO_NEG_FOR_DUPLEX;
++
++	if (mp->phy->autoneg == AUTONEG_ENABLE) {
++		/* enable auto negotiation */
++		pscr &= ~autoneg_disable;
++		goto out_write;
 +	}
++
++	pscr |= autoneg_disable;
++
++	if (mp->phy->speed == SPEED_1000) {
++		/* force gigabit, half duplex not supported */
++		pscr |= SET_GMII_SPEED_TO_1000;
++		pscr |= SET_FULL_DUPLEX_MODE;
++		goto out_write;
++	}
++
++	pscr &= ~SET_GMII_SPEED_TO_1000;
++
++	if (mp->phy->speed == SPEED_100)
++		pscr |= SET_MII_SPEED_TO_100;
++	else
++		pscr &= ~SET_MII_SPEED_TO_100;
++
++	if (mp->phy->duplex == DUPLEX_FULL)
++		pscr |= SET_FULL_DUPLEX_MODE;
++	else
++		pscr &= ~SET_FULL_DUPLEX_MODE;
++
++out_write:
++	wrlp(mp, PORT_SERIAL_CONTROL, pscr);
++}
++
+ static irqreturn_t mv643xx_eth_err_irq(int irq, void *dev_id)
+ {
+ 	struct mv643xx_eth_shared_private *msp = dev_id;
+@@ -1500,6 +1539,7 @@ static int
+ mv643xx_eth_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct mv643xx_eth_private *mp = netdev_priv(dev);
++	int ret;
  
- 	/* round it up to a multiple of VMXNET3_RING_SIZE_ALIGN */
- 	new_tx_ring_size = (param->tx_pending + VMXNET3_RING_SIZE_MASK) &
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index 3198384..3541814 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -70,10 +70,10 @@
- /*
-  * Version numbers
-  */
--#define VMXNET3_DRIVER_VERSION_STRING   "1.1.29.0-k"
-+#define VMXNET3_DRIVER_VERSION_STRING   "1.1.30.0-k"
+ 	if (mp->phy == NULL)
+ 		return -EINVAL;
+@@ -1509,7 +1549,10 @@ mv643xx_eth_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	 */
+ 	cmd->advertising &= ~ADVERTISED_1000baseT_Half;
  
- /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
--#define VMXNET3_DRIVER_VERSION_NUM      0x01011D00
-+#define VMXNET3_DRIVER_VERSION_NUM      0x01011E00
+-	return phy_ethtool_sset(mp->phy, cmd);
++	ret = phy_ethtool_sset(mp->phy, cmd);
++	if (!ret)
++		mv643xx_adjust_pscr(mp);
++	return ret;
+ }
  
- #if defined(CONFIG_PCI_MSI)
- 	/* RSS only makes sense if MSI-X is supported. */
+ static void mv643xx_eth_get_drvinfo(struct net_device *dev,
+@@ -2448,11 +2491,15 @@ static int mv643xx_eth_stop(struct net_device *dev)
+ static int mv643xx_eth_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+ 	struct mv643xx_eth_private *mp = netdev_priv(dev);
++	int ret;
+ 
+-	if (mp->phy != NULL)
+-		return phy_mii_ioctl(mp->phy, ifr, cmd);
++	if (mp->phy == NULL)
++		return -ENOTSUPP;
+ 
+-	return -EOPNOTSUPP;
++	ret = phy_mii_ioctl(mp->phy, ifr, cmd);
++	if (!ret)
++		mv643xx_adjust_pscr(mp);
++	return ret;
+ }
+ 
+ static int mv643xx_eth_change_mtu(struct net_device *dev, int new_mtu)
 -- 
-1.7.1
+1.7.3.4
