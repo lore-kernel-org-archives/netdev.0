@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next 1/2] net: introduce NAPI_POLL_WEIGHT
-Date: Tue, 05 Mar 2013 17:57:22 -0800
-Message-ID: <1362535042.15793.144.camel@edumazet-glaptop>
+Subject: [PATCH net-next 2/2] bnx2x: use the default NAPI weight
+Date: Tue, 05 Mar 2013 17:57:47 -0800
+Message-ID: <1362535067.15793.146.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -9,57 +9,63 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eilon Greenstein <eilong@broadcom.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:61972 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751759Ab3CFB51 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 20:57:27 -0500
-Received: by mail-ie0-f172.google.com with SMTP id c10so8688063ieb.17
-        for <netdev@vger.kernel.org>; Tue, 05 Mar 2013 17:57:27 -0800 (PST)
+Received: from mail-oa0-f41.google.com ([209.85.219.41]:45925 "EHLO
+	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750767Ab3CFB5u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 20:57:50 -0500
+Received: by mail-oa0-f41.google.com with SMTP id i10so12104231oag.0
+        for <netdev@vger.kernel.org>; Tue, 05 Mar 2013 17:57:50 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-Some drivers use a too big NAPI poll weight.
+BQL (Byte Queue Limits) proper operation needs TX completion
+being serviced in a timely fashion.
 
-This patch adds a NAPI_POLL_WEIGHT default value
-and issues an error message if a driver attempts
-to use a bigger weight.
+bnx2x uses a non standard NAPI poll weight, and thats not fair to other
+napi poll handlers, and even not reasonable.
+
+Use the default value instead.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Cc: Eilon Greenstein <eilong@broadcom.com>
 ---
- include/linux/netdevice.h |    5 +++++
- net/core/dev.c            |    3 +++
- 2 files changed, 8 insertions(+)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     |    1 -
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h |    4 ++--
+ 2 files changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index b3d00fa..896eb49 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1475,6 +1475,11 @@ static inline void *netdev_priv(const struct net_device *dev)
-  */
- #define SET_NETDEV_DEVTYPE(net, devtype)	((net)->dev.type = (devtype))
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index e4605a9..9577cce 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -492,7 +492,6 @@ enum bnx2x_tpa_mode_t {
+ struct bnx2x_fastpath {
+ 	struct bnx2x		*bp; /* parent */
  
-+/* Default NAPI poll() weight
-+ * Device drivers are strongly advised to not use bigger value
-+ */
-+#define NAPI_POLL_WEIGHT 64
-+
- /**
-  *	netif_napi_add - initialize a napi context
-  *	@dev:  network device
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a06a7a5..9610389 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4057,6 +4057,9 @@ void netif_napi_add(struct net_device *dev, struct napi_struct *napi,
- 	napi->gro_list = NULL;
- 	napi->skb = NULL;
- 	napi->poll = poll;
-+	if (weight > NAPI_POLL_WEIGHT)
-+		pr_err_once("netif_napi_add() called with weight %d on device %s\n",
-+			    weight, dev->name);
- 	napi->weight = weight;
- 	list_add(&napi->dev_list, &dev->napi_list);
- 	napi->dev = dev;
+-#define BNX2X_NAPI_WEIGHT       128
+ 	struct napi_struct	napi;
+ 	union host_hc_status_block	status_blk;
+ 	/* chip independed shortcuts into sb structure */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index aee7671..8d158d8 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -834,7 +834,7 @@ static inline void bnx2x_add_all_napi_cnic(struct bnx2x *bp)
+ 	/* Add NAPI objects */
+ 	for_each_rx_queue_cnic(bp, i)
+ 		netif_napi_add(bp->dev, &bnx2x_fp(bp, i, napi),
+-			       bnx2x_poll, BNX2X_NAPI_WEIGHT);
++			       bnx2x_poll, NAPI_POLL_WEIGHT);
+ }
+ 
+ static inline void bnx2x_add_all_napi(struct bnx2x *bp)
+@@ -844,7 +844,7 @@ static inline void bnx2x_add_all_napi(struct bnx2x *bp)
+ 	/* Add NAPI objects */
+ 	for_each_eth_queue(bp, i)
+ 		netif_napi_add(bp->dev, &bnx2x_fp(bp, i, napi),
+-			       bnx2x_poll, BNX2X_NAPI_WEIGHT);
++			       bnx2x_poll, NAPI_POLL_WEIGHT);
+ }
+ 
+ static inline void bnx2x_del_all_napi_cnic(struct bnx2x *bp)
