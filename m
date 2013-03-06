@@ -1,47 +1,51 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH] 8139too: send NETDEV_CHANGE manually when autoneg is disabled
-Date: Wed,  6 Mar 2013 20:06:24 +0100
-Message-ID: <1362596784-19443-1-git-send-email-vfalico@redhat.com>
-Cc: wfp5p@virginia.edu, jasowang@redhat.com, junchangwang@gmail.com,
-	greearb@candelatech.com, ivecera@redhat.com
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCHv2 iproute2 0/3] Bridge VLAN support
+Date: Wed, 6 Mar 2013 11:06:29 -0800
+Message-ID: <20130306110629.2daf6563@nehalam.linuxnetplumber.net>
+References: <1362081846-25268-1-git-send-email-vyasevic@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56097 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752910Ab3CFTF4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Mar 2013 14:05:56 -0500
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:47663 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752638Ab3CFTGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 14:06:34 -0500
+Received: by mail-pb0-f52.google.com with SMTP id ma3so6413270pbc.11
+        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 11:06:33 -0800 (PST)
+In-Reply-To: <1362081846-25268-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When setting autoneg off (with any additional parameters, like
-speed/duplex), 8139too doesn't do an interface reset, and thus doesn't
-notify anyone that its speed/duplex might have changed (bonding and bridge
-will not see the speed changes, per example).
+On Thu, 28 Feb 2013 15:04:03 -0500
+Vlad Yasevich <vyasevic@redhat.com> wrote:
 
-Verify if we've force_media and send notification manually, so that the
-listeners have a chance to see the changes. It's quite ugly, however I
-don't see anything better.
+> This series adds VLAN configuration to the bridge command.  With this
+> series, one can specify vlans in FDB entries as well as to configure
+> VLAN configuration on the bridge ports.
+> 
+> Since v1:
+>  - Rebased.
+>  - Call rtnl_wilddump_req_filter from rtnl_wilddump_request.  Preserve always
+>    setting the RTEXT_FILTER_VF filter.
+> 
+> Vlad Yasevich (3):
+>   bridge: Add vlan support to fdb entries
+>   bridge: Add vlan configuration support
+>   bridge: Update bridge man pages to include vlan command
+> 
+>  bridge/Makefile      |    2 +-
+>  bridge/br_common.h   |    1 +
+>  bridge/bridge.c      |    3 +-
+>  bridge/fdb.c         |   16 ++++-
+>  bridge/vlan.c        |  220 ++++++++++++++++++++++++++++++++++++++++++++++++++
+>  include/libnetlink.h |    2 +
+>  lib/libnetlink.c     |    8 ++-
+>  man/man8/bridge.8    |   73 ++++++++++++++++-
+>  8 files changed, 320 insertions(+), 5 deletions(-)
+>  create mode 100644 bridge/vlan.c
+> 
 
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/ethernet/realtek/8139too.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
-index 1276ac7..96ee18c 100644
---- a/drivers/net/ethernet/realtek/8139too.c
-+++ b/drivers/net/ethernet/realtek/8139too.c
-@@ -2393,6 +2393,11 @@ static int rtl8139_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	spin_lock_irq(&tp->lock);
- 	rc = mii_ethtool_sset(&tp->mii, cmd);
- 	spin_unlock_irq(&tp->lock);
-+	/*
-+	 * we don't restart on autoneg off, so notify manually
-+	 */
-+	if (tp->mii.force_media)
-+		call_netdevice_notifiers(NETDEV_CHANGE, dev);
- 	return rc;
- }
- 
--- 
-1.7.1
+Applied now in HEAD of iproute2 git
