@@ -1,40 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 06/12] ipvs: optimize dst usage for real server
-Date: Wed, 06 Mar 2013 15:18:10 -0500 (EST)
-Message-ID: <20130306.151810.1494132480233578627.davem@davemloft.net>
-References: <1362559342-18784-1-git-send-email-ja@ssi.bg>
-	<1362559342-18784-7-git-send-email-ja@ssi.bg>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] 8139too: send NETDEV_CHANGE manually when autoneg is
+ disabled
+Date: Wed, 6 Mar 2013 20:22:52 +0000
+Message-ID: <1362601372.3126.23.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1362596784-19443-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: ja@ssi.bg
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1362559342-18784-7-git-send-email-ja@ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <wfp5p@virginia.edu>,
+	<jasowang@redhat.com>, <junchangwang@gmail.com>,
+	<greearb@candelatech.com>, <ivecera@redhat.com>
+To: Veaceslav Falico <vfalico@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:57329 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752304Ab3CFUXG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 15:23:06 -0500
+In-Reply-To: <1362596784-19443-1-git-send-email-vfalico@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Wed,  6 Mar 2013 10:42:16 +0200
+On Wed, 2013-03-06 at 20:06 +0100, Veaceslav Falico wrote:
+> When setting autoneg off (with any additional parameters, like
+> speed/duplex), 8139too doesn't do an interface reset, and thus doesn't
+> notify anyone that its speed/duplex might have changed (bonding and bridge
+> will not see the speed changes, per example).
+>
+> Verify if we've force_media and send notification manually, so that the
+> listeners have a chance to see the changes. It's quite ugly, however I
+> don't see anything better.
 
-> 	Currently when forwarding requests to real servers
-> we use dst_lock and atomic operations when cloning the
-> dst_cache value. As the dst_cache value does not change
-> most of the time it is better to use RCU and to lock
-> dst_lock only when we need to replace the obsoleted dst.
-> For this to work we keep dst_cache in new structure protected
-> by RCU. For packets to remote real servers we will use noref
-> version of dst_cache, it will be valid while we are in RCU
-> read-side critical section because now dst_release for replaced
-> dsts will be invoked after the grace period. NAT-ed packets
-> via loopback that are not sent but are passed to local stack
-> with NF_ACCEPT need a dst clone (skb_dst_force).
+Isn't this really a bug in mii_check_media()?  It shouldn't shortcut the
+calls to netif_carrier_{off,on}() just because mii->force_media is set.
+
+Ben.
+
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> ---
+>  drivers/net/ethernet/realtek/8139too.c |    5 +++++
+>  1 files changed, 5 insertions(+), 0 deletions(-)
 > 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+> index 1276ac7..96ee18c 100644
+> --- a/drivers/net/ethernet/realtek/8139too.c
+> +++ b/drivers/net/ethernet/realtek/8139too.c
+> @@ -2393,6 +2393,11 @@ static int rtl8139_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+>  	spin_lock_irq(&tp->lock);
+>  	rc = mii_ethtool_sset(&tp->mii, cmd);
+>  	spin_unlock_irq(&tp->lock);
+> +	/*
+> +	 * we don't restart on autoneg off, so notify manually
+> +	 */
+> +	if (tp->mii.force_media)
+> +		call_netdevice_notifiers(NETDEV_CHANGE, dev);
+>  	return rc;
+>  }
+>  
 
-It think it's much cleaner to have the callers of route lookups do
-skb_set_dst_noref().
-
-Then you don't need any new interfaces, and you therefore don't need
-to expose bits of the noref implementation and semantics at all.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
