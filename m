@@ -1,33 +1,47 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] generalize VXLAN forwarding tables
-Date: Wed, 6 Mar 2013 10:50:52 -0800
-Message-ID: <20130306105052.05f7b9ca@nehalam.linuxnetplumber.net>
-References: <201302281927.r1SJQEmF024241@lab1.dls>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org
-To: David L Stevens <dlstevens@us.ibm.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH] 8139too: send NETDEV_CHANGE manually when autoneg is disabled
+Date: Wed,  6 Mar 2013 20:06:24 +0100
+Message-ID: <1362596784-19443-1-git-send-email-vfalico@redhat.com>
+Cc: wfp5p@virginia.edu, jasowang@redhat.com, junchangwang@gmail.com,
+	greearb@candelatech.com, ivecera@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f169.google.com ([209.85.210.169]:47259 "EHLO
-	mail-ia0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752799Ab3CFSu4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 13:50:56 -0500
-Received: by mail-ia0-f169.google.com with SMTP id j5so7801907iaf.28
-        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 10:50:56 -0800 (PST)
-In-Reply-To: <201302281927.r1SJQEmF024241@lab1.dls>
+Received: from mx1.redhat.com ([209.132.183.28]:56097 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752910Ab3CFTF4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Mar 2013 14:05:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 28 Feb 2013 14:26:14 -0500
-David L Stevens <dlstevens@us.ibm.com> wrote:
+When setting autoneg off (with any additional parameters, like
+speed/duplex), 8139too doesn't do an interface reset, and thus doesn't
+notify anyone that its speed/duplex might have changed (bonding and bridge
+will not see the speed changes, per example).
 
-> 
-> This is the iproute2 support allowing an administrator to specify alternate
-> ports, vnis and outgoing interfaces for VXLAN device forwarding tables.
-> 
-> Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
+Verify if we've force_media and send notification manually, so that the
+listeners have a chance to see the changes. It's quite ugly, however I
+don't see anything better.
 
-Resubmit patch when the kernel support (in neighbour.h) is upstream in Linus's kernel.
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+ drivers/net/ethernet/realtek/8139too.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+index 1276ac7..96ee18c 100644
+--- a/drivers/net/ethernet/realtek/8139too.c
++++ b/drivers/net/ethernet/realtek/8139too.c
+@@ -2393,6 +2393,11 @@ static int rtl8139_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	spin_lock_irq(&tp->lock);
+ 	rc = mii_ethtool_sset(&tp->mii, cmd);
+ 	spin_unlock_irq(&tp->lock);
++	/*
++	 * we don't restart on autoneg off, so notify manually
++	 */
++	if (tp->mii.force_media)
++		call_netdevice_notifiers(NETDEV_CHANGE, dev);
+ 	return rc;
+ }
+ 
+-- 
+1.7.1
