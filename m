@@ -1,87 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] tun: add a missing nf_reset() in tun_net_xmit()
-Date: Wed, 06 Mar 2013 13:02:37 -0800
-Message-ID: <1362603757.15793.186.camel@edumazet-glaptop>
-References: <20130306155955.GA24215@redhat.com>
-	 <1362588847.15793.180.camel@edumazet-glaptop>
-	 <20130306.154641.1893414808816499940.davem@davemloft.net>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH 1/3 net-next] tcp: refactor F-RTO
+Date: Wed, 6 Mar 2013 16:05:15 -0500
+Message-ID: <CADVnQy=xO5a2-_PdC2XobZOf5uFJEsx6Q-Abd3agkhexNeiX4Q@mail.gmail.com>
+References: <1362603130-16501-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, netdev@vger.kernel.org,
-	kernel-team@fedoraproject.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Nandita Dukkipati <nanditad@google.com>,
+	ilpo.jarvinen@cs.helsinki.fi, Netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:58548 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752971Ab3CFVCl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 16:02:41 -0500
-Received: by mail-pb0-f49.google.com with SMTP id xa12so6585954pbc.36
-        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 13:02:40 -0800 (PST)
-In-Reply-To: <20130306.154641.1893414808816499940.davem@davemloft.net>
+Received: from mail-ee0-f52.google.com ([74.125.83.52]:58522 "EHLO
+	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755336Ab3CFVFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 16:05:16 -0500
+Received: by mail-ee0-f52.google.com with SMTP id b15so6006065eek.11
+        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 13:05:15 -0800 (PST)
+In-Reply-To: <1362603130-16501-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, Mar 6, 2013 at 3:52 PM, Yuchung Cheng <ycheng@google.com> wrote:
+> The patch series refactor the F-RTO feature (RFC4138/5682).
+>
+> This is to simplify the loss recovery processing. Existing F-RTO
+> was developed during the experimental stage (RFC4138) and has
+> many experimental features.  It takes a separate code path from
+> the traditional timeout processing by overloading CA_Disorder
+> instead of using CA_Loss state. This complicates CA_Disorder state
+> handling because it's also used for handling dubious ACKs and undos.
+> While the algorithm in the RFC does not change the congestion control,
+> the implementation intercepts congestion control in various places
+> (e.g., frto_cwnd in tcp_ack()).
+>
+> The new code implements newer F-RTO RFC5682 using CA_Loss processing
+> path.  F-RTO becomes a small extension in the timeout processing
+> and interfaces with congestion control and Eifel undo modules.
+> It lets congestion control (module) determines how many to send
+> independently.  F-RTO only chooses what to send in order to detect
+> spurious retranmission. If timeout is found spurious it invokes
+> existing Eifel undo algorithms like DSACK or TCP timestamp based
+> detection.
+>
+> The first patch removes all F-RTO code except the sysctl_tcp_frto is
+> left for the new implementation.  Since CA_EVENT_FRTO is removed, TCP
+> westwood now computes ssthresh on regular timeout CA_EVENT_LOSS event.
+>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 
-Dave reported following crash :
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-general protection fault: 0000 [#1] SMP 
-CPU 2 
-Pid: 25407, comm: qemu-kvm Not tainted 3.7.9-205.fc18.x86_64 #1 Hewlett-Packard HP Z400 Workstation/0B4Ch
-RIP: 0010:[<ffffffffa0399bd5>]  [<ffffffffa0399bd5>] destroy_conntrack+0x35/0x120 [nf_conntrack]
-RSP: 0018:ffff880276913d78  EFLAGS: 00010206
-RAX: 50626b6b7876376c RBX: ffff88026e530d68 RCX: ffff88028d158e00
-RDX: ffff88026d0d5470 RSI: 0000000000000011 RDI: 0000000000000002
-RBP: ffff880276913d88 R08: 0000000000000000 R09: ffff880295002900
-R10: 0000000000000000 R11: 0000000000000003 R12: ffffffff81ca3b40
-R13: ffffffff8151a8e0 R14: ffff880270875000 R15: 0000000000000002
-FS:  00007ff3bce38a00(0000) GS:ffff88029fc40000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 00007fd1430bd000 CR3: 000000027042b000 CR4: 00000000000027e0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process qemu-kvm (pid: 25407, threadinfo ffff880276912000, task ffff88028c369720)
-Stack:
- ffff880156f59100 ffff880156f59100 ffff880276913d98 ffffffff815534f7
- ffff880276913db8 ffffffff8151a74b ffff880270875000 ffff880156f59100
- ffff880276913dd8 ffffffff8151a5a6 ffff880276913dd8 ffff88026d0d5470
-Call Trace:
- [<ffffffff815534f7>] nf_conntrack_destroy+0x17/0x20
- [<ffffffff8151a74b>] skb_release_head_state+0x7b/0x100
- [<ffffffff8151a5a6>] __kfree_skb+0x16/0xa0
- [<ffffffff8151a666>] kfree_skb+0x36/0xa0
- [<ffffffff8151a8e0>] skb_queue_purge+0x20/0x40
- [<ffffffffa02205f7>] __tun_detach+0x117/0x140 [tun]
- [<ffffffffa022184c>] tun_chr_close+0x3c/0xd0 [tun]
- [<ffffffff8119669c>] __fput+0xec/0x240
- [<ffffffff811967fe>] ____fput+0xe/0x10
- [<ffffffff8107eb27>] task_work_run+0xa7/0xe0
- [<ffffffff810149e1>] do_notify_resume+0x71/0xb0
- [<ffffffff81640152>] int_signal+0x12/0x17
-Code: 00 00 04 48 89 e5 41 54 53 48 89 fb 4c 8b a7 e8 00 00 00 0f 85 de 00 00 00 0f b6 73 3e 0f b7 7b 2a e8 10 40 00 00 48 85 c0 74 0e <48> 8b 40 28 48 85 c0 74 05 48 89 df ff d0 48 c7 c7 08 6a 3a a0 
-RIP  [<ffffffffa0399bd5>] destroy_conntrack+0x35/0x120 [nf_conntrack]
- RSP <ffff880276913d78>
-
-This is because tun_net_xmit() needs to call nf_reset()
-before queuing skb into receive_queue
-
-Reported-by: Dave Jones <davej@redhat.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- drivers/net/tun.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 2c6a22e..b7c457a 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -747,6 +747,8 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 		goto drop;
- 	skb_orphan(skb);
- 
-+	nf_reset(skb);
-+
- 	/* Enqueue packet */
- 	skb_queue_tail(&tfile->socket.sk->sk_receive_queue, skb);
- 
+neal
