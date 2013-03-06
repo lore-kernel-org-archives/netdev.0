@@ -1,53 +1,66 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH v1 7/7] usbnet: qmi_wwan: don't recover device if suspend fails in system sleep
-Date: Wed,  6 Mar 2013 18:25:56 +0800
-Message-ID: <1362565557-15884-8-git-send-email-ming.lei@canonical.com>
-References: <1362565557-15884-1-git-send-email-ming.lei@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1362565557-15884-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH net-next] r6040: check MDIO register busy waiting result
+Date: Wed,  6 Mar 2013 11:41:32 +0100
+Message-ID: <1362566492-28176-1-git-send-email-florian@openwrt.org>
+Cc: davem@davemloft.net, Florian Fainelli <florian@openwrt.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zmc.proxad.net ([212.27.53.206]:44658 "EHLO zmc.proxad.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755557Ab3CFKzW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Mar 2013 05:55:22 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If suspend callback fails in system sleep context, usb core will
-ignore the failure and let system sleep go ahead further, so
-this patch doesn't recover device under this situation.
+We are currently busy waiting for MDIO registers to complete their
+operation but we did not propagate the result back to the caller.
+Update r6040_phy_{read,write} to report the busy waiting result
+accordingly.
 
-Cc: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
 ---
- drivers/net/usb/qmi_wwan.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/rdc/r6040.c |   11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index efb5c7c..1b4367c 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -294,7 +294,7 @@ static int qmi_wwan_suspend(struct usb_interface *i=
-ntf, pm_message_t message)
-=20
- 	if (intf =3D=3D info->control && info->subdriver && info->subdriver->=
-suspend)
- 		ret =3D info->subdriver->suspend(intf, message);
--	if (ret < 0)
-+	if (ret < 0  && PMSG_IS_AUTO(message))
- 		usbnet_resume(intf);
- err:
- 	return ret;
---=20
-1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
+index 5b4103d..d5622ab 100644
+--- a/drivers/net/ethernet/rdc/r6040.c
++++ b/drivers/net/ethernet/rdc/r6040.c
+@@ -224,11 +224,14 @@ static int r6040_phy_read(void __iomem *ioaddr, int phy_addr, int reg)
+ 			break;
+ 	}
+ 
++	if (limit < 0)
++		return -ETIMEDOUT;
++
+ 	return ioread16(ioaddr + MMRD);
+ }
+ 
+ /* Write a word data from PHY Chip */
+-static void r6040_phy_write(void __iomem *ioaddr,
++static int r6040_phy_write(void __iomem *ioaddr,
+ 					int phy_addr, int reg, u16 val)
+ {
+ 	int limit = MAC_DEF_TIMEOUT;
+@@ -243,6 +246,8 @@ static void r6040_phy_write(void __iomem *ioaddr,
+ 		if (!(cmd & MDIO_WRITE))
+ 			break;
+ 	}
++
++	return (limit < 0) ? -ETIMEDOUT : 0;
+ }
+ 
+ static int r6040_mdiobus_read(struct mii_bus *bus, int phy_addr, int reg)
+@@ -261,9 +266,7 @@ static int r6040_mdiobus_write(struct mii_bus *bus, int phy_addr,
+ 	struct r6040_private *lp = netdev_priv(dev);
+ 	void __iomem *ioaddr = lp->base;
+ 
+-	r6040_phy_write(ioaddr, phy_addr, reg, value);
+-
+-	return 0;
++	return r6040_phy_write(ioaddr, phy_addr, reg, value);
+ }
+ 
+ static int r6040_mdiobus_reset(struct mii_bus *bus)
+-- 
+1.7.10.4
