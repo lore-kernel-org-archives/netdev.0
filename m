@@ -1,37 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: docs: document multiqueue tuntap API
-Date: Tue, 05 Mar 2013 23:54:01 -0500 (EST)
-Message-ID: <20130305.235401.548455441771005291.davem@davemloft.net>
-References: <1362539123-24863-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH] net/ipv4: Timestamp option cannot overflow with
+ prespecified addresses
+Date: Tue, 05 Mar 2013 23:54:11 -0500 (EST)
+Message-ID: <20130305.235411.1636938131431522651.davem@davemloft.net>
+References: <1362539192-9343-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: maxk@qti.qualcomm.com, rob@landley.net, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mst@redhat.com, hkchu@google.com
-To: jasowang@redhat.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1362539123-24863-1-git-send-email-jasowang@redhat.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: david.ward@ll.mit.edu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60818 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755251Ab3CFEyN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 23:54:13 -0500
+In-Reply-To: <1362539192-9343-1-git-send-email-david.ward@ll.mit.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Wed,  6 Mar 2013 11:05:23 +0800
+From: David Ward <david.ward@ll.mit.edu>
+Date: Tue, 5 Mar 2013 22:06:32 -0500
 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> When a router forwards a packet that contains the IPv4 timestamp option,
+> if there is no space left in the option for the router to add its own
+> timestamp, then the router increments the Overflow value in the option.
+> 
+> However, if the addresses of the routers are prespecified in the option,
+> then the overflow condition cannot happen: the option is structured so
+> that each prespecified router has a place to write its timestamp. Other
+> routers do not add a timestamp, so there will never be a lack of space.
+> 
+> This fix ensures that the Overflow value in the IPv4 timestamp option is
+> not incremented when the addresses of the routers are prespecified, even
+> if the Pointer value is greater than the Length value.
+> 
+> Signed-off-by: David Ward <david.ward@ll.mit.edu>
 
-Please fix these warnings emitted by GIT:
-
-Applying: net: docs: document multiqueue tuntap API
-/home/davem/src/GIT/net/.git/rebase-apply/patch:31: space before tab in indent.
-  	struct ifreq ifr;
-/home/davem/src/GIT/net/.git/rebase-apply/patch:32: space before tab in indent.
-  	int fd, err, i;
-/home/davem/src/GIT/net/.git/rebase-apply/patch:34: space before tab in indent.
-  	if (!dev)
-/home/davem/src/GIT/net/.git/rebase-apply/patch:35: space before tab in indent.
-  		return -1;
-/home/davem/src/GIT/net/.git/rebase-apply/patch:37: space before tab in indent.
-  	memset(&ifr, 0, sizeof(ifr));
-warning: squelched 29 whitespace errors
-warning: 34 lines add whitespace errors.
+Applied, thanks for fixing this.
