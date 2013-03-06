@@ -1,43 +1,62 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: [PATCH 3/3 net-next] tcp: implement RFC5682 F-RTO
-Date: Wed, 6 Mar 2013 13:34:10 -0800
-Message-ID: <CAGK4HS_Dguo846dT_hAocnSX2RFvg71Bx-Tu_Z8zm9HXaV2CcQ@mail.gmail.com>
-References: <1362603130-16501-1-git-send-email-ycheng@google.com>
-	<1362603130-16501-3-git-send-email-ycheng@google.com>
+From: Paul Moore <pmoore@redhat.com>
+Subject: [PATCH] netlabel: correctly list all the static label mappings
+Date: Wed, 06 Mar 2013 16:45:24 -0500
+Message-ID: <20130306214524.4965.59796.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, ncardwell@google.com, edumazet@google.com,
-	nanditad@google.com, ilpo.jarvinen@cs.helsinki.fi,
-	netdev@vger.kernel.org
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f41.google.com ([209.85.128.41]:39836 "EHLO
-	mail-qe0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752551Ab3CFVl1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 16:41:27 -0500
-Received: by mail-qe0-f41.google.com with SMTP id 6so5753707qeb.0
-        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 13:41:27 -0800 (PST)
-In-Reply-To: <1362603130-16501-3-git-send-email-ycheng@google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:51117 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754591Ab3CFVp0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Mar 2013 16:45:26 -0500
+Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r26LjPAX025798
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 6 Mar 2013 16:45:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6 March 2013 12:52, Yuchung Cheng <ycheng@google.com> wrote:
-> This patch implements F-RTO (foward RTO recovery):
->
+When we have a large number of static label mappings that spill across
+the netlink message boundary we fail to properly save our state in the
+netlink_callback struct which causes us to repeat the same listings.
+This patch fixes this problem by saving the state correctly between
+calls to the NetLabel static label netlink "dumpit" routines.
 
-You may want to fix the following checkpatch errors:
+Signed-off-by: Paul Moore <pmoore@redhat.com>
+Cc: stable@vger.kernel.org
+---
+ net/netlabel/netlabel_unlabeled.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-ERROR: trailing whitespace
-#129: FILE: net/ipv4/tcp_input.c:1893:
-+^I/* F-RTO RFC5682 sec 3.1 step 1: retransmit SND.UNA if no previous $
-
-ERROR: trailing whitespace
-#184: FILE: net/ipv4/tcp_input.c:2694:
-+^I^I^I/* Step 3.b. A timeout is spurious if not all data are $
-
-ERROR: trailing whitespace
-#216: FILE: net/ipv4/tcp_input.c:2722:
-+^I^I/* A Reno DUPACK means new data in F-RTO step 2.b above are $
-
-
--Vijay
+diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
+index 847d495..85742b7 100644
+--- a/net/netlabel/netlabel_unlabeled.c
++++ b/net/netlabel/netlabel_unlabeled.c
+@@ -1250,10 +1250,10 @@ static int netlbl_unlabel_staticlist(struct sk_buff *skb,
+ 
+ unlabel_staticlist_return:
+ 	rcu_read_unlock();
+-	cb->args[0] = skip_bkt;
+-	cb->args[1] = skip_chain;
+-	cb->args[2] = skip_addr4;
+-	cb->args[3] = skip_addr6;
++	cb->args[0] = iter_bkt;
++	cb->args[1] = iter_chain;
++	cb->args[2] = iter_addr4;
++	cb->args[3] = iter_addr6;
+ 	return skb->len;
+ }
+ 
+@@ -1320,8 +1320,8 @@ static int netlbl_unlabel_staticlistdef(struct sk_buff *skb,
+ 
+ unlabel_staticlistdef_return:
+ 	rcu_read_unlock();
+-	cb->args[0] = skip_addr4;
+-	cb->args[1] = skip_addr6;
++	cb->args[0] = iter_addr4;
++	cb->args[1] = iter_addr6;
+ 	return skb->len;
+ }
+ 
