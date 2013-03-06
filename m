@@ -1,48 +1,38 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH] netconsole: release the spinlock before __netpoll_cleanup()
-Date: Wed,  6 Mar 2013 15:46:43 +0100
-Message-ID: <1362581203-8994-1-git-send-email-vfalico@redhat.com>
-Cc: amwang@redhat.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH] netconsole: release the spinlock before
+ __netpoll_cleanup()
+Date: Wed, 06 Mar 2013 22:51:21 +0800
+Message-ID: <1362581481.4435.23.camel@cr0>
+References: <1362581203-8994-1-git-send-email-vfalico@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26387 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:9024 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757218Ab3CFOqP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Mar 2013 09:46:15 -0500
+	id S1758527Ab3CFOve (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Mar 2013 09:51:34 -0500
+In-Reply-To: <1362581203-8994-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 3335f0ca130c201f8680e97f63612053fbc16e22 removed spinlock unlocking
-before __netpoll_cleanup() in netconsole_netdev_event(), however we still
-might sleep in __netpoll_cleanup() - via synchronize_srcu(). Revert it and
-add a comment.
+On Wed, 2013-03-06 at 15:46 +0100, Veaceslav Falico wrote:
+> Commit 3335f0ca130c201f8680e97f63612053fbc16e22 removed spinlock unlocking
+> before __netpoll_cleanup() in netconsole_netdev_event(), however we still
+> might sleep in __netpoll_cleanup() - via synchronize_srcu(). Revert it and
+> add a comment.
+> 
 
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/netconsole.c |   10 ++++++++++
- 1 files changed, 10 insertions(+), 0 deletions(-)
+synchronize_srcu() was actually introduced by Neil:
 
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index 37add21..dd62b4c 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -680,7 +680,17 @@ static int netconsole_netdev_event(struct notifier_block *this,
- 				 * rtnl_lock already held
- 				 */
- 				if (nt->np.dev) {
-+					/*
-+					 * we still might sleep in
-+					 * __netpoll_cleanup(), so release
-+					 * the lock
-+					 */
-+					spin_unlock_irqrestore(
-+							      &target_list_lock,
-+							      flags);
- 					__netpoll_cleanup(&nt->np);
-+					spin_lock_irqsave(&target_list_lock,
-+							  flags);
- 					dev_put(nt->np.dev);
- 					nt->np.dev = NULL;
- 				}
--- 
-1.7.1
+commit ca99ca14c95ae49fb4c9cd3abf5f84d11a7e8a61
+Author: Neil Horman <nhorman@tuxdriver.com>
+Date:   Tue Feb 5 08:05:43 2013 +0000
+
+    netpoll: protect napi_poll and poll_controller during dev_[open|
+close]
+
+Cc'ing him.
