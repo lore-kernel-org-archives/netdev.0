@@ -1,174 +1,28 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH net-next] bond: add support to read speed and duplex via
- ethtool
-Date: Wed, 6 Mar 2013 14:48:16 -0500
-Message-ID: <20130306194816.GA19544@gospo.rdu.redhat.com>
-References: <1362595173-11442-1-git-send-email-andy@greyhouse.net>
- <CAE3RKN=d2WmY9Sf-fOuWuTJk+O9_OxZeKPTfjMwWS3iQh2B7ig@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next,repost 0/2] team: introduce random mode
+Date: Wed, 06 Mar 2013 14:55:34 -0500 (EST)
+Message-ID: <20130306.145534.655861606864345437.davem@davemloft.net>
+References: <1362569473-4310-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Veaceslav Falico <darkmag@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, fbl@redhat.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37346 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753532Ab3CFTwe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Mar 2013 14:52:34 -0500
-Content-Disposition: inline
-In-Reply-To: <CAE3RKN=d2WmY9Sf-fOuWuTJk+O9_OxZeKPTfjMwWS3iQh2B7ig@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58696 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752700Ab3CFTzg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 14:55:36 -0500
+In-Reply-To: <1362569473-4310-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 06, 2013 at 08:13:06PM +0100, Veaceslav Falico wrote:
-> On Wed, Mar 6, 2013 at 7:39 PM, Andy Gospodarek <andy@greyhouse.net> wrote:
-> > This patch adds support for the get_settings ethtool op to the bonding
-> > driver.  This was motivated by users who wanted to get the speed of the
-> > bond and compare that against throughput to understand utilization.
-> > The behavior before this patch was added was problematic when computing
-> > line utilization after trying to get link-speed and throughput via SNMP.
-> >
-> > The general plan for computing link-speed was as follows:
-> >
-> > Mode                 Formula
-> > ----                 -------
-> > active-backup        speed of current active slave
-> > broadcast            speed of first slave with known speed
-> > all other modes      aggregate speed of all slaves with known speed
-> >
-> > Output from ethtool looks like this for a round-robin bond:
-> >
-> > Settings for bond0:
-> >         Supported ports: [ ]
-> >         Supported link modes:   Not reported
-> >         Supported pause frame use: No
-> >         Supports auto-negotiation: No
-> >         Advertised link modes:  Not reported
-> >         Advertised pause frame use: No
-> >         Advertised auto-negotiation: No
-> >         Speed: 11000Mb/s
-> >         Duplex: Full
-> >         Port: Twisted Pair
-> >         PHYAD: 0
-> >         Transceiver: internal
-> >         Auto-negotiation: off
-> >         MDI-X: Unknown
-> >         Link detected: yes
-> >
-> > I tested this and verified it works as expected.  A test was also done
-> > on a version backported to an older kernel and it worked well there.
-> >
-> > Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> > ---
-> >  drivers/net/bonding/bond_main.c | 47 +++++++++++++++++++++++++++++++++++++++++
-> >  1 file changed, 47 insertions(+)
-> >
-> > diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> > index 7bd068a..6e70ff0 100644
-> > --- a/drivers/net/bonding/bond_main.c
-> > +++ b/drivers/net/bonding/bond_main.c
-> > @@ -4224,6 +4224,52 @@ void bond_set_mode_ops(struct bonding *bond, int mode)
-> >         }
-> >  }
-> >
-> > +static int bond_ethtool_get_settings(struct net_device *bond_dev,
-> > +                                    struct ethtool_cmd *ecmd)
-> > +{
-> > +       struct bonding *bond = netdev_priv(bond_dev);
-> > +       struct slave *slave;
-> > +       int i;
-> > +       unsigned long speed = 0;
-> > +
-> > +       ecmd->speed = SPEED_UNKNOWN;
-> > +       ecmd->duplex = DUPLEX_UNKNOWN;
-> > +
-> > +       read_lock(&bond->lock);
-> > +       switch (bond->params.mode) {
-> > +       case BOND_MODE_ACTIVEBACKUP:
-> > +               read_lock(&bond->curr_slave_lock);
-> > +               if (bond->curr_active_slave &&
-> > +                   bond->curr_active_slave->speed != SPEED_UNKNOWN) {
-> > +                       ecmd->speed = bond->curr_active_slave->speed;
-> > +                       ecmd->duplex = bond->curr_active_slave->duplex;
-> > +               }
-> > +               read_unlock(&bond->curr_slave_lock);
-> > +               break;
-> > +       case BOND_MODE_BROADCAST:
-> > +               bond_for_each_slave(bond, slave, i) {
-> > +                       if (slave->speed != SPEED_UNKNOWN) {
-> > +                               ecmd->speed = slave->speed;
-> > +                               ecmd->duplex = slave->duplex;
-> 
-> Maybe it should be 'the smallest speed (and then duplex)' here? In
-> broadcast we send all packets
-> through all the slaves, so the effective speed/duplex would be the
-> speed/duplex of the slowest slave.
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed,  6 Mar 2013 12:31:11 +0100
 
+> Jiri Pirko (2):
+>   team: introduce two default team_modeop functions and use them in
+>     modes
+>   team: introduce random mode
 
-My read of the transmit side of bonding is that broadcast mode will
-send frames to all drivers via dev_queue_xmit without checking return
-codes, so frames on faster interfaces will be send while those on slower
-ones will be dropped in the driver, dropped in hardware or reqeued.
-
-If sending UDP traffic frames would still go out at the max rate of one
-of the interfaces.  This means there is a chance that a mixed bond (a
-10Gbps interface with a 1Gbps interface) could both send at 100%
-capacity even though one was an order of magnitude faster than another.
-
-I considered setting to either the max speed or minimum speed, but
-decided against it as I really could not decide which was better.  It
-would work just fine to use broadcast mode with different speeds, but I
-decided that reporting only the speed of the first interface that was up
-would provide an additional way for admins to notice there might be a
-problem in their configuration.
-
-I'm happy to do either if others would like to see that and we can come
-up with a good reason to use max over minimum.
-
-> 
-> > +                               break;
-> > +                       }
-> > +               }
-> > +               break;
-> > +       default:
-> > +               bond_for_each_slave(bond, slave, i) {
-> > +                       if (slave->speed != SPEED_UNKNOWN) {
-> > +                               speed += slave->speed;
-> > +                       }
-> > +                       if (ecmd->duplex == DUPLEX_UNKNOWN &&
-> > +                           slave->duplex != DUPLEX_UNKNOWN)
-> > +                               ecmd->duplex = slave->duplex;
-> > +               }
-> > +               ecmd->speed = speed;
-> > +       }
-> > +       read_unlock(&bond->lock);
-> > +       return 0;
-> > +}
-> > +
-> >  static void bond_ethtool_get_drvinfo(struct net_device *bond_dev,
-> >                                      struct ethtool_drvinfo *drvinfo)
-> >  {
-> > @@ -4235,6 +4281,7 @@ static void bond_ethtool_get_drvinfo(struct net_device *bond_dev,
-> >
-> >  static const struct ethtool_ops bond_ethtool_ops = {
-> >         .get_drvinfo            = bond_ethtool_get_drvinfo,
-> > +       .get_settings           = bond_ethtool_get_settings,
-> >         .get_link               = ethtool_op_get_link,
-> >  };
-> >
-> > --
-> > 1.7.11.7
-> >
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
-> 
-> -- 
-> Best regards,
-> Veaceslav Falico
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Both applied, thanks Jiri.
