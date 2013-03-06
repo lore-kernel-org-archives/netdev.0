@@ -1,54 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] bnx2x: use the default NAPI weight
-Date: Tue, 05 Mar 2013 19:28:29 -0800
-Message-ID: <1362540509.15793.158.camel@edumazet-glaptop>
-References: <1362535067.15793.146.camel@edumazet-glaptop>
-	 <20130305.210909.1826827522208936437.davem@davemloft.net>
+From: ratheesh kannoth <ratheesh.ksz@gmail.com>
+Subject: igb_down from bottom half context
+Date: Wed, 6 Mar 2013 09:38:03 +0530
+Message-ID: <CAGZFCEHrzDDtO8HGaUhuUb_vNddKyiXPzasnkvTqLOqS9SwaDw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-newbie <linux-newbie@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f171.google.com ([209.85.210.171]:59911 "EHLO
-	mail-ia0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755065Ab3CFD2c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 22:28:32 -0500
-Received: by mail-ia0-f171.google.com with SMTP id z13so6975188iaz.16
-        for <netdev@vger.kernel.org>; Tue, 05 Mar 2013 19:28:31 -0800 (PST)
-In-Reply-To: <20130305.210909.1826827522208936437.davem@davemloft.net>
+Received: from mail-ve0-f176.google.com ([209.85.128.176]:32949 "EHLO
+	mail-ve0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750961Ab3CFEIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 23:08:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-03-05 at 21:09 -0500, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 05 Mar 2013 17:57:47 -0800
-> 
-> > BQL (Byte Queue Limits) proper operation needs TX completion
-> > being serviced in a timely fashion.
-> > 
-> > bnx2x uses a non standard NAPI poll weight, and thats not fair to other
-> > napi poll handlers, and even not reasonable.
-> 
-> Can you give some details about the situation in which you noticed
-> this?
-> 
-> It may be reason enough to target this for 'net' and -stable instead.
+I  have kernel timer which  check for flag.
 
-Sure :
+if(flag ) {
+          igb_down(adapter);
+ } else {
+         igb_up(adapter);
+ }
 
-We are facing a fanout/fanin problem for a given application.
 
-What happens is that link is mostly idle, and every couple of minutes,
-we receive a burst of messages, needing a burst of transmits.
+I could see a kernel crash; because  there are a lot of  msleep() in
+igb_down function.
 
-BQL starts with a limit of 0, meaning it needs some TX completion runs
-to be able to detect the sudden increase of TX need and reach line rate.
+#define msleep(x)    do { set_current_state(TASK_UNINTERRUPTIBLE); \
+                                schedule_timeout((x * HZ)/1000 + 2); \
+                              } while (0)
 
-bnx2x is really unfair in this scenario, because the NAPI poll budget is
-very high, and aggregated packets (by LRO) count for a single packet in
-the budget. (or even 0, see the "goto next_cqe;" that avoids the rx_pkt
-++; in drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c line 1007)
+sleep() is called from bottom half context; this is the cause of kernel crash.
 
-We probably have other issues in the stack, I am patiently finding all
-of them. In the mean time we had to disable BQL :(
+1) Since timer call back dont have process context associated with it;
+i think , "current" points to the last preempted task ?
+2) How can i introduce delays in interrupt context to avoid the kernel
+crash. mdelay()  will work ?
+3) is there any better mechanism to do this job ?
+
+Thanks,
+Ratheesh
