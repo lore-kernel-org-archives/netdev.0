@@ -1,29 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] net: cs89x0: use module_platform_driver_probe()
-Date: Tue, 05 Mar 2013 23:59:09 -0500 (EST)
-Message-ID: <20130305.235909.713047600418140992.davem@davemloft.net>
-References: <005101ce194b$04f4d980$0ede8c80$%han@samsung.com>
-	<005301ce194b$44ca8e10$ce5faa30$%han@samsung.com>
+Subject: Re: [PATCH net-next 1/2] net: introduce NAPI_POLL_WEIGHT
+Date: Tue, 05 Mar 2013 23:59:17 -0500 (EST)
+Message-ID: <20130305.235917.920355614898666298.davem@davemloft.net>
+References: <1362535042.15793.144.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jg1.han@samsung.com
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60881 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60885 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753671Ab3CFE7K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 23:59:10 -0500
-In-Reply-To: <005301ce194b$44ca8e10$ce5faa30$%han@samsung.com>
+	with ESMTP id S1753671Ab3CFE7S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Mar 2013 23:59:18 -0500
+In-Reply-To: <1362535042.15793.144.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jingoo Han <jg1.han@samsung.com>
-Date: Tue, 05 Mar 2013 11:43:50 +0900
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 05 Mar 2013 17:57:22 -0800
 
-> This patch uses module_platform_driver_probe() macro which makes
-> the code smaller and simpler.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+> Some drivers use a too big NAPI poll weight.
+> 
+> This patch adds a NAPI_POLL_WEIGHT default value
+> and issues an error message if a driver attempts
+> to use a bigger weight.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Eilon Greenstein <eilong@broadcom.com>
 
 Applied.
