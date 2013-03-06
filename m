@@ -1,9 +1,9 @@
 From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH v1 4/7] usbnet: cdc_mbim: don't recover device if suspend fails in system sleep
-Date: Wed, 06 Mar 2013 13:04:05 +0100
-Message-ID: <877glkohu2.fsf@nemi.mork.no>
+Subject: Re: [PATCH v1 7/7] usbnet: qmi_wwan: don't recover device if suspend fails in system sleep
+Date: Wed, 06 Mar 2013 13:07:03 +0100
+Message-ID: <8738w8ohp4.fsf@nemi.mork.no>
 References: <1362565557-15884-1-git-send-email-ming.lei@canonical.com>
-	<1362565557-15884-5-git-send-email-ming.lei@canonical.com>
+	<1362565557-15884-8-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -14,11 +14,15 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
 	linux-usb@vger.kernel.org, linux-input@vger.kernel.org
 To: Ming Lei <ming.lei@canonical.com>
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <1362565557-15884-5-git-send-email-ming.lei@canonical.com> (Ming
-	Lei's message of "Wed, 6 Mar 2013 18:25:53 +0800")
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:46568 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757494Ab3CFMHw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 07:07:52 -0500
+In-Reply-To: <1362565557-15884-8-git-send-email-ming.lei@canonical.com> (Ming
+	Lei's message of "Wed, 6 Mar 2013 18:25:56 +0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Ming Lei <ming.lei@canonical.com> writes:
 
@@ -29,45 +33,29 @@ Ming Lei <ming.lei@canonical.com> writes:
 > Cc: Bj=C3=B8rn Mork <bjorn@mork.no>
 > Signed-off-by: Ming Lei <ming.lei@canonical.com>
 > ---
->  drivers/net/usb/cdc_mbim.c |    2 +-
+>  drivers/net/usb/qmi_wwan.c |    2 +-
 >  1 file changed, 1 insertion(+), 1 deletion(-)
 >
-> diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
-> index 248d2dc..ec58c2c 100644
-> --- a/drivers/net/usb/cdc_mbim.c
-> +++ b/drivers/net/usb/cdc_mbim.c
-> @@ -338,7 +338,7 @@ static int cdc_mbim_suspend(struct usb_interface =
+> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+> index efb5c7c..1b4367c 100644
+> --- a/drivers/net/usb/qmi_wwan.c
+> +++ b/drivers/net/usb/qmi_wwan.c
+> @@ -294,7 +294,7 @@ static int qmi_wwan_suspend(struct usb_interface =
 *intf, pm_message_t message)
 > =20
->  	if (intf =3D=3D ctx->control && info->subdriver && info->subdriver-=
->suspend)
+>  	if (intf =3D=3D info->control && info->subdriver && info->subdriver=
+->suspend)
 >  		ret =3D info->subdriver->suspend(intf, message);
 > -	if (ret < 0)
-> +	if (ret < 0 && PMSG_IS_AUTO(message))
+> +	if (ret < 0  && PMSG_IS_AUTO(message))
 >  		usbnet_resume(intf);
-> =20
->  error:
+>  err:
+>  	return ret;
 
-This condition will never happen because the subdriver callback always
-return 0 if !PMSG_IS_AUTO(message), so adding anything here is purely
-for documentation purposes.  That is OK for me.  But I do not see any
-point adding incomplete or wrong documentation.=20
-
-The above is incomplete because it ignores the failure and still return
-an error. And it is wrong because we ignore an error we cannot possibly
-handle in resume.  Only the subdriver can do that, which is why we must
-delegate this to the subdriver.
-
-I believe the correct here is to document the fact that we require the
-subdriver->suspend() callback to always return 0 if !PMSG_IS_AUTO(messa=
-ge).
-That is best done with a comment. No need to add any redundant code.
+Same comment as for cdc_mbim: This is more confusing than helpful
+because it makes it look like qmi_wwan_suspend can return an error on
+system suspend.  Better adding a comment explaining why the original
+code is OK.
 
 
 Bj=C3=B8rn
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-input" =
-in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
