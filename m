@@ -1,30 +1,71 @@
-From: =?UTF-8?Q?Sjur_Br=C3=A6ndeland?= <sjurbren@gmail.com>
-Subject: Re: [PATCH] CAIF: fix indentation for function arguments
-Date: Wed, 6 Mar 2013 23:36:32 +0100
-Message-ID: <CAJK669ZrEEWX293W+C88xEw4e133yuwz+VJ5cbrsEKXECDQ-8Q@mail.gmail.com>
-References: <1362606521-16848-1-git-send-email-silviupopescu1990@gmail.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: hv_netvsc: WARNING in softirq.c
+Date: Wed, 6 Mar 2013 22:45:11 +0000
+Message-ID: <4147bb5a7cf547c19c6a5a6b459a957d@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <20130228083437.GA28143@lnx-rg>
+ <78fd1c1df13b449887de6e0b3505a988@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <CACQ1gAgyYp+Dxmk-0C3zfKK+CkEwQX51NvWjzkV7=8GC3CD=Qg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org,
-	Erwan YVIN <Erwan.Yvin@stericsson.com>
-To: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+Content-Type: multipart/mixed;
+	boundary="_002_4147bb5a7cf547c19c6a5a6b459a957dDFMDB3MBX1506exchangeco_"
+Cc: KY Srinivasan <kys@microsoft.com>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Richard Genoud <richard.genoud@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1362606521-16848-1-git-send-email-silviupopescu1990@gmail.com>
+In-Reply-To: <CACQ1gAgyYp+Dxmk-0C3zfKK+CkEwQX51NvWjzkV7=8GC3CD=Qg@mail.gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 6, 2013 at 10:48 PM, Silviu-Mihai Popescu
-<silviupopescu1990@gmail.com> wrote:
-> This lines up function arguments on second and subsequent lines at th=
-e
-> first column after the openning parenthesis of the first line.
->
-> Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+--_002_4147bb5a7cf547c19c6a5a6b459a957dDFMDB3MBX1506exchangeco_
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 
-There is quite a bit of churn for stuff not even noticed by checkpatch =
---strict,
-but it does improve the style...
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogUmljaGFyZCBHZW5vdWQg
+W21haWx0bzpyaWNoYXJkLmdlbm91ZEBnbWFpbC5jb21dDQo+IFNlbnQ6IEZyaWRheSwgTWFyY2gg
+MDEsIDIwMTMgMzozOSBBTQ0KPiBUbzogSGFpeWFuZyBaaGFuZw0KPiBDYzogS1kgU3Jpbml2YXNh
+bjsgZGV2ZWxAbGludXhkcml2ZXJwcm9qZWN0Lm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsN
+Cj4gbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogaHZfbmV0dnNj
+OiBXQVJOSU5HIGluIHNvZnRpcnEuYw0KPiANCj4gMjAxMy8yLzI4IEhhaXlhbmcgWmhhbmcgPGhh
+aXlhbmd6QG1pY3Jvc29mdC5jb20+Og0KPiA+IFdlIHdpbGwgbG9vayBpbnRvIHRoaXMuIEFuZCBm
+dXJ0aGVyIGluZm8gYXJvdW5kIHRoZSB0aW1lIHdpbGwgYWxzbyBiZQ0KPiBoZWxwZnVsLg0KPiA+
+DQo+ID4gVGhhbmtzLA0KPiA+IC0gSGFpeWFuZw0KPiANCj4gVGhlIG9ubHkgdGhpbmcgdGhlIGFk
+bWluIHN5cyBjb3VsZCB0aGluayBhYm91dCBpcyBhIHJzeW5jIHByb2Nlc3MNCj4gYmV0d2VlbiB0
+aGUgd2luZG93cyBob3N0IGFuZCBBTk9USEVSIGxpbnV4IGd1ZXN0IHRoYXQgZW5kcyBhdCAyMmgz
+MA0KPiBtb3JlIG9yIGxlc3MuDQo+ICh0aGUgb3RoZXIgbGludXggZ3Vlc3QgaXMgYSBkZWJpYW4g
+Niwgd2l0aG91dCBhbnkgSFYgZHJpdmVyKQ0KDQpJIGhhdmUgZm91bmQgYSBzaW1wbGUgd2F5IHRv
+IHJlcHJvZHVjZSB0aGlzIGtpbmQgb2Ygd2FybmluZzoNCjEpIHJlYm9vdCB0aGUgVk0gKGJlY2F1
+c2UgdGhpcyB3YXJuaW5nIGNhbiBiZSBkaXNwbGF5ZWQgb25seSBvbmNlLikNCjIpIGxvZ2luIHRv
+IHRoZSBob3N0IGFuZCBvcGVuIHRoZSBWTSBbU2V0dGluZ3NdDQozKSBUZW1wb3JhcmlseSBjaGFu
+Z2UgdGhlIE5ldHdvcmsgYWRhcHRlcidzIG9wdGlvbiBbVmlydHVhbCBTd2l0Y2hdIHRvICJOb3Qg
+Y29ubmVjdGVkIi4NCjQpIHJ1biBkbWVzZywgeW91IHNob3VsZCBzZWUgdGhlIHdhcm5pbmcuDQoN
+ClRoZSByZWFzb24gZm9yIHRoZSB3YXJuaW5nIGlzIC0tIG5ldGlmX3R4X2Rpc2FibGUoKSBpcyBj
+YWxsZWQgd2hlbiB0aGUgTklDDQppcyBkaXNjb25uZWN0ZWQuIEFuZCBpdCdzIGNhbGxlZCB3aXRo
+aW4gaXJxIGNvbnRleHQuIG5ldGlmX3R4X2Rpc2FibGUoKQ0KY2FsbHMgbG9jYWxfYmhfZW5hYmxl
+KCkgd2hpY2ggZGlzcGxheXMgd2FybmluZyBpZiBpbiBpcnEuDQoNClRoZSBmaXggaXMgdG8gcmVt
+b3ZlIHRoZSB1bm5lY2Vzc2FyeSBuZXRpZl90eF9kaXNhYmxlKCkgaW4gdGhlIG5ldHZzY19saW5r
+c3RhdHVzX2NhbGxiYWNrKCkuDQpJIGF0dGFjaGVkIGEgcGF0Y2guIFdvdWxkIHlvdSBsaWtlIHRv
+IHRlc3QgaXQgb24geW91ciBzaWRlIGFzIHdlbGw/DQoNClRoYW5rcywNCi0gSGFpeWFuZw0KDQo=
 
-Acked-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+--_002_4147bb5a7cf547c19c6a5a6b459a957dDFMDB3MBX1506exchangeco_
+Content-Type: application/octet-stream; name="net_stat_warn_test.patch"
+Content-Description: net_stat_warn_test.patch
+Content-Disposition: attachment; filename="net_stat_warn_test.patch";
+	size=562; creation-date="Wed, 06 Mar 2013 22:31:09 GMT";
+	modification-date="Wed, 06 Mar 2013 22:57:28 GMT"
+Content-Transfer-Encoding: base64
+
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMgYi9kcml2ZXJzL25l
+dC9oeXBlcnYvbmV0dnNjX2Rydi5jCmluZGV4IDVmODUyMDUuLjgzNDFiNjIgMTAwNjQ0Ci0tLSBh
+L2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMKKysrIGIvZHJpdmVycy9uZXQvaHlwZXJ2
+L25ldHZzY19kcnYuYwpAQCAtMjQxLDEzICsyNDEsMTEgQEAgdm9pZCBuZXR2c2NfbGlua3N0YXR1
+c19jYWxsYmFjayhzdHJ1Y3QgaHZfZGV2aWNlICpkZXZpY2Vfb2JqLAogCiAJaWYgKHN0YXR1cyA9
+PSAxKSB7CiAJCW5ldGlmX2NhcnJpZXJfb24obmV0KTsKLQkJbmV0aWZfd2FrZV9xdWV1ZShuZXQp
+OwogCQluZGV2X2N0eCA9IG5ldGRldl9wcml2KG5ldCk7CiAJCXNjaGVkdWxlX2RlbGF5ZWRfd29y
+aygmbmRldl9jdHgtPmR3b3JrLCAwKTsKIAkJc2NoZWR1bGVfZGVsYXllZF93b3JrKCZuZGV2X2N0
+eC0+ZHdvcmssIG1zZWNzX3RvX2ppZmZpZXMoMjApKTsKIAl9IGVsc2UgewogCQluZXRpZl9jYXJy
+aWVyX29mZihuZXQpOwotCQluZXRpZl90eF9kaXNhYmxlKG5ldCk7CiAJfQogfQogCg==
+
+--_002_4147bb5a7cf547c19c6a5a6b459a957dDFMDB3MBX1506exchangeco_--
