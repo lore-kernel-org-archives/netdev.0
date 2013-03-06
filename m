@@ -1,54 +1,82 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: igb_down from bottom half context
-Date: Wed, 6 Mar 2013 17:38:06 +0000
-Message-ID: <1362591486.3126.1.camel@bwh-desktop.uk.solarflarecom.com>
-References: <CAGZFCEHrzDDtO8HGaUhuUb_vNddKyiXPzasnkvTqLOqS9SwaDw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <e1000-devel@lists.sourceforge.net>, <netdev@vger.kernel.org>,
-	linux-newbie <linux-newbie@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: ratheesh kannoth <ratheesh.ksz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:65334 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753454Ab3CFRi1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 12:38:27 -0500
-In-Reply-To: <CAGZFCEHrzDDtO8HGaUhuUb_vNddKyiXPzasnkvTqLOqS9SwaDw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bhavesh Davda <bhavesh@vmware.com>
+Subject: [PATCH net-next] vmxnet3: prevent div-by-zero panic when ring resizing uninitialized dev
+Date: Wed,  6 Mar 2013 09:46:24 -0800
+Message-ID: <1362591984-16587-1-git-send-email-bhavesh@vmware.com>
+Cc: pv-drivers@vmware.com, Bhavesh Davda <bhavesh@vmware.com>,
+	Shreyas N Bhatewara <sbhatewara@vmware.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-03-06 at 09:38 +0530, ratheesh kannoth wrote:
-> I  have kernel timer which  check for flag.
-> 
-> if(flag ) {
->           igb_down(adapter);
->  } else {
->          igb_up(adapter);
->  }
-> 
-> 
-> I could see a kernel crash; because  there are a lot of  msleep() in
-> igb_down function.
-> 
-> #define msleep(x)    do { set_current_state(TASK_UNINTERRUPTIBLE); \
->                                 schedule_timeout((x * HZ)/1000 + 2); \
->                               } while (0)
-> 
-> sleep() is called from bottom half context; this is the cause of kernel crash.
-> 
-> 1) Since timer call back dont have process context associated with it;
-> i think , "current" points to the last preempted task ?
-> 2) How can i introduce delays in interrupt context to avoid the kernel
-> crash. mdelay()  will work ?
-> 3) is there any better mechanism to do this job ?
+Linux is free to call ethtool ops as soon as a netdev exists when probe
+finishes. However, we only allocate vmxnet3 tx/rx queues and initialize the
+rx_buf_per_pkt field in struct vmxnet3_adapter when the interface is
+opened (UP).
 
-Use a work item and schedule_work().
+Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
+Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c     |    3 ++-
+ drivers/net/vmxnet3/vmxnet3_ethtool.c |    6 ++++++
+ drivers/net/vmxnet3/vmxnet3_int.h     |    4 ++--
+ 3 files changed, 10 insertions(+), 3 deletions(-)
 
-Ben.
-
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 4aad350..bfc5898 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -2922,7 +2922,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 				    (int)num_online_cpus());
+ 	else
+ #endif
+-		num_rx_queues = 1;
++	num_rx_queues = 1;
+ 	num_rx_queues = rounddown_pow_of_two(num_rx_queues);
+ 
+ 	if (enable_mq)
+@@ -2958,6 +2958,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 
+ 	adapter->num_rx_queues = num_rx_queues;
+ 	adapter->num_tx_queues = num_tx_queues;
++	adapter->rx_buf_per_pkt = 1;
+ 
+ 	size = sizeof(struct Vmxnet3_TxQueueDesc) * adapter->num_tx_queues;
+ 	size += sizeof(struct Vmxnet3_RxQueueDesc) * adapter->num_rx_queues;
+diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+index a0feb17..0a4fc9e 100644
+--- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
++++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+@@ -472,6 +472,12 @@ vmxnet3_set_ringparam(struct net_device *netdev,
+ 						VMXNET3_RX_RING_MAX_SIZE)
+ 		return -EINVAL;
+ 
++	/* if adapter not yet initialized, do nothing */
++	if (adapter->rx_buf_per_pkt == 0) {
++		netdev_info(netdev,
++				"adapter not completely initialized, ring size cannot be changed yet\n");
++		return -EOPNOTSUPP;
++	}
+ 
+ 	/* round it up to a multiple of VMXNET3_RING_SIZE_ALIGN */
+ 	new_tx_ring_size = (param->tx_pending + VMXNET3_RING_SIZE_MASK) &
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index 3198384..3541814 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -70,10 +70,10 @@
+ /*
+  * Version numbers
+  */
+-#define VMXNET3_DRIVER_VERSION_STRING   "1.1.29.0-k"
++#define VMXNET3_DRIVER_VERSION_STRING   "1.1.30.0-k"
+ 
+ /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
+-#define VMXNET3_DRIVER_VERSION_NUM      0x01011D00
++#define VMXNET3_DRIVER_VERSION_NUM      0x01011E00
+ 
+ #if defined(CONFIG_PCI_MSI)
+ 	/* RSS only makes sense if MSI-X is supported. */
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.1
