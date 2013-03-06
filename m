@@ -1,81 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] bnx2x: use the default NAPI weight
-Date: Tue, 05 Mar 2013 23:03:18 -0800
-Message-ID: <1362553398.15793.168.camel@edumazet-glaptop>
-References: <1362535067.15793.146.camel@edumazet-glaptop>
-	 <20130305.210909.1826827522208936437.davem@davemloft.net>
-	 <1362540509.15793.158.camel@edumazet-glaptop>
-	 <20130305.233744.498353801662910535.davem@davemloft.net>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH 4/7] usbnet: cdc_mbim: don't recover device if suspend fails in system sleep
+Date: Wed, 06 Mar 2013 08:06:10 +0100
+Message-ID: <87k3plnh25.fsf@nemi.mork.no>
+References: <1362456103-24956-1-git-send-email-ming.lei@canonical.com>
+	<1362456103-24956-5-git-send-email-ming.lei@canonical.com>
+	<87boayqq5c.fsf@nemi.mork.no>
+	<CACVXFVMRpf0REYxfi1wtzUpXn2PTCeS6qNfYQP12tW8ca3Sp=g@mail.gmail.com>
+	<87d2veot6t.fsf@nemi.mork.no>
+	<CACVXFVOg9cVNYsRuAVkexwy4hvD_iJm_vARRksBAeiWppWnoXA@mail.gmail.com>
+	<871ubtq47a.fsf@nemi.mork.no>
+	<CACVXFVMDNtJOp+8jMOuhCBjrqq-L=jicEJBr_=ErG19Vr+7OGw@mail.gmail.com>
+	<87wqtlommw.fsf@nemi.mork.no>
+	<CACVXFVMMtjfea2N7ZMp1j0q_kcg95_RVx6COQ3hGSaxxwftEaw@mail.gmail.com>
+	<CACVXFVN=i10cVS3RQ7jGrJAfsC+r2t61z7XOVKWMAMqKKELZCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:45824 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753378Ab3CFHDV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 02:03:21 -0500
-Received: by mail-ie0-f179.google.com with SMTP id k11so9049453iea.10
-        for <netdev@vger.kernel.org>; Tue, 05 Mar 2013 23:03:21 -0800 (PST)
-In-Reply-To: <20130305.233744.498353801662910535.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CACVXFVN=i10cVS3RQ7jGrJAfsC+r2t61z7XOVKWMAMqKKELZCg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+	(Ming Lei's message of "Wed, 6 Mar 2013 11:03:40 +0800")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-03-05 at 23:37 -0500, David Miller wrote:
+Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> writes:
+> On Wed, Mar 6, 2013 at 10:51 AM, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wr=
+ote:
+>> On Wed, Mar 6, 2013 at 12:08 AM, Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wro=
+te:
+>>
+>>> I guess proper error handling here require the USB core to see the
+>>> interface driver as dead if it fails to suspend on system suspend, =
+and
+>>> do forced rebinding on resume.
+>>
+>> The idea should be fine, but may cause regression of user space, sup=
+pose
+>> one device with suspend failure can be across suspend-resume cycle a=
+nd
+>> work well before, but it is no longer with your forced rebinding.
+>
+> Give the potential cost(user space regression) of doing rebind, I thi=
+nk it
+> is better to try to recover the device in resume() first, then
+> consider rebinding
+> as the last straw.  In fact, I am also wondering if resume() can't re=
+cover one
+> device but probe() can, maybe we can always let resume() recover the
+> device which experienced suspend failure.
 
-> Thanks for the explanation.
-> 
-> Since you haven't completely resolved the issues you were running into
-> I'll target this to net-next for now.
+Yes, sure. Drivers wanting to do this, anticipating typical errors, can
+still return 0 from suspend and do whatever they want in resume.
 
-Thanks David
+My proposal is to make the USB core properly deal with drivers returnin=
+g
+an error from suspend, and also document the fact that a driver should
+always return 0 on system suspend unless it really want forced unbindin=
+g
+on suspend errors.
 
-An other issue is the spin_trylock() attempted in net_tx_action()
+> I remember that some guys went against rebinding during system sleep =
+before
+> in the firmware loading discussion.
 
-It seems we can miss a qdisc_run(), and have to wait the following
-NET_TX softirq(s) to send more data. NET_RX being interleaved, we can
-have to wait a long time (not mentioning other softirq handlers like
-RCU ...)
+Yes, that is probably relevant. I'll look it up.  Thanks for the
+pointer.
 
-I might be too tired right now, but cant see the reason of the trylock.
 
-qdisc lock is already BH safe, so we should do a spinlock
-
-I'll test the following patch tomorrow :
-
- net/core/dev.c |   21 +++++----------------
- 1 file changed, 5 insertions(+), 16 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a06a7a5..d5d4573 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3201,22 +3201,11 @@ static void net_tx_action(struct softirq_action *h)
- 			head = head->next_sched;
- 
- 			root_lock = qdisc_lock(q);
--			if (spin_trylock(root_lock)) {
--				smp_mb__before_clear_bit();
--				clear_bit(__QDISC_STATE_SCHED,
--					  &q->state);
--				qdisc_run(q);
--				spin_unlock(root_lock);
--			} else {
--				if (!test_bit(__QDISC_STATE_DEACTIVATED,
--					      &q->state)) {
--					__netif_reschedule(q);
--				} else {
--					smp_mb__before_clear_bit();
--					clear_bit(__QDISC_STATE_SCHED,
--						  &q->state);
--				}
--			}
-+			spin_lock(root_lock);
-+			smp_mb__before_clear_bit();
-+			clear_bit(__QDISC_STATE_SCHED, &q->state);
-+			qdisc_run(q);
-+			spin_unlock(root_lock);
- 		}
- 	}
- }
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
