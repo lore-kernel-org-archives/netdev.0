@@ -1,36 +1,43 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] 8139too: send NETDEV_CHANGE manually when autoneg is disabled
-Date: Wed, 6 Mar 2013 22:35:11 +0100
-Message-ID: <20130306213511.GA11331@electric-eye.fr.zoreil.com>
-References: <1362596784-19443-1-git-send-email-vfalico@redhat.com> <1362601372.3126.23.camel@bwh-desktop.uk.solarflarecom.com> <20130306.155323.344491888348815531.davem@davemloft.net>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [PATCH 3/3 net-next] tcp: implement RFC5682 F-RTO
+Date: Wed, 6 Mar 2013 13:34:10 -0800
+Message-ID: <CAGK4HS_Dguo846dT_hAocnSX2RFvg71Bx-Tu_Z8zm9HXaV2CcQ@mail.gmail.com>
+References: <1362603130-16501-1-git-send-email-ycheng@google.com>
+	<1362603130-16501-3-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bhutchings@solarflare.com, vfalico@redhat.com,
-	netdev@vger.kernel.org, wfp5p@virginia.edu, jasowang@redhat.com,
-	junchangwang@gmail.com, greearb@candelatech.com, ivecera@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, ncardwell@google.com, edumazet@google.com,
+	nanditad@google.com, ilpo.jarvinen@cs.helsinki.fi,
+	netdev@vger.kernel.org
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:41339 "EHLO violet"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754065Ab3CFVf7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Mar 2013 16:35:59 -0500
-Content-Disposition: inline
-In-Reply-To: <20130306.155323.344491888348815531.davem@davemloft.net>
+Received: from mail-qe0-f41.google.com ([209.85.128.41]:39836 "EHLO
+	mail-qe0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752551Ab3CFVl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 16:41:27 -0500
+Received: by mail-qe0-f41.google.com with SMTP id 6so5753707qeb.0
+        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 13:41:27 -0800 (PST)
+In-Reply-To: <1362603130-16501-3-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> :
-> From: Ben Hutchings <bhutchings@solarflare.com>
-[...]
-> > Isn't this really a bug in mii_check_media()?  It shouldn't shortcut the
-> > calls to netif_carrier_{off,on}() just because mii->force_media is set.
-> 
-> I think mii_check_media() is responsible for handling this too.
+On 6 March 2013 12:52, Yuchung Cheng <ycheng@google.com> wrote:
+> This patch implements F-RTO (foward RTO recovery):
+>
 
-There are a few drivers that use mii_ethtool_sset as 8139too does
-while not relying upon mii_check_media.
+You may want to fix the following checkpatch errors:
 
-What ought to be done for those ?
+ERROR: trailing whitespace
+#129: FILE: net/ipv4/tcp_input.c:1893:
++^I/* F-RTO RFC5682 sec 3.1 step 1: retransmit SND.UNA if no previous $
 
--- 
-Ueimor
+ERROR: trailing whitespace
+#184: FILE: net/ipv4/tcp_input.c:2694:
++^I^I^I/* Step 3.b. A timeout is spurious if not all data are $
+
+ERROR: trailing whitespace
+#216: FILE: net/ipv4/tcp_input.c:2722:
++^I^I/* A Reno DUPACK means new data in F-RTO step 2.b above are $
+
+
+-Vijay
