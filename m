@@ -1,44 +1,111 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] net: docs: document multiqueue tuntap API
-Date: Wed, 06 Mar 2013 13:16:11 +0800
-Message-ID: <5136D11B.9050905@redhat.com>
-References: <1362539123-24863-1-git-send-email-jasowang@redhat.com> <20130305.235401.548455441771005291.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: maxk@qti.qualcomm.com, rob@landley.net, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mst@redhat.com, hkchu@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20130305.235401.548455441771005291.davem@davemloft.net>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [V2 PATCH] net: docs: document multiqueue tuntap API
+Date: Wed,  6 Mar 2013 13:10:26 +0800
+Message-ID: <1362546626-29119-1-git-send-email-jasowang@redhat.com>
+Cc: mst@redhat.com, hkchu@google.com, Jason Wang <jasowang@redhat.com>
+To: davem@davemloft.net, maxk@qti.qualcomm.com, rob@landley.net,
+	linux-doc@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:16680 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750753Ab3CFFTc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Mar 2013 00:19:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/06/2013 12:54 PM, David Miller wrote:
-> From: Jason Wang <jasowang@redhat.com>
-> Date: Wed,  6 Mar 2013 11:05:23 +0800
->
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> Please fix these warnings emitted by GIT:
->
-> Applying: net: docs: document multiqueue tuntap API
-> /home/davem/src/GIT/net/.git/rebase-apply/patch:31: space before tab in indent.
->   	struct ifreq ifr;
-> /home/davem/src/GIT/net/.git/rebase-apply/patch:32: space before tab in indent.
->   	int fd, err, i;
-> /home/davem/src/GIT/net/.git/rebase-apply/patch:34: space before tab in indent.
->   	if (!dev)
-> /home/davem/src/GIT/net/.git/rebase-apply/patch:35: space before tab in indent.
->   		return -1;
-> /home/davem/src/GIT/net/.git/rebase-apply/patch:37: space before tab in indent.
->   	memset(&ifr, 0, sizeof(ifr));
-> warning: squelched 29 whitespace errors
-> warning: 34 lines add whitespace errors.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ Documentation/networking/tuntap.txt |   77 +++++++++++++++++++++++++++++++++++
+ 1 files changed, 77 insertions(+), 0 deletions(-)
 
-My bad, will send v2.
+diff --git a/Documentation/networking/tuntap.txt b/Documentation/networking/tuntap.txt
+index c0aab98..949d5dc 100644
+--- a/Documentation/networking/tuntap.txt
++++ b/Documentation/networking/tuntap.txt
+@@ -105,6 +105,83 @@ Copyright (C) 1999-2000 Maxim Krasnyansky <max_mk@yahoo.com>
+      Proto [2 bytes]
+      Raw protocol(IP, IPv6, etc) frame.
+ 
++  3.3 Multiqueue tuntap interface:
++
++  From version 3.8, Linux supports multiqueue tuntap which can uses multiple
++  file descriptors (queues) to parallelize packets sending or receiving. The
++  device allocation is the same as before, and if user wants to create multiple
++  queues, TUNSETIFF with the same device name must be called many times with
++  IFF_MULTI_QUEUE flag.
++
++  char *dev should be the name of the device, queues is the number of queues to
++  be created, fds is used to store and return the file descriptors (queues)
++  created to the caller. Each file descriptor were served as the interface of a
++  queue which could be accessed by userspace.
++
++  #include <linux/if.h>
++  #include <linux/if_tun.h>
++
++  int tun_alloc_mq(char *dev, int queues, int *fds)
++  {
++      struct ifreq ifr;
++      int fd, err, i;
++
++      if (!dev)
++          return -1;
++
++      memset(&ifr, 0, sizeof(ifr));
++      /* Flags: IFF_TUN   - TUN device (no Ethernet headers)
++       *        IFF_TAP   - TAP device
++       *
++       *        IFF_NO_PI - Do not provide packet information
++       *        IFF_MULTI_QUEUE - Create a queue of multiqueue device
++       */
++      ifr.ifr_flags = IFF_TAP | IFF_NO_PI | IFF_MULTI_QUEUE;
++      strcpy(ifr.ifr_name, dev);
++
++      for (i = 0; i < queues; i++) {
++          if ((fd = open("/dev/net/tun", O_RDWR)) < 0)
++             goto err;
++          err = ioctl(fd, TUNSETIFF, (void *)&ifr);
++          if (err) {
++             close(fd);
++             goto err;
++          }
++          fds[i] = fd;
++      }
++
++      return 0;
++  err:
++      for (--i; i >= 0; i--)
++          close(fds[i]);
++      return err;
++  }
++
++  A new ioctl(TUNSETQUEUE) were introduced to enable or disable a queue. When
++  calling it with IFF_DETACH_QUEUE flag, the queue were disabled. And when
++  calling it with IFF_ATTACH_QUEUE flag, the queue were enabled. The queue were
++  enabled by default after it was created through TUNSETIFF.
++
++  fd is the file descriptor (queue) that we want to enable or disable, when
++  enable is true we enable it, otherwise we disable it
++
++  #include <linux/if.h>
++  #include <linux/if_tun.h>
++
++  int tun_set_queue(int fd, int enable)
++  {
++      struct ifreq ifr;
++
++      memset(&ifr, 0, sizeof(ifr));
++
++      if (enable)
++         ifr.ifr_flags = IFF_ATTACH_QUEUE;
++      else
++         ifr.ifr_flags = IFF_DETACH_QUEUE;
++
++      return ioctl(fd, TUNSETQUEUE, (void *)&ifr);
++  }
++
+ Universal TUN/TAP device driver Frequently Asked Question.
+    
+ 1. What platforms are supported by TUN/TAP driver ?
+-- 
+1.7.1
