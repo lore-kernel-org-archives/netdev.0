@@ -1,72 +1,88 @@
-From: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Subject: kernel panic in fib6_age (linux-3.6.6) and sugguested fix
-Date: Wed, 6 Mar 2013 23:36:08 +0800
-Message-ID: <CAABZP2xs4qm7j75Hu5BaXuWOF3ddzrZPJxbTGhxpOvwHxA75Uw@mail.gmail.com>
+From: Dave Jones <davej@redhat.com>
+Subject: destroy_conntrack GPF in 3.7.9
+Date: Wed, 6 Mar 2013 10:59:55 -0500
+Message-ID: <20130306155955.GA24215@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
+Cc: Fedora Kernel Team <kernel-team@fedoraproject.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:50204 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757845Ab3CFPgJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 10:36:09 -0500
-Received: by mail-pb0-f49.google.com with SMTP id xa12so6119907pbc.22
-        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 07:36:08 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:45077 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753262Ab3CFP77 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Mar 2013 10:59:59 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi,
-  My linux-3.6.6 kernel panics very often during reboot.
-  I have reported in bugzilla.kernel.org as bug id 54731.
+I know 3.7.9 is EOL, but this code doesn't look like it's changed in current.
+(unless the cause/fix was in code unrelated to these paths)
 
-Kernel panic backtrace (using remote gdb):
-#0  0xffffffff8176a91a in fib6_age (rt=0xffff8800571c6780, arg=0x0
-<irq_stack_union>) at net/ipv6/ip6_fib.c:1566
-#1  0xffffffff8176a461 in fib6_clean_node (w=0xffff8800655fb4e8) at
-net/ipv6/ip6_fib.c:1422
-#2  0xffffffff8176a266 in fib6_walk_continue (w=0xffff8800655fb4e8) at
-net/ipv6/ip6_fib.c:1362
-#3  0xffffffff8176a3d5 in fib6_walk (w=0xffff8800655fb4e8) at
-net/ipv6/ip6_fib.c:1406
-#4  0xffffffff8176a59d in fib6_clean_tree (net=0xffffffff81edb300 <init_net>,
-root=0xffff880036c41950
-...
-gdb>p neigh
-(gdb) p neigh
-$18 = (struct neighbour *) 0xffffffffffffff97
+A user reported the following GPF..
+
+general protection fault: 0000 [#1] SMP 
+Modules linked in: ipheth fuse ebtable_nat xt_CHECKSUM bridge stp llc ip6t_REJECT iptable_mangle nf_conntrack(-) ebtable_filter ebtables snd_hda_codec_realtek snd_hda_intel snd_hda_codec snd_hwdep snd_seq snd_seq_device snd_pcm snd_page_alloc hp_wmi snd_timer coretemp iTCO_wdt tg3 snd sparse_keymap rfkill soundcore iTCO_vendor_support lpc_ich i7core_edac edac_core serio_raw microcode mfd_core vhost_net tun macvtap macvlan kvm_intel kvm binfmt_misc uinput nouveau mxm_wmi crc32c_intel video i2c_algo_bit drm_kms_helper ttm firewire_ohci firewire_core drm crc_itu_t i2c_core wmi [last unloaded: xt_conntrack]
+CPU 2 
+Pid: 25407, comm: qemu-kvm Not tainted 3.7.9-205.fc18.x86_64 #1 Hewlett-Packard HP Z400 Workstation/0B4Ch
+RIP: 0010:[<ffffffffa0399bd5>]  [<ffffffffa0399bd5>] destroy_conntrack+0x35/0x120 [nf_conntrack]
+RSP: 0018:ffff880276913d78  EFLAGS: 00010206
+RAX: 50626b6b7876376c RBX: ffff88026e530d68 RCX: ffff88028d158e00
+RDX: ffff88026d0d5470 RSI: 0000000000000011 RDI: 0000000000000002
+RBP: ffff880276913d88 R08: 0000000000000000 R09: ffff880295002900
+R10: 0000000000000000 R11: 0000000000000003 R12: ffffffff81ca3b40
+R13: ffffffff8151a8e0 R14: ffff880270875000 R15: 0000000000000002
+FS:  00007ff3bce38a00(0000) GS:ffff88029fc40000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: 00007fd1430bd000 CR3: 000000027042b000 CR4: 00000000000027e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process qemu-kvm (pid: 25407, threadinfo ffff880276912000, task ffff88028c369720)
+Stack:
+ ffff880156f59100 ffff880156f59100 ffff880276913d98 ffffffff815534f7
+ ffff880276913db8 ffffffff8151a74b ffff880270875000 ffff880156f59100
+ ffff880276913dd8 ffffffff8151a5a6 ffff880276913dd8 ffff88026d0d5470
+Call Trace:
+ [<ffffffff815534f7>] nf_conntrack_destroy+0x17/0x20
+ [<ffffffff8151a74b>] skb_release_head_state+0x7b/0x100
+ [<ffffffff8151a5a6>] __kfree_skb+0x16/0xa0
+ [<ffffffff8151a666>] kfree_skb+0x36/0xa0
+ [<ffffffff8151a8e0>] skb_queue_purge+0x20/0x40
+ [<ffffffffa02205f7>] __tun_detach+0x117/0x140 [tun]
+ [<ffffffffa022184c>] tun_chr_close+0x3c/0xd0 [tun]
+ [<ffffffff8119669c>] __fput+0xec/0x240
+ [<ffffffff811967fe>] ____fput+0xe/0x10
+ [<ffffffff8107eb27>] task_work_run+0xa7/0xe0
+ [<ffffffff810149e1>] do_notify_resume+0x71/0xb0
+ [<ffffffff81640152>] int_signal+0x12/0x17
+Code: 00 00 04 48 89 e5 41 54 53 48 89 fb 4c 8b a7 e8 00 00 00 0f 85 de 00 00 00 0f b6 73 3e 0f b7 7b 2a e8 10 40 00 00 48 85 c0 74 0e <48> 8b 40 28 48 85 c0 74 05 48 89 df ff d0 48 c7 c7 08 6a 3a a0 
+RIP  [<ffffffffa0399bd5>] destroy_conntrack+0x35/0x120 [nf_conntrack]
+ RSP <ffff880276913d78>
 
 
 
-There are a lot of ipv6 nodes in my link local environment, and the kernel
-report IPv6: Neighbour table overflow constantly.
+        /* To make sure we don't get any weird locking issues here:
+         * destroy_conntrack() MUST NOT be called with a write lock
+         * to nf_conntrack_lock!!! -HW */
+        rcu_read_lock();
+        l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
+    1378:       0f b6 b3 86 00 00 00    movzbl 0x86(%rbx),%esi
+    137f:       0f b7 7b 72             movzwl 0x72(%rbx),%edi
+    1383:       e8 00 00 00 00          callq  1388 <destroy_conntrack+0x78>
+        if (l4proto && l4proto->destroy)
+    1388:       48 85 c0                test   %rax,%rax
+    138b:       74 0e                   je     139b <destroy_conntrack+0x8b>
+    138d:       48 8b 40 28             mov    0x28(%rax),%rax    <-----  HERE
+    1391:       48 85 c0                test   %rax,%rax
+    1394:       74 05                   je     139b <destroy_conntrack+0x8b>
+                l4proto->destroy(ct);
+    1396:       48 89 df                mov    %rbx,%rdi
+    1399:       ff d0                   callq  *%rax
 
-I guess the cause of the panic is:
-dst_neigh_lookup calls ip6_neigh_lookup indirectly, and neigh_create return
-ENOBUFS in case of neighbour table full.
-139 static struct neighbour *ip6_neigh_lookup(const struct dst_entry *dst,
-140                                           struct sk_buff *skb,
-141                                           const void *daddr)
-142 {
-143         struct rt6_info *rt = (struct rt6_info *) dst;
-144         struct neighbour *n;
-145
-146         daddr = choose_neigh_daddr(rt, skb, daddr);
-147         n = __ipv6_neigh_lookup(&nd_tbl, dst->dev, daddr);
-148         if (n)
-149                 return n;
-150         return neigh_create(&nd_tbl, daddr, dst->dev);
-151 }
 
-A possible fix may be:
+l4proto (%rax) is garbage (0x50626b6b7876376c) which looks a little like ascii,
+but P>kkxv7l doesn't mean much to me.
 
-            neigh = dst_neigh_lookup(&rt->dst, &rt->rt6i_gateway);
-+           if (IS_ERR(neigh))
-+             return PTR_ERR(neigh);
-            else{
-                     neigh_flags = neigh->flags;
-                     neigh_release(neigh);
-            }
+https://bugzilla.redhat.com/show_bug.cgi?id=917792 is the original report, but
+there aren't any further details yet.
 
-Thanks for your attention
-
-Zhouyi
+	Dave
