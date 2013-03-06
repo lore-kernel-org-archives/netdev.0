@@ -1,30 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vmxnet3: prevent div-by-zero panic when ring
- resizing uninitialized dev
-Date: Wed, 06 Mar 2013 17:09:37 -0500 (EST)
-Message-ID: <20130306.170937.1089663491363176160.davem@davemloft.net>
-References: <1362591984-16587-1-git-send-email-bhavesh@vmware.com>
-	<1362607493-5634-1-git-send-email-bhavesh@vmware.com>
+From: =?UTF-8?Q?Sjur_Br=C3=A6ndeland?= <sjurbren@gmail.com>
+Subject: Re: [PATCH] CAIF: fix indentation for function arguments
+Date: Wed, 6 Mar 2013 23:36:32 +0100
+Message-ID: <CAJK669ZrEEWX293W+C88xEw4e133yuwz+VJ5cbrsEKXECDQ-8Q@mail.gmail.com>
+References: <1362606521-16848-1-git-send-email-silviupopescu1990@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pv-drivers@vmware.com, sbhatewara@vmware.com
-To: bhavesh@vmware.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org,
+	Erwan YVIN <Erwan.Yvin@stericsson.com>
+To: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1362607493-5634-1-git-send-email-bhavesh@vmware.com>
+In-Reply-To: <1362606521-16848-1-git-send-email-silviupopescu1990@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bhavesh Davda <bhavesh@vmware.com>
-Date: Wed,  6 Mar 2013 14:04:53 -0800
+On Wed, Mar 6, 2013 at 10:48 PM, Silviu-Mihai Popescu
+<silviupopescu1990@gmail.com> wrote:
+> This lines up function arguments on second and subsequent lines at th=
+e
+> first column after the openning parenthesis of the first line.
+>
+> Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
 
-> Linux is free to call ethtool ops as soon as a netdev exists when probe
-> finishes. However, we only allocate vmxnet3 tx/rx queues and initialize the
-> rx_buf_per_pkt field in struct vmxnet3_adapter when the interface is
-> opened (UP).
-> 
-> Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
-> Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
+There is quite a bit of churn for stuff not even noticed by checkpatch =
+--strict,
+but it does improve the style...
 
-Maybe this is more appropriate for 'net' rather than 'net-next'?
+Acked-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
