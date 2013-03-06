@@ -1,37 +1,36 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH BUGFIX 2/6] pkt_sched: fix the update of eligible-group sets
-Date: Wed, 6 Mar 2013 10:05:58 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7178@saturn3.aculab.com>
-References: <20130226.173700.882998504986475149.davem@davemloft.net> <1362506702-4985-1-git-send-email-paolo.valente@unimore.it> <1362506702-4985-3-git-send-email-paolo.valente@unimore.it>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<fchecconi@gmail.com>, <rizzo@iet.unipi.it>
-To: "Paolo valente" <paolo.valente@unimore.it>,
-	"Jamal Hadi Salim" <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>, <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1362506702-4985-3-git-send-email-paolo.valente@unimore.it>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH v1 0/7] USB: don't recover device if suspend fails in system sleep
+Date: Wed,  6 Mar 2013 18:25:49 +0800
+Message-ID: <1362565557-15884-1-git-send-email-ming.lei@canonical.com>
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-input@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Kosina <jkosina@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f50.google.com ([209.85.210.50]:62881 "EHLO
+	mail-da0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750870Ab3CFK0M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 05:26:12 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Between two invocations of make_eligible, the system virtual time may
-> happen to grow enough that, in its binary representation, a bit with
-> higher order than 31 flips. This happens especially with
-> TSO/GSO. Before this fix, the mask used in make_eligible was computed
-> as (1UL<<index_of_last_flipped_bit)-1, whose value is well defined on
-> a 64-bit architecture, because index_of_flipped_bit <= 63, but is in
-> general undefined on a 32-bit architecture if index_of_flipped_bit > 31.
-> The fix just replaces 1UL with 1ULL.
-...
-> -		unsigned long mask = (1UL << fls(vslot ^ old_vslot)) - 1;
-> +		unsigned long mask = (1ULL << fls(vslot ^ old_vslot)) - 1;
+Hi,
 
-I'm not sure you really want to be doing 64bit shifts on 32 bit
-systems just to generate ~0ul.
-probably worth a conditional.
+This patch adds comments on interface driver suspend callback
+to emphasize that the failure return value is ignored by
+USB core in system sleep context, so do not try to recover
+device for this case, otherwise the recovery things may confuse
+resume().
 
-	David
+Also fixes the USB serial, HID and several usbnet drivers
+which may recover device in suspend failure path of system sleep.
+
+v1:
+	- fix compile failure
+	- add comments about handling suspend failure in resume()
+
+Thanks,
+--
+Ming Lei
