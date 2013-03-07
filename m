@@ -1,47 +1,55 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] VSOCK: Split vm_sockets.h into kernel/uapi
-Date: Fri, 8 Mar 2013 07:24:53 +0800
-Message-ID: <20130307232453.GD10304@kroah.com>
-References: <1362669973-26984-1-git-send-email-acking@vmware.com>
-	<26621.1362675490@warthog.procyon.org.uk>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next 00/12] IPVS optimizations
+Date: Fri, 8 Mar 2013 01:46:58 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1303080124340.3035@ja.ssi.bg>
+References: <1362559342-18784-1-git-send-email-ja@ssi.bg> <1362650966.18590.127.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andy King <acking@vmware.com>, pv-drivers@vmware.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net
-To: David Howells <dhowells@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <26621.1362675490@warthog.procyon.org.uk>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1362650966.18590.127.camel@localhost>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 07, 2013 at 04:58:10PM +0000, David Howells wrote:
-> Andy King <acking@vmware.com> wrote:
+
+	Hello,
+
+On Thu, 7 Mar 2013, Jesper Dangaard Brouer wrote:
+
+> On Wed, 2013-03-06 at 10:42 +0200, Julian Anastasov wrote:
+> > 	This is a first patchset for IPVS optimizations.
+> > Another patchset will address the locking in schedulers
+> > and moving the global _bh disabling from LOCAL_OUT to all
+> > locks. It is in TODO list.
 > 
-> > Split the vSockets header into kernel and UAPI parts.  The former gets the bits
-> > that used to be in __KERNEL__ guards, while the latter gets everything that is
-> > user-visible.  Tested by compiling vsock (+transport) and a simple user-mode
-> > vSockets application.
-> > 
-> > Reported-by: David Howells <dhowells@redhat.com>
-> > Acked-by: Dmitry Torokhov <dtor@vmware.com>
-> > Signed-off-by: Andy King <acking@vmware.com>
-> 
-> Acked-by: David Howells <dhowells@redhat.com>
+> Do you have any performance measurements?
 
-David, is there any rush to get stuff like this into 3.9 for any
-uapi-type changes, or can it just wait for 3.10?
+	Unfortunately, I don't have suitable
+hardware to do real tests, only virtual setup.
 
-thanks,
+> Or is this code primarily cleanup optimizations, and the next patchset
+> will address the performance part?
 
-greg k-h
+	This patchset converts all global locks to RCU,
+except the __ip_vs_svc_lock usage. The states in
+some schedulers probably will need some protection
+with lock as before now, others like WLC and LC will
+run (after patchset2) just under RCU lock for the 
+svc->destinations list. But I'll need some time to
+finalize this 2nd patchset because there are other
+patches in the queue...
+
+	So, the answer is that packets that create
+connections (via schedulers) hit this __ip_vs_svc_lock
+with read_lock and some write lock in scheduler.
+This happens only when connection is created. Next packets
+should not reach any global locks in IPVS. The cached
+dst->refcnt is not changed anymore for traffic to
+real server.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
