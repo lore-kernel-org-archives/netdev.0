@@ -1,92 +1,171 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net 1/3] e1000e: fix pci-device enable-counter balance
-Date: Thu, 07 Mar 2013 03:19:48 -0800
-Message-ID: <1362655188.4164.37.camel@jtkirshe-mobl>
-References: <1362654925-26088-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1362654925-26088-2-git-send-email-jeffrey.t.kirsher@intel.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH] bgmac: register MII bus
+Date: Thu,  7 Mar 2013 12:42:03 +0100
+Message-ID: <1362656523-23081-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-lTySrsg3Ae7IlYq6PRbP"
-Cc: Konstantin Khlebnikov <khlebnikov@openvz.org>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Stable <stable@vger.kernel.org>
-To: davem@davemloft.net
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1362654925-26088-2-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f47.google.com ([74.125.83.47]:41030 "EHLO
+	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932455Ab3CGLmL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 06:42:11 -0500
+Received: by mail-ee0-f47.google.com with SMTP id e52so216406eek.34
+        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 03:42:10 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=-lTySrsg3Ae7IlYq6PRbP
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bgmac.c |   80 +++++++++++++++++++++++++=
++++++++-
+ drivers/net/ethernet/broadcom/bgmac.h |    1 +
+ 2 files changed, 80 insertions(+), 1 deletion(-)
 
-On Thu, 2013-03-07 at 03:15 -0800, Jeff Kirsher wrote:
-> From: Konstantin Khlebnikov <khlebnikov@openvz.org>
->=20
-> This patch removes redundant and unbalanced pci_disable_device() from
-> __e1000_shutdown(). pci_clear_master() is enough, device can go into
-> suspended state with elevated enable_cnt.
->=20
-> Bug was introduced in commit 23606cf5d1192c2b17912cb2ef6e62f9b11de133
-> ("e1000e / PCI / PM: Add basic runtime PM support (rev. 4)") in v2.6.35
->=20
-> Cc: Bruce Allan <bruce.w.allan@intel.com>
-
-CC: stable <stable@vger.kernel.org>
-
-This time with the correct email for stable.
-
-> Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
-> Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-> Tested-by: Borislav Petkov <bp@suse.de>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/eth=
-ernet/intel/e1000e/netdev.c
-> index a177b8b..1799021 100644
-> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> @@ -5986,7 +5986,7 @@ static int __e1000_shutdown(struct pci_dev *pdev, b=
-ool *enable_wake,
->  	 */
->  	e1000e_release_hw_control(adapter);
-> =20
-> -	pci_disable_device(pdev);
-> +	pci_clear_master(pdev);
-> =20
->  	return 0;
->  }
-
-
-
---=-lTySrsg3Ae7IlYq6PRbP
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
-
-iQIcBAABCgAGBQJROHfUAAoJEOVv75VaS+3OaMAP/1+uu/V7bFpTDw01a6snLheD
-nnnruma296iAWZHmhx8MvX9hfa/G1XxCdXr1KLXA8U61CW3/4IemO6LL2SqwDli8
-TQfx7bqLT6eN6+knDH0hMbgSknQRCfKjZTvLLoJSFjuYe/23m0IiswXJWf6AKH19
-Bf6LKHp2bxZ7eVElDDXi6zvnZz3cHtcmDbtO7QXxNSVh0kXzQJsf1NNgEqAxh/Qz
-yAlT5V1rKcDVipknr7Jfczu7sYHOzaqmn4TlbaZCCVz4I/gPDL24xXtmolXiQ+gQ
-FDFlmSAVEPBipi9jbHACbgQH7e8fZQJRH1eG16Ry744luOadW1laa1uYAa/9ruVW
-cWXeObq6LYuUxhFyRf4Pkv7OVrgztJMnZxCT6myKZqeYPPGOmMk5HvLfFNTutjHj
-86Z3nZjTP3qQ1Hx0dyWtvxCBn+lKT/ToLdvRlzT3vJIO82BLlsx0horQz6AmyuQy
-U7CHDukMqb/yj3joCz+TAzQ/rNf5QpZRe17FCmbnPpw6fv467hwPsGs2Kqh81tzZ
-LCHhikPYCDM9Z2r+H/4jK4G8vewMAgB8GMJlRksRzn+h2Xj7X2DqU0vEYn/MJSWV
-4/tistTbAT1u5jOwVfWxLMirefFLrFhCaetVpj48J5ylhG1eYGQjSblOrEsl6RnT
-LpXVJDCOIqQol+DhYYMl
-=gNEy
------END PGP SIGNATURE-----
-
---=-lTySrsg3Ae7IlYq6PRbP--
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
+et/broadcom/bgmac.c
+index da5f439..e5af5fb 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -13,6 +13,7 @@
+ #include <linux/delay.h>
+ #include <linux/etherdevice.h>
+ #include <linux/mii.h>
++#include <linux/phy.h>
+ #include <linux/interrupt.h>
+ #include <linux/dma-mapping.h>
+ #include <bcm47xx_nvram.h>
+@@ -1313,6 +1314,73 @@ static const struct ethtool_ops bgmac_ethtool_op=
+s =3D {
+ };
+=20
+ /**************************************************
++ * MII
++ **************************************************/
++
++static int bgmac_mii_read(struct mii_bus *bus, int mii_id, int regnum)
++{
++	return bgmac_phy_read(bus->priv, mii_id, regnum);
++}
++
++static int bgmac_mii_write(struct mii_bus *bus, int mii_id, int regnum=
+,
++			   u16 value)
++{
++	return bgmac_phy_write(bus->priv, mii_id, regnum, value);
++}
++
++static int bgmac_mii_register(struct bgmac *bgmac)
++{
++	struct mii_bus *mii_bus;
++	int i, err =3D 0;
++
++	mii_bus =3D mdiobus_alloc();
++	if (!mii_bus)
++		return -ENOMEM;
++
++	mii_bus->name =3D "bgmac mii bus";
++	sprintf(mii_bus->id, "%s-%d-%d", "bgmac", bgmac->core->bus->num,
++		bgmac->core->core_unit);
++	mii_bus->priv =3D bgmac;
++	mii_bus->read =3D bgmac_mii_read;
++	mii_bus->write =3D bgmac_mii_write;
++	mii_bus->parent =3D &bgmac->core->dev;
++	mii_bus->phy_mask =3D ~(1 << bgmac->phyaddr);
++
++	mii_bus->irq =3D kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
++	if (!mii_bus->irq) {
++		err =3D -ENOMEM;
++		goto err_free_bus;
++	}
++	for (i =3D 0; i < PHY_MAX_ADDR; i++)
++		mii_bus->irq[i] =3D PHY_POLL;
++
++	err =3D mdiobus_register(mii_bus);
++	if (err) {
++		bgmac_err(bgmac, "Registration of mii bus failed\n");
++		goto err_free_irq;
++	}
++
++	bgmac->mii_bus =3D mii_bus;
++
++	return err;
++
++err_free_irq:
++	kfree(mii_bus->irq);
++err_free_bus:
++	mdiobus_free(mii_bus);
++	return err;
++}
++
++static void bgmac_mii_unregister(struct bgmac *bgmac)
++{
++	struct mii_bus *mii_bus =3D bgmac->mii_bus;
++
++	mdiobus_unregister(mii_bus);
++	kfree(mii_bus->irq);
++	mdiobus_free(mii_bus);
++}
++
++/**************************************************
+  * BCMA bus ops
+  **************************************************/
+=20
+@@ -1404,11 +1472,18 @@ static int bgmac_probe(struct bcma_device *core=
+)
+ 	if (core->bus->sprom.boardflags_lo & BGMAC_BFL_ENETADM)
+ 		bgmac_warn(bgmac, "Support for ADMtek ethernet switch not implemente=
+d\n");
+=20
++	err =3D bgmac_mii_register(bgmac);
++	if (err) {
++		bgmac_err(bgmac, "Cannot register MDIO\n");
++		err =3D -ENOTSUPP;
++		goto err_dma_free;
++	}
++
+ 	err =3D register_netdev(bgmac->net_dev);
+ 	if (err) {
+ 		bgmac_err(bgmac, "Cannot register net device\n");
+ 		err =3D -ENOTSUPP;
+-		goto err_dma_free;
++		goto err_mii_unregister;
+ 	}
+=20
+ 	netif_carrier_off(net_dev);
+@@ -1417,6 +1492,8 @@ static int bgmac_probe(struct bcma_device *core)
+=20
+ 	return 0;
+=20
++err_mii_unregister:
++	bgmac_mii_unregister(bgmac);
+ err_dma_free:
+ 	bgmac_dma_free(bgmac);
+=20
+@@ -1433,6 +1510,7 @@ static void bgmac_remove(struct bcma_device *core=
+)
+=20
+ 	netif_napi_del(&bgmac->napi);
+ 	unregister_netdev(bgmac->net_dev);
++	bgmac_mii_unregister(bgmac);
+ 	bgmac_dma_free(bgmac);
+ 	bcma_set_drvdata(core, NULL);
+ 	free_netdev(bgmac->net_dev);
+diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethern=
+et/broadcom/bgmac.h
+index 4ede614..98d4b5f 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.h
++++ b/drivers/net/ethernet/broadcom/bgmac.h
+@@ -399,6 +399,7 @@ struct bgmac {
+ 	struct bcma_device *cmn; /* Reference to CMN core for BCM4706 */
+ 	struct net_device *net_dev;
+ 	struct napi_struct napi;
++	struct mii_bus *mii_bus;
+=20
+ 	/* DMA */
+ 	struct bgmac_dma_ring tx_ring[BGMAC_MAX_TX_RINGS];
+--=20
+1.7.10.4
