@@ -1,123 +1,99 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v2 resent net-next 3/4] mlx4: Remove driver specific fdb handlers.
-Date: Wed,  6 Mar 2013 20:39:44 -0500
-Message-ID: <1362620385-14553-4-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v2 resent net-next 2/4] ixgbe: Make use of the default fdb handlers.
+Date: Wed,  6 Mar 2013 20:39:43 -0500
+Message-ID: <1362620385-14553-3-git-send-email-vyasevic@redhat.com>
 References: <1362620385-14553-1-git-send-email-vyasevic@redhat.com>
 Cc: or.gerlitz@gmail.com, Vlad Yasevich <vyasevic@redhat.com>,
-	Amir Vadai <amirv@mellanox.com>, Yan Burman <yanb@mellanox.com>
+	John Fastabend <john.r.fastabend@intel.com>,
+	"CC: Gregory Rose" <gregory.v.rose@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15106 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:58396 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932183Ab3CGBj6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Mar 2013 20:39:58 -0500
+	id S1758526Ab3CGBjx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Mar 2013 20:39:53 -0500
 In-Reply-To: <1362620385-14553-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove driver specific fdb hadlers since they are the same as
-the default ones.
+For fdb_add, use the default handler in the non-SRIOV case.
+For the other fdb handlers, just remove them and use the
+default ones.
 
-CC: Amir Vadai <amirv@mellanox.com>
-CC: Yan Burman <yanb@mellanox.com>
+CC: John Fastabend <john.r.fastabend@intel.com>
+Acked-By: John Fastabend <john.r.fastabend@intel.com>
+CC: CC: Gregory Rose <gregory.v.rose@intel.com>
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   76 ------------------------
- 1 files changed, 0 insertions(+), 76 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   42 +------------------------
+ 1 files changed, 1 insertions(+), 41 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index bb4d8d9..4c37d48 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1924,79 +1924,6 @@ static int mlx4_en_set_features(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index db5611a..e56a3d1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7007,7 +7007,7 @@ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 	int err;
  
+ 	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
+-		return -EOPNOTSUPP;
++		return ndo_dflt_fdb_add(ndm, tb, dev, addr, flags);
+ 
+ 	/* Hardware does not support aging addresses so if a
+ 	 * ndm_state is given only allow permanent addresses
+@@ -7038,44 +7038,6 @@ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 	return err;
  }
  
--static int mlx4_en_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
--			   struct net_device *dev,
--			   const unsigned char *addr, u16 flags)
+-static int ixgbe_ndo_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+-			     struct net_device *dev,
+-			     const unsigned char *addr)
 -{
--	struct mlx4_en_priv *priv = netdev_priv(dev);
--	struct mlx4_dev *mdev = priv->mdev->dev;
--	int err;
+-	struct ixgbe_adapter *adapter = netdev_priv(dev);
+-	int err = -EOPNOTSUPP;
 -
--	if (!mlx4_is_mfunc(mdev))
--		return -EOPNOTSUPP;
--
--	/* Hardware does not support aging addresses, allow only
--	 * permanent addresses if ndm_state is given
--	 */
--	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
--		en_info(priv, "Add FDB only supports static addresses\n");
+-	if (ndm->ndm_state & NUD_PERMANENT) {
+-		pr_info("%s: FDB only supports static addresses\n",
+-			ixgbe_driver_name);
 -		return -EINVAL;
 -	}
 -
--	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
--		err = dev_uc_add_excl(dev, addr);
--	else if (is_multicast_ether_addr(addr))
--		err = dev_mc_add_excl(dev, addr);
--	else
--		err = -EINVAL;
--
--	/* Only return duplicate errors if NLM_F_EXCL is set */
--	if (err == -EEXIST && !(flags & NLM_F_EXCL))
--		err = 0;
+-	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
+-		if (is_unicast_ether_addr(addr))
+-			err = dev_uc_del(dev, addr);
+-		else if (is_multicast_ether_addr(addr))
+-			err = dev_mc_del(dev, addr);
+-		else
+-			err = -EINVAL;
+-	}
 -
 -	return err;
 -}
 -
--static int mlx4_en_fdb_del(struct ndmsg *ndm,
--			   struct nlattr *tb[],
--			   struct net_device *dev,
--			   const unsigned char *addr)
+-static int ixgbe_ndo_fdb_dump(struct sk_buff *skb,
+-			      struct netlink_callback *cb,
+-			      struct net_device *dev,
+-			      int idx)
 -{
--	struct mlx4_en_priv *priv = netdev_priv(dev);
--	struct mlx4_dev *mdev = priv->mdev->dev;
--	int err;
+-	struct ixgbe_adapter *adapter = netdev_priv(dev);
 -
--	if (!mlx4_is_mfunc(mdev))
--		return -EOPNOTSUPP;
--
--	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
--		en_info(priv, "Del FDB only supports static addresses\n");
--		return -EINVAL;
--	}
--
--	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
--		err = dev_uc_del(dev, addr);
--	else if (is_multicast_ether_addr(addr))
--		err = dev_mc_del(dev, addr);
--	else
--		err = -EINVAL;
--
--	return err;
--}
--
--static int mlx4_en_fdb_dump(struct sk_buff *skb,
--			    struct netlink_callback *cb,
--			    struct net_device *dev, int idx)
--{
--	struct mlx4_en_priv *priv = netdev_priv(dev);
--	struct mlx4_dev *mdev = priv->mdev->dev;
--
--	if (mlx4_is_mfunc(mdev))
+-	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
 -		idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
 -
 -	return idx;
 -}
 -
- static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_open		= mlx4_en_open,
- 	.ndo_stop		= mlx4_en_close,
-@@ -2018,9 +1945,6 @@ static const struct net_device_ops mlx4_netdev_ops = {
- #ifdef CONFIG_RFS_ACCEL
- 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
- #endif
--	.ndo_fdb_add		= mlx4_en_fdb_add,
--	.ndo_fdb_del		= mlx4_en_fdb_del,
--	.ndo_fdb_dump		= mlx4_en_fdb_dump,
+ static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
+ 				    struct nlmsghdr *nlh)
+ {
+@@ -7171,8 +7133,6 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_set_features = ixgbe_set_features,
+ 	.ndo_fix_features = ixgbe_fix_features,
+ 	.ndo_fdb_add		= ixgbe_ndo_fdb_add,
+-	.ndo_fdb_del		= ixgbe_ndo_fdb_del,
+-	.ndo_fdb_dump		= ixgbe_ndo_fdb_dump,
+ 	.ndo_bridge_setlink	= ixgbe_ndo_bridge_setlink,
+ 	.ndo_bridge_getlink	= ixgbe_ndo_bridge_getlink,
  };
- 
- int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
 -- 
 1.7.7.6
