@@ -1,52 +1,240 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 0/6] Mellanox Core and Ethernet driver fixes 2013-03-07
-Date: Thu,  7 Mar 2013 15:46:51 +0200
-Message-ID: <1362664017-30275-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net 3/6] net/mlx4_core: Fix endianness bug in set_param_l
+Date: Thu,  7 Mar 2013 15:46:54 +0200
+Message-ID: <1362664017-30275-4-git-send-email-ogerlitz@mellanox.com>
+References: <1362664017-30275-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, amirv@mellanox.com,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:47399 "EHLO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752741Ab3CGNrR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 08:47:17 -0500
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:54463 "EHLO
+	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753397Ab3CGNr3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 08:47:29 -0500
+In-Reply-To: <1362664017-30275-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-Here's a batch of fixes to the mlx4 core and ethernet drivers for 3.9
+The set_param_l function assumes casting a u64 pointer to a u32 pointer
+allows to access the lower 32bits, but it results in writing the upper
+32 bits on big endian systems.
 
-The commit that disabled RFS when running in SRIOV mode fixes a regression which was 
-introduced in 3.9-rc1 but actually present also in the 3.8 -stable series. It turns out 
-that a slightly different fix is needed there and we will generate and submit it there.
+The fixed function reads the upper 32 bits of the 64 argument, and or's
+them with the 32 bits of the 32-bit value passed to the function.
 
-Patches done against net commit 66d29cbc59433 "benet: Wait f/w POST until timeout"
+Since this is now a "read-modify-write" operation, we got many
+"unintialized variable" warnings which needed to be fixed as well.
 
-Or.
+Reported-by: Alexander Schmidt <alexschm@de.ibm.com>.
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/cq.c   |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/mr.c   |   10 +++++-----
+ drivers/net/ethernet/mellanox/mlx4/pd.c   |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/port.c |    8 ++++----
+ drivers/net/ethernet/mellanox/mlx4/qp.c   |    8 ++++----
+ drivers/net/ethernet/mellanox/mlx4/srq.c  |    2 +-
+ 8 files changed, 18 insertions(+), 18 deletions(-)
 
-Amir Vadai (1):
-  net/mlx4_en: Disable RFS when running in SRIOV mode
-
-Jack Morgenstein (3):
-  net/mlx4_core: Disable mlx4_QP_ATTACH calls from guests if the host uses flow steering
-  net/mlx4_core: Turn off device-managed FS bit in dev-cap wrapper if DMFS is not enabled
-  net/mlx4_core: Fix endianness bug in set_param_l
-
-Yan Burman (2):
-  net/mlx4_en: Fix race when setting the device MAC address
-  net/mlx4_en: Cleanup MAC resources on module unload or port stop
-
- drivers/net/ethernet/mellanox/mlx4/cq.c            |    2 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   86 +++++++++++---------
- drivers/net/ethernet/mellanox/mlx4/fw.c            |    8 ++
- drivers/net/ethernet/mellanox/mlx4/main.c          |    2 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    2 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h       |    1 -
- drivers/net/ethernet/mellanox/mlx4/mr.c            |   10 +-
- drivers/net/ethernet/mellanox/mlx4/pd.c            |    2 +-
- drivers/net/ethernet/mellanox/mlx4/port.c          |    8 +-
- drivers/net/ethernet/mellanox/mlx4/qp.c            |    8 +-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    3 +
- drivers/net/ethernet/mellanox/mlx4/srq.c           |    2 +-
- 12 files changed, 75 insertions(+), 59 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cq.c b/drivers/net/ethernet/mellanox/mlx4/cq.c
+index 7e64033..0706623 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cq.c
+@@ -226,7 +226,7 @@ void __mlx4_cq_free_icm(struct mlx4_dev *dev, int cqn)
+ 
+ static void mlx4_cq_free_icm(struct mlx4_dev *dev, int cqn)
+ {
+-	u64 in_param;
++	u64 in_param = 0;
+ 	int err;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index d180bc4..16abde2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -1555,7 +1555,7 @@ void __mlx4_counter_free(struct mlx4_dev *dev, u32 idx)
+ 
+ void mlx4_counter_free(struct mlx4_dev *dev, u32 idx)
+ {
+-	u64 in_param;
++	u64 in_param = 0;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+ 		set_param_l(&in_param, idx);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index cf88334..d738454 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -1235,7 +1235,7 @@ int mlx4_get_qp_per_mgm(struct mlx4_dev *dev);
+ 
+ static inline void set_param_l(u64 *arg, u32 val)
+ {
+-	*((u32 *)arg) = val;
++	*arg = (*arg & 0xffffffff00000000ULL) | (u64) val;
+ }
+ 
+ static inline void set_param_h(u64 *arg, u32 val)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
+index 602ca9b..f91719a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mr.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
+@@ -183,7 +183,7 @@ u32 __mlx4_alloc_mtt_range(struct mlx4_dev *dev, int order)
+ 
+ static u32 mlx4_alloc_mtt_range(struct mlx4_dev *dev, int order)
+ {
+-	u64 in_param;
++	u64 in_param = 0;
+ 	u64 out_param;
+ 	int err;
+ 
+@@ -240,7 +240,7 @@ void __mlx4_free_mtt_range(struct mlx4_dev *dev, u32 offset, int order)
+ 
+ static void mlx4_free_mtt_range(struct mlx4_dev *dev, u32 offset, int order)
+ {
+-	u64 in_param;
++	u64 in_param = 0;
+ 	int err;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+@@ -351,7 +351,7 @@ void __mlx4_mpt_release(struct mlx4_dev *dev, u32 index)
+ 
+ static void mlx4_mpt_release(struct mlx4_dev *dev, u32 index)
+ {
+-	u64 in_param;
++	u64 in_param = 0;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+ 		set_param_l(&in_param, index);
+@@ -374,7 +374,7 @@ int __mlx4_mpt_alloc_icm(struct mlx4_dev *dev, u32 index)
+ 
+ static int mlx4_mpt_alloc_icm(struct mlx4_dev *dev, u32 index)
+ {
+-	u64 param;
++	u64 param = 0;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+ 		set_param_l(&param, index);
+@@ -395,7 +395,7 @@ void __mlx4_mpt_free_icm(struct mlx4_dev *dev, u32 index)
+ 
+ static void mlx4_mpt_free_icm(struct mlx4_dev *dev, u32 index)
+ {
+-	u64 in_param;
++	u64 in_param = 0;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+ 		set_param_l(&in_param, index);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/pd.c b/drivers/net/ethernet/mellanox/mlx4/pd.c
+index 1ac8863..00f223a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/pd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/pd.c
+@@ -101,7 +101,7 @@ void __mlx4_xrcd_free(struct mlx4_dev *dev, u32 xrcdn)
+ 
+ void mlx4_xrcd_free(struct mlx4_dev *dev, u32 xrcdn)
+ {
+-	u64 in_param;
++	u64 in_param = 0;
+ 	int err;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 719ead1..10c57c8 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -175,7 +175,7 @@ EXPORT_SYMBOL_GPL(__mlx4_register_mac);
+ 
+ int mlx4_register_mac(struct mlx4_dev *dev, u8 port, u64 mac)
+ {
+-	u64 out_param;
++	u64 out_param = 0;
+ 	int err;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+@@ -222,7 +222,7 @@ EXPORT_SYMBOL_GPL(__mlx4_unregister_mac);
+ 
+ void mlx4_unregister_mac(struct mlx4_dev *dev, u8 port, u64 mac)
+ {
+-	u64 out_param;
++	u64 out_param = 0;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+ 		set_param_l(&out_param, port);
+@@ -361,7 +361,7 @@ out:
+ 
+ int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index)
+ {
+-	u64 out_param;
++	u64 out_param = 0;
+ 	int err;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+@@ -406,7 +406,7 @@ out:
+ 
+ void mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, int index)
+ {
+-	u64 in_param;
++	u64 in_param = 0;
+ 	int err;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
+index 81e2abe..e891b05 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/qp.c
++++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
+@@ -222,7 +222,7 @@ int __mlx4_qp_reserve_range(struct mlx4_dev *dev, int cnt, int align,
+ 
+ int mlx4_qp_reserve_range(struct mlx4_dev *dev, int cnt, int align, int *base)
+ {
+-	u64 in_param;
++	u64 in_param = 0;
+ 	u64 out_param;
+ 	int err;
+ 
+@@ -255,7 +255,7 @@ void __mlx4_qp_release_range(struct mlx4_dev *dev, int base_qpn, int cnt)
+ 
+ void mlx4_qp_release_range(struct mlx4_dev *dev, int base_qpn, int cnt)
+ {
+-	u64 in_param;
++	u64 in_param = 0;
+ 	int err;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+@@ -319,7 +319,7 @@ err_out:
+ 
+ static int mlx4_qp_alloc_icm(struct mlx4_dev *dev, int qpn)
+ {
+-	u64 param;
++	u64 param = 0;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+ 		set_param_l(&param, qpn);
+@@ -344,7 +344,7 @@ void __mlx4_qp_free_icm(struct mlx4_dev *dev, int qpn)
+ 
+ static void mlx4_qp_free_icm(struct mlx4_dev *dev, int qpn)
+ {
+-	u64 in_param;
++	u64 in_param = 0;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+ 		set_param_l(&in_param, qpn);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/srq.c b/drivers/net/ethernet/mellanox/mlx4/srq.c
+index feda6c0..e329fe1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/srq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/srq.c
+@@ -149,7 +149,7 @@ void __mlx4_srq_free_icm(struct mlx4_dev *dev, int srqn)
+ 
+ static void mlx4_srq_free_icm(struct mlx4_dev *dev, int srqn)
+ {
+-	u64 in_param;
++	u64 in_param = 0;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+ 		set_param_l(&in_param, srqn);
+-- 
+1.7.1
