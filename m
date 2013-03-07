@@ -1,334 +1,74 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next 3/4] tunneling: Add generic Tunnel segmentation.
-Date: Thu,  7 Mar 2013 15:21:51 -0800
-Message-ID: <1362698511-2477-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH net-next 4/4] VXLAN: Use UDP Tunnel segmention.
+Date: Thu,  7 Mar 2013 15:22:36 -0800
+Message-ID: <1362698556-2510-1-git-send-email-pshelar@nicira.com>
 Cc: jesse@nicira.com, Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog117.obsmtp.com ([74.125.149.242]:52901 "HELO
-	na3sys009aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1757597Ab3CGXUY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 18:20:24 -0500
-Received: by mail-ye0-f198.google.com with SMTP id m13so1435019yen.1
-        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 15:20:22 -0800 (PST)
+Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:35897 "HELO
+	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757597Ab3CGXVM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 18:21:12 -0500
+Received: by mail-qe0-f70.google.com with SMTP id a11so1832720qen.5
+        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 15:21:09 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds generic tunneling offloading support for IPv4-UDP based
-tunnels.
-GSO type is added to request this offload for a skb.
-netdev feature NETIF_F_UDP_TUNNEL is added for hardware offloaded
-udp-tunnel support. Currently no device supports this feature,
-software offload is used.
+Enable TSO for VXLAN devices and use UDP_TUNNEL to offload vxlan
+segmentation.
 
-This can be used by tunneling protocols like VXLAN.
-
-CC: Jesse Gross <jesse@nicira.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- include/linux/netdev_features.h |    7 ++-
- include/linux/skbuff.h          |    2 +
- net/core/ethtool.c              |    1 +
- net/ipv4/af_inet.c              |    6 ++-
- net/ipv4/tcp.c                  |    1 +
- net/ipv4/udp.c                  |  115 ++++++++++++++++++++++++++++++---------
- net/ipv6/ip6_offload.c          |    1 +
- net/ipv6/udp_offload.c          |   10 +++-
- 8 files changed, 112 insertions(+), 31 deletions(-)
+ drivers/net/vxlan.c |   21 ++++++++++++++++++---
+ 1 files changed, 18 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index 3dd3934..9980e8d 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -42,9 +42,9 @@ enum {
- 	NETIF_F_TSO6_BIT,		/* ... TCPv6 segmentation */
- 	NETIF_F_FSO_BIT,		/* ... FCoE segmentation */
- 	NETIF_F_GSO_GRE_BIT,		/* ... GRE with TSO */
--	/**/NETIF_F_GSO_LAST,		/* [can't be last bit, see GSO_MASK] */
--	NETIF_F_GSO_RESERVED2		/* ... free (fill GSO_MASK to 8 bits) */
--		= NETIF_F_GSO_LAST,
-+	NETIF_F_GSO_UDP_TUNNEL_BIT,	/* ... UDP TUNNEL with TSO */
-+	/**/NETIF_F_GSO_LAST =		/* last bit, see GSO_MASK */
-+		NETIF_F_GSO_UDP_TUNNEL_BIT,
- 
- 	NETIF_F_FCOE_CRC_BIT,		/* FCoE CRC32 */
- 	NETIF_F_SCTP_CSUM_BIT,		/* SCTP checksum offload */
-@@ -103,6 +103,7 @@ enum {
- #define NETIF_F_RXFCS		__NETIF_F(RXFCS)
- #define NETIF_F_RXALL		__NETIF_F(RXALL)
- #define NETIF_F_GRE_GSO		__NETIF_F(GSO_GRE)
-+#define NETIF_F_UDP_TUNNEL	__NETIF_F(UDP_TUNNEL)
- 
- /* Features valid for ethtool to change */
- /* = all defined minus driver/device-class-related */
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index d7f96ff..eb2106f 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -316,6 +316,8 @@ enum {
- 	SKB_GSO_FCOE = 1 << 5,
- 
- 	SKB_GSO_GRE = 1 << 6,
-+
-+	SKB_GSO_UDP_TUNNEL = 1 << 7,
- };
- 
- #if BITS_PER_LONG > 32
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 3e9b2c3..adc1351 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -78,6 +78,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
- 	[NETIF_F_TSO6_BIT] =             "tx-tcp6-segmentation",
- 	[NETIF_F_FSO_BIT] =              "tx-fcoe-segmentation",
- 	[NETIF_F_GSO_GRE_BIT] =		 "tx-gre-segmentation",
-+	[NETIF_F_GSO_UDP_TUNNEL_BIT] =	 "tx-udp_tnl-segmentation",
- 
- 	[NETIF_F_FCOE_CRC_BIT] =         "tx-checksum-fcoe-crc",
- 	[NETIF_F_SCTP_CSUM_BIT] =        "tx-checksum-sctp",
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 68f6a94..1924069 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1283,6 +1283,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 	int ihl;
- 	int id;
- 	unsigned int offset = 0;
-+	bool tunnel;
- 
- 	if (!(features & NETIF_F_V4_CSUM))
- 		features &= ~NETIF_F_SG;
-@@ -1293,6 +1294,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 		       SKB_GSO_DODGY |
- 		       SKB_GSO_TCP_ECN |
- 		       SKB_GSO_GRE |
-+		       SKB_GSO_UDP_TUNNEL |
- 		       0)))
- 		goto out;
- 
-@@ -1307,6 +1309,8 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 	if (unlikely(!pskb_may_pull(skb, ihl)))
- 		goto out;
- 
-+	tunnel = !!skb->encapsulation;
-+
- 	__skb_pull(skb, ihl);
- 	skb_reset_transport_header(skb);
- 	iph = ip_hdr(skb);
-@@ -1326,7 +1330,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 	skb = segs;
- 	do {
- 		iph = ip_hdr(skb);
--		if (proto == IPPROTO_UDP) {
-+		if (!tunnel && proto == IPPROTO_UDP) {
- 			iph->id = htons(id);
- 			iph->frag_off = htons(offset >> 3);
- 			if (skb->next != NULL)
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 47e854f..8d14573 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -3044,6 +3044,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb,
- 			       SKB_GSO_TCP_ECN |
- 			       SKB_GSO_TCPV6 |
- 			       SKB_GSO_GRE |
-+			       SKB_GSO_UDP_TUNNEL |
- 			       0) ||
- 			     !(type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))))
- 			goto out;
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 265c42c..41760e0 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -2272,31 +2272,88 @@ void __init udp_init(void)
- 
- int udp4_ufo_send_check(struct sk_buff *skb)
- {
--	const struct iphdr *iph;
--	struct udphdr *uh;
--
--	if (!pskb_may_pull(skb, sizeof(*uh)))
-+	if (!pskb_may_pull(skb, sizeof(struct udphdr)))
- 		return -EINVAL;
- 
--	iph = ip_hdr(skb);
--	uh = udp_hdr(skb);
-+	if (likely(!skb->encapsulation)) {
-+		const struct iphdr *iph;
-+		struct udphdr *uh;
- 
--	uh->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr, skb->len,
--				       IPPROTO_UDP, 0);
--	skb->csum_start = skb_transport_header(skb) - skb->head;
--	skb->csum_offset = offsetof(struct udphdr, check);
--	skb->ip_summed = CHECKSUM_PARTIAL;
-+		iph = ip_hdr(skb);
-+		uh = udp_hdr(skb);
-+
-+		uh->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr, skb->len,
-+				IPPROTO_UDP, 0);
-+		skb->csum_start = skb_transport_header(skb) - skb->head;
-+		skb->csum_offset = offsetof(struct udphdr, check);
-+		skb->ip_summed = CHECKSUM_PARTIAL;
-+	}
- 	return 0;
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index f10e58a..f057ec0 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -820,6 +820,20 @@ static u16 vxlan_src_port(const struct vxlan_dev *vxlan, struct sk_buff *skb)
+ 	return (((u64) hash * range) >> 32) + vxlan->port_min;
  }
  
-+static struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
-+		netdev_features_t features)
++static int handle_offloads(struct sk_buff *skb)
 +{
-+	struct sk_buff *segs = ERR_PTR(-EINVAL);
-+	int mac_len = skb->mac_len;
-+	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
-+	int outer_hlen;
-+	netdev_features_t enc_features;
++	if (skb_is_gso(skb)) {
++		int err = skb_unclone(skb, GFP_ATOMIC);
++		if (unlikely(err))
++			return err;
 +
-+	if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
-+		goto out;
-+
-+	skb->encapsulation = 0;
-+	__skb_pull(skb, tnl_hlen);
-+	skb_reset_mac_header(skb);
-+	skb_set_network_header(skb, skb_inner_network_offset(skb));
-+	skb->mac_len = skb_inner_network_offset(skb);
-+
-+	/* segment inner packet. */
-+	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
-+	segs = skb_mac_gso_segment(skb, enc_features);
-+	if (!segs || IS_ERR(segs))
-+		goto out;
-+
-+	outer_hlen = skb_tnl_header_len(skb);
-+	skb = segs;
-+	do {
-+		struct udphdr *uh;
-+		int udp_offset = outer_hlen - tnl_hlen;
-+
-+		skb->mac_len = mac_len;
-+
-+		skb_push(skb, outer_hlen);
-+		skb_reset_mac_header(skb);
-+		skb_set_network_header(skb, mac_len);
-+		skb_set_transport_header(skb, udp_offset);
-+		uh = udp_hdr(skb);
-+		uh->len = htons(skb->len - udp_offset);
-+
-+		/* csum segment if tunnel sets skb with csum. */
-+		if (unlikely(uh->check)) {
-+			struct iphdr *iph = ip_hdr(skb);
-+
-+			uh->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
-+						       skb->len - udp_offset,
-+						       IPPROTO_UDP, 0);
-+			uh->check = csum_fold(skb_checksum(skb, udp_offset,
-+							   skb->len - udp_offset, 0));
-+			if (uh->check == 0)
-+				uh->check = CSUM_MANGLED_0;
-+
-+		}
++		skb_shinfo(skb)->gso_type |= (SKB_GSO_UDP_TUNNEL | SKB_GSO_UDP);
++	} else if (skb->ip_summed != CHECKSUM_PARTIAL)
 +		skb->ip_summed = CHECKSUM_NONE;
-+	} while ((skb = skb->next));
-+out:
-+	return segs;
++
++	return 0;
 +}
 +
- struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
- 	netdev_features_t features)
- {
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
- 	unsigned int mss;
--	int offset;
--	__wsum csum;
--
- 	mss = skb_shinfo(skb)->gso_size;
- 	if (unlikely(skb->len <= mss))
- 		goto out;
-@@ -2306,6 +2363,7 @@ struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
- 		int type = skb_shinfo(skb)->gso_type;
+ /* Transmit local packets over Vxlan
+  *
+  * Outer IP header inherits ECN and DF from inner header.
+@@ -963,9 +977,8 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
  
- 		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY |
-+				      SKB_GSO_UDP_TUNNEL |
- 				      SKB_GSO_GRE) ||
- 			     !(type & (SKB_GSO_UDP))))
- 			goto out;
-@@ -2316,20 +2374,27 @@ struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
- 		goto out;
- 	}
+ 	vxlan_set_owner(dev, skb);
  
--	/* Do software UFO. Complete and fill in the UDP checksum as HW cannot
--	 * do checksum of UDP packets sent as multiple IP fragments.
--	 */
--	offset = skb_checksum_start_offset(skb);
--	csum = skb_checksum(skb, offset, skb->len - offset, 0);
--	offset += skb->csum_offset;
--	*(__sum16 *)(skb->data + offset) = csum_fold(csum);
--	skb->ip_summed = CHECKSUM_NONE;
--
- 	/* Fragment the skb. IP headers of the fragments are updated in
- 	 * inet_gso_segment()
- 	 */
--	segs = skb_segment(skb, features);
-+	if (skb->encapsulation && skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL)
-+		segs = skb_udp_tunnel_segment(skb, features);
-+	else {
-+		int offset;
-+		__wsum csum;
-+
-+		/* Do software UFO. Complete and fill in the UDP checksum as
-+		 * HW cannot do checksum of UDP packets sent as multiple
-+		 * IP fragments.
-+		 */
-+		offset = skb_checksum_start_offset(skb);
-+		csum = skb_checksum(skb, offset, skb->len - offset, 0);
-+		offset += skb->csum_offset;
-+		*(__sum16 *)(skb->data + offset) = csum_fold(csum);
-+		skb->ip_summed = CHECKSUM_NONE;
-+
-+		segs = skb_segment(skb, features);
-+	}
- out:
- 	return segs;
- }
--
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index 8234c1d..e02a65a 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -100,6 +100,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
- 		       SKB_GSO_DODGY |
- 		       SKB_GSO_TCP_ECN |
- 		       SKB_GSO_GRE |
-+		       SKB_GSO_UDP_TUNNEL |
- 		       SKB_GSO_TCPV6 |
- 		       0)))
- 		goto out;
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index cf05cf0..3ced14e 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -21,6 +21,10 @@ static int udp6_ufo_send_check(struct sk_buff *skb)
- 	const struct ipv6hdr *ipv6h;
- 	struct udphdr *uh;
+-	/* See iptunnel_xmit() */
+-	if (skb->ip_summed != CHECKSUM_PARTIAL)
+-		skb->ip_summed = CHECKSUM_NONE;
++	if (handle_offloads(skb))
++		goto drop;
  
-+	/* UDP Tunnel offload on ipv6 is not yet supported. */
-+	if (skb->encapsulation)
-+		return -EINVAL;
-+
- 	if (!pskb_may_pull(skb, sizeof(*uh)))
- 		return -EINVAL;
+ 	err = ip_local_out(skb);
+ 	if (likely(net_xmit_eval(err) == 0)) {
+@@ -1187,8 +1200,10 @@ static void vxlan_setup(struct net_device *dev)
+ 	dev->features	|= NETIF_F_NETNS_LOCAL;
+ 	dev->features	|= NETIF_F_SG | NETIF_F_HW_CSUM;
+ 	dev->features   |= NETIF_F_RXCSUM;
++	dev->features   |= NETIF_F_GSO_SOFTWARE;
  
-@@ -56,8 +60,10 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 		/* Packet is from an untrusted source, reset gso_segs. */
- 		int type = skb_shinfo(skb)->gso_type;
- 
--		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY |
--				      SKB_GSO_GRE) ||
-+		if (unlikely(type & ~(SKB_GSO_UDP |
-+				      SKB_GSO_DODGY |
-+				      SKB_GSO_UDP_TUNNEL |
-+				      SKB_GSO_GRE) ||
- 			     !(type & (SKB_GSO_UDP))))
- 			goto out;
+ 	dev->hw_features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
++	dev->hw_features |= NETIF_F_GSO_SOFTWARE;
+ 	dev->priv_flags	&= ~IFF_XMIT_DST_RELEASE;
+ 	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
  
 -- 
 1.7.1
