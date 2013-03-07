@@ -1,75 +1,58 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH net-next 3/3] bridge: Implement IFF_UNICAST_FLT
-Date: Wed, 06 Mar 2013 19:10:58 -0800
-Message-ID: <51380542.4020601@gmail.com>
-References: <1362623485-18209-1-git-send-email-vyasevic@redhat.com> <1362623485-18209-4-git-send-email-vyasevic@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] bonding: fire NETDEV_RELEASE event only on 0 slaves
+Date: Wed, 6 Mar 2013 22:38:19 -0500
+Message-ID: <20130307033819.GA3513@neilslaptop.think-freely.org>
+References: <1362589832-9526-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:63559 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751757Ab3CGDMG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 22:12:06 -0500
-Received: by mail-ob0-f178.google.com with SMTP id wd20so1091obb.9
-        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 19:12:05 -0800 (PST)
-In-Reply-To: <1362623485-18209-4-git-send-email-vyasevic@redhat.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43873 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756559Ab3CGDia (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 22:38:30 -0500
+Content-Disposition: inline
+In-Reply-To: <1362589832-9526-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/06/2013 06:31 PM, Vlad Yasevich wrote:
-> Implement IFF_UNICAST_FLT on the bridge.  Unicast addresses added
-> to the bridge device are synched to the uplink devices.  This
-> allows for uplink devices to change while preserving mac assignment.
->
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+On Wed, Mar 06, 2013 at 06:10:32PM +0100, Veaceslav Falico wrote:
+> Currently, if we set up netconsole over bonding and release a slave,
+> netconsole will stop logging on the whole bonding device. Change the
+> behavior to stop the netconsole only when the last slave is released.
+> 
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 > ---
-
-[...]
-
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index b0812c9..ef7b51e 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -677,6 +677,9 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
->   	struct net_port_vlans *pv;
->   	unsigned short vid = VLAN_N_VID;
->
-> +	if ((ndm->ndm_flags & NTF_SELF) && (dev->priv_flags & IFF_EBRIDGE))
-> +		return ndo_dflt_fdb_add(ndm, tb, dev, addr, nlh_flags);
-> +
->   	if (!(ndm->ndm_state & (NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE))) {
->   		pr_info("bridge: RTM_NEWNEIGH with invalid state %#x\n", ndm->ndm_state);
->   		return -EINVAL;
-> @@ -774,6 +777,9 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
->   	struct net_port_vlans *pv;
->   	unsigned short vid = VLAN_N_VID;
->
-> +	if ((ndm->ndm_flags & NTF_SELF) && (dev->priv_flags & IFF_EBRIDGE))
-> +		return ndo_dflt_fdb_del(ndm, tb, dev, addr);
-> +
->   	if (tb[NDA_VLAN]) {
->   		if (nla_len(tb[NDA_VLAN]) != sizeof(unsigned short)) {
->   			pr_info("bridge: RTM_NEWNEIGH with invalid vlan\n");
->
-
-How is this different then calling the fdb op from rtnetlink.c when the
-NTF_SELF bit is set after your previous patch
-
-	net: generic fdb support for drivers without ndo_fdb_<op>
-
-the generic routine gets called if a specific op is not supplied via
-ndo ops anyways right?
-
-Also I suspect if the driver supplies a specific ndo_fdb_<op> we should
-use it over the generic one.
-
-What am I missing?
-
-Thanks,
-John
-
--- 
-John Fastabend         Intel Corporation
+>  drivers/net/bonding/bond_main.c |    5 +++--
+>  1 files changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 7bd068a..8b4e96e 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1964,7 +1964,6 @@ static int __bond_release_one(struct net_device *bond_dev,
+>  	}
+>  
+>  	block_netpoll_tx();
+> -	call_netdevice_notifiers(NETDEV_RELEASE, bond_dev);
+>  	write_lock_bh(&bond->lock);
+>  
+>  	slave = bond_get_slave_by_dev(bond, slave_dev);
+> @@ -2066,8 +2065,10 @@ static int __bond_release_one(struct net_device *bond_dev,
+>  	write_unlock_bh(&bond->lock);
+>  	unblock_netpoll_tx();
+>  
+> -	if (bond->slave_cnt == 0)
+> +	if (bond->slave_cnt == 0) {
+>  		call_netdevice_notifiers(NETDEV_CHANGEADDR, bond->dev);
+> +		call_netdevice_notifiers(NETDEV_RELEASE, bond->dev);
+> +	}
+>  
+>  	bond_compute_features(bond);
+>  	if (!(bond_dev->features & NETIF_F_VLAN_CHALLENGED) &&
+> -- 
+> 1.7.1
+> 
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
