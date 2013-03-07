@@ -1,50 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/7] USB: don't recover device if suspend fails in
- system sleep
-Date: Thu, 07 Mar 2013 15:28:07 -0500 (EST)
-Message-ID: <20130307.152807.2038557949816610391.davem@davemloft.net>
-References: <1362672924-22975-1-git-send-email-ming.lei@canonical.com>
+Subject: Re: [PATCH v2 resent net-next 0/4] Provide default fdb operation
+ to allow mac filter setting
+Date: Thu, 07 Mar 2013 15:30:19 -0500 (EST)
+Message-ID: <20130307.153019.1916003215764923222.davem@davemloft.net>
+References: <1362620385-14553-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gregkh@linuxfoundation.org, jkosina@suse.cz,
-	stern@rowland.harvard.edu, oneukum@suse.de, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-input@vger.kernel.org
-To: ming.lei@canonical.com
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <1362672924-22975-1-git-send-email-ming.lei@canonical.com>
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, or.gerlitz@gmail.com
+To: vyasevic@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45792 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933270Ab3CGUaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 15:30:21 -0500
+In-Reply-To: <1362620385-14553-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ming Lei <ming.lei@canonical.com>
-Date: Fri,  8 Mar 2013 00:15:17 +0800
+From: Vlad Yasevich <vyasevic@redhat.com>
+Date: Wed,  6 Mar 2013 20:39:41 -0500
 
-> This patch adds comments on interface driver suspend callback
-> to emphasize that the failure return value is ignored by
-> USB core in system sleep context, so do not try to recover
-> device for this case, otherwise the recovery things may confuse
-> resume().
->=20
-> Also fixes the USB serial, HID and several usbnet drivers
-> which may recover device in suspend failure path of system sleep.
->=20
-> v2:
-> 	- improve comments on suspend callback as suggested by Alan
-> 	- update kerneldoc for usb_suspend_both as suggested by Alan
-> 	- remove previous check of PMSG_IS_AUTO(message) in cdc_mbim/
-> 	qmi_wwan and add comments on suspend failure case, since Bj=F8rn
-> 	doesn't like the check.
-> 	- add comments on smsc95xx/smsc75xx
-> v1:
->         - fix compile failure
->         - add comments about handling suspend failure in resume()
+> This is a short series that now allows mac filter programming on any
+> card that support IFF_UNICAST_FLT by using the existing FDB interface.
+> 
+> Some existing drivers that had FDB functionality usually supported
+> it only in SR-IOV mode.  Since that's not always enabled, and
+> we want to take advantage of IFF_UNICAST_FLT support, these drivers
+> have been converted to call the default handler when not in SRIOV mode.
 
-=46eel free to merge this via the USB tree and to add my ACK to the
-networking driver bits:
-
-Acked-by: David S. Miller <davem@davemloft.net>
---
-To unsubscribe from this list: send the line "unsubscribe linux-input" =
-in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thanks Vlad.
