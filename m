@@ -1,35 +1,36 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: [PATCH net-next 00/12] IPVS optimizations
-Date: Thu, 07 Mar 2013 11:09:26 +0100
-Message-ID: <1362650966.18590.127.camel@localhost>
-References: <1362559342-18784-1-git-send-email-ja@ssi.bg>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] iputils: fix memory leaks
+Date: Thu, 7 Mar 2013 10:06:41 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7181@saturn3.aculab.com>
+References: <loom.20130307T103516-549@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1362559342-18784-1-git-send-email-ja@ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: "jb" <jb.1234abcd@gmail.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:34293 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752531Ab3CGKLC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 05:11:02 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 15781-06 for <netdev@vger.kernel.org>;
+ Thu,  7 Mar 2013 10:10:58 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <loom.20130307T103516-549@post.gmane.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-03-06 at 10:42 +0200, Julian Anastasov wrote:
-> 	This is a first patchset for IPVS optimizations.
-> Another patchset will address the locking in schedulers
-> and moving the global _bh disabling from LOCAL_OUT to all
-> locks. It is in TODO list.
+>     Fix memory leaks
+...
+> +#ifdef USE_IDN
+> +                               free(idn);
+> +                               idn = NULL;
+> +#endif
+>                                 exit(2);
 
-Do you have any performance measurements?
+There is no point calling free() before exit(), nor any need
+to free items that aren't allocated inside loops.
 
-Or is this code primarily cleanup optimizations, and the next patchset
-will address the performance part?
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-
+	David
