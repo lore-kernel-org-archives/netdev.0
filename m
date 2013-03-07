@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MAINTAINERS: Update qlcnic maintainers list
-Date: Thu, 07 Mar 2013 16:22:17 -0500 (EST)
-Message-ID: <20130307.162217.52447989281783663.davem@davemloft.net>
-References: <1362611005-6226-1-git-send-email-sony.chacko@qlogic.com>
+Subject: Re: [PATCH net-next] tcp: uninline tcp_prequeue()
+Date: Thu, 07 Mar 2013 16:23:50 -0500 (EST)
+Message-ID: <20130307.162350.426791222361268256.davem@davemloft.net>
+References: <1362610681.15793.205.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: sony.chacko@qlogic.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46270 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46281 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933432Ab3CGVWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 16:22:19 -0500
-In-Reply-To: <1362611005-6226-1-git-send-email-sony.chacko@qlogic.com>
+	with ESMTP id S1758785Ab3CGVXv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 16:23:51 -0500
+In-Reply-To: <1362610681.15793.205.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sony Chacko <sony.chacko@qlogic.com>
-Date: Wed,  6 Mar 2013 18:03:25 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 06 Mar 2013 14:58:01 -0800
 
-> From: Sony Chacko <sony.chacko@qlogic.com>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Please apply.
+> tcp_prequeue() became too big to be inlined.
 > 
-> Thanks.
-> 
-> Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks.
+Applied, thanks Eric.
