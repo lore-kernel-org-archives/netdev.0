@@ -1,97 +1,52 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net] bridge: add missing vid to br_mdb_get()
-Date: Thu,  7 Mar 2013 21:05:33 +0800
-Message-ID: <1362661533-29192-1-git-send-email-amwang@redhat.com>
-Cc: Vlad Yasevich <vyasevic@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: Re: [PATCH 1/3] driver: net: ethernet: cpsw: implement ethtool get/set phy setting
+Date: Thu, 07 Mar 2013 14:24:15 +0100
+Message-ID: <8762135on4.fsf@dell.be.48ers.dk>
+References: <1362659421-11884-1-git-send-email-mugunthanvnm@ti.com>
+	<1362659421-11884-2-git-send-email-mugunthanvnm@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<devicetree-discuss@lists.ozlabs.org>,
+	<linux-omap@vger.kernel.org>, <b-cousson@ti.com>, <paul@pwsan.com>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64277 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752867Ab3CGNFu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Mar 2013 08:05:50 -0500
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:47148 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753273Ab3CGNYU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 08:24:20 -0500
+In-Reply-To: <1362659421-11884-2-git-send-email-mugunthanvnm@ti.com>
+	(Mugunthan V. N.'s message of "Thu, 7 Mar 2013 18:00:19 +0530")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+>>>>> "M" == Mugunthan V N <mugunthanvnm@ti.com> writes:
 
-Obviously, vid should be considered when searching for multicast
-group.
+ M> This patch implements get/set of the phy settings via ethtool apis
+ M> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+ M> ---
+ M>  Documentation/devicetree/bindings/net/cpsw.txt |    3 +++
+ M>  drivers/net/ethernet/ti/cpsw.c                 |   32 ++++++++++++++++++++++++
+ M>  include/linux/platform_data/cpsw.h             |    1 +
+ M>  3 files changed, 36 insertions(+)
 
-Cc: Vlad Yasevich <vyasevic@redhat.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+ M> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+ M> index ecfdf75..8d61300 100644
+ M> --- a/Documentation/devicetree/bindings/net/cpsw.txt
+ M> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
+ M> @@ -20,6 +20,7 @@ Required properties:
+ M>  - cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
+ M>  - phy_id		: Specifies slave phy id
+ M>  - mac-address		: Specifies slave MAC address
+ M> +- ethtool-active-slave	: Specifies the slave to use for ethtool command
 
----
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index d5f1d3f..314c73e 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -66,7 +66,7 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 			goto out;
- 		}
- 
--		mdst = br_mdb_get(br, skb);
-+		mdst = br_mdb_get(br, skb, vid);
- 		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb))
- 			br_multicast_deliver(mdst, skb);
- 		else
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 4803301..828e2bc 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -97,7 +97,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 	if (is_broadcast_ether_addr(dest))
- 		skb2 = skb;
- 	else if (is_multicast_ether_addr(dest)) {
--		mdst = br_mdb_get(br, skb);
-+		mdst = br_mdb_get(br, skb, vid);
- 		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
- 			if ((mdst && mdst->mglist) ||
- 			    br_multicast_is_router(br))
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 10e6fce..923fbea 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -132,7 +132,7 @@ static struct net_bridge_mdb_entry *br_mdb_ip6_get(
- #endif
- 
- struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
--					struct sk_buff *skb)
-+					struct sk_buff *skb, u16 vid)
- {
- 	struct net_bridge_mdb_htable *mdb = rcu_dereference(br->mdb);
- 	struct br_ip ip;
-@@ -144,6 +144,7 @@ struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
- 		return NULL;
- 
- 	ip.proto = skb->protocol;
-+	ip.vid = vid;
- 
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP):
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 6d314c4..3cbf5be 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -442,7 +442,7 @@ extern int br_multicast_rcv(struct net_bridge *br,
- 			    struct net_bridge_port *port,
- 			    struct sk_buff *skb);
- extern struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
--					       struct sk_buff *skb);
-+					       struct sk_buff *skb, u16 vid);
- extern void br_multicast_add_port(struct net_bridge_port *port);
- extern void br_multicast_del_port(struct net_bridge_port *port);
- extern void br_multicast_enable_port(struct net_bridge_port *port);
-@@ -504,7 +504,7 @@ static inline int br_multicast_rcv(struct net_bridge *br,
- }
- 
- static inline struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
--						      struct sk_buff *skb)
-+						      struct sk_buff *skb, u16 vid)
- {
- 	return NULL;
- }
+That again sounds like something Linux specific rather than a hardware
+property.
+
+It would be good if all these special things (dual emac mode, vlan
+handling, switching) could be handled using the existing kernel
+(bridging/vlan) infrastructure, and the driver always just exposing 2
+network interfaces instead of these configuration properties.
+
+-- 
+Bye, Peter Korsgaard
