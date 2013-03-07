@@ -1,93 +1,122 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next 1/4] net: Add skb_headers_offset_update helper function.
-Date: Thu,  7 Mar 2013 15:21:40 -0800
-Message-ID: <1362698500-2411-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH net-next 2/4] tunneling: Capture inner mac header during encapsulation.
+Date: Thu,  7 Mar 2013 15:21:46 -0800
+Message-ID: <1362698506-2444-1-git-send-email-pshelar@nicira.com>
 Cc: jesse@nicira.com, Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:44306 "HELO
-	na3sys009aog127.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755660Ab3CGXUM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 18:20:12 -0500
-Received: by mail-qe0-f70.google.com with SMTP id a11so1831179qen.5
-        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 15:20:11 -0800 (PST)
+Received: from na3sys009aog113.obsmtp.com ([74.125.149.209]:54837 "HELO
+	na3sys009aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757597Ab3CGXUT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 18:20:19 -0500
+Received: by mail-vb0-f70.google.com with SMTP id s24so995144vbi.5
+        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 15:20:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function will be used in next VXLAN_GSO patch. This patch does
-not change any functionality.
+This patch adds inner mac header. This will be used in next patch
+to find tunner header length. Header len is required to copy tunnel
+header to each gso segment.
+This patch does not change any functionality.
 
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/core/skbuff.c |   34 ++++++++++++++--------------------
- 1 files changed, 14 insertions(+), 20 deletions(-)
+ include/linux/skbuff.h |   34 ++++++++++++++++++++++++++++++++++
+ net/core/skbuff.c      |    2 ++
+ 2 files changed, 36 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 33245ef..b3e8db8 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -867,6 +867,17 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
- }
- EXPORT_SYMBOL(skb_clone);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 821c7f4..d7f96ff 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -387,6 +387,7 @@ typedef unsigned char *sk_buff_data_t;
+  *	@vlan_tci: vlan tag control information
+  *	@inner_transport_header: Inner transport layer header (encapsulation)
+  *	@inner_network_header: Network layer header (encapsulation)
++ *	@inner_mac_header: Link layer header (encapsulation)
+  *	@transport_header: Transport layer header
+  *	@network_header: Network layer header
+  *	@mac_header: Link layer header
+@@ -505,6 +506,7 @@ struct sk_buff {
  
-+static void skb_headers_offset_update(struct sk_buff *skb, int off)
+ 	sk_buff_data_t		inner_transport_header;
+ 	sk_buff_data_t		inner_network_header;
++	sk_buff_data_t		inner_mac_header;
+ 	sk_buff_data_t		transport_header;
+ 	sk_buff_data_t		network_header;
+ 	sk_buff_data_t		mac_header;
+@@ -1466,6 +1468,7 @@ static inline void skb_reserve(struct sk_buff *skb, int len)
+ 
+ static inline void skb_reset_inner_headers(struct sk_buff *skb)
+ {
++	skb->inner_mac_header = skb->mac_header;
+ 	skb->inner_network_header = skb->network_header;
+ 	skb->inner_transport_header = skb->transport_header;
+ }
+@@ -1511,6 +1514,22 @@ static inline void skb_set_inner_network_header(struct sk_buff *skb,
+ 	skb->inner_network_header += offset;
+ }
+ 
++static inline unsigned char *skb_inner_mac_header(const struct sk_buff *skb)
 +{
-+	/* {transport,network,mac}_header and tail are relative to skb->head */
-+	skb->transport_header += off;
-+	skb->network_header   += off;
-+	if (skb_mac_header_was_set(skb))
-+		skb->mac_header += off;
-+	skb->inner_transport_header += off;
-+	skb->inner_network_header += off;
++	return skb->head + skb->inner_mac_header;
 +}
 +
- static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
++static inline void skb_reset_inner_mac_header(struct sk_buff *skb)
++{
++	skb->inner_mac_header = skb->data - skb->head;
++}
++
++static inline void skb_set_inner_mac_header(struct sk_buff *skb,
++					    const int offset)
++{
++	skb_reset_inner_mac_header(skb);
++	skb->inner_mac_header += offset;
++}
+ static inline bool skb_transport_header_was_set(const struct sk_buff *skb)
  {
- #ifndef NET_SKBUFF_DATA_USES_OFFSET
-@@ -879,13 +890,7 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- 	__copy_skb_header(new, old);
+ 	return skb->transport_header != ~0U;
+@@ -1604,6 +1623,21 @@ static inline void skb_set_inner_network_header(struct sk_buff *skb,
+ 	skb->inner_network_header = skb->data + offset;
+ }
  
- #ifndef NET_SKBUFF_DATA_USES_OFFSET
--	/* {transport,network,mac}_header are relative to skb->head */
--	new->transport_header += offset;
--	new->network_header   += offset;
--	if (skb_mac_header_was_set(new))
--		new->mac_header	      += offset;
--	new->inner_transport_header += offset;
--	new->inner_network_header   += offset;
-+	skb_headers_offset_update(new, offset);
- #endif
- 	skb_shinfo(new)->gso_size = skb_shinfo(old)->gso_size;
- 	skb_shinfo(new)->gso_segs = skb_shinfo(old)->gso_segs;
-@@ -1077,14 +1082,8 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- #else
- 	skb->end      = skb->head + size;
- #endif
--	/* {transport,network,mac}_header and tail are relative to skb->head */
- 	skb->tail	      += off;
--	skb->transport_header += off;
--	skb->network_header   += off;
--	if (skb_mac_header_was_set(skb))
--		skb->mac_header += off;
--	skb->inner_transport_header += off;
--	skb->inner_network_header += off;
-+	skb_headers_offset_update(skb, off);
- 	/* Only adjust this if it actually is csum_start rather than csum */
- 	if (skb->ip_summed == CHECKSUM_PARTIAL)
- 		skb->csum_start += nhead;
-@@ -1180,12 +1179,7 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
- 	if (n->ip_summed == CHECKSUM_PARTIAL)
- 		n->csum_start += off;
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
--	n->transport_header += off;
--	n->network_header   += off;
--	if (skb_mac_header_was_set(skb))
--		n->mac_header += off;
--	n->inner_transport_header += off;
--	n->inner_network_header	   += off;
-+	skb_headers_offset_update(n, off);
- #endif
++static inline unsigned char *skb_inner_mac_header(const struct sk_buff *skb)
++{
++	return skb->inner_mac_header;
++}
++
++static inline void skb_reset_inner_mac_header(struct sk_buff *skb)
++{
++	skb->inner_mac_header = skb->data;
++}
++
++static inline void skb_set_inner_mac_header(struct sk_buff *skb,
++						const int offset)
++{
++	skb->inner_mac_header = skb->data + offset;
++}
+ static inline bool skb_transport_header_was_set(const struct sk_buff *skb)
+ {
+ 	return skb->transport_header != NULL;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index b3e8db8..2fd5e90 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -673,6 +673,7 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ 	new->mac_header		= old->mac_header;
+ 	new->inner_transport_header = old->inner_transport_header;
+ 	new->inner_network_header = old->inner_network_header;
++	new->inner_mac_header = old->inner_mac_header;
+ 	skb_dst_copy(new, old);
+ 	new->rxhash		= old->rxhash;
+ 	new->ooo_okay		= old->ooo_okay;
+@@ -876,6 +877,7 @@ static void skb_headers_offset_update(struct sk_buff *skb, int off)
+ 		skb->mac_header += off;
+ 	skb->inner_transport_header += off;
+ 	skb->inner_network_header += off;
++	skb->inner_mac_header += off;
+ }
  
- 	return n;
+ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 -- 
 1.7.1
