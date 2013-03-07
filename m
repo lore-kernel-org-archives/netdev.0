@@ -1,28 +1,33 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH] VSOCK: Split vm_sockets.h into kernel/uapi
-Date: Thu, 07 Mar 2013 16:58:10 +0000
-Message-ID: <26621.1362675490@warthog.procyon.org.uk>
-References: <1362669973-26984-1-git-send-email-acking@vmware.com>
-Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, davem@davemloft.net,
-	pv-drivers@vmware.com
-To: Andy King <acking@vmware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1362669973-26984-1-git-send-email-acking@vmware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [RFC/RFT 00/27] Updates for the rtlwifi family of drivers
+Date: Thu, 07 Mar 2013 11:01:58 -0600
+Message-ID: <5138C806.5010309@lwfinger.net>
+References: <1361837619-2985-1-git-send-email-Larry.Finger@lwfinger.net> <1361845357.2023.7.camel@joe-AO722> <512C264A.3000104@lwfinger.net> <CALx5=V_Y2=bZWXzc9uQkmTBAECeMLbnPU0VA56Wp2tNeBB3Dqw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Joe Perches <joe@perches.com>,
+	John Linville <linville@tuxdriver.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev@vger.kernel.org, Jeffrey Cheung <jcheung@suse.com>,
+	Michal Marek <mmarek@suse.cz>
+To: Matt Chen <machen@suse.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f50.google.com ([209.85.219.50]:49004 "EHLO
+	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754377Ab3CGRCC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 12:02:02 -0500
+In-Reply-To: <CALx5=V_Y2=bZWXzc9uQkmTBAECeMLbnPU0VA56Wp2tNeBB3Dqw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andy King <acking@vmware.com> wrote:
+On 03/06/2013 10:49 PM, Matt Chen wrote:
+> I tried and test the patches for rtl8188ee and rtl8192ce, so far are working
+> fine to me. :)
+>
+> Acked-by: Chen, Chien-Chia <machen@suse.com <mailto:machen@suse.com>>
 
-> Split the vSockets header into kernel and UAPI parts.  The former gets the bits
-> that used to be in __KERNEL__ guards, while the latter gets everything that is
-> user-visible.  Tested by compiling vsock (+transport) and a simple user-mode
-> vSockets application.
-> 
-> Reported-by: David Howells <dhowells@redhat.com>
-> Acked-by: Dmitry Torokhov <dtor@vmware.com>
-> Signed-off-by: Andy King <acking@vmware.com>
+Thanks for the update. I am still chasing system crashes related to CPU lockups 
+caused by spinlock contention. I take it that you have not seen these.
 
-Acked-by: David Howells <dhowells@redhat.com>
+Larry
