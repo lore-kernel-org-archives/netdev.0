@@ -1,59 +1,91 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH 1/3] driver: net: ethernet: cpsw: implement ethtool get/set phy setting
-Date: Thu, 07 Mar 2013 19:49:30 +0100
-Message-ID: <87txon3v0l.fsf@dell.be.48ers.dk>
-References: <1362659421-11884-1-git-send-email-mugunthanvnm@ti.com>
-	<1362659421-11884-2-git-send-email-mugunthanvnm@ti.com>
-	<8762135on4.fsf@dell.be.48ers.dk> <5138CAA8.1060106@ti.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] 8139too: send NETDEV_CHANGE manually when autoneg is
+ disabled
+Date: Thu, 7 Mar 2013 19:10:33 +0000
+Message-ID: <1362683433.2936.41.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1362596784-19443-1-git-send-email-vfalico@redhat.com>
+	 <1362601372.3126.23.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20130306.155323.344491888348815531.davem@davemloft.net>
+	 <20130307102740.GB31105@redhat.com>
+	 <1362671555.2936.10.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20130307163537.GA21810@redhat.com>
+	 <1362675261.2936.18.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20130307183803.GB21810@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<devicetree-discuss@lists.ozlabs.org>,
-	<linux-omap@vger.kernel.org>, <b-cousson@ti.com>, <paul@pwsan.com>
-To: Mugunthan V N <mugunthanvnm@ti.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<wfp5p@virginia.edu>, <jasowang@redhat.com>,
+	<junchangwang@gmail.com>, <greearb@candelatech.com>,
+	<ivecera@redhat.com>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f173.google.com ([209.85.215.173]:65535 "EHLO
-	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759242Ab3CGStg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 13:49:36 -0500
-In-Reply-To: <5138CAA8.1060106@ti.com> (Mugunthan V. N.'s message of "Thu, 7
-	Mar 2013 22:43:12 +0530")
+Received: from webmail.solarflare.com ([12.187.104.25]:60608 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932724Ab3CGTKt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 14:10:49 -0500
+In-Reply-To: <20130307183803.GB21810@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "Mugunthan" == Mugunthan V N <mugunthanvnm@ti.com> writes:
+On Thu, 2013-03-07 at 19:38 +0100, Veaceslav Falico wrote:
+> On Thu, Mar 07, 2013 at 04:54:21PM +0000, Ben Hutchings wrote:
+> >On Thu, 2013-03-07 at 17:35 +0100, Veaceslav Falico wrote:
+> >> On Thu, Mar 07, 2013 at 03:52:35PM +0000, Ben Hutchings wrote:
+> >> >On Thu, 2013-03-07 at 11:27 +0100, Veaceslav Falico wrote:
+[...]
+> >> >> Silently changing speed can break things a bit - bonding relies on
+> >> >> interface speeds for 802.3ad/alb/tlb/active-backup iirc, bridge relies on
+> >> >> stp port cost etc. and they all get it via NETDEV_ notifications. So
+> >> >> without them, they would end up with outdated data, per example (eth2 being
+> >> >> 8139too):
+> >> >[...]
+> >> >
+> >> >Yes, I get it.  But on real hardware, changing speed/duplex is always
+> >> >going to break the link if it's up.  The link change notification should
+> >> >result in kernel and userland notifications via linkwatch_do_dev().
+> >> >
+> >> >(If you're testing against QEMU rather than real hardware, there could
+> >> >be a bug in the emulation of link interrupts.)
+> >>
+> >> It's real hardware:
+> >>
+> >> [    4.339413] 8139cp 0000:10:09.0: This (id 10ec:8139 rev 10) is not an 8139C+ compatible chip, use 8139too
+> >> [    4.348210] 8139too: 8139too Fast Ethernet driver 0.9.28
+> >> [    4.350017] 8139too 0000:10:09.0 eth2: RealTek RTL8139 at 0xffffc90004574100, 00:14:d1:1f:b9:49, IRQ 21
+> >[...]
+> >
+> >OK.  But it's generally not enough to send a 'something changed'
+> >notification; the driver actually has to update the link state.  MAybe
+> >in your test you reconfigure the other end of the link too, or it's
+> >smart enough to do parallel detect.  But in general, changing the link
+> >speed is going to change the link state, and the TX scheduler needs to
+> >enabled or disabled accordingly.
+> 
+> Sorry, I think I didn't explain it clearly. The driver *does* notify
+> about link changes even when it has autonegotiation disabled.
+> 
+> The only thing that doesn't work is the notification when someone changes
+> it via ethtool. In the same moment.
 
-Hi,
+The link *should* go down (assuming it was up before) because you likely
+have a speed mismatch and won't be able to pass traffic.  I don't know
+whether this is possible for the hardware to detect immediately; maybe a
+PHY reset will ensure that it is detected.
 
- M> +- ethtool-active-slave	: Specifies the slave to use for ethtool command
- >> 
- >> That again sounds like something Linux specific rather than a hardware
- >> property.
- >> 
- >> It would be good if all these special things (dual emac mode, vlan
- >> handling, switching) could be handled using the existing kernel
- >> (bridging/vlan) infrastructure, and the driver always just exposing 2
- >> network interfaces instead of these configuration properties.
+[...]
+> Other drivers, after setting autoneg off, usually ifdown/ifup the interface
+> manually, and thus everything gets updated. That is another way to fix this
+> driver - to issue ->ndo_stop(); ->ndo_open(); (as netxen_nic/qlcnic/etc
+> do), but I think that just issuing a notification that we've changed the
+> state, without flapping, is better.
 
- Mugunthan> Switch and Dual Emac modes of operation of CPSW are two
- Mugunthan> different features of the hardware and packet routing
- Mugunthan> between the slaves in the hardware are different in both the
- Mugunthan> modes.
+The link *should* flap, though doing a full stop/start is likely
+unnecessary.
 
- Mugunthan> If by default it is brought up as Dual EMAC then hardware
- Mugunthan> switching is blocked and use-cases like IP phone etc cannot
- Mugunthan> be achieved.
-
-Well, you could use the (sw) bridge functionality of the kernel network
-stack, but performance naturally wouldn't be as good.
-
- Mugunthan> Since CPSW as a hardware Switch, it cannot not be handled in
- Mugunthan> existing kernel feature.
-
-Well, we do have net/dsa, which is conceptually quite similar (even
-though it has never been extended to hook into the bridging stuff). I
-agree that we don't have infrastructure to handle hw like cpsw in a
-really good way today, but it would be very nice to move towards it.
+Ben.
 
 -- 
-Bye, Peter Korsgaard
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
