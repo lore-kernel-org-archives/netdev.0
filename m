@@ -1,109 +1,117 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [Patch net] bridge: add missing vid to br_mdb_get()
-Date: Thu, 07 Mar 2013 10:18:20 -0500
-Message-ID: <5138AFBC.4070303@redhat.com>
-References: <1362661533-29192-1-git-send-email-amwang@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: Andy King <acking@vmware.com>
+Subject: [PATCH] VSOCK: Split vm_sockets.h into kernel/uapi
+Date: Thu,  7 Mar 2013 07:26:13 -0800
+Message-ID: <1362669973-26984-1-git-send-email-acking@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19508 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754289Ab3CGPS0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Mar 2013 10:18:26 -0500
-In-Reply-To: <1362661533-29192-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dhowells@redhat.com, gregkh@linuxfoundation.org, pv-drivers@vmware.com,
+	Andy King <acking@vmware.com>, davem@davemloft.net
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 03/07/2013 08:05 AM, Cong Wang wrote:
-> From: Cong Wang <amwang@redhat.com>
->
-> Obviously, vid should be considered when searching for multicast
-> group.
->
-> Cc: Vlad Yasevich <vyasevic@redhat.com>
+Split the vSockets header into kernel and UAPI parts.  The former gets the bits
+that used to be in __KERNEL__ guards, while the latter gets everything that is
+user-visible.  Tested by compiling vsock (+transport) and a simple user-mode
+vSockets application.
 
-Don't know how I missied that...
+Reported-by: David Howells <dhowells@redhat.com>
+Acked-by: Dmitry Torokhov <dtor@vmware.com>
+Signed-off-by: Andy King <acking@vmware.com>
+---
+ include/linux/vm_sockets.h      |   23 +++++++++++++++++++++++
+ include/uapi/linux/vm_sockets.h |   23 ++++++++---------------
+ 2 files changed, 31 insertions(+), 15 deletions(-)
+ create mode 100644 include/linux/vm_sockets.h
 
-Acked-by: Vlad Yasevich <vyasevich@redhat.com>
-
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
->
-> ---
-> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-> index d5f1d3f..314c73e 100644
-> --- a/net/bridge/br_device.c
-> +++ b/net/bridge/br_device.c
-> @@ -66,7 +66,7 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
->   			goto out;
->   		}
->
-> -		mdst = br_mdb_get(br, skb);
-> +		mdst = br_mdb_get(br, skb, vid);
->   		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb))
->   			br_multicast_deliver(mdst, skb);
->   		else
-> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-> index 4803301..828e2bc 100644
-> --- a/net/bridge/br_input.c
-> +++ b/net/bridge/br_input.c
-> @@ -97,7 +97,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
->   	if (is_broadcast_ether_addr(dest))
->   		skb2 = skb;
->   	else if (is_multicast_ether_addr(dest)) {
-> -		mdst = br_mdb_get(br, skb);
-> +		mdst = br_mdb_get(br, skb, vid);
->   		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
->   			if ((mdst && mdst->mglist) ||
->   			    br_multicast_is_router(br))
-> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-> index 10e6fce..923fbea 100644
-> --- a/net/bridge/br_multicast.c
-> +++ b/net/bridge/br_multicast.c
-> @@ -132,7 +132,7 @@ static struct net_bridge_mdb_entry *br_mdb_ip6_get(
->   #endif
->
->   struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
-> -					struct sk_buff *skb)
-> +					struct sk_buff *skb, u16 vid)
->   {
->   	struct net_bridge_mdb_htable *mdb = rcu_dereference(br->mdb);
->   	struct br_ip ip;
-> @@ -144,6 +144,7 @@ struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
->   		return NULL;
->
->   	ip.proto = skb->protocol;
-> +	ip.vid = vid;
->
->   	switch (skb->protocol) {
->   	case htons(ETH_P_IP):
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 6d314c4..3cbf5be 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -442,7 +442,7 @@ extern int br_multicast_rcv(struct net_bridge *br,
->   			    struct net_bridge_port *port,
->   			    struct sk_buff *skb);
->   extern struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
-> -					       struct sk_buff *skb);
-> +					       struct sk_buff *skb, u16 vid);
->   extern void br_multicast_add_port(struct net_bridge_port *port);
->   extern void br_multicast_del_port(struct net_bridge_port *port);
->   extern void br_multicast_enable_port(struct net_bridge_port *port);
-> @@ -504,7 +504,7 @@ static inline int br_multicast_rcv(struct net_bridge *br,
->   }
->
->   static inline struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
-> -						      struct sk_buff *skb)
-> +						      struct sk_buff *skb, u16 vid)
->   {
->   	return NULL;
->   }
->
+diff --git a/include/linux/vm_sockets.h b/include/linux/vm_sockets.h
+new file mode 100644
+index 0000000..0805eec
+--- /dev/null
++++ b/include/linux/vm_sockets.h
+@@ -0,0 +1,23 @@
++/*
++ * VMware vSockets Driver
++ *
++ * Copyright (C) 2007-2013 VMware, Inc. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License as published by the Free
++ * Software Foundation version 2 and no later version.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ */
++
++#ifndef _VM_SOCKETS_H
++#define _VM_SOCKETS_H
++
++#include <uapi/linux/vm_sockets.h>
++
++int vm_sockets_get_local_cid(void);
++
++#endif /* _VM_SOCKETS_H */
+diff --git a/include/uapi/linux/vm_sockets.h b/include/uapi/linux/vm_sockets.h
+index df91301..b4ed5d8 100644
+--- a/include/uapi/linux/vm_sockets.h
++++ b/include/uapi/linux/vm_sockets.h
+@@ -13,12 +13,10 @@
+  * more details.
+  */
+ 
+-#ifndef _VM_SOCKETS_H_
+-#define _VM_SOCKETS_H_
++#ifndef _UAPI_VM_SOCKETS_H
++#define _UAPI_VM_SOCKETS_H
+ 
+-#if !defined(__KERNEL__)
+-#include <sys/socket.h>
+-#endif
++#include <linux/socket.h>
+ 
+ /* Option name for STREAM socket buffer size.  Use as the option name in
+  * setsockopt(3) or getsockopt(3) to set or get an unsigned long long that
+@@ -137,14 +135,13 @@
+ #define VM_SOCKETS_VERSION_MINOR(_v) (((_v) & 0x0000FFFF))
+ 
+ /* Address structure for vSockets.   The address family should be set to
+- * whatever vmci_sock_get_af_value_fd() returns.  The structure members should
+- * all align on their natural boundaries without resorting to compiler packing
+- * directives.  The total size of this structure should be exactly the same as
+- * that of struct sockaddr.
++ * AF_VSOCK.  The structure members should all align on their natural
++ * boundaries without resorting to compiler packing directives.  The total size
++ * of this structure should be exactly the same as that of struct sockaddr.
+  */
+ 
+ struct sockaddr_vm {
+-	sa_family_t svm_family;
++	__kernel_sa_family_t svm_family;
+ 	unsigned short svm_reserved1;
+ 	unsigned int svm_port;
+ 	unsigned int svm_cid;
+@@ -156,8 +153,4 @@ struct sockaddr_vm {
+ 
+ #define IOCTL_VM_SOCKETS_GET_LOCAL_CID		_IO(7, 0xb9)
+ 
+-#if defined(__KERNEL__)
+-int vm_sockets_get_local_cid(void);
+-#endif
+-
+-#endif
++#endif /* _UAPI_VM_SOCKETS_H */
+-- 
+1.7.4.1
