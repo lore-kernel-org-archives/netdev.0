@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: fire NETDEV_RELEASE event only on 0 slaves
-Date: Thu, 07 Mar 2013 16:15:56 -0500 (EST)
-Message-ID: <20130307.161556.554850746841856752.davem@davemloft.net>
-References: <1362589832-9526-1-git-send-email-vfalico@redhat.com>
-	<20130307033819.GA3513@neilslaptop.think-freely.org>
+Subject: Re: [PATCH] fix mv643xx_eth for disabled autoneg
+Date: Thu, 07 Mar 2013 16:18:07 -0500 (EST)
+Message-ID: <20130307.161807.944944807608782921.davem@davemloft.net>
+References: <1362592142-4049-1-git-send-email-phil.sutter@viprinet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vfalico@redhat.com, netdev@vger.kernel.org, fubar@us.ibm.com,
-	andy@greyhouse.net
-To: nhorman@tuxdriver.com
+Cc: buytenh@marvell.com, netdev@vger.kernel.org
+To: phil.sutter@viprinet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46217 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46237 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932840Ab3CGVP6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 16:15:58 -0500
-In-Reply-To: <20130307033819.GA3513@neilslaptop.think-freely.org>
+	with ESMTP id S1758688Ab3CGVSJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 16:18:09 -0500
+In-Reply-To: <1362592142-4049-1-git-send-email-phil.sutter@viprinet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Wed, 6 Mar 2013 22:38:19 -0500
+From: Phil Sutter <phil.sutter@viprinet.com>
+Date: Wed,  6 Mar 2013 18:49:02 +0100
 
-> On Wed, Mar 06, 2013 at 06:10:32PM +0100, Veaceslav Falico wrote:
->> Currently, if we set up netconsole over bonding and release a slave,
->> netconsole will stop logging on the whole bonding device. Change the
->> behavior to stop the netconsole only when the last slave is released.
->> 
->> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
- ...
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> When autoneg has been disabled in the PHY (Marvell 88E1118 here), auto
+> negotiation between MAC and PHY seem non-functional anymore. The only
+> way I found to workaround this is to manually configure the MAC with the
+> settings sent to the PHY earlier.
+> 
+> Signed-off-by: Phil Sutter <phil.sutter@viprinet.com>
 
-Applied, thanks everyone.
+Applied, thanks.
