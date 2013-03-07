@@ -1,99 +1,81 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v2 resent net-next 2/4] ixgbe: Make use of the default fdb handlers.
-Date: Wed,  6 Mar 2013 20:39:43 -0500
-Message-ID: <1362620385-14553-3-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v2 resent net-next 4/4] qlcnic: Use generic fdb handler when driver options are not enabled.
+Date: Wed,  6 Mar 2013 20:39:45 -0500
+Message-ID: <1362620385-14553-5-git-send-email-vyasevic@redhat.com>
 References: <1362620385-14553-1-git-send-email-vyasevic@redhat.com>
 Cc: or.gerlitz@gmail.com, Vlad Yasevich <vyasevic@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"CC: Gregory Rose" <gregory.v.rose@intel.com>
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>, linux-driver@qlogic.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58396 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:21585 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758526Ab3CGBjx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Mar 2013 20:39:53 -0500
+	id S1755479Ab3CGBj4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Mar 2013 20:39:56 -0500
 In-Reply-To: <1362620385-14553-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For fdb_add, use the default handler in the non-SRIOV case.
-For the other fdb handlers, just remove them and use the
-default ones.
+Allow qlcnic to use the generic fdb handler when the driver options
+are not enabled.   Untill the driver is fully fixed, this allows
+the use of the FDB interface with qlogic driver, but simply puts
+the driver into promisc mode since the driver currently does not
+support IFF_UNICAST_FLT.
 
-CC: John Fastabend <john.r.fastabend@intel.com>
-Acked-By: John Fastabend <john.r.fastabend@intel.com>
-CC: CC: Gregory Rose <gregory.v.rose@intel.com>
+CC: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Acked-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+CC: Sony Chacko <sony.chacko@qlogic.com>
+CC: linux-driver@qlogic.com
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   42 +------------------------
- 1 files changed, 1 insertions(+), 41 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   21 ++++++---------------
+ 1 files changed, 6 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index db5611a..e56a3d1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7007,7 +7007,7 @@ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 	int err;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 28a6d48..c6f9d5e 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -253,11 +253,8 @@ static int qlcnic_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	int err = -EOPNOTSUPP;
  
- 	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
+-	if (!adapter->fdb_mac_learn) {
+-		pr_info("%s: Driver mac learn is enabled, FDB operation not allowed\n",
+-			__func__);
+-		return err;
+-	}
++	if (!adapter->fdb_mac_learn)
++		return ndo_dflt_fdb_del(ndm, tb, netdev, addr);
+ 
+ 	if (adapter->flags & QLCNIC_ESWITCH_ENABLED) {
+ 		if (is_unicast_ether_addr(addr))
+@@ -277,11 +274,8 @@ static int qlcnic_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	int err = 0;
+ 
+-	if (!adapter->fdb_mac_learn) {
+-		pr_info("%s: Driver mac learn is enabled, FDB operation not allowed\n",
+-			__func__);
 -		return -EOPNOTSUPP;
-+		return ndo_dflt_fdb_add(ndm, tb, dev, addr, flags);
- 
- 	/* Hardware does not support aging addresses so if a
- 	 * ndm_state is given only allow permanent addresses
-@@ -7038,44 +7038,6 @@ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 	return err;
- }
- 
--static int ixgbe_ndo_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
--			     struct net_device *dev,
--			     const unsigned char *addr)
--{
--	struct ixgbe_adapter *adapter = netdev_priv(dev);
--	int err = -EOPNOTSUPP;
--
--	if (ndm->ndm_state & NUD_PERMANENT) {
--		pr_info("%s: FDB only supports static addresses\n",
--			ixgbe_driver_name);
--		return -EINVAL;
 -	}
--
--	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
--		if (is_unicast_ether_addr(addr))
--			err = dev_uc_del(dev, addr);
--		else if (is_multicast_ether_addr(addr))
--			err = dev_mc_del(dev, addr);
--		else
--			err = -EINVAL;
--	}
--
--	return err;
--}
--
--static int ixgbe_ndo_fdb_dump(struct sk_buff *skb,
--			      struct netlink_callback *cb,
--			      struct net_device *dev,
--			      int idx)
--{
--	struct ixgbe_adapter *adapter = netdev_priv(dev);
--
--	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
--		idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
--
--	return idx;
--}
--
- static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
- 				    struct nlmsghdr *nlh)
++	if (!adapter->fdb_mac_learn)
++		return ndo_dflt_fdb_add(ndm, tb, netdev, addr, flags);
+ 
+ 	if (!(adapter->flags & QLCNIC_ESWITCH_ENABLED)) {
+ 		pr_info("%s: FDB e-switch is not enabled\n", __func__);
+@@ -306,11 +300,8 @@ static int qlcnic_fdb_dump(struct sk_buff *skb, struct netlink_callback *ncb,
  {
-@@ -7171,8 +7133,6 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_set_features = ixgbe_set_features,
- 	.ndo_fix_features = ixgbe_fix_features,
- 	.ndo_fdb_add		= ixgbe_ndo_fdb_add,
--	.ndo_fdb_del		= ixgbe_ndo_fdb_del,
--	.ndo_fdb_dump		= ixgbe_ndo_fdb_dump,
- 	.ndo_bridge_setlink	= ixgbe_ndo_bridge_setlink,
- 	.ndo_bridge_getlink	= ixgbe_ndo_bridge_getlink,
- };
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 
+-	if (!adapter->fdb_mac_learn) {
+-		pr_info("%s: Driver mac learn is enabled, FDB operation not allowed\n",
+-			__func__);
+-		return -EOPNOTSUPP;
+-	}
++	if (!adapter->fdb_mac_learn)
++		return ndo_dflt_fdb_dump(skb, ncb, netdev, idx);
+ 
+ 	if (adapter->flags & QLCNIC_ESWITCH_ENABLED)
+ 		idx = ndo_dflt_fdb_dump(skb, ncb, netdev, idx);
 -- 
 1.7.7.6
