@@ -1,68 +1,71 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC PATCH net-next 0/3] Allow bridge to function in
- non-promisc mode
-Date: Thu, 7 Mar 2013 09:13:40 -0800
-Message-ID: <20130307091340.6c5af4bb@nehalam.linuxnetplumber.net>
-References: <1362623485-18209-1-git-send-email-vyasevic@redhat.com>
-	<CAOaVG17iZu3r9no5FtNU-6ZwW2UdR3QBE6O3EKm6-JXAmEyuyA@mail.gmail.com>
-	<5138B3C9.4060404@redhat.com>
+From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH 1/3] driver: net: ethernet: cpsw: implement ethtool get/set
+ phy setting
+Date: Thu, 7 Mar 2013 22:43:12 +0530
+Message-ID: <5138CAA8.1060106@ti.com>
+References: <1362659421-11884-1-git-send-email-mugunthanvnm@ti.com>
+ <1362659421-11884-2-git-send-email-mugunthanvnm@ti.com>
+ <8762135on4.fsf@dell.be.48ers.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: vyasevic@redhat.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <5138B3C9.4060404@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+ linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <8762135on4.fsf-D6SC8u56vOOJDPpyT6T3/w@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 07 Mar 2013 10:35:37 -0500
-Vlad Yasevich <vyasevic@redhat.com> wrote:
+On 3/7/2013 6:54 PM, Peter Korsgaard wrote:
+>>>>>> "M" == Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org> writes:
+>   M> This patch implements get/set of the phy settings via ethtool apis
+>   M> Signed-off-by: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+>   M> ---
+>   M>  Documentation/devicetree/bindings/net/cpsw.txt |    3 +++
+>   M>  drivers/net/ethernet/ti/cpsw.c                 |   32 ++++++++++++++++++++++++
+>   M>  include/linux/platform_data/cpsw.h             |    1 +
+>   M>  3 files changed, 36 insertions(+)
+>
+>   M> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+>   M> index ecfdf75..8d61300 100644
+>   M> --- a/Documentation/devicetree/bindings/net/cpsw.txt
+>   M> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
+>   M> @@ -20,6 +20,7 @@ Required properties:
+>   M>  - cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
+>   M>  - phy_id		: Specifies slave phy id
+>   M>  - mac-address		: Specifies slave MAC address
+>   M> +- ethtool-active-slave	: Specifies the slave to use for ethtool command
+>
+> That again sounds like something Linux specific rather than a hardware
+> property.
+>
+> It would be good if all these special things (dual emac mode, vlan
+> handling, switching) could be handled using the existing kernel
+> (bridging/vlan) infrastructure, and the driver always just exposing 2
+> network interfaces instead of these configuration properties.
+>
+Switch and Dual Emac modes of operation of CPSW are two different 
+features of the
+hardware and packet routing between the slaves in the hardware are 
+different in
+both the modes.
 
-> On 03/07/2013 02:19 AM, Stephen Hemminger wrote:
-> > I understand the desire to add more functionality, but in this case it
-> > would introduce lots more problems. STP would break and it doesn't seem to
-> > gain anything that can't be done by other means.
-> >
-> > Turning bridge into macvlan seems unnecessary. Combining apples and bananas
-> > doesn't always make a tasty smoothy, sometimes it is just a mess.
-> >
-> > Maybe adding a little more to macvlan to do what you want would be simpler.
-> >
-> 
-> 
-> It's not really a macvlan over the bridge.  I would agree that 
-> particular setup would be a bit odd.  This work enables VMs to manage
-> their mac addresses and to reduce the load on the host by keeping the
-> bridge in promisc mode.
-> 
-> Sadly, most kvm network configs still use bridging and have not 
-> transitioned to OVS.  macvlan has some limitations as well and I working
-> to address those, but there is a desire for non-promisc bridge.  In
-> this case VMs can manage their mac addresses and can write that data to
-> the bridge.
-> 
-> STP is not broken as STP uses multicast mac and we set IFF_ALLMULTI thus
-> continuing to receive and process STP BPDUs.
-> 
-> The one thing that would appear to suffer from this is VLAN reception, 
-> but the bridge does allow vlan config now and that would have to be 
-> configured if VMs wish to use vlans.
-> 
-> I am not changing default operation of the bridge.  Default is still 
-> promisc.  In fact, one can switch back and forth without any network 
-> outages.  This simply adds another mode the the bridge operation.
-> 
+If by default it is brought up as Dual EMAC then hardware switching is 
+blocked and
+use-cases like IP phone etc cannot be achieved.
 
-1. I am not a fan of the added complexity. 
-2, Don't use sysfs for new API's use netlink instead.
-3. It depends on the uplink port providing UNICAST filtering which some
-   physical devices don't do.
+Since CPSW as a hardware Switch, it cannot not be handled in existing kernel
+feature.
+
+Regards
+Mugunthan V N
