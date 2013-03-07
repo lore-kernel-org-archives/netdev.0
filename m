@@ -1,38 +1,45 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [PATCH v2 3/7] USBHID: don't recover device if suspend fails in
- system sleep
-Date: Fri, 8 Mar 2013 00:16:08 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1303080013210.19460@pobox.suse.cz>
-References: <1362672924-22975-1-git-send-email-ming.lei@canonical.com> <1362672924-22975-4-git-send-email-ming.lei@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6 addrconf: Fix addrconf_ifid_eui64 of 802.15.4
+ devices
+Date: Thu, 07 Mar 2013 18:17:51 -0500 (EST)
+Message-ID: <20130307.181751.2267151221127000913.davem@davemloft.net>
+References: <1362687183-3425-1-git-send-email-alex.aring@gmail.com>
+	<1362696088.2936.47.camel@bwh-desktop.uk.solarflarecom.com>
+	<1362697025.15793.221.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-input@vger.kernel.org
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <1362672924-22975-4-git-send-email-ming.lei@canonical.com>
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, alex.aring@gmail.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47295 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755554Ab3CGXRx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 18:17:53 -0500
+In-Reply-To: <1362697025.15793.221.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 8 Mar 2013, Ming Lei wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 07 Mar 2013 14:57:05 -0800
 
-> If suspend callback fails in system sleep context, usb core will
-> ignore the failure and let the system sleep go ahead further, so this
-> patch doesn't recover device under this situation, otherwise
-> may cause resume() confused.
+> On Thu, 2013-03-07 at 22:41 +0000, Ben Hutchings wrote:
+>> On Thu, 2013-03-07 at 21:13 +0100, Alexander Aring wrote:
+>> > The function addrconf_ifid_eui64 will copy eui into dev->dev_addr.
+>> > We need first to manipulate eui[0] before we call memcpy afterwards.
+>> 
+>> memcpy() does not work that way.
+>> 
+>> > Broken since commit:
+>> > 5e98a36ed4bf6ea396170e3af0dd4fcbe51d772f
+>> > 
+>> > Since this commit I got many trouble with the ieee802154 stack.
+>> 
+>> Your change is effectively reverting that commit.
 > 
-> Cc: Jiri Kosina <jkosina@suse.cz>
-> Signed-off-by: Ming Lei <ming.lei@canonical.com>
+> Reverting the commit seems the solution ;)
 
-Acked-by: Jiri Kosina <jkosina@suse.cz>
-
-I guess this will go through USB tree as a series ...
-
-Thanks,
-
--- 
-Jiri Kosina
-SUSE Labs
+So Yoshifuji HIDEAKI and Alexander need to work out what is happening
+here.
