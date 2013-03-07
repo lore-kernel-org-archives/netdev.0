@@ -1,32 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/6] Mellanox Core and Ethernet driver fixes
- 2013-03-07
-Date: Thu, 07 Mar 2013 15:52:53 -0500 (EST)
-Message-ID: <20130307.155253.396429921313642600.davem@davemloft.net>
-References: <1362664017-30275-1-git-send-email-ogerlitz@mellanox.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next v3 1/4] ipv6: introdcue __ipv6_addr_needs_scope_id and ipv6_iface_scope_id helper functions
+Date: Thu, 7 Mar 2013 22:05:29 +0100
+Message-ID: <20130307210529.GA23621@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com
-To: ogerlitz@mellanox.com
+Content-Type: text/plain; charset=utf-8
+Cc: yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46012 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752571Ab3CGUwz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 15:52:55 -0500
-In-Reply-To: <1362664017-30275-1-git-send-email-ogerlitz@mellanox.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:49899 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932435Ab3CGVFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 16:05:30 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu,  7 Mar 2013 15:46:51 +0200
+__ipv6_addr_needs_scope_id checks if an ipv6 address needs to supply
+a 'sin6_scope_id != 0'. 'sin6_scope_id != 0' was enforced in case
+of link-local addresses. To support interface-local multicast these
+checks had to be enhanced and are now consolidated into these new helper
+functions.
 
-> Here's a batch of fixes to the mlx4 core and ethernet drivers for 3.9
-> 
-> The commit that disabled RFS when running in SRIOV mode fixes a regression which was 
-> introduced in 3.9-rc1 but actually present also in the 3.8 -stable series. It turns out 
-> that a slightly different fix is needed there and we will generate and submit it there.
-> 
-> Patches done against net commit 66d29cbc59433 "benet: Wait f/w POST until timeout"
+v2:
+a) migrated to struct ipv6_addr_props
 
-Series applied, thanks.
+v3:
+a) reverted changes for ipv6_addr_props
+b) test for address type instead of comparing scope
+
+Suggested-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ include/net/ipv6.h | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 64d12e7..e11d304 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -320,6 +320,18 @@ static inline int ipv6_addr_src_scope(const struct in6_addr *addr)
+ 	return __ipv6_addr_src_scope(__ipv6_addr_type(addr));
+ }
+ 
++static inline bool __ipv6_addr_needs_scope_id(int type)
++{
++	return type & IPV6_ADDR_LINKLOCAL ||
++	       (type & IPV6_ADDR_MULTICAST &&
++		(type & (IPV6_ADDR_LOOPBACK|IPV6_ADDR_LINKLOCAL)));
++}
++
++static inline __u32 ipv6_iface_scope_id(const struct in6_addr *addr, int iface)
++{
++	return __ipv6_addr_needs_scope_id(__ipv6_addr_type(addr)) ? iface : 0;
++}
++
+ static inline int ipv6_addr_cmp(const struct in6_addr *a1, const struct in6_addr *a2)
+ {
+ 	return memcmp(a1, a2, sizeof(struct in6_addr));
+-- 
+1.8.1.4
