@@ -1,45 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6 addrconf: Fix addrconf_ifid_eui64 of 802.15.4
- devices
-Date: Thu, 07 Mar 2013 18:17:51 -0500 (EST)
-Message-ID: <20130307.181751.2267151221127000913.davem@davemloft.net>
-References: <1362687183-3425-1-git-send-email-alex.aring@gmail.com>
-	<1362696088.2936.47.camel@bwh-desktop.uk.solarflarecom.com>
-	<1362697025.15793.221.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, alex.aring@gmail.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next 0/4] VXLAN: segmentation offload
+Date: Thu,  7 Mar 2013 15:21:30 -0800
+Message-ID: <1362698490-2378-1-git-send-email-pshelar@nicira.com>
+Cc: jesse@nicira.com, Pravin B Shelar <pshelar@nicira.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47295 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755554Ab3CGXRx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 18:17:53 -0500
-In-Reply-To: <1362697025.15793.221.camel@edumazet-glaptop>
+Received: from na3sys009aog104.obsmtp.com ([74.125.149.73]:46317 "HELO
+	na3sys009aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755660Ab3CGXUH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 18:20:07 -0500
+Received: by mail-qe0-f71.google.com with SMTP id 9so1827262qea.10
+        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 15:20:06 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 07 Mar 2013 14:57:05 -0800
+Following patches add segmentation offload to VXLAN. These
+patches shows performance improvement from 3.9G to 5.8G (+50%)
+with netperf single process TCP_STREAM test on 10G network.
 
-> On Thu, 2013-03-07 at 22:41 +0000, Ben Hutchings wrote:
->> On Thu, 2013-03-07 at 21:13 +0100, Alexander Aring wrote:
->> > The function addrconf_ifid_eui64 will copy eui into dev->dev_addr.
->> > We need first to manipulate eui[0] before we call memcpy afterwards.
->> 
->> memcpy() does not work that way.
->> 
->> > Broken since commit:
->> > 5e98a36ed4bf6ea396170e3af0dd4fcbe51d772f
->> > 
->> > Since this commit I got many trouble with the ieee802154 stack.
->> 
->> Your change is effectively reverting that commit.
-> 
-> Reverting the commit seems the solution ;)
+Pravin B Shelar (4):
+  net: Add skb_headers_offset_update helper function.
+  tunneling: Capture inner mac header during encapsulation.
+  tunneling: Add generic Tunnel segmentation.
+  VXLAN: Use UDP Tunnel segmention.
 
-So Yoshifuji HIDEAKI and Alexander need to work out what is happening
-here.
+ drivers/net/vxlan.c             |   21 ++++++-
+ include/linux/netdev_features.h |    7 +-
+ include/linux/skbuff.h          |   36 ++++++++++++
+ net/core/ethtool.c              |    1 +
+ net/core/skbuff.c               |   36 +++++-------
+ net/ipv4/af_inet.c              |    6 ++-
+ net/ipv4/tcp.c                  |    1 +
+ net/ipv4/udp.c                  |  116 ++++++++++++++++++++++++++++++--------
+ net/ipv6/ip6_offload.c          |    1 +
+ net/ipv6/udp_offload.c          |   10 +++-
+ 10 files changed, 181 insertions(+), 54 deletions(-)
