@@ -1,7 +1,7 @@
 From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH v2 4/7] usbnet: cdc_mbim: comments on suspend failure
-Date: Fri,  8 Mar 2013 00:15:21 +0800
-Message-ID: <1362672924-22975-5-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH v2 5/7] usbnet: qmi_wwan: comments on suspend failure
+Date: Fri,  8 Mar 2013 00:15:22 +0800
+Message-ID: <1362672924-22975-6-git-send-email-ming.lei@canonical.com>
 References: <1362672924-22975-1-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -28,17 +28,17 @@ system sleep context.
 Cc: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 ---
- drivers/net/usb/cdc_mbim.c |    5 +++++
+ drivers/net/usb/qmi_wwan.c |    5 +++++
  1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
-index 248d2dc..406a34d 100644
---- a/drivers/net/usb/cdc_mbim.c
-+++ b/drivers/net/usb/cdc_mbim.c
-@@ -332,6 +332,11 @@ static int cdc_mbim_suspend(struct usb_interface *=
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index efb5c7c..8a60bdd 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -288,6 +288,11 @@ static int qmi_wwan_suspend(struct usb_interface *=
 intf, pm_message_t message)
- 		goto error;
- 	}
+ 	struct qmi_wwan_state *info =3D (void *)&dev->data;
+ 	int ret;
 =20
 +	/*
 +	 * Both usbnet_suspend() and subdriver->suspend() MUST return 0
@@ -47,7 +47,7 @@ intf, pm_message_t message)
 +	 */
  	ret =3D usbnet_suspend(intf, message);
  	if (ret < 0)
- 		goto error;
+ 		goto err;
 --=20
 1.7.9.5
 
