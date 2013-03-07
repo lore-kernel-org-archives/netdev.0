@@ -1,35 +1,65 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH] ipv6 addrconf: Fix addrconf_ifid_eui64 of 802.15.4
- devices
-Date: Thu, 7 Mar 2013 21:41:20 +0100
-Message-ID: <20130307204120.GA3808@x61s.8.8.8.8>
-References: <1362687183-3425-1-git-send-email-alex.aring@gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH] macvlan: Set IFF_UNICAST_FLT flag to prevent unnecessary
+ promisc mode.
+Date: Thu, 07 Mar 2013 15:43:43 -0500
+Message-ID: <5138FBFF.9000108@redhat.com>
+References: <1362687708-8685-1-git-send-email-vyasevic@redhat.com> <5138F82F.6010005@candelatech.com> <5138F95A.9010305@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f169.google.com ([209.85.215.169]:63518 "EHLO
-	mail-ea0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751200Ab3CGUkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 15:40:08 -0500
-Received: by mail-ea0-f169.google.com with SMTP id d13so29750eaa.14
-        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 12:40:07 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1362687183-3425-1-git-send-email-alex.aring@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:10309 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751200Ab3CGUnp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Mar 2013 15:43:45 -0500
+In-Reply-To: <5138F95A.9010305@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 03/07/2013 03:32 PM, Vlad Yasevich wrote:
+> On 03/07/2013 03:27 PM, Ben Greear wrote:
+>> On 03/07/2013 12:21 PM, Vlad Yasevich wrote:
+>>> Macvlan already supports hw address filters.  Set the IFF_UNICAST_FLT
+>>> so that it doesn't needlesly enter PROMISC mode when macvlans are
+>>> stacked.
+>>
+>> Out of curiosity, how can stacking mac-vlans be useful?
+>>
+>> (You are stacking more macvlans on a base mac-vlan?)
+>
+> Yep, and macvlans allows, but it looks like it only tries to detect a 2
+> level stack.  I am not sure what the reason is.  Might be realated to
+> vlan-to-vlan communication.
 
-I don't know if this is a right solution for that, because other
-functions like addrconf_ifid_infiniband to manipulate eui after memcpy,
-too.
+Aha.  The reason is explained in this commit.
 
-But this patch solves my problems with ieee802154 stack.
+commit b0832a2961022a076c812384435b5f0290b3fc91
+Author: Eric Biederman <ebiederm@aristanetworks.com>
+Date:   Fri Mar 13 13:15:37 2009 -0700
 
-Any other ideas?
+     macvlan: Support creating macvlans from macvlans
 
-Regards
-Alex
+     When running in a network namespace whose only link to
+     the outside world is a macvlan device, not being
+     able to create another macvlan is a real pain.
+
+     So modify macvlan creation to allow automatically forward
+     a creation of a macvlan on a macvlan to become a creation
+     of a macvlan on the underlying network device.
+
+
+I don't know if it's useful to support more then 2 levels.
+
+-vlad
+
+>
+> -vlad
+>
+>>
+>> Thanks,
+>> Ben
+>>
+>
