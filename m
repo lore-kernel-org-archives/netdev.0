@@ -1,8 +1,8 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
 Subject: Re: [RFC PATCH net-next 0/3] Allow bridge to function in
  non-promisc mode
-Date: Thu, 07 Mar 2013 12:21:16 -0500
-Message-ID: <5138CC8C.5090401@redhat.com>
+Date: Thu, 07 Mar 2013 12:38:20 -0500
+Message-ID: <5138D08C.8010307@redhat.com>
 References: <1362623485-18209-1-git-send-email-vyasevic@redhat.com>
 	<CAOaVG17iZu3r9no5FtNU-6ZwW2UdR3QBE6O3EKm6-JXAmEyuyA@mail.gmail.com>
 	<5138B3C9.4060404@redhat.com>
@@ -66,19 +66,20 @@ On 03/07/2013 12:13 PM, Stephen Hemminger wrote:
 >>
 >
 > 1. I am not a fan of the added complexity.
-
-These patches are very simple and don't impact bridge operations.
-
 > 2, Don't use sysfs for new API's use netlink instead.
 
-Ok, I can remove the sysfs uplink interface.
+Oh, I had a question for you about this.  I am changing the uplink code 
+slightly to pattern more after some of the security features you added 
+(like root_block and bpdu_guard).  I makes things simpler.  I would 
+really like to provide the sysfs interface, because I checked iproute 
+code and I don't see any netlink implementation of those things.
 
+Would that be more agreeable to you?
+
+Thanks
+-vlad
+
+I
 > 3. It depends on the uplink port providing UNICAST filtering which some
 >     physical devices don't do.
 >
-
-If the physical device doesn't provide filtering, it will be placed in 
-promiscuous mode.  So, it essentially reverts back to the old behavior.
-However, on devices that do support unicast filtering, there is a win.
-
--vlad
