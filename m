@@ -1,34 +1,40 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] bridge: use ipv4_is_local_multicast() helper
-Date: Thu,  7 Mar 2013 20:32:26 +0800
-Message-ID: <1362659546-22455-1-git-send-email-amwang@redhat.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: [PATCH] Fix: sparse warning in inet_csk_prepare_forced_close
+Date: Thu,  7 Mar 2013 13:34:33 +0100
+Message-ID: <1362659673-28895-1-git-send-email-christoph.paasch@uclouvain.be>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13660 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751029Ab3CGMck (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Mar 2013 07:32:40 -0500
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:46504 "EHLO
+	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751364Ab3CGMk3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 07:40:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+In e337e24d66 (inet: Fix kmemleak in tcp_v4/6_syn_recv_sock and
+dccp_v4/6_request_recv_sock) I introduced the function
+inet_csk_prepare_forced_close, which does a call to bh_unlock_sock().
+This produces a sparse-warning.
 
+This patch adds the missing __releases.
+
+Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 ---
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 10e6fce..81d51b8 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1368,7 +1368,7 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
- 		return -EINVAL;
- 
- 	if (iph->protocol != IPPROTO_IGMP) {
--		if ((iph->daddr & IGMP_LOCAL_GROUP_MASK) != IGMP_LOCAL_GROUP)
-+		if (!ipv4_is_local_multicast(iph->daddr))
- 			BR_INPUT_SKB_CB(skb)->mrouters_only = 1;
- 		return 0;
- 	}
+ net/ipv4/inet_connection_sock.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 7d1874b..804c98f 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -735,6 +735,7 @@ EXPORT_SYMBOL(inet_csk_destroy_sock);
+  * tcp/dccp_create_openreq_child().
+  */
+ void inet_csk_prepare_forced_close(struct sock *sk)
++__releases(&sk->sk_lock.slock)
+ {
+ 	/* sk_clone_lock locked the socket and set refcnt to 2 */
+ 	bh_unlock_sock(sk);
+-- 
+1.8.1.227.g44fe835
