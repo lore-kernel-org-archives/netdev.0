@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 3/3] e1000e: fix accessing to suspended device
-Date: Thu,  7 Mar 2013 03:15:25 -0800
-Message-ID: <1362654925-26088-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 2/3] e1000e: fix runtime power management transitions
+Date: Thu,  7 Mar 2013 03:15:24 -0800
+Message-ID: <1362654925-26088-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1362654925-26088-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Konstantin Khlebnikov <khlebnikov@openvz.org>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -9,9 +9,9 @@ Cc: Konstantin Khlebnikov <khlebnikov@openvz.org>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:5166 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:17060 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756638Ab3CGLPi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756617Ab3CGLPi (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 7 Mar 2013 06:15:38 -0500
 In-Reply-To: <1362654925-26088-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,8 +19,23 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Konstantin Khlebnikov <khlebnikov@openvz.org>
 
-This patch fixes some annoying messages like 'Error reading PHY register' and
-'Hardware Erorr' and saves several seconds on reboot.
+This patch removes redundant actions from driver and fixes its interaction
+with actions in pci-bus runtime power management code.
+
+It removes pci_save_state() from __e1000_shutdown() for normal adapters,
+PCI bus callbacks pci_pm_*() will do all this for us. Now __e1000_shutdown()
+switches to D3-state only quad-port adapters, because they needs quirk for
+clearing false-positive error from downsteam pci-e port.
+
+pci_save_state() now called after clearing bus-master bit, thus __e1000_resume()
+and e1000_io_slot_reset() must set it back after restoring configuration space.
+
+This patch set get_link_status before calling pm_runtime_put() in e1000_open()
+to allow e1000_idle() get real link status and schedule first runtime suspend.
+
+This patch also enables wakeup for device if management mode is enabled
+(like for WoL) as result pci_prepare_to_sleep() would setup wakeup without
+special actions like custom 'enable_wakeup' sign.
 
 Cc: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
@@ -29,61 +44,181 @@ Tested-by: Borislav Petkov <bp@suse.de>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ethtool.c | 13 +++++++++++++
- drivers/net/ethernet/intel/e1000e/netdev.c  |  2 ++
- 2 files changed, 15 insertions(+)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 78 +++++++-----------------------
+ 1 file changed, 18 insertions(+), 60 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index 2c18137..f91a8f3 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -36,6 +36,7 @@
- #include <linux/delay.h>
- #include <linux/vmalloc.h>
- #include <linux/mdio.h>
-+#include <linux/pm_runtime.h>
- 
- #include "e1000.h"
- 
-@@ -2229,7 +2230,19 @@ static int e1000e_get_ts_info(struct net_device *netdev,
- 	return 0;
- }
- 
-+static int e1000e_ethtool_begin(struct net_device *netdev)
-+{
-+	return pm_runtime_get_sync(netdev->dev.parent);
-+}
-+
-+static void e1000e_ethtool_complete(struct net_device *netdev)
-+{
-+	pm_runtime_put_sync(netdev->dev.parent);
-+}
-+
- static const struct ethtool_ops e1000_ethtool_ops = {
-+	.begin			= e1000e_ethtool_begin,
-+	.complete		= e1000e_ethtool_complete,
- 	.get_settings		= e1000_get_settings,
- 	.set_settings		= e1000_set_settings,
- 	.get_drvinfo		= e1000_get_drvinfo,
 diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 2954cc7..948b86ff 100644
+index 1799021..2954cc7 100644
 --- a/drivers/net/ethernet/intel/e1000e/netdev.c
 +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -4663,6 +4663,7 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
- 	    (adapter->hw.phy.media_type == e1000_media_type_copper)) {
- 		int ret_val;
+@@ -4303,6 +4303,7 @@ static int e1000_open(struct net_device *netdev)
+ 	netif_start_queue(netdev);
  
-+		pm_runtime_get_sync(&adapter->pdev->dev);
- 		ret_val = e1e_rphy(hw, MII_BMCR, &phy->bmcr);
- 		ret_val |= e1e_rphy(hw, MII_BMSR, &phy->bmsr);
- 		ret_val |= e1e_rphy(hw, MII_ADVERTISE, &phy->advertise);
-@@ -4673,6 +4674,7 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
- 		ret_val |= e1e_rphy(hw, MII_ESTATUS, &phy->estatus);
- 		if (ret_val)
- 			e_warn("Error reading PHY register\n");
-+		pm_runtime_put_sync(&adapter->pdev->dev);
+ 	adapter->idle_check = true;
++	hw->mac.get_link_status = true;
+ 	pm_runtime_put(&pdev->dev);
+ 
+ 	/* fire a link status change interrupt to start the watchdog */
+@@ -5887,8 +5888,7 @@ release:
+ 	return retval;
+ }
+ 
+-static int __e1000_shutdown(struct pci_dev *pdev, bool *enable_wake,
+-			    bool runtime)
++static int __e1000_shutdown(struct pci_dev *pdev, bool runtime)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+@@ -5912,10 +5912,6 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool *enable_wake,
+ 	}
+ 	e1000e_reset_interrupt_capability(adapter);
+ 
+-	retval = pci_save_state(pdev);
+-	if (retval)
+-		return retval;
+-
+ 	status = er32(STATUS);
+ 	if (status & E1000_STATUS_LU)
+ 		wufc &= ~E1000_WUFC_LNKC;
+@@ -5971,13 +5967,6 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool *enable_wake,
+ 		ew32(WUFC, 0);
+ 	}
+ 
+-	*enable_wake = !!wufc;
+-
+-	/* make sure adapter isn't asleep if manageability is enabled */
+-	if ((adapter->flags & FLAG_MNG_PT_ENABLED) ||
+-	    (hw->mac.ops.check_mng_mode(hw)))
+-		*enable_wake = true;
+-
+ 	if (adapter->hw.phy.type == e1000_phy_igp_3)
+ 		e1000e_igp3_phy_powerdown_workaround_ich8lan(&adapter->hw);
+ 
+@@ -5988,26 +5977,6 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool *enable_wake,
+ 
+ 	pci_clear_master(pdev);
+ 
+-	return 0;
+-}
+-
+-static void e1000_power_off(struct pci_dev *pdev, bool sleep, bool wake)
+-{
+-	if (sleep && wake) {
+-		pci_prepare_to_sleep(pdev);
+-		return;
+-	}
+-
+-	pci_wake_from_d3(pdev, wake);
+-	pci_set_power_state(pdev, PCI_D3hot);
+-}
+-
+-static void e1000_complete_shutdown(struct pci_dev *pdev, bool sleep,
+-                                    bool wake)
+-{
+-	struct net_device *netdev = pci_get_drvdata(pdev);
+-	struct e1000_adapter *adapter = netdev_priv(netdev);
+-
+ 	/* The pci-e switch on some quad port adapters will report a
+ 	 * correctable error when the MAC transitions from D0 to D3.  To
+ 	 * prevent this we need to mask off the correctable errors on the
+@@ -6021,12 +5990,13 @@ static void e1000_complete_shutdown(struct pci_dev *pdev, bool sleep,
+ 		pcie_capability_write_word(us_dev, PCI_EXP_DEVCTL,
+ 					   (devctl & ~PCI_EXP_DEVCTL_CERE));
+ 
+-		e1000_power_off(pdev, sleep, wake);
++		pci_save_state(pdev);
++		pci_prepare_to_sleep(pdev);
+ 
+ 		pcie_capability_write_word(us_dev, PCI_EXP_DEVCTL, devctl);
+-	} else {
+-		e1000_power_off(pdev, sleep, wake);
+ 	}
++
++	return 0;
+ }
+ 
+ #ifdef CONFIG_PCIEASPM
+@@ -6084,9 +6054,7 @@ static int __e1000_resume(struct pci_dev *pdev)
+ 	if (aspm_disable_flag)
+ 		e1000e_disable_aspm(pdev, aspm_disable_flag);
+ 
+-	pci_set_power_state(pdev, PCI_D0);
+-	pci_restore_state(pdev);
+-	pci_save_state(pdev);
++	pci_set_master(pdev);
+ 
+ 	e1000e_set_interrupt_capability(adapter);
+ 	if (netif_running(netdev)) {
+@@ -6152,14 +6120,8 @@ static int __e1000_resume(struct pci_dev *pdev)
+ static int e1000_suspend(struct device *dev)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+-	int retval;
+-	bool wake;
+-
+-	retval = __e1000_shutdown(pdev, &wake, false);
+-	if (!retval)
+-		e1000_complete_shutdown(pdev, true, wake);
+ 
+-	return retval;
++	return __e1000_shutdown(pdev, false);
+ }
+ 
+ static int e1000_resume(struct device *dev)
+@@ -6182,13 +6144,10 @@ static int e1000_runtime_suspend(struct device *dev)
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 
+-	if (e1000e_pm_ready(adapter)) {
+-		bool wake;
+-
+-		__e1000_shutdown(pdev, &wake, true);
+-	}
++	if (!e1000e_pm_ready(adapter))
++		return 0;
+ 
+-	return 0;
++	return __e1000_shutdown(pdev, true);
+ }
+ 
+ static int e1000_idle(struct device *dev)
+@@ -6226,12 +6185,7 @@ static int e1000_runtime_resume(struct device *dev)
+ 
+ static void e1000_shutdown(struct pci_dev *pdev)
+ {
+-	bool wake = false;
+-
+-	__e1000_shutdown(pdev, &wake, false);
+-
+-	if (system_state == SYSTEM_POWER_OFF)
+-		e1000_complete_shutdown(pdev, false, wake);
++	__e1000_shutdown(pdev, false);
+ }
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -6352,9 +6306,9 @@ static pci_ers_result_t e1000_io_slot_reset(struct pci_dev *pdev)
+ 			"Cannot re-enable PCI device after reset.\n");
+ 		result = PCI_ERS_RESULT_DISCONNECT;
  	} else {
- 		/* Do not read PHY registers if link is not up
- 		 * Set values to typical power-on defaults
+-		pci_set_master(pdev);
+ 		pdev->state_saved = true;
+ 		pci_restore_state(pdev);
++		pci_set_master(pdev);
+ 
+ 		pci_enable_wake(pdev, PCI_D3hot, 0);
+ 		pci_enable_wake(pdev, PCI_D3cold, 0);
+@@ -6783,7 +6737,11 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	/* initialize the wol settings based on the eeprom settings */
+ 	adapter->wol = adapter->eeprom_wol;
+-	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
++
++	/* make sure adapter isn't asleep if manageability is enabled */
++	if (adapter->wol || (adapter->flags & FLAG_MNG_PT_ENABLED) ||
++	    (hw->mac.ops.check_mng_mode(hw)))
++		device_wakeup_enable(&pdev->dev);
+ 
+ 	/* save off EEPROM version number */
+ 	e1000_read_nvm(&adapter->hw, 5, 1, &adapter->eeprom_vers);
 -- 
 1.7.11.7
