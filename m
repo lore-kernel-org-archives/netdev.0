@@ -1,151 +1,85 @@
-From: Veaceslav Falico <darkmag@gmail.com>
-Subject: Re: upgrade to 3.8.1 : BUG Scheduling while atomic in bonding driver:
-Date: Thu, 7 Mar 2013 15:59:18 +0100
-Message-ID: <CAE3RKNnrDDh1Y_4+NAKuG3-A9qaC-mPXr7e9vefrNHHUUTE=SA@mail.gmail.com>
-References: <513063B4.8070604@tlinx.org> <1362155087.15793.54.camel@edumazet-glaptop>
- <51317FCF.1070400@tlinx.org> <51318C5B.60001@tlinx.org> <51382AFE.5080302@linux.vnet.ibm.com>
- <51383C47.7050009@tlinx.org> <513849F8.3090302@linux.vnet.ibm.com>
- <513854E6.9010709@tlinx.org> <513862DA.20704@linux.vnet.ibm.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [RFC PATCH net-next 3/3] bridge: Implement IFF_UNICAST_FLT
+Date: Thu, 07 Mar 2013 10:08:34 -0500
+Message-ID: <5138AD72.8080104@redhat.com>
+References: <1362623485-18209-1-git-send-email-vyasevic@redhat.com> <1362623485-18209-4-git-send-email-vyasevic@redhat.com> <51380542.4020601@gmail.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Linda Walsh <lkml@tlinx.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux-Kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Michael Wang <wangyun@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:62448 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759216Ab3CGO7l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 09:59:41 -0500
-Received: by mail-wg0-f45.google.com with SMTP id dq12so986753wgb.0
-        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 06:59:40 -0800 (PST)
-In-Reply-To: <513862DA.20704@linux.vnet.ibm.com>
+Received: from mx1.redhat.com ([209.132.183.28]:2452 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752543Ab3CGPIj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Mar 2013 10:08:39 -0500
+In-Reply-To: <51380542.4020601@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 7, 2013 at 10:50 AM, Michael Wang
-<wangyun@linux.vnet.ibm.com> wrote:
-> On 03/07/2013 04:50 PM, Linda Walsh wrote:
+On 03/06/2013 10:10 PM, John Fastabend wrote:
+> On 03/06/2013 06:31 PM, Vlad Yasevich wrote:
+>> Implement IFF_UNICAST_FLT on the bridge.  Unicast addresses added
+>> to the bridge device are synched to the uplink devices.  This
+>> allows for uplink devices to change while preserving mac assignment.
 >>
->> I am *not* seeing the bug in 3.8.2 with the 2nd patch applied (in
->> addition to the first)...
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>> ---
 >
-> So that means bond lock is the reason, nice, but this is really not a
-> good fix if we just unlock it...
-
-You're right, we can't unlock bond->lock while in bond_for_each_slave(),
-however I think we don't even need that bond_update_speed_duplex() in
-bond_miimon_commit() - cause the speed/duplex on interface state change
-were already updated via NETDEV_UP/CHANGE event in
-bond_slave_netdev_event() - and if not, it's not our fault, but the
-driver's that he didn't call the notifiers.
-
-So, maybe something like this would work (any feedback welcome, it's
-definitely not the first time we hit the wall with sleeping in
-bond_update_speed_duplex):
-
-Subject: [PATCH] bonding: don't call update_speed_duplex() under spinlocks
-
-bond_update_speed_duplex() might sleep while calling underlying slave's
-routines. Move it out of atomic context in bond_enslave() and remove it
-from bond_miimon_commit() - it was introduced by commit 546add79, however
-when the slave interfaces go up/change state it's their responsability to
-fire NETDEV_UP/NETDEV_CHANGE events so that bonding can properly update
-their speed.
-
----
- drivers/net/bonding/bond_main.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 7bd068a..c63a33c 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1746,6 +1746,8 @@ int bond_enslave(struct net_device *bond_dev,
-struct net_device *slave_dev)
-
- 	bond_compute_features(bond);
-
-+	bond_update_speed_duplex(new_slave);
-+
- 	read_lock(&bond->lock);
-
- 	new_slave->last_arp_rx = jiffies -
-@@ -1798,8 +1800,6 @@ int bond_enslave(struct net_device *bond_dev,
-struct net_device *slave_dev)
- 		new_slave->link == BOND_LINK_DOWN ? "DOWN" :
- 			(new_slave->link == BOND_LINK_UP ? "UP" : "BACK"));
-
--	bond_update_speed_duplex(new_slave);
--
- 	if (USES_PRIMARY(bond->params.mode) && bond->params.primary[0]) {
- 		/* if there is a primary slave, remember it */
- 		if (strcmp(bond->params.primary, new_slave->dev->name) == 0) {
-@@ -2373,8 +2373,6 @@ static void bond_miimon_commit(struct bonding *bond)
- 				bond_set_backup_slave(slave);
- 			}
-
--			bond_update_speed_duplex(slave);
--
- 			pr_info("%s: link status definitely up for interface %s, %u Mbps
-%s duplex.\n",
- 				bond->dev->name, slave->dev->name,
- 				slave->speed, slave->duplex ? "full" : "half");
--- 
-1.7.1
-
+> [...]
 >
-> The better way is to move the cycle wait logical out of the
-> bond_update_speed_duplex() IMO, I think we need the folk who work on
-> this driver to make the decision ;-)
->
-> Regards,
-> Michael Wang
->
+>> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+>> index b0812c9..ef7b51e 100644
+>> --- a/net/bridge/br_fdb.c
+>> +++ b/net/bridge/br_fdb.c
+>> @@ -677,6 +677,9 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr
+>> *tb[],
+>>       struct net_port_vlans *pv;
+>>       unsigned short vid = VLAN_N_VID;
 >>
+>> +    if ((ndm->ndm_flags & NTF_SELF) && (dev->priv_flags & IFF_EBRIDGE))
+>> +        return ndo_dflt_fdb_add(ndm, tb, dev, addr, nlh_flags);
+>> +
+>>       if (!(ndm->ndm_state & (NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE))) {
+>>           pr_info("bridge: RTM_NEWNEIGH with invalid state %#x\n",
+>> ndm->ndm_state);
+>>           return -EINVAL;
+>> @@ -774,6 +777,9 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr
+>> *tb[],
+>>       struct net_port_vlans *pv;
+>>       unsigned short vid = VLAN_N_VID;
 >>
->> Michael Wang wrote:
->>>
->>>
->>> And both bond_enslave() and bond_mii_monitor() are using bond_update_speed_duplex()
->>> with preempt disabled.
->>>
->>> Along with the changes in bond_enslave(), I think you also need this (untested):
->>>
->>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->>> index 11d01d6..9af143a 100644
->>> --- a/drivers/net/bonding/bond_main.c
->>> +++ b/drivers/net/bonding/bond_main.c
->>> @@ -2373,7 +2373,9 @@ static void bond_miimon_commit(struct bonding *bond)
->>>                                 bond_set_backup_slave(slave);
->>>                         }
->>>
->>> +                       read_unlock(&bond->lock);
->>>                         bond_update_speed_duplex(slave);
->>> +                       read_lock(&bond->lock);
->>>
->>>                         pr_info("%s: link status definitely up for interface %s, %u Mbps %s duplex.\n",
->>>                                 bond->dev->name, slave->dev->name,
->>>
->>>
->>> Regards,
->>> Michael Wang
->>>
->>>
->>>
+>> +    if ((ndm->ndm_flags & NTF_SELF) && (dev->priv_flags & IFF_EBRIDGE))
+>> +        return ndo_dflt_fdb_del(ndm, tb, dev, addr);
+>> +
+>>       if (tb[NDA_VLAN]) {
+>>           if (nla_len(tb[NDA_VLAN]) != sizeof(unsigned short)) {
+>>               pr_info("bridge: RTM_NEWNEIGH with invalid vlan\n");
 >>
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> How is this different then calling the fdb op from rtnetlink.c when the
+> NTF_SELF bit is set after your previous patch
+>
+>      net: generic fdb support for drivers without ndo_fdb_<op>
+>
+> the generic routine gets called if a specific op is not supplied via
+> ndo ops anyways right?
+>
+> Also I suspect if the driver supplies a specific ndo_fdb_<op> we should
+> use it over the generic one.
+>
+> What am I missing?
 
+The bridge provides the ndo_fdb_<add|del>, so it will be used.  The 
+bridge op assumes that the dev passed to it is a port.  This code adds
+support for when dev is the bridge.
 
+In fact this patch is counting that rtnetlink will call into the bridge
+and lets bridge do the work.
 
--- 
-Best regards,
-Veaceslav Falico
+-vlad
+>
+> Thanks,
+> John
+>
