@@ -1,55 +1,40 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next 00/12] IPVS optimizations
-Date: Fri, 8 Mar 2013 01:46:58 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1303080124340.3035@ja.ssi.bg>
-References: <1362559342-18784-1-git-send-email-ja@ssi.bg> <1362650966.18590.127.camel@localhost>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v2 3/7] USBHID: don't recover device if suspend fails in
+ system sleep
+Date: Fri, 8 Mar 2013 07:48:33 +0800
+Message-ID: <20130307234833.GA11730@kroah.com>
+References: <1362672924-22975-1-git-send-email-ming.lei@canonical.com>
+ <1362672924-22975-4-git-send-email-ming.lei@canonical.com>
+ <alpine.LNX.2.00.1303080013210.19460@pobox.suse.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1362650966.18590.127.camel@localhost>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ming Lei <ming.lei@canonical.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-input@vger.kernel.org
+To: Jiri Kosina <jkosina@suse.cz>
+Return-path: <linux-input-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LNX.2.00.1303080013210.19460@pobox.suse.cz>
+Sender: linux-input-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Thu, 7 Mar 2013, Jesper Dangaard Brouer wrote:
-
-> On Wed, 2013-03-06 at 10:42 +0200, Julian Anastasov wrote:
-> > 	This is a first patchset for IPVS optimizations.
-> > Another patchset will address the locking in schedulers
-> > and moving the global _bh disabling from LOCAL_OUT to all
-> > locks. It is in TODO list.
+On Fri, Mar 08, 2013 at 12:16:08AM +0100, Jiri Kosina wrote:
+> On Fri, 8 Mar 2013, Ming Lei wrote:
 > 
-> Do you have any performance measurements?
+> > If suspend callback fails in system sleep context, usb core will
+> > ignore the failure and let the system sleep go ahead further, so this
+> > patch doesn't recover device under this situation, otherwise
+> > may cause resume() confused.
+> > 
+> > Cc: Jiri Kosina <jkosina@suse.cz>
+> > Signed-off-by: Ming Lei <ming.lei@canonical.com>
+> 
+> Acked-by: Jiri Kosina <jkosina@suse.cz>
+> 
+> I guess this will go through USB tree as a series ...
 
-	Unfortunately, I don't have suitable
-hardware to do real tests, only virtual setup.
+Yes, I can take this, thanks for the ack.
 
-> Or is this code primarily cleanup optimizations, and the next patchset
-> will address the performance part?
-
-	This patchset converts all global locks to RCU,
-except the __ip_vs_svc_lock usage. The states in
-some schedulers probably will need some protection
-with lock as before now, others like WLC and LC will
-run (after patchset2) just under RCU lock for the 
-svc->destinations list. But I'll need some time to
-finalize this 2nd patchset because there are other
-patches in the queue...
-
-	So, the answer is that packets that create
-connections (via schedulers) hit this __ip_vs_svc_lock
-with read_lock and some write lock in scheduler.
-This happens only when connection is created. Next packets
-should not reach any global locks in IPVS. The cached
-dst->refcnt is not changed anymore for traffic to
-real server.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+greg k-h
