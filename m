@@ -1,41 +1,57 @@
-From: Sony Chacko <sony.chacko@qlogic.com>
-Subject: [PATCH] MAINTAINERS: Update qlcnic maintainers list
-Date: Wed,  6 Mar 2013 18:03:25 -0500
-Message-ID: <1362611005-6226-1-git-send-email-sony.chacko@qlogic.com>
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Sony Chacko <sony.chacko@qlogic.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:29027 "HELO linux-zupk.site"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753043Ab3CFXZq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Mar 2013 18:25:46 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] CAIF: fix indentation for function arguments
+Date: Wed, 06 Mar 2013 16:07:17 -0800
+Message-ID: <1362614837.2093.30.camel@joe-AO722>
+References: <1362606521-16848-1-git-send-email-silviupopescu1990@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sjur.brandeland@stericsson.com,
+	davem@davemloft.net, linux-kernel@vger.kernel.org
+To: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1362606521-16848-1-git-send-email-silviupopescu1990@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sony Chacko <sony.chacko@qlogic.com>
+On Wed, 2013-03-06 at 23:48 +0200, Silviu-Mihai Popescu wrote:
+> This lines up function arguments on second and subsequent lines at the
+> first column after the openning parenthesis of the first line.
+[]
+> diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
+[]
+> @@ -301,10 +301,10 @@ static void dev_flowctrl(struct net_device *dev, int on)
+>  }
+>  
+>  void caif_enroll_dev(struct net_device *dev, struct caif_dev_common *caifdev,
+> -			struct cflayer *link_support, int head_room,
+> -			struct cflayer **layer, int (**rcv_func)(
+> -				struct sk_buff *, struct net_device *,
+> -				struct packet_type *, struct net_device *))
+> +		     struct cflayer *link_support, int head_room,
+> +		     struct cflayer **layer, int (**rcv_func)(
+> +		     struct sk_buff *, struct net_device *,
+> +		     struct packet_type *, struct net_device *))
 
-Please apply.
+This makes it seem that caif_enroll_dev takes more args.
 
-Thanks.
+I think this style is better (aligned to appropriate open paren)
 
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
----
- MAINTAINERS | 2 ++
- 1 file changed, 2 insertions(+)
+void caif_enroll_dev(struct net_device *dev, struct caif_dev_common *caifdev,
+		     struct cflayer *link_support, int head_room,
+		     struct cflayer **layer,
+		     int (**rcv_func)(struct sk_buff *, struct net_device *,
+				      struct packet_type *, struct net_device *))
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index cdb8fe8..0ac189c 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -6211,6 +6211,8 @@ F:	Documentation/networking/LICENSE.qla3xxx
- F:	drivers/net/ethernet/qlogic/qla3xxx.*
- 
- QLOGIC QLCNIC (1/10)Gb ETHERNET DRIVER
-+M:	Rajesh Borundia <rajesh.borundia@qlogic.com>
-+M:	Shahed Shaikh <shahed.shaikh@qlogic.com>
- M:	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
- M:	Sony Chacko <sony.chacko@qlogic.com>
- M:	linux-driver@qlogic.com
--- 
-1.8.0.2
+[]
+
+> @@ -301,8 +301,8 @@ static int caif_connect_req_to_link_param(struct cfcnfg *cnfg,
+>  
+>  int caif_connect_client(struct net *net, struct caif_connect_request *conn_req,
+>  			struct cflayer *adap_layer, int *ifindex,
+> -				int *proto_head,
+> -				int *proto_tail)
+> +			int *proto_head,
+> +			int *proto_tail)
+
+You could fill to 80 here.
