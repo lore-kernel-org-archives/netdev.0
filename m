@@ -1,30 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vmxnet3: prevent div-by-zero panic when ring
- resizing uninitialized dev
-Date: Thu, 07 Mar 2013 16:11:28 -0500 (EST)
-Message-ID: <20130307.161128.530029379718111617.davem@davemloft.net>
-References: <1362591984-16587-1-git-send-email-bhavesh@vmware.com>
-	<1362607493-5634-1-git-send-email-bhavesh@vmware.com>
+Subject: Re: [PATCH 1/1] vxlan: fix oops when delete netns containing vxlan
+Date: Thu, 07 Mar 2013 16:13:33 -0500 (EST)
+Message-ID: <20130307.161333.371120212677853189.davem@davemloft.net>
+References: <1362580657-25580-1-git-send-email-zealot0630@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pv-drivers@vmware.com, sbhatewara@vmware.com
-To: bhavesh@vmware.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1362607493-5634-1-git-send-email-bhavesh@vmware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: zealot0630@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46187 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932815Ab3CGVNi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 16:13:38 -0500
+In-Reply-To: <1362580657-25580-1-git-send-email-zealot0630@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bhavesh Davda <bhavesh@vmware.com>
-Date: Wed,  6 Mar 2013 14:04:53 -0800
+From: Zang MingJie <zealot0630@gmail.com>
+Date: Wed,  6 Mar 2013 22:37:37 +0800
 
-> Linux is free to call ethtool ops as soon as a netdev exists when probe
-> finishes. However, we only allocate vmxnet3 tx/rx queues and initialize the
-> rx_buf_per_pkt field in struct vmxnet3_adapter when the interface is
-> opened (UP).
 > 
-> Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
-> Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
+> The following script will produce a kernel oops:
+> 
+>     sudo ip netns add v
+>     sudo ip netns exec v ip ad add 127.0.0.1/8 dev lo
+>     sudo ip netns exec v ip link set lo up
+>     sudo ip netns exec v ip ro add 224.0.0.0/4 dev lo
+>     sudo ip netns exec v ip li add vxlan0 type vxlan id 42 group 239.1.1.1 dev lo
+>     sudo ip netns exec v ip link set vxlan0 up
+>     sudo ip netns del v
+> 
+> where inspect by gdb:
+ ...
+> The kernel calls `vxlan_exit_net` when deleting the netns before shutting down
+> vxlan interfaces. Later the removal of all vxlan interfaces, where `vn->sock`
+> is already gone causes the oops. so we should manually shutdown all interfaces
+> before deleting `vn->sock` as the patch does.
+> 
+> Signed-off-by: Zang MingJie <zealot0630@gmail.com>
 
-As discussed yesterday, I'm applying this to 'net', thanks.
+Applied and queued up for -stable, thanks.
