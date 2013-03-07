@@ -1,53 +1,41 @@
-From: Linda Walsh <lkml@tlinx.org>
-Subject: upgrade to 3.8.1 : BUG Scheduling while atomic in bonding driver:
-Date: Thu, 07 Mar 2013 00:52:35 -0800
-Message-ID: <51385553.8060003@tlinx.org>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH net-next 1/3] net: stmmac: add gmac autoneg set for SGMII,
+ TBI, and RTBI
+Date: Thu, 07 Mar 2013 09:50:06 +0100
+Message-ID: <513854BE.5000700@st.com>
+References: <00c001cdf369$9b25bdf0$d17139d0$@samsung.com> <50F6568D.3060703@st.com> <01e201cdf5a3$1f3e1890$5dba49b0$@samsung.com> <50FFB094.5000100@st.com> <013e01cdfb47$8f5d2b30$ae178190$@samsung.com> <51277004.20702@st.com> <022601ce1a20$ff6b2290$fe4167b0$%an@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-lkml@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ishtar.tlinx.org ([173.164.175.65]:39621 "EHLO
-	Ishtar.sc.tlinx.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755002Ab3CGIwq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 03:52:46 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	kgene.kim@samsung.com, cpgs@samsung.com
+To: Byungho An <bh74.an@samsung.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <022601ce1a20$ff6b2290$fe4167b0$%an@samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On 3/6/2013 5:13 AM, Byungho An wrote:
+> Hello Peppe,
+>> If you agree, you could also re-send *all* to the mailing list to
+>> be finally reviewed.
+>>
+>
+> Anyway, in my opinion, you can take them in your tree for now with my
+> tested-by if you want. Of course, I'll implement additional patches as you
+> requested on top of them for remained stuff such as SGMII, TBI, ethtool and
+> so on.
+> I think those should be separated for each purpose and we can add and modify
+> after those two patches.
+
+Ok Byungho, I'm preparing a new update for the stmmac that will also 
+include the initial support for SGMII and RGMII. Thx to have tested it!
+
+Obviously on top of these patches, feel free to add further code.
+TBI and RTBI are not supported yet.
 
 
+P.S. in this update I've also added the ethtool missing stuff ;-)
 
-
-I am *not* seeing the bug in 3.8.2 with the 2nd patch applied (in
-addition to the first)...
-
-
-Michael Wang wrote:
->
->
-> And both bond_enslave() and bond_mii_monitor() are using bond_update_speed_duplex()
-> with preempt disabled.
->
-> Along with the changes in bond_enslave(), I think you also need this (untested):
->
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 11d01d6..9af143a 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2373,7 +2373,9 @@ static void bond_miimon_commit(struct bonding *bond)
->                                 bond_set_backup_slave(slave);
->                         }
->  
-> +                       read_unlock(&bond->lock);
->                         bond_update_speed_duplex(slave);
-> +                       read_lock(&bond->lock);
->  
->                         pr_info("%s: link status definitely up for interface %s, %u Mbps %s duplex.\n",
->                                 bond->dev->name, slave->dev->name,
->
->
-> Regards,
-> Michael Wang
->
->   
->
+Peppe
