@@ -1,210 +1,261 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [RFC PATCH net-next 1/3] bridge: Add mac_management
-	sysfs interface
-Date: Wed, 06 Mar 2013 21:35:31 -0500
-Message-ID: <5137FCF3.2030309@redhat.com>
-References: <1362623485-18209-1-git-send-email-vyasevic@redhat.com>
-	<1362623485-18209-2-git-send-email-vyasevic@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: [PATCH net-next 6/6] tg3: Download 57766 EEE service patch
+ firmware
+Date: Wed, 6 Mar 2013 19:02:34 -0800
+Message-ID: <1362625354-15095-7-git-send-email-nsujir@broadcom.com>
+References: <1362625354-15095-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1362623485-18209-2-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2907 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752314Ab3CGDDP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Mar 2013 22:03:15 -0500
+In-Reply-To: <1362625354-15095-1-git-send-email-nsujir@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/06/2013 09:31 PM, Vlad Yasevich wrote:
-> Add an sysfs interface to turn MAC address management on an off.
-> When MAC management is off (default), all interfaces in the bridge
-> are in promisc mode.  When MAC management is on, promisc mode is
-> turned off and the expectation is that user will manually program
-> the MAC filter.
+This patch downloads the EEE service patch firmware and enables the necessary
+EEE flags.
 
-Sorry, the description is stale,  I forgot to update it after fixing up
-the patch.  The change is is actually to add sysfs to control promisc
-mode.  By default, it's on.  It can be turned off if user wants to.
+Reviewed-by: Benjamin Li <benli@broadcom.com>
+Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c | 138 +++++++++++++++++++++++++++++++-----
+ drivers/net/ethernet/broadcom/tg3.h |   6 ++
+ 2 files changed, 128 insertions(+), 16 deletions(-)
 
--vlad
-
->
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->   net/bridge/br_device.c   |   41 +++++++++++++++++++++++++++++++++++++++++
->   net/bridge/br_if.c       |   22 +++++++++++++++++-----
->   net/bridge/br_private.h  |    2 ++
->   net/bridge/br_sysfs_br.c |   17 +++++++++++++++++
->   4 files changed, 77 insertions(+), 5 deletions(-)
->
-> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-> index d5f1d3f..160bc74 100644
-> --- a/net/bridge/br_device.c
-> +++ b/net/bridge/br_device.c
-> @@ -185,6 +185,46 @@ static int br_set_mac_address(struct net_device *dev, void *p)
->   	return 0;
->   }
->
-> +int br_set_promisc(struct net_bridge* br, unsigned long val)
-> +{
-> +	struct net_bridge_port *p;
-> +
-> +	if (!rtnl_trylock())
-> +		return restart_syscall();
-> +
-> +	spin_lock_bh(&br->lock);
-> +
-> +	if (val) {
-> +		if (br->promisc_enabled)
-> +			goto unlock;
-> +
-> +		br->promisc_enabled = 1;
-> +		/* For each port on the bridge, turn on promisc mode and
-> +		 * turn off ALLMULTI to handle multicast traffic.
-> +		 */
-> +		list_for_each_entry(p, &br->port_list, list) {
-> +			dev_set_promiscuity(p->dev, 1);
-> +			dev_set_allmulti(p->dev, -1);
-> +		}
-> +
-> +	} else {
-> +		if (!br->promisc_enabled)
-> +			goto unlock;
-> +
-> +		br->promisc_enabled = 0;
-> +		/* For each port on the bridge, turn off promisc mode */
-> +		list_for_each_entry(p, &br->port_list, list) {
-> +			dev_set_allmulti(p->dev, 1);
-> +			dev_set_promiscuity(p->dev, -1);
-> +		}
-> +	}
-> +unlock:
-> +	spin_unlock_bh(&br->lock);
-> +	rtnl_unlock();
-> +	return 0;
-> +}
-> +
-> +
->   static void br_getinfo(struct net_device *dev, struct ethtool_drvinfo *info)
->   {
->   	strlcpy(info->driver, "bridge", sizeof(info->driver));
-> @@ -371,6 +411,7 @@ void br_dev_setup(struct net_device *dev)
->   	br->bridge_hello_time = br->hello_time = 2 * HZ;
->   	br->bridge_forward_delay = br->forward_delay = 15 * HZ;
->   	br->ageing_time = 300 * HZ;
-> +	br->promisc_enabled = 1;
->
->   	br_netfilter_rtable_init(br);
->   	br_stp_timer_init(br);
-> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> index ef1b914..02b4440 100644
-> --- a/net/bridge/br_if.c
-> +++ b/net/bridge/br_if.c
-> @@ -132,7 +132,10 @@ static void del_nbp(struct net_bridge_port *p)
->
->   	sysfs_remove_link(br->ifobj, p->dev->name);
->
-> -	dev_set_promiscuity(dev, -1);
-> +	if (br->promisc_enabled)
-> +		dev_set_promiscuity(dev, -1);
-> +	else
-> +		dev_set_allmulti(dev, -1);
->
->   	spin_lock_bh(&br->lock);
->   	br_stp_disable_port(p);
-> @@ -350,9 +353,15 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
->
->   	call_netdevice_notifiers(NETDEV_JOIN, dev);
->
-> -	err = dev_set_promiscuity(dev, 1);
-> -	if (err)
-> -		goto put_back;
-> +	if (br->promisc_enabled) {
-> +		err = dev_set_promiscuity(dev, 1);
-> +		if (err)
-> +			goto put_back;
-> +	} else {
-> +		err = dev_set_allmulti(dev, 1);
-> +		if (err)
-> +			goto put_back;
-> +	}
->
->   	err = kobject_init_and_add(&p->kobj, &brport_ktype, &(dev->dev.kobj),
->   				   SYSFS_BRIDGE_PORT_ATTR);
-> @@ -414,7 +423,10 @@ err2:
->   	kobject_put(&p->kobj);
->   	p = NULL; /* kobject_put frees */
->   err1:
-> -	dev_set_promiscuity(dev, -1);
-> +	if (br->promisc_enabled)
-> +		dev_set_promiscuity(dev, -1);
-> +	else
-> +		dev_set_allmulti(dev, -1);
->   put_back:
->   	dev_put(dev);
->   	kfree(p);
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 6d314c4..4a0fa29 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -277,6 +277,7 @@ struct net_bridge
->   	struct timer_list		topology_change_timer;
->   	struct timer_list		gc_timer;
->   	struct kobject			*ifobj;
-> +	u8				promisc_enabled;
->   #ifdef CONFIG_BRIDGE_VLAN_FILTERING
->   	u8				vlan_enabled;
->   	struct net_port_vlans __rcu	*vlan_info;
-> @@ -327,6 +328,7 @@ extern void br_dev_setup(struct net_device *dev);
->   extern void br_dev_delete(struct net_device *dev, struct list_head *list);
->   extern netdev_tx_t br_dev_xmit(struct sk_buff *skb,
->   			       struct net_device *dev);
-> +extern int br_set_promisc(struct net_bridge *br, unsigned long val);
->   #ifdef CONFIG_NET_POLL_CONTROLLER
->   static inline struct netpoll_info *br_netpoll_info(struct net_bridge *br)
->   {
-> diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-> index 8baa9c0..5489219 100644
-> --- a/net/bridge/br_sysfs_br.c
-> +++ b/net/bridge/br_sysfs_br.c
-> @@ -710,6 +710,22 @@ static DEVICE_ATTR(vlan_filtering, S_IRUGO | S_IWUSR,
->   		   show_vlan_filtering, store_vlan_filtering);
->   #endif
->
-> +static ssize_t show_promisc(struct device *d,
-> +			    struct device_attribute *attr, char *buf)
-> +{
-> +	struct net_bridge *br = to_bridge(d);
-> +	return sprintf(buf, "%d\n", br->promisc_enabled);
-> +}
-> +
-> +static ssize_t store_promisc(struct device *d,
-> +			     struct device_attribute *attr,
-> +			     const char *buf, size_t len)
-> +{
-> +	return store_bridge_parm(d, buf, len, br_set_promisc);
-> +}
-> +static DEVICE_ATTR(promisc, S_IRUGO | S_IWUSR, show_promisc,
-> +		   store_promisc);
-> +
->   static struct attribute *bridge_attrs[] = {
->   	&dev_attr_forward_delay.attr,
->   	&dev_attr_hello_time.attr,
-> @@ -753,6 +769,7 @@ static struct attribute *bridge_attrs[] = {
->   #ifdef CONFIG_BRIDGE_VLAN_FILTERING
->   	&dev_attr_vlan_filtering.attr,
->   #endif
-> +	&dev_attr_promisc.attr,
->   	NULL
->   };
->
->
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 54f604b..2b2bee6 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -212,6 +212,7 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
+ #define TG3_FW_UPDATE_FREQ_SEC		(TG3_FW_UPDATE_TIMEOUT_SEC / 2)
+ 
+ #define FIRMWARE_TG3		"tigon/tg3.bin"
++#define FIRMWARE_TG357766	"tigon/tg357766.bin"
+ #define FIRMWARE_TG3TSO		"tigon/tg3_tso.bin"
+ #define FIRMWARE_TG3TSO5	"tigon/tg3_tso5.bin"
+ 
+@@ -3568,7 +3569,7 @@ static int tg3_load_firmware_cpu(struct tg3 *tp, u32 cpu_base,
+ 				 u32 cpu_scratch_base, int cpu_scratch_size,
+ 				 const struct tg3_firmware_hdr *fw_hdr)
+ {
+-	int err, lock_err, i;
++	int err, i;
+ 	void (*write_op)(struct tg3 *, u32, u32);
+ 	int total_len = tp->fw->size;
+ 
+@@ -3579,25 +3580,34 @@ static int tg3_load_firmware_cpu(struct tg3 *tp, u32 cpu_base,
+ 		return -EINVAL;
+ 	}
+ 
+-	if (tg3_flag(tp, 5705_PLUS))
++	if (tg3_flag(tp, 5705_PLUS) && tg3_asic_rev(tp) != ASIC_REV_57766)
+ 		write_op = tg3_write_mem;
+ 	else
+ 		write_op = tg3_write_indirect_reg32;
+ 
+-	/* It is possible that bootcode is still loading at this point.
+-	 * Get the nvram lock first before halting the cpu.
+-	 */
+-	lock_err = tg3_nvram_lock(tp);
+-	err = tg3_halt_cpu(tp, cpu_base);
+-	if (!lock_err)
+-		tg3_nvram_unlock(tp);
+-	if (err)
+-		goto out;
++	if (tg3_asic_rev(tp) != ASIC_REV_57766) {
++		/* It is possible that bootcode is still loading at this point.
++		 * Get the nvram lock first before halting the cpu.
++		 */
++		int lock_err = tg3_nvram_lock(tp);
++		err = tg3_halt_cpu(tp, cpu_base);
++		if (!lock_err)
++			tg3_nvram_unlock(tp);
++		if (err)
++			goto out;
+ 
+-	for (i = 0; i < cpu_scratch_size; i += sizeof(u32))
+-		write_op(tp, cpu_scratch_base + i, 0);
+-	tw32(cpu_base + CPU_STATE, 0xffffffff);
+-	tw32(cpu_base + CPU_MODE, tr32(cpu_base+CPU_MODE)|CPU_MODE_HALT);
++		for (i = 0; i < cpu_scratch_size; i += sizeof(u32))
++			write_op(tp, cpu_scratch_base + i, 0);
++		tw32(cpu_base + CPU_STATE, 0xffffffff);
++		tw32(cpu_base + CPU_MODE,
++		     tr32(cpu_base + CPU_MODE) | CPU_MODE_HALT);
++	} else {
++		/* Subtract additional main header for fragmented firmware and
++		 * advance to the first fragment
++		 */
++		total_len -= TG3_FW_HDR_LEN;
++		fw_hdr++;
++	}
+ 
+ 	do {
+ 		u32 *fw_data = (u32 *)(fw_hdr + 1);
+@@ -3683,6 +3693,78 @@ static int tg3_load_5701_a0_firmware_fix(struct tg3 *tp)
+ 	return 0;
+ }
+ 
++static int tg3_validate_rxcpu_state(struct tg3 *tp)
++{
++	const int iters = 1000;
++	int i;
++	u32 val;
++
++	/* Wait for boot code to complete initialization and enter service
++	 * loop. It is then safe to download service patches
++	 */
++	for (i = 0; i < iters; i++) {
++		if (tr32(RX_CPU_HWBKPT) == TG3_SBROM_IN_SERVICE_LOOP)
++			break;
++
++		udelay(10);
++	}
++
++	if (i == iters) {
++		netdev_err(tp->dev, "Boot code not ready for service patches\n");
++		return -EBUSY;
++	}
++
++	val = tg3_read_indirect_reg32(tp, TG3_57766_FW_HANDSHAKE);
++	if (val & 0xff) {
++		netdev_warn(tp->dev,
++			    "Other patches exist. Not downloading EEE patch\n");
++		return -EEXIST;
++	}
++
++	return 0;
++}
++
++/* tp->lock is held. */
++static void tg3_load_57766_firmware(struct tg3 *tp)
++{
++	struct tg3_firmware_hdr *fw_hdr;
++
++	if (!tg3_flag(tp, NO_NVRAM))
++		return;
++
++	if (tg3_validate_rxcpu_state(tp))
++		return;
++
++	if (!tp->fw)
++		return;
++
++	/* This firmware blob has a different format than older firmware
++	 * releases as given below. The main difference is we have fragmented
++	 * data to be written to non-contiguous locations.
++	 *
++	 * In the beginning we have a firmware header identical to other
++	 * firmware which consists of version, base addr and length. The length
++	 * here is unused and set to 0xffffffff.
++	 *
++	 * This is followed by a series of firmware fragments which are
++	 * individually identical to previous firmware. i.e. they have the
++	 * firmware header and followed by data for that fragment. The version
++	 * field of the individual fragment header is unused.
++	 */
++
++	fw_hdr = (struct tg3_firmware_hdr *)tp->fw->data;
++	if (be32_to_cpu(fw_hdr->base_addr) != TG3_57766_FW_BASE_ADDR)
++		return;
++
++	if (tg3_rxcpu_pause(tp))
++		return;
++
++	/* tg3_load_firmware_cpu() will always succeed for the 57766 */
++	tg3_load_firmware_cpu(tp, 0, TG3_57766_FW_BASE_ADDR, 0, fw_hdr);
++
++	tg3_rxcpu_resume(tp);
++}
++
+ /* tp->lock is held. */
+ static int tg3_load_tso_firmware(struct tg3 *tp)
+ {
+@@ -9836,6 +9918,13 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 			return err;
+ 	}
+ 
++	if (tg3_asic_rev(tp) == ASIC_REV_57766) {
++		/* Ignore any errors for the firmware download. If download
++		 * fails, the device will operate with EEE disabled
++		 */
++		tg3_load_57766_firmware(tp);
++	}
++
+ 	if (tg3_flag(tp, TSO_CAPABLE)) {
+ 		err = tg3_load_tso_firmware(tp);
+ 		if (err)
+@@ -10940,7 +11029,15 @@ static int tg3_open(struct net_device *dev)
+ 
+ 	if (tp->fw_needed) {
+ 		err = tg3_request_firmware(tp);
+-		if (tg3_chip_rev_id(tp) == CHIPREV_ID_5701_A0) {
++		if (tg3_asic_rev(tp) == ASIC_REV_57766) {
++			if (err) {
++				netdev_warn(tp->dev, "EEE capability disabled\n");
++				tp->phy_flags &= ~TG3_PHYFLG_EEE_CAP;
++			} else if (!(tp->phy_flags & TG3_PHYFLG_EEE_CAP)) {
++				netdev_warn(tp->dev, "EEE capability restored\n");
++				tp->phy_flags |= TG3_PHYFLG_EEE_CAP;
++			}
++		} else if (tg3_chip_rev_id(tp) == CHIPREV_ID_5701_A0) {
+ 			if (err)
+ 				return err;
+ 		} else if (err) {
+@@ -14570,6 +14667,7 @@ static int tg3_phy_probe(struct tg3 *tp)
+ 	if (!(tp->phy_flags & TG3_PHYFLG_ANY_SERDES) &&
+ 	    (tg3_asic_rev(tp) == ASIC_REV_5719 ||
+ 	     tg3_asic_rev(tp) == ASIC_REV_5720 ||
++	     tg3_asic_rev(tp) == ASIC_REV_57766 ||
+ 	     tg3_asic_rev(tp) == ASIC_REV_5762 ||
+ 	     (tg3_asic_rev(tp) == ASIC_REV_5717 &&
+ 	      tg3_chip_rev_id(tp) != CHIPREV_ID_5717_A0) ||
+@@ -15379,6 +15477,9 @@ static int tg3_get_invariants(struct tg3 *tp, const struct pci_device_id *ent)
+ 	if (tg3_chip_rev_id(tp) == CHIPREV_ID_5701_A0)
+ 		tp->fw_needed = FIRMWARE_TG3;
+ 
++	if (tg3_asic_rev(tp) == ASIC_REV_57766)
++		tp->fw_needed = FIRMWARE_TG357766;
++
+ 	tp->irq_max = 1;
+ 
+ 	if (tg3_flag(tp, 5750_PLUS)) {
+@@ -15839,6 +15940,11 @@ static int tg3_get_invariants(struct tg3 *tp, const struct pci_device_id *ent)
+ 	udelay(50);
+ 	tg3_nvram_init(tp);
+ 
++	/* If the device has an NVRAM, no need to load patch firmware */
++	if (tg3_asic_rev(tp) == ASIC_REV_57766 &&
++	    !tg3_flag(tp, NO_NVRAM))
++		tp->fw_needed = NULL;
++
+ 	grc_misc_cfg = tr32(GRC_MISC_CFG);
+ 	grc_misc_cfg &= GRC_MISC_CFG_BOARD_ID_MASK;
+ 
+diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
+index b5098f0..1cdc1b6 100644
+--- a/drivers/net/ethernet/broadcom/tg3.h
++++ b/drivers/net/ethernet/broadcom/tg3.h
+@@ -2222,6 +2222,12 @@
+ #define  NIC_SRAM_MBUF_POOL_BASE5705	0x00010000
+ #define  NIC_SRAM_MBUF_POOL_SIZE5705	0x0000e000
+ 
++#define TG3_SRAM_RXCPU_SCRATCH_BASE_57766	0x00030000
++#define  TG3_SRAM_RXCPU_SCRATCH_SIZE_57766	 0x00010000
++#define TG3_57766_FW_BASE_ADDR			0x00030000
++#define TG3_57766_FW_HANDSHAKE			0x0003fccc
++#define TG3_SBROM_IN_SERVICE_LOOP		0x51
++
+ #define TG3_SRAM_RX_STD_BDCACHE_SIZE_5700	128
+ #define TG3_SRAM_RX_STD_BDCACHE_SIZE_5755	64
+ #define TG3_SRAM_RX_STD_BDCACHE_SIZE_5906	32
+-- 
+1.8.1.4
