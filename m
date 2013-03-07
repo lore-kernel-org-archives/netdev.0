@@ -1,66 +1,118 @@
-From: jb <jb.1234abcd@gmail.com>
-Subject: [PATCH] iputils: fix memory leaks
-Date: Thu, 7 Mar 2013 09:52:22 +0000 (UTC)
-Message-ID: <loom.20130307T103516-549@post.gmane.org>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH] netconsole: release the spinlock before
+ __netpoll_cleanup()
+Date: Thu, 7 Mar 2013 11:03:25 +0100
+Message-ID: <20130307100325.GA31105@redhat.com>
+References: <1362581203-8994-1-git-send-email-vfalico@redhat.com>
+ <20130307000824.GA5702@neilslaptop.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, amwang@redhat.com, davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:33661 "EHLO plane.gmane.org"
+Received: from mx1.redhat.com ([209.132.183.28]:6910 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752897Ab3CGJyu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Mar 2013 04:54:50 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UDXXV-0005HA-Al
-	for netdev@vger.kernel.org; Thu, 07 Mar 2013 10:55:05 +0100
-Received: from 79-139-19-75.prenet.pl ([79.139.19.75])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 10:55:05 +0100
-Received: from jb.1234abcd by 79-139-19-75.prenet.pl with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 10:55:05 +0100
+	id S1754374Ab3CGKDc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Mar 2013 05:03:32 -0500
+Content-Disposition: inline
+In-Reply-To: <20130307000824.GA5702@neilslaptop.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Mar 06, 2013 at 07:08:24PM -0500, Neil Horman wrote:
+>On Wed, Mar 06, 2013 at 03:46:43PM +0100, Veaceslav Falico wrote:
+>> Commit 3335f0ca130c201f8680e97f63612053fbc16e22 removed spinlock unlocking
+>> before __netpoll_cleanup() in netconsole_netdev_event(), however we still
+>> might sleep in __netpoll_cleanup() - via synchronize_srcu(). Revert it and
+>> add a comment.
+>>
+>> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+>> ---
+>>  drivers/net/netconsole.c |   10 ++++++++++
+>>  1 files changed, 10 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+>> index 37add21..dd62b4c 100644
+>> --- a/drivers/net/netconsole.c
+>> +++ b/drivers/net/netconsole.c
+>> @@ -680,7 +680,17 @@ static int netconsole_netdev_event(struct notifier_block *this,
+>>  				 * rtnl_lock already held
+>>  				 */
+>>  				if (nt->np.dev) {
+>> +					/*
+>> +					 * we still might sleep in
+>> +					 * __netpoll_cleanup(), so release
+>> +					 * the lock
+>> +					 */
+>> +					spin_unlock_irqrestore(
+>> +							      &target_list_lock,
+>> +							      flags);
+>>  					__netpoll_cleanup(&nt->np);
+>> +					spin_lock_irqsave(&target_list_lock,
+>> +							  flags);
+>>  					dev_put(nt->np.dev);
+>>  					nt->np.dev = NULL;
+>>  				}
+>> --
+>> 1.7.1
+>>
+>Thanks for noticing this Vaeceslav, but you can't just drop and re-acquire the
+>lock like this, as it protect the list_for_each_entry loop that you're in.  You
+>can drop the lock in the above if clause, but then, after the nt->np.dev = NULL,
+>go back an re-aquire the lock, and start the for loop.  I thought we had already
+>done this for some other purpose in this code using a label and a goto, but I
+>suppose I was mistaken
 
-    Fix memory leaks
-    
-    Signed-off-by: JB <jb.1234abcd@gmail.com>
+You're right, I somehow missed that restart goto, which was removed
+earlier. Does that feel right (I've also added back the
+netconsole_target_put()):
+
+Subject: [PATCH] netconsole: release the spinlock before __netpoll_cleanup()
+
+__netpoll_cleanup() might sleep in synchronize_srcu(), which was added to
+avoid race in another situation, so we can't call it with the spinlock
+target_list_lock held.
+
+Add spin_unlock/lock before/after it and restart the loop.
+
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- ping.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+  drivers/net/netconsole.c |   13 +++++++++++++
+  1 files changed, 13 insertions(+), 0 deletions(-)
 
-diff --git a/ping.c b/ping.c
-index c0366cd..04f5596 100644
---- a/ping.c
-+++ b/ping.c
-@@ -282,10 +282,15 @@ main(int argc, char **argv)
-                        hp = gethostbyname(idn);
-                        if (!hp) {
-                                fprintf(stderr, "ping: unknown host %s\n", target);
-+#ifdef USE_IDN
-+                               free(idn);
-+                               idn = NULL;
-+#endif
-                                exit(2);
-                        }
- #ifdef USE_IDN
-                        free(idn);
-+                       idn = NULL;
- #endif
-                        memcpy(&whereto.sin_addr, hp->h_addr, 4);
- #ifdef USE_IDN
-@@ -301,6 +306,10 @@ main(int argc, char **argv)
-                        hnamebuf[sizeof(hnamebuf) - 1] = 0;
- #endif
-                        hostname = hnamebuf;
-+#ifdef USE_IDN
-+                       free(hnamebuf);
-+                       hnamebuf = NULL;
-+#endif
-                }
-                if (argc > 1)
-                        route[nroute++] = whereto.sin_addr.s_addr;
+diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+index 37add21..267c26b 100644
+--- a/drivers/net/netconsole.c
++++ b/drivers/net/netconsole.c
+@@ -666,6 +666,7 @@ static int netconsole_netdev_event(struct notifier_block *this,
+  		goto done;
+  
+  	spin_lock_irqsave(&target_list_lock, flags);
++restart:
+  	list_for_each_entry(nt, &target_list, list) {
+  		netconsole_target_get(nt);
+  		if (nt->np.dev == dev) {
+@@ -680,9 +681,21 @@ static int netconsole_netdev_event(struct notifier_block *this,
+  				 * rtnl_lock already held
+  				 */
+  				if (nt->np.dev) {
++					/*
++					 * we still might sleep in
++					 * __netpoll_cleanup(), so release
++					 * the lock and restart
++					 */
++					spin_unlock_irqrestore(
++							      &target_list_lock,
++							      flags);
+  					__netpoll_cleanup(&nt->np);
++					spin_lock_irqsave(&target_list_lock,
++							  flags);
+  					dev_put(nt->np.dev);
+  					nt->np.dev = NULL;
++					netconsole_target_put(nt);
++					goto restart;
+  				}
+  				nt->enabled = 0;
+  				stopped = true;
+-- 
+1.7.1
