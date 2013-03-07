@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlabel: correctly list all the static label mappings
-Date: Thu, 07 Mar 2013 16:21:19 -0500 (EST)
-Message-ID: <20130307.162119.846409617201380362.davem@davemloft.net>
-References: <20130306214524.4965.59796.stgit@localhost>
+Subject: Re: [PATCH] MAINTAINERS: Update qlcnic maintainers list
+Date: Thu, 07 Mar 2013 16:22:17 -0500 (EST)
+Message-ID: <20130307.162217.52447989281783663.davem@davemloft.net>
+References: <1362611005-6226-1-git-send-email-sony.chacko@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pmoore@redhat.com
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: sony.chacko@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46262 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46270 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758494Ab3CGVVV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 16:21:21 -0500
-In-Reply-To: <20130306214524.4965.59796.stgit@localhost>
+	with ESMTP id S933432Ab3CGVWT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 16:22:19 -0500
+In-Reply-To: <1362611005-6226-1-git-send-email-sony.chacko@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <pmoore@redhat.com>
-Date: Wed, 06 Mar 2013 16:45:24 -0500
+From: Sony Chacko <sony.chacko@qlogic.com>
+Date: Wed,  6 Mar 2013 18:03:25 -0500
 
-> When we have a large number of static label mappings that spill across
-> the netlink message boundary we fail to properly save our state in the
-> netlink_callback struct which causes us to repeat the same listings.
-> This patch fixes this problem by saving the state correctly between
-> calls to the NetLabel static label netlink "dumpit" routines.
+> From: Sony Chacko <sony.chacko@qlogic.com>
 > 
-> Signed-off-by: Paul Moore <pmoore@redhat.com>
+> Please apply.
+> 
+> Thanks.
+> 
+> Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
 
-Applied and queued up for -stable, thanks.
-
-> Cc: stable@vger.kernel.org
-
-Please just ask me to queue up networking fixes for stable, rather
-than CC:'ing it to stable.
-
-Thanks.
+Applied, thanks.
