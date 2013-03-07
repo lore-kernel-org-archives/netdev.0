@@ -1,50 +1,54 @@
 From: pablo@netfilter.org
-Subject: [PATCH 0/3] netfilter fixes for your net tree
-Date: Thu,  7 Mar 2013 11:59:59 +0100
-Message-ID: <1362654002-4405-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [PATCH 1/3] netfilter: nf_ct_helper: Fix logging for dropped packets
+Date: Thu,  7 Mar 2013 12:00:00 +0100
+Message-ID: <1362654002-4405-2-git-send-email-pablo@netfilter.org>
+References: <1362654002-4405-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1362654002-4405-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Joe Perches <joe@perches.com>
 
-Hi David,
+Update nf_ct_helper_log to emit args along with the format.
 
-The following patchset contains Netfilter fixes for your net tree,
-they are:
-
-* Don't generate audit log message if audit is not enabled, from Gao Feng.
-
-* Fix logging formatting for packets dropped by helpers, by Joe Perches.
-
-* Fix a compilation warning in nfnetlink if CONFIG_PROVE_RCU is not set,
-  from Paul Bolle.
-
-You can pull these changes from:
-
-git://1984.lsi.us.es/nf master
-
-Thanks!
-
-Gao feng (1):
-  netfilter: xt_AUDIT: only generate audit log when audit enabled
-
-Joe Perches (1):
-  netfilter: nf_ct_helper: Fix logging for dropped packets
-
-Paul Bolle (1):
-  netfilter: nfnetlink: silence warning if CONFIG_PROVE_RCU isn't set
-
+Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
  net/netfilter/nf_conntrack_helper.c |   11 ++++++++++-
- net/netfilter/nfnetlink.c           |    7 +------
- net/netfilter/xt_AUDIT.c            |    3 +++
- 3 files changed, 14 insertions(+), 7 deletions(-)
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
+diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+index 013cdf6..bb4188f 100644
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -341,6 +341,13 @@ void nf_ct_helper_log(struct sk_buff *skb, const struct nf_conn *ct,
+ {
+ 	const struct nf_conn_help *help;
+ 	const struct nf_conntrack_helper *helper;
++	struct va_format vaf;
++	va_list args;
++
++	va_start(args, fmt);
++
++	vaf.fmt = fmt;
++	vaf.va = &args;
+ 
+ 	/* Called from the helper function, this call never fails */
+ 	help = nfct_help(ct);
+@@ -349,7 +356,9 @@ void nf_ct_helper_log(struct sk_buff *skb, const struct nf_conn *ct,
+ 	helper = rcu_dereference(help->helper);
+ 
+ 	nf_log_packet(nf_ct_l3num(ct), 0, skb, NULL, NULL, NULL,
+-		      "nf_ct_%s: dropping packet: %s ", helper->name, fmt);
++		      "nf_ct_%s: dropping packet: %pV ", helper->name, &vaf);
++
++	va_end(args);
+ }
+ EXPORT_SYMBOL_GPL(nf_ct_helper_log);
+ 
 -- 
 1.7.10.4
 
