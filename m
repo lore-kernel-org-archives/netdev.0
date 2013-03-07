@@ -1,81 +1,35 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH v2 1/7] USB: adds comment on suspend callback
-Date: Thu, 7 Mar 2013 15:26:02 -0500 (EST)
-Message-ID: <Pine.LNX.4.44L0.1303071524420.1646-100000@iolanthe.rowland.org>
-References: <1362672924-22975-2-git-send-email-ming.lei@canonical.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] macvlan: Set IFF_UNICAST_FLT flag to prevent unnecessary
+ promisc mode.
+Date: Thu, 07 Mar 2013 12:27:27 -0800
+Message-ID: <5138F82F.6010005@candelatech.com>
+References: <1362687708-8685-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Kosina <jkosina@suse.cz>, Oliver Neukum <oneukum@suse.de>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<linux-input@vger.kernel.org>
-To: Ming Lei <ming.lei@canonical.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iolanthe.rowland.org ([192.131.102.54]:44321 "HELO
-	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S933377Ab3CGU0D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Mar 2013 15:26:03 -0500
-In-Reply-To: <1362672924-22975-2-git-send-email-ming.lei@canonical.com>
+Received: from mail.candelatech.com ([208.74.158.172]:40281 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933238Ab3CGU1a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 15:27:30 -0500
+In-Reply-To: <1362687708-8685-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 8 Mar 2013, Ming Lei wrote:
+On 03/07/2013 12:21 PM, Vlad Yasevich wrote:
+> Macvlan already supports hw address filters.  Set the IFF_UNICAST_FLT
+> so that it doesn't needlesly enter PROMISC mode when macvlans are
+> stacked.
 
-> This patch adds comments on interface driver suspend callback
-> to emphasize that the failure return value is ignored by
-> USB core in system sleep context, so do not try to recover
-> device for this case and let resume/reset_resume callback
-> handle the suspend failure if needed.
-> 
-> Also kerneldoc for usb_suspend_both() is updated with the
-> fact.
-> 
-> Signed-off-by: Ming Lei <ming.lei@canonical.com>
-> ---
->  drivers/usb/core/driver.c |   11 ++++++++---
->  include/linux/usb.h       |    7 ++++++-
->  2 files changed, 14 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/usb/core/driver.c b/drivers/usb/core/driver.c
-> index d938b2b..eb1d00a 100644
-> --- a/drivers/usb/core/driver.c
-> +++ b/drivers/usb/core/driver.c
-> @@ -1196,9 +1196,14 @@ done:
->   *
->   * This is the central routine for suspending USB devices.  It calls the
->   * suspend methods for all the interface drivers in @udev and then calls
-> - * the suspend method for @udev itself.  If an error occurs at any stage,
-> - * all the interfaces which were suspended are resumed so that they remain
-> - * in the same state as the device.
-> + * the suspend method for @udev itself.  When the routine is called in
-> + * autosuspend, if an error occurs at any stage, all the interfaces
-> + * which were suspended are resumed so that they remain in the same
-> + * state as the device, but when called from system sleep, all error
-> + * from suspend methods of interfaces and the non-root-hub device itself
-> + * are simply ignored, so all suspended interfaces are only resumed
-> + * to the device's state when @udev is root-hub and its suspend method
-> + * returns failure.
->   *
->   * Autosuspend requests originating from a child device or an interface
->   * driver may be made without the protection of @udev's device lock, but
-> diff --git a/include/linux/usb.h b/include/linux/usb.h
-> index 4d22d0f..f82ce57 100644
-> --- a/include/linux/usb.h
-> +++ b/include/linux/usb.h
-> @@ -978,7 +978,12 @@ struct usbdrv_wrap {
->   *	the "usbfs" filesystem.  This lets devices provide ways to
->   *	expose information to user space regardless of where they
->   *	do (or don't) show up otherwise in the filesystem.
-> - * @suspend: Called when the device is going to be suspended by the system.
-> + * @suspend: Called when the device is going to be suspended by the
-> + *	system either from system sleep or runtime suspend context. The
-> + *	return value will be ignored in system sleep context, so do NOT
-> + *	try to continue using the device if suspend fails in this case.
-> + *	Instead, let the resume or reset-resume routine recover from
-> + *	the failure.
->   * @resume: Called when the device is being resumed by the system.
->   * @reset_resume: Called when the suspended device has been reset instead
->   *	of being resumed.
+Out of curiosity, how can stacking mac-vlans be useful?
 
-Acked-by: Alan Stern <stern@rowland.harvard.edu>
+(You are stacking more macvlans on a base mac-vlan?)
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
