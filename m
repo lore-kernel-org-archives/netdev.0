@@ -1,61 +1,75 @@
 From: Ming Lei <ming.lei@canonical.com>
-Subject: (unknown)
-Date: Fri,  8 Mar 2013 00:07:45 +0800
-Message-ID: <1362672472-22680-1-git-send-email-ming.lei@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [PATCH v2 1/7] USB: adds comment on suspend callback
+Date: Fri,  8 Mar 2013 00:07:46 +0800
+Message-ID: <1362672472-22680-2-git-send-email-ming.lei@canonical.com>
+References: <1362672472-22680-1-git-send-email-ming.lei@canonical.com>
 Cc: Alan Stern <stern@rowland.harvard.edu>,
 	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-input@vger.kernel.org
+	linux-usb@vger.kernel.org, linux-input@vger.kernel.org,
+	Ming Lei <ming.lei@canonical.com>
 To: "David S. Miller" <davem@davemloft.net>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	Jiri Kosina <jkosina@suse.cz>
 Return-path: <linux-input-owner@vger.kernel.org>
-Subject: 
+In-Reply-To: <1362672472-22680-1-git-send-email-ming.lei@canonical.com>
 Sender: linux-input-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
-
-Hi,
 
 This patch adds comments on interface driver suspend callback
 to emphasize that the failure return value is ignored by
 USB core in system sleep context, so do not try to recover
-device for this case, otherwise the recovery things may confuse
-resume().
+device for this case and let resume/reset_resume callback
+handle the suspend failure if needed.
 
-Also fixes the USB serial, HID and several usbnet drivers
-which may recover device in suspend failure path of system sleep.
+Also kerneldoc for usb_suspend_both() is updated with the
+fact.
 
-v2:
-	- improve comments on suspend callback as suggested by Alan
-	- update kerneldoc for usb_suspend_both as suggested by Alan
-	- remove previous check of PMSG_IS_AUTO(message) in cdc_mbim/
-	qmi_wwan and add comments on suspend failure case, since Bj=C3=B8rn
-	doesn't like the check.
-	- add comments on smsc95xx/smsc75xx
-v1:
-        - fix compile failure
-        - add comments about handling suspend failure in resume()
+Signed-off-by: Ming Lei <ming.lei@canonical.com>
+---
+ drivers/usb/core/driver.c |   11 ++++++++---
+ include/linux/usb.h       |    7 ++++++-
+ 2 files changed, 14 insertions(+), 4 deletions(-)
 
- drivers/hid/usbhid/hid-core.c   |   14 +++++---------
- drivers/net/usb/cdc_mbim.c      |    5 +++++
- drivers/net/usb/qmi_wwan.c      |    5 +++++
- drivers/net/usb/smsc75xx.c      |    6 +++++-
- drivers/net/usb/smsc95xx.c      |    6 +++++-
- drivers/usb/core/driver.c       |   11 ++++++++---
- drivers/usb/serial/usb-serial.c |    3 ++-
- include/linux/usb.h             |    7 ++++++-
- 8 files changed, 41 insertions(+), 16 deletions(-)
+diff --git a/drivers/usb/core/driver.c b/drivers/usb/core/driver.c
+index d938b2b..eb1d00a 100644
+--- a/drivers/usb/core/driver.c
++++ b/drivers/usb/core/driver.c
+@@ -1196,9 +1196,14 @@ done:
+  *
+  * This is the central routine for suspending USB devices.  It calls the
+  * suspend methods for all the interface drivers in @udev and then calls
+- * the suspend method for @udev itself.  If an error occurs at any stage,
+- * all the interfaces which were suspended are resumed so that they remain
+- * in the same state as the device.
++ * the suspend method for @udev itself.  When the routine is called in
++ * autosuspend, if an error occurs at any stage, all the interfaces
++ * which were suspended are resumed so that they remain in the same
++ * state as the device, but when called from system sleep, all error
++ * from suspend methods of interfaces and the non-root-hub device itself
++ * are simply ignored, so all suspended interfaces are only resumed
++ * to the device's state when @udev is root-hub and its suspend method
++ * returns failure.
+  *
+  * Autosuspend requests originating from a child device or an interface
+  * driver may be made without the protection of @udev's device lock, but
+diff --git a/include/linux/usb.h b/include/linux/usb.h
+index 4d22d0f..f82ce57 100644
+--- a/include/linux/usb.h
++++ b/include/linux/usb.h
+@@ -978,7 +978,12 @@ struct usbdrv_wrap {
+  *	the "usbfs" filesystem.  This lets devices provide ways to
+  *	expose information to user space regardless of where they
+  *	do (or don't) show up otherwise in the filesystem.
+- * @suspend: Called when the device is going to be suspended by the system.
++ * @suspend: Called when the device is going to be suspended by the
++ *	system either from system sleep or runtime suspend context. The
++ *	return value will be ignored in system sleep context, so do NOT
++ *	try to continue using the device if suspend fails in this case.
++ *	Instead, let the resume or reset-resume routine recover from
++ *	the failure.
+  * @resume: Called when the device is being resumed by the system.
+  * @reset_resume: Called when the suspended device has been reset instead
+  *	of being resumed.
+-- 
+1.7.9.5
 
-
-Thanks,
---
-Ming Lei
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-input" =
-in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
