@@ -1,62 +1,53 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH v2 4/7] usbnet: cdc_mbim: comments on suspend failure
-Date: Thu, 07 Mar 2013 19:08:39 +0100
-Message-ID: <876213jd5k.fsf@nemi.mork.no>
-References: <1362672924-22975-1-git-send-email-ming.lei@canonical.com>
-	<1362672924-22975-5-git-send-email-ming.lei@canonical.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] team: unsyc the devices addresses when port is removed
+Date: Thu, 7 Mar 2013 19:30:00 +0100
+Message-ID: <20130307183000.GA1532@minipsycho.orion>
+References: <1362679165-31203-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-input@vger.kernel.org
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <1362672924-22975-5-git-send-email-ming.lei@canonical.com> (Ming
-	Lei's message of "Fri, 8 Mar 2013 00:15:21 +0800")
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f48.google.com ([74.125.83.48]:36910 "EHLO
+	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932152Ab3CGSaF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 13:30:05 -0500
+Received: by mail-ee0-f48.google.com with SMTP id t10so606987eei.35
+        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 10:30:04 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1362679165-31203-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ming Lei <ming.lei@canonical.com> writes:
+Thu, Mar 07, 2013 at 06:59:25PM CET, vyasevic@redhat.com wrote:
+>When a team port is removed, unsync all devices addresses that may have
+>been synched to the port devices.
 
-> If suspend callback fails in system sleep context, usb core will
-> ignore the failure and let system sleep go ahead further, so
-> this patch comments on the case and requires that both
-> usbnet_suspend() and subdriver->suspend() MUST return 0 in
-> system sleep context.
+
+This is looking good to me. Thanks for spotting this bug.
+
+Acked-by: Jiri Pirko <jiri@resnulli.us>
+
 >
-> Cc: Bj=C3=B8rn Mork <bjorn@mork.no>
-> Signed-off-by: Ming Lei <ming.lei@canonical.com>
-> ---
->  drivers/net/usb/cdc_mbim.c |    5 +++++
->  1 file changed, 5 insertions(+)
+>CC: Jiri Pirko <jiri@resnulli.us>
+>Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>---
+> drivers/net/team/team.c |    2 ++
+> 1 files changed, 2 insertions(+), 0 deletions(-)
 >
-> diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
-> index 248d2dc..406a34d 100644
-> --- a/drivers/net/usb/cdc_mbim.c
-> +++ b/drivers/net/usb/cdc_mbim.c
-> @@ -332,6 +332,11 @@ static int cdc_mbim_suspend(struct usb_interface=
- *intf, pm_message_t message)
->  		goto error;
->  	}
-> =20
-> +	/*
-> +	 * Both usbnet_suspend() and subdriver->suspend() MUST return 0
-> +	 * in system sleep context, otherwise, the resume callback has
-> +	 * to recover device from previous suspend failure.
-> +	 */
->  	ret =3D usbnet_suspend(intf, message);
->  	if (ret < 0)
->  		goto error;
-
-Looks fine.  Thanks
-
-Acked-by: Bj=C3=B8rn Mork <bjorn@mork.no>
---
-To unsubscribe from this list: send the line "unsubscribe linux-input" =
-in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+>index 05c5efe..bf34192 100644
+>--- a/drivers/net/team/team.c
+>+++ b/drivers/net/team/team.c
+>@@ -1138,6 +1138,8 @@ static int team_port_del(struct team *team, struct net_device *port_dev)
+> 	netdev_upper_dev_unlink(port_dev, dev);
+> 	team_port_disable_netpoll(port);
+> 	vlan_vids_del_by_dev(port_dev, dev);
+>+	dev_uc_unsync(port_dev, dev);
+>+	dev_mc_unsync(port_dev, dev);
+> 	dev_close(port_dev);
+> 	team_port_leave(team, port);
+> 
+>-- 
+>1.7.7.6
+>
