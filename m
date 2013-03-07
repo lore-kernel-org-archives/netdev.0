@@ -1,41 +1,48 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 0/3][pull request] Intel Wired LAN Driver Updates
-Date: Thu,  7 Mar 2013 03:15:22 -0800
-Message-ID: <1362654925-26088-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, bruce.w.allan@intel.com
-To: davem@davemloft.net
+From: jb <jb.1234abcd@gmail.com>
+Subject: Re: [PATCH] iputils: fix memory leaks
+Date: Thu, 7 Mar 2013 11:18:21 +0000 (UTC)
+Message-ID: <loom.20130307T121410-568@post.gmane.org>
+References: <loom.20130307T103516-549@post.gmane.org> <AE90C24D6B3A694183C094C60CF0A2F6026B7181@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:5166 "EHLO mga01.intel.com"
+Received: from plane.gmane.org ([80.91.229.3]:59938 "EHLO plane.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756243Ab3CGLPi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Mar 2013 06:15:38 -0500
+	id S932235Ab3CGLSl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Mar 2013 06:18:41 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UDYqi-0005zY-GC
+	for netdev@vger.kernel.org; Thu, 07 Mar 2013 12:19:00 +0100
+Received: from 79-139-19-75.prenet.pl ([79.139.19.75])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 12:19:00 +0100
+Received: from jb.1234abcd by 79-139-19-75.prenet.pl with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 12:19:00 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to e1000e only.
+David Laight <David.Laight <at> ACULAB.COM> writes:
 
-All three patches come from Konstantin Khlebnikov to resolve power
-management issues.  The first patch removes redundant and unbalanced
-pci_disable_device() from the shutdown function.  The second patch
-removes redundant actions from the driver and fixes the interaction
-with actions in pci-bus runtime power management code.  The third
-and last patch fixes some messages like 'Error reading PHY register'
-and 'Hardware Erorr' and saves several seconds on reboot.
+> 
+> >     Fix memory leaks
+> ...
+> > +#ifdef USE_IDN
+> > +                               free(idn);
+> > +                               idn = NULL;
+> > +#endif
+> >                                 exit(2);
+> 
+> There is no point calling free() before exit(), nor any need
+> to free items that aren't allocated inside loops.
+> 
+> 	David
 
-The following are changes since commit f8af75f3517a24838a36eb5797a1a3e60bf9e276:
-  tun: add a missing nf_reset() in tun_net_xmit()
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
-
-Konstantin Khlebnikov (3):
-  e1000e: fix pci-device enable-counter balance
-  e1000e: fix runtime power management transitions
-  e1000e: fix accessing to suspended device
-
- drivers/net/ethernet/intel/e1000e/ethtool.c | 13 +++++
- drivers/net/ethernet/intel/e1000e/netdev.c  | 82 ++++++++---------------------
- 2 files changed, 34 insertions(+), 61 deletions(-)
-
--- 
-1.7.11.7
+A matter of good style ? Overzealous ?
+Flame ?
+http://stackoverflow.com/questions/654754/what-really-happens-when-you-dont-free-after-malloc
+jb
