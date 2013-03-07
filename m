@@ -1,79 +1,106 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH v1 1/7] USB: adds comment on suspend callback
-Date: Thu, 7 Mar 2013 10:09:17 +0800
-Message-ID: <CACVXFVPi8mvUiXuxO71Rjyo2bzOUF8anoORdpHk-1iAjrSHrSw@mail.gmail.com>
-References: <1362565557-15884-2-git-send-email-ming.lei@canonical.com>
-	<Pine.LNX.4.44L0.1303061012330.1955-100000@iolanthe.rowland.org>
+From: snakky.zhang@gmail.com
+Subject: Re: kernel panic in fib6_age (linux-3.6.6) and sugguested fix
+Date: Thu, 07 Mar 2013 10:28:28 +0800
+Message-ID: <5137FB4C.60006@gmail.com>
+References: <CAABZP2xs4qm7j75Hu5BaXuWOF3ddzrZPJxbTGhxpOvwHxA75Uw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Kosina <jkosina@suse.cz>, Oliver Neukum <oneukum@suse.de>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-input@vger.kernel.org
-To: Alan Stern <stern@rowland.harvard.edu>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Zhouyi Zhou <zhouzhouyi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:44623 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754434Ab3CGCJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 21:09:20 -0500
-In-Reply-To: <Pine.LNX.4.44L0.1303061012330.1955-100000@iolanthe.rowland.org>
+Received: from mail-bk0-f42.google.com ([209.85.214.42]:63768 "EHLO
+	mail-bk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754363Ab3CGC2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 21:28:37 -0500
+Received: by mail-bk0-f42.google.com with SMTP id jk7so551670bkc.15
+        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 18:28:36 -0800 (PST)
+In-Reply-To: <CAABZP2xs4qm7j75Hu5BaXuWOF3ddzrZPJxbTGhxpOvwHxA75Uw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 6, 2013 at 11:25 PM, Alan Stern <stern@rowland.harvard.edu> wrote:
-> On Wed, 6 Mar 2013, Ming Lei wrote:
+On 2013=E5=B9=B403=E6=9C=8806=E6=97=A5 23:36, Zhouyi Zhou wrote:
+> hi,
+>    My linux-3.6.6 kernel panics very often during reboot.
+>    I have reported in bugzilla.kernel.org as bug id 54731.
 >
->> This patch adds comments on interface driver suspend callback
->> to emphasize that the failure return value is ignored by
->> USB core in system sleep context, so do not try to recover
->> device for this case and let resume/reset_resume callback
->> handle the suspend failure if needed.
+> Kernel panic backtrace (using remote gdb):
+> #0  0xffffffff8176a91a in fib6_age (rt=3D0xffff8800571c6780, arg=3D0x=
+0
+> <irq_stack_union>) at net/ipv6/ip6_fib.c:1566
+> #1  0xffffffff8176a461 in fib6_clean_node (w=3D0xffff8800655fb4e8) at
+> net/ipv6/ip6_fib.c:1422
+> #2  0xffffffff8176a266 in fib6_walk_continue (w=3D0xffff8800655fb4e8)=
+ at
+> net/ipv6/ip6_fib.c:1362
+> #3  0xffffffff8176a3d5 in fib6_walk (w=3D0xffff8800655fb4e8) at
+> net/ipv6/ip6_fib.c:1406
+> #4  0xffffffff8176a59d in fib6_clean_tree (net=3D0xffffffff81edb300 <=
+init_net>,
+> root=3D0xffff880036c41950
+> ...
+> gdb>p neigh
+> (gdb) p neigh
+> $18 =3D (struct neighbour *) 0xffffffffffffff97
 >
-> In this same patch you should also update the kerneldoc for
-> usb_suspend_both().  It should mention that errors returned by the
-> suspend method for @udev will be ignored during system suspend.
-
-OK.
-
 >
->> Signed-off-by: Ming Lei <ming.lei@canonical.com>
->> ---
->>  include/linux/usb.h |    9 ++++++++-
->>  1 file changed, 8 insertions(+), 1 deletion(-)
->>
->> diff --git a/include/linux/usb.h b/include/linux/usb.h
->> index 4d22d0f..6e66dc4 100644
->> --- a/include/linux/usb.h
->> +++ b/include/linux/usb.h
->> @@ -978,7 +978,14 @@ struct usbdrv_wrap {
->>   *   the "usbfs" filesystem.  This lets devices provide ways to
->>   *   expose information to user space regardless of where they
->>   *   do (or don't) show up otherwise in the filesystem.
->> - * @suspend: Called when the device is going to be suspended by the system.
->> + * @suspend: Called when the device is going to be suspended by the
->> + *   system either from system sleep or runtime suspend context, and
->> + *   its failure return value will be ignored in system sleep context,
 >
-> This is an ungrammatical run-on sentence.  s/, and its failure/. The/
-
-OK.
-
+> There are a lot of ipv6 nodes in my link local environment, and the k=
+ernel
+> report IPv6: Neighbour table overflow constantly.
 >
->> + *   so do NOT try to recover device for this case. It is suggested
->> + *   the callback always return 0 if resume/reset_resume callback can
->> + *   handle system sususpend failure at default, otherwise driver
->> + *   need to record the suspend failure and let resume/reset_resume
->> + *   handle previous system suspend failure to recover device.
+> I guess the cause of the panic is:
+> dst_neigh_lookup calls ip6_neigh_lookup indirectly, and neigh_create =
+return
+> ENOBUFS in case of neighbour table full.
+> 139 static struct neighbour *ip6_neigh_lookup(const struct dst_entry =
+*dst,
+> 140                                           struct sk_buff *skb,
+> 141                                           const void *daddr)
+> 142 {
+> 143         struct rt6_info *rt =3D (struct rt6_info *) dst;
+> 144         struct neighbour *n;
+> 145
+> 146         daddr =3D choose_neigh_daddr(rt, skb, daddr);
+> 147         n =3D __ipv6_neigh_lookup(&nd_tbl, dst->dev, daddr);
+> 148         if (n)
+> 149                 return n;
+> 150         return neigh_create(&nd_tbl, daddr, dst->dev);
+> 151 }
 >
-> I don't understand what this is supposed to mean.  How about this
-> instead?  "so do NOT try to continue using the device if suspend fails
-> in this case.  Instead, let the resume or reset-resume routine recover
-> from the failure."
+> A possible fix may be:
+>
+>              neigh =3D dst_neigh_lookup(&rt->dst, &rt->rt6i_gateway);
+> +           if (IS_ERR(neigh))
+> +             return PTR_ERR(neigh);
+>              else{
+>                       neigh_flags =3D neigh->flags;
+>                       neigh_release(neigh);
+>              }
+>
+How about this one below? without modifying the return value:
+                         __u8 neigh_flags =3D 0;
 
-Looks your description is more neat, and will take it in v2.
+                         neigh =3D dst_neigh_lookup(&rt->dst,=20
+&rt->rt6i_gateway);
+-                       if (neigh) {
++                       if (!IS_ERR(neigh)) {
+                                 neigh_flags =3D neigh->flags;
+                                 neigh_release(neigh);
+                         }
 
 
-Thanks,
---
-Ming Lei
+Thanks
+Xiao
+
+
+> Thanks for your attention
+>
+> Zhouyi
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
