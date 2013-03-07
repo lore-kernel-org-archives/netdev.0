@@ -1,65 +1,129 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BUG: IPv4: Attempt to release TCP socket in state 1
-Date: Thu, 07 Mar 2013 05:46:30 -0800
-Message-ID: <1362663990.15793.208.camel@edumazet-glaptop>
-References: <alpine.DEB.2.02.1303041547080.7811@localhost6.localdomain6>
-	   <51356AC1.4090302@gmail.com>
-	 <1362460046.15793.111.camel@edumazet-glaptop>
-	  <alpine.DEB.2.02.1303042138330.7811@localhost6.localdomain6>
-	 <1362494795.15793.113.camel@edumazet-glaptop>
-	 <alpine.DEB.2.02.1303061631290.6723@dflat>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: dormando <dormando@rydia.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1303061631290.6723@dflat>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 4/6] net/mlx4_en: Fix race when setting the device MAC address
+Date: Thu,  7 Mar 2013 15:46:55 +0200
+Message-ID: <1362664017-30275-5-git-send-email-ogerlitz@mellanox.com>
+References: <1362664017-30275-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com,
+	Yan Burman <yanb@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:44283 "EHLO
+	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753081Ab3CGNrN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 08:47:13 -0500
+In-Reply-To: <1362664017-30275-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-03-06 at 16:41 -0800, dormando wrote:
+From: Yan Burman <yanb@mellanox.com>
 
-> Ok... bridge module is loaded but nothing seems to be using it. No
-> bond/tunnels/anything enabled. I couldn't quickly figure out what was
-> causing it to load.
-> 
-> We removed the need for macvlan, started machines with a fresh boot, and
-> they still crashed without it, after a few hours.
-> 
-> Unfortunately I just saw a machine crash in the same way on 3.6.6 and
-> 3.6.9. I'm working on getting a completely pristine 3.6.6 and 3.6.9
-> tested. Our patches are minor but there were a few, so I'm backing it all
-> out just to be sure.
-> 
-> Is there anything in particular which is most interesting? I can post lots
-> and lots and lots of information. Sadly bridge/macvlan weren't part of the
-> problem. .config, sysctls are easiest I guess? When this "hang" happens
-> the machine is still up somewhat, but we lose access to it. Syslog is
-> still writing entries to disk occasionally, so it's possible we could set
-> something up to dump more information.
-> 
-> It takes a day or two to cycle this, so it might take a while to get
-> information and test crashes.
+Remove unnecessary use of workqueue for the device MAC address setting
+flow, and fix a race when setting MAC address which was introduced by
+commit c07cb4b0a "net/mlx4_en: Manage hash of MAC addresses per port"
 
-Thanks !
+The race happened when mlx4_en_replace_mac was being executed in parallel
+with a successive call to ndo_set_mac_address, e.g witn an A/B/A MAC
+setting configuration test, the third set fails.
 
-Please add a stack trace, it might help :
+With this change we also properly report an error if set MAC fails.
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 68f6a94..1d4d97e 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -141,8 +141,9 @@ void inet_sock_destruct(struct sock *sk)
- 	sk_mem_reclaim(sk);
+Signed-off-by: Yan Burman <yanb@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   42 ++++++++++++------------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    1 -
+ 2 files changed, 21 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index bb4d8d9..217e618 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -650,28 +650,10 @@ u64 mlx4_en_mac_to_u64(u8 *addr)
+ 	return mac;
+ }
  
- 	if (sk->sk_type == SOCK_STREAM && sk->sk_state != TCP_CLOSE) {
--		pr_err("Attempt to release TCP socket in state %d %p\n",
--		       sk->sk_state, sk);
-+		pr_err("Attempt to release TCP socket family %d in state %d %p\n",
-+		       sk->sk_family, sk->sk_state, sk);
-+		WARN_ON_ONCE(1);
- 		return;
+-static int mlx4_en_set_mac(struct net_device *dev, void *addr)
++static int mlx4_en_do_set_mac(struct mlx4_en_priv *priv)
+ {
+-	struct mlx4_en_priv *priv = netdev_priv(dev);
+-	struct mlx4_en_dev *mdev = priv->mdev;
+-	struct sockaddr *saddr = addr;
+-
+-	if (!is_valid_ether_addr(saddr->sa_data))
+-		return -EADDRNOTAVAIL;
+-
+-	memcpy(dev->dev_addr, saddr->sa_data, ETH_ALEN);
+-	queue_work(mdev->workqueue, &priv->mac_task);
+-	return 0;
+-}
+-
+-static void mlx4_en_do_set_mac(struct work_struct *work)
+-{
+-	struct mlx4_en_priv *priv = container_of(work, struct mlx4_en_priv,
+-						 mac_task);
+-	struct mlx4_en_dev *mdev = priv->mdev;
+ 	int err = 0;
+ 
+-	mutex_lock(&mdev->state_lock);
+ 	if (priv->port_up) {
+ 		/* Remove old MAC and insert the new one */
+ 		err = mlx4_en_replace_mac(priv, priv->base_qpn,
+@@ -683,7 +665,26 @@ static void mlx4_en_do_set_mac(struct work_struct *work)
+ 	} else
+ 		en_dbg(HW, priv, "Port is down while registering mac, exiting...\n");
+ 
++	return err;
++}
++
++static int mlx4_en_set_mac(struct net_device *dev, void *addr)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_en_dev *mdev = priv->mdev;
++	struct sockaddr *saddr = addr;
++	int err;
++
++	if (!is_valid_ether_addr(saddr->sa_data))
++		return -EADDRNOTAVAIL;
++
++	memcpy(dev->dev_addr, saddr->sa_data, ETH_ALEN);
++
++	mutex_lock(&mdev->state_lock);
++	err = mlx4_en_do_set_mac(priv);
+ 	mutex_unlock(&mdev->state_lock);
++
++	return err;
+ }
+ 
+ static void mlx4_en_clear_list(struct net_device *dev)
+@@ -1348,7 +1349,7 @@ static void mlx4_en_do_get_stats(struct work_struct *work)
+ 		queue_delayed_work(mdev->workqueue, &priv->stats_task, STATS_DELAY);
  	}
- 	if (!sock_flag(sk, SOCK_DEAD)) {
+ 	if (mdev->mac_removed[MLX4_MAX_PORTS + 1 - priv->port]) {
+-		queue_work(mdev->workqueue, &priv->mac_task);
++		mlx4_en_do_set_mac(priv);
+ 		mdev->mac_removed[MLX4_MAX_PORTS + 1 - priv->port] = 0;
+ 	}
+ 	mutex_unlock(&mdev->state_lock);
+@@ -2078,7 +2079,6 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	priv->msg_enable = MLX4_EN_MSG_LEVEL;
+ 	spin_lock_init(&priv->stats_lock);
+ 	INIT_WORK(&priv->rx_mode_task, mlx4_en_do_set_rx_mode);
+-	INIT_WORK(&priv->mac_task, mlx4_en_do_set_mac);
+ 	INIT_WORK(&priv->watchdog_task, mlx4_en_restart);
+ 	INIT_WORK(&priv->linkstate_task, mlx4_en_linkstate);
+ 	INIT_DELAYED_WORK(&priv->stats_task, mlx4_en_do_get_stats);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index c313d7e..f710b7c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -509,7 +509,6 @@ struct mlx4_en_priv {
+ 	struct mlx4_en_cq rx_cq[MAX_RX_RINGS];
+ 	struct mlx4_qp drop_qp;
+ 	struct work_struct rx_mode_task;
+-	struct work_struct mac_task;
+ 	struct work_struct watchdog_task;
+ 	struct work_struct linkstate_task;
+ 	struct delayed_work stats_task;
+-- 
+1.7.1
