@@ -1,81 +1,69 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v2 resent net-next 4/4] qlcnic: Use generic fdb handler when driver options are not enabled.
-Date: Wed,  6 Mar 2013 20:39:45 -0500
-Message-ID: <1362620385-14553-5-git-send-email-vyasevic@redhat.com>
-References: <1362620385-14553-1-git-send-email-vyasevic@redhat.com>
-Cc: or.gerlitz@gmail.com, Vlad Yasevich <vyasevic@redhat.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>, linux-driver@qlogic.com
-To: netdev@vger.kernel.org
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: hitting lockdep warning as of too early VF probe with 3.9-rc1
+Date: Thu, 7 Mar 2013 10:03:52 +0800
+Message-ID: <CACVXFVMcgMzwHrvimn2awQZCPP2m=_npTGap-m7Ru+jdCoqcyA@mail.gmail.com>
+References: <51360D7C.3060209@mellanox.com>
+	<CACVXFVM2MLR6HxYyvKRnqddqvRbHvzL59+_NxqFek7YN7nDhQQ@mail.gmail.com>
+	<CAJZOPZ+_N53n59cJv00=GXETNhZJUEvgcLEB+D-ujBdSsyvM9g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>,
+	Roland Dreier <roland@kernel.org>,
+	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Liran Liss <liranl@mellanox.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21585 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755479Ab3CGBj4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Mar 2013 20:39:56 -0500
-In-Reply-To: <1362620385-14553-1-git-send-email-vyasevic@redhat.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:44603 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752475Ab3CGCDz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Mar 2013 21:03:55 -0500
+Received: from mail-ie0-f170.google.com ([209.85.223.170])
+	by youngberry.canonical.com with esmtpsa (TLS1.0:RSA_ARCFOUR_SHA1:16)
+	(Exim 4.71)
+	(envelope-from <ming.lei@canonical.com>)
+	id 1UDQBV-0001Ax-UW
+	for netdev@vger.kernel.org; Thu, 07 Mar 2013 02:03:54 +0000
+Received: by mail-ie0-f170.google.com with SMTP id c11so10625633ieb.29
+        for <netdev@vger.kernel.org>; Wed, 06 Mar 2013 18:03:52 -0800 (PST)
+In-Reply-To: <CAJZOPZ+_N53n59cJv00=GXETNhZJUEvgcLEB+D-ujBdSsyvM9g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow qlcnic to use the generic fdb handler when the driver options
-are not enabled.   Untill the driver is fully fixed, this allows
-the use of the FDB interface with qlogic driver, but simply puts
-the driver into promisc mode since the driver currently does not
-support IFF_UNICAST_FLT.
+On Thu, Mar 7, 2013 at 4:54 AM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
+> On Wed, Mar 6, 2013 at 4:43 AM, Ming Lei <ming.lei@canonical.com> wrote:
+>> You are adding one new PCI device inside another PCI device's probe(),
+>> so the new device will be probed, since PCI probe() is scheduled by
+>> work_on_cpu, then cause flush_work() called inside worker function,
+>> which might be a real deadlock.
+>
+> So if I understand correct, you recommend to somehow avoid this nested probing?
 
-CC: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Acked-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-CC: Sony Chacko <sony.chacko@qlogic.com>
-CC: linux-driver@qlogic.com
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   21 ++++++---------------
- 1 files changed, 6 insertions(+), 15 deletions(-)
+Yes, you might need to avoid the nested probing in your driver.
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 28a6d48..c6f9d5e 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -253,11 +253,8 @@ static int qlcnic_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	int err = -EOPNOTSUPP;
- 
--	if (!adapter->fdb_mac_learn) {
--		pr_info("%s: Driver mac learn is enabled, FDB operation not allowed\n",
--			__func__);
--		return err;
--	}
-+	if (!adapter->fdb_mac_learn)
-+		return ndo_dflt_fdb_del(ndm, tb, netdev, addr);
- 
- 	if (adapter->flags & QLCNIC_ESWITCH_ENABLED) {
- 		if (is_unicast_ether_addr(addr))
-@@ -277,11 +274,8 @@ static int qlcnic_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	int err = 0;
- 
--	if (!adapter->fdb_mac_learn) {
--		pr_info("%s: Driver mac learn is enabled, FDB operation not allowed\n",
--			__func__);
--		return -EOPNOTSUPP;
--	}
-+	if (!adapter->fdb_mac_learn)
-+		return ndo_dflt_fdb_add(ndm, tb, netdev, addr, flags);
- 
- 	if (!(adapter->flags & QLCNIC_ESWITCH_ENABLED)) {
- 		pr_info("%s: FDB e-switch is not enabled\n", __func__);
-@@ -306,11 +300,8 @@ static int qlcnic_fdb_dump(struct sk_buff *skb, struct netlink_callback *ncb,
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 
--	if (!adapter->fdb_mac_learn) {
--		pr_info("%s: Driver mac learn is enabled, FDB operation not allowed\n",
--			__func__);
--		return -EOPNOTSUPP;
--	}
-+	if (!adapter->fdb_mac_learn)
-+		return ndo_dflt_fdb_dump(skb, ncb, netdev, idx);
- 
- 	if (adapter->flags & QLCNIC_ESWITCH_ENABLED)
- 		idx = ndo_dflt_fdb_dump(skb, ncb, netdev, idx);
--- 
-1.7.7.6
+>
+>> I am wondering why this commit can cause the problem, since the PCI
+>> device will be probed with its driver if there is one driver for it. There is no
+>> any limit on when the driver should be loaded into system, either before
+>> device is added or after.
+>
+> FWIW to undertstanding the issue - the same driver (mlx4_core) is used
+> by the PF and VF, so the VF driver is already loaded at the time its
+> been added as new PCI device.
+>
+>> From driver core view, looks no wrong things are found.
+>
+> So this got me confused, you pointed on possible deadlock, are you
+> saying the deadlock wouldn't be the result of how the driver code is
+> going nor the commited we bisected?
+
+My commit only affects the driver loading path, but your warning
+is hit in driver probe path triggered by device addition, so the lockdep
+warning should still be triggered without my commit since the two paths
+are totally independent, right?
+
+Thanks,
+--
+Ming Lei
