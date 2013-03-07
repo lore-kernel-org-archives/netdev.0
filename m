@@ -1,8 +1,7 @@
 From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH net-next 6/6] tg3: Download 57766 EEE service patch
- firmware
-Date: Wed, 6 Mar 2013 19:02:34 -0800
-Message-ID: <1362625354-15095-7-git-send-email-nsujir@broadcom.com>
+Subject: [PATCH net-next 2/6] tg3: Refactor cpu pause/resume code
+Date: Wed, 6 Mar 2013 19:02:30 -0800
+Message-ID: <1362625354-15095-3-git-send-email-nsujir@broadcom.com>
 References: <1362625354-15095-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,251 +10,155 @@ Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>,
 	"Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2907 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2906 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752314Ab3CGDDP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752713Ab3CGDDP (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 6 Mar 2013 22:03:15 -0500
 In-Reply-To: <1362625354-15095-1-git-send-email-nsujir@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch downloads the EEE service patch firmware and enables the necessary
-EEE flags.
+The 57766 rxcpu needs to be paused/resumed when we download the firmware just
+like we do for existing firmware. Refactor the pause/resume code to be
+reusable.
+
+This patch also renames the "offset" argument of tg3_halt_cpu to "cpu_base"
+since that's what it really is.
 
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c | 138 +++++++++++++++++++++++++++++++-----
- drivers/net/ethernet/broadcom/tg3.h |   6 ++
- 2 files changed, 128 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c | 83 ++++++++++++++++++++++++++-----------
+ 1 file changed, 58 insertions(+), 25 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 54f604b..2b2bee6 100644
+index f6ebcaa..35a99f7 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -212,6 +212,7 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
- #define TG3_FW_UPDATE_FREQ_SEC		(TG3_FW_UPDATE_TIMEOUT_SEC / 2)
+@@ -3452,11 +3452,58 @@ static int tg3_nvram_write_block(struct tg3 *tp, u32 offset, u32 len, u8 *buf)
+ #define TX_CPU_SCRATCH_SIZE	0x04000
  
- #define FIRMWARE_TG3		"tigon/tg3.bin"
-+#define FIRMWARE_TG357766	"tigon/tg357766.bin"
- #define FIRMWARE_TG3TSO		"tigon/tg3_tso.bin"
- #define FIRMWARE_TG3TSO5	"tigon/tg3_tso5.bin"
- 
-@@ -3568,7 +3569,7 @@ static int tg3_load_firmware_cpu(struct tg3 *tp, u32 cpu_base,
- 				 u32 cpu_scratch_base, int cpu_scratch_size,
- 				 const struct tg3_firmware_hdr *fw_hdr)
+ /* tp->lock is held. */
+-static int tg3_halt_cpu(struct tg3 *tp, u32 offset)
++static int tg3_pause_cpu(struct tg3 *tp, u32 cpu_base)
  {
--	int err, lock_err, i;
-+	int err, i;
- 	void (*write_op)(struct tg3 *, u32, u32);
- 	int total_len = tp->fw->size;
+ 	int i;
++	const int iters = 10000;
  
-@@ -3579,25 +3580,34 @@ static int tg3_load_firmware_cpu(struct tg3 *tp, u32 cpu_base,
- 		return -EINVAL;
- 	}
- 
--	if (tg3_flag(tp, 5705_PLUS))
-+	if (tg3_flag(tp, 5705_PLUS) && tg3_asic_rev(tp) != ASIC_REV_57766)
- 		write_op = tg3_write_mem;
- 	else
- 		write_op = tg3_write_indirect_reg32;
- 
--	/* It is possible that bootcode is still loading at this point.
--	 * Get the nvram lock first before halting the cpu.
--	 */
--	lock_err = tg3_nvram_lock(tp);
--	err = tg3_halt_cpu(tp, cpu_base);
--	if (!lock_err)
--		tg3_nvram_unlock(tp);
--	if (err)
--		goto out;
-+	if (tg3_asic_rev(tp) != ASIC_REV_57766) {
-+		/* It is possible that bootcode is still loading at this point.
-+		 * Get the nvram lock first before halting the cpu.
-+		 */
-+		int lock_err = tg3_nvram_lock(tp);
-+		err = tg3_halt_cpu(tp, cpu_base);
-+		if (!lock_err)
-+			tg3_nvram_unlock(tp);
-+		if (err)
-+			goto out;
- 
--	for (i = 0; i < cpu_scratch_size; i += sizeof(u32))
--		write_op(tp, cpu_scratch_base + i, 0);
--	tw32(cpu_base + CPU_STATE, 0xffffffff);
--	tw32(cpu_base + CPU_MODE, tr32(cpu_base+CPU_MODE)|CPU_MODE_HALT);
-+		for (i = 0; i < cpu_scratch_size; i += sizeof(u32))
-+			write_op(tp, cpu_scratch_base + i, 0);
-+		tw32(cpu_base + CPU_STATE, 0xffffffff);
-+		tw32(cpu_base + CPU_MODE,
-+		     tr32(cpu_base + CPU_MODE) | CPU_MODE_HALT);
-+	} else {
-+		/* Subtract additional main header for fragmented firmware and
-+		 * advance to the first fragment
-+		 */
-+		total_len -= TG3_FW_HDR_LEN;
-+		fw_hdr++;
-+	}
- 
- 	do {
- 		u32 *fw_data = (u32 *)(fw_hdr + 1);
-@@ -3683,6 +3693,78 @@ static int tg3_load_5701_a0_firmware_fix(struct tg3 *tp)
- 	return 0;
- }
- 
-+static int tg3_validate_rxcpu_state(struct tg3 *tp)
-+{
-+	const int iters = 1000;
-+	int i;
-+	u32 val;
-+
-+	/* Wait for boot code to complete initialization and enter service
-+	 * loop. It is then safe to download service patches
-+	 */
+-	BUG_ON(offset == TX_CPU_BASE && tg3_flag(tp, 5705_PLUS));
 +	for (i = 0; i < iters; i++) {
-+		if (tr32(RX_CPU_HWBKPT) == TG3_SBROM_IN_SERVICE_LOOP)
++		tw32(cpu_base + CPU_STATE, 0xffffffff);
++		tw32(cpu_base + CPU_MODE,  CPU_MODE_HALT);
++		if (tr32(cpu_base + CPU_MODE) & CPU_MODE_HALT)
 +			break;
-+
-+		udelay(10);
 +	}
 +
-+	if (i == iters) {
-+		netdev_err(tp->dev, "Boot code not ready for service patches\n");
-+		return -EBUSY;
-+	}
-+
-+	val = tg3_read_indirect_reg32(tp, TG3_57766_FW_HANDSHAKE);
-+	if (val & 0xff) {
-+		netdev_warn(tp->dev,
-+			    "Other patches exist. Not downloading EEE patch\n");
-+		return -EEXIST;
-+	}
-+
-+	return 0;
++	return (i == iters) ? -EBUSY : 0;
 +}
 +
 +/* tp->lock is held. */
-+static void tg3_load_57766_firmware(struct tg3 *tp)
++static int tg3_rxcpu_pause(struct tg3 *tp)
 +{
-+	struct tg3_firmware_hdr *fw_hdr;
++	int rc = tg3_pause_cpu(tp, RX_CPU_BASE);
 +
-+	if (!tg3_flag(tp, NO_NVRAM))
-+		return;
++	tw32(RX_CPU_BASE + CPU_STATE, 0xffffffff);
++	tw32_f(RX_CPU_BASE + CPU_MODE,  CPU_MODE_HALT);
++	udelay(10);
 +
-+	if (tg3_validate_rxcpu_state(tp))
-+		return;
-+
-+	if (!tp->fw)
-+		return;
-+
-+	/* This firmware blob has a different format than older firmware
-+	 * releases as given below. The main difference is we have fragmented
-+	 * data to be written to non-contiguous locations.
-+	 *
-+	 * In the beginning we have a firmware header identical to other
-+	 * firmware which consists of version, base addr and length. The length
-+	 * here is unused and set to 0xffffffff.
-+	 *
-+	 * This is followed by a series of firmware fragments which are
-+	 * individually identical to previous firmware. i.e. they have the
-+	 * firmware header and followed by data for that fragment. The version
-+	 * field of the individual fragment header is unused.
-+	 */
-+
-+	fw_hdr = (struct tg3_firmware_hdr *)tp->fw->data;
-+	if (be32_to_cpu(fw_hdr->base_addr) != TG3_57766_FW_BASE_ADDR)
-+		return;
-+
-+	if (tg3_rxcpu_pause(tp))
-+		return;
-+
-+	/* tg3_load_firmware_cpu() will always succeed for the 57766 */
-+	tg3_load_firmware_cpu(tp, 0, TG3_57766_FW_BASE_ADDR, 0, fw_hdr);
-+
-+	tg3_rxcpu_resume(tp);
++	return rc;
 +}
 +
- /* tp->lock is held. */
- static int tg3_load_tso_firmware(struct tg3 *tp)
- {
-@@ -9836,6 +9918,13 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 			return err;
++/* tp->lock is held. */
++static int tg3_txcpu_pause(struct tg3 *tp)
++{
++	return tg3_pause_cpu(tp, TX_CPU_BASE);
++}
++
++/* tp->lock is held. */
++static void tg3_resume_cpu(struct tg3 *tp, u32 cpu_base)
++{
++	tw32(cpu_base + CPU_STATE, 0xffffffff);
++	tw32_f(cpu_base + CPU_MODE,  0x00000000);
++}
++
++/* tp->lock is held. */
++static void tg3_rxcpu_resume(struct tg3 *tp)
++{
++	tg3_resume_cpu(tp, RX_CPU_BASE);
++}
++
++/* tp->lock is held. */
++static int tg3_halt_cpu(struct tg3 *tp, u32 cpu_base)
++{
++	int rc;
++
++	BUG_ON(cpu_base == TX_CPU_BASE && tg3_flag(tp, 5705_PLUS));
+ 
+ 	if (tg3_asic_rev(tp) == ASIC_REV_5906) {
+ 		u32 val = tr32(GRC_VCPU_EXT_CTRL);
+@@ -3464,17 +3511,8 @@ static int tg3_halt_cpu(struct tg3 *tp, u32 offset)
+ 		tw32(GRC_VCPU_EXT_CTRL, val | GRC_VCPU_EXT_CTRL_HALT_CPU);
+ 		return 0;
+ 	}
+-	if (offset == RX_CPU_BASE) {
+-		for (i = 0; i < 10000; i++) {
+-			tw32(offset + CPU_STATE, 0xffffffff);
+-			tw32(offset + CPU_MODE,  CPU_MODE_HALT);
+-			if (tr32(offset + CPU_MODE) & CPU_MODE_HALT)
+-				break;
+-		}
+-
+-		tw32(offset + CPU_STATE, 0xffffffff);
+-		tw32_f(offset + CPU_MODE,  CPU_MODE_HALT);
+-		udelay(10);
++	if (cpu_base == RX_CPU_BASE) {
++		rc = tg3_rxcpu_pause(tp);
+ 	} else {
+ 		/*
+ 		 * There is only an Rx CPU for the 5750 derivative in the
+@@ -3483,17 +3521,12 @@ static int tg3_halt_cpu(struct tg3 *tp, u32 offset)
+ 		if (tg3_flag(tp, IS_SSB_CORE))
+ 			return 0;
+ 
+-		for (i = 0; i < 10000; i++) {
+-			tw32(offset + CPU_STATE, 0xffffffff);
+-			tw32(offset + CPU_MODE,  CPU_MODE_HALT);
+-			if (tr32(offset + CPU_MODE) & CPU_MODE_HALT)
+-				break;
+-		}
++		rc = tg3_txcpu_pause(tp);
  	}
  
-+	if (tg3_asic_rev(tp) == ASIC_REV_57766) {
-+		/* Ignore any errors for the firmware download. If download
-+		 * fails, the device will operate with EEE disabled
-+		 */
-+		tg3_load_57766_firmware(tp);
-+	}
+-	if (i >= 10000) {
++	if (rc) {
+ 		netdev_err(tp->dev, "%s timed out, %s CPU\n",
+-			   __func__, offset == RX_CPU_BASE ? "RX" : "TX");
++			   __func__, cpu_base == RX_CPU_BASE ? "RX" : "TX");
+ 		return -ENODEV;
+ 	}
+ 
+@@ -3604,8 +3637,8 @@ static int tg3_load_5701_a0_firmware_fix(struct tg3 *tp)
+ 			   tr32(RX_CPU_BASE + CPU_PC), info.fw_base);
+ 		return -ENODEV;
+ 	}
+-	tw32(RX_CPU_BASE + CPU_STATE, 0xffffffff);
+-	tw32_f(RX_CPU_BASE + CPU_MODE,  0x00000000);
 +
- 	if (tg3_flag(tp, TSO_CAPABLE)) {
- 		err = tg3_load_tso_firmware(tp);
- 		if (err)
-@@ -10940,7 +11029,15 @@ static int tg3_open(struct net_device *dev)
++	tg3_rxcpu_resume(tp);
  
- 	if (tp->fw_needed) {
- 		err = tg3_request_firmware(tp);
--		if (tg3_chip_rev_id(tp) == CHIPREV_ID_5701_A0) {
-+		if (tg3_asic_rev(tp) == ASIC_REV_57766) {
-+			if (err) {
-+				netdev_warn(tp->dev, "EEE capability disabled\n");
-+				tp->phy_flags &= ~TG3_PHYFLG_EEE_CAP;
-+			} else if (!(tp->phy_flags & TG3_PHYFLG_EEE_CAP)) {
-+				netdev_warn(tp->dev, "EEE capability restored\n");
-+				tp->phy_flags |= TG3_PHYFLG_EEE_CAP;
-+			}
-+		} else if (tg3_chip_rev_id(tp) == CHIPREV_ID_5701_A0) {
- 			if (err)
- 				return err;
- 		} else if (err) {
-@@ -14570,6 +14667,7 @@ static int tg3_phy_probe(struct tg3 *tp)
- 	if (!(tp->phy_flags & TG3_PHYFLG_ANY_SERDES) &&
- 	    (tg3_asic_rev(tp) == ASIC_REV_5719 ||
- 	     tg3_asic_rev(tp) == ASIC_REV_5720 ||
-+	     tg3_asic_rev(tp) == ASIC_REV_57766 ||
- 	     tg3_asic_rev(tp) == ASIC_REV_5762 ||
- 	     (tg3_asic_rev(tp) == ASIC_REV_5717 &&
- 	      tg3_chip_rev_id(tp) != CHIPREV_ID_5717_A0) ||
-@@ -15379,6 +15477,9 @@ static int tg3_get_invariants(struct tg3 *tp, const struct pci_device_id *ent)
- 	if (tg3_chip_rev_id(tp) == CHIPREV_ID_5701_A0)
- 		tp->fw_needed = FIRMWARE_TG3;
- 
-+	if (tg3_asic_rev(tp) == ASIC_REV_57766)
-+		tp->fw_needed = FIRMWARE_TG357766;
+ 	return 0;
+ }
+@@ -3667,8 +3700,8 @@ static int tg3_load_tso_firmware(struct tg3 *tp)
+ 			   __func__, tr32(cpu_base + CPU_PC), info.fw_base);
+ 		return -ENODEV;
+ 	}
+-	tw32(cpu_base + CPU_STATE, 0xffffffff);
+-	tw32_f(cpu_base + CPU_MODE,  0x00000000);
 +
- 	tp->irq_max = 1;
++	tg3_resume_cpu(tp, cpu_base);
+ 	return 0;
+ }
  
- 	if (tg3_flag(tp, 5750_PLUS)) {
-@@ -15839,6 +15940,11 @@ static int tg3_get_invariants(struct tg3 *tp, const struct pci_device_id *ent)
- 	udelay(50);
- 	tg3_nvram_init(tp);
- 
-+	/* If the device has an NVRAM, no need to load patch firmware */
-+	if (tg3_asic_rev(tp) == ASIC_REV_57766 &&
-+	    !tg3_flag(tp, NO_NVRAM))
-+		tp->fw_needed = NULL;
-+
- 	grc_misc_cfg = tr32(GRC_MISC_CFG);
- 	grc_misc_cfg &= GRC_MISC_CFG_BOARD_ID_MASK;
- 
-diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index b5098f0..1cdc1b6 100644
---- a/drivers/net/ethernet/broadcom/tg3.h
-+++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -2222,6 +2222,12 @@
- #define  NIC_SRAM_MBUF_POOL_BASE5705	0x00010000
- #define  NIC_SRAM_MBUF_POOL_SIZE5705	0x0000e000
- 
-+#define TG3_SRAM_RXCPU_SCRATCH_BASE_57766	0x00030000
-+#define  TG3_SRAM_RXCPU_SCRATCH_SIZE_57766	 0x00010000
-+#define TG3_57766_FW_BASE_ADDR			0x00030000
-+#define TG3_57766_FW_HANDSHAKE			0x0003fccc
-+#define TG3_SBROM_IN_SERVICE_LOOP		0x51
-+
- #define TG3_SRAM_RX_STD_BDCACHE_SIZE_5700	128
- #define TG3_SRAM_RX_STD_BDCACHE_SIZE_5755	64
- #define TG3_SRAM_RX_STD_BDCACHE_SIZE_5906	32
 -- 
 1.8.1.4
