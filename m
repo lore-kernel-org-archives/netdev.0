@@ -1,48 +1,92 @@
-From: jb <jb.1234abcd@gmail.com>
-Subject: Re: [PATCH] iputils: fix memory leaks
-Date: Thu, 7 Mar 2013 11:18:21 +0000 (UTC)
-Message-ID: <loom.20130307T121410-568@post.gmane.org>
-References: <loom.20130307T103516-549@post.gmane.org> <AE90C24D6B3A694183C094C60CF0A2F6026B7181@saturn3.aculab.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net 1/3] e1000e: fix pci-device enable-counter balance
+Date: Thu, 07 Mar 2013 03:19:48 -0800
+Message-ID: <1362655188.4164.37.camel@jtkirshe-mobl>
+References: <1362654925-26088-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1362654925-26088-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-lTySrsg3Ae7IlYq6PRbP"
+Cc: Konstantin Khlebnikov <khlebnikov@openvz.org>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Stable <stable@vger.kernel.org>
+To: davem@davemloft.net
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1362654925-26088-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+
+--=-lTySrsg3Ae7IlYq6PRbP
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2013-03-07 at 03:15 -0800, Jeff Kirsher wrote:
+> From: Konstantin Khlebnikov <khlebnikov@openvz.org>
+>=20
+> This patch removes redundant and unbalanced pci_disable_device() from
+> __e1000_shutdown(). pci_clear_master() is enough, device can go into
+> suspended state with elevated enable_cnt.
+>=20
+> Bug was introduced in commit 23606cf5d1192c2b17912cb2ef6e62f9b11de133
+> ("e1000e / PCI / PM: Add basic runtime PM support (rev. 4)") in v2.6.35
+>=20
+> Cc: Bruce Allan <bruce.w.allan@intel.com>
+
+CC: stable <stable@vger.kernel.org>
+
+This time with the correct email for stable.
+
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
+> Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+> Tested-by: Borislav Petkov <bp@suse.de>
+> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/eth=
+ernet/intel/e1000e/netdev.c
+> index a177b8b..1799021 100644
+> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
+> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+> @@ -5986,7 +5986,7 @@ static int __e1000_shutdown(struct pci_dev *pdev, b=
+ool *enable_wake,
+>  	 */
+>  	e1000e_release_hw_control(adapter);
+> =20
+> -	pci_disable_device(pdev);
+> +	pci_clear_master(pdev);
+> =20
+>  	return 0;
+>  }
+
+
+
+--=-lTySrsg3Ae7IlYq6PRbP
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:59938 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932235Ab3CGLSl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Mar 2013 06:18:41 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UDYqi-0005zY-GC
-	for netdev@vger.kernel.org; Thu, 07 Mar 2013 12:19:00 +0100
-Received: from 79-139-19-75.prenet.pl ([79.139.19.75])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 12:19:00 +0100
-Received: from jb.1234abcd by 79-139-19-75.prenet.pl with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 12:19:00 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-David Laight <David.Laight <at> ACULAB.COM> writes:
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
 
-> 
-> >     Fix memory leaks
-> ...
-> > +#ifdef USE_IDN
-> > +                               free(idn);
-> > +                               idn = NULL;
-> > +#endif
-> >                                 exit(2);
-> 
-> There is no point calling free() before exit(), nor any need
-> to free items that aren't allocated inside loops.
-> 
-> 	David
+iQIcBAABCgAGBQJROHfUAAoJEOVv75VaS+3OaMAP/1+uu/V7bFpTDw01a6snLheD
+nnnruma296iAWZHmhx8MvX9hfa/G1XxCdXr1KLXA8U61CW3/4IemO6LL2SqwDli8
+TQfx7bqLT6eN6+knDH0hMbgSknQRCfKjZTvLLoJSFjuYe/23m0IiswXJWf6AKH19
+Bf6LKHp2bxZ7eVElDDXi6zvnZz3cHtcmDbtO7QXxNSVh0kXzQJsf1NNgEqAxh/Qz
+yAlT5V1rKcDVipknr7Jfczu7sYHOzaqmn4TlbaZCCVz4I/gPDL24xXtmolXiQ+gQ
+FDFlmSAVEPBipi9jbHACbgQH7e8fZQJRH1eG16Ry744luOadW1laa1uYAa/9ruVW
+cWXeObq6LYuUxhFyRf4Pkv7OVrgztJMnZxCT6myKZqeYPPGOmMk5HvLfFNTutjHj
+86Z3nZjTP3qQ1Hx0dyWtvxCBn+lKT/ToLdvRlzT3vJIO82BLlsx0horQz6AmyuQy
+U7CHDukMqb/yj3joCz+TAzQ/rNf5QpZRe17FCmbnPpw6fv467hwPsGs2Kqh81tzZ
+LCHhikPYCDM9Z2r+H/4jK4G8vewMAgB8GMJlRksRzn+h2Xj7X2DqU0vEYn/MJSWV
+4/tistTbAT1u5jOwVfWxLMirefFLrFhCaetVpj48J5ylhG1eYGQjSblOrEsl6RnT
+LpXVJDCOIqQol+DhYYMl
+=gNEy
+-----END PGP SIGNATURE-----
 
-A matter of good style ? Overzealous ?
-Flame ?
-http://stackoverflow.com/questions/654754/what-really-happens-when-you-dont-free-after-malloc
-jb
+--=-lTySrsg3Ae7IlYq6PRbP--
