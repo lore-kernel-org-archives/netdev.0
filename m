@@ -1,29 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: uninline tcp_prequeue()
-Date: Thu, 07 Mar 2013 16:23:50 -0500 (EST)
-Message-ID: <20130307.162350.426791222361268256.davem@davemloft.net>
-References: <1362610681.15793.205.camel@edumazet-glaptop>
+Subject: Re: [PATCH v2] CAIF: fix indentation for function arguments
+Date: Thu, 07 Mar 2013 16:25:00 -0500 (EST)
+Message-ID: <20130307.162500.1486594598270960665.davem@davemloft.net>
+References: <1362634797-28720-1-git-send-email-silviupopescu1990@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46281 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758785Ab3CGVXv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 16:23:51 -0500
-In-Reply-To: <1362610681.15793.205.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, sjur.brandeland@stericsson.com,
+	linux-kernel@vger.kernel.org
+To: silviupopescu1990@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1362634797-28720-1-git-send-email-silviupopescu1990@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 06 Mar 2013 14:58:01 -0800
+From: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+Date: Thu,  7 Mar 2013 07:39:57 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> This lines up function arguments on second and subsequent lines at the
+> first column after the openning parenthesis of the first line.
 > 
-> tcp_prequeue() became too big to be inlined.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
 
-Applied, thanks Eric.
+Applied to net-next, thanks.
