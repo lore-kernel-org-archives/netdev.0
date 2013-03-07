@@ -1,42 +1,89 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: BCM5709 hang and state dump...
-Date: Thu, 7 Mar 2013 03:00:30 -0800
-Message-ID: <1362654030.8980.62.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <5125B01E.4090405@numascale-asia.com>
- <1361483951.2240.44.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <5126D912.9000800@numascale-asia.com>
- <51386B82.5050900@numascale-asia.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
-Content-Transfer-Encoding: 7bit
-Cc: "Eilon Greenstein" <eilong@broadcom.com>,
-	"Steffen Persvold" <sp@numascale.com>, netdev@vger.kernel.org
-To: "Daniel J Blueman" <daniel@numascale-asia.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 3/3] e1000e: fix accessing to suspended device
+Date: Thu,  7 Mar 2013 03:15:25 -0800
+Message-ID: <1362654925-26088-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1362654925-26088-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Konstantin Khlebnikov <khlebnikov@openvz.org>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3491 "EHLO mms3.broadcom.com"
+Received: from mga01.intel.com ([192.55.52.88]:5166 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754610Ab3CGLBS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Mar 2013 06:01:18 -0500
-In-Reply-To: <51386B82.5050900@numascale-asia.com>
+	id S1756638Ab3CGLPi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Mar 2013 06:15:38 -0500
+In-Reply-To: <1362654925-26088-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-03-07 at 18:27 +0800, Daniel J Blueman wrote: 
-> We've hit this again [1], with 3.8.0 this time. Any success on the debug 
-> patches?
+From: Konstantin Khlebnikov <khlebnikov@openvz.org>
 
-I have 2 suggestions at this point:
+This patch fixes some annoying messages like 'Error reading PHY register' and
+'Hardware Erorr' and saves several seconds on reboot.
 
-1. Some users who report similar issues say that upgrading the BIOS has
-fixed the issue.  So please try upgarding the BIOS if possible.
+Cc: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+Tested-by: Borislav Petkov <bp@suse.de>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/ethtool.c | 13 +++++++++++++
+ drivers/net/ethernet/intel/e1000e/netdev.c  |  2 ++
+ 2 files changed, 15 insertions(+)
 
-2. You can also disable MSIX and see if it runs any better.  Use sysfs
-to do that or simply use bnx2 parameter disable_msi=1.
-
-I suspect that some MSIX IRQ messages are not delivered to the CPU for
-some reason.  Please try one or both suggestions and let me know.
-
-Thanks.
-> 
-> 
+diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
+index 2c18137..f91a8f3 100644
+--- a/drivers/net/ethernet/intel/e1000e/ethtool.c
++++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+@@ -36,6 +36,7 @@
+ #include <linux/delay.h>
+ #include <linux/vmalloc.h>
+ #include <linux/mdio.h>
++#include <linux/pm_runtime.h>
+ 
+ #include "e1000.h"
+ 
+@@ -2229,7 +2230,19 @@ static int e1000e_get_ts_info(struct net_device *netdev,
+ 	return 0;
+ }
+ 
++static int e1000e_ethtool_begin(struct net_device *netdev)
++{
++	return pm_runtime_get_sync(netdev->dev.parent);
++}
++
++static void e1000e_ethtool_complete(struct net_device *netdev)
++{
++	pm_runtime_put_sync(netdev->dev.parent);
++}
++
+ static const struct ethtool_ops e1000_ethtool_ops = {
++	.begin			= e1000e_ethtool_begin,
++	.complete		= e1000e_ethtool_complete,
+ 	.get_settings		= e1000_get_settings,
+ 	.set_settings		= e1000_set_settings,
+ 	.get_drvinfo		= e1000_get_drvinfo,
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 2954cc7..948b86ff 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -4663,6 +4663,7 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
+ 	    (adapter->hw.phy.media_type == e1000_media_type_copper)) {
+ 		int ret_val;
+ 
++		pm_runtime_get_sync(&adapter->pdev->dev);
+ 		ret_val = e1e_rphy(hw, MII_BMCR, &phy->bmcr);
+ 		ret_val |= e1e_rphy(hw, MII_BMSR, &phy->bmsr);
+ 		ret_val |= e1e_rphy(hw, MII_ADVERTISE, &phy->advertise);
+@@ -4673,6 +4674,7 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
+ 		ret_val |= e1e_rphy(hw, MII_ESTATUS, &phy->estatus);
+ 		if (ret_val)
+ 			e_warn("Error reading PHY register\n");
++		pm_runtime_put_sync(&adapter->pdev->dev);
+ 	} else {
+ 		/* Do not read PHY registers if link is not up
+ 		 * Set values to typical power-on defaults
+-- 
+1.7.11.7
