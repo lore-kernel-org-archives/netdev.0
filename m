@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6 flowlabel: add __rcu annotations
-Date: Thu, 07 Mar 2013 16:34:26 -0500 (EST)
-Message-ID: <20130307.163426.820003275446137388.davem@davemloft.net>
-References: <1362666032.15793.212.camel@edumazet-glaptop>
+Subject: Re: [Patch net] bridge: add missing vid to br_mdb_get()
+Date: Thu, 07 Mar 2013 16:34:43 -0500 (EST)
+Message-ID: <20130307.163443.702280434652702173.davem@davemloft.net>
+References: <1362661533-29192-1-git-send-email-amwang@redhat.com>
+	<5138AFBC.4070303@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: eric.dumazet@gmail.com
+Cc: amwang@redhat.com, netdev@vger.kernel.org,
+	stephen@networkplumber.org
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46433 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46444 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754827Ab3CGVe3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 16:34:29 -0500
-In-Reply-To: <1362666032.15793.212.camel@edumazet-glaptop>
+	with ESMTP id S1759843Ab3CGVep (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 16:34:45 -0500
+In-Reply-To: <5138AFBC.4070303@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 07 Mar 2013 06:20:32 -0800
+From: Vlad Yasevich <vyasevic@redhat.com>
+Date: Thu, 07 Mar 2013 10:18:20 -0500
 
-> From: Eric Dumazet <edumazet@google.com>
+> On 03/07/2013 08:05 AM, Cong Wang wrote:
+>> From: Cong Wang <amwang@redhat.com>
+>>
+>> Obviously, vid should be considered when searching for multicast
+>> group.
+>>
+>> Cc: Vlad Yasevich <vyasevic@redhat.com>
 > 
-> Commit 18367681a10b (ipv6 flowlabel: Convert np->ipv6_fl_list to RCU.)
-> omitted proper __rcu annotations.
+> Don't know how I missied that...
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Acked-by: Vlad Yasevich <vyasevich@redhat.com>
+> 
+>> Cc: Stephen Hemminger <stephen@networkplumber.org>
+>> Cc: "David S. Miller" <davem@davemloft.net>
+>> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Applied, thanks.
+Applied.
