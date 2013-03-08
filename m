@@ -1,59 +1,44 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [RFC PATCH v2 net-next 0/3] Allow bridge to function
- in non-promisc mode
-Date: Fri, 08 Mar 2013 10:17:29 -0500
-Message-ID: <513A0109.4040607@redhat.com>
-References: <1362691728-13289-1-git-send-email-vyasevic@redhat.com>
-	<20130307214304.25e7784e@nehalam.linuxnetplumber.net>
-Reply-To: vyasevic@redhat.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash
+ table
+Date: Fri, 08 Mar 2013 07:23:39 -0800
+Message-ID: <1362756219.15793.240.camel@edumazet-glaptop>
+References: <20130307214211.GP7941@order.stressinduktion.org>
+	 <20130308055718.GA28531@order.stressinduktion.org>
+	 <20130308130433.GB28531@order.stressinduktion.org>
+	 <1362754386.15793.226.camel@edumazet-glaptop>
+	 <20130308150831.GD28531@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130307214304.25e7784e@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:52632 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757848Ab3CHPXn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 10:23:43 -0500
+Received: by mail-pb0-f49.google.com with SMTP id xa12so1240109pbc.8
+        for <netdev@vger.kernel.org>; Fri, 08 Mar 2013 07:23:42 -0800 (PST)
+In-Reply-To: <20130308150831.GD28531@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/08/2013 12:43 AM, Stephen Hemminger wrote:
-> On Thu,  7 Mar 2013 16:28:45 -0500
-> Vlad Yasevich <vyasevic@redhat.com> wrote:
->
->> The series adds an ability to configure the bridge into a non-primiscuous
->> mode.   Instead, it provides the ability to identitfy some set of bridge
->> ports as uplinks and allows for MAC addresses to be programmed onto
->> those ports.  In case the port hardware does not support mac filter,
->> that port will be placed in promiscuous mode.
->>
->> Default bridge operation continues to remain as "promiscuous".  The new
->> functionality has to be enabled via sysfs (similar to other bridge extensions).
->>
->> The uplink mode is implemented as a flag on a bridge port.  The api to
->> change that flag follows the existing api to enable/disable other existing
->> flags.
->>
->> All comments are welcome.
->>
->
-> Can we make this a one step process and less visible to the user.
-> If user defines an uplink device, and the uplink device is capable of filtering
-> (and what ever other pre-conditions people can think of), then the bridge will
-> transparently switch to uplink/non-promisc mode.  This can also be used to trigger
-> edge only mode in RSTP in the future.
->
-> Less knobs.
->
+On Fri, 2013-03-08 at 16:08 +0100, Hannes Frederic Sowa wrote:
+> On Fri, Mar 08, 2013 at 06:53:06AM -0800, Eric Dumazet wrote:
+> > No matter how you hash, a hacker can easily fill your defrag unit with
+> > not complete datagrams, so what's the point ?
+> 
+> I want to harden reassembly logic against all fragments being put in
+> the same hash bucket because of malicious traffic and thus creating
+> long list traversals in the fragment queue hash table.
 
-Ok.  Let me see what I can do.
+Note that the long traversal was a real issue with TCP (thats why I
+introduced ipv6_addr_jhash()), as a single ehash slot could contains
+thousand of sockets.
 
-Thanks
--vlad
+But with fragments, we should just limit the depth of any particular
+slot, and drop above a particular threshold.
+
+reassembly is a best effort mechanism, better make sure it doesnt use
+all our cpu cycles.
