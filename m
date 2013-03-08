@@ -1,54 +1,47 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH 1/3] driver: net: ethernet: cpsw: implement ethtool get/set
- phy setting
-Date: Fri, 8 Mar 2013 12:53:18 +0530
-Message-ID: <513991E6.5080400@ti.com>
-References: <1362659421-11884-1-git-send-email-mugunthanvnm@ti.com>  <1362659421-11884-2-git-send-email-mugunthanvnm@ti.com>  <8762135on4.fsf@dell.be.48ers.dk> <1362686350.2936.43.camel@bwh-desktop.uk.solarflarecom.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net] bridge: do not expire mdb entry when
+ bridge still uses it
+Date: Fri, 08 Mar 2013 15:26:21 +0800
+Message-ID: <1362727581.3237.4.camel@cr0>
+References: <1362708423-23932-1-git-send-email-amwang@redhat.com>
+	<20130308023151.GA27155@gondor.apana.org.au>
+	<1362710646.9773.25.camel@cr0>
+	<20130308024726.GA27319@gondor.apana.org.au>
+	<1362715613.9773.29.camel@cr0>
+	<20130308040853.GA27704@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Peter Korsgaard <jacmet@sunsite.dk>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
-	<linux-omap@vger.kernel.org>, <b-cousson@ti.com>, <paul@pwsan.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:46126 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753522Ab3CHHY0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Mar 2013 02:24:26 -0500
-In-Reply-To: <1362686350.2936.43.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <stephen@networkplumber.org>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>
+To: Herbert Xu <herbert@gondor.hengli.com.au>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130308040853.GA27704@gondor.apana.org.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 3/8/2013 1:29 AM, Ben Hutchings wrote:
-> On Thu, 2013-03-07 at 14:24 +0100, Peter Korsgaard wrote:
->>>>>>> "M" == Mugunthan V N <mugunthanvnm@ti.com> writes:
->>   M> This patch implements get/set of the phy settings via ethtool apis
->>   M> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
->>   M> ---
->>   M>  Documentation/devicetree/bindings/net/cpsw.txt |    3 +++
->>   M>  drivers/net/ethernet/ti/cpsw.c                 |   32 ++++++++++++++++++++++++
->>   M>  include/linux/platform_data/cpsw.h             |    1 +
->>   M>  3 files changed, 36 insertions(+)
->>
->>   M> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
->>   M> index ecfdf75..8d61300 100644
->>   M> --- a/Documentation/devicetree/bindings/net/cpsw.txt
->>   M> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
->>   M> @@ -20,6 +20,7 @@ Required properties:
->>   M>  - cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
->>   M>  - phy_id		: Specifies slave phy id
->>   M>  - mac-address		: Specifies slave MAC address
->>   M> +- ethtool-active-slave	: Specifies the slave to use for ethtool command
->>
->> That again sounds like something Linux specific rather than a hardware
->> property.
-> Yes, indeed.  Isn't it redundant with the phy_id?
->
-> Ben.
-phy_id is part of slave data and will be present for both the slaves.
-so phy_id cannot be used for get/set phy setting until phy framework
-allows to change settings without going through eth interface.
+On Fri, 2013-03-08 at 12:08 +0800, Herbert Xu wrote:
+> On Fri, Mar 08, 2013 at 12:06:53PM +0800, Cong Wang wrote:
+> > 
+> > The mdst may be removed, however the BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)
+> > is still set, because in br_multicast_ipv4_rcv():
+> 
+> But those packets are only meant for routers, which is why we
+> have the br_multicast_is_router test above.
+> 
 
-Regards
-Mugunthan V N
+Hmm, what the user experiences is the multicast traffic between the
+bridge and some port is broken. Isn't this expected to work by default?
+
+Or we can just change the default value of br->multicast_router to 2?
+
+Thanks!
