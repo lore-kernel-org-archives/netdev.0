@@ -1,47 +1,37 @@
-From: "Perla, Sathya" <Sathya.Perla@Emulex.Com>
-Subject: RE: be2net failed to initialize regression
-Date: Fri, 8 Mar 2013 10:22:24 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C0F259965@CMEXMB1.ad.emulex.com>
-References: <1306201826.11289096.1362733530172.JavaMail.root@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Ivan Vecera <ivecera@redhat.com>,
-	LKML <linux-kernel@vger.kernel.org>
-To: CAI Qian <caiqian@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1306201826.11289096.1362733530172.JavaMail.root@redhat.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next] ipv6: ndisc: remove redundant check for !dev->addr_len
+Date: Fri,  8 Mar 2013 12:03:46 +0100
+Message-ID: <85f9fbce9b5a6ccc4e75b05dab268076e0574abf.1362740080.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:52092
+	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932087Ab3CHLDx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 06:03:53 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
-YWxmIE9mIENBSSBRaWFuDQo+IA0KPiBFbXVsZXggQ05BIGNhcmQgZmFpbGVkIHRvIGluaXRpYWxp
-emUgdXNpbmcgMy44IGFuZCB0aGUgbGF0ZXN0IHVwc3RyZWFtIGtlcm5lbCwNCj4gDQo+IFsgICA4
-Ny40Nzk4NTldIGJlMm5ldCAwMDAwOjA0OjAwLjA6IFBPU1QgdGltZW91dDsgc3RhZ2U9MHhjOTEx
-DQo+IFsgICA4Ny41MTU5NzhdIGJlMm5ldCAwMDAwOjA0OjAwLjA6IEVtdWxleCBPbmVDb25uZWN0
-IGluaXRpYWxpemF0aW9uIGZhaWxlZA0KPiBbICAgODcuNTU3MTMwXSBiZTJuZXQ6IHByb2JlIG9m
-IDAwMDA6MDQ6MDAuMCBmYWlsZWQgd2l0aCBlcnJvciAtMQ0KPiANCj4gbHNwY2kgb3V0cHV0LA0K
-PiANCj4gMDQ6MDAuMCBFdGhlcm5ldCBjb250cm9sbGVyOiBFbXVsZXggQ29ycG9yYXRpb24gT25l
-Q29ubmVjdCAxMEdiIE5JQyAocmV2IDAyKQ0KPiAwNDowMC4xIEV0aGVybmV0IGNvbnRyb2xsZXI6
-IEVtdWxleCBDb3Jwb3JhdGlvbiBPbmVDb25uZWN0IDEwR2IgTklDIChyZXYgMDIpDQo+IA0KPiAw
-NDowMC4xIEV0aGVybmV0IGNvbnRyb2xsZXI6IEVtdWxleCBDb3Jwb3JhdGlvbiBPbmVDb25uZWN0
-IDEwR2IgTklDIChyZXYgMDIpDQo+ICAgICAgICAgU3Vic3lzdGVtOiBIZXdsZXR0LVBhY2thcmQg
-Q29tcGFueSBOQzU1MWkgRHVhbCBQb3J0IEZsZXhGYWJyaWMgMTBHYg0KPiBBZGFwdGVyDQo+IA0K
-PiBDb25maXJtZWQgbm8gc3VjaCBwcm9ibGVtIHVzaW5nIDMuNyBrZXJuZWwuIFJlcHJvZHVjZWQg
-ZXZlcnkgdGltZSBhbmQgc3RpbGwNCj4gYmlzZWN0aW5nLiBKdXN0IHdhbnQgdG8gZ2l2ZSBhbiBl
-YXJseSBoZWFkLXVwIHRvIHNlZSBpZiBhbnlvbmUgc2F3IHNvbWV0aW1lDQo+IG9idmlvdXMuDQoN
-CkNvdWxkIHlvdSBnaXZlIG1lIHRoZSBGVyB2ZXJzaW9uIChldGh0b29sIC1pKSBvZiB0aGUgYWRh
-cHRlciAoYWZ0ZXIgYmUybmV0IHN1Y2Nlc3NmdWxseQ0KcHJvYmVzIGluIGEgMy43IGtlcm5lbC4p
-DQoNCklmIHRoZSBGVyB2ZXJzaW9uIGlzIGFzIG9sZCBhcyAyLngsIHRoZW4gdGhlIGN1bHByaXQg
-Y29tbWl0IHRoYXQgYnJva2UgY29tcGF0aWJpbGl0eSB3aXRoIG9sZCBGVyB2ZXJzaW9ucw0Kb24g
-c29tZSAoQkUyKSBjaGlwcyBJIGlzOg0KY29tbWl0IDFiYzhlN2U0ZjM2YzBjMTlkZDdkZWEyOWU3
-YzI0OGI3YzZlZjNhMTUNCmJlMm5ldDogZml4IGFjY2VzcyB0byBTRU1BUEhPUkUgcmVnDQoNClRo
-ZSBmaXggZm9yIHRoaXMgaXMgKHN0aWxsIG9uIERhdmlkJ3MgbmV0IHRyZWUgSSBndWVzcyk6DQpj
-b21taXQgYzViM2FkNGM2Nzk4OWM3NzhlNDc1M2JlNGY5MWRjNzE5M2EwNGQyMQ0KYmUybmV0OiB1
-c2UgQ1NSLUJBUiBTRU1BUEhPUkUgcmVnIGZvciBCRTIvQkUzDQoNCkRhdmUsIGNhbiB0aGVzZSAy
-IGNvbW1pdHMgYmUgcXVldWVkIGZvciBzdGFibGUgdG9vOg0KY29tbWl0MTogYzViM2FkNGM2Nzk4
-OWM3NzhlNDc1M2JlNGY5MWRjNzE5M2EwNGQyMQ0KY29tbWl0MjogMWJjOGU3ZTRmMzZjMGMxOWRk
-N2RlYTI5ZTdjMjQ4YjdjNmVmM2ExNQ0KDQp0aGFua3MsDQotU2F0aHlhDQo=
+send_sllao is already initialized with the value of dev->addr_len
+
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ net/ipv6/ndisc.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 76ef435..2712ab2 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -610,8 +610,6 @@ void ndisc_send_rs(struct net_device *dev, const struct in6_addr *saddr,
+ 		}
+ 	}
+ #endif
+-	if (!dev->addr_len)
+-		send_sllao = 0;
+ 	if (send_sllao)
+ 		optlen += ndisc_opt_addr_space(dev);
+ 
+-- 
+1.7.11.7
