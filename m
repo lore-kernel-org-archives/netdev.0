@@ -1,50 +1,44 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC PATCH v2 net-next 0/3] Allow bridge to function
- in non-promisc mode
-Date: Thu, 7 Mar 2013 21:43:04 -0800
-Message-ID: <20130307214304.25e7784e@nehalam.linuxnetplumber.net>
-References: <1362691728-13289-1-git-send-email-vyasevic@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash table
+Date: Fri, 8 Mar 2013 06:57:18 +0100
+Message-ID: <20130308055718.GA28531@order.stressinduktion.org>
+References: <20130307214211.GP7941@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1362691728-13289-1-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	yoshfuji@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:50655 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932161Ab3CHF5U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 00:57:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20130307214211.GP7941@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu,  7 Mar 2013 16:28:45 -0500
-Vlad Yasevich <vyasevic@redhat.com> wrote:
+On Thu, Mar 07, 2013 at 10:42:11PM +0100, Hannes Frederic Sowa wrote:
+> ipv6_addr_hash can yield the exact same hash value for countless ip
+> addresses from one /64 subnet. Let's make it a bit harder to create a
+> long list of reassembly queues in the hash table by using a stronger hash.
+> 
+> I spotted this just by looking at the source and did not verify if it
+> is really the case, so this patch has RFC status. But the jhash change
+> should not really hurt anyway. This patch is only compile tested.
 
-> The series adds an ability to configure the bridge into a non-primiscuous
-> mode.   Instead, it provides the ability to identitfy some set of bridge
-> ports as uplinks and allows for MAC addresses to be programmed onto
-> those ports.  In case the port hardware does not support mac filter,
-> that port will be placed in promiscuous mode.
-> 
-> Default bridge operation continues to remain as "promiscuous".  The new
-> functionality has to be enabled via sysfs (similar to other bridge extensions).
-> 
-> The uplink mode is implemented as a flag on a bridge port.  The api to
-> change that flag follows the existing api to enable/disable other existing
-> flags.
-> 
-> All comments are welcome.
-> 
+Hmpf, I haven't seen Eric's change(279e9f2: ipv6: optimize
+inet6_hash_frag()) and tried to compare a v3.8 against a net-next
+kernel. At a first sight, it seems in some kind of denial of service
+scenario the relative amount of time spend in inet_frag_find increased,
+but I will do more comparable benchmarks later today (could be also
+because of other changes). I just wanted to let you know that I will do
+more research on this one and that you shouldn't apply this patch for now.
 
-Can we make this a one step process and less visible to the user.
-If user defines an uplink device, and the uplink device is capable of filtering
-(and what ever other pre-conditions people can think of), then the bridge will
-transparently switch to uplink/non-promisc mode.  This can also be used to trigger
-edge only mode in RSTP in the future.
+I also noticed that this function is also used by netfilter in the
+forwarding path. Perhaps a jenkins hash on the destination address would
+be better, too. Perhaps a netfilter specific hash function could also
+be used.
 
-Less knobs.
+Greetings,
+
+  Hannes
