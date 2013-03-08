@@ -1,95 +1,100 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC PATCH v2 net-next 0/3] Allow bridge to function in
- non-promisc mode
-Date: Fri, 8 Mar 2013 13:43:14 -0800
-Message-ID: <20130308134314.318d31c6@nehalam.linuxnetplumber.net>
-References: <1362691728-13289-1-git-send-email-vyasevic@redhat.com>
-	<20130307214304.25e7784e@nehalam.linuxnetplumber.net>
-	<513A0109.4040607@redhat.com>
-	<513A56E9.2090708@redhat.com>
+From: akepner <akepner@riverbed.com>
+Subject: [patch] ixgbe: in shutdown, do netif_running() under rtnl_lock
+Date: Fri, 8 Mar 2013 14:05:10 -0800
+Message-ID: <20130308220510.GJ21267@riverbed.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: vyasevic@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: e1000-devel@lists.sourceforge.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:35330 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752670Ab3CHVnV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 16:43:21 -0500
-Received: by mail-pb0-f50.google.com with SMTP id up1so1607574pbc.23
-        for <netdev@vger.kernel.org>; Fri, 08 Mar 2013 13:43:21 -0800 (PST)
-In-Reply-To: <513A56E9.2090708@redhat.com>
+Received: from smtp.riverbed.com ([208.70.196.45]:35472 "EHLO
+	smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754216Ab3CHWFO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 17:05:14 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 08 Mar 2013 16:23:53 -0500
-Vlad Yasevich <vyasevic@redhat.com> wrote:
 
-> On 03/08/2013 10:17 AM, Vlad Yasevich wrote:
-> > On 03/08/2013 12:43 AM, Stephen Hemminger wrote:
-> >> On Thu,  7 Mar 2013 16:28:45 -0500
-> >> Vlad Yasevich <vyasevic@redhat.com> wrote:
-> >>
-> >>> The series adds an ability to configure the bridge into a
-> >>> non-primiscuous
-> >>> mode.   Instead, it provides the ability to identitfy some set of bridge
-> >>> ports as uplinks and allows for MAC addresses to be programmed onto
-> >>> those ports.  In case the port hardware does not support mac filter,
-> >>> that port will be placed in promiscuous mode.
-> >>>
-> >>> Default bridge operation continues to remain as "promiscuous".  The new
-> >>> functionality has to be enabled via sysfs (similar to other bridge
-> >>> extensions).
-> >>>
-> >>> The uplink mode is implemented as a flag on a bridge port.  The api to
-> >>> change that flag follows the existing api to enable/disable other
-> >>> existing
-> >>> flags.
-> >>>
-> >>> All comments are welcome.
-> >>>
-> >>
-> >> Can we make this a one step process and less visible to the user.
-> >> If user defines an uplink device, and the uplink device is capable of
-> >> filtering
-> >> (and what ever other pre-conditions people can think of), then the
-> >> bridge will
-> >> transparently switch to uplink/non-promisc mode.  This can also be
-> >> used to trigger
-> >> edge only mode in RSTP in the future.
-> >>
-> >> Less knobs.
-> >>
-> >
-> > Ok.  Let me see what I can do.
-> 
-> So I started working through this and realized that this complicates the 
-> code significantly.
-> 
-> * I have to re-introduce the uplink-list since now I need to track
-> "filter capable" uplinks in addition to non-capable ones.
-> * The really nice and simple sysfs interface to set a flag turns into 
-> something that duplicates code.
-> * The bridge port removal can effect the promiscuity setting of the 
-> bridge if the last uplink is removed.
-> * We lose the ability to run a promisc edge bridge with uplinks.
-> 
-> I am really starting wonder if this is any better?  The changes
-> are much bigger and more complex while the functional flexibility is
-> reduced.  Is it really worth removing a configuration knob?
-> 
-> I've attached an in-progress patch to demonstrate the above.
-> 
-> -vlad
-> 
-> -vlad
-> >
-> > Thanks
-> > -vlad
-> >
-> 
+During shutdown it's possible for __dev_close() (which holds 
+rtnl_lock) to clear the __LINK_STATE_START bit, and for ixgbe 
+to then read that bit (without holding rtnl_lock), and then 
+not fail to free irqs, etc. The result is a crash like this: 
 
-A two step process is fine (uplink and promisc as seperate step),
-as long as invalid combinations are prevented. More options may lead to
-more combinations that are invalid.
+------------[ cut here ]------------
+kernel BUG at drivers/pci/msi.c:313!
+invalid opcode: 0000 [#1] SMP 
+last sysfs file: /sys/devices/system/cpu/cpu3/cache/index2/shared_cpu_map
+CPU 1 
+Pid: 5910, comm: reboot Tainted: P           ----------------   2.6.32 #1 empty
+RIP: 0010:[<ffffffff81305c2b>]  [<ffffffff81305c2b>] free_msi_irqs+0x11b/0x130
+RSP: 0018:ffff880185c9bc88  EFLAGS: 00010282
+RAX: ffff880219f58bc0 RBX: ffff88021ac53b00 RCX: 0000000000000000
+RDX: 0000000000000001 RSI: 0000000000000246 RDI: 000000000000004a
+RBP: ffff880185c9bcc8 R08: 0000000000000002 R09: 0000000000000106
+R10: 0000000000000000 R11: 0000000000000006 R12: ffff88021e524778
+R13: 0000000000000001 R14: ffff88021e524000 R15: 0000000000000000
+FS:  00007f90821b7700(0000) GS:ffff880028220000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: 00007f90818bd010 CR3: 0000000132c64000 CR4: 00000000000006e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process reboot (pid: 5910, threadinfo ffff880185c9a000, task ffff88021bf04a80)
+Stack:
+ ffff880185c9bc98 000000018130529d ffff880185c9bcc8 ffff88021e524000
+<0> 0000000000000004 ffff88021948c700 0000000000000000 ffff880185c9bda7
+<0> ffff880185c9bce8 ffffffff81305cbd ffff880185c9bce8 ffff88021948c700
+Call Trace:
+ [<ffffffff81305cbd>] pci_disable_msix+0x3d/0x50
+ [<ffffffffa00501d5>] ixgbe_reset_interrupt_capability+0x65/0x90 [ixgbe]
+ [<ffffffffa00512f6>] ixgbe_clear_interrupt_scheme+0xb6/0xd0 [ixgbe]
+ [<ffffffffa005330b>] __ixgbe_shutdown+0x5b/0x200 [ixgbe]
+ [<ffffffffa00534ca>] ixgbe_shutdown+0x1a/0x60 [ixgbe]
+ [<ffffffff812f6c7c>] pci_device_shutdown+0x2c/0x50
+ [<ffffffff813727fb>] device_shutdown+0x4b/0x160
+ [<ffffffff8107d98c>] kernel_restart_prepare+0x2c/0x40
+ ehci timer_action, mod_timer io_watchdog
+ [<ffffffff8107d9e6>] kernel_restart+0x16/0x60
+ [<ffffffff8107dbfd>] sys_reboot+0x1ad/0x200
+ [<ffffffff811676cf>] ? __d_free+0x3f/0x60
+ [<ffffffff81167748>] ? d_free+0x58/0x60
+ [<ffffffff8116f7c0>] ? mntput_no_expire+0x30/0x100
+ [<ffffffff81152b11>] ? __fput+0x191/0x200
+ [<ffffffff816565fe>] ? do_page_fault+0x3e/0xa0
+ [<ffffffff8100b132>] system_call_fastpath+0x16/0x1b
+Code: 4c 89 ef e8 98 8c e3 ff 4d 39 f4 48 8b 43 10 75 cf 48 83 c4 18 5b 41 5c
+41 5d 41 5e 41 5f c9 c3 49 8b 7d 20 e8 07 5a d3 ff eb c9 <0f> 0b 0f 1f 00 eb fb
+66 66 66 66 66 2e 0f 1f 84 00 00 00 00 00 
+ ehci timer_action, mod_timer io_watchdog
+RIP  [<ffffffff81305c2b>] free_msi_irqs+0x11b/0x130
+ RSP <ffff880185c9bc88>
+---[ end trace 27de882a0fe75593 ]---
+
+(This was seen on a pretty old kernel/driver, but looks like 
+the same bug is still possible.)
+
+Signed-off-by: <akepner@riverbed.com>
+
+---
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index db5611a..bbf0f7b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -5077,14 +5077,14 @@ static int __ixgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
+ 
+ 	netif_device_detach(netdev);
+ 
++	rtnl_lock();
+ 	if (netif_running(netdev)) {
+-		rtnl_lock();
+ 		ixgbe_down(adapter);
+ 		ixgbe_free_irq(adapter);
+ 		ixgbe_free_all_tx_resources(adapter);
+ 		ixgbe_free_all_rx_resources(adapter);
+-		rtnl_unlock();
+ 	}
++	rtnl_unlock();
+ 
+ 	ixgbe_clear_interrupt_scheme(adapter);
+ 
