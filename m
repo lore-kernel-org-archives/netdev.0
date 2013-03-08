@@ -1,100 +1,75 @@
-From: akepner <akepner@riverbed.com>
-Subject: [patch] ixgbe: in shutdown, do netif_running() under rtnl_lock
-Date: Fri, 8 Mar 2013 14:05:10 -0800
-Message-ID: <20130308220510.GJ21267@riverbed.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: RFC: [PATCH 1/3] usb: cdc_ncm: patch for VMware
+Date: Fri, 08 Mar 2013 16:28:59 -0600
+Message-ID: <1362781739.8581.5.camel@dcbw.foobar.com>
+References: <20130308210319.GA4794@feynman.loic.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: e1000-devel@lists.sourceforge.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: Loic Domaigne <loic.domaigne@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.riverbed.com ([208.70.196.45]:35472 "EHLO
-	smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754216Ab3CHWFO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 17:05:14 -0500
-Content-Disposition: inline
+Received: from mx1.redhat.com ([209.132.183.28]:63590 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752670Ab3CHW2U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Mar 2013 17:28:20 -0500
+In-Reply-To: <20130308210319.GA4794@feynman.loic.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2013-03-08 at 22:03 +0100, Loic Domaigne wrote:
+> This patch limits the Rx URB size to 16kB if the driver is compiled for a
+> VMware environment. As of workstation 9, there are some major performance
+> problems if the Rx URB size exceeds that limit.
+> 
+> This patch applies to longterm kernel version 3.4.35.
+> 
+> Signed-Off-By: Loic Domaigne <loic.domaigne@jambit.com> 
+> 
+> --- linux-3.4.35/drivers/net/usb/cdc_ncm.c.orig	2013-03-05 09:36:02.858740489 +0100
+> +++ linux-3.4.35/drivers/net/usb/cdc_ncm.c	2013-03-05 10:20:18.092588668 +0100
+> @@ -80,6 +80,23 @@
+>  #define	CDC_NCM_TIMER_PENDING_CNT		2
+>  #define CDC_NCM_TIMER_INTERVAL			(400UL * NSEC_PER_USEC)
+>  
+> +/* maximum Rx URB size */
+> +/*
+> + * in the original Linux driver, the rx urb size can be up to
+> + * CDC_NCM_NTB_MAX_SIZE_RX.
+> + *
+> + * Under VMware (as of wks9), URB size greater than 16kB is a problem,
+> + * so simply adjust this define when the driver is compiled for a VMware
+> + * environment.
+> + *
+> + */
+> +#ifdef VMWARE_BUG
+> +#warning "Compiling for VMware"
+> +#define CDC_NCM_MAX_RX_URB_SIZE     16384
+> +#else
+> +#define CDC_NCM_MAX_RX_URB_SIZE     CDC_NCM_NTB_MAX_SIZE_RX
+> +#endif
 
-During shutdown it's possible for __dev_close() (which holds 
-rtnl_lock) to clear the __LINK_STATE_START bit, and for ixgbe 
-to then read that bit (without holding rtnl_lock), and then 
-not fail to free irqs, etc. The result is a crash like this: 
+I can't see how that is going to get past any sort of review.  Either
+there's some other way of detecting that the CPU is the VMWare emulated
+one or you're stuck with the bug until VMWare fixes it.
 
-------------[ cut here ]------------
-kernel BUG at drivers/pci/msi.c:313!
-invalid opcode: 0000 [#1] SMP 
-last sysfs file: /sys/devices/system/cpu/cpu3/cache/index2/shared_cpu_map
-CPU 1 
-Pid: 5910, comm: reboot Tainted: P           ----------------   2.6.32 #1 empty
-RIP: 0010:[<ffffffff81305c2b>]  [<ffffffff81305c2b>] free_msi_irqs+0x11b/0x130
-RSP: 0018:ffff880185c9bc88  EFLAGS: 00010282
-RAX: ffff880219f58bc0 RBX: ffff88021ac53b00 RCX: 0000000000000000
-RDX: 0000000000000001 RSI: 0000000000000246 RDI: 000000000000004a
-RBP: ffff880185c9bcc8 R08: 0000000000000002 R09: 0000000000000106
-R10: 0000000000000000 R11: 0000000000000006 R12: ffff88021e524778
-R13: 0000000000000001 R14: ffff88021e524000 R15: 0000000000000000
-FS:  00007f90821b7700(0000) GS:ffff880028220000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 00007f90818bd010 CR3: 0000000132c64000 CR4: 00000000000006e0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process reboot (pid: 5910, threadinfo ffff880185c9a000, task ffff88021bf04a80)
-Stack:
- ffff880185c9bc98 000000018130529d ffff880185c9bcc8 ffff88021e524000
-<0> 0000000000000004 ffff88021948c700 0000000000000000 ffff880185c9bda7
-<0> ffff880185c9bce8 ffffffff81305cbd ffff880185c9bce8 ffff88021948c700
-Call Trace:
- [<ffffffff81305cbd>] pci_disable_msix+0x3d/0x50
- [<ffffffffa00501d5>] ixgbe_reset_interrupt_capability+0x65/0x90 [ixgbe]
- [<ffffffffa00512f6>] ixgbe_clear_interrupt_scheme+0xb6/0xd0 [ixgbe]
- [<ffffffffa005330b>] __ixgbe_shutdown+0x5b/0x200 [ixgbe]
- [<ffffffffa00534ca>] ixgbe_shutdown+0x1a/0x60 [ixgbe]
- [<ffffffff812f6c7c>] pci_device_shutdown+0x2c/0x50
- [<ffffffff813727fb>] device_shutdown+0x4b/0x160
- [<ffffffff8107d98c>] kernel_restart_prepare+0x2c/0x40
- ehci timer_action, mod_timer io_watchdog
- [<ffffffff8107d9e6>] kernel_restart+0x16/0x60
- [<ffffffff8107dbfd>] sys_reboot+0x1ad/0x200
- [<ffffffff811676cf>] ? __d_free+0x3f/0x60
- [<ffffffff81167748>] ? d_free+0x58/0x60
- [<ffffffff8116f7c0>] ? mntput_no_expire+0x30/0x100
- [<ffffffff81152b11>] ? __fput+0x191/0x200
- [<ffffffff816565fe>] ? do_page_fault+0x3e/0xa0
- [<ffffffff8100b132>] system_call_fastpath+0x16/0x1b
-Code: 4c 89 ef e8 98 8c e3 ff 4d 39 f4 48 8b 43 10 75 cf 48 83 c4 18 5b 41 5c
-41 5d 41 5e 41 5f c9 c3 49 8b 7d 20 e8 07 5a d3 ff eb c9 <0f> 0b 0f 1f 00 eb fb
-66 66 66 66 66 2e 0f 1f 84 00 00 00 00 00 
- ehci timer_action, mod_timer io_watchdog
-RIP  [<ffffffff81305c2b>] free_msi_irqs+0x11b/0x130
- RSP <ffff880185c9bc88>
----[ end trace 27de882a0fe75593 ]---
+Dan
 
-(This was seen on a pretty old kernel/driver, but looks like 
-the same bug is still possible.)
-
-Signed-off-by: <akepner@riverbed.com>
-
----
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index db5611a..bbf0f7b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -5077,14 +5077,14 @@ static int __ixgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
- 
- 	netif_device_detach(netdev);
- 
-+	rtnl_lock();
- 	if (netif_running(netdev)) {
--		rtnl_lock();
- 		ixgbe_down(adapter);
- 		ixgbe_free_irq(adapter);
- 		ixgbe_free_all_tx_resources(adapter);
- 		ixgbe_free_all_rx_resources(adapter);
--		rtnl_unlock();
- 	}
-+	rtnl_unlock();
- 
- 	ixgbe_clear_interrupt_scheme(adapter);
- 
+> +
+>  /* The following macro defines the minimum header space */
+>  #define	CDC_NCM_MIN_HDR_SIZE \
+>  	(sizeof(struct usb_cdc_ncm_nth16) + sizeof(struct usb_cdc_ncm_ndp16) + \
+> @@ -589,6 +606,9 @@ advance:
+>  		ctx->out_ep->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
+>  	dev->status = ctx->status_ep;
+>  	dev->rx_urb_size = ctx->rx_max;
+> +	if (dev->rx_urb_size > CDC_NCM_MAX_RX_URB_SIZE)
+> +		dev->rx_urb_size = CDC_NCM_MAX_RX_URB_SIZE;
+> +	pr_debug("dev->rx_urb_size = %zu", dev->rx_urb_size);
+>  
+>  	/*
+>  	 * We should get an event when network connection is "connected" or
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
