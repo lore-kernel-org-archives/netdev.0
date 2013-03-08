@@ -1,33 +1,36 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: re L4 conntracking netns conversion
-Date: Fri, 08 Mar 2013 09:01:36 +0800
-Message-ID: <51393870.1030709@cn.fujitsu.com>
-References: <CACVxJT9mPb+Fh7gc-PYwC288sjJct+-s5bSZ783j_6tiTNJKMg@mail.gmail.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH] VSOCK: Split vm_sockets.h into kernel/uapi
+Date: Fri, 08 Mar 2013 01:09:18 +0000
+Message-ID: <29364.1362704958@warthog.procyon.org.uk>
+References: <20130307232453.GD10304@kroah.com>
+	<1362669973-26984-1-git-send-email-acking@vmware.com>
+	<26621.1362675490@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netdev <netdev@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CACVxJT9mPb+Fh7gc-PYwC288sjJct+-s5bSZ783j_6tiTNJKMg@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: Andy King <acking@vmware.com>, pv-drivers@vmware.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, dhowells@redhat.com,
+	davem@davemloft.net
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130307232453.GD10304@kroah.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 2013/03/07 19:50, Alexey Dobriyan wrote:
-> Lots of netns changes!
-> 
-> I can't verify right now, but unless I'm not mistaken,
-> every L4 protocol conversion is buggy/oopsable/remotely ddosable
-> because per-netns stuff is initialized after protocol is hooked into
-> master dispatcher.
-> 
+Greg KH <gregkh@linuxfoundation.org> wrote:
 
-Doesn't we do register_pernet_subsys before we register hooks and l4proto?
-Sorry I don't quite understand what you mean. :(
+> David, is there any rush to get stuff like this into 3.9 for any
+> uapi-type changes, or can it just wait for 3.10?
 
-> See c296bb4d5d417d466c9bcc8afef68a3db5449a64.
-> 
+Not especially.  It won't appear in userspace due to the __KERNEL__ guards.
 
+David
