@@ -1,182 +1,173 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/15] e1000e: cleanup (add/remove) blank lines where appropriate
-Date: Fri,  8 Mar 2013 02:07:11 -0800
-Message-ID: <1362737237-13363-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/15] e1000e: cleanup SPACING checkpatch checks
+Date: Fri,  8 Mar 2013 02:07:10 -0800
+Message-ID: <1362737237-13363-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1362737237-13363-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:51324 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:27095 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933982Ab3CHKHc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Mar 2013 05:07:32 -0500
+	id S933981Ab3CHKHb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Mar 2013 05:07:31 -0500
 In-Reply-To: <1362737237-13363-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
+CHECK:SPACING: No space is necessary after a cast
+CHECK:SPACING: space prohibited before semicolon
+
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/80003es2lan.c | 2 +-
- drivers/net/ethernet/intel/e1000e/82571.c       | 2 +-
- drivers/net/ethernet/intel/e1000e/defines.h     | 1 -
- drivers/net/ethernet/intel/e1000e/e1000.h       | 1 -
- drivers/net/ethernet/intel/e1000e/ethtool.c     | 2 ++
- drivers/net/ethernet/intel/e1000e/ich8lan.c     | 2 +-
- drivers/net/ethernet/intel/e1000e/netdev.c      | 3 +--
- drivers/net/ethernet/intel/e1000e/phy.c         | 2 ++
- 8 files changed, 8 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/e1000e/ethtool.c | 16 ++++++++--------
+ drivers/net/ethernet/intel/e1000e/ich8lan.c |  4 ++--
+ drivers/net/ethernet/intel/e1000e/netdev.c  | 10 +++++-----
+ drivers/net/ethernet/intel/e1000e/phy.c     |  2 +-
+ 4 files changed, 16 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-index 6c0d96b..d75ace9 100644
---- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-@@ -38,6 +38,7 @@
-  */
- static const u16 e1000_gg82563_cable_length_table[] = {
- 	 0, 60, 115, 150, 150, 60, 115, 150, 180, 180, 0xFF };
-+
- #define GG82563_CABLE_LENGTH_TABLE_SIZE \
- 		ARRAY_SIZE(e1000_gg82563_cable_length_table)
- 
-@@ -1417,4 +1418,3 @@ const struct e1000_info e1000_es2_info = {
- 	.phy_ops		= &es2_phy_ops,
- 	.nvm_ops		= &es2_nvm_ops,
- };
--
-diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index 64fc15b..49341c0 100644
---- a/drivers/net/ethernet/intel/e1000e/82571.c
-+++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -526,6 +526,7 @@ static void e1000_put_hw_semaphore_82571(struct e1000_hw *hw)
- 	swsm &= ~(E1000_SWSM_SMBI | E1000_SWSM_SWESMBI);
- 	ew32(SWSM, swsm);
- }
-+
- /**
-  *  e1000_get_hw_semaphore_82573 - Acquire hardware semaphore
-  *  @hw: pointer to the HW structure
-@@ -2066,4 +2067,3 @@ const struct e1000_info e1000_82583_info = {
- 	.phy_ops		= &e82_phy_ops_bm,
- 	.nvm_ops		= &e82571_nvm_ops,
- };
--
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index 5af602a..e6fe090 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -244,7 +244,6 @@
- #define HALF_DUPLEX 1
- #define FULL_DUPLEX 2
- 
--
- #define ADVERTISE_10_HALF                 0x0001
- #define ADVERTISE_10_FULL                 0x0002
- #define ADVERTISE_100_HALF                0x0004
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index 6ce64ae..3ecc988 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -61,7 +61,6 @@ struct e1000_info;
- #define e_notice(format, arg...) \
- 	netdev_notice(adapter->netdev, format, ## arg)
- 
--
- /* Interrupt modes, as used by the IntMode parameter */
- #define E1000E_INT_MODE_LEGACY		0
- #define E1000E_INT_MODE_MSI		1
 diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index 07ef74e..c47dee6 100644
+index b328943..07ef74e 100644
 --- a/drivers/net/ethernet/intel/e1000e/ethtool.c
 +++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -120,6 +120,7 @@ static const char e1000_gstrings_test[][ETH_GSTRING_LEN] = {
- 	"Interrupt test (offline)", "Loopback test  (offline)",
- 	"Link test   (on/offline)"
- };
-+
- #define E1000_TEST_LEN ARRAY_SIZE(e1000_gstrings_test)
- 
- static int e1000_get_settings(struct net_device *netdev,
-@@ -783,6 +784,7 @@ static bool reg_set_and_check(struct e1000_adapter *adapter, u64 *data,
+@@ -925,7 +925,7 @@ static int e1000_eeprom_test(struct e1000_adapter *adapter, u64 *data)
  	}
- 	return 0;
- }
-+
- #define REG_PATTERN_TEST_ARRAY(reg, offset, mask, write)                       \
- 	do {                                                                   \
- 		if (reg_pattern_test(adapter, data, reg, offset, mask, write)) \
+ 
+ 	/* If Checksum is not Correct return error else test passed */
+-	if ((checksum != (u16) NVM_SUM) && !(*data))
++	if ((checksum != (u16)NVM_SUM) && !(*data))
+ 		*data = 2;
+ 
+ 	return *data;
+@@ -933,7 +933,7 @@ static int e1000_eeprom_test(struct e1000_adapter *adapter, u64 *data)
+ 
+ static irqreturn_t e1000_test_intr(int __always_unused irq, void *data)
+ {
+-	struct net_device *netdev = (struct net_device *) data;
++	struct net_device *netdev = (struct net_device *)data;
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
+@@ -1158,8 +1158,8 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
+ 	tx_ring->next_to_use = 0;
+ 	tx_ring->next_to_clean = 0;
+ 
+-	ew32(TDBAL(0), ((u64) tx_ring->dma & 0x00000000FFFFFFFF));
+-	ew32(TDBAH(0), ((u64) tx_ring->dma >> 32));
++	ew32(TDBAL(0), ((u64)tx_ring->dma & 0x00000000FFFFFFFF));
++	ew32(TDBAH(0), ((u64)tx_ring->dma >> 32));
+ 	ew32(TDLEN(0), tx_ring->count * sizeof(struct e1000_tx_desc));
+ 	ew32(TDH(0), 0);
+ 	ew32(TDT(0), 0);
+@@ -1222,8 +1222,8 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
+ 	rctl = er32(RCTL);
+ 	if (!(adapter->flags2 & FLAG2_NO_DISABLE_RX))
+ 		ew32(RCTL, rctl & ~E1000_RCTL_EN);
+-	ew32(RDBAL(0), ((u64) rx_ring->dma & 0xFFFFFFFF));
+-	ew32(RDBAH(0), ((u64) rx_ring->dma >> 32));
++	ew32(RDBAL(0), ((u64)rx_ring->dma & 0xFFFFFFFF));
++	ew32(RDBAH(0), ((u64)rx_ring->dma >> 32));
+ 	ew32(RDLEN(0), rx_ring->size);
+ 	ew32(RDH(0), 0);
+ 	ew32(RDT(0), 0);
+@@ -1986,11 +1986,11 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
+ 	for (i = 0; i < E1000_GLOBAL_STATS_LEN; i++) {
+ 		switch (e1000_gstrings_stats[i].type) {
+ 		case NETDEV_STATS:
+-			p = (char *) &net_stats +
++			p = (char *)&net_stats +
+ 			    e1000_gstrings_stats[i].stat_offset;
+ 			break;
+ 		case E1000_STATS:
+-			p = (char *) adapter +
++			p = (char *)adapter +
+ 			    e1000_gstrings_stats[i].stat_offset;
+ 			break;
+ 		default:
 diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index dd67cb6..6ff7ff5 100644
+index a18dd1c..dd67cb6 100644
 --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
 +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -1606,7 +1606,6 @@ release:
- 	return ret_val;
- }
+@@ -3150,7 +3150,7 @@ static s32 e1000_erase_flash_bank_ich8lan(struct e1000_hw *hw, u32 bank)
+ 	flash_linear_addr = hw->nvm.flash_base_addr;
+ 	flash_linear_addr += (bank) ? flash_bank_size : 0;
  
--
- /**
-  *  e1000_set_mdio_slow_mode_hv - Set slow MDIO access mode
-  *  @hw:   pointer to the HW structure
-@@ -3517,6 +3516,7 @@ static s32 e1000_init_hw_ich8lan(struct e1000_hw *hw)
+-	for (j = 0; j < iteration ; j++) {
++	for (j = 0; j < iteration; j++) {
+ 		do {
+ 			u32 timeout = ICH_FLASH_ERASE_COMMAND_TIMEOUT;
  
- 	return ret_val;
- }
-+
- /**
-  *  e1000_initialize_hw_bits_ich8lan - Initialize required hardware bits
-  *  @hw: pointer to the HW structure
+@@ -3501,7 +3501,7 @@ static s32 e1000_init_hw_ich8lan(struct e1000_hw *hw)
+ 	if (mac->type == e1000_ich8lan)
+ 		snoop = PCIE_ICH8_SNOOP_ALL;
+ 	else
+-		snoop = (u32) ~(PCIE_NO_SNOOP_ALL);
++		snoop = (u32)~(PCIE_NO_SNOOP_ALL);
+ 	e1000e_set_pcie_no_snoop(hw, snoop);
+ 
+ 	ctrl_ext = er32(CTRL_EXT);
 diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index ca1c10e..172d2e3 100644
+index 9d76edc..ca1c10e 100644
 --- a/drivers/net/ethernet/intel/e1000e/netdev.c
 +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1542,7 +1542,6 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_ring *rx_ring, int *work_done,
- 			rx_ring->rx_skb_top = NULL;
- 			goto next_desc;
- 		}
--
- #define rxtop (rx_ring->rx_skb_top)
- 		if (!(staterr & E1000_RXD_STAT_EOP)) {
- 			/* this descriptor is only the beginning (or middle) */
-@@ -1916,7 +1915,6 @@ static irqreturn_t e1000_intr_msix_tx(int __always_unused irq, void *data)
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct e1000_ring *tx_ring = adapter->tx_ring;
+@@ -4452,7 +4452,7 @@ static void e1000e_update_phy_task(struct work_struct *work)
+  **/
+ static void e1000_update_phy_info(unsigned long data)
+ {
+-	struct e1000_adapter *adapter = (struct e1000_adapter *) data;
++	struct e1000_adapter *adapter = (struct e1000_adapter *)data;
  
--
- 	adapter->total_tx_bytes = 0;
- 	adapter->total_tx_packets = 0;
+ 	if (test_bit(__E1000_DOWN, &adapter->state))
+ 		return;
+@@ -4784,7 +4784,7 @@ static void e1000e_check_82574_phy_workaround(struct e1000_adapter *adapter)
+  **/
+ static void e1000_watchdog(unsigned long data)
+ {
+-	struct e1000_adapter *adapter = (struct e1000_adapter *) data;
++	struct e1000_adapter *adapter = (struct e1000_adapter *)data;
  
-@@ -4384,6 +4382,7 @@ static int e1000_close(struct net_device *netdev)
+ 	/* Do the rest outside of interrupt context */
+ 	schedule_work(&adapter->watchdog_task);
+@@ -5350,7 +5350,7 @@ static int e1000_transfer_dhcp_info(struct e1000_adapter *adapter,
+ 	if (skb->len <= MINIMUM_DHCP_PACKET_SIZE)
+ 		return 0;
  
- 	return 0;
- }
-+
- /**
-  * e1000_set_mac - Change the Ethernet Address of the NIC
-  * @netdev: network interface device structure
+-	if (((struct ethhdr *) skb->data)->h_proto != htons(ETH_P_IP))
++	if (((struct ethhdr *)skb->data)->h_proto != htons(ETH_P_IP))
+ 		return 0;
+ 
+ 	{
+@@ -6727,11 +6727,11 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	init_timer(&adapter->watchdog_timer);
+ 	adapter->watchdog_timer.function = e1000_watchdog;
+-	adapter->watchdog_timer.data = (unsigned long) adapter;
++	adapter->watchdog_timer.data = (unsigned long)adapter;
+ 
+ 	init_timer(&adapter->phy_info_timer);
+ 	adapter->phy_info_timer.function = e1000_update_phy_info;
+-	adapter->phy_info_timer.data = (unsigned long) adapter;
++	adapter->phy_info_timer.data = (unsigned long)adapter;
+ 
+ 	INIT_WORK(&adapter->reset_task, e1000_reset_task);
+ 	INIT_WORK(&adapter->watchdog_task, e1000_watchdog_task);
 diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index 50e84ed..0a81d14 100644
+index 8ff0060..50e84ed 100644
 --- a/drivers/net/ethernet/intel/e1000e/phy.c
 +++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -38,6 +38,7 @@ static s32 e1000_access_phy_debug_regs_hv(struct e1000_hw *hw, u32 offset,
- /* Cable length tables */
- static const u16 e1000_m88_cable_length_table[] = {
- 	0, 50, 80, 110, 140, 140, E1000_CABLE_LENGTH_UNDEFINED };
-+
- #define M88E1000_CABLE_LENGTH_TABLE_SIZE \
- 		ARRAY_SIZE(e1000_m88_cable_length_table)
+@@ -175,7 +175,7 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
+ 		e_dbg("MDI Error\n");
+ 		return -E1000_ERR_PHY;
+ 	}
+-	*data = (u16) mdic;
++	*data = (u16)mdic;
  
-@@ -50,6 +51,7 @@ static const u16 e1000_igp_2_cable_length_table[] = {
- 	87, 92, 96, 100, 104, 108, 111, 114, 117, 119, 121, 83, 89, 95,
- 	100, 105, 109, 113, 116, 119, 122, 124, 104, 109, 114, 118, 121,
- 	124};
-+
- #define IGP02E1000_CABLE_LENGTH_TABLE_SIZE \
- 		ARRAY_SIZE(e1000_igp_2_cable_length_table)
- 
+ 	/* Allow some time after each MDIC transaction to avoid
+ 	 * reading duplicate data in the next MDIC transaction.
 -- 
 1.7.11.7
