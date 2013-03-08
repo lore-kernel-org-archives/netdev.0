@@ -1,47 +1,59 @@
-From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH 1/3] driver: net: ethernet: cpsw: implement ethtool get/set
- phy setting
-Date: Fri, 8 Mar 2013 20:38:27 +0530
-Message-ID: <5139FEEB.6060506@ti.com>
-References: <1362659421-11884-1-git-send-email-mugunthanvnm@ti.com>
- <1362659421-11884-2-git-send-email-mugunthanvnm@ti.com>
- <8762135on4.fsf@dell.be.48ers.dk>
- <1362686350.2936.43.camel@bwh-desktop.uk.solarflarecom.com>
- <513991E6.5080400@ti.com>
- <1362754401.3248.8.camel@bwh-desktop.uk.solarflarecom.com>
- <87ip523pc3.fsf@dell.be.48ers.dk>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [RFC PATCH v2 net-next 0/3] Allow bridge to function
+ in non-promisc mode
+Date: Fri, 08 Mar 2013 10:17:29 -0500
+Message-ID: <513A0109.4040607@redhat.com>
+References: <1362691728-13289-1-git-send-email-vyasevic@redhat.com>
+	<20130307214304.25e7784e@nehalam.linuxnetplumber.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <87ip523pc3.fsf-D6SC8u56vOOJDPpyT6T3/w@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130307214304.25e7784e@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 3/8/2013 8:34 PM, Peter Korsgaard wrote:
->>>>>> "Ben" == Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org> writes:
-> Hi,
+On 03/08/2013 12:43 AM, Stephen Hemminger wrote:
+> On Thu,  7 Mar 2013 16:28:45 -0500
+> Vlad Yasevich <vyasevic@redhat.com> wrote:
 >
->   Ben> The 'active slave' property would also be needed for the SIOCGMIIPHY
->   Ben> ioctl and not just ethtool.  But it's really quite arbitrary.  Perhaps
->   Ben> each of them should have their own net device (as with DSA).
+>> The series adds an ability to configure the bridge into a non-primiscuous
+>> mode.   Instead, it provides the ability to identitfy some set of bridge
+>> ports as uplinks and allows for MAC addresses to be programmed onto
+>> those ports.  In case the port hardware does not support mac filter,
+>> that port will be placed in promiscuous mode.
+>>
+>> Default bridge operation continues to remain as "promiscuous".  The new
+>> functionality has to be enabled via sysfs (similar to other bridge extensions).
+>>
+>> The uplink mode is implemented as a flag on a bridge port.  The api to
+>> change that flag follows the existing api to enable/disable other existing
+>> flags.
+>>
+>> All comments are welcome.
+>>
 >
-> Indeed, I think that would simplify all of this quite a bit.
+> Can we make this a one step process and less visible to the user.
+> If user defines an uplink device, and the uplink device is capable of filtering
+> (and what ever other pre-conditions people can think of), then the bridge will
+> transparently switch to uplink/non-promisc mode.  This can also be used to trigger
+> edge only mode in RSTP in the future.
 >
-I will update this in the next patch series
+> Less knobs.
+>
 
-Regards
-Mugunthan V N
+Ok.  Let me see what I can do.
+
+Thanks
+-vlad
