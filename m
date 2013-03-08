@@ -1,38 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] VSOCK: Split vm_sockets.h into kernel/uapi
-Date: Fri, 08 Mar 2013 12:26:10 -0500 (EST)
-Message-ID: <20130308.122610.415557290822516252.davem@davemloft.net>
-References: <1362669973-26984-1-git-send-email-acking@vmware.com>
-	<26621.1362675490@warthog.procyon.org.uk>
-	<29364.1362704958@warthog.procyon.org.uk>
+Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 08 Mar 2013 12:25:55 -0500 (EST)
+Message-ID: <20130308.122555.2082048997115962770.davem@davemloft.net>
+References: <1362737237-13363-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: acking@vmware.com, pv-drivers@vmware.com, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <29364.1362704958@warthog.procyon.org.uk>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56865 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934260Ab3CHRZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 12:25:57 -0500
+In-Reply-To: <1362737237-13363-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Fri, 08 Mar 2013 01:09:18 +0000
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri,  8 Mar 2013 02:07:02 -0800
 
-> Greg KH <gregkh@linuxfoundation.org> wrote:
+> This series contains updates to ixgbevf and e1000e.
 > 
->> David, is there any rush to get stuff like this into 3.9 for any
->> uapi-type changes, or can it just wait for 3.10?
+> Alex's ixgbevf patch is meant to address several race issues that become
+> possible because next_to_watch could possibly be set to a value that shows
+> that the descriptor is done when it is not.  In order to correct that we
+> instead make next_to_watch a pointer that is set to NULL during cleanup,
+> and set to the eop_desc after the descriptor rings have been written.
 > 
-> Not especially.  It won't appear in userspace due to the __KERNEL__ guards.
+> Stephen's ixgbevf patch makes the PCI id table a const and reformats the
+> table to match what the ixgbe driver does.
+> 
+> The remaining 13 patches from Bruce are cleanup patches for e1000e to
+> resolve checkpatch.pl warnings/errors, removing blank lines where
+> necessary and fix code formatting.
+> 
+> The following are changes since commit 7f0e44ac9f7f12a2519bfed9ea4df3c1471bd8bb:
+>   ipv6 flowlabel: add __rcu annotations
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-I've applied this to net-next, thanks.
+Pulled, thanks Jeff.
