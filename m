@@ -1,37 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rrunner.c: fix possible memory leak in rr_init_one()
-Date: Fri, 08 Mar 2013 12:32:10 -0500 (EST)
-Message-ID: <20130308.123210.2264544388832454980.davem@davemloft.net>
-References: <513A1E8A.7040408@ll.mit.edu>
+Subject: Re: [PATCH net-next] cxgb4: Allow for backward compatibility with
+ new VPD scheme.
+Date: Fri, 08 Mar 2013 12:44:11 -0500 (EST)
+Message-ID: <20130308.124411.445253877641244372.davem@davemloft.net>
+References: <1362749729-4532-1-git-send-email-vipul@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jes@trained-monkey.org
-To: daveo@ll.mit.edu
+Cc: netdev@vger.kernel.org, divy@chelsio.com, dm@chelsio.com,
+	abhishek@chelsio.com, santosh@chelsio.com
+To: vipul@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56967 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57174 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755874Ab3CHRcM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 12:32:12 -0500
-In-Reply-To: <513A1E8A.7040408@ll.mit.edu>
+	with ESMTP id S1755874Ab3CHRoN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 12:44:13 -0500
+In-Reply-To: <1362749729-4532-1-git-send-email-vipul@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Oostdyk <daveo@ll.mit.edu>
-Date: Fri, 8 Mar 2013 12:23:22 -0500
+From: Vipul Pandya <vipul@chelsio.com>
+Date: Fri,  8 Mar 2013 19:05:29 +0530
 
->    out:
-> +	if (rrpriv->evt_ring)
-> + pci_free_consistent(pdev, EVT_RING_SIZE, rrpriv->evt_ring,
-> +				    rrpriv->evt_ring_dma);
+> From: Santosh Rastapur <santosh@chelsio.com>
+> 
+> New scheme calls for 3rd party VPD at offset 0x0 and Chelsio VPD at offset
+> 0x400 of the function.  If no 3rd party VPD is present, then a copy of
+> Chelsio's VPD will be at offset 0x0 to keep in line with PCI spec which
+> requires the VPD to be present at offset 0x0.
+> 
+> Signed-off-by: Santosh Rastapur <santosh@chelsio.com>
+> Signed-off-by: Vipul Pandya <vipul@chelsio.com>
 
-Please resend this without the patch being corrupted by your
-email client.
-
-Read Documentation/email-clients.txt, and use it to correct this.
-
-Send a test patch to yourself, and only after you can successfully
-apply such a patch sent to your yourself should you resubmit your
-patch here.
-
-Thanks.
+Isn't this a fix which is better targetted at 'net' than 'net-next'?
