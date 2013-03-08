@@ -1,352 +1,112 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net-next 1/1] qlcnic: Fix endian issues in 83xx driver
-Date: Fri,  8 Mar 2013 14:53:49 -0500
-Message-ID: <1362772433-12045-2-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next 2/5] qlcnic: Enable LED test support for 83xx adapter
+Date: Fri,  8 Mar 2013 14:53:50 -0500
+Message-ID: <1362772433-12045-3-git-send-email-shahed.shaikh@qlogic.com>
 References: <1362772433-12045-1-git-send-email-shahed.shaikh@qlogic.com>
 Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
+	Himanshu Madhani <himanshu.madhani@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:60872 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:42431 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753918Ab3CHUQh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Mar 2013 15:16:37 -0500
+	id S1752146Ab3CHUQs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Mar 2013 15:16:48 -0500
 In-Reply-To: <1362772433-12045-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-o Split mailbox structure elements on boundary of adapter
-  register size i.e. 32bit.
-o Shuffle the position of structure elements based on CPU endianness.
+o Add support for LED test on 83xx series adapters
 
+Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |  106 ++++++++++++++++----
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |   17 +++-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   33 ++++++-
- 3 files changed, 130 insertions(+), 26 deletions(-)
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   45 ++++++++++++++++++++
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    1 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |    3 +-
+ 3 files changed, 48 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index cd5ae88..41c02ba 100644
+index 41c02ba..c08fa20 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -15,36 +15,57 @@
- #define RSS_HASHTYPE_IP_TCP		0x3
+@@ -1432,6 +1432,51 @@ mbx_err:
+ 	}
+ }
  
- /* status descriptor mailbox data
-- * @phy_addr: physical address of buffer
-+ * @phy_addr_{low|high}: physical address of buffer
-  * @sds_ring_size: buffer size
-  * @intrpt_id: interrupt id
-  * @intrpt_val: source of interrupt
-  */
- struct qlcnic_sds_mbx {
--	u64	phy_addr;
--	u8	rsvd1[16];
-+	u32	phy_addr_low;
-+	u32	phy_addr_high;
-+	u32	rsvd1[4];
-+#if defined(__LITTLE_ENDIAN)
- 	u16	sds_ring_size;
--	u16	rsvd2[3];
-+	u16	rsvd2;
-+	u16	rsvd3[2];
- 	u16	intrpt_id;
- 	u8	intrpt_val;
--	u8	rsvd3[5];
-+	u8	rsvd4;
-+#elif defined(__BIG_ENDIAN)
-+	u16	rsvd2;
-+	u16	sds_ring_size;
-+	u16	rsvd3[2];
-+	u8	rsvd4;
-+	u8	intrpt_val;
-+	u16	intrpt_id;
-+#endif
-+	u32	rsvd5;
- } __packed;
- 
- /* receive descriptor buffer data
-- * phy_addr_reg: physical address of regular buffer
-- * phy_addr_jmb: physical address of jumbo buffer
-+ * phy_addr_reg_{low|high}: physical address of regular buffer
-+ * phy_addr_jmb_{low|high}: physical address of jumbo buffer
-  * reg_ring_sz: size of regular buffer
-  * reg_ring_len: no. of entries in regular buffer
-  * jmb_ring_len: no. of entries in jumbo buffer
-  * jmb_ring_sz: size of jumbo buffer
-  */
- struct qlcnic_rds_mbx {
--	u64	phy_addr_reg;
--	u64	phy_addr_jmb;
-+	u32	phy_addr_reg_low;
-+	u32	phy_addr_reg_high;
-+	u32	phy_addr_jmb_low;
-+	u32	phy_addr_jmb_high;
-+#if defined(__LITTLE_ENDIAN)
- 	u16	reg_ring_sz;
- 	u16	reg_ring_len;
- 	u16	jmb_ring_sz;
- 	u16	jmb_ring_len;
-+#elif defined(__BIG_ENDIAN)
-+	u16	reg_ring_len;
-+	u16	reg_ring_sz;
-+	u16	jmb_ring_len;
-+	u16	jmb_ring_sz;
-+#endif
- } __packed;
- 
- /* host producers for regular and jumbo rings */
-@@ -61,6 +82,7 @@ struct __host_producer_mbx {
-  * @phy_port: physical port id
-  */
- struct qlcnic_rcv_mbx_out {
-+#if defined(__LITTLE_ENDIAN)
- 	u8	rcv_num;
- 	u8	sts_num;
- 	u16	ctx_id;
-@@ -68,32 +90,56 @@ struct qlcnic_rcv_mbx_out {
- 	u8	num_pci_func;
- 	u8	phy_port;
- 	u8	vport_id;
-+#elif defined(__BIG_ENDIAN)
-+	u16	ctx_id;
-+	u8	sts_num;
-+	u8	rcv_num;
-+	u8	vport_id;
-+	u8	phy_port;
-+	u8	num_pci_func;
-+	u8	state;
-+#endif
- 	u32	host_csmr[QLCNIC_MAX_RING_SETS];
- 	struct __host_producer_mbx host_prod[QLCNIC_MAX_RING_SETS];
- } __packed;
- 
- struct qlcnic_add_rings_mbx_out {
-+#if defined(__LITTLE_ENDIAN)
- 	u8      rcv_num;
- 	u8      sts_num;
--	u16  ctx_id;
-+	u16	ctx_id;
-+#elif defined(__BIG_ENDIAN)
-+	u16	ctx_id;
-+	u8	sts_num;
-+	u8	rcv_num;
-+#endif
- 	u32  host_csmr[QLCNIC_MAX_RING_SETS];
- 	struct __host_producer_mbx host_prod[QLCNIC_MAX_RING_SETS];
- } __packed;
- 
- /* Transmit context mailbox inbox registers
-- * @phys_addr: DMA address of the transmit buffer
-- * @cnsmr_index: host consumer index
-+ * @phys_addr_{low|high}: DMA address of the transmit buffer
-+ * @cnsmr_index_{low|high}: host consumer index
-  * @size: legth of transmit buffer ring
-  * @intr_id: interrput id
-  * @src: src of interrupt
-  */
- struct qlcnic_tx_mbx {
--	u64	phys_addr;
--	u64	cnsmr_index;
-+	u32	phys_addr_low;
-+	u32	phys_addr_high;
-+	u32	cnsmr_index_low;
-+	u32	cnsmr_index_high;
-+#if defined(__LITTLE_ENDIAN)
- 	u16	size;
- 	u16	intr_id;
- 	u8	src;
- 	u8	rsvd[3];
-+#elif defined(__BIG_ENDIAN)
-+	u16	intr_id;
-+	u16	size;
-+	u8	rsvd[3];
-+	u8	src;
-+#endif
- } __packed;
- 
- /* Transmit context mailbox outbox registers
-@@ -101,11 +147,18 @@ struct qlcnic_tx_mbx {
-  * @ctx_id: transmit context id
-  * @state: state of the transmit context
-  */
++int  qlcnic_83xx_set_led(struct net_device *netdev,
++			 enum ethtool_phys_id_state state)
++{
++	struct qlcnic_adapter *adapter = netdev_priv(netdev);
++	int err = -EIO, active = 1;
 +
- struct qlcnic_tx_mbx_out {
- 	u32	host_prod;
-+#if defined(__LITTLE_ENDIAN)
- 	u16	ctx_id;
- 	u8	state;
- 	u8	rsvd;
-+#elif defined(__BIG_ENDIAN)
-+	u8	rsvd;
-+	u8	state;
-+	u16	ctx_id;
-+#endif
- } __packed;
- 
- static const struct qlcnic_mailbox_metadata qlcnic_83xx_mbx_tbl[] = {
-@@ -1004,7 +1057,8 @@ static int qlcnic_83xx_add_rings(struct qlcnic_adapter *adapter)
- 		sds = &recv_ctx->sds_rings[i];
- 		sds->consumer = 0;
- 		memset(sds->desc_head, 0, STATUS_DESC_RINGSIZE(sds));
--		sds_mbx.phy_addr = sds->phys_addr;
-+		sds_mbx.phy_addr_low = LSD(sds->phys_addr);
-+		sds_mbx.phy_addr_high = MSD(sds->phys_addr);
- 		sds_mbx.sds_ring_size = sds->num_desc;
- 
- 		if (adapter->flags & QLCNIC_MSIX_ENABLED)
-@@ -1090,7 +1144,8 @@ int qlcnic_83xx_create_rx_ctx(struct qlcnic_adapter *adapter)
- 		sds = &recv_ctx->sds_rings[i];
- 		sds->consumer = 0;
- 		memset(sds->desc_head, 0, STATUS_DESC_RINGSIZE(sds));
--		sds_mbx.phy_addr = sds->phys_addr;
-+		sds_mbx.phy_addr_low = LSD(sds->phys_addr);
-+		sds_mbx.phy_addr_high = MSD(sds->phys_addr);
- 		sds_mbx.sds_ring_size = sds->num_desc;
- 		if (adapter->flags & QLCNIC_MSIX_ENABLED)
- 			intrpt_id = ahw->intr_tbl[i].id;
-@@ -1110,13 +1165,15 @@ int qlcnic_83xx_create_rx_ctx(struct qlcnic_adapter *adapter)
- 	rds = &recv_ctx->rds_rings[0];
- 	rds->producer = 0;
- 	memset(&rds_mbx, 0, rds_mbx_size);
--	rds_mbx.phy_addr_reg = rds->phys_addr;
-+	rds_mbx.phy_addr_reg_low = LSD(rds->phys_addr);
-+	rds_mbx.phy_addr_reg_high = MSD(rds->phys_addr);
- 	rds_mbx.reg_ring_sz = rds->dma_size;
- 	rds_mbx.reg_ring_len = rds->num_desc;
- 	/* Jumbo ring */
- 	rds = &recv_ctx->rds_rings[1];
- 	rds->producer = 0;
--	rds_mbx.phy_addr_jmb = rds->phys_addr;
-+	rds_mbx.phy_addr_jmb_low = LSD(rds->phys_addr);
-+	rds_mbx.phy_addr_jmb_high = MSD(rds->phys_addr);
- 	rds_mbx.jmb_ring_sz = rds->dma_size;
- 	rds_mbx.jmb_ring_len = rds->num_desc;
- 	buf = &cmd.req.arg[index];
-@@ -1182,8 +1239,10 @@ int qlcnic_83xx_create_tx_ctx(struct qlcnic_adapter *adapter,
- 	memset(&mbx, 0, sizeof(struct qlcnic_tx_mbx));
- 
- 	/* setup mailbox inbox registerss */
--	mbx.phys_addr = tx->phys_addr;
--	mbx.cnsmr_index = tx->hw_cons_phys_addr;
-+	mbx.phys_addr_low = LSD(tx->phys_addr);
-+	mbx.phys_addr_high = MSD(tx->phys_addr);
-+	mbx.cnsmr_index_low = LSD(tx->hw_cons_phys_addr);
-+	mbx.cnsmr_index_high = MSD(tx->hw_cons_phys_addr);
- 	mbx.size = tx->num_desc;
- 	if (adapter->flags & QLCNIC_MSIX_ENABLED)
- 		msix_id = ahw->intr_tbl[adapter->max_sds_rings + ring].id;
-@@ -1713,7 +1772,12 @@ int qlcnic_83xx_sre_macaddr_change(struct qlcnic_adapter *adapter, u8 *addr,
- 			(adapter->recv_ctx->context_id << 16);
- 
- 	mv.vlan = le16_to_cpu(vlan_id);
--	memcpy(&mv.mac, addr, ETH_ALEN);
-+	mv.mac_addr0 = addr[0];
-+	mv.mac_addr1 = addr[1];
-+	mv.mac_addr2 = addr[2];
-+	mv.mac_addr3 = addr[3];
-+	mv.mac_addr4 = addr[4];
-+	mv.mac_addr5 = addr[5];
- 	buf = &cmd.req.arg[2];
- 	memcpy(buf, &mv, sizeof(struct qlcnic_macvlan_mbx));
- 	err = qlcnic_issue_cmd(adapter, &cmd);
++	if (adapter->ahw->op_mode == QLCNIC_NON_PRIV_FUNC) {
++		netdev_warn(netdev,
++			    "LED test is not supported in non-privileged mode\n");
++		return -EOPNOTSUPP;
++	}
++
++	switch (state) {
++	case ETHTOOL_ID_ACTIVE:
++		if (test_and_set_bit(__QLCNIC_LED_ENABLE, &adapter->state))
++			return -EBUSY;
++
++		if (test_bit(__QLCNIC_RESETTING, &adapter->state))
++			break;
++
++		err = qlcnic_83xx_config_led(adapter, active, 0);
++		if (err)
++			netdev_err(netdev, "Failed to set LED blink state\n");
++		break;
++	case ETHTOOL_ID_INACTIVE:
++		active = 0;
++
++		if (test_bit(__QLCNIC_RESETTING, &adapter->state))
++			break;
++
++		err = qlcnic_83xx_config_led(adapter, active, 0);
++		if (err)
++			netdev_err(netdev, "Failed to reset LED blink state\n");
++		break;
++
++	default:
++		return -EINVAL;
++	}
++
++	if (!active || err)
++		clear_bit(__QLCNIC_LED_ENABLE, &adapter->state);
++
++	return err;
++}
++
+ void qlcnic_83xx_register_nic_idc_func(struct qlcnic_adapter *adapter,
+ 				       int enable)
+ {
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index 61f81f6..94e3ee0 100644
+index 94e3ee0..648a73f 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -94,8 +94,23 @@ struct qlcnic_intrpt_config {
- };
+@@ -449,5 +449,6 @@ int qlcnic_83xx_get_regs_len(struct qlcnic_adapter *);
+ int qlcnic_83xx_get_registers(struct qlcnic_adapter *, u32 *);
+ int qlcnic_83xx_loopback_test(struct net_device *, u8);
+ int qlcnic_83xx_interrupt_test(struct net_device *);
++int qlcnic_83xx_set_led(struct net_device *, enum ethtool_phys_id_state);
+ int qlcnic_83xx_flash_test(struct qlcnic_adapter *);
+ #endif
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index 5641f8e..ba1502a 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -1176,7 +1176,8 @@ static int qlcnic_set_led(struct net_device *dev,
+ 	int err = -EIO, active = 1;
  
- struct qlcnic_macvlan_mbx {
--	u8	mac[ETH_ALEN];
-+#if defined(__LITTLE_ENDIAN)
-+	u8	mac_addr0;
-+	u8	mac_addr1;
-+	u8	mac_addr2;
-+	u8	mac_addr3;
-+	u8	mac_addr4;
-+	u8	mac_addr5;
- 	u16	vlan;
-+#elif defined(__BIG_ENDIAN)
-+	u8	mac_addr3;
-+	u8	mac_addr2;
-+	u8	mac_addr1;
-+	u8	mac_addr0;
-+	u16	vlan;
-+	u8	mac_addr5;
-+	u8	mac_addr4;
-+#endif
- };
- 
- struct qlc_83xx_fw_info {
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-index 5c033f2..ba5ac69 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-@@ -31,6 +31,7 @@ static int qlcnic_83xx_restart_hw(struct qlcnic_adapter *adapter);
- 
- /* Template header */
- struct qlc_83xx_reset_hdr {
-+#if defined(__LITTLE_ENDIAN)
- 	u16	version;
- 	u16	signature;
- 	u16	size;
-@@ -39,14 +40,31 @@ struct qlc_83xx_reset_hdr {
- 	u16	checksum;
- 	u16	init_offset;
- 	u16	start_offset;
-+#elif defined(__BIG_ENDIAN)
-+	u16	signature;
-+	u16	version;
-+	u16	entries;
-+	u16	size;
-+	u16	checksum;
-+	u16	hdr_size;
-+	u16	start_offset;
-+	u16	init_offset;
-+#endif
- } __packed;
- 
- /* Command entry header. */
- struct qlc_83xx_entry_hdr {
--	u16 cmd;
--	u16 size;
--	u16 count;
--	u16 delay;
-+#if defined(__LITTLE_ENDIAN)
-+	u16	cmd;
-+	u16	size;
-+	u16	count;
-+	u16	delay;
-+#elif defined(__BIG_ENDIAN)
-+	u16	size;
-+	u16	cmd;
-+	u16	delay;
-+	u16	count;
-+#endif
- } __packed;
- 
- /* Generic poll command */
-@@ -60,10 +78,17 @@ struct qlc_83xx_rmw {
- 	u32	mask;
- 	u32	xor_value;
- 	u32	or_value;
-+#if defined(__LITTLE_ENDIAN)
- 	u8	shl;
- 	u8	shr;
- 	u8	index_a;
- 	u8	rsvd;
-+#elif defined(__BIG_ENDIAN)
-+	u8	rsvd;
-+	u8	index_a;
-+	u8	shr;
-+	u8	shl;
-+#endif
- } __packed;
- 
- /* Generic command with 2 DWORD */
+ 	if (qlcnic_83xx_check(adapter))
+-		return -EOPNOTSUPP;
++		return qlcnic_83xx_set_led(dev, state);
++
+ 	if (adapter->ahw->op_mode == QLCNIC_NON_PRIV_FUNC) {
+ 		netdev_warn(dev, "LED test not supported for non "
+ 				"privilege function\n");
 -- 
 1.5.6
