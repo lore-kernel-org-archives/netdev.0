@@ -1,107 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP small packets throughput and multiqueue virtio-net
-Date: Fri, 08 Mar 2013 07:05:15 -0800
-Message-ID: <1362755115.15793.236.camel@edumazet-glaptop>
-References: <5139840A.6020204@redhat.com>
+From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH 1/3] driver: net: ethernet: cpsw: implement ethtool get/set
+ phy setting
+Date: Fri, 8 Mar 2013 20:37:00 +0530
+Message-ID: <5139FE94.6090004@ti.com>
+References: <1362659421-11884-1-git-send-email-mugunthanvnm@ti.com>
+ <1362659421-11884-2-git-send-email-mugunthanvnm@ti.com>
+ <8762135on4.fsf@dell.be.48ers.dk>
+ <1362686350.2936.43.camel@bwh-desktop.uk.solarflarecom.com>
+ <513991E6.5080400@ti.com>
+ <1362754401.3248.8.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	KVM <kvm@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jpirko@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:33431 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753299Ab3CHPFS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 10:05:18 -0500
-In-Reply-To: <5139840A.6020204@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+ linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1362754401.3248.8.camel-/LGg1Z1CJKReKY3V0RtoKmatzQS1i7+A3tAM5lWOD0I@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-03-08 at 14:24 +0800, Jason Wang wrote:
-> Hello all:
-> 
-> I meet an issue when testing multiqueue virtio-net. When I testing guest
-> small packets stream sending performance with netperf. I find an
-> regression of multiqueue. When I run 2 sessions of TCP_STREAM test with
-> 1024 byte from guest to local host, I get following result:
-> 
-> 1q result: 3457.64
-> 2q result: 7781.45
-> 
-> Statistics shows that: compared with one queue, multiqueue tends to send
-> much more but smaller packets. Tcpdump shows single queue has a much
-> higher possibility to produce a 64K gso packet compared to multiqueue.
-> More but smaller packets will cause more vmexits and interrupts which
-> lead a degradation on throughput.
-> 
-> Then problem only exist for small packets sending. When I test with
-> larger size, multiqueue will gradually outperfrom single queue. And
-> multiqueue also outperfrom in both TCP_RR and pktgen test (even with
-> small packets). The problem disappear when I turn off both gso and tso.
-> 
+On 3/8/2013 8:23 PM, Ben Hutchings wrote:
+> On Fri, 2013-03-08 at 12:53 +0530, Mugunthan V N wrote:
+>> On 3/8/2013 1:29 AM, Ben Hutchings wrote:
+>>> On Thu, 2013-03-07 at 14:24 +0100, Peter Korsgaard wrote:
+>>>>>>>>> "M" == Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org> writes:
+>>>>    M> This patch implements get/set of the phy settings via ethtool apis
+>>>>    M> Signed-off-by: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+>>>>    M> ---
+>>>>    M>  Documentation/devicetree/bindings/net/cpsw.txt |    3 +++
+>>>>    M>  drivers/net/ethernet/ti/cpsw.c                 |   32 ++++++++++++++++++++++++
+>>>>    M>  include/linux/platform_data/cpsw.h             |    1 +
+>>>>    M>  3 files changed, 36 insertions(+)
+>>>>
+>>>>    M> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+>>>>    M> index ecfdf75..8d61300 100644
+>>>>    M> --- a/Documentation/devicetree/bindings/net/cpsw.txt
+>>>>    M> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
+>>>>    M> @@ -20,6 +20,7 @@ Required properties:
+>>>>    M>  - cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
+>>>>    M>  - phy_id		: Specifies slave phy id
+>>>>    M>  - mac-address		: Specifies slave MAC address
+>>>>    M> +- ethtool-active-slave	: Specifies the slave to use for ethtool command
+>>>>
+>>>> That again sounds like something Linux specific rather than a hardware
+>>>> property.
+>>> Yes, indeed.  Isn't it redundant with the phy_id?
+>>>
+>>> Ben.
+>> phy_id is part of slave data and will be present for both the slaves.
+>> so phy_id cannot be used for get/set phy setting until phy framework
+>> allows to change settings without going through eth interface.
+> Now I've looked at the examples in this file, I think I see what you're
+> getting at.  What confused me is that you're adding to a single list of
+> properties without a proper distinction of which devices they are
+> applied to.  It really ought to be properly divided between switch and
+> 'slave' properties.
+Will fix this in next patch series.
+> The 'active slave' property would also be needed for the SIOCGMIIPHY
+> ioctl and not just ethtool.  But it's really quite arbitrary.  Perhaps
+> each of them should have their own net device (as with DSA).
+But if we have net device for each of the slaves then it is dual EMAC 
+which will kill
+hardware switching functionality. To achieve switching bridge has to be 
+done and
+there will be a performance drop as well.
 
-This makes little sense to me : TCP_RR workload (assuming one byte
-payload) cannot use GSO or TSO anyway. Same for pktgen as it uses UDP.
+As Peter Korsgaard mentioned we need to have infrastructure to handle CPSW
+kind of hardware.
 
-> I'm not sure whether it's a bug or expected since anyway we get
-> improvement on latency. And if it's a bug, I suspect it was related to
-> TCP GSO batching algorithm who tends to batch less in this situation. (
-> Jiri Pirko suspect it was the defect of virtio-net driver, but I didn't
-> find any obvious clue on this). After some experiments, I find the it
-> maybe related to tcp_tso_should_defer(), after
-> 1) change the tcp_tso_win_divisor to 1
-> 2) the following changes
-> the throughput were almost the same (but still a little worse) as single
-> queue:
-> 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index fd0cea1..dedd2a6 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -1777,10 +1777,12 @@ static bool tcp_tso_should_defer(struct sock
-> *sk, struct sk_buff *skb)
->  
->         limit = min(send_win, cong_win);
->  
-> +#if 0
->         /* If a full-sized TSO skb can be sent, do it. */
->         if (limit >= min_t(unsigned int, sk->sk_gso_max_size,
->                            sk->sk_gso_max_segs * tp->mss_cache))
->                 goto send_now;
-> +#endif
->  
->         /* Middle in queue won't get any more data, full sendable
-> already? */
->         if ((skb != tcp_write_queue_tail(sk)) && (limit >= skb->len))
-> 
-> Git history shows this check were added for both westwood and fasttcp,
-> I'm not familiar with tcp but looks like we can easily hit this check
-> under when multiqueue is enabled for virtio-net. Maybe I was wrong but I
-> wonder whether we can still do some batching here.
-> 
-> Any comments, thoughts are welcomed.
-> 
-
-Well, the point is : if your app does write(1024) bytes, thats probably
-because it wants small packets from the very beginning. (See the TCP
-PUSH flag ?)
-
-If the transport is slow, TCP stack will automatically collapse several
-write into single skbs (assuming TSO or GSO is on), and you'll see big
-GSO packets with tcpdump [1]. So TCP will help you to get less overhead
-in this case.
-
-But if transport is fast, you'll see small packets, and thats good for
-latency.
-
-So my opinion is : its exactly behaving as expected.
-
-If you want bigger packets either :
-- Make the application doing big write()
-- Slow the vmexit ;)
-
-[1] GSO fools tcpdump : Actual packets sent to the wire are not 'big
-packets', but they hit dev_hard_start_xmit() as GSO packets.
+Regards
+Mugunthan V N
