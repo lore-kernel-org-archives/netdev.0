@@ -1,50 +1,66 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Patch net] bridge: do not expire mdb entry when
- bridge still uses it
-Date: Fri, 8 Mar 2013 19:24:38 +0800
-Message-ID: <20130308112438.GA29924@gondor.apana.org.au>
-References: <1362708423-23932-1-git-send-email-amwang@redhat.com>
-	<20130308023151.GA27155@gondor.apana.org.au>
-	<1362710646.9773.25.camel@cr0>
-	<20130308024726.GA27319@gondor.apana.org.au>
-	<1362715613.9773.29.camel@cr0>
-	<20130308040853.GA27704@gondor.apana.org.au>
-	<1362727581.3237.4.camel@cr0>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next v4 1/4] ipv6: introdcue __ipv6_addr_needs_scope_id and ipv6_iface_scope_id helper functions
+Date: Fri, 8 Mar 2013 13:07:16 +0100
+Message-ID: <20130308120716.GA5028@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
-	Adam Baker <linux@baker-net.org.uk>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=utf-8
+Cc: yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:51148 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756758Ab3CHMHR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 07:07:17 -0500
 Content-Disposition: inline
-In-Reply-To: <1362727581.3237.4.camel@cr0>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 08, 2013 at 03:26:21PM +0800, Cong Wang wrote:
->
-> Hmm, what the user experiences is the multicast traffic between the
-> bridge and some port is broken. Isn't this expected to work by default?
+__ipv6_addr_needs_scope_id checks if an ipv6 address needs to supply
+a 'sin6_scope_id != 0'. 'sin6_scope_id != 0' was enforced in case
+of link-local addresses. To support interface-local multicast these
+checks had to be enhanced and are now consolidated into these new helper
+functions.
 
-Oh I'm not arguing that this isn't a bug.  I'm trying to ensure
-that we come up with the right fix.
+v2:
+a) migrated to struct ipv6_addr_props
 
-> Or we can just change the default value of br->multicast_router to 2?
+v3:
+a) reverted changes for ipv6_addr_props
+b) test for address type instead of comparing scope
 
-No because that will cause all sorts of stuff to be thrown at
-the host.
+v4:
+a) unchanged
 
-Cheers,
+Suggested-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ include/net/ipv6.h | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 988c9f2..42ef6ab 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -320,6 +320,18 @@ static inline int ipv6_addr_src_scope(const struct in6_addr *addr)
+ 	return __ipv6_addr_src_scope(__ipv6_addr_type(addr));
+ }
+ 
++static inline bool __ipv6_addr_needs_scope_id(int type)
++{
++	return type & IPV6_ADDR_LINKLOCAL ||
++	       (type & IPV6_ADDR_MULTICAST &&
++		(type & (IPV6_ADDR_LOOPBACK|IPV6_ADDR_LINKLOCAL)));
++}
++
++static inline __u32 ipv6_iface_scope_id(const struct in6_addr *addr, int iface)
++{
++	return __ipv6_addr_needs_scope_id(__ipv6_addr_type(addr)) ? iface : 0;
++}
++
+ static inline int ipv6_addr_cmp(const struct in6_addr *a1, const struct in6_addr *a2)
+ {
+ 	return memcmp(a1, a2, sizeof(struct in6_addr));
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.8.1.4
