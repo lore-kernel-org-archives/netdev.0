@@ -1,41 +1,46 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net-next 5/5] qlcnic: Bump up the version to 5.1.36
-Date: Fri,  8 Mar 2013 14:53:53 -0500
-Message-ID: <1362772433-12045-6-git-send-email-shahed.shaikh@qlogic.com>
-References: <1362772433-12045-1-git-send-email-shahed.shaikh@qlogic.com>
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
-To: davem@davemloft.net
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash table
+Date: Fri, 8 Mar 2013 21:53:19 +0100
+Message-ID: <20130308205319.GG28531@order.stressinduktion.org>
+References: <20130307214211.GP7941@order.stressinduktion.org> <20130308055718.GA28531@order.stressinduktion.org> <20130308130433.GB28531@order.stressinduktion.org> <1362754386.15793.226.camel@edumazet-glaptop> <20130308150831.GD28531@order.stressinduktion.org> <1362756219.15793.240.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:46160 "HELO linux-zupk.site"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1756538Ab3CHURU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Mar 2013 15:17:20 -0500
-In-Reply-To: <1362772433-12045-1-git-send-email-shahed.shaikh@qlogic.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:52203 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754610Ab3CHUxU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 15:53:20 -0500
+Content-Disposition: inline
+In-Reply-To: <1362756219.15793.240.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+On Fri, Mar 08, 2013 at 07:23:39AM -0800, Eric Dumazet wrote:
+> On Fri, 2013-03-08 at 16:08 +0100, Hannes Frederic Sowa wrote:
+> > On Fri, Mar 08, 2013 at 06:53:06AM -0800, Eric Dumazet wrote:
+> > > No matter how you hash, a hacker can easily fill your defrag unit with
+> > > not complete datagrams, so what's the point ?
+> > 
+> > I want to harden reassembly logic against all fragments being put in
+> > the same hash bucket because of malicious traffic and thus creating
+> > long list traversals in the fragment queue hash table.
+> 
+> Note that the long traversal was a real issue with TCP (thats why I
+> introduced ipv6_addr_jhash()), as a single ehash slot could contains
+> thousand of sockets.
+> 
+> But with fragments, we should just limit the depth of any particular
+> slot, and drop above a particular threshold.
+> 
+> reassembly is a best effort mechanism, better make sure it doesnt use
+> all our cpu cycles.
 
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+On my VM I counted 17500 iterations in one hash bucket and maxing out
+one CPU until I got rcu stalls and NMIs. In comparison: If I use the
+old hasing code I have max iterations of 370 and don't expirience any
+rcu stalls or NMIs (seems to be around 17500/64+-epsilon).
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index ba3c72f..c8b4895 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -38,8 +38,8 @@
- 
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 1
--#define _QLCNIC_LINUX_SUBVERSION 35
--#define QLCNIC_LINUX_VERSIONID  "5.1.35"
-+#define _QLCNIC_LINUX_SUBVERSION 36
-+#define QLCNIC_LINUX_VERSIONID  "5.1.36"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
--- 
-1.5.6
+I have not yet drawn my conclusion on this, yet, but I agree some list
+length limiting code would be useful independent of the hash function.
