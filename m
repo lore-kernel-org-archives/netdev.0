@@ -1,38 +1,50 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 1/4] net: Add skb_headers_offset_update helper
- function.
-Date: Thu, 7 Mar 2013 21:40:25 -0800
-Message-ID: <20130307214025.639c713c@nehalam.linuxnetplumber.net>
-References: <1362698500-2411-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [RFC PATCH v2 net-next 0/3] Allow bridge to function
+ in non-promisc mode
+Date: Thu, 7 Mar 2013 21:43:04 -0800
+Message-ID: <20130307214304.25e7784e@nehalam.linuxnetplumber.net>
+References: <1362691728-13289-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jesse@nicira.com
-To: Pravin B Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:54379 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751970Ab3CHFk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 00:40:28 -0500
-Received: by mail-pa0-f51.google.com with SMTP id hz1so1043396pad.10
-        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 21:40:27 -0800 (PST)
-In-Reply-To: <1362698500-2411-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1362691728-13289-1-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu,  7 Mar 2013 15:21:40 -0800
-Pravin B Shelar <pshelar@nicira.com> wrote:
+On Thu,  7 Mar 2013 16:28:45 -0500
+Vlad Yasevich <vyasevic@redhat.com> wrote:
 
-> +static void skb_headers_offset_update(struct sk_buff *skb, int off)
-> +{
-> +	/* {transport,network,mac}_header and tail are relative to skb->head */
-> +	skb->transport_header += off;
-> +	skb->network_header   += off;
-> +	if (skb_mac_header_was_set(skb))
-> +		skb->mac_header += off;
-> +	skb->inner_transport_header += off;
-> +	skb->inner_network_header += off;
-> +}
-> +
+> The series adds an ability to configure the bridge into a non-primiscuous
+> mode.   Instead, it provides the ability to identitfy some set of bridge
+> ports as uplinks and allows for MAC addresses to be programmed onto
+> those ports.  In case the port hardware does not support mac filter,
+> that port will be placed in promiscuous mode.
+> 
+> Default bridge operation continues to remain as "promiscuous".  The new
+> functionality has to be enabled via sysfs (similar to other bridge extensions).
+> 
+> The uplink mode is implemented as a flag on a bridge port.  The api to
+> change that flag follows the existing api to enable/disable other existing
+> flags.
+> 
+> All comments are welcome.
+> 
 
-Won't this cause an unused function warning if NET_SKBUFF_DATA_USES_OFFSET is defined?
+Can we make this a one step process and less visible to the user.
+If user defines an uplink device, and the uplink device is capable of filtering
+(and what ever other pre-conditions people can think of), then the bridge will
+transparently switch to uplink/non-promisc mode.  This can also be used to trigger
+edge only mode in RSTP in the future.
+
+Less knobs.
