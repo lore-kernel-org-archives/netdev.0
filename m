@@ -1,48 +1,44 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH net-next v4 4/4] ipv6: report sin6_scope_id if sockopt
- RECVORIGDSTADDR is set
-Date: Sat, 09 Mar 2013 01:30:42 +0900
-Message-ID: <513A1232.7040707@linux-ipv6.org>
-References: <20130308120726.GA5174@order.stressinduktion.org>
+Subject: Re: [PATCH net-next] ipv6: ndisc: remove redundant check for !dev->addr_len
+Date: Sat, 09 Mar 2013 01:31:53 +0900
+Message-ID: <513A1279.3040105@linux-ipv6.org>
+References: <85f9fbce9b5a6ccc4e75b05dab268076e0574abf.1362740080.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:60596 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:60628 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933136Ab3CHQan (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 11:30:43 -0500
-In-Reply-To: <20130308120726.GA5174@order.stressinduktion.org>
+	with ESMTP id S933136Ab3CHQby (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 11:31:54 -0500
+In-Reply-To: <85f9fbce9b5a6ccc4e75b05dab268076e0574abf.1362740080.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa wrote:
-> v4:
-> a) unchanged
+Thomas Graf wrote:
+> send_sllao is already initialized with the value of dev->addr_len
 > 
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 > ---
->  net/ipv6/datagram.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
+>  net/ipv6/ndisc.c | 2 --
+>  1 file changed, 2 deletions(-)
 > 
-> diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-> index b55e70a..4b56cbb 100644
-> --- a/net/ipv6/datagram.c
-> +++ b/net/ipv6/datagram.c
-> @@ -594,7 +594,9 @@ int ip6_datagram_recv_ctl(struct sock *sk, struct msghdr *msg,
->  			sin6.sin6_addr = ipv6_hdr(skb)->daddr;
->  			sin6.sin6_port = ports[1];
->  			sin6.sin6_flowinfo = 0;
-> -			sin6.sin6_scope_id = 0;
-> +			sin6.sin6_scope_id =
-> +				ipv6_iface_scope_id(&ipv6_hdr(skb)->daddr,
-> +						    opt->iif);
->  
->  			put_cmsg(msg, SOL_IPV6, IPV6_ORIGDSTADDR, sizeof(sin6), &sin6);
+> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+> index 76ef435..2712ab2 100644
+> --- a/net/ipv6/ndisc.c
+> +++ b/net/ipv6/ndisc.c
+> @@ -610,8 +610,6 @@ void ndisc_send_rs(struct net_device *dev, const struct in6_addr *saddr,
 >  		}
+>  	}
+>  #endif
+> -	if (!dev->addr_len)
+> -		send_sllao = 0;
+>  	if (send_sllao)
+>  		optlen += ndisc_opt_addr_space(dev);
+>  
 > 
 Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
