@@ -1,47 +1,40 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net] bridge: do not expire mdb entry when
- bridge still uses it
-Date: Fri, 08 Mar 2013 15:26:21 +0800
-Message-ID: <1362727581.3237.4.camel@cr0>
-References: <1362708423-23932-1-git-send-email-amwang@redhat.com>
-	<20130308023151.GA27155@gondor.apana.org.au>
-	<1362710646.9773.25.camel@cr0>
-	<20130308024726.GA27319@gondor.apana.org.au>
-	<1362715613.9773.29.camel@cr0>
-	<20130308040853.GA27704@gondor.apana.org.au>
+From: Xufeng Zhang <xufeng.zhang@windriver.com>
+Subject: [PATCH] sctp: don't break the loop while meeting the active_path so as to find the matched transport
+Date: Fri, 8 Mar 2013 15:39:37 +0800
+Message-ID: <1362728377-11025-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
-	Adam Baker <linux@baker-net.org.uk>
-To: Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130308040853.GA27704@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: <linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
+	<davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-03-08 at 12:08 +0800, Herbert Xu wrote:
-> On Fri, Mar 08, 2013 at 12:06:53PM +0800, Cong Wang wrote:
-> > 
-> > The mdst may be removed, however the BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)
-> > is still set, because in br_multicast_ipv4_rcv():
-> 
-> But those packets are only meant for routers, which is why we
-> have the br_multicast_is_router test above.
-> 
+sctp_assoc_lookup_tsn() function searchs which transport a certain TSN
+was sent on, if not found in the active_path transport, then go search
+all the other transports in the peer's transport_addr_list, however, we
+should continue to the next entry rather than break the loop when meet
+the active_path transport.
 
-Hmm, what the user experiences is the multicast traffic between the
-bridge and some port is broken. Isn't this expected to work by default?
+Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
+---
+ net/sctp/associola.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Or we can just change the default value of br->multicast_router to 2?
-
-Thanks!
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 43cd0dd..d2709e2 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -1079,7 +1079,7 @@ struct sctp_transport *sctp_assoc_lookup_tsn(struct sctp_association *asoc,
+ 			transports) {
+ 
+ 		if (transport == active)
+-			break;
++			continue;
+ 		list_for_each_entry(chunk, &transport->transmitted,
+ 				transmitted_list) {
+ 			if (key == chunk->subh.data_hdr->tsn) {
+-- 
+1.7.0.2
