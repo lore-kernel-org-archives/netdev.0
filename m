@@ -1,37 +1,50 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] ipv6: ndisc: remove redundant check for !dev->addr_len
-Date: Fri,  8 Mar 2013 12:03:46 +0100
-Message-ID: <85f9fbce9b5a6ccc4e75b05dab268076e0574abf.1362740080.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:52092
-	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932087Ab3CHLDx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 06:03:53 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Patch net] bridge: do not expire mdb entry when
+ bridge still uses it
+Date: Fri, 8 Mar 2013 19:24:38 +0800
+Message-ID: <20130308112438.GA29924@gondor.apana.org.au>
+References: <1362708423-23932-1-git-send-email-amwang@redhat.com>
+	<20130308023151.GA27155@gondor.apana.org.au>
+	<1362710646.9773.25.camel@cr0>
+	<20130308024726.GA27319@gondor.apana.org.au>
+	<1362715613.9773.29.camel@cr0>
+	<20130308040853.GA27704@gondor.apana.org.au>
+	<1362727581.3237.4.camel@cr0>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1362727581.3237.4.camel@cr0>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-send_sllao is already initialized with the value of dev->addr_len
+On Fri, Mar 08, 2013 at 03:26:21PM +0800, Cong Wang wrote:
+>
+> Hmm, what the user experiences is the multicast traffic between the
+> bridge and some port is broken. Isn't this expected to work by default?
 
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- net/ipv6/ndisc.c | 2 --
- 1 file changed, 2 deletions(-)
+Oh I'm not arguing that this isn't a bug.  I'm trying to ensure
+that we come up with the right fix.
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 76ef435..2712ab2 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -610,8 +610,6 @@ void ndisc_send_rs(struct net_device *dev, const struct in6_addr *saddr,
- 		}
- 	}
- #endif
--	if (!dev->addr_len)
--		send_sllao = 0;
- 	if (send_sllao)
- 		optlen += ndisc_opt_addr_space(dev);
- 
+> Or we can just change the default value of br->multicast_router to 2?
+
+No because that will cause all sorts of stuff to be thrown at
+the host.
+
+Cheers,
 -- 
-1.7.11.7
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
