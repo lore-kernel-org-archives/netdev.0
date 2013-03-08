@@ -1,46 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tg3: Update link_up flag for phylib devices
-Date: Fri, 08 Mar 2013 13:15:42 -0500 (EST)
-Message-ID: <20130308.131542.1894554320106573944.davem@davemloft.net>
-References: <1362765684-5265-1-git-send-email-nsujir@broadcom.com>
+From: <daveo@ll.mit.edu>
+Subject: [PATCH] rrunner.c: fix possible memory leak in rr_init_one()
+Date: Fri, 8 Mar 2013 13:28:15 -0500
+Message-ID: <1362767295-16334-1-git-send-email-daveo@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hirofumi@mail.parknet.co.jp,
-	stable@vger.kernel.org, mchan@broadcom.com
-To: nsujir@broadcom.com
+Content-Type: text/plain
+Cc: <jes@trained-monkey.org>, David Oostdyk <daveo@ll.mit.edu>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57624 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934561Ab3CHSPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 13:15:44 -0500
-In-Reply-To: <1362765684-5265-1-git-send-email-nsujir@broadcom.com>
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:49732 "EHLO mx2.ll.mit.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759867Ab3CHS23 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Mar 2013 13:28:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Date: Fri, 8 Mar 2013 10:01:24 -0800
+From: David Oostdyk <daveo@ll.mit.edu>
 
-> Commit f4a46d1f46a8fece34edd2023e054072b02e110d introduced a bug where
-> the ifconfig stats would remain 0 for phylib devices. This is due to
-> tp->link_up flag never becoming true causing tg3_periodic_fetch_stats()
-> to return.
-> 
-> The link_up flag was being updated in tg3_test_and_report_link_chg()
-> after setting up the phy. This function however, is not called for
-> phylib devices since the driver does not do the phy setup.
-> 
-> This patch moves the link_up flag update into the common
-> tg3_link_report() function that gets called for phylib devices as well
-> for non phylib devices when the link state changes.
-> 
-> To avoid updating link_up twice, we replace tg3_carrier_...() calls that
-> are followed by tg3_link_report(), with netif_carrier_...(). We can then
-> remove the unused tg3_carrier_on() function.
-> 
-> CC: <stable@vger.kernel.org>
-> Reported-by: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+In the event that register_netdev() failed, the rrpriv->evt_ring
+allocation would have not been freed.
 
-Applied, thanks.
+Signed-off-by: David Oostdyk <daveo@ll.mit.edu>
+---
+ drivers/net/hippi/rrunner.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/hippi/rrunner.c b/drivers/net/hippi/rrunner.c
+index d471963..970595a 100644
+--- a/drivers/net/hippi/rrunner.c
++++ b/drivers/net/hippi/rrunner.c
+@@ -203,6 +203,9 @@ static int __devinit rr_init_one(struct pci_dev *pdev,
+ 	return 0;
+ 
+  out:
++	if (rrpriv->evt_ring)
++		pci_free_consistent(pdev, EVT_RING_SIZE, rrpriv->evt_ring,
++				    rrpriv->evt_ring_dma);
+ 	if (rrpriv->rx_ring)
+ 		pci_free_consistent(pdev, RX_TOTAL_SIZE, rrpriv->rx_ring,
+ 				    rrpriv->rx_ring_dma);
+-- 
+1.8.1.5
