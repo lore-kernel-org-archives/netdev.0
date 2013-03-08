@@ -1,67 +1,66 @@
-From: dormando <dormando@rydia.net>
-Subject: Re: BUG: IPv4: Attempt to release TCP socket in state 1
-Date: Thu, 7 Mar 2013 23:09:26 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1303072307580.11964@dflat>
-References: <alpine.DEB.2.02.1303041547080.7811@localhost6.localdomain6>    <51356AC1.4090302@gmail.com>  <1362460046.15793.111.camel@edumazet-glaptop>   <alpine.DEB.2.02.1303042138330.7811@localhost6.localdomain6>  <1362494795.15793.113.camel@edumazet-glaptop>
-  <alpine.DEB.2.02.1303061631290.6723@dflat> <1362663990.15793.208.camel@edumazet-glaptop>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [net-next.git 0/9] stmmac: update to March_2013 (adding PTP &
+ RGMII/SGMII)
+Date: Fri, 08 Mar 2013 08:16:24 +0100
+Message-ID: <51399048.3070505@st.com>
+References: <1362653419-1047-1-git-send-email-peppe.cavallaro@st.com> <20130307.153456.83724032858548621.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1362663990.15793.208.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bh74.an@samsung.com,
+	Rayagond K <rayagond@vayavyalabs.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from beta.dmz-eu.st.com ([164.129.1.35]:46827 "EHLO
+	beta.dmz-eu.st.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754267Ab3CHHQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 02:16:41 -0500
+In-Reply-To: <20130307.153456.83724032858548621.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Wed, 2013-03-06 at 16:41 -0800, dormando wrote:
->
-> > Ok... bridge module is loaded but nothing seems to be using it. No
-> > bond/tunnels/anything enabled. I couldn't quickly figure out what was
-> > causing it to load.
-> >
-> > We removed the need for macvlan, started machines with a fresh boot, and
-> > they still crashed without it, after a few hours.
-> >
-> > Unfortunately I just saw a machine crash in the same way on 3.6.6 and
-> > 3.6.9. I'm working on getting a completely pristine 3.6.6 and 3.6.9
-> > tested. Our patches are minor but there were a few, so I'm backing it all
-> > out just to be sure.
-> >
-> > Is there anything in particular which is most interesting? I can post lots
-> > and lots and lots of information. Sadly bridge/macvlan weren't part of the
-> > problem. .config, sysctls are easiest I guess? When this "hang" happens
-> > the machine is still up somewhat, but we lose access to it. Syslog is
-> > still writing entries to disk occasionally, so it's possible we could set
-> > something up to dump more information.
-> >
-> > It takes a day or two to cycle this, so it might take a while to get
-> > information and test crashes.
->
-> Thanks !
->
-> Please add a stack trace, it might help :
->
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 68f6a94..1d4d97e 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -141,8 +141,9 @@ void inet_sock_destruct(struct sock *sk)
->  	sk_mem_reclaim(sk);
->
->  	if (sk->sk_type == SOCK_STREAM && sk->sk_state != TCP_CLOSE) {
-> -		pr_err("Attempt to release TCP socket in state %d %p\n",
-> -		       sk->sk_state, sk);
-> +		pr_err("Attempt to release TCP socket family %d in state %d %p\n",
-> +		       sk->sk_family, sk->sk_state, sk);
-> +		WARN_ON_ONCE(1);
->  		return;
->  	}
->  	if (!sock_flag(sk, SOCK_DEAD)) {
+Hello David
 
-Ok. I have a pristine 3.6.6 up and testing now... It definitely looks like
-we've been having this crash for quite a while, but much more rarely.
-Recent changes in traffic have made it worse. I'll try your patch soon.
+On 3/7/2013 9:34 PM, David Miller wrote:
+> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+> Date: Thu,  7 Mar 2013 11:50:10 +0100
+>
+>> The PTP support is quite intrusive because it needs to support the extended
+>> descriptors used for saving the HW timestamps.
+>> These are available in new chip generations, only.
+>> So we have actually found useful to use some Kconfig options to
+>> surround PTP and extended descriptor support. This approach helped on
+>> old platform (embeeded system) where PTP is not supported and where we
+>> do not want to pay extra code and check in critical rx/tx paths.
+>
+> I would prefer run time handling of all of this.
+>
+> You do not need to put extra checks in the fast paths, instead you
+> have different methods that get hooked up into the netdev_ops
+> based upon chip capabilities/features/mode.
 
-It'll take a few days to reproduce. I'll be back (ho ho ho). Please ping
-with any ideas you folks might have in the meantime :(
+I don't also like to see ifdef in C code and I always tried to
+avoid them in the stmmac.
+
+Indeed I haven't well explained the main reason of this Kconfig. Sorry!
+
+To support PTPv2, we need to change the main descriptor structure
+adding new fields (DES4,5,6,7).
+
+    The DESC4 is used for saving some extra information. For this reason
+    I added this support in a separate patch.
+    The DES6/7 are used for saving HW timestamps.
+
+Unfortunately this new layout breaks the compatibility with old chips.
+
+On new chips that supports the extended descriptors, in fact, we have a
+ATDS bit in the DMA MODE register to allow the DMA to use the new
+alternate structure.
+This is not completely supported in old chips.
+For this reason I decided to add these extra Koption.
+
+Welcome advice.
+
+Peppe
+>
+> Thanks.
