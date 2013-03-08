@@ -1,94 +1,147 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash table
-Date: Fri, 8 Mar 2013 14:04:33 +0100
-Message-ID: <20130308130433.GB28531@order.stressinduktion.org>
-References: <20130307214211.GP7941@order.stressinduktion.org> <20130308055718.GA28531@order.stressinduktion.org>
+From: Prabhakar Lad <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 6/6] ARM: davinci: da850: configure system
+ configuration chip(CFGCHIP3) for emac
+Date: Fri, 8 Mar 2013 18:58:33 +0530
+Message-ID: <CA+V-a8uUFRRKrGRyq3wDs8ks_GzaGZGrTz+SoW9b2VQ8pb+DxA@mail.gmail.com>
+References: <1359380879-26306-1-git-send-email-prabhakar.lad@ti.com>
+ <1359380879-26306-7-git-send-email-prabhakar.lad@ti.com>
+ <510E5BCF.9080006@ti.com>
+ <CA+V-a8uE6jymk5Z14ydCmuoCAkcLM-ZJKpwp2-0CRXWQtXvTSA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	yoshfuji@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:51243 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933875Ab3CHNEe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 08:04:34 -0500
-Content-Disposition: inline
-In-Reply-To: <20130308055718.GA28531@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <CA+V-a8uE6jymk5Z14ydCmuoCAkcLM-ZJKpwp2-0CRXWQtXvTSA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 08, 2013 at 06:57:18AM +0100, Hannes Frederic Sowa wrote:
-> On Thu, Mar 07, 2013 at 10:42:11PM +0100, Hannes Frederic Sowa wrote:
-> > ipv6_addr_hash can yield the exact same hash value for countless ip
-> > addresses from one /64 subnet. Let's make it a bit harder to create a
-> > long list of reassembly queues in the hash table by using a stronger hash.
-> > 
-> > I spotted this just by looking at the source and did not verify if it
-> > is really the case, so this patch has RFC status. But the jhash change
-> > should not really hurt anyway. This patch is only compile tested.
-> 
-> Hmpf, I haven't seen Eric's change(279e9f2: ipv6: optimize
-> inet6_hash_frag()) and tried to compare a v3.8 against a net-next
-> kernel. At a first sight, it seems in some kind of denial of service
-> scenario the relative amount of time spend in inet_frag_find increased,
-> but I will do more comparable benchmarks later today (could be also
-> because of other changes). I just wanted to let you know that I will do
-> more research on this one and that you shouldn't apply this patch for now.
-> 
-> I also noticed that this function is also used by netfilter in the
-> forwarding path. Perhaps a jenkins hash on the destination address would
-> be better, too. Perhaps a netfilter specific hash function could also
-> be used.
+Sekhar,
 
-Getting benchmarks on my box is actually pretty hairy without burning
-it down. :)
+On Mon, Feb 4, 2013 at 10:33 AM, Prabhakar Lad
+<prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> Sekhar ,
+>
+> On Sun, Feb 3, 2013 at 6:15 PM, Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org> wrote:
+>> On 1/28/2013 7:17 PM, Prabhakar Lad wrote:
+>>> From: Lad, Prabhakar <prabhakar.lad-l0cyMroinI0@public.gmane.org>
+>>>
+>>> The system configuration chip CFGCHIP3, controls the emac module.
+>>> This patch appropriately configures this register for emac and
+>>> sets DA850_MII_MDIO_CLKEN_PIN GPIO pin appropriately.
+>>>
+>>> Signed-off-by: Lad, Prabhakar <prabhakar.lad-l0cyMroinI0@public.gmane.org>
+>>> Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+>>> Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>>> Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+>>> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>>> Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+>>> Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+>>> Cc: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+>>> ---
+>>>  arch/arm/mach-davinci/da8xx-dt.c |   28 ++++++++++++++++++++++++++++
+>>>  1 files changed, 28 insertions(+), 0 deletions(-)
+>>>
+>>> diff --git a/arch/arm/mach-davinci/da8xx-dt.c b/arch/arm/mach-davinci/da8xx-dt.c
+>>> index e533a0a..4a096e3 100644
+>>> --- a/arch/arm/mach-davinci/da8xx-dt.c
+>>> +++ b/arch/arm/mach-davinci/da8xx-dt.c
+>>> @@ -8,6 +8,7 @@
+>>>   * published by the Free Software Foundation.
+>>>   */
+>>>  #include <linux/io.h>
+>>> +#include <linux/gpio.h>
+>>>  #include <linux/of_irq.h>
+>>>  #include <linux/of_platform.h>
+>>>  #include <linux/irqdomain.h>
+>>> @@ -39,6 +40,32 @@ static void __init da8xx_init_irq(void)
+>>>
+>>>  #ifdef CONFIG_ARCH_DAVINCI_DA850
+>>>
+>>> +static void __init da8xx_config_emac(void)
+>>> +{
+>>> +#define DA850_MII_MDIO_CLKEN_PIN     GPIO_TO_PIN(2, 6)
+>>> +#define DA850_EMAC_MODE_SELECT               BIT(8)
+>>> +     void __iomem *cfg_chip3_base;
+>>> +     int ret;
+>>> +     u32 val;
+>>> +
+>>> +     cfg_chip3_base = DA8XX_SYSCFG0_VIRT(DA8XX_CFGCHIP3_REG);
+>>> +
+>>> +     val = __raw_readl(cfg_chip3_base);
+>>> +     val &= ~DA850_EMAC_MODE_SELECT;
+>>> +     /* configure the CFGCHIP3 register for MII */
+>>> +     __raw_writel(val, cfg_chip3_base);
+>>
+>> Use readl/writel instead.
+>>
+> Ok.
+>
+>>> +     pr_info("EMAC: MII PHY configured\n");
+>>> +
+>>> +     ret = gpio_request(DA850_MII_MDIO_CLKEN_PIN, "mdio_clk_en");
+>>> +     if (ret) {
+>>> +             pr_warn("Cannot open GPIO %d\n",
+>>> +                                     DA850_MII_MDIO_CLKEN_PIN);
+>>> +             return;
+>>> +     }
+>>> +     /* Enable/Disable MII MDIO clock */
+>>> +     gpio_direction_output(DA850_MII_MDIO_CLKEN_PIN, 0);
+>>> +}
+>>> +
+>>>  struct of_dev_auxdata da8xx_auxdata[] __initdata = {
+>>>       OF_DEV_AUXDATA("ti,davinci_mdio", 0x01e24000, "davinci_mdio.0", NULL),
+>>>       OF_DEV_AUXDATA("ti,davinci-dm6467-emac", 0x01e20000, "davinci_emac.1",
+>>> @@ -52,6 +79,7 @@ static void __init da850_init_machine(void)
+>>>                            da8xx_auxdata, NULL);
+>>>
+>>>       da8xx_uart_clk_enable();
+>>> +     da8xx_config_emac();
+>>
+>> There are couple of issues with this implementation.
+>>
+>> 1) da8xx_config_emac() is specific to DA850 EVM, but masquerades as
+>>    generic for da8xx. Looks like you need two functions, one for soc
+>>    specific configuration and one board specific.
+> Ok.
+>
+>> 2) da8xx_config_emac() goes through all the time, whether the
+>>    particular board has emac module or not. Shouldn't
+>>    da8xx_config_emac() check if emac is actually enabled in the passed
+>>    dtb and only the do the configuration?
+>
+> Ok. Can you give some pointers how we can access the dtb in board files.
+>
+Any pointers on this could be helpful.
 
-Generating a flow of fragmented packets with frag_id set to zero and ipv6
-addresses which generate the same ipv6_addr_hash I gathered this from a debug
-printk in inet6_hash_frag (current version from net-next):
+Regards,
+--Prabhakar
 
-[   25.992202] FRAG6: hash -635286572
-[   25.992218] FRAG6: hash -635286572
-[   25.992237] FRAG6: hash -635286572
-[   25.992253] FRAG6: hash -635286572
-[   25.992273] FRAG6: hash -635286572
-[   25.992289] FRAG6: hash -635286572
-[   25.992309] FRAG6: hash -635286572
-[   25.992327] FRAG6: hash -635286572
-[   25.992347] FRAG6: hash -635286572
-[   25.992363] FRAG6: hash -635286572
-[   25.992382] FRAG6: hash -635286572
-[   25.992398] FRAG6: hash -635286572
-
-With the patches reverted:
-
-[   39.770790] FRAG6: hash 1323153854
-[   39.773691] FRAG6: hash 1323153854
-[   39.776413] FRAG6: hash 977187067
-[   39.778782] FRAG6: hash 977187067
-[   39.781298] FRAG6: hash -1226453562
-[   39.784043] FRAG6: hash -1226453562
-[   39.786443] FRAG6: hash -923346920
-[   39.789431] FRAG6: hash -923346920
-[   39.792205] FRAG6: hash 282862966
-[   39.794918] FRAG6: hash 282862966
-[   39.797749] FRAG6: hash -1059175404
-[   39.800054] FRAG6: hash -1059175404
-[   39.802904] FRAG6: hash -1085381868
-
-It is pretty simple to generate a source of different addresses that yield to
-the same hash value.
-
-So I am in favour to revert the optimization changes in 279e9f2. It seems that
-even ipv6_addr_jhash is not strong enough when used in the forwarding path for
-reassembly, because of the xor of the most significant 32 bits of the address.
-
-Quick test program is here: https://gist.github.com/hannes/5116331
-
-Ok if I send a patch later to revert this change? What do you think about
-increasing the size of the fragmentation queue hash table INETFRAGS_HASHSZ,
-too?
-
-Thanks,
-
-  Hannes
+>> 3) The function assumes mii is used always, you can use the rmii_en dt
+>>    property to check if rmii/mii is enabled and configure the soc/board
+>>    accordingly.
+>
+> Ok.
+>
+>> 4) If the same function can work both for da850 and da830, then it can
+>>    be implemented outside of CONFIG_ARCH_DAVINCI_DA850.
+>>
+> Ok.
+>
+> Regards,
+> --Prabhakar
+>
+>> Thanks,
+>> Sekhar
