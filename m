@@ -1,147 +1,69 @@
-From: Prabhakar Lad <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 6/6] ARM: davinci: da850: configure system
- configuration chip(CFGCHIP3) for emac
-Date: Fri, 8 Mar 2013 18:58:33 +0530
-Message-ID: <CA+V-a8uUFRRKrGRyq3wDs8ks_GzaGZGrTz+SoW9b2VQ8pb+DxA@mail.gmail.com>
-References: <1359380879-26306-1-git-send-email-prabhakar.lad@ti.com>
- <1359380879-26306-7-git-send-email-prabhakar.lad@ti.com>
- <510E5BCF.9080006@ti.com>
- <CA+V-a8uE6jymk5Z14ydCmuoCAkcLM-ZJKpwp2-0CRXWQtXvTSA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <CA+V-a8uE6jymk5Z14ydCmuoCAkcLM-ZJKpwp2-0CRXWQtXvTSA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH net-next] cxgb4: Allow for backward compatibility with new VPD scheme.
+Date: Fri,  8 Mar 2013 19:05:29 +0530
+Message-ID: <1362749729-4532-1-git-send-email-vipul@chelsio.com>
+Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
+	abhishek@chelsio.com, Santosh Rastapur <santosh@chelsio.com>,
+	Vipul Pandya <vipul@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:13386 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932887Ab3CHNlG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 08:41:06 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sekhar,
+From: Santosh Rastapur <santosh@chelsio.com>
 
-On Mon, Feb 4, 2013 at 10:33 AM, Prabhakar Lad
-<prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> Sekhar ,
->
-> On Sun, Feb 3, 2013 at 6:15 PM, Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org> wrote:
->> On 1/28/2013 7:17 PM, Prabhakar Lad wrote:
->>> From: Lad, Prabhakar <prabhakar.lad-l0cyMroinI0@public.gmane.org>
->>>
->>> The system configuration chip CFGCHIP3, controls the emac module.
->>> This patch appropriately configures this register for emac and
->>> sets DA850_MII_MDIO_CLKEN_PIN GPIO pin appropriately.
->>>
->>> Signed-off-by: Lad, Prabhakar <prabhakar.lad-l0cyMroinI0@public.gmane.org>
->>> Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
->>> Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->>> Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
->>> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->>> Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
->>> Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
->>> Cc: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
->>> ---
->>>  arch/arm/mach-davinci/da8xx-dt.c |   28 ++++++++++++++++++++++++++++
->>>  1 files changed, 28 insertions(+), 0 deletions(-)
->>>
->>> diff --git a/arch/arm/mach-davinci/da8xx-dt.c b/arch/arm/mach-davinci/da8xx-dt.c
->>> index e533a0a..4a096e3 100644
->>> --- a/arch/arm/mach-davinci/da8xx-dt.c
->>> +++ b/arch/arm/mach-davinci/da8xx-dt.c
->>> @@ -8,6 +8,7 @@
->>>   * published by the Free Software Foundation.
->>>   */
->>>  #include <linux/io.h>
->>> +#include <linux/gpio.h>
->>>  #include <linux/of_irq.h>
->>>  #include <linux/of_platform.h>
->>>  #include <linux/irqdomain.h>
->>> @@ -39,6 +40,32 @@ static void __init da8xx_init_irq(void)
->>>
->>>  #ifdef CONFIG_ARCH_DAVINCI_DA850
->>>
->>> +static void __init da8xx_config_emac(void)
->>> +{
->>> +#define DA850_MII_MDIO_CLKEN_PIN     GPIO_TO_PIN(2, 6)
->>> +#define DA850_EMAC_MODE_SELECT               BIT(8)
->>> +     void __iomem *cfg_chip3_base;
->>> +     int ret;
->>> +     u32 val;
->>> +
->>> +     cfg_chip3_base = DA8XX_SYSCFG0_VIRT(DA8XX_CFGCHIP3_REG);
->>> +
->>> +     val = __raw_readl(cfg_chip3_base);
->>> +     val &= ~DA850_EMAC_MODE_SELECT;
->>> +     /* configure the CFGCHIP3 register for MII */
->>> +     __raw_writel(val, cfg_chip3_base);
->>
->> Use readl/writel instead.
->>
-> Ok.
->
->>> +     pr_info("EMAC: MII PHY configured\n");
->>> +
->>> +     ret = gpio_request(DA850_MII_MDIO_CLKEN_PIN, "mdio_clk_en");
->>> +     if (ret) {
->>> +             pr_warn("Cannot open GPIO %d\n",
->>> +                                     DA850_MII_MDIO_CLKEN_PIN);
->>> +             return;
->>> +     }
->>> +     /* Enable/Disable MII MDIO clock */
->>> +     gpio_direction_output(DA850_MII_MDIO_CLKEN_PIN, 0);
->>> +}
->>> +
->>>  struct of_dev_auxdata da8xx_auxdata[] __initdata = {
->>>       OF_DEV_AUXDATA("ti,davinci_mdio", 0x01e24000, "davinci_mdio.0", NULL),
->>>       OF_DEV_AUXDATA("ti,davinci-dm6467-emac", 0x01e20000, "davinci_emac.1",
->>> @@ -52,6 +79,7 @@ static void __init da850_init_machine(void)
->>>                            da8xx_auxdata, NULL);
->>>
->>>       da8xx_uart_clk_enable();
->>> +     da8xx_config_emac();
->>
->> There are couple of issues with this implementation.
->>
->> 1) da8xx_config_emac() is specific to DA850 EVM, but masquerades as
->>    generic for da8xx. Looks like you need two functions, one for soc
->>    specific configuration and one board specific.
-> Ok.
->
->> 2) da8xx_config_emac() goes through all the time, whether the
->>    particular board has emac module or not. Shouldn't
->>    da8xx_config_emac() check if emac is actually enabled in the passed
->>    dtb and only the do the configuration?
->
-> Ok. Can you give some pointers how we can access the dtb in board files.
->
-Any pointers on this could be helpful.
+New scheme calls for 3rd party VPD at offset 0x0 and Chelsio VPD at offset
+0x400 of the function.  If no 3rd party VPD is present, then a copy of
+Chelsio's VPD will be at offset 0x0 to keep in line with PCI spec which
+requires the VPD to be present at offset 0x0.
 
-Regards,
---Prabhakar
+Signed-off-by: Santosh Rastapur <santosh@chelsio.com>
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
 
->> 3) The function assumes mii is used always, you can use the rmii_en dt
->>    property to check if rmii/mii is enabled and configure the soc/board
->>    accordingly.
->
-> Ok.
->
->> 4) If the same function can work both for da850 and da830, then it can
->>    be implemented outside of CONFIG_ARCH_DAVINCI_DA850.
->>
-> Ok.
->
-> Regards,
-> --Prabhakar
->
->> Thanks,
->> Sekhar
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 4ce6203..8049268 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -497,8 +497,9 @@ int t4_memory_write(struct adapter *adap, int mtype, u32 addr, u32 len,
+ }
+ 
+ #define EEPROM_STAT_ADDR   0x7bfc
+-#define VPD_BASE           0
+ #define VPD_LEN            512
++#define VPD_BASE           0x400
++#define VPD_BASE_OLD       0
+ 
+ /**
+  *	t4_seeprom_wp - enable/disable EEPROM write protection
+@@ -524,7 +525,7 @@ int t4_seeprom_wp(struct adapter *adapter, bool enable)
+ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ {
+ 	u32 cclk_param, cclk_val;
+-	int i, ret;
++	int i, ret, addr;
+ 	int ec, sn;
+ 	u8 *vpd, csum;
+ 	unsigned int vpdr_len, kw_offset, id_len;
+@@ -533,7 +534,12 @@ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ 	if (!vpd)
+ 		return -ENOMEM;
+ 
+-	ret = pci_read_vpd(adapter->pdev, VPD_BASE, VPD_LEN, vpd);
++	ret = pci_read_vpd(adapter->pdev, VPD_BASE, sizeof(u32), vpd);
++	if (ret < 0)
++		goto out;
++	addr = *vpd == 0x82 ? VPD_BASE : VPD_BASE_OLD;
++
++	ret = pci_read_vpd(adapter->pdev, addr, VPD_LEN, vpd);
+ 	if (ret < 0)
+ 		goto out;
+ 
+-- 
+1.7.1
