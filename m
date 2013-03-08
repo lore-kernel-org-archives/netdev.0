@@ -1,59 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Patch net] bridge: do not expire mdb entry when bridge still
- uses it
-Date: Fri, 8 Mar 2013 12:08:53 +0800
-Message-ID: <20130308040853.GA27704@gondor.apana.org.au>
-References: <1362708423-23932-1-git-send-email-amwang@redhat.com>
- <20130308023151.GA27155@gondor.apana.org.au>
- <1362710646.9773.25.camel@cr0>
- <20130308024726.GA27319@gondor.apana.org.au>
- <1362715613.9773.29.camel@cr0>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [PATCH v2] drivers/isdn: checkng length to be sure not memory overflow
+Date: Fri, 08 Mar 2013 12:25:41 +0800
+Message-ID: <51396845.3050600@asianux.com>
+References: <512DCC4A.6060106@asianux.com> <512DD66E.4040409@suse.cz> <512DDF03.10107@asianux.com> <512DE380.8080804@suse.cz> <512EB6CA.6030609@asianux.com> <512F2AA7.4040204@suse.cz> <512F38F8.2060804@asianux.com> <512F5F14.6070801@suse.cz> <51355653.9090404@asianux.com> <5135BC3F.8070507@suse.cz> <513813F5.5040806@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Adam Baker <linux@baker-net.org.uk>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Kosina <jkosina@suse.cz>, isdn@linux-pingi.de,
+	Greg KH <gregkh@linuxfoundation.org>, alan@linux.intel.com,
+	netdev <netdev@vger.kernel.org>
+To: Jiri Slaby <jslaby@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sting.hengli.com.au ([178.18.18.71]:48536 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758750Ab3CHEI5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 23:08:57 -0500
-Content-Disposition: inline
-In-Reply-To: <1362715613.9773.29.camel@cr0>
+Received: from intranet.asianux.com ([58.214.24.6]:55143 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756235Ab3CHE0G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 23:26:06 -0500
+In-Reply-To: <513813F5.5040806@asianux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 08, 2013 at 12:06:53PM +0800, Cong Wang wrote:
-> On Fri, 2013-03-08 at 10:47 +0800, Herbert Xu wrote:
-> > On Fri, Mar 08, 2013 at 10:44:06AM +0800, Cong Wang wrote:
-> > >
-> > > This is a good question. It is due to inside br_handle_frame_finish() we
-> > > use 'skb2' to decide if we deliver packets to bridge itself, and in this
-> > > case 'skb2' is non-NULL only when:
-> > > 
-> > >                 if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
-> > >                         if ((mdst && mdst->mglist) ||
-> > >                             br_multicast_is_router(br))
-> > >                                 skb2 = skb; //        <======== HERE
-> > >                         br_multicast_forward(mdst, skb, skb2);
-> > > 
-> > > For other ports, br_multicast_forward() will always forward 'skb' to
-> > > them.
-> > 
-> > Yes but the point is that other ports should also expire after the
-> > timeout and thus be removed from mdst.  So why is this only happening
-> > for the bridge aka mdst->mglist?
-> 
-> The mdst may be removed, however the BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)
-> is still set, because in br_multicast_ipv4_rcv():
 
-But those packets are only meant for routers, which is why we
-have the br_multicast_is_router test above.
+  sizeof (cmd.parm.cmsg.para) is 50 (MAX_CAPI_PARA_LEN).
+  sizeof (cmd.parm) is 80+, but less than 100.
+  strlen(msg) may be more than 80+ (Modem-Commandbuffer, less than 255).
+    isdn_tty_send_msg is called by isdn_tty_parse_at
+    the relative parameter is m->mdmcmd (atemu *m)
+    the relative command may be "+M..."
 
-Cheers,
+  so need check the length to be sure not memory overflow.
+    cmd.parm is a union, and need keep original valid buffer length no touch
+
+
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+---
+ drivers/isdn/i4l/isdn_tty.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/isdn/i4l/isdn_tty.c b/drivers/isdn/i4l/isdn_tty.c
+index d8a7d83..ebaebdf 100644
+--- a/drivers/isdn/i4l/isdn_tty.c
++++ b/drivers/isdn/i4l/isdn_tty.c
+@@ -902,7 +902,9 @@ isdn_tty_send_msg(modem_info *info, atemu *m, char *msg)
+ 	int j;
+ 	int l;
+ 
+-	l = strlen(msg);
++	l = min(strlen(msg), sizeof(cmd.parm) - sizeof(cmd.parm.cmsg)
++		+ sizeof(cmd.parm.cmsg.para) - 2);
++
+ 	if (!l) {
+ 		isdn_tty_modem_result(RESULT_ERROR, info);
+ 		return;
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.7.6
