@@ -1,44 +1,35 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH net-next] ipv6: ndisc: remove redundant check for !dev->addr_len
-Date: Sat, 09 Mar 2013 01:31:53 +0900
-Message-ID: <513A1279.3040105@linux-ipv6.org>
-References: <85f9fbce9b5a6ccc4e75b05dab268076e0574abf.1362740080.git.tgraf@suug.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netlabel: fix build problems when CONFIG_IPV6=n
+Date: Fri, 08 Mar 2013 11:34:24 -0500 (EST)
+Message-ID: <20130308.113424.1010918003475786431.davem@davemloft.net>
+References: <20130308144539.16729.15070.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, fengguang.wu@intel.com
+To: pmoore@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:60628 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933136Ab3CHQby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 11:31:54 -0500
-In-Reply-To: <85f9fbce9b5a6ccc4e75b05dab268076e0574abf.1362740080.git.tgraf@suug.ch>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56293 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933136Ab3CHQeZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 11:34:25 -0500
+In-Reply-To: <20130308144539.16729.15070.stgit@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thomas Graf wrote:
-> send_sllao is already initialized with the value of dev->addr_len
+From: Paul Moore <pmoore@redhat.com>
+Date: Fri, 08 Mar 2013 09:45:39 -0500
+
+> My last patch to solve a problem where the static/fallback labels were
+> not fully displayed resulted in build problems when IPv6 was disabled.
+> This patch resolves the IPv6 build problems; sorry for the screw-up.
 > 
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
->  net/ipv6/ndisc.c | 2 --
->  1 file changed, 2 deletions(-)
+> Please queue for -stable or simply merge with the previous patch.
 > 
-> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-> index 76ef435..2712ab2 100644
-> --- a/net/ipv6/ndisc.c
-> +++ b/net/ipv6/ndisc.c
-> @@ -610,8 +610,6 @@ void ndisc_send_rs(struct net_device *dev, const struct in6_addr *saddr,
->  		}
->  	}
->  #endif
-> -	if (!dev->addr_len)
-> -		send_sllao = 0;
->  	if (send_sllao)
->  		optlen += ndisc_opt_addr_space(dev);
->  
-> 
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Reported-by: Kbuild Test Robot <fengguang.wu@intel.com>
+> Signed-off-by: Paul Moore <pmoore@redhat.com>
+
+Applied, and I'll make sure to integrate into the -stable submission
+of the original patch.
+
+Thanks.
