@@ -1,76 +1,119 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Fri,  8 Mar 2013 02:07:02 -0800
-Message-ID: <1362737237-13363-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 06/15] e1000e: cleanup LEADING_SPACE checkpatch warnings
+Date: Fri,  8 Mar 2013 02:07:08 -0800
+Message-ID: <1362737237-13363-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1362737237-13363-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:12686 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:51324 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753177Ab3CHKHV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Mar 2013 05:07:21 -0500
+	id S933944Ab3CHKH3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Mar 2013 05:07:29 -0500
+In-Reply-To: <1362737237-13363-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbevf and e1000e.
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Alex's ixgbevf patch is meant to address several race issues that become
-possible because next_to_watch could possibly be set to a value that shows
-that the descriptor is done when it is not.  In order to correct that we
-instead make next_to_watch a pointer that is set to NULL during cleanup,
-and set to the eop_desc after the descriptor rings have been written.
+WARNING:LEADING_SPACE: please, no spaces at the start of a line
 
-Stephen's ixgbevf patch makes the PCI id table a const and reformats the
-table to match what the ixgbe driver does.
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/e1000.h  |  4 ++--
+ drivers/net/ethernet/intel/e1000e/netdev.c |  4 ++--
+ drivers/net/ethernet/intel/e1000e/phy.c    | 10 +++++-----
+ 3 files changed, 9 insertions(+), 9 deletions(-)
 
-The remaining 13 patches from Bruce are cleanup patches for e1000e to
-resolve checkpatch.pl warnings/errors, removing blank lines where
-necessary and fix code formatting.
-
-The following are changes since commit 7f0e44ac9f7f12a2519bfed9ea4df3c1471bd8bb:
-  ipv6 flowlabel: add __rcu annotations
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Alexander Duyck (1):
-  ixgbevf: Make next_to_watch a pointer and adjust memory barriers to
-    avoid races
-
-Bruce Allan (13):
-  e1000e: cleanup CODE_INDENT checkpatch errors
-  e1000e: cleanup SPACING checkpatch errors and warnings
-  e1000e: cleanup LONG_LINE checkpatch warnings
-  e1000e: cleanup LEADING_SPACE checkpatch warnings
-  e1000e: cleanup PARENTHESIS_ALIGNMENT checkpatch checks
-  e1000e: cleanup SPACING checkpatch checks
-  e1000e: cleanup (add/remove) blank lines where appropriate
-  e1000e: cleanup unusually placed comments
-  e1000e: cleanup formatting of static structs
-  e1000e: cleanup unnecessary line breaks
-  e1000e: cleanup USLEEP_RANGE checkpatch checks
-  e1000e: cleanup format of struct e1000_opt_list struct
-  e1000e: cleanup - move defines to appropriate header file
-
-Stephen Hemminger (1):
-  ixgbevf: use PCI_DEVICE_TABLE macro
-
- drivers/net/ethernet/intel/e1000e/80003es2lan.c   | 131 ++++++-----
- drivers/net/ethernet/intel/e1000e/82571.c         |  38 ++-
- drivers/net/ethernet/intel/e1000e/82571.h         |   2 +
- drivers/net/ethernet/intel/e1000e/defines.h       |  25 +-
- drivers/net/ethernet/intel/e1000e/e1000.h         |  18 +-
- drivers/net/ethernet/intel/e1000e/ethtool.c       | 177 +++++++-------
- drivers/net/ethernet/intel/e1000e/hw.h            |   4 +-
- drivers/net/ethernet/intel/e1000e/ich8lan.c       | 195 ++++++++--------
- drivers/net/ethernet/intel/e1000e/mac.c           |  10 +-
- drivers/net/ethernet/intel/e1000e/netdev.c        | 269 ++++++++++------------
- drivers/net/ethernet/intel/e1000e/nvm.c           |   2 +-
- drivers/net/ethernet/intel/e1000e/param.c         |  62 +++--
- drivers/net/ethernet/intel/e1000e/phy.c           | 130 +++++------
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   2 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  80 ++++---
- 15 files changed, 574 insertions(+), 571 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 9b6a568..6ce64ae 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -487,8 +487,8 @@ extern int e1000e_setup_tx_resources(struct e1000_ring *ring);
+ extern void e1000e_free_rx_resources(struct e1000_ring *ring);
+ extern void e1000e_free_tx_resources(struct e1000_ring *ring);
+ extern struct rtnl_link_stats64 *e1000e_get_stats64(struct net_device *netdev,
+-                                                    struct rtnl_link_stats64
+-                                                    *stats);
++						    struct rtnl_link_stats64
++						    *stats);
+ extern void e1000e_set_interrupt_capability(struct e1000_adapter *adapter);
+ extern void e1000e_reset_interrupt_capability(struct e1000_adapter *adapter);
+ extern void e1000e_get_hw_control(struct e1000_adapter *adapter);
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 1fa61ca..87fa1c9 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1468,7 +1468,7 @@ next_desc:
+  * e1000_consume_page - helper function
+  **/
+ static void e1000_consume_page(struct e1000_buffer *bi, struct sk_buff *skb,
+-                               u16 length)
++			       u16 length)
+ {
+ 	bi->page = NULL;
+ 	skb->len += length;
+@@ -5571,7 +5571,7 @@ static void e1000_reset_task(struct work_struct *work)
+  * Returns the address of the device statistics structure.
+  **/
+ struct rtnl_link_stats64 *e1000e_get_stats64(struct net_device *netdev,
+-                                             struct rtnl_link_stats64 *stats)
++					     struct rtnl_link_stats64 *stats)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 
+diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
+index e46b65f..643353f 100644
+--- a/drivers/net/ethernet/intel/e1000e/phy.c
++++ b/drivers/net/ethernet/intel/e1000e/phy.c
+@@ -324,7 +324,7 @@ s32 e1000_set_page_igp(struct e1000_hw *hw, u16 page)
+  *  semaphores before exiting.
+  **/
+ static s32 __e1000e_read_phy_reg_igp(struct e1000_hw *hw, u32 offset, u16 *data,
+-                                    bool locked)
++				     bool locked)
+ {
+ 	s32 ret_val = 0;
+ 
+@@ -391,7 +391,7 @@ s32 e1000e_read_phy_reg_igp_locked(struct e1000_hw *hw, u32 offset, u16 *data)
+  *  at the offset.  Release any acquired semaphores before exiting.
+  **/
+ static s32 __e1000e_write_phy_reg_igp(struct e1000_hw *hw, u32 offset, u16 data,
+-                                     bool locked)
++				      bool locked)
+ {
+ 	s32 ret_val = 0;
+ 
+@@ -458,7 +458,7 @@ s32 e1000e_write_phy_reg_igp_locked(struct e1000_hw *hw, u32 offset, u16 data)
+  *  Release any acquired semaphores before exiting.
+  **/
+ static s32 __e1000_read_kmrn_reg(struct e1000_hw *hw, u32 offset, u16 *data,
+-                                 bool locked)
++				 bool locked)
+ {
+ 	u32 kmrnctrlsta;
+ 
+@@ -531,7 +531,7 @@ s32 e1000e_read_kmrn_reg_locked(struct e1000_hw *hw, u32 offset, u16 *data)
+  *  before exiting.
+  **/
+ static s32 __e1000_write_kmrn_reg(struct e1000_hw *hw, u32 offset, u16 data,
+-                                  bool locked)
++				  bool locked)
+ {
+ 	u32 kmrnctrlsta;
+ 
+@@ -2987,7 +2987,7 @@ static u32 e1000_get_phy_addr_for_hv_page(u32 page)
+  *  These accesses done with PHY address 2 and without using pages.
+  **/
+ static s32 e1000_access_phy_debug_regs_hv(struct e1000_hw *hw, u32 offset,
+-                                          u16 *data, bool read)
++					  u16 *data, bool read)
+ {
+ 	s32 ret_val;
+ 	u32 addr_reg;
 -- 
 1.7.11.7
