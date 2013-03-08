@@ -1,92 +1,49 @@
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH net-next] tg3: Update link_up flag for phylib devices
-Date: Thu, 7 Mar 2013 18:45:27 -0800
-Message-ID: <1362710727-15438-1-git-send-email-nsujir@broadcom.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Patch net] bridge: do not expire mdb entry when bridge still
+ uses it
+Date: Fri, 8 Mar 2013 10:47:26 +0800
+Message-ID: <20130308024726.GA27319@gondor.apana.org.au>
+References: <1362708423-23932-1-git-send-email-amwang@redhat.com>
+ <20130308023151.GA27155@gondor.apana.org.au>
+ <1362710646.9773.25.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hirofumi@mail.parknet.co.jp,
-	"Nithin Nayak Sujir" <nsujir@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3211 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933068Ab3CHCq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Mar 2013 21:46:58 -0500
+Received: from sting.hengli.com.au ([178.18.18.71]:45396 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752241Ab3CHCr3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Mar 2013 21:47:29 -0500
+Content-Disposition: inline
+In-Reply-To: <1362710646.9773.25.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit f4a46d1f46a8fece34edd2023e054072b02e110d introduced a bug where
-the ifconfig stats would remain 0 for phylib devices. This is due to
-tp->link_up flag never becoming true causing tg3_periodic_fetch_stats()
-to return.
+On Fri, Mar 08, 2013 at 10:44:06AM +0800, Cong Wang wrote:
+>
+> This is a good question. It is due to inside br_handle_frame_finish() we
+> use 'skb2' to decide if we deliver packets to bridge itself, and in this
+> case 'skb2' is non-NULL only when:
+> 
+>                 if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
+>                         if ((mdst && mdst->mglist) ||
+>                             br_multicast_is_router(br))
+>                                 skb2 = skb; //        <======== HERE
+>                         br_multicast_forward(mdst, skb, skb2);
+> 
+> For other ports, br_multicast_forward() will always forward 'skb' to
+> them.
 
-The link_up flag was being updated in tg3_test_and_report_link_chg()
-after setting up the phy. This function however, is not called for
-phylib devices since the driver does not do the phy setup.
+Yes but the point is that other ports should also expire after the
+timeout and thus be removed from mdst.  So why is this only happening
+for the bridge aka mdst->mglist?
 
-This patch moves the link_up flag update into the common
-tg3_link_report() function that gets called for phylib devices as well
-for non phylib devices when the link state changes.
-
-To avoid updating link_up twice, we replace tg3_carrier_...() calls that
-are followed by tg3_link_report(), with netif_carrier_...(). We can then
-remove the unused tg3_carrier_on() function.
-
-Reported-by: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c | 14 +++++---------
- 1 file changed, 5 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 2b2bee6..0c1a2ef 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -1870,6 +1870,8 @@ static void tg3_link_report(struct tg3 *tp)
- 
- 		tg3_ump_link_report(tp);
- 	}
-+
-+	tp->link_up = netif_carrier_ok(tp->dev);
- }
- 
- static u16 tg3_advert_flowctrl_1000X(u8 flow_ctrl)
-@@ -2523,12 +2525,6 @@ static int tg3_phy_reset_5703_4_5(struct tg3 *tp)
- 	return err;
- }
- 
--static void tg3_carrier_on(struct tg3 *tp)
--{
--	netif_carrier_on(tp->dev);
--	tp->link_up = true;
--}
--
- static void tg3_carrier_off(struct tg3 *tp)
- {
- 	netif_carrier_off(tp->dev);
-@@ -2554,7 +2550,7 @@ static int tg3_phy_reset(struct tg3 *tp)
- 		return -EBUSY;
- 
- 	if (netif_running(tp->dev) && tp->link_up) {
--		tg3_carrier_off(tp);
-+		netif_carrier_off(tp->dev);
- 		tg3_link_report(tp);
- 	}
- 
-@@ -4403,9 +4399,9 @@ static bool tg3_test_and_report_link_chg(struct tg3 *tp, int curr_link_up)
- {
- 	if (curr_link_up != tp->link_up) {
- 		if (curr_link_up) {
--			tg3_carrier_on(tp);
-+			netif_carrier_on(tp->dev);
- 		} else {
--			tg3_carrier_off(tp);
-+			netif_carrier_off(tp->dev);
- 			if (tp->phy_flags & TG3_PHYFLG_MII_SERDES)
- 				tp->phy_flags &= ~TG3_PHYFLG_PARALLEL_DETECT;
- 		}
+Thanks,
 -- 
-1.8.1.4
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
