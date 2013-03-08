@@ -1,170 +1,67 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next.git 2/9] stmmac: add IEEE 1588-2002 PTP support
-Date: Fri, 08 Mar 2013 08:02:21 +0100
-Message-ID: <51398CFD.9010605@st.com>
-References: <1362653419-1047-1-git-send-email-peppe.cavallaro@st.com> <1362653419-1047-3-git-send-email-peppe.cavallaro@st.com> <20130308063437.GB2382@netboy.at.omicron.at>
+From: dormando <dormando@rydia.net>
+Subject: Re: BUG: IPv4: Attempt to release TCP socket in state 1
+Date: Thu, 7 Mar 2013 23:09:26 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1303072307580.11964@dflat>
+References: <alpine.DEB.2.02.1303041547080.7811@localhost6.localdomain6>    <51356AC1.4090302@gmail.com>  <1362460046.15793.111.camel@edumazet-glaptop>   <alpine.DEB.2.02.1303042138330.7811@localhost6.localdomain6>  <1362494795.15793.113.camel@edumazet-glaptop>
+  <alpine.DEB.2.02.1303061631290.6723@dflat> <1362663990.15793.208.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bh74.an@samsung.com,
-	Rayagond K <rayagond@vayavyalabs.com>,
-	Rayagond Kokatanur <rayagond@vayavyalabs.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from beta.dmz-eu.st.com ([164.129.1.35]:46212 "EHLO
-	beta.dmz-eu.st.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932697Ab3CHHCY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 02:02:24 -0500
-In-Reply-To: <20130308063437.GB2382@netboy.at.omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1362663990.15793.208.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/8/2013 7:34 AM, Richard Cochran wrote:
-> I have a few comments, below.
-
-thanks for them.
-
->> HW Timestamp support can be enabled while configuring the Kernel and
->> the Koption is: STMMAC_USE_HWSTAMP
->> At runtime, the support is verified by looking at the HW capability
->> register.
+> On Wed, 2013-03-06 at 16:41 -0800, dormando wrote:
 >
-> As davem said, since you have the ability to detect this at run time,
-> then there is no need for a kconfig option.
-
-I'll try to give you more details about this replying to D. Miller
-
-[snip]
-
->> +	/* get tx/rx timestamp low value */
->> +	u32 (*get_timestamp_low) (struct dma_desc *p);
->> +	/* get tx/rx timestamp high value */
->> +	u32 (*get_timestamp_high) (struct dma_desc *p);
+> > Ok... bridge module is loaded but nothing seems to be using it. No
+> > bond/tunnels/anything enabled. I couldn't quickly figure out what was
+> > causing it to load.
+> >
+> > We removed the need for macvlan, started machines with a fresh boot, and
+> > they still crashed without it, after a few hours.
+> >
+> > Unfortunately I just saw a machine crash in the same way on 3.6.6 and
+> > 3.6.9. I'm working on getting a completely pristine 3.6.6 and 3.6.9
+> > tested. Our patches are minor but there were a few, so I'm backing it all
+> > out just to be sure.
+> >
+> > Is there anything in particular which is most interesting? I can post lots
+> > and lots and lots of information. Sadly bridge/macvlan weren't part of the
+> > problem. .config, sysctls are easiest I guess? When this "hang" happens
+> > the machine is still up somewhat, but we lose access to it. Syslog is
+> > still writing entries to disk occasionally, so it's possible we could set
+> > something up to dump more information.
+> >
+> > It takes a day or two to cycle this, so it might take a while to get
+> > information and test crashes.
 >
-> These two separate functions should be combined into one.
-
-ok
-
->> +	/* get rx timestamp status */
->> +	int (*get_rx_timestamp_status) (struct dma_desc *p);
-
->> +
->> +static int enh_desc_get_rx_timestamp_status(struct dma_desc *p)
->> +{
->> +	/* FIXME if Enhance descriptor with 8 DWORDS is enabled */
+> Thanks !
 >
-> Why not fix these FIXMEs for the next respin?
-
-This is fixed in the patch #5 where we use the extended descriptors
-for PTP2.
-
->> +	if ((p->des2 =3D=3D 0xffffffff) && (p->des3 =3D=3D 0xffffffff))
->> +		/* timestamp is currupted, hence don't store it */
+> Please add a stack trace, it might help :
 >
-> corrupted
-
-thanks
-
-
->> +	/* Convert the ptp_clock to nano second
->> +	 * formula =3D (1/ptp_clock) * 1000000000
->> +	 * where, ptp_clock =3D 50MHz for FINE correction method &
->> +	 * ptp_clock =3D STMMAC_SYSCLOCK for COARSE correction method
->> +	 */
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index 68f6a94..1d4d97e 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -141,8 +141,9 @@ void inet_sock_destruct(struct sock *sk)
+>  	sk_mem_reclaim(sk);
 >
-> What are these coarse/fine method? Can't we always use the fine one?
+>  	if (sk->sk_type == SOCK_STREAM && sk->sk_state != TCP_CLOSE) {
+> -		pr_err("Attempt to release TCP socket in state %d %p\n",
+> -		       sk->sk_state, sk);
+> +		pr_err("Attempt to release TCP socket family %d in state %d %p\n",
+> +		       sk->sk_family, sk->sk_state, sk);
+> +		WARN_ON_ONCE(1);
+>  		return;
+>  	}
+>  	if (!sock_flag(sk, SOCK_DEAD)) {
 
-This is explained in the "4.1.2 System Time Register Module" of Synopsy=
-s=20
-Databook. Summarizing, the MAC can have an optional module and use this=
-=20
-coarse correction method. In the fine correction method, a slave clock=92=
-s=20
-frequency drift with respect to the master clock is corrected over a=20
-period of time instead of in one clock, as in coarse correction.
+Ok. I have a pristine 3.6.6 up and testing now... It definitely looks like
+we've been having this crash for quite a while, but much more rarely.
+Recent changes in traffic have made it worse. I'll try your patch soon.
 
-Pls, Rayagond feels free to provide more details...
-
->> +	if (value & PTP_TCR_TSCFUPDT)
->> +		data =3D (1000000000ULL / 50000000);
->> +	else
->> +		data =3D (1000000000ULL / STMMAC_SYSCLOCK);
->> +
->> +	writel(data, ioaddr + PTP_SSIR);
->> +}
->> +
->> +static int stmmac_init_systime(void __iomem *ioaddr, u32 sec, u32 n=
-sec)
->> +{
->> +	int limit;
->> +	u32 value;
->> +
->> +	/* wait for previous(if any) system time initialize to complete */
->> +	limit =3D 100;
->> +	while (limit--) {
->> +		if (!(readl(ioaddr + PTP_TCR) & PTP_TCR_TSINIT))
->> +			break;
->> +		mdelay(10);
->> +	}
->> +
->> +	if (limit < 0)
->> +		return -EBUSY;
->> +
->
-> Ugh, this is terrible...
->
->> +	writel(sec, ioaddr + PTP_STSUR);
->> +	writel(nsec, ioaddr + PTP_STNSUR);
->> +	/* issue command to initialize the system time value */
->> +	value =3D readl(ioaddr + PTP_TCR);
->> +	value |=3D PTP_TCR_TSINIT;
->> +	writel(value, ioaddr + PTP_TCR);
->> +
->> +	/* wait for present system time initialize to complete */
->> +	limit =3D 100;
->> +	while (limit--) {
->> +		if (!(readl(ioaddr + PTP_TCR) & PTP_TCR_TSINIT))
->> +			break;
->> +		mdelay(10);
->> +	}
->> +	if (limit < 0)
->> +		return -EBUSY;
->
-> ... for a number of reasons.
->
-> 1. You are polling for 100*10ms =3D one second, and the caller has
->     disabled interrupts! This is way too long. Is the hardware really
->     that slow? If so, then you need to use delayed work or find some
->     other way not to block.
->
-> 2. You are waiting both before and after for the status bit. Pick one
->     or the other. You don't need both.
->
-> This same pattern is repeated a few times here, and it needs fixing i=
-n
-> each case.
-
-This is for the Author. I've no HW where test. Rayagond tested all on=20
-his side. Pls Rayagond fixes it and gives me the new code.
-
->> +	struct stmmac_priv *priv =3D netdev_priv(dev);
->> +	struct hwtstamp_config config;
->> +	struct timespec now;
->> +	u64 temp =3D 0;
->
-> You add this new code here, but you change it all around again a few
-> patches later. Please just submit the final, combined version.
-
-we kept these separately because the patch #5 (for example) depends on
-another one that adds the extended descriptor support. Also If I add
-all the code in a single patch this will be very big. I had some
-problems to review all separately. So I suspect that if we merge all
-in a single patch this will not help (especially myself). At any rate,
-tell me if you prefer to have a single patch. I can do that.
-
-peppe
->
-> Thanks,
-> Richard
->
+It'll take a few days to reproduce. I'll be back (ho ho ho). Please ping
+with any ideas you folks might have in the meantime :(
