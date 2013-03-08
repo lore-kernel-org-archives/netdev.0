@@ -1,173 +1,409 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/15] e1000e: cleanup SPACING checkpatch checks
-Date: Fri,  8 Mar 2013 02:07:10 -0800
-Message-ID: <1362737237-13363-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/15] e1000e: cleanup USLEEP_RANGE checkpatch checks
+Date: Fri,  8 Mar 2013 02:07:15 -0800
+Message-ID: <1362737237-13363-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1362737237-13363-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27095 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:12686 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933981Ab3CHKHb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Mar 2013 05:07:31 -0500
+	id S934013Ab3CHKHf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Mar 2013 05:07:35 -0500
 In-Reply-To: <1362737237-13363-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-CHECK:SPACING: No space is necessary after a cast
-CHECK:SPACING: space prohibited before semicolon
+Resolve strict checkpatch USLEEP_RANGE checks by converting delays and
+sleeps as described in ./Documentation/timers/timers-howto.txt.  Three
+other violations of the text have also been fixed.
+
+CHECK:USLEEP_RANGE: usleep_range is preferred over udelay; see
+Documentation/timers/timers-howto.txt
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ethtool.c | 16 ++++++++--------
- drivers/net/ethernet/intel/e1000e/ich8lan.c |  4 ++--
- drivers/net/ethernet/intel/e1000e/netdev.c  | 10 +++++-----
- drivers/net/ethernet/intel/e1000e/phy.c     |  2 +-
- 4 files changed, 16 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c | 12 ++++++------
+ drivers/net/ethernet/intel/e1000e/82571.c       | 12 ++++++------
+ drivers/net/ethernet/intel/e1000e/e1000.h       |  2 +-
+ drivers/net/ethernet/intel/e1000e/ethtool.c     | 10 +++++-----
+ drivers/net/ethernet/intel/e1000e/ich8lan.c     | 16 ++++++++--------
+ drivers/net/ethernet/intel/e1000e/mac.c         | 10 +++++-----
+ drivers/net/ethernet/intel/e1000e/nvm.c         |  2 +-
+ drivers/net/ethernet/intel/e1000e/phy.c         | 12 ++++++------
+ 8 files changed, 38 insertions(+), 38 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
+index 30cf42c..b71c850 100644
+--- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
++++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
+@@ -395,7 +395,7 @@ static s32 e1000_read_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
+ 		 * before the device has completed the "Page Select" MDI
+ 		 * transaction.  So we wait 200us after each MDI command...
+ 		 */
+-		udelay(200);
++		usleep_range(200, 400);
+ 
+ 		/* ...and verify the command was successful. */
+ 		ret_val = e1000e_read_phy_reg_mdic(hw, page_select, &temp);
+@@ -405,13 +405,13 @@ static s32 e1000_read_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
+ 			return -E1000_ERR_PHY;
+ 		}
+ 
+-		udelay(200);
++		usleep_range(200, 400);
+ 
+ 		ret_val = e1000e_read_phy_reg_mdic(hw,
+ 						   MAX_PHY_REG_ADDRESS & offset,
+ 						   data);
+ 
+-		udelay(200);
++		usleep_range(200, 400);
+ 	} else {
+ 		ret_val = e1000e_read_phy_reg_mdic(hw,
+ 						   MAX_PHY_REG_ADDRESS & offset,
+@@ -464,7 +464,7 @@ static s32 e1000_write_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
+ 		 * before the device has completed the "Page Select" MDI
+ 		 * transaction.  So we wait 200us after each MDI command...
+ 		 */
+-		udelay(200);
++		usleep_range(200, 400);
+ 
+ 		/* ...and verify the command was successful. */
+ 		ret_val = e1000e_read_phy_reg_mdic(hw, page_select, &temp);
+@@ -474,13 +474,13 @@ static s32 e1000_write_phy_reg_gg82563_80003es2lan(struct e1000_hw *hw,
+ 			return -E1000_ERR_PHY;
+ 		}
+ 
+-		udelay(200);
++		usleep_range(200, 400);
+ 
+ 		ret_val = e1000e_write_phy_reg_mdic(hw,
+ 						    MAX_PHY_REG_ADDRESS &
+ 						    offset, data);
+ 
+-		udelay(200);
++		usleep_range(200, 400);
+ 	} else {
+ 		ret_val = e1000e_write_phy_reg_mdic(hw,
+ 						    MAX_PHY_REG_ADDRESS &
+diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
+index c0477fb..7380442 100644
+--- a/drivers/net/ethernet/intel/e1000e/82571.c
++++ b/drivers/net/ethernet/intel/e1000e/82571.c
+@@ -437,7 +437,7 @@ static s32 e1000_get_phy_id_82571(struct e1000_hw *hw)
+ 			return ret_val;
+ 
+ 		phy->id = (u32)(phy_id << 16);
+-		udelay(20);
++		usleep_range(20, 40);
+ 		ret_val = e1e_rphy(hw, MII_PHYSID2, &phy_id);
+ 		if (ret_val)
+ 			return ret_val;
+@@ -482,7 +482,7 @@ static s32 e1000_get_hw_semaphore_82571(struct e1000_hw *hw)
+ 		if (!(swsm & E1000_SWSM_SMBI))
+ 			break;
+ 
+-		udelay(50);
++		usleep_range(50, 100);
+ 		i++;
+ 	}
+ 
+@@ -499,7 +499,7 @@ static s32 e1000_get_hw_semaphore_82571(struct e1000_hw *hw)
+ 		if (er32(SWSM) & E1000_SWSM_SWESMBI)
+ 			break;
+ 
+-		udelay(50);
++		usleep_range(50, 100);
+ 	}
+ 
+ 	if (i == fw_timeout) {
+@@ -1022,7 +1022,7 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
+ 	}
+ 
+ 	if (hw->nvm.type == e1000_nvm_flash_hw) {
+-		udelay(10);
++		usleep_range(10, 20);
+ 		ctrl_ext = er32(CTRL_EXT);
+ 		ctrl_ext |= E1000_CTRL_EXT_EE_RST;
+ 		ew32(CTRL_EXT, ctrl_ext);
+@@ -1529,7 +1529,7 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
+ 	status = er32(STATUS);
+ 	er32(RXCW);
+ 	/* SYNCH bit and IV bit are sticky */
+-	udelay(10);
++	usleep_range(10, 20);
+ 	rxcw = er32(RXCW);
+ 
+ 	if ((rxcw & E1000_RXCW_SYNCH) && !(rxcw & E1000_RXCW_IV)) {
+@@ -1632,7 +1632,7 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
+ 			 * the IV bit and restart Autoneg
+ 			 */
+ 			for (i = 0; i < AN_RETRY_COUNT; i++) {
+-				udelay(10);
++				usleep_range(10, 20);
+ 				rxcw = er32(RXCW);
+ 				if ((rxcw & E1000_RXCW_SYNCH) &&
+ 				    (rxcw & E1000_RXCW_C))
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 6ba1149..e371f77 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -597,7 +597,7 @@ static inline s32 __ew32_prepare(struct e1000_hw *hw)
+ 	s32 i = E1000_ICH_FWSM_PCIM2PCI_COUNT;
+ 
+ 	while ((er32(FWSM) & E1000_ICH_FWSM_PCIM2PCI) && --i)
+-		udelay(50);
++		usleep_range(50, 100);
+ 
+ 	return i;
+ }
 diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index b328943..07ef74e 100644
+index e43c944..23d5d90 100644
 --- a/drivers/net/ethernet/intel/e1000e/ethtool.c
 +++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -925,7 +925,7 @@ static int e1000_eeprom_test(struct e1000_adapter *adapter, u64 *data)
+@@ -1297,7 +1297,7 @@ static int e1000_integrated_phy_loopback(struct e1000_adapter *adapter)
+ 
+ 		ew32(CTRL, ctrl_reg);
+ 		e1e_flush();
+-		udelay(500);
++		usleep_range(500, 1000);
+ 
+ 		return 0;
  	}
+@@ -1323,7 +1323,7 @@ static int e1000_integrated_phy_loopback(struct e1000_adapter *adapter)
+ 		e1e_wphy(hw, PHY_REG(2, 21), phy_reg);
+ 		/* Assert SW reset for above settings to take effect */
+ 		hw->phy.ops.commit(hw);
+-		mdelay(1);
++		usleep_range(1000, 2000);
+ 		/* Force Full Duplex */
+ 		e1e_rphy(hw, PHY_REG(769, 16), &phy_reg);
+ 		e1e_wphy(hw, PHY_REG(769, 16), phy_reg | 0x000C);
+@@ -1364,7 +1364,7 @@ static int e1000_integrated_phy_loopback(struct e1000_adapter *adapter)
  
- 	/* If Checksum is not Correct return error else test passed */
--	if ((checksum != (u16) NVM_SUM) && !(*data))
-+	if ((checksum != (u16)NVM_SUM) && !(*data))
- 		*data = 2;
+ 	/* force 1000, set loopback */
+ 	e1e_wphy(hw, MII_BMCR, 0x4140);
+-	mdelay(250);
++	msleep(250);
  
- 	return *data;
-@@ -933,7 +933,7 @@ static int e1000_eeprom_test(struct e1000_adapter *adapter, u64 *data)
+ 	/* Now set up the MAC to the same speed/duplex as the PHY. */
+ 	ctrl_reg = er32(CTRL);
+@@ -1396,7 +1396,7 @@ static int e1000_integrated_phy_loopback(struct e1000_adapter *adapter)
+ 	if (hw->phy.type == e1000_phy_m88)
+ 		e1000_phy_disable_receiver(adapter);
  
- static irqreturn_t e1000_test_intr(int __always_unused irq, void *data)
- {
--	struct net_device *netdev = (struct net_device *) data;
-+	struct net_device *netdev = (struct net_device *)data;
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
+-	udelay(500);
++	usleep_range(500, 1000);
  
-@@ -1158,8 +1158,8 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
- 	tx_ring->next_to_use = 0;
- 	tx_ring->next_to_clean = 0;
+ 	return 0;
+ }
+@@ -1704,7 +1704,7 @@ static int e1000_link_test(struct e1000_adapter *adapter, u64 *data)
+ 			/* On some Phy/switch combinations, link establishment
+ 			 * can take a few seconds more than expected.
+ 			 */
+-			msleep(5000);
++			msleep_interruptible(5000);
  
--	ew32(TDBAL(0), ((u64) tx_ring->dma & 0x00000000FFFFFFFF));
--	ew32(TDBAH(0), ((u64) tx_ring->dma >> 32));
-+	ew32(TDBAL(0), ((u64)tx_ring->dma & 0x00000000FFFFFFFF));
-+	ew32(TDBAH(0), ((u64)tx_ring->dma >> 32));
- 	ew32(TDLEN(0), tx_ring->count * sizeof(struct e1000_tx_desc));
- 	ew32(TDH(0), 0);
- 	ew32(TDT(0), 0);
-@@ -1222,8 +1222,8 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
- 	rctl = er32(RCTL);
- 	if (!(adapter->flags2 & FLAG2_NO_DISABLE_RX))
- 		ew32(RCTL, rctl & ~E1000_RCTL_EN);
--	ew32(RDBAL(0), ((u64) rx_ring->dma & 0xFFFFFFFF));
--	ew32(RDBAH(0), ((u64) rx_ring->dma >> 32));
-+	ew32(RDBAL(0), ((u64)rx_ring->dma & 0xFFFFFFFF));
-+	ew32(RDBAH(0), ((u64)rx_ring->dma >> 32));
- 	ew32(RDLEN(0), rx_ring->size);
- 	ew32(RDH(0), 0);
- 	ew32(RDT(0), 0);
-@@ -1986,11 +1986,11 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
- 	for (i = 0; i < E1000_GLOBAL_STATS_LEN; i++) {
- 		switch (e1000_gstrings_stats[i].type) {
- 		case NETDEV_STATS:
--			p = (char *) &net_stats +
-+			p = (char *)&net_stats +
- 			    e1000_gstrings_stats[i].stat_offset;
- 			break;
- 		case E1000_STATS:
--			p = (char *) adapter +
-+			p = (char *)adapter +
- 			    e1000_gstrings_stats[i].stat_offset;
- 			break;
- 		default:
+ 		if (!(er32(STATUS) & E1000_STATUS_LU))
+ 			*data = 1;
 diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index a18dd1c..dd67cb6 100644
+index 0ed04fc..382813d 100644
 --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
 +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -3150,7 +3150,7 @@ static s32 e1000_erase_flash_bank_ich8lan(struct e1000_hw *hw, u32 bank)
- 	flash_linear_addr = hw->nvm.flash_base_addr;
- 	flash_linear_addr += (bank) ? flash_bank_size : 0;
+@@ -312,7 +312,7 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
+ 		mac_reg &= ~E1000_CTRL_LANPHYPC_VALUE;
+ 		ew32(CTRL, mac_reg);
+ 		e1e_flush();
+-		udelay(10);
++		usleep_range(10, 20);
+ 		mac_reg &= ~E1000_CTRL_LANPHYPC_OVERRIDE;
+ 		ew32(CTRL, mac_reg);
+ 		e1e_flush();
+@@ -1517,7 +1517,7 @@ s32 e1000_configure_k1_ich8lan(struct e1000_hw *hw, bool k1_enable)
+ 	if (ret_val)
+ 		return ret_val;
  
--	for (j = 0; j < iteration ; j++) {
-+	for (j = 0; j < iteration; j++) {
- 		do {
- 			u32 timeout = ICH_FLASH_ERASE_COMMAND_TIMEOUT;
- 
-@@ -3501,7 +3501,7 @@ static s32 e1000_init_hw_ich8lan(struct e1000_hw *hw)
- 	if (mac->type == e1000_ich8lan)
- 		snoop = PCIE_ICH8_SNOOP_ALL;
- 	else
--		snoop = (u32) ~(PCIE_NO_SNOOP_ALL);
-+		snoop = (u32)~(PCIE_NO_SNOOP_ALL);
- 	e1000e_set_pcie_no_snoop(hw, snoop);
- 
+-	udelay(20);
++	usleep_range(20, 40);
  	ctrl_ext = er32(CTRL_EXT);
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 9d76edc..ca1c10e 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -4452,7 +4452,7 @@ static void e1000e_update_phy_task(struct work_struct *work)
-  **/
- static void e1000_update_phy_info(unsigned long data)
+ 	ctrl_reg = er32(CTRL);
+ 
+@@ -1527,11 +1527,11 @@ s32 e1000_configure_k1_ich8lan(struct e1000_hw *hw, bool k1_enable)
+ 
+ 	ew32(CTRL_EXT, ctrl_ext | E1000_CTRL_EXT_SPD_BYPS);
+ 	e1e_flush();
+-	udelay(20);
++	usleep_range(20, 40);
+ 	ew32(CTRL, ctrl_reg);
+ 	ew32(CTRL_EXT, ctrl_ext);
+ 	e1e_flush();
+-	udelay(20);
++	usleep_range(20, 40);
+ 
+ 	return 0;
+ }
+@@ -2037,7 +2037,7 @@ static void e1000_lan_init_done_ich8lan(struct e1000_hw *hw)
+ 	do {
+ 		data = er32(STATUS);
+ 		data &= E1000_STATUS_LAN_INIT_DONE;
+-		udelay(100);
++		usleep_range(100, 200);
+ 	} while ((!data) && --loop);
+ 
+ 	/* If basic configuration is incomplete before the above loop
+@@ -2801,7 +2801,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
+ 		/* Convert offset to bytes. */
+ 		act_offset = (i + new_bank_offset) << 1;
+ 
+-		udelay(100);
++		usleep_range(100, 200);
+ 		/* Write the bytes to the new bank. */
+ 		ret_val = e1000_retry_write_flash_byte_ich8lan(hw,
+ 							       act_offset,
+@@ -2809,7 +2809,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
+ 		if (ret_val)
+ 			break;
+ 
+-		udelay(100);
++		usleep_range(100, 200);
+ 		ret_val = e1000_retry_write_flash_byte_ich8lan(hw,
+ 							       act_offset + 1,
+ 							       (u8)(data >> 8));
+@@ -3077,7 +3077,7 @@ static s32 e1000_retry_write_flash_byte_ich8lan(struct e1000_hw *hw,
+ 
+ 	for (program_retries = 0; program_retries < 100; program_retries++) {
+ 		e_dbg("Retrying Byte %2.2X at offset %u\n", byte, offset);
+-		udelay(100);
++		usleep_range(100, 200);
+ 		ret_val = e1000_write_flash_byte_ich8lan(hw, offset, byte);
+ 		if (!ret_val)
+ 			break;
+diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
+index b78e021..b25cc43 100644
+--- a/drivers/net/ethernet/intel/e1000e/mac.c
++++ b/drivers/net/ethernet/intel/e1000e/mac.c
+@@ -596,7 +596,7 @@ s32 e1000e_check_for_serdes_link(struct e1000_hw *hw)
+ 		 * serdes media type.
+ 		 */
+ 		/* SYNCH bit and IV bit are sticky. */
+-		udelay(10);
++		usleep_range(10, 20);
+ 		rxcw = er32(RXCW);
+ 		if (rxcw & E1000_RXCW_SYNCH) {
+ 			if (!(rxcw & E1000_RXCW_IV)) {
+@@ -613,7 +613,7 @@ s32 e1000e_check_for_serdes_link(struct e1000_hw *hw)
+ 		status = er32(STATUS);
+ 		if (status & E1000_STATUS_LU) {
+ 			/* SYNCH bit and IV bit are sticky, so reread rxcw. */
+-			udelay(10);
++			usleep_range(10, 20);
+ 			rxcw = er32(RXCW);
+ 			if (rxcw & E1000_RXCW_SYNCH) {
+ 				if (!(rxcw & E1000_RXCW_IV)) {
+@@ -1382,7 +1382,7 @@ s32 e1000e_get_hw_semaphore(struct e1000_hw *hw)
+ 		if (!(swsm & E1000_SWSM_SMBI))
+ 			break;
+ 
+-		udelay(50);
++		usleep_range(50, 100);
+ 		i++;
+ 	}
+ 
+@@ -1400,7 +1400,7 @@ s32 e1000e_get_hw_semaphore(struct e1000_hw *hw)
+ 		if (er32(SWSM) & E1000_SWSM_SWESMBI)
+ 			break;
+ 
+-		udelay(50);
++		usleep_range(50, 100);
+ 	}
+ 
+ 	if (i == timeout) {
+@@ -1712,7 +1712,7 @@ s32 e1000e_disable_pcie_master(struct e1000_hw *hw)
+ 	while (timeout) {
+ 		if (!(er32(STATUS) & E1000_STATUS_GIO_MASTER_ENABLE))
+ 			break;
+-		udelay(100);
++		usleep_range(100, 200);
+ 		timeout--;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/intel/e1000e/nvm.c b/drivers/net/ethernet/intel/e1000e/nvm.c
+index 84fecc2..44ddc0a 100644
+--- a/drivers/net/ethernet/intel/e1000e/nvm.c
++++ b/drivers/net/ethernet/intel/e1000e/nvm.c
+@@ -630,7 +630,7 @@ void e1000e_reload_nvm_generic(struct e1000_hw *hw)
  {
--	struct e1000_adapter *adapter = (struct e1000_adapter *) data;
-+	struct e1000_adapter *adapter = (struct e1000_adapter *)data;
+ 	u32 ctrl_ext;
  
- 	if (test_bit(__E1000_DOWN, &adapter->state))
- 		return;
-@@ -4784,7 +4784,7 @@ static void e1000e_check_82574_phy_workaround(struct e1000_adapter *adapter)
-  **/
- static void e1000_watchdog(unsigned long data)
- {
--	struct e1000_adapter *adapter = (struct e1000_adapter *) data;
-+	struct e1000_adapter *adapter = (struct e1000_adapter *)data;
- 
- 	/* Do the rest outside of interrupt context */
- 	schedule_work(&adapter->watchdog_task);
-@@ -5350,7 +5350,7 @@ static int e1000_transfer_dhcp_info(struct e1000_adapter *adapter,
- 	if (skb->len <= MINIMUM_DHCP_PACKET_SIZE)
- 		return 0;
- 
--	if (((struct ethhdr *) skb->data)->h_proto != htons(ETH_P_IP))
-+	if (((struct ethhdr *)skb->data)->h_proto != htons(ETH_P_IP))
- 		return 0;
- 
- 	{
-@@ -6727,11 +6727,11 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	init_timer(&adapter->watchdog_timer);
- 	adapter->watchdog_timer.function = e1000_watchdog;
--	adapter->watchdog_timer.data = (unsigned long) adapter;
-+	adapter->watchdog_timer.data = (unsigned long)adapter;
- 
- 	init_timer(&adapter->phy_info_timer);
- 	adapter->phy_info_timer.function = e1000_update_phy_info;
--	adapter->phy_info_timer.data = (unsigned long) adapter;
-+	adapter->phy_info_timer.data = (unsigned long)adapter;
- 
- 	INIT_WORK(&adapter->reset_task, e1000_reset_task);
- 	INIT_WORK(&adapter->watchdog_task, e1000_watchdog_task);
+-	udelay(10);
++	usleep_range(10, 20);
+ 	ctrl_ext = er32(CTRL_EXT);
+ 	ctrl_ext |= E1000_CTRL_EXT_EE_RST;
+ 	ew32(CTRL_EXT, ctrl_ext);
 diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index 8ff0060..50e84ed 100644
+index 9b3d167..60dbf02 100644
 --- a/drivers/net/ethernet/intel/e1000e/phy.c
 +++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -175,7 +175,7 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
- 		e_dbg("MDI Error\n");
- 		return -E1000_ERR_PHY;
- 	}
--	*data = (u16) mdic;
-+	*data = (u16)mdic;
+@@ -97,7 +97,7 @@ s32 e1000e_get_phy_id(struct e1000_hw *hw)
+ 			return ret_val;
  
- 	/* Allow some time after each MDIC transaction to avoid
+ 		phy->id = (u32)(phy_id << 16);
+-		udelay(20);
++		usleep_range(20, 40);
+ 		ret_val = e1e_rphy(hw, MII_PHYSID2, &phy_id);
+ 		if (ret_val)
+ 			return ret_val;
+@@ -165,7 +165,7 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
+ 	 * the lower time out
+ 	 */
+ 	for (i = 0; i < (E1000_GEN_POLL_TIMEOUT * 3); i++) {
+-		udelay(50);
++		usleep_range(50, 100);
+ 		mdic = er32(MDIC);
+ 		if (mdic & E1000_MDIC_READY)
+ 			break;
+@@ -184,7 +184,7 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
  	 * reading duplicate data in the next MDIC transaction.
+ 	 */
+ 	if (hw->mac.type == e1000_pch2lan)
+-		udelay(100);
++		usleep_range(100, 200);
+ 
+ 	return 0;
+ }
+@@ -223,7 +223,7 @@ s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
+ 	 * the lower time out
+ 	 */
+ 	for (i = 0; i < (E1000_GEN_POLL_TIMEOUT * 3); i++) {
+-		udelay(50);
++		usleep_range(50, 100);
+ 		mdic = er32(MDIC);
+ 		if (mdic & E1000_MDIC_READY)
+ 			break;
+@@ -241,7 +241,7 @@ s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
+ 	 * reading duplicate data in the next MDIC transaction.
+ 	 */
+ 	if (hw->mac.type == e1000_pch2lan)
+-		udelay(100);
++		usleep_range(100, 200);
+ 
+ 	return 0;
+ }
+@@ -2120,7 +2120,7 @@ s32 e1000e_phy_hw_reset_generic(struct e1000_hw *hw)
+ 	ew32(CTRL, ctrl);
+ 	e1e_flush();
+ 
+-	udelay(150);
++	usleep_range(150, 300);
+ 
+ 	phy->ops.release(hw);
+ 
 -- 
 1.7.11.7
