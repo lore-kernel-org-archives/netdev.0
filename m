@@ -1,119 +1,214 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] e1000e: cleanup LEADING_SPACE checkpatch warnings
-Date: Fri,  8 Mar 2013 02:07:08 -0800
-Message-ID: <1362737237-13363-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/15] ixgbevf: Make next_to_watch a pointer and adjust memory barriers to avoid races
+Date: Fri,  8 Mar 2013 02:07:03 -0800
+Message-ID: <1362737237-13363-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1362737237-13363-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:51324 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:12686 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933944Ab3CHKH3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Mar 2013 05:07:29 -0500
+	id S1756158Ab3CHKHX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Mar 2013 05:07:23 -0500
 In-Reply-To: <1362737237-13363-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-WARNING:LEADING_SPACE: please, no spaces at the start of a line
+This change is meant to address several race issues that become possible
+because next_to_watch could possibly be set to a value that shows that the
+descriptor is done when it is not.  In order to correct that we instead make
+next_to_watch a pointer that is set to NULL during cleanup, and set to the
+eop_desc after the descriptor rings have been written.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+To enforce proper ordering the next_to_watch pointer is not set until after
+a wmb writing the values to the last descriptor in a transmit.  In order to
+guarantee that the descriptor is not read until after the eop_desc we use the
+read_barrier_depends which is only really necessary on the alpha architecture.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/e1000.h  |  4 ++--
- drivers/net/ethernet/intel/e1000e/netdev.c |  4 ++--
- drivers/net/ethernet/intel/e1000e/phy.c    | 10 +++++-----
- 3 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  2 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 71 +++++++++++++----------
+ 2 files changed, 40 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index 9b6a568..6ce64ae 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -487,8 +487,8 @@ extern int e1000e_setup_tx_resources(struct e1000_ring *ring);
- extern void e1000e_free_rx_resources(struct e1000_ring *ring);
- extern void e1000e_free_tx_resources(struct e1000_ring *ring);
- extern struct rtnl_link_stats64 *e1000e_get_stats64(struct net_device *netdev,
--                                                    struct rtnl_link_stats64
--                                                    *stats);
-+						    struct rtnl_link_stats64
-+						    *stats);
- extern void e1000e_set_interrupt_capability(struct e1000_adapter *adapter);
- extern void e1000e_reset_interrupt_capability(struct e1000_adapter *adapter);
- extern void e1000e_get_hw_control(struct e1000_adapter *adapter);
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 1fa61ca..87fa1c9 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1468,7 +1468,7 @@ next_desc:
-  * e1000_consume_page - helper function
-  **/
- static void e1000_consume_page(struct e1000_buffer *bi, struct sk_buff *skb,
--                               u16 length)
-+			       u16 length)
- {
- 	bi->page = NULL;
- 	skb->len += length;
-@@ -5571,7 +5571,7 @@ static void e1000_reset_task(struct work_struct *work)
-  * Returns the address of the device statistics structure.
-  **/
- struct rtnl_link_stats64 *e1000e_get_stats64(struct net_device *netdev,
--                                             struct rtnl_link_stats64 *stats)
-+					     struct rtnl_link_stats64 *stats)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index fc0af9a..fff0d98 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -44,8 +44,8 @@ struct ixgbevf_tx_buffer {
+ 	struct sk_buff *skb;
+ 	dma_addr_t dma;
+ 	unsigned long time_stamp;
++	union ixgbe_adv_tx_desc *next_to_watch;
+ 	u16 length;
+-	u16 next_to_watch;
+ 	u16 mapped_as_page;
+ };
  
-diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index e46b65f..643353f 100644
---- a/drivers/net/ethernet/intel/e1000e/phy.c
-+++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -324,7 +324,7 @@ s32 e1000_set_page_igp(struct e1000_hw *hw, u16 page)
-  *  semaphores before exiting.
-  **/
- static s32 __e1000e_read_phy_reg_igp(struct e1000_hw *hw, u32 offset, u16 *data,
--                                    bool locked)
-+				     bool locked)
- {
- 	s32 ret_val = 0;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index c3db6cd..20736eb 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -190,28 +190,37 @@ static bool ixgbevf_clean_tx_irq(struct ixgbevf_q_vector *q_vector,
+ 	struct ixgbevf_adapter *adapter = q_vector->adapter;
+ 	union ixgbe_adv_tx_desc *tx_desc, *eop_desc;
+ 	struct ixgbevf_tx_buffer *tx_buffer_info;
+-	unsigned int i, eop, count = 0;
++	unsigned int i, count = 0;
+ 	unsigned int total_bytes = 0, total_packets = 0;
  
-@@ -391,7 +391,7 @@ s32 e1000e_read_phy_reg_igp_locked(struct e1000_hw *hw, u32 offset, u16 *data)
-  *  at the offset.  Release any acquired semaphores before exiting.
-  **/
- static s32 __e1000e_write_phy_reg_igp(struct e1000_hw *hw, u32 offset, u16 data,
--                                     bool locked)
-+				      bool locked)
- {
- 	s32 ret_val = 0;
+ 	if (test_bit(__IXGBEVF_DOWN, &adapter->state))
+ 		return true;
  
-@@ -458,7 +458,7 @@ s32 e1000e_write_phy_reg_igp_locked(struct e1000_hw *hw, u32 offset, u16 data)
-  *  Release any acquired semaphores before exiting.
-  **/
- static s32 __e1000_read_kmrn_reg(struct e1000_hw *hw, u32 offset, u16 *data,
--                                 bool locked)
-+				 bool locked)
- {
- 	u32 kmrnctrlsta;
+ 	i = tx_ring->next_to_clean;
+-	eop = tx_ring->tx_buffer_info[i].next_to_watch;
+-	eop_desc = IXGBEVF_TX_DESC(tx_ring, eop);
++	tx_buffer_info = &tx_ring->tx_buffer_info[i];
++	eop_desc = tx_buffer_info->next_to_watch;
  
-@@ -531,7 +531,7 @@ s32 e1000e_read_kmrn_reg_locked(struct e1000_hw *hw, u32 offset, u16 *data)
-  *  before exiting.
-  **/
- static s32 __e1000_write_kmrn_reg(struct e1000_hw *hw, u32 offset, u16 data,
--                                  bool locked)
-+				  bool locked)
- {
- 	u32 kmrnctrlsta;
+-	while ((eop_desc->wb.status & cpu_to_le32(IXGBE_TXD_STAT_DD)) &&
+-	       (count < tx_ring->count)) {
++	do {
+ 		bool cleaned = false;
+-		rmb(); /* read buffer_info after eop_desc */
+-		/* eop could change between read and DD-check */
+-		if (unlikely(eop != tx_ring->tx_buffer_info[i].next_to_watch))
+-			goto cont_loop;
++
++		/* if next_to_watch is not set then there is no work pending */
++		if (!eop_desc)
++			break;
++
++		/* prevent any other reads prior to eop_desc */
++		read_barrier_depends();
++
++		/* if DD is not set pending work has not been completed */
++		if (!(eop_desc->wb.status & cpu_to_le32(IXGBE_TXD_STAT_DD)))
++			break;
++
++		/* clear next_to_watch to prevent false hangs */
++		tx_buffer_info->next_to_watch = NULL;
++
+ 		for ( ; !cleaned; count++) {
+ 			struct sk_buff *skb;
+ 			tx_desc = IXGBEVF_TX_DESC(tx_ring, i);
+-			tx_buffer_info = &tx_ring->tx_buffer_info[i];
+-			cleaned = (i == eop);
++			cleaned = (tx_desc == eop_desc);
+ 			skb = tx_buffer_info->skb;
  
-@@ -2987,7 +2987,7 @@ static u32 e1000_get_phy_addr_for_hv_page(u32 page)
-  *  These accesses done with PHY address 2 and without using pages.
-  **/
- static s32 e1000_access_phy_debug_regs_hv(struct e1000_hw *hw, u32 offset,
--                                          u16 *data, bool read)
-+					  u16 *data, bool read)
+ 			if (cleaned && skb) {
+@@ -234,12 +243,12 @@ static bool ixgbevf_clean_tx_irq(struct ixgbevf_q_vector *q_vector,
+ 			i++;
+ 			if (i == tx_ring->count)
+ 				i = 0;
++
++			tx_buffer_info = &tx_ring->tx_buffer_info[i];
+ 		}
+ 
+-cont_loop:
+-		eop = tx_ring->tx_buffer_info[i].next_to_watch;
+-		eop_desc = IXGBEVF_TX_DESC(tx_ring, eop);
+-	}
++		eop_desc = tx_buffer_info->next_to_watch;
++	} while (count < tx_ring->count);
+ 
+ 	tx_ring->next_to_clean = i;
+ 
+@@ -2806,8 +2815,7 @@ static bool ixgbevf_tx_csum(struct ixgbevf_ring *tx_ring,
+ }
+ 
+ static int ixgbevf_tx_map(struct ixgbevf_ring *tx_ring,
+-			  struct sk_buff *skb, u32 tx_flags,
+-			  unsigned int first)
++			  struct sk_buff *skb, u32 tx_flags)
  {
- 	s32 ret_val;
- 	u32 addr_reg;
+ 	struct ixgbevf_tx_buffer *tx_buffer_info;
+ 	unsigned int len;
+@@ -2832,7 +2840,6 @@ static int ixgbevf_tx_map(struct ixgbevf_ring *tx_ring,
+ 						     size, DMA_TO_DEVICE);
+ 		if (dma_mapping_error(tx_ring->dev, tx_buffer_info->dma))
+ 			goto dma_error;
+-		tx_buffer_info->next_to_watch = i;
+ 
+ 		len -= size;
+ 		total -= size;
+@@ -2862,7 +2869,6 @@ static int ixgbevf_tx_map(struct ixgbevf_ring *tx_ring,
+ 					      tx_buffer_info->dma))
+ 				goto dma_error;
+ 			tx_buffer_info->mapped_as_page = true;
+-			tx_buffer_info->next_to_watch = i;
+ 
+ 			len -= size;
+ 			total -= size;
+@@ -2881,8 +2887,6 @@ static int ixgbevf_tx_map(struct ixgbevf_ring *tx_ring,
+ 	else
+ 		i = i - 1;
+ 	tx_ring->tx_buffer_info[i].skb = skb;
+-	tx_ring->tx_buffer_info[first].next_to_watch = i;
+-	tx_ring->tx_buffer_info[first].time_stamp = jiffies;
+ 
+ 	return count;
+ 
+@@ -2891,7 +2895,6 @@ dma_error:
+ 
+ 	/* clear timestamp and dma mappings for failed tx_buffer_info map */
+ 	tx_buffer_info->dma = 0;
+-	tx_buffer_info->next_to_watch = 0;
+ 	count--;
+ 
+ 	/* clear timestamp and dma mappings for remaining portion of packet */
+@@ -2908,7 +2911,8 @@ dma_error:
+ }
+ 
+ static void ixgbevf_tx_queue(struct ixgbevf_ring *tx_ring, int tx_flags,
+-			     int count, u32 paylen, u8 hdr_len)
++			     int count, unsigned int first, u32 paylen,
++			     u8 hdr_len)
+ {
+ 	union ixgbe_adv_tx_desc *tx_desc = NULL;
+ 	struct ixgbevf_tx_buffer *tx_buffer_info;
+@@ -2959,6 +2963,16 @@ static void ixgbevf_tx_queue(struct ixgbevf_ring *tx_ring, int tx_flags,
+ 
+ 	tx_desc->read.cmd_type_len |= cpu_to_le32(txd_cmd);
+ 
++	tx_ring->tx_buffer_info[first].time_stamp = jiffies;
++
++	/* Force memory writes to complete before letting h/w
++	 * know there are new descriptors to fetch.  (Only
++	 * applicable for weak-ordered memory model archs,
++	 * such as IA-64).
++	 */
++	wmb();
++
++	tx_ring->tx_buffer_info[first].next_to_watch = tx_desc;
+ 	tx_ring->next_to_use = i;
+ }
+ 
+@@ -3050,15 +3064,8 @@ static int ixgbevf_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 		tx_flags |= IXGBE_TX_FLAGS_CSUM;
+ 
+ 	ixgbevf_tx_queue(tx_ring, tx_flags,
+-			 ixgbevf_tx_map(tx_ring, skb, tx_flags, first),
+-			 skb->len, hdr_len);
+-	/*
+-	 * Force memory writes to complete before letting h/w
+-	 * know there are new descriptors to fetch.  (Only
+-	 * applicable for weak-ordered memory model archs,
+-	 * such as IA-64).
+-	 */
+-	wmb();
++			 ixgbevf_tx_map(tx_ring, skb, tx_flags),
++			 first, skb->len, hdr_len);
+ 
+ 	writel(tx_ring->next_to_use, adapter->hw.hw_addr + tx_ring->tail);
+ 
 -- 
 1.7.11.7
