@@ -1,61 +1,42 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: TCP small packets throughput and multiqueue virtio-net
-Date: Fri, 08 Mar 2013 09:26:14 -0800
-Message-ID: <513A1F36.5020401@hp.com>
-References: <5139840A.6020204@redhat.com> <1362755115.15793.236.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 3/4] ipv6: stop multicast forwarding to
+ process interface scoped addresses
+Date: Fri, 08 Mar 2013 12:28:53 -0500 (EST)
+Message-ID: <20130308.122853.2065795135338373139.davem@davemloft.net>
+References: <20130308120723.GA5120@order.stressinduktion.org>
+	<513A121C.7010702@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>, KVM <kvm@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jpirko@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:32687 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759940Ab3CHR0S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 12:26:18 -0500
-In-Reply-To: <1362755115.15793.236.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56906 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756146Ab3CHR24 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 12:28:56 -0500
+In-Reply-To: <513A121C.7010702@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Sat, 09 Mar 2013 01:30:20 +0900
 
->
-> Well, the point is : if your app does write(1024) bytes, thats probably
-> because it wants small packets from the very beginning. (See the TCP
-> PUSH flag ?)
+> Hannes Frederic Sowa wrote:
+>> v2:
+>> a) used struct ipv6_addr_props
+>> 
+>> v3:
+>> a) reverted changes for ipv6_addr_props
+>> 
+>> v4:
+>> a) do not use __ipv6_addr_needs_scope_id
+>> 
+>> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+...
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> 
+> And I think this should go to -stable as well,.
 
-I think that raises the question of whether or not Jason was setting the 
-test-specific -D option on his TCP_STREAM tests, to have netperf make a 
-setsockopt(TCP_NODELAY) call.
-
-happy benchmarking,
-
-rick jones
-
-> If the transport is slow, TCP stack will automatically collapse several
-> write into single skbs (assuming TSO or GSO is on), and you'll see big
-> GSO packets with tcpdump [1]. So TCP will help you to get less overhead
-> in this case.
->
-> But if transport is fast, you'll see small packets, and thats good for
-> latency.
->
-> So my opinion is : its exactly behaving as expected.
->
-> If you want bigger packets either :
-> - Make the application doing big write()
-> - Slow the vmexit ;)
->
-> [1] GSO fools tcpdump : Actual packets sent to the wire are not 'big
-> packets', but they hit dev_hard_start_xmit() as GSO packets.
->
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Applied to 'net' and queued up for -stable, thanks.
