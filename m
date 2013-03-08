@@ -1,33 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next 1/5] bna: fix declaration mismatch
-Date: Fri, 08 Mar 2013 11:07:40 -0800
-Message-ID: <20130308190808.861866355@vyatta.com>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [PATCH net-next 1/5] bna: fix declaration mismatch
+Date: Fri, 8 Mar 2013 11:30:18 -0800
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86B649F3A0D8@HQ1-EXCH01.corp.brocade.com>
 References: <20130308190739.260966567@vyatta.com>
-Cc: netdev@vger.kernel.org,
+ <20130308190808.861866355@vyatta.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Stephen Hemminger <stephen@networkplumber.org>
-To: David Miller <davem@davemloft.net>, Rasesh Mody <rmody@brocade.com>
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fiji.vyatta.com ([76.74.103.50]:37273 "EHLO fiji.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750864Ab3CHTX2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Mar 2013 14:23:28 -0500
-Content-Disposition: inline; filename=bna-mismatch.patch
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:42178 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750851Ab3CHTaQ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Mar 2013 14:30:16 -0500
+Received: from pps.filterd (m0000700 [127.0.0.1])
+	by mx0b-000f0801.pphosted.com (8.14.5/8.14.5) with SMTP id r28JSWJG031173
+	for <netdev@vger.kernel.org>; Fri, 8 Mar 2013 11:30:15 -0800
+Received: from hq1wp-exchub02.corp.brocade.com ([144.49.131.13])
+	by mx0b-000f0801.pphosted.com with ESMTP id 1ay7aw0d1y-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 08 Mar 2013 11:30:15 -0800
+In-Reply-To: <20130308190808.861866355@vyatta.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function is declared to take u32 but definition uses enum.
+>From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+>Sent: Friday, March 08, 2013 11:08 AM
+>
+>The function is declared to take u32 but definition uses enum.
+>
+>Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+You are right, thanks Stephen!
 
-
---- a/drivers/net/ethernet/brocade/bna/bfa_ioc.c	2013-03-08 10:33:19.142142147 -0800
-+++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.c	2013-03-08 10:33:21.534142211 -0800
-@@ -76,7 +76,7 @@ static void bfa_ioc_pf_disabled(struct b
- static void bfa_ioc_pf_failed(struct bfa_ioc *ioc);
- static void bfa_ioc_pf_hwfailed(struct bfa_ioc *ioc);
- static void bfa_ioc_pf_fwmismatch(struct bfa_ioc *ioc);
--static void bfa_ioc_boot(struct bfa_ioc *ioc, u32 boot_type,
-+static void bfa_ioc_boot(struct bfa_ioc *ioc, enum bfi_fwboot_type boot_type,
- 			 u32 boot_param);
- static u32 bfa_ioc_smem_pgnum(struct bfa_ioc *ioc, u32 fmaddr);
- static void bfa_ioc_get_adapter_serial_num(struct bfa_ioc *ioc,
+Acked-by: Rasesh Mody <rmody@brocade.com>
