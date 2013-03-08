@@ -1,44 +1,36 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash table
-Date: Fri, 8 Mar 2013 06:57:18 +0100
-Message-ID: <20130308055718.GA28531@order.stressinduktion.org>
-References: <20130307214211.GP7941@order.stressinduktion.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [net-next.git 0/9] stmmac: update to March_2013 (adding PTP &
+ RGMII/SGMII)
+Date: Fri, 8 Mar 2013 07:04:46 +0100
+Message-ID: <20130308060445.GA2382@netboy.at.omicron.at>
+References: <1362653419-1047-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bh74.an@samsung.com,
+	ayagond@vayavyalabs.com
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:50655 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932161Ab3CHF5U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 00:57:20 -0500
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:63349 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932158Ab3CHGEw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 01:04:52 -0500
+Received: by mail-wi0-f181.google.com with SMTP id hm6so714179wib.14
+        for <netdev@vger.kernel.org>; Thu, 07 Mar 2013 22:04:50 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20130307214211.GP7941@order.stressinduktion.org>
+In-Reply-To: <1362653419-1047-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 07, 2013 at 10:42:11PM +0100, Hannes Frederic Sowa wrote:
-> ipv6_addr_hash can yield the exact same hash value for countless ip
-> addresses from one /64 subnet. Let's make it a bit harder to create a
-> long list of reassembly queues in the hash table by using a stronger hash.
-> 
-> I spotted this just by looking at the source and did not verify if it
-> is really the case, so this patch has RFC status. But the jhash change
-> should not really hurt anyway. This patch is only compile tested.
+On Thu, Mar 07, 2013 at 11:50:10AM +0100, Giuseppe CAVALLARO wrote:
 
-Hmpf, I haven't seen Eric's change(279e9f2: ipv6: optimize
-inet6_hash_frag()) and tried to compare a v3.8 against a net-next
-kernel. At a first sight, it seems in some kind of denial of service
-scenario the relative amount of time spend in inet_frag_find increased,
-but I will do more comparable benchmarks later today (could be also
-because of other changes). I just wanted to let you know that I will do
-more research on this one and that you shouldn't apply this patch for now.
+> Rayagond Kokatanur (4):
+>   stmmac: add tx_skbuff_dma to save descriptors used by PTP
+>   stmmac: add IEEE 1588-2002 PTP support
+>   stmmac: add the support for PTP hw clock driver
+>   stmmac: add IEEE 1588-2008 PTP V2 support
 
-I also noticed that this function is also used by netfilter in the
-forwarding path. Perhaps a jenkins hash on the destination address would
-be better, too. Perhaps a netfilter specific hash function could also
-be used.
+In the future, for PTP clock and time stamping patches, I would
+appreciate being put on CC.
 
-Greetings,
-
-  Hannes
+Thanks,
+Richard
