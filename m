@@ -1,71 +1,92 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net] bridge: do not expire mdb entry when
- bridge still uses it
-Date: Fri, 08 Mar 2013 10:44:06 +0800
-Message-ID: <1362710646.9773.25.camel@cr0>
-References: <1362708423-23932-1-git-send-email-amwang@redhat.com>
-	<20130308023151.GA27155@gondor.apana.org.au>
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: [PATCH net-next] tg3: Update link_up flag for phylib devices
+Date: Thu, 7 Mar 2013 18:45:27 -0800
+Message-ID: <1362710727-15438-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
-	Adam Baker <linux@baker-net.org.uk>
-To: Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130308023151.GA27155@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hirofumi@mail.parknet.co.jp,
+	"Nithin Nayak Sujir" <nsujir@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3211 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933068Ab3CHCq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Mar 2013 21:46:58 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-03-08 at 10:31 +0800, Herbert Xu wrote:
-> On Fri, Mar 08, 2013 at 10:07:03AM +0800, Cong Wang wrote:
-> > From: Cong Wang <amwang@redhat.com>
-> > 
-> > This is a long-standing bug and reported several times:
-> > https://bugzilla.redhat.com/show_bug.cgi?id=880035
-> > http://marc.info/?l=linux-netdev&m=136164389416341&w=2
-> > 
-> > This bug can be observed in virt environment, when a KVM guest
-> > communicates with the host via multicast. After some time (should
-> > be 260 sec, I didn't measure), the multicast traffic suddenly
-> > terminates.
-> > 
-> > This is due to the mdb entry for bridge itself expires automatically,
-> > it should not expire as long as the bridge still generates multicast
-> > traffic. It should expire when the bridge leaves the multicast group,
-> > OR when there is no multicast traffic on this bridge.
-> > 
-> > I fix this by adding another bool which is set when there is
-> > multicast traffic goes to the bridge, cleared in the expire timer and
-> > when IGMP leave is received. I ran omping for 15 minutes, everything
-> > looks good now.
-> 
-> I gather from the bugzilla entry that this happens where there is
-> no querier in the network.
-> 
-> So my question is why does this only affect the bridge port and
-> not other ports on the bridge?
-> 
+Commit f4a46d1f46a8fece34edd2023e054072b02e110d introduced a bug where
+the ifconfig stats would remain 0 for phylib devices. This is due to
+tp->link_up flag never becoming true causing tg3_periodic_fetch_stats()
+to return.
 
-This is a good question. It is due to inside br_handle_frame_finish() we
-use 'skb2' to decide if we deliver packets to bridge itself, and in this
-case 'skb2' is non-NULL only when:
+The link_up flag was being updated in tg3_test_and_report_link_chg()
+after setting up the phy. This function however, is not called for
+phylib devices since the driver does not do the phy setup.
 
-                if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
-                        if ((mdst && mdst->mglist) ||
-                            br_multicast_is_router(br))
-                                skb2 = skb; //        <======== HERE
-                        br_multicast_forward(mdst, skb, skb2);
+This patch moves the link_up flag update into the common
+tg3_link_report() function that gets called for phylib devices as well
+for non phylib devices when the link state changes.
 
-For other ports, br_multicast_forward() will always forward 'skb' to
-them.
+To avoid updating link_up twice, we replace tg3_carrier_...() calls that
+are followed by tg3_link_report(), with netif_carrier_...(). We can then
+remove the unused tg3_carrier_on() function.
 
-Thanks.
+Reported-by: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c | 14 +++++---------
+ 1 file changed, 5 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 2b2bee6..0c1a2ef 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -1870,6 +1870,8 @@ static void tg3_link_report(struct tg3 *tp)
+ 
+ 		tg3_ump_link_report(tp);
+ 	}
++
++	tp->link_up = netif_carrier_ok(tp->dev);
+ }
+ 
+ static u16 tg3_advert_flowctrl_1000X(u8 flow_ctrl)
+@@ -2523,12 +2525,6 @@ static int tg3_phy_reset_5703_4_5(struct tg3 *tp)
+ 	return err;
+ }
+ 
+-static void tg3_carrier_on(struct tg3 *tp)
+-{
+-	netif_carrier_on(tp->dev);
+-	tp->link_up = true;
+-}
+-
+ static void tg3_carrier_off(struct tg3 *tp)
+ {
+ 	netif_carrier_off(tp->dev);
+@@ -2554,7 +2550,7 @@ static int tg3_phy_reset(struct tg3 *tp)
+ 		return -EBUSY;
+ 
+ 	if (netif_running(tp->dev) && tp->link_up) {
+-		tg3_carrier_off(tp);
++		netif_carrier_off(tp->dev);
+ 		tg3_link_report(tp);
+ 	}
+ 
+@@ -4403,9 +4399,9 @@ static bool tg3_test_and_report_link_chg(struct tg3 *tp, int curr_link_up)
+ {
+ 	if (curr_link_up != tp->link_up) {
+ 		if (curr_link_up) {
+-			tg3_carrier_on(tp);
++			netif_carrier_on(tp->dev);
+ 		} else {
+-			tg3_carrier_off(tp);
++			netif_carrier_off(tp->dev);
+ 			if (tp->phy_flags & TG3_PHYFLG_MII_SERDES)
+ 				tp->phy_flags &= ~TG3_PHYFLG_PARALLEL_DETECT;
+ 		}
+-- 
+1.8.1.4
