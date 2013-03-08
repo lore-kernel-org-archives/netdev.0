@@ -1,102 +1,112 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH] ipv6 addrconf: Fix addrconf_ifid_eui64 of 802.15.4
- devices
-Date: Fri, 8 Mar 2013 10:37:39 +0100
-Message-ID: <20130308093739.GB788@x61s.8.8.8.8>
-References: <1362687183-3425-1-git-send-email-alex.aring@gmail.com>
- <20130307204120.GA3808@x61s.8.8.8.8>
- <51394B32.9090807@linux-ipv6.org>
+From: Prabhakar Lad <prabhakar.csengg@gmail.com>
+Subject: Re: [PATCH v2 4/6] ARM: davinci: da850: add DT node for eth0.
+Date: Fri, 8 Mar 2013 15:15:49 +0530
+Message-ID: <CA+V-a8tSjF0Zz53_v=d-hUdKK4ihK_aLceOYnmQFhhKLOx3y1g@mail.gmail.com>
+References: <1359380879-26306-1-git-send-email-prabhakar.lad@ti.com>
+ <1359380879-26306-5-git-send-email-prabhakar.lad@ti.com> <510E51FF.8090005@ti.com>
+ <CA+V-a8uT-iF_TdWQwvnc1PfcQ9z3WBuZ2MYS1X_u3wO0_p=T0w@mail.gmail.com> <510FF4C8.7000706@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f50.google.com ([209.85.214.50]:56301 "EHLO
-	mail-bk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933431Ab3CHJgW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 04:36:22 -0500
-Received: by mail-bk0-f50.google.com with SMTP id jg9so608528bkc.23
-        for <netdev@vger.kernel.org>; Fri, 08 Mar 2013 01:36:21 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <51394B32.9090807@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-arm-kernel@lists.infradead.org,
+	davinci-linux-open-source@linux.davincidsp.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org, Heiko Schocher <hs@denx.de>,
+	"Lad, Prabhakar" <prabhakar.lad@ti.com>
+To: Sekhar Nori <nsekhar@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <510FF4C8.7000706@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Sekhar,
 
-On Fri, Mar 08, 2013 at 11:21:38AM +0900, YOSHIFUJI Hideaki wrote:
-> Hi,
-> 
-> Alexander Aring wrote:
-> > Hi,
-> > 
-> > I don't know if this is a right solution for that, because other
-> > functions like addrconf_ifid_infiniband to manipulate eui after memcpy,
-> > too.
-> > 
-> > But this patch solves my problems with ieee802154 stack.
-> 
-> What kind of problems do you have?
+On Mon, Feb 4, 2013 at 11:20 PM, Sekhar Nori <nsekhar@ti.com> wrote:
+> On 2/4/2013 10:37 AM, Prabhakar Lad wrote:
+>> Sekhar ,
+>>
+>> On Sun, Feb 3, 2013 at 5:33 PM, Sekhar Nori <nsekhar@ti.com> wrote:
+>>> On 1/28/2013 7:17 PM, Prabhakar Lad wrote:
+>>>> From: Lad, Prabhakar <prabhakar.lad@ti.com>
+>>>>
+>>>> Add eth0 device tree node information and pinmux for mii to da850 by
+>>>> providing interrupt details and local mac address of eth0.
+>>>>
+>>>> Signed-off-by: Lad, Prabhakar <prabhakar.lad@ti.com>
+>>>> Cc: linux-arm-kernel@lists.infradead.org
+>>>> Cc: linux-kernel@vger.kernel.org
+>>>> Cc: davinci-linux-open-source@linux.davincidsp.com
+>>>> Cc: netdev@vger.kernel.org
+>>>> Cc: devicetree-discuss@lists.ozlabs.org
+>>>> Cc: Sekhar Nori <nsekhar@ti.com>
+>>>> Cc: Heiko Schocher <hs@denx.de>
+>>>> ---
+>>>>  arch/arm/boot/dts/da850-evm.dts |    5 +++++
+>>>>  arch/arm/boot/dts/da850.dtsi    |   35 +++++++++++++++++++++++++++++++++++
+>>>>  2 files changed, 40 insertions(+), 0 deletions(-)
+>>>>
+>>>> diff --git a/arch/arm/boot/dts/da850-evm.dts b/arch/arm/boot/dts/da850-evm.dts
+>>>> index a319491..19aa2b3 100644
+>>>> --- a/arch/arm/boot/dts/da850-evm.dts
+>>>> +++ b/arch/arm/boot/dts/da850-evm.dts
+>>>> @@ -30,6 +30,11 @@
+>>>>               mdio: davinci_mdio@1e24000 {
+>>>>                       status = "okay";
+>>>>               };
+>>>> +             eth0: emac@1e20000 {
+>>>> +                     status = "okay";
+>>>> +                     pinctrl-names = "default";
+>>>> +                     pinctrl-0 = <&mii_pins>;
+>>>> +             };
+>>>>       };
+>>>>       nand_cs3@62000000 {
+>>>>               status = "okay";
+>>>> diff --git a/arch/arm/boot/dts/da850.dtsi b/arch/arm/boot/dts/da850.dtsi
+>>>> index ba28f2d..76905f3 100644
+>>>> --- a/arch/arm/boot/dts/da850.dtsi
+>>>> +++ b/arch/arm/boot/dts/da850.dtsi
+>>>> @@ -56,6 +56,26 @@
+>>>>                                       0x30 0x01100000  0x0ff00000
+>>>>                               >;
+>>>>                       };
+>>>> +                     mii_pins: pinmux_mii_pins {
+>>>> +                             pinctrl-single,bits = <
+>>>> +                                     /*
+>>>> +                                      * MII_TXEN, MII_TXCLK, MII_COL
+>>>> +                                      * MII_TXD_3, MII_TXD_2, MII_TXD_1
+>>>> +                                      * MII_TXD_0
+>>>> +                                      */
+>>>> +                                     0x8 0x88888880 0xfffffff0
+>>>> +                                     /*
+>>>> +                                      * MII_RXER, MII_CRS, MII_RXCLK
+>>>> +                                      * MII_RXDV, MII_RXD_3, MII_RXD_2
+>>>> +                                      * MII_RXD_1, MII_RXD_0
+>>>> +                                      */
+>>>> +                                     0xc 0x88888888 0xffffffff
+>>>> +                                     /* MDIO_CLK, MDIO_D */
+>>>
+>>> You call this mii_pins, but include mdio pins in there as well. Can you
+>>> separate them out? Then some board which uses rmii can simply reuse the
+>>> entry.
+>>>
+>> Ok makes sense.
+>>
+>>>> +                                     0x10 0x00222288 0x00ffffff
+>>>> +                                     /* GPIO2_6 */
+>>>> +                                     0x18 0x00000080 0x000000f0
+>>>
+>>> This is SoC specific pin list. Such board specific pins should not make
+>>> it here.
+>>>
+>> Ok, so this should be set up using GPIO API's ?
 >
+> Yes, the pins ultimately will be controlled by gpiolib APIs, but the
+> pins should be defined under the eth node in .dts
+>
+You mean '0x18 0x00000080 0x000000f0'  still needs to defined in eth0 node ?
+Can you elaborate and give some pointers.
 
-I compile with #define DEBUG enabled in net/ieee802154/6lowpan.c
+Regards,
+--Prabhakar
 
-The problem is the address compression in 6lowpan.
-
-First device has address fe80::a000:0:0:1/64. Second device has address
-fe80::a000:0:0:2/64. I use only a ping6 to check connection.
-
-Debug Information on the receiving side:
-Without your patch which is working.
-
-iphc0 = 7a, iphc1 = 11
-NH flag is set, next header carried inline: 3a
-source address stateless compression
-(lowpan_uncompress_addr) linklocal address: 
-a0 00 00 00 00 00 00 02
-uncompressing 2 + 8 => 
-fe 80 00 00 00 00 00 00 a0 00 00 00 00 00 00 02
-dest: stateless compression
-(lowpan_uncompress_addr) linklocal address: 
-a0 00 00 00 00 00 00 01
-uncompressing 2 + 8 => 
-fe 80 00 00 00 00 00 00 a0 00 00 00 00 00 00 01
-skb headroom size = 40, data length = 64
-IPv6 header dump:
-	version = 6
-	length  = 64
-	nexthdr = 0x3a
-	hop_lim = 64
-
-
-With your patch, which isn't working anymore:
-
-iphc0 = 7b, iphc1 = 3b
-NH flag is set, next header carried inline: 3a
-source address stateless compression
-(lowpan_uncompress_addr) linklocal address: 
-02 85 00 3a 20 00 00 00
-uncompressing 2 + 0 => 
-fe 80 00 00 00 00 00 00 00 85 00 3a 20 00 00 00
-dest: non context-based mcast compression
-uncompressing 2 + 1 => 
-ff 02 00 00 00 00 00 00 00 00 00 00 00 00 00 02
-skb headroom size = 25, data length = 24
-IPv6 header dump:
-	version = 6
-	length  = 24
-	nexthdr = 0x3a
-	hop_lim = 255
-
-And for every ipv6 packet I got:
-ICMPv6 checksum failed [fe80:0000:0000:0000:0001:ff00:0001:8700 > ff02:0000:0000:0000:0000:0001:ff00:0001]
-
-I seems that the reconstructed destination address and header length are
-not right.
-
-I will try to figure out this problem. Hope this information helps you to
-know more about my problems.
-
-Regards
-Alex
+> Thanks,
+> Sekhar
