@@ -1,140 +1,38 @@
-From: David Oostdyk <daveo@ll.mit.edu>
-Subject: [PATCH] rrunner.c: fix possible memory leak in rr_init_one()
-Date: Fri, 8 Mar 2013 12:23:22 -0500
-Message-ID: <513A1E8A.7040408@ll.mit.edu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] VSOCK: Split vm_sockets.h into kernel/uapi
+Date: Fri, 08 Mar 2013 12:26:10 -0500 (EST)
+Message-ID: <20130308.122610.415557290822516252.davem@davemloft.net>
+References: <1362669973-26984-1-git-send-email-acking@vmware.com>
+	<26621.1362675490@warthog.procyon.org.uk>
+	<29364.1362704958@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pkcs7-signature";
-	micalg=sha1; boundary="------------ms060202040400090605040801"
-Cc: <jes@trained-monkey.org>, <daveo@ll.mit.edu>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:60274 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933174Ab3CHRXa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Mar 2013 12:23:30 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: acking@vmware.com, pv-drivers@vmware.com, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <29364.1362704958@warthog.procyon.org.uk>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
---------------ms060202040400090605040801
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
+From: David Howells <dhowells@redhat.com>
+Date: Fri, 08 Mar 2013 01:09:18 +0000
 
-In the event that register_netdev() failed, the rrpriv->evt_ring
-allocation would have not been freed.
+> Greg KH <gregkh@linuxfoundation.org> wrote:
+> 
+>> David, is there any rush to get stuff like this into 3.9 for any
+>> uapi-type changes, or can it just wait for 3.10?
+> 
+> Not especially.  It won't appear in userspace due to the __KERNEL__ guards.
 
-Signed-off-by: David Oostdyk <daveo@ll.mit.edu>
----
-  drivers/net/hippi/rrunner.c | 3 +++
-  1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/hippi/rrunner.c b/drivers/net/hippi/rrunner.c
-index d471963..970595a 100644
---- a/drivers/net/hippi/rrunner.c
-+++ b/drivers/net/hippi/rrunner.c
-@@ -203,6 +203,9 @@ static int __devinit rr_init_one(struct pci_dev *pdev=
-,
-  	return 0;
-    out:
-+	if (rrpriv->evt_ring)
-+		pci_free_consistent(pdev, EVT_RING_SIZE, rrpriv->evt_ring,
-+				    rrpriv->evt_ring_dma);
-  	if (rrpriv->rx_ring)
-  		pci_free_consistent(pdev, RX_TOTAL_SIZE, rrpriv->rx_ring,
-  				    rrpriv->rx_ring_dma);
---=20
-1.8.1.5
-
-
-
---------------ms060202040400090605040801
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
-
-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
-nLGXAtzo1mIsnwexqTEWMA4GA1UdDwEB/wQEAwIGwDAfBgNVHSMEGDAWgBSOSn2JoWMXHIGI
-NFc3JkVeGYp+JDAzBgNVHR8ELDAqMCigJqAkhiJodHRwOi8vY3JsLmxsLm1pdC5lZHUvZ2V0
-Y3JsL0xMQ0EyMGIGCCsGAQUFBwEBBFYwVDAtBggrBgEFBQcwAoYhaHR0cDovL2NybC5sbC5t
-aXQuZWR1L2dldHRvL0xMQ0EyMCMGCCsGAQUFBzABhhdodHRwOi8vb2NzcC5sbC5taXQuZWR1
-LzAMBgNVHRMBAf8EAjAAMD0GCSsGAQQBgjcVBwQwMC4GJisGAQQBgjcVCIOD5R2H7Kdmhq2H
-FYPq8EWFtqEfHYXL3jKH/4pzAgFkAgEFMCIGA1UdJQEB/wQYMBYGCCsGAQUFBwMEBgorBgEE
-AYI3CgMMMBgGA1UdIAQRMA8wDQYLKoZIhvcSAgEDAQgwGwYDVR0RBBQwEoEQZGF2ZW9AbGwu
-bWl0LmVkdTANBgkqhkiG9w0BAQsFAAOCAQEAN0sDbMECUU+lLNEAK/Md5d98WfE3A2hfdJPx
-VtYNv0ceHVWp5E/obqpbyEl8PuyAQ+dzjoUBHaqYLIRvssXlY7nFbM75bGsgFOWSQR03zXKw
-1Ej7zd2qRS2FT+HIz02rQxpndIwKd7+bmw+gjrBZ5lwHKYAtLRMeqta1Gb9n/FLUBc65jlmt
-PFNzSTroVwFq49aWzCwoCUvT4SgDjbd4JK0/I26rC8oCwetHGzTGXO+6x+rEbl6gWR1AKkg4
-7sT1ChoxQ4gDh1HdeYyRt1kpZtcp7p9sD8YUkUTfM2mLN3VggTcAcUxP8Jwg7SoU9E/rImLR
-gprlNC9ku6NRkHJUbTCCBNEwggO5oAMCAQICCmIFT/YAAAAAOoIwDQYJKoZIhvcNAQELBQAw
-UTELMAkGA1UEBhMCVVMxHzAdBgNVBAoTFk1JVCBMaW5jb2xuIExhYm9yYXRvcnkxDDAKBgNV
-BAsTA1BLSTETMBEGA1UEAxMKTUlUTEwgQ0EtMjAeFw0xMjA1MjIxNDQwNDlaFw0xMzA1MjIx
-NDQwNDlaMGIxCzAJBgNVBAYTAlVTMR8wHQYDVQQKExZNSVQgTGluY29sbiBMYWJvcmF0b3J5
-MQ8wDQYDVQQLEwZQZW9wbGUxITAfBgNVBAMTGE9vc3RkeWsuRGF2aWQuSi41MDAwODgwMTCC
-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
---------------ms060202040400090605040801--
+I've applied this to net-next, thanks.
