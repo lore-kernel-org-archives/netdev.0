@@ -1,60 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next.git 0/9] stmmac: update to March_2013 (adding PTP &
- RGMII/SGMII)
-Date: Fri, 08 Mar 2013 11:22:19 -0500 (EST)
-Message-ID: <20130308.112219.1999774630969953487.davem@davemloft.net>
-References: <1362653419-1047-1-git-send-email-peppe.cavallaro@st.com>
-	<20130307.153456.83724032858548621.davem@davemloft.net>
-	<51399048.3070505@st.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH net-next v4 1/4] ipv6: introdcue __ipv6_addr_needs_scope_id
+ and ipv6_iface_scope_id helper functions
+Date: Sat, 09 Mar 2013 01:28:56 +0900
+Message-ID: <513A11C8.7050308@linux-ipv6.org>
+References: <20130308120716.GA5028@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bh74.an@samsung.com,
-	rayagond@vayavyalabs.com
-To: peppe.cavallaro@st.com
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56090 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933517Ab3CHQWX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 11:22:23 -0500
-In-Reply-To: <51399048.3070505@st.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:60548 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933136Ab3CHQ3E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 11:29:04 -0500
+In-Reply-To: <20130308120716.GA5028@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Fri, 08 Mar 2013 08:16:24 +0100
-
-> Hello David
+Hannes Frederic Sowa wrote:
+> __ipv6_addr_needs_scope_id checks if an ipv6 address needs to supply
+> a 'sin6_scope_id != 0'. 'sin6_scope_id != 0' was enforced in case
+> of link-local addresses. To support interface-local multicast these
+> checks had to be enhanced and are now consolidated into these new helper
+> functions.
 > 
-> On 3/7/2013 9:34 PM, David Miller wrote:
->> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
->> Date: Thu,  7 Mar 2013 11:50:10 +0100
->>
->>> The PTP support is quite intrusive because it needs to support the
->>> extended
->>> descriptors used for saving the HW timestamps.
->>> These are available in new chip generations, only.
->>> So we have actually found useful to use some Kconfig options to
->>> surround PTP and extended descriptor support. This approach helped on
->>> old platform (embeeded system) where PTP is not supported and where we
->>> do not want to pay extra code and check in critical rx/tx paths.
->>
->> I would prefer run time handling of all of this.
->>
->> You do not need to put extra checks in the fast paths, instead you
->> have different methods that get hooked up into the netdev_ops
->> based upon chip capabilities/features/mode.
- ...
-> Welcome advice.
+> v2:
+> a) migrated to struct ipv6_addr_props
+> 
+> v3:
+> a) reverted changes for ipv6_addr_props
+> b) test for address type instead of comparing scope
+> 
+> v4:
+> a) unchanged
+> 
+> Suggested-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  include/net/ipv6.h | 12 ++++++++++++
+>  1 file changed, 12 insertions(+)
+> 
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index 988c9f2..42ef6ab 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -320,6 +320,18 @@ static inline int ipv6_addr_src_scope(const struct in6_addr *addr)
+>  	return __ipv6_addr_src_scope(__ipv6_addr_type(addr));
+>  }
+>  
+> +static inline bool __ipv6_addr_needs_scope_id(int type)
+> +{
+> +	return type & IPV6_ADDR_LINKLOCAL ||
+> +	       (type & IPV6_ADDR_MULTICAST &&
+> +		(type & (IPV6_ADDR_LOOPBACK|IPV6_ADDR_LINKLOCAL)));
+> +}
+> +
+> +static inline __u32 ipv6_iface_scope_id(const struct in6_addr *addr, int iface)
+> +{
+> +	return __ipv6_addr_needs_scope_id(__ipv6_addr_type(addr)) ? iface : 0;
+> +}
+> +
+>  static inline int ipv6_addr_cmp(const struct in6_addr *a1, const struct in6_addr *a2)
+>  {
+>  	return memcmp(a1, a2, sizeof(struct in6_addr));
+> 
 
-Exactly what I told you above.  You have two sets of routines,
-one that deal with the older descriptors and one set that deals
-with the new descriptors that can do PTP.
-
-And you hook up different interrupt handler, NAPI poll, and
-netdev_ops based upon the chip's capabilities.
-
-You need no runtime testing, only a test a probe time to setup
-things up properly.
-
-What is so hard about this to understand?
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
