@@ -1,46 +1,36 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash table
-Date: Fri, 8 Mar 2013 21:53:19 +0100
-Message-ID: <20130308205319.GG28531@order.stressinduktion.org>
-References: <20130307214211.GP7941@order.stressinduktion.org> <20130308055718.GA28531@order.stressinduktion.org> <20130308130433.GB28531@order.stressinduktion.org> <1362754386.15793.226.camel@edumazet-glaptop> <20130308150831.GD28531@order.stressinduktion.org> <1362756219.15793.240.camel@edumazet-glaptop>
+From: Loic Domaigne <loic.domaigne-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: RFC: [PATCH 0/3] usb: cdc_ncm: patches for MirrorLink
+Date: Fri, 8 Mar 2013 22:03:16 +0100
+Message-ID: <20130308210316.GA4793@feynman.loic.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:52203 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754610Ab3CHUxU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 15:53:20 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1362756219.15793.240.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 08, 2013 at 07:23:39AM -0800, Eric Dumazet wrote:
-> On Fri, 2013-03-08 at 16:08 +0100, Hannes Frederic Sowa wrote:
-> > On Fri, Mar 08, 2013 at 06:53:06AM -0800, Eric Dumazet wrote:
-> > > No matter how you hash, a hacker can easily fill your defrag unit with
-> > > not complete datagrams, so what's the point ?
-> > 
-> > I want to harden reassembly logic against all fragments being put in
-> > the same hash bucket because of malicious traffic and thus creating
-> > long list traversals in the fragment queue hash table.
-> 
-> Note that the long traversal was a real issue with TCP (thats why I
-> introduced ipv6_addr_jhash()), as a single ehash slot could contains
-> thousand of sockets.
-> 
-> But with fragments, we should just limit the depth of any particular
-> slot, and drop above a particular threshold.
-> 
-> reassembly is a best effort mechanism, better make sure it doesnt use
-> all our cpu cycles.
+The following serie of patches has been devised at jambit within the 
+MirrorLink(TM) context. 
 
-On my VM I counted 17500 iterations in one hash bucket and maxing out
-one CPU until I got rcu stalls and NMIs. In comparison: If I use the
-old hasing code I have max iterations of 370 and don't expirience any
-rcu stalls or NMIs (seems to be around 17500/64+-epsilon).
+It contains:
+- a patch for getting acceptable performance of the NCM driver under WMware 
+  environment (tested so far up to Workstation 9.0) 
+- a patch to have a single driver source for many kernel versions. This becomes
+  handy if you need to support a wide range of kernel versions, as we do.
+- a patch to boost transfer performance for the Nokia N60x, N70x.
 
-I have not yet drawn my conclusion on this, yet, but I agree some list
-length limiting code would be useful independent of the hash function.
+patch3 depends on patch2, and patch 2 on patch1. The patches apply 
+to longterm kernel version 3.4.35. 
+
+We are aware that those patches may not be suited for the mainstream driver. 
+On the other hand, jambit likes to make those patches public for anyone 
+interested in those topics.
+
+Thanks,
+Loic
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
