@@ -1,48 +1,78 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH] net/rds: zero last byte for strncpy
-Date: Fri, 08 Mar 2013 14:13:23 +0800
-Message-ID: <51398183.5090800@asianux.com>
-References: <51356FED.4070909@asianux.com> <1362502844.2791.32.camel@bwh-desktop.uk.solarflarecom.com> <513958C4.1020404@asianux.com> <20130308.003630.1150878411855053823.davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: TCP small packets throughput and multiqueue virtio-net
+Date: Fri, 08 Mar 2013 14:24:10 +0800
+Message-ID: <5139840A.6020204@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bhutchings@solarflare.com, David.Laight@ACULAB.COM,
-	venkat.x.venkatsubra@oracle.com, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:31459 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750880Ab3CHGNr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 01:13:47 -0500
-In-Reply-To: <20130308.003630.1150878411855053823.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, KVM <kvm@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jpirko@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2013=E5=B9=B403=E6=9C=8808=E6=97=A5 13:36, David Miller =E5=86=
-=99=E9=81=93:
-> From: Chen Gang <gang.chen@asianux.com>
-> Date: Fri, 08 Mar 2013 11:19:32 +0800
->=20
->>
->>   for NUL terminated string, need be always sure '\0' in the end.
->>
->> additional info:
->>   strncpy will pads with zeroes to the end of the given buffer.
->>   should initialise every bit of memory that is going to be copied t=
-o userland
->>
->>
->> Signed-off-by: Chen Gang <gang.chen@asianux.com>
->> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
->=20
-> Applied.
->=20
->=20
+Hello all:
 
-  thanks.
+I meet an issue when testing multiqueue virtio-net. When I testing guest
+small packets stream sending performance with netperf. I find an
+regression of multiqueue. When I run 2 sessions of TCP_STREAM test with
+1024 byte from guest to local host, I get following result:
 
---=20
-Chen Gang
+1q result: 3457.64
+2q result: 7781.45
 
-Asianux Corporation
+Statistics shows that: compared with one queue, multiqueue tends to send
+much more but smaller packets. Tcpdump shows single queue has a much
+higher possibility to produce a 64K gso packet compared to multiqueue.
+More but smaller packets will cause more vmexits and interrupts which
+lead a degradation on throughput.
+
+Then problem only exist for small packets sending. When I test with
+larger size, multiqueue will gradually outperfrom single queue. And
+multiqueue also outperfrom in both TCP_RR and pktgen test (even with
+small packets). The problem disappear when I turn off both gso and tso.
+
+I'm not sure whether it's a bug or expected since anyway we get
+improvement on latency. And if it's a bug, I suspect it was related to
+TCP GSO batching algorithm who tends to batch less in this situation. (
+Jiri Pirko suspect it was the defect of virtio-net driver, but I didn't
+find any obvious clue on this). After some experiments, I find the it
+maybe related to tcp_tso_should_defer(), after
+1) change the tcp_tso_win_divisor to 1
+2) the following changes
+the throughput were almost the same (but still a little worse) as single
+queue:
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index fd0cea1..dedd2a6 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1777,10 +1777,12 @@ static bool tcp_tso_should_defer(struct sock
+*sk, struct sk_buff *skb)
+ 
+        limit = min(send_win, cong_win);
+ 
++#if 0
+        /* If a full-sized TSO skb can be sent, do it. */
+        if (limit >= min_t(unsigned int, sk->sk_gso_max_size,
+                           sk->sk_gso_max_segs * tp->mss_cache))
+                goto send_now;
++#endif
+ 
+        /* Middle in queue won't get any more data, full sendable
+already? */
+        if ((skb != tcp_write_queue_tail(sk)) && (limit >= skb->len))
+
+Git history shows this check were added for both westwood and fasttcp,
+I'm not familiar with tcp but looks like we can easily hit this check
+under when multiqueue is enabled for virtio-net. Maybe I was wrong but I
+wonder whether we can still do some batching here.
+
+Any comments, thoughts are welcomed.
+
+Thanks
+
