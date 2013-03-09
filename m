@@ -1,36 +1,25 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH] ipv6 addrconf: Fix addrconf_ifid_eui64 of 802.15.4
- devices
-Date: Sat, 9 Mar 2013 21:08:33 +0100
-Message-ID: <20130309200833.GA13577@x61s>
-References: <1362687183-3425-1-git-send-email-alex.aring@gmail.com>
- <20130307204120.GA3808@x61s.8.8.8.8>
- <51394B32.9090807@linux-ipv6.org>
- <20130308093739.GB788@x61s.8.8.8.8>
- <513A203B.9030701@linux-ipv6.org>
- <513ABBCE.1090501@linux-ipv6.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] Trivial patches
+Date: Sat, 09 Mar 2013 16:10:12 -0500 (EST)
+Message-ID: <20130309.161012.1941434463658456445.davem@davemloft.net>
+References: <20130308190739.260966567@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:59581 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751289Ab3CIUHT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 15:07:19 -0500
-Received: by mail-wi0-f177.google.com with SMTP id hm14so294141wib.16
-        for <netdev@vger.kernel.org>; Sat, 09 Mar 2013 12:07:18 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <513ABBCE.1090501@linux-ipv6.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40846 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751730Ab3CIVKK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 16:10:10 -0500
+In-Reply-To: <20130308190739.260966567@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Fri, 08 Mar 2013 11:07:39 -0800
 
-I try to figure out this problem but I think it will take some days.
-I will send a fix then.
+> These are trivial patches to fix some sparse warnings.
 
-Thanks for your help.
-
-Alex
+Series applied, thanks Stephen.
