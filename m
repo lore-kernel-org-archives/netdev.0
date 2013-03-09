@@ -1,63 +1,57 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next 2/2] ipip: capture inner headers during encapsulation
-Date: Fri,  8 Mar 2013 17:12:52 -0800
-Message-ID: <1362791572-1833-1-git-send-email-pshelar@nicira.com>
-Cc: jesse@nicira.com, Pravin B Shelar <pshelar@nicira.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] ipv6 addrconf: Fix addrconf_ifid_eui64 of 802.15.4 devices
+Date: Sat, 09 Mar 2013 13:34:22 +0900
+Message-ID: <513ABBCE.1090501@linux-ipv6.org>
+References: <1362687183-3425-1-git-send-email-alex.aring@gmail.com> <20130307204120.GA3808@x61s.8.8.8.8> <51394B32.9090807@linux-ipv6.org> <20130308093739.GB788@x61s.8.8.8.8> <513A203B.9030701@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Alexander Aring <alex.aring@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog128.obsmtp.com ([74.125.149.141]:58725 "HELO
-	na3sys009aog128.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1759941Ab3CIBLv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 20:11:51 -0500
-Received: by mail-oa0-f70.google.com with SMTP id h2so13897325oag.5
-        for <netdev@vger.kernel.org>; Fri, 08 Mar 2013 17:11:50 -0800 (PST)
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:49747 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1760295Ab3CIEeY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Mar 2013 23:34:24 -0500
+In-Reply-To: <513A203B.9030701@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow IPIP to make use of tx-checksum offloading.
+YOSHIFUJI Hideaki wrote:
+> Alexander Aring wrote:
+:
+>> With your patch, which isn't working anymore:
+>>
+>> iphc0 = 7b, iphc1 = 3b
+>> NH flag is set, next header carried inline: 3a
+>> source address stateless compression
+>> (lowpan_uncompress_addr) linklocal address: 
+>> 02 85 00 3a 20 00 00 00
+>> uncompressing 2 + 0 => 
+>> fe 80 00 00 00 00 00 00 00 85 00 3a 20 00 00 00
+>> dest: non context-based mcast compression
+>> uncompressing 2 + 1 => 
+>> ff 02 00 00 00 00 00 00 00 00 00 00 00 00 00 02
+>> skb headroom size = 25, data length = 24
+>> IPv6 header dump:
+>> 	version = 6
+>> 	length  = 24
+>> 	nexthdr = 0x3a
+>> 	hop_lim = 255
+>>
+>> And for every ipv6 packet I got:
+>> ICMPv6 checksum failed [fe80:0000:0000:0000:0001:ff00:0001:8700 > ff02:0000:0000:0000:0000:0001:ff00:0001]
+>>
+>> I seems that the reconstructed destination address and header length are
+>> not right.
+> 
+> That's wired.  It is expected to work whatever valid source/destination
+> addesses are used, right?
 
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- net/ipv4/ipip.c |   13 +++++++------
- 1 files changed, 7 insertions(+), 6 deletions(-)
+It seems the last argument for lowpan_uncompress_address() (lladdr,
+show as "linklocal address") is incorrect.
+Note that it should say link-"layer" address, BTW.
 
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 18f5352..b50435b 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -483,11 +483,6 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	if (skb->protocol != htons(ETH_P_IP))
- 		goto tx_error;
--
--	if (skb->ip_summed == CHECKSUM_PARTIAL &&
--	    skb_checksum_help(skb))
--		goto tx_error;
--
- 	old_iph = ip_hdr(skb);
- 
- 	if (tos & 1)
-@@ -572,6 +567,13 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 		old_iph = ip_hdr(skb);
- 	}
- 
-+	if (!skb->encapsulation) {
-+		skb_reset_inner_headers(skb);
-+		skb->encapsulation = 1;
-+	}
-+	if (skb->ip_summed != CHECKSUM_PARTIAL)
-+		skb->ip_summed = CHECKSUM_NONE;
-+
- 	skb->transport_header = skb->network_header;
- 	skb_push(skb, sizeof(struct iphdr));
- 	skb_reset_network_header(skb);
-@@ -599,7 +601,6 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 		iph->ttl	=	old_iph->ttl;
- 
- 	nf_reset(skb);
--	skb->ip_summed = CHECKSUM_NONE;
- 
- 	pkt_len = skb->len - skb_transport_offset(skb);
- 	err = ip_local_out(skb);
--- 
-1.7.1
+--yoshfuji
