@@ -1,78 +1,48 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: RFC: [PATCH 3/3] usb: cdc_ncm: MirrorLink booster for N60x,70x
-Date: Sat, 09 Mar 2013 12:22:42 +0100
-Message-ID: <87fw04es1p.fsf@nemi.mork.no>
-References: <20130308210324.GA4796@feynman.loic.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 4/5] team: make local function static
+Date: Sat, 9 Mar 2013 13:07:50 +0100
+Message-ID: <20130309120750.GA1914@minipsycho.orion>
+References: <20130308190739.260966567@vyatta.com>
+ <20130308190809.432176649@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Loic Domaigne <loic.domaigne-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130308210324.GA4796-z50qq5H0jwZ76vs/tkv/CQ@public.gmane.org> (Loic Domaigne's message
-	of "Fri, 8 Mar 2013 22:03:24 +0100")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f54.google.com ([74.125.83.54]:33703 "EHLO
+	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753522Ab3CIMIA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 07:08:00 -0500
+Received: by mail-ee0-f54.google.com with SMTP id c41so1513518eek.13
+        for <netdev@vger.kernel.org>; Sat, 09 Mar 2013 04:07:59 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20130308190809.432176649@vyatta.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Loic Domaigne <loic.domaigne-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> writes:
+Fri, Mar 08, 2013 at 08:07:43PM CET, shemminger@vyatta.com wrote:
+>Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>
+>
+>--- a/drivers/net/team/team.c	2013-03-06 15:30:50.195924953 -0800
+>+++ b/drivers/net/team/team.c	2013-03-08 10:34:45.446144458 -0800
+>@@ -503,9 +503,9 @@ static bool team_dummy_transmit(struct t
+> 	return false;
+> }
+> 
+>-rx_handler_result_t team_dummy_receive(struct team *team,
+>-				       struct team_port *port,
+>-				       struct sk_buff *skb)
+>+static rx_handler_result_t team_dummy_receive(struct team *team,
+>+					      struct team_port *port,
+>+					      struct sk_buff *skb)
+> {
+> 	return RX_HANDLER_ANOTHER;
+> }
+>
+>
 
-> This patch allows to boost the performance if used for MirrorLink(TM)=
-=2E It
-> is derived from a patch provided by Nokia-LC/Berlin. It optimizes the=
- transfer
-> speed for the Nokia N60x,70x. which requires special settings (jumbo =
-frame,=20
-> no batching)
+Acked-by: Jiri Pirko <jiri@resnulli.us>
 
-This could probably be reworked to a real device specific quirk if
-necessary.  But it will need some refinement and justification.
-
-> +			/* The Nokia N60x,70x (productId 0x1419) needs:
-> +			 * - Jumbo Frame (MTU 8kB)
-> +			 * - Disable TX batching to improve latency
-> +			 */
-> +			if (dev !=3D NULL)
-> +				/* called during NCM bind */
-> +				dev->hard_mtu =3D 8192+ETH_HLEN;
-> +			else {
-> +				/* called during NCM setup */
-> +				pr_info(KBUILD_MODNAME ":  jambit MirrorLink booster for "
-> +					"Nokia 60x,70x family");
-> +				ctx->tx_max_datagrams  =3D 1;
-> +				ctx->max_datagram_size =3D 8192+ETH_HLEN;
-> +			}
-
-This looks really strange to me at first glance.  An important part of
-the NCM protocol is the ability for the host to request these values
-from the device, and the only real point of using NCM in the first plac=
-e
-is the bundling.  If the device has higher performance without bundling=
-,
-then why the h is it using NCM?
-
-And if it really wants jumbo datagrams, then why doesn't it say so when
-the driver ask?
-
-Are the above values based on some perceived performance, or are there
-actual measurements behind this?   Yes, sure the latency will drop with
-no bundling, but that is sort of the trade-off you chose when you chose
-NCM...
-
-> @@ -1269,5 +1320,7 @@ module_exit(cdc_ncm_exit);
->  #endif
-> =20
->  MODULE_AUTHOR("Hans Petter Selasky");
-> +MODULE_AUTHOR("Loic Domaigne");
->  MODULE_DESCRIPTION("USB CDC NCM host driver");
-> +MODULE_DESCRIPTION("MirrorLink Booster by jambit GmbH");
->  MODULE_LICENSE("Dual BSD/GPL");
-
-I do not think this is appropriate at all for a device specific bug
-workaround...
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks Stephen.
