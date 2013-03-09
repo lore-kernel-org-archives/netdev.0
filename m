@@ -1,52 +1,42 @@
-From: Mathias Krause <minipli@googlemail.com>
-Subject: [PATCH] ipv6: remove superfluous nla_data() NULL pointer checks
-Date: Sat,  9 Mar 2013 16:57:00 +0100
-Message-ID: <1362844620-13035-1-git-send-email-minipli@googlemail.com>
-Cc: netdev@vger.kernel.org, Mathias Krause <minipli@googlemail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f42.google.com ([209.85.214.42]:38780 "EHLO
-	mail-bk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758389Ab3CIP5L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 10:57:11 -0500
-Received: by mail-bk0-f42.google.com with SMTP id jk7so1129025bkc.29
-        for <netdev@vger.kernel.org>; Sat, 09 Mar 2013 07:57:10 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: [PATCH] sunrpc: drop "select NETVM"
+Date: Sat, 09 Mar 2013 17:02:31 +0100
+Message-ID: <1362844951.3137.3.camel@x61.thuisdomein>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "J. Bruce Fields" <bfields@fieldses.org>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-nla_data() cannot return NULL, so these NULL pointer checks are
-superfluous.
+The Kconfig entry for SUNRPC_SWAP selects NETVM. That select statement
+was added in commit a564b8f0398636ba30b07c0eaebdef7ff7837249 ("nfs:
+enable swap on NFS"). But there's no Kconfig symbol NETVM. It apparently
+was only in used in development versions of the swap over nfs
+functionality but never entered mainline. Anyhow, it is a nop and can
+safely be dropped.
 
-Signed-off-by: Mathias Krause <minipli@googlemail.com>
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
 ---
- net/ipv6/addrlabel.c |    6 ------
- 1 file changed, 6 deletions(-)
+ net/sunrpc/Kconfig | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/net/ipv6/addrlabel.c b/net/ipv6/addrlabel.c
-index aad6435..6f226c8 100644
---- a/net/ipv6/addrlabel.c
-+++ b/net/ipv6/addrlabel.c
-@@ -436,10 +436,7 @@ static int ip6addrlbl_newdel(struct sk_buff *skb, struct nlmsghdr *nlh,
+diff --git a/net/sunrpc/Kconfig b/net/sunrpc/Kconfig
+index 516fe2c..262caf0 100644
+--- a/net/sunrpc/Kconfig
++++ b/net/sunrpc/Kconfig
+@@ -24,7 +24,6 @@ config SUNRPC_XPRT_RDMA
+ config SUNRPC_SWAP
+ 	bool
+ 	depends on SUNRPC
+-	select NETVM
  
- 	if (!tb[IFAL_ADDRESS])
- 		return -EINVAL;
--
- 	pfx = nla_data(tb[IFAL_ADDRESS]);
--	if (!pfx)
--		return -EINVAL;
- 
- 	if (!tb[IFAL_LABEL])
- 		return -EINVAL;
-@@ -561,10 +558,7 @@ static int ip6addrlbl_get(struct sk_buff *in_skb, struct nlmsghdr* nlh,
- 
- 	if (!tb[IFAL_ADDRESS])
- 		return -EINVAL;
--
- 	addr = nla_data(tb[IFAL_ADDRESS]);
--	if (!addr)
--		return -EINVAL;
- 
- 	rcu_read_lock();
- 	p = __ipv6_addr_label(net, addr, ipv6_addr_type(addr), ifal->ifal_index);
+ config RPCSEC_GSS_KRB5
+ 	tristate "Secure RPC: Kerberos V mechanism"
 -- 
-1.7.10.4
+1.7.11.7
