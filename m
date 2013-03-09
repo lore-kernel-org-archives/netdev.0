@@ -1,51 +1,46 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] bnx2x: update fw to 7.8.17
-Date: Sat, 09 Mar 2013 16:18:20 +0000
-Message-ID: <1362845900.3768.496.camel@deadeye.wl.decadent.org.uk>
-References: <1361993047-10127-1-git-send-email-dmitry@broadcom.com>
+Subject: Re: [PATCH linux-firmware] tg3: Add EEE support firmware for 57766
+ cards
+Date: Sat, 09 Mar 2013 16:20:32 +0000
+Message-ID: <1362846032.3768.499.camel@deadeye.wl.decadent.org.uk>
+References: <1362614845-20738-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-R7aoBOOFzBVPMNP1xBDN"
-Cc: netdev@vger.kernel.org, Ariel Elior <ariele@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
+	protocol="application/pgp-signature"; boundary="=-PMZ57/1neN7xfJ3zZBxe"
+Cc: netdev@vger.kernel.org, mchan@broadcom.com,
 	David Woodhouse <dwmw2@infradead.org>
-To: Dmitry Kravkov <dmitry@broadcom.com>
+To: Nithin Nayak Sujir <nsujir@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:50939 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:50955 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757454Ab3CIQSe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 11:18:34 -0500
-In-Reply-To: <1361993047-10127-1-git-send-email-dmitry@broadcom.com>
+	by vger.kernel.org with ESMTP id S1758479Ab3CIQUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 11:20:35 -0500
+In-Reply-To: <1362614845-20738-1-git-send-email-nsujir@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-R7aoBOOFzBVPMNP1xBDN
+--=-PMZ57/1neN7xfJ3zZBxe
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2013-02-27 at 21:24 +0200, Dmitry Kravkov wrote:
-> This new firmware includes the following changes:
+On Wed, 2013-03-06 at 16:07 -0800, Nithin Nayak Sujir wrote:
+> 57766 devices with no nvram need a service patch firmware for the boot
+> code to support EEE. This patch adds the fw.
 >=20
-> 1. Several corner case bugs in iSCSI code.
-> 2. Fixes for FCoE including support for 3PAR targets.
-> 3. Fixes for SR-IOV behaviour including:
-> 	a. Remove FW assert erroneously triggered during FLR.
-> 	b. Several fixes in FLR flow.
-> 	c. Prevent VF crash when packet bigger than MTU arrives.
-> 	d. Improve security against malicious VF.
-> 4. Added CSUM and TSO support for encapsulation protocols.
-> 5. Added RSS capability for GRE traffic based on inner headers.
-> 6. Added FCoE support for 4-port 57840 devices.
->=20
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> Signed-off-by: Ariel Elior <ariele@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 > ---
-> Please consider adding to linux-firmware tree.
+>  WHENCE             |   3 ++-
+>  tigon/tg357766.bin | Bin 0 -> 144 bytes
+>  2 files changed, 2 insertions(+), 1 deletion(-)
+>  create mode 100644 tigon/tg357766.bin
 [...]
 
 Applied, thanks.
+
+Firmware updates should be sent to my personal address (as above), not
+my work address.
 
 Ben.
 
@@ -54,26 +49,26 @@ Ben Hutchings
 Always try to do things in chronological order;
 it's less confusing that way.
 
---=-R7aoBOOFzBVPMNP1xBDN
+--=-PMZ57/1neN7xfJ3zZBxe
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIVAwUAUTtgzOe/yOyVhhEJAQoVOhAAwCFcLAYUial/SwG5demynUOLOImPsxAG
-pEeTjLiGkYXdnFOLI+b8TJ6xd7IH7oARNuJ1tleiAJ9gezpMRqVsv0SS7rd14f+M
-AND6u7M/Mw2zJMW8EpGr4YNaIZMgHwmowCFI5O03l3/Jq+pGiorwFsyyCRQ9LHqA
-q7WsEwmsyWSUENH0XC3Z/7+qOVqccNKODAxZ1llRC7X8Gt1V4bmWAwrIS1XfeM1j
-gMvOGjIu8uSrTBMDZ+Q3oW5NEBxsgZ8cYk88J6hUOP171M1XLl4kxVkz+to6cqDR
-tqnYpbO6R8ymrr4gJN/uD9b0ZycjU/w5gNSPO0auOqKMhmkId2Tx5cneXKvn6c9d
-K1lAYM+nHnJDcGYiwQsnXDwdsKJIlQSJ5A5cPcnn2RW4eT72yKNdxiyoT4bpnlWf
-JUJjpEu+iFvz3mQhiEj4hhdxhsoFVUqKaH9vzbsGPRSnaFgTWt96dRZmz+uQhqoU
-Vg0zbpvTiCGAikDrcTtPNfULHQHA8VxEMzOhmMFrXGhJy1VvCNxXB98vjaUMBjx4
-AeJsZjaB8heuEGJ2lgt+gtf4UdBAi2zn+nt7k8+MzZZszljmRvpM4cZdGFrkBqbn
-ipnxk0UVdf2Ftw12q60brGfwzy3cnpFaeDFzsXzkQc08oNZlnZa+V8KpCZUcBEwG
-nUEbfSHBq9A=
-=WQ7/
+iQIVAwUAUTthUOe/yOyVhhEJAQokLg//YCZIdzcb2Hnz9egpz1P0RB7hgB3k1k6h
+alTZOcnfygFEc2+ZLnV3QV8vypIqs9DAXaCLSdFMots6xRVmVuyCWvWo4Ygx0sWg
+Rk8mJ3la5OisMGcqyXRt95KUckpU3AfIaOJPervmjz+N2TocEcr8Z9siYxaI3gU9
+ya8gOHrt4p4nKgy3zvpjZk524SAiHiN/NBXv+RDrPpblulyKw2DqhMuF5dUNhyrM
+qzJsuEnQs2Bo5RLtPexlIcHH62VXh6uSi5nDsgltOit288+g/4gVfBPeEoP6LD17
+ijb7yoFNcgo3drOdnpCtmbmP+0/E4ObfYG1jCEJ8Gw+tDGw8wTGyVQFZYxKdZpLA
+53QqifUhOUZ3JfxewaWZ9vAxS9u+vR9T5+K4NZiY0baOaKGaKKQt2rkC29Ok+E7y
+x2SmPH6S1WHmG3nnEywqJOdFfP89FUus9FB2JLWcABiNlQIrgEgogZUHuFfMmlBo
+yDyLAt3zX6t/iN59UW0zXxD0XsVH6gpsmeILxVk0C19uQksrEVV5s417iv9XDo7H
+iHmAXIgdJ9AcsFUe/I94cVTXZIOLgOZwJOCYAgORGDjKKtT6bGOGpNm7Xa+H3nDB
+KGFpkxbcgKYU13729+2CtA2RQIxlsHeTQj7d4kvZVsL2u7cdPLYNIe12NkGGR3ZE
+fb8yH6Tom0c=
+=PpmN
 -----END PGP SIGNATURE-----
 
---=-R7aoBOOFzBVPMNP1xBDN--
+--=-PMZ57/1neN7xfJ3zZBxe--
