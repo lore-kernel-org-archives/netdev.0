@@ -1,54 +1,38 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH] sunrpc: drop "select NETVM"
-Date: Sat, 9 Mar 2013 12:51:18 -0500
-Message-ID: <20130309175118.GJ31448@fieldses.org>
-References: <1362844951.3137.3.camel@x61.thuisdomein>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH net] 6lowpan: Fix endianness issue in is_addr_link_local().
+Date: Sun, 10 Mar 2013 04:11:57 +0900
+Message-ID: <513B897D.2000207@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mel Gorman <mgorman@suse.de>
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1362844951.3137.3.camel@x61.thuisdomein>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:42582 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750737Ab3CITL7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 14:11:59 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ACK.
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ieee802154/6lowpan.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-On Sat, Mar 09, 2013 at 05:02:31PM +0100, Paul Bolle wrote:
-> The Kconfig entry for SUNRPC_SWAP selects NETVM. That select statement
-> was added in commit a564b8f0398636ba30b07c0eaebdef7ff7837249 ("nfs:
-> enable swap on NFS").
-
-Cc'ing Mel Gorman just in case there was something else going on there.
-
---b.
-
-> But there's no Kconfig symbol NETVM. It apparently
-> was only in used in development versions of the swap over nfs
-> functionality but never entered mainline. Anyhow, it is a nop and can
-> safely be dropped.
-> 
-> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
-> ---
->  net/sunrpc/Kconfig | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/net/sunrpc/Kconfig b/net/sunrpc/Kconfig
-> index 516fe2c..262caf0 100644
-> --- a/net/sunrpc/Kconfig
-> +++ b/net/sunrpc/Kconfig
-> @@ -24,7 +24,6 @@ config SUNRPC_XPRT_RDMA
->  config SUNRPC_SWAP
->  	bool
->  	depends on SUNRPC
-> -	select NETVM
->  
->  config RPCSEC_GSS_KRB5
->  	tristate "Secure RPC: Kerberos V mechanism"
-> -- 
-> 1.7.11.7
-> 
+diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
+index 8c2251f..bba5f83 100644
+--- a/net/ieee802154/6lowpan.h
++++ b/net/ieee802154/6lowpan.h
+@@ -84,7 +84,7 @@
+ 	(memcmp(addr1, addr2, length >> 3) == 0)
+ 
+ /* local link, i.e. FE80::/10 */
+-#define is_addr_link_local(a) (((a)->s6_addr16[0]) == 0x80FE)
++#define is_addr_link_local(a) (((a)->s6_addr16[0]) == htons(0xFE80))
+ 
+ /*
+  * check whether we can compress the IID to 16 bits,
+-- 
+1.7.9.5
