@@ -1,48 +1,64 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 4/5] team: make local function static
-Date: Sat, 9 Mar 2013 13:07:50 +0100
-Message-ID: <20130309120750.GA1914@minipsycho.orion>
-References: <20130308190739.260966567@vyatta.com>
- <20130308190809.432176649@vyatta.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash table
+Date: Sat, 9 Mar 2013 16:19:23 +0100
+Message-ID: <20130309151923.GH28531@order.stressinduktion.org>
+References: <20130307214211.GP7941@order.stressinduktion.org> <20130308055718.GA28531@order.stressinduktion.org> <20130308130433.GB28531@order.stressinduktion.org> <1362754386.15793.226.camel@edumazet-glaptop> <20130308150831.GD28531@order.stressinduktion.org> <1362756219.15793.240.camel@edumazet-glaptop> <20130308155404.GE28531@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=utf-8
+To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:33703 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753522Ab3CIMIA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 07:08:00 -0500
-Received: by mail-ee0-f54.google.com with SMTP id c41so1513518eek.13
-        for <netdev@vger.kernel.org>; Sat, 09 Mar 2013 04:07:59 -0800 (PST)
+Received: from order.stressinduktion.org ([87.106.68.36]:53425 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932441Ab3CIPT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 10:19:26 -0500
 Content-Disposition: inline
-In-Reply-To: <20130308190809.432176649@vyatta.com>
+In-Reply-To: <20130308155404.GE28531@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Mar 08, 2013 at 08:07:43PM CET, shemminger@vyatta.com wrote:
->Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->
->
->--- a/drivers/net/team/team.c	2013-03-06 15:30:50.195924953 -0800
->+++ b/drivers/net/team/team.c	2013-03-08 10:34:45.446144458 -0800
->@@ -503,9 +503,9 @@ static bool team_dummy_transmit(struct t
-> 	return false;
-> }
+On Fri, Mar 08, 2013 at 04:54:04PM +0100, Hannes Frederic Sowa wrote:
+> On Fri, Mar 08, 2013 at 07:23:39AM -0800, Eric Dumazet wrote:
+> > On Fri, 2013-03-08 at 16:08 +0100, Hannes Frederic Sowa wrote:
+> > > On Fri, Mar 08, 2013 at 06:53:06AM -0800, Eric Dumazet wrote:
+> > > > No matter how you hash, a hacker can easily fill your defrag unit with
+> > > > not complete datagrams, so what's the point ?
+> > > 
+> > > I want to harden reassembly logic against all fragments being put in
+> > > the same hash bucket because of malicious traffic and thus creating
+> > > long list traversals in the fragment queue hash table.
+> > 
+> > Note that the long traversal was a real issue with TCP (thats why I
+> > introduced ipv6_addr_jhash()), as a single ehash slot could contains
+> > thousand of sockets.
+> > 
+> > But with fragments, we should just limit the depth of any particular
+> > slot, and drop above a particular threshold.
+> > 
+> > reassembly is a best effort mechanism, better make sure it doesnt use
+> > all our cpu cycles.
 > 
->-rx_handler_result_t team_dummy_receive(struct team *team,
->-				       struct team_port *port,
->-				       struct sk_buff *skb)
->+static rx_handler_result_t team_dummy_receive(struct team *team,
->+					      struct team_port *port,
->+					      struct sk_buff *skb)
-> {
-> 	return RX_HANDLER_ANOTHER;
-> }
->
->
+> Hm, I have to think about it, especially because it is used in the netfilter
+> code. There could be some fairness issues if packets get dropped in netfilter
+> if reassembly could not be performed. I'll check this.
 
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+There should be no fairness issues in the forwarding path because
+legitimate traffic should send a reasonable random 32bit fragmentation
+id which is a direct input to jhash.
 
-Thanks Stephen.
+I thought about the list length limit this morning and I believe we have
+to dynamically compute it (maybe on sysctl change), because I bet people
+want to have their fragmentation cache utilized if they higher the memory
+thresholds (maybe dns resolvers with dnssec employed). The missing value
+is the average skb->truesize so I'll have to assume one. Any pointers
+on this? We could also export the limit to userspace and have the users
+deal with it. But I am not in favour of this solution.
+
+Should we do reclamation in the hash buckets (I would have to switch
+from hlist to list) or just drop incoming fragments (this should be
+fairly easy). Currently we discard fragments in lru fashion, so I think
+reclamation would be the way to go, too.
+
+Thanks,
+
+  Hannes
