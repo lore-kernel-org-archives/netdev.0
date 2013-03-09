@@ -1,300 +1,85 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC] unix: account skb memory to receiving socket's sk_rmem_alloc on sending
-Date: Sat, 9 Mar 2013 22:43:33 +0100
-Message-ID: <20130309214333.GI28531@order.stressinduktion.org>
-References: <20130204231414.GD6898@order.stressinduktion.org>
+From: Adam Baker <linux@baker-net.org.uk>
+Subject: Re: [Patch net] bridge: do not expire mdb entry when bridge still
+ uses it
+Date: Sat, 09 Mar 2013 22:46:02 +0000
+Message-ID: <513BBBAA.2050800@baker-net.org.uk>
+References: <1362708423-23932-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org, yannick@koehler.name,
-	eric.dumazet@gmail.com, xiyou.wangcong@gmail.com,
-	davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:53906 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751430Ab3CIVne (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 16:43:34 -0500
-Content-Disposition: inline
-In-Reply-To: <20130204231414.GD6898@order.stressinduktion.org>
+Received: from april.london.02.net ([87.194.255.143]:56518 "EHLO
+	april.london.02.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751870Ab3CIWqV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 17:46:21 -0500
+In-Reply-To: <1362708423-23932-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 05, 2013 at 12:14:14AM +0100, Hannes Frederic Sowa wrote:
-> I justed sketched up a patch on how to account unix domain dgram socket buffer
-> to the receiving sock. This problem has been brought up by Yannick Koehler
-> here: http://article.gmane.org/gmane.linux.network/256128
-> 
-> I still miss proper poll() handling and am working out on how to introduce
-> the sysctl unix_dgram_*mem* vectors (need to figuire out correct socket
-> lock handling). Eric mentioned that calling sock_rfree without socket lock
-> is wrong, but I hope that this is only the case if memory accounting is
-> taking place (as currently isn't with this patch)? Otherwise I am glad
-> to hear advises on how to handle the POLLOUT|POLLWRNORM|... case.
-> 
-> Is sticking the unix address into the skbs unixcb a viable solution?
+On 08/03/13 02:07, Cong Wang wrote:
+> From: Cong Wang <amwang@redhat.com>
+>
+> This is a long-standing bug and reported several times:
+> https://bugzilla.redhat.com/show_bug.cgi?id=880035
+> http://marc.info/?l=linux-netdev&m=136164389416341&w=2
+>
+> This bug can be observed in virt environment, when a KVM guest
+> communicates with the host via multicast. After some time (should
+> be 260 sec, I didn't measure), the multicast traffic suddenly
+> terminates.
+>
+> This is due to the mdb entry for bridge itself expires automatically,
+> it should not expire as long as the bridge still generates multicast
+> traffic. It should expire when the bridge leaves the multicast group,
+> OR when there is no multicast traffic on this bridge.
+>
+> I fix this by adding another bool which is set when there is
+> multicast traffic goes to the bridge, cleared in the expire timer and
+> when IGMP leave is received. I ran omping for 15 minutes, everything
+> looks good now.
+Despite Herbert's comment that he didn't think this patch was correct I 
+decided to test it anyway and can confirm that it doesn't fix the issue 
+for my configuration.
 
-I had this patch left from the last net-next submission timeframe. In
-the meantime I did some updates I would love to have a review on. It
-e.g. includes poll handling now.
+When Herbert Xu originally sent the patch series that caused the change 
+in behaviour that triggered this issue 
+(http://www.spinics.net/lists/netdev/msg194893.html) he noted that for 
+IPv6 the bridge sends it's own IP address so it can potentially be 
+elected as the active querier which he claimed is incorrect. I note 
+however that a randomly selected Cisco page on configuring layer 2 IGMP 
+snooping 
+(http://www.cisco.com/en/US/docs/routers/asr9000/software/multicast/configuration/guide/mcasr9kigsn.html#wp1039776) 
+suggests that when configuring a querier on a bridge it should be 
+assigned a valid IP address. If it is believed that the use of 0.0.0.0 
+as the IP address is what is causing strange behaviour on other devices 
+then is there a good reason that a bridge rather than a router shouldn't 
+be the active querier? If not then using the bridge IP address and 
+having the querier enabled by default may be a reasonable solution 
+(provided that our querier obeys the election rules and shuts up if it 
+sees a query from a lower IP address that isn't 0.0.0.0). Just because a 
+device is the elected querier for IGMP doesn't appear to mean it is 
+required to perform any other routing functions.
 
-This patch lacks documentation updates for max_dgram_qlen. I'll update
-the documentation on the next submission.
+Any thought on whether that would work - I don't have a device that 
+misbehaves on seeing the bridge initiated queries so am unable to test 
+if that solves that issue.
 
-Btw, iproute from current git has the ability to report socket memory for
-unix domain sockets, too. So these changes should be better observable.
+An alternative option would be to have a third state for our querier 
+where it is only active if it has not seen a query for the Other Querier 
+Present Interval but that still leaves the possibility of other devices 
+behaving strangely because they have seen the queries we generate when 
+they are first switched on.
 
-[PATCH net-next RFC] unix: account skb memory to receiving socket's sk_rmem_alloc on sending
+Regards
 
-In case of unix datagram sockets, skb memory was only accounted in the
-sending socket's sk_wmem_alloc. Hence, if one receiver would stop to
-receive frames on its socket, the sending socket's send buffer space
-could get exhausted and the socket would block sending datagrams to
-other destionations, too.
+Adam Baker
 
-This patch places the refcounted peer's unix address for AF_UNIX
-SOCK_DGRAM sockets into the skb's UNIXCB. So a reference from the skb
-to the receiving struct sock can be set and so enables to do proper skb
-destructor handling for rmem and wmem. Buffer memory is then accounted
-to the receiving socket. If the socket rmem is exhausted the normal
-blocking and timeout behaviour kicks in.
-
-Resource exhausion protection for unix dgram sockets is now based
-only on sockets rmem checking. Unix dgram sockets do not rely on
-sk_max_ack_backlog anymore. The controls for this are
-/proc/sys/net/core/{r,w}mem_{default,max}.
-
-This patch also changes the reporting of unix dgram rqueue size, as it
-now reports not only the size of the first fragment but the amount of
-readable memory for the socket.
-
-Based on the patches from Yannick Koehler and Cong Wang.
-
-Reported-by: Yannick Koehler <yannick@koehler.name>
-CC: Yannick Koehler <yannick@koehler.name>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: David Miller <davem@davemloft.net>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/net/af_unix.h |  1 +
- net/unix/af_unix.c    | 73 ++++++++++++++++++++++++++++++++++++++++-----------
- net/unix/diag.c       |  4 ++-
- 3 files changed, 62 insertions(+), 16 deletions(-)
-
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index 0a996a3..3855fcc 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -31,6 +31,7 @@ struct unix_skb_parms {
- 	struct pid		*pid;		/* Skb credentials	*/
- 	const struct cred	*cred;
- 	struct scm_fp_list	*fp;		/* Passed files		*/
-+	struct unix_address	*peer_address;	/* only used for dgram	*/
- #ifdef CONFIG_SECURITY_NETWORK
- 	u32			secid;		/* Security ID		*/
- #endif
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 51be64f..bb00856 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -184,6 +184,12 @@ static inline int unix_recvq_full(struct sock const *sk)
- 	return skb_queue_len(&sk->sk_receive_queue) > sk->sk_max_ack_backlog;
- }
- 
-+static inline bool unix_rmem_full(struct sock const *sk,
-+				  struct sk_buff const *skb)
-+{
-+	return sk_rmem_alloc_get(sk) + skb->truesize > sk->sk_rcvbuf;
-+}
-+
- struct sock *unix_peer_get(struct sock *s)
- {
- 	struct sock *peer;
-@@ -319,6 +325,11 @@ static inline int unix_writable(struct sock *sk)
- 	return (atomic_read(&sk->sk_wmem_alloc) << 2) <= sk->sk_sndbuf;
- }
- 
-+static inline bool unix_other_writable(struct sock *sk)
-+{
-+	return (atomic_read(&sk->sk_rmem_alloc) << 2) <= sk->sk_rcvbuf;
-+}
-+
- static void unix_write_space(struct sock *sk)
- {
- 	struct socket_wq *wq;
-@@ -635,6 +646,8 @@ static struct sock *unix_create1(struct net *net, struct socket *sock)
- 		goto out;
- 
- 	sock_init_data(sock, sk);
-+	if (sk->sk_type == SOCK_DGRAM || sk->sk_type == SOCK_SEQPACKET)
-+		sock_set_flag(sk, SOCK_USE_WRITE_QUEUE);
- 	lockdep_set_class(&sk->sk_receive_queue.lock,
- 				&af_unix_sk_receive_queue_lock_key);
- 
-@@ -1032,14 +1045,18 @@ out:
- static long unix_wait_for_peer(struct sock *other, long timeo)
- {
- 	struct unix_sock *u = unix_sk(other);
--	int sched;
-+	bool sched;
- 	DEFINE_WAIT(wait);
- 
- 	prepare_to_wait_exclusive(&u->peer_wait, &wait, TASK_INTERRUPTIBLE);
- 
- 	sched = !sock_flag(other, SOCK_DEAD) &&
--		!(other->sk_shutdown & RCV_SHUTDOWN) &&
--		unix_recvq_full(other);
-+		!(other->sk_shutdown & RCV_SHUTDOWN);
-+
-+	if (other->sk_type == SOCK_DGRAM || other->sk_type == SOCK_SEQPACKET)
-+		sched = sched && unix_other_writable(other);
-+	else
-+		sched = sched && unix_recvq_full(other);
- 
- 	unix_state_unlock(other);
- 
-@@ -1336,7 +1353,7 @@ static void unix_detach_fds(struct scm_cookie *scm, struct sk_buff *skb)
- 		unix_notinflight(scm->fp->fp[i]);
- }
- 
--static void unix_destruct_scm(struct sk_buff *skb)
-+static inline void __unix_skb_destruct(struct sk_buff *skb)
- {
- 	struct scm_cookie scm;
- 	memset(&scm, 0, sizeof(scm));
-@@ -1348,6 +1365,19 @@ static void unix_destruct_scm(struct sk_buff *skb)
- 	/* Alas, it calls VFS */
- 	/* So fscking what? fput() had been SMP-safe since the last Summer */
- 	scm_destroy(&scm);
-+	if (UNIXCB(skb).peer_address)
-+		unix_release_addr(UNIXCB(skb).peer_address);
-+}
-+
-+static void unix_skb_destruct_r(struct sk_buff *skb)
-+{
-+	__unix_skb_destruct(skb);
-+	sock_rfree(skb);
-+}
-+
-+static void unix_skb_destruct_w(struct sk_buff *skb)
-+{
-+	__unix_skb_destruct(skb);
- 	sock_wfree(skb);
- }
- 
-@@ -1398,7 +1428,7 @@ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool sen
- 	if (scm->fp && send_fds)
- 		err = unix_attach_fds(scm, skb);
- 
--	skb->destructor = unix_destruct_scm;
-+	skb->destructor = unix_skb_destruct_w;
- 	return err;
- }
- 
-@@ -1420,6 +1450,15 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
- 	}
- }
- 
-+static void unix_skb_set_owner_r(struct sk_buff *skb, struct sock *oldsk,
-+				 struct sock *newsk)
-+{
-+	sock_wfree(skb);
-+	skb->sk = newsk;
-+	skb->destructor = unix_skb_destruct_r;
-+	atomic_add(skb->truesize, &newsk->sk_rmem_alloc);
-+}
-+
- /*
-  *	Send AF_UNIX data.
-  */
-@@ -1484,6 +1523,11 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	if (skb == NULL)
- 		goto out;
- 
-+	if (u->addr) {
-+		UNIXCB(skb).peer_address = u->addr;
-+		atomic_inc(&UNIXCB(skb).peer_address->refcnt);
-+	}
-+
- 	err = unix_scm_to_skb(siocb->scm, skb, true);
- 	if (err < 0)
- 		goto out_free;
-@@ -1559,7 +1603,7 @@ restart:
- 			goto out_unlock;
- 	}
- 
--	if (unix_peer(other) != sk && unix_recvq_full(other)) {
-+	if (unix_rmem_full(other, skb)) {
- 		if (!timeo) {
- 			err = -EAGAIN;
- 			goto out_unlock;
-@@ -1577,6 +1621,7 @@ restart:
- 	if (sock_flag(other, SOCK_RCVTSTAMP))
- 		__net_timestamp(skb);
- 	maybe_add_creds(skb, sock, other);
-+	unix_skb_set_owner_r(skb, sk, other);
- 	skb_queue_tail(&other->sk_receive_queue, skb);
- 	if (max_level > unix_sk(other)->recursion_level)
- 		unix_sk(other)->recursion_level = max_level;
-@@ -1749,14 +1794,12 @@ static int unix_seqpacket_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	return unix_dgram_recvmsg(iocb, sock, msg, size, flags);
- }
- 
--static void unix_copy_addr(struct msghdr *msg, struct sock *sk)
-+static void unix_copy_addr(struct msghdr *msg, struct unix_address *ua)
- {
--	struct unix_sock *u = unix_sk(sk);
--
- 	msg->msg_namelen = 0;
--	if (u->addr) {
--		msg->msg_namelen = u->addr->len;
--		memcpy(msg->msg_name, u->addr->name, u->addr->len);
-+	if (ua) {
-+		msg->msg_namelen = ua->len;
-+		memcpy(msg->msg_name, ua->name, ua->len);
- 	}
- }
- 
-@@ -1802,7 +1845,7 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
- 					POLLOUT | POLLWRNORM | POLLWRBAND);
- 
- 	if (msg->msg_name)
--		unix_copy_addr(msg, skb->sk);
-+		unix_copy_addr(msg, UNIXCB(skb).peer_address);
- 
- 	if (size > skb->len - skip)
- 		size = skb->len - skip;
-@@ -2002,7 +2045,7 @@ again:
- 
- 		/* Copy address just once */
- 		if (sunaddr) {
--			unix_copy_addr(msg, skb->sk);
-+			unix_copy_addr(msg, unix_sk(skb->sk)->addr);
- 			sunaddr = NULL;
- 		}
- 
-@@ -2225,7 +2268,7 @@ static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
- 	if (other) {
- 		if (unix_peer(other) != sk) {
- 			sock_poll_wait(file, &unix_sk(other)->peer_wait, wait);
--			if (unix_recvq_full(other))
-+			if (!unix_other_writable(other))
- 				writable = 0;
- 		}
- 		sock_put(other);
-diff --git a/net/unix/diag.c b/net/unix/diag.c
-index d591091..41a38ec 100644
---- a/net/unix/diag.c
-+++ b/net/unix/diag.c
-@@ -102,7 +102,9 @@ static int sk_diag_show_rqlen(struct sock *sk, struct sk_buff *nlskb)
- 		rql.udiag_rqueue = sk->sk_receive_queue.qlen;
- 		rql.udiag_wqueue = sk->sk_max_ack_backlog;
- 	} else {
--		rql.udiag_rqueue = (u32) unix_inq_len(sk);
-+		rql.udiag_rqueue = (u32) (sk->sk_type == SOCK_DGRAM ?
-+					  sk_rmem_alloc_get(sk) :
-+					  unix_inq_len(sk));
- 		rql.udiag_wqueue = (u32) unix_outq_len(sk);
- 	}
- 
--- 
-1.8.1.4
+P.S. Sorry Stephen if you feel this is a now a question rather than a 
+patch so, as per your previous mail, shouldn't go to individual 
+developers but as it is also a NAK to a patch I wasn't comfortable 
+trimming the CC list.
