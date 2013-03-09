@@ -1,49 +1,36 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH 3/3 net-next] tcp: implement RFC5682 F-RTO
-Date: Sat, 9 Mar 2013 11:13:06 -0800
-Message-ID: <CAK6E8=fCpmtY2Sn3N1cGw2y-UP5bx6ztE+j=oaGsg8tUi0DAwQ@mail.gmail.com>
-References: <1362603130-16501-1-git-send-email-ycheng@google.com>
- <1362603130-16501-3-git-send-email-ycheng@google.com> <CAGK4HS_Dguo846dT_hAocnSX2RFvg71Bx-Tu_Z8zm9HXaV2CcQ@mail.gmail.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH] ipv6 addrconf: Fix addrconf_ifid_eui64 of 802.15.4
+ devices
+Date: Sat, 9 Mar 2013 21:08:33 +0100
+Message-ID: <20130309200833.GA13577@x61s>
+References: <1362687183-3425-1-git-send-email-alex.aring@gmail.com>
+ <20130307204120.GA3808@x61s.8.8.8.8>
+ <51394B32.9090807@linux-ipv6.org>
+ <20130308093739.GB788@x61s.8.8.8.8>
+ <513A203B.9030701@linux-ipv6.org>
+ <513ABBCE.1090501@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Nandita Dukkipati <nanditad@google.com>,
-	ilpo.jarvinen@cs.helsinki.fi, netdev <netdev@vger.kernel.org>
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:42445 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750737Ab3CITN2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 14:13:28 -0500
-Received: by mail-la0-f44.google.com with SMTP id eb20so2729422lab.17
-        for <netdev@vger.kernel.org>; Sat, 09 Mar 2013 11:13:26 -0800 (PST)
-In-Reply-To: <CAGK4HS_Dguo846dT_hAocnSX2RFvg71Bx-Tu_Z8zm9HXaV2CcQ@mail.gmail.com>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:59581 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751289Ab3CIUHT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 15:07:19 -0500
+Received: by mail-wi0-f177.google.com with SMTP id hm14so294141wib.16
+        for <netdev@vger.kernel.org>; Sat, 09 Mar 2013 12:07:18 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <513ABBCE.1090501@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 6, 2013 at 1:34 PM, Vijay Subramanian
-<subramanian.vijay@gmail.com> wrote:
-> On 6 March 2013 12:52, Yuchung Cheng <ycheng@google.com> wrote:
->> This patch implements F-RTO (foward RTO recovery):
->>
->
-> You may want to fix the following checkpatch errors:
-Sorry about these. Will respin the patch after Ilpo's review.
+Hi,
 
->
-> ERROR: trailing whitespace
-> #129: FILE: net/ipv4/tcp_input.c:1893:
-> +^I/* F-RTO RFC5682 sec 3.1 step 1: retransmit SND.UNA if no previous $
->
-> ERROR: trailing whitespace
-> #184: FILE: net/ipv4/tcp_input.c:2694:
-> +^I^I^I/* Step 3.b. A timeout is spurious if not all data are $
->
-> ERROR: trailing whitespace
-> #216: FILE: net/ipv4/tcp_input.c:2722:
-> +^I^I/* A Reno DUPACK means new data in F-RTO step 2.b above are $
->
->
-> -Vijay
+I try to figure out this problem but I think it will take some days.
+I will send a fix then.
+
+Thanks for your help.
+
+Alex
