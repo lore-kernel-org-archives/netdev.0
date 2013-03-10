@@ -1,67 +1,89 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next.git 2/9] stmmac: add IEEE 1588-2002 PTP support
-Date: Sun, 10 Mar 2013 13:25:54 +0100
-Message-ID: <20130310122553.GA6407@netboy.at.omicron.at>
-References: <1362653419-1047-1-git-send-email-peppe.cavallaro@st.com>
- <1362653419-1047-3-git-send-email-peppe.cavallaro@st.com>
- <20130308063437.GB2382@netboy.at.omicron.at>
- <51398CFD.9010605@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bh74.an@samsung.com,
-	Rayagond K <rayagond@vayavyalabs.com>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f49.google.com ([74.125.83.49]:54848 "EHLO
-	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750762Ab3CJM0K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 08:26:10 -0400
-Received: by mail-ee0-f49.google.com with SMTP id d41so1727140eek.22
-        for <netdev@vger.kernel.org>; Sun, 10 Mar 2013 05:26:08 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <51398CFD.9010605@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Valentin Ilie <valentin.ilie@gmail.com>
+Subject: [PATCH] net: can: af_can.c: Fix checkpatch warnings
+Date: Sun, 10 Mar 2013 14:28:46 +0200
+Message-ID: <1362918526-26730-1-git-send-email-valentin.ilie@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Valentin Ilie <valentin.ilie@gmail.com>
+To: socketcan@hartkopp.net, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 08, 2013 at 08:02:21AM +0100, Giuseppe CAVALLARO wrote:
-> On 3/8/2013 7:34 AM, Richard Cochran wrote:
+Replace printk(KERN_ERR with pr_err
+Add space before {
 
-> >>+
-> >>+static int enh_desc_get_rx_timestamp_status(struct dma_desc *p)
-> >>+{
-> >>+	/* FIXME if Enhance descriptor with 8 DWORDS is enabled */
-> >
-> >Why not fix these FIXMEs for the next respin?
-> 
-> This is fixed in the patch #5 where we use the extended descriptors
-> for PTP2.
+Signed-off-by: Valentin Ilie <valentin.ilie@gmail.com>
+---
+ net/can/af_can.c | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
 
-If possible, it is nice for the reviewers and for the logic of the
-patch series to order the changes so that these FIXMEs go away.
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index c48e522..a14c0aa 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -525,7 +525,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
  
-> >>+	struct hwtstamp_config config;
-> >>+	struct timespec now;
-> >>+	u64 temp = 0;
-> >
-> >You add this new code here, but you change it all around again a few
-> >patches later. Please just submit the final, combined version.
-> 
-> we kept these separately because the patch #5 (for example) depends on
-> another one that adds the extended descriptor support. Also If I add
-> all the code in a single patch this will be very big. I had some
-> problems to review all separately. So I suspect that if we merge all
-> in a single patch this will not help (especially myself). At any rate,
-> tell me if you prefer to have a single patch. I can do that.
-
-I am not asking for bigger patches. It is good to arrange your patches
-in small steps, since that makes both reviewing and bisecting easier.
-
-However, for brand new code, I find it quite annoying to read one
-patch, and then to have it all re-written in the next one. (If a new
-function *only* grows during a patch series, that is easy to follow.)
-
-So what I would like to see is a logical, understandable series of
-small steps, but when new code appears, it is the real, final form.
-
-Thanks,
-Richard
+ 	d = find_dev_rcv_lists(dev);
+ 	if (!d) {
+-		printk(KERN_ERR "BUG: receive list not found for "
++		pr_err("BUG: receive list not found for "
+ 		       "dev %s, id %03X, mask %03X\n",
+ 		       DNAME(dev), can_id, mask);
+ 		goto out;
+@@ -552,7 +552,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+ 	 */
+ 
+ 	if (!r) {
+-		printk(KERN_ERR "BUG: receive list entry not found for "
++		pr_err("BUG: receive list entry not found for "
+ 		       "dev %s, id %03X, mask %03X\n",
+ 		       DNAME(dev), can_id, mask);
+ 		r = NULL;
+@@ -749,7 +749,7 @@ int can_proto_register(const struct can_proto *cp)
+ 	int err = 0;
+ 
+ 	if (proto < 0 || proto >= CAN_NPROTO) {
+-		printk(KERN_ERR "can: protocol number %d out of range\n",
++		pr_err("can: protocol number %d out of range\n",
+ 		       proto);
+ 		return -EINVAL;
+ 	}
+@@ -761,7 +761,7 @@ int can_proto_register(const struct can_proto *cp)
+ 	mutex_lock(&proto_tab_lock);
+ 
+ 	if (proto_tab[proto]) {
+-		printk(KERN_ERR "can: protocol %d already registered\n",
++		pr_err("can: protocol %d already registered\n",
+ 		       proto);
+ 		err = -EBUSY;
+ 	} else
+@@ -817,8 +817,7 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
+ 		/* create new dev_rcv_lists for this device */
+ 		d = kzalloc(sizeof(*d), GFP_KERNEL);
+ 		if (!d) {
+-			printk(KERN_ERR
+-			       "can: allocation of receive list failed\n");
++			pr_err("can: allocation of receive list failed\n");
+ 			return NOTIFY_DONE;
+ 		}
+ 		BUG_ON(dev->ml_priv);
+@@ -838,7 +837,7 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
+ 				dev->ml_priv = NULL;
+ 			}
+ 		} else
+-			printk(KERN_ERR "can: notifier: receive list not "
++			pr_err("can: notifier: receive list not "
+ 			       "found for dev %s\n", dev->name);
+ 
+ 		spin_unlock(&can_rcvlists_lock);
+@@ -927,7 +926,7 @@ static __exit void can_exit(void)
+ 	/* remove created dev_rcv_lists from still registered CAN devices */
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(&init_net, dev) {
+-		if (dev->type == ARPHRD_CAN && dev->ml_priv){
++		if (dev->type == ARPHRD_CAN && dev->ml_priv) {
+ 
+ 			struct dev_rcv_lists *d = dev->ml_priv;
+ 
+-- 
+1.8.1.2
