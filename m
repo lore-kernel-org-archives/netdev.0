@@ -1,86 +1,76 @@
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Subject: Re: hitting lockdep warning as of too early VF probe with 3.9-rc1
-Date: Sun, 10 Mar 2013 17:28:50 +0200
-Message-ID: <201303101728.50883.jackm@dev.mellanox.co.il>
-References: <51360D7C.3060209@mellanox.com> <CAJZOPZ+_N53n59cJv00=GXETNhZJUEvgcLEB+D-ujBdSsyvM9g@mail.gmail.com> <CACVXFVMcgMzwHrvimn2awQZCPP2m=_npTGap-m7Ru+jdCoqcyA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>,
-	Roland Dreier <roland@kernel.org>,
-	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
-	Liran Liss <liranl@mellanox.com>
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:59207 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751837Ab3CJP25 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 11:28:57 -0400
-Received: by mail-wi0-f177.google.com with SMTP id hm14so484549wib.10
-        for <netdev@vger.kernel.org>; Sun, 10 Mar 2013 08:28:56 -0700 (PDT)
-In-Reply-To: <CACVXFVMcgMzwHrvimn2awQZCPP2m=_npTGap-m7Ru+jdCoqcyA@mail.gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH linux-next] SUNRPC: rpcrdma_register_default_external: Dynamically allocate ib_phys_buf
+Date: Sun, 10 Mar 2013 09:39:13 -0600
+Message-ID: <1362929953-63785-1-git-send-email-tim.gardner@canonical.com>
+Cc: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Tom Tucker <tom-/Yg/VP3ZvrM@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shani Michaeli <shanim-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello, Ming, Greg, Roland, Dave, all...
+rpcrdma_register_default_external() is several frames into
+the call stack which goes deeper yet. You run the risk of stack
+corruption by declaring such a large automatic variable,
+so dynamically allocate the array of 'struct ib_phys_buf' objects in
+order to silence the frame-larger-than warning.
 
->From a quick scan of ethernet drivers in Dave Miller's net-next git, I
-notice that the following drivers (apart from the Mellanox mlx4 driver)
-enable SRIOV during the PF probe:
-  cisco enic (function "enic_probe")
-  neterion vxge driver(function "vxge_probe")
-  Solarflare efx driver (function "efx_pci_probe", which invokes "efx_sriov_init")
-  emulex driver (function "be_probe" --> be_setup --> be_vf_setup)
+net/sunrpc/xprtrdma/verbs.c: In function 'rpcrdma_register_default_external':
+net/sunrpc/xprtrdma/verbs.c:1774:1: warning: the frame size of 1056 bytes is larger than 1024 bytes [-Wframe-larger-than=]
 
-It would seem that these drivers are susceptible to the nested probe/deadlock
-race condition as well.
+gcc version 4.6.3
 
-I believe that it is healthiest for everyone if the probe code in the kernel itself
-would avoid such nested probe calls (rather than forcing vendors to deal
-with this issue).  The kernel code is certainly aware
-(or could easily track) that it is invoking the a driver's probe function
-while that same probe function has already been invoked and has not yet returned!
+Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: Tom Tucker <tom-/Yg/VP3ZvrM@public.gmane.org>
+Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Cc: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Cc: Shani Michaeli <shanim-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Signed-off-by: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+---
+ net/sunrpc/xprtrdma/verbs.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
--Jack
+diff --git a/net/sunrpc/xprtrdma/verbs.c b/net/sunrpc/xprtrdma/verbs.c
+index 93726560..0916467 100644
+--- a/net/sunrpc/xprtrdma/verbs.c
++++ b/net/sunrpc/xprtrdma/verbs.c
+@@ -1736,9 +1736,13 @@ rpcrdma_register_default_external(struct rpcrdma_mr_seg *seg,
+ 	int mem_priv = (writing ? IB_ACCESS_REMOTE_WRITE :
+ 				  IB_ACCESS_REMOTE_READ);
+ 	struct rpcrdma_mr_seg *seg1 = seg;
+-	struct ib_phys_buf ipb[RPCRDMA_MAX_DATA_SEGS];
++	struct ib_phys_buf *ipb;
+ 	int len, i, rc = 0;
+ 
++	ipb = kmalloc(sizeof(*ipb) * RPCRDMA_MAX_DATA_SEGS, GFP_KERNEL);
++	if (!ipb)
++		return -ENOMEM;
++
+ 	if (*nsegs > RPCRDMA_MAX_DATA_SEGS)
+ 		*nsegs = RPCRDMA_MAX_DATA_SEGS;
+ 	for (len = 0, i = 0; i < *nsegs;) {
+@@ -1770,6 +1774,7 @@ rpcrdma_register_default_external(struct rpcrdma_mr_seg *seg,
+ 		seg1->mr_len = len;
+ 	}
+ 	*nsegs = i;
++	kfree(ipb);
+ 	return rc;
+ }
+ 
+-- 
+1.7.9.5
 
-On Thursday 07 March 2013 04:03, Ming Lei wrote:
-> On Thu, Mar 7, 2013 at 4:54 AM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
-> > On Wed, Mar 6, 2013 at 4:43 AM, Ming Lei <ming.lei@canonical.com> wrote:
-> >> You are adding one new PCI device inside another PCI device's probe(),
-> >> so the new device will be probed, since PCI probe() is scheduled by
-> >> work_on_cpu, then cause flush_work() called inside worker function,
-> >> which might be a real deadlock.
-> >
-> > So if I understand correct, you recommend to somehow avoid this nested probing?
-> 
-> Yes, you might need to avoid the nested probing in your driver.
-> 
-> >
-> >> I am wondering why this commit can cause the problem, since the PCI
-> >> device will be probed with its driver if there is one driver for it. There is no
-> >> any limit on when the driver should be loaded into system, either before
-> >> device is added or after.
-> >
-> > FWIW to undertstanding the issue - the same driver (mlx4_core) is used
-> > by the PF and VF, so the VF driver is already loaded at the time its
-> > been added as new PCI device.
-> >
-> >> From driver core view, looks no wrong things are found.
-> >
-> > So this got me confused, you pointed on possible deadlock, are you
-> > saying the deadlock wouldn't be the result of how the driver code is
-> > going nor the commited we bisected?
-> 
-> My commit only affects the driver loading path, but your warning
-> is hit in driver probe path triggered by device addition, so the lockdep
-> warning should still be triggered without my commit since the two paths
-> are totally independent, right?
-> 
-> Thanks,
-> --
-> Ming Lei
-> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
