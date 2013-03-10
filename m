@@ -1,36 +1,71 @@
-From: Stephan Gatzka <stephan.gatzka@gmail.com>
-Subject: Re: [net-next (TAKE 2) 0/4] IPv6 over Firewire
-Date: Sun, 10 Mar 2013 11:03:59 +0100
-Message-ID: <513C5A8F.6060000@gmail.com>
-References: <5117620A.4050005@linux-ipv6.org> <51177689.4070904@gmail.com> <51177B15.3030405@linux-ipv6.org> <51179714.6010706@gmail.com> <5117B73C.10600@linux-ipv6.org> <5118C8B3.7080803@gmail.com> <5118EE78.5000508@linux-ipv6.org> <511A9BFC.9010907@gmail.com> <51310507.7030904@gmail.com>
-Reply-To: stephan.gatzka@gmail.com
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: MBIM backwards compatibility and user vs kernel policy
+Date: Sun, 10 Mar 2013 12:21:14 +0100
+Message-ID: <87sj43cxg5.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
-	davem@davemloft.net, stefanr@s5r6.in-berlin.de
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexey Orishko <alexey.orishko@stericsson.com>,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Greg Suarez <gsuarez@smithmicro.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:50844 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752732Ab3CJKED (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 06:04:03 -0400
-Received: by mail-ea0-f174.google.com with SMTP id q10so735837eaj.5
-        for <netdev@vger.kernel.org>; Sun, 10 Mar 2013 03:04:01 -0700 (PDT)
-In-Reply-To: <51310507.7030904@gmail.com>
+Received: from canardo.mork.no ([148.122.252.1]:50899 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751338Ab3CJLhr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 07:37:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-O.k., I rechecked all checksums send by IPv6 over FireWire from Linux
-and from MacOS.
+Hello,
 
-The checksums from Yoshis implementation are correct, MacOS is wrong.
+I just realized that our current strategy for MBIM backwards
+compatibility results in bad user experience by *forcing* the user to
+cdc_mbim if it is enabled at build time. There are legitimate reasons f=
+or
+a user to select cdc_ncm instead of cdc_mbim at runtime, and at the
+moment we prevent that.  The most obvious and important reason is that
+the required MBIM userspace applications are not ready yet.  But even i=
+n
+a future where these are available, I believe we should leave the choic=
+e
+up to the user.
 
-What I don't understand is that using my proof of concept patch. I could
-ping6 MacOSX from my Linux box. Even with CHECKSUM_UNNECESSARY MacOSX
-should also throw away the packets send from Linux. Hm, I have to
-recheck this.
+So our current build time based decision will not do.  But what will?
+Is a cdc_ncm module param setting MBIM vs NCM priority OK?  We could
+still make the default depend on whether cdc_mbim is built.  I don't
+think there are any reasons to complicate this with a per-device
+selection.  It is really a system wide setting depending on whether MBI=
+M
+is supported by the system.
 
-Regards,
+What do you think?
 
-Stephan
+This problem just came up as a result of a user failing to make Linux
+v3.8 work on a Lenovo Thinkpad X230 with an Ericsson H5321gw Mobile
+Broadband Device, while v3.7 appeared to work fine.  The H5321gw
+firmware support NCM backwards compatibility, making it work fine with
+cdc_ncm in v3.7. But in v3.8 we select the cdc_mbim alternate setting
+instead, and ModemManager does not yet know how to handle that, making
+it fail.
+
+The user noticed the new cdc_mbim module and tried blacklisting it, as
+one would find natural. But to no effect, as the problem is in the MBIM
+compatibility check in cdc_ncm.  There appears to be no way to force th=
+e
+cdc_ncm driver in v3.8 to be used for this device if cdc_mbim is
+selected at build time. Which of course is a distro choice and not
+something most users will touch.
+
+I believe we need to resolve this quickly, and I'll probably just cook =
+up
+a proposed module param patch unless someone comes up with something
+better.
+
+BTW, I am starting to hate the NCM backward compatibility. There were s=
+o
+many other ways this could have been solved. Changing class depending o=
+n
+the selected interface altsetting is ugly, IMHO.
+
+
+Bj=C3=B8rn
