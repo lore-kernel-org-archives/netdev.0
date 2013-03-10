@@ -1,105 +1,86 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH] netconsole: release the spinlock before
- __netpoll_cleanup()
-Date: Sun, 10 Mar 2013 16:25:46 +0100
-Message-ID: <20130310152546.GA4897@redhat.com>
-References: <1362581203-8994-1-git-send-email-vfalico@redhat.com>
- <20130307000824.GA5702@neilslaptop.think-freely.org>
- <20130307100325.GA31105@redhat.com>
- <20130307.161438.396456319050281566.davem@davemloft.net>
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Subject: Re: hitting lockdep warning as of too early VF probe with 3.9-rc1
+Date: Sun, 10 Mar 2013 17:28:50 +0200
+Message-ID: <201303101728.50883.jackm@dev.mellanox.co.il>
+References: <51360D7C.3060209@mellanox.com> <CAJZOPZ+_N53n59cJv00=GXETNhZJUEvgcLEB+D-ujBdSsyvM9g@mail.gmail.com> <CACVXFVMcgMzwHrvimn2awQZCPP2m=_npTGap-m7Ru+jdCoqcyA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org, amwang@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Or Gerlitz <or.gerlitz@gmail.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>,
+	Roland Dreier <roland@kernel.org>,
+	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
+	Liran Liss <liranl@mellanox.com>
+To: Ming Lei <ming.lei@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35499 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751837Ab3CJP0D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Mar 2013 11:26:03 -0400
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:59207 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751837Ab3CJP25 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 11:28:57 -0400
+Received: by mail-wi0-f177.google.com with SMTP id hm14so484549wib.10
+        for <netdev@vger.kernel.org>; Sun, 10 Mar 2013 08:28:56 -0700 (PDT)
+In-Reply-To: <CACVXFVMcgMzwHrvimn2awQZCPP2m=_npTGap-m7Ru+jdCoqcyA@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20130307.161438.396456319050281566.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 07, 2013 at 04:14:38PM -0500, David Miller wrote:
->From: Veaceslav Falico <vfalico@redhat.com>
->Date: Thu, 7 Mar 2013 11:03:25 +0100
->
->> @@ -680,9 +681,21 @@ static int netconsole_netdev_event(struct
->> notifier_block *this,
->>  				 * rtnl_lock already held
->>  				 */
->>  				if (nt->np.dev) {
->> +					/*
->> +					 * we still might sleep in
->> + * __netpoll_cleanup(), so release
->> +					 * the lock and restart
->
->Quite a bit of email corruption of this patch.
+Hello, Ming, Greg, Roland, Dave, all...
 
-Sorry, somehow messed it.
+>From a quick scan of ethernet drivers in Dave Miller's net-next git, I
+notice that the following drivers (apart from the Mellanox mlx4 driver)
+enable SRIOV during the PF probe:
+  cisco enic (function "enic_probe")
+  neterion vxge driver(function "vxge_probe")
+  Solarflare efx driver (function "efx_pci_probe", which invokes "efx_sriov_init")
+  emulex driver (function "be_probe" --> be_setup --> be_vf_setup)
 
->
->Also, this code block is probably too deeply indented to be sane,
->consider creating a small helper function to call instead.
+It would seem that these drivers are susceptible to the nested probe/deadlock
+race condition as well.
 
-It gets quite ugly if I try to move it to another function. However, maybe
-something like that will work - it's effectively the same code, just that
-I've moved the long part out of the if () { } block. Looks a lot more
-readable, though one line still breaks 80chars limit. I've reworked the
-subject/commit message too.
+I believe that it is healthiest for everyone if the probe code in the kernel itself
+would avoid such nested probe calls (rather than forcing vendors to deal
+with this issue).  The kernel code is certainly aware
+(or could easily track) that it is invoking the a driver's probe function
+while that same probe function has already been invoked and has not yet returned!
 
-Subject: [PATCH] netconsole: don't call __netpoll_cleanup() while atomic
+-Jack
 
-__netpoll_cleanup() is called in netconsole_netdev_event() while holding a
-spinlock. Release/acquire the spinlock before/after it and restart the
-loop.
-
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
-    drivers/net/netconsole.c |   22 +++++++++++++++-------
-    1 files changed, 15 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index 37add21..38eaa8c 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -666,6 +666,7 @@ static int netconsole_netdev_event(struct notifier_block *this,
-    		goto done;
-    
-    	spin_lock_irqsave(&target_list_lock, flags);
-+restart:
-    	list_for_each_entry(nt, &target_list, list) {
-    		netconsole_target_get(nt);
-    		if (nt->np.dev == dev) {
-@@ -679,14 +680,21 @@ static int netconsole_netdev_event(struct notifier_block *this,
-    				/*
-    				 * rtnl_lock already held
-    				 */
--				if (nt->np.dev) {
--					__netpoll_cleanup(&nt->np);
--					dev_put(nt->np.dev);
--					nt->np.dev = NULL;
-+				if (!nt->np.dev) {
-+					nt->enabled = 0;
-+					stopped = true;
-+					break;
-    				}
--				nt->enabled = 0;
--				stopped = true;
--				break;
-+				/*
-+				 * we might sleep in __netpoll_cleanup()
-+				 */
-+				spin_unlock_irqrestore(&target_list_lock, flags);
-+				__netpoll_cleanup(&nt->np);
-+				spin_lock_irqsave(&target_list_lock, flags);
-+				dev_put(nt->np.dev);
-+				nt->np.dev = NULL;
-+				netconsole_target_put(nt);
-+				goto restart;
-    			}
-    		}
-    		netconsole_target_put(nt);
--- 
-1.7.1
+On Thursday 07 March 2013 04:03, Ming Lei wrote:
+> On Thu, Mar 7, 2013 at 4:54 AM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
+> > On Wed, Mar 6, 2013 at 4:43 AM, Ming Lei <ming.lei@canonical.com> wrote:
+> >> You are adding one new PCI device inside another PCI device's probe(),
+> >> so the new device will be probed, since PCI probe() is scheduled by
+> >> work_on_cpu, then cause flush_work() called inside worker function,
+> >> which might be a real deadlock.
+> >
+> > So if I understand correct, you recommend to somehow avoid this nested probing?
+> 
+> Yes, you might need to avoid the nested probing in your driver.
+> 
+> >
+> >> I am wondering why this commit can cause the problem, since the PCI
+> >> device will be probed with its driver if there is one driver for it. There is no
+> >> any limit on when the driver should be loaded into system, either before
+> >> device is added or after.
+> >
+> > FWIW to undertstanding the issue - the same driver (mlx4_core) is used
+> > by the PF and VF, so the VF driver is already loaded at the time its
+> > been added as new PCI device.
+> >
+> >> From driver core view, looks no wrong things are found.
+> >
+> > So this got me confused, you pointed on possible deadlock, are you
+> > saying the deadlock wouldn't be the result of how the driver code is
+> > going nor the commited we bisected?
+> 
+> My commit only affects the driver loading path, but your warning
+> is hit in driver probe path triggered by device addition, so the lockdep
+> warning should still be triggered without my commit since the two paths
+> are totally independent, right?
+> 
+> Thanks,
+> --
+> Ming Lei
+> 
