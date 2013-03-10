@@ -1,7 +1,7 @@
 From: Jonas Gorski <jogo@openwrt.org>
-Subject: [PATCH 3/3] bcm63xx_enet: properly prepare/unprepare clocks before/after usage
-Date: Sun, 10 Mar 2013 14:57:49 +0100
-Message-ID: <1362923869-21346-3-git-send-email-jogo@openwrt.org>
+Subject: [PATCH 2/3] bcm63xx_enet: use managed memory allocations
+Date: Sun, 10 Mar 2013 14:57:48 +0100
+Message-ID: <1362923869-21346-2-git-send-email-jogo@openwrt.org>
 References: <1362923869-21346-1-git-send-email-jogo@openwrt.org>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Maxime Bizon <mbizon@freebox.fr>,
@@ -9,71 +9,52 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Kevin Cernekee <cernekee@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arrakis.dune.hu ([78.24.191.176]:50587 "EHLO arrakis.dune.hu"
+Received: from arrakis.dune.hu ([78.24.191.176]:50580 "EHLO arrakis.dune.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751373Ab3CJN6C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Mar 2013 09:58:02 -0400
+	id S1751335Ab3CJN6B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Mar 2013 09:58:01 -0400
 In-Reply-To: <1362923869-21346-1-git-send-email-jogo@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use clk_prepare_enable/disable_unprepare calls in preparation for
-switching to the generic clock framework.
-
 Signed-off-by: Jonas Gorski <jogo@openwrt.org>
 ---
- drivers/net/ethernet/broadcom/bcm63xx_enet.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c |    8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index 8397d1c..aff3866 100644
+index 0a43188..8397d1c 100644
 --- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
 +++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-@@ -1685,7 +1685,7 @@ static int bcm_enet_probe(struct platform_device *pdev)
- 		ret = PTR_ERR(priv->mac_clk);
- 		goto out;
- 	}
--	clk_enable(priv->mac_clk);
-+	clk_prepare_enable(priv->mac_clk);
+@@ -1742,7 +1742,8 @@ static int bcm_enet_probe(struct platform_device *pdev)
+ 		 * if a slave is not present on hw */
+ 		bus->phy_mask = ~(1 << priv->phy_id);
  
- 	/* initialize default and fetch platform data */
- 	priv->rx_ring_size = BCMENET_DEF_RX_DESC;
-@@ -1714,7 +1714,7 @@ static int bcm_enet_probe(struct platform_device *pdev)
- 			priv->phy_clk = NULL;
- 			goto out_put_clk_mac;
- 		}
--		clk_enable(priv->phy_clk);
-+		clk_prepare_enable(priv->phy_clk);
- 	}
+-		bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
++		bus->irq = devm_kzalloc(&pdev->dev, sizeof(int) * PHY_MAX_ADDR,
++					GFP_KERNEL);
+ 		if (!bus->irq) {
+ 			ret = -ENOMEM;
+ 			goto out_free_mdio;
+@@ -1803,10 +1804,8 @@ static int bcm_enet_probe(struct platform_device *pdev)
+ 	return 0;
  
- 	/* do minimal hardware init to be able to probe mii bus */
-@@ -1815,12 +1815,12 @@ out_uninit_hw:
- 	/* turn off mdc clock */
- 	enet_writel(priv, 0, ENET_MIISC_REG);
- 	if (priv->phy_clk) {
--		clk_disable(priv->phy_clk);
-+		clk_disable_unprepare(priv->phy_clk);
- 		clk_put(priv->phy_clk);
- 	}
+ out_unregister_mdio:
+-	if (priv->mii_bus) {
++	if (priv->mii_bus)
+ 		mdiobus_unregister(priv->mii_bus);
+-		kfree(priv->mii_bus->irq);
+-	}
  
- out_put_clk_mac:
--	clk_disable(priv->mac_clk);
-+	clk_disable_unprepare(priv->mac_clk);
- 	clk_put(priv->mac_clk);
- out:
- 	free_netdev(dev);
-@@ -1858,10 +1858,10 @@ static int bcm_enet_remove(struct platform_device *pdev)
+ out_free_mdio:
+ 	if (priv->mii_bus)
+@@ -1847,7 +1846,6 @@ static int bcm_enet_remove(struct platform_device *pdev)
  
- 	/* disable hw block clocks */
- 	if (priv->phy_clk) {
--		clk_disable(priv->phy_clk);
-+		clk_disable_unprepare(priv->phy_clk);
- 		clk_put(priv->phy_clk);
- 	}
--	clk_disable(priv->mac_clk);
-+	clk_disable_unprepare(priv->mac_clk);
- 	clk_put(priv->mac_clk);
- 
- 	platform_set_drvdata(pdev, NULL);
+ 	if (priv->has_phy) {
+ 		mdiobus_unregister(priv->mii_bus);
+-		kfree(priv->mii_bus->irq);
+ 		mdiobus_free(priv->mii_bus);
+ 	} else {
+ 		struct bcm63xx_enet_platform_data *pd;
 -- 
 1.7.10.4
