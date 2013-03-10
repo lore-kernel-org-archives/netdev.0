@@ -1,59 +1,101 @@
-From: Loic Domaigne <loic.domaigne-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: Re: RFC: [PATCH 1/3] usb: cdc_ncm: patch for VMware
-Date: Sun, 10 Mar 2013 22:12:27 +0100
-Message-ID: <20130310211227.GA2169@feynman.loic.net>
-References: <20130308210319.GA4794@feynman.loic.net>
- <1362781739.8581.5.camel@dcbw.foobar.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1362781739.8581.5.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Valentin Ilie <valentin.ilie@gmail.com>
+Subject: [PATCHv2] net: can: af_can.c: Fix checkpatch warnings
+Date: Sun, 10 Mar 2013 23:15:13 +0200
+Message-ID: <1362950113-25515-1-git-send-email-valentin.ilie@gmail.com>
+References: <1362918526-26730-1-git-send-email-valentin.ilie@gmail.com>
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Valentin Ilie <valentin.ilie@gmail.com>
+To: socketcan@hartkopp.net, davem@davemloft.net
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1362918526-26730-1-git-send-email-valentin.ilie@gmail.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 08, 2013 at 04:28:59PM -0600, Dan Williams wrote:
-> On Fri, 2013-03-08 at 22:03 +0100, Loic Domaigne wrote:
-> >  
-> > +/* maximum Rx URB size */
-> > +/*
-> > + * in the original Linux driver, the rx urb size can be up to
-> > + * CDC_NCM_NTB_MAX_SIZE_RX.
-> > + *
-> > + * Under VMware (as of wks9), URB size greater than 16kB is a problem,
-> > + * so simply adjust this define when the driver is compiled for a VMware
-> > + * environment.
-> > + *
-> > + */
-> > +#ifdef VMWARE_BUG
-> > +#warning "Compiling for VMware"
-> > +#define CDC_NCM_MAX_RX_URB_SIZE     16384
-> > +#else
-> > +#define CDC_NCM_MAX_RX_URB_SIZE     CDC_NCM_NTB_MAX_SIZE_RX
-> > +#endif
-> 
-> I can't see how that is going to get past any sort of review.  Either
-> there's some other way of detecting that the CPU is the VMWare emulated
-> one or you're stuck with the bug until VMWare fixes it.
+Replace printk(KERN_ERR with pr_err
+Add space before {
+Removed OOM messages
 
-Yeah, I know.
+Signed-off-by: Valentin Ilie <valentin.ilie@gmail.com>
+---
+ net/can/af_can.c | 21 ++++++++-------------
+ 1 file changed, 8 insertions(+), 13 deletions(-)
 
-The kludge consists to (re)compile the kernel module on the VMWare guest with
-the VMWARE_BUG compiler flag set. 
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index c48e522..8bacf28 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -525,7 +525,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+ 
+ 	d = find_dev_rcv_lists(dev);
+ 	if (!d) {
+-		printk(KERN_ERR "BUG: receive list not found for "
++		pr_err("BUG: receive list not found for "
+ 		       "dev %s, id %03X, mask %03X\n",
+ 		       DNAME(dev), can_id, mask);
+ 		goto out;
+@@ -552,7 +552,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+ 	 */
+ 
+ 	if (!r) {
+-		printk(KERN_ERR "BUG: receive list entry not found for "
++		pr_err("BUG: receive list entry not found for "
+ 		       "dev %s, id %03X, mask %03X\n",
+ 		       DNAME(dev), can_id, mask);
+ 		r = NULL;
+@@ -749,8 +749,7 @@ int can_proto_register(const struct can_proto *cp)
+ 	int err = 0;
+ 
+ 	if (proto < 0 || proto >= CAN_NPROTO) {
+-		printk(KERN_ERR "can: protocol number %d out of range\n",
+-		       proto);
++		pr_err("can: protocol number %d out of range\n", proto);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -761,8 +760,7 @@ int can_proto_register(const struct can_proto *cp)
+ 	mutex_lock(&proto_tab_lock);
+ 
+ 	if (proto_tab[proto]) {
+-		printk(KERN_ERR "can: protocol %d already registered\n",
+-		       proto);
++		pr_err("can: protocol %d already registered\n", proto);
+ 		err = -EBUSY;
+ 	} else
+ 		RCU_INIT_POINTER(proto_tab[proto], cp);
+@@ -816,11 +814,8 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
+ 
+ 		/* create new dev_rcv_lists for this device */
+ 		d = kzalloc(sizeof(*d), GFP_KERNEL);
+-		if (!d) {
+-			printk(KERN_ERR
+-			       "can: allocation of receive list failed\n");
++		if (!d)
+ 			return NOTIFY_DONE;
+-		}
+ 		BUG_ON(dev->ml_priv);
+ 		dev->ml_priv = d;
+ 
+@@ -838,8 +833,8 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
+ 				dev->ml_priv = NULL;
+ 			}
+ 		} else
+-			printk(KERN_ERR "can: notifier: receive list not "
+-			       "found for dev %s\n", dev->name);
++			pr_err("can: notifier: receive list not found for dev "
++			       "%s\n", dev->name);
+ 
+ 		spin_unlock(&can_rcvlists_lock);
+ 
+@@ -927,7 +922,7 @@ static __exit void can_exit(void)
+ 	/* remove created dev_rcv_lists from still registered CAN devices */
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(&init_net, dev) {
+-		if (dev->type == ARPHRD_CAN && dev->ml_priv){
++		if (dev->type == ARPHRD_CAN && dev->ml_priv) {
+ 
+ 			struct dev_rcv_lists *d = dev->ml_priv;
+ 
+-- 
+1.8.1.2
 
-We have a helper script for that task, but it's distros specific. We can 
-detect automatically a VMWare emulated CPU in some cases, but not always.
-As a result, we end up sometimes asking the user.
-
-I am aware that it's not suitable as a generic solution. But waiting a fix
-from VMWare might not be practical for you either.
-
-Any better ideas?
-
-Loic.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
