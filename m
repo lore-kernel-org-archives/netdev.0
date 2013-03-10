@@ -1,42 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 01/15] net: add skb_dst_set_unref
-Date: Sun, 10 Mar 2013 05:17:35 -0400 (EDT)
-Message-ID: <20130310.051735.1281635372029510938.davem@davemloft.net>
-References: <1362863815-5898-1-git-send-email-ja@ssi.bg>
-	<1362863815-5898-2-git-send-email-ja@ssi.bg>
+Subject: Re: [PATCH 0/3] net: netlink info leak fixes
+Date: Sun, 10 Mar 2013 05:20:49 -0400 (EDT)
+Message-ID: <20130310.052049.1467709979826920495.davem@davemloft.net>
+References: <1362844341-12591-1-git-send-email-minipli@googlemail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: ja@ssi.bg
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1362863815-5898-2-git-send-email-ja@ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: minipli@googlemail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46930 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752651Ab3CJJUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 05:20:41 -0400
+In-Reply-To: <1362844341-12591-1-git-send-email-minipli@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Sat,  9 Mar 2013 23:16:41 +0200
+From: Mathias Krause <minipli@googlemail.com>
+Date: Sat,  9 Mar 2013 16:52:18 +0100
 
-> 	skb_dst_set_unref will use noref version even for
-> DST_NOCACHE entries because DST_NOCACHE means dst is not
-> cached in routing structures, still dst could be cached
-> by routing users and used to produce noref instances.
+> a few more info leak fixes -- this time in rtnl.
 > 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Please apply!
 
-I'm fine with this approach, but I think the name of this
-interface could be better.
-
-In fact you could do something like:
-
-1) Rename skb_dst_set_noref() to __skb_dst_set_noref() and add
-   a new "bool force" parameter.  DST_NOCACHE check is overriden
-   when 'force' is true.
-
-2) skb_dst_set_noref() is an inline that passes 'force' as false.
-
-3) New interface skb_dst_set_noref_force() passes 'force' as true
-   and will be used by your IPVS changes.
-
-Then all of the RCU checks etc. happen in one shared function.
+All applied and queued up for -stable, thanks!
