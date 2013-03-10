@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 01/15] net: add skb_dst_set_unref
-Date: Sun, 10 Mar 2013 17:00:04 -0400 (EDT)
-Message-ID: <20130310.170004.2239870728229481365.davem@davemloft.net>
-References: <1362863815-5898-2-git-send-email-ja@ssi.bg>
-	<20130310.051735.1281635372029510938.davem@davemloft.net>
-	<alpine.LFD.2.00.1303101527530.1608@ja.ssi.bg>
+Subject: Re: [PATCH net-next] Remove unused tw_cookie_values from
+ tcp_timewait_sock
+Date: Sun, 10 Mar 2013 17:09:48 -0400 (EDT)
+Message-ID: <20130310.170948.743087268108414164.davem@davemloft.net>
+References: <1362928719-13532-1-git-send-email-christoph.paasch@uclouvain.be>
+	<1362931570.4051.34.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: ja@ssi.bg
+Cc: christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	william.allen.simpson@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53458 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53578 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751331Ab3CJU74 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 16:59:56 -0400
-In-Reply-To: <alpine.LFD.2.00.1303101527530.1608@ja.ssi.bg>
+	with ESMTP id S1751299Ab3CJVJk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 17:09:40 -0400
+In-Reply-To: <1362931570.4051.34.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Sun, 10 Mar 2013 15:37:34 +0200 (EET)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 10 Mar 2013 17:06:10 +0100
 
-> 	The idea looks good, here is the implementation.
-> Can I use it in this form for next patchset versions?
+> On Sun, 2013-03-10 at 16:18 +0100, Christoph Paasch wrote:
+>> tw_cookie_values is never used in the TCP-stack.
+>> 
+>> It was added by 435cf559f (TCPCT part 1d: define TCP cookie option,
+>> extend existing struct's), but already at that time it was not used at
+>> all, nor mentioned in the commit-message.
+>> 
+>> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+ ...
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Yes, but with one minor change:
-
-> -	if (unlikely(dst->flags & DST_NOCACHE)) {
-> +	if (unlikely(dst->flags & DST_NOCACHE && !force)) {
-
-I keep forgetting the && vs. & operator precedence, and so
-do many other people, so please put parenthesis around
-the "dst->flags & DST_NOCACHE" expression, thanks.
+Applied, thanks.
