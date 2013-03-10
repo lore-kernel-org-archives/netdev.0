@@ -1,55 +1,218 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: hitting lockdep warning as of too early VF probe with 3.9-rc1
-Date: Sun, 10 Mar 2013 09:37:38 -0700
-Message-ID: <20130310163738.GC4392@kroah.com>
-References: <51360D7C.3060209@mellanox.com>
- <CAJZOPZ+_N53n59cJv00=GXETNhZJUEvgcLEB+D-ujBdSsyvM9g@mail.gmail.com>
- <CACVXFVMcgMzwHrvimn2awQZCPP2m=_npTGap-m7Ru+jdCoqcyA@mail.gmail.com>
- <201303101728.50883.jackm@dev.mellanox.co.il>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost_net: remove tx polling state
+Date: Sun, 10 Mar 2013 18:50:30 +0200
+Message-ID: <20130310165030.GA13687@redhat.com>
+References: <1362630716-57674-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ming Lei <ming.lei@canonical.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	Roland Dreier <roland@kernel.org>,
-	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
-	Liran Liss <liranl@mellanox.com>
-To: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f44.google.com ([209.85.210.44]:50371 "EHLO
-	mail-da0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751327Ab3CJQgz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 12:36:55 -0400
-Received: by mail-da0-f44.google.com with SMTP id z20so562421dae.17
-        for <netdev@vger.kernel.org>; Sun, 10 Mar 2013 09:36:55 -0700 (PDT)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <201303101728.50883.jackm@dev.mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1362630716-57674-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 10, 2013 at 05:28:50PM +0200, Jack Morgenstein wrote:
-> Hello, Ming, Greg, Roland, Dave, all...
+On Thu, Mar 07, 2013 at 12:31:56PM +0800, Jason Wang wrote:
+> After commit 2b8b328b61c799957a456a5a8dab8cc7dea68575 (vhost_net: handle polling
+> errors when setting backend), we in fact track the polling state through
+> poll->wqh, so there's no need to duplicate the work with an extra
+> vhost_net_polling_state. So this patch removes this and make the code simpler.
 > 
-> From a quick scan of ethernet drivers in Dave Miller's net-next git, I
-> notice that the following drivers (apart from the Mellanox mlx4 driver)
-> enable SRIOV during the PF probe:
->   cisco enic (function "enic_probe")
->   neterion vxge driver(function "vxge_probe")
->   Solarflare efx driver (function "efx_pci_probe", which invokes "efx_sriov_init")
->   emulex driver (function "be_probe" --> be_setup --> be_vf_setup)
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+
+I'd prefer a more radical approach, since I think it can be even
+simpler: tap and macvtap backends both only send events when tx queue
+overruns which should almost never happen.
+
+So let's just start polling when VQ is enabled
+drop all poll_start/stop calls on data path.
+
+The optimization was written for packet socket backend but I know of no
+one caring about performance of that one that much.
+Needs a bit of perf testing to make sure I didn't miss anything though
+but it's not 3.9 material anyway so there's no rush.
+
+> ---
+>  drivers/vhost/net.c   |   60 ++++++++----------------------------------------
+>  drivers/vhost/vhost.c |    3 ++
+>  2 files changed, 13 insertions(+), 50 deletions(-)
 > 
-> It would seem that these drivers are susceptible to the nested probe/deadlock
-> race condition as well.
-> 
-> I believe that it is healthiest for everyone if the probe code in the kernel itself
-> would avoid such nested probe calls (rather than forcing vendors to deal
-> with this issue).  The kernel code is certainly aware
-> (or could easily track) that it is invoking the a driver's probe function
-> while that same probe function has already been invoked and has not yet returned!
-
-Patches to handle this are always gladly accepted.
-
-thanks,
-
-greg k-h
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 959b1cd..d1a03dd 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -64,20 +64,10 @@ enum {
+>  	VHOST_NET_VQ_MAX = 2,
+>  };
+>  
+> -enum vhost_net_poll_state {
+> -	VHOST_NET_POLL_DISABLED = 0,
+> -	VHOST_NET_POLL_STARTED = 1,
+> -	VHOST_NET_POLL_STOPPED = 2,
+> -};
+> -
+>  struct vhost_net {
+>  	struct vhost_dev dev;
+>  	struct vhost_virtqueue vqs[VHOST_NET_VQ_MAX];
+>  	struct vhost_poll poll[VHOST_NET_VQ_MAX];
+> -	/* Tells us whether we are polling a socket for TX.
+> -	 * We only do this when socket buffer fills up.
+> -	 * Protected by tx vq lock. */
+> -	enum vhost_net_poll_state tx_poll_state;
+>  	/* Number of TX recently submitted.
+>  	 * Protected by tx vq lock. */
+>  	unsigned tx_packets;
+> @@ -155,28 +145,6 @@ static void copy_iovec_hdr(const struct iovec *from, struct iovec *to,
+>  	}
+>  }
+>  
+> -/* Caller must have TX VQ lock */
+> -static void tx_poll_stop(struct vhost_net *net)
+> -{
+> -	if (likely(net->tx_poll_state != VHOST_NET_POLL_STARTED))
+> -		return;
+> -	vhost_poll_stop(net->poll + VHOST_NET_VQ_TX);
+> -	net->tx_poll_state = VHOST_NET_POLL_STOPPED;
+> -}
+> -
+> -/* Caller must have TX VQ lock */
+> -static int tx_poll_start(struct vhost_net *net, struct socket *sock)
+> -{
+> -	int ret;
+> -
+> -	if (unlikely(net->tx_poll_state != VHOST_NET_POLL_STOPPED))
+> -		return 0;
+> -	ret = vhost_poll_start(net->poll + VHOST_NET_VQ_TX, sock->file);
+> -	if (!ret)
+> -		net->tx_poll_state = VHOST_NET_POLL_STARTED;
+> -	return ret;
+> -}
+> -
+>  /* In case of DMA done not in order in lower device driver for some reason.
+>   * upend_idx is used to track end of used idx, done_idx is used to track head
+>   * of used idx. Once lower device DMA done contiguously, we will signal KVM
+> @@ -231,6 +199,7 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
+>  static void handle_tx(struct vhost_net *net)
+>  {
+>  	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_TX];
+> +	struct vhost_poll *poll = net->poll + VHOST_NET_VQ_TX;
+>  	unsigned out, in, s;
+>  	int head;
+>  	struct msghdr msg = {
+> @@ -256,7 +225,7 @@ static void handle_tx(struct vhost_net *net)
+>  	wmem = atomic_read(&sock->sk->sk_wmem_alloc);
+>  	if (wmem >= sock->sk->sk_sndbuf) {
+>  		mutex_lock(&vq->mutex);
+> -		tx_poll_start(net, sock);
+> +		vhost_poll_start(poll, sock->file);
+>  		mutex_unlock(&vq->mutex);
+>  		return;
+>  	}
+> @@ -265,7 +234,7 @@ static void handle_tx(struct vhost_net *net)
+>  	vhost_disable_notify(&net->dev, vq);
+>  
+>  	if (wmem < sock->sk->sk_sndbuf / 2)
+> -		tx_poll_stop(net);
+> +		vhost_poll_stop(poll);
+>  	hdr_size = vq->vhost_hlen;
+>  	zcopy = vq->ubufs;
+>  
+> @@ -287,7 +256,7 @@ static void handle_tx(struct vhost_net *net)
+>  
+>  			wmem = atomic_read(&sock->sk->sk_wmem_alloc);
+>  			if (wmem >= sock->sk->sk_sndbuf * 3 / 4) {
+> -				tx_poll_start(net, sock);
+> +				vhost_poll_start(poll, sock->file);
+>  				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
+>  				break;
+>  			}
+> @@ -298,7 +267,7 @@ static void handle_tx(struct vhost_net *net)
+>  				    (vq->upend_idx - vq->done_idx) :
+>  				    (vq->upend_idx + UIO_MAXIOV - vq->done_idx);
+>  			if (unlikely(num_pends > VHOST_MAX_PEND)) {
+> -				tx_poll_start(net, sock);
+> +				vhost_poll_start(poll, sock->file);
+>  				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
+>  				break;
+>  			}
+> @@ -364,7 +333,7 @@ static void handle_tx(struct vhost_net *net)
+>  			}
+>  			vhost_discard_vq_desc(vq, 1);
+>  			if (err == -EAGAIN || err == -ENOBUFS)
+> -				tx_poll_start(net, sock);
+> +				vhost_poll_start(poll, sock->file);
+>  			break;
+>  		}
+>  		if (err != len)
+> @@ -627,7 +596,6 @@ static int vhost_net_open(struct inode *inode, struct file *f)
+>  
+>  	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT, dev);
+>  	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN, dev);
+> -	n->tx_poll_state = VHOST_NET_POLL_DISABLED;
+>  
+>  	f->private_data = n;
+>  
+> @@ -637,32 +605,24 @@ static int vhost_net_open(struct inode *inode, struct file *f)
+>  static void vhost_net_disable_vq(struct vhost_net *n,
+>  				 struct vhost_virtqueue *vq)
+>  {
+> +	struct vhost_poll *poll = n->poll + (vq - n->vqs);
+>  	if (!vq->private_data)
+>  		return;
+> -	if (vq == n->vqs + VHOST_NET_VQ_TX) {
+> -		tx_poll_stop(n);
+> -		n->tx_poll_state = VHOST_NET_POLL_DISABLED;
+> -	} else
+> -		vhost_poll_stop(n->poll + VHOST_NET_VQ_RX);
+> +	vhost_poll_stop(poll);
+>  }
+>  
+>  static int vhost_net_enable_vq(struct vhost_net *n,
+>  				struct vhost_virtqueue *vq)
+>  {
+> +	struct vhost_poll *poll = n->poll + (vq - n->vqs);
+>  	struct socket *sock;
+> -	int ret;
+>  
+>  	sock = rcu_dereference_protected(vq->private_data,
+>  					 lockdep_is_held(&vq->mutex));
+>  	if (!sock)
+>  		return 0;
+> -	if (vq == n->vqs + VHOST_NET_VQ_TX) {
+> -		n->tx_poll_state = VHOST_NET_POLL_STOPPED;
+> -		ret = tx_poll_start(n, sock);
+> -	} else
+> -		ret = vhost_poll_start(n->poll + VHOST_NET_VQ_RX, sock->file);
+>  
+> -	return ret;
+> +	return vhost_poll_start(poll, sock->file);
+>  }
+>  
+>  static struct socket *vhost_net_stop_vq(struct vhost_net *n,
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index 9759249..4eecdb8 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -89,6 +89,9 @@ int vhost_poll_start(struct vhost_poll *poll, struct file *file)
+>  	unsigned long mask;
+>  	int ret = 0;
+>  
+> +	if (poll->wqh)
+> +		return 0;
+> +
+>  	mask = file->f_op->poll(file, &poll->table);
+>  	if (mask)
+>  		vhost_poll_wakeup(&poll->wait, 0, 0, (void *)mask);
+> -- 
+> 1.7.1
