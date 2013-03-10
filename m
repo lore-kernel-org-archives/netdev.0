@@ -1,37 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] eicon: Fixed checkpatch warning
-Date: Sun, 10 Mar 2013 18:02:18 -0400 (EDT)
-Message-ID: <20130310.180218.753487547136940085.davem@davemloft.net>
-References: <1362918876-18694-1-git-send-email-hodea_andreea@yahoo.com>
-	<20130310.165613.427736360718722534.davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCHv2 net-next 01/15] net: add skb_dst_set_unref
+Date: Mon, 11 Mar 2013 00:05:56 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1303102352460.1608@ja.ssi.bg>
+References: <1362863815-5898-2-git-send-email-ja@ssi.bg> <20130310.051735.1281635372029510938.davem@davemloft.net> <alpine.LFD.2.00.1303101527530.1608@ja.ssi.bg> <20130310.170004.2239870728229481365.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mac@melware.de, isdn@linux-pingi.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, hodea_andreea@yahoo.com
-To: andreea.cristina.hodea@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130310.165613.427736360718722534.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: horms@verge.net.au, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20130310.170004.2239870728229481365.davem@davemloft.net>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Sun, 10 Mar 2013 16:56:13 -0400 (EDT)
 
-> From: Andreea Hodea <andreea.cristina.hodea@gmail.com>
-> Date: Sun, 10 Mar 2013 14:34:36 +0200
+	Hello,
+
+On Sun, 10 Mar 2013, David Miller wrote:
+
+> From: Julian Anastasov <ja@ssi.bg>
+> Date: Sun, 10 Mar 2013 15:37:34 +0200 (EET)
 > 
->> drivers/isdn/hardware/eicon/diva_didd.c:32:6: warning: symbol
->> 'DRIVERRELEASE_DIDD' was not declared. Should it be static?
->> 
->> Signed-off-by: Andreea Hodea <hodea_andreea@yahoo.com>
+> > 	The idea looks good, here is the implementation.
+> > Can I use it in this form for next patchset versions?
 > 
-> Applied, thanks.
+> Yes, but with one minor change:
+> 
+> > -	if (unlikely(dst->flags & DST_NOCACHE)) {
+> > +	if (unlikely(dst->flags & DST_NOCACHE && !force)) {
+> 
+> I keep forgetting the && vs. & operator precedence, and so
+> do many other people, so please put parenthesis around
+> the "dst->flags & DST_NOCACHE" expression, thanks.
 
-I had to revert, did you even try to compile the driver after
-this change?
+	Done, I'll wait a week for more feedback...
 
-The symbol is refenced by DbgRegister() calls in diddfunc.c, and
-a very simple grep would have shown that to you.
+Regards
 
-Please do not just blindly try to fix checkpatch warnings.
+--
+Julian Anastasov <ja@ssi.bg>
