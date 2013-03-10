@@ -1,45 +1,39 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net-next] tunnel: use iptunnel_xmit() again
-Date: Sun, 10 Mar 2013 05:29:47 +0100
-Message-ID: <1362889787.4051.14.camel@edumazet-glaptop>
-References: <1362883119-4099-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH RFC] unix: account skb memory to receiving socket's
+ sk_rmem_alloc on sending
+Date: Sun, 10 Mar 2013 05:31:01 +0100
+Message-ID: <1362889861.4051.15.camel@edumazet-glaptop>
+References: <20130204231414.GD6898@order.stressinduktion.org>
+	 <20130309214333.GI28531@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: netdev@vger.kernel.org, yannick@koehler.name,
+	xiyou.wangcong@gmail.com, davem@davemloft.net
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f52.google.com ([74.125.83.52]:40116 "EHLO
-	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752000Ab3CJE3v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 23:29:51 -0500
-Received: by mail-ee0-f52.google.com with SMTP id b15so1642577eek.11
-        for <netdev@vger.kernel.org>; Sat, 09 Mar 2013 20:29:50 -0800 (PST)
-In-Reply-To: <1362883119-4099-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-ee0-f41.google.com ([74.125.83.41]:62909 "EHLO
+	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751959Ab3CJEbF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 23:31:05 -0500
+Received: by mail-ee0-f41.google.com with SMTP id c13so1707257eek.0
+        for <netdev@vger.kernel.org>; Sat, 09 Mar 2013 20:31:04 -0800 (PST)
+In-Reply-To: <20130309214333.GI28531@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-03-10 at 10:38 +0800, Cong Wang wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> 
-> With recent patches from Pravin, most tunnels can't use iptunnel_xmit()
-> any more, due to ip_select_ident() and skb->ip_summed. But we can just
-> move these operations out of iptunnel_xmit(), so that tunnels can
-> use it again.
-> 
-> This by the way fixes a bug in vxlan (missing nf_reset()) for net-next.
-> 
-> Cc: Pravin B Shelar <pshelar@nicira.com>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> 
-> ---
+On Sat, 2013-03-09 at 22:43 +0100, Hannes Frederic Sowa wrote:
 
-missing diffstat
+> I had this patch left from the last net-next submission timeframe. In
+> the meantime I did some updates I would love to have a review on. It
+> e.g. includes poll handling now.
+> 
+> This patch lacks documentation updates for max_dgram_qlen. I'll update
+> the documentation on the next submission.
+> 
+> Btw, iproute from current git has the ability to report socket memory for
+> unix domain sockets, too. So these changes should be better observable.
 
-otherwise, patch looks good to me
+I am busy this week attending Netfilter Workshop in Copenhagen.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Do you have a user test program ?
