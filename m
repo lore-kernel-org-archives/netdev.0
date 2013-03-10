@@ -1,30 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] fix buf of assigning skb->tail to
- network_header
-Date: Sun, 10 Mar 2013 10:58:48 +0100
-Message-ID: <1362909528.4051.32.camel@edumazet-glaptop>
-References: <1362908909-45697-1-git-send-email-honkiko@gmail.com>
+From: Stephan Gatzka <stephan.gatzka@gmail.com>
+Subject: Re: [net-next (TAKE 2) 0/4] IPv6 over Firewire
+Date: Sun, 10 Mar 2013 11:03:59 +0100
+Message-ID: <513C5A8F.6060000@gmail.com>
+References: <5117620A.4050005@linux-ipv6.org> <51177689.4070904@gmail.com> <51177B15.3030405@linux-ipv6.org> <51179714.6010706@gmail.com> <5117B73C.10600@linux-ipv6.org> <5118C8B3.7080803@gmail.com> <5118EE78.5000508@linux-ipv6.org> <511A9BFC.9010907@gmail.com> <51310507.7030904@gmail.com>
+Reply-To: stephan.gatzka@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	stephen@networkplumber.org, zhiguo.hong@emc.com
-To: Hong Zhiguo <honkiko@gmail.com>
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
+	davem@davemloft.net, stefanr@s5r6.in-berlin.de
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:47114 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752732Ab3CJJ6x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 05:58:53 -0400
-Received: by mail-ee0-f54.google.com with SMTP id c41so1762752eek.13
-        for <netdev@vger.kernel.org>; Sun, 10 Mar 2013 01:58:52 -0800 (PST)
-In-Reply-To: <1362908909-45697-1-git-send-email-honkiko@gmail.com>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:50844 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752732Ab3CJKED (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 06:04:03 -0400
+Received: by mail-ea0-f174.google.com with SMTP id q10so735837eaj.5
+        for <netdev@vger.kernel.org>; Sun, 10 Mar 2013 03:04:01 -0700 (PDT)
+In-Reply-To: <51310507.7030904@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-03-10 at 17:48 +0800, Hong Zhiguo wrote:
-> in the case of NET_SKBUFF_DATA_USES_OFFSET,  direct pointer
-> assignment to skb->network_header is a dangerous bug.
+O.k., I rechecked all checksums send by IPv6 over FireWire from Linux
+and from MacOS.
 
-But skb->tail is not a pointer.
+The checksums from Yoshis implementation are correct, MacOS is wrong.
 
-Really you need to explain more than this confusing changelog
+What I don't understand is that using my proof of concept patch. I could
+ping6 MacOSX from my Linux box. Even with CHECKSUM_UNNECESSARY MacOSX
+should also throw away the packets send from Linux. Hm, I have to
+recheck this.
+
+Regards,
+
+Stephan
