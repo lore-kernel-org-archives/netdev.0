@@ -1,46 +1,48 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH] Rate should be u64 to avoid integer overflow at high
- speeds (>= ~35Gbit)
-Date: Sun, 10 Mar 2013 00:49:04 -0500
-Message-ID: <20130310004904.de508bfa.billfink@mindspring.com>
-References: <1362885604-14006-1-git-send-email-j.vimal@gmail.com>
-	<1362888229.4051.2.camel@edumazet-glaptop>
-	<CAK3Ji11Mij3Y_sGC6nLS01rxfccZo0SPJmQy-LAmskz1OEdmkQ@mail.gmail.com>
-	<1362891937.4051.25.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] tunnel: use iptunnel_xmit() again
+Date: Sun, 10 Mar 2013 03:05:56 -0400 (EDT)
+Message-ID: <20130310.030556.572539791582239317.davem@davemloft.net>
+References: <1362883119-4099-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1362889787.4051.14.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Vimal <j.vimal@gmail.com>, netdev@vger.kernel.org,
-	shemminger <shemminger@vyatta.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+	pshelar@nicira.com, stephen@networkplumber.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-junco.atl.sa.earthlink.net ([209.86.89.63]:59782 "EHLO
-	elasmtp-junco.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751206Ab3CJFzR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 00:55:17 -0500
-In-Reply-To: <1362891937.4051.25.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45963 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751365Ab3CJHFw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 03:05:52 -0400
+In-Reply-To: <1362889787.4051.14.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 10 Mar 2013, Eric Dumazet wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 10 Mar 2013 05:29:47 +0100
 
-> On Sat, 2013-03-09 at 20:53 -0800, Vimal wrote:
-> > Ok, do you have suggestions on how to do this?  Maybe a better way to
-> > do this would be to introduce an additional "multipler" option for
-> > rates, which is set to 1 as default, so actual rate can be computed as
-> > multipler * rate supplied.
+> On Sun, 2013-03-10 at 10:38 +0800, Cong Wang wrote:
+>> From: Cong Wang <xiyou.wangcong@gmail.com>
+>> 
+>> With recent patches from Pravin, most tunnels can't use iptunnel_xmit()
+>> any more, due to ip_select_ident() and skb->ip_summed. But we can just
+>> move these operations out of iptunnel_xmit(), so that tunnels can
+>> use it again.
+>> 
+>> This by the way fixes a bug in vxlan (missing nf_reset()) for net-next.
+>> 
+>> Cc: Pravin B Shelar <pshelar@nicira.com>
+>> Cc: Stephen Hemminger <stephen@networkplumber.org>
+>> Cc: "David S. Miller" <davem@davemloft.net>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> 
+>> ---
 > 
-> How an old program, in binary form, will automatically knows it has to
-> change its behavior to use an inexistent field ?
+> missing diffstat
 > 
-> I can use an old distro, and update kernel to upstream kernel, it must
-> continue to work.
+> otherwise, patch looks good to me
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-I don't see the problem.  An old program would not know about
-the new multiplier, would thus get the default multiplier of 1,
-and get the same behavior as always, with the same limitation
-of ~34 Gbps.  But someone with a newer tc/kernel could for example
-specify a multiplier of 10, which would then support rates up to
-about 340 Gbps.  It sounds like a reasonable approach to me.
-
-						-Bill
+Applied, thanks.
