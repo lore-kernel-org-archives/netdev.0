@@ -1,85 +1,174 @@
-From: Adam Baker <linux@baker-net.org.uk>
-Subject: Re: [Patch net] bridge: do not expire mdb entry when bridge still
- uses it
-Date: Sat, 09 Mar 2013 22:46:02 +0000
-Message-ID: <513BBBAA.2050800@baker-net.org.uk>
-References: <1362708423-23932-1-git-send-email-amwang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] tunnel: use iptunnel_xmit() again
+Date: Sun, 10 Mar 2013 10:38:39 +0800
+Message-ID: <1362883119-4099-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>,
 	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from april.london.02.net ([87.194.255.143]:56518 "EHLO
-	april.london.02.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751870Ab3CIWqV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 17:46:21 -0500
-In-Reply-To: <1362708423-23932-1-git-send-email-amwang@redhat.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:34756 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751843Ab3CJCjG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Mar 2013 21:39:06 -0500
+Received: by mail-pb0-f46.google.com with SMTP id uo15so2552298pbc.19
+        for <netdev@vger.kernel.org>; Sat, 09 Mar 2013 18:39:04 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/03/13 02:07, Cong Wang wrote:
-> From: Cong Wang <amwang@redhat.com>
->
-> This is a long-standing bug and reported several times:
-> https://bugzilla.redhat.com/show_bug.cgi?id=880035
-> http://marc.info/?l=linux-netdev&m=136164389416341&w=2
->
-> This bug can be observed in virt environment, when a KVM guest
-> communicates with the host via multicast. After some time (should
-> be 260 sec, I didn't measure), the multicast traffic suddenly
-> terminates.
->
-> This is due to the mdb entry for bridge itself expires automatically,
-> it should not expire as long as the bridge still generates multicast
-> traffic. It should expire when the bridge leaves the multicast group,
-> OR when there is no multicast traffic on this bridge.
->
-> I fix this by adding another bool which is set when there is
-> multicast traffic goes to the bridge, cleared in the expire timer and
-> when IGMP leave is received. I ran omping for 15 minutes, everything
-> looks good now.
-Despite Herbert's comment that he didn't think this patch was correct I 
-decided to test it anyway and can confirm that it doesn't fix the issue 
-for my configuration.
+From: Cong Wang <xiyou.wangcong@gmail.com>
 
-When Herbert Xu originally sent the patch series that caused the change 
-in behaviour that triggered this issue 
-(http://www.spinics.net/lists/netdev/msg194893.html) he noted that for 
-IPv6 the bridge sends it's own IP address so it can potentially be 
-elected as the active querier which he claimed is incorrect. I note 
-however that a randomly selected Cisco page on configuring layer 2 IGMP 
-snooping 
-(http://www.cisco.com/en/US/docs/routers/asr9000/software/multicast/configuration/guide/mcasr9kigsn.html#wp1039776) 
-suggests that when configuring a querier on a bridge it should be 
-assigned a valid IP address. If it is believed that the use of 0.0.0.0 
-as the IP address is what is causing strange behaviour on other devices 
-then is there a good reason that a bridge rather than a router shouldn't 
-be the active querier? If not then using the bridge IP address and 
-having the querier enabled by default may be a reasonable solution 
-(provided that our querier obeys the election rules and shuts up if it 
-sees a query from a lower IP address that isn't 0.0.0.0). Just because a 
-device is the elected querier for IGMP doesn't appear to mean it is 
-required to perform any other routing functions.
+With recent patches from Pravin, most tunnels can't use iptunnel_xmit()
+any more, due to ip_select_ident() and skb->ip_summed. But we can just
+move these operations out of iptunnel_xmit(), so that tunnels can
+use it again.
 
-Any thought on whether that would work - I don't have a device that 
-misbehaves on seeing the bridge initiated queries so am unable to test 
-if that solves that issue.
+This by the way fixes a bug in vxlan (missing nf_reset()) for net-next.
 
-An alternative option would be to have a third state for our querier 
-where it is only active if it has not seen a query for the Other Querier 
-Present Interval but that still leaves the possibility of other devices 
-behaving strangely because they have seen the queries we generate when 
-they are first switched on.
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Regards
-
-Adam Baker
-
-P.S. Sorry Stephen if you feel this is a now a question rather than a 
-patch so, as per your previous mail, shouldn't go to individual 
-developers but as it is also a NAK to a patch I wasn't comfortable 
-trimming the CC list.
+---
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index f057ec0..f3a135c 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -855,7 +855,6 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	__u16 src_port;
+ 	__be16 df = 0;
+ 	__u8 tos, ttl;
+-	int err;
+ 	bool did_rsc = false;
+ 	const struct vxlan_fdb *f;
+ 
+@@ -980,18 +979,7 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (handle_offloads(skb))
+ 		goto drop;
+ 
+-	err = ip_local_out(skb);
+-	if (likely(net_xmit_eval(err) == 0)) {
+-		struct vxlan_stats *stats = this_cpu_ptr(vxlan->stats);
+-
+-		u64_stats_update_begin(&stats->syncp);
+-		stats->tx_packets++;
+-		stats->tx_bytes += pkt_len;
+-		u64_stats_update_end(&stats->syncp);
+-	} else {
+-		dev->stats.tx_errors++;
+-		dev->stats.tx_aborted_errors++;
+-	}
++	iptunnel_xmit(skb, dev);
+ 	return NETDEV_TX_OK;
+ 
+ drop:
+diff --git a/include/net/ipip.h b/include/net/ipip.h
+index fd19625..0c046e3 100644
+--- a/include/net/ipip.h
++++ b/include/net/ipip.h
+@@ -51,13 +51,10 @@ struct ip_tunnel_prl_entry {
+ static inline void iptunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	int err;
+-	struct iphdr *iph = ip_hdr(skb);
+ 	int pkt_len = skb->len - skb_transport_offset(skb);
+ 	struct pcpu_tstats *tstats = this_cpu_ptr(dev->tstats);
+ 
+ 	nf_reset(skb);
+-	skb->ip_summed = CHECKSUM_NONE;
+-	ip_select_ident(iph, skb_dst(skb), NULL);
+ 
+ 	err = ip_local_out(skb);
+ 	if (likely(net_xmit_eval(err) == 0)) {
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index d0ef0e6..a13a097 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -762,7 +762,6 @@ error:
+ 
+ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct pcpu_tstats *tstats = this_cpu_ptr(dev->tstats);
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 	const struct iphdr  *old_iph;
+ 	const struct iphdr  *tiph;
+@@ -778,7 +777,6 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+ 	int    mtu;
+ 	u8     ttl;
+ 	int    err;
+-	int    pkt_len;
+ 
+ 	skb = handle_offloads(tunnel, skb);
+ 	if (IS_ERR(skb)) {
+@@ -1022,19 +1020,7 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+ 		}
+ 	}
+ 
+-	nf_reset(skb);
+-
+-	pkt_len = skb->len - skb_transport_offset(skb);
+-	err = ip_local_out(skb);
+-	if (likely(net_xmit_eval(err) == 0)) {
+-		u64_stats_update_begin(&tstats->syncp);
+-		tstats->tx_bytes += pkt_len;
+-		tstats->tx_packets++;
+-		u64_stats_update_end(&tstats->syncp);
+-	} else {
+-		dev->stats.tx_errors++;
+-		dev->stats.tx_aborted_errors++;
+-	}
++	iptunnel_xmit(skb, dev);
+ 	return NETDEV_TX_OK;
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index b50435b..34e006f 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -478,8 +478,6 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	__be32 dst = tiph->daddr;
+ 	struct flowi4 fl4;
+ 	int    mtu;
+-	int err;
+-	int pkt_len;
+ 
+ 	if (skb->protocol != htons(ETH_P_IP))
+ 		goto tx_error;
+@@ -600,21 +598,7 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if ((iph->ttl = tiph->ttl) == 0)
+ 		iph->ttl	=	old_iph->ttl;
+ 
+-	nf_reset(skb);
+-
+-	pkt_len = skb->len - skb_transport_offset(skb);
+-	err = ip_local_out(skb);
+-	if (likely(net_xmit_eval(err) == 0)) {
+-		struct pcpu_tstats *tstats = this_cpu_ptr(dev->tstats);
+-
+-		u64_stats_update_begin(&tstats->syncp);
+-		tstats->tx_bytes += pkt_len;
+-		tstats->tx_packets++;
+-		u64_stats_update_end(&tstats->syncp);
+-	} else {
+-		dev->stats.tx_errors++;
+-		dev->stats.tx_aborted_errors++;
+-	}
++	iptunnel_xmit(skb, dev);
+ 
+ 	return NETDEV_TX_OK;
+ 
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 02f96dc..898e671 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -899,6 +899,8 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
+ 	if ((iph->ttl = tiph->ttl) == 0)
+ 		iph->ttl	=	iph6->hop_limit;
+ 
++	skb->ip_summed = CHECKSUM_NONE;
++	ip_select_ident(iph, skb_dst(skb), NULL);
+ 	iptunnel_xmit(skb, dev);
+ 	return NETDEV_TX_OK;
+ 
