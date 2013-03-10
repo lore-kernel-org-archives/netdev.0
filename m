@@ -1,40 +1,42 @@
-From: Hong Zhiguo <honkiko@gmail.com>
-Subject: [PATCH net-next] don't compare skb->network_header with skb->tail
-Date: Sun, 10 Mar 2013 17:15:25 +0800
-Message-ID: <1362906925-45308-1-git-send-email-honkiko@gmail.com>
-Cc: zhiguo.hong@emc.com, Hong Zhiguo <honkiko@gmail.com>
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:40646 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752575Ab3CJJPt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 05:15:49 -0400
-Received: by mail-pb0-f50.google.com with SMTP id up1so2669695pbc.23
-        for <netdev@vger.kernel.org>; Sun, 10 Mar 2013 01:15:48 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net-next 01/15] net: add skb_dst_set_unref
+Date: Sun, 10 Mar 2013 05:17:35 -0400 (EDT)
+Message-ID: <20130310.051735.1281635372029510938.davem@davemloft.net>
+References: <1362863815-5898-1-git-send-email-ja@ssi.bg>
+	<1362863815-5898-2-git-send-email-ja@ssi.bg>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: horms@verge.net.au, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: ja@ssi.bg
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1362863815-5898-2-git-send-email-ja@ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-in the case of NET_SKBUFF_DATA_USES_OFFSET(on 64-bit arch),
-skb->network_header is just offset over skb->head.
+From: Julian Anastasov <ja@ssi.bg>
+Date: Sat,  9 Mar 2013 23:16:41 +0200
 
-Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
----
- net/core/dev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> 	skb_dst_set_unref will use noref version even for
+> DST_NOCACHE entries because DST_NOCACHE means dst is not
+> cached in routing structures, still dst could be cached
+> by routing users and used to produce noref instances.
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 90cee5b..378e0b9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1705,7 +1705,7 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- 			skb_reset_mac_header(skb2);
- 
- 			if (skb_network_header(skb2) < skb2->data ||
--			    skb2->network_header > skb2->tail) {
-+			    skb_network_header(skb2) > skb2->tail) {
- 				net_crit_ratelimited("protocol %04x is buggy, dev %s\n",
- 						     ntohs(skb2->protocol),
- 						     dev->name);
--- 
-1.7.10.4
+I'm fine with this approach, but I think the name of this
+interface could be better.
+
+In fact you could do something like:
+
+1) Rename skb_dst_set_noref() to __skb_dst_set_noref() and add
+   a new "bool force" parameter.  DST_NOCACHE check is overriden
+   when 'force' is true.
+
+2) skb_dst_set_noref() is an inline that passes 'force' as false.
+
+3) New interface skb_dst_set_noref_force() passes 'force' as true
+   and will be used by your IPVS changes.
+
+Then all of the RCU checks etc. happen in one shared function.
