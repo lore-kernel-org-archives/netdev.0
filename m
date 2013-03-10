@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] bcm63xx_enet: use managed io memory allocations
-Date: Sun, 10 Mar 2013 16:57:16 -0400 (EDT)
-Message-ID: <20130310.165716.1589865971999552803.davem@davemloft.net>
-References: <1362923869-21346-1-git-send-email-jogo@openwrt.org>
-	<CAJiQ=7Cz0e2q61X7gsnistP7BB2wv=U-QFoFWGZ+WZgnfzHz0A@mail.gmail.com>
+Subject: Re: [PATCHv2 net-next 01/15] net: add skb_dst_set_unref
+Date: Sun, 10 Mar 2013 17:00:04 -0400 (EDT)
+Message-ID: <20130310.170004.2239870728229481365.davem@davemloft.net>
+References: <1362863815-5898-2-git-send-email-ja@ssi.bg>
+	<20130310.051735.1281635372029510938.davem@davemloft.net>
+	<alpine.LFD.2.00.1303101527530.1608@ja.ssi.bg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jogo@openwrt.org, netdev@vger.kernel.org, mbizon@freebox.fr,
-	florian@openwrt.org
-To: cernekee@gmail.com
+Cc: horms@verge.net.au, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53424 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53458 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751906Ab3CJU5I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 16:57:08 -0400
-In-Reply-To: <CAJiQ=7Cz0e2q61X7gsnistP7BB2wv=U-QFoFWGZ+WZgnfzHz0A@mail.gmail.com>
+	with ESMTP id S1751331Ab3CJU74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 16:59:56 -0400
+In-Reply-To: <alpine.LFD.2.00.1303101527530.1608@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kevin Cernekee <cernekee@gmail.com>
-Date: Sun, 10 Mar 2013 12:59:38 -0700
+From: Julian Anastasov <ja@ssi.bg>
+Date: Sun, 10 Mar 2013 15:37:34 +0200 (EET)
 
-> On Sun, Mar 10, 2013 at 6:57 AM, Jonas Gorski <jogo@openwrt.org> wrote:
->> Signed-off-by: Jonas Gorski <jogo@openwrt.org>
->> ---
->>  drivers/net/ethernet/broadcom/bcm63xx_enet.c |   43 +++++---------------------
->>  1 file changed, 7 insertions(+), 36 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-> 
-> For the whole series:
-> 
-> Acked-by: Kevin Cernekee <cernekee@gmail.com>
+> 	The idea looks good, here is the implementation.
+> Can I use it in this form for next patchset versions?
 
-Series applied to net-next, thanks.
+Yes, but with one minor change:
+
+> -	if (unlikely(dst->flags & DST_NOCACHE)) {
+> +	if (unlikely(dst->flags & DST_NOCACHE && !force)) {
+
+I keep forgetting the && vs. & operator precedence, and so
+do many other people, so please put parenthesis around
+the "dst->flags & DST_NOCACHE" expression, thanks.
