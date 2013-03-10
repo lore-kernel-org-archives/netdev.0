@@ -1,51 +1,45 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH] net: can: af_can.c: Fix checkpatch warnings
-Date: Sun, 10 Mar 2013 14:11:48 +0100
-Message-ID: <513C8694.9090003@hartkopp.net>
-References: <1362918526-26730-1-git-send-email-valentin.ilie@gmail.com> <513C8062.6030001@hartkopp.net> <CACTFLAM4DtRGvEFQo5yXhR4Sjx8hKBJoNqARqA5U+9iQK=gkBg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Valentin Ilie <valentin.ilie@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Daniel Mack <zonque@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACTFLAM4DtRGvEFQo5yXhR4Sjx8hKBJoNqARqA5U+9iQK=gkBg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Andrei Epure <epure.andrei-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] wireless:iwlwifi: changed kmalloc+memcpy with kmemdup
+Date: Sun, 10 Mar 2013 15:22:33 +0200
+Message-ID: <1362921753-9554-1-git-send-email-epure.andrei@gmail.com>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrei Epure <epure.andrei-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 10.03.2013 14:05, Daniel Mack wrote:
+Signed-off-by: Andrei Epure <epure.andrei-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ drivers/net/wireless/iwlwifi/iwl-test.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
+diff --git a/drivers/net/wireless/iwlwifi/iwl-test.c b/drivers/net/wireless/iwlwifi/iwl-test.c
+index ce0c67b..9bc402c 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-test.c
++++ b/drivers/net/wireless/iwlwifi/iwl-test.c
+@@ -271,7 +271,7 @@ static int iwl_test_fw_cmd(struct iwl_test *tst, struct nlattr **tb)
+ 
+ 	reply_len = le32_to_cpu(pkt->len_n_flags) & FH_RSCSR_FRAME_SIZE_MSK;
+ 	skb = iwl_test_alloc_reply(tst, reply_len + 20);
+-	reply_buf = kmalloc(reply_len, GFP_KERNEL);
++	reply_buf = kmemdup(&(pkt->hdr), reply_len, GFP_KERNEL);
+ 	if (!skb || !reply_buf) {
+ 		kfree_skb(skb);
+ 		kfree(reply_buf);
+@@ -279,7 +279,6 @@ static int iwl_test_fw_cmd(struct iwl_test *tst, struct nlattr **tb)
+ 	}
+ 
+ 	/* The reply is in a page, that we cannot send to user space. */
+-	memcpy(reply_buf, &(pkt->hdr), reply_len);
+ 	iwl_free_resp(&cmd);
+ 
+ 	if (nla_put_u32(skb, IWL_TM_ATTR_COMMAND,
+-- 
+1.7.10.4
 
->>> @@ -817,8 +817,7 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
->>>               /* create new dev_rcv_lists for this device */
->>>               d = kzalloc(sizeof(*d), GFP_KERNEL);
->>>               if (!d) {
->>> -                     printk(KERN_ERR
->>> -                            "can: allocation of receive list failed\n");
->>> +                     pr_err("can: allocation of receive list failed\n");
->>>                       return NOTIFY_DONE;
->>>               }
->>
->>
->> As i've seen in former patches from Joe Perches OOM messages are obsolete.
->>
->> You could write
->>
->> if(!d)
->>         return NOTIFY_DONE;
->>
->> here instead.
-> 
-> While at it, why not switch to dev_err() instead?
-
-
-Hm, no.
-
-1. pr_err() would be fine, as dev_err() is for drivers - and we're in
-linux/net here and not in linux/drivers
-
-2. When removing the entire printk() statement there's nothing to be modified left
-
-Regards,
-Oliver
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
