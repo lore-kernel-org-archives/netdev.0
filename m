@@ -1,26 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] 6lowpan: Fix endianness issue in
- is_addr_link_local().
-Date: Sun, 10 Mar 2013 16:49:55 -0400 (EDT)
-Message-ID: <20130310.164955.1948205970842271791.davem@davemloft.net>
-References: <513B897D.2000207@linux-ipv6.org>
+Subject: Re: [PATCH net-next] don't compare skb->network_header with
+ skb->tail
+Date: Sun, 10 Mar 2013 16:52:28 -0400 (EDT)
+Message-ID: <20130310.165228.391887733059465336.davem@davemloft.net>
+References: <1362904927-44673-1-git-send-email-honkiko@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	zhiguo.hong@emc.com
+To: honkiko@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53324 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53341 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751227Ab3CJUtq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 16:49:46 -0400
-In-Reply-To: <513B897D.2000207@linux-ipv6.org>
+	with ESMTP id S1751331Ab3CJUwU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 16:52:20 -0400
+In-Reply-To: <1362904927-44673-1-git-send-email-honkiko@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Sun, 10 Mar 2013 04:11:57 +0900
+From: Hong Zhiguo <honkiko@gmail.com>
+Date: Sun, 10 Mar 2013 16:42:07 +0800
 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> in the case of NET_SKBUFF_DATA_USES_OFFSET(on 64-bit arch),
+> skb->network_header is just offset over skb->head.
+> 
+> Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
 
-Applied and queued up for -stable, thanks.
+So is skb->tail, so there is no problem.
