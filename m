@@ -1,58 +1,31 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: igb driver triggers BUILD_BUG_ON on s390
-Date: Mon, 11 Mar 2013 08:47:12 -0700
-Message-ID: <513DFC80.5000105@intel.com>
-References: <20130309100004.GA3584@osiris>
+From: Marek Vasut <marex@denx.de>
+Subject: Re: [PATCH 1/2] phy/micrel: Add support for KSZ8031
+Date: Mon, 11 Mar 2013 13:39:46 +0100
+Message-ID: <201303111339.46507.marex@denx.de>
+References: <1362991803-4610-1-git-send-email-hector.palacios@digi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Heiko Carstens <heiko.carstens@de.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:61013 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751319Ab3CKPrP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Mar 2013 11:47:15 -0400
-In-Reply-To: <20130309100004.GA3584@osiris>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net
+To: Hector Palacios <hector.palacios@digi.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1362991803-4610-1-git-send-email-hector.palacios@digi.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/09/2013 02:00 AM, Heiko Carstens wrote:
-> git commit 74e238ead "igb: Support using build_skb in the case that
-> jumbo frames are disabled" added a BUILD_BUG_ON() to the igb drivers
-> which triggers on s390:
->
-> drivers/net/ethernet/intel/igb/igb_main.c:6231:2:
-> error: call to =91__compiletime_assert_6235=92 declared with attribut=
-e error:
->   BUILD_BUG_ON failed: SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) <
->     (NET_SKB_PAD + NET_IP_ALIGN + IGB_TS_HDR_LEN + ETH_FRAME_LEN + ET=
-H_FCS_LEN)
->
-> This happens mainly because s390 has an unusual large L1_CACHE_BYTES =
-aka
-> SMP_CACHE_BYTES define with 256 Bytes.
->
-> The BUILD_BUG_ON(..) translates to (taken from .i file):
->
-> __cond =3D !(!(((2048) - (((sizeof(struct skb_shared_info)) + (256 - =
-1)) & ~(256 - 1))) < (32 + 2 + 16 + 1514 + 4)));
->
-> With sizeof(struct skb_shared_info) =3D=3D 320 we end up with
->
-> BUILD_BUG_ON((2048 - 512 =3D 1536) < 1568)
->
-> One possible solution would be to simply disable the driver on s390.
-> Any opinions?
->
+Dear Hector Palacios,
 
-A fix for this has already been submitted. As it turns out the
-BUILD_BUG_ON is mostly redundant anyway since we used a similar
-calculation to determine if we were going to enable the use of build_sk=
-b
-per ring.
+> Micrel PHY KSZ8031 is similar to KSZ8021 and also requires the special
+> initialization of "Operation Mode Strap Override" in reg 0x16
+> introduced in 212ea99 (phy/micrel: Implement support for KSZ8021).
+> 
+> Signed-off-by: Hector Palacios <hector.palacios@digi.com>
 
-Thanks,
+I dont have any board with this one, yet I think this change is correct, so:
 
-Alex
+Reviewed-by: Marek Vasut <marex@denx.de>
+
+Best regards,
+Marek Vasut
