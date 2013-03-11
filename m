@@ -1,31 +1,44 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [PATCH 1/2] phy/micrel: Add support for KSZ8031
-Date: Mon, 11 Mar 2013 13:39:46 +0100
-Message-ID: <201303111339.46507.marex@denx.de>
-References: <1362991803-4610-1-git-send-email-hector.palacios@digi.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [PATCH net-next 01/13] bnx2x: fix vlan-mac memory leak
+Date: Mon, 11 Mar 2013 17:17:41 +0200
+Message-ID: <1363015073-25743-2-git-send-email-yuvalmin@broadcom.com>
+References: <1363015073-25743-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
-To: Hector Palacios <hector.palacios@digi.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1362991803-4610-1-git-send-email-hector.palacios@digi.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eilong@broadcom.com, ariele@broadcom.com,
+	"Yuval Mintz" <yuvalmin@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:3895 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752850Ab3CKQZI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Mar 2013 12:25:08 -0400
+In-Reply-To: <1363015073-25743-1-git-send-email-yuvalmin@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Hector Palacios,
+Release (previously leaking) memory when elements are removed from pending
+execution lists in the bnx2x driver.
 
-> Micrel PHY KSZ8031 is similar to KSZ8021 and also requires the special
-> initialization of "Operation Mode Strap Override" in reg 0x16
-> introduced in 212ea99 (phy/micrel: Implement support for KSZ8021).
-> 
-> Signed-off-by: Hector Palacios <hector.palacios@digi.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-I dont have any board with this one, yet I think this change is correct, so:
-
-Reviewed-by: Marek Vasut <marex@denx.de>
-
-Best regards,
-Marek Vasut
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+index 7306416..9f2637c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+@@ -1854,6 +1854,7 @@ static int bnx2x_vlan_mac_del_all(struct bnx2x *bp,
+ 				return rc;
+ 			}
+ 			list_del(&exeq_pos->link);
++			bnx2x_exe_queue_free_elem(bp, exeq_pos);
+ 		}
+ 	}
+ 
+-- 
+1.7.7.2
