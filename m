@@ -1,44 +1,74 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] wireless:rtlwifi: replaced kmalloc+memcpy with kmemdup
-Date: Mon, 11 Mar 2013 15:46:41 -0500
-Message-ID: <513E42B1.3030108@lwfinger.net>
-References: <1362920987-6679-1-git-send-email-epure.andrei@gmail.com>
+From: David Ward <david.ward@ll.mit.edu>
+Subject: [PATCH] net/ipv4: Ensure that location of timestamp option is stored
+Date: Mon, 11 Mar 2013 16:43:39 -0400
+Message-ID: <1363034619-5887-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: chaoming_li@realsil.com.cn, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrei Epure <epure.andrei@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1362920987-6679-1-git-send-email-epure.andrei@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Ward <david.ward@ll.mit.edu>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from MX1.LL.MIT.EDU ([129.55.12.45]:51953 "EHLO mx1.ll.mit.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753690Ab3CKVEX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Mar 2013 17:04:23 -0400
+Received: from LLE2K7-HUB01.mitll.ad.local (LLE2K7-HUB01.mitll.ad.local) by mx1.ll.mit.edu (unknown) with ESMTP id r2BKgG7o005630 for <netdev@vger.kernel.org>; Mon, 11 Mar 2013 16:44:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/10/2013 08:09 AM, Andrei Epure wrote:
-> Signed-off-by: Andrei Epure <epure.andrei@gmail.com>
-> ---
->   drivers/net/wireless/rtlwifi/usb.c |    3 +--
->   1 file changed, 1 insertion(+), 2 deletions(-)
->
-> diff --git a/drivers/net/wireless/rtlwifi/usb.c b/drivers/net/wireless/rtlwifi/usb.c
-> index 156b527..b5c80b5 100644
-> --- a/drivers/net/wireless/rtlwifi/usb.c
-> +++ b/drivers/net/wireless/rtlwifi/usb.c
-> @@ -224,10 +224,9 @@ static void _usb_writeN_sync(struct rtl_priv *rtlpriv, u32 addr, void *data,
->   	u8 *buffer;
->
->   	wvalue = (u16)(addr & 0x0000ffff);
-> -	buffer = kmalloc(len, GFP_ATOMIC);
-> +	buffer = kmemdup(data, len, GFP_ATOMIC);
->   	if (!buffer)
->   		return;
-> -	memcpy(buffer, data, len);
->   	usb_control_msg(udev, pipe, request, reqtype, wvalue,
->   			index, buffer, len, 50);
+This is needed in order to detect if the timestamp option appears
+more than once in a packet, to remove the option if the packet is
+fragmented, etc. My previous change neglected to store the option
+location when the router addresses were prespecified and Pointer >
+Length. But now the option location is also stored when Flag is an
+unrecognized value, to ensure these option handling behaviors are
+still performed.
 
-Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
+Signed-off-by: David Ward <david.ward@ll.mit.edu>
+---
+ net/ipv4/ip_options.c |    5 +----
+ 1 files changed, 1 insertions(+), 4 deletions(-)
 
-Thanks,
-
-Larry
+diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
+index 310a364..ec72645 100644
+--- a/net/ipv4/ip_options.c
++++ b/net/ipv4/ip_options.c
+@@ -370,7 +370,6 @@ int ip_options_compile(struct net *net,
+ 				}
+ 				switch (optptr[3]&0xF) {
+ 				      case IPOPT_TS_TSONLY:
+-					opt->ts = optptr - iph;
+ 					if (skb)
+ 						timeptr = &optptr[optptr[2]-1];
+ 					opt->ts_needtime = 1;
+@@ -381,7 +380,6 @@ int ip_options_compile(struct net *net,
+ 						pp_ptr = optptr + 2;
+ 						goto error;
+ 					}
+-					opt->ts = optptr - iph;
+ 					if (rt)  {
+ 						spec_dst_fill(&spec_dst, skb);
+ 						memcpy(&optptr[optptr[2]-1], &spec_dst, 4);
+@@ -396,7 +394,6 @@ int ip_options_compile(struct net *net,
+ 						pp_ptr = optptr + 2;
+ 						goto error;
+ 					}
+-					opt->ts = optptr - iph;
+ 					{
+ 						__be32 addr;
+ 						memcpy(&addr, &optptr[optptr[2]-1], 4);
+@@ -429,12 +426,12 @@ int ip_options_compile(struct net *net,
+ 					pp_ptr = optptr + 3;
+ 					goto error;
+ 				}
+-				opt->ts = optptr - iph;
+ 				if (skb) {
+ 					optptr[3] = (optptr[3]&0xF)|((overflow+1)<<4);
+ 					opt->is_changed = 1;
+ 				}
+ 			}
++			opt->ts = optptr - iph;
+ 			break;
+ 		      case IPOPT_RA:
+ 			if (optlen < 4) {
+-- 
+1.7.1
