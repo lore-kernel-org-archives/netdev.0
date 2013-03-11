@@ -1,51 +1,112 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] bnx2x: use the default NAPI weight
-Date: Mon, 11 Mar 2013 07:14:57 +0100
-Message-ID: <1362982497.4051.37.camel@edumazet-glaptop>
-References: <1362540509.15793.158.camel@edumazet-glaptop>
-	 <20130305.233744.498353801662910535.davem@davemloft.net>
-	 <1362553398.15793.168.camel@edumazet-glaptop>
-	 <20130306.145947.1445904594058156164.davem@davemloft.net>
-	 <1362606777.15793.198.camel@edumazet-glaptop>
-	 <20130310083800.GC10448@gondor.apana.org.au>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: TCP small packets throughput and multiqueue virtio-net
+Date: Mon, 11 Mar 2013 14:17:00 +0800
+Message-ID: <513D76DC.80405@redhat.com>
+References: <5139840A.6020204@redhat.com> <1362755115.15793.236.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	eilong@broadcom.com, jhs@mojatatu.com,
-	Tom Herbert <therbert@google.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	KVM <kvm@vger.kernel.org>, David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jpirko@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f181.google.com ([209.85.215.181]:34030 "EHLO
-	mail-ea0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751900Ab3CKGPD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 02:15:03 -0400
-Received: by mail-ea0-f181.google.com with SMTP id z10so994943ead.40
-        for <netdev@vger.kernel.org>; Sun, 10 Mar 2013 23:15:01 -0700 (PDT)
-In-Reply-To: <20130310083800.GC10448@gondor.apana.org.au>
+Received: from mx1.redhat.com ([209.132.183.28]:50985 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750912Ab3CKGRK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Mar 2013 02:17:10 -0400
+In-Reply-To: <1362755115.15793.236.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-03-10 at 16:38 +0800, Herbert Xu wrote:
-> On Wed, Mar 06, 2013 at 01:52:57PM -0800, Eric Dumazet wrote:
-> >
-> > - BQL (incurring more TX completion rounds and possibility to
-> > block/unblock a qdisc)
-> > - ticket spinlocks, and even with the guard of qdisc busylock
-> > 
-> > -> we can have a starvation problem.
-> 
-> This only happens in cases where we aren't using multiqueue or
-> we're using it incorrectly, resulting in TX work from being split
-> over CPUs.
-> 
+On 03/08/2013 11:05 PM, Eric Dumazet wrote:
+> On Fri, 2013-03-08 at 14:24 +0800, Jason Wang wrote:
+>> Hello all:
+>>
+>> I meet an issue when testing multiqueue virtio-net. When I testing guest
+>> small packets stream sending performance with netperf. I find an
+>> regression of multiqueue. When I run 2 sessions of TCP_STREAM test with
+>> 1024 byte from guest to local host, I get following result:
+>>
+>> 1q result: 3457.64
+>> 2q result: 7781.45
+>>
+>> Statistics shows that: compared with one queue, multiqueue tends to send
+>> much more but smaller packets. Tcpdump shows single queue has a much
+>> higher possibility to produce a 64K gso packet compared to multiqueue.
+>> More but smaller packets will cause more vmexits and interrupts which
+>> lead a degradation on throughput.
+>>
+>> Then problem only exist for small packets sending. When I test with
+>> larger size, multiqueue will gradually outperfrom single queue. And
+>> multiqueue also outperfrom in both TCP_RR and pktgen test (even with
+>> small packets). The problem disappear when I turn off both gso and tso.
+>>
+> This makes little sense to me : TCP_RR workload (assuming one byte
+> payload) cannot use GSO or TSO anyway. Same for pktgen as it uses UDP.
+>
+>> I'm not sure whether it's a bug or expected since anyway we get
+>> improvement on latency. And if it's a bug, I suspect it was related to
+>> TCP GSO batching algorithm who tends to batch less in this situation. (
+>> Jiri Pirko suspect it was the defect of virtio-net driver, but I didn't
+>> find any obvious clue on this). After some experiments, I find the it
+>> maybe related to tcp_tso_should_defer(), after
+>> 1) change the tcp_tso_win_divisor to 1
+>> 2) the following changes
+>> the throughput were almost the same (but still a little worse) as single
+>> queue:
+>>
+>> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+>> index fd0cea1..dedd2a6 100644
+>> --- a/net/ipv4/tcp_output.c
+>> +++ b/net/ipv4/tcp_output.c
+>> @@ -1777,10 +1777,12 @@ static bool tcp_tso_should_defer(struct sock
+>> *sk, struct sk_buff *skb)
+>>  
+>>         limit = min(send_win, cong_win);
+>>  
+>> +#if 0
+>>         /* If a full-sized TSO skb can be sent, do it. */
+>>         if (limit >= min_t(unsigned int, sk->sk_gso_max_size,
+>>                            sk->sk_gso_max_segs * tp->mss_cache))
+>>                 goto send_now;
+>> +#endif
+>>  
+>>         /* Middle in queue won't get any more data, full sendable
+>> already? */
+>>         if ((skb != tcp_write_queue_tail(sk)) && (limit >= skb->len))
+>>
+>> Git history shows this check were added for both westwood and fasttcp,
+>> I'm not familiar with tcp but looks like we can easily hit this check
+>> under when multiqueue is enabled for virtio-net. Maybe I was wrong but I
+>> wonder whether we can still do some batching here.
+>>
+>> Any comments, thoughts are welcomed.
+>>
+> Well, the point is : if your app does write(1024) bytes, thats probably
+> because it wants small packets from the very beginning. (See the TCP
+> PUSH flag ?)
 
-Or using qdisc like HTB ;)
+Didn't fully understand the question, but according to the tcpdump, TCP
+PUSH flag were seen in very few packets.
+> If the transport is slow, TCP stack will automatically collapse several
+> write into single skbs (assuming TSO or GSO is on), and you'll see big
+> GSO packets with tcpdump [1]. So TCP will help you to get less overhead
+> in this case.
+>
+> But if transport is fast, you'll see small packets, and thats good for
+> latency.
+>
+> So my opinion is : its exactly behaving as expected.
+>
+> If you want bigger packets either :
+> - Make the application doing big write()
+> - Slow the vmexit ;)
 
-> In that case it's not clear that it is starvation if we keep the
-> TX processing on one CPU.
-
-Thats not always the case. TX path has interesting features like XPS ...
-
-We probably could add instrumentation and keep track of the maximum time
-we are spending in this dark area.
+Good to know this, thanks for the explanation.
+> [1] GSO fools tcpdump : Actual packets sent to the wire are not 'big
+> packets', but they hit dev_hard_start_xmit() as GSO packets.
+>
+>
+>
