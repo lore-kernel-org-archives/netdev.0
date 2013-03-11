@@ -1,46 +1,1060 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 09/13] bnx2x: Add EEE support for BCM84834
-Date: Mon, 11 Mar 2013 17:17:49 +0200
-Message-ID: <1363015073-25743-10-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 12/13] bnx2x: use FW 7.8.17
+Date: Mon, 11 Mar 2013 17:17:52 +0200
+Message-ID: <1363015073-25743-13-git-send-email-yuvalmin@broadcom.com>
 References: <1363015073-25743-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: eilong@broadcom.com, ariele@broadcom.com,
-	"Yaniv Rosner" <yanivr@broadcom.com>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4804 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1468 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754163Ab3CKQZU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Mar 2013 12:25:20 -0400
+	id S1752850Ab3CKQZa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Mar 2013 12:25:30 -0400
 In-Reply-To: <1363015073-25743-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yaniv Rosner <yanivr@broadcom.com>
+From: Dmitry Kravkov <dmitry@broadcom.com>
 
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
+Update appropriate HSI files and adapt driver accordingly.
+
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |  122 +++++------
+ .../net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h    |   87 ++++----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h    |  235 +++++++++++++++++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |    5 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c     |   29 ++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h     |    5 +-
+ 7 files changed, 338 insertions(+), 147 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 600f850..fa027d8 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -10284,7 +10284,8 @@ static u8 bnx2x_848xx_read_status(struct bnx2x_phy *phy,
- 				LINK_STATUS_LINK_PARTNER_10GXFD_CAPABLE;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 33fbdfd..f865ad5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -729,7 +729,7 @@ struct bnx2x_fastpath {
+ #define SKB_CS(skb)		(*(u16 *)(skb_transport_header(skb) + \
+ 					  skb->csum_offset))
  
- 		/* Determine if EEE was negotiated */
--		if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833)
-+		if ((phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833) ||
-+		    (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84834))
- 			bnx2x_eee_an_resolve(phy, params, vars);
+-#define pbd_tcp_flags(skb)	(ntohl(tcp_flag_word(tcp_hdr(skb)))>>16 & 0xff)
++#define pbd_tcp_flags(tcp_hdr)	(ntohl(tcp_flag_word(tcp_hdr))>>16 & 0xff)
+ 
+ #define XMIT_PLAIN			0
+ #define XMIT_CSUM_V4			0x1
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index cd74ee5..9f7a379 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -3086,11 +3086,11 @@ int bnx2x_poll(struct napi_struct *napi, int budget)
+  * to ease the pain of our fellow microcode engineers
+  * we use one mapping for both BDs
+  */
+-static noinline u16 bnx2x_tx_split(struct bnx2x *bp,
+-				   struct bnx2x_fp_txdata *txdata,
+-				   struct sw_tx_bd *tx_buf,
+-				   struct eth_tx_start_bd **tx_bd, u16 hlen,
+-				   u16 bd_prod, int nbd)
++static u16 bnx2x_tx_split(struct bnx2x *bp,
++			  struct bnx2x_fp_txdata *txdata,
++			  struct sw_tx_bd *tx_buf,
++			  struct eth_tx_start_bd **tx_bd, u16 hlen,
++			  u16 bd_prod)
+ {
+ 	struct eth_tx_start_bd *h_tx_bd = *tx_bd;
+ 	struct eth_tx_bd *d_tx_bd;
+@@ -3098,11 +3098,10 @@ static noinline u16 bnx2x_tx_split(struct bnx2x *bp,
+ 	int old_len = le16_to_cpu(h_tx_bd->nbytes);
+ 
+ 	/* first fix first BD */
+-	h_tx_bd->nbd = cpu_to_le16(nbd);
+ 	h_tx_bd->nbytes = cpu_to_le16(hlen);
+ 
+-	DP(NETIF_MSG_TX_QUEUED,	"TSO split header size is %d (%x:%x) nbd %d\n",
+-	   h_tx_bd->nbytes, h_tx_bd->addr_hi, h_tx_bd->addr_lo, h_tx_bd->nbd);
++	DP(NETIF_MSG_TX_QUEUED,	"TSO split header size is %d (%x:%x)\n",
++	   h_tx_bd->nbytes, h_tx_bd->addr_hi, h_tx_bd->addr_lo);
+ 
+ 	/* now get a new data BD
+ 	 * (after the pbd) and fill it */
+@@ -3131,7 +3130,7 @@ static noinline u16 bnx2x_tx_split(struct bnx2x *bp,
+ 
+ #define bswab32(b32) ((__force __le32) swab32((__force __u32) (b32)))
+ #define bswab16(b16) ((__force __le16) swab16((__force __u16) (b16)))
+-static inline __le16 bnx2x_csum_fix(unsigned char *t_header, u16 csum, s8 fix)
++static __le16 bnx2x_csum_fix(unsigned char *t_header, u16 csum, s8 fix)
+ {
+ 	__sum16 tsum = (__force __sum16) csum;
+ 
+@@ -3146,7 +3145,7 @@ static inline __le16 bnx2x_csum_fix(unsigned char *t_header, u16 csum, s8 fix)
+ 	return bswab16(tsum);
+ }
+ 
+-static inline u32 bnx2x_xmit_type(struct bnx2x *bp, struct sk_buff *skb)
++static u32 bnx2x_xmit_type(struct bnx2x *bp, struct sk_buff *skb)
+ {
+ 	u32 rc;
+ 
+@@ -3254,8 +3253,8 @@ exit_lbl:
+ }
+ #endif
+ 
+-static inline void bnx2x_set_pbd_gso_e2(struct sk_buff *skb, u32 *parsing_data,
+-					u32 xmit_type)
++static void bnx2x_set_pbd_gso_e2(struct sk_buff *skb, u32 *parsing_data,
++				 u32 xmit_type)
+ {
+ 	*parsing_data |= (skb_shinfo(skb)->gso_size <<
+ 			      ETH_TX_PARSE_BD_E2_LSO_MSS_SHIFT) &
+@@ -3272,13 +3271,13 @@ static inline void bnx2x_set_pbd_gso_e2(struct sk_buff *skb, u32 *parsing_data,
+  * @pbd:	parse BD
+  * @xmit_type:	xmit flags
+  */
+-static inline void bnx2x_set_pbd_gso(struct sk_buff *skb,
+-				     struct eth_tx_parse_bd_e1x *pbd,
+-				     u32 xmit_type)
++static void bnx2x_set_pbd_gso(struct sk_buff *skb,
++			      struct eth_tx_parse_bd_e1x *pbd,
++			      u32 xmit_type)
+ {
+ 	pbd->lso_mss = cpu_to_le16(skb_shinfo(skb)->gso_size);
+ 	pbd->tcp_send_seq = bswab32(tcp_hdr(skb)->seq);
+-	pbd->tcp_flags = pbd_tcp_flags(skb);
++	pbd->tcp_flags = pbd_tcp_flags(tcp_hdr(skb));
+ 
+ 	if (xmit_type & XMIT_GSO_V4) {
+ 		pbd->ip_id = bswab16(ip_hdr(skb)->id);
+@@ -3305,15 +3304,15 @@ static inline void bnx2x_set_pbd_gso(struct sk_buff *skb,
+  * @parsing_data:	data to be updated
+  * @xmit_type:		xmit flags
+  *
+- * 57712 related
++ * 57712/578xx related
+  */
+-static inline  u8 bnx2x_set_pbd_csum_e2(struct bnx2x *bp, struct sk_buff *skb,
+-					u32 *parsing_data, u32 xmit_type)
++static u8 bnx2x_set_pbd_csum_e2(struct bnx2x *bp, struct sk_buff *skb,
++				u32 *parsing_data, u32 xmit_type)
+ {
+ 	*parsing_data |=
+ 		((((u8 *)skb_transport_header(skb) - skb->data) >> 1) <<
+-		ETH_TX_PARSE_BD_E2_TCP_HDR_START_OFFSET_W_SHIFT) &
+-		ETH_TX_PARSE_BD_E2_TCP_HDR_START_OFFSET_W;
++		ETH_TX_PARSE_BD_E2_L4_HDR_START_OFFSET_W_SHIFT) &
++		ETH_TX_PARSE_BD_E2_L4_HDR_START_OFFSET_W;
+ 
+ 	if (xmit_type & XMIT_CSUM_TCP) {
+ 		*parsing_data |= ((tcp_hdrlen(skb) / 4) <<
+@@ -3328,17 +3327,14 @@ static inline  u8 bnx2x_set_pbd_csum_e2(struct bnx2x *bp, struct sk_buff *skb,
+ 	return skb_transport_header(skb) + sizeof(struct udphdr) - skb->data;
+ }
+ 
+-static inline void bnx2x_set_sbd_csum(struct bnx2x *bp, struct sk_buff *skb,
+-	struct eth_tx_start_bd *tx_start_bd, u32 xmit_type)
++static void bnx2x_set_sbd_csum(struct bnx2x *bp, struct sk_buff *skb,
++			       struct eth_tx_start_bd *tx_start_bd,
++			       u32 xmit_type)
+ {
+ 	tx_start_bd->bd_flags.as_bitfield |= ETH_TX_BD_FLAGS_L4_CSUM;
+ 
+-	if (xmit_type & XMIT_CSUM_V4)
+-		tx_start_bd->bd_flags.as_bitfield |=
+-					ETH_TX_BD_FLAGS_IP_CSUM;
+-	else
+-		tx_start_bd->bd_flags.as_bitfield |=
+-					ETH_TX_BD_FLAGS_IPV6;
++	if (xmit_type & XMIT_CSUM_V6)
++		tx_start_bd->bd_flags.as_bitfield |= ETH_TX_BD_FLAGS_IPV6;
+ 
+ 	if (!(xmit_type & XMIT_CSUM_TCP))
+ 		tx_start_bd->bd_flags.as_bitfield |= ETH_TX_BD_FLAGS_IS_UDP;
+@@ -3352,9 +3348,9 @@ static inline void bnx2x_set_sbd_csum(struct bnx2x *bp, struct sk_buff *skb,
+  * @pbd:	parse BD to be updated
+  * @xmit_type:	xmit flags
+  */
+-static inline u8 bnx2x_set_pbd_csum(struct bnx2x *bp, struct sk_buff *skb,
+-	struct eth_tx_parse_bd_e1x *pbd,
+-	u32 xmit_type)
++static u8 bnx2x_set_pbd_csum(struct bnx2x *bp, struct sk_buff *skb,
++			     struct eth_tx_parse_bd_e1x *pbd,
++			     u32 xmit_type)
+ {
+ 	u8 hlen = (skb_network_header(skb) - skb->data) >> 1;
+ 
+@@ -3482,7 +3478,7 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			mac_type = MULTICAST_ADDRESS;
  	}
  
+-#if (MAX_SKB_FRAGS >= MAX_FETCH_BD - 3)
++#if (MAX_SKB_FRAGS >= MAX_FETCH_BD - BDS_PER_TX_PKT)
+ 	/* First, check if we need to linearize the skb (due to FW
+ 	   restrictions). No need to check fragmentation if page size > 8K
+ 	   (there will be no violation to FW restrictions) */
+@@ -3530,12 +3526,9 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	first_bd = tx_start_bd;
+ 
+ 	tx_start_bd->bd_flags.as_bitfield = ETH_TX_BD_FLAGS_START_BD;
+-	SET_FLAG(tx_start_bd->general_data,
+-		 ETH_TX_START_BD_PARSE_NBDS,
+-		 0);
+ 
+-	/* header nbd */
+-	SET_FLAG(tx_start_bd->general_data, ETH_TX_START_BD_HDR_NBDS, 1);
++	/* header nbd: indirectly zero other flags! */
++	tx_start_bd->general_data = 1 << ETH_TX_START_BD_HDR_NBDS_SHIFT;
+ 
+ 	/* remember the first BD of the packet */
+ 	tx_buf->first_bd = txdata->tx_bd_prod;
+@@ -3555,19 +3548,16 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		/* when transmitting in a vf, start bd must hold the ethertype
+ 		 * for fw to enforce it
+ 		 */
+-#ifndef BNX2X_STOP_ON_ERROR
+-		if (IS_VF(bp)) {
+-#endif
++		if (IS_VF(bp))
+ 			tx_start_bd->vlan_or_ethertype =
+ 				cpu_to_le16(ntohs(eth->h_proto));
+-#ifndef BNX2X_STOP_ON_ERROR
+-		} else {
++		else
+ 			/* used by FW for packet accounting */
+ 			tx_start_bd->vlan_or_ethertype = cpu_to_le16(pkt_prod);
+-		}
+-#endif
+ 	}
+ 
++	nbd = 2; /* start_bd + pbd + frags (updated when pages are mapped) */
++
+ 	/* turn on parsing and get a BD */
+ 	bd_prod = TX_BD(NEXT_TX_IDX(bd_prod));
+ 
+@@ -3579,21 +3569,22 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		memset(pbd_e2, 0, sizeof(struct eth_tx_parse_bd_e2));
+ 		/* Set PBD in checksum offload case */
+ 		if (xmit_type & XMIT_CSUM)
++			/* Set PBD in checksum offload case w/o encapsulation */
+ 			hlen = bnx2x_set_pbd_csum_e2(bp, skb,
+ 						     &pbd_e2_parsing_data,
+ 						     xmit_type);
+ 
+-		if (IS_MF_SI(bp) || IS_VF(bp)) {
+-			/* fill in the MAC addresses in the PBD - for local
+-			 * switching
+-			 */
+-			bnx2x_set_fw_mac_addr(&pbd_e2->src_mac_addr_hi,
+-					      &pbd_e2->src_mac_addr_mid,
+-					      &pbd_e2->src_mac_addr_lo,
++		/* Add the macs to the parsing BD this is a vf */
++		if (IS_VF(bp)) {
++			/* override GRE parameters in BD */
++			bnx2x_set_fw_mac_addr(&pbd_e2->data.mac_addr.src_hi,
++					      &pbd_e2->data.mac_addr.src_mid,
++					      &pbd_e2->data.mac_addr.src_lo,
+ 					      eth->h_source);
+-			bnx2x_set_fw_mac_addr(&pbd_e2->dst_mac_addr_hi,
+-					      &pbd_e2->dst_mac_addr_mid,
+-					      &pbd_e2->dst_mac_addr_lo,
++
++			bnx2x_set_fw_mac_addr(&pbd_e2->data.mac_addr.dst_hi,
++					      &pbd_e2->data.mac_addr.dst_mid,
++					      &pbd_e2->data.mac_addr.dst_lo,
+ 					      eth->h_dest);
+ 		}
+ 
+@@ -3615,14 +3606,13 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* Setup the data pointer of the first BD of the packet */
+ 	tx_start_bd->addr_hi = cpu_to_le32(U64_HI(mapping));
+ 	tx_start_bd->addr_lo = cpu_to_le32(U64_LO(mapping));
+-	nbd = 2; /* start_bd + pbd + frags (updated when pages are mapped) */
+ 	tx_start_bd->nbytes = cpu_to_le16(skb_headlen(skb));
+ 	pkt_size = tx_start_bd->nbytes;
+ 
+ 	DP(NETIF_MSG_TX_QUEUED,
+-	   "first bd @%p  addr (%x:%x)  nbd %d  nbytes %d  flags %x  vlan %x\n",
++	   "first bd @%p  addr (%x:%x)  nbytes %d  flags %x  vlan %x\n",
+ 	   tx_start_bd, tx_start_bd->addr_hi, tx_start_bd->addr_lo,
+-	   le16_to_cpu(tx_start_bd->nbd), le16_to_cpu(tx_start_bd->nbytes),
++	   le16_to_cpu(tx_start_bd->nbytes),
+ 	   tx_start_bd->bd_flags.as_bitfield,
+ 	   le16_to_cpu(tx_start_bd->vlan_or_ethertype));
+ 
+@@ -3635,10 +3625,12 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 		tx_start_bd->bd_flags.as_bitfield |= ETH_TX_BD_FLAGS_SW_LSO;
+ 
+-		if (unlikely(skb_headlen(skb) > hlen))
++		if (unlikely(skb_headlen(skb) > hlen)) {
++			nbd++;
+ 			bd_prod = bnx2x_tx_split(bp, txdata, tx_buf,
+ 						 &tx_start_bd, hlen,
+-						 bd_prod, ++nbd);
++						 bd_prod);
++		}
+ 		if (!CHIP_IS_E1x(bp))
+ 			bnx2x_set_pbd_gso_e2(skb, &pbd_e2_parsing_data,
+ 					     xmit_type);
+@@ -3728,9 +3720,13 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (pbd_e2)
+ 		DP(NETIF_MSG_TX_QUEUED,
+ 		   "PBD (E2) @%p  dst %x %x %x src %x %x %x parsing_data %x\n",
+-		   pbd_e2, pbd_e2->dst_mac_addr_hi, pbd_e2->dst_mac_addr_mid,
+-		   pbd_e2->dst_mac_addr_lo, pbd_e2->src_mac_addr_hi,
+-		   pbd_e2->src_mac_addr_mid, pbd_e2->src_mac_addr_lo,
++		   pbd_e2,
++		   pbd_e2->data.mac_addr.dst_hi,
++		   pbd_e2->data.mac_addr.dst_mid,
++		   pbd_e2->data.mac_addr.dst_lo,
++		   pbd_e2->data.mac_addr.src_hi,
++		   pbd_e2->data.mac_addr.src_mid,
++		   pbd_e2->data.mac_addr.src_lo,
+ 		   pbd_e2->parsing_data);
+ 	DP(NETIF_MSG_TX_QUEUED, "doorbell: nbd %d  bd %u\n", nbd, bd_prod);
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
+index e5f8083..40f22c6 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
+@@ -30,31 +30,31 @@
+ 	* IRO[138].m2) + ((sbId) * IRO[138].m3))
+ #define CSTORM_IGU_MODE_OFFSET (IRO[157].base)
+ #define CSTORM_ISCSI_CQ_SIZE_OFFSET(pfId) \
+-	(IRO[316].base + ((pfId) * IRO[316].m1))
+-#define CSTORM_ISCSI_CQ_SQN_SIZE_OFFSET(pfId) \
+ 	(IRO[317].base + ((pfId) * IRO[317].m1))
++#define CSTORM_ISCSI_CQ_SQN_SIZE_OFFSET(pfId) \
++	(IRO[318].base + ((pfId) * IRO[318].m1))
+ #define CSTORM_ISCSI_EQ_CONS_OFFSET(pfId, iscsiEqId) \
+-	(IRO[309].base + ((pfId) * IRO[309].m1) + ((iscsiEqId) * IRO[309].m2))
++	(IRO[310].base + ((pfId) * IRO[310].m1) + ((iscsiEqId) * IRO[310].m2))
+ #define CSTORM_ISCSI_EQ_NEXT_EQE_ADDR_OFFSET(pfId, iscsiEqId) \
+-	(IRO[311].base + ((pfId) * IRO[311].m1) + ((iscsiEqId) * IRO[311].m2))
++	(IRO[312].base + ((pfId) * IRO[312].m1) + ((iscsiEqId) * IRO[312].m2))
+ #define CSTORM_ISCSI_EQ_NEXT_PAGE_ADDR_OFFSET(pfId, iscsiEqId) \
+-	(IRO[310].base + ((pfId) * IRO[310].m1) + ((iscsiEqId) * IRO[310].m2))
++	(IRO[311].base + ((pfId) * IRO[311].m1) + ((iscsiEqId) * IRO[311].m2))
+ #define CSTORM_ISCSI_EQ_NEXT_PAGE_ADDR_VALID_OFFSET(pfId, iscsiEqId) \
+-	(IRO[312].base + ((pfId) * IRO[312].m1) + ((iscsiEqId) * IRO[312].m2))
++	(IRO[313].base + ((pfId) * IRO[313].m1) + ((iscsiEqId) * IRO[313].m2))
+ #define CSTORM_ISCSI_EQ_PROD_OFFSET(pfId, iscsiEqId) \
+-	(IRO[308].base + ((pfId) * IRO[308].m1) + ((iscsiEqId) * IRO[308].m2))
++	(IRO[309].base + ((pfId) * IRO[309].m1) + ((iscsiEqId) * IRO[309].m2))
+ #define CSTORM_ISCSI_EQ_SB_INDEX_OFFSET(pfId, iscsiEqId) \
+-	(IRO[314].base + ((pfId) * IRO[314].m1) + ((iscsiEqId) * IRO[314].m2))
++	(IRO[315].base + ((pfId) * IRO[315].m1) + ((iscsiEqId) * IRO[315].m2))
+ #define CSTORM_ISCSI_EQ_SB_NUM_OFFSET(pfId, iscsiEqId) \
+-	(IRO[313].base + ((pfId) * IRO[313].m1) + ((iscsiEqId) * IRO[313].m2))
++	(IRO[314].base + ((pfId) * IRO[314].m1) + ((iscsiEqId) * IRO[314].m2))
+ #define CSTORM_ISCSI_HQ_SIZE_OFFSET(pfId) \
+-	(IRO[315].base + ((pfId) * IRO[315].m1))
++	(IRO[316].base + ((pfId) * IRO[316].m1))
+ #define CSTORM_ISCSI_NUM_OF_TASKS_OFFSET(pfId) \
+-	(IRO[307].base + ((pfId) * IRO[307].m1))
++	(IRO[308].base + ((pfId) * IRO[308].m1))
+ #define CSTORM_ISCSI_PAGE_SIZE_LOG_OFFSET(pfId) \
+-	(IRO[306].base + ((pfId) * IRO[306].m1))
++	(IRO[307].base + ((pfId) * IRO[307].m1))
+ #define CSTORM_ISCSI_PAGE_SIZE_OFFSET(pfId) \
+-	(IRO[305].base + ((pfId) * IRO[305].m1))
++	(IRO[306].base + ((pfId) * IRO[306].m1))
+ #define CSTORM_RECORD_SLOW_PATH_OFFSET(funcId) \
+ 	(IRO[151].base + ((funcId) * IRO[151].m1))
+ #define CSTORM_SP_STATUS_BLOCK_DATA_OFFSET(pfId) \
+@@ -114,7 +114,7 @@
+ #define TSTORM_ISCSI_RQ_SIZE_OFFSET(pfId) \
+ 	(IRO[268].base + ((pfId) * IRO[268].m1))
+ #define TSTORM_ISCSI_TCP_LOCAL_ADV_WND_OFFSET(pfId) \
+-	(IRO[277].base + ((pfId) * IRO[277].m1))
++	(IRO[278].base + ((pfId) * IRO[278].m1))
+ #define TSTORM_ISCSI_TCP_VARS_FLAGS_OFFSET(pfId) \
+ 	(IRO[264].base + ((pfId) * IRO[264].m1))
+ #define TSTORM_ISCSI_TCP_VARS_LSB_LOCAL_MAC_ADDR_OFFSET(pfId) \
+@@ -136,35 +136,32 @@
+ #define USTORM_ASSERT_LIST_INDEX_OFFSET	(IRO[177].base)
+ #define USTORM_ASSERT_LIST_OFFSET(assertListEntry) \
+ 	(IRO[176].base + ((assertListEntry) * IRO[176].m1))
+-#define USTORM_CQE_PAGE_NEXT_OFFSET(portId, clientId) \
+-	(IRO[205].base + ((portId) * IRO[205].m1) + ((clientId) * \
+-	IRO[205].m2))
+ #define USTORM_ETH_PAUSE_ENABLED_OFFSET(portId) \
+ 	(IRO[183].base + ((portId) * IRO[183].m1))
+ #define USTORM_FCOE_EQ_PROD_OFFSET(pfId) \
+-	(IRO[318].base + ((pfId) * IRO[318].m1))
++	(IRO[319].base + ((pfId) * IRO[319].m1))
+ #define USTORM_FUNC_EN_OFFSET(funcId) \
+ 	(IRO[178].base + ((funcId) * IRO[178].m1))
+ #define USTORM_ISCSI_CQ_SIZE_OFFSET(pfId) \
+-	(IRO[282].base + ((pfId) * IRO[282].m1))
+-#define USTORM_ISCSI_CQ_SQN_SIZE_OFFSET(pfId) \
+ 	(IRO[283].base + ((pfId) * IRO[283].m1))
++#define USTORM_ISCSI_CQ_SQN_SIZE_OFFSET(pfId) \
++	(IRO[284].base + ((pfId) * IRO[284].m1))
+ #define USTORM_ISCSI_ERROR_BITMAP_OFFSET(pfId) \
+-	(IRO[287].base + ((pfId) * IRO[287].m1))
++	(IRO[288].base + ((pfId) * IRO[288].m1))
+ #define USTORM_ISCSI_GLOBAL_BUF_PHYS_ADDR_OFFSET(pfId) \
+-	(IRO[284].base + ((pfId) * IRO[284].m1))
++	(IRO[285].base + ((pfId) * IRO[285].m1))
+ #define USTORM_ISCSI_NUM_OF_TASKS_OFFSET(pfId) \
+-	(IRO[280].base + ((pfId) * IRO[280].m1))
++	(IRO[281].base + ((pfId) * IRO[281].m1))
+ #define USTORM_ISCSI_PAGE_SIZE_LOG_OFFSET(pfId) \
+-	(IRO[279].base + ((pfId) * IRO[279].m1))
++	(IRO[280].base + ((pfId) * IRO[280].m1))
+ #define USTORM_ISCSI_PAGE_SIZE_OFFSET(pfId) \
+-	(IRO[278].base + ((pfId) * IRO[278].m1))
++	(IRO[279].base + ((pfId) * IRO[279].m1))
+ #define USTORM_ISCSI_R2TQ_SIZE_OFFSET(pfId) \
+-	(IRO[281].base + ((pfId) * IRO[281].m1))
++	(IRO[282].base + ((pfId) * IRO[282].m1))
+ #define USTORM_ISCSI_RQ_BUFFER_SIZE_OFFSET(pfId) \
+-	(IRO[285].base + ((pfId) * IRO[285].m1))
+-#define USTORM_ISCSI_RQ_SIZE_OFFSET(pfId) \
+ 	(IRO[286].base + ((pfId) * IRO[286].m1))
++#define USTORM_ISCSI_RQ_SIZE_OFFSET(pfId) \
++	(IRO[287].base + ((pfId) * IRO[287].m1))
+ #define USTORM_MEM_WORKAROUND_ADDRESS_OFFSET(pfId) \
+ 	(IRO[182].base + ((pfId) * IRO[182].m1))
+ #define USTORM_RECORD_SLOW_PATH_OFFSET(funcId) \
+@@ -190,39 +187,39 @@
+ #define XSTORM_FUNC_EN_OFFSET(funcId) \
+ 	(IRO[47].base + ((funcId) * IRO[47].m1))
+ #define XSTORM_ISCSI_HQ_SIZE_OFFSET(pfId) \
+-	(IRO[295].base + ((pfId) * IRO[295].m1))
++	(IRO[296].base + ((pfId) * IRO[296].m1))
+ #define XSTORM_ISCSI_LOCAL_MAC_ADDR0_OFFSET(pfId) \
+-	(IRO[298].base + ((pfId) * IRO[298].m1))
+-#define XSTORM_ISCSI_LOCAL_MAC_ADDR1_OFFSET(pfId) \
+ 	(IRO[299].base + ((pfId) * IRO[299].m1))
+-#define XSTORM_ISCSI_LOCAL_MAC_ADDR2_OFFSET(pfId) \
++#define XSTORM_ISCSI_LOCAL_MAC_ADDR1_OFFSET(pfId) \
+ 	(IRO[300].base + ((pfId) * IRO[300].m1))
+-#define XSTORM_ISCSI_LOCAL_MAC_ADDR3_OFFSET(pfId) \
++#define XSTORM_ISCSI_LOCAL_MAC_ADDR2_OFFSET(pfId) \
+ 	(IRO[301].base + ((pfId) * IRO[301].m1))
+-#define XSTORM_ISCSI_LOCAL_MAC_ADDR4_OFFSET(pfId) \
++#define XSTORM_ISCSI_LOCAL_MAC_ADDR3_OFFSET(pfId) \
+ 	(IRO[302].base + ((pfId) * IRO[302].m1))
+-#define XSTORM_ISCSI_LOCAL_MAC_ADDR5_OFFSET(pfId) \
++#define XSTORM_ISCSI_LOCAL_MAC_ADDR4_OFFSET(pfId) \
+ 	(IRO[303].base + ((pfId) * IRO[303].m1))
+-#define XSTORM_ISCSI_LOCAL_VLAN_OFFSET(pfId) \
++#define XSTORM_ISCSI_LOCAL_MAC_ADDR5_OFFSET(pfId) \
+ 	(IRO[304].base + ((pfId) * IRO[304].m1))
++#define XSTORM_ISCSI_LOCAL_VLAN_OFFSET(pfId) \
++	(IRO[305].base + ((pfId) * IRO[305].m1))
+ #define XSTORM_ISCSI_NUM_OF_TASKS_OFFSET(pfId) \
+-	(IRO[294].base + ((pfId) * IRO[294].m1))
++	(IRO[295].base + ((pfId) * IRO[295].m1))
+ #define XSTORM_ISCSI_PAGE_SIZE_LOG_OFFSET(pfId) \
+-	(IRO[293].base + ((pfId) * IRO[293].m1))
++	(IRO[294].base + ((pfId) * IRO[294].m1))
+ #define XSTORM_ISCSI_PAGE_SIZE_OFFSET(pfId) \
+-	(IRO[292].base + ((pfId) * IRO[292].m1))
++	(IRO[293].base + ((pfId) * IRO[293].m1))
+ #define XSTORM_ISCSI_R2TQ_SIZE_OFFSET(pfId) \
+-	(IRO[297].base + ((pfId) * IRO[297].m1))
++	(IRO[298].base + ((pfId) * IRO[298].m1))
+ #define XSTORM_ISCSI_SQ_SIZE_OFFSET(pfId) \
+-	(IRO[296].base + ((pfId) * IRO[296].m1))
++	(IRO[297].base + ((pfId) * IRO[297].m1))
+ #define XSTORM_ISCSI_TCP_VARS_ADV_WND_SCL_OFFSET(pfId) \
+-	(IRO[291].base + ((pfId) * IRO[291].m1))
++	(IRO[292].base + ((pfId) * IRO[292].m1))
+ #define XSTORM_ISCSI_TCP_VARS_FLAGS_OFFSET(pfId) \
+-	(IRO[290].base + ((pfId) * IRO[290].m1))
++	(IRO[291].base + ((pfId) * IRO[291].m1))
+ #define XSTORM_ISCSI_TCP_VARS_TOS_OFFSET(pfId) \
+-	(IRO[289].base + ((pfId) * IRO[289].m1))
++	(IRO[290].base + ((pfId) * IRO[290].m1))
+ #define XSTORM_ISCSI_TCP_VARS_TTL_OFFSET(pfId) \
+-	(IRO[288].base + ((pfId) * IRO[288].m1))
++	(IRO[289].base + ((pfId) * IRO[289].m1))
+ #define XSTORM_RATE_SHAPING_PER_VN_VARS_OFFSET(pfId) \
+ 	(IRO[44].base + ((pfId) * IRO[44].m1))
+ #define XSTORM_RECORD_SLOW_PATH_OFFSET(funcId) \
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+index a7a3504..12f00a4 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+@@ -114,6 +114,10 @@ struct license_key {
+ #define EPIO_CFG_EPIO30                     0x0000001f
+ #define EPIO_CFG_EPIO31                     0x00000020
+ 
++struct mac_addr {
++	u32 upper;
++	u32 lower;
++};
+ 
+ struct shared_hw_cfg {			 /* NVRAM Offset */
+ 	/* Up to 16 bytes of NULL-terminated string */
+@@ -2836,8 +2840,8 @@ struct afex_stats {
+ 
+ #define BCM_5710_FW_MAJOR_VERSION			7
+ #define BCM_5710_FW_MINOR_VERSION			8
+-#define BCM_5710_FW_REVISION_VERSION		2
+-#define BCM_5710_FW_ENGINEERING_VERSION			0
++#define BCM_5710_FW_REVISION_VERSION		17
++#define BCM_5710_FW_ENGINEERING_VERSION		0
+ #define BCM_5710_FW_COMPILE_FLAGS			1
+ 
+ 
+@@ -3528,11 +3532,14 @@ struct client_init_tx_data {
+ #define CLIENT_INIT_TX_DATA_BCAST_ACCEPT_ALL_SHIFT 2
+ #define CLIENT_INIT_TX_DATA_ACCEPT_ANY_VLAN (0x1<<3)
+ #define CLIENT_INIT_TX_DATA_ACCEPT_ANY_VLAN_SHIFT 3
+-#define CLIENT_INIT_TX_DATA_RESERVED1 (0xFFF<<4)
+-#define CLIENT_INIT_TX_DATA_RESERVED1_SHIFT 4
++#define CLIENT_INIT_TX_DATA_RESERVED0 (0xFFF<<4)
++#define CLIENT_INIT_TX_DATA_RESERVED0_SHIFT 4
+ 	u8 default_vlan_flg;
+ 	u8 force_default_pri_flg;
+-	__le32 reserved3;
++	u8 tunnel_lso_inc_ip_id;
++	u8 refuse_outband_vlan_flg;
++	u8 tunnel_non_lso_pcsum_location;
++	u8 reserved1;
+ };
+ 
+ /*
+@@ -3566,6 +3573,11 @@ struct client_update_ramrod_data {
+ 	__le16 silent_vlan_mask;
+ 	u8 silent_vlan_removal_flg;
+ 	u8 silent_vlan_change_flg;
++	u8 refuse_outband_vlan_flg;
++	u8 refuse_outband_vlan_change_flg;
++	u8 tx_switching_flg;
++	u8 tx_switching_change_flg;
++	__le32 reserved1;
+ 	__le32 echo;
+ };
+ 
+@@ -3635,7 +3647,8 @@ struct eth_classify_header {
+  */
+ struct eth_classify_mac_cmd {
+ 	struct eth_classify_cmd_header header;
+-	__le32 reserved0;
++	__le16 reserved0;
++	__le16 inner_mac;
+ 	__le16 mac_lsb;
+ 	__le16 mac_mid;
+ 	__le16 mac_msb;
+@@ -3648,7 +3661,8 @@ struct eth_classify_mac_cmd {
+  */
+ struct eth_classify_pair_cmd {
+ 	struct eth_classify_cmd_header header;
+-	__le32 reserved0;
++	__le16 reserved0;
++	__le16 inner_mac;
+ 	__le16 mac_lsb;
+ 	__le16 mac_mid;
+ 	__le16 mac_msb;
+@@ -3870,8 +3884,68 @@ struct eth_halt_ramrod_data {
+ 
+ 
+ /*
+- * Command for setting multicast classification for a client
++ * destination and source mac address.
++ */
++struct eth_mac_addresses {
++#if defined(__BIG_ENDIAN)
++	__le16 dst_mid;
++	__le16 dst_lo;
++#elif defined(__LITTLE_ENDIAN)
++	__le16 dst_lo;
++	__le16 dst_mid;
++#endif
++#if defined(__BIG_ENDIAN)
++	__le16 src_lo;
++	__le16 dst_hi;
++#elif defined(__LITTLE_ENDIAN)
++	__le16 dst_hi;
++	__le16 src_lo;
++#endif
++#if defined(__BIG_ENDIAN)
++	__le16 src_hi;
++	__le16 src_mid;
++#elif defined(__LITTLE_ENDIAN)
++	__le16 src_mid;
++	__le16 src_hi;
++#endif
++};
++
++/* tunneling related data */
++struct eth_tunnel_data {
++#if defined(__BIG_ENDIAN)
++	__le16 dst_mid;
++	__le16 dst_lo;
++#elif defined(__LITTLE_ENDIAN)
++	__le16 dst_lo;
++	__le16 dst_mid;
++#endif
++#if defined(__BIG_ENDIAN)
++	__le16 reserved0;
++	__le16 dst_hi;
++#elif defined(__LITTLE_ENDIAN)
++	__le16 dst_hi;
++	__le16 reserved0;
++#endif
++#if defined(__BIG_ENDIAN)
++	u8 reserved1;
++	u8 ip_hdr_start_inner_w;
++	__le16 pseudo_csum;
++#elif defined(__LITTLE_ENDIAN)
++	__le16 pseudo_csum;
++	u8 ip_hdr_start_inner_w;
++	u8 reserved1;
++#endif
++};
++
++/* union for mac addresses and for tunneling data.
++ * considered as tunneling data only if (tunnel_exist == 1).
+  */
++union eth_mac_addr_or_tunnel_data {
++	struct eth_mac_addresses mac_addr;
++	struct eth_tunnel_data tunnel_data;
++};
++
++/*Command for setting multicast classification for a client */
+ struct eth_multicast_rules_cmd {
+ 	u8 cmd_general_data;
+ #define ETH_MULTICAST_RULES_CMD_RX_CMD (0x1<<0)
+@@ -3889,7 +3963,6 @@ struct eth_multicast_rules_cmd {
+ 	struct regpair reserved3;
+ };
+ 
+-
+ /*
+  * parameters for multicast classification ramrod
+  */
+@@ -3898,7 +3971,6 @@ struct eth_multicast_rules_ramrod_data {
+ 	struct eth_multicast_rules_cmd rules[MULTICAST_RULES_COUNT];
+ };
+ 
+-
+ /*
+  * Place holder for ramrods protocol specific data
+  */
+@@ -3962,11 +4034,14 @@ struct eth_rss_update_ramrod_data {
+ #define ETH_RSS_UPDATE_RAMROD_DATA_IPV6_TCP_CAPABILITY_SHIFT 4
+ #define ETH_RSS_UPDATE_RAMROD_DATA_IPV6_UDP_CAPABILITY (0x1<<5)
+ #define ETH_RSS_UPDATE_RAMROD_DATA_IPV6_UDP_CAPABILITY_SHIFT 5
++#define ETH_RSS_UPDATE_RAMROD_DATA_EN_5_TUPLE_CAPABILITY (0x1<<6)
++#define ETH_RSS_UPDATE_RAMROD_DATA_EN_5_TUPLE_CAPABILITY_SHIFT 6
+ #define ETH_RSS_UPDATE_RAMROD_DATA_UPDATE_RSS_KEY (0x1<<7)
+ #define ETH_RSS_UPDATE_RAMROD_DATA_UPDATE_RSS_KEY_SHIFT 7
+ 	u8 rss_result_mask;
+ 	u8 rss_mode;
+-	__le32 __reserved2;
++	__le16 udp_4tuple_dst_port_mask;
++	__le16 udp_4tuple_dst_port_value;
+ 	u8 indirection_table[T_ETH_INDIRECTION_TABLE_SIZE];
+ 	__le32 rss_key[T_ETH_RSS_KEY];
+ 	__le32 echo;
+@@ -4130,6 +4205,23 @@ enum eth_tpa_update_command {
+ 	MAX_ETH_TPA_UPDATE_COMMAND
+ };
+ 
++/* In case of LSO over IPv4 tunnel, whether to increment
++ * IP ID on external IP header or internal IP header
++ */
++enum eth_tunnel_lso_inc_ip_id {
++	EXT_HEADER,
++	INT_HEADER,
++	MAX_ETH_TUNNEL_LSO_INC_IP_ID
++};
++
++/* In case tunnel exist and L4 checksum offload,
++ * the pseudo checksum location, on packet or on BD.
++ */
++enum eth_tunnel_non_lso_pcsum_location {
++	PCSUM_ON_PKT,
++	PCSUM_ON_BD,
++	MAX_ETH_TUNNEL_NON_LSO_PCSUM_LOCATION
++};
+ 
+ /*
+  * Tx regular BD structure
+@@ -4181,8 +4273,8 @@ struct eth_tx_start_bd {
+ #define ETH_TX_START_BD_FORCE_VLAN_MODE_SHIFT 4
+ #define ETH_TX_START_BD_PARSE_NBDS (0x3<<5)
+ #define ETH_TX_START_BD_PARSE_NBDS_SHIFT 5
+-#define ETH_TX_START_BD_RESREVED (0x1<<7)
+-#define ETH_TX_START_BD_RESREVED_SHIFT 7
++#define ETH_TX_START_BD_TUNNEL_EXIST (0x1<<7)
++#define ETH_TX_START_BD_TUNNEL_EXIST_SHIFT 7
+ };
+ 
+ /*
+@@ -4231,15 +4323,10 @@ struct eth_tx_parse_bd_e1x {
+  * Tx parsing BD structure for ETH E2
+  */
+ struct eth_tx_parse_bd_e2 {
+-	__le16 dst_mac_addr_lo;
+-	__le16 dst_mac_addr_mid;
+-	__le16 dst_mac_addr_hi;
+-	__le16 src_mac_addr_lo;
+-	__le16 src_mac_addr_mid;
+-	__le16 src_mac_addr_hi;
++	union eth_mac_addr_or_tunnel_data data;
+ 	__le32 parsing_data;
+-#define ETH_TX_PARSE_BD_E2_TCP_HDR_START_OFFSET_W (0x7FF<<0)
+-#define ETH_TX_PARSE_BD_E2_TCP_HDR_START_OFFSET_W_SHIFT 0
++#define ETH_TX_PARSE_BD_E2_L4_HDR_START_OFFSET_W (0x7FF<<0)
++#define ETH_TX_PARSE_BD_E2_L4_HDR_START_OFFSET_W_SHIFT 0
+ #define ETH_TX_PARSE_BD_E2_TCP_HDR_LENGTH_DW (0xF<<11)
+ #define ETH_TX_PARSE_BD_E2_TCP_HDR_LENGTH_DW_SHIFT 11
+ #define ETH_TX_PARSE_BD_E2_IPV6_WITH_EXT_HDR (0x1<<15)
+@@ -4251,8 +4338,51 @@ struct eth_tx_parse_bd_e2 {
+ };
+ 
+ /*
+- * The last BD in the BD memory will hold a pointer to the next BD memory
++ * Tx 2nd parsing BD structure for ETH packet
+  */
++struct eth_tx_parse_2nd_bd {
++	__le16 global_data;
++#define ETH_TX_PARSE_2ND_BD_IP_HDR_START_OUTER_W (0xF<<0)
++#define ETH_TX_PARSE_2ND_BD_IP_HDR_START_OUTER_W_SHIFT 0
++#define ETH_TX_PARSE_2ND_BD_IP_HDR_TYPE_OUTER (0x1<<4)
++#define ETH_TX_PARSE_2ND_BD_IP_HDR_TYPE_OUTER_SHIFT 4
++#define ETH_TX_PARSE_2ND_BD_LLC_SNAP_EN (0x1<<5)
++#define ETH_TX_PARSE_2ND_BD_LLC_SNAP_EN_SHIFT 5
++#define ETH_TX_PARSE_2ND_BD_NS_FLG (0x1<<6)
++#define ETH_TX_PARSE_2ND_BD_NS_FLG_SHIFT 6
++#define ETH_TX_PARSE_2ND_BD_TUNNEL_UDP_EXIST (0x1<<7)
++#define ETH_TX_PARSE_2ND_BD_TUNNEL_UDP_EXIST_SHIFT 7
++#define ETH_TX_PARSE_2ND_BD_IP_HDR_LEN_OUTER_W (0x1F<<8)
++#define ETH_TX_PARSE_2ND_BD_IP_HDR_LEN_OUTER_W_SHIFT 8
++#define ETH_TX_PARSE_2ND_BD_RESERVED0 (0x7<<13)
++#define ETH_TX_PARSE_2ND_BD_RESERVED0_SHIFT 13
++	__le16 reserved1;
++	u8 tcp_flags;
++#define ETH_TX_PARSE_2ND_BD_FIN_FLG (0x1<<0)
++#define ETH_TX_PARSE_2ND_BD_FIN_FLG_SHIFT 0
++#define ETH_TX_PARSE_2ND_BD_SYN_FLG (0x1<<1)
++#define ETH_TX_PARSE_2ND_BD_SYN_FLG_SHIFT 1
++#define ETH_TX_PARSE_2ND_BD_RST_FLG (0x1<<2)
++#define ETH_TX_PARSE_2ND_BD_RST_FLG_SHIFT 2
++#define ETH_TX_PARSE_2ND_BD_PSH_FLG (0x1<<3)
++#define ETH_TX_PARSE_2ND_BD_PSH_FLG_SHIFT 3
++#define ETH_TX_PARSE_2ND_BD_ACK_FLG (0x1<<4)
++#define ETH_TX_PARSE_2ND_BD_ACK_FLG_SHIFT 4
++#define ETH_TX_PARSE_2ND_BD_URG_FLG (0x1<<5)
++#define ETH_TX_PARSE_2ND_BD_URG_FLG_SHIFT 5
++#define ETH_TX_PARSE_2ND_BD_ECE_FLG (0x1<<6)
++#define ETH_TX_PARSE_2ND_BD_ECE_FLG_SHIFT 6
++#define ETH_TX_PARSE_2ND_BD_CWR_FLG (0x1<<7)
++#define ETH_TX_PARSE_2ND_BD_CWR_FLG_SHIFT 7
++	u8 reserved2;
++	u8 tunnel_udp_hdr_start_w;
++	u8 fw_ip_hdr_to_payload_w;
++	__le16 fw_ip_csum_wo_len_flags_frag;
++	__le16 hw_ip_id;
++	__le32 tcp_send_seq;
++};
++
++/* The last BD in the BD memory will hold a pointer to the next BD memory */
+ struct eth_tx_next_bd {
+ 	__le32 addr_lo;
+ 	__le32 addr_hi;
+@@ -4267,6 +4397,7 @@ union eth_tx_bd_types {
+ 	struct eth_tx_bd reg_bd;
+ 	struct eth_tx_parse_bd_e1x parse_bd_e1x;
+ 	struct eth_tx_parse_bd_e2 parse_bd_e2;
++	struct eth_tx_parse_2nd_bd parse_2nd_bd;
+ 	struct eth_tx_next_bd next_bd;
+ };
+ 
+@@ -4678,10 +4809,10 @@ enum common_spqe_cmd_id {
+ 	RAMROD_CMD_ID_COMMON_STOP_TRAFFIC,
+ 	RAMROD_CMD_ID_COMMON_START_TRAFFIC,
+ 	RAMROD_CMD_ID_COMMON_AFEX_VIF_LISTS,
++	RAMROD_CMD_ID_COMMON_SET_TIMESYNC,
+ 	MAX_COMMON_SPQE_CMD_ID
+ };
+ 
+-
+ /*
+  * Per-protocol connection types
+  */
+@@ -4878,7 +5009,7 @@ struct vf_flr_event_data {
+  */
+ struct malicious_vf_event_data {
+ 	u8 vf_id;
+-	u8 reserved0;
++	u8 err_id;
+ 	u16 reserved1;
+ 	u32 reserved2;
+ 	u32 reserved3;
+@@ -4984,10 +5115,10 @@ enum event_ring_opcode {
+ 	EVENT_RING_OPCODE_CLASSIFICATION_RULES,
+ 	EVENT_RING_OPCODE_FILTERS_RULES,
+ 	EVENT_RING_OPCODE_MULTICAST_RULES,
++	EVENT_RING_OPCODE_SET_TIMESYNC,
+ 	MAX_EVENT_RING_OPCODE
+ };
+ 
+-
+ /*
+  * Modes for fairness algorithm
+  */
+@@ -5025,14 +5156,18 @@ struct flow_control_configuration {
+  */
+ struct function_start_data {
+ 	u8 function_mode;
+-	u8 reserved;
++	u8 allow_npar_tx_switching;
+ 	__le16 sd_vlan_tag;
+ 	__le16 vif_id;
+ 	u8 path_id;
+ 	u8 network_cos_mode;
++	u8 dmae_cmd_id;
++	u8 gre_tunnel_mode;
++	u8 gre_tunnel_rss;
++	u8 nvgre_clss_en;
++	__le16 reserved1[2];
+ };
+ 
+-
+ struct function_update_data {
+ 	u8 vif_id_change_flg;
+ 	u8 afex_default_vlan_change_flg;
+@@ -5042,14 +5177,19 @@ struct function_update_data {
+ 	__le16 afex_default_vlan;
+ 	u8 allowed_priorities;
+ 	u8 network_cos_mode;
++	u8 lb_mode_en_change_flg;
+ 	u8 lb_mode_en;
+ 	u8 tx_switch_suspend_change_flg;
+ 	u8 tx_switch_suspend;
+ 	u8 echo;
+-	__le16 reserved1;
++	u8 reserved1;
++	u8 update_gre_cfg_flg;
++	u8 gre_tunnel_mode;
++	u8 gre_tunnel_rss;
++	u8 nvgre_clss_en;
++	u32 reserved3;
+ };
+ 
+-
+ /*
+  * FW version stored in the Xstorm RAM
+  */
+@@ -5076,6 +5216,22 @@ struct fw_version {
+ #define __FW_VERSION_RESERVED_SHIFT 4
+ };
+ 
++/* GRE RSS Mode */
++enum gre_rss_mode {
++	GRE_OUTER_HEADERS_RSS,
++	GRE_INNER_HEADERS_RSS,
++	NVGRE_KEY_ENTROPY_RSS,
++	MAX_GRE_RSS_MODE
++};
++
++/* GRE Tunnel Mode */
++enum gre_tunnel_type {
++	NO_GRE_TUNNEL,
++	NVGRE_TUNNEL,
++	L2GRE_TUNNEL,
++	IPGRE_TUNNEL,
++	MAX_GRE_TUNNEL_TYPE
++};
+ 
+ /*
+  * Dynamic Host-Coalescing - Driver(host) counters
+@@ -5239,6 +5395,26 @@ enum ip_ver {
+ 	MAX_IP_VER
+ };
+ 
++/*
++ * Malicious VF error ID
++ */
++enum malicious_vf_error_id {
++	VF_PF_CHANNEL_NOT_READY,
++	ETH_ILLEGAL_BD_LENGTHS,
++	ETH_PACKET_TOO_SHORT,
++	ETH_PAYLOAD_TOO_BIG,
++	ETH_ILLEGAL_ETH_TYPE,
++	ETH_ILLEGAL_LSO_HDR_LEN,
++	ETH_TOO_MANY_BDS,
++	ETH_ZERO_HDR_NBDS,
++	ETH_START_BD_NOT_SET,
++	ETH_ILLEGAL_PARSE_NBDS,
++	ETH_IPV6_AND_CHECKSUM,
++	ETH_VLAN_FLG_INCORRECT,
++	ETH_ILLEGAL_LSO_MSS,
++	ETH_TUNNEL_NOT_SUPPORTED,
++	MAX_MALICIOUS_VF_ERROR_ID
++};
+ 
+ /*
+  * Multi-function modes
+@@ -5383,7 +5559,6 @@ struct protocol_common_spe {
+ 	union protocol_common_specific_data data;
+ };
+ 
+-
+ /*
+  * The send queue element
+  */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index e5662a1..c7df223 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -2953,14 +2953,15 @@ static unsigned long bnx2x_get_common_flags(struct bnx2x *bp,
+ 	__set_bit(BNX2X_Q_FLG_ACTIVE, &flags);
+ 
+ 	/* tx only connections collect statistics (on the same index as the
+-	 *  parent connection). The statistics are zeroed when the parent
+-	 *  connection is initialized.
++	 * parent connection). The statistics are zeroed when the parent
++	 * connection is initialized.
+ 	 */
+ 
+ 	__set_bit(BNX2X_Q_FLG_STATS, &flags);
+ 	if (zero_stats)
+ 		__set_bit(BNX2X_Q_FLG_ZERO_STATS, &flags);
+ 
++	__set_bit(BNX2X_Q_FLG_PCSUM_ON_PKT, &flags);
+ 
+ #ifdef BNX2X_STOP_ON_ERROR
+ 	__set_bit(BNX2X_Q_FLG_TX_SEC, &flags);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+index 6b03acd..66ab259 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+@@ -476,7 +476,8 @@ static int bnx2x_check_mac_add(struct bnx2x *bp,
+ 
+ 	/* Check if a requested MAC already exists */
+ 	list_for_each_entry(pos, &o->head, link)
+-		if (!memcmp(data->mac.mac, pos->u.mac.mac, ETH_ALEN))
++		if (!memcmp(data->mac.mac, pos->u.mac.mac, ETH_ALEN) &&
++		    (data->mac.is_inner_mac == pos->u.mac.is_inner_mac))
+ 			return -EEXIST;
+ 
+ 	return 0;
+@@ -509,7 +510,9 @@ static int bnx2x_check_vlan_mac_add(struct bnx2x *bp,
+ 	list_for_each_entry(pos, &o->head, link)
+ 		if ((data->vlan_mac.vlan == pos->u.vlan_mac.vlan) &&
+ 		    (!memcmp(data->vlan_mac.mac, pos->u.vlan_mac.mac,
+-			     ETH_ALEN)))
++				  ETH_ALEN)) &&
++		    (data->vlan_mac.is_inner_mac ==
++		     pos->u.vlan_mac.is_inner_mac))
+ 			return -EEXIST;
+ 
+ 	return 0;
+@@ -527,7 +530,8 @@ static struct bnx2x_vlan_mac_registry_elem *
+ 	DP(BNX2X_MSG_SP, "Checking MAC %pM for DEL command\n", data->mac.mac);
+ 
+ 	list_for_each_entry(pos, &o->head, link)
+-		if (!memcmp(data->mac.mac, pos->u.mac.mac, ETH_ALEN))
++		if ((!memcmp(data->mac.mac, pos->u.mac.mac, ETH_ALEN)) &&
++		    (data->mac.is_inner_mac == pos->u.mac.is_inner_mac))
+ 			return pos;
+ 
+ 	return NULL;
+@@ -562,7 +566,9 @@ static struct bnx2x_vlan_mac_registry_elem *
+ 	list_for_each_entry(pos, &o->head, link)
+ 		if ((data->vlan_mac.vlan == pos->u.vlan_mac.vlan) &&
+ 		    (!memcmp(data->vlan_mac.mac, pos->u.vlan_mac.mac,
+-			     ETH_ALEN)))
++			     ETH_ALEN)) &&
++		    (data->vlan_mac.is_inner_mac ==
++		     pos->u.vlan_mac.is_inner_mac))
+ 			return pos;
+ 
+ 	return NULL;
+@@ -759,6 +765,8 @@ static void bnx2x_set_one_mac_e2(struct bnx2x *bp,
+ 	bnx2x_set_fw_mac_addr(&rule_entry->mac.mac_msb,
+ 			      &rule_entry->mac.mac_mid,
+ 			      &rule_entry->mac.mac_lsb, mac);
++	rule_entry->mac.inner_mac =
++		cpu_to_le16(elem->cmd_data.vlan_mac.u.mac.is_inner_mac);
+ 
+ 	/* MOVE: Add a rule that will add this MAC to the target Queue */
+ 	if (cmd == BNX2X_VLAN_MAC_MOVE) {
+@@ -775,6 +783,9 @@ static void bnx2x_set_one_mac_e2(struct bnx2x *bp,
+ 		bnx2x_set_fw_mac_addr(&rule_entry->mac.mac_msb,
+ 				      &rule_entry->mac.mac_mid,
+ 				      &rule_entry->mac.mac_lsb, mac);
++		rule_entry->mac.inner_mac =
++			cpu_to_le16(elem->cmd_data.vlan_mac.
++						u.mac.is_inner_mac);
+ 	}
+ 
+ 	/* Set the ramrod data header */
+@@ -963,7 +974,8 @@ static void bnx2x_set_one_vlan_mac_e2(struct bnx2x *bp,
+ 	bnx2x_set_fw_mac_addr(&rule_entry->pair.mac_msb,
+ 			      &rule_entry->pair.mac_mid,
+ 			      &rule_entry->pair.mac_lsb, mac);
+-
++	rule_entry->pair.inner_mac =
++		cpu_to_le16(elem->cmd_data.vlan_mac.u.vlan_mac.is_inner_mac);
+ 	/* MOVE: Add a rule that will add this MAC to the target Queue */
+ 	if (cmd == BNX2X_VLAN_MAC_MOVE) {
+ 		rule_entry++;
+@@ -980,6 +992,9 @@ static void bnx2x_set_one_vlan_mac_e2(struct bnx2x *bp,
+ 		bnx2x_set_fw_mac_addr(&rule_entry->pair.mac_msb,
+ 				      &rule_entry->pair.mac_mid,
+ 				      &rule_entry->pair.mac_lsb, mac);
++		rule_entry->pair.inner_mac =
++			cpu_to_le16(elem->cmd_data.vlan_mac.u.
++						vlan_mac.is_inner_mac);
+ 	}
+ 
+ 	/* Set the ramrod data header */
+@@ -4417,6 +4432,10 @@ static void bnx2x_q_fill_init_tx_data(struct bnx2x_queue_sp_obj *o,
+ 	tx_data->force_default_pri_flg =
+ 		test_bit(BNX2X_Q_FLG_FORCE_DEFAULT_PRI, flags);
+ 
++	tx_data->tunnel_non_lso_pcsum_location =
++		test_bit(BNX2X_Q_FLG_PCSUM_ON_PKT, flags) ? PCSUM_ON_PKT :
++								  PCSUM_ON_BD;
++
+ 	tx_data->tx_status_block_id = params->fw_sb_id;
+ 	tx_data->tx_sb_index_number = params->sb_cq_index;
+ 	tx_data->tss_leading_client_id = params->tss_leading_cl_id;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+index ac57e63..064dba2 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+@@ -100,6 +100,7 @@ struct bnx2x_raw_obj {
+ /************************* VLAN-MAC commands related parameters ***************/
+ struct bnx2x_mac_ramrod_data {
+ 	u8 mac[ETH_ALEN];
++	u8 is_inner_mac;
+ };
+ 
+ struct bnx2x_vlan_ramrod_data {
+@@ -108,6 +109,7 @@ struct bnx2x_vlan_ramrod_data {
+ 
+ struct bnx2x_vlan_mac_ramrod_data {
+ 	u8 mac[ETH_ALEN];
++	u8 is_inner_mac;
+ 	u16 vlan;
+ };
+ 
+@@ -825,7 +827,8 @@ enum {
+ 	BNX2X_Q_FLG_TX_SEC,
+ 	BNX2X_Q_FLG_ANTI_SPOOF,
+ 	BNX2X_Q_FLG_SILENT_VLAN_REM,
+-	BNX2X_Q_FLG_FORCE_DEFAULT_PRI
++	BNX2X_Q_FLG_FORCE_DEFAULT_PRI,
++	BNX2X_Q_FLG_PCSUM_ON_PKT
+ };
+ 
+ /* Queue type options: queue type may be a compination of below. */
 -- 
 1.7.7.2
