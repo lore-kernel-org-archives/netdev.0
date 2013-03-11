@@ -1,137 +1,126 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: TCP small packets throughput and multiqueue virtio-net
-Date: Mon, 11 Mar 2013 13:29:04 +0200
-Message-ID: <20130311112904.GA23359@redhat.com>
-References: <5139840A.6020204@redhat.com>
- <1362755115.15793.236.camel@edumazet-glaptop>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] netconsole: release the spinlock before
+ __netpoll_cleanup()
+Date: Mon, 11 Mar 2013 07:30:24 -0400
+Message-ID: <20130311113024.GB12682@hmsreliant.think-freely.org>
+References: <1362581203-8994-1-git-send-email-vfalico@redhat.com>
+ <20130307000824.GA5702@neilslaptop.think-freely.org>
+ <20130307100325.GA31105@redhat.com>
+ <20130307.161438.396456319050281566.davem@davemloft.net>
+ <20130310152546.GA4897@redhat.com>
+ <CAE3RKN=ix96skUHw3j5snbue-r8SOnSovw4_zh4RX4t-uDW2Cw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
-	KVM <kvm@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jpirko@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	amwang@redhat.com
+To: Veaceslav Falico <darkmag@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24527 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753970Ab3CKL2r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Mar 2013 07:28:47 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38528 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753892Ab3CKLag (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 07:30:36 -0400
 Content-Disposition: inline
-In-Reply-To: <1362755115.15793.236.camel@edumazet-glaptop>
+In-Reply-To: <CAE3RKN=ix96skUHw3j5snbue-r8SOnSovw4_zh4RX4t-uDW2Cw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 08, 2013 at 07:05:15AM -0800, Eric Dumazet wrote:
-> On Fri, 2013-03-08 at 14:24 +0800, Jason Wang wrote:
-> > Hello all:
-> > 
-> > I meet an issue when testing multiqueue virtio-net. When I testing guest
-> > small packets stream sending performance with netperf. I find an
-> > regression of multiqueue. When I run 2 sessions of TCP_STREAM test with
-> > 1024 byte from guest to local host, I get following result:
-> > 
-> > 1q result: 3457.64
-> > 2q result: 7781.45
-> > 
-> > Statistics shows that: compared with one queue, multiqueue tends to send
-> > much more but smaller packets. Tcpdump shows single queue has a much
-> > higher possibility to produce a 64K gso packet compared to multiqueue.
-> > More but smaller packets will cause more vmexits and interrupts which
-> > lead a degradation on throughput.
-> > 
-> > Then problem only exist for small packets sending. When I test with
-> > larger size, multiqueue will gradually outperfrom single queue. And
-> > multiqueue also outperfrom in both TCP_RR and pktgen test (even with
-> > small packets). The problem disappear when I turn off both gso and tso.
-> > 
+On Mon, Mar 11, 2013 at 11:08:02AM +0100, Veaceslav Falico wrote:
+> On Sun, Mar 10, 2013 at 4:25 PM, Veaceslav Falico <vfalico@redhat.com> wrote:
+> > On Thu, Mar 07, 2013 at 04:14:38PM -0500, David Miller wrote:
+> >>
+> ...snip...
+> >> Quite a bit of email corruption of this patch.
+> >
+> >
+> > Sorry, somehow messed it.
+> >
+> >
+> >>
+> >> Also, this code block is probably too deeply indented to be sane,
+> >> consider creating a small helper function to call instead.
+> >
+> >
+> > It gets quite ugly if I try to move it to another function. However, maybe
+> > something like that will work - it's effectively the same code, just that
+> > I've moved the long part out of the if () { } block. Looks a lot more
+> > readable, though one line still breaks 80chars limit. I've reworked the
+> > subject/commit message too.
+> >
+> > Subject: [PATCH] netconsole: don't call __netpoll_cleanup() while atomic
+> >
+> > __netpoll_cleanup() is called in netconsole_netdev_event() while holding a
+> > spinlock. Release/acquire the spinlock before/after it and restart the
+> >
+> > loop.
+> >
+> > Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> > ---
+> >    drivers/net/netconsole.c |   22 +++++++++++++++-------
+> >    1 files changed, 15 insertions(+), 7 deletions(-)
+> >
+> > diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+> > index 37add21..38eaa8c 100644
+> >
+> > --- a/drivers/net/netconsole.c
+> > +++ b/drivers/net/netconsole.c
+> > @@ -666,6 +666,7 @@ static int netconsole_netdev_event(struct notifier_block
+> > *this,
+> >                 goto done;
+> >         spin_lock_irqsave(&target_list_lock, flags);
+> > +restart:
+> >         list_for_each_entry(nt, &target_list, list) {
+> >                 netconsole_target_get(nt);
+> >                 if (nt->np.dev == dev) {
+> > @@ -679,14 +680,21 @@ static int netconsole_netdev_event(struct
+> > notifier_block *this,
+> >                                 /*
+> >
+> >                                  * rtnl_lock already held
+> >                                  */
+> > -                               if (nt->np.dev) {
+> > -                                       __netpoll_cleanup(&nt->np);
+> > -                                       dev_put(nt->np.dev);
+> > -                                       nt->np.dev = NULL;
+> > +                               if (!nt->np.dev) {
+> > +                                       nt->enabled = 0;
+> > +                                       stopped = true;
+> > +                                       break;
+> >                                 }
+> > -                               nt->enabled = 0;
+> > -                               stopped = true;
+> > -                               break;
+> > +                               /*
+> > +                                * we might sleep in __netpoll_cleanup()
+> > +                                */
+> > +                               spin_unlock_irqrestore(&target_list_lock,
+> > flags);
+> > +                               __netpoll_cleanup(&nt->np);
+> > +                               spin_lock_irqsave(&target_list_lock, flags);
+> > +                               dev_put(nt->np.dev);
+> > +                               nt->np.dev = NULL;
+> >
+> > +                               netconsole_target_put(nt);
+> > +                               goto restart;
+> >                         }
+> >                 }
+> >                 netconsole_target_put(nt);
+> > --
+> > 1.7.1
 > 
-> This makes little sense to me : TCP_RR workload (assuming one byte
-> payload) cannot use GSO or TSO anyway. Same for pktgen as it uses UDP.
+> Self-NAK this patch, I've triggered another kernel panic with it. Will
+> send another one shortly. Basicly, the whole if (!nt->np.dev) is not
+> needed and nt->enabled=0 should always be set, otherwise we
+> end up with nt->np.dev == NULL and nt->enabled == 1, thus
+> triggering panics in places like write_msg(), where it verifies only
+> if the nt->enabled is true.
 > 
-> > I'm not sure whether it's a bug or expected since anyway we get
-> > improvement on latency. And if it's a bug, I suspect it was related to
-> > TCP GSO batching algorithm who tends to batch less in this situation. (
-> > Jiri Pirko suspect it was the defect of virtio-net driver, but I didn't
-> > find any obvious clue on this). After some experiments, I find the it
-> > maybe related to tcp_tso_should_defer(), after
-> > 1) change the tcp_tso_win_divisor to 1
-> > 2) the following changes
-> > the throughput were almost the same (but still a little worse) as single
-> > queue:
-> > 
-> > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> > index fd0cea1..dedd2a6 100644
-> > --- a/net/ipv4/tcp_output.c
-> > +++ b/net/ipv4/tcp_output.c
-> > @@ -1777,10 +1777,12 @@ static bool tcp_tso_should_defer(struct sock
-> > *sk, struct sk_buff *skb)
-> >  
-> >         limit = min(send_win, cong_win);
-> >  
-> > +#if 0
-> >         /* If a full-sized TSO skb can be sent, do it. */
-> >         if (limit >= min_t(unsigned int, sk->sk_gso_max_size,
-> >                            sk->sk_gso_max_segs * tp->mss_cache))
-> >                 goto send_now;
-> > +#endif
-> >  
-> >         /* Middle in queue won't get any more data, full sendable
-> > already? */
-> >         if ((skb != tcp_write_queue_tail(sk)) && (limit >= skb->len))
-> > 
-> > Git history shows this check were added for both westwood and fasttcp,
+Yup, I think you want to make the nt->enabled and stopped statements
+unconditional, and precedede the whole block with a if(!nt->np.dev) { continue;}
+statement.
+Neil
 
-Hmm yes,
-http://www.mail-archive.com/netdev@vger.kernel.org/msg08738.html
-How about we disable it for cubic,reno then?
-
-> > I'm not familiar with tcp but looks like we can easily hit this check
-> > under when multiqueue is enabled for virtio-net. Maybe I was wrong but I
-> > wonder whether we can still do some batching here.
-> > 
-> > Any comments, thoughts are welcomed.
-> > 
+> -- 
+> Best regards,
+> Veaceslav Falico
 > 
-> Well, the point is : if your app does write(1024) bytes, thats probably
-> because it wants small packets from the very beginning. (See the TCP
-> PUSH flag ?)
-
-In that case the application typically won't have packets
-in flight (e.g. like TCP_RR) so TSO won't trigger at all, no?
-
-It would seem that packets in flight might rather indicate
-that the application is trying to keep the socket buffer full
-by giving the kernel data as fast as it becomes available.
-At least, this is exactly what benchmark tools seem to be doing, right?
-
-> If the transport is slow, TCP stack will automatically collapse several
-> write into single skbs (assuming TSO or GSO is on), and you'll see big
-> GSO packets with tcpdump [1]. So TCP will help you to get less overhead
-> in this case.
-> 
-> But if transport is fast, you'll see small packets, and thats good for
-> latency.
-
-But is a large CWND really a good indicator of a low latency link?  Can't
-CWND grow (depending on the protocol) as long as there's no packet loss
-even if the latency is high?
-
-So if a VM is using a 10G backend link in the host, it seems that (due
-to vmexit overhead) the latency is high so we are not gaining much from
-sending the packet a bit earlier, OTOH, the bandwidth is high so the
-per packet overhead becomes measureable. Virt workloads are probably not
-the only ones that are like that, it's just that it's easier for people
-to observe the overhead.
-
-> So my opinion is : its exactly behaving as expected.
-> 
-> If you want bigger packets either :
-> - Make the application doing big write()
-> - Slow the vmexit ;)
-> 
-> [1] GSO fools tcpdump : Actual packets sent to the wire are not 'big
-> packets', but they hit dev_hard_start_xmit() as GSO packets.
-> 
-
--- 
-MST
