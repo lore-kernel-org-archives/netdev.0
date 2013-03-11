@@ -1,47 +1,69 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next.git 4/9] stmmac: add the support for PTP hw clock
- driver
-Date: Mon, 11 Mar 2013 19:55:38 +0100
-Message-ID: <20130311185536.GA2409@netboy.at.omicron.at>
-References: <1362653419-1047-1-git-send-email-peppe.cavallaro@st.com>
- <1362653419-1047-5-git-send-email-peppe.cavallaro@st.com>
- <20130310121050.GA2462@netboy.at.omicron.at>
- <CAJ3bTp7n-Y6TYrhDMe58fALtX5O34qifO9khWYXpo-OwnrRKiQ@mail.gmail.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH linux-next v2] SUNRPC: rpcrdma_register_default_external:
+ Dynamically allocate ib_phys_buf
+Date: Mon, 11 Mar 2013 15:15:45 -0400
+Message-ID: <20130311191545.GA642@fieldses.org>
+References: <20130310202838.GL31448@fieldses.org>
+ <1363023447-22453-1-git-send-email-tim.gardner@canonical.com>
+ <20130311181450.GC30618@fieldses.org>
+ <513E27C0.8050108@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-	netdev@vger.kernel.org, bh74.an@samsung.com
-To: Rayagond K <rayagond@vayavyalabs.com>
+Cc: linux-kernel@vger.kernel.org,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>, Tom Tucker <tom@ogc.us>,
+	Haggai Eran <haggaie@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org
+To: Tim Gardner <tim.gardner@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f169.google.com ([209.85.215.169]:38027 "EHLO
-	mail-ea0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753611Ab3CKSzv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 14:55:51 -0400
-Received: by mail-ea0-f169.google.com with SMTP id z7so1399839eaf.0
-        for <netdev@vger.kernel.org>; Mon, 11 Mar 2013 11:55:50 -0700 (PDT)
+Received: from fieldses.org ([174.143.236.118]:57939 "EHLO fieldses.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753444Ab3CKTPu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Mar 2013 15:15:50 -0400
 Content-Disposition: inline
-In-Reply-To: <CAJ3bTp7n-Y6TYrhDMe58fALtX5O34qifO9khWYXpo-OwnrRKiQ@mail.gmail.com>
+In-Reply-To: <513E27C0.8050108@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 10, 2013 at 08:37:24PM +0530, Rayagond K wrote:
-> On Sun, Mar 10, 2013 at 5:40 PM, Richard Cochran <richardcochran@gmail.com>wrote:
-
-> > Don't you need locking here to protect against concurrent callers of
-> > config_addend?
-> >
+On Mon, Mar 11, 2013 at 12:51:44PM -0600, Tim Gardner wrote:
+> On 03/11/2013 12:14 PM, J. Bruce Fields wrote:
+> <snip>
+> >>
+> >> v2 - Move the array of 'struct ib_phys_buf' objects into struct rpcrdma_req
+> >> and pass this request down through rpcrdma_register_external() and
+> >> rpcrdma_register_default_external(). This is less overhead then using
+> >> kmalloc() and requires no extra error checking as the allocation burden is
+> >> shifted to the transport client.
+> > 
+> > Oh good--so that works, and the req is the right place to put this?  How
+> > are you testing this?
+> > 
+> > (Just want to make it clear: I'm *not* an expert on the rdma code, so my
+> > suggestion to put this in the rpcrdma_req was a suggestion for something
+> > to look into, not a claim that it's correct.)
+> > 
 > 
-> Yes we need locking here too, will add it.
+> Just compile tested so far. Incidentally, I've been through the call stack:
 > 
-> But I can see no locking in this function in other two driver'e
-> ppt_ixp46x.c and gianfar_ptp.c. So I just followed these two driver.
+> call_transmit
+>  xprt_transmit
+>   xprt->ops->send_request(task)
+>    xprt_rdma_send_request
+>     rpcrdma_marshal_req
+>      rpcrdma_create_chunks
+>       rpcrdma_register_external
+>        rpcrdma_register_default_external
+> 
+> It appears that the context for kmalloc() should be fine unless there is
+> a spinlock held around call_transmit() (which seems unlikely).
 
-Those two drivers don't need locking, because setting the addend
-register is a single 32 bit write operation in both cases.
+Right, though I think it shouldn't be GFP_KERNEL--looks like writes
+could wait on it.
 
-In your driver, setting the addend involves a sequence of writes and
-reads, in addition to polling a status bit, so you do need to
-serialize access to those registers.
+In any case, the embedding-in-rpcrdma_req solution does look cleaner if
+that's correct (e.g. if we can be sure there won't be two simultaneous
+users of that array).
 
-Thanks,
-Richard
+--b.
