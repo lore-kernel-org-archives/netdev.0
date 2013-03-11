@@ -1,19 +1,19 @@
 From: Thomas Martitz <thomas.martitz@hhi.fraunhofer.de>
 Subject: Trying to implement secondary loopback
-Date: Mon, 11 Mar 2013 10:25:53 +0100
-Message-ID: <513DA321.8070904@hhi.fraunhofer.de>
+Date: Mon, 11 Mar 2013 10:49:50 +0100
+Message-ID: <513DA8BE.8030403@hhi.fraunhofer.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.HHI.FRAUNHOFER.DE ([193.174.67.45]:36902 "EHLO
+Received: from mail.HHI.FRAUNHOFER.DE ([193.174.67.45]:44074 "EHLO
 	mailgw.hhi.fraunhofer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752079Ab3CKJpi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 05:45:38 -0400
+	with ESMTP id S1752797Ab3CKJts (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 05:49:48 -0400
 Received: from [172.17.131.45] (unknown [172.17.131.45])
-	by mailgw.hhi.fraunhofer.de (Postfix) with ESMTP id 70E26186804C
-	for <netdev@vger.kernel.org>; Mon, 11 Mar 2013 10:26:02 +0100 (CET)
+	by mailgw.hhi.fraunhofer.de (Postfix) with ESMTP id 78F19186806E
+	for <netdev@vger.kernel.org>; Mon, 11 Mar 2013 10:49:48 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
