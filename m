@@ -1,74 +1,222 @@
-From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH] net/ipv4: Ensure that location of timestamp option is stored
-Date: Mon, 11 Mar 2013 16:43:39 -0400
-Message-ID: <1363034619-5887-1-git-send-email-david.ward@ll.mit.edu>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Ward <david.ward@ll.mit.edu>
-To: <netdev@vger.kernel.org>
+From: Nandita Dukkipati <nanditad@google.com>
+Subject: [PATCH 2/2] tcp: TLP loss detection.
+Date: Mon, 11 Mar 2013 13:00:44 -0700
+Message-ID: <1363032044-27315-2-git-send-email-nanditad@google.com>
+References: <1363032044-27315-1-git-send-email-nanditad@google.com>
+Cc: netdev@vger.kernel.org,
+	Ilpo Jarvinen <ilpo.jarvinen@cs.helsinki.fi>,
+	Tom Herbert <therbert@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX1.LL.MIT.EDU ([129.55.12.45]:51953 "EHLO mx1.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753690Ab3CKVEX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Mar 2013 17:04:23 -0400
-Received: from LLE2K7-HUB01.mitll.ad.local (LLE2K7-HUB01.mitll.ad.local) by mx1.ll.mit.edu (unknown) with ESMTP id r2BKgG7o005630 for <netdev@vger.kernel.org>; Mon, 11 Mar 2013 16:44:12 -0400
+Received: from mail-vb0-f73.google.com ([209.85.212.73]:39026 "EHLO
+	mail-vb0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753913Ab3CKVEx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 17:04:53 -0400
+Received: by mail-vb0-f73.google.com with SMTP id fj18so357022vbb.4
+        for <netdev@vger.kernel.org>; Mon, 11 Mar 2013 14:04:52 -0700 (PDT)
+In-Reply-To: <1363032044-27315-1-git-send-email-nanditad@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is needed in order to detect if the timestamp option appears
-more than once in a packet, to remove the option if the packet is
-fragmented, etc. My previous change neglected to store the option
-location when the router addresses were prespecified and Pointer >
-Length. But now the option location is also stored when Flag is an
-unrecognized value, to ensure these option handling behaviors are
-still performed.
+This is the second of the TLP patch series; it augments the basic TLP
+algorithm with a loss detection scheme.
 
-Signed-off-by: David Ward <david.ward@ll.mit.edu>
+This patch implements a mechanism for loss detection when a Tail
+loss probe retransmission plugs a hole thereby masking packet loss
+from the sender. The loss detection algorithm relies on counting
+TLP dupacks as outlined in Sec. 3 of:
+http://tools.ietf.org/html/draft-dukkipati-tcpm-tcp-loss-probe-01
+
+The basic idea is: Sender keeps track of TLP "episode" upon
+retransmission of a TLP packet. An episode ends when the sender receives
+an ACK above the SND.NXT (tracked by tlp_high_seq) at the time of the
+episode. We want to make sure that before the episode ends the sender
+receives a "TLP dupack", indicating that the TLP retransmission was
+unnecessary, so there was no loss/hole that needed plugging. If the
+sender gets no TLP dupack before the end of the episode, then it reduces
+ssthresh and the congestion window, because the TLP packet arriving at
+the receiver probably plugged a hole.
+
+Signed-off-by: Nandita Dukkipati <nanditad@google.com>
 ---
- net/ipv4/ip_options.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
+ include/linux/tcp.h       |  1 +
+ include/uapi/linux/snmp.h |  1 +
+ net/ipv4/proc.c           |  1 +
+ net/ipv4/tcp_input.c      | 39 +++++++++++++++++++++++++++++++++++++++
+ net/ipv4/tcp_minisocks.c  |  1 +
+ net/ipv4/tcp_output.c     |  9 +++++++++
+ net/ipv4/tcp_timer.c      |  2 ++
+ 7 files changed, 54 insertions(+)
 
-diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
-index 310a364..ec72645 100644
---- a/net/ipv4/ip_options.c
-+++ b/net/ipv4/ip_options.c
-@@ -370,7 +370,6 @@ int ip_options_compile(struct net *net,
- 				}
- 				switch (optptr[3]&0xF) {
- 				      case IPOPT_TS_TSONLY:
--					opt->ts = optptr - iph;
- 					if (skb)
- 						timeptr = &optptr[optptr[2]-1];
- 					opt->ts_needtime = 1;
-@@ -381,7 +380,6 @@ int ip_options_compile(struct net *net,
- 						pp_ptr = optptr + 2;
- 						goto error;
- 					}
--					opt->ts = optptr - iph;
- 					if (rt)  {
- 						spec_dst_fill(&spec_dst, skb);
- 						memcpy(&optptr[optptr[2]-1], &spec_dst, 4);
-@@ -396,7 +394,6 @@ int ip_options_compile(struct net *net,
- 						pp_ptr = optptr + 2;
- 						goto error;
- 					}
--					opt->ts = optptr - iph;
- 					{
- 						__be32 addr;
- 						memcpy(&addr, &optptr[optptr[2]-1], 4);
-@@ -429,12 +426,12 @@ int ip_options_compile(struct net *net,
- 					pp_ptr = optptr + 3;
- 					goto error;
- 				}
--				opt->ts = optptr - iph;
- 				if (skb) {
- 					optptr[3] = (optptr[3]&0xF)|((overflow+1)<<4);
- 					opt->is_changed = 1;
- 				}
- 			}
-+			opt->ts = optptr - iph;
- 			break;
- 		      case IPOPT_RA:
- 			if (optlen < 4) {
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 01860d7..763c108 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -204,6 +204,7 @@ struct tcp_sock {
+ 		syn_data:1,	/* SYN includes data */
+ 		syn_fastopen:1,	/* SYN includes Fast Open option */
+ 		syn_data_acked:1;/* data in SYN is acked by SYN-ACK */
++	u32	tlp_high_seq;	/* snd_nxt at the time of TLP retransmit. */
+ 
+ /* RTT measurement */
+ 	u32	srtt;		/* smoothed round trip time << 3	*/
+diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
+index 290bed6..e00013a 100644
+--- a/include/uapi/linux/snmp.h
++++ b/include/uapi/linux/snmp.h
+@@ -203,6 +203,7 @@ enum
+ 	LINUX_MIB_TCPSLOWSTARTRETRANS,		/* TCPSlowStartRetrans */
+ 	LINUX_MIB_TCPTIMEOUTS,			/* TCPTimeouts */
+ 	LINUX_MIB_TCPLOSSPROBES,		/* TCPLossProbes */
++	LINUX_MIB_TCPLOSSPROBERECOVERY,		/* TCPLossProbeRecovery */
+ 	LINUX_MIB_TCPRENORECOVERYFAIL,		/* TCPRenoRecoveryFail */
+ 	LINUX_MIB_TCPSACKRECOVERYFAIL,		/* TCPSackRecoveryFail */
+ 	LINUX_MIB_TCPSCHEDULERFAILED,		/* TCPSchedulerFailed */
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 4c35911..b6f2ea1 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -225,6 +225,7 @@ static const struct snmp_mib snmp4_net_list[] = {
+ 	SNMP_MIB_ITEM("TCPSlowStartRetrans", LINUX_MIB_TCPSLOWSTARTRETRANS),
+ 	SNMP_MIB_ITEM("TCPTimeouts", LINUX_MIB_TCPTIMEOUTS),
+ 	SNMP_MIB_ITEM("TCPLossProbes", LINUX_MIB_TCPLOSSPROBES),
++	SNMP_MIB_ITEM("TCPLossProbeRecovery", LINUX_MIB_TCPLOSSPROBERECOVERY),
+ 	SNMP_MIB_ITEM("TCPRenoRecoveryFail", LINUX_MIB_TCPRENORECOVERYFAIL),
+ 	SNMP_MIB_ITEM("TCPSackRecoveryFail", LINUX_MIB_TCPSACKRECOVERYFAIL),
+ 	SNMP_MIB_ITEM("TCPSchedulerFailed", LINUX_MIB_TCPSCHEDULERFAILED),
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index b794f89..836d74d 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2682,6 +2682,7 @@ static void tcp_init_cwnd_reduction(struct sock *sk, const bool set_ssthresh)
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+ 	tp->high_seq = tp->snd_nxt;
++	tp->tlp_high_seq = 0;
+ 	tp->snd_cwnd_cnt = 0;
+ 	tp->prior_cwnd = tp->snd_cwnd;
+ 	tp->prr_delivered = 0;
+@@ -3569,6 +3570,38 @@ static void tcp_send_challenge_ack(struct sock *sk)
+ 	}
+ }
+ 
++/* This routine deals with acks during a TLP episode.
++ * Ref: loss detection algorithm in draft-dukkipati-tcpm-tcp-loss-probe.
++ */
++static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	bool is_tlp_dupack = (ack == tp->tlp_high_seq) &&
++			     !(flag & (FLAG_SND_UNA_ADVANCED |
++				       FLAG_NOT_DUP | FLAG_DATA_SACKED));
++
++	/* Mark the end of TLP episode on receiving TLP dupack or when
++	 * ack is after tlp_high_seq.
++	 */
++	if (is_tlp_dupack) {
++		tp->tlp_high_seq = 0;
++		return;
++	}
++
++	if (after(ack, tp->tlp_high_seq)) {
++		tp->tlp_high_seq = 0;
++		/* Don't reduce cwnd if DSACK arrives for TLP retrans. */
++		if (!(flag & FLAG_DSACKING_ACK)) {
++			tcp_init_cwnd_reduction(sk, true);
++			tcp_set_ca_state(sk, TCP_CA_CWR);
++			tcp_end_cwnd_reduction(sk);
++			tcp_set_ca_state(sk, TCP_CA_Open);
++			NET_INC_STATS_BH(sock_net(sk),
++					 LINUX_MIB_TCPLOSSPROBERECOVERY);
++		}
++	}
++}
++
+ /* This routine deals with incoming acks, but not outgoing ones. */
+ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ {
+@@ -3676,6 +3709,9 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 			tcp_cong_avoid(sk, ack, prior_in_flight);
+ 	}
+ 
++	if (tp->tlp_high_seq)
++		tcp_process_tlp_ack(sk, ack, flag);
++
+ 	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag & FLAG_NOT_DUP)) {
+ 		struct dst_entry *dst = __sk_dst_get(sk);
+ 		if (dst)
+@@ -3697,6 +3733,9 @@ no_queue:
+ 	 */
+ 	if (tcp_send_head(sk))
+ 		tcp_ack_probe(sk);
++
++	if (tp->tlp_high_seq)
++		tcp_process_tlp_ack(sk, ack, flag);
+ 	return 1;
+ 
+ invalid_ack:
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index b83a49c..4bdb09f 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -440,6 +440,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
+ 		newtp->fackets_out = 0;
+ 		newtp->snd_ssthresh = TCP_INFINITE_SSTHRESH;
+ 		tcp_enable_early_retrans(newtp);
++		newtp->tlp_high_seq = 0;
+ 
+ 		/* So many TCP implementations out there (incorrectly) count the
+ 		 * initial SYN frame in their delayed-ACK and congestion control
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index beb63db..8e7742f 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2132,6 +2132,7 @@ bool tcp_schedule_loss_probe(struct sock *sk)
+  */
+ void tcp_send_loss_probe(struct sock *sk)
+ {
++	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct sk_buff *skb;
+ 	int pcount;
+ 	int mss = tcp_current_mss(sk);
+@@ -2142,6 +2143,10 @@ void tcp_send_loss_probe(struct sock *sk)
+ 		goto rearm_timer;
+ 	}
+ 
++	/* At most one outstanding TLP retransmission. */
++	if (tp->tlp_high_seq)
++		goto rearm_timer;
++
+ 	/* Retransmit last segment. */
+ 	skb = tcp_write_queue_tail(sk);
+ 	if (WARN_ON(!skb))
+@@ -2164,6 +2169,10 @@ void tcp_send_loss_probe(struct sock *sk)
+ 	if (skb->len > 0)
+ 		err = __tcp_retransmit_skb(sk, skb);
+ 
++	/* Record snd_nxt for loss detection. */
++	if (likely(!err))
++		tp->tlp_high_seq = tp->snd_nxt;
++
+ rearm_timer:
+ 	inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
+ 				  inet_csk(sk)->icsk_rto,
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index ecd61d5..eeccf79 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -356,6 +356,8 @@ void tcp_retransmit_timer(struct sock *sk)
+ 
+ 	WARN_ON(tcp_write_queue_empty(sk));
+ 
++	tp->tlp_high_seq = 0;
++
+ 	if (!tp->snd_wnd && !sock_flag(sk, SOCK_DEAD) &&
+ 	    !((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV))) {
+ 		/* Receiver dastardly shrinks window. Our retransmits
 -- 
-1.7.1
+1.8.1.3
