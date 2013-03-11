@@ -1,49 +1,51 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: Re: [PATCH net-next] cxgb4: Allow for backward compatibility with
- new VPD scheme.
-Date: Mon, 11 Mar 2013 11:21:51 +0530
-Message-ID: <513D70F7.4090708@chelsio.com>
-References: <1362749729-4532-1-git-send-email-vipul@chelsio.com> <20130308.124411.445253877641244372.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/2] bnx2x: use the default NAPI weight
+Date: Mon, 11 Mar 2013 07:14:57 +0100
+Message-ID: <1362982497.4051.37.camel@edumazet-glaptop>
+References: <1362540509.15793.158.camel@edumazet-glaptop>
+	 <20130305.233744.498353801662910535.davem@davemloft.net>
+	 <1362553398.15793.168.camel@edumazet-glaptop>
+	 <20130306.145947.1445904594058156164.davem@davemloft.net>
+	 <1362606777.15793.198.camel@edumazet-glaptop>
+	 <20130310083800.GC10448@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Divy Le Ray <divy@chelsio.com>,
-	Dimitrios Michailidis <dm@chelsio.com>,
-	Abhishek Agrawal <abhishek@chelsio.com>,
-	Santosh Rastapur <santosh@chelsio.com>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	eilong@broadcom.com, jhs@mojatatu.com,
+	Tom Herbert <therbert@google.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:14650 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751573Ab3CKFv5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 01:51:57 -0400
-In-Reply-To: <20130308.124411.445253877641244372.davem@davemloft.net>
+Received: from mail-ea0-f181.google.com ([209.85.215.181]:34030 "EHLO
+	mail-ea0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751900Ab3CKGPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 02:15:03 -0400
+Received: by mail-ea0-f181.google.com with SMTP id z10so994943ead.40
+        for <netdev@vger.kernel.org>; Sun, 10 Mar 2013 23:15:01 -0700 (PDT)
+In-Reply-To: <20130310083800.GC10448@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 08-03-2013 23:14, David Miller wrote:
-> From: Vipul Pandya <vipul@chelsio.com>
-> Date: Fri,  8 Mar 2013 19:05:29 +0530
+On Sun, 2013-03-10 at 16:38 +0800, Herbert Xu wrote:
+> On Wed, Mar 06, 2013 at 01:52:57PM -0800, Eric Dumazet wrote:
+> >
+> > - BQL (incurring more TX completion rounds and possibility to
+> > block/unblock a qdisc)
+> > - ticket spinlocks, and even with the guard of qdisc busylock
+> > 
+> > -> we can have a starvation problem.
 > 
->> From: Santosh Rastapur <santosh@chelsio.com>
->>
->> New scheme calls for 3rd party VPD at offset 0x0 and Chelsio VPD at offset
->> 0x400 of the function.  If no 3rd party VPD is present, then a copy of
->> Chelsio's VPD will be at offset 0x0 to keep in line with PCI spec which
->> requires the VPD to be present at offset 0x0.
->>
->> Signed-off-by: Santosh Rastapur <santosh@chelsio.com>
->> Signed-off-by: Vipul Pandya <vipul@chelsio.com>
-> 
-> Isn't this a fix which is better targetted at 'net' than 'net-next'?
+> This only happens in cases where we aren't using multiqueue or
+> we're using it incorrectly, resulting in TX work from being split
+> over CPUs.
 > 
 
-We have very soon new patch series coming up for net-next. This patch
-requires for that patch series to work correctly. So, we would like to
-get this merge in net-next tree.
+Or using qdisc like HTB ;)
 
-Thanks,
-Vipul
+> In that case it's not clear that it is starvation if we keep the
+> TX processing on one CPU.
+
+Thats not always the case. TX path has interesting features like XPS ...
+
+We probably could add instrumentation and keep track of the maximum time
+we are spending in this dark area.
