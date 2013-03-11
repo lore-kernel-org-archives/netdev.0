@@ -1,149 +1,41 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: don't break the loop while meeting the active_path
- so as to find the matched transport
-Date: Mon, 11 Mar 2013 09:31:21 -0400
-Message-ID: <20130311133121.GD12682@hmsreliant.think-freely.org>
-References: <1362728377-11025-1-git-send-email-xufeng.zhang@windriver.com>
- <20130308142720.GA9873@hmsreliant.think-freely.org>
- <CA+=dFzjyd4av9D1TmrvguRXv-V7JnGWYJcN=ZEDu8Qhz2s+U7Q@mail.gmail.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] qlcnic: remove duplicated include from qlcnic_sysfs.c
+Date: Mon, 11 Mar 2013 22:29:50 +0800
+Message-ID: <CAPgLHd8pPtK+uNtBEA1LBsS64qYe8M6R+OGnVcfq8BhKdds9BA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Xufeng Zhang <xufeng.zhang@windriver.com>, vyasevich@gmail.com,
-	davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Xufeng Zhang <xufengzhang.main@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, linux-driver@qlogic.com,
+	netdev@vger.kernel.org
+To: jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39884 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751122Ab3CKNbg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 09:31:36 -0400
-Content-Disposition: inline
-In-Reply-To: <CA+=dFzjyd4av9D1TmrvguRXv-V7JnGWYJcN=ZEDu8Qhz2s+U7Q@mail.gmail.com>
+Received: from mail-bk0-f41.google.com ([209.85.214.41]:62663 "EHLO
+	mail-bk0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750872Ab3CKO3v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 10:29:51 -0400
+Received: by mail-bk0-f41.google.com with SMTP id q16so1744365bkw.0
+        for <netdev@vger.kernel.org>; Mon, 11 Mar 2013 07:29:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 11, 2013 at 10:14:50AM +0800, Xufeng Zhang wrote:
-> On 3/8/13, Neil Horman <nhorman@tuxdriver.com> wrote:
-> > On Fri, Mar 08, 2013 at 03:39:37PM +0800, Xufeng Zhang wrote:
-> >> sctp_assoc_lookup_tsn() function searchs which transport a certain TSN
-> >> was sent on, if not found in the active_path transport, then go search
-> >> all the other transports in the peer's transport_addr_list, however, we
-> >> should continue to the next entry rather than break the loop when meet
-> >> the active_path transport.
-> >>
-> >> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
-> >> ---
-> >>  net/sctp/associola.c |    2 +-
-> >>  1 files changed, 1 insertions(+), 1 deletions(-)
-> >>
-> >> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> >> index 43cd0dd..d2709e2 100644
-> >> --- a/net/sctp/associola.c
-> >> +++ b/net/sctp/associola.c
-> >> @@ -1079,7 +1079,7 @@ struct sctp_transport *sctp_assoc_lookup_tsn(struct
-> >> sctp_association *asoc,
-> >>  			transports) {
-> >>
-> >>  		if (transport == active)
-> >> -			break;
-> >> +			continue;
-> >>  		list_for_each_entry(chunk, &transport->transmitted,
-> >>  				transmitted_list) {
-> >>  			if (key == chunk->subh.data_hdr->tsn) {
-> >> --
-> >> 1.7.0.2
-> >>
-> >>
-> >
-> > This works, but what might be better would be if we did a move to front
-> > heuristic in sctp_assoc_set_primary.  E.g. when we set the active_path, move
-> > the
-> > requisite transport to the front of the transport_addr_list.  If we did
-> > that,
-> > then we could just do one for loop in sctp_assoc_lookup_tsn and wind up
-> > implicitly check the active path first without having to check it seprately
-> > and
-> > skip it in the second for loop.
-> 
-> Thanks for your review, Neil!
-> 
-> I know what you mean, yes, it's most probably that the searched TSN was
-> transmitted in the currently active_path, but what should we do if not.
-> 
-> Check the comment in sctp_assoc_lookup_tsn() function:
-> /* Let's be hopeful and check the active_path first. */
-> /* If not found, go search all the other transports. */
-> 
-> It has checked the active_path first and then traverse all the other
-> transports in
-> the transport_addr_list except the active_path.
-> 
-> So what I want to fix here is the inconsistency between the function
-> should do and
-> the code actually does.
-> 
-I understand what you're doing, and I agree that the fix is functional (Hence
-my "This works" statement in my last note).  What I'm suggesting is that, since
-you're messing about in that code anyway that you clean it up while your at it,
-so that we don't need to have the if (transport == active) check at all.  We
-trade in some extra work in a non-critical path (sctp_assoc_set_primary), for
-the removal of an extra for loop operation and a conditional check in a much
-hotter path.  Something like this (completely untested), is what I was thinking
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
+Remove duplicated include.
 
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 43cd0dd..8ae873c 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -505,6 +505,9 @@ void sctp_assoc_set_primary(struct sctp_association *asoc,
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+index 987fb6f..4e464dc 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+@@ -21,8 +21,6 @@
+ #include <linux/aer.h>
+ #include <linux/log2.h>
  
- 	asoc->peer.primary_path = transport;
- 
-+	list_del_rcu(&transport->transports);
-+	list_add_rcu(&transport->transports, &asoc->peer.transport_addr_list);
-+
- 	/* Set a default msg_name for events. */
- 	memcpy(&asoc->peer.primary_addr, &transport->ipaddr,
- 	       sizeof(union sctp_addr));
-@@ -1040,7 +1043,6 @@ struct sctp_chunk *sctp_get_ecne_prepend(struct sctp_association *asoc)
- struct sctp_transport *sctp_assoc_lookup_tsn(struct sctp_association *asoc,
- 					     __u32 tsn)
- {
--	struct sctp_transport *active;
- 	struct sctp_transport *match;
- 	struct sctp_transport *transport;
- 	struct sctp_chunk *chunk;
-@@ -1057,29 +1059,16 @@ struct sctp_transport *sctp_assoc_lookup_tsn(struct sctp_association *asoc,
- 	 * The general strategy is to search each transport's transmitted
- 	 * list.   Return which transport this TSN lives on.
- 	 *
--	 * Let's be hopeful and check the active_path first.
--	 * Another optimization would be to know if there is only one
--	 * outbound path and not have to look for the TSN at all.
-+	 * Note, that sctp_assoc_set_primary does a move to front operation
-+	 * on the active_path transport, so this code implicitly checks
-+	 * the active_path first, as we most commonly expect to find our TSN
-+	 * there.
- 	 *
- 	 */
- 
--	active = asoc->peer.active_path;
+-#include <linux/sysfs.h>
 -
--	list_for_each_entry(chunk, &active->transmitted,
--			transmitted_list) {
--
--		if (key == chunk->subh.data_hdr->tsn) {
--			match = active;
--			goto out;
--		}
--	}
--
--	/* If not found, go search all the other transports. */
- 	list_for_each_entry(transport, &asoc->peer.transport_addr_list,
- 			transports) {
+ #define QLC_STATUS_UNSUPPORTED_CMD	-2
  
--		if (transport == active)
--			break;
- 		list_for_each_entry(chunk, &transport->transmitted,
- 				transmitted_list) {
- 			if (key == chunk->subh.data_hdr->tsn) {
+ int qlcnicvf_config_bridged_mode(struct qlcnic_adapter *adapter, u32 enable)
