@@ -1,268 +1,89 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 22/22] sfc: allocate more RX buffers per page
-Date: Mon, 11 Mar 2013 19:59:37 +0000
-Message-ID: <1363031977.2608.59.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1363030400.2608.37.camel@bwh-desktop.uk.solarflarecom.com>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH linux-next v2] SUNRPC: rpcrdma_register_default_external:
+ Dynamically allocate ib_phys_buf
+Date: Mon, 11 Mar 2013 16:00:17 -0400
+Message-ID: <20130311200017.GD642@fieldses.org>
+References: <20130310202838.GL31448@fieldses.org>
+ <1363023447-22453-1-git-send-email-tim.gardner@canonical.com>
+ <20130311181450.GC30618@fieldses.org>
+ <513E27C0.8050108@canonical.com>
+ <20130311191545.GA642@fieldses.org>
+ <4FA345DA4F4AE44899BD2B03EEEC2FA9286BA156@sacexcmbx05-prd.hq.netapp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	<scrum-linux@solarflare.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:16888 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753102Ab3CKT7l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 15:59:41 -0400
-In-Reply-To: <1363030400.2608.37.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Tom Tucker <tom-/Yg/VP3ZvrM@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shani Michaeli <shanim-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4FA345DA4F4AE44899BD2B03EEEC2FA9286BA156-UCI0kNdgLrHLJmV3vhxcH3OR4cbS7gtM96Bgd4bDwmQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From:  Daniel Pieczko <dpieczko@solarflare.com>
+On Mon, Mar 11, 2013 at 07:48:51PM +0000, Myklebust, Trond wrote:
+> On Mon, 2013-03-11 at 15:15 -0400, J. Bruce Fields wrote:
+> > On Mon, Mar 11, 2013 at 12:51:44PM -0600, Tim Gardner wrote:
+> > > On 03/11/2013 12:14 PM, J. Bruce Fields wrote:
+> > > <snip>
+> > > >>
+> > > >> v2 - Move the array of 'struct ib_phys_buf' objects into struct rpcrdma_req
+> > > >> and pass this request down through rpcrdma_register_external() and
+> > > >> rpcrdma_register_default_external(). This is less overhead then using
+> > > >> kmalloc() and requires no extra error checking as the allocation burden is
+> > > >> shifted to the transport client.
+> > > > 
+> > > > Oh good--so that works, and the req is the right place to put this?  How
+> > > > are you testing this?
+> > > > 
+> > > > (Just want to make it clear: I'm *not* an expert on the rdma code, so my
+> > > > suggestion to put this in the rpcrdma_req was a suggestion for something
+> > > > to look into, not a claim that it's correct.)
+> > > > 
+> > > 
+> > > Just compile tested so far. Incidentally, I've been through the call stack:
+> > > 
+> > > call_transmit
+> > >  xprt_transmit
+> > >   xprt->ops->send_request(task)
+> > >    xprt_rdma_send_request
+> > >     rpcrdma_marshal_req
+> > >      rpcrdma_create_chunks
+> > >       rpcrdma_register_external
+> > >        rpcrdma_register_default_external
+> > > 
+> > > It appears that the context for kmalloc() should be fine unless there is
+> > > a spinlock held around call_transmit() (which seems unlikely).
+> > 
+> > Right, though I think it shouldn't be GFP_KERNEL--looks like writes
+> > could wait on it.
+> 
+> Nothing inside the RPC client should be using anything heavier than
+> GFP_NOWAIT (unless done at setup).
+> 
+> > In any case, the embedding-in-rpcrdma_req solution does look cleaner if
+> > that's correct (e.g. if we can be sure there won't be two simultaneous
+> > users of that array).
+> 
+> Putting it in the rpcrdma_req means that you have one copy per transport
+> slot. Why not rather put it in the rpcrdma_xprt?
+> AFAICS you only need this array at transmit time for registering memory
+> for RDMA, at which time the transport XPRT_LOCK guarantees that nobody
+> else is competing for these resources.
 
-Allocating 2 buffers per page is insanely inefficient when MTU is 1500
-and PAGE_SIZE is 64K (as it usually is on POWER).  Allocate as many as
-we can fit, and choose the refill batch size at run-time so that we
-still always use a whole page at once.
+Oh, good.  If that works, Steve might want to look back at how that
+array size was chosen?  I seem to recall there being some compromise due
+to this array being on the stack, and that there might have been some
+performance advantage to increasing it further, but I can't find the bug
+right now....  (And I might be misremembering.)
 
-[bwh: Fix loop condition to allow for compound pages; rebase]
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/efx.c        |   18 +++++---
- drivers/net/ethernet/sfc/efx.h        |    1 +
- drivers/net/ethernet/sfc/net_driver.h |    2 +
- drivers/net/ethernet/sfc/rx.c         |   80 +++++++++++++++++---------------
- 4 files changed, 56 insertions(+), 45 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index a70c458..f050248 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -643,10 +643,6 @@ static void efx_start_datapath(struct efx_nic *efx)
- 	if (rx_buf_len <= PAGE_SIZE) {
- 		efx->rx_scatter = false;
- 		efx->rx_buffer_order = 0;
--		if (rx_buf_len <= PAGE_SIZE / 2)
--			efx->rx_buffer_truesize = PAGE_SIZE / 2;
--		else
--			efx->rx_buffer_truesize = PAGE_SIZE;
- 	} else if (efx->type->can_rx_scatter) {
- 		BUILD_BUG_ON(sizeof(struct efx_rx_page_state) +
- 			     EFX_PAGE_IP_ALIGN + EFX_RX_USR_BUF_SIZE >
-@@ -654,14 +650,22 @@ static void efx_start_datapath(struct efx_nic *efx)
- 		efx->rx_scatter = true;
- 		efx->rx_dma_len = EFX_RX_USR_BUF_SIZE;
- 		efx->rx_buffer_order = 0;
--		efx->rx_buffer_truesize = PAGE_SIZE / 2;
- 	} else {
- 		efx->rx_scatter = false;
- 		efx->rx_buffer_order = get_order(rx_buf_len);
--		efx->rx_buffer_truesize = PAGE_SIZE << efx->rx_buffer_order;
- 	}
- 
--	efx->rx_bufs_per_page = (rx_buf_len <= PAGE_SIZE / 2) ? 2 : 1;
-+	efx_rx_config_page_split(efx);
-+	if (efx->rx_buffer_order)
-+		netif_dbg(efx, drv, efx->net_dev,
-+			  "RX buf len=%u; page order=%u batch=%u\n",
-+			  efx->rx_dma_len, efx->rx_buffer_order,
-+			  efx->rx_pages_per_batch);
-+	else
-+		netif_dbg(efx, drv, efx->net_dev,
-+			  "RX buf len=%u step=%u bpp=%u; page batch=%u\n",
-+			  efx->rx_dma_len, efx->rx_page_buf_step,
-+			  efx->rx_bufs_per_page, efx->rx_pages_per_batch);
- 
- 	/* RX filters also have scatter-enabled flags */
- 	if (efx->rx_scatter != old_rx_scatter)
-diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
-index 211da79..8372da2 100644
---- a/drivers/net/ethernet/sfc/efx.h
-+++ b/drivers/net/ethernet/sfc/efx.h
-@@ -33,6 +33,7 @@ extern int efx_setup_tc(struct net_device *net_dev, u8 num_tc);
- extern unsigned int efx_tx_max_skb_descs(struct efx_nic *efx);
- 
- /* RX */
-+extern void efx_rx_config_page_split(struct efx_nic *efx);
- extern int efx_probe_rx_queue(struct efx_rx_queue *rx_queue);
- extern void efx_remove_rx_queue(struct efx_rx_queue *rx_queue);
- extern void efx_init_rx_queue(struct efx_rx_queue *rx_queue);
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index e22e75c..9bd433a 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -825,7 +825,9 @@ struct efx_nic {
- 	unsigned int rx_dma_len;
- 	unsigned int rx_buffer_order;
- 	unsigned int rx_buffer_truesize;
-+	unsigned int rx_page_buf_step;
- 	unsigned int rx_bufs_per_page;
-+	unsigned int rx_pages_per_batch;
- 	u8 rx_hash_key[40];
- 	u32 rx_indir_table[128];
- 	bool rx_scatter;
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 4cc2ba4..a948b36 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -25,19 +25,15 @@
- #include "selftest.h"
- #include "workarounds.h"
- 
--/* Number of RX descriptors pushed at once. */
--#define EFX_RX_BATCH  8
-+/* Preferred number of descriptors to fill at once */
-+#define EFX_RX_PREFERRED_BATCH 8U
- 
- /* Number of RX buffers to recycle pages for.  When creating the RX page recycle
-  * ring, this number is divided by the number of buffers per page to calculate
-  * the number of pages to store in the RX page recycle ring.
-  */
- #define EFX_RECYCLE_RING_SIZE_IOMMU 4096
--#define EFX_RECYCLE_RING_SIZE_NOIOMMU (2 * EFX_RX_BATCH)
--
--/* Maximum length for an RX descriptor sharing a page */
--#define EFX_RX_HALF_PAGE ((PAGE_SIZE >> 1) - sizeof(struct efx_rx_page_state) \
--			  - EFX_PAGE_IP_ALIGN)
-+#define EFX_RECYCLE_RING_SIZE_NOIOMMU (2 * EFX_RX_PREFERRED_BATCH)
- 
- /* Size of buffer allocated for skb header area. */
- #define EFX_SKB_HEADERS  64u
-@@ -95,6 +91,19 @@ static inline void efx_sync_rx_buffer(struct efx_nic *efx,
- 				DMA_FROM_DEVICE);
- }
- 
-+void efx_rx_config_page_split(struct efx_nic *efx)
-+{
-+	efx->rx_page_buf_step = ALIGN(efx->rx_dma_len + EFX_PAGE_IP_ALIGN,
-+				      L1_CACHE_BYTES);
-+	efx->rx_bufs_per_page = efx->rx_buffer_order ? 1 :
-+		((PAGE_SIZE - sizeof(struct efx_rx_page_state)) /
-+		 efx->rx_page_buf_step);
-+	efx->rx_buffer_truesize = (PAGE_SIZE << efx->rx_buffer_order) /
-+		efx->rx_bufs_per_page;
-+	efx->rx_pages_per_batch = DIV_ROUND_UP(EFX_RX_PREFERRED_BATCH,
-+					       efx->rx_bufs_per_page);
-+}
-+
- /* Check the RX page recycle ring for a page that can be reused. */
- static struct page *efx_reuse_page(struct efx_rx_queue *rx_queue)
- {
-@@ -134,10 +143,10 @@ static struct page *efx_reuse_page(struct efx_rx_queue *rx_queue)
-  *
-  * @rx_queue:		Efx RX queue
-  *
-- * This allocates memory for EFX_RX_BATCH receive buffers, maps them for DMA,
-- * and populates struct efx_rx_buffers for each one. Return a negative error
-- * code or 0 on success. If a single page can be split between two buffers,
-- * then the page will either be inserted fully, or not at at all.
-+ * This allocates a batch of pages, maps them for DMA, and populates
-+ * struct efx_rx_buffers for each one. Return a negative error code or
-+ * 0 on success. If a single page can be used for multiple buffers,
-+ * then the page will either be inserted fully, or not at all.
-  */
- static int efx_init_rx_buffers(struct efx_rx_queue *rx_queue)
- {
-@@ -149,10 +158,8 @@ static int efx_init_rx_buffers(struct efx_rx_queue *rx_queue)
- 	dma_addr_t dma_addr;
- 	unsigned index, count;
- 
--	/* We can split a page between two buffers */
--	BUILD_BUG_ON(EFX_RX_BATCH & 1);
--
--	for (count = 0; count < EFX_RX_BATCH; ++count) {
-+	count = 0;
-+	do {
- 		page = efx_reuse_page(rx_queue);
- 		if (page == NULL) {
- 			page = alloc_pages(__GFP_COLD | __GFP_COMP | GFP_ATOMIC,
-@@ -174,32 +181,26 @@ static int efx_init_rx_buffers(struct efx_rx_queue *rx_queue)
- 			state = page_address(page);
- 			dma_addr = state->dma_addr;
- 		}
--		get_page(page);
- 
- 		dma_addr += sizeof(struct efx_rx_page_state);
- 		page_offset = sizeof(struct efx_rx_page_state);
- 
--	split:
--		index = rx_queue->added_count & rx_queue->ptr_mask;
--		rx_buf = efx_rx_buffer(rx_queue, index);
--		rx_buf->dma_addr = dma_addr + EFX_PAGE_IP_ALIGN;
--		rx_buf->page = page;
--		rx_buf->page_offset = page_offset + EFX_PAGE_IP_ALIGN;
--		rx_buf->len = efx->rx_dma_len;
--		++rx_queue->added_count;
--
--		if ((~count & 1) && (efx->rx_dma_len <= EFX_RX_HALF_PAGE)) {
--			/* Use the second half of the page */
--			get_page(page);
-+		do {
-+			index = rx_queue->added_count & rx_queue->ptr_mask;
-+			rx_buf = efx_rx_buffer(rx_queue, index);
-+			rx_buf->dma_addr = dma_addr + EFX_PAGE_IP_ALIGN;
-+			rx_buf->page = page;
-+			rx_buf->page_offset = page_offset + EFX_PAGE_IP_ALIGN;
-+			rx_buf->len = efx->rx_dma_len;
- 			rx_buf->flags = 0;
--			dma_addr += (PAGE_SIZE >> 1);
--			page_offset += (PAGE_SIZE >> 1);
--			++count;
--			goto split;
--		}
-+			++rx_queue->added_count;
-+			get_page(page);
-+			dma_addr += efx->rx_page_buf_step;
-+			page_offset += efx->rx_page_buf_step;
-+		} while (page_offset + efx->rx_page_buf_step <= PAGE_SIZE);
- 
- 		rx_buf->flags = EFX_RX_BUF_LAST_IN_PAGE;
--	}
-+	} while (++count < efx->rx_pages_per_batch);
- 
- 	return 0;
- }
-@@ -307,7 +308,8 @@ static void efx_recycle_rx_buffers(struct efx_channel *channel,
-  */
- void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue)
- {
--	unsigned fill_level;
-+	struct efx_nic *efx = rx_queue->efx;
-+	unsigned int fill_level, batch_size;
- 	int space, rc = 0;
- 
- 	/* Calculate current fill level, and exit if we don't need to fill */
-@@ -322,8 +324,9 @@ void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue)
- 			rx_queue->min_fill = fill_level;
- 	}
- 
-+	batch_size = efx->rx_pages_per_batch * efx->rx_bufs_per_page;
- 	space = rx_queue->max_fill - fill_level;
--	EFX_BUG_ON_PARANOID(space < EFX_RX_BATCH);
-+	EFX_BUG_ON_PARANOID(space < batch_size);
- 
- 	netif_vdbg(rx_queue->efx, rx_status, rx_queue->efx->net_dev,
- 		   "RX queue %d fast-filling descriptor ring from"
-@@ -340,7 +343,7 @@ void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue)
- 				efx_schedule_slow_fill(rx_queue);
- 			goto out;
- 		}
--	} while ((space -= EFX_RX_BATCH) >= EFX_RX_BATCH);
-+	} while ((space -= batch_size) >= batch_size);
- 
- 	netif_vdbg(rx_queue->efx, rx_status, rx_queue->efx->net_dev,
- 		   "RX queue %d fast-filled descriptor ring "
-@@ -708,7 +711,8 @@ void efx_init_rx_queue(struct efx_rx_queue *rx_queue)
- 
- 	/* Initialise limit fields */
- 	max_fill = efx->rxq_entries - EFX_RXD_HEAD_ROOM;
--	max_trigger = max_fill - EFX_RX_BATCH;
-+	max_trigger =
-+		max_fill - efx->rx_pages_per_batch * efx->rx_bufs_per_page;
- 	if (rx_refill_threshold != 0) {
- 		trigger = max_fill * min(rx_refill_threshold, 100U) / 100U;
- 		if (trigger > max_trigger)
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--b.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
