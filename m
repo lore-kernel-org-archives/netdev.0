@@ -1,88 +1,127 @@
-From: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH linux-next v2] SUNRPC:
- rpcrdma_register_default_external: Dynamically allocate ib_phys_buf
-Date: Mon, 11 Mar 2013 19:48:51 +0000
-Message-ID: <4FA345DA4F4AE44899BD2B03EEEC2FA9286BA156@sacexcmbx05-prd.hq.netapp.com>
-References: <20130310202838.GL31448@fieldses.org>
-	 <1363023447-22453-1-git-send-email-tim.gardner@canonical.com>
-	 <20130311181450.GC30618@fieldses.org> <513E27C0.8050108@canonical.com>
-	 <20130311191545.GA642@fieldses.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next 01/22] sfc: Allow efx_channel_type::receive_skb()
+ to reject a packet
+Date: Mon, 11 Mar 2013 19:53:11 +0000
+Message-ID: <1363031591.2608.38.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1363030400.2608.37.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, "Tom Tucker" <tom-/Yg/VP3ZvrM@public.gmane.org>,
-	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shani Michaeli <shanim-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130311191545.GA642-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Content-Language: en-US
-Content-ID: <5883212D2F34174E8925941C629BF1EC-oP88Kt8RkgzdA/Lu/QRl1Q@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
+	<scrum-linux@solarflare.com>,
+	Laurence Evans <levans@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:16690 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751565Ab3CKTxP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 15:53:15 -0400
+In-Reply-To: <1363030400.2608.37.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-03-11 at 15:15 -0400, J. Bruce Fields wrote:
-> On Mon, Mar 11, 2013 at 12:51:44PM -0600, Tim Gardner wrote:
-> > On 03/11/2013 12:14 PM, J. Bruce Fields wrote:
-> > <snip>
-> > >>
-> > >> v2 - Move the array of 'struct ib_phys_buf' objects into struct rpcrdma_req
-> > >> and pass this request down through rpcrdma_register_external() and
-> > >> rpcrdma_register_default_external(). This is less overhead then using
-> > >> kmalloc() and requires no extra error checking as the allocation burden is
-> > >> shifted to the transport client.
-> > > 
-> > > Oh good--so that works, and the req is the right place to put this?  How
-> > > are you testing this?
-> > > 
-> > > (Just want to make it clear: I'm *not* an expert on the rdma code, so my
-> > > suggestion to put this in the rpcrdma_req was a suggestion for something
-> > > to look into, not a claim that it's correct.)
-> > > 
-> > 
-> > Just compile tested so far. Incidentally, I've been through the call stack:
-> > 
-> > call_transmit
-> >  xprt_transmit
-> >   xprt->ops->send_request(task)
-> >    xprt_rdma_send_request
-> >     rpcrdma_marshal_req
-> >      rpcrdma_create_chunks
-> >       rpcrdma_register_external
-> >        rpcrdma_register_default_external
-> > 
-> > It appears that the context for kmalloc() should be fine unless there is
-> > a spinlock held around call_transmit() (which seems unlikely).
-> 
-> Right, though I think it shouldn't be GFP_KERNEL--looks like writes
-> could wait on it.
+Instead of having efx_ptp_rx() call netif_receive_skb() for an invalid
+PTP packet, make it return false for rejected packets and have
+efx_rx_deliver() pass them up.
 
-Nothing inside the RPC client should be using anything heavier than
-GFP_NOWAIT (unless done at setup).
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/sfc/net_driver.h |    2 +-
+ drivers/net/ethernet/sfc/ptp.c        |   16 +++++++---------
+ drivers/net/ethernet/sfc/rx.c         |   10 ++++++----
+ 3 files changed, 14 insertions(+), 14 deletions(-)
 
-> In any case, the embedding-in-rpcrdma_req solution does look cleaner if
-> that's correct (e.g. if we can be sure there won't be two simultaneous
-> users of that array).
-
-Putting it in the rpcrdma_req means that you have one copy per transport
-slot. Why not rather put it in the rpcrdma_xprt?
-AFAICS you only need this array at transmit time for registering memory
-for RDMA, at which time the transport XPRT_LOCK guarantees that nobody
-else is competing for these resources.
-
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 0a90abd..cdcf510 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -410,7 +410,7 @@ struct efx_channel_type {
+ 	void (*post_remove)(struct efx_channel *);
+ 	void (*get_name)(struct efx_channel *, char *buf, size_t len);
+ 	struct efx_channel *(*copy)(const struct efx_channel *);
+-	void (*receive_skb)(struct efx_channel *, struct sk_buff *);
++	bool (*receive_skb)(struct efx_channel *, struct sk_buff *);
+ 	bool keep_eventq;
+ };
+ 
+diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
+index 3f93624..faf4baf 100644
+--- a/drivers/net/ethernet/sfc/ptp.c
++++ b/drivers/net/ethernet/sfc/ptp.c
+@@ -1006,7 +1006,7 @@ bool efx_ptp_is_ptp_tx(struct efx_nic *efx, struct sk_buff *skb)
+  * the receive timestamp from the MC - this will probably occur after the
+  * packet arrival because of the processing in the MC.
+  */
+-static void efx_ptp_rx(struct efx_channel *channel, struct sk_buff *skb)
++static bool efx_ptp_rx(struct efx_channel *channel, struct sk_buff *skb)
+ {
+ 	struct efx_nic *efx = channel->efx;
+ 	struct efx_ptp_data *ptp = efx->ptp_data;
+@@ -1019,18 +1019,15 @@ static void efx_ptp_rx(struct efx_channel *channel, struct sk_buff *skb)
+ 	/* Correct version? */
+ 	if (ptp->mode == MC_CMD_PTP_MODE_V1) {
+ 		if (skb->len < PTP_V1_MIN_LENGTH) {
+-			netif_receive_skb(skb);
+-			return;
++			return false;
+ 		}
+ 		version = ntohs(*(__be16 *)&skb->data[PTP_V1_VERSION_OFFSET]);
+ 		if (version != PTP_VERSION_V1) {
+-			netif_receive_skb(skb);
+-			return;
++			return false;
+ 		}
+ 	} else {
+ 		if (skb->len < PTP_V2_MIN_LENGTH) {
+-			netif_receive_skb(skb);
+-			return;
++			return false;
+ 		}
+ 		version = skb->data[PTP_V2_VERSION_OFFSET];
+ 
+@@ -1041,8 +1038,7 @@ static void efx_ptp_rx(struct efx_channel *channel, struct sk_buff *skb)
+ 		BUILD_BUG_ON(PTP_V1_SEQUENCE_LENGTH != PTP_V2_SEQUENCE_LENGTH);
+ 
+ 		if ((version & PTP_VERSION_V2_MASK) != PTP_VERSION_V2) {
+-			netif_receive_skb(skb);
+-			return;
++			return false;
+ 		}
+ 	}
+ 
+@@ -1073,6 +1069,8 @@ static void efx_ptp_rx(struct efx_channel *channel, struct sk_buff *skb)
+ 
+ 	skb_queue_tail(&ptp->rxq, skb);
+ 	queue_work(ptp->workwq, &ptp->work);
++
++	return true;
+ }
+ 
+ /* Transmit a PTP packet.  This has to be transmitted by the MC
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index bb579a6..f31c23e 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -575,12 +575,14 @@ static void efx_rx_deliver(struct efx_channel *channel,
+ 	/* Record the rx_queue */
+ 	skb_record_rx_queue(skb, channel->rx_queue.core_index);
+ 
+-	/* Pass the packet up */
+ 	if (channel->type->receive_skb)
+-		channel->type->receive_skb(channel, skb);
+-	else
+-		netif_receive_skb(skb);
++		if (channel->type->receive_skb(channel, skb))
++			goto handled;
++
++	/* Pass the packet up */
++	netif_receive_skb(skb);
+ 
++handled:
+ 	/* Update allocation strategy method */
+ 	channel->rx_alloc_level += RX_ALLOC_FACTOR_SKB;
+ }
 -- 
-Trond Myklebust
-Linux NFS client maintainer
-
-NetApp
-Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-www.netapp.com
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
