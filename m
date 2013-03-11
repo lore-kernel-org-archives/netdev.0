@@ -1,85 +1,986 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: [PATCH] sh: remove references to CPU_SUBTYPE_SH7764
-Date: Mon, 11 Mar 2013 12:55:40 +0100
-Message-ID: <1363002940.3137.65.camel@x61.thuisdomein>
+From: Erwan Yvin <erwan.yvin@stericsson.com>
+Subject: [PATCHv2] caif: remove caif_shm
+Date: Mon, 11 Mar 2013 14:13:03 +0100
+Message-ID: <1363007583-16513-1-git-send-email-erwan.yvin@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-sh@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Paul Mundt <lethal@linux-sh.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Linus Walleij <linus.walleij@linaro.org>,
+	Sjur Brendeland <sjur.brandeland@stericsson.com>,
+	Erwan Yvin <erwan.yvin@stericsson.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:43185 "EHLO
+	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752616Ab3CKNNU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 09:13:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since release v2.6.29 the tree has a few references to the Kconfig
-symbol CPU_SUBTYPE_SH7764 and the Kconfig macro
-CONFIG_CPU_SUBTYPE_SH7764. But the actual symbol CPU_SUBTYPE_SH7764 was
-never added to the tree. Perhaps no one noticed because these references
-were never used alone. Anyhow, these references serve no purpose and
-can be removed.
+caif_shm is an old implementation
+caif_shm will be replaced by caif_virtio
 
-Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+Signed-off-by: Erwan Yvin <erwan.yvin@stericsson.com>
+Acked-by: Sjur Brendeland <sjur.brandeland@stericsson.com>
 ---
-Untested: I don't have the hardware. Neither do I have the compiler for
-this architecture at hand.
+ drivers/net/caif/Kconfig          |    7 -
+ drivers/net/caif/Makefile         |    4 -
+ drivers/net/caif/caif_shm_u5500.c |  128 -------
+ drivers/net/caif/caif_shmcore.c   |  744 -------------------------------------
+ include/net/caif/caif_shm.h       |   26 --
+ 5 files changed, 909 deletions(-)
+ delete mode 100644 drivers/net/caif/caif_shm_u5500.c
+ delete mode 100644 drivers/net/caif/caif_shmcore.c
+ delete mode 100644 include/net/caif/caif_shm.h
 
- arch/sh/drivers/dma/Kconfig                | 2 +-
- arch/sh/include/cpu-sh4/cpu/dma-register.h | 1 -
- arch/sh/include/cpu-sh4a/cpu/dma.h         | 3 +--
- drivers/net/ethernet/renesas/sh_eth.c      | 1 -
- 4 files changed, 2 insertions(+), 5 deletions(-)
+ rebase of the 1st version
 
-diff --git a/arch/sh/drivers/dma/Kconfig b/arch/sh/drivers/dma/Kconfig
-index cfd5b90..504afb4 100644
---- a/arch/sh/drivers/dma/Kconfig
-+++ b/arch/sh/drivers/dma/Kconfig
-@@ -12,7 +12,7 @@ config SH_DMA_IRQ_MULTI
- 	default y if CPU_SUBTYPE_SH7750  || CPU_SUBTYPE_SH7751  || \
- 		     CPU_SUBTYPE_SH7750S || CPU_SUBTYPE_SH7750R || \
- 		     CPU_SUBTYPE_SH7751R || CPU_SUBTYPE_SH7091  || \
--		     CPU_SUBTYPE_SH7763  || CPU_SUBTYPE_SH7764  || \
-+		     CPU_SUBTYPE_SH7763  || \
- 		     CPU_SUBTYPE_SH7780  || CPU_SUBTYPE_SH7785  || \
- 		     CPU_SUBTYPE_SH7760
+diff --git a/drivers/net/caif/Kconfig b/drivers/net/caif/Kconfig
+index 60c2142..a966128 100644
+--- a/drivers/net/caif/Kconfig
++++ b/drivers/net/caif/Kconfig
+@@ -32,13 +32,6 @@ config CAIF_SPI_SYNC
+ 	help to synchronize to the next transfer in case of over or under-runs.
+ 	This option also needs to be enabled on the modem.
  
-diff --git a/arch/sh/include/cpu-sh4/cpu/dma-register.h b/arch/sh/include/cpu-sh4/cpu/dma-register.h
-index 02788b6..9cd81e5 100644
---- a/arch/sh/include/cpu-sh4/cpu/dma-register.h
-+++ b/arch/sh/include/cpu-sh4/cpu/dma-register.h
-@@ -32,7 +32,6 @@
- #define CHCR_TS_HIGH_SHIFT	(20 - 2)	/* 2 bits for shifted low TS */
- #elif defined(CONFIG_CPU_SUBTYPE_SH7757) || \
- 	defined(CONFIG_CPU_SUBTYPE_SH7763) || \
--	defined(CONFIG_CPU_SUBTYPE_SH7764) || \
- 	defined(CONFIG_CPU_SUBTYPE_SH7780) || \
- 	defined(CONFIG_CPU_SUBTYPE_SH7785)
- #define CHCR_TS_LOW_MASK	0x00000018
-diff --git a/arch/sh/include/cpu-sh4a/cpu/dma.h b/arch/sh/include/cpu-sh4a/cpu/dma.h
-index 89afb65..8ceccce 100644
---- a/arch/sh/include/cpu-sh4a/cpu/dma.h
-+++ b/arch/sh/include/cpu-sh4a/cpu/dma.h
-@@ -14,8 +14,7 @@
- #define DMTE4_IRQ	evt2irq(0xb80)
- #define DMAE0_IRQ	evt2irq(0xbc0)	/* DMA Error IRQ*/
- #define SH_DMAC_BASE0	0xFE008020
--#elif defined(CONFIG_CPU_SUBTYPE_SH7763) || \
--	defined(CONFIG_CPU_SUBTYPE_SH7764)
-+#elif defined(CONFIG_CPU_SUBTYPE_SH7763)
- #define DMTE0_IRQ	evt2irq(0x640)
- #define DMTE4_IRQ	evt2irq(0x780)
- #define DMAE0_IRQ	evt2irq(0x6c0)
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 33e9617..44a3d7b 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1653,7 +1653,6 @@ static int sh_eth_open(struct net_device *ndev)
+-config CAIF_SHM
+-	tristate "CAIF shared memory protocol driver"
+-	depends on CAIF && U5500_MBOX
+-	default n
+-	---help---
+-	The CAIF shared memory protocol driver for the STE UX5500 platform.
+-
+ config CAIF_HSI
+        tristate "CAIF HSI transport driver"
+        depends on CAIF
+diff --git a/drivers/net/caif/Makefile b/drivers/net/caif/Makefile
+index 91dff86..15a9d2f 100644
+--- a/drivers/net/caif/Makefile
++++ b/drivers/net/caif/Makefile
+@@ -7,9 +7,5 @@ obj-$(CONFIG_CAIF_TTY) += caif_serial.o
+ cfspi_slave-objs := caif_spi.o caif_spi_slave.o
+ obj-$(CONFIG_CAIF_SPI_SLAVE) += cfspi_slave.o
  
- 	ret = request_irq(ndev->irq, sh_eth_interrupt,
- #if defined(CONFIG_CPU_SUBTYPE_SH7763) || \
--	defined(CONFIG_CPU_SUBTYPE_SH7764) || \
- 	defined(CONFIG_CPU_SUBTYPE_SH7757)
- 				IRQF_SHARED,
- #else
+-# Shared memory
+-caif_shm-objs := caif_shmcore.o caif_shm_u5500.o
+-obj-$(CONFIG_CAIF_SHM) += caif_shm.o
+-
+ # HSI interface
+ obj-$(CONFIG_CAIF_HSI) += caif_hsi.o
+diff --git a/drivers/net/caif/caif_shm_u5500.c b/drivers/net/caif/caif_shm_u5500.c
+deleted file mode 100644
+index 89d76b7..0000000
+--- a/drivers/net/caif/caif_shm_u5500.c
++++ /dev/null
+@@ -1,128 +0,0 @@
+-/*
+- * Copyright (C) ST-Ericsson AB 2010
+- * Contact: Sjur Brendeland / sjur.brandeland@stericsson.com
+- * Author:  Amarnath Revanna / amarnath.bangalore.revanna@stericsson.com
+- * License terms: GNU General Public License (GPL) version 2
+- */
+-
+-#define pr_fmt(fmt) KBUILD_MODNAME ":" fmt
+-
+-#include <linux/init.h>
+-#include <linux/module.h>
+-#include <linux/netdevice.h>
+-#include <mach/mbox-db5500.h>
+-#include <net/caif/caif_shm.h>
+-
+-MODULE_LICENSE("GPL");
+-MODULE_DESCRIPTION("CAIF Shared Memory protocol driver");
+-
+-#define MAX_SHM_INSTANCES	1
+-
+-enum {
+-	MBX_ACC0,
+-	MBX_ACC1,
+-	MBX_DSP
+-};
+-
+-static struct shmdev_layer shmdev_lyr[MAX_SHM_INSTANCES];
+-
+-static unsigned int shm_start;
+-static unsigned int shm_size;
+-
+-module_param(shm_size, uint  , 0440);
+-MODULE_PARM_DESC(shm_total_size, "Start of SHM shared memory");
+-
+-module_param(shm_start, uint  , 0440);
+-MODULE_PARM_DESC(shm_total_start, "Total Size of SHM shared memory");
+-
+-static int shmdev_send_msg(u32 dev_id, u32 mbx_msg)
+-{
+-	/* Always block until msg is written successfully */
+-	mbox_send(shmdev_lyr[dev_id].hmbx, mbx_msg, true);
+-	return 0;
+-}
+-
+-static int shmdev_mbx_setup(void *pshmdrv_cb, struct shmdev_layer *pshm_dev,
+-							 void *pshm_drv)
+-{
+-	/*
+-	 * For UX5500, we have only 1 SHM instance which uses MBX0
+-	 * for communication with the peer modem
+-	 */
+-	pshm_dev->hmbx = mbox_setup(MBX_ACC0, pshmdrv_cb, pshm_drv);
+-
+-	if (!pshm_dev->hmbx)
+-		return -ENODEV;
+-	else
+-		return 0;
+-}
+-
+-static int __init caif_shmdev_init(void)
+-{
+-	int i, result;
+-
+-	/* Loop is currently overkill, there is only one instance */
+-	for (i = 0; i < MAX_SHM_INSTANCES; i++) {
+-
+-		shmdev_lyr[i].shm_base_addr = shm_start;
+-		shmdev_lyr[i].shm_total_sz = shm_size;
+-
+-		if (((char *)shmdev_lyr[i].shm_base_addr == NULL)
+-			       || (shmdev_lyr[i].shm_total_sz <= 0))	{
+-			pr_warn("ERROR,"
+-				"Shared memory Address and/or Size incorrect"
+-				", Bailing out ...\n");
+-			result = -EINVAL;
+-			goto clean;
+-		}
+-
+-		pr_info("SHM AREA (instance %d) STARTS"
+-			" AT %p\n", i, (char *)shmdev_lyr[i].shm_base_addr);
+-
+-		shmdev_lyr[i].shm_id = i;
+-		shmdev_lyr[i].pshmdev_mbxsend = shmdev_send_msg;
+-		shmdev_lyr[i].pshmdev_mbxsetup = shmdev_mbx_setup;
+-
+-		/*
+-		 * Finally, CAIF core module is called with details in place:
+-		 * 1. SHM base address
+-		 * 2. SHM size
+-		 * 3. MBX handle
+-		 */
+-		result = caif_shmcore_probe(&shmdev_lyr[i]);
+-		if (result) {
+-			pr_warn("ERROR[%d],"
+-				"Could not probe SHM core (instance %d)"
+-				" Bailing out ...\n", result, i);
+-			goto clean;
+-		}
+-	}
+-
+-	return 0;
+-
+-clean:
+-	/*
+-	 * For now, we assume that even if one instance of SHM fails, we bail
+-	 * out of the driver support completely. For this, we need to release
+-	 * any memory allocated and unregister any instance of SHM net device.
+-	 */
+-	for (i = 0; i < MAX_SHM_INSTANCES; i++) {
+-		if (shmdev_lyr[i].pshm_netdev)
+-			unregister_netdev(shmdev_lyr[i].pshm_netdev);
+-	}
+-	return result;
+-}
+-
+-static void __exit caif_shmdev_exit(void)
+-{
+-	int i;
+-
+-	for (i = 0; i < MAX_SHM_INSTANCES; i++) {
+-		caif_shmcore_remove(shmdev_lyr[i].pshm_netdev);
+-		kfree((void *)shmdev_lyr[i].shm_base_addr);
+-	}
+-
+-}
+-
+-module_init(caif_shmdev_init);
+-module_exit(caif_shmdev_exit);
+diff --git a/drivers/net/caif/caif_shmcore.c b/drivers/net/caif/caif_shmcore.c
+deleted file mode 100644
+index cca2afc..0000000
+--- a/drivers/net/caif/caif_shmcore.c
++++ /dev/null
+@@ -1,744 +0,0 @@
+-/*
+- * Copyright (C) ST-Ericsson AB 2010
+- * Contact: Sjur Brendeland / sjur.brandeland@stericsson.com
+- * Authors:  Amarnath Revanna / amarnath.bangalore.revanna@stericsson.com,
+- *           Daniel Martensson / daniel.martensson@stericsson.com
+- * License terms: GNU General Public License (GPL) version 2
+- */
+-
+-#define pr_fmt(fmt) KBUILD_MODNAME ":" fmt
+-
+-#include <linux/spinlock.h>
+-#include <linux/sched.h>
+-#include <linux/list.h>
+-#include <linux/netdevice.h>
+-#include <linux/if_arp.h>
+-#include <linux/io.h>
+-
+-#include <net/caif/caif_device.h>
+-#include <net/caif/caif_shm.h>
+-
+-#define NR_TX_BUF		6
+-#define NR_RX_BUF		6
+-#define TX_BUF_SZ		0x2000
+-#define RX_BUF_SZ		0x2000
+-
+-#define CAIF_NEEDED_HEADROOM	32
+-
+-#define CAIF_FLOW_ON		1
+-#define CAIF_FLOW_OFF		0
+-
+-#define LOW_WATERMARK		3
+-#define HIGH_WATERMARK		4
+-
+-/* Maximum number of CAIF buffers per shared memory buffer. */
+-#define SHM_MAX_FRMS_PER_BUF	10
+-
+-/*
+- * Size in bytes of the descriptor area
+- * (With end of descriptor signalling)
+- */
+-#define SHM_CAIF_DESC_SIZE	((SHM_MAX_FRMS_PER_BUF + 1) * \
+-					sizeof(struct shm_pck_desc))
+-
+-/*
+- * Offset to the first CAIF frame within a shared memory buffer.
+- * Aligned on 32 bytes.
+- */
+-#define SHM_CAIF_FRM_OFS	(SHM_CAIF_DESC_SIZE + (SHM_CAIF_DESC_SIZE % 32))
+-
+-/* Number of bytes for CAIF shared memory header. */
+-#define SHM_HDR_LEN		1
+-
+-/* Number of padding bytes for the complete CAIF frame. */
+-#define SHM_FRM_PAD_LEN		4
+-
+-#define CAIF_MAX_MTU		4096
+-
+-#define SHM_SET_FULL(x)	(((x+1) & 0x0F) << 0)
+-#define SHM_GET_FULL(x)	(((x >> 0) & 0x0F) - 1)
+-
+-#define SHM_SET_EMPTY(x)	(((x+1) & 0x0F) << 4)
+-#define SHM_GET_EMPTY(x)	(((x >> 4) & 0x0F) - 1)
+-
+-#define SHM_FULL_MASK		(0x0F << 0)
+-#define SHM_EMPTY_MASK		(0x0F << 4)
+-
+-struct shm_pck_desc {
+-	/*
+-	 * Offset from start of shared memory area to start of
+-	 * shared memory CAIF frame.
+-	 */
+-	u32 frm_ofs;
+-	u32 frm_len;
+-};
+-
+-struct buf_list {
+-	unsigned char *desc_vptr;
+-	u32 phy_addr;
+-	u32 index;
+-	u32 len;
+-	u32 frames;
+-	u32 frm_ofs;
+-	struct list_head list;
+-};
+-
+-struct shm_caif_frm {
+-	/* Number of bytes of padding before the CAIF frame. */
+-	u8 hdr_ofs;
+-};
+-
+-struct shmdrv_layer {
+-	/* caif_dev_common must always be first in the structure*/
+-	struct caif_dev_common cfdev;
+-
+-	u32 shm_tx_addr;
+-	u32 shm_rx_addr;
+-	u32 shm_base_addr;
+-	u32 tx_empty_available;
+-	spinlock_t lock;
+-
+-	struct list_head tx_empty_list;
+-	struct list_head tx_pend_list;
+-	struct list_head tx_full_list;
+-	struct list_head rx_empty_list;
+-	struct list_head rx_pend_list;
+-	struct list_head rx_full_list;
+-
+-	struct workqueue_struct *pshm_tx_workqueue;
+-	struct workqueue_struct *pshm_rx_workqueue;
+-
+-	struct work_struct shm_tx_work;
+-	struct work_struct shm_rx_work;
+-
+-	struct sk_buff_head sk_qhead;
+-	struct shmdev_layer *pshm_dev;
+-};
+-
+-static int shm_netdev_open(struct net_device *shm_netdev)
+-{
+-	netif_wake_queue(shm_netdev);
+-	return 0;
+-}
+-
+-static int shm_netdev_close(struct net_device *shm_netdev)
+-{
+-	netif_stop_queue(shm_netdev);
+-	return 0;
+-}
+-
+-int caif_shmdrv_rx_cb(u32 mbx_msg, void *priv)
+-{
+-	struct buf_list *pbuf;
+-	struct shmdrv_layer *pshm_drv;
+-	struct list_head *pos;
+-	u32 avail_emptybuff = 0;
+-	unsigned long flags = 0;
+-
+-	pshm_drv = priv;
+-
+-	/* Check for received buffers. */
+-	if (mbx_msg & SHM_FULL_MASK) {
+-		int idx;
+-
+-		spin_lock_irqsave(&pshm_drv->lock, flags);
+-
+-		/* Check whether we have any outstanding buffers. */
+-		if (list_empty(&pshm_drv->rx_empty_list)) {
+-
+-			/* Release spin lock. */
+-			spin_unlock_irqrestore(&pshm_drv->lock, flags);
+-
+-			/* We print even in IRQ context... */
+-			pr_warn("No empty Rx buffers to fill: "
+-					"mbx_msg:%x\n", mbx_msg);
+-
+-			/* Bail out. */
+-			goto err_sync;
+-		}
+-
+-		pbuf =
+-			list_entry(pshm_drv->rx_empty_list.next,
+-					struct buf_list, list);
+-		idx = pbuf->index;
+-
+-		/* Check buffer synchronization. */
+-		if (idx != SHM_GET_FULL(mbx_msg)) {
+-
+-			/* We print even in IRQ context... */
+-			pr_warn(
+-			"phyif_shm_mbx_msg_cb: RX full out of sync:"
+-			" idx:%d, msg:%x SHM_GET_FULL(mbx_msg):%x\n",
+-				idx, mbx_msg, SHM_GET_FULL(mbx_msg));
+-
+-			spin_unlock_irqrestore(&pshm_drv->lock, flags);
+-
+-			/* Bail out. */
+-			goto err_sync;
+-		}
+-
+-		list_del_init(&pbuf->list);
+-		list_add_tail(&pbuf->list, &pshm_drv->rx_full_list);
+-
+-		spin_unlock_irqrestore(&pshm_drv->lock, flags);
+-
+-		/* Schedule RX work queue. */
+-		if (!work_pending(&pshm_drv->shm_rx_work))
+-			queue_work(pshm_drv->pshm_rx_workqueue,
+-						&pshm_drv->shm_rx_work);
+-	}
+-
+-	/* Check for emptied buffers. */
+-	if (mbx_msg & SHM_EMPTY_MASK) {
+-		int idx;
+-
+-		spin_lock_irqsave(&pshm_drv->lock, flags);
+-
+-		/* Check whether we have any outstanding buffers. */
+-		if (list_empty(&pshm_drv->tx_full_list)) {
+-
+-			/* We print even in IRQ context... */
+-			pr_warn("No TX to empty: msg:%x\n", mbx_msg);
+-
+-			spin_unlock_irqrestore(&pshm_drv->lock, flags);
+-
+-			/* Bail out. */
+-			goto err_sync;
+-		}
+-
+-		pbuf =
+-			list_entry(pshm_drv->tx_full_list.next,
+-					struct buf_list, list);
+-		idx = pbuf->index;
+-
+-		/* Check buffer synchronization. */
+-		if (idx != SHM_GET_EMPTY(mbx_msg)) {
+-
+-			spin_unlock_irqrestore(&pshm_drv->lock, flags);
+-
+-			/* We print even in IRQ context... */
+-			pr_warn("TX empty "
+-				"out of sync:idx:%d, msg:%x\n", idx, mbx_msg);
+-
+-			/* Bail out. */
+-			goto err_sync;
+-		}
+-		list_del_init(&pbuf->list);
+-
+-		/* Reset buffer parameters. */
+-		pbuf->frames = 0;
+-		pbuf->frm_ofs = SHM_CAIF_FRM_OFS;
+-
+-		list_add_tail(&pbuf->list, &pshm_drv->tx_empty_list);
+-
+-		/* Check the available no. of buffers in the empty list */
+-		list_for_each(pos, &pshm_drv->tx_empty_list)
+-			avail_emptybuff++;
+-
+-		/* Check whether we have to wake up the transmitter. */
+-		if ((avail_emptybuff > HIGH_WATERMARK) &&
+-					(!pshm_drv->tx_empty_available)) {
+-			pshm_drv->tx_empty_available = 1;
+-			spin_unlock_irqrestore(&pshm_drv->lock, flags);
+-			pshm_drv->cfdev.flowctrl
+-					(pshm_drv->pshm_dev->pshm_netdev,
+-								CAIF_FLOW_ON);
+-
+-
+-			/* Schedule the work queue. if required */
+-			if (!work_pending(&pshm_drv->shm_tx_work))
+-				queue_work(pshm_drv->pshm_tx_workqueue,
+-							&pshm_drv->shm_tx_work);
+-		} else
+-			spin_unlock_irqrestore(&pshm_drv->lock, flags);
+-	}
+-
+-	return 0;
+-
+-err_sync:
+-	return -EIO;
+-}
+-
+-static void shm_rx_work_func(struct work_struct *rx_work)
+-{
+-	struct shmdrv_layer *pshm_drv;
+-	struct buf_list *pbuf;
+-	unsigned long flags = 0;
+-	struct sk_buff *skb;
+-	char *p;
+-	int ret;
+-
+-	pshm_drv = container_of(rx_work, struct shmdrv_layer, shm_rx_work);
+-
+-	while (1) {
+-
+-		struct shm_pck_desc *pck_desc;
+-
+-		spin_lock_irqsave(&pshm_drv->lock, flags);
+-
+-		/* Check for received buffers. */
+-		if (list_empty(&pshm_drv->rx_full_list)) {
+-			spin_unlock_irqrestore(&pshm_drv->lock, flags);
+-			break;
+-		}
+-
+-		pbuf =
+-			list_entry(pshm_drv->rx_full_list.next, struct buf_list,
+-					list);
+-		list_del_init(&pbuf->list);
+-		spin_unlock_irqrestore(&pshm_drv->lock, flags);
+-
+-		/* Retrieve pointer to start of the packet descriptor area. */
+-		pck_desc = (struct shm_pck_desc *) pbuf->desc_vptr;
+-
+-		/*
+-		 * Check whether descriptor contains a CAIF shared memory
+-		 * frame.
+-		 */
+-		while (pck_desc->frm_ofs) {
+-			unsigned int frm_buf_ofs;
+-			unsigned int frm_pck_ofs;
+-			unsigned int frm_pck_len;
+-			/*
+-			 * Check whether offset is within buffer limits
+-			 * (lower).
+-			 */
+-			if (pck_desc->frm_ofs <
+-				(pbuf->phy_addr - pshm_drv->shm_base_addr))
+-				break;
+-			/*
+-			 * Check whether offset is within buffer limits
+-			 * (higher).
+-			 */
+-			if (pck_desc->frm_ofs >
+-				((pbuf->phy_addr - pshm_drv->shm_base_addr) +
+-					pbuf->len))
+-				break;
+-
+-			/* Calculate offset from start of buffer. */
+-			frm_buf_ofs =
+-				pck_desc->frm_ofs - (pbuf->phy_addr -
+-						pshm_drv->shm_base_addr);
+-
+-			/*
+-			 * Calculate offset and length of CAIF packet while
+-			 * taking care of the shared memory header.
+-			 */
+-			frm_pck_ofs =
+-				frm_buf_ofs + SHM_HDR_LEN +
+-				(*(pbuf->desc_vptr + frm_buf_ofs));
+-			frm_pck_len =
+-				(pck_desc->frm_len - SHM_HDR_LEN -
+-				(*(pbuf->desc_vptr + frm_buf_ofs)));
+-
+-			/* Check whether CAIF packet is within buffer limits */
+-			if ((frm_pck_ofs + pck_desc->frm_len) > pbuf->len)
+-				break;
+-
+-			/* Get a suitable CAIF packet and copy in data. */
+-			skb = netdev_alloc_skb(pshm_drv->pshm_dev->pshm_netdev,
+-							frm_pck_len + 1);
+-			if (skb == NULL)
+-				break;
+-
+-			p = skb_put(skb, frm_pck_len);
+-			memcpy(p, pbuf->desc_vptr + frm_pck_ofs, frm_pck_len);
+-
+-			skb->protocol = htons(ETH_P_CAIF);
+-			skb_reset_mac_header(skb);
+-			skb->dev = pshm_drv->pshm_dev->pshm_netdev;
+-
+-			/* Push received packet up the stack. */
+-			ret = netif_rx_ni(skb);
+-
+-			if (!ret) {
+-				pshm_drv->pshm_dev->pshm_netdev->stats.
+-								rx_packets++;
+-				pshm_drv->pshm_dev->pshm_netdev->stats.
+-						rx_bytes += pck_desc->frm_len;
+-			} else
+-				++pshm_drv->pshm_dev->pshm_netdev->stats.
+-								rx_dropped;
+-			/* Move to next packet descriptor. */
+-			pck_desc++;
+-		}
+-
+-		spin_lock_irqsave(&pshm_drv->lock, flags);
+-		list_add_tail(&pbuf->list, &pshm_drv->rx_pend_list);
+-
+-		spin_unlock_irqrestore(&pshm_drv->lock, flags);
+-
+-	}
+-
+-	/* Schedule the work queue. if required */
+-	if (!work_pending(&pshm_drv->shm_tx_work))
+-		queue_work(pshm_drv->pshm_tx_workqueue, &pshm_drv->shm_tx_work);
+-
+-}
+-
+-static void shm_tx_work_func(struct work_struct *tx_work)
+-{
+-	u32 mbox_msg;
+-	unsigned int frmlen, avail_emptybuff, append = 0;
+-	unsigned long flags = 0;
+-	struct buf_list *pbuf = NULL;
+-	struct shmdrv_layer *pshm_drv;
+-	struct shm_caif_frm *frm;
+-	struct sk_buff *skb;
+-	struct shm_pck_desc *pck_desc;
+-	struct list_head *pos;
+-
+-	pshm_drv = container_of(tx_work, struct shmdrv_layer, shm_tx_work);
+-
+-	do {
+-		/* Initialize mailbox message. */
+-		mbox_msg = 0x00;
+-		avail_emptybuff = 0;
+-
+-		spin_lock_irqsave(&pshm_drv->lock, flags);
+-
+-		/* Check for pending receive buffers. */
+-		if (!list_empty(&pshm_drv->rx_pend_list)) {
+-
+-			pbuf = list_entry(pshm_drv->rx_pend_list.next,
+-						struct buf_list, list);
+-
+-			list_del_init(&pbuf->list);
+-			list_add_tail(&pbuf->list, &pshm_drv->rx_empty_list);
+-			/*
+-			 * Value index is never changed,
+-			 * so read access should be safe.
+-			 */
+-			mbox_msg |= SHM_SET_EMPTY(pbuf->index);
+-		}
+-
+-		skb = skb_peek(&pshm_drv->sk_qhead);
+-
+-		if (skb == NULL)
+-			goto send_msg;
+-		/* Check the available no. of buffers in the empty list */
+-		list_for_each(pos, &pshm_drv->tx_empty_list)
+-			avail_emptybuff++;
+-
+-		if ((avail_emptybuff < LOW_WATERMARK) &&
+-					pshm_drv->tx_empty_available) {
+-			/* Update blocking condition. */
+-			pshm_drv->tx_empty_available = 0;
+-			spin_unlock_irqrestore(&pshm_drv->lock, flags);
+-			pshm_drv->cfdev.flowctrl
+-					(pshm_drv->pshm_dev->pshm_netdev,
+-					CAIF_FLOW_OFF);
+-			spin_lock_irqsave(&pshm_drv->lock, flags);
+-		}
+-		/*
+-		 * We simply return back to the caller if we do not have space
+-		 * either in Tx pending list or Tx empty list. In this case,
+-		 * we hold the received skb in the skb list, waiting to
+-		 * be transmitted once Tx buffers become available
+-		 */
+-		if (list_empty(&pshm_drv->tx_empty_list))
+-			goto send_msg;
+-
+-		/* Get the first free Tx buffer. */
+-		pbuf = list_entry(pshm_drv->tx_empty_list.next,
+-						struct buf_list, list);
+-		do {
+-			if (append) {
+-				skb = skb_peek(&pshm_drv->sk_qhead);
+-				if (skb == NULL)
+-					break;
+-			}
+-
+-			frm = (struct shm_caif_frm *)
+-					(pbuf->desc_vptr + pbuf->frm_ofs);
+-
+-			frm->hdr_ofs = 0;
+-			frmlen = 0;
+-			frmlen += SHM_HDR_LEN + frm->hdr_ofs + skb->len;
+-
+-			/* Add tail padding if needed. */
+-			if (frmlen % SHM_FRM_PAD_LEN)
+-				frmlen += SHM_FRM_PAD_LEN -
+-						(frmlen % SHM_FRM_PAD_LEN);
+-
+-			/*
+-			 * Verify that packet, header and additional padding
+-			 * can fit within the buffer frame area.
+-			 */
+-			if (frmlen >= (pbuf->len - pbuf->frm_ofs))
+-				break;
+-
+-			if (!append) {
+-				list_del_init(&pbuf->list);
+-				append = 1;
+-			}
+-
+-			skb = skb_dequeue(&pshm_drv->sk_qhead);
+-			if (skb == NULL)
+-				break;
+-			/* Copy in CAIF frame. */
+-			skb_copy_bits(skb, 0, pbuf->desc_vptr +
+-					pbuf->frm_ofs + SHM_HDR_LEN +
+-						frm->hdr_ofs, skb->len);
+-
+-			pshm_drv->pshm_dev->pshm_netdev->stats.tx_packets++;
+-			pshm_drv->pshm_dev->pshm_netdev->stats.tx_bytes +=
+-									frmlen;
+-			dev_kfree_skb_irq(skb);
+-
+-			/* Fill in the shared memory packet descriptor area. */
+-			pck_desc = (struct shm_pck_desc *) (pbuf->desc_vptr);
+-			/* Forward to current frame. */
+-			pck_desc += pbuf->frames;
+-			pck_desc->frm_ofs = (pbuf->phy_addr -
+-						pshm_drv->shm_base_addr) +
+-								pbuf->frm_ofs;
+-			pck_desc->frm_len = frmlen;
+-			/* Terminate packet descriptor area. */
+-			pck_desc++;
+-			pck_desc->frm_ofs = 0;
+-			/* Update buffer parameters. */
+-			pbuf->frames++;
+-			pbuf->frm_ofs += frmlen + (frmlen % 32);
+-
+-		} while (pbuf->frames < SHM_MAX_FRMS_PER_BUF);
+-
+-		/* Assign buffer as full. */
+-		list_add_tail(&pbuf->list, &pshm_drv->tx_full_list);
+-		append = 0;
+-		mbox_msg |= SHM_SET_FULL(pbuf->index);
+-send_msg:
+-		spin_unlock_irqrestore(&pshm_drv->lock, flags);
+-
+-		if (mbox_msg)
+-			pshm_drv->pshm_dev->pshmdev_mbxsend
+-					(pshm_drv->pshm_dev->shm_id, mbox_msg);
+-	} while (mbox_msg);
+-}
+-
+-static int shm_netdev_tx(struct sk_buff *skb, struct net_device *shm_netdev)
+-{
+-	struct shmdrv_layer *pshm_drv;
+-
+-	pshm_drv = netdev_priv(shm_netdev);
+-
+-	skb_queue_tail(&pshm_drv->sk_qhead, skb);
+-
+-	/* Schedule Tx work queue. for deferred processing of skbs*/
+-	if (!work_pending(&pshm_drv->shm_tx_work))
+-		queue_work(pshm_drv->pshm_tx_workqueue, &pshm_drv->shm_tx_work);
+-
+-	return 0;
+-}
+-
+-static const struct net_device_ops netdev_ops = {
+-	.ndo_open = shm_netdev_open,
+-	.ndo_stop = shm_netdev_close,
+-	.ndo_start_xmit = shm_netdev_tx,
+-};
+-
+-static void shm_netdev_setup(struct net_device *pshm_netdev)
+-{
+-	struct shmdrv_layer *pshm_drv;
+-	pshm_netdev->netdev_ops = &netdev_ops;
+-
+-	pshm_netdev->mtu = CAIF_MAX_MTU;
+-	pshm_netdev->type = ARPHRD_CAIF;
+-	pshm_netdev->hard_header_len = CAIF_NEEDED_HEADROOM;
+-	pshm_netdev->tx_queue_len = 0;
+-	pshm_netdev->destructor = free_netdev;
+-
+-	pshm_drv = netdev_priv(pshm_netdev);
+-
+-	/* Initialize structures in a clean state. */
+-	memset(pshm_drv, 0, sizeof(struct shmdrv_layer));
+-
+-	pshm_drv->cfdev.link_select = CAIF_LINK_LOW_LATENCY;
+-}
+-
+-int caif_shmcore_probe(struct shmdev_layer *pshm_dev)
+-{
+-	int result, j;
+-	struct shmdrv_layer *pshm_drv = NULL;
+-
+-	pshm_dev->pshm_netdev = alloc_netdev(sizeof(struct shmdrv_layer),
+-						"cfshm%d", shm_netdev_setup);
+-	if (!pshm_dev->pshm_netdev)
+-		return -ENOMEM;
+-
+-	pshm_drv = netdev_priv(pshm_dev->pshm_netdev);
+-	pshm_drv->pshm_dev = pshm_dev;
+-
+-	/*
+-	 * Initialization starts with the verification of the
+-	 * availability of MBX driver by calling its setup function.
+-	 * MBX driver must be available by this time for proper
+-	 * functioning of SHM driver.
+-	 */
+-	if ((pshm_dev->pshmdev_mbxsetup
+-				(caif_shmdrv_rx_cb, pshm_dev, pshm_drv)) != 0) {
+-		pr_warn("Could not config. SHM Mailbox,"
+-				" Bailing out.....\n");
+-		free_netdev(pshm_dev->pshm_netdev);
+-		return -ENODEV;
+-	}
+-
+-	skb_queue_head_init(&pshm_drv->sk_qhead);
+-
+-	pr_info("SHM DEVICE[%d] PROBED BY DRIVER, NEW SHM DRIVER"
+-			" INSTANCE AT pshm_drv =0x%p\n",
+-			pshm_drv->pshm_dev->shm_id, pshm_drv);
+-
+-	if (pshm_dev->shm_total_sz <
+-			(NR_TX_BUF * TX_BUF_SZ + NR_RX_BUF * RX_BUF_SZ)) {
+-
+-		pr_warn("ERROR, Amount of available"
+-				" Phys. SHM cannot accommodate current SHM "
+-				"driver configuration, Bailing out ...\n");
+-		free_netdev(pshm_dev->pshm_netdev);
+-		return -ENOMEM;
+-	}
+-
+-	pshm_drv->shm_base_addr = pshm_dev->shm_base_addr;
+-	pshm_drv->shm_tx_addr = pshm_drv->shm_base_addr;
+-
+-	if (pshm_dev->shm_loopback)
+-		pshm_drv->shm_rx_addr = pshm_drv->shm_tx_addr;
+-	else
+-		pshm_drv->shm_rx_addr = pshm_dev->shm_base_addr +
+-						(NR_TX_BUF * TX_BUF_SZ);
+-
+-	spin_lock_init(&pshm_drv->lock);
+-	INIT_LIST_HEAD(&pshm_drv->tx_empty_list);
+-	INIT_LIST_HEAD(&pshm_drv->tx_pend_list);
+-	INIT_LIST_HEAD(&pshm_drv->tx_full_list);
+-
+-	INIT_LIST_HEAD(&pshm_drv->rx_empty_list);
+-	INIT_LIST_HEAD(&pshm_drv->rx_pend_list);
+-	INIT_LIST_HEAD(&pshm_drv->rx_full_list);
+-
+-	INIT_WORK(&pshm_drv->shm_tx_work, shm_tx_work_func);
+-	INIT_WORK(&pshm_drv->shm_rx_work, shm_rx_work_func);
+-
+-	pshm_drv->pshm_tx_workqueue =
+-				create_singlethread_workqueue("shm_tx_work");
+-	pshm_drv->pshm_rx_workqueue =
+-				create_singlethread_workqueue("shm_rx_work");
+-
+-	for (j = 0; j < NR_TX_BUF; j++) {
+-		struct buf_list *tx_buf =
+-				kmalloc(sizeof(struct buf_list), GFP_KERNEL);
+-
+-		if (tx_buf == NULL) {
+-			free_netdev(pshm_dev->pshm_netdev);
+-			return -ENOMEM;
+-		}
+-		tx_buf->index = j;
+-		tx_buf->phy_addr = pshm_drv->shm_tx_addr + (TX_BUF_SZ * j);
+-		tx_buf->len = TX_BUF_SZ;
+-		tx_buf->frames = 0;
+-		tx_buf->frm_ofs = SHM_CAIF_FRM_OFS;
+-
+-		if (pshm_dev->shm_loopback)
+-			tx_buf->desc_vptr = (unsigned char *)tx_buf->phy_addr;
+-		else
+-			/*
+-			 * FIXME: the result of ioremap is not a pointer - arnd
+-			 */
+-			tx_buf->desc_vptr =
+-					ioremap(tx_buf->phy_addr, TX_BUF_SZ);
+-
+-		list_add_tail(&tx_buf->list, &pshm_drv->tx_empty_list);
+-	}
+-
+-	for (j = 0; j < NR_RX_BUF; j++) {
+-		struct buf_list *rx_buf =
+-				kmalloc(sizeof(struct buf_list), GFP_KERNEL);
+-
+-		if (rx_buf == NULL) {
+-			free_netdev(pshm_dev->pshm_netdev);
+-			return -ENOMEM;
+-		}
+-		rx_buf->index = j;
+-		rx_buf->phy_addr = pshm_drv->shm_rx_addr + (RX_BUF_SZ * j);
+-		rx_buf->len = RX_BUF_SZ;
+-
+-		if (pshm_dev->shm_loopback)
+-			rx_buf->desc_vptr = (unsigned char *)rx_buf->phy_addr;
+-		else
+-			rx_buf->desc_vptr =
+-					ioremap(rx_buf->phy_addr, RX_BUF_SZ);
+-		list_add_tail(&rx_buf->list, &pshm_drv->rx_empty_list);
+-	}
+-
+-	pshm_drv->tx_empty_available = 1;
+-	result = register_netdev(pshm_dev->pshm_netdev);
+-	if (result)
+-		pr_warn("ERROR[%d], SHM could not, "
+-			"register with NW FRMWK Bailing out ...\n", result);
+-
+-	return result;
+-}
+-
+-void caif_shmcore_remove(struct net_device *pshm_netdev)
+-{
+-	struct buf_list *pbuf;
+-	struct shmdrv_layer *pshm_drv = NULL;
+-
+-	pshm_drv = netdev_priv(pshm_netdev);
+-
+-	while (!(list_empty(&pshm_drv->tx_pend_list))) {
+-		pbuf =
+-			list_entry(pshm_drv->tx_pend_list.next,
+-					struct buf_list, list);
+-
+-		list_del(&pbuf->list);
+-		kfree(pbuf);
+-	}
+-
+-	while (!(list_empty(&pshm_drv->tx_full_list))) {
+-		pbuf =
+-			list_entry(pshm_drv->tx_full_list.next,
+-					struct buf_list, list);
+-		list_del(&pbuf->list);
+-		kfree(pbuf);
+-	}
+-
+-	while (!(list_empty(&pshm_drv->tx_empty_list))) {
+-		pbuf =
+-			list_entry(pshm_drv->tx_empty_list.next,
+-					struct buf_list, list);
+-		list_del(&pbuf->list);
+-		kfree(pbuf);
+-	}
+-
+-	while (!(list_empty(&pshm_drv->rx_full_list))) {
+-		pbuf =
+-			list_entry(pshm_drv->tx_full_list.next,
+-				struct buf_list, list);
+-		list_del(&pbuf->list);
+-		kfree(pbuf);
+-	}
+-
+-	while (!(list_empty(&pshm_drv->rx_pend_list))) {
+-		pbuf =
+-			list_entry(pshm_drv->tx_pend_list.next,
+-				struct buf_list, list);
+-		list_del(&pbuf->list);
+-		kfree(pbuf);
+-	}
+-
+-	while (!(list_empty(&pshm_drv->rx_empty_list))) {
+-		pbuf =
+-			list_entry(pshm_drv->rx_empty_list.next,
+-				struct buf_list, list);
+-		list_del(&pbuf->list);
+-		kfree(pbuf);
+-	}
+-
+-	/* Destroy work queues. */
+-	destroy_workqueue(pshm_drv->pshm_tx_workqueue);
+-	destroy_workqueue(pshm_drv->pshm_rx_workqueue);
+-
+-	unregister_netdev(pshm_netdev);
+-}
+diff --git a/include/net/caif/caif_shm.h b/include/net/caif/caif_shm.h
+deleted file mode 100644
+index 5bcce55..0000000
+--- a/include/net/caif/caif_shm.h
++++ /dev/null
+@@ -1,26 +0,0 @@
+-/*
+- * Copyright (C) ST-Ericsson AB 2010
+- * Contact: Sjur Brendeland / sjur.brandeland@stericsson.com
+- * Author: Amarnath Revanna / amarnath.bangalore.revanna@stericsson.com
+- * License terms: GNU General Public License (GPL) version 2
+- */
+-
+-#ifndef CAIF_SHM_H_
+-#define CAIF_SHM_H_
+-
+-struct shmdev_layer {
+-	u32 shm_base_addr;
+-	u32 shm_total_sz;
+-	u32 shm_id;
+-	u32 shm_loopback;
+-	void *hmbx;
+-	int (*pshmdev_mbxsend) (u32 shm_id, u32 mbx_msg);
+-	int (*pshmdev_mbxsetup) (void *pshmdrv_cb,
+-				struct shmdev_layer *pshm_dev, void *pshm_drv);
+-	struct net_device *pshm_netdev;
+-};
+-
+-extern int caif_shmcore_probe(struct shmdev_layer *pshm_dev);
+-extern void caif_shmcore_remove(struct net_device *pshm_netdev);
+-
+-#endif
 -- 
-1.7.11.7
+1.7.9.2
