@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 15/22] sfc: Wrap __efx_rx_packet() with
- efx_rx_flush_packet()
-Date: Mon, 11 Mar 2013 19:56:29 +0000
-Message-ID: <1363031789.2608.52.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 16/22] sfc: Replace efx_rx_buf_eh() with simpler
+ efx_rx_buf_va()
+Date: Mon, 11 Mar 2013 19:56:42 +0000
+Message-ID: <1363031802.2608.53.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1363030400.2608.37.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -11,73 +11,56 @@ Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
 	<scrum-linux@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:16826 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:16833 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753885Ab3CKT4d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 15:56:33 -0400
+	with ESMTP id S1752835Ab3CKT4p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 15:56:45 -0400
 In-Reply-To: <1363030400.2608.37.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The pipeline mechanism will need to change a bit for scattered
-packets.  Add a wrapper to insulate efx_process_channel() from this.
+efx_rx_buf_va() returns the virtual address of the current start of
+the buffer.  The callers must add the hash prefix size themselves.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c |    6 +-----
- drivers/net/ethernet/sfc/efx.h |    7 +++++++
- drivers/net/ethernet/sfc/rx.c  |    3 +--
- 3 files changed, 9 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/sfc/rx.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 34b56ec..f8013c3 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -250,11 +250,7 @@ static int efx_process_channel(struct efx_channel *channel, int budget)
- 		struct efx_rx_queue *rx_queue =
- 			efx_channel_get_rx_queue(channel);
- 
--		/* Deliver last RX packet. */
--		if (channel->rx_pkt) {
--			__efx_rx_packet(channel, channel->rx_pkt);
--			channel->rx_pkt = NULL;
--		}
-+		efx_rx_flush_packet(channel);
- 		if (rx_queue->enabled)
- 			efx_fast_push_rx_descriptors(rx_queue);
- 	}
-diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
-index 64c555e..00e7077 100644
---- a/drivers/net/ethernet/sfc/efx.h
-+++ b/drivers/net/ethernet/sfc/efx.h
-@@ -43,6 +43,13 @@ extern void __efx_rx_packet(struct efx_channel *channel,
- 			    struct efx_rx_buffer *rx_buf);
- extern void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
- 			  unsigned int len, u16 flags);
-+static inline void efx_rx_flush_packet(struct efx_channel *channel)
-+{
-+	if (channel->rx_pkt) {
-+		__efx_rx_packet(channel, channel->rx_pkt);
-+		channel->rx_pkt = NULL;
-+	}
-+}
- extern void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue);
- 
- #define EFX_MAX_DMAQ_SIZE 4096UL
 diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 31361db..60f4eb7 100644
+index 60f4eb7..23d67d1 100644
 --- a/drivers/net/ethernet/sfc/rx.c
 +++ b/drivers/net/ethernet/sfc/rx.c
-@@ -465,8 +465,7 @@ void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
- 	 */
- 	rx_buf->len = len - efx->type->rx_buffer_hash_size;
- out:
--	if (channel->rx_pkt)
--		__efx_rx_packet(channel, channel->rx_pkt);
-+	efx_rx_flush_packet(channel);
- 	channel->rx_pkt = rx_buf;
+@@ -54,9 +54,9 @@ static inline unsigned int efx_rx_buf_offset(struct efx_nic *efx,
+ 	return buf->page_offset + efx->type->rx_buffer_hash_size;
  }
  
+-static u8 *efx_rx_buf_eh(struct efx_nic *efx, struct efx_rx_buffer *buf)
++static inline u8 *efx_rx_buf_va(struct efx_rx_buffer *buf)
+ {
+-	return page_address(buf->page) + efx_rx_buf_offset(efx, buf);
++	return page_address(buf->page) + buf->page_offset;
+ }
+ 
+ static inline u32 efx_rx_buf_hash(const u8 *eh)
+@@ -458,7 +458,7 @@ void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
+ 	/* Prefetch nice and early so data will (hopefully) be in cache by
+ 	 * the time we look at it.
+ 	 */
+-	prefetch(efx_rx_buf_eh(efx, rx_buf));
++	prefetch(efx_rx_buf_va(rx_buf) + efx->type->rx_buffer_hash_size);
+ 
+ 	/* Pipeline receives so that we give time for packet headers to be
+ 	 * prefetched into cache.
+@@ -497,7 +497,7 @@ static void efx_rx_deliver(struct efx_channel *channel, u8 *eh,
+ void __efx_rx_packet(struct efx_channel *channel, struct efx_rx_buffer *rx_buf)
+ {
+ 	struct efx_nic *efx = channel->efx;
+-	u8 *eh = efx_rx_buf_eh(efx, rx_buf);
++	u8 *eh = efx_rx_buf_va(rx_buf) + efx->type->rx_buffer_hash_size;
+ 
+ 	/* If we're in loopback test, then pass the packet directly to the
+ 	 * loopback layer, and free the rx_buf here
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
