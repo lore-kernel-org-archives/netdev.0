@@ -1,197 +1,176 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] 8139too: send NETDEV_CHANGE manually when autoneg is
- disabled
-Date: Mon, 11 Mar 2013 21:31:10 +0000
-Message-ID: <1363037470.2608.104.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1362596784-19443-1-git-send-email-vfalico@redhat.com>
-	 <1362601372.3126.23.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20130306.155323.344491888348815531.davem@davemloft.net>
-	 <20130307102740.GB31105@redhat.com>
-	 <1362671555.2936.10.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20130307163537.GA21810@redhat.com>
-	 <1362675261.2936.18.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20130307183803.GB21810@redhat.com>
-	 <1362683433.2936.41.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20130311175809.GA22957@redhat.com>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: Re: [PATCH v5 25/44] tty: Fix recursive deadlock in
+ tty_perform_flush()
+Date: Mon, 11 Mar 2013 17:36:53 -0400
+Message-ID: <1363037813.27803.12.camel@thor.lan>
+References: <1361390599-15195-1-git-send-email-peter@hurleysoftware.com>
+	 <1363034704-28036-1-git-send-email-peter@hurleysoftware.com>
+	 <1363034704-28036-26-git-send-email-peter@hurleysoftware.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<wfp5p@virginia.edu>, <jasowang@redhat.com>,
-	<junchangwang@gmail.com>, <greearb@candelatech.com>,
-	<ivecera@redhat.com>
-To: Veaceslav Falico <vfalico@redhat.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Slaby <jslaby@suse.cz>,
+	Sasha Levin <levinsasha928@gmail.com>,
+	Dave Jones <davej@redhat.com>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	Shawn Guo <shawn.guo@linaro.org>, linux-kernel@vger.kernel.org,
+	linux-serial@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
+	linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+To: Peter Hurley <peter@hurleysoftware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:38302 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754536Ab3CKVbO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 17:31:14 -0400
-In-Reply-To: <20130311175809.GA22957@redhat.com>
+Received: from mailout01.c08.mtsvc.net ([205.186.168.189]:35533 "EHLO
+	mailout01.c08.mtsvc.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754704Ab3CKVhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 17:37:12 -0400
+In-Reply-To: <1363034704-28036-26-git-send-email-peter@hurleysoftware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-03-11 at 18:58 +0100, Veaceslav Falico wrote:
-[...]
-> Anyway, you were right - the hardware does everything needed, and the
-> driver also. The normal way (with autoneg on) would be for the driver to
-> call mii_check_media() when it got the interrupt, which would verify if
-> state/duplex has changed and report it.
+[ +cc Paul Mackerras, linux-ppp, netdev ]
+
+I neglected to cc the proper folks. Sorry about that.
+
+Regards,
+Peter Hurley
+
+On Mon, 2013-03-11 at 16:44 -0400, Peter Hurley wrote:
+> tty_perform_flush() can deadlock when called while holding
+> a line discipline reference. By definition, all ldisc drivers
+> hold a ldisc reference, so calls originating from ldisc drivers
+> must not block for a ldisc reference.
 > 
-> However, with autoneg off, and thus mii->force_duplex == 1,
-> mii_check_media() just returns 'nothing changed' back, without doing
-> anything else. This way, any media change while in autoneg off (like
-> up/down notifications) are completely hidden to the rest of the kernel.
+> The deadlock can occur when:
+>   CPU 0                    |  CPU 1
+>                            |
+> tty_ldisc_ref(tty)         |
+> ....                       | <line discipline halted>
+> tty_ldisc_ref_wait(tty)    |
+>                            |
 > 
-> I've modified the mii_check_media() to not verify for ->force_media and to
-> get all the media settings from mii_ethtool_gset(), which would take care
-> of whether autoneg is on or off and return the correct values. Tested,
-> works ok - it sees when the cable is dis/connected, notifies bonding of
-> speed/duplex changes, when enslaved.
+> CPU 0 cannot progess because it cannot obtain an ldisc reference
+> with the line discipline has been halted (thus no new references
+> are granted).
+> CPU 1 cannot progress because an outstanding ldisc reference
+> has not been released.
 > 
-> Subject: [PATCH] mii: make mii_check_media() work with ->force_media == 1
+> An in-tree call-tree audit of tty_perform_flush() [1] shows 5
+> ldisc drivers calling tty_perform_flush() indirectly via
+> n_tty_ioctl_helper() and 2 ldisc drivers calling directly.
+> A single tty driver safely uses the function.
 > 
-> mii_check_media() does nothing when ->force_media is set, and thus might
-> miss media change events reported by the drivers if the autonegotiation is
-> off.
+> [1]
+> Recursive usage:
 > 
-> Make mii_check_media() use mii_ethtool_gset() for getting media settings,
-> which cleans the code a lot and works with both autoneg off and on. This
-> allows us to catch link notifications even ->force_media on.
+> /* These functions are line discipline ioctls and thus
+>  * recursive wrt line discipline references */
 > 
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> tty_perform_flush() - ./drivers/tty/tty_ioctl.c
+>     n_tty_ioctl_helper()
+>         hci_uart_tty_ioctl(default) - drivers/bluetooth/hci_ldisc.c (N_HCI)
+>         n_hdlc_tty_ioctl(default) - drivers/tty/n_hdlc.c (N_HDLC)
+>         gsmld_ioctl(default) - drivers/tty/n_gsm.c (N_GSM0710)
+>         n_tty_ioctl(default) - drivers/tty/n_tty.c (N_TTY)
+>         gigaset_tty_ioctl(default) - drivers/isdn/gigaset/ser-gigaset.c (N_GIGASET_M101)
+>     ppp_synctty_ioctl(TCFLSH) - drivers/net/ppp/pps_synctty.c
+>     ppp_asynctty_ioctl(TCFLSH) - drivers/net/ppp/ppp_async.c
+> 
+> Non-recursive use:
+> 
+> tty_perform_flush() - drivers/tty/tty_ioctl.c
+>     ipw_ioctl(TCFLSH) - drivers/tty/ipwireless/tty.c
+>        /* This function is a tty i/o ioctl method, which
+>         * is invoked by tty_ioctl() */
+> 
+> Signed-off-by: Peter Hurley <peter@hurleysoftware.com>
 > ---
->   drivers/net/mii.c |   45 ++++++++++++---------------------------------
->   1 files changed, 12 insertions(+), 33 deletions(-)
+>  drivers/net/ppp/ppp_async.c   |  2 +-
+>  drivers/net/ppp/ppp_synctty.c |  2 +-
+>  drivers/tty/tty_ioctl.c       | 28 +++++++++++++++++++---------
+>  3 files changed, 21 insertions(+), 11 deletions(-)
 > 
-> diff --git a/drivers/net/mii.c b/drivers/net/mii.c
-> index 4a99c39..2447487 100644
-> --- a/drivers/net/mii.c
-> +++ b/drivers/net/mii.c
-> @@ -308,19 +308,14 @@ void mii_check_link (struct mii_if_info *mii)
->    * @init_media: OK to save duplex mode in @mii
->    *
->    * Returns 1 if the duplex mode changed, 0 if not.
-> - * If the media type is forced, always returns 0.
->    */
-
-Perhaps you could also correct the summary line and the description of
-@init_media while you're doing this.
-
->   unsigned int mii_check_media (struct mii_if_info *mii,
->   			      unsigned int ok_to_print,
->   			      unsigned int init_media)
->   {
->   	unsigned int old_carrier, new_carrier;
-> -	int advertise, lpa, media, duplex;
-> -	int lpa2 = 0;
-> -
-> -	/* if forced media, go no further */
-> -	if (mii->force_media)
-> -		return 0; /* duplex did not change */
-> +	int duplex;
-> +	struct ethtool_cmd ecmd = { .cmd = ETHTOOL_GSET };
->   
->   	/* check current and old link status */
->   	old_carrier = netif_carrier_ok(mii->dev) ? 1 : 0;
-> @@ -345,37 +340,21 @@ unsigned int mii_check_media (struct mii_if_info *mii,
->   	 */
->   	netif_carrier_on(mii->dev);
->   
-> -	/* get MII advertise and LPA values */
-> -	if ((!init_media) && (mii->advertising))
-> -		advertise = mii->advertising;
-> -	else {
-> -		advertise = mii->mdio_read(mii->dev, mii->phy_id, MII_ADVERTISE);
-> -		mii->advertising = advertise;
-
-Now mii->advertising won't be initialised properly.
-
-> -	}
-> -	lpa = mii->mdio_read(mii->dev, mii->phy_id, MII_LPA);
-> -	if (mii->supports_gmii)
-> -		lpa2 = mii->mdio_read(mii->dev, mii->phy_id, MII_STAT1000);
-> +	/*
-> +	 * save the previous state of the duplex, mii_ethtool_gset()
-> +	 * modifies it
-> +	 */
-> +	duplex = mii->full_duplex;
->   
-> -	/* figure out media and duplex from advertise and LPA values */
-> -	media = mii_nway_result(lpa & advertise);
-> -	duplex = (media & ADVERTISE_FULL) ? 1 : 0;
-> -	if (lpa2 & LPA_1000FULL)
-> -		duplex = 1;
-> +	mii_ethtool_gset(mii, &ecmd);
->   
->   	if (ok_to_print)
->   		netdev_info(mii->dev, "link up, %uMbps, %s-duplex, lpa 0x%04X\n",
-> -			    lpa2 & (LPA_1000FULL | LPA_1000HALF) ? 1000 :
-> -			    media & (ADVERTISE_100FULL | ADVERTISE_100HALF) ?
-> -			    100 : 10,
-> -			    duplex ? "full" : "half",
-> -			    lpa);
-> -
-> -	if ((init_media) || (mii->full_duplex != duplex)) {
-> -		mii->full_duplex = duplex;
-> -		return 1; /* duplex changed */
-> -	}
-> +			    ethtool_cmd_speed(&ecmd), 
-> +			    ecmd.duplex == DUPLEX_FULL ? "full" : "half",
-> +			    ecmd.lp_advertising);
-
-This log message used to include the raw LPA register value, but you're
-changing it to use ecmd.lp_advertising which has entirely different flag
-values.  In order to get the raw LPA value out, I think you'll need to
-delete mii_get_an() and split up mii_ethtool_gset() so you end up with:
-
-static void __mii_check_media(struct mii_if_info *mii, struct ethtool_cmd *ecmd,
-			      u16 *raw_lpa)
-{
-	*raw_lpa = 0;
-	...
-		mii->advertising = mii->mdio_read(mii, mii->phy_id, MII_ADVERTISE);
-		ecmd->advertising |= mii_lpa_to_ethtool_lpa_t(mii->advertising);
-	...
-			*raw_lpa = mii->mdio_read(mii, mii->phy_id, MII_LPA);
-			ecmd->lp_advertising =
-				mii_lpa_to_ethtool_lpa_t(*raw_lpa);
-	...
-}
-
-int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
-{
-	u16 raw_lpa;
-	__mii_check_media(mii, ecmd, &raw_lpa);
-	return 0;
-}
-
-unsigned int mii_check_media (struct mii_if_info *mii,
-			      unsigned int ok_to_print,
-			      unsigned int init_media)
-{
-	u16 raw_lpa;
-	...
-	__mii_check_media(mii, ecmd, &raw_lpa);
-	...
-	if (ok_to_print)
-		netdev_info(mii->dev, "link up, %uMbps, %s-duplex, lpa 0x%04X\n",
-			    ethtool_cmd_speed(&ecmd), 
-			    ecmd.duplex == DUPLEX_FULL ? "full" : "half",
-			    raw_lpa);
-	...
-}
-
-> -	return 0; /* duplex did not change */
-> +	return (init_media || (mii->full_duplex != duplex)) ? 1 : 0;
->   }
->   
->   /**
-
-No need for parentheses or the ?: operator.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> diff --git a/drivers/net/ppp/ppp_async.c b/drivers/net/ppp/ppp_async.c
+> index a031f6b..9c889e0 100644
+> --- a/drivers/net/ppp/ppp_async.c
+> +++ b/drivers/net/ppp/ppp_async.c
+> @@ -314,7 +314,7 @@ ppp_asynctty_ioctl(struct tty_struct *tty, struct file *file,
+>  		/* flush our buffers and the serial port's buffer */
+>  		if (arg == TCIOFLUSH || arg == TCOFLUSH)
+>  			ppp_async_flush_output(ap);
+> -		err = tty_perform_flush(tty, arg);
+> +		err = n_tty_ioctl_helper(tty, file, cmd, arg);
+>  		break;
+>  
+>  	case FIONREAD:
+> diff --git a/drivers/net/ppp/ppp_synctty.c b/drivers/net/ppp/ppp_synctty.c
+> index 1a12033..bdf3b13 100644
+> --- a/drivers/net/ppp/ppp_synctty.c
+> +++ b/drivers/net/ppp/ppp_synctty.c
+> @@ -355,7 +355,7 @@ ppp_synctty_ioctl(struct tty_struct *tty, struct file *file,
+>  		/* flush our buffers and the serial port's buffer */
+>  		if (arg == TCIOFLUSH || arg == TCOFLUSH)
+>  			ppp_sync_flush_output(ap);
+> -		err = tty_perform_flush(tty, arg);
+> +		err = n_tty_ioctl_helper(tty, file, cmd, arg);
+>  		break;
+>  
+>  	case FIONREAD:
+> diff --git a/drivers/tty/tty_ioctl.c b/drivers/tty/tty_ioctl.c
+> index d58b92c..935b032 100644
+> --- a/drivers/tty/tty_ioctl.c
+> +++ b/drivers/tty/tty_ioctl.c
+> @@ -1086,14 +1086,12 @@ int tty_mode_ioctl(struct tty_struct *tty, struct file *file,
+>  }
+>  EXPORT_SYMBOL_GPL(tty_mode_ioctl);
+>  
+> -int tty_perform_flush(struct tty_struct *tty, unsigned long arg)
+> +
+> +/* Caller guarantees ldisc reference is held */
+> +static int __tty_perform_flush(struct tty_struct *tty, unsigned long arg)
+>  {
+> -	struct tty_ldisc *ld;
+> -	int retval = tty_check_change(tty);
+> -	if (retval)
+> -		return retval;
+> +	struct tty_ldisc *ld = tty->ldisc;
+>  
+> -	ld = tty_ldisc_ref_wait(tty);
+>  	switch (arg) {
+>  	case TCIFLUSH:
+>  		if (ld && ld->ops->flush_buffer) {
+> @@ -1111,12 +1109,24 @@ int tty_perform_flush(struct tty_struct *tty, unsigned long arg)
+>  		tty_driver_flush_buffer(tty);
+>  		break;
+>  	default:
+> -		tty_ldisc_deref(ld);
+>  		return -EINVAL;
+>  	}
+> -	tty_ldisc_deref(ld);
+>  	return 0;
+>  }
+> +
+> +int tty_perform_flush(struct tty_struct *tty, unsigned long arg)
+> +{
+> +	struct tty_ldisc *ld;
+> +	int retval = tty_check_change(tty);
+> +	if (retval)
+> +		return retval;
+> +
+> +	ld = tty_ldisc_ref_wait(tty);
+> +	retval = __tty_perform_flush(tty, arg);
+> +	if (ld)
+> +		tty_ldisc_deref(ld);
+> +	return retval;
+> +}
+>  EXPORT_SYMBOL_GPL(tty_perform_flush);
+>  
+>  int n_tty_ioctl_helper(struct tty_struct *tty, struct file *file,
+> @@ -1155,7 +1165,7 @@ int n_tty_ioctl_helper(struct tty_struct *tty, struct file *file,
+>  		}
+>  		return 0;
+>  	case TCFLSH:
+> -		return tty_perform_flush(tty, arg);
+> +		return __tty_perform_flush(tty, arg);
+>  	default:
+>  		/* Try the mode commands */
+>  		return tty_mode_ioctl(tty, file, cmd, arg);
