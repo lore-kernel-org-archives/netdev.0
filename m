@@ -1,8 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 10/22] sfc: Disable RSS when using SR-IOV and only
- 1 RX queue on the PF
-Date: Mon, 11 Mar 2013 19:55:23 +0000
-Message-ID: <1363031723.2608.47.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 11/22] sfc: Add AER and EEH support for Siena
+Date: Mon, 11 Mar 2013 19:55:40 +0000
+Message-ID: <1363031740.2608.48.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1363030400.2608.37.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -11,45 +10,457 @@ Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
 	<scrum-linux@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:16766 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:16775 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751636Ab3CKTz0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 15:55:26 -0400
+	with ESMTP id S1753149Ab3CKTzn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 15:55:43 -0400
 In-Reply-To: <1363030400.2608.37.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Siena, VFs share RSS configuration with the PF.  We attempted to
-support configurations where the PF only uses 1 RX queue and VFs use
-multiple RX queues, by (1) setting up RSS for the number of RX queues
-per VF (2) disabling RSS in the PF's RX default filters.
+From:  Alexandre Rames <arames@solarflare.com>
 
-Unfortunately commit cd2d5b529cdb ('sfc: Add SR-IOV back-end support
-for SFC9000 family') only included (1).  This is (2).
+The Linux side of EEH is triggered by MMIO reads, but this
+driver's data path does not issue any MMIO reads (except in
+legacy interrupt mode).  Therefore add a monitor function
+to poll EEH periodically.
 
+When preparing to reset the device based on our own error
+detection, also poll EEH and defer to its recovery mechanism
+if appropriate.
+
+[bwh: Use a separate condition for the initial link poll; fix some
+ style errors]
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/filter.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/sfc/efx.c        |  207 +++++++++++++++++++++++++++++----
+ drivers/net/ethernet/sfc/enum.h       |   12 ++-
+ drivers/net/ethernet/sfc/net_driver.h |    1 +
+ drivers/net/ethernet/sfc/siena.c      |   22 ++++-
+ 4 files changed, 216 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/filter.c b/drivers/net/ethernet/sfc/filter.c
-index 0de8daf..61b4408 100644
---- a/drivers/net/ethernet/sfc/filter.c
-+++ b/drivers/net/ethernet/sfc/filter.c
-@@ -414,8 +414,12 @@ static void efx_filter_reset_rx_def(struct efx_nic *efx, unsigned filter_idx)
- 	struct efx_filter_table *table = &state->table[EFX_FILTER_TABLE_RX_DEF];
- 	struct efx_filter_spec *spec = &table->spec[filter_idx];
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 11a8108..5e1ddc5 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -21,7 +21,9 @@
+ #include <linux/ethtool.h>
+ #include <linux/topology.h>
+ #include <linux/gfp.h>
++#include <linux/pci.h>
+ #include <linux/cpu_rmap.h>
++#include <linux/aer.h>
+ #include "net_driver.h"
+ #include "efx.h"
+ #include "nic.h"
+@@ -71,17 +73,19 @@ const char *const efx_loopback_mode_names[] = {
  
-+	/* If there's only one channel then disable RSS for non VF
-+	 * traffic, thereby allowing VFs to use RSS when the PF can't.
+ const unsigned int efx_reset_type_max = RESET_TYPE_MAX;
+ const char *const efx_reset_type_names[] = {
+-	[RESET_TYPE_INVISIBLE]     = "INVISIBLE",
+-	[RESET_TYPE_ALL]           = "ALL",
+-	[RESET_TYPE_WORLD]         = "WORLD",
+-	[RESET_TYPE_DISABLE]       = "DISABLE",
+-	[RESET_TYPE_TX_WATCHDOG]   = "TX_WATCHDOG",
+-	[RESET_TYPE_INT_ERROR]     = "INT_ERROR",
+-	[RESET_TYPE_RX_RECOVERY]   = "RX_RECOVERY",
+-	[RESET_TYPE_RX_DESC_FETCH] = "RX_DESC_FETCH",
+-	[RESET_TYPE_TX_DESC_FETCH] = "TX_DESC_FETCH",
+-	[RESET_TYPE_TX_SKIP]       = "TX_SKIP",
+-	[RESET_TYPE_MC_FAILURE]    = "MC_FAILURE",
++	[RESET_TYPE_INVISIBLE]          = "INVISIBLE",
++	[RESET_TYPE_ALL]                = "ALL",
++	[RESET_TYPE_RECOVER_OR_ALL]     = "RECOVER_OR_ALL",
++	[RESET_TYPE_WORLD]              = "WORLD",
++	[RESET_TYPE_RECOVER_OR_DISABLE] = "RECOVER_OR_DISABLE",
++	[RESET_TYPE_DISABLE]            = "DISABLE",
++	[RESET_TYPE_TX_WATCHDOG]        = "TX_WATCHDOG",
++	[RESET_TYPE_INT_ERROR]          = "INT_ERROR",
++	[RESET_TYPE_RX_RECOVERY]        = "RX_RECOVERY",
++	[RESET_TYPE_RX_DESC_FETCH]      = "RX_DESC_FETCH",
++	[RESET_TYPE_TX_DESC_FETCH]      = "TX_DESC_FETCH",
++	[RESET_TYPE_TX_SKIP]            = "TX_SKIP",
++	[RESET_TYPE_MC_FAILURE]         = "MC_FAILURE",
+ };
+ 
+ #define EFX_MAX_MTU (9 * 1024)
+@@ -117,9 +121,12 @@ MODULE_PARM_DESC(separate_tx_channels,
+ static int napi_weight = 64;
+ 
+ /* This is the time (in jiffies) between invocations of the hardware
+- * monitor.  On Falcon-based NICs, this will:
++ * monitor.
++ * On Falcon-based NICs, this will:
+  * - Check the on-board hardware monitor;
+  * - Poll the link state and reconfigure the hardware as necessary.
++ * On Siena-based NICs for power systems with EEH support, this will give EEH a
++ * chance to start.
+  */
+ static unsigned int efx_monitor_interval = 1 * HZ;
+ 
+@@ -203,13 +210,14 @@ static void efx_stop_all(struct efx_nic *efx);
+ #define EFX_ASSERT_RESET_SERIALISED(efx)		\
+ 	do {						\
+ 		if ((efx->state == STATE_READY) ||	\
++		    (efx->state == STATE_RECOVERY) ||	\
+ 		    (efx->state == STATE_DISABLED))	\
+ 			ASSERT_RTNL();			\
+ 	} while (0)
+ 
+ static int efx_check_disabled(struct efx_nic *efx)
+ {
+-	if (efx->state == STATE_DISABLED) {
++	if (efx->state == STATE_DISABLED || efx->state == STATE_RECOVERY) {
+ 		netif_err(efx, drv, efx->net_dev,
+ 			  "device is disabled due to earlier errors\n");
+ 		return -EIO;
+@@ -677,7 +685,7 @@ static void efx_stop_datapath(struct efx_nic *efx)
+ 	BUG_ON(efx->port_enabled);
+ 
+ 	/* Only perform flush if dma is enabled */
+-	if (dev->is_busmaster) {
++	if (dev->is_busmaster && efx->state != STATE_RECOVERY) {
+ 		rc = efx_nic_flush_queues(efx);
+ 
+ 		if (rc && EFX_WORKAROUND_7803(efx)) {
+@@ -1590,13 +1598,15 @@ static void efx_start_all(struct efx_nic *efx)
+ 	efx_start_port(efx);
+ 	efx_start_datapath(efx);
+ 
+-	/* Start the hardware monitor if there is one. Otherwise (we're link
+-	 * event driven), we have to poll the PHY because after an event queue
+-	 * flush, we could have a missed a link state change */
+-	if (efx->type->monitor != NULL) {
++	/* Start the hardware monitor if there is one */
++	if (efx->type->monitor != NULL)
+ 		queue_delayed_work(efx->workqueue, &efx->monitor_work,
+ 				   efx_monitor_interval);
+-	} else {
++
++	/* If link state detection is normally event-driven, we have
++	 * to poll now because we could have missed a change
 +	 */
- 	efx_filter_init_rx(spec, EFX_FILTER_PRI_MANUAL,
--			   EFX_FILTER_FLAG_RX_RSS, 0);
-+			   efx->n_rx_channels > 1 ? EFX_FILTER_FLAG_RX_RSS : 0,
-+			   0);
- 	spec->type = EFX_FILTER_UC_DEF + filter_idx;
- 	table->used_bitmap[0] |= 1 << filter_idx;
++	if (efx_nic_rev(efx) >= EFX_REV_SIENA_A0) {
+ 		mutex_lock(&efx->mac_lock);
+ 		if (efx->phy_op->poll(efx))
+ 			efx_link_status_changed(efx);
+@@ -2303,7 +2313,9 @@ int efx_reset(struct efx_nic *efx, enum reset_type method)
+ 
+ out:
+ 	/* Leave device stopped if necessary */
+-	disabled = rc || method == RESET_TYPE_DISABLE;
++	disabled = rc ||
++		method == RESET_TYPE_DISABLE ||
++		method == RESET_TYPE_RECOVER_OR_DISABLE;
+ 	rc2 = efx_reset_up(efx, method, !disabled);
+ 	if (rc2) {
+ 		disabled = true;
+@@ -2322,13 +2334,48 @@ out:
+ 	return rc;
  }
+ 
++/* Try recovery mechanisms.
++ * For now only EEH is supported.
++ * Returns 0 if the recovery mechanisms are unsuccessful.
++ * Returns a non-zero value otherwise.
++ */
++static int efx_try_recovery(struct efx_nic *efx)
++{
++#ifdef CONFIG_EEH
++	/* A PCI error can occur and not be seen by EEH because nothing
++	 * happens on the PCI bus. In this case the driver may fail and
++	 * schedule a 'recover or reset', leading to this recovery handler.
++	 * Manually call the eeh failure check function.
++	 */
++	struct eeh_dev *eehdev =
++		of_node_to_eeh_dev(pci_device_to_OF_node(efx->pci_dev));
++
++	if (eeh_dev_check_failure(eehdev)) {
++		/* The EEH mechanisms will handle the error and reset the
++		 * device if necessary.
++		 */
++		return 1;
++	}
++#endif
++	return 0;
++}
++
+ /* The worker thread exists so that code that cannot sleep can
+  * schedule a reset for later.
+  */
+ static void efx_reset_work(struct work_struct *data)
+ {
+ 	struct efx_nic *efx = container_of(data, struct efx_nic, reset_work);
+-	unsigned long pending = ACCESS_ONCE(efx->reset_pending);
++	unsigned long pending;
++	enum reset_type method;
++
++	pending = ACCESS_ONCE(efx->reset_pending);
++	method = fls(pending) - 1;
++
++	if ((method == RESET_TYPE_RECOVER_OR_DISABLE ||
++	     method == RESET_TYPE_RECOVER_OR_ALL) &&
++	    efx_try_recovery(efx))
++		return;
+ 
+ 	if (!pending)
+ 		return;
+@@ -2340,7 +2387,7 @@ static void efx_reset_work(struct work_struct *data)
+ 	 * it cannot change again.
+ 	 */
+ 	if (efx->state == STATE_READY)
+-		(void)efx_reset(efx, fls(pending) - 1);
++		(void)efx_reset(efx, method);
+ 
+ 	rtnl_unlock();
+ }
+@@ -2349,11 +2396,20 @@ void efx_schedule_reset(struct efx_nic *efx, enum reset_type type)
+ {
+ 	enum reset_type method;
+ 
++	if (efx->state == STATE_RECOVERY) {
++		netif_dbg(efx, drv, efx->net_dev,
++			  "recovering: skip scheduling %s reset\n",
++			  RESET_TYPE(type));
++		return;
++	}
++
+ 	switch (type) {
+ 	case RESET_TYPE_INVISIBLE:
+ 	case RESET_TYPE_ALL:
++	case RESET_TYPE_RECOVER_OR_ALL:
+ 	case RESET_TYPE_WORLD:
+ 	case RESET_TYPE_DISABLE:
++	case RESET_TYPE_RECOVER_OR_DISABLE:
+ 		method = type;
+ 		netif_dbg(efx, drv, efx->net_dev, "scheduling %s reset\n",
+ 			  RESET_TYPE(method));
+@@ -2563,6 +2619,8 @@ static void efx_pci_remove(struct pci_dev *pci_dev)
+ 	efx_fini_struct(efx);
+ 	pci_set_drvdata(pci_dev, NULL);
+ 	free_netdev(efx->net_dev);
++
++	pci_disable_pcie_error_reporting(pci_dev);
+ };
+ 
+ /* NIC VPD information
+@@ -2735,6 +2793,11 @@ static int efx_pci_probe(struct pci_dev *pci_dev,
+ 		netif_warn(efx, probe, efx->net_dev,
+ 			   "failed to create MTDs (%d)\n", rc);
+ 
++	rc = pci_enable_pcie_error_reporting(pci_dev);
++	if (rc && rc != -EINVAL)
++		netif_warn(efx, probe, efx->net_dev,
++			   "pci_enable_pcie_error_reporting failed (%d)\n", rc);
++
+ 	return 0;
+ 
+  fail4:
+@@ -2859,12 +2922,112 @@ static const struct dev_pm_ops efx_pm_ops = {
+ 	.restore	= efx_pm_resume,
+ };
+ 
++/* A PCI error affecting this device was detected.
++ * At this point MMIO and DMA may be disabled.
++ * Stop the software path and request a slot reset.
++ */
++pci_ers_result_t efx_io_error_detected(struct pci_dev *pdev,
++				       enum pci_channel_state state)
++{
++	pci_ers_result_t status = PCI_ERS_RESULT_RECOVERED;
++	struct efx_nic *efx = pci_get_drvdata(pdev);
++
++	if (state == pci_channel_io_perm_failure)
++		return PCI_ERS_RESULT_DISCONNECT;
++
++	rtnl_lock();
++
++	if (efx->state != STATE_DISABLED) {
++		efx->state = STATE_RECOVERY;
++		efx->reset_pending = 0;
++
++		efx_device_detach_sync(efx);
++
++		efx_stop_all(efx);
++		efx_stop_interrupts(efx, false);
++
++		status = PCI_ERS_RESULT_NEED_RESET;
++	} else {
++		/* If the interface is disabled we don't want to do anything
++		 * with it.
++		 */
++		status = PCI_ERS_RESULT_RECOVERED;
++	}
++
++	rtnl_unlock();
++
++	pci_disable_device(pdev);
++
++	return status;
++}
++
++/* Fake a successfull reset, which will be performed later in efx_io_resume. */
++pci_ers_result_t efx_io_slot_reset(struct pci_dev *pdev)
++{
++	struct efx_nic *efx = pci_get_drvdata(pdev);
++	pci_ers_result_t status = PCI_ERS_RESULT_RECOVERED;
++	int rc;
++
++	if (pci_enable_device(pdev)) {
++		netif_err(efx, hw, efx->net_dev,
++			  "Cannot re-enable PCI device after reset.\n");
++		status =  PCI_ERS_RESULT_DISCONNECT;
++	}
++
++	rc = pci_cleanup_aer_uncorrect_error_status(pdev);
++	if (rc) {
++		netif_err(efx, hw, efx->net_dev,
++		"pci_cleanup_aer_uncorrect_error_status failed (%d)\n", rc);
++		/* Non-fatal error. Continue. */
++	}
++
++	return status;
++}
++
++/* Perform the actual reset and resume I/O operations. */
++static void efx_io_resume(struct pci_dev *pdev)
++{
++	struct efx_nic *efx = pci_get_drvdata(pdev);
++	int rc;
++
++	rtnl_lock();
++
++	if (efx->state == STATE_DISABLED)
++		goto out;
++
++	rc = efx_reset(efx, RESET_TYPE_ALL);
++	if (rc) {
++		netif_err(efx, hw, efx->net_dev,
++			  "efx_reset failed after PCI error (%d)\n", rc);
++	} else {
++		efx->state = STATE_READY;
++		netif_dbg(efx, hw, efx->net_dev,
++			  "Done resetting and resuming IO after PCI error.\n");
++	}
++
++out:
++	rtnl_unlock();
++}
++
++/* For simplicity and reliability, we always require a slot reset and try to
++ * reset the hardware when a pci error affecting the device is detected.
++ * We leave both the link_reset and mmio_enabled callback unimplemented:
++ * with our request for slot reset the mmio_enabled callback will never be
++ * called, and the link_reset callback is not used by AER or EEH mechanisms.
++ */
++static struct pci_error_handlers efx_err_handlers = {
++	.error_detected = efx_io_error_detected,
++	.slot_reset	= efx_io_slot_reset,
++	.resume		= efx_io_resume,
++};
++
+ static struct pci_driver efx_pci_driver = {
+ 	.name		= KBUILD_MODNAME,
+ 	.id_table	= efx_pci_table,
+ 	.probe		= efx_pci_probe,
+ 	.remove		= efx_pci_remove,
+ 	.driver.pm	= &efx_pm_ops,
++	.err_handler	= &efx_err_handlers,
+ };
+ 
+ /**************************************************************************
+diff --git a/drivers/net/ethernet/sfc/enum.h b/drivers/net/ethernet/sfc/enum.h
+index 182dbe2..ab8fb58 100644
+--- a/drivers/net/ethernet/sfc/enum.h
++++ b/drivers/net/ethernet/sfc/enum.h
+@@ -137,8 +137,12 @@ enum efx_loopback_mode {
+  * Reset methods are numbered in order of increasing scope.
+  *
+  * @RESET_TYPE_INVISIBLE: Reset datapath and MAC (Falcon only)
++ * @RESET_TYPE_RECOVER_OR_ALL: Try to recover. Apply RESET_TYPE_ALL
++ * if unsuccessful.
+  * @RESET_TYPE_ALL: Reset datapath, MAC and PHY
+  * @RESET_TYPE_WORLD: Reset as much as possible
++ * @RESET_TYPE_RECOVER_OR_DISABLE: Try to recover. Apply RESET_TYPE_DISABLE if
++ * unsuccessful.
+  * @RESET_TYPE_DISABLE: Reset datapath, MAC and PHY; leave NIC disabled
+  * @RESET_TYPE_TX_WATCHDOG: reset due to TX watchdog
+  * @RESET_TYPE_INT_ERROR: reset due to internal error
+@@ -150,9 +154,11 @@ enum efx_loopback_mode {
+  */
+ enum reset_type {
+ 	RESET_TYPE_INVISIBLE = 0,
+-	RESET_TYPE_ALL = 1,
+-	RESET_TYPE_WORLD = 2,
+-	RESET_TYPE_DISABLE = 3,
++	RESET_TYPE_RECOVER_OR_ALL = 1,
++	RESET_TYPE_ALL = 2,
++	RESET_TYPE_WORLD = 3,
++	RESET_TYPE_RECOVER_OR_DISABLE = 4,
++	RESET_TYPE_DISABLE = 5,
+ 	RESET_TYPE_MAX_METHOD,
+ 	RESET_TYPE_TX_WATCHDOG,
+ 	RESET_TYPE_INT_ERROR,
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index c83fe09..9e90081 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -429,6 +429,7 @@ enum nic_state {
+ 	STATE_UNINIT = 0,	/* device being probed/removed or is frozen */
+ 	STATE_READY = 1,	/* hardware ready and netdev registered */
+ 	STATE_DISABLED = 2,	/* device disabled due to hardware errors */
++	STATE_RECOVERY = 3,	/* device recovering from PCI error */
+ };
+ 
+ /*
+diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
+index ba40f67..e07ff0d 100644
+--- a/drivers/net/ethernet/sfc/siena.c
++++ b/drivers/net/ethernet/sfc/siena.c
+@@ -202,7 +202,7 @@ out:
+ 
+ static enum reset_type siena_map_reset_reason(enum reset_type reason)
+ {
+-	return RESET_TYPE_ALL;
++	return RESET_TYPE_RECOVER_OR_ALL;
+ }
+ 
+ static int siena_map_reset_flags(u32 *flags)
+@@ -245,6 +245,22 @@ static int siena_reset_hw(struct efx_nic *efx, enum reset_type method)
+ 		return efx_mcdi_reset_port(efx);
+ }
+ 
++#ifdef CONFIG_EEH
++/* When a PCI device is isolated from the bus, a subsequent MMIO read is
++ * required for the kernel EEH mechanisms to notice. As the Solarflare driver
++ * was written to minimise MMIO read (for latency) then a periodic call to check
++ * the EEH status of the device is required so that device recovery can happen
++ * in a timely fashion.
++ */
++static void siena_monitor(struct efx_nic *efx)
++{
++	struct eeh_dev *eehdev =
++		of_node_to_eeh_dev(pci_device_to_OF_node(efx->pci_dev));
++
++	eeh_dev_check_failure(eehdev);
++}
++#endif
++
+ static int siena_probe_nvconfig(struct efx_nic *efx)
+ {
+ 	u32 caps = 0;
+@@ -665,7 +681,11 @@ const struct efx_nic_type siena_a0_nic_type = {
+ 	.init = siena_init_nic,
+ 	.dimension_resources = siena_dimension_resources,
+ 	.fini = efx_port_dummy_op_void,
++#ifdef CONFIG_EEH
++	.monitor = siena_monitor,
++#else
+ 	.monitor = NULL,
++#endif
+ 	.map_reset_reason = siena_map_reset_reason,
+ 	.map_reset_flags = siena_map_reset_flags,
+ 	.reset = siena_reset_hw,
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
