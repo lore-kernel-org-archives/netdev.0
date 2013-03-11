@@ -1,63 +1,52 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] iproute2: Document the -D and -I options
-Date: Mon, 11 Mar 2013 14:59:37 -0700
-Message-ID: <87r4jliomu.fsf@xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Larry Baker <baker@usgs.gov>
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: pull request: batman-adv 2013-03-11
+Date: Mon, 11 Mar 2013 23:12:27 +0100
+Message-ID: <1363039948-27190-1-git-send-email-ordex@autistici.org>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:57110 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754132Ab3CKV7o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 17:59:44 -0400
+Received: from diserzione.investici.org ([82.221.99.153]:41196 "EHLO
+	diserzione.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754911Ab3CKWNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 18:13:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello David,
 
-While looking into a sysctl regression in decnet on old kernels I
-discovered this omission in the iproute2 documentation.
+This is a single fix intended for net/linux-3.9 brought by Marek Lindner.
+It ensures that the incoming originator message parsing routine does not
+try to read beyond the packet boundary causing it to process random data.
 
-I can't imagine anyone's muscle memory remembering the longer forms.
+This bug is in since a while..Please, consider sending this patch to stable.
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- ip/ip.c       |    1 +
- man/man8/ip.8 |   10 ++++++++++
- 2 files changed, 11 insertions(+), 0 deletions(-)
 
-diff --git a/ip/ip.c b/ip/ip.c
-index c3ff627..e10ddb2 100644
---- a/ip/ip.c
-+++ b/ip/ip.c
-@@ -48,6 +48,7 @@ static void usage(void)
- "                   netns | l2tp | tcp_metrics }\n"
- "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n"
- "                    -f[amily] { inet | inet6 | ipx | dnet | bridge | link } |\n"
-+"                    -4 | -6 | -I | -D | -B | -0 |\n"
- "                    -l[oops] { maximum-addr-flush-attempts } |\n"
- "                    -o[neline] | -t[imestamp] | -b[atch] [filename] |\n"
- "                    -rc[vbuf] [size]}\n");
-diff --git a/man/man8/ip.8 b/man/man8/ip.8
-index 881e1ff..37f9988 100644
---- a/man/man8/ip.8
-+++ b/man/man8/ip.8
-@@ -82,6 +82,16 @@ shortcut for
- .BR "\-family bridge" .
- 
- .TP
-+.B \-D
-+shortcut for
-+.BR "\-family decnet" .
-+
-+.TP
-+.B \-I
-+shortcut for
-+.BR "\-family ipx" .
-+
-+.TP
- .B \-0
- shortcut for
- .BR "\-family link" .
--- 
-1.7.5.4
+Please pull or let me know if there is any problem!
+Thank you,
+	Antonio
+
+
+
+The following changes since commit 7c6baa304b841673d3a55ea4fcf9a5cbf7a1674b:
+
+  Merge branch 'perf-urgent-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip (2013-03-11 07:54:29 -0700)
+
+are available in the git repository at:
+
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
+
+for you to fetch changes up to b47506d91259c29b9c75c404737eb6525556f9b4:
+
+  batman-adv: verify tt len does not exceed packet len (2013-03-11 22:59:47 +0100)
+
+----------------------------------------------------------------
+Included changes ares:
+- fix packet parsing routine to avoid to read beyond the packet boundary
+
+----------------------------------------------------------------
+Marek Lindner (1):
+      batman-adv: verify tt len does not exceed packet len
+
+ net/batman-adv/bat_iv_ogm.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
