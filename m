@@ -1,41 +1,55 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] bnx2x: use list_move instead of list_del/list_add
-Date: Mon, 11 Mar 2013 22:40:14 +0800
-Message-ID: <CAPgLHd8f_Vq40sB9SaD-3wsHp34ifQ7X+uoMUNDfjFHcy4wJkQ@mail.gmail.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [PATCH] bnx2x: update fw to 7.8.17
+Date: Mon, 11 Mar 2013 14:43:41 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F1C03C50E@SJEXCHMB06.corp.ad.broadcom.com>
+References: <1361993047-10127-1-git-send-email-dmitry@broadcom.com>
+ <1362845900.3768.496.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: eilong@broadcom.com
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Ariel Elior" <ariele@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"David Woodhouse" <dwmw2@infradead.org>
+To: "Ben Hutchings" <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f53.google.com ([209.85.214.53]:57889 "EHLO
-	mail-bk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751868Ab3CKOkQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 10:40:16 -0400
-Received: by mail-bk0-f53.google.com with SMTP id j10so1761690bkw.12
-        for <netdev@vger.kernel.org>; Mon, 11 Mar 2013 07:40:15 -0700 (PDT)
+Received: from mms2.broadcom.com ([216.31.210.18]:3111 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752738Ab3CKOoD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Mar 2013 10:44:03 -0400
+In-Reply-To: <1362845900.3768.496.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-
-Using list_move() instead of list_del() + list_add().
-
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 71fcef0..c32a066 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -556,8 +556,7 @@ static int bnx2x_vfop_config_list(struct bnx2x *bp,
- 		rc = bnx2x_config_vlan_mac(bp, vlan_mac);
- 		if (rc >= 0) {
- 			cnt += pos->add ? 1 : -1;
--			list_del(&pos->link);
--			list_add(&pos->link, &rollback_list);
-+			list_move(&pos->link, &rollback_list);
- 			rc = 0;
- 		} else if (rc == -EEXIST) {
- 			rc = 0;
+SGkgQmVuLA0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IG5ldGRldi1v
+d25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3Jn
+XSBPbiBCZWhhbGYgT2YgQmVuIEh1dGNoaW5ncw0KPiBTZW50OiBTYXR1cmRheSwgTWFyY2ggMDks
+IDIwMTMgNjoxOCBQTQ0KPiBUbzogRG1pdHJ5IEtyYXZrb3YNCj4gQ2M6IG5ldGRldkB2Z2VyLmtl
+cm5lbC5vcmc7IEFyaWVsIEVsaW9yOyBFaWxvbiBHcmVlbnN0ZWluOyBEYXZpZCBXb29kaG91c2UN
+Cj4gU3ViamVjdDogUmU6IFtQQVRDSF0gYm54Mng6IHVwZGF0ZSBmdyB0byA3LjguMTcNCj4gDQo+
+IE9uIFdlZCwgMjAxMy0wMi0yNyBhdCAyMToyNCArMDIwMCwgRG1pdHJ5IEtyYXZrb3Ygd3JvdGU6
+DQo+ID4gVGhpcyBuZXcgZmlybXdhcmUgaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBjaGFuZ2VzOg0K
+PiA+DQo+ID4gMS4gU2V2ZXJhbCBjb3JuZXIgY2FzZSBidWdzIGluIGlTQ1NJIGNvZGUuDQo+ID4g
+Mi4gRml4ZXMgZm9yIEZDb0UgaW5jbHVkaW5nIHN1cHBvcnQgZm9yIDNQQVIgdGFyZ2V0cy4NCj4g
+PiAzLiBGaXhlcyBmb3IgU1ItSU9WIGJlaGF2aW91ciBpbmNsdWRpbmc6DQo+ID4gCWEuIFJlbW92
+ZSBGVyBhc3NlcnQgZXJyb25lb3VzbHkgdHJpZ2dlcmVkIGR1cmluZyBGTFIuDQo+ID4gCWIuIFNl
+dmVyYWwgZml4ZXMgaW4gRkxSIGZsb3cuDQo+ID4gCWMuIFByZXZlbnQgVkYgY3Jhc2ggd2hlbiBw
+YWNrZXQgYmlnZ2VyIHRoYW4gTVRVIGFycml2ZXMuDQo+ID4gCWQuIEltcHJvdmUgc2VjdXJpdHkg
+YWdhaW5zdCBtYWxpY2lvdXMgVkYuDQo+ID4gNC4gQWRkZWQgQ1NVTSBhbmQgVFNPIHN1cHBvcnQg
+Zm9yIGVuY2Fwc3VsYXRpb24gcHJvdG9jb2xzLg0KPiA+IDUuIEFkZGVkIFJTUyBjYXBhYmlsaXR5
+IGZvciBHUkUgdHJhZmZpYyBiYXNlZCBvbiBpbm5lciBoZWFkZXJzLg0KPiA+IDYuIEFkZGVkIEZD
+b0Ugc3VwcG9ydCBmb3IgNC1wb3J0IDU3ODQwIGRldmljZXMuDQo+ID4NCj4gPiBTaWduZWQtb2Zm
+LWJ5OiBEbWl0cnkgS3JhdmtvdiA8ZG1pdHJ5QGJyb2FkY29tLmNvbT4NCj4gPiBTaWduZWQtb2Zm
+LWJ5OiBBcmllbCBFbGlvciA8YXJpZWxlQGJyb2FkY29tLmNvbT4NCj4gPiBTaWduZWQtb2ZmLWJ5
+OiBFaWxvbiBHcmVlbnN0ZWluIDxlaWxvbmdAYnJvYWRjb20uY29tPg0KPiA+IC0tLQ0KPiA+IFBs
+ZWFzZSBjb25zaWRlciBhZGRpbmcgdG8gbGludXgtZmlybXdhcmUgdHJlZS4NCj4gWy4uLl0NCj4g
+DQo+IEFwcGxpZWQsIHRoYW5rcy4NCj4gDQpJJ20gbG9va2luZyBmb3IgdGhlIEZXIGF0DQpnaXQ6
+Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvZmlybXdhcmUvbGludXgt
+ZmlybXdhcmUuZ2l0DQpidXQgdGhlIGxhdGVzdCBjb21taXQgdGhlcmUgaXM6DQpjb21taXQgYzEx
+ZjM3NGFmZGQyYTNmZjA2NjVjMWNiMGFhYjRhZDBjNjU3M2VjNw0KICAgIGN4MjMxeHgvY3gyMzg4
+NTogUmVtb3ZlIGluY29ycmVjdCBDb25leGFudCBDWDIzODg1IGZpcm13YXJlIA0KDQpBbSBJIGxv
+b2tpbmcgYXQgdGhlIHJpZ2h0IGxvY2F0aW9uPw0KDQpUaGFua3MNCkRtaXRyeQ0KPiAtLQ0KPiBC
+ZW4gSHV0Y2hpbmdzDQo+IEFsd2F5cyB0cnkgdG8gZG8gdGhpbmdzIGluIGNocm9ub2xvZ2ljYWwg
+b3JkZXI7DQo+IGl0J3MgbGVzcyBjb25mdXNpbmcgdGhhdCB3YXkuDQo=
