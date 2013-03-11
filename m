@@ -1,65 +1,111 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: Re: [PATCH net-next] cxgb4: Allow for backward compatibility with
- new VPD scheme.
-Date: Mon, 11 Mar 2013 12:23:12 +0530
-Message-ID: <513D7F58.1080807@chelsio.com>
-References: <1362749729-4532-1-git-send-email-vipul@chelsio.com> <20130308.124411.445253877641244372.davem@davemloft.net> <513D70F7.4090708@chelsio.com> <20130311.023009.1276623167785151916.davem@davemloft.net>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCHv2] net: can: af_can.c: Fix checkpatch warnings
+Date: Mon, 11 Mar 2013 08:02:43 +0100
+Message-ID: <513D8193.3080405@hartkopp.net>
+References: <1362918526-26730-1-git-send-email-valentin.ilie@gmail.com> <1362950113-25515-1-git-send-email-valentin.ilie@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Divy Le Ray <divy@chelsio.com>,
-	Dimitrios Michailidis <dm@chelsio.com>,
-	Abhishek Agrawal <abhishek@chelsio.com>,
-	Santosh Rastapur <santosh@chelsio.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:12991 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751392Ab3CKGxR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 02:53:17 -0400
-In-Reply-To: <20130311.023009.1276623167785151916.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Valentin Ilie <valentin.ilie@gmail.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1362950113-25515-1-git-send-email-valentin.ilie@gmail.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 10.03.2013 22:15, Valentin Ilie wrote:
 
-
-On 11-03-2013 12:00, David Miller wrote:
-> From: Vipul Pandya <vipul@chelsio.com>
-> Date: Mon, 11 Mar 2013 11:21:51 +0530
+> Replace printk(KERN_ERR with pr_err
+> Add space before {
+> Removed OOM messages
 > 
->>
->>
->> On 08-03-2013 23:14, David Miller wrote:
->>> From: Vipul Pandya <vipul@chelsio.com>
->>> Date: Fri,  8 Mar 2013 19:05:29 +0530
->>>
->>>> From: Santosh Rastapur <santosh@chelsio.com>
->>>>
->>>> New scheme calls for 3rd party VPD at offset 0x0 and Chelsio VPD at offset
->>>> 0x400 of the function.  If no 3rd party VPD is present, then a copy of
->>>> Chelsio's VPD will be at offset 0x0 to keep in line with PCI spec which
->>>> requires the VPD to be present at offset 0x0.
->>>>
->>>> Signed-off-by: Santosh Rastapur <santosh@chelsio.com>
->>>> Signed-off-by: Vipul Pandya <vipul@chelsio.com>
->>>
->>> Isn't this a fix which is better targetted at 'net' than 'net-next'?
->>>
->>
->> We have very soon new patch series coming up for net-next. This patch
->> requires for that patch series to work correctly. So, we would like to
->> get this merge in net-next tree.
-> 
-> But you can achieve that by asking me to apply this to 'net' and then
-> when the patch series that depends upon it is posted, you tell me about
-> this dependency.
-> 
-Ok. I was not aware of this. However there can be a merge conflict at
-the time of merging 'net' and 'net-next' tree if this patch gets applied
-in 'net' tree and our new patch series gets applied in 'net-next'. To
-avoid it we recommended the same. The merge conflict wont be a major and
-if it is alright to resolve it we can apply this patch to 'net' tree.
+> Signed-off-by: Valentin Ilie <valentin.ilie@gmail.com>
 
-Thanks,
-Vipul
+
+Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
+
+Thanks Valentin
+
+
+> ---
+>  net/can/af_can.c | 21 ++++++++-------------
+>  1 file changed, 8 insertions(+), 13 deletions(-)
+> 
+> diff --git a/net/can/af_can.c b/net/can/af_can.c
+> index c48e522..8bacf28 100644
+> --- a/net/can/af_can.c
+> +++ b/net/can/af_can.c
+> @@ -525,7 +525,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+>  
+>  	d = find_dev_rcv_lists(dev);
+>  	if (!d) {
+> -		printk(KERN_ERR "BUG: receive list not found for "
+> +		pr_err("BUG: receive list not found for "
+>  		       "dev %s, id %03X, mask %03X\n",
+>  		       DNAME(dev), can_id, mask);
+>  		goto out;
+> @@ -552,7 +552,7 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+>  	 */
+>  
+>  	if (!r) {
+> -		printk(KERN_ERR "BUG: receive list entry not found for "
+> +		pr_err("BUG: receive list entry not found for "
+>  		       "dev %s, id %03X, mask %03X\n",
+>  		       DNAME(dev), can_id, mask);
+>  		r = NULL;
+> @@ -749,8 +749,7 @@ int can_proto_register(const struct can_proto *cp)
+>  	int err = 0;
+>  
+>  	if (proto < 0 || proto >= CAN_NPROTO) {
+> -		printk(KERN_ERR "can: protocol number %d out of range\n",
+> -		       proto);
+> +		pr_err("can: protocol number %d out of range\n", proto);
+>  		return -EINVAL;
+>  	}
+>  
+> @@ -761,8 +760,7 @@ int can_proto_register(const struct can_proto *cp)
+>  	mutex_lock(&proto_tab_lock);
+>  
+>  	if (proto_tab[proto]) {
+> -		printk(KERN_ERR "can: protocol %d already registered\n",
+> -		       proto);
+> +		pr_err("can: protocol %d already registered\n", proto);
+>  		err = -EBUSY;
+>  	} else
+>  		RCU_INIT_POINTER(proto_tab[proto], cp);
+> @@ -816,11 +814,8 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
+>  
+>  		/* create new dev_rcv_lists for this device */
+>  		d = kzalloc(sizeof(*d), GFP_KERNEL);
+> -		if (!d) {
+> -			printk(KERN_ERR
+> -			       "can: allocation of receive list failed\n");
+> +		if (!d)
+>  			return NOTIFY_DONE;
+> -		}
+>  		BUG_ON(dev->ml_priv);
+>  		dev->ml_priv = d;
+>  
+> @@ -838,8 +833,8 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
+>  				dev->ml_priv = NULL;
+>  			}
+>  		} else
+> -			printk(KERN_ERR "can: notifier: receive list not "
+> -			       "found for dev %s\n", dev->name);
+> +			pr_err("can: notifier: receive list not found for dev "
+> +			       "%s\n", dev->name);
+>  
+>  		spin_unlock(&can_rcvlists_lock);
+>  
+> @@ -927,7 +922,7 @@ static __exit void can_exit(void)
+>  	/* remove created dev_rcv_lists from still registered CAN devices */
+>  	rcu_read_lock();
+>  	for_each_netdev_rcu(&init_net, dev) {
+> -		if (dev->type == ARPHRD_CAN && dev->ml_priv){
+> +		if (dev->type == ARPHRD_CAN && dev->ml_priv) {
+>  
+>  			struct dev_rcv_lists *d = dev->ml_priv;
+>  
+
+
