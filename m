@@ -1,79 +1,92 @@
-From: CAI Qian <caiqian@redhat.com>
-Subject: Re: be2net failed to initialize regression
-Date: Sun, 10 Mar 2013 22:07:49 -0400 (EDT)
-Message-ID: <1916441684.11871533.1362967669686.JavaMail.root@redhat.com>
-References: <CF9D1877D81D214CB0CA0669EFAE020C0F259965@CMEXMB1.ad.emulex.com>
+From: Xufeng Zhang <xufengzhang.main@gmail.com>
+Subject: Re: [PATCH] sctp: don't break the loop while meeting the active_path
+ so as to find the matched transport
+Date: Mon, 11 Mar 2013 10:14:50 +0800
+Message-ID: <CA+=dFzjyd4av9D1TmrvguRXv-V7JnGWYJcN=ZEDu8Qhz2s+U7Q@mail.gmail.com>
+References: <1362728377-11025-1-git-send-email-xufeng.zhang@windriver.com>
+	<20130308142720.GA9873@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Ivan Vecera <ivecera@redhat.com>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Sathya Perla <Sathya.Perla@Emulex.Com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Xufeng Zhang <xufeng.zhang@windriver.com>, vyasevich@gmail.com,
+	davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CF9D1877D81D214CB0CA0669EFAE020C0F259965@CMEXMB1.ad.emulex.com>
+In-Reply-To: <20130308142720.GA9873@hmsreliant.think-freely.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 3/8/13, Neil Horman <nhorman@tuxdriver.com> wrote:
+> On Fri, Mar 08, 2013 at 03:39:37PM +0800, Xufeng Zhang wrote:
+>> sctp_assoc_lookup_tsn() function searchs which transport a certain TSN
+>> was sent on, if not found in the active_path transport, then go search
+>> all the other transports in the peer's transport_addr_list, however, we
+>> should continue to the next entry rather than break the loop when meet
+>> the active_path transport.
+>>
+>> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
+>> ---
+>>  net/sctp/associola.c |    2 +-
+>>  1 files changed, 1 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+>> index 43cd0dd..d2709e2 100644
+>> --- a/net/sctp/associola.c
+>> +++ b/net/sctp/associola.c
+>> @@ -1079,7 +1079,7 @@ struct sctp_transport *sctp_assoc_lookup_tsn(struct
+>> sctp_association *asoc,
+>>  			transports) {
+>>
+>>  		if (transport == active)
+>> -			break;
+>> +			continue;
+>>  		list_for_each_entry(chunk, &transport->transmitted,
+>>  				transmitted_list) {
+>>  			if (key == chunk->subh.data_hdr->tsn) {
+>> --
+>> 1.7.0.2
+>>
+>>
+>
+> This works, but what might be better would be if we did a move to front
+> heuristic in sctp_assoc_set_primary.  E.g. when we set the active_path, move
+> the
+> requisite transport to the front of the transport_addr_list.  If we did
+> that,
+> then we could just do one for loop in sctp_assoc_lookup_tsn and wind up
+> implicitly check the active path first without having to check it seprately
+> and
+> skip it in the second for loop.
+
+Thanks for your review, Neil!
+
+I know what you mean, yes, it's most probably that the searched TSN was
+transmitted in the currently active_path, but what should we do if not.
+
+Check the comment in sctp_assoc_lookup_tsn() function:
+/* Let's be hopeful and check the active_path first. */
+/* If not found, go search all the other transports. */
+
+It has checked the active_path first and then traverse all the other
+transports in
+the transport_addr_list except the active_path.
+
+So what I want to fix here is the inconsistency between the function
+should do and
+the code actually does.
 
 
------ Original Message -----
-> From: "Sathya Perla" <Sathya.Perla@Emulex.Com>
-> To: "CAI Qian" <caiqian@redhat.com>, netdev@vger.kernel.org
-> Cc: "Ivan Vecera" <ivecera@redhat.com>, "LKML" <linux-kernel@vger.kernel.org>
-> Sent: Friday, March 8, 2013 6:22:24 PM
-> Subject: RE: be2net failed to initialize regression
-> 
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org
-> > [mailto:netdev-owner@vger.kernel.org]
-> > On Behalf Of CAI Qian
-> > 
-> > Emulex CNA card failed to initialize using 3.8 and the latest
-> > upstream kernel,
-> > 
-> > [   87.479859] be2net 0000:04:00.0: POST timeout; stage=0xc911
-> > [   87.515978] be2net 0000:04:00.0: Emulex OneConnect
-> > initialization failed
-> > [   87.557130] be2net: probe of 0000:04:00.0 failed with error -1
-> > 
-> > lspci output,
-> > 
-> > 04:00.0 Ethernet controller: Emulex Corporation OneConnect 10Gb NIC
-> > (rev 02)
-> > 04:00.1 Ethernet controller: Emulex Corporation OneConnect 10Gb NIC
-> > (rev 02)
-> > 
-> > 04:00.1 Ethernet controller: Emulex Corporation OneConnect 10Gb NIC
-> > (rev 02)
-> >         Subsystem: Hewlett-Packard Company NC551i Dual Port
-> >         FlexFabric 10Gb
-> > Adapter
-> > 
-> > Confirmed no such problem using 3.7 kernel. Reproduced every time
-> > and still
-> > bisecting. Just want to give an early head-up to see if anyone saw
-> > sometime
-> > obvious.
-> 
-> Could you give me the FW version (ethtool -i) of the adapter (after
-> be2net successfully
-> probes in a 3.7 kernel.)
-firmware-version: 2.104.281.0
-> 
-> If the FW version is as old as 2.x, then the culprit commit that
-> broke compatibility with old FW versions
-> on some (BE2) chips I is:
-> commit 1bc8e7e4f36c0c19dd7dea29e7c248b7c6ef3a15
-> be2net: fix access to SEMAPHORE reg
-> 
-> The fix for this is (still on David's net tree I guess):
-> commit c5b3ad4c67989c778e4753be4f91dc7193a04d21
-> be2net: use CSR-BAR SEMAPHORE reg for BE2/BE3
-> 
-> Dave, can these 2 commits be queued for stable too:
-> commit1: c5b3ad4c67989c778e4753be4f91dc7193a04d21
-> commit2: 1bc8e7e4f36c0c19dd7dea29e7c248b7c6ef3a15
-> 
-> thanks,
-> -Sathya
-> 
+
+Thanks,
+Xufeng
+
+
+>
+> Neil
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
