@@ -1,17 +1,17 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
 Subject: [PATCH net-next 1/2] gianfar: Remove superfluous gfar_new_skb()
-Date: Mon, 11 Mar 2013 18:54:36 +0200
-Message-ID: <1363020877-30223-1-git-send-email-claudiu.manoil@freescale.com>
+Date: Mon, 11 Mar 2013 19:10:44 +0200
+Message-ID: <1363021844-30322-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db8lp0188.outbound.messaging.microsoft.com ([213.199.154.188]:9905
-	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753213Ab3CKRJu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 13:09:50 -0400
+Received: from va3ehsobe004.messaging.microsoft.com ([216.32.180.14]:59177
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751919Ab3CKRKv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 13:10:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
