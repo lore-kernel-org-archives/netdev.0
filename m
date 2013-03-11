@@ -1,70 +1,94 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next 1/2] gianfar: Remove superfluous gfar_new_skb()
-Date: Mon, 11 Mar 2013 19:10:44 +0200
-Message-ID: <1363021844-30322-1-git-send-email-claudiu.manoil@freescale.com>
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Subject: [PATCH 2/2] fec: Use devm_request_and_ioremap()
+Date: Mon, 11 Mar 2013 14:32:55 -0300
+Message-ID: <1363023175-17597-2-git-send-email-fabio.estevam@freescale.com>
+References: <1363023175-17597-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Cc: <s.hauer@pengutronix.de>, <netdev@vger.kernel.org>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe004.messaging.microsoft.com ([216.32.180.14]:59177
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751919Ab3CKRKv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 13:10:51 -0400
+Received: from am1ehsobe001.messaging.microsoft.com ([213.199.154.204]:40512
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752462Ab3CKRdr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 13:33:47 -0400
+In-Reply-To: <1363023175-17597-1-git-send-email-fabio.estevam@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-gfar_new_skb() does nothing more than to call the static
-gfar_alloc_skb() routine.
+Using devm_request_and_ioremap() can make the code cleaner and simpler.
 
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 ---
- drivers/net/ethernet/freescale/gianfar.c |   11 +++--------
- 1 files changed, 3 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/freescale/fec.c |   21 +++------------------
+ 1 file changed, 3 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index d2c5441..af91196 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -110,7 +110,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev);
- static void gfar_reset_task(struct work_struct *work);
- static void gfar_timeout(struct net_device *dev);
- static int gfar_close(struct net_device *dev);
--struct sk_buff *gfar_new_skb(struct net_device *dev);
-+static struct sk_buff *gfar_alloc_skb(struct net_device *dev);
- static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
- 			   struct sk_buff *skb);
- static int gfar_set_mac_address(struct net_device *dev);
-@@ -207,7 +207,7 @@ static int gfar_init_bds(struct net_device *ndev)
- 				gfar_init_rxbdp(rx_queue, rxbdp,
- 						rxbdp->bufPtr);
- 			} else {
--				skb = gfar_new_skb(ndev);
-+				skb = gfar_alloc_skb(ndev);
- 				if (!skb) {
- 					netdev_err(ndev, "Can't allocate RX buffers\n");
- 					return -ENOMEM;
-@@ -2626,11 +2626,6 @@ static struct sk_buff *gfar_alloc_skb(struct net_device *dev)
- 	return skb;
- }
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index 89c27e6..559b3d9 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -1733,16 +1733,10 @@ fec_probe(struct platform_device *pdev)
+ 	if (!r)
+ 		return -ENXIO;
  
--struct sk_buff *gfar_new_skb(struct net_device *dev)
--{
--	return gfar_alloc_skb(dev);
--}
+-	r = request_mem_region(r->start, resource_size(r), pdev->name);
+-	if (!r)
+-		return -EBUSY;
 -
- static inline void count_errors(unsigned short status, struct net_device *dev)
+ 	/* Init network device */
+ 	ndev = alloc_etherdev(sizeof(struct fec_enet_private));
+-	if (!ndev) {
+-		ret = -ENOMEM;
+-		goto failed_alloc_etherdev;
+-	}
++	if (!ndev)
++		return -ENOMEM;
+ 
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 
+@@ -1754,7 +1748,7 @@ fec_probe(struct platform_device *pdev)
+ 	    (pdev->id_entry->driver_data & FEC_QUIRK_HAS_GBIT))
+ 		fep->pause_flag |= FEC_PAUSE_FLAG_AUTONEG;
+ 
+-	fep->hwp = ioremap(r->start, resource_size(r));
++	fep->hwp = devm_request_and_ioremap(&pdev->dev, r);
+ 	fep->pdev = pdev;
+ 	fep->dev_id = dev_id++;
+ 
+@@ -1876,11 +1870,8 @@ failed_regulator:
+ 		clk_disable_unprepare(fep->clk_ptp);
+ failed_pin:
+ failed_clk:
+-	iounmap(fep->hwp);
+ failed_ioremap:
+ 	free_netdev(ndev);
+-failed_alloc_etherdev:
+-	release_mem_region(r->start, resource_size(r));
+ 
+ 	return ret;
+ }
+@@ -1890,7 +1881,6 @@ fec_drv_remove(struct platform_device *pdev)
  {
- 	struct gfar_private *priv = netdev_priv(dev);
-@@ -2766,7 +2761,7 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- 		rmb();
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+-	struct resource *r;
+ 	int i;
  
- 		/* Add another skb for the future */
--		newskb = gfar_new_skb(dev);
-+		newskb = gfar_alloc_skb(dev);
+ 	unregister_netdev(ndev);
+@@ -1906,13 +1896,8 @@ fec_drv_remove(struct platform_device *pdev)
+ 		if (irq > 0)
+ 			free_irq(irq, ndev);
+ 	}
+-	iounmap(fep->hwp);
+ 	free_netdev(ndev);
  
- 		skb = rx_queue->rx_skbuff[rx_queue->skb_currx];
+-	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	BUG_ON(!r);
+-	release_mem_region(r->start, resource_size(r));
+-
+ 	platform_set_drvdata(pdev, NULL);
  
+ 	return 0;
 -- 
-1.7.7.4
+1.7.9.5
