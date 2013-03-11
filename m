@@ -1,222 +1,144 @@
-From: Nandita Dukkipati <nanditad@google.com>
-Subject: [PATCH 2/2] tcp: TLP loss detection.
-Date: Mon, 11 Mar 2013 13:00:44 -0700
-Message-ID: <1363032044-27315-2-git-send-email-nanditad@google.com>
-References: <1363032044-27315-1-git-send-email-nanditad@google.com>
-Cc: netdev@vger.kernel.org,
-	Ilpo Jarvinen <ilpo.jarvinen@cs.helsinki.fi>,
-	Tom Herbert <therbert@google.com>,
-	Nandita Dukkipati <nanditad@google.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f73.google.com ([209.85.212.73]:39026 "EHLO
-	mail-vb0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753913Ab3CKVEx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 17:04:53 -0400
-Received: by mail-vb0-f73.google.com with SMTP id fj18so357022vbb.4
-        for <netdev@vger.kernel.org>; Mon, 11 Mar 2013 14:04:52 -0700 (PDT)
-In-Reply-To: <1363032044-27315-1-git-send-email-nanditad@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH linux-next v3] SUNRPC: rpcrdma_register_default_external:
+ Dynamically allocate ib_phys_buf
+Date: Mon, 11 Mar 2013 17:25:35 -0400
+Message-ID: <20130311212535.GG642@fieldses.org>
+References: <4FA345DA4F4AE44899BD2B03EEEC2FA9286BA156@sacexcmbx05-prd.hq.netapp.com>
+ <1363036508-24935-1-git-send-email-tim.gardner@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Tom Tucker <tom-/Yg/VP3ZvrM@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shani Michaeli <shanim-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1363036508-24935-1-git-send-email-tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is the second of the TLP patch series; it augments the basic TLP
-algorithm with a loss detection scheme.
+On Mon, Mar 11, 2013 at 03:15:08PM -0600, Tim Gardner wrote:
+> rpcrdma_register_default_external() is several frames into the call stack which
+> goes deeper yet. You run the risk of stack corruption by declaring such a large
+> automatic variable, so move the array of 'struct ib_phys_buf' objects into the
+> transport structure 'struct rpcrdma_xprt' (which is dynamically allocated) in
+> order to silence the frame-larger-than warning. Access to each struct
+> rpcrdma_xprt is serialized by XPRT_LOCKED in xprt_reserve_xprt(), so there is
+> no danger of multiple accessors to the array of struct ib_phys_buf objects.
+> 
+> net/sunrpc/xprtrdma/verbs.c: In function 'rpcrdma_register_default_external':
+> net/sunrpc/xprtrdma/verbs.c:1774:1: warning: the frame size of 1056 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+> 
+> gcc version 4.6.3
+> 
+> Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+> Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: Tom Tucker <tom-/Yg/VP3ZvrM@public.gmane.org>
+> Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Cc: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Cc: Shani Michaeli <shanim-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Signed-off-by: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> ---
+> v1 - Use kmalloc() to dynamically allocate and free the array of 'struct
+> ib_phys_buf' objects
+> 
+> v2 - Move the array of 'struct ib_phys_buf' objects into struct rpcrdma_req
+> and pass this request down through rpcrdma_register_external() and
+> rpcrdma_register_default_external(). This is less overhead then using
+> kmalloc() and requires no extra error checking as the allocation burden is
+> shifted to the transport client.
+> 
+> v3 - Move the array of 'struct ib_phys_buf' objects into struct rpcrdma_xprt.
+> Pass a pointer to this transport structure into rpcrdma_register_default_external().
+> This is less overhead then using kmalloc() and requires no extra error checking
+> as the allocation burden is shifted to the transport client.
 
-This patch implements a mechanism for loss detection when a Tail
-loss probe retransmission plugs a hole thereby masking packet loss
-from the sender. The loss detection algorithm relies on counting
-TLP dupacks as outlined in Sec. 3 of:
-http://tools.ietf.org/html/draft-dukkipati-tcpm-tcp-loss-probe-01
+Looks good to me; wish we could get it tested....
 
-The basic idea is: Sender keeps track of TLP "episode" upon
-retransmission of a TLP packet. An episode ends when the sender receives
-an ACK above the SND.NXT (tracked by tlp_high_seq) at the time of the
-episode. We want to make sure that before the episode ends the sender
-receives a "TLP dupack", indicating that the TLP retransmission was
-unnecessary, so there was no loss/hole that needed plugging. If the
-sender gets no TLP dupack before the end of the episode, then it reduces
-ssthresh and the congestion window, because the TLP packet arriving at
-the receiver probably plugged a hole.
+In future if we do decide to also increase the size of that array we may
+need to allocate it separately from struct rpcrdma_xprt itself, which
+looks already fairly large without it; on x86_64:
 
-Signed-off-by: Nandita Dukkipati <nanditad@google.com>
----
- include/linux/tcp.h       |  1 +
- include/uapi/linux/snmp.h |  1 +
- net/ipv4/proc.c           |  1 +
- net/ipv4/tcp_input.c      | 39 +++++++++++++++++++++++++++++++++++++++
- net/ipv4/tcp_minisocks.c  |  1 +
- net/ipv4/tcp_output.c     |  9 +++++++++
- net/ipv4/tcp_timer.c      |  2 ++
- 7 files changed, 54 insertions(+)
+	$ gdb net/sunrpc/xprtrdma/xprtrdma.ko
+	...
+	(gdb) p sizeof(struct rpcrdma_xprt)
+	$1 = 2912
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 01860d7..763c108 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -204,6 +204,7 @@ struct tcp_sock {
- 		syn_data:1,	/* SYN includes data */
- 		syn_fastopen:1,	/* SYN includes Fast Open option */
- 		syn_data_acked:1;/* data in SYN is acked by SYN-ACK */
-+	u32	tlp_high_seq;	/* snd_nxt at the time of TLP retransmit. */
- 
- /* RTT measurement */
- 	u32	srtt;		/* smoothed round trip time << 3	*/
-diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
-index 290bed6..e00013a 100644
---- a/include/uapi/linux/snmp.h
-+++ b/include/uapi/linux/snmp.h
-@@ -203,6 +203,7 @@ enum
- 	LINUX_MIB_TCPSLOWSTARTRETRANS,		/* TCPSlowStartRetrans */
- 	LINUX_MIB_TCPTIMEOUTS,			/* TCPTimeouts */
- 	LINUX_MIB_TCPLOSSPROBES,		/* TCPLossProbes */
-+	LINUX_MIB_TCPLOSSPROBERECOVERY,		/* TCPLossProbeRecovery */
- 	LINUX_MIB_TCPRENORECOVERYFAIL,		/* TCPRenoRecoveryFail */
- 	LINUX_MIB_TCPSACKRECOVERYFAIL,		/* TCPSackRecoveryFail */
- 	LINUX_MIB_TCPSCHEDULERFAILED,		/* TCPSchedulerFailed */
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 4c35911..b6f2ea1 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -225,6 +225,7 @@ static const struct snmp_mib snmp4_net_list[] = {
- 	SNMP_MIB_ITEM("TCPSlowStartRetrans", LINUX_MIB_TCPSLOWSTARTRETRANS),
- 	SNMP_MIB_ITEM("TCPTimeouts", LINUX_MIB_TCPTIMEOUTS),
- 	SNMP_MIB_ITEM("TCPLossProbes", LINUX_MIB_TCPLOSSPROBES),
-+	SNMP_MIB_ITEM("TCPLossProbeRecovery", LINUX_MIB_TCPLOSSPROBERECOVERY),
- 	SNMP_MIB_ITEM("TCPRenoRecoveryFail", LINUX_MIB_TCPRENORECOVERYFAIL),
- 	SNMP_MIB_ITEM("TCPSackRecoveryFail", LINUX_MIB_TCPSACKRECOVERYFAIL),
- 	SNMP_MIB_ITEM("TCPSchedulerFailed", LINUX_MIB_TCPSCHEDULERFAILED),
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index b794f89..836d74d 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2682,6 +2682,7 @@ static void tcp_init_cwnd_reduction(struct sock *sk, const bool set_ssthresh)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 
- 	tp->high_seq = tp->snd_nxt;
-+	tp->tlp_high_seq = 0;
- 	tp->snd_cwnd_cnt = 0;
- 	tp->prior_cwnd = tp->snd_cwnd;
- 	tp->prr_delivered = 0;
-@@ -3569,6 +3570,38 @@ static void tcp_send_challenge_ack(struct sock *sk)
- 	}
- }
- 
-+/* This routine deals with acks during a TLP episode.
-+ * Ref: loss detection algorithm in draft-dukkipati-tcpm-tcp-loss-probe.
-+ */
-+static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	bool is_tlp_dupack = (ack == tp->tlp_high_seq) &&
-+			     !(flag & (FLAG_SND_UNA_ADVANCED |
-+				       FLAG_NOT_DUP | FLAG_DATA_SACKED));
-+
-+	/* Mark the end of TLP episode on receiving TLP dupack or when
-+	 * ack is after tlp_high_seq.
-+	 */
-+	if (is_tlp_dupack) {
-+		tp->tlp_high_seq = 0;
-+		return;
-+	}
-+
-+	if (after(ack, tp->tlp_high_seq)) {
-+		tp->tlp_high_seq = 0;
-+		/* Don't reduce cwnd if DSACK arrives for TLP retrans. */
-+		if (!(flag & FLAG_DSACKING_ACK)) {
-+			tcp_init_cwnd_reduction(sk, true);
-+			tcp_set_ca_state(sk, TCP_CA_CWR);
-+			tcp_end_cwnd_reduction(sk);
-+			tcp_set_ca_state(sk, TCP_CA_Open);
-+			NET_INC_STATS_BH(sock_net(sk),
-+					 LINUX_MIB_TCPLOSSPROBERECOVERY);
-+		}
-+	}
-+}
-+
- /* This routine deals with incoming acks, but not outgoing ones. */
- static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- {
-@@ -3676,6 +3709,9 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 			tcp_cong_avoid(sk, ack, prior_in_flight);
- 	}
- 
-+	if (tp->tlp_high_seq)
-+		tcp_process_tlp_ack(sk, ack, flag);
-+
- 	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag & FLAG_NOT_DUP)) {
- 		struct dst_entry *dst = __sk_dst_get(sk);
- 		if (dst)
-@@ -3697,6 +3733,9 @@ no_queue:
- 	 */
- 	if (tcp_send_head(sk))
- 		tcp_ack_probe(sk);
-+
-+	if (tp->tlp_high_seq)
-+		tcp_process_tlp_ack(sk, ack, flag);
- 	return 1;
- 
- invalid_ack:
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index b83a49c..4bdb09f 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -440,6 +440,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
- 		newtp->fackets_out = 0;
- 		newtp->snd_ssthresh = TCP_INFINITE_SSTHRESH;
- 		tcp_enable_early_retrans(newtp);
-+		newtp->tlp_high_seq = 0;
- 
- 		/* So many TCP implementations out there (incorrectly) count the
- 		 * initial SYN frame in their delayed-ACK and congestion control
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index beb63db..8e7742f 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2132,6 +2132,7 @@ bool tcp_schedule_loss_probe(struct sock *sk)
-  */
- void tcp_send_loss_probe(struct sock *sk)
- {
-+	struct tcp_sock *tp = tcp_sk(sk);
- 	struct sk_buff *skb;
- 	int pcount;
- 	int mss = tcp_current_mss(sk);
-@@ -2142,6 +2143,10 @@ void tcp_send_loss_probe(struct sock *sk)
- 		goto rearm_timer;
- 	}
- 
-+	/* At most one outstanding TLP retransmission. */
-+	if (tp->tlp_high_seq)
-+		goto rearm_timer;
-+
- 	/* Retransmit last segment. */
- 	skb = tcp_write_queue_tail(sk);
- 	if (WARN_ON(!skb))
-@@ -2164,6 +2169,10 @@ void tcp_send_loss_probe(struct sock *sk)
- 	if (skb->len > 0)
- 		err = __tcp_retransmit_skb(sk, skb);
- 
-+	/* Record snd_nxt for loss detection. */
-+	if (likely(!err))
-+		tp->tlp_high_seq = tp->snd_nxt;
-+
- rearm_timer:
- 	inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
- 				  inet_csk(sk)->icsk_rto,
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index ecd61d5..eeccf79 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -356,6 +356,8 @@ void tcp_retransmit_timer(struct sock *sk)
- 
- 	WARN_ON(tcp_write_queue_empty(sk));
- 
-+	tp->tlp_high_seq = 0;
-+
- 	if (!tp->snd_wnd && !sock_flag(sk, SOCK_DEAD) &&
- 	    !((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV))) {
- 		/* Receiver dastardly shrinks window. Our retransmits
--- 
-1.8.1.3
+But that shouldn't be a big deal to do.
+
+--b.
+
+> 
+>  net/sunrpc/xprtrdma/verbs.c     |   10 ++++++----
+>  net/sunrpc/xprtrdma/xprt_rdma.h |    5 ++++-
+>  2 files changed, 10 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/sunrpc/xprtrdma/verbs.c b/net/sunrpc/xprtrdma/verbs.c
+> index 93726560..c7aa3da 100644
+> --- a/net/sunrpc/xprtrdma/verbs.c
+> +++ b/net/sunrpc/xprtrdma/verbs.c
+> @@ -1730,13 +1730,14 @@ rpcrdma_deregister_memwin_external(struct rpcrdma_mr_seg *seg,
+>  }
+>  
+>  static int
+> -rpcrdma_register_default_external(struct rpcrdma_mr_seg *seg,
+> -			int *nsegs, int writing, struct rpcrdma_ia *ia)
+> +rpcrdma_register_default_external(struct rpcrdma_xprt *r_xprt,
+> +			struct rpcrdma_mr_seg *seg, int *nsegs, int writing,
+> +			struct rpcrdma_ia *ia)
+>  {
+>  	int mem_priv = (writing ? IB_ACCESS_REMOTE_WRITE :
+>  				  IB_ACCESS_REMOTE_READ);
+>  	struct rpcrdma_mr_seg *seg1 = seg;
+> -	struct ib_phys_buf ipb[RPCRDMA_MAX_DATA_SEGS];
+> +	struct ib_phys_buf *ipb = r_xprt->ipb;
+>  	int len, i, rc = 0;
+>  
+>  	if (*nsegs > RPCRDMA_MAX_DATA_SEGS)
+> @@ -1827,7 +1828,8 @@ rpcrdma_register_external(struct rpcrdma_mr_seg *seg,
+>  
+>  	/* Default registration each time */
+>  	default:
+> -		rc = rpcrdma_register_default_external(seg, &nsegs, writing, ia);
+> +		rc = rpcrdma_register_default_external(r_xprt, seg, &nsegs,
+> +			writing, ia);
+>  		break;
+>  	}
+>  	if (rc)
+> diff --git a/net/sunrpc/xprtrdma/xprt_rdma.h b/net/sunrpc/xprtrdma/xprt_rdma.h
+> index cc1445d..d7b440f 100644
+> --- a/net/sunrpc/xprtrdma/xprt_rdma.h
+> +++ b/net/sunrpc/xprtrdma/xprt_rdma.h
+> @@ -269,7 +269,8 @@ struct rpcrdma_stats {
+>   * for convenience. This structure need not be visible externally.
+>   *
+>   * It is allocated and initialized during mount, and released
+> - * during unmount.
+> + * during unmount. Access to this structure is serialized by XPRT_LOCKED
+> + * in xprt_reserve_xprt().
+>   */
+>  struct rpcrdma_xprt {
+>  	struct rpc_xprt		xprt;
+> @@ -279,6 +280,8 @@ struct rpcrdma_xprt {
+>  	struct rpcrdma_create_data_internal rx_data;
+>  	struct delayed_work	rdma_connect;
+>  	struct rpcrdma_stats	rx_stats;
+> +	/* temp work array */
+> +	struct ib_phys_buf	ipb[RPCRDMA_MAX_DATA_SEGS];
+>  };
+>  
+>  #define rpcx_to_rdmax(x) container_of(x, struct rpcrdma_xprt, xprt)
+> -- 
+> 1.7.9.5
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
