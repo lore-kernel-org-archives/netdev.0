@@ -1,80 +1,77 @@
-From: Hector Palacios <hector.palacios@digi.com>
-Subject: [PATCH 2/2] phy/micrel: move flag handling to function for common use
-Date: Mon, 11 Mar 2013 09:50:03 +0100
-Message-ID: <1362991803-4610-2-git-send-email-hector.palacios@digi.com>
-References: <1362991803-4610-1-git-send-email-hector.palacios@digi.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [net-next.git 2/9] stmmac: add IEEE 1588-2002 PTP support
+Date: Mon, 11 Mar 2013 07:35:36 +0100
+Message-ID: <513D7B38.1070404@st.com>
+References: <1362653419-1047-1-git-send-email-peppe.cavallaro@st.com> <1362653419-1047-3-git-send-email-peppe.cavallaro@st.com> <20130308063437.GB2382@netboy.at.omicron.at> <51398CFD.9010605@st.com> <20130310122553.GA6407@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <marex@denx.de>,
-	<davem@davemloft.net>, Hector Palacios <hector.palacios@digi.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1362991803-4610-1-git-send-email-hector.palacios@digi.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bh74.an@samsung.com,
+	Rayagond K <rayagond@vayavyalabs.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from beta.dmz-eu.st.com ([164.129.1.35]:61191 "EHLO
+	beta.dmz-eu.st.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752230Ab3CKJU0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 05:20:26 -0400
+In-Reply-To: <20130310122553.GA6407@netboy.at.omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The flag MICREL_PHY_50MHZ_CLK is not of exclusive use of KSZ8051
-model. At least KSZ8021 and KSZ8031 models also use it.
-This patch moves the handling of this and future flags to a
-separate function so that the different PHY models can call it on
-their init function, if needed.
+On 3/10/2013 1:25 PM, Richard Cochran wrote:
+> On Fri, Mar 08, 2013 at 08:02:21AM +0100, Giuseppe CAVALLARO wrote:
+>> On 3/8/2013 7:34 AM, Richard Cochran wrote:
+>
+>>>> +
+>>>> +static int enh_desc_get_rx_timestamp_status(struct dma_desc *p)
+>>>> +{
+>>>> +	/* FIXME if Enhance descriptor with 8 DWORDS is enabled */
+>>>
+>>> Why not fix these FIXMEs for the next respin?
+>>
+>> This is fixed in the patch #5 where we use the extended descriptors
+>> for PTP2.
+>
+> If possible, it is nice for the reviewers and for the logic of the
+> patch series to order the changes so that these FIXMEs go away.
+>
+>>>> +	struct hwtstamp_config config;
+>>>> +	struct timespec now;
+>>>> +	u64 temp = 0;
+>>>
+>>> You add this new code here, but you change it all around again a few
+>>> patches later. Please just submit the final, combined version.
+>>
+>> we kept these separately because the patch #5 (for example) depends on
+>> another one that adds the extended descriptor support. Also If I add
+>> all the code in a single patch this will be very big. I had some
+>> problems to review all separately. So I suspect that if we merge all
+>> in a single patch this will not help (especially myself). At any rate,
+>> tell me if you prefer to have a single patch. I can do that.
+>
+> I am not asking for bigger patches. It is good to arrange your patches
+> in small steps, since that makes both reviewing and bisecting easier.
 
-Signed-off-by: Hector Palacios <hector.palacios@digi.com>
----
- drivers/net/phy/micrel.c |   27 ++++++++++++++++++---------
- 1 file changed, 18 insertions(+), 9 deletions(-)
+I tried to do that :-(
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 1ab6743..6a0834b 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -48,6 +48,18 @@
- #define KS8737_CTRL_INT_ACTIVE_HIGH		(1 << 14)
- #define KSZ8051_RMII_50MHZ_CLK			(1 << 7)
- 
-+static int ksz_config_flags(struct phy_device *phydev)
-+{
-+	int regval;
-+
-+	if (phydev->dev_flags & MICREL_PHY_50MHZ_CLK) {
-+		regval = phy_read(phydev, MII_KSZPHY_CTRL);
-+		regval |= KSZ8051_RMII_50MHZ_CLK;
-+		return phy_write(phydev, MII_KSZPHY_CTRL, regval);
-+	}
-+	return 0;
-+}
-+
- static int kszphy_ack_interrupt(struct phy_device *phydev)
- {
- 	/* bit[7..0] int status, which is a read and clear register. */
-@@ -109,22 +121,19 @@ static int kszphy_config_init(struct phy_device *phydev)
- 
- static int ksz8021_config_init(struct phy_device *phydev)
- {
-+	int rc;
- 	const u16 val = KSZPHY_OMSO_B_CAST_OFF | KSZPHY_OMSO_RMII_OVERRIDE;
- 	phy_write(phydev, MII_KSZPHY_OMSO, val);
--	return 0;
-+	rc = ksz_config_flags(phydev);
-+	return rc < 0 ? rc : 0;
- }
- 
- static int ks8051_config_init(struct phy_device *phydev)
- {
--	int regval;
--
--	if (phydev->dev_flags & MICREL_PHY_50MHZ_CLK) {
--		regval = phy_read(phydev, MII_KSZPHY_CTRL);
--		regval |= KSZ8051_RMII_50MHZ_CLK;
--		phy_write(phydev, MII_KSZPHY_CTRL, regval);
--	}
-+	int rc;
- 
--	return 0;
-+	rc = ksz_config_flags(phydev);
-+	return rc < 0 ? rc : 0;
- }
- 
- #define KSZ8873MLL_GLOBAL_CONTROL_4	0x06
--- 
-1.7.9.5
+>
+> However, for brand new code, I find it quite annoying to read one
+> patch, and then to have it all re-written in the next one. (If a new
+> function *only* grows during a patch series, that is easy to follow.)
+>
+> So what I would like to see is a logical, understandable series of
+> small steps, but when new code appears, it is the real, final form.
+
+Ok, I'll try to better re-organize the patches in the next version.
+
+Thx a lot
+Peppe
+
+>
+> Thanks,
+> Richard
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
