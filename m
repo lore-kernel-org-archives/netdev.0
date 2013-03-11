@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 02/22] sfc: PTP changes to support improved UUID
- filtering mode
-Date: Mon, 11 Mar 2013 19:53:34 +0000
-Message-ID: <1363031614.2608.39.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 03/22] sfc: tidy up PTP synchronize function
+ efx_ptp_process_times()
+Date: Mon, 11 Mar 2013 19:53:54 +0000
+Message-ID: <1363031634.2608.40.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1363030400.2608.37.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -12,184 +12,90 @@ Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
 	Laurence Evans <levans@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:16699 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:16707 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752835Ab3CKTxh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 15:53:37 -0400
+	with ESMTP id S1752835Ab3CKTx5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 15:53:57 -0400
 In-Reply-To: <1363030400.2608.37.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From:  Laurence Evans <levans@solarflare.com>
 
-There is a long-standing problem with the packet-timestamp matching in
-the driver. When a PTP packet is received by the MC, the FPGA
-timestamps the packet and the MC sends the timestamp and 6 bytes of
-the UUID to the driver. The driver then matches the timestamp against
-received packets using the same 6 bytes of UUID.
-
-The problem comes from the choice of which 6 bytes to use. The PTP
-spec is slightly contradictory and misleading in one of the two places
-where the UUIDs are discussed. From section 7.2.2.2 of the spec, a
-PTPD2 UUID can be either a EUI-64 or a EUI-64 constructed from a
-EUI-48. The typical ethernet based implementation uses a EUI-64
-constructed from a EUI-48. This works by taking the first 3 bytes of
-the MAC address of the NIC being used for PTP (the OUI), then
-inserting 0xFF, 0xFE, then taking the last 3 bytes of the MAC address
-giving
-          MAC[0], MAC[1], MAC[2], 0xFF, 0xFE, MAC[3], MAC[4], MAC[5]
-The current MC firmware and driver discard the first two bytes of this
-UUID and packets are matched against timestamps using bytes 2 to 7 so
-there is a small risk that in a deployment of Solarflare PTP NICs used
-with other vendors NICs, that a PTP packet could be matched against
-the wrong timestamp. This applies to all other organisations whose
-third byte of the OUI is 0x53. It's a long list but I notice that it
-includes Cisco.
-
-The necessary modifications to use bytes 0-2 and 5-7 of the UUID to
-match against are quite small but introduce incompatibility between
-older version of the firmware and driver.
-
-When PTP is enabled via SO_TIMESTAMPING specifying PTP V2, the driver
-will try to enable PTP in the firmware using the enhanced mode
-(above). If the firmware returns an error, the driver will enable PTP
-in the firmware using the old mode.
-
-[bwh: Fix some style errors; remove private ioctl bits]
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/mcdi_pcol.h |    1 +
- drivers/net/ethernet/sfc/ptp.c       |   61 +++++++++++++++++++++++++---------
- 2 files changed, 46 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/sfc/ptp.c |   35 +++++++----------------------------
+ 1 files changed, 7 insertions(+), 28 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
-index 9d426d0..c5c9747 100644
---- a/drivers/net/ethernet/sfc/mcdi_pcol.h
-+++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
-@@ -553,6 +553,7 @@
- #define          MC_CMD_PTP_MODE_V1_VLAN 0x1 /* enum */
- #define          MC_CMD_PTP_MODE_V2 0x2 /* enum */
- #define          MC_CMD_PTP_MODE_V2_VLAN 0x3 /* enum */
-+#define          MC_CMD_PTP_MODE_V2_ENHANCED 0x4 /* enum */
- 
- /* MC_CMD_PTP_IN_DISABLE msgrequest */
- #define    MC_CMD_PTP_IN_DISABLE_LEN 8
 diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
-index faf4baf..2b40cbd 100644
+index 2b40cbd..d1858c0 100644
 --- a/drivers/net/ethernet/sfc/ptp.c
 +++ b/drivers/net/ethernet/sfc/ptp.c
-@@ -99,6 +99,9 @@
- #define PTP_V2_VERSION_LENGTH	1
- #define PTP_V2_VERSION_OFFSET	29
- 
-+#define PTP_V2_UUID_LENGTH	8
-+#define PTP_V2_UUID_OFFSET	48
-+
- /* Although PTP V2 UUIDs are comprised a ClockIdentity (8) and PortNumber (2),
-  * the MC only captures the last six bytes of the clock identity. These values
-  * reflect those, not the ones used in the standard.  The standard permits
-@@ -1011,7 +1014,7 @@ static bool efx_ptp_rx(struct efx_channel *channel, struct sk_buff *skb)
- 	struct efx_nic *efx = channel->efx;
+@@ -432,13 +432,10 @@ static int efx_ptp_process_times(struct efx_nic *efx, u8 *synch_buf,
+ 	unsigned number_readings = (response_length /
+ 			       MC_CMD_PTP_OUT_SYNCHRONIZE_TIMESET_LEN);
+ 	unsigned i;
+-	unsigned min;
+-	unsigned min_set = 0;
+ 	unsigned total;
+ 	unsigned ngood = 0;
+ 	unsigned last_good = 0;
  	struct efx_ptp_data *ptp = efx->ptp_data;
- 	struct efx_ptp_match *match = (struct efx_ptp_match *)skb->cb;
--	u8 *data;
-+	u8 *match_data_012, *match_data_345;
- 	unsigned int version;
+-	bool min_valid = false;
+ 	u32 last_sec;
+ 	u32 start_sec;
+ 	struct timespec delta;
+@@ -446,35 +443,17 @@ static int efx_ptp_process_times(struct efx_nic *efx, u8 *synch_buf,
+ 	if (number_readings == 0)
+ 		return -EAGAIN;
  
- 	match->expiry = jiffies + msecs_to_jiffies(PKT_EVENT_LIFETIME_MS);
-@@ -1025,21 +1028,35 @@ static bool efx_ptp_rx(struct efx_channel *channel, struct sk_buff *skb)
- 		if (version != PTP_VERSION_V1) {
- 			return false;
- 		}
-+
-+		/* PTP V1 uses all six bytes of the UUID to match the packet
-+		 * to the timestamp
-+		 */
-+		match_data_012 = skb->data + PTP_V1_UUID_OFFSET;
-+		match_data_345 = skb->data + PTP_V1_UUID_OFFSET + 3;
- 	} else {
- 		if (skb->len < PTP_V2_MIN_LENGTH) {
- 			return false;
- 		}
- 		version = skb->data[PTP_V2_VERSION_OFFSET];
+-	/* Find minimum value in this set of results, discarding clearly
+-	 * erroneous results.
++	/* Read the set of results and increment stats for any results that
++	 * appera to be erroneous.
+ 	 */
+ 	for (i = 0; i < number_readings; i++) {
+ 		efx_ptp_read_timeset(synch_buf, &ptp->timeset[i]);
+ 		synch_buf += MC_CMD_PTP_OUT_SYNCHRONIZE_TIMESET_LEN;
+-		if (ptp->timeset[i].window > SYNCHRONISATION_GRANULARITY_NS) {
+-			if (min_valid) {
+-				if (ptp->timeset[i].window < min_set)
+-					min_set = ptp->timeset[i].window;
+-			} else {
+-				min_valid = true;
+-				min_set = ptp->timeset[i].window;
+-			}
+-		}
+-	}
 -
--		BUG_ON(ptp->mode != MC_CMD_PTP_MODE_V2);
--		BUILD_BUG_ON(PTP_V1_UUID_OFFSET != PTP_V2_MC_UUID_OFFSET);
--		BUILD_BUG_ON(PTP_V1_UUID_LENGTH != PTP_V2_MC_UUID_LENGTH);
--		BUILD_BUG_ON(PTP_V1_SEQUENCE_OFFSET != PTP_V2_SEQUENCE_OFFSET);
--		BUILD_BUG_ON(PTP_V1_SEQUENCE_LENGTH != PTP_V2_SEQUENCE_LENGTH);
--
- 		if ((version & PTP_VERSION_V2_MASK) != PTP_VERSION_V2) {
- 			return false;
- 		}
-+
-+		/* The original V2 implementation uses bytes 2-7 of
-+		 * the UUID to match the packet to the timestamp. This
-+		 * discards two of the bytes of the MAC address used
-+		 * to create the UUID (SF bug 33070).  The PTP V2
-+		 * enhanced mode fixes this issue and uses bytes 0-2
-+		 * and byte 5-7 of the UUID.
-+		 */
-+		match_data_345 = skb->data + PTP_V2_UUID_OFFSET + 5;
-+		if (ptp->mode == MC_CMD_PTP_MODE_V2) {
-+			match_data_012 = skb->data + PTP_V2_UUID_OFFSET + 2;
-+		} else {
-+			match_data_012 = skb->data + PTP_V2_UUID_OFFSET + 0;
-+			BUG_ON(ptp->mode != MC_CMD_PTP_MODE_V2_ENHANCED);
-+		}
+-	if (min_valid) {
+-		if (ptp->base_sync_valid && (min_set > ptp->base_sync_ns))
+-			min = ptp->base_sync_ns;
+-		else
+-			min = min_set;
+-	} else {
+-		min = SYNCHRONISATION_GRANULARITY_NS;
  	}
  
- 	/* Does this packet require timestamping? */
-@@ -1052,14 +1069,19 @@ static bool efx_ptp_rx(struct efx_channel *channel, struct sk_buff *skb)
- 		timestamps = skb_hwtstamps(skb);
- 		memset(timestamps, 0, sizeof(*timestamps));
- 
-+		/* We expect the sequence number to be in the same position in
-+		 * the packet for PTP V1 and V2
-+		 */
-+		BUILD_BUG_ON(PTP_V1_SEQUENCE_OFFSET != PTP_V2_SEQUENCE_OFFSET);
-+		BUILD_BUG_ON(PTP_V1_SEQUENCE_LENGTH != PTP_V2_SEQUENCE_LENGTH);
-+
- 		/* Extract UUID/Sequence information */
--		data = skb->data + PTP_V1_UUID_OFFSET;
--		match->words[0] = (data[0]         |
--				   (data[1] << 8)  |
--				   (data[2] << 16) |
--				   (data[3] << 24));
--		match->words[1] = (data[4]         |
--				   (data[5] << 8)  |
-+		match->words[0] = (match_data_012[0]         |
-+				   (match_data_012[1] << 8)  |
-+				   (match_data_012[2] << 16) |
-+				   (match_data_345[0] << 24));
-+		match->words[1] = (match_data_345[1]         |
-+				   (match_data_345[2] << 8)  |
- 				   (skb->data[PTP_V1_SEQUENCE_OFFSET +
- 					      PTP_V1_SEQUENCE_LENGTH - 1] <<
- 				    16));
-@@ -1165,7 +1187,7 @@ static int efx_ptp_ts_init(struct efx_nic *efx, struct hwtstamp_config *init)
- 	 * timestamped
+-	/* Discard excessively long synchronise durations.  The MC times
+-	 * when it finishes reading the host time so the corrected window
+-	 * time should be fairly constant for a given platform.
++	/* Find the last good host-MC synchronization result. The MC times
++	 * when it finishes reading the host time so the corrected window time
++	 * should be fairly constant for a given platform.
  	 */
- 		init->rx_filter = HWTSTAMP_FILTER_PTP_V2_L4_EVENT;
--		new_mode = MC_CMD_PTP_MODE_V2;
-+		new_mode = MC_CMD_PTP_MODE_V2_ENHANCED;
- 		enable_wanted = true;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
-@@ -1184,7 +1206,14 @@ static int efx_ptp_ts_init(struct efx_nic *efx, struct hwtstamp_config *init)
- 	if (init->tx_type != HWTSTAMP_TX_OFF)
- 		enable_wanted = true;
+ 	total = 0;
+ 	for (i = 0; i < number_readings; i++)
+@@ -492,8 +471,8 @@ static int efx_ptp_process_times(struct efx_nic *efx, u8 *synch_buf,
  
-+	/* Old versions of the firmware do not support the improved
-+	 * UUID filtering option (SF bug 33070).  If the firmware does
-+	 * not accept the enhanced mode, fall back to the standard PTP
-+	 * v2 UUID filtering.
-+	 */
- 	rc = efx_ptp_change_mode(efx, enable_wanted, new_mode);
-+	if ((rc != 0) && (new_mode == MC_CMD_PTP_MODE_V2_ENHANCED))
-+		rc = efx_ptp_change_mode(efx, enable_wanted, MC_CMD_PTP_MODE_V2);
- 	if (rc != 0)
- 		return rc;
+ 	if (ngood == 0) {
+ 		netif_warn(efx, drv, efx->net_dev,
+-			   "PTP no suitable synchronisations %dns %dns\n",
+-			   ptp->base_sync_ns, min_set);
++			   "PTP no suitable synchronisations %dns\n",
++			   ptp->base_sync_ns);
+ 		return -EAGAIN;
+ 	}
  
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
