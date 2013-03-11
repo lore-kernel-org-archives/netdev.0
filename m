@@ -1,104 +1,97 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 02/13] bnx2x: Set ethtool ops for vfs
-Date: Mon, 11 Mar 2013 17:17:42 +0200
-Message-ID: <1363015073-25743-3-git-send-email-yuvalmin@broadcom.com>
-References: <1363015073-25743-1-git-send-email-yuvalmin@broadcom.com>
+From: "Choi, David" <David.Choi@Micrel.Com>
+Subject: [PATCH V2] ks8851_mll: basic ethernet statistics
+Date: Mon, 11 Mar 2013 16:41:23 +0000
+Message-ID: <FD9AD8C5375B924CABC56D982DB3A8020B4F7E89@EXMB1.micrel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, ariele@broadcom.com,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1468 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753461Ab3CKQZK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Mar 2013 12:25:10 -0400
-In-Reply-To: <1363015073-25743-1-git-send-email-yuvalmin@broadcom.com>
+Received: from p01c12o143.mxlogic.net ([208.65.145.66]:37979 "EHLO
+	p01c12o143.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752815Ab3CKQuk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 12:50:40 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Elior <ariele@broadcom.com>
+>From 7dff3407eede94b59822c6bdca941014dd8d2951 Mon Sep 17 00:00:00 2001
+From: "David J. Choi" <david.choi@micrel.com>
+Date: Mon, 11 Mar 2013 09:22:54 -0700
+Subject: [PATCH V2] ks8851_mll: basic ethernet statistics
 
-Virtual functions don't have access to HW registers, therefore most ethtool ops
-are forbidden to them. Instead of checking in each op whether the device being
-driven is a virtual function or a physical function, this patch creates a
-separate ethtool ops struct for virtual functions and uses it to initialize
-the ethtool ops of the driver in case it is driving a virtual function device.
+Implement to collect ethernet statistical information on ks8851_mll device.
 
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Signed-off-by: David J. Choi <david.choi@micrel.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |    2 +-
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |   29 ++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |    2 +-
- 3 files changed, 29 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/micrel/ks8851_mll.c | 32 ++++++++++++++++++++++++++------
+ 1 file changed, 26 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 9577cce..8ddc78b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -2285,7 +2285,7 @@ static const u32 dmae_reg_go_c[] = {
- 	DMAE_REG_GO_C12, DMAE_REG_GO_C13, DMAE_REG_GO_C14, DMAE_REG_GO_C15
- };
+diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
+index a343066..ddaf138 100644
+--- a/drivers/net/ethernet/micrel/ks8851_mll.c
++++ b/drivers/net/ethernet/micrel/ks8851_mll.c
+@@ -792,20 +792,35 @@ static void ks_rcv(struct ks_net *ks, struct net_device *netdev)
  
--void bnx2x_set_ethtool_ops(struct net_device *netdev);
-+void bnx2x_set_ethtool_ops(struct bnx2x *bp, struct net_device *netdev);
- void bnx2x_notify_link_changed(struct bnx2x *bp);
- 
- #define BNX2X_MF_SD_PROTOCOL(bp) \
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index edfa67a..324d691 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -3232,7 +3232,32 @@ static const struct ethtool_ops bnx2x_ethtool_ops = {
- 	.get_ts_info		= ethtool_op_get_ts_info,
- };
- 
--void bnx2x_set_ethtool_ops(struct net_device *netdev)
-+static const struct ethtool_ops bnx2x_vf_ethtool_ops = {
-+	.get_settings		= bnx2x_get_settings,
-+	.set_settings		= bnx2x_set_settings,
-+	.get_drvinfo		= bnx2x_get_drvinfo,
-+	.get_msglevel		= bnx2x_get_msglevel,
-+	.set_msglevel		= bnx2x_set_msglevel,
-+	.get_link		= bnx2x_get_link,
-+	.get_coalesce		= bnx2x_get_coalesce,
-+	.get_ringparam		= bnx2x_get_ringparam,
-+	.set_ringparam		= bnx2x_set_ringparam,
-+	.get_sset_count		= bnx2x_get_sset_count,
-+	.get_strings		= bnx2x_get_strings,
-+	.get_ethtool_stats	= bnx2x_get_ethtool_stats,
-+	.get_rxnfc		= bnx2x_get_rxnfc,
-+	.set_rxnfc		= bnx2x_set_rxnfc,
-+	.get_rxfh_indir_size	= bnx2x_get_rxfh_indir_size,
-+	.get_rxfh_indir		= bnx2x_get_rxfh_indir,
-+	.set_rxfh_indir		= bnx2x_set_rxfh_indir,
-+	.get_channels		= bnx2x_get_channels,
-+	.set_channels		= bnx2x_set_channels,
-+};
+ 	frame_hdr = ks->frame_head_info;
+ 	while (ks->frame_cnt--) {
++		if (unlikely(!(frame_hdr->sts & RXFSHR_RXFV) ||
++			     frame_hdr->len >= RX_BUF_SIZE ||
++			     frame_hdr->len <= 0)) {
 +
-+void bnx2x_set_ethtool_ops(struct bnx2x *bp, struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &bnx2x_ethtool_ops);
-+	if (IS_PF(bp))
-+		SET_ETHTOOL_OPS(netdev, &bnx2x_ethtool_ops);
-+	else /* vf */
-+		SET_ETHTOOL_OPS(netdev, &bnx2x_vf_ethtool_ops);
- }
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index e81a747..14a7784 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -11953,7 +11953,7 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
- 	dev->watchdog_timeo = TX_TIMEOUT;
++			/* discard an invalid packet */
++			ks_wrreg16(ks, KS_RXQCR, (ks->rc_rxqcr | RXQCR_RRXEF));
++			netdev->stats.rx_dropped++;
++			if (!(frame_hdr->sts & RXFSHR_RXFV))
++				netdev->stats.rx_frame_errors++;
++			else
++				netdev->stats.rx_length_errors++;
++			frame_hdr++;
++			continue;
++		}
++
+ 		skb = netdev_alloc_skb(netdev, frame_hdr->len + 16);
+-		if (likely(skb && (frame_hdr->sts & RXFSHR_RXFV) &&
+-			(frame_hdr->len < RX_BUF_SIZE) && frame_hdr->len)) {
++		if (likely(skb)) {
+ 			skb_reserve(skb, 2);
+ 			/* read data block including CRC 4 bytes */
+ 			ks_read_qmu(ks, (u16 *)skb->data, frame_hdr->len);
+-			skb_put(skb, frame_hdr->len);
++			skb_put(skb, frame_hdr->len - 4);
+ 			skb->protocol = eth_type_trans(skb, netdev);
+ 			netif_rx(skb);
++			/* exclude CRC size */
++			netdev->stats.rx_bytes += frame_hdr->len - 4;
++			netdev->stats.rx_packets++;
+ 		} else {
+-			pr_err("%s: err:skb alloc\n", __func__);
+ 			ks_wrreg16(ks, KS_RXQCR, (ks->rc_rxqcr | RXQCR_RRXEF));
+-			if (skb)
+-				dev_kfree_skb_irq(skb);
++			netdev->stats.rx_dropped++;
+ 		}
+ 		frame_hdr++;
+ 	}
+@@ -877,6 +892,8 @@ static irqreturn_t ks_irq(int irq, void *pw)
+ 		ks_wrreg16(ks, KS_PMECR, pmecr | PMECR_WKEVT_LINK);
+ 	}
  
- 	dev->netdev_ops = &bnx2x_netdev_ops;
--	bnx2x_set_ethtool_ops(dev);
-+	bnx2x_set_ethtool_ops(bp, dev);
++	if (unlikely(status & IRQ_RXOI))
++		ks->netdev->stats.rx_over_errors++;
+ 	/* this should be the last in IRQ handler*/
+ 	ks_restore_cmd_reg(ks);
+ 	return IRQ_HANDLED;
+@@ -1015,6 +1032,9 @@ static int ks_start_xmit(struct sk_buff *skb, struct net_device *netdev)
  
- 	dev->priv_flags |= IFF_UNICAST_FLT;
- 
+ 	if (likely(ks_tx_fifo_space(ks) >= skb->len + 12)) {
+ 		ks_write_qmu(ks, skb->data, skb->len);
++		/* add tx statistics */
++		netdev->stats.tx_bytes += skb->len;
++		netdev->stats.tx_packets++;
+ 		dev_kfree_skb(skb);
+ 	} else
+ 		retv = NETDEV_TX_BUSY;
 -- 
-1.7.7.2
+1.7.11.7
