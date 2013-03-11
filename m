@@ -1,56 +1,115 @@
-From: Thomas Martitz <thomas.martitz@hhi.fraunhofer.de>
-Subject: Trying to implement secondary loopback
-Date: Mon, 11 Mar 2013 10:49:50 +0100
-Message-ID: <513DA8BE.8030403@hhi.fraunhofer.de>
+From: Veaceslav Falico <darkmag@gmail.com>
+Subject: Re: [PATCH] netconsole: release the spinlock before __netpoll_cleanup()
+Date: Mon, 11 Mar 2013 11:08:02 +0100
+Message-ID: <CAE3RKN=ix96skUHw3j5snbue-r8SOnSovw4_zh4RX4t-uDW2Cw@mail.gmail.com>
+References: <1362581203-8994-1-git-send-email-vfalico@redhat.com>
+ <20130307000824.GA5702@neilslaptop.think-freely.org> <20130307100325.GA31105@redhat.com>
+ <20130307.161438.396456319050281566.davem@davemloft.net> <20130310152546.GA4897@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
+	netdev@vger.kernel.org, amwang@redhat.com
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.HHI.FRAUNHOFER.DE ([193.174.67.45]:44074 "EHLO
-	mailgw.hhi.fraunhofer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752797Ab3CKJts (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 05:49:48 -0400
-Received: from [172.17.131.45] (unknown [172.17.131.45])
-	by mailgw.hhi.fraunhofer.de (Postfix) with ESMTP id 78F19186806E
-	for <netdev@vger.kernel.org>; Mon, 11 Mar 2013 10:49:48 +0100 (CET)
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:50256 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752812Ab3CKKIX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 06:08:23 -0400
+Received: by mail-pb0-f47.google.com with SMTP id rp2so3560789pbb.20
+        for <netdev@vger.kernel.org>; Mon, 11 Mar 2013 03:08:23 -0700 (PDT)
+In-Reply-To: <20130310152546.GA4897@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello folks,
+On Sun, Mar 10, 2013 at 4:25 PM, Veaceslav Falico <vfalico@redhat.com> wrote:
+> On Thu, Mar 07, 2013 at 04:14:38PM -0500, David Miller wrote:
+>>
+...snip...
+>> Quite a bit of email corruption of this patch.
+>
+>
+> Sorry, somehow messed it.
+>
+>
+>>
+>> Also, this code block is probably too deeply indented to be sane,
+>> consider creating a small helper function to call instead.
+>
+>
+> It gets quite ugly if I try to move it to another function. However, maybe
+> something like that will work - it's effectively the same code, just that
+> I've moved the long part out of the if () { } block. Looks a lot more
+> readable, though one line still breaks 80chars limit. I've reworked the
+> subject/commit message too.
+>
+> Subject: [PATCH] netconsole: don't call __netpoll_cleanup() while atomic
+>
+> __netpoll_cleanup() is called in netconsole_netdev_event() while holding a
+> spinlock. Release/acquire the spinlock before/after it and restart the
+>
+> loop.
+>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> ---
+>    drivers/net/netconsole.c |   22 +++++++++++++++-------
+>    1 files changed, 15 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+> index 37add21..38eaa8c 100644
+>
+> --- a/drivers/net/netconsole.c
+> +++ b/drivers/net/netconsole.c
+> @@ -666,6 +666,7 @@ static int netconsole_netdev_event(struct notifier_block
+> *this,
+>                 goto done;
+>         spin_lock_irqsave(&target_list_lock, flags);
+> +restart:
+>         list_for_each_entry(nt, &target_list, list) {
+>                 netconsole_target_get(nt);
+>                 if (nt->np.dev == dev) {
+> @@ -679,14 +680,21 @@ static int netconsole_netdev_event(struct
+> notifier_block *this,
+>                                 /*
+>
+>                                  * rtnl_lock already held
+>                                  */
+> -                               if (nt->np.dev) {
+> -                                       __netpoll_cleanup(&nt->np);
+> -                                       dev_put(nt->np.dev);
+> -                                       nt->np.dev = NULL;
+> +                               if (!nt->np.dev) {
+> +                                       nt->enabled = 0;
+> +                                       stopped = true;
+> +                                       break;
+>                                 }
+> -                               nt->enabled = 0;
+> -                               stopped = true;
+> -                               break;
+> +                               /*
+> +                                * we might sleep in __netpoll_cleanup()
+> +                                */
+> +                               spin_unlock_irqrestore(&target_list_lock,
+> flags);
+> +                               __netpoll_cleanup(&nt->np);
+> +                               spin_lock_irqsave(&target_list_lock, flags);
+> +                               dev_put(nt->np.dev);
+> +                               nt->np.dev = NULL;
+>
+> +                               netconsole_target_put(nt);
+> +                               goto restart;
+>                         }
+>                 }
+>                 netconsole_target_put(nt);
+> --
+> 1.7.1
 
-I'm Thomas Martitz, working on my Master Thesis: an Ethernet NIC. As 
-part of my work I want to develop a custom loopback interface (for 
-testing purposes).
+Self-NAK this patch, I've triggered another kernel panic with it. Will
+send another one shortly. Basicly, the whole if (!nt->np.dev) is not
+needed and nt->enabled=0 should always be set, otherwise we
+end up with nt->np.dev == NULL and nt->enabled == 1, thus
+triggering panics in places like write_msg(), where it verifies only
+if the nt->enabled is true.
 
-However I'm facing a problem: It doesn't appear to be possible for a 
-second loopback device to exist. Even when copying (and module'ifying) 
-drivers/net/loopback.c the resulting device doesn't behave like the 
-standard lo interface.
-
-After examing the code I found this line (in loopback_net_init()):
-
-loopback.c:206         net->loopback_dev = dev;
-
-This suggests that the current network namespace can only have one 
-loopback interface. And indeed after modifying my custom interface to 
-include this particular line it begins to work, but obviously at the 
-same time the standard lo interface stops working.
-
-So my questions are:
-* Is this on purpse/expected?
-* Is there anyway around it so that I can have a custom loopback 
-interface without touching lo's functionality.
-
-Many thanks in advance.
-
-Best regards.
-
------
-visit us at
-
-CeBIT 2013 / March 5-9 / Hannover, Germany / hall 9, booth E08
-
-OFC 2013 / March 19-21 / Anaheim Convention Center, CA, USA / booth 11807
-
-www.hhi.fraunhofer.de/events
+-- 
+Best regards,
+Veaceslav Falico
