@@ -1,8 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 18/22] sfc: Update RX buffer address together with
- length
-Date: Mon, 11 Mar 2013 19:57:26 +0000
-Message-ID: <1363031846.2608.55.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 19/22] sfc: Enable RX DMA scattering where possible
+Date: Mon, 11 Mar 2013 19:58:51 +0000
+Message-ID: <1363031931.2608.56.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1363030400.2608.37.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -11,97 +10,999 @@ Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
 	<scrum-linux@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:16854 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:16867 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754326Ab3CKT53 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 15:57:29 -0400
+	with ESMTP id S1753942Ab3CKT64 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 15:58:56 -0400
 In-Reply-To: <1363030400.2608.37.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adjust rx_buf->page_offset when we eat the RX hash prefix.  Remove
-efx_rx_buf_offset(), which is now redundant.
+Enable RX DMA scattering iff an RX buffer large enough for the current
+MTU will not fit into a single page and the NIC supports DMA
+scattering for kernel-mode RX queues.
+
+On Falcon and Siena, the RX_USR_BUF_SIZE field is used as the DMA
+limit for both all RX queues with scatter enabled.  Set it to 1824,
+matching what Onload uses now.
+
+Maintain a statistic for frames truncated due to lack of descriptors
+(rx_nodesc_trunc).  This is distinct from rx_frm_trunc which may be
+incremented when scattering is disabled and implies an over-length
+frame.
+
+Whenever an MTU change causes scattering to be turned on or off,
+update filters that point to the PF queues, but leave others
+unchanged, as VF drivers assume scattering is off.
+
+Add n_frags parameters to various functions, and make them iterate:
+- efx_rx_packet()
+- efx_recycle_rx_buffers()
+- efx_rx_mk_skb()
+- efx_rx_deliver()
+
+Make efx_handle_rx_event() responsible for updating
+efx_rx_queue::removed_count.
+
+Change the RX pipeline state to a starting ring index and number of
+fragments, and make __efx_rx_packet() responsible for clearing it.
+
+Based on earlier versions by David Riddoch and Jon Cooper.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/net_driver.h |    3 ++-
- drivers/net/ethernet/sfc/rx.c         |   18 ++++++------------
- 2 files changed, 8 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/sfc/efx.c        |   34 +++++-
+ drivers/net/ethernet/sfc/efx.h        |   13 +-
+ drivers/net/ethernet/sfc/ethtool.c    |    4 +-
+ drivers/net/ethernet/sfc/falcon.c     |   17 ++-
+ drivers/net/ethernet/sfc/filter.c     |   74 +++++++++++-
+ drivers/net/ethernet/sfc/net_driver.h |   35 +++++-
+ drivers/net/ethernet/sfc/nic.c        |   90 ++++++++++++---
+ drivers/net/ethernet/sfc/rx.c         |  211 +++++++++++++++++++++-----------
+ drivers/net/ethernet/sfc/siena.c      |    3 +
+ 9 files changed, 363 insertions(+), 118 deletions(-)
 
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index f8013c3..1213af5 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -88,8 +88,6 @@ const char *const efx_reset_type_names[] = {
+ 	[RESET_TYPE_MC_FAILURE]         = "MC_FAILURE",
+ };
+ 
+-#define EFX_MAX_MTU (9 * 1024)
+-
+ /* Reset workqueue. If any NIC has a hardware failure then a reset will be
+  * queued onto this work queue. This is not a per-nic work queue, because
+  * efx_reset_work() acquires the rtnl lock, so resets are naturally serialised.
+@@ -627,9 +625,11 @@ fail:
+  */
+ static void efx_start_datapath(struct efx_nic *efx)
+ {
++	bool old_rx_scatter = efx->rx_scatter;
+ 	struct efx_tx_queue *tx_queue;
+ 	struct efx_rx_queue *rx_queue;
+ 	struct efx_channel *channel;
++	size_t rx_buf_len;
+ 
+ 	/* Calculate the rx buffer allocation parameters required to
+ 	 * support the current MTU, including padding for header
+@@ -638,8 +638,32 @@ static void efx_start_datapath(struct efx_nic *efx)
+ 	efx->rx_dma_len = (efx->type->rx_buffer_hash_size +
+ 			   EFX_MAX_FRAME_LEN(efx->net_dev->mtu) +
+ 			   efx->type->rx_buffer_padding);
+-	efx->rx_buffer_order = get_order(sizeof(struct efx_rx_page_state) +
+-					 EFX_PAGE_IP_ALIGN + efx->rx_dma_len);
++	rx_buf_len = (sizeof(struct efx_rx_page_state) +
++		      EFX_PAGE_IP_ALIGN + efx->rx_dma_len);
++	if (rx_buf_len <= PAGE_SIZE) {
++		efx->rx_scatter = false;
++		efx->rx_buffer_order = 0;
++		if (rx_buf_len <= PAGE_SIZE / 2)
++			efx->rx_buffer_truesize = PAGE_SIZE / 2;
++		else
++			efx->rx_buffer_truesize = PAGE_SIZE;
++	} else if (efx->type->can_rx_scatter) {
++		BUILD_BUG_ON(sizeof(struct efx_rx_page_state) +
++			     EFX_PAGE_IP_ALIGN + EFX_RX_USR_BUF_SIZE >
++			     PAGE_SIZE / 2);
++		efx->rx_scatter = true;
++		efx->rx_dma_len = EFX_RX_USR_BUF_SIZE;
++		efx->rx_buffer_order = 0;
++		efx->rx_buffer_truesize = PAGE_SIZE / 2;
++	} else {
++		efx->rx_scatter = false;
++		efx->rx_buffer_order = get_order(rx_buf_len);
++		efx->rx_buffer_truesize = PAGE_SIZE << efx->rx_buffer_order;
++	}
++
++	/* RX filters also have scatter-enabled flags */
++	if (efx->rx_scatter != old_rx_scatter)
++		efx_filter_update_rx_scatter(efx);
+ 
+ 	/* We must keep at least one descriptor in a TX ring empty.
+ 	 * We could avoid this when the queue size does not exactly
+@@ -661,7 +685,7 @@ static void efx_start_datapath(struct efx_nic *efx)
+ 			efx_nic_generate_fill_event(rx_queue);
+ 		}
+ 
+-		WARN_ON(channel->rx_pkt != NULL);
++		WARN_ON(channel->rx_pkt_n_frags);
+ 	}
+ 
+ 	if (netif_device_present(efx->net_dev))
+diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
+index 00e7077..211da79 100644
+--- a/drivers/net/ethernet/sfc/efx.h
++++ b/drivers/net/ethernet/sfc/efx.h
+@@ -39,16 +39,14 @@ extern void efx_init_rx_queue(struct efx_rx_queue *rx_queue);
+ extern void efx_fini_rx_queue(struct efx_rx_queue *rx_queue);
+ extern void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue);
+ extern void efx_rx_slow_fill(unsigned long context);
+-extern void __efx_rx_packet(struct efx_channel *channel,
+-			    struct efx_rx_buffer *rx_buf);
+-extern void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
++extern void __efx_rx_packet(struct efx_channel *channel);
++extern void efx_rx_packet(struct efx_rx_queue *rx_queue,
++			  unsigned int index, unsigned int n_frags,
+ 			  unsigned int len, u16 flags);
+ static inline void efx_rx_flush_packet(struct efx_channel *channel)
+ {
+-	if (channel->rx_pkt) {
+-		__efx_rx_packet(channel, channel->rx_pkt);
+-		channel->rx_pkt = NULL;
+-	}
++	if (channel->rx_pkt_n_frags)
++		__efx_rx_packet(channel);
+ }
+ extern void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue);
+ 
+@@ -73,6 +71,7 @@ extern void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue);
+ extern int efx_probe_filters(struct efx_nic *efx);
+ extern void efx_restore_filters(struct efx_nic *efx);
+ extern void efx_remove_filters(struct efx_nic *efx);
++extern void efx_filter_update_rx_scatter(struct efx_nic *efx);
+ extern s32 efx_filter_insert_filter(struct efx_nic *efx,
+ 				    struct efx_filter_spec *spec,
+ 				    bool replace);
+diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
+index 8e61cd0..6e76817 100644
+--- a/drivers/net/ethernet/sfc/ethtool.c
++++ b/drivers/net/ethernet/sfc/ethtool.c
+@@ -154,6 +154,7 @@ static const struct efx_ethtool_stat efx_ethtool_stats[] = {
+ 	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_tcp_udp_chksum_err),
+ 	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_mcast_mismatch),
+ 	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_frm_trunc),
++	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_nodesc_trunc),
+ };
+ 
+ /* Number of ethtool statistics */
+@@ -978,7 +979,8 @@ static int efx_ethtool_set_class_rule(struct efx_nic *efx,
+ 	     rule->m_ext.data[1]))
+ 		return -EINVAL;
+ 
+-	efx_filter_init_rx(&spec, EFX_FILTER_PRI_MANUAL, 0,
++	efx_filter_init_rx(&spec, EFX_FILTER_PRI_MANUAL,
++			   efx->rx_scatter ? EFX_FILTER_FLAG_RX_SCATTER : 0,
+ 			   (rule->ring_cookie == RX_CLS_FLOW_DISC) ?
+ 			   0xfff : rule->ring_cookie);
+ 
+diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
+index 49bcd19..4486102 100644
+--- a/drivers/net/ethernet/sfc/falcon.c
++++ b/drivers/net/ethernet/sfc/falcon.c
+@@ -1546,10 +1546,6 @@ static int falcon_probe_nic(struct efx_nic *efx)
+ 
+ static void falcon_init_rx_cfg(struct efx_nic *efx)
+ {
+-	/* Prior to Siena the RX DMA engine will split each frame at
+-	 * intervals of RX_USR_BUF_SIZE (32-byte units). We set it to
+-	 * be so large that that never happens. */
+-	const unsigned huge_buf_size = (3 * 4096) >> 5;
+ 	/* RX control FIFO thresholds (32 entries) */
+ 	const unsigned ctrl_xon_thr = 20;
+ 	const unsigned ctrl_xoff_thr = 25;
+@@ -1557,10 +1553,15 @@ static void falcon_init_rx_cfg(struct efx_nic *efx)
+ 
+ 	efx_reado(efx, &reg, FR_AZ_RX_CFG);
+ 	if (efx_nic_rev(efx) <= EFX_REV_FALCON_A1) {
+-		/* Data FIFO size is 5.5K */
++		/* Data FIFO size is 5.5K.  The RX DMA engine only
++		 * supports scattering for user-mode queues, but will
++		 * split DMA writes at intervals of RX_USR_BUF_SIZE
++		 * (32-byte units) even for kernel-mode queues.  We
++		 * set it to be so large that that never happens.
++		 */
+ 		EFX_SET_OWORD_FIELD(reg, FRF_AA_RX_DESC_PUSH_EN, 0);
+ 		EFX_SET_OWORD_FIELD(reg, FRF_AA_RX_USR_BUF_SIZE,
+-				    huge_buf_size);
++				    (3 * 4096) >> 5);
+ 		EFX_SET_OWORD_FIELD(reg, FRF_AA_RX_XON_MAC_TH, 512 >> 8);
+ 		EFX_SET_OWORD_FIELD(reg, FRF_AA_RX_XOFF_MAC_TH, 2048 >> 8);
+ 		EFX_SET_OWORD_FIELD(reg, FRF_AA_RX_XON_TX_TH, ctrl_xon_thr);
+@@ -1569,7 +1570,7 @@ static void falcon_init_rx_cfg(struct efx_nic *efx)
+ 		/* Data FIFO size is 80K; register fields moved */
+ 		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_DESC_PUSH_EN, 0);
+ 		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_USR_BUF_SIZE,
+-				    huge_buf_size);
++				    EFX_RX_USR_BUF_SIZE >> 5);
+ 		/* Send XON and XOFF at ~3 * max MTU away from empty/full */
+ 		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_XON_MAC_TH, 27648 >> 8);
+ 		EFX_SET_OWORD_FIELD(reg, FRF_BZ_RX_XOFF_MAC_TH, 54272 >> 8);
+@@ -1815,6 +1816,7 @@ const struct efx_nic_type falcon_a1_nic_type = {
+ 	.evq_rptr_tbl_base = FR_AA_EVQ_RPTR_KER,
+ 	.max_dma_mask = DMA_BIT_MASK(FSF_AZ_TX_KER_BUF_ADDR_WIDTH),
+ 	.rx_buffer_padding = 0x24,
++	.can_rx_scatter = false,
+ 	.max_interrupt_mode = EFX_INT_MODE_MSI,
+ 	.phys_addr_channels = 4,
+ 	.timer_period_max =  1 << FRF_AB_TC_TIMER_VAL_WIDTH,
+@@ -1865,6 +1867,7 @@ const struct efx_nic_type falcon_b0_nic_type = {
+ 	.max_dma_mask = DMA_BIT_MASK(FSF_AZ_TX_KER_BUF_ADDR_WIDTH),
+ 	.rx_buffer_hash_size = 0x10,
+ 	.rx_buffer_padding = 0,
++	.can_rx_scatter = true,
+ 	.max_interrupt_mode = EFX_INT_MODE_MSIX,
+ 	.phys_addr_channels = 32, /* Hardware limit is 64, but the legacy
+ 				   * interrupt handler only supports 32
+diff --git a/drivers/net/ethernet/sfc/filter.c b/drivers/net/ethernet/sfc/filter.c
+index 61b4408..2397f0e 100644
+--- a/drivers/net/ethernet/sfc/filter.c
++++ b/drivers/net/ethernet/sfc/filter.c
+@@ -172,6 +172,25 @@ static void efx_filter_push_rx_config(struct efx_nic *efx)
+ 			filter_ctl, FRF_CZ_MULTICAST_NOMATCH_RSS_ENABLED,
+ 			!!(table->spec[EFX_FILTER_INDEX_MC_DEF].flags &
+ 			   EFX_FILTER_FLAG_RX_RSS));
++
++		/* There is a single bit to enable RX scatter for all
++		 * unmatched packets.  Only set it if scatter is
++		 * enabled in both filter specs.
++		 */
++		EFX_SET_OWORD_FIELD(
++			filter_ctl, FRF_BZ_SCATTER_ENBL_NO_MATCH_Q,
++			!!(table->spec[EFX_FILTER_INDEX_UC_DEF].flags &
++			   table->spec[EFX_FILTER_INDEX_MC_DEF].flags &
++			   EFX_FILTER_FLAG_RX_SCATTER));
++	} else if (efx_nic_rev(efx) >= EFX_REV_FALCON_B0) {
++		/* We don't expose 'default' filters because unmatched
++		 * packets always go to the queue number found in the
++		 * RSS table.  But we still need to set the RX scatter
++		 * bit here.
++		 */
++		EFX_SET_OWORD_FIELD(
++			filter_ctl, FRF_BZ_SCATTER_ENBL_NO_MATCH_Q,
++			efx->rx_scatter);
+ 	}
+ 
+ 	efx_writeo(efx, &filter_ctl, FR_BZ_RX_FILTER_CTL);
+@@ -413,13 +432,18 @@ static void efx_filter_reset_rx_def(struct efx_nic *efx, unsigned filter_idx)
+ 	struct efx_filter_state *state = efx->filter_state;
+ 	struct efx_filter_table *table = &state->table[EFX_FILTER_TABLE_RX_DEF];
+ 	struct efx_filter_spec *spec = &table->spec[filter_idx];
++	enum efx_filter_flags flags = 0;
+ 
+ 	/* If there's only one channel then disable RSS for non VF
+ 	 * traffic, thereby allowing VFs to use RSS when the PF can't.
+ 	 */
+-	efx_filter_init_rx(spec, EFX_FILTER_PRI_MANUAL,
+-			   efx->n_rx_channels > 1 ? EFX_FILTER_FLAG_RX_RSS : 0,
+-			   0);
++	if (efx->n_rx_channels > 1)
++		flags |= EFX_FILTER_FLAG_RX_RSS;
++
++	if (efx->rx_scatter)
++		flags |= EFX_FILTER_FLAG_RX_SCATTER;
++
++	efx_filter_init_rx(spec, EFX_FILTER_PRI_MANUAL, flags, 0);
+ 	spec->type = EFX_FILTER_UC_DEF + filter_idx;
+ 	table->used_bitmap[0] |= 1 << filter_idx;
+ }
+@@ -1101,6 +1125,50 @@ void efx_remove_filters(struct efx_nic *efx)
+ 	kfree(state);
+ }
+ 
++/* Update scatter enable flags for filters pointing to our own RX queues */
++void efx_filter_update_rx_scatter(struct efx_nic *efx)
++{
++	struct efx_filter_state *state = efx->filter_state;
++	enum efx_filter_table_id table_id;
++	struct efx_filter_table *table;
++	efx_oword_t filter;
++	unsigned int filter_idx;
++
++	spin_lock_bh(&state->lock);
++
++	for (table_id = EFX_FILTER_TABLE_RX_IP;
++	     table_id <= EFX_FILTER_TABLE_RX_DEF;
++	     table_id++) {
++		table = &state->table[table_id];
++
++		for (filter_idx = 0; filter_idx < table->size; filter_idx++) {
++			if (!test_bit(filter_idx, table->used_bitmap) ||
++			    table->spec[filter_idx].dmaq_id >=
++			    efx->n_rx_channels)
++				continue;
++
++			if (efx->rx_scatter)
++				table->spec[filter_idx].flags |=
++					EFX_FILTER_FLAG_RX_SCATTER;
++			else
++				table->spec[filter_idx].flags &=
++					~EFX_FILTER_FLAG_RX_SCATTER;
++
++			if (table_id == EFX_FILTER_TABLE_RX_DEF)
++				/* Pushed by efx_filter_push_rx_config() */
++				continue;
++
++			efx_filter_build(&filter, &table->spec[filter_idx]);
++			efx_writeo(efx, &filter,
++				   table->offset + table->step * filter_idx);
++		}
++	}
++
++	efx_filter_push_rx_config(efx);
++
++	spin_unlock_bh(&state->lock);
++}
++
+ #ifdef CONFIG_RFS_ACCEL
+ 
+ int efx_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
 diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 3fd6dbe..1bc911f 100644
+index 1bc911f..e41b54b 100644
 --- a/drivers/net/ethernet/sfc/net_driver.h
 +++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -208,7 +208,8 @@ struct efx_tx_queue {
-  * @dma_addr: DMA base address of the buffer
-  * @page: The associated page buffer.
-  *	Will be %NULL if the buffer slot is currently free.
-- * @page_offset: Offset within page
-+ * @page_offset: If pending: offset in @page of DMA base address.
-+ *	If completed: offset in @page of Ethernet header.
+@@ -69,6 +69,12 @@
+ #define EFX_TXQ_TYPES		4
+ #define EFX_MAX_TX_QUEUES	(EFX_TXQ_TYPES * EFX_MAX_CHANNELS)
+ 
++/* Maximum possible MTU the driver supports */
++#define EFX_MAX_MTU (9 * 1024)
++
++/* Size of an RX scatter buffer.  Small enough to pack 2 into a 4K page. */
++#define EFX_RX_USR_BUF_SIZE 1824
++
+ /* Forward declare Precision Time Protocol (PTP) support structure. */
+ struct efx_ptp_data;
+ 
+@@ -212,7 +218,8 @@ struct efx_tx_queue {
+  *	If completed: offset in @page of Ethernet header.
   * @len: If pending: length for DMA descriptor.
   *	If completed: received length, excluding hash prefix.
-  * @flags: Flags for buffer and packet state.
+- * @flags: Flags for buffer and packet state.
++ * @flags: Flags for buffer and packet state.  These are only set on the
++ *	first buffer of a scattered packet.
+  */
+ struct efx_rx_buffer {
+ 	dma_addr_t dma_addr;
+@@ -256,6 +263,7 @@ struct efx_rx_page_state {
+  * @added_count: Number of buffers added to the receive queue.
+  * @notified_count: Number of buffers given to NIC (<= @added_count).
+  * @removed_count: Number of buffers removed from the receive queue.
++ * @scatter_n: Number of buffers used by current packet
+  * @max_fill: RX descriptor maximum fill level (<= ring size)
+  * @fast_fill_trigger: RX descriptor fill level that will trigger a fast fill
+  *	(<= @max_fill)
+@@ -276,6 +284,7 @@ struct efx_rx_queue {
+ 	unsigned int added_count;
+ 	unsigned int notified_count;
+ 	unsigned int removed_count;
++	unsigned int scatter_n;
+ 	unsigned int max_fill;
+ 	unsigned int fast_fill_trigger;
+ 	unsigned int min_fill;
+@@ -335,6 +344,12 @@ enum efx_rx_alloc_method {
+  * @n_rx_frm_trunc: Count of RX_FRM_TRUNC errors
+  * @n_rx_overlength: Count of RX_OVERLENGTH errors
+  * @n_skbuff_leaks: Count of skbuffs leaked due to RX overrun
++ * @n_rx_nodesc_trunc: Number of RX packets truncated and then dropped due to
++ *	lack of descriptors
++ * @rx_pkt_n_frags: Number of fragments in next packet to be delivered by
++ *	__efx_rx_packet(), or zero if there is none
++ * @rx_pkt_index: Ring index of first buffer for next packet to be delivered
++ *	by __efx_rx_packet(), if @rx_pkt_n_frags != 0
+  * @rx_queue: RX queue for this channel
+  * @tx_queue: TX queues for this channel
+  */
+@@ -366,11 +381,10 @@ struct efx_channel {
+ 	unsigned n_rx_frm_trunc;
+ 	unsigned n_rx_overlength;
+ 	unsigned n_skbuff_leaks;
++	unsigned int n_rx_nodesc_trunc;
+ 
+-	/* Used to pipeline received packets in order to optimise memory
+-	 * access with prefetches.
+-	 */
+-	struct efx_rx_buffer *rx_pkt;
++	unsigned int rx_pkt_n_frags;
++	unsigned int rx_pkt_index;
+ 
+ 	struct efx_rx_queue rx_queue;
+ 	struct efx_tx_queue tx_queue[EFX_TXQ_TYPES];
+@@ -672,8 +686,11 @@ struct vfdi_status;
+  * @n_tx_channels: Number of channels used for TX
+  * @rx_dma_len: Current maximum RX DMA length
+  * @rx_buffer_order: Order (log2) of number of pages for each RX buffer
++ * @rx_buffer_truesize: Amortised allocation size of an RX buffer,
++ *	for use in sk_buff::truesize
+  * @rx_hash_key: Toeplitz hash key for RSS
+  * @rx_indir_table: Indirection table for RSS
++ * @rx_scatter: Scatter mode enabled for receives
+  * @int_error_count: Number of internal errors seen recently
+  * @int_error_expire: Time at which error count will be expired
+  * @irq_status: Interrupt status buffer
+@@ -788,8 +805,10 @@ struct efx_nic {
+ 	unsigned n_tx_channels;
+ 	unsigned int rx_dma_len;
+ 	unsigned int rx_buffer_order;
++	unsigned int rx_buffer_truesize;
+ 	u8 rx_hash_key[40];
+ 	u32 rx_indir_table[128];
++	bool rx_scatter;
+ 
+ 	unsigned int_error_count;
+ 	unsigned long int_error_expire;
+@@ -920,8 +939,9 @@ static inline unsigned int efx_port_num(struct efx_nic *efx)
+  * @evq_ptr_tbl_base: Event queue pointer table base address
+  * @evq_rptr_tbl_base: Event queue read-pointer table base address
+  * @max_dma_mask: Maximum possible DMA mask
+- * @rx_buffer_hash_size: Size of hash at start of RX buffer
+- * @rx_buffer_padding: Size of padding at end of RX buffer
++ * @rx_buffer_hash_size: Size of hash at start of RX packet
++ * @rx_buffer_padding: Size of padding at end of RX packet
++ * @can_rx_scatter: NIC is able to scatter packet to multiple buffers
+  * @max_interrupt_mode: Highest capability interrupt mode supported
+  *	from &enum efx_init_mode.
+  * @phys_addr_channels: Number of channels with physically addressed
+@@ -969,6 +989,7 @@ struct efx_nic_type {
+ 	u64 max_dma_mask;
+ 	unsigned int rx_buffer_hash_size;
+ 	unsigned int rx_buffer_padding;
++	bool can_rx_scatter;
+ 	unsigned int max_interrupt_mode;
+ 	unsigned int phys_addr_channels;
+ 	unsigned int timer_period_max;
+diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
+index 0ad790c..f9f5df8 100644
+--- a/drivers/net/ethernet/sfc/nic.c
++++ b/drivers/net/ethernet/sfc/nic.c
+@@ -591,12 +591,22 @@ void efx_nic_init_rx(struct efx_rx_queue *rx_queue)
+ 	struct efx_nic *efx = rx_queue->efx;
+ 	bool is_b0 = efx_nic_rev(efx) >= EFX_REV_FALCON_B0;
+ 	bool iscsi_digest_en = is_b0;
++	bool jumbo_en;
++
++	/* For kernel-mode queues in Falcon A1, the JUMBO flag enables
++	 * DMA to continue after a PCIe page boundary (and scattering
++	 * is not possible).  In Falcon B0 and Siena, it enables
++	 * scatter.
++	 */
++	jumbo_en = !is_b0 || efx->rx_scatter;
+ 
+ 	netif_dbg(efx, hw, efx->net_dev,
+ 		  "RX queue %d ring in special buffers %d-%d\n",
+ 		  efx_rx_queue_index(rx_queue), rx_queue->rxd.index,
+ 		  rx_queue->rxd.index + rx_queue->rxd.entries - 1);
+ 
++	rx_queue->scatter_n = 0;
++
+ 	/* Pin RX descriptor ring */
+ 	efx_init_special_buffer(efx, &rx_queue->rxd);
+ 
+@@ -613,8 +623,7 @@ void efx_nic_init_rx(struct efx_rx_queue *rx_queue)
+ 			      FRF_AZ_RX_DESCQ_SIZE,
+ 			      __ffs(rx_queue->rxd.entries),
+ 			      FRF_AZ_RX_DESCQ_TYPE, 0 /* kernel queue */ ,
+-			      /* For >=B0 this is scatter so disable */
+-			      FRF_AZ_RX_DESCQ_JUMBO, !is_b0,
++			      FRF_AZ_RX_DESCQ_JUMBO, jumbo_en,
+ 			      FRF_AZ_RX_DESCQ_EN, 1);
+ 	efx_writeo_table(efx, &rx_desc_ptr, efx->type->rxd_ptr_tbl_base,
+ 			 efx_rx_queue_index(rx_queue));
+@@ -968,13 +977,24 @@ static u16 efx_handle_rx_not_ok(struct efx_rx_queue *rx_queue,
+ 		EFX_RX_PKT_DISCARD : 0;
+ }
+ 
+-/* Handle receive events that are not in-order. */
+-static void
++/* Handle receive events that are not in-order. Return true if this
++ * can be handled as a partial packet discard, false if it's more
++ * serious.
++ */
++static bool
+ efx_handle_rx_bad_index(struct efx_rx_queue *rx_queue, unsigned index)
+ {
++	struct efx_channel *channel = efx_rx_queue_channel(rx_queue);
+ 	struct efx_nic *efx = rx_queue->efx;
+ 	unsigned expected, dropped;
+ 
++	if (rx_queue->scatter_n &&
++	    index == ((rx_queue->removed_count + rx_queue->scatter_n - 1) &
++		      rx_queue->ptr_mask)) {
++		++channel->n_rx_nodesc_trunc;
++		return true;
++	}
++
+ 	expected = rx_queue->removed_count & rx_queue->ptr_mask;
+ 	dropped = (index - expected) & rx_queue->ptr_mask;
+ 	netif_info(efx, rx_err, efx->net_dev,
+@@ -983,6 +1003,7 @@ efx_handle_rx_bad_index(struct efx_rx_queue *rx_queue, unsigned index)
+ 
+ 	efx_schedule_reset(efx, EFX_WORKAROUND_5676(efx) ?
+ 			   RESET_TYPE_RX_RECOVERY : RESET_TYPE_DISABLE);
++	return false;
+ }
+ 
+ /* Handle a packet received event
+@@ -998,7 +1019,7 @@ efx_handle_rx_event(struct efx_channel *channel, const efx_qword_t *event)
+ 	unsigned int rx_ev_desc_ptr, rx_ev_byte_cnt;
+ 	unsigned int rx_ev_hdr_type, rx_ev_mcast_pkt;
+ 	unsigned expected_ptr;
+-	bool rx_ev_pkt_ok;
++	bool rx_ev_pkt_ok, rx_ev_sop, rx_ev_cont;
+ 	u16 flags;
+ 	struct efx_rx_queue *rx_queue;
+ 	struct efx_nic *efx = channel->efx;
+@@ -1006,21 +1027,56 @@ efx_handle_rx_event(struct efx_channel *channel, const efx_qword_t *event)
+ 	if (unlikely(ACCESS_ONCE(efx->reset_pending)))
+ 		return;
+ 
+-	/* Basic packet information */
+-	rx_ev_byte_cnt = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_BYTE_CNT);
+-	rx_ev_pkt_ok = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_PKT_OK);
+-	rx_ev_hdr_type = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_HDR_TYPE);
+-	WARN_ON(EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_JUMBO_CONT));
+-	WARN_ON(EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_SOP) != 1);
++	rx_ev_cont = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_JUMBO_CONT);
++	rx_ev_sop = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_SOP);
+ 	WARN_ON(EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_Q_LABEL) !=
+ 		channel->channel);
+ 
+ 	rx_queue = efx_channel_get_rx_queue(channel);
+ 
+ 	rx_ev_desc_ptr = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_DESC_PTR);
+-	expected_ptr = rx_queue->removed_count & rx_queue->ptr_mask;
+-	if (unlikely(rx_ev_desc_ptr != expected_ptr))
+-		efx_handle_rx_bad_index(rx_queue, rx_ev_desc_ptr);
++	expected_ptr = ((rx_queue->removed_count + rx_queue->scatter_n) &
++			rx_queue->ptr_mask);
++
++	/* Check for partial drops and other errors */
++	if (unlikely(rx_ev_desc_ptr != expected_ptr) ||
++	    unlikely(rx_ev_sop != (rx_queue->scatter_n == 0))) {
++		if (rx_ev_desc_ptr != expected_ptr &&
++		    !efx_handle_rx_bad_index(rx_queue, rx_ev_desc_ptr))
++			return;
++
++		/* Discard all pending fragments */
++		if (rx_queue->scatter_n) {
++			efx_rx_packet(
++				rx_queue,
++				rx_queue->removed_count & rx_queue->ptr_mask,
++				rx_queue->scatter_n, 0, EFX_RX_PKT_DISCARD);
++			rx_queue->removed_count += rx_queue->scatter_n;
++			rx_queue->scatter_n = 0;
++		}
++
++		/* Return if there is no new fragment */
++		if (rx_ev_desc_ptr != expected_ptr)
++			return;
++
++		/* Discard new fragment if not SOP */
++		if (!rx_ev_sop) {
++			efx_rx_packet(
++				rx_queue,
++				rx_queue->removed_count & rx_queue->ptr_mask,
++				1, 0, EFX_RX_PKT_DISCARD);
++			++rx_queue->removed_count;
++			return;
++		}
++	}
++
++	++rx_queue->scatter_n;
++	if (rx_ev_cont)
++		return;
++
++	rx_ev_byte_cnt = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_BYTE_CNT);
++	rx_ev_pkt_ok = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_PKT_OK);
++	rx_ev_hdr_type = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_HDR_TYPE);
+ 
+ 	if (likely(rx_ev_pkt_ok)) {
+ 		/* If packet is marked as OK and packet type is TCP/IP or
+@@ -1048,7 +1104,11 @@ efx_handle_rx_event(struct efx_channel *channel, const efx_qword_t *event)
+ 	channel->irq_mod_score += 2;
+ 
+ 	/* Handle received packet */
+-	efx_rx_packet(rx_queue, rx_ev_desc_ptr, rx_ev_byte_cnt, flags);
++	efx_rx_packet(rx_queue,
++		      rx_queue->removed_count & rx_queue->ptr_mask,
++		      rx_queue->scatter_n, rx_ev_byte_cnt, flags);
++	rx_queue->removed_count += rx_queue->scatter_n;
++	rx_queue->scatter_n = 0;
+ }
+ 
+ /* If this flush done event corresponds to a &struct efx_tx_queue, then
 diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 8e78a2f..0451872 100644
+index 0451872..88aa1ff 100644
 --- a/drivers/net/ethernet/sfc/rx.c
 +++ b/drivers/net/ethernet/sfc/rx.c
-@@ -47,13 +47,6 @@ static unsigned int rx_refill_threshold;
+@@ -39,13 +39,17 @@
   */
- #define EFX_RXD_HEAD_ROOM 2
+ static unsigned int rx_refill_threshold;
  
--/* Offset of ethernet header within page */
--static inline unsigned int efx_rx_buf_offset(struct efx_nic *efx,
--					     struct efx_rx_buffer *buf)
--{
--	return buf->page_offset + efx->type->rx_buffer_hash_size;
--}
--
++/* Each packet can consume up to ceil(max_frame_len / buffer_size) buffers */
++#define EFX_RX_MAX_FRAGS DIV_ROUND_UP(EFX_MAX_FRAME_LEN(EFX_MAX_MTU), \
++				      EFX_RX_USR_BUF_SIZE)
++
+ /*
+  * RX maximum head room required.
+  *
+- * This must be at least 1 to prevent overflow and at least 2 to allow
+- * pipelined receives.
++ * This must be at least 1 to prevent overflow, plus one packet-worth
++ * to allow pipelined receives.
+  */
+-#define EFX_RXD_HEAD_ROOM 2
++#define EFX_RXD_HEAD_ROOM (1 + EFX_RX_MAX_FRAGS)
+ 
  static inline u8 *efx_rx_buf_va(struct efx_rx_buffer *buf)
  {
- 	return page_address(buf->page) + buf->page_offset;
-@@ -356,8 +349,7 @@ static void efx_rx_packet_gro(struct efx_channel *channel,
+@@ -66,6 +70,15 @@ static inline u32 efx_rx_buf_hash(const u8 *eh)
+ #endif
+ }
+ 
++static inline struct efx_rx_buffer *
++efx_rx_buf_next(struct efx_rx_queue *rx_queue, struct efx_rx_buffer *rx_buf)
++{
++	if (unlikely(rx_buf == efx_rx_buffer(rx_queue, rx_queue->ptr_mask)))
++		return efx_rx_buffer(rx_queue, 0);
++	else
++		return rx_buf + 1;
++}
++
+ /**
+  * efx_init_rx_buffers - create EFX_RX_BATCH page-based RX buffers
+  *
+@@ -199,28 +212,34 @@ static void efx_resurrect_rx_buffer(struct efx_rx_queue *rx_queue,
+ 	++rx_queue->added_count;
+ }
+ 
+-/* Recycle the given rx buffer directly back into the rx_queue. There is
+- * always room to add this buffer, because we've just popped a buffer. */
+-static void efx_recycle_rx_buffer(struct efx_channel *channel,
+-				  struct efx_rx_buffer *rx_buf)
++/* Recycle buffers directly back into the rx_queue. There is always
++ * room to add these buffer, because we've just popped them.
++ */
++static void efx_recycle_rx_buffers(struct efx_channel *channel,
++				   struct efx_rx_buffer *rx_buf,
++				   unsigned int n_frags)
+ {
+ 	struct efx_nic *efx = channel->efx;
+ 	struct efx_rx_queue *rx_queue = efx_channel_get_rx_queue(channel);
+ 	struct efx_rx_buffer *new_buf;
+ 	unsigned index;
+ 
+-	rx_buf->flags = 0;
++	do {
++		rx_buf->flags = 0;
+ 
+-	if (efx->rx_dma_len <= EFX_RX_HALF_PAGE &&
+-	    page_count(rx_buf->page) == 1)
+-		efx_resurrect_rx_buffer(rx_queue, rx_buf);
++		if (efx->rx_dma_len <= EFX_RX_HALF_PAGE &&
++		    page_count(rx_buf->page) == 1)
++			efx_resurrect_rx_buffer(rx_queue, rx_buf);
+ 
+-	index = rx_queue->added_count & rx_queue->ptr_mask;
+-	new_buf = efx_rx_buffer(rx_queue, index);
++		index = rx_queue->added_count & rx_queue->ptr_mask;
++		new_buf = efx_rx_buffer(rx_queue, index);
+ 
+-	memcpy(new_buf, rx_buf, sizeof(*new_buf));
+-	rx_buf->page = NULL;
+-	++rx_queue->added_count;
++		memcpy(new_buf, rx_buf, sizeof(*new_buf));
++		rx_buf->page = NULL;
++		++rx_queue->added_count;
++
++		rx_buf = efx_rx_buf_next(rx_queue, rx_buf);
++	} while (--n_frags);
+ }
+ 
+ /**
+@@ -328,46 +347,56 @@ static void efx_rx_packet__check_len(struct efx_rx_queue *rx_queue,
+ /* Pass a received packet up through GRO.  GRO can handle pages
+  * regardless of checksum state and skbs with a good checksum.
+  */
+-static void efx_rx_packet_gro(struct efx_channel *channel,
+-			      struct efx_rx_buffer *rx_buf,
+-			      const u8 *eh)
++static void
++efx_rx_packet_gro(struct efx_channel *channel, struct efx_rx_buffer *rx_buf,
++		  unsigned int n_frags, u8 *eh)
+ {
+ 	struct napi_struct *napi = &channel->napi_str;
+ 	gro_result_t gro_result;
+ 	struct efx_nic *efx = channel->efx;
+-	struct page *page = rx_buf->page;
+ 	struct sk_buff *skb;
+ 
+-	rx_buf->page = NULL;
+-
+ 	skb = napi_get_frags(napi);
+-	if (!skb) {
+-		put_page(page);
++	if (unlikely(!skb)) {
++		while (n_frags--) {
++			put_page(rx_buf->page);
++			rx_buf->page = NULL;
++			rx_buf = efx_rx_buf_next(&channel->rx_queue, rx_buf);
++		}
+ 		return;
+ 	}
+ 
  	if (efx->net_dev->features & NETIF_F_RXHASH)
  		skb->rxhash = efx_rx_buf_hash(eh);
+-
+-	skb_fill_page_desc(skb, 0, page, rx_buf->page_offset, rx_buf->len);
+-
+-	skb->len = rx_buf->len;
+-	skb->data_len = rx_buf->len;
+-	skb->truesize += rx_buf->len;
+ 	skb->ip_summed = ((rx_buf->flags & EFX_RX_PKT_CSUMMED) ?
+ 			  CHECKSUM_UNNECESSARY : CHECKSUM_NONE);
  
--	skb_fill_page_desc(skb, 0, page,
--			   efx_rx_buf_offset(efx, rx_buf), rx_buf->len);
-+	skb_fill_page_desc(skb, 0, page, rx_buf->page_offset, rx_buf->len);
+-	skb_record_rx_queue(skb, channel->rx_queue.core_index);
++	for (;;) {
++		skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
++				   rx_buf->page, rx_buf->page_offset,
++				   rx_buf->len);
++		rx_buf->page = NULL;
++		skb->len += rx_buf->len;
++		if (skb_shinfo(skb)->nr_frags == n_frags)
++			break;
  
- 	skb->len = rx_buf->len;
- 	skb->data_len = rx_buf->len;
-@@ -399,7 +391,7 @@ static struct sk_buff *efx_rx_mk_skb(struct efx_channel *channel,
+-		gro_result = napi_gro_frags(napi);
++		rx_buf = efx_rx_buf_next(&channel->rx_queue, rx_buf);
++	}
++
++	skb->data_len = skb->len;
++	skb->truesize += n_frags * efx->rx_buffer_truesize;
++
++	skb_record_rx_queue(skb, channel->rx_queue.core_index);
+ 
++	gro_result = napi_gro_frags(napi);
+ 	if (gro_result != GRO_DROP)
+ 		channel->irq_mod_score += 2;
+ }
+ 
+-/* Allocate and construct an SKB around a struct page.*/
++/* Allocate and construct an SKB around page fragments */
+ static struct sk_buff *efx_rx_mk_skb(struct efx_channel *channel,
+ 				     struct efx_rx_buffer *rx_buf,
++				     unsigned int n_frags,
+ 				     u8 *eh, int hdr_len)
+ {
+ 	struct efx_nic *efx = channel->efx;
+@@ -381,25 +410,32 @@ static struct sk_buff *efx_rx_mk_skb(struct efx_channel *channel,
+ 	EFX_BUG_ON_PARANOID(rx_buf->len < hdr_len);
+ 
+ 	skb_reserve(skb, EFX_PAGE_SKB_ALIGN);
++	memcpy(__skb_put(skb, hdr_len), eh, hdr_len);
+ 
+-	skb->len = rx_buf->len;
+-	skb->truesize = rx_buf->len + sizeof(struct sk_buff);
+-	memcpy(skb->data, eh, hdr_len);
+-	skb->tail += hdr_len;
+-
+-	/* Append the remaining page onto the frag list */
++	/* Append the remaining page(s) onto the frag list */
  	if (rx_buf->len > hdr_len) {
- 		skb->data_len = skb->len - hdr_len;
- 		skb_fill_page_desc(skb, 0, rx_buf->page,
--				   efx_rx_buf_offset(efx, rx_buf) + hdr_len,
-+				   rx_buf->page_offset + hdr_len,
- 				   skb->data_len);
+-		skb->data_len = skb->len - hdr_len;
+-		skb_fill_page_desc(skb, 0, rx_buf->page,
+-				   rx_buf->page_offset + hdr_len,
+-				   skb->data_len);
++		rx_buf->page_offset += hdr_len;
++		rx_buf->len -= hdr_len;
++
++		for (;;) {
++			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
++					   rx_buf->page, rx_buf->page_offset,
++					   rx_buf->len);
++			rx_buf->page = NULL;
++			skb->len += rx_buf->len;
++			skb->data_len += rx_buf->len;
++			if (skb_shinfo(skb)->nr_frags == n_frags)
++				break;
++
++			rx_buf = efx_rx_buf_next(&channel->rx_queue, rx_buf);
++		}
  	} else {
  		__free_pages(rx_buf->page, efx->rx_buffer_order);
-@@ -460,10 +452,12 @@ void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
+-		skb->data_len = 0;
++		rx_buf->page = NULL;
++		n_frags = 0;
+ 	}
+ 
+-	/* Ownership has transferred from the rx_buf to skb */
+-	rx_buf->page = NULL;
++	skb->truesize += n_frags * efx->rx_buffer_truesize;
+ 
+ 	/* Move past the ethernet header */
+ 	skb->protocol = eth_type_trans(skb, efx->net_dev);
+@@ -408,7 +444,7 @@ static struct sk_buff *efx_rx_mk_skb(struct efx_channel *channel,
+ }
+ 
+ void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
+-		   unsigned int len, u16 flags)
++		   unsigned int n_frags, unsigned int len, u16 flags)
+ {
+ 	struct efx_nic *efx = rx_queue->efx;
+ 	struct efx_channel *channel = efx_rx_queue_channel(rx_queue);
+@@ -417,35 +453,43 @@ void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
+ 	rx_buf = efx_rx_buffer(rx_queue, index);
+ 	rx_buf->flags |= flags;
+ 
+-	/* This allows the refill path to post another buffer.
+-	 * EFX_RXD_HEAD_ROOM ensures that the slot we are using
+-	 * isn't overwritten yet.
+-	 */
+-	rx_queue->removed_count++;
+-
+-	/* Validate the length encoded in the event vs the descriptor pushed */
+-	efx_rx_packet__check_len(rx_queue, rx_buf, len);
++	/* Validate the number of fragments and completed length */
++	if (n_frags == 1) {
++		efx_rx_packet__check_len(rx_queue, rx_buf, len);
++	} else if (unlikely(n_frags > EFX_RX_MAX_FRAGS) ||
++		   unlikely(len <= (n_frags - 1) * EFX_RX_USR_BUF_SIZE) ||
++		   unlikely(len > n_frags * EFX_RX_USR_BUF_SIZE) ||
++		   unlikely(!efx->rx_scatter)) {
++		/* If this isn't an explicit discard request, either
++		 * the hardware or the driver is broken.
++		 */
++		WARN_ON(!(len == 0 && rx_buf->flags & EFX_RX_PKT_DISCARD));
++		rx_buf->flags |= EFX_RX_PKT_DISCARD;
++	}
+ 
+ 	netif_vdbg(efx, rx_status, efx->net_dev,
+-		   "RX queue %d received id %x at %llx+%x %s%s\n",
++		   "RX queue %d received ids %x-%x len %d %s%s\n",
+ 		   efx_rx_queue_index(rx_queue), index,
+-		   (unsigned long long)rx_buf->dma_addr, len,
++		   (index + n_frags - 1) & rx_queue->ptr_mask, len,
+ 		   (rx_buf->flags & EFX_RX_PKT_CSUMMED) ? " [SUMMED]" : "",
+ 		   (rx_buf->flags & EFX_RX_PKT_DISCARD) ? " [DISCARD]" : "");
+ 
+-	/* Discard packet, if instructed to do so */
++	/* Discard packet, if instructed to do so.  Process the
++	 * previous receive first.
++	 */
+ 	if (unlikely(rx_buf->flags & EFX_RX_PKT_DISCARD)) {
+-		efx_recycle_rx_buffer(channel, rx_buf);
+-
+-		/* Don't hold off the previous receive */
+-		rx_buf = NULL;
+-		goto out;
++		efx_rx_flush_packet(channel);
++		efx_recycle_rx_buffers(channel, rx_buf, n_frags);
++		return;
+ 	}
+ 
++	if (n_frags == 1)
++		rx_buf->len = len;
++
+ 	/* Release and/or sync DMA mapping - assumes all RX buffers
+ 	 * consumed in-order per RX queue
  	 */
+-	efx_unmap_rx_buffer(efx, rx_buf, len);
++	efx_unmap_rx_buffer(efx, rx_buf, rx_buf->len);
+ 
+ 	/* Prefetch nice and early so data will (hopefully) be in cache by
+ 	 * the time we look at it.
+@@ -453,23 +497,40 @@ void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
  	prefetch(efx_rx_buf_va(rx_buf));
  
-+	rx_buf->page_offset += efx->type->rx_buffer_hash_size;
-+	rx_buf->len = len - efx->type->rx_buffer_hash_size;
+ 	rx_buf->page_offset += efx->type->rx_buffer_hash_size;
+-	rx_buf->len = len - efx->type->rx_buffer_hash_size;
++	rx_buf->len -= efx->type->rx_buffer_hash_size;
 +
++	if (n_frags > 1) {
++		/* Release/sync DMA mapping for additional fragments.
++		 * Fix length for last fragment.
++		 */
++		unsigned int tail_frags = n_frags - 1;
++
++		for (;;) {
++			rx_buf = efx_rx_buf_next(rx_queue, rx_buf);
++			if (--tail_frags == 0)
++				break;
++			efx_unmap_rx_buffer(efx, rx_buf, EFX_RX_USR_BUF_SIZE);
++		}
++		rx_buf->len = len - (n_frags - 1) * EFX_RX_USR_BUF_SIZE;
++		efx_unmap_rx_buffer(efx, rx_buf, rx_buf->len);
++	}
+ 
  	/* Pipeline receives so that we give time for packet headers to be
  	 * prefetched into cache.
  	 */
--	rx_buf->len = len - efx->type->rx_buffer_hash_size;
- out:
+-out:
  	efx_rx_flush_packet(channel);
- 	channel->rx_pkt = rx_buf;
-@@ -497,7 +491,7 @@ static void efx_rx_deliver(struct efx_channel *channel, u8 *eh,
- void __efx_rx_packet(struct efx_channel *channel, struct efx_rx_buffer *rx_buf)
+-	channel->rx_pkt = rx_buf;
++	channel->rx_pkt_n_frags = n_frags;
++	channel->rx_pkt_index = index;
+ }
+ 
+ static void efx_rx_deliver(struct efx_channel *channel, u8 *eh,
+-			   struct efx_rx_buffer *rx_buf)
++			   struct efx_rx_buffer *rx_buf,
++			   unsigned int n_frags)
+ {
+ 	struct sk_buff *skb;
+ 	u16 hdr_len = min_t(u16, rx_buf->len, EFX_SKB_HEADERS);
+ 
+-	skb = efx_rx_mk_skb(channel, rx_buf, eh, hdr_len);
++	skb = efx_rx_mk_skb(channel, rx_buf, n_frags, eh, hdr_len);
+ 	if (unlikely(skb == NULL)) {
+ 		efx_free_rx_buffer(channel->efx, rx_buf);
+ 		return;
+@@ -488,9 +549,11 @@ static void efx_rx_deliver(struct efx_channel *channel, u8 *eh,
+ }
+ 
+ /* Handle a received packet.  Second half: Touches packet payload. */
+-void __efx_rx_packet(struct efx_channel *channel, struct efx_rx_buffer *rx_buf)
++void __efx_rx_packet(struct efx_channel *channel)
  {
  	struct efx_nic *efx = channel->efx;
--	u8 *eh = efx_rx_buf_va(rx_buf) + efx->type->rx_buffer_hash_size;
-+	u8 *eh = efx_rx_buf_va(rx_buf);
++	struct efx_rx_buffer *rx_buf =
++		efx_rx_buffer(&channel->rx_queue, channel->rx_pkt_index);
+ 	u8 *eh = efx_rx_buf_va(rx_buf);
  
  	/* If we're in loopback test, then pass the packet directly to the
- 	 * loopback layer, and free the rx_buf here
+@@ -499,16 +562,18 @@ void __efx_rx_packet(struct efx_channel *channel, struct efx_rx_buffer *rx_buf)
+ 	if (unlikely(efx->loopback_selftest)) {
+ 		efx_loopback_rx_packet(efx, eh, rx_buf->len);
+ 		efx_free_rx_buffer(efx, rx_buf);
+-		return;
++		goto out;
+ 	}
+ 
+ 	if (unlikely(!(efx->net_dev->features & NETIF_F_RXCSUM)))
+ 		rx_buf->flags &= ~EFX_RX_PKT_CSUMMED;
+ 
+ 	if (!channel->type->receive_skb)
+-		efx_rx_packet_gro(channel, rx_buf, eh);
++		efx_rx_packet_gro(channel, rx_buf, channel->rx_pkt_n_frags, eh);
+ 	else
+-		efx_rx_deliver(channel, eh, rx_buf);
++		efx_rx_deliver(channel, eh, rx_buf, channel->rx_pkt_n_frags);
++out:
++	channel->rx_pkt_n_frags = 0;
+ }
+ 
+ int efx_probe_rx_queue(struct efx_rx_queue *rx_queue)
+diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
+index e07ff0d..5166924 100644
+--- a/drivers/net/ethernet/sfc/siena.c
++++ b/drivers/net/ethernet/sfc/siena.c
+@@ -414,6 +414,8 @@ static int siena_init_nic(struct efx_nic *efx)
+ 	EFX_SET_OWORD_FIELD(temp, FRF_BZ_RX_HASH_INSRT_HDR, 1);
+ 	EFX_SET_OWORD_FIELD(temp, FRF_BZ_RX_HASH_ALG, 1);
+ 	EFX_SET_OWORD_FIELD(temp, FRF_BZ_RX_IP_HASH, 1);
++	EFX_SET_OWORD_FIELD(temp, FRF_BZ_RX_USR_BUF_SIZE,
++			    EFX_RX_USR_BUF_SIZE >> 5);
+ 	efx_writeo(efx, &temp, FR_AZ_RX_CFG);
+ 
+ 	/* Set hash key for IPv4 */
+@@ -718,6 +720,7 @@ const struct efx_nic_type siena_a0_nic_type = {
+ 	.max_dma_mask = DMA_BIT_MASK(FSF_AZ_TX_KER_BUF_ADDR_WIDTH),
+ 	.rx_buffer_hash_size = 0x10,
+ 	.rx_buffer_padding = 0,
++	.can_rx_scatter = true,
+ 	.max_interrupt_mode = EFX_INT_MODE_MSIX,
+ 	.phys_addr_channels = 32, /* Hardware limit is 64, but the legacy
+ 				   * interrupt handler only supports 32
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
