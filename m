@@ -1,54 +1,79 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net] bridge: do not expire mdb entry when
- bridge still uses it
-Date: Mon, 11 Mar 2013 09:44:11 +0800
-Message-ID: <1362966251.17872.2.camel@cr0>
-References: <1362708423-23932-1-git-send-email-amwang@redhat.com>
-	<20130308023151.GA27155@gondor.apana.org.au>
-	<1362710646.9773.25.camel@cr0>
-	<20130308024726.GA27319@gondor.apana.org.au>
-	<1362715613.9773.29.camel@cr0>
-	<20130308040853.GA27704@gondor.apana.org.au>
-	<1362727581.3237.4.camel@cr0>
-	<20130308112438.GA29924@gondor.apana.org.au>
+From: CAI Qian <caiqian@redhat.com>
+Subject: Re: be2net failed to initialize regression
+Date: Sun, 10 Mar 2013 22:07:49 -0400 (EDT)
+Message-ID: <1916441684.11871533.1362967669686.JavaMail.root@redhat.com>
+References: <CF9D1877D81D214CB0CA0669EFAE020C0F259965@CMEXMB1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
-	Adam Baker <linux@baker-net.org.uk>
-To: Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130308112438.GA29924@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: Ivan Vecera <ivecera@redhat.com>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Sathya Perla <Sathya.Perla@Emulex.Com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CF9D1877D81D214CB0CA0669EFAE020C0F259965@CMEXMB1.ad.emulex.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-03-08 at 19:24 +0800, Herbert Xu wrote:
-> On Fri, Mar 08, 2013 at 03:26:21PM +0800, Cong Wang wrote:
-> >
-> > Hmm, what the user experiences is the multicast traffic between the
-> > bridge and some port is broken. Isn't this expected to work by default?
-> 
-> Oh I'm not arguing that this isn't a bug.  I'm trying to ensure
-> that we come up with the right fix.
 
-Do you have any idea of a better fix?
 
+----- Original Message -----
+> From: "Sathya Perla" <Sathya.Perla@Emulex.Com>
+> To: "CAI Qian" <caiqian@redhat.com>, netdev@vger.kernel.org
+> Cc: "Ivan Vecera" <ivecera@redhat.com>, "LKML" <linux-kernel@vger.kernel.org>
+> Sent: Friday, March 8, 2013 6:22:24 PM
+> Subject: RE: be2net failed to initialize regression
 > 
-> > Or we can just change the default value of br->multicast_router to 2?
+> > -----Original Message-----
+> > From: netdev-owner@vger.kernel.org
+> > [mailto:netdev-owner@vger.kernel.org]
+> > On Behalf Of CAI Qian
+> > 
+> > Emulex CNA card failed to initialize using 3.8 and the latest
+> > upstream kernel,
+> > 
+> > [   87.479859] be2net 0000:04:00.0: POST timeout; stage=0xc911
+> > [   87.515978] be2net 0000:04:00.0: Emulex OneConnect
+> > initialization failed
+> > [   87.557130] be2net: probe of 0000:04:00.0 failed with error -1
+> > 
+> > lspci output,
+> > 
+> > 04:00.0 Ethernet controller: Emulex Corporation OneConnect 10Gb NIC
+> > (rev 02)
+> > 04:00.1 Ethernet controller: Emulex Corporation OneConnect 10Gb NIC
+> > (rev 02)
+> > 
+> > 04:00.1 Ethernet controller: Emulex Corporation OneConnect 10Gb NIC
+> > (rev 02)
+> >         Subsystem: Hewlett-Packard Company NC551i Dual Port
+> >         FlexFabric 10Gb
+> > Adapter
+> > 
+> > Confirmed no such problem using 3.7 kernel. Reproduced every time
+> > and still
+> > bisecting. Just want to give an early head-up to see if anyone saw
+> > sometime
+> > obvious.
 > 
-> No because that will cause all sorts of stuff to be thrown at
-> the host.
+> Could you give me the FW version (ethtool -i) of the adapter (after
+> be2net successfully
+> probes in a 3.7 kernel.)
+firmware-version: 2.104.281.0
 > 
-
-OK.
-
-Thanks!
+> If the FW version is as old as 2.x, then the culprit commit that
+> broke compatibility with old FW versions
+> on some (BE2) chips I is:
+> commit 1bc8e7e4f36c0c19dd7dea29e7c248b7c6ef3a15
+> be2net: fix access to SEMAPHORE reg
+> 
+> The fix for this is (still on David's net tree I guess):
+> commit c5b3ad4c67989c778e4753be4f91dc7193a04d21
+> be2net: use CSR-BAR SEMAPHORE reg for BE2/BE3
+> 
+> Dave, can these 2 commits be queued for stable too:
+> commit1: c5b3ad4c67989c778e4753be4f91dc7193a04d21
+> commit2: 1bc8e7e4f36c0c19dd7dea29e7c248b7c6ef3a15
+> 
+> thanks,
+> -Sathya
+> 
