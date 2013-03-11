@@ -1,146 +1,157 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] netconsole: release the spinlock before
- __netpoll_cleanup()
-Date: Mon, 11 Mar 2013 13:58:19 -0400
-Message-ID: <20130311175819.GE12682@hmsreliant.think-freely.org>
-References: <1362581203-8994-1-git-send-email-vfalico@redhat.com>
- <20130307000824.GA5702@neilslaptop.think-freely.org>
- <20130307100325.GA31105@redhat.com>
- <20130307.161438.396456319050281566.davem@davemloft.net>
- <20130310152546.GA4897@redhat.com>
- <CAE3RKN=ix96skUHw3j5snbue-r8SOnSovw4_zh4RX4t-uDW2Cw@mail.gmail.com>
- <20130311113024.GB12682@hmsreliant.think-freely.org>
- <20130311113914.GE1806@redhat.com>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH linux-next v2] SUNRPC: rpcrdma_register_default_external:
+ Dynamically allocate ib_phys_buf
+Date: Mon, 11 Mar 2013 14:14:50 -0400
+Message-ID: <20130311181450.GC30618@fieldses.org>
+References: <20130310202838.GL31448@fieldses.org>
+ <1363023447-22453-1-git-send-email-tim.gardner@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Veaceslav Falico <darkmag@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	amwang@redhat.com
-To: Veaceslav Falico <vfalico@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:44045 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753871Ab3CKR6r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 13:58:47 -0400
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Tom Tucker <tom-/Yg/VP3ZvrM@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shani Michaeli <shanim-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20130311113914.GE1806@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1363023447-22453-1-git-send-email-tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 11, 2013 at 12:39:14PM +0100, Veaceslav Falico wrote:
-> On Mon, Mar 11, 2013 at 07:30:24AM -0400, Neil Horman wrote:
-> >On Mon, Mar 11, 2013 at 11:08:02AM +0100, Veaceslav Falico wrote:
-> >>On Sun, Mar 10, 2013 at 4:25 PM, Veaceslav Falico <vfalico@redhat.com> wrote:
-> >>> On Thu, Mar 07, 2013 at 04:14:38PM -0500, David Miller wrote:
-> >>>>
-> >>...snip...
-> >>>> Quite a bit of email corruption of this patch.
-> >>>
-> >>>
-> >>> Sorry, somehow messed it.
-> >>>
-> >>>
-> >>>>
-> >>>> Also, this code block is probably too deeply indented to be sane,
-> >>>> consider creating a small helper function to call instead.
-> >>>
-> >>>
-> >>> It gets quite ugly if I try to move it to another function. However, maybe
-> >>> something like that will work - it's effectively the same code, just that
-> >>> I've moved the long part out of the if () { } block. Looks a lot more
-> >>> readable, though one line still breaks 80chars limit. I've reworked the
-> >>> subject/commit message too.
-> >>>
-> >>> Subject: [PATCH] netconsole: don't call __netpoll_cleanup() while atomic
-> >>>
-> >>> __netpoll_cleanup() is called in netconsole_netdev_event() while holding a
-> >>> spinlock. Release/acquire the spinlock before/after it and restart the
-> >>>
-> >>> loop.
-> >>>
-> >>> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-> >>> ---
-> >>>    drivers/net/netconsole.c |   22 +++++++++++++++-------
-> >>>    1 files changed, 15 insertions(+), 7 deletions(-)
-> >>>
-> >>> diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-> >>> index 37add21..38eaa8c 100644
-> >>>
-> >>> --- a/drivers/net/netconsole.c
-> >>> +++ b/drivers/net/netconsole.c
-> >>> @@ -666,6 +666,7 @@ static int netconsole_netdev_event(struct notifier_block
-> >>> *this,
-> >>>                 goto done;
-> >>>         spin_lock_irqsave(&target_list_lock, flags);
-> >>> +restart:
-> >>>         list_for_each_entry(nt, &target_list, list) {
-> >>>                 netconsole_target_get(nt);
-> >>>                 if (nt->np.dev == dev) {
-> >>> @@ -679,14 +680,21 @@ static int netconsole_netdev_event(struct
-> >>> notifier_block *this,
-> >>>                                 /*
-> >>>
-> >>>                                  * rtnl_lock already held
-> >>>                                  */
-> >>> -                               if (nt->np.dev) {
-> >>> -                                       __netpoll_cleanup(&nt->np);
-> >>> -                                       dev_put(nt->np.dev);
-> >>> -                                       nt->np.dev = NULL;
-> >>> +                               if (!nt->np.dev) {
-> >>> +                                       nt->enabled = 0;
-> >>> +                                       stopped = true;
-> >>> +                                       break;
-> >>>                                 }
-> >>> -                               nt->enabled = 0;
-> >>> -                               stopped = true;
-> >>> -                               break;
-> >>> +                               /*
-> >>> +                                * we might sleep in __netpoll_cleanup()
-> >>> +                                */
-> >>> +                               spin_unlock_irqrestore(&target_list_lock,
-> >>> flags);
-> >>> +                               __netpoll_cleanup(&nt->np);
-> >>> +                               spin_lock_irqsave(&target_list_lock, flags);
-> >>> +                               dev_put(nt->np.dev);
-> >>> +                               nt->np.dev = NULL;
-> >>>
-> >>> +                               netconsole_target_put(nt);
-> >>> +                               goto restart;
-> >>>                         }
-> >>>                 }
-> >>>                 netconsole_target_put(nt);
-> >>> --
-> >>> 1.7.1
-> >>
-> >>Self-NAK this patch, I've triggered another kernel panic with it. Will
-> >>send another one shortly. Basicly, the whole if (!nt->np.dev) is not
-> >>needed and nt->enabled=0 should always be set, otherwise we
-> >>end up with nt->np.dev == NULL and nt->enabled == 1, thus
-> >>triggering panics in places like write_msg(), where it verifies only
-> >>if the nt->enabled is true.
-> >>
-> >Yup, I think you want to make the nt->enabled and stopped statements
-> >unconditional, and precedede the whole block with a if(!nt->np.dev) { continue;}
-> >statement.
+On Mon, Mar 11, 2013 at 11:37:27AM -0600, Tim Gardner wrote:
+> rpcrdma_register_default_external() is several frames into the call stack which
+> goes deeper yet. You run the risk of stack corruption by declaring such a large
+> automatic variable, so move the array of 'struct ib_phys_buf' objects into the
+> requestor structure 'struct rpcrdma_req' (which is dynamically allocated) in
+> order to silence the frame-larger-than warning.
 > 
-> I don't see why the statement is needed at all, if we verify it beforehand:
+> net/sunrpc/xprtrdma/verbs.c: In function 'rpcrdma_register_default_external':
+> net/sunrpc/xprtrdma/verbs.c:1774:1: warning: the frame size of 1056 bytes is larger than 1024 bytes [-Wframe-larger-than=]
 > 
-> 669         list_for_each_entry(nt, &target_list, list) {
-> 670                 netconsole_target_get(nt);
-> 671                 if (nt->np.dev == dev) {
+> gcc version 4.6.3
 > 
-> so that effectively it can be null only in case the dev, delivered via
-> netconsole_netdev_event() is null, which is a bug by itself. Or am I
-> missing something?
+> Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+> Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: Tom Tucker <tom-/Yg/VP3ZvrM@public.gmane.org>
+> Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Cc: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Cc: Shani Michaeli <shanim-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 > 
-Honestly, I'm not sure.  After I sent this, I took a look at the history to
-refresh my memory, and I think your right, its not needed.
-Neil
+> Signed-off-by: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> ---
+> 
+> v1 - Use kmalloc() to dynamically allocate and free the array of 'struct
+> ib_phys_buf' objects
+> 
+> v2 - Move the array of 'struct ib_phys_buf' objects into struct rpcrdma_req
+> and pass this request down through rpcrdma_register_external() and
+> rpcrdma_register_default_external(). This is less overhead then using
+> kmalloc() and requires no extra error checking as the allocation burden is
+> shifted to the transport client.
 
-> >Neil
-> >
-> >>--
-> >>Best regards,
-> >>Veaceslav Falico
-> >>
+Oh good--so that works, and the req is the right place to put this?  How
+are you testing this?
+
+(Just want to make it clear: I'm *not* an expert on the rdma code, so my
+suggestion to put this in the rpcrdma_req was a suggestion for something
+to look into, not a claim that it's correct.)
+
+--b.
+
 > 
+>  net/sunrpc/xprtrdma/rpc_rdma.c  |    2 +-
+>  net/sunrpc/xprtrdma/verbs.c     |   11 ++++++-----
+>  net/sunrpc/xprtrdma/xprt_rdma.h |    3 ++-
+>  3 files changed, 9 insertions(+), 7 deletions(-)
+> 
+> diff --git a/net/sunrpc/xprtrdma/rpc_rdma.c b/net/sunrpc/xprtrdma/rpc_rdma.c
+> index e03725b..c89448b 100644
+> --- a/net/sunrpc/xprtrdma/rpc_rdma.c
+> +++ b/net/sunrpc/xprtrdma/rpc_rdma.c
+> @@ -203,7 +203,7 @@ rpcrdma_create_chunks(struct rpc_rqst *rqst, struct xdr_buf *target,
+>  
+>  	do {
+>  		/* bind/register the memory, then build chunk from result. */
+> -		int n = rpcrdma_register_external(seg, nsegs,
+> +		int n = rpcrdma_register_external(req, seg, nsegs,
+>  						cur_wchunk != NULL, r_xprt);
+>  		if (n <= 0)
+>  			goto out;
+> diff --git a/net/sunrpc/xprtrdma/verbs.c b/net/sunrpc/xprtrdma/verbs.c
+> index 93726560..5b439ed 100644
+> --- a/net/sunrpc/xprtrdma/verbs.c
+> +++ b/net/sunrpc/xprtrdma/verbs.c
+> @@ -1730,13 +1730,14 @@ rpcrdma_deregister_memwin_external(struct rpcrdma_mr_seg *seg,
+>  }
+>  
+>  static int
+> -rpcrdma_register_default_external(struct rpcrdma_mr_seg *seg,
+> -			int *nsegs, int writing, struct rpcrdma_ia *ia)
+> +rpcrdma_register_default_external(struct rpcrdma_req *req,
+> +			struct rpcrdma_mr_seg *seg, int *nsegs, int writing,
+> +			struct rpcrdma_ia *ia)
+>  {
+>  	int mem_priv = (writing ? IB_ACCESS_REMOTE_WRITE :
+>  				  IB_ACCESS_REMOTE_READ);
+>  	struct rpcrdma_mr_seg *seg1 = seg;
+> -	struct ib_phys_buf ipb[RPCRDMA_MAX_DATA_SEGS];
+> +	struct ib_phys_buf *ipb = req->rl_ipb;
+>  	int len, i, rc = 0;
+>  
+>  	if (*nsegs > RPCRDMA_MAX_DATA_SEGS)
+> @@ -1791,7 +1792,7 @@ rpcrdma_deregister_default_external(struct rpcrdma_mr_seg *seg,
+>  }
+>  
+>  int
+> -rpcrdma_register_external(struct rpcrdma_mr_seg *seg,
+> +rpcrdma_register_external(struct rpcrdma_req *req, struct rpcrdma_mr_seg *seg,
+>  			int nsegs, int writing, struct rpcrdma_xprt *r_xprt)
+>  {
+>  	struct rpcrdma_ia *ia = &r_xprt->rx_ia;
+> @@ -1827,7 +1828,7 @@ rpcrdma_register_external(struct rpcrdma_mr_seg *seg,
+>  
+>  	/* Default registration each time */
+>  	default:
+> -		rc = rpcrdma_register_default_external(seg, &nsegs, writing, ia);
+> +		rc = rpcrdma_register_default_external(req, seg, &nsegs, writing, ia);
+>  		break;
+>  	}
+>  	if (rc)
+> diff --git a/net/sunrpc/xprtrdma/xprt_rdma.h b/net/sunrpc/xprtrdma/xprt_rdma.h
+> index cc1445d..b10ed34 100644
+> --- a/net/sunrpc/xprtrdma/xprt_rdma.h
+> +++ b/net/sunrpc/xprtrdma/xprt_rdma.h
+> @@ -192,6 +192,7 @@ struct rpcrdma_req {
+>  	struct ib_sge	rl_send_iov[4];	/* for active requests */
+>  	struct ib_sge	rl_iov;		/* for posting */
+>  	struct ib_mr	*rl_handle;	/* handle for mem in rl_iov */
+> +	struct ib_phys_buf rl_ipb[RPCRDMA_MAX_DATA_SEGS]; /* temp work array */
+>  	char		rl_base[MAX_RPCRDMAHDR]; /* start of actual buffer */
+>  	__u32 		rl_xdr_buf[0];	/* start of returned rpc rq_buffer */
+>  };
+> @@ -327,7 +328,7 @@ int rpcrdma_register_internal(struct rpcrdma_ia *, void *, int,
+>  int rpcrdma_deregister_internal(struct rpcrdma_ia *,
+>  				struct ib_mr *, struct ib_sge *);
+>  
+> -int rpcrdma_register_external(struct rpcrdma_mr_seg *,
+> +int rpcrdma_register_external(struct rpcrdma_req *, struct rpcrdma_mr_seg *,
+>  				int, int, struct rpcrdma_xprt *);
+>  int rpcrdma_deregister_external(struct rpcrdma_mr_seg *,
+>  				struct rpcrdma_xprt *, void *);
+> -- 
+> 1.7.9.5
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
