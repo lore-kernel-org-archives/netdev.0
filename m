@@ -1,126 +1,72 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] netconsole: release the spinlock before
- __netpoll_cleanup()
-Date: Mon, 11 Mar 2013 07:30:24 -0400
-Message-ID: <20130311113024.GB12682@hmsreliant.think-freely.org>
-References: <1362581203-8994-1-git-send-email-vfalico@redhat.com>
- <20130307000824.GA5702@neilslaptop.think-freely.org>
- <20130307100325.GA31105@redhat.com>
- <20130307.161438.396456319050281566.davem@davemloft.net>
- <20130310152546.GA4897@redhat.com>
- <CAE3RKN=ix96skUHw3j5snbue-r8SOnSovw4_zh4RX4t-uDW2Cw@mail.gmail.com>
+Subject: Re: [PATCH] netconsole: don't call __netpoll_cleanup() while atomic
+Date: Mon, 11 Mar 2013 07:38:56 -0400
+Message-ID: <20130311113856.GC12682@hmsreliant.think-freely.org>
+References: <1362997308-5834-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	amwang@redhat.com
-To: Veaceslav Falico <darkmag@gmail.com>
+Cc: netdev@vger.kernel.org, amwang@redhat.com, davem@davemloft.net
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38528 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38609 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753892Ab3CKLag (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 07:30:36 -0400
+	with ESMTP id S1753735Ab3CKLjA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 07:39:00 -0400
 Content-Disposition: inline
-In-Reply-To: <CAE3RKN=ix96skUHw3j5snbue-r8SOnSovw4_zh4RX4t-uDW2Cw@mail.gmail.com>
+In-Reply-To: <1362997308-5834-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 11, 2013 at 11:08:02AM +0100, Veaceslav Falico wrote:
-> On Sun, Mar 10, 2013 at 4:25 PM, Veaceslav Falico <vfalico@redhat.com> wrote:
-> > On Thu, Mar 07, 2013 at 04:14:38PM -0500, David Miller wrote:
-> >>
-> ...snip...
-> >> Quite a bit of email corruption of this patch.
-> >
-> >
-> > Sorry, somehow messed it.
-> >
-> >
-> >>
-> >> Also, this code block is probably too deeply indented to be sane,
-> >> consider creating a small helper function to call instead.
-> >
-> >
-> > It gets quite ugly if I try to move it to another function. However, maybe
-> > something like that will work - it's effectively the same code, just that
-> > I've moved the long part out of the if () { } block. Looks a lot more
-> > readable, though one line still breaks 80chars limit. I've reworked the
-> > subject/commit message too.
-> >
-> > Subject: [PATCH] netconsole: don't call __netpoll_cleanup() while atomic
-> >
-> > __netpoll_cleanup() is called in netconsole_netdev_event() while holding a
-> > spinlock. Release/acquire the spinlock before/after it and restart the
-> >
-> > loop.
-> >
-> > Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-> > ---
-> >    drivers/net/netconsole.c |   22 +++++++++++++++-------
-> >    1 files changed, 15 insertions(+), 7 deletions(-)
-> >
-> > diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-> > index 37add21..38eaa8c 100644
-> >
-> > --- a/drivers/net/netconsole.c
-> > +++ b/drivers/net/netconsole.c
-> > @@ -666,6 +666,7 @@ static int netconsole_netdev_event(struct notifier_block
-> > *this,
-> >                 goto done;
-> >         spin_lock_irqsave(&target_list_lock, flags);
-> > +restart:
-> >         list_for_each_entry(nt, &target_list, list) {
-> >                 netconsole_target_get(nt);
-> >                 if (nt->np.dev == dev) {
-> > @@ -679,14 +680,21 @@ static int netconsole_netdev_event(struct
-> > notifier_block *this,
-> >                                 /*
-> >
-> >                                  * rtnl_lock already held
-> >                                  */
-> > -                               if (nt->np.dev) {
-> > -                                       __netpoll_cleanup(&nt->np);
-> > -                                       dev_put(nt->np.dev);
-> > -                                       nt->np.dev = NULL;
-> > +                               if (!nt->np.dev) {
-> > +                                       nt->enabled = 0;
-> > +                                       stopped = true;
-> > +                                       break;
-> >                                 }
-> > -                               nt->enabled = 0;
-> > -                               stopped = true;
-> > -                               break;
-> > +                               /*
-> > +                                * we might sleep in __netpoll_cleanup()
-> > +                                */
-> > +                               spin_unlock_irqrestore(&target_list_lock,
-> > flags);
-> > +                               __netpoll_cleanup(&nt->np);
-> > +                               spin_lock_irqsave(&target_list_lock, flags);
-> > +                               dev_put(nt->np.dev);
-> > +                               nt->np.dev = NULL;
-> >
-> > +                               netconsole_target_put(nt);
-> > +                               goto restart;
-> >                         }
-> >                 }
-> >                 netconsole_target_put(nt);
-> > --
-> > 1.7.1
+On Mon, Mar 11, 2013 at 11:21:48AM +0100, Veaceslav Falico wrote:
+> __netpoll_cleanup() is called in netconsole_netdev_event() while holding a
+> spinlock. Release/acquire the spinlock before/after it and restart the
+> loop. Also, disable the netconsole completely, because we won't have chance
+> after the restart of the loop, and might end up in a situation where
+> nt->enabled == 1 and nt->np.dev == NULL.
 > 
-> Self-NAK this patch, I've triggered another kernel panic with it. Will
-> send another one shortly. Basicly, the whole if (!nt->np.dev) is not
-> needed and nt->enabled=0 should always be set, otherwise we
-> end up with nt->np.dev == NULL and nt->enabled == 1, thus
-> triggering panics in places like write_msg(), where it verifies only
-> if the nt->enabled is true.
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> ---
+>  drivers/net/netconsole.c |   15 +++++++++------
+>  1 files changed, 9 insertions(+), 6 deletions(-)
 > 
-Yup, I think you want to make the nt->enabled and stopped statements
-unconditional, and precedede the whole block with a if(!nt->np.dev) { continue;}
-statement.
-Neil
-
+> diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+> index 37add21..59ac143 100644
+> --- a/drivers/net/netconsole.c
+> +++ b/drivers/net/netconsole.c
+> @@ -666,6 +666,7 @@ static int netconsole_netdev_event(struct notifier_block *this,
+>  		goto done;
+>  
+>  	spin_lock_irqsave(&target_list_lock, flags);
+> +restart:
+>  	list_for_each_entry(nt, &target_list, list) {
+>  		netconsole_target_get(nt);
+>  		if (nt->np.dev == dev) {
+> @@ -678,15 +679,17 @@ static int netconsole_netdev_event(struct notifier_block *this,
+>  			case NETDEV_UNREGISTER:
+>  				/*
+>  				 * rtnl_lock already held
+> +				 * we might sleep in __netpoll_cleanup()
+>  				 */
+> -				if (nt->np.dev) {
+> -					__netpoll_cleanup(&nt->np);
+> -					dev_put(nt->np.dev);
+> -					nt->np.dev = NULL;
+> -				}
+> +				spin_unlock_irqrestore(&target_list_lock, flags);
+> +				__netpoll_cleanup(&nt->np);
+> +				spin_lock_irqsave(&target_list_lock, flags);
+> +				dev_put(nt->np.dev);
+> +				nt->np.dev = NULL;
+>  				nt->enabled = 0;
+>  				stopped = true;
+> -				break;
+> +				netconsole_target_put(nt);
+> +				goto restart;
+>  			}
+>  		}
+>  		netconsole_target_put(nt);
 > -- 
-> Best regards,
-> Veaceslav Falico
+> 1.7.1
 > 
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
