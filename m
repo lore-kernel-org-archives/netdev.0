@@ -1,55 +1,55 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: [PATCH] bnx2x: update fw to 7.8.17
-Date: Mon, 11 Mar 2013 14:43:41 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F1C03C50E@SJEXCHMB06.corp.ad.broadcom.com>
-References: <1361993047-10127-1-git-send-email-dmitry@broadcom.com>
- <1362845900.3768.496.camel@deadeye.wl.decadent.org.uk>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH -next] vhost-blk: remove unused variable
+Date: Mon, 11 Mar 2013 16:44:55 +0200
+Message-ID: <20130311144455.GA27441@redhat.com>
+References: <CAPgLHd-eRBB2xCP7-ZswjfEKXPY29G1Nv71DzGo_-=TVym8MNQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Ariel Elior" <ariele@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"David Woodhouse" <dwmw2@infradead.org>
-To: "Ben Hutchings" <ben@decadent.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: yongjun_wei@trendmicro.com.cn, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3111 "EHLO mms2.broadcom.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53264 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752738Ab3CKOoD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Mar 2013 10:44:03 -0400
-In-Reply-To: <1362845900.3768.496.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
+	id S1751647Ab3CKOoh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Mar 2013 10:44:37 -0400
+Content-Disposition: inline
+In-Reply-To: <CAPgLHd-eRBB2xCP7-ZswjfEKXPY29G1Nv71DzGo_-=TVym8MNQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgQmVuLA0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IG5ldGRldi1v
-d25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3Jn
-XSBPbiBCZWhhbGYgT2YgQmVuIEh1dGNoaW5ncw0KPiBTZW50OiBTYXR1cmRheSwgTWFyY2ggMDks
-IDIwMTMgNjoxOCBQTQ0KPiBUbzogRG1pdHJ5IEtyYXZrb3YNCj4gQ2M6IG5ldGRldkB2Z2VyLmtl
-cm5lbC5vcmc7IEFyaWVsIEVsaW9yOyBFaWxvbiBHcmVlbnN0ZWluOyBEYXZpZCBXb29kaG91c2UN
-Cj4gU3ViamVjdDogUmU6IFtQQVRDSF0gYm54Mng6IHVwZGF0ZSBmdyB0byA3LjguMTcNCj4gDQo+
-IE9uIFdlZCwgMjAxMy0wMi0yNyBhdCAyMToyNCArMDIwMCwgRG1pdHJ5IEtyYXZrb3Ygd3JvdGU6
-DQo+ID4gVGhpcyBuZXcgZmlybXdhcmUgaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBjaGFuZ2VzOg0K
-PiA+DQo+ID4gMS4gU2V2ZXJhbCBjb3JuZXIgY2FzZSBidWdzIGluIGlTQ1NJIGNvZGUuDQo+ID4g
-Mi4gRml4ZXMgZm9yIEZDb0UgaW5jbHVkaW5nIHN1cHBvcnQgZm9yIDNQQVIgdGFyZ2V0cy4NCj4g
-PiAzLiBGaXhlcyBmb3IgU1ItSU9WIGJlaGF2aW91ciBpbmNsdWRpbmc6DQo+ID4gCWEuIFJlbW92
-ZSBGVyBhc3NlcnQgZXJyb25lb3VzbHkgdHJpZ2dlcmVkIGR1cmluZyBGTFIuDQo+ID4gCWIuIFNl
-dmVyYWwgZml4ZXMgaW4gRkxSIGZsb3cuDQo+ID4gCWMuIFByZXZlbnQgVkYgY3Jhc2ggd2hlbiBw
-YWNrZXQgYmlnZ2VyIHRoYW4gTVRVIGFycml2ZXMuDQo+ID4gCWQuIEltcHJvdmUgc2VjdXJpdHkg
-YWdhaW5zdCBtYWxpY2lvdXMgVkYuDQo+ID4gNC4gQWRkZWQgQ1NVTSBhbmQgVFNPIHN1cHBvcnQg
-Zm9yIGVuY2Fwc3VsYXRpb24gcHJvdG9jb2xzLg0KPiA+IDUuIEFkZGVkIFJTUyBjYXBhYmlsaXR5
-IGZvciBHUkUgdHJhZmZpYyBiYXNlZCBvbiBpbm5lciBoZWFkZXJzLg0KPiA+IDYuIEFkZGVkIEZD
-b0Ugc3VwcG9ydCBmb3IgNC1wb3J0IDU3ODQwIGRldmljZXMuDQo+ID4NCj4gPiBTaWduZWQtb2Zm
-LWJ5OiBEbWl0cnkgS3JhdmtvdiA8ZG1pdHJ5QGJyb2FkY29tLmNvbT4NCj4gPiBTaWduZWQtb2Zm
-LWJ5OiBBcmllbCBFbGlvciA8YXJpZWxlQGJyb2FkY29tLmNvbT4NCj4gPiBTaWduZWQtb2ZmLWJ5
-OiBFaWxvbiBHcmVlbnN0ZWluIDxlaWxvbmdAYnJvYWRjb20uY29tPg0KPiA+IC0tLQ0KPiA+IFBs
-ZWFzZSBjb25zaWRlciBhZGRpbmcgdG8gbGludXgtZmlybXdhcmUgdHJlZS4NCj4gWy4uLl0NCj4g
-DQo+IEFwcGxpZWQsIHRoYW5rcy4NCj4gDQpJJ20gbG9va2luZyBmb3IgdGhlIEZXIGF0DQpnaXQ6
-Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvZmlybXdhcmUvbGludXgt
-ZmlybXdhcmUuZ2l0DQpidXQgdGhlIGxhdGVzdCBjb21taXQgdGhlcmUgaXM6DQpjb21taXQgYzEx
-ZjM3NGFmZGQyYTNmZjA2NjVjMWNiMGFhYjRhZDBjNjU3M2VjNw0KICAgIGN4MjMxeHgvY3gyMzg4
-NTogUmVtb3ZlIGluY29ycmVjdCBDb25leGFudCBDWDIzODg1IGZpcm13YXJlIA0KDQpBbSBJIGxv
-b2tpbmcgYXQgdGhlIHJpZ2h0IGxvY2F0aW9uPw0KDQpUaGFua3MNCkRtaXRyeQ0KPiAtLQ0KPiBC
-ZW4gSHV0Y2hpbmdzDQo+IEFsd2F5cyB0cnkgdG8gZG8gdGhpbmdzIGluIGNocm9ub2xvZ2ljYWwg
-b3JkZXI7DQo+IGl0J3MgbGVzcyBjb25mdXNpbmcgdGhhdCB3YXkuDQo=
+On Mon, Mar 11, 2013 at 10:39:27PM +0800, Wei Yongjun wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> The variable vq is initialized but never used
+> otherwise, so remove the unused variable.
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+
+Which branch does this target?
+
+> ---
+>  drivers/vhost/blk.c | 3 ---
+>  1 file changed, 3 deletions(-)
+> 
+> diff --git a/drivers/vhost/blk.c b/drivers/vhost/blk.c
+> index 658c5f9..d9b245b 100644
+> --- a/drivers/vhost/blk.c
+> +++ b/drivers/vhost/blk.c
+> @@ -419,8 +419,6 @@ static void vhost_blk_handle_guest_kick(struct vhost_work *work)
+>  /* Host kick us for I/O completion */
+>  static void vhost_blk_handle_host_kick(struct vhost_work *work)
+>  {
+> -
+> -	struct vhost_virtqueue *vq;
+>  	struct vhost_blk_req *req;
+>  	struct llist_node *llnode;
+>  	struct vhost_blk *blk;
+> @@ -429,7 +427,6 @@ static void vhost_blk_handle_host_kick(struct vhost_work *work)
+>  	int ret;
+>  
+>  	blk = container_of(work, struct vhost_blk, work);
+> -	vq = &blk->vq;
+>  
+>  	llnode = llist_del_all(&blk->llhead);
+>  	added = false;
