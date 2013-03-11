@@ -1,67 +1,54 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: hitting lockdep warning as of too early VF probe with 3.9-rc1
-Date: Mon, 11 Mar 2013 09:26:13 +0800
-Message-ID: <CACVXFVO5OO9wFz1-4hqQn05kW4WaGpYPCoQDdNTPKO1pQXphWQ@mail.gmail.com>
-References: <51360D7C.3060209@mellanox.com>
-	<CAJZOPZ+_N53n59cJv00=GXETNhZJUEvgcLEB+D-ujBdSsyvM9g@mail.gmail.com>
-	<CACVXFVMcgMzwHrvimn2awQZCPP2m=_npTGap-m7Ru+jdCoqcyA@mail.gmail.com>
-	<201303101728.50883.jackm@dev.mellanox.co.il>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net] bridge: do not expire mdb entry when
+ bridge still uses it
+Date: Mon, 11 Mar 2013 09:44:11 +0800
+Message-ID: <1362966251.17872.2.camel@cr0>
+References: <1362708423-23932-1-git-send-email-amwang@redhat.com>
+	<20130308023151.GA27155@gondor.apana.org.au>
+	<1362710646.9773.25.camel@cr0>
+	<20130308024726.GA27319@gondor.apana.org.au>
+	<1362715613.9773.29.camel@cr0>
+	<20130308040853.GA27704@gondor.apana.org.au>
+	<1362727581.3237.4.camel@cr0>
+	<20130308112438.GA29924@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>,
-	Roland Dreier <roland@kernel.org>,
-	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
-	Liran Liss <liranl@mellanox.com>
-To: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:60348 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753455Ab3CKB0Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 21:26:16 -0400
-Received: from mail-vb0-f46.google.com ([209.85.212.46])
-	by youngberry.canonical.com with esmtpsa (TLS1.0:RSA_ARCFOUR_SHA1:16)
-	(Exim 4.71)
-	(envelope-from <ming.lei@canonical.com>)
-	id 1UErVG-0004ZR-Ka
-	for netdev@vger.kernel.org; Mon, 11 Mar 2013 01:26:14 +0000
-Received: by mail-vb0-f46.google.com with SMTP id b13so1371013vby.19
-        for <netdev@vger.kernel.org>; Sun, 10 Mar 2013 18:26:13 -0700 (PDT)
-In-Reply-To: <201303101728.50883.jackm@dev.mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>
+To: Herbert Xu <herbert@gondor.hengli.com.au>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130308112438.GA29924@gondor.apana.org.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 10, 2013 at 11:28 PM, Jack Morgenstein
-<jackm@dev.mellanox.co.il> wrote:
-> Hello, Ming, Greg, Roland, Dave, all...
->
-> From a quick scan of ethernet drivers in Dave Miller's net-next git, I
-> notice that the following drivers (apart from the Mellanox mlx4 driver)
-> enable SRIOV during the PF probe:
->   cisco enic (function "enic_probe")
->   neterion vxge driver(function "vxge_probe")
->   Solarflare efx driver (function "efx_pci_probe", which invokes "efx_sriov_init")
->   emulex driver (function "be_probe" --> be_setup --> be_vf_setup)
->
-> It would seem that these drivers are susceptible to the nested probe/deadlock
-> race condition as well.
->
-> I believe that it is healthiest for everyone if the probe code in the kernel itself
-> would avoid such nested probe calls (rather than forcing vendors to deal
-> with this issue).  The kernel code is certainly aware
-> (or could easily track) that it is invoking the a driver's probe function
-> while that same probe function has already been invoked and has not yet returned!
+On Fri, 2013-03-08 at 19:24 +0800, Herbert Xu wrote:
+> On Fri, Mar 08, 2013 at 03:26:21PM +0800, Cong Wang wrote:
+> >
+> > Hmm, what the user experiences is the multicast traffic between the
+> > bridge and some port is broken. Isn't this expected to work by default?
+> 
+> Oh I'm not arguing that this isn't a bug.  I'm trying to ensure
+> that we come up with the right fix.
 
-Generally nested probe() should be fine if your driver knows how to end
-the nesting, also USB drivers use nested probe too, which is healthy. This
-report is only related with PCI driver probe, which is scheduled as work
-function, so flush_work() around nested probe() may cause deadlock.
+Do you have any idea of a better fix?
 
-IMO, fixing the problem generally might need to touch PCI driver probe
-code(pci_call_probe).
+> 
+> > Or we can just change the default value of br->multicast_router to 2?
+> 
+> No because that will cause all sorts of stuff to be thrown at
+> the host.
+> 
 
-Thanks,
---
-Ming Lei
+OK.
+
+Thanks!
