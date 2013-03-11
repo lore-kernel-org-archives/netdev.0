@@ -1,44 +1,67 @@
-From: Jonathan Woithe <jwoithe@atrad.com.au>
-Subject: Re: r8169 regression: UDP packets dropped intermittantly
-Date: Mon, 11 Mar 2013 10:47:29 +1030
-Message-ID: <20130311001729.GA8606@marvin.atrad.com.au>
-References: <20130309064647.GC4984@marvin.atrad.com.au>
- <20130311000216.GA31808@zoreil.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: hitting lockdep warning as of too early VF probe with 3.9-rc1
+Date: Mon, 11 Mar 2013 09:26:13 +0800
+Message-ID: <CACVXFVO5OO9wFz1-4hqQn05kW4WaGpYPCoQDdNTPKO1pQXphWQ@mail.gmail.com>
+References: <51360D7C.3060209@mellanox.com>
+	<CAJZOPZ+_N53n59cJv00=GXETNhZJUEvgcLEB+D-ujBdSsyvM9g@mail.gmail.com>
+	<CACVXFVMcgMzwHrvimn2awQZCPP2m=_npTGap-m7Ru+jdCoqcyA@mail.gmail.com>
+	<201303101728.50883.jackm@dev.mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jonathan Woithe <jwoithe@atrad.com.au>
-To: Francois Romieu <romieu@zoreil.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Or Gerlitz <or.gerlitz@gmail.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>,
+	Roland Dreier <roland@kernel.org>,
+	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
+	Liran Liss <liranl@mellanox.com>
+To: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.atrad.com.au ([150.101.241.2]:38810 "EHLO
-	server.atrad.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753259Ab3CKARj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 20:17:39 -0400
-Content-Disposition: inline
-In-Reply-To: <20130311000216.GA31808@zoreil.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:60348 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753455Ab3CKB0Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Mar 2013 21:26:16 -0400
+Received: from mail-vb0-f46.google.com ([209.85.212.46])
+	by youngberry.canonical.com with esmtpsa (TLS1.0:RSA_ARCFOUR_SHA1:16)
+	(Exim 4.71)
+	(envelope-from <ming.lei@canonical.com>)
+	id 1UErVG-0004ZR-Ka
+	for netdev@vger.kernel.org; Mon, 11 Mar 2013 01:26:14 +0000
+Received: by mail-vb0-f46.google.com with SMTP id b13so1371013vby.19
+        for <netdev@vger.kernel.org>; Sun, 10 Mar 2013 18:26:13 -0700 (PDT)
+In-Reply-To: <201303101728.50883.jackm@dev.mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 11, 2013 at 01:02:16AM +0100, Francois Romieu wrote:
-> Jonathan Woithe <jwoithe@atrad.com.au> :
-> [...]
-> > While we can rely on the retry system to paper over this regression, the
-> > behaviour of earlier kernels suggests that there is a real issue at play. 
-> > Is there any chance that this can be looked at ?
-> 
-> Yes.
-> 
-> You'll have to be a bit patient since I still have to spend a pair of non
-> worked hours on a compromised system. :o/
+On Sun, Mar 10, 2013 at 11:28 PM, Jack Morgenstein
+<jackm@dev.mellanox.co.il> wrote:
+> Hello, Ming, Greg, Roland, Dave, all...
+>
+> From a quick scan of ethernet drivers in Dave Miller's net-next git, I
+> notice that the following drivers (apart from the Mellanox mlx4 driver)
+> enable SRIOV during the PF probe:
+>   cisco enic (function "enic_probe")
+>   neterion vxge driver(function "vxge_probe")
+>   Solarflare efx driver (function "efx_pci_probe", which invokes "efx_sriov_init")
+>   emulex driver (function "be_probe" --> be_setup --> be_vf_setup)
+>
+> It would seem that these drivers are susceptible to the nested probe/deadlock
+> race condition as well.
+>
+> I believe that it is healthiest for everyone if the probe code in the kernel itself
+> would avoid such nested probe calls (rather than forcing vendors to deal
+> with this issue).  The kernel code is certainly aware
+> (or could easily track) that it is invoking the a driver's probe function
+> while that same probe function has already been invoked and has not yet returned!
 
-That's fine.  Do I wait for you to ping me about this?
+Generally nested probe() should be fine if your driver knows how to end
+the nesting, also USB drivers use nested probe too, which is healthy. This
+report is only related with PCI driver probe, which is scheduled as work
+function, so flush_work() around nested probe() may cause deadlock.
 
-> Take it for what it's worth but I don't test much with PREEMPT, NOHZ or
-> SLUB and I never tried all those at the same time.
+IMO, fixing the problem generally might need to touch PCI driver probe
+code(pci_call_probe).
 
-Fair enough.  I'm not using CONFIG_PREEMPT but NOHZ and SLUB are both in the
-mix.  In the meantime I can easily test to see if turning off
-CONFIG_PREEMPT_VOLUNTARY, CONFIG_NO_HZ and/or moving to SLAB changes things.
-I'll report the findings.
-
-Regards
-  jonathan
+Thanks,
+--
+Ming Lei
