@@ -1,97 +1,52 @@
-From: "Choi, David" <David.Choi@Micrel.Com>
-Subject: [PATCH V2] ks8851_mll: basic ethernet statistics
-Date: Mon, 11 Mar 2013 16:41:23 +0000
-Message-ID: <FD9AD8C5375B924CABC56D982DB3A8020B4F7E89@EXMB1.micrel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] flow_dissector: support L2 GRE
+Date: Mon, 11 Mar 2013 17:52:28 +0100
+Message-ID: <1363020748.13690.3.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Michael Dalton <mwdalton@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p01c12o143.mxlogic.net ([208.65.145.66]:37979 "EHLO
-	p01c12o143.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752815Ab3CKQuk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 12:50:40 -0400
-Content-Language: en-US
+Received: from mail-ea0-f173.google.com ([209.85.215.173]:60514 "EHLO
+	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752815Ab3CKQwe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 12:52:34 -0400
+Received: by mail-ea0-f173.google.com with SMTP id h14so1276049eak.18
+        for <netdev@vger.kernel.org>; Mon, 11 Mar 2013 09:52:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From 7dff3407eede94b59822c6bdca941014dd8d2951 Mon Sep 17 00:00:00 2001
-From: "David J. Choi" <david.choi@micrel.com>
-Date: Mon, 11 Mar 2013 09:22:54 -0700
-Subject: [PATCH V2] ks8851_mll: basic ethernet statistics
+From: Michael Dalton <mwdalton@google.com>
 
-Implement to collect ethernet statistical information on ks8851_mll device.
+Add support for L2 GRE tunnels, so that RPS can be more effective.
 
-Signed-off-by: David J. Choi <david.choi@micrel.com>
+Signed-off-by: Michael Dalton <mwdalton@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/micrel/ks8851_mll.c | 32 ++++++++++++++++++++++++++------
- 1 file changed, 26 insertions(+), 6 deletions(-)
+ net/core/flow_dissector.c |   11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
-index a343066..ddaf138 100644
---- a/drivers/net/ethernet/micrel/ks8851_mll.c
-+++ b/drivers/net/ethernet/micrel/ks8851_mll.c
-@@ -792,20 +792,35 @@ static void ks_rcv(struct ks_net *ks, struct net_device *netdev)
- 
- 	frame_hdr = ks->frame_head_info;
- 	while (ks->frame_cnt--) {
-+		if (unlikely(!(frame_hdr->sts & RXFSHR_RXFV) ||
-+			     frame_hdr->len >= RX_BUF_SIZE ||
-+			     frame_hdr->len <= 0)) {
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 9d4c720..f8d9e03 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -119,6 +119,17 @@ ipv6:
+ 				nhoff += 4;
+ 			if (hdr->flags & GRE_SEQ)
+ 				nhoff += 4;
++			if (proto == htons(ETH_P_TEB)) {
++				const struct ethhdr *eth;
++				struct ethhdr _eth;
 +
-+			/* discard an invalid packet */
-+			ks_wrreg16(ks, KS_RXQCR, (ks->rc_rxqcr | RXQCR_RRXEF));
-+			netdev->stats.rx_dropped++;
-+			if (!(frame_hdr->sts & RXFSHR_RXFV))
-+				netdev->stats.rx_frame_errors++;
-+			else
-+				netdev->stats.rx_length_errors++;
-+			frame_hdr++;
-+			continue;
-+		}
-+
- 		skb = netdev_alloc_skb(netdev, frame_hdr->len + 16);
--		if (likely(skb && (frame_hdr->sts & RXFSHR_RXFV) &&
--			(frame_hdr->len < RX_BUF_SIZE) && frame_hdr->len)) {
-+		if (likely(skb)) {
- 			skb_reserve(skb, 2);
- 			/* read data block including CRC 4 bytes */
- 			ks_read_qmu(ks, (u16 *)skb->data, frame_hdr->len);
--			skb_put(skb, frame_hdr->len);
-+			skb_put(skb, frame_hdr->len - 4);
- 			skb->protocol = eth_type_trans(skb, netdev);
- 			netif_rx(skb);
-+			/* exclude CRC size */
-+			netdev->stats.rx_bytes += frame_hdr->len - 4;
-+			netdev->stats.rx_packets++;
- 		} else {
--			pr_err("%s: err:skb alloc\n", __func__);
- 			ks_wrreg16(ks, KS_RXQCR, (ks->rc_rxqcr | RXQCR_RRXEF));
--			if (skb)
--				dev_kfree_skb_irq(skb);
-+			netdev->stats.rx_dropped++;
++				eth = skb_header_pointer(skb, nhoff,
++							 sizeof(_eth), &_eth);
++				if (!eth)
++					return false;
++				proto = eth->h_proto;
++				nhoff += sizeof(*eth);
++			}
+ 			goto again;
  		}
- 		frame_hdr++;
- 	}
-@@ -877,6 +892,8 @@ static irqreturn_t ks_irq(int irq, void *pw)
- 		ks_wrreg16(ks, KS_PMECR, pmecr | PMECR_WKEVT_LINK);
- 	}
- 
-+	if (unlikely(status & IRQ_RXOI))
-+		ks->netdev->stats.rx_over_errors++;
- 	/* this should be the last in IRQ handler*/
- 	ks_restore_cmd_reg(ks);
- 	return IRQ_HANDLED;
-@@ -1015,6 +1032,9 @@ static int ks_start_xmit(struct sk_buff *skb, struct net_device *netdev)
- 
- 	if (likely(ks_tx_fifo_space(ks) >= skb->len + 12)) {
- 		ks_write_qmu(ks, skb->data, skb->len);
-+		/* add tx statistics */
-+		netdev->stats.tx_bytes += skb->len;
-+		netdev->stats.tx_packets++;
- 		dev_kfree_skb(skb);
- 	} else
- 		retv = NETDEV_TX_BUSY;
--- 
-1.7.11.7
+ 		break;
