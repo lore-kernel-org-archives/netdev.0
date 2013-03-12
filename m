@@ -1,41 +1,38 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Rate should be u64 to avoid integer overflow at high
- speeds (>= ~35Gbit)
-Date: Tue, 12 Mar 2013 16:44:28 +0100
-Message-ID: <1363103068.13690.11.camel@edumazet-glaptop>
-References: <1362885604-14006-1-git-send-email-j.vimal@gmail.com>
-	 <1362888229.4051.2.camel@edumazet-glaptop>
-	 <CAK3Ji11Mij3Y_sGC6nLS01rxfccZo0SPJmQy-LAmskz1OEdmkQ@mail.gmail.com>
-	 <1362891937.4051.25.camel@edumazet-glaptop>
-	 <20130310004904.de508bfa.billfink@mindspring.com>
-	 <1362894876.4051.27.camel@edumazet-glaptop> <513F3BE1.2080409@genband.com>
-	 <20130312154245.GA13101@casper.infradead.org>
+Subject: Re: atl1c issues on 3.8.2
+Date: Tue, 12 Mar 2013 16:45:44 +0100
+Message-ID: <1363103144.13690.12.camel@edumazet-glaptop>
+References: <20130312161753.281681f2@milhouse>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Chris Friesen <chris.friesen@genband.com>,
-	Bill Fink <billfink@mindspring.com>, Vimal <j.vimal@gmail.com>,
-	netdev@vger.kernel.org, shemminger <shemminger@vyatta.com>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <edumazet@google.com>,
+	linux-netdev <netdev@vger.kernel.org>
+To: Michael =?ISO-8859-1?Q?B=FCsch?= <m@bues.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f180.google.com ([209.85.215.180]:49750 "EHLO
-	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932122Ab3CLPoc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 11:44:32 -0400
-Received: by mail-ea0-f180.google.com with SMTP id j14so1771013eak.39
-        for <netdev@vger.kernel.org>; Tue, 12 Mar 2013 08:44:31 -0700 (PDT)
-In-Reply-To: <20130312154245.GA13101@casper.infradead.org>
+Received: from mail-ee0-f49.google.com ([74.125.83.49]:47274 "EHLO
+	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932356Ab3CLPps (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 11:45:48 -0400
+Received: by mail-ee0-f49.google.com with SMTP id d41so2782701eek.22
+        for <netdev@vger.kernel.org>; Tue, 12 Mar 2013 08:45:47 -0700 (PDT)
+In-Reply-To: <20130312161753.281681f2@milhouse>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-03-12 at 15:42 +0000, Thomas Graf wrote:
+On Tue, 2013-03-12 at 16:17 +0100, Michael B=C3=BCsch wrote:
+> Hi,
+>=20
+> Starting with 3.8.x scp stalls the atl1c based interface on my Asus E=
+eepc 1011px.
+> iperf (for example) does not do that. But after scp stalled the inter=
+face,
+> iperf transfers fail, too.
 
-> The introduction of a shift operator or multiplier introduces
-> inprecision. I'd much rather see new 64bit Netlink attributes
-> that, if present, replace the old rate values and statistics.
-> 
-> You will need to add a new Netlink attribute anyway and we might
-> as well transfer the actual rate instead of a multiplier. Just
-> like we did with IFLA_STATS64.
+I am pretty sure David stable list contains the needed fix=20
 
-Thanks Thomas !
+http://patchwork.ozlabs.org/bundle/davem/stable/?state=3D*
+
+Should be included in 3.8.3=20
+
+Detail : http://patchwork.ozlabs.org/patch/221737/
