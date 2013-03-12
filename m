@@ -1,47 +1,53 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Pull request: sfc 2013-03-12
-Date: Tue, 12 Mar 2013 17:47:25 +0000
-Message-ID: <1363110445.2780.14.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net] sfc: Only use TX push if a single descriptor is to be
+ written
+Date: Tue, 12 Mar 2013 17:48:39 +0000
+Message-ID: <1363110519.2780.15.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1363110445.2780.14.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-net-drivers <linux-net-drivers@solarflare.com>,
-	scrum-linux <scrum-linux@solarflare.com>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
+	<scrum-linux@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56861 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:56883 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755039Ab3CLRr3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 13:47:29 -0400
+	with ESMTP id S932453Ab3CLRsn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 13:48:43 -0400
+In-Reply-To: <1363110445.2780.14.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit c80a8512ee3a8e1f7c3704140ea55f21dc6bd651:
+Using TX push when notifying the NIC of multiple new descriptors in
+the ring will very occasionally cause the TX DMA engine to re-use an
+old descriptor.  This can result in a duplicated or partly duplicated
+packet (new headers with old data), or an IOMMU page fault.  This does
+not happen when the pushed descriptor is the only one written.
 
-  net/core: move vlan_depth out of while loop in skb_network_protocol() (2013-03-12 11:47:40 -0400)
+TX push also provides little latency benefit when a packet requires
+more than one descriptor.
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc.git sfc-3.9
-
-(commit fae8563b25f73dc584a07bcda7a82750ff4f7672)
-
-Just the one bug fix I mentioned before, but it's a pretty important one
-as it can cause silent data corruption or IOMMU page faults.
-
-This would be suitable for stable and should apply cleanly to all the
-3.x.y branches.  I'm still working through testing of larger sets of
-fixes.
-
-Ben.
-
-Ben Hutchings (1):
-      sfc: Only use TX push if a single descriptor is to be written
-
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
  drivers/net/ethernet/sfc/nic.c |    3 ++-
  1 files changed, 2 insertions(+), 1 deletions(-)
 
+diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
+index 0ad790c..eaa8e87 100644
+--- a/drivers/net/ethernet/sfc/nic.c
++++ b/drivers/net/ethernet/sfc/nic.c
+@@ -376,7 +376,8 @@ efx_may_push_tx_desc(struct efx_tx_queue *tx_queue, unsigned int write_count)
+ 		return false;
+ 
+ 	tx_queue->empty_read_count = 0;
+-	return ((empty_read_count ^ write_count) & ~EFX_EMPTY_COUNT_VALID) == 0;
++	return ((empty_read_count ^ write_count) & ~EFX_EMPTY_COUNT_VALID) == 0
++		&& tx_queue->write_count - write_count == 1;
+ }
+ 
+ /* For each entry inserted into the software descriptor ring, create a
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
