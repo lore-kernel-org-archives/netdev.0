@@ -1,53 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net] sfc: Only use TX push if a single descriptor is to be
- written
-Date: Tue, 12 Mar 2013 17:48:39 +0000
-Message-ID: <1363110519.2780.15.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1363110445.2780.14.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	<scrum-linux@solarflare.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56883 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932453Ab3CLRsn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 13:48:43 -0400
-In-Reply-To: <1363110445.2780.14.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+Subject: [PATCH] ipv4: netfilter: use PTR_RET instead of IS_ERR + PTR_ERR
+Date: Tue, 12 Mar 2013 20:07:55 +0200
+Message-ID: <1363111675-21457-1-git-send-email-silviupopescu1990@gmail.com>
+Cc: pablo@netfilter.org, kaber@trash.net, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Using TX push when notifying the NIC of multiple new descriptors in
-the ring will very occasionally cause the TX DMA engine to re-use an
-old descriptor.  This can result in a duplicated or partly duplicated
-packet (new headers with old data), or an IOMMU page fault.  This does
-not happen when the pushed descriptor is the only one written.
+This uses PTR_RET instead of IS_ERR and PTR_ERR in order to increase
+readability.
 
-TX push also provides little latency benefit when a packet requires
-more than one descriptor.
-
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
 ---
- drivers/net/ethernet/sfc/nic.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ net/ipv4/netfilter/arptable_filter.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
-index 0ad790c..eaa8e87 100644
---- a/drivers/net/ethernet/sfc/nic.c
-+++ b/drivers/net/ethernet/sfc/nic.c
-@@ -376,7 +376,8 @@ efx_may_push_tx_desc(struct efx_tx_queue *tx_queue, unsigned int write_count)
- 		return false;
- 
- 	tx_queue->empty_read_count = 0;
--	return ((empty_read_count ^ write_count) & ~EFX_EMPTY_COUNT_VALID) == 0;
-+	return ((empty_read_count ^ write_count) & ~EFX_EMPTY_COUNT_VALID) == 0
-+		&& tx_queue->write_count - write_count == 1;
+diff --git a/net/ipv4/netfilter/arptable_filter.c b/net/ipv4/netfilter/arptable_filter.c
+index 79ca5e7..eadab1e 100644
+--- a/net/ipv4/netfilter/arptable_filter.c
++++ b/net/ipv4/netfilter/arptable_filter.c
+@@ -48,9 +48,7 @@ static int __net_init arptable_filter_net_init(struct net *net)
+ 	net->ipv4.arptable_filter =
+ 		arpt_register_table(net, &packet_filter, repl);
+ 	kfree(repl);
+-	if (IS_ERR(net->ipv4.arptable_filter))
+-		return PTR_ERR(net->ipv4.arptable_filter);
+-	return 0;
++	return PTR_RET(net->ipv4.arptable_filter);
  }
  
- /* For each entry inserted into the software descriptor ring, create a
+ static void __net_exit arptable_filter_net_exit(struct net *net)
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.9.5
+
