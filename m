@@ -1,41 +1,120 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net-next 2/2] qlcnic: Bump up the version to 5.1.37
-Date: Tue, 12 Mar 2013 15:02:17 -0400
-Message-ID: <1363114937-23283-2-git-send-email-shahed.shaikh@qlogic.com>
-References: <1363114937-23283-1-git-send-email-shahed.shaikh@qlogic.com>
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:46113 "HELO linux-zupk.site"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S932554Ab3CLTZE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Mar 2013 15:25:04 -0400
-In-Reply-To: <1363114937-23283-1-git-send-email-shahed.shaikh@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [RFC PATCH] qmi_wwan: set correct altsetting for Gobi 1K devices
+Date: Tue, 12 Mar 2013 14:40:05 -0500
+Message-ID: <1363117205.9644.17.camel@dcbw.foobar.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+With Gobi 1K devices, USB interface #3's altsetting is 0 by default, but
+altsetting 0 only provides one interrupt endpoint and is not sufficent
+for QMI.  Altsetting 1 provides all 3 endpoints required for qmi_wwan
+and works with QMI.
 
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+IIRC the altsetting used to be set by qcserial back before we made
+qcserial stop touching interfaces that qmi_wwan was going to use.  But
+now that qcserial only touches the modem interface, we need qmi_wwan to
+set the correct altsetting on the QMI interface.
+
+The attached patch works for my Gobi1K (and should work for all other
+1Ks too) but seems somewhat ugly.  What approach should we take?
+Basically, we need to know that a device is Gobi1K at probe time so we
+can set the right altsetting on it.
+
+Gobi 1K layout for intf#3 is:
+
+    Interface Descriptor:  255/255/255
+      bInterfaceNumber        3
+      bAlternateSetting       0
+      Endpoint Descriptor:  Interrupt IN
+    Interface Descriptor:  255/255/255
+      bInterfaceNumber        3
+      bAlternateSetting       1
+      Endpoint Descriptor:  Interrupt IN
+      Endpoint Descriptor:  Bulk IN
+      Endpoint Descriptor:  Bulk OUT
+
+Dan
+
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index c8b4895..1577799 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -38,8 +38,8 @@
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index efb5c7c..50e1b7c 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -43,6 +43,9 @@
+  * commands on a serial interface
+  */
  
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 1
--#define _QLCNIC_LINUX_SUBVERSION 36
--#define QLCNIC_LINUX_VERSIONID  "5.1.36"
-+#define _QLCNIC_LINUX_SUBVERSION 37
-+#define QLCNIC_LINUX_VERSIONID  "5.1.37"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
--- 
-1.5.6
++/* Quirks for the usbnet 'struct driver_info' data field */
++#define QUIRK_GOBI_1K  (1 << 0)   /* QMI interface requires altsetting 1 */
++
+ /* driver specific data */
+ struct qmi_wwan_state {
+ 	struct usb_driver *subdriver;
+@@ -326,6 +329,15 @@ static const struct driver_info	qmi_wwan_info = {
+ 	.manage_power	= qmi_wwan_manage_power,
+ };
+ 
++static const struct driver_info	gobi1k_info = {
++	.description	= "WWAN/QMI device",
++	.flags		= FLAG_WWAN,
++	.bind		= qmi_wwan_bind,
++	.unbind		= qmi_wwan_unbind,
++	.manage_power	= qmi_wwan_manage_power,
++	.data           = QUIRK_GOBI_1K,
++};
++
+ #define HUAWEI_VENDOR_ID	0x12D1
+ 
+ /* map QMI/wwan function by a fixed interface number */
+@@ -335,7 +347,8 @@ static const struct driver_info	qmi_wwan_info = {
+ 
+ /* Gobi 1000 QMI/wwan interface number is 3 according to qcserial */
+ #define QMI_GOBI1K_DEVICE(vend, prod) \
+-	QMI_FIXED_INTF(vend, prod, 3)
++	USB_DEVICE_INTERFACE_NUMBER(vend, prod, 3), \
++	.driver_info = (unsigned long)&gobi1k_info
+ 
+ /* Gobi 2000/3000 QMI/wwan interface number is 0 according to qcserial */
+ #define QMI_GOBI_DEVICE(vend, prod) \
+@@ -541,6 +554,9 @@ MODULE_DEVICE_TABLE(usb, products);
+ static int qmi_wwan_probe(struct usb_interface *intf, const struct usb_device_id *prod)
+ {
+ 	struct usb_device_id *id = (struct usb_device_id *)prod;
++	struct driver_info *info;
++	u8 intf_num = intf->cur_altsetting->desc.bInterfaceNumber;
++	int retval;
+ 
+ 	/* Workaround to enable dynamic IDs.  This disables usbnet
+ 	 * blacklisting functionality.  Which, if required, can be
+@@ -552,6 +568,20 @@ static int qmi_wwan_probe(struct usb_interface *intf, const struct usb_device_id
+ 		id->driver_info = (unsigned long)&qmi_wwan_info;
+ 	}
+ 
++	info = (struct driver_info *) id->driver_info;
++	if (info->data & QUIRK_GOBI_1K) {
++		/* Gobi 1K's QMI interface is always USB interface #3 */
++		BUG_ON(intf_num != 3);
++
++		retval = usb_set_interface(interface_to_usbdev (intf),
++					   intf_num, 1);
++		if (retval < 0) {
++			dev_err(&intf->dev, "Failed to set altsetting 1: %d\n",
++			        retval);
++			return -ENODEV;
++		}
++	}
++
+ 	return usbnet_probe(intf, id);
+ }
+ 
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
