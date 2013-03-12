@@ -1,7 +1,7 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH v2 3/5] driver: net: ethernet: cpsw: implement ethtool get/set phy setting
-Date: Tue, 12 Mar 2013 14:46:36 +0530
-Message-ID: <1363079798-18147-4-git-send-email-mugunthanvnm@ti.com>
+Subject: [PATCH v2 1/5] documentation: dt: bindings: cpsw: cleanup documentation
+Date: Tue, 12 Mar 2013 14:46:34 +0530
+Message-ID: <1363079798-18147-2-git-send-email-mugunthanvnm@ti.com>
 References: <1363079798-18147-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,71 +9,47 @@ Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
 	<linux-omap@vger.kernel.org>, <b-cousson@ti.com>, <paul@pwsan.com>,
 	Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:60519 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932342Ab3CLJRS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Mar 2013 05:17:18 -0400
 In-Reply-To: <1363079798-18147-1-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch implements get/set of the phy settings via ethtool apis
+Move all the slave note properties to separate section to reduce the
+confusion between slave note properties and cpsw node properties
 
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw.c |   29 +++++++++++++++++++++++++++++
- 1 file changed, 29 insertions(+)
+ Documentation/devicetree/bindings/net/cpsw.txt |    9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 98aa17a..83ce890 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -139,6 +139,10 @@ do {								\
- 			disable_irq_nosync(priv->irqs_table[i]); \
- 	} while (0);
+diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+index ecfdf75..8e49c42 100644
+--- a/Documentation/devicetree/bindings/net/cpsw.txt
++++ b/Documentation/devicetree/bindings/net/cpsw.txt
+@@ -18,13 +18,18 @@ Required properties:
+ - cpts_active_slave	: Specifies the slave to use for time stamping
+ - cpts_clock_mult	: Numerator to convert input clock ticks into nanoseconds
+ - cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
+-- phy_id		: Specifies slave phy id
+-- mac-address		: Specifies slave MAC address
  
-+#define cpsw_slave_index(priv)				\
-+		((priv->data.dual_emac) ? priv->emac_port :	\
-+		priv->data.active_slave)
+ Optional properties:
+ - ti,hwmods		: Must be "cpgmac0"
+ - no_bd_ram		: Must be 0 or 1
+ - dual_emac		: Specifies Switch to act as Dual EMAC
 +
- static int debug_level;
- module_param(debug_level, int, 0);
- MODULE_PARM_DESC(debug_level, "cpsw debug level (NETIF_MSG bits)");
-@@ -1244,12 +1248,37 @@ static int cpsw_get_ts_info(struct net_device *ndev,
- 	return 0;
- }
++Slave Properties:
++Required properties:
++- phy_id		: Specifies slave phy id
++- mac-address		: Specifies slave MAC address
++
++Optional properties:
+ - dual_emac_res_vlan	: Specifies VID to be used to segregate the ports
  
-+static int cpsw_get_settings(struct net_device *ndev,
-+			     struct ethtool_cmd *ecmd)
-+{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+	int slave_no = cpsw_slave_index(priv);
-+
-+	if (priv->slaves[slave_no].phy)
-+		return phy_ethtool_gset(priv->slaves[slave_no].phy, ecmd);
-+	else
-+		return -EOPNOTSUPP;
-+}
-+
-+static int cpsw_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
-+{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+	int slave_no = cpsw_slave_index(priv);
-+
-+	if (priv->slaves[slave_no].phy)
-+		return phy_ethtool_sset(priv->slaves[slave_no].phy, ecmd);
-+	else
-+		return -EOPNOTSUPP;
-+}
-+
- static const struct ethtool_ops cpsw_ethtool_ops = {
- 	.get_drvinfo	= cpsw_get_drvinfo,
- 	.get_msglevel	= cpsw_get_msglevel,
- 	.set_msglevel	= cpsw_set_msglevel,
- 	.get_link	= ethtool_op_get_link,
- 	.get_ts_info	= cpsw_get_ts_info,
-+	.get_settings	= cpsw_get_settings,
-+	.set_settings	= cpsw_set_settings,
- };
- 
- static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
+ Note: "ti,hwmods" field is used to fetch the base address and irq
 -- 
 1.7.9.5
-
