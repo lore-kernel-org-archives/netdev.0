@@ -1,7 +1,8 @@
 From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH net-next 00/22] Add support for Chelsio T5 adapter
-Date: Tue, 12 Mar 2013 17:16:12 +0530
-Message-ID: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
+Subject: [PATCH net-next 09/22] cxgb4: Update driver version and description
+Date: Tue, 12 Mar 2013 17:16:21 +0530
+Message-ID: <1363088794-31453-10-git-send-email-vipul@chelsio.com>
+References: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com,
 	JBottomley@parallels.com, dm@chelsio.com,
 	swise@opengridcomputing.com, leedom@chelsio.com,
@@ -11,114 +12,36 @@ Cc: davem@davemloft.net, roland@purestorage.com,
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
 	linux-scsi@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:19775 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:2512 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932555Ab3CLLxD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 07:53:03 -0400
+	with ESMTP id S932480Ab3CLLxF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 07:53:05 -0400
+In-Reply-To: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+From: Santosh Rastapur <santosh@chelsio.com>
 
-This patch series adds support for Chelsio's T5 adapter. It also adds support
-for new features of T5. It adds these in cxgb4, cxgb4vf, RDMA/cxgb4 and
-csiostor drivers.
+Signed-off-by: Santosh Rastapur <santosh@chelsio.com>
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Chelsio's T5 asic moves the architecture into 40GbE speeds. T5 is a 10/40GbE
-controller with full offload support of a complete Unified Wire solution
-comprising NIC, Virtualization, TOE, iWARP RDMA and FCoE.
-
-T5 supports all the offload, virtualization and switching capabilities of the
-existing T4 and adds some new features. The patch series does basic
-intialization for T5 in each driver. The patch series implements a low
-latency Write Combining work request path in cxgb4 and RDMA/cxgb4 driver for
-T5. It supports new T5 feature DSGL in RDMA/cxgb4 driver which enables direct
-DMA by HW to memory region PBL arrays and fast register PBL arrays from host
-memory. It adds support for dumping T5 registers, T5's debugfs support and
-enables doorbell drop recovery only for T4 in cxgb4 driver.
-
-To facilitate addition of support in csiostor for future adapters, a new
-framework for adapter specific operations has been defined. Consequently, T4
-and T5 specific operations are now separated into different files. One of the
-csiostor patches also includes common bug fixes.
-
-We are submitting changes in all the drivers for T5 in one series since there
-are common changes in cxgb4 driver which are required by all the ULDs and
-csiostor. This way we can avoid build failures, build dependencies and ensure
-smooth integration.
-
-We request to merge this patch series via David Miller's net-next tree. We are
-copying respective maintainers of all the drivers for reviewing the changes.
-Kindly let us know in case of any review comments.
-
-We have successfully carried out networking, virtualization, iWARP and storage
-related stress tests on this patch series.
-
-Thanks,
-Vipul Pandya
-
-Arvind Bhushan (4):
-  csiostor: Segregate T4 adapter operations.
-  csiostor: Add T5 adapter operations.
-  csiostor: Header file modifications for chip support and bug fixes.
-  csiostor: Cleanup chip specific operations.
-
-Santosh Rastapur (11):
-  cxgb4: Add register definations for T5
-  cxgb4: Add macros, structures and inline functions for T5
-  cxgb4: Initialize T5
-  cxgb4: Dump T5 registers
-  cxgb4: Add T5 write combining support
-  cxgb4: Enable doorbell drop recovery only for T4 adapter
-  cxgb4: Add T5 debugfs support
-  cxgb4: Add T5 PCI ids
-  cxgb4: Update driver version and description
-  cxgb4: Disable SR-IOV support for PF4-7 for T5
-  cxgb4vf: Add support for Chelsio T5 adapter
-
-Vipul Pandya (7):
-  RDMA/cxgb4: Add Support for Chelsio T5 adapter
-  RDMA/cxgb4: Turn off db coalescing when RDMA QPs are in use.
-  RDMA/cxgb4: Add module_params to enable DB FC & Coalescing on T5
-  RDMA/cxgb4: Use DSGLs for fastreg and adapter memory writes for T5.
-  RDMA/cxgb4: Map pbl buffers for dma if using DSGL.
-  RDMA/cxgb4: Bump tcam_full stat and WR reply timeout
-  RDMA/cxgb4: Fix onchip queue support for T5
-
- drivers/infiniband/hw/cxgb4/cm.c                   |   66 ++-
- drivers/infiniband/hw/cxgb4/device.c               |   34 +-
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h             |   14 +-
- drivers/infiniband/hw/cxgb4/mem.c                  |  155 ++++-
- drivers/infiniband/hw/cxgb4/provider.c             |   15 +-
- drivers/infiniband/hw/cxgb4/qp.c                   |  113 ++-
- drivers/infiniband/hw/cxgb4/t4.h                   |   11 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   55 ++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  778 ++++++++++++++++++--
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |    3 +
- drivers/net/ethernet/chelsio/cxgb4/sge.c           |   91 ++-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |  256 ++++++--
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.h         |    1 -
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h        |   53 ++
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   98 +++
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h      |    2 +-
- drivers/net/ethernet/chelsio/cxgb4vf/adapter.h     |    1 +
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |   35 +-
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c         |    8 +-
- drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h |   24 +
- drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |   14 +-
- drivers/scsi/csiostor/Makefile                     |    3 +-
- drivers/scsi/csiostor/csio_hw.c                    |  559 +++-----------
- drivers/scsi/csiostor/csio_hw.h                    |   47 +-
- drivers/scsi/csiostor/csio_hw_chip.h               |  175 +++++
- drivers/scsi/csiostor/csio_hw_t4.c                 |  403 ++++++++++
- drivers/scsi/csiostor/csio_hw_t5.c                 |  397 ++++++++++
- drivers/scsi/csiostor/csio_init.c                  |   48 +-
- drivers/scsi/csiostor/csio_init.h                  |   29 +-
- drivers/scsi/csiostor/csio_lnode.h                 |    2 +-
- drivers/scsi/csiostor/csio_rnode.c                 |   10 +-
- drivers/scsi/csiostor/csio_rnode.h                 |    2 +-
- drivers/scsi/csiostor/csio_wr.c                    |   60 +-
- 33 files changed, 2821 insertions(+), 741 deletions(-)
- create mode 100644 drivers/scsi/csiostor/csio_hw_chip.h
- create mode 100644 drivers/scsi/csiostor/csio_hw_t4.c
- create mode 100644 drivers/scsi/csiostor/csio_hw_t5.c
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index eceee44..c502e36 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -68,8 +68,8 @@
+ #include "t4fw_api.h"
+ #include "l2t.h"
+ 
+-#define DRV_VERSION "1.3.0-ko"
+-#define DRV_DESC "Chelsio T4 Network Driver"
++#define DRV_VERSION "2.0.0-ko"
++#define DRV_DESC "Chelsio T4/T5 Network Driver"
+ 
+ /*
+  * Max interrupt hold-off timer value in us.  Queues fall back to this value
+-- 
+1.7.1
