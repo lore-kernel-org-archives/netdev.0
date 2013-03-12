@@ -1,135 +1,42 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: don't break the loop while meeting the active_path
- so as to find the matched transport
-Date: Tue, 12 Mar 2013 07:30:50 -0400
-Message-ID: <20130312113050.GA25870@hmsreliant.think-freely.org>
-References: <1362728377-11025-1-git-send-email-xufeng.zhang@windriver.com>
- <20130308142720.GA9873@hmsreliant.think-freely.org>
- <CA+=dFzjyd4av9D1TmrvguRXv-V7JnGWYJcN=ZEDu8Qhz2s+U7Q@mail.gmail.com>
- <20130311133121.GD12682@hmsreliant.think-freely.org>
- <CA+=dFzjXO_W1v2g2VsBF7EKGj=c75ZrZPDx=R42Ug-waVLoGCw@mail.gmail.com>
+From: Alexander Holler <holler@ahsoftware.de>
+Subject: Re: [PATCH] mv643xx_eth: Fix a possible deadlock upon ifdown
+Date: Tue, 12 Mar 2013 12:36:11 +0100
+Message-ID: <513F132B.4060606@ahsoftware.de>
+References: <1357308422-19639-1-git-send-email-lkundrak@v3.sk> <20130104202509.GX27530@wantstofly.org> <5130E5A5.90303@ahsoftware.de> <20130312024932.GF850@wantstofly.org> <513EEF83.9070806@ahsoftware.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Xufeng Zhang <xufeng.zhang@windriver.com>, vyasevich@gmail.com,
-	davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Xufeng Zhang <xufengzhang.main@gmail.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Lubomir Rintel <lkundrak@v3.sk>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Lubomir Rintel <lubo.rintel@gooddata.com>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+=dFzjXO_W1v2g2VsBF7EKGj=c75ZrZPDx=R42Ug-waVLoGCw@mail.gmail.com>
+In-Reply-To: <513EEF83.9070806@ahsoftware.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 12, 2013 at 10:24:02AM +0800, Xufeng Zhang wrote:
-> >>
-> >> Thanks for your review, Neil!
-> >>
-> >> I know what you mean, yes, it's most probably that the searched TSN was
-> >> transmitted in the currently active_path, but what should we do if not.
-> >>
-> >> Check the comment in sctp_assoc_lookup_tsn() function:
-> >> /* Let's be hopeful and check the active_path first. */
-> >> /* If not found, go search all the other transports. */
-> >>
-> >> It has checked the active_path first and then traverse all the other
-> >> transports in
-> >> the transport_addr_list except the active_path.
-> >>
-> >> So what I want to fix here is the inconsistency between the function
-> >> should do and
-> >> the code actually does.
-> >>
-> > I understand what you're doing, and I agree that the fix is functional
-> > (Hence
-> > my "This works" statement in my last note).  What I'm suggesting is that,
-> > since
-> > you're messing about in that code anyway that you clean it up while your at
-> > it,
-> > so that we don't need to have the if (transport == active) check at all.
-> > We
-> > trade in some extra work in a non-critical path (sctp_assoc_set_primary),
-> > for
-> > the removal of an extra for loop operation and a conditional check in a
-> > much
-> > hotter path.  Something like this (completely untested), is what I was
-> > thinking
-> 
-> Aha, seems I have some misunderstanding previously, now I got your point.
-> Yeah, it's better to do the clean up by this way, and this fix looks fine to me,
-> but I didn't have a test case to test this, actually this problem was detected
-> by code review, so I would like to leave the rest of this work to
-> determine by you.
-> 
-> Thank you very much for your clarification!
-> 
-Ok, I'll try set up a test for this today
-Neil
+Am 12.03.2013 10:04, schrieb Alexander Holler:
 
-> 
-> Thanks,
-> Xufeng
-> 
-> >
-> >
-> > diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> > index 43cd0dd..8ae873c 100644
-> > --- a/net/sctp/associola.c
-> > +++ b/net/sctp/associola.c
-> > @@ -505,6 +505,9 @@ void sctp_assoc_set_primary(struct sctp_association
-> > *asoc,
-> >
-> >  	asoc->peer.primary_path = transport;
-> >
-> > +	list_del_rcu(&transport->transports);
-> > +	list_add_rcu(&transport->transports, &asoc->peer.transport_addr_list);
-> > +
-> >  	/* Set a default msg_name for events. */
-> >  	memcpy(&asoc->peer.primary_addr, &transport->ipaddr,
-> >  	       sizeof(union sctp_addr));
-> > @@ -1040,7 +1043,6 @@ struct sctp_chunk *sctp_get_ecne_prepend(struct
-> > sctp_association *asoc)
-> >  struct sctp_transport *sctp_assoc_lookup_tsn(struct sctp_association
-> > *asoc,
-> >  					     __u32 tsn)
-> >  {
-> > -	struct sctp_transport *active;
-> >  	struct sctp_transport *match;
-> >  	struct sctp_transport *transport;
-> >  	struct sctp_chunk *chunk;
-> > @@ -1057,29 +1059,16 @@ struct sctp_transport *sctp_assoc_lookup_tsn(struct
-> > sctp_association *asoc,
-> >  	 * The general strategy is to search each transport's transmitted
-> >  	 * list.   Return which transport this TSN lives on.
-> >  	 *
-> > -	 * Let's be hopeful and check the active_path first.
-> > -	 * Another optimization would be to know if there is only one
-> > -	 * outbound path and not have to look for the TSN at all.
-> > +	 * Note, that sctp_assoc_set_primary does a move to front operation
-> > +	 * on the active_path transport, so this code implicitly checks
-> > +	 * the active_path first, as we most commonly expect to find our TSN
-> > +	 * there.
-> >  	 *
-> >  	 */
-> >
-> > -	active = asoc->peer.active_path;
-> > -
-> > -	list_for_each_entry(chunk, &active->transmitted,
-> > -			transmitted_list) {
-> > -
-> > -		if (key == chunk->subh.data_hdr->tsn) {
-> > -			match = active;
-> > -			goto out;
-> > -		}
-> > -	}
-> > -
-> > -	/* If not found, go search all the other transports. */
-> >  	list_for_each_entry(transport, &asoc->peer.transport_addr_list,
-> >  			transports) {
-> >
-> > -		if (transport == active)
-> > -			break;
-> >  		list_for_each_entry(chunk, &transport->transmitted,
-> >  				transmitted_list) {
-> >  			if (key == chunk->subh.data_hdr->tsn) {
-> >
-> 
+> I don't think so. Internally the driver calls mv643xx_eth_stop()
+> therefore lockdep issues almost the same warning as when the interface
+> is shut down (see below). And reading the code, I haven't seen how a
+
+Btw. I consider the shutdown of the interface for just changing the MTU 
+more a problem than that lockdep-warning.
+
+E.g. I had serious problems with dhcpcd which sets the MTU to 1500 when 
+an interface appears. What then happened was the following:
+
+(1) interface comes up
+(2) dhcpcd sets MTU to 1500
+(3) a different MTU comes through DHCP
+(4) driver shuts down if, sets MTU, turns on IF
+back to (1) (endless loop)
+
+I'm not sure if dhcpcd still does that (it's some time since I 
+discovered and reported that), but I consider it a crude way to shut 
+down the IF to set the MTU.
+
+Regards,
+
+Alexander
