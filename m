@@ -1,39 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bridge: reserve space for IFLA_BRPORT_FAST_LEAVE
-Date: Tue, 12 Mar 2013 05:39:54 -0400 (EDT)
-Message-ID: <20130312.053954.330375189080203774.davem@davemloft.net>
-References: <20130311165217.760e80fe@nehalam.linuxnetplumber.net>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] ethernet: amd: use PTR_RET instead of IS_ERR + PTR_ERR
+Date: Tue, 12 Mar 2013 10:44:47 +0100
+Message-ID: <CAMuHMdWDiWoyhufMrtQzwuB93dX6ydRC+y8dS+_8Y4qGPHQcMg@mail.gmail.com>
+References: <1363074487-21248-1-git-send-email-silviupopescu1990@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47681 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932236Ab3CLJjm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 05:39:42 -0400
-In-Reply-To: <20130311165217.760e80fe@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, davem@davemloft.net, joe@perches.com,
+	dhowells@redhat.com, linux-kernel@vger.kernel.org
+To: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1363074487-21248-1-git-send-email-silviupopescu1990@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Mon, 11 Mar 2013 16:52:17 -0700
+On Tue, Mar 12, 2013 at 8:48 AM, Silviu-Mihai Popescu
+<silviupopescu1990@gmail.com> wrote:
+> This uses PTR_RET instead of IS_ERR and PTR_ERR in order to increase
+> readability.
+>
+> Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
 
-> The bridge multicast fast leave feature was added sufficient space
-> was not reserved in the netlink message. This means the flag may be
-> lost in netlink events and results of queries.
-> 
-> Found by observation while looking up some netlink stuff for discussion with Vlad.
-> Problem introduced by commit c2d3babfafbb9f6629cfb47139758e59a5eb0d80
-> Author: David S. Miller <davem@davemloft.net>
-> Date:   Wed Dec 5 16:24:45 2012 -0500
-> 
->     bridge: implement multicast fast leave
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> 
-> ---
-> Should go to net and stable for 3.8.X
+Acked-by: <Geert Uytterhoeven <geert@linux-m68k.org>
 
-Applied and queued up for -stable.
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
