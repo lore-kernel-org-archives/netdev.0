@@ -1,45 +1,48 @@
-From: Silviu Popescu <silviupopescu1990@gmail.com>
-Subject: Re: [PATCH] ethernet: nxp: use resource_size()
-Date: Wed, 13 Mar 2013 00:35:31 +0200
-Message-ID: <CAPWTe+JhUJBsCLekeADe4FesC95nYh16XHrj0cOk97JfnjF49g@mail.gmail.com>
-References: <1363113035-11269-1-git-send-email-silviupopescu1990@gmail.com>
-	<1363115431.2125.13.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net, stigge@antcom.de,
-	edumazet@google.com, gregkh@linuxfoundation.org, jiri@resnulli.us,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:55186 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933712Ab3CLWfc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 18:35:32 -0400
-In-Reply-To: <1363115431.2125.13.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+Subject: [PATCH] net: lpc_eth: fix coccicheck warnings
+Date: Wed, 13 Mar 2013 00:33:05 +0200
+Message-ID: <1363127585-7925-1-git-send-email-silviupopescu1990@gmail.com>
+Cc: davem@davemloft.net, stigge@antcom.de, edumazet@google.com,
+	gregkh@linuxfoundation.org, jiri@resnulli.us,
+	linux-kernel@vger.kernel.org,
+	Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 12, 2013 at 9:10 PM, Joe Perches <joe@perches.com> wrote:
-> On Tue, 2013-03-12 at 20:30 +0200, Silviu-Mihai Popescu wrote:
->> Use resource_size() instead of explicit calculation. This was found via
->> make coccicheck.
-> []
->> diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-> []
->> @@ -1421,7 +1421,7 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
->>       netdev_dbg(ndev, "IO address start     :0x%08x\n",
->>                       res->start);
->>       netdev_dbg(ndev, "IO address size      :%d\n",
->> -                     res->end - res->start + 1);
->> +                     resource_size(res));
->
-> This might be better as
->
->         netdev_dbg(ndev, "IO resource    :%pR\n", res);
->
->
+Use resource_size() instead of explicit calculation and change the way
+debugging for struct resource is done.
 
-Thanks for the review. I've refreshed the patch and sent it again.
+Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+---
+ drivers/net/ethernet/nxp/lpc_eth.c |    7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
+diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
+index c4122c8..7862f96 100644
+--- a/drivers/net/ethernet/nxp/lpc_eth.c
++++ b/drivers/net/ethernet/nxp/lpc_eth.c
+@@ -1362,7 +1362,7 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
+ 	__lpc_eth_clock_enable(pldat, true);
+ 
+ 	/* Map IO space */
+-	pldat->net_base = ioremap(res->start, res->end - res->start + 1);
++	pldat->net_base = ioremap(res->start, resource_size(res));
+ 	if (!pldat->net_base) {
+ 		dev_err(&pdev->dev, "failed to map registers\n");
+ 		ret = -ENOMEM;
+@@ -1418,10 +1418,7 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
+ 	}
+ 	pldat->dma_buff_base_p = dma_handle;
+ 
+-	netdev_dbg(ndev, "IO address start     :0x%08x\n",
+-			res->start);
+-	netdev_dbg(ndev, "IO address size      :%d\n",
+-			res->end - res->start + 1);
++	netdev_dbg(ndev, "IO resource          :%pR\n", res);
+ 	netdev_dbg(ndev, "IO address (mapped)  :0x%p\n",
+ 			pldat->net_base);
+ 	netdev_dbg(ndev, "IRQ number           :%d\n", ndev->irq);
 -- 
-Silviu Popescu
+1.7.9.5
