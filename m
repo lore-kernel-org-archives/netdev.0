@@ -1,7 +1,7 @@
 From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH net-next 13/22] RDMA/cxgb4: Turn off db coalescing when RDMA QPs are in use.
-Date: Tue, 12 Mar 2013 17:16:25 +0530
-Message-ID: <1363088794-31453-14-git-send-email-vipul@chelsio.com>
+Subject: [PATCH net-next 14/22] RDMA/cxgb4: Add module_params to enable DB FC & Coalescing on T5
+Date: Tue, 12 Mar 2013 17:16:26 +0530
+Message-ID: <1363088794-31453-15-git-send-email-vipul@chelsio.com>
 References: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com,
 	JBottomley@parallels.com, dm@chelsio.com,
@@ -11,126 +11,106 @@ Cc: davem@davemloft.net, roland@purestorage.com,
 	Vipul Pandya <vipul@chelsio.com>
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
 	linux-scsi@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:31919 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932072Ab3CLLx3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 07:53:29 -0400
 In-Reply-To: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Both DB Flow-Control and DB Coalescing are disabled by default on T5
 
 Signed-off-by: Vipul Pandya <vipul@chelsio.com>
 ---
- drivers/infiniband/hw/cxgb4/qp.c                |   20 ++++++++++++++++----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   19 +++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    3 +++
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    4 ++++
- 4 files changed, 42 insertions(+), 4 deletions(-)
+ drivers/infiniband/hw/cxgb4/device.c   |   25 +++++++++++++++++++++++--
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h |    1 +
+ drivers/infiniband/hw/cxgb4/qp.c       |   10 ++++++----
+ 3 files changed, 30 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
+index 3487c08..ae65601 100644
+--- a/drivers/infiniband/hw/cxgb4/device.c
++++ b/drivers/infiniband/hw/cxgb4/device.c
+@@ -45,6 +45,16 @@ MODULE_DESCRIPTION("Chelsio T4/T5 RDMA Driver");
+ MODULE_LICENSE("Dual BSD/GPL");
+ MODULE_VERSION(DRV_VERSION);
+ 
++static int allow_db_fc_on_t5;
++module_param(allow_db_fc_on_t5, int, 0644);
++MODULE_PARM_DESC(allow_db_fc_on_t5,
++		 "Allow DB Flow Control on T5 (default = 0)");
++
++static int allow_db_coalescing_on_t5;
++module_param(allow_db_coalescing_on_t5, int, 0644);
++MODULE_PARM_DESC(allow_db_coalescing_on_t5,
++		 "Allow DB Coalescing on T5 (default = 0)");
++
+ struct uld_ctx {
+ 	struct list_head entry;
+ 	struct cxgb4_lld_info lldi;
+@@ -630,8 +640,19 @@ static struct c4iw_dev *c4iw_alloc(const struct cxgb4_lld_info *infop)
+ 	if (!ocqp_supported(infop))
+ 		pr_info("%s: On-Chip Queues not supported on this device.\n",
+ 			pci_name(infop->pdev));
+-	if (!is_t4(infop->adapter_type))
+-		db_fc_threshold = 100000;
++
++	if (!is_t4(infop->adapter_type)) {
++		if (!allow_db_fc_on_t5) {
++			db_fc_threshold = 100000;
++			pr_info("DB Flow Control Disabled.\n");
++		}
++
++		if (!allow_db_coalescing_on_t5) {
++			db_coalescing_threshold = -1;
++			pr_info("DB Coalescing Disabled.\n");
++		}
++	}
++
+ 	devp = (struct c4iw_dev *)ib_alloc_device(sizeof(*devp));
+ 	if (!devp) {
+ 		printk(KERN_ERR MOD "Cannot allocate ib device\n");
+diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+index 34c7e62..4dbe96a 100644
+--- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
++++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+@@ -939,6 +939,7 @@ extern struct cxgb4_client t4c_client;
+ extern c4iw_handler_func c4iw_handlers[NUM_CPL_CMDS];
+ extern int c4iw_max_read_depth;
+ extern int db_fc_threshold;
++extern int db_coalescing_threshold;
+ 
+ 
+ #endif
 diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index c460244..da4869f 100644
+index da4869f..28592d4 100644
 --- a/drivers/infiniband/hw/cxgb4/qp.c
 +++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -42,10 +42,17 @@ static int ocqp_support = 1;
- module_param(ocqp_support, int, 0644);
- MODULE_PARM_DESC(ocqp_support, "Support on-chip SQs (default=1)");
- 
--int db_fc_threshold = 2000;
-+int db_fc_threshold = 1000;
- module_param(db_fc_threshold, int, 0644);
--MODULE_PARM_DESC(db_fc_threshold, "QP count/threshold that triggers automatic "
--		 "db flow control mode (default = 2000)");
-+MODULE_PARM_DESC(db_fc_threshold,
-+		 "QP count/threshold that triggers"
-+		 " automatic db flow control mode (default = 1000)");
-+
-+int db_coalescing_threshold;
-+module_param(db_coalescing_threshold, int, 0644);
-+MODULE_PARM_DESC(db_coalescing_threshold,
-+		 "QP count/threshold that triggers"
-+		 " disabling db coalescing (default = 0)");
- 
- static void set_state(struct c4iw_qp *qhp, enum c4iw_qp_state state)
- {
-@@ -1448,6 +1455,8 @@ int c4iw_destroy_qp(struct ib_qp *ib_qp)
+@@ -1455,8 +1455,9 @@ int c4iw_destroy_qp(struct ib_qp *ib_qp)
  		rhp->db_state = NORMAL;
  		idr_for_each(&rhp->qpidr, enable_qp_db, NULL);
  	}
-+	if (rhp->qpcnt <= db_coalescing_threshold)
-+		cxgb4_enable_db_coalescing(rhp->rdev.lldi.ports[0]);
+-	if (rhp->qpcnt <= db_coalescing_threshold)
+-		cxgb4_enable_db_coalescing(rhp->rdev.lldi.ports[0]);
++	if (db_coalescing_threshold >= 0)
++		if (rhp->qpcnt <= db_coalescing_threshold)
++			cxgb4_enable_db_coalescing(rhp->rdev.lldi.ports[0]);
  	spin_unlock_irq(&rhp->lock);
  	atomic_dec(&qhp->refcnt);
  	wait_event(qhp->wait, !atomic_read(&qhp->refcnt));
-@@ -1559,11 +1568,14 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
- 	spin_lock_irq(&rhp->lock);
- 	if (rhp->db_state != NORMAL)
- 		t4_disable_wq_db(&qhp->wq);
--	if (++rhp->qpcnt > db_fc_threshold && rhp->db_state == NORMAL) {
-+	rhp->qpcnt++;
-+	if (rhp->qpcnt > db_fc_threshold && rhp->db_state == NORMAL) {
- 		rhp->rdev.stats.db_state_transitions++;
+@@ -1574,8 +1575,9 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
  		rhp->db_state = FLOW_CONTROL;
  		idr_for_each(&rhp->qpidr, disable_qp_db, NULL);
  	}
-+	if (rhp->qpcnt > db_coalescing_threshold)
-+		cxgb4_disable_db_coalescing(rhp->rdev.lldi.ports[0]);
+-	if (rhp->qpcnt > db_coalescing_threshold)
+-		cxgb4_disable_db_coalescing(rhp->rdev.lldi.ports[0]);
++	if (db_coalescing_threshold >= 0)
++		if (rhp->qpcnt > db_coalescing_threshold)
++			cxgb4_disable_db_coalescing(rhp->rdev.lldi.ports[0]);
  	ret = insert_handle_nolock(rhp, &rhp->qpidr, qhp, qhp->wq.sq.qid);
  	spin_unlock_irq(&rhp->lock);
  	if (ret)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index a59bb23..e76cf03 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3397,6 +3397,25 @@ out:
- }
- EXPORT_SYMBOL(cxgb4_sync_txq_pidx);
- 
-+void cxgb4_disable_db_coalescing(struct net_device *dev)
-+{
-+	struct adapter *adap;
-+
-+	adap = netdev2adap(dev);
-+	t4_set_reg_field(adap, A_SGE_DOORBELL_CONTROL, F_NOCOALESCE,
-+			 F_NOCOALESCE);
-+}
-+EXPORT_SYMBOL(cxgb4_disable_db_coalescing);
-+
-+void cxgb4_enable_db_coalescing(struct net_device *dev)
-+{
-+	struct adapter *adap;
-+
-+	adap = netdev2adap(dev);
-+	t4_set_reg_field(adap, A_SGE_DOORBELL_CONTROL, F_NOCOALESCE, 0);
-+}
-+EXPORT_SYMBOL(cxgb4_enable_db_coalescing);
-+
- static struct pci_driver cxgb4_driver;
- 
- static void check_neigh_update(struct neighbour *neigh)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index e2bbc7f..4faf4d0 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -269,4 +269,7 @@ struct sk_buff *cxgb4_pktgl_to_skb(const struct pkt_gl *gl,
- 				   unsigned int skb_len, unsigned int pull_len);
- int cxgb4_sync_txq_pidx(struct net_device *dev, u16 qid, u16 pidx, u16 size);
- int cxgb4_flush_eq_cache(struct net_device *dev);
-+void cxgb4_disable_db_coalescing(struct net_device *dev);
-+void cxgb4_enable_db_coalescing(struct net_device *dev);
-+
- #endif  /* !__CXGB4_OFLD_H */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 22cbcb3..ef146c0 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -241,6 +241,10 @@
- #define SGE_DOORBELL_CONTROL 0x10a8
- #define  ENABLE_DROP        (1 << 13)
- 
-+#define S_NOCOALESCE    26
-+#define V_NOCOALESCE(x) ((x) << S_NOCOALESCE)
-+#define F_NOCOALESCE    V_NOCOALESCE(1U)
-+
- #define SGE_TIMER_VALUE_0_AND_1 0x10b8
- #define  TIMERVALUE0_MASK   0xffff0000U
- #define  TIMERVALUE0_SHIFT  16
 -- 
 1.7.1
-
