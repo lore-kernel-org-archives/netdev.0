@@ -1,45 +1,43 @@
-From: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
-Subject: [PATCH] ethernet: nxp: use resource_size()
-Date: Tue, 12 Mar 2013 20:30:35 +0200
-Message-ID: <1363113035-11269-1-git-send-email-silviupopescu1990@gmail.com>
-Cc: davem@davemloft.net, stigge@antcom.de, edumazet@google.com,
-	gregkh@linuxfoundation.org, jiri@resnulli.us,
-	linux-kernel@vger.kernel.org,
-	Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dave Jones <davej@redhat.com>
+Subject: Re: e1000e failed to check map error
+Date: Tue, 12 Mar 2013 14:51:01 -0400
+Message-ID: <20130312185101.GA13662@redhat.com>
+References: <20130301053007.GA14474@redhat.com>
+ <804857E1F29AAC47BF68C404FC60A1844D022AE1@ORSMSX102.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44451 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932302Ab3CLSvR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Mar 2013 14:51:17 -0400
+Content-Disposition: inline
+In-Reply-To: <804857E1F29AAC47BF68C404FC60A1844D022AE1@ORSMSX102.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use resource_size() instead of explicit calculation. This was found via
-make coccicheck.
+On Fri, Mar 01, 2013 at 05:13:29PM +0000, Allan, Bruce W wrote:
+ > > -----Original Message-----
+ > > From: netdev-owner@vger.kernel.org [mailto:netdev-
+ > > owner@vger.kernel.org] On Behalf Of Dave Jones
+ > > Sent: Thursday, February 28, 2013 9:30 PM
+ > > To: netdev@vger.kernel.org
+ > > Subject: e1000e failed to check map error
+ > > 
+ > > Linus' current tree shows this shortly after boot for me..
+ > > 
+ > > WARNING: at lib/dma-debug.c:933 check_unmap+0x407/0x8a0()
+ > 
+ > Thanks for the report Dave.  I'll look into it.
+ > 
+ > Bruce.
 
-Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
----
- drivers/net/ethernet/nxp/lpc_eth.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+fwiw, I see this also on 3.8.x, albeit with a different size..
 
-diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-index c4122c8..bc493c8 100644
---- a/drivers/net/ethernet/nxp/lpc_eth.c
-+++ b/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -1362,7 +1362,7 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
- 	__lpc_eth_clock_enable(pldat, true);
- 
- 	/* Map IO space */
--	pldat->net_base = ioremap(res->start, res->end - res->start + 1);
-+	pldat->net_base = ioremap(res->start, resource_size(res));
- 	if (!pldat->net_base) {
- 		dev_err(&pdev->dev, "failed to map registers\n");
- 		ret = -ENOMEM;
-@@ -1421,7 +1421,7 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
- 	netdev_dbg(ndev, "IO address start     :0x%08x\n",
- 			res->start);
- 	netdev_dbg(ndev, "IO address size      :%d\n",
--			res->end - res->start + 1);
-+			resource_size(res));
- 	netdev_dbg(ndev, "IO address (mapped)  :0x%p\n",
- 			pldat->net_base);
- 	netdev_dbg(ndev, "IRQ number           :%d\n", ndev->irq);
--- 
-1.7.9.5
+ e1000e 0000:05:00.0: DMA-API: device driver failed to check map error[device address=0x0000000007130000] [size=24 bytes] [mapped as page]
+
+Same backtrace though.
+
+	Dave
