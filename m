@@ -1,49 +1,65 @@
-From: Tim Gardner <tim.gardner@canonical.com>
-Subject: Re: [PATCH linux-next v3] SUNRPC: rpcrdma_register_default_external:
- Dynamically allocate ib_phys_buf
-Date: Mon, 11 Mar 2013 20:53:18 -0600
-Message-ID: <513E989E.8060206@canonical.com>
-References: <4FA345DA4F4AE44899BD2B03EEEC2FA9286BA156@sacexcmbx05-prd.hq.netapp.com> <1363036508-24935-1-git-send-email-tim.gardner@canonical.com> <20130311212535.GG642@fieldses.org> <513E6271.3060107@opengridcomputing.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH] mv643xx_eth: Fix a possible deadlock upon ifdown
+Date: Tue, 12 Mar 2013 03:49:32 +0100
+Message-ID: <20130312024932.GF850@wantstofly.org>
+References: <1357308422-19639-1-git-send-email-lkundrak@v3.sk>
+ <20130104202509.GX27530@wantstofly.org>
+ <5130E5A5.90303@ahsoftware.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "J. Bruce Fields" <bfields@fieldses.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Lubomir Rintel <lkundrak@v3.sk>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"David S. Miller" <davem@davemloft.net>, Tom Tucker <tom@ogc.us>,
-	Haggai Eran <haggaie@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Shani Michaeli <shanim@mellanox.com>,
-	linux-nfs@vger.kernel.org, netdev@vger.kernel.org
-To: Tom Tucker <tom@opengridcomputing.com>
+	Lubomir Rintel <lubo.rintel@gooddata.com>
+To: Alexander Holler <holler@ahsoftware.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <513E6271.3060107@opengridcomputing.com>
+Content-Disposition: inline
+In-Reply-To: <5130E5A5.90303@ahsoftware.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/11/2013 05:02 PM, Tom Tucker wrote:
-> On 3/11/13 4:25 PM, J. Bruce Fields wrote:
+On Fri, Mar 01, 2013 at 06:30:13PM +0100, Alexander Holler wrote:
 
-<snip>
+> >>From: Lubomir Rintel <lubo.rintel@gooddata.com>
+> >>
+> >>=================================
+> >>[ INFO: inconsistent lock state ]
+> >>3.7.0-6.luboskovo.fc19.armv5tel.kirkwood #1 Tainted: G        W
+> >>---------------------------------
+> >>inconsistent {IN-SOFTIRQ-W} -> {SOFTIRQ-ON-W} usage.
+> >>NetworkManager/337 [HC0[0]:SC0[0]:HE1:SE1] takes:
+> >>  (_xmit_ETHER#2){+.?...}, at: [<bf07adfc>] txq_reclaim+0x54/0x264 [mv643xx_eth]
+> 
+> I get the same annoying warning when the MTU gets changed (through dhcp).
 
->> Looks good to me; wish we could get it tested....
->
-> I will test it. Tim could you please send me a final version that you'd
-> like tested as a single message?
->
+That is actually an issue.
 
-I'm a little confused about what you are asking. I think v3 of the patch 
-is the final version (unless you find bugs with it).
 
-> Would someone (like Tim maybe ... hint hint) look at tearing out all
-> those dead registration strategies? I don't think we need or will ever
-> use bounce-buffers, memory windows, or mlnx fmr.  The only two that are
-> used and tested are all-phys and FRMR (the default).
->
+> >Maybe I'm not reading it right, but I doubt that this is an actual
+> >deadlock or that the patch is needed.
+> >
+> >txq_reclaim() indeed doesn't disable BHs, but that's because it's
+> >always called in BH context.  Almost always -- the only exception is
+> >txq_deinit(), called from ->ndo_stop(), but by that time we've
+> >already napi_disable()'d and netif_carrier_off()'d and free_irq()'d.
+> 
+> Agreed. I've just read me through that too and don't think a
+> deadlock is possible.
+> 
+> >How to explain that to lockdep, though, I don't know.
+> 
+> The patch helps with that. ;)
 
-Dunno if I'll get time for that. I had a one day window where I could 
-hack out some simple patches. Now I'm back to the usual grindstone.
+It fixes a bug (the MTU change thing) and a non-bug (the lockdep
+warning) at the expense of slowing down the much more common path,
+and I don't like it for that reason.
 
-rtg
--- 
-Tim Gardner tim.gardner@canonical.com
+Can you make a __txq_reclaim() which is basically txq_reclaim()
+without grabbing the tx queue lock, and then move the lock grabbing
+to the caller?
+
+E.g. make __txq_reclaim() have two callers, txq_reclaim() and
+txq_reclaim_bh(), and then use the appropriate wrapper depending on
+the context.  (tx queue lock but no BH disable when called from
+mv643xx_eth_poll(), tx queue lock plus BH disable for MTU change,
+and no locking at all when called from ->ndo_stop().  Something
+like that.)
