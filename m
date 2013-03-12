@@ -1,81 +1,60 @@
-From: Michael Stapelberg <michael@stapelberg.de>
-Subject: [PATCH net-next 1/2] phy: add set_wol/get_wol functions
-Date: Tue, 12 Mar 2013 00:56:44 +0100
-Message-ID: <1363046205-17239-1-git-send-email-michael@stapelberg.de>
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Michael Stapelberg <michael@stapelberg.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from infra.in.zekjur.net ([79.140.39.194]:33347 "EHLO
-	infra.in.zekjur.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754571Ab3CLAEs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Mar 2013 20:04:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Tue, 12 Mar 2013 11:33:20 +1100
+Message-ID: <20130312113320.b1f41dcb59baa74a51b064cc@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__12_Mar_2013_11_33_20_+1100_9XMUROop0z_8UXdM"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Konstantin Khlebnikov <khlebnikov@openvz.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This allows ethernet drivers (such as the mv643xx_eth) to support
-Wake on LAN on platforms where PHY registers have to be configured
-for Wake on LAN (e.g. the Marvell Kirkwood based qnap TS-119P II).
+--Signature=_Tue__12_Mar_2013_11_33_20_+1100_9XMUROop0z_8UXdM
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Michael Stapelberg <michael@stapelberg.de>
----
- drivers/net/phy/phy.c |   16 ++++++++++++++++
- include/linux/phy.h   |   10 ++++++++++
- 2 files changed, 26 insertions(+)
+Hi all,
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index ef9ea92..298b4c2 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -1188,3 +1188,19 @@ int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
- 	return 0;
- }
- EXPORT_SYMBOL(phy_ethtool_set_eee);
-+
-+int phy_ethtool_set_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol)
-+{
-+	if (phydev->drv->set_wol)
-+		return phydev->drv->set_wol(phydev, wol);
-+
-+	return -EOPNOTSUPP;
-+}
-+EXPORT_SYMBOL(phy_ethtool_set_wol);
-+
-+void phy_ethtool_get_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol)
-+{
-+	if (phydev->drv->get_wol)
-+		phydev->drv->get_wol(phydev, wol);
-+}
-+EXPORT_SYMBOL(phy_ethtool_get_wol);
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 33999ad..9e11039 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -455,6 +455,14 @@ struct phy_driver {
- 	 */
- 	void (*txtstamp)(struct phy_device *dev, struct sk_buff *skb, int type);
- 
-+	/* Some devices (e.g. qnap TS-119P II) require PHY register changes to
-+	 * enable Wake on LAN, so set_wol is provided to be called in the
-+	 * ethernet driver's set_wol function. */
-+	int (*set_wol)(struct phy_device *dev, struct ethtool_wolinfo *wol);
-+
-+	/* See set_wol, but for checking whether Wake on LAN is enabled. */
-+	void (*get_wol)(struct phy_device *dev, struct ethtool_wolinfo *wol);
-+
- 	struct device_driver driver;
- };
- #define to_phy_driver(d) container_of(d, struct phy_driver, driver)
-@@ -560,6 +568,8 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable);
- int phy_get_eee_err(struct phy_device *phydev);
- int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data);
- int phy_ethtool_get_eee(struct phy_device *phydev, struct ethtool_eee *data);
-+int phy_ethtool_set_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol);
-+void phy_ethtool_get_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol);
- 
- int __init mdio_bus_init(void);
- void mdio_bus_exit(void);
--- 
-1.7.10.4
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/ethernet/intel/e1000e/netdev.c between commits 4e0855dff094
+("e1000e: fix pci-device enable-counter balance") and 66148babe728
+("e1000e: fix runtime power management transitions") from Linus' tree and
+commit f0ff439872e1 ("e1000e: cleanup CODE_INDENT checkpatch errors")
+from the net-next tree.
+
+The former removed the line fixed by the latter, so I did that and can
+carry the fix as necessary (no action is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Tue__12_Mar_2013_11_33_20_+1100_9XMUROop0z_8UXdM
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRPnfQAAoJEECxmPOUX5FEQIUP/At6swZienJ8i92Y53y8t1t8
+tk/KsdXyZnopaH4NvUdyan4Q0BV39A9h3Mf8QBgA7m+spqSrwtrNivA9N3/CACnL
+3XC71EywF1n4NtUPgEqxJNYBrYr9NN1DXwagDzsivP6HE4p2C001rB47lkqIV1QQ
+y6NMBtZtwWDqlac8+m8phwKUDTW3D+c2OH2WCWaKUwc0NaDhm9NUD3F+7rr0j0pB
+TWu8FJ1sbVibxQ3KMaF+qBKQ6ZVS9NJKUAz/6e3VlUnJMQ7d/mBdq8lFTvHqFWuG
+wQ7BPGmeZkjMpSg3M4KbcxajFHvl5lLpxndhaYMKh76/Caz0Jy6NCLuyQoXql300
+M4wfHxj3cw8MJZxu74xK3wj8sgc40xYiGYO3+n9f2eXltAi0tsH7lJzWlAHO9ZrE
+C4DmzviahEgzwgq6/Wk/onnhMk0zHWa7EHwRnxKkS9BZjRy5vgCkcT3YuuZrxPoc
+Jar3CBmnKzLu+uQXhW4UNf9HQHHbY81BL2bnFanbnOrD5RQWEJPEwoDmUKSKOent
+NdNN4TZg5y0vCHqC7pnxQGVTwONOJqaa6CTMzbBAQQgas3WiUAjD2XlfRxty0dsS
+pW9ncF/Qy0eHN/DmWetjKMOOnPjprl7eDizUIVHj0LhI3iS3zuj3urFlj/rlClXW
+Z1xvSyASMA00L/U6Xvfx
+=Thrz
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__12_Mar_2013_11_33_20_+1100_9XMUROop0z_8UXdM--
