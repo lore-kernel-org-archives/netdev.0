@@ -1,55 +1,42 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH v2 1/5] documentation: dt: bindings: cpsw: cleanup documentation
-Date: Tue, 12 Mar 2013 14:46:34 +0530
-Message-ID: <1363079798-18147-2-git-send-email-mugunthanvnm@ti.com>
-References: <1363079798-18147-1-git-send-email-mugunthanvnm@ti.com>
+Subject: [PATCH v2 0/5] cpsw interrupt pacing and get/set phy setting implementation
+Date: Tue, 12 Mar 2013 14:46:33 +0530
+Message-ID: <1363079798-18147-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
 	<linux-omap@vger.kernel.org>, <b-cousson@ti.com>, <paul@pwsan.com>,
 	Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:60519 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932342Ab3CLJRS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Mar 2013 05:17:18 -0400
-In-Reply-To: <1363079798-18147-1-git-send-email-mugunthanvnm@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Move all the slave note properties to separate section to reduce the
-confusion between slave note properties and cpsw node properties
+This patch serires implements the following features in CPSW driver
+* get/set phy link settings
+* interrupt pacing
+* get phy id via ioctl cmd SIOCGMIIPHY
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- Documentation/devicetree/bindings/net/cpsw.txt |    9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+Changes from initial version
+* Made active-slave common for cpts, ethtool and SIOCGMIIPHY ioctl
+* Cleaned CPSW DT binding documentation by seperating slave nodes
+  under sub-section
+* implemented get phy id via ioctl cmd SIOCGMIIPHY
 
-diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-index ecfdf75..8e49c42 100644
---- a/Documentation/devicetree/bindings/net/cpsw.txt
-+++ b/Documentation/devicetree/bindings/net/cpsw.txt
-@@ -18,13 +18,18 @@ Required properties:
- - cpts_active_slave	: Specifies the slave to use for time stamping
- - cpts_clock_mult	: Numerator to convert input clock ticks into nanoseconds
- - cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
--- phy_id		: Specifies slave phy id
--- mac-address		: Specifies slave MAC address
- 
- Optional properties:
- - ti,hwmods		: Must be "cpgmac0"
- - no_bd_ram		: Must be 0 or 1
- - dual_emac		: Specifies Switch to act as Dual EMAC
-+
-+Slave Properties:
-+Required properties:
-+- phy_id		: Specifies slave phy id
-+- mac-address		: Specifies slave MAC address
-+
-+Optional properties:
- - dual_emac_res_vlan	: Specifies VID to be used to segregate the ports
- 
- Note: "ti,hwmods" field is used to fetch the base address and irq
+Mugunthan V N (5):
+  documentation: dt: bindings: cpsw: cleanup documentation
+  drivers: net: ethernet: cpsw: change cpts_active_slave to
+    active_slave
+  driver: net: ethernet: cpsw: implement ethtool get/set phy setting
+  driver: net: ethernet: cpsw: implement interrupt pacing via ethtool
+  drivers: net: ethernet: cpsw: implement get phy_id via ioctl
+
+ Documentation/devicetree/bindings/net/cpsw.txt |   16 ++-
+ arch/arm/boot/dts/am33xx.dtsi                  |    2 +-
+ drivers/net/ethernet/ti/cpsw.c                 |  159 ++++++++++++++++++++++--
+ include/linux/platform_data/cpsw.h             |    2 +-
+ 4 files changed, 165 insertions(+), 14 deletions(-)
+
 -- 
 1.7.9.5
+
