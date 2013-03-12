@@ -1,7 +1,7 @@
 From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH net-next 01/22] cxgb4: Add register definations for T5
-Date: Tue, 12 Mar 2013 17:16:13 +0530
-Message-ID: <1363088794-31453-2-git-send-email-vipul@chelsio.com>
+Subject: [PATCH net-next 10/22] cxgb4: Disable SR-IOV support for PF4-7 for T5
+Date: Tue, 12 Mar 2013 17:16:22 +0530
+Message-ID: <1363088794-31453-11-git-send-email-vipul@chelsio.com>
 References: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com,
 	JBottomley@parallels.com, dm@chelsio.com,
@@ -12,209 +12,102 @@ Cc: davem@davemloft.net, roland@purestorage.com,
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
 	linux-scsi@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:29244 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:29498 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932072Ab3CLLwy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 07:52:54 -0400
+	with ESMTP id S932072Ab3CLLxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 07:53:08 -0400
 In-Reply-To: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Santosh Rastapur <santosh@chelsio.com>
 
-Signed-off-by: Santosh Rastapur <santosh@chelsio.com>
+All T5 adapters will only support VFs on PF0-3 despite the ability of the
+hardware to support them on PF4-7.  This keeps our T4 and T5 adapters more
+similar which simplifies host driver software.
+
 Signed-off-by: Vipul Pandya <vipul@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |   94 ++++++++++++++++++++++++++
- 1 files changed, 94 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    8 ++++----
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   21 ++++++---------------
+ 2 files changed, 10 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 83ec5f7..22cbcb3 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -68,9 +68,14 @@
- #define  QID_SHIFT   15
- #define  QID(x)      ((x) << QID_SHIFT)
- #define  DBPRIO(x)   ((x) << 14)
-+#define  DBTYPE(x)   ((x) << 13)
- #define  PIDX_MASK   0x00003fffU
- #define  PIDX_SHIFT  0
- #define  PIDX(x)     ((x) << PIDX_SHIFT)
-+#define  S_PIDX_T5   0
-+#define  M_PIDX_T5   0x1fffU
-+#define  PIDX_T5(x)  (((x) >> S_PIDX_T5) & M_PIDX_T5)
-+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 45b18bd..681804b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -534,11 +534,11 @@ enum chip_type {
  
- #define SGE_PF_GTS 0x4
- #define  INGRESSQID_MASK   0xffff0000U
-@@ -152,6 +157,8 @@
- #define  QUEUESPERPAGEPF0_MASK   0x0000000fU
- #define  QUEUESPERPAGEPF0_GET(x) ((x) & QUEUESPERPAGEPF0_MASK)
+ #ifdef CONFIG_PCI_IOV
  
-+#define QUEUESPERPAGEPF1    4
-+
- #define SGE_INT_CAUSE1 0x1024
- #define SGE_INT_CAUSE2 0x1030
- #define SGE_INT_CAUSE3 0x103c
-@@ -272,17 +279,36 @@
- #define S_HP_INT_THRESH    28
- #define M_HP_INT_THRESH 0xfU
- #define V_HP_INT_THRESH(x) ((x) << S_HP_INT_THRESH)
-+#define S_LP_INT_THRESH_T5    18
-+#define V_LP_INT_THRESH_T5(x) ((x) << S_LP_INT_THRESH_T5)
-+#define M_LP_COUNT_T5    0x3ffffU
-+#define G_LP_COUNT_T5(x) (((x) >> S_LP_COUNT) & M_LP_COUNT_T5)
- #define M_HP_COUNT 0x7ffU
- #define S_HP_COUNT 16
- #define G_HP_COUNT(x) (((x) >> S_HP_COUNT) & M_HP_COUNT)
- #define S_LP_INT_THRESH    12
- #define M_LP_INT_THRESH 0xfU
-+#define M_LP_INT_THRESH_T5    0xfffU
- #define V_LP_INT_THRESH(x) ((x) << S_LP_INT_THRESH)
- #define M_LP_COUNT 0x7ffU
- #define S_LP_COUNT 0
- #define G_LP_COUNT(x) (((x) >> S_LP_COUNT) & M_LP_COUNT)
- #define A_SGE_DBFIFO_STATUS 0x10a4
+-/* T4 - 4 PFs support SRIOV
+- * T5 - 8 PFs support SRIOV
++/* T4 supports SRIOV on PF0-3 and T5 on PF0-7.  However, the Serial
++ * Configuration initialization for T5 only has SR-IOV functionality enabled
++ * on PF0-3 in order to simplify everything.
+  */
+-#define NUM_OF_PF_WITH_SRIOV_T4 4
+-#define NUM_OF_PF_WITH_SRIOV_T5 8
++#define NUM_OF_PF_WITH_SRIOV 4
  
-+#define SGE_STAT_TOTAL 0x10e4
-+#define SGE_STAT_MATCH 0x10e8
-+
-+#define SGE_STAT_CFG   0x10ec
-+#define S_STATSOURCE_T5    9
-+#define STATSOURCE_T5(x) ((x) << S_STATSOURCE_T5)
-+
-+#define SGE_DBFIFO_STATUS2 0x1118
-+#define M_HP_COUNT_T5    0x3ffU
-+#define G_HP_COUNT_T5(x) ((x)  & M_HP_COUNT_T5)
-+#define S_HP_INT_THRESH_T5    10
-+#define M_HP_INT_THRESH_T5    0xfU
-+#define V_HP_INT_THRESH_T5(x) ((x) << S_HP_INT_THRESH_T5)
-+
- #define S_ENABLE_DROP    13
- #define V_ENABLE_DROP(x) ((x) << S_ENABLE_DROP)
- #define F_ENABLE_DROP    V_ENABLE_DROP(1U)
-@@ -331,8 +357,27 @@
- #define  MSIADDRHPERR  0x00000002U
- #define  MSIADDRLPERR  0x00000001U
+ #endif
  
-+#define  READRSPERR      0x20000000U
-+#define  TRGT1GRPPERR    0x10000000U
-+#define  IPSOTPERR       0x08000000U
-+#define  IPRXDATAGRPPERR 0x02000000U
-+#define  IPRXHDRGRPPERR  0x01000000U
-+#define  MAGRPPERR       0x00400000U
-+#define  VFIDPERR        0x00200000U
-+#define  HREQWRPERR      0x00010000U
-+#define  DREQWRPERR      0x00002000U
-+#define  MSTTAGQPERR     0x00000400U
-+#define  PIOREQGRPPERR   0x00000100U
-+#define  PIOCPLGRPPERR   0x00000080U
-+#define  MSIXSTIPERR     0x00000004U
-+#define  MSTTIMEOUTPERR  0x00000002U
-+#define  MSTGRPPERR      0x00000001U
-+
- #define PCIE_NONFAT_ERR 0x3010
- #define PCIE_MEM_ACCESS_BASE_WIN 0x3068
-+#define S_PCIEOFST       10
-+#define M_PCIEOFST       0x3fffffU
-+#define GET_PCIEOFST(x)  (((x) >> S_PCIEOFST) & M_PCIEOFST)
- #define  PCIEOFST_MASK   0xfffffc00U
- #define  BIR_MASK        0x00000300U
- #define  BIR_SHIFT       8
-@@ -342,6 +387,9 @@
- #define  WINDOW(x)       ((x) << WINDOW_SHIFT)
- #define PCIE_MEM_ACCESS_OFFSET 0x306c
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index c502e36..a59bb23 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -360,14 +360,13 @@ static bool vf_acls;
+ module_param(vf_acls, bool, 0644);
+ MODULE_PARM_DESC(vf_acls, "if set enable virtualization L2 ACL enforcement");
  
-+#define S_PFNUM    0
-+#define V_PFNUM(x) ((x) << S_PFNUM)
-+
- #define PCIE_FW 0x30b8
- #define  PCIE_FW_ERR		0x80000000U
- #define  PCIE_FW_INIT		0x40000000U
-@@ -407,12 +455,18 @@
+-/* Since T5 has more num of PFs, using NUM_OF_PF_WITH_SRIOV_T5
+- * macro as num_vf array size
++/* Configure the number of PCI-E Virtual Function which are to be instantiated
++ * on SR-IOV Capable Physical Functions.
+  */
+-static unsigned int num_vf[NUM_OF_PF_WITH_SRIOV_T5];
++static unsigned int num_vf[NUM_OF_PF_WITH_SRIOV];
  
- #define MC_BIST_STATUS_RDATA 0x7688
+ module_param_array(num_vf, uint, NULL, 0644);
+-MODULE_PARM_DESC(num_vf,
+-		 "number of VFs for each of PFs 0-3 for T4 and PFs 0-7 for T5");
++MODULE_PARM_DESC(num_vf, "number of VFs for each of PFs 0-3");
+ #endif
  
-+#define MA_EDRAM0_BAR 0x77c0
-+#define MA_EDRAM1_BAR 0x77c4
-+#define EDRAM_SIZE_MASK   0xfffU
-+#define EDRAM_SIZE_GET(x) ((x) & EDRAM_SIZE_MASK)
-+
- #define MA_EXT_MEMORY_BAR 0x77c8
- #define  EXT_MEM_SIZE_MASK   0x00000fffU
- #define  EXT_MEM_SIZE_SHIFT  0
- #define  EXT_MEM_SIZE_GET(x) (((x) & EXT_MEM_SIZE_MASK) >> EXT_MEM_SIZE_SHIFT)
+ /*
+@@ -4633,10 +4632,8 @@ static int adap_init0_no_config(struct adapter *adapter, int reset)
+ 	 */
+ 	{
+ 		int pf, vf;
+-		int max_no_pf = is_t4(adapter->chip) ? NUM_OF_PF_WITH_SRIOV_T4 :
+-				NUM_OF_PF_WITH_SRIOV_T5;
  
- #define MA_TARGET_MEM_ENABLE 0x77d8
-+#define  EXT_MEM1_ENABLE 0x00000010U
- #define  EXT_MEM_ENABLE 0x00000004U
- #define  EDRAM1_ENABLE  0x00000002U
- #define  EDRAM0_ENABLE  0x00000001U
-@@ -431,6 +485,7 @@
- #define MA_PCIE_FW 0x30b8
- #define MA_PARITY_ERROR_STATUS 0x77f4
+-		for (pf = 0; pf < max_no_pf; pf++) {
++		for (pf = 0; pf < ARRAY_SIZE(num_vf); pf++) {
+ 			if (num_vf[pf] <= 0)
+ 				continue;
  
-+#define MA_EXT_MEMORY1_BAR 0x7808
- #define EDC_0_BASE_ADDR 0x7900
+@@ -5483,9 +5480,6 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	struct port_info *pi;
+ 	bool highdma = false;
+ 	struct adapter *adapter = NULL;
+-#ifdef CONFIG_PCI_IOV
+-	int max_no_pf;
+-#endif
  
- #define EDC_BIST_CMD 0x7904
-@@ -801,6 +856,15 @@
- #define MPS_PORT_STAT_RX_PORT_PPP7_H 0x60c
- #define MPS_PORT_STAT_RX_PORT_LESS_64B_L 0x610
- #define MPS_PORT_STAT_RX_PORT_LESS_64B_H 0x614
-+#define MAC_PORT_CFG2 0x818
-+#define MAC_PORT_MAGIC_MACID_LO 0x824
-+#define MAC_PORT_MAGIC_MACID_HI 0x828
-+#define MAC_PORT_EPIO_DATA0 0x8c0
-+#define MAC_PORT_EPIO_DATA1 0x8c4
-+#define MAC_PORT_EPIO_DATA2 0x8c8
-+#define MAC_PORT_EPIO_DATA3 0x8cc
-+#define MAC_PORT_EPIO_OP 0x8d0
-+
- #define MPS_CMN_CTL 0x9000
- #define  NUMPORTS_MASK   0x00000003U
- #define  NUMPORTS_SHIFT  0
-@@ -1063,6 +1127,7 @@
- #define  ADDRESS_SHIFT  0
- #define  ADDRESS(x)     ((x) << ADDRESS_SHIFT)
+ 	printk_once(KERN_INFO "%s - version %s\n", DRV_DESC, DRV_VERSION);
  
-+#define MAC_PORT_INT_CAUSE 0x8dc
- #define XGMAC_PORT_INT_CAUSE 0x10dc
+@@ -5704,10 +5698,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- #define A_TP_TX_MOD_QUEUE_REQ_MAP 0x7e28
-@@ -1101,4 +1166,33 @@
- #define V_PORT(x) ((x) << S_PORT)
- #define F_PORT    V_PORT(1U)
- 
-+#define NUM_MPS_CLS_SRAM_L_INSTANCES 336
-+#define NUM_MPS_T5_CLS_SRAM_L_INSTANCES 512
-+
-+#define T5_PORT0_BASE 0x30000
-+#define T5_PORT_STRIDE 0x4000
-+#define T5_PORT_BASE(idx) (T5_PORT0_BASE + (idx) * T5_PORT_STRIDE)
-+#define T5_PORT_REG(idx, reg) (T5_PORT_BASE(idx) + (reg))
-+
-+#define MC_0_BASE_ADDR 0x40000
-+#define MC_1_BASE_ADDR 0x48000
-+#define MC_STRIDE (MC_1_BASE_ADDR - MC_0_BASE_ADDR)
-+#define MC_REG(reg, idx) (reg + MC_STRIDE * idx)
-+
-+#define MC_P_BIST_CMD 0x41400
-+#define MC_P_BIST_CMD_ADDR 0x41404
-+#define MC_P_BIST_CMD_LEN 0x41408
-+#define MC_P_BIST_DATA_PATTERN 0x4140c
-+#define MC_P_BIST_STATUS_RDATA 0x41488
-+#define EDC_T50_BASE_ADDR 0x50000
-+#define EDC_H_BIST_CMD 0x50004
-+#define EDC_H_BIST_CMD_ADDR 0x50008
-+#define EDC_H_BIST_CMD_LEN 0x5000c
-+#define EDC_H_BIST_DATA_PATTERN 0x50010
-+#define EDC_H_BIST_STATUS_RDATA 0x50028
-+
-+#define EDC_T51_BASE_ADDR 0x50800
-+#define EDC_STRIDE_T5 (EDC_T51_BASE_ADDR - EDC_T50_BASE_ADDR)
-+#define EDC_REG_T5(reg, idx) (reg + EDC_STRIDE_T5 * idx)
-+
- #endif /* __T4_REGS_H */
+ sriov:
+ #ifdef CONFIG_PCI_IOV
+-	max_no_pf = is_t4(adapter->chip) ? NUM_OF_PF_WITH_SRIOV_T4 :
+-			NUM_OF_PF_WITH_SRIOV_T5;
+-
+-	if (func < max_no_pf && num_vf[func] > 0)
++	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0)
+ 		if (pci_enable_sriov(pdev, num_vf[func]) == 0)
+ 			dev_info(&pdev->dev,
+ 				 "instantiated %u virtual functions\n",
 -- 
 1.7.1
