@@ -1,234 +1,332 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH net-next 11/22] cxgb4vf: Add support for Chelsio T5 adapter
-Date: Tue, 12 Mar 2013 17:16:23 +0530
-Message-ID: <1363088794-31453-12-git-send-email-vipul@chelsio.com>
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net-next 07/22] cxgb4: Add T5 debugfs support
+Date: Tue, 12 Mar 2013 17:16:19 +0530
+Message-ID: <1363088794-31453-8-git-send-email-vipul@chelsio.com>
 References: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
-Cc: davem@davemloft.net, roland@purestorage.com,
-	JBottomley@parallels.com, dm@chelsio.com,
-	swise@opengridcomputing.com, leedom@chelsio.com,
-	naresh@chelsio.com, divy@chelsio.com, santosh@chelsio.com,
-	arvindb@chelsio.com, abhishek@chelsio.com,
-	Vipul Pandya <vipul@chelsio.com>
-To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	linux-scsi@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:23746 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932852Ab3CLLxO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 07:53:14 -0400
-In-Reply-To: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
+	JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	naresh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	arvindb-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, abhishek-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1363088794-31453-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Santosh Rastapur <santosh@chelsio.com>
+From: Santosh Rastapur <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 
-Signed-off-by: Santosh Rastapur <santosh@chelsio.com>
-Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+Signed-off-by: Santosh Rastapur <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/net/ethernet/chelsio/cxgb4vf/adapter.h     |    1 +
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |   35 ++++++++++++++++++--
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c         |    8 +++-
- drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h |   24 +++++++++++++
- drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |   14 ++++++--
- 5 files changed, 73 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    3 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   55 +++++++++---
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |  104 ++++++++++++++++------
+ 3 files changed, 119 insertions(+), 43 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
-index 68eaa9c..be5c7ef 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
-@@ -344,6 +344,7 @@ struct adapter {
- 	unsigned long registered_device_map;
- 	unsigned long open_device_map;
- 	unsigned long flags;
-+	enum chip_type chip;
- 	struct adapter_params params;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index f8ff30e..45b18bd 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -908,7 +908,8 @@ int t4_config_rss_range(struct adapter *adapter, int mbox, unsigned int viid,
+ 			int start, int n, const u16 *rspq, unsigned int nrspq);
+ int t4_config_glbl_rss(struct adapter *adapter, int mbox, unsigned int mode,
+ 		       unsigned int flags);
+-int t4_mc_read(struct adapter *adap, u32 addr, __be32 *data, u64 *parity);
++int t4_mc_read(struct adapter *adap, int idx, u32 addr, __be32 *data,
++	       u64 *parity);
+ int t4_edc_read(struct adapter *adap, int idx, u32 addr, __be32 *data,
+ 		u64 *parity);
  
- 	/* queue and interrupt resources */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 56b46ab..7fcac20 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -54,8 +54,8 @@
- /*
-  * Generic information about the driver.
-  */
--#define DRV_VERSION "1.0.0"
--#define DRV_DESC "Chelsio T4 Virtual Function (VF) Network Driver"
-+#define DRV_VERSION "2.0.0-ko"
-+#define DRV_DESC "Chelsio T4/T5 Virtual Function (VF) Network Driver"
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 177d0c1..ca88070 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -2843,8 +2843,8 @@ static ssize_t mem_read(struct file *file, char __user *buf, size_t count,
+ 		int ret, ofst;
+ 		__be32 data[16];
  
- /*
-  * Module Parameters.
-@@ -1050,7 +1050,7 @@ static inline unsigned int mk_adap_vers(const struct adapter *adapter)
- 	/*
- 	 * Chip version 4, revision 0x3f (cxgb4vf).
- 	 */
--	return 4 | (0x3f << 10);
-+	return CHELSIO_CHIP_VERSION(adapter->chip) | (0x3f << 10);
+-		if (mem == MEM_MC)
+-			ret = t4_mc_read(adap, pos, data, NULL);
++		if ((mem == MEM_MC) || (mem == MEM_MC1))
++			ret = t4_mc_read(adap, mem % MEM_MC, pos, data, NULL);
+ 		else
+ 			ret = t4_edc_read(adap, mem, pos, data, NULL);
+ 		if (ret)
+@@ -2885,18 +2885,37 @@ static void add_debugfs_mem(struct adapter *adap, const char *name,
+ static int setup_debugfs(struct adapter *adap)
+ {
+ 	int i;
++	u32 size;
+ 
+ 	if (IS_ERR_OR_NULL(adap->debugfs_root))
+ 		return -1;
+ 
+ 	i = t4_read_reg(adap, MA_TARGET_MEM_ENABLE);
+-	if (i & EDRAM0_ENABLE)
+-		add_debugfs_mem(adap, "edc0", MEM_EDC0, 5);
+-	if (i & EDRAM1_ENABLE)
+-		add_debugfs_mem(adap, "edc1", MEM_EDC1, 5);
+-	if (i & EXT_MEM_ENABLE)
+-		add_debugfs_mem(adap, "mc", MEM_MC,
+-			EXT_MEM_SIZE_GET(t4_read_reg(adap, MA_EXT_MEMORY_BAR)));
++	if (i & EDRAM0_ENABLE) {
++		size = t4_read_reg(adap, MA_EDRAM0_BAR);
++		add_debugfs_mem(adap, "edc0", MEM_EDC0,	EDRAM_SIZE_GET(size));
++	}
++	if (i & EDRAM1_ENABLE) {
++		size = t4_read_reg(adap, MA_EDRAM1_BAR);
++		add_debugfs_mem(adap, "edc1", MEM_EDC1, EDRAM_SIZE_GET(size));
++	}
++	if (is_t4(adap->chip)) {
++		size = t4_read_reg(adap, MA_EXT_MEMORY_BAR);
++		if (i & EXT_MEM_ENABLE)
++			add_debugfs_mem(adap, "mc", MEM_MC,
++					EXT_MEM_SIZE_GET(size));
++	} else {
++		if (i & EXT_MEM_ENABLE) {
++			size = t4_read_reg(adap, MA_EXT_MEMORY_BAR);
++			add_debugfs_mem(adap, "mc0", MEM_MC0,
++					EXT_MEM_SIZE_GET(size));
++		}
++		if (i & EXT_MEM1_ENABLE) {
++			size = t4_read_reg(adap, MA_EXT_MEMORY1_BAR);
++			add_debugfs_mem(adap, "mc1", MEM_MC1,
++					EXT_MEM_SIZE_GET(size));
++		}
++	}
+ 	if (adap->l2t)
+ 		debugfs_create_file("l2t", S_IRUSR, adap->debugfs_root, adap,
+ 				    &t4_l2t_fops);
+@@ -4101,17 +4120,27 @@ void t4_fatal_err(struct adapter *adap)
+ 
+ static void setup_memwin(struct adapter *adap)
+ {
+-	u32 bar0;
++	u32 bar0, mem_win0_base, mem_win1_base, mem_win2_base;
+ 
+ 	bar0 = pci_resource_start(adap->pdev, 0);  /* truncation intentional */
++	if (is_t4(adap->chip)) {
++		mem_win0_base = bar0 + MEMWIN0_BASE;
++		mem_win1_base = bar0 + MEMWIN1_BASE;
++		mem_win2_base = bar0 + MEMWIN2_BASE;
++	} else {
++		/* For T5, only relative offset inside the PCIe BAR is passed */
++		mem_win0_base = MEMWIN0_BASE;
++		mem_win1_base = MEMWIN1_BASE_T5;
++		mem_win2_base = MEMWIN2_BASE_T5;
++	}
+ 	t4_write_reg(adap, PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, 0),
+-		     (bar0 + MEMWIN0_BASE) | BIR(0) |
++		     mem_win0_base | BIR(0) |
+ 		     WINDOW(ilog2(MEMWIN0_APERTURE) - 10));
+ 	t4_write_reg(adap, PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, 1),
+-		     (bar0 + MEMWIN1_BASE) | BIR(0) |
++		     mem_win1_base | BIR(0) |
+ 		     WINDOW(ilog2(MEMWIN1_APERTURE) - 10));
+ 	t4_write_reg(adap, PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, 2),
+-		     (bar0 + MEMWIN2_BASE) | BIR(0) |
++		     mem_win2_base | BIR(0) |
+ 		     WINDOW(ilog2(MEMWIN2_APERTURE) - 10));
  }
  
- /*
-@@ -2099,6 +2099,15 @@ static int adap_init0(struct adapter *adapter)
- 		return err;
- 	}
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 229a3bf..d02d4e8 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -282,6 +282,7 @@ int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
+  *	t4_mc_read - read from MC through backdoor accesses
+  *	@adap: the adapter
+  *	@addr: address of first byte requested
++ *	@idx: which MC to access
+  *	@data: 64 bytes of data containing the requested address
+  *	@ecc: where to store the corresponding 64-bit ECC word
+  *
+@@ -289,22 +290,38 @@ int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
+  *	that covers the requested address @addr.  If @parity is not %NULL it
+  *	is assigned the 64-bit ECC word for the read data.
+  */
+-int t4_mc_read(struct adapter *adap, u32 addr, __be32 *data, u64 *ecc)
++int t4_mc_read(struct adapter *adap, int idx, u32 addr, __be32 *data, u64 *ecc)
+ {
+ 	int i;
++	u32 mc_bist_cmd, mc_bist_cmd_addr, mc_bist_cmd_len;
++	u32 mc_bist_status_rdata, mc_bist_data_pattern;
  
-+	switch (adapter->pdev->device >> 12) {
-+	case CHELSIO_T4:
-+		adapter->chip = CHELSIO_CHIP_CODE(CHELSIO_T4, 0);
-+		break;
-+	case CHELSIO_T5:
-+		adapter->chip = CHELSIO_CHIP_CODE(CHELSIO_T5, 0);
-+		break;
+-	if (t4_read_reg(adap, MC_BIST_CMD) & START_BIST)
++	if (is_t4(adap->chip)) {
++		mc_bist_cmd = MC_BIST_CMD;
++		mc_bist_cmd_addr = MC_BIST_CMD_ADDR;
++		mc_bist_cmd_len = MC_BIST_CMD_LEN;
++		mc_bist_status_rdata = MC_BIST_STATUS_RDATA;
++		mc_bist_data_pattern = MC_BIST_DATA_PATTERN;
++	} else {
++		mc_bist_cmd = MC_REG(MC_P_BIST_CMD, idx);
++		mc_bist_cmd_addr = MC_REG(MC_P_BIST_CMD_ADDR, idx);
++		mc_bist_cmd_len = MC_REG(MC_P_BIST_CMD_LEN, idx);
++		mc_bist_status_rdata = MC_REG(MC_P_BIST_STATUS_RDATA, idx);
++		mc_bist_data_pattern = MC_REG(MC_P_BIST_DATA_PATTERN, idx);
 +	}
 +
- 	/*
- 	 * Grab basic operational parameters.  These will predominantly have
- 	 * been set up by the Physical Function Driver or will be hard coded
-@@ -2888,6 +2897,26 @@ static struct pci_device_id cxgb4vf_pci_tbl[] = {
- 	CH_DEVICE(0x480a, 0),   /* T404-bt */
- 	CH_DEVICE(0x480d, 0),   /* T480-cr */
- 	CH_DEVICE(0x480e, 0),   /* T440-lp-cr */
-+	CH_DEVICE(0x5800, 0),	/* T580-dbg */
-+	CH_DEVICE(0x5801, 0),	/* T520-cr */
-+	CH_DEVICE(0x5802, 0),	/* T522-cr */
-+	CH_DEVICE(0x5803, 0),	/* T540-cr */
-+	CH_DEVICE(0x5804, 0),	/* T520-bch */
-+	CH_DEVICE(0x5805, 0),   /* T540-bch */
-+	CH_DEVICE(0x5806, 0),	/* T540-ch */
-+	CH_DEVICE(0x5807, 0),	/* T520-so */
-+	CH_DEVICE(0x5808, 0),	/* T520-cx */
-+	CH_DEVICE(0x5809, 0),	/* T520-bt */
-+	CH_DEVICE(0x580a, 0),   /* T504-bt */
-+	CH_DEVICE(0x580b, 0),   /* T520-sr */
-+	CH_DEVICE(0x580c, 0),   /* T504-bt */
-+	CH_DEVICE(0x580d, 0),   /* T580-cr */
-+	CH_DEVICE(0x580e, 0),   /* T540-lp-cr */
-+	CH_DEVICE(0x580f, 0),   /* Amsterdam */
-+	CH_DEVICE(0x5810, 0),   /* T580-lp-cr */
-+	CH_DEVICE(0x5811, 0),   /* T520-lp-cr */
-+	CH_DEVICE(0x5812, 0),   /* T560-cr */
-+	CH_DEVICE(0x5813, 0),   /* T580-cr */
- 	{ 0, }
- };
++	if (t4_read_reg(adap, mc_bist_cmd) & START_BIST)
+ 		return -EBUSY;
+-	t4_write_reg(adap, MC_BIST_CMD_ADDR, addr & ~0x3fU);
+-	t4_write_reg(adap, MC_BIST_CMD_LEN, 64);
+-	t4_write_reg(adap, MC_BIST_DATA_PATTERN, 0xc);
+-	t4_write_reg(adap, MC_BIST_CMD, BIST_OPCODE(1) | START_BIST |
++	t4_write_reg(adap, mc_bist_cmd_addr, addr & ~0x3fU);
++	t4_write_reg(adap, mc_bist_cmd_len, 64);
++	t4_write_reg(adap, mc_bist_data_pattern, 0xc);
++	t4_write_reg(adap, mc_bist_cmd, BIST_OPCODE(1) | START_BIST |
+ 		     BIST_CMD_GAP(1));
+-	i = t4_wait_op_done(adap, MC_BIST_CMD, START_BIST, 0, 10, 1);
++	i = t4_wait_op_done(adap, mc_bist_cmd, START_BIST, 0, 10, 1);
+ 	if (i)
+ 		return i;
  
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index 9488032..61dfb2a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -528,17 +528,21 @@ static void unmap_rx_buf(struct adapter *adapter, struct sge_fl *fl)
-  */
- static inline void ring_fl_db(struct adapter *adapter, struct sge_fl *fl)
+-#define MC_DATA(i) MC_BIST_STATUS_REG(MC_BIST_STATUS_RDATA, i)
++#define MC_DATA(i) MC_BIST_STATUS_REG(mc_bist_status_rdata, i)
+ 
+ 	for (i = 15; i >= 0; i--)
+ 		*data++ = htonl(t4_read_reg(adap, MC_DATA(i)));
+@@ -329,20 +346,39 @@ int t4_mc_read(struct adapter *adap, u32 addr, __be32 *data, u64 *ecc)
+ int t4_edc_read(struct adapter *adap, int idx, u32 addr, __be32 *data, u64 *ecc)
  {
-+	u32 val;
+ 	int i;
++	u32 edc_bist_cmd, edc_bist_cmd_addr, edc_bist_cmd_len;
++	u32 edc_bist_cmd_data_pattern, edc_bist_status_rdata;
+ 
+-	idx *= EDC_STRIDE;
+-	if (t4_read_reg(adap, EDC_BIST_CMD + idx) & START_BIST)
++	if (is_t4(adap->chip)) {
++		edc_bist_cmd = EDC_REG(EDC_BIST_CMD, idx);
++		edc_bist_cmd_addr = EDC_REG(EDC_BIST_CMD_ADDR, idx);
++		edc_bist_cmd_len = EDC_REG(EDC_BIST_CMD_LEN, idx);
++		edc_bist_cmd_data_pattern = EDC_REG(EDC_BIST_DATA_PATTERN,
++						    idx);
++		edc_bist_status_rdata = EDC_REG(EDC_BIST_STATUS_RDATA,
++						    idx);
++	} else {
++		edc_bist_cmd = EDC_REG_T5(EDC_H_BIST_CMD, idx);
++		edc_bist_cmd_addr = EDC_REG_T5(EDC_H_BIST_CMD_ADDR, idx);
++		edc_bist_cmd_len = EDC_REG_T5(EDC_H_BIST_CMD_LEN, idx);
++		edc_bist_cmd_data_pattern =
++			EDC_REG_T5(EDC_H_BIST_DATA_PATTERN, idx);
++		edc_bist_status_rdata =
++			 EDC_REG_T5(EDC_H_BIST_STATUS_RDATA, idx);
++	}
 +
++	if (t4_read_reg(adap, edc_bist_cmd) & START_BIST)
+ 		return -EBUSY;
+-	t4_write_reg(adap, EDC_BIST_CMD_ADDR + idx, addr & ~0x3fU);
+-	t4_write_reg(adap, EDC_BIST_CMD_LEN + idx, 64);
+-	t4_write_reg(adap, EDC_BIST_DATA_PATTERN + idx, 0xc);
+-	t4_write_reg(adap, EDC_BIST_CMD + idx,
++	t4_write_reg(adap, edc_bist_cmd_addr, addr & ~0x3fU);
++	t4_write_reg(adap, edc_bist_cmd_len, 64);
++	t4_write_reg(adap, edc_bist_cmd_data_pattern, 0xc);
++	t4_write_reg(adap, edc_bist_cmd,
+ 		     BIST_OPCODE(1) | BIST_CMD_GAP(1) | START_BIST);
+-	i = t4_wait_op_done(adap, EDC_BIST_CMD + idx, START_BIST, 0, 10, 1);
++	i = t4_wait_op_done(adap, edc_bist_cmd, START_BIST, 0, 10, 1);
+ 	if (i)
+ 		return i;
+ 
+-#define EDC_DATA(i) (EDC_BIST_STATUS_REG(EDC_BIST_STATUS_RDATA, i) + idx)
++#define EDC_DATA(i) (EDC_BIST_STATUS_REG(edc_bist_status_rdata, i))
+ 
+ 	for (i = 15; i >= 0; i--)
+ 		*data++ = htonl(t4_read_reg(adap, EDC_DATA(i)));
+@@ -366,6 +402,7 @@ int t4_edc_read(struct adapter *adap, int idx, u32 addr, __be32 *data, u64 *ecc)
+ static int t4_mem_win_rw(struct adapter *adap, u32 addr, __be32 *data, int dir)
+ {
+ 	int i;
++	u32 win_pf = is_t4(adap->chip) ? 0 : V_PFNUM(adap->fn);
+ 
  	/*
- 	 * The SGE keeps track of its Producer and Consumer Indices in terms
- 	 * of Egress Queue Units so we can only tell it about integral numbers
- 	 * of multiples of Free List Entries per Egress Queue Units ...
+ 	 * Setup offset into PCIE memory window.  Address must be a
+@@ -374,7 +411,7 @@ static int t4_mem_win_rw(struct adapter *adap, u32 addr, __be32 *data, int dir)
+ 	 * values.)
  	 */
- 	if (fl->pend_cred >= FL_PER_EQ_UNIT) {
-+		val = PIDX(fl->pend_cred / FL_PER_EQ_UNIT);
-+		if (!is_t4(adapter->chip))
-+			val |= DBTYPE(1);
- 		wmb();
- 		t4_write_reg(adapter, T4VF_SGE_BASE_ADDR + SGE_VF_KDOORBELL,
- 			     DBPRIO(1) |
--			     QID(fl->cntxt_id) |
--			     PIDX(fl->pend_cred / FL_PER_EQ_UNIT));
-+			     QID(fl->cntxt_id) | val);
- 		fl->pend_cred %= FL_PER_EQ_UNIT;
- 	}
- }
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
-index 283f9d0..53cbfed 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
-@@ -38,6 +38,25 @@
+ 	t4_write_reg(adap, PCIE_MEM_ACCESS_OFFSET,
+-		     addr & ~(MEMWIN0_APERTURE - 1));
++		     (addr & ~(MEMWIN0_APERTURE - 1)) | win_pf);
+ 	t4_read_reg(adap, PCIE_MEM_ACCESS_OFFSET);
  
- #include "../cxgb4/t4fw_api.h"
+ 	/* Collecting data 4 bytes at a time upto MEMWIN0_APERTURE */
+@@ -410,6 +447,7 @@ static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
+ 			__be32 *buf, int dir)
+ {
+ 	u32 pos, start, end, offset, memoffset;
++	u32 edc_size, mc_size;
+ 	int ret = 0;
+ 	__be32 *data;
  
-+#define CHELSIO_CHIP_CODE(version, revision) (((version) << 4) | (revision))
-+#define CHELSIO_CHIP_VERSION(code) ((code) >> 4)
-+#define CHELSIO_CHIP_RELEASE(code) ((code) & 0xf)
-+
-+#define CHELSIO_T4		0x4
-+#define CHELSIO_T5		0x5
-+
-+enum chip_type {
-+	T4_A1 = CHELSIO_CHIP_CODE(CHELSIO_T4, 0),
-+	T4_A2 = CHELSIO_CHIP_CODE(CHELSIO_T4, 1),
-+	T4_A3 = CHELSIO_CHIP_CODE(CHELSIO_T4, 2),
-+	T4_FIRST_REV	= T4_A1,
-+	T4_LAST_REV	= T4_A3,
-+
-+	T5_A1 = CHELSIO_CHIP_CODE(CHELSIO_T5, 0),
-+	T5_FIRST_REV	= T5_A1,
-+	T5_LAST_REV	= T5_A1,
-+};
-+
- /*
-  * The "len16" field of a Firmware Command Structure ...
+@@ -423,13 +461,21 @@ static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
+ 	if (!data)
+ 		return -ENOMEM;
+ 
+-	/*
+-	 * Offset into the region of memory which is being accessed
++	/* Offset into the region of memory which is being accessed
+ 	 * MEM_EDC0 = 0
+ 	 * MEM_EDC1 = 1
+-	 * MEM_MC   = 2
++	 * MEM_MC   = 2 -- T4
++	 * MEM_MC0  = 2 -- For T5
++	 * MEM_MC1  = 3 -- For T5
+ 	 */
+-	memoffset = (mtype * (5 * 1024 * 1024));
++	edc_size  = EDRAM_SIZE_GET(t4_read_reg(adap, MA_EDRAM0_BAR));
++	if (mtype != MEM_MC1)
++		memoffset = (mtype * (edc_size * 1024 * 1024));
++	else {
++		mc_size = EXT_MEM_SIZE_GET(t4_read_reg(adap,
++						       MA_EXT_MEMORY_BAR));
++		memoffset = (MEM_MC0 * edc_size + mc_size) * 1024 * 1024;
++	}
+ 
+ 	/* Determine the PCIE_MEM_ACCESS_OFFSET */
+ 	addr = addr + memoffset;
+@@ -2411,24 +2457,24 @@ int t4_fwaddrspace_write(struct adapter *adap, unsigned int mbox,
+  *     @addr: address of first byte requested aligned on 32b.
+  *     @data: len bytes to hold the data read
+  *     @len: amount of data to read from window.  Must be <=
+- *            MEMWIN0_APERATURE after adjusting for 16B alignment
+- *            requirements of the the memory window.
++ *            MEMWIN0_APERATURE after adjusting for 16B for T4 and
++ *            128B for T5 alignment requirements of the the memory window.
+  *
+  *     Read len bytes of data from MC starting at @addr.
   */
-@@ -232,6 +251,11 @@ static inline int t4vf_wr_mbox_ns(struct adapter *adapter, const void *cmd,
- 	return t4vf_wr_mbox_core(adapter, cmd, size, rpl, false);
- }
+ int t4_mem_win_read_len(struct adapter *adap, u32 addr, __be32 *data, int len)
+ {
+-	int i;
+-	int off;
++	int i, off;
++	u32 win_pf = is_t4(adap->chip) ? 0 : V_PFNUM(adap->fn);
  
-+static inline int is_t4(enum chip_type chip)
-+{
-+	return (chip >= T4_FIRST_REV && chip <= T4_LAST_REV);
-+}
-+
- int t4vf_wait_dev_ready(struct adapter *);
- int t4vf_port_init(struct adapter *, int);
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-index 7127c7b..9f96dc3 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-@@ -1027,8 +1027,11 @@ int t4vf_alloc_mac_filt(struct adapter *adapter, unsigned int viid, bool free,
- 	unsigned nfilters = 0;
- 	unsigned int rem = naddr;
- 	struct fw_vi_mac_cmd cmd, rpl;
-+	unsigned int max_naddr = is_t4(adapter->chip) ?
-+				 NUM_MPS_CLS_SRAM_L_INSTANCES :
-+				 NUM_MPS_T5_CLS_SRAM_L_INSTANCES;
- 
--	if (naddr > FW_CLS_TCAM_NUM_ENTRIES)
-+	if (naddr > max_naddr)
+-	/*
+-	 * Align on a 16B boundary.
++	/* Align on a 2KB boundary.
+ 	 */
+-	off = addr & 15;
++	off = addr & MEMWIN0_APERTURE;
+ 	if ((addr & 3) || (len + off) > MEMWIN0_APERTURE)
  		return -EINVAL;
  
- 	for (offset = 0; offset < naddr; /**/) {
-@@ -1069,10 +1072,10 @@ int t4vf_alloc_mac_filt(struct adapter *adapter, unsigned int viid, bool free,
+-	t4_write_reg(adap, PCIE_MEM_ACCESS_OFFSET, addr & ~15);
++	t4_write_reg(adap, PCIE_MEM_ACCESS_OFFSET,
++		     (addr & ~MEMWIN0_APERTURE) | win_pf);
+ 	t4_read_reg(adap, PCIE_MEM_ACCESS_OFFSET);
  
- 			if (idx)
- 				idx[offset+i] =
--					(index >= FW_CLS_TCAM_NUM_ENTRIES
-+					(index >= max_naddr
- 					 ? 0xffff
- 					 : index);
--			if (index < FW_CLS_TCAM_NUM_ENTRIES)
-+			if (index < max_naddr)
- 				nfilters++;
- 			else if (hash)
- 				*hash |= (1ULL << hash_mac_addr(addr[offset+i]));
-@@ -1118,6 +1121,9 @@ int t4vf_change_mac(struct adapter *adapter, unsigned int viid,
- 	struct fw_vi_mac_exact *p = &cmd.u.exact[0];
- 	size_t len16 = DIV_ROUND_UP(offsetof(struct fw_vi_mac_cmd,
- 					     u.exact[1]), 16);
-+	unsigned int max_naddr = is_t4(adapter->chip) ?
-+				 NUM_MPS_CLS_SRAM_L_INSTANCES :
-+				 NUM_MPS_T5_CLS_SRAM_L_INSTANCES;
- 
- 	/*
- 	 * If this is a new allocation, determine whether it should be
-@@ -1140,7 +1146,7 @@ int t4vf_change_mac(struct adapter *adapter, unsigned int viid,
- 	if (ret == 0) {
- 		p = &rpl.u.exact[0];
- 		ret = FW_VI_MAC_CMD_IDX_GET(be16_to_cpu(p->valid_to_idx));
--		if (ret >= FW_CLS_TCAM_NUM_ENTRIES)
-+		if (ret >= max_naddr)
- 			ret = -ENOMEM;
- 	}
- 	return ret;
+ 	for (i = 0; i < len; i += 4)
 -- 
 1.7.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
