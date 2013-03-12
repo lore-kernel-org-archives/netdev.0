@@ -1,7 +1,7 @@
 From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH net-next 06/22] cxgb4: Enable doorbell drop recovery only for T4 adapter
-Date: Tue, 12 Mar 2013 17:16:18 +0530
-Message-ID: <1363088794-31453-7-git-send-email-vipul@chelsio.com>
+Subject: [PATCH net-next 11/22] cxgb4vf: Add support for Chelsio T5 adapter
+Date: Tue, 12 Mar 2013 17:16:23 +0530
+Message-ID: <1363088794-31453-12-git-send-email-vipul@chelsio.com>
 References: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com,
 	JBottomley@parallels.com, dm@chelsio.com,
@@ -12,9 +12,9 @@ Cc: davem@davemloft.net, roland@purestorage.com,
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
 	linux-scsi@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:32672 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:23746 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932072Ab3CLLxO (ORCPT
+	with ESMTP id S932852Ab3CLLxO (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 07:53:14 -0400
 In-Reply-To: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
@@ -25,134 +25,210 @@ From: Santosh Rastapur <santosh@chelsio.com>
 Signed-off-by: Santosh Rastapur <santosh@chelsio.com>
 Signed-off-by: Vipul Pandya <vipul@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   87 ++++++++++++++++++----
- 1 files changed, 71 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4vf/adapter.h     |    1 +
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |   35 ++++++++++++++++++--
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c         |    8 +++-
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h |   24 +++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |   14 ++++++--
+ 5 files changed, 73 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index ce1451c..177d0c1 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3227,10 +3227,18 @@ EXPORT_SYMBOL(cxgb4_port_chan);
- unsigned int cxgb4_dbfifo_count(const struct net_device *dev, int lpfifo)
- {
- 	struct adapter *adap = netdev2adap(dev);
--	u32 v;
-+	u32 v1, v2, lp_count, hp_count;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
+index 68eaa9c..be5c7ef 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
+@@ -344,6 +344,7 @@ struct adapter {
+ 	unsigned long registered_device_map;
+ 	unsigned long open_device_map;
+ 	unsigned long flags;
++	enum chip_type chip;
+ 	struct adapter_params params;
  
--	v = t4_read_reg(adap, A_SGE_DBFIFO_STATUS);
--	return lpfifo ? G_LP_COUNT(v) : G_HP_COUNT(v);
-+	v1 = t4_read_reg(adap, A_SGE_DBFIFO_STATUS);
-+	v2 = t4_read_reg(adap, SGE_DBFIFO_STATUS2);
-+	if (is_t4(adap->chip)) {
-+		lp_count = G_LP_COUNT(v1);
-+		hp_count = G_HP_COUNT(v1);
-+	} else {
-+		lp_count = G_LP_COUNT_T5(v1);
-+		hp_count = G_HP_COUNT_T5(v2);
-+	}
-+	return lpfifo ? lp_count : hp_count;
- }
- EXPORT_SYMBOL(cxgb4_dbfifo_count);
+ 	/* queue and interrupt resources */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 56b46ab..7fcac20 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -54,8 +54,8 @@
+ /*
+  * Generic information about the driver.
+  */
+-#define DRV_VERSION "1.0.0"
+-#define DRV_DESC "Chelsio T4 Virtual Function (VF) Network Driver"
++#define DRV_VERSION "2.0.0-ko"
++#define DRV_DESC "Chelsio T4/T5 Virtual Function (VF) Network Driver"
  
-@@ -3368,14 +3376,23 @@ static struct notifier_block cxgb4_netevent_nb = {
- 
- static void drain_db_fifo(struct adapter *adap, int usecs)
- {
--	u32 v;
-+	u32 v1, v2, lp_count, hp_count;
- 
- 	do {
-+		v1 = t4_read_reg(adap, A_SGE_DBFIFO_STATUS);
-+		v2 = t4_read_reg(adap, SGE_DBFIFO_STATUS2);
-+		if (is_t4(adap->chip)) {
-+			lp_count = G_LP_COUNT(v1);
-+			hp_count = G_HP_COUNT(v1);
-+		} else {
-+			lp_count = G_LP_COUNT_T5(v1);
-+			hp_count = G_HP_COUNT_T5(v2);
-+		}
-+
-+		if (lp_count == 0 && hp_count == 0)
-+			break;
- 		set_current_state(TASK_UNINTERRUPTIBLE);
- 		schedule_timeout(usecs_to_jiffies(usecs));
--		v = t4_read_reg(adap, A_SGE_DBFIFO_STATUS);
--		if (G_LP_COUNT(v) == 0 && G_HP_COUNT(v) == 0)
--			break;
- 	} while (1);
+ /*
+  * Module Parameters.
+@@ -1050,7 +1050,7 @@ static inline unsigned int mk_adap_vers(const struct adapter *adapter)
+ 	/*
+ 	 * Chip version 4, revision 0x3f (cxgb4vf).
+ 	 */
+-	return 4 | (0x3f << 10);
++	return CHELSIO_CHIP_VERSION(adapter->chip) | (0x3f << 10);
  }
  
-@@ -3484,24 +3501,62 @@ static void process_db_drop(struct work_struct *work)
+ /*
+@@ -2099,6 +2099,15 @@ static int adap_init0(struct adapter *adapter)
+ 		return err;
+ 	}
  
- 	adap = container_of(work, struct adapter, db_drop_task);
- 
-+	if (is_t4(adap->chip)) {
-+		disable_dbs(adap);
-+		notify_rdma_uld(adap, CXGB4_CONTROL_DB_DROP);
-+		drain_db_fifo(adap, 1);
-+		recover_all_queues(adap);
-+		enable_dbs(adap);
-+	} else {
-+		u32 dropped_db = t4_read_reg(adap, 0x010ac);
-+		u16 qid = (dropped_db >> 15) & 0x1ffff;
-+		u16 pidx_inc = dropped_db & 0x1fff;
-+		unsigned int s_qpp;
-+		unsigned short udb_density;
-+		unsigned long qpshift;
-+		int page;
-+		u32 udb;
-+
-+		dev_warn(adap->pdev_dev,
-+			 "Dropped DB 0x%x qid %d bar2 %d coalesce %d pidx %d\n",
-+			 dropped_db, qid,
-+			 (dropped_db >> 14) & 1,
-+			 (dropped_db >> 13) & 1,
-+			 pidx_inc);
-+
-+		drain_db_fifo(adap, 1);
-+
-+		s_qpp = QUEUESPERPAGEPF1 * adap->fn;
-+		udb_density = 1 << QUEUESPERPAGEPF0_GET(t4_read_reg(adap,
-+				SGE_EGRESS_QUEUES_PER_PAGE_PF) >> s_qpp);
-+		qpshift = PAGE_SHIFT - ilog2(udb_density);
-+		udb = qid << qpshift;
-+		udb &= PAGE_MASK;
-+		page = udb / PAGE_SIZE;
-+		udb += (qid - (page * udb_density)) * 128;
-+
-+		writel(PIDX(pidx_inc),  adap->bar2 + udb + 8);
-+
-+		/* Re-enable BAR2 WC */
-+		t4_set_reg_field(adap, 0x10b0, 1<<15, 1<<15);
++	switch (adapter->pdev->device >> 12) {
++	case CHELSIO_T4:
++		adapter->chip = CHELSIO_CHIP_CODE(CHELSIO_T4, 0);
++		break;
++	case CHELSIO_T5:
++		adapter->chip = CHELSIO_CHIP_CODE(CHELSIO_T5, 0);
++		break;
 +	}
 +
- 	t4_set_reg_field(adap, A_SGE_DOORBELL_CONTROL, F_DROPPED_DB, 0);
--	disable_dbs(adap);
--	notify_rdma_uld(adap, CXGB4_CONTROL_DB_DROP);
--	drain_db_fifo(adap, 1);
--	recover_all_queues(adap);
--	enable_dbs(adap);
- }
+ 	/*
+ 	 * Grab basic operational parameters.  These will predominantly have
+ 	 * been set up by the Physical Function Driver or will be hard coded
+@@ -2888,6 +2897,26 @@ static struct pci_device_id cxgb4vf_pci_tbl[] = {
+ 	CH_DEVICE(0x480a, 0),   /* T404-bt */
+ 	CH_DEVICE(0x480d, 0),   /* T480-cr */
+ 	CH_DEVICE(0x480e, 0),   /* T440-lp-cr */
++	CH_DEVICE(0x5800, 0),	/* T580-dbg */
++	CH_DEVICE(0x5801, 0),	/* T520-cr */
++	CH_DEVICE(0x5802, 0),	/* T522-cr */
++	CH_DEVICE(0x5803, 0),	/* T540-cr */
++	CH_DEVICE(0x5804, 0),	/* T520-bch */
++	CH_DEVICE(0x5805, 0),   /* T540-bch */
++	CH_DEVICE(0x5806, 0),	/* T540-ch */
++	CH_DEVICE(0x5807, 0),	/* T520-so */
++	CH_DEVICE(0x5808, 0),	/* T520-cx */
++	CH_DEVICE(0x5809, 0),	/* T520-bt */
++	CH_DEVICE(0x580a, 0),   /* T504-bt */
++	CH_DEVICE(0x580b, 0),   /* T520-sr */
++	CH_DEVICE(0x580c, 0),   /* T504-bt */
++	CH_DEVICE(0x580d, 0),   /* T580-cr */
++	CH_DEVICE(0x580e, 0),   /* T540-lp-cr */
++	CH_DEVICE(0x580f, 0),   /* Amsterdam */
++	CH_DEVICE(0x5810, 0),   /* T580-lp-cr */
++	CH_DEVICE(0x5811, 0),   /* T520-lp-cr */
++	CH_DEVICE(0x5812, 0),   /* T560-cr */
++	CH_DEVICE(0x5813, 0),   /* T580-cr */
+ 	{ 0, }
+ };
  
- void t4_db_full(struct adapter *adap)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+index 9488032..61dfb2a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+@@ -528,17 +528,21 @@ static void unmap_rx_buf(struct adapter *adapter, struct sge_fl *fl)
+  */
+ static inline void ring_fl_db(struct adapter *adapter, struct sge_fl *fl)
  {
--	t4_set_reg_field(adap, SGE_INT_ENABLE3,
--			 DBFIFO_HP_INT | DBFIFO_LP_INT, 0);
--	queue_work(workq, &adap->db_full_task);
-+	if (is_t4(adap->chip)) {
-+		t4_set_reg_field(adap, SGE_INT_ENABLE3,
-+				 DBFIFO_HP_INT | DBFIFO_LP_INT, 0);
-+		queue_work(workq, &adap->db_full_task);
-+	}
++	u32 val;
++
+ 	/*
+ 	 * The SGE keeps track of its Producer and Consumer Indices in terms
+ 	 * of Egress Queue Units so we can only tell it about integral numbers
+ 	 * of multiples of Free List Entries per Egress Queue Units ...
+ 	 */
+ 	if (fl->pend_cred >= FL_PER_EQ_UNIT) {
++		val = PIDX(fl->pend_cred / FL_PER_EQ_UNIT);
++		if (!is_t4(adapter->chip))
++			val |= DBTYPE(1);
+ 		wmb();
+ 		t4_write_reg(adapter, T4VF_SGE_BASE_ADDR + SGE_VF_KDOORBELL,
+ 			     DBPRIO(1) |
+-			     QID(fl->cntxt_id) |
+-			     PIDX(fl->pend_cred / FL_PER_EQ_UNIT));
++			     QID(fl->cntxt_id) | val);
+ 		fl->pend_cred %= FL_PER_EQ_UNIT;
+ 	}
+ }
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
+index 283f9d0..53cbfed 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
+@@ -38,6 +38,25 @@
+ 
+ #include "../cxgb4/t4fw_api.h"
+ 
++#define CHELSIO_CHIP_CODE(version, revision) (((version) << 4) | (revision))
++#define CHELSIO_CHIP_VERSION(code) ((code) >> 4)
++#define CHELSIO_CHIP_RELEASE(code) ((code) & 0xf)
++
++#define CHELSIO_T4		0x4
++#define CHELSIO_T5		0x5
++
++enum chip_type {
++	T4_A1 = CHELSIO_CHIP_CODE(CHELSIO_T4, 0),
++	T4_A2 = CHELSIO_CHIP_CODE(CHELSIO_T4, 1),
++	T4_A3 = CHELSIO_CHIP_CODE(CHELSIO_T4, 2),
++	T4_FIRST_REV	= T4_A1,
++	T4_LAST_REV	= T4_A3,
++
++	T5_A1 = CHELSIO_CHIP_CODE(CHELSIO_T5, 0),
++	T5_FIRST_REV	= T5_A1,
++	T5_LAST_REV	= T5_A1,
++};
++
+ /*
+  * The "len16" field of a Firmware Command Structure ...
+  */
+@@ -232,6 +251,11 @@ static inline int t4vf_wr_mbox_ns(struct adapter *adapter, const void *cmd,
+ 	return t4vf_wr_mbox_core(adapter, cmd, size, rpl, false);
  }
  
- void t4_db_dropped(struct adapter *adap)
- {
--	queue_work(workq, &adap->db_drop_task);
-+	if (is_t4(adap->chip))
-+		queue_work(workq, &adap->db_drop_task);
- }
++static inline int is_t4(enum chip_type chip)
++{
++	return (chip >= T4_FIRST_REV && chip <= T4_LAST_REV);
++}
++
+ int t4vf_wait_dev_ready(struct adapter *);
+ int t4vf_port_init(struct adapter *, int);
  
- static void uld_attach(struct adapter *adap, unsigned int uld)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+index 7127c7b..9f96dc3 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+@@ -1027,8 +1027,11 @@ int t4vf_alloc_mac_filt(struct adapter *adapter, unsigned int viid, bool free,
+ 	unsigned nfilters = 0;
+ 	unsigned int rem = naddr;
+ 	struct fw_vi_mac_cmd cmd, rpl;
++	unsigned int max_naddr = is_t4(adapter->chip) ?
++				 NUM_MPS_CLS_SRAM_L_INSTANCES :
++				 NUM_MPS_T5_CLS_SRAM_L_INSTANCES;
+ 
+-	if (naddr > FW_CLS_TCAM_NUM_ENTRIES)
++	if (naddr > max_naddr)
+ 		return -EINVAL;
+ 
+ 	for (offset = 0; offset < naddr; /**/) {
+@@ -1069,10 +1072,10 @@ int t4vf_alloc_mac_filt(struct adapter *adapter, unsigned int viid, bool free,
+ 
+ 			if (idx)
+ 				idx[offset+i] =
+-					(index >= FW_CLS_TCAM_NUM_ENTRIES
++					(index >= max_naddr
+ 					 ? 0xffff
+ 					 : index);
+-			if (index < FW_CLS_TCAM_NUM_ENTRIES)
++			if (index < max_naddr)
+ 				nfilters++;
+ 			else if (hash)
+ 				*hash |= (1ULL << hash_mac_addr(addr[offset+i]));
+@@ -1118,6 +1121,9 @@ int t4vf_change_mac(struct adapter *adapter, unsigned int viid,
+ 	struct fw_vi_mac_exact *p = &cmd.u.exact[0];
+ 	size_t len16 = DIV_ROUND_UP(offsetof(struct fw_vi_mac_cmd,
+ 					     u.exact[1]), 16);
++	unsigned int max_naddr = is_t4(adapter->chip) ?
++				 NUM_MPS_CLS_SRAM_L_INSTANCES :
++				 NUM_MPS_T5_CLS_SRAM_L_INSTANCES;
+ 
+ 	/*
+ 	 * If this is a new allocation, determine whether it should be
+@@ -1140,7 +1146,7 @@ int t4vf_change_mac(struct adapter *adapter, unsigned int viid,
+ 	if (ret == 0) {
+ 		p = &rpl.u.exact[0];
+ 		ret = FW_VI_MAC_CMD_IDX_GET(be16_to_cpu(p->valid_to_idx));
+-		if (ret >= FW_CLS_TCAM_NUM_ENTRIES)
++		if (ret >= max_naddr)
+ 			ret = -ENOMEM;
+ 	}
+ 	return ret;
 -- 
 1.7.1
