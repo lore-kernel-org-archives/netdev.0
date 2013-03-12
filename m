@@ -1,30 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] flow_dissector: support L2 GRE
-Date: Tue, 12 Mar 2013 05:15:53 -0400 (EDT)
-Message-ID: <20130312.051553.1726821361756046058.davem@davemloft.net>
-References: <1363020748.13690.3.camel@edumazet-glaptop>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [PATCH v2 3/5] driver: net: ethernet: cpsw: implement ethtool get/set phy setting
+Date: Tue, 12 Mar 2013 14:46:36 +0530
+Message-ID: <1363079798-18147-4-git-send-email-mugunthanvnm@ti.com>
+References: <1363079798-18147-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mwdalton@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47324 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755144Ab3CLJPk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 05:15:40 -0400
-In-Reply-To: <1363020748.13690.3.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
+	<linux-omap@vger.kernel.org>, <b-cousson@ti.com>, <paul@pwsan.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1363079798-18147-1-git-send-email-mugunthanvnm@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 11 Mar 2013 17:52:28 +0100
+This patch implements get/set of the phy settings via ethtool apis
 
-> From: Michael Dalton <mwdalton@google.com>
-> 
-> Add support for L2 GRE tunnels, so that RPS can be more effective.
-> 
-> Signed-off-by: Michael Dalton <mwdalton@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c |   29 +++++++++++++++++++++++++++++
+ 1 file changed, 29 insertions(+)
 
-Applied.
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 98aa17a..83ce890 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -139,6 +139,10 @@ do {								\
+ 			disable_irq_nosync(priv->irqs_table[i]); \
+ 	} while (0);
+ 
++#define cpsw_slave_index(priv)				\
++		((priv->data.dual_emac) ? priv->emac_port :	\
++		priv->data.active_slave)
++
+ static int debug_level;
+ module_param(debug_level, int, 0);
+ MODULE_PARM_DESC(debug_level, "cpsw debug level (NETIF_MSG bits)");
+@@ -1244,12 +1248,37 @@ static int cpsw_get_ts_info(struct net_device *ndev,
+ 	return 0;
+ }
+ 
++static int cpsw_get_settings(struct net_device *ndev,
++			     struct ethtool_cmd *ecmd)
++{
++	struct cpsw_priv *priv = netdev_priv(ndev);
++	int slave_no = cpsw_slave_index(priv);
++
++	if (priv->slaves[slave_no].phy)
++		return phy_ethtool_gset(priv->slaves[slave_no].phy, ecmd);
++	else
++		return -EOPNOTSUPP;
++}
++
++static int cpsw_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
++{
++	struct cpsw_priv *priv = netdev_priv(ndev);
++	int slave_no = cpsw_slave_index(priv);
++
++	if (priv->slaves[slave_no].phy)
++		return phy_ethtool_sset(priv->slaves[slave_no].phy, ecmd);
++	else
++		return -EOPNOTSUPP;
++}
++
+ static const struct ethtool_ops cpsw_ethtool_ops = {
+ 	.get_drvinfo	= cpsw_get_drvinfo,
+ 	.get_msglevel	= cpsw_get_msglevel,
+ 	.set_msglevel	= cpsw_set_msglevel,
+ 	.get_link	= ethtool_op_get_link,
+ 	.get_ts_info	= cpsw_get_ts_info,
++	.get_settings	= cpsw_get_settings,
++	.set_settings	= cpsw_set_settings,
+ };
+ 
+ static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
+-- 
+1.7.9.5
+
