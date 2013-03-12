@@ -1,45 +1,40 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: [PATCH] Rate should be u64 to avoid integer overflow at high
- speeds (>= ~35Gbit)
-Date: Tue, 12 Mar 2013 08:29:53 -0600
-Message-ID: <513F3BE1.2080409@genband.com>
-References: <1362885604-14006-1-git-send-email-j.vimal@gmail.com>	 <1362888229.4051.2.camel@edumazet-glaptop>	 <CAK3Ji11Mij3Y_sGC6nLS01rxfccZo0SPJmQy-LAmskz1OEdmkQ@mail.gmail.com>	 <1362891937.4051.25.camel@edumazet-glaptop>	 <20130310004904.de508bfa.billfink@mindspring.com> <1362894876.4051.27.camel@edumazet-glaptop>
+From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: Re: [PATCH net-next 05/22] cxgb4: Add T5 write combining support
+Date: Tue, 12 Mar 2013 09:42:05 -0500
+Message-ID: <513F3EBD.5020504@opengridcomputing.com>
+References: <1363088794-31453-1-git-send-email-vipul@chelsio.com> <1363088794-31453-6-git-send-email-vipul@chelsio.com> <20130312.081927.1036246728528667686.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Bill Fink <billfink@mindspring.com>, Vimal <j.vimal@gmail.com>,
-	netdev@vger.kernel.org, shemminger <shemminger@vyatta.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og127.obsmtp.com ([64.18.2.210]:48136 "EHLO
-	exprod7og127.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753694Ab3CLOaa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 10:30:30 -0400
-In-Reply-To: <1362894876.4051.27.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, naresh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, arvindb-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, abhishek-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130312.081927.1036246728528667686.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/09/2013 11:54 PM, Eric Dumazet wrote:
-> On Sun, 2013-03-10 at 00:49 -0500, Bill Fink wrote:
+On 3/12/2013 7:19 AM, David Miller wrote:
+> From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+> Date: Tue, 12 Mar 2013 17:16:17 +0530
 >
->> I don't see the problem.  An old program would not know about
->> the new multiplier, would thus get the default multiplier of 1,
->> and get the same behavior as always, with the same limitation
->> of ~34 Gbps.  But someone with a newer tc/kernel could for example
->> specify a multiplier of 10, which would then support rates up to
->> about 340 Gbps.  It sounds like a reasonable approach to me.
+>> +				writel(n,  adap->bar2 + q->udb + 8);
+>> +#if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
+>> +			asm volatile("sfence" : : : "memory");
+>> +#endif
+> There is absolutely no way I'm letting anyone put crap like this
+> into a driver.
 >
-> Hopefully, some of us see the problem here and are able to reject
-> patches before breaking user land.
+> Use a portable inteface, and if one does not exist create one.
 
-The only problem I see is that you can't set the multiplier with a new 
-tool and then query the rate with old tools.
-
-But you're going to run into that problem with the old tools no matter 
-what you do--and not doing anything is a crappy option as well.
-
-Some kind of multiplier or shift makes as much sense as anything else. 
-With old tools you get current behaviour, with new tools you can specify 
-a multiplying factor to trade off resolution vs precision.
-
-Chris
+I guess you'll have to add a wc_wmb() function for all the hw platforms 
+supported by the kernel.  I see libibverbs defines this for the user 
+side in include/infiniband/arch.h, and that could be used as the meat of 
+the hw platform-specific implementations.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
