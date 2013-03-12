@@ -1,55 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net/core: move vlan_depth out of while loop in
- skb_network_protocol()
-Date: Tue, 12 Mar 2013 07:56:26 +0100
-Message-ID: <1363071386.13690.7.camel@edumazet-glaptop>
-References: <1363069844-10624-1-git-send-email-roy.qing.li@gmail.com>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: igb driver triggers BUILD_BUG_ON on s390
+Date: Tue, 12 Mar 2013 07:59:00 +0100
+Message-ID: <20130312065900.GA4148@osiris>
+References: <20130309100004.GA3584@osiris>
+ <513DFC80.5000105@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>
-To: roy.qing.li@gmail.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:47123 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753416Ab3CLG4b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 02:56:31 -0400
-Received: by mail-ee0-f54.google.com with SMTP id c41so2615821eek.41
-        for <netdev@vger.kernel.org>; Mon, 11 Mar 2013 23:56:30 -0700 (PDT)
-In-Reply-To: <1363069844-10624-1-git-send-email-roy.qing.li@gmail.com>
+Received: from e06smtp13.uk.ibm.com ([195.75.94.109]:55106 "EHLO
+	e06smtp13.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753416Ab3CLG7F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 02:59:05 -0400
+Received: from /spool/local
+	by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <heiko.carstens@de.ibm.com>;
+	Tue, 12 Mar 2013 06:57:02 -0000
+Received: from b06cxnps4076.portsmouth.uk.ibm.com (d06relay13.portsmouth.uk.ibm.com [9.149.109.198])
+	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 3271E219002D
+	for <netdev@vger.kernel.org>; Tue, 12 Mar 2013 07:00:35 +0000 (GMT)
+Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
+	by b06cxnps4076.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r2C6wpYX27656430
+	for <netdev@vger.kernel.org>; Tue, 12 Mar 2013 06:58:51 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (localhost.localdomain [127.0.0.1])
+	by d06av03.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r2C6x0nl003484
+	for <netdev@vger.kernel.org>; Tue, 12 Mar 2013 00:59:00 -0600
+Content-Disposition: inline
+In-Reply-To: <513DFC80.5000105@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-03-12 at 14:30 +0800, roy.qing.li@gmail.com wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> move vlan_depth out of while loop, or else vlan_depth always is ETH_HLEN,
-> can not be increased, and lead to infinite loop when frame has two vlan headers.
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->  net/core/dev.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 90cee5b..35a6a6e 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2211,9 +2211,9 @@ EXPORT_SYMBOL(skb_checksum_help);
->  __be16 skb_network_protocol(struct sk_buff *skb)
->  {
->  	__be16 type = skb->protocol;
-> +	int vlan_depth = ETH_HLEN;
->  
->  	while (type == htons(ETH_P_8021Q)) {
-> -		int vlan_depth = ETH_HLEN;
->  		struct vlan_hdr *vh;
->  
->  		if (unlikely(!pskb_may_pull(skb, vlan_depth + VLAN_HLEN)))
+On Mon, Mar 11, 2013 at 08:47:12AM -0700, Alexander Duyck wrote:
+> On 03/09/2013 02:00 AM, Heiko Carstens wrote:
+> > git commit 74e238ead "igb: Support using build_skb in the case that
+> > jumbo frames are disabled" added a BUILD_BUG_ON() to the igb driver=
+s
+> > which triggers on s390:
+> >
+> > drivers/net/ethernet/intel/igb/igb_main.c:6231:2:
+> > error: call to =E2=80=98__compiletime_assert_6235=E2=80=99 declared=
+ with attribute error:
+> >   BUILD_BUG_ON failed: SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) <
+> >     (NET_SKB_PAD + NET_IP_ALIGN + IGB_TS_HDR_LEN + ETH_FRAME_LEN + =
+ETH_FCS_LEN)
+> >
+> > Any opinions?
+> >
+>=20
+> A fix for this has already been submitted. As it turns out the
+> BUILD_BUG_ON is mostly redundant anyway since we used a similar
+> calculation to determine if we were going to enable the use of build_=
+skb
+> per ring.
 
-Nice catch, bug added in commit 05e8ef4ab2d8087d (net: factor out
-skb_mac_gso_segment() from skb_gso_segment() )
-
-So this is a patch for net tree, not for net-next.
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+Ok, thanks!
