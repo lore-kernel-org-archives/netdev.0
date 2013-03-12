@@ -1,179 +1,65 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: don't break the loop while meeting the active_path
- so as to find the matched transport
-Date: Tue, 12 Mar 2013 12:00:32 -0400
-Message-ID: <513F5120.7090209@gmail.com>
-References: <1362728377-11025-1-git-send-email-xufeng.zhang@windriver.com> <20130308142720.GA9873@hmsreliant.think-freely.org> <CA+=dFzjyd4av9D1TmrvguRXv-V7JnGWYJcN=ZEDu8Qhz2s+U7Q@mail.gmail.com> <20130311133121.GD12682@hmsreliant.think-freely.org> <513F1B76.2060603@gmail.com> <20130312154427.GA5969@neilslaptop.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Xufeng Zhang <xufengzhang.main@gmail.com>,
-	Xufeng Zhang <xufeng.zhang@windriver.com>, davem@davemloft.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130312154427.GA5969@neilslaptop.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH] bonding: don't call update_speed_duplex() under spinlocks
+Date: Tue, 12 Mar 2013 17:31:32 +0100
+Message-ID: <1363105892-3172-1-git-send-email-vfalico@redhat.com>
+Cc: vfalico@redhat.com, lkml@tlinx.org, eric.dumazet@gmail.com,
+	fubar@us.ibm.com, jeffrey.t.kirsher@intel.com,
+	xiyou.wangcong@gmail.com, andy@greyhouse.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:25397 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755150Ab3CLQbr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Mar 2013 12:31:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/12/2013 11:44 AM, Neil Horman wrote:
-> On Tue, Mar 12, 2013 at 08:11:34AM -0400, Vlad Yasevich wrote:
->> On 03/11/2013 09:31 AM, Neil Horman wrote:
->>> On Mon, Mar 11, 2013 at 10:14:50AM +0800, Xufeng Zhang wrote:
->>>> On 3/8/13, Neil Horman <nhorman@tuxdriver.com> wrote:
->>>>> On Fri, Mar 08, 2013 at 03:39:37PM +0800, Xufeng Zhang wrote:
->>>>>> sctp_assoc_lookup_tsn() function searchs which transport a certain TSN
->>>>>> was sent on, if not found in the active_path transport, then go search
->>>>>> all the other transports in the peer's transport_addr_list, however, we
->>>>>> should continue to the next entry rather than break the loop when meet
->>>>>> the active_path transport.
->>>>>>
->>>>>> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
->>>>>> ---
->>>>>>   net/sctp/associola.c |    2 +-
->>>>>>   1 files changed, 1 insertions(+), 1 deletions(-)
->>>>>>
->>>>>> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
->>>>>> index 43cd0dd..d2709e2 100644
->>>>>> --- a/net/sctp/associola.c
->>>>>> +++ b/net/sctp/associola.c
->>>>>> @@ -1079,7 +1079,7 @@ struct sctp_transport *sctp_assoc_lookup_tsn(struct
->>>>>> sctp_association *asoc,
->>>>>>   			transports) {
->>>>>>
->>>>>>   		if (transport == active)
->>>>>> -			break;
->>>>>> +			continue;
->>>>>>   		list_for_each_entry(chunk, &transport->transmitted,
->>>>>>   				transmitted_list) {
->>>>>>   			if (key == chunk->subh.data_hdr->tsn) {
->>>>>> --
->>>>>> 1.7.0.2
->>>>>>
->>>>>>
->>>>>
->>>>> This works, but what might be better would be if we did a move to front
->>>>> heuristic in sctp_assoc_set_primary.  E.g. when we set the active_path, move
->>>>> the
->>>>> requisite transport to the front of the transport_addr_list.  If we did
->>>>> that,
->>>>> then we could just do one for loop in sctp_assoc_lookup_tsn and wind up
->>>>> implicitly check the active path first without having to check it seprately
->>>>> and
->>>>> skip it in the second for loop.
->>>>
->>>> Thanks for your review, Neil!
->>>>
->>>> I know what you mean, yes, it's most probably that the searched TSN was
->>>> transmitted in the currently active_path, but what should we do if not.
->>>>
->>>> Check the comment in sctp_assoc_lookup_tsn() function:
->>>> /* Let's be hopeful and check the active_path first. */
->>>> /* If not found, go search all the other transports. */
->>>>
->>>> It has checked the active_path first and then traverse all the other
->>>> transports in
->>>> the transport_addr_list except the active_path.
->>>>
->>>> So what I want to fix here is the inconsistency between the function
->>>> should do and
->>>> the code actually does.
->>>>
->>> I understand what you're doing, and I agree that the fix is functional (Hence
->>> my "This works" statement in my last note).  What I'm suggesting is that, since
->>> you're messing about in that code anyway that you clean it up while your at it,
->>> so that we don't need to have the if (transport == active) check at all.  We
->>> trade in some extra work in a non-critical path (sctp_assoc_set_primary), for
->>> the removal of an extra for loop operation and a conditional check in a much
->>> hotter path.  Something like this (completely untested), is what I was thinking
->>>
->>>
->>> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
->>> index 43cd0dd..8ae873c 100644
->>> --- a/net/sctp/associola.c
->>> +++ b/net/sctp/associola.c
->>> @@ -505,6 +505,9 @@ void sctp_assoc_set_primary(struct sctp_association *asoc,
->>>
->>>   	asoc->peer.primary_path = transport;
->>>
->>> +	list_del_rcu(&transport->transports);
->>> +	list_add_rcu(&transport->transports, &asoc->peer.transport_addr_list);
->>> +
->>>   	/* Set a default msg_name for events. */
->>>   	memcpy(&asoc->peer.primary_addr, &transport->ipaddr,
->>>   	       sizeof(union sctp_addr));
->>> @@ -1040,7 +1043,6 @@ struct sctp_chunk *sctp_get_ecne_prepend(struct sctp_association *asoc)
->>>   struct sctp_transport *sctp_assoc_lookup_tsn(struct sctp_association *asoc,
->>>   					     __u32 tsn)
->>>   {
->>> -	struct sctp_transport *active;
->>>   	struct sctp_transport *match;
->>>   	struct sctp_transport *transport;
->>>   	struct sctp_chunk *chunk;
->>> @@ -1057,29 +1059,16 @@ struct sctp_transport *sctp_assoc_lookup_tsn(struct sctp_association *asoc,
->>>   	 * The general strategy is to search each transport's transmitted
->>>   	 * list.   Return which transport this TSN lives on.
->>>   	 *
->>> -	 * Let's be hopeful and check the active_path first.
->>> -	 * Another optimization would be to know if there is only one
->>> -	 * outbound path and not have to look for the TSN at all.
->>> +	 * Note, that sctp_assoc_set_primary does a move to front operation
->>> +	 * on the active_path transport, so this code implicitly checks
->>> +	 * the active_path first, as we most commonly expect to find our TSN
->>> +	 * there.
->>>   	 *
->>>   	 */
->>
->> Neil, active_patch != primary_path all the time.  In fact, when you
->> have path primary path failure, active path will change while
->> primary
->> may only change when the user says so.
-> Thats a good point, thank you Vlad.  We would need to only update the
-> transport_addr_list in set_primary if its state is ACTIVE or UNKNOWN.  We would
-> also need to update it if the active path changes in
-> sctp_assoc_control_transport, if the new active path is different from the old.
-> Both of those paths however are not intended to be run frequently, so I think
-> this is still a viable optimization.  I'm working on it now.
-> Neil
+bond_update_speed_duplex() might sleep while calling underlying slave's
+routines. Move it out of atomic context in bond_enslave() and remove it
+from bond_miimon_commit() - it was introduced by commit 546add79, however
+when the slave interfaces go up/change state it's their responsibility to
+fire NETDEV_UP/NETDEV_CHANGE events so that bonding can properly update
+their speed.
 
-You also need to take special care if an active transport is removed. 
-The active path will get reassigned then.  I am not sure if it is worth 
-doing all these changes to address a corner case optimization (CWR is a 
-corner case).
+I've tested it on all combinations of ifup/ifdown, autoneg/speed/duplex
+changes, remote-controlled and local, on (not) MII-based cards. All changes
+are visible.
 
--vlad
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+ drivers/net/bonding/bond_main.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
->
->>
->> So, you may still get into a situation where primary and active
->> paths are different.
->>
->> The optimization here may not work at all under those circumstances.
->>
->> -vlad
->>
->>>
->>> -	active = asoc->peer.active_path;
->>> -
->>> -	list_for_each_entry(chunk, &active->transmitted,
->>> -			transmitted_list) {
->>> -
->>> -		if (key == chunk->subh.data_hdr->tsn) {
->>> -			match = active;
->>> -			goto out;
->>> -		}
->>> -	}
->>> -
->>> -	/* If not found, go search all the other transports. */
->>>   	list_for_each_entry(transport, &asoc->peer.transport_addr_list,
->>>   			transports) {
->>>
->>> -		if (transport == active)
->>> -			break;
->>>   		list_for_each_entry(chunk, &transport->transmitted,
->>>   				transmitted_list) {
->>>   			if (key == chunk->subh.data_hdr->tsn) {
->>>
->>
->>
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 8b4e96e..6bbd90e 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1746,6 +1746,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 
+ 	bond_compute_features(bond);
+ 
++	bond_update_speed_duplex(new_slave);
++
+ 	read_lock(&bond->lock);
+ 
+ 	new_slave->last_arp_rx = jiffies -
+@@ -1798,8 +1800,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		new_slave->link == BOND_LINK_DOWN ? "DOWN" :
+ 			(new_slave->link == BOND_LINK_UP ? "UP" : "BACK"));
+ 
+-	bond_update_speed_duplex(new_slave);
+-
+ 	if (USES_PRIMARY(bond->params.mode) && bond->params.primary[0]) {
+ 		/* if there is a primary slave, remember it */
+ 		if (strcmp(bond->params.primary, new_slave->dev->name) == 0) {
+@@ -2374,8 +2374,6 @@ static void bond_miimon_commit(struct bonding *bond)
+ 				bond_set_backup_slave(slave);
+ 			}
+ 
+-			bond_update_speed_duplex(slave);
+-
+ 			pr_info("%s: link status definitely up for interface %s, %u Mbps %s duplex.\n",
+ 				bond->dev->name, slave->dev->name,
+ 				slave->speed, slave->duplex ? "full" : "half");
+-- 
+1.7.1
