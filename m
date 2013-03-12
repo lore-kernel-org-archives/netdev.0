@@ -1,44 +1,43 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: [PATCH] igb: SR-IOV init reordering
-Date: Tue, 12 Mar 2013 15:25:58 -0600
-Message-ID: <20130312212533.19552.92159.stgit@bling.home>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 1/2] qlcnic: Implement flash sysfs callback for
+ 83xx adapter
+Date: Tue, 12 Mar 2013 21:30:51 +0000
+Message-ID: <1363123851.2780.31.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1363114937-23283-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ddutile@redhat.com,
-	linux-kernel@vger.kernel.org, sassmann@redhat.com
-To: gregory.v.rose@intel.com, jeffrey.t.kirsher@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Himanshu Madhani <himanshu.madhani@qlogic.com>
+To: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:48265 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932707Ab3CLVaz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 17:30:55 -0400
+In-Reply-To: <1363114937-23283-1-git-send-email-shahed.shaikh@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-igb is ineffective at setting a lower total VFs because:
+On Tue, 2013-03-12 at 15:02 -0400, Shahed Shaikh wrote:
+> From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+> 
+> QLogic applications use these callbacks to perform
+> 
+> o  NIC Partitioning (NPAR) configuration and management
+> o  Diagnostic tests
+> o  Flash access and updates
+> 
+> Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+> Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+[...]
 
-int pci_sriov_set_totalvfs(struct pci_dev *dev, u16 numvfs)
-{
-        ...
-        /* Shouldn't change if VFs already enabled */
-        if (dev->sriov->ctrl & PCI_SRIOV_CTRL_VFE)
-                return -EBUSY;
+MTD is the standard Linux interface for raw flash devices.
 
-Swap init ordering.
+Ben.
 
-Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index d5b8289..ac65c39 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2546,8 +2546,8 @@ static void igb_probe_vfs(struct igb_adapter *adapter)
- 	if ((hw->mac.type == e1000_i210) || (hw->mac.type == e1000_i211))
- 		return;
- 
--	igb_enable_sriov(pdev, max_vfs);
- 	pci_sriov_set_totalvfs(pdev, 7);
-+	igb_enable_sriov(pdev, max_vfs);
- 
- #endif /* CONFIG_PCI_IOV */
- }
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
