@@ -1,88 +1,42 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 2/2] mv643xx_eth with 88E1318S: support Wake on
- LAN
-Date: Tue, 12 Mar 2013 06:59:47 +0100
-Message-ID: <20130312055947.GP21478@lunn.ch>
-References: <1363045162-16606-1-git-send-email-michael@stapelberg.de>
- <1363045162-16606-2-git-send-email-michael@stapelberg.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Lennert Buytenhek <buytenh@wantstofly.org>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: Michael Stapelberg <michael@stapelberg.de>
+From: roy.qing.li@gmail.com
+Subject: [PATCH net-next] net/core: move vlan_depth out of while loop in skb_network_protocol()
+Date: Tue, 12 Mar 2013 14:30:44 +0800
+Message-ID: <1363069844-10624-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from londo.lunn.ch ([80.238.139.98]:56405 "EHLO londo.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754601Ab3CLGAY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Mar 2013 02:00:24 -0400
-Content-Disposition: inline
-In-Reply-To: <1363045162-16606-2-git-send-email-michael@stapelberg.de>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:48573 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753659Ab3CLGaw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 02:30:52 -0400
+Received: by mail-ie0-f177.google.com with SMTP id 16so5914097iea.22
+        for <netdev@vger.kernel.org>; Mon, 11 Mar 2013 23:30:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 12, 2013 at 12:39:22AM +0100, Michael Stapelberg wrote:
-> This has been tested on a qnap TS-119P II. Note that enabling WOL with
-> "ethtool -s eth0 wol g" is not enough; you also need to tell the PIC
-> microcontroller inside the qnap that WOL should be enabled by sending
-> 0xF2 with qcontrol(1) and you have to disable EUP ("Energy-using
-> Products", a European power-saving thing) by sending 0xF4.
-> 
-> Signed-off-by: Michael Stapelberg <michael@stapelberg.de>
-> ---
->  drivers/net/ethernet/marvell/mv643xx_eth.c |   32 +++++++
->  drivers/net/phy/marvell.c                  |  127 ++++++++++++++++++++++++++++
->  2 files changed, 159 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-> index 2914050..64a405e 100644
-> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-> @@ -20,6 +20,8 @@
->   * Copyright (C) 2007-2008 Marvell Semiconductor
->   *			   Lennert Buytenhek <buytenh@marvell.com>
->   *
-> + * Copyright (C) 2013 Michael Stapelberg <michael@stapelberg.de>
-> + *
->   * This program is free software; you can redistribute it and/or
->   * modify it under the terms of the GNU General Public License
->   * as published by the Free Software Foundation; either version 2
-> @@ -1484,6 +1486,34 @@ mv643xx_eth_get_settings_phyless(struct mv643xx_eth_private *mp,
->  	return 0;
->  }
->  
-> +static void
-> +mv643xx_eth_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-> +{
-> +	struct mv643xx_eth_private *mp = netdev_priv(dev);
-> +	wol->supported = 0;
-> +	wol->wolopts = 0;
-> +	if (mp->phy)
-> +		phy_ethtool_get_wol(mp->phy, wol);
-> +}
-> +
-> +static int
-> +mv643xx_eth_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-> +{
-> +	struct mv643xx_eth_private *mp = netdev_priv(dev);
-> +	int err;
-> +
-> +	if (mp->phy == NULL)
-> +		return -EOPNOTSUPP;
-> +
-> +	err = phy_ethtool_set_wol(mp->phy, wol);
-> +	/* Given that mv643xx_eth works without the marvell-specific PHY driver,
-> +	 * this debugging hint is useful to have.
-> +	 */
-> +	if (err == -EOPNOTSUPP)
-> +		netdev_info(dev, "The PHY does not support set_wol, was CONFIG_MARVELL_PHY enabled?\n");
-> +	return err;
+From: Li RongQing <roy.qing.li@gmail.com>
 
-Hi Michael
+move vlan_depth out of while loop, or else vlan_depth always is ETH_HLEN,
+can not be increased, and lead to infinite loop when frame has two vlan headers.
 
-I would not have this netdev_info() message. Only a few boxes are
-going to have a PHY with this capability, so printing when it does not
-is rather annoying. Either just return the error code, or make it a
-netdev_dbg().
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/core/dev.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-      Andrew
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 90cee5b..35a6a6e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2211,9 +2211,9 @@ EXPORT_SYMBOL(skb_checksum_help);
+ __be16 skb_network_protocol(struct sk_buff *skb)
+ {
+ 	__be16 type = skb->protocol;
++	int vlan_depth = ETH_HLEN;
+ 
+ 	while (type == htons(ETH_P_8021Q)) {
+-		int vlan_depth = ETH_HLEN;
+ 		struct vlan_hdr *vh;
+ 
+ 		if (unlikely(!pskb_may_pull(skb, vlan_depth + VLAN_HLEN)))
+-- 
+1.7.10.4
