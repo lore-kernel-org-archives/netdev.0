@@ -1,47 +1,39 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH net-next 09/22] cxgb4: Update driver version and description
-Date: Tue, 12 Mar 2013 17:16:21 +0530
-Message-ID: <1363088794-31453-10-git-send-email-vipul@chelsio.com>
-References: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
-Cc: davem@davemloft.net, roland@purestorage.com,
-	JBottomley@parallels.com, dm@chelsio.com,
-	swise@opengridcomputing.com, leedom@chelsio.com,
-	naresh@chelsio.com, divy@chelsio.com, santosh@chelsio.com,
-	arvindb@chelsio.com, abhishek@chelsio.com,
-	Vipul Pandya <vipul@chelsio.com>
-To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	linux-scsi@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/13] bnx2x: patch series
+Date: Tue, 12 Mar 2013 07:58:34 -0400 (EDT)
+Message-ID: <20130312.075834.2027806082758992323.davem@davemloft.net>
+References: <1363015073-25743-1-git-send-email-yuvalmin@broadcom.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eilong@broadcom.com, ariele@broadcom.com
+To: yuvalmin@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:2512 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932480Ab3CLLxF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 07:53:05 -0400
-In-Reply-To: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50278 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932386Ab3CLL6Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 07:58:25 -0400
+In-Reply-To: <1363015073-25743-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Santosh Rastapur <santosh@chelsio.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Date: Mon, 11 Mar 2013 17:17:40 +0200
 
-Signed-off-by: Santosh Rastapur <santosh@chelsio.com>
-Signed-off-by: Vipul Pandya <vipul@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+> This patch series contains several changes:
+> 
+>  1. SR-IOV related patches - allow setting and getting the number of VFs
+>     via sysfs, configuring and querying VFs via iproute2 callbacks and
+>     properly implement for VFs only the ethtool ops which they can safely
+>     perform.
+> 
+>  2. Advance the FW version used by the driver. This allows 57840 boards to
+>     use FCoE, as well as fixing various issues.
+> 
+>  3. Several small link enhancements.
+> 
+>  4. Several fixes of rare corner-cases.
+> 
+> Please consider applying this patch-series to 'net-next'.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index eceee44..c502e36 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -68,8 +68,8 @@
- #include "t4fw_api.h"
- #include "l2t.h"
- 
--#define DRV_VERSION "1.3.0-ko"
--#define DRV_DESC "Chelsio T4 Network Driver"
-+#define DRV_VERSION "2.0.0-ko"
-+#define DRV_DESC "Chelsio T4/T5 Network Driver"
- 
- /*
-  * Max interrupt hold-off timer value in us.  Queues fall back to this value
--- 
-1.7.1
+Series applied, thanks.
