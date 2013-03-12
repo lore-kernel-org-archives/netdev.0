@@ -1,192 +1,131 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH v2 4/5] driver: net: ethernet: cpsw: implement interrupt pacing via ethtool
-Date: Tue, 12 Mar 2013 14:46:37 +0530
-Message-ID: <1363079798-18147-5-git-send-email-mugunthanvnm@ti.com>
+Subject: [PATCH v2 2/5] drivers: net: ethernet: cpsw: change cpts_active_slave to active_slave
+Date: Tue, 12 Mar 2013 14:46:35 +0530
+Message-ID: <1363079798-18147-3-git-send-email-mugunthanvnm@ti.com>
 References: <1363079798-18147-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
 	<linux-omap@vger.kernel.org>, <b-cousson@ti.com>, <paul@pwsan.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Richard Cochran <richardcochran@gmail.com>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:60523 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932349Ab3CLJRT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Mar 2013 05:17:19 -0400
 In-Reply-To: <1363079798-18147-1-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch implements support for interrupt pacing block of CPSW via ethtool
-Inetrrupt pacing block is common of both the ethernet interface in
-dual emac mode
+Change cpts_active_slave to active_slave so that the same DT property
+can be used to ethtool and SIOCGMIIPHY.
 
+CC: Richard Cochran <richardcochran@gmail.com>
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw.c |  104 ++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 104 insertions(+)
+ Documentation/devicetree/bindings/net/cpsw.txt |    7 ++++---
+ arch/arm/boot/dts/am33xx.dtsi                  |    2 +-
+ drivers/net/ethernet/ti/cpsw.c                 |   10 +++++-----
+ include/linux/platform_data/cpsw.h             |    2 +-
+ 4 files changed, 11 insertions(+), 10 deletions(-)
 
+diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+index 8e49c42..4f2ca6b 100644
+--- a/Documentation/devicetree/bindings/net/cpsw.txt
++++ b/Documentation/devicetree/bindings/net/cpsw.txt
+@@ -15,7 +15,8 @@ Required properties:
+ - mac_control		: Specifies Default MAC control register content
+ 			  for the specific platform
+ - slaves		: Specifies number for slaves
+-- cpts_active_slave	: Specifies the slave to use for time stamping
++- active_slave		: Specifies the slave to use for time stamping,
++			  ethtool and SIOCGMIIPHY
+ - cpts_clock_mult	: Numerator to convert input clock ticks into nanoseconds
+ - cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
+ 
+@@ -52,7 +53,7 @@ Examples:
+ 		rx_descs = <64>;
+ 		mac_control = <0x20>;
+ 		slaves = <2>;
+-		cpts_active_slave = <0>;
++		active_slave = <0>;
+ 		cpts_clock_mult = <0x80000000>;
+ 		cpts_clock_shift = <29>;
+ 		cpsw_emac0: slave@0 {
+@@ -78,7 +79,7 @@ Examples:
+ 		rx_descs = <64>;
+ 		mac_control = <0x20>;
+ 		slaves = <2>;
+-		cpts_active_slave = <0>;
++		active_slave = <0>;
+ 		cpts_clock_mult = <0x80000000>;
+ 		cpts_clock_shift = <29>;
+ 		cpsw_emac0: slave@0 {
+diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
+index 0957645..91fe4f1 100644
+--- a/arch/arm/boot/dts/am33xx.dtsi
++++ b/arch/arm/boot/dts/am33xx.dtsi
+@@ -349,7 +349,7 @@
+ 			rx_descs = <64>;
+ 			mac_control = <0x20>;
+ 			slaves = <2>;
+-			cpts_active_slave = <0>;
++			active_slave = <0>;
+ 			cpts_clock_mult = <0x80000000>;
+ 			cpts_clock_shift = <29>;
+ 			reg = <0x4a100000 0x800
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 83ce890..d6cf698 100644
+index 01ffbc4..98aa17a 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -126,6 +126,13 @@ do {								\
- #define CPSW_FIFO_DUAL_MAC_MODE		(1 << 15)
- #define CPSW_FIFO_RATE_LIMIT_MODE	(2 << 15)
+@@ -942,7 +942,7 @@ static void cpsw_ndo_change_rx_flags(struct net_device *ndev, int flags)
  
-+#define CPSW_INTPACEEN		(0x3f << 16)
-+#define CPSW_INTPRESCALE_MASK	(0x7FF << 0)
-+#define CPSW_CMINTMAX_CNT	63
-+#define CPSW_CMINTMIN_CNT	2
-+#define CPSW_CMINTMAX_INTVL	(1000 / CPSW_CMINTMIN_CNT)
-+#define CPSW_CMINTMIN_INTVL	((1000 / CPSW_CMINTMAX_CNT) + 1)
-+
- #define cpsw_enable_irq(priv)	\
- 	do {			\
- 		u32 i;		\
-@@ -164,6 +171,15 @@ struct cpsw_wr_regs {
- 	u32	rx_en;
- 	u32	tx_en;
- 	u32	misc_en;
-+	u32	mem_allign1[8];
-+	u32	rx_thresh_stat;
-+	u32	rx_stat;
-+	u32	tx_stat;
-+	u32	misc_stat;
-+	u32	mem_allign2[8];
-+	u32	rx_imax;
-+	u32	tx_imax;
-+
- };
- 
- struct cpsw_ss_regs {
-@@ -318,6 +334,8 @@ struct cpsw_priv {
- 	struct cpsw_host_regs __iomem	*host_port_regs;
- 	u32				msg_enable;
- 	u32				version;
-+	u32				coal_intvl;
-+	u32				bus_freq_mhz;
- 	struct net_device_stats		stats;
- 	int				rx_packet_max;
- 	int				host_port;
-@@ -616,6 +634,77 @@ static void cpsw_adjust_link(struct net_device *ndev)
- 	}
- }
- 
-+static int cpsw_get_coalesce(struct net_device *ndev,
-+				struct ethtool_coalesce *coal)
-+{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+
-+	coal->rx_coalesce_usecs = priv->coal_intvl;
-+	return 0;
-+}
-+
-+static int cpsw_set_coalesce(struct net_device *ndev,
-+				struct ethtool_coalesce *coal)
-+{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+	u32 int_ctrl;
-+	u32 num_interrupts = 0;
-+	u32 prescale = 0;
-+	u32 addnl_dvdr = 1;
-+	u32 coal_intvl = 0;
-+
-+	if (!coal->rx_coalesce_usecs)
-+		return -EINVAL;
-+
-+	coal_intvl = coal->rx_coalesce_usecs;
-+
-+	int_ctrl =  readl(&priv->wr_regs->int_control);
-+	prescale = priv->bus_freq_mhz * 4;
-+
-+	if (coal_intvl < CPSW_CMINTMIN_INTVL)
-+		coal_intvl = CPSW_CMINTMIN_INTVL;
-+
-+	if (coal_intvl > CPSW_CMINTMAX_INTVL) {
-+		/* Interrupt pacer works with 4us Pulse, we can
-+		 * throttle further by dilating the 4us pulse.
-+		 */
-+		addnl_dvdr = CPSW_INTPRESCALE_MASK / prescale;
-+
-+		if (addnl_dvdr > 1) {
-+			prescale *= addnl_dvdr;
-+			if (coal_intvl > (CPSW_CMINTMAX_INTVL * addnl_dvdr))
-+				coal_intvl = (CPSW_CMINTMAX_INTVL
-+						* addnl_dvdr);
-+		} else {
-+			addnl_dvdr = 1;
-+			coal_intvl = CPSW_CMINTMAX_INTVL;
-+		}
-+	}
-+
-+	num_interrupts = (1000 * addnl_dvdr) / coal_intvl;
-+	writel(num_interrupts, &priv->wr_regs->rx_imax);
-+	writel(num_interrupts, &priv->wr_regs->tx_imax);
-+
-+	int_ctrl |= CPSW_INTPACEEN;
-+	int_ctrl &= (~CPSW_INTPRESCALE_MASK);
-+	int_ctrl |= (prescale & CPSW_INTPRESCALE_MASK);
-+	writel(int_ctrl, &priv->wr_regs->int_control);
-+
-+	cpsw_notice(priv, timer, "Set coalesce to %d usecs.\n", coal_intvl);
-+	if (priv->data.dual_emac) {
-+		int i;
-+
-+		for (i = 0; i < priv->data.slaves; i++) {
-+			priv = netdev_priv(priv->slaves[i].ndev);
-+			priv->coal_intvl = coal_intvl;
-+		}
-+	} else {
-+		priv->coal_intvl = coal_intvl;
-+	}
-+
-+	return 0;
-+}
-+
- static inline int __show_stat(char *buf, int maxlen, const char *name, u32 val)
+ static void cpsw_hwtstamp_v1(struct cpsw_priv *priv)
  {
- 	static char *leader = "........................................";
-@@ -838,6 +927,14 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 		cpsw_info(priv, ifup, "submitted %d rx descriptors\n", i);
+-	struct cpsw_slave *slave = &priv->slaves[priv->data.cpts_active_slave];
++	struct cpsw_slave *slave = &priv->slaves[priv->data.active_slave];
+ 	u32 ts_en, seq_id;
+ 
+ 	if (!priv->cpts->tx_enable && !priv->cpts->rx_enable) {
+@@ -971,7 +971,7 @@ static void cpsw_hwtstamp_v2(struct cpsw_priv *priv)
+ 	if (priv->data.dual_emac)
+ 		slave = &priv->slaves[priv->emac_port];
+ 	else
+-		slave = &priv->slaves[priv->data.cpts_active_slave];
++		slave = &priv->slaves[priv->data.active_slave];
+ 
+ 	ctrl = slave_read(slave, CPSW2_CONTROL);
+ 	ctrl &= ~CTRL_ALL_TS_MASK;
+@@ -1282,12 +1282,12 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
  	}
+ 	data->slaves = prop;
  
-+	/* Enable Interrupt pacing if configured */
-+	if (priv->coal_intvl != 0) {
-+		struct ethtool_coalesce coal;
-+
-+		coal.rx_coalesce_usecs = (priv->coal_intvl << 4);
-+		cpsw_set_coalesce(ndev, &coal);
-+	}
-+
- 	cpdma_ctlr_start(priv->dma);
- 	cpsw_intr_enable(priv);
- 	napi_enable(&priv->napi);
-@@ -1279,6 +1376,8 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
- 	.get_ts_info	= cpsw_get_ts_info,
- 	.get_settings	= cpsw_get_settings,
- 	.set_settings	= cpsw_set_settings,
-+	.get_coalesce	= cpsw_get_coalesce,
-+	.set_coalesce	= cpsw_set_coalesce,
- };
- 
- static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
-@@ -1466,6 +1565,9 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
- 	priv_sl2->slaves = priv->slaves;
- 	priv_sl2->clk = priv->clk;
- 
-+	priv_sl2->coal_intvl = 0;
-+	priv_sl2->bus_freq_mhz = priv->bus_freq_mhz;
-+
- 	priv_sl2->cpsw_res = priv->cpsw_res;
- 	priv_sl2->regs = priv->regs;
- 	priv_sl2->host_port = priv->host_port;
-@@ -1575,6 +1677,8 @@ static int cpsw_probe(struct platform_device *pdev)
- 		ret = -ENODEV;
- 		goto clean_slave_ret;
+-	if (of_property_read_u32(node, "cpts_active_slave", &prop)) {
+-		pr_err("Missing cpts_active_slave property in the DT.\n");
++	if (of_property_read_u32(node, "active_slave", &prop)) {
++		pr_err("Missing active_slave property in the DT.\n");
+ 		ret = -EINVAL;
+ 		goto error_ret;
  	}
-+	priv->coal_intvl = 0;
-+	priv->bus_freq_mhz = clk_get_rate(priv->clk) / 1000000;
+-	data->cpts_active_slave = prop;
++	data->active_slave = prop;
  
- 	priv->cpsw_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (!priv->cpsw_res) {
+ 	if (of_property_read_u32(node, "cpts_clock_mult", &prop)) {
+ 		pr_err("Missing cpts_clock_mult property in the DT.\n");
+diff --git a/include/linux/platform_data/cpsw.h b/include/linux/platform_data/cpsw.h
+index 798fb80..bb3cd58 100644
+--- a/include/linux/platform_data/cpsw.h
++++ b/include/linux/platform_data/cpsw.h
+@@ -30,7 +30,7 @@ struct cpsw_platform_data {
+ 	u32	channels;	/* number of cpdma channels (symmetric) */
+ 	u32	slaves;		/* number of slave cpgmac ports */
+ 	struct cpsw_slave_data	*slave_data;
+-	u32	cpts_active_slave; /* time stamping slave */
++	u32	active_slave; /* time stamping, ethtool and SIOCGMIIPHY slave */
+ 	u32	cpts_clock_mult;  /* convert input clock ticks to nanoseconds */
+ 	u32	cpts_clock_shift; /* convert input clock ticks to nanoseconds */
+ 	u32	ale_entries;	/* ale table size */
 -- 
 1.7.9.5
-
