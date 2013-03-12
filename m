@@ -1,42 +1,44 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] ipv6: use ipv6_iface_scope_id in conntrack to return scope id
-Date: Tue, 12 Mar 2013 22:21:36 +0100
-Message-ID: <20130312212136.GB14801@order.stressinduktion.org>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: [PATCH] igb: SR-IOV init reordering
+Date: Tue, 12 Mar 2013 15:25:58 -0600
+Message-ID: <20130312212533.19552.92159.stgit@bling.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	pablo@netfilter.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ddutile@redhat.com,
+	linux-kernel@vger.kernel.org, sassmann@redhat.com
+To: gregory.v.rose@intel.com, jeffrey.t.kirsher@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+igb is ineffective at setting a lower total VFs because:
+
+int pci_sriov_set_totalvfs(struct pci_dev *dev, u16 numvfs)
+{
+        ...
+        /* Shouldn't change if VFs already enabled */
+        if (dev->sriov->ctrl & PCI_SRIOV_CTRL_VFE)
+                return -EBUSY;
+
+Swap init ordering.
+
+Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
 ---
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 2b6c226..97bcf2b 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -330,12 +330,8 @@ ipv6_getorigdst(struct sock *sk, int optval, void __user *user, int *len)
- 					sizeof(sin6.sin6_addr));
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index d5b8289..ac65c39 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2546,8 +2546,8 @@ static void igb_probe_vfs(struct igb_adapter *adapter)
+ 	if ((hw->mac.type == e1000_i210) || (hw->mac.type == e1000_i211))
+ 		return;
  
- 	nf_ct_put(ct);
--
--	if (ipv6_addr_type(&sin6.sin6_addr) & IPV6_ADDR_LINKLOCAL)
--		sin6.sin6_scope_id = sk->sk_bound_dev_if;
--	else
--		sin6.sin6_scope_id = 0;
--
-+	sin6.sin6_scope_id = ipv6_iface_scope_id(&sin6.sin6_addr,
-+						 sk->sk_bound_dev_if);
- 	return copy_to_user(user, &sin6, sizeof(sin6)) ? -EFAULT : 0;
+-	igb_enable_sriov(pdev, max_vfs);
+ 	pci_sriov_set_totalvfs(pdev, 7);
++	igb_enable_sriov(pdev, max_vfs);
+ 
+ #endif /* CONFIG_PCI_IOV */
  }
- 
--- 
-1.8.1.4
-
