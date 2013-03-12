@@ -1,137 +1,152 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: optimize searching the active path for tsns
-Date: Tue, 12 Mar 2013 17:01:50 -0400
-Message-ID: <513F97BE.6040800@gmail.com>
-References: <513F5120.7090209@gmail.com> <1363109382-753-1-git-send-email-nhorman@tuxdriver.com>
+From: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [RFC PATCH] qmi_wwan: set correct altsetting for Gobi 1K devices
+Date: Tue, 12 Mar 2013 22:17:53 +0100
+Message-ID: <2400f481-f2eb-440d-b74d-ff9bfccd1179@email.android.com>
+References: <1363117205.9644.17.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel-org,
-	Xufeng Zhang <xufengzhang.main@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f177.google.com ([209.85.128.177]:34456 "EHLO
-	mail-ve0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932743Ab3CLVBz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 17:01:55 -0400
-Received: by mail-ve0-f177.google.com with SMTP id m1so243427ves.36
-        for <netdev@vger.kernel.org>; Tue, 12 Mar 2013 14:01:54 -0700 (PDT)
-In-Reply-To: <1363109382-753-1-git-send-email-nhorman@tuxdriver.com>
+Received: from canardo.mork.no ([148.122.252.1]:60194 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932675Ab3CLVSE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Mar 2013 17:18:04 -0400
+In-Reply-To: <1363117205.9644.17.camel@dcbw.foobar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Neil
+Dan Williams <dcbw@redhat.com> wrote:
 
-On 03/12/2013 01:29 PM, Neil Horman wrote:
-> SCTP currently attempts to optimize the search for tsns on a transport by first
-> checking the active_path, then searching alternate transports.  This operation
-> however is a bit convoluted, as we explicitly search the active path, then serch
-> all other transports, skipping the active path, when its detected.  Lets
-> optimize this by preforming a move to front on the transport_addr_list every
-> time the active_path is changed.  The active_path changes occur in relatively
-> non-critical paths, and doing so allows us to just search the
-> transport_addr_list in order, avoiding an extra conditional check in the
-> relatively hot tsn lookup path.  This also happens to fix a bug where we break
-> out of the for loop early in the tsn lookup.
+>With Gobi 1K devices, USB interface #3's altsetting is 0 by default,
+>but
+>altsetting 0 only provides one interrupt endpoint and is not sufficent
+>for QMI.  Altsetting 1 provides all 3 endpoints required for qmi_wwan
+>and works with QMI.
 >
-> CC: Xufeng Zhang <xufengzhang.main@gmail.com>
-> CC: vyasevich@gmail.com
-> CC: davem@davemloft.net
-> CC: netdev@vger.kernel.org
-> ---
->   net/sctp/associola.c | 31 ++++++++++++-------------------
->   1 file changed, 12 insertions(+), 19 deletions(-)
->
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index 43cd0dd..7af96b3 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -513,8 +513,11 @@ void sctp_assoc_set_primary(struct sctp_association *asoc,
->   	 * user wants to use this new path.
->   	 */
->   	if ((transport->state == SCTP_ACTIVE) ||
-> -	    (transport->state == SCTP_UNKNOWN))
-> +	    (transport->state == SCTP_UNKNOWN)) {
-> +		list_del_rcu(&transport->transports);
-> +		list_add_rcu(&transport->transports, &asoc->peer.transport_addr_list);
->   		asoc->peer.active_path = transport;
-> +	}
+>IIRC the altsetting used to be set by qcserial back before we made
+>qcserial stop touching interfaces that qmi_wwan was going to use.  But
+>now that qcserial only touches the modem interface, we need qmi_wwan t=
+o
+>set the correct altsetting on the QMI interface.
 
-What would happen if at the same time someone is walking the list 
-through the proc interfaces?
+No, I broke this when I tried to be smart and merged the 1 and 2 interf=
+ace probes. That's the second time I break probing of these devices by =
+making too many unfounded assumptions.=20
 
-Since you are effectively changing the .next pointer, I think it is 
-possible to get a duplicate transport output essentially corrupting the 
-output.
+This used to work because usbnet_get_endpoints selects the first usable=
+ altsetting. It doesn't work anymore because qmi_wwan checks the number=
+ of endpoints before calling usbnet_get_endpoints.
 
-Personally, I don't think that this particular case is worth the 
-optimization since we are trying to optimize a TSN search that only 
-happens when ECNE chunk is received.  You say that it is a hot path.
-Is ECNE really such a common occurrence?
+>The attached patch works for my Gobi1K (and should work for all other
+>1Ks too) but seems somewhat ugly.  What approach should we take?
+>Basically, we need to know that a device is Gobi1K at probe time so we
+>can set the right altsetting on it.
+>
+>Gobi 1K layout for intf#3 is:
+>
+>    Interface Descriptor:  255/255/255
+>      bInterfaceNumber        3
+>      bAlternateSetting       0
+>      Endpoint Descriptor:  Interrupt IN
+>    Interface Descriptor:  255/255/255
+>      bInterfaceNumber        3
+>      bAlternateSetting       1
+>      Endpoint Descriptor:  Interrupt IN
+>      Endpoint Descriptor:  Bulk IN
+>      Endpoint Descriptor:  Bulk OUT
 
-Additionally, I don't think this is really an optimization as the 
-current and new code do exactly the same thing:
-  1) look at active path
-  2) look at the rest of the paths
+Ouch. I did not know this. I should get one of these devices, I guess. =
+=2E.
 
-This just makes cleaner code at the expense of list shuffling.
 
--vlad
+>Dan
 >
->   	/*
->   	 * SFR-CACC algorithm:
-> @@ -964,6 +967,10 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
->   	}
->
->   	/* Set the active and retran transports.  */
-> +	if (asoc->peer.active_path != first) {
-> +		list_del_rcu(first);
-> +		list_add_rcu(first, &asoc->peer.transport_addr_list);
-> +	}
->   	asoc->peer.active_path = first;
->   	asoc->peer.retran_path = second;
->   }
-> @@ -1040,7 +1047,6 @@ struct sctp_chunk *sctp_get_ecne_prepend(struct sctp_association *asoc)
->   struct sctp_transport *sctp_assoc_lookup_tsn(struct sctp_association *asoc,
->   					     __u32 tsn)
->   {
-> -	struct sctp_transport *active;
->   	struct sctp_transport *match;
->   	struct sctp_transport *transport;
->   	struct sctp_chunk *chunk;
-> @@ -1057,29 +1063,16 @@ struct sctp_transport *sctp_assoc_lookup_tsn(struct sctp_association *asoc,
->   	 * The general strategy is to search each transport's transmitted
->   	 * list.   Return which transport this TSN lives on.
->   	 *
-> -	 * Let's be hopeful and check the active_path first.
-> -	 * Another optimization would be to know if there is only one
-> -	 * outbound path and not have to look for the TSN at all.
-> +	 * Note, that sctp_assoc_set_primary does a move to front operation
-> +	 * on the active_path transport, so this code implicitly checks
-> +	 * the active_path first, as we most commonly expect to find our TSN
-> +	 * there.
->   	 *
->   	 */
->
-> -	active = asoc->peer.active_path;
-> -
-> -	list_for_each_entry(chunk, &active->transmitted,
-> -			transmitted_list) {
-> -
-> -		if (key == chunk->subh.data_hdr->tsn) {
-> -			match = active;
-> -			goto out;
-> -		}
-> -	}
-> -
-> -	/* If not found, go search all the other transports. */
->   	list_for_each_entry(transport, &asoc->peer.transport_addr_list,
->   			transports) {
->
-> -		if (transport == active)
-> -			break;
->   		list_for_each_entry(chunk, &transport->transmitted,
->   				transmitted_list) {
->   			if (key == chunk->subh.data_hdr->tsn) {
->
+>---
+>diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+>index efb5c7c..50e1b7c 100644
+>--- a/drivers/net/usb/qmi_wwan.c
+>+++ b/drivers/net/usb/qmi_wwan.c
+>@@ -43,6 +43,9 @@
+>  * commands on a serial interface
+>  */
+>=20
+>+/* Quirks for the usbnet 'struct driver_info' data field */
+>+#define QUIRK_GOBI_1K  (1 << 0)   /* QMI interface requires altsettin=
+g
+>1 */
+>+
+> /* driver specific data */
+> struct qmi_wwan_state {
+> 	struct usb_driver *subdriver;
+>@@ -326,6 +329,15 @@ static const struct driver_info	qmi_wwan_info =3D=
+ {
+> 	.manage_power	=3D qmi_wwan_manage_power,
+> };
+>=20
+>+static const struct driver_info	gobi1k_info =3D {
+>+	.description	=3D "WWAN/QMI device",
+>+	.flags		=3D FLAG_WWAN,
+>+	.bind		=3D qmi_wwan_bind,
+>+	.unbind		=3D qmi_wwan_unbind,
+>+	.manage_power	=3D qmi_wwan_manage_power,
+>+	.data           =3D QUIRK_GOBI_1K,
+>+};
+>+
+> #define HUAWEI_VENDOR_ID	0x12D1
+>=20
+> /* map QMI/wwan function by a fixed interface number */
+>@@ -335,7 +347,8 @@ static const struct driver_info	qmi_wwan_info =3D =
+{
+>=20
+> /* Gobi 1000 QMI/wwan interface number is 3 according to qcserial */
+> #define QMI_GOBI1K_DEVICE(vend, prod) \
+>-	QMI_FIXED_INTF(vend, prod, 3)
+>+	USB_DEVICE_INTERFACE_NUMBER(vend, prod, 3), \
+>+	.driver_info =3D (unsigned long)&gobi1k_info
+>=20
+>/* Gobi 2000/3000 QMI/wwan interface number is 0 according to qcserial
+>*/
+> #define QMI_GOBI_DEVICE(vend, prod) \
+>@@ -541,6 +554,9 @@ MODULE_DEVICE_TABLE(usb, products);
+>static int qmi_wwan_probe(struct usb_interface *intf, const struct
+>usb_device_id *prod)
+> {
+> 	struct usb_device_id *id =3D (struct usb_device_id *)prod;
+>+	struct driver_info *info;
+>+	u8 intf_num =3D intf->cur_altsetting->desc.bInterfaceNumber;
+>+	int retval;
+>=20
+> 	/* Workaround to enable dynamic IDs.  This disables usbnet
+> 	 * blacklisting functionality.  Which, if required, can be
+>@@ -552,6 +568,20 @@ static int qmi_wwan_probe(struct usb_interface
+>*intf, const struct usb_device_id
+> 		id->driver_info =3D (unsigned long)&qmi_wwan_info;
+> 	}
+>=20
+>+	info =3D (struct driver_info *) id->driver_info;
+>+	if (info->data & QUIRK_GOBI_1K) {
+>+		/* Gobi 1K's QMI interface is always USB interface #3 */
+>+		BUG_ON(intf_num !=3D 3);
+
+Definitely not. We return ENODEV if the probe logic fails for whatever =
+reason.=20
+
+>+		retval =3D usb_set_interface(interface_to_usbdev (intf),
+>+					   intf_num, 1);
+>+		if (retval < 0) {
+>+			dev_err(&intf->dev, "Failed to set altsetting 1: %d\n",
+>+			        retval);
+>+			return -ENODEV;
+>+		}
+>+	}
+
+Risking that I am trying to be too smart again. .. But I really think w=
+e can fix this in a more generic way by making the probe behave more li=
+ke it did before. How about just letting it continue without erring out=
+ until it has called usbnet_get_endpoints? That should work without nee=
+ding any quirks.=20
+
+
+Bj=C3=B8rn
