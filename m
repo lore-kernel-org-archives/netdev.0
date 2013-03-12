@@ -1,56 +1,51 @@
-From: Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Subject: Re: [PATCH linux-next v3] SUNRPC: rpcrdma_register_default_external:
- Dynamically allocate ib_phys_buf
-Date: Mon, 11 Mar 2013 22:40:20 -0500
-Message-ID: <513EA3A4.4070100@opengridcomputing.com>
-References: <4FA345DA4F4AE44899BD2B03EEEC2FA9286BA156@sacexcmbx05-prd.hq.netapp.com> <1363036508-24935-1-git-send-email-tim.gardner@canonical.com> <20130311212535.GG642@fieldses.org> <513E6271.3060107@opengridcomputing.com> <513E989E.8060206@canonical.com>
+From: Rayagond K <rayagond@vayavyalabs.com>
+Subject: Re: [net-next.git 4/9] stmmac: add the support for PTP hw clock driver
+Date: Tue, 12 Mar 2013 10:13:17 +0530
+Message-ID: <CAJ3bTp76BX-nbk5E_QVyx--EPAWbf3JtORVTbwjcd0skndzbKg@mail.gmail.com>
+References: <1362653419-1047-1-git-send-email-peppe.cavallaro@st.com>
+	<1362653419-1047-5-git-send-email-peppe.cavallaro@st.com>
+	<20130310121050.GA2462@netboy.at.omicron.at>
+	<CAJ3bTp7n-Y6TYrhDMe58fALtX5O34qifO9khWYXpo-OwnrRKiQ@mail.gmail.com>
+	<20130311185536.GA2409@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Tom Tucker <tom-/Yg/VP3ZvrM@public.gmane.org>,
-	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shani Michaeli <shanim-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <513E989E.8060206-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org, bh74.an@samsung.com
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f181.google.com ([74.125.82.181]:39135 "EHLO
+	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750714Ab3CLEnT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 00:43:19 -0400
+Received: by mail-we0-f181.google.com with SMTP id t44so4301261wey.40
+        for <netdev@vger.kernel.org>; Mon, 11 Mar 2013 21:43:18 -0700 (PDT)
+In-Reply-To: <20130311185536.GA2409@netboy.at.omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-Ah....Ok
-
-On 3/11/13 9:53 PM, Tim Gardner wrote:
-> On 03/11/2013 05:02 PM, Tom Tucker wrote:
->> On 3/11/13 4:25 PM, J. Bruce Fields wrote:
+On Tue, Mar 12, 2013 at 12:25 AM, Richard Cochran
+<richardcochran@gmail.com> wrote:
+> On Sun, Mar 10, 2013 at 08:37:24PM +0530, Rayagond K wrote:
+>> On Sun, Mar 10, 2013 at 5:40 PM, Richard Cochran <richardcochran@gmail.com>wrote:
 >
-> <snip>
->
->>> Looks good to me; wish we could get it tested....
+>> > Don't you need locking here to protect against concurrent callers of
+>> > config_addend?
+>> >
 >>
->> I will test it. Tim could you please send me a final version that you'd
->> like tested as a single message?
+>> Yes we need locking here too, will add it.
 >>
+>> But I can see no locking in this function in other two driver'e
+>> ppt_ixp46x.c and gianfar_ptp.c. So I just followed these two driver.
 >
-> I'm a little confused about what you are asking. I think v3 of the patch 
-> is the final version (unless you find bugs with it).
+> Those two drivers don't need locking, because setting the addend
+> register is a single 32 bit write operation in both cases.
 >
->> Would someone (like Tim maybe ... hint hint) look at tearing out all
->> those dead registration strategies? I don't think we need or will ever
->> use bounce-buffers, memory windows, or mlnx fmr.  The only two that are
->> used and tested are all-phys and FRMR (the default).
->>
->
-> Dunno if I'll get time for that. I had a one day window where I could 
-> hack out some simple patches. Now I'm back to the usual grindstone.
->
-> rtg
+> In your driver, setting the addend involves a sequence of writes and
+> reads, in addition to polling a status bit, so you do need to
+> serialize access to those registers.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Okay, will take lock in our driver. Thank you.
+
+>
+> Thanks,
+> Richard
