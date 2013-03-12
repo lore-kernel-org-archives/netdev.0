@@ -1,301 +1,254 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH net-next 12/22] RDMA/cxgb4: Add Support for Chelsio T5 adapter
-Date: Tue, 12 Mar 2013 17:16:24 +0530
-Message-ID: <1363088794-31453-13-git-send-email-vipul@chelsio.com>
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net-next 05/22] cxgb4: Add T5 write combining support
+Date: Tue, 12 Mar 2013 17:16:17 +0530
+Message-ID: <1363088794-31453-6-git-send-email-vipul@chelsio.com>
 References: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
-Cc: davem@davemloft.net, roland@purestorage.com,
-	JBottomley@parallels.com, dm@chelsio.com,
-	swise@opengridcomputing.com, leedom@chelsio.com,
-	naresh@chelsio.com, divy@chelsio.com, santosh@chelsio.com,
-	arvindb@chelsio.com, abhishek@chelsio.com,
-	Vipul Pandya <vipul@chelsio.com>
-To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	linux-scsi@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:9209 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932733Ab3CLLxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 07:53:19 -0400
-In-Reply-To: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
+	JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	naresh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	arvindb-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, abhishek-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1363088794-31453-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Adds support for Chelsio T5 adapter.
-Enables T5's Write Combining feature.
+From: Santosh Rastapur <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 
-Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+This patch implements a low latency Write Combining (aka Write Coalescing) work
+request path. PCIE maps User Space Doorbell BAR2 region writes to the new
+interface to SGE. SGE pulls a new message from PCIE new interface and if its a
+coalesced write work request then pushes it for processing. This patch copies
+coalesced work request to memory mapped BAR2 space.
+
+Signed-off-by: Santosh Rastapur <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/infiniband/hw/cxgb4/cm.c       |   64 +++++++++++++++++++++++--------
- drivers/infiniband/hw/cxgb4/device.c   |   13 ++++--
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h |    9 ++++
- drivers/infiniband/hw/cxgb4/provider.c |   15 +++++--
- drivers/infiniband/hw/cxgb4/qp.c       |    2 +-
- drivers/infiniband/hw/cxgb4/t4.h       |    9 ----
- 6 files changed, 77 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    2 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   53 +++++++++++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |   54 +++++++++++++++++++++-
+ 3 files changed, 104 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 565bfb1..272bf78 100644
---- a/drivers/infiniband/hw/cxgb4/cm.c
-+++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -511,12 +511,16 @@ static unsigned int select_ntuple(struct c4iw_dev *dev, struct dst_entry *dst,
- static int send_connect(struct c4iw_ep *ep)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index a91dea6..f8ff30e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -439,6 +439,7 @@ struct sge_txq {
+ 	spinlock_t db_lock;
+ 	int db_disabled;
+ 	unsigned short db_pidx;
++	u64 udb;
+ };
+ 
+ struct sge_eth_txq {                /* state for an SGE Ethernet Tx queue */
+@@ -543,6 +544,7 @@ enum chip_type {
+ 
+ struct adapter {
+ 	void __iomem *regs;
++	void __iomem *bar2;
+ 	struct pci_dev *pdev;
+ 	struct device *pdev_dev;
+ 	unsigned int mbox;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 3d6d23a..ce1451c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -1327,6 +1327,8 @@ static char stats_strings[][ETH_GSTRING_LEN] = {
+ 	"VLANinsertions     ",
+ 	"GROpackets         ",
+ 	"GROmerged          ",
++	"WriteCoalSuccess   ",
++	"WriteCoalFail      ",
+ };
+ 
+ static int get_sset_count(struct net_device *dev, int sset)
+@@ -1422,11 +1424,25 @@ static void get_stats(struct net_device *dev, struct ethtool_stats *stats,
  {
- 	struct cpl_act_open_req *req;
-+	struct cpl_t5_act_open_req *t5_req;
- 	struct sk_buff *skb;
- 	u64 opt0;
- 	u32 opt2;
- 	unsigned int mtu_idx;
- 	int wscale;
--	int wrlen = roundup(sizeof *req, 16);
-+	int size = is_t4(ep->com.dev->rdev.lldi.adapter_type) ?
-+		sizeof(struct cpl_act_open_req) :
-+		sizeof(struct cpl_t5_act_open_req);
-+	int wrlen = roundup(size, 16);
+ 	struct port_info *pi = netdev_priv(dev);
+ 	struct adapter *adapter = pi->adapter;
++	u32 val1, val2;
  
- 	PDBG("%s ep %p atid %u\n", __func__, ep, ep->atid);
+ 	t4_get_port_stats(adapter, pi->tx_chan, (struct port_stats *)data);
  
-@@ -552,17 +556,36 @@ static int send_connect(struct c4iw_ep *ep)
- 		opt2 |= WND_SCALE_EN(1);
- 	t4_set_arp_err_handler(skb, NULL, act_open_req_arp_failure);
- 
--	req = (struct cpl_act_open_req *) skb_put(skb, wrlen);
--	INIT_TP_WR(req, 0);
--	OPCODE_TID(req) = cpu_to_be32(
--		MK_OPCODE_TID(CPL_ACT_OPEN_REQ, ((ep->rss_qid<<14)|ep->atid)));
--	req->local_port = ep->com.local_addr.sin_port;
--	req->peer_port = ep->com.remote_addr.sin_port;
--	req->local_ip = ep->com.local_addr.sin_addr.s_addr;
--	req->peer_ip = ep->com.remote_addr.sin_addr.s_addr;
--	req->opt0 = cpu_to_be64(opt0);
--	req->params = cpu_to_be32(select_ntuple(ep->com.dev, ep->dst, ep->l2t));
--	req->opt2 = cpu_to_be32(opt2);
-+	if (is_t4(ep->com.dev->rdev.lldi.adapter_type)) {
-+		req = (struct cpl_act_open_req *) skb_put(skb, wrlen);
-+		INIT_TP_WR(req, 0);
-+		OPCODE_TID(req) = cpu_to_be32(
-+				MK_OPCODE_TID(CPL_ACT_OPEN_REQ,
-+				((ep->rss_qid << 14) | ep->atid)));
-+		req->local_port = ep->com.local_addr.sin_port;
-+		req->peer_port = ep->com.remote_addr.sin_port;
-+		req->local_ip = ep->com.local_addr.sin_addr.s_addr;
-+		req->peer_ip = ep->com.remote_addr.sin_addr.s_addr;
-+		req->opt0 = cpu_to_be64(opt0);
-+		req->params = cpu_to_be32(select_ntuple(ep->com.dev,
-+					ep->dst, ep->l2t));
-+		req->opt2 = cpu_to_be32(opt2);
+ 	data += sizeof(struct port_stats) / sizeof(u64);
+ 	collect_sge_port_stats(adapter, pi, (struct queue_port_stats *)data);
++	data += sizeof(struct queue_port_stats) / sizeof(u64);
++	if (!is_t4(adapter->chip)) {
++		t4_write_reg(adapter, SGE_STAT_CFG, STATSOURCE_T5(7));
++		val1 = t4_read_reg(adapter, SGE_STAT_TOTAL);
++		val2 = t4_read_reg(adapter, SGE_STAT_MATCH);
++		*data = val1 - val2;
++		data++;
++		*data = val2;
++		data++;
 +	} else {
-+		t5_req = (struct cpl_t5_act_open_req *) skb_put(skb, wrlen);
-+		INIT_TP_WR(t5_req, 0);
-+		OPCODE_TID(t5_req) = cpu_to_be32(
-+					MK_OPCODE_TID(CPL_ACT_OPEN_REQ,
-+					((ep->rss_qid << 14) | ep->atid)));
-+		t5_req->local_port = ep->com.local_addr.sin_port;
-+		t5_req->peer_port = ep->com.remote_addr.sin_port;
-+		t5_req->local_ip = ep->com.local_addr.sin_addr.s_addr;
-+		t5_req->peer_ip = ep->com.remote_addr.sin_addr.s_addr;
-+		t5_req->opt0 = cpu_to_be64(opt0);
-+		t5_req->params = cpu_to_be64(V_FILTER_TUPLE(
-+				select_ntuple(ep->com.dev, ep->dst, ep->l2t)));
-+		t5_req->opt2 = cpu_to_be32(opt2);
++		memset(data, 0, 2 * sizeof(u64));
++		*data += 2;
++	}
+ }
+ 
+ /*
+@@ -5337,10 +5353,11 @@ static void free_some_resources(struct adapter *adapter)
+ #define TSO_FLAGS (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN)
+ #define VLAN_FEAT (NETIF_F_SG | NETIF_F_IP_CSUM | TSO_FLAGS | \
+ 		   NETIF_F_IPV6_CSUM | NETIF_F_HIGHDMA)
++#define SEGMENT_SIZE 128
+ 
+ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+-	int func, i, err;
++	int func, i, err, s_qpp, qpp, num_seg;
+ 	struct port_info *pi;
+ 	bool highdma = false;
+ 	struct adapter *adapter = NULL;
+@@ -5420,7 +5437,34 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	err = t4_prep_adapter(adapter);
+ 	if (err)
+-		goto out_unmap_bar;
++		goto out_unmap_bar0;
++
++	if (!is_t4(adapter->chip)) {
++		s_qpp = QUEUESPERPAGEPF1 * adapter->fn;
++		qpp = 1 << QUEUESPERPAGEPF0_GET(t4_read_reg(adapter,
++		      SGE_EGRESS_QUEUES_PER_PAGE_PF) >> s_qpp);
++		num_seg = PAGE_SIZE / SEGMENT_SIZE;
++
++		/* Each segment size is 128B. Write coalescing is enabled only
++		 * when SGE_EGRESS_QUEUES_PER_PAGE_PF reg value for the
++		 * queue is less no of segments that can be accommodated in
++		 * a page size.
++		 */
++		if (qpp > num_seg) {
++			dev_err(&pdev->dev,
++				"Incorrect number of egress queues per page\n");
++			err = -EINVAL;
++			goto out_unmap_bar0;
++		}
++		adapter->bar2 = ioremap_wc(pci_resource_start(pdev, 2),
++		pci_resource_len(pdev, 2));
++		if (!adapter->bar2) {
++			dev_err(&pdev->dev, "cannot map device bar2 region\n");
++			err = -ENOMEM;
++			goto out_unmap_bar0;
++		}
 +	}
 +
- 	set_bit(ACT_OPEN_REQ, &ep->com.history);
- 	return c4iw_l2t_send(&ep->com.dev->rdev, skb, ep->l2t);
- }
-@@ -2869,12 +2892,14 @@ static int deferred_fw6_msg(struct c4iw_dev *dev, struct sk_buff *skb)
- static void build_cpl_pass_accept_req(struct sk_buff *skb, int stid , u8 tos)
- {
- 	u32 l2info;
--	u16 vlantag, len, hdr_len;
-+	u16 vlantag, len, hdr_len, eth_hdr_len;
- 	u8 intf;
- 	struct cpl_rx_pkt *cpl = cplhdr(skb);
- 	struct cpl_pass_accept_req *req;
- 	struct tcp_options_received tmp_opt;
-+	struct c4iw_dev *dev;
+ 	setup_memwin(adapter);
+ 	err = adap_init0(adapter);
+ 	setup_memwin_rdma(adapter);
+@@ -5552,6 +5596,9 @@ sriov:
+  out_free_dev:
+ 	free_some_resources(adapter);
+  out_unmap_bar:
++	if (!is_t4(adapter->chip))
++		iounmap(adapter->bar2);
++ out_unmap_bar0:
+ 	iounmap(adapter->regs);
+  out_free_adapter:
+ 	kfree(adapter);
+@@ -5602,6 +5649,8 @@ static void remove_one(struct pci_dev *pdev)
  
-+	dev = *((struct c4iw_dev **) (skb->cb + sizeof(void *)));
- 	/* Store values from cpl_rx_pkt in temporary location. */
- 	vlantag = (__force u16) cpl->vlan;
- 	len = (__force u16) cpl->len;
-@@ -2898,14 +2923,16 @@ static void build_cpl_pass_accept_req(struct sk_buff *skb, int stid , u8 tos)
- 			 V_SYN_MAC_IDX(G_RX_MACIDX(
- 			 (__force int) htonl(l2info))) |
- 			 F_SYN_XACT_MATCH);
-+	eth_hdr_len = is_t4(dev->rdev.lldi.adapter_type) ?
-+			    G_RX_ETHHDR_LEN((__force int) htonl(l2info)) :
-+			    G_RX_T5_ETHHDR_LEN((__force int) htonl(l2info));
- 	req->hdr_len = cpu_to_be32(V_SYN_RX_CHAN(G_RX_CHAN(
- 					(__force int) htonl(l2info))) |
- 				   V_TCP_HDR_LEN(G_RX_TCPHDR_LEN(
- 					(__force int) htons(hdr_len))) |
- 				   V_IP_HDR_LEN(G_RX_IPHDR_LEN(
- 					(__force int) htons(hdr_len))) |
--				   V_ETH_HDR_LEN(G_RX_ETHHDR_LEN(
--					(__force int) htonl(l2info))));
-+				   V_ETH_HDR_LEN(G_RX_ETHHDR_LEN(eth_hdr_len)));
- 	req->vlan = (__force __be16) vlantag;
- 	req->len = (__force __be16) len;
- 	req->tos_stid = cpu_to_be32(PASS_OPEN_TID(stid) |
-@@ -2993,7 +3020,7 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
- 	u16 window;
- 	struct port_info *pi;
- 	struct net_device *pdev;
--	u16 rss_qid;
-+	u16 rss_qid, eth_hdr_len;
- 	int step;
- 	u32 tx_chan;
- 	struct neighbour *neigh;
-@@ -3022,7 +3049,10 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
- 		goto reject;
- 	}
- 
--	if (G_RX_ETHHDR_LEN(ntohl(cpl->l2info)) == ETH_HLEN) {
-+	eth_hdr_len = is_t4(dev->rdev.lldi.adapter_type) ?
-+			    G_RX_ETHHDR_LEN(htonl(cpl->l2info)) :
-+			    G_RX_T5_ETHHDR_LEN(htonl(cpl->l2info));
-+	if (eth_hdr_len == ETH_HLEN) {
- 		eh = (struct ethhdr *)(req + 1);
- 		iph = (struct iphdr *)(eh + 1);
- 	} else {
-diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
-index 80069ad..3487c08 100644
---- a/drivers/infiniband/hw/cxgb4/device.c
-+++ b/drivers/infiniband/hw/cxgb4/device.c
-@@ -41,7 +41,7 @@
- #define DRV_VERSION "0.1"
- 
- MODULE_AUTHOR("Steve Wise");
--MODULE_DESCRIPTION("Chelsio T4 RDMA Driver");
-+MODULE_DESCRIPTION("Chelsio T4/T5 RDMA Driver");
- MODULE_LICENSE("Dual BSD/GPL");
- MODULE_VERSION(DRV_VERSION);
- 
-@@ -614,7 +614,7 @@ static int rdma_supported(const struct cxgb4_lld_info *infop)
- {
- 	return infop->vr->stag.size > 0 && infop->vr->pbl.size > 0 &&
- 	       infop->vr->rq.size > 0 && infop->vr->qp.size > 0 &&
--	       infop->vr->cq.size > 0 && infop->vr->ocq.size > 0;
-+	       infop->vr->cq.size > 0;
+ 		free_some_resources(adapter);
+ 		iounmap(adapter->regs);
++		if (!is_t4(adapter->chip))
++			iounmap(adapter->bar2);
+ 		kfree(adapter);
+ 		pci_disable_pcie_error_reporting(pdev);
+ 		pci_disable_device(pdev);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 7b17623..75e13d2 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -816,6 +816,22 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
+ 		*end = 0;
  }
  
- static struct c4iw_dev *c4iw_alloc(const struct cxgb4_lld_info *infop)
-@@ -627,6 +627,11 @@ static struct c4iw_dev *c4iw_alloc(const struct cxgb4_lld_info *infop)
- 		       pci_name(infop->pdev));
- 		return ERR_PTR(-ENOSYS);
- 	}
-+	if (!ocqp_supported(infop))
-+		pr_info("%s: On-Chip Queues not supported on this device.\n",
-+			pci_name(infop->pdev));
-+	if (!is_t4(infop->adapter_type))
-+		db_fc_threshold = 100000;
- 	devp = (struct c4iw_dev *)ib_alloc_device(sizeof(*devp));
- 	if (!devp) {
- 		printk(KERN_ERR MOD "Cannot allocate ib device\n");
-@@ -678,8 +683,8 @@ static void *c4iw_uld_add(const struct cxgb4_lld_info *infop)
- 	int i;
- 
- 	if (!vers_printed++)
--		printk(KERN_INFO MOD "Chelsio T4 RDMA Driver - version %s\n",
--		       DRV_VERSION);
-+		pr_info("Chelsio T4/T5 RDMA Driver - version %s\n",
-+			DRV_VERSION);
- 
- 	ctx = kzalloc(sizeof *ctx, GFP_KERNEL);
- 	if (!ctx) {
-diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-index 7eec5e1..34c7e62 100644
---- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-+++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-@@ -817,6 +817,15 @@ static inline int compute_wscale(int win)
- 	return wscale;
- }
- 
-+static inline int ocqp_supported(const struct cxgb4_lld_info *infop)
++/* This function copies 64 byte coalesced work request to
++ * memory mapped BAR2 space(user space writes).
++ * For coalesced WR SGE, fetches data from the FIFO instead of from Host.
++ */
++static void cxgb_pio_copy(u64 __iomem *dst, u64 *src)
 +{
-+#if defined(__i386__) || defined(__x86_64__) || defined(CONFIG_PPC64)
-+	return infop->vr->ocq.size > 0;
-+#else
-+	return 0;
-+#endif
++	int count = 8;
++
++	while (count) {
++		writeq(*src, dst);
++		src++;
++		dst++;
++		count--;
++	}
 +}
 +
- u32 c4iw_id_alloc(struct c4iw_id_table *alloc);
- void c4iw_id_free(struct c4iw_id_table *alloc, u32 obj);
- int c4iw_id_table_alloc(struct c4iw_id_table *alloc, u32 start, u32 num,
-diff --git a/drivers/infiniband/hw/cxgb4/provider.c b/drivers/infiniband/hw/cxgb4/provider.c
-index e084fdc..7e94c9a 100644
---- a/drivers/infiniband/hw/cxgb4/provider.c
-+++ b/drivers/infiniband/hw/cxgb4/provider.c
-@@ -162,8 +162,14 @@ static int c4iw_mmap(struct ib_ucontext *context, struct vm_area_struct *vma)
- 		 */
- 		if (addr >= rdev->oc_mw_pa)
- 			vma->vm_page_prot = t4_pgprot_wc(vma->vm_page_prot);
--		else
--			vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-+		else {
-+			if (is_t5(rdev->lldi.adapter_type))
-+				vma->vm_page_prot =
-+					t4_pgprot_wc(vma->vm_page_prot);
-+			else
-+				vma->vm_page_prot =
-+					pgprot_noncached(vma->vm_page_prot);
-+		}
- 		ret = io_remap_pfn_range(vma, vma->vm_start,
- 					 addr >> PAGE_SHIFT,
- 					 len, vma->vm_page_prot);
-@@ -263,7 +269,7 @@ static int c4iw_query_device(struct ib_device *ibdev,
- 	dev = to_c4iw_dev(ibdev);
- 	memset(props, 0, sizeof *props);
- 	memcpy(&props->sys_image_guid, dev->rdev.lldi.ports[0]->dev_addr, 6);
--	props->hw_ver = dev->rdev.lldi.adapter_type;
-+	props->hw_ver = CHELSIO_CHIP_RELEASE(dev->rdev.lldi.adapter_type);
- 	props->fw_ver = dev->rdev.lldi.fw_vers;
- 	props->device_cap_flags = dev->device_cap_flags;
- 	props->page_size_cap = T4_PAGESIZE_MASK;
-@@ -346,7 +352,8 @@ static ssize_t show_rev(struct device *dev, struct device_attribute *attr,
- 	struct c4iw_dev *c4iw_dev = container_of(dev, struct c4iw_dev,
- 						 ibdev.dev);
- 	PDBG("%s dev 0x%p\n", __func__, dev);
--	return sprintf(buf, "%d\n", c4iw_dev->rdev.lldi.adapter_type);
-+	return sprintf(buf, "%d\n",
-+		       CHELSIO_CHIP_RELEASE(c4iw_dev->rdev.lldi.adapter_type));
- }
- 
- static ssize_t show_fw_ver(struct device *dev, struct device_attribute *attr,
-diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index 17ba4f8..c460244 100644
---- a/drivers/infiniband/hw/cxgb4/qp.c
-+++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -76,7 +76,7 @@ static void dealloc_sq(struct c4iw_rdev *rdev, struct t4_sq *sq)
- 
- static int alloc_oc_sq(struct c4iw_rdev *rdev, struct t4_sq *sq)
+ /**
+  *	ring_tx_db - check and potentially ring a Tx queue's doorbell
+  *	@adap: the adapter
+@@ -826,11 +842,27 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
+  */
+ static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
  {
--	if (!ocqp_support || !t4_ocqp_supported())
-+	if (!ocqp_support || !ocqp_supported(&rdev->lldi))
- 		return -ENOSYS;
- 	sq->dma_addr = c4iw_ocqp_pool_alloc(rdev, sq->memsize);
- 	if (!sq->dma_addr)
-diff --git a/drivers/infiniband/hw/cxgb4/t4.h b/drivers/infiniband/hw/cxgb4/t4.h
-index 16f26ab..689edc9 100644
---- a/drivers/infiniband/hw/cxgb4/t4.h
-+++ b/drivers/infiniband/hw/cxgb4/t4.h
-@@ -280,15 +280,6 @@ static inline pgprot_t t4_pgprot_wc(pgprot_t prot)
- #endif
- }
++	unsigned int *wr, index;
++
+ 	wmb();            /* write descriptors before telling HW */
+ 	spin_lock(&q->db_lock);
+ 	if (!q->db_disabled) {
+-		t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
+-			     QID(q->cntxt_id) | PIDX(n));
++		if (is_t4(adap->chip)) {
++			t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
++				     QID(q->cntxt_id) | PIDX(n));
++		} else {
++			if (n == 1) {
++				index = q->pidx ? (q->pidx - 1) : (q->size - 1);
++				wr = (unsigned int *)&q->desc[index];
++				cxgb_pio_copy((u64 __iomem *)
++					      (adap->bar2 + q->udb + 64),
++					      (u64 *)wr);
++			} else
++				writel(n,  adap->bar2 + q->udb + 8);
++#if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
++			asm volatile("sfence" : : : "memory");
++#endif
++		}
+ 	}
+ 	q->db_pidx = q->pidx;
+ 	spin_unlock(&q->db_lock);
+@@ -2151,11 +2183,27 @@ err:
  
--static inline int t4_ocqp_supported(void)
--{
--#if defined(__i386__) || defined(__x86_64__) || defined(CONFIG_PPC64)
--	return 1;
--#else
--	return 0;
--#endif
--}
--
- enum {
- 	T4_SQ_ONCHIP = (1<<0),
- };
+ static void init_txq(struct adapter *adap, struct sge_txq *q, unsigned int id)
+ {
++	q->cntxt_id = id;
++	if (!is_t4(adap->chip)) {
++		unsigned int s_qpp;
++		unsigned short udb_density;
++		unsigned long qpshift;
++		int page;
++
++		s_qpp = QUEUESPERPAGEPF1 * adap->fn;
++		udb_density = 1 << QUEUESPERPAGEPF0_GET((t4_read_reg(adap,
++				SGE_EGRESS_QUEUES_PER_PAGE_PF) >> s_qpp));
++		qpshift = PAGE_SHIFT - ilog2(udb_density);
++		q->udb = q->cntxt_id << qpshift;
++		q->udb &= PAGE_MASK;
++		page = q->udb / PAGE_SIZE;
++		q->udb += (q->cntxt_id - (page * udb_density)) * 128;
++	}
++
+ 	q->in_use = 0;
+ 	q->cidx = q->pidx = 0;
+ 	q->stops = q->restarts = 0;
+ 	q->stat = (void *)&q->desc[q->size];
+-	q->cntxt_id = id;
+ 	spin_lock_init(&q->db_lock);
+ 	adap->sge.egr_map[id - adap->sge.egr_start] = q;
+ }
 -- 
 1.7.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
