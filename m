@@ -1,10 +1,11 @@
 From: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
-Subject: [PATCH] ipv4: netfilter: use PTR_RET instead of IS_ERR + PTR_ERR
-Date: Tue, 12 Mar 2013 20:07:55 +0200
-Message-ID: <1363111675-21457-1-git-send-email-silviupopescu1990@gmail.com>
-Cc: pablo@netfilter.org, kaber@trash.net, davem@davemloft.net,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
+Subject: [PATCH] bridge: netfilter: use PTR_RET instead of IS_ERR + PTR_ERR
+Date: Tue, 12 Mar 2013 20:11:33 +0200
+Message-ID: <1363111893-25146-1-git-send-email-silviupopescu1990@gmail.com>
+Cc: bart.de.schuymer@pandora.be, pablo@netfilter.org, kaber@trash.net,
+	stephen@networkplumber.org, davem@davemloft.net,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org,
 	Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
 To: netfilter-devel@vger.kernel.org
@@ -17,24 +18,24 @@ readability.
 
 Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
 ---
- net/ipv4/netfilter/arptable_filter.c |    4 +---
+ net/bridge/netfilter/ebtable_broute.c |    4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/net/ipv4/netfilter/arptable_filter.c b/net/ipv4/netfilter/arptable_filter.c
-index 79ca5e7..eadab1e 100644
---- a/net/ipv4/netfilter/arptable_filter.c
-+++ b/net/ipv4/netfilter/arptable_filter.c
-@@ -48,9 +48,7 @@ static int __net_init arptable_filter_net_init(struct net *net)
- 	net->ipv4.arptable_filter =
- 		arpt_register_table(net, &packet_filter, repl);
- 	kfree(repl);
--	if (IS_ERR(net->ipv4.arptable_filter))
--		return PTR_ERR(net->ipv4.arptable_filter);
+diff --git a/net/bridge/netfilter/ebtable_broute.c b/net/bridge/netfilter/ebtable_broute.c
+index 40d8258..70f656c 100644
+--- a/net/bridge/netfilter/ebtable_broute.c
++++ b/net/bridge/netfilter/ebtable_broute.c
+@@ -64,9 +64,7 @@ static int ebt_broute(struct sk_buff *skb)
+ static int __net_init broute_net_init(struct net *net)
+ {
+ 	net->xt.broute_table = ebt_register_table(net, &broute_table);
+-	if (IS_ERR(net->xt.broute_table))
+-		return PTR_ERR(net->xt.broute_table);
 -	return 0;
-+	return PTR_RET(net->ipv4.arptable_filter);
++	return PTR_RET(net->xt.broute_table);
  }
  
- static void __net_exit arptable_filter_net_exit(struct net *net)
+ static void __net_exit broute_net_exit(struct net *net)
 -- 
 1.7.9.5
 
