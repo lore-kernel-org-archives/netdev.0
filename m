@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: Allow for backward compatibility with
- new VPD scheme.
-Date: Tue, 12 Mar 2013 05:37:44 -0400 (EDT)
-Message-ID: <20130312.053744.349333966792167526.davem@davemloft.net>
-References: <1362749729-4532-1-git-send-email-vipul@chelsio.com>
+Subject: Re: [PATCH net] bridge: reserve space for IFLA_BRPORT_FAST_LEAVE
+Date: Tue, 12 Mar 2013 05:39:54 -0400 (EDT)
+Message-ID: <20130312.053954.330375189080203774.davem@davemloft.net>
+References: <20130311165217.760e80fe@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, divy@chelsio.com, dm@chelsio.com,
-	abhishek@chelsio.com, santosh@chelsio.com
-To: vipul@chelsio.com
+Cc: netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47651 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47681 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754901Ab3CLJhc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 05:37:32 -0400
-In-Reply-To: <1362749729-4532-1-git-send-email-vipul@chelsio.com>
+	with ESMTP id S932236Ab3CLJjm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 05:39:42 -0400
+In-Reply-To: <20130311165217.760e80fe@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vipul Pandya <vipul@chelsio.com>
-Date: Fri,  8 Mar 2013 19:05:29 +0530
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Mon, 11 Mar 2013 16:52:17 -0700
 
-> From: Santosh Rastapur <santosh@chelsio.com>
+> The bridge multicast fast leave feature was added sufficient space
+> was not reserved in the netlink message. This means the flag may be
+> lost in netlink events and results of queries.
 > 
-> New scheme calls for 3rd party VPD at offset 0x0 and Chelsio VPD at offset
-> 0x400 of the function.  If no 3rd party VPD is present, then a copy of
-> Chelsio's VPD will be at offset 0x0 to keep in line with PCI spec which
-> requires the VPD to be present at offset 0x0.
+> Found by observation while looking up some netlink stuff for discussion with Vlad.
+> Problem introduced by commit c2d3babfafbb9f6629cfb47139758e59a5eb0d80
+> Author: David S. Miller <davem@davemloft.net>
+> Date:   Wed Dec 5 16:24:45 2012 -0500
 > 
-> Signed-off-by: Santosh Rastapur <santosh@chelsio.com>
-> Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+>     bridge: implement multicast fast leave
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> 
+> ---
+> Should go to net and stable for 3.8.X
 
-Applied to 'net'.
+Applied and queued up for -stable.
