@@ -1,65 +1,49 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH] bonding: don't call update_speed_duplex() under spinlocks
-Date: Tue, 12 Mar 2013 17:31:32 +0100
-Message-ID: <1363105892-3172-1-git-send-email-vfalico@redhat.com>
-Cc: vfalico@redhat.com, lkml@tlinx.org, eric.dumazet@gmail.com,
-	fubar@us.ibm.com, jeffrey.t.kirsher@intel.com,
-	xiyou.wangcong@gmail.com, andy@greyhouse.net
+From: Daniel Mack <zonque@gmail.com>
+Subject: [PATCH] net: ethernet: cpsw: fix usage of cpdma_check_free_tx_desc()
+Date: Tue, 12 Mar 2013 17:31:19 +0100
+Message-ID: <1363105879-26921-1-git-send-email-zonque@gmail.com>
+Cc: andreas.fenkart@streamunlimited.com, davem@davemloft.net,
+	s.neumann@raumfeld.com, koen@dominion.thruhere.net,
+	Daniel Mack <zonque@gmail.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25397 "EHLO mx1.redhat.com"
+Received: from svenfoo.org ([82.94.215.22]:41805 "EHLO mail.zonque.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755150Ab3CLQbr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Mar 2013 12:31:47 -0400
+	id S1755559Ab3CLQbw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Mar 2013 12:31:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bond_update_speed_duplex() might sleep while calling underlying slave's
-routines. Move it out of atomic context in bond_enslave() and remove it
-from bond_miimon_commit() - it was introduced by commit 546add79, however
-when the slave interfaces go up/change state it's their responsibility to
-fire NETDEV_UP/NETDEV_CHANGE events so that bonding can properly update
-their speed.
+Commit fae50823d0 ("net: ethernet: davinci_cpdma: Add boundary for rx
+and tx descriptors") introduced a function to check the current
+allocation state of tx packets. The return value is taken into account
+to stop the netqork queue on the adapter in case there are no free
+slots.
 
-I've tested it on all combinations of ifup/ifdown, autoneg/speed/duplex
-changes, remote-controlled and local, on (not) MII-based cards. All changes
-are visible.
+However, cpdma_check_free_tx_desc() returns 'true' if there is room in
+the bitmap, not 'false', so the usage of the function is wrong.
 
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+Signed-off-by: Daniel Mack <zonque@gmail.com>
+Cc: Mugunthan V N <mugunthanvnm@ti.com>
+Reported-by: Sven Neumann <s.neumann@raumfeld.com>
+Reported-by: Andreas Fenkart <andreas.fenkart@streamunlimited.com>
 ---
- drivers/net/bonding/bond_main.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 8b4e96e..6bbd90e 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1746,6 +1746,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 01ffbc4..75c4855 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -905,7 +905,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
+ 	/* If there is no more tx desc left free then we need to
+ 	 * tell the kernel to stop sending us tx frames.
+ 	 */
+-	if (unlikely(cpdma_check_free_tx_desc(priv->txch)))
++	if (unlikely(!cpdma_check_free_tx_desc(priv->txch)))
+ 		netif_stop_queue(ndev);
  
- 	bond_compute_features(bond);
- 
-+	bond_update_speed_duplex(new_slave);
-+
- 	read_lock(&bond->lock);
- 
- 	new_slave->last_arp_rx = jiffies -
-@@ -1798,8 +1800,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 		new_slave->link == BOND_LINK_DOWN ? "DOWN" :
- 			(new_slave->link == BOND_LINK_UP ? "UP" : "BACK"));
- 
--	bond_update_speed_duplex(new_slave);
--
- 	if (USES_PRIMARY(bond->params.mode) && bond->params.primary[0]) {
- 		/* if there is a primary slave, remember it */
- 		if (strcmp(bond->params.primary, new_slave->dev->name) == 0) {
-@@ -2374,8 +2374,6 @@ static void bond_miimon_commit(struct bonding *bond)
- 				bond_set_backup_slave(slave);
- 			}
- 
--			bond_update_speed_duplex(slave);
--
- 			pr_info("%s: link status definitely up for interface %s, %u Mbps %s duplex.\n",
- 				bond->dev->name, slave->dev->name,
- 				slave->speed, slave->duplex ? "full" : "half");
+ 	return NETDEV_TX_OK;
 -- 
-1.7.1
+1.8.1.4
