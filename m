@@ -1,254 +1,124 @@
-From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net-next 05/22] cxgb4: Add T5 write combining support
-Date: Tue, 12 Mar 2013 17:16:17 +0530
-Message-ID: <1363088794-31453-6-git-send-email-vipul@chelsio.com>
-References: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
-	JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	naresh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	arvindb-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, abhishek-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1363088794-31453-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH net-next 00/22] Add support for Chelsio T5 adapter
+Date: Tue, 12 Mar 2013 17:16:12 +0530
+Message-ID: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
+Cc: davem@davemloft.net, roland@purestorage.com,
+	JBottomley@parallels.com, dm@chelsio.com,
+	swise@opengridcomputing.com, leedom@chelsio.com,
+	naresh@chelsio.com, divy@chelsio.com, santosh@chelsio.com,
+	arvindb@chelsio.com, abhishek@chelsio.com,
+	Vipul Pandya <vipul@chelsio.com>
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+	linux-scsi@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:19775 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932555Ab3CLLxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 07:53:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Santosh Rastapur <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Hi All,
 
-This patch implements a low latency Write Combining (aka Write Coalescing) work
-request path. PCIE maps User Space Doorbell BAR2 region writes to the new
-interface to SGE. SGE pulls a new message from PCIE new interface and if its a
-coalesced write work request then pushes it for processing. This patch copies
-coalesced work request to memory mapped BAR2 space.
+This patch series adds support for Chelsio's T5 adapter. It also adds support
+for new features of T5. It adds these in cxgb4, cxgb4vf, RDMA/cxgb4 and
+csiostor drivers.
 
-Signed-off-by: Santosh Rastapur <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    2 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   53 +++++++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |   54 +++++++++++++++++++++-
- 3 files changed, 104 insertions(+), 5 deletions(-)
+Chelsio's T5 asic moves the architecture into 40GbE speeds. T5 is a 10/40GbE
+controller with full offload support of a complete Unified Wire solution
+comprising NIC, Virtualization, TOE, iWARP RDMA and FCoE.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index a91dea6..f8ff30e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -439,6 +439,7 @@ struct sge_txq {
- 	spinlock_t db_lock;
- 	int db_disabled;
- 	unsigned short db_pidx;
-+	u64 udb;
- };
- 
- struct sge_eth_txq {                /* state for an SGE Ethernet Tx queue */
-@@ -543,6 +544,7 @@ enum chip_type {
- 
- struct adapter {
- 	void __iomem *regs;
-+	void __iomem *bar2;
- 	struct pci_dev *pdev;
- 	struct device *pdev_dev;
- 	unsigned int mbox;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 3d6d23a..ce1451c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -1327,6 +1327,8 @@ static char stats_strings[][ETH_GSTRING_LEN] = {
- 	"VLANinsertions     ",
- 	"GROpackets         ",
- 	"GROmerged          ",
-+	"WriteCoalSuccess   ",
-+	"WriteCoalFail      ",
- };
- 
- static int get_sset_count(struct net_device *dev, int sset)
-@@ -1422,11 +1424,25 @@ static void get_stats(struct net_device *dev, struct ethtool_stats *stats,
- {
- 	struct port_info *pi = netdev_priv(dev);
- 	struct adapter *adapter = pi->adapter;
-+	u32 val1, val2;
- 
- 	t4_get_port_stats(adapter, pi->tx_chan, (struct port_stats *)data);
- 
- 	data += sizeof(struct port_stats) / sizeof(u64);
- 	collect_sge_port_stats(adapter, pi, (struct queue_port_stats *)data);
-+	data += sizeof(struct queue_port_stats) / sizeof(u64);
-+	if (!is_t4(adapter->chip)) {
-+		t4_write_reg(adapter, SGE_STAT_CFG, STATSOURCE_T5(7));
-+		val1 = t4_read_reg(adapter, SGE_STAT_TOTAL);
-+		val2 = t4_read_reg(adapter, SGE_STAT_MATCH);
-+		*data = val1 - val2;
-+		data++;
-+		*data = val2;
-+		data++;
-+	} else {
-+		memset(data, 0, 2 * sizeof(u64));
-+		*data += 2;
-+	}
- }
- 
- /*
-@@ -5337,10 +5353,11 @@ static void free_some_resources(struct adapter *adapter)
- #define TSO_FLAGS (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN)
- #define VLAN_FEAT (NETIF_F_SG | NETIF_F_IP_CSUM | TSO_FLAGS | \
- 		   NETIF_F_IPV6_CSUM | NETIF_F_HIGHDMA)
-+#define SEGMENT_SIZE 128
- 
- static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- {
--	int func, i, err;
-+	int func, i, err, s_qpp, qpp, num_seg;
- 	struct port_info *pi;
- 	bool highdma = false;
- 	struct adapter *adapter = NULL;
-@@ -5420,7 +5437,34 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	err = t4_prep_adapter(adapter);
- 	if (err)
--		goto out_unmap_bar;
-+		goto out_unmap_bar0;
-+
-+	if (!is_t4(adapter->chip)) {
-+		s_qpp = QUEUESPERPAGEPF1 * adapter->fn;
-+		qpp = 1 << QUEUESPERPAGEPF0_GET(t4_read_reg(adapter,
-+		      SGE_EGRESS_QUEUES_PER_PAGE_PF) >> s_qpp);
-+		num_seg = PAGE_SIZE / SEGMENT_SIZE;
-+
-+		/* Each segment size is 128B. Write coalescing is enabled only
-+		 * when SGE_EGRESS_QUEUES_PER_PAGE_PF reg value for the
-+		 * queue is less no of segments that can be accommodated in
-+		 * a page size.
-+		 */
-+		if (qpp > num_seg) {
-+			dev_err(&pdev->dev,
-+				"Incorrect number of egress queues per page\n");
-+			err = -EINVAL;
-+			goto out_unmap_bar0;
-+		}
-+		adapter->bar2 = ioremap_wc(pci_resource_start(pdev, 2),
-+		pci_resource_len(pdev, 2));
-+		if (!adapter->bar2) {
-+			dev_err(&pdev->dev, "cannot map device bar2 region\n");
-+			err = -ENOMEM;
-+			goto out_unmap_bar0;
-+		}
-+	}
-+
- 	setup_memwin(adapter);
- 	err = adap_init0(adapter);
- 	setup_memwin_rdma(adapter);
-@@ -5552,6 +5596,9 @@ sriov:
-  out_free_dev:
- 	free_some_resources(adapter);
-  out_unmap_bar:
-+	if (!is_t4(adapter->chip))
-+		iounmap(adapter->bar2);
-+ out_unmap_bar0:
- 	iounmap(adapter->regs);
-  out_free_adapter:
- 	kfree(adapter);
-@@ -5602,6 +5649,8 @@ static void remove_one(struct pci_dev *pdev)
- 
- 		free_some_resources(adapter);
- 		iounmap(adapter->regs);
-+		if (!is_t4(adapter->chip))
-+			iounmap(adapter->bar2);
- 		kfree(adapter);
- 		pci_disable_pcie_error_reporting(pdev);
- 		pci_disable_device(pdev);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 7b17623..75e13d2 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -816,6 +816,22 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
- 		*end = 0;
- }
- 
-+/* This function copies 64 byte coalesced work request to
-+ * memory mapped BAR2 space(user space writes).
-+ * For coalesced WR SGE, fetches data from the FIFO instead of from Host.
-+ */
-+static void cxgb_pio_copy(u64 __iomem *dst, u64 *src)
-+{
-+	int count = 8;
-+
-+	while (count) {
-+		writeq(*src, dst);
-+		src++;
-+		dst++;
-+		count--;
-+	}
-+}
-+
- /**
-  *	ring_tx_db - check and potentially ring a Tx queue's doorbell
-  *	@adap: the adapter
-@@ -826,11 +842,27 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
-  */
- static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
- {
-+	unsigned int *wr, index;
-+
- 	wmb();            /* write descriptors before telling HW */
- 	spin_lock(&q->db_lock);
- 	if (!q->db_disabled) {
--		t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
--			     QID(q->cntxt_id) | PIDX(n));
-+		if (is_t4(adap->chip)) {
-+			t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
-+				     QID(q->cntxt_id) | PIDX(n));
-+		} else {
-+			if (n == 1) {
-+				index = q->pidx ? (q->pidx - 1) : (q->size - 1);
-+				wr = (unsigned int *)&q->desc[index];
-+				cxgb_pio_copy((u64 __iomem *)
-+					      (adap->bar2 + q->udb + 64),
-+					      (u64 *)wr);
-+			} else
-+				writel(n,  adap->bar2 + q->udb + 8);
-+#if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
-+			asm volatile("sfence" : : : "memory");
-+#endif
-+		}
- 	}
- 	q->db_pidx = q->pidx;
- 	spin_unlock(&q->db_lock);
-@@ -2151,11 +2183,27 @@ err:
- 
- static void init_txq(struct adapter *adap, struct sge_txq *q, unsigned int id)
- {
-+	q->cntxt_id = id;
-+	if (!is_t4(adap->chip)) {
-+		unsigned int s_qpp;
-+		unsigned short udb_density;
-+		unsigned long qpshift;
-+		int page;
-+
-+		s_qpp = QUEUESPERPAGEPF1 * adap->fn;
-+		udb_density = 1 << QUEUESPERPAGEPF0_GET((t4_read_reg(adap,
-+				SGE_EGRESS_QUEUES_PER_PAGE_PF) >> s_qpp));
-+		qpshift = PAGE_SHIFT - ilog2(udb_density);
-+		q->udb = q->cntxt_id << qpshift;
-+		q->udb &= PAGE_MASK;
-+		page = q->udb / PAGE_SIZE;
-+		q->udb += (q->cntxt_id - (page * udb_density)) * 128;
-+	}
-+
- 	q->in_use = 0;
- 	q->cidx = q->pidx = 0;
- 	q->stops = q->restarts = 0;
- 	q->stat = (void *)&q->desc[q->size];
--	q->cntxt_id = id;
- 	spin_lock_init(&q->db_lock);
- 	adap->sge.egr_map[id - adap->sge.egr_start] = q;
- }
--- 
-1.7.1
+T5 supports all the offload, virtualization and switching capabilities of the
+existing T4 and adds some new features. The patch series does basic
+intialization for T5 in each driver. The patch series implements a low
+latency Write Combining work request path in cxgb4 and RDMA/cxgb4 driver for
+T5. It supports new T5 feature DSGL in RDMA/cxgb4 driver which enables direct
+DMA by HW to memory region PBL arrays and fast register PBL arrays from host
+memory. It adds support for dumping T5 registers, T5's debugfs support and
+enables doorbell drop recovery only for T4 in cxgb4 driver.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To facilitate addition of support in csiostor for future adapters, a new
+framework for adapter specific operations has been defined. Consequently, T4
+and T5 specific operations are now separated into different files. One of the
+csiostor patches also includes common bug fixes.
+
+We are submitting changes in all the drivers for T5 in one series since there
+are common changes in cxgb4 driver which are required by all the ULDs and
+csiostor. This way we can avoid build failures, build dependencies and ensure
+smooth integration.
+
+We request to merge this patch series via David Miller's net-next tree. We are
+copying respective maintainers of all the drivers for reviewing the changes.
+Kindly let us know in case of any review comments.
+
+We have successfully carried out networking, virtualization, iWARP and storage
+related stress tests on this patch series.
+
+Thanks,
+Vipul Pandya
+
+Arvind Bhushan (4):
+  csiostor: Segregate T4 adapter operations.
+  csiostor: Add T5 adapter operations.
+  csiostor: Header file modifications for chip support and bug fixes.
+  csiostor: Cleanup chip specific operations.
+
+Santosh Rastapur (11):
+  cxgb4: Add register definations for T5
+  cxgb4: Add macros, structures and inline functions for T5
+  cxgb4: Initialize T5
+  cxgb4: Dump T5 registers
+  cxgb4: Add T5 write combining support
+  cxgb4: Enable doorbell drop recovery only for T4 adapter
+  cxgb4: Add T5 debugfs support
+  cxgb4: Add T5 PCI ids
+  cxgb4: Update driver version and description
+  cxgb4: Disable SR-IOV support for PF4-7 for T5
+  cxgb4vf: Add support for Chelsio T5 adapter
+
+Vipul Pandya (7):
+  RDMA/cxgb4: Add Support for Chelsio T5 adapter
+  RDMA/cxgb4: Turn off db coalescing when RDMA QPs are in use.
+  RDMA/cxgb4: Add module_params to enable DB FC & Coalescing on T5
+  RDMA/cxgb4: Use DSGLs for fastreg and adapter memory writes for T5.
+  RDMA/cxgb4: Map pbl buffers for dma if using DSGL.
+  RDMA/cxgb4: Bump tcam_full stat and WR reply timeout
+  RDMA/cxgb4: Fix onchip queue support for T5
+
+ drivers/infiniband/hw/cxgb4/cm.c                   |   66 ++-
+ drivers/infiniband/hw/cxgb4/device.c               |   34 +-
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h             |   14 +-
+ drivers/infiniband/hw/cxgb4/mem.c                  |  155 ++++-
+ drivers/infiniband/hw/cxgb4/provider.c             |   15 +-
+ drivers/infiniband/hw/cxgb4/qp.c                   |  113 ++-
+ drivers/infiniband/hw/cxgb4/t4.h                   |   11 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   55 ++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  778 ++++++++++++++++++--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |    3 +
+ drivers/net/ethernet/chelsio/cxgb4/sge.c           |   91 ++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |  256 ++++++--
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.h         |    1 -
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h        |   53 ++
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   98 +++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h      |    2 +-
+ drivers/net/ethernet/chelsio/cxgb4vf/adapter.h     |    1 +
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |   35 +-
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c         |    8 +-
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h |   24 +
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |   14 +-
+ drivers/scsi/csiostor/Makefile                     |    3 +-
+ drivers/scsi/csiostor/csio_hw.c                    |  559 +++-----------
+ drivers/scsi/csiostor/csio_hw.h                    |   47 +-
+ drivers/scsi/csiostor/csio_hw_chip.h               |  175 +++++
+ drivers/scsi/csiostor/csio_hw_t4.c                 |  403 ++++++++++
+ drivers/scsi/csiostor/csio_hw_t5.c                 |  397 ++++++++++
+ drivers/scsi/csiostor/csio_init.c                  |   48 +-
+ drivers/scsi/csiostor/csio_init.h                  |   29 +-
+ drivers/scsi/csiostor/csio_lnode.h                 |    2 +-
+ drivers/scsi/csiostor/csio_rnode.c                 |   10 +-
+ drivers/scsi/csiostor/csio_rnode.h                 |    2 +-
+ drivers/scsi/csiostor/csio_wr.c                    |   60 +-
+ 33 files changed, 2821 insertions(+), 741 deletions(-)
+ create mode 100644 drivers/scsi/csiostor/csio_hw_chip.h
+ create mode 100644 drivers/scsi/csiostor/csio_hw_t4.c
+ create mode 100644 drivers/scsi/csiostor/csio_hw_t5.c
