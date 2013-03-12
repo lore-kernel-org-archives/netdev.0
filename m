@@ -1,59 +1,83 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Subject: Re: igb driver triggers BUILD_BUG_ON on s390
-Date: Tue, 12 Mar 2013 07:59:00 +0100
-Message-ID: <20130312065900.GA4148@osiris>
-References: <20130309100004.GA3584@osiris>
- <513DFC80.5000105@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp13.uk.ibm.com ([195.75.94.109]:55106 "EHLO
-	e06smtp13.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753416Ab3CLG7F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 02:59:05 -0400
-Received: from /spool/local
-	by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <heiko.carstens@de.ibm.com>;
-	Tue, 12 Mar 2013 06:57:02 -0000
-Received: from b06cxnps4076.portsmouth.uk.ibm.com (d06relay13.portsmouth.uk.ibm.com [9.149.109.198])
-	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 3271E219002D
-	for <netdev@vger.kernel.org>; Tue, 12 Mar 2013 07:00:35 +0000 (GMT)
-Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
-	by b06cxnps4076.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r2C6wpYX27656430
-	for <netdev@vger.kernel.org>; Tue, 12 Mar 2013 06:58:51 GMT
-Received: from d06av03.portsmouth.uk.ibm.com (localhost.localdomain [127.0.0.1])
-	by d06av03.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r2C6x0nl003484
-	for <netdev@vger.kernel.org>; Tue, 12 Mar 2013 00:59:00 -0600
-Content-Disposition: inline
-In-Reply-To: <513DFC80.5000105@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+Subject: [PATCH] ethernet: amd: use PTR_RET instead of IS_ERR + PTR_ERR
+Date: Tue, 12 Mar 2013 09:48:07 +0200
+Message-ID: <1363074487-21248-1-git-send-email-silviupopescu1990@gmail.com>
+Cc: davem@davemloft.net, geert@linux-m68k.org, joe@perches.com,
+	dhowells@redhat.com, linux-kernel@vger.kernel.org,
+	Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 11, 2013 at 08:47:12AM -0700, Alexander Duyck wrote:
-> On 03/09/2013 02:00 AM, Heiko Carstens wrote:
-> > git commit 74e238ead "igb: Support using build_skb in the case that
-> > jumbo frames are disabled" added a BUILD_BUG_ON() to the igb driver=
-s
-> > which triggers on s390:
-> >
-> > drivers/net/ethernet/intel/igb/igb_main.c:6231:2:
-> > error: call to =E2=80=98__compiletime_assert_6235=E2=80=99 declared=
- with attribute error:
-> >   BUILD_BUG_ON failed: SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) <
-> >     (NET_SKB_PAD + NET_IP_ALIGN + IGB_TS_HDR_LEN + ETH_FRAME_LEN + =
-ETH_FCS_LEN)
-> >
-> > Any opinions?
-> >
->=20
-> A fix for this has already been submitted. As it turns out the
-> BUILD_BUG_ON is mostly redundant anyway since we used a similar
-> calculation to determine if we were going to enable the use of build_=
-skb
-> per ring.
+This uses PTR_RET instead of IS_ERR and PTR_ERR in order to increase
+readability.
 
-Ok, thanks!
+Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+---
+ drivers/net/ethernet/amd/atarilance.c |    4 +---
+ drivers/net/ethernet/amd/mvme147.c    |    4 +---
+ drivers/net/ethernet/amd/ni65.c       |    2 +-
+ drivers/net/ethernet/amd/sun3lance.c  |    4 +---
+ 4 files changed, 4 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/amd/atarilance.c b/drivers/net/ethernet/amd/atarilance.c
+index ab9bedb..e8d0ef5 100644
+--- a/drivers/net/ethernet/amd/atarilance.c
++++ b/drivers/net/ethernet/amd/atarilance.c
+@@ -1147,9 +1147,7 @@ static struct net_device *atarilance_dev;
+ static int __init atarilance_module_init(void)
+ {
+ 	atarilance_dev = atarilance_probe(-1);
+-	if (IS_ERR(atarilance_dev))
+-		return PTR_ERR(atarilance_dev);
+-	return 0;
++	return PTR_RET(atarilance_dev);
+ }
+ 
+ static void __exit atarilance_module_exit(void)
+diff --git a/drivers/net/ethernet/amd/mvme147.c b/drivers/net/ethernet/amd/mvme147.c
+index 9af3c30..a51497c 100644
+--- a/drivers/net/ethernet/amd/mvme147.c
++++ b/drivers/net/ethernet/amd/mvme147.c
+@@ -188,9 +188,7 @@ static struct net_device *dev_mvme147_lance;
+ int __init init_module(void)
+ {
+ 	dev_mvme147_lance = mvme147lance_probe(-1);
+-	if (IS_ERR(dev_mvme147_lance))
+-		return PTR_ERR(dev_mvme147_lance);
+-	return 0;
++	return PTR_RET(dev_mvme147_lance);
+ }
+ 
+ void __exit cleanup_module(void)
+diff --git a/drivers/net/ethernet/amd/ni65.c b/drivers/net/ethernet/amd/ni65.c
+index 013b651..26fc0ce 100644
+--- a/drivers/net/ethernet/amd/ni65.c
++++ b/drivers/net/ethernet/amd/ni65.c
+@@ -1238,7 +1238,7 @@ MODULE_PARM_DESC(dma, "ni6510 ISA DMA channel (ignored for some cards)");
+ int __init init_module(void)
+ {
+  	dev_ni65 = ni65_probe(-1);
+-	return IS_ERR(dev_ni65) ? PTR_ERR(dev_ni65) : 0;
++	return PTR_RET(dev_ni65);
+ }
+ 
+ void __exit cleanup_module(void)
+diff --git a/drivers/net/ethernet/amd/sun3lance.c b/drivers/net/ethernet/amd/sun3lance.c
+index de412d3..4375abe 100644
+--- a/drivers/net/ethernet/amd/sun3lance.c
++++ b/drivers/net/ethernet/amd/sun3lance.c
+@@ -940,9 +940,7 @@ static struct net_device *sun3lance_dev;
+ int __init init_module(void)
+ {
+ 	sun3lance_dev = sun3lance_probe(-1);
+-	if (IS_ERR(sun3lance_dev))
+-		return PTR_ERR(sun3lance_dev);
+-	return 0;
++	return PTR_RET(sun3lance_dev);
+ }
+ 
+ void __exit cleanup_module(void)
+-- 
+1.7.9.5
