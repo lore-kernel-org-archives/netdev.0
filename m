@@ -1,57 +1,88 @@
-From: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
-Subject: [PATCH 09/18] driver: isdn: hisax: remove cast for kmalloc/kzalloc
- return value
-Date: Tue, 12 Mar 2013 13:15:49 +0800
-Message-ID: <513EBA05.2040908@cn.fujitsu.com>
-References: <513EB23D.7020303@cn.fujitsu.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 2/2] mv643xx_eth with 88E1318S: support Wake on
+ LAN
+Date: Tue, 12 Mar 2013 06:59:47 +0100
+Message-ID: <20130312055947.GP21478@lunn.ch>
+References: <1363045162-16606-1-git-send-email-michael@stapelberg.de>
+ <1363045162-16606-2-git-send-email-michael@stapelberg.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Karsten Keil <isdn@linux-pingi.de>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <513EB23D.7020303@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Lennert Buytenhek <buytenh@wantstofly.org>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: Michael Stapelberg <michael@stapelberg.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from londo.lunn.ch ([80.238.139.98]:56405 "EHLO londo.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754601Ab3CLGAY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Mar 2013 02:00:24 -0400
+Content-Disposition: inline
+In-Reply-To: <1363045162-16606-2-git-send-email-michael@stapelberg.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-remove cast for kmalloc/kzalloc return value.
+On Tue, Mar 12, 2013 at 12:39:22AM +0100, Michael Stapelberg wrote:
+> This has been tested on a qnap TS-119P II. Note that enabling WOL with
+> "ethtool -s eth0 wol g" is not enough; you also need to tell the PIC
+> microcontroller inside the qnap that WOL should be enabled by sending
+> 0xF2 with qcontrol(1) and you have to disable EUP ("Energy-using
+> Products", a European power-saving thing) by sending 0xF4.
+> 
+> Signed-off-by: Michael Stapelberg <michael@stapelberg.de>
+> ---
+>  drivers/net/ethernet/marvell/mv643xx_eth.c |   32 +++++++
+>  drivers/net/phy/marvell.c                  |  127 ++++++++++++++++++++++++++++
+>  2 files changed, 159 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+> index 2914050..64a405e 100644
+> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
+> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+> @@ -20,6 +20,8 @@
+>   * Copyright (C) 2007-2008 Marvell Semiconductor
+>   *			   Lennert Buytenhek <buytenh@marvell.com>
+>   *
+> + * Copyright (C) 2013 Michael Stapelberg <michael@stapelberg.de>
+> + *
+>   * This program is free software; you can redistribute it and/or
+>   * modify it under the terms of the GNU General Public License
+>   * as published by the Free Software Foundation; either version 2
+> @@ -1484,6 +1486,34 @@ mv643xx_eth_get_settings_phyless(struct mv643xx_eth_private *mp,
+>  	return 0;
+>  }
+>  
+> +static void
+> +mv643xx_eth_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+> +{
+> +	struct mv643xx_eth_private *mp = netdev_priv(dev);
+> +	wol->supported = 0;
+> +	wol->wolopts = 0;
+> +	if (mp->phy)
+> +		phy_ethtool_get_wol(mp->phy, wol);
+> +}
+> +
+> +static int
+> +mv643xx_eth_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+> +{
+> +	struct mv643xx_eth_private *mp = netdev_priv(dev);
+> +	int err;
+> +
+> +	if (mp->phy == NULL)
+> +		return -EOPNOTSUPP;
+> +
+> +	err = phy_ethtool_set_wol(mp->phy, wol);
+> +	/* Given that mv643xx_eth works without the marvell-specific PHY driver,
+> +	 * this debugging hint is useful to have.
+> +	 */
+> +	if (err == -EOPNOTSUPP)
+> +		netdev_info(dev, "The PHY does not support set_wol, was CONFIG_MARVELL_PHY enabled?\n");
+> +	return err;
 
-Signed-off-by: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Karsten Keil <isdn@linux-pingi.de>
-Cc: netdev@vger.kernel.org
----
- drivers/isdn/hisax/fsm.c    |    2 +-
- drivers/isdn/hisax/hfc_sx.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+Hi Michael
 
-diff --git a/drivers/isdn/hisax/fsm.c b/drivers/isdn/hisax/fsm.c
-index 1bb2910..c7a9471 100644
---- a/drivers/isdn/hisax/fsm.c
-+++ b/drivers/isdn/hisax/fsm.c
-@@ -26,7 +26,7 @@ FsmNew(struct Fsm *fsm, struct FsmNode *fnlist, int fncount)
- {
- 	int i;
- 
--	fsm->jumpmatrix = (FSMFNPTR *)
-+	fsm->jumpmatrix =
- 		kzalloc(sizeof(FSMFNPTR) * fsm->state_count * fsm->event_count, GFP_KERNEL);
- 	if (!fsm->jumpmatrix)
- 		return -ENOMEM;
-diff --git a/drivers/isdn/hisax/hfc_sx.c b/drivers/isdn/hisax/hfc_sx.c
-index 90f34ae..dc4574f 100644
---- a/drivers/isdn/hisax/hfc_sx.c
-+++ b/drivers/isdn/hisax/hfc_sx.c
-@@ -1479,7 +1479,7 @@ int setup_hfcsx(struct IsdnCard *card)
- 			release_region(cs->hw.hfcsx.base, 2);
- 			return (0);
- 		}
--		if (!(cs->hw.hfcsx.extra = (void *)
-+		if (!(cs->hw.hfcsx.extra =
- 		      kmalloc(sizeof(struct hfcsx_extra), GFP_ATOMIC))) {
- 			release_region(cs->hw.hfcsx.base, 2);
- 			printk(KERN_WARNING "HFC-SX: unable to allocate memory\n");
--- 
-1.7.1
+I would not have this netdev_info() message. Only a few boxes are
+going to have a PHY with this capability, so printing when it does not
+is rather annoying. Either just return the error code, or make it a
+netdev_dbg().
+
+      Andrew
