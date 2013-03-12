@@ -1,120 +1,96 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [RFC PATCH] qmi_wwan: set correct altsetting for Gobi 1K devices
-Date: Tue, 12 Mar 2013 14:40:05 -0500
-Message-ID: <1363117205.9644.17.camel@dcbw.foobar.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Reilly Grant <grantr@vmware.com>
+Subject: [PATCH] VSOCK: Support VM sockets connected to the hypervisor.
+Date: Tue, 12 Mar 2013 12:40:19 -0700
+Message-ID: <1363117219-21911-1-git-send-email-grantr@vmware.com>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	pv-drivers@vmware.com, Reilly Grant <grantr@vmware.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With Gobi 1K devices, USB interface #3's altsetting is 0 by default, but
-altsetting 0 only provides one interrupt endpoint and is not sufficent
-for QMI.  Altsetting 1 provides all 3 endpoints required for qmi_wwan
-and works with QMI.
+The resource ID used for VM socket control packets (0) is already
+used for the VMCI_GET_CONTEXT_ID hypercall so a new ID (15) must be
+used when the guest sends these datagrams to the hypervisor.
 
-IIRC the altsetting used to be set by qcserial back before we made
-qcserial stop touching interfaces that qmi_wwan was going to use.  But
-now that qcserial only touches the modem interface, we need qmi_wwan to
-set the correct altsetting on the QMI interface.
+The hypervisor context ID must also be removed from the internal
+blacklist.
 
-The attached patch works for my Gobi1K (and should work for all other
-1Ks too) but seems somewhat ugly.  What approach should we take?
-Basically, we need to know that a device is Gobi1K at probe time so we
-can set the right altsetting on it.
-
-Gobi 1K layout for intf#3 is:
-
-    Interface Descriptor:  255/255/255
-      bInterfaceNumber        3
-      bAlternateSetting       0
-      Endpoint Descriptor:  Interrupt IN
-    Interface Descriptor:  255/255/255
-      bInterfaceNumber        3
-      bAlternateSetting       1
-      Endpoint Descriptor:  Interrupt IN
-      Endpoint Descriptor:  Bulk IN
-      Endpoint Descriptor:  Bulk OUT
-
-Dan
-
+Signed-off-by: Reilly Grant <grantr@vmware.com>
+Acked-by: Andy King <acking@vmware.com>
 ---
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index efb5c7c..50e1b7c 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -43,6 +43,9 @@
-  * commands on a serial interface
-  */
- 
-+/* Quirks for the usbnet 'struct driver_info' data field */
-+#define QUIRK_GOBI_1K  (1 << 0)   /* QMI interface requires altsetting 1 */
-+
- /* driver specific data */
- struct qmi_wwan_state {
- 	struct usb_driver *subdriver;
-@@ -326,6 +329,15 @@ static const struct driver_info	qmi_wwan_info = {
- 	.manage_power	= qmi_wwan_manage_power,
- };
- 
-+static const struct driver_info	gobi1k_info = {
-+	.description	= "WWAN/QMI device",
-+	.flags		= FLAG_WWAN,
-+	.bind		= qmi_wwan_bind,
-+	.unbind		= qmi_wwan_unbind,
-+	.manage_power	= qmi_wwan_manage_power,
-+	.data           = QUIRK_GOBI_1K,
-+};
-+
- #define HUAWEI_VENDOR_ID	0x12D1
- 
- /* map QMI/wwan function by a fixed interface number */
-@@ -335,7 +347,8 @@ static const struct driver_info	qmi_wwan_info = {
- 
- /* Gobi 1000 QMI/wwan interface number is 3 according to qcserial */
- #define QMI_GOBI1K_DEVICE(vend, prod) \
--	QMI_FIXED_INTF(vend, prod, 3)
-+	USB_DEVICE_INTERFACE_NUMBER(vend, prod, 3), \
-+	.driver_info = (unsigned long)&gobi1k_info
- 
- /* Gobi 2000/3000 QMI/wwan interface number is 0 according to qcserial */
- #define QMI_GOBI_DEVICE(vend, prod) \
-@@ -541,6 +554,9 @@ MODULE_DEVICE_TABLE(usb, products);
- static int qmi_wwan_probe(struct usb_interface *intf, const struct usb_device_id *prod)
- {
- 	struct usb_device_id *id = (struct usb_device_id *)prod;
-+	struct driver_info *info;
-+	u8 intf_num = intf->cur_altsetting->desc.bInterfaceNumber;
-+	int retval;
- 
- 	/* Workaround to enable dynamic IDs.  This disables usbnet
- 	 * blacklisting functionality.  Which, if required, can be
-@@ -552,6 +568,20 @@ static int qmi_wwan_probe(struct usb_interface *intf, const struct usb_device_id
- 		id->driver_info = (unsigned long)&qmi_wwan_info;
- 	}
- 
-+	info = (struct driver_info *) id->driver_info;
-+	if (info->data & QUIRK_GOBI_1K) {
-+		/* Gobi 1K's QMI interface is always USB interface #3 */
-+		BUG_ON(intf_num != 3);
-+
-+		retval = usb_set_interface(interface_to_usbdev (intf),
-+					   intf_num, 1);
-+		if (retval < 0) {
-+			dev_err(&intf->dev, "Failed to set altsetting 1: %d\n",
-+			        retval);
-+			return -ENODEV;
-+		}
-+	}
-+
- 	return usbnet_probe(intf, id);
+ net/vmw_vsock/vmci_transport.c | 16 +++++++++++++---
+ net/vmw_vsock/vmci_transport.h |  3 +++
+ 2 files changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
+index a70ace8..c19ff0e 100644
+--- a/net/vmw_vsock/vmci_transport.c
++++ b/net/vmw_vsock/vmci_transport.c
+@@ -123,6 +123,14 @@ static s32 vmci_transport_error_to_vsock_error(s32 vmci_error)
+ 	return err > 0 ? -err : err;
  }
  
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
++static u32 vmci_transport_peer_rid(u32 peer_cid)
++{
++	if (VMADDR_HYPERVISOR_ID == peer_cid)
++		return VMCI_TRANSPORT_HYPERVISOR_PACKET_RID;
++
++	return VMCI_TRANSPORT_PACKET_RID;
++}
++
+ static inline void
+ vmci_transport_packet_init(struct vmci_transport_packet *pkt,
+ 			   struct sockaddr_vm *src,
+@@ -140,7 +148,7 @@ vmci_transport_packet_init(struct vmci_transport_packet *pkt,
+ 	pkt->dg.src = vmci_make_handle(VMADDR_CID_ANY,
+ 				       VMCI_TRANSPORT_PACKET_RID);
+ 	pkt->dg.dst = vmci_make_handle(dst->svm_cid,
+-				       VMCI_TRANSPORT_PACKET_RID);
++				       vmci_transport_peer_rid(dst->svm_cid);
+ 	pkt->dg.payload_size = sizeof(*pkt) - sizeof(pkt->dg);
+ 	pkt->version = VMCI_TRANSPORT_PACKET_VERSION;
+ 	pkt->type = type;
+@@ -511,6 +519,9 @@ static bool vmci_transport_is_trusted(struct vsock_sock *vsock, u32 peer_cid)
+ 
+ static bool vmci_transport_allow_dgram(struct vsock_sock *vsock, u32 peer_cid)
+ {
++	if (VMADDR_CID_HYPERVISOR == peer_cid)
++		return true;
++
+ 	if (vsock->cached_peer != peer_cid) {
+ 		vsock->cached_peer = peer_cid;
+ 		if (!vmci_transport_is_trusted(vsock, peer_cid) &&
+@@ -631,7 +642,6 @@ static int vmci_transport_recv_dgram_cb(void *data, struct vmci_datagram *dg)
+ static bool vmci_transport_stream_allow(u32 cid, u32 port)
+ {
+ 	static const u32 non_socket_contexts[] = {
+-		VMADDR_CID_HYPERVISOR,
+ 		VMADDR_CID_RESERVED,
+ 	};
+ 	int i;
+@@ -670,7 +680,7 @@ static int vmci_transport_recv_stream_cb(void *data, struct vmci_datagram *dg)
+ 	 */
+ 
+ 	if (!vmci_transport_stream_allow(dg->src.context, -1)
+-	    || VMCI_TRANSPORT_PACKET_RID != dg->src.resource)
++	    || vmci_transport_peer_rid(dg->src.context) != dg->src.resource)
+ 		return VMCI_ERROR_NO_ACCESS;
+ 
+ 	if (VMCI_DG_SIZE(dg) < sizeof(*pkt))
+diff --git a/net/vmw_vsock/vmci_transport.h b/net/vmw_vsock/vmci_transport.h
+index 1bf9918..fd88ea8 100644
+--- a/net/vmw_vsock/vmci_transport.h
++++ b/net/vmw_vsock/vmci_transport.h
+@@ -28,6 +28,9 @@
+ /* The resource ID on which control packets are sent. */
+ #define VMCI_TRANSPORT_PACKET_RID 1
+ 
++/* The resource ID on which control packets are sent to the hypervisor. */
++#define VMCI_TRANSPORT_HYPERVISOR_PACKET_RID 15
++
+ #define VSOCK_PROTO_INVALID        0
+ #define VSOCK_PROTO_PKT_ON_NOTIFY (1 << 0)
+ #define VSOCK_PROTO_ALL_SUPPORTED (VSOCK_PROTO_PKT_ON_NOTIFY)
+-- 
+1.8.1.5
