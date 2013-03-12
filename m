@@ -1,39 +1,45 @@
-From: Silviu-Mihai Popescu <silviupopescu1990-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] bluetooth: use PTR_RET instead of IS_ERR + PTR_ERR
-Date: Tue, 12 Mar 2013 20:13:15 +0200
-Message-ID: <1363111995-26866-1-git-send-email-silviupopescu1990@gmail.com>
-Cc: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Silviu-Mihai Popescu <silviupopescu1990-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+Subject: [PATCH] ethernet: nxp: use resource_size()
+Date: Tue, 12 Mar 2013 20:30:35 +0200
+Message-ID: <1363113035-11269-1-git-send-email-silviupopescu1990@gmail.com>
+Cc: davem@davemloft.net, stigge@antcom.de, edumazet@google.com,
+	gregkh@linuxfoundation.org, jiri@resnulli.us,
+	linux-kernel@vger.kernel.org,
+	Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This uses PTR_RET instead of IS_ERR and PTR_ERR in order to increase
-readability.
+Use resource_size() instead of explicit calculation. This was found via
+make coccicheck.
 
-Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
 ---
- net/bluetooth/hci_sysfs.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ drivers/net/ethernet/nxp/lpc_eth.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/bluetooth/hci_sysfs.c b/net/bluetooth/hci_sysfs.c
-index 23b4e24..6fb5065 100644
---- a/net/bluetooth/hci_sysfs.c
-+++ b/net/bluetooth/hci_sysfs.c
-@@ -590,10 +590,7 @@ int __init bt_sysfs_init(void)
- 	bt_debugfs = debugfs_create_dir("bluetooth", NULL);
+diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
+index c4122c8..bc493c8 100644
+--- a/drivers/net/ethernet/nxp/lpc_eth.c
++++ b/drivers/net/ethernet/nxp/lpc_eth.c
+@@ -1362,7 +1362,7 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
+ 	__lpc_eth_clock_enable(pldat, true);
  
- 	bt_class = class_create(THIS_MODULE, "bluetooth");
--	if (IS_ERR(bt_class))
--		return PTR_ERR(bt_class);
--
--	return 0;
-+	return PTR_RET(bt_class)
- }
- 
- void bt_sysfs_cleanup(void)
+ 	/* Map IO space */
+-	pldat->net_base = ioremap(res->start, res->end - res->start + 1);
++	pldat->net_base = ioremap(res->start, resource_size(res));
+ 	if (!pldat->net_base) {
+ 		dev_err(&pdev->dev, "failed to map registers\n");
+ 		ret = -ENOMEM;
+@@ -1421,7 +1421,7 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
+ 	netdev_dbg(ndev, "IO address start     :0x%08x\n",
+ 			res->start);
+ 	netdev_dbg(ndev, "IO address size      :%d\n",
+-			res->end - res->start + 1);
++			resource_size(res));
+ 	netdev_dbg(ndev, "IO address (mapped)  :0x%p\n",
+ 			pldat->net_base);
+ 	netdev_dbg(ndev, "IRQ number           :%d\n", ndev->irq);
 -- 
 1.7.9.5
