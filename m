@@ -1,518 +1,301 @@
-From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net-next 04/22] cxgb4: Dump T5 registers
-Date: Tue, 12 Mar 2013 17:16:16 +0530
-Message-ID: <1363088794-31453-5-git-send-email-vipul@chelsio.com>
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH net-next 12/22] RDMA/cxgb4: Add Support for Chelsio T5 adapter
+Date: Tue, 12 Mar 2013 17:16:24 +0530
+Message-ID: <1363088794-31453-13-git-send-email-vipul@chelsio.com>
 References: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
-	JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	naresh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	arvindb-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, abhishek-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1363088794-31453-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, roland@purestorage.com,
+	JBottomley@parallels.com, dm@chelsio.com,
+	swise@opengridcomputing.com, leedom@chelsio.com,
+	naresh@chelsio.com, divy@chelsio.com, santosh@chelsio.com,
+	arvindb@chelsio.com, abhishek@chelsio.com,
+	Vipul Pandya <vipul@chelsio.com>
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+	linux-scsi@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:9209 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932733Ab3CLLxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 07:53:19 -0400
+In-Reply-To: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Santosh Rastapur <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Adds support for Chelsio T5 adapter.
+Enables T5's Write Combining feature.
 
-Signed-off-by: Santosh Rastapur <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  452 ++++++++++++++++++++++-
- 1 files changed, 448 insertions(+), 4 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c       |   64 +++++++++++++++++++++++--------
+ drivers/infiniband/hw/cxgb4/device.c   |   13 ++++--
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h |    9 ++++
+ drivers/infiniband/hw/cxgb4/provider.c |   15 +++++--
+ drivers/infiniband/hw/cxgb4/qp.c       |    2 +-
+ drivers/infiniband/hw/cxgb4/t4.h       |    9 ----
+ 6 files changed, 77 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index dd7bcc2..3d6d23a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -1340,10 +1340,15 @@ static int get_sset_count(struct net_device *dev, int sset)
- }
- 
- #define T4_REGMAP_SIZE (160 * 1024)
-+#define T5_REGMAP_SIZE (332 * 1024)
- 
- static int get_regs_len(struct net_device *dev)
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index 565bfb1..272bf78 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -511,12 +511,16 @@ static unsigned int select_ntuple(struct c4iw_dev *dev, struct dst_entry *dst,
+ static int send_connect(struct c4iw_ep *ep)
  {
--	return T4_REGMAP_SIZE;
-+	struct adapter *adap = netdev2adap(dev);
-+	if (is_t4(adap->chip))
-+		return T4_REGMAP_SIZE;
-+	else
-+		return T5_REGMAP_SIZE;
- }
+ 	struct cpl_act_open_req *req;
++	struct cpl_t5_act_open_req *t5_req;
+ 	struct sk_buff *skb;
+ 	u64 opt0;
+ 	u32 opt2;
+ 	unsigned int mtu_idx;
+ 	int wscale;
+-	int wrlen = roundup(sizeof *req, 16);
++	int size = is_t4(ep->com.dev->rdev.lldi.adapter_type) ?
++		sizeof(struct cpl_act_open_req) :
++		sizeof(struct cpl_t5_act_open_req);
++	int wrlen = roundup(size, 16);
  
- static int get_eeprom_len(struct net_device *dev)
-@@ -1448,7 +1453,7 @@ static void reg_block_dump(struct adapter *ap, void *buf, unsigned int start,
- static void get_regs(struct net_device *dev, struct ethtool_regs *regs,
- 		     void *buf)
- {
--	static const unsigned int reg_ranges[] = {
-+	static const unsigned int t4_reg_ranges[] = {
- 		0x1008, 0x1108,
- 		0x1180, 0x11b4,
- 		0x11fc, 0x123c,
-@@ -1668,13 +1673,452 @@ static void get_regs(struct net_device *dev, struct ethtool_regs *regs,
- 		0x27e00, 0x27e04
- 	};
+ 	PDBG("%s ep %p atid %u\n", __func__, ep, ep->atid);
  
-+	static const unsigned int t5_reg_ranges[] = {
-+		0x1008, 0x1148,
-+		0x1180, 0x11b4,
-+		0x11fc, 0x123c,
-+		0x1280, 0x173c,
-+		0x1800, 0x18fc,
-+		0x3000, 0x3028,
-+		0x3060, 0x30d8,
-+		0x30e0, 0x30fc,
-+		0x3140, 0x357c,
-+		0x35a8, 0x35cc,
-+		0x35ec, 0x35ec,
-+		0x3600, 0x5624,
-+		0x56cc, 0x575c,
-+		0x580c, 0x5814,
-+		0x5890, 0x58bc,
-+		0x5940, 0x59dc,
-+		0x59fc, 0x5a18,
-+		0x5a60, 0x5a9c,
-+		0x5b9c, 0x5bfc,
-+		0x6000, 0x6040,
-+		0x6058, 0x614c,
-+		0x7700, 0x7798,
-+		0x77c0, 0x78fc,
-+		0x7b00, 0x7c54,
-+		0x7d00, 0x7efc,
-+		0x8dc0, 0x8de0,
-+		0x8df8, 0x8e84,
-+		0x8ea0, 0x8f84,
-+		0x8fc0, 0x90f8,
-+		0x9400, 0x9470,
-+		0x9600, 0x96f4,
-+		0x9800, 0x9808,
-+		0x9820, 0x983c,
-+		0x9850, 0x9864,
-+		0x9c00, 0x9c6c,
-+		0x9c80, 0x9cec,
-+		0x9d00, 0x9d6c,
-+		0x9d80, 0x9dec,
-+		0x9e00, 0x9e6c,
-+		0x9e80, 0x9eec,
-+		0x9f00, 0x9f6c,
-+		0x9f80, 0xa020,
-+		0xd004, 0xd03c,
-+		0xdfc0, 0xdfe0,
-+		0xe000, 0x11088,
-+		0x1109c, 0x1117c,
-+		0x11190, 0x11204,
-+		0x19040, 0x1906c,
-+		0x19078, 0x19080,
-+		0x1908c, 0x19124,
-+		0x19150, 0x191b0,
-+		0x191d0, 0x191e8,
-+		0x19238, 0x19290,
-+		0x193f8, 0x19474,
-+		0x19490, 0x194cc,
-+		0x194f0, 0x194f8,
-+		0x19c00, 0x19c60,
-+		0x19c94, 0x19e10,
-+		0x19e50, 0x19f34,
-+		0x19f40, 0x19f50,
-+		0x19f90, 0x19fe4,
-+		0x1a000, 0x1a06c,
-+		0x1a0b0, 0x1a120,
-+		0x1a128, 0x1a138,
-+		0x1a190, 0x1a1c4,
-+		0x1a1fc, 0x1a1fc,
-+		0x1e008, 0x1e00c,
-+		0x1e040, 0x1e04c,
-+		0x1e284, 0x1e290,
-+		0x1e2c0, 0x1e2c0,
-+		0x1e2e0, 0x1e2e0,
-+		0x1e300, 0x1e384,
-+		0x1e3c0, 0x1e3c8,
-+		0x1e408, 0x1e40c,
-+		0x1e440, 0x1e44c,
-+		0x1e684, 0x1e690,
-+		0x1e6c0, 0x1e6c0,
-+		0x1e6e0, 0x1e6e0,
-+		0x1e700, 0x1e784,
-+		0x1e7c0, 0x1e7c8,
-+		0x1e808, 0x1e80c,
-+		0x1e840, 0x1e84c,
-+		0x1ea84, 0x1ea90,
-+		0x1eac0, 0x1eac0,
-+		0x1eae0, 0x1eae0,
-+		0x1eb00, 0x1eb84,
-+		0x1ebc0, 0x1ebc8,
-+		0x1ec08, 0x1ec0c,
-+		0x1ec40, 0x1ec4c,
-+		0x1ee84, 0x1ee90,
-+		0x1eec0, 0x1eec0,
-+		0x1eee0, 0x1eee0,
-+		0x1ef00, 0x1ef84,
-+		0x1efc0, 0x1efc8,
-+		0x1f008, 0x1f00c,
-+		0x1f040, 0x1f04c,
-+		0x1f284, 0x1f290,
-+		0x1f2c0, 0x1f2c0,
-+		0x1f2e0, 0x1f2e0,
-+		0x1f300, 0x1f384,
-+		0x1f3c0, 0x1f3c8,
-+		0x1f408, 0x1f40c,
-+		0x1f440, 0x1f44c,
-+		0x1f684, 0x1f690,
-+		0x1f6c0, 0x1f6c0,
-+		0x1f6e0, 0x1f6e0,
-+		0x1f700, 0x1f784,
-+		0x1f7c0, 0x1f7c8,
-+		0x1f808, 0x1f80c,
-+		0x1f840, 0x1f84c,
-+		0x1fa84, 0x1fa90,
-+		0x1fac0, 0x1fac0,
-+		0x1fae0, 0x1fae0,
-+		0x1fb00, 0x1fb84,
-+		0x1fbc0, 0x1fbc8,
-+		0x1fc08, 0x1fc0c,
-+		0x1fc40, 0x1fc4c,
-+		0x1fe84, 0x1fe90,
-+		0x1fec0, 0x1fec0,
-+		0x1fee0, 0x1fee0,
-+		0x1ff00, 0x1ff84,
-+		0x1ffc0, 0x1ffc8,
-+		0x30000, 0x30030,
-+		0x30100, 0x30144,
-+		0x30190, 0x301d0,
-+		0x30200, 0x30318,
-+		0x30400, 0x3052c,
-+		0x30540, 0x3061c,
-+		0x30800, 0x30834,
-+		0x308c0, 0x30908,
-+		0x30910, 0x309ac,
-+		0x30a00, 0x30a04,
-+		0x30a0c, 0x30a2c,
-+		0x30a44, 0x30a50,
-+		0x30a74, 0x30c24,
-+		0x30d08, 0x30d14,
-+		0x30d1c, 0x30d20,
-+		0x30d3c, 0x30d50,
-+		0x31200, 0x3120c,
-+		0x31220, 0x31220,
-+		0x31240, 0x31240,
-+		0x31600, 0x31600,
-+		0x31608, 0x3160c,
-+		0x31a00, 0x31a1c,
-+		0x31e04, 0x31e20,
-+		0x31e38, 0x31e3c,
-+		0x31e80, 0x31e80,
-+		0x31e88, 0x31ea8,
-+		0x31eb0, 0x31eb4,
-+		0x31ec8, 0x31ed4,
-+		0x31fb8, 0x32004,
-+		0x32208, 0x3223c,
-+		0x32600, 0x32630,
-+		0x32a00, 0x32abc,
-+		0x32b00, 0x32b70,
-+		0x33000, 0x33048,
-+		0x33060, 0x3309c,
-+		0x330f0, 0x33148,
-+		0x33160, 0x3319c,
-+		0x331f0, 0x332e4,
-+		0x332f8, 0x333e4,
-+		0x333f8, 0x33448,
-+		0x33460, 0x3349c,
-+		0x334f0, 0x33548,
-+		0x33560, 0x3359c,
-+		0x335f0, 0x336e4,
-+		0x336f8, 0x337e4,
-+		0x337f8, 0x337fc,
-+		0x33814, 0x33814,
-+		0x3382c, 0x3382c,
-+		0x33880, 0x3388c,
-+		0x338e8, 0x338ec,
-+		0x33900, 0x33948,
-+		0x33960, 0x3399c,
-+		0x339f0, 0x33ae4,
-+		0x33af8, 0x33b10,
-+		0x33b28, 0x33b28,
-+		0x33b3c, 0x33b50,
-+		0x33bf0, 0x33c10,
-+		0x33c28, 0x33c28,
-+		0x33c3c, 0x33c50,
-+		0x33cf0, 0x33cfc,
-+		0x34000, 0x34030,
-+		0x34100, 0x34144,
-+		0x34190, 0x341d0,
-+		0x34200, 0x34318,
-+		0x34400, 0x3452c,
-+		0x34540, 0x3461c,
-+		0x34800, 0x34834,
-+		0x348c0, 0x34908,
-+		0x34910, 0x349ac,
-+		0x34a00, 0x34a04,
-+		0x34a0c, 0x34a2c,
-+		0x34a44, 0x34a50,
-+		0x34a74, 0x34c24,
-+		0x34d08, 0x34d14,
-+		0x34d1c, 0x34d20,
-+		0x34d3c, 0x34d50,
-+		0x35200, 0x3520c,
-+		0x35220, 0x35220,
-+		0x35240, 0x35240,
-+		0x35600, 0x35600,
-+		0x35608, 0x3560c,
-+		0x35a00, 0x35a1c,
-+		0x35e04, 0x35e20,
-+		0x35e38, 0x35e3c,
-+		0x35e80, 0x35e80,
-+		0x35e88, 0x35ea8,
-+		0x35eb0, 0x35eb4,
-+		0x35ec8, 0x35ed4,
-+		0x35fb8, 0x36004,
-+		0x36208, 0x3623c,
-+		0x36600, 0x36630,
-+		0x36a00, 0x36abc,
-+		0x36b00, 0x36b70,
-+		0x37000, 0x37048,
-+		0x37060, 0x3709c,
-+		0x370f0, 0x37148,
-+		0x37160, 0x3719c,
-+		0x371f0, 0x372e4,
-+		0x372f8, 0x373e4,
-+		0x373f8, 0x37448,
-+		0x37460, 0x3749c,
-+		0x374f0, 0x37548,
-+		0x37560, 0x3759c,
-+		0x375f0, 0x376e4,
-+		0x376f8, 0x377e4,
-+		0x377f8, 0x377fc,
-+		0x37814, 0x37814,
-+		0x3782c, 0x3782c,
-+		0x37880, 0x3788c,
-+		0x378e8, 0x378ec,
-+		0x37900, 0x37948,
-+		0x37960, 0x3799c,
-+		0x379f0, 0x37ae4,
-+		0x37af8, 0x37b10,
-+		0x37b28, 0x37b28,
-+		0x37b3c, 0x37b50,
-+		0x37bf0, 0x37c10,
-+		0x37c28, 0x37c28,
-+		0x37c3c, 0x37c50,
-+		0x37cf0, 0x37cfc,
-+		0x38000, 0x38030,
-+		0x38100, 0x38144,
-+		0x38190, 0x381d0,
-+		0x38200, 0x38318,
-+		0x38400, 0x3852c,
-+		0x38540, 0x3861c,
-+		0x38800, 0x38834,
-+		0x388c0, 0x38908,
-+		0x38910, 0x389ac,
-+		0x38a00, 0x38a04,
-+		0x38a0c, 0x38a2c,
-+		0x38a44, 0x38a50,
-+		0x38a74, 0x38c24,
-+		0x38d08, 0x38d14,
-+		0x38d1c, 0x38d20,
-+		0x38d3c, 0x38d50,
-+		0x39200, 0x3920c,
-+		0x39220, 0x39220,
-+		0x39240, 0x39240,
-+		0x39600, 0x39600,
-+		0x39608, 0x3960c,
-+		0x39a00, 0x39a1c,
-+		0x39e04, 0x39e20,
-+		0x39e38, 0x39e3c,
-+		0x39e80, 0x39e80,
-+		0x39e88, 0x39ea8,
-+		0x39eb0, 0x39eb4,
-+		0x39ec8, 0x39ed4,
-+		0x39fb8, 0x3a004,
-+		0x3a208, 0x3a23c,
-+		0x3a600, 0x3a630,
-+		0x3aa00, 0x3aabc,
-+		0x3ab00, 0x3ab70,
-+		0x3b000, 0x3b048,
-+		0x3b060, 0x3b09c,
-+		0x3b0f0, 0x3b148,
-+		0x3b160, 0x3b19c,
-+		0x3b1f0, 0x3b2e4,
-+		0x3b2f8, 0x3b3e4,
-+		0x3b3f8, 0x3b448,
-+		0x3b460, 0x3b49c,
-+		0x3b4f0, 0x3b548,
-+		0x3b560, 0x3b59c,
-+		0x3b5f0, 0x3b6e4,
-+		0x3b6f8, 0x3b7e4,
-+		0x3b7f8, 0x3b7fc,
-+		0x3b814, 0x3b814,
-+		0x3b82c, 0x3b82c,
-+		0x3b880, 0x3b88c,
-+		0x3b8e8, 0x3b8ec,
-+		0x3b900, 0x3b948,
-+		0x3b960, 0x3b99c,
-+		0x3b9f0, 0x3bae4,
-+		0x3baf8, 0x3bb10,
-+		0x3bb28, 0x3bb28,
-+		0x3bb3c, 0x3bb50,
-+		0x3bbf0, 0x3bc10,
-+		0x3bc28, 0x3bc28,
-+		0x3bc3c, 0x3bc50,
-+		0x3bcf0, 0x3bcfc,
-+		0x3c000, 0x3c030,
-+		0x3c100, 0x3c144,
-+		0x3c190, 0x3c1d0,
-+		0x3c200, 0x3c318,
-+		0x3c400, 0x3c52c,
-+		0x3c540, 0x3c61c,
-+		0x3c800, 0x3c834,
-+		0x3c8c0, 0x3c908,
-+		0x3c910, 0x3c9ac,
-+		0x3ca00, 0x3ca04,
-+		0x3ca0c, 0x3ca2c,
-+		0x3ca44, 0x3ca50,
-+		0x3ca74, 0x3cc24,
-+		0x3cd08, 0x3cd14,
-+		0x3cd1c, 0x3cd20,
-+		0x3cd3c, 0x3cd50,
-+		0x3d200, 0x3d20c,
-+		0x3d220, 0x3d220,
-+		0x3d240, 0x3d240,
-+		0x3d600, 0x3d600,
-+		0x3d608, 0x3d60c,
-+		0x3da00, 0x3da1c,
-+		0x3de04, 0x3de20,
-+		0x3de38, 0x3de3c,
-+		0x3de80, 0x3de80,
-+		0x3de88, 0x3dea8,
-+		0x3deb0, 0x3deb4,
-+		0x3dec8, 0x3ded4,
-+		0x3dfb8, 0x3e004,
-+		0x3e208, 0x3e23c,
-+		0x3e600, 0x3e630,
-+		0x3ea00, 0x3eabc,
-+		0x3eb00, 0x3eb70,
-+		0x3f000, 0x3f048,
-+		0x3f060, 0x3f09c,
-+		0x3f0f0, 0x3f148,
-+		0x3f160, 0x3f19c,
-+		0x3f1f0, 0x3f2e4,
-+		0x3f2f8, 0x3f3e4,
-+		0x3f3f8, 0x3f448,
-+		0x3f460, 0x3f49c,
-+		0x3f4f0, 0x3f548,
-+		0x3f560, 0x3f59c,
-+		0x3f5f0, 0x3f6e4,
-+		0x3f6f8, 0x3f7e4,
-+		0x3f7f8, 0x3f7fc,
-+		0x3f814, 0x3f814,
-+		0x3f82c, 0x3f82c,
-+		0x3f880, 0x3f88c,
-+		0x3f8e8, 0x3f8ec,
-+		0x3f900, 0x3f948,
-+		0x3f960, 0x3f99c,
-+		0x3f9f0, 0x3fae4,
-+		0x3faf8, 0x3fb10,
-+		0x3fb28, 0x3fb28,
-+		0x3fb3c, 0x3fb50,
-+		0x3fbf0, 0x3fc10,
-+		0x3fc28, 0x3fc28,
-+		0x3fc3c, 0x3fc50,
-+		0x3fcf0, 0x3fcfc,
-+		0x40000, 0x4000c,
-+		0x40040, 0x40068,
-+		0x40080, 0x40144,
-+		0x40180, 0x4018c,
-+		0x40200, 0x40298,
-+		0x402ac, 0x4033c,
-+		0x403f8, 0x403fc,
-+		0x41300, 0x413c4,
-+		0x41400, 0x4141c,
-+		0x41480, 0x414d0,
-+		0x44000, 0x44078,
-+		0x440c0, 0x44278,
-+		0x442c0, 0x44478,
-+		0x444c0, 0x44678,
-+		0x446c0, 0x44878,
-+		0x448c0, 0x449fc,
-+		0x45000, 0x45068,
-+		0x45080, 0x45084,
-+		0x450a0, 0x450b0,
-+		0x45200, 0x45268,
-+		0x45280, 0x45284,
-+		0x452a0, 0x452b0,
-+		0x460c0, 0x460e4,
-+		0x47000, 0x4708c,
-+		0x47200, 0x47250,
-+		0x47400, 0x47420,
-+		0x47600, 0x47618,
-+		0x47800, 0x47814,
-+		0x48000, 0x4800c,
-+		0x48040, 0x48068,
-+		0x48080, 0x48144,
-+		0x48180, 0x4818c,
-+		0x48200, 0x48298,
-+		0x482ac, 0x4833c,
-+		0x483f8, 0x483fc,
-+		0x49300, 0x493c4,
-+		0x49400, 0x4941c,
-+		0x49480, 0x494d0,
-+		0x4c000, 0x4c078,
-+		0x4c0c0, 0x4c278,
-+		0x4c2c0, 0x4c478,
-+		0x4c4c0, 0x4c678,
-+		0x4c6c0, 0x4c878,
-+		0x4c8c0, 0x4c9fc,
-+		0x4d000, 0x4d068,
-+		0x4d080, 0x4d084,
-+		0x4d0a0, 0x4d0b0,
-+		0x4d200, 0x4d268,
-+		0x4d280, 0x4d284,
-+		0x4d2a0, 0x4d2b0,
-+		0x4e0c0, 0x4e0e4,
-+		0x4f000, 0x4f08c,
-+		0x4f200, 0x4f250,
-+		0x4f400, 0x4f420,
-+		0x4f600, 0x4f618,
-+		0x4f800, 0x4f814,
-+		0x50000, 0x500cc,
-+		0x50400, 0x50400,
-+		0x50800, 0x508cc,
-+		0x50c00, 0x50c00,
-+		0x51000, 0x5101c,
-+		0x51300, 0x51308,
-+	};
-+
- 	int i;
- 	struct adapter *ap = netdev2adap(dev);
-+	static const unsigned int *reg_ranges;
-+	int arr_size = 0, buf_size = 0;
-+
-+	if (is_t4(ap->chip)) {
-+		reg_ranges = &t4_reg_ranges[0];
-+		arr_size = ARRAY_SIZE(t4_reg_ranges);
-+		buf_size = T4_REGMAP_SIZE;
+@@ -552,17 +556,36 @@ static int send_connect(struct c4iw_ep *ep)
+ 		opt2 |= WND_SCALE_EN(1);
+ 	t4_set_arp_err_handler(skb, NULL, act_open_req_arp_failure);
+ 
+-	req = (struct cpl_act_open_req *) skb_put(skb, wrlen);
+-	INIT_TP_WR(req, 0);
+-	OPCODE_TID(req) = cpu_to_be32(
+-		MK_OPCODE_TID(CPL_ACT_OPEN_REQ, ((ep->rss_qid<<14)|ep->atid)));
+-	req->local_port = ep->com.local_addr.sin_port;
+-	req->peer_port = ep->com.remote_addr.sin_port;
+-	req->local_ip = ep->com.local_addr.sin_addr.s_addr;
+-	req->peer_ip = ep->com.remote_addr.sin_addr.s_addr;
+-	req->opt0 = cpu_to_be64(opt0);
+-	req->params = cpu_to_be32(select_ntuple(ep->com.dev, ep->dst, ep->l2t));
+-	req->opt2 = cpu_to_be32(opt2);
++	if (is_t4(ep->com.dev->rdev.lldi.adapter_type)) {
++		req = (struct cpl_act_open_req *) skb_put(skb, wrlen);
++		INIT_TP_WR(req, 0);
++		OPCODE_TID(req) = cpu_to_be32(
++				MK_OPCODE_TID(CPL_ACT_OPEN_REQ,
++				((ep->rss_qid << 14) | ep->atid)));
++		req->local_port = ep->com.local_addr.sin_port;
++		req->peer_port = ep->com.remote_addr.sin_port;
++		req->local_ip = ep->com.local_addr.sin_addr.s_addr;
++		req->peer_ip = ep->com.remote_addr.sin_addr.s_addr;
++		req->opt0 = cpu_to_be64(opt0);
++		req->params = cpu_to_be32(select_ntuple(ep->com.dev,
++					ep->dst, ep->l2t));
++		req->opt2 = cpu_to_be32(opt2);
 +	} else {
-+		reg_ranges = &t5_reg_ranges[0];
-+		arr_size = ARRAY_SIZE(t5_reg_ranges);
-+		buf_size = T5_REGMAP_SIZE;
++		t5_req = (struct cpl_t5_act_open_req *) skb_put(skb, wrlen);
++		INIT_TP_WR(t5_req, 0);
++		OPCODE_TID(t5_req) = cpu_to_be32(
++					MK_OPCODE_TID(CPL_ACT_OPEN_REQ,
++					((ep->rss_qid << 14) | ep->atid)));
++		t5_req->local_port = ep->com.local_addr.sin_port;
++		t5_req->peer_port = ep->com.remote_addr.sin_port;
++		t5_req->local_ip = ep->com.local_addr.sin_addr.s_addr;
++		t5_req->peer_ip = ep->com.remote_addr.sin_addr.s_addr;
++		t5_req->opt0 = cpu_to_be64(opt0);
++		t5_req->params = cpu_to_be64(V_FILTER_TUPLE(
++				select_ntuple(ep->com.dev, ep->dst, ep->l2t)));
++		t5_req->opt2 = cpu_to_be32(opt2);
 +	}
++
+ 	set_bit(ACT_OPEN_REQ, &ep->com.history);
+ 	return c4iw_l2t_send(&ep->com.dev->rdev, skb, ep->l2t);
+ }
+@@ -2869,12 +2892,14 @@ static int deferred_fw6_msg(struct c4iw_dev *dev, struct sk_buff *skb)
+ static void build_cpl_pass_accept_req(struct sk_buff *skb, int stid , u8 tos)
+ {
+ 	u32 l2info;
+-	u16 vlantag, len, hdr_len;
++	u16 vlantag, len, hdr_len, eth_hdr_len;
+ 	u8 intf;
+ 	struct cpl_rx_pkt *cpl = cplhdr(skb);
+ 	struct cpl_pass_accept_req *req;
+ 	struct tcp_options_received tmp_opt;
++	struct c4iw_dev *dev;
  
- 	regs->version = mk_adap_vers(ap);
++	dev = *((struct c4iw_dev **) (skb->cb + sizeof(void *)));
+ 	/* Store values from cpl_rx_pkt in temporary location. */
+ 	vlantag = (__force u16) cpl->vlan;
+ 	len = (__force u16) cpl->len;
+@@ -2898,14 +2923,16 @@ static void build_cpl_pass_accept_req(struct sk_buff *skb, int stid , u8 tos)
+ 			 V_SYN_MAC_IDX(G_RX_MACIDX(
+ 			 (__force int) htonl(l2info))) |
+ 			 F_SYN_XACT_MATCH);
++	eth_hdr_len = is_t4(dev->rdev.lldi.adapter_type) ?
++			    G_RX_ETHHDR_LEN((__force int) htonl(l2info)) :
++			    G_RX_T5_ETHHDR_LEN((__force int) htonl(l2info));
+ 	req->hdr_len = cpu_to_be32(V_SYN_RX_CHAN(G_RX_CHAN(
+ 					(__force int) htonl(l2info))) |
+ 				   V_TCP_HDR_LEN(G_RX_TCPHDR_LEN(
+ 					(__force int) htons(hdr_len))) |
+ 				   V_IP_HDR_LEN(G_RX_IPHDR_LEN(
+ 					(__force int) htons(hdr_len))) |
+-				   V_ETH_HDR_LEN(G_RX_ETHHDR_LEN(
+-					(__force int) htonl(l2info))));
++				   V_ETH_HDR_LEN(G_RX_ETHHDR_LEN(eth_hdr_len)));
+ 	req->vlan = (__force __be16) vlantag;
+ 	req->len = (__force __be16) len;
+ 	req->tos_stid = cpu_to_be32(PASS_OPEN_TID(stid) |
+@@ -2993,7 +3020,7 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	u16 window;
+ 	struct port_info *pi;
+ 	struct net_device *pdev;
+-	u16 rss_qid;
++	u16 rss_qid, eth_hdr_len;
+ 	int step;
+ 	u32 tx_chan;
+ 	struct neighbour *neigh;
+@@ -3022,7 +3049,10 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
+ 		goto reject;
+ 	}
  
--	memset(buf, 0, T4_REGMAP_SIZE);
--	for (i = 0; i < ARRAY_SIZE(reg_ranges); i += 2)
-+	memset(buf, 0, buf_size);
-+	for (i = 0; i < arr_size; i += 2)
- 		reg_block_dump(ap, buf, reg_ranges[i], reg_ranges[i + 1]);
+-	if (G_RX_ETHHDR_LEN(ntohl(cpl->l2info)) == ETH_HLEN) {
++	eth_hdr_len = is_t4(dev->rdev.lldi.adapter_type) ?
++			    G_RX_ETHHDR_LEN(htonl(cpl->l2info)) :
++			    G_RX_T5_ETHHDR_LEN(htonl(cpl->l2info));
++	if (eth_hdr_len == ETH_HLEN) {
+ 		eh = (struct ethhdr *)(req + 1);
+ 		iph = (struct iphdr *)(eh + 1);
+ 	} else {
+diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
+index 80069ad..3487c08 100644
+--- a/drivers/infiniband/hw/cxgb4/device.c
++++ b/drivers/infiniband/hw/cxgb4/device.c
+@@ -41,7 +41,7 @@
+ #define DRV_VERSION "0.1"
+ 
+ MODULE_AUTHOR("Steve Wise");
+-MODULE_DESCRIPTION("Chelsio T4 RDMA Driver");
++MODULE_DESCRIPTION("Chelsio T4/T5 RDMA Driver");
+ MODULE_LICENSE("Dual BSD/GPL");
+ MODULE_VERSION(DRV_VERSION);
+ 
+@@ -614,7 +614,7 @@ static int rdma_supported(const struct cxgb4_lld_info *infop)
+ {
+ 	return infop->vr->stag.size > 0 && infop->vr->pbl.size > 0 &&
+ 	       infop->vr->rq.size > 0 && infop->vr->qp.size > 0 &&
+-	       infop->vr->cq.size > 0 && infop->vr->ocq.size > 0;
++	       infop->vr->cq.size > 0;
  }
  
+ static struct c4iw_dev *c4iw_alloc(const struct cxgb4_lld_info *infop)
+@@ -627,6 +627,11 @@ static struct c4iw_dev *c4iw_alloc(const struct cxgb4_lld_info *infop)
+ 		       pci_name(infop->pdev));
+ 		return ERR_PTR(-ENOSYS);
+ 	}
++	if (!ocqp_supported(infop))
++		pr_info("%s: On-Chip Queues not supported on this device.\n",
++			pci_name(infop->pdev));
++	if (!is_t4(infop->adapter_type))
++		db_fc_threshold = 100000;
+ 	devp = (struct c4iw_dev *)ib_alloc_device(sizeof(*devp));
+ 	if (!devp) {
+ 		printk(KERN_ERR MOD "Cannot allocate ib device\n");
+@@ -678,8 +683,8 @@ static void *c4iw_uld_add(const struct cxgb4_lld_info *infop)
+ 	int i;
+ 
+ 	if (!vers_printed++)
+-		printk(KERN_INFO MOD "Chelsio T4 RDMA Driver - version %s\n",
+-		       DRV_VERSION);
++		pr_info("Chelsio T4/T5 RDMA Driver - version %s\n",
++			DRV_VERSION);
+ 
+ 	ctx = kzalloc(sizeof *ctx, GFP_KERNEL);
+ 	if (!ctx) {
+diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+index 7eec5e1..34c7e62 100644
+--- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
++++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+@@ -817,6 +817,15 @@ static inline int compute_wscale(int win)
+ 	return wscale;
+ }
+ 
++static inline int ocqp_supported(const struct cxgb4_lld_info *infop)
++{
++#if defined(__i386__) || defined(__x86_64__) || defined(CONFIG_PPC64)
++	return infop->vr->ocq.size > 0;
++#else
++	return 0;
++#endif
++}
++
+ u32 c4iw_id_alloc(struct c4iw_id_table *alloc);
+ void c4iw_id_free(struct c4iw_id_table *alloc, u32 obj);
+ int c4iw_id_table_alloc(struct c4iw_id_table *alloc, u32 start, u32 num,
+diff --git a/drivers/infiniband/hw/cxgb4/provider.c b/drivers/infiniband/hw/cxgb4/provider.c
+index e084fdc..7e94c9a 100644
+--- a/drivers/infiniband/hw/cxgb4/provider.c
++++ b/drivers/infiniband/hw/cxgb4/provider.c
+@@ -162,8 +162,14 @@ static int c4iw_mmap(struct ib_ucontext *context, struct vm_area_struct *vma)
+ 		 */
+ 		if (addr >= rdev->oc_mw_pa)
+ 			vma->vm_page_prot = t4_pgprot_wc(vma->vm_page_prot);
+-		else
+-			vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
++		else {
++			if (is_t5(rdev->lldi.adapter_type))
++				vma->vm_page_prot =
++					t4_pgprot_wc(vma->vm_page_prot);
++			else
++				vma->vm_page_prot =
++					pgprot_noncached(vma->vm_page_prot);
++		}
+ 		ret = io_remap_pfn_range(vma, vma->vm_start,
+ 					 addr >> PAGE_SHIFT,
+ 					 len, vma->vm_page_prot);
+@@ -263,7 +269,7 @@ static int c4iw_query_device(struct ib_device *ibdev,
+ 	dev = to_c4iw_dev(ibdev);
+ 	memset(props, 0, sizeof *props);
+ 	memcpy(&props->sys_image_guid, dev->rdev.lldi.ports[0]->dev_addr, 6);
+-	props->hw_ver = dev->rdev.lldi.adapter_type;
++	props->hw_ver = CHELSIO_CHIP_RELEASE(dev->rdev.lldi.adapter_type);
+ 	props->fw_ver = dev->rdev.lldi.fw_vers;
+ 	props->device_cap_flags = dev->device_cap_flags;
+ 	props->page_size_cap = T4_PAGESIZE_MASK;
+@@ -346,7 +352,8 @@ static ssize_t show_rev(struct device *dev, struct device_attribute *attr,
+ 	struct c4iw_dev *c4iw_dev = container_of(dev, struct c4iw_dev,
+ 						 ibdev.dev);
+ 	PDBG("%s dev 0x%p\n", __func__, dev);
+-	return sprintf(buf, "%d\n", c4iw_dev->rdev.lldi.adapter_type);
++	return sprintf(buf, "%d\n",
++		       CHELSIO_CHIP_RELEASE(c4iw_dev->rdev.lldi.adapter_type));
+ }
+ 
+ static ssize_t show_fw_ver(struct device *dev, struct device_attribute *attr,
+diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
+index 17ba4f8..c460244 100644
+--- a/drivers/infiniband/hw/cxgb4/qp.c
++++ b/drivers/infiniband/hw/cxgb4/qp.c
+@@ -76,7 +76,7 @@ static void dealloc_sq(struct c4iw_rdev *rdev, struct t4_sq *sq)
+ 
+ static int alloc_oc_sq(struct c4iw_rdev *rdev, struct t4_sq *sq)
+ {
+-	if (!ocqp_support || !t4_ocqp_supported())
++	if (!ocqp_support || !ocqp_supported(&rdev->lldi))
+ 		return -ENOSYS;
+ 	sq->dma_addr = c4iw_ocqp_pool_alloc(rdev, sq->memsize);
+ 	if (!sq->dma_addr)
+diff --git a/drivers/infiniband/hw/cxgb4/t4.h b/drivers/infiniband/hw/cxgb4/t4.h
+index 16f26ab..689edc9 100644
+--- a/drivers/infiniband/hw/cxgb4/t4.h
++++ b/drivers/infiniband/hw/cxgb4/t4.h
+@@ -280,15 +280,6 @@ static inline pgprot_t t4_pgprot_wc(pgprot_t prot)
+ #endif
+ }
+ 
+-static inline int t4_ocqp_supported(void)
+-{
+-#if defined(__i386__) || defined(__x86_64__) || defined(CONFIG_PPC64)
+-	return 1;
+-#else
+-	return 0;
+-#endif
+-}
+-
+ enum {
+ 	T4_SQ_ONCHIP = (1<<0),
+ };
 -- 
 1.7.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
