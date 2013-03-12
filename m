@@ -1,42 +1,222 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net-next 06/13] bnx2x: Control number of vfs dynamically
-Date: Tue, 12 Mar 2013 07:50:02 -0400 (EDT)
-Message-ID: <20130312.075002.1183319263027770351.davem@redhat.com>
-References: <1363015073-25743-7-git-send-email-yuvalmin@broadcom.com>
-	<20130312.052811.2289109881056913990.davem@davemloft.net>
-	<6AE768456CEC4B4A9B2248CB6B87EB3E1BD10E88@SJEXCHMB05.corp.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yuvalmin@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com
-To: ariele@broadcom.com
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH net-next 02/22] cxgb4: Add macros, structures and inline functions for T5
+Date: Tue, 12 Mar 2013 17:16:14 +0530
+Message-ID: <1363088794-31453-3-git-send-email-vipul@chelsio.com>
+References: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
+Cc: davem@davemloft.net, roland@purestorage.com,
+	JBottomley@parallels.com, dm@chelsio.com,
+	swise@opengridcomputing.com, leedom@chelsio.com,
+	naresh@chelsio.com, divy@chelsio.com, santosh@chelsio.com,
+	arvindb@chelsio.com, abhishek@chelsio.com,
+	Vipul Pandya <vipul@chelsio.com>
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+	linux-scsi@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37540 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755321Ab3CLLtw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Mar 2013 07:49:52 -0400
-In-Reply-To: <6AE768456CEC4B4A9B2248CB6B87EB3E1BD10E88@SJEXCHMB05.corp.ad.broadcom.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:4597 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754796Ab3CLLwy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 07:52:54 -0400
+In-Reply-To: <1363088794-31453-1-git-send-email-vipul@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Ariel Elior" <ariele@broadcom.com>
-Date: Tue, 12 Mar 2013 10:51:13 +0000
+From: Santosh Rastapur <santosh@chelsio.com>
 
-> Yuval Mintz from Broadcom started the
-> "New commands to configure IOV features" thread
-> http://marc.info/?l=linux-netdev&m=133638974914452&w=2
-> As the discussion developed it was realized that virtual functions
-> have a wider scope than networking.
-> The discussion culminated with a submission to the pci tree:
-> commit 1789382a72a537447d65ea4131d8bcc1ad85ce7b
-> Author: Donald Dutile <ddutile@redhat.com>
-> Date:   Mon Nov 5 15:20:36 2012 -0500
-> 
-> Adding sriov_numvfs and sriov_totalvfs to all SR-IOV capable pci devices.
-> I would like to add that sysfs is actually a very convenient place to have 
-> these knobs, because the virtfn entries there are a simple reliable way to
-> know which vf devices sprouted from which PF devices and what are their
-> names, which is very handy when scripting with VFs.
+Signed-off-by: Santosh Rastapur <santosh@chelsio.com>
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h    |   50 ++++++++++++++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h   |   45 ++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h |    2 +-
+ 3 files changed, 95 insertions(+), 2 deletions(-)
 
-Oh that's right, thanks for reminding me about that discussion.
-I rescing my objection.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 6db997c..a91dea6 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -54,6 +54,10 @@
+ #define FW_VERSION_MINOR 1
+ #define FW_VERSION_MICRO 0
+ 
++#define FW_VERSION_MAJOR_T5 0
++#define FW_VERSION_MINOR_T5 0
++#define FW_VERSION_MICRO_T5 0
++
+ #define CH_WARN(adap, fmt, ...) dev_warn(adap->pdev_dev, fmt, ## __VA_ARGS__)
+ 
+ enum {
+@@ -66,7 +70,9 @@ enum {
+ enum {
+ 	MEM_EDC0,
+ 	MEM_EDC1,
+-	MEM_MC
++	MEM_MC,
++	MEM_MC0 = MEM_MC,
++	MEM_MC1
+ };
+ 
+ enum {
+@@ -74,8 +80,10 @@ enum {
+ 	MEMWIN0_BASE     = 0x1b800,
+ 	MEMWIN1_APERTURE = 32768,
+ 	MEMWIN1_BASE     = 0x28000,
++	MEMWIN1_BASE_T5  = 0x52000,
+ 	MEMWIN2_APERTURE = 65536,
+ 	MEMWIN2_BASE     = 0x30000,
++	MEMWIN2_BASE_T5  = 0x54000,
+ };
+ 
+ enum dev_master {
+@@ -504,6 +512,35 @@ struct sge {
+ 
+ struct l2t_data;
+ 
++#define CHELSIO_CHIP_CODE(version, revision) (((version) << 4) | (revision))
++#define CHELSIO_CHIP_VERSION(code) ((code) >> 4)
++#define CHELSIO_CHIP_RELEASE(code) ((code) & 0xf)
++
++#define CHELSIO_T4		0x4
++#define CHELSIO_T5		0x5
++
++enum chip_type {
++	T4_A1 = CHELSIO_CHIP_CODE(CHELSIO_T4, 0),
++	T4_A2 = CHELSIO_CHIP_CODE(CHELSIO_T4, 1),
++	T4_A3 = CHELSIO_CHIP_CODE(CHELSIO_T4, 2),
++	T4_FIRST_REV	= T4_A1,
++	T4_LAST_REV	= T4_A3,
++
++	T5_A1 = CHELSIO_CHIP_CODE(CHELSIO_T5, 0),
++	T5_FIRST_REV	= T5_A1,
++	T5_LAST_REV	= T5_A1,
++};
++
++#ifdef CONFIG_PCI_IOV
++
++/* T4 - 4 PFs support SRIOV
++ * T5 - 8 PFs support SRIOV
++ */
++#define NUM_OF_PF_WITH_SRIOV_T4 4
++#define NUM_OF_PF_WITH_SRIOV_T5 8
++
++#endif
++
+ struct adapter {
+ 	void __iomem *regs;
+ 	struct pci_dev *pdev;
+@@ -511,6 +548,7 @@ struct adapter {
+ 	unsigned int mbox;
+ 	unsigned int fn;
+ 	unsigned int flags;
++	enum chip_type chip;
+ 
+ 	int msg_enable;
+ 
+@@ -673,6 +711,16 @@ enum {
+ 	VLAN_REWRITE
+ };
+ 
++static inline int is_t5(enum chip_type chip)
++{
++	return (chip >= T5_FIRST_REV && chip <= T5_LAST_REV);
++}
++
++static inline int is_t4(enum chip_type chip)
++{
++	return (chip >= T4_FIRST_REV && chip <= T4_LAST_REV);
++}
++
+ static inline u32 t4_read_reg(struct adapter *adap, u32 reg_addr)
+ {
+ 	return readl(adap->regs + reg_addr);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index 261d177..0c9f14f 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -74,6 +74,7 @@ enum {
+ 	CPL_PASS_ESTABLISH    = 0x41,
+ 	CPL_RX_DATA_DDP       = 0x42,
+ 	CPL_PASS_ACCEPT_REQ   = 0x44,
++	CPL_TRACE_PKT_T5      = 0x48,
+ 
+ 	CPL_RDMA_READ_REQ     = 0x60,
+ 
+@@ -287,6 +288,23 @@ struct cpl_act_open_req {
+ 	__be32 opt2;
+ };
+ 
++#define S_FILTER_TUPLE  24
++#define M_FILTER_TUPLE  0xFFFFFFFFFF
++#define V_FILTER_TUPLE(x) ((x) << S_FILTER_TUPLE)
++#define G_FILTER_TUPLE(x) (((x) >> S_FILTER_TUPLE) & M_FILTER_TUPLE)
++struct cpl_t5_act_open_req {
++	WR_HDR;
++	union opcode_tid ot;
++	__be16 local_port;
++	__be16 peer_port;
++	__be32 local_ip;
++	__be32 peer_ip;
++	__be64 opt0;
++	__be32 rsvd;
++	__be32 opt2;
++	__be64 params;
++};
++
+ struct cpl_act_open_req6 {
+ 	WR_HDR;
+ 	union opcode_tid ot;
+@@ -566,6 +584,11 @@ struct cpl_rx_pkt {
+ #define V_RX_ETHHDR_LEN(x) ((x) << S_RX_ETHHDR_LEN)
+ #define G_RX_ETHHDR_LEN(x) (((x) >> S_RX_ETHHDR_LEN) & M_RX_ETHHDR_LEN)
+ 
++#define S_RX_T5_ETHHDR_LEN    0
++#define M_RX_T5_ETHHDR_LEN    0x3F
++#define V_RX_T5_ETHHDR_LEN(x) ((x) << S_RX_T5_ETHHDR_LEN)
++#define G_RX_T5_ETHHDR_LEN(x) (((x) >> S_RX_T5_ETHHDR_LEN) & M_RX_T5_ETHHDR_LEN)
++
+ #define S_RX_MACIDX    8
+ #define M_RX_MACIDX    0x1FF
+ #define V_RX_MACIDX(x) ((x) << S_RX_MACIDX)
+@@ -612,6 +635,28 @@ struct cpl_trace_pkt {
+ 	__be64 tstamp;
+ };
+ 
++struct cpl_t5_trace_pkt {
++	__u8 opcode;
++	__u8 intf;
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u8 runt:4;
++	__u8 filter_hit:4;
++	__u8:6;
++	__u8 err:1;
++	__u8 trunc:1;
++#else
++	__u8 filter_hit:4;
++	__u8 runt:4;
++	__u8 trunc:1;
++	__u8 err:1;
++	__u8:6;
++#endif
++	__be16 rsvd;
++	__be16 len;
++	__be64 tstamp;
++	__be64 rsvd1;
++};
++
+ struct cpl_l2t_write_req {
+ 	WR_HDR;
+ 	union opcode_tid ot;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index a0dcccd..9344432 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -574,7 +574,7 @@ struct fw_eth_tx_pkt_vm_wr {
+ 	__be16 vlantci;
+ };
+ 
+-#define FW_CMD_MAX_TIMEOUT 3000
++#define FW_CMD_MAX_TIMEOUT 10000
+ 
+ /*
+  * If a host driver does a HELLO and discovers that there's already a MASTER
+-- 
+1.7.1
