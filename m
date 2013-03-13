@@ -1,40 +1,35 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 2/4] bridge: Allow an ability to designate an
- uplink port
-Date: Wed, 13 Mar 2013 15:54:50 -0700
-Message-ID: <20130313155450.61886850@nehalam.linuxnetplumber.net>
-References: <1363139126-13396-1-git-send-email-vyasevic@redhat.com>
-	<1363139126-13396-3-git-send-email-vyasevic@redhat.com>
-	<20130313203333.GC9821@redhat.com>
+Subject: Re: [PATCH net-next 1/6] GRE: Use RTNL for atomic protocol
+ registration.
+Date: Wed, 13 Mar 2013 15:57:43 -0700
+Message-ID: <20130313155743.641adada@nehalam.linuxnetplumber.net>
+References: <1363214907-3257-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jesse@nicira.com
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:56643 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934317Ab3CMWy4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 18:54:56 -0400
-Received: by mail-pb0-f50.google.com with SMTP id up1so1467139pbc.23
-        for <netdev@vger.kernel.org>; Wed, 13 Mar 2013 15:54:56 -0700 (PDT)
-In-Reply-To: <20130313203333.GC9821@redhat.com>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:60874 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932534Ab3CMW5s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 18:57:48 -0400
+Received: by mail-pb0-f41.google.com with SMTP id um15so1496785pbc.28
+        for <netdev@vger.kernel.org>; Wed, 13 Mar 2013 15:57:47 -0700 (PDT)
+In-Reply-To: <1363214907-3257-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Mar 2013 22:33:33 +0200
-"Michael S. Tsirkin" <mst@redhat.com> wrote:
+On Wed, 13 Mar 2013 15:48:27 -0700
+Pravin B Shelar <pshelar@nicira.com> wrote:
 
-> On Tue, Mar 12, 2013 at 09:45:24PM -0400, Vlad Yasevich wrote:
-> > Allow a ports to be designated as uplink.  Multiple ports
-> > may be designated as uplinks and they will be kept in a
-> > list.
-> > 
-> > Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> Currently gre demultiplexer uses its own spin-lock. We should
+> rather RTNL lock.
 > 
-> It looks like if you make two links uplink, bridging
-> between them won't work at all?
+> Suggested-by: Stephen Hemminger <--cc stephen@networkplumber.org>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-Maybe better to mark which ports are terminal ports rather than marking
-uplink ports?
+Contradicting myself :-)
+This does have added safety but some people eventually want to get rid
+of the big network lock. That said, it makes sense that you would need a
+supersized lock when playing with multiple devices.
