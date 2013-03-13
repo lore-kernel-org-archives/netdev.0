@@ -1,60 +1,43 @@
-From: richard -rw- weinberger <richard.weinberger@gmail.com>
-Subject: Re: Trying to implement secondary loopback
-Date: Wed, 13 Mar 2013 12:13:46 +0100
-Message-ID: <CAFLxGvxcyDVwC-iys6UdKMBB6u3UQx6s7-mwm5caoNu=N7rmeA@mail.gmail.com>
-References: <513F1A17.1000809@hhi.fraunhofer.de>
+From: John Crispin <blogic@openwrt.org>
+Subject: Re: rt2x00: Kconfig symbols RALINK_RT288X and RALINK_RT305X
+Date: Wed, 13 Mar 2013 12:19:17 +0100
+Message-ID: <514060B5.8060301@openwrt.org>
+References: <1363165170.3137.182.camel@x61.thuisdomein> <CAOiHx=n4a26z=PS02E2KjD2Y3Pp0P0x-5Ns6WRc-WScNF=EO_Q@mail.gmail.com> <1363169039.3137.186.camel@x61.thuisdomein> <CAOiHx=keYYoCGgHfrSKXOHQQvG1mrt60ems3dcXki1K06MHg2g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	herbert@gondor.apana.org.au, ebiederm@xmission.com
-To: Thomas Martitz <thomas.martitz@hhi.fraunhofer.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:62599 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754451Ab3CMLNr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 07:13:47 -0400
-Received: by mail-we0-f169.google.com with SMTP id t11so869059wey.0
-        for <netdev@vger.kernel.org>; Wed, 13 Mar 2013 04:13:46 -0700 (PDT)
-In-Reply-To: <513F1A17.1000809@hhi.fraunhofer.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Paul Bolle <pebolle@tiscali.nl>, Ivo van Doorn <IvDoorn@gmail.com>,
+	Gertjan van Wingerde <gwingerde@gmail.com>,
+	Helmut Schaa <helmut.schaa@googlemail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jonas Gorski <jogo@openwrt.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAOiHx=keYYoCGgHfrSKXOHQQvG1mrt60ems3dcXki1K06MHg2g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 12, 2013 at 1:05 PM, Thomas Martitz
-<thomas.martitz@hhi.fraunhofer.de> wrote:
-> Hello folks,
+On 13/03/13 11:35, Jonas Gorski wrote:
+> On 13 March 2013 11:03, Paul Bolle<pebolle@tiscali.nl>  wrote:
+>> On Wed, 2013-03-13 at 10:51 +0100, Jonas Gorski wrote:
+>>> The actual accepted Kconfig symbol names are different though, so they
+>>> should be changed in rt2x00 to match them (SOC_RT288X and SOC_RT305X).
+>> Thanks. Note that I could not find an actual Kconfig symbol SOC_RT288X!
+> Ah, yes, the inital submission only included RT305X support, not
+> RT288X (and neither of the newer chips). These will come later.
 >
-> (I'm sending this mail a second time (with a few people in CC) because I
-> received no response.)
+>> Anyhow, I guess somebody has the (trivial) patch to convert
+>> RALINK_RT...X and CONFIG_RALINK_RT...X to their SOC_* equivalents queued
+>> for inclusion in v3.9-rcX. Is that correct?
+> Yes, that should be everything. John Crispin, anything missing from that?
 >
-> I'm Thomas Martitz, working on my Master Thesis: an Ethernet NIC. As part of
-> my work I want to develop a custom loopback interface (for testing
-> purposes).
 >
-> However I'm facing a problem: It doesn't appear to be possible for a second
-> loopback device to exist. Even when copying (and module'ifying)
-> drivers/net/loopback.c the resulting device doesn't behave like the standard
-> lo interface.
+> Jonas
 >
-> After examing the code I found this line (in loopback_net_init()):
 >
-> loopback.c:206         net->loopback_dev = dev;
->
-> This suggests that each network namespace can only have one loopback
-> interface. And indeed after modifying my custom interface to include this
-> particular line it begins to work, but obviously at the same time the
-> standard lo interface stops working.
->
-> So my questions are:
-> * Is this on purpose/expected?
-> * Is there anyway around it so that I can have a custom loopback interface
-> without touching lo's functionality.
-> * Generally, what's the proper way (if any) implement a secondary loopback
-> interface?
+Hi,
 
-The only really question that matters is, why do you need a second
-loopback interface?
-Why can't you use any other pseudo interface?
+I will look into this later this week.
 
--- 
-Thanks,
-//richard
+John
