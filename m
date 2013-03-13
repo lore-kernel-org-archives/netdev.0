@@ -1,95 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: atl1c issues on 3.8.2
-Date: Wed, 13 Mar 2013 06:57:38 +0100
-Message-ID: <1363154258.13690.40.camel@edumazet-glaptop>
-References: <20130312161753.281681f2@milhouse>
-	 <1363103144.13690.12.camel@edumazet-glaptop>
-	 <20130312180942.4198e88e@milhouse>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH] Rate should be u64 to avoid integer overflow at high
+ speeds (>= ~35Gbit)
+Date: Wed, 13 Mar 2013 02:01:56 -0400
+Message-ID: <20130313020156.c9dd9841.billfink@mindspring.com>
+References: <1362885604-14006-1-git-send-email-j.vimal@gmail.com>
+	<1362888229.4051.2.camel@edumazet-glaptop>
+	<CAK3Ji11Mij3Y_sGC6nLS01rxfccZo0SPJmQy-LAmskz1OEdmkQ@mail.gmail.com>
+	<1362891937.4051.25.camel@edumazet-glaptop>
+	<20130310004904.de508bfa.billfink@mindspring.com>
+	<1362894876.4051.27.camel@edumazet-glaptop>
+	<513F3BE1.2080409@genband.com>
+	<20130312154245.GA13101@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <edumazet@google.com>,
-	linux-netdev <netdev@vger.kernel.org>,
-	"David S.Miller" <davem@davemloft.net>
-To: Michael =?ISO-8859-1?Q?B=FCsch?= <m@bues.ch>
+Cc: Chris Friesen <chris.friesen@genband.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Vimal <j.vimal@gmail.com>, netdev@vger.kernel.org,
+	shemminger <shemminger@vyatta.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f43.google.com ([74.125.83.43]:60060 "EHLO
-	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754073Ab3CMF5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 01:57:42 -0400
-Received: by mail-ee0-f43.google.com with SMTP id c50so245013eek.30
-        for <netdev@vger.kernel.org>; Tue, 12 Mar 2013 22:57:41 -0700 (PDT)
-In-Reply-To: <20130312180942.4198e88e@milhouse>
+Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:33161 "EHLO
+	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753562Ab3CMGCF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 02:02:05 -0400
+In-Reply-To: <20130312154245.GA13101@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-03-12 at 18:09 +0100, Michael B=C3=BCsch wrote:
-> On Tue, 12 Mar 2013 16:45:44 +0100
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->=20
-> > On Tue, 2013-03-12 at 16:17 +0100, Michael B=C3=BCsch wrote:
-> > > Hi,
-> > >=20
-> > > Starting with 3.8.x scp stalls the atl1c based interface on my As=
-us Eeepc 1011px.
-> > > iperf (for example) does not do that. But after scp stalled the i=
-nterface,
-> > > iperf transfers fail, too.
+On Tue, 12 Mar 2013, Thomas Graf wrote:
+
+> On 03/12/13 at 08:29am, Chris Friesen wrote:
+> > The only problem I see is that you can't set the multiplier with a
+> > new tool and then query the rate with old tools.
 > >=20
-> > I am pretty sure David stable list contains the needed fix=20
+> > But you're going to run into that problem with the old tools no
+> > matter what you do--and not doing anything is a crappy option as
+> > well.
 > >=20
-> > http://patchwork.ozlabs.org/bundle/davem/stable/?state=3D*
+> > Some kind of multiplier or shift makes as much sense as anything
+> > else. With old tools you get current behaviour, with new tools you
+> > can specify a multiplying factor to trade off resolution vs
+> > precision.
 >=20
-> No this didn't fix it.
+> The introduction of a shift operator or multiplier introduces
+> inprecision. I'd much rather see new 64bit Netlink attributes
+> that, if present, replace the old rate values and statistics.
 >=20
-> However, I tried to revert 69b08f62e17439ee3d436faf0b9a7ca6fffb78db a=
-gain,
-> which already caused trouble for me in 3.7
-> and this fixed the issue.
->=20
-> So it seems that this still is the same or a related issue that I rep=
-orted
-> for 3.7. I just wrongly stated that the problem was fixed in 3.8, bec=
-ause my
-> simple ping test doesn't catch it on 3.8.
->=20
+> You will need to add a new Netlink attribute anyway and we might
+> as well transfer the actual rate instead of a multiplier. Just
+> like we did with IFLA_STATS64.
 
+The last time this was discussed appears to be (on 2011-03-28):
 
+	http://marc.info/?l=3Dlinux-netdev&m=3D130128741907282&w=3D2
 
-kmalloc(2000) never had the guarantee that the result would not span tw=
-o
-4K pages.
+where Maciej =C5=BBenczykowski argued that creating a new 64-bit
+Netlink attribute for this would be much more complex than for
+the IFLA_STATS64 support.  There was no reply.
 
-Apparently the NIC doesn't allow a rx descriptor spanning two 4K pages
-or has a particular hardware bug that I can not possibly find myself.
-(I don't have atl1c nor any documentation)
+Providing a new multiplier/shift parameter would be a simple
+way to extend support for higher rates, and would not break
+existing user space that doesn't require the higher rates.
+I imagine the user would not explicitly specify the multiplier/
+shift parameter, but would just normally specify the desired
+rate, and a newer tc would figure out what multiplier/shift
+to use if a high enough rate demanded it.  To maintain user
+space compatibility, the kernel should report back the same
+rate and multiplier/shift it was given, and the newer tc would
+convert it back to the user's originally specified rate.  Older
+user space that was fine with the ~34 Gbps rate limitation would
+always have the default multiplier of 1 or shift of 0 bits, and
+would see the exact same unmultiplied/unshifted rate it always
+did.
 
-atl1c driver authors will need to find the bug and fix the driver.
+I also believe 32 bits of precision is significant enough
+at these higher data rates.
 
-Drivers that deal with this kind of hardware limitation allocates page
-themselves and provide skbs with a fragment to upper stack, or use
-build_skb() once the frame is received.
-
-drivers/net/ethernet/intel/igb/igb_main.c is a an example.
-
-Could you try (on net-next tree) different values for the
-NETDEV_FRAG_PAGE_MAX_ORDER constant, as it might give to Atheros some
-hints ?
-
-(8192 & 16384)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 821c7f4..769fdac 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1844,7 +1844,7 @@ static inline void __skb_queue_purge(struct sk_bu=
-ff_head *list)
- 		kfree_skb(skb);
- }
-=20
--#define NETDEV_FRAG_PAGE_MAX_ORDER get_order(32768)
-+#define NETDEV_FRAG_PAGE_MAX_ORDER get_order(8192)
- #define NETDEV_FRAG_PAGE_MAX_SIZE  (PAGE_SIZE << NETDEV_FRAG_PAGE_MAX_=
-ORDER)
- #define NETDEV_PAGECNT_MAX_BIAS	   NETDEV_FRAG_PAGE_MAX_SIZE
-=20
+					-Bill
