@@ -1,39 +1,65 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH] rtnetlink: Mask the rta_type when range checking
-Date: Wed, 13 Mar 2013 10:18:58 -0400
-Message-ID: <1363184338-15781-1-git-send-email-vyasevic@redhat.com>
-Cc: davem@davemloft.net, Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [RFC net-next 00/11] firewire net: resource management
+ improvements
+Date: Wed, 13 Mar 2013 15:19:19 +0100
+Message-ID: <20130313151919.68068bae@stein>
+References: <5139419A.2040309@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux1394-devel@lists.sourceforge.net,
+	netdev <netdev@vger.kernel.org>
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13760 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933128Ab3CMOTE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Mar 2013 10:19:04 -0400
+Received: from einhorn.in-berlin.de ([192.109.42.8]:48480 "EHLO
+	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933188Ab3CMOTk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 10:19:40 -0400
+In-Reply-To: <5139419A.2040309@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Range/validity checks on rta_type in rtnetlink_rcv_msg() do
-not account for flags that may be set.  This causes the function
-to return -EINVAL when flags are set on the type (for example
-NLA_F_NESTED).
+On Mar 08 YOSHIFUJI Hideaki wrote:
+> This series of patches tries to improve resource management of IP over Firewire
+> device.
+> 
+> Because upcoming IPv6 over Firewire patch depends on this series, it would
+> be better to let this series of patches go through Dave's net-next tree, if
+> firewire people do not mind.
+> 
+> --yoshfuji
+> 
+> YOSHIFUJI Hideaki (11):
+>   firewire net: No need to reset dev->local_fifo after failure of
+>     fw_core_add_address_handler().
+>   firewire net: Introduce fwnet_fifo_{start,stop}() helpers.
+>   firewire net: Setup broadcast and local fifo independently.
+>   firewire net: Check dev->broadcast_state inside
+>     fwnet_broadcast_start().
+>   firewire net: Fix memory leakage in fwnet_remove().
+>   firewire net: Clear dev->broadcast_rcv_context and
+>     dev->broadcast_state after destruction of context.
+>   firewire net: Omit checking dev->broadcast_rcv_context in
+>     fwnet_broadcast_start().
+>   firewire net: Fix leakage of kmap for broadcast receive buffer.
+>   firewire net: Allocate dev->broadcast_rcv_buffer_ptrs early.
+>   firewire net: Introduce fwnet_broadcast_stop() to destroy broadcast
+>     resources.
+>   firewire net: Release broadcast/fifo resources on ifdown.
+> 
+>  drivers/firewire/net.c |  177 ++++++++++++++++++++++++++++--------------------
+>  1 file changed, 105 insertions(+), 72 deletions(-)
+> 
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- net/core/rtnetlink.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+All 11 patches:
+Reviewed-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 1868625..dc5edf1 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2538,7 +2538,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		struct rtattr *attr = (void *)nlh + NLMSG_ALIGN(min_len);
- 
- 		while (RTA_OK(attr, attrlen)) {
--			unsigned int flavor = attr->rta_type;
-+			unsigned int flavor = attr->rta_type & NLA_TYPE_MASK;
- 			if (flavor) {
- 				if (flavor > rta_max[sz_idx])
- 					return -EINVAL;
+ACK for routing this through net-next.  David, do you need me to respond to
+each individual patch with the reviewer tag?  Or since I already have the
+patches in a quilt series locally, I could commit them to a branch at
+linux1394.git and send you a pull request.
 -- 
-1.7.7.6
+Stefan Richter
+-=====-===-= --== -==-=
+http://arcgraph.de/sr/
