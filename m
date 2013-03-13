@@ -1,35 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bluetooth: use PTR_RET instead of IS_ERR + PTR_ERR
-Date: Wed, 13 Mar 2013 05:31:45 -0400 (EDT)
-Message-ID: <20130313.053145.2200448840921851390.davem@davemloft.net>
-References: <1363111995-26866-1-git-send-email-silviupopescu1990@gmail.com>
+From: Mark Jackson <mpfj-list@mimc.co.uk>
+Subject: Re: [PATCH v3 net-next 1/1] drivers: net: davinci_cpdma: acknowledge
+ interrupt properly
+Date: Wed, 13 Mar 2013 09:34:48 +0000
+Message-ID: <51404838.2040008@mimc.co.uk>
+References: <1361175560-600-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth@vger.kernel.org, marcel@holtmann.org,
-	gustavo@padovan.org, johan.hedberg@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: silviupopescu1990@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1363111995-26866-1-git-send-email-silviupopescu1990@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1361175560-600-1-git-send-email-mugunthanvnm@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
-Date: Tue, 12 Mar 2013 20:13:15 +0200
+On 18/02/13 08:19, Mugunthan V N wrote:
+> CPDMA interrupts are not properly acknowledged which leads to interrupt
+> storm, only cpdma interrupt 0 is acknowledged in Davinci CPDMA driver.
+> Changed cpdma_ctlr_eoi api to acknowledge 1 and 2 interrupts which are
+> used for rx and tx respectively.
+> 
+> Reported-by: Pantelis Antoniou <panto@antoniou-consulting.com>
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-> @@ -590,10 +590,7 @@ int __init bt_sysfs_init(void)
->  	bt_debugfs = debugfs_create_dir("bluetooth", NULL);
->  
->  	bt_class = class_create(THIS_MODULE, "bluetooth");
-> -	if (IS_ERR(bt_class))
-> -		return PTR_ERR(bt_class);
-> -
-> -	return 0;
-> +	return PTR_RET(bt_class)
+Not sure if I'm seeing this same problem [1], but it doesn't appear fixed to me.
 
-Don't bother submitting patches you aren't even going to try
-to compile.
+I've tried both mainline -rc2 and -next.
 
-I'm rejecting all of your current submissions.  Resubmit them
-when you feel like typing 'make' from time to time.
+[1] https://lkml.org/lkml/2013/3/12/376
+
+Regards
+Mark J.
