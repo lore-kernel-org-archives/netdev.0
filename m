@@ -1,89 +1,73 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] Rate should be u64 to avoid integer overflow at high
- speeds (>= ~35Gbit)
-Date: Wed, 13 Mar 2013 08:34:00 -0700
-Message-ID: <20130313083400.2329e982@nehalam.linuxnetplumber.net>
-References: <1362885604-14006-1-git-send-email-j.vimal@gmail.com>
-	<1362888229.4051.2.camel@edumazet-glaptop>
-	<CAK3Ji11Mij3Y_sGC6nLS01rxfccZo0SPJmQy-LAmskz1OEdmkQ@mail.gmail.com>
-	<1362891937.4051.25.camel@edumazet-glaptop>
-	<20130310004904.de508bfa.billfink@mindspring.com>
-	<1362894876.4051.27.camel@edumazet-glaptop>
-	<513F3BE1.2080409@genband.com>
-	<20130312154245.GA13101@casper.infradead.org>
-	<20130313020156.c9dd9841.billfink@mindspring.com>
-	<1363155195.13690.48.camel@edumazet-glaptop>
-	<20130313112950.f3a4a332.billfink@mindspring.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net,stable-3.8] net: qmi_wwan: set correct altsetting
+ for Gobi 1K devices
+Date: Wed, 13 Mar 2013 11:34:30 -0400 (EDT)
+Message-ID: <20130313.113430.1432101723516184304.davem@davemloft.net>
+References: <1363177517-23524-1-git-send-email-bjorn@mork.no>
+	<1363182216.1415.5.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Thomas Graf <tgraf@suug.ch>,
-	Chris Friesen <chris.friesen@genband.com>,
-	Vimal <j.vimal@gmail.com>, netdev@vger.kernel.org,
-	shemminger <shemminger@vyatta.com>
-To: Bill Fink <billfink@mindspring.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f50.google.com ([209.85.210.50]:61792 "EHLO
-	mail-da0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932391Ab3CMPeK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 11:34:10 -0400
-Received: by mail-da0-f50.google.com with SMTP id t1so462167dae.9
-        for <netdev@vger.kernel.org>; Wed, 13 Mar 2013 08:34:10 -0700 (PDT)
-In-Reply-To: <20130313112950.f3a4a332.billfink@mindspring.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bjorn-yOkvZcmFvRU@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1363182216.1415.5.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 13 Mar 2013 11:29:50 -0400
-Bill Fink <billfink@mindspring.com> wrote:
+=46rom: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Date: Wed, 13 Mar 2013 08:43:36 -0500
 
-> On Wed, 13 Mar 2013, Eric Dumazet wrote:
+> On Wed, 2013-03-13 at 13:25 +0100, Bj=F8rn Mork wrote:
+>> commit bd877e4 ("net: qmi_wwan: use a single bind function for
+>> all device types") made Gobi 1K devices fail probing.
+>>=20
+>> Using the number of endpoints in the default altsetting to decide
+>> whether the function use one or two interfaces is wrong.  Other
+>> altsettings may provide more endpoints.
+>>=20
+>> With Gobi 1K devices, USB interface #3's altsetting is 0 by default,=
+ but
+>> altsetting 0 only provides one interrupt endpoint and is not suffice=
+nt
+>> for QMI.  Altsetting 1 provides all 3 endpoints required for qmi_wwa=
+n
+>> and works with QMI. Gobi 1K layout for intf#3 is:
+>>=20
+>>     Interface Descriptor:  255/255/255
+>>       bInterfaceNumber        3
+>>       bAlternateSetting       0
+>>       Endpoint Descriptor:  Interrupt IN
+>>     Interface Descriptor:  255/255/255
+>>       bInterfaceNumber        3
+>>       bAlternateSetting       1
+>>       Endpoint Descriptor:  Interrupt IN
+>>       Endpoint Descriptor:  Bulk IN
+>>       Endpoint Descriptor:  Bulk OUT
+>>=20
+>> Prior to commit bd877e4, we would call usbnet_get_endpoints
+>> before giving up finding enough endpoints. Removing the early
+>> endpoint number test and the strict functional descriptor
+>> requirement allow qmi_wwan_bind to continue until
+>> usbnet_get_endpoints has made the final attempt to collect
+>> endpoints.  This restores the behaviour from before commit
+>> bd877e4 without losing the added benefit of using a single bind
+>> function.
+>>=20
+>> The driver has always required a CDC Union functional descriptor
+>> for two-interface functions. Using the existence of this
+>> descriptor to detect two-interface functions is the logically
+>> correct method.
+>>=20
+>> Reported-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>> Signed-off-by: Bj=F8rn Mork
 >=20
-> > On Wed, 2013-03-13 at 02:01 -0400, Bill Fink wrote:
-> >=20
-> > > The last time this was discussed appears to be (on 2011-03-28):
-> > >=20
-> > > 	http://marc.info/?l=3Dlinux-netdev&m=3D130128741907282&w=3D2
-> > >=20
-> > > where Maciej =C5=BBenczykowski argued that creating a new 64-bit
-> > > Netlink attribute for this would be much more complex than for
-> > > the IFLA_STATS64 support.  There was no reply.
-> > >=20
-> > > Providing a new multiplier/shift parameter would be a simple
-> > > way to extend support for higher rates, and would not break
-> > > existing user space that doesn't require the higher rates.
-> > > I imagine the user would not explicitly specify the multiplier/
-> > > shift parameter, but would just normally specify the desired
-> > > rate, and a newer tc would figure out what multiplier/shift
-> > > to use if a high enough rate demanded it.  To maintain user
-> > > space compatibility, the kernel should report back the same
-> > > rate and multiplier/shift it was given, and the newer tc would
-> > > convert it back to the user's originally specified rate.  Older
-> > > user space that was fine with the ~34 Gbps rate limitation would
-> > > always have the default multiplier of 1 or shift of 0 bits, and
-> > > would see the exact same unmultiplied/unshifted rate it always
-> > > did.
-> >=20
-> > We already said no to such a hack. Maybe its not clear enough ?
-> >=20
-> > netlink allows us to a proper way, and Thomas Graf explained how we
-> > expect the thing to be done.
-> >=20
-> > Yes, this is not a one liner patch, its a bit more of work, and its=
- how
-> > it will be done when someone does the job.
+> Works on my UML290, Gobi3K, Gobi1K, Gobi2K, and E362.
 >=20
-> I've no problem with that since it is a cleaner solution, but
-> one that requires significantly more work.  I was only arguing
-> that the multiplier/shift approach was also a workable solution
-> and should be simpler to implement.  But since there appears to
-> be developer consensus that it's not a desired method, I'm fine
-> with going along with that expert opinion.
->=20
-> 						-Bill
+> Tested-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-As others have said the multiplier shift approach is a not a workable
-solution because it is likely to cause too many compatibility surprises=
-=2E
-Older kernels would ignore the multiplier and therefore not give the us=
-ers
-the effective rate they wanted.
+Applied and queued up for -stable.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
