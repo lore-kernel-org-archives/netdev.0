@@ -1,49 +1,67 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: question about creating patch
-Date: Wed, 13 Mar 2013 17:16:45 +0000
-Message-ID: <1363195005.2683.8.camel@bwh-desktop.uk.solarflarecom.com>
-References: <CAABZP2zDU9UGRARWFBP86W28=pKa2T2mo1E8CaLAaRAu7yNSuQ@mail.gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] ssb: pci: Fix flipping of MAC address
+Date: Wed, 13 Mar 2013 14:18:18 -0400
+Message-ID: <20130313181817.GB19917@tuxdriver.com>
+References: <513e40c2.MDaC+Q82iTl9PpIZ%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Zhouyi Zhou <zhouzhouyi@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: b43-dev@lists.infradead.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, zajec5@gmail.com
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:10346 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932984Ab3CMRQt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 13:16:49 -0400
-In-Reply-To: <CAABZP2zDU9UGRARWFBP86W28=pKa2T2mo1E8CaLAaRAu7yNSuQ@mail.gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:51882 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932346Ab3CMSae (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 14:30:34 -0400
+Content-Disposition: inline
+In-Reply-To: <513e40c2.MDaC+Q82iTl9PpIZ%Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-03-14 at 00:11 +0800, Zhouyi Zhou wrote:
-> Dear Colleagues,
->    I have read Kushal Koolwal's article
-> "HOWTO: Create and submit your first Linux kernel patch using GIT"
->  and one question remain
->  which tree is preferable in git://git.kernel.org/pub/scm/ should I
-> clone in git clone step,
->  linux/kernel/git/stable/linux-stable.git
->  or
->  linux/kernel/git/davem/net.git
-> Many thanks
+On Mon, Mar 11, 2013 at 03:38:26PM -0500, Larry Finger wrote:
+> Since commit e565275 entitled "ssb: pci: Standardize a function to ge=
+t mac
+> address", the SPROM readout of the MAC has had the values flipped so =
+that
+> 00:11:22:33:44:55 became 11:00:33:22:55:44. The fix has been tested o=
+n both
+> little- and big-endian architectures.
+>=20
+> Reported-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> ---
+>=20
+> John,
+>=20
+> This bug was introduced in 3.9, and should be fixed there.
+>=20
+> Thanks,
+>=20
+> Larry
+> ---
+>=20
+> Index: wireless-testing-new/drivers/ssb/pci.c
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> --- wireless-testing-new.orig/drivers/ssb/pci.c
+> +++ wireless-testing-new/drivers/ssb/pci.c
+> @@ -234,8 +234,8 @@ static void sprom_get_mac(char *mac, con
+>  {
+>  	int i;
+>  	for (i =3D 0; i < 3; i++) {
+> -		*mac++ =3D in[i];
+>  		*mac++ =3D in[i] >> 8;
+> +		*mac++ =3D in[i];
+>  	}
+>  }
 
-There is an easy way to answer your question for most areas of the
-kernel, which is to look for a 'T:' line in the MAINTAINERS section.
-For networking you will see:
+Actually, FWIW it seems to have been introduced in commit
+e5652756ff36ed9e1283121f788e6a17117efcab, which is slated for 3.10.
+I'm happy to merge it in wireless-next.
 
-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
-
-The first of these is for changes that should go into the pending
-release (at present that would be 3.9), limited to important bug fixes
-and (sometimes) new drivers.  The second is for new features and more
-minor bug fixes that can wait for the next release.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+John
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
