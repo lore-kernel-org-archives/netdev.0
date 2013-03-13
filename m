@@ -1,57 +1,46 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: [git pull] firewire net: resource management improvements
-Date: Wed, 13 Mar 2013 16:37:42 +0100
-Message-ID: <20130313163742.73a3a842@stein>
-References: <5139419A.2040309@linux-ipv6.org>
-	<20130313151919.68068bae@stein>
-	<20130313.102448.1103259275832948992.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 1/4] bridge: Add sysfs interface to
+ control promisc mode
+Date: Wed, 13 Mar 2013 08:38:43 -0700
+Message-ID: <20130313083843.411b3a6c@nehalam.linuxnetplumber.net>
+References: <1363139126-13396-1-git-send-email-vyasevic@redhat.com>
+	<1363139126-13396-2-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, linux1394-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from einhorn.in-berlin.de ([192.109.42.8]:50049 "EHLO
-	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932391Ab3CMPh7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 11:37:59 -0400
-In-Reply-To: <20130313.102448.1103259275832948992.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1363139126-13396-2-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-David,
+On Tue, 12 Mar 2013 21:45:23 -0400
+Vlad Yasevich <vyasevic@redhat.com> wrote:
 
-please pull from the tag "firewire-net-resource-mgt" at
+> Add an sysfs interface to turn promiscusous mode on and off on
+> the bridge.  By default all interfaces in the bridge
+> are in promisc mode.  When promisc mode is turned off, it is
+> turned off on all bridge ports and the bridge turns on IFF_ALLMULTI
+> to handle multicast traffic.
+> 
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>  net/bridge/br_device.c   |   41 +++++++++++++++++++++++++++++++++++++++++
+>  net/bridge/br_if.c       |   22 +++++++++++++++++-----
+>  net/bridge/br_private.h  |    2 ++
+>  net/bridge/br_sysfs_br.c |   17 +++++++++++++++++
+>  4 files changed, 77 insertions(+), 5 deletions(-)
+> 
 
-    git://git.kernel.org/pub/scm/linux/kernel/git/ieee1394/linux1394.git firewire-net-resource-mgt
-
-to receive the following firewire-net driver changes:
-  - fix memory leak and kmap leak at shutdown
-  - release IR DMA context already at ifdown rather than shutdown
-    (many controllers have got only 4 of them, so let's not hold it
-    longer than strictly necessary)
-  - misc startup/shutdown changes which prepare for later addition
-    of IPv6-over-1394 support
-
-YOSHIFUJI Hideaki (11):
-      firewire net: No need to reset dev->local_fifo after failure of fw_core_add_address_handler().
-      firewire net: Introduce fwnet_fifo_{start, stop}() helpers.
-      firewire net: Setup broadcast and local fifo independently.
-      firewire net: Check dev->broadcast_state inside fwnet_broadcast_start().
-      firewire net: Fix memory leakage in fwnet_remove().
-      firewire net: Clear dev->broadcast_rcv_context and dev->broadcast_state after destruction of context.
-      firewire net: Omit checking dev->broadcast_rcv_context in fwnet_broadcast_start().
-      firewire net: Fix leakage of kmap for broadcast receive buffer.
-      firewire net: Allocate dev->broadcast_rcv_buffer_ptrs early.
-      firewire net: Introduce fwnet_broadcast_stop() to destroy broadcast resources.
-      firewire net: Release broadcast/fifo resources on ifdown.
-
- drivers/firewire/net.c | 177 +++++++++++++++++++--------------
- 1 file changed, 105 insertions(+), 72 deletions(-)
-
-Thanks,
--- 
-Stefan Richter
--=====-===-= --== -==-=
-http://arcgraph.de/sr/
+All attribute changes must also be available through netlink, and changes
+to attributes should cause a notification to applications listening for
+netlink events on that bridge.
