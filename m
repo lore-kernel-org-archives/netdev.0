@@ -1,55 +1,64 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next 1/4] bridge: Add sysfs interface to
- control promisc mode
-Date: Wed, 13 Mar 2013 11:44:25 -0400
-Message-ID: <51409ED9.5080304@redhat.com>
-References: <1363139126-13396-1-git-send-email-vyasevic@redhat.com>
-	<1363139126-13396-2-git-send-email-vyasevic@redhat.com>
-	<20130313083843.411b3a6c@nehalam.linuxnetplumber.net>
-Reply-To: vyasevic@redhat.com
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 05/22] cxgb4: Add T5 write combining support
+Date: Wed, 13 Mar 2013 15:43:13 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B718B@saturn3.aculab.com>
+References: <1363088794-31453-1-git-send-email-vipul@chelsio.com> <1363088794-31453-6-git-send-email-vipul@chelsio.com> <20130312.081927.1036246728528667686.davem@davemloft.net> <513F3EBD.5020504@opengridcomputing.com> <51408ED4.40400@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130313083843.411b3a6c@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-rdma@vger.kernel.org>, <linux-scsi@vger.kernel.org>,
+	<roland@purestorage.com>, <JBottomley@parallels.com>,
+	"Dimitrios Michailidis" <dm@chelsio.com>,
+	"Casey Leedom" <leedom@chelsio.com>,
+	"Naresh Kumar Inna" <naresh@chelsio.com>,
+	"Divy Le Ray" <divy@chelsio.com>,
+	"Santosh Rastapur" <santosh@chelsio.com>,
+	"Arvind Bhushan" <arvindb@chelsio.com>,
+	"Abhishek Agrawal" <abhishek@chelsio.com>
+To: "Vipul Pandya" <vipul@chelsio.com>,
+	"Steve Wise" <swise@opengridcomputing.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <51408ED4.40400@chelsio.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/13/2013 11:38 AM, Stephen Hemminger wrote:
-> On Tue, 12 Mar 2013 21:45:23 -0400
-> Vlad Yasevich <vyasevic@redhat.com> wrote:
->
->> Add an sysfs interface to turn promiscusous mode on and off on
->> the bridge.  By default all interfaces in the bridge
->> are in promisc mode.  When promisc mode is turned off, it is
->> turned off on all bridge ports and the bridge turns on IFF_ALLMULTI
->> to handle multicast traffic.
->>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->> ---
->>   net/bridge/br_device.c   |   41 +++++++++++++++++++++++++++++++++++++++++
->>   net/bridge/br_if.c       |   22 +++++++++++++++++-----
->>   net/bridge/br_private.h  |    2 ++
->>   net/bridge/br_sysfs_br.c |   17 +++++++++++++++++
->>   4 files changed, 77 insertions(+), 5 deletions(-)
->>
->
-> All attribute changes must also be available through netlink, and changes
-> to attributes should cause a notification to applications listening for
-> netlink events on that bridge.
->
+> >>> +				writel(n,  adap->bar2 + q->udb + 8);
+> >>> +#if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
+> >>> +			asm volatile("sfence" : : : "memory");
+> >>> +#endif
+> >> There is absolutely no way I'm letting anyone put crap like this
+> >> into a driver.
+> >>
+> >> Use a portable inteface, and if one does not exist create one.
+> >
+> > I guess you'll have to add a wc_wmb() function for all the hw platforms
+> > supported by the kernel.  I see libibverbs defines this for the user
+> > side in include/infiniband/arch.h, and that could be used as the meat of
+> > the hw platform-specific implementations.
+> >
+> I see that normal wmb() code for x86_64 architecture is same as what
+> above #ifdef condition is doing. To be more clear I looked at the
+> assembly code for wmb and find that it is converted into 'sfence'
+> instruction. So, I think above code should be replaced with wmb call
+> which will also take care of portability on different architecture. I
+> will submit the series again soon.
 
-There is currently no attribute for promisc vs non-promisc in the 
-bridge.  Are you suggesting that this patch should add one?
+>From my recollection of the x86 architecture, the memory barriers
+are hardly ever needed, certainly not in the places where, for example
+a ppc needs them. I'd actually suspect that the normal wmb() for
+x86 should be a nop.
 
--vlad
+About the only place where any on the fence instructions are needed
+are in relation to write combining accesses.
+In particular I don't believe they are ever needed to synchronise
+uncached accesses with each other, or with cached accesses (which
+are snooped).
+
+	David
+
+
+
+
