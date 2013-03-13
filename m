@@ -1,58 +1,43 @@
-From: =?iso-8859-1?Q?Wolf-Bastian_P=F6ttner?= <poettner@ibr.cs.tu-bs.de>
-Subject: Re: [PATCH] net/ieee802154/6lowpan: Fix initialization for fragment offset
-Date: Wed, 13 Mar 2013 15:40:06 +0100
-Message-ID: <D859EF9A-19A9-4F74-B59D-28FADBCE338A@ibr.cs.tu-bs.de>
-References: <1363161054-13471-1-git-send-email-poettner@ibr.cs.tu-bs.de> <20130313.103830.247889330240632952.davem@davemloft.net>
-Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux-zigbee-devel@lists.sourceforge.net,
-	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 1/1] ipv4: fix definition of FIB_TABLE_HASHSZ
+Date: Wed, 13 Mar 2013 11:01:36 -0400 (EDT)
+Message-ID: <20130313.110136.690489547299044594.davem@davemloft.net>
+References: <1363170255-11769-1-git-send-email-den@openvz.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tingw.liu@gmail.com, kuznet@ms2.inr.ac.ru
+To: den@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from salvator.ibr.cs.tu-bs.de ([134.169.34.11]:35261 "EHLO
-	salvator.ibr.cs.tu-bs.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751901Ab3CMOkN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 10:40:13 -0400
-In-Reply-To: <20130313.103830.247889330240632952.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44542 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932759Ab3CMPBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 11:01:24 -0400
+In-Reply-To: <1363170255-11769-1-git-send-email-den@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+From: "Denis V. Lunev" <den@openvz.org>
+Date: Wed, 13 Mar 2013 14:24:15 +0400
 
+> From: "Denis V. Lunev" <den@openvz.org>
+> 
+> a long time ago by the commit
+> 
+>   commit 93456b6d7753def8760b423ac6b986eb9d5a4a95
+>   Author: Denis V. Lunev <den@openvz.org>
+>   Date:   Thu Jan 10 03:23:38 2008 -0800
+> 
+>     [IPV4]: Unify access to the routing tables.
+> 
+> the defenition of FIB_HASH_TABLE size has obtained wrong dependency:
+> it should depend upon CONFIG_IP_MULTIPLE_TABLES (as was in the original
+> code) but it was depended from CONFIG_IP_ROUTE_MULTIPATH
+> 
+> This patch returns the situation to the original state.
+> 
+> The problem was spotted by Tingwei Liu.
+> 
+> Signed-off-by: Denis V. Lunev <den@openvz.org>
 
-Nope. The patch fixes a problem in code that is not in mainline yet. Ho=
-wever, people on the linux-zigbee mailing list found it a good idea to =
-commit this change to mainline to avoid the problem from arising.
-
-I see, you disagree. Nevermind. ;)
-
-
-Bastian
---=20
-Wolf-Bastian P=F6ttner      Institut f=FCr Betriebssysteme & Rechnerver=
-bund
-Tel.: +49-531-391-3265                           M=FChlenpfordtstrasse =
-23
-=46ax.: +49-531-391-5936         TU Braunschweig     D-38106 Braunschwe=
-ig
-
-Am 13.03.2013 um 15:38 schrieb David Miller <davem@davemloft.net>:
-
-> From: Wolf-Bastian P=F6ttner <poettner@ibr.cs.tu-bs.de>
-> Date: Wed, 13 Mar 2013 08:50:54 +0100
->=20
->> offset has to be initialized, otherwise the *first* fragment will
->> be discarded and reassembly cannot happen.
->>=20
->> Reviewed-by: Alan Ott <alan@signal11.us>
->=20
-> 'offset' is never used unless lowpan_fetch_skb_u8(skb, &offset)
-> succeeds, in which case it will be initialized properly.  Otherwise w=
-e
-> unlock and drop the SKB and make no references whatsoever to 'offset'=
-=2E
->=20
-> I suspect you saw some compiler warning about 'offset' being
-> uninitialized, and are just blindly trying to shut this warning up.
+Applied, thanks.
