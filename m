@@ -1,53 +1,48 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: [PATCH] sctp: Use correct sideffect command in duplicate cookie handling
-Date: Tue, 12 Mar 2013 21:53:23 -0400
-Message-ID: <1363139603-14042-1-git-send-email-vyasevich@gmail.com>
-Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>
+From: Zhouyi Zhou <zhouzhouyi@gmail.com>
+Subject: [PATCH] net/core: fixing dst_neigh_lookup/dst_neigh_lookup_skb caused
+ kernel panic
+Date: Wed, 13 Mar 2013 12:00:34 +0800
+Message-ID: <CAABZP2yznP5jD6Og=-ZxgAh23VpfM1BGX4OJsOb00KDeyV-jyA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: stable@vger.kernel.org, trivial@kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f41.google.com ([209.85.216.41]:45747 "EHLO
-	mail-qa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755285Ab3CMBxc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 21:53:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When SCTP is done processing a duplicate cookie chunk, it tries
-to delete a newly created association.  For that, it has to set
-the right association for the side-effect processing to work.
-However, when it uses the SCTP_CMD_NEW_ASOC command, that performs
-more work then really needed (like hashing the associationa and
-assigning it an id) and there is no point to do that only to
-delete the association as a next step.  In fact, it also creates
-an impossible condition where an association may be found by
-the getsockopt() call, and that association is empty.  This
-causes a crash in some sctp getsockopts.
+ when neighbour table is full, dst_neigh_lookup/dst_neigh_lookup_skb
+will return -ENOBUFS which
+is absolutely non zero, while all the code in kernel which use above
+functions  assume failure only
+on zero return (I did a grep), which will cause kernel panic. (for
+example: https://bugzilla.kernel.org/show_bug.cgi?id=54731)
 
-The solution is rather simple.  We simply use SCTP_CMD_SET_ASOC
-command that doesn't have all the overhead and does exactly
-what we need.
+  This patch corrects above error with smallest changes to kernel source code.
+Signed-off-by: Zhouyi Zhou <zhouzhouyi@gmail.com>
 
-Reported-by: Karl Heiss <kheiss@gmail.com>
-Tested-by: Karl Heiss <kheiss@gmail.com>
-CC: Neil Horman <nhorman@tuxdriver.com>
-Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
----
- net/sctp/sm_statefuns.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 853cda1..d594f8b 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -413,13 +413,15 @@ static inline int dst_neigh_output(struct
+dst_entry *dst, struct neighbour *n,
 
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 5131fcf..de1a013 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -2082,7 +2082,7 @@ sctp_disposition_t sctp_sf_do_5_2_4_dupcook(struct net *net,
- 	}
- 
- 	/* Delete the tempory new association. */
--	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_ASOC, SCTP_ASOC(new_asoc));
-+	sctp_add_cmd_sf(commands, SCTP_CMD_SET_ASOC, SCTP_ASOC(new_asoc));
- 	sctp_add_cmd_sf(commands, SCTP_CMD_DELETE_TCB, SCTP_NULL());
- 
- 	/* Restore association pointer to provide SCTP command interpeter
--- 
-1.7.7.6
+ static inline struct neighbour *dst_neigh_lookup(const struct
+dst_entry *dst, const void *daddr)
+ {
+-       return dst->ops->neigh_lookup(dst, NULL, daddr);
++       struct neighbour *n = dst->ops->neigh_lookup(dst, NULL, daddr);
++       return IS_ERR(n) ? NULL : n;
+ }
+
+ static inline struct neighbour *dst_neigh_lookup_skb(const struct
+dst_entry *dst,
+                                                     struct sk_buff *skb)
+ {
+-       return dst->ops->neigh_lookup(dst, skb, NULL);
++       struct neighbour *n = dst->ops->neigh_lookup(dst, skb, NULL);
++       return IS_ERR(n) ? NULL : n;
+ }
+
+ static inline void dst_link_failure(struct sk_buff *skb)
