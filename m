@@ -1,78 +1,37 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH v2 1/1] ipv4: fix definition of FIB_TABLE_HASHSZ
-Date: Wed, 13 Mar 2013 14:24:15 +0400
-Message-ID: <1363170255-11769-1-git-send-email-den@openvz.org>
-Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>,
-	Tingwei Liu <tingw.liu@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: davem@davemloft.net
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net-next v3] netxen: write IP address to firmware when
+ using bonding
+Date: Wed, 13 Mar 2013 11:34:23 +0100
+Message-ID: <5140562F.8080009@redhat.com>
+References: <1363092541-12391-1-git-send-email-nikolay@redhat.com> <20130313.044244.2078533144108853623.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rajesh.borundia@qlogic.com,
+	agospoda@redhat.com, sony.chacko@qlogic.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:44739 "EHLO relay.sw.ru"
+Received: from mx1.redhat.com ([209.132.183.28]:9135 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754451Ab3CMKZF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Mar 2013 06:25:05 -0400
+	id S1754027Ab3CMKec (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Mar 2013 06:34:32 -0400
+In-Reply-To: <20130313.044244.2078533144108853623.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Denis V. Lunev" <den@openvz.org>
-
-a long time ago by the commit
-
-  commit 93456b6d7753def8760b423ac6b986eb9d5a4a95
-  Author: Denis V. Lunev <den@openvz.org>
-  Date:   Thu Jan 10 03:23:38 2008 -0800
-
-    [IPV4]: Unify access to the routing tables.
-
-the defenition of FIB_HASH_TABLE size has obtained wrong dependency:
-it should depend upon CONFIG_IP_MULTIPLE_TABLES (as was in the original
-code) but it was depended from CONFIG_IP_ROUTE_MULTIPATH
-
-This patch returns the situation to the original state.
-
-The problem was spotted by Tingwei Liu.
-
-Signed-off-by: Denis V. Lunev <den@openvz.org>
-CC: Tingwei Liu <tingw.liu@gmail.com>
-CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
----
-Changes from v1:
-- corrected CONFIG_IP_MULTIPLE_TABLES branches. HASHSZ should be 256
-  if defined
-- holy crap. Original patch has wrong define CONFIG_IP_MULTIPLE_TABLES
-  I have forgotten all things in kernel :( Fixed too. Checked both
-  branches with #error inside
-
- include/net/ip_fib.h |   12 +++++-------
- 1 files changed, 5 insertions(+), 7 deletions(-)
-
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 9497be1..3a7ce04 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -152,18 +152,16 @@ struct fib_result_nl {
- };
- 
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
--
- #define FIB_RES_NH(res)		((res).fi->fib_nh[(res).nh_sel])
--
--#define FIB_TABLE_HASHSZ 2
--
- #else /* CONFIG_IP_ROUTE_MULTIPATH */
--
- #define FIB_RES_NH(res)		((res).fi->fib_nh[0])
-+#endif /* CONFIG_IP_ROUTE_MULTIPATH */
- 
-+#ifdef CONFIG_IP_MULTIPLE_TABLES
- #define FIB_TABLE_HASHSZ 256
--
--#endif /* CONFIG_IP_ROUTE_MULTIPATH */
-+#else
-+#define FIB_TABLE_HASHSZ 2
-+#endif
- 
- extern __be32 fib_info_update_nh_saddr(struct net *net, struct fib_nh *nh);
- 
--- 
-1.7.7.6
+On 13/03/13 09:42, David Miller wrote:
+> From: Nikolay Aleksandrov <nikolay@redhat.com>
+> Date: Tue, 12 Mar 2013 13:49:01 +0100
+> 
+>> This patch allows LRO aggregation on bonded devices that contain an
+>> NX3031 device. It also adds a for_each_netdev_in_bond_rcu(bond, slave)
+>> macro which executes for each slave that has bond as master.
+> 
+> The new logic looks like it will configure the IPs for bonding
+> but not for VLANs, is that intentional?
+The case bond -> vlan -> netxen was intentionally dropped as it leads to
+many new issues, if that is what you are referring to. The case vlan ->
+netxen still works, since the address of orig_dev is unconditionally
+programmed if the original dev is a netxen. The problem was with a bond
+acting on a vlan which is configured on a netxen because we would have
+to keep track of which bonding master the programmed addresses belong to.
