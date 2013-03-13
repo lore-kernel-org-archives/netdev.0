@@ -1,43 +1,58 @@
-From: John Crispin <blogic@openwrt.org>
-Subject: Re: rt2x00: Kconfig symbols RALINK_RT288X and RALINK_RT305X
-Date: Wed, 13 Mar 2013 12:19:17 +0100
-Message-ID: <514060B5.8060301@openwrt.org>
-References: <1363165170.3137.182.camel@x61.thuisdomein> <CAOiHx=n4a26z=PS02E2KjD2Y3Pp0P0x-5Ns6WRc-WScNF=EO_Q@mail.gmail.com> <1363169039.3137.186.camel@x61.thuisdomein> <CAOiHx=keYYoCGgHfrSKXOHQQvG1mrt60ems3dcXki1K06MHg2g@mail.gmail.com>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: RE: [PATCH net-next v3] netxen: write IP address to firmware when
+ using bonding
+Date: Wed, 13 Mar 2013 11:51:46 +0000
+Message-ID: <C562D0E12CBDE44E8A0CCAB7706009672C0F0F@AVMB1.qlogic.org>
+References: <1363092541-12391-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Paul Bolle <pebolle@tiscali.nl>, Ivo van Doorn <IvDoorn@gmail.com>,
-	Gertjan van Wingerde <gwingerde@gmail.com>,
-	Helmut Schaa <helmut.schaa@googlemail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jonas Gorski <jogo@openwrt.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOiHx=keYYoCGgHfrSKXOHQQvG1mrt60ems3dcXki1K06MHg2g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	"agospoda@redhat.com" <agospoda@redhat.com>,
+	Sony Chacko <sony.chacko@qlogic.com>
+To: Nikolay Aleksandrov <nikolay@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ch1ehsobe001.messaging.microsoft.com ([216.32.181.181]:39450
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755260Ab3CMLvw convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Mar 2013 07:51:52 -0400
+In-Reply-To: <1363092541-12391-1-git-send-email-nikolay@redhat.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13/03/13 11:35, Jonas Gorski wrote:
-> On 13 March 2013 11:03, Paul Bolle<pebolle@tiscali.nl>  wrote:
->> On Wed, 2013-03-13 at 10:51 +0100, Jonas Gorski wrote:
->>> The actual accepted Kconfig symbol names are different though, so they
->>> should be changed in rt2x00 to match them (SOC_RT288X and SOC_RT305X).
->> Thanks. Note that I could not find an actual Kconfig symbol SOC_RT288X!
-> Ah, yes, the inital submission only included RT305X support, not
-> RT288X (and neither of the newer chips). These will come later.
+-----Original Message-----
+>From: Nikolay Aleksandrov [mailto:nikolay@redhat.com]
+>Sent: Tuesday, March 12, 2013 6:19 PM
+>To: netdev
+>Cc: Rajesh Borundia; David Miller; agospoda@redhat.com; Sony Chacko
+>Subject: [PATCH net-next v3] netxen: write IP address to firmware when
+>using bonding
 >
->> Anyhow, I guess somebody has the (trivial) patch to convert
->> RALINK_RT...X and CONFIG_RALINK_RT...X to their SOC_* equivalents queued
->> for inclusion in v3.9-rcX. Is that correct?
-> Yes, that should be everything. John Crispin, anything missing from that?
+>This patch allows LRO aggregation on bonded devices that contain an
+>NX3031 device. It also adds a for_each_netdev_in_bond_rcu(bond, slave)
+>macro which executes for each slave that has bond as master.
 >
->
-> Jonas
->
->
-Hi,
+>V3: After testing and discussing this with Rajesh, I decided to keep the
+>    vlan ip cache and just rename it to ip_cache since it will store
+>bond
+>    ip addresses too. A new master flag has been added to the ip cache
+>to
+>    denote that the address has been added because of a master device.
+>    I've taken care of the enslave/release cases by checking for various
+>    combinations of events and flags (e.g. netxen has a master, it's a
+>    bond master and it's not marked as a slave means it is being
+>enslaved
+>    and is dev_open()ed in bond_enslave).
+>    I've changed netxen_free_ip_list() to have a "master" parameter
+>which
+>    causes all IP addresses marked as master to be deleted (used when a
+>    netxen is being released). I've made the patch use the new upper
+>    device API as well. The following cases were tested:
+>    - bond -> netxen
+>    - vlan -> netxen
+>    - vlan -> bond -> netxen
 
-I will look into this later this week.
-
-John
+Acked-by : Rajesh Borundia <rajesh.borundia@qlogic.com>
