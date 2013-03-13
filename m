@@ -1,58 +1,44 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: RE: [PATCH net-next v3] netxen: write IP address to firmware when
- using bonding
-Date: Wed, 13 Mar 2013 11:51:46 +0000
-Message-ID: <C562D0E12CBDE44E8A0CCAB7706009672C0F0F@AVMB1.qlogic.org>
-References: <1363092541-12391-1-git-send-email-nikolay@redhat.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next 0/4] Allow bridge to function in
+ non-promisc mode
+Date: Wed, 13 Mar 2013 08:12:29 -0400
+Message-ID: <51406D2D.30703@redhat.com>
+References: <1363139126-13396-1-git-send-email-vyasevic@redhat.com>
+	<473541363155743@web2d.yandex.ru>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"agospoda@redhat.com" <agospoda@redhat.com>,
-	Sony Chacko <sony.chacko@qlogic.com>
-To: Nikolay Aleksandrov <nikolay@redhat.com>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe001.messaging.microsoft.com ([216.32.181.181]:39450
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755260Ab3CMLvw convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Mar 2013 07:51:52 -0400
-In-Reply-To: <1363092541-12391-1-git-send-email-nikolay@redhat.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>
+To: "Oleg A. Arkhangelsky" <sysoleg@yandex.ru>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <473541363155743@web2d.yandex.ru>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
------Original Message-----
->From: Nikolay Aleksandrov [mailto:nikolay@redhat.com]
->Sent: Tuesday, March 12, 2013 6:19 PM
->To: netdev
->Cc: Rajesh Borundia; David Miller; agospoda@redhat.com; Sony Chacko
->Subject: [PATCH net-next v3] netxen: write IP address to firmware when
->using bonding
+On 03/13/2013 02:22 AM, "Oleg A. Arkhangelsky" wrote:
 >
->This patch allows LRO aggregation on bonded devices that contain an
->NX3031 device. It also adds a for_each_netdev_in_bond_rcu(bond, slave)
->macro which executes for each slave that has bond as master.
 >
->V3: After testing and discussing this with Rajesh, I decided to keep the
->    vlan ip cache and just rename it to ip_cache since it will store
->bond
->    ip addresses too. A new master flag has been added to the ip cache
->to
->    denote that the address has been added because of a master device.
->    I've taken care of the enslave/release cases by checking for various
->    combinations of events and flags (e.g. netxen has a master, it's a
->    bond master and it's not marked as a slave means it is being
->enslaved
->    and is dev_open()ed in bond_enslave).
->    I've changed netxen_free_ip_list() to have a "master" parameter
->which
->    causes all IP addresses marked as master to be deleted (used when a
->    netxen is being released). I've made the patch use the new upper
->    device API as well. The following cases were tested:
->    - bond -> netxen
->    - vlan -> netxen
->    - vlan -> bond -> netxen
+> 13.03.2013, 05:45, "Vlad Yasevich" <vyasevic@redhat.com>:
+>
+>> The series adds an ability for the bridge to function in non-promiscuous mode.
+>
+> What is the practical applications for such setup? In other words,
+> in which cases I would want to put bridge into non-promiscuous
+> mode and specify some uplink ports?
+>
 
-Acked-by : Rajesh Borundia <rajesh.borundia@qlogic.com>
+On of the applications would be when bridge is an edge device servicing 
+a VM deployment.  Each of the VMs knows the mac address that the guest
+has and may program that mac onto the uplinks.
+
+-vlad
