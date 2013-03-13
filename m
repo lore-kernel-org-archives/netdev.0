@@ -1,34 +1,36 @@
-From: Mark Jackson <mpfj-list@mimc.co.uk>
-Subject: Re: [PATCH v3 net-next 1/1] drivers: net: davinci_cpdma: acknowledge
- interrupt properly
-Date: Wed, 13 Mar 2013 09:34:48 +0000
-Message-ID: <51404838.2040008@mimc.co.uk>
-References: <1361175560-600-1-git-send-email-mugunthanvnm@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] qlcnic: Implement flash sysfs callback
+ for 83xx adapter
+Date: Wed, 13 Mar 2013 05:37:27 -0400 (EDT)
+Message-ID: <20130313.053727.802803978456802859.davem@davemloft.net>
+References: <1363114937-23283-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1361175560-600-1-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
+	himanshu.madhani@qlogic.com
+To: shahed.shaikh@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40624 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754855Ab3CMJhQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 05:37:16 -0400
+In-Reply-To: <1363114937-23283-1-git-send-email-shahed.shaikh@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 18/02/13 08:19, Mugunthan V N wrote:
-> CPDMA interrupts are not properly acknowledged which leads to interrupt
-> storm, only cpdma interrupt 0 is acknowledged in Davinci CPDMA driver.
-> Changed cpdma_ctlr_eoi api to acknowledge 1 and 2 interrupts which are
-> used for rx and tx respectively.
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Date: Tue, 12 Mar 2013 15:02:16 -0400
+
+> From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 > 
-> Reported-by: Pantelis Antoniou <panto@antoniou-consulting.com>
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> QLogic applications use these callbacks to perform
+> 
+> o  NIC Partitioning (NPAR) configuration and management
+> o  Diagnostic tests
+> o  Flash access and updates
+> 
+> Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+> Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-Not sure if I'm seeing this same problem [1], but it doesn't appear fixed to me.
-
-I've tried both mainline -rc2 and -next.
-
-[1] https://lkml.org/lkml/2013/3/12/376
-
-Regards
-Mark J.
+Applied.
