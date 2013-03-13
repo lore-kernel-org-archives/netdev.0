@@ -1,36 +1,49 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: rt2x00: Kconfig symbols RALINK_RT288X and RALINK_RT305X
-Date: Wed, 13 Mar 2013 09:59:30 +0100
-Message-ID: <1363165170.3137.182.camel@x61.thuisdomein>
+From: Andre Heider <a.heider@gmail.com>
+Subject: Re: [ 000/100] 3.8.3-stable review
+Date: Wed, 13 Mar 2013 10:13:07 +0100
+Message-ID: <CAHsu+b_kMNmVB3HPtPV0re7civd_6uA_CHnbZJ5OjP8iOo=E9g@mail.gmail.com>
+References: <20130312223122.884099393@linuxfoundation.org>
+	<CAHsu+b9O+JG=v6FgAEG4KOVDGScFiZYQm_nqXOQ9NSae3D3hwA@mail.gmail.com>
+	<20130313.043343.704615564539285477.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ivo van Doorn <IvDoorn@gmail.com>,
-	Gertjan van Wingerde <gwingerde@gmail.com>,
-	Helmut Schaa <helmut.schaa@googlemail.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	stable@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20130313.043343.704615564539285477.davem@davemloft.net>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-0) Support for rt2800pci (or "the rt2860/rt3090 chipsets") was added in
-v2.6.33 (three years ago). References to the related Kconfig symbols
-RALINK_RT288X and RALINK_RT305X were introduced in that release. So were
-checks for their macros (CONFIG_RALINK_RT288X and CONFIG_RALINK_RT305X).
+On Wed, Mar 13, 2013 at 9:33 AM, David Miller <davem@davemloft.net> wrote:
+> From: Andre Heider <a.heider@gmail.com>
+> Date: Wed, 13 Mar 2013 09:02:46 +0100
+>
+>> On Tue, Mar 12, 2013 at 11:30 PM, Greg Kroah-Hartman
+>> <gregkh@linuxfoundation.org> wrote:
+>>> This is the start of the stable review cycle for the 3.8.3 release.
+>>> There are 100 patches in this series, all will be posted as a response
+>>> to this one.  If anyone has any issues with these being applied, please
+>>> let me know.
+>>
+>> Hi,
+>>
+>> I'm missing a drivers/net/ethernet/atheros/atl1c patch, namely "atl1c:
+>> restore buffer state".
+>> In fact, it seems the whole netdev stable patch queue is missing:
+>> http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
+>>
+>> Unsure what the workflow is here, how are these supposed to make to stable?
+>
+> I submit those patches at a time of my own choosing, and if you
+> read stable@vger.kernel.org you will see when I do that.
+>
+> I let patches cook in Linus's tree for a week or so before submitting
+> to -stable so that any bugs in those changes are more likely to be
+> discovered before the change is in -stable too.
 
-1) The Kconfig symbols themselves were never added in mainline. So these
-references and macros appear to be just markers for dead code in
-mainline, as that code will not be built.
+I hoped that a fix I care about makes it to 3.8.3, but ok, that makes sense.
 
-2) This was previously discussed in
-https://lkml.org/lkml/2010/7/14/110 . The patch submitted in that
-message (which would remove all the dead code at the time) did not get
-applied.
-
-3) What is the current status of the (out of tree) code that adds
-RALINK_RT288X and RALINK_RT305X?
-
-
-Paul Bolle
+Thanks,
+Andre
