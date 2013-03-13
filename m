@@ -1,49 +1,40 @@
-From: Andre Heider <a.heider@gmail.com>
-Subject: Re: [ 000/100] 3.8.3-stable review
-Date: Wed, 13 Mar 2013 10:13:07 +0100
-Message-ID: <CAHsu+b_kMNmVB3HPtPV0re7civd_6uA_CHnbZJ5OjP8iOo=E9g@mail.gmail.com>
-References: <20130312223122.884099393@linuxfoundation.org>
-	<CAHsu+b9O+JG=v6FgAEG4KOVDGScFiZYQm_nqXOQ9NSae3D3hwA@mail.gmail.com>
-	<20130313.043343.704615564539285477.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Pull request: sfc 2013-03-12
+Date: Wed, 13 Mar 2013 05:17:03 -0400 (EDT)
+Message-ID: <20130313.051703.503945145726981351.davem@davemloft.net>
+References: <1363110445.2780.14.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	stable@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20130313.043343.704615564539285477.davem@davemloft.net>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	scrum-linux@solarflare.com
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40403 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754474Ab3CMJQw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 05:16:52 -0400
+In-Reply-To: <1363110445.2780.14.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 13, 2013 at 9:33 AM, David Miller <davem@davemloft.net> wrote:
-> From: Andre Heider <a.heider@gmail.com>
-> Date: Wed, 13 Mar 2013 09:02:46 +0100
->
->> On Tue, Mar 12, 2013 at 11:30 PM, Greg Kroah-Hartman
->> <gregkh@linuxfoundation.org> wrote:
->>> This is the start of the stable review cycle for the 3.8.3 release.
->>> There are 100 patches in this series, all will be posted as a response
->>> to this one.  If anyone has any issues with these being applied, please
->>> let me know.
->>
->> Hi,
->>
->> I'm missing a drivers/net/ethernet/atheros/atl1c patch, namely "atl1c:
->> restore buffer state".
->> In fact, it seems the whole netdev stable patch queue is missing:
->> http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
->>
->> Unsure what the workflow is here, how are these supposed to make to stable?
->
-> I submit those patches at a time of my own choosing, and if you
-> read stable@vger.kernel.org you will see when I do that.
->
-> I let patches cook in Linus's tree for a week or so before submitting
-> to -stable so that any bugs in those changes are more likely to be
-> discovered before the change is in -stable too.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 12 Mar 2013 17:47:25 +0000
 
-I hoped that a fix I care about makes it to 3.8.3, but ok, that makes sense.
+> The following changes since commit c80a8512ee3a8e1f7c3704140ea55f21dc6bd651:
+> 
+>   net/core: move vlan_depth out of while loop in skb_network_protocol() (2013-03-12 11:47:40 -0400)
+> 
+> are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc.git sfc-3.9
+> 
+> (commit fae8563b25f73dc584a07bcda7a82750ff4f7672)
+> 
+> Just the one bug fix I mentioned before, but it's a pretty important one
+> as it can cause silent data corruption or IOMMU page faults.
+> 
+> This would be suitable for stable and should apply cleanly to all the
+> 3.x.y branches.  I'm still working through testing of larger sets of
+> fixes.
 
-Thanks,
-Andre
+Pulled, thanks Ben.
