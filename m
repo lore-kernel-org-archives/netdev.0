@@ -1,167 +1,110 @@
-From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: Re: [PATCH] net/ieee802154/6lowpan: Fix
- initialization for fragment offset
-Date: Wed, 13 Mar 2013 11:45:42 -0400
-Message-ID: <51409F26.6070100@signal11.us>
-References: <1363161054-13471-1-git-send-email-poettner@ibr.cs.tu-bs.de>
-	<20130313.103830.247889330240632952.davem@davemloft.net>
-	<D859EF9A-19A9-4F74-B59D-28FADBCE338A@ibr.cs.tu-bs.de>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next] packet: packet fanout rollover during socket overload
+Date: Wed, 13 Mar 2013 11:51:50 -0400
+Message-ID: <CA+FuTScstzZiu5RaPZu+ZyXSUiFar1nJEUiOzKC_mr9Pquyjnw@mail.gmail.com>
+References: <1363100153-24433-1-git-send-email-willemb@google.com>
+ <1363102664-5174-1-git-send-email-willemb@google.com> <1363184717.13690.53.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1287764834906770095=="
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <D859EF9A-19A9-4F74-B59D-28FADBCE338A-G+tS6SCNB47quOJu9mQKZg@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---===============1287764834906770095==
-Content-Type: multipart/alternative;
-	boundary="------------000208030905020704050700"
-
-This is a multi-part message in MIME format.
---------------000208030905020704050700
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ia0-f180.google.com ([209.85.210.180]:39919 "EHLO
+	mail-ia0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932656Ab3CMPwV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 11:52:21 -0400
+Received: by mail-ia0-f180.google.com with SMTP id f27so1084963iae.39
+        for <netdev@vger.kernel.org>; Wed, 13 Mar 2013 08:52:20 -0700 (PDT)
+In-Reply-To: <1363184717.13690.53.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/13/2013 10:40 AM, Wolf-Bastian P=F6ttner wrote:
-> Nope. The patch fixes a problem in code that is not in mainline yet. Ho=
-wever, people on the linux-zigbee mailing list found it a good idea to co=
-mmit this change to mainline to avoid the problem from arising.
+On Wed, Mar 13, 2013 at 10:25 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >
-> I see, you disagree. Nevermind. ;)
-
-Hi David,
-
-This is my fault. I must have been looking the wrong tree when I
-recommended a push to mainline.
-
-Sorry for the noise.
-
-Alan.
-
-> Am 13.03.2013 um 15:38 schrieb David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>:
->> > From: Wolf-Bastian P=F6ttner <poettner-G+tS6SCNB47quOJu9mQKZg@public.gmane.org>
->> > Date: Wed, 13 Mar 2013 08:50:54 +0100
->> >=20
->>> >> offset has to be initialized, otherwise the *first* fragment will
->>> >> be discarded and reassembly cannot happen.
->>> >>=20
->>> >> Reviewed-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
->> >=20
->> > 'offset' is never used unless lowpan_fetch_skb_u8(skb, &offset)
->> > succeeds, in which case it will be initialized properly.  Otherwise =
-we
->> > unlock and drop the SKB and make no references whatsoever to 'offset=
-'.
->> >=20
->> > I suspect you saw some compiler warning about 'offset' being
->> > uninitialized, and are just blindly trying to shut this warning up.
+> On Tue, 2013-03-12 at 11:37 -0400, Willem de Bruijn wrote:
+> > Minimize packet drop in a fanout group. If one socket is full,
+> > roll over packets to another from the group. The intended use is
+> > to maintain flow affinity during normal load using an rxhash or
+> > cpu fanout policy, while dispersing unexpected traffic storms that
+> > hit a single cpu, such as spoofed-source DoS flows. This mechanism
+> > breaks affinity for flows arriving at saturated sockets during
+> > those conditions.
+> >
+> > The patch adds a fanout policy ROLLOVER that rotates between sockets,
+> > filling each socket before moving to the next. It also adds a fanout
+> > flag ROLLOVER. If passed along with any other fanout policy, the
+> > primary policy is applied until the chosen socket is full. Then,
+> > rollover selects another socket, to delay packet drop until the
+> > entire system is saturated.
+> >
+> > Probing sockets is not free. Selecting the last used socket, as
+> > rollover does, is a greedy approach that maximizes chance of
+> > success, at the cost of extreme load imbalance. In practice, with
+> > sufficiently long queues to handle rate, sockets are drained in
+> > parallel and load balance looks uniform in `top`.
+> >
+> > To avoid contention, scales counters with number of sockets and
+> > accesses them lockfree. Values are bounds checked to ensure
+> > correctness. An alternative would be to use atomic rr_cur.
+> >
+> > Tested using an application with 9 threads pinned to CPUs, one socket
+> > per thread and sufficient busywork per packet operation to limits each
+> > thread to handling 32 Kpps. When sent 500 Kpps single UDP stream
+> > packets, a FANOUT_CPU setup processes 32 Kpps in total without this
+> > patch, 270 Kpps with the patch. Tested with read() and with a packet
+> > ring (V1).
+> >
+> > Signed-off-by: Willem de Bruijn <willemb@google.com>
+> > ---
+> >  include/linux/if_packet.h |   2 +
+> >  net/packet/af_packet.c    | 112 ++++++++++++++++++++++++++++++++++++----------
+> >  2 files changed, 90 insertions(+), 24 deletions(-)
 >
+>
+> > -static struct sock *fanout_demux_cpu(struct packet_fanout *f, struct sk_buff *skb, unsigned int num)
+> > +static unsigned int fanout_demux_rollover(struct packet_fanout *f,
+> > +                                       struct sk_buff *skb,
+> > +                                       unsigned int idx, unsigned int skip,
+> > +                                       unsigned int num)
+> >  {
+> > -     unsigned int cpu = smp_processor_id();
+> > +     unsigned int i, j;
+> >
+> > -     return f->arr[cpu % num];
+> > +     i = j = min(f->next[idx], (int) f->num_members - 1);
+>
+> min_t(int, f->next[idx], f->num_members - 1);
+>
+> BTW, num_members can be 0
+>
+> You really should do
+>
+> int members = ACCESS_ONCE(f->num_members) - 1;
+>
+> if (members < 0)
+>         return idx;
+>
+> and only use members in your loop.
 
+Thanks for catching that. I'll revise as mentioned.
 
---------------000208030905020704050700
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+>
+> > +     do {
+> > +             if (i != skip && packet_rcv_has_room(pkt_sk(f->arr[i]), skb)) {
+> > +                     if (i != j)
+> > +                             f->next[idx] = i;
+> > +                     return i;
+> > +             }
+> > +             if (++i >= f->num_members)
+> > +                     i = 0;
+> > +     } while (i != j && idx < f->num_members);
+> > +
+> > +     return idx;
+> > +}
+> >
++
 
-<html>
-  <head>
-    <meta content="text/html; charset=ISO-8859-1"
-      http-equiv="Content-Type">
-  </head>
-  <body bgcolor="#FFFFFF" text="#000000">
-    <div class="moz-cite-prefix">On 03/13/2013 10:40 AM, Wolf-Bastian
-      P&ouml;ttner wrote:<br>
-    </div>
-    <blockquote
-      cite="mid:D859EF9A-19A9-4F74-B59D-28FADBCE338A-G+tS6SCNB47quOJu9mQKZg@public.gmane.org"
-      type="cite">
-      <div class="moz-text-plain" wrap="true" graphical-quote="true"
-        style="font-family: -moz-fixed; font-size: 12px;"
-        lang="x-western">
-        <pre wrap="">Nope. The patch fixes a problem in code that is not in mainline yet. However, people on the linux-zigbee mailing list found it a good idea to commit this change to mainline to avoid the problem from arising.
-
-I see, you disagree. Nevermind. <span class="moz-smiley-s3" title=";)"><span>;)</span></span></pre>
-      </div>
-    </blockquote>
-    <br>
-    Hi David,<br>
-    <br>
-    This is my fault. I must have been looking the wrong tree when I
-    recommended a push to mainline. <br>
-    <br>
-    Sorry for the noise.<br>
-    <br>
-    Alan.<br>
-    <br>
-    <blockquote
-      cite="mid:D859EF9A-19A9-4F74-B59D-28FADBCE338A-G+tS6SCNB47quOJu9mQKZg@public.gmane.org"
-      type="cite">
-      <div class="moz-text-plain" wrap="true" graphical-quote="true"
-        style="font-family: -moz-fixed; font-size: 12px;"
-        lang="x-western">
-        <pre wrap=""><div class="moz-txt-sig">Am 13.03.2013 um 15:38 schrieb David Miller <a moz-do-not-send="true" class="moz-txt-link-rfc2396E" href="mailto:davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org">&lt;davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org&gt;</a>:
-
-</div></pre>
-        <blockquote type="cite" style="color: #000000;">
-          <pre wrap=""><span class="moz-txt-citetags">&gt; </span>From: Wolf-Bastian P&ouml;ttner <a moz-do-not-send="true" class="moz-txt-link-rfc2396E" href="mailto:poettner-G+tS6SCNB47quOJu9mQKZg@public.gmane.org">&lt;poettner-G+tS6SCNB47quOJu9mQKZg@public.gmane.org&gt;</a>
-<span class="moz-txt-citetags">&gt; </span>Date: Wed, 13 Mar 2013 08:50:54 +0100
-<span class="moz-txt-citetags">&gt; </span>
-</pre>
-          <blockquote type="cite" style="color: #000000;">
-            <pre wrap=""><span class="moz-txt-citetags">&gt;&gt; </span>offset has to be initialized, otherwise the <b class="moz-txt-star"><span class="moz-txt-tag">*</span>first<span class="moz-txt-tag">*</span></b> fragment will
-<span class="moz-txt-citetags">&gt;&gt; </span>be discarded and reassembly cannot happen.
-<span class="moz-txt-citetags">&gt;&gt; </span>
-<span class="moz-txt-citetags">&gt;&gt; </span>Reviewed-by: Alan Ott <a moz-do-not-send="true" class="moz-txt-link-rfc2396E" href="mailto:alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org">&lt;alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org&gt;</a>
-</pre>
-          </blockquote>
-          <pre wrap=""><span class="moz-txt-citetags">&gt; </span>
-<span class="moz-txt-citetags">&gt; </span>'offset' is never used unless lowpan_fetch_skb_u8(skb, &amp;offset)
-<span class="moz-txt-citetags">&gt; </span>succeeds, in which case it will be initialized properly.  Otherwise we
-<span class="moz-txt-citetags">&gt; </span>unlock and drop the SKB and make no references whatsoever to 'offset'.
-<span class="moz-txt-citetags">&gt; </span>
-<span class="moz-txt-citetags">&gt; </span>I suspect you saw some compiler warning about 'offset' being
-<span class="moz-txt-citetags">&gt; </span>uninitialized, and are just blindly trying to shut this warning up.
-</pre>
-        </blockquote>
-        <br>
-      </div>
-    </blockquote>
-    <br>
-  </body>
-</html>
-
---------------000208030905020704050700--
-
-
---===============1287764834906770095==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Everyone hates slow websites. So do we.
-Make your web apps faster with AppDynamics
-Download AppDynamics Lite for free today:
-http://p.sf.net/sfu/appdyn_d2d_mar
---===============1287764834906770095==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Linux-zigbee-devel mailing list
-Linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
-
---===============1287764834906770095==--
+It is probably also better if the rollover flag always leaves some
+room in the socket chosen with f->next. This to ensure that that
+socket can still enqueue its own packets, avoiding sending it into
+rollover mode, too.
