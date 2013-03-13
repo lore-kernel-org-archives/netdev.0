@@ -1,62 +1,54 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: Use correct sideffect command in duplicate cookie
- handling
-Date: Wed, 13 Mar 2013 09:29:13 -0400
-Message-ID: <20130313132913.GB17592@hmsreliant.think-freely.org>
-References: <1363139603-14042-1-git-send-email-vyasevich@gmail.com>
+Subject: Re: [PATCH] tuntap: remove unused variable in __tun_detach()
+Date: Wed, 13 Mar 2013 09:30:49 -0400
+Message-ID: <20130313133049.GC17592@hmsreliant.think-freely.org>
+References: <CAPgLHd-v-daRHrDqoencJOTTvxLU_RD44BWzvdHd6j5Qrr8J5Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
+Cc: davem@davemloft.net, jasowang@redhat.com, mst@redhat.com,
+	edumazet@google.com, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46875 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:46932 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932391Ab3CMN3W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 09:29:22 -0400
+	with ESMTP id S1755569Ab3CMNbD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 09:31:03 -0400
 Content-Disposition: inline
-In-Reply-To: <1363139603-14042-1-git-send-email-vyasevich@gmail.com>
+In-Reply-To: <CAPgLHd-v-daRHrDqoencJOTTvxLU_RD44BWzvdHd6j5Qrr8J5Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 12, 2013 at 09:53:23PM -0400, Vlad Yasevich wrote:
-> When SCTP is done processing a duplicate cookie chunk, it tries
-> to delete a newly created association.  For that, it has to set
-> the right association for the side-effect processing to work.
-> However, when it uses the SCTP_CMD_NEW_ASOC command, that performs
-> more work then really needed (like hashing the associationa and
-> assigning it an id) and there is no point to do that only to
-> delete the association as a next step.  In fact, it also creates
-> an impossible condition where an association may be found by
-> the getsockopt() call, and that association is empty.  This
-> causes a crash in some sctp getsockopts.
+On Wed, Mar 13, 2013 at 09:03:58PM +0800, Wei Yongjun wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
-> The solution is rather simple.  We simply use SCTP_CMD_SET_ASOC
-> command that doesn't have all the overhead and does exactly
-> what we need.
+> The variable dev is initialized but never used
+> otherwise, so remove the unused variable.
 > 
-> Reported-by: Karl Heiss <kheiss@gmail.com>
-> Tested-by: Karl Heiss <kheiss@gmail.com>
-> CC: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > ---
->  net/sctp/sm_statefuns.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+>  drivers/net/tun.c | 2 --
+>  1 file changed, 2 deletions(-)
 > 
-> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-> index 5131fcf..de1a013 100644
-> --- a/net/sctp/sm_statefuns.c
-> +++ b/net/sctp/sm_statefuns.c
-> @@ -2082,7 +2082,7 @@ sctp_disposition_t sctp_sf_do_5_2_4_dupcook(struct net *net,
->  	}
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index b7c457a..95837c1 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -409,14 +409,12 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
+>  {
+>  	struct tun_file *ntfile;
+>  	struct tun_struct *tun;
+> -	struct net_device *dev;
 >  
->  	/* Delete the tempory new association. */
-> -	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_ASOC, SCTP_ASOC(new_asoc));
-> +	sctp_add_cmd_sf(commands, SCTP_CMD_SET_ASOC, SCTP_ASOC(new_asoc));
->  	sctp_add_cmd_sf(commands, SCTP_CMD_DELETE_TCB, SCTP_NULL());
+>  	tun = rtnl_dereference(tfile->tun);
 >  
->  	/* Restore association pointer to provide SCTP command interpeter
-> -- 
-> 1.7.7.6
+>  	if (tun && !tfile->detached) {
+>  		u16 index = tfile->queue_index;
+>  		BUG_ON(index >= tun->numqueues);
+> -		dev = tun->dev;
+>  
+>  		rcu_assign_pointer(tun->tfiles[index],
+>  				   tun->tfiles[tun->numqueues - 1]);
 > 
 > 
 Acked-by: Neil Horman <nhorman@tuxdriver.com>
