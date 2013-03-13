@@ -1,96 +1,53 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH net-next 3/4] bridge: Implement IFF_UNICAST_FLT
-Date: Tue, 12 Mar 2013 21:45:25 -0400
-Message-ID: <1363139126-13396-4-git-send-email-vyasevic@redhat.com>
-References: <1363139126-13396-1-git-send-email-vyasevic@redhat.com>
-Cc: bridge@lists.linux-foundation.org,
-	Vlad Yasevich <vyasevic@redhat.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: [PATCH] sctp: Use correct sideffect command in duplicate cookie handling
+Date: Tue, 12 Mar 2013 21:53:23 -0400
+Message-ID: <1363139603-14042-1-git-send-email-vyasevich@gmail.com>
+Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37432 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755705Ab3CMBpc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Mar 2013 21:45:32 -0400
-In-Reply-To: <1363139126-13396-1-git-send-email-vyasevic@redhat.com>
+Received: from mail-qa0-f41.google.com ([209.85.216.41]:45747 "EHLO
+	mail-qa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755285Ab3CMBxc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 21:53:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement IFF_UNICAST_FLT on the bridge.  Unicast addresses added
-to the bridge device are synched to the uplink devices.  This
-allows for uplink devices to change while preserving mac assignment.
+When SCTP is done processing a duplicate cookie chunk, it tries
+to delete a newly created association.  For that, it has to set
+the right association for the side-effect processing to work.
+However, when it uses the SCTP_CMD_NEW_ASOC command, that performs
+more work then really needed (like hashing the associationa and
+assigning it an id) and there is no point to do that only to
+delete the association as a next step.  In fact, it also creates
+an impossible condition where an association may be found by
+the getsockopt() call, and that association is empty.  This
+causes a crash in some sctp getsockopts.
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+The solution is rather simple.  We simply use SCTP_CMD_SET_ASOC
+command that doesn't have all the overhead and does exactly
+what we need.
+
+Reported-by: Karl Heiss <kheiss@gmail.com>
+Tested-by: Karl Heiss <kheiss@gmail.com>
+CC: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
 ---
- net/bridge/br_device.c |   11 ++++++++++-
- net/bridge/br_fdb.c    |    6 ++++++
- net/bridge/br_if.c     |    2 ++
- 3 files changed, 18 insertions(+), 1 deletions(-)
+ net/sctp/sm_statefuns.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 37f611f..de190fa 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -106,6 +106,15 @@ static int br_dev_open(struct net_device *dev)
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 5131fcf..de1a013 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -2082,7 +2082,7 @@ sctp_disposition_t sctp_sf_do_5_2_4_dupcook(struct net *net,
+ 	}
  
- static void br_dev_set_multicast_list(struct net_device *dev)
- {
-+	struct net_bridge *br = netdev_priv(dev);
-+	struct net_bridge_port *port;
-+
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(port, &br->port_list, list) {
-+		if (port->flags & BR_UPLINK)
-+			dev_uc_sync(port->dev, dev);
-+	}
-+	rcu_read_unlock();
- }
+ 	/* Delete the tempory new association. */
+-	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_ASOC, SCTP_ASOC(new_asoc));
++	sctp_add_cmd_sf(commands, SCTP_CMD_SET_ASOC, SCTP_ASOC(new_asoc));
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_DELETE_TCB, SCTP_NULL());
  
- static int br_dev_stop(struct net_device *dev)
-@@ -384,7 +393,7 @@ void br_dev_setup(struct net_device *dev)
- 	SET_ETHTOOL_OPS(dev, &br_ethtool_ops);
- 	SET_NETDEV_DEVTYPE(dev, &br_type);
- 	dev->tx_queue_len = 0;
--	dev->priv_flags = IFF_EBRIDGE;
-+	dev->priv_flags = IFF_EBRIDGE | IFF_UNICAST_FLT;
- 
- 	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA |
- 			NETIF_F_GSO_MASK | NETIF_F_HW_CSUM | NETIF_F_LLTX |
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index b0812c9..ef7b51e 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -677,6 +677,9 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 	struct net_port_vlans *pv;
- 	unsigned short vid = VLAN_N_VID;
- 
-+	if ((ndm->ndm_flags & NTF_SELF) && (dev->priv_flags & IFF_EBRIDGE))
-+		return ndo_dflt_fdb_add(ndm, tb, dev, addr, nlh_flags);
-+
- 	if (!(ndm->ndm_state & (NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE))) {
- 		pr_info("bridge: RTM_NEWNEIGH with invalid state %#x\n", ndm->ndm_state);
- 		return -EINVAL;
-@@ -774,6 +777,9 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
- 	struct net_port_vlans *pv;
- 	unsigned short vid = VLAN_N_VID;
- 
-+	if ((ndm->ndm_flags & NTF_SELF) && (dev->priv_flags & IFF_EBRIDGE))
-+		return ndo_dflt_fdb_del(ndm, tb, dev, addr);
-+
- 	if (tb[NDA_VLAN]) {
- 		if (nla_len(tb[NDA_VLAN]) != sizeof(unsigned short)) {
- 			pr_info("bridge: RTM_NEWNEIGH with invalid vlan\n");
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 02b4440..5196a79 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -145,6 +145,8 @@ static void del_nbp(struct net_bridge_port *p)
- 
- 	nbp_vlan_flush(p);
- 	br_fdb_delete_by_port(br, p, 1);
-+	if (p->flags & BR_UPLINK)
-+		dev_uc_unsync(dev, br->dev);
- 
- 	list_del_rcu(&p->list);
- 
+ 	/* Restore association pointer to provide SCTP command interpeter
 -- 
 1.7.7.6
