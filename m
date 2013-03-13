@@ -1,89 +1,54 @@
-From: "Denis V. Lunev" <den@parallels.com>
-Subject: Re: [PATCH 1/1] ipv4: fix definition of FIB_TABLE_HASHSZ
-Date: Wed, 13 Mar 2013 13:27:55 +0400
-Message-ID: <5140469B.3050708@parallels.com>
-References: <1363164218-16316-1-git-send-email-den@openvz.org> <514043CE.2080607@cn.fujitsu.com>
+From: "Vasundhara, Volam" <Vasundhara.Volam@Emulex.Com>
+Subject: FW: [PATCH ethtool] ethtool: Add string to display support for KR
+ PHY
+Date: Wed, 13 Mar 2013 09:29:32 +0000
+Message-ID: <7C0C8AF2F9AEF149AE37E5CA3E2101D3216EDBB7@CMEXMB2.ad.emulex.com>
+References: <1360659168-14346-1-git-send-email-vasundhara.volam@emulex.com>
+ <f30e7788-1920-426f-88c2-afadac2cee75@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Denis V. Lunev" <den@openvz.org>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, Tingwei Liu <tingw.liu@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: Li Wei <lw@cn.fujitsu.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "bhutchings@solarflare.com" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:43332 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754051Ab3CMJ2C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 05:28:02 -0400
-In-Reply-To: <514043CE.2080607@cn.fujitsu.com>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:24555 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753653Ab3CMJ3e convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 05:29:34 -0400
+In-Reply-To: <f30e7788-1920-426f-88c2-afadac2cee75@CMEXHTCAS2.ad.emulex.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/13/13 1:15 PM, Li Wei wrote:
-> On 03/13/2013 04:43 PM, Denis V. Lunev wrote:
->> From: "Denis V. Lunev" <den@openvz.org>
->>
->> a long time ago by the commit
->>
->>    commit 93456b6d7753def8760b423ac6b986eb9d5a4a95
->>    Author: Denis V. Lunev <den@openvz.org>
->>    Date:   Thu Jan 10 03:23:38 2008 -0800
->>
->>      [IPV4]: Unify access to the routing tables.
->>
->> the defenition of FIB_HASH_TABLE size has obtained wrong dependency:
->> it should depend upon CONFIG_IP_MULTIPLE_TABLES (as was in the original
->> code) but it was depended from CONFIG_IP_ROUTE_MULTIPATH
->>
->> This patch returns the situation to the original state.
->>
->> The problem was spotted by Tingwei Liu.
->>
->> Signed-off-by: Denis V. Lunev <den@openvz.org>
->> CC: Tingwei Liu <tingw.liu@gmail.com>
->> CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
->> ---
->>   include/net/ip_fib.h |   12 +++++-------
->>   1 files changed, 5 insertions(+), 7 deletions(-)
->>
->> diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
->> index 9497be1..3b12d5c 100644
->> --- a/include/net/ip_fib.h
->> +++ b/include/net/ip_fib.h
->> @@ -152,18 +152,16 @@ struct fib_result_nl {
->>   };
->>   
->>   #ifdef CONFIG_IP_ROUTE_MULTIPATH
->> -
->>   #define FIB_RES_NH(res)		((res).fi->fib_nh[(res).nh_sel])
->> -
->> -#define FIB_TABLE_HASHSZ 2
->> -
->>   #else /* CONFIG_IP_ROUTE_MULTIPATH */
->> -
->>   #define FIB_RES_NH(res)		((res).fi->fib_nh[0])
->> +#endif /* CONFIG_IP_ROUTE_MULTIPATH */
->>   
->> +#ifdef CONFIG_IP_ROUTE_MULTIPLE_TABLES
->> +#define FIB_TABLE_HASHSZ 2
->> +#else
->>   #define FIB_TABLE_HASHSZ 256
->> -
->> -#endif /* CONFIG_IP_ROUTE_MULTIPATH */
->> +#endif
-> With CONFIG_IP_ROUTE_MULTIPLE_TABLES defined we use a smaller FIB_TABLE_HASHSZ ?
->
-> Thanks.
-pfff :((( I have mistaken once again. Thank you for pointing this out. 
-I'll resend the patch.
+Please apply.
+
+-----Original Message-----
+From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Vasundhara, Volam
+Sent: Tuesday, February 12, 2013 3:16 PM
+To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org; Vasundhara, Volam
+Subject: [PATCH ethtool] ethtool: Add string to display support for KR PHY
 
 
->>   
->>   extern __be32 fib_info_update_nh_saddr(struct net *net, struct fib_nh *nh);
->>   
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
+---
+ ethtool.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/ethtool.c b/ethtool.c
+index 55bc082..205f574 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -512,6 +512,7 @@ dump_link_caps(const char *prefix, const char *an_prefix, u32 mask,
+ 		{ 0, ADVERTISED_2500baseX_Full,     "2500baseX/Full" },
+ 		{ 0, ADVERTISED_10000baseT_Full,    "10000baseT/Full" },
+ 		{ 0, ADVERTISED_10000baseKX4_Full,  "10000baseKX4/Full" },
++		{ 0, ADVERTISED_10000baseKR_Full,   "10000baseKR/Full" },
+ 		{ 0, ADVERTISED_20000baseMLD2_Full, "20000baseMLD2/Full" },
+ 		{ 0, ADVERTISED_40000baseKR4_Full,  "40000baseKR4/Full" },
+ 		{ 0, ADVERTISED_40000baseCR4_Full,  "40000baseCR4/Full" },
+--
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
