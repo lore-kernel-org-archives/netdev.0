@@ -1,54 +1,51 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] tuntap: remove unused variable in __tun_detach()
-Date: Wed, 13 Mar 2013 09:30:49 -0400
-Message-ID: <20130313133049.GC17592@hmsreliant.think-freely.org>
-References: <CAPgLHd-v-daRHrDqoencJOTTvxLU_RD44BWzvdHd6j5Qrr8J5Q@mail.gmail.com>
+Subject: Re: [PATCH] sctp: don't break the loop while meeting the active_path
+ so as to find the matched transport
+Date: Wed, 13 Mar 2013 09:33:56 -0400
+Message-ID: <20130313133356.GD17592@hmsreliant.think-freely.org>
+References: <1362728377-11025-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jasowang@redhat.com, mst@redhat.com,
-	edumazet@google.com, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org
-To: Wei Yongjun <weiyj.lk@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46932 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755569Ab3CMNbD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 09:31:03 -0400
+Cc: vyasevich@gmail.com, davem@davemloft.net,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Xufeng Zhang <xufeng.zhang@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAPgLHd-v-daRHrDqoencJOTTvxLU_RD44BWzvdHd6j5Qrr8J5Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1362728377-11025-1-git-send-email-xufeng.zhang@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 13, 2013 at 09:03:58PM +0800, Wei Yongjun wrote:
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Fri, Mar 08, 2013 at 03:39:37PM +0800, Xufeng Zhang wrote:
+> sctp_assoc_lookup_tsn() function searchs which transport a certain TSN
+> was sent on, if not found in the active_path transport, then go search
+> all the other transports in the peer's transport_addr_list, however, we
+> should continue to the next entry rather than break the loop when meet
+> the active_path transport.
 > 
-> The variable dev is initialized but never used
-> otherwise, so remove the unused variable.
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
 > ---
->  drivers/net/tun.c | 2 --
->  1 file changed, 2 deletions(-)
+>  net/sctp/associola.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index b7c457a..95837c1 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -409,14 +409,12 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
->  {
->  	struct tun_file *ntfile;
->  	struct tun_struct *tun;
-> -	struct net_device *dev;
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index 43cd0dd..d2709e2 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -1079,7 +1079,7 @@ struct sctp_transport *sctp_assoc_lookup_tsn(struct sctp_association *asoc,
+>  			transports) {
 >  
->  	tun = rtnl_dereference(tfile->tun);
->  
->  	if (tun && !tfile->detached) {
->  		u16 index = tfile->queue_index;
->  		BUG_ON(index >= tun->numqueues);
-> -		dev = tun->dev;
->  
->  		rcu_assign_pointer(tun->tfiles[index],
->  				   tun->tfiles[tun->numqueues - 1]);
+>  		if (transport == active)
+> -			break;
+> +			continue;
+>  		list_for_each_entry(chunk, &transport->transmitted,
+>  				transmitted_list) {
+>  			if (key == chunk->subh.data_hdr->tsn) {
+> -- 
+> 1.7.0.2
 > 
-> 
+Based on discussion with Vlad, it seems theres arguably some work to do on
+access to the transport_addr_list before my solution is viable, so until I get
+to that I'm acking this patch.
+
 Acked-by: Neil Horman <nhorman@tuxdriver.com>
