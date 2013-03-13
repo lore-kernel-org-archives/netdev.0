@@ -1,17 +1,19 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 1/4] bridge: Add sysfs interface to
- control promisc mode
-Date: Wed, 13 Mar 2013 08:38:43 -0700
-Message-ID: <20130313083843.411b3a6c@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH net-next 0/4] Allow bridge to function in
+ non-promisc mode
+Date: Wed, 13 Mar 2013 08:39:32 -0700
+Message-ID: <20130313083932.6483876f@nehalam.linuxnetplumber.net>
 References: <1363139126-13396-1-git-send-email-vyasevic@redhat.com>
-	<1363139126-13396-2-git-send-email-vyasevic@redhat.com>
+	<473541363155743@web2d.yandex.ru> <51406D2D.30703@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Vlad Yasevich <vyasevic@redhat.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+	"Oleg A. Arkhangelsky" <sysoleg@yandex.ru>
+To: vyasevic@redhat.com
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1363139126-13396-2-git-send-email-vyasevic@redhat.com>
+In-Reply-To: <51406D2D.30703@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -23,24 +25,24 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 12 Mar 2013 21:45:23 -0400
+On Wed, 13 Mar 2013 08:12:29 -0400
 Vlad Yasevich <vyasevic@redhat.com> wrote:
 
-> Add an sysfs interface to turn promiscusous mode on and off on
-> the bridge.  By default all interfaces in the bridge
-> are in promisc mode.  When promisc mode is turned off, it is
-> turned off on all bridge ports and the bridge turns on IFF_ALLMULTI
-> to handle multicast traffic.
+> On 03/13/2013 02:22 AM, "Oleg A. Arkhangelsky" wrote:
+> >
+> >
+> > 13.03.2013, 05:45, "Vlad Yasevich" <vyasevic@redhat.com>:
+> >
+> >> The series adds an ability for the bridge to function in non-promiscuous mode.
+> >
+> > What is the practical applications for such setup? In other words,
+> > in which cases I would want to put bridge into non-promiscuous
+> > mode and specify some uplink ports?
+> >
 > 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->  net/bridge/br_device.c   |   41 +++++++++++++++++++++++++++++++++++++++++
->  net/bridge/br_if.c       |   22 +++++++++++++++++-----
->  net/bridge/br_private.h  |    2 ++
->  net/bridge/br_sysfs_br.c |   17 +++++++++++++++++
->  4 files changed, 77 insertions(+), 5 deletions(-)
-> 
+> On of the applications would be when bridge is an edge device servicing 
+> a VM deployment.  Each of the VMs knows the mac address that the guest
+> has and may program that mac onto the uplinks.
 
-All attribute changes must also be available through netlink, and changes
-to attributes should cause a notification to applications listening for
-netlink events on that bridge.
+Why wouldn't that environment just use macvlan?
+Is it because changing libvirt is harder than changing the kernel?
