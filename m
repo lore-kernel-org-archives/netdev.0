@@ -1,161 +1,194 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: optimize searching the active path for tsns
-Date: Tue, 12 Mar 2013 21:20:07 -0400
-Message-ID: <20130313012006.GA6958@hmsreliant.think-freely.org>
-References: <513F5120.7090209@gmail.com>
- <1363109382-753-1-git-send-email-nhorman@tuxdriver.com>
- <513F97BE.6040800@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash table
+Date: Wed, 13 Mar 2013 02:27:15 +0100
+Message-ID: <20130313012715.GE14801@order.stressinduktion.org>
+References: <20130307214211.GP7941@order.stressinduktion.org> <20130308055718.GA28531@order.stressinduktion.org> <20130308130433.GB28531@order.stressinduktion.org> <1362754386.15793.226.camel@edumazet-glaptop> <20130308150831.GD28531@order.stressinduktion.org> <1362756219.15793.240.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel-org,
-	Xufeng Zhang <xufengzhang.main@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org, brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40584 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755507Ab3CMBUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 21:20:23 -0400
+Received: from order.stressinduktion.org ([87.106.68.36]:60158 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755462Ab3CMB1Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Mar 2013 21:27:16 -0400
 Content-Disposition: inline
-In-Reply-To: <513F97BE.6040800@gmail.com>
+In-Reply-To: <1362756219.15793.240.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 12, 2013 at 05:01:50PM -0400, Vlad Yasevich wrote:
-> Hi Neil
-> 
-> On 03/12/2013 01:29 PM, Neil Horman wrote:
-> >SCTP currently attempts to optimize the search for tsns on a transport by first
-> >checking the active_path, then searching alternate transports.  This operation
-> >however is a bit convoluted, as we explicitly search the active path, then serch
-> >all other transports, skipping the active path, when its detected.  Lets
-> >optimize this by preforming a move to front on the transport_addr_list every
-> >time the active_path is changed.  The active_path changes occur in relatively
-> >non-critical paths, and doing so allows us to just search the
-> >transport_addr_list in order, avoiding an extra conditional check in the
-> >relatively hot tsn lookup path.  This also happens to fix a bug where we break
-> >out of the for loop early in the tsn lookup.
-> >
-> >CC: Xufeng Zhang <xufengzhang.main@gmail.com>
-> >CC: vyasevich@gmail.com
-> >CC: davem@davemloft.net
-> >CC: netdev@vger.kernel.org
-> >---
-> >  net/sctp/associola.c | 31 ++++++++++++-------------------
-> >  1 file changed, 12 insertions(+), 19 deletions(-)
-> >
-> >diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> >index 43cd0dd..7af96b3 100644
-> >--- a/net/sctp/associola.c
-> >+++ b/net/sctp/associola.c
-> >@@ -513,8 +513,11 @@ void sctp_assoc_set_primary(struct sctp_association *asoc,
-> >  	 * user wants to use this new path.
-> >  	 */
-> >  	if ((transport->state == SCTP_ACTIVE) ||
-> >-	    (transport->state == SCTP_UNKNOWN))
-> >+	    (transport->state == SCTP_UNKNOWN)) {
-> >+		list_del_rcu(&transport->transports);
-> >+		list_add_rcu(&transport->transports, &asoc->peer.transport_addr_list);
-> >  		asoc->peer.active_path = transport;
-> >+	}
-> 
-> What would happen if at the same time someone is walking the list
-> through the proc interfaces?
-> 
-> Since you are effectively changing the .next pointer, I think it is
-> possible to get a duplicate transport output essentially corrupting
-> the output.
-> 
-It would be the case, but you're using the rcu variants of the list_add macros
-at all the points where we modify the list (some of which we do at call sites
-right before we call set_primary, see sctp_assoc_add_peer, where
-list_add_tail_rcu also modifies a next pointer).  So if this is a problem, its a
-problem without this patch.  In fact looking at it, our list access to
-transport_addr_list is broken, as we use rcu apis to modify the list but non-rcu
-apis to traverse the list.  I'll need to fix that first.
+[cc'ing Jesper, too]
 
-> Personally, I don't think that this particular case is worth the
-> optimization since we are trying to optimize a TSN search that only
-> happens when ECNE chunk is received.  You say that it is a hot path.
-> Is ECNE really such a common occurrence?
+On Fri, Mar 08, 2013 at 07:23:39AM -0800, Eric Dumazet wrote:
+> On Fri, 2013-03-08 at 16:08 +0100, Hannes Frederic Sowa wrote:
+> > On Fri, Mar 08, 2013 at 06:53:06AM -0800, Eric Dumazet wrote:
+> > > No matter how you hash, a hacker can easily fill your defrag unit with
+> > > not complete datagrams, so what's the point ?
+> > 
+> > I want to harden reassembly logic against all fragments being put in
+> > the same hash bucket because of malicious traffic and thus creating
+> > long list traversals in the fragment queue hash table.
 > 
-Not particularly, but I'm guessing its more used than the path that switches the
-active path.  Plus its just more elegant, modifying the list so we don't have to
-have two identical for loops in the lookup_tsn function, plus a check for the
-transport that we already checked.
+> Note that the long traversal was a real issue with TCP (thats why I
+> introduced ipv6_addr_jhash()), as a single ehash slot could contains
+> thousand of sockets.
+> 
+> But with fragments, we should just limit the depth of any particular
+> slot, and drop above a particular threshold.
 
-> Additionally, I don't think this is really an optimization as the
-> current and new code do exactly the same thing:
->  1) look at active path
->  2) look at the rest of the paths
-> 
-Thats not the optimization, its trading where we do work in the interests of
-making the more used path faster (we drop an if condition, and remove some
-duplicated code).
+[PATCH net-next RFC] inet: add max_depth to limit list length in inet_frags hash
 
-> This just makes cleaner code at the expense of list shuffling.
-> 
-Yes, that sounds like a good trade to me. But as noted above, we probably need
-to fix the transport_addr_list access first.
-Neil
+This does implement trivial drop for fragments where the hash queue
+is above some limit.
 
-> -vlad
-> >
-> >  	/*
-> >  	 * SFR-CACC algorithm:
-> >@@ -964,6 +967,10 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
-> >  	}
-> >
-> >  	/* Set the active and retran transports.  */
-> >+	if (asoc->peer.active_path != first) {
-> >+		list_del_rcu(first);
-> >+		list_add_rcu(first, &asoc->peer.transport_addr_list);
-> >+	}
-> >  	asoc->peer.active_path = first;
-> >  	asoc->peer.retran_path = second;
-> >  }
-> >@@ -1040,7 +1047,6 @@ struct sctp_chunk *sctp_get_ecne_prepend(struct sctp_association *asoc)
-> >  struct sctp_transport *sctp_assoc_lookup_tsn(struct sctp_association *asoc,
-> >  					     __u32 tsn)
-> >  {
-> >-	struct sctp_transport *active;
-> >  	struct sctp_transport *match;
-> >  	struct sctp_transport *transport;
-> >  	struct sctp_chunk *chunk;
-> >@@ -1057,29 +1063,16 @@ struct sctp_transport *sctp_assoc_lookup_tsn(struct sctp_association *asoc,
-> >  	 * The general strategy is to search each transport's transmitted
-> >  	 * list.   Return which transport this TSN lives on.
-> >  	 *
-> >-	 * Let's be hopeful and check the active_path first.
-> >-	 * Another optimization would be to know if there is only one
-> >-	 * outbound path and not have to look for the TSN at all.
-> >+	 * Note, that sctp_assoc_set_primary does a move to front operation
-> >+	 * on the active_path transport, so this code implicitly checks
-> >+	 * the active_path first, as we most commonly expect to find our TSN
-> >+	 * there.
-> >  	 *
-> >  	 */
-> >
-> >-	active = asoc->peer.active_path;
-> >-
-> >-	list_for_each_entry(chunk, &active->transmitted,
-> >-			transmitted_list) {
-> >-
-> >-		if (key == chunk->subh.data_hdr->tsn) {
-> >-			match = active;
-> >-			goto out;
-> >-		}
-> >-	}
-> >-
-> >-	/* If not found, go search all the other transports. */
-> >  	list_for_each_entry(transport, &asoc->peer.transport_addr_list,
-> >  			transports) {
-> >
-> >-		if (transport == active)
-> >-			break;
-> >  		list_for_each_entry(chunk, &transport->transmitted,
-> >  				transmitted_list) {
-> >  			if (key == chunk->subh.data_hdr->tsn) {
-> >
-> 
-> 
+I calculate the limit as follow:
+
+I averaged the folowing formula
+
+max_depth = max_threshold / INETFRAGS_HASHSZ / rounded up (SKB_TRUELEN(0)
+            sizeof(struct ipq or struct frag_queue))
+
+to
+
+max_threshold >> 15
+
+So we start with a maximum list length of 128. I think we could halve
+this value to 64, but because I have no real performance data I left it
+at this higher value for now.
+
+This patch does only protect IPv6 (and not netfilter ipv6 defragmentation)
+and will switch off limit checking if max_depth is zero. I'll rewrite
+the check if we agree that this simple solution is the way to go (simple
+drop) and will clamp the minimum value to 1 as soon as I also migrated
+ipv4 and netfilter to the new sysctl handler.
+
+When testing this patch:
+
+Disable netfilter defragmenation for ipv6 on your machine if you test
+this patch, otherwise you won't see the improvment. Machine now runs
+smoothly under fragmentation dos.
+
+Ok if I target this patch for net next time because the hashing changes
+are in there already?
+
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ include/net/inet_frag.h  | 13 +++++++++++++
+ net/ipv4/inet_fragment.c | 25 ++++++++++++++++++++++++-
+ net/ipv6/reassembly.c    |  6 +++++-
+ 3 files changed, 42 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index 76c3fe5..9ba6ada 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -17,6 +17,7 @@ struct netns_frags {
+ 	int			timeout;
+ 	int			high_thresh;
+ 	int			low_thresh;
++	int			max_depth;
+ };
+ 
+ struct inet_frag_queue {
+@@ -43,6 +44,11 @@ struct inet_frag_queue {
+ 
+ #define INETFRAGS_HASHSZ		64
+ 
++/* max_depth = max_threshold / INETFRAGS_HASHSZ / rounded up (SKB_TRUELEN(0) +
++ *	       sizeof(struct ipq or struct frag_queue))
++ */
++#define INETFRAGS_MAXDEPTH_SHIFT	15
++
+ struct inet_frags {
+ 	struct hlist_head	hash[INETFRAGS_HASHSZ];
+ 	/* This rwlock is a global lock (seperate per IPv4, IPv6 and
+@@ -144,4 +150,11 @@ static inline void inet_frag_lru_add(struct netns_frags *nf,
+ 	list_add_tail(&q->lru_list, &nf->lru_list);
+ 	spin_unlock(&nf->lru_lock);
+ }
++
++#ifdef CONFIG_SYSCTL
++int inet_frag_update_high_thresh(struct ctl_table *table, int write,
++				 void __user *buffer, size_t *lenp,
++				 loff_t *ppos);
++#endif
++
+ #endif
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 245ae07..92f1fdd 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -277,6 +277,7 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
+ 	__releases(&f->lock)
+ {
+ 	struct inet_frag_queue *q;
++	int depth = 0;
+ 
+ 	hlist_for_each_entry(q, &f->hash[hash], list) {
+ 		if (q->net == nf && f->match(q, key)) {
+@@ -284,9 +285,31 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
+ 			read_unlock(&f->lock);
+ 			return q;
+ 		}
++		depth++;
+ 	}
+ 	read_unlock(&f->lock);
+ 
+-	return inet_frag_create(nf, f, key);
++	if (!nf->max_depth || depth <= nf->max_depth)
++		return inet_frag_create(nf, f, key);
++	else
++		return NULL;
+ }
+ EXPORT_SYMBOL(inet_frag_find);
++
++#ifdef CONFIG_SYSCTL
++int inet_frag_update_high_thresh(struct ctl_table *table, int write,
++				 void __user *buffer, size_t *lenp,
++				 loff_t *ppos)
++{
++	int ret;
++	ret = proc_dointvec(table, write, buffer, lenp, ppos);
++
++	if (!ret && write && table->extra1) {
++		int *data = table->data;
++		int *max_depth = table->extra1;
++		*max_depth = *data >> INETFRAGS_MAXDEPTH_SHIFT;
++	}
++	return ret;
++}
++EXPORT_SYMBOL(inet_frag_update_high_thresh);
++#endif
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index 3c6a772..84b35f6 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -558,7 +558,8 @@ static struct ctl_table ip6_frags_ns_ctl_table[] = {
+ 		.data		= &init_net.ipv6.frags.high_thresh,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
++		.proc_handler	= inet_frag_update_high_thresh,
++		.extra1		= &init_net.ipv6.frags.max_depth
+ 	},
+ 	{
+ 		.procname	= "ip6frag_low_thresh",
+@@ -600,6 +601,7 @@ static int __net_init ip6_frags_ns_sysctl_register(struct net *net)
+ 			goto err_alloc;
+ 
+ 		table[0].data = &net->ipv6.frags.high_thresh;
++		table[0].extra1 = &net->ipv6.frags.max_depth;
+ 		table[1].data = &net->ipv6.frags.low_thresh;
+ 		table[2].data = &net->ipv6.frags.timeout;
+ 
+@@ -670,6 +672,8 @@ static int __net_init ipv6_frags_init_net(struct net *net)
+ 	net->ipv6.frags.high_thresh = IPV6_FRAG_HIGH_THRESH;
+ 	net->ipv6.frags.low_thresh = IPV6_FRAG_LOW_THRESH;
+ 	net->ipv6.frags.timeout = IPV6_FRAG_TIMEOUT;
++	net->ipv6.frags.max_depth =
++		IPV6_FRAG_HIGH_THRESH >> INETFRAGS_MAXDEPTH_SHIFT;
+ 
+ 	inet_frags_init_net(&net->ipv6.frags);
+ 
+-- 
+1.8.1.4
