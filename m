@@ -1,67 +1,59 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] ssb: pci: Fix flipping of MAC address
-Date: Wed, 13 Mar 2013 14:18:18 -0400
-Message-ID: <20130313181817.GB19917@tuxdriver.com>
-References: <513e40c2.MDaC+Q82iTl9PpIZ%Larry.Finger@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: b43-dev@lists.infradead.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, zajec5@gmail.com
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51882 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932346Ab3CMSae (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 14:30:34 -0400
-Content-Disposition: inline
-In-Reply-To: <513e40c2.MDaC+Q82iTl9PpIZ%Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: [PATCH v3.4-stable] myri10ge: Restrict LRO max_aggr based on MTU
+Date: Wed, 13 Mar 2013 14:46:45 -0400
+Message-ID: <1363200405-17839-1-git-send-email-gallatin@myri.com>
+Cc: stable@vger.kernel.org, netdev@vger.kernel.org,
+	Andrew Gallatin <gallatin@myri.com>
+To: davem@davemloft.net, gregkh@linuxfoundation.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 11, 2013 at 03:38:26PM -0500, Larry Finger wrote:
-> Since commit e565275 entitled "ssb: pci: Standardize a function to ge=
-t mac
-> address", the SPROM readout of the MAC has had the values flipped so =
-that
-> 00:11:22:33:44:55 became 11:00:33:22:55:44. The fix has been tested o=
-n both
-> little- and big-endian architectures.
->=20
-> Reported-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> ---
->=20
-> John,
->=20
-> This bug was introduced in 3.9, and should be fixed there.
->=20
-> Thanks,
->=20
-> Larry
-> ---
->=20
-> Index: wireless-testing-new/drivers/ssb/pci.c
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> --- wireless-testing-new.orig/drivers/ssb/pci.c
-> +++ wireless-testing-new/drivers/ssb/pci.c
-> @@ -234,8 +234,8 @@ static void sprom_get_mac(char *mac, con
->  {
->  	int i;
->  	for (i =3D 0; i < 3; i++) {
-> -		*mac++ =3D in[i];
->  		*mac++ =3D in[i] >> 8;
-> +		*mac++ =3D in[i];
->  	}
->  }
+Fix a longstanding panic when myri10ge would configure
+lro_mgr->max_aggr wrong, so that lro could aggregate more than
+MAX_SKB_FRAGS frags when jumbo frames (which consume multiple frags)
+are used.
 
-Actually, FWIW it seems to have been introduced in commit
-e5652756ff36ed9e1283121f788e6a17117efcab, which is slated for 3.10.
-I'm happy to merge it in wireless-next.
+To fix this, we determine the frags per packet in excess of MAX_SKB_FRAGS
+for the current MTU, and subtract those extra frags from MAX_SKB_FRAGS
+when configuring lro_mgr->max_aggr to ensure that MAX_SKB_FRAGS will not
+be exceeded.
 
-John
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+This does not apply to the mainline, because LRO was removed from
+myri10ge when it was converted to use GRO in 4ca3221 (appeared in 3.8).
+It should probably be merged to all active stable kernels prior to
+3.8, since it fixes a panic.
+
+Signed-off-by: Andrew Gallatin <gallatin@myri.com>
+---
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+index 27273ae..99fa774 100644
+--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
++++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+@@ -2406,7 +2406,7 @@ static int myri10ge_open(struct net_device *dev)
+ 	struct myri10ge_slice_state *ss;
+ 	struct myri10ge_priv *mgp = netdev_priv(dev);
+ 	struct myri10ge_cmd cmd;
+-	int i, status, big_pow2, slice;
++	int i, status, big_pow2, slice, extra_frags;
+ 	u8 *itable;
+ 	struct net_lro_mgr *lro_mgr;
+ 
+@@ -2529,8 +2529,10 @@ static int myri10ge_open(struct net_device *dev)
+ 		lro_mgr->get_frag_header = myri10ge_get_frag_header;
+ 		lro_mgr->max_aggr = myri10ge_lro_max_pkts;
+ 		lro_mgr->frag_align_pad = 2;
+-		if (lro_mgr->max_aggr > MAX_SKB_FRAGS)
+-			lro_mgr->max_aggr = MAX_SKB_FRAGS;
++		extra_frags = (dev->mtu + ETH_HLEN + VLAN_HLEN + MXGEFW_PAD) /
++			      MYRI10GE_ALLOC_SIZE;
++		if (lro_mgr->max_aggr > MAX_SKB_FRAGS - extra_frags)
++			lro_mgr->max_aggr = MAX_SKB_FRAGS - extra_frags;
+ 
+ 		/* must happen prior to any irq */
+ 		napi_enable(&(ss)->napi);
+-- 
+1.7.9.5
