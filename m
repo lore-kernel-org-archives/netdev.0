@@ -1,48 +1,41 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: don't break the loop while meeting the active_path
- so as to find the matched transport
-Date: Wed, 13 Mar 2013 09:52:48 -0400
-Message-ID: <514084B0.4050906@gmail.com>
-References: <1362728377-11025-1-git-send-email-xufeng.zhang@windriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tg3: 5715 does not link up when autoneg off
+Date: Wed, 13 Mar 2013 10:00:11 -0400 (EDT)
+Message-ID: <20130313.100011.730650469624132866.davem@davemloft.net>
+References: <1363138368-10651-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, davem@davemloft.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Xufeng Zhang <xufeng.zhang@windriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1362728377-11025-1-git-send-email-xufeng.zhang@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, marcinmiotk81@gmail.com, mchan@broadcom.com
+To: nsujir@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43689 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932623Ab3CMOAC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 10:00:02 -0400
+In-Reply-To: <1363138368-10651-1-git-send-email-nsujir@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/08/2013 02:39 AM, Xufeng Zhang wrote:
-> sctp_assoc_lookup_tsn() function searchs which transport a certain TSN
-> was sent on, if not found in the active_path transport, then go search
-> all the other transports in the peer's transport_addr_list, however, we
-> should continue to the next entry rather than break the loop when meet
-> the active_path transport.
->
-> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
-> ---
->   net/sctp/associola.c |    2 +-
->   1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index 43cd0dd..d2709e2 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -1079,7 +1079,7 @@ struct sctp_transport *sctp_assoc_lookup_tsn(struct sctp_association *asoc,
->   			transports) {
->
->   		if (transport == active)
-> -			break;
-> +			continue;
->   		list_for_each_entry(chunk, &transport->transmitted,
->   				transmitted_list) {
->   			if (key == chunk->subh.data_hdr->tsn) {
->
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Date: Tue, 12 Mar 2013 18:32:48 -0700
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+> From: Nithin Sujir <nsujir@broadcom.com>
+> 
+> Commit d13ba512cbba7de5d55d7a3b2aae7d83c8921457 cleaned up the autoneg
+> advertisement by removing some dead code. One effect of this change was that
+> the advertisement register would not be updated if autoneg is turned off.
+> 
+> This exposed a bug on the 5715 device w.r.t linking. The 5715 defaults
+> to advertise only 10Mb Full duplex. But with autoneg disabled, it needs
+> the configured speed enabled in the advertisement register to link up.
+> 
+> This patch adds the work around to advertise all speeds on the 5715 when
+> autoneg is disabled.
+> 
+> Reported-by: Marcin Miotk <marcinmiotk81@gmail.com>
+> Reviewed-by: Benjamin Li <benli@broadcom.com>
+> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
--vlad
+Applied.
