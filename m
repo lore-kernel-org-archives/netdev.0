@@ -1,96 +1,194 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH net-next 4/4] bridge: sync device list when a new uplink is designated
-Date: Tue, 12 Mar 2013 21:45:26 -0400
-Message-ID: <1363139126-13396-5-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH net-next 1/4] bridge: Add sysfs interface to control promisc mode
+Date: Tue, 12 Mar 2013 21:45:23 -0400
+Message-ID: <1363139126-13396-2-git-send-email-vyasevic@redhat.com>
 References: <1363139126-13396-1-git-send-email-vyasevic@redhat.com>
 Cc: bridge@lists.linux-foundation.org,
 	Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14248 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:25831 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755412Ab3CMBpd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Mar 2013 21:45:33 -0400
+	id S1755540Ab3CMBpa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Mar 2013 21:45:30 -0400
 In-Reply-To: <1363139126-13396-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-What a new device is designated as "uplink" sync any device
-addresses to it.  This allows for dynamic replacement of
-uplinks while maintaining the device list.
+Add an sysfs interface to turn promiscusous mode on and off on
+the bridge.  By default all interfaces in the bridge
+are in promisc mode.  When promisc mode is turned off, it is
+turned off on all bridge ports and the bridge turns on IFF_ALLMULTI
+to handle multicast traffic.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- net/bridge/br_netlink.c  |   11 +++++++++++
- net/bridge/br_sysfs_if.c |   27 ++++++++++++++++++++++++++-
- 2 files changed, 37 insertions(+), 1 deletions(-)
+ net/bridge/br_device.c   |   41 +++++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_if.c       |   22 +++++++++++++++++-----
+ net/bridge/br_private.h  |    2 ++
+ net/bridge/br_sysfs_br.c |   17 +++++++++++++++++
+ 4 files changed, 77 insertions(+), 5 deletions(-)
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index e08a50e..02f3425 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -326,6 +326,7 @@ static void br_set_port_flag(struct net_bridge_port *p, struct nlattr *tb[],
- static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
- {
- 	int err;
-+	int old_flags = p->flags;
- 
- 	br_set_port_flag(p, tb, IFLA_BRPORT_MODE, BR_HAIRPIN_MODE);
- 	br_set_port_flag(p, tb, IFLA_BRPORT_GUARD, BR_BPDU_GUARD);
-@@ -349,6 +350,16 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
- 		if (err)
- 			return err;
- 	}
-+
-+	if ((old_flags ^ p->flags) & BR_UPLINK) {
-+		/* UPLINK flag changed on the device.  Take care of device
-+		 * addresses.
-+		 */
-+		if (p->flags & BR_UPLINK)
-+			dev_uc_sync(p->dev, p->br->dev);
-+		else
-+			dev_uc_unsync(p->dev, p->br->dev);
-+	}
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index d5f1d3f..37f611f 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -185,6 +185,46 @@ static int br_set_mac_address(struct net_device *dev, void *p)
  	return 0;
  }
  
-diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-index 1f28cd4..d7a89c9 100644
---- a/net/bridge/br_sysfs_if.c
-+++ b/net/bridge/br_sysfs_if.c
-@@ -158,7 +158,32 @@ static BRPORT_ATTR(flush, S_IWUSR, NULL, store_flush);
- BRPORT_ATTR_FLAG(hairpin_mode, BR_HAIRPIN_MODE);
- BRPORT_ATTR_FLAG(bpdu_guard, BR_BPDU_GUARD);
- BRPORT_ATTR_FLAG(root_block, BR_ROOT_BLOCK);
--BRPORT_ATTR_FLAG(uplink, BR_UPLINK);
-+
-+static ssize_t show_uplink(struct net_bridge_port *p, char *buf)
++int br_set_promisc(struct net_bridge *br, unsigned long val)
 +{
-+	return sprintf(buf, "%d\n", !!(p->flags & BR_UPLINK));
-+}
++	struct net_bridge_port *p;
 +
-+static int store_uplink(struct net_bridge_port *p, unsigned long v)
-+{
-+	unsigned long flags = p->flags;
++	if (!rtnl_trylock())
++		return restart_syscall();
 +
-+	if (v)
-+		flags |= BR_UPLINK;
-+	else
-+		flags &= ~BR_UPLINK;
++	spin_lock_bh(&br->lock);
 +
-+	if (flags != p->flags) {
-+		p->flags = flags;
-+		if (p->flags & BR_UPLINK)
-+			dev_uc_sync(p->dev, p->br->dev);
-+		else
-+			dev_uc_unsync(p->dev, p->br->dev);
-+		br_ifinfo_notify(RTM_NEWLINK, p);
++	if (val) {
++		if (br->promisc_enabled)
++			goto unlock;
++
++		br->promisc_enabled = 1;
++		/* For each port on the bridge, turn on promisc mode and
++		 * turn off ALLMULTI to handle multicast traffic.
++		 */
++		list_for_each_entry(p, &br->port_list, list) {
++			dev_set_promiscuity(p->dev, 1);
++			dev_set_allmulti(p->dev, -1);
++		}
++
++	} else {
++		if (!br->promisc_enabled)
++			goto unlock;
++
++		br->promisc_enabled = 0;
++		/* For each port on the bridge, turn off promisc mode */
++		list_for_each_entry(p, &br->port_list, list) {
++			dev_set_allmulti(p->dev, 1);
++			dev_set_promiscuity(p->dev, -1);
++		}
 +	}
++unlock:
++	spin_unlock_bh(&br->lock);
++	rtnl_unlock();
 +	return 0;
 +}
-+static BRPORT_ATTR(uplink, S_IRUGO | S_IWUSR, show_uplink, store_uplink);
++
++
+ static void br_getinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+ {
+ 	strlcpy(info->driver, "bridge", sizeof(info->driver));
+@@ -371,6 +411,7 @@ void br_dev_setup(struct net_device *dev)
+ 	br->bridge_hello_time = br->hello_time = 2 * HZ;
+ 	br->bridge_forward_delay = br->forward_delay = 15 * HZ;
+ 	br->ageing_time = 300 * HZ;
++	br->promisc_enabled = 1;
  
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- static ssize_t show_multicast_router(struct net_bridge_port *p, char *buf)
+ 	br_netfilter_rtable_init(br);
+ 	br_stp_timer_init(br);
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index ef1b914..02b4440 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -132,7 +132,10 @@ static void del_nbp(struct net_bridge_port *p)
+ 
+ 	sysfs_remove_link(br->ifobj, p->dev->name);
+ 
+-	dev_set_promiscuity(dev, -1);
++	if (br->promisc_enabled)
++		dev_set_promiscuity(dev, -1);
++	else
++		dev_set_allmulti(dev, -1);
+ 
+ 	spin_lock_bh(&br->lock);
+ 	br_stp_disable_port(p);
+@@ -350,9 +353,15 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 
+ 	call_netdevice_notifiers(NETDEV_JOIN, dev);
+ 
+-	err = dev_set_promiscuity(dev, 1);
+-	if (err)
+-		goto put_back;
++	if (br->promisc_enabled) {
++		err = dev_set_promiscuity(dev, 1);
++		if (err)
++			goto put_back;
++	} else {
++		err = dev_set_allmulti(dev, 1);
++		if (err)
++			goto put_back;
++	}
+ 
+ 	err = kobject_init_and_add(&p->kobj, &brport_ktype, &(dev->dev.kobj),
+ 				   SYSFS_BRIDGE_PORT_ATTR);
+@@ -414,7 +423,10 @@ err2:
+ 	kobject_put(&p->kobj);
+ 	p = NULL; /* kobject_put frees */
+ err1:
+-	dev_set_promiscuity(dev, -1);
++	if (br->promisc_enabled)
++		dev_set_promiscuity(dev, -1);
++	else
++		dev_set_allmulti(dev, -1);
+ put_back:
+ 	dev_put(dev);
+ 	kfree(p);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 6d314c4..4a0fa29 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -277,6 +277,7 @@ struct net_bridge
+ 	struct timer_list		topology_change_timer;
+ 	struct timer_list		gc_timer;
+ 	struct kobject			*ifobj;
++	u8				promisc_enabled;
+ #ifdef CONFIG_BRIDGE_VLAN_FILTERING
+ 	u8				vlan_enabled;
+ 	struct net_port_vlans __rcu	*vlan_info;
+@@ -327,6 +328,7 @@ extern void br_dev_setup(struct net_device *dev);
+ extern void br_dev_delete(struct net_device *dev, struct list_head *list);
+ extern netdev_tx_t br_dev_xmit(struct sk_buff *skb,
+ 			       struct net_device *dev);
++extern int br_set_promisc(struct net_bridge *br, unsigned long val);
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static inline struct netpoll_info *br_netpoll_info(struct net_bridge *br)
+ {
+diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
+index 8baa9c0..5489219 100644
+--- a/net/bridge/br_sysfs_br.c
++++ b/net/bridge/br_sysfs_br.c
+@@ -710,6 +710,22 @@ static DEVICE_ATTR(vlan_filtering, S_IRUGO | S_IWUSR,
+ 		   show_vlan_filtering, store_vlan_filtering);
+ #endif
+ 
++static ssize_t show_promisc(struct device *d,
++			    struct device_attribute *attr, char *buf)
++{
++	struct net_bridge *br = to_bridge(d);
++	return sprintf(buf, "%d\n", br->promisc_enabled);
++}
++
++static ssize_t store_promisc(struct device *d,
++			     struct device_attribute *attr,
++			     const char *buf, size_t len)
++{
++	return store_bridge_parm(d, buf, len, br_set_promisc);
++}
++static DEVICE_ATTR(promisc, S_IRUGO | S_IWUSR, show_promisc,
++		   store_promisc);
++
+ static struct attribute *bridge_attrs[] = {
+ 	&dev_attr_forward_delay.attr,
+ 	&dev_attr_hello_time.attr,
+@@ -753,6 +769,7 @@ static struct attribute *bridge_attrs[] = {
+ #ifdef CONFIG_BRIDGE_VLAN_FILTERING
+ 	&dev_attr_vlan_filtering.attr,
+ #endif
++	&dev_attr_promisc.attr,
+ 	NULL
+ };
+ 
 -- 
 1.7.7.6
