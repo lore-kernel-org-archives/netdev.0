@@ -1,38 +1,37 @@
-From: Andre Heider <a.heider@gmail.com>
-Subject: Re: [ 000/100] 3.8.3-stable review
-Date: Wed, 13 Mar 2013 09:02:46 +0100
-Message-ID: <CAHsu+b9O+JG=v6FgAEG4KOVDGScFiZYQm_nqXOQ9NSae3D3hwA@mail.gmail.com>
-References: <20130312223122.884099393@linuxfoundation.org>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: usbnet: use_mem_cache to avoid GFP_ATOMIC
+Date: Wed, 13 Mar 2013 09:14:17 +0100
+Message-ID: <5882445.YVRAO0hhTt@linux-5eaq.site>
+References: <1363114759.37226.YahooMailNeo@web126005.mail.ne1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, stable@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Facix Booka <facixbooka@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:62572 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755583Ab3CMICq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 04:02:46 -0400
-In-Reply-To: <20130312223122.884099393@linuxfoundation.org>
+Received: from cantor2.suse.de ([195.135.220.15]:52121 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750844Ab3CMINw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Mar 2013 04:13:52 -0400
+In-Reply-To: <1363114759.37226.YahooMailNeo@web126005.mail.ne1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 12, 2013 at 11:30 PM, Greg Kroah-Hartman
-<gregkh@linuxfoundation.org> wrote:
-> This is the start of the stable review cycle for the 3.8.3 release.
-> There are 100 patches in this series, all will be posted as a response
-> to this one.  If anyone has any issues with these being applied, please
-> let me know.
+On Tuesday 12 March 2013 11:59:19 Facix Booka wrote:
+
+>I would like to hand over my work to you kernel people. May be my problems 
+>and fixes are only sience fiction to other problems in somewhere else what I 
+>did not see. Default value can be use_mem_cache=1. 
+>Print out "eth0: kevent 2 may have been dropped" may need attention.
+
 
 Hi,
 
-I'm missing a drivers/net/ethernet/atheros/atl1c patch, namely "atl1c:
-restore buffer state".
-In fact, it seems the whole netdev stable patch queue is missing:
-http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
+I am sorry, but this won't do.
 
-Unsure what the workflow is here, how are these supposed to make to stable?
+1. It is too subtle
+2. the resume() code path
+3. use a pool if this is a real problem
 
-Thanks,
-Andre
+	Regards
+		Oliver
