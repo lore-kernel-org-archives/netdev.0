@@ -1,54 +1,57 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] rtnetlink: Mask the rta_type when range checking
-Date: Wed, 13 Mar 2013 08:36:54 -0700
-Message-ID: <20130313083654.01d9c924@nehalam.linuxnetplumber.net>
-References: <1363184338-15781-1-git-send-email-vyasevic@redhat.com>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: [git pull] firewire net: resource management improvements
+Date: Wed, 13 Mar 2013 16:37:42 +0100
+Message-ID: <20130313163742.73a3a842@stein>
+References: <5139419A.2040309@linux-ipv6.org>
+	<20130313151919.68068bae@stein>
+	<20130313.102448.1103259275832948992.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Vlad Yasevich <vyasevic@redhat.com>
+Cc: yoshfuji@linux-ipv6.org, linux1394-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:61658 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932391Ab3CMPhD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 11:37:03 -0400
-Received: by mail-pb0-f42.google.com with SMTP id xb4so1139676pbc.29
-        for <netdev@vger.kernel.org>; Wed, 13 Mar 2013 08:37:03 -0700 (PDT)
-In-Reply-To: <1363184338-15781-1-git-send-email-vyasevic@redhat.com>
+Received: from einhorn.in-berlin.de ([192.109.42.8]:50049 "EHLO
+	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932391Ab3CMPh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 11:37:59 -0400
+In-Reply-To: <20130313.102448.1103259275832948992.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Mar 2013 10:18:58 -0400
-Vlad Yasevich <vyasevic@redhat.com> wrote:
+David,
 
-> Range/validity checks on rta_type in rtnetlink_rcv_msg() do
-> not account for flags that may be set.  This causes the function
-> to return -EINVAL when flags are set on the type (for example
-> NLA_F_NESTED).
-> 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->  net/core/rtnetlink.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index 1868625..dc5edf1 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -2538,7 +2538,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
->  		struct rtattr *attr = (void *)nlh + NLMSG_ALIGN(min_len);
->  
->  		while (RTA_OK(attr, attrlen)) {
-> -			unsigned int flavor = attr->rta_type;
-> +			unsigned int flavor = attr->rta_type & NLA_TYPE_MASK;
->  			if (flavor) {
->  				if (flavor > rta_max[sz_idx])
->  					return -EINVAL;
+please pull from the tag "firewire-net-resource-mgt" at
 
-No. This is effectively an ABI change. It adds nothing.
+    git://git.kernel.org/pub/scm/linux/kernel/git/ieee1394/linux1394.git firewire-net-resource-mgt
 
-The NLA_F_NESTED attribute wasn't in the first generation version of netlink
-(before my time with Linux). It doesn't make sense to all of sudden start
-accepting it on requests. Also, then you would expect the query to set
-the NESTED flag as well, and that would be another ABI change.
+to receive the following firewire-net driver changes:
+  - fix memory leak and kmap leak at shutdown
+  - release IR DMA context already at ifdown rather than shutdown
+    (many controllers have got only 4 of them, so let's not hold it
+    longer than strictly necessary)
+  - misc startup/shutdown changes which prepare for later addition
+    of IPv6-over-1394 support
+
+YOSHIFUJI Hideaki (11):
+      firewire net: No need to reset dev->local_fifo after failure of fw_core_add_address_handler().
+      firewire net: Introduce fwnet_fifo_{start, stop}() helpers.
+      firewire net: Setup broadcast and local fifo independently.
+      firewire net: Check dev->broadcast_state inside fwnet_broadcast_start().
+      firewire net: Fix memory leakage in fwnet_remove().
+      firewire net: Clear dev->broadcast_rcv_context and dev->broadcast_state after destruction of context.
+      firewire net: Omit checking dev->broadcast_rcv_context in fwnet_broadcast_start().
+      firewire net: Fix leakage of kmap for broadcast receive buffer.
+      firewire net: Allocate dev->broadcast_rcv_buffer_ptrs early.
+      firewire net: Introduce fwnet_broadcast_stop() to destroy broadcast resources.
+      firewire net: Release broadcast/fifo resources on ifdown.
+
+ drivers/firewire/net.c | 177 +++++++++++++++++++--------------
+ 1 file changed, 105 insertions(+), 72 deletions(-)
+
+Thanks,
+-- 
+Stefan Richter
+-=====-===-= --== -==-=
+http://arcgraph.de/sr/
