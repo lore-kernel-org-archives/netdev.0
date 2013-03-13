@@ -1,123 +1,152 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [E1000-devel] [patch] ixgbe: in shutdown, do netif_running()
- under rtnl_lock
-Date: Tue, 12 Mar 2013 23:33:44 -0700
-Message-ID: <1363156424.2099.9.camel@jtkirshe-mobl>
-References: <20130308220510.GJ21267@riverbed.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [RFC PATCH] qmi_wwan: set correct altsetting for Gobi 1K devices
+Date: Wed, 13 Mar 2013 08:13:40 +0100
+Message-ID: <87hakf93h7.fsf@nemi.mork.no>
+References: <1363117205.9644.17.camel@dcbw.foobar.com>
+	<2400f481-f2eb-440d-b74d-ff9bfccd1179@email.android.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-x/NBjTsfcYm8diPSEtAx"
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: akepner <akepner@riverbed.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:53173 "EHLO mga01.intel.com"
+Received: from canardo.mork.no ([148.122.252.1]:38445 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755974Ab3CMGeN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Mar 2013 02:34:13 -0400
-In-Reply-To: <20130308220510.GJ21267@riverbed.com>
+	id S1752285Ab3CMHNt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 03:13:49 -0400
+In-Reply-To: <2400f481-f2eb-440d-b74d-ff9bfccd1179@email.android.com>
+ (=?utf-8?Q?=22Bj=C3=B8rn?=
+	Mork"'s message of "Tue, 12 Mar 2013 22:17:53 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Bj=C3=B8rn Mork <bjorn@mork.no> writes:
 
---=-x/NBjTsfcYm8diPSEtAx
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+>
+> Risking that I am trying to be too smart again. .. But I really think
+> we can fix this in a more generic way by making the probe behave more
+> like it did before. How about just letting it continue without erring
+> out until it has called usbnet_get_endpoints? That should work withou=
+t
+> needing any quirks.
 
-On Fri, 2013-03-08 at 14:05 -0800, akepner wrote:
->=20
-> During shutdown it's possible for __dev_close() (which holds=20
-> rtnl_lock) to clear the __LINK_STATE_START bit, and for ixgbe=20
-> to then read that bit (without holding rtnl_lock), and then=20
-> not fail to free irqs, etc. The result is a crash like this:=20
->=20
-> ------------[ cut here ]------------
-> kernel BUG at drivers/pci/msi.c:313!
-> invalid opcode: 0000 [#1] SMP=20
-> last sysfs
-> file: /sys/devices/system/cpu/cpu3/cache/index2/shared_cpu_map
-> CPU 1=20
-> Pid: 5910, comm: reboot Tainted: P           ----------------   2.6.32
-> #1 empty
-> RIP: 0010:[<ffffffff81305c2b>]  [<ffffffff81305c2b>] free_msi_irqs
-> +0x11b/0x130
-> RSP: 0018:ffff880185c9bc88  EFLAGS: 00010282
-> RAX: ffff880219f58bc0 RBX: ffff88021ac53b00 RCX: 0000000000000000
-> RDX: 0000000000000001 RSI: 0000000000000246 RDI: 000000000000004a
-> RBP: ffff880185c9bcc8 R08: 0000000000000002 R09: 0000000000000106
-> R10: 0000000000000000 R11: 0000000000000006 R12: ffff88021e524778
-> R13: 0000000000000001 R14: ffff88021e524000 R15: 0000000000000000
-> FS:  00007f90821b7700(0000) GS:ffff880028220000(0000)
-> knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> CR2: 00007f90818bd010 CR3: 0000000132c64000 CR4: 00000000000006e0
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> Process reboot (pid: 5910, threadinfo ffff880185c9a000, task
-> ffff88021bf04a80)
-> Stack:
->  ffff880185c9bc98 000000018130529d ffff880185c9bcc8 ffff88021e524000
-> <0> 0000000000000004 ffff88021948c700 0000000000000000
-> ffff880185c9bda7
-> <0> ffff880185c9bce8 ffffffff81305cbd ffff880185c9bce8
-> ffff88021948c700
-> Call Trace:
->  [<ffffffff81305cbd>] pci_disable_msix+0x3d/0x50
->  [<ffffffffa00501d5>] ixgbe_reset_interrupt_capability+0x65/0x90
-> [ixgbe]
->  [<ffffffffa00512f6>] ixgbe_clear_interrupt_scheme+0xb6/0xd0 [ixgbe]
->  [<ffffffffa005330b>] __ixgbe_shutdown+0x5b/0x200 [ixgbe]
->  [<ffffffffa00534ca>] ixgbe_shutdown+0x1a/0x60 [ixgbe]
->  [<ffffffff812f6c7c>] pci_device_shutdown+0x2c/0x50
->  [<ffffffff813727fb>] device_shutdown+0x4b/0x160
->  [<ffffffff8107d98c>] kernel_restart_prepare+0x2c/0x40
->  ehci timer_action, mod_timer io_watchdog
->  [<ffffffff8107d9e6>] kernel_restart+0x16/0x60
->  [<ffffffff8107dbfd>] sys_reboot+0x1ad/0x200
->  [<ffffffff811676cf>] ? __d_free+0x3f/0x60
->  [<ffffffff81167748>] ? d_free+0x58/0x60
->  [<ffffffff8116f7c0>] ? mntput_no_expire+0x30/0x100
->  [<ffffffff81152b11>] ? __fput+0x191/0x200
->  [<ffffffff816565fe>] ? do_page_fault+0x3e/0xa0
->  [<ffffffff8100b132>] system_call_fastpath+0x16/0x1b
-> Code: 4c 89 ef e8 98 8c e3 ff 4d 39 f4 48 8b 43 10 75 cf 48 83 c4 18
-> 5b 41 5c
-> 41 5d 41 5e 41 5f c9 c3 49 8b 7d 20 e8 07 5a d3 ff eb c9 <0f> 0b 0f 1f
-> 00 eb fb
-> 66 66 66 66 66 2e 0f 1f 84 00 00 00 00 00=20
->  ehci timer_action, mod_timer io_watchdog
-> RIP  [<ffffffff81305c2b>] free_msi_irqs+0x11b/0x130
->  RSP <ffff880185c9bc88>
-> ---[ end trace 27de882a0fe75593 ]---
->=20
-> (This was seen on a pretty old kernel/driver, but looks like=20
-> the same bug is still possible.)
->=20
-> Signed-off-by: <akepner@riverbed.com>=20
+I was thinking about something like this patch, dropping both the
+unnecessary verification of bNumEndpoints and of the CDC functional
+descriptors.  If we find a CDC Union, then fine - we use it to locate
+the data interface. If we find a CDC Ether, then fine - we use it to se=
+t
+the MAC address.
 
-Thanks, I have added the patch to my ixgbe queue of patches.
+This should end up calling usbnet_get_endpoints (first thing
+qmi_wwan_register_subdriver does), and succeed if any data interface
+altsetting have the necessary endpoints.
 
---=-x/NBjTsfcYm8diPSEtAx
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+There really are few reasons to do any strict verification step in the
+probe in this driver, because there really are no usable markers on the
+functions. That's why the driver does explicit interface matching in
+the first place.  So it makes sense to allow the probe to succeed if
+collecting the 3 required endpoints is at all possible.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
+It will of course succeed on a number of unsupported interfaces if
+dynamical IDs are used.  But with nothing to differentiate a QMI/wwan
+function from other functions, there is really nothing we can do to
+prevent that. If we are to support dynamic IDs, then there will be fals=
+e
+positives.  The user can manually unbind the driver from unwanted
+matches in this case.
 
-iQIcBAABCgAGBQJRQB3IAAoJEOVv75VaS+3OqJ4P/jCMihTi0NtFm0oie6aY3AM6
-XPFqxsvkezmOU+nH1rlD9bRR17eRQ/OYfphd/rXgWBGfmfBv7JmfX2WNQRPMOaOO
-29aBdMn+oEgUR0c0Hf868cmfi9Bn7n08mklEQV8tXbQAKm1ErqntCakuSYHjf4BM
-DAa/lCOoPYgNQik7jHmXb4i+oEmi4spF3mo42og2ZVoYNzNeZNAY/M04TSQtJ9vY
-gL70Ds/YqFN7Q44cN3x0owVqjjovRkgQjCYf+QaTGvpa1tZnvhPJiyQDkWUe39iw
-J8+LEBldBCtB4FInpdu6DSj4J19rz87pPS65s/dQjamPrt749ew/SKEhEt6HAcnp
-+E0pirY4BttVJkzLnTpnaGsjBxQiubg99qf3kTHUqJCM4RaTCnNACu9VKjiI1HIs
-qy9sQsuIr37rxa1tU8nP1ao3YHxRcZ1g1BT+one7Z8L5M6j4ir5ak8hYbdJeUyqG
-3zuJGeEKmRyiKa6B5KskX1wgZd7q6/3BYHvg+VlySH1npLPhjPvy6WoyLnML7WnK
-oG59vbPEXV78eEJrKE0EqQcZ8T1GA8tenxXYrEG3bG3F8QIfRHhN9CGHlR4yEIsi
-s43mXvH+VOsMpErmwczDWKuffbh5ROLpOIhr283kngn/UxmqgadhNfPtyrSWDVx6
-BTSjANbBEX2a+a7wCjsX
-=YN7J
------END PGP SIGNATURE-----
+Only build tested for now. I will test on the devices I have before
+submitting, if this works for you:
 
---=-x/NBjTsfcYm8diPSEtAx--
+
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index efb5c7c..1cfa80c 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -139,18 +139,11 @@ static int qmi_wwan_bind(struct usbnet *dev, stru=
+ct usb_interface *intf)
+=20
+ 	BUILD_BUG_ON((sizeof(((struct usbnet *)0)->data) < sizeof(struct qmi_=
+wwan_state)));
+=20
+-	/* control and data is shared? */
+-	if (intf->cur_altsetting->desc.bNumEndpoints =3D=3D 3) {
+-		info->control =3D intf;
+-		info->data =3D intf;
+-		goto shared;
+-	}
+-
+-	/* else require a single interrupt status endpoint on control intf */
+-	if (intf->cur_altsetting->desc.bNumEndpoints !=3D 1)
+-		goto err;
++	/* set up initial state */
++	info->control =3D intf;
++	info->data =3D intf;
+=20
+-	/* and a number of CDC descriptors */
++	/* some vendors add CDC descriptors */
+ 	while (len > 3) {
+ 		struct usb_descriptor_header *h =3D (void *)buf;
+=20
+@@ -207,25 +200,17 @@ next_desc:
+ 		buf +=3D h->bLength;
+ 	}
+=20
+-	/* did we find all the required ones? */
+-	if (!(found & (1 << USB_CDC_HEADER_TYPE)) ||
+-	    !(found & (1 << USB_CDC_UNION_TYPE))) {
+-		dev_err(&intf->dev, "CDC functional descriptors missing\n");
+-		goto err;
+-	}
+-
+-	/* verify CDC Union */
+-	if (desc->bInterfaceNumber !=3D cdc_union->bMasterInterface0) {
+-		dev_err(&intf->dev, "bogus CDC Union: master=3D%u\n", cdc_union->bMa=
+sterInterface0);
+-		goto err;
+-	}
+-
+-	/* need to save these for unbind */
+-	info->control =3D intf;
+-	info->data =3D usb_ifnum_to_if(dev->udev,	cdc_union->bSlaveInterface0=
+);
+-	if (!info->data) {
+-		dev_err(&intf->dev, "bogus CDC Union: slave=3D%u\n", cdc_union->bSla=
+veInterface0);
+-		goto err;
++	/* using two interfaces if we found a CDC Union */
++	if (cdc_union) {
++		if (desc->bInterfaceNumber !=3D cdc_union->bMasterInterface0) {
++			dev_err(&intf->dev, "bogus CDC Union: master=3D%u\n", cdc_union->bM=
+asterInterface0);
++			goto err;
++		}
++		info->data =3D usb_ifnum_to_if(dev->udev,	cdc_union->bSlaveInterface=
+0);
++		if (!info->data) {
++			dev_err(&intf->dev, "bogus CDC Union: slave=3D%u\n", cdc_union->bSl=
+aveInterface0);
++			goto err;
++		}
+ 	}
+=20
+ 	/* errors aren't fatal - we can live with the dynamic address */
+@@ -234,12 +219,13 @@ next_desc:
+ 		usbnet_get_ethernet_addr(dev, cdc_ether->iMACAddress);
+ 	}
+=20
+-	/* claim data interface and set it up */
+-	status =3D usb_driver_claim_interface(driver, info->data, dev);
+-	if (status < 0)
+-		goto err;
++	/* claim separate data interface? */
++	if (info->control !=3D info->data) {
++		status =3D usb_driver_claim_interface(driver, info->data, dev);
++		if (status < 0)
++			goto err;
++	}
+=20
+-shared:
+ 	status =3D qmi_wwan_register_subdriver(dev);
+ 	if (status < 0 && info->control !=3D info->data) {
+ 		usb_set_intfdata(info->data, NULL);
