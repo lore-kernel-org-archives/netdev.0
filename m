@@ -1,66 +1,76 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [libvirt] if_bridge.h: include in6.h for struct in6_addr use
-Date: Wed, 13 Mar 2013 10:17:40 -0500
-Message-ID: <81B30F90-5A18-4386-9C30-E336AE212D85@kernel.crashing.org>
-References: <50F2FF1B.3020708@mageia.org> <50F313A5.3020707@mageia.org> <50F49B7E.50906@redhat.com>
-Mime-Version: 1.0 (Apple Message framework v1278)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Backlund <tmb@mageia.org>, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org list" <linux-kernel@vger.kernel.org>,
-	libvirt-list@redhat.com, stephen@networkplumber.org,
-	Zhenhua Luo <zhenhua.luo@freescale.com>
-To: Eric Blake <eblake@redhat.com>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH] Rate should be u64 to avoid integer overflow at high
+ speeds (>= ~35Gbit)
+Date: Wed, 13 Mar 2013 11:29:50 -0400
+Message-ID: <20130313112950.f3a4a332.billfink@mindspring.com>
+References: <1362885604-14006-1-git-send-email-j.vimal@gmail.com>
+	<1362888229.4051.2.camel@edumazet-glaptop>
+	<CAK3Ji11Mij3Y_sGC6nLS01rxfccZo0SPJmQy-LAmskz1OEdmkQ@mail.gmail.com>
+	<1362891937.4051.25.camel@edumazet-glaptop>
+	<20130310004904.de508bfa.billfink@mindspring.com>
+	<1362894876.4051.27.camel@edumazet-glaptop>
+	<513F3BE1.2080409@genband.com>
+	<20130312154245.GA13101@casper.infradead.org>
+	<20130313020156.c9dd9841.billfink@mindspring.com>
+	<1363155195.13690.48.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Graf <tgraf@suug.ch>,
+	Chris Friesen <chris.friesen@genband.com>,
+	Vimal <j.vimal@gmail.com>, netdev@vger.kernel.org,
+	shemminger <shemminger@vyatta.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:40306 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932391Ab3CMPR5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Mar 2013 11:17:57 -0400
-In-Reply-To: <50F49B7E.50906@redhat.com>
+Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:39025 "EHLO
+	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932391Ab3CMPa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 11:30:28 -0400
+In-Reply-To: <1363155195.13690.48.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 13 Mar 2013, Eric Dumazet wrote:
 
-On Jan 14, 2013, at 5:57 PM, Eric Blake wrote:
+> On Wed, 2013-03-13 at 02:01 -0400, Bill Fink wrote:
+>=20
+> > The last time this was discussed appears to be (on 2011-03-28):
+> >=20
+> > 	http://marc.info/?l=3Dlinux-netdev&m=3D130128741907282&w=3D2
+> >=20
+> > where Maciej =C5=BBenczykowski argued that creating a new 64-bit
+> > Netlink attribute for this would be much more complex than for
+> > the IFLA_STATS64 support.  There was no reply.
+> >=20
+> > Providing a new multiplier/shift parameter would be a simple
+> > way to extend support for higher rates, and would not break
+> > existing user space that doesn't require the higher rates.
+> > I imagine the user would not explicitly specify the multiplier/
+> > shift parameter, but would just normally specify the desired
+> > rate, and a newer tc would figure out what multiplier/shift
+> > to use if a high enough rate demanded it.  To maintain user
+> > space compatibility, the kernel should report back the same
+> > rate and multiplier/shift it was given, and the newer tc would
+> > convert it back to the user's originally specified rate.  Older
+> > user space that was fine with the ~34 Gbps rate limitation would
+> > always have the default multiplier of 1 or shift of 0 bits, and
+> > would see the exact same unmultiplied/unshifted rate it always
+> > did.
+>=20
+> We already said no to such a hack. Maybe its not clear enough ?
+>=20
+> netlink allows us to a proper way, and Thomas Graf explained how we
+> expect the thing to be done.
+>=20
+> Yes, this is not a one liner patch, its a bit more of work, and its h=
+ow
+> it will be done when someone does the job.
 
-> On 01/13/2013 01:05 PM, Thomas Backlund wrote:
->> Thomas Backlund skrev 13.1.2013 20:38:
->>> patch both inline and attached as thunderbird tends to mess up ...
->> 
->>> -----
->>> 
->>> if_bridge.h uses struct in6_addr ip6; but does not include the in6.h
->>> header.
->>> 
->>> Found by trying to build libvirt and connman against 3.8-rc3 headers.
->>> 
->> 
->> Ok,
->> ignore this patch, it's not the correct fix as it introduces
->> redefinitions...
->> 
->> Btw, the error that I hit that made me suggest this fix was libvirt
->> config check bailing out:
->> 
->> config.log:/usr/include/linux/if_bridge.h:173:20: error: field 'ip6' has
->> incomplete type
-> 
-> Hmm, just now noticing this thread, after independently hitting and and
-> having to work around the same problem in libvirt:
-> https://www.redhat.com/archives/libvir-list/2013-January/msg00930.html
-> https://bugzilla.redhat.com/show_bug.cgi?id=895141
-> 
->>> --- linux-3.8-rc3/include/uapi/linux/if_bridge.h        2013-01-13
->>> 20:09:54.257271755 +0200
->>> +++ linux-3.8-rc3.fix/include/uapi/linux/if_bridge.h    2013-01-13
->>> 20:15:04.153676151 +0200
->>> @@ -14,6 +14,7 @@
->>>  #define _UAPI_LINUX_IF_BRIDGE_H
->>> 
->>>  #include <linux/types.h>
->>> +#include <linux/in6.h>
->>> 
+I've no problem with that since it is a cleaner solution, but
+one that requires significantly more work.  I was only arguing
+that the multiplier/shift approach was also a workable solution
+and should be simpler to implement.  But since there appears to
+be developer consensus that it's not a desired method, I'm fine
+with going along with that expert opinion.
 
-Did this ever get resolved ?
-
-- k
+						-Bill
