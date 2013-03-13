@@ -1,7 +1,7 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 5/9] batman-adv: network coding - detect coding nodes and remove these after timeout
-Date: Wed, 13 Mar 2013 23:56:35 +0100
-Message-ID: <1363215399-18875-6-git-send-email-ordex@autistici.org>
+Subject: [PATCH 8/9] batman-adv: network coding - save overheard and tx packets for decoding
+Date: Wed, 13 Mar 2013 23:56:38 +0100
+Message-ID: <1363215399-18875-9-git-send-email-ordex@autistici.org>
 References: <1363215399-18875-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -12,798 +12,543 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from contumacia.investici.org ([178.255.144.35]:20107 "EHLO
+Received: from contumacia.investici.org ([178.255.144.35]:20323 "EHLO
 	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934395Ab3CMW6C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 18:58:02 -0400
+	with ESMTP id S934401Ab3CMW6H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 18:58:07 -0400
 In-Reply-To: <1363215399-18875-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 =46rom: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
 
-To use network coding efficiently, a relay must know when neighbor node=
-s
-are likely to have enough information to be able to decode a network
-coded packet. This is detected by using OGMs from batman-adv to discove=
-r
-when one neighbor is in range of another neighbor. The relay check the
-TLL to detect when an OGM is forwarded from one neighbor by another
-neighbor, and thereby knows that the two neighbors are in range and thu=
-s
-overhear packets sent by each other.
+To be able to decode a network coded packet, a node must already know
+one of the two coded packets. This is done by buffering skbs before
+transmission and buffering packets sniffed with promiscuous mode from
+other hosts.
 
-This information is saved in the orig_node struct to be used when
-searching for coding opportunities. Two lists are added to the
-orig_node struct: One for neighbors that can hear the orig_node
-(outgoing nc_nodes) and one for neighbors that the orig_node can hear
-(incoming nc_nodes).
-
-Information about nc_nodes is kept for 10 seconds and is available
-through debugfs in batman_adv/nc_nodes to use when debugging network
-coding.
+Packets are kept in a buffer similar to the one with forward-skbs: A
+hash table, where each entry, which corresponds to a src-dst pair, has =
+a
+linked list packets.
 
 Signed-off-by: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bat_iv_ogm.c     |   5 +
- net/batman-adv/debugfs.c        |  18 ++
- net/batman-adv/main.h           |   2 +
- net/batman-adv/network-coding.c | 414 ++++++++++++++++++++++++++++++++=
-++++++++
- net/batman-adv/network-coding.h |  47 +++++
- net/batman-adv/originator.c     |   6 +
- net/batman-adv/types.h          |  32 ++++
- 7 files changed, 524 insertions(+)
+ net/batman-adv/network-coding.c | 208 ++++++++++++++++++++++++++++++++=
++++++++-
+ net/batman-adv/network-coding.h |  18 ++++
+ net/batman-adv/routing.c        |  13 ++-
+ net/batman-adv/send.c           |   5 +
+ net/batman-adv/soft-interface.c |   1 +
+ net/batman-adv/types.h          |  11 +++
+ 6 files changed, 253 insertions(+), 3 deletions(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index a5bb0a7..071f288 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -27,6 +27,7 @@
- #include "hard-interface.h"
- #include "send.h"
- #include "bat_algo.h"
-+#include "network-coding.h"
-=20
- static struct batadv_neigh_node *
- batadv_iv_ogm_neigh_new(struct batadv_hard_iface *hard_iface,
-@@ -1185,6 +1186,10 @@ static void batadv_iv_ogm_process(const struct e=
-thhdr *ethhdr,
- 	if (!orig_neigh_node)
- 		goto out;
-=20
-+	/* Update nc_nodes of the originator */
-+	batadv_nc_update_nc_node(bat_priv, orig_node, orig_neigh_node,
-+				 batadv_ogm_packet, is_single_hop_neigh);
-+
- 	orig_neigh_router =3D batadv_orig_node_get_router(orig_neigh_node);
-=20
- 	/* drop packet if sender is not a direct neighbor and if we
-diff --git a/net/batman-adv/debugfs.c b/net/batman-adv/debugfs.c
-index 6ae8651..f186a55 100644
---- a/net/batman-adv/debugfs.c
-+++ b/net/batman-adv/debugfs.c
-@@ -32,6 +32,7 @@
- #include "icmp_socket.h"
- #include "bridge_loop_avoidance.h"
- #include "distributed-arp-table.h"
-+#include "network-coding.h"
-=20
- static struct dentry *batadv_debugfs;
-=20
-@@ -310,6 +311,14 @@ struct batadv_debuginfo {
- 	const struct file_operations fops;
- };
-=20
-+#ifdef CONFIG_BATMAN_ADV_NC
-+static int batadv_nc_nodes_open(struct inode *inode, struct file *file=
-)
-+{
-+	struct net_device *net_dev =3D (struct net_device *)inode->i_private;
-+	return single_open(file, batadv_nc_nodes_seq_print_text, net_dev);
-+}
-+#endif
-+
- #define BATADV_DEBUGINFO(_name, _mode, _open)		\
- struct batadv_debuginfo batadv_debuginfo_##_name =3D {	\
- 	.attr =3D { .name =3D __stringify(_name),		\
-@@ -348,6 +357,9 @@ static BATADV_DEBUGINFO(dat_cache, S_IRUGO, batadv_=
-dat_cache_open);
- static BATADV_DEBUGINFO(transtable_local, S_IRUGO,
- 			batadv_transtable_local_open);
- static BATADV_DEBUGINFO(vis_data, S_IRUGO, batadv_vis_data_open);
-+#ifdef CONFIG_BATMAN_ADV_NC
-+static BATADV_DEBUGINFO(nc_nodes, S_IRUGO, batadv_nc_nodes_open);
-+#endif
-=20
- static struct batadv_debuginfo *batadv_mesh_debuginfos[] =3D {
- 	&batadv_debuginfo_originators,
-@@ -362,6 +374,9 @@ static struct batadv_debuginfo *batadv_mesh_debugin=
-fos[] =3D {
- #endif
- 	&batadv_debuginfo_transtable_local,
- 	&batadv_debuginfo_vis_data,
-+#ifdef CONFIG_BATMAN_ADV_NC
-+	&batadv_debuginfo_nc_nodes,
-+#endif
- 	NULL,
- };
-=20
-@@ -431,6 +446,9 @@ int batadv_debugfs_add_meshif(struct net_device *de=
-v)
- 		}
- 	}
-=20
-+	if (batadv_nc_init_debugfs(bat_priv) < 0)
-+		goto rem_attr;
-+
- 	return 0;
- rem_attr:
- 	debugfs_remove_recursive(bat_priv->debug_dir);
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index 59ba2ff..8a10619 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -105,6 +105,8 @@
- #define BATADV_RESET_PROTECTION_MS 30000
- #define BATADV_EXPECTED_SEQNO_RANGE	65536
-=20
-+#define BATADV_NC_NODE_TIMEOUT 10000 /* Milliseconds */
-+
- enum batadv_mesh_state {
- 	BATADV_MESH_INACTIVE,
- 	BATADV_MESH_ACTIVE,
 diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-c=
 oding.c
-index 9c2d54b..ff4985d 100644
+index fce2846..3d2ed2f 100644
 --- a/net/batman-adv/network-coding.c
 +++ b/net/batman-adv/network-coding.c
-@@ -17,8 +17,12 @@
-  * 02110-1301, USA
-  */
+@@ -27,6 +27,7 @@
+ #include "hard-interface.h"
 =20
-+#include <linux/debugfs.h>
-+
- #include "main.h"
- #include "network-coding.h"
-+#include "originator.h"
-+#include "hard-interface.h"
+ static struct lock_class_key batadv_nc_coding_hash_lock_class_key;
++static struct lock_class_key batadv_nc_decoding_hash_lock_class_key;
 =20
  static void batadv_nc_worker(struct work_struct *work);
 =20
-@@ -51,6 +55,151 @@ int batadv_nc_init(struct batadv_priv *bat_priv)
- void batadv_nc_init_bat_priv(struct batadv_priv *bat_priv)
+@@ -47,8 +48,9 @@ static void batadv_nc_start_timer(struct batadv_priv =
+*bat_priv)
+ int batadv_nc_init(struct batadv_priv *bat_priv)
  {
+ 	bat_priv->nc.timestamp_fwd_flush =3D jiffies;
++	bat_priv->nc.timestamp_sniffed_purge =3D jiffies;
+=20
+-	if (bat_priv->nc.coding_hash)
++	if (bat_priv->nc.coding_hash || bat_priv->nc.decoding_hash)
+ 		return 0;
+=20
+ 	bat_priv->nc.coding_hash =3D batadv_hash_new(128);
+@@ -58,6 +60,13 @@ int batadv_nc_init(struct batadv_priv *bat_priv)
+ 	batadv_hash_set_lock_class(bat_priv->nc.coding_hash,
+ 				   &batadv_nc_coding_hash_lock_class_key);
+=20
++	bat_priv->nc.decoding_hash =3D batadv_hash_new(128);
++	if (!bat_priv->nc.decoding_hash)
++		goto err;
++
++	batadv_hash_set_lock_class(bat_priv->nc.coding_hash,
++				   &batadv_nc_decoding_hash_lock_class_key);
++
+ 	INIT_DELAYED_WORK(&bat_priv->nc.work, batadv_nc_worker);
+ 	batadv_nc_start_timer(bat_priv);
+=20
+@@ -76,6 +85,7 @@ void batadv_nc_init_bat_priv(struct batadv_priv *bat_=
+priv)
  	atomic_set(&bat_priv->network_coding, 1);
-+	bat_priv->nc.min_tq =3D 200;
-+}
-+
-+/**
-+ * batadv_nc_init_orig - initialise the nc fields of an orig_node
-+ * @orig_node: the orig_node which is going to be initialised
-+ */
-+void batadv_nc_init_orig(struct batadv_orig_node *orig_node)
-+{
-+	INIT_LIST_HEAD(&orig_node->in_coding_list);
-+	INIT_LIST_HEAD(&orig_node->out_coding_list);
-+	spin_lock_init(&orig_node->in_coding_list_lock);
-+	spin_lock_init(&orig_node->out_coding_list_lock);
-+}
-+
-+/**
-+ * batadv_nc_node_free_rcu - rcu callback to free an nc node and remov=
-e
-+ *  its refcount on the orig_node
-+ * @rcu: rcu pointer of the nc node
-+ */
-+static void batadv_nc_node_free_rcu(struct rcu_head *rcu)
-+{
-+	struct batadv_nc_node *nc_node;
-+
-+	nc_node =3D container_of(rcu, struct batadv_nc_node, rcu);
-+	batadv_orig_node_free_ref(nc_node->orig_node);
-+	kfree(nc_node);
-+}
-+
-+/**
-+ * batadv_nc_node_free_ref - decrements the nc node refcounter and pos=
-sibly
-+ * frees it
-+ * @nc_node: the nc node to free
-+ */
-+static void batadv_nc_node_free_ref(struct batadv_nc_node *nc_node)
-+{
-+	if (atomic_dec_and_test(&nc_node->refcount))
-+		call_rcu(&nc_node->rcu, batadv_nc_node_free_rcu);
-+}
-+
-+/**
-+ * batadv_nc_to_purge_nc_node - checks whether an nc node has to be pu=
-rged
+ 	bat_priv->nc.min_tq =3D 200;
+ 	bat_priv->nc.max_fwd_delay =3D 10;
++	bat_priv->nc.max_buffer_time =3D 200;
+ }
+=20
+ /**
+@@ -176,6 +186,26 @@ static bool batadv_nc_to_purge_nc_path_coding(stru=
+ct batadv_priv *bat_priv,
+ }
+=20
+ /**
++ * batadv_nc_to_purge_nc_path_decoding - checks whether an nc path has=
+ timed out
 + * @bat_priv: the bat priv with all the soft interface information
-+ * @nc_node: the nc node to check
++ * @nc_path: the nc path to check
 + *
 + * Returns true if the entry has to be purged now, false otherwise
 + */
-+static bool batadv_nc_to_purge_nc_node(struct batadv_priv *bat_priv,
-+				       struct batadv_nc_node *nc_node)
++static bool batadv_nc_to_purge_nc_path_decoding(struct batadv_priv *ba=
+t_priv,
++						struct batadv_nc_path *nc_path)
 +{
 +	if (atomic_read(&bat_priv->mesh_state) !=3D BATADV_MESH_ACTIVE)
 +		return true;
 +
-+	return batadv_has_timed_out(nc_node->last_seen, BATADV_NC_NODE_TIMEOU=
-T);
++	/* purge the path when no packets has been added for 10 times the
++	 * max_buffer time
++	 */
++	return batadv_has_timed_out(nc_path->last_valid,
++				    bat_priv->nc.max_buffer_time*10);
 +}
 +
 +/**
-+ * batadv_nc_purge_orig_nc_nodes - go through list of nc nodes and pur=
+  * batadv_nc_purge_orig_nc_nodes - go through list of nc nodes and pur=
 ge stale
-+ *  entries
-+ * @bat_priv: the bat priv with all the soft interface information
-+ * @list: list of nc nodes
-+ * @lock: nc node list lock
-+ * @to_purge: function in charge to decide whether an entry has to be =
-purged or
-+ *	      not. This function takes the nc node as argument and has to r=
-eturn
-+ *	      a boolean value: true if the entry has to be deleted, false
-+ *	      otherwise
-+ */
-+static void
-+batadv_nc_purge_orig_nc_nodes(struct batadv_priv *bat_priv,
-+			      struct list_head *list,
-+			      spinlock_t *lock,
-+			      bool (*to_purge)(struct batadv_priv *,
-+					       struct batadv_nc_node *))
-+{
-+	struct batadv_nc_node *nc_node, *nc_node_tmp;
-+
-+	/* For each nc_node in list */
-+	spin_lock_bh(lock);
-+	list_for_each_entry_safe(nc_node, nc_node_tmp, list, list) {
-+		/* if an helper function has been passed as parameter,
-+		 * ask it if the entry has to be purged or not
-+		 */
-+		if (to_purge && !to_purge(bat_priv, nc_node))
-+			continue;
-+
-+		batadv_dbg(BATADV_DBG_NC, bat_priv,
-+			   "Removing nc_node %pM -> %pM\n",
-+			   nc_node->addr, nc_node->orig_node->orig);
-+		list_del_rcu(&nc_node->list);
-+		batadv_nc_node_free_ref(nc_node);
-+	}
-+	spin_unlock_bh(lock);
-+}
-+
-+/**
-+ * batadv_nc_purge_orig - purges all nc node data attached of the give=
-n
-+ *  originator
-+ * @bat_priv: the bat priv with all the soft interface information
-+ * @orig_node: orig_node with the nc node entries to be purged
-+ * @to_purge: function in charge to decide whether an entry has to be =
-purged or
-+ *	      not. This function takes the nc node as argument and has to r=
-eturn
-+ *	      a boolean value: true is the entry has to be deleted, false
-+ *	      otherwise
-+ */
-+void batadv_nc_purge_orig(struct batadv_priv *bat_priv,
-+			  struct batadv_orig_node *orig_node,
-+			  bool (*to_purge)(struct batadv_priv *,
-+					   struct batadv_nc_node *))
-+{
-+	/* Check ingoing nc_node's of this orig_node */
-+	batadv_nc_purge_orig_nc_nodes(bat_priv, &orig_node->in_coding_list,
-+				      &orig_node->in_coding_list_lock,
-+				      to_purge);
-+
-+	/* Check outgoing nc_node's of this orig_node */
-+	batadv_nc_purge_orig_nc_nodes(bat_priv, &orig_node->out_coding_list,
-+				      &orig_node->out_coding_list_lock,
-+				      to_purge);
-+}
-+
-+/**
-+ * batadv_nc_purge_orig_hash - traverse entire originator hash to chec=
-k if they
-+ *  have timed out nc nodes
-+ * @bat_priv: the bat priv with all the soft interface information
-+ */
-+static void batadv_nc_purge_orig_hash(struct batadv_priv *bat_priv)
-+{
-+	struct batadv_hashtable *hash =3D bat_priv->orig_hash;
-+	struct hlist_head *head;
-+	struct batadv_orig_node *orig_node;
-+	uint32_t i;
-+
-+	if (!hash)
-+		return;
-+
-+	/* For each orig_node */
-+	for (i =3D 0; i < hash->size; i++) {
-+		head =3D &hash->table[i];
-+
-+		rcu_read_lock();
-+		hlist_for_each_entry_rcu(orig_node, head, hash_entry)
-+			batadv_nc_purge_orig(bat_priv, orig_node,
-+					     batadv_nc_to_purge_nc_node);
-+		rcu_read_unlock();
-+	}
+  *  entries
+  * @bat_priv: the bat priv with all the soft interface information
+@@ -441,6 +471,43 @@ static void batadv_nc_send_packet(struct batadv_nc=
+_packet *nc_packet)
  }
 =20
  /**
-@@ -67,11 +216,197 @@ static void batadv_nc_worker(struct work_struct *=
-work)
- 	priv_nc =3D container_of(delayed_work, struct batadv_priv_nc, work);
- 	bat_priv =3D container_of(priv_nc, struct batadv_priv, nc);
++ * batadv_nc_sniffed_purge - Checks timestamp of given sniffed nc_pack=
+et.
++ * @bat_priv: the bat priv with all the soft interface information
++ * @nc_path: the nc path the packet belongs to
++ * @nc_packet: the nc packet to be checked
++ *
++ * Checks whether the given sniffed (overheard) nc_packet has hit its =
+buffering
++ * timeout. If so, the packet is no longer kept and the entry deleted =
+from the
++ * queue. Has to be called with the appropriate locks.
++ *
++ * Returns false as soon as the entry in the fifo queue has not been t=
+imed out
++ * yet and true otherwise.
++ */
++static bool batadv_nc_sniffed_purge(struct batadv_priv *bat_priv,
++				    struct batadv_nc_path *nc_path,
++				    struct batadv_nc_packet *nc_packet)
++{
++	unsigned long timeout =3D bat_priv->nc.max_buffer_time;
++	bool res =3D false;
++
++	/* Packets are added to tail, so the remaining packets did not time
++	 * out and we can stop processing the current queue
++	 */
++	if (atomic_read(&bat_priv->mesh_state) =3D=3D BATADV_MESH_ACTIVE &&
++	    !batadv_has_timed_out(nc_packet->timestamp, timeout))
++		goto out;
++
++	/* purge nc packet */
++	list_del(&nc_packet->list);
++	batadv_nc_packet_free(nc_packet);
++
++	res =3D true;
++
++out:
++	return res;
++}
++
++/**
+  * batadv_nc_fwd_flush - Checks the timestamp of the given nc packet.
+  * @bat_priv: the bat priv with all the soft interface information
+  * @nc_path: the nc path the packet belongs to
+@@ -540,6 +607,8 @@ static void batadv_nc_worker(struct work_struct *wo=
+rk)
+ 	batadv_nc_purge_orig_hash(bat_priv);
+ 	batadv_nc_purge_paths(bat_priv, bat_priv->nc.coding_hash,
+ 			      batadv_nc_to_purge_nc_path_coding);
++	batadv_nc_purge_paths(bat_priv, bat_priv->nc.decoding_hash,
++			      batadv_nc_to_purge_nc_path_decoding);
 =20
-+	batadv_nc_purge_orig_hash(bat_priv);
+ 	timeout =3D bat_priv->nc.max_fwd_delay;
+=20
+@@ -549,6 +618,13 @@ static void batadv_nc_worker(struct work_struct *w=
+ork)
+ 		bat_priv->nc.timestamp_fwd_flush =3D jiffies;
+ 	}
+=20
++	if (batadv_has_timed_out(bat_priv->nc.timestamp_sniffed_purge,
++				 bat_priv->nc.max_buffer_time)) {
++		batadv_nc_process_nc_paths(bat_priv, bat_priv->nc.decoding_hash,
++					   batadv_nc_sniffed_purge);
++		bat_priv->nc.timestamp_sniffed_purge =3D jiffies;
++	}
 +
  	/* Schedule a new check */
  	batadv_nc_start_timer(bat_priv);
  }
+@@ -1143,6 +1219,41 @@ batadv_nc_skb_src_search(struct batadv_priv *bat=
+_priv,
+ }
 =20
  /**
-+ * batadv_can_nc_with_orig - checks whether the given orig node is sui=
-table for
-+ *  coding or not
++ * batadv_nc_skb_store_before_coding - set the ethernet src and dst of=
+ the
++ *  unicast skb before it is stored for use in later decoding
 + * @bat_priv: the bat priv with all the soft interface information
-+ * @orig_node: neighboring orig node which may be used as nc candidate
-+ * @ogm_packet: incoming ogm packet also used for the checks
-+ *
-+ * Returns true if:
-+ *  1) The OGM must have the most recent sequence number.
-+ *  2) The TTL must be decremented by one and only one.
-+ *  3) The OGM must be received from the first hop from orig_node.
-+ *  4) The TQ value of the OGM must be above bat_priv->nc.min_tq.
++ * @skb: data skb to store
++ * @eth_dst_new: new destination mac address of skb
 + */
-+static bool batadv_can_nc_with_orig(struct batadv_priv *bat_priv,
-+				    struct batadv_orig_node *orig_node,
-+				    struct batadv_ogm_packet *ogm_packet)
++static void batadv_nc_skb_store_before_coding(struct batadv_priv *bat_=
+priv,
++					      struct sk_buff *skb,
++					      uint8_t *eth_dst_new)
 +{
-+	if (orig_node->last_real_seqno !=3D ogm_packet->seqno)
-+		return false;
-+	if (orig_node->last_ttl !=3D ogm_packet->header.ttl + 1)
-+		return false;
-+	if (!batadv_compare_eth(ogm_packet->orig, ogm_packet->prev_sender))
-+		return false;
-+	if (ogm_packet->tq < bat_priv->nc.min_tq)
-+		return false;
++	struct ethhdr *ethhdr;
 +
-+	return true;
++	/* Copy skb header to change the mac header */
++	skb =3D pskb_copy(skb, GFP_ATOMIC);
++	if (!skb)
++		return;
++
++	/* Set the mac header as if we actually sent the packet uncoded */
++	ethhdr =3D (struct ethhdr *)skb_mac_header(skb);
++	memcpy(ethhdr->h_source, ethhdr->h_dest, ETH_ALEN);
++	memcpy(ethhdr->h_dest, eth_dst_new, ETH_ALEN);
++
++	/* Set data pointer to MAC header to mimic packets from our tx path *=
+/
++	skb_push(skb, ETH_HLEN);
++
++	/* Add the packet to the decoding packet pool */
++	batadv_nc_skb_store_for_decoding(bat_priv, skb);
++
++	/* batadv_nc_skb_store_for_decoding() clones the skb, so we must free
++	 * our ref
++	 */
++	kfree_skb(skb);
 +}
 +
 +/**
-+ * batadv_nc_find_nc_node - search for an existing nc node and return =
-it
-+ * @orig_node: orig node originating the ogm packet
-+ * @orig_neigh_node: neighboring orig node from which we received the =
-ogm packet
-+ *  (can be equal to orig_node)
-+ * @in_coding: traverse incoming or outgoing network coding list
-+ *
-+ * Returns the nc_node if found, NULL otherwise.
-+ */
-+static struct batadv_nc_node
-+*batadv_nc_find_nc_node(struct batadv_orig_node *orig_node,
-+			struct batadv_orig_node *orig_neigh_node,
-+			bool in_coding)
-+{
-+	struct batadv_nc_node *nc_node, *nc_node_out =3D NULL;
-+	struct list_head *list;
+  * batadv_nc_skb_dst_search - Loops through list of neighboring nodes =
+to dst.
+  * @skb: data skb to forward
+  * @neigh_node: next hop to forward packet to
+@@ -1181,6 +1292,12 @@ static bool batadv_nc_skb_dst_search(struct sk_b=
+uff *skb,
+ 	if (!nc_packet)
+ 		return false;
+=20
++	/* Save packets for later decoding */
++	batadv_nc_skb_store_before_coding(bat_priv, skb,
++					  neigh_node->addr);
++	batadv_nc_skb_store_before_coding(bat_priv, nc_packet->skb,
++					  nc_packet->neigh_node->addr);
 +
-+	if (in_coding)
-+		list =3D &orig_neigh_node->in_coding_list;
-+	else
-+		list =3D &orig_neigh_node->out_coding_list;
-+
-+	/* Traverse list of nc_nodes to orig_node */
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(nc_node, list, list) {
-+		if (!batadv_compare_eth(nc_node->addr, orig_node->orig))
-+			continue;
-+
-+		if (!atomic_inc_not_zero(&nc_node->refcount))
-+			continue;
-+
-+		/* Found a match */
-+		nc_node_out =3D nc_node;
-+		break;
-+	}
-+	rcu_read_unlock();
-+
-+	return nc_node_out;
-+}
-+
-+/**
-+ * batadv_nc_get_nc_node - retrieves an nc node or creates the entry i=
-f it was
-+ *  not found
+ 	/* Code and send packets */
+ 	if (batadv_nc_code_packets(bat_priv, skb, ethhdr, nc_packet,
+ 				   neigh_node))
+@@ -1288,14 +1405,98 @@ out:
+ }
+=20
+ /**
++ * batadv_nc_skb_store_for_decoding - save a clone of the skb which ca=
+n be used
++ *  when decoding coded packets
 + * @bat_priv: the bat priv with all the soft interface information
-+ * @orig_node: orig node originating the ogm packet
-+ * @orig_neigh_node: neighboring orig node from which we received the =
-ogm packet
-+ *  (can be equal to orig_node)
-+ * @in_coding: traverse incoming or outgoing network coding list
-+ *
-+ * Returns the nc_node if found or created, NULL in case of an error.
++ * @skb: data skb to store
 + */
-+static struct batadv_nc_node
-+*batadv_nc_get_nc_node(struct batadv_priv *bat_priv,
-+		       struct batadv_orig_node *orig_node,
-+		       struct batadv_orig_node *orig_neigh_node,
-+		       bool in_coding)
++void batadv_nc_skb_store_for_decoding(struct batadv_priv *bat_priv,
++				      struct sk_buff *skb)
 +{
-+	struct batadv_nc_node *nc_node;
-+	spinlock_t *lock; /* Used to lock list selected by "int in_coding" */
-+	struct list_head *list;
-+
-+	/* Check if nc_node is already added */
-+	nc_node =3D batadv_nc_find_nc_node(orig_node, orig_neigh_node, in_cod=
-ing);
-+
-+	/* Node found */
-+	if (nc_node)
-+		return nc_node;
-+
-+	nc_node =3D kzalloc(sizeof(*nc_node), GFP_ATOMIC);
-+	if (!nc_node)
-+		return NULL;
-+
-+	if (!atomic_inc_not_zero(&orig_neigh_node->refcount))
-+		goto free;
-+
-+	/* Initialize nc_node */
-+	INIT_LIST_HEAD(&nc_node->list);
-+	memcpy(nc_node->addr, orig_node->orig, ETH_ALEN);
-+	nc_node->orig_node =3D orig_neigh_node;
-+	atomic_set(&nc_node->refcount, 2);
-+
-+	/* Select ingoing or outgoing coding node */
-+	if (in_coding) {
-+		lock =3D &orig_neigh_node->in_coding_list_lock;
-+		list =3D &orig_neigh_node->in_coding_list;
-+	} else {
-+		lock =3D &orig_neigh_node->out_coding_list_lock;
-+		list =3D &orig_neigh_node->out_coding_list;
-+	}
-+
-+	batadv_dbg(BATADV_DBG_NC, bat_priv, "Adding nc_node %pM -> %pM\n",
-+		   nc_node->addr, nc_node->orig_node->orig);
-+
-+	/* Add nc_node to orig_node */
-+	spin_lock_bh(lock);
-+	list_add_tail_rcu(&nc_node->list, list);
-+	spin_unlock_bh(lock);
-+
-+	return nc_node;
-+
-+free:
-+	kfree(nc_node);
-+	return NULL;
-+}
-+
-+/**
-+ * batadv_nc_update_nc_node - updates stored incoming and outgoing nc =
-node structs
-+ *  (best called on incoming OGMs)
-+ * @bat_priv: the bat priv with all the soft interface information
-+ * @orig_node: orig node originating the ogm packet
-+ * @orig_neigh_node: neighboring orig node from which we received the =
-ogm packet
-+ *  (can be equal to orig_node)
-+ * @ogm_packet: incoming ogm packet
-+ * @is_single_hop_neigh: orig_node is a single hop neighbor
-+ */
-+void batadv_nc_update_nc_node(struct batadv_priv *bat_priv,
-+			      struct batadv_orig_node *orig_node,
-+			      struct batadv_orig_node *orig_neigh_node,
-+			      struct batadv_ogm_packet *ogm_packet,
-+			      int is_single_hop_neigh)
-+{
-+	struct batadv_nc_node *in_nc_node =3D NULL, *out_nc_node =3D NULL;
++	struct batadv_unicast_packet *packet;
++	struct batadv_nc_path *nc_path;
++	struct ethhdr *ethhdr =3D (struct ethhdr *)skb_mac_header(skb);
++	__be32 packet_id;
++	u8 *payload;
 +
 +	/* Check if network coding is enabled */
 +	if (!atomic_read(&bat_priv->network_coding))
 +		goto out;
 +
-+	/* accept ogms from 'good' neighbors and single hop neighbors */
-+	if (!batadv_can_nc_with_orig(bat_priv, orig_node, ogm_packet) &&
-+	    !is_single_hop_neigh)
++	/* Check for supported packet type */
++	payload =3D skb_network_header(skb);
++	packet =3D (struct batadv_unicast_packet *)payload;
++	if (packet->header.packet_type !=3D BATADV_UNICAST)
 +		goto out;
 +
-+	/* Add orig_node as in_nc_node on hop */
-+	in_nc_node =3D batadv_nc_get_nc_node(bat_priv, orig_node,
-+					   orig_neigh_node, true);
-+	if (!in_nc_node)
++	/* Find existing nc_path or create a new */
++	nc_path =3D batadv_nc_get_path(bat_priv,
++				     bat_priv->nc.decoding_hash,
++				     ethhdr->h_source,
++				     ethhdr->h_dest);
++
++	if (!nc_path)
 +		goto out;
 +
-+	in_nc_node->last_seen =3D jiffies;
++	/* Clone skb and adjust skb->data to point at batman header */
++	skb =3D skb_clone(skb, GFP_ATOMIC);
++	if (unlikely(!skb))
++		goto free_nc_path;
 +
-+	/* Add hop as out_nc_node on orig_node */
-+	out_nc_node =3D batadv_nc_get_nc_node(bat_priv, orig_neigh_node,
-+					    orig_node, false);
-+	if (!out_nc_node)
-+		goto out;
++	if (unlikely(!pskb_may_pull(skb, ETH_HLEN)))
++		goto free_skb;
 +
-+	out_nc_node->last_seen =3D jiffies;
++	if (unlikely(!skb_pull_rcsum(skb, ETH_HLEN)))
++		goto free_skb;
 +
++	/* Add skb to nc_path */
++	packet_id =3D batadv_skb_crc32(skb, payload + sizeof(*packet));
++	if (!batadv_nc_skb_add_to_path(skb, nc_path, NULL, packet_id))
++		goto free_skb;
++
++	batadv_inc_counter(bat_priv, BATADV_CNT_NC_BUFFER);
++	return;
++
++free_skb:
++	kfree_skb(skb);
++free_nc_path:
++	batadv_nc_path_free_ref(nc_path);
 +out:
-+	if (in_nc_node)
-+		batadv_nc_node_free_ref(in_nc_node);
-+	if (out_nc_node)
-+		batadv_nc_node_free_ref(out_nc_node);
++	return;
++}
++
++/**
++ * batadv_nc_skb_store_sniffed_unicast - check if a received unicast p=
+acket
++ *  should be saved in the decoding buffer and, if so, store it there
++ * @bat_priv: the bat priv with all the soft interface information
++ * @skb: unicast skb to store
++ */
++void batadv_nc_skb_store_sniffed_unicast(struct batadv_priv *bat_priv,
++					 struct sk_buff *skb)
++{
++	struct ethhdr *ethhdr =3D (struct ethhdr *)skb_mac_header(skb);
++
++	if (batadv_is_my_mac(ethhdr->h_dest))
++		return;
++
++	/* Set data pointer to MAC header to mimic packets from our tx path *=
+/
++	skb_push(skb, ETH_HLEN);
++
++	batadv_nc_skb_store_for_decoding(bat_priv, skb);
 +}
 +
 +/**
   * batadv_nc_free - clean up network coding memory
   * @bat_priv: the bat priv with all the soft interface information
   */
-@@ -79,3 +414,82 @@ void batadv_nc_free(struct batadv_priv *bat_priv)
+ void batadv_nc_free(struct batadv_priv *bat_priv)
  {
  	cancel_delayed_work_sync(&bat_priv->nc.work);
++
+ 	batadv_nc_purge_paths(bat_priv, bat_priv->nc.coding_hash, NULL);
+ 	batadv_hash_destroy(bat_priv->nc.coding_hash);
++	batadv_nc_purge_paths(bat_priv, bat_priv->nc.decoding_hash, NULL);
++	batadv_hash_destroy(bat_priv->nc.decoding_hash);
  }
-+
-+/**
-+ * batadv_nc_nodes_seq_print_text - print the nc node information
-+ * @seq: seq file to print on
-+ * @offset: not used
-+ */
-+int batadv_nc_nodes_seq_print_text(struct seq_file *seq, void *offset)
-+{
-+	struct net_device *net_dev =3D (struct net_device *)seq->private;
-+	struct batadv_priv *bat_priv =3D netdev_priv(net_dev);
-+	struct batadv_hashtable *hash =3D bat_priv->orig_hash;
-+	struct batadv_hard_iface *primary_if;
-+	struct hlist_head *head;
-+	struct batadv_orig_node *orig_node;
-+	struct batadv_nc_node *nc_node;
-+	int i;
-+
-+	primary_if =3D batadv_seq_print_text_primary_if_get(seq);
-+	if (!primary_if)
-+		goto out;
-+
-+	/* Traverse list of originators */
-+	for (i =3D 0; i < hash->size; i++) {
-+		head =3D &hash->table[i];
-+
-+		/* For each orig_node in this bin */
-+		rcu_read_lock();
-+		hlist_for_each_entry_rcu(orig_node, head, hash_entry) {
-+			seq_printf(seq, "Node:      %pM\n", orig_node->orig);
-+
-+			seq_printf(seq, " Ingoing:  ");
-+			/* For each in_nc_node to this orig_node */
-+			list_for_each_entry_rcu(nc_node,
-+						&orig_node->in_coding_list,
-+						list)
-+				seq_printf(seq, "%pM ",
-+					   nc_node->addr);
-+			seq_printf(seq, "\n");
-+
-+			seq_printf(seq, " Outgoing: ");
-+			/* For out_nc_node to this orig_node */
-+			list_for_each_entry_rcu(nc_node,
-+						&orig_node->out_coding_list,
-+						list)
-+				seq_printf(seq, "%pM ",
-+					   nc_node->addr);
-+			seq_printf(seq, "\n\n");
-+		}
-+		rcu_read_unlock();
-+	}
-+
-+out:
-+	if (primary_if)
-+		batadv_hardif_free_ref(primary_if);
-+	return 0;
-+}
-+
-+/**
-+ * batadv_nc_init_debugfs - create nc folder and related files in debu=
-gfs
-+ * @bat_priv: the bat priv with all the soft interface information
-+ */
-+int batadv_nc_init_debugfs(struct batadv_priv *bat_priv)
-+{
-+	struct dentry *nc_dir, *file;
-+
-+	nc_dir =3D debugfs_create_dir("nc", bat_priv->debug_dir);
-+	if (!nc_dir)
-+		goto out;
-+
-+	file =3D debugfs_create_u8("min_tq", S_IRUGO | S_IWUSR, nc_dir,
-+				 &bat_priv->nc.min_tq);
+=20
+ /**
+@@ -1376,6 +1577,11 @@ int batadv_nc_init_debugfs(struct batadv_priv *b=
+at_priv)
+ 	if (!file)
+ 		goto out;
+=20
++	file =3D debugfs_create_u32("max_buffer_time", S_IRUGO | S_IWUSR, nc_=
+dir,
++				  &bat_priv->nc.max_buffer_time);
 +	if (!file)
 +		goto out;
 +
-+	return 0;
-+
-+out:
-+	return -ENOMEM;
-+}
+ 	return 0;
+=20
+ out:
 diff --git a/net/batman-adv/network-coding.h b/net/batman-adv/network-c=
 oding.h
-index 7483cba..4c56cd9 100644
+index c32602a..4fa6d0c 100644
 --- a/net/batman-adv/network-coding.h
 +++ b/net/batman-adv/network-coding.h
-@@ -24,7 +24,19 @@
-=20
- int batadv_nc_init(struct batadv_priv *bat_priv);
- void batadv_nc_free(struct batadv_priv *bat_priv);
-+void batadv_nc_update_nc_node(struct batadv_priv *bat_priv,
-+			      struct batadv_orig_node *orig_node,
-+			      struct batadv_orig_node *orig_neigh_node,
-+			      struct batadv_ogm_packet *ogm_packet,
-+			      int is_single_hop_neigh);
-+void batadv_nc_purge_orig(struct batadv_priv *bat_priv,
-+			  struct batadv_orig_node *orig_node,
-+			  bool (*to_purge)(struct batadv_priv *,
-+					   struct batadv_nc_node *));
- void batadv_nc_init_bat_priv(struct batadv_priv *bat_priv);
-+void batadv_nc_init_orig(struct batadv_orig_node *orig_node);
-+int batadv_nc_nodes_seq_print_text(struct seq_file *seq, void *offset)=
+@@ -38,6 +38,10 @@ void batadv_nc_init_orig(struct batadv_orig_node *or=
+ig_node);
+ bool batadv_nc_skb_forward(struct sk_buff *skb,
+ 			   struct batadv_neigh_node *neigh_node,
+ 			   struct ethhdr *ethhdr);
++void batadv_nc_skb_store_for_decoding(struct batadv_priv *bat_priv,
++				      struct sk_buff *skb);
++void batadv_nc_skb_store_sniffed_unicast(struct batadv_priv *bat_priv,
++					 struct sk_buff *skb);
+ int batadv_nc_nodes_seq_print_text(struct seq_file *seq, void *offset)=
 ;
-+int batadv_nc_init_debugfs(struct batadv_priv *bat_priv);
+ int batadv_nc_init_debugfs(struct batadv_priv *bat_priv);
 =20
- #else /* ifdef CONFIG_BATMAN_ADV_NC */
-=20
-@@ -38,11 +50,46 @@ static inline void batadv_nc_free(struct batadv_pri=
-v *bat_priv)
- 	return;
+@@ -89,6 +93,20 @@ static inline bool batadv_nc_skb_forward(struct sk_b=
+uff *skb,
+ 	return false;
  }
 =20
 +static inline void
-+batadv_nc_update_nc_node(struct batadv_priv *bat_priv,
-+			 struct batadv_orig_node *orig_node,
-+			 struct batadv_orig_node *orig_neigh_node,
-+			 struct batadv_ogm_packet *ogm_packet,
-+			 int is_single_hop_neigh)
++batadv_nc_skb_store_for_decoding(struct batadv_priv *bat_priv,
++				 struct sk_buff *skb)
 +{
 +	return;
 +}
 +
 +static inline void
-+batadv_nc_purge_orig(struct batadv_priv *bat_priv,
-+		     struct batadv_orig_node *orig_node,
-+		     bool (*to_purge)(struct batadv_priv *,
-+				      struct batadv_nc_node *))
++batadv_nc_skb_store_sniffed_unicast(struct batadv_priv *bat_priv,
++				    struct sk_buff *skb)
 +{
 +	return;
 +}
 +
- static inline void batadv_nc_init_bat_priv(struct batadv_priv *bat_pri=
-v)
+ static inline int batadv_nc_nodes_seq_print_text(struct seq_file *seq,
+ 						 void *offset)
  {
- 	return;
- }
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index 44fda7c..8f88967 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -1047,7 +1047,7 @@ int batadv_recv_unicast_packet(struct sk_buff *sk=
+b,
+ 	struct batadv_unicast_4addr_packet *unicast_4addr_packet;
+ 	uint8_t *orig_addr;
+ 	struct batadv_orig_node *orig_node =3D NULL;
+-	int hdr_size =3D sizeof(*unicast_packet);
++	int check, hdr_size =3D sizeof(*unicast_packet);
+ 	bool is4addr;
 =20
-+static inline void batadv_nc_init_orig(struct batadv_orig_node *orig_n=
-ode)
-+{
-+	return;
-+}
-+
-+static inline int batadv_nc_nodes_seq_print_text(struct seq_file *seq,
-+						 void *offset)
-+{
-+	return 0;
-+}
-+
-+static inline int batadv_nc_init_debugfs(struct batadv_priv *bat_priv)
-+{
-+	return 0;
-+}
-+
- #endif /* ifdef CONFIG_BATMAN_ADV_NC */
+ 	unicast_packet =3D (struct batadv_unicast_packet *)skb->data;
+@@ -1058,7 +1058,16 @@ int batadv_recv_unicast_packet(struct sk_buff *s=
+kb,
+ 	if (is4addr)
+ 		hdr_size =3D sizeof(*unicast_4addr_packet);
 =20
- #endif /* _NET_BATMAN_ADV_NETWORK_CODING_H_ */
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 96fb80b..585e684 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -28,6 +28,7 @@
- #include "unicast.h"
- #include "soft-interface.h"
- #include "bridge_loop_avoidance.h"
+-	if (batadv_check_unicast_packet(skb, hdr_size) < 0)
++	/* function returns -EREMOTE for promiscuous packets */
++	check =3D batadv_check_unicast_packet(skb, hdr_size);
++
++	/* Even though the packet is not for us, we might save it to use for
++	 * decoding a later received coded packet
++	 */
++	if (check =3D=3D -EREMOTE)
++		batadv_nc_skb_store_sniffed_unicast(bat_priv, skb);
++
++	if (check < 0)
+ 		return NET_RX_DROP;
+=20
+ 	if (!batadv_check_unicast_ttvn(bat_priv, skb))
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index a67cffd..263cfd1 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -27,6 +27,7 @@
+ #include "vis.h"
+ #include "gateway_common.h"
+ #include "originator.h"
 +#include "network-coding.h"
 =20
- /* hash class keys */
- static struct lock_class_key batadv_orig_hash_lock_class_key;
-@@ -142,6 +143,9 @@ static void batadv_orig_node_free_rcu(struct rcu_he=
-ad *rcu)
+ #include <linux/if_ether.h>
 =20
- 	spin_unlock_bh(&orig_node->neigh_list_lock);
+@@ -39,6 +40,7 @@ int batadv_send_skb_packet(struct sk_buff *skb,
+ 			   struct batadv_hard_iface *hard_iface,
+ 			   const uint8_t *dst_addr)
+ {
++	struct batadv_priv *bat_priv =3D netdev_priv(hard_iface->soft_iface);
+ 	struct ethhdr *ethhdr;
 =20
-+	/* Free nc_nodes */
-+	batadv_nc_purge_orig(orig_node->bat_priv, orig_node, NULL);
+ 	if (hard_iface->if_status !=3D BATADV_IF_ACTIVE)
+@@ -70,6 +72,9 @@ int batadv_send_skb_packet(struct sk_buff *skb,
+=20
+ 	skb->dev =3D hard_iface->net_dev;
+=20
++	/* Save a clone of the skb to use when decoding coded packets */
++	batadv_nc_skb_store_for_decoding(bat_priv, skb);
 +
- 	batadv_frag_list_free(&orig_node->frag_list);
- 	batadv_tt_global_del_orig(orig_node->bat_priv, orig_node,
- 				  "originator timed out");
-@@ -219,6 +223,8 @@ struct batadv_orig_node *batadv_get_orig_node(struc=
-t batadv_priv *bat_priv,
- 	spin_lock_init(&orig_node->neigh_list_lock);
- 	spin_lock_init(&orig_node->tt_buff_lock);
-=20
-+	batadv_nc_init_orig(orig_node);
-+
- 	/* extra reference for return */
- 	atomic_set(&orig_node->refcount, 2);
-=20
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 83bfe7c..1544ab4 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -128,6 +128,10 @@ struct batadv_hard_iface {
-  * @bond_list: list of bonding candidates
-  * @refcount: number of contexts the object is used
-  * @rcu: struct used for freeing in an RCU-safe manner
-+ * @in_coding_list: list of nodes this orig can hear
-+ * @out_coding_list: list of nodes that can hear this orig
-+ * @in_coding_list_lock: protects in_coding_list
-+ * @out_coding_list_lock: protects out_coding_list
-  */
- struct batadv_orig_node {
- 	uint8_t orig[ETH_ALEN];
-@@ -171,6 +175,12 @@ struct batadv_orig_node {
- 	struct list_head bond_list;
- 	atomic_t refcount;
- 	struct rcu_head rcu;
-+#ifdef CONFIG_BATMAN_ADV_NC
-+	struct list_head in_coding_list;
-+	struct list_head out_coding_list;
-+	spinlock_t in_coding_list_lock; /* Protects in_coding_list */
-+	spinlock_t out_coding_list_lock; /* Protects out_coding_list */
-+#endif
+ 	/* dev_queue_xmit() returns a negative result on error.	 However on
+ 	 * congestion and traffic shaping, it drops and returns NET_XMIT_DROP
+ 	 * (which is > 0). This will not be treated as an error.
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-inte=
+rface.c
+index 7e463c3..75204ec 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -670,6 +670,7 @@ static const struct {
+ 	{ "nc_code_bytes" },
+ 	{ "nc_recode" },
+ 	{ "nc_recode_bytes" },
++	{ "nc_buffer" },
+ #endif
  };
 =20
- /**
-@@ -430,9 +440,13 @@ struct batadv_priv_dat {
- /**
-  * struct batadv_priv_nc - per mesh interface network coding private d=
-ata
-  * @work: work queue callback item for cleanup
-+ * @debug_dir: dentry for nc subdir in batman-adv directory in debugfs
-+ * @min_tq: only consider neighbors for encoding if neigh_tq > min_tq
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 42d7438..5f3640d 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -279,6 +279,7 @@ struct batadv_bcast_duplist_entry {
+  * @BATADV_CNT_NC_CODE_BYTES: transmitted nc-combined traffic bytes co=
+unter
+  * @BATADV_CNT_NC_RECODE: transmitted nc-recombined traffic packet cou=
+nter
+  * @BATADV_CNT_NC_RECODE_BYTES: transmitted nc-recombined traffic byte=
+s counter
++ * @BATADV_CNT_NC_BUFFER: counter for packets buffered for later nc de=
+coding
+  * @BATADV_CNT_NUM: number of traffic counters
+  */
+ enum batadv_counters {
+@@ -311,6 +312,7 @@ enum batadv_counters {
+ 	BATADV_CNT_NC_CODE_BYTES,
+ 	BATADV_CNT_NC_RECODE,
+ 	BATADV_CNT_NC_RECODE_BYTES,
++	BATADV_CNT_NC_BUFFER,
+ #endif
+ 	BATADV_CNT_NUM,
+ };
+@@ -453,18 +455,27 @@ struct batadv_priv_dat {
+  * @debug_dir: dentry for nc subdir in batman-adv directory in debugfs
+  * @min_tq: only consider neighbors for encoding if neigh_tq > min_tq
+  * @max_fwd_delay: maximum packet forward delay to allow coding of pac=
+kets
++ * @max_buffer_time: buffer time for sniffed packets used to decoding
+  * @timestamp_fwd_flush: timestamp of last forward packet queue flush
++ * @timestamp_sniffed_purge: timestamp of last sniffed packet queue pu=
+rge
+  * @coding_hash: Hash table used to buffer skbs while waiting for anot=
+her
+  *  incoming skb to code it with. Skbs are added to the buffer just be=
+fore being
+  *  forwarded in routing.c
++ * @decoding_hash: Hash table used to buffer skbs that might be needed=
+ to decode
++ *  a received coded skb. The buffer is used for 1) skbs arriving on t=
+he
++ *  soft-interface; 2) skbs overheard on the hard-interface; and 3) sk=
+bs
++ *  forwarded by batman-adv.
   */
  struct batadv_priv_nc {
  	struct delayed_work work;
-+	struct dentry *debug_dir;
-+	u8 min_tq;
+ 	struct dentry *debug_dir;
+ 	u8 min_tq;
+ 	u32 max_fwd_delay;
++	u32 max_buffer_time;
+ 	unsigned long timestamp_fwd_flush;
++	unsigned long timestamp_sniffed_purge;
+ 	struct batadv_hashtable *coding_hash;
++	struct batadv_hashtable *decoding_hash;
  };
 =20
  /**
-@@ -716,6 +730,24 @@ struct batadv_tt_roam_node {
- };
-=20
- /**
-+ * struct batadv_nc_node - network coding node
-+ * @list: next and prev pointer for the list handling
-+ * @addr: the node's mac address
-+ * @refcount: number of contexts the object is used by
-+ * @rcu: struct used for freeing in an RCU-safe manner
-+ * @orig_node: pointer to corresponding orig node struct
-+ * @last_seen: timestamp of last ogm received from this node
-+ */
-+struct batadv_nc_node {
-+	struct list_head list;
-+	uint8_t addr[ETH_ALEN];
-+	atomic_t refcount;
-+	struct rcu_head rcu;
-+	struct batadv_orig_node *orig_node;
-+	unsigned long last_seen;
-+};
-+
-+/**
-  * struct batadv_forw_packet - structure for bcast packets to be sent/=
-forwarded
-  * @list: list node for batadv_socket_client::queue_list
-  * @send_time: execution time for delayed_work (packet sending)
 --=20
 1.8.1.5
