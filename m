@@ -1,39 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: don't call update_speed_duplex() under
- spinlocks
-Date: Wed, 13 Mar 2013 04:53:36 -0400 (EDT)
-Message-ID: <20130313.045336.984924610426807326.davem@davemloft.net>
-References: <1363105892-3172-1-git-send-email-vfalico@redhat.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: rt2x00: Kconfig symbols RALINK_RT288X and RALINK_RT305X
+Date: Wed, 13 Mar 2013 09:59:30 +0100
+Message-ID: <1363165170.3137.182.camel@x61.thuisdomein>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lkml@tlinx.org, eric.dumazet@gmail.com,
-	fubar@us.ibm.com, jeffrey.t.kirsher@intel.com,
-	xiyou.wangcong@gmail.com, andy@greyhouse.net
-To: vfalico@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40163 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932572Ab3CMIxZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 04:53:25 -0400
-In-Reply-To: <1363105892-3172-1-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ivo van Doorn <IvDoorn@gmail.com>,
+	Gertjan van Wingerde <gwingerde@gmail.com>,
+	Helmut Schaa <helmut.schaa@googlemail.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Tue, 12 Mar 2013 17:31:32 +0100
+0) Support for rt2800pci (or "the rt2860/rt3090 chipsets") was added in
+v2.6.33 (three years ago). References to the related Kconfig symbols
+RALINK_RT288X and RALINK_RT305X were introduced in that release. So were
+checks for their macros (CONFIG_RALINK_RT288X and CONFIG_RALINK_RT305X).
 
-> bond_update_speed_duplex() might sleep while calling underlying slave's
-> routines. Move it out of atomic context in bond_enslave() and remove it
-> from bond_miimon_commit() - it was introduced by commit 546add79, however
-> when the slave interfaces go up/change state it's their responsibility to
-> fire NETDEV_UP/NETDEV_CHANGE events so that bonding can properly update
-> their speed.
-> 
-> I've tested it on all combinations of ifup/ifdown, autoneg/speed/duplex
-> changes, remote-controlled and local, on (not) MII-based cards. All changes
-> are visible.
-> 
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+1) The Kconfig symbols themselves were never added in mainline. So these
+references and macros appear to be just markers for dead code in
+mainline, as that code will not be built.
 
-Applied, thanks.
+2) This was previously discussed in
+https://lkml.org/lkml/2010/7/14/110 . The patch submitted in that
+message (which would remove all the dead code at the time) did not get
+applied.
+
+3) What is the current status of the (out of tree) code that adds
+RALINK_RT288X and RALINK_RT305X?
+
+
+Paul Bolle
