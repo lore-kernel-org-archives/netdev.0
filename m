@@ -1,64 +1,57 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 05/22] cxgb4: Add T5 write combining support
-Date: Wed, 13 Mar 2013 15:43:13 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B718B@saturn3.aculab.com>
-References: <1363088794-31453-1-git-send-email-vipul@chelsio.com> <1363088794-31453-6-git-send-email-vipul@chelsio.com> <20130312.081927.1036246728528667686.davem@davemloft.net> <513F3EBD.5020504@opengridcomputing.com> <51408ED4.40400@chelsio.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next 0/4] Allow bridge to function in
+ non-promisc mode
+Date: Wed, 13 Mar 2013 11:45:40 -0400
+Message-ID: <51409F24.3070305@redhat.com>
+References: <1363139126-13396-1-git-send-email-vyasevic@redhat.com>
+	<473541363155743@web2d.yandex.ru> <51406D2D.30703@redhat.com>
+	<20130313083932.6483876f@nehalam.linuxnetplumber.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-rdma@vger.kernel.org>, <linux-scsi@vger.kernel.org>,
-	<roland@purestorage.com>, <JBottomley@parallels.com>,
-	"Dimitrios Michailidis" <dm@chelsio.com>,
-	"Casey Leedom" <leedom@chelsio.com>,
-	"Naresh Kumar Inna" <naresh@chelsio.com>,
-	"Divy Le Ray" <divy@chelsio.com>,
-	"Santosh Rastapur" <santosh@chelsio.com>,
-	"Arvind Bhushan" <arvindb@chelsio.com>,
-	"Abhishek Agrawal" <abhishek@chelsio.com>
-To: "Vipul Pandya" <vipul@chelsio.com>,
-	"Steve Wise" <swise@opengridcomputing.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <51408ED4.40400@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+	"Oleg A. Arkhangelsky" <sysoleg@yandex.ru>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130313083932.6483876f@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-> >>> +				writel(n,  adap->bar2 + q->udb + 8);
-> >>> +#if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
-> >>> +			asm volatile("sfence" : : : "memory");
-> >>> +#endif
-> >> There is absolutely no way I'm letting anyone put crap like this
-> >> into a driver.
-> >>
-> >> Use a portable inteface, and if one does not exist create one.
-> >
-> > I guess you'll have to add a wc_wmb() function for all the hw platforms
-> > supported by the kernel.  I see libibverbs defines this for the user
-> > side in include/infiniband/arch.h, and that could be used as the meat of
-> > the hw platform-specific implementations.
-> >
-> I see that normal wmb() code for x86_64 architecture is same as what
-> above #ifdef condition is doing. To be more clear I looked at the
-> assembly code for wmb and find that it is converted into 'sfence'
-> instruction. So, I think above code should be replaced with wmb call
-> which will also take care of portability on different architecture. I
-> will submit the series again soon.
+On 03/13/2013 11:39 AM, Stephen Hemminger wrote:
+> On Wed, 13 Mar 2013 08:12:29 -0400
+> Vlad Yasevich <vyasevic@redhat.com> wrote:
+>
+>> On 03/13/2013 02:22 AM, "Oleg A. Arkhangelsky" wrote:
+>>>
+>>>
+>>> 13.03.2013, 05:45, "Vlad Yasevich" <vyasevic@redhat.com>:
+>>>
+>>>> The series adds an ability for the bridge to function in non-promiscuous mode.
+>>>
+>>> What is the practical applications for such setup? In other words,
+>>> in which cases I would want to put bridge into non-promiscuous
+>>> mode and specify some uplink ports?
+>>>
+>>
+>> On of the applications would be when bridge is an edge device servicing
+>> a VM deployment.  Each of the VMs knows the mac address that the guest
+>> has and may program that mac onto the uplinks.
+>
+> Why wouldn't that environment just use macvlan?
+> Is it because changing libvirt is harder than changing the kernel?
+>
 
->From my recollection of the x86 architecture, the memory barriers
-are hardly ever needed, certainly not in the places where, for example
-a ppc needs them. I'd actually suspect that the normal wmb() for
-x86 should be a nop.
+No, because macvlan has a drawback that it doesn't easily let guests 
+talk to the host.  Bridge is still most commonly used for just that reason.
 
-About the only place where any on the fence instructions are needed
-are in relation to write combining accesses.
-In particular I don't believe they are ever needed to synchronise
-uncached accesses with each other, or with cached accesses (which
-are snooped).
-
-	David
-
-
-
-
+-vlad
