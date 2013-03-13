@@ -1,48 +1,43 @@
-From: Paul Bolle <pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>
-Subject: Re: rt2x00: Kconfig symbols RALINK_RT288X and RALINK_RT305X
-Date: Wed, 13 Mar 2013 11:03:59 +0100
-Message-ID: <1363169039.3137.186.camel@x61.thuisdomein>
-References: <1363165170.3137.182.camel@x61.thuisdomein>
-	 <CAOiHx=n4a26z=PS02E2KjD2Y3Pp0P0x-5Ns6WRc-WScNF=EO_Q@mail.gmail.com>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [PATCH] sunrpc: drop "select NETVM"
+Date: Wed, 13 Mar 2013 10:08:17 +0000
+Message-ID: <20130313100817.GB10369@suse.de>
+References: <1362844951.3137.3.camel@x61.thuisdomein>
+ <20130309175118.GJ31448@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ivo van Doorn <IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Gertjan van Wingerde <gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-To: Jonas Gorski <jogo-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAOiHx=n4a26z=PS02E2KjD2Y3Pp0P0x-5Ns6WRc-WScNF=EO_Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Paul Bolle <pebolle@tiscali.nl>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130309175118.GJ31448@fieldses.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-03-13 at 10:51 +0100, Jonas Gorski wrote:
-> On 13 March 2013 09:59, Paul Bolle <pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org> wrote:
-> > 3) What is the current status of the (out of tree) code that adds
-> > RALINK_RT288X and RALINK_RT305X?
+On Sat, Mar 09, 2013 at 12:51:18PM -0500, J. Bruce Fields wrote:
+> ACK.
 > 
-> They are now present in 3.9-rc1, see a0b0197c (more specifically
-> 85639910..d3d2b420) :)
+> On Sat, Mar 09, 2013 at 05:02:31PM +0100, Paul Bolle wrote:
+> > The Kconfig entry for SUNRPC_SWAP selects NETVM. That select statement
+> > was added in commit a564b8f0398636ba30b07c0eaebdef7ff7837249 ("nfs:
+> > enable swap on NFS").
+> 
+> Cc'ing Mel Gorman just in case there was something else going on there.
+> 
+> --b.
+> 
+> > But there's no Kconfig symbol NETVM. It apparently
+> > was only in used in development versions of the swap over nfs
+> > functionality but never entered mainline. Anyhow, it is a nop and can
+> > safely be dropped.
+> > 
 
-Great.
+Correct, the NETVM symbol existed in an early version of swap-over-nfs
+that I failed to clean up properly. Thanks.
 
-> The actual accepted Kconfig symbol names are different though, so they
-> should be changed in rt2x00 to match them (SOC_RT288X and SOC_RT305X).
-
-Thanks. Note that I could not find an actual Kconfig symbol SOC_RT288X! 
-
-Anyhow, I guess somebody has the (trivial) patch to convert
-RALINK_RT...X and CONFIG_RALINK_RT...X to their SOC_* equivalents queued
-for inclusion in v3.9-rcX. Is that correct?
-
-
-Paul Bolle
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Mel Gorman
+SUSE Labs
