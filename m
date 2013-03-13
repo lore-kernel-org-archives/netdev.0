@@ -1,73 +1,54 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net,stable-3.8] net: qmi_wwan: set correct altsetting
- for Gobi 1K devices
-Date: Wed, 13 Mar 2013 11:34:30 -0400 (EDT)
-Message-ID: <20130313.113430.1432101723516184304.davem@davemloft.net>
-References: <1363177517-23524-1-git-send-email-bjorn@mork.no>
-	<1363182216.1415.5.camel@dcbw.foobar.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] rtnetlink: Mask the rta_type when range checking
+Date: Wed, 13 Mar 2013 08:36:54 -0700
+Message-ID: <20130313083654.01d9c924@nehalam.linuxnetplumber.net>
+References: <1363184338-15781-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bjorn-yOkvZcmFvRU@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1363182216.1415.5.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:61658 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932391Ab3CMPhD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Mar 2013 11:37:03 -0400
+Received: by mail-pb0-f42.google.com with SMTP id xb4so1139676pbc.29
+        for <netdev@vger.kernel.org>; Wed, 13 Mar 2013 08:37:03 -0700 (PDT)
+In-Reply-To: <1363184338-15781-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Wed, 13 Mar 2013 08:43:36 -0500
+On Wed, 13 Mar 2013 10:18:58 -0400
+Vlad Yasevich <vyasevic@redhat.com> wrote:
 
-> On Wed, 2013-03-13 at 13:25 +0100, Bj=F8rn Mork wrote:
->> commit bd877e4 ("net: qmi_wwan: use a single bind function for
->> all device types") made Gobi 1K devices fail probing.
->>=20
->> Using the number of endpoints in the default altsetting to decide
->> whether the function use one or two interfaces is wrong.  Other
->> altsettings may provide more endpoints.
->>=20
->> With Gobi 1K devices, USB interface #3's altsetting is 0 by default,=
- but
->> altsetting 0 only provides one interrupt endpoint and is not suffice=
-nt
->> for QMI.  Altsetting 1 provides all 3 endpoints required for qmi_wwa=
-n
->> and works with QMI. Gobi 1K layout for intf#3 is:
->>=20
->>     Interface Descriptor:  255/255/255
->>       bInterfaceNumber        3
->>       bAlternateSetting       0
->>       Endpoint Descriptor:  Interrupt IN
->>     Interface Descriptor:  255/255/255
->>       bInterfaceNumber        3
->>       bAlternateSetting       1
->>       Endpoint Descriptor:  Interrupt IN
->>       Endpoint Descriptor:  Bulk IN
->>       Endpoint Descriptor:  Bulk OUT
->>=20
->> Prior to commit bd877e4, we would call usbnet_get_endpoints
->> before giving up finding enough endpoints. Removing the early
->> endpoint number test and the strict functional descriptor
->> requirement allow qmi_wwan_bind to continue until
->> usbnet_get_endpoints has made the final attempt to collect
->> endpoints.  This restores the behaviour from before commit
->> bd877e4 without losing the added benefit of using a single bind
->> function.
->>=20
->> The driver has always required a CDC Union functional descriptor
->> for two-interface functions. Using the existence of this
->> descriptor to detect two-interface functions is the logically
->> correct method.
->>=20
->> Reported-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->> Signed-off-by: Bj=F8rn Mork
->=20
-> Works on my UML290, Gobi3K, Gobi1K, Gobi2K, and E362.
->=20
-> Tested-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Range/validity checks on rta_type in rtnetlink_rcv_msg() do
+> not account for flags that may be set.  This causes the function
+> to return -EINVAL when flags are set on the type (for example
+> NLA_F_NESTED).
+> 
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>  net/core/rtnetlink.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 1868625..dc5edf1 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -2538,7 +2538,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+>  		struct rtattr *attr = (void *)nlh + NLMSG_ALIGN(min_len);
+>  
+>  		while (RTA_OK(attr, attrlen)) {
+> -			unsigned int flavor = attr->rta_type;
+> +			unsigned int flavor = attr->rta_type & NLA_TYPE_MASK;
+>  			if (flavor) {
+>  				if (flavor > rta_max[sz_idx])
+>  					return -EINVAL;
 
-Applied and queued up for -stable.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+No. This is effectively an ABI change. It adds nothing.
+
+The NLA_F_NESTED attribute wasn't in the first generation version of netlink
+(before my time with Linux). It doesn't make sense to all of sudden start
+accepting it on requests. Also, then you would expect the query to set
+the NESTED flag as well, and that would be another ABI change.
