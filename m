@@ -1,33 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] packet: packet fanout rollover during socket
- overload
-Date: Thu, 14 Mar 2013 16:46:54 +0100
-Message-ID: <1363276014.29475.33.camel@edumazet-glaptop>
-References: <1363100153-24433-1-git-send-email-willemb@google.com>
-	 <20130313.044405.628402628153303315.davem@davemloft.net>
-	 <20130313.044544.792587152137191597.davem@davemloft.net>
-	 <CA+FuTScE_Y-waWVKRzJZuovbXdOmRQ3wHxjDETpjiwKwRvrbuQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: batman-adv 2013-03-13
+Date: Thu, 14 Mar 2013 11:48:12 -0400 (EDT)
+Message-ID: <20130314.114812.1928545478791651343.davem@davemloft.net>
+References: <1363215399-18875-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: Willem de Bruijn <willemb@google.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: ordex@autistici.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:63822 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932575Ab3CNPq7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 11:46:59 -0400
-Received: by mail-ee0-f48.google.com with SMTP id t10so1101583eei.7
-        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 08:46:57 -0700 (PDT)
-In-Reply-To: <CA+FuTScE_Y-waWVKRzJZuovbXdOmRQ3wHxjDETpjiwKwRvrbuQ@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34945 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933909Ab3CNPr6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 11:47:58 -0400
+In-Reply-To: <1363215399-18875-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-03-13 at 12:13 -0400, Willem de Bruijn wrote:
+=46rom: Antonio Quartulli <ordex@autistici.org>
+Date: Wed, 13 Mar 2013 23:56:30 +0100
 
-> Will do. Apologies for the botched emails, including the html reply
-> that the list thankfully rejected. I'll write some fanout
-> documentation for the packet man page as penance.
+> here you have our first patchset intended for net-next/linux-3.10.
+>=20
+> These patches include a new big component implementing a first versio=
+n of
+> Network Coding for mesh networks. This code is the result of Martin H=
+undeb=F8ll
+> and Jeppe Ledet-Pedersen's Master Thesis[1]. The target of Network Co=
+ding is to
+> increase throughput by fusing multiple packets in one wifi transmissi=
+on (thus
+> saving airtime).
+> This new component also introduced a new Kbuild option which can be u=
+sed to
+> decide whether to include this feature or not. However, a switch to d=
+ynamically
+> turn off the behaviour at runtime has been provided too. DebugFS has =
+also been
+> extended with some knobs to be used in case of debugging only.
+>=20
+> The rest is clean up work.
 
-Sounds good ! Thanks Willem !
+Pulled, thanks Antonio.
