@@ -1,7 +1,7 @@
 From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH v2 net-next 12/22] RDMA/cxgb4: Add Support for Chelsio T5 adapter
-Date: Thu, 14 Mar 2013 20:38:58 +0530
-Message-ID: <1363273748-25330-13-git-send-email-vipul@chelsio.com>
+Subject: [PATCH v2 net-next 15/22] RDMA/cxgb4: Use DSGLs for fastreg and adapter memory writes for T5.
+Date: Thu, 14 Mar 2013 20:39:01 +0530
+Message-ID: <1363273748-25330-16-git-send-email-vipul@chelsio.com>
 References: <1363273748-25330-1-git-send-email-vipul@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com,
 	JBottomley@parallels.com, dm@chelsio.com,
@@ -11,292 +11,390 @@ Cc: davem@davemloft.net, roland@purestorage.com,
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
 	linux-scsi@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:21925 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:5216 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757801Ab3CNPPz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 11:15:55 -0400
+	with ESMTP id S933627Ab3CNPQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 11:16:09 -0400
 In-Reply-To: <1363273748-25330-1-git-send-email-vipul@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for Chelsio T5 adapter.
-Enables T5's Write Combining feature.
+It enables direct DMA by HW to memory region PBL arrays and fast register PBL
+arrays from host memory, vs the T4 way of passing these arrays in the WR itself.
+The result is lower latency for memory registration, and larger PBL array
+support for fast register operations.
+
+This patch also updates ULP_TX_MEM_WRITE command fields for T5. Ordering bit of
+ULP_TX_MEM_WRITE is at bit position 22 in T5 and at 23 in T4.
 
 Signed-off-by: Vipul Pandya <vipul@chelsio.com>
 ---
 v2: Replaced #ifdef with portable interface wmb in ring_tx_db
 
- drivers/infiniband/hw/cxgb4/cm.c       |   64 +++++++++++++++++++++++--------
- drivers/infiniband/hw/cxgb4/device.c   |   13 ++++--
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h |    9 ++++
- drivers/infiniband/hw/cxgb4/provider.c |   15 +++++--
- drivers/infiniband/hw/cxgb4/qp.c       |    2 +-
- drivers/infiniband/hw/cxgb4/t4.h       |    9 ----
- 6 files changed, 77 insertions(+), 35 deletions(-)
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h      |    2 +-
+ drivers/infiniband/hw/cxgb4/mem.c           |  138 ++++++++++++++++++++++++--
+ drivers/infiniband/hw/cxgb4/qp.c            |   76 ++++++++++-----
+ drivers/infiniband/hw/cxgb4/t4.h            |    2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h |    8 ++
+ 5 files changed, 190 insertions(+), 36 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 565bfb1..272bf78 100644
---- a/drivers/infiniband/hw/cxgb4/cm.c
-+++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -511,12 +511,16 @@ static unsigned int select_ntuple(struct c4iw_dev *dev, struct dst_entry *dst,
- static int send_connect(struct c4iw_ep *ep)
- {
- 	struct cpl_act_open_req *req;
-+	struct cpl_t5_act_open_req *t5_req;
- 	struct sk_buff *skb;
- 	u64 opt0;
- 	u32 opt2;
- 	unsigned int mtu_idx;
- 	int wscale;
--	int wrlen = roundup(sizeof *req, 16);
-+	int size = is_t4(ep->com.dev->rdev.lldi.adapter_type) ?
-+		sizeof(struct cpl_act_open_req) :
-+		sizeof(struct cpl_t5_act_open_req);
-+	int wrlen = roundup(size, 16);
- 
- 	PDBG("%s ep %p atid %u\n", __func__, ep, ep->atid);
- 
-@@ -552,17 +556,36 @@ static int send_connect(struct c4iw_ep *ep)
- 		opt2 |= WND_SCALE_EN(1);
- 	t4_set_arp_err_handler(skb, NULL, act_open_req_arp_failure);
- 
--	req = (struct cpl_act_open_req *) skb_put(skb, wrlen);
--	INIT_TP_WR(req, 0);
--	OPCODE_TID(req) = cpu_to_be32(
--		MK_OPCODE_TID(CPL_ACT_OPEN_REQ, ((ep->rss_qid<<14)|ep->atid)));
--	req->local_port = ep->com.local_addr.sin_port;
--	req->peer_port = ep->com.remote_addr.sin_port;
--	req->local_ip = ep->com.local_addr.sin_addr.s_addr;
--	req->peer_ip = ep->com.remote_addr.sin_addr.s_addr;
--	req->opt0 = cpu_to_be64(opt0);
--	req->params = cpu_to_be32(select_ntuple(ep->com.dev, ep->dst, ep->l2t));
--	req->opt2 = cpu_to_be32(opt2);
-+	if (is_t4(ep->com.dev->rdev.lldi.adapter_type)) {
-+		req = (struct cpl_act_open_req *) skb_put(skb, wrlen);
-+		INIT_TP_WR(req, 0);
-+		OPCODE_TID(req) = cpu_to_be32(
-+				MK_OPCODE_TID(CPL_ACT_OPEN_REQ,
-+				((ep->rss_qid << 14) | ep->atid)));
-+		req->local_port = ep->com.local_addr.sin_port;
-+		req->peer_port = ep->com.remote_addr.sin_port;
-+		req->local_ip = ep->com.local_addr.sin_addr.s_addr;
-+		req->peer_ip = ep->com.remote_addr.sin_addr.s_addr;
-+		req->opt0 = cpu_to_be64(opt0);
-+		req->params = cpu_to_be32(select_ntuple(ep->com.dev,
-+					ep->dst, ep->l2t));
-+		req->opt2 = cpu_to_be32(opt2);
-+	} else {
-+		t5_req = (struct cpl_t5_act_open_req *) skb_put(skb, wrlen);
-+		INIT_TP_WR(t5_req, 0);
-+		OPCODE_TID(t5_req) = cpu_to_be32(
-+					MK_OPCODE_TID(CPL_ACT_OPEN_REQ,
-+					((ep->rss_qid << 14) | ep->atid)));
-+		t5_req->local_port = ep->com.local_addr.sin_port;
-+		t5_req->peer_port = ep->com.remote_addr.sin_port;
-+		t5_req->local_ip = ep->com.local_addr.sin_addr.s_addr;
-+		t5_req->peer_ip = ep->com.remote_addr.sin_addr.s_addr;
-+		t5_req->opt0 = cpu_to_be64(opt0);
-+		t5_req->params = cpu_to_be64(V_FILTER_TUPLE(
-+				select_ntuple(ep->com.dev, ep->dst, ep->l2t)));
-+		t5_req->opt2 = cpu_to_be32(opt2);
-+	}
-+
- 	set_bit(ACT_OPEN_REQ, &ep->com.history);
- 	return c4iw_l2t_send(&ep->com.dev->rdev, skb, ep->l2t);
- }
-@@ -2869,12 +2892,14 @@ static int deferred_fw6_msg(struct c4iw_dev *dev, struct sk_buff *skb)
- static void build_cpl_pass_accept_req(struct sk_buff *skb, int stid , u8 tos)
- {
- 	u32 l2info;
--	u16 vlantag, len, hdr_len;
-+	u16 vlantag, len, hdr_len, eth_hdr_len;
- 	u8 intf;
- 	struct cpl_rx_pkt *cpl = cplhdr(skb);
- 	struct cpl_pass_accept_req *req;
- 	struct tcp_options_received tmp_opt;
-+	struct c4iw_dev *dev;
- 
-+	dev = *((struct c4iw_dev **) (skb->cb + sizeof(void *)));
- 	/* Store values from cpl_rx_pkt in temporary location. */
- 	vlantag = (__force u16) cpl->vlan;
- 	len = (__force u16) cpl->len;
-@@ -2898,14 +2923,16 @@ static void build_cpl_pass_accept_req(struct sk_buff *skb, int stid , u8 tos)
- 			 V_SYN_MAC_IDX(G_RX_MACIDX(
- 			 (__force int) htonl(l2info))) |
- 			 F_SYN_XACT_MATCH);
-+	eth_hdr_len = is_t4(dev->rdev.lldi.adapter_type) ?
-+			    G_RX_ETHHDR_LEN((__force int) htonl(l2info)) :
-+			    G_RX_T5_ETHHDR_LEN((__force int) htonl(l2info));
- 	req->hdr_len = cpu_to_be32(V_SYN_RX_CHAN(G_RX_CHAN(
- 					(__force int) htonl(l2info))) |
- 				   V_TCP_HDR_LEN(G_RX_TCPHDR_LEN(
- 					(__force int) htons(hdr_len))) |
- 				   V_IP_HDR_LEN(G_RX_IPHDR_LEN(
- 					(__force int) htons(hdr_len))) |
--				   V_ETH_HDR_LEN(G_RX_ETHHDR_LEN(
--					(__force int) htonl(l2info))));
-+				   V_ETH_HDR_LEN(G_RX_ETHHDR_LEN(eth_hdr_len)));
- 	req->vlan = (__force __be16) vlantag;
- 	req->len = (__force __be16) len;
- 	req->tos_stid = cpu_to_be32(PASS_OPEN_TID(stid) |
-@@ -2993,7 +3020,7 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
- 	u16 window;
- 	struct port_info *pi;
- 	struct net_device *pdev;
--	u16 rss_qid;
-+	u16 rss_qid, eth_hdr_len;
- 	int step;
- 	u32 tx_chan;
- 	struct neighbour *neigh;
-@@ -3022,7 +3049,10 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
- 		goto reject;
- 	}
- 
--	if (G_RX_ETHHDR_LEN(ntohl(cpl->l2info)) == ETH_HLEN) {
-+	eth_hdr_len = is_t4(dev->rdev.lldi.adapter_type) ?
-+			    G_RX_ETHHDR_LEN(htonl(cpl->l2info)) :
-+			    G_RX_T5_ETHHDR_LEN(htonl(cpl->l2info));
-+	if (eth_hdr_len == ETH_HLEN) {
- 		eh = (struct ethhdr *)(req + 1);
- 		iph = (struct iphdr *)(eh + 1);
- 	} else {
-diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
-index 80069ad..3487c08 100644
---- a/drivers/infiniband/hw/cxgb4/device.c
-+++ b/drivers/infiniband/hw/cxgb4/device.c
-@@ -41,7 +41,7 @@
- #define DRV_VERSION "0.1"
- 
- MODULE_AUTHOR("Steve Wise");
--MODULE_DESCRIPTION("Chelsio T4 RDMA Driver");
-+MODULE_DESCRIPTION("Chelsio T4/T5 RDMA Driver");
- MODULE_LICENSE("Dual BSD/GPL");
- MODULE_VERSION(DRV_VERSION);
- 
-@@ -614,7 +614,7 @@ static int rdma_supported(const struct cxgb4_lld_info *infop)
- {
- 	return infop->vr->stag.size > 0 && infop->vr->pbl.size > 0 &&
- 	       infop->vr->rq.size > 0 && infop->vr->qp.size > 0 &&
--	       infop->vr->cq.size > 0 && infop->vr->ocq.size > 0;
-+	       infop->vr->cq.size > 0;
- }
- 
- static struct c4iw_dev *c4iw_alloc(const struct cxgb4_lld_info *infop)
-@@ -627,6 +627,11 @@ static struct c4iw_dev *c4iw_alloc(const struct cxgb4_lld_info *infop)
- 		       pci_name(infop->pdev));
- 		return ERR_PTR(-ENOSYS);
- 	}
-+	if (!ocqp_supported(infop))
-+		pr_info("%s: On-Chip Queues not supported on this device.\n",
-+			pci_name(infop->pdev));
-+	if (!is_t4(infop->adapter_type))
-+		db_fc_threshold = 100000;
- 	devp = (struct c4iw_dev *)ib_alloc_device(sizeof(*devp));
- 	if (!devp) {
- 		printk(KERN_ERR MOD "Cannot allocate ib device\n");
-@@ -678,8 +683,8 @@ static void *c4iw_uld_add(const struct cxgb4_lld_info *infop)
- 	int i;
- 
- 	if (!vers_printed++)
--		printk(KERN_INFO MOD "Chelsio T4 RDMA Driver - version %s\n",
--		       DRV_VERSION);
-+		pr_info("Chelsio T4/T5 RDMA Driver - version %s\n",
-+			DRV_VERSION);
- 
- 	ctx = kzalloc(sizeof *ctx, GFP_KERNEL);
- 	if (!ctx) {
 diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-index 7eec5e1..34c7e62 100644
+index 4dbe96a..08e406c 100644
 --- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
 +++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-@@ -817,6 +817,15 @@ static inline int compute_wscale(int win)
- 	return wscale;
- }
+@@ -369,7 +369,6 @@ struct c4iw_fr_page_list {
+ 	DEFINE_DMA_UNMAP_ADDR(mapping);
+ 	dma_addr_t dma_addr;
+ 	struct c4iw_dev *dev;
+-	int size;
+ };
  
-+static inline int ocqp_supported(const struct cxgb4_lld_info *infop)
+ static inline struct c4iw_fr_page_list *to_c4iw_fr_page_list(
+@@ -940,6 +939,7 @@ extern c4iw_handler_func c4iw_handlers[NUM_CPL_CMDS];
+ extern int c4iw_max_read_depth;
+ extern int db_fc_threshold;
+ extern int db_coalescing_threshold;
++extern int use_dsgl;
+ 
+ 
+ #endif
+diff --git a/drivers/infiniband/hw/cxgb4/mem.c b/drivers/infiniband/hw/cxgb4/mem.c
+index 903a92d..33db9ee 100644
+--- a/drivers/infiniband/hw/cxgb4/mem.c
++++ b/drivers/infiniband/hw/cxgb4/mem.c
+@@ -30,16 +30,76 @@
+  * SOFTWARE.
+  */
+ 
++#include <linux/module.h>
++#include <linux/moduleparam.h>
+ #include <rdma/ib_umem.h>
+ #include <linux/atomic.h>
+ 
+ #include "iw_cxgb4.h"
+ 
++int use_dsgl = 1;
++module_param(use_dsgl, int, 0644);
++MODULE_PARM_DESC(use_dsgl, "Use DSGL for PBL/FastReg (default=1)");
++
+ #define T4_ULPTX_MIN_IO 32
+ #define C4IW_MAX_INLINE_SIZE 96
++#define T4_ULPTX_MAX_DMA 1024
++#define C4IW_INLINE_THRESHOLD 128
+ 
+-static int write_adapter_mem(struct c4iw_rdev *rdev, u32 addr, u32 len,
+-			     void *data)
++static int inline_threshold = C4IW_INLINE_THRESHOLD;
++module_param(inline_threshold, int, 0644);
++MODULE_PARM_DESC(inline_threshold, "inline vs dsgl threshold (default=128)");
++
++static int _c4iw_write_mem_dma_aligned(struct c4iw_rdev *rdev, u32 addr,
++				       u32 len, void *data, int wait)
 +{
-+#if defined(__i386__) || defined(__x86_64__) || defined(CONFIG_PPC64)
-+	return infop->vr->ocq.size > 0;
-+#else
-+	return 0;
-+#endif
++	struct sk_buff *skb;
++	struct ulp_mem_io *req;
++	struct ulptx_sgl *sgl;
++	u8 wr_len;
++	int ret = 0;
++	struct c4iw_wr_wait wr_wait;
++
++	addr &= 0x7FFFFFF;
++
++	if (wait)
++		c4iw_init_wr_wait(&wr_wait);
++	wr_len = roundup(sizeof(*req) + sizeof(*sgl), 16);
++
++	skb = alloc_skb(wr_len, GFP_KERNEL | __GFP_NOFAIL);
++	if (!skb)
++		return -ENOMEM;
++	set_wr_txq(skb, CPL_PRIORITY_CONTROL, 0);
++
++	req = (struct ulp_mem_io *)__skb_put(skb, wr_len);
++	memset(req, 0, wr_len);
++	INIT_ULPTX_WR(req, wr_len, 0, 0);
++	req->wr.wr_hi = cpu_to_be32(FW_WR_OP(FW_ULPTX_WR) |
++			(wait ? FW_WR_COMPL(1) : 0));
++	req->wr.wr_lo = wait ? (__force __be64)&wr_wait : 0;
++	req->wr.wr_mid = cpu_to_be32(FW_WR_LEN16(DIV_ROUND_UP(wr_len, 16)));
++	req->cmd = cpu_to_be32(ULPTX_CMD(ULP_TX_MEM_WRITE));
++	req->cmd |= cpu_to_be32(V_T5_ULP_MEMIO_ORDER(1));
++	req->dlen = cpu_to_be32(ULP_MEMIO_DATA_LEN(len>>5));
++	req->len16 = cpu_to_be32(DIV_ROUND_UP(wr_len-sizeof(req->wr), 16));
++	req->lock_addr = cpu_to_be32(ULP_MEMIO_ADDR(addr));
++
++	sgl = (struct ulptx_sgl *)(req + 1);
++	sgl->cmd_nsge = cpu_to_be32(ULPTX_CMD(ULP_TX_SC_DSGL) |
++				    ULPTX_NSGE(1));
++	sgl->len0 = cpu_to_be32(len);
++	sgl->addr0 = cpu_to_be64(virt_to_phys(data));
++
++	ret = c4iw_ofld_send(rdev, skb);
++	if (ret)
++		return ret;
++	if (wait)
++		ret = c4iw_wait_for_reply(rdev, &wr_wait, 0, 0, __func__);
++	return ret;
 +}
 +
- u32 c4iw_id_alloc(struct c4iw_id_table *alloc);
- void c4iw_id_free(struct c4iw_id_table *alloc, u32 obj);
- int c4iw_id_table_alloc(struct c4iw_id_table *alloc, u32 start, u32 num,
-diff --git a/drivers/infiniband/hw/cxgb4/provider.c b/drivers/infiniband/hw/cxgb4/provider.c
-index e084fdc..7e94c9a 100644
---- a/drivers/infiniband/hw/cxgb4/provider.c
-+++ b/drivers/infiniband/hw/cxgb4/provider.c
-@@ -162,8 +162,14 @@ static int c4iw_mmap(struct ib_ucontext *context, struct vm_area_struct *vma)
- 		 */
- 		if (addr >= rdev->oc_mw_pa)
- 			vma->vm_page_prot = t4_pgprot_wc(vma->vm_page_prot);
--		else
--			vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-+		else {
-+			if (is_t5(rdev->lldi.adapter_type))
-+				vma->vm_page_prot =
-+					t4_pgprot_wc(vma->vm_page_prot);
-+			else
-+				vma->vm_page_prot =
-+					pgprot_noncached(vma->vm_page_prot);
-+		}
- 		ret = io_remap_pfn_range(vma, vma->vm_start,
- 					 addr >> PAGE_SHIFT,
- 					 len, vma->vm_page_prot);
-@@ -263,7 +269,7 @@ static int c4iw_query_device(struct ib_device *ibdev,
- 	dev = to_c4iw_dev(ibdev);
- 	memset(props, 0, sizeof *props);
- 	memcpy(&props->sys_image_guid, dev->rdev.lldi.ports[0]->dev_addr, 6);
--	props->hw_ver = dev->rdev.lldi.adapter_type;
-+	props->hw_ver = CHELSIO_CHIP_RELEASE(dev->rdev.lldi.adapter_type);
- 	props->fw_ver = dev->rdev.lldi.fw_vers;
- 	props->device_cap_flags = dev->device_cap_flags;
- 	props->page_size_cap = T4_PAGESIZE_MASK;
-@@ -346,7 +352,8 @@ static ssize_t show_rev(struct device *dev, struct device_attribute *attr,
- 	struct c4iw_dev *c4iw_dev = container_of(dev, struct c4iw_dev,
- 						 ibdev.dev);
- 	PDBG("%s dev 0x%p\n", __func__, dev);
--	return sprintf(buf, "%d\n", c4iw_dev->rdev.lldi.adapter_type);
-+	return sprintf(buf, "%d\n",
-+		       CHELSIO_CHIP_RELEASE(c4iw_dev->rdev.lldi.adapter_type));
++static int _c4iw_write_mem_inline(struct c4iw_rdev *rdev, u32 addr, u32 len,
++				  void *data)
+ {
+ 	struct sk_buff *skb;
+ 	struct ulp_mem_io *req;
+@@ -47,6 +107,12 @@ static int write_adapter_mem(struct c4iw_rdev *rdev, u32 addr, u32 len,
+ 	u8 wr_len, *to_dp, *from_dp;
+ 	int copy_len, num_wqe, i, ret = 0;
+ 	struct c4iw_wr_wait wr_wait;
++	__be32 cmd = cpu_to_be32(ULPTX_CMD(ULP_TX_MEM_WRITE));
++
++	if (is_t4(rdev->lldi.adapter_type))
++		cmd |= cpu_to_be32(ULP_MEMIO_ORDER(1));
++	else
++		cmd |= cpu_to_be32(V_T5_ULP_MEMIO_IMM(1));
+ 
+ 	addr &= 0x7FFFFFF;
+ 	PDBG("%s addr 0x%x len %u\n", __func__, addr, len);
+@@ -77,7 +143,7 @@ static int write_adapter_mem(struct c4iw_rdev *rdev, u32 addr, u32 len,
+ 		req->wr.wr_mid = cpu_to_be32(
+ 				       FW_WR_LEN16(DIV_ROUND_UP(wr_len, 16)));
+ 
+-		req->cmd = cpu_to_be32(ULPTX_CMD(ULP_TX_MEM_WRITE) | (1<<23));
++		req->cmd = cmd;
+ 		req->dlen = cpu_to_be32(ULP_MEMIO_DATA_LEN(
+ 				DIV_ROUND_UP(copy_len, T4_ULPTX_MIN_IO)));
+ 		req->len16 = cpu_to_be32(DIV_ROUND_UP(wr_len-sizeof(req->wr),
+@@ -107,6 +173,50 @@ static int write_adapter_mem(struct c4iw_rdev *rdev, u32 addr, u32 len,
+ 	return ret;
  }
  
- static ssize_t show_fw_ver(struct device *dev, struct device_attribute *attr,
++int _c4iw_write_mem_dma(struct c4iw_rdev *rdev, u32 addr, u32 len, void *data)
++{
++	u32 remain = len;
++	u32 dmalen;
++	int ret = 0;
++
++	while (remain > inline_threshold) {
++		if (remain < T4_ULPTX_MAX_DMA) {
++			if (remain & ~T4_ULPTX_MIN_IO)
++				dmalen = remain & ~(T4_ULPTX_MIN_IO-1);
++			else
++				dmalen = remain;
++		} else
++			dmalen = T4_ULPTX_MAX_DMA;
++		remain -= dmalen;
++		ret = _c4iw_write_mem_dma_aligned(rdev, addr, dmalen, data,
++						 !remain);
++		if (ret)
++			goto out;
++		addr += dmalen >> 5;
++		data += dmalen;
++	}
++	if (remain)
++		ret = _c4iw_write_mem_inline(rdev, addr, remain, data);
++out:
++	return ret;
++}
++
++/*
++ * write len bytes of data into addr (32B aligned address)
++ * If data is NULL, clear len byte of memory to zero.
++ */
++static int write_adapter_mem(struct c4iw_rdev *rdev, u32 addr, u32 len,
++			     void *data)
++{
++	if (is_t5(rdev->lldi.adapter_type) && use_dsgl) {
++		if (len > inline_threshold)
++			return _c4iw_write_mem_dma(rdev, addr, len, data);
++		else
++			return _c4iw_write_mem_inline(rdev, addr, len, data);
++	} else
++		return _c4iw_write_mem_inline(rdev, addr, len, data);
++}
++
+ /*
+  * Build and write a TPT entry.
+  * IN: stag key, pdid, perm, bind_enabled, zbva, to, len, page_size,
+@@ -760,19 +870,23 @@ struct ib_fast_reg_page_list *c4iw_alloc_fastreg_pbl(struct ib_device *device,
+ 	struct c4iw_fr_page_list *c4pl;
+ 	struct c4iw_dev *dev = to_c4iw_dev(device);
+ 	dma_addr_t dma_addr;
+-	int size = sizeof *c4pl + page_list_len * sizeof(u64);
++	int pll_len = roundup(page_list_len * sizeof(u64), 32);
+ 
+-	c4pl = dma_alloc_coherent(&dev->rdev.lldi.pdev->dev, size,
+-				  &dma_addr, GFP_KERNEL);
++	c4pl = kmalloc(sizeof(*c4pl), GFP_KERNEL);
+ 	if (!c4pl)
+ 		return ERR_PTR(-ENOMEM);
+ 
++	c4pl->ibpl.page_list = dma_alloc_coherent(&dev->rdev.lldi.pdev->dev,
++						  pll_len, &dma_addr,
++						  GFP_KERNEL);
++	if (!c4pl->ibpl.page_list) {
++		kfree(c4pl);
++		return ERR_PTR(-ENOMEM);
++	}
+ 	dma_unmap_addr_set(c4pl, mapping, dma_addr);
+ 	c4pl->dma_addr = dma_addr;
+ 	c4pl->dev = dev;
+-	c4pl->size = size;
+-	c4pl->ibpl.page_list = (u64 *)(c4pl + 1);
+-	c4pl->ibpl.max_page_list_len = page_list_len;
++	c4pl->ibpl.max_page_list_len = pll_len;
+ 
+ 	return &c4pl->ibpl;
+ }
+@@ -781,8 +895,10 @@ void c4iw_free_fastreg_pbl(struct ib_fast_reg_page_list *ibpl)
+ {
+ 	struct c4iw_fr_page_list *c4pl = to_c4iw_fr_page_list(ibpl);
+ 
+-	dma_free_coherent(&c4pl->dev->rdev.lldi.pdev->dev, c4pl->size,
+-			  c4pl, dma_unmap_addr(c4pl, mapping));
++	dma_free_coherent(&c4pl->dev->rdev.lldi.pdev->dev,
++			  c4pl->ibpl.max_page_list_len,
++			  c4pl->ibpl.page_list, dma_unmap_addr(c4pl, mapping));
++	kfree(c4pl);
+ }
+ 
+ int c4iw_dereg_mr(struct ib_mr *ib_mr)
 diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index 17ba4f8..c460244 100644
+index 28592d4..90833d7 100644
 --- a/drivers/infiniband/hw/cxgb4/qp.c
 +++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -76,7 +76,7 @@ static void dealloc_sq(struct c4iw_rdev *rdev, struct t4_sq *sq)
+@@ -54,6 +54,10 @@ MODULE_PARM_DESC(db_coalescing_threshold,
+ 		 "QP count/threshold that triggers"
+ 		 " disabling db coalescing (default = 0)");
  
- static int alloc_oc_sq(struct c4iw_rdev *rdev, struct t4_sq *sq)
++static int max_fr_immd = T4_MAX_FR_IMMD;
++module_param(max_fr_immd, int, 0644);
++MODULE_PARM_DESC(max_fr_immd, "fastreg threshold for using DSGL instead of immedate");
++
+ static void set_state(struct c4iw_qp *qhp, enum c4iw_qp_state state)
  {
--	if (!ocqp_support || !t4_ocqp_supported())
-+	if (!ocqp_support || !ocqp_supported(&rdev->lldi))
- 		return -ENOSYS;
- 	sq->dma_addr = c4iw_ocqp_pool_alloc(rdev, sq->memsize);
- 	if (!sq->dma_addr)
-diff --git a/drivers/infiniband/hw/cxgb4/t4.h b/drivers/infiniband/hw/cxgb4/t4.h
-index 16f26ab..689edc9 100644
---- a/drivers/infiniband/hw/cxgb4/t4.h
-+++ b/drivers/infiniband/hw/cxgb4/t4.h
-@@ -280,15 +280,6 @@ static inline pgprot_t t4_pgprot_wc(pgprot_t prot)
- #endif
+ 	unsigned long flag;
+@@ -539,7 +543,7 @@ static int build_rdma_recv(struct c4iw_qp *qhp, union t4_recv_wr *wqe,
  }
  
--static inline int t4_ocqp_supported(void)
--{
--#if defined(__i386__) || defined(__x86_64__) || defined(CONFIG_PPC64)
--	return 1;
--#else
--	return 0;
--#endif
--}
--
- enum {
- 	T4_SQ_ONCHIP = (1<<0),
+ static int build_fastreg(struct t4_sq *sq, union t4_wr *wqe,
+-			 struct ib_send_wr *wr, u8 *len16)
++			 struct ib_send_wr *wr, u8 *len16, u8 t5dev)
+ {
+ 
+ 	struct fw_ri_immd *imdp;
+@@ -561,28 +565,51 @@ static int build_fastreg(struct t4_sq *sq, union t4_wr *wqe,
+ 	wqe->fr.va_hi = cpu_to_be32(wr->wr.fast_reg.iova_start >> 32);
+ 	wqe->fr.va_lo_fbo = cpu_to_be32(wr->wr.fast_reg.iova_start &
+ 					0xffffffff);
+-	WARN_ON(pbllen > T4_MAX_FR_IMMD);
+-	imdp = (struct fw_ri_immd *)(&wqe->fr + 1);
+-	imdp->op = FW_RI_DATA_IMMD;
+-	imdp->r1 = 0;
+-	imdp->r2 = 0;
+-	imdp->immdlen = cpu_to_be32(pbllen);
+-	p = (__be64 *)(imdp + 1);
+-	rem = pbllen;
+-	for (i = 0; i < wr->wr.fast_reg.page_list_len; i++) {
+-		*p = cpu_to_be64((u64)wr->wr.fast_reg.page_list->page_list[i]);
+-		rem -= sizeof *p;
+-		if (++p == (__be64 *)&sq->queue[sq->size])
+-			p = (__be64 *)sq->queue;
+-	}
+-	BUG_ON(rem < 0);
+-	while (rem) {
+-		*p = 0;
+-		rem -= sizeof *p;
+-		if (++p == (__be64 *)&sq->queue[sq->size])
+-			p = (__be64 *)sq->queue;
++
++	if (t5dev && use_dsgl && (pbllen > max_fr_immd)) {
++		struct c4iw_fr_page_list *c4pl =
++			to_c4iw_fr_page_list(wr->wr.fast_reg.page_list);
++		struct fw_ri_dsgl *sglp;
++
++		for (i = 0; i < wr->wr.fast_reg.page_list_len; i++) {
++			wr->wr.fast_reg.page_list->page_list[i] = (__force u64)
++				cpu_to_be64((u64)
++				wr->wr.fast_reg.page_list->page_list[i]);
++		}
++
++		sglp = (struct fw_ri_dsgl *)(&wqe->fr + 1);
++		sglp->op = FW_RI_DATA_DSGL;
++		sglp->r1 = 0;
++		sglp->nsge = cpu_to_be16(1);
++		sglp->addr0 = cpu_to_be64(c4pl->dma_addr);
++		sglp->len0 = cpu_to_be32(pbllen);
++
++		*len16 = DIV_ROUND_UP(sizeof(wqe->fr) + sizeof(*sglp), 16);
++	} else {
++		imdp = (struct fw_ri_immd *)(&wqe->fr + 1);
++		imdp->op = FW_RI_DATA_IMMD;
++		imdp->r1 = 0;
++		imdp->r2 = 0;
++		imdp->immdlen = cpu_to_be32(pbllen);
++		p = (__be64 *)(imdp + 1);
++		rem = pbllen;
++		for (i = 0; i < wr->wr.fast_reg.page_list_len; i++) {
++			*p = cpu_to_be64(
++				(u64)wr->wr.fast_reg.page_list->page_list[i]);
++			rem -= sizeof(*p);
++			if (++p == (__be64 *)&sq->queue[sq->size])
++				p = (__be64 *)sq->queue;
++		}
++		BUG_ON(rem < 0);
++		while (rem) {
++			*p = 0;
++			rem -= sizeof(*p);
++			if (++p == (__be64 *)&sq->queue[sq->size])
++				p = (__be64 *)sq->queue;
++		}
++		*len16 = DIV_ROUND_UP(sizeof(wqe->fr) + sizeof(*imdp)
++				      + pbllen, 16);
+ 	}
+-	*len16 = DIV_ROUND_UP(sizeof wqe->fr + sizeof *imdp + pbllen, 16);
+ 	return 0;
+ }
+ 
+@@ -683,7 +710,10 @@ int c4iw_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
+ 		case IB_WR_FAST_REG_MR:
+ 			fw_opcode = FW_RI_FR_NSMR_WR;
+ 			swsqe->opcode = FW_RI_FAST_REGISTER;
+-			err = build_fastreg(&qhp->wq.sq, wqe, wr, &len16);
++			err = build_fastreg(&qhp->wq.sq, wqe, wr, &len16,
++					    is_t5(
++					    qhp->rhp->rdev.lldi.adapter_type) ?
++					    1 : 0);
+ 			break;
+ 		case IB_WR_LOCAL_INV:
+ 			if (wr->send_flags & IB_SEND_FENCE)
+diff --git a/drivers/infiniband/hw/cxgb4/t4.h b/drivers/infiniband/hw/cxgb4/t4.h
+index 689edc9..ebcb03b 100644
+--- a/drivers/infiniband/hw/cxgb4/t4.h
++++ b/drivers/infiniband/hw/cxgb4/t4.h
+@@ -84,7 +84,7 @@ struct t4_status_page {
+ 			sizeof(struct fw_ri_isgl)) / sizeof(struct fw_ri_sge))
+ #define T4_MAX_FR_IMMD ((T4_SQ_NUM_BYTES - sizeof(struct fw_ri_fr_nsmr_wr) - \
+ 			sizeof(struct fw_ri_immd)) & ~31UL)
+-#define T4_MAX_FR_DEPTH (T4_MAX_FR_IMMD / sizeof(u64))
++#define T4_MAX_FR_DEPTH (1024 / sizeof(u64))
+ 
+ #define T4_RQ_NUM_SLOTS 2
+ #define T4_RQ_NUM_BYTES (T4_EQ_ENTRY_SIZE * T4_RQ_NUM_SLOTS)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index 0c9f14f..47656ac 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -787,4 +787,12 @@ struct ulp_mem_io {
+ #define ULP_MEMIO_LOCK(x) ((x) << 31)
  };
+ 
++#define S_T5_ULP_MEMIO_IMM    23
++#define V_T5_ULP_MEMIO_IMM(x) ((x) << S_T5_ULP_MEMIO_IMM)
++#define F_T5_ULP_MEMIO_IMM    V_T5_ULP_MEMIO_IMM(1U)
++
++#define S_T5_ULP_MEMIO_ORDER    22
++#define V_T5_ULP_MEMIO_ORDER(x) ((x) << S_T5_ULP_MEMIO_ORDER)
++#define F_T5_ULP_MEMIO_ORDER    V_T5_ULP_MEMIO_ORDER(1U)
++
+ #endif  /* __T4_MSG_H */
 -- 
 1.7.1
