@@ -1,127 +1,52 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: em1 is visible to iproute2 but not ethtool or tcpdump
-Date: Thu, 14 Mar 2013 20:45:29 +0000
-Message-ID: <804857E1F29AAC47BF68C404FC60A1844D040373@ORSMSX102.amr.corp.intel.com>
-References: <CALCETrV0SP+z_acyRTV++uZCFafJ7h+Ef9_NQ1tKrqOAiiVt8w@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: RFC crap-patch [PATCH] net: Per CPU separate frag mem accounting
+Date: Thu, 14 Mar 2013 20:59:03 +0000
+Message-ID: <1363294743.2695.10.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20130308221647.5312.33631.stgit@dragon>
+	 <20130308221744.5312.14924.stgit@dragon>
+	 <1363245955.14913.21.camel@localhost> <1363251561.14913.33.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Andy Lutomirski <luto@amacapital.net>,
-	Network Development <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	<netdev@vger.kernel.org>, <yoshfuji@linux-ipv6.org>
+To: Jesper Dangaard Brouer <jbrouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:4827 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751437Ab3CNUpb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 16:45:31 -0400
-In-Reply-To: <CALCETrV0SP+z_acyRTV++uZCFafJ7h+Ef9_NQ1tKrqOAiiVt8w@mail.gmail.com>
-Content-Language: en-US
+Received: from webmail.solarflare.com ([12.187.104.25]:13490 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752687Ab3CNU7L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 16:59:11 -0400
+In-Reply-To: <1363251561.14913.33.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Andy Lutomirski
-> Sent: Thursday, March 14, 2013 9:54 AM
-> To: Network Development
-> Cc: e1000-devel@lists.sourceforge.net
-> Subject: em1 is visible to iproute2 but not ethtool or tcpdump
+On Thu, 2013-03-14 at 09:59 +0100, Jesper Dangaard Brouer wrote:
+> On Thu, 2013-03-14 at 08:25 +0100, Jesper Dangaard Brouer wrote:
+> > This is NOT the patch I just mentioned in the other thread, of removing
+> > the LRU list.  This patch does real per cpu mem acct, and LRU per CPU.
+> > 
+> > I get really good performance number with this patch, but I still think
+> > this might not be the correct solution.
 > 
-> My e1000e device is em1.  It has this rather strange behavior on
-> Fedora's 3.8.1 (although 3.7.something did the same thing, I believe):
-> 
-> $ ip link show dev em1
-> 6: em1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc
-> pfifo_fast
-> state DOWN qlen 1000
->     link/ether f0:de:f1:59:f6:c9 brd ff:ff:ff:ff:ff:ff
-> $ strace -e socket,ioctl ethtool em1
-> socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 3
-> Settings for em1:
-> ioctl(3, SIOCETHTOOL, 0x7fffa6c554d0)   = -1 ENODEV (No such device)
-> Cannot get device settings: No such device
-> ioctl(3, SIOCETHTOOL, 0x7fffa6c554d0)   = -1 ENODEV (No such device)
-> Cannot get wake-on-lan settings: No such device
-> ioctl(3, SIOCETHTOOL, 0x7fffa6c554d0)   = -1 ENODEV (No such device)
-> Cannot get message level: No such device
-> ioctl(3, SIOCETHTOOL, 0x7fffa6c554d0)   = -1 ENODEV (No such device)
-> Cannot get link status: No such device
-> No data available
-> +++ exited with 75 +++
-> $ sudo tcpdump -i em1
-> tcpdump: em1: SIOETHTOOL(ETHTOOL_GTSO) ioctl failed: No such device
-> 
-> A sufficient number of rmmod/modprobe cycles will make it work.
-> 
-> This is, perhaps, helpful:
-> 
-> $ sudo ip link set dev em1 name foobar
-> RTNETLINK answers: Device or resource busy
-> $ sudo ip link set dev em1 down
-> $ sudo ip link set dev em1 name foobar
-> $ sudo ethtool foobar
-> Settings for foobar:
-> 	Supported ports: [ TP ]
-> 	Supported link modes:   10baseT/Half 10baseT/Full
-> 	                        100baseT/Half 100baseT/Full
-> 	                        1000baseT/Full
-> 	Supported pause frame use: No
-> 	Supports auto-negotiation: Yes
-> 	Advertised link modes:  10baseT/Half 10baseT/Full
-> 	                        100baseT/Half 100baseT/Full
-> 	                        1000baseT/Full
-> 	Advertised pause frame use: No
-> 	Advertised auto-negotiation: Yes
-> 	Speed: Unknown!
-> 	Duplex: Unknown! (255)
-> 	Port: Twisted Pair
-> 	PHYAD: 1
-> 	Transceiver: internal
-> 	Auto-negotiation: on
-> 	MDI-X: Unknown
-> 	Supports Wake-on: pumbg
-> 	Wake-on: g
-> 	Current message level: 0x00000007 (7)
-> 			       drv probe link
-> 	Link detected: no
-> $ sudo ip link set dev foobar name em1
-> $ sudo ethtool em1
-> Settings for em1:
-> 	Supported ports: [ TP ]
-> 	Supported link modes:   10baseT/Half 10baseT/Full
-> 	                        100baseT/Half 100baseT/Full
-> 	                        1000baseT/Full
-> 	Supported pause frame use: No
-> 	Supports auto-negotiation: Yes
-> 	Advertised link modes:  10baseT/Half 10baseT/Full
-> 	                        100baseT/Half 100baseT/Full
-> 	                        1000baseT/Full
-> 	Advertised pause frame use: No
-> 	Advertised auto-negotiation: Yes
-> 	Speed: Unknown!
-> 	Duplex: Unknown! (255)
-> 	Port: Twisted Pair
-> 	PHYAD: 1
-> 	Transceiver: internal
-> 	Auto-negotiation: on
-> 	MDI-X: Unknown
-> 	Supports Wake-on: pumbg
-> 	Wake-on: g
-> 	Current message level: 0x00000007 (7)
-> 			       drv probe link
-> 	Link detected: no
-> $
-> 
-> This bug (?) isn't a show-stopper, but it's rather annoying.  I
-> suspect a core networking bug, not an e1000e bug, but I cc'd the e1000
-> people just in case.
+> The reason is this depend on fragments entering the same HW queue, some
+> NICs might not put the first fragment (which have the full header
+> tuples) and the remaining fragments on the same queue. In which case
+> this patch will loose its performance gain.
+[...]
 
-This sounds related to some runtime power management (RPM) issues that have
-already been fixed.  First check whether RPM is enabled for your device - the file
-/sys/devices/pciNNNN:NN/NNNN:NN:NN.N/power/control (where NNNN... is
-the PCI domain, bus, slot and function of your device) will contain "auto" when it
-is enabled.  To disable RPM for that device, change the value in the file to "on".
+The Microsoft RSS spec only includes port numbers in the flow hash for
+TCP, presumably because TCP avoids IP fragmentation whereas datagram
+protocols cannot.  Some Linux drivers allow UDP ports to be included in
+the flow hash but I don't think this is the default for any of them.
 
-HTH,
-Bruce.
+In Solarflare hardware the IPv4 MF bit inhibits layer 4 flow steering,
+so all fragments will be unsteered.  I don't know whether everyone else
+got that right though. :-)
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
