@@ -1,114 +1,62 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH v2 net-next 14/22] RDMA/cxgb4: Add module_params to enable DB FC & Coalescing on T5
-Date: Thu, 14 Mar 2013 20:39:00 +0530
-Message-ID: <1363273748-25330-15-git-send-email-vipul@chelsio.com>
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH v2 net-next 17/22] RDMA/cxgb4: Bump tcam_full stat and WR reply timeout
+Date: Thu, 14 Mar 2013 20:39:03 +0530
+Message-ID: <1363273748-25330-18-git-send-email-vipul@chelsio.com>
 References: <1363273748-25330-1-git-send-email-vipul@chelsio.com>
-Cc: davem@davemloft.net, roland@purestorage.com,
-	JBottomley@parallels.com, dm@chelsio.com,
-	swise@opengridcomputing.com, leedom@chelsio.com,
-	naresh@chelsio.com, divy@chelsio.com, santosh@chelsio.com,
-	arvindb@chelsio.com, abhishek@chelsio.com, vipul@chelsio.com
-To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	linux-scsi@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1363273748-25330-1-git-send-email-vipul@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
+	JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	naresh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	arvindb-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, abhishek-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1363273748-25330-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Both DB Flow-Control and DB Coalescing are disabled by default on T5
+Always bump the tcam_full stat. Also, bump wr reply timeout to 30 seconds.
 
-Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 ---
 v2: Replaced #ifdef with portable interface wmb in ring_tx_db
 
- drivers/infiniband/hw/cxgb4/device.c   |   25 +++++++++++++++++++++++--
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h |    1 +
- drivers/infiniband/hw/cxgb4/qp.c       |   10 ++++++----
- 3 files changed, 30 insertions(+), 6 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c       |    2 +-
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
-index 3487c08..ae65601 100644
---- a/drivers/infiniband/hw/cxgb4/device.c
-+++ b/drivers/infiniband/hw/cxgb4/device.c
-@@ -45,6 +45,16 @@ MODULE_DESCRIPTION("Chelsio T4/T5 RDMA Driver");
- MODULE_LICENSE("Dual BSD/GPL");
- MODULE_VERSION(DRV_VERSION);
- 
-+static int allow_db_fc_on_t5;
-+module_param(allow_db_fc_on_t5, int, 0644);
-+MODULE_PARM_DESC(allow_db_fc_on_t5,
-+		 "Allow DB Flow Control on T5 (default = 0)");
-+
-+static int allow_db_coalescing_on_t5;
-+module_param(allow_db_coalescing_on_t5, int, 0644);
-+MODULE_PARM_DESC(allow_db_coalescing_on_t5,
-+		 "Allow DB Coalescing on T5 (default = 0)");
-+
- struct uld_ctx {
- 	struct list_head entry;
- 	struct cxgb4_lld_info lldi;
-@@ -630,8 +640,19 @@ static struct c4iw_dev *c4iw_alloc(const struct cxgb4_lld_info *infop)
- 	if (!ocqp_supported(infop))
- 		pr_info("%s: On-Chip Queues not supported on this device.\n",
- 			pci_name(infop->pdev));
--	if (!is_t4(infop->adapter_type))
--		db_fc_threshold = 100000;
-+
-+	if (!is_t4(infop->adapter_type)) {
-+		if (!allow_db_fc_on_t5) {
-+			db_fc_threshold = 100000;
-+			pr_info("DB Flow Control Disabled.\n");
-+		}
-+
-+		if (!allow_db_coalescing_on_t5) {
-+			db_coalescing_threshold = -1;
-+			pr_info("DB Coalescing Disabled.\n");
-+		}
-+	}
-+
- 	devp = (struct c4iw_dev *)ib_alloc_device(sizeof(*devp));
- 	if (!devp) {
- 		printk(KERN_ERR MOD "Cannot allocate ib device\n");
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index 272bf78..8dcc84f 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -1693,9 +1693,9 @@ static int act_open_rpl(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	case CPL_ERR_CONN_TIMEDOUT:
+ 		break;
+ 	case CPL_ERR_TCAM_FULL:
++		dev->rdev.stats.tcam_full++;
+ 		if (dev->rdev.lldi.enable_fw_ofld_conn) {
+ 			mutex_lock(&dev->rdev.stats.lock);
+-			dev->rdev.stats.tcam_full++;
+ 			mutex_unlock(&dev->rdev.stats.lock);
+ 			send_fw_act_open_req(ep,
+ 					     GET_TID_TID(GET_AOPEN_ATID(
 diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-index 34c7e62..4dbe96a 100644
+index 08e406c..485183a 100644
 --- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
 +++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-@@ -939,6 +939,7 @@ extern struct cxgb4_client t4c_client;
- extern c4iw_handler_func c4iw_handlers[NUM_CPL_CMDS];
- extern int c4iw_max_read_depth;
- extern int db_fc_threshold;
-+extern int db_coalescing_threshold;
+@@ -162,7 +162,7 @@ static inline int c4iw_num_stags(struct c4iw_rdev *rdev)
+ 	return min((int)T4_MAX_NUM_STAG, (int)(rdev->lldi.vr->stag.size >> 5));
+ }
  
+-#define C4IW_WR_TO (10*HZ)
++#define C4IW_WR_TO (30*HZ)
  
- #endif
-diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index da4869f..28592d4 100644
---- a/drivers/infiniband/hw/cxgb4/qp.c
-+++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -1455,8 +1455,9 @@ int c4iw_destroy_qp(struct ib_qp *ib_qp)
- 		rhp->db_state = NORMAL;
- 		idr_for_each(&rhp->qpidr, enable_qp_db, NULL);
- 	}
--	if (rhp->qpcnt <= db_coalescing_threshold)
--		cxgb4_enable_db_coalescing(rhp->rdev.lldi.ports[0]);
-+	if (db_coalescing_threshold >= 0)
-+		if (rhp->qpcnt <= db_coalescing_threshold)
-+			cxgb4_enable_db_coalescing(rhp->rdev.lldi.ports[0]);
- 	spin_unlock_irq(&rhp->lock);
- 	atomic_dec(&qhp->refcnt);
- 	wait_event(qhp->wait, !atomic_read(&qhp->refcnt));
-@@ -1574,8 +1575,9 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
- 		rhp->db_state = FLOW_CONTROL;
- 		idr_for_each(&rhp->qpidr, disable_qp_db, NULL);
- 	}
--	if (rhp->qpcnt > db_coalescing_threshold)
--		cxgb4_disable_db_coalescing(rhp->rdev.lldi.ports[0]);
-+	if (db_coalescing_threshold >= 0)
-+		if (rhp->qpcnt > db_coalescing_threshold)
-+			cxgb4_disable_db_coalescing(rhp->rdev.lldi.ports[0]);
- 	ret = insert_handle_nolock(rhp, &rhp->qpidr, qhp, qhp->wq.sq.qid);
- 	spin_unlock_irq(&rhp->lock);
- 	if (ret)
+ struct c4iw_wr_wait {
+ 	struct completion completion;
 -- 
 1.7.1
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
