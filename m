@@ -1,81 +1,85 @@
-From: Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>
-Subject: Re: [PATCH 0/5] mv643xx_eth: use mvmdio MDIO bus driver
-Date: Thu, 14 Mar 2013 13:25:44 -0400
-Message-ID: <20130314172544.GT12700@titan.lakedaemon.net>
-References: <1359473048-26551-1-git-send-email-florian@openwrt.org>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH] rtnetlink: Mask the rta_type when range checking
+Date: Thu, 14 Mar 2013 13:40:05 -0400
+Message-ID: <51420B75.9060209@redhat.com>
+References: <1363184338-15781-1-git-send-email-vyasevic@redhat.com> <20130313083654.01d9c924@nehalam.linuxnetplumber.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
- linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
- Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
- Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>, Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Florian Fainelli <florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1359473048-26551-1-git-send-email-florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:25368 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755257Ab3CNRkT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Mar 2013 13:40:19 -0400
+In-Reply-To: <20130313083654.01d9c924@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Florian,
+On 03/13/2013 11:36 AM, Stephen Hemminger wrote:
+> On Wed, 13 Mar 2013 10:18:58 -0400
+> Vlad Yasevich <vyasevic@redhat.com> wrote:
+>
+>> Range/validity checks on rta_type in rtnetlink_rcv_msg() do
+>> not account for flags that may be set.  This causes the function
+>> to return -EINVAL when flags are set on the type (for example
+>> NLA_F_NESTED).
+>>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>> ---
+>>   net/core/rtnetlink.c |    2 +-
+>>   1 files changed, 1 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+>> index 1868625..dc5edf1 100644
+>> --- a/net/core/rtnetlink.c
+>> +++ b/net/core/rtnetlink.c
+>> @@ -2538,7 +2538,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+>>   		struct rtattr *attr = (void *)nlh + NLMSG_ALIGN(min_len);
+>>
+>>   		while (RTA_OK(attr, attrlen)) {
+>> -			unsigned int flavor = attr->rta_type;
+>> +			unsigned int flavor = attr->rta_type & NLA_TYPE_MASK;
+>>   			if (flavor) {
+>>   				if (flavor > rta_max[sz_idx])
+>>   					return -EINVAL;
+>
+> No. This is effectively an ABI change. It adds nothing.
+>
+> The NLA_F_NESTED attribute wasn't in the first generation version of netlink
+> (before my time with Linux). It doesn't make sense to all of sudden start
+> accepting it on requests. Also, then you would expect the query to set
+> the NESTED flag as well, and that would be another ABI change.
+>
 
-Any word on version 2 of this series?  I'd like to base the conversion
-of kirkwood to DT based ethernet init on it.
+So let me rebuff this a bit more intelligently.
 
-thx,
+1) NLA_F_NESTED is used by netfilter in a lot of places.  It seems that
+only rtnetlink interface doesn't account for it.
 
-Jason.
+2) The following commit:
 
-On Tue, Jan 29, 2013 at 04:24:03PM +0100, Florian Fainelli wrote:
-> Hi all,
-> 
-> This patch converts the mv643xx_eth driver to use the mvmdio MDIO bus driver
-> instead of rolling its own implementation. As a result, all users of this
-> mv643xx_eth driver are converted to register an "orion-mdio" platform_device.
-> The mvmdio driver is also updated to support an interrupt line which reports
-> SMI error/completion, and to allow traditionnal platform device registration
-> instead of just device tree.
-> 
-> David, I think it makes sense for you to merge all of this, since we do
-> not want the architecture files to be desynchronized from the mv643xx_eth to
-> avoid runtime breakage. The potential for merge conflicts should be very small.
-> 
-> You can probably safely merge patches 1 to 4 if Thomas agrees, and we will
-> see what kind of feeback I get on patch 5.
-> 
-> Florian Fainelli (5):
->   net: mvmdio: unmap base register address at driver removal
->   net: mvmdio: rename base register cookie from smireg to regs
->   net: mvmdio: enhance driver to support SMI error/done interrupts
->   net: mvmdio: allow Device Tree and platform device to coexist
->   mv643xx_eth: convert to use the Marvell Orion MDIO driver
-> 
->  .../devicetree/bindings/net/marvell-orion-mdio.txt |    3 +
->  arch/arm/plat-orion/common.c                       |   84 +++++++--
->  arch/powerpc/platforms/chrp/pegasos_eth.c          |   20 +++
->  arch/powerpc/sysdev/mv64x60_dev.c                  |   14 +-
->  drivers/net/ethernet/marvell/Kconfig               |    1 +
->  drivers/net/ethernet/marvell/mv643xx_eth.c         |  187 +-------------------
->  drivers/net/ethernet/marvell/mvmdio.c              |  136 +++++++++++---
->  7 files changed, 226 insertions(+), 219 deletions(-)
-> 
-> -- 
-> 1.7.10.4
-> 
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+commit 25c71c75ac87508528db053b818944f3650dd7a6
+Author: stephen hemminger <shemminger@vyatta.com>
+Date:   Tue Nov 13 07:53:05 2012 +0000
+
+     bridge: bridge port parameters over netlink
+
+introduced NLA_F_NESTED usage in rtnetlink for both setlink and
+getlink, so one could argue that was an ABI change.  However, I can
+prove that without the change I am introducing, one can not use the 
+above mentioned bridge API.  Feel free to try it with iproute2 patches
+I sent earlier ([PATCH iproute2 0/2] Add support for bridge port link 
+information).
+
+Now, if we truly want to say that we may not introduce NLA_F_NESTED into
+the rtnetlink patch, then the above commit to bridge needs to be
+reworked.
+
+Do you still object to this patch?  If so, we would have to rework the
+bridge netlink api.  Otherwise, it enables the current API to actually work.
+
+Thanks
+-vlad
