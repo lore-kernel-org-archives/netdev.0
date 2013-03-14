@@ -1,55 +1,78 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: RFC crap-patch [PATCH] net: Per CPU separate frag mem accounting
-Date: Thu, 14 Mar 2013 09:59:21 +0100
-Message-ID: <1363251561.14913.33.camel@localhost>
-References: <20130308221647.5312.33631.stgit@dragon>
-	 <20130308221744.5312.14924.stgit@dragon>
-	 <1363245955.14913.21.camel@localhost>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash
+ table
+Date: Thu, 14 Mar 2013 10:18:10 +0100
+Message-ID: <1363252690.14913.42.camel@localhost>
+References: <20130308055718.GA28531@order.stressinduktion.org>
+	 <20130308130433.GB28531@order.stressinduktion.org>
+	 <1362754386.15793.226.camel@edumazet-glaptop>
+	 <20130308150831.GD28531@order.stressinduktion.org>
+	 <1362756219.15793.240.camel@edumazet-glaptop>
+	 <20130313012715.GE14801@order.stressinduktion.org>
+	 <1363152568.13690.35.camel@edumazet-glaptop>
+	 <20130314013702.GA4129@order.stressinduktion.org>
+	 <1363245040.14913.11.camel@localhost>
+	 <20130314072341.GC4129@order.stressinduktion.org>
+	 <20130314072839.GD4129@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40042 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:58059 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752621Ab3CNI73 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Mar 2013 04:59:29 -0400
-In-Reply-To: <1363245955.14913.21.camel@localhost>
+	id S1751113Ab3CNJSQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Mar 2013 05:18:16 -0400
+In-Reply-To: <20130314072839.GD4129@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-03-14 at 08:25 +0100, Jesper Dangaard Brouer wrote:
-> This is NOT the patch I just mentioned in the other thread, of removing
-> the LRU list.  This patch does real per cpu mem acct, and LRU per CPU.
+On Thu, 2013-03-14 at 08:28 +0100, Hannes Frederic Sowa wrote:
+> On Thu, Mar 14, 2013 at 08:23:41AM +0100, Hannes Frederic Sowa wrote:
+> > On Thu, Mar 14, 2013 at 08:10:40AM +0100, Jesper Dangaard Brouer wrote:
+> > > On Thu, 2013-03-14 at 02:37 +0100, Hannes Frederic Sowa wrote:
+> > > 
+> > > > [PATCH net] inet: limit length of fragment queue hash table bucket lists
+> > > > 
+> > > > This patch introduces a constant limit of the fragment queue hash
+> > > > table bucket list lengths. Currently the limit 128 is choosen somewhat
+> > > > arbitrary and just ensures that we can fill up the fragment cache with
+> > > > empty packets up to the default ip_frag_high_thresh limits. It should
+> > > > just protect from list iteration eating considerable amounts of cpu.
+> > > > 
+> > > > If we reach the maximum length in one hash bucket a warning is printed.
+> > > > This is implemented on the caller side of inet_frag_find to distinguish
+> > > > between the different users of inet_fragment.c.
+> > > 
+> > > I like the idea of having a safe guard on the fragment queue hash table
+> > > bucket list lengths.  But I'm considering another cleanup/evictor
+> > > strategy, where we drop the LRU list, and do frag eviction on a hash
+> > > bucket level (which will be more cache optimal).  This strategy would
+> > > also involve a list length limit.
+> > 
+> > I would try to get a simple guard into v3.9. In 3.9 the hashing of the key
+> > of ipv6 fragments changed in such a way that an attacker could generate
+> > fragments which would end up in just one hash chain, thus eating a lot
+> > of cpu time because of list traversal. Later on, when you post your
+> > patches we could simply revert/update this safeguard to your version.
 > 
-> I get really good performance number with this patch, but I still think
-> this might not be the correct solution.
+> I just wanted to mention that if you plan to target v3.9 with some patches we
+> could simply drop this patch.
 
-The reason is this depend on fragments entering the same HW queue, some
-NICs might not put the first fragment (which have the full header
-tuples) and the remaining fragments on the same queue. In which case
-this patch will loose its performance gain.
+I will start working on this as soon as Netfilter Workshop is over and I
+have recovered from organizing this event.  DaveM told me I needed to
+finish my frag patches first, before I could implement all the other
+cool ideas we have come up with during the workshop ;-)
 
-> My current best results, which got applied recently, compared to this
-> patch:
->  - Test-type:  Test-20G64K    Test-20G3F  20G64K+DoS   20G3F+DoS
->  - Patch-06:   18486.7 Mbit/s  10723.20     3657.85     4560.64 Mbit/s
->  - curr-best:  19041.0 Mbit/s  12105.20    10160.40    11179.30 Mbit/s
+But I don't know if my frag changes can make v3.9, maybe v3.10 is more
+realistic?  In which case we should use your patch to close this problem
+on v3.9 IMHO.
 
-I noticed that this also included some other patches in my stack
- - New patchset-B:
- - PatchB-07: Fix LRU list head multi CPU race
- - PatchB-07:  18731.5 Mbit/s  10721.9      4079.22     5208.73 Mbit/s
- - PatchB-08: Per hash bucket locking
- - PatchB-08:  15959.5 Mbit/s  10968.9      4294.63     6365.16 Mbit/s
-
-As you can see I'm looking into why "PatchB-08" which implement per hash
-bucket locking is reducing throughput in Test-20G64K.
-
-
-> Thus, I have almost solved DoS effect Test-20G3F 12GBit/s -> 11Gbit/s
-> under DoS. The 64K+DoS case is not perfect yet, 19Gbit/s -> 11 Gbit/s.
-> 
-> --Jesper
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
