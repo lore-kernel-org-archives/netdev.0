@@ -1,80 +1,74 @@
-From: Tom Parkin <tparkin@katalix.com>
-Subject: Re: [RFC PATCH] udp: don't rereference dst_entry dev pointer on rcv
-Date: Thu, 14 Mar 2013 16:14:37 +0000
-Message-ID: <20130314161436.GC2512@raven>
-References: <1362695800-8633-1-git-send-email-tparkin@katalix.com>
- <1362695800-8633-2-git-send-email-tparkin@katalix.com>
- <1362696444.15793.220.camel@edumazet-glaptop>
- <20130307.181527.390191009324148471.davem@davemloft.net>
- <20130313232743.GA3686@raven>
- <1363223884.29475.0.camel@edumazet-glaptop>
- <20130314144550.GB2512@raven>
- <1363273531.29475.21.camel@edumazet-glaptop>
- <1363274946.29475.24.camel@edumazet-glaptop>
+From: Roman Yepishev <roman.yepishev@gmail.com>
+Subject: UDP Fragmentation Offload fragments packets with DF bit
+Date: Thu, 14 Mar 2013 18:18:29 +0200
+Message-ID: <CAPTwTV-Yz6My6=LCA9T=-JYWUX79DQiC0Yn2yPP6Z38wy0HXyw@mail.gmail.com>
+References: <CAPTwTV_nG7-FUNeie_6Djdd=QshE_bO=fR+L5C3fN48S48KWdw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="ZmUaFz6apKcXQszQ"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:35967 "EHLO bert.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755850Ab3CNQOk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Mar 2013 12:14:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1363274946.29475.24.camel@edumazet-glaptop>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:46181 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757975Ab3CNQSa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 12:18:30 -0400
+Received: by mail-ie0-f169.google.com with SMTP id 13so3294206iea.28
+        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 09:18:29 -0700 (PDT)
+In-Reply-To: <CAPTwTV_nG7-FUNeie_6Djdd=QshE_bO=fR+L5C3fN48S48KWdw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
---ZmUaFz6apKcXQszQ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This message was originally sent to KVM mailing list but I feel this
+question is more appropriate here.
 
-On Thu, Mar 14, 2013 at 04:29:06PM +0100, Eric Dumazet wrote:
-> OK, I tested the following one instead, please test it so that I can send=
- an official patch.
->=20
-> Thanks
->=20
-> diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-> index b6d30ac..2d23830 100644
-> --- a/net/ipv4/ip_fragment.c
-> +++ b/net/ipv4/ip_fragment.c
-> @@ -529,6 +529,7 @@ found:
->  	    qp->q.meat =3D=3D qp->q.len)
->  		return ip_frag_reasm(qp, prev, dev);
-> =20
-> +	skb_dst_drop(skb);
->  	inet_frag_lru_move(&qp->q);
->  	return -EINPROGRESS;
->
+"tracepath www.example.net" does not work when a VM has UFO enabled
+(as it is with virtio NIC):
 
-Thanks again, Eric.
+$ sudo ethtool -k eth0 | grep udp
+udp-fragmentation-offload: on
 
-Sadly, with this patch the oops is back :-(  It falls over quite
-quickly for me.
---=20
-Tom Parkin
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+$ tracepath www.example.net
+ 1:  vlan3.gw.lappyfamily.net                              1.992ms
+ 2:  no reply
 
---ZmUaFz6apKcXQszQ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+$ sudo ethtool -K eth0 ufo off
+$ tracepath www.example.net
+ 1:  potato.lappyfamily.net                                0.447ms pmtu 1500
+ 1:  vlan3.gw.lappyfamily.net                              0.463ms
+ 2:  local-gw.236.teremki.kiev.ua                          1.268ms
+...
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+tracepath works by sending a 65536-byte UDP packet with DF bit set,
+then adjusts the packet size according to the ICMP replies for PMTU
+discovery. However, when UDP fragmentation offload is enabled, the
+packets are _fragmented_ into lots of small 1500-byte size packets.
+The remote host does not need to send ICMP fragmentation-needed
+responses, and it looks like my upstream ISP router drops incoming UDP
+packets that are larger than 32K completely so it will return neither
+ICMP time exceeded messages nor the message that a port is closed.
 
-iQEcBAEBAgAGBQJRQfdsAAoJEJSMBmUKuovQ2n4H/AkzgYGXFvSHRcUdsgvwEk4I
-vfZaouFKScJftRx64NOollRtou90BhTusZNEFR1VMZdjw7SwfSN0pL1OuXFpCSif
-86RgXuweHfsq1+onm5oQWpFxPUSpteLFk+MkM2SMn1FkLxeE5uo1zQb2enozBvji
-QcUJcpNSZHHQu6RGWlo9WIA6zEQddtnatnj6ZEOXeCKj0g+wt7Nu4CXezvC9Kmgg
-fW5rMBV2d2KwaD/rgDUORlxN1WjRIBQO3gASGZsknlM+yUQn4L3uEi9rw0ALGTwI
-gAmGSvGdeXJh+T8eVR9g6rAkNqaQ2LumA08ZpLWKmiy0QFLCPHI+LK6WqF0BEm0=
-=AELb
------END PGP SIGNATURE-----
+This is seen on the vnet2 tap device:
+17:50:53.522206 IP (tos 0x0, ttl 1, id 0, offset 0, flags [DF], proto
+UDP (17), length 65535)
+    192.168.100.8.51765 > 192.0.43.10.44444: UDP, length 65507
 
---ZmUaFz6apKcXQszQ--
+This is what seen leaving the host interface:
+17:50:53.522398 IP (tos 0x0, ttl 1, id 0, offset 0, flags [+], proto
+UDP (17), length 1500)
+    192.168.100.8.51765 > 192.0.43.10.44444: UDP, length 65507
+17:50:53.522416 IP (tos 0x0, ttl 1, id 0, offset 1480, flags [+],
+proto UDP (17), length 1500)
+    192.168.100.8 > 192.0.43.10: udp
+...
+
+I have checked 3.2.0 and 3.8.0 kernel hosts and they all happily split
+a DF packet as seen above.
+
+It looks like a bug to me. I assume that if an IP packet carrying this
+UDP payload has DF bit set then it should not be fragmented even when
+fragmentation is handled by the NIC (or VM host in our case). Does
+this look like a real issue?
+
+-- 
+Regards, Roman Yepishev
