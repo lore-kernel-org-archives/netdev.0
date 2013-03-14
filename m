@@ -1,71 +1,68 @@
-From: Johan Hovold <jhovold@gmail.com>
-Subject: Re: [PATCH v2 2/7] USB: serial: handle suspend failure path correctly
-Date: Thu, 14 Mar 2013 12:10:10 +0100
-Message-ID: <20130314111010.GA15776@localhost>
-References: <1362672924-22975-1-git-send-email-ming.lei@canonical.com>
- <1362672924-22975-3-git-send-email-ming.lei@canonical.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash table
+Date: Thu, 14 Mar 2013 13:34:48 +0100
+Message-ID: <20130314123448.GA27559@order.stressinduktion.org>
+References: <20130308130433.GB28531@order.stressinduktion.org> <1362754386.15793.226.camel@edumazet-glaptop> <20130308150831.GD28531@order.stressinduktion.org> <1362756219.15793.240.camel@edumazet-glaptop> <20130313012715.GE14801@order.stressinduktion.org> <1363152568.13690.35.camel@edumazet-glaptop> <20130314013702.GA4129@order.stressinduktion.org> <CAOaVG148gUzcb2qmg0B7kdWNzNzerMdXZzv2qamXq8ToUFsUyw@mail.gmail.com> <20130314071408.GB4129@order.stressinduktion.org> <AE90C24D6B3A694183C094C60CF0A2F6026B718C@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-input@vger.kernel.org,
-	Johan Hovold <jhovold@gmail.com>
-To: Ming Lei <ming.lei@canonical.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, brouer@redhat.com
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:54396 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756688Ab3CNLLF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 07:11:05 -0400
+Received: from order.stressinduktion.org ([87.106.68.36]:34976 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750989Ab3CNMet (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 08:34:49 -0400
 Content-Disposition: inline
-In-Reply-To: <1362672924-22975-3-git-send-email-ming.lei@canonical.com>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B718C@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 08, 2013 at 12:15:19AM +0800, Ming Lei wrote:
-> This patch kills traffic even though type->suspend returns
-> failure inside usb_serial_suspend from system sleep context
-> because USB core ignores the failiure and lets system sleep
-> go ahread, so the serial URB traffic need to be killed
-> in this case.
->=20
-> Cc: Johan Hovold <jhovold@gmail.com>
-> Signed-off-by: Ming Lei <ming.lei@canonical.com>
-> ---
->  drivers/usb/serial/usb-serial.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->=20
-> diff --git a/drivers/usb/serial/usb-serial.c b/drivers/usb/serial/usb=
--serial.c
-> index a19ed74..9d0b9c8 100644
-> --- a/drivers/usb/serial/usb-serial.c
-> +++ b/drivers/usb/serial/usb-serial.c
-> @@ -1142,10 +1142,11 @@ int usb_serial_suspend(struct usb_interface *=
-intf, pm_message_t message)
-> =20
->  	if (serial->type->suspend) {
->  		r =3D serial->type->suspend(serial, message);
-> -		if (r < 0) {
-> +		if (r < 0 && PMSG_IS_AUTO(message)) {
->  			serial->suspending =3D 0;
->  			goto err_out;
->  		}
-> +		/* TODO: resume() might need to handle suspend failure */
->  	}
-> =20
->  	for (i =3D 0; i < serial->num_ports; ++i) {
+On Thu, Mar 14, 2013 at 09:47:24AM -0000, David Laight wrote:
+> > On Wed, Mar 13, 2013 at 09:36:52PM -0700, Stephen Hemminger wrote:
+> > > > +#define INET_FRAG_FIND_CHECK(val)                                      \
+> > > > +       ({                                                              \
+> > > > +               static const char ___mem[] =                            \
+> > > > +                       KERN_ERR pr_fmt(                                \
+> > > > +                               "inet_frag_find: No memory left."       \
+> > > > +                               " Dropping fragment.\n");               \
+> > > > +               static const char ___limit[] =                          \
+> > > > +                       KERN_WARNING pr_fmt(                            \
+> > > > +                               "inet_frag_find: Fragment hash bucket"  \
+> > > > +                               " list length grew above limit "        \
+> > > > +                               __stringify(INETFRAGS_MAXDEPTH)         \
+> > > > +                               ". Dropping fragment.\n");              \
+> > > > +               bool ___b = true;                                       \
+> > > > +               if (IS_ERR_OR_NULL(val)) {                              \
+> > > > +                       ___b = false;                                   \
+> > > > +                       if (PTR_ERR(val) == -ENOBUFS)                   \
+> > > > +                               LIMIT_NETDEBUG(___limit);               \
+> > > > +                       else                                            \
+> > > > +                               LIMIT_NETDEBUG(___mem);                 \
+> > > > +               }                                                       \
+> > > > +               ___b;                                                   \
+> > > > +       })
+> > > > +
+> > >
+> > > Big macros suck, write it as an inline function or better yet a real function.
+> > 
+> > I switched to the macro to have string expansion with pr_fmt. So it is visible
+> > from the dmesg if IPv4, IPv6 or IPv6-nf did generate the message. This could
+> > be done with a function, too, but would require a bit more string handling.
+> 
+> I'd guess it would be best to have the IS_ERR_OR_NULL() inline calling a
+> real function on error.
 
-Sorry for the late reply.
+I'll explore later on how to achieve this. My rational was to
+not do dynamic string handling to build the error messages. Perhaps I
+can achieve both at the same time. :)
 
-The usb-serial subdriver suspend callbacks do not and must not return
-non-zero if !PMSG_IS_AUTO(message) so adding code to handle that case
-merely obfuscates this fact.
+> I'd also have thought that INETFRAGS_MAXDEPTH should be run-time tunable.
 
-I'd rather see this documented with a comment just as Bj=F8rn suggested
-for cdc_mbim and qmi_wwan.
+128 is actually a pretty high limit. Have you seen the patch I posted before
+this one? I tried to come up with a solution to dynamically calculate
+max_depth based on the max_thresh of the fragmentation cache. What do you
+think about that solution?
 
-Thanks,
-Johan
+Thanks!
