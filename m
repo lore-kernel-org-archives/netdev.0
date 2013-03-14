@@ -1,32 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 00/22] Add support for Chelsio T5 adapter
-Date: Thu, 14 Mar 2013 11:45:33 -0400 (EDT)
-Message-ID: <20130314.114533.485492257267245931.davem@davemloft.net>
-References: <1363273748-25330-1-git-send-email-vipul@chelsio.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] packet: packet fanout rollover during socket
+ overload
+Date: Thu, 14 Mar 2013 16:46:54 +0100
+Message-ID: <1363276014.29475.33.camel@edumazet-glaptop>
+References: <1363100153-24433-1-git-send-email-willemb@google.com>
+	 <20130313.044405.628402628153303315.davem@davemloft.net>
+	 <20130313.044544.792587152137191597.davem@davemloft.net>
+	 <CA+FuTScE_Y-waWVKRzJZuovbXdOmRQ3wHxjDETpjiwKwRvrbuQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	linux-scsi@vger.kernel.org, roland@purestorage.com,
-	JBottomley@parallels.com, dm@chelsio.com,
-	swise@opengridcomputing.com, leedom@chelsio.com,
-	naresh@chelsio.com, divy@chelsio.com, santosh@chelsio.com,
-	arvindb@chelsio.com, abhishek@chelsio.com
-To: vipul@chelsio.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>
+To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34914 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757424Ab3CNPpX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 11:45:23 -0400
-In-Reply-To: <1363273748-25330-1-git-send-email-vipul@chelsio.com>
+Received: from mail-ee0-f48.google.com ([74.125.83.48]:63822 "EHLO
+	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932575Ab3CNPq7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 11:46:59 -0400
+Received: by mail-ee0-f48.google.com with SMTP id t10so1101583eei.7
+        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 08:46:57 -0700 (PDT)
+In-Reply-To: <CA+FuTScE_Y-waWVKRzJZuovbXdOmRQ3wHxjDETpjiwKwRvrbuQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vipul Pandya <vipul@chelsio.com>
-Date: Thu, 14 Mar 2013 20:38:46 +0530
+On Wed, 2013-03-13 at 12:13 -0400, Willem de Bruijn wrote:
 
-> We request to merge this patch series via David Miller's net-next tree. We are
-> copying respective maintainers of all the drivers for reviewing the changes.
-> Kindly let us know in case of any review comments.
+> Will do. Apologies for the botched emails, including the html reply
+> that the list thankfully rejected. I'll write some fanout
+> documentation for the packet man page as penance.
 
-All applied to net-next, thanks.
+Sounds good ! Thanks Willem !
