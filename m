@@ -1,133 +1,59 @@
 From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: em1 is visible to iproute2 but not ethtool or tcpdump
-Date: Thu, 14 Mar 2013 15:43:17 -0700
-Message-ID: <CALCETrXrOxSOiczSLNSd3=bTHZX+G5NUQ+mvBDC71SX4PTkSPA@mail.gmail.com>
-References: <CALCETrV0SP+z_acyRTV++uZCFafJ7h+Ef9_NQ1tKrqOAiiVt8w@mail.gmail.com>
- <804857E1F29AAC47BF68C404FC60A1844D040373@ORSMSX102.amr.corp.intel.com>
+Subject: Re: LRO/GRO and libpcap packet reordering
+Date: Thu, 14 Mar 2013 15:45:11 -0700
+Message-ID: <CALCETrUidEuaxBeDdDwGb=Dx5iGm1CK-HGWNXRUev5xoR9fnRg@mail.gmail.com>
+References: <CALCETrXT036Aoaum+uUV_Of0AFdUZ3eq0QjMjxiCJR4n8AZRTQ@mail.gmail.com>
+ <1363298294.2695.15.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Network Development <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Cc: Network Development <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f170.google.com ([209.85.220.170]:51320 "EHLO
-	mail-vc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753242Ab3CNWni (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 18:43:38 -0400
-Received: by mail-vc0-f170.google.com with SMTP id lf10so809886vcb.15
-        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 15:43:37 -0700 (PDT)
-In-Reply-To: <804857E1F29AAC47BF68C404FC60A1844D040373@ORSMSX102.amr.corp.intel.com>
+Received: from mail-ve0-f170.google.com ([209.85.128.170]:62195 "EHLO
+	mail-ve0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752982Ab3CNWpe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 18:45:34 -0400
+Received: by mail-ve0-f170.google.com with SMTP id 14so2193202vea.29
+        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 15:45:33 -0700 (PDT)
+In-Reply-To: <1363298294.2695.15.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 14, 2013 at 1:45 PM, Allan, Bruce W <bruce.w.allan@intel.com> wrote:
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org [mailto:netdev-
->> owner@vger.kernel.org] On Behalf Of Andy Lutomirski
->> Sent: Thursday, March 14, 2013 9:54 AM
->> To: Network Development
->> Cc: e1000-devel@lists.sourceforge.net
->> Subject: em1 is visible to iproute2 but not ethtool or tcpdump
+On Thu, Mar 14, 2013 at 2:58 PM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> On Thu, 2013-03-14 at 13:37 -0700, Andy Lutomirski wrote:
+>> (I'm on Ubuntu's 3.5.0-23, but I haven't seen anything that would
+>> change this behavior in newer kernels.)
 >>
->> My e1000e device is em1.  It has this rather strange behavior on
->> Fedora's 3.8.1 (although 3.7.something did the same thing, I believe):
+>> I have a myri10ge device that's attached to a port mirror.  It runs
+>> tcpdump.  Most of the traffic I'm capturing has another machine
+>> attached to this switch as an endpoint.  That machine is considerably
+>> faster than the machine doing the capturing.
 >>
->> $ ip link show dev em1
->> 6: em1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc
->> pfifo_fast
->> state DOWN qlen 1000
->>     link/ether f0:de:f1:59:f6:c9 brd ff:ff:ff:ff:ff:ff
->> $ strace -e socket,ioctl ethtool em1
->> socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 3
->> Settings for em1:
->> ioctl(3, SIOCETHTOOL, 0x7fffa6c554d0)   = -1 ENODEV (No such device)
->> Cannot get device settings: No such device
->> ioctl(3, SIOCETHTOOL, 0x7fffa6c554d0)   = -1 ENODEV (No such device)
->> Cannot get wake-on-lan settings: No such device
->> ioctl(3, SIOCETHTOOL, 0x7fffa6c554d0)   = -1 ENODEV (No such device)
->> Cannot get message level: No such device
->> ioctl(3, SIOCETHTOOL, 0x7fffa6c554d0)   = -1 ENODEV (No such device)
->> Cannot get link status: No such device
->> No data available
->> +++ exited with 75 +++
->> $ sudo tcpdump -i em1
->> tcpdump: em1: SIOETHTOOL(ETHTOOL_GTSO) ioctl failed: No such device
+>> My captures show nasty artifacts: packets are reodered between a given
+>> flow and the other direction of the same flow.  The nasty case is when
+>> an ACK shows up before the packet that it's acking.  This thoroughly
+>> screws up Wireshark's TCP sequencing analysis.  Turning off LRO and
+>> GRO fixes it.
 >>
->> A sufficient number of rmmod/modprobe cycles will make it work.
->>
->> This is, perhaps, helpful:
->>
->> $ sudo ip link set dev em1 name foobar
->> RTNETLINK answers: Device or resource busy
->> $ sudo ip link set dev em1 down
->> $ sudo ip link set dev em1 name foobar
->> $ sudo ethtool foobar
->> Settings for foobar:
->>       Supported ports: [ TP ]
->>       Supported link modes:   10baseT/Half 10baseT/Full
->>                               100baseT/Half 100baseT/Full
->>                               1000baseT/Full
->>       Supported pause frame use: No
->>       Supports auto-negotiation: Yes
->>       Advertised link modes:  10baseT/Half 10baseT/Full
->>                               100baseT/Half 100baseT/Full
->>                               1000baseT/Full
->>       Advertised pause frame use: No
->>       Advertised auto-negotiation: Yes
->>       Speed: Unknown!
->>       Duplex: Unknown! (255)
->>       Port: Twisted Pair
->>       PHYAD: 1
->>       Transceiver: internal
->>       Auto-negotiation: on
->>       MDI-X: Unknown
->>       Supports Wake-on: pumbg
->>       Wake-on: g
->>       Current message level: 0x00000007 (7)
->>                              drv probe link
->>       Link detected: no
->> $ sudo ip link set dev foobar name em1
->> $ sudo ethtool em1
->> Settings for em1:
->>       Supported ports: [ TP ]
->>       Supported link modes:   10baseT/Half 10baseT/Full
->>                               100baseT/Half 100baseT/Full
->>                               1000baseT/Full
->>       Supported pause frame use: No
->>       Supports auto-negotiation: Yes
->>       Advertised link modes:  10baseT/Half 10baseT/Full
->>                               100baseT/Half 100baseT/Full
->>                               1000baseT/Full
->>       Advertised pause frame use: No
->>       Advertised auto-negotiation: Yes
->>       Speed: Unknown!
->>       Duplex: Unknown! (255)
->>       Port: Twisted Pair
->>       PHYAD: 1
->>       Transceiver: internal
->>       Auto-negotiation: on
->>       MDI-X: Unknown
->>       Supports Wake-on: pumbg
->>       Wake-on: g
->>       Current message level: 0x00000007 (7)
->>                              drv probe link
->>       Link detected: no
->> $
->>
->> This bug (?) isn't a show-stopper, but it's rather annoying.  I
->> suspect a core networking bug, not an e1000e bug, but I cc'd the e1000
->> people just in case.
+>> Clearly, since this interface doesn't actually have an IP address,
+>> there's no good reason to keep GRO and LRO on.  Nonetheless, it would
+>> be nice if GRO didn't coalesce packets when there's an intervening
+>> packing in the other direction on the same flow.  Can this be done
+>> cheaply?
 >
-> This sounds related to some runtime power management (RPM) issues that have
-> already been fixed.  First check whether RPM is enabled for your device - the file
-> /sys/devices/pciNNNN:NN/NNNN:NN:NN.N/power/control (where NNNN... is
-> the PCI domain, bus, slot and function of your device) will contain "auto" when it
-> is enabled.  To disable RPM for that device, change the value in the file to "on".
+> No, it would not be cheap.
+>
 
-Seems to work.  Oddly, I'm pretty sure I've seen this bug even when
-something's plugged in.
+Hmm.  What if the GRO flow hashing was something like hash(one
+endpoint) ^ hash(the other endpoint)?  (NB: I don't really know what
+I'm talking about.)
 
-Is the fix heading to stable?
+> You'll probably have to disable GRO, LRO and also RSS (unless you can
+> configure the RSS hash function to produce the same result for both
+> directions of a flow).
+>
+
+RSS was already off.  That was the first thing I tried.
 
 --Andy
