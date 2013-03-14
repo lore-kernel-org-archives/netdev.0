@@ -1,59 +1,77 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: Who/What is supposed to remove IPv6 address from interface when
- moving from one network to another ?
-Date: Thu, 14 Mar 2013 14:48:15 -0500
-Message-ID: <1363290495.1643.29.camel@dcbw.foobar.com>
-References: <CAF6-1L4=xACZdqvJ6AZL4XkY17N0pC9PnPfNfK9Tk7QB47c1tw@mail.gmail.com>
-	 <CAF6-1L5cxguK8tHxjMACZJ8xNmAXLLXwP086eF4_SEctZdiZ3g@mail.gmail.com>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH] mv643xx_eth: convert to use the Marvell Orion MDIO
+ driver
+Date: Thu, 14 Mar 2013 16:36:37 -0400
+Message-ID: <20130314203637.GX12700@titan.lakedaemon.net>
+References: <1359473048-26551-1-git-send-email-florian@openwrt.org>
+ <1363284515-9865-1-git-send-email-florian@openwrt.org>
+ <1363284515-9865-2-git-send-email-florian@openwrt.org>
+ <20130314190235.GW12700@titan.lakedaemon.net>
+ <514225E9.9060902@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lorenzo@google.com
-To: Sylvain Munaut <s.munaut@whatever-company.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52229 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751072Ab3CNTre (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Mar 2013 15:47:34 -0400
-In-Reply-To: <CAF6-1L5cxguK8tHxjMACZJ8xNmAXLLXwP086eF4_SEctZdiZ3g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Russell King <linux@arm.linux.org.uk>,
+	linux-doc@vger.kernel.org,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+	Rob Herring <rob.herring@calxeda.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
+	linux-arm-kernel@lists.infradead.org,
+	Rob Landley <rob@landley.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linuxppc-dev@lists.ozlabs.org,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <514225E9.9060902@openwrt.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-03-14 at 20:33 +0100, Sylvain Munaut wrote:
-> Hi,
-> 
-> 
-> In a nutshell, I'm experiencing the same behavior as described here
-> http://kerneltrap.org/mailarchive/linux-netdev/2010/10/26/6288280 ...
-> but 2.5 years later ...
-> 
-> When switching network, my interface doesn't necessarily goes down and
-> so IPv6 prefixes from my old location are kept, causing issues.
-> 
-> I read the thread above, but it just seem to "stop" without really a
-> solution ...
-> 
-> So what's the proper thing to do ?  How is it supposed to work ?
-> I searched for a while and except for the thread above, I couldn't
-> find any reference on whose responsibility it is to cleanup. Given the
-> kernel added the address itself, I'd tend to agree with the original
-> poster and that the kernel should handle the cleanup.
+On Thu, Mar 14, 2013 at 08:32:57PM +0100, Florian Fainelli wrote:
+> Hello Jason,
+>=20
+> Le 14/03/2013 20:02, Jason Cooper a =E9crit :
+> >Florian,
+> >
+> >On Thu, Mar 14, 2013 at 07:08:32PM +0100, Florian Fainelli wrote:
+> >>This patch converts the Marvell MV643XX ethernet driver to use the
+> >>Marvell Orion MDIO driver. As a result, PowerPC and ARM platforms
+> >>registering the Marvell MV643XX ethernet driver are also updated to
+> >>register a Marvell Orion MDIO driver. This driver voluntarily overl=
+aps
+> >>with the Marvell Ethernet shared registers because it will use a su=
+bset
+> >>of this shared register (shared_base + 0x4 - shared_base + 0x84). T=
+he
+> >>Ethernet driver is also updated to look up for a PHY device using t=
+he
+> >>Orion MDIO bus driver.
+> >>
+> >>Signed-off-by: Florian Fainelli <florian@openwrt.org>
+> >>---
+> >>  arch/arm/plat-orion/common.c               |   97 +++++++++++----
+> >>  arch/powerpc/platforms/chrp/pegasos_eth.c  |   20 +++
+> >>  arch/powerpc/sysdev/mv64x60_dev.c          |   14 ++-
+> >>  drivers/net/ethernet/marvell/Kconfig       |    1 +
+> >>  drivers/net/ethernet/marvell/mv643xx_eth.c |  186 ++-------------=
+-------------
+> >>  include/linux/mv643xx_eth.h                |    1 -
+> >>  6 files changed, 117 insertions(+), 202 deletions(-)
+> >
+> >Isn't this the old version of 4/4 ?
+>=20
+> No this really is v2, but I reformatted just that one and sent it
+> without the v2 changelog, you should have received the proper
+> version a couple minutes later once I realized my mistake.
 
-The old network prefix should have a lifetime, and when that lifetime
-has expired, it should be deleted by the kernel.  However, that lifetime
-is specified by the IPv6 router on your network, and may be very large.
-Thus when you switch networks, if the lifetime of the old prefix has not
-expired, the address is not deleted.
+Yes, I received both, just making sure.
 
-A daemon like NetworkManager usually handles this sort of thing for you
-by watching for link/carrier events and retriggering the IP
-configuration process when you connect to the new network.  The kernel
-does not (and shouldn't) trigger anything on carrier change as that's a
-site-specific/user-specific policy.
+thx,
 
-(if you want to trigger it manually, you should be able to run 'ifconfig
-eth0 down' and then 'ifconfig eth0 up' when you have connected to the
-new network, which clears out the old addresses and then lets the kernel
-listen for new router advertisements from the new network).
-
-Dan
+Jason.
