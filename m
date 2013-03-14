@@ -1,165 +1,68 @@
-From: Vladimir Davydov <vdavydov@parallels.com>
-Subject: [PATCH] netfilter: nf_conntrack: Batch cleanup
-Date: Thu, 14 Mar 2013 13:40:14 +0400
-Message-ID: <1363254014-10725-1-git-send-email-vdavydov@parallels.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash table
+Date: Thu, 14 Mar 2013 09:47:24 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B718C@saturn3.aculab.com>
+References: <20130307214211.GP7941@order.stressinduktion.org> <20130308055718.GA28531@order.stressinduktion.org> <20130308130433.GB28531@order.stressinduktion.org> <1362754386.15793.226.camel@edumazet-glaptop> <20130308150831.GD28531@order.stressinduktion.org> <1362756219.15793.240.camel@edumazet-glaptop> <20130313012715.GE14801@order.stressinduktion.org> <1363152568.13690.35.camel@edumazet-glaptop> <20130314013702.GA4129@order.stressinduktion.org> <CAOaVG148gUzcb2qmg0B7kdWNzNzerMdXZzv2qamXq8ToUFsUyw@mail.gmail.com> <20130314071408.GB4129@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netfilter-devel@vger.kernel.org>, <netfilter@vger.kernel.org>,
-	<coreteam@netfilter.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <devel@openvz.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Eric Dumazet" <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
+	<yoshfuji@linux-ipv6.org>, <brouer@redhat.com>
+To: "Hannes Frederic Sowa" <hannes@stressinduktion.org>,
+	"Stephen Hemminger" <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:46692 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755804Ab3CNJkf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 05:40:35 -0400
+Received: from mx0.aculab.com ([213.249.233.131]:57396 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755677Ab3CNJxq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Mar 2013 05:53:46 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 25297-01 for <netdev@vger.kernel.org>;
+ Thu, 14 Mar 2013 09:53:39 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <20130314071408.GB4129@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch introduces nf_conntrack_cleanup_net_list(), which cleanups
-nf_conntrack for a list of netns and calls synchronize_net() only once
-for them all. This should reduce netns destruction time.
---
-I've measured cleanup time for 1k dummy net ns. Here are the results:
-
- <without the patch>
- # modprobe nf_conntrack
- # time modprobe -r nf_conntrack
-
- real	0m10.337s
- user	0m0.000s
- sys	0m0.376s
-
- <with the patch>
- # modprobe nf_conntrack
- # time modprobe -r nf_conntrack
-
- real    0m5.661s
- user    0m0.000s
- sys     0m0.216s
-
-Signed-off-by: Vladimir Davydov <vdavydov@parallels.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
----
- include/net/netfilter/nf_conntrack_core.h |    1 +
- net/netfilter/nf_conntrack_core.c         |   46 ++++++++++++++++++++---------
- net/netfilter/nf_conntrack_standalone.c   |   16 ++++++----
- 3 files changed, 43 insertions(+), 20 deletions(-)
-
-diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
-index 930275f..fb2b623 100644
---- a/include/net/netfilter/nf_conntrack_core.h
-+++ b/include/net/netfilter/nf_conntrack_core.h
-@@ -27,6 +27,7 @@ extern unsigned int nf_conntrack_in(struct net *net,
- 
- extern int nf_conntrack_init_net(struct net *net);
- extern void nf_conntrack_cleanup_net(struct net *net);
-+extern void nf_conntrack_cleanup_net_list(struct list_head *net_exit_list);
- 
- extern int nf_conntrack_proto_pernet_init(struct net *net);
- extern void nf_conntrack_proto_pernet_fini(struct net *net);
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index c8e001a..09c02ef 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1364,30 +1364,48 @@ void nf_conntrack_cleanup_end(void)
-  */
- void nf_conntrack_cleanup_net(struct net *net)
- {
-+	LIST_HEAD(single);
-+
-+	list_add(&net->exit_list, &single);
-+	nf_conntrack_cleanup_net_list(&single);
-+}
-+
-+void nf_conntrack_cleanup_net_list(struct list_head *net_exit_list)
-+{
-+	int busy;
-+	struct net *net;
-+
- 	/*
- 	 * This makes sure all current packets have passed through
- 	 *  netfilter framework.  Roll on, two-stage module
- 	 *  delete...
- 	 */
- 	synchronize_net();
-- i_see_dead_people:
--	nf_ct_iterate_cleanup(net, kill_all, NULL);
--	nf_ct_release_dying_list(net);
--	if (atomic_read(&net->ct.count) != 0) {
-+i_see_dead_people:
-+	busy = 0;
-+	list_for_each_entry(net, net_exit_list, exit_list) {
-+		nf_ct_iterate_cleanup(net, kill_all, NULL);
-+		nf_ct_release_dying_list(net);
-+		if (atomic_read(&net->ct.count) != 0)
-+			busy = 1;
-+	}
-+	if (busy) {
- 		schedule();
- 		goto i_see_dead_people;
- 	}
- 
--	nf_ct_free_hashtable(net->ct.hash, net->ct.htable_size);
--	nf_conntrack_proto_pernet_fini(net);
--	nf_conntrack_helper_pernet_fini(net);
--	nf_conntrack_ecache_pernet_fini(net);
--	nf_conntrack_tstamp_pernet_fini(net);
--	nf_conntrack_acct_pernet_fini(net);
--	nf_conntrack_expect_pernet_fini(net);
--	kmem_cache_destroy(net->ct.nf_conntrack_cachep);
--	kfree(net->ct.slabname);
--	free_percpu(net->ct.stat);
-+	list_for_each_entry(net, net_exit_list, exit_list) {
-+		nf_ct_free_hashtable(net->ct.hash, net->ct.htable_size);
-+		nf_conntrack_proto_pernet_fini(net);
-+		nf_conntrack_helper_pernet_fini(net);
-+		nf_conntrack_ecache_pernet_fini(net);
-+		nf_conntrack_tstamp_pernet_fini(net);
-+		nf_conntrack_acct_pernet_fini(net);
-+		nf_conntrack_expect_pernet_fini(net);
-+		kmem_cache_destroy(net->ct.nf_conntrack_cachep);
-+		kfree(net->ct.slabname);
-+		free_percpu(net->ct.stat);
-+	}
- }
- 
- void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls)
-diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
-index 6bcce40..6c69fbd 100644
---- a/net/netfilter/nf_conntrack_standalone.c
-+++ b/net/netfilter/nf_conntrack_standalone.c
-@@ -545,16 +545,20 @@ out_init:
- 	return ret;
- }
- 
--static void nf_conntrack_pernet_exit(struct net *net)
-+static void nf_conntrack_pernet_exit(struct list_head *net_exit_list)
- {
--	nf_conntrack_standalone_fini_sysctl(net);
--	nf_conntrack_standalone_fini_proc(net);
--	nf_conntrack_cleanup_net(net);
-+	struct net *net;
-+
-+	list_for_each_entry(net, net_exit_list, exit_list) {
-+		nf_conntrack_standalone_fini_sysctl(net);
-+		nf_conntrack_standalone_fini_proc(net);
-+	}
-+	nf_conntrack_cleanup_net_list(net_exit_list);
- }
- 
- static struct pernet_operations nf_conntrack_net_ops = {
--	.init = nf_conntrack_pernet_init,
--	.exit = nf_conntrack_pernet_exit,
-+	.init		= nf_conntrack_pernet_init,
-+	.exit_batch	= nf_conntrack_pernet_exit,
- };
- 
- static int __init nf_conntrack_standalone_init(void)
--- 
-1.7.1
+PiBPbiBXZWQsIE1hciAxMywgMjAxMyBhdCAwOTozNjo1MlBNIC0wNzAwLCBTdGVwaGVuIEhlbW1p
+bmdlciB3cm90ZToNCj4gPiA+ICsjZGVmaW5lIElORVRfRlJBR19GSU5EX0NIRUNLKHZhbCkgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgKHsgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+IFwNCj4gPiA+ICsgICAgICAgICAgICAgICBzdGF0aWMgY29uc3QgY2hhciBfX19tZW1bXSA9ICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAgICAgICAg
+IEtFUk5fRVJSIHByX2ZtdCggICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+
+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgImluZXRfZnJhZ19maW5kOiBObyBtZW1v
+cnkgbGVmdC4iICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+IiBEcm9wcGluZyBmcmFnbWVudC5cbiIpOyAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAg
+ICAgICAgICBzdGF0aWMgY29uc3QgY2hhciBfX19saW1pdFtdID0gICAgICAgICAgICAgICAgICAg
+ICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAgICAgICAgIEtFUk5fV0FSTklORyBwcl9m
+bXQoICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgImluZXRfZnJhZ19maW5kOiBGcmFnbWVudCBoYXNoIGJ1Y2tldCIgIFwN
+Cj4gPiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIiBsaXN0IGxlbmd0aCBncmV3
+IGFib3ZlIGxpbWl0ICIgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgX19zdHJpbmdpZnkoSU5FVEZSQUdTX01BWERFUFRIKSAgICAgICAgIFwNCj4gPiA+ICsg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIi4gRHJvcHBpbmcgZnJhZ21lbnQuXG4iKTsg
+ICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICBib29sIF9fX2IgPSB0cnVlOyAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAg
+ICAgICBpZiAoSVNfRVJSX09SX05VTEwodmFsKSkgeyAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAgICAgICAgIF9fX2IgPSBmYWxzZTsgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAgICAg
+ICAgIGlmIChQVFJfRVJSKHZhbCkgPT0gLUVOT0JVRlMpICAgICAgICAgICAgICAgICAgIFwNCj4g
+PiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgTElNSVRfTkVUREVCVUcoX19fbGlt
+aXQpOyAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAgICAgICAgIGVsc2Ug
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgTElNSVRfTkVUREVCVUcoX19fbWVtKTsgICAgICAg
+ICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICB9ICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAg
+ICBfX19iOyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+IFwNCj4gPiA+ICsgICAgICAgfSkNCj4gPiA+ICsNCj4gPg0KPiA+IEJpZyBtYWNyb3Mgc3Vjaywg
+d3JpdGUgaXQgYXMgYW4gaW5saW5lIGZ1bmN0aW9uIG9yIGJldHRlciB5ZXQgYSByZWFsIGZ1bmN0
+aW9uLg0KPiANCj4gSSBzd2l0Y2hlZCB0byB0aGUgbWFjcm8gdG8gaGF2ZSBzdHJpbmcgZXhwYW5z
+aW9uIHdpdGggcHJfZm10LiBTbyBpdCBpcyB2aXNpYmxlDQo+IGZyb20gdGhlIGRtZXNnIGlmIElQ
+djQsIElQdjYgb3IgSVB2Ni1uZiBkaWQgZ2VuZXJhdGUgdGhlIG1lc3NhZ2UuIFRoaXMgY291bGQN
+Cj4gYmUgZG9uZSB3aXRoIGEgZnVuY3Rpb24sIHRvbywgYnV0IHdvdWxkIHJlcXVpcmUgYSBiaXQg
+bW9yZSBzdHJpbmcgaGFuZGxpbmcuDQoNCkknZCBndWVzcyBpdCB3b3VsZCBiZSBiZXN0IHRvIGhh
+dmUgdGhlIElTX0VSUl9PUl9OVUxMKCkgaW5saW5lIGNhbGxpbmcgYQ0KcmVhbCBmdW5jdGlvbiBv
+biBlcnJvci4NCkknZCBhbHNvIGhhdmUgdGhvdWdodCB0aGF0IElORVRGUkFHU19NQVhERVBUSCBz
+aG91bGQgYmUgcnVuLXRpbWUgdHVuYWJsZS4NCg0KCURhdmlkDQoNCg==
