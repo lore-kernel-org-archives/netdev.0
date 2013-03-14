@@ -1,8 +1,10 @@
 From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 0/4] mv643xx_eth: use mvmdio MDIO bus driver
-Date: Thu, 14 Mar 2013 19:08:31 +0100
-Message-ID: <1363284515-9865-1-git-send-email-florian@openwrt.org>
+Subject: [PATCH 2/4 v2] net: mvmdio: rename base register cookie from smireg
+ to regs
+Date: Thu, 14 Mar 2013 19:08:33 +0100
+Message-ID: <1363284515-9865-3-git-send-email-florian@openwrt.org>
 References: <1359473048-26551-1-git-send-email-florian@openwrt.org>
+ <1363284515-9865-1-git-send-email-florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,7 +21,7 @@ Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
  Lennert Buytenhek <buytenh@wantstofly.org>
 To: davem@davemloft.net
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1359473048-26551-1-git-send-email-florian@openwrt.org>
+In-Reply-To: <1363284515-9865-1-git-send-email-florian@openwrt.org>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -31,34 +33,76 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+This patch renames the base register cookie in the mvmdio drive from
+"smireg" to "regs" since a subsequent patch is going to use an ioremap()
+cookie whose size is larger than a single register of 4 bytes. No
+functionnal code change introduced.
 
-This patch converts the mv643xx_eth driver to use the mvmdio MDIO bus driver
-instead of rolling its own implementation. As a result, all users of this
-mv643xx_eth driver are converted to register an "orion-mdio" platform_device.
-The mvmdio driver is also updated to support an interrupt line which reports
-SMI error/completion, and to allow traditionnal platform device registration
-instead of just device tree.
+Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
+---
+Changes since v1:
+- added Thomas Acked-by tag
 
-David, I think it makes sense for you to merge all of this, since we do
-not want the architecture files to be desynchronized from the mv643xx_eth to
-avoid runtime breakage. The potential for merge conflicts should be very small.
+ drivers/net/ethernet/marvell/mvmdio.c |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-Florian Fainelli (4):
-  net: mvmdio: allow platform device style registration
-  net: mvmdio: rename base register cookie from smireg to regs
-  net: mvmdio: enhance driver to support SMI error/done interrupts
-  mv643xx_eth: convert to use the Marvell Orion MDIO driver
-
- .../devicetree/bindings/net/marvell-orion-mdio.txt |    3 +
- arch/arm/plat-orion/common.c                       |   97 +++++++---
- arch/powerpc/platforms/chrp/pegasos_eth.c          |   20 +++
- arch/powerpc/sysdev/mv64x60_dev.c                  |   14 +-
- drivers/net/ethernet/marvell/Kconfig               |    1 +
- drivers/net/ethernet/marvell/mv643xx_eth.c         |  186 +-------------------
- drivers/net/ethernet/marvell/mvmdio.c              |  111 +++++++++---
- include/linux/mv643xx_eth.h                        |    1 -
- 8 files changed, 207 insertions(+), 226 deletions(-)
-
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index 8a182f1..595deea 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -38,7 +38,7 @@
+ 
+ struct orion_mdio_dev {
+ 	struct mutex lock;
+-	void __iomem *smireg;
++	void __iomem *regs;
+ };
+ 
+ /* Wait for the SMI unit to be ready for another operation
+@@ -51,7 +51,7 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
+ 
+ 	count = 0;
+ 	while (1) {
+-		val = readl(dev->smireg);
++		val = readl(dev->regs);
+ 		if (!(val & MVMDIO_SMI_BUSY))
+ 			break;
+ 
+@@ -86,12 +86,12 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
+ 	writel(((mii_id << MVMDIO_SMI_PHY_ADDR_SHIFT) |
+ 		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
+ 		MVMDIO_SMI_READ_OPERATION),
+-	       dev->smireg);
++	       dev->regs);
+ 
+ 	/* Wait for the value to become available */
+ 	count = 0;
+ 	while (1) {
+-		val = readl(dev->smireg);
++		val = readl(dev->regs);
+ 		if (val & MVMDIO_SMI_READ_VALID)
+ 			break;
+ 
+@@ -128,7 +128,7 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
+ 		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
+ 		MVMDIO_SMI_WRITE_OPERATION            |
+ 		(value << MVMDIO_SMI_DATA_SHIFT)),
+-	       dev->smireg);
++	       dev->regs);
+ 
+ 	mutex_unlock(&dev->lock);
+ 
+@@ -177,8 +177,8 @@ static int orion_mdio_probe(struct platform_device *pdev)
+ 		bus->irq[i] = PHY_POLL;
+ 
+ 	dev = bus->priv;
+-	dev->smireg = devm_ioremap(&pdev->dev, r->start, resource_size(r));
+-	if (!dev->smireg) {
++	dev->regs = devm_ioremap(&pdev->dev, r->start, resource_size(r));
++	if (!dev->regs) {
+ 		dev_err(&pdev->dev, "Unable to remap SMI register\n");
+ 		kfree(bus->irq);
+ 		mdiobus_free(bus);
 -- 
 1.7.10.4
