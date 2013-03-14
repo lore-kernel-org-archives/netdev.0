@@ -1,58 +1,45 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] isdn: hisax: netjet requires VIRT_TO_BUS
-Date: Thu, 14 Mar 2013 22:56:41 +0100
-Message-ID: <1363298204-8014-4-git-send-email-arnd@arndb.de>
+Subject: [PATCH] ethernet/tulip: DE4x5 needs VIRT_TO_BUS
+Date: Thu, 14 Mar 2013 22:56:42 +0100
+Message-ID: <1363298204-8014-5-git-send-email-arnd@arndb.de>
 References: <1363298204-8014-1-git-send-email-arnd@arndb.de>
 Cc: linux-arm-kernel@lists.infradead.org,
 	Arnd Bergmann <arnd@arndb.de>,
-	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
+	Grant Grundler <grundler@parisc-linux.org>,
+	netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1363298204-8014-1-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Disabling CONFIG_VIRT_TO_BUS on ARM showed that the hisax netjet
-driver depends on this deprecated functionality but is not
-marked so in Kconfig.
+The automated ARM build tests have shown that the tulip de4x5 driver
+uses the old-style virt_to_bus() interface on some architectures.
 
-Rather than adding ARM to the already long list of architectures
-that this driver is broken on, this patch adds 'depends on
-VIRT_TO_BUS' and removes the dependency on !SPARC, which is
-also implied by that.
+Alpha, Sparc and PowerPC did not hit this problem, because they
+use a different code path, and most other architectures actually
+do provide VIRT_TO_BUS.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Karsten Keil <isdn@linux-pingi.de>
+Cc: Grant Grundler <grundler@parisc-linux.org>
 Cc: netdev@vger.kernel.org
 ---
 Please apply for 3.9 or 3.10, this one is not urgent
 
- drivers/isdn/hisax/Kconfig | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/dec/tulip/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/isdn/hisax/Kconfig b/drivers/isdn/hisax/Kconfig
-index 5313c9e..d9edcc9 100644
---- a/drivers/isdn/hisax/Kconfig
-+++ b/drivers/isdn/hisax/Kconfig
-@@ -237,7 +237,8 @@ config HISAX_MIC
- 
- config HISAX_NETJET
- 	bool "NETjet card"
--	depends on PCI && (BROKEN || !(SPARC || PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
-+	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
-+	depends on VIRT_TO_BUS
- 	help
- 	  This enables HiSax support for the NetJet from Traverse
- 	  Technologies.
-@@ -248,7 +249,8 @@ config HISAX_NETJET
- 
- config HISAX_NETJET_U
- 	bool "NETspider U card"
--	depends on PCI && (BROKEN || !(SPARC || PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
-+	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
-+	depends on VIRT_TO_BUS
- 	help
- 	  This enables HiSax support for the Netspider U interface ISDN card
- 	  from Traverse Technologies.
+diff --git a/drivers/net/ethernet/dec/tulip/Kconfig b/drivers/net/ethernet/dec/tulip/Kconfig
+index 0c37fb2..1df33c7 100644
+--- a/drivers/net/ethernet/dec/tulip/Kconfig
++++ b/drivers/net/ethernet/dec/tulip/Kconfig
+@@ -108,6 +108,7 @@ config TULIP_DM910X
+ config DE4X5
+ 	tristate "Generic DECchip & DIGITAL EtherWORKS PCI/EISA"
+ 	depends on (PCI || EISA)
++	depends on VIRT_TO_BUS || ALPHA || PPC || SPARC
+ 	select CRC32
+ 	---help---
+ 	  This is support for the DIGITAL series of PCI/EISA Ethernet cards.
 -- 
 1.8.1.2
