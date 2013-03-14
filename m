@@ -1,55 +1,50 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash
- table
-Date: Thu, 14 Mar 2013 08:10:40 +0100
-Message-ID: <1363245040.14913.11.camel@localhost>
-References: <20130307214211.GP7941@order.stressinduktion.org>
-	 <20130308055718.GA28531@order.stressinduktion.org>
-	 <20130308130433.GB28531@order.stressinduktion.org>
-	 <1362754386.15793.226.camel@edumazet-glaptop>
-	 <20130308150831.GD28531@order.stressinduktion.org>
-	 <1362756219.15793.240.camel@edumazet-glaptop>
-	 <20130313012715.GE14801@order.stressinduktion.org>
-	 <1363152568.13690.35.camel@edumazet-glaptop>
-	 <20130314013702.GA4129@order.stressinduktion.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash table
+Date: Thu, 14 Mar 2013 08:14:08 +0100
+Message-ID: <20130314071408.GB4129@order.stressinduktion.org>
+References: <20130307214211.GP7941@order.stressinduktion.org> <20130308055718.GA28531@order.stressinduktion.org> <20130308130433.GB28531@order.stressinduktion.org> <1362754386.15793.226.camel@edumazet-glaptop> <20130308150831.GD28531@order.stressinduktion.org> <1362756219.15793.240.camel@edumazet-glaptop> <20130313012715.GE14801@order.stressinduktion.org> <1363152568.13690.35.camel@edumazet-glaptop> <20130314013702.GA4129@order.stressinduktion.org> <CAOaVG148gUzcb2qmg0B7kdWNzNzerMdXZzv2qamXq8ToUFsUyw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=utf-8
 Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+	yoshfuji@linux-ipv6.org, brouer@redhat.com
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33809 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752979Ab3CNHKs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Mar 2013 03:10:48 -0400
-In-Reply-To: <20130314013702.GA4129@order.stressinduktion.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:34311 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754249Ab3CNHOK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 03:14:10 -0400
+Content-Disposition: inline
+In-Reply-To: <CAOaVG148gUzcb2qmg0B7kdWNzNzerMdXZzv2qamXq8ToUFsUyw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-03-14 at 02:37 +0100, Hannes Frederic Sowa wrote:
-
-> [PATCH net] inet: limit length of fragment queue hash table bucket lists
+On Wed, Mar 13, 2013 at 09:36:52PM -0700, Stephen Hemminger wrote:
+> > +#define INET_FRAG_FIND_CHECK(val)                                      \
+> > +       ({                                                              \
+> > +               static const char ___mem[] =                            \
+> > +                       KERN_ERR pr_fmt(                                \
+> > +                               "inet_frag_find: No memory left."       \
+> > +                               " Dropping fragment.\n");               \
+> > +               static const char ___limit[] =                          \
+> > +                       KERN_WARNING pr_fmt(                            \
+> > +                               "inet_frag_find: Fragment hash bucket"  \
+> > +                               " list length grew above limit "        \
+> > +                               __stringify(INETFRAGS_MAXDEPTH)         \
+> > +                               ". Dropping fragment.\n");              \
+> > +               bool ___b = true;                                       \
+> > +               if (IS_ERR_OR_NULL(val)) {                              \
+> > +                       ___b = false;                                   \
+> > +                       if (PTR_ERR(val) == -ENOBUFS)                   \
+> > +                               LIMIT_NETDEBUG(___limit);               \
+> > +                       else                                            \
+> > +                               LIMIT_NETDEBUG(___mem);                 \
+> > +               }                                                       \
+> > +               ___b;                                                   \
+> > +       })
+> > +
 > 
-> This patch introduces a constant limit of the fragment queue hash
-> table bucket list lengths. Currently the limit 128 is choosen somewhat
-> arbitrary and just ensures that we can fill up the fragment cache with
-> empty packets up to the default ip_frag_high_thresh limits. It should
-> just protect from list iteration eating considerable amounts of cpu.
-> 
-> If we reach the maximum length in one hash bucket a warning is printed.
-> This is implemented on the caller side of inet_frag_find to distinguish
-> between the different users of inet_fragment.c.
+> Big macros suck, write it as an inline function or better yet a real function.
 
-I like the idea of having a safe guard on the fragment queue hash table
-bucket list lengths.  But I'm considering another cleanup/evictor
-strategy, where we drop the LRU list, and do frag eviction on a hash
-bucket level (which will be more cache optimal).  This strategy would
-also involve a list length limit.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+I switched to the macro to have string expansion with pr_fmt. So it is visible
+from the dmesg if IPv4, IPv6 or IPv6-nf did generate the message. This could
+be done with a function, too, but would require a bit more string handling.
