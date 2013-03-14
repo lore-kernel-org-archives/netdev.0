@@ -1,54 +1,39 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH v2 net-next 21/22] csiostor: Header file modifications for chip support and bug fixes.
-Date: Thu, 14 Mar 2013 20:39:07 +0530
-Message-ID: <1363273748-25330-22-git-send-email-vipul@chelsio.com>
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH v2 net-next 19/22] csiostor: Segregate T4 adapter operations.
+Date: Thu, 14 Mar 2013 20:39:05 +0530
+Message-ID: <1363273748-25330-20-git-send-email-vipul@chelsio.com>
 References: <1363273748-25330-1-git-send-email-vipul@chelsio.com>
-Cc: davem@davemloft.net, roland@purestorage.com,
-	JBottomley@parallels.com, dm@chelsio.com,
-	swise@opengridcomputing.com, leedom@chelsio.com,
-	naresh@chelsio.com, divy@chelsio.com, santosh@chelsio.com,
-	arvindb@chelsio.com, abhishek@chelsio.com, vipul@chelsio.com
-To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	linux-scsi@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:9391 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757791Ab3CNPQj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 11:16:39 -0400
-In-Reply-To: <1363273748-25330-1-git-send-email-vipul@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
+	JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	naresh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	arvindb-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, abhishek-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1363273748-25330-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Arvind Bhushan <arvindb@chelsio.com>
+From: Arvind Bhushan <arvindb-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 
-This patch defines the common operations to support multiple chips. It
-includes common header file modifications to support the current chips
-(T4 and T5). It also includes the following bug fixes:
-- reconfirms the rnode state after an implicit logo.
-- corrects the stats array size.
-- sets up and checks flags correctly when coming up as master and finding
-the card initialized
+This patch separates T4 adapter operations into a new file.
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Arvind Bhushan <arvindb@chelsio.com>
-Signed-off-by: Naresh Kumar Inna <naresh@chelsio.com>
+Signed-off-by: Arvind Bhushan <arvindb-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Naresh Kumar Inna <naresh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 ---
 v2: Replaced #ifdef with portable interface wmb in ring_tx_db
 
- drivers/scsi/csiostor/csio_hw_chip.h |  175 ++++++++++++++++++++++++++++++++++
- drivers/scsi/csiostor/csio_lnode.h   |    2 +-
- drivers/scsi/csiostor/csio_rnode.c   |   10 ++-
- drivers/scsi/csiostor/csio_rnode.h   |    2 +-
- drivers/scsi/csiostor/csio_wr.c      |   41 +++++---
- 5 files changed, 212 insertions(+), 18 deletions(-)
- create mode 100644 drivers/scsi/csiostor/csio_hw_chip.h
+ drivers/scsi/csiostor/csio_hw_t4.c |  403 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 403 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/scsi/csiostor/csio_hw_t4.c
 
-diff --git a/drivers/scsi/csiostor/csio_hw_chip.h b/drivers/scsi/csiostor/csio_hw_chip.h
+diff --git a/drivers/scsi/csiostor/csio_hw_t4.c b/drivers/scsi/csiostor/csio_hw_t4.c
 new file mode 100644
-index 0000000..bca0de6
+index 0000000..89ecbac
 --- /dev/null
-+++ b/drivers/scsi/csiostor/csio_hw_chip.h
-@@ -0,0 +1,175 @@
++++ b/drivers/scsi/csiostor/csio_hw_t4.c
+@@ -0,0 +1,403 @@
 +/*
 + * This file is part of the Chelsio FCoE driver for Linux.
 + *
@@ -65,8 +50,6 @@ index 0000000..bca0de6
 + *
 + *      - Redistributions of source code must retain the above
 + *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
 + *      - Redistributions in binary form must reproduce the above
 + *        copyright notice, this list of conditions and the following
 + *        disclaimer in the documentation and/or other materials
@@ -82,278 +65,382 @@ index 0000000..bca0de6
 + * SOFTWARE.
 + */
 +
-+#ifndef __CSIO_HW_CHIP_H__
-+#define __CSIO_HW_CHIP_H__
++#include "csio_hw.h"
++#include "csio_init.h"
 +
-+#include "csio_defs.h"
-+
-+/* FCoE device IDs for T4 */
-+#define CSIO_DEVID_T440DBG_FCOE			0x4600
-+#define CSIO_DEVID_T420CR_FCOE			0x4601
-+#define CSIO_DEVID_T422CR_FCOE			0x4602
-+#define CSIO_DEVID_T440CR_FCOE			0x4603
-+#define CSIO_DEVID_T420BCH_FCOE			0x4604
-+#define CSIO_DEVID_T440BCH_FCOE			0x4605
-+#define CSIO_DEVID_T440CH_FCOE			0x4606
-+#define CSIO_DEVID_T420SO_FCOE			0x4607
-+#define CSIO_DEVID_T420CX_FCOE			0x4608
-+#define CSIO_DEVID_T420BT_FCOE			0x4609
-+#define CSIO_DEVID_T404BT_FCOE			0x460A
-+#define CSIO_DEVID_B420_FCOE			0x460B
-+#define CSIO_DEVID_B404_FCOE			0x460C
-+#define CSIO_DEVID_T480CR_FCOE			0x460D
-+#define CSIO_DEVID_T440LPCR_FCOE		0x460E
-+#define CSIO_DEVID_AMSTERDAM_T4_FCOE		0x460F
-+#define CSIO_DEVID_HUAWEI_T480_FCOE		0x4680
-+#define CSIO_DEVID_HUAWEI_T440_FCOE		0x4681
-+#define CSIO_DEVID_HUAWEI_STG310_FCOE		0x4682
-+#define CSIO_DEVID_ACROMAG_XMC_XAUI		0x4683
-+#define CSIO_DEVID_ACROMAG_XMC_SFP_FCOE		0x4684
-+#define CSIO_DEVID_QUANTA_MEZZ_SFP_FCOE		0x4685
-+#define CSIO_DEVID_HUAWEI_10GT_FCOE		0x4686
-+#define CSIO_DEVID_HUAWEI_T440_TOE_FCOE		0x4687
-+
-+/* FCoE device IDs for T5 */
-+#define CSIO_DEVID_T580DBG_FCOE			0x5600
-+#define CSIO_DEVID_T520CR_FCOE			0x5601
-+#define CSIO_DEVID_T522CR_FCOE			0x5602
-+#define CSIO_DEVID_T540CR_FCOE			0x5603
-+#define CSIO_DEVID_T520BCH_FCOE			0x5604
-+#define CSIO_DEVID_T540BCH_FCOE			0x5605
-+#define CSIO_DEVID_T540CH_FCOE			0x5606
-+#define CSIO_DEVID_T520SO_FCOE			0x5607
-+#define CSIO_DEVID_T520CX_FCOE			0x5608
-+#define CSIO_DEVID_T520BT_FCOE			0x5609
-+#define CSIO_DEVID_T504BT_FCOE			0x560A
-+#define CSIO_DEVID_B520_FCOE			0x560B
-+#define CSIO_DEVID_B504_FCOE			0x560C
-+#define CSIO_DEVID_T580CR2_FCOE			0x560D
-+#define CSIO_DEVID_T540LPCR_FCOE		0x560E
-+#define CSIO_DEVID_AMSTERDAM_T5_FCOE		0x560F
-+#define CSIO_DEVID_T580LPCR_FCOE		0x5610
-+#define CSIO_DEVID_T520LLCR_FCOE		0x5611
-+#define CSIO_DEVID_T560CR_FCOE			0x5612
-+#define CSIO_DEVID_T580CR_FCOE			0x5613
-+
-+/* Define MACRO values */
-+#define CSIO_HW_T4				0x4000
-+#define CSIO_T4_FCOE_ASIC			0x4600
-+#define CSIO_HW_T5				0x5000
-+#define CSIO_T5_FCOE_ASIC			0x5600
-+#define CSIO_HW_CHIP_MASK			0xF000
-+#define T4_REGMAP_SIZE				(160 * 1024)
-+#define T5_REGMAP_SIZE				(332 * 1024)
-+#define FW_FNAME_T4				"cxgb4/t4fw.bin"
-+#define FW_FNAME_T5				"cxgb4/t5fw.bin"
-+#define FW_CFG_NAME_T4				"cxgb4/t4-config.txt"
-+#define FW_CFG_NAME_T5				"cxgb4/t5-config.txt"
-+
-+/* Define static functions */
-+static inline int csio_is_t4(uint16_t chip)
++/*
++ * Return the specified PCI-E Configuration Space register from our Physical
++ * Function.  We try first via a Firmware LDST Command since we prefer to let
++ * the firmware own all of these registers, but if that fails we go for it
++ * directly ourselves.
++ */
++static uint32_t
++csio_t4_read_pcie_cfg4(struct csio_hw *hw, int reg)
 +{
-+	return (chip == CSIO_HW_T4);
-+}
++	u32 val = 0;
++	struct csio_mb *mbp;
++	int rv;
++	struct fw_ldst_cmd *ldst_cmd;
 +
-+static inline int csio_is_t5(uint16_t chip)
-+{
-+	return (chip == CSIO_HW_T5);
-+}
++	mbp = mempool_alloc(hw->mb_mempool, GFP_ATOMIC);
++	if (!mbp) {
++		CSIO_INC_STATS(hw, n_err_nomem);
++		pci_read_config_dword(hw->pdev, reg, &val);
++		return val;
++	}
 +
-+/* Define MACRO DEFINITIONS */
-+#define CSIO_DEVICE(devid, idx)						\
-+	{ PCI_VENDOR_ID_CHELSIO, (devid), PCI_ANY_ID, PCI_ANY_ID, 0, 0, (idx) }
-+
-+#define CSIO_HW_PIDX(hw, index)						\
-+	(csio_is_t4(hw->chip_id) ? (PIDX(index)) :			\
-+					(PIDX_T5(index) | DBTYPE(1U)))
-+
-+#define CSIO_HW_LP_INT_THRESH(hw, val)					\
-+	(csio_is_t4(hw->chip_id) ? (LP_INT_THRESH(val)) :		\
-+					(V_LP_INT_THRESH_T5(val)))
-+
-+#define CSIO_HW_M_LP_INT_THRESH(hw)					\
-+	(csio_is_t4(hw->chip_id) ? (LP_INT_THRESH_MASK) : (M_LP_INT_THRESH_T5))
-+
-+#define CSIO_MAC_INT_CAUSE_REG(hw, port)				\
-+	(csio_is_t4(hw->chip_id) ? (PORT_REG(port, XGMAC_PORT_INT_CAUSE)) : \
-+				(T5_PORT_REG(port, MAC_PORT_INT_CAUSE)))
-+
-+#define FW_VERSION_MAJOR(hw) (csio_is_t4(hw->chip_id) ? 1 : 0)
-+#define FW_VERSION_MINOR(hw) (csio_is_t4(hw->chip_id) ? 2 : 0)
-+#define FW_VERSION_MICRO(hw) (csio_is_t4(hw->chip_id) ? 8 : 0)
-+
-+#define CSIO_FW_FNAME(hw)						\
-+	(csio_is_t4(hw->chip_id) ? FW_FNAME_T4 : FW_FNAME_T5)
-+
-+#define CSIO_CF_FNAME(hw)						\
-+	(csio_is_t4(hw->chip_id) ? FW_CFG_NAME_T4 : FW_CFG_NAME_T5)
-+
-+/* Declare ENUMS */
-+enum { MEM_EDC0, MEM_EDC1, MEM_MC, MEM_MC0 = MEM_MC, MEM_MC1 };
-+
-+enum {
-+	MEMWIN_APERTURE = 2048,
-+	MEMWIN_BASE     = 0x1b800,
-+	MEMWIN_CSIOSTOR = 6,		/* PCI-e Memory Window access */
-+};
-+
-+/* Slow path handlers */
-+struct intr_info {
-+	unsigned int mask;       /* bits to check in interrupt status */
-+	const char *msg;         /* message to print or NULL */
-+	short stat_idx;          /* stat counter to increment or -1 */
-+	unsigned short fatal;    /* whether the condition reported is fatal */
-+};
-+
-+/* T4/T5 Chip specific ops */
-+struct csio_hw;
-+struct csio_hw_chip_ops {
-+	int (*chip_set_mem_win)(struct csio_hw *, uint32_t);
-+	void (*chip_pcie_intr_handler)(struct csio_hw *);
-+	uint32_t (*chip_flash_cfg_addr)(struct csio_hw *);
-+	int (*chip_mc_read)(struct csio_hw *, int, uint32_t,
-+					__be32 *, uint64_t *);
-+	int (*chip_edc_read)(struct csio_hw *, int, uint32_t,
-+					__be32 *, uint64_t *);
-+	int (*chip_memory_rw)(struct csio_hw *, u32, int, u32,
-+					u32, uint32_t *, int);
-+	void (*chip_dfs_create_ext_mem)(struct csio_hw *);
-+};
-+
-+extern struct csio_hw_chip_ops t4_ops;
-+extern struct csio_hw_chip_ops t5_ops;
-+
-+#endif /* #ifndef __CSIO_HW_CHIP_H__ */
-diff --git a/drivers/scsi/csiostor/csio_lnode.h b/drivers/scsi/csiostor/csio_lnode.h
-index 8d84988..0f9c041 100644
---- a/drivers/scsi/csiostor/csio_lnode.h
-+++ b/drivers/scsi/csiostor/csio_lnode.h
-@@ -114,7 +114,7 @@ struct csio_lnode_stats {
- 	uint32_t	n_rnode_match;  /* matched rnode */
- 	uint32_t	n_dev_loss_tmo; /* Device loss timeout */
- 	uint32_t	n_fdmi_err;	/* fdmi err */
--	uint32_t	n_evt_fw[RSCN_DEV_LOST];	/* fw events */
-+	uint32_t	n_evt_fw[PROTO_ERR_IMPL_LOGO];	/* fw events */
- 	enum csio_ln_ev	n_evt_sm[CSIO_LNE_MAX_EVENT];	/* State m/c events */
- 	uint32_t	n_rnode_alloc;	/* rnode allocated */
- 	uint32_t	n_rnode_free;	/* rnode freed */
-diff --git a/drivers/scsi/csiostor/csio_rnode.c b/drivers/scsi/csiostor/csio_rnode.c
-index 51c6a38..e9c3b04 100644
---- a/drivers/scsi/csiostor/csio_rnode.c
-+++ b/drivers/scsi/csiostor/csio_rnode.c
-@@ -302,7 +302,7 @@ csio_confirm_rnode(struct csio_lnode *ln, uint32_t rdev_flowid,
- {
- 	uint8_t rport_type;
- 	struct csio_rnode *rn, *match_rn;
--	uint32_t vnp_flowid;
-+	uint32_t vnp_flowid = 0;
- 	__be32 *port_id;
- 
- 	port_id = (__be32 *)&rdevp->r_id[0];
-@@ -350,6 +350,14 @@ csio_confirm_rnode(struct csio_lnode *ln, uint32_t rdev_flowid,
- 			 * Else, go ahead and alloc a new rnode.
- 			 */
- 			if (!memcmp(csio_rn_wwpn(match_rn), rdevp->wwpn, 8)) {
-+				if (rn == match_rn)
-+					goto found_rnode;
-+				csio_ln_dbg(ln,
-+					    "nport_id:x%x and wwpn:%llx"
-+					    " match for ssni:x%x\n",
-+					    rn->nport_id,
-+					    wwn_to_u64(rdevp->wwpn),
-+					    rdev_flowid);
- 				if (csio_is_rnode_ready(rn)) {
- 					csio_ln_warn(ln,
- 						     "rnode is already"
-diff --git a/drivers/scsi/csiostor/csio_rnode.h b/drivers/scsi/csiostor/csio_rnode.h
-index a3b434c..6594009 100644
---- a/drivers/scsi/csiostor/csio_rnode.h
-+++ b/drivers/scsi/csiostor/csio_rnode.h
-@@ -63,7 +63,7 @@ struct csio_rnode_stats {
- 	uint32_t	n_err_nomem;	/* error nomem */
- 	uint32_t	n_evt_unexp;	/* unexpected event */
- 	uint32_t	n_evt_drop;	/* unexpected event */
--	uint32_t	n_evt_fw[RSCN_DEV_LOST];	/* fw events */
-+	uint32_t	n_evt_fw[PROTO_ERR_IMPL_LOGO];	/* fw events */
- 	enum csio_rn_ev	n_evt_sm[CSIO_RNFE_MAX_EVENT];	/* State m/c events */
- 	uint32_t	n_lun_rst;	/* Number of resets of
- 					 * of LUNs under this
-diff --git a/drivers/scsi/csiostor/csio_wr.c b/drivers/scsi/csiostor/csio_wr.c
-index c32df1b..713e77d 100644
---- a/drivers/scsi/csiostor/csio_wr.c
-+++ b/drivers/scsi/csiostor/csio_wr.c
-@@ -1331,14 +1331,21 @@ csio_wr_fixup_host_params(struct csio_hw *hw)
- 
- 	/* FL BUFFER SIZE#0 is Page size i,e already aligned to cache line */
- 	csio_wr_reg32(hw, PAGE_SIZE, SGE_FL_BUFFER_SIZE0);
--	csio_wr_reg32(hw,
--		      (csio_rd_reg32(hw, SGE_FL_BUFFER_SIZE2) +
--		      sge->csio_fl_align - 1) & ~(sge->csio_fl_align - 1),
--		      SGE_FL_BUFFER_SIZE2);
--	csio_wr_reg32(hw,
--		      (csio_rd_reg32(hw, SGE_FL_BUFFER_SIZE3) +
--		      sge->csio_fl_align - 1) & ~(sge->csio_fl_align - 1),
--		      SGE_FL_BUFFER_SIZE3);
++	csio_mb_ldst(hw, mbp, CSIO_MB_DEFAULT_TMO, reg);
++	rv = csio_mb_issue(hw, mbp);
 +
 +	/*
-+	 * If using hard params, the following will get set correctly
-+	 * in csio_wr_set_sge().
++	 * If the LDST Command suucceeded, exctract the returned register
++	 * value.  Otherwise read it directly ourself.
 +	 */
-+	if (hw->flags & CSIO_HWF_USING_SOFT_PARAMS) {
-+		csio_wr_reg32(hw,
-+			(csio_rd_reg32(hw, SGE_FL_BUFFER_SIZE2) +
-+			sge->csio_fl_align - 1) & ~(sge->csio_fl_align - 1),
-+			SGE_FL_BUFFER_SIZE2);
-+		csio_wr_reg32(hw,
-+			(csio_rd_reg32(hw, SGE_FL_BUFFER_SIZE3) +
-+			sge->csio_fl_align - 1) & ~(sge->csio_fl_align - 1),
-+			SGE_FL_BUFFER_SIZE3);
++	if (rv == 0) {
++		ldst_cmd = (struct fw_ldst_cmd *)(mbp->mb);
++		val = ntohl(ldst_cmd->u.pcie.data[0]);
++	} else
++		pci_read_config_dword(hw->pdev, reg, &val);
++
++	mempool_free(mbp, hw->mb_mempool);
++
++	return val;
++}
++
++static int
++csio_t4_set_mem_win(struct csio_hw *hw, uint32_t win)
++{
++	u32 bar0;
++	u32 mem_win_base;
++
++	/*
++	 * Truncation intentional: we only read the bottom 32-bits of the
++	 * 64-bit BAR0/BAR1 ...  We use the hardware backdoor mechanism to
++	 * read BAR0 instead of using pci_resource_start() because we could be
++	 * operating from within a Virtual Machine which is trapping our
++	 * accesses to our Configuration Space and we need to set up the PCI-E
++	 * Memory Window decoders with the actual addresses which will be
++	 * coming across the PCI-E link.
++	 */
++	bar0 = csio_t4_read_pcie_cfg4(hw, PCI_BASE_ADDRESS_0);
++	bar0 &= PCI_BASE_ADDRESS_MEM_MASK;
++
++	mem_win_base = bar0 + MEMWIN_BASE;
++
++	/*
++	 * Set up memory window for accessing adapter memory ranges.  (Read
++	 * back MA register to ensure that changes propagate before we attempt
++	 * to use the new values.)
++	 */
++	csio_wr_reg32(hw, mem_win_base | BIR(0) |
++			  WINDOW(ilog2(MEMWIN_APERTURE) - 10),
++			  PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, win));
++	csio_rd_reg32(hw,
++		      PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, win));
++	return 0;
++}
++
++/*
++ * Interrupt handler for the PCIE module.
++ */
++static void
++csio_t4_pcie_intr_handler(struct csio_hw *hw)
++{
++	static struct intr_info sysbus_intr_info[] = {
++		{ RNPP, "RXNP array parity error", -1, 1 },
++		{ RPCP, "RXPC array parity error", -1, 1 },
++		{ RCIP, "RXCIF array parity error", -1, 1 },
++		{ RCCP, "Rx completions control array parity error", -1, 1 },
++		{ RFTP, "RXFT array parity error", -1, 1 },
++		{ 0, NULL, 0, 0 }
++	};
++	static struct intr_info pcie_port_intr_info[] = {
++		{ TPCP, "TXPC array parity error", -1, 1 },
++		{ TNPP, "TXNP array parity error", -1, 1 },
++		{ TFTP, "TXFT array parity error", -1, 1 },
++		{ TCAP, "TXCA array parity error", -1, 1 },
++		{ TCIP, "TXCIF array parity error", -1, 1 },
++		{ RCAP, "RXCA array parity error", -1, 1 },
++		{ OTDD, "outbound request TLP discarded", -1, 1 },
++		{ RDPE, "Rx data parity error", -1, 1 },
++		{ TDUE, "Tx uncorrectable data error", -1, 1 },
++		{ 0, NULL, 0, 0 }
++	};
++
++	static struct intr_info pcie_intr_info[] = {
++		{ MSIADDRLPERR, "MSI AddrL parity error", -1, 1 },
++		{ MSIADDRHPERR, "MSI AddrH parity error", -1, 1 },
++		{ MSIDATAPERR, "MSI data parity error", -1, 1 },
++		{ MSIXADDRLPERR, "MSI-X AddrL parity error", -1, 1 },
++		{ MSIXADDRHPERR, "MSI-X AddrH parity error", -1, 1 },
++		{ MSIXDATAPERR, "MSI-X data parity error", -1, 1 },
++		{ MSIXDIPERR, "MSI-X DI parity error", -1, 1 },
++		{ PIOCPLPERR, "PCI PIO completion FIFO parity error", -1, 1 },
++		{ PIOREQPERR, "PCI PIO request FIFO parity error", -1, 1 },
++		{ TARTAGPERR, "PCI PCI target tag FIFO parity error", -1, 1 },
++		{ CCNTPERR, "PCI CMD channel count parity error", -1, 1 },
++		{ CREQPERR, "PCI CMD channel request parity error", -1, 1 },
++		{ CRSPPERR, "PCI CMD channel response parity error", -1, 1 },
++		{ DCNTPERR, "PCI DMA channel count parity error", -1, 1 },
++		{ DREQPERR, "PCI DMA channel request parity error", -1, 1 },
++		{ DRSPPERR, "PCI DMA channel response parity error", -1, 1 },
++		{ HCNTPERR, "PCI HMA channel count parity error", -1, 1 },
++		{ HREQPERR, "PCI HMA channel request parity error", -1, 1 },
++		{ HRSPPERR, "PCI HMA channel response parity error", -1, 1 },
++		{ CFGSNPPERR, "PCI config snoop FIFO parity error", -1, 1 },
++		{ FIDPERR, "PCI FID parity error", -1, 1 },
++		{ INTXCLRPERR, "PCI INTx clear parity error", -1, 1 },
++		{ MATAGPERR, "PCI MA tag parity error", -1, 1 },
++		{ PIOTAGPERR, "PCI PIO tag parity error", -1, 1 },
++		{ RXCPLPERR, "PCI Rx completion parity error", -1, 1 },
++		{ RXWRPERR, "PCI Rx write parity error", -1, 1 },
++		{ RPLPERR, "PCI replay buffer parity error", -1, 1 },
++		{ PCIESINT, "PCI core secondary fault", -1, 1 },
++		{ PCIEPINT, "PCI core primary fault", -1, 1 },
++		{ UNXSPLCPLERR, "PCI unexpected split completion error", -1,
++		  0 },
++		{ 0, NULL, 0, 0 }
++	};
++
++	int fat;
++	fat = csio_handle_intr_status(hw,
++				      PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS,
++				      sysbus_intr_info) +
++	      csio_handle_intr_status(hw,
++				      PCIE_CORE_UTL_PCI_EXPRESS_PORT_STATUS,
++				      pcie_port_intr_info) +
++	      csio_handle_intr_status(hw, PCIE_INT_CAUSE, pcie_intr_info);
++	if (fat)
++		csio_hw_fatal_err(hw);
++}
++
++/*
++ * csio_t4_flash_cfg_addr - return the address of the flash configuration file
++ * @hw: the HW module
++ *
++ * Return the address within the flash where the Firmware Configuration
++ * File is stored.
++ */
++static unsigned int
++csio_t4_flash_cfg_addr(struct csio_hw *hw)
++{
++	return FLASH_CFG_OFFSET;
++}
++
++/*
++ *      csio_t4_mc_read - read from MC through backdoor accesses
++ *      @hw: the hw module
++ *      @idx: not used for T4 adapter
++ *      @addr: address of first byte requested
++ *      @data: 64 bytes of data containing the requested address
++ *      @ecc: where to store the corresponding 64-bit ECC word
++ *
++ *      Read 64 bytes of data from MC starting at a 64-byte-aligned address
++ *      that covers the requested address @addr.  If @parity is not %NULL it
++ *      is assigned the 64-bit ECC word for the read data.
++ */
++static int
++csio_t4_mc_read(struct csio_hw *hw, int idx, uint32_t addr, __be32 *data,
++		uint64_t *ecc)
++{
++	int i;
++
++	if (csio_rd_reg32(hw, MC_BIST_CMD) & START_BIST)
++		return -EBUSY;
++	csio_wr_reg32(hw, addr & ~0x3fU, MC_BIST_CMD_ADDR);
++	csio_wr_reg32(hw, 64, MC_BIST_CMD_LEN);
++	csio_wr_reg32(hw, 0xc, MC_BIST_DATA_PATTERN);
++	csio_wr_reg32(hw, BIST_OPCODE(1) | START_BIST | BIST_CMD_GAP(1),
++		      MC_BIST_CMD);
++	i = csio_hw_wait_op_done_val(hw, MC_BIST_CMD, START_BIST,
++				     0, 10, 1, NULL);
++	if (i)
++		return i;
++
++#define MC_DATA(i) MC_BIST_STATUS_REG(MC_BIST_STATUS_RDATA, i)
++
++	for (i = 15; i >= 0; i--)
++		*data++ = htonl(csio_rd_reg32(hw, MC_DATA(i)));
++	if (ecc)
++		*ecc = csio_rd_reg64(hw, MC_DATA(16));
++#undef MC_DATA
++	return 0;
++}
++
++/*
++ *      csio_t4_edc_read - read from EDC through backdoor accesses
++ *      @hw: the hw module
++ *      @idx: which EDC to access
++ *      @addr: address of first byte requested
++ *      @data: 64 bytes of data containing the requested address
++ *      @ecc: where to store the corresponding 64-bit ECC word
++ *
++ *      Read 64 bytes of data from EDC starting at a 64-byte-aligned address
++ *      that covers the requested address @addr.  If @parity is not %NULL it
++ *      is assigned the 64-bit ECC word for the read data.
++ */
++static int
++csio_t4_edc_read(struct csio_hw *hw, int idx, uint32_t addr, __be32 *data,
++		uint64_t *ecc)
++{
++	int i;
++
++	idx *= EDC_STRIDE;
++	if (csio_rd_reg32(hw, EDC_BIST_CMD + idx) & START_BIST)
++		return -EBUSY;
++	csio_wr_reg32(hw, addr & ~0x3fU, EDC_BIST_CMD_ADDR + idx);
++	csio_wr_reg32(hw, 64, EDC_BIST_CMD_LEN + idx);
++	csio_wr_reg32(hw, 0xc, EDC_BIST_DATA_PATTERN + idx);
++	csio_wr_reg32(hw, BIST_OPCODE(1) | BIST_CMD_GAP(1) | START_BIST,
++		      EDC_BIST_CMD + idx);
++	i = csio_hw_wait_op_done_val(hw, EDC_BIST_CMD + idx, START_BIST,
++				     0, 10, 1, NULL);
++	if (i)
++		return i;
++
++#define EDC_DATA(i) (EDC_BIST_STATUS_REG(EDC_BIST_STATUS_RDATA, i) + idx)
++
++	for (i = 15; i >= 0; i--)
++		*data++ = htonl(csio_rd_reg32(hw, EDC_DATA(i)));
++	if (ecc)
++		*ecc = csio_rd_reg64(hw, EDC_DATA(16));
++#undef EDC_DATA
++	return 0;
++}
++
++/*
++ * csio_t4_memory_rw - read/write EDC 0, EDC 1 or MC via PCIE memory window
++ * @hw: the csio_hw
++ * @win: PCI-E memory Window to use
++ * @mtype: memory type: MEM_EDC0, MEM_EDC1, MEM_MC0 (or MEM_MC) or MEM_MC1
++ * @addr: address within indicated memory type
++ * @len: amount of memory to transfer
++ * @buf: host memory buffer
++ * @dir: direction of transfer 1 => read, 0 => write
++ *
++ * Reads/writes an [almost] arbitrary memory region in the firmware: the
++ * firmware memory address, length and host buffer must be aligned on
++ * 32-bit boudaries.  The memory is transferred as a raw byte sequence
++ * from/to the firmware's memory.  If this memory contains data
++ * structures which contain multi-byte integers, it's the callers
++ * responsibility to perform appropriate byte order conversions.
++ */
++static int
++csio_t4_memory_rw(struct csio_hw *hw, u32 win, int mtype, u32 addr,
++		u32 len, uint32_t *buf, int dir)
++{
++	u32 pos, start, offset, memoffset, bar0;
++	u32 edc_size, mc_size, mem_reg, mem_aperture, mem_base;
++
++	/*
++	 * Argument sanity checks ...
++	 */
++	if ((addr & 0x3) || (len & 0x3))
++		return -EINVAL;
++
++	/* Offset into the region of memory which is being accessed
++	 * MEM_EDC0 = 0
++	 * MEM_EDC1 = 1
++	 * MEM_MC   = 2 -- T4
++	 */
++	edc_size  = EDRAM_SIZE_GET(csio_rd_reg32(hw, MA_EDRAM0_BAR));
++	if (mtype != MEM_MC1)
++		memoffset = (mtype * (edc_size * 1024 * 1024));
++	else {
++		mc_size = EXT_MEM_SIZE_GET(csio_rd_reg32(hw,
++							 MA_EXT_MEMORY_BAR));
++		memoffset = (MEM_MC0 * edc_size + mc_size) * 1024 * 1024;
 +	}
- 
- 	csio_wr_reg32(hw, HPZ0(PAGE_SHIFT - 12), ULP_RX_TDDP_PSZ);
- 
-@@ -1470,8 +1477,10 @@ csio_wr_set_sge(struct csio_hw *hw)
- 	/* SGE_FL_BUFFER_SIZE0 is set up by csio_wr_fixup_host_params(). */
- 
- 	CSIO_SET_FLBUF_SIZE(hw, 1, CSIO_SGE_FLBUF_SIZE1);
--	CSIO_SET_FLBUF_SIZE(hw, 2, CSIO_SGE_FLBUF_SIZE2);
--	CSIO_SET_FLBUF_SIZE(hw, 3, CSIO_SGE_FLBUF_SIZE3);
-+	csio_wr_reg32(hw, (CSIO_SGE_FLBUF_SIZE2 + sge->csio_fl_align - 1)
-+		      & ~(sge->csio_fl_align - 1), SGE_FL_BUFFER_SIZE2);
-+	csio_wr_reg32(hw, (CSIO_SGE_FLBUF_SIZE3 + sge->csio_fl_align - 1)
-+		      & ~(sge->csio_fl_align - 1), SGE_FL_BUFFER_SIZE3);
- 	CSIO_SET_FLBUF_SIZE(hw, 4, CSIO_SGE_FLBUF_SIZE4);
- 	CSIO_SET_FLBUF_SIZE(hw, 5, CSIO_SGE_FLBUF_SIZE5);
- 	CSIO_SET_FLBUF_SIZE(hw, 6, CSIO_SGE_FLBUF_SIZE6);
-@@ -1522,22 +1531,24 @@ void
- csio_wr_sge_init(struct csio_hw *hw)
- {
- 	/*
--	 * If we are master:
-+	 * If we are master and chip is not initialized:
- 	 *    - If we plan to use the config file, we need to fixup some
- 	 *      host specific registers, and read the rest of the SGE
- 	 *      configuration.
- 	 *    - If we dont plan to use the config file, we need to initialize
- 	 *      SGE entirely, including fixing the host specific registers.
-+	 * If we are master and chip is initialized, just read and work off of
-+	 *	the already initialized SGE values.
- 	 * If we arent the master, we are only allowed to read and work off of
- 	 *      the already initialized SGE values.
- 	 *
- 	 * Therefore, before calling this function, we assume that the master-
--	 * ship of the card, and whether to use config file or not, have
--	 * already been decided. In other words, CSIO_HWF_USING_SOFT_PARAMS and
--	 * CSIO_HWF_MASTER should be set/unset.
-+	 * ship of the card, state and whether to use config file or not, have
-+	 * already been decided.
- 	 */
- 	if (csio_is_hw_master(hw)) {
--		csio_wr_fixup_host_params(hw);
-+		if (hw->fw_state != CSIO_DEV_STATE_INIT)
-+			csio_wr_fixup_host_params(hw);
- 
- 		if (hw->flags & CSIO_HWF_USING_SOFT_PARAMS)
- 			csio_wr_get_sge(hw);
++
++	/* Determine the PCIE_MEM_ACCESS_OFFSET */
++	addr = addr + memoffset;
++
++	/*
++	 * Each PCI-E Memory Window is programmed with a window size -- or
++	 * "aperture" -- which controls the granularity of its mapping onto
++	 * adapter memory.  We need to grab that aperture in order to know
++	 * how to use the specified window.  The window is also programmed
++	 * with the base address of the Memory Window in BAR0's address
++	 * space.  For T4 this is an absolute PCI-E Bus Address.  For T5
++	 * the address is relative to BAR0.
++	 */
++	mem_reg = csio_rd_reg32(hw,
++			PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, win));
++	mem_aperture = 1 << (WINDOW(mem_reg) + 10);
++	mem_base = GET_PCIEOFST(mem_reg) << 10;
++
++	bar0 = csio_t4_read_pcie_cfg4(hw, PCI_BASE_ADDRESS_0);
++	bar0 &= PCI_BASE_ADDRESS_MEM_MASK;
++	mem_base -= bar0;
++
++	start = addr & ~(mem_aperture-1);
++	offset = addr - start;
++
++	csio_dbg(hw, "csio_t4_memory_rw: mem_reg: 0x%x, mem_aperture: 0x%x\n",
++		 mem_reg, mem_aperture);
++	csio_dbg(hw, "csio_t4_memory_rw: mem_base: 0x%x, mem_offset: 0x%x\n",
++		 mem_base, memoffset);
++	csio_dbg(hw, "csio_t4_memory_rw: bar0: 0x%x, start:0x%x, offset:0x%x\n",
++		 bar0, start, offset);
++	csio_dbg(hw, "csio_t4_memory_rw: mtype: %d, addr: 0x%x, len: %d\n",
++		 mtype, addr, len);
++
++	for (pos = start; len > 0; pos += mem_aperture, offset = 0) {
++		/*
++		 * Move PCI-E Memory Window to our current transfer
++		 * position.  Read it back to ensure that changes propagate
++		 * before we attempt to use the new value.
++		 */
++		csio_wr_reg32(hw, pos,
++			PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET, win));
++		csio_rd_reg32(hw,
++			PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET, win));
++
++		while (offset < mem_aperture && len > 0) {
++			if (dir)
++				*buf++ = csio_rd_reg32(hw, mem_base + offset);
++			else
++				csio_wr_reg32(hw, *buf++, mem_base + offset);
++
++			offset += sizeof(__be32);
++			len -= sizeof(__be32);
++		}
++	}
++	return 0;
++}
++
++/*
++ * csio_t4_dfs_create_ext_mem - setup debugfs for MC to read the values
++ * @hw: the csio_hw
++ *
++ * This function creates files in the debugfs with external memory region MC.
++ */
++static void
++csio_t4_dfs_create_ext_mem(struct csio_hw *hw)
++{
++	u32 size;
++	int i = csio_rd_reg32(hw, MA_TARGET_MEM_ENABLE);
++	if (i & EXT_MEM_ENABLE) {
++		size = csio_rd_reg32(hw, MA_EXT_MEMORY_BAR);
++		csio_add_debugfs_mem(hw, "mc", MEM_MC,
++				     EXT_MEM_SIZE_GET(size));
++	}
++}
++
++/* T4 adapter specific function */
++struct csio_hw_chip_ops t4_ops = {
++	.chip_set_mem_win		= csio_t4_set_mem_win,
++	.chip_pcie_intr_handler		= csio_t4_pcie_intr_handler,
++	.chip_flash_cfg_addr		= csio_t4_flash_cfg_addr,
++	.chip_mc_read			= csio_t4_mc_read,
++	.chip_edc_read			= csio_t4_edc_read,
++	.chip_memory_rw			= csio_t4_memory_rw,
++	.chip_dfs_create_ext_mem	= csio_t4_dfs_create_ext_mem,
++};
 -- 
 1.7.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
