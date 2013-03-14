@@ -1,115 +1,232 @@
-From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH v2 net-next 10/22] cxgb4: Disable SR-IOV support for PF4-7 for T5
-Date: Thu, 14 Mar 2013 20:38:56 +0530
-Message-ID: <1363273748-25330-11-git-send-email-vipul@chelsio.com>
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH v2 net-next 11/22] cxgb4vf: Add support for Chelsio T5 adapter
+Date: Thu, 14 Mar 2013 20:38:57 +0530
+Message-ID: <1363273748-25330-12-git-send-email-vipul@chelsio.com>
 References: <1363273748-25330-1-git-send-email-vipul@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
-	JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	naresh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	arvindb-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, abhishek-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1363273748-25330-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: davem@davemloft.net, roland@purestorage.com,
+	JBottomley@parallels.com, dm@chelsio.com,
+	swise@opengridcomputing.com, leedom@chelsio.com,
+	naresh@chelsio.com, divy@chelsio.com, santosh@chelsio.com,
+	arvindb@chelsio.com, abhishek@chelsio.com, vipul@chelsio.com
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+	linux-scsi@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1363273748-25330-1-git-send-email-vipul@chelsio.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Santosh Rastapur <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+From: Santosh Rastapur <santosh@chelsio.com>
 
-All T5 adapters will only support VFs on PF0-3 despite the ability of the
-hardware to support them on PF4-7.  This keeps our T4 and T5 adapters more
-similar which simplifies host driver software.
-
-Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Santosh Rastapur <santosh@chelsio.com>
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
 ---
 v2: Replaced #ifdef with portable interface wmb in ring_tx_db
 
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    8 ++++----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   21 ++++++---------------
- 2 files changed, 10 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4vf/adapter.h     |    1 +
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |   35 ++++++++++++++++++--
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c         |    8 +++-
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h |   24 +++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |   14 ++++++--
+ 5 files changed, 73 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 45b18bd..681804b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -534,11 +534,11 @@ enum chip_type {
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
+index 68eaa9c..be5c7ef 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
+@@ -344,6 +344,7 @@ struct adapter {
+ 	unsigned long registered_device_map;
+ 	unsigned long open_device_map;
+ 	unsigned long flags;
++	enum chip_type chip;
+ 	struct adapter_params params;
  
- #ifdef CONFIG_PCI_IOV
- 
--/* T4 - 4 PFs support SRIOV
-- * T5 - 8 PFs support SRIOV
-+/* T4 supports SRIOV on PF0-3 and T5 on PF0-7.  However, the Serial
-+ * Configuration initialization for T5 only has SR-IOV functionality enabled
-+ * on PF0-3 in order to simplify everything.
+ 	/* queue and interrupt resources */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 56b46ab..7fcac20 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -54,8 +54,8 @@
+ /*
+  * Generic information about the driver.
   */
--#define NUM_OF_PF_WITH_SRIOV_T4 4
--#define NUM_OF_PF_WITH_SRIOV_T5 8
-+#define NUM_OF_PF_WITH_SRIOV 4
- 
- #endif
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index c502e36..a59bb23 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -360,14 +360,13 @@ static bool vf_acls;
- module_param(vf_acls, bool, 0644);
- MODULE_PARM_DESC(vf_acls, "if set enable virtualization L2 ACL enforcement");
- 
--/* Since T5 has more num of PFs, using NUM_OF_PF_WITH_SRIOV_T5
-- * macro as num_vf array size
-+/* Configure the number of PCI-E Virtual Function which are to be instantiated
-+ * on SR-IOV Capable Physical Functions.
-  */
--static unsigned int num_vf[NUM_OF_PF_WITH_SRIOV_T5];
-+static unsigned int num_vf[NUM_OF_PF_WITH_SRIOV];
- 
- module_param_array(num_vf, uint, NULL, 0644);
--MODULE_PARM_DESC(num_vf,
--		 "number of VFs for each of PFs 0-3 for T4 and PFs 0-7 for T5");
-+MODULE_PARM_DESC(num_vf, "number of VFs for each of PFs 0-3");
- #endif
+-#define DRV_VERSION "1.0.0"
+-#define DRV_DESC "Chelsio T4 Virtual Function (VF) Network Driver"
++#define DRV_VERSION "2.0.0-ko"
++#define DRV_DESC "Chelsio T4/T5 Virtual Function (VF) Network Driver"
  
  /*
-@@ -4633,10 +4632,8 @@ static int adap_init0_no_config(struct adapter *adapter, int reset)
+  * Module Parameters.
+@@ -1050,7 +1050,7 @@ static inline unsigned int mk_adap_vers(const struct adapter *adapter)
+ 	/*
+ 	 * Chip version 4, revision 0x3f (cxgb4vf).
  	 */
- 	{
- 		int pf, vf;
--		int max_no_pf = is_t4(adapter->chip) ? NUM_OF_PF_WITH_SRIOV_T4 :
--				NUM_OF_PF_WITH_SRIOV_T5;
+-	return 4 | (0x3f << 10);
++	return CHELSIO_CHIP_VERSION(adapter->chip) | (0x3f << 10);
+ }
  
--		for (pf = 0; pf < max_no_pf; pf++) {
-+		for (pf = 0; pf < ARRAY_SIZE(num_vf); pf++) {
- 			if (num_vf[pf] <= 0)
- 				continue;
+ /*
+@@ -2099,6 +2099,15 @@ static int adap_init0(struct adapter *adapter)
+ 		return err;
+ 	}
  
-@@ -5483,9 +5480,6 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	struct port_info *pi;
- 	bool highdma = false;
- 	struct adapter *adapter = NULL;
--#ifdef CONFIG_PCI_IOV
--	int max_no_pf;
--#endif
++	switch (adapter->pdev->device >> 12) {
++	case CHELSIO_T4:
++		adapter->chip = CHELSIO_CHIP_CODE(CHELSIO_T4, 0);
++		break;
++	case CHELSIO_T5:
++		adapter->chip = CHELSIO_CHIP_CODE(CHELSIO_T5, 0);
++		break;
++	}
++
+ 	/*
+ 	 * Grab basic operational parameters.  These will predominantly have
+ 	 * been set up by the Physical Function Driver or will be hard coded
+@@ -2888,6 +2897,26 @@ static struct pci_device_id cxgb4vf_pci_tbl[] = {
+ 	CH_DEVICE(0x480a, 0),   /* T404-bt */
+ 	CH_DEVICE(0x480d, 0),   /* T480-cr */
+ 	CH_DEVICE(0x480e, 0),   /* T440-lp-cr */
++	CH_DEVICE(0x5800, 0),	/* T580-dbg */
++	CH_DEVICE(0x5801, 0),	/* T520-cr */
++	CH_DEVICE(0x5802, 0),	/* T522-cr */
++	CH_DEVICE(0x5803, 0),	/* T540-cr */
++	CH_DEVICE(0x5804, 0),	/* T520-bch */
++	CH_DEVICE(0x5805, 0),   /* T540-bch */
++	CH_DEVICE(0x5806, 0),	/* T540-ch */
++	CH_DEVICE(0x5807, 0),	/* T520-so */
++	CH_DEVICE(0x5808, 0),	/* T520-cx */
++	CH_DEVICE(0x5809, 0),	/* T520-bt */
++	CH_DEVICE(0x580a, 0),   /* T504-bt */
++	CH_DEVICE(0x580b, 0),   /* T520-sr */
++	CH_DEVICE(0x580c, 0),   /* T504-bt */
++	CH_DEVICE(0x580d, 0),   /* T580-cr */
++	CH_DEVICE(0x580e, 0),   /* T540-lp-cr */
++	CH_DEVICE(0x580f, 0),   /* Amsterdam */
++	CH_DEVICE(0x5810, 0),   /* T580-lp-cr */
++	CH_DEVICE(0x5811, 0),   /* T520-lp-cr */
++	CH_DEVICE(0x5812, 0),   /* T560-cr */
++	CH_DEVICE(0x5813, 0),   /* T580-cr */
+ 	{ 0, }
+ };
  
- 	printk_once(KERN_INFO "%s - version %s\n", DRV_DESC, DRV_VERSION);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+index 9488032..61dfb2a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+@@ -528,17 +528,21 @@ static void unmap_rx_buf(struct adapter *adapter, struct sge_fl *fl)
+  */
+ static inline void ring_fl_db(struct adapter *adapter, struct sge_fl *fl)
+ {
++	u32 val;
++
+ 	/*
+ 	 * The SGE keeps track of its Producer and Consumer Indices in terms
+ 	 * of Egress Queue Units so we can only tell it about integral numbers
+ 	 * of multiples of Free List Entries per Egress Queue Units ...
+ 	 */
+ 	if (fl->pend_cred >= FL_PER_EQ_UNIT) {
++		val = PIDX(fl->pend_cred / FL_PER_EQ_UNIT);
++		if (!is_t4(adapter->chip))
++			val |= DBTYPE(1);
+ 		wmb();
+ 		t4_write_reg(adapter, T4VF_SGE_BASE_ADDR + SGE_VF_KDOORBELL,
+ 			     DBPRIO(1) |
+-			     QID(fl->cntxt_id) |
+-			     PIDX(fl->pend_cred / FL_PER_EQ_UNIT));
++			     QID(fl->cntxt_id) | val);
+ 		fl->pend_cred %= FL_PER_EQ_UNIT;
+ 	}
+ }
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
+index 283f9d0..53cbfed 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
+@@ -38,6 +38,25 @@
  
-@@ -5704,10 +5698,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ #include "../cxgb4/t4fw_api.h"
  
- sriov:
- #ifdef CONFIG_PCI_IOV
--	max_no_pf = is_t4(adapter->chip) ? NUM_OF_PF_WITH_SRIOV_T4 :
--			NUM_OF_PF_WITH_SRIOV_T5;
--
--	if (func < max_no_pf && num_vf[func] > 0)
-+	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0)
- 		if (pci_enable_sriov(pdev, num_vf[func]) == 0)
- 			dev_info(&pdev->dev,
- 				 "instantiated %u virtual functions\n",
++#define CHELSIO_CHIP_CODE(version, revision) (((version) << 4) | (revision))
++#define CHELSIO_CHIP_VERSION(code) ((code) >> 4)
++#define CHELSIO_CHIP_RELEASE(code) ((code) & 0xf)
++
++#define CHELSIO_T4		0x4
++#define CHELSIO_T5		0x5
++
++enum chip_type {
++	T4_A1 = CHELSIO_CHIP_CODE(CHELSIO_T4, 0),
++	T4_A2 = CHELSIO_CHIP_CODE(CHELSIO_T4, 1),
++	T4_A3 = CHELSIO_CHIP_CODE(CHELSIO_T4, 2),
++	T4_FIRST_REV	= T4_A1,
++	T4_LAST_REV	= T4_A3,
++
++	T5_A1 = CHELSIO_CHIP_CODE(CHELSIO_T5, 0),
++	T5_FIRST_REV	= T5_A1,
++	T5_LAST_REV	= T5_A1,
++};
++
+ /*
+  * The "len16" field of a Firmware Command Structure ...
+  */
+@@ -232,6 +251,11 @@ static inline int t4vf_wr_mbox_ns(struct adapter *adapter, const void *cmd,
+ 	return t4vf_wr_mbox_core(adapter, cmd, size, rpl, false);
+ }
+ 
++static inline int is_t4(enum chip_type chip)
++{
++	return (chip >= T4_FIRST_REV && chip <= T4_LAST_REV);
++}
++
+ int t4vf_wait_dev_ready(struct adapter *);
+ int t4vf_port_init(struct adapter *, int);
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+index 7127c7b..9f96dc3 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+@@ -1027,8 +1027,11 @@ int t4vf_alloc_mac_filt(struct adapter *adapter, unsigned int viid, bool free,
+ 	unsigned nfilters = 0;
+ 	unsigned int rem = naddr;
+ 	struct fw_vi_mac_cmd cmd, rpl;
++	unsigned int max_naddr = is_t4(adapter->chip) ?
++				 NUM_MPS_CLS_SRAM_L_INSTANCES :
++				 NUM_MPS_T5_CLS_SRAM_L_INSTANCES;
+ 
+-	if (naddr > FW_CLS_TCAM_NUM_ENTRIES)
++	if (naddr > max_naddr)
+ 		return -EINVAL;
+ 
+ 	for (offset = 0; offset < naddr; /**/) {
+@@ -1069,10 +1072,10 @@ int t4vf_alloc_mac_filt(struct adapter *adapter, unsigned int viid, bool free,
+ 
+ 			if (idx)
+ 				idx[offset+i] =
+-					(index >= FW_CLS_TCAM_NUM_ENTRIES
++					(index >= max_naddr
+ 					 ? 0xffff
+ 					 : index);
+-			if (index < FW_CLS_TCAM_NUM_ENTRIES)
++			if (index < max_naddr)
+ 				nfilters++;
+ 			else if (hash)
+ 				*hash |= (1ULL << hash_mac_addr(addr[offset+i]));
+@@ -1118,6 +1121,9 @@ int t4vf_change_mac(struct adapter *adapter, unsigned int viid,
+ 	struct fw_vi_mac_exact *p = &cmd.u.exact[0];
+ 	size_t len16 = DIV_ROUND_UP(offsetof(struct fw_vi_mac_cmd,
+ 					     u.exact[1]), 16);
++	unsigned int max_naddr = is_t4(adapter->chip) ?
++				 NUM_MPS_CLS_SRAM_L_INSTANCES :
++				 NUM_MPS_T5_CLS_SRAM_L_INSTANCES;
+ 
+ 	/*
+ 	 * If this is a new allocation, determine whether it should be
+@@ -1140,7 +1146,7 @@ int t4vf_change_mac(struct adapter *adapter, unsigned int viid,
+ 	if (ret == 0) {
+ 		p = &rpl.u.exact[0];
+ 		ret = FW_VI_MAC_CMD_IDX_GET(be16_to_cpu(p->valid_to_idx));
+-		if (ret >= FW_CLS_TCAM_NUM_ENTRIES)
++		if (ret >= max_naddr)
+ 			ret = -ENOMEM;
+ 	}
+ 	return ret;
 -- 
 1.7.1
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
