@@ -1,68 +1,43 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash table
-Date: Thu, 14 Mar 2013 09:47:24 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B718C@saturn3.aculab.com>
-References: <20130307214211.GP7941@order.stressinduktion.org> <20130308055718.GA28531@order.stressinduktion.org> <20130308130433.GB28531@order.stressinduktion.org> <1362754386.15793.226.camel@edumazet-glaptop> <20130308150831.GD28531@order.stressinduktion.org> <1362756219.15793.240.camel@edumazet-glaptop> <20130313012715.GE14801@order.stressinduktion.org> <1363152568.13690.35.camel@edumazet-glaptop> <20130314013702.GA4129@order.stressinduktion.org> <CAOaVG148gUzcb2qmg0B7kdWNzNzerMdXZzv2qamXq8ToUFsUyw@mail.gmail.com> <20130314071408.GB4129@order.stressinduktion.org>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH v3 net-next 1/1] drivers: net: davinci_cpdma: acknowledge
+ interrupt properly
+Date: Thu, 14 Mar 2013 15:51:23 +0530
+Message-ID: <5141A4A3.4050204@ti.com>
+References: <1361175560-600-1-git-send-email-mugunthanvnm@ti.com> <51404838.2040008@mimc.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
-	<yoshfuji@linux-ipv6.org>, <brouer@redhat.com>
-To: "Hannes Frederic Sowa" <hannes@stressinduktion.org>,
-	"Stephen Hemminger" <stephen@networkplumber.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>
+To: Mark Jackson <mpfj-list@mimc.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:57396 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1755677Ab3CNJxq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Mar 2013 05:53:46 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 25297-01 for <netdev@vger.kernel.org>;
- Thu, 14 Mar 2013 09:53:39 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20130314071408.GB4129@order.stressinduktion.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:59831 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755973Ab3CNKWU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Mar 2013 06:22:20 -0400
+In-Reply-To: <51404838.2040008@mimc.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBPbiBXZWQsIE1hciAxMywgMjAxMyBhdCAwOTozNjo1MlBNIC0wNzAwLCBTdGVwaGVuIEhlbW1p
-bmdlciB3cm90ZToNCj4gPiA+ICsjZGVmaW5lIElORVRfRlJBR19GSU5EX0NIRUNLKHZhbCkgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgKHsgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IFwNCj4gPiA+ICsgICAgICAgICAgICAgICBzdGF0aWMgY29uc3QgY2hhciBfX19tZW1bXSA9ICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAgICAgICAg
-IEtFUk5fRVJSIHByX2ZtdCggICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+
-ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgImluZXRfZnJhZ19maW5kOiBObyBtZW1v
-cnkgbGVmdC4iICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IiBEcm9wcGluZyBmcmFnbWVudC5cbiIpOyAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAg
-ICAgICAgICBzdGF0aWMgY29uc3QgY2hhciBfX19saW1pdFtdID0gICAgICAgICAgICAgICAgICAg
-ICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAgICAgICAgIEtFUk5fV0FSTklORyBwcl9m
-bXQoICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgImluZXRfZnJhZ19maW5kOiBGcmFnbWVudCBoYXNoIGJ1Y2tldCIgIFwN
-Cj4gPiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIiBsaXN0IGxlbmd0aCBncmV3
-IGFib3ZlIGxpbWl0ICIgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgX19zdHJpbmdpZnkoSU5FVEZSQUdTX01BWERFUFRIKSAgICAgICAgIFwNCj4gPiA+ICsg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIi4gRHJvcHBpbmcgZnJhZ21lbnQuXG4iKTsg
-ICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICBib29sIF9fX2IgPSB0cnVlOyAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAg
-ICAgICBpZiAoSVNfRVJSX09SX05VTEwodmFsKSkgeyAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAgICAgICAgIF9fX2IgPSBmYWxzZTsgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAgICAg
-ICAgIGlmIChQVFJfRVJSKHZhbCkgPT0gLUVOT0JVRlMpICAgICAgICAgICAgICAgICAgIFwNCj4g
-PiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgTElNSVRfTkVUREVCVUcoX19fbGlt
-aXQpOyAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICAgICAgICAgIGVsc2Ug
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgTElNSVRfTkVUREVCVUcoX19fbWVtKTsgICAgICAg
-ICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAgICB9ICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwNCj4gPiA+ICsgICAgICAgICAgICAg
-ICBfX19iOyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IFwNCj4gPiA+ICsgICAgICAgfSkNCj4gPiA+ICsNCj4gPg0KPiA+IEJpZyBtYWNyb3Mgc3Vjaywg
-d3JpdGUgaXQgYXMgYW4gaW5saW5lIGZ1bmN0aW9uIG9yIGJldHRlciB5ZXQgYSByZWFsIGZ1bmN0
-aW9uLg0KPiANCj4gSSBzd2l0Y2hlZCB0byB0aGUgbWFjcm8gdG8gaGF2ZSBzdHJpbmcgZXhwYW5z
-aW9uIHdpdGggcHJfZm10LiBTbyBpdCBpcyB2aXNpYmxlDQo+IGZyb20gdGhlIGRtZXNnIGlmIElQ
-djQsIElQdjYgb3IgSVB2Ni1uZiBkaWQgZ2VuZXJhdGUgdGhlIG1lc3NhZ2UuIFRoaXMgY291bGQN
-Cj4gYmUgZG9uZSB3aXRoIGEgZnVuY3Rpb24sIHRvbywgYnV0IHdvdWxkIHJlcXVpcmUgYSBiaXQg
-bW9yZSBzdHJpbmcgaGFuZGxpbmcuDQoNCkknZCBndWVzcyBpdCB3b3VsZCBiZSBiZXN0IHRvIGhh
-dmUgdGhlIElTX0VSUl9PUl9OVUxMKCkgaW5saW5lIGNhbGxpbmcgYQ0KcmVhbCBmdW5jdGlvbiBv
-biBlcnJvci4NCkknZCBhbHNvIGhhdmUgdGhvdWdodCB0aGF0IElORVRGUkFHU19NQVhERVBUSCBz
-aG91bGQgYmUgcnVuLXRpbWUgdHVuYWJsZS4NCg0KCURhdmlkDQoNCg==
+On 3/13/2013 3:04 PM, Mark Jackson wrote:
+> On 18/02/13 08:19, Mugunthan V N wrote:
+>> >CPDMA interrupts are not properly acknowledged which leads to interrupt
+>> >storm, only cpdma interrupt 0 is acknowledged in Davinci CPDMA driver.
+>> >Changed cpdma_ctlr_eoi api to acknowledge 1 and 2 interrupts which are
+>> >used for rx and tx respectively.
+>> >
+>> >Reported-by: Pantelis Antoniou<panto@antoniou-consulting.com>
+>> >Signed-off-by: Mugunthan V N<mugunthanvnm@ti.com>
+> Not sure if I'm seeing this same problem [1], but it doesn't appear fixed to me.
+>
+> I've tried both mainline -rc2 and -next.
+>
+> [1]https://lkml.org/lkml/2013/3/12/376
+Without this patch, PG2.0 was not usable as CPSW interrupt was never acked
+and CPU spent most of the time in CPSW ISR.
+
+I have checked -rc2 and it is working fine.
+
+Regards
+Mugunthan V N
