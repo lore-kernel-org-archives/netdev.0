@@ -1,77 +1,38 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH] mv643xx_eth: convert to use the Marvell Orion MDIO
- driver
-Date: Thu, 14 Mar 2013 16:36:37 -0400
-Message-ID: <20130314203637.GX12700@titan.lakedaemon.net>
-References: <1359473048-26551-1-git-send-email-florian@openwrt.org>
- <1363284515-9865-1-git-send-email-florian@openwrt.org>
- <1363284515-9865-2-git-send-email-florian@openwrt.org>
- <20130314190235.GW12700@titan.lakedaemon.net>
- <514225E9.9060902@openwrt.org>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: LRO/GRO and libpcap packet reordering
+Date: Thu, 14 Mar 2013 13:37:41 -0700
+Message-ID: <CALCETrXT036Aoaum+uUV_Of0AFdUZ3eq0QjMjxiCJR4n8AZRTQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Russell King <linux@arm.linux.org.uk>,
-	linux-doc@vger.kernel.org,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	Rob Herring <rob.herring@calxeda.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
-	linux-arm-kernel@lists.infradead.org,
-	Rob Landley <rob@landley.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linuxppc-dev@lists.ozlabs.org,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <514225E9.9060902@openwrt.org>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: Network Development <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve0-f177.google.com ([209.85.128.177]:51761 "EHLO
+	mail-ve0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752574Ab3CNUiC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 16:38:02 -0400
+Received: by mail-ve0-f177.google.com with SMTP id m1so2079802ves.36
+        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 13:38:01 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 14, 2013 at 08:32:57PM +0100, Florian Fainelli wrote:
-> Hello Jason,
->=20
-> Le 14/03/2013 20:02, Jason Cooper a =E9crit :
-> >Florian,
-> >
-> >On Thu, Mar 14, 2013 at 07:08:32PM +0100, Florian Fainelli wrote:
-> >>This patch converts the Marvell MV643XX ethernet driver to use the
-> >>Marvell Orion MDIO driver. As a result, PowerPC and ARM platforms
-> >>registering the Marvell MV643XX ethernet driver are also updated to
-> >>register a Marvell Orion MDIO driver. This driver voluntarily overl=
-aps
-> >>with the Marvell Ethernet shared registers because it will use a su=
-bset
-> >>of this shared register (shared_base + 0x4 - shared_base + 0x84). T=
-he
-> >>Ethernet driver is also updated to look up for a PHY device using t=
-he
-> >>Orion MDIO bus driver.
-> >>
-> >>Signed-off-by: Florian Fainelli <florian@openwrt.org>
-> >>---
-> >>  arch/arm/plat-orion/common.c               |   97 +++++++++++----
-> >>  arch/powerpc/platforms/chrp/pegasos_eth.c  |   20 +++
-> >>  arch/powerpc/sysdev/mv64x60_dev.c          |   14 ++-
-> >>  drivers/net/ethernet/marvell/Kconfig       |    1 +
-> >>  drivers/net/ethernet/marvell/mv643xx_eth.c |  186 ++-------------=
--------------
-> >>  include/linux/mv643xx_eth.h                |    1 -
-> >>  6 files changed, 117 insertions(+), 202 deletions(-)
-> >
-> >Isn't this the old version of 4/4 ?
->=20
-> No this really is v2, but I reformatted just that one and sent it
-> without the v2 changelog, you should have received the proper
-> version a couple minutes later once I realized my mistake.
+(I'm on Ubuntu's 3.5.0-23, but I haven't seen anything that would
+change this behavior in newer kernels.)
 
-Yes, I received both, just making sure.
+I have a myri10ge device that's attached to a port mirror.  It runs
+tcpdump.  Most of the traffic I'm capturing has another machine
+attached to this switch as an endpoint.  That machine is considerably
+faster than the machine doing the capturing.
 
-thx,
+My captures show nasty artifacts: packets are reodered between a given
+flow and the other direction of the same flow.  The nasty case is when
+an ACK shows up before the packet that it's acking.  This thoroughly
+screws up Wireshark's TCP sequencing analysis.  Turning off LRO and
+GRO fixes it.
 
-Jason.
+Clearly, since this interface doesn't actually have an IP address,
+there's no good reason to keep GRO and LRO on.  Nonetheless, it would
+be nice if GRO didn't coalesce packets when there's an intervening
+packing in the other direction on the same flow.  Can this be done
+cheaply?
+
+--Andy
