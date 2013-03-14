@@ -1,118 +1,75 @@
-From: Loic Domaigne <loic.domaigne@googlemail.com>
-Subject: Re: RFC: [PATCH 3/3] usb: cdc_ncm: MirrorLink booster for N60x,70x
-Date: Thu, 14 Mar 2013 23:15:37 +0100
-Message-ID: <20130314221537.GA4468@feynman.loic.net>
-References: <20130308210324.GA4796@feynman.loic.net>
- <87fw04es1p.fsf@nemi.mork.no>
+From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
+Subject: Re: atl1c issues on 3.8.2
+Date: Thu, 14 Mar 2013 23:17:46 +0100
+Message-ID: <20130314231746.44a93e4d@milhouse>
+References: <20130312161753.281681f2@milhouse>
+	<1363103144.13690.12.camel@edumazet-glaptop>
+	<20130312180942.4198e88e@milhouse>
+	<1363154258.13690.40.camel@edumazet-glaptop>
+	<1363271460.29475.14.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/B4OrEvT_bf4jAkq9XuAg21Q"; protocol="application/pgp-signature"
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	Eric Dumazet <edumazet@google.com>,
+	linux-netdev <netdev@vger.kernel.org>,
+	"David S.Miller" <davem@davemloft.net>,
+	Mel Gorman <mgorman@suse.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f43.google.com ([209.85.214.43]:42419 "EHLO
-	mail-bk0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753064Ab3CNWPn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 18:15:43 -0400
-Content-Disposition: inline
-In-Reply-To: <87fw04es1p.fsf@nemi.mork.no>
+Received: from bues.ch ([80.190.117.144]:34398 "EHLO bues.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753216Ab3CNWTP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Mar 2013 18:19:15 -0400
+In-Reply-To: <1363271460.29475.14.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 09, 2013 at 12:22:42PM +0100, Bj=F8rn Mork wrote:
-> Loic Domaigne <loic.domaigne@googlemail.com> writes:
+--Sig_/B4OrEvT_bf4jAkq9XuAg21Q
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 14 Mar 2013 15:31:00 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> And it seems the possible fix is here :
 >=20
-> > +			/* The Nokia N60x,70x (productId 0x1419) needs:
-> > +			 * - Jumbo Frame (MTU 8kB)
-> > +			 * - Disable TX batching to improve latency
-> > +			 */
-> > +			if (dev !=3D NULL)
-> > +				/* called during NCM bind */
-> > +				dev->hard_mtu =3D 8192+ETH_HLEN;
-> > +			else {
-> > +				/* called during NCM setup */
-> > +				pr_info(KBUILD_MODNAME ":  jambit MirrorLink booster for "
-> > +					"Nokia 60x,70x family");
-> > +				ctx->tx_max_datagrams  =3D 1;
-> > +				ctx->max_datagram_size =3D 8192+ETH_HLEN;
-> > +			}
->=20
-> This looks really strange to me at first glance.  An important part o=
-f
-> the NCM protocol is the ability for the host to request these values
-> from the device,=20
+> http://patchwork.ozlabs.org/patch/227666/
 
-Your questions are legitimate.
+I can still reproduce with this fix applied.
 
-This has been ages since I wrote this patch. My answers might not be
-absolutely accurate.
+However, I noticed that I cannot reproduce, if the wireless interface (ath9=
+k) of
+the netbook is down while testing the ethernet. The wireless does not carry=
+ any
+test traffic. It's just idle.
+I do not know if this always had been the case, because wireless was always=
+ up (and mostly
+idle) in my previous ethernet tests.
 
-Regarding tx_max_datagrams, this could be I guess communicated by the d=
-evice=20
-using the NTB Parameter structure / wNtbOutMaxDatagrams. Of course, Err=
-ata K=20
-kicks in... IIRC the device answered "no limitation". Hence I construct=
-ed NTBs=20
-with 2 or more datagrams and sent them to the device. The device reacte=
-d=20
-properly.
+--=20
+Michael
 
+--Sig_/B4OrEvT_bf4jAkq9XuAg21Q
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
 
-> and the only real point of using NCM in the first place
-> is the bundling.  If the device has higher performance without bundli=
-ng,
-> then why the h is it using NCM?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-Because MirrorLink specifies this protocol.
+iQIcBAEBAgAGBQJRQkyKAAoJEPUyvh2QjYsObMIP+wY6ux1ktN5iSyYpP+JmqJun
+gnfuzk2Nwt8NqimEijWSkjKChmkjZUS1DTxmrl9SGpQLYGw9Gmx7J23E2s7w9a2b
+IGlL7rjmc0Dbc5GygfIdH9u4TW4s8jo1ajWNj4BhBXwWa1VLThxzFpA2j/kVtDpg
+LYrZc3R1+uT7pBL1PYJJM7IOyX0pARMl0HzNOT4tZpa0nYER87eTYHGcrxnh8+dc
+46cL391EqRbWKafSZJhltxo58DozKhjwEF412MWzVsGFl8WRvqrLdx/KM5V5bEFv
+pFj940UJxuPOIcE7VjvosOgPnRHKhTzZtkq8UusZMZYCCcuTPN2efcsjXyBSU10D
+nbpVrg0AL+jVut1Ids4vF8BfIMsc46PK5hz0rNxLli4TUofmTsVc1v+lnzJggOq/
+siMGK3rBY7HoTxPi7nJbdxupDJKIz+hoEpwNZaC8XW0iuXszI9o0uHmmRVZmE+Ic
+YHO2VUidPCanlr/a/gmmcmcaAAlRzjw2bI8dt+g7pybezEnYps5kwpu1yhVOIu9o
+kFQvD4U3suPGj646cinE0swaKQFIIMnH6oL1B+uccpibPJ6Plr1nry0xhT8so79n
+BZrsAywkrAtCyCIUdx7FweJtJnBW5+pg/eYrAbwoN5LFVX/ulo1uoIpB0TL4IOHA
+nuIrMGFSF/3eIXF7CtAg
+=5ZMv
+-----END PGP SIGNATURE-----
 
-
-> And if it really wants jumbo datagrams, then why doesn't it say so wh=
-en
-> the driver ask?
-
-IIRC, the driver (at that time) was only setting the MTU if the device =
-provided
-the *optional* {get|set}MaxDatagramSize capability. Which is not the ca=
-se here.
-So the driver assumed 1514 bytes.
-
-I don't remember anymore what the device is passing us through the ENFD=
-=2E That
-something I'll need to doublecheck.
-
-> Are the above values based on some perceived performance, or are ther=
-e
-> actual measurements behind this?   Yes, sure the latency will drop wi=
-th
-> no bundling, but that is sort of the trade-off you chose when you cho=
-se
-> NCM...
-
-Yes, we have hard numbers for MirrorLink use cases.
-
-
-> > @@ -1269,5 +1320,7 @@ module_exit(cdc_ncm_exit);
-> >  #endif
-> > =20
-> >  MODULE_AUTHOR("Hans Petter Selasky");
-> > +MODULE_AUTHOR("Loic Domaigne");
-> >  MODULE_DESCRIPTION("USB CDC NCM host driver");
-> > +MODULE_DESCRIPTION("MirrorLink Booster by jambit GmbH");
-> >  MODULE_LICENSE("Dual BSD/GPL");
->=20
-> I do not think this is appropriate at all for a device specific bug
-> workaround...
-
-We absolutely don't cling to those lines.
-
-Their sole purpose was to help me checking that the 'patched' driver is=
- used.
-It was planned to tweak other devices (again within the MirrorLink) con=
-text,
-but I got other assignments.
-
-
-Thanks Bj=F8rn for your comments!=20
-
-Cheers,
-Loic
+--Sig_/B4OrEvT_bf4jAkq9XuAg21Q--
