@@ -1,252 +1,222 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH v2 net-next 05/22] cxgb4: Add T5 write combining support
-Date: Thu, 14 Mar 2013 20:38:51 +0530
-Message-ID: <1363273748-25330-6-git-send-email-vipul@chelsio.com>
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH v2 net-next 01/22] cxgb4: Add register definations for T5
+Date: Thu, 14 Mar 2013 20:38:47 +0530
+Message-ID: <1363273748-25330-2-git-send-email-vipul@chelsio.com>
 References: <1363273748-25330-1-git-send-email-vipul@chelsio.com>
-Cc: davem@davemloft.net, roland@purestorage.com,
-	JBottomley@parallels.com, dm@chelsio.com,
-	swise@opengridcomputing.com, leedom@chelsio.com,
-	naresh@chelsio.com, divy@chelsio.com, santosh@chelsio.com,
-	arvindb@chelsio.com, abhishek@chelsio.com, vipul@chelsio.com
-To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	linux-scsi@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:6815 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757582Ab3CNPPS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 11:15:18 -0400
-In-Reply-To: <1363273748-25330-1-git-send-email-vipul@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
+	JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	naresh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	arvindb-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, abhishek-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1363273748-25330-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Santosh Rastapur <santosh@chelsio.com>
+From: Santosh Rastapur <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 
-This patch implements a low latency Write Combining (aka Write Coalescing) work
-request path. PCIE maps User Space Doorbell BAR2 region writes to the new
-interface to SGE. SGE pulls a new message from PCIE new interface and if its a
-coalesced write work request then pushes it for processing. This patch copies
-coalesced work request to memory mapped BAR2 space.
-
-Signed-off-by: Santosh Rastapur <santosh@chelsio.com>
-Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+Signed-off-by: Santosh Rastapur <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 ---
 v2: Replaced #ifdef with portable interface wmb in ring_tx_db
 
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    2 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   53 ++++++++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |   52 +++++++++++++++++++++-
- 3 files changed, 102 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |   94 ++++++++++++++++++++++++++
+ 1 files changed, 94 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index a91dea6..f8ff30e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -439,6 +439,7 @@ struct sge_txq {
- 	spinlock_t db_lock;
- 	int db_disabled;
- 	unsigned short db_pidx;
-+	u64 udb;
- };
- 
- struct sge_eth_txq {                /* state for an SGE Ethernet Tx queue */
-@@ -543,6 +544,7 @@ enum chip_type {
- 
- struct adapter {
- 	void __iomem *regs;
-+	void __iomem *bar2;
- 	struct pci_dev *pdev;
- 	struct device *pdev_dev;
- 	unsigned int mbox;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 3d6d23a..ce1451c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -1327,6 +1327,8 @@ static char stats_strings[][ETH_GSTRING_LEN] = {
- 	"VLANinsertions     ",
- 	"GROpackets         ",
- 	"GROmerged          ",
-+	"WriteCoalSuccess   ",
-+	"WriteCoalFail      ",
- };
- 
- static int get_sset_count(struct net_device *dev, int sset)
-@@ -1422,11 +1424,25 @@ static void get_stats(struct net_device *dev, struct ethtool_stats *stats,
- {
- 	struct port_info *pi = netdev_priv(dev);
- 	struct adapter *adapter = pi->adapter;
-+	u32 val1, val2;
- 
- 	t4_get_port_stats(adapter, pi->tx_chan, (struct port_stats *)data);
- 
- 	data += sizeof(struct port_stats) / sizeof(u64);
- 	collect_sge_port_stats(adapter, pi, (struct queue_port_stats *)data);
-+	data += sizeof(struct queue_port_stats) / sizeof(u64);
-+	if (!is_t4(adapter->chip)) {
-+		t4_write_reg(adapter, SGE_STAT_CFG, STATSOURCE_T5(7));
-+		val1 = t4_read_reg(adapter, SGE_STAT_TOTAL);
-+		val2 = t4_read_reg(adapter, SGE_STAT_MATCH);
-+		*data = val1 - val2;
-+		data++;
-+		*data = val2;
-+		data++;
-+	} else {
-+		memset(data, 0, 2 * sizeof(u64));
-+		*data += 2;
-+	}
- }
- 
- /*
-@@ -5337,10 +5353,11 @@ static void free_some_resources(struct adapter *adapter)
- #define TSO_FLAGS (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN)
- #define VLAN_FEAT (NETIF_F_SG | NETIF_F_IP_CSUM | TSO_FLAGS | \
- 		   NETIF_F_IPV6_CSUM | NETIF_F_HIGHDMA)
-+#define SEGMENT_SIZE 128
- 
- static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- {
--	int func, i, err;
-+	int func, i, err, s_qpp, qpp, num_seg;
- 	struct port_info *pi;
- 	bool highdma = false;
- 	struct adapter *adapter = NULL;
-@@ -5420,7 +5437,34 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	err = t4_prep_adapter(adapter);
- 	if (err)
--		goto out_unmap_bar;
-+		goto out_unmap_bar0;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index 83ec5f7..22cbcb3 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -68,9 +68,14 @@
+ #define  QID_SHIFT   15
+ #define  QID(x)      ((x) << QID_SHIFT)
+ #define  DBPRIO(x)   ((x) << 14)
++#define  DBTYPE(x)   ((x) << 13)
+ #define  PIDX_MASK   0x00003fffU
+ #define  PIDX_SHIFT  0
+ #define  PIDX(x)     ((x) << PIDX_SHIFT)
++#define  S_PIDX_T5   0
++#define  M_PIDX_T5   0x1fffU
++#define  PIDX_T5(x)  (((x) >> S_PIDX_T5) & M_PIDX_T5)
 +
-+	if (!is_t4(adapter->chip)) {
-+		s_qpp = QUEUESPERPAGEPF1 * adapter->fn;
-+		qpp = 1 << QUEUESPERPAGEPF0_GET(t4_read_reg(adapter,
-+		      SGE_EGRESS_QUEUES_PER_PAGE_PF) >> s_qpp);
-+		num_seg = PAGE_SIZE / SEGMENT_SIZE;
-+
-+		/* Each segment size is 128B. Write coalescing is enabled only
-+		 * when SGE_EGRESS_QUEUES_PER_PAGE_PF reg value for the
-+		 * queue is less no of segments that can be accommodated in
-+		 * a page size.
-+		 */
-+		if (qpp > num_seg) {
-+			dev_err(&pdev->dev,
-+				"Incorrect number of egress queues per page\n");
-+			err = -EINVAL;
-+			goto out_unmap_bar0;
-+		}
-+		adapter->bar2 = ioremap_wc(pci_resource_start(pdev, 2),
-+		pci_resource_len(pdev, 2));
-+		if (!adapter->bar2) {
-+			dev_err(&pdev->dev, "cannot map device bar2 region\n");
-+			err = -ENOMEM;
-+			goto out_unmap_bar0;
-+		}
-+	}
-+
- 	setup_memwin(adapter);
- 	err = adap_init0(adapter);
- 	setup_memwin_rdma(adapter);
-@@ -5552,6 +5596,9 @@ sriov:
-  out_free_dev:
- 	free_some_resources(adapter);
-  out_unmap_bar:
-+	if (!is_t4(adapter->chip))
-+		iounmap(adapter->bar2);
-+ out_unmap_bar0:
- 	iounmap(adapter->regs);
-  out_free_adapter:
- 	kfree(adapter);
-@@ -5602,6 +5649,8 @@ static void remove_one(struct pci_dev *pdev)
  
- 		free_some_resources(adapter);
- 		iounmap(adapter->regs);
-+		if (!is_t4(adapter->chip))
-+			iounmap(adapter->bar2);
- 		kfree(adapter);
- 		pci_disable_pcie_error_reporting(pdev);
- 		pci_disable_device(pdev);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 7b17623..8b47b25 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -816,6 +816,22 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
- 		*end = 0;
- }
+ #define SGE_PF_GTS 0x4
+ #define  INGRESSQID_MASK   0xffff0000U
+@@ -152,6 +157,8 @@
+ #define  QUEUESPERPAGEPF0_MASK   0x0000000fU
+ #define  QUEUESPERPAGEPF0_GET(x) ((x) & QUEUESPERPAGEPF0_MASK)
  
-+/* This function copies 64 byte coalesced work request to
-+ * memory mapped BAR2 space(user space writes).
-+ * For coalesced WR SGE, fetches data from the FIFO instead of from Host.
-+ */
-+static void cxgb_pio_copy(u64 __iomem *dst, u64 *src)
-+{
-+	int count = 8;
++#define QUEUESPERPAGEPF1    4
 +
-+	while (count) {
-+		writeq(*src, dst);
-+		src++;
-+		dst++;
-+		count--;
-+	}
-+}
-+
- /**
-  *	ring_tx_db - check and potentially ring a Tx queue's doorbell
-  *	@adap: the adapter
-@@ -826,11 +842,25 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
-  */
- static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
- {
-+	unsigned int *wr, index;
-+
- 	wmb();            /* write descriptors before telling HW */
- 	spin_lock(&q->db_lock);
- 	if (!q->db_disabled) {
--		t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
--			     QID(q->cntxt_id) | PIDX(n));
-+		if (is_t4(adap->chip)) {
-+			t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
-+				     QID(q->cntxt_id) | PIDX(n));
-+		} else {
-+			if (n == 1) {
-+				index = q->pidx ? (q->pidx - 1) : (q->size - 1);
-+				wr = (unsigned int *)&q->desc[index];
-+				cxgb_pio_copy((u64 __iomem *)
-+					      (adap->bar2 + q->udb + 64),
-+					      (u64 *)wr);
-+			} else
-+				writel(n,  adap->bar2 + q->udb + 8);
-+			wmb();
-+		}
- 	}
- 	q->db_pidx = q->pidx;
- 	spin_unlock(&q->db_lock);
-@@ -2151,11 +2181,27 @@ err:
+ #define SGE_INT_CAUSE1 0x1024
+ #define SGE_INT_CAUSE2 0x1030
+ #define SGE_INT_CAUSE3 0x103c
+@@ -272,17 +279,36 @@
+ #define S_HP_INT_THRESH    28
+ #define M_HP_INT_THRESH 0xfU
+ #define V_HP_INT_THRESH(x) ((x) << S_HP_INT_THRESH)
++#define S_LP_INT_THRESH_T5    18
++#define V_LP_INT_THRESH_T5(x) ((x) << S_LP_INT_THRESH_T5)
++#define M_LP_COUNT_T5    0x3ffffU
++#define G_LP_COUNT_T5(x) (((x) >> S_LP_COUNT) & M_LP_COUNT_T5)
+ #define M_HP_COUNT 0x7ffU
+ #define S_HP_COUNT 16
+ #define G_HP_COUNT(x) (((x) >> S_HP_COUNT) & M_HP_COUNT)
+ #define S_LP_INT_THRESH    12
+ #define M_LP_INT_THRESH 0xfU
++#define M_LP_INT_THRESH_T5    0xfffU
+ #define V_LP_INT_THRESH(x) ((x) << S_LP_INT_THRESH)
+ #define M_LP_COUNT 0x7ffU
+ #define S_LP_COUNT 0
+ #define G_LP_COUNT(x) (((x) >> S_LP_COUNT) & M_LP_COUNT)
+ #define A_SGE_DBFIFO_STATUS 0x10a4
  
- static void init_txq(struct adapter *adap, struct sge_txq *q, unsigned int id)
- {
-+	q->cntxt_id = id;
-+	if (!is_t4(adap->chip)) {
-+		unsigned int s_qpp;
-+		unsigned short udb_density;
-+		unsigned long qpshift;
-+		int page;
++#define SGE_STAT_TOTAL 0x10e4
++#define SGE_STAT_MATCH 0x10e8
 +
-+		s_qpp = QUEUESPERPAGEPF1 * adap->fn;
-+		udb_density = 1 << QUEUESPERPAGEPF0_GET((t4_read_reg(adap,
-+				SGE_EGRESS_QUEUES_PER_PAGE_PF) >> s_qpp));
-+		qpshift = PAGE_SHIFT - ilog2(udb_density);
-+		q->udb = q->cntxt_id << qpshift;
-+		q->udb &= PAGE_MASK;
-+		page = q->udb / PAGE_SIZE;
-+		q->udb += (q->cntxt_id - (page * udb_density)) * 128;
-+	}
++#define SGE_STAT_CFG   0x10ec
++#define S_STATSOURCE_T5    9
++#define STATSOURCE_T5(x) ((x) << S_STATSOURCE_T5)
 +
- 	q->in_use = 0;
- 	q->cidx = q->pidx = 0;
- 	q->stops = q->restarts = 0;
- 	q->stat = (void *)&q->desc[q->size];
--	q->cntxt_id = id;
- 	spin_lock_init(&q->db_lock);
- 	adap->sge.egr_map[id - adap->sge.egr_start] = q;
- }
++#define SGE_DBFIFO_STATUS2 0x1118
++#define M_HP_COUNT_T5    0x3ffU
++#define G_HP_COUNT_T5(x) ((x)  & M_HP_COUNT_T5)
++#define S_HP_INT_THRESH_T5    10
++#define M_HP_INT_THRESH_T5    0xfU
++#define V_HP_INT_THRESH_T5(x) ((x) << S_HP_INT_THRESH_T5)
++
+ #define S_ENABLE_DROP    13
+ #define V_ENABLE_DROP(x) ((x) << S_ENABLE_DROP)
+ #define F_ENABLE_DROP    V_ENABLE_DROP(1U)
+@@ -331,8 +357,27 @@
+ #define  MSIADDRHPERR  0x00000002U
+ #define  MSIADDRLPERR  0x00000001U
+ 
++#define  READRSPERR      0x20000000U
++#define  TRGT1GRPPERR    0x10000000U
++#define  IPSOTPERR       0x08000000U
++#define  IPRXDATAGRPPERR 0x02000000U
++#define  IPRXHDRGRPPERR  0x01000000U
++#define  MAGRPPERR       0x00400000U
++#define  VFIDPERR        0x00200000U
++#define  HREQWRPERR      0x00010000U
++#define  DREQWRPERR      0x00002000U
++#define  MSTTAGQPERR     0x00000400U
++#define  PIOREQGRPPERR   0x00000100U
++#define  PIOCPLGRPPERR   0x00000080U
++#define  MSIXSTIPERR     0x00000004U
++#define  MSTTIMEOUTPERR  0x00000002U
++#define  MSTGRPPERR      0x00000001U
++
+ #define PCIE_NONFAT_ERR 0x3010
+ #define PCIE_MEM_ACCESS_BASE_WIN 0x3068
++#define S_PCIEOFST       10
++#define M_PCIEOFST       0x3fffffU
++#define GET_PCIEOFST(x)  (((x) >> S_PCIEOFST) & M_PCIEOFST)
+ #define  PCIEOFST_MASK   0xfffffc00U
+ #define  BIR_MASK        0x00000300U
+ #define  BIR_SHIFT       8
+@@ -342,6 +387,9 @@
+ #define  WINDOW(x)       ((x) << WINDOW_SHIFT)
+ #define PCIE_MEM_ACCESS_OFFSET 0x306c
+ 
++#define S_PFNUM    0
++#define V_PFNUM(x) ((x) << S_PFNUM)
++
+ #define PCIE_FW 0x30b8
+ #define  PCIE_FW_ERR		0x80000000U
+ #define  PCIE_FW_INIT		0x40000000U
+@@ -407,12 +455,18 @@
+ 
+ #define MC_BIST_STATUS_RDATA 0x7688
+ 
++#define MA_EDRAM0_BAR 0x77c0
++#define MA_EDRAM1_BAR 0x77c4
++#define EDRAM_SIZE_MASK   0xfffU
++#define EDRAM_SIZE_GET(x) ((x) & EDRAM_SIZE_MASK)
++
+ #define MA_EXT_MEMORY_BAR 0x77c8
+ #define  EXT_MEM_SIZE_MASK   0x00000fffU
+ #define  EXT_MEM_SIZE_SHIFT  0
+ #define  EXT_MEM_SIZE_GET(x) (((x) & EXT_MEM_SIZE_MASK) >> EXT_MEM_SIZE_SHIFT)
+ 
+ #define MA_TARGET_MEM_ENABLE 0x77d8
++#define  EXT_MEM1_ENABLE 0x00000010U
+ #define  EXT_MEM_ENABLE 0x00000004U
+ #define  EDRAM1_ENABLE  0x00000002U
+ #define  EDRAM0_ENABLE  0x00000001U
+@@ -431,6 +485,7 @@
+ #define MA_PCIE_FW 0x30b8
+ #define MA_PARITY_ERROR_STATUS 0x77f4
+ 
++#define MA_EXT_MEMORY1_BAR 0x7808
+ #define EDC_0_BASE_ADDR 0x7900
+ 
+ #define EDC_BIST_CMD 0x7904
+@@ -801,6 +856,15 @@
+ #define MPS_PORT_STAT_RX_PORT_PPP7_H 0x60c
+ #define MPS_PORT_STAT_RX_PORT_LESS_64B_L 0x610
+ #define MPS_PORT_STAT_RX_PORT_LESS_64B_H 0x614
++#define MAC_PORT_CFG2 0x818
++#define MAC_PORT_MAGIC_MACID_LO 0x824
++#define MAC_PORT_MAGIC_MACID_HI 0x828
++#define MAC_PORT_EPIO_DATA0 0x8c0
++#define MAC_PORT_EPIO_DATA1 0x8c4
++#define MAC_PORT_EPIO_DATA2 0x8c8
++#define MAC_PORT_EPIO_DATA3 0x8cc
++#define MAC_PORT_EPIO_OP 0x8d0
++
+ #define MPS_CMN_CTL 0x9000
+ #define  NUMPORTS_MASK   0x00000003U
+ #define  NUMPORTS_SHIFT  0
+@@ -1063,6 +1127,7 @@
+ #define  ADDRESS_SHIFT  0
+ #define  ADDRESS(x)     ((x) << ADDRESS_SHIFT)
+ 
++#define MAC_PORT_INT_CAUSE 0x8dc
+ #define XGMAC_PORT_INT_CAUSE 0x10dc
+ 
+ #define A_TP_TX_MOD_QUEUE_REQ_MAP 0x7e28
+@@ -1101,4 +1166,33 @@
+ #define V_PORT(x) ((x) << S_PORT)
+ #define F_PORT    V_PORT(1U)
+ 
++#define NUM_MPS_CLS_SRAM_L_INSTANCES 336
++#define NUM_MPS_T5_CLS_SRAM_L_INSTANCES 512
++
++#define T5_PORT0_BASE 0x30000
++#define T5_PORT_STRIDE 0x4000
++#define T5_PORT_BASE(idx) (T5_PORT0_BASE + (idx) * T5_PORT_STRIDE)
++#define T5_PORT_REG(idx, reg) (T5_PORT_BASE(idx) + (reg))
++
++#define MC_0_BASE_ADDR 0x40000
++#define MC_1_BASE_ADDR 0x48000
++#define MC_STRIDE (MC_1_BASE_ADDR - MC_0_BASE_ADDR)
++#define MC_REG(reg, idx) (reg + MC_STRIDE * idx)
++
++#define MC_P_BIST_CMD 0x41400
++#define MC_P_BIST_CMD_ADDR 0x41404
++#define MC_P_BIST_CMD_LEN 0x41408
++#define MC_P_BIST_DATA_PATTERN 0x4140c
++#define MC_P_BIST_STATUS_RDATA 0x41488
++#define EDC_T50_BASE_ADDR 0x50000
++#define EDC_H_BIST_CMD 0x50004
++#define EDC_H_BIST_CMD_ADDR 0x50008
++#define EDC_H_BIST_CMD_LEN 0x5000c
++#define EDC_H_BIST_DATA_PATTERN 0x50010
++#define EDC_H_BIST_STATUS_RDATA 0x50028
++
++#define EDC_T51_BASE_ADDR 0x50800
++#define EDC_STRIDE_T5 (EDC_T51_BASE_ADDR - EDC_T50_BASE_ADDR)
++#define EDC_REG_T5(reg, idx) (reg + EDC_STRIDE_T5 * idx)
++
+ #endif /* __T4_REGS_H */
 -- 
 1.7.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
