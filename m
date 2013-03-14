@@ -1,45 +1,52 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] ethernet/tulip: DE4x5 needs VIRT_TO_BUS
-Date: Thu, 14 Mar 2013 22:56:42 +0100
-Message-ID: <1363298204-8014-5-git-send-email-arnd@arndb.de>
-References: <1363298204-8014-1-git-send-email-arnd@arndb.de>
-Cc: linux-arm-kernel@lists.infradead.org,
-	Arnd Bergmann <arnd@arndb.de>,
-	Grant Grundler <grundler@parisc-linux.org>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1363298204-8014-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: LRO/GRO and libpcap packet reordering
+Date: Thu, 14 Mar 2013 21:58:14 +0000
+Message-ID: <1363298294.2695.15.camel@bwh-desktop.uk.solarflarecom.com>
+References: <CALCETrXT036Aoaum+uUV_Of0AFdUZ3eq0QjMjxiCJR4n8AZRTQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Network Development <netdev@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:54856 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753193Ab3CNV6R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 17:58:17 -0400
+In-Reply-To: <CALCETrXT036Aoaum+uUV_Of0AFdUZ3eq0QjMjxiCJR4n8AZRTQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The automated ARM build tests have shown that the tulip de4x5 driver
-uses the old-style virt_to_bus() interface on some architectures.
+On Thu, 2013-03-14 at 13:37 -0700, Andy Lutomirski wrote:
+> (I'm on Ubuntu's 3.5.0-23, but I haven't seen anything that would
+> change this behavior in newer kernels.)
+> 
+> I have a myri10ge device that's attached to a port mirror.  It runs
+> tcpdump.  Most of the traffic I'm capturing has another machine
+> attached to this switch as an endpoint.  That machine is considerably
+> faster than the machine doing the capturing.
+> 
+> My captures show nasty artifacts: packets are reodered between a given
+> flow and the other direction of the same flow.  The nasty case is when
+> an ACK shows up before the packet that it's acking.  This thoroughly
+> screws up Wireshark's TCP sequencing analysis.  Turning off LRO and
+> GRO fixes it.
+> 
+> Clearly, since this interface doesn't actually have an IP address,
+> there's no good reason to keep GRO and LRO on.  Nonetheless, it would
+> be nice if GRO didn't coalesce packets when there's an intervening
+> packing in the other direction on the same flow.  Can this be done
+> cheaply?
 
-Alpha, Sparc and PowerPC did not hit this problem, because they
-use a different code path, and most other architectures actually
-do provide VIRT_TO_BUS.
+No, it would not be cheap.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Grant Grundler <grundler@parisc-linux.org>
-Cc: netdev@vger.kernel.org
----
-Please apply for 3.9 or 3.10, this one is not urgent
+You'll probably have to disable GRO, LRO and also RSS (unless you can
+configure the RSS hash function to produce the same result for both
+directions of a flow).
 
- drivers/net/ethernet/dec/tulip/Kconfig | 1 +
- 1 file changed, 1 insertion(+)
+Ben.
 
-diff --git a/drivers/net/ethernet/dec/tulip/Kconfig b/drivers/net/ethernet/dec/tulip/Kconfig
-index 0c37fb2..1df33c7 100644
---- a/drivers/net/ethernet/dec/tulip/Kconfig
-+++ b/drivers/net/ethernet/dec/tulip/Kconfig
-@@ -108,6 +108,7 @@ config TULIP_DM910X
- config DE4X5
- 	tristate "Generic DECchip & DIGITAL EtherWORKS PCI/EISA"
- 	depends on (PCI || EISA)
-+	depends on VIRT_TO_BUS || ALPHA || PPC || SPARC
- 	select CRC32
- 	---help---
- 	  This is support for the DIGITAL series of PCI/EISA Ethernet cards.
 -- 
-1.8.1.2
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
