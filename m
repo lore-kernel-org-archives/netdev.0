@@ -1,55 +1,35 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
+From: Zhouyi Zhou <zhouzhouyi@gmail.com>
 Subject: Re: [PATCH 1/1] Fix dst_neigh_lookup/dst_neigh_lookup_skb return
  value handling bug
-Date: Thu, 14 Mar 2013 05:26:20 +0000 (UTC)
-Message-ID: <khrn1r$j3t$1@ger.gmane.org>
-References: <1363232492-4562-1-git-send-email-zhouzhouyi@gmail.com>
+Date: Thu, 14 Mar 2013 13:48:58 +0800
+Message-ID: <CAABZP2ymK4nrAG6AN2rjxnJ0fiXQh7sUS0SLA=g0LxRVuBmHRQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-rdma@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:52021 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751293Ab3CNF0i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Mar 2013 01:26:38 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UG0gr-0007hD-Jb
-	for netdev@vger.kernel.org; Thu, 14 Mar 2013 06:26:57 +0100
-Received: from 112.116.191.231 ([112.116.191.231])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 06:26:57 +0100
-Received: from xiyou.wangcong by 112.116.191.231 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 06:26:57 +0100
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:64107 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751945Ab3CNFzP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 01:55:15 -0400
+Received: by mail-pb0-f52.google.com with SMTP id ma3so1765364pbc.39
+        for <netdev@vger.kernel.org>; Wed, 13 Mar 2013 22:55:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 Mar 2013 at 03:41 GMT, Zhouyi Zhou <zhouzhouyi@gmail.com> wrote:
-> Tested on my x86_64 machine
->
-> Signed-off-by: Zhouyi Zhou <zhouzhouyi@gmail.com>
-> ---
->  drivers/infiniband/hw/cxgb4/cm.c |   12 ++++++++++++
->  include/net/dst.h                |    6 ++++--
->  2 files changed, 16 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-> index 565bfb1..6b95851 100644
-> --- a/drivers/infiniband/hw/cxgb4/cm.c
-> +++ b/drivers/infiniband/hw/cxgb4/cm.c
-> @@ -1575,6 +1575,12 @@ static int c4iw_reconnect(struct c4iw_ep *ep)
->  
->  	neigh = dst_neigh_lookup(ep->dst,
->  			&ep->com.cm_id->remote_addr.sin_addr.s_addr);
-> +	if (!neigh) {
-> +		pr_err("%s - cannot alloc neigh.\n", __func__);
-> +		err = -ENOMEM;
-> +		goto fail4;
+Cong Wang <xiyou.wangcong@gmail.com>  wrote
+>>  	neigh = dst_neigh_lookup(ep->dst,
+>>  			&ep->com.cm_id->remote_addr.sin_addr.s_addr);
+>> +	if (!neigh) {
+>> +		pr_err("%s - cannot alloc neigh.\n", __func__);
+>> +		err = -ENOMEM;
+>> +		goto fail4;
 
-
-You don't need to print error messages for OOM, the mm subsystem will
-do.
+>You don't need to print error messages for OOM, the mm subsystem will
+>do.
+Thanks for reviewing,  I clone these error messages print from the code
+that follows:
+   1612         if (!ep->l2t) {
+   1613                 pr_err("%s - cannot alloc l2e.\n", __func__);
+   1614                 err = -ENOMEM;
+   1615                 goto fail4;
+   1616         }
