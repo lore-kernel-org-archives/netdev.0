@@ -1,74 +1,90 @@
-From: Roman Yepishev <roman.yepishev@gmail.com>
-Subject: UDP Fragmentation Offload fragments packets with DF bit
-Date: Thu, 14 Mar 2013 18:18:29 +0200
-Message-ID: <CAPTwTV-Yz6My6=LCA9T=-JYWUX79DQiC0Yn2yPP6Z38wy0HXyw@mail.gmail.com>
-References: <CAPTwTV_nG7-FUNeie_6Djdd=QshE_bO=fR+L5C3fN48S48KWdw@mail.gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 net-next 05/22] cxgb4: Add T5 write combining support
+Date: Thu, 14 Mar 2013 16:30:16 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B718E@saturn3.aculab.com>
+References: <1363273748-25330-1-git-send-email-vipul@chelsio.com> <1363273748-25330-6-git-send-email-vipul@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <roland@purestorage.com>,
+	<JBottomley@parallels.com>, <dm@chelsio.com>,
+	<swise@opengridcomputing.com>, <leedom@chelsio.com>,
+	<naresh@chelsio.com>, <divy@chelsio.com>, <santosh@chelsio.com>,
+	<arvindb@chelsio.com>, <abhishek@chelsio.com>
+To: "Vipul Pandya" <vipul@chelsio.com>, <netdev@vger.kernel.org>,
+	<linux-rdma@vger.kernel.org>, <linux-scsi@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:46181 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757975Ab3CNQSa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 12:18:30 -0400
-Received: by mail-ie0-f169.google.com with SMTP id 13so3294206iea.28
-        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 09:18:29 -0700 (PDT)
-In-Reply-To: <CAPTwTV_nG7-FUNeie_6Djdd=QshE_bO=fR+L5C3fN48S48KWdw@mail.gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:37177 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S933437Ab3CNQg7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 12:36:59 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 04908-10 for <netdev@vger.kernel.org>;
+ Thu, 14 Mar 2013 16:36:56 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1363273748-25330-6-git-send-email-vipul@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-This message was originally sent to KVM mailing list but I feel this
-question is more appropriate here.
-
-"tracepath www.example.net" does not work when a VM has UFO enabled
-(as it is with virtio NIC):
-
-$ sudo ethtool -k eth0 | grep udp
-udp-fragmentation-offload: on
-
-$ tracepath www.example.net
- 1:  vlan3.gw.lappyfamily.net                              1.992ms
- 2:  no reply
-
-$ sudo ethtool -K eth0 ufo off
-$ tracepath www.example.net
- 1:  potato.lappyfamily.net                                0.447ms pmtu 1500
- 1:  vlan3.gw.lappyfamily.net                              0.463ms
- 2:  local-gw.236.teremki.kiev.ua                          1.268ms
+> This patch implements a low latency Write Combining (aka Write Coalescing) work
+> request path. PCIE maps User Space Doorbell BAR2 region writes to the new
+> interface to SGE. SGE pulls a new message from PCIE new interface and if its a
+> coalesced write work request then pushes it for processing. This patch copies
+> coalesced work request to memory mapped BAR2 space.
 ...
+> +	} else {
+> +		memset(data, 0, 2 * sizeof(u64));
+> +		*data += 2;
+> +	}
 
-tracepath works by sending a 65536-byte UDP packet with DF bit set,
-then adjusts the packet size according to the ICMP replies for PMTU
-discovery. However, when UDP fragmentation offload is enabled, the
-packets are _fragmented_ into lots of small 1500-byte size packets.
-The remote host does not need to send ICMP fragmentation-needed
-responses, and it looks like my upstream ISP router drops incoming UDP
-packets that are larger than 32K completely so it will return neither
-ICMP time exceeded messages nor the message that a port is closed.
+Using memset is overkill (or rather a big overhead if it isn't
+detected by the compiler). Nothing wrong with:
+		(*data)[0] = 0;
+		(*data)[1] = 0;
+		*data += 2;
+Actually, typing that, I realise that you should probably have
+read *data into a local variable, and then updated it when finished.
+Otherwise some of the accesses might be ones which force the
+compiler to reload the value.
+		
+>  static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
+>  {
+> +	unsigned int *wr, index;
+> +
+>  	wmb();            /* write descriptors before telling HW */
+>  	spin_lock(&q->db_lock);
+>  	if (!q->db_disabled) {
+> -		t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
+> -			     QID(q->cntxt_id) | PIDX(n));
+> +		if (is_t4(adap->chip)) {
+> +			t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
+> +				     QID(q->cntxt_id) | PIDX(n));
+> +		} else {
+> +			if (n == 1) {
+> +				index = q->pidx ? (q->pidx - 1) : (q->size - 1);
+> +				wr = (unsigned int *)&q->desc[index];
+> +				cxgb_pio_copy((u64 __iomem *)
+> +					      (adap->bar2 + q->udb + 64),
+> +					      (u64 *)wr);
 
-This is seen on the vnet2 tap device:
-17:50:53.522206 IP (tos 0x0, ttl 1, id 0, offset 0, flags [DF], proto
-UDP (17), length 65535)
-    192.168.100.8.51765 > 192.0.43.10.44444: UDP, length 65507
+Why all the casts on 'wr' ?
 
-This is what seen leaving the host interface:
-17:50:53.522398 IP (tos 0x0, ttl 1, id 0, offset 0, flags [+], proto
-UDP (17), length 1500)
-    192.168.100.8.51765 > 192.0.43.10.44444: UDP, length 65507
-17:50:53.522416 IP (tos 0x0, ttl 1, id 0, offset 1480, flags [+],
-proto UDP (17), length 1500)
-    192.168.100.8 > 192.0.43.10: udp
-...
+> +			} else
+> +				writel(n,  adap->bar2 + q->udb + 8);
+> +			wmb();
 
-I have checked 3.2.0 and 3.8.0 kernel hosts and they all happily split
-a DF packet as seen above.
+Since you actually need memory barriers here on x86 you definitely
+need a comment saying so, and it would (IMHO) better to use a
+different define in the source (even if it is currently converted
+to wmb() in a local header file).
 
-It looks like a bug to me. I assume that if an IP packet carrying this
-UDP payload has DF bit set then it should not be fragmented even when
-fragmentation is handled by the NIC (or VM host in our case). Does
-this look like a real issue?
+Thinking further, for portability you might want to find some way
+of abstracting the multi-word writes somehow.
+For example, some of the ppc have a dma engine associated with the
+PCIe master interface that can be used to generate large TLP.
+The code would still want to spin waiting for the dma to complete
+(since the transfer would be far faster than any interrupt path).
 
--- 
-Regards, Roman Yepishev
+	David
