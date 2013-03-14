@@ -1,105 +1,43 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: em1 is visible to iproute2 but not ethtool or tcpdump
-Date: Thu, 14 Mar 2013 09:54:17 -0700
-Message-ID: <CALCETrV0SP+z_acyRTV++uZCFafJ7h+Ef9_NQ1tKrqOAiiVt8w@mail.gmail.com>
+From: Georg Hofmann <georg@hofmannsweb.com>
+Subject: [PATCH 3.9-rc2] net: fec: fix missing napi_disable call
+Date: Thu, 14 Mar 2013 17:54:09 +0100
+Message-ID: <1363280049.3967.21.camel@gh-dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: e1000-devel@lists.sourceforge.net
-To: Network Development <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
+	davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f174.google.com ([209.85.128.174]:39902 "EHLO
-	mail-ve0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754796Ab3CNQyh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 12:54:37 -0400
-Received: by mail-ve0-f174.google.com with SMTP id pb11so1869635veb.5
-        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 09:54:37 -0700 (PDT)
+Received: from cpy94-2-81-56-63-32.fbx.proxad.net ([81.56.63.32]:37380 "EHLO
+	hofmannsweb.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754796Ab3CNRBl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 13:01:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-My e1000e device is em1.  It has this rather strange behavior on
-Fedora's 3.8.1 (although 3.7.something did the same thing, I believe):
+Commit dc975382d2ef36be7e78fac3717927de1a5abcd8 introduces napi support
+but never calls napi_disable. This will generate a kernel oops
+(kernel BUG at include/linux/netdevice.h:473!) every time, when
+ndo_stop is called followed by ndo_start.
+Add the missing napi_diable call.
 
-$ ip link show dev em1
-6: em1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast
-state DOWN qlen 1000
-    link/ether f0:de:f1:59:f6:c9 brd ff:ff:ff:ff:ff:ff
-$ strace -e socket,ioctl ethtool em1
-socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 3
-Settings for em1:
-ioctl(3, SIOCETHTOOL, 0x7fffa6c554d0)   = -1 ENODEV (No such device)
-Cannot get device settings: No such device
-ioctl(3, SIOCETHTOOL, 0x7fffa6c554d0)   = -1 ENODEV (No such device)
-Cannot get wake-on-lan settings: No such device
-ioctl(3, SIOCETHTOOL, 0x7fffa6c554d0)   = -1 ENODEV (No such device)
-Cannot get message level: No such device
-ioctl(3, SIOCETHTOOL, 0x7fffa6c554d0)   = -1 ENODEV (No such device)
-Cannot get link status: No such device
-No data available
-+++ exited with 75 +++
-$ sudo tcpdump -i em1
-tcpdump: em1: SIOETHTOOL(ETHTOOL_GTSO) ioctl failed: No such device
+Signed-off-by: Georg Hofmann <georg@hofmannsweb.com>
+---
+ Tested with a imx28-evk board. 
 
-A sufficient number of rmmod/modprobe cycles will make it work.
+ drivers/net/ethernet/freescale/fec.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-This is, perhaps, helpful:
-
-$ sudo ip link set dev em1 name foobar
-RTNETLINK answers: Device or resource busy
-$ sudo ip link set dev em1 down
-$ sudo ip link set dev em1 name foobar
-$ sudo ethtool foobar
-Settings for foobar:
-	Supported ports: [ TP ]
-	Supported link modes:   10baseT/Half 10baseT/Full
-	                        100baseT/Half 100baseT/Full
-	                        1000baseT/Full
-	Supported pause frame use: No
-	Supports auto-negotiation: Yes
-	Advertised link modes:  10baseT/Half 10baseT/Full
-	                        100baseT/Half 100baseT/Full
-	                        1000baseT/Full
-	Advertised pause frame use: No
-	Advertised auto-negotiation: Yes
-	Speed: Unknown!
-	Duplex: Unknown! (255)
-	Port: Twisted Pair
-	PHYAD: 1
-	Transceiver: internal
-	Auto-negotiation: on
-	MDI-X: Unknown
-	Supports Wake-on: pumbg
-	Wake-on: g
-	Current message level: 0x00000007 (7)
-			       drv probe link
-	Link detected: no
-$ sudo ip link set dev foobar name em1
-$ sudo ethtool em1
-Settings for em1:
-	Supported ports: [ TP ]
-	Supported link modes:   10baseT/Half 10baseT/Full
-	                        100baseT/Half 100baseT/Full
-	                        1000baseT/Full
-	Supported pause frame use: No
-	Supports auto-negotiation: Yes
-	Advertised link modes:  10baseT/Half 10baseT/Full
-	                        100baseT/Half 100baseT/Full
-	                        1000baseT/Full
-	Advertised pause frame use: No
-	Advertised auto-negotiation: Yes
-	Speed: Unknown!
-	Duplex: Unknown! (255)
-	Port: Twisted Pair
-	PHYAD: 1
-	Transceiver: internal
-	Auto-negotiation: on
-	MDI-X: Unknown
-	Supports Wake-on: pumbg
-	Wake-on: g
-	Current message level: 0x00000007 (7)
-			       drv probe link
-	Link detected: no
-$
-
-This bug (?) isn't a show-stopper, but it's rather annoying.  I
-suspect a core networking bug, not an e1000e bug, but I cc'd the e1000
-people just in case.
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index 069a155..128da16 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -1437,6 +1437,7 @@ fec_enet_close(struct net_device *ndev)
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 
+ 	/* Don't know what to do yet. */
++	napi_disable(&fep->napi);
+ 	fep->opened = 0;
+ 	netif_stop_queue(ndev);
+ 	fec_stop(ndev);
