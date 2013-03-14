@@ -1,34 +1,81 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash table
-Date: Thu, 14 Mar 2013 13:45:07 +0100
-Message-ID: <20130314124507.GB27559@order.stressinduktion.org>
-References: <1362754386.15793.226.camel@edumazet-glaptop> <20130308150831.GD28531@order.stressinduktion.org> <1362756219.15793.240.camel@edumazet-glaptop> <20130313012715.GE14801@order.stressinduktion.org> <1363152568.13690.35.camel@edumazet-glaptop> <20130314013702.GA4129@order.stressinduktion.org> <1363245040.14913.11.camel@localhost> <20130314072341.GC4129@order.stressinduktion.org> <20130314072839.GD4129@order.stressinduktion.org> <1363252690.14913.42.camel@localhost>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH] skb: Propagate pfmemalloc on skb from head page only
+Date: Thu, 14 Mar 2013 17:29:40 +0400
+Message-ID: <5141D0C4.70409@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: David Miller <davem@davemloft.net>, Mel Gorman <mgorman@suse.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>, stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:35012 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757656Ab3CNMpI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 08:45:08 -0400
-Content-Disposition: inline
-In-Reply-To: <1363252690.14913.42.camel@localhost>
+Received: from mailhub.sw.ru ([195.214.232.25]:4272 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757807Ab3CNNbM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Mar 2013 09:31:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 14, 2013 at 10:18:10AM +0100, Jesper Dangaard Brouer wrote:
-> I will start working on this as soon as Netfilter Workshop is over and I
-> have recovered from organizing this event.  DaveM told me I needed to
-> finish my frag patches first, before I could implement all the other
-> cool ideas we have come up with during the workshop ;-)
+Hi.
 
-Yeah, I have had a look at your patches, looks promising. Definitely worth
-that you get some pressure to finish them. :)
+I'm trying to send big chunks of memory from application address space via
+TCP socket using vmsplice + splice like this
 
-> But I don't know if my frag changes can make v3.9, maybe v3.10 is more
-> realistic?  In which case we should use your patch to close this problem
-> on v3.9 IMHO.
+   mem = mmap(128Mb);
+   vmsplice(pipe[1], mem); /* splice memory into pipe */
+   splice(pipe[0], tcp_socket); /* send it into network */
 
-Sounds good.
+When I'm lucky and a huge page splices into the pipe and then into the socket
+_and_ client and server ends of the TCP connection are on the same host,
+communicating via lo, the whole connection gets stuck! The sending queue
+becomes full and app stops writing/splicing more into it, but the receiving
+queue remains empty, and that's why.
+
+The __skb_fill_page_desc observes a tail page of a huge page and erroneously
+propagates its page->pfmemalloc value onto socket (the pfmemalloc on tail pages
+contain garbage). Then this skb->pfmemalloc leaks through lo and due to the
+
+    tcp_v4_rcv
+    sk_filter
+        if (skb->pfmemalloc && !sock_flag(sk, SOCK_MEMALLOC)) /* true */
+            return -ENOMEM
+        goto release_and_discard;
+
+no packets reach the socket. Even TCP re-transmits are dropped by this, as skb
+cloning clones the pfmemalloc flag as well.
+
+That said, here's the proper page->pfmemalloc propagation onto socket: we
+must check the huge-page's head page only, other pages' pfmemalloc and mapping
+values do not contain what is expected in this place. However, I'm not sure
+whether this fix is _complete_, since pfmemalloc propagation via lo also 
+oesn't look great.
+
+Both, bit propagation from page to skb and this check in sk_filter, were 
+introduced by c48a11c7 (netvm: propagate page->pfmemalloc to skb), in v3.5 so
+Mel and stable@ are in Cc.
+
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+
+---
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index eb2106f..4e525eb 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1292,11 +1292,13 @@ static inline void __skb_fill_page_desc(struct sk_buff *skb, int i,
+ 	 * do not lose pfmemalloc information as the pages would not be
+ 	 * allocated using __GFP_MEMALLOC.
+ 	 */
+-	if (page->pfmemalloc && !page->mapping)
+-		skb->pfmemalloc	= true;
+ 	frag->page.p		  = page;
+ 	frag->page_offset	  = off;
+ 	skb_frag_size_set(frag, size);
++
++	page = compound_head(page);
++	if (page->pfmemalloc && !page->mapping)
++		skb->pfmemalloc	= true;
+ }
+ 
+ /**
