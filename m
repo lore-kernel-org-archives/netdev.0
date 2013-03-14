@@ -1,71 +1,48 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: LRO/GRO and libpcap packet reordering
-Date: Thu, 14 Mar 2013 23:01:27 +0000
-Message-ID: <1363302087.2695.25.camel@bwh-desktop.uk.solarflarecom.com>
-References: <CALCETrXT036Aoaum+uUV_Of0AFdUZ3eq0QjMjxiCJR4n8AZRTQ@mail.gmail.com>
-	 <1363298294.2695.15.camel@bwh-desktop.uk.solarflarecom.com>
-	 <CALCETrUidEuaxBeDdDwGb=Dx5iGm1CK-HGWNXRUev5xoR9fnRg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: atl1c issues on 3.8.2
+Date: Fri, 15 Mar 2013 00:06:02 +0100
+Message-ID: <1363302362.29475.42.camel@edumazet-glaptop>
+References: <20130312161753.281681f2@milhouse>
+	 <1363103144.13690.12.camel@edumazet-glaptop>
+	 <20130312180942.4198e88e@milhouse>
+	 <1363154258.13690.40.camel@edumazet-glaptop>
+	 <1363271460.29475.14.camel@edumazet-glaptop>
+	 <20130314231746.44a93e4d@milhouse>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	Eric Dumazet <edumazet@google.com>,
+	linux-netdev <netdev@vger.kernel.org>,
+	"David S.Miller" <davem@davemloft.net>,
+	Mel Gorman <mgorman@suse.de>
+To: Michael =?ISO-8859-1?Q?B=FCsch?= <m@bues.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:61160 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753708Ab3CNXBb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 19:01:31 -0400
-In-Reply-To: <CALCETrUidEuaxBeDdDwGb=Dx5iGm1CK-HGWNXRUev5xoR9fnRg@mail.gmail.com>
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:58865 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753216Ab3CNXGH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 19:06:07 -0400
+Received: by mail-ee0-f43.google.com with SMTP id c50so1353838eek.16
+        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 16:06:05 -0700 (PDT)
+In-Reply-To: <20130314231746.44a93e4d@milhouse>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-03-14 at 15:45 -0700, Andy Lutomirski wrote:
-> On Thu, Mar 14, 2013 at 2:58 PM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
-> > On Thu, 2013-03-14 at 13:37 -0700, Andy Lutomirski wrote:
-> >> (I'm on Ubuntu's 3.5.0-23, but I haven't seen anything that would
-> >> change this behavior in newer kernels.)
-> >>
-> >> I have a myri10ge device that's attached to a port mirror.  It runs
-> >> tcpdump.  Most of the traffic I'm capturing has another machine
-> >> attached to this switch as an endpoint.  That machine is considerably
-> >> faster than the machine doing the capturing.
-> >>
-> >> My captures show nasty artifacts: packets are reodered between a given
-> >> flow and the other direction of the same flow.  The nasty case is when
-> >> an ACK shows up before the packet that it's acking.  This thoroughly
-> >> screws up Wireshark's TCP sequencing analysis.  Turning off LRO and
-> >> GRO fixes it.
-> >>
-> >> Clearly, since this interface doesn't actually have an IP address,
-> >> there's no good reason to keep GRO and LRO on.  Nonetheless, it would
-> >> be nice if GRO didn't coalesce packets when there's an intervening
-> >> packing in the other direction on the same flow.  Can this be done
-> >> cheaply?
-> >
-> > No, it would not be cheap.
-> >
-> 
-> Hmm.  What if the GRO flow hashing was something like hash(one
-> endpoint) ^ hash(the other endpoint)?  (NB: I don't really know what
-> I'm talking about.)
+On Thu, 2013-03-14 at 23:17 +0100, Michael B=C3=BCsch wrote:
 
-GRO doesn't use a flow hash; it performs an exact comparison of the
-identifying fields.  (And only holds aggregated skbs for up to 8 flows
-at a time.)
+> I can still reproduce with this fix applied.
+>=20
+> However, I noticed that I cannot reproduce, if the wireless interface=
+ (ath9k) of
+> the netbook is down while testing the ethernet. The wireless does not=
+ carry any
+> test traffic. It's just idle.
+> I do not know if this always had been the case, because wireless was =
+always up (and mostly
+> idle) in my previous ethernet tests.
+>=20
 
-Ben.
+OK, then it must be kind of corruption issue in ath9k, or whatever ?
 
-> > You'll probably have to disable GRO, LRO and also RSS (unless you can
-> > configure the RSS hash function to produce the same result for both
-> > directions of a flow).
-> >
-> 
-> RSS was already off.  That was the first thing I tried.
-> 
-> --Andy
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+You could try various DEBUGing stuff, like CONFIG_DEBUG_PAGEALLOC and
+CONFIG_SLUB_DEBUG_ON
