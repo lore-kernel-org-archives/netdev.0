@@ -1,37 +1,59 @@
-From: Robert de Vries <rhdv@xs4all.nl>
-Subject: [PATCH] smsc75xx: configuration help incorrectly mentions smsc95xx
-Date: Thu, 14 Mar 2013 20:29:06 +0100
-Message-ID: <1363289346-3084-1-git-send-email-rhdv@xs4all.nl>
-Cc: Robert de Vries <rhdv@xs4all.nl>
-To: netdev@vger.kernel.org
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: Who/What is supposed to remove IPv6 address from interface when
+ moving from one network to another ?
+Date: Thu, 14 Mar 2013 14:48:15 -0500
+Message-ID: <1363290495.1643.29.camel@dcbw.foobar.com>
+References: <CAF6-1L4=xACZdqvJ6AZL4XkY17N0pC9PnPfNfK9Tk7QB47c1tw@mail.gmail.com>
+	 <CAF6-1L5cxguK8tHxjMACZJ8xNmAXLLXwP086eF4_SEctZdiZ3g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lorenzo@google.com
+To: Sylvain Munaut <s.munaut@whatever-company.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from calvin.xs4all.nl ([80.100.38.15]:60587 "EHLO calvin.xs4all.nl"
+Received: from mx1.redhat.com ([209.132.183.28]:52229 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750951Ab3CNThl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Mar 2013 15:37:41 -0400
+	id S1751072Ab3CNTre (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Mar 2013 15:47:34 -0400
+In-Reply-To: <CAF6-1L5cxguK8tHxjMACZJ8xNmAXLLXwP086eF4_SEctZdiZ3g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Kconfig file help information incorrectly mentions that the
-SMSC LAN75xx config option is for SMSC LAN95xx devices.
+On Thu, 2013-03-14 at 20:33 +0100, Sylvain Munaut wrote:
+> Hi,
+> 
+> 
+> In a nutshell, I'm experiencing the same behavior as described here
+> http://kerneltrap.org/mailarchive/linux-netdev/2010/10/26/6288280 ...
+> but 2.5 years later ...
+> 
+> When switching network, my interface doesn't necessarily goes down and
+> so IPv6 prefixes from my old location are kept, causing issues.
+> 
+> I read the thread above, but it just seem to "stop" without really a
+> solution ...
+> 
+> So what's the proper thing to do ?  How is it supposed to work ?
+> I searched for a while and except for the thread above, I couldn't
+> find any reference on whose responsibility it is to cleanup. Given the
+> kernel added the address itself, I'd tend to agree with the original
+> poster and that the kernel should handle the cleanup.
 
-Signed-off-by: Robert de Vries <rhdv@xs4all.nl>
----
- drivers/net/usb/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The old network prefix should have a lifetime, and when that lifetime
+has expired, it should be deleted by the kernel.  However, that lifetime
+is specified by the IPv6 router on your network, and may be very large.
+Thus when you switch networks, if the lifetime of the old prefix has not
+expired, the address is not deleted.
 
-diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-index 3b6e9b8..7c769d8 100644
---- a/drivers/net/usb/Kconfig
-+++ b/drivers/net/usb/Kconfig
-@@ -268,7 +268,7 @@ config USB_NET_SMSC75XX
- 	select CRC16
- 	select CRC32
- 	help
--	  This option adds support for SMSC LAN95XX based USB 2.0
-+	  This option adds support for SMSC LAN75XX based USB 2.0
- 	  Gigabit Ethernet adapters.
- 
- config USB_NET_SMSC95XX
--- 
-1.7.9.5
+A daemon like NetworkManager usually handles this sort of thing for you
+by watching for link/carrier events and retriggering the IP
+configuration process when you connect to the new network.  The kernel
+does not (and shouldn't) trigger anything on carrier change as that's a
+site-specific/user-specific policy.
+
+(if you want to trigger it manually, you should be able to run 'ifconfig
+eth0 down' and then 'ifconfig eth0 up' when you have connected to the
+new network, which clears out the old addresses and then lets the kernel
+listen for new router advertisements from the new network).
+
+Dan
