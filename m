@@ -1,70 +1,68 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH v2 net-next 0/3] Allow bridge to function
- in non-promisc mode
-Date: Thu, 14 Mar 2013 21:18:07 +0200
-Message-ID: <20130314191807.GA30381@redhat.com>
-References: <1362691728-13289-1-git-send-email-vyasevic@redhat.com>
-	<20130307214304.25e7784e@nehalam.linuxnetplumber.net>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH] mv643xx_eth: convert to use the Marvell Orion MDIO driver
+Date: Thu, 14 Mar 2013 20:32:57 +0100
+Message-ID: <514225E9.9060902@openwrt.org>
+References: <1359473048-26551-1-git-send-email-florian@openwrt.org> <1363284515-9865-1-git-send-email-florian@openwrt.org> <1363284515-9865-2-git-send-email-florian@openwrt.org> <20130314190235.GW12700@titan.lakedaemon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20130307214304.25e7784e@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Russell King <linux@arm.linux.org.uk>,
+	linux-doc@vger.kernel.org,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+	Rob Herring <rob.herring@calxeda.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
+	linux-arm-kernel@lists.infradead.org,
+	Rob Landley <rob@landley.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linuxppc-dev@lists.ozlabs.org,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: Jason Cooper <jason@lakedaemon.net>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20130314190235.GW12700@titan.lakedaemon.net>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 07, 2013 at 09:43:04PM -0800, Stephen Hemminger wrote:
-> On Thu,  7 Mar 2013 16:28:45 -0500
-> Vlad Yasevich <vyasevic@redhat.com> wrote:
-> 
-> > The series adds an ability to configure the bridge into a non-primiscuous
-> > mode.   Instead, it provides the ability to identitfy some set of bridge
-> > ports as uplinks and allows for MAC addresses to be programmed onto
-> > those ports.  In case the port hardware does not support mac filter,
-> > that port will be placed in promiscuous mode.
-> > 
-> > Default bridge operation continues to remain as "promiscuous".  The new
-> > functionality has to be enabled via sysfs (similar to other bridge extensions).
-> > 
-> > The uplink mode is implemented as a flag on a bridge port.  The api to
-> > change that flag follows the existing api to enable/disable other existing
-> > flags.
-> > 
-> > All comments are welcome.
-> > 
-> 
-> Can we make this a one step process and less visible to the user.
-> If user defines an uplink device, and the uplink device is capable of filtering
-> (and what ever other pre-conditions people can think of), then the bridge will
-> transparently switch to uplink/non-promisc mode.  This can also be used to trigger
-> edge only mode in RSTP in the future.
-> 
-> Less knobs.
-> 
+Hello Jason,
 
-Rephrasing what I suggested using 'uplink' term:
-- add ability to specify wanted addresses on a port
-- wheneever we don't specify addresses we call an uplink
-  (either automatically so by default all
-  ports are uplink, or add a separate flag - any preference?)
-- if there are 0 uplinks, no ports are promisc
-- if there is 1 uplink, it is not promisc but all others are promisc
-- if there are >1 uplinks, everyone is promisc
+Le 14/03/2013 20:02, Jason Cooper a =E9crit :
+> Florian,
+>
+> On Thu, Mar 14, 2013 at 07:08:32PM +0100, Florian Fainelli wrote:
+>> This patch converts the Marvell MV643XX ethernet driver to use the
+>> Marvell Orion MDIO driver. As a result, PowerPC and ARM platforms
+>> registering the Marvell MV643XX ethernet driver are also updated to
+>> register a Marvell Orion MDIO driver. This driver voluntarily overla=
+ps
+>> with the Marvell Ethernet shared registers because it will use a sub=
+set
+>> of this shared register (shared_base + 0x4 - shared_base + 0x84). Th=
+e
+>> Ethernet driver is also updated to look up for a PHY device using th=
+e
+>> Orion MDIO bus driver.
+>>
+>> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+>> ---
+>>   arch/arm/plat-orion/common.c               |   97 +++++++++++----
+>>   arch/powerpc/platforms/chrp/pegasos_eth.c  |   20 +++
+>>   arch/powerpc/sysdev/mv64x60_dev.c          |   14 ++-
+>>   drivers/net/ethernet/marvell/Kconfig       |    1 +
+>>   drivers/net/ethernet/marvell/mv643xx_eth.c |  186 ++--------------=
+------------
+>>   include/linux/mv643xx_eth.h                |    1 -
+>>   6 files changed, 117 insertions(+), 202 deletions(-)
+>
+> Isn't this the old version of 4/4 ?
 
-
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+No this really is v2, but I reformatted just that one and sent it=20
+without the v2 changelog, you should have received the proper version a=
+=20
+couple minutes later once I realized my mistake.
+--
+=46lorian
