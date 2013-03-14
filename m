@@ -1,88 +1,141 @@
 From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [net-next 1/2] be2net: enable interrupts in be_probe() (RoCE and other ULPs need them)
-Date: Thu, 14 Mar 2013 18:11:51 +0530
-Message-ID: <5a4bf395-39cc-4fdb-acb6-f0cb60eb018a@CMEXHTCAS1.ad.emulex.com>
+Subject: [net-next 2/2] be2net: Use new F/W mailbox cmd to manipulate interrupts.
+Date: Thu, 14 Mar 2013 18:12:07 +0530
+Message-ID: <06289c4f-d187-4bfc-afbc-989661de9712@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Somnath Kotur <somnath.kotur@emulex.com>,
-	Sathya Perla <sathya.perla@emulex.com>
+Cc: Somnath Kotur <somnath.kotur@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:41222 "EHLO
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:41229 "EHLO
 	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755943Ab3CNMm7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 08:42:59 -0400
+	with ESMTP id S1757680Ab3CNMnR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 08:43:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As the NIC PCI function may be used by other protocols, the chip interrupts
-must be enabled in be_probe() itself rather than be_open().
+This is needed as the earlier method of manipulating this register via PCI
+Config space is disallowed by certain Hypervisors.
 
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+
 Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |   21 ++++++++++-----------
- 1 files changed, 10 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   25 +++++++++++++++++++++++++
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    8 ++++++++
+ drivers/net/ethernet/emulex/benet/be_main.c |   25 +++++++++++++++++--------
+ 3 files changed, 50 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 6ed4639..9916364 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -3202,6 +3202,31 @@ err:
+ 	return status;
+ }
+ 
++int be_cmd_intr_set(struct be_adapter *adapter, bool intr_enable)
++{
++	struct be_mcc_wrb *wrb;
++	struct be_cmd_req_intr_set *req;
++	int status;
++
++	if (mutex_lock_interruptible(&adapter->mbox_lock))
++		return -1;
++
++	wrb = wrb_from_mbox(adapter);
++
++	req = embedded_payload(wrb);
++
++	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
++			       OPCODE_COMMON_SET_INTERRUPT_ENABLE, sizeof(*req),
++			       wrb, NULL);
++
++	req->intr_enabled = intr_enable;
++
++	status = be_mbox_notify_wait(adapter);
++
++	mutex_unlock(&adapter->mbox_lock);
++	return status;
++}
++
+ int be_roce_mcc_cmd(void *netdev_handle, void *wrb_payload,
+ 			int wrb_payload_size, u16 *cmd_status, u16 *ext_status)
+ {
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 6ef4575..f2af855 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -188,6 +188,7 @@ struct be_mcc_mailbox {
+ #define OPCODE_COMMON_GET_BEACON_STATE			70
+ #define OPCODE_COMMON_READ_TRANSRECV_DATA		73
+ #define OPCODE_COMMON_GET_PORT_NAME			77
++#define OPCODE_COMMON_SET_INTERRUPT_ENABLE		89
+ #define OPCODE_COMMON_GET_PHY_DETAILS			102
+ #define OPCODE_COMMON_SET_DRIVER_FUNCTION_CAP		103
+ #define OPCODE_COMMON_GET_CNTL_ADDITIONAL_ATTRIBUTES	121
+@@ -1791,6 +1792,12 @@ struct be_cmd_enable_disable_vf {
+ 	u8 rsvd[3];
+ };
+ 
++struct be_cmd_req_intr_set {
++	struct be_cmd_req_hdr hdr;
++	u8 intr_enabled;
++	u8 rsvd[3];
++};
++
+ static inline bool check_privilege(struct be_adapter *adapter, u32 flags)
+ {
+ 	return flags & adapter->cmd_privileges ? true : false;
+@@ -1938,3 +1945,4 @@ extern int be_cmd_set_profile_config(struct be_adapter *adapter, u32 bps,
+ extern int be_cmd_get_if_id(struct be_adapter *adapter,
+ 			    struct be_vf_cfg *vf_cfg, int vf_num);
+ extern int be_cmd_enable_vf(struct be_adapter *adapter, u8 domain);
++extern int be_cmd_intr_set(struct be_adapter *adapter, bool intr_enable);
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index b8e5019..dae7172 100644
+index dae7172..c71b180 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -157,6 +157,10 @@ static void be_intr_set(struct be_adapter *adapter, bool enable)
+@@ -153,17 +153,10 @@ static int be_queue_alloc(struct be_adapter *adapter, struct be_queue_info *q,
+ 	return 0;
+ }
+ 
+-static void be_intr_set(struct be_adapter *adapter, bool enable)
++static void be_reg_intr_set(struct be_adapter *adapter, bool enable)
  {
  	u32 reg, enabled;
  
+-	/* On lancer interrupts can't be controlled via this register */
+-	if (lancer_chip(adapter))
+-		return;
+-
+-	if (adapter->eeh_error)
+-		return;
+-
+ 	pci_read_config_dword(adapter->pdev, PCICFG_MEMBAR_CTRL_INT_CTRL_OFFSET,
+ 				&reg);
+ 	enabled = reg & MEMBAR_CTRL_INT_CTRL_HOSTINTR_MASK;
+@@ -179,6 +172,22 @@ static void be_intr_set(struct be_adapter *adapter, bool enable)
+ 			PCICFG_MEMBAR_CTRL_INT_CTRL_OFFSET, reg);
+ }
+ 
++static void be_intr_set(struct be_adapter *adapter, bool enable)
++{
++	int status = 0;
++
 +	/* On lancer interrupts can't be controlled via this register */
 +	if (lancer_chip(adapter))
 +		return;
 +
- 	if (adapter->eeh_error)
- 		return;
- 
-@@ -2435,9 +2439,6 @@ static int be_close(struct net_device *netdev)
- 
- 	be_roce_dev_close(adapter);
- 
--	if (!lancer_chip(adapter))
--		be_intr_set(adapter, false);
--
- 	for_all_evt_queues(adapter, eqo, i)
- 		napi_disable(&eqo->napi);
- 
-@@ -2525,9 +2526,6 @@ static int be_open(struct net_device *netdev)
- 
- 	be_irq_register(adapter);
- 
--	if (!lancer_chip(adapter))
--		be_intr_set(adapter, true);
--
- 	for_all_rx_queues(adapter, rxo, i)
- 		be_cq_notify(adapter, rxo->cq.id, true, 0);
- 
-@@ -3853,6 +3851,7 @@ static void be_remove(struct pci_dev *pdev)
- 		return;
- 
- 	be_roce_dev_remove(adapter);
-+	be_intr_set(adapter, false);
- 
- 	cancel_delayed_work_sync(&adapter->func_recovery_work);
- 
-@@ -4142,11 +4141,11 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
- 			goto ctrl_clean;
- 	}
- 
--	/* The INTR bit may be set in the card when probed by a kdump kernel
--	 * after a crash.
--	 */
--	if (!lancer_chip(adapter))
--		be_intr_set(adapter, false);
-+	/* Wait for interrupts to quiesce after an FLR */
-+	msleep(100);
++	if (adapter->eeh_error)
++		return;
 +
-+	/* Allow interrupts for other ULPs running on NIC function */
-+	be_intr_set(adapter, true);
- 
- 	status = be_stats_init(adapter);
- 	if (status)
++	status = be_cmd_intr_set(adapter, enable);
++	if (status)
++		be_reg_intr_set(adapter, enable);
++}
++
+ static void be_rxq_notify(struct be_adapter *adapter, u16 qid, u16 posted)
+ {
+ 	u32 val = 0;
 -- 
 1.5.6.1
