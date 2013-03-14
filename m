@@ -1,141 +1,252 @@
-From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH v2 net-next 13/22] RDMA/cxgb4: Turn off db coalescing when RDMA QPs are in use.
-Date: Thu, 14 Mar 2013 20:38:59 +0530
-Message-ID: <1363273748-25330-14-git-send-email-vipul@chelsio.com>
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH v2 net-next 05/22] cxgb4: Add T5 write combining support
+Date: Thu, 14 Mar 2013 20:38:51 +0530
+Message-ID: <1363273748-25330-6-git-send-email-vipul@chelsio.com>
 References: <1363273748-25330-1-git-send-email-vipul@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
-	JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	naresh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	arvindb-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, abhishek-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1363273748-25330-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, roland@purestorage.com,
+	JBottomley@parallels.com, dm@chelsio.com,
+	swise@opengridcomputing.com, leedom@chelsio.com,
+	naresh@chelsio.com, divy@chelsio.com, santosh@chelsio.com,
+	arvindb@chelsio.com, abhishek@chelsio.com, vipul@chelsio.com
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+	linux-scsi@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:6815 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757582Ab3CNPPS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 11:15:18 -0400
+In-Reply-To: <1363273748-25330-1-git-send-email-vipul@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+From: Santosh Rastapur <santosh@chelsio.com>
+
+This patch implements a low latency Write Combining (aka Write Coalescing) work
+request path. PCIE maps User Space Doorbell BAR2 region writes to the new
+interface to SGE. SGE pulls a new message from PCIE new interface and if its a
+coalesced write work request then pushes it for processing. This patch copies
+coalesced work request to memory mapped BAR2 space.
+
+Signed-off-by: Santosh Rastapur <santosh@chelsio.com>
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
 ---
 v2: Replaced #ifdef with portable interface wmb in ring_tx_db
 
- drivers/infiniband/hw/cxgb4/qp.c                |   20 ++++++++++++++++----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   19 +++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    3 +++
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    4 ++++
- 4 files changed, 42 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    2 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   53 ++++++++++++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |   52 +++++++++++++++++++++-
+ 3 files changed, 102 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index c460244..da4869f 100644
---- a/drivers/infiniband/hw/cxgb4/qp.c
-+++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -42,10 +42,17 @@ static int ocqp_support = 1;
- module_param(ocqp_support, int, 0644);
- MODULE_PARM_DESC(ocqp_support, "Support on-chip SQs (default=1)");
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index a91dea6..f8ff30e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -439,6 +439,7 @@ struct sge_txq {
+ 	spinlock_t db_lock;
+ 	int db_disabled;
+ 	unsigned short db_pidx;
++	u64 udb;
+ };
  
--int db_fc_threshold = 2000;
-+int db_fc_threshold = 1000;
- module_param(db_fc_threshold, int, 0644);
--MODULE_PARM_DESC(db_fc_threshold, "QP count/threshold that triggers automatic "
--		 "db flow control mode (default = 2000)");
-+MODULE_PARM_DESC(db_fc_threshold,
-+		 "QP count/threshold that triggers"
-+		 " automatic db flow control mode (default = 1000)");
-+
-+int db_coalescing_threshold;
-+module_param(db_coalescing_threshold, int, 0644);
-+MODULE_PARM_DESC(db_coalescing_threshold,
-+		 "QP count/threshold that triggers"
-+		 " disabling db coalescing (default = 0)");
+ struct sge_eth_txq {                /* state for an SGE Ethernet Tx queue */
+@@ -543,6 +544,7 @@ enum chip_type {
  
- static void set_state(struct c4iw_qp *qhp, enum c4iw_qp_state state)
- {
-@@ -1448,6 +1455,8 @@ int c4iw_destroy_qp(struct ib_qp *ib_qp)
- 		rhp->db_state = NORMAL;
- 		idr_for_each(&rhp->qpidr, enable_qp_db, NULL);
- 	}
-+	if (rhp->qpcnt <= db_coalescing_threshold)
-+		cxgb4_enable_db_coalescing(rhp->rdev.lldi.ports[0]);
- 	spin_unlock_irq(&rhp->lock);
- 	atomic_dec(&qhp->refcnt);
- 	wait_event(qhp->wait, !atomic_read(&qhp->refcnt));
-@@ -1559,11 +1568,14 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
- 	spin_lock_irq(&rhp->lock);
- 	if (rhp->db_state != NORMAL)
- 		t4_disable_wq_db(&qhp->wq);
--	if (++rhp->qpcnt > db_fc_threshold && rhp->db_state == NORMAL) {
-+	rhp->qpcnt++;
-+	if (rhp->qpcnt > db_fc_threshold && rhp->db_state == NORMAL) {
- 		rhp->rdev.stats.db_state_transitions++;
- 		rhp->db_state = FLOW_CONTROL;
- 		idr_for_each(&rhp->qpidr, disable_qp_db, NULL);
- 	}
-+	if (rhp->qpcnt > db_coalescing_threshold)
-+		cxgb4_disable_db_coalescing(rhp->rdev.lldi.ports[0]);
- 	ret = insert_handle_nolock(rhp, &rhp->qpidr, qhp, qhp->wq.sq.qid);
- 	spin_unlock_irq(&rhp->lock);
- 	if (ret)
+ struct adapter {
+ 	void __iomem *regs;
++	void __iomem *bar2;
+ 	struct pci_dev *pdev;
+ 	struct device *pdev_dev;
+ 	unsigned int mbox;
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index a59bb23..e76cf03 100644
+index 3d6d23a..ce1451c 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3397,6 +3397,25 @@ out:
+@@ -1327,6 +1327,8 @@ static char stats_strings[][ETH_GSTRING_LEN] = {
+ 	"VLANinsertions     ",
+ 	"GROpackets         ",
+ 	"GROmerged          ",
++	"WriteCoalSuccess   ",
++	"WriteCoalFail      ",
+ };
+ 
+ static int get_sset_count(struct net_device *dev, int sset)
+@@ -1422,11 +1424,25 @@ static void get_stats(struct net_device *dev, struct ethtool_stats *stats,
+ {
+ 	struct port_info *pi = netdev_priv(dev);
+ 	struct adapter *adapter = pi->adapter;
++	u32 val1, val2;
+ 
+ 	t4_get_port_stats(adapter, pi->tx_chan, (struct port_stats *)data);
+ 
+ 	data += sizeof(struct port_stats) / sizeof(u64);
+ 	collect_sge_port_stats(adapter, pi, (struct queue_port_stats *)data);
++	data += sizeof(struct queue_port_stats) / sizeof(u64);
++	if (!is_t4(adapter->chip)) {
++		t4_write_reg(adapter, SGE_STAT_CFG, STATSOURCE_T5(7));
++		val1 = t4_read_reg(adapter, SGE_STAT_TOTAL);
++		val2 = t4_read_reg(adapter, SGE_STAT_MATCH);
++		*data = val1 - val2;
++		data++;
++		*data = val2;
++		data++;
++	} else {
++		memset(data, 0, 2 * sizeof(u64));
++		*data += 2;
++	}
  }
- EXPORT_SYMBOL(cxgb4_sync_txq_pidx);
  
-+void cxgb4_disable_db_coalescing(struct net_device *dev)
+ /*
+@@ -5337,10 +5353,11 @@ static void free_some_resources(struct adapter *adapter)
+ #define TSO_FLAGS (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN)
+ #define VLAN_FEAT (NETIF_F_SG | NETIF_F_IP_CSUM | TSO_FLAGS | \
+ 		   NETIF_F_IPV6_CSUM | NETIF_F_HIGHDMA)
++#define SEGMENT_SIZE 128
+ 
+ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+-	int func, i, err;
++	int func, i, err, s_qpp, qpp, num_seg;
+ 	struct port_info *pi;
+ 	bool highdma = false;
+ 	struct adapter *adapter = NULL;
+@@ -5420,7 +5437,34 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	err = t4_prep_adapter(adapter);
+ 	if (err)
+-		goto out_unmap_bar;
++		goto out_unmap_bar0;
++
++	if (!is_t4(adapter->chip)) {
++		s_qpp = QUEUESPERPAGEPF1 * adapter->fn;
++		qpp = 1 << QUEUESPERPAGEPF0_GET(t4_read_reg(adapter,
++		      SGE_EGRESS_QUEUES_PER_PAGE_PF) >> s_qpp);
++		num_seg = PAGE_SIZE / SEGMENT_SIZE;
++
++		/* Each segment size is 128B. Write coalescing is enabled only
++		 * when SGE_EGRESS_QUEUES_PER_PAGE_PF reg value for the
++		 * queue is less no of segments that can be accommodated in
++		 * a page size.
++		 */
++		if (qpp > num_seg) {
++			dev_err(&pdev->dev,
++				"Incorrect number of egress queues per page\n");
++			err = -EINVAL;
++			goto out_unmap_bar0;
++		}
++		adapter->bar2 = ioremap_wc(pci_resource_start(pdev, 2),
++		pci_resource_len(pdev, 2));
++		if (!adapter->bar2) {
++			dev_err(&pdev->dev, "cannot map device bar2 region\n");
++			err = -ENOMEM;
++			goto out_unmap_bar0;
++		}
++	}
++
+ 	setup_memwin(adapter);
+ 	err = adap_init0(adapter);
+ 	setup_memwin_rdma(adapter);
+@@ -5552,6 +5596,9 @@ sriov:
+  out_free_dev:
+ 	free_some_resources(adapter);
+  out_unmap_bar:
++	if (!is_t4(adapter->chip))
++		iounmap(adapter->bar2);
++ out_unmap_bar0:
+ 	iounmap(adapter->regs);
+  out_free_adapter:
+ 	kfree(adapter);
+@@ -5602,6 +5649,8 @@ static void remove_one(struct pci_dev *pdev)
+ 
+ 		free_some_resources(adapter);
+ 		iounmap(adapter->regs);
++		if (!is_t4(adapter->chip))
++			iounmap(adapter->bar2);
+ 		kfree(adapter);
+ 		pci_disable_pcie_error_reporting(pdev);
+ 		pci_disable_device(pdev);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 7b17623..8b47b25 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -816,6 +816,22 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
+ 		*end = 0;
+ }
+ 
++/* This function copies 64 byte coalesced work request to
++ * memory mapped BAR2 space(user space writes).
++ * For coalesced WR SGE, fetches data from the FIFO instead of from Host.
++ */
++static void cxgb_pio_copy(u64 __iomem *dst, u64 *src)
 +{
-+	struct adapter *adap;
++	int count = 8;
 +
-+	adap = netdev2adap(dev);
-+	t4_set_reg_field(adap, A_SGE_DOORBELL_CONTROL, F_NOCOALESCE,
-+			 F_NOCOALESCE);
++	while (count) {
++		writeq(*src, dst);
++		src++;
++		dst++;
++		count--;
++	}
 +}
-+EXPORT_SYMBOL(cxgb4_disable_db_coalescing);
 +
-+void cxgb4_enable_db_coalescing(struct net_device *dev)
-+{
-+	struct adapter *adap;
+ /**
+  *	ring_tx_db - check and potentially ring a Tx queue's doorbell
+  *	@adap: the adapter
+@@ -826,11 +842,25 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
+  */
+ static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
+ {
++	unsigned int *wr, index;
 +
-+	adap = netdev2adap(dev);
-+	t4_set_reg_field(adap, A_SGE_DOORBELL_CONTROL, F_NOCOALESCE, 0);
-+}
-+EXPORT_SYMBOL(cxgb4_enable_db_coalescing);
-+
- static struct pci_driver cxgb4_driver;
+ 	wmb();            /* write descriptors before telling HW */
+ 	spin_lock(&q->db_lock);
+ 	if (!q->db_disabled) {
+-		t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
+-			     QID(q->cntxt_id) | PIDX(n));
++		if (is_t4(adap->chip)) {
++			t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
++				     QID(q->cntxt_id) | PIDX(n));
++		} else {
++			if (n == 1) {
++				index = q->pidx ? (q->pidx - 1) : (q->size - 1);
++				wr = (unsigned int *)&q->desc[index];
++				cxgb_pio_copy((u64 __iomem *)
++					      (adap->bar2 + q->udb + 64),
++					      (u64 *)wr);
++			} else
++				writel(n,  adap->bar2 + q->udb + 8);
++			wmb();
++		}
+ 	}
+ 	q->db_pidx = q->pidx;
+ 	spin_unlock(&q->db_lock);
+@@ -2151,11 +2181,27 @@ err:
  
- static void check_neigh_update(struct neighbour *neigh)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index e2bbc7f..4faf4d0 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -269,4 +269,7 @@ struct sk_buff *cxgb4_pktgl_to_skb(const struct pkt_gl *gl,
- 				   unsigned int skb_len, unsigned int pull_len);
- int cxgb4_sync_txq_pidx(struct net_device *dev, u16 qid, u16 pidx, u16 size);
- int cxgb4_flush_eq_cache(struct net_device *dev);
-+void cxgb4_disable_db_coalescing(struct net_device *dev);
-+void cxgb4_enable_db_coalescing(struct net_device *dev);
+ static void init_txq(struct adapter *adap, struct sge_txq *q, unsigned int id)
+ {
++	q->cntxt_id = id;
++	if (!is_t4(adap->chip)) {
++		unsigned int s_qpp;
++		unsigned short udb_density;
++		unsigned long qpshift;
++		int page;
 +
- #endif  /* !__CXGB4_OFLD_H */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 22cbcb3..ef146c0 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -241,6 +241,10 @@
- #define SGE_DOORBELL_CONTROL 0x10a8
- #define  ENABLE_DROP        (1 << 13)
- 
-+#define S_NOCOALESCE    26
-+#define V_NOCOALESCE(x) ((x) << S_NOCOALESCE)
-+#define F_NOCOALESCE    V_NOCOALESCE(1U)
++		s_qpp = QUEUESPERPAGEPF1 * adap->fn;
++		udb_density = 1 << QUEUESPERPAGEPF0_GET((t4_read_reg(adap,
++				SGE_EGRESS_QUEUES_PER_PAGE_PF) >> s_qpp));
++		qpshift = PAGE_SHIFT - ilog2(udb_density);
++		q->udb = q->cntxt_id << qpshift;
++		q->udb &= PAGE_MASK;
++		page = q->udb / PAGE_SIZE;
++		q->udb += (q->cntxt_id - (page * udb_density)) * 128;
++	}
 +
- #define SGE_TIMER_VALUE_0_AND_1 0x10b8
- #define  TIMERVALUE0_MASK   0xffff0000U
- #define  TIMERVALUE0_SHIFT  16
+ 	q->in_use = 0;
+ 	q->cidx = q->pidx = 0;
+ 	q->stops = q->restarts = 0;
+ 	q->stat = (void *)&q->desc[q->size];
+-	q->cntxt_id = id;
+ 	spin_lock_init(&q->db_lock);
+ 	adap->sge.egr_map[id - adap->sge.egr_start] = q;
+ }
 -- 
 1.7.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
