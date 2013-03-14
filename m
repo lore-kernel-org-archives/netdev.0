@@ -1,68 +1,102 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] rtnetlink: Mask the rta_type when range checking
-Date: Thu, 14 Mar 2013 21:28:21 +0000
-Message-ID: <20130314212821.GC25591@casper.infradead.org>
-References: <1363184338-15781-1-git-send-email-vyasevic@redhat.com>
- <20130313083654.01d9c924@nehalam.linuxnetplumber.net>
- <51420B75.9060209@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:43677 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752142Ab3CNV21 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 17:28:27 -0400
-Content-Disposition: inline
-In-Reply-To: <51420B75.9060209@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Reilly Grant <grantr@vmware.com>
+Subject: [PATCH v2] VSOCK: Support VM sockets connected to the hypervisor.
+Date: Thu, 14 Mar 2013 14:55:41 -0700
+Message-ID: <1363298141-25394-1-git-send-email-grantr@vmware.com>
+References: <1363117219-21911-1-git-send-email-grantr@vmware.com>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	pv-drivers@vmware.com, Reilly Grant <grantr@vmware.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1363117219-21911-1-git-send-email-grantr@vmware.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/14/13 at 01:40pm, Vlad Yasevich wrote:
-> So let me rebuff this a bit more intelligently.
-> 
-> 1) NLA_F_NESTED is used by netfilter in a lot of places.  It seems that
-> only rtnetlink interface doesn't account for it.
+The resource ID used for VM socket control packets (0) is already
+used for the VMCI_GET_CONTEXT_ID hypercall so a new ID (15) must be
+used when the guest sends these datagrams to the hypervisor.
 
-Stephen is not wrong, strictly speaking this is an ABI breaker.
+The hypervisor context ID must also be removed from the internal
+blacklist.
 
-However, we have been applying NLA_TYPE_MASK in nla_type() and
-thus in nla_parse(), nlmsg_find_attr(), etc. since the
-introduction of the current kernel netlink API.
+Signed-off-by: Reilly Grant <grantr@vmware.com>
+Acked-by: Andy King <acking@vmware.com>
+---
 
-static inline int nla_type(const struct nlattr *nla)
-{
-        return nla->nla_type & NLA_TYPE_MASK;
-}
+I am an idiot and didn't commit the fix for two typos before generating
+this patch. Please accept this corrected version.
 
-I have been attempting to get rid of that ugly attribute parsing
-code in rtnetlink_rcv_msg() but it's hard to get rid of. I shall
-give this another try.
+ net/vmw_vsock/vmci_transport.c | 16 +++++++++++++---
+ net/vmw_vsock/vmci_transport.h |  3 +++
+ 2 files changed, 16 insertions(+), 3 deletions(-)
 
-> 2) The following commit:
-> 
-> commit 25c71c75ac87508528db053b818944f3650dd7a6
-> Author: stephen hemminger <shemminger@vyatta.com>
-> Date:   Tue Nov 13 07:53:05 2012 +0000
-> 
->     bridge: bridge port parameters over netlink
-> 
-> introduced NLA_F_NESTED usage in rtnetlink for both setlink and
-> getlink, so one could argue that was an ABI change.
-
-You are right, user space applications that do not apply
-NLA_TYPE_MASK will no longer see the IFLA_PROTINFO attribute
-with the above commit.
-
-> prove that without the change I am introducing, one can not use the
-> above mentioned bridge API.  Feel free to try it with iproute2
-> patches
-> I sent earlier ([PATCH iproute2 0/2] Add support for bridge port
-> link information).
-
-I am not against your patch but I would love to see the affected
-code paths to no longer rely on the attribute array provided by
-the rtnetlink doit function but instead call nla_parse() themselves
-for the sake of proper validation.
+diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
+index a70ace8..faf81b8 100644
+--- a/net/vmw_vsock/vmci_transport.c
++++ b/net/vmw_vsock/vmci_transport.c
+@@ -123,6 +123,14 @@ static s32 vmci_transport_error_to_vsock_error(s32 vmci_error)
+ 	return err > 0 ? -err : err;
+ }
+ 
++static u32 vmci_transport_peer_rid(u32 peer_cid)
++{
++	if (VMADDR_CID_HYPERVISOR == peer_cid)
++		return VMCI_TRANSPORT_HYPERVISOR_PACKET_RID;
++
++	return VMCI_TRANSPORT_PACKET_RID;
++}
++
+ static inline void
+ vmci_transport_packet_init(struct vmci_transport_packet *pkt,
+ 			   struct sockaddr_vm *src,
+@@ -140,7 +148,7 @@ vmci_transport_packet_init(struct vmci_transport_packet *pkt,
+ 	pkt->dg.src = vmci_make_handle(VMADDR_CID_ANY,
+ 				       VMCI_TRANSPORT_PACKET_RID);
+ 	pkt->dg.dst = vmci_make_handle(dst->svm_cid,
+-				       VMCI_TRANSPORT_PACKET_RID);
++				       vmci_transport_peer_rid(dst->svm_cid));
+ 	pkt->dg.payload_size = sizeof(*pkt) - sizeof(pkt->dg);
+ 	pkt->version = VMCI_TRANSPORT_PACKET_VERSION;
+ 	pkt->type = type;
+@@ -511,6 +519,9 @@ static bool vmci_transport_is_trusted(struct vsock_sock *vsock, u32 peer_cid)
+ 
+ static bool vmci_transport_allow_dgram(struct vsock_sock *vsock, u32 peer_cid)
+ {
++	if (VMADDR_CID_HYPERVISOR == peer_cid)
++		return true;
++
+ 	if (vsock->cached_peer != peer_cid) {
+ 		vsock->cached_peer = peer_cid;
+ 		if (!vmci_transport_is_trusted(vsock, peer_cid) &&
+@@ -631,7 +642,6 @@ static int vmci_transport_recv_dgram_cb(void *data, struct vmci_datagram *dg)
+ static bool vmci_transport_stream_allow(u32 cid, u32 port)
+ {
+ 	static const u32 non_socket_contexts[] = {
+-		VMADDR_CID_HYPERVISOR,
+ 		VMADDR_CID_RESERVED,
+ 	};
+ 	int i;
+@@ -670,7 +680,7 @@ static int vmci_transport_recv_stream_cb(void *data, struct vmci_datagram *dg)
+ 	 */
+ 
+ 	if (!vmci_transport_stream_allow(dg->src.context, -1)
+-	    || VMCI_TRANSPORT_PACKET_RID != dg->src.resource)
++	    || vmci_transport_peer_rid(dg->src.context) != dg->src.resource)
+ 		return VMCI_ERROR_NO_ACCESS;
+ 
+ 	if (VMCI_DG_SIZE(dg) < sizeof(*pkt))
+diff --git a/net/vmw_vsock/vmci_transport.h b/net/vmw_vsock/vmci_transport.h
+index 1bf9918..fd88ea8 100644
+--- a/net/vmw_vsock/vmci_transport.h
++++ b/net/vmw_vsock/vmci_transport.h
+@@ -28,6 +28,9 @@
+ /* The resource ID on which control packets are sent. */
+ #define VMCI_TRANSPORT_PACKET_RID 1
+ 
++/* The resource ID on which control packets are sent to the hypervisor. */
++#define VMCI_TRANSPORT_HYPERVISOR_PACKET_RID 15
++
+ #define VSOCK_PROTO_INVALID        0
+ #define VSOCK_PROTO_PKT_ON_NOTIFY (1 << 0)
+ #define VSOCK_PROTO_ALL_SUPPORTED (VSOCK_PROTO_PKT_ON_NOTIFY)
+-- 
+1.8.1.5
