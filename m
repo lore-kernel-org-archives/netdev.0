@@ -1,47 +1,130 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: RFC crap-patch [PATCH] net: Per CPU separate frag mem accounting
-Date: Fri, 15 Mar 2013 00:12:50 +0100
-Message-ID: <20130314231250.GA7974@order.stressinduktion.org>
-References: <20130308221647.5312.33631.stgit@dragon> <20130308221744.5312.14924.stgit@dragon> <1363245955.14913.21.camel@localhost> <1363251561.14913.33.camel@localhost> <1363294743.2695.10.camel@bwh-desktop.uk.solarflarecom.com>
+From: dormando <dormando@rydia.net>
+Subject: Re: BUG: IPv4: Attempt to release TCP socket in state 1
+Date: Thu, 14 Mar 2013 16:15:01 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1303141610490.16308@dflat>
+References: <alpine.DEB.2.02.1303041547080.7811@localhost6.localdomain6>     <51356AC1.4090302@gmail.com>   <1362460046.15793.111.camel@edumazet-glaptop>    <alpine.DEB.2.02.1303042138330.7811@localhost6.localdomain6>   <1362494795.15793.113.camel@edumazet-glaptop>
+  <alpine.DEB.2.02.1303061631290.6723@dflat>  <1362663990.15793.208.camel@edumazet-glaptop>  <alpine.DEB.2.02.1303141359080.16308@dflat> <1363301786.29475.40.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:36135 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753293Ab3CNXMv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 19:12:51 -0400
-Content-Disposition: inline
-In-Reply-To: <1363294743.2695.10.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1363301786.29475.40.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 14, 2013 at 08:59:03PM +0000, Ben Hutchings wrote:
-> On Thu, 2013-03-14 at 09:59 +0100, Jesper Dangaard Brouer wrote:
-> > On Thu, 2013-03-14 at 08:25 +0100, Jesper Dangaard Brouer wrote:
-> > > This is NOT the patch I just mentioned in the other thread, of removing
-> > > the LRU list.  This patch does real per cpu mem acct, and LRU per CPU.
-> > > 
-> > > I get really good performance number with this patch, but I still think
-> > > this might not be the correct solution.
-> > 
-> > The reason is this depend on fragments entering the same HW queue, some
-> > NICs might not put the first fragment (which have the full header
-> > tuples) and the remaining fragments on the same queue. In which case
-> > this patch will loose its performance gain.
-> [...]
-> 
-> The Microsoft RSS spec only includes port numbers in the flow hash for
-> TCP, presumably because TCP avoids IP fragmentation whereas datagram
-> protocols cannot.  Some Linux drivers allow UDP ports to be included in
-> the flow hash but I don't think this is the default for any of them.
-> 
-> In Solarflare hardware the IPv4 MF bit inhibits layer 4 flow steering,
-> so all fragments will be unsteered.  I don't know whether everyone else
-> got that right though. :-)
+> On Thu, 2013-03-14 at 14:21 -0700, dormando wrote:
+> > >
+> > > diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> > > index 68f6a94..1d4d97e 100644
+> > > --- a/net/ipv4/af_inet.c
+> > > +++ b/net/ipv4/af_inet.c
+> > > @@ -141,8 +141,9 @@ void inet_sock_destruct(struct sock *sk)
+> > >  	sk_mem_reclaim(sk);
+> > >
+> > >  	if (sk->sk_type == SOCK_STREAM && sk->sk_state != TCP_CLOSE) {
+> > > -		pr_err("Attempt to release TCP socket in state %d %p\n",
+> > > -		       sk->sk_state, sk);
+> > > +		pr_err("Attempt to release TCP socket family %d in state %d %p\n",
+> > > +		       sk->sk_family, sk->sk_state, sk);
+> > > +		WARN_ON_ONCE(1);
+> > >  		return;
+> > >  	}
+> > >  	if (!sock_flag(sk, SOCK_DEAD)) {
+> >
+> > [58377.436522] IPv4: Attempt to release TCP socket family 2 in state 1
+> > ffff8813fbad9500
+>
+> There is no stack information on the WARN_ON_ONCE(1) ?
 
-Shouldn't they be steered by the IPv4 2-tuple then (if ipv4 hashing is enabled
-on the card)?
+*sigh*. it's been a long month, sorry:
+
+[58377.436522] IPv4: Attempt to release TCP socket family 2 in state 1
+ffff8813fbad9500
+[58377.436539] ------------[ cut here ]------------
+[58377.436545] WARNING: at net/ipv4/af_inet.c:146
+inet_sock_destruct+0x176/0x200()
+[58377.436546] Hardware name: X9DR3-F
+[58377.436547] Modules linked in: bridge coretemp ghash_clmulni_intel
+ipmi_watchdog ipmi_devintf gpio_ich microcode ixgbe sb_edac edac_core mei
+lpc_ich mfd_core mdio ipmi_si ipmi_msghandler iptable_nat nf_nat_ipv4
+nf_nat isci libsas igb ptp pps_core
+[58377.436563] Pid: 0, comm: swapper/0 Not tainted 3.8.2 #3
+[58377.436564] Call Trace:
+[58377.436566]  <IRQ>  [<ffffffff8104964f>] warn_slowpath_common+0x7f/0xc0
+[58377.436572]  [<ffffffff810496aa>] warn_slowpath_null+0x1a/0x20
+[58377.436574]  [<ffffffff816032e6>] inet_sock_destruct+0x176/0x200
+[58377.436578]  [<ffffffff815ec8e0>] ? tcp_write_timer_handler+0x1b0/0x1b0
+[58377.436581]  [<ffffffff8156ee8d>] __sk_free+0x1d/0x140
+[58377.436583]  [<ffffffff815ec8e0>] ? tcp_write_timer_handler+0x1b0/0x1b0
+[58377.436585]  [<ffffffff8156efd5>] sk_free+0x25/0x30
+[58377.436586]  [<ffffffff815ec929>] tcp_write_timer+0x49/0x70
+[58377.436590]  [<ffffffff81059259>] call_timer_fn+0x49/0x130
+[58377.436593]  [<ffffffff8107a07f>] ? scheduler_tick+0x15f/0x190
+[58377.436596]  [<ffffffff81059854>] run_timer_softirq+0x224/0x290
+[58377.436598]  [<ffffffff81058f76>] ? update_process_times+0x76/0x90
+[58377.436600]  [<ffffffff815ec8e0>] ? tcp_write_timer_handler+0x1b0/0x1b0
+[58377.436602]  [<ffffffff8108ebd4>] ? ktime_get+0x54/0xe0
+[58377.436604]  [<ffffffff810518a7>] __do_softirq+0xc7/0x230
+[58377.436608]  [<ffffffff8168fd4c>] call_softirq+0x1c/0x30
+[58377.436611]  [<ffffffff81004415>] do_softirq+0x55/0x90
+[58377.436613]  [<ffffffff810516a5>] irq_exit+0x85/0xa0
+[58377.436616]  [<ffffffff8169036e>] smp_apic_timer_interrupt+0x6e/0x99
+[58377.436618]  [<ffffffff8168f74a>] apic_timer_interrupt+0x6a/0x70
+[58377.436619]  <EOI>  [<ffffffff816855cc>] ? __schedule+0x3ac/0x750
+[58377.436625]  [<ffffffff8100b1fd>] ? mwait_idle+0xad/0x1f0
+[58377.436627]  [<ffffffff8100a743>] cpu_idle+0xb3/0x100
+[58377.436629]  [<ffffffff816736a2>] rest_init+0x72/0x80
+[58377.436633]  [<ffffffff81cc7d0e>] start_kernel+0x3ac/0x3b9
+[58377.436635]  [<ffffffff81cc7790>] ? repair_env_string+0x5b/0x5b
+[58377.436636]  [<ffffffff81cc732d>] x86_64_start_reservations+0x131/0x136
+[58377.436638]  [<ffffffff81cc741f>] x86_64_start_kernel+0xed/0xf4
+[58377.436639] ---[ end trace 9e57364162374433 ]---
+
+^ pretty sure that's the WARN_ON_ONCE(1)
+
+Then a short while later the usual:
+
+[58394.689801] ------------[ cut here ]------------
+[58394.689817] WARNING: at net/sched/sch_generic.c:254
+dev_watchdog+0x258/0x270()
+[58394.689820] Hardware name: X9DR3-F
+[58394.689836] NETDEV WATCHDOG: eth2 (ixgbe): transmit queue 14 timed out
+[58394.689837] Modules linked in: bridge coretemp ghash_clmulni_intel
+ipmi_watchdog ipmi_devintf gpio_ich microcode ixgbe sb_edac edac_core mei
+lpc_ich mfd_core mdio ipmi_si ipmi_msghandler iptable_nat nf_nat_ipv4
+nf_nat isci libsas igb ptp pps_core
+[58394.689853] Pid: 0, comm: swapper/0 Tainted: G        W
+3.8.2 #3
+[58394.689854] Call Trace:
+[58394.689856]  <IRQ>  [<ffffffff8104964f>] warn_slowpath_common+0x7f/0xc0
+[58394.689863]  [<ffffffff81049746>] warn_slowpath_fmt+0x46/0x50
+[58394.689865]  [<ffffffff815a1508>] dev_watchdog+0x258/0x270
+[58394.689868]  [<ffffffff815a12b0>] ? __netdev_watchdog_up+0x80/0x80
+[58394.689872]  [<ffffffff81059259>] call_timer_fn+0x49/0x130
+[58394.689875]  [<ffffffff8107a07f>] ? scheduler_tick+0x15f/0x190
+[58394.689877]  [<ffffffff81059854>] run_timer_softirq+0x224/0x290
+[58394.689880]  [<ffffffff81058f76>] ? update_process_times+0x76/0x90
+[58394.689882]  [<ffffffff815a12b0>] ? __netdev_watchdog_up+0x80/0x80
+[58394.689884]  [<ffffffff8108ebd4>] ? ktime_get+0x54/0xe0
+[58394.689886]  [<ffffffff810518a7>] __do_softirq+0xc7/0x230
+[58394.689890]  [<ffffffff8168fd4c>] call_softirq+0x1c/0x30
+[58394.689894]  [<ffffffff81004415>] do_softirq+0x55/0x90
+[58394.689895]  [<ffffffff810516a5>] irq_exit+0x85/0xa0
+[58394.689898]  [<ffffffff8169036e>] smp_apic_timer_interrupt+0x6e/0x99
+[58394.689900]  [<ffffffff8168f74a>] apic_timer_interrupt+0x6a/0x70
+[58394.689901]  <EOI>  [<ffffffff816855cc>] ? __schedule+0x3ac/0x750
+[58394.689907]  [<ffffffff8100b1fd>] ? mwait_idle+0xad/0x1f0
+[58394.689909]  [<ffffffff8100a743>] cpu_idle+0xb3/0x100
+[58394.689911]  [<ffffffff816736a2>] rest_init+0x72/0x80
+[58394.689915]  [<ffffffff81cc7d0e>] start_kernel+0x3ac/0x3b9
+[58394.689917]  [<ffffffff81cc7790>] ? repair_env_string+0x5b/0x5b
+[58394.689918]  [<ffffffff81cc732d>] x86_64_start_reservations+0x131/0x136
+[58394.689920]  [<ffffffff81cc741f>] x86_64_start_kernel+0xed/0xf4
+[58394.689922] ---[ end trace 9e57364162374434 ]---
+[58394.689965] ixgbe 0000:83:00.0 eth2: Reset adapter
+[58447.665326] INFO: rcu_sched self-detected stall on CPU { 8}  (t=15001
+jiffies g=3607787 c=3607786 q=332913)
+
+(then tons of stuck processes getting timed out)
