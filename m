@@ -1,44 +1,46 @@
-From: Mark Jackson <mpfj-list@mimc.co.uk>
-Subject: Re: [PATCH v3 net-next 1/1] drivers: net: davinci_cpdma: acknowledge
- interrupt properly
-Date: Thu, 14 Mar 2013 10:27:49 +0000
-Message-ID: <5141A625.8000704@mimc.co.uk>
-References: <1361175560-600-1-git-send-email-mugunthanvnm@ti.com> <51404838.2040008@mimc.co.uk> <5141A4A3.4050204@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH RFC] ipv6: use stronger hash for reassembly queue hash
+ table
+Date: Thu, 14 Mar 2013 11:34:32 +0100
+Message-ID: <1363257272.29475.6.camel@edumazet-glaptop>
+References: <20130307214211.GP7941@order.stressinduktion.org>
+	 <20130308055718.GA28531@order.stressinduktion.org>
+	 <20130308130433.GB28531@order.stressinduktion.org>
+	 <1362754386.15793.226.camel@edumazet-glaptop>
+	 <20130308150831.GD28531@order.stressinduktion.org>
+	 <1362756219.15793.240.camel@edumazet-glaptop>
+	 <20130313012715.GE14801@order.stressinduktion.org>
+	 <1363152568.13690.35.camel@edumazet-glaptop>
+	 <20130314013702.GA4129@order.stressinduktion.org>
+	 <CAOaVG148gUzcb2qmg0B7kdWNzNzerMdXZzv2qamXq8ToUFsUyw@mail.gmail.com>
+	 <20130314071408.GB4129@order.stressinduktion.org>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B718C@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <5141A4A3.4050204@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org, brouer@redhat.com
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f51.google.com ([74.125.83.51]:55484 "EHLO
+	mail-ee0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756659Ab3CNKeg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 06:34:36 -0400
+Received: by mail-ee0-f51.google.com with SMTP id d17so923314eek.38
+        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 03:34:35 -0700 (PDT)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B718C@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 14/03/13 10:21, Mugunthan V N wrote:
-> On 3/13/2013 3:04 PM, Mark Jackson wrote:
->> On 18/02/13 08:19, Mugunthan V N wrote:
->>> >CPDMA interrupts are not properly acknowledged which leads to interrupt
->>> >storm, only cpdma interrupt 0 is acknowledged in Davinci CPDMA driver.
->>> >Changed cpdma_ctlr_eoi api to acknowledge 1 and 2 interrupts which are
->>> >used for rx and tx respectively.
->>> >
->>> >Reported-by: Pantelis Antoniou<panto@antoniou-consulting.com>
->>> >Signed-off-by: Mugunthan V N<mugunthanvnm@ti.com>
->> Not sure if I'm seeing this same problem [1], but it doesn't appear fixed to me.
->>
->> I've tried both mainline -rc2 and -next.
->>
->> [1]https://lkml.org/lkml/2013/3/12/376
-> Without this patch, PG2.0 was not usable as CPSW interrupt was never acked
-> and CPU spent most of the time in CPSW ISR.
-> 
-> I have checked -rc2 and it is working fine.
+On Thu, 2013-03-14 at 09:47 +0000, David Laight wrote:
 
-I needed to add patch [1] to fix my problem.  See thread [2].
+> I'd also have thought that INETFRAGS_MAXDEPTH should be run-time tunable.
 
-[1] https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=d35162f89b8f00537d7b240b76d2d0e8b8d29aa0
-[2] https://lkml.org/lkml/2013/3/13/146
+The useful thing would be to be able to resize the hash table, for some
+heavy user cases.
 
-Cheers
-Mark J.
+Check net/ipv4/tcp_metrics.c : Not only we use a small depth, but is not
+tunable.
+
+#define TCP_METRICS_RECLAIM_DEPTH   5
