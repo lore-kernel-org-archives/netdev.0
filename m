@@ -1,48 +1,84 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] rtnetlink: Mask the rta_type when range checking
-Date: Fri, 15 Mar 2013 08:51:24 +0000
-Message-ID: <20130315085124.GA17498@casper.infradead.org>
-References: <1363184338-15781-1-git-send-email-vyasevic@redhat.com>
- <20130313083654.01d9c924@nehalam.linuxnetplumber.net>
- <51420B75.9060209@redhat.com>
- <20130314212821.GC25591@casper.infradead.org>
- <51426BB6.5030204@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Vlad Yasevich <vyasevic@redhat.com>
+From: roy.qing.li@gmail.com
+Subject: [PATCH net-next] driver/qlogic: replace ip_fast_csum with csum_replace2
+Date: Fri, 15 Mar 2013 16:50:07 +0800
+Message-ID: <1363337407-9573-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:46080 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753936Ab3COIv2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 04:51:28 -0400
-Content-Disposition: inline
-In-Reply-To: <51426BB6.5030204@redhat.com>
+Received: from mail-gh0-f178.google.com ([209.85.160.178]:60176 "EHLO
+	mail-gh0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753223Ab3COIzP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 04:55:15 -0400
+Received: by mail-gh0-f178.google.com with SMTP id g24so568055ghb.9
+        for <netdev@vger.kernel.org>; Fri, 15 Mar 2013 01:55:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/14/13 at 08:30pm, Vlad Yasevich wrote:
-> Doing a quick check on all the callers for rtnl_register and their
-> handlers the following do not use nla_parse:
->  1) dn_fib_rtm_newroute/delroute  - Don't seem to care about attribute
->                                     types.
->  2) dn_cache_getroute() - suspect use.  relies on rta_buf populated by
->                           rtnetlink_rcv_msg
-> 
->  3) inet_rtm_newroute/delroute - rtm_to_fib_config() uses a custom loop
->                                   with nla_type(), so safe.
-> 
-> That's all that a quick look finds.  Out of all of them, looks like
-> on dn_cache_getroute() would be broken.
+From: Li RongQing <roy.qing.li@gmail.com>
 
-So checking values in rta_max[] which lists the maximum attribute
-allowed for each message family range, all are limited to low
-values so the NLA_F_NESTED bit is guaranteed to have been unused
-up to now.
+replace ip_fast_csum with csum_replace2 to save cpu cycles
 
-The risk that remains is that we would start accepting an attribute
-which we previously didn't but we have that risk with every new
-attribute that is added.
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c |    4 ++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c       |    7 +++----
+ 2 files changed, 5 insertions(+), 6 deletions(-)
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+index 4782dcf..7692dfd 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+@@ -27,6 +27,7 @@
+ #include <linux/delay.h>
+ #include <linux/slab.h>
+ #include <linux/if_vlan.h>
++#include <net/checksum.h>
+ #include "netxen_nic.h"
+ #include "netxen_nic_hw.h"
+ 
+@@ -1641,9 +1642,8 @@ netxen_process_lro(struct netxen_adapter *adapter,
+ 	th = (struct tcphdr *)((skb->data + vhdr_len) + (iph->ihl << 2));
+ 
+ 	length = (iph->ihl << 2) + (th->doff << 2) + lro_length;
++	csum_replace2(&iph->check, iph->tot_len, htons(length));
+ 	iph->tot_len = htons(length);
+-	iph->check = 0;
+-	iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
+ 	th->psh = push;
+ 	th->seq = htonl(seq_number);
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+index 0e63006..891f12d 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+@@ -9,6 +9,7 @@
+ #include <linux/if_vlan.h>
+ #include <net/ip.h>
+ #include <linux/ipv6.h>
++#include <net/checksum.h>
+ 
+ #include "qlcnic.h"
+ 
+@@ -1132,9 +1133,8 @@ qlcnic_process_lro(struct qlcnic_adapter *adapter,
+ 		iph = (struct iphdr *)skb->data;
+ 		th = (struct tcphdr *)(skb->data + (iph->ihl << 2));
+ 		length = (iph->ihl << 2) + (th->doff << 2) + lro_length;
++		csum_replace2(&iph->check, iph->tot_len, htons(length));
+ 		iph->tot_len = htons(length);
+-		iph->check = 0;
+-		iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
+ 	}
+ 
+ 	th->psh = push;
+@@ -1595,9 +1595,8 @@ qlcnic_83xx_process_lro(struct qlcnic_adapter *adapter,
+ 		iph = (struct iphdr *)skb->data;
+ 		th = (struct tcphdr *)(skb->data + (iph->ihl << 2));
+ 		length = (iph->ihl << 2) + (th->doff << 2) + lro_length;
++		csum_replace2(&iph->check, iph->tot_len, htons(length));
+ 		iph->tot_len = htons(length);
+-		iph->check = 0;
+-		iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
+ 	}
+ 
+ 	th->psh = push;
+-- 
+1.7.10.4
