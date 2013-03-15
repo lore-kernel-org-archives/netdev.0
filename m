@@ -1,62 +1,39 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: sky2 negotiating only 100Mb/s (88E8055)
-Date: Fri, 15 Mar 2013 13:03:01 +0100
-Message-ID: <CACna6ryokPsaKVQmrF3ACmy99k3LiaOiZai5xrWdVjaxLWT80w@mail.gmail.com>
-References: <CACna6ry1z1LS9wMDb9dYyM+9z8kEpZADXKHL0NNoAahbm8wbNg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] isdn: hisax: netjet requires VIRT_TO_BUS
+Date: Fri, 15 Mar 2013 08:16:59 -0400 (EDT)
+Message-ID: <20130315.081659.636423702994054939.davem@davemloft.net>
+References: <1363298204-8014-4-git-send-email-arnd@arndb.de>
+	<CAMuHMdVhjnX_hag5Y5VvDWVcjPK8tMM-qx-TQ2x=M88yTZQwYg@mail.gmail.com>
+	<201303151015.00746.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Network Development <netdev@vger.kernel.org>,
-	Mirko Lindner <mlindner@marvell.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f52.google.com ([209.85.219.52]:40726 "EHLO
-	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754089Ab3COMDC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 08:03:02 -0400
-Received: by mail-oa0-f52.google.com with SMTP id k14so3215234oag.25
-        for <netdev@vger.kernel.org>; Fri, 15 Mar 2013 05:03:01 -0700 (PDT)
-In-Reply-To: <CACna6ry1z1LS9wMDb9dYyM+9z8kEpZADXKHL0NNoAahbm8wbNg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: geert@linux-m68k.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, isdn@linux-pingi.de,
+	netdev@vger.kernel.org, dhowells@redhat.com
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201303151015.00746.arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2013/3/3 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>:
-> I've problems with my:
-> 08:00.0 Ethernet controller [0200]: Marvell Technology Group Ltd.
-> 88E8055 PCI-E Gigabit Ethernet Controller [11ab:4363] (rev 13)
-> using 3.4.28 kernel on my Sony notebook.
->
-> I've tried connecting it to the:
-> 1) HP#1 (Intel card)
-> 2) HP#2 (Broadcom card)
-> 3) Router based on BCM4706 with BCM53125 switch
-> I've tried two different CAT5e cables for all the above devices. In
-> every case sky2 established 100Mbps link only. It couldn't achieve
-> 1000Mb/s. Forcing it to 1000Mbps broke link. Lower speeds (100 half
-> duplex and 10 Mbps) are working fine.
->
-> It's not the issue with the cable or devices, because all other
-> configurations are working fine. I can connect:
-> 1) HP#1 with HP#2
-> 2) HP#1 with router
-> 3) HP#2 with router
-> and I always get 1000Mbps.
->
-> So it looks like some bugged hardware or (more likely?) issue in sky2=
-=2E
->
-> sky2 0000:08:00.0: eth0: disabling interface
-> sky2: driver version 1.30
-> sky2 0000:08:00.0: Yukon-2 EC Ultra chip revision 3
-> sky2 0000:08:00.0: irq 47 for MSI/MSI-X
-> sky2 0000:08:00.0: eth0: addr 00:1d:ba:19:9e:db
-> sky2 0000:08:00.0: eth0: enabling interface
-> sky2 0000:08:00.0: eth0: Link is up at 100 Mbps, full duplex, flow co=
-ntrol both
->
-> Can you help me with that?
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 15 Mar 2013 10:15:00 +0000
 
-Ping?
+> David Howells brought up the topic of endian checks recently, noting
+> that the way we define __BIG_ENDIAN and __LITTLE_ENDIAN in the kernel
+> is incompatible to how do it in user space, and not much better either.
+> 
+> A few architectures that are bi-endian (arc, arm, c6x, mips, sh) already
+> have CONFIG_CPU_IS_LITTLE_ENDIAN and CONFIG_CPU_IS_BIG_ENDIAN. I guess
+> it would be a good idea to provide these on all architectures.
 
---=20
-Rafa=C5=82
+I do not want to see us add such a Kconfig dependency knob.
+
+Then the real tendency will exist to make new drivers little-endian
+only, refuse to fix endian-broken old drivers, etc.
+
+Which means that allmodconfig on my architecture will have build
+coverage on less code, which is really the only thing that matters
+for me.  I want all drivers that could be effected by my changes
+to be compile testable on as many platforms as possible.
