@@ -1,96 +1,86 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Trying to implement secondary loopback
-Date: Fri, 15 Mar 2013 18:36:02 +0000
-Message-ID: <1363372562.2560.7.camel@bwh-desktop.uk.solarflarecom.com>
-References: <513F1A17.1000809@hhi.fraunhofer.de>
-	 <CAFLxGvxcyDVwC-iys6UdKMBB6u3UQx6s7-mwm5caoNu=N7rmeA@mail.gmail.com>
-	 <3D7E565A361FB844A410A5EFCDD7BA4002ECF5@MXSRV3.fe.hhi.de>
-	 <87r4jjav00.fsf@xmission.com>
-	 <3D7E565A361FB844A410A5EFCDD7BA4002EF11@MXSRV3.fe.hhi.de>
-	 <878v5r9es7.fsf@xmission.com> <5142CE23.9070804@hhi.fraunhofer.de>
+From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
+Subject: Re: atl1c issues on 3.8.2
+Date: Fri, 15 Mar 2013 20:44:57 +0100
+Message-ID: <20130315204457.21d46b89@milhouse>
+References: <20130312161753.281681f2@milhouse>
+	<1363103144.13690.12.camel@edumazet-glaptop>
+	<20130312180942.4198e88e@milhouse>
+	<1363154258.13690.40.camel@edumazet-glaptop>
+	<1363271460.29475.14.camel@edumazet-glaptop>
+	<20130314231746.44a93e4d@milhouse>
+	<1363302362.29475.42.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	richard -rw- weinberger <richard.weinberger@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>
-To: Thomas Martitz <thomas.martitz@hhi.fraunhofer.de>
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/jpu0GWy2JSL2+1yJCHx41_n"; protocol="application/pgp-signature"
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	Eric Dumazet <edumazet@google.com>,
+	linux-netdev <netdev@vger.kernel.org>,
+	"David S.Miller" <davem@davemloft.net>,
+	Mel Gorman <mgorman@suse.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:14421 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754212Ab3COSgJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 14:36:09 -0400
-In-Reply-To: <5142CE23.9070804@hhi.fraunhofer.de>
+Received: from bues.ch ([80.190.117.144]:34884 "EHLO bues.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754248Ab3COTpT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Mar 2013 15:45:19 -0400
+In-Reply-To: <1363302362.29475.42.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-03-15 at 08:30 +0100, Thomas Martitz wrote:
-> Am 13.03.2013 22:21, schrieb Eric W. Biederman:
-> > "Martitz, Thomas" <thomas.martitz@hhi.fraunhofer.de> writes:
-> >
-> >>> Von: Eric W. Biederman [ebiederm@xmission.com]
-> >>>
-> >>> The easy solution is to setup two network namespaces and two nics.
-> >>> And transmit data from one network namespace to another, through your
-> >>> nics.
-> >
-> >>
-> >> That sounds a lot more involed than using loopback to send data back
-> >> to the same process. And I guess just calling netif_rx() in the xmit()
-> >> function wouldn't be sufficient either? Also I wouldn't know how to do
-> >> that as I'm not yet very familiar with network namespaces (but that
-> >> can clearly get fixed).
-> >
-> > It may sound involved but it is just a few lines of code to set up.
-> >
-> > ip netns add ns1
-> > ip netns add ns2
-> > ip link set nic1 netns ns1
-> > ip link set nic2 netns ns2
-> >
-> > int main(int argc, char **argv)
-> > {
-> >          int netfd1, netfd2;
-> >          int sk1, sk2;
-> > 	netfd1 = open(/var/run/netns/nic1);
-> > 	netfd2 = open(/var/run/netns/nic2);
-> >
-> > 	setns(netfd1, 0);
-> > 	sk1 = socket(...);
-> >
-> >          setns(netfd2, 0);
-> >          sk2 = socket(...);
-> >
-> >          /* test test test */
-> > }
-> >
-> > And what is partidcularly interesting is that all of this works with
-> > your drivers normal code paths without any kernel hacks.
-> >
-> > Eric
-> >
-> 
-> 
-> I have trouble understanding this approach. Does it mean that I have to 
-> expose two interfaces from my kernel module. I.e. call register_netdev() 
-> twice?
-[...]
+--Sig_/jpu0GWy2JSL2+1yJCHx41_n
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Perhaps you can use macvlan for this.  Create one net device in your
-driver, then use macvlan to stack two net devices on top of it using
-different MAC addresses.  I think you'll need to configure them in VEPA
-mode so that macvlan doesn't bridge them.
+On Fri, 15 Mar 2013 00:06:02 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-As an alternative to network namespaces, you might find it easier to
-assign one or both net devices to virtual machines.  virt-manager and
-virsh can set up KVM virtual machines using macvlan/macvtap interfaces.
+> You could try various DEBUGing stuff, like CONFIG_DEBUG_PAGEALLOC and
+> CONFIG_SLUB_DEBUG_ON
 
-Ben.
+This bug is so weird, so I did some double-checking.
+Just to minimize the mistakes on my side.
+I compiled a kernel without the revert of the original commit
+and without the skb fix you suggested.
+It turns out that I am only able to reproduce the issue, if the ath9k inter=
+face is
+up while testing the atl1c ethernet.
+And I also double-checked that reverting the original commit fixes the issu=
+e.
+No stalls with up or down ath9k then.
+So that confirms my previous results.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I tried to enable pagealloc debug and slub debug on a kernel with the sugge=
+sted skb
+fix, but without the revert of the commit. Nothing special appeared
+in the logs. I'm currently building a kernel with almost all debugging opti=
+ons
+turned on. I will test that tomorrow.
+
+Thanks for your help.
+
+--=20
+Michael
+
+--Sig_/jpu0GWy2JSL2+1yJCHx41_n
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBAgAGBQJRQ3o5AAoJEPUyvh2QjYsOaxAQAKKvu8YFF5MDG3NuM4CAb+cM
+3xGIrmvLnRDuVyBbeVHA/TaJrGPqbaQFxgMagP4dqOpNRDyDHHgdEUyrl/DmMCxz
+YKl92pNwDl062jTSUalMndx9Rk/I0HaWVSudLKXtyE80zDcBRfn/xKUOlmwJDanP
+RyXjNLObyJ5fsXr8kNmF73m4rX9DBQ60XStNgoRT5A9dGv+68CXprCUctZtIAetP
+GRKKnZFEduCm9X/KnjC5hnaAff2MDIXjbbN9GcJsfc3I5UKJ/AuejKGaLJBXfnEk
+6SES0u+qsZ/Dc9AJzvU3+ljxWgC0/oU+1zxgPu7uKRQVIW0SFB1xNFLSSmixp9sd
+63YCXn+m03kBeC+sSXQOL4VlON0nKbhWvTnhdmIPmsuepbnJ8y4WSl/hajtTvGSZ
+YoFyXbX3cEPWVQLKOHwM4nW4aj1EoWO16r+AN3AGsc/18Xen8b/zaGieCVsF92Ug
+vn1ixtcSrIQn+JvYRGS4O2QsAql0l+l2hveyib5YmuCsF27Xox4WuMt2xPD1sc/6
+6lhpL+NsYjNGqmYgTdie9gMKR17er3lqA4QxKeV24nuExiFM7qkNeH5TNS3AKG1E
+61Uh/tcsnE9r3b08sCXuRYngGm3gUvijO7FTiNiiK9psMP8lo9e8QvF6soHYvOYU
+lHn8WTH0K6tHalNLgXAK
+=h8YN
+-----END PGP SIGNATURE-----
+
+--Sig_/jpu0GWy2JSL2+1yJCHx41_n--
