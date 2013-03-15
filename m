@@ -1,56 +1,149 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: Trying to implement secondary loopback
-Date: Fri, 15 Mar 2013 11:37:40 -0400
-Message-ID: <20130315153740.GR8869@kvack.org>
-References: <514326FF.6020205@hhi.fraunhofer.de> <CAFLxGvwvH_krBDJ2i-si1LX2SKbeeRmXGR+0ZbtEB2oKWt-GoA@mail.gmail.com> <51432B72.20408@hhi.fraunhofer.de> <CAFLxGvyCFHk=vhNYCY8obrVJR2rW9M7+J_ppyVpFq3AHAxjRjA@mail.gmail.com> <51432E13.5060003@hhi.fraunhofer.de> <CAFLxGvyDaaOtm1TrD-gfvhja_Uow8jtRbPyb2WcMscSLgo1umg@mail.gmail.com> <514331BC.4080802@hhi.fraunhofer.de> <CAFLxGvyzkoj_KtfH6=YK5LnpLW_N6sMdk7Hu=V=h5OK08oRE4Q@mail.gmail.com> <5143353C.3050107@hhi.fraunhofer.de> <51433934.3080405@hhi.fraunhofer.de>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: igb_poll - device driver failed to check map error
+Date: Fri, 15 Mar 2013 16:03:47 +0000
+Message-ID: <804857E1F29AAC47BF68C404FC60A1844D9E2F00@ORSMSX103.amr.corp.intel.com>
+References: <7974689.msj0QTRKPV@cpaasch-mac> <514284EA.3050305@gmail.com>
+ <1899985.NhtD8IVCbT@cpaasch-mac>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: richard -rw- weinberger <richard.weinberger@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>
-To: Thomas Martitz <thomas.martitz@hhi.fraunhofer.de>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "christoph.paasch@uclouvain.be" <christoph.paasch@uclouvain.be>,
+	Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:60135 "EHLO kanga.kvack.org"
+Received: from mga14.intel.com ([143.182.124.37]:63959 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754091Ab3COQCn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Mar 2013 12:02:43 -0400
-Content-Disposition: inline
-In-Reply-To: <51433934.3080405@hhi.fraunhofer.de>
+	id S1754136Ab3COQDu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 12:03:50 -0400
+In-Reply-To: <1899985.NhtD8IVCbT@cpaasch-mac>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 15, 2013 at 04:07:32PM +0100, Thomas Martitz wrote:
-> Same result. I assumed the kernel treats lo in a special way for 
-> localhost-connections and that it would be impossible to achieve the 
-> same with a custom interface.
+> -----Original Message-----
+> From: Christoph Paasch [mailto:christoph.paasch@gmail.com] On Behalf Of
+> Christoph Paasch
+> Sent: Friday, March 15, 2013 12:52 AM
+> To: Alexander Duyck
+> Cc: Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W; Duyck, Alexander
+> H; Eric Dumazet; netdev@vger.kernel.org
+> Subject: Re: igb_poll - device driver failed to check map error
 > 
-> I did the following:
+> On Thursday 14 March 2013 19:18:18 Alexander Duyck wrote:
+> > On 03/12/2013 02:31 AM, Christoph Paasch wrote:
+> > > Hello,
+> > >
+> > > I'm seeing a warning while booting my machine when DMA_API_DEBUG
+> is set:
+> > >
+> > > [   36.402824] ------------[ cut here ]------------
+> > > [   36.458070] WARNING: at
+> > > /home/cpaasch/builder/net-next/lib/dma-debug.c:934
+> > > check_unmap+0x648/0x702()
+> > > [   36.567377] Hardware name: ProLiant DL165 G7
+> > > [   36.618452] igb 0000:04:00.0: DMA-API: device driver failed to check
+> > > map
+> > > error[device address=0x0000000233d9b232] [size=154 bytes] [mapped
+> as
+> > > single] [   36.776640] Modules linked in:
+> > > [   36.815446] Pid: 0, comm: swapper/7 Not tainted 3.9.0-rc1-mptcp+
+> #101
+> > > [   36.892515] Call Trace:
+> > > [   36.921745]  <IRQ>  [<ffffffff8102ad7f>]
+> warn_slowpath_common+0x80/0x9a
+> > > [   37.001023]  [<ffffffff8102ae2d>] warn_slowpath_fmt+0x41/0x43
+> > > [   37.069771]  [<ffffffff811db17f>] check_unmap+0x648/0x702
+> > > [   37.134363]  [<ffffffff811db3e9>]
+> debug_dma_unmap_page+0x50/0x52
+> > > [   37.206234]  [<ffffffff8136676a>] igb_poll+0x144/0xf7c
+> > > [   37.267706]  [<ffffffff8104dd19>] ? sched_clock_cpu+0x46/0xd1
+> > > [   37.336456]  [<ffffffff814458ce>] net_rx_action+0xa7/0x1d0
+> > > [   37.402085]  [<ffffffff81030b65>] __do_softirq+0xb4/0x16f
+> > > [   37.466673]  [<ffffffff81030c90>] irq_exit+0x40/0x87
+> > > [   37.526067]  [<ffffffff81002db1>] do_IRQ+0x98/0xaf
+> > > [   37.583378]  [<ffffffff815210aa>] common_interrupt+0x6a/0x6a
+> > > [   37.651086]  <EOI>  [<ffffffff8105d4be>] ?
+> > > __tick_nohz_idle_enter+0x116/0x31f
+> > > [   37.736595]  [<ffffffff81008a04>] ? default_idle+0x24/0x39
+> > > [   37.802224]  [<ffffffff81008c62>] cpu_idle+0x68/0xa4
+> > > [   37.861616]  [<ffffffff81519f78>] start_secondary+0x1a9/0x1ad
+> > > [   37.930364] ---[ end trace 01b5bb0fd75a464c ]---
+> > >
+> > >
+> > > It happens shortly after mounting the NFS-root filesystem.
+> > >
+> > > I tried to understand what is going on, but I am now at my wit's end.
+> > >
+> > > By adding some print-statements, here is what I found out (not sure if
+> > > this is anyhow helpful):
+> > >
+> > > The difference between tx_buffer->time_stamp and the current 'jiffies'
+> is
+> > > up to 2000 jiffies (HZ==1000) at the first time the above warning
+> happens
+> > > (this seems too much for me). From then on, I see my print 3-4 times
+> > > appear but without such a big difference between the timestamps
+> > > (difference around 1 and 2 jiffies).
+> > >
+> > > Some other stuff, I printed:
+> > > tx_buffer->skb: ffff880235054c80
+> > > tx_buffer->bytecount: 154
+> > > tx_buffer->gso_segs: 1
+> > > tx_buffer->protocol: 8
+> > > tx_buffer->tx_flags 0x20
+> > >
+> > >
+> > > One last thing:
+> > > Am I right that after each call to dma_map_single/page a call to
+> > > dma_mapping_error is needed? If that's the case, I have some patches
+> that
+> > > add this statement at missing places in the e1000, e1000e and ixgb
+> > > driver. But these patches do not fix my above problem.
+> > >
+> > >
+> > > Thanks for your help,
+> > > Christoph
+> >
+> > Christoph,
+> >
+> > One thing that might be useful would be to reproduce this with a
+> > standard 3.9-rc kernel instead of one using the multipath TCP patches.
+> > This will help us to verify that the issue is reproducible with a stock
+> > kernel and is not related to any ongoing work you may have only in your
+> > tree.
 > 
-> ifconfig lo down
-> insmod ./mykmod.ko
-> ifconfig eth2 up
-> ifconfig eth2 127.0.0.1
+> Hello,
 > 
-> At this point ifconfig prints the same information for eth2 that it had 
-> printed for lo before (except for the LOOPBACK flag, but I can enable 
-> that one as well by adding IFF_LOOPBACK to the interface flags in the 
-> module). Yet my test application only works with lo, not eth2.
+> this is on a clean net-next kernel without any MPTCP-code.
+> 
+> I bisected it down to  787314c35fbb (Merge tag 'iommu-updates-v3.8' of
+> git://git.kernel.org/pub/scm/linux/kernel/git/joro/iommu), which simply
+> introduces the debug_dma_mapping_error-checks.
+> 
+> Am I right with the missing calls to dma_mapping_error in e1000, e1000e
+> and
+> ixgb?
+> 
+> Cheers,
+> Christoph
+> 
+> 
+> 
+> --
+> IP Networking Lab --- http://inl.info.ucl.ac.be
+> MultiPath TCP in the Linux Kernel --- http://multipath-tcp.org
+> UCLouvain
+> --
 
-Don't use loopback ip addresses; it makes no sense to do so.  I've worked  
-on a couple opf nic implementations on FPGAs for a while now (a gige 
-implementation that works, and now a 10G nic), and it's easy enough to 
-develop it as a regular ethernet driver.  You can write test programs that 
-use raw sockets to send/receive packets over the ethernet device, or use 
-pktgen to send packets.  You don't even need to configure an ip address for 
-testing with raw packets.  Testing with IP is a lot harder during early 
-bring-up of your hardware as it requires everything to work (that is, you 
-need ARP to work successfully before IP can work).  Just stick to simple 
-packet injection initially, and don't confuse yourself by thinking about 
-the loopback device.
+Hi Christoph,
 
-		-ben
--- 
-"Thought is the essence of where you are now."
+You are correct re. the missing calls to dma_mapping_error and I have that on my
+to-do list for e1000e, but if you have patches already feel free to send them along
+(please cc the Intel wired ethernet list e1000-devel@lists.sourceforge.net).
+
+Thanks,
+Bruce.
