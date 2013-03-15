@@ -1,12 +1,13 @@
-From: Florian Fainelli <florian@openwrt.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 0/4] mv643xx_eth: use mvmdio MDIO bus driver
-Date: Fri, 15 Mar 2013 13:51:01 +0100
-Message-ID: <51431935.6060407@openwrt.org>
-References: <1359473048-26551-1-git-send-email-florian@openwrt.org> <1363284515-9865-1-git-send-email-florian@openwrt.org> <20130315.085321.1047694772636447477.davem@davemloft.net>
+Date: Fri, 15 Mar 2013 08:55:10 -0400 (EDT)
+Message-ID: <20130315.085510.974056254781971889.davem@davemloft.net>
+References: <1359473048-26551-1-git-send-email-florian@openwrt.org>
+	<1363284515-9865-1-git-send-email-florian@openwrt.org>
+	<20130315.085321.1047694772636447477.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
 	rob@landley.net, jason@lakedaemon.net, andrew@lunn.ch,
 	linux@arm.linux.org.uk, benh@kernel.crashing.org, paulus@samba.org,
@@ -15,39 +16,38 @@ Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
 	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
 	linux-arm-kernel@lists.infradead.org,
 	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: florian@openwrt.org
+Return-path: <linux-doc-owner@vger.kernel.org>
 In-Reply-To: <20130315.085321.1047694772636447477.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 03/15/13 13:53, David Miller a =C3=A9crit :
-> From: Florian Fainelli <florian@openwrt.org>
-> Date: Thu, 14 Mar 2013 19:08:31 +0100
->
->> This patch converts the mv643xx_eth driver to use the mvmdio MDIO bu=
-s driver
->> instead of rolling its own implementation. As a result, all users of=
- this
->> mv643xx_eth driver are converted to register an "orion-mdio" platfor=
-m_device.
->> The mvmdio driver is also updated to support an interrupt line which=
- reports
->> SMI error/completion, and to allow traditionnal platform device regi=
-stration
->> instead of just device tree.
->>
->> David, I think it makes sense for you to merge all of this, since we=
- do
->> not want the architecture files to be desynchronized from the mv643x=
-x_eth to
->> avoid runtime breakage. The potential for merge conflicts should be =
-very small.
->
-> All applied to net-next, thanks.
->
-
-Oh woah that was fast, maybe too fast, I will submit a follow-up patch=20
-for patch 4 to address the issues I mentionned earlier.
---
-=46lorian
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAxNSBN
+YXIgMjAxMyAwODo1MzoyMSAtMDQwMCAoRURUKQ0KDQo+IEZyb206IEZsb3JpYW4gRmFpbmVsbGkg
+PGZsb3JpYW5Ab3BlbndydC5vcmc+DQo+IERhdGU6IFRodSwgMTQgTWFyIDIwMTMgMTk6MDg6MzEg
+KzAxMDANCj4gDQo+PiBUaGlzIHBhdGNoIGNvbnZlcnRzIHRoZSBtdjY0M3h4X2V0aCBkcml2ZXIg
+dG8gdXNlIHRoZSBtdm1kaW8gTURJTyBidXMgZHJpdmVyDQo+PiBpbnN0ZWFkIG9mIHJvbGxpbmcg
+aXRzIG93biBpbXBsZW1lbnRhdGlvbi4gQXMgYSByZXN1bHQsIGFsbCB1c2VycyBvZiB0aGlzDQo+
+PiBtdjY0M3h4X2V0aCBkcml2ZXIgYXJlIGNvbnZlcnRlZCB0byByZWdpc3RlciBhbiAib3Jpb24t
+bWRpbyIgcGxhdGZvcm1fZGV2aWNlLg0KPj4gVGhlIG12bWRpbyBkcml2ZXIgaXMgYWxzbyB1cGRh
+dGVkIHRvIHN1cHBvcnQgYW4gaW50ZXJydXB0IGxpbmUgd2hpY2ggcmVwb3J0cw0KPj4gU01JIGVy
+cm9yL2NvbXBsZXRpb24sIGFuZCB0byBhbGxvdyB0cmFkaXRpb25uYWwgcGxhdGZvcm0gZGV2aWNl
+IHJlZ2lzdHJhdGlvbg0KPj4gaW5zdGVhZCBvZiBqdXN0IGRldmljZSB0cmVlLg0KPj4gDQo+PiBE
+YXZpZCwgSSB0aGluayBpdCBtYWtlcyBzZW5zZSBmb3IgeW91IHRvIG1lcmdlIGFsbCBvZiB0aGlz
+LCBzaW5jZSB3ZSBkbw0KPj4gbm90IHdhbnQgdGhlIGFyY2hpdGVjdHVyZSBmaWxlcyB0byBiZSBk
+ZXN5bmNocm9uaXplZCBmcm9tIHRoZSBtdjY0M3h4X2V0aCB0bw0KPj4gYXZvaWQgcnVudGltZSBi
+cmVha2FnZS4gVGhlIHBvdGVudGlhbCBmb3IgbWVyZ2UgY29uZmxpY3RzIHNob3VsZCBiZSB2ZXJ5
+IHNtYWxsLg0KPiANCj4gQWxsIGFwcGxpZWQgdG8gbmV0LW5leHQsIHRoYW5rcy4NCg0KQWN0dWFs
+bHksIHJldmVydGVkLiAgUGxlYXNlIHNlbmQgbWUgY29kZSB3aGljaCBhY3R1YWxseSBjb21waWxl
+czoNCg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9tdm1kaW8uYzogSW4gZnVuY3Rpb24g
+oW9yaW9uX21kaW9fd2FpdF9yZWFkeaI6DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212
+bWRpby5jOjcwOjI4OiBlcnJvcjogoU5PX0lSUaIgdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluIHRo
+aXMgZnVuY3Rpb24pDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212bWRpby5jOjcwOjI4
+OiBub3RlOiBlYWNoIHVuZGVjbGFyZWQgaWRlbnRpZmllciBpcyByZXBvcnRlZCBvbmx5IG9uY2Ug
+Zm9yIGVhY2ggZnVuY3Rpb24gaXQgYXBwZWFycyBpbg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvbWFy
+dmVsbC9tdm1kaW8uYzogSW4gZnVuY3Rpb24goW9yaW9uX21kaW9fcHJvYmWiOg0KZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvbWFydmVsbC9tdm1kaW8uYzoyNDI6MjQ6IGVycm9yOiChTk9fSVJRoiB1bmRl
+Y2xhcmVkIChmaXJzdCB1c2UgaW4gdGhpcyBmdW5jdGlvbikNCm1ha2VbNF06ICoqKiBbZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvbWFydmVsbC9tdm1kaW8ub10gRXJyb3IgMQ0KDQpBbmQgZG9uJ3QgdXNl
+IEtjb25maWcgZGVwZW5kZW5jaWVzIHRvIHdvcmsgYXJvdW5kIHRoaXMsIGZpeCBpdCBwcm9wZXJs
+eS4NCg==
