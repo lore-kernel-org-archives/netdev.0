@@ -1,81 +1,29 @@
-From: Florian Fainelli <florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH 0/4] mv643xx_eth: use mvmdio MDIO bus driver
-Date: Fri, 15 Mar 2013 14:03:11 +0100
-Message-ID: <51431C0F.6080703@openwrt.org>
-References: <20130315.085321.1047694772636447477.davem@davemloft.net>
- <20130315.085510.974056254781971889.davem@davemloft.net>
- <514319B6.7030307@openwrt.org>
- <20130315.090517.2027403317215151155.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] smsc75xx: configuration help incorrectly mentions
+ smsc95xx
+Date: Fri, 15 Mar 2013 09:07:16 -0400 (EDT)
+Message-ID: <20130315.090716.468454348285903715.davem@davemloft.net>
+References: <1363289346-3084-1-git-send-email-rhdv@xs4all.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: andrew-g2DYL2Zd6BY@public.gmane.org, linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org, jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org,
- linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <20130315.090517.2027403317215151155.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: rhdv@xs4all.nl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47156 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754592Ab3CONHA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 09:07:00 -0400
+In-Reply-To: <1363289346-3084-1-git-send-email-rhdv@xs4all.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TGUgMDMvMTUvMTMgMTQ6MDUsIERhdmlkIE1pbGxlciBhIMOpY3JpdCA6Cj4gRnJvbTogRmxvcmlh
-biBGYWluZWxsaSA8ZmxvcmlhbkBvcGVud3J0Lm9yZz4KPiBEYXRlOiBGcmksIDE1IE1hciAyMDEz
-IDEzOjUzOjEwICswMTAwCj4KPj4gTGUgMDMvMTUvMTMgMTM6NTUsIERhdmlkIE1pbGxlciBhIMOp
-Y3JpdCA6Cj4+PiBGcm9tOiBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+Cj4+PiBE
-YXRlOiBGcmksIDE1IE1hciAyMDEzIDA4OjUzOjIxIC0wNDAwIChFRFQpCj4+Pgo+Pj4+IEZyb206
-IEZsb3JpYW4gRmFpbmVsbGkgPGZsb3JpYW5Ab3BlbndydC5vcmc+Cj4+Pj4gRGF0ZTogVGh1LCAx
-NCBNYXIgMjAxMyAxOTowODozMSArMDEwMAo+Pj4+Cj4+Pj4+IFRoaXMgcGF0Y2ggY29udmVydHMg
-dGhlIG12NjQzeHhfZXRoIGRyaXZlciB0byB1c2UgdGhlIG12bWRpbyBNRElPIGJ1cwo+Pj4+PiBk
-cml2ZXIKPj4+Pj4gaW5zdGVhZCBvZiByb2xsaW5nIGl0cyBvd24gaW1wbGVtZW50YXRpb24uIEFz
-IGEgcmVzdWx0LCBhbGwgdXNlcnMgb2YKPj4+Pj4gdGhpcwo+Pj4+PiBtdjY0M3h4X2V0aCBkcml2
-ZXIgYXJlIGNvbnZlcnRlZCB0byByZWdpc3RlciBhbiAib3Jpb24tbWRpbyIKPj4+Pj4gcGxhdGZv
-cm1fZGV2aWNlLgo+Pj4+PiBUaGUgbXZtZGlvIGRyaXZlciBpcyBhbHNvIHVwZGF0ZWQgdG8gc3Vw
-cG9ydCBhbiBpbnRlcnJ1cHQgbGluZSB3aGljaAo+Pj4+PiByZXBvcnRzCj4+Pj4+IFNNSSBlcnJv
-ci9jb21wbGV0aW9uLCBhbmQgdG8gYWxsb3cgdHJhZGl0aW9ubmFsIHBsYXRmb3JtIGRldmljZQo+
-Pj4+PiByZWdpc3RyYXRpb24KPj4+Pj4gaW5zdGVhZCBvZiBqdXN0IGRldmljZSB0cmVlLgo+Pj4+
-Pgo+Pj4+PiBEYXZpZCwgSSB0aGluayBpdCBtYWtlcyBzZW5zZSBmb3IgeW91IHRvIG1lcmdlIGFs
-bCBvZiB0aGlzLCBzaW5jZSB3ZQo+Pj4+PiBkbwo+Pj4+PiBub3Qgd2FudCB0aGUgYXJjaGl0ZWN0
-dXJlIGZpbGVzIHRvIGJlIGRlc3luY2hyb25pemVkIGZyb20gdGhlCj4+Pj4+IG12NjQzeHhfZXRo
-IHRvCj4+Pj4+IGF2b2lkIHJ1bnRpbWUgYnJlYWthZ2UuIFRoZSBwb3RlbnRpYWwgZm9yIG1lcmdl
-IGNvbmZsaWN0cyBzaG91bGQgYmUKPj4+Pj4gdmVyeSBzbWFsbC4KPj4+Pgo+Pj4+IEFsbCBhcHBs
-aWVkIHRvIG5ldC1uZXh0LCB0aGFua3MuCj4+Pgo+Pj4gQWN0dWFsbHksIHJldmVydGVkLiAgUGxl
-YXNlIHNlbmQgbWUgY29kZSB3aGljaCBhY3R1YWxseSBjb21waWxlczoKPj4+Cj4+PiBkcml2ZXJz
-L25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212bWRpby5jOiBJbiBmdW5jdGlvbgo+Pj4g4oCYb3Jpb25f
-bWRpb193YWl0X3JlYWR54oCZOgo+Pj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9tdm1k
-aW8uYzo3MDoyODogZXJyb3I6IOKAmE5PX0lSUeKAmQo+Pj4gdW5kZWNsYXJlZCAoZmlyc3QgdXNl
-IGluIHRoaXMgZnVuY3Rpb24pCj4+PiBkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212bWRp
-by5jOjcwOjI4OiBub3RlOiBlYWNoIHVuZGVjbGFyZWQKPj4+IGlkZW50aWZpZXIgaXMgcmVwb3J0
-ZWQgb25seSBvbmNlIGZvciBlYWNoIGZ1bmN0aW9uIGl0IGFwcGVhcnMgaW4KPj4+IGRyaXZlcnMv
-bmV0L2V0aGVybmV0L21hcnZlbGwvbXZtZGlvLmM6IEluIGZ1bmN0aW9uIOKAmG9yaW9uX21kaW9f
-cHJvYmXigJk6Cj4+PiBkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212bWRpby5jOjI0Mjoy
-NDogZXJyb3I6IOKAmE5PX0lSUeKAmQo+Pj4gdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluIHRoaXMg
-ZnVuY3Rpb24pCj4+PiBtYWtlWzRdOiAqKiogW2RyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZlbGwv
-bXZtZGlvLm9dIEVycm9yIDEKPj4+Cj4+PiBBbmQgZG9uJ3QgdXNlIEtjb25maWcgZGVwZW5kZW5j
-aWVzIHRvIHdvcmsgYXJvdW5kIHRoaXMsIGZpeCBpdAo+Pj4gcHJvcGVybHkuCj4+Cj4+IElzIHRo
-ZXJlIGFueSBwbGF0Zm9ybSBvdXQgdGhlcmUgZm9yIHdoaWNoIHdlIGRvIG5vdCBoYXZlIGEgTk9f
-SVJRCj4+IGRlZmluaXRpb24gYnkgbm93PyBJZiBzbywgd2hhdCBpcyBpdD8KPgo+IE9idmlvdXNs
-eSBpZiB4ODZfNjQgZG9lc24ndCBldmVuIGJ1aWxkIHlvdXIgY2hhbmdlcywgdGhhdCBpcyBvbmUg
-c3VjaAo+IHBsYXRmb3JtLiAgQWxzbywgaXMgZ3JlcCBub3Qgd29ya2luZyBvbiB5b3VyIGNvbXB1
-dGVyPwoKSSBidWlsdCB0ZXN0ZWQgb24gUG93ZXJQQyBhbmQgQVJNIHdoaWNoIGFyZSB0aGUgcGxh
-dGZvcm1zIGFjdHVhbGx5IAoqdXNpbmcqIHRoZXNlIGRyaXZlcnMgYW5kIGZvcmdvdCB0aGF0IHlv
-dSBidWlsZCBmb3IgeDg2XzY0LgoKPgo+IFBsYXRmb3JtcyBhcmUgYWJzb2x1dGVseSBubyByZXF1
-aXJlZCB0byBoYXZlIHRoaXMgZGVmaW5lLCB6ZXJvIGlzIHRoZQo+IG9ubHkgdmFsaWQgIm5vIElS
-USIgd2hpY2ggaXMgcG9ydGFibGUgaW4gYW55IHdheS4KPgo+IFRoaXMgaXMgYW4gb2xkIGFuZCB0
-aXJlZCB0b3BpYywgcG9ydGFibGUgY29kZSBkb2VzIG5vdCB1c2UgTk9fSVJRLCBhbmQKPiB0aGF0
-J3Mgc2ltcGx5IHRoZSBlbmQgb2YgaXQuCgpJIGNoYW5nZWQgbm90IHRvIHJlbHkgb24gTk9fSVJR
-IGFueW1vcmUuIFRoYW5rcyEKLS0KRmxvcmlhbgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpkZXZpY2V0cmVlLWRpc2N1c3MgbWFpbGluZyBsaXN0CmRldmlj
-ZXRyZWUtZGlzY3Vzc0BsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9s
-aXN0aW5mby9kZXZpY2V0cmVlLWRpc2N1c3MK
+From: Robert de Vries <rhdv@xs4all.nl>
+Date: Thu, 14 Mar 2013 20:29:06 +0100
+
+> The Kconfig file help information incorrectly mentions that the
+> SMSC LAN75xx config option is for SMSC LAN95xx devices.
+> 
+> Signed-off-by: Robert de Vries <rhdv@xs4all.nl>
+
+Applied, thanks.
