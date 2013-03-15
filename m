@@ -1,55 +1,61 @@
 From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH v3 5/7] usbnet: qmi_wwan: comments on suspend failure
-Date: Fri, 15 Mar 2013 12:08:57 +0800
-Message-ID: <1363320539-23012-6-git-send-email-ming.lei@canonical.com>
-References: <1363320539-23012-1-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH v3 0/7] USB: don't recover device if suspend fails in system sleep
+Date: Fri, 15 Mar 2013 12:08:52 +0800
+Message-ID: <1363320539-23012-1-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
 	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
 	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1363320539-23012-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-If suspend callback fails in system sleep context, usb core will
-ignore the failure and let system sleep go ahead further, so
-this patch comments on the case and requires that both
-usbnet_suspend() and subdriver->suspend() MUST return 0 in
-system sleep context.
+Hi,
 
-Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Acked-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
----
- drivers/net/usb/qmi_wwan.c |    5 +++++
- 1 file changed, 5 insertions(+)
+This patch adds comments on interface driver suspend callback
+to emphasize that the failure return value is ignored by
+USB core in system sleep context, so do not try to recover
+device for this case, otherwise the recovery things may confuse
+resume().
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 968d5d5..bdceb74 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -271,6 +271,11 @@ static int qmi_wwan_suspend(struct usb_interface *=
-intf, pm_message_t message)
- 	struct qmi_wwan_state *info =3D (void *)&dev->data;
- 	int ret;
-=20
-+	/*
-+	 * Both usbnet_suspend() and subdriver->suspend() MUST return 0
-+	 * in system sleep context, otherwise, the resume callback has
-+	 * to recover device from previous suspend failure.
-+	 */
- 	ret =3D usbnet_suspend(intf, message);
- 	if (ret < 0)
- 		goto err;
---=20
-1.7.9.5
+Also fixes USB HID and several usbnet drivers which may recover
+device in suspend failure path of system sleep.
+
+v3:
+	- only 2/7 changed, don't change code but add comments to
+	restrict subdriver->suspend(), suggested by Johan Hovold.
+
+v2:
+        - improve comments on suspend callback as suggested by Alan
+        - update kerneldoc for usb_suspend_both as suggested by Alan
+        - remove previous check of PMSG_IS_AUTO(message) in cdc_mbim/
+        qmi_wwan and add comments on suspend failure case, since Bj=C3=B8=
+rn
+        doesn't like the check.
+        - add comments on smsc95xx/smsc75xx
+v1:
+        - fix compile failure
+        - add comments about handling suspend failure in resume()
+
+ drivers/hid/usbhid/hid-core.c   |   14 +++++---------
+ drivers/net/usb/cdc_mbim.c      |    5 +++++
+ drivers/net/usb/qmi_wwan.c      |    5 +++++
+ drivers/net/usb/smsc75xx.c      |    6 +++++-
+ drivers/net/usb/smsc95xx.c      |    6 +++++-
+ drivers/usb/core/driver.c       |   11 ++++++++---
+ drivers/usb/serial/usb-serial.c |    5 +++++
+ include/linux/usb.h             |    7 ++++++-
+ 8 files changed, 44 insertions(+), 15 deletions(-)
+
+
+Thanks
+--
+Ming Lei
 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
