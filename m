@@ -1,27 +1,36 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] isdn: hisax: netjet requires VIRT_TO_BUS
-Date: Fri, 15 Mar 2013 13:41:14 +0000
-Message-ID: <201303151341.14311.arnd@arndb.de>
-References: <201303151015.00746.arnd@arndb.de> <201303151229.52997.arnd@arndb.de> <20130315.083344.2224038988420448687.davem@davemloft.net>
+From: Prabhakar Lad <prabhakar.csengg@gmail.com>
+Subject: DaVinci platform unable to boot via NFS
+Date: Fri, 15 Mar 2013 19:11:19 +0530
+Message-ID: <CA+V-a8sNLBi1zB942ZbK26POrzcq7oOpNW9yPG5dG_gX7ZZ1oQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: geert@linux-m68k.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, isdn@linux-pingi.de,
-	netdev@vger.kernel.org, dhowells@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130315.083344.2224038988420448687.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+ dlos <davinci-linux-open-source@linux.davincidsp.com>,
+ Sekhar Nori <nsekhar@ti.com>, LAK <linux-arm-kernel@lists.infradead.org>
+To: mugunthanvnm@ti.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 15 March 2013, David Miller wrote:
-> The first usage seems reason, but the temtation is going to be quite
-> strong to misuse to block out drivers when there is "no value" in
-> spending time necessary to simply make them endian clean instead.
+Hi Mugunthan,
 
-Right. I'll let someone else start that discussion then if they
-really want to see that patch.
+With 3.9 release I am not able to boot any davinci board via nfs, finally
+digging Into I found that there were recent changes for Ethernet davinci.
+Finally I reverting this to some safe commit I was able to boot via nfs.
+I reverted back as following:-
+git checkout  f9a8f83b04e0c362a2fc660dbad980d24af209fc  drivers/net/ethernet/ti/
 
-	Arnd
+Can you please take a look at and fix it.
+
+Cheers,
+--Prabhakar Lad
+http://in.linkedin.com/pub/prabhakar-lad/19/92b/955
