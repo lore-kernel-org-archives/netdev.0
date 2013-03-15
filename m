@@ -1,8 +1,7 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net 5/6] openvswitch: fix the calculation of
-	checksum for vlan header
-Date: Thu, 14 Mar 2013 17:15:05 -0700
-Message-ID: <1363306506-885-6-git-send-email-jesse@nicira.com>
+Subject: [PATCH net 6/6] openvswitch: remove some useless comments
+Date: Thu, 14 Mar 2013 17:15:06 -0700
+Message-ID: <1363306506-885-7-git-send-email-jesse@nicira.com>
 References: <1363306506-885-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,62 +23,44 @@ List-Id: netdev.vger.kernel.org
 
 From: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-In vlan_insert_tag(), we insert a 4-byte VLAN header _after_
-mac header:
-
-        memmove(skb->data, skb->data + VLAN_HLEN, 2 * ETH_ALEN);
-        ...
-        veth->h_vlan_proto = htons(ETH_P_8021Q);
-        ...
-        veth->h_vlan_TCI = htons(vlan_tci);
-
-so after it, we should recompute the checksum to include these 4 bytes.
-skb->data still points to the mac header, therefore VLAN header is at
-(2 * ETH_ALEN = 12) bytes after it, not (ETH_HLEN = 14) bytes.
-
-This can also be observed via tcpdump:
-
-         0x0000:  ffff ffff ffff 5254 005d 6f6e 8100 000a
-         0x0010:  0806 0001 0800 0604 0001 5254 005d 6f6e
-         0x0020:  c0a8 026e 0000 0000 0000 c0a8 0282
-
-Similar for __pop_vlan_tci(), the vlan header we remove is the one
-overwritten in:
-
-	memmove(skb->data + VLAN_HLEN, skb->data, 2 * ETH_ALEN);
-
-Therefore the VLAN_HLEN = 4 bytes after 2 * ETH_ALEN is the part
-we want to sub from checksum.
+These comments are useless in upstream kernel.
 
 Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Cc: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/actions.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/openvswitch/vport-netdev.c |    3 +--
+ net/openvswitch/vport.c        |    3 +--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index ac2defe..d4d5363 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -58,7 +58,7 @@ static int __pop_vlan_tci(struct sk_buff *skb, __be16 *current_tci)
+diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
+index 670cbc3..2130d61 100644
+--- a/net/openvswitch/vport-netdev.c
++++ b/net/openvswitch/vport-netdev.c
+@@ -43,8 +43,7 @@ static void netdev_port_receive(struct vport *vport, struct sk_buff *skb)
  
- 	if (skb->ip_summed == CHECKSUM_COMPLETE)
- 		skb->csum = csum_sub(skb->csum, csum_partial(skb->data
--					+ ETH_HLEN, VLAN_HLEN, 0));
-+					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
- 
- 	vhdr = (struct vlan_hdr *)(skb->data + ETH_HLEN);
- 	*current_tci = vhdr->h_vlan_TCI;
-@@ -115,7 +115,7 @@ static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vla
- 
- 		if (skb->ip_summed == CHECKSUM_COMPLETE)
- 			skb->csum = csum_add(skb->csum, csum_partial(skb->data
--					+ ETH_HLEN, VLAN_HLEN, 0));
-+					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
- 
- 	}
- 	__vlan_hwaccel_put_tag(skb, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
+ 	/* Make our own copy of the packet.  Otherwise we will mangle the
+ 	 * packet for anyone who came before us (e.g. tcpdump via AF_PACKET).
+-	 * (No one comes after us, since we tell handle_bridge() that we took
+-	 * the packet.) */
++	 */
+ 	skb = skb_share_check(skb, GFP_ATOMIC);
+ 	if (unlikely(!skb))
+ 		return;
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index 70af0be..6255e48 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -326,8 +326,7 @@ int ovs_vport_get_options(const struct vport *vport, struct sk_buff *skb)
+  * @skb: skb that was received
+  *
+  * Must be called with rcu_read_lock.  The packet cannot be shared and
+- * skb->data should point to the Ethernet header.  The caller must have already
+- * called compute_ip_summed() to initialize the checksumming fields.
++ * skb->data should point to the Ethernet header.
+  */
+ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
+ {
 -- 
 1.7.10.4
