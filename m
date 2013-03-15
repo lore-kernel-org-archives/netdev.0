@@ -1,50 +1,29 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] isdn: hisax: netjet requires VIRT_TO_BUS
-Date: Fri, 15 Mar 2013 12:29:52 +0000
-Message-ID: <201303151229.52997.arnd@arndb.de>
-References: <1363298204-8014-4-git-send-email-arnd@arndb.de> <201303151015.00746.arnd@arndb.de> <20130315.081659.636423702994054939.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net: clean leftover of COMPAT_NET_DEV_OPS removal
+Date: Fri, 15 Mar 2013 08:31:28 -0400 (EDT)
+Message-ID: <20130315.083128.875817499053793089.davem@davemloft.net>
+References: <1363229845.5774.2.camel@nexus>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: geert@linux-m68k.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, isdn@linux-pingi.de,
-	netdev@vger.kernel.org, dhowells@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130315.081659.636423702994054939.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: fernando_b1@lab.ntt.co.jp
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46655 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754369Ab3COMbM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 08:31:12 -0400
+In-Reply-To: <1363229845.5774.2.camel@nexus>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 15 March 2013, David Miller wrote:
-> I do not want to see us add such a Kconfig dependency knob.
-> 
-> Then the real tendency will exist to make new drivers little-endian
-> only, refuse to fix endian-broken old drivers, etc.
-> 
-> Which means that allmodconfig on my architecture will have build
-> coverage on less code, which is really the only thing that matters
-> for me.  I want all drivers that could be effected by my changes
-> to be compile testable on as many platforms as possible.
+=46rom: Fernando Luis V=E1zquez Cao <fernando_b1@lab.ntt.co.jp>
+Date: Thu, 14 Mar 2013 11:57:25 +0900
 
-There are two separate issues here. The first one that David Howells
-brought up was ill-defined __BIG_ENDIAN/__LITTLE_ENDIAN macros.
-Using CONFIG_CPU_IS_BIG_ENDIAN/CONFIG_CPU_IS_LITTLE_ENDIAN in the code
-is what Linus suggested as a replacement, although I see little
-incentive to do mass conversion there, it would be mainly for new
-code.
+> COMPAT_NET_DEV_OPS was removed a while back and with it the definitio=
+n of
+> netdev_resync_ops() went away. Let's finish the clean-up.
+>=20
+> Signed-off-by: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
 
-The other issue is the Kconfig logic where Geert would replace
-all the instances of "depends on BROKEN || !(SPARC || PPC || PARISC ||
-M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA &&
-!CPU_LITTLE_ENDIAN))" with something that actually reflects what
-we mean. I think it would be a nice cleanup, but I can also understand
-your hesitation there.
-
-Do you object to both uses of that symbol, or just to using it in order
-to disable drivers in Kconfig? I don't care too much right now, since
-nothing is actually broken at the moment, I would just like to get
-the VIRT_TO_BUS patch merged so people can also build allmodconfig
-on my architecture ;-)
-
-	Arnd
+Applied, thanks.
