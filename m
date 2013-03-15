@@ -1,59 +1,59 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [GIT net-next] Open vSwitch
-Date: Fri, 15 Mar 2013 10:38:46 -0700
-Message-ID: <1363369131-16830-1-git-send-email-jesse@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jesse Gross <jesse@nicira.com>
+Subject: [PATCH net-next 2/5] openvswitch: Avoid useless holes in struct vport
+Date: Fri, 15 Mar 2013 10:38:48 -0700
+Message-ID: <1363369131-16830-3-git-send-email-jesse@nicira.com>
+References: <1363369131-16830-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	Thomas Graf <tgraf@suug.ch>, Jesse Gross <jesse@nicira.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog130.obsmtp.com ([74.125.149.143]:51075 "HELO
+	na3sys009aog130.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751901Ab3CORjD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 13:39:03 -0400
+Received: by mail-oa0-f72.google.com with SMTP id j6so18927113oag.11
+        for <netdev@vger.kernel.org>; Fri, 15 Mar 2013 10:39:02 -0700 (PDT)
+In-Reply-To: <1363369131-16830-1-git-send-email-jesse@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A couple of minor enhancements for net-next/3.10.  The largest is an
-extension to allow variable length metadata to be passed to userspace
-with packets.
+From: Thomas Graf <tgraf@suug.ch>
 
-There is a merge conflict in net/openvswitch/vport-internal_dev.c:
-A existing commit modifies internal_dev_mac_addr() and a new commit
-deletes it.  The new one is correct, so you can just remove that function.
+Having the 16bit port_no in between a set of pointers creates
+an unwanted and useless hole in the struct.
 
-The following changes since commit a5a81f0b9025867efb999d14a8dfc1907c5a4c3b:
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Jesse Gross <jesse@nicira.com>
+---
+ net/openvswitch/vport.h |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-  ipv6: Fix default route failover when CONFIG_IPV6_ROUTER_PREF=n (2012-12-03 15:34:47 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git master
-
-for you to fetch changes up to 4490108b4a5ada14c7be712260829faecc814ae5:
-
-  openvswitch: Allow OVS_USERSPACE_ATTR_USERDATA to be variable length. (2013-02-22 16:29:22 -0800)
-
-----------------------------------------------------------------
-Ben Pfaff (1):
-      openvswitch: Allow OVS_USERSPACE_ATTR_USERDATA to be variable length.
-
-Jarno Rajahalme (2):
-      linux/openvswitch.h: Make OVSP_LOCAL 32-bit.
-      openvswitch: Change ENOENT return value to ENODEV in lookup_vport().
-
-Thomas Graf (2):
-      openvswitch: Use eth_mac_addr() instead of duplicating it
-      openvswitch: Avoid useless holes in struct vport
-
- include/linux/openvswitch.h          |   13 +++++++------
- net/openvswitch/datapath.c           |   13 +++++++------
- net/openvswitch/datapath.h           |    2 +-
- net/openvswitch/vport-internal_dev.c |   14 ++------------
- net/openvswitch/vport.h              |    4 ++--
- 5 files changed, 19 insertions(+), 27 deletions(-)
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index 3f7961e..aee7d43 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -68,10 +68,10 @@ struct vport_err_stats {
+ /**
+  * struct vport - one port within a datapath
+  * @rcu: RCU callback head for deferred destruction.
+- * @port_no: Index into @dp's @ports array.
+  * @dp: Datapath to which this port belongs.
+  * @upcall_portid: The Netlink port to use for packets received on this port that
+  * miss the flow table.
++ * @port_no: Index into @dp's @ports array.
+  * @hash_node: Element in @dev_table hash table in vport.c.
+  * @dp_hash_node: Element in @datapath->ports hash table in datapath.c.
+  * @ops: Class structure.
+@@ -81,9 +81,9 @@ struct vport_err_stats {
+  */
+ struct vport {
+ 	struct rcu_head rcu;
+-	u16 port_no;
+ 	struct datapath	*dp;
+ 	u32 upcall_portid;
++	u16 port_no;
+ 
+ 	struct hlist_node hash_node;
+ 	struct hlist_node dp_hash_node;
+-- 
+1.7.10.4
