@@ -1,34 +1,44 @@
-From: Joseph Salisbury <joseph.salisbury@canonical.com>
-Subject: [PATCH][v3.2.y] xen-netfront: delay gARP until backend switches to
- Connected
-Date: Fri, 15 Mar 2013 13:56:45 -0400
-Message-ID: <514360DD.8050406@canonical.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH 3/4 v2] net: mvmdio: enhance driver to support SMI
+	error/done interrupts
+Date: Fri, 15 Mar 2013 18:05:03 +0000
+Message-ID: <20130315180503.GU4977@n2100.arm.linux.org.uk>
+References: <1359473048-26551-1-git-send-email-florian@openwrt.org> <1363284515-9865-1-git-send-email-florian@openwrt.org> <1363284515-9865-4-git-send-email-florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: konrad.wilk@oracle.com, jeremy@goop.org,
-	xen-devel@lists.xensource.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	stable@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Rob Landley <rob@landley.net>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1363284515-9865-4-git-send-email-florian@openwrt.org>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
-
-Please consider including upstream commit 
-08e34eb14fe4cfd934b5c169a7682a969457c4ea in the next v3.2.y release.
-It was included upstream as of v3.3-rc1.  It has been tested and 
-confirmed to resolve http://bugs.launchpad.net/bugs/1154608 .
-
-commit 08e34eb14fe4cfd934b5c169a7682a969457c4ea
-Author: Laszlo Ersek <lersek@redhat.com>
-Date:   Sun Dec 11 01:48:59 2011 +0000
-
-     xen-netfront: delay gARP until backend switches to Connected
+On Thu, Mar 14, 2013 at 07:08:34PM +0100, Florian Fainelli wrote:
+> +	if (dev->err_interrupt == NO_IRQ) {
+...
+> +	init_waitqueue_head(&dev->smi_busy_wait);
+> +
+> +	dev->err_interrupt = platform_get_irq(pdev, 0);
+> +	if (dev->err_interrupt != -ENXIO) {
+...
+> +	} else
+> +		dev->err_interrupt = NO_IRQ;
 
 
-Sincerely,
-
-Joseph Salisbury
+FYI, NO_IRQ is not supposed to be used anymore (we're supposed to be
+removing it).  platform_get_irq() returns negative numbers for failure,
+so why not test for < 0 in both the above tests, or maybe <= 0 (as
+IRQ0 is also not supposed to be valid.)?
