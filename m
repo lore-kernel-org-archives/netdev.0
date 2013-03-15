@@ -1,12 +1,13 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net 6/6] openvswitch: remove some useless comments
-Date: Thu, 14 Mar 2013 17:15:06 -0700
-Message-ID: <1363306506-885-7-git-send-email-jesse@nicira.com>
+Subject: [PATCH net 3/6] openvswitch: Call genlmsg_end in
+	queue_userspace_packet
+Date: Thu, 14 Mar 2013 17:15:03 -0700
+Message-ID: <1363306506-885-4-git-send-email-jesse@nicira.com>
 References: <1363306506-885-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 In-Reply-To: <1363306506-885-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
@@ -21,46 +22,28 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+From: Rich Lane <rlane-oPdFNf9WwoK1Z/+hSey0Gg@public.gmane.org>
 
-These comments are useless in upstream kernel.
+Without genlmsg_end the upcall message ends (according to nlmsg_len)
+after the struct ovs_header.
 
-Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Rich Lane <rlane-oPdFNf9WwoK1Z/+hSey0Gg@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/vport-netdev.c |    3 +--
- net/openvswitch/vport.c        |    3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+ net/openvswitch/datapath.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index 670cbc3..2130d61 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -43,8 +43,7 @@ static void netdev_port_receive(struct vport *vport, struct sk_buff *skb)
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index a2cd3e6..cae1062 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -395,6 +395,7 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
  
- 	/* Make our own copy of the packet.  Otherwise we will mangle the
- 	 * packet for anyone who came before us (e.g. tcpdump via AF_PACKET).
--	 * (No one comes after us, since we tell handle_bridge() that we took
--	 * the packet.) */
-+	 */
- 	skb = skb_share_check(skb, GFP_ATOMIC);
- 	if (unlikely(!skb))
- 		return;
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index 70af0be..6255e48 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -326,8 +326,7 @@ int ovs_vport_get_options(const struct vport *vport, struct sk_buff *skb)
-  * @skb: skb that was received
-  *
-  * Must be called with rcu_read_lock.  The packet cannot be shared and
-- * skb->data should point to the Ethernet header.  The caller must have already
-- * called compute_ip_summed() to initialize the checksumming fields.
-+ * skb->data should point to the Ethernet header.
-  */
- void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
- {
+ 	skb_copy_and_csum_dev(skb, nla_data(nla));
+ 
++	genlmsg_end(user_skb, upcall);
+ 	err = genlmsg_unicast(net, user_skb, upcall_info->portid);
+ 
+ out:
 -- 
 1.7.10.4
