@@ -1,88 +1,37 @@
-From: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Subject: [PATCH 1/1 v2] Fix dst_neigh_lookup/dst_neigh_lookup_skb return value handling bug
-Date: Fri, 15 Mar 2013 11:21:50 +0800
-Message-ID: <1363317710-30151-1-git-send-email-zhouzhouyi@gmail.com>
-Cc: <yizhouzhou@ict.ac.cn>, Zhouyi Zhou <zhouzhouyi@gmail.com>
-To: <netdev@vger.kernel.org>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next 1/6] GRE: Use RTNL for atomic protocol registration.
+Date: Thu, 14 Mar 2013 20:37:16 -0700
+Message-ID: <CALnjE+oJKL5EwaEhbScyfVZtcfXNS_BqJdnA2+f6OXtkPz7aDg@mail.gmail.com>
+References: <1363214907-3257-1-git-send-email-pshelar@nicira.com>
+	<CAHXqBFJzomhYjQvF+3+aNRjpZzByu-U=s5rGVnxwyL+6vemPTw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+	netdev@vger.kernel.org, jesse@nicira.com
+To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:36370 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752536Ab3CODWF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 23:22:05 -0400
-Received: by mail-pb0-f51.google.com with SMTP id un15so3153810pbc.24
-        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 20:22:05 -0700 (PDT)
+Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:52965 "HELO
+	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753114Ab3CODhR convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Mar 2013 23:37:17 -0400
+Received: by mail-ye0-f199.google.com with SMTP id j12so4053921yeg.2
+        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 20:37:17 -0700 (PDT)
+In-Reply-To: <CAHXqBFJzomhYjQvF+3+aNRjpZzByu-U=s5rGVnxwyL+6vemPTw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When neighbour table is full, dst_neigh_lookup/dst_neigh_lookup_skb will return
--ENOBUFS which is absolutely non zero, while all the code in kernel which use 
-above functions assume failure only on zero return which will cause panic. (for
-example: : https://bugzilla.kernel.org/show_bug.cgi?id=54731).
-
-This patch corrects above error with smallest changes to kernel source code and
-also correct two return value check missing bugs in drivers/infiniband/hw/cxgb4/cm.c
-
-Tested on my x86_64 SMP machine
-
-Reported-by: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Tested-by: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Signed-off-by: Zhouyi Zhou <zhouzhouyi@gmail.com>
----
- drivers/infiniband/hw/cxgb4/cm.c |   12 ++++++++++++
- include/net/dst.h                |    6 ++++--
- 2 files changed, 16 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 565bfb1..6b95851 100644
---- a/drivers/infiniband/hw/cxgb4/cm.c
-+++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -1575,6 +1575,12 @@ static int c4iw_reconnect(struct c4iw_ep *ep)
- 
- 	neigh = dst_neigh_lookup(ep->dst,
- 			&ep->com.cm_id->remote_addr.sin_addr.s_addr);
-+	if (!neigh) {
-+		pr_err("%s - cannot alloc neigh.\n", __func__);
-+		err = -ENOMEM;
-+		goto fail4;
-+	}
-+
- 	/* get a l2t entry */
- 	if (neigh->dev->flags & IFF_LOOPBACK) {
- 		PDBG("%s LOOPBACK\n", __func__);
-@@ -3053,6 +3059,12 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
- 	dst = &rt->dst;
- 	neigh = dst_neigh_lookup_skb(dst, skb);
- 
-+	if (!neigh) {
-+		pr_err("%s - failed to allocate neigh!\n",
-+		       __func__);
-+		goto free_dst;
-+	}
-+
- 	if (neigh->dev->flags & IFF_LOOPBACK) {
- 		pdev = ip_dev_find(&init_net, iph->daddr);
- 		e = cxgb4_l2t_get(dev->rdev.lldi.l2t, neigh,
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 853cda1..c083b5a 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -413,13 +413,15 @@ static inline int dst_neigh_output(struct dst_entry *dst, struct neighbour *n,
- 
- static inline struct neighbour *dst_neigh_lookup(const struct dst_entry *dst, const void *daddr)
- {
--	return dst->ops->neigh_lookup(dst, NULL, daddr);
-+	struct neighbour *n = dst->ops->neigh_lookup(dst, NULL, daddr);
-+	return IS_ERR(n) ? NULL : n;
- }
- 
- static inline struct neighbour *dst_neigh_lookup_skb(const struct dst_entry *dst,
- 						     struct sk_buff *skb)
- {
--	return dst->ops->neigh_lookup(dst, skb, NULL);
-+	struct neighbour *n =  dst->ops->neigh_lookup(dst, skb, NULL);
-+	return IS_ERR(n) ? NULL : n;
- }
- 
- static inline void dst_link_failure(struct sk_buff *skb)
--- 
-1.7.10.4
+On Wed, Mar 13, 2013 at 4:22 PM, Micha=C5=82 Miros=C5=82aw <mirqus@gmai=
+l.com> wrote:
+> 2013/3/13 Pravin B Shelar <pshelar@nicira.com>:
+>> Currently gre demultiplexer uses its own spin-lock. We should
+>> rather RTNL lock.
+> [...]
+>> +       rtnl_lock();
+>>         err =3D gre_add_protocol(&gre_pptp_protocol, GREPROTO_PPTP);
+>> +       rtnl_unlock();
+>
+> Why not keep lock/unlock inside gre_add/del_protocol()?
+>
+As Stephen suggested I am planning on dropping this patch.
