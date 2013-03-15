@@ -1,101 +1,102 @@
-From: Frank Li <lznuaa@gmail.com>
-Subject: Re: [PATCH] net: fec: restart the FEC when PHY speed changes
-Date: Fri, 15 Mar 2013 12:37:50 +0800
-Message-ID: <CAHrpEqSCizXm=yhZFzQ_6FJmyrrV3PU2dnyR96+rn=azOvdD1g@mail.gmail.com>
-References: <1363273921-5035-1-git-send-email-l.stach@pengutronix.de>
+From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Subject: Re: [PATCH net,stable-3.8] net: cdc_ncm, cdc_mbim: allow user to
+ prefer NCM for backwards compatibility
+Date: Fri, 15 Mar 2013 05:22:25 +0000
+Message-ID: <1363324945.3937.144.camel@deadeye.wl.decadent.org.uk>
+References: <1363259113-6909-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Frank Li <Frank.Li@freescale.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Lucas Stach <l.stach@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:44576 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750706Ab3COEhx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 00:37:53 -0400
-Received: by mail-wg0-f49.google.com with SMTP id ds1so1687374wgb.28
-        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 21:37:51 -0700 (PDT)
-In-Reply-To: <1363273921-5035-1-git-send-email-l.stach@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-w7sMNTl3HtbzxBRBuu27"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>,
+	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1363259113-6909-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Acked
 
-2013/3/14 Lucas Stach <l.stach@pengutronix.de>:
-> Proviously we would only restart the FEC when PHY link or duplex state
-> changed. PHY does not always bring down the link for speed changes, in
-> which case we would not detect any change and keep FEC running.
->
-> Switching link speed without restarting the FEC results in the FEC being
-> stuck in an indefinite state, generating error conditions for every
-> packet.
->
-> Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+--=-w7sMNTl3HtbzxBRBuu27
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2013-03-14 at 12:05 +0100, Bj=C3=B8rn Mork wrote:
+> commit bd329e1 ("net: cdc_ncm: do not bind to NCM compatible MBIM devices=
+")
+> introduced a new policy, preferring MBIM for dual NCM/MBIM functions if
+> the cdc_mbim driver was enabled.  This caused a regression for users
+> wanting to use NCM.
+>=20
+> Devices implementing NCM backwards compatibility according to section
+> 3.2 of the MBIM v1.0 specification allow either NCM or MBIM on a single
+> USB function, using different altsettings.  The cdc_ncm and cdc_mbim
+> drivers will both probe such functions, and must agree on a common
+> policy for selecting either MBIM or NCM.  Until now, this policy has
+> been set at build time based on CONFIG_USB_NET_CDC_MBIM.
+>=20
+> Use a module parameter to set the system policy at runtime, allowing the
+> user to prefer NCM on systems with the cdc_mbim driver.
+>=20
+> Cc: Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
+> Cc: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+> Reported-by: Geir Haatveit <nospam-br728iSPf5UsCylrc8G9yg@public.gmane.org>
+> Reported-by: Tommi Kyntola <kynde-oSY6wnT0nbj1KXRcyAk9cg@public.gmane.org>
+> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=3D54791
+> Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 > ---
->  drivers/net/ethernet/freescale/fec.c |   26 +++++++++++++++-----------
->  drivers/net/ethernet/freescale/fec.h |    1 +
->  2 files changed, 16 insertions(+), 11 deletions(-)
->
-> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-> index 069a155..61d2e62 100644
-> --- a/drivers/net/ethernet/freescale/fec.c
-> +++ b/drivers/net/ethernet/freescale/fec.c
-> @@ -934,24 +934,28 @@ static void fec_enet_adjust_link(struct net_device *ndev)
->                 goto spin_unlock;
->         }
->
-> -       /* Duplex link change */
->         if (phy_dev->link) {
-> -               if (fep->full_duplex != phy_dev->duplex) {
-> -                       fec_restart(ndev, phy_dev->duplex);
-> -                       /* prevent unnecessary second fec_restart() below */
-> +               if (!fep->link) {
->                         fep->link = phy_dev->link;
->                         status_change = 1;
->                 }
-> -       }
->
-> -       /* Link on or off change */
-> -       if (phy_dev->link != fep->link) {
-> -               fep->link = phy_dev->link;
-> -               if (phy_dev->link)
-> +               if (fep->full_duplex != phy_dev->duplex)
-> +                       status_change = 1;
-> +
-> +               if (phy_dev->speed != fep->speed) {
-> +                       fep->speed = phy_dev->speed;
-> +                       status_change = 1;
-> +               }
-> +
-> +               /* if any of the above changed restart the FEC */
-> +               if (status_change)
->                         fec_restart(ndev, phy_dev->duplex);
-> -               else
-> +       } else {
-> +               if (fep->link) {
->                         fec_stop(ndev);
-> -               status_change = 1;
-> +                       status_change = 1;
-> +               }
->         }
->
->  spin_unlock:
-> diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-> index f539007..eb43729 100644
-> --- a/drivers/net/ethernet/freescale/fec.h
-> +++ b/drivers/net/ethernet/freescale/fec.h
-> @@ -240,6 +240,7 @@ struct fec_enet_private {
->         phy_interface_t phy_interface;
->         int     link;
->         int     full_duplex;
-> +       int     speed;
->         struct  completion mdio_done;
->         int     irq[FEC_IRQ_NUM];
->         int     bufdesc_ex;
-> --
-> 1.7.10.4
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+> We now have two users independently reporting this as a 3.8 regression,
+> so something needs to be done.  I am not sure if adding a new module
+> parameter is acceptable for stable, but this problem is definitely a
+> regression and no other solutions came up in response to my RFC.
+>=20
+> The only real alternative I see for stable, is disabling MBIM support
+> on any dual NCM/MBIM function.  Which of course will be a regression
+> for any user wanting MBIM, making it unacceptable.
+[...]
+
+It definitely makes sense for this to be a run-time parameter.  And the
+default seems correct for custom kernels.
+
+For a distribution kernel - at least for Debian, where we can't assume
+kernel and userland are always updated together - I think the
+compile-time default should be false, and the userland package
+(presumably ModemManager?) can install a modprobe.conf file to override
+that once it can handle MBIM.  We handled KMS transitions in a similar
+way.  I don't know that it's worth having a Kconfig option for that,
+though.
+
+Ben.
+
+--=20
+Ben Hutchings
+Humans are not rational beings; they are rationalising beings.
+
+--=-w7sMNTl3HtbzxBRBuu27
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAUUKwEee/yOyVhhEJAQr0Jg/+KJYVjRo44djD1Be0hH0rgRQ6rGUZ4DFP
+CneznTNXOU3tdOQ00wSHsgTkEQFYftuzjnt6FCic/OFLgVUU1syR1DjGrQdiPS81
+oc/01FIDj5Vh5lgzHrfVWYT/7b+pAvEGmxGaG+9LvMLm6rtsHRxWs4UEG/uDXr4k
+4kcCUZsak5VtbPfhdX4jjttjqMQ45UwfYUHci5jyH1DvfnwCdu2W99nTyNge1bei
+vgMORYz0JfTXPsthBwb2iCLqfjI91dKDDU1EY3QLZu/EYLl3UIrhUK2NyW51NHUs
+22iCEWz/kK1V0WIiT4qYJZ7p3OQyPaDP6ZGSURYu8EtOlq/nzLSR20nrBY7h165l
+xfczvXsbzjslXNYAbWxN9GYy8xrBkz8Yz1l945ov+4RHDh0RmStlcFKqTpwynw+d
+hmHaZW9S4H1BZZJDL08nhAH5IpjOUNce9OPCRx7ITzXrSNvFUzL9KT9ps7TvGMhS
+IukS8mZ5ahKOMcvZiurhHYsJBsoXh1r6J7/FvBp+21OBho0/Tsn36fi2Tq7/riXK
+t5+V0jgAPIMZUXHJB+Rb4vAQ3TPo51FIpSG7+1RRvasw+gfBaKCcn5vgHx2ZRVof
+MNBT3lurXj3UejJA4zyhD4rievw8izx32GVVr9A/hr4VFTxg28oznDZOv4dEmZYK
++GhO1/vS6yg=
+=WoOr
+-----END PGP SIGNATURE-----
+
+--=-w7sMNTl3HtbzxBRBuu27--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
