@@ -1,71 +1,123 @@
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: [PATCH] net core: optimize netdev_create_hash()
-Date: Sat, 16 Mar 2013 00:32:11 +0800
-Message-ID: <1363365131-7906-1-git-send-email-weiyang@linux.vnet.ibm.com>
-Cc: Wei Yang <weiyang@linux.vnet.ibm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp06.au.ibm.com ([202.81.31.148]:46408 "EHLO
-	e23smtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751683Ab3COQcV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 12:32:21 -0400
-Received: from /spool/local
-	by e23smtp06.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
-	Sat, 16 Mar 2013 02:27:12 +1000
-Received: from d23relay05.au.ibm.com (d23relay05.au.ibm.com [9.190.235.152])
-	by d23dlp01.au.ibm.com (Postfix) with ESMTP id 831332CE804C
-	for <netdev@vger.kernel.org>; Sat, 16 Mar 2013 03:32:15 +1100 (EST)
-Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.234.97])
-	by d23relay05.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r2FGJJal10223928
-	for <netdev@vger.kernel.org>; Sat, 16 Mar 2013 03:19:19 +1100
-Received: from d23av03.au.ibm.com (loopback [127.0.0.1])
-	by d23av03.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r2FGWEH6006287
-	for <netdev@vger.kernel.org>; Sat, 16 Mar 2013 03:32:15 +1100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: sctp: hang in sctp_remaddr_seq_show
+Date: Fri, 15 Mar 2013 12:34:00 -0400
+Message-ID: <51434D78.9030308@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	Dave Jones <davej@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: vyasevich@gmail.com, sri@us.ibm.com, nhorman@tuxdriver.com,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-netdev_create_hash() is divded into two steps:
-1. allocate space for hash_head
-2. initialize hash_head->first to NULL for each hash_head
+Hi all,
 
-This patch merge the two steps into one step.
+While fuzzing with trinity inside a KVM tools guest running latest -next kernel,
+I've stumbled on an interesting hang related to sctp.
 
-When allocating the space for hash_head, it will use kzalloc() instead of
-kmalloc(). Then hash_head->first is set to NULL during the allocation step,
-which means it is not necessary to call INIT_HLIST_HEAD() for each hash_head.
+After some fuzzing, I get a hang message about procfs not able to grab a hold
+of a mutex for one of the files:
 
-This will:
-1. reduce the code size
-2. reduce the run time of iteration on initializing hash_head array
----
- net/core/dev.c |   12 +++++++-----
- 1 files changed, 7 insertions(+), 5 deletions(-)
+[  375.900309] INFO: task trinity-child21:7178 blocked for more than 120 seconds.
+[  375.901767] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[  375.903022] trinity-child21 D ffff88009b9f74a8  5336  7178   7121 0x00000004
+[  375.904211]  ffff88009ba79cb8 0000000000000002 ffff8800abf48690 ffff8800abf48690
+[  375.905972]  ffff880075308000 ffff88009c798000 ffff88009ba79cb8 00000000001d7140
+[  375.907263]  ffff88009c798000 ffff88009ba79fd8 00000000001d7140 00000000001d7140
+[  375.908987] Call Trace:
+[  375.909415]  [<ffffffff83d89569>] __schedule+0x2e9/0x3b0
+[  375.910795]  [<ffffffff83d89795>] schedule+0x55/0x60
+[  375.911611]  [<ffffffff83d89ae3>] schedule_preempt_disabled+0x13/0x20
+[  375.912644]  [<ffffffff83d87b7d>] __mutex_lock_common+0x36d/0x5a0
+[  375.913986]  [<ffffffff8129f11a>] ? seq_read+0x3a/0x3d0
+[  375.914838]  [<ffffffff8129f11a>] ? seq_read+0x3a/0x3d0
+[  375.916187]  [<ffffffff8129f0e0>] ? seq_lseek+0x110/0x110
+[  375.917075]  [<ffffffff83d87edf>] mutex_lock_nested+0x3f/0x50
+[  375.918005]  [<ffffffff8129f11a>] seq_read+0x3a/0x3d0
+[  375.919124]  [<ffffffff819f19cd>] ? delay_tsc+0xdd/0x110
+[  375.920916]  [<ffffffff8129f0e0>] ? seq_lseek+0x110/0x110
+[  375.921794]  [<ffffffff8129f0e0>] ? seq_lseek+0x110/0x110
+[  375.922966]  [<ffffffff812e7b61>] proc_reg_read+0x201/0x230
+[  375.923870]  [<ffffffff812e7960>] ? proc_reg_write+0x230/0x230
+[  375.924820]  [<ffffffff81279e05>] vfs_read+0xb5/0x180
+[  375.925668]  [<ffffffff81279f20>] SyS_read+0x50/0xa0
+[  375.926476]  [<ffffffff83d946d8>] tracesys+0xe1/0xe6
+[  375.940223] 1 lock held by trinity-child21/7178:
+[  375.940985]  #0:  (&p->lock){+.+.+.}, at: [<ffffffff8129f11a>] seq_read+0x3a/0x3d
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f64e439..79f0666 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6564,13 +6564,15 @@ EXPORT_SYMBOL(netdev_increment_features);
- 
- static struct hlist_head *netdev_create_hash(void)
- {
--	int i;
- 	struct hlist_head *hash;
- 
--	hash = kmalloc(sizeof(*hash) * NETDEV_HASHENTRIES, GFP_KERNEL);
--	if (hash != NULL)
--		for (i = 0; i < NETDEV_HASHENTRIES; i++)
--			INIT_HLIST_HEAD(&hash[i]);
-+	hash = kzalloc(sizeof(*hash) * NETDEV_HASHENTRIES, GFP_KERNEL);
-+
-+	/*
-+	 * hash[i]->first is set to NULL in kzalloc()
-+	 *
-+	 * INIT_HLIST_HEAD(&hash[i]) is not necessary now
-+	 */
- 
- 	return hash;
- }
--- 
-1.7.5.4
+Digging deeper, there's another thread that's stuck holding that lock:
+
+[  381.880804] trinity-child97 R  running task     4856  9490   7121 0x00000004
+[  381.882064]  ffff880084cad708 0000000000000002 ffff8800bbbd71f8 ffff8800bbbd71f8
+[  381.883341]  ffff8800b9490000 ffff88009a5e8000 ffff880084cad708 00000000001d7140
+[  381.884652]  ffff88009a5e8000 ffff880084cadfd8 00000000001d7140 00000000001d7140
+[  381.885977] Call Trace:
+[  381.886392]  [<ffffffff83d89569>] __schedule+0x2e9/0x3b0
+[  381.887238]  [<ffffffff83d89714>] preempt_schedule+0x44/0x70
+[  381.888175]  [<ffffffff83b5674a>] ? sctp_remaddr_seq_show+0x2da/0x2f0
+[  381.889314]  [<ffffffff8110e8a8>] local_bh_enable+0x128/0x140
+[  381.890292]  [<ffffffff83b5674a>] sctp_remaddr_seq_show+0x2da/0x2f0
+[  381.891397]  [<ffffffff83b56497>] ? sctp_remaddr_seq_show+0x27/0x2f0
+[  381.892448]  [<ffffffff8129f11a>] ? seq_read+0x3a/0x3d0
+[  381.893308]  [<ffffffff8129ec50>] traverse+0xe0/0x1f0
+[  381.894135]  [<ffffffff8129f0e0>] ? seq_lseek+0x110/0x110
+[  381.895100]  [<ffffffff8129f0e0>] ? seq_lseek+0x110/0x110
+[  381.896074]  [<ffffffff8129f13c>] seq_read+0x5c/0x3d0
+[  381.896912]  [<ffffffff819f19cd>] ? delay_tsc+0xdd/0x110
+[  381.897796]  [<ffffffff8129f0e0>] ? seq_lseek+0x110/0x110
+[  381.898734]  [<ffffffff8129f0e0>] ? seq_lseek+0x110/0x110
+[  381.899629]  [<ffffffff812e7b61>] proc_reg_read+0x201/0x230
+[  381.900592]  [<ffffffff812e7960>] ? proc_reg_write+0x230/0x230
+[  381.901614]  [<ffffffff812e7960>] ? proc_reg_write+0x230/0x230
+[  381.902543]  [<ffffffff8127a22b>] do_loop_readv_writev+0x4b/0x90
+[  381.903480]  [<ffffffff8127a4a6>] do_readv_writev+0xf6/0x1d0
+[  381.904456]  [<ffffffff8109b1c8>] ? kvm_clock_read+0x38/0x70
+[  381.905460]  [<ffffffff8127a61e>] vfs_readv+0x3e/0x60
+[  381.906306]  [<ffffffff812abb31>] default_file_splice_read+0x1e1/0x320
+[  381.907365]  [<ffffffff81259396>] ? deactivate_slab+0x7d6/0x820
+[  381.908412]  [<ffffffff81259396>] ? deactivate_slab+0x7d6/0x820
+[  381.909404]  [<ffffffff8117db31>] ? __lock_release+0xf1/0x110
+[  381.910435]  [<ffffffff81259396>] ? deactivate_slab+0x7d6/0x820
+[  381.911483]  [<ffffffff81a06ee8>] ? do_raw_spin_unlock+0xc8/0xe0
+[  381.912478]  [<ffffffff83d8b3d0>] ? _raw_spin_unlock+0x30/0x60
+[  381.913438]  [<ffffffff81259396>] ? deactivate_slab+0x7d6/0x820
+[  381.914478]  [<ffffffff812830ae>] ? alloc_pipe_info+0x3e/0xa0
+[  381.915504]  [<ffffffff812830ae>] ? alloc_pipe_info+0x3e/0xa0
+[  381.916461]  [<ffffffff812830ae>] ? alloc_pipe_info+0x3e/0xa0
+[  381.917418]  [<ffffffff83d00b0c>] ? __slab_alloc.isra.34+0x2ed/0x31f
+[  381.918533]  [<ffffffff8117acf8>] ? trace_hardirqs_on_caller+0x168/0x1a0
+[  381.919637]  [<ffffffff8117ae35>] ? debug_check_no_locks_freed+0xf5/0x130
+[  381.920799]  [<ffffffff812a9ef0>] ? page_cache_pipe_buf_release+0x20/0x20
+[  381.921963]  [<ffffffff812aa823>] do_splice_to+0x83/0xb0
+[  381.922849]  [<ffffffff812aabee>] splice_direct_to_actor+0xce/0x1c0
+[  381.923874]  [<ffffffff812aa780>] ? do_splice_from+0xb0/0xb0
+[  381.924855]  [<ffffffff812ac398>] do_splice_direct+0x48/0x60
+[  381.925865]  [<ffffffff81279a25>] do_sendfile+0x165/0x310
+[  381.926763]  [<ffffffff8117ad3d>] ? trace_hardirqs_on+0xd/0x10
+[  381.927722]  [<ffffffff8127aaaa>] SyS_sendfile64+0x8a/0xc0
+[  381.928702]  [<ffffffff83d94675>] ? tracesys+0x7e/0xe6
+[  381.929556]  [<ffffffff83d946d8>] tracesys+0xe1/0xe6
+
+It has gone to sleep while holding the proc mutex we're trying to acquire and
+never woke up!
+
+Looking at the code, we see:
+
+        rcu_read_unlock();
+        read_unlock(&head->lock);
+        sctp_local_bh_enable(); <--- here
+
+It hangs on local_bh_enable().
+
+It seems that local_bh_enable() calls preempt_check_resched() which never
+gets woken up. Why? I have no clue.
+
+It's also pretty reproducible with sctp.
+
+
+Thanks,
+Sasha
