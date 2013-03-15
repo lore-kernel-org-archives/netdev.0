@@ -1,8 +1,8 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net 4/6] openvswitch: Fix parsing invalid LLC/SNAP
-	ethertypes
-Date: Thu, 14 Mar 2013 17:15:04 -0700
-Message-ID: <1363306506-885-5-git-send-email-jesse@nicira.com>
+Subject: [PATCH net 2/6] openvswitch: Fix ovs_vport_cmd_new return
+	value on success
+Date: Thu, 14 Mar 2013 17:15:02 -0700
+Message-ID: <1363306506-885-3-git-send-email-jesse@nicira.com>
 References: <1363306506-885-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,36 +24,26 @@ List-Id: netdev.vger.kernel.org
 
 From: Rich Lane <rlane-oPdFNf9WwoK1Z/+hSey0Gg@public.gmane.org>
 
-Before this patch, if an LLC/SNAP packet with OUI 00:00:00 had an
-ethertype less than 1536 the flow key given to userspace in the upcall
-would contain the invalid ethertype (for example, 3). If userspace
-attempted to insert a kernel flow for this key it would be rejected
-by ovs_flow_from_nlattrs.
-
-This patch allows OVS to pass the OFTest pktact.DirectBadLlcPackets.
+If the pointer does not represent an error then the PTR_ERR
+macro may still return a nonzero value.
 
 Signed-off-by: Rich Lane <rlane-oPdFNf9WwoK1Z/+hSey0Gg@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/flow.c |    6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ net/openvswitch/datapath.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index c3294ce..0c98d40 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -484,7 +484,11 @@ static __be16 parse_ethertype(struct sk_buff *skb)
- 		return htons(ETH_P_802_2);
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 5e275b9..a2cd3e6 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -1691,6 +1691,7 @@ static int ovs_vport_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 	if (IS_ERR(vport))
+ 		goto exit_unlock;
  
- 	__skb_pull(skb, sizeof(struct llc_snap_hdr));
--	return llc->ethertype;
-+
-+	if (ntohs(llc->ethertype) >= 1536)
-+		return llc->ethertype;
-+
-+	return htons(ETH_P_802_2);
- }
- 
- static int parse_icmpv6(struct sk_buff *skb, struct sw_flow_key *key,
++	err = 0;
+ 	reply = ovs_vport_cmd_build_info(vport, info->snd_portid, info->snd_seq,
+ 					 OVS_VPORT_CMD_NEW);
+ 	if (IS_ERR(reply)) {
 -- 
 1.7.10.4
