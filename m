@@ -1,55 +1,51 @@
-From: Johan Hovold <jhovold@gmail.com>
-Subject: Re: [PATCH v3 2/7] USB: serial: comments on suspend failure
-Date: Fri, 15 Mar 2013 10:02:06 +0100
-Message-ID: <20130315090206.GA28843@localhost>
-References: <1363320539-23012-1-git-send-email-ming.lei@canonical.com>
- <1363320539-23012-3-git-send-email-ming.lei@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-input@vger.kernel.org,
-	Johan Hovold <jhovold@gmail.com>
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <linux-input-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1363320539-23012-3-git-send-email-ming.lei@canonical.com>
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roy.qing.li@gmail.com
+Subject: [PATCH net-next] ipv4: replace ip_fast_csum with csum_replace2
+Date: Fri, 15 Mar 2013 16:50:18 +0800
+Message-ID: <1363337418-9609-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gh0-f178.google.com ([209.85.160.178]:45164 "EHLO
+	mail-gh0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753739Ab3COJOJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 05:14:09 -0400
+Received: by mail-gh0-f178.google.com with SMTP id g24so568088ghb.37
+        for <netdev@vger.kernel.org>; Fri, 15 Mar 2013 02:14:09 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 15, 2013 at 12:08:54PM +0800, Ming Lei wrote:
-> If suspend callback fails in system sleep context, usb core will
-> ignore the failure and let system sleep go ahead further, so
-> this patch comments on the case and requires that serial->type->suspend()
-> MUST return 0 in system sleep context.
-> 
-> Cc: Johan Hovold <jhovold@gmail.com>
-> Signed-off-by: Ming Lei <ming.lei@canonical.com>
-> ---
->  drivers/usb/serial/usb-serial.c |    5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> diff --git a/drivers/usb/serial/usb-serial.c b/drivers/usb/serial/usb-serial.c
-> index a19ed74..16eb02b 100644
-> --- a/drivers/usb/serial/usb-serial.c
-> +++ b/drivers/usb/serial/usb-serial.c
-> @@ -1140,6 +1140,11 @@ int usb_serial_suspend(struct usb_interface *intf, pm_message_t message)
->  
->  	serial->suspending = 1;
->  
-> +	/*
-> +	 * serial->type->suspend() MUST return 0 in system sleep context,
-> +	 * otherwise, the resume callback has to recover device from
-> +	 * previous suspend failure.
-> +	 */
->  	if (serial->type->suspend) {
->  		r = serial->type->suspend(serial, message);
->  		if (r < 0) {
+From: Li RongQing <roy.qing.li@gmail.com>
 
-Acked-by: Johan Hovold <jhovold@gmail.com>
+replace ip_fast_csum with csum_replace2 to save cpu cycles
 
-Thanks,
-Johan
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/ipv4/inet_lro.c |    5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/inet_lro.c b/net/ipv4/inet_lro.c
+index cc280a3..1975f52 100644
+--- a/net/ipv4/inet_lro.c
++++ b/net/ipv4/inet_lro.c
+@@ -29,6 +29,7 @@
+ #include <linux/module.h>
+ #include <linux/if_vlan.h>
+ #include <linux/inet_lro.h>
++#include <net/checksum.h>
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jan-Bernd Themann <themann@de.ibm.com>");
+@@ -114,11 +115,9 @@ static void lro_update_tcp_ip_header(struct net_lro_desc *lro_desc)
+ 		*(p+2) = lro_desc->tcp_rcv_tsecr;
+ 	}
+ 
++	csum_replace2(&iph->check, iph->tot_len, htons(lro_desc->ip_tot_len));
+ 	iph->tot_len = htons(lro_desc->ip_tot_len);
+ 
+-	iph->check = 0;
+-	iph->check = ip_fast_csum((u8 *)lro_desc->iph, iph->ihl);
+-
+ 	tcph->check = 0;
+ 	tcp_hdr_csum = csum_partial(tcph, TCP_HDR_LEN(tcph), 0);
+ 	lro_desc->data_csum = csum_add(lro_desc->data_csum, tcp_hdr_csum);
+-- 
+1.7.10.4
