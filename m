@@ -1,50 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net core: optimize netdev_create_hash()
-Date: Fri, 15 Mar 2013 17:39:30 -0400 (EDT)
-Message-ID: <20130315.173930.609483181280202005.davem@davemloft.net>
-References: <1363365131-7906-1-git-send-email-weiyang@linux.vnet.ibm.com>
+From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: [PATCH] bnx2x: fix occasional statistics off-by-4GB error
+Date: Fri, 15 Mar 2013 14:56:17 -0700
+Message-ID: <1363384577-21287-1-git-send-email-zenczykowski@gmail.com>
+References: <CANP3RGdWMHv-7TZ4fvASrmz7NXkO7B2g2RCZwV8ecExUsQTQ2w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: weiyang@linux.vnet.ibm.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Mintz Yuval <yuvalmin@broadcom.com>
+To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53659 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753522Ab3COVjQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 17:39:16 -0400
-In-Reply-To: <1363365131-7906-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:38296 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754610Ab3COV5V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 17:57:21 -0400
+Received: by mail-pb0-f54.google.com with SMTP id rr4so4362317pbb.27
+        for <netdev@vger.kernel.org>; Fri, 15 Mar 2013 14:57:21 -0700 (PDT)
+In-Reply-To: <CANP3RGdWMHv-7TZ4fvASrmz7NXkO7B2g2RCZwV8ecExUsQTQ2w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Date: Sat, 16 Mar 2013 00:32:11 +0800
+=46rom: Maciej =C5=BBenczykowski <maze@google.com>
 
-> netdev_create_hash() is divded into two steps:
-> 1. allocate space for hash_head
-> 2. initialize hash_head->first to NULL for each hash_head
-> 
-> This patch merge the two steps into one step.
-> 
-> When allocating the space for hash_head, it will use kzalloc() instead of
-> kmalloc(). Then hash_head->first is set to NULL during the allocation step,
-> which means it is not necessary to call INIT_HLIST_HEAD() for each hash_head.
-> 
-> This will:
-> 1. reduce the code size
-> 2. reduce the run time of iteration on initializing hash_head array
+The UPDATE_QSTAT function introduced on February 15, 2012
+in commit 1355b704b9ba "bnx2x: consistent statistics after
+internal driver reload" incorrectly fails to handle overflow
+during addition of the lower 32-bit field of a stat.
 
-Please do not ever post changes like this.
+This bug is present since 3.4-rc1 and should thus be considered
+a candidate for stable 3.4+ releases.
 
-This makes assumtions about the list head implementation that
-we should not make.  If someone adds a debugging facility that
-causes lists to be initialized differently, it will be broken
-for this hash table now.
+Google-Bug-Id: 8374428
+Signed-off-by: Maciej =C5=BBenczykowski <maze@google.com>
+Cc: Mintz Yuval <yuvalmin@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-The reason the abstractions exist is so that people do not
-do things like you are trying to do.
-
-If you want to add an interface in the generic list facilities which
-performs this simplifcation, fine.  Implement it and post such a
-suggestion to linux-kernel, and then once such a facility is present
-in Linus's tree we can start using it in the networkng code.
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h b/driver=
+s/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
+index 364e37ecbc5c..198f6f1c9ad5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
+@@ -459,8 +459,9 @@ struct bnx2x_fw_port_stats_old {
+=20
+ #define UPDATE_QSTAT(s, t) \
+ 	do { \
+-		qstats->t##_hi =3D qstats_old->t##_hi + le32_to_cpu(s.hi); \
+ 		qstats->t##_lo =3D qstats_old->t##_lo + le32_to_cpu(s.lo); \
++		qstats->t##_hi =3D qstats_old->t##_hi + le32_to_cpu(s.hi) \
++			+ ((qstats->t##_lo < qstats_old->t##_lo) ? 1 : 0); \
+ 	} while (0)
+=20
+ #define UPDATE_QSTAT_OLD(f) \
+--=20
+1.8.1.3
