@@ -1,44 +1,54 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH net 1/6] openvswitch: Fix ovs_vport_cmd_del return value on success
-Date: Thu, 14 Mar 2013 17:15:01 -0700
-Message-ID: <1363306506-885-2-git-send-email-jesse@nicira.com>
-References: <1363306506-885-1-git-send-email-jesse@nicira.com>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	Rich Lane <rlane@bigswitch.com>, Jesse Gross <jesse@nicira.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog130.obsmtp.com ([74.125.149.143]:35946 "HELO
-	na3sys009aog130.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751420Ab3COAPN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Mar 2013 20:15:13 -0400
-Received: by mail-yh0-f69.google.com with SMTP id w68so3984060yhw.8
-        for <netdev@vger.kernel.org>; Thu, 14 Mar 2013 17:15:12 -0700 (PDT)
-In-Reply-To: <1363306506-885-1-git-send-email-jesse@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [GIT net] Open vSwitch
+Date: Thu, 14 Mar 2013 17:15:00 -0700
+Message-ID: <1363306506-885-1-git-send-email-jesse@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Rich Lane <rlane@bigswitch.com>
+A few different bug fixes, including several for issues with userspace
+communication that have gone unnoticed up until now.  These are intended
+for net/3.9.
 
-If the pointer does not represent an error then the PTR_ERR macro may still
-return a nonzero value. The fix is the same as in ovs_vport_cmd_set.
+The following changes since commit 19f949f52599ba7c3f67a5897ac6be14bfcb1200:
 
-Signed-off-by: Rich Lane <rlane@bigswitch.com>
-Signed-off-by: Jesse Gross <jesse@nicira.com>
----
- net/openvswitch/datapath.c |    1 +
- 1 file changed, 1 insertion(+)
+  Linux 3.8 (2013-02-18 15:58:34 -0800)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index f996db3..5e275b9 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -1772,6 +1772,7 @@ static int ovs_vport_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	if (IS_ERR(reply))
- 		goto exit_unlock;
- 
-+	err = 0;
- 	ovs_dp_detach_port(vport);
- 
- 	genl_notify(reply, genl_info_net(info), info->snd_portid,
--- 
-1.7.10.4
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git fixes
+
+for you to fetch changes up to d176ca2a48ff2b5d7becfacdcbd1d72c73bd22d1:
+
+  openvswitch: remove some useless comments (2013-02-22 17:02:49 -0800)
+
+----------------------------------------------------------------
+Cong Wang (2):
+      openvswitch: fix the calculation of checksum for vlan header
+      openvswitch: remove some useless comments
+
+Rich Lane (4):
+      openvswitch: Fix ovs_vport_cmd_del return value on success
+      openvswitch: Fix ovs_vport_cmd_new return value on success
+      openvswitch: Call genlmsg_end in queue_userspace_packet
+      openvswitch: Fix parsing invalid LLC/SNAP ethertypes
+
+ net/openvswitch/actions.c      |    4 ++--
+ net/openvswitch/datapath.c     |    3 +++
+ net/openvswitch/flow.c         |    6 +++++-
+ net/openvswitch/vport-netdev.c |    3 +--
+ net/openvswitch/vport.c        |    3 +--
+ 5 files changed, 12 insertions(+), 7 deletions(-)
