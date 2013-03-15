@@ -1,68 +1,42 @@
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: Re: [PATCH 1/5] net: Add davicom wemac ethernet driver found on Allwinner
- A10 SoC's
-Date: Fri, 15 Mar 2013 22:01:30 +0100
-Message-ID: <51438C2A.9000302@free-electrons.com>
-References: <1363380605-6577-1-git-send-email-maxime.ripard@free-electrons.com> <1363380605-6577-2-git-send-email-maxime.ripard@free-electrons.com>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
+Subject: bnx2x statistics occasionally wrong by near multiples of 4GB.
+Date: Fri, 15 Mar 2013 14:03:05 -0700
+Message-ID: <CANP3RGdWMHv-7TZ4fvASrmz7NXkO7B2g2RCZwV8ecExUsQTQ2w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-doc@vger.kernel.org, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	Rob Herring <rob.herring@calxeda.com>, sunny@allwinnertech.com,
-	shuge@allwinnertech.com, Stefan Roese <sr@denx.de>,
-	kevin@allwinnertech.com
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1363380605-6577-2-git-send-email-maxime.ripard@free-electrons.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux NetDev <netdev@vger.kernel.org>
+To: Mintz Yuval <yuvalmin@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f54.google.com ([209.85.219.54]:60440 "EHLO
+	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932453Ab3COVDF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 17:03:05 -0400
+Received: by mail-oa0-f54.google.com with SMTP id n12so3892969oag.27
+        for <netdev@vger.kernel.org>; Fri, 15 Mar 2013 14:03:05 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 15/03/2013 21:50, Maxime Ripard a =E9crit :
-> From: Stefan Roese <sr@denx.de>
->=20
-> The Allwinner A10 has an ethernet controller that is advertised as
-> coming from Davicom.
->=20
-> The exact feature set of this controller is unknown, since there is n=
-o
-> public documentation for this IP, and this driver is mostly the one
-> published by Allwinner that has been heavily cleaned up.
->=20
-> Signed-off-by: Stefan Roese <sr@denx.de>
-> Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
-> ---
->  .../devicetree/bindings/net/davicom-wemac.txt      |   20 +
->  drivers/net/ethernet/Makefile                      |    2 +-
->  drivers/net/ethernet/davicom/Kconfig               |   31 +
->  drivers/net/ethernet/davicom/Makefile              |    1 +
->  drivers/net/ethernet/davicom/wemac.c               | 1033 ++++++++++=
-++++++++++
->  drivers/net/ethernet/davicom/wemac.h               |  130 +++
->  6 files changed, 1216 insertions(+), 1 deletion(-)
->  create mode 100644 Documentation/devicetree/bindings/net/davicom-wem=
-ac.txt
->  create mode 100644 drivers/net/ethernet/davicom/wemac.c
->  create mode 100644 drivers/net/ethernet/davicom/wemac.h
->=20
-> diff --git a/Documentation/devicetree/bindings/net/davicom-wemac.txt =
-b/Documentation/devicetree/bindings/net/davicom-wemac.txt
-> new file mode 100644
-> index 0000000..516cf31
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/davicom-wemac.txt
-> @@ -0,0 +1,20 @@
-> +* Marvell Armada 370 / Armada XP Ethernet Controller (NETA)
-> +
-> +Required properties:
-> +- compatible: should be "marvell,armada-370-neta".
+bnx2x_stats.h:
 
-It looks like I've been a bit too quick to send this one... I'll change
-in v2, obviously.
+#define UPDATE_QSTAT(s, t) \
+     do { \
+              qstats->t##_hi = qstats_old->t##_hi + le32_to_cpu(s.hi); \
+              qstats->t##_lo = qstats_old->t##_lo + le32_to_cpu(s.lo); \
+      } while (0)
 
-Maxime
+Looks wrong because it doesn't deal with overflow of _lo.
 
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+I'm not 100% sure if I tracked it down correctly, but I think this is
+the root cause of us occasionally seeing stats (/proc/net/dev tx_bytes
+in this case) jump back by roughly N*4GB and then go forward again.
+
+In particular we saw successive reads of /proc/net/dev eth0 Transmit bytes show:
+
+0x8F6 45356E60
+0x8F4 4C8D72B9
+0x8F6 5420D096
+
+(which since this is a sum of 3 values (ucase/mcast/bcast) from all
+queues, means we actually wrongly accounted for overflow twice...)
+
+- Maciej
