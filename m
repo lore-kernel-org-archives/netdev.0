@@ -1,53 +1,48 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net PATCH 1/1] drivers: net: ethernet: ti: davinci_emac: fix usage of cpdma_check_free_tx_desc()
-Date: Fri, 15 Mar 2013 19:40:16 +0530
-Message-ID: <1363356616-32480-1-git-send-email-mugunthanvnm@ti.com>
+From: richard -rw- weinberger <richard.weinberger@gmail.com>
+Subject: Re: Trying to implement secondary loopback
+Date: Fri, 15 Mar 2013 15:16:26 +0100
+Message-ID: <CAFLxGvyCFHk=vhNYCY8obrVJR2rW9M7+J_ppyVpFq3AHAxjRjA@mail.gmail.com>
+References: <513F1A17.1000809@hhi.fraunhofer.de>
+	<CAFLxGvxcyDVwC-iys6UdKMBB6u3UQx6s7-mwm5caoNu=N7rmeA@mail.gmail.com>
+	<3D7E565A361FB844A410A5EFCDD7BA4002ECF5@MXSRV3.fe.hhi.de>
+	<87r4jjav00.fsf@xmission.com>
+	<3D7E565A361FB844A410A5EFCDD7BA4002EF11@MXSRV3.fe.hhi.de>
+	<878v5r9es7.fsf@xmission.com>
+	<5142CE23.9070804@hhi.fraunhofer.de>
+	<87ip4t598t.fsf@xmission.com>
+	<514326FF.6020205@hhi.fraunhofer.de>
+	<CAFLxGvwvH_krBDJ2i-si1LX2SKbeeRmXGR+0ZbtEB2oKWt-GoA@mail.gmail.com>
+	<51432B72.20408@hhi.fraunhofer.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>
+To: Thomas Martitz <thomas.martitz@hhi.fraunhofer.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f177.google.com ([74.125.82.177]:55575 "EHLO
+	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753867Ab3COOQ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 10:16:27 -0400
+Received: by mail-we0-f177.google.com with SMTP id d7so3251296wer.22
+        for <netdev@vger.kernel.org>; Fri, 15 Mar 2013 07:16:26 -0700 (PDT)
+In-Reply-To: <51432B72.20408@hhi.fraunhofer.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix which was done in the following commit in cpsw driver has
-to be taken forward to davinci emac driver as well.
+On Fri, Mar 15, 2013 at 3:08 PM, Thomas Martitz
+<thomas.martitz@hhi.fraunhofer.de> wrote:
+> What's wrong with loopback? It's the simplest method to get basic
+> bidirectional data transfer going.
+>
+> Can you suggest an alternative approach?
 
-commit d35162f89b8f00537d7b240b76d2d0e8b8d29aa0
-Author: Daniel Mack <zonque@gmail.com>
-Date:   Tue Mar 12 06:31:19 2013 +0000
+The real question is, why do you need a second one?
+I assume your driver (for the non-existing hardware) is a ethernet driver,
+and now you're looking for a way to test your shiny new ethX device, correct?
 
-    net: ethernet: cpsw: fix usage of cpdma_check_free_tx_desc()
-
-    Commit fae50823d0 ("net: ethernet: davinci_cpdma: Add boundary for rx
-    and tx descriptors") introduced a function to check the current
-    allocation state of tx packets. The return value is taken into account
-    to stop the netqork queue on the adapter in case there are no free
-    slots.
-
-    However, cpdma_check_free_tx_desc() returns 'true' if there is room in
-    the bitmap, not 'false', so the usage of the function is wrong.
-
-Reported-by: Prabhakar Lad <prabhakar.csengg@gmail.com>
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- drivers/net/ethernet/ti/davinci_emac.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 52c0536..ae1b77a 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -1102,7 +1102,7 @@ static int emac_dev_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	/* If there is no more tx desc left free then we need to
- 	 * tell the kernel to stop sending us tx frames.
- 	 */
--	if (unlikely(cpdma_check_free_tx_desc(priv->txchan)))
-+	if (unlikely(!cpdma_check_free_tx_desc(priv->txchan)))
- 		netif_stop_queue(ndev);
- 
- 	return NETDEV_TX_OK;
 -- 
-1.7.9.5
-
+Thanks,
+//richard
