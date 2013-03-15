@@ -1,82 +1,56 @@
-From: Mirko Lindner <mlindner@marvell.com>
-Subject: Re: sky2 negotiating only 100Mb/s (88E8055)
-Date: Fri, 15 Mar 2013 16:34:09 +0100
-Message-ID: <64925882.QA6f4ZcyAO@mlindner-lin>
-References: <CACna6ry1z1LS9wMDb9dYyM+9z8kEpZADXKHL0NNoAahbm8wbNg@mail.gmail.com> <CACna6ryokPsaKVQmrF3ACmy99k3LiaOiZai5xrWdVjaxLWT80w@mail.gmail.com>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: Trying to implement secondary loopback
+Date: Fri, 15 Mar 2013 11:37:40 -0400
+Message-ID: <20130315153740.GR8869@kvack.org>
+References: <514326FF.6020205@hhi.fraunhofer.de> <CAFLxGvwvH_krBDJ2i-si1LX2SKbeeRmXGR+0ZbtEB2oKWt-GoA@mail.gmail.com> <51432B72.20408@hhi.fraunhofer.de> <CAFLxGvyCFHk=vhNYCY8obrVJR2rW9M7+J_ppyVpFq3AHAxjRjA@mail.gmail.com> <51432E13.5060003@hhi.fraunhofer.de> <CAFLxGvyDaaOtm1TrD-gfvhja_Uow8jtRbPyb2WcMscSLgo1umg@mail.gmail.com> <514331BC.4080802@hhi.fraunhofer.de> <CAFLxGvyzkoj_KtfH6=YK5LnpLW_N6sMdk7Hu=V=h5OK08oRE4Q@mail.gmail.com> <5143353C.3050107@hhi.fraunhofer.de> <51433934.3080405@hhi.fraunhofer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Network Development <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: richard -rw- weinberger <richard.weinberger@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>
+To: Thomas Martitz <thomas.martitz@hhi.fraunhofer.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:54652 "EHLO
-	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754154Ab3COPnL convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Mar 2013 11:43:11 -0400
-In-Reply-To: <CACna6ryokPsaKVQmrF3ACmy99k3LiaOiZai5xrWdVjaxLWT80w@mail.gmail.com>
+Received: from kanga.kvack.org ([205.233.56.17]:60135 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754091Ab3COQCn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Mar 2013 12:02:43 -0400
+Content-Disposition: inline
+In-Reply-To: <51433934.3080405@hhi.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the first time somebody is reporting a problem with the autoneg=
-/speed=20
-initialization so I would like to check it in the lab.
+On Fri, Mar 15, 2013 at 04:07:32PM +0100, Thomas Martitz wrote:
+> Same result. I assumed the kernel treats lo in a special way for 
+> localhost-connections and that it would be impossible to achieve the 
+> same with a custom interface.
+> 
+> I did the following:
+> 
+> ifconfig lo down
+> insmod ./mykmod.ko
+> ifconfig eth2 up
+> ifconfig eth2 127.0.0.1
+> 
+> At this point ifconfig prints the same information for eth2 that it had 
+> printed for lo before (except for the LOOPBACK flag, but I can enable 
+> that one as well by adding IFF_LOOPBACK to the interface flags in the 
+> module). Yet my test application only works with lo, not eth2.
 
-Mirko
+Don't use loopback ip addresses; it makes no sense to do so.  I've worked  
+on a couple opf nic implementations on FPGAs for a while now (a gige 
+implementation that works, and now a 10G nic), and it's easy enough to 
+develop it as a regular ethernet driver.  You can write test programs that 
+use raw sockets to send/receive packets over the ethernet device, or use 
+pktgen to send packets.  You don't even need to configure an ip address for 
+testing with raw packets.  Testing with IP is a lot harder during early 
+bring-up of your hardware as it requires everything to work (that is, you 
+need ARP to work successfully before IP can work).  Just stick to simple 
+packet injection initially, and don't confuse yourself by thinking about 
+the loopback device.
 
-
-On Friday, March 15, 2013 05:03:01 AM Rafa=C5=82 Mi=C5=82ecki wrote:
-> 2013/3/3 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>:
->=20
-> > I've problems with my:
-> > 08:00.0 Ethernet controller [0200]: Marvell Technology Group Ltd.
-> > 88E8055 PCI-E Gigabit Ethernet Controller [11ab:4363] (rev 13)
-> > using 3.4.28 kernel on my Sony notebook.
-> >
-> >
-> >
-> > I've tried connecting it to the:
-> > 1) HP#1 (Intel card)
-> > 2) HP#2 (Broadcom card)
-> > 3) Router based on BCM4706 with BCM53125 switch
-> > I've tried two different CAT5e cables for all the above devices. In
-> > every case sky2 established 100Mbps link only. It couldn't achieve
-> > 1000Mb/s. Forcing it to 1000Mbps broke link. Lower speeds (100 half
-> > duplex and 10 Mbps) are working fine.
-> >
-> >
-> >
-> > It's not the issue with the cable or devices, because all other
-> > configurations are working fine. I can connect:
-> > 1) HP#1 with HP#2
-> > 2) HP#1 with router
-> > 3) HP#2 with router
-> > and I always get 1000Mbps.
-> >
-> >
-> >
-> > So it looks like some bugged hardware or (more likely?) issue in sk=
-y2.
-> >
-> >
-> >
-> > sky2 0000:08:00.0: eth0: disabling interface
-> > sky2: driver version 1.30
-> > sky2 0000:08:00.0: Yukon-2 EC Ultra chip revision 3
-> > sky2 0000:08:00.0: irq 47 for MSI/MSI-X
-> > sky2 0000:08:00.0: eth0: addr 00:1d:ba:19:9e:db
-> > sky2 0000:08:00.0: eth0: enabling interface
-> > sky2 0000:08:00.0: eth0: Link is up at 100 Mbps, full duplex, flow =
-control
-> > both
->
-> >
-> >
-> > Can you help me with that?
->=20
->=20
-> Ping?
->=20
-> --=20
-> Rafa=C5=82
+		-ben
+-- 
+"Thought is the essence of where you are now."
