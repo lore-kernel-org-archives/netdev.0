@@ -1,18 +1,21 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
 Subject: [PATCHv3 iproute2 3/3] man: Add documentation for the bridge link operation.
-Date: Fri, 15 Mar 2013 13:01:09 -0400
-Message-ID: <1363366869-27778-4-git-send-email-vyasevic@redhat.com>
-References: <1363366869-27778-1-git-send-email-vyasevic@redhat.com>
+Date: Fri, 15 Mar 2013 13:04:50 -0400
+Message-ID: <1363367090-27850-1-git-send-email-vyasevic@redhat.com>
+References: <1363366869-27778-4-git-send-email-vyasevic@redhat.com>
 Cc: shemminger@vyatta.com, john.r.fastabend@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36786 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:34065 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755263Ab3CORBO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Mar 2013 13:01:14 -0400
-In-Reply-To: <1363366869-27778-1-git-send-email-vyasevic@redhat.com>
+	id S1754042Ab3COREy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Mar 2013 13:04:54 -0400
+In-Reply-To: <1363366869-27778-4-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+[Darn, forgot to update the patch.  this one is actually updated.  Appologies.
+]
 
 Bridge tool now supports setting and retrieving bridge port specific
 link attributes.  Document what attributes are supported and what
@@ -20,14 +23,14 @@ they mean.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- man/man8/bridge.8 |  136 +++++++++++++++++++++++++++++++++++++++++++++++-----
- 1 files changed, 123 insertions(+), 13 deletions(-)
+ man/man8/bridge.8 |  135 +++++++++++++++++++++++++++++++++++++++++++++++-----
+ 1 files changed, 122 insertions(+), 13 deletions(-)
 
 diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index d34e3cf..cad93ed 100644
+index d34e3cf..8513a5a 100644
 --- a/man/man8/bridge.8
 +++ b/man/man8/bridge.8
-@@ -13,13 +13,36 @@ bridge \- show / manipulate bridge addresses and devices
+@@ -13,13 +13,35 @@ bridge \- show / manipulate bridge addresses and devices
  
  .ti -8
  .IR OBJECT " := { "
@@ -56,8 +59,7 @@ index d34e3cf..cad93ed 100644
 +.BR hairpin " { " on " | " off " } ] [ "
 +.BR fastleave " { " on " | " off " } ] [ "
 +.BR root_block " { " on " | " off " } ] [ "
-+.BR hwmode " { " vepa " | " veb " } ] [ "
-+.BR self " ]  [ " master " ] "
++.BR hwmode " { " vepa " | " veb " } ] "
 +
 +.ti -8
 +.BR "bridge link" " [ " show " ] [ "
@@ -66,7 +68,7 @@ index d34e3cf..cad93ed 100644
  
  .ti -8
  .BR "bridge fdb" " { " add " | " del " } "
-@@ -72,6 +95,10 @@ As a rule, the information is statistics or some time values.
+@@ -72,6 +94,10 @@ As a rule, the information is statistics or some time values.
  .I OBJECT
  
  .TP
@@ -77,7 +79,7 @@ index d34e3cf..cad93ed 100644
  .B fdb 
  - Forwarding Database entry.
  
-@@ -102,6 +129,100 @@ Usually it is
+@@ -102,6 +128,100 @@ Usually it is
  or, if the objects of this class cannot be listed,
  .BR "help" .
  
@@ -178,7 +180,7 @@ index d34e3cf..cad93ed 100644
  .SH bridge fdb - forwarding database management
  
  .B fdb
-@@ -123,17 +244,6 @@ the Ethernet MAC address.
+@@ -123,17 +243,6 @@ the Ethernet MAC address.
  .BI dev " NAME"
  the interface to which this address is associated.
  
