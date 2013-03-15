@@ -1,29 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: replace ip_fast_csum with csum_replace2
-Date: Fri, 15 Mar 2013 09:12:49 -0400 (EDT)
-Message-ID: <20130315.091249.1503473568232343958.davem@davemloft.net>
-References: <1363337418-9609-1-git-send-email-roy.qing.li@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] isdn: hisax: netjet requires VIRT_TO_BUS
+Date: Fri, 15 Mar 2013 13:41:14 +0000
+Message-ID: <201303151341.14311.arnd@arndb.de>
+References: <201303151015.00746.arnd@arndb.de> <201303151229.52997.arnd@arndb.de> <20130315.083344.2224038988420448687.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47207 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754806Ab3CONMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 09:12:32 -0400
-In-Reply-To: <1363337418-9609-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: geert@linux-m68k.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, isdn@linux-pingi.de,
+	netdev@vger.kernel.org, dhowells@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130315.083344.2224038988420448687.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: roy.qing.li@gmail.com
-Date: Fri, 15 Mar 2013 16:50:18 +0800
+On Friday 15 March 2013, David Miller wrote:
+> The first usage seems reason, but the temtation is going to be quite
+> strong to misuse to block out drivers when there is "no value" in
+> spending time necessary to simply make them endian clean instead.
 
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> replace ip_fast_csum with csum_replace2 to save cpu cycles
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+Right. I'll let someone else start that discussion then if they
+really want to see that patch.
 
-Applied.
+	Arnd
