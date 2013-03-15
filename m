@@ -1,49 +1,66 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: linux-3.6+, gre+ipsec+forwarding = IP fragmentation broken
-Date: Fri, 15 Mar 2013 15:03:21 +0200
-Message-ID: <20130315150321.621d705e@vostro>
-References: <20130313171453.0297f179@vostro>
-	<20130315112516.4b1651ca@vostro>
-	<20130315133820.006a42f6@vostro>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] mv643xx_eth: use mvmdio MDIO bus driver
+Date: Fri, 15 Mar 2013 09:05:17 -0400 (EDT)
+Message-ID: <20130315.090517.2027403317215151155.davem@davemloft.net>
+References: <20130315.085321.1047694772636447477.davem@davemloft.net>
+	<20130315.085510.974056254781971889.davem@davemloft.net>
+	<514319B6.7030307@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:53699 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754195Ab3CONCo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 09:02:44 -0400
-Received: by mail-ea0-f174.google.com with SMTP id q10so1557507eaj.33
-        for <netdev@vger.kernel.org>; Fri, 15 Mar 2013 06:02:40 -0700 (PDT)
-In-Reply-To: <20130315133820.006a42f6@vostro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
+	rob@landley.net, jason@lakedaemon.net, andrew@lunn.ch,
+	linux@arm.linux.org.uk, benh@kernel.crashing.org, paulus@samba.org,
+	buytenh@wantstofly.org, thomas.petazzoni@free-electrons.com,
+	gregkh@linuxfoundation.org, devicetree-discuss@lists.ozlabs.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
+To: florian@openwrt.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <514319B6.7030307@openwrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 15 Mar 2013 13:38:20 +0200
-Timo Teras <timo.teras@iki.fi> wrote:
-
-> [snip]
-> Though, this implies that GSO cannot be used in ip_gre if ttl != inherit.
-> 
-> I added some ip_gre debugging and the following seems to happen:
-> 
-> - the mtu is calculated correctly on xmit path:
->   dst_mtu(&rt->dst) = 1458 (the tunnel's XFRMed IPv4 path)
-> 
-> - skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
->   is called with mtu=1430, which seems correct
-> 
-> - dst_mtu(skb_dst(skb)) seems to still return after above call the
->   value 1472 which is wrong. so update_pmtu is not working.
-> 
-> - skb->dev->ifindex implies skb->dev points to gre device when
->   update_pmtu is being called (and not the ethX from which the packet
->   was received), so ip_rt_update_pmtu() which eventually calls
->   build_skb_flow_key() is likely using wrong ifindex for the flow
-
-One more observation is that the outer dst is an input route. And it
-seems that input routes do not consult nexthop exception tables for
-setting the rt_pmtu. Thus rt_pmtu is never set for forwarding entries.
-
-- Timo
+RnJvbTogRmxvcmlhbiBGYWluZWxsaSA8ZmxvcmlhbkBvcGVud3J0Lm9yZz4NCkRhdGU6IEZyaSwg
+MTUgTWFyIDIwMTMgMTM6NTM6MTAgKzAxMDANCg0KPiBMZSAwMy8xNS8xMyAxMzo1NSwgRGF2aWQg
+TWlsbGVyIGEgw6ljcml0IDoNCj4+IEZyb206IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0
+Lm5ldD4NCj4+IERhdGU6IEZyaSwgMTUgTWFyIDIwMTMgMDg6NTM6MjEgLTA0MDAgKEVEVCkNCj4+
+DQo+Pj4gRnJvbTogRmxvcmlhbiBGYWluZWxsaSA8ZmxvcmlhbkBvcGVud3J0Lm9yZz4NCj4+PiBE
+YXRlOiBUaHUsIDE0IE1hciAyMDEzIDE5OjA4OjMxICswMTAwDQo+Pj4NCj4+Pj4gVGhpcyBwYXRj
+aCBjb252ZXJ0cyB0aGUgbXY2NDN4eF9ldGggZHJpdmVyIHRvIHVzZSB0aGUgbXZtZGlvIE1ESU8g
+YnVzDQo+Pj4+IGRyaXZlcg0KPj4+PiBpbnN0ZWFkIG9mIHJvbGxpbmcgaXRzIG93biBpbXBsZW1l
+bnRhdGlvbi4gQXMgYSByZXN1bHQsIGFsbCB1c2VycyBvZg0KPj4+PiB0aGlzDQo+Pj4+IG12NjQz
+eHhfZXRoIGRyaXZlciBhcmUgY29udmVydGVkIHRvIHJlZ2lzdGVyIGFuICJvcmlvbi1tZGlvIg0K
+Pj4+PiBwbGF0Zm9ybV9kZXZpY2UuDQo+Pj4+IFRoZSBtdm1kaW8gZHJpdmVyIGlzIGFsc28gdXBk
+YXRlZCB0byBzdXBwb3J0IGFuIGludGVycnVwdCBsaW5lIHdoaWNoDQo+Pj4+IHJlcG9ydHMNCj4+
+Pj4gU01JIGVycm9yL2NvbXBsZXRpb24sIGFuZCB0byBhbGxvdyB0cmFkaXRpb25uYWwgcGxhdGZv
+cm0gZGV2aWNlDQo+Pj4+IHJlZ2lzdHJhdGlvbg0KPj4+PiBpbnN0ZWFkIG9mIGp1c3QgZGV2aWNl
+IHRyZWUuDQo+Pj4+DQo+Pj4+IERhdmlkLCBJIHRoaW5rIGl0IG1ha2VzIHNlbnNlIGZvciB5b3Ug
+dG8gbWVyZ2UgYWxsIG9mIHRoaXMsIHNpbmNlIHdlDQo+Pj4+IGRvDQo+Pj4+IG5vdCB3YW50IHRo
+ZSBhcmNoaXRlY3R1cmUgZmlsZXMgdG8gYmUgZGVzeW5jaHJvbml6ZWQgZnJvbSB0aGUNCj4+Pj4g
+bXY2NDN4eF9ldGggdG8NCj4+Pj4gYXZvaWQgcnVudGltZSBicmVha2FnZS4gVGhlIHBvdGVudGlh
+bCBmb3IgbWVyZ2UgY29uZmxpY3RzIHNob3VsZCBiZQ0KPj4+PiB2ZXJ5IHNtYWxsLg0KPj4+DQo+
+Pj4gQWxsIGFwcGxpZWQgdG8gbmV0LW5leHQsIHRoYW5rcy4NCj4+DQo+PiBBY3R1YWxseSwgcmV2
+ZXJ0ZWQuICBQbGVhc2Ugc2VuZCBtZSBjb2RlIHdoaWNoIGFjdHVhbGx5IGNvbXBpbGVzOg0KPj4N
+Cj4+IGRyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZtZGlvLmM6IEluIGZ1bmN0aW9uDQo+
+PiDigJhvcmlvbl9tZGlvX3dhaXRfcmVhZHnigJk6DQo+PiBkcml2ZXJzL25ldC9ldGhlcm5ldC9t
+YXJ2ZWxsL212bWRpby5jOjcwOjI4OiBlcnJvcjog4oCYTk9fSVJR4oCZDQo+PiB1bmRlY2xhcmVk
+IChmaXJzdCB1c2UgaW4gdGhpcyBmdW5jdGlvbikNCj4+IGRyaXZlcnMvbmV0L2V0aGVybmV0L21h
+cnZlbGwvbXZtZGlvLmM6NzA6Mjg6IG5vdGU6IGVhY2ggdW5kZWNsYXJlZA0KPj4gaWRlbnRpZmll
+ciBpcyByZXBvcnRlZCBvbmx5IG9uY2UgZm9yIGVhY2ggZnVuY3Rpb24gaXQgYXBwZWFycyBpbg0K
+Pj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9tdm1kaW8uYzogSW4gZnVuY3Rpb24g4oCY
+b3Jpb25fbWRpb19wcm9iZeKAmToNCj4+IGRyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZt
+ZGlvLmM6MjQyOjI0OiBlcnJvcjog4oCYTk9fSVJR4oCZDQo+PiB1bmRlY2xhcmVkIChmaXJzdCB1
+c2UgaW4gdGhpcyBmdW5jdGlvbikNCj4+IG1ha2VbNF06ICoqKiBbZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvbWFydmVsbC9tdm1kaW8ub10gRXJyb3IgMQ0KPj4NCj4+IEFuZCBkb24ndCB1c2UgS2NvbmZp
+ZyBkZXBlbmRlbmNpZXMgdG8gd29yayBhcm91bmQgdGhpcywgZml4IGl0DQo+PiBwcm9wZXJseS4N
+Cj4gDQo+IElzIHRoZXJlIGFueSBwbGF0Zm9ybSBvdXQgdGhlcmUgZm9yIHdoaWNoIHdlIGRvIG5v
+dCBoYXZlIGEgTk9fSVJRDQo+IGRlZmluaXRpb24gYnkgbm93PyBJZiBzbywgd2hhdCBpcyBpdD8N
+Cg0KT2J2aW91c2x5IGlmIHg4Nl82NCBkb2Vzbid0IGV2ZW4gYnVpbGQgeW91ciBjaGFuZ2VzLCB0
+aGF0IGlzIG9uZSBzdWNoDQpwbGF0Zm9ybS4gIEFsc28sIGlzIGdyZXAgbm90IHdvcmtpbmcgb24g
+eW91ciBjb21wdXRlcj8NCg0KUGxhdGZvcm1zIGFyZSBhYnNvbHV0ZWx5IG5vIHJlcXVpcmVkIHRv
+IGhhdmUgdGhpcyBkZWZpbmUsIHplcm8gaXMgdGhlDQpvbmx5IHZhbGlkICJubyBJUlEiIHdoaWNo
+IGlzIHBvcnRhYmxlIGluIGFueSB3YXkuDQoNClRoaXMgaXMgYW4gb2xkIGFuZCB0aXJlZCB0b3Bp
+YywgcG9ydGFibGUgY29kZSBkb2VzIG5vdCB1c2UgTk9fSVJRLCBhbmQNCnRoYXQncyBzaW1wbHkg
+dGhlIGVuZCBvZiBpdC4NCg==
