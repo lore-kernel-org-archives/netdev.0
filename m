@@ -1,72 +1,59 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH net-next 1/5] openvswitch: Use eth_mac_addr() instead of duplicating it
-Date: Fri, 15 Mar 2013 10:38:47 -0700
-Message-ID: <1363369131-16830-2-git-send-email-jesse@nicira.com>
-References: <1363369131-16830-1-git-send-email-jesse@nicira.com>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	Thomas Graf <tgraf@redhat.com>, Jesse Gross <jesse@nicira.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:47688 "HELO
-	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751901Ab3CORjA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Mar 2013 13:39:00 -0400
-Received: by mail-oa0-f72.google.com with SMTP id j6so18925441oag.11
-        for <netdev@vger.kernel.org>; Fri, 15 Mar 2013 10:39:00 -0700 (PDT)
-In-Reply-To: <1363369131-16830-1-git-send-email-jesse@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [GIT net-next] Open vSwitch
+Date: Fri, 15 Mar 2013 10:38:46 -0700
+Message-ID: <1363369131-16830-1-git-send-email-jesse@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@redhat.com>
+A couple of minor enhancements for net-next/3.10.  The largest is an
+extension to allow variable length metadata to be passed to userspace
+with packets.
 
-bonus: if we ever are to use IFF_LIVE_ADDR_CHANGE for
-anything further than to check availability in eth_mac_addr(),
-Open vSwitch will be ready for that.
+There is a merge conflict in net/openvswitch/vport-internal_dev.c:
+A existing commit modifies internal_dev_mac_addr() and a new commit
+deletes it.  The new one is correct, so you can just remove that function.
 
-Signed-off-by: Thomas Graf <tgraf@redhat.com>
-Signed-off-by: Jesse Gross <jesse@nicira.com>
----
+The following changes since commit a5a81f0b9025867efb999d14a8dfc1907c5a4c3b:
+
+  ipv6: Fix default route failover when CONFIG_IPV6_ROUTER_PREF=n (2012-12-03 15:34:47 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git master
+
+for you to fetch changes up to 4490108b4a5ada14c7be712260829faecc814ae5:
+
+  openvswitch: Allow OVS_USERSPACE_ATTR_USERDATA to be variable length. (2013-02-22 16:29:22 -0800)
+
+----------------------------------------------------------------
+Ben Pfaff (1):
+      openvswitch: Allow OVS_USERSPACE_ATTR_USERDATA to be variable length.
+
+Jarno Rajahalme (2):
+      linux/openvswitch.h: Make OVSP_LOCAL 32-bit.
+      openvswitch: Change ENOENT return value to ENODEV in lookup_vport().
+
+Thomas Graf (2):
+      openvswitch: Use eth_mac_addr() instead of duplicating it
+      openvswitch: Avoid useless holes in struct vport
+
+ include/linux/openvswitch.h          |   13 +++++++------
+ net/openvswitch/datapath.c           |   13 +++++++------
+ net/openvswitch/datapath.h           |    2 +-
  net/openvswitch/vport-internal_dev.c |   14 ++------------
- 1 file changed, 2 insertions(+), 12 deletions(-)
-
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 5d460c3..90816c7 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -63,17 +63,6 @@ static struct rtnl_link_stats64 *internal_dev_get_stats(struct net_device *netde
- 	return stats;
- }
- 
--static int internal_dev_mac_addr(struct net_device *dev, void *p)
--{
--	struct sockaddr *addr = p;
--
--	if (!is_valid_ether_addr(addr->sa_data))
--		return -EADDRNOTAVAIL;
--	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
--	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
--	return 0;
--}
--
- /* Called with rcu_read_lock_bh. */
- static int internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev)
- {
-@@ -127,7 +116,7 @@ static const struct net_device_ops internal_dev_netdev_ops = {
- 	.ndo_open = internal_dev_open,
- 	.ndo_stop = internal_dev_stop,
- 	.ndo_start_xmit = internal_dev_xmit,
--	.ndo_set_mac_address = internal_dev_mac_addr,
-+	.ndo_set_mac_address = eth_mac_addr,
- 	.ndo_change_mtu = internal_dev_change_mtu,
- 	.ndo_get_stats64 = internal_dev_get_stats,
- };
-@@ -139,6 +128,7 @@ static void do_setup(struct net_device *netdev)
- 	netdev->netdev_ops = &internal_dev_netdev_ops;
- 
- 	netdev->priv_flags &= ~IFF_TX_SKB_SHARING;
-+	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
- 	netdev->destructor = internal_dev_destructor;
- 	SET_ETHTOOL_OPS(netdev, &internal_dev_ethtool_ops);
- 	netdev->tx_queue_len = 0;
--- 
-1.7.10.4
+ net/openvswitch/vport.h              |    4 ++--
+ 5 files changed, 19 insertions(+), 27 deletions(-)
