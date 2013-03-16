@@ -1,75 +1,62 @@
-From: dormando <dormando@rydia.net>
-Subject: Re: BUG: IPv4: Attempt to release TCP socket in state 1
-Date: Sat, 16 Mar 2013 13:16:12 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1303161314510.25737@dflat>
-References: <alpine.DEB.2.02.1303041547080.7811@localhost6.localdomain6>  <51356AC1.4090302@gmail.com> <1362460046.15793.111.camel@edumazet-glaptop>  <alpine.DEB.2.02.1303042138330.7811@localhost6.localdomain6>  <1362494795.15793.113.camel@edumazet-glaptop>
-  <alpine.DEB.2.02.1303061631290.6723@dflat>  <1362663990.15793.208.camel@edumazet-glaptop>  <alpine.DEB.2.02.1303141359080.16308@dflat>  <1363301786.29475.40.camel@edumazet-glaptop>  <alpine.DEB.2.02.1303141610490.16308@dflat>  <1363303174.29475.46.camel@edumazet-glaptop>
-  <1363455366.29475.66.camel@edumazet-glaptop> <1363455885.29475.68.camel@edumazet-glaptop>
+From: William Ahern <william@25thandclement.com>
+Subject: Re: connect(2) reassociation regression
+Date: Sat, 16 Mar 2013 13:39:55 -0700
+Message-ID: <20130316203955.GA23495@wilbur.25thandClement.com>
+References: <20130316055632.GA21364@wilbur.25thandClement.com> <1363445467.29475.63.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1363455885.29475.68.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [68.68.99.238] ([68.68.99.238]:39878 "EHLO
+	wilbur.25thandClement.com" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751325Ab3CPUkn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Mar 2013 16:40:43 -0400
+Content-Disposition: inline
+In-Reply-To: <1363445467.29475.63.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Sat, 2013-03-16 at 10:36 -0700, Eric Dumazet wrote:
-> > On Fri, 2013-03-15 at 00:19 +0100, Eric Dumazet wrote:
-> >
-> > > Thanks thats really useful, we might miss to increment socket refcount
-> > > in a timer setup.
-> > >
-> >
-> > Hmm, please add following debugging patch as well
-> >
-> > diff --git a/include/net/sock.h b/include/net/sock.h
-> > index 14f6e9d..fe7c8a6 100644
-> > --- a/include/net/sock.h
-> > +++ b/include/net/sock.h
-> > @@ -530,7 +530,9 @@ static inline void sock_hold(struct sock *sk)
-> >   */
-> >  static inline void __sock_put(struct sock *sk)
-> >  {
-> > -	atomic_dec(&sk->sk_refcnt);
-> > +	int newref = atomic_dec_return(&sk->sk_refcnt);
-> > +
-> > +	BUG_ON(newref <= 0);
-> >  }
-> >
-> >  static inline bool sk_del_node_init(struct sock *sk)
-> > diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-> > index 786d97a..a445e15 100644
-> > --- a/net/ipv4/inet_connection_sock.c
-> > +++ b/net/ipv4/inet_connection_sock.c
-> > @@ -739,7 +739,7 @@ void inet_csk_prepare_forced_close(struct sock *sk)
-> >  {
-> >  	/* sk_clone_lock locked the socket and set refcnt to 2 */
-> >  	bh_unlock_sock(sk);
-> > -	sock_put(sk);
-> > +	__sock_put(sk);
-> >
-> >  	/* The below has to be done to allow calling inet_csk_destroy_sock */
-> >  	sock_set_flag(sk, SOCK_DEAD);
-> > @@ -835,13 +835,13 @@ void inet_csk_listen_stop(struct sock *sk)
-> >  			 * tcp_v4_destroy_sock().
-> >  			 */
-> >  			tcp_sk(child)->fastopen_rsk = NULL;
-> > -			sock_put(sk);
-> > +			__sock_put(sk);
-> >  		}
-> >  		inet_csk_destroy_sock(child);
-> >
-> >  		bh_unlock_sock(child);
-> >  		local_bh_enable();
-> > -		sock_put(child);
-> > +		__sock_put(child);
-> >
->
-> Please don't include the last line : this should stay as
->
->  sock_put(child);
->
+On Sat, Mar 16, 2013 at 07:51:07AM -0700, Eric Dumazet wrote:
+> On Fri, 2013-03-15 at 22:56 -0700, William Ahern wrote:
+> > I've stumbled upon what may be a regression in connect(2) behavior.
+<snip>
+> > At some point in the 3.x cycle (maybe after 3.2.0) something was changed.
+> > Whereas previously any reassociation worked, regardless of destination
+> > network, now if the _first_ association is to the loopback, any subsequent
+> > association to non-loopback fails with EINVAL. However, if the loopback is
+> > the second or later association then everything continues to work. In other
+> > words, the sequence
+> > 
+<snip>
+> 
+> There is an issue as the connect() call sets both local address:port and
+> remote address, in the case the local address was not already set by a
+> prior bind().
+> 
+> And once bound to a local address, its not really clear if we are
+> allowed to bind to a different one, and fall in the possible traps of
+> SO_REUSEADDR and find another socket bound to the same local addr:port.
+> 
+> So if the second connect() also change the source port, I am pretty sure
+> some applications will badly break.
+> 
+> I would just avoid the problem of handling this mess, and let the
+> application close the socket and allocate a new one.
 
-thanks! Will take at least 24 hours to get the trace.
+This is for UDP, not TCP. The alternative is sendto/recvfrom. For a
+non-blocking, recursive DNS library reopening sockets all of the time is
+really messy.
+
+> Changing the kernel behavior on these kind of unspecified stuff might
+> break some other applications.
+
+Indeed. The behavior _was_ changed, and my application broke, and
+potentially many other applications.
+
+> Clearly the BSD API was bad, as the connect() is a 'super operation',
+> not only setting the remote address:port, but also the local
+> address:port given the current routing table.
+
+Well, AFAICT Linux implemented this behavior for years. FWIW, Solaris also
+implements this behavior. It's been universal until recently.
