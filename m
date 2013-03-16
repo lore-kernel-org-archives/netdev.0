@@ -1,61 +1,43 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: [PATCH net] bnx2x: add missing napi deletion in error path
-Date: Sat, 16 Mar 2013 08:18:35 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F20BE36EA@SJEXCHMB06.corp.ad.broadcom.com>
-References: <1363361274-25754-1-git-send-email-mschmidt@redhat.com>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: igb_poll - device driver failed to check map error
+Date: Sat, 16 Mar 2013 10:27:29 +0100
+Message-ID: <4445053.7p3fLHaGul@cpaasch-mac>
+References: <7974689.msj0QTRKPV@cpaasch-mac> <1899985.NhtD8IVCbT@cpaasch-mac> <804857E1F29AAC47BF68C404FC60A1844D9E2F00@ORSMSX103.amr.corp.intel.com>
+Reply-To: christoph.paasch@uclouvain.be
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "Merav Sicron" <meravs@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
-To: "Michal Schmidt" <mschmidt@redhat.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Allan, Bruce W" <bruce.w.allan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4879 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752552Ab3CPISl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Mar 2013 04:18:41 -0400
-In-Reply-To: <1363361274-25754-1-git-send-email-mschmidt@redhat.com>
-Content-Language: en-US
+Received: from mail-ea0-f175.google.com ([209.85.215.175]:40103 "EHLO
+	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751948Ab3CPJ1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Mar 2013 05:27:36 -0400
+Received: by mail-ea0-f175.google.com with SMTP id o10so1828116eaj.6
+        for <netdev@vger.kernel.org>; Sat, 16 Mar 2013 02:27:35 -0700 (PDT)
+In-Reply-To: <804857E1F29AAC47BF68C404FC60A1844D9E2F00@ORSMSX103.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Michal Schmidt [mailto:mschmidt@redhat.com]
-> Sent: Friday, March 15, 2013 5:28 PM
-> To: netdev@vger.kernel.org
-> Cc: Merav Sicron; Eilon Greenstein; Dmitry Kravkov; Yuval Mintz
-> Subject: [PATCH net] bnx2x: add missing napi deletion in error path
-> 
-> If the hardware initialization fails in bnx2x_nic_load() after adding
-> napi objects, they would not be deleted. A subsequent attempt to unload
-> the bnx2x module detects a corruption in the napi list.
-> 
-> Add the missing napi deletion to the error path.
-> 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-> ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> index a923bc4..4046f97 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> @@ -2760,6 +2760,7 @@ load_error2:
->  	bp->port.pmf = 0;
->  load_error1:
->  	bnx2x_napi_disable(bp);
-> +	bnx2x_del_all_napi(bp);
-> 
->  	/* clear pf_load status, as it was already set */
->  	if (IS_PF(bp))
-> --
-> 1.8.1.4
->
-Thanks, Michal!
+On Friday 15 March 2013 16:03:47 Allan, Bruce W wrote:
+> You are correct re. the missing calls to dma_mapping_error and I have that
+> on my to-do list for e1000e, but if you have patches already feel free to
+> send them along (please cc the Intel wired ethernet list
+> e1000-devel@lists.sourceforge.net).
 
-Acked-by: Dmitry Kravkov <dmitry@broadcom.com>
- 
+I will send them soon, after some basic tests.
+
+Cheers,
+Christoph
+
+-- 
+IP Networking Lab --- http://inl.info.ucl.ac.be
+MultiPath TCP in the Linux Kernel --- http://multipath-tcp.org
+UCLouvain
+--
