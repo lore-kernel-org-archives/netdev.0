@@ -1,65 +1,75 @@
-From: Jesper Derehag <jderehag@hotmail.com>
-Subject: RE: [PATCH 1/1] connector: Added coredumping event to the process
- connector
-Date: Sat, 16 Mar 2013 19:08:03 +0000
-Message-ID: <DUB002-W14207698E8638F6DEB6F4A7DDEE0@phx.gbl>
-References: <20130316170348.GD24041@order.stressinduktion.org>
- <DUB002-W54999962E08C0F2E11B4EEDDEE0@phx.gbl>,<20130316184036.GE24041@order.stressinduktion.org>
+From: dormando <dormando@rydia.net>
+Subject: Re: BUG: IPv4: Attempt to release TCP socket in state 1
+Date: Sat, 16 Mar 2013 13:16:12 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1303161314510.25737@dflat>
+References: <alpine.DEB.2.02.1303041547080.7811@localhost6.localdomain6>  <51356AC1.4090302@gmail.com> <1362460046.15793.111.camel@edumazet-glaptop>  <alpine.DEB.2.02.1303042138330.7811@localhost6.localdomain6>  <1362494795.15793.113.camel@edumazet-glaptop>
+  <alpine.DEB.2.02.1303061631290.6723@dflat>  <1362663990.15793.208.camel@edumazet-glaptop>  <alpine.DEB.2.02.1303141359080.16308@dflat>  <1363301786.29475.40.camel@edumazet-glaptop>  <alpine.DEB.2.02.1303141610490.16308@dflat>  <1363303174.29475.46.camel@edumazet-glaptop>
+  <1363455366.29475.66.camel@edumazet-glaptop> <1363455885.29475.68.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dub0-omc1-s21.dub0.hotmail.com ([157.55.0.220]:46949 "EHLO
-	dub0-omc1-s21.dub0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751092Ab3CPTOS convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Mar 2013 15:14:18 -0400
-In-Reply-To: <20130316184036.GE24041@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1363455885.29475.68.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-----------------------------------------
-> Date: Sat, 16 Mar 2013 19:40:36 +0100
-> From: hannes@stressinduktion.org
-> To: jderehag@hotmail.com
-> CC: zbr@ioremap.net; netdev@vger.kernel.org
-> Subject: Re: [PATCH 1/1] connector: Added coredumping event to the pr=
-ocess connector
+> On Sat, 2013-03-16 at 10:36 -0700, Eric Dumazet wrote:
+> > On Fri, 2013-03-15 at 00:19 +0100, Eric Dumazet wrote:
+> >
+> > > Thanks thats really useful, we might miss to increment socket refcount
+> > > in a timer setup.
+> > >
+> >
+> > Hmm, please add following debugging patch as well
+> >
+> > diff --git a/include/net/sock.h b/include/net/sock.h
+> > index 14f6e9d..fe7c8a6 100644
+> > --- a/include/net/sock.h
+> > +++ b/include/net/sock.h
+> > @@ -530,7 +530,9 @@ static inline void sock_hold(struct sock *sk)
+> >   */
+> >  static inline void __sock_put(struct sock *sk)
+> >  {
+> > -	atomic_dec(&sk->sk_refcnt);
+> > +	int newref = atomic_dec_return(&sk->sk_refcnt);
+> > +
+> > +	BUG_ON(newref <= 0);
+> >  }
+> >
+> >  static inline bool sk_del_node_init(struct sock *sk)
+> > diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+> > index 786d97a..a445e15 100644
+> > --- a/net/ipv4/inet_connection_sock.c
+> > +++ b/net/ipv4/inet_connection_sock.c
+> > @@ -739,7 +739,7 @@ void inet_csk_prepare_forced_close(struct sock *sk)
+> >  {
+> >  	/* sk_clone_lock locked the socket and set refcnt to 2 */
+> >  	bh_unlock_sock(sk);
+> > -	sock_put(sk);
+> > +	__sock_put(sk);
+> >
+> >  	/* The below has to be done to allow calling inet_csk_destroy_sock */
+> >  	sock_set_flag(sk, SOCK_DEAD);
+> > @@ -835,13 +835,13 @@ void inet_csk_listen_stop(struct sock *sk)
+> >  			 * tcp_v4_destroy_sock().
+> >  			 */
+> >  			tcp_sk(child)->fastopen_rsk = NULL;
+> > -			sock_put(sk);
+> > +			__sock_put(sk);
+> >  		}
+> >  		inet_csk_destroy_sock(child);
+> >
+> >  		bh_unlock_sock(child);
+> >  		local_bh_enable();
+> > -		sock_put(child);
+> > +		__sock_put(child);
+> >
 >
-> On Sat, Mar 16, 2013 at 05:57:20PM +0000, Jesper Derehag wrote:
-> >
-> >
-> > > Date: Sat, 16 Mar 2013 18:03:48 +0100
-> > > From: hannes@stressinduktion.org
-> > > To: jderehag@hotmail.com
-> > > CC: zbr@ioremap.net; netdev@vger.kernel.org
-> > > Subject: Re: [PATCH 1/1] connector: Added coredumping event to th=
-e process connector
-> > >
-> > > On Sat, Mar 16, 2013 at 11:50:50AM +0100, Jesper Derehag wrote:
-> > > > + ev->event_data.exit.exit_code =3D task->exit_code;
-> > > > + ev->event_data.exit.exit_signal =3D task->exit_signal;
-> > >
-> > > Do these already contain meaningful values?
-> > >
-> >
-> > I have to admit that they dont.And you are correct, I should add a =
-new event struct specific for the coredump event instead of piggybackin=
-g on the exit struct.Will re-submit a patch..
+> Please don't include the last line : this should stay as
 >
-> Hm, I am still unsure if such a patch is needed. Couldn't you test fo=
-r
-> coredump by inspecting exit_code on PROC_EVENT_EXIT?
+>  sock_put(child);
+>
 
-*** resubmitted message due to it got dropped by vger.kernel.org ***
-
-=A0Well, what this patch adds I think is more a question of timing.=A0
-=A0As an example, say you want to quickly detect process failures. In t=
-hat=A0case if we would only have the EXIT event, that would mean that w=
-e get=A0notified after the dump is done, which could take minutes depen=
-ding on=A0how large the dump is.=A0
-If we instead watch for both EXIT & COREDUMP=A0events, it would mean th=
-at we would quickly catch any failing process,=A0regardless of if its a=
-ctually starting to coredump or if its exited for=A0some other reason. =
-		 	   		  
+thanks! Will take at least 24 hours to get the trace.
