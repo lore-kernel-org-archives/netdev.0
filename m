@@ -1,77 +1,46 @@
-From: Prabhakar Lad <prabhakar.csengg@gmail.com>
-Subject: Re: [net PATCH 1/1] drivers: net: ethernet: ti: davinci_emac: fix
- usage of cpdma_check_free_tx_desc()
-Date: Sat, 16 Mar 2013 12:43:14 +0530
-Message-ID: <CA+V-a8sM9q6eVqu8nMf1S1jhZEf3zJsPYr_8_waRinfeX17t5w@mail.gmail.com>
-References: <1363356616-32480-1-git-send-email-mugunthanvnm@ti.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC PATCH net-next (V2, RESENT)] ipv6: Queue fragments per interface for multicast/link-local addresses.
+Date: Sat, 16 Mar 2013 08:47:45 +0100
+Message-ID: <20130316074745.GC24041@order.stressinduktion.org>
+References: <511F1E03.9010205@linux-ipv6.org> <511FB776.8000901@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-omap@vger.kernel.org,
-	dlos <davinci-linux-open-source@linux.davincidsp.com>
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f178.google.com ([74.125.82.178]:54116 "EHLO
-	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751349Ab3CPHNh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Mar 2013 03:13:37 -0400
-In-Reply-To: <1363356616-32480-1-git-send-email-mugunthanvnm@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <511FB776.8000901@linux-ipv6.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Mugunthan
+On Sun, Feb 17, 2013 at 01:44:38AM +0900, YOSHIFUJI Hideaki wrote:
+> We should queue fragments for the same link-local address on
+> different interfaces (e.g. fe80::1%eth0 and fe80::1%eth1) to the
+> different queue, because of nature of addressing architecture.
+> 
+> Similarly, we should queue fragments for multicast on different
+> interface to the different queue.  This is okay because
+> application joins group on speicific interface, and multicast
+> traffic is expected only on that interface.
+> 
+> CC: Ben Greear <greearb@candelatech.com>
+> CC: Vlad Yasevich <vyasevic@redhat.com>
+> CC: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Thanks for the patch!
+I just found this patch while cleaning up my tree. I don't know its state
+(netdev patchworks says RFC and netfilter patchworks still lists it as
+new). However, I also do think that the per interface matching would be
+the right thing to do for multicast|linklocal fragments. Perhaps this patch
+should be resend?
 
-On Fri, Mar 15, 2013 at 7:40 PM, Mugunthan V N <mugunthanvnm@ti.com> wrote:
-> Fix which was done in the following commit in cpsw driver has
-> to be taken forward to davinci emac driver as well.
->
-> commit d35162f89b8f00537d7b240b76d2d0e8b8d29aa0
-> Author: Daniel Mack <zonque@gmail.com>
-> Date:   Tue Mar 12 06:31:19 2013 +0000
->
->     net: ethernet: cpsw: fix usage of cpdma_check_free_tx_desc()
->
->     Commit fae50823d0 ("net: ethernet: davinci_cpdma: Add boundary for rx
->     and tx descriptors") introduced a function to check the current
->     allocation state of tx packets. The return value is taken into account
->     to stop the netqork queue on the adapter in case there are no free
->     slots.
->
->     However, cpdma_check_free_tx_desc() returns 'true' if there is room in
->     the bitmap, not 'false', so the usage of the function is wrong.
->
-> Reported-by: Prabhakar Lad <prabhakar.csengg@gmail.com>
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+Yoshifuji, do you think we should also implement RFC 3168 5.3 ECN
+fragmentation protection in reassembly.c? I think it should be
+straightforward because it is already implemented for ipv4 and the
+relevant bits just need to be moved to inet_fragment.c and become a bit
+more generalized.
 
- Tested-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+Thanks,
 
-Cheers,
---Prabhakar Lad
-http://www.linkedin.com/pub/prabhakar-lad/19/92b/955
+  Hannes
 
-> ---
->  drivers/net/ethernet/ti/davinci_emac.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-> index 52c0536..ae1b77a 100644
-> --- a/drivers/net/ethernet/ti/davinci_emac.c
-> +++ b/drivers/net/ethernet/ti/davinci_emac.c
-> @@ -1102,7 +1102,7 @@ static int emac_dev_xmit(struct sk_buff *skb, struct net_device *ndev)
->         /* If there is no more tx desc left free then we need to
->          * tell the kernel to stop sending us tx frames.
->          */
-> -       if (unlikely(cpdma_check_free_tx_desc(priv->txchan)))
-> +       if (unlikely(!cpdma_check_free_tx_desc(priv->txchan)))
->                 netif_stop_queue(ndev);
->
->         return NETDEV_TX_OK;
-> --
-> 1.7.9.5
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-omap" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
