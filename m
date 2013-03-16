@@ -1,34 +1,59 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH] igb: make sensor info static
-Date: Sat, 16 Mar 2013 09:56:06 -0700
-Message-ID: <20130316095606.1c8465f5@nehalam.linuxnetplumber.net>
+Subject: [PATCH] sfc: make local functions static
+Date: Sat, 16 Mar 2013 09:57:51 -0700
+Message-ID: <20130316095751.33087a2b@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:35268 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751073Ab3CPQ4K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Mar 2013 12:56:10 -0400
-Received: by mail-pb0-f51.google.com with SMTP id un15so5145808pbc.10
-        for <netdev@vger.kernel.org>; Sat, 16 Mar 2013 09:56:10 -0700 (PDT)
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:39990 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751073Ab3CPQ5y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Mar 2013 12:57:54 -0400
+Received: by mail-pb0-f41.google.com with SMTP id um15so5150127pbc.14
+        for <netdev@vger.kernel.org>; Sat, 16 Mar 2013 09:57:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Trivial sparse warning.
+Trivial sparse detected functions that should be static.
 
 Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
---- a/drivers/net/ethernet/intel/igb/igb_hwmon.c	2013-03-14 14:22:58.135958283 -0700
-+++ b/drivers/net/ethernet/intel/igb/igb_hwmon.c	2013-03-16 09:44:46.455461525 -0700
-@@ -39,7 +39,7 @@
- #include <linux/pci.h>
+
+--- a/drivers/net/ethernet/sfc/efx.c	2013-03-14 14:22:58.139958231 -0700
++++ b/drivers/net/ethernet/sfc/efx.c	2013-03-16 09:47:09.417612586 -0700
+@@ -2950,8 +2950,8 @@ static const struct dev_pm_ops efx_pm_op
+  * At this point MMIO and DMA may be disabled.
+  * Stop the software path and request a slot reset.
+  */
+-pci_ers_result_t efx_io_error_detected(struct pci_dev *pdev,
+-				       enum pci_channel_state state)
++static pci_ers_result_t efx_io_error_detected(struct pci_dev *pdev,
++					      enum pci_channel_state state)
+ {
+ 	pci_ers_result_t status = PCI_ERS_RESULT_RECOVERED;
+ 	struct efx_nic *efx = pci_get_drvdata(pdev);
+@@ -2986,7 +2986,7 @@ pci_ers_result_t efx_io_error_detected(s
+ }
  
- #ifdef CONFIG_IGB_HWMON
--struct i2c_board_info i350_sensor_info = {
-+static struct i2c_board_info i350_sensor_info = {
- 	I2C_BOARD_INFO("i350bb", (0Xf8 >> 1)),
- };
+ /* Fake a successfull reset, which will be performed later in efx_io_resume. */
+-pci_ers_result_t efx_io_slot_reset(struct pci_dev *pdev)
++static pci_ers_result_t efx_io_slot_reset(struct pci_dev *pdev)
+ {
+ 	struct efx_nic *efx = pci_get_drvdata(pdev);
+ 	pci_ers_result_t status = PCI_ERS_RESULT_RECOVERED;
+--- a/drivers/net/ethernet/sfc/rx.c	2013-03-14 14:22:58.143958179 -0700
++++ b/drivers/net/ethernet/sfc/rx.c	2013-03-16 09:47:24.645415645 -0700
+@@ -666,8 +666,8 @@ int efx_probe_rx_queue(struct efx_rx_que
+ 	return rc;
+ }
+ 
+-void efx_init_rx_recycle_ring(struct efx_nic *efx,
+-			      struct efx_rx_queue *rx_queue)
++static void efx_init_rx_recycle_ring(struct efx_nic *efx,
++				     struct efx_rx_queue *rx_queue)
+ {
+ 	unsigned int bufs_in_recycle_ring, page_ring_size;
  
