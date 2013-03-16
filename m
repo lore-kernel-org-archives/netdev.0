@@ -1,84 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: connect(2) reassociation regression
-Date: Sat, 16 Mar 2013 07:51:07 -0700
-Message-ID: <1363445467.29475.63.camel@edumazet-glaptop>
-References: <20130316055632.GA21364@wilbur.25thandClement.com>
+From: =?UTF-8?B?QWxleGFuZGVyIFNoaXlhbg==?= <shc_work@mail.ru>
+Subject: =?UTF-8?B?UmU6IFtQQVRDSCAxLzVdIG5ldDogQWRkIGRhdmljb20gd2VtYWMgZXRoZXJu?=
+ =?UTF-8?B?ZXQgZHJpdmVyIGZvdW5kIG9uIEFsbHdpbm5lciBBMTAgU29DJ3M=?=
+Date: Sat, 16 Mar 2013 18:55:10 +0400
+Message-ID: <1363445710.396407038@f286.mail.ru>
+References: <1363380605-6577-1-git-send-email-maxime.ripard@free-electrons.com> <1363380605-6577-2-git-send-email-maxime.ripard@free-electrons.com>
+Reply-To: =?UTF-8?B?QWxleGFuZGVyIFNoaXlhbg==?= <shc_work@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: William Ahern <william@25thandClement.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:48521 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755737Ab3CPOvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Mar 2013 10:51:11 -0400
-Received: by mail-pb0-f45.google.com with SMTP id ro8so5044752pbb.18
-        for <netdev@vger.kernel.org>; Sat, 16 Mar 2013 07:51:10 -0700 (PDT)
-In-Reply-To: <20130316055632.GA21364@wilbur.25thandClement.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org,
+	=?UTF-8?B?Um9iIEhlcnJpbmc=?= <rob.herring@calxeda.com>,
+	=?UTF-8?B?R3JhbnQgTGlrZWx5?= <grant.likely@secretlab.ca>,
+	=?UTF-8?B?Um9iIExhbmRsZXk=?= <rob@landley.net>,
+	sunny@allwinnertech.com, shuge@allwinnertech.com,
+	=?UTF-8?B?U3RlZmFuIFJvZXNl?= <sr@denx.de>,
+	kevin@allwinnertech.com
+To: =?UTF-8?B?TWF4aW1lIFJpcGFyZA==?= <maxime.ripard@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1363380605-6577-2-git-send-email-maxime.ripard@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-03-15 at 22:56 -0700, William Ahern wrote:
-> I've stumbled upon what may be a regression in connect(2) behavior.
-> 
-> My DNS library uses connect(2) to reassociate UDP sockets. That way the
-> kernel can filter my packets, and it makes for cleaner code overall. The
-> Linux manual page makes it pretty clear that this is okay, and at least one
-> interpretation of POSIX (certainly the one I had) does as well.
-> 
-> At some point in the 3.x cycle (maybe after 3.2.0) something was changed.
-> Whereas previously any reassociation worked, regardless of destination
-> network, now if the _first_ association is to the loopback, any subsequent
-> association to non-loopback fails with EINVAL. However, if the loopback is
-> the second or later association then everything continues to work. In other
-> words, the sequence
-> 
-> 	connect(127.0.0.1), connect(8.8.8.8)
-> 
-> fails with EINVAL, but
-> 
-> 	connect(8.8.8.8), connect(127.0.0.1), connect(1.2.3.4)
-> 
-> succeeds.
-> 
-> I admit that originally I simply presumed that on each reassociation the
-> kernel would handle reassociating the source address in addition to the
-> destination address. The technique worked everywhere I tested, including
-> Linux, Solaris, NetBSD, OpenBSD, FreeBSD. And I should note that it even
-> worked when reassociating to different external networks (and still works on
-> everything but Linux, AFAICT).
-> 
-> I realize now that arguably POSIX only requires that a second connnect call
-> change the destination address, and not the source address. But what would
-> be the point of allowing a reassociation if the source address is never
-> changed? Because any two addresses may route to entirely different networks
-> or over different devices, the capability to reassociate would be pointless.
-> 
-> OTOH, if you explicitly called bind before connect, most systems these days
-> will unbind the source address when reassociating. That may be undesirable
-> behavior, but it is long-standing behavior AFAICT, including on Linux. One
-> way to bypass the new Linux behavior is to reset the socket with
-> connect(AF_UNSPEC), but under the pedantic interpretation of POSIX that's
-> not guaranteed to work.
-
-There is an issue as the connect() call sets both local address:port and
-remote address, in the case the local address was not already set by a
-prior bind().
-
-And once bound to a local address, its not really clear if we are
-allowed to bind to a different one, and fall in the possible traps of
-SO_REUSEADDR and find another socket bound to the same local addr:port.
-
-So if the second connect() also change the source port, I am pretty sure
-some applications will badly break.
-
-I would just avoid the problem of handling this mess, and let the
-application close the socket and allocate a new one.
-
-Changing the kernel behavior on these kind of unspecified stuff might
-break some other applications.
-
-Clearly the BSD API was bad, as the connect() is a 'super operation',
-not only setting the remote address:port, but also the local
-address:port given the current routing table.
+PiBGcm9tOiBTdGVmYW4gUm9lc2UgPHNyQGRlbnguZGU+Cj4gCj4gVGhlIEFsbHdpbm5lciBBMTAg
+aGFzIGFuIGV0aGVybmV0IGNvbnRyb2xsZXIgdGhhdCBpcyBhZHZlcnRpc2VkIGFzCj4gY29taW5n
+IGZyb20gRGF2aWNvbS4KPiAKPiBUaGUgZXhhY3QgZmVhdHVyZSBzZXQgb2YgdGhpcyBjb250cm9s
+bGVyIGlzIHVua25vd24sIHNpbmNlIHRoZXJlIGlzIG5vCj4gcHVibGljIGRvY3VtZW50YXRpb24g
+Zm9yIHRoaXMgSVAsIGFuZCB0aGlzIGRyaXZlciBpcyBtb3N0bHkgdGhlIG9uZQo+IHB1Ymxpc2hl
+ZCBieSBBbGx3aW5uZXIgdGhhdCBoYXMgYmVlbiBoZWF2aWx5IGNsZWFuZWQgdXAuCi4uLgo+ICtF
+eGFtcGxlOgo+ICsKPiArd2VtYWM6IGV0aGVybmV0QDAxYzBiMDAwIHsKPiArICAgICAgIGNvbXBh
+dGlibGUgPSAiZGF2aWNvbSx3ZW1hYyI7Cj4gKyAgICAgICByZWcgPSA8MHgwMWMwYjAwMCAweDEw
+MDA+Owo+ICsgICAgICAgaW50ZXJydXB0cyA9IDw1NT47Cj4gKyAgICAgICBhbGx3aW5uZXIscG93
+ZXItZ3Bpb3MgPSA8JnBpbyA3IDE5IDA+OwoKSSB0aGluayByZWd1bGF0b3IgQVBJIGlzIGJldHRl
+ciBmb3IgdXNlIGZvciB0aGlzLgpBbmQgZ3Bpby1yZWd1bGF0b3IgZm9yIHRoaXMgY2FzZS4KCi0t
+LQo=
