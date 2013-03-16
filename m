@@ -1,46 +1,61 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC PATCH net-next (V2, RESENT)] ipv6: Queue fragments per interface for multicast/link-local addresses.
-Date: Sat, 16 Mar 2013 08:47:45 +0100
-Message-ID: <20130316074745.GC24041@order.stressinduktion.org>
-References: <511F1E03.9010205@linux-ipv6.org> <511FB776.8000901@linux-ipv6.org>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [PATCH net] bnx2x: add missing napi deletion in error path
+Date: Sat, 16 Mar 2013 08:18:35 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F20BE36EA@SJEXCHMB06.corp.ad.broadcom.com>
+References: <1363361274-25754-1-git-send-email-mschmidt@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <511FB776.8000901@linux-ipv6.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Merav Sicron" <meravs@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Yuval Mintz" <yuvalmin@broadcom.com>
+To: "Michal Schmidt" <mschmidt@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:4879 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752552Ab3CPISl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Mar 2013 04:18:41 -0400
+In-Reply-To: <1363361274-25754-1-git-send-email-mschmidt@redhat.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 17, 2013 at 01:44:38AM +0900, YOSHIFUJI Hideaki wrote:
-> We should queue fragments for the same link-local address on
-> different interfaces (e.g. fe80::1%eth0 and fe80::1%eth1) to the
-> different queue, because of nature of addressing architecture.
+> -----Original Message-----
+> From: Michal Schmidt [mailto:mschmidt@redhat.com]
+> Sent: Friday, March 15, 2013 5:28 PM
+> To: netdev@vger.kernel.org
+> Cc: Merav Sicron; Eilon Greenstein; Dmitry Kravkov; Yuval Mintz
+> Subject: [PATCH net] bnx2x: add missing napi deletion in error path
 > 
-> Similarly, we should queue fragments for multicast on different
-> interface to the different queue.  This is okay because
-> application joins group on speicific interface, and multicast
-> traffic is expected only on that interface.
+> If the hardware initialization fails in bnx2x_nic_load() after adding
+> napi objects, they would not be deleted. A subsequent attempt to unload
+> the bnx2x module detects a corruption in the napi list.
 > 
-> CC: Ben Greear <greearb@candelatech.com>
-> CC: Vlad Yasevich <vyasevic@redhat.com>
-> CC: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Add the missing napi deletion to the error path.
+> 
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> index a923bc4..4046f97 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> @@ -2760,6 +2760,7 @@ load_error2:
+>  	bp->port.pmf = 0;
+>  load_error1:
+>  	bnx2x_napi_disable(bp);
+> +	bnx2x_del_all_napi(bp);
+> 
+>  	/* clear pf_load status, as it was already set */
+>  	if (IS_PF(bp))
+> --
+> 1.8.1.4
+>
+Thanks, Michal!
 
-I just found this patch while cleaning up my tree. I don't know its state
-(netdev patchworks says RFC and netfilter patchworks still lists it as
-new). However, I also do think that the per interface matching would be
-the right thing to do for multicast|linklocal fragments. Perhaps this patch
-should be resend?
-
-Yoshifuji, do you think we should also implement RFC 3168 5.3 ECN
-fragmentation protection in reassembly.c? I think it should be
-straightforward because it is already implemented for ipv4 and the
-relevant bits just need to be moved to inet_fragment.c and become a bit
-more generalized.
-
-Thanks,
-
-  Hannes
-
+Acked-by: Dmitry Kravkov <dmitry@broadcom.com>
+ 
