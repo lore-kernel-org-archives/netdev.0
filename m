@@ -1,42 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: fix occasional statistics off-by-4GB error
-Date: Sun, 17 Mar 2013 14:24:25 -0400 (EDT)
-Message-ID: <20130317.142425.1713640249735424829.davem@davemloft.net>
-References: <CANP3RGdWMHv-7TZ4fvASrmz7NXkO7B2g2RCZwV8ecExUsQTQ2w@mail.gmail.com>
-	<1363384577-21287-1-git-send-email-zenczykowski@gmail.com>
-	<504C9EFCA2D0054393414C9CB605C37F20BE6A2B@SJEXCHMB06.corp.ad.broadcom.com>
+Subject: Re: [Patch net-next] net: fix some typos in netif features
+Date: Sun, 17 Mar 2013 14:26:10 -0400 (EDT)
+Message-ID: <20130317.142610.502873460818196556.davem@davemloft.net>
+References: <1363445275-3917-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zenczykowski@gmail.com, maze@google.com, netdev@vger.kernel.org,
-	yuvalmin@broadcom.com
-To: dmitry@broadcom.com
+Cc: netdev@vger.kernel.org, pshelar@nicira.com
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46820 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46833 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756411Ab3CQSY2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Mar 2013 14:24:28 -0400
-In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F20BE6A2B@SJEXCHMB06.corp.ad.broadcom.com>
+	with ESMTP id S932583Ab3CQS0R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Mar 2013 14:26:17 -0400
+In-Reply-To: <1363445275-3917-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Sun, 17 Mar 2013 13:10:37 +0000
+From: Cong Wang <amwang@redhat.com>
+Date: Sat, 16 Mar 2013 22:47:55 +0800
 
-> Probably this commit resolved the issue:
+> From: Cong Wang <amwang@redhat.com>
 > 
-> commit bef05406ac0ea6f468e1e25e9934f3011ea9259b
-> Author: Dmitry Kravkov <dmitry@broadcom.com>
-> Date:   Tue Sep 11 04:34:08 2012 +0000
-> 
->     bnx2x: Avoid sending multiple statistics queries
-> 
-> Can you try it pls?
+> Cc: Pravin B Shelar <pshelar@nicira.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-These are completely seperate bugs.
-
-The macro in question does not handle rollover of the lower 32-bits of
-the statistic properly at all, and therefore Maciej's patch should be
-applied and queud up for -stable.
-
-Please give it your ACK unless you can find a bug in his change.
+Applied.
