@@ -1,69 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BUG: IPv4: Attempt to release TCP socket in state 1
-Date: Sun, 17 Mar 2013 12:00:44 -0700
-Message-ID: <1363546844.29475.83.camel@edumazet-glaptop>
-References: <alpine.DEB.2.02.1303041547080.7811@localhost6.localdomain6>
-	 <51356AC1.4090302@gmail.com> <1362460046.15793.111.camel@edumazet-glaptop>
-	 <alpine.DEB.2.02.1303042138330.7811@localhost6.localdomain6>
-	 <1362494795.15793.113.camel@edumazet-glaptop>
-	 <alpine.DEB.2.02.1303061631290.6723@dflat>
-	 <1362663990.15793.208.camel@edumazet-glaptop>
-	 <alpine.DEB.2.02.1303141359080.16308@dflat>
-	 <1363301786.29475.40.camel@edumazet-glaptop>
-	 <alpine.DEB.2.02.1303141610490.16308@dflat>
-	 <1363303174.29475.46.camel@edumazet-glaptop>
-	 <1363455366.29475.66.camel@edumazet-glaptop>
-	 <1363455885.29475.68.camel@edumazet-glaptop>
-	 <alpine.DEB.2.02.1303170218460.28650@dflat>
-	 <1363538008.29475.73.camel@edumazet-glaptop>
-	 <1363539169.29475.78.camel@edumazet-glaptop>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH] bnx2x: fix occasional statistics off-by-4GB error
+Date: Sun, 17 Mar 2013 21:37:54 +0200
+Message-ID: <1363549074.4752.3.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <CANP3RGdWMHv-7TZ4fvASrmz7NXkO7B2g2RCZwV8ecExUsQTQ2w@mail.gmail.com>
+ <1363384577-21287-1-git-send-email-zenczykowski@gmail.com>
+ <504C9EFCA2D0054393414C9CB605C37F20BE6A2B@SJEXCHMB06.corp.ad.broadcom.com>
+ <20130317.142425.1713640249735424829.davem@davemloft.net>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: dormando <dormando@rydia.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1363539169.29475.78.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dmitry@broadcom.com, zenczykowski@gmail.com, maze@google.com,
+	netdev@vger.kernel.org, yuvalmin@broadcom.com
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:4662 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755751Ab3CQTjm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Mar 2013 15:39:42 -0400
+In-Reply-To: <20130317.142425.1713640249735424829.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-03-17 at 09:52 -0700, Eric Dumazet wrote:
-
+On Sun, 2013-03-17 at 14:24 -0400, David Miller wrote:
+> From: "Dmitry Kravkov" <dmitry@broadcom.com>
+> Date: Sun, 17 Mar 2013 13:10:37 +0000
 > 
-> We perform a sock_hold() somewhere while the socket is already dead.
+> > Probably this commit resolved the issue:
+> > 
+> > commit bef05406ac0ea6f468e1e25e9934f3011ea9259b
+> > Author: Dmitry Kravkov <dmitry@broadcom.com>
+> > Date:   Tue Sep 11 04:34:08 2012 +0000
+> > 
+> >     bnx2x: Avoid sending multiple statistics queries
+> > 
+> > Can you try it pls?
+> 
+> These are completely seperate bugs.
+> 
+> The macro in question does not handle rollover of the lower 32-bits of
+> the statistic properly at all, and therefore Maciej's patch should be
+> applied and queud up for -stable.
+> 
+> Please give it your ACK unless you can find a bug in his change.
 
-Oh well, thats not exactly that.
+Both the high value and the low value are read from the chip - so this
+patch will increment the higher 32 bits twice (well, more than once).
+Not taking the HW/FW high counter at all is also not acceptable since
+the reading frequency is not high enough without those.
 
-When processing ICMP messages we perform a full inet[6] lookup and can
-find a LISTEN socket.
+So the original patch is nacked, but we are trying to figure out what is
+causing the statistics to misbehave and it might be related to sending
+statistics query twice.
 
-Please try the following fix :
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index b7ab868..3d250c6 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -407,7 +407,8 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
- 		if (code > NR_ICMP_UNREACH)
- 			goto out;
- 
--		if (code == ICMP_FRAG_NEEDED) { /* PMTU discovery (RFC1191) */
-+		if (sk->sk_state != TCP_LISTEN &&
-+		    code == ICMP_FRAG_NEEDED) { /* PMTU discovery (RFC1191) */
- 			tp->mtu_info = info;
- 			if (!sock_owned_by_user(sk)) {
- 				tcp_v4_mtu_reduced(sk);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 9b64600..c12b3ff 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -388,7 +388,7 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 			dst->ops->redirect(dst, sk, skb);
- 	}
- 
--	if (type == ICMPV6_PKT_TOOBIG) {
-+	if (type == ICMPV6_PKT_TOOBIG && sk->sk_state != TCP_LISTEN) {
- 		tp->mtu_info = ntohl(info);
- 		if (!sock_owned_by_user(sk))
- 			tcp_v6_mtu_reduced(sk);
+Thanks,
+Eilon
