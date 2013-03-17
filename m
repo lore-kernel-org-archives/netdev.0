@@ -1,40 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Revert "ip_gre: make ipgre_tunnel_xmit() not parse
- network header as IP unconditionally"
-Date: Sat, 16 Mar 2013 23:01:21 -0400 (EDT)
-Message-ID: <20130316.230121.871149184534614934.davem@davemloft.net>
-References: <1363178269-27553-1-git-send-email-timo.teras@iki.fi>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: BUG: IPv4: Attempt to release TCP socket in state 1
+Date: Sun, 17 Mar 2013 07:39:48 +0100
+Message-ID: <20130317063948.GF24041@order.stressinduktion.org>
+References: <1362460046.15793.111.camel@edumazet-glaptop> <alpine.DEB.2.02.1303042138330.7811@localhost6.localdomain6> <1362494795.15793.113.camel@edumazet-glaptop> <alpine.DEB.2.02.1303061631290.6723@dflat> <1362663990.15793.208.camel@edumazet-glaptop> <alpine.DEB.2.02.1303141359080.16308@dflat> <1363301786.29475.40.camel@edumazet-glaptop> <alpine.DEB.2.02.1303141610490.16308@dflat> <1363303174.29475.46.camel@edumazet-glaptop> <1363455366.29475.66.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, yamahata@valinux.co.jp, edumazet@google.com
-To: timo.teras@iki.fi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39171 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753934Ab3CQDB0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Mar 2013 23:01:26 -0400
-In-Reply-To: <1363178269-27553-1-git-send-email-timo.teras@iki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: dormando <dormando@rydia.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1363455366.29475.66.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Timo Ter=E4s <timo.teras@iki.fi>
-Date: Wed, 13 Mar 2013 14:37:49 +0200
+On Sat, Mar 16, 2013 at 10:36:06AM -0700, Eric Dumazet wrote:
+> On Fri, 2013-03-15 at 00:19 +0100, Eric Dumazet wrote:
+> 
+> > Thanks thats really useful, we might miss to increment socket refcount
+> > in a timer setup.
+> > 
+> 
+> Hmm, please add following debugging patch as well
+> 
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 14f6e9d..fe7c8a6 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -530,7 +530,9 @@ static inline void sock_hold(struct sock *sk)
+>   */
+>  static inline void __sock_put(struct sock *sk)
+>  {
+> -	atomic_dec(&sk->sk_refcnt);
+> +	int newref = atomic_dec_return(&sk->sk_refcnt);
+> +
+> +	BUG_ON(newref <= 0);
+>  }
 
-> This reverts commit 412ed94744d16806fbec3bd250fd94e71cde5a1f.
->=20
-> The commit is wrong as tiph points to the outer IPv4 header which is
-> installed at ipgre_header() and not the inner one which is protocol d=
-ependant.
->=20
-> This commit broke succesfully opennhrp which use PF_PACKET socket wit=
-h
-> ETH_P_NHRP protocol. Additionally ssl_addr is set to the link-layer
-> IPv4 address. This address is written by ipgre_header() to the skb
-> earlier, and this is the IPv4 header tiph should point to - regardles=
-s
-> of the inner protocol payload.
->=20
-> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
-
-Applied, and queued up for -stable, thanks.
+Couldn't it also be a free from sock_wfree where the wmem accounting went
+wrong? It does not care about reference counts there.
