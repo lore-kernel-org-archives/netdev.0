@@ -1,29 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethernet/tulip: DE4x5 needs VIRT_TO_BUS
-Date: Sun, 17 Mar 2013 12:01:40 -0400 (EDT)
-Message-ID: <20130317.120140.1114222806134803996.davem@davemloft.net>
+Subject: Re: [PATCH] isdn: hisax: netjet requires VIRT_TO_BUS
+Date: Sun, 17 Mar 2013 12:01:46 -0400 (EDT)
+Message-ID: <20130317.120146.1958709702875370639.davem@davemloft.net>
 References: <1363298204-8014-1-git-send-email-arnd@arndb.de>
-	<1363298204-8014-5-git-send-email-arnd@arndb.de>
+	<1363298204-8014-4-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	grundler@parisc-linux.org, netdev@vger.kernel.org
+	isdn@linux-pingi.de, netdev@vger.kernel.org
 To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1363298204-8014-5-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45812 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756473Ab3CQQBr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Mar 2013 12:01:47 -0400
+In-Reply-To: <1363298204-8014-4-git-send-email-arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 14 Mar 2013 22:56:42 +0100
+Date: Thu, 14 Mar 2013 22:56:41 +0100
 
-> The automated ARM build tests have shown that the tulip de4x5 driver
-> uses the old-style virt_to_bus() interface on some architectures.
+> Disabling CONFIG_VIRT_TO_BUS on ARM showed that the hisax netjet
+> driver depends on this deprecated functionality but is not
+> marked so in Kconfig.
 > 
-> Alpha, Sparc and PowerPC did not hit this problem, because they
-> use a different code path, and most other architectures actually
-> do provide VIRT_TO_BUS.
+> Rather than adding ARM to the already long list of architectures
+> that this driver is broken on, this patch adds 'depends on
+> VIRT_TO_BUS' and removes the dependency on !SPARC, which is
+> also implied by that.
 > 
 > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
