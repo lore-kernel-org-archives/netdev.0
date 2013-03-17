@@ -1,29 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] net: fix some typos in netif features
-Date: Sun, 17 Mar 2013 14:26:10 -0400 (EDT)
-Message-ID: <20130317.142610.502873460818196556.davem@davemloft.net>
-References: <1363445275-3917-1-git-send-email-amwang@redhat.com>
+Subject: Re: [PATCH] sfc: make local functions static
+Date: Sun, 17 Mar 2013 14:26:53 -0400 (EDT)
+Message-ID: <20130317.142653.1414523995890573030.davem@davemloft.net>
+References: <20130316095751.33087a2b@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@nicira.com
-To: amwang@redhat.com
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46833 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46839 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932583Ab3CQS0R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Mar 2013 14:26:17 -0400
-In-Reply-To: <1363445275-3917-1-git-send-email-amwang@redhat.com>
+	with ESMTP id S1756445Ab3CQS0y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Mar 2013 14:26:54 -0400
+In-Reply-To: <20130316095751.33087a2b@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Sat, 16 Mar 2013 22:47:55 +0800
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Sat, 16 Mar 2013 09:57:51 -0700
 
-> From: Cong Wang <amwang@redhat.com>
+> Trivial sparse detected functions that should be static.
 > 
-> Cc: Pravin B Shelar <pshelar@nicira.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied.
+Applied, thanks Stephen.
