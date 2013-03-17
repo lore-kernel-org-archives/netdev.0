@@ -1,74 +1,59 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH] bnx2x: fix occasional statistics off-by-4GB error
-Date: Sun, 17 Mar 2013 22:53:28 +0200
-Message-ID: <1363553608.4752.5.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <CANP3RGdWMHv-7TZ4fvASrmz7NXkO7B2g2RCZwV8ecExUsQTQ2w@mail.gmail.com>
- <1363384577-21287-1-git-send-email-zenczykowski@gmail.com>
- <504C9EFCA2D0054393414C9CB605C37F20BE6A2B@SJEXCHMB06.corp.ad.broadcom.com>
- <20130317.142425.1713640249735424829.davem@davemloft.net>
- <1363549074.4752.3.camel@lb-tlvb-eilong.il.broadcom.com>
- <1363551952.29475.93.camel@edumazet-glaptop>
-Reply-To: eilong@broadcom.com
+From: Ohad Ben-Cohen <ohad@wizery.com>
+Subject: Re: [PATCHv3 vringh] caif_virtio: Introduce caif over virtio
+Date: Mon, 18 Mar 2013 00:52:19 +0200
+Message-ID: <CAK=WgbbV6mvYC+KeSKJR+jmrAy3Et5opzzno1_kaicMPdDxNXg@mail.gmail.com>
+References: <1363340537-16011-1-git-send-email-erwan.yvin@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, dmitry@broadcom.com,
-	zenczykowski@gmail.com, maze@google.com, netdev@vger.kernel.org,
-	yuvalmin@broadcom.com
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Rusty Russel <rusty@ruscorp.com.au>,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>,
+	Linus Walleij <linus.walleij@stericsson.com>,
+	virtualization <virtualization@lists.linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: Erwan Yvin <erwan.yvin@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3585 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756657Ab3CQUzR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Mar 2013 16:55:17 -0400
-In-Reply-To: <1363551952.29475.93.camel@edumazet-glaptop>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:46657 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755698Ab3CQWwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Mar 2013 18:52:41 -0400
+Received: by mail-lb0-f169.google.com with SMTP id m4so4176394lbo.28
+        for <netdev@vger.kernel.org>; Sun, 17 Mar 2013 15:52:39 -0700 (PDT)
+In-Reply-To: <1363340537-16011-1-git-send-email-erwan.yvin@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-03-17 at 13:25 -0700, Eric Dumazet wrote:
-> On Sun, 2013-03-17 at 21:37 +0200, Eilon Greenstein wrote:
-> > On Sun, 2013-03-17 at 14:24 -0400, David Miller wrote:
-> > > From: "Dmitry Kravkov" <dmitry@broadcom.com>
-> > > Date: Sun, 17 Mar 2013 13:10:37 +0000
-> > > 
-> > > > Probably this commit resolved the issue:
-> > > > 
-> > > > commit bef05406ac0ea6f468e1e25e9934f3011ea9259b
-> > > > Author: Dmitry Kravkov <dmitry@broadcom.com>
-> > > > Date:   Tue Sep 11 04:34:08 2012 +0000
-> > > > 
-> > > >     bnx2x: Avoid sending multiple statistics queries
-> > > > 
-> > > > Can you try it pls?
-> > > 
-> > > These are completely seperate bugs.
-> > > 
-> > > The macro in question does not handle rollover of the lower 32-bits of
-> > > the statistic properly at all, and therefore Maciej's patch should be
-> > > applied and queud up for -stable.
-> > > 
-> > > Please give it your ACK unless you can find a bug in his change.
-> > 
-> > Both the high value and the low value are read from the chip - so this
-> > patch will increment the higher 32 bits twice (well, more than once).
-> > Not taking the HW/FW high counter at all is also not acceptable since
-> > the reading frequency is not high enough without those.
-> > 
-> > So the original patch is nacked, but we are trying to figure out what is
-> > causing the statistics to misbehave and it might be related to sending
-> > statistics query twice.
-> 
-> This looks like the typical problem of updating a 64bit value in non
-> atomic way.
-> 
-> Its guaranteed to happen on 32bit hosts.
-> We had to introduce include/linux/u64_stats_sync.h to help to solve this
-> without adding extra cost on 64bit arches.
-> 
-> In bnx2x case, we perform 32bit operations even on 64bit host, so we
-> probably need to add a seqcount_t, so that a stat consumer can detect it
-> read a stale value.
+Hi Erwan,
 
-This is not such a trivial issue - the HW/FW is guaranteeing the atomic
-read and this is why we can always use 32b variables.
+On Fri, Mar 15, 2013 at 11:42 AM, Erwan Yvin <erwan.yvin@stericsson.com> wrote:
+> diff --git a/drivers/net/caif/caif_virtio.c b/drivers/net/caif/caif_virtio.c
+> new file mode 100644
+> index 0000000..6a745dd
+> --- /dev/null
+> +++ b/drivers/net/caif/caif_virtio.c
+> @@ -0,0 +1,786 @@
+> +/*
+> + * Copyright (C) ST-Ericsson AB 2013
+> + * Authors: Vicram Arv / vikram.arv@stericsson.com,
+> + *         Dmitry Tarnyagin / dmitry.tarnyagin@stericsson.com
+> + *         Sjur Brendeland / sjur.brandeland@stericsson.com
+> + * License terms: GNU General Public License (GPL) version 2
+> + */
+> +#include <linux/module.h>
+> +#include <linux/if_arp.h>
+> +#include <linux/virtio.h>
+> +#include <linux/vringh.h>
+> +#include <linux/debugfs.h>
+> +#include <linux/spinlock.h>
+> +#include <linux/genalloc.h>
+> +#include <linux/interrupt.h>
+> +#include <linux/netdevice.h>
+> +#include <linux/rtnetlink.h>
+> +#include <linux/remoteproc.h>
+
+The driver looks nicely decoupled from remoteproc - do you still need
+remoteproc.h ?
+
+Thanks,
+Ohad.
