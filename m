@@ -1,59 +1,60 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH net] vhost/net: fix heads usage of ubuf_info
-Date: Sun, 17 Mar 2013 14:46:09 +0200
-Message-ID: <20130317124609.GA25967@redhat.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [PATCH] bnx2x: fix occasional statistics off-by-4GB error
+Date: Sun, 17 Mar 2013 13:10:37 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F20BE6A2B@SJEXCHMB06.corp.ad.broadcom.com>
+References: <CANP3RGdWMHv-7TZ4fvASrmz7NXkO7B2g2RCZwV8ecExUsQTQ2w@mail.gmail.com>
+ <1363384577-21287-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Nicholas A. Bellinger" <nab@risingtidesystems.com>,
-	virtualization@lists.linux-foundation.org, stable@kernel.org,
-	Basil Gor <basil.gor@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Yuval Mintz" <yuvalmin@broadcom.com>
+To: =?utf-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <zenczykowski@gmail.com>,
+	=?utf-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <maze@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3375 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755911Ab3CQNKs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Mar 2013 09:10:48 -0400
+In-Reply-To: <1363384577-21287-1-git-send-email-zenczykowski@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ubuf info allocator uses guest controlled head as an index,
-so a malicious guest could put the same head entry in the ring twice,
-and we will get two callbacks on the same value.
-To fix use upend_idx which is guaranteed to be unique.
-
-Reported-by: Rusty Russell <rusty@rustcorp.com.au>
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Cc: stable@kernel.org
----
-
-Rusty's working on switching to allocating ubufs dynamically
-but that's not 3.9 material.
-This patch is against latest net master,
-needed for 3.9-rc2 and older kernels.
-
- drivers/vhost/net.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 959b1cd..ec6fb3f 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -339,7 +339,8 @@ static void handle_tx(struct vhost_net *net)
- 				msg.msg_controllen = 0;
- 				ubufs = NULL;
- 			} else {
--				struct ubuf_info *ubuf = &vq->ubuf_info[head];
-+				struct ubuf_info *ubuf;
-+				ubuf = vq->ubuf_info + vq->upend_idx;
- 
- 				vq->heads[vq->upend_idx].len =
- 					VHOST_DMA_IN_PROGRESS;
--- 
-MST
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxm
+IE9mIE1hY2llaiA/ZW5jenlrb3dza2kNCj4gU2VudDogRnJpZGF5LCBNYXJjaCAxNSwgMjAxMyAx
+MTo1NiBQTQ0KPiBUbzogTWFjaWVqIMW7ZW5jenlrb3dza2k7IERhdmlkIFMuIE1pbGxlcg0KPiBD
+YzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgWXV2YWwgTWludHoNCj4gU3ViamVjdDogW1BBVENI
+XSBibngyeDogZml4IG9jY2FzaW9uYWwgc3RhdGlzdGljcyBvZmYtYnktNEdCIGVycm9yDQo+IA0K
+PiBGcm9tOiBNYWNpZWogxbtlbmN6eWtvd3NraSA8bWF6ZUBnb29nbGUuY29tPg0KPiANCj4gVGhl
+IFVQREFURV9RU1RBVCBmdW5jdGlvbiBpbnRyb2R1Y2VkIG9uIEZlYnJ1YXJ5IDE1LCAyMDEyDQo+
+IGluIGNvbW1pdCAxMzU1YjcwNGI5YmEgImJueDJ4OiBjb25zaXN0ZW50IHN0YXRpc3RpY3MgYWZ0
+ZXINCj4gaW50ZXJuYWwgZHJpdmVyIHJlbG9hZCIgaW5jb3JyZWN0bHkgZmFpbHMgdG8gaGFuZGxl
+IG92ZXJmbG93DQo+IGR1cmluZyBhZGRpdGlvbiBvZiB0aGUgbG93ZXIgMzItYml0IGZpZWxkIG9m
+IGEgc3RhdC4NCj4gDQo+IFRoaXMgYnVnIGlzIHByZXNlbnQgc2luY2UgMy40LXJjMSBhbmQgc2hv
+dWxkIHRodXMgYmUgY29uc2lkZXJlZA0KPiBhIGNhbmRpZGF0ZSBmb3Igc3RhYmxlIDMuNCsgcmVs
+ZWFzZXMuDQo+IA0KPiBHb29nbGUtQnVnLUlkOiA4Mzc0NDI4DQo+IFNpZ25lZC1vZmYtYnk6IE1h
+Y2llaiDFu2VuY3p5a293c2tpIDxtYXplQGdvb2dsZS5jb20+DQo+IENjOiBNaW50eiBZdXZhbCA8
+eXV2YWxtaW5AYnJvYWRjb20uY29tPg0KPiAtLS0NCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jy
+b2FkY29tL2JueDJ4L2JueDJ4X3N0YXRzLmggfCAzICsrLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDIg
+aW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L2Jyb2FkY29tL2JueDJ4L2JueDJ4X3N0YXRzLmggYi9kcml2ZXJzL25ldC9l
+dGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9zdGF0cy5oDQo+IGluZGV4IDM2NGUzN2VjYmM1
+Yy4uMTk4ZjZmMWM5YWQ1IDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9h
+ZGNvbS9ibngyeC9ibngyeF9zdGF0cy5oDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Jy
+b2FkY29tL2JueDJ4L2JueDJ4X3N0YXRzLmgNCj4gQEAgLTQ1OSw4ICs0NTksOSBAQCBzdHJ1Y3Qg
+Ym54MnhfZndfcG9ydF9zdGF0c19vbGQgew0KPiANCj4gICNkZWZpbmUgVVBEQVRFX1FTVEFUKHMs
+IHQpIFwNCj4gIAlkbyB7IFwNCj4gLQkJcXN0YXRzLT50IyNfaGkgPSBxc3RhdHNfb2xkLT50IyNf
+aGkgKyBsZTMyX3RvX2NwdShzLmhpKTsgXA0KPiAgCQlxc3RhdHMtPnQjI19sbyA9IHFzdGF0c19v
+bGQtPnQjI19sbyArIGxlMzJfdG9fY3B1KHMubG8pOyBcDQo+ICsJCXFzdGF0cy0+dCMjX2hpID0g
+cXN0YXRzX29sZC0+dCMjX2hpICsgbGUzMl90b19jcHUocy5oaSkgXA0KPiArCQkJKyAoKHFzdGF0
+cy0+dCMjX2xvIDwgcXN0YXRzX29sZC0+dCMjX2xvKSA/IDEgOiAwKTsgXA0KPiAgCX0gd2hpbGUg
+KDApDQo+IA0KPiAgI2RlZmluZSBVUERBVEVfUVNUQVRfT0xEKGYpIFwNCj4gLS0NCj4gMS44LjEu
+Mw0KPiANCg0KUHJvYmFibHkgdGhpcyBjb21taXQgcmVzb2x2ZWQgdGhlIGlzc3VlOg0KDQpjb21t
+aXQgYmVmMDU0MDZhYzBlYTZmNDY4ZTFlMjVlOTkzNGYzMDExZWE5MjU5Yg0KQXV0aG9yOiBEbWl0
+cnkgS3JhdmtvdiA8ZG1pdHJ5QGJyb2FkY29tLmNvbT4NCkRhdGU6ICAgVHVlIFNlcCAxMSAwNDoz
+NDowOCAyMDEyICswMDAwDQoNCiAgICBibngyeDogQXZvaWQgc2VuZGluZyBtdWx0aXBsZSBzdGF0
+aXN0aWNzIHF1ZXJpZXMNCg0KQ2FuIHlvdSB0cnkgaXQgcGxzPw0KDQpUaGFua3MNCg==
