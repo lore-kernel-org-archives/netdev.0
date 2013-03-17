@@ -1,52 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] drivers:net: dma_alloc_coherent:
- use __GFP_ZERO instead of memset(, 0)
-Date: Sun, 17 Mar 2013 12:50:42 -0400 (EDT)
-Message-ID: <20130317.125042.778916600527811234.davem@davemloft.net>
-References: <dbbfc5e66dba7d2b63549d218407fb0c4031f2ed.1363367992.git.joe@perches.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG: IPv4: Attempt to release TCP socket in state 1
+Date: Sun, 17 Mar 2013 09:52:49 -0700
+Message-ID: <1363539169.29475.78.camel@edumazet-glaptop>
+References: <alpine.DEB.2.02.1303041547080.7811@localhost6.localdomain6>
+	 <51356AC1.4090302@gmail.com> <1362460046.15793.111.camel@edumazet-glaptop>
+	 <alpine.DEB.2.02.1303042138330.7811@localhost6.localdomain6>
+	 <1362494795.15793.113.camel@edumazet-glaptop>
+	 <alpine.DEB.2.02.1303061631290.6723@dflat>
+	 <1362663990.15793.208.camel@edumazet-glaptop>
+	 <alpine.DEB.2.02.1303141359080.16308@dflat>
+	 <1363301786.29475.40.camel@edumazet-glaptop>
+	 <alpine.DEB.2.02.1303141610490.16308@dflat>
+	 <1363303174.29475.46.camel@edumazet-glaptop>
+	 <1363455366.29475.66.camel@edumazet-glaptop>
+	 <1363455885.29475.68.camel@edumazet-glaptop>
+	 <alpine.DEB.2.02.1303170218460.28650@dflat>
+	 <1363538008.29475.73.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
-	linux-kernel@vger.kernel.org, b43-dev@lists.infradead.org
-To: joe@perches.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <dbbfc5e66dba7d2b63549d218407fb0c4031f2ed.1363367992.git.joe@perches.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: dormando <dormando@rydia.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f44.google.com ([209.85.210.44]:56742 "EHLO
+	mail-da0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756252Ab3CQQww (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Mar 2013 12:52:52 -0400
+In-Reply-To: <1363538008.29475.73.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Fri, 15 Mar 2013 10:23:58 -0700
-
-> Reduce the number of calls required to alloc
-> a zeroed block of memory.
+On Sun, 2013-03-17 at 09:33 -0700, Eric Dumazet wrote:
+> On Sun, 2013-03-17 at 02:21 -0700, dormando wrote:
 > 
-> Trivially reduces overall object size.
+> > Hope you don't mind a screenshot:
+> > http://www.dormando.me/p/3.8.2-trace-crash.jpg
+> > 
+> > (I put the patches on 3.8.2). box is on another continent so screenshot
+> > via IPMI is what I get. If this isn't enough or isn't right I'll try
+> > harder to get the trace logged, I guess?
 > 
-> Other changes around these removals
-> o Neaten call argument alignment
-> o Remove an unnecessary OOM message after dma_alloc_coherent failure
-> o Remove unnecessary gfp_t stack variable
+> Thanks a lot, this gives another useful input, no need for more traces
+> for the moment.
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Could you send me the disassembly of tcp_release_cb() ?
+> 
+> (objdump -d vmlinux | filter to get tcp_release_cb() body)
+> 
+> 
 
-Looks good, applied, thanks Joe.
+It seems we can have a refcnt imbalance because of
 
-------------------------------------------------------------------------------
-Everyone hates slow websites. So do we.
-Make your web apps faster with AppDynamics
-Download AppDynamics Lite for free today:
-http://p.sf.net/sfu/appdyn_d2d_mar
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+atomic_set(&newsk->sk_refcnt, 2);
+
+we do in sk_clone_lock()
+
+Somehow, something is wrong, because at this point the socket should not
+be found.
+
+We perform a sock_hold() somewhere while the socket is already dead.
+
+I'll send a patch asap
