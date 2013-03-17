@@ -1,51 +1,48 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC PATCH net-next (V2, RESENT)] ipv6: Queue fragments per interface
- for multicast/link-local addresses.
-Date: Sun, 17 Mar 2013 09:50:25 +0900
-Message-ID: <51451351.50508@linux-ipv6.org>
-References: <511F1E03.9010205@linux-ipv6.org> <511FB776.8000901@linux-ipv6.org> <20130316074745.GC24041@order.stressinduktion.org>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [Patch net-next] net: fix some typos in netif features
+Date: Sat, 16 Mar 2013 19:45:05 -0700
+Message-ID: <CALnjE+rrVK_4b=puiQjD2NAKJvjfmjnfG4O2u9UU5XD_OUPfCw@mail.gmail.com>
+References: <1363445275-3917-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20130316074745.GC24041@order.stressinduktion.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog105.obsmtp.com ([74.125.149.75]:60268 "HELO
+	na3sys009aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753934Ab3CQCpH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Mar 2013 22:45:07 -0400
+Received: by mail-ve0-f200.google.com with SMTP id ox1so8486602veb.3
+        for <netdev@vger.kernel.org>; Sat, 16 Mar 2013 19:45:05 -0700 (PDT)
+In-Reply-To: <1363445275-3917-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa wrote:
-> On Sun, Feb 17, 2013 at 01:44:38AM +0900, YOSHIFUJI Hideaki wrote:
->> We should queue fragments for the same link-local address on
->> different interfaces (e.g. fe80::1%eth0 and fe80::1%eth1) to the
->> different queue, because of nature of addressing architecture.
->>
->> Similarly, we should queue fragments for multicast on different
->> interface to the different queue.  This is okay because
->> application joins group on speicific interface, and multicast
->> traffic is expected only on that interface.
->>
->> CC: Ben Greear <greearb@candelatech.com>
->> CC: Vlad Yasevich <vyasevic@redhat.com>
->> CC: Eric Dumazet <eric.dumazet@gmail.com>
->> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> 
-> I just found this patch while cleaning up my tree. I don't know its state
-> (netdev patchworks says RFC and netfilter patchworks still lists it as
-> new). However, I also do think that the per interface matching would be
-> the right thing to do for multicast|linklocal fragments. Perhaps this patch
-> should be resend?
+On Sat, Mar 16, 2013 at 7:47 AM, Cong Wang <amwang@redhat.com> wrote:
+> From: Cong Wang <amwang@redhat.com>
+>
+> Cc: Pravin B Shelar <pshelar@nicira.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+>
+Looks good.
 
-Will do.
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
 
-> Yoshifuji, do you think we should also implement RFC 3168 5.3 ECN
-> fragmentation protection in reassembly.c? I think it should be
-> straightforward because it is already implemented for ipv4 and the
-> relevant bits just need to be moved to inet_fragment.c and become a bit
-> more generalized.
-
-OK.
-
---yoshfuji
-
+> ---
+>
+> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+> index f5e797c..d6ee2d0 100644
+> --- a/include/linux/netdev_features.h
+> +++ b/include/linux/netdev_features.h
+> @@ -102,8 +102,8 @@ enum {
+>  #define NETIF_F_VLAN_CHALLENGED        __NETIF_F(VLAN_CHALLENGED)
+>  #define NETIF_F_RXFCS          __NETIF_F(RXFCS)
+>  #define NETIF_F_RXALL          __NETIF_F(RXALL)
+> -#define NETIF_F_GRE_GSO                __NETIF_F(GSO_GRE)
+> -#define NETIF_F_UDP_TUNNEL     __NETIF_F(UDP_TUNNEL)
+> +#define NETIF_F_GSO_GRE                __NETIF_F(GSO_GRE)
+> +#define NETIF_F_GSO_UDP_TUNNEL __NETIF_F(GSO_UDP_TUNNEL)
+>
+>  /* Features valid for ethtool to change */
+>  /* = all defined minus driver/device-class-related */
