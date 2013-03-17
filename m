@@ -1,48 +1,40 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [Patch net-next] net: fix some typos in netif features
-Date: Sat, 16 Mar 2013 19:45:05 -0700
-Message-ID: <CALnjE+rrVK_4b=puiQjD2NAKJvjfmjnfG4O2u9UU5XD_OUPfCw@mail.gmail.com>
-References: <1363445275-3917-1-git-send-email-amwang@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Revert "ip_gre: make ipgre_tunnel_xmit() not parse
+ network header as IP unconditionally"
+Date: Sat, 16 Mar 2013 23:01:21 -0400 (EDT)
+Message-ID: <20130316.230121.871149184534614934.davem@davemloft.net>
+References: <1363178269-27553-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, yamahata@valinux.co.jp, edumazet@google.com
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog105.obsmtp.com ([74.125.149.75]:60268 "HELO
-	na3sys009aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753934Ab3CQCpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Mar 2013 22:45:07 -0400
-Received: by mail-ve0-f200.google.com with SMTP id ox1so8486602veb.3
-        for <netdev@vger.kernel.org>; Sat, 16 Mar 2013 19:45:05 -0700 (PDT)
-In-Reply-To: <1363445275-3917-1-git-send-email-amwang@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39171 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753934Ab3CQDB0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Mar 2013 23:01:26 -0400
+In-Reply-To: <1363178269-27553-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 16, 2013 at 7:47 AM, Cong Wang <amwang@redhat.com> wrote:
-> From: Cong Wang <amwang@redhat.com>
->
-> Cc: Pravin B Shelar <pshelar@nicira.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
->
-Looks good.
+=46rom: Timo Ter=E4s <timo.teras@iki.fi>
+Date: Wed, 13 Mar 2013 14:37:49 +0200
 
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
+> This reverts commit 412ed94744d16806fbec3bd250fd94e71cde5a1f.
+>=20
+> The commit is wrong as tiph points to the outer IPv4 header which is
+> installed at ipgre_header() and not the inner one which is protocol d=
+ependant.
+>=20
+> This commit broke succesfully opennhrp which use PF_PACKET socket wit=
+h
+> ETH_P_NHRP protocol. Additionally ssl_addr is set to the link-layer
+> IPv4 address. This address is written by ipgre_header() to the skb
+> earlier, and this is the IPv4 header tiph should point to - regardles=
+s
+> of the inner protocol payload.
+>=20
+> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
 
-> ---
->
-> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-> index f5e797c..d6ee2d0 100644
-> --- a/include/linux/netdev_features.h
-> +++ b/include/linux/netdev_features.h
-> @@ -102,8 +102,8 @@ enum {
->  #define NETIF_F_VLAN_CHALLENGED        __NETIF_F(VLAN_CHALLENGED)
->  #define NETIF_F_RXFCS          __NETIF_F(RXFCS)
->  #define NETIF_F_RXALL          __NETIF_F(RXALL)
-> -#define NETIF_F_GRE_GSO                __NETIF_F(GSO_GRE)
-> -#define NETIF_F_UDP_TUNNEL     __NETIF_F(UDP_TUNNEL)
-> +#define NETIF_F_GSO_GRE                __NETIF_F(GSO_GRE)
-> +#define NETIF_F_GSO_UDP_TUNNEL __NETIF_F(GSO_UDP_TUNNEL)
->
->  /* Features valid for ethtool to change */
->  /* = all defined minus driver/device-class-related */
+Applied, and queued up for -stable, thanks.
