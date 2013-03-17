@@ -1,36 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn: hisax: netjet requires VIRT_TO_BUS
-Date: Sun, 17 Mar 2013 12:01:46 -0400 (EDT)
-Message-ID: <20130317.120146.1958709702875370639.davem@davemloft.net>
-References: <1363298204-8014-1-git-send-email-arnd@arndb.de>
-	<1363298204-8014-4-git-send-email-arnd@arndb.de>
+Subject: Re: [PATCH net-next 1/2] net_sched: don't do precise pkt_len
+ computation for untrusted packets
+Date: Sun, 17 Mar 2013 12:10:26 -0400 (EDT)
+Message-ID: <20130317.121026.733329595817911776.davem@davemloft.net>
+References: <1363333305-54398-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	isdn@linux-pingi.de, netdev@vger.kernel.org
-To: arnd@arndb.de
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mst@redhat.com, edumazet@google.com
+To: jasowang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45812 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45852 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756473Ab3CQQBr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Mar 2013 12:01:47 -0400
-In-Reply-To: <1363298204-8014-4-git-send-email-arnd@arndb.de>
+	with ESMTP id S1755923Ab3CQQK1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Mar 2013 12:10:27 -0400
+In-Reply-To: <1363333305-54398-1-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 14 Mar 2013 22:56:41 +0100
+From: Jason Wang <jasowang@redhat.com>
+Date: Fri, 15 Mar 2013 15:41:44 +0800
 
-> Disabling CONFIG_VIRT_TO_BUS on ARM showed that the hisax netjet
-> driver depends on this deprecated functionality but is not
-> marked so in Kconfig.
+> Commit 1def9238d4aa2 (net_sched: more precise pkt_len computation) tries to do
+> precise packet len computation for GSO packets, but it does not check whether
+> the packets were from untrusted source. This is wrong since: we haven't done
+> header check before so both gso_segs and headers may not be correct. So this
+> patch just bypass the precise pkt_len computation for packet from untrusted
+> source (SKB_GSO_DODGY).
 > 
-> Rather than adding ARM to the already long list of architectures
-> that this driver is broken on, this patch adds 'depends on
-> VIRT_TO_BUS' and removes the dependency on !SPARC, which is
-> also implied by that.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Applied.
+I do not think this is appropriate or even necessary.
+
+All the user can do by reporting an incorrect header size or GSO segs
+is hurt himself, by making his traffic take more packet scheduler
+quota.
+
+When we do precise accounting, it increases, never decreases, the
+amount that a packet "costs" as far as the packet scheduler is
+concerned.
