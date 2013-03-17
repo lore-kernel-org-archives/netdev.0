@@ -1,43 +1,69 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] vhost/net: fix heads usage of ubuf_info
-Date: Sun, 17 Mar 2013 20:50:22 +0200
-Message-ID: <20130317185022.GA22517@redhat.com>
-References: <20130317124609.GA25967@redhat.com>
-	<20130317.142955.1114572401286297685.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG: IPv4: Attempt to release TCP socket in state 1
+Date: Sun, 17 Mar 2013 12:00:44 -0700
+Message-ID: <1363546844.29475.83.camel@edumazet-glaptop>
+References: <alpine.DEB.2.02.1303041547080.7811@localhost6.localdomain6>
+	 <51356AC1.4090302@gmail.com> <1362460046.15793.111.camel@edumazet-glaptop>
+	 <alpine.DEB.2.02.1303042138330.7811@localhost6.localdomain6>
+	 <1362494795.15793.113.camel@edumazet-glaptop>
+	 <alpine.DEB.2.02.1303061631290.6723@dflat>
+	 <1362663990.15793.208.camel@edumazet-glaptop>
+	 <alpine.DEB.2.02.1303141359080.16308@dflat>
+	 <1363301786.29475.40.camel@edumazet-glaptop>
+	 <alpine.DEB.2.02.1303141610490.16308@dflat>
+	 <1363303174.29475.46.camel@edumazet-glaptop>
+	 <1363455366.29475.66.camel@edumazet-glaptop>
+	 <1363455885.29475.68.camel@edumazet-glaptop>
+	 <alpine.DEB.2.02.1303170218460.28650@dflat>
+	 <1363538008.29475.73.camel@edumazet-glaptop>
+	 <1363539169.29475.78.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nab@risingtidesystems.com,
-	virtualization@lists.linux-foundation.org, stable@kernel.org,
-	basil.gor@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20130317.142955.1114572401286297685.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: dormando <dormando@rydia.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1363539169.29475.78.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 17, 2013 at 02:29:55PM -0400, David Miller wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Sun, 17 Mar 2013 14:46:09 +0200
-> 
-> > ubuf info allocator uses guest controlled head as an index,
-> > so a malicious guest could put the same head entry in the ring twice,
-> > and we will get two callbacks on the same value.
-> > To fix use upend_idx which is guaranteed to be unique.
-> > 
-> > Reported-by: Rusty Russell <rusty@rustcorp.com.au>
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> Applied and queued up for -stable, thanks.
+On Sun, 2013-03-17 at 09:52 -0700, Eric Dumazet wrote:
 
-OK I'll drop it from my tree then.
+> 
+> We perform a sock_hold() somewhere while the socket is already dead.
+
+Oh well, thats not exactly that.
+
+When processing ICMP messages we perform a full inet[6] lookup and can
+find a LISTEN socket.
+
+Please try the following fix :
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index b7ab868..3d250c6 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -407,7 +407,8 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
+ 		if (code > NR_ICMP_UNREACH)
+ 			goto out;
+ 
+-		if (code == ICMP_FRAG_NEEDED) { /* PMTU discovery (RFC1191) */
++		if (sk->sk_state != TCP_LISTEN &&
++		    code == ICMP_FRAG_NEEDED) { /* PMTU discovery (RFC1191) */
+ 			tp->mtu_info = info;
+ 			if (!sock_owned_by_user(sk)) {
+ 				tcp_v4_mtu_reduced(sk);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 9b64600..c12b3ff 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -388,7 +388,7 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 			dst->ops->redirect(dst, sk, skb);
+ 	}
+ 
+-	if (type == ICMPV6_PKT_TOOBIG) {
++	if (type == ICMPV6_PKT_TOOBIG && sk->sk_state != TCP_LISTEN) {
+ 		tp->mtu_info = ntohl(info);
+ 		if (!sock_owned_by_user(sk))
+ 			tcp_v6_mtu_reduced(sk);
