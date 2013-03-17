@@ -1,42 +1,51 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: BUG: IPv4: Attempt to release TCP socket in state 1
-Date: Sun, 17 Mar 2013 07:39:48 +0100
-Message-ID: <20130317063948.GF24041@order.stressinduktion.org>
-References: <1362460046.15793.111.camel@edumazet-glaptop> <alpine.DEB.2.02.1303042138330.7811@localhost6.localdomain6> <1362494795.15793.113.camel@edumazet-glaptop> <alpine.DEB.2.02.1303061631290.6723@dflat> <1362663990.15793.208.camel@edumazet-glaptop> <alpine.DEB.2.02.1303141359080.16308@dflat> <1363301786.29475.40.camel@edumazet-glaptop> <alpine.DEB.2.02.1303141610490.16308@dflat> <1363303174.29475.46.camel@edumazet-glaptop> <1363455366.29475.66.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: dormando <dormando@rydia.net>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1363455366.29475.66.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+Subject: [PATCH] drivers: net: irda: use resource_size() in au1k_ir.c
+Date: Sun, 17 Mar 2013 09:03:46 +0200
+Message-ID: <1363503826-24166-1-git-send-email-silviupopescu1990@gmail.com>
+Cc: samuel@sortiz.org, linux-kernel@vger.kernel.org,
+	Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f182.google.com ([209.85.216.182]:33198 "EHLO
+	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752361Ab3CQHDz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Mar 2013 03:03:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 16, 2013 at 10:36:06AM -0700, Eric Dumazet wrote:
-> On Fri, 2013-03-15 at 00:19 +0100, Eric Dumazet wrote:
-> 
-> > Thanks thats really useful, we might miss to increment socket refcount
-> > in a timer setup.
-> > 
-> 
-> Hmm, please add following debugging patch as well
-> 
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index 14f6e9d..fe7c8a6 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -530,7 +530,9 @@ static inline void sock_hold(struct sock *sk)
->   */
->  static inline void __sock_put(struct sock *sk)
->  {
-> -	atomic_dec(&sk->sk_refcnt);
-> +	int newref = atomic_dec_return(&sk->sk_refcnt);
-> +
-> +	BUG_ON(newref <= 0);
->  }
+This uses the resource_size() function instead of explicit computation.
 
-Couldn't it also be a free from sock_wfree where the wmem accounting went
-wrong? It does not care about reference counts there.
+Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
+---
+ drivers/net/irda/au1k_ir.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/irda/au1k_ir.c b/drivers/net/irda/au1k_ir.c
+index b5151e4..56f1e6d 100644
+--- a/drivers/net/irda/au1k_ir.c
++++ b/drivers/net/irda/au1k_ir.c
+@@ -27,6 +27,7 @@
+ #include <linux/slab.h>
+ #include <linux/time.h>
+ #include <linux/types.h>
++#include <linux/ioport.h>
+ 
+ #include <net/irda/irda.h>
+ #include <net/irda/irmod.h>
+@@ -882,12 +883,12 @@ static int au1k_irda_probe(struct platform_device *pdev)
+ 		goto out;
+ 
+ 	err = -EBUSY;
+-	aup->ioarea = request_mem_region(r->start, r->end - r->start + 1,
++	aup->ioarea = request_mem_region(r->start, resource_size(r),
+ 					 pdev->name);
+ 	if (!aup->ioarea)
+ 		goto out;
+ 
+-	aup->iobase = ioremap_nocache(r->start, r->end - r->start + 1);
++	aup->iobase = ioremap_nocache(r->start, resource_size(r));
+ 	if (!aup->iobase)
+ 		goto out2;
+ 
+-- 
+1.7.9.5
