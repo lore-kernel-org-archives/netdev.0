@@ -1,60 +1,59 @@
-From: Thomas Egerer <hakke_007@gmx.de>
-Subject: [PATCH] ip xfrm state: Allow different selector family
-Date: Sun, 17 Mar 2013 11:56:01 +0100
-Message-ID: <5145A141.8000707@gmx.de>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH net] vhost/net: fix heads usage of ubuf_info
+Date: Sun, 17 Mar 2013 14:46:09 +0200
+Message-ID: <20130317124609.GA25967@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020602060007000004070804"
-Cc: stephen.hemminger@vyatta.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.20]:64903 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756111Ab3CQKzf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Mar 2013 06:55:35 -0400
-Received: from mailout-de.gmx.net ([10.1.76.4]) by mrigmx.server.lan
- (mrigmx002) with ESMTP (Nemesis) id 0Mg2Ch-1U2hCi27gT-00NVIP for
- <netdev@vger.kernel.org>; Sun, 17 Mar 2013 11:55:33 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------020602060007000004070804
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Nicholas A. Bellinger" <nab@risingtidesystems.com>,
+	virtualization@lists.linux-foundation.org, stable@kernel.org,
+	Basil Gor <basil.gor@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+ubuf info allocator uses guest controlled head as an index,
+so a malicious guest could put the same head entry in the ring twice,
+and we will get two callbacks on the same value.
+To fix use upend_idx which is guaranteed to be unique.
 
-Do not enforce the selector of a state to have the same address family
-as the id. This makes it possible to configure inter family states.
-
-Signed-off-by: Thomas Egerer <hakke_007@gmx.de>
+Reported-by: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Cc: stable@kernel.org
 ---
- ip/xfrm_state.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
 
+Rusty's working on switching to allocating ubufs dynamically
+but that's not 3.9 material.
+This patch is against latest net master,
+needed for 3.9-rc2 and older kernels.
 
+ drivers/vhost/net.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
---------------020602060007000004070804
-Content-Type: text/x-patch;
- name="0001-ip-xfrm-state-Allow-different-selector-family.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="0001-ip-xfrm-state-Allow-different-selector-family.patch"
-
-diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
-index 8ac3437..aec49d6 100644
---- a/ip/xfrm_state.c
-+++ b/ip/xfrm_state.c
-@@ -300,7 +300,9 @@ static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
- 			xfrm_state_flag_parse(&req.xsinfo.flags, &argc, &argv);
- 		} else if (strcmp(*argv, "sel") == 0) {
- 			NEXT_ARG();
-+			preferred_family = AF_UNSPEC;
- 			xfrm_selector_parse(&req.xsinfo.sel, &argc, &argv);
-+			preferred_family = req.xsinfo.sel;
- 		} else if (strcmp(*argv, "limit") == 0) {
- 			NEXT_ARG();
- 			xfrm_lifetime_cfg_parse(&req.xsinfo.lft, &argc, &argv);
-
-
---------------020602060007000004070804--
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 959b1cd..ec6fb3f 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -339,7 +339,8 @@ static void handle_tx(struct vhost_net *net)
+ 				msg.msg_controllen = 0;
+ 				ubufs = NULL;
+ 			} else {
+-				struct ubuf_info *ubuf = &vq->ubuf_info[head];
++				struct ubuf_info *ubuf;
++				ubuf = vq->ubuf_info + vq->upend_idx;
+ 
+ 				vq->heads[vq->upend_idx].len =
+ 					VHOST_DMA_IN_PROGRESS;
+-- 
+MST
