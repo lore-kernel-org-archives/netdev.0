@@ -1,59 +1,78 @@
-From: Ohad Ben-Cohen <ohad@wizery.com>
-Subject: Re: [PATCHv3 vringh] caif_virtio: Introduce caif over virtio
-Date: Mon, 18 Mar 2013 00:52:19 +0200
-Message-ID: <CAK=WgbbV6mvYC+KeSKJR+jmrAy3Et5opzzno1_kaicMPdDxNXg@mail.gmail.com>
-References: <1363340537-16011-1-git-send-email-erwan.yvin@stericsson.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bnx2x: fix occasional statistics off-by-4GB error
+Date: Sun, 17 Mar 2013 16:17:31 -0700
+Message-ID: <1363562251.29475.109.camel@edumazet-glaptop>
+References: <CANP3RGdWMHv-7TZ4fvASrmz7NXkO7B2g2RCZwV8ecExUsQTQ2w@mail.gmail.com>
+	 <1363384577-21287-1-git-send-email-zenczykowski@gmail.com>
+	 <504C9EFCA2D0054393414C9CB605C37F20BE6A2B@SJEXCHMB06.corp.ad.broadcom.com>
+	 <20130317.142425.1713640249735424829.davem@davemloft.net>
+	 <1363549074.4752.3.camel@lb-tlvb-eilong.il.broadcom.com>
+	 <1363551952.29475.93.camel@edumazet-glaptop>
+	 <1363553608.4752.5.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Rusty Russel <rusty@ruscorp.com.au>,
-	Sjur Braendeland <sjur.brandeland@stericsson.com>,
-	Linus Walleij <linus.walleij@stericsson.com>,
-	virtualization <virtualization@lists.linux-foundation.org>,
-	netdev <netdev@vger.kernel.org>,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: Erwan Yvin <erwan.yvin@stericsson.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, dmitry@broadcom.com,
+	zenczykowski@gmail.com, maze@google.com, netdev@vger.kernel.org,
+	yuvalmin@broadcom.com
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:46657 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755698Ab3CQWwl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Mar 2013 18:52:41 -0400
-Received: by mail-lb0-f169.google.com with SMTP id m4so4176394lbo.28
-        for <netdev@vger.kernel.org>; Sun, 17 Mar 2013 15:52:39 -0700 (PDT)
-In-Reply-To: <1363340537-16011-1-git-send-email-erwan.yvin@stericsson.com>
+Received: from mail-da0-f47.google.com ([209.85.210.47]:43676 "EHLO
+	mail-da0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756529Ab3CQXRe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Mar 2013 19:17:34 -0400
+Received: by mail-da0-f47.google.com with SMTP id s35so961243dak.34
+        for <netdev@vger.kernel.org>; Sun, 17 Mar 2013 16:17:33 -0700 (PDT)
+In-Reply-To: <1363553608.4752.5.camel@lb-tlvb-eilong.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Erwan,
+On Sun, 2013-03-17 at 22:53 +0200, Eilon Greenstein wrote:
 
-On Fri, Mar 15, 2013 at 11:42 AM, Erwan Yvin <erwan.yvin@stericsson.com> wrote:
-> diff --git a/drivers/net/caif/caif_virtio.c b/drivers/net/caif/caif_virtio.c
-> new file mode 100644
-> index 0000000..6a745dd
-> --- /dev/null
-> +++ b/drivers/net/caif/caif_virtio.c
-> @@ -0,0 +1,786 @@
-> +/*
-> + * Copyright (C) ST-Ericsson AB 2013
-> + * Authors: Vicram Arv / vikram.arv@stericsson.com,
-> + *         Dmitry Tarnyagin / dmitry.tarnyagin@stericsson.com
-> + *         Sjur Brendeland / sjur.brandeland@stericsson.com
-> + * License terms: GNU General Public License (GPL) version 2
-> + */
-> +#include <linux/module.h>
-> +#include <linux/if_arp.h>
-> +#include <linux/virtio.h>
-> +#include <linux/vringh.h>
-> +#include <linux/debugfs.h>
-> +#include <linux/spinlock.h>
-> +#include <linux/genalloc.h>
-> +#include <linux/interrupt.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/rtnetlink.h>
-> +#include <linux/remoteproc.h>
+> This is not such a trivial issue - the HW/FW is guaranteeing the atomic
+> read and this is why we can always use 32b variables.
+> 
 
-The driver looks nicely decoupled from remoteproc - do you still need
-remoteproc.h ?
+I am glad you qualify the following code as 'trivial'
 
-Thanks,
-Ohad.
+/* difference = minuend - subtrahend */
+#define DIFF_64(d_hi, m_hi, s_hi, d_lo, m_lo, s_lo) \
+        do { \
+                if (m_lo < s_lo) { \
+                        /* underflow */ \
+                        d_hi = m_hi - s_hi; \
+                        if (d_hi > 0) { \
+                                /* we can 'loan' 1 */ \
+                                d_hi--; \
+                                d_lo = m_lo + (UINT_MAX - s_lo) + 1; \
+                        } else { \
+                                /* m_hi <= s_hi */ \
+                                d_hi = 0; \
+                                d_lo = 0; \
+                        } \
+                } else { \
+                        /* m_lo >= s_lo */ \
+                        if (m_hi < s_hi) { \
+                                d_hi = 0; \
+                                d_lo = 0; \
+                        } else { \
+                                /* m_hi >= s_hi */ \
+                                d_hi = m_hi - s_hi; \
+                                d_lo = m_lo - s_lo; \
+                        } \
+                } \
+        } while (0)
+
+
+All the macros and _hi/_ho fields found in
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
+are really badly designed.
+
+It hurts so much the common sense its not even funny.
+
+All you really needed is to have normal host structures containing u64
+fields, and you only needed one single helper to convert from hw u32:u32
+to host u64.
+
+Because gcc handles u64 operations very well, even on 32bit hosts, and
+it knows about the carry flag.
