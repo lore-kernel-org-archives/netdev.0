@@ -1,69 +1,58 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [PATCH 1/2] dma-debug: Fix locking bug in check_unmap
-Date: Mon, 18 Mar 2013 15:12:43 -0700
-Message-ID: <20130318221243.7349.64147.stgit@ahduyck-cp1.jf.intel.com>
-References: <20130318220241.7349.5030.stgit@ahduyck-cp1.jf.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2] packet: packet fanout rollover during
+ socket overload
+Date: Mon, 18 Mar 2013 16:10:49 -0700
+Message-ID: <1363648249.21184.11.camel@edumazet-glaptop>
+References: <1363648051-5976-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: konrad.wilk@oracle.com, joerg.roedel@amd.com, konrad@kernel.org,
-	christoph.paasch@uclouvain.be, mingo@redhat.com,
-	shuahkhan@gmail.com, hpa@zytor.com, akpm@linux-foundation.org,
-	shuah.khan@hp.com, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130318220241.7349.5030.stgit@ahduyck-cp1.jf.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:44526 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751654Ab3CRXKv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 19:10:51 -0400
+Received: by mail-pb0-f50.google.com with SMTP id up1so6809431pbc.37
+        for <netdev@vger.kernel.org>; Mon, 18 Mar 2013 16:10:51 -0700 (PDT)
+In-Reply-To: <1363648051-5976-1-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In check_unmap it is possible to get into a dead-locked state if
-dma_mapping_error is called.  The problem is that the bucket is locked in
-check_unmap, and locked again by debug_dma_mapping_error which is called by
-dma_mapping_error.  To resolve that we must release the lock on the bucket
-before making the call to dma_mapping_error.
+On Mon, 2013-03-18 at 19:07 -0400, Willem de Bruijn wrote:
+> Minimize packet drop in a fanout group. If one socket is full,
+> roll over packets to another from the group. Maintain flow
+> affinity during normal load using an rxhash fanout policy, while
+> dispersing unexpected traffic storms that hit a single cpu, such
+> as spoofed-source DoS flows. Rollover breaks affinity for flows
+> arriving at saturated sockets during those conditions.
+> 
+> The patch adds a fanout policy ROLLOVER that rotates between sockets,
+> filling each socket before moving to the next. It also adds a fanout
+> flag ROLLOVER. If passed along with any other fanout policy, the
+> primary policy is applied until the chosen socket is full. Then,
+> rollover selects another socket, to delay packet drop until the
+> entire system is saturated.
+> 
+> Probing sockets is not free. Selecting the last used socket, as
+> rollover does, is a greedy approach that maximizes chance of
+> success, at the cost of extreme load imbalance. In practice, with
+> sufficiently long queues to absorb bursts, sockets are drained in
+> parallel and load balance looks uniform in `top`.
+> 
+> To avoid contention, scales counters with number of sockets and
+> accesses them lockfree. Values are bounds checked to ensure
+> correctness.
+> 
+> Tested using an application with 9 threads pinned to CPUs, one socket
+> per thread and sufficient busywork per packet operation to limits each
+> thread to handling 32 Kpps. When sent 500 Kpps single UDP stream
+> packets, a FANOUT_CPU setup processes 32 Kpps in total without this
+> patch, 270 Kpps with the patch. Tested with read() and with a packet
+> ring (V1).
+> 
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> ---
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
- lib/dma-debug.c |   18 +++++++++---------
- 1 files changed, 9 insertions(+), 9 deletions(-)
-
-diff --git a/lib/dma-debug.c b/lib/dma-debug.c
-index 5e396ac..724bd4d 100644
---- a/lib/dma-debug.c
-+++ b/lib/dma-debug.c
-@@ -862,17 +862,18 @@ static void check_unmap(struct dma_debug_entry *ref)
- 	entry = bucket_find_exact(bucket, ref);
- 
- 	if (!entry) {
-+		/* must drop lock before calling dma_mapping_error */
-+		put_hash_bucket(bucket, &flags);
-+
- 		if (dma_mapping_error(ref->dev, ref->dev_addr)) {
- 			err_printk(ref->dev, NULL,
--				   "DMA-API: device driver tries "
--				   "to free an invalid DMA memory address\n");
--			return;
-+				   "DMA-API: device driver tries to free an invalid DMA memory address\n");
-+		} else {
-+			err_printk(ref->dev, NULL,
-+				   "DMA-API: device driver tries to free DMA memory it has not allocated [device address=0x%016llx] [size=%llu bytes]\n",
-+				   ref->dev_addr, ref->size);
- 		}
--		err_printk(ref->dev, NULL, "DMA-API: device driver tries "
--			   "to free DMA memory it has not allocated "
--			   "[device address=0x%016llx] [size=%llu bytes]\n",
--			   ref->dev_addr, ref->size);
--		goto out;
-+		return;
- 	}
- 
- 	if (ref->size != entry->size) {
-@@ -936,7 +937,6 @@ static void check_unmap(struct dma_debug_entry *ref)
- 	hash_bucket_del(entry);
- 	dma_entry_free(entry);
- 
--out:
- 	put_hash_bucket(bucket, &flags);
- }
- 
+Reviewed-by: Eric Dumazet <edumazet@google.com>
