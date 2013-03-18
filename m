@@ -1,235 +1,171 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH v2 net-next 5/5] Tunneling: use IP Tunnel stats APIs.
-Date: Mon, 18 Mar 2013 11:13:41 -0700
-Message-ID: <1363630421-1800-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, jesse@nicira.com,
+Subject: [PATCH v2 net-next 3/5] VXLAN: Fix vxlan stats handling.
+Date: Mon, 18 Mar 2013 11:13:33 -0700
+Message-ID: <1363630413-1736-1-git-send-email-pshelar@nicira.com>
+Cc: stephen@networkplumber.org, xiyou.wangcong@gmail.com,
+	netdev@vger.kernel.org, jesse@nicira.com,
 	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog135.obsmtp.com ([74.125.149.84]:51593 "HELO
-	na3sys009aog135.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753488Ab3CRSO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 14:14:28 -0400
-Received: by mail-da0-f69.google.com with SMTP id j17so1263487dan.0
-        for <netdev@vger.kernel.org>; Mon, 18 Mar 2013 11:14:28 -0700 (PDT)
+Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:59783 "HELO
+	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753389Ab3CRSOY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 14:14:24 -0400
+Received: by mail-da0-f70.google.com with SMTP id i30so3137707dad.9
+        for <netdev@vger.kernel.org>; Mon, 18 Mar 2013 11:14:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use common function get calculate rtnl_link_stats64 stats.
+Fixes bug in VXLAN code where is iptunnel_xmit() called with NULL
+dev->tstats.
+This bug was introduced in commit 6aed0c8bf7d2f389b (tunnel: use
+iptunnel_xmit() again).
 
+Following patch fixes bug by setting dev->tstats. It uses ip_tunnel
+module code to share stats function.
+
+CC: Cong Wang <xiyou.wangcong@gmail.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
 ---
- net/ipv4/Kconfig   |    1 +
- net/ipv4/ip_vti.c  |   40 +---------------------------------------
- net/ipv6/Kconfig   |    2 ++
- net/ipv6/ip6_gre.c |   42 +-----------------------------------------
- net/ipv6/sit.c     |   37 +------------------------------------
- 5 files changed, 6 insertions(+), 116 deletions(-)
+ drivers/net/vxlan.c |   72 +++++----------------------------------------------
+ 1 files changed, 7 insertions(+), 65 deletions(-)
 
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 053b53e..8603ca8 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -319,6 +319,7 @@ config SYN_COOKIES
- config NET_IPVTI
- 	tristate "Virtual (secure) IP: tunneling"
- 	select INET_TUNNEL
-+	select NET_IP_TUNNEL
- 	depends on INET_XFRM_MODE_TUNNEL
- 	---help---
- 	  Tunneling means encapsulating data of one protocol type within
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 6a628fb..9d2bdb2 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -82,44 +82,6 @@ static int vti_tunnel_bind_dev(struct net_device *dev);
- } while (0)
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index fe9ea7d..e532b2a 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -101,20 +101,10 @@ struct vxlan_fdb {
+ 	u8		  eth_addr[ETH_ALEN];
+ };
  
+-/* Per-cpu network traffic stats */
+-struct vxlan_stats {
+-	u64			rx_packets;
+-	u64			rx_bytes;
+-	u64			tx_packets;
+-	u64			tx_bytes;
+-	struct u64_stats_sync	syncp;
+-};
+-
+ /* Pseudo network device */
+ struct vxlan_dev {
+ 	struct hlist_node hlist;
+ 	struct net_device *dev;
+-	struct vxlan_stats __percpu *stats;
+ 	__u32		  vni;		/* virtual network id */
+ 	__be32	          gaddr;	/* multicast group */
+ 	__be32		  saddr;	/* source address */
+@@ -667,7 +657,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 	struct iphdr *oip;
+ 	struct vxlanhdr *vxh;
+ 	struct vxlan_dev *vxlan;
+-	struct vxlan_stats *stats;
++	struct pcpu_tstats *stats;
+ 	__u32 vni;
+ 	int err;
  
--static struct rtnl_link_stats64 *vti_get_stats64(struct net_device *dev,
--						 struct rtnl_link_stats64 *tot)
--{
--	int i;
--
--	for_each_possible_cpu(i) {
--		const struct pcpu_tstats *tstats = per_cpu_ptr(dev->tstats, i);
--		u64 rx_packets, rx_bytes, tx_packets, tx_bytes;
--		unsigned int start;
--
--		do {
--			start = u64_stats_fetch_begin_bh(&tstats->syncp);
--			rx_packets = tstats->rx_packets;
--			tx_packets = tstats->tx_packets;
--			rx_bytes = tstats->rx_bytes;
--			tx_bytes = tstats->tx_bytes;
--		} while (u64_stats_fetch_retry_bh(&tstats->syncp, start));
--
--		tot->rx_packets += rx_packets;
--		tot->tx_packets += tx_packets;
--		tot->rx_bytes   += rx_bytes;
--		tot->tx_bytes   += tx_bytes;
--	}
--
--	tot->multicast = dev->stats.multicast;
--	tot->rx_crc_errors = dev->stats.rx_crc_errors;
--	tot->rx_fifo_errors = dev->stats.rx_fifo_errors;
--	tot->rx_length_errors = dev->stats.rx_length_errors;
--	tot->rx_errors = dev->stats.rx_errors;
--	tot->tx_fifo_errors = dev->stats.tx_fifo_errors;
--	tot->tx_carrier_errors = dev->stats.tx_carrier_errors;
--	tot->tx_dropped = dev->stats.tx_dropped;
--	tot->tx_aborted_errors = dev->stats.tx_aborted_errors;
--	tot->tx_errors = dev->stats.tx_errors;
--
--	return tot;
--}
--
- static struct ip_tunnel *vti_tunnel_lookup(struct net *net,
- 					   __be32 remote, __be32 local)
+@@ -743,7 +733,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 		}
+ 	}
+ 
+-	stats = this_cpu_ptr(vxlan->stats);
++	stats = this_cpu_ptr(vxlan->dev->tstats);
+ 	u64_stats_update_begin(&stats->syncp);
+ 	stats->rx_packets++;
+ 	stats->rx_bytes += skb->len;
+@@ -974,8 +964,7 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 
+ 			/* short-circuited back to local bridge */
+ 			if (netif_rx(skb) == NET_RX_SUCCESS) {
+-				struct vxlan_stats *stats =
+-						this_cpu_ptr(vxlan->stats);
++				struct pcpu_tstats *stats = this_cpu_ptr(dev->tstats);
+ 
+ 				u64_stats_update_begin(&stats->syncp);
+ 				stats->tx_packets++;
+@@ -1183,10 +1172,8 @@ static void vxlan_cleanup(unsigned long arg)
+ /* Setup stats when device is created */
+ static int vxlan_init(struct net_device *dev)
  {
-@@ -597,7 +559,7 @@ static const struct net_device_ops vti_netdev_ops = {
- 	.ndo_start_xmit	= vti_tunnel_xmit,
- 	.ndo_do_ioctl	= vti_tunnel_ioctl,
- 	.ndo_change_mtu	= vti_tunnel_change_mtu,
--	.ndo_get_stats64 = vti_get_stats64,
-+	.ndo_get_stats64 = ip_tunnel_get_stats64,
- };
- 
- static void vti_dev_free(struct net_device *dev)
-diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
-index ed0b9e2..11b13ea 100644
---- a/net/ipv6/Kconfig
-+++ b/net/ipv6/Kconfig
-@@ -156,6 +156,7 @@ config INET6_XFRM_MODE_ROUTEOPTIMIZATION
- config IPV6_SIT
- 	tristate "IPv6: IPv6-in-IPv4 tunnel (SIT driver)"
- 	select INET_TUNNEL
-+	select NET_IP_TUNNEL
- 	select IPV6_NDISC_NODETYPE
- 	default y
- 	---help---
-@@ -201,6 +202,7 @@ config IPV6_TUNNEL
- config IPV6_GRE
- 	tristate "IPv6: GRE tunnel"
- 	select IPV6_TUNNEL
-+	select NET_IP_TUNNEL
- 	---help---
- 	  Tunneling means encapsulating data of one protocol type within
- 	  another protocol and sending it over a channel that understands the
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index af4a5e2..499a545 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -111,46 +111,6 @@ static u32 HASH_ADDR(const struct in6_addr *addr)
- #define tunnels_l	tunnels[1]
- #define tunnels_wc	tunnels[0]
- 
--static struct rtnl_link_stats64 *ip6gre_get_stats64(struct net_device *dev,
--		struct rtnl_link_stats64 *tot)
--{
--	int i;
+-	struct vxlan_dev *vxlan = netdev_priv(dev);
 -
--	for_each_possible_cpu(i) {
--		const struct pcpu_tstats *tstats = per_cpu_ptr(dev->tstats, i);
--		u64 rx_packets, rx_bytes, tx_packets, tx_bytes;
+-	vxlan->stats = alloc_percpu(struct vxlan_stats);
+-	if (!vxlan->stats)
++	dev->tstats = alloc_percpu(struct pcpu_tstats);
++	if (!dev->tstats)
+ 		return -ENOMEM;
+ 
+ 	return 0;
+@@ -1242,49 +1229,6 @@ static int vxlan_stop(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-/* Merge per-cpu statistics */
+-static struct rtnl_link_stats64 *vxlan_stats64(struct net_device *dev,
+-					       struct rtnl_link_stats64 *stats)
+-{
+-	struct vxlan_dev *vxlan = netdev_priv(dev);
+-	struct vxlan_stats tmp, sum = { 0 };
+-	unsigned int cpu;
+-
+-	for_each_possible_cpu(cpu) {
 -		unsigned int start;
+-		const struct vxlan_stats *stats
+-			= per_cpu_ptr(vxlan->stats, cpu);
 -
 -		do {
--			start = u64_stats_fetch_begin_bh(&tstats->syncp);
--			rx_packets = tstats->rx_packets;
--			tx_packets = tstats->tx_packets;
--			rx_bytes = tstats->rx_bytes;
--			tx_bytes = tstats->tx_bytes;
--		} while (u64_stats_fetch_retry_bh(&tstats->syncp, start));
+-			start = u64_stats_fetch_begin_bh(&stats->syncp);
+-			memcpy(&tmp, stats, sizeof(tmp));
+-		} while (u64_stats_fetch_retry_bh(&stats->syncp, start));
 -
--		tot->rx_packets += rx_packets;
--		tot->tx_packets += tx_packets;
--		tot->rx_bytes   += rx_bytes;
--		tot->tx_bytes   += tx_bytes;
+-		sum.tx_bytes   += tmp.tx_bytes;
+-		sum.tx_packets += tmp.tx_packets;
+-		sum.rx_bytes   += tmp.rx_bytes;
+-		sum.rx_packets += tmp.rx_packets;
 -	}
 -
--	tot->multicast = dev->stats.multicast;
--	tot->rx_crc_errors = dev->stats.rx_crc_errors;
--	tot->rx_fifo_errors = dev->stats.rx_fifo_errors;
--	tot->rx_length_errors = dev->stats.rx_length_errors;
--	tot->rx_frame_errors = dev->stats.rx_frame_errors;
--	tot->rx_errors = dev->stats.rx_errors;
+-	stats->tx_bytes   = sum.tx_bytes;
+-	stats->tx_packets = sum.tx_packets;
+-	stats->rx_bytes   = sum.rx_bytes;
+-	stats->rx_packets = sum.rx_packets;
 -
--	tot->tx_fifo_errors = dev->stats.tx_fifo_errors;
--	tot->tx_carrier_errors = dev->stats.tx_carrier_errors;
--	tot->tx_dropped = dev->stats.tx_dropped;
--	tot->tx_aborted_errors = dev->stats.tx_aborted_errors;
--	tot->tx_errors = dev->stats.tx_errors;
+-	stats->multicast = dev->stats.multicast;
+-	stats->rx_length_errors = dev->stats.rx_length_errors;
+-	stats->rx_frame_errors = dev->stats.rx_frame_errors;
+-	stats->rx_errors = dev->stats.rx_errors;
 -
--	return tot;
+-	stats->tx_dropped = dev->stats.tx_dropped;
+-	stats->tx_carrier_errors  = dev->stats.tx_carrier_errors;
+-	stats->tx_aborted_errors  = dev->stats.tx_aborted_errors;
+-	stats->collisions  = dev->stats.collisions;
+-	stats->tx_errors = dev->stats.tx_errors;
+-
+-	return stats;
 -}
 -
- /* Given src, dst and key, find appropriate for input tunnel. */
- 
- static struct ip6_tnl *ip6gre_tunnel_lookup(struct net_device *dev,
-@@ -1257,7 +1217,7 @@ static const struct net_device_ops ip6gre_netdev_ops = {
- 	.ndo_start_xmit		= ip6gre_tunnel_xmit,
- 	.ndo_do_ioctl		= ip6gre_tunnel_ioctl,
- 	.ndo_change_mtu		= ip6gre_tunnel_change_mtu,
--	.ndo_get_stats64	= ip6gre_get_stats64,
+ /* Stub, nothing needs to be done. */
+ static void vxlan_set_multicast_list(struct net_device *dev)
+ {
+@@ -1295,7 +1239,7 @@ static const struct net_device_ops vxlan_netdev_ops = {
+ 	.ndo_open		= vxlan_open,
+ 	.ndo_stop		= vxlan_stop,
+ 	.ndo_start_xmit		= vxlan_xmit,
+-	.ndo_get_stats64	= vxlan_stats64,
 +	.ndo_get_stats64	= ip_tunnel_get_stats64,
- };
+ 	.ndo_set_rx_mode	= vxlan_set_multicast_list,
+ 	.ndo_change_mtu		= eth_change_mtu,
+ 	.ndo_validate_addr	= eth_validate_addr,
+@@ -1312,9 +1256,7 @@ static struct device_type vxlan_type = {
  
- static void ip6gre_dev_free(struct net_device *dev)
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index ee4fc57..35f28d0 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -87,41 +87,6 @@ struct sit_net {
- 	struct net_device *fb_tunnel_dev;
- };
+ static void vxlan_free(struct net_device *dev)
+ {
+-	struct vxlan_dev *vxlan = netdev_priv(dev);
+-
+-	free_percpu(vxlan->stats);
++	free_percpu(dev->tstats);
+ 	free_netdev(dev);
+ }
  
--static struct rtnl_link_stats64 *ipip6_get_stats64(struct net_device *dev,
--						   struct rtnl_link_stats64 *tot)
--{
--	int i;
--
--	for_each_possible_cpu(i) {
--		const struct pcpu_tstats *tstats = per_cpu_ptr(dev->tstats, i);
--		u64 rx_packets, rx_bytes, tx_packets, tx_bytes;
--		unsigned int start;
--
--		do {
--			start = u64_stats_fetch_begin_bh(&tstats->syncp);
--			rx_packets = tstats->rx_packets;
--			tx_packets = tstats->tx_packets;
--			rx_bytes = tstats->rx_bytes;
--			tx_bytes = tstats->tx_bytes;
--		} while (u64_stats_fetch_retry_bh(&tstats->syncp, start));
--
--		tot->rx_packets += rx_packets;
--		tot->tx_packets += tx_packets;
--		tot->rx_bytes   += rx_bytes;
--		tot->tx_bytes   += tx_bytes;
--	}
--
--	tot->rx_errors = dev->stats.rx_errors;
--	tot->rx_frame_errors = dev->stats.rx_frame_errors;
--	tot->tx_fifo_errors = dev->stats.tx_fifo_errors;
--	tot->tx_carrier_errors = dev->stats.tx_carrier_errors;
--	tot->tx_dropped = dev->stats.tx_dropped;
--	tot->tx_aborted_errors = dev->stats.tx_aborted_errors;
--	tot->tx_errors = dev->stats.tx_errors;
--
--	return tot;
--}
--
- /*
-  * Must be invoked with rcu_read_lock
-  */
-@@ -1202,7 +1167,7 @@ static const struct net_device_ops ipip6_netdev_ops = {
- 	.ndo_start_xmit	= ipip6_tunnel_xmit,
- 	.ndo_do_ioctl	= ipip6_tunnel_ioctl,
- 	.ndo_change_mtu	= ipip6_tunnel_change_mtu,
--	.ndo_get_stats64= ipip6_get_stats64,
-+	.ndo_get_stats64= ip_tunnel_get_stats64,
- };
- 
- static void ipip6_dev_free(struct net_device *dev)
 -- 
 1.7.1
