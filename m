@@ -1,68 +1,33 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: sctp: hang in sctp_remaddr_seq_show
-Date: Mon, 18 Mar 2013 16:32:02 -0400
-Message-ID: <20130318203202.GB9478@hmsreliant.think-freely.org>
-References: <51434D78.9030308@oracle.com>
- <20130318110415.GA9478@hmsreliant.think-freely.org>
- <1363620340.29475.132.camel@edumazet-glaptop>
- <5147333A.3010907@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bnx2x: fix occasional statistics off-by-4GB error
+Date: Mon, 18 Mar 2013 13:35:17 -0700
+Message-ID: <1363638917.21184.3.camel@edumazet-glaptop>
+References: <1363553608.4752.5.camel@lb-tlvb-eilong.il.broadcom.com>
+	 <CANP3RGdZHMTPT6FTbYzSOHkrNq4seF1WcXjysQ6=HEp0A_CxWg@mail.gmail.com>
+	 <1363601182.4752.13.camel@lb-tlvb-eilong.il.broadcom.com>
+	 <20130318.131318.138158829629301794.davem@davemloft.net>
+	 <CAHo-OoxaaLLXtAZcx99m7p5=Hez3gpUWxvoQAgksyG3PRZH-Ng@mail.gmail.com>
+	 <CAHo-OowoWD_BT2W8ok32pcSmcshXttpErna-X92Ojz_A8es8iw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Sasha Levin <sasha.levin@oracle.com>, sri@us.ibm.com,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	Dave Jones <davej@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5147333A.3010907@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, eilong@broadcom.com,
+	dmitry@broadcom.com, netdev@vger.kernel.org, yuvalmin@broadcom.com
+To: Maciej =?UTF-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f45.google.com ([209.85.210.45]:43540 "EHLO
+	mail-da0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755149Ab3CRUfU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 16:35:20 -0400
+Received: by mail-da0-f45.google.com with SMTP id v40so1555045dad.32
+        for <netdev@vger.kernel.org>; Mon, 18 Mar 2013 13:35:19 -0700 (PDT)
+In-Reply-To: <CAHo-OowoWD_BT2W8ok32pcSmcshXttpErna-X92Ojz_A8es8iw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 18, 2013 at 11:31:06AM -0400, Vlad Yasevich wrote:
-> On 03/18/2013 11:25 AM, Eric Dumazet wrote:
-> >On Mon, 2013-03-18 at 07:04 -0400, Neil Horman wrote:
-> >
-> >>I'm not sure why the process would never get back to the schedule, but looking
-> >>at the sctp_remaddr_seq_show function, I think that we should convert this
-> >>sequence:
-> >>	sctp_local_bh_disable();
-> >>	read_lock(&head->lock);
-> >>	rcu_read_lock();
-> >>
-> >>to this:
-> >>	read_lock(&head->lock);
-> >>	rcu_read_lock_bh();
-> >>
-> >>Neil
-> >
-> >I dont think so.
-> >
-> >BH needs to be disabled before read_lock(&head->lock);
-> >
-> >or else, write_lock() could deadlock (assuming it can be called from BH)
-> >
-> >
-> 
-> If anything, this should probably be done like this:
-> 
-> rcu_read_lock();
-> read_lock_bh(&head->lock)
-> ...
-> 
-> read_unlock_bh(&head->lock)
-> rcu_read_unlock();
-> 
-Vlads, right.  We need to grab the rcu lock before the read lock, but we should
-probably use the rcu_read_lock_bh variant, since we're going to disable bottom
-halves anyway.
-Neil
+On Mon, 2013-03-18 at 13:06 -0700, Maciej =C5=BBenczykowski wrote:
+> Current best guess is UPDATE_ESTAT_QSTAT_64 which uses SUB_64
+> implemented via DIFF_64 which is crazy.
 
-> -vlad
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+All these macros are really ugly, I wish someone could cleanup this
+code.
