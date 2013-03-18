@@ -1,46 +1,46 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf-next] netfilter: nfnetlink_queue: zero copy support
-Date: Mon, 18 Mar 2013 16:36:00 +0100
-Message-ID: <20130318153600.GA10854@localhost>
-References: <1363576555.29475.122.camel@edumazet-glaptop>
- <20130318092444.GG7938@breakpoint.cc>
- <1363614679.29475.130.camel@edumazet-glaptop>
+From: Dan Williams <dcbw@redhat.com>
+Subject: [PATCH] libertas: drop maintainership
+Date: Mon, 18 Mar 2013 11:48:41 -0500
+Message-ID: <1363625321.1597.28.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev <netdev@vger.kernel.org>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1363614679.29475.130.camel@edumazet-glaptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, Daniel Drake <dsd@laptop.org>,
+	Bing Zhao <bzhao@marvell.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56153 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751149Ab3CRQrw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Mar 2013 12:47:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 18, 2013 at 06:51:19AM -0700, Eric Dumazet wrote:
-> On Mon, 2013-03-18 at 10:24 +0100, Florian Westphal wrote:
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > >
-> > > -GRO/GSO packets are segmented in nf_queue()
-> > > and checksummed in nfqnl_build_packet_message().
-> > > Proper support for GSO/GRO packets (no segmentation,
-> > > and no checksumming) needs application cooperation, if we
-> > > want no regressions.
-> > 
-> > Since ipqueue is gone we might be able to push the segmentation
-> > down to nfnetlink_queue.  Then new userspace applications
-> > could indicate a 'I won't verify checksums and will handle huge
-> > packets'.
-> > 
-> > Are you working on something like this?
-> 
-> I validated that it was only an API concern, by commenting out the code,
-> and got 20Gbps (link speed) using the sample program (using a bigger
-> buffer to receive the skbs and removing the printf() for each packet)
-> 
-> Pablo followed the experiments and I believe he has an idea of the
-> needed API.
+Would be better maintained by somebody who actualy has time for it.
 
-Will take over this. Florian, ping me if interested in helping.
+Signed-off-by: Dan Williams <dcbw@redhat.com>
+---
+Daniel?  Bing? :)
 
-Thanks a lot for the patch and ideas Eric!
+I'm quite happy to ACK somebody else picking libertas up, and I'm also
+happy to investigate how to send my hardware cache to the new
+maintainer.  (usb8388 dev modules, some CF8385s, some sd8686s, etc).
+Also happy to forward along the libertas-dev moderator password.
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index c08411b..2146279 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5042,12 +5042,6 @@ L:	netdev@vger.kernel.org
+ S:	Maintained
+ F:	drivers/net/ethernet/marvell/sk*
+ 
+-MARVELL LIBERTAS WIRELESS DRIVER
+-M:	Dan Williams <dcbw@redhat.com>
+-L:	libertas-dev@lists.infradead.org
+-S:	Maintained
+-F:	drivers/net/wireless/libertas/
+-
+ MARVELL MV643XX ETHERNET DRIVER
+ M:	Lennert Buytenhek <buytenh@wantstofly.org>
+ L:	netdev@vger.kernel.org
