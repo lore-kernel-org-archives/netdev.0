@@ -1,55 +1,57 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH] bnx2x: fix occasional statistics off-by-4GB error
-Date: Mon, 18 Mar 2013 09:27:14 +0200
-Message-ID: <1363591634.4752.10.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <CANP3RGdWMHv-7TZ4fvASrmz7NXkO7B2g2RCZwV8ecExUsQTQ2w@mail.gmail.com>
- <1363384577-21287-1-git-send-email-zenczykowski@gmail.com>
- <504C9EFCA2D0054393414C9CB605C37F20BE6A2B@SJEXCHMB06.corp.ad.broadcom.com>
- <20130317.142425.1713640249735424829.davem@davemloft.net>
- <1363549074.4752.3.camel@lb-tlvb-eilong.il.broadcom.com>
- <1363551952.29475.93.camel@edumazet-glaptop>
- <1363553608.4752.5.camel@lb-tlvb-eilong.il.broadcom.com>
- <1363562251.29475.109.camel@edumazet-glaptop>
-Reply-To: eilong@broadcom.com
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCHv3 vringh] caif_virtio: Introduce caif over virtio
+Date: Mon, 18 Mar 2013 14:15:36 +1030
+Message-ID: <87ip4ps74v.fsf@rustcorp.com.au>
+References: <1363340537-16011-1-git-send-email-erwan.yvin@stericsson.com> <CAK=WgbbV6mvYC+KeSKJR+jmrAy3Et5opzzno1_kaicMPdDxNXg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, dmitry@broadcom.com,
-	zenczykowski@gmail.com, maze@google.com, netdev@vger.kernel.org,
-	yuvalmin@broadcom.com
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Rusty Russel <rusty@ruscorp.com.au>,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>,
+	Linus Walleij <linus.walleij@stericsson.com>,
+	virtualization <virtualization@lists.linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>
+To: Ohad Ben-Cohen <ohad@wizery.com>,
+	Erwan Yvin <erwan.yvin@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2303 "EHLO mms3.broadcom.com"
+Received: from ozlabs.org ([203.10.76.45]:44720 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751106Ab3CRH3A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Mar 2013 03:29:00 -0400
-In-Reply-To: <1363562251.29475.109.camel@edumazet-glaptop>
+	id S1751989Ab3CRISL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Mar 2013 04:18:11 -0400
+In-Reply-To: <CAK=WgbbV6mvYC+KeSKJR+jmrAy3Et5opzzno1_kaicMPdDxNXg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-03-17 at 16:17 -0700, Eric Dumazet wrote:
-> On Sun, 2013-03-17 at 22:53 +0200, Eilon Greenstein wrote:
-> 
-> > This is not such a trivial issue - the HW/FW is guaranteeing the atomic
-> > read and this is why we can always use 32b variables.
-> > 
-> 
-> I am glad you qualify the following code as 'trivial'
-> 
+Ohad Ben-Cohen <ohad@wizery.com> writes:
+> Hi Erwan,
+>
+> On Fri, Mar 15, 2013 at 11:42 AM, Erwan Yvin <erwan.yvin@stericsson.com> wrote:
+>> +++ b/drivers/net/caif/caif_virtio.c
+...
+>> +#include <linux/remoteproc.h>
+>
+> The driver looks nicely decoupled from remoteproc - do you still need
+> remoteproc.h ?
 
-Eric - I did not mean that the solution is trivial, I meant that the
-problem is trivial. Like the trivial statement that the code should not
-contain any bugs :)
+Seems not.
 
+Thanks,
+Rusty.
 
-> All you really needed is to have normal host structures containing u64
-> fields, and you only needed one single helper to convert from hw u32:u32
-> to host u64.
-> 
-> Because gcc handles u64 operations very well, even on 32bit hosts, and
-> it knows about the carry flag.
+caif_virtio: remove unneeded remoteproc.h
 
-I was not clear when I said size-extension: most of the HW counters are
-46bits and we are trying to keep 64bits counters in the SW, so simply
-copying the data from the HW is not enough.
+Reported-by: Ohad Ben-Cohen <ohad@wizery.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+
+diff --git a/drivers/net/caif/caif_virtio.c b/drivers/net/caif/caif_virtio.c
+index 6a745dd..b1e1205 100644
+--- a/drivers/net/caif/caif_virtio.c
++++ b/drivers/net/caif/caif_virtio.c
+@@ -15,7 +15,6 @@
+ #include <linux/interrupt.h>
+ #include <linux/netdevice.h>
+ #include <linux/rtnetlink.h>
+-#include <linux/remoteproc.h>
+ #include <linux/virtio_ids.h>
+ #include <linux/virtio_caif.h>
+ #include <linux/virtio_ring.h>
