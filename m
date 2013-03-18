@@ -1,63 +1,54 @@
-From: "Piotr Haber" <phaber@broadcom.com>
-Subject: Re: [PATCH regression/bisected] Revert
- "brcmsmac: support 4313iPA"
-Date: Mon, 18 Mar 2013 14:49:57 +0100
-Message-ID: <51471B85.5060404@broadcom.com>
-References: <1363603503-2378-1-git-send-email-dh.herrmann@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH nf-next] netfilter: nfnetlink_queue: zero copy support
+Date: Mon, 18 Mar 2013 06:51:19 -0700
+Message-ID: <1363614679.29475.130.camel@edumazet-glaptop>
+References: <1363576555.29475.122.camel@edumazet-glaptop>
+	 <20130318092444.GG7938@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Arend van Spriel" <arend@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org,
-	"Pieter-Paul Giesberts" <pieterpg@broadcom.com>
-To: "David Herrmann" <dh.herrmann@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1363603503-2378-1-git-send-email-dh.herrmann@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netdev <netdev@vger.kernel.org>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:59159 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750985Ab3CRNvW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 09:51:22 -0400
+In-Reply-To: <20130318092444.GG7938@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/18/13 11:45, David Herrmann wrote:
-> This reverts commit b6fc28a158076ca2764edc9a6d1e1402f56e1c0c. It breaks
-> wireless AP reconnection on: (14e4:4727)
->   Broadcom Corporation BCM4313 802.11b/g/n Wireless LAN Controller
+On Mon, 2013-03-18 at 10:24 +0100, Florian Westphal wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >
+> > -GRO/GSO packets are segmented in nf_queue()
+> > and checksummed in nfqnl_build_packet_message().
+> > Proper support for GSO/GRO packets (no segmentation,
+> > and no checksumming) needs application cooperation, if we
+> > want no regressions.
 > 
-> Any attempt to reconnect to an AP results in timeouts no matter how near to the
-> AP I am:
->  00:10:40 $nb kernel: wlan0: authenticate with 00:18:39:0a:8e:23
->  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 1/3)
->  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 2/3)
->  00:10:41 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 3/3)
->  00:10:41 $nb kernel: wlan0: authentication with 00:18:39:0a:8e:23 timed out
-> ---
-> Hi
+> Since ipqueue is gone we might be able to push the segmentation
+> down to nfnetlink_queue.  Then new userspace applications
+> could indicate a 'I won't verify checksums and will handle huge
+> packets'.
 > 
-> I tried coming up with a fix instead of reverting this commit, but the commit is
-> way to big for me to understand what's going on. Sorry.
-> 
-> With linux-3.8 connecting to an AP broke on my machine. I could connect to an AP
-> one time, but any further attempt resulted in:
->  00:10:40 $nb kernel: wlan0: authenticate with 00:18:39:0a:8e:23
->  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 1/3)
->  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 2/3)
->  00:10:41 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 3/3)
->  00:10:41 $nb kernel: wlan0: authentication with 00:18:39:0a:8e:23 timed out
-> 
-> Even sitting right next to the AP didn't help so I started bisecting and it
-> turned out to be:
->   "brcmsmac: support 4313iPA" b6fc28a158076ca2764edc9a6d1e1402f56e1c0c
-> Please revert it.
-> 
-> Thanks
-> David
-> 
-Hi,
-unfortunately this is not a first report of this patch breaking 4313 for some users.
-I'm pretty confident that it is hardware revision related as we have 4313ePA and iPA boards running
-successfully in our test setup.
-Could you aid us in effort of finding the problem by supplying the contents of this debugfs file:
-<debugfs_mount>/brcmsmac/bcma0:0/hardware
+> Are you working on something like this?
 
-Piotr
+I validated that it was only an API concern, by commenting out the code,
+and got 20Gbps (link speed) using the sample program (using a bigger
+buffer to receive the skbs and removing the printf() for each packet)
+
+Pablo followed the experiments and I believe he has an idea of the
+needed API. Anyway, after one week in NFWS, I wont have the time to do
+it, I have a huge backlog...
+
+Note that its not a zero copy :
+
+Before the patch we had 2 copies. (kernel->kernel done in softirq
+context, and kernel->user in process context)
+
+After the patch we have the copy from kernel to user land, done
+in process context.
