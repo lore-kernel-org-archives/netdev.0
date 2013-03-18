@@ -1,78 +1,108 @@
-From: David Herrmann <dh.herrmann@gmail.com>
-Subject: Re: [PATCH regression/bisected] Revert "brcmsmac: support 4313iPA"
-Date: Mon, 18 Mar 2013 14:58:08 +0100
-Message-ID: <CANq1E4TsM6yoSt9aELFan0ayEw3PSfYCe+PEe35YFHzZ-9rTuA@mail.gmail.com>
-References: <1363603503-2378-1-git-send-email-dh.herrmann@gmail.com>
-	<51471B85.5060404@broadcom.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH 2/4] xen-netfront: drop skb when skb->len
+ > 65535
+Date: Mon, 18 Mar 2013 14:00:00 +0000
+Message-ID: <51471DE0.9060506@citrix.com>
+References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>	 <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>	 <51471AAC.2050509@citrix.com> <1363614500.30193.47.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Arend van Spriel <arend@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>
-To: Piotr Haber <phaber@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51471B85.5060404@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:57578 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751330Ab3CROAD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Mar 2013 10:00:03 -0400
+In-Reply-To: <1363614500.30193.47.camel@zakaz.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Piotr
+On 18/03/13 13:48, Ian Campbell wrote:
+> On Mon, 2013-03-18 at 13:46 +0000, David Vrabel wrote:
+>> On 18/03/13 10:35, Wei Liu wrote:
+>>> The `size' field of Xen network wire format is uint16_t, anything bigger than
+>>> 65535 will cause overflow.
+>>
+>> The backend needs to be able to handle these bad packets without
+>> disconnecting the VIF -- we can't fix all the frontend drivers.
+> 
+> Agreed, although that doesn't imply that we shouldn't fix the frontend
+> where we can -- such as upstream as Wei does here.
 
-On Mon, Mar 18, 2013 at 2:49 PM, Piotr Haber <phaber@broadcom.com> wrote:
-> On 03/18/13 11:45, David Herrmann wrote:
->> This reverts commit b6fc28a158076ca2764edc9a6d1e1402f56e1c0c. It breaks
->> wireless AP reconnection on: (14e4:4727)
->>   Broadcom Corporation BCM4313 802.11b/g/n Wireless LAN Controller
->>
->> Any attempt to reconnect to an AP results in timeouts no matter how near to the
->> AP I am:
->>  00:10:40 $nb kernel: wlan0: authenticate with 00:18:39:0a:8e:23
->>  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 1/3)
->>  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 2/3)
->>  00:10:41 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 3/3)
->>  00:10:41 $nb kernel: wlan0: authentication with 00:18:39:0a:8e:23 timed out
->> ---
->> Hi
->>
->> I tried coming up with a fix instead of reverting this commit, but the commit is
->> way to big for me to understand what's going on. Sorry.
->>
->> With linux-3.8 connecting to an AP broke on my machine. I could connect to an AP
->> one time, but any further attempt resulted in:
->>  00:10:40 $nb kernel: wlan0: authenticate with 00:18:39:0a:8e:23
->>  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 1/3)
->>  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 2/3)
->>  00:10:41 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 3/3)
->>  00:10:41 $nb kernel: wlan0: authentication with 00:18:39:0a:8e:23 timed out
->>
->> Even sitting right next to the AP didn't help so I started bisecting and it
->> turned out to be:
->>   "brcmsmac: support 4313iPA" b6fc28a158076ca2764edc9a6d1e1402f56e1c0c
->> Please revert it.
->>
->> Thanks
->> David
->>
-> Hi,
-> unfortunately this is not a first report of this patch breaking 4313 for some users.
-> I'm pretty confident that it is hardware revision related as we have 4313ePA and iPA boards running
-> successfully in our test setup.
-> Could you aid us in effort of finding the problem by supplying the contents of this debugfs file:
-> <debugfs_mount>/brcmsmac/bcma0:0/hardware
+Yes, frontends should be fixed where possible.
 
-Hi
+This is what I came up with for the backend.  I don't have time to look
+into it further but, Wei, feel free to use it as a starting point.
 
-$ cat /sys/kernel/debug/brcmsmac/bcma0\:0/hardware
-board vendor: 185f
-board type: 51a
-board revision: 1408
-board flags: 8402a01
-board flags2: 880
-firmware revision: 262032b
-
-I can also try partial reverts of that commit, but I really don't know
-which parts might be important.
-
-Thanks
 David
+
+diff --git a/drivers/net/xen-netback/netback.c
+b/drivers/net/xen-netback/netback.c
+index cd49ba9..18e2671 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -899,10 +899,11 @@ static void netbk_fatal_tx_err(struct xenvif *vif)
+ static int netbk_count_requests(struct xenvif *vif,
+ 				struct xen_netif_tx_request *first,
+ 				struct xen_netif_tx_request *txp,
+-				int work_to_do)
++				int work_to_do, int idx)
+ {
+ 	RING_IDX cons = vif->tx.req_cons;
+ 	int frags = 0;
++	bool drop = false;
+
+ 	if (!(first->flags & XEN_NETTXF_more_data))
+ 		return 0;
+@@ -922,10 +923,20 @@ static int netbk_count_requests(struct xenvif *vif,
+
+ 		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + frags),
+ 		       sizeof(*txp));
+-		if (txp->size > first->size) {
+-			netdev_err(vif->dev, "Frag is bigger than frame.\n");
+-			netbk_fatal_tx_err(vif);
+-			return -EIO;
++
++		/*
++		 * If the guest submitted a frame >= 64 KiB then
++		 * first->size overflowed and following frags will
++		 * appear to be larger than the frame.
++		 *
++		 * This cannot be a fatal error as there are buggy
++		 * frontends that do this.
++		 *
++		 * Consume all the frags and drop the packet.
++		 */
++		if (!drop && txp->size > first->size) {
++			netdev_dbg(vif->dev, "Frag is bigger than frame.\n");
++			drop = true;
+ 		}
+
+ 		first->size -= txp->size;
+@@ -938,6 +949,12 @@ static int netbk_count_requests(struct xenvif *vif,
+ 			return -EINVAL;
+ 		}
+ 	} while ((txp++)->flags & XEN_NETTXF_more_data);
++
++	if (drop) {
++		netbk_tx_err(vif, txp, idx + frags);
++		return -EIO;
++	}
++
+ 	return frags;
+ }
+
+@@ -1327,7 +1344,7 @@ static unsigned xen_netbk_tx_build_gops(struct
+xen_netbk *netbk)
+ 				continue;
+ 		}
+
+-		ret = netbk_count_requests(vif, &txreq, txfrags, work_to_do);
++		ret = netbk_count_requests(vif, &txreq, txfrags, work_to_do, idx);
+ 		if (unlikely(ret < 0))
+ 			continue;
