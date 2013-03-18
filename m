@@ -1,392 +1,772 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH 4/4] xen-netback: coalesce slots before copying
-Date: Mon, 18 Mar 2013 10:35:55 +0000
-Message-ID: <1363602955-24790-5-git-send-email-wei.liu2@citrix.com>
-References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ian.campbell@citrix.com>, <konrad.wilk@oracle.com>,
-	<annie.li@oracle.com>, Wei Liu <wei.liu2@citrix.com>
-To: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:8512 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751271Ab3CRKgP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Mar 2013 06:36:15 -0400
-In-Reply-To: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH regression/bisected] Revert "brcmsmac: support 4313iPA"
+Date: Mon, 18 Mar 2013 11:45:03 +0100
+Message-ID: <1363603503-2378-1-git-send-email-dh.herrmann@gmail.com>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Piotr Haber <phaber-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Pieter-Paul Giesberts <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch tries to coalesce tx requests when constructing grant copy
-structures. It enables netback to deal with situation when frontend's
-MAX_SKB_FRAGS is larger than backend's MAX_SKB_FRAGS.
+This reverts commit b6fc28a158076ca2764edc9a6d1e1402f56e1c0c. It breaks
+wireless AP reconnection on: (14e4:4727)
+  Broadcom Corporation BCM4313 802.11b/g/n Wireless LAN Controller
 
-It defines max_skb_slots, which is a estimation of the maximum number of slots
-a guest can send, anything bigger than that is considered malicious. Now it is
-set to 20, which should be enough to accommodate Linux (16 to 19) and possibly
-Windows (19?).
-
-Also change variable name from "frags" to "slots" in netbk_count_requests.
-
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Any attempt to reconnect to an AP results in timeouts no matter how near to the
+AP I am:
+ 00:10:40 $nb kernel: wlan0: authenticate with 00:18:39:0a:8e:23
+ 00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 1/3)
+ 00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 2/3)
+ 00:10:41 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 3/3)
+ 00:10:41 $nb kernel: wlan0: authentication with 00:18:39:0a:8e:23 timed out
 ---
- drivers/net/xen-netback/netback.c |  204 ++++++++++++++++++++++++++++---------
- 1 file changed, 157 insertions(+), 47 deletions(-)
+Hi
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 6e8e51a..d7bbce9 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -47,9 +47,20 @@
- #include <asm/xen/hypercall.h>
- #include <asm/xen/page.h>
+I tried coming up with a fix instead of reverting this commit, but the commit is
+way to big for me to understand what's going on. Sorry.
+
+With linux-3.8 connecting to an AP broke on my machine. I could connect to an AP
+one time, but any further attempt resulted in:
+ 00:10:40 $nb kernel: wlan0: authenticate with 00:18:39:0a:8e:23
+ 00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 1/3)
+ 00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 2/3)
+ 00:10:41 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 3/3)
+ 00:10:41 $nb kernel: wlan0: authentication with 00:18:39:0a:8e:23 timed out
+
+Even sitting right next to the AP didn't help so I started bisecting and it
+turned out to be:
+  "brcmsmac: support 4313iPA" b6fc28a158076ca2764edc9a6d1e1402f56e1c0c
+Please revert it.
+
+Thanks
+David
+
+
+wpa.conf:
+  ctrl_interface=/run/wpa_supplicant
+  ctrl_interface_group=wheel
+  network={
+    ssid="$name"
+    proto=RSN WPA
+    psk="$pw"
+  }
+
+iwlist wlan0 scan:
+          Cell 05 - Address: 00:18:39:0A:8E:23
+                    Channel:9
+                    Frequency:2.452 GHz (Channel 9)
+                    Quality=44/70  Signal level=-66 dBm
+                    Encryption key:on
+                    ESSID:"$name"
+                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 18 Mb/s
+                              24 Mb/s; 36 Mb/s; 54 Mb/s
+                    Bit Rates:6 Mb/s; 9 Mb/s; 12 Mb/s; 48 Mb/s
+                    Mode:Master
+                    Extra:tsf=0000004f3b16bb1d
+                    Extra: Last beacon: 21ms ago
+                    IE: Unknown: 000B626C6F636B666C6F657465
+                    IE: Unknown: 010882848B962430486C
+                    IE: Unknown: 030109
+                    IE: Unknown: 2A0104
+                    IE: Unknown: 2F0104
+                    IE: IEEE 802.11i/WPA2 Version 1
+                        Group Cipher : CCMP
+                        Pairwise Ciphers (1) : CCMP
+                        Authentication Suites (1) : PSK
+                    IE: Unknown: 32040C121860
+                    IE: Unknown: DD06001018020204
+
+
+ .../net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c  | 369 ++++++++-------------
+ .../wireless/brcm80211/brcmsmac/phy/phytbl_lcn.c   |  64 ++--
+ 2 files changed, 162 insertions(+), 271 deletions(-)
+
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c b/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c
+index 21a8242..18d3764 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c
++++ b/drivers/net/wireless/brcm80211/brcmsmac/phy/phy_lcn.c
+@@ -1137,9 +1137,8 @@ wlc_lcnphy_set_rx_gain_by_distribution(struct brcms_phy *pi,
+ 	gain0_15 = ((biq1 & 0xf) << 12) |
+ 		   ((tia & 0xf) << 8) |
+ 		   ((lna2 & 0x3) << 6) |
+-		   ((lna2 & 0x3) << 4) |
+-		   ((lna1 & 0x3) << 2) |
+-		   ((lna1 & 0x3) << 0);
++		   ((lna2 &
++		     0x3) << 4) | ((lna1 & 0x3) << 2) | ((lna1 & 0x3) << 0);
  
-+/*
-+ * This is an estimation of the maximum possible frags a SKB might
-+ * have, anything larger than this is considered malicious. Typically
-+ * Linux has 16 to 19, Windows has 19(?).
-+ */
-+#define MAX_SKB_SLOTS_DEFAULT 20
-+static unsigned int max_skb_slots = MAX_SKB_SLOTS_DEFAULT;
-+module_param(max_skb_slots, uint, 0444);
-+
- struct pending_tx_info {
--	struct xen_netif_tx_request req;
-+	struct xen_netif_tx_request req; /* coalesced tx request  */
- 	struct xenvif *vif;
-+	unsigned int nr_tx_req; /* how many tx req we have in a chain (>=1) */
-+	unsigned int start_idx; /* starting index of pending ring index */
- };
- typedef unsigned int pending_ring_idx_t;
- 
-@@ -251,7 +262,7 @@ static int max_required_rx_slots(struct xenvif *vif)
- 	int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
- 
- 	if (vif->can_sg || vif->gso || vif->gso_prefix)
--		max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
-+		max += max_skb_slots + 1; /* extra_info + frags */
- 
- 	return max;
- }
-@@ -657,7 +668,7 @@ static void xen_netbk_rx_action(struct xen_netbk *netbk)
- 		__skb_queue_tail(&rxq, skb);
- 
- 		/* Filled the batch queue? */
--		if (count + MAX_SKB_FRAGS >= XEN_NETIF_RX_RING_SIZE)
-+		if (count + max_skb_slots >= XEN_NETIF_RX_RING_SIZE)
- 			break;
+ 	mod_phy_reg(pi, 0x4b6, (0xffff << 0), gain0_15 << 0);
+ 	mod_phy_reg(pi, 0x4b7, (0xf << 0), gain16_19 << 0);
+@@ -1157,8 +1156,6 @@ wlc_lcnphy_set_rx_gain_by_distribution(struct brcms_phy *pi,
  	}
  
-@@ -908,34 +919,34 @@ static int netbk_count_requests(struct xenvif *vif,
- 				int work_to_do)
- {
- 	RING_IDX cons = vif->tx.req_cons;
--	int frags = 0;
-+	int slots = 0;
+ 	mod_phy_reg(pi, 0x44d, (0x1 << 0), (!trsw) << 0);
+-	mod_phy_reg(pi, 0x4b1, (0x3 << 11), lna1 << 11);
+-	mod_phy_reg(pi, 0x4e6, (0x3 << 3), lna1 << 3);
  
- 	if (!(first->flags & XEN_NETTXF_more_data))
- 		return 0;
- 
- 	do {
--		if (frags >= work_to_do) {
--			netdev_err(vif->dev, "Need more frags\n");
-+		if (slots >= work_to_do) {
-+			netdev_err(vif->dev, "Need more slots\n");
- 			netbk_fatal_tx_err(vif);
- 			return -ENODATA;
- 		}
- 
--		if (unlikely(frags >= MAX_SKB_FRAGS)) {
--			netdev_err(vif->dev, "Too many frags\n");
-+		if (unlikely(slots >= max_skb_slots)) {
-+			netdev_err(vif->dev, "Too many slots\n");
- 			netbk_fatal_tx_err(vif);
- 			return -E2BIG;
- 		}
- 
--		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + frags),
-+		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + slots),
- 		       sizeof(*txp));
- 		if (txp->size > first->size) {
--			netdev_err(vif->dev, "Frag is bigger than frame.\n");
-+			netdev_err(vif->dev, "Packet is bigger than frame.\n");
- 			netbk_fatal_tx_err(vif);
- 			return -EIO;
- 		}
- 
- 		first->size -= txp->size;
--		frags++;
-+		slots++;
- 
- 		if (unlikely((txp->offset + txp->size) > PAGE_SIZE)) {
- 			netdev_err(vif->dev, "txp->offset: %x, size: %u\n",
-@@ -944,7 +955,7 @@ static int netbk_count_requests(struct xenvif *vif,
- 			return -EINVAL;
- 		}
- 	} while ((txp++)->flags & XEN_NETTXF_more_data);
--	return frags;
-+	return slots;
  }
  
- static struct page *xen_netbk_alloc_page(struct xen_netbk *netbk,
-@@ -968,48 +979,120 @@ static struct gnttab_copy *xen_netbk_get_requests(struct xen_netbk *netbk,
- 	struct skb_shared_info *shinfo = skb_shinfo(skb);
- 	skb_frag_t *frags = shinfo->frags;
- 	u16 pending_idx = *((u16 *)skb->data);
--	int i, start;
-+	u16 head_idx = 0;
-+	int slot, start;
-+	struct page *page;
-+	pending_ring_idx_t index;
-+	uint16_t dst_offset;
-+	unsigned int nr_slots;
-+	struct pending_tx_info *first = NULL;
-+	int nr_txp;
-+	unsigned int start_idx = 0;
-+
-+	/* At this point shinfo->nr_frags is in fact the number of
-+	 * slots, which can be as large as max_skb_slots.
-+	 */
-+	nr_slots = shinfo->nr_frags;
+@@ -1331,43 +1328,6 @@ static u32 wlc_lcnphy_measure_digital_power(struct brcms_phy *pi, u16 nsamples)
+ 	return (iq_est.i_pwr + iq_est.q_pwr) / nsamples;
+ }
  
- 	/* Skip first skb fragment if it is on same page as header fragment. */
- 	start = (frag_get_pending_idx(&shinfo->frags[0]) == pending_idx);
- 
--	for (i = start; i < shinfo->nr_frags; i++, txp++) {
--		struct page *page;
--		pending_ring_idx_t index;
-+	/* Coalesce tx requests, at this point the packet passed in
-+	 * should be <= 64K. Any packets larger than 64K has been
-+	 * dropped / caused fatal error early on.
-+	 */
-+	for (shinfo->nr_frags = slot = start; slot < nr_slots;
-+	     shinfo->nr_frags++) {
- 		struct pending_tx_info *pending_tx_info =
- 			netbk->pending_tx_info;
- 
--		index = pending_index(netbk->pending_cons++);
--		pending_idx = netbk->pending_ring[index];
--		page = xen_netbk_alloc_page(netbk, pending_idx);
-+		page = alloc_page(GFP_KERNEL|__GFP_COLD);
- 		if (!page)
- 			goto err;
- 
--		gop->source.u.ref = txp->gref;
--		gop->source.domid = vif->domid;
--		gop->source.offset = txp->offset;
+-static bool wlc_lcnphy_rx_iq_cal_gain(struct brcms_phy *pi, u16 biq1_gain,
+-				      u16 tia_gain, u16 lna2_gain)
+-{
+-	u32 i_thresh_l, q_thresh_l;
+-	u32 i_thresh_h, q_thresh_h;
+-	struct lcnphy_iq_est iq_est_h, iq_est_l;
 -
--		gop->dest.u.gmfn = virt_to_mfn(page_address(page));
--		gop->dest.domid = DOMID_SELF;
--		gop->dest.offset = txp->offset;
+-	wlc_lcnphy_set_rx_gain_by_distribution(pi, 0, 0, 0, biq1_gain, tia_gain,
+-					       lna2_gain, 0);
 -
--		gop->len = txp->size;
--		gop->flags = GNTCOPY_source_gref;
-+		nr_txp = 0;
-+		dst_offset = 0;
-+		first = NULL;
-+		while (dst_offset < PAGE_SIZE && slot < nr_slots) {
-+			gop->flags = GNTCOPY_source_gref;
-+
-+			gop->source.u.ref = txp->gref;
-+			gop->source.domid = vif->domid;
-+			gop->source.offset = txp->offset;
-+
-+			gop->dest.domid = DOMID_SELF;
-+
-+			gop->dest.offset = dst_offset;
-+			gop->dest.u.gmfn = virt_to_mfn(page_address(page));
-+
-+			if (dst_offset + txp->size > PAGE_SIZE) {
-+				/* This page can only merge a portion
-+				 * of tx request. Do not increment any
-+				 * pointer / counter here. The txp
-+				 * will be dealt with in future
-+				 * rounds, eventually hitting the
-+				 * `else` branch.
-+				 */
-+				gop->len = PAGE_SIZE - dst_offset;
-+				txp->offset += gop->len;
-+				txp->size -= gop->len;
-+				dst_offset += gop->len; /* quit loop */
-+			} else {
-+				/* This tx request can be merged in the page */
-+				gop->len = txp->size;
-+				dst_offset += gop->len;
-+
-+				index = pending_index(netbk->pending_cons++);
-+
-+				pending_idx = netbk->pending_ring[index];
-+
-+				memcpy(&pending_tx_info[pending_idx].req, txp,
-+				       sizeof(*txp));
-+				xenvif_get(vif);
-+
-+				pending_tx_info[pending_idx].vif = vif;
-+
-+				/* Poison these fields, corresponding
-+				 * fields for head tx req will be set
-+				 * to correct values after the loop.
-+				 */
-+				pending_tx_info[pending_idx].nr_tx_req =
-+					(u16)(~0);
-+				netbk->mmap_pages[pending_idx] = (void *)(~0UL);
-+				pending_tx_info[pending_idx].start_idx = ~0U;
-+
-+				if (unlikely(!first)) {
-+					first = &pending_tx_info[pending_idx];
-+					start_idx = index;
-+					head_idx = pending_idx;
-+				}
-+
-+				txp++;
-+				nr_txp++;
-+				slot++;
-+			}
+-	wlc_lcnphy_rx_gain_override_enable(pi, true);
+-	wlc_lcnphy_start_tx_tone(pi, 2000, (40 >> 1), 0);
+-	udelay(500);
+-	write_radio_reg(pi, RADIO_2064_REG112, 0);
+-	if (!wlc_lcnphy_rx_iq_est(pi, 1024, 32, &iq_est_l))
+-		return false;
+-
+-	wlc_lcnphy_start_tx_tone(pi, 2000, 40, 0);
+-	udelay(500);
+-	write_radio_reg(pi, RADIO_2064_REG112, 0);
+-	if (!wlc_lcnphy_rx_iq_est(pi, 1024, 32, &iq_est_h))
+-		return false;
+-
+-	i_thresh_l = (iq_est_l.i_pwr << 1);
+-	i_thresh_h = (iq_est_l.i_pwr << 2) + iq_est_l.i_pwr;
+-
+-	q_thresh_l = (iq_est_l.q_pwr << 1);
+-	q_thresh_h = (iq_est_l.q_pwr << 2) + iq_est_l.q_pwr;
+-	if ((iq_est_h.i_pwr > i_thresh_l) &&
+-	    (iq_est_h.i_pwr < i_thresh_h) &&
+-	    (iq_est_h.q_pwr > q_thresh_l) &&
+-	    (iq_est_h.q_pwr < q_thresh_h))
+-		return true;
+-
+-	return false;
+-}
+-
+ static bool
+ wlc_lcnphy_rx_iq_cal(struct brcms_phy *pi,
+ 		     const struct lcnphy_rx_iqcomp *iqcomp,
+@@ -1382,8 +1342,8 @@ wlc_lcnphy_rx_iq_cal(struct brcms_phy *pi,
+ 	    RFOverrideVal0_old, rfoverride2_old, rfoverride2val_old,
+ 	    rfoverride3_old, rfoverride3val_old, rfoverride4_old,
+ 	    rfoverride4val_old, afectrlovr_old, afectrlovrval_old;
+-	int tia_gain, lna2_gain, biq1_gain;
+-	bool set_gain;
++	int tia_gain;
++	u32 received_power, rx_pwr_threshold;
+ 	u16 old_sslpnCalibClkEnCtrl, old_sslpnRxFeClkEnCtrl;
+ 	u16 values_to_save[11];
+ 	s16 *ptr;
+@@ -1408,134 +1368,126 @@ wlc_lcnphy_rx_iq_cal(struct brcms_phy *pi,
+ 		goto cal_done;
+ 	}
  
--		gop++;
-+			gop++;
+-	WARN_ON(module != 1);
+-	tx_pwr_ctrl = wlc_lcnphy_get_tx_pwr_ctrl(pi);
+-	wlc_lcnphy_set_tx_pwr_ctrl(pi, LCNPHY_TX_PWR_CTRL_OFF);
+-
+-	for (i = 0; i < 11; i++)
+-		values_to_save[i] =
+-			read_radio_reg(pi, rxiq_cal_rf_reg[i]);
+-	Core1TxControl_old = read_phy_reg(pi, 0x631);
+-
+-	or_phy_reg(pi, 0x631, 0x0015);
+-
+-	RFOverride0_old = read_phy_reg(pi, 0x44c);
+-	RFOverrideVal0_old = read_phy_reg(pi, 0x44d);
+-	rfoverride2_old = read_phy_reg(pi, 0x4b0);
+-	rfoverride2val_old = read_phy_reg(pi, 0x4b1);
+-	rfoverride3_old = read_phy_reg(pi, 0x4f9);
+-	rfoverride3val_old = read_phy_reg(pi, 0x4fa);
+-	rfoverride4_old = read_phy_reg(pi, 0x938);
+-	rfoverride4val_old = read_phy_reg(pi, 0x939);
+-	afectrlovr_old = read_phy_reg(pi, 0x43b);
+-	afectrlovrval_old = read_phy_reg(pi, 0x43c);
+-	old_sslpnCalibClkEnCtrl = read_phy_reg(pi, 0x6da);
+-	old_sslpnRxFeClkEnCtrl = read_phy_reg(pi, 0x6db);
+-
+-	tx_gain_override_old = wlc_lcnphy_tx_gain_override_enabled(pi);
+-	if (tx_gain_override_old) {
+-		wlc_lcnphy_get_tx_gain(pi, &old_gains);
+-		tx_gain_index_old = pi_lcn->lcnphy_current_index;
+-	}
+-
+-	wlc_lcnphy_set_tx_pwr_by_index(pi, tx_gain_idx);
++	if (module == 1) {
+ 
+-	mod_phy_reg(pi, 0x4f9, (0x1 << 0), 1 << 0);
+-	mod_phy_reg(pi, 0x4fa, (0x1 << 0), 0 << 0);
++		tx_pwr_ctrl = wlc_lcnphy_get_tx_pwr_ctrl(pi);
++		wlc_lcnphy_set_tx_pwr_ctrl(pi, LCNPHY_TX_PWR_CTRL_OFF);
+ 
+-	mod_phy_reg(pi, 0x43b, (0x1 << 1), 1 << 1);
+-	mod_phy_reg(pi, 0x43c, (0x1 << 1), 0 << 1);
++		for (i = 0; i < 11; i++)
++			values_to_save[i] =
++				read_radio_reg(pi, rxiq_cal_rf_reg[i]);
++		Core1TxControl_old = read_phy_reg(pi, 0x631);
++
++		or_phy_reg(pi, 0x631, 0x0015);
++
++		RFOverride0_old = read_phy_reg(pi, 0x44c);
++		RFOverrideVal0_old = read_phy_reg(pi, 0x44d);
++		rfoverride2_old = read_phy_reg(pi, 0x4b0);
++		rfoverride2val_old = read_phy_reg(pi, 0x4b1);
++		rfoverride3_old = read_phy_reg(pi, 0x4f9);
++		rfoverride3val_old = read_phy_reg(pi, 0x4fa);
++		rfoverride4_old = read_phy_reg(pi, 0x938);
++		rfoverride4val_old = read_phy_reg(pi, 0x939);
++		afectrlovr_old = read_phy_reg(pi, 0x43b);
++		afectrlovrval_old = read_phy_reg(pi, 0x43c);
++		old_sslpnCalibClkEnCtrl = read_phy_reg(pi, 0x6da);
++		old_sslpnRxFeClkEnCtrl = read_phy_reg(pi, 0x6db);
++
++		tx_gain_override_old = wlc_lcnphy_tx_gain_override_enabled(pi);
++		if (tx_gain_override_old) {
++			wlc_lcnphy_get_tx_gain(pi, &old_gains);
++			tx_gain_index_old = pi_lcn->lcnphy_current_index;
 +		}
  
--		memcpy(&pending_tx_info[pending_idx].req, txp, sizeof(*txp));
--		xenvif_get(vif);
--		pending_tx_info[pending_idx].vif = vif;
--		frag_set_pending_idx(&frags[i], pending_idx);
-+		first->req.offset = 0;
-+		first->req.size = dst_offset;
-+		first->nr_tx_req = nr_txp;
-+		first->start_idx = start_idx;
-+		set_page_ext(page, netbk, head_idx);
-+		netbk->mmap_pages[head_idx] = page;
-+		frag_set_pending_idx(&frags[shinfo->nr_frags], head_idx);
- 	}
+-	write_radio_reg(pi, RADIO_2064_REG116, 0x06);
+-	write_radio_reg(pi, RADIO_2064_REG12C, 0x07);
+-	write_radio_reg(pi, RADIO_2064_REG06A, 0xd3);
+-	write_radio_reg(pi, RADIO_2064_REG098, 0x03);
+-	write_radio_reg(pi, RADIO_2064_REG00B, 0x7);
+-	mod_radio_reg(pi, RADIO_2064_REG113, 1 << 4, 1 << 4);
+-	write_radio_reg(pi, RADIO_2064_REG01D, 0x01);
+-	write_radio_reg(pi, RADIO_2064_REG114, 0x01);
+-	write_radio_reg(pi, RADIO_2064_REG02E, 0x10);
+-	write_radio_reg(pi, RADIO_2064_REG12A, 0x08);
+-
+-	mod_phy_reg(pi, 0x938, (0x1 << 0), 1 << 0);
+-	mod_phy_reg(pi, 0x939, (0x1 << 0), 0 << 0);
+-	mod_phy_reg(pi, 0x938, (0x1 << 1), 1 << 1);
+-	mod_phy_reg(pi, 0x939, (0x1 << 1), 1 << 1);
+-	mod_phy_reg(pi, 0x938, (0x1 << 2), 1 << 2);
+-	mod_phy_reg(pi, 0x939, (0x1 << 2), 1 << 2);
+-	mod_phy_reg(pi, 0x938, (0x1 << 3), 1 << 3);
+-	mod_phy_reg(pi, 0x939, (0x1 << 3), 1 << 3);
+-	mod_phy_reg(pi, 0x938, (0x1 << 5), 1 << 5);
+-	mod_phy_reg(pi, 0x939, (0x1 << 5), 0 << 5);
++		wlc_lcnphy_set_tx_pwr_by_index(pi, tx_gain_idx);
  
-+	BUG_ON(shinfo->nr_frags > MAX_SKB_FRAGS);
+-	mod_phy_reg(pi, 0x43b, (0x1 << 0), 1 << 0);
+-	mod_phy_reg(pi, 0x43c, (0x1 << 0), 0 << 0);
++		mod_phy_reg(pi, 0x4f9, (0x1 << 0), 1 << 0);
++		mod_phy_reg(pi, 0x4fa, (0x1 << 0), 0 << 0);
+ 
+-	write_phy_reg(pi, 0x6da, 0xffff);
+-	or_phy_reg(pi, 0x6db, 0x3);
++		mod_phy_reg(pi, 0x43b, (0x1 << 1), 1 << 1);
++		mod_phy_reg(pi, 0x43c, (0x1 << 1), 0 << 1);
+ 
+-	wlc_lcnphy_set_trsw_override(pi, tx_switch, rx_switch);
+-	set_gain = false;
+-
+-	lna2_gain = 3;
+-	while ((lna2_gain >= 0) && !set_gain) {
+-		tia_gain = 4;
+-
+-		while ((tia_gain >= 0) && !set_gain) {
+-			biq1_gain = 6;
+-
+-			while ((biq1_gain >= 0) && !set_gain) {
+-				set_gain = wlc_lcnphy_rx_iq_cal_gain(pi,
+-								     (u16)
+-								     biq1_gain,
+-								     (u16)
+-								     tia_gain,
+-								     (u16)
+-								     lna2_gain);
+-				biq1_gain -= 1;
+-			}
++		write_radio_reg(pi, RADIO_2064_REG116, 0x06);
++		write_radio_reg(pi, RADIO_2064_REG12C, 0x07);
++		write_radio_reg(pi, RADIO_2064_REG06A, 0xd3);
++		write_radio_reg(pi, RADIO_2064_REG098, 0x03);
++		write_radio_reg(pi, RADIO_2064_REG00B, 0x7);
++		mod_radio_reg(pi, RADIO_2064_REG113, 1 << 4, 1 << 4);
++		write_radio_reg(pi, RADIO_2064_REG01D, 0x01);
++		write_radio_reg(pi, RADIO_2064_REG114, 0x01);
++		write_radio_reg(pi, RADIO_2064_REG02E, 0x10);
++		write_radio_reg(pi, RADIO_2064_REG12A, 0x08);
 +
- 	return gop;
- err:
- 	/* Unwind, freeing all pages and sending error responses. */
--	while (i-- > start) {
--		xen_netbk_idx_release(netbk, frag_get_pending_idx(&frags[i]),
--				      XEN_NETIF_RSP_ERROR);
-+	while (shinfo->nr_frags-- > start) {
-+		xen_netbk_idx_release(netbk,
-+				frag_get_pending_idx(&frags[shinfo->nr_frags]),
-+				XEN_NETIF_RSP_ERROR);
- 	}
- 	/* The head too, if necessary. */
- 	if (start)
-@@ -1025,6 +1108,7 @@ static int xen_netbk_tx_check_gop(struct xen_netbk *netbk,
- 	struct gnttab_copy *gop = *gopp;
- 	u16 pending_idx = *((u16 *)skb->data);
- 	struct skb_shared_info *shinfo = skb_shinfo(skb);
-+	struct pending_tx_info *tx_info;
- 	int nr_frags = shinfo->nr_frags;
- 	int i, err, start;
- 
-@@ -1037,12 +1121,17 @@ static int xen_netbk_tx_check_gop(struct xen_netbk *netbk,
- 	start = (frag_get_pending_idx(&shinfo->frags[0]) == pending_idx);
- 
- 	for (i = start; i < nr_frags; i++) {
--		int j, newerr;
-+		int j, newerr = 0, n;
- 
- 		pending_idx = frag_get_pending_idx(&shinfo->frags[i]);
-+		tx_info = &netbk->pending_tx_info[pending_idx];
- 
- 		/* Check error status: if okay then remember grant handle. */
--		newerr = (++gop)->status;
-+		for (n = 0; n < tx_info->nr_tx_req; n++) {
-+			newerr = (++gop)->status;
-+			if (newerr)
++		mod_phy_reg(pi, 0x938, (0x1 << 0), 1 << 0);
++		mod_phy_reg(pi, 0x939, (0x1 << 0), 0 << 0);
++		mod_phy_reg(pi, 0x938, (0x1 << 1), 1 << 1);
++		mod_phy_reg(pi, 0x939, (0x1 << 1), 1 << 1);
++		mod_phy_reg(pi, 0x938, (0x1 << 2), 1 << 2);
++		mod_phy_reg(pi, 0x939, (0x1 << 2), 1 << 2);
++		mod_phy_reg(pi, 0x938, (0x1 << 3), 1 << 3);
++		mod_phy_reg(pi, 0x939, (0x1 << 3), 1 << 3);
++		mod_phy_reg(pi, 0x938, (0x1 << 5), 1 << 5);
++		mod_phy_reg(pi, 0x939, (0x1 << 5), 0 << 5);
++
++		mod_phy_reg(pi, 0x43b, (0x1 << 0), 1 << 0);
++		mod_phy_reg(pi, 0x43c, (0x1 << 0), 0 << 0);
++
++		wlc_lcnphy_start_tx_tone(pi, 2000, 120, 0);
++		write_phy_reg(pi, 0x6da, 0xffff);
++		or_phy_reg(pi, 0x6db, 0x3);
++		wlc_lcnphy_set_trsw_override(pi, tx_switch, rx_switch);
++		wlc_lcnphy_rx_gain_override_enable(pi, true);
++
++		tia_gain = 8;
++		rx_pwr_threshold = 950;
++		while (tia_gain > 0) {
+ 			tia_gain -= 1;
++			wlc_lcnphy_set_rx_gain_by_distribution(pi,
++							       0, 0, 2, 2,
++							       (u16)
++							       tia_gain, 1, 0);
++			udelay(500);
++
++			received_power =
++				wlc_lcnphy_measure_digital_power(pi, 2000);
++			if (received_power < rx_pwr_threshold)
 +				break;
-+		}
- 		if (likely(!newerr)) {
- 			/* Had a previous error? Invalidate this fragment. */
- 			if (unlikely(err))
-@@ -1267,11 +1356,11 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
- 	struct sk_buff *skb;
- 	int ret;
+ 		}
+-		lna2_gain -= 1;
+-	}
++		result = wlc_lcnphy_calc_rx_iq_comp(pi, 0xffff);
  
--	while (((nr_pending_reqs(netbk) + MAX_SKB_FRAGS) < MAX_PENDING_REQS) &&
-+	while (((nr_pending_reqs(netbk) + max_skb_slots) < MAX_PENDING_REQS) &&
- 		!list_empty(&netbk->net_schedule_list)) {
- 		struct xenvif *vif;
- 		struct xen_netif_tx_request txreq;
--		struct xen_netif_tx_request txfrags[MAX_SKB_FRAGS];
-+		struct xen_netif_tx_request txfrags[max_skb_slots];
- 		struct page *page;
- 		struct xen_netif_extra_info extras[XEN_NETIF_EXTRA_TYPE_MAX-1];
- 		u16 pending_idx;
-@@ -1359,7 +1448,7 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
- 		pending_idx = netbk->pending_ring[index];
+-	if (set_gain)
+-		result = wlc_lcnphy_calc_rx_iq_comp(pi, 1024);
+-	else
+-		result = false;
++		wlc_lcnphy_stop_tx_tone(pi);
  
- 		data_len = (txreq.size > PKT_PROT_LEN &&
--			    ret < MAX_SKB_FRAGS) ?
-+			    ret < max_skb_slots) ?
- 			PKT_PROT_LEN : txreq.size;
+-	wlc_lcnphy_stop_tx_tone(pi);
++		write_phy_reg(pi, 0x631, Core1TxControl_old);
  
- 		skb = alloc_skb(data_len + NET_SKB_PAD + NET_IP_ALIGN,
-@@ -1409,6 +1498,8 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
- 		memcpy(&netbk->pending_tx_info[pending_idx].req,
- 		       &txreq, sizeof(txreq));
- 		netbk->pending_tx_info[pending_idx].vif = vif;
-+		netbk->pending_tx_info[pending_idx].start_idx = index;
-+		netbk->pending_tx_info[pending_idx].nr_tx_req = 1;
- 		*((u16 *)skb->data) = pending_idx;
+-	write_phy_reg(pi, 0x631, Core1TxControl_old);
+-
+-	write_phy_reg(pi, 0x44c, RFOverrideVal0_old);
+-	write_phy_reg(pi, 0x44d, RFOverrideVal0_old);
+-	write_phy_reg(pi, 0x4b0, rfoverride2_old);
+-	write_phy_reg(pi, 0x4b1, rfoverride2val_old);
+-	write_phy_reg(pi, 0x4f9, rfoverride3_old);
+-	write_phy_reg(pi, 0x4fa, rfoverride3val_old);
+-	write_phy_reg(pi, 0x938, rfoverride4_old);
+-	write_phy_reg(pi, 0x939, rfoverride4val_old);
+-	write_phy_reg(pi, 0x43b, afectrlovr_old);
+-	write_phy_reg(pi, 0x43c, afectrlovrval_old);
+-	write_phy_reg(pi, 0x6da, old_sslpnCalibClkEnCtrl);
+-	write_phy_reg(pi, 0x6db, old_sslpnRxFeClkEnCtrl);
++		write_phy_reg(pi, 0x44c, RFOverrideVal0_old);
++		write_phy_reg(pi, 0x44d, RFOverrideVal0_old);
++		write_phy_reg(pi, 0x4b0, rfoverride2_old);
++		write_phy_reg(pi, 0x4b1, rfoverride2val_old);
++		write_phy_reg(pi, 0x4f9, rfoverride3_old);
++		write_phy_reg(pi, 0x4fa, rfoverride3val_old);
++		write_phy_reg(pi, 0x938, rfoverride4_old);
++		write_phy_reg(pi, 0x939, rfoverride4val_old);
++		write_phy_reg(pi, 0x43b, afectrlovr_old);
++		write_phy_reg(pi, 0x43c, afectrlovrval_old);
++		write_phy_reg(pi, 0x6da, old_sslpnCalibClkEnCtrl);
++		write_phy_reg(pi, 0x6db, old_sslpnRxFeClkEnCtrl);
  
- 		__skb_put(skb, data_len);
-@@ -1540,6 +1631,11 @@ static void xen_netbk_idx_release(struct xen_netbk *netbk, u16 pending_idx,
- 	struct xenvif *vif;
- 	struct pending_tx_info *pending_tx_info;
- 	pending_ring_idx_t index;
-+	unsigned int nr = 0;
-+	unsigned int i = 0;
-+	unsigned int start_idx = 0;
-+
-+	BUG_ON(netbk->mmap_pages[pending_idx] == (void *)(~0UL));
+-	wlc_lcnphy_clear_trsw_override(pi);
++		wlc_lcnphy_clear_trsw_override(pi);
  
- 	/* Already complete? */
- 	if (netbk->mmap_pages[pending_idx] == NULL)
-@@ -1548,13 +1644,27 @@ static void xen_netbk_idx_release(struct xen_netbk *netbk, u16 pending_idx,
- 	pending_tx_info = &netbk->pending_tx_info[pending_idx];
+-	mod_phy_reg(pi, 0x44c, (0x1 << 2), 0 << 2);
++		mod_phy_reg(pi, 0x44c, (0x1 << 2), 0 << 2);
  
- 	vif = pending_tx_info->vif;
-+	nr = pending_tx_info->nr_tx_req;
-+	start_idx = pending_tx_info->start_idx;
+-	for (i = 0; i < 11; i++)
+-		write_radio_reg(pi, rxiq_cal_rf_reg[i],
+-				values_to_save[i]);
++		for (i = 0; i < 11; i++)
++			write_radio_reg(pi, rxiq_cal_rf_reg[i],
++					values_to_save[i]);
  
--	make_tx_response(vif, &pending_tx_info->req, status);
-+	BUG_ON(nr == (u16)(~0));
+-	if (tx_gain_override_old)
+-		wlc_lcnphy_set_tx_pwr_by_index(pi, tx_gain_index_old);
+-	else
+-		wlc_lcnphy_disable_tx_gain_override(pi);
++		if (tx_gain_override_old)
++			wlc_lcnphy_set_tx_pwr_by_index(pi, tx_gain_index_old);
++		else
++			wlc_lcnphy_disable_tx_gain_override(pi);
  
--	index = pending_index(netbk->pending_prod++);
--	netbk->pending_ring[index] = pending_idx;
-+	BUG_ON(netbk->pending_ring[pending_index(start_idx)] != pending_idx);
- 
--	xenvif_put(vif);
-+	for (i = 0; i < nr; i++) {
-+		struct xen_netif_tx_request *txp;
-+		unsigned int idx = pending_index(start_idx + i);
-+		unsigned int info_idx = netbk->pending_ring[idx];
-+
-+		pending_tx_info = &netbk->pending_tx_info[info_idx];
-+		txp = &pending_tx_info->req;
-+		make_tx_response(vif, &pending_tx_info->req, status);
-+
-+		index = pending_index(netbk->pending_prod++);
-+		netbk->pending_ring[index] = netbk->pending_ring[info_idx];
-+
-+		xenvif_put(vif);
+-	wlc_lcnphy_set_tx_pwr_ctrl(pi, tx_pwr_ctrl);
+-	wlc_lcnphy_rx_gain_override_enable(pi, false);
++		wlc_lcnphy_set_tx_pwr_ctrl(pi, tx_pwr_ctrl);
++		wlc_lcnphy_rx_gain_override_enable(pi, false);
 +	}
  
- 	netbk->mmap_pages[pending_idx]->mapping = 0;
- 	put_page(netbk->mmap_pages[pending_idx]);
-@@ -1613,7 +1723,7 @@ static inline int rx_work_todo(struct xen_netbk *netbk)
- static inline int tx_work_todo(struct xen_netbk *netbk)
+ cal_done:
+ 	kfree(ptr);
+@@ -1829,17 +1781,6 @@ wlc_lcnphy_radio_2064_channel_tune_4313(struct brcms_phy *pi, u8 channel)
+ 		write_radio_reg(pi, RADIO_2064_REG038, 3);
+ 		write_radio_reg(pi, RADIO_2064_REG091, 7);
+ 	}
+-
+-	if (!(pi->sh->boardflags & BFL_FEM)) {
+-		u8 reg038[14] = {0xd, 0xe, 0xd, 0xd, 0xd, 0xc,
+-			0xa, 0xb, 0xb, 0x3, 0x3, 0x2, 0x0, 0x0};
+-
+-		write_radio_reg(pi, RADIO_2064_REG02A, 0xf);
+-		write_radio_reg(pi, RADIO_2064_REG091, 0x3);
+-		write_radio_reg(pi, RADIO_2064_REG038, 0x3);
+-
+-		write_radio_reg(pi, RADIO_2064_REG038, reg038[channel - 1]);
+-	}
+ }
+ 
+ static int
+@@ -2034,16 +1975,6 @@ wlc_lcnphy_set_tssi_mux(struct brcms_phy *pi, enum lcnphy_tssi_mode pos)
+ 		} else {
+ 			mod_radio_reg(pi, RADIO_2064_REG03A, 1, 0x1);
+ 			mod_radio_reg(pi, RADIO_2064_REG11A, 0x8, 0x8);
+-			mod_radio_reg(pi, RADIO_2064_REG028, 0x1, 0x0);
+-			mod_radio_reg(pi, RADIO_2064_REG11A, 0x4, 1<<2);
+-			mod_radio_reg(pi, RADIO_2064_REG036, 0x10, 0x0);
+-			mod_radio_reg(pi, RADIO_2064_REG11A, 0x10, 1<<4);
+-			mod_radio_reg(pi, RADIO_2064_REG036, 0x3, 0x0);
+-			mod_radio_reg(pi, RADIO_2064_REG035, 0xff, 0x77);
+-			mod_radio_reg(pi, RADIO_2064_REG028, 0x1e, 0xe<<1);
+-			mod_radio_reg(pi, RADIO_2064_REG112, 0x80, 1<<7);
+-			mod_radio_reg(pi, RADIO_2064_REG005, 0x7, 1<<1);
+-			mod_radio_reg(pi, RADIO_2064_REG029, 0xf0, 0<<4);
+ 		}
+ 	} else {
+ 		mod_phy_reg(pi, 0x4d9, (0x1 << 2), (0x1) << 2);
+@@ -2130,14 +2061,12 @@ static void wlc_lcnphy_pwrctrl_rssiparams(struct brcms_phy *pi)
+ 		    (auxpga_vmid_temp << 0) | (auxpga_gain_temp << 12));
+ 
+ 	mod_radio_reg(pi, RADIO_2064_REG082, (1 << 5), (1 << 5));
+-	mod_radio_reg(pi, RADIO_2064_REG07C, (1 << 0), (1 << 0));
+ }
+ 
+ static void wlc_lcnphy_tssi_setup(struct brcms_phy *pi)
  {
+ 	struct phytbl_info tab;
+ 	u32 rfseq, ind;
+-	u8 tssi_sel;
  
--	if (((nr_pending_reqs(netbk) + MAX_SKB_FRAGS) < MAX_PENDING_REQS) &&
-+	if (((nr_pending_reqs(netbk) + max_skb_slots) < MAX_PENDING_REQS) &&
- 			!list_empty(&netbk->net_schedule_list))
- 		return 1;
+ 	tab.tbl_id = LCNPHY_TBL_ID_TXPWRCTL;
+ 	tab.tbl_width = 32;
+@@ -2159,13 +2088,7 @@ static void wlc_lcnphy_tssi_setup(struct brcms_phy *pi)
  
+ 	mod_phy_reg(pi, 0x503, (0x1 << 4), (1) << 4);
+ 
+-	if (pi->sh->boardflags & BFL_FEM) {
+-		tssi_sel = 0x1;
+-		wlc_lcnphy_set_tssi_mux(pi, LCNPHY_TSSI_EXT);
+-	} else {
+-		tssi_sel = 0xe;
+-		wlc_lcnphy_set_tssi_mux(pi, LCNPHY_TSSI_POST_PA);
+-	}
++	wlc_lcnphy_set_tssi_mux(pi, LCNPHY_TSSI_EXT);
+ 	mod_phy_reg(pi, 0x4a4, (0x1 << 14), (0) << 14);
+ 
+ 	mod_phy_reg(pi, 0x4a4, (0x1 << 15), (1) << 15);
+@@ -2201,10 +2124,9 @@ static void wlc_lcnphy_tssi_setup(struct brcms_phy *pi)
+ 	mod_phy_reg(pi, 0x49a, (0x1ff << 0), (0xff) << 0);
+ 
+ 	if (LCNREV_IS(pi->pubpi.phy_rev, 2)) {
+-		mod_radio_reg(pi, RADIO_2064_REG028, 0xf, tssi_sel);
++		mod_radio_reg(pi, RADIO_2064_REG028, 0xf, 0xe);
+ 		mod_radio_reg(pi, RADIO_2064_REG086, 0x4, 0x4);
+ 	} else {
+-		mod_radio_reg(pi, RADIO_2064_REG028, 0x1e, tssi_sel << 1);
+ 		mod_radio_reg(pi, RADIO_2064_REG03A, 0x1, 1);
+ 		mod_radio_reg(pi, RADIO_2064_REG11A, 0x8, 1 << 3);
+ 	}
+@@ -2251,10 +2173,6 @@ static void wlc_lcnphy_tssi_setup(struct brcms_phy *pi)
+ 
+ 	mod_phy_reg(pi, 0x4d7, (0xf << 8), (0) << 8);
+ 
+-	mod_radio_reg(pi, RADIO_2064_REG035, 0xff, 0x0);
+-	mod_radio_reg(pi, RADIO_2064_REG036, 0x3, 0x0);
+-	mod_radio_reg(pi, RADIO_2064_REG11A, 0x8, 0x8);
+-
+ 	wlc_lcnphy_pwrctrl_rssiparams(pi);
+ }
+ 
+@@ -2873,8 +2791,6 @@ static void wlc_lcnphy_idle_tssi_est(struct brcms_phy_pub *ppi)
+ 		read_radio_reg(pi, RADIO_2064_REG007) & 1;
+ 	u16 SAVE_jtag_auxpga = read_radio_reg(pi, RADIO_2064_REG0FF) & 0x10;
+ 	u16 SAVE_iqadc_aux_en = read_radio_reg(pi, RADIO_2064_REG11F) & 4;
+-	u8 SAVE_bbmult = wlc_lcnphy_get_bbmult(pi);
+-
+ 	idleTssi = read_phy_reg(pi, 0x4ab);
+ 	suspend = (0 == (bcma_read32(pi->d11core, D11REGOFFS(maccontrol)) &
+ 			 MCTL_EN_MAC));
+@@ -2892,12 +2808,6 @@ static void wlc_lcnphy_idle_tssi_est(struct brcms_phy_pub *ppi)
+ 	mod_radio_reg(pi, RADIO_2064_REG0FF, 0x10, 1 << 4);
+ 	mod_radio_reg(pi, RADIO_2064_REG11F, 0x4, 1 << 2);
+ 	wlc_lcnphy_tssi_setup(pi);
+-
+-	mod_phy_reg(pi, 0x4d7, (0x1 << 0), (1 << 0));
+-	mod_phy_reg(pi, 0x4d7, (0x1 << 6), (1 << 6));
+-
+-	wlc_lcnphy_set_bbmult(pi, 0x0);
+-
+ 	wlc_phy_do_dummy_tx(pi, true, OFF);
+ 	idleTssi = ((read_phy_reg(pi, 0x4ab) & (0x1ff << 0))
+ 		    >> 0);
+@@ -2919,7 +2829,6 @@ static void wlc_lcnphy_idle_tssi_est(struct brcms_phy_pub *ppi)
+ 
+ 	mod_phy_reg(pi, 0x44c, (0x1 << 12), (0) << 12);
+ 
+-	wlc_lcnphy_set_bbmult(pi, SAVE_bbmult);
+ 	wlc_lcnphy_set_tx_gain_override(pi, tx_gain_override_old);
+ 	wlc_lcnphy_set_tx_gain(pi, &old_gains);
+ 	wlc_lcnphy_set_tx_pwr_ctrl(pi, SAVE_txpwrctrl);
+@@ -3133,11 +3042,6 @@ static void wlc_lcnphy_tx_pwr_ctrl_init(struct brcms_phy_pub *ppi)
+ 			wlc_lcnphy_write_table(pi, &tab);
+ 			tab.tbl_offset++;
+ 		}
+-		mod_phy_reg(pi, 0x4d0, (0x1 << 0), (0) << 0);
+-		mod_phy_reg(pi, 0x4d3, (0xff << 0), (0) << 0);
+-		mod_phy_reg(pi, 0x4d3, (0xff << 8), (0) << 8);
+-		mod_phy_reg(pi, 0x4d0, (0x1 << 4), (0) << 4);
+-		mod_phy_reg(pi, 0x4d0, (0x1 << 2), (0) << 2);
+ 
+ 		mod_phy_reg(pi, 0x410, (0x1 << 7), (0) << 7);
+ 
+@@ -3939,6 +3843,7 @@ static void wlc_lcnphy_txpwrtbl_iqlo_cal(struct brcms_phy *pi)
+ 	target_gains.pad_gain = 21;
+ 	target_gains.dac_gain = 0;
+ 	wlc_lcnphy_set_tx_gain(pi, &target_gains);
++	wlc_lcnphy_set_tx_pwr_by_index(pi, 16);
+ 
+ 	if (LCNREV_IS(pi->pubpi.phy_rev, 1) || pi_lcn->lcnphy_hw_iqcal_en) {
+ 
+@@ -3949,7 +3854,6 @@ static void wlc_lcnphy_txpwrtbl_iqlo_cal(struct brcms_phy *pi)
+ 					lcnphy_recal ? LCNPHY_CAL_RECAL :
+ 					LCNPHY_CAL_FULL), false);
+ 	} else {
+-		wlc_lcnphy_set_tx_pwr_by_index(pi, 16);
+ 		wlc_lcnphy_tx_iqlo_soft_cal_full(pi);
+ 	}
+ 
+@@ -4374,22 +4278,17 @@ wlc_lcnphy_load_tx_gain_table(struct brcms_phy *pi,
+ 	if (CHSPEC_IS5G(pi->radio_chanspec))
+ 		pa_gain = 0x70;
+ 	else
+-		pa_gain = 0x60;
++		pa_gain = 0x70;
+ 
+ 	if (pi->sh->boardflags & BFL_FEM)
+ 		pa_gain = 0x10;
+-
+ 	tab.tbl_id = LCNPHY_TBL_ID_TXPWRCTL;
+ 	tab.tbl_width = 32;
+ 	tab.tbl_len = 1;
+ 	tab.tbl_ptr = &val;
+ 
+ 	for (j = 0; j < 128; j++) {
+-		if (pi->sh->boardflags & BFL_FEM)
+-			gm_gain = gain_table[j].gm;
+-		else
+-			gm_gain = 15;
+-
++		gm_gain = gain_table[j].gm;
+ 		val = (((u32) pa_gain << 24) |
+ 		       (gain_table[j].pad << 16) |
+ 		       (gain_table[j].pga << 8) | gm_gain);
+@@ -4600,10 +4499,7 @@ static void wlc_radio_2064_init(struct brcms_phy *pi)
+ 
+ 	write_phy_reg(pi, 0x4ea, 0x4688);
+ 
+-	if (pi->sh->boardflags & BFL_FEM)
+-		mod_phy_reg(pi, 0x4eb, (0x7 << 0), 2 << 0);
+-	else
+-		mod_phy_reg(pi, 0x4eb, (0x7 << 0), 3 << 0);
++	mod_phy_reg(pi, 0x4eb, (0x7 << 0), 2 << 0);
+ 
+ 	mod_phy_reg(pi, 0x4eb, (0x7 << 6), 0 << 6);
+ 
+@@ -4614,13 +4510,6 @@ static void wlc_radio_2064_init(struct brcms_phy *pi)
+ 	wlc_lcnphy_rcal(pi);
+ 
+ 	wlc_lcnphy_rc_cal(pi);
+-
+-	if (!(pi->sh->boardflags & BFL_FEM)) {
+-		write_radio_reg(pi, RADIO_2064_REG032, 0x6f);
+-		write_radio_reg(pi, RADIO_2064_REG033, 0x19);
+-		write_radio_reg(pi, RADIO_2064_REG039, 0xe);
+-	}
+-
+ }
+ 
+ static void wlc_lcnphy_radio_init(struct brcms_phy *pi)
+@@ -4650,20 +4539,22 @@ static void wlc_lcnphy_tbl_init(struct brcms_phy *pi)
+ 		wlc_lcnphy_write_table(pi, &tab);
+ 	}
+ 
+-	if (!(pi->sh->boardflags & BFL_FEM)) {
+-		tab.tbl_id = LCNPHY_TBL_ID_RFSEQ;
+-		tab.tbl_width = 16;
+-		tab.tbl_ptr = &val;
+-		tab.tbl_len = 1;
++	tab.tbl_id = LCNPHY_TBL_ID_RFSEQ;
++	tab.tbl_width = 16;
++	tab.tbl_ptr = &val;
++	tab.tbl_len = 1;
+ 
+-		val = 150;
+-		tab.tbl_offset = 0;
+-		wlc_lcnphy_write_table(pi, &tab);
++	val = 114;
++	tab.tbl_offset = 0;
++	wlc_lcnphy_write_table(pi, &tab);
+ 
+-		val = 220;
+-		tab.tbl_offset = 1;
+-		wlc_lcnphy_write_table(pi, &tab);
+-	}
++	val = 130;
++	tab.tbl_offset = 1;
++	wlc_lcnphy_write_table(pi, &tab);
++
++	val = 6;
++	tab.tbl_offset = 8;
++	wlc_lcnphy_write_table(pi, &tab);
+ 
+ 	if (CHSPEC_IS2G(pi->radio_chanspec)) {
+ 		if (pi->sh->boardflags & BFL_FEM)
+@@ -5055,7 +4946,6 @@ void wlc_phy_chanspec_set_lcnphy(struct brcms_phy *pi, u16 chanspec)
+ 		wlc_lcnphy_load_tx_iir_filter(pi, true, 3);
+ 
+ 	mod_phy_reg(pi, 0x4eb, (0x7 << 3), (1) << 3);
+-	wlc_lcnphy_tssi_setup(pi);
+ }
+ 
+ void wlc_phy_detach_lcnphy(struct brcms_phy *pi)
+@@ -5094,7 +4984,8 @@ bool wlc_phy_attach_lcnphy(struct brcms_phy *pi)
+ 	if (!wlc_phy_txpwr_srom_read_lcnphy(pi))
+ 		return false;
+ 
+-	if (LCNREV_IS(pi->pubpi.phy_rev, 1)) {
++	if ((pi->sh->boardflags & BFL_FEM) &&
++	    (LCNREV_IS(pi->pubpi.phy_rev, 1))) {
+ 		if (pi_lcn->lcnphy_tempsense_option == 3) {
+ 			pi->hwpwrctrl = true;
+ 			pi->hwpwrctrl_capable = true;
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/phy/phytbl_lcn.c b/drivers/net/wireless/brcm80211/brcmsmac/phy/phytbl_lcn.c
+index b7e95ac..622c01c 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/phy/phytbl_lcn.c
++++ b/drivers/net/wireless/brcm80211/brcmsmac/phy/phytbl_lcn.c
+@@ -1992,70 +1992,70 @@ static const u16 dot11lcn_sw_ctrl_tbl_4313_epa_rev0[] = {
+ };
+ 
+ static const u16 dot11lcn_sw_ctrl_tbl_4313_rev0[] = {
+-	0x0009,
+ 	0x000a,
+-	0x0005,
+-	0x0006,
+ 	0x0009,
+-	0x000a,
+-	0x0005,
+ 	0x0006,
+-	0x0009,
+-	0x000a,
+ 	0x0005,
+-	0x0006,
+-	0x0009,
+ 	0x000a,
+-	0x0005,
+-	0x0006,
+ 	0x0009,
+-	0x000a,
+-	0x0005,
+ 	0x0006,
+-	0x0009,
+-	0x000a,
+ 	0x0005,
+-	0x0006,
+-	0x0009,
+ 	0x000a,
+-	0x0005,
+-	0x0006,
+ 	0x0009,
+-	0x000a,
+-	0x0005,
+ 	0x0006,
+-	0x0009,
+-	0x000a,
+ 	0x0005,
+-	0x0006,
+-	0x0009,
+ 	0x000a,
+-	0x0005,
+-	0x0006,
+ 	0x0009,
+-	0x000a,
+-	0x0005,
+ 	0x0006,
+-	0x0009,
+-	0x000a,
+ 	0x0005,
+-	0x0006,
++	0x000a,
+ 	0x0009,
++	0x0006,
++	0x0005,
+ 	0x000a,
++	0x0009,
++	0x0006,
+ 	0x0005,
++	0x000a,
++	0x0009,
+ 	0x0006,
++	0x0005,
++	0x000a,
+ 	0x0009,
++	0x0006,
++	0x0005,
+ 	0x000a,
++	0x0009,
++	0x0006,
+ 	0x0005,
++	0x000a,
++	0x0009,
+ 	0x0006,
++	0x0005,
++	0x000a,
+ 	0x0009,
++	0x0006,
++	0x0005,
+ 	0x000a,
++	0x0009,
++	0x0006,
+ 	0x0005,
++	0x000a,
++	0x0009,
+ 	0x0006,
++	0x0005,
++	0x000a,
+ 	0x0009,
++	0x0006,
++	0x0005,
+ 	0x000a,
++	0x0009,
++	0x0006,
+ 	0x0005,
++	0x000a,
++	0x0009,
+ 	0x0006,
++	0x0005,
+ };
+ 
+ static const u16 dot11lcn_sw_ctrl_tbl_rev0[] = {
 -- 
-1.7.10.4
+1.8.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
