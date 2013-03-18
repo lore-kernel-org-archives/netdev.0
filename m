@@ -1,171 +1,101 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH v2 net-next 3/5] VXLAN: Fix vxlan stats handling.
-Date: Mon, 18 Mar 2013 11:13:33 -0700
-Message-ID: <1363630413-1736-1-git-send-email-pshelar@nicira.com>
-Cc: stephen@networkplumber.org, xiyou.wangcong@gmail.com,
-	netdev@vger.kernel.org, jesse@nicira.com,
-	Pravin B Shelar <pshelar@nicira.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:59783 "HELO
-	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753389Ab3CRSOY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 14:14:24 -0400
-Received: by mail-da0-f70.google.com with SMTP id i30so3137707dad.9
-        for <netdev@vger.kernel.org>; Mon, 18 Mar 2013 11:14:20 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH] bluetooth: use PTR_RET instead of IS_ERR + PTR_ERR
+Date: Mon, 18 Mar 2013 15:19:14 -0300
+Message-ID: <20130318181914.GC3072@joana>
+References: <1363111995-26866-1-git-send-email-silviupopescu1990@gmail.com>
+ <20130313.053145.2200448840921851390.davem@davemloft.net>
+ <CAPWTe+JzznuWYKksAfxkD=u9kv8DuAF4v2AWVxd2OUeDtCYKBA@mail.gmail.com>
+ <CAPWTe+Kfr=zD6oJsfX3W8Ze1iH+CoEHx5FXo4YaVtQuMHD5k_g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="i0/AhcQY5QxfSsSZ"
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Silviu Popescu <silviupopescu1990-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAPWTe+Kfr=zD6oJsfX3W8Ze1iH+CoEHx5FXo4YaVtQuMHD5k_g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Fixes bug in VXLAN code where is iptunnel_xmit() called with NULL
-dev->tstats.
-This bug was introduced in commit 6aed0c8bf7d2f389b (tunnel: use
-iptunnel_xmit() again).
 
-Following patch fixes bug by setting dev->tstats. It uses ip_tunnel
-module code to share stats function.
+--i0/AhcQY5QxfSsSZ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-CC: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
----
- drivers/net/vxlan.c |   72 +++++----------------------------------------------
- 1 files changed, 7 insertions(+), 65 deletions(-)
+Hi Silviu,
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index fe9ea7d..e532b2a 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -101,20 +101,10 @@ struct vxlan_fdb {
- 	u8		  eth_addr[ETH_ALEN];
- };
- 
--/* Per-cpu network traffic stats */
--struct vxlan_stats {
--	u64			rx_packets;
--	u64			rx_bytes;
--	u64			tx_packets;
--	u64			tx_bytes;
--	struct u64_stats_sync	syncp;
--};
--
- /* Pseudo network device */
- struct vxlan_dev {
- 	struct hlist_node hlist;
- 	struct net_device *dev;
--	struct vxlan_stats __percpu *stats;
- 	__u32		  vni;		/* virtual network id */
- 	__be32	          gaddr;	/* multicast group */
- 	__be32		  saddr;	/* source address */
-@@ -667,7 +657,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	struct iphdr *oip;
- 	struct vxlanhdr *vxh;
- 	struct vxlan_dev *vxlan;
--	struct vxlan_stats *stats;
-+	struct pcpu_tstats *stats;
- 	__u32 vni;
- 	int err;
- 
-@@ -743,7 +733,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 		}
- 	}
- 
--	stats = this_cpu_ptr(vxlan->stats);
-+	stats = this_cpu_ptr(vxlan->dev->tstats);
- 	u64_stats_update_begin(&stats->syncp);
- 	stats->rx_packets++;
- 	stats->rx_bytes += skb->len;
-@@ -974,8 +964,7 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- 			/* short-circuited back to local bridge */
- 			if (netif_rx(skb) == NET_RX_SUCCESS) {
--				struct vxlan_stats *stats =
--						this_cpu_ptr(vxlan->stats);
-+				struct pcpu_tstats *stats = this_cpu_ptr(dev->tstats);
- 
- 				u64_stats_update_begin(&stats->syncp);
- 				stats->tx_packets++;
-@@ -1183,10 +1172,8 @@ static void vxlan_cleanup(unsigned long arg)
- /* Setup stats when device is created */
- static int vxlan_init(struct net_device *dev)
- {
--	struct vxlan_dev *vxlan = netdev_priv(dev);
--
--	vxlan->stats = alloc_percpu(struct vxlan_stats);
--	if (!vxlan->stats)
-+	dev->tstats = alloc_percpu(struct pcpu_tstats);
-+	if (!dev->tstats)
- 		return -ENOMEM;
- 
- 	return 0;
-@@ -1242,49 +1229,6 @@ static int vxlan_stop(struct net_device *dev)
- 	return 0;
- }
- 
--/* Merge per-cpu statistics */
--static struct rtnl_link_stats64 *vxlan_stats64(struct net_device *dev,
--					       struct rtnl_link_stats64 *stats)
--{
--	struct vxlan_dev *vxlan = netdev_priv(dev);
--	struct vxlan_stats tmp, sum = { 0 };
--	unsigned int cpu;
--
--	for_each_possible_cpu(cpu) {
--		unsigned int start;
--		const struct vxlan_stats *stats
--			= per_cpu_ptr(vxlan->stats, cpu);
--
--		do {
--			start = u64_stats_fetch_begin_bh(&stats->syncp);
--			memcpy(&tmp, stats, sizeof(tmp));
--		} while (u64_stats_fetch_retry_bh(&stats->syncp, start));
--
--		sum.tx_bytes   += tmp.tx_bytes;
--		sum.tx_packets += tmp.tx_packets;
--		sum.rx_bytes   += tmp.rx_bytes;
--		sum.rx_packets += tmp.rx_packets;
--	}
--
--	stats->tx_bytes   = sum.tx_bytes;
--	stats->tx_packets = sum.tx_packets;
--	stats->rx_bytes   = sum.rx_bytes;
--	stats->rx_packets = sum.rx_packets;
--
--	stats->multicast = dev->stats.multicast;
--	stats->rx_length_errors = dev->stats.rx_length_errors;
--	stats->rx_frame_errors = dev->stats.rx_frame_errors;
--	stats->rx_errors = dev->stats.rx_errors;
--
--	stats->tx_dropped = dev->stats.tx_dropped;
--	stats->tx_carrier_errors  = dev->stats.tx_carrier_errors;
--	stats->tx_aborted_errors  = dev->stats.tx_aborted_errors;
--	stats->collisions  = dev->stats.collisions;
--	stats->tx_errors = dev->stats.tx_errors;
--
--	return stats;
--}
--
- /* Stub, nothing needs to be done. */
- static void vxlan_set_multicast_list(struct net_device *dev)
- {
-@@ -1295,7 +1239,7 @@ static const struct net_device_ops vxlan_netdev_ops = {
- 	.ndo_open		= vxlan_open,
- 	.ndo_stop		= vxlan_stop,
- 	.ndo_start_xmit		= vxlan_xmit,
--	.ndo_get_stats64	= vxlan_stats64,
-+	.ndo_get_stats64	= ip_tunnel_get_stats64,
- 	.ndo_set_rx_mode	= vxlan_set_multicast_list,
- 	.ndo_change_mtu		= eth_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
-@@ -1312,9 +1256,7 @@ static struct device_type vxlan_type = {
- 
- static void vxlan_free(struct net_device *dev)
- {
--	struct vxlan_dev *vxlan = netdev_priv(dev);
--
--	free_percpu(vxlan->stats);
-+	free_percpu(dev->tstats);
- 	free_netdev(dev);
- }
- 
--- 
-1.7.1
+* Silviu Popescu <silviupopescu1990-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> [2013-03-18 20:13:50 +0200]:
+
+> On Mon, Mar 18, 2013 at 8:05 PM, Silviu Popescu
+> <silviupopescu1990-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > On Wed, Mar 13, 2013 at 11:31 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wr=
+ote:
+> >> From: Silviu-Mihai Popescu <silviupopescu1990-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> >> Date: Tue, 12 Mar 2013 20:13:15 +0200
+> >>
+> >>> @@ -590,10 +590,7 @@ int __init bt_sysfs_init(void)
+> >>>       bt_debugfs =3D debugfs_create_dir("bluetooth", NULL);
+> >>>
+> >>>       bt_class =3D class_create(THIS_MODULE, "bluetooth");
+> >>> -     if (IS_ERR(bt_class))
+> >>> -             return PTR_ERR(bt_class);
+> >>> -
+> >>> -     return 0;
+> >>> +     return PTR_RET(bt_class)
+> >>
+> >> Don't bother submitting patches you aren't even going to try
+> >> to compile.
+> >>
+> >> I'm rejecting all of your current submissions.  Resubmit them
+> >> when you feel like typing 'make' from time to time.
+> >>
+> >>
+> >
+> > Sorry for the trouble caused and sorry for the late reply.
+> > That being said, I'd like to understand a bit better what exactly I mes=
+sed up.
+> > I've just pulled the latest revision of the mainline kernel and made
+> > the changes in this patch.
+> > I've tried with make defconfig (which would be x86_64_defconfig in my
+> > case), followed by
+> > make menuconfig to select the bluetooth options and make allyesconfig.
+> > Both defconfig and allyesconfig compile successfully on my system.
+> > Would you be so kind as to tell me what error you have encountered?
+> > Or perhaps enlighten me as to what I'm still doing wrong. I'd like to
+> > learn from my mistakes.
+>=20
+> Please ignore this gratuitous stupidity.
+> The right patch was applied locally, the wrong one sent to the list.
+> I'll resubmit the proper one.
+
+Someone already sent me a similar patch, so this is already fixed in
+bluetooth-next. No need to resubmit this one.
+
+	Gustavo
+
+--i0/AhcQY5QxfSsSZ
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
+
+iQIcBAEBAgAGBQJRR1qhAAoJEPs3PUX4s20oa8QQAJZa2lrQZNMpw2j8bkmBOcnX
+CtHlczrgcaeZ1dhoNBeRf107pFNxO103OFynP5zPpVBOW7OifzFdpH82ch1CuBnM
+QICCjnUE4PfNfEclIA/hRgROhMbvKqtoxt0I7+qeENU1twCuz79HU1yju48tkgZu
+sqPI7XistdSf5/eEceW7j8mmOuIB6PuYORp4UCckft0N1hUJ/3sArEwipJiouM2k
+gi5FITpXMhLKdi09bDl5L6u3e3YrON2dYBT0p9lIxu2bMWBNR1gMB8JzEqJmiZJ8
+6jd/7vWMTo0wyzKY6tAAmIpUvxBw2ZzZakpd244sWjiZzEgOng2FqpQuvkhxYhEx
+wqIDv94YUBUzaHdRRySBNEHknCtWFkxmnVwaswPS6z84TlciXRyJ9jOaTqpJoe/e
+elUR4sVNpfRSN2IwPcxGDQjbSSzeATn1ur1x2j2rpqFGUCQ5AZf3uV1dVp6gZmtI
+RhNjSJMLIh/NDf3a4caiXd4iDcrehP2dBeUYQqM10i32blzN6hM8A3ZXD/RggcW4
+85KFKbgSnFFOfbfJt/FjJ+ucMIWZMjY1kOSRJ1QPA5Ak+9MDcyyE8tu+iR3nMb+1
+L9JOxkN5A6M2sKDJX4UGCVuegBVSZx5k8l0YT4rx6FjIbp94mrye/qQrQO0Wa7Hc
+uib9DTyMVARX4FoRUVlq
+=yGa3
+-----END PGP SIGNATURE-----
+
+--i0/AhcQY5QxfSsSZ--
