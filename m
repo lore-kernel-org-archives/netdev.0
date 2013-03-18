@@ -1,52 +1,71 @@
-From: James Harper <james.harper@bendigoit.com.au>
-Subject: Re: [PATCH 4/4] xen-netback: coalesce slots before
- copying
-Date: Mon, 18 Mar 2013 13:09:32 +0000
-Message-ID: <6035A0D088A63A46850C3988ED045A4B387EC758@BITCOM1.int.sbss.com.au>
-References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
-	<1363602955-24790-5-git-send-email-wei.liu2@citrix.com>
+From: Kusanagi Kouichi <slash@ac.auone-net.jp>
+Subject: [PATCH] macvlan: Remove an unnecessary goto
+Date: Mon, 18 Mar 2013 22:03:39 +0900
+Message-ID: <20130318130339.4F76662C03B@msa106.auone-net.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "annie.li@oracle.com" <annie.li@oracle.com>,
-	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: Wei Liu <wei.liu2@citrix.com>, "netdev@vger.kernel.org"
-	<netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1363602955-24790-5-git-send-email-wei.liu2@citrix.com>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> 
-> This patch tries to coalesce tx requests when constructing grant copy
-> structures. It enables netback to deal with situation when frontend's
-> MAX_SKB_FRAGS is larger than backend's MAX_SKB_FRAGS.
-> 
-> It defines max_skb_slots, which is a estimation of the maximum number of
-> slots
-> a guest can send, anything bigger than that is considered malicious. Now it is
-> set to 20, which should be enough to accommodate Linux (16 to 19) and
-> possibly
-> Windows (19?).
-> 
-> +/*
-> + * This is an estimation of the maximum possible frags a SKB might
-> + * have, anything larger than this is considered malicious. Typically
-> + * Linux has 16 to 19, Windows has 19(?).
-> + */
+Use else instead.
 
-Could you remove the "Windows has 19(?)" comment? I don't think it's helpful, even with the "(?)"... I just checked and windows 2008R2 gives GPLPV a maximum of 20 buffers in all the testing I've done, and that's after the header is coalesced so it's probably more than that. I'm pretty sure I tested windows 2003 quite a while back and I could coax it into giving ridiculous numbers of buffers when using iperf with tiny buffers.
+Signed-off-by: Kusanagi Kouichi <slash@ac.auone-net.jp>
+---
+ drivers/net/macvlan.c |   27 +++++++++++++--------------
+ 1 file changed, 13 insertions(+), 14 deletions(-)
 
-Maybe "Windows has >19" if you need to put a number on it?
-
-James
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 73abbc1..92d16ad 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -251,31 +251,30 @@ out:
+ static int macvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	const struct macvlan_dev *vlan = netdev_priv(dev);
+-	const struct macvlan_port *port = vlan->port;
+-	const struct macvlan_dev *dest;
+-	__u8 ip_summed = skb->ip_summed;
+ 
+ 	if (vlan->mode == MACVLAN_MODE_BRIDGE) {
+ 		const struct ethhdr *eth = (void *)skb->data;
++		const struct macvlan_port * const port = vlan->port;
++		const __u8 ip_summed = skb->ip_summed;
++
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 
+-		/* send to other bridge ports directly */
+ 		if (is_multicast_ether_addr(eth->h_dest)) {
++			/* send to other bridge ports directly */
+ 			macvlan_broadcast(skb, port, dev, MACVLAN_MODE_BRIDGE);
+-			goto xmit_world;
++		} else {
++			const struct macvlan_dev * const dest =
++				macvlan_hash_lookup(port, eth->h_dest);
++			if (dest && dest->mode == MACVLAN_MODE_BRIDGE) {
++				/* send to lowerdev first for its network taps */
++				dev_forward_skb(vlan->lowerdev, skb);
++				return NET_XMIT_SUCCESS;
++			}
+ 		}
+ 
+-		dest = macvlan_hash_lookup(port, eth->h_dest);
+-		if (dest && dest->mode == MACVLAN_MODE_BRIDGE) {
+-			/* send to lowerdev first for its network taps */
+-			dev_forward_skb(vlan->lowerdev, skb);
+-
+-			return NET_XMIT_SUCCESS;
+-		}
++		skb->ip_summed = ip_summed;
+ 	}
+ 
+-xmit_world:
+-	skb->ip_summed = ip_summed;
+ 	skb->dev = vlan->lowerdev;
+ 	return dev_queue_xmit(skb);
+ }
+-- 
+1.7.10.4
