@@ -1,57 +1,48 @@
-From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: [PATCH 3/4] mrf24j40: Increase max SPI speed
-	to 10MHz
-Date: Mon, 18 Mar 2013 18:06:42 -0400
-Message-ID: <1363644403-11003-4-git-send-email-alan@signal11.us>
-References: <1363644403-11003-1-git-send-email-alan@signal11.us>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [PATCH 0/2] Address issues in dma-debug API
+Date: Mon, 18 Mar 2013 15:12:38 -0700
+Message-ID: <20130318220241.7349.5030.stgit@ahduyck-cp1.jf.intel.com>
+References: <3729150.HPUjKjXiGc@cpaasch-mac>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-To: linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1363644403-11003-1-git-send-email-alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: konrad.wilk@oracle.com, joerg.roedel@amd.com, konrad@kernel.org,
+	christoph.paasch@uclouvain.be, mingo@redhat.com,
+	shuahkhan@gmail.com, hpa@zytor.com, akpm@linux-foundation.org,
+	shuah.khan@hp.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3729150.HPUjKjXiGc@cpaasch-mac>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Upon consulting the datasheet further, it does indicates a maximum speed
-for SCK at 10MHz.
+Christoph Paasch recently reported a "device driver failed to check map 
+error" on igb.  However after reviewing the code there was no possibility of
+that.  On closer inspection there was a bug in the DMA debug API that was
+causing the issue.  These two patches address the issues I found.
 
-Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+The first issue I found while trying to implement a workaround.  Specifically
+the problem is a locking bug which is triggered if a multiple mapped buffer
+exists and there is not an exact match for the unmap.  This results in the CPU
+becoming deadlocked.
+
+The second issue, which was the original problem, is resolved by guaranteeing
+that if we call dma_mapping_error we set a matching entry to MAP_ERR_CHECKED
+that was not previously set. 
+
+I'm not sure if these are critical enough to go into one of the upcoming RC
+kernels or if these can wait until the merge since this is in a debugging API.
+I'm leaving that for the sub-maintainers to decide.
+
 ---
- drivers/net/ieee802154/mrf24j40.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
-index 582c0a3..b4f9b67 100644
---- a/drivers/net/ieee802154/mrf24j40.c
-+++ b/drivers/net/ieee802154/mrf24j40.c
-@@ -92,9 +92,8 @@ struct mrf24j40 {
- #define MRF24J40_READLONG(reg) (1 << 15 | (reg) << 5)
- #define MRF24J40_WRITELONG(reg) (1 << 15 | (reg) << 5 | 1 << 4)
- 
--/* Maximum speed to run the device at. TODO: Get the real max value from
-- * someone at Microchip since it isn't in the datasheet. */
--#define MAX_SPI_SPEED_HZ 1000000
-+/* The datasheet indicates the theoretical maximum for SCK to be 10MHz */
-+#define MAX_SPI_SPEED_HZ 10000000
- 
- #define printdev(X) (&X->spi->dev)
- 
+Alexander Duyck (2):
+      dma-debug: Fix locking bug in check_unmap
+      dma-debug: Update DMA debug API to better handle multiple mappings of a buffer
+
+
+ lib/dma-debug.c |   42 ++++++++++++++++++++++++++++--------------
+ 1 files changed, 28 insertions(+), 14 deletions(-)
+
 -- 
-1.7.11.2
-
-
-------------------------------------------------------------------------------
-Everyone hates slow websites. So do we.
-Make your web apps faster with AppDynamics
-Download AppDynamics Lite for free today:
-http://p.sf.net/sfu/appdyn_d2d_mar
