@@ -1,38 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] sfc: make local functions static
-Date: Mon, 18 Mar 2013 15:33:42 +0000
-Message-ID: <1363620822.2602.0.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20130316095751.33087a2b@nehalam.linuxnetplumber.net>
-	 <20130317.142653.1414523995890573030.davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH nf-next] netfilter: nfnetlink_queue: zero copy support
+Date: Mon, 18 Mar 2013 16:36:00 +0100
+Message-ID: <20130318153600.GA10854@localhost>
+References: <1363576555.29475.122.camel@edumazet-glaptop>
+ <20130318092444.GG7938@breakpoint.cc>
+ <1363614679.29475.130.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <stephen@networkplumber.org>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:6947 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751001Ab3CRPdu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 11:33:50 -0400
-In-Reply-To: <20130317.142653.1414523995890573030.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netdev <netdev@vger.kernel.org>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1363614679.29475.130.camel@edumazet-glaptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-03-17 at 14:26 -0400, David Miller wrote:
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Sat, 16 Mar 2013 09:57:51 -0700
-> 
-> > Trivial sparse detected functions that should be static.
+On Mon, Mar 18, 2013 at 06:51:19AM -0700, Eric Dumazet wrote:
+> On Mon, 2013-03-18 at 10:24 +0100, Florian Westphal wrote:
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > >
+> > > -GRO/GSO packets are segmented in nf_queue()
+> > > and checksummed in nfqnl_build_packet_message().
+> > > Proper support for GSO/GRO packets (no segmentation,
+> > > and no checksumming) needs application cooperation, if we
+> > > want no regressions.
 > > 
-> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> > Since ipqueue is gone we might be able to push the segmentation
+> > down to nfnetlink_queue.  Then new userspace applications
+> > could indicate a 'I won't verify checksums and will handle huge
+> > packets'.
+> > 
+> > Are you working on something like this?
 > 
-> Applied, thanks Stephen.
+> I validated that it was only an API concern, by commenting out the code,
+> and got 20Gbps (link speed) using the sample program (using a bigger
+> buffer to receive the skbs and removing the printf() for each packet)
+> 
+> Pablo followed the experiments and I believe he has an idea of the
+> needed API.
 
-Thanks.
+Will take over this. Florian, ping me if interested in helping.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks a lot for the patch and ideas Eric!
