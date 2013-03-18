@@ -1,59 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PULL] vhost: tcm_vhost fixes for 3.9
-Date: Mon, 18 Mar 2013 16:05:23 -0400 (EDT)
-Message-ID: <20130318.160523.1621054103077556675.davem@davemloft.net>
-References: <20130318112003.GA7809@redhat.com>
-	<20130318.130136.1629094222097780420.davem@davemloft.net>
-	<20130318195443.GB19761@redhat.com>
+Subject: Re: [PATCH] bnx2x: fix occasional statistics off-by-4GB error
+Date: Mon, 18 Mar 2013 16:05:48 -0400 (EDT)
+Message-ID: <20130318.160548.1629790231912790279.davem@davemloft.net>
+References: <1363601182.4752.13.camel@lb-tlvb-eilong.il.broadcom.com>
+	<20130318.131318.138158829629301794.davem@davemloft.net>
+	<CAHo-OoxaaLLXtAZcx99m7p5=Hez3gpUWxvoQAgksyG3PRZH-Ng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	asias@redhat.com, nab@linux-iscsi.org, target-devel@vger.kernel.org
-To: mst@redhat.com
-Return-path: <target-devel-owner@vger.kernel.org>
-In-Reply-To: <20130318195443.GB19761@redhat.com>
-Sender: target-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eilong@broadcom.com, eric.dumazet@gmail.com, dmitry@broadcom.com,
+	netdev@vger.kernel.org, yuvalmin@broadcom.com
+To: zenczykowski@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33170 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753605Ab3CRUFv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 16:05:51 -0400
+In-Reply-To: <CAHo-OoxaaLLXtAZcx99m7p5=Hez3gpUWxvoQAgksyG3PRZH-Ng@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Mon, 18 Mar 2013 21:54:43 +0200
+=46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
+Date: Mon, 18 Mar 2013 12:54:49 -0700
 
-> On Mon, Mar 18, 2013 at 01:01:36PM -0400, David Miller wrote:
->> From: "Michael S. Tsirkin" <mst@redhat.com>
->> Date: Mon, 18 Mar 2013 13:20:03 +0200
->> 
->> > The following changes since commit 8c6216d7f118a128678270824b6a1286a63863ca:
->> > 
->> >   Revert "ip_gre: make ipgre_tunnel_xmit() not parse network header as IP unconditionally" (2013-03-16 23:00:41 -0400)
->> > 
->> > are available in the git repository at:
->> > 
->> >   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
->> > 
->> > for you to fetch changes up to deb7cb067dabd3be625eaf5495da8bdc97377fc1:
->> > 
->> >   tcm_vhost: Flush vhost_work in vhost_scsi_flush() (2013-03-17 13:04:14 +0200)
->> 
->> This is a scsi driver, I therefore don't think this pull request is for me.
->> 
->> Please avoid such confusion in the future, and don't use branch names
->> like "vhost-net" for SCSI driver fixes.
->> 
->> Thanks.
-> 
-> We are sharing quite a bit of code, so it's a common tree.
-> There was a vhost-net patch there too but you picked it up
-> directly so I dropped that and what's left is vhost-scsi.
-> Typically vhost-net dominates so I'm just used to merging all vhost
-> things through you but if you think it's wrong I can send it directly to
-> Linus.
+> I've reproduced this in the lab.
+>=20
+> I can confirm this patch fixes per-queue statistics (ie. ethtool -S
+> "[0]: tx_bytes") - which previously were not monotonically increasing=
+=2E
+> However there is still a bug wrt. global device stats (ie. ethtool -S
+> "tx_bytes" and /proc/net/dev transmit bytes).
+> I'm guessing there's another similar bug later on during aggregation.
+>=20
+> I expect to find the offending code and send out a patch soon.
 
-Just like any other "bus" or "layer" for drivers, you should
-really just send the networking bits my way.
-
-Now, in situations where some generic vhost infrastructure is
-necessary for a vhost-net specific change, that might be a
-situation where we can merge the infrastructure change into
-my tree so that the networking bits can go in too.
+Thanks Maciej.
