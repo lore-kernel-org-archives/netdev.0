@@ -1,33 +1,52 @@
-From: Kusanagi Kouichi <slash@ac.auone-net.jp>
-Subject: [PATCH] net: Fix a comment typo
-Date: Mon, 18 Mar 2013 21:59:52 +0900
-Message-ID: <20130318125952.CC5E615C03A@msa104.auone-net.jp>
+From: James Harper <james.harper@bendigoit.com.au>
+Subject: Re: [PATCH 4/4] xen-netback: coalesce slots before
+ copying
+Date: Mon, 18 Mar 2013 13:09:32 +0000
+Message-ID: <6035A0D088A63A46850C3988ED045A4B387EC758@BITCOM1.int.sbss.com.au>
+References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
+	<1363602955-24790-5-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Jiri Kosina <trivial@kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "annie.li@oracle.com" <annie.li@oracle.com>,
+	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Wei Liu <wei.liu2@citrix.com>, "netdev@vger.kernel.org"
+	<netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1363602955-24790-5-git-send-email-wei.liu2@citrix.com>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Kusanagi Kouichi <slash@ac.auone-net.jp>
----
- net/core/dev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> This patch tries to coalesce tx requests when constructing grant copy
+> structures. It enables netback to deal with situation when frontend's
+> MAX_SKB_FRAGS is larger than backend's MAX_SKB_FRAGS.
+> 
+> It defines max_skb_slots, which is a estimation of the maximum number of
+> slots
+> a guest can send, anything bigger than that is considered malicious. Now it is
+> set to 20, which should be enough to accommodate Linux (16 to 19) and
+> possibly
+> Windows (19?).
+> 
+> +/*
+> + * This is an estimation of the maximum possible frags a SKB might
+> + * have, anything larger than this is considered malicious. Typically
+> + * Linux has 16 to 19, Windows has 19(?).
+> + */
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index dffbef7..69f696a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3326,7 +3326,7 @@ EXPORT_SYMBOL_GPL(netdev_rx_handler_register);
-  *	netdev_rx_handler_unregister - unregister receive handler
-  *	@dev: device to unregister a handler from
-  *
-- *	Unregister a receive hander from a device.
-+ *	Unregister a receive handler from a device.
-  *
-  *	The caller must hold the rtnl_mutex.
-  */
--- 
-1.7.10.4
+Could you remove the "Windows has 19(?)" comment? I don't think it's helpful, even with the "(?)"... I just checked and windows 2008R2 gives GPLPV a maximum of 20 buffers in all the testing I've done, and that's after the header is coalesced so it's probably more than that. I'm pretty sure I tested windows 2003 quite a while back and I could coax it into giving ridiculous numbers of buffers when using iperf with tiny buffers.
+
+Maybe "Windows has >19" if you need to put a number on it?
+
+James
