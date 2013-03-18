@@ -1,54 +1,65 @@
-From: Mikael Abrahamsson <swmike@swm.pp.se>
-Subject: Re: Who/What is supposed to remove IPv6 address from interface when
- moving from one network to another ?
-Date: Mon, 18 Mar 2013 21:49:37 +0100 (CET)
-Message-ID: <alpine.DEB.2.00.1303182143050.2309@uplift.swm.pp.se>
-References: <CAF6-1L4=xACZdqvJ6AZL4XkY17N0pC9PnPfNfK9Tk7QB47c1tw@mail.gmail.com>  <CAF6-1L5cxguK8tHxjMACZJ8xNmAXLLXwP086eF4_SEctZdiZ3g@mail.gmail.com>  <1363290495.1643.29.camel@dcbw.foobar.com>  <CAKD1Yr1=1kfcSmRYgnrYQBhNPPc=nquB2c1jLbopbvqz848cxQ@mail.gmail.com>
-  <1363626191.6437.2.camel@dcbw.foobar.com>  <CAF6-1L7De=QQz9YnRxqovnoxzfR0WHnQ-Fi4T_LZ+j9s=oQWyA@mail.gmail.com>  <CAKD1Yr1Dd0ngiB0WhEQCjCrrEVrtqs9VuHPWukCdupkfLWjqaQ@mail.gmail.com>  <CAF6-1L7Von88pAhHzhyaJiL8x4w9cNpJw+k+0Giu5Jh-fYJ37g@mail.gmail.com>
- <1363639366.7698.10.camel@dcbw.foobar.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PULL] vhost: tcm_vhost fixes for 3.9
+Date: Mon, 18 Mar 2013 23:14:18 +0200
+Message-ID: <20130318211418.GA20406@redhat.com>
+References: <20130318112003.GA7809@redhat.com>
+ <20130318.130136.1629094222097780420.davem@davemloft.net>
+ <20130318195443.GB19761@redhat.com>
+ <1363641003.3156.43.camel@haakon2.linux-iscsi.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: Sylvain Munaut <s.munaut@whatever-company.com>,
-	Lorenzo Colitti <lorenzo@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from swm.pp.se ([212.247.200.143]:43555 "EHLO uplift.swm.pp.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753347Ab3CRU7I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Mar 2013 16:59:08 -0400
-In-Reply-To: <1363639366.7698.10.camel@dcbw.foobar.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, asias@redhat.com,
+	target-devel@vger.kernel.org
+To: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1363641003.3156.43.camel@haakon2.linux-iscsi.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Mar 2013, Dan Williams wrote:
+On Mon, Mar 18, 2013 at 02:10:03PM -0700, Nicholas A. Bellinger wrote:
+> On Mon, 2013-03-18 at 21:54 +0200, Michael S. Tsirkin wrote:
+> > On Mon, Mar 18, 2013 at 01:01:36PM -0400, David Miller wrote:
+> > > From: "Michael S. Tsirkin" <mst@redhat.com>
+> > > Date: Mon, 18 Mar 2013 13:20:03 +0200
+> > > 
+> > > > The following changes since commit 8c6216d7f118a128678270824b6a1286a63863ca:
+> > > > 
+> > > >   Revert "ip_gre: make ipgre_tunnel_xmit() not parse network header as IP unconditionally" (2013-03-16 23:00:41 -0400)
+> > > > 
+> > > > are available in the git repository at:
+> > > > 
+> > > >   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
+> > > > 
+> > > > for you to fetch changes up to deb7cb067dabd3be625eaf5495da8bdc97377fc1:
+> > > > 
+> > > >   tcm_vhost: Flush vhost_work in vhost_scsi_flush() (2013-03-17 13:04:14 +0200)
+> > > 
+> > > This is a scsi driver, I therefore don't think this pull request is for me.
+> > > 
+> > > Please avoid such confusion in the future, and don't use branch names
+> > > like "vhost-net" for SCSI driver fixes.
+> > > 
+> > > Thanks.
+> > 
+> > We are sharing quite a bit of code, so it's a common tree.
+> > There was a vhost-net patch there too but you picked it up
+> > directly so I dropped that and what's left is vhost-scsi.
+> > Typically vhost-net dominates so I'm just used to merging all vhost
+> > things through you but if you think it's wrong I can send it directly to
+> > Linus.
+> > 
+> 
+> I'll be sending out a target-pending 3.9-rc-fixes pull request later in
+> the week, and am happy to include this series if you'd like.
+> 
+> --nab
 
-> While I'm not an IPv6 expert I would actually expect the kernel to stop 
-> using any IPv6 address or route that had expired, and that was *added 
-> automatically* by the kernel as a result of a router advertisement. 
-> Perhaps that's not how it actually works, but would be nice to hear from 
-> some kernel IPv6 people why that's not how it works, if that's the case.
-
-It's my experience that the kernel doesn't detect link-down events and do 
-anything useful with that information. When I have asked about this, I get 
-server-usage scenarios and people don't want the kernel to do anything.
-
-In older Ubuntu, when moving between wifis with different IPv6 subnets on 
-them, you after a while were sitting there with IPv6 addresses from 
-several different subnets, of which just one worked. Fail. I believe 
-enhancements in the connection manager fixed this, because from 12.04 or 
-something, this is not a problem anymore. When eth0 or wlan0 goes down, so 
-IPv6 addresses and default routes go away just like the IPv4 equivalents.
-
-Before the IPv4 equivalents went away on link-down but IPv6 was on 
-autopilot by kernel seeing RAs and they stayed there long after they 
-overspent their welcome.
-
-So, my opinion is that the connection manager needs to take care of this, 
-because the kernel doesn't do it (intentionally, by design).
-
-I'm sure the kernel will stop using addresses after they expire, but that 
-doesn't happen when a link goes down.
+Sure, go ahead. You can add
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+to the patches.
 
 -- 
-Mikael Abrahamsson    email: swmike@swm.pp.se
+MST
