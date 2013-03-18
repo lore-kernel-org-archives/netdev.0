@@ -1,34 +1,38 @@
-From: David Miller <davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: [PATCH v2 net-next 1/5] GRE: Refactor GRE tunneling code.
-Date: Mon, 18 Mar 2013 15:24:30 -0400 (EDT)
-Message-ID: <20130318.152430.2139279377420574326.davem@davemloft.net>
+Date: Mon, 18 Mar 2013 12:24:09 -0700
+Message-ID: <20130318122409.00c01106@nehalam.linuxnetplumber.net>
 References: <1363630405-1672-1-git-send-email-pshelar@nicira.com>
-	<20130318.152337.1168478029473094805.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@nicira.com
-To: pshelar@nicira.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jesse@nicira.com
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60849 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753967Ab3CRTYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 15:24:32 -0400
-In-Reply-To: <20130318.152337.1168478029473094805.davem@davemloft.net>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:63132 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754963Ab3CRTaw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 15:30:52 -0400
+Received: by mail-pb0-f53.google.com with SMTP id un1so6681339pbc.12
+        for <netdev@vger.kernel.org>; Mon, 18 Mar 2013 12:30:52 -0700 (PDT)
+In-Reply-To: <1363630405-1672-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 18 Mar 2013 15:23:37 -0400 (EDT)
+On Mon, 18 Mar 2013 11:13:25 -0700
+Pravin B Shelar <pshelar@nicira.com> wrote:
 
-> From: Pravin B Shelar <pshelar@nicira.com>
-> Date: Mon, 18 Mar 2013 11:13:25 -0700
-> 
->> +EXPORT_SYMBOL(ip_tunnel_get_stats64);
-> 
-> EXPORT_SYMBOL_GPL() please.
+> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+> index 7944df7..2073226 100644
+> --- a/net/ipv4/Kconfig
+> +++ b/net/ipv4/Kconfig
+> @@ -186,9 +186,14 @@ config NET_IPGRE_DEMUX
+>  	 This is helper module to demultiplex GRE packets on GRE version field criteria.
+>  	 Required by ip_gre and pptp modules.
+>  
+> +config NET_IP_TUNNEL
+> +	tristate
+> +	default n
+> +
 
-In case it isn't clear, I want you to use GPL exports for all of the
-symbols exported from the new library.
-
-Thanks.
+Won't this break existing kernel config's, shouldn't this default y?
