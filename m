@@ -1,59 +1,41 @@
-From: Alan Ott <alan@signal11.us>
-Subject: [PATCH 1/4] mrf24j40: pinctrl support
-Date: Mon, 18 Mar 2013 18:06:40 -0400
-Message-ID: <1363644403-11003-2-git-send-email-alan@signal11.us>
-References: <1363644403-11003-1-git-send-email-alan@signal11.us>
-Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	linux-kernel@vger.kernel.org, Alan Ott <alan@signal11.us>
-To: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:47808 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754479Ab3CRWGr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 18:06:47 -0400
-In-Reply-To: <1363644403-11003-1-git-send-email-alan@signal11.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+Subject: [PATCH 0/4] Misc MRF24J40 Fixes
+Date: Mon, 18 Mar 2013 18:06:39 -0400
+Message-ID: <1363644403-11003-1-git-send-email-alan@signal11.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+To: linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Activate pinctrl settings when used with a DT system.
+These are fairly straight-forward.
 
-Signed-off-by: Alan Ott <alan@signal11.us>
----
- drivers/net/ieee802154/mrf24j40.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+Alan Ott (4):
+  mrf24j40: pinctrl support
+  mrf24j40: Warn if transmit interrupts timeout
+  mrf24j40: Increase max SPI speed to 10MHz
+  mrf24j40: Fix byte-order of IEEE address
 
-diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
-index 3f2c7aa..3106895 100644
---- a/drivers/net/ieee802154/mrf24j40.c
-+++ b/drivers/net/ieee802154/mrf24j40.c
-@@ -22,6 +22,7 @@
- #include <linux/spi/spi.h>
- #include <linux/interrupt.h>
- #include <linux/module.h>
-+#include <linux/pinctrl/consumer.h>
- #include <net/wpan-phy.h>
- #include <net/mac802154.h>
- 
-@@ -623,6 +624,7 @@ static int mrf24j40_probe(struct spi_device *spi)
- 	int ret = -ENOMEM;
- 	u8 val;
- 	struct mrf24j40 *devrec;
-+	struct pinctrl *pinctrl;
- 
- 	printk(KERN_INFO "mrf24j40: probe(). IRQ: %d\n", spi->irq);
- 
-@@ -633,6 +635,11 @@ static int mrf24j40_probe(struct spi_device *spi)
- 	if (!devrec->buf)
- 		goto err_buf;
- 
-+	pinctrl = devm_pinctrl_get_select_default(&spi->dev);
-+	if (IS_ERR(pinctrl))
-+		dev_warn(&spi->dev,
-+			"pinctrl pins are not configured from the driver");
-+
- 	spi->mode = SPI_MODE_0; /* TODO: Is this appropriate for right here? */
- 	if (spi->max_speed_hz > MAX_SPI_SPEED_HZ)
- 		spi->max_speed_hz = MAX_SPI_SPEED_HZ;
+ drivers/net/ieee802154/mrf24j40.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
+
 -- 
 1.7.11.2
+
+
+------------------------------------------------------------------------------
+Everyone hates slow websites. So do we.
+Make your web apps faster with AppDynamics
+Download AppDynamics Lite for free today:
+http://p.sf.net/sfu/appdyn_d2d_mar
