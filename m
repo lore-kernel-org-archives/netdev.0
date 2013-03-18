@@ -1,61 +1,64 @@
 From: Shawn Guo <shawn.guo@linaro.org>
-Subject: [PATCH v2 0/4] ARM: mxs: sanitize enet_out clock handling
-Date: Mon, 18 Mar 2013 16:26:21 +0800
-Message-ID: <1363595185-12302-1-git-send-email-shawn.guo@linaro.org>
+Subject: [PATCH v2 1/4] net: fec: handle optional clk_ptp more gracefully
+Date: Mon, 18 Mar 2013 16:26:22 +0800
+Message-ID: <1363595185-12302-2-git-send-email-shawn.guo@linaro.org>
+References: <1363595185-12302-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
 	Shawn Guo <shawn.guo@linaro.org>
 To: <linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe004.messaging.microsoft.com ([207.46.163.27]:44038
+Received: from co9ehsobe005.messaging.microsoft.com ([207.46.163.28]:44238
 	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752181Ab3CRI0b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 04:26:31 -0400
+	by vger.kernel.org with ESMTP id S1752181Ab3CRI0d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 04:26:33 -0400
+In-Reply-To: <1363595185-12302-1-git-send-email-shawn.guo@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Handling enet_out on MX28 is cumbersome at the moment. Most boards need
-it enabled and for that, they have to add code to mach-mxs.c (see sps1
-as an example). Since this is board specific, we better encode it in
-the devicetree, that is the reason it was made for.
+When the optional clk_ptp is absent, we can just set it to NULL, and
+clk API will just handle it gracefully.  It saves us from checking
+clk_ptp whenever calling into clk API.
 
-The seres propose to have enet_out clock defined in device tree and
-have fec driver to enable the clock if found.  This will make adding
-new board easier, since we don't have to touch mach-mxs.c for this
-case. It scales much better.
+Also since clk_ptp is optional, the "ret" variable shouldn't be set
+in case that the clock is absent.
 
-Changes since v1:
- * Rebased on v3.9-rc1
- * Add a patch to have clk_ptp handled in the same way that enet_out
-   is done
- * Add enet_out into imx28.dtsi and overwrite clocks and clock-names
-   for m28evk board where the clock is absent
- * Remove unneeded enet_out clk initialization from board code
+Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+---
+ drivers/net/ethernet/freescale/fec.c |    8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-David,
-
-If the series looks good to you, I hope I can have your ACK on the
-first 2 patches to have the series go via arm-soc tree for sake of
-git bisect.  Alternatively, please apply the first 2 on your tree
-for 3.10 and we will queue the platform patches for 3.11.
-
-Shawn
-
-Shawn Guo (2):
-  net: fec: handle optional clk_ptp more gracefully
-  ARM: mxs: remove unneeded enet_out clk initialization
-
-Wolfram Sang (2):
-  net: freescale: fec: add support for optional enet_out clk
-  ARM: dts: mxs: add enet_out clock to devicetree
-
- arch/arm/boot/dts/imx28-m28evk.dts   |    2 ++
- arch/arm/boot/dts/imx28.dtsi         |    4 ++--
- arch/arm/mach-mxs/mach-mxs.c         |   12 ------------
- drivers/net/ethernet/freescale/fec.c |   18 +++++++++++++-----
- drivers/net/ethernet/freescale/fec.h |    1 +
- 5 files changed, 18 insertions(+), 19 deletions(-)
-
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index fccc3bf..d2a9851 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -1804,14 +1804,13 @@ fec_probe(struct platform_device *pdev)
+ 	fep->bufdesc_ex =
+ 		pdev->id_entry->driver_data & FEC_QUIRK_HAS_BUFDESC_EX;
+ 	if (IS_ERR(fep->clk_ptp)) {
+-		ret = PTR_ERR(fep->clk_ptp);
++		fep->clk_ptp = NULL;
+ 		fep->bufdesc_ex = 0;
+ 	}
+ 
+ 	clk_prepare_enable(fep->clk_ahb);
+ 	clk_prepare_enable(fep->clk_ipg);
+-	if (!IS_ERR(fep->clk_ptp))
+-		clk_prepare_enable(fep->clk_ptp);
++	clk_prepare_enable(fep->clk_ptp);
+ 
+ 	reg_phy = devm_regulator_get(&pdev->dev, "phy");
+ 	if (!IS_ERR(reg_phy)) {
+@@ -1876,8 +1875,7 @@ failed_irq:
+ failed_regulator:
+ 	clk_disable_unprepare(fep->clk_ahb);
+ 	clk_disable_unprepare(fep->clk_ipg);
+-	if (!IS_ERR(fep->clk_ptp))
+-		clk_disable_unprepare(fep->clk_ptp);
++	clk_disable_unprepare(fep->clk_ptp);
+ failed_pin:
+ failed_clk:
+ 	iounmap(fep->hwp);
 -- 
 1.7.9.5
