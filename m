@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: neterion: replace ip_fast_csum with
- csum_replace2
-Date: Mon, 18 Mar 2013 13:02:49 -0400 (EDT)
-Message-ID: <20130318.130249.552186044757498712.davem@davemloft.net>
-References: <1363595688-16004-1-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: [PATCH 1/3] net: dm9000: Use module_platform_driver()
+Date: Mon, 18 Mar 2013 13:02:57 -0400 (EDT)
+Message-ID: <20130318.130257.1727399142518843307.davem@davemloft.net>
+References: <1363607448-17369-1-git-send-email-sachin.kamat@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+To: sachin.kamat@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59393 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59396 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752100Ab3CRRCv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 13:02:51 -0400
-In-Reply-To: <1363595688-16004-1-git-send-email-roy.qing.li@gmail.com>
+	with ESMTP id S1752743Ab3CRRC7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 13:02:59 -0400
+In-Reply-To: <1363607448-17369-1-git-send-email-sachin.kamat@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roy.qing.li@gmail.com
-Date: Mon, 18 Mar 2013 16:34:48 +0800
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Mon, 18 Mar 2013 17:20:46 +0530
 
-> From: Li RongQing <roy.qing.li@gmail.com>
+> module_platform_driver macro removes some boilerplate and makes
+> the code simpler.
 > 
-> replace ip_fast_csum with csum_replace2 to save cpu cycles
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
 
 Applied.
