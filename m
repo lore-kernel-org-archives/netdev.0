@@ -1,7 +1,7 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH 2/4] xen-netfront: drop skb when skb->len > 65535
-Date: Mon, 18 Mar 2013 10:35:53 +0000
-Message-ID: <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>
+Subject: [PATCH 3/4] xen-netback: remove skb in xen_netbk_alloc_page
+Date: Mon, 18 Mar 2013 10:35:54 +0000
+Message-ID: <1363602955-24790-4-git-send-email-wei.liu2@citrix.com>
 References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,42 +11,48 @@ To: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp.citrix.com ([66.165.176.89]:23973 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751021Ab3CRKgO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Mar 2013 06:36:14 -0400
+	id S1751268Ab3CRKgP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Mar 2013 06:36:15 -0400
 In-Reply-To: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The `size' field of Xen network wire format is uint16_t, anything bigger than
-65535 will cause overflow.
+This variable is never used.
 
 Signed-off-by: Wei Liu <wei.liu2@citrix.com>
 ---
- drivers/net/xen-netfront.c |   12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/net/xen-netback/netback.c |    5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 5527663..8c3d065 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -547,6 +547,18 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	unsigned int len = skb_headlen(skb);
- 	unsigned long flags;
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index da726a3..6e8e51a 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -948,7 +948,6 @@ static int netbk_count_requests(struct xenvif *vif,
+ }
  
-+	/*
-+	 * wire format of xen_netif_tx_request only supports skb->len
-+	 * < 64K, because size field in xen_netif_tx_request is
-+	 * uint16_t.
-+	 */
-+	if (unlikely(skb->len > (uint16_t)(~0))) {
-+		net_alert_ratelimited(
-+			"xennet: skb->len = %d, too big for wire format\n",
-+			skb->len);
-+		goto drop;
-+	}
-+
- 	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
- 		xennet_count_skb_frag_slots(skb);
- 	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
+ static struct page *xen_netbk_alloc_page(struct xen_netbk *netbk,
+-					 struct sk_buff *skb,
+ 					 u16 pending_idx)
+ {
+ 	struct page *page;
+@@ -982,7 +981,7 @@ static struct gnttab_copy *xen_netbk_get_requests(struct xen_netbk *netbk,
+ 
+ 		index = pending_index(netbk->pending_cons++);
+ 		pending_idx = netbk->pending_ring[index];
+-		page = xen_netbk_alloc_page(netbk, skb, pending_idx);
++		page = xen_netbk_alloc_page(netbk, pending_idx);
+ 		if (!page)
+ 			goto err;
+ 
+@@ -1387,7 +1386,7 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
+ 		}
+ 
+ 		/* XXX could copy straight to head */
+-		page = xen_netbk_alloc_page(netbk, skb, pending_idx);
++		page = xen_netbk_alloc_page(netbk, pending_idx);
+ 		if (!page) {
+ 			kfree_skb(skb);
+ 			netbk_tx_err(vif, &txreq, idx);
 -- 
 1.7.10.4
