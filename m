@@ -1,52 +1,50 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 1/4] xen-netfront: remove unused variable `extra'
-Date: Mon, 18 Mar 2013 12:14:20 +0000
-Message-ID: <1363608860.30193.39.camel@zakaz.uk.xensource.com>
-References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
-	 <1363602955-24790-2-git-send-email-wei.liu2@citrix.com>
-	 <1363606922.30193.21.camel@zakaz.uk.xensource.com>
-	 <1363608271.29093.196.camel@zion.uk.xensource.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH v2 0/4] tcp: fix problems when tcp_fin_timeout is greater
+ than 60
+Date: Mon, 18 Mar 2013 21:36:03 +0900
+Message-ID: <1363610163.7121.2.camel@ubuntu-vm-makita>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"annie.li@oracle.com" <annie.li@oracle.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+To: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:61033 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751129Ab3CRMOY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 08:14:24 -0400
-In-Reply-To: <1363608271.29093.196.camel@zion.uk.xensource.com>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:37037 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751204Ab3CRMgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 08:36:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-03-18 at 12:04 +0000, Wei Liu wrote:
-> On Mon, 2013-03-18 at 11:42 +0000, Ian Campbell wrote:
-> > On Mon, 2013-03-18 at 10:35 +0000, Wei Liu wrote:
-> > 
-> > I think a few more words are needed here since from the code you are
-> > removing it seems very much like gso is used for something. If you have
-> > a proof that the "extra = gso" case is never hit then please explain it.
-> > Perhaps a reference to the removal of the last user?
-> > 
-> > Or maybe it is the case that it should be used and the bug is that it
-> > isn't?
-> > 
-> 
-> Looks like the latter one. 'extra' field should  be used to get hold of
-> the last extra info in the ring. ;-)
-> 
-> But, the only extra info in upstream kernel is XEN_NETIF_EXTRA_TYPE_GSO,
-> so there's really no other extra info in the ring at that point. Could
-> it be possible that it is something from classic Xen kernel?
+This is resubmission of the patch set that fixes problems when
+tcp_fin_timeout is greater than 60.
 
-The classic kernel netfront has exactly the same code it seems and
-netif_extra_type_gso is the only one I've ever heard of.
+- fix too short FIN_WAIT2 timer when tcp_fin_timeout is between 60
+  and 120.
+- fix FIN_WAIT2 timer expression in /proc/net/tcp and inet_diag when
+  tcp_fin_timeout is greater than 60.
 
-Maybe this extra thing is just redundant unless/until a second extra
-comes along.
+v2:
+ - Separated changes of indentation to another patch.
+ - Revised the comment of the patch modifying the expression of
+   /proc/net/tcp to explain the reason for change.
+ - Modified inet_diag.
 
-Ian.
+Toshiaki Makita (4):
+  tcp: fix too short FIN_WAIT2 time out
+  tcp: fix FIN_WAIT2 timer expression in /proc/net/tcp
+  tcp: fix the indentation in timer calculation of /proc/net/tcp
+  inet_diag: fix FIN_WAIT2 timer expression in inet_diag
+
+ include/linux/inet_diag.h |    2 ++
+ net/dccp/diag.c           |   15 +++++++++++++++
+ net/ipv4/inet_diag.c      |   20 --------------------
+ net/ipv4/tcp_diag.c       |   27 +++++++++++++++++++++++++++
+ net/ipv4/tcp_ipv4.c       |   23 +++++++++++++++--------
+ net/ipv4/tcp_timer.c      |    8 ++------
+ net/ipv6/tcp_ipv6.c       |   23 +++++++++++++++--------
+ 7 files changed, 76 insertions(+), 42 deletions(-)
+
+-- 
+1.7.10.4
