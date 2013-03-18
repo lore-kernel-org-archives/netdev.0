@@ -1,8 +1,8 @@
 From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: [PATCH 2/4] mrf24j40: Warn if transmit
-	interrupts timeout
-Date: Mon, 18 Mar 2013 18:06:41 -0400
-Message-ID: <1363644403-11003-3-git-send-email-alan@signal11.us>
+Subject: [PATCH 4/4] mrf24j40: Fix byte-order of IEEE
+	address
+Date: Mon, 18 Mar 2013 18:06:43 -0400
+Message-ID: <1363644403-11003-5-git-send-email-alan@signal11.us>
 References: <1363644403-11003-1-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,25 +22,27 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Issue a warning if a transmit complete interrupt doesn't happen in time.
+Load the 64-bit Extended (IEEE) address into the hardware in the proper
+byte order.
 
 Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
 ---
- drivers/net/ieee802154/mrf24j40.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ieee802154/mrf24j40.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
-index 3106895..582c0a3 100644
+index b4f9b67..0ca8f88 100644
 --- a/drivers/net/ieee802154/mrf24j40.c
 +++ b/drivers/net/ieee802154/mrf24j40.c
-@@ -362,6 +362,7 @@ static int mrf24j40_tx(struct ieee802154_dev *dev, struct sk_buff *skb)
- 	if (ret == -ERESTARTSYS)
- 		goto err;
- 	if (ret == 0) {
-+		dev_warn(printdev(devrec), "Timeout waiting for TX interrupt\n");
- 		ret = -ETIMEDOUT;
- 		goto err;
- 	}
+@@ -478,7 +478,7 @@ static int mrf24j40_filter(struct ieee802154_dev *dev,
+ 		int i;
+ 		for (i = 0; i < 8; i++)
+ 			write_short_reg(devrec, REG_EADR0+i,
+-					filt->ieee_addr[i]);
++					filt->ieee_addr[7-i]);
+ 
+ #ifdef DEBUG
+ 		printk(KERN_DEBUG "Set long addr to: ");
 -- 
 1.7.11.2
 
