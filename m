@@ -1,64 +1,53 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: [PATCH v2 3/4] ARM: dts: mxs: add enet_out clock to devicetree
-Date: Mon, 18 Mar 2013 16:26:24 +0800
-Message-ID: <1363595185-12302-4-git-send-email-shawn.guo@linaro.org>
-References: <1363595185-12302-1-git-send-email-shawn.guo@linaro.org>
+From: "Kotur, Somnath" <Somnath.Kotur@Emulex.Com>
+Subject: RE: [PATCH net-next 0/2] be2net: patch set
+Date: Mon, 18 Mar 2013 08:29:27 +0000
+Message-ID: <b18303f9-ba56-476c-a7a9-5129160a472f@CMEXHTCAS1.ad.emulex.com>
+References: <bfd8205d-1c91-4947-88f7-c27554b4dd06@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	Wolfram Sang <w.sang@pengutronix.de>,
-	Shawn Guo <shawn.guo@linaro.org>
-To: <linux-arm-kernel@lists.infradead.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>
+To: "Kotur, Somnath" <Somnath.Kotur@Emulex.Com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe001.messaging.microsoft.com ([207.46.163.24]:23880
-	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752181Ab3CRI0i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 04:26:38 -0400
-In-Reply-To: <1363595185-12302-1-git-send-email-shawn.guo@linaro.org>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:17703 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751796Ab3CRI3d convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 04:29:33 -0400
+In-Reply-To: <bfd8205d-1c91-4947-88f7-c27554b4dd06@CMEXHTCAS2.ad.emulex.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wolfram Sang <w.sang@pengutronix.de>
+Dave,
+ These patches have already been applied. Pls ignore ,they were sent by mistake! 
 
-Put the clock to the devicetree, so the driver can take care of it
-later. Then, we don't have to do the enabling as a workaround in board
-init.
+Thanks
+Som
 
-Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
-[shawn.guo: add enet_out into imx28.dtsi and overwrite it for m28evk]
-Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
----
- arch/arm/boot/dts/imx28-m28evk.dts |    2 ++
- arch/arm/boot/dts/imx28.dtsi       |    4 ++--
- 2 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/arch/arm/boot/dts/imx28-m28evk.dts b/arch/arm/boot/dts/imx28-m28evk.dts
-index 6ce3d17..3d2e1a4 100644
---- a/arch/arm/boot/dts/imx28-m28evk.dts
-+++ b/arch/arm/boot/dts/imx28-m28evk.dts
-@@ -221,6 +221,8 @@
- 			phy-mode = "rmii";
- 			pinctrl-names = "default";
- 			pinctrl-0 = <&mac0_pins_a>;
-+			clocks = <&clks 57>, <&clks 57>;
-+			clock-names = "ipg", "ahb";
- 			status = "okay";
- 		};
- 
-diff --git a/arch/arm/boot/dts/imx28.dtsi b/arch/arm/boot/dts/imx28.dtsi
-index 7ba4966..dc1203d 100644
---- a/arch/arm/boot/dts/imx28.dtsi
-+++ b/arch/arm/boot/dts/imx28.dtsi
-@@ -940,8 +940,8 @@
- 			compatible = "fsl,imx28-fec";
- 			reg = <0x800f0000 0x4000>;
- 			interrupts = <101>;
--			clocks = <&clks 57>, <&clks 57>;
--			clock-names = "ipg", "ahb";
-+			clocks = <&clks 57>, <&clks 57>, <&clks 64>;
-+			clock-names = "ipg", "ahb", "enet_out";
- 			status = "disabled";
- 		};
- 
--- 
-1.7.9.5
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Somnath Kotur
+> Sent: Monday, March 18, 2013 12:34 PM
+> To: netdev@vger.kernel.org
+> Cc: davem@davemloft.net; Kotur, Somnath
+> Subject: [PATCH net-next 0/2] be2net: patch set
+> 
+> Pls apply.
+> 
+> Somnath Kotur (2):
+>   be2net: enable interrupts in be_probe() (RoCE and other ULPs need
+>     them)
+>   be2net: Use new F/W mailbox cmd to manipulate interrupts.
+> 
+>  drivers/net/ethernet/emulex/benet/be_cmds.c |   25
+> +++++++++++++++++
+>  drivers/net/ethernet/emulex/benet/be_cmds.h |    8 +++++
+>  drivers/net/ethernet/emulex/benet/be_main.c |   38 ++++++++++++++++-
+> ---------
+>  3 files changed, 56 insertions(+), 15 deletions(-)
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in the body
+> of a message to majordomo@vger.kernel.org More majordomo info at
+> http://vger.kernel.org/majordomo-info.html
