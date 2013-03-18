@@ -1,64 +1,37 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH] phy: Add support for VSC8234
-Date: Sun, 16 Oct 2011 01:49:49 -0500
-Message-ID: <E1UJ1fR-0004hp-2j@swissweb.swissdisk.com>
-Cc: Kumar Gala <kumar.gala@freescale.com>, netdev@vger.kernel.org
+From: Ben Collins <ben.c@servergy.com>
+Subject: [PATCH] phy: Add XGMII phy interface type
+Date: Mon, 18 Mar 2013 19:53:42 -0400
+Message-ID: <E1UJ1fR-0004hy-AI@swissweb.swissdisk.com>
+Cc: netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from swissweb.swissdisk.com ([174.129.12.238]:52787 "EHLO
+	swissweb.swissdisk.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932792Ab3CVNjh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 09:39:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-No functional changes other than to recognize this PHYID.
+Used by systems based on certain Freescale SoCs (specifically the
+Servergy CTS-1000 system).
 
-Signed-off-by: Andy Fleming <afleming@freescale.com>
-Signed-off-by: Kumar Gala <kumar.gala@freescale.com>
 Signed-off-by: Ben Collins <ben.c@servergy.com>
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/phy/vitesse.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+ include/linux/phy.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
-index 2585c38..b760ba1 100644
---- a/drivers/net/phy/vitesse.c
-+++ b/drivers/net/phy/vitesse.c
-@@ -54,6 +54,7 @@
- #define MII_VSC8221_AUXCONSTAT_INIT	0x0004 /* need to set this bit? */
- #define MII_VSC8221_AUXCONSTAT_RESERVED	0x0004
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 33999ad..5a94ec7 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -64,6 +64,7 @@ typedef enum {
+ 	PHY_INTERFACE_MODE_RGMII_TXID,
+ 	PHY_INTERFACE_MODE_RTBI,
+ 	PHY_INTERFACE_MODE_SMII,
++	PHY_INTERFACE_MODE_XGMII,
+ } phy_interface_t;
  
-+#define PHY_ID_VSC8234			0x000fc620
- #define PHY_ID_VSC8244			0x000fc6c0
- #define PHY_ID_VSC8221			0x000fc550
  
-@@ -119,7 +120,8 @@ static int vsc82xx_config_intr(struct phy_device *phydev)
- 
- 	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
- 		err = phy_write(phydev, MII_VSC8244_IMASK,
--			phydev->drv->phy_id == PHY_ID_VSC8244 ?
-+			((phydev->drv->phy_id == PHY_ID_VSC8234) ||
-+			 (phydev->drv->phy_id == PHY_ID_VSC8244)) ?
- 				MII_VSC8244_IMASK_MASK :
- 				MII_VSC8221_IMASK_MASK);
- 	else {
-@@ -165,6 +167,19 @@ static struct phy_driver vsc82xx_driver[] = {
- 	.config_intr	= &vsc82xx_config_intr,
- 	.driver		= { .owner = THIS_MODULE,},
- }, {
-+	/* Vitesse 8234 */
-+	.phy_id		= PHY_ID_VSC8234,
-+	.phy_id_mask	= 0x000ffff0,
-+	.name		= "Vitesse VSC8234",
-+	.features	= PHY_GBIT_FEATURES,
-+	.flags		= PHY_HAS_INTERRUPT,
-+	.config_init	= &vsc8221_config_init,
-+	.config_aneg	= &genphy_config_aneg,
-+	.read_status	= &genphy_read_status,
-+	.ack_interrupt	= &vsc824x_ack_interrupt,
-+	.config_intr	= &vsc82xx_config_intr,
-+	.driver		= { .owner = THIS_MODULE,},
-+}, {
- 	/* Vitesse 8221 */
- 	.phy_id		= PHY_ID_VSC8221,
- 	.phy_id_mask	= 0x000ffff0,
 -- 
 1.8.1.2
