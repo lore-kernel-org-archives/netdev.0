@@ -1,47 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: dont handle MTU reduction on LISTEN socket
-Date: Mon, 18 Mar 2013 13:32:25 -0400 (EDT)
-Message-ID: <20130318.133225.1613717870612687705.davem@davemloft.net>
-References: <1363626088.29475.155.camel@edumazet-glaptop>
+Subject: Re: [PATCH V3 4/7] PHYLIB: queue work on any cpu
+Date: Mon, 18 Mar 2013 13:33:39 -0400 (EDT)
+Message-ID: <20130318.133339.2056938599662437643.davem@davemloft.net>
+References: <cover.1363617402.git.viresh.kumar@linaro.org>
+	<cover.1363617402.git.viresh.kumar@linaro.org>
+	<9a366f17b93a5e18777360481c94e6db763b45b7.1363617402.git.viresh.kumar@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dormando@rydia.net
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59749 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752100Ab3CRRc3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 13:32:29 -0400
-In-Reply-To: <1363626088.29475.155.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pjt@google.com, paul.mckenney@linaro.org, tglx@linutronix.de,
+	tj@kernel.org, suresh.b.siddha@intel.com, venki@google.com,
+	mingo@redhat.com, peterz@infradead.org, rostedt@goodmis.org,
+	linaro-kernel@lists.linaro.org, robin.randhawa@arm.com,
+	Steve.Bannister@arm.com, Liviu.Dudau@arm.com,
+	charles.garcia-tobin@arm.com, Arvind.Chauhan@arm.com,
+	linux-rt-users@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: viresh.kumar@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9a366f17b93a5e18777360481c94e6db763b45b7.1363617402.git.viresh.kumar@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 18 Mar 2013 10:01:28 -0700
+From: Viresh Kumar <viresh.kumar@linaro.org>
+Date: Mon, 18 Mar 2013 20:53:26 +0530
 
-> From: Eric Dumazet <edumazet@google.com>
+> Phylib uses workqueues for multiple purposes. There is no real dependency of
+> scheduling these on the cpu which scheduled them.
 > 
-> When an ICMP ICMP_FRAG_NEEDED (or ICMPV6_PKT_TOOBIG) message finds a
-> LISTEN socket, and this socket is currently owned by the user, we
-> set TCP_MTU_REDUCED_DEFERRED flag in listener tsq_flags.
+> On a idle system, it is observed that and idle cpu wakes up many times just to
+> service this work. It would be better if we can schedule it on a cpu which isn't
+> idle to save on power.
 > 
-> This is bad because if we clone the parent before it had a chance to
-> clear the flag, the child inherits the tsq_flags value, and next
-> tcp_release_cb() on the child will decrement sk_refcnt.
+> By idle cpu (from scheduler's perspective) we mean:
+> - Current task is idle task
+> - nr_running == 0
+> - wake_list is empty
 > 
-> Result is that we might free a live TCP socket, as reported by
-> Dormando.
+> This patch replaces the schedule_work() and schedule_delayed_work() routines
+> with their queue_[delayed_]work_on_any_cpu() siblings with system_wq as
+> parameter.
 > 
-> IPv4: Attempt to release TCP socket in state 1
+> These routines would look for the closest (via scheduling domains) non-idle cpu
+> (non-idle from schedulers perspective). If the current cpu is not idle or all
+> cpus are idle, work will be scheduled on local cpu.
 > 
-> Fix this issue by testing sk_state against TCP_LISTEN early, so that we
-> set TCP_MTU_REDUCED_DEFERRED on appropriate sockets (not a LISTEN one)
-> 
-> This bug was introduced in commit 563d34d05786
-> (tcp: dont drop MTU reduction indications)
-> 
-> Reported-by: dormando <dormando@rydia.net>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
 
-Applied and queued up for -stable, thanks.
+This will need to be applied to whatever tree adds these new interfaces,
+and for that:
+
+Acked-by: David S. Miller <davem@davemloft.net>
