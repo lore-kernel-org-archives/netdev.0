@@ -1,66 +1,101 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: question about klen in move_addr_to_user()
-Date: Mon, 18 Mar 2013 13:10:07 +0300
-Message-ID: <20130318101007.GO9189@mwanda>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH] bnx2x: fix occasional statistics off-by-4GB error
+Date: Mon, 18 Mar 2013 12:06:22 +0200
+Message-ID: <1363601182.4752.13.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <CANP3RGdWMHv-7TZ4fvASrmz7NXkO7B2g2RCZwV8ecExUsQTQ2w@mail.gmail.com>
+ <1363384577-21287-1-git-send-email-zenczykowski@gmail.com>
+ <504C9EFCA2D0054393414C9CB605C37F20BE6A2B@SJEXCHMB06.corp.ad.broadcom.com>
+ <20130317.142425.1713640249735424829.davem@davemloft.net>
+ <1363549074.4752.3.camel@lb-tlvb-eilong.il.broadcom.com>
+ <1363551952.29475.93.camel@edumazet-glaptop>
+ <1363553608.4752.5.camel@lb-tlvb-eilong.il.broadcom.com>
+ <CANP3RGdZHMTPT6FTbYzSOHkrNq4seF1WcXjysQ6=HEp0A_CxWg@mail.gmail.com>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Linux NetDev" <netdev@vger.kernel.org>,
+	"Mintz Yuval" <yuvalmin@broadcom.com>
+To: "Maciej =?UTF-8?Q?=C5=BBenczykowski?=" <maze@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:50368 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752355Ab3CRKKS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 06:10:18 -0400
-Received: from ucsinet21.oracle.com (ucsinet21.oracle.com [156.151.31.93])
-	by userp1040.oracle.com (Sentrion-MTA-4.3.1/Sentrion-MTA-4.3.1) with ESMTP id r2IAAHx9032514
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Mon, 18 Mar 2013 10:10:17 GMT
-Received: from acsmt357.oracle.com (acsmt357.oracle.com [141.146.40.157])
-	by ucsinet21.oracle.com (8.14.4+Sun/8.14.4) with ESMTP id r2IAAGQa010949
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 18 Mar 2013 10:10:16 GMT
-Received: from abhmt104.oracle.com (abhmt104.oracle.com [141.146.116.56])
-	by acsmt357.oracle.com (8.12.11.20060308/8.12.11) with ESMTP id r2IAAGxO003401
-	for <netdev@vger.kernel.org>; Mon, 18 Mar 2013 05:10:16 -0500
-Content-Disposition: inline
+Received: from mms1.broadcom.com ([216.31.210.17]:3588 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752355Ab3CRKKV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 06:10:21 -0400
+In-Reply-To: <CANP3RGdZHMTPT6FTbYzSOHkrNq4seF1WcXjysQ6=HEp0A_CxWg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Smatch complains that about a potential buffer overflow in
-move_add_to_user()
+On Sun, 2013-03-17 at 23:18 -0700, Maciej =C5=BBenczykowski wrote:
+> This has nothing to do with atomicity or races or anything.
+>=20
+> Look at the ADD_64 macro (which implements a +=3D b) and compare it t=
+o
+> this one (which implents a =3D b + c).
+>=20
+> It simply doesn't know how to correctly add in any situation in which
+> "qstats_old->t..._lo !=3D 0".
+> By this point all the stats are already in software and both firmware
+> and hardware is not relevant.
+>=20
+> Normally qstats_old starts off at 0 and the bug isn't visible (since
+> with a value of 0, there can't be overflow and carry propagation is
+> not needed).
+>=20
+> The reason qstats_old was introduced was to allow for a partial nic
+> reset [or whatever the proper term is] which resets fw/hw provided
+> stats to not reset sw exported stats.
+> During the reset old stats are copied into qstats_old, and in the
+> future stats are returned as "qstats_old + current stats from fw/hw"
+> except this addition is buggy and only works if qstats_old happens to
+> have lower 32-bits zero (ie. basically only before first partial nic
+> reset).
+>=20
+> Imagine:
+> (a) driver initializes, nic gets brought up, qstats_old =3D 0, stats
+> from device =3D 0
+> (b) 2GB of xfer happens
+> (c) qstats_old still =3D 0, stats from device =3D 2GB
+> (d) addition happens qstats =3D qstats_old + stats_from_dev =3D 0 + 2=
+GB =3D
+> 2GB   --- we report 2GB xfer
+> (e) something partially resets nic (say mtu change), qstats_old =3D 2=
+GB,
+> stats from device =3D 0
+> (f) 2GB-1 of xfer happens
+> (g) qstats_old =3D 2GB, stats from device =3D 2GB-1
+> (h) addition happens qstats =3D qstats_old + stats_from_dev =3D 2GB +
+> 2GB-1 =3D 4GB-1   --- we report 4GB-1 xfer
+> (i) 1 byte of xfer happens
+> (j) qstats_old =3D 2GB, stats from device =3D 2GB
+> (k) addition happens qstats =3D qstats_old + stats_from_dev =3D 2GB +=
+ 2GB
+> =3D 0   --- we report 0 xfer
+> (l) 2GB of xfer happens
+> (m) qstats_old =3D 2GB, stats from device =3D 4GB
+> (n) addition happens qstats =3D qstats_old + stats_from_dev =3D 2GB +=
+ 4GB
+> =3D 6GB   --- we report 6GB xfer
+>=20
+> And yes the macro in question when asked to do 2GB+2GB will return 0.
+>=20
+> (btw. at least on the driver I tested there's still some weirdness
+> with mtu change not-resetting per-queue stats but resetting
+> coalesced-from-all-queues stats)
+>=20
+> Now, to be fair, I don't yet have confirmation that my patch fixes th=
+e
+> problem our SREs saw in deployment, but I expect to have that soon.
+> (and even if it doesn't fix the problem, this code is still buggy and
+> should be fixed)
+>=20
+> Maciej
 
-net/socket.c
-   212  static int move_addr_to_user(struct sockaddr_storage *kaddr, int klen,
-   213                               void __user *uaddr, int __user *ulen)
-   214  {
-   215          int err;
-   216          int len;
-   217  
-   218          err = get_user(len, ulen);
-   219          if (err)
-   220                  return err;
-   221          if (len > klen)
-   222                  len = klen;
-   223          if (len < 0 || len > sizeof(struct sockaddr_storage))
-   224                  return -EINVAL;
-   225          if (len) {
-   226                  if (audit_sockaddr(klen, kaddr))
-                                           ^^^^
-Smatch complains that although "len" is capped here, "klen" hasn't
-necessarily been.  If "klen" is more than 128 bytes it leads to
-memory corruption.
+Maciej - thanks for the detailed information. You are right - it has
+nothing to do with the HW/FW and it is simply a bug that needs to be
+fixed. I withdraw my objections and add my ACK.
 
-   227                          return -ENOMEM;
-   228                  if (copy_to_user(uaddr, kaddr, len))
-   229                          return -EFAULT;
-   230          }
-
-The call tree is this:
-
-__sys_recvmsg() gets the msg->msg_namelen from the user.
-
-Normally the network protocols set msg->msg_namelen in their
-->recvmsg() function but some don't like caif_seqpkt_recvmsg() and
-recv_msg() for tipc.
-
-regards,
-dan carpenter
+Acked-by: Eilon Greenstein <eilong@broadcom.com>
