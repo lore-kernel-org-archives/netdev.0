@@ -1,32 +1,27 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: Re: [RFC 0/3] arm: mxs: sanitize enet_out clock handling
-Date: Mon, 18 Mar 2013 14:40:24 +0800
-Message-ID: <20130318064021.GA4713@S2101-09.ap.freescale.net>
-References: <1359470773-14290-1-git-send-email-w.sang@pengutronix.de>
- <CA+7tXiinVCjs7NAdGd+0KyUL+kfwWUi_XAPYdMHiugT3W2Xz4w@mail.gmail.com>
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Subject: [PATCH net-next 0/2] be2net: patch set
+Date: Mon, 18 Mar 2013 12:33:55 +0530
+Message-ID: <bfd8205d-1c91-4947-88f7-c27554b4dd06@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wolfram Sang <w.sang@pengutronix.de>,
-	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-	Shawn Guo <shawn.guo@freescale.com>
-To: Trent Piepho <tpiepho@gmail.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:5913
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750813Ab3CRGkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 02:40:24 -0400
-Content-Disposition: inline
-In-Reply-To: <CA+7tXiinVCjs7NAdGd+0KyUL+kfwWUi_XAPYdMHiugT3W2Xz4w@mail.gmail.com>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:54097 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751130Ab3CRHFD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 03:05:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 15, 2013 at 02:27:35PM -0700, Trent Piepho wrote:
-> But as you say most boards need enet_out (AFAICT, all but the Denx
-> board).  So wouldn't it make more sense to add enet_out to the dtsi
-> file and then just override it in the one board that doesn't need it,
-> instead of overriding in every board except that one?
+Pls apply.
 
-Yes, sounds reasonable.  Since I'm not sure Wolfram is still interested
-in the work, I will pick it up from here.
+Somnath Kotur (2):
+  be2net: enable interrupts in be_probe() (RoCE and other ULPs need
+    them)
+  be2net: Use new F/W mailbox cmd to manipulate interrupts.
 
-Shawn
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   25 +++++++++++++++++
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    8 +++++
+ drivers/net/ethernet/emulex/benet/be_main.c |   38 ++++++++++++++++----------
+ 3 files changed, 56 insertions(+), 15 deletions(-)
