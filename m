@@ -1,53 +1,53 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [PATCH can-next] can: dump stack on protocol bugs
-Date: Mon, 18 Mar 2013 18:52:06 +0100
-Message-ID: <51475446.9000604@hartkopp.net>
+From: Silviu Popescu <silviupopescu1990-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] bluetooth: use PTR_RET instead of IS_ERR + PTR_ERR
+Date: Mon, 18 Mar 2013 20:05:42 +0200
+Message-ID: <CAPWTe+JzznuWYKksAfxkD=u9kv8DuAF4v2AWVxd2OUeDtCYKBA@mail.gmail.com>
+References: <1363111995-26866-1-git-send-email-silviupopescu1990@gmail.com>
+	<20130313.053145.2200448840921851390.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:18618 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752148Ab3CRRwK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 13:52:10 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130313.053145.2200448840921851390.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The rework of the kernel hlist implementation "hlist: drop the node parameter
-from iterators" (b67bfe0d42cac56c512dd5da4b1b347a23f4b70a) created some
-fallout in the form of non matching comments and obsolete code.
+On Wed, Mar 13, 2013 at 11:31 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Silviu-Mihai Popescu <silviupopescu1990-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Tue, 12 Mar 2013 20:13:15 +0200
+>
+>> @@ -590,10 +590,7 @@ int __init bt_sysfs_init(void)
+>>       bt_debugfs = debugfs_create_dir("bluetooth", NULL);
+>>
+>>       bt_class = class_create(THIS_MODULE, "bluetooth");
+>> -     if (IS_ERR(bt_class))
+>> -             return PTR_ERR(bt_class);
+>> -
+>> -     return 0;
+>> +     return PTR_RET(bt_class)
+>
+> Don't bother submitting patches you aren't even going to try
+> to compile.
+>
+> I'm rejecting all of your current submissions.  Resubmit them
+> when you feel like typing 'make' from time to time.
+>
+>
 
-Additionally to the cleanup this patch adds a WARN() statement to catch the
-caller of the wrong filter removal request.
+Sorry for the trouble caused and sorry for the late reply.
+That being said, I'd like to understand a bit better what exactly I messed up.
+I've just pulled the latest revision of the mainline kernel and made
+the changes in this patch.
+I've tried with make defconfig (which would be x86_64_defconfig in my
+case), followed by
+make menuconfig to select the bluetooth options and make allyesconfig.
+Both defconfig and allyesconfig compile successfully on my system.
+Would you be so kind as to tell me what error you have encountered?
+Or perhaps enlighten me as to what I'm still doing wrong. I'd like to
+learn from my mistakes.
 
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-
----
-
-diff --git a/net/can/af_can.c b/net/can/af_can.c
-index 8bacf28..c4e5085 100644
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -546,16 +546,13 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
- 	}
- 
- 	/*
--	 * Check for bugs in CAN protocol implementations:
--	 * If no matching list item was found, the list cursor variable next
--	 * will be NULL, while r will point to the last item of the list.
-+	 * Check for bugs in CAN protocol implementations using af_can.c:
-+	 * 'r' will be NULL if no matching list item was found for removal.
- 	 */
- 
- 	if (!r) {
--		pr_err("BUG: receive list entry not found for "
--		       "dev %s, id %03X, mask %03X\n",
--		       DNAME(dev), can_id, mask);
--		r = NULL;
-+		WARN(1, "BUG: receive list entry not found for dev %s, "
-+		     "id %03X, mask %03X\n", DNAME(dev), can_id, mask);
- 		goto out;
- 	}
- 
+Thanks,
+Silviu Popescu
