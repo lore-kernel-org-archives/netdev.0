@@ -1,55 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3 4/7] PHYLIB: queue work on any cpu
-Date: Mon, 18 Mar 2013 13:33:39 -0400 (EDT)
-Message-ID: <20130318.133339.2056938599662437643.davem@davemloft.net>
-References: <cover.1363617402.git.viresh.kumar@linaro.org>
-	<cover.1363617402.git.viresh.kumar@linaro.org>
-	<9a366f17b93a5e18777360481c94e6db763b45b7.1363617402.git.viresh.kumar@linaro.org>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] libertas: drop maintainership
+Date: Mon, 18 Mar 2013 12:51:35 -0500
+Message-ID: <1363629095.6437.10.camel@dcbw.foobar.com>
+References: <1363625321.1597.28.camel@dcbw.foobar.com>
+	 <1363627392.2074.21.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: pjt@google.com, paul.mckenney@linaro.org, tglx@linutronix.de,
-	tj@kernel.org, suresh.b.siddha@intel.com, venki@google.com,
-	mingo@redhat.com, peterz@infradead.org, rostedt@goodmis.org,
-	linaro-kernel@lists.linaro.org, robin.randhawa@arm.com,
-	Steve.Bannister@arm.com, Liviu.Dudau@arm.com,
-	charles.garcia-tobin@arm.com, Arvind.Chauhan@arm.com,
-	linux-rt-users@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: viresh.kumar@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <9a366f17b93a5e18777360481c94e6db763b45b7.1363617402.git.viresh.kumar@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Drake <dsd-2X9k7bc8m7Mdnm+yROfE0A@public.gmane.org>, Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1363627392.2074.21.camel@joe-AO722>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Viresh Kumar <viresh.kumar@linaro.org>
-Date: Mon, 18 Mar 2013 20:53:26 +0530
+On Mon, 2013-03-18 at 10:23 -0700, Joe Perches wrote:
+> On Mon, 2013-03-18 at 11:48 -0500, Dan Williams wrote:
+> > Would be better maintained by somebody who actualy has time for it.
+> []
+> > diff --git a/MAINTAINERS b/MAINTAINERS
+> []
+> > -MARVELL LIBERTAS WIRELESS DRIVER
+> > -M:	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> > -L:	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+> > -S:	Maintained
+> > -F:	drivers/net/wireless/libertas/
+> 
+> I think it better to mark it as Orphan
+> and maybe leave the list.
+> 
+> Maybe:
+> 
+> MARVELL LIBERTAS WIRELESS DRIVER
+> L:	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+> S:	Orphan
+> F:	drivers/net/wireless/libertas/
+> 
+> or
+> 
+> MARVELL LIBERTAS WIRELESS DRIVER
+> S:	Orphan
+> F:	drivers/net/wireless/libertas/
 
-> Phylib uses workqueues for multiple purposes. There is no real dependency of
-> scheduling these on the cpu which scheduled them.
-> 
-> On a idle system, it is observed that and idle cpu wakes up many times just to
-> service this work. It would be better if we can schedule it on a cpu which isn't
-> idle to save on power.
-> 
-> By idle cpu (from scheduler's perspective) we mean:
-> - Current task is idle task
-> - nr_running == 0
-> - wake_list is empty
-> 
-> This patch replaces the schedule_work() and schedule_delayed_work() routines
-> with their queue_[delayed_]work_on_any_cpu() siblings with system_wq as
-> parameter.
-> 
-> These routines would look for the closest (via scheduling domains) non-idle cpu
-> (non-idle from schedulers perspective). If the current cpu is not idle or all
-> cpus are idle, work will be scheduled on local cpu.
-> 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
+I can do that; I wasn't quite sure how to do this.  A quick check showed
+patches that did what mine did, and oddly MAINTAINERS has no section for
+dropping maintainership that I could quickly find.  If this is what
+others prefer I'm happy to resubmit?
 
-This will need to be applied to whatever tree adds these new interfaces,
-and for that:
+Dan
 
-Acked-by: David S. Miller <davem@davemloft.net>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
