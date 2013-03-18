@@ -1,10 +1,12 @@
 From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
 Subject: Re: [PULL] vhost: tcm_vhost fixes for 3.9
-Date: Mon, 18 Mar 2013 14:10:03 -0700
-Message-ID: <1363641003.3156.43.camel@haakon2.linux-iscsi.org>
+Date: Mon, 18 Mar 2013 14:36:38 -0700
+Message-ID: <1363642598.3156.60.camel@haakon2.linux-iscsi.org>
 References: <20130318112003.GA7809@redhat.com>
 	 <20130318.130136.1629094222097780420.davem@davemloft.net>
 	 <20130318195443.GB19761@redhat.com>
+	 <1363641003.3156.43.camel@haakon2.linux-iscsi.org>
+	 <20130318211418.GA20406@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -13,44 +15,59 @@ Cc: David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, asias@redhat.com,
 	target-devel@vger.kernel.org
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130318195443.GB19761@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.linux-iscsi.org ([67.23.28.174]:52024 "EHLO
+	linux-iscsi.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933056Ab3CRVgk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 17:36:40 -0400
+In-Reply-To: <20130318211418.GA20406@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-03-18 at 21:54 +0200, Michael S. Tsirkin wrote:
-> On Mon, Mar 18, 2013 at 01:01:36PM -0400, David Miller wrote:
-> > From: "Michael S. Tsirkin" <mst@redhat.com>
-> > Date: Mon, 18 Mar 2013 13:20:03 +0200
+On Mon, 2013-03-18 at 23:14 +0200, Michael S. Tsirkin wrote:
+> On Mon, Mar 18, 2013 at 02:10:03PM -0700, Nicholas A. Bellinger wrote:
+> > On Mon, 2013-03-18 at 21:54 +0200, Michael S. Tsirkin wrote:
+> > > On Mon, Mar 18, 2013 at 01:01:36PM -0400, David Miller wrote:
+> > > > From: "Michael S. Tsirkin" <mst@redhat.com>
+> > > > Date: Mon, 18 Mar 2013 13:20:03 +0200
+> > > > 
+> > > > > The following changes since commit 8c6216d7f118a128678270824b6a1286a63863ca:
+> > > > > 
+> > > > >   Revert "ip_gre: make ipgre_tunnel_xmit() not parse network header as IP unconditionally" (2013-03-16 23:00:41 -0400)
+> > > > > 
+> > > > > are available in the git repository at:
+> > > > > 
+> > > > >   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
+> > > > > 
+> > > > > for you to fetch changes up to deb7cb067dabd3be625eaf5495da8bdc97377fc1:
+> > > > > 
+> > > > >   tcm_vhost: Flush vhost_work in vhost_scsi_flush() (2013-03-17 13:04:14 +0200)
+> > > > 
+> > > > This is a scsi driver, I therefore don't think this pull request is for me.
+> > > > 
+> > > > Please avoid such confusion in the future, and don't use branch names
+> > > > like "vhost-net" for SCSI driver fixes.
+> > > > 
+> > > > Thanks.
+> > > 
+> > > We are sharing quite a bit of code, so it's a common tree.
+> > > There was a vhost-net patch there too but you picked it up
+> > > directly so I dropped that and what's left is vhost-scsi.
+> > > Typically vhost-net dominates so I'm just used to merging all vhost
+> > > things through you but if you think it's wrong I can send it directly to
+> > > Linus.
+> > > 
 > > 
-> > > The following changes since commit 8c6216d7f118a128678270824b6a1286a63863ca:
-> > > 
-> > >   Revert "ip_gre: make ipgre_tunnel_xmit() not parse network header as IP unconditionally" (2013-03-16 23:00:41 -0400)
-> > > 
-> > > are available in the git repository at:
-> > > 
-> > >   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
-> > > 
-> > > for you to fetch changes up to deb7cb067dabd3be625eaf5495da8bdc97377fc1:
-> > > 
-> > >   tcm_vhost: Flush vhost_work in vhost_scsi_flush() (2013-03-17 13:04:14 +0200)
+> > I'll be sending out a target-pending 3.9-rc-fixes pull request later in
+> > the week, and am happy to include this series if you'd like.
 > > 
-> > This is a scsi driver, I therefore don't think this pull request is for me.
-> > 
-> > Please avoid such confusion in the future, and don't use branch names
-> > like "vhost-net" for SCSI driver fixes.
-> > 
-> > Thanks.
+> > --nab
 > 
-> We are sharing quite a bit of code, so it's a common tree.
-> There was a vhost-net patch there too but you picked it up
-> directly so I dropped that and what's left is vhost-scsi.
-> Typically vhost-net dominates so I'm just used to merging all vhost
-> things through you but if you think it's wrong I can send it directly to
-> Linus.
+> Sure, go ahead. You can add
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> to the patches.
 > 
 
-I'll be sending out a target-pending 3.9-rc-fixes pull request later in
-the week, and am happy to include this series if you'd like.
+Applied to target-pending/master.
 
---nab
+Thanks MST & Asias!
