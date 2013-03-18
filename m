@@ -1,38 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PULL] vhost: tcm_vhost fixes for 3.9
-Date: Mon, 18 Mar 2013 13:01:36 -0400 (EDT)
-Message-ID: <20130318.130136.1629094222097780420.davem@davemloft.net>
-References: <20130318112003.GA7809@redhat.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: Who/What is supposed to remove IPv6 address from interface when
+ moving from one network to another ?
+Date: Mon, 18 Mar 2013 12:03:11 -0500
+Message-ID: <1363626191.6437.2.camel@dcbw.foobar.com>
+References: <CAF6-1L4=xACZdqvJ6AZL4XkY17N0pC9PnPfNfK9Tk7QB47c1tw@mail.gmail.com>
+	 <CAF6-1L5cxguK8tHxjMACZJ8xNmAXLLXwP086eF4_SEctZdiZ3g@mail.gmail.com>
+	 <1363290495.1643.29.camel@dcbw.foobar.com>
+	 <CAKD1Yr1=1kfcSmRYgnrYQBhNPPc=nquB2c1jLbopbvqz848cxQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	asias@redhat.com, nab@linux-iscsi.org, target-devel@vger.kernel.org
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130318112003.GA7809@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Sylvain Munaut <s.munaut@whatever-company.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Lorenzo Colitti <lorenzo@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:9739 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752241Ab3CRRCU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Mar 2013 13:02:20 -0400
+In-Reply-To: <CAKD1Yr1=1kfcSmRYgnrYQBhNPPc=nquB2c1jLbopbvqz848cxQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Mon, 18 Mar 2013 13:20:03 +0200
+On Mon, 2013-03-18 at 09:51 -0700, Lorenzo Colitti wrote:
+> On Thu, Mar 14, 2013 at 12:48 PM, Dan Williams <dcbw@redhat.com> wrote:
+> > The kernel does not (and shouldn't) trigger anything on carrier change as that's a
+> > site-specific/user-specific policy.
+> 
+> Actually, it *does* trigger events on carrier change: it creates the
+> addresses when you connect. It just doesn't delete them when you
+> disconnect. So you can get addresses without a userspace daemon, but
+> you can never delete them without a userspace daemon.
+> 
+> I tried to argue that that's incorrect, but, well, the archives show
+> how far I got.
 
-> The following changes since commit 8c6216d7f118a128678270824b6a1286a63863ca:
-> 
->   Revert "ip_gre: make ipgre_tunnel_xmit() not parse network header as IP unconditionally" (2013-03-16 23:00:41 -0400)
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
-> 
-> for you to fetch changes up to deb7cb067dabd3be625eaf5495da8bdc97377fc1:
-> 
->   tcm_vhost: Flush vhost_work in vhost_scsi_flush() (2013-03-17 13:04:14 +0200)
+It does handle them when you connect, but only if you've set accept_ra
+to something > 0.  And something has to set that :)  But in reality,
+it's not a problem to listen for new addresses.  But *deleting*
+addresses is way out of the kernel's responsibility, because a carrier
+event doesn't tell the kernel anything about whether it's reconnecting
+to the same network or a different one and thus it doesn't know whether
+it should delete the old address or keep it around.  And that's where
+the userspace stuff and policy comes in, and the kernel doesn't do
+policy.
 
-This is a scsi driver, I therefore don't think this pull request is for me.
-
-Please avoid such confusion in the future, and don't use branch names
-like "vhost-net" for SCSI driver fixes.
-
-Thanks.
+Dan
