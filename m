@@ -1,162 +1,51 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH v2 4/4] inet_diag: fix FIN_WAIT2 timer expression in
- inet_diag
-Date: Mon, 18 Mar 2013 21:50:26 +0900
-Message-ID: <1363611026.7966.2.camel@ubuntu-vm-makita>
-References: <1363610163.7121.2.camel@ubuntu-vm-makita>
-	 <1363610344.7121.5.camel@ubuntu-vm-makita>
-	 <1363610615.7791.2.camel@ubuntu-vm-makita>
-	 <1363610780.7791.5.camel@ubuntu-vm-makita>
+From: Alexandru Copot <alex.mihai.c@gmail.com>
+Subject: IPv6 testing - TAHI project on Linux
+Date: Mon, 18 Mar 2013 15:00:14 +0200
+Message-ID: <CAHG7+CCL-TXLxO_Xqnx3XxRYbv0cLVUUu3i_AMX=8CssMVgYiw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-To: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Daniel Baluta <dbaluta@ixiacom.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:37134 "EHLO
-	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751250Ab3CRMub (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 08:50:31 -0400
-In-Reply-To: <1363610780.7791.5.camel@ubuntu-vm-makita>
+Received: from mail-qa0-f54.google.com ([209.85.216.54]:58018 "EHLO
+	mail-qa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750899Ab3CRNAP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 09:00:15 -0400
+Received: by mail-qa0-f54.google.com with SMTP id hg5so1608665qab.6
+        for <netdev@vger.kernel.org>; Mon, 18 Mar 2013 06:00:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a change similar to the patch for /proc/net/tcp.
-FIN_WAIT2 timers for orphaned sockets are also shown in inet_diag.
-There will be no keepalive timer for orphand FIN_WAIT2 sockets by
-this change.
-Besides, timer calculation of an inet_connection_sock is splitted
-into two pieces because few common codes remain between timer
-calculation of a tcp_sock and a dccp_sock: Special handling with
-FIN_WAIT2 is needed for a tcp_sock, and consideration of
-ICSK_TIME_PROBE0 is unnecessary for a dccp_sock.
+Hello,
 
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
----
- include/linux/inet_diag.h |    2 ++
- net/dccp/diag.c           |   15 +++++++++++++++
- net/ipv4/inet_diag.c      |   20 --------------------
- net/ipv4/tcp_diag.c       |   27 +++++++++++++++++++++++++++
- 4 files changed, 44 insertions(+), 20 deletions(-)
+The TAHI project[1] is a testing framework for the IPv6 network
+stack, originally designed for FreeBSD. Using a patch from  Mark Atkinson[2]
+we can build and use v6eval on 32bit Linux. We were able to make some changes
+and compile it on 64bit with multilib support.[3]
 
-diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
-index 46da024..f7f359e 100644
---- a/include/linux/inet_diag.h
-+++ b/include/linux/inet_diag.h
-@@ -1,6 +1,7 @@
- #ifndef _INET_DIAG_H_
- #define _INET_DIAG_H_ 1
- 
-+#include <linux/kernel.h>
- #include <uapi/linux/inet_diag.h>
- 
- struct sock;
-@@ -27,6 +28,7 @@ struct inet_diag_handler {
- };
- 
- struct inet_connection_sock;
-+#define EXPIRES_IN_MS(tmo)  DIV_ROUND_UP((tmo - jiffies) * 1000, HZ)
- int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
- 			      struct sk_buff *skb, struct inet_diag_req_v2 *req,
- 			      struct user_namespace *user_ns,
-diff --git a/net/dccp/diag.c b/net/dccp/diag.c
-index 028fc43..b979a5b 100644
---- a/net/dccp/diag.c
-+++ b/net/dccp/diag.c
-@@ -42,6 +42,21 @@ static void dccp_get_info(struct sock *sk, struct tcp_info *info)
- static void dccp_diag_get_info(struct sock *sk, struct inet_diag_msg *r,
- 			       void *_info)
- {
-+	const struct inet_connection_sock *icsk = inet_csk(sk);
-+
-+	if (icsk->icsk_pending == ICSK_TIME_RETRANS) {
-+		r->idiag_timer = 1;
-+		r->idiag_retrans = icsk->icsk_retransmits;
-+		r->idiag_expires = EXPIRES_IN_MS(icsk->icsk_timeout);
-+	} else if (timer_pending(&sk->sk_timer)) {
-+		r->idiag_timer = 2;
-+		r->idiag_retrans = icsk->icsk_probes_out;
-+		r->idiag_expires = EXPIRES_IN_MS(sk->sk_timer.expires);
-+	} else {
-+		r->idiag_timer = 0;
-+		r->idiag_expires = 0;
-+	}
-+
- 	r->idiag_rqueue = r->idiag_wqueue = 0;
- 
- 	if (_info != NULL)
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 7afa2c3..32c22a7 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -156,26 +156,6 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
- 		goto out;
- 	}
- 
--#define EXPIRES_IN_MS(tmo)  DIV_ROUND_UP((tmo - jiffies) * 1000, HZ)
--
--	if (icsk->icsk_pending == ICSK_TIME_RETRANS) {
--		r->idiag_timer = 1;
--		r->idiag_retrans = icsk->icsk_retransmits;
--		r->idiag_expires = EXPIRES_IN_MS(icsk->icsk_timeout);
--	} else if (icsk->icsk_pending == ICSK_TIME_PROBE0) {
--		r->idiag_timer = 4;
--		r->idiag_retrans = icsk->icsk_probes_out;
--		r->idiag_expires = EXPIRES_IN_MS(icsk->icsk_timeout);
--	} else if (timer_pending(&sk->sk_timer)) {
--		r->idiag_timer = 2;
--		r->idiag_retrans = icsk->icsk_probes_out;
--		r->idiag_expires = EXPIRES_IN_MS(sk->sk_timer.expires);
--	} else {
--		r->idiag_timer = 0;
--		r->idiag_expires = 0;
--	}
--#undef EXPIRES_IN_MS
--
- 	if (ext & (1 << (INET_DIAG_INFO - 1))) {
- 		attr = nla_reserve(skb, INET_DIAG_INFO,
- 				   sizeof(struct tcp_info));
-diff --git a/net/ipv4/tcp_diag.c b/net/ipv4/tcp_diag.c
-index ed3f2ad..120a4250 100644
---- a/net/ipv4/tcp_diag.c
-+++ b/net/ipv4/tcp_diag.c
-@@ -20,9 +20,36 @@
- static void tcp_diag_get_info(struct sock *sk, struct inet_diag_msg *r,
- 			      void *_info)
- {
-+	const struct inet_connection_sock *icsk = inet_csk(sk);
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 	struct tcp_info *info = _info;
- 
-+	if (icsk->icsk_pending == ICSK_TIME_RETRANS) {
-+		r->idiag_timer = 1;
-+		r->idiag_retrans = icsk->icsk_retransmits;
-+		r->idiag_expires = EXPIRES_IN_MS(icsk->icsk_timeout);
-+	} else if (icsk->icsk_pending == ICSK_TIME_PROBE0) {
-+		r->idiag_timer = 4;
-+		r->idiag_retrans = icsk->icsk_probes_out;
-+		r->idiag_expires = EXPIRES_IN_MS(icsk->icsk_timeout);
-+	} else if (timer_pending(&sk->sk_timer)) {
-+		if (sk->sk_state == TCP_FIN_WAIT2 && sock_flag(sk, SOCK_DEAD)) {
-+			const unsigned long timer_expires =
-+				sk->sk_timer.expires +
-+				(tp->linger2 >= 0 ? TCP_TIMEWAIT_LEN : 0);
-+
-+			r->idiag_timer = 3;
-+			r->idiag_expires = EXPIRES_IN_MS(timer_expires);
-+		} else {
-+			r->idiag_timer = 2;
-+			r->idiag_retrans = icsk->icsk_probes_out;
-+			r->idiag_expires = EXPIRES_IN_MS(sk->sk_timer.expires);
-+		}
-+	} else {
-+		r->idiag_timer = 0;
-+		r->idiag_expires = 0;
-+	}
-+
- 	if (sk->sk_state == TCP_LISTEN) {
- 		r->idiag_rqueue = sk->sk_ack_backlog;
- 		r->idiag_wqueue = sk->sk_max_ack_backlog;
--- 
-1.7.10.4
+We also wrote some scripts[4] to create a virtual testing environment. The
+scripts are able to download, configure and build a kernel then automatically
+run the IPv6 core tests with v6eval inside 2 KVM virtual machines.
+
+There are some tests known to fail:
+* Spec tests 32, 33, 34, 35, 39, 40, 47, 48
+  These fail because the kernel is currently more strict when receiving
+  headers with invalid TLV options. So ICMP Parameter Problem is not sent
+  for the following bad options.
+
+* Addr tests 3, 5, 14, 15, 23, 24
+  These fail when the Node Under Test has global IPv6 addresses configured
+  for routing testing. However, the kernel does DAD properly.
+
+If you are going to use the test automation scripts[4], you might also want
+to use our modified v6eval-remotes[5]. These are using a SLIP connection for
+remote control with SSH, instead of the plain serial connection.
+
+Any feedback is welcome.
+
+
+[1] - http://www.tahi.org
+[2] - http://wundermark.blogspot.ro/2012/02/linux-patches-for-tahi-v6eval-332.html
+[3] - https://github.com/IxLabs/tahi-linux/tree/master/v6eval
+[4] - https://github.com/IxLabs/tahi-linux/tree/master/scripts
+[5] - https://github.com/IxLabs/tahi-linux/tree/master/v6eval-remotes
