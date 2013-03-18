@@ -1,54 +1,38 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: sctp: hang in sctp_remaddr_seq_show
-Date: Mon, 18 Mar 2013 11:31:06 -0400
-Message-ID: <5147333A.3010907@gmail.com>
-References: <51434D78.9030308@oracle.com>  <20130318110415.GA9478@hmsreliant.think-freely.org> <1363620340.29475.132.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] sfc: make local functions static
+Date: Mon, 18 Mar 2013 15:33:42 +0000
+Message-ID: <1363620822.2602.0.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20130316095751.33087a2b@nehalam.linuxnetplumber.net>
+	 <20130317.142653.1414523995890573030.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Sasha Levin <sasha.levin@oracle.com>, sri@us.ibm.com,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	Dave Jones <davej@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1363620340.29475.132.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <stephen@networkplumber.org>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:6947 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751001Ab3CRPdu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 11:33:50 -0400
+In-Reply-To: <20130317.142653.1414523995890573030.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/18/2013 11:25 AM, Eric Dumazet wrote:
-> On Mon, 2013-03-18 at 07:04 -0400, Neil Horman wrote:
->
->> I'm not sure why the process would never get back to the schedule, but looking
->> at the sctp_remaddr_seq_show function, I think that we should convert this
->> sequence:
->> 	sctp_local_bh_disable();
->> 	read_lock(&head->lock);
->> 	rcu_read_lock();
->>
->> to this:
->> 	read_lock(&head->lock);
->> 	rcu_read_lock_bh();
->>
->> Neil
->
-> I dont think so.
->
-> BH needs to be disabled before read_lock(&head->lock);
->
-> or else, write_lock() could deadlock (assuming it can be called from BH)
->
->
+On Sun, 2013-03-17 at 14:26 -0400, David Miller wrote:
+> From: Stephen Hemminger <stephen@networkplumber.org>
+> Date: Sat, 16 Mar 2013 09:57:51 -0700
+> 
+> > Trivial sparse detected functions that should be static.
+> > 
+> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> 
+> Applied, thanks Stephen.
 
-If anything, this should probably be done like this:
+Thanks.
 
-rcu_read_lock();
-read_lock_bh(&head->lock)
-...
+Ben.
 
-read_unlock_bh(&head->lock)
-rcu_read_unlock();
-
--vlad
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
