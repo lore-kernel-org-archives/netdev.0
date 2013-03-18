@@ -1,43 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 1/5] GRE: Refactor GRE tunneling code.
-Date: Mon, 18 Mar 2013 15:33:19 -0400 (EDT)
-Message-ID: <20130318.153319.206719819832403477.davem@davemloft.net>
-References: <1363630405-1672-1-git-send-email-pshelar@nicira.com>
-	<20130318122409.00c01106@nehalam.linuxnetplumber.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PULL] vhost: tcm_vhost fixes for 3.9
+Date: Mon, 18 Mar 2013 21:54:43 +0200
+Message-ID: <20130318195443.GB19761@redhat.com>
+References: <20130318112003.GA7809@redhat.com>
+ <20130318.130136.1629094222097780420.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, netdev@vger.kernel.org, jesse@nicira.com
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60952 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752152Ab3CRTdW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 15:33:22 -0400
-In-Reply-To: <20130318122409.00c01106@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	asias@redhat.com, nab@linux-iscsi.org, target-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130318.130136.1629094222097780420.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Mon, 18 Mar 2013 12:24:09 -0700
-
-> On Mon, 18 Mar 2013 11:13:25 -0700
-> Pravin B Shelar <pshelar@nicira.com> wrote:
+On Mon, Mar 18, 2013 at 01:01:36PM -0400, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Mon, 18 Mar 2013 13:20:03 +0200
 > 
->> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
->> index 7944df7..2073226 100644
->> --- a/net/ipv4/Kconfig
->> +++ b/net/ipv4/Kconfig
->> @@ -186,9 +186,14 @@ config NET_IPGRE_DEMUX
->>  	 This is helper module to demultiplex GRE packets on GRE version field criteria.
->>  	 Required by ip_gre and pptp modules.
->>  
->> +config NET_IP_TUNNEL
->> +	tristate
->> +	default n
->> +
+> > The following changes since commit 8c6216d7f118a128678270824b6a1286a63863ca:
+> > 
+> >   Revert "ip_gre: make ipgre_tunnel_xmit() not parse network header as IP unconditionally" (2013-03-16 23:00:41 -0400)
+> > 
+> > are available in the git repository at:
+> > 
+> >   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
+> > 
+> > for you to fetch changes up to deb7cb067dabd3be625eaf5495da8bdc97377fc1:
+> > 
+> >   tcm_vhost: Flush vhost_work in vhost_scsi_flush() (2013-03-17 13:04:14 +0200)
 > 
-> Won't this break existing kernel config's, shouldn't this default y?
+> This is a scsi driver, I therefore don't think this pull request is for me.
+> 
+> Please avoid such confusion in the future, and don't use branch names
+> like "vhost-net" for SCSI driver fixes.
+> 
+> Thanks.
 
-Or "m".  But indeed, it should be made to automatically work for
-existing configs.
+We are sharing quite a bit of code, so it's a common tree.
+There was a vhost-net patch there too but you picked it up
+directly so I dropped that and what's left is vhost-scsi.
+Typically vhost-net dominates so I'm just used to merging all vhost
+things through you but if you think it's wrong I can send it directly to
+Linus.
+
+-- 
+MST
