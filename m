@@ -1,32 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2] packet: packet fanout rollover during
- socket overload
-Date: Mon, 18 Mar 2013 16:28:02 -0700
-Message-ID: <1363649282.21184.12.camel@edumazet-glaptop>
-References: <1363648051-5976-1-git-send-email-willemb@google.com>
-	 <1363648249.21184.11.camel@edumazet-glaptop>
-	 <CA+FuTSfvG8Wzn9Q12V-wsuzXv-VTth4NEkX1kFqdFKe42A-+9Q@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf-next] IPVS
+Date: Tue, 19 Mar 2013 00:31:15 +0100
+Message-ID: <20130318233115.GA23070@localhost>
+References: <1363612543-9787-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Willem de Bruijn <willemb@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:33572 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753170Ab3CRX2G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 19:28:06 -0400
-Received: by mail-pb0-f51.google.com with SMTP id un15so6810278pbc.38
-        for <netdev@vger.kernel.org>; Mon, 18 Mar 2013 16:28:05 -0700 (PDT)
-In-Reply-To: <CA+FuTSfvG8Wzn9Q12V-wsuzXv-VTth4NEkX1kFqdFKe42A-+9Q@mail.gmail.com>
+Received: from mail.us.es ([193.147.175.20]:43567 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754166Ab3CRXbX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Mar 2013 19:31:23 -0400
+Content-Disposition: inline
+In-Reply-To: <1363612543-9787-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-03-18 at 19:16 -0400, Willem de Bruijn wrote:
+Hi Simon,
 
-> Thanks Eric.
+On Mon, Mar 18, 2013 at 10:15:38PM +0900, Simon Horman wrote:
+[...]
+> ----------------------------------------------------------------
+> IPVS enhancements for v3.10 from Julian Anastasov
 > 
-> I need to rebase the patch once more to have it apply cleanly.
+> ----------------------------------------------------------------
+> Julian Anastasov (5):
+>       ipvs: add backup_only flag to avoid loops
+>       ipvs: remove extra rcu lock
+>       ipvs: fix sctp chunk length order
+>       ipvs: fix hashing in ip_vs_svc_hashkey
+>       ipvs: fix some sparse warnings
 
-Oh right, include/linux/if_packet.h was moved
-to include/uapi/linux/if_packet.h
+I think that these three fixes:
+
+ipvs: add backup_only flag to avoid loops
+ipvs: remove extra rcu lock
+ipvs: fix sctp chunk length order
+
+should find their path to the net tree.
+
+The remaining two sparse fixes should go to net-next.
+
+I can manually apply these patch if you want to the corresponding
+trees.
