@@ -1,51 +1,33 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 1/2] net_sched: don't do precise pkt_len computation
- for untrusted packets
-Date: Tue, 19 Mar 2013 17:25:40 +0800
-Message-ID: <51482F14.9030407@redhat.com>
-References: <1363333305-54398-1-git-send-email-jasowang@redhat.com> <20130317.121026.733329595817911776.davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/2] net: reset transport header if it was not
+ set before transmission
+Date: Tue, 19 Mar 2013 17:26:45 +0800
+Message-ID: <51482F55.8020900@redhat.com>
+References: <1363333305-54398-1-git-send-email-jasowang@redhat.com> <1363333305-54398-2-git-send-email-jasowang@redhat.com> <1363399851.29475.52.camel@edumazet-glaptop> <20130317.121318.1869489921021513474.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com, edumazet@google.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, edumazet@google.com
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130317.121026.733329595817911776.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48915 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754022Ab3CSJ0z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 05:26:55 -0400
+In-Reply-To: <20130317.121318.1869489921021513474.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/18/2013 12:10 AM, David Miller wrote:
-> From: Jason Wang <jasowang@redhat.com>
-> Date: Fri, 15 Mar 2013 15:41:44 +0800
+On 03/18/2013 12:13 AM, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 15 Mar 2013 19:10:51 -0700
 >
->> Commit 1def9238d4aa2 (net_sched: more precise pkt_len computation) tries to do
->> precise packet len computation for GSO packets, but it does not check whether
->> the packets were from untrusted source. This is wrong since: we haven't done
->> header check before so both gso_segs and headers may not be correct. So this
->> patch just bypass the precise pkt_len computation for packet from untrusted
->> source (SKB_GSO_DODGY).
->>
->> Cc: Eric Dumazet <edumazet@google.com>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> I do not think this is appropriate or even necessary.
->
-> All the user can do by reporting an incorrect header size or GSO segs
-> is hurt himself, by making his traffic take more packet scheduler
-> quota.
+>> Any way we can avoid adding this to fast path, for people not using
+>> macvtap and ixgbe ?
+> Likewise I'd rather see macvtap be responsible for fixing this up by
+> setting the transport header properly, and therfore sending well
+> formed packets to the rest of the stack.
 
-I believe before doing header check for untrusted packets, the only
-thing we can trust is skb->len and that's we've used before
-1def9238d4aa2. But after that, we're trying to use unchecked or
-meaningless value (e.g gso_segs were reset to zero in
-tun/macvtap/packet), and guest then can utilize this to result a very
-huge (-1U) pkt_len by filling evil value in the header. Can all kinds of
-packet scheduler survive this kinds of possible DOS?
->
-> When we do precise accounting, it increases, never decreases, the
-> amount that a packet "costs" as far as the packet scheduler is
-> concerned.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ok, haven't checked all other possibility but looks like packet needs to
+be fixed also.
