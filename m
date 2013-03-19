@@ -1,202 +1,25 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v6] net: sh_eth: Add support of device tree probe
-Date: Tue, 19 Mar 2013 17:22:33 +0400
-Message-ID: <51486699.6000908@cogentembedded.com>
-References: <1363675196-8940-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] use xfrm direction when lookup policy
+Date: Tue, 19 Mar 2013 09:27:35 -0400 (EDT)
+Message-ID: <20130319.092735.322670260944589079.davem@davemloft.net>
+References: <1363696786-11128-1-git-send-email-baker.zhang@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	magnus.damm@gmail.com, kda@linux-powerpc.org,
-	horms+renesas@verge.net.au, mark.rutland@arm.com,
-	grant.likely@secretlab.ca
-To: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:55950 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752651Ab3CSNX2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 09:23:28 -0400
-Received: by mail-la0-f54.google.com with SMTP id gw10so887264lab.27
-        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 06:23:27 -0700 (PDT)
-In-Reply-To: <1363675196-8940-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	baker.zhang@gmail.com
+To: baker.kernel@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1363696786-11128-1-git-send-email-baker.zhang@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 19-03-2013 10:39, Nobuhiro Iwamatsu wrote:
+From: Baker Zhang <baker.kernel@gmail.com>
+Date: Tue, 19 Mar 2013 20:39:46 +0800
 
-> This adds support of device tree probe for Renesas sh-ether driver.
+> +static inline int flow_to_policy_dir(int dir)
 
-> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Please do not use inline in foo.c files, just let the compiler decide
+whether inlining is a good idea or not.
 
-> V6: - Add renesas,sh-eth-gigabit, renesas,sh-eth-sh4 and
->        renesas,sh-eth-sh3-sh2 to compatible string.
-> 	- Remove sh-eth,register-type. This is supplemented by the
->        compatible string.
->      - Use the of_property_read_bool instead of of_find_property.
->      - Add sanity chheck for of_property_read_u32.
->      - Update document.
-> V5: - Rewrite sh_eth_parse_dt().
->        Remove of_device_is_available() and CONFIG_OF from support OF
->        checking function and re-add empty sh_eth_parse_dt().
->      - Add CONFIG_PM to definition of dev_pm_ops.
-> 	- Add CONFIG_OF to definition of of_device_id.
-> V4: - Remove empty sh_eth_parse_dt().
-> V3: - Remove empty sh_eth_parse_dt().
-> V3: - Removed sentnece of "needs-init" from document.
-> V2: - Removed ether_setup().
->      - Fixed typo from "sh-etn" to "sh-eth".
-> 	- Removed "needs-init" and sh-eth,endian from definition of DT.
-> 	- Changed "sh-eth,edmac-endian" instead of "sh-eth,edmac-big-endain"
-> 	  in definition of DT.
-> ---
->   Documentation/devicetree/bindings/net/sh_ether.txt |   48 +++++++
->   drivers/net/ethernet/renesas/sh_eth.c              |  145 ++++++++++++++++----
->   2 files changed, 168 insertions(+), 25 deletions(-)
->   create mode 100644 Documentation/devicetree/bindings/net/sh_ether.txt
-
-> diff --git a/Documentation/devicetree/bindings/net/sh_ether.txt b/Documentation/devicetree/bindings/net/sh_ether.txt
-> new file mode 100644
-> index 0000000..d1f961c
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/sh_ether.txt
-> @@ -0,0 +1,48 @@
-> +* Renesas Electronics SuperH EMAC
-> +
-> +This file provides information, what the device node
-> +for the sh_eth interface contains.
-> +
-> +Required properties:
-> +- compatible:                   "renesas,sh-eth-gigabit": If a device has
-> +                                            a function of gigabit, you should
-> +											set this.
-> +                                "renesas,sh-eth-sh4": If this is provided by
-> +                                            SH4, you should set this.
-> +                                "renesas,sh-eth-sh3-sh2": If this is provided
-> +                                            by SH3 or SH2, you should set this.
-> +
-> +- interrupt-parent:             The phandle for the interrupt controller that
-> +                                services interrupts for this device.
-> +
-> +- reg:                          Offset and length of the register set for the
-> +                                device. If device has TSU registers, you need
-> +                                to set up two register information here.
-> +
-> +- interrupts:                   Interrupt mapping for the sh_eth interrupt
-> +                                sources (vector id). You can set one value.
-> +
-> +- phy-mode:                     String, operation mode of the PHY interface
-> +                                (a string that of_get_phy_mode() can understand).
-> +
-> +- sh-eth,phy-id:                PHY id.
-> +
-> +Optional properties:
-> +- local-mac-address:            6 bytes, mac address
-> +- sh-eth,no-ether-link:         Set link control by software. When device does
-
-    I got the impression that usually the vendor name, not driver name is used 
-as a property prefix.
-
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 7a6471d..d9df68e 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -1,7 +1,7 @@
->   /*
->    *  SuperH Ethernet device driver
->    *
-> - *  Copyright (C) 2006-2012 Nobuhiro Iwamatsu
-> + *  Copyright (C) 2006-2013 Nobuhiro Iwamatsu
->    *  Copyright (C) 2008-2012 Renesas Solutions Corp.
-
-    Don't you want to extend the copyright of Renesas also -- you seem to be 
-still working there. :-)
-
-> @@ -2391,12 +2451,33 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
->   		goto out_release;
->   	}
->
-> +	if (np) {
-> +		pd = sh_eth_parse_dt(&pdev->dev, ndev, np);
-> +		if (pdev->dev.platform_data && pd) {
-> +			struct sh_eth_plat_data *tmp =
-> +				pdev->dev.platform_data;
-> +			pd->set_mdio_gate = tmp->set_mdio_gate;
-> +			pd->needs_init = tmp->needs_init;
-
-    OK, so we can't fully convert this driver to the device tree due to 
-procedural platform data. I then would advice just using OF_DEV_AUXDATA() in 
-the platform data instead of trying to convert the driver to device tree.
-
-[...]
-> @@ -2422,20 +2505,16 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
-[...]
->   		mdp->tsu_addr = ioremap(rtsu->start,
-> -					resource_size(rtsu));
-> +				resource_size(rtsu));
-
-    Why? It was indented perfectly before. Anyway, you shouldn't be doing 
-collateral whitespace changes.
-
->   		mdp->port = devno % 2;
->   		ndev->features = NETIF_F_HW_VLAN_FILTER;
->   	}
-> @@ -2502,6 +2581,7 @@ static int sh_eth_drv_remove(struct platform_device *pdev)
->   	return 0;
->   }
->
-> +#ifdef CONFIG_PM
-
-    Unrelated change.
-
->   static int sh_eth_runtime_nop(struct device *dev)
->   {
->   	/*
-> @@ -2515,17 +2595,32 @@ static int sh_eth_runtime_nop(struct device *dev)
->   	return 0;
->   }
->
-> -static struct dev_pm_ops sh_eth_dev_pm_ops = {
-> +static const struct dev_pm_ops sh_eth_dev_pm_ops = {
->   	.runtime_suspend = sh_eth_runtime_nop,
->   	.runtime_resume = sh_eth_runtime_nop,
->   };
-> +#define SH_ETH_PM_OPS (&sh_eth_dev_pm_ops)
-
-    () not needed.
-
-> +#else
-> +#define SH_ETH_PM_OPS NULL
-> +#endif
-
-    Unrelated change. Should be in a different patch.
-
-> +
-> +#ifdef CONFIG_OF
-> +static const struct of_device_id sh_eth_match[] = {
-> +	{ .compatible = "renesas,sh-eth-gigabit", },
-> +	{ .compatible = "renesas,sh-eth-sh4", },
-> +	{ .compatible = "renesas,sh-eth-sh3-sh2", },
-
-    Biut this is not really enough: the driver supports much more variations 
-of the SH and ARM SoCs all of which have difference not only in register 
-layout but also in the registers bits or even presence of the whole register 
-blocks. All this IMO should be reflected in the different values of the 
-compatible "property". BTW, it seems another register layout and instance 
-needs to be added for the R-Car SoCs (instead of the current ugly hack).
-
-> +	{},
-> +};
-> +MODULE_DEVICE_TABLE(of, sh_eth_match);
-> +#endif
->
->   static struct platform_driver sh_eth_driver = {
->   	.probe = sh_eth_drv_probe,
->   	.remove = sh_eth_drv_remove,
->   	.driver = {
->   		   .name = CARDNAME,
-> -		   .pm = &sh_eth_dev_pm_ops,
-> +		   .pm = SH_ETH_PM_OPS,
-
-    Unrelated as well.
-
-WBR, Sergei
+Thanks.
