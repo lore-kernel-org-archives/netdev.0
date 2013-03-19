@@ -1,40 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net: reset transport header if it was not
- set before transmission
-Date: Tue, 19 Mar 2013 05:13:54 -0700
-Message-ID: <1363695234.21184.36.camel@edumazet-glaptop>
-References: <1363333305-54398-1-git-send-email-jasowang@redhat.com>
-	 <1363333305-54398-2-git-send-email-jasowang@redhat.com>
-	 <1363399851.29475.52.camel@edumazet-glaptop>
-	 <20130317.121318.1869489921021513474.davem@davemloft.net>
-	 <51482F55.8020900@redhat.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL nf] IPVS fixes for v3.9
+Date: Tue, 19 Mar 2013 21:15:19 +0900
+Message-ID: <20130319121518.GD4317@verge.net.au>
+References: <1363657198-5333-1-git-send-email-horms@verge.net.au>
+ <20130319094555.GB3602@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com, edumazet@google.com
-To: Jason Wang <jasowang@redhat.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51482F55.8020900@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:59207 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751340Ab3CSMPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 08:15:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20130319094555.GB3602@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-03-19 at 17:26 +0800, Jason Wang wrote:
-> On 03/18/2013 12:13 AM, David Miller wrote:
-> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> > Date: Fri, 15 Mar 2013 19:10:51 -0700
-> >
-> >> Any way we can avoid adding this to fast path, for people not using
-> >> macvtap and ixgbe ?
-> > Likewise I'd rather see macvtap be responsible for fixing this up by
-> > setting the transport header properly, and therfore sending well
-> > formed packets to the rest of the stack.
+On Tue, Mar 19, 2013 at 10:45:55AM +0100, Pablo Neira Ayuso wrote:
+> Hi Simon,
 > 
-> Ok, haven't checked all other possibility but looks like packet needs to
-> be fixed also.
+> I proposed this:
+> 
+> > I think that these three fixes:
+> >
+> > ipvs: add backup_only flag to avoid loops
+> > ipvs: remove extra rcu lock
+> > ipvs: fix sctp chunk length order
+> >
+> > should find their path to the net tree.
+> >
+> > The remaining two sparse fixes should go to net-next.
+> 
+> But you sent me these for net:
+> 
+> ipvs: fix sctp chunk length order
+> ipvs: fix hashing in ip_vs_svc_hashkey
+> ipvs: fix some sparse warnings
+> 
+> that doesn't match.
+> 
+> Can you resolve this? Thanks.
 
-Daniel, could you post your patches if ready ?
-
-Jason, I believe you could reuse existing flow dissector once Daniel
-patches are in.
+Oops, will do.
