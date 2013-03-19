@@ -1,69 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v3] packet: packet fanout rollover during
- socket overload
-Date: Tue, 19 Mar 2013 13:37:17 -0700
-Message-ID: <1363725437.2558.22.camel@edumazet-glaptop>
-References: <1363724291-27580-1-git-send-email-willemb@google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2 net-next 1/5] GRE: Refactor GRE tunneling code.
+Date: Tue, 19 Mar 2013 13:58:28 -0700
+Message-ID: <20130319135828.0dd18d40@nehalam.linuxnetplumber.net>
+References: <1363630405-1672-1-git-send-email-pshelar@nicira.com>
+	<20130318122409.00c01106@nehalam.linuxnetplumber.net>
+	<20130318.153319.206719819832403477.davem@davemloft.net>
+	<87r4jb1y0t.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Willem de Bruijn <willemb@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, pshelar@nicira.com,
+	netdev@vger.kernel.org, jesse@nicira.com
+To: =?ISO-8859-1?B?Qmr4cm4=?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:45200 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933697Ab3CSUhW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 16:37:22 -0400
-Received: by mail-pd0-f179.google.com with SMTP id x10so310726pdj.38
-        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 13:37:21 -0700 (PDT)
-In-Reply-To: <1363724291-27580-1-git-send-email-willemb@google.com>
+Received: from mail-da0-f50.google.com ([209.85.210.50]:37088 "EHLO
+	mail-da0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754782Ab3CSU6e convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 16:58:34 -0400
+Received: by mail-da0-f50.google.com with SMTP id t1so528827dae.23
+        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 13:58:34 -0700 (PDT)
+In-Reply-To: <87r4jb1y0t.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-03-19 at 16:18 -0400, Willem de Bruijn wrote:
-> Changes:
->   v3->v2: rebase (no other changes)
->           passes selftest
->   v2->v1: read f->num_members only once
->           fix bug: test rollover mode + flag
-> 
-> Minimize packet drop in a fanout group. If one socket is full,
-> roll over packets to another from the group. Maintain flow
-> affinity during normal load using an rxhash fanout policy, while
-> dispersing unexpected traffic storms that hit a single cpu, such
-> as spoofed-source DoS flows. Rollover breaks affinity for flows
-> arriving at saturated sockets during those conditions.
-> 
-> The patch adds a fanout policy ROLLOVER that rotates between sockets,
-> filling each socket before moving to the next. It also adds a fanout
-> flag ROLLOVER. If passed along with any other fanout policy, the
-> primary policy is applied until the chosen socket is full. Then,
-> rollover selects another socket, to delay packet drop until the
-> entire system is saturated.
-> 
-> Probing sockets is not free. Selecting the last used socket, as
-> rollover does, is a greedy approach that maximizes chance of
-> success, at the cost of extreme load imbalance. In practice, with
-> sufficiently long queues to absorb bursts, sockets are drained in
-> parallel and load balance looks uniform in `top`.
-> 
-> To avoid contention, scales counters with number of sockets and
-> accesses them lockfree. Values are bounds checked to ensure
-> correctness.
-> 
-> Tested using an application with 9 threads pinned to CPUs, one socket
-> per thread and sufficient busywork per packet operation to limits each
-> thread to handling 32 Kpps. When sent 500 Kpps single UDP stream
-> packets, a FANOUT_CPU setup processes 32 Kpps in total without this
-> patch, 270 Kpps with the patch. Tested with read() and with a packet
-> ring (V1). Also, passes unit test (perhaps for selftests) at
-> http://kernel.googlecode.com/files/psock_fanout.c
-> 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-> ---
->  include/uapi/linux/if_packet.h |   2 +
->  net/packet/af_packet.c         | 109 ++++++++++++++++++++++++++++++++---------
->  net/packet/internal.h          |   3 +-
->  3 files changed, 90 insertions(+), 24 deletions(-)
+On Tue, 19 Mar 2013 11:31:30 +0100
+Bj=F8rn Mork <bjorn@mork.no> wrote:
 
-Reviewed-by: Eric Dumazet <edumazet@google.com>
+> David Miller <davem@davemloft.net> writes:
+> > From: Stephen Hemminger <stephen@networkplumber.org>
+> >> On Mon, 18 Mar 2013 11:13:25 -0700
+> >> Pravin B Shelar <pshelar@nicira.com> wrote:
+> >>=20
+> >>> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+> >>> index 7944df7..2073226 100644
+> >>> --- a/net/ipv4/Kconfig
+> >>> +++ b/net/ipv4/Kconfig
+> >>> @@ -186,9 +186,14 @@ config NET_IPGRE_DEMUX
+> >>>  	 This is helper module to demultiplex GRE packets on GRE versio=
+n field criteria.
+> >>>  	 Required by ip_gre and pptp modules.
+> >>> =20
+> >>> +config NET_IP_TUNNEL
+> >>> +	tristate
+> >>> +	default n
+> >>> +
+> >>=20
+> >> Won't this break existing kernel config's, shouldn't this default =
+y?
+> >
+> > Or "m".  But indeed, it should be made to automatically work for
+> > existing configs.
+>=20
+> Won't the "select NET_IP_TUNNEL" statements do just that?
+>=20
+> Changing the default to m will enable this module even if all of
+> NET_IPGRE, VXLAN and NET_IPIP are disabled. That's pointless, isn't i=
+t?
+
+Looks like you are right, just tried a number of different kernel
+configs with 'make oldconfig' and it picks up the dependency  correctly=
+=2E
