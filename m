@@ -1,61 +1,54 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 3/4][net-next] gianfar: Remove redundant programming of
- [rt]xic registers
-Date: Tue, 19 Mar 2013 21:49:27 +0400
-Message-ID: <5148A527.7050206@cogentembedded.com>
-References: <1363714805-9142-1-git-send-email-claudiu.manoil@freescale.com> <1363714805-9142-4-git-send-email-claudiu.manoil@freescale.com>
+From: Oliver Schinagl <oliver+list@schinagl.nl>
+Subject: Re: [PATCH 0/5] ARM: sunxi: Add support for A10 Ethernet controller
+Date: Tue, 19 Mar 2013 09:47:10 +0000 (UTC)
+Message-ID: <loom.20130319T104406-67@post.gmane.org>
+References: <1363380605-6577-1-git-send-email-maxime.ripard@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Claudiu Manoil <claudiu.manoil@freescale.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:64032 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753288Ab3CSRuU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 13:50:20 -0400
-Received: by mail-la0-f46.google.com with SMTP id fq12so1482098lab.19
-        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 10:50:18 -0700 (PDT)
-In-Reply-To: <1363714805-9142-4-git-send-email-claudiu.manoil@freescale.com>
+Received: from plane.gmane.org ([80.91.229.3]:37985 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754702Ab3CSS3o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 14:29:44 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UI1IS-0006gU-4g
+	for netdev@vger.kernel.org; Tue, 19 Mar 2013 19:30:04 +0100
+Received: from 7of9.schinagl.nl ([88.159.158.68])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 19:30:04 +0100
+Received: from oliver+list by 7of9.schinagl.nl with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 19:30:04 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Maxime Ripard <maxime.ripard <at> free-electrons.com> writes:
 
-On 19-03-2013 21:40, Claudiu Manoil wrote:
+> 
+> Hi,
+> 
+> The Allwinner A10 SoC has an ethernet that is said to be coming from
+> Davicom embedded in it. This IP has no public documentation, so exact
+> details are quite sparse, and this code come from refactored allwinner
+> code.
+As we discussed on #linux-sunxi, it may be davicom IP it also may not be.
+Register address do not match at all, so it could be that it is only partial
+davicom IP at best.
 
-> For Multi Q Multi Group (MQ_MG_MODE) mode, the Rx/Tx colescing registers [rt]xic
-> are aliased with the [rt]xic0 registers (coalescing setting regs for Q0). This
-> avoids programming twice in a row the coalescing registers for the Rx/Tx hw Q0.
+I therefore suggest we put it in kernel/drivers/net/ethernet/allwinner/ and name
+the modules/files sunxi-emac.c and sunxi-gmac.c (for the new gigabit mac in the
+newest SoC's)...
 
-> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
-> ---
->   drivers/net/ethernet/freescale/gianfar.c | 24 ++++++++++++------------
->   1 file changed, 12 insertions(+), 12 deletions(-)
 
-> diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-> index 3f07dbd..e28b3e6 100644
-> --- a/drivers/net/ethernet/freescale/gianfar.c
-> +++ b/drivers/net/ethernet/freescale/gianfar.c
-> @@ -1821,20 +1821,9 @@ void gfar_configure_coalescing(struct gfar_private *priv,
-[...]
->   	if (priv->mode == MQ_MG_MODE) {
-> +		int i = 0;
-
-    Empty line wouldn't hurt here, after declaration.
-
->   		baddr = &regs->txic0;
->   		for_each_set_bit(i, &tx_mask, priv->num_tx_queues) {
->   			gfar_write(baddr + i, 0);
-> @@ -1848,6 +1837,17 @@ void gfar_configure_coalescing(struct gfar_private *priv,
->   			if (likely(priv->rx_queue[i]->rxcoalescing))
->   				gfar_write(baddr + i, priv->rx_queue[i]->rxic);
->   		}
-> +	} else {
-> +		/* Backward compatible case ---- even if we enable
-
-    s/----/--/
-
-WBR, Sergei
+Thanks,
+Oliver
+> 
+> Since we don't have any clock support yet for the Allwinner SoCs, we
+> rely on the bootloader to enable the wemac clock.
+> 
+> Thanks,
+> Maxime
