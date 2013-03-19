@@ -1,39 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: sfc fixes for stable
-Date: Tue, 19 Mar 2013 17:26:28 +0000
-Message-ID: <1363713988.3491.10.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1363707481.3491.6.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20130319.113955.1978808530160968786.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	<scrum-linux@solarflare.com>
-To: David Miller <davem@davemloft.net>
+From: Masatake YAMATO <yamato@redhat.com>
+Subject: [PATCH 2/2] thermal: shorten too long mcast group name
+Date: Tue, 19 Mar 2013 20:47:28 +0900
+Message-ID: <1363693648-10015-3-git-send-email-yamato@redhat.com>
+References: <1363693648-10015-1-git-send-email-yamato@redhat.com>
+Cc: Masatake YAMATO <yamato@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:54596 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757108Ab3CSR0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 13:26:32 -0400
-In-Reply-To: <20130319.113955.1978808530160968786.davem@davemloft.net>
+Received: from h219-110-095-248.catv01.itscom.jp ([219.110.95.248]:55726 "EHLO
+	localhost.localdomain" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933158Ab3CSR2g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 13:28:36 -0400
+In-Reply-To: <1363693648-10015-1-git-send-email-yamato@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-03-19 at 11:39 -0400, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Tue, 19 Mar 2013 15:38:01 +0000
-> 
-> > The last is not yet in Linus's tree but I assume you will ask him to
-> > pull from net soon.
-> 
-> You should really, as I do, wait until it actually hits Linus tree
-> before proposing it for -stable.
+The original name is too long.
 
-Sorry, I'll re-send once that happens.
+Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+---
+ include/linux/thermal.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Ben.
-
+diff --git a/include/linux/thermal.h b/include/linux/thermal.h
+index f0bd7f9..e3c0ae9 100644
+--- a/include/linux/thermal.h
++++ b/include/linux/thermal.h
+@@ -44,7 +44,7 @@
+ /* Adding event notification support elements */
+ #define THERMAL_GENL_FAMILY_NAME                "thermal_event"
+ #define THERMAL_GENL_VERSION                    0x01
+-#define THERMAL_GENL_MCAST_GROUP_NAME           "thermal_mc_group"
++#define THERMAL_GENL_MCAST_GROUP_NAME           "thermal_mc_grp"
+ 
+ /* Default Thermal Governor */
+ #if defined(CONFIG_THERMAL_DEFAULT_GOV_STEP_WISE)
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.11.7
