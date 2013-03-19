@@ -1,45 +1,53 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 2/2] sh_eth: check TSU registers ioremap() error
-Date: Wed, 20 Mar 2013 02:41:32 +0300
-Message-ID: <201303200241.33137.sergei.shtylyov@cogentembedded.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] ixp4xx_eth: set the device dma_coherent_mask
+Date: Tue, 19 Mar 2013 23:35:46 +0100
+Message-ID: <m3sj3rdnlp.fsf@intrepid.localdomain>
+References: <1363708765-20778-1-git-send-email-c.aeschlimann@acn-group.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:54367 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933625Ab3CSWkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 18:40:18 -0400
-Received: by mail-la0-f44.google.com with SMTP id eb20so1990263lab.3
-        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 15:40:17 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Christophe Aeschlimann <c.aeschlimann@acn-group.ch>
+To: Christophe Aeschlimann <aeschlimann@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1363708765-20778-1-git-send-email-c.aeschlimann@acn-group.ch>
+	(Christophe Aeschlimann's message of "Tue, 19 Mar 2013 16:59:25
+	+0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-One must check the result of ioremap() -- in this case it prevents potential
-kernel oops when initializing TSU registers further on...
+Christophe Aeschlimann <aeschlimann@gmail.com> writes:
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Without the mask it is impossible to take the network interface up
+> since it returns the following error:
+>
+>> net eth1: coherent DMA mask is unset
+>> ifconfig: SIOCSIFFLAGS: Cannot allocate memory
+>
+> +++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+> @@ -1398,6 +1398,7 @@ static int eth_init_one(struct platform_device *pdev)
+>  		return -ENOMEM;
+>  
+>  	SET_NETDEV_DEV(dev, &pdev->dev);
+> +	dev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+>  	port = netdev_priv(dev);
+>  	port->netdev = dev;
+>  	port->id = pdev->id;
 
----
- drivers/net/ethernet/renesas/sh_eth.c |    5 +++++
- 1 file changed, 5 insertions(+)
+This happens to work but seems to me like a bad "solution". The real
+issue is that current ARM coherent_dma_mask (and regular dma_mask)
+handling is just broken (at least on platforms with
+CONFIG_ARCH_HAS_DMA_SET_COHERENT_MASK). I'm thinking how can it be
+fixed.
 
-Index: renesas/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- renesas.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ renesas/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2446,6 +2446,11 @@ static int sh_eth_drv_probe(struct platf
- 		}
- 		mdp->tsu_addr = ioremap(rtsu->start,
- 					resource_size(rtsu));
-+		if (mdp->tsu_addr == NULL) {
-+			ret = -ENOMEM;
-+			dev_err(&pdev->dev, "TSU ioremap failed.\n");
-+			goto out_release;
-+		}
- 		mdp->port = devno % 2;
- 		ndev->features = NETIF_F_HW_VLAN_FILTER;
- 	}
+The problematic parts include the dmabouncer (which takes over DMA
+operations and provide services similar to swiotlb), the host DMA and
+coherent DMA masks (which are property of the buses) and the device
+masks, which should be ANDed with bus masks (but aren't).
+
+What the driver should use is:
+	err = dma_set_coherent_mask(xxx);
+
+(but the subsystem have to be fixed first).
+Also, according to DMA-API, 32-bit is the default.
+-- 
+Krzysztof Halasa
