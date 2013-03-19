@@ -1,53 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Can we rely on ethernet header padding?
-Date: Tue, 19 Mar 2013 08:21:35 -0700
-Message-ID: <1363706495.2558.14.camel@edumazet-glaptop>
-References: <20130319150545.GA18218@unicorn.suse.cz>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH 2/4] xen-netfront: drop skb when skb->len >
+ 65535
+Date: Tue, 19 Mar 2013 15:23:06 +0000
+Message-ID: <1363706586.3088.3.camel@zion.uk.xensource.com>
+References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
+	 <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>
+	 <51471AAC.2050509@citrix.com>
+	 <1363614500.30193.47.camel@zakaz.uk.xensource.com>
+	 <51471DE0.9060506@citrix.com>
+	 <1363616388.29093.201.camel@zion.uk.xensource.com>
+	 <51486ADD.5050603@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20130319150545.GA18218@unicorn.suse.cz>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <wei.liu2@citrix.com>, Ian Campbell <Ian.Campbell@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:14339 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756672Ab3CSPXI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 11:23:08 -0400
+In-Reply-To: <51486ADD.5050603@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-03-19 at 16:05 +0100, Michal Kubecek wrote:
-> Hello,
+On Tue, 2013-03-19 at 13:40 +0000, David Vrabel wrote:
+> On 18/03/13 14:19, Wei Liu wrote:
+> > On Mon, 2013-03-18 at 14:00 +0000, David Vrabel wrote:
+> >> On 18/03/13 13:48, Ian Campbell wrote:
+> >>> On Mon, 2013-03-18 at 13:46 +0000, David Vrabel wrote:
+> >>>> On 18/03/13 10:35, Wei Liu wrote:
+> >>>>> The `size' field of Xen network wire format is uint16_t, anything bigger than
+> >>>>> 65535 will cause overflow.
+> >>>>
+> >>>> The backend needs to be able to handle these bad packets without
+> >>>> disconnecting the VIF -- we can't fix all the frontend drivers.
+> >>>
+> >>> Agreed, although that doesn't imply that we shouldn't fix the frontend
+> >>> where we can -- such as upstream as Wei does here.
+> >>
+> >> Yes, frontends should be fixed where possible.
+> >>
+> >> This is what I came up with for the backend.  I don't have time to look
+> >> into it further but, Wei, feel free to use it as a starting point.
+> >>
+> > 
+> > Thanks for this patch.
+> > 
+> > I haven't gone through XSA-39 discussion, this is why I didn't come up
+> > with a fix for backend -- I need to make sure dropping packet like this
+> > won't re-exhibit the security hole.
 > 
-> a customer of ours ran into
+> How are these overlarge packets generated?  How do you reproduce the issue?
 > 
->   http://bugzilla.netfilter.org/show_bug.cgi?id=765
-> 
-> They checked that commit a504b86e prevents the crash but I'm not sure it
-> is sufficient.
-> 
-> The crash happens when br_nf_pre_routing_finish_bridge() calls
-> neigh_hh_bridge() which copies not only destination MAC address but also
-> the padding with it. IIUC this is for performance reasons (so that
-> aligned 8 bytes are copied rather than 6).
-> 
-> But I wonder whether we can rely on the fact that every skb on an
-> ethernet-like device has ethernet header padded at least to the 16 bytes
-> expected by neigh_hh_bridge() and neigh_hh_output() or whether the
-> bridge code should make sure. I tried to look for such test but couldn't
-> find any, even if commit a504b86e description mentions reallocating the
-> skb rather than a crash.
 
-Thats a side effect.
+Inside a VM, ifconfig eth0 mtu 100, iperf -c XXXX .
 
-Before calling netif_rx() the driver usually calls eth_type_trans()
-to pull the ethernet header, so there is the room for 14 bytes.
-
-Normally a driver has NET_SKB_PAD bytes of headroom before the ethernet
-header, so the bridge code is safe only if all drivers use this
-NET_SKB_PAD padding on receive side. And they really should for
-performance reasons.
-
-Better not touch bridge code to catch offending drivers
+But other people seeing this could not be using the same method because
+nobody would set mtu to 100 in production system AFAICT.
 
 
+Wei.
 
-
-
+> David
