@@ -1,62 +1,62 @@
 From: Tom Parkin <tparkin@katalix.com>
-Subject: [PATCH 07/12] l2tp: don't BUG_ON sk_socket being NULL
-Date: Tue, 19 Mar 2013 16:11:18 +0000
-Message-ID: <1363709483-24021-8-git-send-email-tparkin@katalix.com>
-References: <1363709483-24021-1-git-send-email-tparkin@katalix.com>
-Cc: Tom Parkin <tparkin@katalix.com>,
-	James Chapman <jchapman@katalix.com>
+Subject: [PATCH 00/12] l2tp bugfix patchset
+Date: Tue, 19 Mar 2013 16:11:11 +0000
+Message-ID: <1363709483-24021-1-git-send-email-tparkin@katalix.com>
+Cc: Tom Parkin <tparkin@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:36147 "EHLO bert.katalix.com"
+Received: from katalix.com ([82.103.140.233]:36140 "EHLO bert.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932842Ab3CSQLc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Mar 2013 12:11:32 -0400
-In-Reply-To: <1363709483-24021-1-git-send-email-tparkin@katalix.com>
+	id S932436Ab3CSQLa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 12:11:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is valid for an existing struct sock object to have a NULL sk_socket
-pointer, so don't BUG_ON in l2tp_tunnel_del_work if that should occur.
+This l2tp bugfix patchset addresses a number of issues.
 
-Signed-off-by: Tom Parkin <tparkin@katalix.com>
-Signed-off-by: James Chapman <jchapman@katalix.com>
----
- net/l2tp/l2tp_core.c |   18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
+The first five patches in the series prevent l2tp sessions pinning an l2tp
+tunnel open.  This occurs because the l2tp tunnel is torn down in the tunnel
+socket destructor, but each session holds a tunnel socket reference which
+prevents tunnels with sessions being deleted.  The solution I've implemented
+here involves adding a .destroy hook to udp code, as discussed previously on
+netdev[1].
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 45373fe..e841ef2 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1412,19 +1412,21 @@ static void l2tp_tunnel_del_work(struct work_struct *work)
- 		return;
- 
- 	sock = sk->sk_socket;
--	BUG_ON(!sock);
- 
--	/* If the tunnel socket was created directly by the kernel, use the
--	 * sk_* API to release the socket now.  Otherwise go through the
--	 * inet_* layer to shut the socket down, and let userspace close it.
-+	/* If the tunnel socket was created by userspace, then go through the
-+	 * inet layer to shut the socket down, and let userspace close it.
-+	 * Otherwise, if we created the socket directly within the kernel, use
-+	 * the sk API to release it here.
- 	 * In either case the tunnel resources are freed in the socket
- 	 * destructor when the tunnel socket goes away.
- 	 */
--	if (sock->file == NULL) {
--		kernel_sock_shutdown(sock, SHUT_RDWR);
--		sk_release_kernel(sk);
-+	if (tunnel->fd >= 0) {
-+		if (sock)
-+			inet_shutdown(sock, 2);
- 	} else {
--		inet_shutdown(sock, 2);
-+		if (sock)
-+			kernel_sock_shutdown(sock, SHUT_RDWR);
-+		sk_release_kernel(sk);
- 	}
- 
- 	l2tp_tunnel_sock_put(sk);
+The subsequent seven patches address futher bugs exposed by fixing the problem
+above, or exposed through stress testing the implementation above.  Patch 11
+(avoid deadlock in l2tp stats update) isn't directly related to tunnel/session
+lifetimes, but it does prevent deadlocks on i386 kernels running on 64 bit
+hardware.
+
+This patchset has been tested on 32 and 64 bit preempt/non-preempt kernels,
+using iproute2, openl2tp, and custom-made stress test code.
+
+[1] http://comments.gmane.org/gmane.linux.network/259169
+
+Tom Parkin (12):
+  udp: add encap_destroy callback
+  l2tp: add udp encap socket destroy handler
+  l2tp: export l2tp_tunnel_closeall
+  l2tp: close sessions in ip socket destroy callback
+  l2tp: close sessions before initiating tunnel delete
+  l2tp: take a reference for kernel sockets in l2tp_tunnel_sock_lookup
+  l2tp: don't BUG_ON sk_socket being NULL
+  l2tp: add session reorder queue purge function to core
+  l2tp: purge session reorder queue on delete
+  l2tp: push all ppp pseudowire shutdown through .release handler
+  l2tp: avoid deadlock in l2tp stats update
+  l2tp: unhash l2tp sessions on delete, not on free
+
+ include/linux/udp.h     |    1 +
+ net/ipv4/udp.c          |    7 ++
+ net/ipv6/udp.c          |    8 ++
+ net/l2tp/l2tp_core.c    |  206 +++++++++++++++++++++++------------------------
+ net/l2tp/l2tp_core.h    |   22 ++---
+ net/l2tp/l2tp_debugfs.c |   28 +++----
+ net/l2tp/l2tp_ip.c      |    6 ++
+ net/l2tp/l2tp_ip6.c     |    7 ++
+ net/l2tp/l2tp_netlink.c |   72 +++++++----------
+ net/l2tp/l2tp_ppp.c     |  111 +++++++++----------------
+ 10 files changed, 220 insertions(+), 248 deletions(-)
+
 -- 
 1.7.9.5
