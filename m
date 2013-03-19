@@ -1,49 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] packet: packet fanout rollover during
- socket overload
-Date: Tue, 19 Mar 2013 17:16:31 -0400 (EDT)
-Message-ID: <20130319.171631.896160775901462168.davem@davemloft.net>
-References: <1363724291-27580-1-git-send-email-willemb@google.com>
-	<1363725437.2558.22.camel@edumazet-glaptop>
+Subject: [PATCH] net: Fix failure string in net-socket selftests Makefile.
+Date: Tue, 19 Mar 2013 17:16:56 -0400 (EDT)
+Message-ID: <20130319.171656.2169297554900450866.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: willemb@google.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48581 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48596 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933560Ab3CSVQf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 17:16:35 -0400
-In-Reply-To: <1363725437.2558.22.camel@edumazet-glaptop>
+	with ESMTP id S933560Ab3CSVQ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 17:16:57 -0400
+Received: from localhost (cpe-66-108-118-205.nyc.res.rr.com [66.108.118.205])
+	(Authenticated sender: davem-davemloft)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 8BE3F581157
+	for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 14:17:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 19 Mar 2013 13:37:17 -0700
 
-> On Tue, 2013-03-19 at 16:18 -0400, Willem de Bruijn wrote:
->> Changes:
->>   v3->v2: rebase (no other changes)
->>           passes selftest
->>   v2->v1: read f->num_members only once
->>           fix bug: test rollover mode + flag
- ...
->> Signed-off-by: Willem de Bruijn <willemb@google.com>
- ...
-> Reviewed-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ tools/testing/selftests/net-socket/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Applied, and I added the selftest too, but it fails for me on my
-128-cpu sparc64 machine:
-
-make[1]: Entering directory `/home/davem/src/GIT/net-next/tools/testing/selftests/net-afpacket'
---------------------
-running psock_fanout test
---------------------
-test: control single socket
-test: control multiple sockets
-test: datapath 0x0
-info: count=0,0, expect=0,0
-info: count=0,20, expect=15,5
-ERROR: incorrect queue lengths
-[FAIL]
+diff --git a/tools/testing/selftests/net-socket/Makefile b/tools/testing/selftests/net-socket/Makefile
+index f27ee10..2450fd8 100644
+--- a/tools/testing/selftests/net-socket/Makefile
++++ b/tools/testing/selftests/net-socket/Makefile
+@@ -10,7 +10,7 @@ all: $(NET_SOCK_PROGS)
+ 	$(CC) $(CFLAGS) -o $@ $^
+ 
+ run_tests: all
+-	@/bin/sh ./run_netsocktests || echo "vmtests: [FAIL]"
++	@/bin/sh ./run_netsocktests || echo "sockettests: [FAIL]"
+ 
+ clean:
+ 	$(RM) $(NET_SOCK_PROGS)
+-- 
+1.7.11.7
