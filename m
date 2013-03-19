@@ -1,84 +1,99 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 1/4] flow_keys: include thoff into flow_keys for later usage
-Date: Tue, 19 Mar 2013 14:28:24 +0100
-Message-ID: <b80164aa55e82d0c3190fde317aed9bfc09d3fcb.1363699285.git.dborkman@redhat.com>
+Subject: [PATCH net-next 3/4] filter: add ANC_PAY_OFFSET instruction for loading payload start offset
+Date: Tue, 19 Mar 2013 14:28:26 +0100
+Message-ID: <d4359bec16c3baca196e444c309e932dcd08eb4f.1363699285.git.dborkman@redhat.com>
 References: <cover.1363699285.git.dborkman@redhat.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com, jasowang@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38887 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60448 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755606Ab3CSN2c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Mar 2013 09:28:32 -0400
+	id S1755647Ab3CSN2j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 09:28:39 -0400
 In-Reply-To: <cover.1363699285.git.dborkman@redhat.com>
 In-Reply-To: <cover.1363699285.git.dborkman@redhat.com>
 References: <cover.1363699285.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In skb_flow_dissect(), we perform a dissection of a skbuff. Since we're
-doing the work here anyway, also store thoff for a later usage, e.g. in
-the BPF filter. We need to reorder choke_skb_cb a bit, though. Also, by
-having thoff 16 Bit, we do not need to pack flow_keys.
+It is very useful to do dynamic truncation of packets. In particular,
+we're interested to push the necessary header bytes to the user space and
+cut off user payload that should probably not be transferred for some reasons
+(e.g. privacy, speed, or others). With the ancillary extension PAY_OFFSET,
+we can load it into the accumulator, and return it. E.g. in bpfc syntax ...
+
+        ld #poff        ; { 0x20, 0, 0, 0xfffff034 },
+        ret a           ; { 0x16, 0, 0, 0x00000000 },
+
+... as a filter will accomplish this without having to do a big hackery in
+a BPF filter itself. Follow-up JIT implementations are welcome.
+
+Thanks to Eric Dumazet for suggesting and discussing this during the
+Netfilter Workshop in Copenhagen.
 
 Suggested-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- include/net/flow_keys.h   | 1 +
- net/core/flow_dissector.c | 5 ++++-
- net/sched/sch_choke.c     | 4 ++--
- 3 files changed, 7 insertions(+), 3 deletions(-)
+ include/linux/filter.h      | 1 +
+ include/uapi/linux/filter.h | 3 ++-
+ net/core/filter.c           | 5 +++++
+ 3 files changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
-index 80461c1..bb8271d 100644
---- a/include/net/flow_keys.h
-+++ b/include/net/flow_keys.h
-@@ -9,6 +9,7 @@ struct flow_keys {
- 		__be32 ports;
- 		__be16 port16[2];
- 	};
-+	u16 thoff;
- 	u8 ip_proto;
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index c45eabc..d2059cb 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -126,6 +126,7 @@ enum {
+ 	BPF_S_ANC_SECCOMP_LD_W,
+ 	BPF_S_ANC_VLAN_TAG,
+ 	BPF_S_ANC_VLAN_TAG_PRESENT,
++	BPF_S_ANC_PAY_OFFSET,
  };
  
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index f8d9e03..eb9dde1 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -23,7 +23,8 @@ static void iph_to_flow_copy_addrs(struct flow_keys *flow, const struct iphdr *i
+ #endif /* __LINUX_FILTER_H__ */
+diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
+index 9cfde69..8eb9cca 100644
+--- a/include/uapi/linux/filter.h
++++ b/include/uapi/linux/filter.h
+@@ -129,7 +129,8 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ #define SKF_AD_ALU_XOR_X	40
+ #define SKF_AD_VLAN_TAG	44
+ #define SKF_AD_VLAN_TAG_PRESENT 48
+-#define SKF_AD_MAX	52
++#define SKF_AD_PAY_OFFSET	52
++#define SKF_AD_MAX	56
+ #define SKF_NET_OFF   (-0x100000)
+ #define SKF_LL_OFF    (-0x200000)
  
- bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow)
- {
--	int poff, nhoff = skb_network_offset(skb);
-+	int poff;
-+	u16 nhoff = skb_network_offset(skb);
- 	u8 ip_proto;
- 	__be16 proto = skb->protocol;
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 2e20b55..dad2a17 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -348,6 +348,9 @@ load_b:
+ 		case BPF_S_ANC_VLAN_TAG_PRESENT:
+ 			A = !!vlan_tx_tag_present(skb);
+ 			continue;
++		case BPF_S_ANC_PAY_OFFSET:
++			A = __skb_get_poff(skb);
++			continue;
+ 		case BPF_S_ANC_NLATTR: {
+ 			struct nlattr *nla;
  
-@@ -151,6 +152,8 @@ ipv6:
- 			flow->ports = *ports;
- 	}
+@@ -612,6 +615,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+ 			ANCILLARY(ALU_XOR_X);
+ 			ANCILLARY(VLAN_TAG);
+ 			ANCILLARY(VLAN_TAG_PRESENT);
++			ANCILLARY(PAY_OFFSET);
+ 			}
  
-+	flow->thoff = nhoff;
-+
- 	return true;
- }
- EXPORT_SYMBOL(skb_flow_dissect);
-diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
-index cc37dd5..9854c2b 100644
---- a/net/sched/sch_choke.c
-+++ b/net/sched/sch_choke.c
-@@ -141,9 +141,9 @@ static void choke_drop_by_idx(struct Qdisc *sch, unsigned int idx)
- }
- 
- struct choke_skb_cb {
--	u16			classid;
--	u8			keys_valid;
- 	struct flow_keys	keys;
-+	u8			keys_valid;
-+	u16			classid;
- };
- 
- static inline struct choke_skb_cb *choke_skb_cb(const struct sk_buff *skb)
+ 			/* ancillary operation unknown or unsupported */
+@@ -814,6 +818,7 @@ static void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to)
+ 		[BPF_S_ANC_SECCOMP_LD_W] = BPF_LD|BPF_B|BPF_ABS,
+ 		[BPF_S_ANC_VLAN_TAG]	= BPF_LD|BPF_B|BPF_ABS,
+ 		[BPF_S_ANC_VLAN_TAG_PRESENT] = BPF_LD|BPF_B|BPF_ABS,
++		[BPF_S_ANC_PAY_OFFSET]	= BPF_LD|BPF_B|BPF_ABS,
+ 		[BPF_S_LD_W_LEN]	= BPF_LD|BPF_W|BPF_LEN,
+ 		[BPF_S_LD_W_IND]	= BPF_LD|BPF_W|BPF_IND,
+ 		[BPF_S_LD_H_IND]	= BPF_LD|BPF_H|BPF_IND,
 -- 
 1.7.11.7
