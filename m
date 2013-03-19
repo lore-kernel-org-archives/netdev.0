@@ -1,37 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ixp4xx_eth: set the device dma_coherent_mask
-Date: Tue, 19 Mar 2013 12:33:59 -0400 (EDT)
-Message-ID: <20130319.123359.2245221095583640859.davem@davemloft.net>
-References: <1363708765-20778-1-git-send-email-c.aeschlimann@acn-group.ch>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: khc@pm.waw.pl, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, c.aeschlimann@acn-group.ch
-To: aeschlimann@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1363708765-20778-1-git-send-email-c.aeschlimann@acn-group.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH v3 net-next 1/4] flow_keys: include thoff into flow_keys for later usage
+Date: Tue, 19 Mar 2013 17:39:29 +0100
+Message-ID: <1363711172-9728-2-git-send-email-dborkman@redhat.com>
+References: <1363711172-9728-1-git-send-email-dborkman@redhat.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:12524 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757067Ab3CSQji (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 12:39:38 -0400
+In-Reply-To: <1363711172-9728-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christophe Aeschlimann <aeschlimann@gmail.com>
-Date: Tue, 19 Mar 2013 16:59:25 +0100
+In skb_flow_dissect(), we perform a dissection of a skbuff. Since we're
+doing the work here anyway, also store thoff for a later usage, e.g. in
+the BPF filter.
 
-> Without the mask it is impossible to take the network interface up
-> since it returns the following error:
-> 
->> net eth1: coherent DMA mask is unset
->> ifconfig: SIOCSIFFLAGS: Cannot allocate memory
-> 
-> Tested on an out-of-tree ixp425 based board.
-> 
-> Signed-off-by: Christophe Aeschlimann <c.aeschlimann@acn-group.ch>
- ...
-> @@ -1398,6 +1398,7 @@ static int eth_init_one(struct platform_device *pdev)
->  		return -ENOMEM;
->  
->  	SET_NETDEV_DEV(dev, &pdev->dev);
-> +	dev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+Suggested-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ This patch also needs to go into the net tree, since Eric or Jason will
+ post a bug fix on top of this one.
 
-Hmmm, shouldn't this be the default value, set by the bus layer or
-similar?
+ include/net/flow_keys.h   | 1 +
+ net/core/flow_dissector.c | 2 ++
+ 2 files changed, 3 insertions(+)
+
+diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
+index 80461c1..bb8271d 100644
+--- a/include/net/flow_keys.h
++++ b/include/net/flow_keys.h
+@@ -9,6 +9,7 @@ struct flow_keys {
+ 		__be32 ports;
+ 		__be16 port16[2];
+ 	};
++	u16 thoff;
+ 	u8 ip_proto;
+ };
+ 
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index f8d9e03..f4be293 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -151,6 +151,8 @@ ipv6:
+ 			flow->ports = *ports;
+ 	}
+ 
++	flow->thoff = (u16) nhoff;
++
+ 	return true;
+ }
+ EXPORT_SYMBOL(skb_flow_dissect);
+-- 
+1.7.11.7
