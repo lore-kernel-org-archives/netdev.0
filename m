@@ -1,73 +1,133 @@
 From: Tom Parkin <tparkin@katalix.com>
-Subject: [PATCH 08/12] l2tp: add session reorder queue purge function to core
-Date: Tue, 19 Mar 2013 16:11:19 +0000
-Message-ID: <1363709483-24021-9-git-send-email-tparkin@katalix.com>
+Subject: [PATCH 10/12] l2tp: push all ppp pseudowire shutdown through .release handler
+Date: Tue, 19 Mar 2013 16:11:21 +0000
+Message-ID: <1363709483-24021-11-git-send-email-tparkin@katalix.com>
 References: <1363709483-24021-1-git-send-email-tparkin@katalix.com>
 Cc: Tom Parkin <tparkin@katalix.com>,
 	James Chapman <jchapman@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:36145 "EHLO bert.katalix.com"
+Received: from katalix.com ([82.103.140.233]:36147 "EHLO bert.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932861Ab3CSQLc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Mar 2013 12:11:32 -0400
+	id S932883Ab3CSQLd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 12:11:33 -0400
 In-Reply-To: <1363709483-24021-1-git-send-email-tparkin@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If an l2tp session is deleted, it is necessary to delete skbs in-flight
-on the session's reorder queue before taking it down.
+If userspace deletes a ppp pseudowire using the netlink API, either by
+directly deleting the session or by deleting the tunnel that contains the
+session, we need to tear down the corresponding pppox channel.
 
-Rather than having each pseudowire implementation reaching into the
-l2tp_session struct to handle this itself, provide a function in l2tp_core to
-purge the session queue.
+Rather than trying to manage two pppox unbind codepaths, switch the netlink
+and l2tp_core session_close handlers to close via. the l2tp_ppp socket
+.release handler.
 
 Signed-off-by: Tom Parkin <tparkin@katalix.com>
 Signed-off-by: James Chapman <jchapman@katalix.com>
 ---
- net/l2tp/l2tp_core.c |   17 +++++++++++++++++
- net/l2tp/l2tp_core.h |    1 +
- 2 files changed, 18 insertions(+)
+ net/l2tp/l2tp_ppp.c |   53 ++++++++++-----------------------------------------
+ 1 file changed, 10 insertions(+), 43 deletions(-)
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index e841ef2..69c316d 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -829,6 +829,23 @@ discard:
+diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+index 6a53371..7e3e16a 100644
+--- a/net/l2tp/l2tp_ppp.c
++++ b/net/l2tp/l2tp_ppp.c
+@@ -97,6 +97,7 @@
+ #include <net/ip.h>
+ #include <net/udp.h>
+ #include <net/xfrm.h>
++#include <net/inet_common.h>
+ 
+ #include <asm/byteorder.h>
+ #include <linux/atomic.h>
+@@ -447,34 +448,16 @@ static void pppol2tp_session_close(struct l2tp_session *session)
+ {
+ 	struct pppol2tp_session *ps = l2tp_session_priv(session);
+ 	struct sock *sk = ps->sock;
+-	struct sk_buff *skb;
++	struct socket *sock = sk->sk_socket;
+ 
+ 	BUG_ON(session->magic != L2TP_SESSION_MAGIC);
+ 
+-	if (session->session_id == 0)
+-		goto out;
+-
+-	if (sk != NULL) {
+-		lock_sock(sk);
+-
+-		if (sk->sk_state & (PPPOX_CONNECTED | PPPOX_BOUND)) {
+-			pppox_unbind_sock(sk);
+-			sk->sk_state = PPPOX_DEAD;
+-			sk->sk_state_change(sk);
+-		}
+-
+-		/* Purge any queued data */
+-		skb_queue_purge(&sk->sk_receive_queue);
+-		skb_queue_purge(&sk->sk_write_queue);
+-		while ((skb = skb_dequeue(&session->reorder_q))) {
+-			kfree_skb(skb);
+-			sock_put(sk);
+-		}
+ 
+-		release_sock(sk);
++	if (sock) {
++		inet_shutdown(sock, 2);
++		/* Don't let the session go away before our socket does */
++		l2tp_session_inc_refcount(session);
+ 	}
+-
+-out:
+ 	return;
  }
- EXPORT_SYMBOL(l2tp_recv_common);
  
-+/* Drop skbs from the session's reorder_q
-+ */
-+int l2tp_session_queue_purge(struct l2tp_session *session)
-+{
-+	struct sk_buff *skb = NULL;
-+	BUG_ON(!session);
-+	BUG_ON(session->magic != L2TP_SESSION_MAGIC);
-+	while ((skb = skb_dequeue(&session->reorder_q))) {
-+		atomic_long_inc(&session->stats.rx_errors);
-+		kfree_skb(skb);
-+		if (session->deref)
-+			(*session->deref)(session);
-+	}
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(l2tp_session_queue_purge);
-+
- /* Internal UDP receive frame. Do the real work of receiving an L2TP data frame
-  * here. The skb is not on a list when we get here.
-  * Returns 0 if the packet was a data packet and was successfully passed on.
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index b0861f6..d40713d 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -246,6 +246,7 @@ extern struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunne
- extern int l2tp_session_delete(struct l2tp_session *session);
- extern void l2tp_session_free(struct l2tp_session *session);
- extern void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb, unsigned char *ptr, unsigned char *optr, u16 hdrflags, int length, int (*payload_hook)(struct sk_buff *skb));
-+extern int l2tp_session_queue_purge(struct l2tp_session *session);
- extern int l2tp_udp_encap_recv(struct sock *sk, struct sk_buff *skb);
+@@ -525,16 +508,12 @@ static int pppol2tp_release(struct socket *sock)
+ 	session = pppol2tp_sock_to_session(sk);
  
- extern int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len);
+ 	/* Purge any queued data */
+-	skb_queue_purge(&sk->sk_receive_queue);
+-	skb_queue_purge(&sk->sk_write_queue);
+ 	if (session != NULL) {
+-		struct sk_buff *skb;
+-		while ((skb = skb_dequeue(&session->reorder_q))) {
+-			kfree_skb(skb);
+-			sock_put(sk);
+-		}
++		l2tp_session_queue_purge(session);
+ 		sock_put(sk);
+ 	}
++	skb_queue_purge(&sk->sk_receive_queue);
++	skb_queue_purge(&sk->sk_write_queue);
+ 
+ 	release_sock(sk);
+ 
+@@ -880,18 +859,6 @@ out:
+ 	return error;
+ }
+ 
+-/* Called when deleting sessions via the netlink interface.
+- */
+-static int pppol2tp_session_delete(struct l2tp_session *session)
+-{
+-	struct pppol2tp_session *ps = l2tp_session_priv(session);
+-
+-	if (ps->sock == NULL)
+-		l2tp_session_dec_refcount(session);
+-
+-	return 0;
+-}
+-
+ #endif /* CONFIG_L2TP_V3 */
+ 
+ /* getname() support.
+@@ -1839,7 +1806,7 @@ static const struct pppox_proto pppol2tp_proto = {
+ 
+ static const struct l2tp_nl_cmd_ops pppol2tp_nl_cmd_ops = {
+ 	.session_create	= pppol2tp_session_create,
+-	.session_delete	= pppol2tp_session_delete,
++	.session_delete	= l2tp_session_delete,
+ };
+ 
+ #endif /* CONFIG_L2TP_V3 */
 -- 
 1.7.9.5
