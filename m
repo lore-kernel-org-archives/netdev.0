@@ -1,25 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] use xfrm direction when lookup policy
-Date: Tue, 19 Mar 2013 09:27:35 -0400 (EDT)
-Message-ID: <20130319.092735.322670260944589079.davem@davemloft.net>
-References: <1363696786-11128-1-git-send-email-baker.zhang@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	baker.zhang@gmail.com
-To: baker.kernel@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1363696786-11128-1-git-send-email-baker.zhang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 0/4] net: filter: BPF updates
+Date: Tue, 19 Mar 2013 14:28:23 +0100
+Message-ID: <cover.1363699285.git.dborkman@redhat.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, jasowang@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47585 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755362Ab3CSN2b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 09:28:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Baker Zhang <baker.kernel@gmail.com>
-Date: Tue, 19 Mar 2013 20:39:46 +0800
+This set adds i) an ancillary operation to the BPF engine and ii) a
+BPF JIT image disassembler in order to verify or debug the BPF JIT
+compilers under arch/*/net/.
 
-> +static inline int flow_to_policy_dir(int dir)
+Daniel Borkmann (4):
+  flow_keys: include thoff into flow_keys for later usage
+  net: flow_dissector: add __skb_get_poff to get a start offset to payload
+  filter: add ANC_PAY_OFFSET instruction for loading payload start offset
+  filter: add minimal BPF JIT emitted image disassembler
 
-Please do not use inline in foo.c files, just let the compiler decide
-whether inlining is a good idea or not.
+ include/linux/filter.h      |   1 +
+ include/linux/skbuff.h      |   2 +
+ include/net/flow_keys.h     |   1 +
+ include/uapi/linux/filter.h |   3 +-
+ net/core/filter.c           |   5 +
+ net/core/flow_dissector.c   |  62 ++++++++++++-
+ net/sched/sch_choke.c       |   4 +-
+ scripts/bpf_jit_disasm.c    | 216 ++++++++++++++++++++++++++++++++++++++++++++
+ 8 files changed, 290 insertions(+), 4 deletions(-)
+ create mode 100644 scripts/bpf_jit_disasm.c
 
-Thanks.
+-- 
+1.7.11.7
