@@ -1,67 +1,29 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: [PATCH net-next 2/2] bnx2x: add RSS capability for GRE
- traffic
-Date: Tue, 19 Mar 2013 13:43:27 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F20BE96D5@SJEXCHMB06.corp.ad.broadcom.com>
-References: <1363625464-21633-1-git-send-email-dmitry@broadcom.com>
- <1363625464-21633-2-git-send-email-dmitry@broadcom.com>
- <1363651672.21184.17.camel@edumazet-glaptop>
- <504C9EFCA2D0054393414C9CB605C37F20BE935B@SJEXCHMB06.corp.ad.broadcom.com>
- <CANP3RGehbKbh1ambT-RQQqfOkovzySB4_CWg+LPdJV7yDkYBCg@mail.gmail.com>
- <1363695958.21184.42.camel@edumazet-glaptop>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 2/2] net: reset transport header if it was not
+ set before transmission
+Date: Tue, 19 Mar 2013 14:52:29 +0100
+Message-ID: <51486D9D.3080909@redhat.com>
+References: <1363333305-54398-1-git-send-email-jasowang@redhat.com>   <1363333305-54398-2-git-send-email-jasowang@redhat.com>   <1363399851.29475.52.camel@edumazet-glaptop>   <20130317.121318.1869489921021513474.davem@davemloft.net>   <51482F55.8020900@redhat.com> <1363695234.21184.36.camel@edumazet-glaptop>  <514860DC.9020404@redhat.com> <1363697998.21184.54.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"Tom Herbert" <therbert@google.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	=?utf-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <maze@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4163 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754215Ab3CSNoO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Mar 2013 09:44:14 -0400
-In-Reply-To: <1363695958.21184.42.camel@edumazet-glaptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jason Wang <jasowang@redhat.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, edumazet@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1363697998.21184.54.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBNYXJjaCAxOSwgMjAx
-MyAyOjI2IFBNDQo+IFRvOiBNYWNpZWogxbtlbmN6eWtvd3NraQ0KPiBDYzogRG1pdHJ5IEtyYXZr
-b3Y7IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEVpbG9uIEdy
-ZWVuc3RlaW47IFRvbSBIZXJiZXJ0DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHQgMi8y
-XSBibngyeDogYWRkIFJTUyBjYXBhYmlsaXR5IGZvciBHUkUgdHJhZmZpYw0KPiANCj4gUGxlYXNl
-IE1hY2llaiBkbyBub3QgdG9wIHBvc3Qgb24gbGttbCBvciBuZXRkZXYgbWFpbGluZyBsaXN0cy4N
-Cj4gDQo+IE9uIFR1ZSwgMjAxMy0wMy0xOSBhdCAwMjoxOCAtMDcwMCwgTWFjaWVqIMW7ZW5jenlr
-b3dza2kgd3JvdGU6DQo+ID4gQ2FuIHRoZSBIVyBjYWxjdWxhdGUgYW5kIHJldHVybiBhIDFzIGNv
-bXBsZW1lbnQgc3VtIG9mIHRoZSBlbnRpcmUNCj4gPiBwYWNrZXQgKG9yIGEgbGFyZ2UgcG9ydGlv
-biB0aGVyZS1vZik/DQo+ID4gRml4aW5nIHRoYXQgdXAgdG8gYmUgb25seSBvZiB0aGUgb3V0ZXIg
-SVB2NCwgaW5uZXIgSVB2NCBhbmQgaW5uZXIgVENQDQo+ID4gcmVsZXZhbnQgcG9ydGlvbnMgc2hv
-dWxkIHN0aWxsIGJlIHNpbXBsZXIgKHdlbGwgZmFzdGVyKSB0aGFuDQo+ID4gY2FsY3VsYXRpbmcg
-dGhlIFRDUCBjaGVja3N1bS4NCj4gPiBJJ20gcHJldHR5IHN1cmUgdGhhdCBzb21lIHJlbGF0aW9u
-c2hpcCBiZXR3ZWVuIDFzIGNvbXBsZW1lbnQgc3VtIG9mDQo+ID4gYWxsIGJ5dGVzLCBvdXRlciBJ
-UHY0IGNoZWNrc3VtLCBpbm5lciBJUHY0IGNoZWNrc3VtIGFuZCBUQ1AgY2hlY2tzdW0NCj4gPiBj
-b3VsZCBiZSBwdWxsZWQgb3V0IG9mIGEgaGF0IHdpdGggc29tZSBkZWVwZXIgdGhvdWdodC4gIChz
-aW1pbGFybHkgZm9yDQo+ID4gSVB2NC9HUkUvSVB2Ni9UQ1AgYW5kIG90aGVyIGNvbWJpbmF0aW9u
-cykNCj4gPg0KPiA+IFdoYXQgcG9ydGlvbnMgb2YgdGhlIHBhY2tldCBjYW4gdGhlIEhXL0ZXIFtw
-YXJ0aWFsbHldIGNoZWNrc3VtIC0gYW5kDQo+ID4gcmV0dXJuIHRoZSB2YWx1ZSB0byB0aGUgZHJp
-dmVyIGZvciBmdXJ0aGVyIHByb2Nlc3Npbmc/DQo+ID4gQ2FuIGl0IHJldHVybiAxcyBjb21wbGVt
-ZW50IHN1bSBvZiBkYXRhIHBvcnRpb24gb2Ygb3V0ZXIgSVB2NCAoaWUuIGluDQo+ID4gSVB2NC9H
-UkUvSVB2NC9UQ1AgcmV0dXJuIGEgMXMgY29tcGxlbWVudCBzdW0gb2YgR1JFL0lQdjQvVENQIGJ5
-dGVzKQ0KPiA+DQo+IA0KPiBJIGFzc3VtZSBEbWl0cnkgd2FzIHNwZWFraW5nIG9mIHRoaXMgcG9z
-c2liaWxpdHksIGFuZCBvdXIgc3RhY2sgc2hvdWxkDQo+IGhhbmRsZSB0aGlzIGp1c3QgZmluZS4N
-Cg0KSW4gY2FzZSBvZiB0dW5uZWxpbmcgYm54MnggSFcgY2FuIG5vdCBwcm92aWRlIGNzdW0gb2Yg
-YW55IHBvcnRpb24gb2YgdGhlIHBhY2tldC4NCkZsYWcgZm9yIFhTVU1fTk9fVkFMSURBVElPTiBv
-biBjcWUgd2lsbCBiZSBzZXQgZm9yIGFsbCBncmUgcGFja2V0cy4NCkFzIGEgcmVzdWx0IGRyaXZl
-ciB3aWxsIGxlYXZlOg0Kc2tiLT5pcF9zdW1tZWQgPSBDSEVDS1NVTV9OT05FOw0KDQo+IA0KPiBO
-SUMgcHJvdmlkaW5nIHRoZXNlIGtpbmQgb2YgY2hlY2tzdW1zIHNldCA6DQo+IA0KPiBza2ItPmlw
-X3N1bW1lZCA9IENIRUNLU1VNX0NPTVBMRVRFOw0KPiBza2ItPmNzdW0gPSBjc3VtOw0KPiANCj4g
-YmVmb3JlIGZlZWRpbmcgdGhlIHBhY2tldCB0byB0aGUgc3RhY2suDQo+IA0KPiBXaGVuIHdlIHB1
-bGwgc29tZSBoZWFkZXIsIHdlIGhhdmUgdG8gY2FsbCBza2JfcG9zdHB1bGxfcmNzdW0oKQ0KPiB0
-byBhZGp1c3QgdGhlIHNrYi0+Y3N1bSBzbyB0aGF0IGZpbmFsIGNoZWNrIGNhbiBiZSBkb25lLg0K
-PiANCj4gQWJvdXQgMjAgZHJpdmVycyBjdXJyZW50bHkgcHJvdmlkZSB0aGVzZSBraW5kIG9mIGNo
-ZWNrc3VtbWluZy4NCj4gDQoNCg==
+On 03/19/2013 01:59 PM, Eric Dumazet wrote:
+> On Tue, 2013-03-19 at 13:58 +0100, Daniel Borkmann wrote:
+>
+>> Yes, will post them in a couple of minutes.
+>
+> Please target net tree for the first patch (adding thoff into struct
+> flow_keys), so that Jason or me can fix DODGY  providers.
+
+Sorry, I received this too late. The patch set is already out, but we
+can put a note into the ``[PATCH net-next 1/4] flow_keys: include thoff
+into flow_keys for later'' thread to let Dave know.
