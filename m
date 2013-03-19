@@ -1,49 +1,83 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [GIT PULL nf] IPVS fixes for v3.9
-Date: Tue, 19 Mar 2013 21:15:19 +0900
-Message-ID: <20130319121518.GD4317@verge.net.au>
-References: <1363657198-5333-1-git-send-email-horms@verge.net.au>
- <20130319094555.GB3602@localhost>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [PATCH net-next 2/2] bnx2x: add RSS capability for GRE
+ traffic
+Date: Tue, 19 Mar 2013 12:21:47 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F20BE95D3@SJEXCHMB06.corp.ad.broadcom.com>
+References: <1363625464-21633-1-git-send-email-dmitry@broadcom.com>
+ <1363625464-21633-2-git-send-email-dmitry@broadcom.com>
+ <1363651672.21184.17.camel@edumazet-glaptop>
+ <504C9EFCA2D0054393414C9CB605C37F20BE935B@SJEXCHMB06.corp.ad.broadcom.com>
+ <CANP3RGehbKbh1ambT-RQQqfOkovzySB4_CWg+LPdJV7yDkYBCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Tom Herbert" <therbert@google.com>
+To: =?utf-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <maze@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:59207 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751340Ab3CSMPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 08:15:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20130319094555.GB3602@localhost>
+Received: from mms2.broadcom.com ([216.31.210.18]:3686 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750971Ab3CSMWN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 08:22:13 -0400
+In-Reply-To: <CANP3RGehbKbh1ambT-RQQqfOkovzySB4_CWg+LPdJV7yDkYBCg@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 19, 2013 at 10:45:55AM +0100, Pablo Neira Ayuso wrote:
-> Hi Simon,
-> 
-> I proposed this:
-> 
-> > I think that these three fixes:
-> >
-> > ipvs: add backup_only flag to avoid loops
-> > ipvs: remove extra rcu lock
-> > ipvs: fix sctp chunk length order
-> >
-> > should find their path to the net tree.
-> >
-> > The remaining two sparse fixes should go to net-next.
-> 
-> But you sent me these for net:
-> 
-> ipvs: fix sctp chunk length order
-> ipvs: fix hashing in ip_vs_svc_hashkey
-> ipvs: fix some sparse warnings
-> 
-> that doesn't match.
-> 
-> Can you resolve this? Thanks.
-
-Oops, will do.
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IE1hY2llaiDFu2VuY3p5a293
+c2tpIFttYWlsdG86bWF6ZUBnb29nbGUuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBNYXJjaCAxOSwg
+MjAxMyAxMToxOCBBTQ0KPiBUbzogRG1pdHJ5IEtyYXZrb3YNCj4gQ2M6IEVyaWMgRHVtYXpldDsg
+ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgRWlsb24gR3JlZW5z
+dGVpbjsgVG9tIEhlcmJlcnQNCj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXQtbmV4dCAyLzJdIGJu
+eDJ4OiBhZGQgUlNTIGNhcGFiaWxpdHkgZm9yIEdSRSB0cmFmZmljDQo+IA0KPiBDYW4gdGhlIEhX
+IGNhbGN1bGF0ZSBhbmQgcmV0dXJuIGEgMXMgY29tcGxlbWVudCBzdW0gb2YgdGhlIGVudGlyZQ0K
+PiBwYWNrZXQgKG9yIGEgbGFyZ2UgcG9ydGlvbiB0aGVyZS1vZik/DQpObywgaXQgY2FuJ3QgOigN
+Cg0KPiBGaXhpbmcgdGhhdCB1cCB0byBiZSBvbmx5IG9mIHRoZSBvdXRlciBJUHY0LCBpbm5lciBJ
+UHY0IGFuZCBpbm5lciBUQ1ANCj4gcmVsZXZhbnQgcG9ydGlvbnMgc2hvdWxkIHN0aWxsIGJlIHNp
+bXBsZXIgKHdlbGwgZmFzdGVyKSB0aGFuDQo+IGNhbGN1bGF0aW5nIHRoZSBUQ1AgY2hlY2tzdW0u
+DQo+IEknbSBwcmV0dHkgc3VyZSB0aGF0IHNvbWUgcmVsYXRpb25zaGlwIGJldHdlZW4gMXMgY29t
+cGxlbWVudCBzdW0gb2YNCj4gYWxsIGJ5dGVzLCBvdXRlciBJUHY0IGNoZWNrc3VtLCBpbm5lciBJ
+UHY0IGNoZWNrc3VtIGFuZCBUQ1AgY2hlY2tzdW0NCj4gY291bGQgYmUgcHVsbGVkIG91dCBvZiBh
+IGhhdCB3aXRoIHNvbWUgZGVlcGVyIHRob3VnaHQuICAoc2ltaWxhcmx5IGZvcg0KPiBJUHY0L0dS
+RS9JUHY2L1RDUCBhbmQgb3RoZXIgY29tYmluYXRpb25zKQ0KPiANCj4gV2hhdCBwb3J0aW9ucyBv
+ZiB0aGUgcGFja2V0IGNhbiB0aGUgSFcvRlcgW3BhcnRpYWxseV0gY2hlY2tzdW0gLSBhbmQNCj4g
+cmV0dXJuIHRoZSB2YWx1ZSB0byB0aGUgZHJpdmVyIGZvciBmdXJ0aGVyIHByb2Nlc3Npbmc/DQo+
+IENhbiBpdCByZXR1cm4gMXMgY29tcGxlbWVudCBzdW0gb2YgZGF0YSBwb3J0aW9uIG9mIG91dGVy
+IElQdjQgKGllLiBpbg0KPiBJUHY0L0dSRS9JUHY0L1RDUCByZXR1cm4gYSAxcyBjb21wbGVtZW50
+IHN1bSBvZiBHUkUvSVB2NC9UQ1AgYnl0ZXMpDQo+IA0KPiBNYWNpZWogxbtlbmN6eWtvd3NraSwg
+S2VybmVsIE5ldHdvcmtpbmcgRGV2ZWxvcGVyIEAgR29vZ2xlDQo+IA0KPiBPbiBNb24sIE1hciAx
+OCwgMjAxMyBhdCAxMTozMCBQTSwgRG1pdHJ5IEtyYXZrb3YgPGRtaXRyeUBicm9hZGNvbS5jb20+
+IHdyb3RlOg0KPiA+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+PiBGcm9tOiBuZXRk
+ZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVs
+Lm9yZ10gT24gQmVoYWxmIE9mIEVyaWMgRHVtYXpldA0KPiA+PiBTZW50OiBUdWVzZGF5LCBNYXJj
+aCAxOSwgMjAxMyAyOjA4IEFNDQo+ID4+IFRvOiBEbWl0cnkgS3Jhdmtvdg0KPiA+PiBDYzogZGF2
+ZW1AZGF2ZW1sb2Z0Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgRWlsb24gR3JlZW5zdGVp
+bjsgVG9tIEhlcmJlcnQ7IE1hY2llaiDFu2VuY3p5a293c2tpDQo+ID4+IFN1YmplY3Q6IFJlOiBb
+UEFUQ0ggbmV0LW5leHQgMi8yXSBibngyeDogYWRkIFJTUyBjYXBhYmlsaXR5IGZvciBHUkUgdHJh
+ZmZpYw0KPiA+Pg0KPiA+PiBPbiBNb24sIDIwMTMtMDMtMTggYXQgMTg6NTEgKzAyMDAsIERtaXRy
+eSBLcmF2a292IHdyb3RlOg0KPiA+PiA+IFRoZSBwYXRjaCBkcml2ZXMgRlcgdG8gcGVyZm9ybSBS
+U1MgZm9yIEdSRSB0cmFmZmljLA0KPiA+PiA+IGJhc2VkIG9uIGlubmVyIGhlYWRlcnMuDQo+ID4+
+ID4NCj4gPj4gPiBTaWduZWQtb2ZmLWJ5OiBEbWl0cnkgS3JhdmtvdiA8ZG1pdHJ5QGJyb2FkY29t
+LmNvbT4NCj4gPj4gPiBTaWduZWQtb2ZmLWJ5OiBFaWxvbiBHcmVlbnN0ZWluIDxlaWxvbmdAYnJv
+YWRjb20uY29tPg0KPiA+PiA+IC0tLQ0KPiA+PiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9h
+ZGNvbS9ibngyeC9ibngyeF9jbW4uaCB8ICAgIDMgKysrDQo+ID4+ID4gIGRyaXZlcnMvbmV0L2V0
+aGVybmV0L2Jyb2FkY29tL2JueDJ4L2JueDJ4X3NwLmMgIHwgICAyMyArKysrKysrKysrKystLS0t
+LS0tLS0tLQ0KPiA+PiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngy
+eF9zcC5oICB8ICAgIDkgKysrKysrKysrDQo+ID4+ID4gIDMgZmlsZXMgY2hhbmdlZCwgMjQgaW5z
+ZXJ0aW9ucygrKSwgMTEgZGVsZXRpb25zKC0pDQo+ID4+DQo+ID4+IFRoaXMgd29ya3MgdmVyeSB3
+ZWxsLg0KPiA+Pg0KPiA+PiBQcm9ibGVtIGlzIHdlIHNrYl9zZXRfcXVldWVfbWFwcGluZyhza2Is
+IDApOyBpbiBfX3NrYl90dW5uZWxfcngoKQ0KPiA+Pg0KPiA+PiAodGhpcyB3YXMgYSBwYXRjaCBm
+cm9tIFRvbSBIZXJiZXJ0LCBjb21taXQNCj4gPj4gNjkzMDE5ZTkwY2E0NWQ4ODExMDlkMzJjMGM2
+ZDI5YWRmMDNmNjQ0NyAobmV0OiByZXNldCBza2IgcXVldWUgbWFwcGluZw0KPiA+PiB3aGVuIHJ4
+J2luZyBvdmVyIHR1bm5lbCApDQo+ID4+DQo+ID4+IE1lYW5pbmcgd2UgaGl0IGEgc2luZ2xlIGNw
+dSBmb3IgdGhlIEdSTyBzdHVmZiBpbiBpcF9ncmUuDQo+ID4+DQo+ID4+IEkgaGF2ZSB0byB0aGlu
+ayBhYm91dCBpdC4NCj4gPj4NCj4gPj4NCj4gPj4gQW5vdGhlciBxdWVzdGlvbiBpcyA6DQo+ID4+
+DQo+ID4+IENhbiBibngyeCBjaGVjayB0aGUgdGNwIGNoZWNrc3VtIGlmIEdSRSBlbmNhcHN1bGF0
+ZWQgPw0KPiA+Pg0KPiA+IEN1cnJlbnQgSFcgY2FuJ3QgcHJvdmlkZSB0aGlzLiBQcm9iYWJseSwg
+aXQncyBwb3NzaWJsZSB0byBzZXBhcmF0ZSBDU1VNIGZyb20gR1JPL1RQQSB0aGVuIHN0YWNrIHdp
+bGwgaGF2ZSB0byBoYW5kbGUgQ1NVTQ0KPiB2YWxpZGF0aW9uIGZvciBodWdlIHBhY2tldHMuIElz
+IGl0IHdvcnRoPw0KPiA+DQoNCg==
