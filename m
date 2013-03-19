@@ -1,30 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 1/5] GRE: Refactor GRE tunneling code.
-Date: Tue, 19 Mar 2013 17:26:45 -0400 (EDT)
-Message-ID: <20130319.172645.2081434694692631052.davem@davemloft.net>
-References: <1363630405-1672-1-git-send-email-pshelar@nicira.com>
-	<20130319142141.5d32cae2@nehalam.linuxnetplumber.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/4] xen-netfront: drop skb when skb->len > 65535
+Date: Tue, 19 Mar 2013 21:28:00 +0000
+Message-ID: <1363728480.31336.10.camel@deadeye.wl.decadent.org.uk>
+References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
+	 <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>
+	 <1363606970.30193.22.camel@zakaz.uk.xensource.com>
+	 <1363617642.29093.203.camel@zion.uk.xensource.com>
+	 <1363618459.2963.10.camel@zakaz.uk.xensource.com>
+	 <1363619098.29093.205.camel@zion.uk.xensource.com>
+	 <1363619244.2963.11.camel@zakaz.uk.xensource.com>
+	 <1363728289.31336.7.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, netdev@vger.kernel.org, jesse@nicira.com
-To: stephen@networkplumber.org
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"annie.li@oracle.com" <annie.li@oracle.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48762 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933767Ab3CSV0q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 17:26:46 -0400
-In-Reply-To: <20130319142141.5d32cae2@nehalam.linuxnetplumber.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:43420 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933818Ab3CSV2F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 17:28:05 -0400
+In-Reply-To: <1363728289.31336.7.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Tue, 19 Mar 2013 14:21:41 -0700
-
-> Doesn't build with this patch alone (ie. not bisectable).
+On Tue, 2013-03-19 at 21:24 +0000, Ben Hutchings wrote:
+> On Mon, 2013-03-18 at 15:07 +0000, Ian Campbell wrote:
+> > On Mon, 2013-03-18 at 15:04 +0000, Wei Liu wrote:
+> > > On Mon, 2013-03-18 at 14:54 +0000, Ian Campbell wrote:
+> > > > On Mon, 2013-03-18 at 14:40 +0000, Wei Liu wrote:
+> > > > > On Mon, 2013-03-18 at 11:42 +0000, Ian Campbell wrote:
+> > > > > > On Mon, 2013-03-18 at 10:35 +0000, Wei Liu wrote:
+> > > > > > > The `size' field of Xen network wire format is uint16_t, anything bigger than
+> > > > > > > 65535 will cause overflow.
+> > > > > > > 
+> > > > > > > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> > > > > > > ---
+> > > > > > >  drivers/net/xen-netfront.c |   12 ++++++++++++
+> > > > > > >  1 file changed, 12 insertions(+)
+> > > > > > > 
+> > > > > > > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> > > > > > > index 5527663..8c3d065 100644
+> > > > > > > --- a/drivers/net/xen-netfront.c
+> > > > > > > +++ b/drivers/net/xen-netfront.c
+> > > > > > > @@ -547,6 +547,18 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+> > > > > > >  	unsigned int len = skb_headlen(skb);
+> > > > > > >  	unsigned long flags;
+> > > > > > >  
+> > > > > > > +	/*
+> > > > > > > +	 * wire format of xen_netif_tx_request only supports skb->len
+> > > > > > > +	 * < 64K, because size field in xen_netif_tx_request is
+> > > > > > > +	 * uint16_t.
+> > > > > > 
+> > > > > > Is there some field we can set e.g. in struct ethernet_device which
+> > > > > > would stop this from happening?
+> > > > > > 
+> > > > > 
+> > > > > struct ethernet_device? I could not find it.
+> > > > > 
+> > > > > And for struct net_device,
+> > > > 
+> > > > I meant struct net_device.
+> > > > 
+> > > > >  there is no field for this AFAICT.
+> > > > 
+> > > > Interesting. Are hardware devices expected to cope with arbitrary sized
+> > > > GSO skbs then I wonder.
+> > > > 
+> > > 
+> > > No idea. But there is a macro called GSO_MAX_SIZE (65536) in struct
+> > > net_device. :-)
+> > 
+> > But aren't we seeing skb's bigger than that?
+> > 
+> > Maybe this is just a historical bug in some older guests?
 > 
->   CC [M]  net/ipv6/ip6_gre.o
-> net/ipv6/ip6_gre.c:41:27: fatal error: net/ip_tunnel.h: No such file or directory
-> compilation terminated.
+> GSO_MAX_SIZE is the maximum payload length, not the maximum total length
+> of an skb.
 
-Oh well, too late, it's all already in my tree.
+...and it's actually just the default value assigned to
+dev->gso_max_size.  You'll want to change it to your actual maximum
+(65535 - maximum length of headers) before registering your net devices.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
