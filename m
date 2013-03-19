@@ -1,45 +1,53 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v2 net-next 1/4] flow_keys: include thoff into flow_keys
- for later usage
-Date: Tue, 19 Mar 2013 16:06:01 +0100
-Message-ID: <51487ED9.5000200@redhat.com>
-References: <cover.1363702456.git.dborkman@redhat.com>  <cc0d2911a173be99651dc39e77286aab260c3c19.1363702456.git.dborkman@redhat.com> <1363705390.2558.3.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Can we rely on ethernet header padding?
+Date: Tue, 19 Mar 2013 08:21:35 -0700
+Message-ID: <1363706495.2558.14.camel@edumazet-glaptop>
+References: <20130319150545.GA18218@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jasowang@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27315 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757015Ab3CSPGG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Mar 2013 11:06:06 -0400
-In-Reply-To: <1363705390.2558.3.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20130319150545.GA18218@unicorn.suse.cz>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/19/2013 04:03 PM, Eric Dumazet wrote:
-> On Tue, 2013-03-19 at 15:34 +0100, Daniel Borkmann wrote:
->> In skb_flow_dissect(), we perform a dissection of a skbuff. Since we're
->> doing the work here anyway, also store thoff for a later usage, e.g. in
->> the BPF filter. Also, by having thoff 16 Bit, we do not need to pack
->> flow_keys and reorder choke_skb_cb.
->>
->> Suggested-by: Eric Dumazet <edumazet@google.com>
->> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->> ---
->>   This patch also needs to go into the net tree, since Eric or Jason will
->>   post a bug fix on top of this one.
->>
->>   include/net/flow_keys.h   | 1 +
->>   net/core/flow_dissector.c | 5 ++++-
->>   2 files changed, 5 insertions(+), 1 deletion(-)
->
-> Oh well, you left the choke_skb_cb description in changelog
+On Tue, 2013-03-19 at 16:05 +0100, Michal Kubecek wrote:
+> Hello,
+> 
+> a customer of ours ran into
+> 
+>   http://bugzilla.netfilter.org/show_bug.cgi?id=765
+> 
+> They checked that commit a504b86e prevents the crash but I'm not sure it
+> is sufficient.
+> 
+> The crash happens when br_nf_pre_routing_finish_bridge() calls
+> neigh_hh_bridge() which copies not only destination MAC address but also
+> the padding with it. IIUC this is for performance reasons (so that
+> aligned 8 bytes are copied rather than 6).
+> 
+> But I wonder whether we can rely on the fact that every skb on an
+> ethernet-like device has ethernet header padded at least to the 16 bytes
+> expected by neigh_hh_bridge() and neigh_hh_output() or whether the
+> bridge code should make sure. I tried to look for such test but couldn't
+> find any, even if commit a504b86e description mentions reallocating the
+> skb rather than a crash.
 
-But it's not the old changelog. ;-)
+Thats a side effect.
 
-  Also, by having thoff 16 Bit, we do *not* need to pack flow_keys and
-  reorder choke_skb_cb.
+Before calling netif_rx() the driver usually calls eth_type_trans()
+to pull the ethernet header, so there is the room for 14 bytes.
 
-> Acked-by: Eric Dumazet <edumazet@google.com>
+Normally a driver has NET_SKB_PAD bytes of headroom before the ethernet
+header, so the bridge code is safe only if all drivers use this
+NET_SKB_PAD padding on receive side. And they really should for
+performance reasons.
+
+Better not touch bridge code to catch offending drivers
+
+
+
+
+
