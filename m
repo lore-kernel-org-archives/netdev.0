@@ -1,184 +1,112 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH v3 net-next 3/5] VXLAN: Fix vxlan stats handling.
-Date: Tue, 19 Mar 2013 01:10:23 -0700
-Message-ID: <1363680623-1815-1-git-send-email-pshelar@nicira.com>
-Cc: stephen@networkplumber.org, xiyou.wangcong@gmail.com,
-	netdev@vger.kernel.org, jesse@nicira.com,
-	Pravin B Shelar <pshelar@nicira.com>
-To: davem@davemloft.net
+From: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
+Subject: 3.7.10 and  net_namespace_list oops - a known issue?
+Date: Tue, 19 Mar 2013 09:29:58 +0100
+Message-ID: <201303190929.58593.a.miskiewicz@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog138.obsmtp.com ([74.125.149.19]:57269 "HELO
-	na3sys009aog138.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S934203Ab3CSIK4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 04:10:56 -0400
-Received: by mail-pb0-f72.google.com with SMTP id wz12so302246pbc.11
-        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 01:10:41 -0700 (PDT)
+Received: from mail-ea0-f179.google.com ([209.85.215.179]:64812 "EHLO
+	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755048Ab3CSIaC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 04:30:02 -0400
+Received: by mail-ea0-f179.google.com with SMTP id f15so85883eak.38
+        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 01:30:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes bug in VXLAN code where is iptunnel_xmit() called with NULL
-dev->tstats.
-This bug was introduced in commit 6aed0c8bf7d2f389b (tunnel: use
-iptunnel_xmit() again).
 
-Following patch fixes bug by setting dev->tstats. It uses ip_tunnel
-module code to share stats function.
+Hello.
 
-CC: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
----
- drivers/net/Kconfig |    1 +
- drivers/net/vxlan.c |   72 +++++----------------------------------------------
- 2 files changed, 8 insertions(+), 65 deletions(-)
+I have one machine with 3.7.10 kernel and vserver patch
+(http://vserver.13thfloor.at/Experimental/patch-3.7.10-vs2.3.5.6.diff).
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 87f1d39..3835321 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -151,6 +151,7 @@ config MACVTAP
- config VXLAN
-        tristate "Virtual eXtensible Local Area Network (VXLAN)"
-        depends on INET
-+       select NET_IP_TUNNEL
-        ---help---
- 	  This allows one to create vxlan virtual interfaces that provide
- 	  Layer 2 Networks over Layer 3 Networks. VXLAN is often used
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index fe9ea7d..e532b2a 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -101,20 +101,10 @@ struct vxlan_fdb {
- 	u8		  eth_addr[ETH_ALEN];
- };
- 
--/* Per-cpu network traffic stats */
--struct vxlan_stats {
--	u64			rx_packets;
--	u64			rx_bytes;
--	u64			tx_packets;
--	u64			tx_bytes;
--	struct u64_stats_sync	syncp;
--};
--
- /* Pseudo network device */
- struct vxlan_dev {
- 	struct hlist_node hlist;
- 	struct net_device *dev;
--	struct vxlan_stats __percpu *stats;
- 	__u32		  vni;		/* virtual network id */
- 	__be32	          gaddr;	/* multicast group */
- 	__be32		  saddr;	/* source address */
-@@ -667,7 +657,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	struct iphdr *oip;
- 	struct vxlanhdr *vxh;
- 	struct vxlan_dev *vxlan;
--	struct vxlan_stats *stats;
-+	struct pcpu_tstats *stats;
- 	__u32 vni;
- 	int err;
- 
-@@ -743,7 +733,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 		}
- 	}
- 
--	stats = this_cpu_ptr(vxlan->stats);
-+	stats = this_cpu_ptr(vxlan->dev->tstats);
- 	u64_stats_update_begin(&stats->syncp);
- 	stats->rx_packets++;
- 	stats->rx_bytes += skb->len;
-@@ -974,8 +964,7 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- 			/* short-circuited back to local bridge */
- 			if (netif_rx(skb) == NET_RX_SUCCESS) {
--				struct vxlan_stats *stats =
--						this_cpu_ptr(vxlan->stats);
-+				struct pcpu_tstats *stats = this_cpu_ptr(dev->tstats);
- 
- 				u64_stats_update_begin(&stats->syncp);
- 				stats->tx_packets++;
-@@ -1183,10 +1172,8 @@ static void vxlan_cleanup(unsigned long arg)
- /* Setup stats when device is created */
- static int vxlan_init(struct net_device *dev)
- {
--	struct vxlan_dev *vxlan = netdev_priv(dev);
--
--	vxlan->stats = alloc_percpu(struct vxlan_stats);
--	if (!vxlan->stats)
-+	dev->tstats = alloc_percpu(struct pcpu_tstats);
-+	if (!dev->tstats)
- 		return -ENOMEM;
- 
- 	return 0;
-@@ -1242,49 +1229,6 @@ static int vxlan_stop(struct net_device *dev)
- 	return 0;
- }
- 
--/* Merge per-cpu statistics */
--static struct rtnl_link_stats64 *vxlan_stats64(struct net_device *dev,
--					       struct rtnl_link_stats64 *stats)
--{
--	struct vxlan_dev *vxlan = netdev_priv(dev);
--	struct vxlan_stats tmp, sum = { 0 };
--	unsigned int cpu;
--
--	for_each_possible_cpu(cpu) {
--		unsigned int start;
--		const struct vxlan_stats *stats
--			= per_cpu_ptr(vxlan->stats, cpu);
--
--		do {
--			start = u64_stats_fetch_begin_bh(&stats->syncp);
--			memcpy(&tmp, stats, sizeof(tmp));
--		} while (u64_stats_fetch_retry_bh(&stats->syncp, start));
--
--		sum.tx_bytes   += tmp.tx_bytes;
--		sum.tx_packets += tmp.tx_packets;
--		sum.rx_bytes   += tmp.rx_bytes;
--		sum.rx_packets += tmp.rx_packets;
--	}
--
--	stats->tx_bytes   = sum.tx_bytes;
--	stats->tx_packets = sum.tx_packets;
--	stats->rx_bytes   = sum.rx_bytes;
--	stats->rx_packets = sum.rx_packets;
--
--	stats->multicast = dev->stats.multicast;
--	stats->rx_length_errors = dev->stats.rx_length_errors;
--	stats->rx_frame_errors = dev->stats.rx_frame_errors;
--	stats->rx_errors = dev->stats.rx_errors;
--
--	stats->tx_dropped = dev->stats.tx_dropped;
--	stats->tx_carrier_errors  = dev->stats.tx_carrier_errors;
--	stats->tx_aborted_errors  = dev->stats.tx_aborted_errors;
--	stats->collisions  = dev->stats.collisions;
--	stats->tx_errors = dev->stats.tx_errors;
--
--	return stats;
--}
--
- /* Stub, nothing needs to be done. */
- static void vxlan_set_multicast_list(struct net_device *dev)
- {
-@@ -1295,7 +1239,7 @@ static const struct net_device_ops vxlan_netdev_ops = {
- 	.ndo_open		= vxlan_open,
- 	.ndo_stop		= vxlan_stop,
- 	.ndo_start_xmit		= vxlan_xmit,
--	.ndo_get_stats64	= vxlan_stats64,
-+	.ndo_get_stats64	= ip_tunnel_get_stats64,
- 	.ndo_set_rx_mode	= vxlan_set_multicast_list,
- 	.ndo_change_mtu		= eth_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
-@@ -1312,9 +1256,7 @@ static struct device_type vxlan_type = {
- 
- static void vxlan_free(struct net_device *dev)
- {
--	struct vxlan_dev *vxlan = netdev_priv(dev);
--
--	free_percpu(vxlan->stats);
-+	free_percpu(dev->tstats);
- 	free_netdev(dev);
- }
- 
--- 
-1.7.1
+It oopses at net_namespace_list.
+
+Is such thing a known issue in vanilla kernel? Googling shows no simila=
+r reports unfortunately.
+vserver people think it's vserver unrelated (but who knows).
+
+containers are not used here, network namespace is also not used.
+
+Sometimes it oopses early, sometimes few days after, exim was always in=
+volved in several
+such oopses I saw.
+
+ [   90.663896] BUG: unable to handle kernel paging request at 00000000=
+f2fa46bb
+[   90.668765] IP: [<ffffffff818661c2>] net_namespace_list+0x2/0x20
+[   90.668765] PGD 1c0e13067 PUD 1c0f24067 PMD 0=20
+[   90.703789] Oops: 0002 [#1] SMP=20
+[   90.703789] Modules linked in: ipmi_watchdog sch_sfq dm_mod ipmi_dev=
+intf ipmi_si ipmi_msghandler ide_cd_mod cdrom ata_generic pata_acpi ses=
+ enclosure pata_amd evdev=20
+sata_nv libata pcspkr serio_raw k8temp hwmon amd64_edac_mod edac_core e=
+dac_mce_amd floppy i2c_nforce2 hid_generic forcedeth processor shpchp p=
+ci_hotplug kvm_amd kvm=20
+ide_pci_generic amd74xx ide_core i2c_core button xfs sd_mod crc_t10dif =
+aacraid scsi_mod usbhid hid ohci_hcd ehci_hcd usbcore usb_common
+[   90.703789] CPU 1=20
+[   90.703789] Pid: 3847, xid: #1600, comm: exim Not tainted 3.7.10-1 #=
+1 Supermicro H8SMU/H8SMU
+[   90.703789] RIP: 0010:[<ffffffff818661c2>]  [<ffffffff818661c2>] net=
+_namespace_list+0x2/0x20
+[   90.703789] RSP: 0018:ffff8801c0c65b68  EFLAGS: 00210246
+[   90.703789] RAX: ffffffff81865480 RBX: ffff8801f4d99700 RCX: 0000000=
+0f2fa46bc
+[   90.703789] RDX: 0000000000000001 RSI: 0000000000000000 RDI: ffff880=
+1d467b840
+[   90.703789] RBP: ffff8801c0c65be8 R08: ffff8801c0c65fd8 R09: 0000000=
+000000000
+[   90.703789] R10: ffff88020d37ab80 R11: 0000000000000003 R12: ffff880=
+20d37ab80
+[   90.703789] R13: ffff8801d467b840 R14: ffff8801be8e484e R15: ffff880=
+1be8e485a
+[   90.703789] FS:  00007f0b663a6700(0000) GS:ffff88021fd00000(0063) kn=
+lGS:00000000f6717700
+[   90.703789] CS:  0010 DS: 002b ES: 002b CR0: 000000008005003b
+[   90.703789] CR2: 00000000f2fa46bb CR3: 00000001c0e14000 CR4: 0000000=
+0000007e0
+[   90.703789] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000=
+000000000
+[   90.703789] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000=
+000000400
+[   90.703789] Process exim (pid: 3847, threadinfo ffff8801c0c64000, ta=
+sk ffff88021247da30)
+[   90.703789] Stack:
+[   90.703789]  ffff8801c0c65b70 ffffffff8142be7c 0000000000000000 0000=
+000000200246
+[   90.703789]  ffff8801c0c65ba8 ffff8801be8e4862 0000000000000000 ffff=
+8801c0c65c80
+[   90.703789]  ffff8801c0c65c08 00000000287eac5f ffff8801c0c65bc8 ffff=
+88020d37ab80
+[   90.703789] Call Trace:
+[   90.703789]  [<ffffffff8142be7c>] ? tcp_v4_do_rcv+0x2cc/0x4c0
+[   90.703789]  [<ffffffff81416d07>] tcp_prequeue_process+0x67/0xb0
+[   90.703789]  [<ffffffff8141a8ff>] tcp_recvmsg+0xa8f/0xd70
+[   90.703789]  [<ffffffff8143fcda>] inet_recvmsg+0x4a/0x80
+[   90.703789]  [<ffffffff814407c5>] ? inet_sendmsg+0x45/0xb0
+[   90.703789]  [<ffffffff813bffa2>] sock_aio_read.part.9+0x142/0x1c0
+[   90.703789]  [<ffffffff813c0041>] sock_aio_read+0x21/0x30
+[   90.703789]  [<ffffffff8117a7f7>] do_sync_read+0xa7/0xe0
+[   90.703789]  [<ffffffff8117afed>] vfs_read+0x15d/0x180
+[   90.703789]  [<ffffffff8117b05d>] sys_read+0x4d/0xa0
+[   90.703789]  [<ffffffff8118ed26>] ? sys_poll+0x66/0x100
+[   90.703789]  [<ffffffff814ea6ec>] cstar_dispatch+0x7/0x21
+[   90.703789] Code: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00=
+ 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 0=
+0 90 54 <86> 81 ff ff ff ff 90 54 86 81 ff=20
+ff ff ff 00 00 00 00 00 00 00=20
+[   90.703789] RIP  [<ffffffff818661c2>] net_namespace_list+0x2/0x20
+[   90.703789]  RSP <ffff8801c0c65b68>
+[   90.703789] CR2: 00000000f2fa46bb
+[   91.531561] ---[ end trace f29e53e8c0132ced ]---
+[   91.545398] Kernel panic - not syncing: Fatal exception in interrupt
+[   91.548728] Rebooting in 60 seconds..
+
+http://pastebin.com/cSCfFgcy
+http://pastebin.com/3XtkMbR5
+
+--=20
+Arkadiusz Mi=C5=9Bkiewicz, arekm / maven.pl
