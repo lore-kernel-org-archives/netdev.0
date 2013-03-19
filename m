@@ -1,7 +1,7 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH 2/4][net-next] gianfar: Poll only active Rx queues
-Date: Tue, 19 Mar 2013 19:40:03 +0200
-Message-ID: <1363714805-9142-3-git-send-email-claudiu.manoil@freescale.com>
+Subject: [PATCH 1/4][net-next] gianfar: Fix tx napi polling
+Date: Tue, 19 Mar 2013 19:40:02 +0200
+Message-ID: <1363714805-9142-2-git-send-email-claudiu.manoil@freescale.com>
 References: <1363714805-9142-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,115 +9,169 @@ Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe005.messaging.microsoft.com ([65.55.88.15]:49851 "EHLO
+Received: from tx2ehsobe001.messaging.microsoft.com ([65.55.88.11]:28681 "EHLO
 	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932483Ab3CSRk4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 13:40:56 -0400
+	by vger.kernel.org with ESMTP id S932483Ab3CSRlS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 13:41:18 -0400
 In-Reply-To: <1363714805-9142-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Split the napi budget fairly among the active queues only, instead
-of dividing it by the total number of Rx queues assigned to the
-given interrupt group.
-Use the h/w indication field RXFi in rstat (receive status register)
-to identify the active rx queues from the current interrupt group
-(i.e. receive event occured on ring i, if ring i is part of the current
-interrupt group). This indication field in rstat, RXFi i=0..7,
-allows us to find out on which queues of the same interrupt group
-do we have incomming traffic once we entered the polling routine for
-the given interrupt group. After servicing the ring i, the corresponding
-bit RXFi will be written with 1 to clear the active queue indication for
-that ring.
+There are 2 issues with the current napi poll routine, with regards
+to tx ring cleanup:
+1) for multi-queue devices (MQ_MG_MODE), should tx_bit_map != rx_bit_map,
+which is possible (and supported in h/w) if the DT property "fsl,tx-bit-map"
+holds a different value than rx_bit_map, the current polling routine will
+service the wrong Tx queues in this case (i.e. the interrupt group will
+receive interrupts from tx queues that it will not service)
+2) Tx cleanup completion consumes napi budget, whereas the napi budget
+should be reserved for Rx work only.
+
+The patch fixes these issues and provides a clean napi polling routine.
+Napi poll completion is reached when all the Rx queues have been
+serviced and there is no Tx work to do.
 
 Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 ---
- drivers/net/ethernet/freescale/gianfar.c | 28 +++++++++++++++++++---------
- drivers/net/ethernet/freescale/gianfar.h |  4 +++-
- 2 files changed, 22 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/freescale/gianfar.c | 82 ++++++++++++++++++--------------
+ 1 file changed, 45 insertions(+), 37 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 1e555a7..3f07dbd 100644
+index 1b468a8..1e555a7 100644
 --- a/drivers/net/ethernet/freescale/gianfar.c
 +++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -2835,15 +2835,20 @@ static int gfar_poll(struct napi_struct *napi, int budget)
- 	int work_done = 0, work_done_per_q = 0;
- 	int i, budget_per_q;
- 	int has_tx_work;
--	unsigned long serviced_queues = 0;
--	int num_queues = gfargrp->num_rx_queues;
-+	unsigned long rstat_rxf;
-+	int num_act_queues;
+@@ -132,7 +132,7 @@ static int gfar_poll(struct napi_struct *napi, int budget);
+ static void gfar_netpoll(struct net_device *dev);
+ #endif
+ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit);
+-static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue);
++static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue);
+ static void gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
+ 			       int amount_pull, struct napi_struct *napi);
+ void gfar_halt(struct net_device *dev);
+@@ -2468,7 +2468,7 @@ static void gfar_align_skb(struct sk_buff *skb)
+ }
  
--	budget_per_q = budget/num_queues;
+ /* Interrupt Handler for Transmit complete */
+-static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
++static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ {
+ 	struct net_device *dev = tx_queue->dev;
+ 	struct netdev_queue *txq;
+@@ -2570,8 +2570,6 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ 	tx_queue->dirty_tx = bdp;
+ 
+ 	netdev_tx_completed_queue(txq, howmany, bytes_sent);
+-
+-	return howmany;
+ }
+ 
+ static void gfar_schedule_cleanup(struct gfar_priv_grp *gfargrp)
+@@ -2834,62 +2832,72 @@ static int gfar_poll(struct napi_struct *napi, int budget)
+ 	struct gfar __iomem *regs = gfargrp->regs;
+ 	struct gfar_priv_tx_q *tx_queue = NULL;
+ 	struct gfar_priv_rx_q *rx_queue = NULL;
+-	int rx_cleaned = 0, budget_per_queue = 0, rx_cleaned_per_queue = 0;
+-	int tx_cleaned = 0, i, left_over_budget = budget;
++	int work_done = 0, work_done_per_q = 0;
++	int i, budget_per_q;
++	int has_tx_work;
+ 	unsigned long serviced_queues = 0;
+-	int num_queues = 0;
+-
+-	num_queues = gfargrp->num_rx_queues;
+-	budget_per_queue = budget/num_queues;
++	int num_queues = gfargrp->num_rx_queues;
+ 
++	budget_per_q = budget/num_queues;
  	/* Clear IEVENT, so interrupts aren't called again
  	 * because of the packets that have already arrived
  	 */
  	gfar_write(&regs->ievent, IEVENT_RTX_MASK);
  
-+	rstat_rxf = gfar_read(&regs->rstat) & RSTAT_RXF_MASK;
-+
-+	num_act_queues = bitmap_weight(&rstat_rxf, MAX_RX_QS);
-+	if (num_act_queues)
-+		budget_per_q = budget/num_act_queues;
-+
- 	while (1) {
- 		has_tx_work = 0;
- 		for_each_set_bit(i, &gfargrp->tx_bit_map, priv->num_tx_queues) {
-@@ -2856,7 +2861,8 @@ static int gfar_poll(struct napi_struct *napi, int budget)
- 		}
+-	while (num_queues && left_over_budget) {
+-		budget_per_queue = left_over_budget/num_queues;
+-		left_over_budget = 0;
++	while (1) {
++		has_tx_work = 0;
++		for_each_set_bit(i, &gfargrp->tx_bit_map, priv->num_tx_queues) {
++			tx_queue = priv->tx_queue[i];
++			/* run Tx cleanup to completion */
++			if (tx_queue->tx_skbuff[tx_queue->skb_dirtytx]) {
++				gfar_clean_tx_ring(tx_queue);
++				has_tx_work = 1;
++			}
++		}
  
  		for_each_set_bit(i, &gfargrp->rx_bit_map, priv->num_rx_queues) {
--			if (test_bit(i, &serviced_queues))
-+			/* skip queue if not active */
-+			if (!(rstat_rxf & (RSTAT_CLEAR_RXF0 >> i)))
+ 			if (test_bit(i, &serviced_queues))
  				continue;
- 
- 			rx_queue = priv->rx_queue[i];
-@@ -2866,20 +2872,24 @@ static int gfar_poll(struct napi_struct *napi, int budget)
- 
- 			/* finished processing this queue */
- 			if (work_done_per_q < budget_per_q) {
--				set_bit(i, &serviced_queues);
--				num_queues--;
--				if (!num_queues)
-+				/* clear active queue hw indication */
-+				gfar_write(&regs->rstat,
-+					   RSTAT_CLEAR_RXF0 >> i);
-+				rstat_rxf &= ~(RSTAT_CLEAR_RXF0 >> i);
-+				num_act_queues--;
 +
-+				if (!num_act_queues)
- 					break;
- 				/* recompute budget per Rx queue */
- 				budget_per_q =
--					(budget - work_done) / num_queues;
-+					(budget - work_done) / num_act_queues;
+ 			rx_queue = priv->rx_queue[i];
+-			tx_queue = priv->tx_queue[rx_queue->qindex];
+-
+-			tx_cleaned += gfar_clean_tx_ring(tx_queue);
+-			rx_cleaned_per_queue =
+-				gfar_clean_rx_ring(rx_queue, budget_per_queue);
+-			rx_cleaned += rx_cleaned_per_queue;
+-			if (rx_cleaned_per_queue < budget_per_queue) {
+-				left_over_budget = left_over_budget +
+-					(budget_per_queue -
+-					 rx_cleaned_per_queue);
++			work_done_per_q =
++				gfar_clean_rx_ring(rx_queue, budget_per_q);
++			work_done += work_done_per_q;
++
++			/* finished processing this queue */
++			if (work_done_per_q < budget_per_q) {
+ 				set_bit(i, &serviced_queues);
+ 				num_queues--;
++				if (!num_queues)
++					break;
++				/* recompute budget per Rx queue */
++				budget_per_q =
++					(budget - work_done) / num_queues;
  			}
  		}
+-	}
  
- 		if (work_done >= budget)
- 			break;
+-	if (tx_cleaned)
+-		return budget;
++		if (work_done >= budget)
++			break;
  
--		if (!num_queues && !has_tx_work) {
-+		if (!num_act_queues && !has_tx_work) {
+-	if (rx_cleaned < budget) {
+-		napi_complete(napi);
++		if (!num_queues && !has_tx_work) {
  
- 			napi_complete(napi);
+-		/* Clear the halt bit in RSTAT */
+-		gfar_write(&regs->rstat, gfargrp->rstat);
++			napi_complete(napi);
  
-diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index 63a28d2..b1d0c1c 100644
---- a/drivers/net/ethernet/freescale/gianfar.h
-+++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -291,7 +291,9 @@ extern const char gfar_driver_version[];
- #define RCTRL_PADDING(x)	((x << 16) & RCTRL_PAL_MASK)
+-		gfar_write(&regs->imask, IMASK_DEFAULT);
++			/* Clear the halt bit in RSTAT */
++			gfar_write(&regs->rstat, gfargrp->rstat);
  
+-		/* If we are coalescing interrupts, update the timer
+-		 * Otherwise, clear it
+-		 */
+-		gfar_configure_coalescing(priv, gfargrp->rx_bit_map,
+-					  gfargrp->tx_bit_map);
++			gfar_write(&regs->imask, IMASK_DEFAULT);
++
++			/* If we are coalescing interrupts, update the timer
++			 * Otherwise, clear it
++			 */
++			gfar_configure_coalescing(priv, gfargrp->rx_bit_map,
++						  gfargrp->tx_bit_map);
++			break;
++		}
+ 	}
  
--#define RSTAT_CLEAR_RHALT       0x00800000
-+#define RSTAT_CLEAR_RHALT	0x00800000
-+#define RSTAT_CLEAR_RXF0	0x00000080
-+#define RSTAT_RXF_MASK		0x000000ff
+-	return rx_cleaned;
++	return work_done;
+ }
  
- #define TCTRL_IPCSEN		0x00004000
- #define TCTRL_TUCSEN		0x00002000
+ #ifdef CONFIG_NET_POLL_CONTROLLER
 -- 
 1.7.11.3
