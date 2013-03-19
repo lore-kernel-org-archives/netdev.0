@@ -1,50 +1,56 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 1/3] qeth: delay feature trace
-Date: Tue, 19 Mar 2013 07:04:42 +0100
-Message-ID: <20130319060454.760259160@de.ibm.com>
-References: <20130319060441.956271217@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Stefan Raspl <raspl@linux.vnet.ibm.com>
-To: davem@davemloft.net
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [PATCH net-next 2/2] bnx2x: add RSS capability for GRE
+ traffic
+Date: Tue, 19 Mar 2013 06:30:36 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F20BE935B@SJEXCHMB06.corp.ad.broadcom.com>
+References: <1363625464-21633-1-git-send-email-dmitry@broadcom.com>
+ <1363625464-21633-2-git-send-email-dmitry@broadcom.com>
+ <1363651672.21184.17.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Tom Herbert" <therbert@google.com>,
+	=?utf-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <maze@google.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp17.uk.ibm.com ([195.75.94.113]:47718 "EHLO
-	e06smtp17.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933917Ab3CSGFB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 02:05:01 -0400
-Received: from /spool/local
-	by e06smtp17.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
-	Tue, 19 Mar 2013 06:02:53 -0000
-Content-Disposition: inline; filename=600-qeth-delay-trace.diff
+Received: from mms3.broadcom.com ([216.31.210.19]:3856 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756765Ab3CSGbM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 02:31:12 -0400
+In-Reply-To: <1363651672.21184.17.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Raspl <raspl@linux.vnet.ibm.com>
-
-Delay tracing of the card features until the optional commands have been
-enabled.
-
-Signed-off-by: Stefan Raspl <raspl@linux.vnet.ibm.com>
-Signed-off-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
----
- drivers/s390/net/qeth_l3_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -3348,7 +3348,6 @@ static int __qeth_l3_set_online(struct c
- 		rc = -ENODEV;
- 		goto out_remove;
- 	}
--	qeth_trace_features(card);
- 
- 	if (!card->dev && qeth_l3_setup_netdev(card)) {
- 		rc = -ENODEV;
-@@ -3425,6 +3424,7 @@ contin:
- 		qeth_l3_set_multicast_list(card->dev);
- 		rtnl_unlock();
- 	}
-+	qeth_trace_features(card);
- 	/* let user_space know that device is online */
- 	kobject_uevent(&gdev->dev.kobj, KOBJ_CHANGE);
- 	mutex_unlock(&card->conf_mutex);
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxm
+IE9mIEVyaWMgRHVtYXpldA0KPiBTZW50OiBUdWVzZGF5LCBNYXJjaCAxOSwgMjAxMyAyOjA4IEFN
+DQo+IFRvOiBEbWl0cnkgS3Jhdmtvdg0KPiBDYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgbmV0ZGV2
+QHZnZXIua2VybmVsLm9yZzsgRWlsb24gR3JlZW5zdGVpbjsgVG9tIEhlcmJlcnQ7IE1hY2llaiDF
+u2VuY3p5a293c2tpDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHQgMi8yXSBibngyeDog
+YWRkIFJTUyBjYXBhYmlsaXR5IGZvciBHUkUgdHJhZmZpYw0KPiANCj4gT24gTW9uLCAyMDEzLTAz
+LTE4IGF0IDE4OjUxICswMjAwLCBEbWl0cnkgS3JhdmtvdiB3cm90ZToNCj4gPiBUaGUgcGF0Y2gg
+ZHJpdmVzIEZXIHRvIHBlcmZvcm0gUlNTIGZvciBHUkUgdHJhZmZpYywNCj4gPiBiYXNlZCBvbiBp
+bm5lciBoZWFkZXJzLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogRG1pdHJ5IEtyYXZrb3YgPGRt
+aXRyeUBicm9hZGNvbS5jb20+DQo+ID4gU2lnbmVkLW9mZi1ieTogRWlsb24gR3JlZW5zdGVpbiA8
+ZWlsb25nQGJyb2FkY29tLmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQv
+YnJvYWRjb20vYm54MngvYm54MnhfY21uLmggfCAgICAzICsrKw0KPiA+ICBkcml2ZXJzL25ldC9l
+dGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9zcC5jICB8ICAgMjMgKysrKysrKysrKysrLS0t
+LS0tLS0tLS0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54Mnhf
+c3AuaCAgfCAgICA5ICsrKysrKysrKw0KPiA+ICAzIGZpbGVzIGNoYW5nZWQsIDI0IGluc2VydGlv
+bnMoKyksIDExIGRlbGV0aW9ucygtKQ0KPiANCj4gVGhpcyB3b3JrcyB2ZXJ5IHdlbGwuDQo+IA0K
+PiBQcm9ibGVtIGlzIHdlIHNrYl9zZXRfcXVldWVfbWFwcGluZyhza2IsIDApOyBpbiBfX3NrYl90
+dW5uZWxfcngoKQ0KPiANCj4gKHRoaXMgd2FzIGEgcGF0Y2ggZnJvbSBUb20gSGVyYmVydCwgY29t
+bWl0DQo+IDY5MzAxOWU5MGNhNDVkODgxMTA5ZDMyYzBjNmQyOWFkZjAzZjY0NDcgKG5ldDogcmVz
+ZXQgc2tiIHF1ZXVlIG1hcHBpbmcNCj4gd2hlbiByeCdpbmcgb3ZlciB0dW5uZWwgKQ0KPiANCj4g
+TWVhbmluZyB3ZSBoaXQgYSBzaW5nbGUgY3B1IGZvciB0aGUgR1JPIHN0dWZmIGluIGlwX2dyZS4N
+Cj4gDQo+IEkgaGF2ZSB0byB0aGluayBhYm91dCBpdC4NCj4gDQo+IA0KPiBBbm90aGVyIHF1ZXN0
+aW9uIGlzIDoNCj4gDQo+IENhbiBibngyeCBjaGVjayB0aGUgdGNwIGNoZWNrc3VtIGlmIEdSRSBl
+bmNhcHN1bGF0ZWQgPw0KPiANCkN1cnJlbnQgSFcgY2FuJ3QgcHJvdmlkZSB0aGlzLiBQcm9iYWJs
+eSwgaXQncyBwb3NzaWJsZSB0byBzZXBhcmF0ZSBDU1VNIGZyb20gR1JPL1RQQSB0aGVuIHN0YWNr
+IHdpbGwgaGF2ZSB0byBoYW5kbGUgQ1NVTSB2YWxpZGF0aW9uIGZvciBodWdlIHBhY2tldHMuIElz
+IGl0IHdvcnRoPw0KDQo=
