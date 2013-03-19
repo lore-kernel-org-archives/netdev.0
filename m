@@ -1,60 +1,36 @@
-From: Daniel Baluta <dbaluta@ixiacom.com>
-Subject: [PATCH net-next] packet: Fix compile error
-Date: Wed, 20 Mar 2013 00:01:21 +0200
-Message-ID: <1363730481-7168-1-git-send-email-dbaluta@ixiacom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] packet: Fix compile error
+Date: Tue, 19 Mar 2013 18:07:22 -0400 (EDT)
+Message-ID: <20130319.180722.1735800542274116990.davem@davemloft.net>
+References: <1363730481-7168-1-git-send-email-dbaluta@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Daniel Baluta <dbaluta@ixiacom.com>
-To: willemb@google.com, edumazet@google.com, davem@davemloft.net,
-	netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: willemb@google.com, edumazet@google.com, netdev@vger.kernel.org
+To: dbaluta@ixiacom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:65533 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754872Ab3CSWBh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 18:01:37 -0400
-Received: by mail-bk0-f46.google.com with SMTP id j5so472503bkw.33
-        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 15:01:36 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:49210 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754739Ab3CSWHY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 18:07:24 -0400
+In-Reply-To: <1363730481-7168-1-git-send-email-dbaluta@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PACKET_FANOUT_ROLLOVER and PACKET_FANOUT_FLAG_ROLLOVER are not declared=
- in
-<tree>/usr/include/linux/if_packet.h together with the other PACKET_FAN=
-OUT_* macros
-as one would expect. This causes the following compilation error:
-<snip>
-psock_fanout.c: In function =E2=80=98test_control_single=E2=80=99:
-psock_fanout.c:230:23: error: =E2=80=98PACKET_FANOUT_ROLLOVER=E2=80=99 =
-undeclared (first use in this function)
-</snip>
-
-Signed-off-by: Daniel Baluta <dbaluta@ixiacom.com>
----
- .../testing/selftests/net-afpacket/psock_fanout.c  |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
-
-diff --git a/tools/testing/selftests/net-afpacket/psock_fanout.c b/tool=
-s/testing/selftests/net-afpacket/psock_fanout.c
-index 09dbf93..c827415 100644
---- a/tools/testing/selftests/net-afpacket/psock_fanout.c
-+++ b/tools/testing/selftests/net-afpacket/psock_fanout.c
-@@ -63,6 +63,7 @@
- #define PACKET_FANOUT_LB		1
- #define PACKET_FANOUT_CPU		2
- #define PACKET_FANOUT_FLAG_DEFRAG	0x8000
-+#endif
-=20
- #ifndef PACKET_FANOUT_ROLLOVER
- #define PACKET_FANOUT_ROLLOVER		3
-@@ -72,8 +73,6 @@
- #define PACKET_FANOUT_FLAG_ROLLOVER	0x1000
- #endif
-=20
--#endif
--
- #define DATA_LEN			100
- #define DATA_CHAR			'a'
-=20
---=20
-1.7.5.4
+RnJvbTogRGFuaWVsIEJhbHV0YSA8ZGJhbHV0YUBpeGlhY29tLmNvbT4NCkRhdGU6IFdlZCwgMjAg
+TWFyIDIwMTMgMDA6MDE6MjEgKzAyMDANCg0KPiBQQUNLRVRfRkFOT1VUX1JPTExPVkVSIGFuZCBQ
+QUNLRVRfRkFOT1VUX0ZMQUdfUk9MTE9WRVIgYXJlIG5vdCBkZWNsYXJlZCBpbg0KPiA8dHJlZT4v
+dXNyL2luY2x1ZGUvbGludXgvaWZfcGFja2V0LmggdG9nZXRoZXIgd2l0aCB0aGUgb3RoZXIgUEFD
+S0VUX0ZBTk9VVF8qIG1hY3Jvcw0KPiBhcyBvbmUgd291bGQgZXhwZWN0LiBUaGlzIGNhdXNlcyB0
+aGUgZm9sbG93aW5nIGNvbXBpbGF0aW9uIGVycm9yOg0KPiA8c25pcD4NCj4gcHNvY2tfZmFub3V0
+LmM6IEluIGZ1bmN0aW9uIKF0ZXN0X2NvbnRyb2xfc2luZ2xlojoNCj4gcHNvY2tfZmFub3V0LmM6
+MjMwOjIzOiBlcnJvcjogoVBBQ0tFVF9GQU5PVVRfUk9MTE9WRVKiIHVuZGVjbGFyZWQgKGZpcnN0
+IHVzZSBpbiB0aGlzIGZ1bmN0aW9uKQ0KPiA8L3NuaXA+DQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBE
+YW5pZWwgQmFsdXRhIDxkYmFsdXRhQGl4aWFjb20uY29tPg0KDQpObywgaW4gZmFjdCwgYWxsIG9m
+IHRoZXNlIHNob3VsZCBiZSByZW1vdmVkIGNvbXBsZXRlbHkuDQoNClRoZXkgYXJlIHByb3ZpZGVk
+IGJ5IHRoZSBoZWFkZXIgZmlsZXMgdW5kZXIgbGludXgvdXNyL2luY2x1ZGUgd2hpY2gNCmdldCBj
+cmVhdGVkIGJ5IHRoZSAibWFrZSBoZWFkZXJzX2luc3RhbGwiIHJ1bGUuDQoNClNvIHlvdSBlaXRo
+ZXIgbmVlZCB0byBydW4gdGhlICJtYWtlIGhlYWRlcnNfaW5zdGFsbCIgcnVsZSBiZWZvcmUNCmJ1
+aWxkaW5nIHRoZSB0ZXN0cywgb3IgaW5zdGFsbCB0aGUgdXBkYXRlZCBoZWFkZXJzIHVuZGVyIC91
+c3IvaW5jbHVkZQ0Kb24geW91ciB0ZXN0IG1hY2hpbmUuDQoNCkknbGwgcmVtb3ZlIHRoZSBkZWZp
+bmVzIGZyb20gdGhlIHRlc3QsIHRoYW5rcyBmb3IgcG9pbnRpbmcgdGhpcw0Kb3V0Lg0K
