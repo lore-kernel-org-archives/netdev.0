@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] use xfrm direction when lookup policy
-Date: Tue, 19 Mar 2013 10:35:36 -0400 (EDT)
-Message-ID: <20130319.103536.2293402411730251000.davem@davemloft.net>
-References: <1363703070-2910-1-git-send-email-baker.zhang@gmail.com>
+Subject: Re: [PATCH v2 net-next 0/4] net: filter: BPF updates
+Date: Tue, 19 Mar 2013 10:38:03 -0400 (EDT)
+Message-ID: <20130319.103803.368214683799955215.davem@davemloft.net>
+References: <cover.1363702456.git.dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	baker.zhang@gmail.com
-To: baker.kernel@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1363703070-2910-1-git-send-email-baker.zhang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, jasowang@redhat.com
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43345 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755520Ab3CSOiH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 10:38:07 -0400
+In-Reply-To: <cover.1363702456.git.dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Baker Zhang <baker.kernel@gmail.com>
-Date: Tue, 19 Mar 2013 22:24:30 +0800
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Tue, 19 Mar 2013 15:33:59 +0100
 
-> because xfrm policy direction has same value with corresponding
-> flow direction, so this problem is covered.
+> This set adds i) an ancillary operation to the BPF engine and ii) a
+> BPF JIT image disassembler in order to verify or debug the BPF JIT
+> compilers under arch/*/net/.
 > 
-> In xfrm_lookup and __xfrm_policy_check, flow_cache_lookup is used to
-> accelerate the lookup.
-> 
-> Flow direction is given to flow_cache_lookup by policy_to_flow_dir.
-> 
-> When the flow cache is mismatched, callback 'resolver' is called.
-> 
-> 'resolver' requires xfrm direction,
-> so convert direction back to xfrm direction.
-> 
-> Signed-off-by: Baker Zhang <baker.zhang@gmail.com>
+> v1 -> v2:
+> 	- No need to reorder choke_skb_cb structure
 
-Since this is a cleanup and doesn't really fix a bug, I've applied
-this to net-next.
-
-Thanks.
+So we want the first patch in 'net' right?
