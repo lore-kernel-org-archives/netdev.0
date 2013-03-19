@@ -1,50 +1,88 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 net-next 1/5] GRE: Refactor GRE tunneling code.
-Date: Tue, 19 Mar 2013 14:21:41 -0700
-Message-ID: <20130319142141.5d32cae2@nehalam.linuxnetplumber.net>
-References: <1363630405-1672-1-git-send-email-pshelar@nicira.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/4] xen-netfront: drop skb when skb->len > 65535
+Date: Tue, 19 Mar 2013 21:24:49 +0000
+Message-ID: <1363728289.31336.7.camel@deadeye.wl.decadent.org.uk>
+References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
+	 <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>
+	 <1363606970.30193.22.camel@zakaz.uk.xensource.com>
+	 <1363617642.29093.203.camel@zion.uk.xensource.com>
+	 <1363618459.2963.10.camel@zakaz.uk.xensource.com>
+	 <1363619098.29093.205.camel@zion.uk.xensource.com>
+	 <1363619244.2963.11.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jesse@nicira.com
-To: Pravin B Shelar <pshelar@nicira.com>
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"annie.li@oracle.com" <annie.li@oracle.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:64939 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750886Ab3CSVVr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 17:21:47 -0400
-Received: by mail-pd0-f180.google.com with SMTP id g10so325165pdj.39
-        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 14:21:47 -0700 (PDT)
-In-Reply-To: <1363630405-1672-1-git-send-email-pshelar@nicira.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:43386 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934089Ab3CSVY4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 17:24:56 -0400
+In-Reply-To: <1363619244.2963.11.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 18 Mar 2013 11:13:25 -0700
-Pravin B Shelar <pshelar@nicira.com> wrote:
-
-> Following patch refactors GRE code into ip tunneling code and GRE
-> specific code. Common tunneling code is moved to ip_tunnel module.
-> ip_tunnel module is written as generic library which can be used
-> by different tunneling implementations.
+On Mon, 2013-03-18 at 15:07 +0000, Ian Campbell wrote:
+> On Mon, 2013-03-18 at 15:04 +0000, Wei Liu wrote:
+> > On Mon, 2013-03-18 at 14:54 +0000, Ian Campbell wrote:
+> > > On Mon, 2013-03-18 at 14:40 +0000, Wei Liu wrote:
+> > > > On Mon, 2013-03-18 at 11:42 +0000, Ian Campbell wrote:
+> > > > > On Mon, 2013-03-18 at 10:35 +0000, Wei Liu wrote:
+> > > > > > The `size' field of Xen network wire format is uint16_t, anything bigger than
+> > > > > > 65535 will cause overflow.
+> > > > > > 
+> > > > > > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> > > > > > ---
+> > > > > >  drivers/net/xen-netfront.c |   12 ++++++++++++
+> > > > > >  1 file changed, 12 insertions(+)
+> > > > > > 
+> > > > > > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> > > > > > index 5527663..8c3d065 100644
+> > > > > > --- a/drivers/net/xen-netfront.c
+> > > > > > +++ b/drivers/net/xen-netfront.c
+> > > > > > @@ -547,6 +547,18 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+> > > > > >  	unsigned int len = skb_headlen(skb);
+> > > > > >  	unsigned long flags;
+> > > > > >  
+> > > > > > +	/*
+> > > > > > +	 * wire format of xen_netif_tx_request only supports skb->len
+> > > > > > +	 * < 64K, because size field in xen_netif_tx_request is
+> > > > > > +	 * uint16_t.
+> > > > > 
+> > > > > Is there some field we can set e.g. in struct ethernet_device which
+> > > > > would stop this from happening?
+> > > > > 
+> > > > 
+> > > > struct ethernet_device? I could not find it.
+> > > > 
+> > > > And for struct net_device,
+> > > 
+> > > I meant struct net_device.
+> > > 
+> > > >  there is no field for this AFAICT.
+> > > 
+> > > Interesting. Are hardware devices expected to cope with arbitrary sized
+> > > GSO skbs then I wonder.
+> > > 
+> > 
+> > No idea. But there is a macro called GSO_MAX_SIZE (65536) in struct
+> > net_device. :-)
 > 
-> ip_tunnel module contains following components:
->  - packet xmit and rcv generic code. xmit flow looks like
->    (gre_xmit/ipip_xmit)->ip_tunnel_xmit->ip_local_out.
->  - hash table of all devices.
->  - lookup for tunnel devices.
->  - control plane operations like device create, destroy, ioctl, netlink
->    operations code.
->  - registration for tunneling modules, like gre, ipip etc.
->  - define single pcpu_tstats dev->tstats.
->  - struct tnl_ptk_info added to pass parsed tunnel packet parameters.
+> But aren't we seeing skb's bigger than that?
 > 
-> ipip.h header is renamed to ip_tunnel.h
-> 
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> Maybe this is just a historical bug in some older guests?
 
-Doesn't build with this patch alone (ie. not bisectable).
+GSO_MAX_SIZE is the maximum payload length, not the maximum total length
+of an skb.
 
+Ben.
 
-  CC [M]  net/ipv6/ip6_gre.o
-net/ipv6/ip6_gre.c:41:27: fatal error: net/ip_tunnel.h: No such file or directory
-compilation terminated.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
