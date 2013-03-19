@@ -1,60 +1,74 @@
-From: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Subject: Re: Re: [BUG][mvebu] mvneta: cannot request irq 25 on openblocks-ax3
-Date: Tue, 19 Mar 2013 23:19:39 +0900
-Message-ID: <514873FB.5050202@hitachi.com>
-References: <51486445.8040506@hitachi.com> <20130319133928.GE3137@localhost>
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: Re: [PATCH net] inet: limit length of fragment queue hash table
+ bucket lists
+Date: Tue, 19 Mar 2013 15:20:40 +0100
+Message-ID: <1363702840.3232.104.camel@localhost>
+References: <20130315213230.GB24041@order.stressinduktion.org>
+	 <20130319.100324.927922515830950770.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org,
-	thomas.petazzoni@free-electrons.com,
-	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"yrl.pp-manager.tt@hitachi.com" <yrl.pp-manager.tt@hitachi.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>
-To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.hitachi.co.jp ([133.145.228.5]:46002 "EHLO
-	mail4.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755005Ab3CSOTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 10:19:43 -0400
-In-Reply-To: <20130319133928.GE3137@localhost>
+Received: from mx1.redhat.com ([209.132.183.28]:59692 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755351Ab3CSOUq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 10:20:46 -0400
+In-Reply-To: <20130319.100324.927922515830950770.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ezequiel,
-
-(2013/03/19 22:39), Ezequiel Garcia wrote:
-> Hi Masami,
+On Tue, 2013-03-19 at 10:03 -0400, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Fri, 15 Mar 2013 22:32:30 +0100
 > 
-> On Tue, Mar 19, 2013 at 10:12:37PM +0900, Masami Hiramatsu wrote:
->>
->> Here I've hit a bug on the recent kernel. As far as I know, this bug
->> exists on 3.9-rc1 too.
->>
->> When I tried the latest mvebu for-next tree
->> (git://git.infradead.org/users/jcooper/linux.git mvebu/for-next),
->> I got below warning at bootup time and mvneta didn't work (link was never up).
->> I ensured that "ifconfig ethX up" always caused that.
->>
->> Does anyone succeed to boot openblocks-ax3 recently or hit same
->> trouble?
+> > This patch introduces a constant limit of the fragment queue hash
+> > table bucket list lengths. Currently the limit 128 is choosen somewhat
+> > arbitrary and just ensures that we can fill up the fragment cache with
+> > empty packets up to the default ip_frag_high_thresh limits. It should
+> > just protect from list iteration eating considerable amounts of cpu.
+> > 
+> > If we reach the maximum length in one hash bucket a warning is printed.
+> > This is implemented on the caller side of inet_frag_find to distinguish
+> > between the different users of inet_fragment.c.
+> > 
+> > I dropped the out of memory warning in the ipv4 fragment lookup path,
+> > because we already get a warning by the slab allocator.
+> > 
+> > Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> > Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>
+> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 > 
-> This is a known bug. Gregory Clement already has a fix and he
-> will submit it soon. In case you need this fixed ASAP, I'm attaching
-> you a patch with a fix.
+> This looks mostly fine to me, Eric could you give it a quick review?
+> 
+> Although one comment from me:
+> 
+> > +/* averaged:
+> > + * max_depth = default ipfrag_high_thresh / INETFRAGS_HASHSZ /
+> > + *	       rounded up (SKB_TRUELEN(0) + sizeof(struct ipq or
+> > + *	       struct frag_queue))
+> > + */
+> > +#define INETFRAGS_MAXDEPTH		128
+> 
+> If we deem this to be the ideal formula, maybe we can maintain it
+> accurately and very cheaply at run time.  We'd do this by adding a
+> handler for the ipfrag_high_thresh sysctl, and use that to recalculate
+> the maxdepth any time ipfrag_high_thresh is changed by the user.
 
-Thanks! I'll try that.
+I think it's overkill to implement this now.  I just want this patch in
+as a safeguard.
 
-> Please note the attached patch is not ready for mainline inclusion,
-> as I said Gregory will submit a cleaner version soon.
-
-Yeah, I look forward to it :)
-
-Thank you,
+The idea I discussed with Eric, will remove the need for this patch.
+The idea is to drop the LRU lists, increase the hash size a bit, and do
+cleanup/eviction directly on the frag hash tables.  And e.g. only allow
+5 frag queue elements in each hash bucket... but more work and testing
+is needed before I have something ready.
 
 -- 
-Masami HIRAMATSU
-IT Management Research Dept. Linux Technology Center
-Hitachi, Ltd., Yokohama Research Laboratory
-E-mail: masami.hiramatsu.pt@hitachi.com
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
