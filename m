@@ -1,62 +1,42 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH 2/4] xen-netfront: drop skb when skb->len
- > 65535
-Date: Tue, 19 Mar 2013 09:35:05 +0800
-Message-ID: <5147C0C9.3040601@oracle.com>
-References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com> <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	ian.campbell@citrix.com, konrad.wilk@oracle.com
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:32988 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754564Ab3CSBfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 21:35:16 -0400
-In-Reply-To: <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL nf] IPVS fixes for v3.9
+Date: Tue, 19 Mar 2013 10:39:55 +0900
+Message-ID: <1363657198-5333-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Pablo,
 
-On 2013-3-18 18:35, Wei Liu wrote:
-> The `size' field of Xen network wire format is uint16_t, anything bigger than
-> 65535 will cause overflow.
->
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> ---
->   drivers/net/xen-netfront.c |   12 ++++++++++++
->   1 file changed, 12 insertions(+)
->
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index 5527663..8c3d065 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -547,6 +547,18 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
->   	unsigned int len = skb_headlen(skb);
->   	unsigned long flags;
->   
-> +	/*
-> +	 * wire format of xen_netif_tx_request only supports skb->len
-> +	 * < 64K, because size field in xen_netif_tx_request is
-> +	 * uint16_t.
-> +	 */
-> +	if (unlikely(skb->len > (uint16_t)(~0))) {
-> +		net_alert_ratelimited(
-> +			"xennet: skb->len = %d, too big for wire format\n",
-> +			skb->len);
-> +		goto drop;
-> +	}
-> +
+The following changes since commit a82783c91d5dce680dbd290ebf301a520b0e72a5:
 
-Maybe it is better to do some segmentation for packets(>15536) which 
-support segments, and drop those which do not support segment.
-This can also be implemented in another patch(Just like what i did for 
-packets which requires slots larger than SKB_MAX_FRAGS).
+  netfilter: ip6t_NPT: restrict to mangle table (2013-03-15 12:58:21 +0100)
 
-Thanks
-Annie
->   	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
->   		xennet_count_skb_frag_slots(skb);
->   	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes-for-v3.9
+
+for you to fetch changes up to 1804ac13ac3d9d39b94f3074f303b286e90632ba:
+
+  ipvs: fix some sparse warnings (2013-03-19 09:37:37 +0900)
+
+----------------------------------------------------------------
+IPVS fixes for v3.9 from Julian Anastasov
+
+----------------------------------------------------------------
+Julian Anastasov (3):
+      ipvs: fix sctp chunk length order
+      ipvs: fix hashing in ip_vs_svc_hashkey
+      ipvs: fix some sparse warnings
+
+ include/net/ip_vs.h                   |    2 +-
+ net/netfilter/ipvs/ip_vs_core.c       |    8 +-------
+ net/netfilter/ipvs/ip_vs_ctl.c        |    8 +++++---
+ net/netfilter/ipvs/ip_vs_est.c        |    2 +-
+ net/netfilter/ipvs/ip_vs_proto_sctp.c |   16 +++++++++-------
+ 5 files changed, 17 insertions(+), 19 deletions(-)
