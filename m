@@ -1,58 +1,62 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net] bridge: do not expire mdb entry when
- bridge still uses it
-Date: Tue, 19 Mar 2013 09:12:01 +0800
-Message-ID: <1363655521.3921.0.camel@cr0>
-References: <1362708423-23932-1-git-send-email-amwang@redhat.com>
-	<20130308023151.GA27155@gondor.apana.org.au>
-	<1362710646.9773.25.camel@cr0>
-	<20130308024726.GA27319@gondor.apana.org.au>
-	<1362715613.9773.29.camel@cr0>
-	<20130308040853.GA27704@gondor.apana.org.au>
-	<1362727581.3237.4.camel@cr0>
-	<20130308112438.GA29924@gondor.apana.org.au>
-	<1362966251.17872.2.camel@cr0>
+From: annie li <annie.li@oracle.com>
+Subject: Re: [Xen-devel] [PATCH 2/4] xen-netfront: drop skb when skb->len
+ > 65535
+Date: Tue, 19 Mar 2013 09:35:05 +0800
+Message-ID: <5147C0C9.3040601@oracle.com>
+References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com> <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
-	Adam Baker <linux@baker-net.org.uk>
-To: Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1362966251.17872.2.camel@cr0>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
+	ian.campbell@citrix.com, konrad.wilk@oracle.com
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:32988 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754564Ab3CSBfQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 21:35:16 -0400
+In-Reply-To: <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Herbert, ping... :-)
 
-On Mon, 2013-03-11 at 09:44 +0800, Cong Wang wrote:
-> On Fri, 2013-03-08 at 19:24 +0800, Herbert Xu wrote:
-> > On Fri, Mar 08, 2013 at 03:26:21PM +0800, Cong Wang wrote:
-> > >
-> > > Hmm, what the user experiences is the multicast traffic between the
-> > > bridge and some port is broken. Isn't this expected to work by default?
-> > 
-> > Oh I'm not arguing that this isn't a bug.  I'm trying to ensure
-> > that we come up with the right fix.
-> 
-> Do you have any idea of a better fix?
-> 
-> > 
-> > > Or we can just change the default value of br->multicast_router to 2?
-> > 
-> > No because that will cause all sorts of stuff to be thrown at
-> > the host.
-> > 
-> 
-> OK.
-> 
-> Thanks!
+On 2013-3-18 18:35, Wei Liu wrote:
+> The `size' field of Xen network wire format is uint16_t, anything bigger than
+> 65535 will cause overflow.
+>
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> ---
+>   drivers/net/xen-netfront.c |   12 ++++++++++++
+>   1 file changed, 12 insertions(+)
+>
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 5527663..8c3d065 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -547,6 +547,18 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>   	unsigned int len = skb_headlen(skb);
+>   	unsigned long flags;
+>   
+> +	/*
+> +	 * wire format of xen_netif_tx_request only supports skb->len
+> +	 * < 64K, because size field in xen_netif_tx_request is
+> +	 * uint16_t.
+> +	 */
+> +	if (unlikely(skb->len > (uint16_t)(~0))) {
+> +		net_alert_ratelimited(
+> +			"xennet: skb->len = %d, too big for wire format\n",
+> +			skb->len);
+> +		goto drop;
+> +	}
+> +
+
+Maybe it is better to do some segmentation for packets(>15536) which 
+support segments, and drop those which do not support segment.
+This can also be implemented in another patch(Just like what i did for 
+packets which requires slots larger than SKB_MAX_FRAGS).
+
+Thanks
+Annie
+>   	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
+>   		xennet_count_skb_frag_slots(skb);
+>   	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
