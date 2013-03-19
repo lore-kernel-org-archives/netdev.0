@@ -1,53 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] bnx2x: add RSS capability for GRE traffic
-Date: Mon, 18 Mar 2013 17:07:52 -0700
-Message-ID: <1363651672.21184.17.camel@edumazet-glaptop>
-References: <1363625464-21633-1-git-send-email-dmitry@broadcom.com>
-	 <1363625464-21633-2-git-send-email-dmitry@broadcom.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL nf-next] IPVS
+Date: Tue, 19 Mar 2013 09:38:40 +0900
+Message-ID: <20130319003840.GG15718@verge.net.au>
+References: <1363612543-9787-1-git-send-email-horms@verge.net.au>
+ <20130318233115.GA23070@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Tom Herbert <therbert@google.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
-To: Dmitry Kravkov <dmitry@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:57603 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754144Ab3CSAHz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 20:07:55 -0400
-Received: by mail-pd0-f174.google.com with SMTP id 10so985727pdi.19
-        for <netdev@vger.kernel.org>; Mon, 18 Mar 2013 17:07:54 -0700 (PDT)
-In-Reply-To: <1363625464-21633-2-git-send-email-dmitry@broadcom.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:59799 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753287Ab3CSAio (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 20:38:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20130318233115.GA23070@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-03-18 at 18:51 +0200, Dmitry Kravkov wrote:
-> The patch drives FW to perform RSS for GRE traffic,
-> based on inner headers.
+On Tue, Mar 19, 2013 at 12:31:15AM +0100, Pablo Neira Ayuso wrote:
+> Hi Simon,
 > 
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h |    3 +++
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c  |   23 ++++++++++++-----------
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h  |    9 +++++++++
->  3 files changed, 24 insertions(+), 11 deletions(-)
+> On Mon, Mar 18, 2013 at 10:15:38PM +0900, Simon Horman wrote:
+> [...]
+> > ----------------------------------------------------------------
+> > IPVS enhancements for v3.10 from Julian Anastasov
+> > 
+> > ----------------------------------------------------------------
+> > Julian Anastasov (5):
+> >       ipvs: add backup_only flag to avoid loops
+> >       ipvs: remove extra rcu lock
+> >       ipvs: fix sctp chunk length order
+> >       ipvs: fix hashing in ip_vs_svc_hashkey
+> >       ipvs: fix some sparse warnings
+> 
+> I think that these three fixes:
+> 
+> ipvs: add backup_only flag to avoid loops
+> ipvs: remove extra rcu lock
+> ipvs: fix sctp chunk length order
+> 
+> should find their path to the net tree.
+> 
+> The remaining two sparse fixes should go to net-next.
+> 
+> I can manually apply these patch if you want to the corresponding
+> trees.
 
-This works very well.
-
-Problem is we skb_set_queue_mapping(skb, 0); in __skb_tunnel_rx()
-
-(this was a patch from Tom Herbert, commit
-693019e90ca45d881109d32c0c6d29adf03f6447 (net: reset skb queue mapping
-when rx'ing over tunnel )
-
-Meaning we hit a single cpu for the GRO stuff in ip_gre.
-
-I have to think about it.
-
-
-Another question is : 
-
-Can bnx2x check the tcp checksum if GRE encapsulated ?
+Thanks. I'll send two fresh pull requests shortly.
