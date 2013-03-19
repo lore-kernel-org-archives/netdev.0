@@ -1,41 +1,88 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] net: Fix failure string in net-socket selftests Makefile.
-Date: Tue, 19 Mar 2013 17:16:56 -0400 (EDT)
-Message-ID: <20130319.171656.2169297554900450866.davem@davemloft.net>
+From: "Vick, Matthew" <matthew.vick@intel.com>
+Subject: Re: [PATCH] igb: fix PHC stopping on max freq
+Date: Tue, 19 Mar 2013 21:17:25 +0000
+Message-ID: <CD6E221E.1657D%matthew.vick@intel.com>
+References: <f254bc583cbe1f623bd6ebb4ff375e440696d8b2.1363703896.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48596 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933560Ab3CSVQ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 17:16:57 -0400
-Received: from localhost (cpe-66-108-118-205.nyc.res.rr.com [66.108.118.205])
-	(Authenticated sender: davem-davemloft)
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 8BE3F581157
-	for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 14:17:01 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	Miroslav Lichvar <mlichvar@redhat.com>,
+	Stefan Assmann <sassmann@redhat.com>
+To: Jiri Benc <jbenc@redhat.com>, "netdev@vger.kernel.org"
+	<netdev@vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <f254bc583cbe1f623bd6ebb4ff375e440696d8b2.1363703896.git.jbenc@redhat.com>
+Content-Language: en-US
+Content-ID: <1FB41EFDCD2D7643BD2E822460EF9C9D@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
+
+On 3/19/13 7:42 AM, "Jiri Benc" <jbenc@redhat.com> wrote:
+
+>For 82576 MAC type, max_adj is reported as 1000000000 ppb. However, if
+>this value is passed to igb_ptp_adjfreq_82576, incvalue overflows out of
+>INCVALUE_82576_MASK, resulting in setting of zero TIMINCA.incvalue,
+>stopping
+>the PHC (instead of going at twice the nominal speed).
+>
+>Fix the advertised max_adj value to the largest value hardware can handle.
+>As there is no min_adj value available (-max_adj is used instead), this
+>will
+>also prevent stopping the clock intentionally. It's probably not a big
+>deal,
+>other igb MAC types don't support stopping the clock, either.
+>
+>Signed-off-by: Jiri Benc <jbenc@redhat.com>
+>---
+> drivers/net/ethernet/intel/igb/igb_ptp.c |    2 +-
+> 1 files changed, 1 insertions(+), 1 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c
+>b/drivers/net/ethernet/intel/igb/igb_ptp.c
+>index 0987822..0a23750 100644
+>--- a/drivers/net/ethernet/intel/igb/igb_ptp.c
+>+++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
+>@@ -740,7 +740,7 @@ void igb_ptp_init(struct igb_adapter *adapter)
+> 	case e1000_82576:
+> 		snprintf(adapter->ptp_caps.name, 16, "%pm", netdev->dev_addr);
+> 		adapter->ptp_caps.owner = THIS_MODULE;
+>-		adapter->ptp_caps.max_adj = 1000000000;
+>+		adapter->ptp_caps.max_adj = 999999881;
+> 		adapter->ptp_caps.n_ext_ts = 0;
+> 		adapter->ptp_caps.pps = 0;
+> 		adapter->ptp_caps.adjfreq = igb_ptp_adjfreq_82576;
+>-- 
+>1.7.6.5
+
+Good catch on this, Jiri! I know the math works out the same, but I'd
+prefer it if you changed the max_adj value to 999999999, since that is
+technically what we can accept before we have any issues. If you re-submit
+with this change, I'll add my ACK and we can run it through our internal
+testing. Thanks!
+
+Matthew
+
+Matthew Vick
+Linux Development
+Networking Division
+Intel Corporation
 
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- tools/testing/selftests/net-socket/Makefile | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/tools/testing/selftests/net-socket/Makefile b/tools/testing/selftests/net-socket/Makefile
-index f27ee10..2450fd8 100644
---- a/tools/testing/selftests/net-socket/Makefile
-+++ b/tools/testing/selftests/net-socket/Makefile
-@@ -10,7 +10,7 @@ all: $(NET_SOCK_PROGS)
- 	$(CC) $(CFLAGS) -o $@ $^
- 
- run_tests: all
--	@/bin/sh ./run_netsocktests || echo "vmtests: [FAIL]"
-+	@/bin/sh ./run_netsocktests || echo "sockettests: [FAIL]"
- 
- clean:
- 	$(RM) $(NET_SOCK_PROGS)
--- 
-1.7.11.7
+------------------------------------------------------------------------------
+Everyone hates slow websites. So do we.
+Make your web apps faster with AppDynamics
+Download AppDynamics Lite for free today:
+http://p.sf.net/sfu/appdyn_d2d_mar
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
