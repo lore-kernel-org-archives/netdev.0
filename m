@@ -1,106 +1,61 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH 4/4][net-next] gianfar: Refactor config coalescing calls for all queues
-Date: Tue, 19 Mar 2013 19:40:05 +0200
-Message-ID: <1363714805-9142-5-git-send-email-claudiu.manoil@freescale.com>
-References: <1363714805-9142-1-git-send-email-claudiu.manoil@freescale.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 3/4][net-next] gianfar: Remove redundant programming of
+ [rt]xic registers
+Date: Tue, 19 Mar 2013 21:49:27 +0400
+Message-ID: <5148A527.7050206@cogentembedded.com>
+References: <1363714805-9142-1-git-send-email-claudiu.manoil@freescale.com> <1363714805-9142-4-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
 	"David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+To: Claudiu Manoil <claudiu.manoil@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe006.messaging.microsoft.com ([213.199.154.144]:40147
-	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757206Ab3CSRlu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 13:41:50 -0400
-In-Reply-To: <1363714805-9142-1-git-send-email-claudiu.manoil@freescale.com>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:64032 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753288Ab3CSRuU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 13:50:20 -0400
+Received: by mail-la0-f46.google.com with SMTP id fq12so1482098lab.19
+        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 10:50:18 -0700 (PDT)
+In-Reply-To: <1363714805-9142-4-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The only place where gfar_configure_coalescing is called
-with an actual bitmask (other than 0xff) is in gfar_poll
-(on the hot path). So make gfar_configure_coalescing()
-static for the buffer processing path, and export
-gfar_configure_coalescing_all() for the remaining cases
-that require to set coalescing for all the queues at once
-(on the slow path).
+Hello.
 
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
- drivers/net/ethernet/freescale/gianfar.c         | 11 ++++++++---
- drivers/net/ethernet/freescale/gianfar.h         |  3 +--
- drivers/net/ethernet/freescale/gianfar_ethtool.c |  2 +-
- 3 files changed, 10 insertions(+), 6 deletions(-)
+On 19-03-2013 21:40, Claudiu Manoil wrote:
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index e28b3e6..49ce83b 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -341,7 +341,7 @@ static void gfar_init_mac(struct net_device *ndev)
- 	gfar_init_tx_rx_base(priv);
- 
- 	/* Configure the coalescing support */
--	gfar_configure_coalescing(priv, 0xFF, 0xFF);
-+	gfar_configure_coalescing_all(priv);
- 
- 	/* set this when rx hw offload (TOE) functions are being used */
- 	priv->uses_rxfcb = 0;
-@@ -1816,7 +1816,7 @@ void gfar_start(struct net_device *dev)
- 	dev->trans_start = jiffies; /* prevent tx timeout */
- }
- 
--void gfar_configure_coalescing(struct gfar_private *priv,
-+static void gfar_configure_coalescing(struct gfar_private *priv,
- 			       unsigned long tx_mask, unsigned long rx_mask)
- {
- 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
-@@ -1851,6 +1851,11 @@ void gfar_configure_coalescing(struct gfar_private *priv,
- 	}
- }
- 
-+void gfar_configure_coalescing_all(struct gfar_private *priv)
-+{
-+	gfar_configure_coalescing(priv, 0xFF, 0xFF);
-+}
-+
- static int register_grp_irqs(struct gfar_priv_grp *grp)
- {
- 	struct gfar_private *priv = grp->priv;
-@@ -1940,7 +1945,7 @@ int startup_gfar(struct net_device *ndev)
- 
- 	phy_start(priv->phydev);
- 
--	gfar_configure_coalescing(priv, 0xFF, 0xFF);
-+	gfar_configure_coalescing_all(priv);
- 
- 	return 0;
- 
-diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index b1d0c1c..eec87ea 100644
---- a/drivers/net/ethernet/freescale/gianfar.h
-+++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -1182,8 +1182,7 @@ extern void stop_gfar(struct net_device *dev);
- extern void gfar_halt(struct net_device *dev);
- extern void gfar_phy_test(struct mii_bus *bus, struct phy_device *phydev,
- 		int enable, u32 regnum, u32 read);
--extern void gfar_configure_coalescing(struct gfar_private *priv,
--		unsigned long tx_mask, unsigned long rx_mask);
-+extern void gfar_configure_coalescing_all(struct gfar_private *priv);
- void gfar_init_sysfs(struct net_device *dev);
- int gfar_set_features(struct net_device *dev, netdev_features_t features);
- extern void gfar_check_rx_parser_mode(struct gfar_private *priv);
-diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-index 75e89ac..8248df7 100644
---- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-@@ -436,7 +436,7 @@ static int gfar_scoalesce(struct net_device *dev,
- 			gfar_usecs2ticks(priv, cvals->tx_coalesce_usecs));
- 	}
- 
--	gfar_configure_coalescing(priv, 0xFF, 0xFF);
-+	gfar_configure_coalescing_all(priv);
- 
- 	return 0;
- }
--- 
-1.7.11.3
+> For Multi Q Multi Group (MQ_MG_MODE) mode, the Rx/Tx colescing registers [rt]xic
+> are aliased with the [rt]xic0 registers (coalescing setting regs for Q0). This
+> avoids programming twice in a row the coalescing registers for the Rx/Tx hw Q0.
+
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+> ---
+>   drivers/net/ethernet/freescale/gianfar.c | 24 ++++++++++++------------
+>   1 file changed, 12 insertions(+), 12 deletions(-)
+
+> diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+> index 3f07dbd..e28b3e6 100644
+> --- a/drivers/net/ethernet/freescale/gianfar.c
+> +++ b/drivers/net/ethernet/freescale/gianfar.c
+> @@ -1821,20 +1821,9 @@ void gfar_configure_coalescing(struct gfar_private *priv,
+[...]
+>   	if (priv->mode == MQ_MG_MODE) {
+> +		int i = 0;
+
+    Empty line wouldn't hurt here, after declaration.
+
+>   		baddr = &regs->txic0;
+>   		for_each_set_bit(i, &tx_mask, priv->num_tx_queues) {
+>   			gfar_write(baddr + i, 0);
+> @@ -1848,6 +1837,17 @@ void gfar_configure_coalescing(struct gfar_private *priv,
+>   			if (likely(priv->rx_queue[i]->rxcoalescing))
+>   				gfar_write(baddr + i, priv->rx_queue[i]->rxic);
+>   		}
+> +	} else {
+> +		/* Backward compatible case ---- even if we enable
+
+    s/----/--/
+
+WBR, Sergei
