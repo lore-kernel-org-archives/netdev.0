@@ -1,99 +1,306 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 3/4] filter: add ANC_PAY_OFFSET instruction for loading payload start offset
-Date: Tue, 19 Mar 2013 14:28:26 +0100
-Message-ID: <d4359bec16c3baca196e444c309e932dcd08eb4f.1363699285.git.dborkman@redhat.com>
+Subject: [PATCH net-next 4/4] filter: add minimal BPF JIT emitted image disassembler
+Date: Tue, 19 Mar 2013 14:28:27 +0100
+Message-ID: <8d8079d7a5cffe05eeb44a35cb5d7c3544a84f4f.1363699285.git.dborkman@redhat.com>
 References: <cover.1363699285.git.dborkman@redhat.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, jasowang@redhat.com
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, jasowang@redhat.com,
+	Eric Dumazet <edumazet@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60448 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35506 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755647Ab3CSN2j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Mar 2013 09:28:39 -0400
+	id S1755651Ab3CSN2k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 09:28:40 -0400
 In-Reply-To: <cover.1363699285.git.dborkman@redhat.com>
 In-Reply-To: <cover.1363699285.git.dborkman@redhat.com>
 References: <cover.1363699285.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is very useful to do dynamic truncation of packets. In particular,
-we're interested to push the necessary header bytes to the user space and
-cut off user payload that should probably not be transferred for some reasons
-(e.g. privacy, speed, or others). With the ancillary extension PAY_OFFSET,
-we can load it into the accumulator, and return it. E.g. in bpfc syntax ...
+This is a minimal stand-alone user space helper, that allows for debugging or
+verification of emitted BPF JIT images. This is in particular useful for
+emitted opcode debugging, since minor bugs in the JIT compiler can be fatal.
+The disassembler is architecture generic and uses libopcodes and libbfd.
 
-        ld #poff        ; { 0x20, 0, 0, 0xfffff034 },
-        ret a           ; { 0x16, 0, 0, 0x00000000 },
+How to get to the disassembly, example:
 
-... as a filter will accomplish this without having to do a big hackery in
-a BPF filter itself. Follow-up JIT implementations are welcome.
+  1) `echo 2 > /proc/sys/net/core/bpf_jit_enable`
+  2) Load a BPF filter (e.g. `tcpdump -p -n -s 0 -i eth1 host 192.168.20.0/24`)
+  3) Run e.g. `bpf_jit_disasm -o` to disassemble the most recent JIT code output
 
-Thanks to Eric Dumazet for suggesting and discussing this during the
-Netfilter Workshop in Copenhagen.
+`bpf_jit_disasm -o` will display the related opcodes to a particular instruction
+as well. Example for x86_64:
 
-Suggested-by: Eric Dumazet <edumazet@google.com>
+$./bpf_jit_disasm
+94 bytes emitted from JIT compiler (pass:3, flen:9)
+ffffffffa0356000 + <x>:
+   0:	push   %rbp
+   1:	mov    %rsp,%rbp
+   4:	sub    $0x60,%rsp
+   8:	mov    %rbx,-0x8(%rbp)
+   c:	mov    0x68(%rdi),%r9d
+  10:	sub    0x6c(%rdi),%r9d
+  14:	mov    0xe0(%rdi),%r8
+  1b:	mov    $0xc,%esi
+  20:	callq  0xffffffffe0d01b71
+  25:	cmp    $0x86dd,%eax
+  2a:	jne    0x000000000000003d
+  2c:	mov    $0x14,%esi
+  31:	callq  0xffffffffe0d01b8d
+  36:	cmp    $0x6,%eax
+[...]
+  5c:	leaveq
+  5d:	retq
+
+$ ./bpf_jit_disasm -o
+94 bytes emitted from JIT compiler (pass:3, flen:9)
+ffffffffa0356000 + <x>:
+   0:	push   %rbp
+	55
+   1:	mov    %rsp,%rbp
+	48 89 e5
+   4:	sub    $0x60,%rsp
+	48 83 ec 60
+   8:	mov    %rbx,-0x8(%rbp)
+	48 89 5d f8
+   c:	mov    0x68(%rdi),%r9d
+	44 8b 4f 68
+  10:	sub    0x6c(%rdi),%r9d
+	44 2b 4f 6c
+[...]
+  5c:	leaveq
+	c9
+  5d:	retq
+	c3
+
+Cc: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- include/linux/filter.h      | 1 +
- include/uapi/linux/filter.h | 3 ++-
- net/core/filter.c           | 5 +++++
- 3 files changed, 8 insertions(+), 1 deletion(-)
+ scripts/bpf_jit_disasm.c | 216 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 216 insertions(+)
+ create mode 100644 scripts/bpf_jit_disasm.c
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index c45eabc..d2059cb 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -126,6 +126,7 @@ enum {
- 	BPF_S_ANC_SECCOMP_LD_W,
- 	BPF_S_ANC_VLAN_TAG,
- 	BPF_S_ANC_VLAN_TAG_PRESENT,
-+	BPF_S_ANC_PAY_OFFSET,
- };
- 
- #endif /* __LINUX_FILTER_H__ */
-diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
-index 9cfde69..8eb9cca 100644
---- a/include/uapi/linux/filter.h
-+++ b/include/uapi/linux/filter.h
-@@ -129,7 +129,8 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- #define SKF_AD_ALU_XOR_X	40
- #define SKF_AD_VLAN_TAG	44
- #define SKF_AD_VLAN_TAG_PRESENT 48
--#define SKF_AD_MAX	52
-+#define SKF_AD_PAY_OFFSET	52
-+#define SKF_AD_MAX	56
- #define SKF_NET_OFF   (-0x100000)
- #define SKF_LL_OFF    (-0x200000)
- 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 2e20b55..dad2a17 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -348,6 +348,9 @@ load_b:
- 		case BPF_S_ANC_VLAN_TAG_PRESENT:
- 			A = !!vlan_tx_tag_present(skb);
- 			continue;
-+		case BPF_S_ANC_PAY_OFFSET:
-+			A = __skb_get_poff(skb);
+diff --git a/scripts/bpf_jit_disasm.c b/scripts/bpf_jit_disasm.c
+new file mode 100644
+index 0000000..1fe9fb5
+--- /dev/null
++++ b/scripts/bpf_jit_disasm.c
+@@ -0,0 +1,216 @@
++/*
++ * Minimal BPF JIT image disassembler
++ *
++ * Disassembles BPF JIT compiler emitted opcodes back to asm insn's for
++ * debugging or verification purposes.
++ *
++ * There is no Makefile. Compile with
++ *
++ *   `gcc -Wall -O2 bpf_jit_disasm.c -o bpf_jit_disasm -lopcodes -lbfd -ldl`
++ *
++ * or similar.
++ *
++ * To get the disassembly of the JIT code, do the following:
++ *
++ *  1) `echo 2 > /proc/sys/net/core/bpf_jit_enable`
++ *  2) Load a BPF filter (e.g. `tcpdump -p -n -s 0 -i eth1 host 192.168.20.0/24`)
++ *  3) Run e.g. `./bpf_jit_disasm -o` to read out the last JIT code
++ *
++ * Copyright 2013 Daniel Borkmann <borkmann@redhat.com>
++ * Licensed under the GNU General Public License, version 2.0 (GPLv2)
++ */
++
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <assert.h>
++#include <unistd.h>
++#include <string.h>
++#include <bfd.h>
++#include <dis-asm.h>
++#include <sys/klog.h>
++#include <sys/types.h>
++#include <regex.h>
++
++#define VERSION_STRING	"1.0"
++
++static void get_exec_path(char *tpath, size_t size)
++{
++	char *path;
++	ssize_t len;
++
++	snprintf(tpath, size, "/proc/%d/exe", (int) getpid());
++	tpath[size - 1] = 0;
++
++	path = strdup(tpath);
++	assert(path);
++
++	len = readlink(path, tpath, size);
++	tpath[len] = 0;
++
++	free(path);
++}
++
++static void get_asm_insns(uint8_t *image, size_t len, unsigned long base,
++			  int opcodes)
++{
++	int count, i, pc = 0;
++	char tpath[256];
++	struct disassemble_info info;
++	disassembler_ftype disassemble;
++	bfd *bfdf;
++
++	memset(tpath, 0, sizeof(tpath));
++	get_exec_path(tpath, sizeof(tpath));
++
++	bfdf = bfd_openr(tpath, NULL);
++	assert(bfdf);
++	assert(bfd_check_format(bfdf, bfd_object));
++
++	init_disassemble_info(&info, stdout, (fprintf_ftype) fprintf);
++	info.arch = bfd_get_arch(bfdf);
++	info.mach = bfd_get_mach(bfdf);
++	info.buffer = image;
++	info.buffer_length = len;
++
++	disassemble_init_for_target(&info);
++
++	disassemble = disassembler(bfdf);
++	assert(disassemble);
++
++	do {
++		printf("%4x:\t", pc);
++
++		count = disassemble(pc, &info);
++
++		if (opcodes) {
++			printf("\n\t");
++			for (i = 0; i < count; ++i)
++				printf("%02x ", (uint8_t) image[pc + i]);
++		}
++		printf("\n");
++
++		pc += count;
++	} while(count > 0 && pc < len);
++
++	bfd_close(bfdf);
++}
++
++static char *get_klog_buff(int *klen)
++{
++	int ret, len = klogctl(10, NULL, 0);
++	char *buff = malloc(len);
++
++	assert(buff && klen);
++	ret = klogctl(3, buff, len);
++	assert(ret >= 0);
++	*klen = ret;
++
++	return buff;
++}
++
++static void put_klog_buff(char *buff)
++{
++	free(buff);
++}
++
++static int get_last_jit_image(char *haystack, size_t hlen,
++			      uint8_t *image, size_t ilen,
++			      unsigned long *base)
++{
++	char *ptr, *pptr, *tmp;
++	off_t off = 0;
++	int ret, flen, proglen, pass, ulen = 0;
++	regmatch_t pmatch[1];
++	regex_t regex;
++
++	if (hlen == 0)
++		return 0;
++
++	ret = regcomp(&regex, "flen=[[:alnum:]]+ proglen=[[:digit:]]+ "
++		      "pass=[[:digit:]]+ image=[[:xdigit:]]+", REG_EXTENDED);
++	assert(ret == 0);
++
++	ptr = haystack;
++	while (1) {
++		ret = regexec(&regex, ptr, 1, pmatch, 0);
++		if (ret == 0) {
++			ptr += pmatch[0].rm_eo;
++			off += pmatch[0].rm_eo;
++			assert(off < hlen);
++		} else
++			break;
++	}
++
++	ptr = haystack + off - (pmatch[0].rm_eo - pmatch[0].rm_so);
++	ret = sscanf(ptr, "flen=%d proglen=%d pass=%d image=%lx",
++		     &flen, &proglen, &pass, base);
++	if (ret != 4)
++		return 0;
++
++	tmp = ptr = haystack + off;
++	while ((ptr = strtok(tmp, "\n")) != NULL && ulen < ilen) {
++		tmp = NULL;
++		if (!strstr(ptr, "JIT code"))
 +			continue;
- 		case BPF_S_ANC_NLATTR: {
- 			struct nlattr *nla;
- 
-@@ -612,6 +615,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
- 			ANCILLARY(ALU_XOR_X);
- 			ANCILLARY(VLAN_TAG);
- 			ANCILLARY(VLAN_TAG_PRESENT);
-+			ANCILLARY(PAY_OFFSET);
- 			}
- 
- 			/* ancillary operation unknown or unsupported */
-@@ -814,6 +818,7 @@ static void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to)
- 		[BPF_S_ANC_SECCOMP_LD_W] = BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_ANC_VLAN_TAG]	= BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_ANC_VLAN_TAG_PRESENT] = BPF_LD|BPF_B|BPF_ABS,
-+		[BPF_S_ANC_PAY_OFFSET]	= BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_LD_W_LEN]	= BPF_LD|BPF_W|BPF_LEN,
- 		[BPF_S_LD_W_IND]	= BPF_LD|BPF_W|BPF_IND,
- 		[BPF_S_LD_H_IND]	= BPF_LD|BPF_H|BPF_IND,
++		pptr = ptr;
++		while ((ptr = strstr(pptr, ":")))
++			pptr = ptr + 1;
++		ptr = pptr;
++		do {
++			image[ulen++] = (uint8_t) strtoul(pptr, &pptr, 16);
++			if (ptr == pptr || ulen >= ilen) {
++				ulen--;
++				break;
++			}
++			ptr = pptr;
++		} while (1);
++	}
++
++	assert(ulen == proglen);
++	printf("%d bytes emitted from JIT compiler (pass:%d, flen:%d)\n",
++	       proglen, pass, flen);
++	printf("%lx + <x>:\n", *base);
++
++	regfree(&regex);
++	return ulen;
++}
++
++static void help(void)
++{
++	printf("Usage: bpf_jit_disasm [-ohv]\n");
++	printf("Version %s, written by Daniel Borkmann <borkmann@redhat.com>\n",
++	       VERSION_STRING);
++	printf("  -o                             Include opcodes in output\n");
++	printf("  -h|-v                          Show help/version\n");
++	exit(0);
++}
++
++int main(int argc, char **argv)
++{
++	int len, klen, opcodes = 0;
++	char *kbuff;
++	unsigned long base;
++	uint8_t image[4096];
++
++	if (argc > 1) {
++		if (!strncmp("-o", argv[argc - 1], 2))
++			opcodes = 1;
++		if (!strncmp("-h", argv[argc - 1], 2) ||
++		    !strncmp("-v", argv[argc - 1], 2))
++			help();
++	}
++
++	bfd_init();
++	memset(image, 0, sizeof(image));
++
++	kbuff = get_klog_buff(&klen);
++
++	len = get_last_jit_image(kbuff, klen, image, sizeof(image), &base);
++	if (len > 0 && base > 0)
++		get_asm_insns(image, len, base, opcodes);
++
++	put_klog_buff(kbuff);
++
++	return 0;
++}
 -- 
 1.7.11.7
