@@ -1,45 +1,59 @@
-From: vaughan <vaughan.cao@oracle.com>
-Subject: How to assign sockaddr_nl->nl_groups when using connector
-Date: Tue, 19 Mar 2013 10:15:43 +0800
-Message-ID: <5147CA4F.5050801@oracle.com>
+From: annie li <annie.li@oracle.com>
+Subject: Re: [PATCH 1/4] xen-netfront: remove unused variable `extra'
+Date: Tue, 19 Mar 2013 10:39:14 +0800
+Message-ID: <5147CFD2.8040803@oracle.com>
+References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>  <1363602955-24790-2-git-send-email-wei.liu2@citrix.com>  <1363606922.30193.21.camel@zakaz.uk.xensource.com>  <1363608271.29093.196.camel@zion.uk.xensource.com> <1363608860.30193.39.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, KY Srinivasan <kys@microsoft.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: zbr@ioremap.net
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:40175 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754844Ab3CSCOV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 22:14:21 -0400
+Received: from userp1040.oracle.com ([156.151.31.81]:50187 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756153Ab3CSCim (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 22:38:42 -0400
+In-Reply-To: <1363608860.30193.39.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Evgeniy,
 
-I am not quite sure how to assign nl_groups when using connector. You
-Documentation/connector/connector.txt don't explain it very clearly. I
-thought it's a bitmask representing only 32 groups.
-If I just want to subscribe only one group such as CN_KVP_IDX, what
-shall I do? Which one below is correct?
-a) l_local.nl_groups = CN_KVP_IDX;
-Or
-b) l_local.nl_groups = 1 << (CN_KVP_IDX -1)
-and bind with bind(s, (struct sockaddr *)&l_local, sizeof(struct
-sockaddr_nl)).
-I ran your example in Documentation/connector/. 'l_local.nl_groups = -1'
-in ucon.c seems subscribe all channels, because if I start cgred
-service, ucon will receive messages with idx=1.
+On 2013-3-18 20:14, Ian Campbell wrote:
+> On Mon, 2013-03-18 at 12:04 +0000, Wei Liu wrote:
+>> On Mon, 2013-03-18 at 11:42 +0000, Ian Campbell wrote:
+>>> On Mon, 2013-03-18 at 10:35 +0000, Wei Liu wrote:
+>>>
+>>> I think a few more words are needed here since from the code you are
+>>> removing it seems very much like gso is used for something. If you have
+>>> a proof that the "extra = gso" case is never hit then please explain it.
+>>> Perhaps a reference to the removal of the last user?
+>>>
+>>> Or maybe it is the case that it should be used and the bug is that it
+>>> isn't?
+>>>
+>> Looks like the latter one. 'extra' field should  be used to get hold of
+>> the last extra info in the ring. ;-)
+>>
+>> But, the only extra info in upstream kernel is XEN_NETIF_EXTRA_TYPE_GSO,
+>> so there's really no other extra info in the ring at that point. Could
+>> it be possible that it is something from classic Xen kernel?
+> The classic kernel netfront has exactly the same code it seems and
+> netif_extra_type_gso is the only one I've ever heard of.
+>
+> Maybe this extra thing is just redundant unless/until a second extra
+> comes along.
 
-And it seems setsockopt is not needed now, for it is done by
-netlink_autobind? You even comment it out using '#if 0' in
-Documentation/connector/ucon.c.
+In our windows pv driver, we do not process this for GSO in tx path 
+either. Maybe we ignored processing for some special GSO?
 
-Could you do me a favor to check
-http://driverdev.linuxdriverproject.org/pipermail/devel/2013-March/036306.html
-to see if my understanding is correct or not? Thanks.
+BTW, what is XEN_NETIF_EXTRA_FLAG_MORE actually for? Backend only 
+processes it in xen_netback_tx_build_gops, but netfront xmit path does 
+not really set this flag. I did process it in rx path of my windows pv 
+driver(linux netfront did that too), but it seems unnecessary since 
+netback does not set this flag at all.
 
--- 
-Regards,
-Vaughan
+Thanks
+Annie
