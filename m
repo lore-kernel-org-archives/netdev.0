@@ -1,70 +1,120 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH v2 net-next 1/4] flow_keys: include thoff into flow_keys for later usage
-Date: Tue, 19 Mar 2013 15:34:00 +0100
-Message-ID: <cc0d2911a173be99651dc39e77286aab260c3c19.1363702456.git.dborkman@redhat.com>
+Subject: [PATCH v2 net-next 2/4] net: flow_dissector: add __skb_get_poff to get a start offset to payload
+Date: Tue, 19 Mar 2013 15:34:01 +0100
+Message-ID: <fd6036248f9337e3679cb441f262ce5d5b228c9b.1363702456.git.dborkman@redhat.com>
 References: <cover.1363702456.git.dborkman@redhat.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com, jasowang@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5110 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:27286 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752639Ab3CSOeH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Mar 2013 10:34:07 -0400
+	id S1752639Ab3CSOeJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 10:34:09 -0400
 In-Reply-To: <cover.1363702456.git.dborkman@redhat.com>
 In-Reply-To: <cover.1363702456.git.dborkman@redhat.com>
 References: <cover.1363702456.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In skb_flow_dissect(), we perform a dissection of a skbuff. Since we're
-doing the work here anyway, also store thoff for a later usage, e.g. in
-the BPF filter. Also, by having thoff 16 Bit, we do not need to pack
-flow_keys and reorder choke_skb_cb.
+__skb_get_poff() returns the offset to the payload as far as it could
+be dissected. The main user is currently BPF, so that we can dynamically
+truncate packets without needing to push actual payload to the user
+space and instead can analyze headers only.
 
 Suggested-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- This patch also needs to go into the net tree, since Eric or Jason will
- post a bug fix on top of this one.
+ include/linux/skbuff.h    |  2 ++
+ net/core/flow_dissector.c | 57 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 59 insertions(+)
 
- include/net/flow_keys.h   | 1 +
- net/core/flow_dissector.c | 5 ++++-
- 2 files changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
-index 80461c1..bb8271d 100644
---- a/include/net/flow_keys.h
-+++ b/include/net/flow_keys.h
-@@ -9,6 +9,7 @@ struct flow_keys {
- 		__be32 ports;
- 		__be16 port16[2];
- 	};
-+	u16 thoff;
- 	u8 ip_proto;
- };
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index eb2106f..0e84fd8 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2835,6 +2835,8 @@ static inline void skb_checksum_none_assert(const struct sk_buff *skb)
  
+ bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off);
+ 
++u32 __skb_get_poff(const struct sk_buff *skb);
++
+ /**
+  * skb_head_is_locked - Determine if the skb->head is locked down
+  * @skb: skb to check
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index f8d9e03..eb9dde1 100644
+index eb9dde1..8213da7 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -23,7 +23,8 @@ static void iph_to_flow_copy_addrs(struct flow_keys *flow, const struct iphdr *i
- 
- bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow)
- {
--	int poff, nhoff = skb_network_offset(skb);
-+	int poff;
-+	u16 nhoff = skb_network_offset(skb);
- 	u8 ip_proto;
- 	__be16 proto = skb->protocol;
- 
-@@ -151,6 +152,8 @@ ipv6:
- 			flow->ports = *ports;
- 	}
- 
-+	flow->thoff = nhoff;
-+
- 	return true;
+@@ -5,6 +5,10 @@
+ #include <linux/if_vlan.h>
+ #include <net/ip.h>
+ #include <net/ipv6.h>
++#include <linux/igmp.h>
++#include <linux/icmp.h>
++#include <linux/sctp.h>
++#include <linux/dccp.h>
+ #include <linux/if_tunnel.h>
+ #include <linux/if_pppox.h>
+ #include <linux/ppp_defs.h>
+@@ -229,6 +233,59 @@ u16 __skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb,
  }
- EXPORT_SYMBOL(skb_flow_dissect);
+ EXPORT_SYMBOL(__skb_tx_hash);
+ 
++/* __skb_get_poff() returns the offset to the payload as far as it could
++ * be dissected. The main user is currently BPF, so that we can dynamically
++ * truncate packets without needing to push actual payload to the user
++ * space and can analyze headers only, instead.
++ */
++u32 __skb_get_poff(const struct sk_buff *skb)
++{
++	struct flow_keys keys;
++	u32 poff = 0;
++
++	if (!skb_flow_dissect(skb, &keys))
++		return 0;
++
++	poff += keys.thoff;
++	switch (keys.ip_proto) {
++	case IPPROTO_TCP: {
++		const struct tcphdr *tcph;
++		struct tcphdr _tcph;
++
++		tcph = skb_header_pointer(skb, poff, sizeof(_tcph), &_tcph);
++		if (!tcph)
++			return poff;
++
++		poff += max_t(u32, sizeof(struct tcphdr), tcph->doff * 4);
++		break;
++	}
++	case IPPROTO_UDP:
++	case IPPROTO_UDPLITE:
++		poff += sizeof(struct udphdr);
++		break;
++	/* For the rest, we do not really care about header
++	 * extensions at this point for now.
++	 */
++	case IPPROTO_ICMP:
++		poff += sizeof(struct icmphdr);
++		break;
++	case IPPROTO_ICMPV6:
++		poff += sizeof(struct icmp6hdr);
++		break;
++	case IPPROTO_IGMP:
++		poff += sizeof(struct igmphdr);
++		break;
++	case IPPROTO_DCCP:
++		poff += sizeof(struct dccp_hdr);
++		break;
++	case IPPROTO_SCTP:
++		poff += sizeof(struct sctphdr);
++		break;
++	}
++
++	return poff;
++}
++
+ static inline u16 dev_cap_txqueue(struct net_device *dev, u16 queue_index)
+ {
+ 	if (unlikely(queue_index >= dev->real_num_tx_queues)) {
 -- 
 1.7.11.7
