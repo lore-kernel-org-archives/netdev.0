@@ -1,88 +1,125 @@
-From: Tom Parkin <tparkin@katalix.com>
-Subject: [PATCH 02/12] l2tp: add udp encap socket destroy handler
-Date: Tue, 19 Mar 2013 16:11:13 +0000
-Message-ID: <1363709483-24021-3-git-send-email-tparkin@katalix.com>
-References: <1363709483-24021-1-git-send-email-tparkin@katalix.com>
-Cc: Tom Parkin <tparkin@katalix.com>,
-	James Chapman <jchapman@katalix.com>
-To: netdev@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v6] net: sh_eth: Add support of device tree probe
+Date: Tue, 19 Mar 2013 20:29:46 +0400
+Message-ID: <5148927A.8070409@cogentembedded.com>
+References: <1363675196-8940-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com> <51486699.6000908@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	magnus.damm@gmail.com, kda@linux-powerpc.org,
+	horms+renesas@verge.net.au, mark.rutland@arm.com,
+	grant.likely@secretlab.ca
+To: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:36142 "EHLO bert.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932717Ab3CSQLa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Mar 2013 12:11:30 -0400
-In-Reply-To: <1363709483-24021-1-git-send-email-tparkin@katalix.com>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:44409 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756246Ab3CSQag (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 12:30:36 -0400
+Received: by mail-la0-f44.google.com with SMTP id eb20so1316332lab.17
+        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 09:30:34 -0700 (PDT)
+In-Reply-To: <51486699.6000908@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-L2TP sessions hold a reference to the tunnel socket to prevent it going away
-while sessions are still active.  However, since tunnel destruction is handled
-by the sock sk_destruct callback there is a catch-22: a tunnel with sessions
-cannot be deleted since each session holds a reference to the tunnel socket.
-If userspace closes a managed tunnel socket, or dies, the tunnel will persist
-and it will be neccessary to individually delete the sessions using netlink
-commands.  This is ugly.
+Hello.
 
-To prevent this occuring, this patch leverages the udp encapsulation socket
-destroy callback to gain early notification when the tunnel socket is closed.
-This allows us to safely close the sessions running in the tunnel, dropping
-the tunnel socket references in the process.  The tunnel socket is then
-destroyed as normal, and the tunnel resources deallocated in sk_destruct.
+On 19-03-2013 17:22, Sergei Shtylyov wrote:
 
-While we're at it, ensure that l2tp_tunnel_closeall correctly drops session
-references to allow the sessions to be deleted rather than leaking.
+>> This adds support of device tree probe for Renesas sh-ether driver.
 
-Signed-off-by: Tom Parkin <tparkin@katalix.com>
-Signed-off-by: James Chapman <jchapman@katalix.com>
----
- net/l2tp/l2tp_core.c |   14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+>> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index d36875f..ee726a7 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1282,6 +1282,7 @@ static void l2tp_tunnel_destruct(struct sock *sk)
- 		/* No longer an encapsulation socket. See net/ipv4/udp.c */
- 		(udp_sk(sk))->encap_type = 0;
- 		(udp_sk(sk))->encap_rcv = NULL;
-+		(udp_sk(sk))->encap_destroy = NULL;
- 		break;
- 	case L2TP_ENCAPTYPE_IP:
- 		break;
-@@ -1360,6 +1361,8 @@ again:
- 			if (session->deref != NULL)
- 				(*session->deref)(session);
- 
-+			l2tp_session_dec_refcount(session);
-+
- 			write_lock_bh(&tunnel->hlist_lock);
- 
- 			/* Now restart from the beginning of this hash
-@@ -1373,6 +1376,16 @@ again:
- 	write_unlock_bh(&tunnel->hlist_lock);
- }
- 
-+/* Tunnel socket destroy hook for UDP encapsulation */
-+static void l2tp_udp_encap_destroy(struct sock *sk)
-+{
-+	struct l2tp_tunnel *tunnel = l2tp_sock_to_tunnel(sk);
-+	if (tunnel) {
-+		l2tp_tunnel_closeall(tunnel);
-+		sock_put(sk);
-+	}
-+}
-+
- /* Really kill the tunnel.
-  * Come here only when all sessions have been cleared from the tunnel.
-  */
-@@ -1668,6 +1681,7 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
- 		/* Mark socket as an encapsulation socket. See net/ipv4/udp.c */
- 		udp_sk(sk)->encap_type = UDP_ENCAP_L2TPINUDP;
- 		udp_sk(sk)->encap_rcv = l2tp_udp_encap_recv;
-+		udp_sk(sk)->encap_destroy = l2tp_udp_encap_destroy;
- #if IS_ENABLED(CONFIG_IPV6)
- 		if (sk->sk_family == PF_INET6)
- 			udpv6_encap_enable();
--- 
-1.7.9.5
+>> V6: - Add renesas,sh-eth-gigabit, renesas,sh-eth-sh4 and
+>>        renesas,sh-eth-sh3-sh2 to compatible string.
+>>     - Remove sh-eth,register-type. This is supplemented by the
+>>        compatible string.
+>>      - Use the of_property_read_bool instead of of_find_property.
+>>      - Add sanity chheck for of_property_read_u32.
+>>      - Update document.
+>> V5: - Rewrite sh_eth_parse_dt().
+>>        Remove of_device_is_available() and CONFIG_OF from support OF
+>>        checking function and re-add empty sh_eth_parse_dt().
+>>      - Add CONFIG_PM to definition of dev_pm_ops.
+>>     - Add CONFIG_OF to definition of of_device_id.
+>> V4: - Remove empty sh_eth_parse_dt().
+>> V3: - Remove empty sh_eth_parse_dt().
+>> V3: - Removed sentnece of "needs-init" from document.
+>> V2: - Removed ether_setup().
+>>      - Fixed typo from "sh-etn" to "sh-eth".
+>>     - Removed "needs-init" and sh-eth,endian from definition of DT.
+>>     - Changed "sh-eth,edmac-endian" instead of "sh-eth,edmac-big-end=
+ain"
+>>       in definition of DT.
+
+    The version history is usually "hidded" under -- tear line.
+
+>> ---
+>>   Documentation/devicetree/bindings/net/sh_ether.txt |   48 +++++++
+>>   drivers/net/ethernet/renesas/sh_eth.c              |  145
+>> ++++++++++++++++----
+>>   2 files changed, 168 insertions(+), 25 deletions(-)
+>>   create mode 100644 Documentation/devicetree/bindings/net/sh_ether.=
+txt
+
+[...]
+
+>> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
+>> b/drivers/net/ethernet/renesas/sh_eth.c
+>> index 7a6471d..d9df68e 100644
+>> --- a/drivers/net/ethernet/renesas/sh_eth.c
+>> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+[...]
+>> @@ -2391,12 +2451,33 @@ static int sh_eth_drv_probe(struct platform_=
+device
+>> *pdev)
+>>           goto out_release;
+>>       }
+>>
+>> +    if (np) {
+>> +        pd =3D sh_eth_parse_dt(&pdev->dev, ndev, np);
+>> +        if (pdev->dev.platform_data && pd) {
+>> +            struct sh_eth_plat_data *tmp =3D
+>> +                pdev->dev.platform_data;
+>> +            pd->set_mdio_gate =3D tmp->set_mdio_gate;
+>> +            pd->needs_init =3D tmp->needs_init;
+
+>     OK, so we can't fully convert this driver to the device tree due =
+to
+> procedural platform data. I then would advice just using OF_DEV_AUXDA=
+TA() in
+> the platform data instead of trying to convert the driver to device t=
+ree.
+
+    I meant to type "=EFnstead of trying to convert the paltform data t=
+o device=20
+tree".
+
+>> @@ -2515,17 +2595,32 @@ static int sh_eth_runtime_nop(struct device =
+*dev)
+[...]
+>> +
+>> +#ifdef CONFIG_OF
+>> +static const struct of_device_id sh_eth_match[] =3D {
+>> +    { .compatible =3D "renesas,sh-eth-gigabit", },
+>> +    { .compatible =3D "renesas,sh-eth-sh4", },
+>> +    { .compatible =3D "renesas,sh-eth-sh3-sh2", },
+
+>     Biut this is not really enough: the driver supports much more var=
+iations
+> of the SH and ARM SoCs all of which have difference not only in regis=
+ter
+> layout but also in the registers bits or even presence of the whole r=
+egister
+> blocks. All this IMO should be reflected in the different values of t=
+he
+> compatible "property". BTW, it seems another register layout and inst=
+ance
+
+    I forgot to type istance of what: 'sh_eth_my_cpu_data'.
+
+> needs to be added for the R-Car SoCs (instead of the current ugly hac=
+k).
+
+WBR, Sergei
