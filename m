@@ -1,29 +1,38 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: Can we rely on ethernet header padding?
-Date: Tue, 19 Mar 2013 16:48:06 +0100
-Message-ID: <20130319154806.GB18218@unicorn.suse.cz>
-References: <20130319150545.GA18218@unicorn.suse.cz>
- <1363706495.2558.14.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1363706495.2558.14.camel@edumazet-glaptop>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Christophe Aeschlimann <aeschlimann@gmail.com>
+Subject: [PATCH] ixp4xx_eth: set the device dma_coherent_mask
+Date: Tue, 19 Mar 2013 16:59:25 +0100
+Message-ID: <1363708765-20778-1-git-send-email-c.aeschlimann@acn-group.ch>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Christophe Aeschlimann <c.aeschlimann@acn-group.ch>
+To: khc@pm.waw.pl
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 19, 2013 at 08:21:35AM -0700, Eric Dumazet wrote:
-> 
-> Normally a driver has NET_SKB_PAD bytes of headroom before the ethernet
-> header, so the bridge code is safe only if all drivers use this
-> NET_SKB_PAD padding on receive side. And they really should for
-> performance reasons.
-> 
-> Better not touch bridge code to catch offending drivers
+Without the mask it is impossible to take the network interface up
+since it returns the following error:
 
-That makes sense. Thank you for your reply.
+> net eth1: coherent DMA mask is unset
+> ifconfig: SIOCSIFFLAGS: Cannot allocate memory
 
-                                                   Michal Kubecek
+Tested on an out-of-tree ixp425 based board.
 
+Signed-off-by: Christophe Aeschlimann <c.aeschlimann@acn-group.ch>
+---
+ drivers/net/ethernet/xscale/ixp4xx_eth.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+index 6958a5e..ff23c5c 100644
+--- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
++++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+@@ -1398,6 +1398,7 @@ static int eth_init_one(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
++	dev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+ 	port = netdev_priv(dev);
+ 	port->netdev = dev;
+ 	port->id = pdev->id;
+-- 
+1.7.9
