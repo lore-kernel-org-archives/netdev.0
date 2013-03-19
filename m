@@ -1,79 +1,39 @@
-From: Baker Zhang <baker.kernel@gmail.com>
-Subject: [PATCH] use xfrm direction when lookup policy
-Date: Tue, 19 Mar 2013 20:39:46 +0800
-Message-ID: <1363696786-11128-1-git-send-email-baker.zhang@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Baker Zhang <baker.zhang@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 2/2] net: reset transport header if it was not
+ set before transmission
+Date: Tue, 19 Mar 2013 13:58:04 +0100
+Message-ID: <514860DC.9020404@redhat.com>
+References: <1363333305-54398-1-git-send-email-jasowang@redhat.com>  <1363333305-54398-2-git-send-email-jasowang@redhat.com>  <1363399851.29475.52.camel@edumazet-glaptop>  <20130317.121318.1869489921021513474.davem@davemloft.net>  <51482F55.8020900@redhat.com> <1363695234.21184.36.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jason Wang <jasowang@redhat.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, edumazet@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1363695234.21184.36.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-because xfrm policy direction has same value with corresponding
-flow direction, so this problem is covered.
+On 03/19/2013 01:13 PM, Eric Dumazet wrote:
+> On Tue, 2013-03-19 at 17:26 +0800, Jason Wang wrote:
+>> On 03/18/2013 12:13 AM, David Miller wrote:
+>>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>>> Date: Fri, 15 Mar 2013 19:10:51 -0700
+>>>
+>>>> Any way we can avoid adding this to fast path, for people not using
+>>>> macvtap and ixgbe ?
+>>> Likewise I'd rather see macvtap be responsible for fixing this up by
+>>> setting the transport header properly, and therfore sending well
+>>> formed packets to the rest of the stack.
+>>
+>> Ok, haven't checked all other possibility but looks like packet needs to
+>> be fixed also.
+>
+> Daniel, could you post your patches if ready ?
 
-In xfrm_lookup and __xfrm_policy_check, flow_cache_lookup is used to
-accelerate the lookup.
+Yes, will post them in a couple of minutes.
 
-Flow direction is given to flow_cache_lookup by policy_to_flow_dir.
-
-When the flow cache is mismatched, callback 'resolver' is called.
-
-'resolver' requires xfrm direction,
-so convert direction back to xfrm direction.
-
-Signed-off-by: Baker Zhang <baker.zhang@gmail.com>
----
- net/xfrm/xfrm_policy.c |   23 +++++++++++++++++++++--
- 1 file changed, 21 insertions(+), 2 deletions(-)
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 167c67d..3b8d5ba 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1037,6 +1037,24 @@ __xfrm_policy_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir
- 	return xfrm_policy_lookup_bytype(net, XFRM_POLICY_TYPE_MAIN, fl, family, dir);
- }
- 
-+static inline int flow_to_policy_dir(int dir)
-+{
-+	if (XFRM_POLICY_IN == FLOW_DIR_IN &&
-+	    XFRM_POLICY_OUT == FLOW_DIR_OUT &&
-+	    XFRM_POLICY_FWD == FLOW_DIR_FWD)
-+		return dir;
-+
-+	switch (dir) {
-+	default:
-+	case FLOW_DIR_IN:
-+		return XFRM_POLICY_IN;
-+	case FLOW_DIR_OUT:
-+		return XFRM_POLICY_OUT;
-+	case FLOW_DIR_FWD:
-+		return XFRM_POLICY_FWD;
-+	}
-+}
-+
- static struct flow_cache_object *
- xfrm_policy_lookup(struct net *net, const struct flowi *fl, u16 family,
- 		   u8 dir, struct flow_cache_object *old_obj, void *ctx)
-@@ -1046,7 +1064,7 @@ xfrm_policy_lookup(struct net *net, const struct flowi *fl, u16 family,
- 	if (old_obj)
- 		xfrm_pol_put(container_of(old_obj, struct xfrm_policy, flo));
- 
--	pol = __xfrm_policy_lookup(net, fl, family, dir);
-+	pol = __xfrm_policy_lookup(net, fl, family, flow_to_policy_dir(dir));
- 	if (IS_ERR_OR_NULL(pol))
- 		return ERR_CAST(pol);
- 
-@@ -1932,7 +1950,8 @@ xfrm_bundle_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir,
- 	 * previous cache entry */
- 	if (xdst == NULL) {
- 		num_pols = 1;
--		pols[0] = __xfrm_policy_lookup(net, fl, family, dir);
-+		pols[0] = __xfrm_policy_lookup(net, fl, family,
-+					       flow_to_policy_dir(dir));
- 		err = xfrm_expand_policies(fl, family, pols,
- 					   &num_pols, &num_xfrms);
- 		if (err < 0)
--- 
-1.7.9.5
+> Jason, I believe you could reuse existing flow dissector once Daniel
+> patches are in.
