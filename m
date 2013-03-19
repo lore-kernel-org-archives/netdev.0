@@ -1,38 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/4] tcp: fix too short FIN_WAIT2 time out
-Date: Tue, 19 Mar 2013 09:32:57 -0400 (EDT)
-Message-ID: <20130319.093257.1744500513624729643.davem@davemloft.net>
-References: <1363610163.7121.2.camel@ubuntu-vm-makita>
-	<1363610344.7121.5.camel@ubuntu-vm-makita>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [BUG][mvebu] mvneta: cannot request irq 25 on openblocks-ax3
+Date: Tue, 19 Mar 2013 09:33:24 -0400
+Message-ID: <20130319133324.GS13280@titan.lakedaemon.net>
+References: <51486445.8040506@hitachi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: makita.toshiaki@lab.ntt.co.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42529 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751860Ab3CSNdA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 09:33:00 -0400
-In-Reply-To: <1363610344.7121.5.camel@ubuntu-vm-makita>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.infradead.org,
+	thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"yrl.pp-manager.tt@hitachi.com" <yrl.pp-manager.tt@hitachi.com>
+To: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <51486445.8040506@hitachi.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Date: Mon, 18 Mar 2013 21:39:04 +0900
+On Tue, Mar 19, 2013 at 10:12:37PM +0900, Masami Hiramatsu wrote:
+> Hi,
+> 
+> Here I've hit a bug on the recent kernel. As far as I know, this bug
+> exists on 3.9-rc1 too.
+> 
+> When I tried the latest mvebu for-next tree
+> (git://git.infradead.org/users/jcooper/linux.git mvebu/for-next),
 
->  		if (tp->linger2 >= 0) {
-> -			const int tmo = tcp_fin_time(sk) - TCP_TIMEWAIT_LEN;
-> -
-> -			if (tmo > 0) {
-> -				tcp_time_wait(sk, TCP_FIN_WAIT2, tmo);
-> -				goto out;
-> -			}
-> +			tcp_time_wait(sk, TCP_FIN_WAIT2, TCP_TIMEWAIT_LEN);
-> +			goto out;
->  		}
+FYI: that branch isn't stable, it's used as a merge-test of
+arm-soc/for-next (also not stable) and any branches I am trying to push
+upstream that day.
 
-Well, now you're completely ignoring the user's linger setting.
+Gregory has a patch in the works for this.  Hopefully he'll submit
+it by the end of the week.
 
-I really can't take these patches seriously, and will not apply them,
-sorry.
+thx,
+
+Jason.
