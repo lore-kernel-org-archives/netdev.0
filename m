@@ -1,68 +1,81 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] inet: limit length of fragment queue hash table bucket lists
-Date: Tue, 19 Mar 2013 15:22:28 +0100
-Message-ID: <20130319142228.GB23421@order.stressinduktion.org>
-References: <20130315213230.GB24041@order.stressinduktion.org> <20130319.100324.927922515830950770.davem@davemloft.net> <1363702543.2558.2.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jbrouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:44474 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754869Ab3CSOWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 10:22:30 -0400
-Content-Disposition: inline
-In-Reply-To: <1363702543.2558.2.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Baker Zhang <baker.kernel@gmail.com>
+Subject: [PATCH] use xfrm direction when lookup policy
+Date: Tue, 19 Mar 2013 22:24:30 +0800
+Message-ID: <1363703070-2910-1-git-send-email-baker.zhang@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Baker Zhang <baker.zhang@gmail.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 19, 2013 at 07:15:43AM -0700, Eric Dumazet wrote:
-> On Tue, 2013-03-19 at 10:03 -0400, David Miller wrote:
-> > From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > Date: Fri, 15 Mar 2013 22:32:30 +0100
-> > 
-> > > This patch introduces a constant limit of the fragment queue hash
-> > > table bucket list lengths. Currently the limit 128 is choosen somewhat
-> > > arbitrary and just ensures that we can fill up the fragment cache with
-> > > empty packets up to the default ip_frag_high_thresh limits. It should
-> > > just protect from list iteration eating considerable amounts of cpu.
-> > > 
-> > > If we reach the maximum length in one hash bucket a warning is printed.
-> > > This is implemented on the caller side of inet_frag_find to distinguish
-> > > between the different users of inet_fragment.c.
-> > > 
-> > > I dropped the out of memory warning in the ipv4 fragment lookup path,
-> > > because we already get a warning by the slab allocator.
-> > > 
-> > > Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> > > Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>
-> > > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > 
-> > This looks mostly fine to me, Eric could you give it a quick review?
-> > 
-> 
-> Sure, it looks ok for me
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> 
-> > Although one comment from me:
-> > 
-> > > +/* averaged:
-> > > + * max_depth = default ipfrag_high_thresh / INETFRAGS_HASHSZ /
-> > > + *	       rounded up (SKB_TRUELEN(0) + sizeof(struct ipq or
-> > > + *	       struct frag_queue))
-> > > + */
-> > > +#define INETFRAGS_MAXDEPTH		128
-> > 
-> > If we deem this to be the ideal formula, maybe we can maintain it
-> > accurately and very cheaply at run time.  We'd do this by adding a
-> > handler for the ipfrag_high_thresh sysctl, and use that to recalculate
-> > the maxdepth any time ipfrag_high_thresh is changed by the user.
-> 
-> This can probably be done in a second patch for net-next
+because xfrm policy direction has same value with corresponding
+flow direction, so this problem is covered.
 
-I'll rebase the old patch introducing inet_frag_update_high_thresh ontop
-this one. I think the dynamic update might be useful if we lower the
-maxdepth limit in future.
+In xfrm_lookup and __xfrm_policy_check, flow_cache_lookup is used to
+accelerate the lookup.
+
+Flow direction is given to flow_cache_lookup by policy_to_flow_dir.
+
+When the flow cache is mismatched, callback 'resolver' is called.
+
+'resolver' requires xfrm direction,
+so convert direction back to xfrm direction.
+
+Signed-off-by: Baker Zhang <baker.zhang@gmail.com>
+---
+ net/xfrm/xfrm_policy.c |   23 +++++++++++++++++++++--
+ 1 file changed, 21 insertions(+), 2 deletions(-)
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 167c67d..23cea0f 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1037,6 +1037,24 @@ __xfrm_policy_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir
+ 	return xfrm_policy_lookup_bytype(net, XFRM_POLICY_TYPE_MAIN, fl, family, dir);
+ }
+ 
++static int flow_to_policy_dir(int dir)
++{
++	if (XFRM_POLICY_IN == FLOW_DIR_IN &&
++	    XFRM_POLICY_OUT == FLOW_DIR_OUT &&
++	    XFRM_POLICY_FWD == FLOW_DIR_FWD)
++		return dir;
++
++	switch (dir) {
++	default:
++	case FLOW_DIR_IN:
++		return XFRM_POLICY_IN;
++	case FLOW_DIR_OUT:
++		return XFRM_POLICY_OUT;
++	case FLOW_DIR_FWD:
++		return XFRM_POLICY_FWD;
++	}
++}
++
+ static struct flow_cache_object *
+ xfrm_policy_lookup(struct net *net, const struct flowi *fl, u16 family,
+ 		   u8 dir, struct flow_cache_object *old_obj, void *ctx)
+@@ -1046,7 +1064,7 @@ xfrm_policy_lookup(struct net *net, const struct flowi *fl, u16 family,
+ 	if (old_obj)
+ 		xfrm_pol_put(container_of(old_obj, struct xfrm_policy, flo));
+ 
+-	pol = __xfrm_policy_lookup(net, fl, family, dir);
++	pol = __xfrm_policy_lookup(net, fl, family, flow_to_policy_dir(dir));
+ 	if (IS_ERR_OR_NULL(pol))
+ 		return ERR_CAST(pol);
+ 
+@@ -1932,7 +1950,8 @@ xfrm_bundle_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir,
+ 	 * previous cache entry */
+ 	if (xdst == NULL) {
+ 		num_pols = 1;
+-		pols[0] = __xfrm_policy_lookup(net, fl, family, dir);
++		pols[0] = __xfrm_policy_lookup(net, fl, family,
++					       flow_to_policy_dir(dir));
+ 		err = xfrm_expand_policies(fl, family, pols,
+ 					   &num_pols, &num_xfrms);
+ 		if (err < 0)
+-- 
+1.7.9.5
