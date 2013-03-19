@@ -1,88 +1,36 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/4] xen-netfront: drop skb when skb->len > 65535
-Date: Tue, 19 Mar 2013 21:24:49 +0000
-Message-ID: <1363728289.31336.7.camel@deadeye.wl.decadent.org.uk>
-References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
-	 <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>
-	 <1363606970.30193.22.camel@zakaz.uk.xensource.com>
-	 <1363617642.29093.203.camel@zion.uk.xensource.com>
-	 <1363618459.2963.10.camel@zakaz.uk.xensource.com>
-	 <1363619098.29093.205.camel@zion.uk.xensource.com>
-	 <1363619244.2963.11.camel@zakaz.uk.xensource.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: Can we rely on ethernet header padding?
+Date: Tue, 19 Mar 2013 14:25:53 -0700
+Message-ID: <20130319142553.3e08e7b9@nehalam.linuxnetplumber.net>
+References: <20130319150545.GA18218@unicorn.suse.cz>
+	<1363706495.2558.14.camel@edumazet-glaptop>
+	<20130319154806.GB18218@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"annie.li@oracle.com" <annie.li@oracle.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:43386 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934089Ab3CSVY4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 17:24:56 -0400
-In-Reply-To: <1363619244.2963.11.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20130319154806.GB18218@unicorn.suse.cz>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-03-18 at 15:07 +0000, Ian Campbell wrote:
-> On Mon, 2013-03-18 at 15:04 +0000, Wei Liu wrote:
-> > On Mon, 2013-03-18 at 14:54 +0000, Ian Campbell wrote:
-> > > On Mon, 2013-03-18 at 14:40 +0000, Wei Liu wrote:
-> > > > On Mon, 2013-03-18 at 11:42 +0000, Ian Campbell wrote:
-> > > > > On Mon, 2013-03-18 at 10:35 +0000, Wei Liu wrote:
-> > > > > > The `size' field of Xen network wire format is uint16_t, anything bigger than
-> > > > > > 65535 will cause overflow.
-> > > > > > 
-> > > > > > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> > > > > > ---
-> > > > > >  drivers/net/xen-netfront.c |   12 ++++++++++++
-> > > > > >  1 file changed, 12 insertions(+)
-> > > > > > 
-> > > > > > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> > > > > > index 5527663..8c3d065 100644
-> > > > > > --- a/drivers/net/xen-netfront.c
-> > > > > > +++ b/drivers/net/xen-netfront.c
-> > > > > > @@ -547,6 +547,18 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> > > > > >  	unsigned int len = skb_headlen(skb);
-> > > > > >  	unsigned long flags;
-> > > > > >  
-> > > > > > +	/*
-> > > > > > +	 * wire format of xen_netif_tx_request only supports skb->len
-> > > > > > +	 * < 64K, because size field in xen_netif_tx_request is
-> > > > > > +	 * uint16_t.
-> > > > > 
-> > > > > Is there some field we can set e.g. in struct ethernet_device which
-> > > > > would stop this from happening?
-> > > > > 
-> > > > 
-> > > > struct ethernet_device? I could not find it.
-> > > > 
-> > > > And for struct net_device,
-> > > 
-> > > I meant struct net_device.
-> > > 
-> > > >  there is no field for this AFAICT.
-> > > 
-> > > Interesting. Are hardware devices expected to cope with arbitrary sized
-> > > GSO skbs then I wonder.
-> > > 
+On Tue, 19 Mar 2013 16:48:06 +0100
+Michal Kubecek <mkubecek@suse.cz> wrote:
+
+> On Tue, Mar 19, 2013 at 08:21:35AM -0700, Eric Dumazet wrote:
 > > 
-> > No idea. But there is a macro called GSO_MAX_SIZE (65536) in struct
-> > net_device. :-)
+> > Normally a driver has NET_SKB_PAD bytes of headroom before the ethernet
+> > header, so the bridge code is safe only if all drivers use this
+> > NET_SKB_PAD padding on receive side. And they really should for
+> > performance reasons.
+> > 
+> > Better not touch bridge code to catch offending drivers
 > 
-> But aren't we seeing skb's bigger than that?
+> That makes sense. Thank you for your reply.
 > 
-> Maybe this is just a historical bug in some older guests?
 
-GSO_MAX_SIZE is the maximum payload length, not the maximum total length
-of an skb.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+My view is that the bridge code must check before assuming headroom.
+But because of that, it means a packet copy would be necessary for cases
+where packets arrive without enough headroom.
