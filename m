@@ -1,28 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sfc fixes for stable
-Date: Tue, 19 Mar 2013 11:39:55 -0400 (EDT)
-Message-ID: <20130319.113955.1978808530160968786.davem@davemloft.net>
-References: <1363707481.3491.6.camel@bwh-desktop.uk.solarflarecom.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf v2] IPVS fixes for v3.9
+Date: Tue, 19 Mar 2013 16:42:50 +0100
+Message-ID: <20130319154250.GA5385@localhost>
+References: <1363696850-14766-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	scrum-linux@solarflare.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44098 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756771Ab3CSPj5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 11:39:57 -0400
-In-Reply-To: <1363707481.3491.6.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1363696850-14766-1-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 19 Mar 2013 15:38:01 +0000
+On Tue, Mar 19, 2013 at 09:40:47PM +0900, Simon Horman wrote:
+> Hi Pablo,
+> 
+> The following changes since commit a82783c91d5dce680dbd290ebf301a520b0e72a5:
+> 
+>   netfilter: ip6t_NPT: restrict to mangle table (2013-03-15 12:58:21 +0100)
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes-for-v3.9
 
-> The last is not yet in Linus's tree but I assume you will ask him to
-> pull from net soon.
-
-You should really, as I do, wait until it actually hits Linus tree
-before proposing it for -stable.
+Pulled, thanks Simon.
