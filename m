@@ -1,55 +1,69 @@
-From: Shuah Khan <shuah.khan@hp.com>
-Subject: Re: [PATCH 2/2] dma-debug: Update DMA debug API to better handle
- multiple mappings of a buffer
-Date: Tue, 19 Mar 2013 14:30:22 -0600
-Message-ID: <1363725022.4519.11.camel@lorien2>
-References: <20130318220241.7349.5030.stgit@ahduyck-cp1.jf.intel.com>
-	 <20130318221249.7349.85892.stgit@ahduyck-cp1.jf.intel.com>
-Reply-To: shuah.khan@hp.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v3] packet: packet fanout rollover during
+ socket overload
+Date: Tue, 19 Mar 2013 13:37:17 -0700
+Message-ID: <1363725437.2558.22.camel@edumazet-glaptop>
+References: <1363724291-27580-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, konrad.wilk@oracle.com,
-	joerg.roedel@amd.com, konrad@kernel.org,
-	christoph.paasch@uclouvain.be, mingo@redhat.com, hpa@zytor.com,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, shuah.khan@hp.com
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130318221249.7349.85892.stgit@ahduyck-cp1.jf.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:45200 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933697Ab3CSUhW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 16:37:22 -0400
+Received: by mail-pd0-f179.google.com with SMTP id x10so310726pdj.38
+        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 13:37:21 -0700 (PDT)
+In-Reply-To: <1363724291-27580-1-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-03-18 at 15:12 -0700, Alexander Duyck wrote:
-> There were reports of the igb driver unmapping buffers without calling
-> dma_mapping_error.  On closer inspection issues were found in the DMA debug
-> API and how it handled multiple mappings of the same buffer.
+On Tue, 2013-03-19 at 16:18 -0400, Willem de Bruijn wrote:
+> Changes:
+>   v3->v2: rebase (no other changes)
+>           passes selftest
+>   v2->v1: read f->num_members only once
+>           fix bug: test rollover mode + flag
 > 
-> The issue I found is the fact that the debug_dma_mapping_error would only set
-> the map_err_type to MAP_ERR_CHECKED in the case that the was only one match
-> for device and device address.  However in the case of non-IOMMU, multiple
-> addresses existed and as a result it was not setting this field once a
-> second mapping was instantiated.  I have resolved this by changing the search
-> so that it instead will now set MAP_ERR_CHECKED on the first buffer that
-> matches the device and DMA address that is currently in the state
-> MAP_ERR_NOT_CHECKED.
+> Minimize packet drop in a fanout group. If one socket is full,
+> roll over packets to another from the group. Maintain flow
+> affinity during normal load using an rxhash fanout policy, while
+> dispersing unexpected traffic storms that hit a single cpu, such
+> as spoofed-source DoS flows. Rollover breaks affinity for flows
+> arriving at saturated sockets during those conditions.
 > 
-> A secondary side effect of this patch is that in the case of multiple buffers
-> using the same address only the last mapping will have a valid map_err_type.
-> The previous mappings will all end up with map_err_type set to
-> MAP_ERR_CHECKED because of the dma_mapping_error call in debug_dma_map_page.
-> However this behavior may be preferable as it means you will likely only see
-> one real error per multi-mapped buffer, versus the current behavior of
-> multiple false errors mer multi-mapped buffer.
+> The patch adds a fanout policy ROLLOVER that rotates between sockets,
+> filling each socket before moving to the next. It also adds a fanout
+> flag ROLLOVER. If passed along with any other fanout policy, the
+> primary policy is applied until the chosen socket is full. Then,
+> rollover selects another socket, to delay packet drop until the
+> entire system is saturated.
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Probing sockets is not free. Selecting the last used socket, as
+> rollover does, is a greedy approach that maximizes chance of
+> success, at the cost of extreme load imbalance. In practice, with
+> sufficiently long queues to absorb bursts, sockets are drained in
+> parallel and load balance looks uniform in `top`.
+> 
+> To avoid contention, scales counters with number of sockets and
+> accesses them lockfree. Values are bounds checked to ensure
+> correctness.
+> 
+> Tested using an application with 9 threads pinned to CPUs, one socket
+> per thread and sufficient busywork per packet operation to limits each
+> thread to handling 32 Kpps. When sent 500 Kpps single UDP stream
+> packets, a FANOUT_CPU setup processes 32 Kpps in total without this
+> patch, 270 Kpps with the patch. Tested with read() and with a packet
+> ring (V1). Also, passes unit test (perhaps for selftests) at
+> http://kernel.googlecode.com/files/psock_fanout.c
+> 
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 > ---
+>  include/uapi/linux/if_packet.h |   2 +
+>  net/packet/af_packet.c         | 109 ++++++++++++++++++++++++++++++++---------
+>  net/packet/internal.h          |   3 +-
+>  3 files changed, 90 insertions(+), 24 deletions(-)
 
-Looks good. Tested it as well.
-
-Reviewed-by: shuah.khan@hp.com
-Tested-by: shuah.khan@hp.com
-
-Thanks for finding and fixing the problem.
-
--- Shuah
+Reviewed-by: Eric Dumazet <edumazet@google.com>
