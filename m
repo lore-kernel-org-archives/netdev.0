@@ -1,96 +1,55 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next 1/4] flow_keys: include thoff into flow_keys
- for later usage
-Date: Tue, 19 Mar 2013 15:01:24 +0100
-Message-ID: <51486FB4.1050100@redhat.com>
-References: <cover.1363699285.git.dborkman@redhat.com>  <b80164aa55e82d0c3190fde317aed9bfc09d3fcb.1363699285.git.dborkman@redhat.com> <1363701339.2558.1.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] inet: limit length of fragment queue hash table
+ bucket lists
+Date: Tue, 19 Mar 2013 10:03:24 -0400 (EDT)
+Message-ID: <20130319.100324.927922515830950770.davem@davemloft.net>
+References: <20130315213230.GB24041@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jasowang@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, jbrouer@redhat.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52389 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752123Ab3CSOB2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Mar 2013 10:01:28 -0400
-In-Reply-To: <1363701339.2558.1.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42860 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751874Ab3CSOD0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 10:03:26 -0400
+In-Reply-To: <20130315213230.GB24041@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/19/2013 02:55 PM, Eric Dumazet wrote:
-> On Tue, 2013-03-19 at 14:28 +0100, Daniel Borkmann wrote:
->> In skb_flow_dissect(), we perform a dissection of a skbuff. Since we're
->> doing the work here anyway, also store thoff for a later usage, e.g. in
->> the BPF filter. We need to reorder choke_skb_cb a bit, though. Also, by
->> having thoff 16 Bit, we do not need to pack flow_keys.
->>
->> Suggested-by: Eric Dumazet <edumazet@google.com>
->> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->> ---
->>   include/net/flow_keys.h   | 1 +
->>   net/core/flow_dissector.c | 5 ++++-
->>   net/sched/sch_choke.c     | 4 ++--
->>   3 files changed, 7 insertions(+), 3 deletions(-)
->>
->> diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
->> index 80461c1..bb8271d 100644
->> --- a/include/net/flow_keys.h
->> +++ b/include/net/flow_keys.h
->> @@ -9,6 +9,7 @@ struct flow_keys {
->>   		__be32 ports;
->>   		__be16 port16[2];
->>   	};
->> +	u16 thoff;
->>   	u8 ip_proto;
->>   };
->>
->> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
->> index f8d9e03..eb9dde1 100644
->> --- a/net/core/flow_dissector.c
->> +++ b/net/core/flow_dissector.c
->> @@ -23,7 +23,8 @@ static void iph_to_flow_copy_addrs(struct flow_keys *flow, const struct iphdr *i
->>
->>   bool skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow)
->>   {
->> -	int poff, nhoff = skb_network_offset(skb);
->> +	int poff;
->> +	u16 nhoff = skb_network_offset(skb);
->>   	u8 ip_proto;
->>   	__be16 proto = skb->protocol;
->>
->> @@ -151,6 +152,8 @@ ipv6:
->>   			flow->ports = *ports;
->>   	}
->>
->> +	flow->thoff = nhoff;
->> +
->>   	return true;
->>   }
->>   EXPORT_SYMBOL(skb_flow_dissect);
->> diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
->> index cc37dd5..9854c2b 100644
->> --- a/net/sched/sch_choke.c
->> +++ b/net/sched/sch_choke.c
->> @@ -141,9 +141,9 @@ static void choke_drop_by_idx(struct Qdisc *sch, unsigned int idx)
->>   }
->>
->>   struct choke_skb_cb {
->> -	u16			classid;
->> -	u8			keys_valid;
->>   	struct flow_keys	keys;
->> +	u8			keys_valid;
->> +	u16			classid;
->>   };
->>
->>   static inline struct choke_skb_cb *choke_skb_cb(const struct sk_buff *skb)
->
-> Hmm, we dont need to change choke_skb_cb, as the sizeof(keys) didnt
-> change
->
-> (its aligned on 4 bytes)
->
-> The first version of the patch needed this because we were using an u32
-> field for thoff
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Fri, 15 Mar 2013 22:32:30 +0100
 
-You're right. I will send a version 2 of this set in a while.
+> This patch introduces a constant limit of the fragment queue hash
+> table bucket list lengths. Currently the limit 128 is choosen somewhat
+> arbitrary and just ensures that we can fill up the fragment cache with
+> empty packets up to the default ip_frag_high_thresh limits. It should
+> just protect from list iteration eating considerable amounts of cpu.
+> 
+> If we reach the maximum length in one hash bucket a warning is printed.
+> This is implemented on the caller side of inet_frag_find to distinguish
+> between the different users of inet_fragment.c.
+> 
+> I dropped the out of memory warning in the ipv4 fragment lookup path,
+> because we already get a warning by the slab allocator.
+> 
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+This looks mostly fine to me, Eric could you give it a quick review?
+
+Although one comment from me:
+
+> +/* averaged:
+> + * max_depth = default ipfrag_high_thresh / INETFRAGS_HASHSZ /
+> + *	       rounded up (SKB_TRUELEN(0) + sizeof(struct ipq or
+> + *	       struct frag_queue))
+> + */
+> +#define INETFRAGS_MAXDEPTH		128
+
+If we deem this to be the ideal formula, maybe we can maintain it
+accurately and very cheaply at run time.  We'd do this by adding a
+handler for the ipfrag_high_thresh sysctl, and use that to recalculate
+the maxdepth any time ipfrag_high_thresh is changed by the user.
