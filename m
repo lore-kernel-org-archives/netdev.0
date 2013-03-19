@@ -1,53 +1,35 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [GIT PULL nf-next] IPVS
-Date: Tue, 19 Mar 2013 09:38:40 +0900
-Message-ID: <20130319003840.GG15718@verge.net.au>
-References: <1363612543-9787-1-git-send-email-horms@verge.net.au>
- <20130318233115.GA23070@localhost>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH] drivers/isdn: beautify code, delete 'break' after 'return'
+Date: Tue, 19 Mar 2013 08:53:48 +0800
+Message-ID: <5147B71C.3000603@asianux.com>
+References: <512DCE3B.3050107@asianux.com> <512DCEDC.4030500@asianux.com> <514281B9.7000105@asianux.com> <alpine.LNX.2.00.1303181424590.9529@pobox.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: isdn@linux-pingi.de, Jiri Slaby <jslaby@suse.cz>,
+	Greg KH <gregkh@linuxfoundation.org>, alan@linux.intel.com,
+	netdev <netdev@vger.kernel.org>
+To: Jiri Kosina <jkosina@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:59799 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753287Ab3CSAio (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 20:38:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20130318233115.GA23070@localhost>
+Received: from intranet.asianux.com ([58.214.24.6]:51571 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751358Ab3CSAyR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Mar 2013 20:54:17 -0400
+In-Reply-To: <alpine.LNX.2.00.1303181424590.9529@pobox.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 19, 2013 at 12:31:15AM +0100, Pablo Neira Ayuso wrote:
-> Hi Simon,
-> 
-> On Mon, Mar 18, 2013 at 10:15:38PM +0900, Simon Horman wrote:
-> [...]
-> > ----------------------------------------------------------------
-> > IPVS enhancements for v3.10 from Julian Anastasov
-> > 
-> > ----------------------------------------------------------------
-> > Julian Anastasov (5):
-> >       ipvs: add backup_only flag to avoid loops
-> >       ipvs: remove extra rcu lock
-> >       ipvs: fix sctp chunk length order
-> >       ipvs: fix hashing in ip_vs_svc_hashkey
-> >       ipvs: fix some sparse warnings
-> 
-> I think that these three fixes:
-> 
-> ipvs: add backup_only flag to avoid loops
-> ipvs: remove extra rcu lock
-> ipvs: fix sctp chunk length order
-> 
-> should find their path to the net tree.
-> 
-> The remaining two sparse fixes should go to net-next.
-> 
-> I can manually apply these patch if you want to the corresponding
-> trees.
+On 2013=C4=EA03=D4=C218=C8=D5 21:25, Jiri Kosina wrote:
+> On Fri, 15 Mar 2013, Chen Gang wrote:
+>=20
+>> > Hello Maintainers:
+>> >=20
+>> >   is it patch ok ?
+> This one is now applied.
 
-Thanks. I'll send two fresh pull requests shortly.
+  thanks.
+
+--=20
+Chen Gang
+
+Asianux Corporation
