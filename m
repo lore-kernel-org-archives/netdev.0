@@ -1,55 +1,39 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: Re: [BUG][mvebu] mvneta: cannot request irq 25 on
- openblocks-ax3
-Date: Tue, 19 Mar 2013 10:33:04 -0400
-Message-ID: <20130319143304.GT13280@titan.lakedaemon.net>
-References: <51486445.8040506@hitachi.com>
- <20130319133324.GS13280@titan.lakedaemon.net>
- <514873D9.6060704@hitachi.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel@lists.infradead.org,
-	thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"yrl.pp-manager.tt@hitachi.com" <yrl.pp-manager.tt@hitachi.com>
-To: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <514873D9.6060704@hitachi.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH v2 net-next 0/4] net: filter: BPF updates
+Date: Tue, 19 Mar 2013 15:33:59 +0100
+Message-ID: <cover.1363702456.git.dborkman@redhat.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, jasowang@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56283 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752639Ab3CSOeG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 10:34:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 19, 2013 at 11:19:05PM +0900, Masami Hiramatsu wrote:
-> Hi Jason,
-> 
-> (2013/03/19 22:33), Jason Cooper wrote:
-> > On Tue, Mar 19, 2013 at 10:12:37PM +0900, Masami Hiramatsu wrote:
-> >> Hi,
-> >>
-> >> Here I've hit a bug on the recent kernel. As far as I know, this bug
-> >> exists on 3.9-rc1 too.
-> >>
-> >> When I tried the latest mvebu for-next tree
-> >> (git://git.infradead.org/users/jcooper/linux.git mvebu/for-next),
-> > 
-> > FYI: that branch isn't stable, it's used as a merge-test of
-> > arm-soc/for-next (also not stable) and any branches I am trying to push
-> > upstream that day.
-> 
-> Thanks! could you tell me which branch is stable?
-> (however, I'd like to try new fixes/features on my device too :))
+This set adds i) an ancillary operation to the BPF engine and ii) a
+BPF JIT image disassembler in order to verify or debug the BPF JIT
+compilers under arch/*/net/.
 
-Generally, we advise using one of Linus' tags (eg v3.9-rc3).  Only if
-that doesn't work, seek out a branch containing the fix/feature.  When
-in doubt, I'll do:
+v1 -> v2:
+	- No need to reorder choke_skb_cb structure
 
-$ ./scripts/get_maintainer.pl -f drivers/net/ethernet/marvell/mvneta.c
+Daniel Borkmann (4):
+  flow_keys: include thoff into flow_keys for later usage
+  net: flow_dissector: add __skb_get_poff to get a start offset to payload
+  filter: add ANC_PAY_OFFSET instruction for loading payload start offset
+  filter: add minimal BPF JIT emitted image disassembler
 
-and ask those listed which branch might contain a fix or feature.
+ include/linux/filter.h      |   1 +
+ include/linux/skbuff.h      |   2 +
+ include/net/flow_keys.h     |   1 +
+ include/uapi/linux/filter.h |   3 +-
+ net/core/filter.c           |   5 +
+ net/core/flow_dissector.c   |  62 ++++++++++++-
+ scripts/bpf_jit_disasm.c    | 216 ++++++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 288 insertions(+), 2 deletions(-)
+ create mode 100644 scripts/bpf_jit_disasm.c
 
-In this case, it'll probably go through David Miller and the netdev
-mailinglist, but it isn't there yet.  ;-)
-
-hth,
-
-Jason.
+-- 
+1.7.11.7
