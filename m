@@ -1,36 +1,30 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Can we rely on ethernet header padding?
-Date: Tue, 19 Mar 2013 14:25:53 -0700
-Message-ID: <20130319142553.3e08e7b9@nehalam.linuxnetplumber.net>
-References: <20130319150545.GA18218@unicorn.suse.cz>
-	<1363706495.2558.14.camel@edumazet-glaptop>
-	<20130319154806.GB18218@unicorn.suse.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 1/5] GRE: Refactor GRE tunneling code.
+Date: Tue, 19 Mar 2013 17:26:45 -0400 (EDT)
+Message-ID: <20130319.172645.2081434694692631052.davem@davemloft.net>
+References: <1363630405-1672-1-git-send-email-pshelar@nicira.com>
+	<20130319142141.5d32cae2@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20130319154806.GB18218@unicorn.suse.cz>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: pshelar@nicira.com, netdev@vger.kernel.org, jesse@nicira.com
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48762 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933767Ab3CSV0q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 17:26:46 -0400
+In-Reply-To: <20130319142141.5d32cae2@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 19 Mar 2013 16:48:06 +0100
-Michal Kubecek <mkubecek@suse.cz> wrote:
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 19 Mar 2013 14:21:41 -0700
 
-> On Tue, Mar 19, 2013 at 08:21:35AM -0700, Eric Dumazet wrote:
-> > 
-> > Normally a driver has NET_SKB_PAD bytes of headroom before the ethernet
-> > header, so the bridge code is safe only if all drivers use this
-> > NET_SKB_PAD padding on receive side. And they really should for
-> > performance reasons.
-> > 
-> > Better not touch bridge code to catch offending drivers
+> Doesn't build with this patch alone (ie. not bisectable).
 > 
-> That makes sense. Thank you for your reply.
-> 
+>   CC [M]  net/ipv6/ip6_gre.o
+> net/ipv6/ip6_gre.c:41:27: fatal error: net/ip_tunnel.h: No such file or directory
+> compilation terminated.
 
-My view is that the bridge code must check before assuming headroom.
-But because of that, it means a packet copy would be necessary for cases
-where packets arrive without enough headroom.
+Oh well, too late, it's all already in my tree.
