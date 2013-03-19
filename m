@@ -1,111 +1,53 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: Re: [BUG][mvebu] mvneta: cannot request irq 25 on openblocks-ax3
-Date: Tue, 19 Mar 2013 10:39:30 -0300
-Message-ID: <20130319133928.GE3137@localhost>
-References: <51486445.8040506@hitachi.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH 2/4] xen-netfront: drop skb when skb->len
+ > 65535
+Date: Tue, 19 Mar 2013 13:40:45 +0000
+Message-ID: <51486ADD.5050603@citrix.com>
+References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>	 <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>	 <51471AAC.2050509@citrix.com>	 <1363614500.30193.47.camel@zakaz.uk.xensource.com>	 <51471DE0.9060506@citrix.com> <1363616388.29093.201.camel@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="bg08WKrSYDhXBjb5"
-Content-Transfer-Encoding: 8bit
-Cc: linux-arm-kernel@lists.infradead.org,
-	thomas.petazzoni@free-electrons.com,
-	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"yrl.pp-manager.tt@hitachi.com" <yrl.pp-manager.tt@hitachi.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>
-To: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <51486445.8040506@hitachi.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:21473 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755332Ab3CSNlR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 09:41:17 -0400
+In-Reply-To: <1363616388.29093.201.camel@zion.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---bg08WKrSYDhXBjb5
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: 8bit
-
-Hi Masami,
-
-On Tue, Mar 19, 2013 at 10:12:37PM +0900, Masami Hiramatsu wrote:
+On 18/03/13 14:19, Wei Liu wrote:
+> On Mon, 2013-03-18 at 14:00 +0000, David Vrabel wrote:
+>> On 18/03/13 13:48, Ian Campbell wrote:
+>>> On Mon, 2013-03-18 at 13:46 +0000, David Vrabel wrote:
+>>>> On 18/03/13 10:35, Wei Liu wrote:
+>>>>> The `size' field of Xen network wire format is uint16_t, anything bigger than
+>>>>> 65535 will cause overflow.
+>>>>
+>>>> The backend needs to be able to handle these bad packets without
+>>>> disconnecting the VIF -- we can't fix all the frontend drivers.
+>>>
+>>> Agreed, although that doesn't imply that we shouldn't fix the frontend
+>>> where we can -- such as upstream as Wei does here.
+>>
+>> Yes, frontends should be fixed where possible.
+>>
+>> This is what I came up with for the backend.  I don't have time to look
+>> into it further but, Wei, feel free to use it as a starting point.
+>>
 > 
-> Here I've hit a bug on the recent kernel. As far as I know, this bug
-> exists on 3.9-rc1 too.
+> Thanks for this patch.
 > 
-> When I tried the latest mvebu for-next tree
-> (git://git.infradead.org/users/jcooper/linux.git mvebu/for-next),
-> I got below warning at bootup time and mvneta didn't work (link was never up).
-> I ensured that "ifconfig ethX up" always caused that.
-> 
-> Does anyone succeed to boot openblocks-ax3 recently or hit same
-> trouble?
+> I haven't gone through XSA-39 discussion, this is why I didn't come up
+> with a fix for backend -- I need to make sure dropping packet like this
+> won't re-exhibit the security hole.
 
-This is a known bug. Gregory Clement already has a fix and he
-will submit it soon. In case you need this fixed ASAP, I'm attaching
-you a patch with a fix.
+How are these overlarge packets generated?  How do you reproduce the issue?
 
-Please note the attached patch is not ready for mainline inclusion,
-as I said Gregory will submit a cleaner version soon.
-
--- 
-Ezequiel García, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
-
---bg08WKrSYDhXBjb5
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: attachment; filename="0001-net-mvneta-convert-to-percpu-interrupt.patch"
-
->From 03080b4e459b103b97b658789658f118053de522 Mon Sep 17 00:00:00 2001
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Date: Sat, 9 Feb 2013 22:07:54 +0100
-Subject: [PATCH] net: mvneta: convert to percpu interrupt
-
-Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvneta.c |   12 +++++++++---
- 1 files changed, 9 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index b6025c3..7f63dd4 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -1800,7 +1800,7 @@ static void mvneta_set_rx_mode(struct net_device *dev)
- /* Interrupt handling - the callback for request_irq() */
- static irqreturn_t mvneta_isr(int irq, void *dev_id)
- {
--	struct mvneta_port *pp = (struct mvneta_port *)dev_id;
-+	struct mvneta_port *pp = *(struct mvneta_port **)dev_id;
- 
- 	/* Mask all interrupts */
- 	mvreg_write(pp, MVNETA_INTR_NEW_MASK, 0);
-@@ -2368,6 +2368,7 @@ static void mvneta_mdio_remove(struct mvneta_port *pp)
- 	phy_disconnect(pp->phy_dev);
- 	pp->phy_dev = NULL;
- }
-+static struct mvneta_port __percpu **percpu_pp;
- 
- static int mvneta_open(struct net_device *dev)
- {
-@@ -2386,9 +2387,14 @@ static int mvneta_open(struct net_device *dev)
- 	if (ret)
- 		goto err_cleanup_rxqs;
- 
-+	percpu_pp = alloc_percpu(struct mvneta_port *);
-+	*__this_cpu_ptr(percpu_pp) = pp;
-+
- 	/* Connect to port interrupt line */
--	ret = request_irq(pp->dev->irq, mvneta_isr, 0,
--			  MVNETA_DRIVER_NAME, pp);
-+	ret = request_percpu_irq(pp->dev->irq, mvneta_isr,
-+			  MVNETA_DRIVER_NAME, percpu_pp);
-+	enable_percpu_irq(pp->dev->irq, 0);
-+
- 	if (ret) {
- 		netdev_err(pp->dev, "cannot request irq %d\n", pp->dev->irq);
- 		goto err_cleanup_txqs;
--- 
-1.7.8.6
-
-
---bg08WKrSYDhXBjb5--
+David
