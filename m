@@ -1,61 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] packet: Fix compile error
-Date: Tue, 19 Mar 2013 19:06:31 -0400 (EDT)
-Message-ID: <20130319.190631.2091411479204926509.davem@davemloft.net>
-References: <1363730481-7168-1-git-send-email-dbaluta@ixiacom.com>
-	<20130319.180722.1735800542274116990.davem@davemloft.net>
-	<CAEnQRZAVBqQ3Hz84YeyqHcKc9kS93TTQoz3H3ag2cTtQPYt68g@mail.gmail.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: [PATCH] netfilter: remove unused "config IP_NF_QUEUE"
+Date: Wed, 20 Mar 2013 00:09:59 +0100
+Message-ID: <1363734599.1390.50.camel@x61.thuisdomein>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: willemb@google.com, edumazet@google.com, netdev@vger.kernel.org
-To: daniel.baluta@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49740 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752116Ab3CSXGn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 19:06:43 -0400
-In-Reply-To: <CAEnQRZAVBqQ3Hz84YeyqHcKc9kS93TTQoz3H3ag2cTtQPYt68g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGFuaWVsIEJhbHV0YSA8ZGFuaWVsLmJhbHV0YUBnbWFpbC5jb20+DQpEYXRlOiBXZWQs
-IDIwIE1hciAyMDEzIDAwOjQ2OjM4ICswMjAwDQoNCj4gT24gV2VkLCBNYXIgMjAsIDIwMTMgYXQg
-MTI6MDcgQU0sIERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4gd3JvdGU6DQo+PiBG
-cm9tOiBEYW5pZWwgQmFsdXRhIDxkYmFsdXRhQGl4aWFjb20uY29tPg0KPj4gRGF0ZTogV2VkLCAy
-MCBNYXIgMjAxMyAwMDowMToyMSArMDIwMA0KPj4NCj4+PiBQQUNLRVRfRkFOT1VUX1JPTExPVkVS
-IGFuZCBQQUNLRVRfRkFOT1VUX0ZMQUdfUk9MTE9WRVIgYXJlIG5vdCBkZWNsYXJlZCBpbg0KPj4+
-IDx0cmVlPi91c3IvaW5jbHVkZS9saW51eC9pZl9wYWNrZXQuaCB0b2dldGhlciB3aXRoIHRoZSBv
-dGhlciBQQUNLRVRfRkFOT1VUXyogbWFjcm9zDQo+Pj4gYXMgb25lIHdvdWxkIGV4cGVjdC4gVGhp
-cyBjYXVzZXMgdGhlIGZvbGxvd2luZyBjb21waWxhdGlvbiBlcnJvcjoNCj4+PiA8c25pcD4NCj4+
-PiBwc29ja19mYW5vdXQuYzogSW4gZnVuY3Rpb24goXRlc3RfY29udHJvbF9zaW5nbGWiOg0KPj4+
-IHBzb2NrX2Zhbm91dC5jOjIzMDoyMzogZXJyb3I6IKFQQUNLRVRfRkFOT1VUX1JPTExPVkVSoiB1
-bmRlY2xhcmVkIChmaXJzdCB1c2UgaW4gdGhpcyBmdW5jdGlvbikNCj4+PiA8L3NuaXA+DQo+Pj4N
-Cj4+PiBTaWduZWQtb2ZmLWJ5OiBEYW5pZWwgQmFsdXRhIDxkYmFsdXRhQGl4aWFjb20uY29tPg0K
-Pj4NCj4+IE5vLCBpbiBmYWN0LCBhbGwgb2YgdGhlc2Ugc2hvdWxkIGJlIHJlbW92ZWQgY29tcGxl
-dGVseS4NCj4+DQo+PiBUaGV5IGFyZSBwcm92aWRlZCBieSB0aGUgaGVhZGVyIGZpbGVzIHVuZGVy
-IGxpbnV4L3Vzci9pbmNsdWRlIHdoaWNoDQo+PiBnZXQgY3JlYXRlZCBieSB0aGUgIm1ha2UgaGVh
-ZGVyc19pbnN0YWxsIiBydWxlLg0KPj4NCj4+IFNvIHlvdSBlaXRoZXIgbmVlZCB0byBydW4gdGhl
-ICJtYWtlIGhlYWRlcnNfaW5zdGFsbCIgcnVsZSBiZWZvcmUNCj4+IGJ1aWxkaW5nIHRoZSB0ZXN0
-cywgb3IgaW5zdGFsbCB0aGUgdXBkYXRlZCBoZWFkZXJzIHVuZGVyIC91c3IvaW5jbHVkZQ0KPj4g
-b24geW91ciB0ZXN0IG1hY2hpbmUuDQo+Pg0KPj4gSSdsbCByZW1vdmUgdGhlIGRlZmluZXMgZnJv
-bSB0aGUgdGVzdCwgdGhhbmtzIGZvciBwb2ludGluZyB0aGlzDQo+PiBvdXQuDQo+IA0KPiBTb3Jy
-eSBpZiBJIGFtIG1pc3Npbmcgc29tZXRoaW5nIGJ1dCBJIGRvbid0IHRoaW5rIGl0J3MgbmVjZXNz
-YXJ5IHRvDQo+ICJtYWtlIGhlYWRlcnNfaW5zdGFsbCIgYmVjYXVzZSBzZWxmdGVzdHMgY29tcGls
-YXRvbiB0YXJnZXQgYWxyZWFkeQ0KPiBpbmNsdWRlIC1JLi4vLi4vLi4vLi4vdXNyL2luY2x1ZGUv
-IHRoYXQgcG9pbnRzIHRvIGxpbnV4L3Vzci9pbmNsdWRlLg0KDQoibWFrZSBoZWFkZXJzX2luc3Rh
-bGwiIHBvcHVsYXRlcyB0aGUgdG9wLWxldmVsIHVzci9pbmNsdWRlLyB3aXRoDQphY3R1YWwgaGVh
-ZGVyIGZpbGVzLg0KDQpZb3UgbmVlZCB0byBkbyB0aGlzLCB1bmxlc3MgeW91IGhhdmUgdGhlIGhl
-YWRlciBjaGVjayBrY29uZmlnIG9wdGlvbg0KZW5hYmxlZC4NCg0KVGhhdCdzIGhvdyB0aGUgdGVz
-dHMgY2FuIG9idGFpbiB0aGUgdmVyc2lvbiBvZiB0aGUgaGVhZGVycyBpbiB0aGUNCmtlcm5lbCB0
-cmVlIGluIHdoaWNoIHRoZXkgbGl2ZSwgcmF0aGVyIHRoYW4gdGhlIHN5c3RlbSBoZWFkZXJzLg0K
-DQo+IEFueWhvdywgdGhpcyBpcyBub3QgYW4gaXNzdWUgOikuIFRoZSBwcm9ibGVtIGlzIHRoYXQg
-dGhlcmUgaXMgbm8gZGVmaW5pdGlvbg0KPiBmb3IgUEFDS0VUX0ZBTk9VVF9ST0xMT1ZFUiBvciBQ
-QUNLRVRfRkFOT1VUX0ZMQUdfUk9MTE9WRVIsDQo+IGFuZCB0aGUgY29tcGlsYXRpb24gc3RpbGwg
-ZmFpbHM6DQo+IA0KPiAkIG1ha2UNCj4gZ2NjIC1XYWxsIC1JLi4vLi4vLi4vLi4vdXNyL2luY2x1
-ZGUvIC1vIHBzb2NrX2Zhbm91dCBwc29ja19mYW5vdXQuYw0KPiBwc29ja19mYW5vdXQuYzogSW4g
-ZnVuY3Rpb24goXRlc3RfY29udHJvbF9zaW5nbGWiOg0KPiBwc29ja19mYW5vdXQuYzoyMTI6MjM6
-IGVycm9yOiChUEFDS0VUX0ZBTk9VVF9ST0xMT1ZFUqIgdW5kZWNsYXJlZA0KPiAoZmlyc3QgdXNl
-IGluIHRoaXMgZnVuY3Rpb24pDQo+IA0KPiBPbiB5b3VyIHN5c3RlbSB3aGVyZSBkb2VzIFBBQ0tF
-VF9GQU5PVVRfUk9MTE9WRVIgZ2V0cyBkZWZpbmVkPw0KDQpJbiBpbmNsdWRlL3VhcGkvbGludXgv
-aWZfcGFja2V0LmggdmlhIHVzci9pbmNsdWRlL2xpbnV4L2lmX3BhY2tldC5oDQo=
+Kconfig symbol IP_NF_QUEUE is unused since commit
+d16cf20e2f2f13411eece7f7fb72c17d141c4a84 ("netfilter: remove ip_queue
+support"). Let's remove it too.
+
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+---
+Eyeball tested.
+
+ net/ipv4/netfilter/Kconfig | 13 -------------
+ 1 file changed, 13 deletions(-)
+
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+index ce2d43e..0d755c5 100644
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -36,19 +36,6 @@ config NF_CONNTRACK_PROC_COMPAT
+ 
+ 	  If unsure, say Y.
+ 
+-config IP_NF_QUEUE
+-	tristate "IP Userspace queueing via NETLINK (OBSOLETE)"
+-	depends on NETFILTER_ADVANCED
+-	help
+-	  Netfilter has the ability to queue packets to user space: the
+-	  netlink device can be used to access them using this driver.
+-
+-	  This option enables the old IPv4-only "ip_queue" implementation
+-	  which has been obsoleted by the new "nfnetlink_queue" code (see
+-	  CONFIG_NETFILTER_NETLINK_QUEUE).
+-
+-	  To compile it as a module, choose M here.  If unsure, say N.
+-
+ config IP_NF_IPTABLES
+ 	tristate "IP tables support (required for filtering/masq/NAT)"
+ 	default m if NETFILTER_ADVANCED=n
+-- 
+1.7.11.7
