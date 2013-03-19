@@ -1,74 +1,73 @@
 From: Tom Parkin <tparkin@katalix.com>
-Subject: [PATCH 03/12] l2tp: export l2tp_tunnel_closeall
-Date: Tue, 19 Mar 2013 16:11:14 +0000
-Message-ID: <1363709483-24021-4-git-send-email-tparkin@katalix.com>
+Subject: [PATCH 04/12] l2tp: close sessions in ip socket destroy callback
+Date: Tue, 19 Mar 2013 16:11:15 +0000
+Message-ID: <1363709483-24021-5-git-send-email-tparkin@katalix.com>
 References: <1363709483-24021-1-git-send-email-tparkin@katalix.com>
 Cc: Tom Parkin <tparkin@katalix.com>,
 	James Chapman <jchapman@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:36143 "EHLO bert.katalix.com"
+Received: from katalix.com ([82.103.140.233]:36144 "EHLO bert.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932730Ab3CSQLa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932764Ab3CSQLa (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 19 Mar 2013 12:11:30 -0400
 In-Reply-To: <1363709483-24021-1-git-send-email-tparkin@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-l2tp_core internally uses l2tp_tunnel_closeall to close all sessions in a
-tunnel when a UDP-encapsulation socket is destroyed.  We need to do something
-similar for IP-encapsulation sockets.
-
-Export l2tp_tunnel_closeall as a GPL symbol to enable l2tp_ip and l2tp_ip6 to
-call it from their .destroy handlers.
+l2tp_core hooks UDP's .destroy handler to gain advance warning of a tunnel
+socket being closed from userspace.  We need to do the same thing for
+IP-encapsulation sockets.
 
 Signed-off-by: Tom Parkin <tparkin@katalix.com>
 Signed-off-by: James Chapman <jchapman@katalix.com>
 ---
- net/l2tp/l2tp_core.c |    4 ++--
- net/l2tp/l2tp_core.h |    1 +
- 2 files changed, 3 insertions(+), 2 deletions(-)
+ net/l2tp/l2tp_ip.c  |    6 ++++++
+ net/l2tp/l2tp_ip6.c |    7 +++++++
+ 2 files changed, 13 insertions(+)
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index ee726a7..287e327 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -114,7 +114,6 @@ struct l2tp_net {
- 
- static void l2tp_session_set_header_len(struct l2tp_session *session, int version);
- static void l2tp_tunnel_free(struct l2tp_tunnel *tunnel);
--static void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel);
- 
- static inline struct l2tp_net *l2tp_pernet(struct net *net)
+diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
+index 7f41b70..571db8d 100644
+--- a/net/l2tp/l2tp_ip.c
++++ b/net/l2tp/l2tp_ip.c
+@@ -228,10 +228,16 @@ static void l2tp_ip_close(struct sock *sk, long timeout)
+ static void l2tp_ip_destroy_sock(struct sock *sk)
  {
-@@ -1312,7 +1311,7 @@ end:
+ 	struct sk_buff *skb;
++	struct l2tp_tunnel *tunnel = l2tp_sock_to_tunnel(sk);
  
- /* When the tunnel is closed, all the attached sessions need to go too.
-  */
--static void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel)
-+void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel)
- {
- 	int hash;
- 	struct hlist_node *walk;
-@@ -1375,6 +1374,7 @@ again:
- 	}
- 	write_unlock_bh(&tunnel->hlist_lock);
+ 	while ((skb = __skb_dequeue_tail(&sk->sk_write_queue)) != NULL)
+ 		kfree_skb(skb);
+ 
++	if (tunnel) {
++		l2tp_tunnel_closeall(tunnel);
++		sock_put(sk);
++	}
++
+ 	sk_refcnt_debug_dec(sk);
  }
-+EXPORT_SYMBOL_GPL(l2tp_tunnel_closeall);
  
- /* Tunnel socket destroy hook for UDP encapsulation */
- static void l2tp_udp_encap_destroy(struct sock *sk)
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 8eb8f1d..b0861f6 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -240,6 +240,7 @@ extern struct l2tp_tunnel *l2tp_tunnel_find(struct net *net, u32 tunnel_id);
- extern struct l2tp_tunnel *l2tp_tunnel_find_nth(struct net *net, int nth);
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index 41f2f81..c74f5a9 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -241,10 +241,17 @@ static void l2tp_ip6_close(struct sock *sk, long timeout)
  
- extern int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg, struct l2tp_tunnel **tunnelp);
-+extern void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel);
- extern int l2tp_tunnel_delete(struct l2tp_tunnel *tunnel);
- extern struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunnel, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg);
- extern int l2tp_session_delete(struct l2tp_session *session);
+ static void l2tp_ip6_destroy_sock(struct sock *sk)
+ {
++	struct l2tp_tunnel *tunnel = l2tp_sock_to_tunnel(sk);
++
+ 	lock_sock(sk);
+ 	ip6_flush_pending_frames(sk);
+ 	release_sock(sk);
+ 
++	if (tunnel) {
++		l2tp_tunnel_closeall(tunnel);
++		sock_put(sk);
++	}
++
+ 	inet6_destroy_sock(sk);
+ }
+ 
 -- 
 1.7.9.5
