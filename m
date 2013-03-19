@@ -1,55 +1,51 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH v2 net-next 1/5] GRE: Refactor GRE tunneling code.
-Date: Tue, 19 Mar 2013 11:31:30 +0100
-Message-ID: <87r4jb1y0t.fsf@nemi.mork.no>
-References: <1363630405-1672-1-git-send-email-pshelar@nicira.com>
-	<20130318122409.00c01106@nehalam.linuxnetplumber.net>
-	<20130318.153319.206719819832403477.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] net_sched: don't do precise pkt_len
+ computation for untrusted packets
+Date: Tue, 19 Mar 2013 05:10:40 -0700
+Message-ID: <1363695040.21184.32.camel@edumazet-glaptop>
+References: <1363333305-54398-1-git-send-email-jasowang@redhat.com>
+	 <20130317.121026.733329595817911776.davem@davemloft.net>
+	 <51482F14.9030407@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: stephen@networkplumber.org, pshelar@nicira.com,
-	netdev@vger.kernel.org, jesse@nicira.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:46770 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750773Ab3CSKbr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 06:31:47 -0400
-In-Reply-To: <20130318.153319.206719819832403477.davem@davemloft.net> (David
-	Miller's message of "Mon, 18 Mar 2013 15:33:19 -0400 (EDT)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, edumazet@google.com,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51482F14.9030407@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
-> From: Stephen Hemminger <stephen@networkplumber.org>
->> On Mon, 18 Mar 2013 11:13:25 -0700
->> Pravin B Shelar <pshelar@nicira.com> wrote:
->>=20
->>> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
->>> index 7944df7..2073226 100644
->>> --- a/net/ipv4/Kconfig
->>> +++ b/net/ipv4/Kconfig
->>> @@ -186,9 +186,14 @@ config NET_IPGRE_DEMUX
->>>  	 This is helper module to demultiplex GRE packets on GRE version =
-field criteria.
->>>  	 Required by ip_gre and pptp modules.
->>> =20
->>> +config NET_IP_TUNNEL
->>> +	tristate
->>> +	default n
->>> +
->>=20
->> Won't this break existing kernel config's, shouldn't this default y?
->
-> Or "m".  But indeed, it should be made to automatically work for
-> existing configs.
+On Tue, 2013-03-19 at 17:25 +0800, Jason Wang wrote:
 
-Won't the "select NET_IP_TUNNEL" statements do just that?
+> I believe before doing header check for untrusted packets, the only
+> thing we can trust is skb->len and that's we've used before
+> 1def9238d4aa2. But after that, we're trying to use unchecked or
+> meaningless value (e.g gso_segs were reset to zero in
+> tun/macvtap/packet), and guest then can utilize this to result a very
+> huge (-1U) pkt_len by filling evil value in the header. Can all kinds of
+> packet scheduler survive this kinds of possible DOS?
 
-Changing the default to m will enable this module even if all of
-NET_IPGRE, VXLAN and NET_IPIP are disabled. That's pointless, isn't it?
+I would use the flow dissector to fix the transport header from all
+DODGY providers.
 
+Daniel Borkmann is working on a patch serie adding nhoff into flow_keys,
+and adding __skb_get_poff(const struct sk_buff *skb), for a BPF
+extension we talked about in Copenhagen / Netfilter Workshop.
 
+You could then set the transport header offset to the right value.
 
-Bj=C3=B8rn
+(and drop evil packets before they go further in the stack)
+
+if (gso_packet(skb)) {
+	u32 poff = __skb_get_poff(skb);
+
+	if (!poff) {
+		drop_evil_packet(skb);
+	} else {
+		skb_set_transport_header(skb, poff);
+		...
+	}
+}
