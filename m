@@ -1,308 +1,37 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next v3] packet: packet fanout rollover during socket overload
-Date: Tue, 19 Mar 2013 16:18:11 -0400
-Message-ID: <1363724291-27580-1-git-send-email-willemb@google.com>
-Cc: Willem de Bruijn <willemb@google.com>
-To: eric.dumazet@gmail.com, davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f74.google.com ([209.85.212.74]:54139 "EHLO
-	mail-vb0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752872Ab3CSUSr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 16:18:47 -0400
-Received: by mail-vb0-f74.google.com with SMTP id r6so86651vbi.3
-        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 13:18:46 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shuah Khan <shuah.khan@hp.com>
+Subject: Re: [PATCH 1/2] dma-debug: Fix locking bug in check_unmap
+Date: Tue, 19 Mar 2013 14:29:07 -0600
+Message-ID: <1363724947.4519.9.camel@lorien2>
+References: <20130318220241.7349.5030.stgit@ahduyck-cp1.jf.intel.com>
+	 <20130318221243.7349.64147.stgit@ahduyck-cp1.jf.intel.com>
+Reply-To: shuah.khan@hp.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, konrad.wilk@oracle.com,
+	joerg.roedel@amd.com, konrad@kernel.org,
+	christoph.paasch@uclouvain.be, mingo@redhat.com, hpa@zytor.com,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com, shuah.khan@hp.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130318221243.7349.64147.stgit@ahduyck-cp1.jf.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Changes:
-  v3->v2: rebase (no other changes)
-          passes selftest
-  v2->v1: read f->num_members only once
-          fix bug: test rollover mode + flag
+On Mon, 2013-03-18 at 15:12 -0700, Alexander Duyck wrote:
+> In check_unmap it is possible to get into a dead-locked state if
+> dma_mapping_error is called.  The problem is that the bucket is locked in
+> check_unmap, and locked again by debug_dma_mapping_error which is called by
+> dma_mapping_error.  To resolve that we must release the lock on the bucket
+> before making the call to dma_mapping_error.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Minimize packet drop in a fanout group. If one socket is full,
-roll over packets to another from the group. Maintain flow
-affinity during normal load using an rxhash fanout policy, while
-dispersing unexpected traffic storms that hit a single cpu, such
-as spoofed-source DoS flows. Rollover breaks affinity for flows
-arriving at saturated sockets during those conditions.
+Looks good.
 
-The patch adds a fanout policy ROLLOVER that rotates between sockets,
-filling each socket before moving to the next. It also adds a fanout
-flag ROLLOVER. If passed along with any other fanout policy, the
-primary policy is applied until the chosen socket is full. Then,
-rollover selects another socket, to delay packet drop until the
-entire system is saturated.
+Reviewed-by: Shuah Khan
+Tested-by Shuah Khan
 
-Probing sockets is not free. Selecting the last used socket, as
-rollover does, is a greedy approach that maximizes chance of
-success, at the cost of extreme load imbalance. In practice, with
-sufficiently long queues to absorb bursts, sockets are drained in
-parallel and load balance looks uniform in `top`.
-
-To avoid contention, scales counters with number of sockets and
-accesses them lockfree. Values are bounds checked to ensure
-correctness.
-
-Tested using an application with 9 threads pinned to CPUs, one socket
-per thread and sufficient busywork per packet operation to limits each
-thread to handling 32 Kpps. When sent 500 Kpps single UDP stream
-packets, a FANOUT_CPU setup processes 32 Kpps in total without this
-patch, 270 Kpps with the patch. Tested with read() and with a packet
-ring (V1). Also, passes unit test (perhaps for selftests) at
-http://kernel.googlecode.com/files/psock_fanout.c
-
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- include/uapi/linux/if_packet.h |   2 +
- net/packet/af_packet.c         | 109 ++++++++++++++++++++++++++++++++---------
- net/packet/internal.h          |   3 +-
- 3 files changed, 90 insertions(+), 24 deletions(-)
-
-diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-index f9a6037..8136658 100644
---- a/include/uapi/linux/if_packet.h
-+++ b/include/uapi/linux/if_packet.h
-@@ -55,6 +55,8 @@ struct sockaddr_ll {
- #define PACKET_FANOUT_HASH		0
- #define PACKET_FANOUT_LB		1
- #define PACKET_FANOUT_CPU		2
-+#define PACKET_FANOUT_ROLLOVER		3
-+#define PACKET_FANOUT_FLAG_ROLLOVER	0x1000
- #define PACKET_FANOUT_FLAG_DEFRAG	0x8000
- 
- struct tpacket_stats {
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 1d6793d..0304c6b 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -181,6 +181,8 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
- 
- struct packet_sock;
- static int tpacket_snd(struct packet_sock *po, struct msghdr *msg);
-+static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
-+		       struct packet_type *pt, struct net_device *orig_dev);
- 
- static void *packet_previous_frame(struct packet_sock *po,
- 		struct packet_ring_buffer *rb,
-@@ -973,11 +975,11 @@ static void *packet_current_rx_frame(struct packet_sock *po,
- 
- static void *prb_lookup_block(struct packet_sock *po,
- 				     struct packet_ring_buffer *rb,
--				     unsigned int previous,
-+				     unsigned int idx,
- 				     int status)
- {
- 	struct tpacket_kbdq_core *pkc  = GET_PBDQC_FROM_RB(rb);
--	struct tpacket_block_desc *pbd = GET_PBLOCK_DESC(pkc, previous);
-+	struct tpacket_block_desc *pbd = GET_PBLOCK_DESC(pkc, idx);
- 
- 	if (status != BLOCK_STATUS(pbd))
- 		return NULL;
-@@ -1041,6 +1043,29 @@ static void packet_increment_head(struct packet_ring_buffer *buff)
- 	buff->head = buff->head != buff->frame_max ? buff->head+1 : 0;
- }
- 
-+static bool packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
-+{
-+	struct sock *sk = &po->sk;
-+	bool has_room;
-+
-+	if (po->prot_hook.func != tpacket_rcv)
-+		return (atomic_read(&sk->sk_rmem_alloc) + skb->truesize)
-+		       <= sk->sk_rcvbuf;
-+
-+	spin_lock(&sk->sk_receive_queue.lock);
-+	if (po->tp_version == TPACKET_V3)
-+		has_room = prb_lookup_block(po, &po->rx_ring,
-+					po->rx_ring.prb_bdqc.kactive_blk_num,
-+					TP_STATUS_KERNEL);
-+	else
-+		has_room = packet_lookup_frame(po, &po->rx_ring,
-+					       po->rx_ring.head,
-+					       TP_STATUS_KERNEL);
-+	spin_unlock(&sk->sk_receive_queue.lock);
-+
-+	return has_room;
-+}
-+
- static void packet_sock_destruct(struct sock *sk)
- {
- 	skb_queue_purge(&sk->sk_error_queue);
-@@ -1066,16 +1091,16 @@ static int fanout_rr_next(struct packet_fanout *f, unsigned int num)
- 	return x;
- }
- 
--static struct sock *fanout_demux_hash(struct packet_fanout *f, struct sk_buff *skb, unsigned int num)
-+static unsigned int fanout_demux_hash(struct packet_fanout *f,
-+				      struct sk_buff *skb,
-+				      unsigned int num)
- {
--	u32 idx, hash = skb->rxhash;
--
--	idx = ((u64)hash * num) >> 32;
--
--	return f->arr[idx];
-+	return (((u64)skb->rxhash) * num) >> 32;
- }
- 
--static struct sock *fanout_demux_lb(struct packet_fanout *f, struct sk_buff *skb, unsigned int num)
-+static unsigned int fanout_demux_lb(struct packet_fanout *f,
-+				    struct sk_buff *skb,
-+				    unsigned int num)
- {
- 	int cur, old;
- 
-@@ -1083,14 +1108,40 @@ static struct sock *fanout_demux_lb(struct packet_fanout *f, struct sk_buff *skb
- 	while ((old = atomic_cmpxchg(&f->rr_cur, cur,
- 				     fanout_rr_next(f, num))) != cur)
- 		cur = old;
--	return f->arr[cur];
-+	return cur;
-+}
-+
-+static unsigned int fanout_demux_cpu(struct packet_fanout *f,
-+				     struct sk_buff *skb,
-+				     unsigned int num)
-+{
-+	return smp_processor_id() % num;
- }
- 
--static struct sock *fanout_demux_cpu(struct packet_fanout *f, struct sk_buff *skb, unsigned int num)
-+static unsigned int fanout_demux_rollover(struct packet_fanout *f,
-+					  struct sk_buff *skb,
-+					  unsigned int idx, unsigned int skip,
-+					  unsigned int num)
- {
--	unsigned int cpu = smp_processor_id();
-+	unsigned int i, j;
- 
--	return f->arr[cpu % num];
-+	i = j = min_t(int, f->next[idx], num - 1);
-+	do {
-+		if (i != skip && packet_rcv_has_room(pkt_sk(f->arr[i]), skb)) {
-+			if (i != j)
-+				f->next[idx] = i;
-+			return i;
-+		}
-+		if (++i == num)
-+			i = 0;
-+	} while (i != j);
-+
-+	return idx;
-+}
-+
-+static bool fanout_has_flag(struct packet_fanout *f, u16 flag)
-+{
-+	return f->flags & (flag >> 8);
- }
- 
- static int packet_rcv_fanout(struct sk_buff *skb, struct net_device *dev,
-@@ -1099,7 +1150,7 @@ static int packet_rcv_fanout(struct sk_buff *skb, struct net_device *dev,
- 	struct packet_fanout *f = pt->af_packet_priv;
- 	unsigned int num = f->num_members;
- 	struct packet_sock *po;
--	struct sock *sk;
-+	unsigned int idx;
- 
- 	if (!net_eq(dev_net(dev), read_pnet(&f->net)) ||
- 	    !num) {
-@@ -1110,23 +1161,31 @@ static int packet_rcv_fanout(struct sk_buff *skb, struct net_device *dev,
- 	switch (f->type) {
- 	case PACKET_FANOUT_HASH:
- 	default:
--		if (f->defrag) {
-+		if (fanout_has_flag(f, PACKET_FANOUT_FLAG_DEFRAG)) {
- 			skb = ip_check_defrag(skb, IP_DEFRAG_AF_PACKET);
- 			if (!skb)
- 				return 0;
- 		}
- 		skb_get_rxhash(skb);
--		sk = fanout_demux_hash(f, skb, num);
-+		idx = fanout_demux_hash(f, skb, num);
- 		break;
- 	case PACKET_FANOUT_LB:
--		sk = fanout_demux_lb(f, skb, num);
-+		idx = fanout_demux_lb(f, skb, num);
- 		break;
- 	case PACKET_FANOUT_CPU:
--		sk = fanout_demux_cpu(f, skb, num);
-+		idx = fanout_demux_cpu(f, skb, num);
-+		break;
-+	case PACKET_FANOUT_ROLLOVER:
-+		idx = fanout_demux_rollover(f, skb, 0, (unsigned int) -1, num);
- 		break;
- 	}
- 
--	po = pkt_sk(sk);
-+	po = pkt_sk(f->arr[idx]);
-+	if (fanout_has_flag(f, PACKET_FANOUT_FLAG_ROLLOVER) &&
-+	    unlikely(!packet_rcv_has_room(po, skb))) {
-+		idx = fanout_demux_rollover(f, skb, idx, idx, num);
-+		po = pkt_sk(f->arr[idx]);
-+	}
- 
- 	return po->prot_hook.func(skb, dev, &po->prot_hook, orig_dev);
- }
-@@ -1175,10 +1234,13 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 	struct packet_sock *po = pkt_sk(sk);
- 	struct packet_fanout *f, *match;
- 	u8 type = type_flags & 0xff;
--	u8 defrag = (type_flags & PACKET_FANOUT_FLAG_DEFRAG) ? 1 : 0;
-+	u8 flags = type_flags >> 8;
- 	int err;
- 
- 	switch (type) {
-+	case PACKET_FANOUT_ROLLOVER:
-+		if (type_flags & PACKET_FANOUT_FLAG_ROLLOVER)
-+			return -EINVAL;
- 	case PACKET_FANOUT_HASH:
- 	case PACKET_FANOUT_LB:
- 	case PACKET_FANOUT_CPU:
-@@ -1203,7 +1265,7 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 		}
- 	}
- 	err = -EINVAL;
--	if (match && match->defrag != defrag)
-+	if (match && match->flags != flags)
- 		goto out;
- 	if (!match) {
- 		err = -ENOMEM;
-@@ -1213,7 +1275,7 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 		write_pnet(&match->net, sock_net(sk));
- 		match->id = id;
- 		match->type = type;
--		match->defrag = defrag;
-+		match->flags = flags;
- 		atomic_set(&match->rr_cur, 0);
- 		INIT_LIST_HEAD(&match->list);
- 		spin_lock_init(&match->lock);
-@@ -3240,7 +3302,8 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 	case PACKET_FANOUT:
- 		val = (po->fanout ?
- 		       ((u32)po->fanout->id |
--			((u32)po->fanout->type << 16)) :
-+			((u32)po->fanout->type << 16) |
-+			((u32)po->fanout->flags << 24)) :
- 		       0);
- 		break;
- 	case PACKET_TX_HAS_OFF:
-diff --git a/net/packet/internal.h b/net/packet/internal.h
-index e84cab8..e891f02 100644
---- a/net/packet/internal.h
-+++ b/net/packet/internal.h
-@@ -77,10 +77,11 @@ struct packet_fanout {
- 	unsigned int		num_members;
- 	u16			id;
- 	u8			type;
--	u8			defrag;
-+	u8			flags;
- 	atomic_t		rr_cur;
- 	struct list_head	list;
- 	struct sock		*arr[PACKET_FANOUT_MAX];
-+	int			next[PACKET_FANOUT_MAX];
- 	spinlock_t		lock;
- 	atomic_t		sk_ref;
- 	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
--- 
-1.8.1.3
+Thanks for finding and fixing the problem.
+-- Shuah
