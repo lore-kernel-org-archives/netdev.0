@@ -1,92 +1,77 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
-Subject: Re: [PATCH net-next 2/2] bnx2x: add RSS capability for GRE traffic
-Date: Tue, 19 Mar 2013 02:18:06 -0700
-Message-ID: <CANP3RGehbKbh1ambT-RQQqfOkovzySB4_CWg+LPdJV7yDkYBCg@mail.gmail.com>
-References: <1363625464-21633-1-git-send-email-dmitry@broadcom.com>
-	<1363625464-21633-2-git-send-email-dmitry@broadcom.com>
-	<1363651672.21184.17.camel@edumazet-glaptop>
-	<504C9EFCA2D0054393414C9CB605C37F20BE935B@SJEXCHMB06.corp.ad.broadcom.com>
+From: Jesper Derehag <jderehag@hotmail.com>
+Subject: RE: [PATCH 1/1] connector: Added coredumping event to the process
+ connector
+Date: Tue, 19 Mar 2013 09:21:30 +0000
+Message-ID: <DUB002-W14397F5E25985DF9ED5C083DDE90@phx.gbl>
+References: <20130316170348.GD24041@order.stressinduktion.org>,<DUB002-W54999962E08C0F2E11B4EEDDEE0@phx.gbl>,<20130316184036.GE24041@order.stressinduktion.org>,<DUB002-W14207698E8638F6DEB6F4A7DDEE0@phx.gbl>,<DUB002-W153FA7D4CB9EB6CFF1689B3DDE90@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Tom Herbert <therbert@google.com>
-To: Dmitry Kravkov <dmitry@broadcom.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f50.google.com ([209.85.219.50]:63813 "EHLO
-	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755410Ab3CSJSH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 05:18:07 -0400
-Received: by mail-oa0-f50.google.com with SMTP id l20so206860oag.23
-        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 02:18:06 -0700 (PDT)
-In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F20BE935B@SJEXCHMB06.corp.ad.broadcom.com>
+Received: from dub0-omc1-s22.dub0.hotmail.com ([157.55.0.221]:56525 "EHLO
+	dub0-omc1-s22.dub0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752628Ab3CSJVb convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 05:21:31 -0400
+In-Reply-To: <DUB002-W153FA7D4CB9EB6CFF1689B3DDE90@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Can the HW calculate and return a 1s complement sum of the entire
-packet (or a large portion there-of)?
-=46ixing that up to be only of the outer IPv4, inner IPv4 and inner TCP
-relevant portions should still be simpler (well faster) than
-calculating the TCP checksum.
-I'm pretty sure that some relationship between 1s complement sum of
-all bytes, outer IPv4 checksum, inner IPv4 checksum and TCP checksum
-could be pulled out of a hat with some deeper thought.  (similarly for
-IPv4/GRE/IPv6/TCP and other combinations)
+> From: jderehag@hotmail.com
+> To: netdev@vger.kernel.org
+> Subject: RE: [PATCH 1/1] connector: Added coredumping event to the pr=
+ocess connector
+> Date: Sat, 16 Mar 2013 19:08:03 +0000
+>=20
+> ----------------------------------------
+> > Date: Sat, 16 Mar 2013 19:40:36 +0100
+> > From: hannes@stressinduktion.org
+> > To: jderehag@hotmail.com
+> > CC: zbr@ioremap.net; netdev@vger.kernel.org
+> > Subject: Re: [PATCH 1/1] connector: Added coredumping event to the =
+process connector
+> >
+> > On Sat, Mar 16, 2013 at 05:57:20PM +0000, Jesper Derehag wrote:
+> > >
+> > >
+> > > > Date: Sat, 16 Mar 2013 18:03:48 +0100
+> > > > From: hannes@stressinduktion.org
+> > > > To: jderehag@hotmail.com
+> > > > CC: zbr@ioremap.net; netdev@vger.kernel.org
+> > > > Subject: Re: [PATCH 1/1] connector: Added coredumping event to =
+the process connector
+> > > >
+> > > > On Sat, Mar 16, 2013 at 11:50:50AM +0100, Jesper Derehag wrote:
+> > > > > + ev->event_data.exit.exit_code =3D task->exit_code;
+> > > > > + ev->event_data.exit.exit_signal =3D task->exit_signal;
+> > > >
+> > > > Do these already contain meaningful values?
+> > > >
+> > >
+> > > I have to admit that they dont.And you are correct, I should add =
+a new event struct specific for the coredump event instead of piggyback=
+ing on the exit struct.Will re-submit a patch..
+> >
+> > Hm, I am still unsure if such a patch is needed. Couldn't you test =
+for
+> > coredump by inspecting exit_code on PROC_EVENT_EXIT?
+>=20
+> *** resubmitted message due to it got dropped by vger.kernel.org ***
+>=20
+> =A0Well, what this patch adds I think is more a question of timing.=A0
+> =A0As an example, say you want to quickly detect process failures. In=
+ that=A0case if we would only have the EXIT event, that would mean that=
+ we get=A0notified after the dump is done, which could take minutes dep=
+ending on=A0how large the dump is.=A0
+> If we instead watch for both EXIT & COREDUMP=A0events, it would mean =
+that we would quickly catch any failing process,=A0regardless of if its=
+ actually starting to coredump or if its exited for=A0some other reason=
+=2E=20
 
-What portions of the packet can the HW/FW [partially] checksum - and
-return the value to the driver for further processing?
-Can it return 1s complement sum of data portion of outer IPv4 (ie. in
-IPv4/GRE/IPv4/TCP return a 1s complement sum of GRE/IPv4/TCP bytes)
 
-Maciej =C5=BBenczykowski, Kernel Networking Developer @ Google
+Any other comments on this before I send a v2 patch with the exit vs th=
+e coredump event struct change?
 
-On Mon, Mar 18, 2013 at 11:30 PM, Dmitry Kravkov <dmitry@broadcom.com> =
-wrote:
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.=
-org] On Behalf Of Eric Dumazet
->> Sent: Tuesday, March 19, 2013 2:08 AM
->> To: Dmitry Kravkov
->> Cc: davem@davemloft.net; netdev@vger.kernel.org; Eilon Greenstein; T=
-om Herbert; Maciej =C5=BBenczykowski
->> Subject: Re: [PATCH net-next 2/2] bnx2x: add RSS capability for GRE =
-traffic
->>
->> On Mon, 2013-03-18 at 18:51 +0200, Dmitry Kravkov wrote:
->> > The patch drives FW to perform RSS for GRE traffic,
->> > based on inner headers.
->> >
->> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
->> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
->> > ---
->> >  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h |    3 +++
->> >  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c  |   23 ++++++++++=
-++-----------
->> >  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h  |    9 +++++++++
->> >  3 files changed, 24 insertions(+), 11 deletions(-)
->>
->> This works very well.
->>
->> Problem is we skb_set_queue_mapping(skb, 0); in __skb_tunnel_rx()
->>
->> (this was a patch from Tom Herbert, commit
->> 693019e90ca45d881109d32c0c6d29adf03f6447 (net: reset skb queue mappi=
-ng
->> when rx'ing over tunnel )
->>
->> Meaning we hit a single cpu for the GRO stuff in ip_gre.
->>
->> I have to think about it.
->>
->>
->> Another question is :
->>
->> Can bnx2x check the tcp checksum if GRE encapsulated ?
->>
-> Current HW can't provide this. Probably, it's possible to separate CS=
-UM from GRO/TPA then stack will have to handle CSUM validation for huge=
- packets. Is it worth?
->
+Regards,
+Jesper 		 	   		  
