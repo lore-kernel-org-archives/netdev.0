@@ -1,32 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net: reset transport header if it was not
- set before transmission
-Date: Tue, 19 Mar 2013 05:59:58 -0700
-Message-ID: <1363697998.21184.54.camel@edumazet-glaptop>
-References: <1363333305-54398-1-git-send-email-jasowang@redhat.com>
-	  <1363333305-54398-2-git-send-email-jasowang@redhat.com>
-	  <1363399851.29475.52.camel@edumazet-glaptop>
-	  <20130317.121318.1869489921021513474.davem@davemloft.net>
-	  <51482F55.8020900@redhat.com> <1363695234.21184.36.camel@edumazet-glaptop>
-	 <514860DC.9020404@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v5] net: sh_eth: Add support of device tree probe
+Date: Tue, 19 Mar 2013 17:02:39 +0400
+Message-ID: <514861EF.7050407@cogentembedded.com>
+References: <1362433940-20533-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com> <20130305004338.GA10651@verge.net.au> <20130319042229.GG21444@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jason Wang <jasowang@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com, edumazet@google.com
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <514860DC.9020404@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	netdev@vger.kernel.org, grant.likely@secretlab.ca,
+	kuninori.morimoto.gx@renesas.com,
+	devicetree-discuss@lists.ozlabs.org, magnus.damm@gmail.com,
+	kda@linux-powerpc.org, Mark Rutland <mark.rutland@arm.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:62095 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754648Ab3CSNDf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 09:03:35 -0400
+Received: by mail-la0-f52.google.com with SMTP id fs12so842762lab.11
+        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 06:03:33 -0700 (PDT)
+In-Reply-To: <20130319042229.GG21444@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-03-19 at 13:58 +0100, Daniel Borkmann wrote:
+Hello.
 
-> Yes, will post them in a couple of minutes.
-> 
+On 19-03-2013 8:22, Simon Horman wrote:
 
-Please target net tree for the first patch (adding thoff into struct
-flow_keys), so that Jason or me can fix DODGY  providers.
+>> [ Cc: Mark Rutland ]
 
-Thanks
+>> On Tue, Mar 05, 2013 at 06:52:20AM +0900, Nobuhiro Iwamatsu wrote:
+>>> This adds support of device tree probe for Renesas sh-ether driver.
+
+>>> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+
+>> Hi Iwamatsu-san,
+
+>> could you please address the review by
+>> Mark Rutland of the bindings in this patch.
+>> The review was made for v2 but I believe it
+>> is still applicable to v5.
+
+>> http://www.spinics.net/lists/netdev/msg226454.html
+
+> Ping.
+
+    I don't think converting this driver to device tree can be achieved 
+without unravelling the #ifdef mess first (which I'm currently doing).
+Or at least the driver will look even uglier than today. So I see little use 
+in pinging Iwamatsu-san.
+
+WBR, Sergei
