@@ -1,94 +1,62 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/4] xen-netfront: drop skb when skb->len > 65535
-Date: Tue, 19 Mar 2013 21:28:00 +0000
-Message-ID: <1363728480.31336.10.camel@deadeye.wl.decadent.org.uk>
-References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
-	 <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>
-	 <1363606970.30193.22.camel@zakaz.uk.xensource.com>
-	 <1363617642.29093.203.camel@zion.uk.xensource.com>
-	 <1363618459.2963.10.camel@zakaz.uk.xensource.com>
-	 <1363619098.29093.205.camel@zion.uk.xensource.com>
-	 <1363619244.2963.11.camel@zakaz.uk.xensource.com>
-	 <1363728289.31336.7.camel@deadeye.wl.decadent.org.uk>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next v3] packet: packet fanout rollover during socket overload
+Date: Tue, 19 Mar 2013 17:34:40 -0400
+Message-ID: <CA+FuTSeDd4Xjh0KsbdZscrkSMk_o_1y+w_t_N-7FM3GG4i+LzA@mail.gmail.com>
+References: <1363724291-27580-1-git-send-email-willemb@google.com>
+ <1363725437.2558.22.camel@edumazet-glaptop> <20130319.171631.896160775901462168.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"annie.li@oracle.com" <annie.li@oracle.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:43420 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933818Ab3CSV2F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 17:28:05 -0400
-In-Reply-To: <1363728289.31336.7.camel@deadeye.wl.decadent.org.uk>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:40835 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756801Ab3CSVfL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 17:35:11 -0400
+Received: by mail-ie0-f182.google.com with SMTP id k14so1302447iea.27
+        for <netdev@vger.kernel.org>; Tue, 19 Mar 2013 14:35:10 -0700 (PDT)
+In-Reply-To: <20130319.171631.896160775901462168.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-03-19 at 21:24 +0000, Ben Hutchings wrote:
-> On Mon, 2013-03-18 at 15:07 +0000, Ian Campbell wrote:
-> > On Mon, 2013-03-18 at 15:04 +0000, Wei Liu wrote:
-> > > On Mon, 2013-03-18 at 14:54 +0000, Ian Campbell wrote:
-> > > > On Mon, 2013-03-18 at 14:40 +0000, Wei Liu wrote:
-> > > > > On Mon, 2013-03-18 at 11:42 +0000, Ian Campbell wrote:
-> > > > > > On Mon, 2013-03-18 at 10:35 +0000, Wei Liu wrote:
-> > > > > > > The `size' field of Xen network wire format is uint16_t, anything bigger than
-> > > > > > > 65535 will cause overflow.
-> > > > > > > 
-> > > > > > > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> > > > > > > ---
-> > > > > > >  drivers/net/xen-netfront.c |   12 ++++++++++++
-> > > > > > >  1 file changed, 12 insertions(+)
-> > > > > > > 
-> > > > > > > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> > > > > > > index 5527663..8c3d065 100644
-> > > > > > > --- a/drivers/net/xen-netfront.c
-> > > > > > > +++ b/drivers/net/xen-netfront.c
-> > > > > > > @@ -547,6 +547,18 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> > > > > > >  	unsigned int len = skb_headlen(skb);
-> > > > > > >  	unsigned long flags;
-> > > > > > >  
-> > > > > > > +	/*
-> > > > > > > +	 * wire format of xen_netif_tx_request only supports skb->len
-> > > > > > > +	 * < 64K, because size field in xen_netif_tx_request is
-> > > > > > > +	 * uint16_t.
-> > > > > > 
-> > > > > > Is there some field we can set e.g. in struct ethernet_device which
-> > > > > > would stop this from happening?
-> > > > > > 
-> > > > > 
-> > > > > struct ethernet_device? I could not find it.
-> > > > > 
-> > > > > And for struct net_device,
-> > > > 
-> > > > I meant struct net_device.
-> > > > 
-> > > > >  there is no field for this AFAICT.
-> > > > 
-> > > > Interesting. Are hardware devices expected to cope with arbitrary sized
-> > > > GSO skbs then I wonder.
-> > > > 
-> > > 
-> > > No idea. But there is a macro called GSO_MAX_SIZE (65536) in struct
-> > > net_device. :-)
-> > 
-> > But aren't we seeing skb's bigger than that?
-> > 
-> > Maybe this is just a historical bug in some older guests?
-> 
-> GSO_MAX_SIZE is the maximum payload length, not the maximum total length
-> of an skb.
+On Tue, Mar 19, 2013 at 5:16 PM, David Miller <davem@davemloft.net> wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 19 Mar 2013 13:37:17 -0700
+>
+>> On Tue, 2013-03-19 at 16:18 -0400, Willem de Bruijn wrote:
+>>> Changes:
+>>>   v3->v2: rebase (no other changes)
+>>>           passes selftest
+>>>   v2->v1: read f->num_members only once
+>>>           fix bug: test rollover mode + flag
+>  ...
+>>> Signed-off-by: Willem de Bruijn <willemb@google.com>
+>  ...
+>> Reviewed-by: Eric Dumazet <edumazet@google.com>
+>
+> Applied, and I added the selftest too
 
-...and it's actually just the default value assigned to
-dev->gso_max_size.  You'll want to change it to your actual maximum
-(65535 - maximum length of headers) before registering your net devices.
+Thanks!
 
-Ben.
+>, but it fails for me on my
+> 128-cpu sparc64 machine:
+>
+> make[1]: Entering directory `/home/davem/src/GIT/net-next/tools/testing/selftests/net-afpacket'
+> --------------------
+> running psock_fanout test
+> --------------------
+> test: control single socket
+> test: control multiple sockets
+> test: datapath 0x0
+> info: count=0,0, expect=0,0
+> info: count=0,20, expect=15,5
+> ERROR: incorrect queue lengths
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I'm looking into it. The test needs the packet sockets to be able to
+hold an exact number of test packets and then overflow. Queue
+length configured in bytes (SO_RCVBUF) was arrived at by
+experimentation. My best hunch so far is that this differs between
+platforms/nic, if skb->truesize does. If queue length is the problem,
+I'll switch to a packet ring. Booting another machine right now.
+
+> [FAIL]
