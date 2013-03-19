@@ -1,120 +1,306 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH v2 net-next 2/4] net: flow_dissector: add __skb_get_poff to get a start offset to payload
-Date: Tue, 19 Mar 2013 15:34:01 +0100
-Message-ID: <fd6036248f9337e3679cb441f262ce5d5b228c9b.1363702456.git.dborkman@redhat.com>
+Subject: [PATCH v2 net-next 4/4] filter: add minimal BPF JIT emitted image disassembler
+Date: Tue, 19 Mar 2013 15:34:03 +0100
+Message-ID: <18e6abdb8689e02ac099f084d97666c63c22064a.1363702456.git.dborkman@redhat.com>
 References: <cover.1363702456.git.dborkman@redhat.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, jasowang@redhat.com
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, jasowang@redhat.com,
+	Eric Dumazet <edumazet@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27286 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:47858 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752639Ab3CSOeJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Mar 2013 10:34:09 -0400
+	id S1756615Ab3CSOeO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 10:34:14 -0400
 In-Reply-To: <cover.1363702456.git.dborkman@redhat.com>
 In-Reply-To: <cover.1363702456.git.dborkman@redhat.com>
 References: <cover.1363702456.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-__skb_get_poff() returns the offset to the payload as far as it could
-be dissected. The main user is currently BPF, so that we can dynamically
-truncate packets without needing to push actual payload to the user
-space and instead can analyze headers only.
+This is a minimal stand-alone user space helper, that allows for debugging or
+verification of emitted BPF JIT images. This is in particular useful for
+emitted opcode debugging, since minor bugs in the JIT compiler can be fatal.
+The disassembler is architecture generic and uses libopcodes and libbfd.
 
-Suggested-by: Eric Dumazet <edumazet@google.com>
+How to get to the disassembly, example:
+
+  1) `echo 2 > /proc/sys/net/core/bpf_jit_enable`
+  2) Load a BPF filter (e.g. `tcpdump -p -n -s 0 -i eth1 host 192.168.20.0/24`)
+  3) Run e.g. `bpf_jit_disasm -o` to disassemble the most recent JIT code output
+
+`bpf_jit_disasm -o` will display the related opcodes to a particular instruction
+as well. Example for x86_64:
+
+$./bpf_jit_disasm
+94 bytes emitted from JIT compiler (pass:3, flen:9)
+ffffffffa0356000 + <x>:
+   0:	push   %rbp
+   1:	mov    %rsp,%rbp
+   4:	sub    $0x60,%rsp
+   8:	mov    %rbx,-0x8(%rbp)
+   c:	mov    0x68(%rdi),%r9d
+  10:	sub    0x6c(%rdi),%r9d
+  14:	mov    0xe0(%rdi),%r8
+  1b:	mov    $0xc,%esi
+  20:	callq  0xffffffffe0d01b71
+  25:	cmp    $0x86dd,%eax
+  2a:	jne    0x000000000000003d
+  2c:	mov    $0x14,%esi
+  31:	callq  0xffffffffe0d01b8d
+  36:	cmp    $0x6,%eax
+[...]
+  5c:	leaveq
+  5d:	retq
+
+$ ./bpf_jit_disasm -o
+94 bytes emitted from JIT compiler (pass:3, flen:9)
+ffffffffa0356000 + <x>:
+   0:	push   %rbp
+	55
+   1:	mov    %rsp,%rbp
+	48 89 e5
+   4:	sub    $0x60,%rsp
+	48 83 ec 60
+   8:	mov    %rbx,-0x8(%rbp)
+	48 89 5d f8
+   c:	mov    0x68(%rdi),%r9d
+	44 8b 4f 68
+  10:	sub    0x6c(%rdi),%r9d
+	44 2b 4f 6c
+[...]
+  5c:	leaveq
+	c9
+  5d:	retq
+	c3
+
+Cc: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- include/linux/skbuff.h    |  2 ++
- net/core/flow_dissector.c | 57 +++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 59 insertions(+)
+ scripts/bpf_jit_disasm.c | 216 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 216 insertions(+)
+ create mode 100644 scripts/bpf_jit_disasm.c
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index eb2106f..0e84fd8 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2835,6 +2835,8 @@ static inline void skb_checksum_none_assert(const struct sk_buff *skb)
- 
- bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off);
- 
-+u32 __skb_get_poff(const struct sk_buff *skb);
-+
- /**
-  * skb_head_is_locked - Determine if the skb->head is locked down
-  * @skb: skb to check
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index eb9dde1..8213da7 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -5,6 +5,10 @@
- #include <linux/if_vlan.h>
- #include <net/ip.h>
- #include <net/ipv6.h>
-+#include <linux/igmp.h>
-+#include <linux/icmp.h>
-+#include <linux/sctp.h>
-+#include <linux/dccp.h>
- #include <linux/if_tunnel.h>
- #include <linux/if_pppox.h>
- #include <linux/ppp_defs.h>
-@@ -229,6 +233,59 @@ u16 __skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb,
- }
- EXPORT_SYMBOL(__skb_tx_hash);
- 
-+/* __skb_get_poff() returns the offset to the payload as far as it could
-+ * be dissected. The main user is currently BPF, so that we can dynamically
-+ * truncate packets without needing to push actual payload to the user
-+ * space and can analyze headers only, instead.
+diff --git a/scripts/bpf_jit_disasm.c b/scripts/bpf_jit_disasm.c
+new file mode 100644
+index 0000000..1fe9fb5
+--- /dev/null
++++ b/scripts/bpf_jit_disasm.c
+@@ -0,0 +1,216 @@
++/*
++ * Minimal BPF JIT image disassembler
++ *
++ * Disassembles BPF JIT compiler emitted opcodes back to asm insn's for
++ * debugging or verification purposes.
++ *
++ * There is no Makefile. Compile with
++ *
++ *   `gcc -Wall -O2 bpf_jit_disasm.c -o bpf_jit_disasm -lopcodes -lbfd -ldl`
++ *
++ * or similar.
++ *
++ * To get the disassembly of the JIT code, do the following:
++ *
++ *  1) `echo 2 > /proc/sys/net/core/bpf_jit_enable`
++ *  2) Load a BPF filter (e.g. `tcpdump -p -n -s 0 -i eth1 host 192.168.20.0/24`)
++ *  3) Run e.g. `./bpf_jit_disasm -o` to read out the last JIT code
++ *
++ * Copyright 2013 Daniel Borkmann <borkmann@redhat.com>
++ * Licensed under the GNU General Public License, version 2.0 (GPLv2)
 + */
-+u32 __skb_get_poff(const struct sk_buff *skb)
++
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <assert.h>
++#include <unistd.h>
++#include <string.h>
++#include <bfd.h>
++#include <dis-asm.h>
++#include <sys/klog.h>
++#include <sys/types.h>
++#include <regex.h>
++
++#define VERSION_STRING	"1.0"
++
++static void get_exec_path(char *tpath, size_t size)
 +{
-+	struct flow_keys keys;
-+	u32 poff = 0;
++	char *path;
++	ssize_t len;
 +
-+	if (!skb_flow_dissect(skb, &keys))
-+		return 0;
++	snprintf(tpath, size, "/proc/%d/exe", (int) getpid());
++	tpath[size - 1] = 0;
 +
-+	poff += keys.thoff;
-+	switch (keys.ip_proto) {
-+	case IPPROTO_TCP: {
-+		const struct tcphdr *tcph;
-+		struct tcphdr _tcph;
++	path = strdup(tpath);
++	assert(path);
 +
-+		tcph = skb_header_pointer(skb, poff, sizeof(_tcph), &_tcph);
-+		if (!tcph)
-+			return poff;
++	len = readlink(path, tpath, size);
++	tpath[len] = 0;
 +
-+		poff += max_t(u32, sizeof(struct tcphdr), tcph->doff * 4);
-+		break;
-+	}
-+	case IPPROTO_UDP:
-+	case IPPROTO_UDPLITE:
-+		poff += sizeof(struct udphdr);
-+		break;
-+	/* For the rest, we do not really care about header
-+	 * extensions at this point for now.
-+	 */
-+	case IPPROTO_ICMP:
-+		poff += sizeof(struct icmphdr);
-+		break;
-+	case IPPROTO_ICMPV6:
-+		poff += sizeof(struct icmp6hdr);
-+		break;
-+	case IPPROTO_IGMP:
-+		poff += sizeof(struct igmphdr);
-+		break;
-+	case IPPROTO_DCCP:
-+		poff += sizeof(struct dccp_hdr);
-+		break;
-+	case IPPROTO_SCTP:
-+		poff += sizeof(struct sctphdr);
-+		break;
-+	}
-+
-+	return poff;
++	free(path);
 +}
 +
- static inline u16 dev_cap_txqueue(struct net_device *dev, u16 queue_index)
- {
- 	if (unlikely(queue_index >= dev->real_num_tx_queues)) {
++static void get_asm_insns(uint8_t *image, size_t len, unsigned long base,
++			  int opcodes)
++{
++	int count, i, pc = 0;
++	char tpath[256];
++	struct disassemble_info info;
++	disassembler_ftype disassemble;
++	bfd *bfdf;
++
++	memset(tpath, 0, sizeof(tpath));
++	get_exec_path(tpath, sizeof(tpath));
++
++	bfdf = bfd_openr(tpath, NULL);
++	assert(bfdf);
++	assert(bfd_check_format(bfdf, bfd_object));
++
++	init_disassemble_info(&info, stdout, (fprintf_ftype) fprintf);
++	info.arch = bfd_get_arch(bfdf);
++	info.mach = bfd_get_mach(bfdf);
++	info.buffer = image;
++	info.buffer_length = len;
++
++	disassemble_init_for_target(&info);
++
++	disassemble = disassembler(bfdf);
++	assert(disassemble);
++
++	do {
++		printf("%4x:\t", pc);
++
++		count = disassemble(pc, &info);
++
++		if (opcodes) {
++			printf("\n\t");
++			for (i = 0; i < count; ++i)
++				printf("%02x ", (uint8_t) image[pc + i]);
++		}
++		printf("\n");
++
++		pc += count;
++	} while(count > 0 && pc < len);
++
++	bfd_close(bfdf);
++}
++
++static char *get_klog_buff(int *klen)
++{
++	int ret, len = klogctl(10, NULL, 0);
++	char *buff = malloc(len);
++
++	assert(buff && klen);
++	ret = klogctl(3, buff, len);
++	assert(ret >= 0);
++	*klen = ret;
++
++	return buff;
++}
++
++static void put_klog_buff(char *buff)
++{
++	free(buff);
++}
++
++static int get_last_jit_image(char *haystack, size_t hlen,
++			      uint8_t *image, size_t ilen,
++			      unsigned long *base)
++{
++	char *ptr, *pptr, *tmp;
++	off_t off = 0;
++	int ret, flen, proglen, pass, ulen = 0;
++	regmatch_t pmatch[1];
++	regex_t regex;
++
++	if (hlen == 0)
++		return 0;
++
++	ret = regcomp(&regex, "flen=[[:alnum:]]+ proglen=[[:digit:]]+ "
++		      "pass=[[:digit:]]+ image=[[:xdigit:]]+", REG_EXTENDED);
++	assert(ret == 0);
++
++	ptr = haystack;
++	while (1) {
++		ret = regexec(&regex, ptr, 1, pmatch, 0);
++		if (ret == 0) {
++			ptr += pmatch[0].rm_eo;
++			off += pmatch[0].rm_eo;
++			assert(off < hlen);
++		} else
++			break;
++	}
++
++	ptr = haystack + off - (pmatch[0].rm_eo - pmatch[0].rm_so);
++	ret = sscanf(ptr, "flen=%d proglen=%d pass=%d image=%lx",
++		     &flen, &proglen, &pass, base);
++	if (ret != 4)
++		return 0;
++
++	tmp = ptr = haystack + off;
++	while ((ptr = strtok(tmp, "\n")) != NULL && ulen < ilen) {
++		tmp = NULL;
++		if (!strstr(ptr, "JIT code"))
++			continue;
++		pptr = ptr;
++		while ((ptr = strstr(pptr, ":")))
++			pptr = ptr + 1;
++		ptr = pptr;
++		do {
++			image[ulen++] = (uint8_t) strtoul(pptr, &pptr, 16);
++			if (ptr == pptr || ulen >= ilen) {
++				ulen--;
++				break;
++			}
++			ptr = pptr;
++		} while (1);
++	}
++
++	assert(ulen == proglen);
++	printf("%d bytes emitted from JIT compiler (pass:%d, flen:%d)\n",
++	       proglen, pass, flen);
++	printf("%lx + <x>:\n", *base);
++
++	regfree(&regex);
++	return ulen;
++}
++
++static void help(void)
++{
++	printf("Usage: bpf_jit_disasm [-ohv]\n");
++	printf("Version %s, written by Daniel Borkmann <borkmann@redhat.com>\n",
++	       VERSION_STRING);
++	printf("  -o                             Include opcodes in output\n");
++	printf("  -h|-v                          Show help/version\n");
++	exit(0);
++}
++
++int main(int argc, char **argv)
++{
++	int len, klen, opcodes = 0;
++	char *kbuff;
++	unsigned long base;
++	uint8_t image[4096];
++
++	if (argc > 1) {
++		if (!strncmp("-o", argv[argc - 1], 2))
++			opcodes = 1;
++		if (!strncmp("-h", argv[argc - 1], 2) ||
++		    !strncmp("-v", argv[argc - 1], 2))
++			help();
++	}
++
++	bfd_init();
++	memset(image, 0, sizeof(image));
++
++	kbuff = get_klog_buff(&klen);
++
++	len = get_last_jit_image(kbuff, klen, image, sizeof(image), &base);
++	if (len > 0 && base > 0)
++		get_asm_insns(image, len, base, opcodes);
++
++	put_klog_buff(kbuff);
++
++	return 0;
++}
 -- 
 1.7.11.7
