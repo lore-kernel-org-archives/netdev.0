@@ -1,147 +1,80 @@
 From: Jesper Derehag <jderehag@hotmail.com>
-Subject: =?UTF-8?q?=5BPATCH=20v2=201/1=5D=20connector=3A=20Added=20coredumping=20event=20to=20the=20process=20connector?=
-Date: Wed, 20 Mar 2013 07:50:05 +0100
-Message-ID: <1363762205-26206-1-git-send-email-jderehag@hotmail.com>
+Subject: RE: [PATCH 1/1] connector: Added coredumping event to the process
+ connector
+Date: Wed, 20 Mar 2013 06:53:45 +0000
+Message-ID: <DUB002-W81D7BE8CAFEDCD21E3837CDDEA0@phx.gbl>
+References: <DUB002-W14207698E8638F6DEB6F4A7DDEE0@phx.gbl>
+ <DUB002-W153FA7D4CB9EB6CFF1689B3DDE90@phx.gbl>,<20130319170932.GB24909@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jesper Derehag <jderehag@hotmail.com>
-To: Evgeniy Polyakov <zbr@ioremap.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"zbr@ioremap.net" <zbr@ioremap.net>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dub0-omc4-s18.dub0.hotmail.com ([157.55.2.93]:22773 "EHLO
+	dub0-omc4-s18.dub0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751422Ab3CTGxq convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Mar 2013 02:53:46 -0400
+In-Reply-To: <20130319170932.GB24909@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Process connector can now also detect coredumping events.
-Main aim of patch is get notified at start of coredumping, instead of h=
-aving to wait for it to finish and then being notified through EXIT eve=
-nt.
-Could be used for instance by process-managers that want to get notifie=
-d as soon as possible about process failures, and not necessarily beein=
-g notified after coredump, which could be in the order of minutes depen=
-ding on size of coredump, piping and so on.
+----------------------------------------
+> Date: Tue, 19 Mar 2013 18:09:32 +0100
+> From: hannes@stressinduktion.org
+> To: jderehag@hotmail.com
+> CC: netdev@vger.kernel.org; zbr@ioremap.net
+> Subject: Re: [PATCH 1/1] connector: Added coredumping event to the process connector
+>
+> On Tue, Mar 19, 2013 at 07:32:10AM +0000, Jesper Derehag wrote:
+> > > From: jderehag@hotmail.com
+> > > To: netdev@vger.kernel.org
+> > > Subject: RE: [PATCH 1/1] connector: Added coredumping event to the process connector
+> > > Date: Sat, 16 Mar 2013 19:08:03 +0000
+> > >
+> > > ----------------------------------------
+> > > > Date: Sat, 16 Mar 2013 19:40:36 +0100
+> > > > From: hannes@stressinduktion.org
+> > > > To: jderehag@hotmail.com
+> > > > CC: zbr@ioremap.net; netdev@vger.kernel.org
+> > > > Subject: Re: [PATCH 1/1] connector: Added coredumping event to the process connector
+> > > >
+> > > > On Sat, Mar 16, 2013 at 05:57:20PM +0000, Jesper Derehag wrote:
+> > > > >
+> > > > >
+> > > > > > Date: Sat, 16 Mar 2013 18:03:48 +0100
+> > > > > > From: hannes@stressinduktion.org
+> > > > > > To: jderehag@hotmail.com
+> > > > > > CC: zbr@ioremap.net; netdev@vger.kernel.org
+> > > > > > Subject: Re: [PATCH 1/1] connector: Added coredumping event to the process connector
+> > > > > >
+> > > > > > On Sat, Mar 16, 2013 at 11:50:50AM +0100, Jesper Derehag wrote:
+> > > > > > > + ev->event_data.exit.exit_code = task->exit_code;
+> > > > > > > + ev->event_data.exit.exit_signal = task->exit_signal;
+> > > > > >
+> > > > > > Do these already contain meaningful values?
+> > > > > >
+> > > > >
+> > > > > I have to admit that they dont.And you are correct, I should add a new event struct specific for the coredump event instead of piggybacking on the exit struct.Will re-submit a patch..
+> > > >
+> > > > Hm, I am still unsure if such a patch is needed. Couldn't you test for
+> > > > coredump by inspecting exit_code on PROC_EVENT_EXIT?
+> > >
+> > > *** resubmitted message due to it got dropped by vger.kernel.org ***
+> > >
+> > > Well, what this patch adds I think is more a question of timing.
+> > > As an example, say you want to quickly detect process failures. In that case if we would only have the EXIT event, that would mean that we get notified after the dump is done, which could take minutes depending on how large the dump is.
+> > > If we instead watch for both EXIT & COREDUMP events, it would mean that we would quickly catch any failing process, regardless of if its actually starting to coredump or if its exited for some other reason.
+> >
+> >
+> > Any other comments on this before I send a v2 patch with the exit vs the coredump event struct change?
+>
+> I would say just go on and submit the patch. Perhaps you can Cc someone
+> looking after the change in signal.c (maybe lkml). I just checked that
+> you don't hold any spinlocks while doing the netlink send.
+>
 
-Signed-off-by: Jesper Derehag <jderehag@hotmail.com>
----
- drivers/connector/cn_proc.c  |   25 +++++++++++++++++++++++++
- include/linux/cn_proc.h      |    4 ++++
- include/uapi/linux/cn_proc.h |   10 +++++++++-
- kernel/signal.c              |    2 ++
- 4 filer =C3=A4ndrade, 40 till=C3=A4gg(+), 1 borttagning(-)
-
-diff --git a/drivers/connector/cn_proc.c b/drivers/connector/cn_proc.c
-index fce2000..c613ab3 100644
---- a/drivers/connector/cn_proc.c
-+++ b/drivers/connector/cn_proc.c
-@@ -232,6 +232,31 @@ void proc_comm_connector(struct task_struct *task)
- 	cn_netlink_send(msg, CN_IDX_PROC, GFP_KERNEL);
- }
-=20
-+void proc_coredump_connector(struct task_struct *task)
-+{
-+	struct cn_msg *msg;
-+	struct proc_event *ev;
-+	__u8 buffer[CN_PROC_MSG_SIZE];
-+	struct timespec ts;
-+
-+	if (atomic_read(&proc_event_num_listeners) < 1)
-+		return;
-+
-+	msg =3D (struct cn_msg *)buffer;
-+	ev =3D (struct proc_event *)msg->data;
-+	get_seq(&msg->seq, &ev->cpu);
-+	ktime_get_ts(&ts); /* get high res monotonic timestamp */
-+	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
-+	ev->what =3D PROC_EVENT_COREDUMP;
-+	ev->event_data.coredump.process_pid =3D task->pid;
-+	ev->event_data.coredump.process_tgid =3D task->tgid;
-+
-+	memcpy(&msg->id, &cn_proc_event_id, sizeof(msg->id));
-+	msg->ack =3D 0; /* not used */
-+	msg->len =3D sizeof(*ev);
-+	cn_netlink_send(msg, CN_IDX_PROC, GFP_KERNEL);
-+}
-+
- void proc_exit_connector(struct task_struct *task)
- {
- 	struct cn_msg *msg;
-diff --git a/include/linux/cn_proc.h b/include/linux/cn_proc.h
-index 2c1bc1e..1d5b02a 100644
---- a/include/linux/cn_proc.h
-+++ b/include/linux/cn_proc.h
-@@ -26,6 +26,7 @@ void proc_id_connector(struct task_struct *task, int =
-which_id);
- void proc_sid_connector(struct task_struct *task);
- void proc_ptrace_connector(struct task_struct *task, int which_id);
- void proc_comm_connector(struct task_struct *task);
-+void proc_coredump_connector(struct task_struct *task);
- void proc_exit_connector(struct task_struct *task);
- #else
- static inline void proc_fork_connector(struct task_struct *task)
-@@ -48,6 +49,9 @@ static inline void proc_ptrace_connector(struct task_=
-struct *task,
- 					 int ptrace_id)
- {}
-=20
-+static inline void proc_coredump_connector(struct task_struct *task)
-+{}
-+
- static inline void proc_exit_connector(struct task_struct *task)
- {}
- #endif	/* CONFIG_PROC_EVENTS */
-diff --git a/include/uapi/linux/cn_proc.h b/include/uapi/linux/cn_proc.=
-h
-index 0d7b499..f6c2710 100644
---- a/include/uapi/linux/cn_proc.h
-+++ b/include/uapi/linux/cn_proc.h
-@@ -56,7 +56,9 @@ struct proc_event {
- 		PROC_EVENT_PTRACE =3D 0x00000100,
- 		PROC_EVENT_COMM =3D 0x00000200,
- 		/* "next" should be 0x00000400 */
--		/* "last" is the last process event: exit */
-+		/* "last" is the last process event: exit,
-+		 * while "next to last" is coredumping event */
-+		PROC_EVENT_COREDUMP =3D 0x40000000,
- 		PROC_EVENT_EXIT =3D 0x80000000
- 	} what;
- 	__u32 cpu;
-@@ -110,11 +112,17 @@ struct proc_event {
- 			char           comm[16];
- 		} comm;
-=20
-+		struct coredump_proc_event {
-+			__kernel_pid_t process_pid;
-+			__kernel_pid_t process_tgid;
-+		} coredump;
-+
- 		struct exit_proc_event {
- 			__kernel_pid_t process_pid;
- 			__kernel_pid_t process_tgid;
- 			__u32 exit_code, exit_signal;
- 		} exit;
-+
- 	} event_data;
- };
-=20
-diff --git a/kernel/signal.c b/kernel/signal.c
-index 2ec870a..55f035b 100644
---- a/kernel/signal.c
-+++ b/kernel/signal.c
-@@ -32,6 +32,7 @@
- #include <linux/user_namespace.h>
- #include <linux/uprobes.h>
- #include <linux/compat.h>
-+#include <linux/cn_proc.h>
- #define CREATE_TRACE_POINTS
- #include <trace/events/signal.h>
-=20
-@@ -2347,6 +2348,7 @@ relock:
- 		if (sig_kernel_coredump(signr)) {
- 			if (print_fatal_signals)
- 				print_fatal_signal(info->si_signo);
-+			proc_coredump_connector(current);
- 			/*
- 			 * If it was able to dump core, this kills all
- 			 * other threads in the group and synchronizes with
---=20
-1.7.10.4
+Great.
+Just submitted the v2 patch (and cc:ing lkml), thanks for your help! Much appreciated.. 		 	   		  
