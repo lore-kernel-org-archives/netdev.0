@@ -1,70 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v3 1/1 net-next] NET: FEC: dynamtic check DMA desc buff
- type
-Date: Wed, 20 Mar 2013 17:28:35 +0000
-Message-ID: <1363800515.2677.13.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1357265063-30528-1-git-send-email-Frank.Li@freescale.com>
-	 <20130320160418.GG20530@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] dynticks: avoid flow_cache_flush() interrupting every
+ core
+Date: Wed, 20 Mar 2013 13:29:01 -0400 (EDT)
+Message-ID: <20130320.132901.1638904507644521607.davem@davemloft.net>
+References: <201303192143.r2JLhZIX020469@farm-0021.internal.tilera.com>
+	<20130320.121704.1797978839297064162.davem@davemloft.net>
+	<CAFTL4hwUuRdxUNF0rA9DVNREyBign6FRnAXFp_W+-YfYUfzU9Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Frank Li <Frank.Li@freescale.com>, <lznuaa@gmail.com>,
-	<davem@davemloft.net>, <s.hauer@pengutronix.de>,
-	<netdev@vger.kernel.org>, <shawn.guo@linaro.org>,
-	<linux-arm-kernel@lists.infradead.org>, <kernel@pengutronix.de>
-To: Uwe =?ISO-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:30319 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751878Ab3CTR2k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 13:28:40 -0400
-In-Reply-To: <20130320160418.GG20530@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: cmetcalf@tilera.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, gilad@benyossef.com,
+	sasha.levin@oracle.com, akpm@linux-foundation.org,
+	paulmck@linux.vnet.ibm.com, yoshfuji@linux-ipv6.org
+To: fweisbec@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFTL4hwUuRdxUNF0rA9DVNREyBign6FRnAXFp_W+-YfYUfzU9Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-03-20 at 17:04 +0100, Uwe Kleine-K=C3=B6nig wrote:
-> Hello,
->=20
-> On Fri, Jan 04, 2013 at 10:04:23AM +0800, Frank Li wrote:
-> > MX6 and mx28 support enhanced DMA descriptor buff to support 1588
-> > ptp. But MX25, MX3x, MX5x can't support enhanced DMA descriptor buf=
-f.
-> > Check fec type and choose correct DMA descriptor buff type.
-> >=20
-> > Remove static config CONFIG_FEC_PTP.
-> > ptp function will be auto detected.
-> Your patch (now as ff43da86c69d76a726ffe7d1666148960dc1d108 in v3.9-r=
-c1)
-> breaks building with CONFIG_FEC=3Dm:
->=20
-> 	ERROR: "fec_ptp_init" [drivers/net/ethernet/freescale/fec.ko] undefi=
-ned!
-> 	ERROR: "fec_ptp_ioctl" [drivers/net/ethernet/freescale/fec.ko] undef=
-ined!
-> 	ERROR: "fec_ptp_start_cyclecounter" [drivers/net/ethernet/freescale/=
-fec.ko] undefined!
->=20
-> IMHO you should build fec.o and fec_ptp.o into the same module as the=
-y
-> cannot live without each other anyhow.
+From: Frederic Weisbecker <fweisbec@gmail.com>
+Date: Wed, 20 Mar 2013 17:37:04 +0100
 
-They are in the same module.  So I don't see how that error is possible=
-=2E
+> 2013/3/20 David Miller <davem@davemloft.net>:
+>> From: Chris Metcalf <cmetcalf@tilera.com>
+>> Date: Tue, 19 Mar 2013 17:35:58 -0400
+>>
+>>> Previously, if you did an "ifconfig down" or similar on one core, and
+>>> the kernel had CONFIG_XFRM enabled, every core would be interrupted to
+>>> check its percpu flow list for items that could be garbage collected.
+>>>
+>>> With this change, we generate a mask of cores that actually have any
+>>> percpu items, and only interrupt those cores.  When we are trying to
+>>> isolate a set of cpus from interrupts, this is important to do.
+>>>
+>>> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+>>> ---
+>>> This change stands alone so could be taken into the net tree if
+>>> desired, but it is most useful in the context of Frederic Weisbecker's
+>>> linux-dynticks work.  So it could be taken up through either tree,
+>>> but it certainly needs sign-off from someone familiar with net/core/flow.c.
+>>
+>> I'm find with this going into the dynticks changes:
+>>
+>> Acked-by: David S. Miller <davem@davemloft.net>
+> 
+> At it looks pretty self-contained, can that perhaps go through the
+> networking tree?
 
-> Having said I wonder if it would be worthwile to support FEC without
-> PTP_1588_CLOCK. For example make the above three functions static
-> inlines if CONFIG_PTP_1588_CLOCK=3Dn and drop the select on the latte=
-r.
-
-See previous discussions:
-<http://thread.gmane.org/gmane.linux.kernel/1363200/focus=3D1376659>,
-<http://thread.gmane.org/gmane.linux.network/247963>,
-<http://thread.gmane.org/gmane.linux.network/247823/focus=3D248173>
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Fair enough, applied to net-next, thanks.
