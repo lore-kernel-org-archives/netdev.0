@@ -1,167 +1,190 @@
 From: pablo@netfilter.org
-Subject: [PATCH 1/7] netfilter: nf_conntrack: register pernet subsystem before register L4 proto
-Date: Wed, 20 Mar 2013 11:49:28 +0100
-Message-ID: <1363776574-4766-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/7] ipvs: add backup_only flag to avoid loops
+Date: Wed, 20 Mar 2013 11:49:32 +0100
+Message-ID: <1363776574-4766-6-git-send-email-pablo@netfilter.org>
 References: <1363776574-4766-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:51329 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756294Ab3CTKtz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Mar 2013 06:49:55 -0400
 In-Reply-To: <1363776574-4766-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
+From: Julian Anastasov <ja@ssi.bg>
 
-In (c296bb4 netfilter: nf_conntrack: refactor l4proto support for netns)
-the l4proto gre/dccp/udplite/sctp registration happened before the pernet
-subsystem, which is wrong.
+Dmitry Akindinov is reporting for a problem where SYNs are looping
+between the master and backup server when the backup server is used as
+real server in DR mode and has IPVS rules to function as director.
 
-Register pernet subsystem before register L4proto since after register
-L4proto, init_conntrack may try to access the resources which allocated
-in register_pernet_subsys.
+Even when the backup function is enabled we continue to forward
+traffic and schedule new connections when the current master is using
+the backup server as real server. While this is not a problem for NAT,
+for DR and TUN method the backup server can not determine if a request
+comes from client or from director.
 
-Reported-by: Alexey Dobriyan <adobriyan@gmail.com>
-Cc: Alexey Dobriyan <adobriyan@gmail.com>
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+To avoid such loops add new sysctl flag backup_only. It can be needed
+for DR/TUN setups that do not need backup and director function at the
+same time. When the backup function is enabled we stop any forwarding
+and pass the traffic to the local stack (real server mode). The flag
+disables the director function when the backup function is enabled.
+
+For setups that enable backup function for some virtual services and
+director function for other virtual services there should be another
+more complex solution to support DR/TUN mode, may be to assign
+per-virtual service syncid value, so that we can differentiate the
+requests.
+
+Reported-by: Dmitry Akindinov <dimak@stalker.com>
+Tested-by: German Myzovsky <lawyer@sipnet.ru>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/nf_conntrack_proto_dccp.c    |   12 ++++++------
- net/netfilter/nf_conntrack_proto_gre.c     |   12 ++++++------
- net/netfilter/nf_conntrack_proto_sctp.c    |   12 ++++++------
- net/netfilter/nf_conntrack_proto_udplite.c |   12 ++++++------
- 4 files changed, 24 insertions(+), 24 deletions(-)
+ Documentation/networking/ipvs-sysctl.txt |    7 +++++++
+ include/net/ip_vs.h                      |   12 ++++++++++++
+ net/netfilter/ipvs/ip_vs_core.c          |   12 ++++++++----
+ net/netfilter/ipvs/ip_vs_ctl.c           |    7 +++++++
+ 4 files changed, 34 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
-index 432f957..ba65b20 100644
---- a/net/netfilter/nf_conntrack_proto_dccp.c
-+++ b/net/netfilter/nf_conntrack_proto_dccp.c
-@@ -969,6 +969,10 @@ static int __init nf_conntrack_proto_dccp_init(void)
- {
- 	int ret;
+diff --git a/Documentation/networking/ipvs-sysctl.txt b/Documentation/networking/ipvs-sysctl.txt
+index f2a2488..9573d0c 100644
+--- a/Documentation/networking/ipvs-sysctl.txt
++++ b/Documentation/networking/ipvs-sysctl.txt
+@@ -15,6 +15,13 @@ amemthresh - INTEGER
+         enabled and the variable is automatically set to 2, otherwise
+         the strategy is disabled and the variable is  set  to 1.
  
-+	ret = register_pernet_subsys(&dccp_net_ops);
-+	if (ret < 0)
-+		goto out_pernet;
++backup_only - BOOLEAN
++	0 - disabled (default)
++	not 0 - enabled
 +
- 	ret = nf_ct_l4proto_register(&dccp_proto4);
- 	if (ret < 0)
- 		goto out_dccp4;
-@@ -977,16 +981,12 @@ static int __init nf_conntrack_proto_dccp_init(void)
- 	if (ret < 0)
- 		goto out_dccp6;
++	If set, disable the director function while the server is
++	in backup mode to avoid packet loops for DR/TUN methods.
++
+ conntrack - BOOLEAN
+ 	0 - disabled (default)
+ 	not 0 - enabled
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 68c69d5..fce8e6b 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -976,6 +976,7 @@ struct netns_ipvs {
+ 	int			sysctl_sync_retries;
+ 	int			sysctl_nat_icmp_send;
+ 	int			sysctl_pmtu_disc;
++	int			sysctl_backup_only;
  
--	ret = register_pernet_subsys(&dccp_net_ops);
--	if (ret < 0)
--		goto out_pernet;
--
- 	return 0;
--out_pernet:
--	nf_ct_l4proto_unregister(&dccp_proto6);
- out_dccp6:
- 	nf_ct_l4proto_unregister(&dccp_proto4);
- out_dccp4:
-+	unregister_pernet_subsys(&dccp_net_ops);
-+out_pernet:
- 	return ret;
+ 	/* ip_vs_lblc */
+ 	int			sysctl_lblc_expiration;
+@@ -1067,6 +1068,12 @@ static inline int sysctl_pmtu_disc(struct netns_ipvs *ipvs)
+ 	return ipvs->sysctl_pmtu_disc;
  }
  
-diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
-index bd7d01d..155ce9f 100644
---- a/net/netfilter/nf_conntrack_proto_gre.c
-+++ b/net/netfilter/nf_conntrack_proto_gre.c
-@@ -420,18 +420,18 @@ static int __init nf_ct_proto_gre_init(void)
- {
- 	int ret;
- 
--	ret = nf_ct_l4proto_register(&nf_conntrack_l4proto_gre4);
--	if (ret < 0)
--		goto out_gre4;
--
- 	ret = register_pernet_subsys(&proto_gre_net_ops);
- 	if (ret < 0)
- 		goto out_pernet;
- 
-+	ret = nf_ct_l4proto_register(&nf_conntrack_l4proto_gre4);
-+	if (ret < 0)
-+		goto out_gre4;
++static inline int sysctl_backup_only(struct netns_ipvs *ipvs)
++{
++	return ipvs->sync_state & IP_VS_STATE_BACKUP &&
++	       ipvs->sysctl_backup_only;
++}
 +
- 	return 0;
--out_pernet:
--	nf_ct_l4proto_unregister(&nf_conntrack_l4proto_gre4);
- out_gre4:
-+	unregister_pernet_subsys(&proto_gre_net_ops);
-+out_pernet:
- 	return ret;
+ #else
+ 
+ static inline int sysctl_sync_threshold(struct netns_ipvs *ipvs)
+@@ -1114,6 +1121,11 @@ static inline int sysctl_pmtu_disc(struct netns_ipvs *ipvs)
+ 	return 1;
  }
  
-diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
-index 480f616..ec83536 100644
---- a/net/netfilter/nf_conntrack_proto_sctp.c
-+++ b/net/netfilter/nf_conntrack_proto_sctp.c
-@@ -888,6 +888,10 @@ static int __init nf_conntrack_proto_sctp_init(void)
- {
- 	int ret;
- 
-+	ret = register_pernet_subsys(&sctp_net_ops);
-+	if (ret < 0)
-+		goto out_pernet;
++static inline int sysctl_backup_only(struct netns_ipvs *ipvs)
++{
++	return 0;
++}
 +
- 	ret = nf_ct_l4proto_register(&nf_conntrack_l4proto_sctp4);
- 	if (ret < 0)
- 		goto out_sctp4;
-@@ -896,16 +900,12 @@ static int __init nf_conntrack_proto_sctp_init(void)
- 	if (ret < 0)
- 		goto out_sctp6;
+ #endif
  
--	ret = register_pernet_subsys(&sctp_net_ops);
--	if (ret < 0)
--		goto out_pernet;
--
- 	return 0;
--out_pernet:
--	nf_ct_l4proto_unregister(&nf_conntrack_l4proto_sctp6);
- out_sctp6:
- 	nf_ct_l4proto_unregister(&nf_conntrack_l4proto_sctp4);
- out_sctp4:
-+	unregister_pernet_subsys(&sctp_net_ops);
-+out_pernet:
- 	return ret;
- }
+ /*
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 47edf5a..18b4bc5 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -1577,7 +1577,8 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
+ 	}
+ 	/* ipvs enabled in this netns ? */
+ 	net = skb_net(skb);
+-	if (!net_ipvs(net)->enable)
++	ipvs = net_ipvs(net);
++	if (unlikely(sysctl_backup_only(ipvs) || !ipvs->enable))
+ 		return NF_ACCEPT;
  
-diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
-index 1574895..ca969f6 100644
---- a/net/netfilter/nf_conntrack_proto_udplite.c
-+++ b/net/netfilter/nf_conntrack_proto_udplite.c
-@@ -371,6 +371,10 @@ static int __init nf_conntrack_proto_udplite_init(void)
+ 	ip_vs_fill_iph_skb(af, skb, &iph);
+@@ -1654,7 +1655,6 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
+ 	}
+ 
+ 	IP_VS_DBG_PKT(11, af, pp, skb, 0, "Incoming packet");
+-	ipvs = net_ipvs(net);
+ 	/* Check the server status */
+ 	if (cp->dest && !(cp->dest->flags & IP_VS_DEST_F_AVAILABLE)) {
+ 		/* the destination server is not available */
+@@ -1815,13 +1815,15 @@ ip_vs_forward_icmp(unsigned int hooknum, struct sk_buff *skb,
  {
- 	int ret;
+ 	int r;
+ 	struct net *net;
++	struct netns_ipvs *ipvs;
  
-+	ret = register_pernet_subsys(&udplite_net_ops);
-+	if (ret < 0)
-+		goto out_pernet;
-+
- 	ret = nf_ct_l4proto_register(&nf_conntrack_l4proto_udplite4);
- 	if (ret < 0)
- 		goto out_udplite4;
-@@ -379,16 +383,12 @@ static int __init nf_conntrack_proto_udplite_init(void)
- 	if (ret < 0)
- 		goto out_udplite6;
+ 	if (ip_hdr(skb)->protocol != IPPROTO_ICMP)
+ 		return NF_ACCEPT;
  
--	ret = register_pernet_subsys(&udplite_net_ops);
--	if (ret < 0)
--		goto out_pernet;
--
- 	return 0;
--out_pernet:
--	nf_ct_l4proto_unregister(&nf_conntrack_l4proto_udplite6);
- out_udplite6:
- 	nf_ct_l4proto_unregister(&nf_conntrack_l4proto_udplite4);
- out_udplite4:
-+	unregister_pernet_subsys(&udplite_net_ops);
-+out_pernet:
- 	return ret;
- }
+ 	/* ipvs enabled in this netns ? */
+ 	net = skb_net(skb);
+-	if (!net_ipvs(net)->enable)
++	ipvs = net_ipvs(net);
++	if (unlikely(sysctl_backup_only(ipvs) || !ipvs->enable))
+ 		return NF_ACCEPT;
  
+ 	return ip_vs_in_icmp(skb, &r, hooknum);
+@@ -1835,6 +1837,7 @@ ip_vs_forward_icmp_v6(unsigned int hooknum, struct sk_buff *skb,
+ {
+ 	int r;
+ 	struct net *net;
++	struct netns_ipvs *ipvs;
+ 	struct ip_vs_iphdr iphdr;
+ 
+ 	ip_vs_fill_iph_skb(AF_INET6, skb, &iphdr);
+@@ -1843,7 +1846,8 @@ ip_vs_forward_icmp_v6(unsigned int hooknum, struct sk_buff *skb,
+ 
+ 	/* ipvs enabled in this netns ? */
+ 	net = skb_net(skb);
+-	if (!net_ipvs(net)->enable)
++	ipvs = net_ipvs(net);
++	if (unlikely(sysctl_backup_only(ipvs) || !ipvs->enable))
+ 		return NF_ACCEPT;
+ 
+ 	return ip_vs_in_icmp_v6(skb, &r, hooknum, &iphdr);
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index c68198b..9e2d1cc 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1808,6 +1808,12 @@ static struct ctl_table vs_vars[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec,
+ 	},
++	{
++		.procname	= "backup_only",
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
+ #ifdef CONFIG_IP_VS_DEBUG
+ 	{
+ 		.procname	= "debug_level",
+@@ -3741,6 +3747,7 @@ static int __net_init ip_vs_control_net_init_sysctl(struct net *net)
+ 	tbl[idx++].data = &ipvs->sysctl_nat_icmp_send;
+ 	ipvs->sysctl_pmtu_disc = 1;
+ 	tbl[idx++].data = &ipvs->sysctl_pmtu_disc;
++	tbl[idx++].data = &ipvs->sysctl_backup_only;
+ 
+ 
+ 	ipvs->sysctl_hdr = register_net_sysctl(net, "net/ipv4/vs", tbl);
 -- 
 1.7.10.4
-
