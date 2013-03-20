@@ -1,45 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] chelsio: add headroom in RX path
-Date: Wed, 20 Mar 2013 09:33:19 -0700
-Message-ID: <1363797199.3333.18.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: fix psock_fanout selftest hash collision
+Date: Wed, 20 Mar 2013 12:33:44 -0400 (EDT)
+Message-ID: <20130320.123344.1566685302188091721.davem@davemloft.net>
+References: <CA+FuTSeN1wXrSP8-piCdnv8MuqgokndSYsiidvdtC=d2tCqcDQ@mail.gmail.com>
+	<1363761764-4374-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: willemb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:60577 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755744Ab3CTQdW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 12:33:22 -0400
-Received: by mail-pb0-f41.google.com with SMTP id um15so1507504pbc.28
-        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 09:33:21 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:58254 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758227Ab3CTQdq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 12:33:46 -0400
+In-Reply-To: <1363761764-4374-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Willem de Bruijn <willemb@google.com>
+Date: Wed, 20 Mar 2013 02:42:44 -0400
 
-Drivers should reserve some headroom in skb used in receive path,
-to avoid future head reallocation.
+> Fix flaky results with PACKET_FANOUT_HASH depending on whether the
+> two flows hash into the same packet socket or not.
+> 
+> Also adds tests for PACKET_FANOUT_LB and PACKET_FANOUT_CPU and
+> replaces the counting method with a packet ring.
+> 
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-One possible way to do that is to use dev_alloc_skb() instead
-of alloc_skb(), so that NET_SKB_PAD bytes are reserved.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- drivers/net/ethernet/chelsio/cxgb/sge.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb/sge.c b/drivers/net/ethernet/chelsio/cxgb/sge.c
-index 4829769..89bef50 100644
---- a/drivers/net/ethernet/chelsio/cxgb/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb/sge.c
-@@ -835,7 +835,7 @@ static void refill_free_list(struct sge *sge, struct freelQ *q)
- 		struct sk_buff *skb;
- 		dma_addr_t mapping;
- 
--		skb = alloc_skb(q->rx_buffer_size, GFP_ATOMIC);
-+		skb = dev_alloc_skb(q->rx_buffer_size);
- 		if (!skb)
- 			break;
- 
+Applied, thanks.  I'll retest on my sparc64 box later today.
