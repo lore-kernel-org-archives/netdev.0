@@ -1,48 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/2] genetlink: trigger BUG_ON if a group name is too
- long
-Date: Wed, 20 Mar 2013 17:32:59 +0000
-Message-ID: <1363800779.2677.16.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1363693648-10015-1-git-send-email-yamato@redhat.com>
-	 <1363693648-10015-2-git-send-email-yamato@redhat.com>
-	 <20130320.120705.58997943737455552.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1]core:Change a wrong explain about dev_get_by_name
+Date: Wed, 20 Mar 2013 10:43:09 -0700
+Message-ID: <1363801389.3333.25.camel@edumazet-glaptop>
+References: <CA+qZnSSMfbeGsThYe-=tK-kZ3h1GEKDGkNom+07-hRSqgLUUWg@mail.gmail.com>
+	 <1363793549.3333.12.camel@edumazet-glaptop>
+	 <1363799443.2677.2.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <yamato@redhat.com>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: tingwei liu <tingw.liu@gmail.com>, netdev@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, davem@davemloft.net
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:30431 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751077Ab3CTRdC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 13:33:02 -0400
-In-Reply-To: <20130320.120705.58997943737455552.davem@davemloft.net>
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:33473 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754430Ab3CTRnM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 13:43:12 -0400
+Received: by mail-ia0-f174.google.com with SMTP id b35so1615129iac.5
+        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 10:43:11 -0700 (PDT)
+In-Reply-To: <1363799443.2677.2.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-03-20 at 12:07 -0400, David Miller wrote:
-> From: Masatake YAMATO <yamato@redhat.com>
-> Date: Tue, 19 Mar 2013 20:47:27 +0900
-> 
-> > Trigger BUG_ON if a group name is longer than GENL_NAMSIZ.
-> > 
-> > Signed-off-by: Masatake YAMATO <yamato@redhat.com>
-> 
-> Applied, thanks.
-> 
-> Although I'm disappointed that the compiler doesn't say anything about
-> this in the assignment.
-> 
-> We're assigning "char[16] = STRING" and it doesn't say anything if the
-> final NULL char doesn't fit into the array.
+On Wed, 2013-03-20 at 17:10 +0000, Ben Hutchings wrote:
 
-Unfortunately the C standard says this is allowed.  (Though the C++
-standard says it's not!)  That doesn't mean the compiler can't warn
-about it, of course.
+> If they are wrongly documented as 'can be called from any context', yes.
 
-Ben.
+Wow, thats really useful.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Why is this function not allowed from hard irq context, we have no idea.
+
+Why someone would like to call it from hard irq context, we have no
+idea.
+
+I hope to get a clear explanation here, not only playing with words.
+
+Thanks
