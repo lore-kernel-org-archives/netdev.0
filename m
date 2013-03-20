@@ -1,48 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] netfilter fixes for 3.9-rc
-Date: Wed, 20 Mar 2013 10:25:22 -0400 (EDT)
-Message-ID: <20130320.102522.1602310574602201267.davem@davemloft.net>
-References: <1363776574-4766-1-git-send-email-pablo@netfilter.org>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] net: ethernet: davinci_emac: make local function
+ emac_poll_controller() static
+Date: Wed, 20 Mar 2013 23:01:45 +0800
+Message-ID: <CAPgLHd8=u1jepO+Z0HExYyyybaYtVcdqk0yhtmnLUieUhEGLTw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1363776574-4766-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org
+To: grant.likely@secretlab.ca, rob.herring@calxeda.com,
+	davem@davemloft.net, mugunthanvnm@ti.com, jiri@resnulli.us,
+	agust@denx.de, bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f52.google.com ([209.85.214.52]:48752 "EHLO
+	mail-bk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751239Ab3CTPBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 11:01:51 -0400
+Received: by mail-bk0-f52.google.com with SMTP id jk13so907272bkc.25
+        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 08:01:48 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: pablo@netfilter.org
-Date: Wed, 20 Mar 2013 11:49:27 +0100
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-> The following patchset contains 7 Netfilter/IPVS fixes for 3.9-rc, they are:
-> 
-> * Restrict IPv6 stateless NPT targets to the mangle table. Many users are
->   complaining that this target does not work in the nat table, which is the
->   wrong table for it, from Florian Westphal.
-> 
-> * Fix possible use before initialization in the netns init path of several
->   conntrack protocol trackers (introduced recently while improving conntrack
->   netns support), from Gao Feng.
-> 
-> * Fix incorrect initialization of copy_range in nfnetlink_queue, spotted
->   by Eric Dumazet during the NFWS2013, patch from myself.
-> 
-> * Fix wrong calculation of next SCTP chunk in IPVS, from Julian Anastasov.
-> 
-> * Remove rcu_read_lock section in IPVS while calling ipv4_update_pmtu
->   not required anymore after change introduced in 3.7, again from Julian.
-> 
-> * Fix SYN looping in IPVS state sync if the backup is used a real server
->   in DR/TUN modes, this required a new /proc entry to disable the director
->   function when acting as backup, also from Julian.
-> 
-> * Remove leftover IP_NF_QUEUE Kconfig after ip_queue removal, noted by
->   Paul Bolle.
-> 
-> You can pull these changes from:
-> 
-> git://1984.lsi.us.es/nf master
+emac_poll_controller() was not declared. It should be static.
 
-Pulled, thanks!
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/ti/davinci_emac.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index ae1b77a..e38e3d8 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -1438,7 +1438,7 @@ static int emac_poll(struct napi_struct *napi, int budget)
+  * Polled functionality used by netconsole and others in non interrupt mode
+  *
+  */
+-void emac_poll_controller(struct net_device *ndev)
++static void emac_poll_controller(struct net_device *ndev)
+ {
+ 	struct emac_priv *priv = netdev_priv(ndev);
+ 
