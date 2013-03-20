@@ -1,38 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1]core:Change a wrong explain about dev_get_by_name
-Date: Wed, 20 Mar 2013 10:43:09 -0700
-Message-ID: <1363801389.3333.25.camel@edumazet-glaptop>
-References: <CA+qZnSSMfbeGsThYe-=tK-kZ3h1GEKDGkNom+07-hRSqgLUUWg@mail.gmail.com>
-	 <1363793549.3333.12.camel@edumazet-glaptop>
-	 <1363799443.2677.2.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [regression] [analyzed] fragmentation broken for tunnel devices
+Date: Wed, 20 Mar 2013 13:46:40 -0400 (EDT)
+Message-ID: <20130320.134640.1857052324535652751.davem@davemloft.net>
+References: <20130315133820.006a42f6@vostro>
+	<20130315150321.621d705e@vostro>
+	<20130320101318.4196d93a@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tingwei liu <tingw.liu@gmail.com>, netdev@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f174.google.com ([209.85.210.174]:33473 "EHLO
-	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754430Ab3CTRnM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 13:43:12 -0400
-Received: by mail-ia0-f174.google.com with SMTP id b35so1615129iac.5
-        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 10:43:11 -0700 (PDT)
-In-Reply-To: <1363799443.2677.2.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59302 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754645Ab3CTRqm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 13:46:42 -0400
+In-Reply-To: <20130320101318.4196d93a@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-03-20 at 17:10 +0000, Ben Hutchings wrote:
+From: Timo Teras <timo.teras@iki.fi>
+Date: Wed, 20 Mar 2013 10:13:18 +0200
 
-> If they are wrongly documented as 'can be called from any context', yes.
+Thanks for investigating this issue.
 
-Wow, thats really useful.
+> 3) Reimplement fragmentation in tunnel devices. This means some
+> duplication of code. But now that there's GRO support in tunnels, this
+> would seem the most performant option.
 
-Why is this function not allowed from hard irq context, we have no idea.
-
-Why someone would like to call it from hard irq context, we have no
-idea.
-
-I hope to get a clear explanation here, not only playing with words.
-
-Thanks
+I think this is the best option, especially in the long term.
