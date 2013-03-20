@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] net: mdio-octeon: Use module_platform_driver()
-Date: Wed, 20 Mar 2013 13:26:19 -0400 (EDT)
-Message-ID: <20130320.132619.823146896988301435.davem@davemloft.net>
-References: <1363779692-4395-1-git-send-email-sachin.kamat@linaro.org>
-	<1363779692-4395-5-git-send-email-sachin.kamat@linaro.org>
+Subject: Re: [PATCH] net: ethernet: davinci_emac: make local function
+ emac_poll_controller() static
+Date: Wed, 20 Mar 2013 13:26:25 -0400 (EDT)
+Message-ID: <20130320.132625.485717828800181562.davem@davemloft.net>
+References: <CAPgLHd8=u1jepO+Z0HExYyyybaYtVcdqk0yhtmnLUieUhEGLTw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ddaney@caviumnetworks.com
-To: sachin.kamat@linaro.org
+Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
+	mugunthanvnm@ti.com, jiri@resnulli.us, agust@denx.de,
+	bhutchings@solarflare.com, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59034 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59045 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754724Ab3CTR0V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 13:26:21 -0400
-In-Reply-To: <1363779692-4395-5-git-send-email-sachin.kamat@linaro.org>
+	with ESMTP id S1754695Ab3CTR02 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 13:26:28 -0400
+In-Reply-To: <CAPgLHd8=u1jepO+Z0HExYyyybaYtVcdqk0yhtmnLUieUhEGLTw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Date: Wed, 20 Mar 2013 17:11:32 +0530
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Wed, 20 Mar 2013 23:01:45 +0800
 
-> module_platform_driver macro removes some boilerplate and
-> simplifies the code.
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
-> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+> emac_poll_controller() was not declared. It should be static.
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
 Applied.
