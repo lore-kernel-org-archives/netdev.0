@@ -1,34 +1,28 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: Can we rely on ethernet header padding?
-Date: Wed, 20 Mar 2013 10:54:26 +0100
-Message-ID: <20130320095426.GA20373@unicorn.suse.cz>
-References: <20130319150545.GA18218@unicorn.suse.cz>
- <1363706495.2558.14.camel@edumazet-glaptop>
- <20130319154806.GB18218@unicorn.suse.cz>
- <20130319142553.3e08e7b9@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [patch] RxRPC: use copy_to_user() instead of memcpy()
+Date: Wed, 20 Mar 2013 10:23:38 +0000
+Message-ID: <27098.1363775018@warthog.procyon.org.uk>
+References: <20130319225101.GZ9189@mwanda> <20130319.094240.1315516663563952557.davem@davemloft.net> <20130318105503.GA17102@longonot.mountain> <30707.1363701570@warthog.procyon.org.uk>
+Cc: dhowells@redhat.com, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:53239 "EHLO mx2.suse.de"
+Received: from mx1.redhat.com ([209.132.183.28]:18952 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758216Ab3CTJy1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Mar 2013 05:54:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20130319142553.3e08e7b9@nehalam.linuxnetplumber.net>
+	id S1751918Ab3CTKXn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Mar 2013 06:23:43 -0400
+In-Reply-To: <20130319225101.GZ9189@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 19, 2013 at 02:25:53PM -0700, Stephen Hemminger wrote:
+Dan Carpenter <dan.carpenter@oracle.com> wrote:
+
+> Thanks for the explanation.  I misread the code and then managed to
+> trigger an unrelated locking bug and got confused.
 > 
-> My view is that the bridge code must check before assuming headroom.
-> But because of that, it means a packet copy would be necessary for cases
-> where packets arrive without enough headroom.
+> I think there is a spin_unlock(call->lock) missing somewhere on an
+> error path.  I have attached a reproducer file.
 
-Yes, but for most users this is better than a crash. How about issuing a
-WARN_ONCE() in such case so that we avoid writing out of the buffer but
-still allow developers (and users who check logs) to catch the problem?
+Are you running with lockdep enabled?  That should catch such things.
 
-                                                          Michal Kubecek
+David
