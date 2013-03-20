@@ -1,63 +1,43 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: Re: [PATCH 5/5] net: mdio-octeon: Use module_platform_driver()
-Date: Wed, 20 Mar 2013 09:12:38 -0700
-Message-ID: <5149DFF6.1010304@gmail.com>
-References: <1363779692-4395-1-git-send-email-sachin.kamat@linaro.org> <1363779692-4395-5-git-send-email-sachin.kamat@linaro.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/12] l2tp bugfix patchset
+Date: Wed, 20 Mar 2013 12:14:12 -0400 (EDT)
+Message-ID: <20130320.121412.1230198756594408982.davem@davemloft.net>
+References: <1363709483-24021-1-git-send-email-tparkin@katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	David Daney <ddaney@caviumnetworks.com>
-To: Sachin Kamat <sachin.kamat@linaro.org>
+Cc: netdev@vger.kernel.org
+To: tparkin@katalix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:58240 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752379Ab3CTQMq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 12:12:46 -0400
-Received: by mail-pb0-f43.google.com with SMTP id md12so1491664pbc.16
-        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 09:12:45 -0700 (PDT)
-In-Reply-To: <1363779692-4395-5-git-send-email-sachin.kamat@linaro.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57993 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755227Ab3CTQOO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 12:14:14 -0400
+In-Reply-To: <1363709483-24021-1-git-send-email-tparkin@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/20/2013 04:41 AM, Sachin Kamat wrote:
-> module_platform_driver macro removes some boilerplate and
-> simplifies the code.
->
-> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
-> Cc: David Daney <ddaney@caviumnetworks.com>
+From: Tom Parkin <tparkin@katalix.com>
+Date: Tue, 19 Mar 2013 16:11:11 +0000
 
-I was going to send the equivalent patch.
+> This l2tp bugfix patchset addresses a number of issues.
+> 
+> The first five patches in the series prevent l2tp sessions pinning an l2tp
+> tunnel open.  This occurs because the l2tp tunnel is torn down in the tunnel
+> socket destructor, but each session holds a tunnel socket reference which
+> prevents tunnels with sessions being deleted.  The solution I've implemented
+> here involves adding a .destroy hook to udp code, as discussed previously on
+> netdev[1].
+> 
+> The subsequent seven patches address futher bugs exposed by fixing the problem
+> above, or exposed through stress testing the implementation above.  Patch 11
+> (avoid deadlock in l2tp stats update) isn't directly related to tunnel/session
+> lifetimes, but it does prevent deadlocks on i386 kernels running on 64 bit
+> hardware.
+> 
+> This patchset has been tested on 32 and 64 bit preempt/non-preempt kernels,
+> using iproute2, openl2tp, and custom-made stress test code.
+> 
+> [1] http://comments.gmane.org/gmane.linux.network/259169
 
-Acked-by: David Daney <ddaney@caviumnetworks.com>
-
-
-> ---
->   drivers/net/phy/mdio-octeon.c |   13 +------------
->   1 files changed, 1 insertions(+), 12 deletions(-)
->
-> diff --git a/drivers/net/phy/mdio-octeon.c b/drivers/net/phy/mdio-octeon.c
-> index 09297fe..c2c878d 100644
-> --- a/drivers/net/phy/mdio-octeon.c
-> +++ b/drivers/net/phy/mdio-octeon.c
-> @@ -197,18 +197,7 @@ void octeon_mdiobus_force_mod_depencency(void)
->   }
->   EXPORT_SYMBOL(octeon_mdiobus_force_mod_depencency);
->
-> -static int __init octeon_mdiobus_mod_init(void)
-> -{
-> -	return platform_driver_register(&octeon_mdiobus_driver);
-> -}
-> -
-> -static void __exit octeon_mdiobus_mod_exit(void)
-> -{
-> -	platform_driver_unregister(&octeon_mdiobus_driver);
-> -}
-> -
-> -module_init(octeon_mdiobus_mod_init);
-> -module_exit(octeon_mdiobus_mod_exit);
-> +module_platform_driver(octeon_mdiobus_driver);
->
->   MODULE_DESCRIPTION(DRV_DESCRIPTION);
->   MODULE_VERSION(DRV_VERSION);
->
+All applied, thanks for fixing all of these bugs Tom.
