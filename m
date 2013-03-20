@@ -1,46 +1,33 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/1]core:Change a wrong explain about dev_get_by_name
-Date: Wed, 20 Mar 2013 17:10:43 +0000
-Message-ID: <1363799443.2677.2.camel@bwh-desktop.uk.solarflarecom.com>
-References: <CA+qZnSSMfbeGsThYe-=tK-kZ3h1GEKDGkNom+07-hRSqgLUUWg@mail.gmail.com>
-	 <1363793549.3333.12.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 2/4] net: flow_dissector: add
+ __skb_get_poff to get a start offset to payload
+Date: Wed, 20 Mar 2013 13:16:13 -0400 (EDT)
+Message-ID: <20130320.131613.2285077146320942322.davem@davemloft.net>
+References: <1363711172-9728-1-git-send-email-dborkman@redhat.com>
+	<1363711172-9728-3-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tingwei liu <tingw.liu@gmail.com>, <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:63839 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755263Ab3CTRKt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 13:10:49 -0400
-In-Reply-To: <1363793549.3333.12.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58920 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750763Ab3CTRQS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 13:16:18 -0400
+In-Reply-To: <1363711172-9728-3-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-03-20 at 08:32 -0700, Eric Dumazet wrote:
-> On Wed, 2013-03-20 at 17:33 +0800, tingwei liu wrote:
-> > From 5d787e8c3725efa6af3036eeb52aba1905c70de9 Mon Sep 17 00:00:00 2001
-> > From: root <root@linux-19.site>
-> > Date: Wed, 20 Mar 2013 17:39:59 +0800
-> > Subject: [PATCH] Change a wrong explain about dev_get_by_name
-> > 
-> 
-> No changelog ? This patch really needs a changelog.
-> 
-> I have no idea why we should document this function being not safe in
-> irq context.
-> 
-> Most part of networking stack is non safe in hard irq context.
-> 
-> Should we add a comment in front of all possible entry points ?
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Tue, 19 Mar 2013 17:39:30 +0100
 
-If they are wrongly documented as 'can be called from any context', yes.
+> __skb_get_poff() returns the offset to the payload as far as it could
+> be dissected. The main user is currently BPF, so that we can dynamically
+> truncate packets without needing to push actual payload to the user
+> space and instead can analyze headers only.
+> 
+> Suggested-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Applied.
