@@ -1,93 +1,85 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH] drivers/isdn: break out of the loop after call isdn_tty_send_msg
-Date: Wed, 20 Mar 2013 13:03:50 +0800
-Message-ID: <51494336.7070202@asianux.com>
-References: <512DD2B3.2070404@asianux.com> <512DD94C.2020008@suse.cz> <512EC79C.3010700@asianux.com> <512F296E.1050303@suse.cz> <51428134.50601@asianux.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next 1/2] net_sched: don't do precise pkt_len computation
+ for untrusted packets
+Date: Wed, 20 Mar 2013 14:19:28 +0800
+Message-ID: <514954F0.2040604@redhat.com>
+References: <1363333305-54398-1-git-send-email-jasowang@redhat.com>  <20130317.121026.733329595817911776.davem@davemloft.net>  <51482F14.9030407@redhat.com> <1363695040.21184.32.camel@edumazet-glaptop> <1363697906.21184.53.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Kosina <jkosina@suse.cz>, isdn@linux-pingi.de,
-	Greg KH <gregkh@linuxfoundation.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	netdev <netdev@vger.kernel.org>
-To: Jiri Slaby <jslaby@suse.cz>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:59748 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752712Ab3CTFEY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 01:04:24 -0400
-In-Reply-To: <51428134.50601@asianux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, edumazet@google.com,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1363697906.21184.53.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Maintainers:
-
-  did I send incorrect mail address ?
-    ./scripts/get_maintainers.pl leads to cc netdev, but exclude David =
-Miller.
-    is it a bug of ./scripts/get_maintainers.pl ?
-      (this time, I include him in this mail address).
-
-  welcome any members to providing suggestions or completions.
-
-  thanks.
-
-gchen.
-
-On 2013=E5=B9=B403=E6=9C=8815=E6=97=A5 10:02, Chen Gang wrote:
-> Hello Maintainers:
->=20
->   is it qualified to be applied ?
->=20
->   thanks.
->=20
->=20
-> =E4=BA=8E 2013=E5=B9=B402=E6=9C=8828=E6=97=A5 17:54, Jiri Slaby =E5=86=
-=99=E9=81=93:
->> On 02/28/2013 03:57 AM, Chen Gang wrote:
->>>
->>>   need break out of the loop after call isdn_tty_send_msg.
->>>     isdn_tty_send_msg is intended to eat the rest of the string.
->>>     so need not scan again the string which appended "+M...".
+On 03/19/2013 08:58 PM, Eric Dumazet wrote:
+> On Tue, 2013-03-19 at 05:10 -0700, Eric Dumazet wrote:
+>> On Tue, 2013-03-19 at 17:25 +0800, Jason Wang wrote:
 >>
->> Yes, looks good.
+>>> I believe before doing header check for untrusted packets, the only
+>>> thing we can trust is skb->len and that's we've used before
+>>> 1def9238d4aa2. But after that, we're trying to use unchecked or
+>>> meaningless value (e.g gso_segs were reset to zero in
+>>> tun/macvtap/packet), and guest then can utilize this to result a very
+>>> huge (-1U) pkt_len by filling evil value in the header. Can all kinds of
+>>> packet scheduler survive this kinds of possible DOS?
+>> I would use the flow dissector to fix the transport header from all
+>> DODGY providers.
 >>
->>> Signed-off-by: Chen Gang <gang.chen@asianux.com>
->>> ---
->>>  drivers/isdn/i4l/isdn_tty.c |    4 +++-
->>>  1 files changed, 3 insertions(+), 1 deletions(-)
->>>
->>> diff --git a/drivers/isdn/i4l/isdn_tty.c b/drivers/isdn/i4l/isdn_tt=
-y.c
->>> index d8a7d83..8ac7b33 100644
->>> --- a/drivers/isdn/i4l/isdn_tty.c
->>> +++ b/drivers/isdn/i4l/isdn_tty.c
->>> @@ -3587,7 +3587,7 @@ isdn_tty_parse_at(modem_info *info)
->>>  			case 'M':	/* MESSAGE */
->>>  				p++;
->>>  				isdn_tty_send_msg(info, m, p);
->>> -				break;
->>> +				goto tail;
->>>  			default:
->>>  				PARSE_ERROR;
->>>  			}
->>> @@ -3601,6 +3601,8 @@ isdn_tty_parse_at(modem_info *info)
->>>  			PARSE_ERROR;
->>>  		}
->>>  	}
->>> +
->>> +tail:
->>>  #ifdef CONFIG_ISDN_AUDIO
->>>  	if (!info->vonline)
->>>  #endif
->>>
+>> Daniel Borkmann is working on a patch serie adding nhoff into flow_keys,
+>> and adding __skb_get_poff(const struct sk_buff *skb), for a BPF
+>> extension we talked about in Copenhagen / Netfilter Workshop.
 >>
+>> You could then set the transport header offset to the right value.
 >>
->=20
->=20
+>> (and drop evil packets before they go further in the stack)
+>>
+>> if (gso_packet(skb)) {
+>> 	u32 poff = __skb_get_poff(skb);
+>>
+>> 	if (!poff) {
+>> 		drop_evil_packet(skb);
+>> 	} else {
+>> 		skb_set_transport_header(skb, poff);
+>> 		...
+>> 	}
+>> }
+>
+> Oh well, no need to use __skb_get_poff() but plain skb_flow_dissect()
+> (once patched to include thoff in struct flow_keys)
+>
+> struct flow_keys keys;
+>
+> if (!skb_flow_dissect(skb, &keys))
+> 	goto drop;
+>
+> if ((gso_type & (SKB_GSO_TCPV4|SKB_GSO_TCPV6)) &&
+>     keys.ip_proto != IP_PROTO_TCP)
+> 	goto drop;
+>
+> skb_set_transport_header(skb, keys.thoff);
 
+I was consider a just skb_reset_transport_header() here. Consider the
+transport header maybe checked and reset during header check for packets
+of gso or partial checksum. And bypass precise pkt len computation.
 
---=20
-Chen Gang
+Some problems with skb_flow_dissect():
 
-Asianux Corporation
+- it can only recognizes a subset of all ethernet protocols. The may
+blocks guest who may want to use other protocol such as IPX.
+- almost no check in the validity of the L4 protocol header which may be
+used by qdisc_pkt_len_init(), which may still give a chance to evil
+guest to use
+- gso_segs were untouched (still zero)
+
+Another method is doing header check here which needs more work.
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
