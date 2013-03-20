@@ -1,120 +1,804 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH 2/4] xen-netfront: drop skb when skb->len
- > 65535
-Date: Wed, 20 Mar 2013 20:02:16 +0000
-Message-ID: <514A15C8.1050209@citrix.com>
-References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>		<1363602955-24790-3-git-send-email-wei.liu2@citrix.com>		<51471AAC.2050509@citrix.com>	<1363614500.30193.47.camel@zakaz.uk.xensource.com> <51471DE0.9060506@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-To: David Vrabel <david.vrabel@citrix.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH] fec: Unify fec_ptp.c and fec.c
+Date: Wed, 20 Mar 2013 17:11:07 -0300
+Message-ID: <1363810268-24398-1-git-send-email-festevam@gmail.com>
+Cc: Frank.Li@freescale.com, u.kleine-koenig@pengutronix.de,
+	netdev@vger.kernel.org, Fabio Estevam <fabio.estevam@freescale.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:13940 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751367Ab3CTUCT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 16:02:19 -0400
-In-Reply-To: <51471DE0.9060506@citrix.com>
+Received: from mail-qe0-f50.google.com ([209.85.128.50]:52629 "EHLO
+	mail-qe0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753439Ab3CTUL1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 16:11:27 -0400
+Received: by mail-qe0-f50.google.com with SMTP id k5so1341895qej.23
+        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 13:11:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18/03/13 14:00, David Vrabel wrote:
-> On 18/03/13 13:48, Ian Campbell wrote:
->> On Mon, 2013-03-18 at 13:46 +0000, David Vrabel wrote:
->>> On 18/03/13 10:35, Wei Liu wrote:
->>>> The `size' field of Xen network wire format is uint16_t, anything bigger than
->>>> 65535 will cause overflow.
->>>
->>> The backend needs to be able to handle these bad packets without
->>> disconnecting the VIF -- we can't fix all the frontend drivers.
->>
->> Agreed, although that doesn't imply that we shouldn't fix the frontend
->> where we can -- such as upstream as Wei does here.
-> 
-> Yes, frontends should be fixed where possible.
-> 
-> This is what I came up with for the backend.  I don't have time to look
-> into it further but, Wei, feel free to use it as a starting point.
+From: Fabio Estevam <fabio.estevam@freescale.com>
 
-Got some time to test this (or more correctly, something similar with
-XCP's kernel) and some fixes to the suggested patch are needed.  See below.
+Currently CONFIG_FEC=y generates two separate modules: fec_ptp.ko and fec.ko.
 
-> diff --git a/drivers/net/xen-netback/netback.c
-> b/drivers/net/xen-netback/netback.c
-> index cd49ba9..18e2671 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -899,10 +899,11 @@ static void netbk_fatal_tx_err(struct xenvif *vif)
->  static int netbk_count_requests(struct xenvif *vif,
->  				struct xen_netif_tx_request *first,
->  				struct xen_netif_tx_request *txp,
-> -				int work_to_do)
-> +				int work_to_do, int idx)
+These modules cannot be used independently, so it is better to unify them.
 
-idx should be of RING_IDX type.
+Move fec_ptp.c code into fec.c and its definitions into fec.h.
 
->  {
->  	RING_IDX cons = vif->tx.req_cons;
->  	int frags = 0;
-> +	bool drop = false;
-> 
->  	if (!(first->flags & XEN_NETTXF_more_data))
->  		return 0;
-> @@ -922,10 +923,20 @@ static int netbk_count_requests(struct xenvif *vif,
-> 
->  		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + frags),
->  		       sizeof(*txp));
-> -		if (txp->size > first->size) {
-> -			netdev_err(vif->dev, "Frag is bigger than frame.\n");
-> -			netbk_fatal_tx_err(vif);
-> -			return -EIO;
-> +
-> +		/*
-> +		 * If the guest submitted a frame >= 64 KiB then
-> +		 * first->size overflowed and following frags will
-> +		 * appear to be larger than the frame.
-> +		 *
-> +		 * This cannot be a fatal error as there are buggy
-> +		 * frontends that do this.
-> +		 *
-> +		 * Consume all the frags and drop the packet.
-> +		 */
-> +		if (!drop && txp->size > first->size) {
-> +			netdev_dbg(vif->dev, "Frag is bigger than frame.\n");
-> +			drop = true;
->  		}
-> 
->  		first->size -= txp->size;
-> @@ -938,6 +949,12 @@ static int netbk_count_requests(struct xenvif *vif,
->  			return -EINVAL;
->  		}
->  	} while ((txp++)->flags & XEN_NETTXF_more_data);
-> +
-> +	if (drop) {
-> +		netbk_tx_err(vif, txp, idx + frags);
+Suggested-by: Uwe Kleine-Koenig <u.kleine-koenig@pengutronix.de>
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+---
+ drivers/net/ethernet/freescale/Makefile  |    2 +-
+ drivers/net/ethernet/freescale/fec.c     |  315 ++++++++++++++++++++++++
+ drivers/net/ethernet/freescale/fec.h     |   23 ++
+ drivers/net/ethernet/freescale/fec_ptp.c |  388 ------------------------------
+ 4 files changed, 339 insertions(+), 389 deletions(-)
+ delete mode 100644 drivers/net/ethernet/freescale/fec_ptp.c
 
-This needs to be netbk_tx_err(vif, first, idx + frags) or the guest will
-crash as we push a bunch of invalid responses.
-
-David
-
-> +		return -EIO;
-> +	}
-> +
->  	return frags;
->  }
-> 
-> @@ -1327,7 +1344,7 @@ static unsigned xen_netbk_tx_build_gops(struct
-> xen_netbk *netbk)
->  				continue;
->  		}
-> 
-> -		ret = netbk_count_requests(vif, &txreq, txfrags, work_to_do);
-> +		ret = netbk_count_requests(vif, &txreq, txfrags, work_to_do, idx);
->  		if (unlikely(ret < 0))
->  			continue;
+diff --git a/drivers/net/ethernet/freescale/Makefile b/drivers/net/ethernet/freescale/Makefile
+index b7d58fe..3d1839a 100644
+--- a/drivers/net/ethernet/freescale/Makefile
++++ b/drivers/net/ethernet/freescale/Makefile
+@@ -2,7 +2,7 @@
+ # Makefile for the Freescale network device drivers.
+ #
+ 
+-obj-$(CONFIG_FEC) += fec.o fec_ptp.o
++obj-$(CONFIG_FEC) += fec.o
+ obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx.o
+ ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
+ 	obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx_phy.o
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index 8ca2cf6..d5bea99 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -1586,6 +1586,321 @@ static const struct net_device_ops fec_netdev_ops = {
+ #endif
+ };
+ 
++/**
++ * fec_ptp_read - read raw cycle counter (to be used by time counter)
++ * @cc: the cyclecounter structure
++ *
++ * this function reads the cyclecounter registers and is called by the
++ * cyclecounter structure used to construct a ns counter from the
++ * arbitrary fixed point registers
++ */
++static cycle_t fec_ptp_read(const struct cyclecounter *cc)
++{
++	struct fec_enet_private *fep =
++		container_of(cc, struct fec_enet_private, cc);
++	u32 tempval;
++
++	tempval = readl(fep->hwp + FEC_ATIME_CTRL);
++	tempval |= FEC_T_CTRL_CAPTURE;
++	writel(tempval, fep->hwp + FEC_ATIME_CTRL);
++
++	return readl(fep->hwp + FEC_ATIME);
++}
++
++/**
++ * fec_ptp_start_cyclecounter - create the cycle counter from hw
++ * @ndev: network device
++ *
++ * this function initializes the timecounter and cyclecounter
++ * structures for use in generated a ns counter from the arbitrary
++ * fixed point cycles registers in the hardware.
++ */
++void fec_ptp_start_cyclecounter(struct net_device *ndev)
++{
++	struct fec_enet_private *fep = netdev_priv(ndev);
++	unsigned long flags;
++	int inc;
++
++	inc = 1000000000 / fep->cycle_speed;
++
++	/* grab the ptp lock */
++	spin_lock_irqsave(&fep->tmreg_lock, flags);
++
++	/* 1ns counter */
++	writel(inc << FEC_T_INC_OFFSET, fep->hwp + FEC_ATIME_INC);
++
++	/* use free running count */
++	writel(0, fep->hwp + FEC_ATIME_EVT_PERIOD);
++
++	writel(FEC_T_CTRL_ENABLE, fep->hwp + FEC_ATIME_CTRL);
++
++	memset(&fep->cc, 0, sizeof(fep->cc));
++	fep->cc.read = fec_ptp_read;
++	fep->cc.mask = CLOCKSOURCE_MASK(32);
++	fep->cc.shift = 31;
++	fep->cc.mult = FEC_CC_MULT;
++
++	/* reset the ns time counter */
++	timecounter_init(&fep->tc, &fep->cc, ktime_to_ns(ktime_get_real()));
++
++	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
++}
++
++/**
++ * fec_ptp_adjfreq - adjust ptp cycle frequency
++ * @ptp: the ptp clock structure
++ * @ppb: parts per billion adjustment from base
++ *
++ * Adjust the frequency of the ptp cycle counter by the
++ * indicated ppb from the base frequency.
++ *
++ * Because ENET hardware frequency adjust is complex,
++ * using software method to do that.
++ */
++static int fec_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
++{
++	u64 diff;
++	unsigned long flags;
++	int neg_adj = 0;
++	u32 mult = FEC_CC_MULT;
++
++	struct fec_enet_private *fep =
++	    container_of(ptp, struct fec_enet_private, ptp_caps);
++
++	if (ppb < 0) {
++		ppb = -ppb;
++		neg_adj = 1;
++	}
++
++	diff = mult;
++	diff *= ppb;
++	diff = div_u64(diff, 1000000000ULL);
++
++	spin_lock_irqsave(&fep->tmreg_lock, flags);
++	/*
++	 * dummy read to set cycle_last in tc to now.
++	 * So use adjusted mult to calculate when next call
++	 * timercounter_read.
++	 */
++	timecounter_read(&fep->tc);
++
++	fep->cc.mult = neg_adj ? mult - diff : mult + diff;
++
++	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
++
++	return 0;
++}
++
++/**
++ * fec_ptp_adjtime
++ * @ptp: the ptp clock structure
++ * @delta: offset to adjust the cycle counter by
++ *
++ * adjust the timer by resetting the timecounter structure.
++ */
++static int fec_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
++{
++	struct fec_enet_private *fep =
++	    container_of(ptp, struct fec_enet_private, ptp_caps);
++	unsigned long flags;
++	u64 now;
++
++	spin_lock_irqsave(&fep->tmreg_lock, flags);
++
++	now = timecounter_read(&fep->tc);
++	now += delta;
++
++	/* reset the timecounter */
++	timecounter_init(&fep->tc, &fep->cc, now);
++
++	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
++
++	return 0;
++}
++
++/**
++ * fec_ptp_gettime
++ * @ptp: the ptp clock structure
++ * @ts: timespec structure to hold the current time value
++ *
++ * read the timecounter and return the correct value on ns,
++ * after converting it into a struct timespec.
++ */
++static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++{
++	struct fec_enet_private *adapter =
++	    container_of(ptp, struct fec_enet_private, ptp_caps);
++	u64 ns;
++	u32 remainder;
++	unsigned long flags;
++
++	spin_lock_irqsave(&adapter->tmreg_lock, flags);
++	ns = timecounter_read(&adapter->tc);
++	spin_unlock_irqrestore(&adapter->tmreg_lock, flags);
++
++	ts->tv_sec = div_u64_rem(ns, 1000000000ULL, &remainder);
++	ts->tv_nsec = remainder;
++
++	return 0;
++}
++
++/**
++ * fec_ptp_settime
++ * @ptp: the ptp clock structure
++ * @ts: the timespec containing the new time for the cycle counter
++ *
++ * reset the timecounter to use a new base value instead of the kernel
++ * wall timer value.
++ */
++static int fec_ptp_settime(struct ptp_clock_info *ptp,
++			   const struct timespec *ts)
++{
++	struct fec_enet_private *fep =
++	    container_of(ptp, struct fec_enet_private, ptp_caps);
++
++	u64 ns;
++	unsigned long flags;
++
++	ns = ts->tv_sec * 1000000000ULL;
++	ns += ts->tv_nsec;
++
++	spin_lock_irqsave(&fep->tmreg_lock, flags);
++	timecounter_init(&fep->tc, &fep->cc, ns);
++	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
++	return 0;
++}
++
++/**
++ * fec_ptp_enable
++ * @ptp: the ptp clock structure
++ * @rq: the requested feature to change
++ * @on: whether to enable or disable the feature
++ *
++ */
++static int fec_ptp_enable(struct ptp_clock_info *ptp,
++			  struct ptp_clock_request *rq, int on)
++{
++	return -EOPNOTSUPP;
++}
++
++/**
++ * fec_ptp_hwtstamp_ioctl - control hardware time stamping
++ * @ndev: pointer to net_device
++ * @ifreq: ioctl data
++ * @cmd: particular ioctl requested
++ */
++int fec_ptp_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
++{
++	struct fec_enet_private *fep = netdev_priv(ndev);
++
++	struct hwtstamp_config config;
++
++	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
++		return -EFAULT;
++
++	/* reserved for future extensions */
++	if (config.flags)
++		return -EINVAL;
++
++	switch (config.tx_type) {
++	case HWTSTAMP_TX_OFF:
++		fep->hwts_tx_en = 0;
++		break;
++	case HWTSTAMP_TX_ON:
++		fep->hwts_tx_en = 1;
++		break;
++	default:
++		return -ERANGE;
++	}
++
++	switch (config.rx_filter) {
++	case HWTSTAMP_FILTER_NONE:
++		if (fep->hwts_rx_en)
++			fep->hwts_rx_en = 0;
++		config.rx_filter = HWTSTAMP_FILTER_NONE;
++		break;
++
++	default:
++		/*
++		 * register RXMTRL must be set in order to do V1 packets,
++		 * therefore it is not possible to time stamp both V1 Sync and
++		 * Delay_Req messages and hardware does not support
++		 * timestamping all packets => return error
++		 */
++		fep->hwts_rx_en = 1;
++		config.rx_filter = HWTSTAMP_FILTER_ALL;
++		break;
++	}
++
++	return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?
++	    -EFAULT : 0;
++}
++
++/**
++ * fec_time_keep - call timecounter_read every second to avoid timer overrun
++ *                 because ENET just support 32bit counter, will timeout in 4s
++ */
++static void fec_time_keep(unsigned long _data)
++{
++	struct fec_enet_private *fep = (struct fec_enet_private *)_data;
++	u64 ns;
++	unsigned long flags;
++
++	spin_lock_irqsave(&fep->tmreg_lock, flags);
++	ns = timecounter_read(&fep->tc);
++	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
++
++	mod_timer(&fep->time_keep, jiffies + HZ);
++}
++
++/**
++ * fec_ptp_init
++ * @ndev: The FEC network adapter
++ *
++ * This function performs the required steps for enabling ptp
++ * support. If ptp support has already been loaded it simply calls the
++ * cyclecounter init routine and exits.
++ */
++
++void fec_ptp_init(struct net_device *ndev, struct platform_device *pdev)
++{
++	struct fec_enet_private *fep = netdev_priv(ndev);
++
++	fep->ptp_caps.owner = THIS_MODULE;
++	snprintf(fep->ptp_caps.name, 16, "fec ptp");
++
++	fep->ptp_caps.max_adj = 250000000;
++	fep->ptp_caps.n_alarm = 0;
++	fep->ptp_caps.n_ext_ts = 0;
++	fep->ptp_caps.n_per_out = 0;
++	fep->ptp_caps.pps = 0;
++	fep->ptp_caps.adjfreq = fec_ptp_adjfreq;
++	fep->ptp_caps.adjtime = fec_ptp_adjtime;
++	fep->ptp_caps.gettime = fec_ptp_gettime;
++	fep->ptp_caps.settime = fec_ptp_settime;
++	fep->ptp_caps.enable = fec_ptp_enable;
++
++	fep->cycle_speed = clk_get_rate(fep->clk_ptp);
++
++	spin_lock_init(&fep->tmreg_lock);
++
++	fec_ptp_start_cyclecounter(ndev);
++
++	init_timer(&fep->time_keep);
++	fep->time_keep.data = (unsigned long)fep;
++	fep->time_keep.function = fec_time_keep;
++	fep->time_keep.expires = jiffies + HZ;
++	add_timer(&fep->time_keep);
++
++	fep->ptp_clock = ptp_clock_register(&fep->ptp_caps, &pdev->dev);
++	if (IS_ERR(fep->ptp_clock)) {
++		fep->ptp_clock = NULL;
++		pr_err("ptp_clock_register failed\n");
++	} else {
++		pr_info("registered PHC device on %s\n", ndev->name);
++	}
++}
++
+  /*
+   * XXX:  We need to clean up on failure exits here.
+   *
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index eb43729..2a01f79 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -191,6 +191,29 @@ struct bufdesc_ex {
+ #define BD_ENET_RX_INT          0x00800000
+ #define BD_ENET_RX_PTP          ((ushort)0x0400)
+ 
++/* FEC 1588 register bits */
++#define FEC_T_CTRL_SLAVE                0x00002000
++#define FEC_T_CTRL_CAPTURE              0x00000800
++#define FEC_T_CTRL_RESTART              0x00000200
++#define FEC_T_CTRL_PERIOD_RST           0x00000030
++#define FEC_T_CTRL_PERIOD_EN		0x00000010
++#define FEC_T_CTRL_ENABLE               0x00000001
++
++#define FEC_T_INC_MASK                  0x0000007f
++#define FEC_T_INC_OFFSET                0
++#define FEC_T_INC_CORR_MASK             0x00007f00
++#define FEC_T_INC_CORR_OFFSET           8
++
++#define FEC_ATIME_CTRL		0x400
++#define FEC_ATIME		0x404
++#define FEC_ATIME_EVT_OFFSET	0x408
++#define FEC_ATIME_EVT_PERIOD	0x40c
++#define FEC_ATIME_CORR		0x410
++#define FEC_ATIME_INC		0x414
++#define FEC_TS_TIMESTAMP	0x418
++
++#define FEC_CC_MULT	(1 << 31)
++
+ /* The FEC buffer descriptors track the ring buffers.  The rx_bd_base and
+  * tx_bd_base always point to the base of the buffer descriptors.  The
+  * cur_rx and cur_tx point to the currently available buffer.
+diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+deleted file mode 100644
+index 0d8df40..0000000
+--- a/drivers/net/ethernet/freescale/fec_ptp.c
++++ /dev/null
+@@ -1,388 +0,0 @@
+-/*
+- * Fast Ethernet Controller (ENET) PTP driver for MX6x.
+- *
+- * Copyright (C) 2012 Freescale Semiconductor, Inc.
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms and conditions of the GNU General Public License,
+- * version 2, as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope it will be useful, but WITHOUT
+- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+- * more details.
+- *
+- * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+- */
+-
+-#include <linux/module.h>
+-#include <linux/kernel.h>
+-#include <linux/string.h>
+-#include <linux/ptrace.h>
+-#include <linux/errno.h>
+-#include <linux/ioport.h>
+-#include <linux/slab.h>
+-#include <linux/interrupt.h>
+-#include <linux/pci.h>
+-#include <linux/init.h>
+-#include <linux/delay.h>
+-#include <linux/netdevice.h>
+-#include <linux/etherdevice.h>
+-#include <linux/skbuff.h>
+-#include <linux/spinlock.h>
+-#include <linux/workqueue.h>
+-#include <linux/bitops.h>
+-#include <linux/io.h>
+-#include <linux/irq.h>
+-#include <linux/clk.h>
+-#include <linux/platform_device.h>
+-#include <linux/phy.h>
+-#include <linux/fec.h>
+-#include <linux/of.h>
+-#include <linux/of_device.h>
+-#include <linux/of_gpio.h>
+-#include <linux/of_net.h>
+-
+-#include "fec.h"
+-
+-/* FEC 1588 register bits */
+-#define FEC_T_CTRL_SLAVE                0x00002000
+-#define FEC_T_CTRL_CAPTURE              0x00000800
+-#define FEC_T_CTRL_RESTART              0x00000200
+-#define FEC_T_CTRL_PERIOD_RST           0x00000030
+-#define FEC_T_CTRL_PERIOD_EN		0x00000010
+-#define FEC_T_CTRL_ENABLE               0x00000001
+-
+-#define FEC_T_INC_MASK                  0x0000007f
+-#define FEC_T_INC_OFFSET                0
+-#define FEC_T_INC_CORR_MASK             0x00007f00
+-#define FEC_T_INC_CORR_OFFSET           8
+-
+-#define FEC_ATIME_CTRL		0x400
+-#define FEC_ATIME		0x404
+-#define FEC_ATIME_EVT_OFFSET	0x408
+-#define FEC_ATIME_EVT_PERIOD	0x40c
+-#define FEC_ATIME_CORR		0x410
+-#define FEC_ATIME_INC		0x414
+-#define FEC_TS_TIMESTAMP	0x418
+-
+-#define FEC_CC_MULT	(1 << 31)
+-/**
+- * fec_ptp_read - read raw cycle counter (to be used by time counter)
+- * @cc: the cyclecounter structure
+- *
+- * this function reads the cyclecounter registers and is called by the
+- * cyclecounter structure used to construct a ns counter from the
+- * arbitrary fixed point registers
+- */
+-static cycle_t fec_ptp_read(const struct cyclecounter *cc)
+-{
+-	struct fec_enet_private *fep =
+-		container_of(cc, struct fec_enet_private, cc);
+-	u32 tempval;
+-
+-	tempval = readl(fep->hwp + FEC_ATIME_CTRL);
+-	tempval |= FEC_T_CTRL_CAPTURE;
+-	writel(tempval, fep->hwp + FEC_ATIME_CTRL);
+-
+-	return readl(fep->hwp + FEC_ATIME);
+-}
+-
+-/**
+- * fec_ptp_start_cyclecounter - create the cycle counter from hw
+- * @ndev: network device
+- *
+- * this function initializes the timecounter and cyclecounter
+- * structures for use in generated a ns counter from the arbitrary
+- * fixed point cycles registers in the hardware.
+- */
+-void fec_ptp_start_cyclecounter(struct net_device *ndev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(ndev);
+-	unsigned long flags;
+-	int inc;
+-
+-	inc = 1000000000 / fep->cycle_speed;
+-
+-	/* grab the ptp lock */
+-	spin_lock_irqsave(&fep->tmreg_lock, flags);
+-
+-	/* 1ns counter */
+-	writel(inc << FEC_T_INC_OFFSET, fep->hwp + FEC_ATIME_INC);
+-
+-	/* use free running count */
+-	writel(0, fep->hwp + FEC_ATIME_EVT_PERIOD);
+-
+-	writel(FEC_T_CTRL_ENABLE, fep->hwp + FEC_ATIME_CTRL);
+-
+-	memset(&fep->cc, 0, sizeof(fep->cc));
+-	fep->cc.read = fec_ptp_read;
+-	fep->cc.mask = CLOCKSOURCE_MASK(32);
+-	fep->cc.shift = 31;
+-	fep->cc.mult = FEC_CC_MULT;
+-
+-	/* reset the ns time counter */
+-	timecounter_init(&fep->tc, &fep->cc, ktime_to_ns(ktime_get_real()));
+-
+-	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+-}
+-EXPORT_SYMBOL(fec_ptp_start_cyclecounter);
+-
+-/**
+- * fec_ptp_adjfreq - adjust ptp cycle frequency
+- * @ptp: the ptp clock structure
+- * @ppb: parts per billion adjustment from base
+- *
+- * Adjust the frequency of the ptp cycle counter by the
+- * indicated ppb from the base frequency.
+- *
+- * Because ENET hardware frequency adjust is complex,
+- * using software method to do that.
+- */
+-static int fec_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
+-{
+-	u64 diff;
+-	unsigned long flags;
+-	int neg_adj = 0;
+-	u32 mult = FEC_CC_MULT;
+-
+-	struct fec_enet_private *fep =
+-	    container_of(ptp, struct fec_enet_private, ptp_caps);
+-
+-	if (ppb < 0) {
+-		ppb = -ppb;
+-		neg_adj = 1;
+-	}
+-
+-	diff = mult;
+-	diff *= ppb;
+-	diff = div_u64(diff, 1000000000ULL);
+-
+-	spin_lock_irqsave(&fep->tmreg_lock, flags);
+-	/*
+-	 * dummy read to set cycle_last in tc to now.
+-	 * So use adjusted mult to calculate when next call
+-	 * timercounter_read.
+-	 */
+-	timecounter_read(&fep->tc);
+-
+-	fep->cc.mult = neg_adj ? mult - diff : mult + diff;
+-
+-	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+-
+-	return 0;
+-}
+-
+-/**
+- * fec_ptp_adjtime
+- * @ptp: the ptp clock structure
+- * @delta: offset to adjust the cycle counter by
+- *
+- * adjust the timer by resetting the timecounter structure.
+- */
+-static int fec_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+-{
+-	struct fec_enet_private *fep =
+-	    container_of(ptp, struct fec_enet_private, ptp_caps);
+-	unsigned long flags;
+-	u64 now;
+-
+-	spin_lock_irqsave(&fep->tmreg_lock, flags);
+-
+-	now = timecounter_read(&fep->tc);
+-	now += delta;
+-
+-	/* reset the timecounter */
+-	timecounter_init(&fep->tc, &fep->cc, now);
+-
+-	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+-
+-	return 0;
+-}
+-
+-/**
+- * fec_ptp_gettime
+- * @ptp: the ptp clock structure
+- * @ts: timespec structure to hold the current time value
+- *
+- * read the timecounter and return the correct value on ns,
+- * after converting it into a struct timespec.
+- */
+-static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
+-{
+-	struct fec_enet_private *adapter =
+-	    container_of(ptp, struct fec_enet_private, ptp_caps);
+-	u64 ns;
+-	u32 remainder;
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&adapter->tmreg_lock, flags);
+-	ns = timecounter_read(&adapter->tc);
+-	spin_unlock_irqrestore(&adapter->tmreg_lock, flags);
+-
+-	ts->tv_sec = div_u64_rem(ns, 1000000000ULL, &remainder);
+-	ts->tv_nsec = remainder;
+-
+-	return 0;
+-}
+-
+-/**
+- * fec_ptp_settime
+- * @ptp: the ptp clock structure
+- * @ts: the timespec containing the new time for the cycle counter
+- *
+- * reset the timecounter to use a new base value instead of the kernel
+- * wall timer value.
+- */
+-static int fec_ptp_settime(struct ptp_clock_info *ptp,
+-			   const struct timespec *ts)
+-{
+-	struct fec_enet_private *fep =
+-	    container_of(ptp, struct fec_enet_private, ptp_caps);
+-
+-	u64 ns;
+-	unsigned long flags;
+-
+-	ns = ts->tv_sec * 1000000000ULL;
+-	ns += ts->tv_nsec;
+-
+-	spin_lock_irqsave(&fep->tmreg_lock, flags);
+-	timecounter_init(&fep->tc, &fep->cc, ns);
+-	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+-	return 0;
+-}
+-
+-/**
+- * fec_ptp_enable
+- * @ptp: the ptp clock structure
+- * @rq: the requested feature to change
+- * @on: whether to enable or disable the feature
+- *
+- */
+-static int fec_ptp_enable(struct ptp_clock_info *ptp,
+-			  struct ptp_clock_request *rq, int on)
+-{
+-	return -EOPNOTSUPP;
+-}
+-
+-/**
+- * fec_ptp_hwtstamp_ioctl - control hardware time stamping
+- * @ndev: pointer to net_device
+- * @ifreq: ioctl data
+- * @cmd: particular ioctl requested
+- */
+-int fec_ptp_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
+-{
+-	struct fec_enet_private *fep = netdev_priv(ndev);
+-
+-	struct hwtstamp_config config;
+-
+-	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
+-		return -EFAULT;
+-
+-	/* reserved for future extensions */
+-	if (config.flags)
+-		return -EINVAL;
+-
+-	switch (config.tx_type) {
+-	case HWTSTAMP_TX_OFF:
+-		fep->hwts_tx_en = 0;
+-		break;
+-	case HWTSTAMP_TX_ON:
+-		fep->hwts_tx_en = 1;
+-		break;
+-	default:
+-		return -ERANGE;
+-	}
+-
+-	switch (config.rx_filter) {
+-	case HWTSTAMP_FILTER_NONE:
+-		if (fep->hwts_rx_en)
+-			fep->hwts_rx_en = 0;
+-		config.rx_filter = HWTSTAMP_FILTER_NONE;
+-		break;
+-
+-	default:
+-		/*
+-		 * register RXMTRL must be set in order to do V1 packets,
+-		 * therefore it is not possible to time stamp both V1 Sync and
+-		 * Delay_Req messages and hardware does not support
+-		 * timestamping all packets => return error
+-		 */
+-		fep->hwts_rx_en = 1;
+-		config.rx_filter = HWTSTAMP_FILTER_ALL;
+-		break;
+-	}
+-
+-	return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?
+-	    -EFAULT : 0;
+-}
+-EXPORT_SYMBOL(fec_ptp_ioctl);
+-
+-/**
+- * fec_time_keep - call timecounter_read every second to avoid timer overrun
+- *                 because ENET just support 32bit counter, will timeout in 4s
+- */
+-static void fec_time_keep(unsigned long _data)
+-{
+-	struct fec_enet_private *fep = (struct fec_enet_private *)_data;
+-	u64 ns;
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&fep->tmreg_lock, flags);
+-	ns = timecounter_read(&fep->tc);
+-	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+-
+-	mod_timer(&fep->time_keep, jiffies + HZ);
+-}
+-
+-/**
+- * fec_ptp_init
+- * @ndev: The FEC network adapter
+- *
+- * This function performs the required steps for enabling ptp
+- * support. If ptp support has already been loaded it simply calls the
+- * cyclecounter init routine and exits.
+- */
+-
+-void fec_ptp_init(struct net_device *ndev, struct platform_device *pdev)
+-{
+-	struct fec_enet_private *fep = netdev_priv(ndev);
+-
+-	fep->ptp_caps.owner = THIS_MODULE;
+-	snprintf(fep->ptp_caps.name, 16, "fec ptp");
+-
+-	fep->ptp_caps.max_adj = 250000000;
+-	fep->ptp_caps.n_alarm = 0;
+-	fep->ptp_caps.n_ext_ts = 0;
+-	fep->ptp_caps.n_per_out = 0;
+-	fep->ptp_caps.pps = 0;
+-	fep->ptp_caps.adjfreq = fec_ptp_adjfreq;
+-	fep->ptp_caps.adjtime = fec_ptp_adjtime;
+-	fep->ptp_caps.gettime = fec_ptp_gettime;
+-	fep->ptp_caps.settime = fec_ptp_settime;
+-	fep->ptp_caps.enable = fec_ptp_enable;
+-
+-	fep->cycle_speed = clk_get_rate(fep->clk_ptp);
+-
+-	spin_lock_init(&fep->tmreg_lock);
+-
+-	fec_ptp_start_cyclecounter(ndev);
+-
+-	init_timer(&fep->time_keep);
+-	fep->time_keep.data = (unsigned long)fep;
+-	fep->time_keep.function = fec_time_keep;
+-	fep->time_keep.expires = jiffies + HZ;
+-	add_timer(&fep->time_keep);
+-
+-	fep->ptp_clock = ptp_clock_register(&fep->ptp_caps, &pdev->dev);
+-	if (IS_ERR(fep->ptp_clock)) {
+-		fep->ptp_clock = NULL;
+-		pr_err("ptp_clock_register failed\n");
+-	} else {
+-		pr_info("registered PHC device on %s\n", ndev->name);
+-	}
+-}
+-EXPORT_SYMBOL(fec_ptp_init);
+-- 
+1.7.9.5
