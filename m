@@ -1,36 +1,54 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] igb: make sensor info static
-Date: Tue, 19 Mar 2013 17:48:29 -0700
-Message-ID: <1363740509.2069.54.camel@jtkirshe-mobl>
-References: <20130316095606.1c8465f5@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH] igb: fix PHC stopping on max freq
+Date: Tue, 19 Mar 2013 17:49:12 -0700
+Message-ID: <1363740552.2069.55.camel@jtkirshe-mobl>
+References: <f254bc583cbe1f623bd6ebb4ff375e440696d8b2.1363703896.git.jbenc@redhat.com>
 Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-pgpRosVm6zRP6JTgrH7i"
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+	protocol="application/pgp-signature"; boundary="=-9apQFkTJ64H9AZFJPcUA"
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	Stefan Assmann <sassmann@redhat.com>,
+	Miroslav Lichvar <mlichvar@redhat.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:28459 "EHLO mga03.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:7655 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755163Ab3CTAsb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Mar 2013 20:48:31 -0400
-In-Reply-To: <20130316095606.1c8465f5@nehalam.linuxnetplumber.net>
+	id S1757627Ab3CTAtO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Mar 2013 20:49:14 -0400
+In-Reply-To: <f254bc583cbe1f623bd6ebb4ff375e440696d8b2.1363703896.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-pgpRosVm6zRP6JTgrH7i
+--=-9apQFkTJ64H9AZFJPcUA
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Sat, 2013-03-16 at 09:56 -0700, Stephen Hemminger wrote:
-> Trivial sparse warning.
+On Tue, 2013-03-19 at 15:42 +0100, Jiri Benc wrote:
+> For 82576 MAC type, max_adj is reported as 1000000000 ppb. However, if
+> this value is passed to igb_ptp_adjfreq_82576, incvalue overflows out
+> of
+> INCVALUE_82576_MASK, resulting in setting of zero TIMINCA.incvalue,
+> stopping
+> the PHC (instead of going at twice the nominal speed).
 >=20
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>=20
+> Fix the advertised max_adj value to the largest value hardware can
+> handle.
+> As there is no min_adj value available (-max_adj is used instead),
+> this will
+> also prevent stopping the clock intentionally. It's probably not a big
+> deal,
+> other igb MAC types don't support stopping the clock, either.
+>=20
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> ---
+>  drivers/net/ethernet/intel/igb/igb_ptp.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)=20
 
-Thanks Stephen, it has been added to my queue
+Thanks Jiri, I have added the patch to my igb queue
 
---=-pgpRosVm6zRP6JTgrH7i
+--=-9apQFkTJ64H9AZFJPcUA
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -38,19 +56,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.13 (GNU/Linux)
 
-iQIcBAABCgAGBQJRSQddAAoJEOVv75VaS+3OQ+MQAJqVoGLfXDe/nvJq9AhcpJ6u
-WujVfDvjvWSw3YxqixaKIMxb0Wt7WAzpTnK8LiYjtbb5kh1J78yL62YnDpxRheMg
-EOpdDMC5o8DOIBI1IKv2rEl0sTL6Z9gX9Vcuh1e6ePG67royw9ll9bJ3VtnaJiZ3
-6xNq8OHNGK1LereZBuxKZRm4qaoKGc3JJyZs8vlOn0ZYv+wpCMkfJKfKvBv4HuHw
-bKqod5XHuotmEZxkknoD5tVdttZvmGEtdCcGWt0gYxdVSbsoUvhnlqhdmuyIwnd5
-MxVR5Wi5Nr51HeAM+Huo8wZ5QqrroosrelwRntafXiKi4Sgu3xIRFLBEhefib0fS
-g2Y9LMcYo/V6CJ48R0GHFnVLeaIwSAjnseQrw1sBF8AFvaeJCVdFpobHW/GdP0Xa
-Xpzcp4EeZo3caMgpKX94Ss0KmD8aOUQWeUg4JWKWSNF4LpIcaWtJVkMDc0NgBaSD
-6f1huotJvc9ooOHREYneeUmFBj7TRMjP4nTqWquaYFtU6MaTkBfhihl9Fs/5W1iK
-cwb9fsubasqw+faisgT76kMpFkMOQVjrFo6DzEBw2y0J50Lnbe6epl9tliDquT9F
-RdeRoG+WyrB8Pkm14nzQXfKfm6dIvA0VPmy2q211Yk+ky/cC8VfX01iovumVltyY
-9kflaZUtflHm0rfaWOG3
-=Jzfm
+iQIcBAABCgAGBQJRSQeIAAoJEOVv75VaS+3OPz4P+wQEOdxtmoNq+pBsoA6GtqOt
+UhW9oYJXTWkJerGoQnlhBkXMRXM6DHeJMWKQyG85zb4hLjh1QLQ0ssWnrZe378MR
+zcNWNhu0pKBz997ZobPFlx6k8ctl8h9pkLPNoRIakoAI18gPtN4PE7IOJwM4prgn
+9iiOyxogGvfsSIqDmO2wKt+XtY5mDt9PlkK5KmsKo67KCTHG9SAxHRGNIKmQxqC8
+f9+7935RbWGUbvs24cjun3SzxlE02XbJQqmxL3P0mMYH6ZXOKSlWWuNKlrkMoPgY
+VcFsbc0IqsFU+76ZQO9SAg+PmY73qCpgBcTdHaUFA/KrJ4oXdAne7O8UzQ5qhfv2
+9r2ovFEtQ1WeLW30N4HWVMiQ4OKM1vnetTikO7sqcE+9JEbcNP8bIXYxjlxg5Qeu
+tfLwdcA7TTGOnXXhNlTS4BmPcovYsBLZeuiEAMFv07T8edCN8zJSzcBs/uf8VfTI
+Yce3jdkYOv7mhR/gvbkEcGofNoFuF3uPnR4bTbJgufA3gv9fsotAr1kUvrJyKihZ
+8CBcfW9KPQkMPk0KjOqCGVmjq+0VHkyEn7ByrSq30qsCfOneiM+wirhZklqy+2Xt
+nyVejxNf3GHB+RqVLimi+I8sYsb5q1RpKVFumJ4KrX9yELaKHFa9ExoB3iANU40b
+rf2LHDpEveguS7ToaAJL
+=7ciy
 -----END PGP SIGNATURE-----
 
---=-pgpRosVm6zRP6JTgrH7i--
+--=-9apQFkTJ64H9AZFJPcUA--
