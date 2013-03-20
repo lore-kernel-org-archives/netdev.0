@@ -1,59 +1,35 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH v3 1/1 net-next] NET: FEC: dynamtic check DMA desc buff
- type
-Date: Wed, 20 Mar 2013 17:04:18 +0100
-Message-ID: <20130320160418.GG20530@pengutronix.de>
-References: <1357265063-30528-1-git-send-email-Frank.Li@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] genetlink: trigger BUG_ON if a group name is too
+ long
+Date: Wed, 20 Mar 2013 12:07:05 -0400 (EDT)
+Message-ID: <20130320.120705.58997943737455552.davem@davemloft.net>
+References: <1363693648-10015-1-git-send-email-yamato@redhat.com>
+	<1363693648-10015-2-git-send-email-yamato@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lznuaa@gmail.com, davem@davemloft.net, s.hauer@pengutronix.de,
-	netdev@vger.kernel.org, shawn.guo@linaro.org,
-	linux-arm-kernel@lists.infradead.org, kernel@pengutronix.de
-To: Frank Li <Frank.Li@freescale.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: yamato@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:40585 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752379Ab3CTQE1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 12:04:27 -0400
-Content-Disposition: inline
-In-Reply-To: <1357265063-30528-1-git-send-email-Frank.Li@freescale.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57936 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755601Ab3CTQHH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 12:07:07 -0400
+In-Reply-To: <1363693648-10015-2-git-send-email-yamato@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Masatake YAMATO <yamato@redhat.com>
+Date: Tue, 19 Mar 2013 20:47:27 +0900
 
-On Fri, Jan 04, 2013 at 10:04:23AM +0800, Frank Li wrote:
-> MX6 and mx28 support enhanced DMA descriptor buff to support 1588
-> ptp. But MX25, MX3x, MX5x can't support enhanced DMA descriptor buff.
-> Check fec type and choose correct DMA descriptor buff type.
->=20
-> Remove static config CONFIG_FEC_PTP.
-> ptp function will be auto detected.
-Your patch (now as ff43da86c69d76a726ffe7d1666148960dc1d108 in v3.9-rc1=
-)
-breaks building with CONFIG_FEC=3Dm:
+> Trigger BUG_ON if a group name is longer than GENL_NAMSIZ.
+> 
+> Signed-off-by: Masatake YAMATO <yamato@redhat.com>
 
-	ERROR: "fec_ptp_init" [drivers/net/ethernet/freescale/fec.ko] undefine=
-d!
-	ERROR: "fec_ptp_ioctl" [drivers/net/ethernet/freescale/fec.ko] undefin=
-ed!
-	ERROR: "fec_ptp_start_cyclecounter" [drivers/net/ethernet/freescale/fe=
-c.ko] undefined!
+Applied, thanks.
 
-IMHO you should build fec.o and fec_ptp.o into the same module as they
-cannot live without each other anyhow.
+Although I'm disappointed that the compiler doesn't say anything about
+this in the assignment.
 
-Having said I wonder if it would be worthwile to support FEC without
-PTP_1588_CLOCK. For example make the above three functions static
-inlines if CONFIG_PTP_1588_CLOCK=3Dn and drop the select on the latter.
-
-Best regards
-Uwe
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+We're assigning "char[16] = STRING" and it doesn't say anything if the
+final NULL char doesn't fit into the array.
