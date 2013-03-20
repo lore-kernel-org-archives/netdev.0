@@ -1,35 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 1/4] flow_keys: include thoff into
- flow_keys for later usage
-Date: Wed, 20 Mar 2013 12:15:20 -0400 (EDT)
-Message-ID: <20130320.121520.926290282491389356.davem@davemloft.net>
-References: <1363711172-9728-1-git-send-email-dborkman@redhat.com>
-	<1363711172-9728-2-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH] NET: ipconfig: Fix newline handling in log message.
+Date: Wed, 20 Mar 2013 12:16:23 -0400 (EDT)
+Message-ID: <20130320.121623.645763738994684687.davem@davemloft.net>
+References: <20130319181929.10606.24517.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: dborkman@redhat.com
+Cc: netdev@vger.kernel.org
+To: mfuzzey@parkeon.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58014 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58044 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757479Ab3CTQPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 12:15:22 -0400
-In-Reply-To: <1363711172-9728-2-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1752379Ab3CTQQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 12:16:25 -0400
+In-Reply-To: <20130319181929.10606.24517.stgit@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Tue, 19 Mar 2013 17:39:29 +0100
+From: Martin Fuzzey <mfuzzey@parkeon.com>
+Date: Tue, 19 Mar 2013 19:19:29 +0100
 
-> In skb_flow_dissect(), we perform a dissection of a skbuff. Since we're
-> doing the work here anyway, also store thoff for a later usage, e.g. in
-> the BPF filter.
+> When using ipconfig the logs currently look like:
 > 
-> Suggested-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  This patch also needs to go into the net tree, since Eric or Jason will
->  post a bug fix on top of this one.
+> Single name server:
+> [    3.467270] IP-Config: Complete:
+> [    3.470613]      device=eth0, hwaddr=ac:de:48:00:00:01, ipaddr=172.16.42.2, mask=255.255.255.0, gw=172.16.42.1
+> [    3.480670]      host=infigo-1, domain=, nis-domain=(none)
+> [    3.486166]      bootserver=172.16.42.1, rootserver=172.16.42.1, rootpath=
+> [    3.492910]      nameserver0=172.16.42.1[    3.496853] ALSA device list:
+> 
+> Three name servers:
+> [    3.496949] IP-Config: Complete:
+> [    3.500293]      device=eth0, hwaddr=ac:de:48:00:00:01, ipaddr=172.16.42.2, mask=255.255.255.0, gw=172.16.42.1
+> [    3.510367]      host=infigo-1, domain=, nis-domain=(none)
+> [    3.515864]      bootserver=172.16.42.1, rootserver=172.16.42.1, rootpath=
+> [    3.522635]      nameserver0=172.16.42.1, nameserver1=172.16.42.100
+> [    3.529149] , nameserver2=172.16.42.200
+> 
+> Fix newline handling for these cases
+> 
+> Signed-off-by: Martin Fuzzey <mfuzzey@parkeon.com>
 
-Applied to 'net', thanks Daniel.
+Applied, thanks.
