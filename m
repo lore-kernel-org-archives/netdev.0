@@ -1,52 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/2] net_sched: don't do precise pkt_len
- computation for untrusted packets
-Date: Wed, 20 Mar 2013 06:46:19 -0700
-Message-ID: <1363787179.3333.6.camel@edumazet-glaptop>
-References: <1363333305-54398-1-git-send-email-jasowang@redhat.com>
-	  <20130317.121026.733329595817911776.davem@davemloft.net>
-	  <51482F14.9030407@redhat.com> <1363695040.21184.32.camel@edumazet-glaptop>
-	 <1363697906.21184.53.camel@edumazet-glaptop> <514954F0.2040604@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/7] netfilter fixes for 3.9-rc
+Date: Wed, 20 Mar 2013 10:25:22 -0400 (EDT)
+Message-ID: <20130320.102522.1602310574602201267.davem@davemloft.net>
+References: <1363776574-4766-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com, edumazet@google.com,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <514954F0.2040604@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1363776574-4766-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-03-20 at 14:19 +0800, Jason Wang wrote:
+From: pablo@netfilter.org
+Date: Wed, 20 Mar 2013 11:49:27 +0100
 
-> I was consider a just skb_reset_transport_header() here. Consider the
-> transport header maybe checked and reset during header check for packets
-> of gso or partial checksum. And bypass precise pkt len computation.
+> The following patchset contains 7 Netfilter/IPVS fixes for 3.9-rc, they are:
 > 
-> Some problems with skb_flow_dissect():
+> * Restrict IPv6 stateless NPT targets to the mangle table. Many users are
+>   complaining that this target does not work in the nat table, which is the
+>   wrong table for it, from Florian Westphal.
 > 
-> - it can only recognizes a subset of all ethernet protocols. The may
-> blocks guest who may want to use other protocol such as IPX.
-
-Oh yes IPX 
-
-> - almost no check in the validity of the L4 protocol header which may be
-> used by qdisc_pkt_len_init(), which may still give a chance to evil
-> guest to use
-> - gso_segs were untouched (still zero)
+> * Fix possible use before initialization in the netns init path of several
+>   conntrack protocol trackers (introduced recently while improving conntrack
+>   netns support), from Gao Feng.
 > 
-> Another method is doing header check here which needs more work.
+> * Fix incorrect initialization of copy_range in nfnetlink_queue, spotted
+>   by Eric Dumazet during the NFWS2013, patch from myself.
+> 
+> * Fix wrong calculation of next SCTP chunk in IPVS, from Julian Anastasov.
+> 
+> * Remove rcu_read_lock section in IPVS while calling ipv4_update_pmtu
+>   not required anymore after change introduced in 3.7, again from Julian.
+> 
+> * Fix SYN looping in IPVS state sync if the backup is used a real server
+>   in DR/TUN modes, this required a new /proc entry to disable the director
+>   function when acting as backup, also from Julian.
+> 
+> * Remove leftover IP_NF_QUEUE Kconfig after ip_queue removal, noted by
+>   Paul Bolle.
+> 
+> You can pull these changes from:
+> 
+> git://1984.lsi.us.es/nf master
 
-Most uses are caught by the helper.
-
-So in the case dissection fails, just reset transport header instead of
-dropping as I suggested.
-
-Otherwise, set the transport header to the right value
-
--> precise qdisc pkt lengths.
-
-Instead of pretending DODGY packets have no headers, at least try to do
-the right thing.
+Pulled, thanks!
