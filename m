@@ -1,40 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dynticks: avoid flow_cache_flush() interrupting every
- core
-Date: Wed, 20 Mar 2013 12:17:04 -0400 (EDT)
-Message-ID: <20130320.121704.1797978839297064162.davem@davemloft.net>
-References: <201303192143.r2JLhZIX020469@farm-0021.internal.tilera.com>
+Subject: Re: [PATCH -next] lpc_eth: fix error return code in
+ lpc_eth_drv_probe()
+Date: Wed, 20 Mar 2013 12:19:48 -0400 (EDT)
+Message-ID: <20130320.121948.1581171968783524870.davem@davemloft.net>
+References: <CAPgLHd-49BjXc1pwxhSCExNwTuM9rg4Yj6A2PyqnUq=fgm3YKA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	fweisbec@gmail.com, gilad@benyossef.com, sasha.levin@oracle.com,
-	akpm@linux-foundation.org, paulmck@linux.vnet.ibm.com,
-	yoshfuji@linux-ipv6.org
-To: cmetcalf@tilera.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201303192143.r2JLhZIX020469@farm-0021.internal.tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
+	stigge@antcom.de, edumazet@google.com, gregkh@linuxfoundation.org,
+	jiri@resnulli.us, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
+To: weiyj.lk@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58086 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752090Ab3CTQTw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 12:19:52 -0400
+In-Reply-To: <CAPgLHd-49BjXc1pwxhSCExNwTuM9rg4Yj6A2PyqnUq=fgm3YKA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chris Metcalf <cmetcalf@tilera.com>
-Date: Tue, 19 Mar 2013 17:35:58 -0400
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Wed, 20 Mar 2013 20:21:48 +0800
 
-> Previously, if you did an "ifconfig down" or similar on one core, and
-> the kernel had CONFIG_XFRM enabled, every core would be interrupted to
-> check its percpu flow list for items that could be garbage collected.
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
-> With this change, we generate a mask of cores that actually have any
-> percpu items, and only interrupt those cores.  When we are trying to
-> isolate a set of cpus from interrupts, this is important to do.
+> Fix to return a negative error code from the error handling
+> case instead of 0, as returned elsewhere in this function.
 > 
-> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
-> ---
-> This change stands alone so could be taken into the net tree if
-> desired, but it is most useful in the context of Frederic Weisbecker's
-> linux-dynticks work.  So it could be taken up through either tree,
-> but it certainly needs sign-off from someone familiar with net/core/flow.c.
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-I'm find with this going into the dynticks changes:
-
-Acked-by: David S. Miller <davem@davemloft.net>
+Applied, thanks.
