@@ -1,41 +1,41 @@
-From: "Bousonville, Michael" <michael.bousonville@desy.de>
-Subject: Cher utilisateur E-mail
-Date: Wed, 20 Mar 2013 07:11:45 +0100
-Message-ID: <5B48DC5BA8D5D64A8F5E39AC7EF2A4200249FA8C@ADXV3.win.desy.de>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 4/4] filter: add minimal BPF JIT emitted image
+ disassembler
+Date: Wed, 20 Mar 2013 09:50:41 +0100
+Message-ID: <51497861.6020804@redhat.com>
+References: <cover.1363699285.git.dborkman@redhat.com>  <8d8079d7a5cffe05eeb44a35cb5d7c3544a84f4f.1363699285.git.dborkman@redhat.com> <1363748314.31336.30.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, jasowang@redhat.com,
+	Eric Dumazet <edumazet@google.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out-1.desy.de ([131.169.56.84]:38904 "EHLO
-	smtp-out-1.desy.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751744Ab3CTHQR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 03:16:17 -0400
-Received: from smtp-map-1.desy.de (smtp-map-1.desy.de [131.169.56.66])
-	by smtp-out-1.desy.de (DESY_OUT_1) with ESMTP id 78B852A1E
-	for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 07:11:51 +0100 (MET)
-Received: from ZITSWEEP2.win.desy.de (zitsweep2.win.desy.de [131.169.97.96])
-	by smtp-map-1.desy.de (DESY_MAP_1) with ESMTP id 8D121142D7
-	for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 07:11:50 +0100 (MET)
-Content-class: urn:content-classes:message
+Received: from mx1.redhat.com ([209.132.183.28]:53475 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751418Ab3CTIuv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Mar 2013 04:50:51 -0400
+In-Reply-To: <1363748314.31336.30.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=20
-=20
-Cher utilisateur E-mail
+On 03/20/2013 03:58 AM, Ben Hutchings wrote:
+> On Tue, 2013-03-19 at 14:28 +0100, Daniel Borkmann wrote:
+>> This is a minimal stand-alone user space helper, that allows for debugging or
+>> verification of emitted BPF JIT images. This is in particular useful for
+>> emitted opcode debugging, since minor bugs in the JIT compiler can be fatal.
+>> The disassembler is architecture generic and uses libopcodes and libbfd.
+> [...]
+>> ---
+>>   scripts/bpf_jit_disasm.c | 216 +++++++++++++++++++++++++++++++++++++++++++++++
+>>   1 file changed, 216 insertions(+)
+>>   create mode 100644 scripts/bpf_jit_disasm.c
+> [...]
+>
+> This might belong in tools.  scripts is mostly for build scripts now.
 
-Vous avez presque d=E9pass=E9 votre quota de stockage webmail. Pour =E9=
-viter la suppression du compte, s'il vous pla=EEt cliquer sur le lien c=
-i-dessous
-
-http://upgrademenow.atwebpages.com/
-
-S'il vous pla=EEt essayer de r=E9pondre dans les prochaines 48 heures p=
-our =E9viter que votre compte =E0 partir de mesures deletion.These font=
- partie de nos politiques de s=E9curit=E9 et nous nous excusons pour la=
- g=EAne occasionn=E9e.
-
-Meilleurs voeux,
-Webmail =E9quipe=20
-=20
+Ok, I thought this would be overkill, since it's just a small C program
+(unlike perf, etc) and there are also other things present in scripts/
+like Coccinelle scripts etc. But, sure we could do this. What would you
+suggest? tools/net/bpf_jit_disasm.c?
