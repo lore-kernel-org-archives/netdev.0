@@ -1,43 +1,111 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 4/4] filter: add minimal BPF JIT emitted image
- disassembler
-Date: Wed, 20 Mar 2013 02:58:34 +0000
-Message-ID: <1363748314.31336.30.camel@deadeye.wl.decadent.org.uk>
-References: <cover.1363699285.git.dborkman@redhat.com>
-	 <8d8079d7a5cffe05eeb44a35cb5d7c3544a84f4f.1363699285.git.dborkman@redhat.com>
+From: dormando <dormando@rydia.net>
+Subject: Re: [PATCH] tcp: dont handle MTU reduction on LISTEN socket
+Date: Tue, 19 Mar 2013 21:16:21 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1303192114580.4793@dflat>
+References: <1363626088.29475.155.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<eric.dumazet@gmail.com>, <jasowang@redhat.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:60191 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750721Ab3CTC6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Mar 2013 22:58:40 -0400
-In-Reply-To: <8d8079d7a5cffe05eeb44a35cb5d7c3544a84f4f.1363699285.git.dborkman@redhat.com>
+Received: from rydia.net ([69.46.88.68]:37947 "EHLO mail.rydia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751269Ab3CTEQX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Mar 2013 00:16:23 -0400
+In-Reply-To: <1363626088.29475.155.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-03-19 at 14:28 +0100, Daniel Borkmann wrote:
-> This is a minimal stand-alone user space helper, that allows for debugging or
-> verification of emitted BPF JIT images. This is in particular useful for
-> emitted opcode debugging, since minor bugs in the JIT compiler can be fatal.
-> The disassembler is architecture generic and uses libopcodes and libbfd.
-[...]
+> From: Eric Dumazet <edumazet@google.com>
+>
+> When an ICMP ICMP_FRAG_NEEDED (or ICMPV6_PKT_TOOBIG) message finds a
+> LISTEN socket, and this socket is currently owned by the user, we
+> set TCP_MTU_REDUCED_DEFERRED flag in listener tsq_flags.
+>
+> This is bad because if we clone the parent before it had a chance to
+> clear the flag, the child inherits the tsq_flags value, and next
+> tcp_release_cb() on the child will decrement sk_refcnt.
+>
+> Result is that we might free a live TCP socket, as reported by
+> Dormando.
+>
+> IPv4: Attempt to release TCP socket in state 1
+>
+> Fix this issue by testing sk_state against TCP_LISTEN early, so that we
+> set TCP_MTU_REDUCED_DEFERRED on appropriate sockets (not a LISTEN one)
+>
+> This bug was introduced in commit 563d34d05786
+> (tcp: dont drop MTU reduction indications)
+>
+> Reported-by: dormando <dormando@rydia.net>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 > ---
->  scripts/bpf_jit_disasm.c | 216 +++++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 216 insertions(+)
->  create mode 100644 scripts/bpf_jit_disasm.c
-[...]
+>  net/ipv4/tcp_ipv4.c |   14 +++++++-------
+>  net/ipv6/tcp_ipv6.c |    7 +++++++
+>  2 files changed, 14 insertions(+), 7 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index 4a8ec45..d09203c 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -274,13 +274,6 @@ static void tcp_v4_mtu_reduced(struct sock *sk)
+>  	struct inet_sock *inet = inet_sk(sk);
+>  	u32 mtu = tcp_sk(sk)->mtu_info;
+>
+> -	/* We are not interested in TCP_LISTEN and open_requests (SYN-ACKs
+> -	 * send out by Linux are always <576bytes so they should go through
+> -	 * unfragmented).
+> -	 */
+> -	if (sk->sk_state == TCP_LISTEN)
+> -		return;
+> -
+>  	dst = inet_csk_update_pmtu(sk, mtu);
+>  	if (!dst)
+>  		return;
+> @@ -408,6 +401,13 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
+>  			goto out;
+>
+>  		if (code == ICMP_FRAG_NEEDED) { /* PMTU discovery (RFC1191) */
+> +			/* We are not interested in TCP_LISTEN and open_requests
+> +			 * (SYN-ACKs send out by Linux are always <576bytes so
+> +			 * they should go through unfragmented).
+> +			 */
+> +			if (sk->sk_state == TCP_LISTEN)
+> +				goto out;
+> +
+>  			tp->mtu_info = info;
+>  			if (!sock_owned_by_user(sk)) {
+>  				tcp_v4_mtu_reduced(sk);
+> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> index 9b64600..f6d629f 100644
+> --- a/net/ipv6/tcp_ipv6.c
+> +++ b/net/ipv6/tcp_ipv6.c
+> @@ -389,6 +389,13 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+>  	}
+>
+>  	if (type == ICMPV6_PKT_TOOBIG) {
+> +		/* We are not interested in TCP_LISTEN and open_requests
+> +		 * (SYN-ACKs send out by Linux are always <576bytes so
+> +		 * they should go through unfragmented).
+> +		 */
+> +		if (sk->sk_state == TCP_LISTEN)
+> +			goto out;
+> +
+>  		tp->mtu_info = ntohl(info);
+>  		if (!sock_owned_by_user(sk))
+>  			tcp_v6_mtu_reduced(sk);
+>
+>
+>
 
-This might belong in tools.  scripts is mostly for build scripts now.
+Thanks! We are all incredibly appreciative of your quick help with this.
 
-Ben.
+I have 3.8.3 + this patch running on our machine for 20 hours so far. We
+haven't had a kernel newer than 3.2 go for a full day before. I'm giving
+it another peak cycle before calling it dead but it looks like you nailed
+it.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I assume you no longer need the kernel disassembly?
+
+thanks again,
+-Dormando
