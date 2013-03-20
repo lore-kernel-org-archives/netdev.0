@@ -1,34 +1,41 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH] fix mv643xx_eth for disabled autoneg
-Date: Wed, 20 Mar 2013 12:49:08 +0100
-Message-ID: <20130320114908.GA4110@orbit.nwl.cc>
-References: <1362592142-4049-1-git-send-email-phil.sutter@viprinet.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] openvswitch: fix error return code in ovs_vport_cmd_set()
+Date: Wed, 20 Mar 2013 20:14:53 +0800
+Message-ID: <CAPgLHd_6+xnMKZBzH3KySpFv7hUzzNot7GBYSCAPLDRbC5HjsA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org
-To: Lennert Buytenhek <kernel@wantstofly.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, dev@openvswitch.org,
+	netdev@vger.kernel.org
+To: jesse@nicira.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:45257 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756676Ab3CTMAc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Mar 2013 08:00:32 -0400
-Content-Disposition: inline
-In-Reply-To: <1362592142-4049-1-git-send-email-phil.sutter@viprinet.com>
+Received: from mail-bk0-f51.google.com ([209.85.214.51]:52746 "EHLO
+	mail-bk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756226Ab3CTMOz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 08:14:55 -0400
+Received: by mail-bk0-f51.google.com with SMTP id ik5so806887bkc.38
+        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 05:14:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 06, 2013 at 06:49:02PM +0100, Phil Sutter wrote:
-> When autoneg has been disabled in the PHY (Marvell 88E1118 here), auto
-> negotiation between MAC and PHY seem non-functional anymore. The only
-> way I found to workaround this is to manually configure the MAC with the
-> settings sent to the PHY earlier.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-And still, this is somehow broken for turned off autoneg. Not a DoS
-anymore, but it seems like one can not disable duplex autoneg. No matter
-what duplex settings I configure on each side, communication is still
-possible.
+Fix to return a negative error code from the error handling
+case instead of 0, as returned elsewhere in this function.
 
-Do you have any idea what could be missing or how to furtherly track
-down the problem? Could this even be a bug in the hardware?
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ net/openvswitch/datapath.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Best wishes, Phil
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index d61cd99..1ee11c3 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -1736,6 +1736,7 @@ static int ovs_vport_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	reply = ovs_vport_cmd_build_info(vport, info->snd_portid, info->snd_seq,
+ 					 OVS_VPORT_CMD_NEW);
++	err = PTR_ERR(reply);
+ 	if (IS_ERR(reply)) {
+ 		netlink_set_err(sock_net(skb->sk)->genl_sock, 0,
+ 				ovs_dp_vport_multicast_group.id, PTR_ERR(reply));
