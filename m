@@ -1,39 +1,52 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/2] sh_eth: fix bitbang memory leak
-Date: Wed, 20 Mar 2013 17:38:35 +0400
-Message-ID: <5149BBDB.8060604@cogentembedded.com>
-References: <201303200240.23975.sergei.shtylyov@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] net_sched: don't do precise pkt_len
+ computation for untrusted packets
+Date: Wed, 20 Mar 2013 06:46:19 -0700
+Message-ID: <1363787179.3333.6.camel@edumazet-glaptop>
+References: <1363333305-54398-1-git-send-email-jasowang@redhat.com>
+	  <20130317.121026.733329595817911776.davem@davemloft.net>
+	  <51482F14.9030407@redhat.com> <1363695040.21184.32.camel@edumazet-glaptop>
+	 <1363697906.21184.53.camel@edumazet-glaptop> <514954F0.2040604@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:45512 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751688Ab3CTNjY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 09:39:24 -0400
-Received: by mail-la0-f50.google.com with SMTP id ec20so2908809lab.23
-        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 06:39:22 -0700 (PDT)
-In-Reply-To: <201303200240.23975.sergei.shtylyov@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, edumazet@google.com,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <514954F0.2040604@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Wed, 2013-03-20 at 14:19 +0800, Jason Wang wrote:
 
-On 20-03-2013 3:40, Sergei Shtylyov wrote:
+> I was consider a just skb_reset_transport_header() here. Consider the
+> transport header maybe checked and reset during header check for packets
+> of gso or partial checksum. And bypass precise pkt len computation.
+> 
+> Some problems with skb_flow_dissect():
+> 
+> - it can only recognizes a subset of all ethernet protocols. The may
+> blocks guest who may want to use other protocol such as IPX.
 
-> sh_mdio_init() allocates pointer to 'struct bb_info' but only stores it locally,
-> so that sh_mdio_release() can't free it on driver unload.  Add the pointer to
-> 'struct bb_info' to 'struct sh_eth_private', so that sh_mdio_init() can save
-> 'bitbang' variable for sh_mdio_release() to be able to free it later...
+Oh yes IPX 
 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> - almost no check in the validity of the L4 protocol header which may be
+> used by qdisc_pkt_len_init(), which may still give a chance to evil
+> guest to use
+> - gso_segs were untouched (still zero)
+> 
+> Another method is doing header check here which needs more work.
 
-    I was in a bit of hurry and forgot to add:
+Most uses are caught by the helper.
 
-CC: stable@vger.kernel.org
+So in the case dissection fails, just reset transport header instead of
+dropping as I suggested.
 
-    Do I need to repost?
+Otherwise, set the transport header to the right value
 
-WBR, Sergei
+-> precise qdisc pkt lengths.
+
+Instead of pretending DODGY packets have no headers, at least try to do
+the right thing.
