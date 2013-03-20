@@ -1,579 +1,374 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: [PATCH 1/3] net: Clean up SCM_CREDENTIALS code
-Date: Wed, 20 Mar 2013 14:38:38 -0700
-Message-ID: <3d7ffb6d9b73971f1a526fc490ef84ef7a33eecc.1363815201.git.luto@amacapital.net>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: [PATCH 3/3] net: Remove sock_iocb.scm
+Date: Wed, 20 Mar 2013 14:38:40 -0700
+Message-ID: <f3daf046acadde091ed1e7a4517f9e9039c6d79b.1363815201.git.luto@amacapital.net>
 References: <cover.1363815201.git.luto@amacapital.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <cover.1363815201.git.luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-In-Reply-To: <cover.1363815201.git.luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-References: <cover.1363815201.git.luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	containers@lists.linux-foundation.org,
+	Andy Lutomirski <luto@amacapital.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:38588 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751755Ab3CTVjM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 17:39:12 -0400
+Received: by mail-da0-f46.google.com with SMTP id y19so1225955dan.33
+        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 14:39:12 -0700 (PDT)
+In-Reply-To: <cover.1363815201.git.luto@amacapital.net>
+In-Reply-To: <cover.1363815201.git.luto@amacapital.net>
+References: <cover.1363815201.git.luto@amacapital.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I was curious whether the uids, gids, and pids passed around worked
-correctly in the presence of multiple namespaces.  I gave up trying
-to figure it out: there are two copies of the pid (one of which has
-type u32, which is odd), a struct cred * (!), and a separate kuid
-and kgid.  IOW, all of the relevant data is stored twice, and it's
-unclear which copy is used when.
+I'm not sure why this was here.  Any use after sendmsg or recvmsg
+returned was bogus anyway.
 
-I also wondered what prevented a SO_CREDENTIALS message from being
-recieved when the credentials weren't filled out.  Answer: not very
-much (and there have been serious security bugs here in the past).
-
-So just rewrite the thing to store a pid_t relative to the init pid
-ns, a kuid, and a kgid, and to explicitly track whether the data is
-filled out.
-
-I haven't played with the secid code.  I have no idea whether it has
-similar problems.
-
-I haven't benchmarked this, but it should be a respectable speedup
-in the cases where the credentials are in use.
-
-Signed-off-by: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Signed-off-by: Andy Lutomirski <luto@amacapital.net>
 ---
+ include/net/sock.h       |  1 -
+ net/netlink/af_netlink.c | 27 +++++++-------------
+ net/socket.c             |  2 --
+ net/unix/af_unix.c       | 66 ++++++++++++++++++------------------------------
+ 4 files changed, 33 insertions(+), 63 deletions(-)
 
-Before, the program below printed this:
-
-$ passcred
-My pid = 19873
-No SO_PASSCRED: uid=65534 gid=65534 pid=0  [this is a bug]
-SO_PASSCRED: uid=1000 gid=1000 pid=19873
-SO_PASSCRED, forked to pid 19874: uid=1000 gid=1000 pid=19874
-
-# passcred
-My pid = 19886
-No SO_PASSCRED: uid=65534 gid=65534 pid=0
-SO_PASSCRED: uid=0 gid=0 pid=19886
-SO_PASSCRED, forked to pid 19887: uid=0 gid=0 pid=19887
-
-
-After:
-
-# passcred
-My pid = 83
-No creds received
-SO_PASSCRED: uid=0 gid=0 pid=83
-SO_PASSCRED, forked to pid 84: uid=0 gid=0 pid=0
-
-
-#define _GNU_SOURCE
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/socket.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <err.h>
-
-static void send_str(int fd, const char *msg)
-{
-	if (send(fd, msg, strlen(msg)+1, 0) < 0)
-		err(1, "send");
-}
-
-int main()
-{
-	int fds[2];
-	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, fds))
-		err(1, "socketpair");
-
-	send_str(fds[1], "No SO_PASSCRED");
-
-	int one = 1;
-	if (setsockopt(fds[0], SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) != 0)
-		err(1, "SO_PASSCRED");
-
-	send_str(fds[1], "SO_PASSCRED");
-
-	if (fork() == 0) {
-		char msg[1024];
-		sprintf(msg, "SO_PASSCRED, forked to pid %ld", (long)getpid());
-		send_str(fds[1], msg);
-		return 0;
-	}
-
-	int status;
-	wait(&status);
-	printf("My pid = %ld\n", getpid());
-
-	for (int i = 0; i < 3; i++) {
-		char buf[1024];
-		char cbuf[CMSG_SPACE(sizeof(struct ucred))];
-		struct iovec iov;
-		iov.iov_base = &buf;
-		iov.iov_len = sizeof(buf);
-		struct msghdr hdr;
-		memset(&hdr, 0, sizeof(hdr));
-		hdr.msg_iov = &iov;
-		hdr.msg_iovlen = 1;
-		hdr.msg_control = cbuf;
-		hdr.msg_controllen = sizeof(cbuf);
-		ssize_t bytes = recvmsg(fds[0], &hdr, 0);
-		if (bytes < 0)
-			err(1, "recvmsg");
-
-		if (hdr.msg_flags & (MSG_TRUNC | MSG_CTRUNC))
-			errx(1, "truncated");
-
-		struct ucred cred;
-		bool ok = false;
-
-		for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(&hdr); cmsg; cmsg = CMSG_NXTHDR(&hdr, cmsg)) {
-			if (cmsg->cmsg_level == SOL_SOCKET &&
-			    cmsg->cmsg_type == SCM_CREDENTIALS) {
-				cred = *((struct ucred *)CMSG_DATA(cmsg));
-				ok = true;
-				break;
-			}
-		}
-		if (!ok) {
-			printf("No creds received\n");
-		} else {
-			printf("%s: uid=%ld gid=%ld pid=%ld\n",
-			       buf, (long)cred.uid, (long)cred.gid, (long)cred.pid);
-		}
-	}
-
-	return 0;
-}
-
-
- include/net/af_unix.h    |  6 ++--
- include/net/scm.h        | 83 ++++++++++++++++++++++++++++++++----------------
- net/core/scm.c           | 49 ++++++++++------------------
- net/netlink/af_netlink.c | 14 +++++---
- net/unix/af_unix.c       | 35 +++++++++-----------
- 5 files changed, 99 insertions(+), 88 deletions(-)
-
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index 0a996a3..7874f3e 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -27,12 +27,12 @@ struct unix_address {
- 	struct sockaddr_un name[0];
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 14f6e9d..87b134e 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1299,7 +1299,6 @@ struct sock_iocb {
+ 	int			size;
+ 	struct socket		*sock;
+ 	struct sock		*sk;
+-	struct scm_cookie	*scm;
+ 	struct msghdr		*msg, async_msg;
+ 	struct kiocb		*kiocb;
  };
- 
-+/* This structure is identical to struct scm_cookie. */
- struct unix_skb_parms {
--	struct pid		*pid;		/* Skb credentials	*/
--	const struct cred	*cred;
-+	struct scm_creds	creds;
- 	struct scm_fp_list	*fp;		/* Passed files		*/
- #ifdef CONFIG_SECURITY_NETWORK
--	u32			secid;		/* Security ID		*/
-+	u32			secid;		/* Passed security ID 	*/
- #endif
- };
- 
-diff --git a/include/net/scm.h b/include/net/scm.h
-index 975cca0..f6f0626 100644
---- a/include/net/scm.h
-+++ b/include/net/scm.h
-@@ -13,9 +13,24 @@
- #define SCM_MAX_FD	253
- 
- struct scm_creds {
--	u32	pid;
--	kuid_t	uid;
--	kgid_t	gid;
-+	bool has_creds;
-+
-+	/*
-+	 * Keeping reference counts (as to a struct pid *) in here is
-+	 * annoying -- things like skb_set_owner_[rw] and skb_clone assume
-+	 * that it's ok to memcpy skb->cb around.
-+	 *
-+	 * Fortunately (?) anything that uses the pid field in SCM_CREDENTIALS
-+	 * is fundamentally racy, since the networking code certainly isn't
-+	 * going to keep a reference alive *after* recvmsg.  So let's embrace
-+	 * the race condition at the cost of an extra hash lookup on receive.
-+	 *
-+	 * (There's an added benefit here: this approach doesn't write to
-+	 * any shared cachelines.)
-+	 */
-+	pid_t		init_ns_pid;
-+	kuid_t		uid;
-+	kgid_t		gid;
- };
- 
- struct scm_fp_list {
-@@ -25,15 +40,15 @@ struct scm_fp_list {
- };
- 
- struct scm_cookie {
--	struct pid		*pid;		/* Skb credentials */
--	const struct cred	*cred;
-+	struct scm_creds	creds;
- 	struct scm_fp_list	*fp;		/* Passed files		*/
--	struct scm_creds	creds;		/* Skb credentials	*/
- #ifdef CONFIG_SECURITY_NETWORK
- 	u32			secid;		/* Passed security ID 	*/
- #endif
- };
- 
-+#define SCM_COOKIE_INIT {}  /* All zeros is good. */
-+
- extern void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm);
- extern void scm_detach_fds_compat(struct msghdr *msg, struct scm_cookie *scm);
- extern int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *scm);
-@@ -50,39 +65,47 @@ static __inline__ void unix_get_peersec_dgram(struct socket *sock, struct scm_co
- { }
- #endif /* CONFIG_SECURITY_NETWORK */
- 
--static __inline__ void scm_set_cred(struct scm_cookie *scm,
--				    struct pid *pid, const struct cred *cred)
-+static __inline__ bool scm_creds_equal(const struct scm_creds *a,
-+                                       const struct scm_creds *b)
- {
--	scm->pid  = get_pid(pid);
--	scm->cred = cred ? get_cred(cred) : NULL;
--	scm->creds.pid = pid_vnr(pid);
--	scm->creds.uid = cred ? cred->euid : INVALID_UID;
--	scm->creds.gid = cred ? cred->egid : INVALID_GID;
-+	if (a->has_creds)
-+		return a->init_ns_pid == b->init_ns_pid &&
-+			uid_eq(a->uid, b->uid) && gid_eq(a->gid, b->gid);
-+	else
-+		return !b->has_creds;
- }
- 
--static __inline__ void scm_destroy_cred(struct scm_cookie *scm)
-+static __inline__ void scm_creds_from_current(struct scm_creds *creds)
- {
--	put_pid(scm->pid);
--	scm->pid  = NULL;
-+	const struct cred *cred = get_current_cred();
-+	creds->has_creds = true;
-+	creds->init_ns_pid = task_tgid_nr(current);
-+	creds->uid = cred->uid;
-+	creds->gid = cred->gid;
-+}
- 
--	if (scm->cred)
--		put_cred(scm->cred);
--	scm->cred = NULL;
-+static __inline__ void scm_creds_from_kernel(struct scm_creds *creds)
-+{
-+	creds->has_creds = true;
-+	creds->init_ns_pid = 0;
-+	creds->uid = GLOBAL_ROOT_UID;
-+	creds->gid = GLOBAL_ROOT_GID;
-+}
-+
-+static __inline__ void scm_creds_wipe(struct scm_creds *creds)
-+{
-+	creds->has_creds = false;
- }
- 
- static __inline__ void scm_destroy(struct scm_cookie *scm)
- {
--	scm_destroy_cred(scm);
- 	if (scm->fp)
- 		__scm_destroy(scm);
- }
- 
- static __inline__ int scm_send(struct socket *sock, struct msghdr *msg,
--			       struct scm_cookie *scm, bool forcecreds)
-+			       struct scm_cookie *scm)
- {
--	memset(scm, 0, sizeof(*scm));
--	if (forcecreds)
--		scm_set_cred(scm, task_tgid(current), current_cred());
- 	unix_get_peersec_dgram(sock, scm);
- 	if (msg->msg_controllen <= 0)
- 		return 0;
-@@ -120,18 +143,22 @@ static __inline__ void scm_recv(struct socket *sock, struct msghdr *msg,
- 		return;
- 	}
- 
--	if (test_bit(SOCK_PASSCRED, &sock->flags)) {
-+	if (test_bit(SOCK_PASSCRED, &sock->flags) && scm->creds.has_creds) {
- 		struct user_namespace *current_ns = current_user_ns();
- 		struct ucred ucreds = {
--			.pid = scm->creds.pid,
- 			.uid = from_kuid_munged(current_ns, scm->creds.uid),
- 			.gid = from_kgid_munged(current_ns, scm->creds.gid),
- 		};
-+
-+		rcu_read_lock();
-+		/* On error, this will result in pid 0. */
-+		ucreds.pid = pid_vnr(find_pid_ns(scm->creds.init_ns_pid,
-+						 &init_pid_ns));
-+		rcu_read_unlock();
-+
- 		put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, sizeof(ucreds), &ucreds);
- 	}
- 
--	scm_destroy_cred(scm);
--
- 	scm_passec(sock, msg, scm);
- 
- 	if (!scm->fp)
-diff --git a/net/core/scm.c b/net/core/scm.c
-index 905dcc6..7dd7534 100644
---- a/net/core/scm.c
-+++ b/net/core/scm.c
-@@ -157,8 +157,7 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
- 		case SCM_CREDENTIALS:
- 		{
- 			struct ucred creds;
--			kuid_t uid;
--			kgid_t gid;
-+			struct pid *pid;
- 			if (cmsg->cmsg_len != CMSG_LEN(sizeof(struct ucred)))
- 				goto error;
- 			memcpy(&creds, CMSG_DATA(cmsg), sizeof(struct ucred));
-@@ -166,41 +165,25 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
- 			if (err)
- 				goto error;
- 
--			p->creds.pid = creds.pid;
--			if (!p->pid || pid_vnr(p->pid) != creds.pid) {
--				struct pid *pid;
--				err = -ESRCH;
--				pid = find_get_pid(creds.pid);
--				if (!pid)
--					goto error;
--				put_pid(p->pid);
--				p->pid = pid;
--			}
--
- 			err = -EINVAL;
--			uid = make_kuid(current_user_ns(), creds.uid);
--			gid = make_kgid(current_user_ns(), creds.gid);
--			if (!uid_valid(uid) || !gid_valid(gid))
-+			p->creds.uid = make_kuid(current_user_ns(), creds.uid);
-+			p->creds.gid = make_kgid(current_user_ns(), creds.gid);
-+			if (!uid_valid(p->creds.uid) ||
-+			    !gid_valid(p->creds.gid))
- 				goto error;
- 
--			p->creds.uid = uid;
--			p->creds.gid = gid;
--
--			if (!p->cred ||
--			    !uid_eq(p->cred->euid, uid) ||
--			    !gid_eq(p->cred->egid, gid)) {
--				struct cred *cred;
--				err = -ENOMEM;
--				cred = prepare_creds();
--				if (!cred)
--					goto error;
--
--				cred->uid = cred->euid = uid;
--				cred->gid = cred->egid = gid;
--				if (p->cred)
--					put_cred(p->cred);
--				p->cred = cred;
-+			rcu_read_lock();
-+			pid = find_vpid(creds.pid);
-+			if (!pid) {
-+				rcu_read_unlock();
-+				err = -ESRCH;
-+				goto error;
- 			}
-+			p->creds.init_ns_pid = pid_nr(pid);
-+			rcu_read_unlock();
-+
-+			p->creds.has_creds = true;
-+
- 			break;
- 		}
- 		default:
 diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 1e3fd5b..8245f61 100644
+index 8245f61..874bc1f 100644
 --- a/net/netlink/af_netlink.c
 +++ b/net/netlink/af_netlink.c
-@@ -936,7 +936,6 @@ static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb,
- 	if (nlk->netlink_rcv != NULL) {
- 		ret = skb->len;
- 		skb_set_owner_r(skb, sk);
--		NETLINK_CB(skb).ssk = ssk;
- 		nlk->netlink_rcv(skb);
- 		consume_skb(skb);
- 	} else {
-@@ -1368,7 +1367,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	u32 dst_group;
- 	struct sk_buff *skb;
- 	int err;
--	struct scm_cookie scm;
-+	struct scm_cookie scm = SCM_COOKIE_INIT;
- 
+@@ -1359,7 +1359,6 @@ static void netlink_cmsg_recv_pktinfo(struct msghdr *msg, struct sk_buff *skb)
+ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 			   struct msghdr *msg, size_t len)
+ {
+-	struct sock_iocb *siocb = kiocb_to_siocb(kiocb);
+ 	struct sock *sk = sock->sk;
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+ 	struct sockaddr_nl *addr = msg->msg_name;
+@@ -1372,11 +1371,8 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
  	if (msg->msg_flags&MSG_OOB)
  		return -EOPNOTSUPP;
-@@ -1376,7 +1375,8 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	if (NULL == siocb->scm)
- 		siocb->scm = &scm;
  
--	err = scm_send(sock, msg, siocb->scm, true);
-+	scm_creds_from_current(&siocb->scm->creds);
-+	err = scm_send(sock, msg, siocb->scm);
+-	if (NULL == siocb->scm)
+-		siocb->scm = &scm;
+-
+-	scm_creds_from_current(&siocb->scm->creds);
+-	err = scm_send(sock, msg, siocb->scm);
++	scm_creds_from_current(&scm.creds);
++	err = scm_send(sock, msg, &scm);
  	if (err < 0)
  		return err;
  
-@@ -1411,7 +1411,9 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 
- 	NETLINK_CB(skb).portid	= nlk->portid;
+@@ -1413,7 +1409,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
  	NETLINK_CB(skb).dst_group = dst_group;
--	NETLINK_CB(skb).creds	= siocb->scm->creds;
-+
-+	/* This is mandatory. See netlink_recvmsg. */
-+	NETLINK_CB(skb).creds = siocb->scm->creds;
+ 
+ 	/* This is mandatory. See netlink_recvmsg. */
+-	NETLINK_CB(skb).creds = siocb->scm->creds;
++	NETLINK_CB(skb).creds = scm.creds;
  
  	err = -EFAULT;
  	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
-@@ -1504,7 +1506,11 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
- 		memset(&scm, 0, sizeof(scm));
- 		siocb->scm = &scm;
- 	}
-+	/* skbs without creds are from the kernel. */
- 	siocb->scm->creds = *NETLINK_CREDS(skb);
-+	if (!siocb->scm->creds.has_creds)
-+		scm_creds_from_kernel(&siocb->scm->creds);
-+
- 	if (flags & MSG_TRUNC)
- 		copied = data_skb->len;
+@@ -1434,7 +1430,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	err = netlink_unicast(sk, skb, dst_portid, msg->msg_flags&MSG_DONTWAIT);
  
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 51be64f..0881739 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1338,10 +1338,8 @@ static void unix_detach_fds(struct scm_cookie *scm, struct sk_buff *skb)
- 
- static void unix_destruct_scm(struct sk_buff *skb)
- {
--	struct scm_cookie scm;
--	memset(&scm, 0, sizeof(scm));
--	scm.pid  = UNIXCB(skb).pid;
--	scm.cred = UNIXCB(skb).cred;
-+	struct scm_cookie scm = SCM_COOKIE_INIT;
-+	scm.creds = UNIXCB(skb).creds;
- 	if (UNIXCB(skb).fp)
- 		unix_detach_fds(&scm, skb);
- 
-@@ -1391,9 +1389,7 @@ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool sen
- {
- 	int err = 0;
- 
--	UNIXCB(skb).pid  = get_pid(scm->pid);
--	if (scm->cred)
--		UNIXCB(skb).cred = get_cred(scm->cred);
-+	UNIXCB(skb).creds = scm->creds;
- 	UNIXCB(skb).fp = NULL;
- 	if (scm->fp && send_fds)
- 		err = unix_attach_fds(scm, skb);
-@@ -1410,13 +1406,12 @@ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool sen
- static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
- 			    const struct sock *other)
- {
--	if (UNIXCB(skb).cred)
-+	if (UNIXCB(skb).creds.has_creds)
- 		return;
- 	if (test_bit(SOCK_PASSCRED, &sock->flags) ||
- 	    !other->sk_socket ||
- 	    test_bit(SOCK_PASSCRED, &other->sk_socket->flags)) {
--		UNIXCB(skb).pid  = get_pid(task_tgid(current));
--		UNIXCB(skb).cred = get_current_cred();
-+		scm_creds_from_current(&UNIXCB(skb).creds);
- 	}
+ out:
+-	scm_destroy(siocb->scm);
++	scm_destroy(&scm);
+ 	return err;
  }
  
-@@ -1438,14 +1433,14 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
+@@ -1442,8 +1438,7 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
+ 			   struct msghdr *msg, size_t len,
+ 			   int flags)
+ {
+-	struct sock_iocb *siocb = kiocb_to_siocb(kiocb);
+-	struct scm_cookie scm;
++	struct scm_cookie scm = SCM_COOKIE_INIT;
+ 	struct sock *sk = sock->sk;
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+ 	int noblock = flags&MSG_DONTWAIT;
+@@ -1502,14 +1497,10 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
+ 	if (nlk->flags & NETLINK_RECV_PKTINFO)
+ 		netlink_cmsg_recv_pktinfo(msg, skb);
+ 
+-	if (NULL == siocb->scm) {
+-		memset(&scm, 0, sizeof(scm));
+-		siocb->scm = &scm;
+-	}
+ 	/* skbs without creds are from the kernel. */
+-	siocb->scm->creds = *NETLINK_CREDS(skb);
+-	if (!siocb->scm->creds.has_creds)
+-		scm_creds_from_kernel(&siocb->scm->creds);
++	scm.creds = *NETLINK_CREDS(skb);
++	if (!scm.creds.has_creds)
++		scm_creds_from_kernel(&scm.creds);
+ 
+ 	if (flags & MSG_TRUNC)
+ 		copied = data_skb->len;
+@@ -1524,7 +1515,7 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
+ 		}
+ 	}
+ 
+-	scm_recv(sock, msg, siocb->scm, flags);
++	scm_recv(sock, msg, &scm, flags);
+ out:
+ 	netlink_rcv_wake(sk);
+ 	return err ? : copied;
+diff --git a/net/socket.c b/net/socket.c
+index 88f759a..26a65b4 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -619,7 +619,6 @@ static inline int __sock_sendmsg_nosec(struct kiocb *iocb, struct socket *sock,
+ 	struct sock_iocb *si = kiocb_to_siocb(iocb);
+ 
+ 	si->sock = sock;
+-	si->scm = NULL;
+ 	si->msg = msg;
+ 	si->size = size;
+ 
+@@ -781,7 +780,6 @@ static inline int __sock_recvmsg_nosec(struct kiocb *iocb, struct socket *sock,
+ 	struct sock_iocb *si = kiocb_to_siocb(iocb);
+ 
+ 	si->sock = sock;
+-	si->scm = NULL;
+ 	si->msg = msg;
+ 	si->size = size;
+ 	si->flags = flags;
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 0881739..e6541c1 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1422,7 +1422,6 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
+ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 			      struct msghdr *msg, size_t len)
+ {
+-	struct sock_iocb *siocb = kiocb_to_siocb(kiocb);
+ 	struct sock *sk = sock->sk;
+ 	struct net *net = sock_net(sk);
+ 	struct unix_sock *u = unix_sk(sk);
+@@ -1433,14 +1432,12 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
  	unsigned int hash;
  	struct sk_buff *skb;
  	long timeo;
--	struct scm_cookie tmp_scm;
-+	struct scm_cookie tmp_scm = SCM_COOKIE_INIT;
+-	struct scm_cookie tmp_scm = SCM_COOKIE_INIT;
++	struct scm_cookie scm = SCM_COOKIE_INIT;
  	int max_level;
  	int data_len = 0;
  
- 	if (NULL == siocb->scm)
- 		siocb->scm = &tmp_scm;
+-	if (NULL == siocb->scm)
+-		siocb->scm = &tmp_scm;
  	wait_for_unix_gc();
--	err = scm_send(sock, msg, siocb->scm, false);
-+	err = scm_send(sock, msg, siocb->scm);
+-	err = scm_send(sock, msg, siocb->scm);
++	err = scm_send(sock, msg, &scm);
  	if (err < 0)
  		return err;
  
-@@ -1607,14 +1602,14 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+@@ -1479,11 +1476,11 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	if (skb == NULL)
+ 		goto out;
+ 
+-	err = unix_scm_to_skb(siocb->scm, skb, true);
++	err = unix_scm_to_skb(&scm, skb, true);
+ 	if (err < 0)
+ 		goto out_free;
+ 	max_level = err + 1;
+-	unix_get_secdata(siocb->scm, skb);
++	unix_get_secdata(&scm, skb);
+ 
+ 	skb_put(skb, len - data_len);
+ 	skb->data_len = data_len;
+@@ -1578,7 +1575,7 @@ restart:
+ 	unix_state_unlock(other);
+ 	other->sk_data_ready(other, len);
+ 	sock_put(other);
+-	scm_destroy(siocb->scm);
++	scm_destroy(&scm);
+ 	return len;
+ 
+ out_unlock:
+@@ -1588,7 +1585,7 @@ out_free:
+ out:
+ 	if (other)
+ 		sock_put(other);
+-	scm_destroy(siocb->scm);
++	scm_destroy(&scm);
+ 	return err;
+ }
+ 
+@@ -1596,20 +1593,17 @@ out:
+ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 			       struct msghdr *msg, size_t len)
+ {
+-	struct sock_iocb *siocb = kiocb_to_siocb(kiocb);
+ 	struct sock *sk = sock->sk;
+ 	struct sock *other = NULL;
  	int err, size;
  	struct sk_buff *skb;
  	int sent = 0;
--	struct scm_cookie tmp_scm;
-+	struct scm_cookie tmp_scm = SCM_COOKIE_INIT;
+-	struct scm_cookie tmp_scm = SCM_COOKIE_INIT;
++	struct scm_cookie scm = SCM_COOKIE_INIT;
  	bool fds_sent = false;
  	int max_level;
  
- 	if (NULL == siocb->scm)
- 		siocb->scm = &tmp_scm;
+-	if (NULL == siocb->scm)
+-		siocb->scm = &tmp_scm;
  	wait_for_unix_gc();
--	err = scm_send(sock, msg, siocb->scm, false);
-+	err = scm_send(sock, msg, siocb->scm);
+-	err = scm_send(sock, msg, siocb->scm);
++	err = scm_send(sock, msg, &scm);
  	if (err < 0)
  		return err;
  
-@@ -1765,7 +1760,7 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
+@@ -1666,7 +1660,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 
+ 
+ 		/* Only send the fds in the first buffer */
+-		err = unix_scm_to_skb(siocb->scm, skb, !fds_sent);
++		err = unix_scm_to_skb(&scm, skb, !fds_sent);
+ 		if (err < 0) {
+ 			kfree_skb(skb);
+ 			goto out_err;
+@@ -1695,8 +1689,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		sent += size;
+ 	}
+ 
+-	scm_destroy(siocb->scm);
+-	siocb->scm = NULL;
++	scm_destroy(&scm);
+ 
+ 	return sent;
+ 
+@@ -1708,8 +1701,7 @@ pipe_err:
+ 		send_sig(SIGPIPE, current, 0);
+ 	err = -EPIPE;
+ out_err:
+-	scm_destroy(siocb->scm);
+-	siocb->scm = NULL;
++	scm_destroy(&scm);
+ 	return sent ? : err;
+ }
+ 
+@@ -1760,7 +1752,7 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
  			      int flags)
  {
  	struct sock_iocb *siocb = kiocb_to_siocb(iocb);
--	struct scm_cookie tmp_scm;
-+	struct scm_cookie tmp_scm = SCM_COOKIE_INIT;
+-	struct scm_cookie tmp_scm = SCM_COOKIE_INIT;
++	struct scm_cookie scm = SCM_COOKIE_INIT;
  	struct sock *sk = sock->sk;
  	struct unix_sock *u = unix_sk(sk);
  	int noblock = flags & MSG_DONTWAIT;
-@@ -1820,7 +1815,7 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		siocb->scm = &tmp_scm;
- 		memset(&tmp_scm, 0, sizeof(tmp_scm));
- 	}
--	scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).cred);
-+	siocb->scm->creds = UNIXCB(skb).creds;
- 	unix_set_secdata(siocb->scm, skb);
+@@ -1811,16 +1803,12 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	if (sock_flag(sk, SOCK_RCVTSTAMP))
+ 		__sock_recv_timestamp(msg, sk, skb);
+ 
+-	if (!siocb->scm) {
+-		siocb->scm = &tmp_scm;
+-		memset(&tmp_scm, 0, sizeof(tmp_scm));
+-	}
+-	siocb->scm->creds = UNIXCB(skb).creds;
+-	unix_set_secdata(siocb->scm, skb);
++	scm.creds = UNIXCB(skb).creds;
++	unix_set_secdata(&scm, skb);
  
  	if (!(flags & MSG_PEEK)) {
-@@ -1898,7 +1893,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		if (UNIXCB(skb).fp)
+-			unix_detach_fds(siocb->scm, skb);
++			unix_detach_fds(&scm, skb);
+ 
+ 		sk_peek_offset_bwd(sk, skb->len);
+ 	} else {
+@@ -1840,11 +1828,11 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		sk_peek_offset_fwd(sk, size);
+ 
+ 		if (UNIXCB(skb).fp)
+-			siocb->scm->fp = scm_fp_dup(UNIXCB(skb).fp);
++			scm.fp = scm_fp_dup(UNIXCB(skb).fp);
+ 	}
+ 	err = (flags & MSG_TRUNC) ? skb->len - skip : size;
+ 
+-	scm_recv(sock, msg, siocb->scm, flags);
++	scm_recv(sock, msg, &scm, flags);
+ 
+ out_free:
+ 	skb_free_datagram(sk, skb);
+@@ -1892,8 +1880,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 			       struct msghdr *msg, size_t size,
  			       int flags)
  {
- 	struct sock_iocb *siocb = kiocb_to_siocb(iocb);
--	struct scm_cookie tmp_scm;
-+	struct scm_cookie tmp_scm = SCM_COOKIE_INIT;
+-	struct sock_iocb *siocb = kiocb_to_siocb(iocb);
+-	struct scm_cookie tmp_scm = SCM_COOKIE_INIT;
++	struct scm_cookie scm = SCM_COOKIE_INIT;
  	struct sock *sk = sock->sk;
  	struct unix_sock *u = unix_sk(sk);
  	struct sockaddr_un *sunaddr = msg->msg_name;
-@@ -1991,12 +1986,12 @@ again:
+@@ -1921,11 +1908,6 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	 * while sleeps in memcpy_tomsg
+ 	 */
  
+-	if (!siocb->scm) {
+-		siocb->scm = &tmp_scm;
+-		memset(&tmp_scm, 0, sizeof(tmp_scm));
+-	}
+-
+ 	err = mutex_lock_interruptible(&u->readlock);
+ 	if (err) {
+ 		err = sock_intr_errno(timeo);
+@@ -1987,11 +1969,11 @@ again:
  		if (check_creds) {
  			/* Never glue messages from different writers */
--			if ((UNIXCB(skb).pid  != siocb->scm->pid) ||
--			    (UNIXCB(skb).cred != siocb->scm->cred))
-+			if (!scm_creds_equal(&UNIXCB(skb).creds,
-+			                     &siocb->scm->creds));
+ 			if (!scm_creds_equal(&UNIXCB(skb).creds,
+-			                     &siocb->scm->creds));
++			                     &scm.creds));
  				break;
  		} else {
  			/* Copy credentials */
--			scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).cred);
-+			siocb->scm->creds = UNIXCB(skb).creds;
+-			siocb->scm->creds = UNIXCB(skb).creds;
++			scm.creds = UNIXCB(skb).creds;
  			check_creds = 1;
  		}
  
+@@ -2017,7 +1999,7 @@ again:
+ 			sk_peek_offset_bwd(sk, chunk);
+ 
+ 			if (UNIXCB(skb).fp)
+-				unix_detach_fds(siocb->scm, skb);
++				unix_detach_fds(&scm, skb);
+ 
+ 			if (skb->len)
+ 				break;
+@@ -2025,13 +2007,13 @@ again:
+ 			skb_unlink(skb, &sk->sk_receive_queue);
+ 			consume_skb(skb);
+ 
+-			if (siocb->scm->fp)
++			if (scm.fp)
+ 				break;
+ 		} else {
+ 			/* It is questionable, see note in unix_dgram_recvmsg.
+ 			 */
+ 			if (UNIXCB(skb).fp)
+-				siocb->scm->fp = scm_fp_dup(UNIXCB(skb).fp);
++				scm.fp = scm_fp_dup(UNIXCB(skb).fp);
+ 
+ 			sk_peek_offset_fwd(sk, chunk);
+ 
+@@ -2040,7 +2022,7 @@ again:
+ 	} while (size);
+ 
+ 	mutex_unlock(&u->readlock);
+-	scm_recv(sock, msg, siocb->scm, flags);
++	scm_recv(sock, msg, &scm, flags);
+ out:
+ 	return copied ? : err;
+ }
 -- 
 1.8.1.4
