@@ -1,34 +1,45 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v3 net-next 4/4] filter: add minimal BPF JIT emitted image
- disassembler
-Date: Wed, 20 Mar 2013 19:57:03 +0100
-Message-ID: <514A067F.50804@redhat.com>
-References: <1363711172-9728-1-git-send-email-dborkman@redhat.com> <1363711172-9728-5-git-send-email-dborkman@redhat.com> <20130320.131713.988538863586629681.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH v2] chelsio: use netdev_alloc_skb_ip_align
+Date: Wed, 20 Mar 2013 12:02:41 -0700
+Message-ID: <20130320120241.19314ab6@nehalam.linuxnetplumber.net>
+References: <1363797199.3333.18.camel@edumazet-glaptop>
+	<20130320113024.00377b99@nehalam.linuxnetplumber.net>
+	<1363804952.3333.29.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61447 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757229Ab3CTS5K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Mar 2013 14:57:10 -0400
-In-Reply-To: <20130320.131713.988538863586629681.davem@davemloft.net>
+Received: from mail-da0-f42.google.com ([209.85.210.42]:42468 "EHLO
+	mail-da0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755297Ab3CTTCr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 15:02:47 -0400
+Received: by mail-da0-f42.google.com with SMTP id n15so1158346dad.29
+        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 12:02:47 -0700 (PDT)
+In-Reply-To: <1363804952.3333.29.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/20/2013 06:17 PM, David Miller wrote:
-> From: Daniel Borkmann <dborkman@redhat.com>
-> Date: Tue, 19 Mar 2013 17:39:32 +0100
->
->> This is a minimal stand-alone user space helper, that allows for debugging or
->> verification of emitted BPF JIT images.
->
-> As Ben Hutchings suggested, please respin this such that the tool
-> goes somewhere under tools/
->
-> Creating a tools/net/ subdirectory for small programs like this is
-> fine.
+Use netdev_alloc_sk_ip_align in the case where packet is copied.
+This handles case where NET_IP_ALIGN == 0 as well as adding required header
+padding.
 
-Thanks, I'll do that!
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
+
+--- a/drivers/net/ethernet/chelsio/cxgb/sge.c	2013-03-20 11:13:47.950986878 -0700
++++ b/drivers/net/ethernet/chelsio/cxgb/sge.c	2013-03-20 12:00:01.551115729 -0700
+@@ -1046,11 +1046,10 @@ static inline struct sk_buff *get_packet
+ 	const struct freelQ_ce *ce = &fl->centries[fl->cidx];
+ 
+ 	if (len < copybreak) {
+-		skb = alloc_skb(len + 2, GFP_ATOMIC);
++		skb = netdev_alloc_skb_ip_align(NULL, len);
+ 		if (!skb)
+ 			goto use_orig_buf;
+ 
+-		skb_reserve(skb, 2);	/* align IP header */
+ 		skb_put(skb, len);
+ 		pci_dma_sync_single_for_cpu(pdev,
+ 					    dma_unmap_addr(ce, dma_addr),
