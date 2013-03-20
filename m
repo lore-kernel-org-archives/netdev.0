@@ -1,33 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] chelsio: add headroom in RX path
-Date: Wed, 20 Mar 2013 13:29:52 -0400 (EDT)
-Message-ID: <20130320.132952.1733436957649049289.davem@davemloft.net>
-References: <1363797199.3333.18.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/2] genetlink: trigger BUG_ON if a group name is too
+ long
+Date: Wed, 20 Mar 2013 17:32:59 +0000
+Message-ID: <1363800779.2677.16.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1363693648-10015-1-git-send-email-yamato@redhat.com>
+	 <1363693648-10015-2-git-send-email-yamato@redhat.com>
+	 <20130320.120705.58997943737455552.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: <yamato@redhat.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59123 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751539Ab3CTR3z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 13:29:55 -0400
-In-Reply-To: <1363797199.3333.18.camel@edumazet-glaptop>
+Received: from webmail.solarflare.com ([12.187.104.25]:30431 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751077Ab3CTRdC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 13:33:02 -0400
+In-Reply-To: <20130320.120705.58997943737455552.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 20 Mar 2013 09:33:19 -0700
+On Wed, 2013-03-20 at 12:07 -0400, David Miller wrote:
+> From: Masatake YAMATO <yamato@redhat.com>
+> Date: Tue, 19 Mar 2013 20:47:27 +0900
+> 
+> > Trigger BUG_ON if a group name is longer than GENL_NAMSIZ.
+> > 
+> > Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+> 
+> Applied, thanks.
+> 
+> Although I'm disappointed that the compiler doesn't say anything about
+> this in the assignment.
+> 
+> We're assigning "char[16] = STRING" and it doesn't say anything if the
+> final NULL char doesn't fit into the array.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Drivers should reserve some headroom in skb used in receive path,
-> to avoid future head reallocation.
-> 
-> One possible way to do that is to use dev_alloc_skb() instead
-> of alloc_skb(), so that NET_SKB_PAD bytes are reserved.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Unfortunately the C standard says this is allowed.  (Though the C++
+standard says it's not!)  That doesn't mean the compiler can't warn
+about it, of course.
 
-Applied, thanks Eric.
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
