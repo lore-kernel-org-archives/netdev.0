@@ -1,45 +1,54 @@
-From: Borislav Petkov <bp@alien8.de>
-Subject: Re: 3.9-rc3 forcedeth lockdep splat with netconsole
-Date: Wed, 20 Mar 2013 12:58:31 +0100
-Message-ID: <20130320115831.GC15471@pd.tnic>
-References: <20130320110150.GB15471@pd.tnic>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: ML netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130320110150.GB15471@pd.tnic>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Subject: [PATCH 3/5] net: au1k_ir: Use module_platform_driver()
+Date: Wed, 20 Mar 2013 17:11:30 +0530
+Message-ID: <1363779692-4395-3-git-send-email-sachin.kamat@linaro.org>
+References: <1363779692-4395-1-git-send-email-sachin.kamat@linaro.org>
+Cc: davem@davemloft.net, sachin.kamat@linaro.org,
+	Samuel Ortiz <samuel@sortiz.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f54.google.com ([209.85.210.54]:43785 "EHLO
+	mail-da0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756831Ab3CTL7H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 07:59:07 -0400
+Received: by mail-da0-f54.google.com with SMTP id p1so948870dad.27
+        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 04:59:07 -0700 (PDT)
+In-Reply-To: <1363779692-4395-1-git-send-email-sachin.kamat@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 20, 2013 at 12:01:51PM +0100, Borislav Petkov wrote:
-> Hi,
->=20
-> when trying to log stuff with netconsole, I get the following:
->=20
-> [ =E2=80=A6 ]
->=20
-> [    2.036977] netpoll: netconsole: device eth0 not up yet, forcing i=
-t
-> [    2.037632] forcedeth 0000:00:08.0: irq 42 for MSI/MSI-X
-> [    2.037763] forcedeth 0000:00:08.0 eth0: MSI enabled
-> [    2.038074] forcedeth 0000:00:08.0 eth0: no link during initializa=
-tion
-> [    2.780061] forcedeth 0000:00:08.0 eth0: link up
+module_platform_driver macro removes some boilerplate and
+simplifies the code.
 
-Hehe,
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Cc: Samuel Ortiz <samuel@sortiz.org>
+---
+ drivers/net/irda/au1k_ir.c |   13 +------------
+ 1 files changed, 1 insertions(+), 12 deletions(-)
 
-so it is actually funny to see the things lockdep is warning about,
-in action: I was just able to hang the box with the last line above
-appearing on the screen.
-
-=46un.
-
---=20
-Regards/Gruss,
-    Boris.
-
-Sent from a fat crate under my desk. Formatting is fine.
---
+diff --git a/drivers/net/irda/au1k_ir.c b/drivers/net/irda/au1k_ir.c
+index 56f1e6d..7a1f684 100644
+--- a/drivers/net/irda/au1k_ir.c
++++ b/drivers/net/irda/au1k_ir.c
+@@ -953,18 +953,7 @@ static struct platform_driver au1k_irda_driver = {
+ 	.remove		= au1k_irda_remove,
+ };
+ 
+-static int __init au1k_irda_load(void)
+-{
+-	return platform_driver_register(&au1k_irda_driver);
+-}
+-
+-static void __exit au1k_irda_unload(void)
+-{
+-	return platform_driver_unregister(&au1k_irda_driver);
+-}
++module_platform_driver(au1k_irda_driver);
+ 
+ MODULE_AUTHOR("Pete Popov <ppopov@mvista.com>");
+ MODULE_DESCRIPTION("Au1000 IrDA Device Driver");
+-
+-module_init(au1k_irda_load);
+-module_exit(au1k_irda_unload);
+-- 
+1.7.4.1
