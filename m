@@ -1,7 +1,8 @@
 From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: [PATCH 0/3] Clean up and fix SCM_CREDENTIALS code
-Date: Wed, 20 Mar 2013 14:38:37 -0700
-Message-ID: <cover.1363815201.git.luto@amacapital.net>
+Subject: [PATCH 2/3] netlink: Remove an unused pointer in netlink_skb_parms
+Date: Wed, 20 Mar 2013 14:38:39 -0700
+Message-ID: <a8766c8b116b5e6fcaa932fe94f84a584554b98f.1363815201.git.luto@amacapital.net>
+References: <cover.1363815201.git.luto@amacapital.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +11,9 @@ Cc: containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
 	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
 To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <cover.1363815201.git.luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+In-Reply-To: <cover.1363815201.git.luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+References: <cover.1363815201.git.luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
 	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
@@ -21,22 +25,22 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The code is incomprehensible, slow, and buggy.
+Signed-off-by: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+---
+ include/linux/netlink.h | 1 -
+ 1 file changed, 1 deletion(-)
 
-Andy Lutomirski (3):
-  net: Clean up SCM_CREDENTIALS code
-  netlink: Remove an unused pointer in netlink_skb_parms
-  net: Remove sock_iocb.scm
-
- include/linux/netlink.h  |  1 -
- include/net/af_unix.h    |  6 ++--
- include/net/scm.h        | 83 ++++++++++++++++++++++++++++++++----------------
- include/net/sock.h       |  1 -
- net/core/scm.c           | 49 ++++++++++------------------
- net/netlink/af_netlink.c | 31 ++++++++----------
- net/socket.c             |  2 --
- net/unix/af_unix.c       | 83 +++++++++++++++++-------------------------------
- 8 files changed, 118 insertions(+), 138 deletions(-)
-
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index e0f746b..9ac1201 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -19,7 +19,6 @@ struct netlink_skb_parms {
+ 	struct scm_creds	creds;		/* Skb credentials	*/
+ 	__u32			portid;
+ 	__u32			dst_group;
+-	struct sock		*ssk;
+ };
+ 
+ #define NETLINK_CB(skb)		(*(struct netlink_skb_parms*)&((skb)->cb))
 -- 
 1.8.1.4
