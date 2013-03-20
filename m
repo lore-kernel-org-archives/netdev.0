@@ -1,54 +1,34 @@
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH 3/5] net: au1k_ir: Use module_platform_driver()
-Date: Wed, 20 Mar 2013 17:11:30 +0530
-Message-ID: <1363779692-4395-3-git-send-email-sachin.kamat@linaro.org>
-References: <1363779692-4395-1-git-send-email-sachin.kamat@linaro.org>
-Cc: davem@davemloft.net, sachin.kamat@linaro.org,
-	Samuel Ortiz <samuel@sortiz.org>
-To: netdev@vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH] fix mv643xx_eth for disabled autoneg
+Date: Wed, 20 Mar 2013 12:49:08 +0100
+Message-ID: <20130320114908.GA4110@orbit.nwl.cc>
+References: <1362592142-4049-1-git-send-email-phil.sutter@viprinet.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org
+To: Lennert Buytenhek <kernel@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f54.google.com ([209.85.210.54]:43785 "EHLO
-	mail-da0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756831Ab3CTL7H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 07:59:07 -0400
-Received: by mail-da0-f54.google.com with SMTP id p1so948870dad.27
-        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 04:59:07 -0700 (PDT)
-In-Reply-To: <1363779692-4395-1-git-send-email-sachin.kamat@linaro.org>
+Received: from orbit.nwl.cc ([176.31.251.142]:45257 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756676Ab3CTMAc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Mar 2013 08:00:32 -0400
+Content-Disposition: inline
+In-Reply-To: <1362592142-4049-1-git-send-email-phil.sutter@viprinet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-module_platform_driver macro removes some boilerplate and
-simplifies the code.
+On Wed, Mar 06, 2013 at 06:49:02PM +0100, Phil Sutter wrote:
+> When autoneg has been disabled in the PHY (Marvell 88E1118 here), auto
+> negotiation between MAC and PHY seem non-functional anymore. The only
+> way I found to workaround this is to manually configure the MAC with the
+> settings sent to the PHY earlier.
 
-Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
-Cc: Samuel Ortiz <samuel@sortiz.org>
----
- drivers/net/irda/au1k_ir.c |   13 +------------
- 1 files changed, 1 insertions(+), 12 deletions(-)
+And still, this is somehow broken for turned off autoneg. Not a DoS
+anymore, but it seems like one can not disable duplex autoneg. No matter
+what duplex settings I configure on each side, communication is still
+possible.
 
-diff --git a/drivers/net/irda/au1k_ir.c b/drivers/net/irda/au1k_ir.c
-index 56f1e6d..7a1f684 100644
---- a/drivers/net/irda/au1k_ir.c
-+++ b/drivers/net/irda/au1k_ir.c
-@@ -953,18 +953,7 @@ static struct platform_driver au1k_irda_driver = {
- 	.remove		= au1k_irda_remove,
- };
- 
--static int __init au1k_irda_load(void)
--{
--	return platform_driver_register(&au1k_irda_driver);
--}
--
--static void __exit au1k_irda_unload(void)
--{
--	return platform_driver_unregister(&au1k_irda_driver);
--}
-+module_platform_driver(au1k_irda_driver);
- 
- MODULE_AUTHOR("Pete Popov <ppopov@mvista.com>");
- MODULE_DESCRIPTION("Au1000 IrDA Device Driver");
--
--module_init(au1k_irda_load);
--module_exit(au1k_irda_unload);
--- 
-1.7.4.1
+Do you have any idea what could be missing or how to furtherly track
+down the problem? Could this even be a bug in the hardware?
+
+Best wishes, Phil
