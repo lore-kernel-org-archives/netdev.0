@@ -1,40 +1,39 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/7] netfilter: nfnetlink_queue: fix incorrect initialization
- of copy range field
-Date: Wed, 20 Mar 2013 17:33:01 +0400
-Message-ID: <5149BA8D.8030607@cogentembedded.com>
-References: <1363776574-4766-1-git-send-email-pablo@netfilter.org> <1363776574-4766-3-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH 1/2] sh_eth: fix bitbang memory leak
+Date: Wed, 20 Mar 2013 17:38:35 +0400
+Message-ID: <5149BBDB.8060604@cogentembedded.com>
+References: <201303200240.23975.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: pablo@netfilter.org
+Cc: nobuhiro.iwamatsu.yj@renesas.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:44626 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755243Ab3CTNdz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 09:33:55 -0400
-Received: by mail-la0-f44.google.com with SMTP id eb20so2981306lab.17
-        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 06:33:50 -0700 (PDT)
-In-Reply-To: <1363776574-4766-3-git-send-email-pablo@netfilter.org>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:45512 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751688Ab3CTNjY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 09:39:24 -0400
+Received: by mail-la0-f50.google.com with SMTP id ec20so2908809lab.23
+        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 06:39:22 -0700 (PDT)
+In-Reply-To: <201303200240.23975.sergei.shtylyov@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 20-03-2013 14:49, pablo@netfilter.org wrote:
+On 20-03-2013 3:40, Sergei Shtylyov wrote:
 
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
+> sh_mdio_init() allocates pointer to 'struct bb_info' but only stores it locally,
+> so that sh_mdio_release() can't free it on driver unload.  Add the pointer to
+> 'struct bb_info' to 'struct sh_eth_private', so that sh_mdio_init() can save
+> 'bitbang' variable for sh_mdio_release() to be able to free it later...
 
-> 2^16 = 0xffff,
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-    2^16-1, to be precise.
+    I was in a bit of hurry and forgot to add:
 
-> not 0xfffff (note the extra 'f'). Not dangerous since you
-> adjust it to min_t(data_len, skb->len) just after on.
+CC: stable@vger.kernel.org
 
-> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+    Do I need to repost?
 
 WBR, Sergei
