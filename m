@@ -1,56 +1,74 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: How to assign sockaddr_nl->nl_groups when using connector
-Date: Wed, 20 Mar 2013 22:29:20 +0400
-Message-ID: <20130320182920.GA2837@ioremap.net>
-References: <5147CA4F.5050801@oracle.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH] chelsio: use netdev_alloc_skb
+Date: Wed, 20 Mar 2013 11:30:24 -0700
+Message-ID: <20130320113024.00377b99@nehalam.linuxnetplumber.net>
+References: <1363797199.3333.18.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, KY Srinivasan <kys@microsoft.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: vaughan <vaughan.cao@oracle.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host-176-100-244-43.masterbit.su ([176.100.244.43]:38701 "EHLO
-	tservice.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755269Ab3CTS3Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Mar 2013 14:29:25 -0400
-Content-Disposition: inline
-In-Reply-To: <5147CA4F.5050801@oracle.com>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:41868 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755882Ab3CTSaa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 14:30:30 -0400
+Received: by mail-pb0-f41.google.com with SMTP id um15so1580961pbc.14
+        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 11:30:30 -0700 (PDT)
+In-Reply-To: <1363797199.3333.18.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+This extends on Eric's patch. It uses netdev_alloc_skb which fixes a couple of
+other issues.
+  * driver was never setting skb->dev on the received buffer
+  * copybreak allocation wasn't padding buffer
+  * copybreak assumed that ip alignment padding was always 2 (it is platform dependent)
 
-On Tue, Mar 19, 2013 at 10:15:43AM +0800, vaughan (vaughan.cao@oracle.com) wrote:
-> I am not quite sure how to assign nl_groups when using connector. You
-> Documentation/connector/connector.txt don't explain it very clearly. I
-> thought it's a bitmask representing only 32 groups.
-> If I just want to subscribe only one group such as CN_KVP_IDX, what
-> shall I do? Which one below is correct?
-> a) l_local.nl_groups = CN_KVP_IDX;
-> Or
-> b) l_local.nl_groups = 1 << (CN_KVP_IDX -1)
-> and bind with bind(s, (struct sockaddr *)&l_local, sizeof(struct
-> sockaddr_nl)).
+Compile tested only, don't have this hardware.
 
-Iirc, first groups, created before bitmap-to-number conversion were
-actually bitmaps, but then broadcast interface was obsoleted.
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-One should use NETLINK_ADD_MEMBERSHIP interface and specify gruop number
-directly.
 
-> I ran your example in Documentation/connector/. 'l_local.nl_groups = -1'
-> in ucon.c seems subscribe all channels, because if I start cgred
-> service, ucon will receive messages with idx=1.
-> 
-> And it seems setsockopt is not needed now, for it is done by
-> netlink_autobind? You even comment it out using '#if 0' in
-> Documentation/connector/ucon.c.
-> 
-> Could you do me a favor to check
-> http://driverdev.linuxdriverproject.org/pipermail/devel/2013-March/036306.html
-> to see if my understanding is correct or not? Thanks.
-
-Yes, you are right.
-
--- 
-	Evgeniy Polyakov
+--- a/drivers/net/ethernet/chelsio/cxgb/sge.c	2013-03-20 11:13:47.950986878 -0700
++++ b/drivers/net/ethernet/chelsio/cxgb/sge.c	2013-03-20 11:24:26.942722757 -0700
+@@ -835,7 +835,7 @@ static void refill_free_list(struct sge
+ 		struct sk_buff *skb;
+ 		dma_addr_t mapping;
+ 
+-		skb = dev_alloc_skb(q->rx_buffer_size);
++		skb = netdev_alloc_skb(sge->netdev, q->rx_buffer_size);
+ 		if (!skb)
+ 			break;
+ 
+@@ -1039,18 +1039,18 @@ MODULE_PARM_DESC(copybreak, "Receive cop
+  *	threshold and the packet is too big to copy, or (b) the packet should
+  *	be copied but there is no memory for the copy.
+  */
+-static inline struct sk_buff *get_packet(struct pci_dev *pdev,
++static inline struct sk_buff *get_packet(struct net_device *netdev,
++					 struct pci_dev *pdev,
+ 					 struct freelQ *fl, unsigned int len)
+ {
+ 	struct sk_buff *skb;
+ 	const struct freelQ_ce *ce = &fl->centries[fl->cidx];
+ 
+ 	if (len < copybreak) {
+-		skb = alloc_skb(len + 2, GFP_ATOMIC);
++		skb = netdev_alloc_skb_ip_align(netdev, len + 2);
+ 		if (!skb)
+ 			goto use_orig_buf;
+ 
+-		skb_reserve(skb, 2);	/* align IP header */
+ 		skb_put(skb, len);
+ 		pci_dma_sync_single_for_cpu(pdev,
+ 					    dma_unmap_addr(ce, dma_addr),
+@@ -1360,7 +1360,7 @@ static void sge_rx(struct sge *sge, stru
+ 	struct sge_port_stats *st;
+ 	struct net_device *dev;
+ 
+-	skb = get_packet(adapter->pdev, fl, len - sge->rx_pkt_pad);
++	skb = get_packet(sge->netdev, adapter->pdev, fl, len - sge->rx_pkt_pad);
+ 	if (unlikely(!skb)) {
+ 		sge->stats.rx_drops++;
+ 		return;
