@@ -1,51 +1,56 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: Re: [PATCH 2/2] sh_eth: check TSU registers ioremap() error
-Date: Wed, 20 Mar 2013 22:20:35 +0400
-Message-ID: <CAOJe8K2aoQLi0B4SaHEv0GPMe2g0YvuRQc1vwBZhLVJPZLsYCQ@mail.gmail.com>
-References: <201303200241.33137.sergei.shtylyov@cogentembedded.com>
-	<20130320.122352.1542334118729356561.davem@davemloft.net>
-	<514A0835.6070104@cogentembedded.com>
-	<514A0B15.7000900@cogentembedded.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: How to assign sockaddr_nl->nl_groups when using connector
+Date: Wed, 20 Mar 2013 22:29:20 +0400
+Message-ID: <20130320182920.GA2837@ioremap.net>
+References: <5147CA4F.5050801@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	nobuhiro.iwamatsu.yj@renesas.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, KY Srinivasan <kys@microsoft.com>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: vaughan <vaughan.cao@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f52.google.com ([209.85.219.52]:56060 "EHLO
-	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751223Ab3CTSUg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 14:20:36 -0400
-Received: by mail-oa0-f52.google.com with SMTP id k14so2098959oag.25
-        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 11:20:35 -0700 (PDT)
-In-Reply-To: <514A0B15.7000900@cogentembedded.com>
+Received: from host-176-100-244-43.masterbit.su ([176.100.244.43]:38701 "EHLO
+	tservice.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755269Ab3CTS3Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Mar 2013 14:29:25 -0400
+Content-Disposition: inline
+In-Reply-To: <5147CA4F.5050801@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It doesn't make sense to worry about branch misprediction during probe() :)
+Hi
 
-On 3/20/13, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
-> On 03/20/2013 10:04 PM, Sergei Shtylyov wrote:
->
->>
->>>
->>>> One must check the result of ioremap() -- in this case it prevents
->>>> potential
->>>> kernel oops when initializing TSU registers further on...
->>>>
->>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>> Applied and queued up for -stable.
->>
->>    Thanks. However, do you really think it's needed in stable? It's
->> only error path, after all...
->
->     I forgot to add "unlikely" to the "error path". I usually don't mark
-> such patches for stable, when I'm not in a hurry. :-)
->
-> WBR, Sergei
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+On Tue, Mar 19, 2013 at 10:15:43AM +0800, vaughan (vaughan.cao@oracle.com) wrote:
+> I am not quite sure how to assign nl_groups when using connector. You
+> Documentation/connector/connector.txt don't explain it very clearly. I
+> thought it's a bitmask representing only 32 groups.
+> If I just want to subscribe only one group such as CN_KVP_IDX, what
+> shall I do? Which one below is correct?
+> a) l_local.nl_groups = CN_KVP_IDX;
+> Or
+> b) l_local.nl_groups = 1 << (CN_KVP_IDX -1)
+> and bind with bind(s, (struct sockaddr *)&l_local, sizeof(struct
+> sockaddr_nl)).
+
+Iirc, first groups, created before bitmap-to-number conversion were
+actually bitmaps, but then broadcast interface was obsoleted.
+
+One should use NETLINK_ADD_MEMBERSHIP interface and specify gruop number
+directly.
+
+> I ran your example in Documentation/connector/. 'l_local.nl_groups = -1'
+> in ucon.c seems subscribe all channels, because if I start cgred
+> service, ucon will receive messages with idx=1.
+> 
+> And it seems setsockopt is not needed now, for it is done by
+> netlink_autobind? You even comment it out using '#if 0' in
+> Documentation/connector/ucon.c.
+> 
+> Could you do me a favor to check
+> http://driverdev.linuxdriverproject.org/pipermail/devel/2013-March/036306.html
+> to see if my understanding is correct or not? Thanks.
+
+Yes, you are right.
+
+-- 
+	Evgeniy Polyakov
