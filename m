@@ -1,52 +1,140 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH] fec: Fix the build as module
-Date: Wed, 20 Mar 2013 16:27:44 -0300
-Message-ID: <CAOMZO5C+rYXy5uN2Nq0E6ikodDa=HgdUSNNhu02q=hdmRWDqKg@mail.gmail.com>
-References: <1363803572-17039-1-git-send-email-festevam@gmail.com>
-	<20130320191630.GJ20530@pengutronix.de>
+From: Daniel Baluta <dbaluta-+zzKsuq53OdBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH] net: Add socket() system call self test.
+Date: Wed, 20 Mar 2013 21:29:54 +0200
+Message-ID: <CAEnQRZBR2TQPXgntXD0564=YU_5nOYnvuFa-euzQyCq=8viYGQ@mail.gmail.com>
+References: <20130319.145258.1891905092469394685.davem@davemloft.net>
+	<CAEnQRZDOwE592qXK0h-u1B7R-9oWP1CZ2rbt197QTn4oagdwgw@mail.gmail.com>
+	<20130320.151055.2179062291630664090.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, Frank.Li@freescale.com,
-	netdev@vger.kernel.org, Fabio Estevam <fabio.estevam@freescale.com>
-To: =?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f174.google.com ([209.85.128.174]:48404 "EHLO
-	mail-ve0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753605Ab3CTT1r convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 15:27:47 -0400
-Received: by mail-ve0-f174.google.com with SMTP id pb11so1742647veb.5
-        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 12:27:47 -0700 (PDT)
-In-Reply-To: <20130320191630.GJ20530@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexandru Copot <alex.mihai.c-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130320.151055.2179062291630664090.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 20, 2013 at 4:16 PM, Uwe Kleine-K=C3=B6nig
-<u.kleine-koenig@pengutronix.de> wrote:
-> Hello,
+On Wed, Mar 20, 2013 at 9:10 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Daniel Baluta <daniel.baluta-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Wed, 20 Mar 2013 00:14:05 +0200
 >
-> On Wed, Mar 20, 2013 at 03:19:32PM -0300, Fabio Estevam wrote:
->> From: Fabio Estevam <fabio.estevam@freescale.com>
->>
->> Since commit ff43da86c69 (NET: FEC: dynamtic check DMA desc buff typ=
-e) the
->> following build error happens when CONFIG_FEC=3Dm
->>
->> ERROR: "fec_ptp_init" [drivers/net/ethernet/freescale/fec.ko] undefi=
-ned!
->> ERROR: "fec_ptp_ioctl" [drivers/net/ethernet/freescale/fec.ko] undef=
-ined!
->> ERROR: "fec_ptp_start_cyclecounter" [drivers/net/ethernet/freescale/=
-fec.ko] undefined!
->>
->> Fix it by exporting the required fec_ptp symbols.
-> IMHO this is not sensible. There is no need to make the fec driver 2
-> modules. Just loading one is impossible (fec.ko) or useless
-> (fec_ptp.ko). That's why I suggested to make them a single module.
-
-Ok, I wil do as you suggested on a subsequent patch.
-
-Regards,
-
-=46abio Estevam
+>> I think it's better to have a selftests/net directory dedicated for
+>> networking tests. Over time
+>> the number of net-{x} directories may become very large.
+>
+> Good idea, here's what I've done for now:
+>
+> ====================
+> net: Move selftests to common net/ subdirectory.
+>
+> Suggested-by: Daniel Baluta <daniel.baluta-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> ---
+>  tools/testing/selftests/Makefile                         |  3 +--
+>  tools/testing/selftests/net-socket/Makefile              | 16 ----------------
+>  tools/testing/selftests/{net-afpacket => net}/Makefile   |  9 +++++----
+>  .../selftests/{net-afpacket => net}/psock_fanout.c       |  0
+>  .../selftests/{net-afpacket => net}/run_afpackettests    |  0
+>  .../selftests/{net-socket => net}/run_netsocktests       |  0
+>  tools/testing/selftests/{net-socket => net}/socket.c     |  0
+>  7 files changed, 6 insertions(+), 22 deletions(-)
+>  delete mode 100644 tools/testing/selftests/net-socket/Makefile
+>  rename tools/testing/selftests/{net-afpacket => net}/Makefile (55%)
+>  rename tools/testing/selftests/{net-afpacket => net}/psock_fanout.c (100%)
+>  rename tools/testing/selftests/{net-afpacket => net}/run_afpackettests (100%)
+>  rename tools/testing/selftests/{net-socket => net}/run_netsocktests (100%)
+>  rename tools/testing/selftests/{net-socket => net}/socket.c (100%)
+>
+> diff --git a/tools/testing/selftests/Makefile b/tools/testing/selftests/Makefile
+> index 7f50078..a480593 100644
+> --- a/tools/testing/selftests/Makefile
+> +++ b/tools/testing/selftests/Makefile
+> @@ -5,8 +5,7 @@ TARGETS += vm
+>  TARGETS += cpu-hotplug
+>  TARGETS += memory-hotplug
+>  TARGETS += efivarfs
+> -TARGETS += net-socket
+> -TARGETS += net-afpacket
+> +TARGETS += net
+>
+>  all:
+>         for TARGET in $(TARGETS); do \
+> diff --git a/tools/testing/selftests/net-socket/Makefile b/tools/testing/selftests/net-socket/Makefile
+> deleted file mode 100644
+> index 2450fd8..0000000
+> --- a/tools/testing/selftests/net-socket/Makefile
+> +++ /dev/null
+> @@ -1,16 +0,0 @@
+> -# Makefile for net-socket selftests
+> -
+> -CC = $(CROSS_COMPILE)gcc
+> -CFLAGS = -Wall
+> -
+> -NET_SOCK_PROGS = socket
+> -
+> -all: $(NET_SOCK_PROGS)
+> -%: %.c
+> -       $(CC) $(CFLAGS) -o $@ $^
+> -
+> -run_tests: all
+> -       @/bin/sh ./run_netsocktests || echo "sockettests: [FAIL]"
+> -
+> -clean:
+> -       $(RM) $(NET_SOCK_PROGS)
+> diff --git a/tools/testing/selftests/net-afpacket/Makefile b/tools/testing/selftests/net/Makefile
+> similarity index 55%
+> rename from tools/testing/selftests/net-afpacket/Makefile
+> rename to tools/testing/selftests/net/Makefile
+> index 45f2ffb..bd6e272 100644
+> --- a/tools/testing/selftests/net-afpacket/Makefile
+> +++ b/tools/testing/selftests/net/Makefile
+> @@ -1,18 +1,19 @@
+> -# Makefile for net-socket selftests
+> +# Makefile for net selftests
+>
+>  CC = $(CROSS_COMPILE)gcc
+>  CFLAGS = -Wall
+>
+>  CFLAGS += -I../../../../usr/include/
+>
+> -AF_PACKET_PROGS = psock_fanout
+> +NET_PROGS = socket psock_fanout
+>
+> -all: $(AF_PACKET_PROGS)
+> +all: $(NET_PROGS)
+>  %: %.c
+>         $(CC) $(CFLAGS) -o $@ $^
+>
+>  run_tests: all
+> +       @/bin/sh ./run_netsocktests || echo "sockettests: [FAIL]"
+>         @/bin/sh ./run_afpackettests || echo "afpackettests: [FAIL]"
+>
+>  clean:
+> -       $(RM) $(AF_PACKET_PROGS)
+> +       $(RM) $(NET_PROGS)
+> diff --git a/tools/testing/selftests/net-afpacket/psock_fanout.c b/tools/testing/selftests/net/psock_fanout.c
+> similarity index 100%
+> rename from tools/testing/selftests/net-afpacket/psock_fanout.c
+> rename to tools/testing/selftests/net/psock_fanout.c
+> diff --git a/tools/testing/selftests/net-afpacket/run_afpackettests b/tools/testing/selftests/net/run_afpackettests
+> similarity index 100%
+> rename from tools/testing/selftests/net-afpacket/run_afpackettests
+> rename to tools/testing/selftests/net/run_afpackettests
+> diff --git a/tools/testing/selftests/net-socket/run_netsocktests b/tools/testing/selftests/net/run_netsocktests
+> similarity index 100%
+> rename from tools/testing/selftests/net-socket/run_netsocktests
+> rename to tools/testing/selftests/net/run_netsocktests
+> diff --git a/tools/testing/selftests/net-socket/socket.c b/tools/testing/selftests/net/socket.c
+> similarity index 100%
+> rename from tools/testing/selftests/net-socket/socket.c
+> rename to tools/testing/selftests/net/socket.c
+> --
+> 1.7.11.7
+>
+Looks good. Thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
