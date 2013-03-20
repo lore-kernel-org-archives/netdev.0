@@ -1,163 +1,372 @@
-From: Borislav Petkov <bp@alien8.de>
-Subject: 3.9-rc3 forcedeth lockdep splat with netconsole
-Date: Wed, 20 Mar 2013 12:01:51 +0100
-Message-ID: <20130320110150.GB15471@pd.tnic>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: [PATCH v3 1/1 net-next] net: fec: put tx to napi poll function
+ to fix dead lock
+Date: Wed, 20 Mar 2013 19:48:26 +0800
+Message-ID: <20130320114824.GA6088@S2101-09.ap.freescale.net>
+References: <1362368065-5809-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lkml <linux-kernel@vger.kernel.org>
-To: ML netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: B38611@freescale.com, netdev@vger.kernel.org, s.hauer@pengutronix.de,
+ lznuaa@gmail.com, davem@davemloft.net, linux-arm-kernel@lists.infradead.org
+To: Frank Li <Frank.Li@freescale.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1362368065-5809-1-git-send-email-Frank.Li@freescale.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Frank,
 
-when trying to log stuff with netconsole, I get the following:
+I'm running v3.9-rc3 image with NFS on imx6q, and seeing system fail
+to resume back.  The resume seems being stopped by fec driver.  If you
+wait long enough, you might see the repeated "eth0: tx queue full!."
+error message.
 
-[ =E2=80=A6 ]
+Reverting the patch gets resume back to work.  Can you please
+investigate?
 
-[    2.036977] netpoll: netconsole: device eth0 not up yet, forcing it
-[    2.037632] forcedeth 0000:00:08.0: irq 42 for MSI/MSI-X
-[    2.037763] forcedeth 0000:00:08.0 eth0: MSI enabled
-[    2.038074] forcedeth 0000:00:08.0 eth0: no link during initializati=
-on
-[    2.780061] forcedeth 0000:00:08.0 eth0: link up
-[    2.780709]=20
-[    2.780710] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-[    2.780710] [ INFO: inconsistent lock state ]
-[    2.780712] 3.9.0-rc3+ #2 Not tainted
-[    2.780712] ---------------------------------
-[    2.780713] inconsistent {IN-SOFTIRQ-W} -> {SOFTIRQ-ON-W} usage.
-[    2.780715] swapper/0/1 [HC0[0]:SC0[0]:HE1:SE1] takes:
-[    2.780723]  (&(&napi->poll_lock)->rlock){+.?...}, at: [<ffffffff814=
-7b045>] netpoll_poll_dev+0xe5/0xc80
-[    2.780723] {IN-SOFTIRQ-W} state was registered at:
-[    2.780728]   [<ffffffff8109ade8>] __lock_acquire+0x608/0x1de0
-[    2.780730]   [<ffffffff8109cc9e>] lock_acquire+0x9e/0x1f0
-[    2.780733]   [<ffffffff81529811>] _raw_spin_lock+0x41/0x80
-[    2.780736]   [<ffffffff8145fc1e>] net_rx_action+0xbe/0x330
-[    2.780739]   [<ffffffff81044949>] __do_softirq+0xe9/0x3d0
-[    2.780740]   [<ffffffff81044c65>] run_ksoftirqd+0x35/0x50
-[    2.780744]   [<ffffffff8106dba4>] smpboot_thread_fn+0x1d4/0x2e0
-[    2.780749]   [<ffffffff81064b4b>] kthread+0xdb/0xe0
-[    2.780751]   [<ffffffff8152b45c>] ret_from_fork+0x7c/0xb0
-[    2.780752] irq event stamp: 576121
-[    2.780754] hardirqs last  enabled at (576121): [<ffffffff8152aa20>]=
- restore_args+0x0/0x30
-[    2.780756] hardirqs last disabled at (576120): [<ffffffff8152a96a>]=
- common_interrupt+0x6a/0x6f
-[    2.780758] softirqs last  enabled at (576090): [<ffffffff810449d5>]=
- __do_softirq+0x175/0x3d0
-[    2.780759] softirqs last disabled at (576085): [<ffffffff81044d96>]=
- irq_exit+0x96/0xb0
-[    2.780760]=20
-[    2.780760] other info that might help us debug this:
-[    2.780760]  Possible unsafe locking scenario:
-[    2.780760]=20
-[    2.780761]        CPU0
-[    2.780761]        ----
-[    2.780762]   lock(&(&napi->poll_lock)->rlock);
-[    2.780763]   <Interrupt>
-[    2.780764]     lock(&(&napi->poll_lock)->rlock);
-[    2.780764]=20
-[    2.780764]  *** DEADLOCK ***
-[    2.780764]=20
-[    2.780765] 3 locks held by swapper/0/1:
-[    2.780768]  #0:  (console_lock){+.+.+.}, at: [<ffffffff8103e96e>] r=
-egister_console+0xfe/0x390
-[    2.780772]  #1:  (target_list_lock){+.+...}, at: [<ffffffff81370033=
->] write_msg+0x53/0x110
-[    2.780775]  #2:  (&npinfo->dev_lock){+.+...}, at: [<ffffffff8147afa=
-6>] netpoll_poll_dev+0x46/0xc80
-[    2.780776]=20
-[    2.780776] stack backtrace:
-[    2.780777] Pid: 1, comm: swapper/0 Not tainted 3.9.0-rc3+ #2
-[    2.780778] Call Trace:
-[    2.780781]  [<ffffffff81521b9a>] print_usage_bug.part.34+0x270/0x27=
-f
-[    2.780785]  [<ffffffff810108cf>] ? save_stack_trace+0x2f/0x50
-[    2.780787]  [<ffffffff810792e3>] ? local_clock+0x43/0x50
-[    2.780789]  [<ffffffff81097630>] ? print_shortest_lock_dependencies=
-+0x1d0/0x1d0
-[    2.780791]  [<ffffffff810984fb>] mark_lock+0x27b/0x600
-[    2.780793]  [<ffffffff8109ae56>] __lock_acquire+0x676/0x1de0
-[    2.780795]  [<ffffffff8152aa20>] ? retint_restore_args+0xe/0xe
-[    2.780797]  [<ffffffff8152a3a7>] ? _raw_spin_unlock_irqrestore+0x67=
-/0x80
-[    2.780799]  [<ffffffff8109cc9e>] lock_acquire+0x9e/0x1f0
-[    2.780801]  [<ffffffff8147b045>] ? netpoll_poll_dev+0xe5/0xc80
-[    2.780803]  [<ffffffff8152a4e3>] _raw_spin_trylock+0x73/0x90
-[    2.780804]  [<ffffffff8147b045>] ? netpoll_poll_dev+0xe5/0xc80
-[    2.780806]  [<ffffffff8147b045>] netpoll_poll_dev+0xe5/0xc80
-[    2.780808]  [<ffffffff810967ae>] ? put_lock_stats.isra.17+0xe/0x40
-[    2.780810]  [<ffffffff8147bee4>] ? netpoll_send_skb_on_dev+0x304/0x=
-400
-[    2.780812]  [<ffffffff8147bef5>] netpoll_send_skb_on_dev+0x315/0x40=
-0
-[    2.780814]  [<ffffffff8147c267>] netpoll_send_udp+0x287/0x3a0
-[    2.780815]  [<ffffffff81370033>] ? write_msg+0x53/0x110
-[    2.780817]  [<ffffffff8137009f>] write_msg+0xbf/0x110
-[    2.780818]  [<ffffffff8103d8c7>] ? console_unlock+0x3d7/0x450
-[    2.780820]  [<ffffffff8103c9da>] call_console_drivers.constprop.15+=
-0x9a/0x1d0
-[    2.780822]  [<ffffffff8103d8d7>] console_unlock+0x3e7/0x450
-[    2.780823]  [<ffffffff8103e9a7>] register_console+0x137/0x390
-[    2.780826]  [<ffffffff81a18281>] init_netconsole+0x1a6/0x214
-[    2.780828]  [<ffffffff8131db00>] ? driver_deferred_probe_trigger.pa=
-rt.9+0x80/0x80
-[    2.780830]  [<ffffffff81a180db>] ? option_setup+0x1f/0x1f
-[    2.780832]  [<ffffffff81000312>] do_one_initcall+0x122/0x170
-[    2.780836]  [<ffffffff819f5e2b>] kernel_init_freeable+0x103/0x192
-[    2.780837]  [<ffffffff819f57e8>] ? do_early_param+0x8c/0x8c
-[    2.780840]  [<ffffffff81512760>] ? rest_init+0x140/0x140
-[    2.780842]  [<ffffffff8151276e>] kernel_init+0xe/0xe0
-[    2.780844]  [<ffffffff8152b45c>] ret_from_fork+0x7c/0xb0
-[    2.780845]  [<ffffffff81512760>] ? rest_init+0x140/0x140
-[    2.780899] ------------[ cut here ]------------
-[    2.780901] WARNING: at net/core/netpoll.c:412 netpoll_send_skb_on_d=
-ev+0x3e9/0x400()
-[    2.780903] Hardware name: =20
-[    2.780905] netpoll_send_skb_on_dev(): eth0 enabled interrupts in po=
-ll (nv_start_xmit_optimized+0x0/0x720)
-[    2.780907] Modules linked in:
-[    2.780908] Pid: 1, comm: swapper/0 Not tainted 3.9.0-rc3+ #2
-[    2.780908] Call Trace:
-[    2.780910]  [<ffffffff8147bfc9>] ? netpoll_send_skb_on_dev+0x3e9/0x=
-400
-[    2.780913]  [<ffffffff8103b4ff>] warn_slowpath_common+0x7f/0xc0
-[    2.780915]  [<ffffffff8103b5f6>] warn_slowpath_fmt+0x46/0x50
-[    2.780916]  [<ffffffff813752a0>] ? nv_get_drvinfo+0x80/0x80
-[    2.780918]  [<ffffffff8147bfc9>] netpoll_send_skb_on_dev+0x3e9/0x40=
-0
-[    2.780920]  [<ffffffff8147c267>] netpoll_send_udp+0x287/0x3a0
-[    2.780922]  [<ffffffff81370033>] ? write_msg+0x53/0x110
-[    2.780924]  [<ffffffff8137009f>] write_msg+0xbf/0x110
-[    2.780925]  [<ffffffff8103d8c7>] ? console_unlock+0x3d7/0x450
-[    2.780927]  [<ffffffff8103c9da>] call_console_drivers.constprop.15+=
-0x9a/0x1d0
-[    2.780928]  [<ffffffff8103d8d7>] console_unlock+0x3e7/0x450
-[    2.780931]  [<ffffffff8103e9a7>] register_console+0x137/0x390
-[    2.780933]  [<ffffffff81a18281>] init_netconsole+0x1a6/0x214
-[    2.780934]  [<ffffffff8131db00>] ? driver_deferred_probe_trigger.pa=
-rt.9+0x80/0x80
-[    2.780936]  [<ffffffff81a180db>] ? option_setup+0x1f/0x1f
-[    2.780938]  [<ffffffff81000312>] do_one_initcall+0x122/0x170
-[    2.780940]  [<ffffffff819f5e2b>] kernel_init_freeable+0x103/0x192
-[    2.780941]  [<ffffffff819f57e8>] ? do_early_param+0x8c/0x8c
-[    2.780943]  [<ffffffff81512760>] ? rest_init+0x140/0x140
-[    2.780945]  [<ffffffff8151276e>] kernel_init+0xe/0xe0
-[    2.780947]  [<ffffffff8152b45c>] ret_from_fork+0x7c/0xb0
-[    2.780948]  [<ffffffff81512760>] ? rest_init+0x140/0x140
-[    2.780950] ---[ end trace a7ed4414d27e5db1 ]---
-[    2.789399] console [netcon0] enabled
-[    2.789445] netconsole: network logging started
+Shawn
 
---=20
-Regards/Gruss,
-    Boris.
-
-Sent from a fat crate under my desk. Formatting is fine.
---
+On Mon, Mar 04, 2013 at 11:34:25AM +0800, Frank Li wrote:
+> up stack ndo_start_xmit already hold lock.
+> fec_enet_start_xmit needn't spin lock.
+> stat_xmit just update fep->cur_tx
+> fec_enet_tx just update fep->dirty_tx
+> 
+> Reserve a empty bdb to check full or empty
+> cur_tx == dirty_tx    means full
+> cur_tx == dirty_tx +1 means empty
+> 
+> So needn't is_full variable.
+> 
+> Fix spin lock deadlock
+> =================================
+> [ INFO: inconsistent lock state ]
+> 3.8.0-rc5+ #107 Not tainted
+> ---------------------------------
+> inconsistent {HARDIRQ-ON-W} -> {IN-HARDIRQ-W} usage.
+> ptp4l/615 [HC1[1]:SC0[0]:HE0:SE1] takes:
+>  (&(&list->lock)->rlock#3){?.-...}, at: [<8042c3c4>] skb_queue_tail+0x20/0x50
+>  {HARDIRQ-ON-W} state was registered at:
+>  [<80067250>] mark_lock+0x154/0x4e8
+>  [<800676f4>] mark_irqflags+0x110/0x1a4
+>  [<80069208>] __lock_acquire+0x494/0x9c0
+>  [<80069ce8>] lock_acquire+0x90/0xa4
+>  [<80527ad0>] _raw_spin_lock_bh+0x44/0x54
+>  [<804877e0>] first_packet_length+0x38/0x1f0
+>  [<804879e4>] udp_poll+0x4c/0x5c
+>  [<804231f8>] sock_poll+0x24/0x28
+>  [<800d27f0>] do_poll.isra.10+0x120/0x254
+>  [<800d36e4>] do_sys_poll+0x15c/0x1e8
+>  [<800d3828>] sys_poll+0x60/0xc8
+>  [<8000e780>] ret_fast_syscall+0x0/0x3c
+> 
+>  *** DEADLOCK ***
+> 
+>  1 lock held by ptp4l/615:
+>   #0:  (&(&fep->hw_lock)->rlock){-.-...}, at: [<80355f9c>] fec_enet_tx+0x24/0x268
+>   stack backtrace:
+>   Backtrace:
+>   [<800121e0>] (dump_backtrace+0x0/0x10c) from [<80516210>] (dump_stack+0x18/0x1c)
+>   r6:8063b1fc r5:bf38b2f8 r4:bf38b000 r3:bf38b000
+>   [<805161f8>] (dump_stack+0x0/0x1c) from [<805189d0>] (print_usage_bug.part.34+0x164/0x1a4)
+>   [<8051886c>] (print_usage_bug.part.34+0x0/0x1a4) from [<80518a88>] (print_usage_bug+0x78/0x88)
+>   r8:80065664 r7:bf38b2f8 r6:00000002 r5:00000000 r4:bf38b000
+>   [<80518a10>] (print_usage_bug+0x0/0x88) from [<80518b58>] (mark_lock_irq+0xc0/0x270)
+>   r7:bf38b000 r6:00000002 r5:bf38b2f8 r4:00000000
+>   [<80518a98>] (mark_lock_irq+0x0/0x270) from [<80067270>] (mark_lock+0x174/0x4e8)
+>   [<800670fc>] (mark_lock+0x0/0x4e8) from [<80067744>] (mark_irqflags+0x160/0x1a4)
+>   [<800675e4>] (mark_irqflags+0x0/0x1a4) from [<80069208>] (__lock_acquire+0x494/0x9c0)
+>   r5:00000002 r4:bf38b2f8
+>   [<80068d74>] (__lock_acquire+0x0/0x9c0) from [<80069ce8>] (lock_acquire+0x90/0xa4)
+>   [<80069c58>] (lock_acquire+0x0/0xa4) from [<805278d8>] (_raw_spin_lock_irqsave+0x4c/0x60)
+>   [<8052788c>] (_raw_spin_lock_irqsave+0x0/0x60) from [<8042c3c4>] (skb_queue_tail+0x20/0x50)
+>   r6:bfbb2180 r5:bf1d0190 r4:bf1d0184
+>   [<8042c3a4>] (skb_queue_tail+0x0/0x50) from [<8042c4cc>] (sock_queue_err_skb+0xd8/0x188)
+>   r6:00000056 r5:bfbb2180 r4:bf1d0000 r3:00000000
+>   [<8042c3f4>] (sock_queue_err_skb+0x0/0x188) from [<8042d15c>] (skb_tstamp_tx+0x70/0xa0)
+>   r6:bf0dddb0 r5:bf1d0000 r4:bfbb2180 r3:00000004
+>   [<8042d0ec>] (skb_tstamp_tx+0x0/0xa0) from [<803561d0>] (fec_enet_tx+0x258/0x268)
+>   r6:c089d260 r5:00001c00 r4:bfbd0000
+>   [<80355f78>] (fec_enet_tx+0x0/0x268) from [<803562cc>] (fec_enet_interrupt+0xec/0xf8)
+>   [<803561e0>] (fec_enet_interrupt+0x0/0xf8) from [<8007d5b0>] (handle_irq_event_percpu+0x54/0x1a0)
+>   [<8007d55c>] (handle_irq_event_percpu+0x0/0x1a0) from [<8007d740>] (handle_irq_event+0x44/0x64)
+>   [<8007d6fc>] (handle_irq_event+0x0/0x64) from [<80080690>] (handle_fasteoi_irq+0xc4/0x15c)
+>   r6:bf0dc000 r5:bf811290 r4:bf811240 r3:00000000
+>   [<800805cc>] (handle_fasteoi_irq+0x0/0x15c) from [<8007ceec>] (generic_handle_irq+0x28/0x38)
+>   r5:807130c8 r4:00000096
+>   [<8007cec4>] (generic_handle_irq+0x0/0x38) from [<8000f16c>] (handle_IRQ+0x54/0xb4)
+>   r4:8071d280 r3:00000180
+>   [<8000f118>] (handle_IRQ+0x0/0xb4) from [<80008544>] (gic_handle_irq+0x30/0x64)
+>   r8:8000e924 r7:f4000100 r6:bf0ddef8 r5:8071c974 r4:f400010c
+>   r3:00000000
+>   [<80008514>] (gic_handle_irq+0x0/0x64) from [<8000e2e4>] (__irq_svc+0x44/0x5c)
+>   Exception stack(0xbf0ddef8 to 0xbf0ddf40)
+> 
+> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+> ---
+> Change from v3 to v2
+>  * remove return value of fec_enet_tx
+> Change from v1 to v2
+>  * ignore TX package count in poll function
+> 
+>  drivers/net/ethernet/freescale/fec.c |   85 ++++++++++++++++-----------------
+>  drivers/net/ethernet/freescale/fec.h |    3 -
+>  2 files changed, 41 insertions(+), 47 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+> index 0fe68c4..bca5a24 100644
+> --- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -246,14 +246,13 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>  	struct bufdesc *bdp;
+>  	void *bufaddr;
+>  	unsigned short	status;
+> -	unsigned long flags;
+> +	unsigned int index;
+>  
+>  	if (!fep->link) {
+>  		/* Link is down or autonegotiation is in progress. */
+>  		return NETDEV_TX_BUSY;
+>  	}
+>  
+> -	spin_lock_irqsave(&fep->hw_lock, flags);
+>  	/* Fill in a Tx ring entry */
+>  	bdp = fep->cur_tx;
+>  
+> @@ -264,7 +263,6 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>  		 * This should not happen, since ndev->tbusy should be set.
+>  		 */
+>  		printk("%s: tx queue full!.\n", ndev->name);
+> -		spin_unlock_irqrestore(&fep->hw_lock, flags);
+>  		return NETDEV_TX_BUSY;
+>  	}
+>  
+> @@ -280,13 +278,13 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>  	 * 4-byte boundaries. Use bounce buffers to copy data
+>  	 * and get it aligned. Ugh.
+>  	 */
+> +	if (fep->bufdesc_ex)
+> +		index = (struct bufdesc_ex *)bdp -
+> +			(struct bufdesc_ex *)fep->tx_bd_base;
+> +	else
+> +		index = bdp - fep->tx_bd_base;
+> +
+>  	if (((unsigned long) bufaddr) & FEC_ALIGNMENT) {
+> -		unsigned int index;
+> -		if (fep->bufdesc_ex)
+> -			index = (struct bufdesc_ex *)bdp -
+> -				(struct bufdesc_ex *)fep->tx_bd_base;
+> -		else
+> -			index = bdp - fep->tx_bd_base;
+>  		memcpy(fep->tx_bounce[index], skb->data, skb->len);
+>  		bufaddr = fep->tx_bounce[index];
+>  	}
+> @@ -300,10 +298,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>  		swap_buffer(bufaddr, skb->len);
+>  
+>  	/* Save skb pointer */
+> -	fep->tx_skbuff[fep->skb_cur] = skb;
+> -
+> -	ndev->stats.tx_bytes += skb->len;
+> -	fep->skb_cur = (fep->skb_cur+1) & TX_RING_MOD_MASK;
+> +	fep->tx_skbuff[index] = skb;
+>  
+>  	/* Push the data cache so the CPM does not get stale memory
+>  	 * data.
+> @@ -331,26 +326,22 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>  			ebdp->cbd_esc = BD_ENET_TX_INT;
+>  		}
+>  	}
+> -	/* Trigger transmission start */
+> -	writel(0, fep->hwp + FEC_X_DES_ACTIVE);
+> -
+>  	/* If this was the last BD in the ring, start at the beginning again. */
+>  	if (status & BD_ENET_TX_WRAP)
+>  		bdp = fep->tx_bd_base;
+>  	else
+>  		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
+>  
+> -	if (bdp == fep->dirty_tx) {
+> -		fep->tx_full = 1;
+> +	fep->cur_tx = bdp;
+> +
+> +	if (fep->cur_tx == fep->dirty_tx)
+>  		netif_stop_queue(ndev);
+> -	}
+>  
+> -	fep->cur_tx = bdp;
+> +	/* Trigger transmission start */
+> +	writel(0, fep->hwp + FEC_X_DES_ACTIVE);
+>  
+>  	skb_tx_timestamp(skb);
+>  
+> -	spin_unlock_irqrestore(&fep->hw_lock, flags);
+> -
+>  	return NETDEV_TX_OK;
+>  }
+>  
+> @@ -406,11 +397,8 @@ fec_restart(struct net_device *ndev, int duplex)
+>  		writel((unsigned long)fep->bd_dma + sizeof(struct bufdesc)
+>  			* RX_RING_SIZE,	fep->hwp + FEC_X_DES_START);
+>  
+> -	fep->dirty_tx = fep->cur_tx = fep->tx_bd_base;
+>  	fep->cur_rx = fep->rx_bd_base;
+>  
+> -	/* Reset SKB transmit buffers. */
+> -	fep->skb_cur = fep->skb_dirty = 0;
+>  	for (i = 0; i <= TX_RING_MOD_MASK; i++) {
+>  		if (fep->tx_skbuff[i]) {
+>  			dev_kfree_skb_any(fep->tx_skbuff[i]);
+> @@ -573,20 +561,35 @@ fec_enet_tx(struct net_device *ndev)
+>  	struct bufdesc *bdp;
+>  	unsigned short status;
+>  	struct	sk_buff	*skb;
+> +	int	index = 0;
+>  
+>  	fep = netdev_priv(ndev);
+> -	spin_lock(&fep->hw_lock);
+>  	bdp = fep->dirty_tx;
+>  
+> +	/* get next bdp of dirty_tx */
+> +	if (bdp->cbd_sc & BD_ENET_TX_WRAP)
+> +		bdp = fep->tx_bd_base;
+> +	else
+> +		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
+> +
+>  	while (((status = bdp->cbd_sc) & BD_ENET_TX_READY) == 0) {
+> -		if (bdp == fep->cur_tx && fep->tx_full == 0)
+> +
+> +		/* current queue is empty */
+> +		if (bdp == fep->cur_tx)
+>  			break;
+>  
+> +		if (fep->bufdesc_ex)
+> +			index = (struct bufdesc_ex *)bdp -
+> +				(struct bufdesc_ex *)fep->tx_bd_base;
+> +		else
+> +			index = bdp - fep->tx_bd_base;
+> +
+>  		dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
+>  				FEC_ENET_TX_FRSIZE, DMA_TO_DEVICE);
+>  		bdp->cbd_bufaddr = 0;
+>  
+> -		skb = fep->tx_skbuff[fep->skb_dirty];
+> +		skb = fep->tx_skbuff[index];
+> +
+>  		/* Check for errors. */
+>  		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC |
+>  				   BD_ENET_TX_RL | BD_ENET_TX_UN |
+> @@ -631,8 +634,9 @@ fec_enet_tx(struct net_device *ndev)
+>  
+>  		/* Free the sk buffer associated with this last transmit */
+>  		dev_kfree_skb_any(skb);
+> -		fep->tx_skbuff[fep->skb_dirty] = NULL;
+> -		fep->skb_dirty = (fep->skb_dirty + 1) & TX_RING_MOD_MASK;
+> +		fep->tx_skbuff[index] = NULL;
+> +
+> +		fep->dirty_tx = bdp;
+>  
+>  		/* Update pointer to next buffer descriptor to be transmitted */
+>  		if (status & BD_ENET_TX_WRAP)
+> @@ -642,14 +646,12 @@ fec_enet_tx(struct net_device *ndev)
+>  
+>  		/* Since we have freed up a buffer, the ring is no longer full
+>  		 */
+> -		if (fep->tx_full) {
+> -			fep->tx_full = 0;
+> +		if (fep->dirty_tx != fep->cur_tx) {
+>  			if (netif_queue_stopped(ndev))
+>  				netif_wake_queue(ndev);
+>  		}
+>  	}
+> -	fep->dirty_tx = bdp;
+> -	spin_unlock(&fep->hw_lock);
+> +	return;
+>  }
+>  
+>  
+> @@ -816,7 +818,7 @@ fec_enet_interrupt(int irq, void *dev_id)
+>  		int_events = readl(fep->hwp + FEC_IEVENT);
+>  		writel(int_events, fep->hwp + FEC_IEVENT);
+>  
+> -		if (int_events & FEC_ENET_RXF) {
+> +		if (int_events & (FEC_ENET_RXF | FEC_ENET_TXF)) {
+>  			ret = IRQ_HANDLED;
+>  
+>  			/* Disable the RX interrupt */
+> @@ -827,15 +829,6 @@ fec_enet_interrupt(int irq, void *dev_id)
+>  			}
+>  		}
+>  
+> -		/* Transmit OK, or non-fatal error. Update the buffer
+> -		 * descriptors. FEC handles all errors, we just discover
+> -		 * them as part of the transmit process.
+> -		 */
+> -		if (int_events & FEC_ENET_TXF) {
+> -			ret = IRQ_HANDLED;
+> -			fec_enet_tx(ndev);
+> -		}
+> -
+>  		if (int_events & FEC_ENET_MII) {
+>  			ret = IRQ_HANDLED;
+>  			complete(&fep->mdio_done);
+> @@ -851,6 +844,8 @@ static int fec_enet_rx_napi(struct napi_struct *napi, int budget)
+>  	int pkts = fec_enet_rx(ndev, budget);
+>  	struct fec_enet_private *fep = netdev_priv(ndev);
+>  
+> +	fec_enet_tx(ndev);
+> +
+>  	if (pkts < budget) {
+>  		napi_complete(napi);
+>  		writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+> @@ -1646,6 +1641,7 @@ static int fec_enet_init(struct net_device *ndev)
+>  
+>  	/* ...and the same for transmit */
+>  	bdp = fep->tx_bd_base;
+> +	fep->cur_tx = bdp;
+>  	for (i = 0; i < TX_RING_SIZE; i++) {
+>  
+>  		/* Initialize the BD for every fragment in the page. */
+> @@ -1657,6 +1653,7 @@ static int fec_enet_init(struct net_device *ndev)
+>  	/* Set the last buffer to wrap */
+>  	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
+>  	bdp->cbd_sc |= BD_SC_WRAP;
+> +	fep->dirty_tx = bdp;
+>  
+>  	fec_restart(ndev, 0);
+>  
+> diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+> index 01579b8..c0f63be 100644
+> --- a/drivers/net/ethernet/freescale/fec.h
+> +++ b/drivers/net/ethernet/freescale/fec.h
+> @@ -214,8 +214,6 @@ struct fec_enet_private {
+>  	unsigned char *tx_bounce[TX_RING_SIZE];
+>  	struct	sk_buff *tx_skbuff[TX_RING_SIZE];
+>  	struct	sk_buff *rx_skbuff[RX_RING_SIZE];
+> -	ushort	skb_cur;
+> -	ushort	skb_dirty;
+>  
+>  	/* CPM dual port RAM relative addresses */
+>  	dma_addr_t	bd_dma;
+> @@ -227,7 +225,6 @@ struct fec_enet_private {
+>  	/* The ring entries to be free()ed */
+>  	struct bufdesc	*dirty_tx;
+>  
+> -	uint	tx_full;
+>  	/* hold while accessing the HW like ringbuffer for tx/rx but not MAC */
+>  	spinlock_t hw_lock;
+>  
+> -- 
+> 1.7.1
+> 
+> 
