@@ -1,54 +1,45 @@
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH 5/5] net: mdio-octeon: Use module_platform_driver()
-Date: Wed, 20 Mar 2013 17:11:32 +0530
-Message-ID: <1363779692-4395-5-git-send-email-sachin.kamat@linaro.org>
-References: <1363779692-4395-1-git-send-email-sachin.kamat@linaro.org>
-Cc: davem@davemloft.net, sachin.kamat@linaro.org,
-	David Daney <ddaney@caviumnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:39524 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932787Ab3CTLwv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 07:52:51 -0400
-Received: by mail-pb0-f48.google.com with SMTP id wy12so1287868pbc.35
-        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 04:52:51 -0700 (PDT)
-In-Reply-To: <1363779692-4395-1-git-send-email-sachin.kamat@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Borislav Petkov <bp@alien8.de>
+Subject: Re: 3.9-rc3 forcedeth lockdep splat with netconsole
+Date: Wed, 20 Mar 2013 12:58:31 +0100
+Message-ID: <20130320115831.GC15471@pd.tnic>
+References: <20130320110150.GB15471@pd.tnic>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: ML netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130320110150.GB15471@pd.tnic>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-module_platform_driver macro removes some boilerplate and
-simplifies the code.
+On Wed, Mar 20, 2013 at 12:01:51PM +0100, Borislav Petkov wrote:
+> Hi,
+>=20
+> when trying to log stuff with netconsole, I get the following:
+>=20
+> [ =E2=80=A6 ]
+>=20
+> [    2.036977] netpoll: netconsole: device eth0 not up yet, forcing i=
+t
+> [    2.037632] forcedeth 0000:00:08.0: irq 42 for MSI/MSI-X
+> [    2.037763] forcedeth 0000:00:08.0 eth0: MSI enabled
+> [    2.038074] forcedeth 0000:00:08.0 eth0: no link during initializa=
+tion
+> [    2.780061] forcedeth 0000:00:08.0 eth0: link up
 
-Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
-Cc: David Daney <ddaney@caviumnetworks.com>
----
- drivers/net/phy/mdio-octeon.c |   13 +------------
- 1 files changed, 1 insertions(+), 12 deletions(-)
+Hehe,
 
-diff --git a/drivers/net/phy/mdio-octeon.c b/drivers/net/phy/mdio-octeon.c
-index 09297fe..c2c878d 100644
---- a/drivers/net/phy/mdio-octeon.c
-+++ b/drivers/net/phy/mdio-octeon.c
-@@ -197,18 +197,7 @@ void octeon_mdiobus_force_mod_depencency(void)
- }
- EXPORT_SYMBOL(octeon_mdiobus_force_mod_depencency);
- 
--static int __init octeon_mdiobus_mod_init(void)
--{
--	return platform_driver_register(&octeon_mdiobus_driver);
--}
--
--static void __exit octeon_mdiobus_mod_exit(void)
--{
--	platform_driver_unregister(&octeon_mdiobus_driver);
--}
--
--module_init(octeon_mdiobus_mod_init);
--module_exit(octeon_mdiobus_mod_exit);
-+module_platform_driver(octeon_mdiobus_driver);
- 
- MODULE_DESCRIPTION(DRV_DESCRIPTION);
- MODULE_VERSION(DRV_VERSION);
--- 
-1.7.4.1
+so it is actually funny to see the things lockdep is warning about,
+in action: I was just able to hang the box with the last line above
+appearing on the screen.
+
+=46un.
+
+--=20
+Regards/Gruss,
+    Boris.
+
+Sent from a fat crate under my desk. Formatting is fine.
+--
