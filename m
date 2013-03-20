@@ -1,38 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fec: Fix the build as module
-Date: Wed, 20 Mar 2013 14:46:03 -0400 (EDT)
-Message-ID: <20130320.144603.766777004936368644.davem@davemloft.net>
-References: <1363803572-17039-1-git-send-email-festevam@gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v3 net-next 4/4] filter: add minimal BPF JIT emitted image
+ disassembler
+Date: Wed, 20 Mar 2013 19:57:03 +0100
+Message-ID: <514A067F.50804@redhat.com>
+References: <1363711172-9728-1-git-send-email-dborkman@redhat.com> <1363711172-9728-5-git-send-email-dborkman@redhat.com> <20130320.131713.988538863586629681.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Frank.Li@freescale.com, u.kleine-koenig@pengutronix.de,
-	netdev@vger.kernel.org, fabio.estevam@freescale.com
-To: festevam@gmail.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60168 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754593Ab3CTSqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Mar 2013 14:46:10 -0400
-In-Reply-To: <1363803572-17039-1-git-send-email-festevam@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:61447 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757229Ab3CTS5K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Mar 2013 14:57:10 -0400
+In-Reply-To: <20130320.131713.988538863586629681.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Wed, 20 Mar 2013 15:19:32 -0300
+On 03/20/2013 06:17 PM, David Miller wrote:
+> From: Daniel Borkmann <dborkman@redhat.com>
+> Date: Tue, 19 Mar 2013 17:39:32 +0100
+>
+>> This is a minimal stand-alone user space helper, that allows for debugging or
+>> verification of emitted BPF JIT images.
+>
+> As Ben Hutchings suggested, please respin this such that the tool
+> goes somewhere under tools/
+>
+> Creating a tools/net/ subdirectory for small programs like this is
+> fine.
 
-> From: Fabio Estevam <fabio.estevam@freescale.com>
-> 
-> Since commit ff43da86c69 (NET: FEC: dynamtic check DMA desc buff type) the 
-> following build error happens when CONFIG_FEC=m
-> 
-> ERROR: "fec_ptp_init" [drivers/net/ethernet/freescale/fec.ko] undefined!
-> ERROR: "fec_ptp_ioctl" [drivers/net/ethernet/freescale/fec.ko] undefined!
-> ERROR: "fec_ptp_start_cyclecounter" [drivers/net/ethernet/freescale/fec.ko] undefined!
-> 
-> Fix it by exporting the required fec_ptp symbols.
-> 
-> Reported-by: Uwe Kleine-Koenig <u.kleine-koenig@pengutronix.de>
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
-
-Applied and queued up for -stable.
+Thanks, I'll do that!
