@@ -1,33 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [BUGFIX PATCH] net: ethernet: cpsw: fix erroneous condition in
- error check
-Date: Thu, 21 Mar 2013 11:57:57 -0400 (EDT)
-Message-ID: <20130321.115757.176260167306171131.davem@davemloft.net>
-References: <1363868411-25318-1-git-send-email-LW@KARO-electronics.de>
-	<514AFDD5.9020608@ti.com>
+Subject: Re: [PATCH net-next 2/3] gianfar: Cleanup dead code and minor
+ formatting
+Date: Thu, 21 Mar 2013 12:02:11 -0400 (EDT)
+Message-ID: <20130321.120211.2169356923139679808.davem@davemloft.net>
+References: <1363871535-29612-1-git-send-email-claudiu.manoil@freescale.com>
+	<1363871535-29612-2-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: LW@KARO-electronics.de, richardcochran@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mugunthanvnm@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <514AFDD5.9020608@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: claudiu.manoil@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43718 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933858Ab3CUQCM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 12:02:12 -0400
+In-Reply-To: <1363871535-29612-2-git-send-email-claudiu.manoil@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Thu, 21 Mar 2013 18:02:21 +0530
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Date: Thu, 21 Mar 2013 15:12:14 +0200
 
-> On 3/21/2013 5:50 PM, Lothar Wa=DFmann wrote:
->> The error check in cpsw_probe_dt() has an '&&' where an '||' is
->> meant to be. This causes a NULL pointer dereference when incomplet D=
-T
->> data is passed to the driver ('phy_id' property for cpsw_emac1
->> missing).
->>
->>
->> Signed-off-by: Lothar Wa=DFmann<LW@KARO-electronics.de>
-> Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 
-Applied, thanks.
+Applied.
