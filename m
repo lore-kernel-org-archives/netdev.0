@@ -1,71 +1,44 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next 2/3] gianfar: Cleanup dead code and minor formatting
-Date: Thu, 21 Mar 2013 15:12:14 +0200
-Message-ID: <1363871535-29612-2-git-send-email-claudiu.manoil@freescale.com>
-References: <1363871535-29612-1-git-send-email-claudiu.manoil@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] unix_diag: Fix definition of UNIX_DIAG_MAX
+Date: Thu, 21 Mar 2013 14:17:00 +0100
+Message-ID: <7c4a72239f4795677484c99c105ef5f27c12d246.1363871797.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db8lp0188.outbound.messaging.microsoft.com ([213.199.154.188]:42080
-	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755823Ab3CUNM3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 09:12:29 -0400
-In-Reply-To: <1363871535-29612-1-git-send-email-claudiu.manoil@freescale.com>
+Received: from merlin.infradead.org ([205.233.59.134]:35155 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756333Ab3CUNRG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 09:17:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
- drivers/net/ethernet/freescale/gianfar.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+UNIX_DIAG_MAX should point to the maximum attribute type known
+instead of + 1. User space applications compiled against the
+old definition are currently passing through unknown attribute
+types while parsing.
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 37fbf67..434b31b 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -690,7 +690,7 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 	}
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ include/uapi/linux/unix_diag.h | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/include/uapi/linux/unix_diag.h b/include/uapi/linux/unix_diag.h
+index b8a2494..387aab0 100644
+--- a/include/uapi/linux/unix_diag.h
++++ b/include/uapi/linux/unix_diag.h
+@@ -38,10 +38,11 @@ enum {
+ 	UNIX_DIAG_RQLEN,
+ 	UNIX_DIAG_MEMINFO,
+ 	UNIX_DIAG_SHUTDOWN,
+-
+-	UNIX_DIAG_MAX,
++	__UNIX_DIAG_MAX,
+ };
  
- 	for (i = 0; i < priv->num_tx_queues; i++)
--	       priv->tx_queue[i] = NULL;
-+		priv->tx_queue[i] = NULL;
- 	for (i = 0; i < priv->num_rx_queues; i++)
- 		priv->rx_queue[i] = NULL;
- 
-@@ -1824,6 +1824,7 @@ static void gfar_configure_coalescing(struct gfar_private *priv,
- 
- 	if (priv->mode == MQ_MG_MODE) {
- 		int i = 0;
++#define UNIX_DIAG_MAX (__UNIX_DIAG_MAX - 1)
 +
- 		baddr = &regs->txic0;
- 		for_each_set_bit(i, &tx_mask, priv->num_tx_queues) {
- 			gfar_write(baddr + i, 0);
-@@ -1838,7 +1839,7 @@ static void gfar_configure_coalescing(struct gfar_private *priv,
- 				gfar_write(baddr + i, priv->rx_queue[i]->rxic);
- 		}
- 	} else {
--		/* Backward compatible case ---- even if we enable
-+		/* Backward compatible case -- even if we enable
- 		 * multiple queues, there's only single reg to program
- 		 */
- 		gfar_write(&regs->txic, 0);
-@@ -2478,7 +2479,6 @@ static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 	struct net_device *dev = tx_queue->dev;
- 	struct netdev_queue *txq;
- 	struct gfar_private *priv = netdev_priv(dev);
--	struct gfar_priv_rx_q *rx_queue = NULL;
- 	struct txbd8 *bdp, *next = NULL;
- 	struct txbd8 *lbdp = NULL;
- 	struct txbd8 *base = tx_queue->tx_bd_base;
-@@ -2493,7 +2493,6 @@ static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 	u32 lstatus;
- 	size_t buflen;
- 
--	rx_queue = priv->rx_queue[tqi];
- 	txq = netdev_get_tx_queue(dev, tqi);
- 	bdp = tx_queue->dirty_tx;
- 	skb_dirtytx = tx_queue->skb_dirtytx;
+ struct unix_diag_vfs {
+ 	__u32	udiag_vfs_ino;
+ 	__u32	udiag_vfs_dev;
 -- 
-1.7.11.3
+1.7.11.7
