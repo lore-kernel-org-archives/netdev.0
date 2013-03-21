@@ -1,67 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 3/3 net-next] tcp: implement RFC5682 F-RTO
-Date: Wed, 20 Mar 2013 22:00:32 -0700
-Message-ID: <1363842032.3333.48.camel@edumazet-glaptop>
-References: <1363822380-16687-1-git-send-email-ycheng@google.com>
-	 <1363822380-16687-3-git-send-email-ycheng@google.com>
+From: Fernando Luis Vazquez Cao <fernando_b1@lab.ntt.co.jp>
+Subject: Re: [PATCH 2/2] man/send(2): document a long standing bug that can
+ cause spurious EPERM errors
+Date: Thu, 21 Mar 2013 14:07:02 +0900
+Message-ID: <514A9576.4060902@lab.ntt.co.jp>
+References: <1363675513.4767.6.camel@nexus> <1363675960.4767.10.camel@nexus> <20130319101223.GA3672@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ncardwell@google.com, edumazet@google.com,
-	nanditad@google.com, ilpo.jarvinen@cs.helsinki.fi,
-	netdev@vger.kernel.org
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f48.google.com ([209.85.210.48]:58141 "EHLO
-	mail-da0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752988Ab3CUFAf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 01:00:35 -0400
-Received: by mail-da0-f48.google.com with SMTP id p8so1402644dan.21
-        for <netdev@vger.kernel.org>; Wed, 20 Mar 2013 22:00:35 -0700 (PDT)
-In-Reply-To: <1363822380-16687-3-git-send-email-ycheng@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michael Kerrisk <mtk.manpages@gmail.com>,
+	linux-man@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Hirotaka Sasaki <sasaki.hirotaka@lab.ntt.co.jp>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20130319101223.GA3672@localhost>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-03-20 at 16:33 -0700, Yuchung Cheng wrote:
-> This patch implements F-RTO (foward RTO recovery):
-> 
-> When the first retransmission after timeout is acknowledged, F-RTO
-> sends new data instead of old data. If the next ACK acknowledges
-> some never-retransmitted data, then the timeout was spurious and the
-> congestion state is reverted.  Otherwise if the next ACK selectively
-> acknowledges the new data, then the timeout was genuine and the
-> loss recovery continues. This idea applies to recurring timeouts
-> as well. While F-RTO sends different data during timeout recovery,
-> it does not (and should not) change the congestion control.
-> 
-> The implementaion follows the three steps of SACK enhanced algorithm
-> (section 3) in RFC5682. Step 1 is in tcp_enter_loss(). Step 2 and
-> 3 are in tcp_process_loss().  The basic version is not supported
-> because SACK enhanced version also works for non-SACK connections.
-> 
-> The new implementation is functionally in parity with the old F-RTO
-> implementation except the one case where it increases undo events:
-> In addition to the RFC algorithm, a spurious timeout may be detected
-> without sending data in step 2, as long as the SACK confirms not
-> all the original data are dropped. When this happens, the sender
-> will undo the cwnd and perhaps enter fast recovery instead. This
-> additional check increases the F-RTO undo events by 5x compared
-> to the prior implementation on Google Web servers, since the sender
-> often does not have new data to send for HTTP.
-> 
-> Note F-RTO may detect spurious timeout before Eifel with timestamps
-> does so.
-> 
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> ---
-> ChangeLog in v2:
->  - Removed extra while spaces
->  - Allow F-RTO in sack reneging case to detect spurious retransmit(s)
->  - Re-tested after merging with the recent TCP tail loss probe patch
-> 
->  Documentation/networking/ip-sysctl.txt | 18 +++------
->  include/linux/tcp.h                    |  3 +-
->  net/ipv4/tcp_input.c                   | 73 ++++++++++++++++++++++++++++------
->  3 files changed, 68 insertions(+), 26 deletions(-)
+On 2013/03/19 19:12, Pablo Neira Ayuso wrote:
+> On Tue, Mar 19, 2013 at 03:52:40PM +0900, Fernando Luis V=E1zquez Cao=
+ wrote:
+>> Subject: [PATCH 2/2] man/send(2): document a long standing bug that =
+can cause spurious EPERM errors
+>>
+>> This bug has been known since early 2009 (the latest) and  discussed=
+ in
+>> netdev before:
+>>
+>> http://marc.info/?l=3Dlinux-netdev&w=3D2&r=3D1&s=3DPossible+race+con=
+dition+in+conntracking+&q=3Db
+>>
+>> It seems that a proper fix would be non trivial, so document the bug
+>> in the meantime.
+>>
+>> Reported-by: Hirotaka Sasaki <sasaki.hirotaka@lab.ntt.co.jp>
+>> Signed-off-by: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
+>> ---
+>>
+>> diff -urNp man-pages-3.50-orig/man2/send.2 man-pages-3.50/man2/send.=
+2
+>> --- man-pages-3.50-orig/man2/send.2	2013-03-19 15:18:03.784306647 +0=
+900
+>> +++ man-pages-3.50/man2/send.2	2013-03-19 15:30:40.788060426 +0900
+>> @@ -420,6 +420,11 @@ Linux may return
+>>   .B EPIPE
+>>   instead of
+>>   .BR ENOTCONN .
+>> +
+>> +Linux may return spurious
+>> +.B EPERM
+>> +errors when netfilter's conntrack module is loaded and two or more
+>> +UDP packets belonging to the same connection are processed in paral=
+lel.
+> The Connection tracking system may drop packets for different reasons
+> under rare circunstances, not only in this case.
+> I'd prefer if you only apply patch 1/2.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+I'd agree with you if we *silently* dropped packets in such
+situations, but unfortunately that's not the case.
+
+The problem is that sometimes we end up returning spurious EPERM
+errors to user space. Applications may (and many actually do)
+interpret EPERM as "an attempt was made to perform an operation
+limited to processes with appropriate privileges or to the owner of a
+file or other resource" and just bail out after seeing the first
+EPERM; after all, if its cause is system policy-related there is no
+point in retrying. Spurious EPERM errors would break such (perfectly
+compliant) applications, so the least we can do is document them
+properly.
+
+Thanks,
+=46ernando
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
