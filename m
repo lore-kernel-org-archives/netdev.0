@@ -1,51 +1,53 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH RFC 1/5] kconfig: implement weak reverse-dependencies
-Date: Thu, 21 Mar 2013 12:43:08 +0100
-Message-ID: <20130321114307.GA6716@netboy.at.omicron.at>
-References: <20130321082256.21557.68351.stgit@zurg>
- <20130321102200.GB2341@netboy.at.omicron.at>
- <514AE9A3.5090209@openvz.org>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH v2 1/4] tcp: fix too short FIN_WAIT2 time out
+Date: Thu, 21 Mar 2013 20:45:17 +0900
+Message-ID: <1363866317.3029.21.camel@ubuntu-vm-makita>
+References: <1363610163.7121.2.camel@ubuntu-vm-makita>
+	 <1363610344.7121.5.camel@ubuntu-vm-makita>
+	 <20130319.093257.1744500513624729643.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michal Marek <mmarek@suse.cz>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-kbuild@vger.kernel.org,
-	Tejun Heo <tj@kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org
-To: Konstantin Khlebnikov <khlebnikov@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <514AE9A3.5090209@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	makita.toshiaki@lab.ntt.co.jp
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:40843 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756907Ab3CULp2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 07:45:28 -0400
+In-Reply-To: <20130319.093257.1744500513624729643.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 21, 2013 at 03:06:11PM +0400, Konstantin Khlebnikov wrote:
+On Tue, 2013-03-19 at 09:32 -0400, David Miller wrote:
+> From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> Date: Mon, 18 Mar 2013 21:39:04 +0900
 > 
-> As I see this technology requires special dedicated server in the local
-> network, thus it's unusable in most situations. But it starts working
-> without any actions from the user (please fix me if I'm wrong).
+> >               if (tp->linger2 >= 0) {
+> > -                     const int tmo = tcp_fin_time(sk) - TCP_TIMEWAIT_LEN;
+> > -
+> > -                     if (tmo > 0) {
+> > -                             tcp_time_wait(sk, TCP_FIN_WAIT2, tmo);
+> > -                             goto out;
+> > -                     }
+> > +                     tcp_time_wait(sk, TCP_FIN_WAIT2, TCP_TIMEWAIT_LEN);
+> > +                     goto out;
+> >               }
+> 
+> Well, now you're completely ignoring the user's linger setting.
 
-Perhaps you don't have a very clear picture of how this PTP stuff
-works. Even when the PHC and time stamping code is compiled in, it
-does *not* start working unless the end user turns it on, via the
-SIOCSHWTSTAMP and SO_TIMESTAMPING options.
+If you mention TCP_LINGER2, I don't think I'm ignoring it.
+It is taken into account in tcp_rcv_state_process() or tcp_close().
+If I'm misunderstanding, I'd be glad if you could point out it.
 
-See: Documentation/networking/timestamping.txt
-     Documentation/ptp/ptp.txt
- 
-> Thus this code enables some rarely used parts of hardware.
-> After seeing several weird bugs in ethernet devices I prefer to
-> keep unused/unwanted features off.
+> 
+> I really can't take these patches seriously, and will not apply them,
+> sorry.
 
-Just compiling drivers into kernel does not really change the behavior
-of the hardware. The only drawback I know of is that it adds (minimal)
-overhead into the packet processing paths, but that is a software
-issue.
+I think, at least, too short timeout is harmful.
+If tcp_fin_timeout is set to 61, it will expire in 2 seconds, which
+cause peer to receive unexpected reset by sending fin.
+Don't you think there is a problem?
 
-I don't mean to start a big discussion here. The question of whether
-to have PHC support a compile time option should be discussed on the
-netdev list (added on CC just in case).
-
-Thanks,
-Richard
+Toshiaki Makita
