@@ -1,81 +1,49 @@
 From: Andrey Vagin <avagin@openvz.org>
-Subject: [PATCH 1/3] net: fix *_DIAG_MAX constants
-Date: Thu, 21 Mar 2013 20:33:46 +0400
-Message-ID: <1363883628-7249-2-git-send-email-avagin@openvz.org>
-References: <1363883628-7249-1-git-send-email-avagin@openvz.org>
+Subject: [PATCH 0/3] netlink: implement socket diag for netlink sockets (v2)
+Date: Thu, 21 Mar 2013 20:33:45 +0400
+Message-ID: <1363883628-7249-1-git-send-email-avagin@openvz.org>
 Cc: Pavel Emelyanov <xemul@parallels.com>,
 	Andrey Vagin <avagin@openvz.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	David Howells <dhowells@redhat.com>
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Gao feng <gaofeng@cn.fujitsu.com>, Thomas Graf <tgraf@suug.ch>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:47703 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756043Ab3CUQfl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Mar 2013 12:35:41 -0400
-In-Reply-To: <1363883628-7249-1-git-send-email-avagin@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Follow the common pattern and define *_DIAG_MAX like:
+v2: fix *_DIAG_MAX constants
 
-        [...]
-        __XXX_DIAG_MAX,
-};
-
-Because everyone is used to do:
-
-        struct nlattr *attrs[XXX_DIAG_MAX+1];
-
-        nla_parse([...], XXX_DIAG_MAX, [...]
-
-Reported-by: Thomas Graf <tgraf@suug.ch>
 Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Pavel Emelyanov <xemul@parallels.com>
 Cc: Eric Dumazet <edumazet@google.com>
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Cc: David Howells <dhowells@redhat.com>
+Cc: Pavel Emelyanov <xemul@parallels.com>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Gao feng <gaofeng@cn.fujitsu.com>
+Cc: Thomas Graf <tgraf@suug.ch>
 Signed-off-by: Andrey Vagin <avagin@openvz.org>
----
- include/uapi/linux/packet_diag.h | 4 +++-
- include/uapi/linux/unix_diag.h   | 4 +++-
- 2 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/include/uapi/linux/packet_diag.h b/include/uapi/linux/packet_diag.h
-index 93f5fa9..afafd70 100644
---- a/include/uapi/linux/packet_diag.h
-+++ b/include/uapi/linux/packet_diag.h
-@@ -33,9 +33,11 @@ enum {
- 	PACKET_DIAG_TX_RING,
- 	PACKET_DIAG_FANOUT,
- 
--	PACKET_DIAG_MAX,
-+	__PACKET_DIAG_MAX,
- };
- 
-+#define PACKET_DIAG_MAX (__PACKET_DIAG_MAX - 1)
-+
- struct packet_diag_info {
- 	__u32	pdi_index;
- 	__u32	pdi_version;
-diff --git a/include/uapi/linux/unix_diag.h b/include/uapi/linux/unix_diag.h
-index b8a2494..b9e2a6a 100644
---- a/include/uapi/linux/unix_diag.h
-+++ b/include/uapi/linux/unix_diag.h
-@@ -39,9 +39,11 @@ enum {
- 	UNIX_DIAG_MEMINFO,
- 	UNIX_DIAG_SHUTDOWN,
- 
--	UNIX_DIAG_MAX,
-+	__UNIX_DIAG_MAX,
- };
- 
-+#define UNIX_DIAG_MAX (__UNIX_DIAG_MAX - 1)
-+
- struct unix_diag_vfs {
- 	__u32	udiag_vfs_ino;
- 	__u32	udiag_vfs_dev;
+Andrey Vagin (3):
+  net: fix *_DIAG_MAX constants
+  net: prepare netlink code for netlink diag
+  netlink: Diag core and basic socket info dumping (v2)
+
+ include/uapi/linux/netlink_diag.h |  42 +++++++++
+ include/uapi/linux/packet_diag.h  |   4 +-
+ include/uapi/linux/unix_diag.h    |   4 +-
+ net/Kconfig                       |   1 +
+ net/netlink/Kconfig               |  10 ++
+ net/netlink/Makefile              |   3 +
+ net/netlink/af_netlink.c          |  59 +-----------
+ net/netlink/af_netlink.h          |  62 +++++++++++++
+ net/netlink/diag.c                | 188 ++++++++++++++++++++++++++++++++++++++
+ 9 files changed, 317 insertions(+), 56 deletions(-)
+ create mode 100644 include/uapi/linux/netlink_diag.h
+ create mode 100644 net/netlink/Kconfig
+ create mode 100644 net/netlink/af_netlink.h
+ create mode 100644 net/netlink/diag.c
+
 -- 
 1.8.1.4
