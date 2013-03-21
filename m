@@ -1,46 +1,55 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] gro: relax ID check in inet_gro_receive()
-Date: Thu, 21 Mar 2013 16:20:25 +0000
-Message-ID: <1363882825.2736.4.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1363841553.3333.47.camel@edumazet-glaptop>
-	 <20130321.114616.279859400813363663.davem@davemloft.net>
+Subject: Re: [PATCH net] vhost/net: fix heads usage of ubuf_info
+Date: Thu, 21 Mar 2013 16:23:48 +0000
+Message-ID: <1363883028.2736.7.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20130317124609.GA25967@redhat.com>
+	 <20130317.142955.1114572401286297685.davem@davemloft.net>
+	 <20130321060218.GB23908@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
-	<dmitry@broadcom.com>, <eilong@broadcom.com>, <pshelar@nicira.com>,
-	<hkchu@google.com>, <maze@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:11569 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932371Ab3CUQUb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 12:20:31 -0400
-In-Reply-To: <20130321.114616.279859400813363663.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, <rusty@rustcorp.com.au>,
+	<jasowang@redhat.com>, <basil.gor@gmail.com>,
+	<nab@risingtidesystems.com>, <kvm@vger.kernel.org>,
+	<virtualization@lists.linux-foundation.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130321060218.GB23908@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-03-21 at 11:46 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 20 Mar 2013 21:52:33 -0700
+On Thu, 2013-03-21 at 08:02 +0200, Michael S. Tsirkin wrote:
+> On Sun, Mar 17, 2013 at 02:29:55PM -0400, David Miller wrote:
+> > From: "Michael S. Tsirkin" <mst@redhat.com>
+> > Date: Sun, 17 Mar 2013 14:46:09 +0200
+> > 
+> > > ubuf info allocator uses guest controlled head as an index,
+> > > so a malicious guest could put the same head entry in the ring twice,
+> > > and we will get two callbacks on the same value.
+> > > To fix use upend_idx which is guaranteed to be unique.
+> > > 
+> > > Reported-by: Rusty Russell <rusty@rustcorp.com.au>
+> > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > 
+> > Applied and queued up for -stable, thanks.
+> > 
+> > And thankfully you got the stable URL wrong,
 > 
-> > GRE TSO support doesn't increment the ID in the inner IP header.
+> Yes I wrote stable@kernel.org that's what an old copy
+> says here:
+> https://www.kernel.org/doc/Documentation/stable_kernel_rules.txt
 > 
-> Is this a fundamental limitation of doing TSO over GRO or
-> were the Broadcom folks just being lazy with their firmware
-> implementation?
-> 
-> I really don't want to apply this patch, because ipv4 frames
-> even with DF set should have an incrementing ID field, in
-> order to accomodate various header compression schemes.
-> 
-> We go out of our way to do this for normal unencapsulated TCP stream
-> packets, rather than set the ID field to zero (which we did for some
-> time until the compression issue was pointed out to us).
+> I should have known better than look at it on the 'net.  The top
+> 'Everything you ever wanted to know about Linux 2.6 -stable releases.'
+> is a big hint that it's stale.
+> Any idea who maintains this? Better update it or remove it or redirect to git.
 
-Besides which, GRO has been reliably reversible until now.  (gso_size is
-available through packet sockets, even if tcpdump doesn't appear to use
-it yet.)  Ignoring IPv4 IDs will break that guarantee.
+Rob Landley maintains it, but he's been having trouble updating it since
+all the upload mechanisms were changed on kernel.org.
+
+(My stable maintenance scripts still match the old address, anyway.  Not
+sure about Greg's.)
 
 Ben.
 
