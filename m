@@ -1,31 +1,49 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] net: fix *_DIAG_MAX constants
-Date: Thu, 21 Mar 2013 15:25:18 +0000
-Message-ID: <20130321152518.GG9046@casper.infradead.org>
-References: <1363875500-14574-1-git-send-email-avagin@openvz.org>
- <20130321144218.GF9046@casper.infradead.org>
- <20130321.111437.2012746070698745131.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: reduce net_rx_action() latency to 2 HZ
+Date: Thu, 21 Mar 2013 08:27:27 -0700
+Message-ID: <1363879647.4431.8.camel@edumazet-glaptop>
+References: <1362503713.15793.121.camel@edumazet-glaptop>
+	 <CAP=VYLrvXREA=HGnnUCi2N77yRdktQDop1PpzJkveXDihJ3DOw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: avagin@openvz.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, xemul@parallels.com, edumazet@google.com,
-	paulmck@linux.vnet.ibm.com, dhowells@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:51037 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753703Ab3CUPZW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 11:25:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20130321.111437.2012746070698745131.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, stable <stable@vger.kernel.org>,
+	Willy Tarreau <w@1wt.eu>, Tom Herbert <therbert@google.com>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <CAP=VYLrvXREA=HGnnUCi2N77yRdktQDop1PpzJkveXDihJ3DOw@mail.gmail.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/21/13 at 11:14am, David Miller wrote:
-> So you're ACK'ing a patch that makes changes to files that don't even
-> exist in the repository?
+On Thu, 2013-03-21 at 11:03 -0400, Paul Gortmaker wrote:
+> [CC'ing stable & Willy - for the older releases not fed by
+> http://patchwork.ozlabs.org/bundle/davem/stable/ ]
+> 
+> On Tue, Mar 5, 2013 at 12:15 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > From: Eric Dumazet <edumazt@google.com>
+> >
+> > We should use time_after_eq() to get maximum latency of two ticks,
+> > instead of three.
+> >
+> > Bug added in commit 24f8b2385 (net: increase receive packet quantum)
+> 
+> I'm not sure what applications would notice the extra tick, but 24f8b takes
+> us back to 2.6.29.  It cherry picks cleanly onto 2.6.34, so it probably also
+> does the same for Willy's 2.6.32 longterm too.
+> 
+> Commit is now mainline d114a3338747255518 - v3.9-rc3~36^2~34.
 
-I have been ACK'ing the patch in the context of the previous
-patch that I reviewed in the first place which in summary is
-now OK. But you are obviously right that a fixed version of
-the initial patch should be submitted instead.
+BQL (Bytes Queue Limit) relies on TX completion being run often, and
+Qdisc being serviced often as well. If net_rx_action() hogs the cpu,
+net_tx_action() is delayed and NIC can stall.
+
+I wrote this patch because I was investigating a regression when a
+Google application began using BQL enabled kernels.
+
+About the latency in itself, following commit is way more interesting.
+
+commit c10d73671ad30f5 (softirq: reduce latencies)
+
+As without it, I could trigger more than 50ms latencies for the poor
+user thread interrupted by softirq processing.
