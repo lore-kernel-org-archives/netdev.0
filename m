@@ -1,79 +1,58 @@
-From: Fernando Luis Vazquez Cao <fernando_b1@lab.ntt.co.jp>
-Subject: Re: [PATCH 2/2] man/send(2): document a long standing bug that can
- cause spurious EPERM errors
-Date: Thu, 21 Mar 2013 14:07:02 +0900
-Message-ID: <514A9576.4060902@lab.ntt.co.jp>
-References: <1363675513.4767.6.camel@nexus> <1363675960.4767.10.camel@nexus> <20130319101223.GA3672@localhost>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] vhost/net: fix heads usage of ubuf_info
+Date: Thu, 21 Mar 2013 08:02:18 +0200
+Message-ID: <20130321060218.GB23908@redhat.com>
+References: <20130317124609.GA25967@redhat.com>
+	<20130317.142955.1114572401286297685.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Kerrisk <mtk.manpages@gmail.com>,
-	linux-man@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Hirotaka Sasaki <sasaki.hirotaka@lab.ntt.co.jp>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20130319101223.GA3672@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	nab@risingtidesystems.com,
+	virtualization@lists.linux-foundation.org, basil.gor@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20130317.142955.1114572401286297685.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 2013/03/19 19:12, Pablo Neira Ayuso wrote:
-> On Tue, Mar 19, 2013 at 03:52:40PM +0900, Fernando Luis V=E1zquez Cao=
- wrote:
->> Subject: [PATCH 2/2] man/send(2): document a long standing bug that =
-can cause spurious EPERM errors
->>
->> This bug has been known since early 2009 (the latest) and  discussed=
- in
->> netdev before:
->>
->> http://marc.info/?l=3Dlinux-netdev&w=3D2&r=3D1&s=3DPossible+race+con=
-dition+in+conntracking+&q=3Db
->>
->> It seems that a proper fix would be non trivial, so document the bug
->> in the meantime.
->>
->> Reported-by: Hirotaka Sasaki <sasaki.hirotaka@lab.ntt.co.jp>
->> Signed-off-by: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
->> ---
->>
->> diff -urNp man-pages-3.50-orig/man2/send.2 man-pages-3.50/man2/send.=
-2
->> --- man-pages-3.50-orig/man2/send.2	2013-03-19 15:18:03.784306647 +0=
-900
->> +++ man-pages-3.50/man2/send.2	2013-03-19 15:30:40.788060426 +0900
->> @@ -420,6 +420,11 @@ Linux may return
->>   .B EPIPE
->>   instead of
->>   .BR ENOTCONN .
->> +
->> +Linux may return spurious
->> +.B EPERM
->> +errors when netfilter's conntrack module is loaded and two or more
->> +UDP packets belonging to the same connection are processed in paral=
-lel.
-> The Connection tracking system may drop packets for different reasons
-> under rare circunstances, not only in this case.
-> I'd prefer if you only apply patch 1/2.
+On Sun, Mar 17, 2013 at 02:29:55PM -0400, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Sun, 17 Mar 2013 14:46:09 +0200
+> 
+> > ubuf info allocator uses guest controlled head as an index,
+> > so a malicious guest could put the same head entry in the ring twice,
+> > and we will get two callbacks on the same value.
+> > To fix use upend_idx which is guaranteed to be unique.
+> > 
+> > Reported-by: Rusty Russell <rusty@rustcorp.com.au>
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> 
+> Applied and queued up for -stable, thanks.
+> 
+> And thankfully you got the stable URL wrong,
 
-I'd agree with you if we *silently* dropped packets in such
-situations, but unfortunately that's not the case.
+Yes I wrote stable@kernel.org that's what an old copy
+says here:
+https://www.kernel.org/doc/Documentation/stable_kernel_rules.txt
 
-The problem is that sometimes we end up returning spurious EPERM
-errors to user space. Applications may (and many actually do)
-interpret EPERM as "an attempt was made to perform an operation
-limited to processes with appropriate privileges or to the owner of a
-file or other resource" and just bail out after seeing the first
-EPERM; after all, if its cause is system policy-related there is no
-point in retrying. Spurious EPERM errors would break such (perfectly
-compliant) applications, so the least we can do is document them
-properly.
+I should have known better than look at it on the 'net.  The top
+'Everything you ever wanted to know about Linux 2.6 -stable releases.'
+is a big hint that it's stale.
+Any idea who maintains this? Better update it or remove it or redirect to git.
 
-Thanks,
-=46ernando
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> please do not CC:
+> networking patches to stable, just make sure I apply them and in
+> your post-commit text explicitly ask me to queue it up to my
+> -stable queue.
+> 
+> Thanks.
