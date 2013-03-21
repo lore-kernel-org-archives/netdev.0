@@ -1,48 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: reduce net_rx_action() latency to 2 HZ
-Date: Thu, 21 Mar 2013 10:43:14 -0700
-Message-ID: <1363887794.4431.29.camel@edumazet-glaptop>
-References: <1362503713.15793.121.camel@edumazet-glaptop>
-	  <CAP=VYLrvXREA=HGnnUCi2N77yRdktQDop1PpzJkveXDihJ3DOw@mail.gmail.com>
-	 <1363879647.4431.8.camel@edumazet-glaptop> <514B429C.5070605@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, stable <stable@vger.kernel.org>,
-	Willy Tarreau <w@1wt.eu>, Tom Herbert <therbert@google.com>,
-	Steven Rostedt <rostedt@goodmis.org>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <514B429C.5070605@windriver.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next 0/2] Get rid of attribute parsing in rtnetlink_rcv_msg()
+Date: Thu, 21 Mar 2013 18:45:27 +0100
+Message-ID: <cover.1363885020.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:39000
+	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751287Ab3CURph (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 13:45:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-03-21 at 13:25 -0400, Paul Gortmaker wrote:
+We have been wanting to get rid of rta_buf for a while. It is error
+prone as it requires subsystems, especially modules, that register a
+rtnetlink mesage type to also modify rtnetlink.c and thus require
+the recompilation of the kernel. DECnet is the only user left so after
+converting it we can safely remove it
 
-> That is also reasonably portable back to 2.6.34.  And it is more
-> interesting too -- it will be interesting in a preempt_rt context
-> too, once RT moves ahead off the current 3.6 baseline, which still
-> has the old count-limit of 10 vs the new 2ms time limit.
-> 
-> RT (3.4 and 3.6 based) currently has this patch from Steven:
-> http://git.kernel.org/cgit/linux/kernel/git/paulg/3.6-rt-patches.git/tree/net-tx-action-avoid-livelock-on-rt.patch
+Thomas Graf (2):
+  decnet: Parse netlink attributes on our own
+  rtnetlink: Remove passing of attributes into rtnl_doit functions
 
-Interesting, as Google has an internal patch removing this trylock() as
-well.
+ include/net/dn_fib.h    |  28 ++-----
+ include/net/rtnetlink.h |   2 +-
+ net/bridge/br_mdb.c     |   4 +-
+ net/can/gw.c            |   5 +-
+ net/core/fib_rules.c    |   4 +-
+ net/core/neighbour.c    |   6 +-
+ net/core/rtnetlink.c    |  82 ++----------------
+ net/dcb/dcbnl.c         |   2 +-
+ net/decnet/dn_dev.c     |   4 +-
+ net/decnet/dn_fib.c     | 215 ++++++++++++++++++++++++++----------------------
+ net/decnet/dn_route.c   |  29 ++++---
+ net/decnet/dn_table.c   |  42 +++++-----
+ net/ipv4/devinet.c      |   7 +-
+ net/ipv4/fib_frontend.c |   4 +-
+ net/ipv4/route.c        |   2 +-
+ net/ipv6/addrconf.c     |  10 +--
+ net/ipv6/addrlabel.c    |   6 +-
+ net/ipv6/route.c        |   6 +-
+ net/phonet/pn_netlink.c |   4 +-
+ net/sched/act_api.c     |   2 +-
+ net/sched/cls_api.c     |   2 +-
+ net/sched/sch_api.c     |   6 +-
+ 22 files changed, 207 insertions(+), 265 deletions(-)
 
-I think I should upstream it eventually ;)
-
-commit 2f0a3f573b531dc57c268fd809dc65169edae369
-Author: Eric Dumazet <edumazet@google.com>
-Date:   Thu Dec 13 09:18:01 2012 -0800
-
-    net-dev_xmit_hold_queues: fix a busy loop in net_tx_action
-    
-    Under load, net_tx_action() fails to acquire qdisc lock
-    and reschedules qdisc in a never ending loop.
-    
-    The spin_trylock() has almost no chance to complete because
-    of ticket spinlock and xmit_hold_queue holding the lock for long
-    period of times.
-    
+-- 
+1.7.11.7
