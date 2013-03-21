@@ -1,7 +1,7 @@
 From: Andrey Vagin <avagin@openvz.org>
-Subject: [PATCH 2/4] ss: create a function to print info about netlink sockets
-Date: Thu, 21 Mar 2013 13:33:24 +0400
-Message-ID: <1363858406-1489-3-git-send-email-avagin@openvz.org>
+Subject: [PATCH 4/4] ss: Get netlink sockets info via sock-diag
+Date: Thu, 21 Mar 2013 13:33:26 +0400
+Message-ID: <1363858406-1489-5-git-send-email-avagin@openvz.org>
 References: <1363857669-19990-1-git-send-email-avagin@openvz.org>
  <1363858406-1489-1-git-send-email-avagin@openvz.org>
 Cc: Pavel Emelyanov <xemul@parallels.com>,
@@ -9,177 +9,141 @@ Cc: Pavel Emelyanov <xemul@parallels.com>,
 	Stephen Hemminger <stephen@networkplumber.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:28913 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:41600 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752151Ab3CUJfF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Mar 2013 05:35:05 -0400
+	id S932970Ab3CUJfJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Mar 2013 05:35:09 -0400
 In-Reply-To: <1363858406-1489-1-git-send-email-avagin@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It will be reused for printing info about netlink sockets, when
-socket diag is used for retrieving information.
-
 Cc: Stephen Hemminger <stephen@networkplumber.org>
 Signed-off-by: Andrey Vagin <avagin@openvz.org>
 ---
- misc/ss.c | 130 ++++++++++++++++++++++++++++++++++----------------------------
- 1 file changed, 72 insertions(+), 58 deletions(-)
+ include/linux/netlink_diag.h | 40 +++++++++++++++++++++++++++++++
+ misc/ss.c                    | 56 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 96 insertions(+)
+ create mode 100644 include/linux/netlink_diag.h
 
+diff --git a/include/linux/netlink_diag.h b/include/linux/netlink_diag.h
+new file mode 100644
+index 0000000..9328866
+--- /dev/null
++++ b/include/linux/netlink_diag.h
+@@ -0,0 +1,40 @@
++#ifndef __NETLINK_DIAG_H__
++#define __NETLINK_DIAG_H__
++
++#include <linux/types.h>
++
++struct netlink_diag_req {
++	__u8	sdiag_family;
++	__u8	sdiag_protocol;
++	__u16	pad;
++	__u32	ndiag_ino;
++	__u32	ndiag_show;
++	__u32	ndiag_cookie[2];
++};
++
++struct netlink_diag_msg {
++	__u8	ndiag_family;
++	__u8	ndiag_type;
++	__u8	ndiag_protocol;
++	__u8	ndiag_state;
++
++	__u32	ndiag_portid;
++	__u32	ndiag_dst_portid;
++	__u32	ndiag_dst_group;
++	__u32	ndiag_ino;
++	__u32	ndiag_cookie[2];
++};
++
++enum {
++	NETLINK_DIAG_MEMINFO,
++	NETLINK_DIAG_GROUPS,
++
++	NETLINK_DIAG_MAX,
++};
++
++#define NDIAG_PROTO_ALL		((__u8) ~0)
++
++#define NDIAG_SHOW_MEMINFO	0x00000001 /* show memory info of a socket */
++#define NDIAG_SHOW_GROUPS	0x00000002 /* show groups of a netlink socket */
++
++#endif
 diff --git a/misc/ss.c b/misc/ss.c
-index bde344a..962f304 100644
+index 1af677a..49312f1 100644
 --- a/misc/ss.c
 +++ b/misc/ss.c
-@@ -2474,6 +2474,73 @@ static int packet_show(struct filter *f)
- 	return 0;
+@@ -36,6 +36,7 @@
+ #include <linux/sock_diag.h>
+ #include <linux/inet_diag.h>
+ #include <linux/unix_diag.h>
++#include <linux/netlink_diag.h>
+ 
+ int resolve_hosts = 0;
+ int resolve_services = 1;
+@@ -2548,6 +2549,61 @@ static void netlink_show_one(struct filter *f,
+ 	return;
  }
  
-+static void netlink_show_one(struct filter *f,
-+				int prot, int pid, unsigned groups,
-+				int rq, int wq,
-+				unsigned long long sk, unsigned long long cb)
++static int netlink_show_sock(struct nlmsghdr *nlh, struct filter *f)
 +{
-+	if (f->f) {
-+		struct tcpstat tst;
-+		tst.local.family = AF_NETLINK;
-+		tst.remote.family = AF_NETLINK;
-+		tst.rport = -1;
-+		tst.lport = pid;
-+		tst.local.data[0] = prot;
-+		tst.remote.data[0] = 0;
-+		if (run_ssfilter(f->f, &tst) == 0)
-+			return;
++	struct netlink_diag_msg *r = NLMSG_DATA(nlh);
++	struct rtattr *tb[NETLINK_DIAG_MAX+1];
++	int rq = 0, wq = 0;
++	unsigned long groups = 0;
++
++	parse_rtattr(tb, NETLINK_DIAG_MAX, (struct rtattr*)(r+1),
++		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
++
++	if (tb[NETLINK_DIAG_GROUPS] && RTA_PAYLOAD(tb[NETLINK_DIAG_GROUPS]))
++		groups = *(unsigned long *) RTA_DATA(tb[NETLINK_DIAG_GROUPS]);
++
++	if (tb[NETLINK_DIAG_MEMINFO]) {
++		const __u32 *skmeminfo;
++		skmeminfo = RTA_DATA(tb[NETLINK_DIAG_MEMINFO]);
++
++		rq = skmeminfo[SK_MEMINFO_RMEM_ALLOC];
++		wq = skmeminfo[SK_MEMINFO_WMEM_ALLOC];
 +	}
 +
-+	if (netid_width)
-+		printf("%-*s ", netid_width, "nl");
-+	if (state_width)
-+		printf("%-*s ", state_width, "UNCONN");
-+	printf("%-6d %-6d ", rq, wq);
-+	if (resolve_services && prot == 0)
-+		printf("%*s:", addr_width, "rtnl");
-+	else if (resolve_services && prot == 3)
-+		printf("%*s:", addr_width, "fw");
-+	else if (resolve_services && prot == 4)
-+		printf("%*s:", addr_width, "tcpdiag");
-+	else
-+		printf("%*d:", addr_width, prot);
-+	if (pid == -1) {
-+		printf("%-*s ", serv_width, "*");
-+	} else if (resolve_services) {
-+		int done = 0;
-+		if (!pid) {
-+			done = 1;
-+			printf("%-*s ", serv_width, "kernel");
-+		} else if (pid > 0) {
-+			char procname[64];
-+			FILE *fp;
-+			sprintf(procname, "%s/%d/stat",
-+				getenv("PROC_ROOT") ? : "/proc", pid);
-+			if ((fp = fopen(procname, "r")) != NULL) {
-+				if (fscanf(fp, "%*d (%[^)])", procname) == 1) {
-+					sprintf(procname+strlen(procname), "/%d", pid);
-+					printf("%-*s ", serv_width, procname);
-+					done = 1;
-+				}
-+				fclose(fp);
-+			}
-+		}
-+		if (!done)
-+			printf("%-*d ", serv_width, pid);
-+	} else {
-+		printf("%-*d ", serv_width, pid);
-+	}
-+	printf("%*s*%-*s",
-+	       addr_width, "", serv_width, "");
++	netlink_show_one(f, r->ndiag_protocol, r->ndiag_portid, groups,
++			 r->ndiag_state, r->ndiag_dst_portid, r->ndiag_dst_group,
++			 rq, wq, 0, 0);
 +
-+	if (show_details) {
-+		printf(" sk=%llx cb=%llx groups=0x%08x", sk, cb, groups);
++	if (show_mem) {
++		printf("\t");
++		print_skmeminfo(tb, NETLINK_DIAG_MEMINFO);
++		printf("\n");
 +	}
-+	printf("\n");
 +
-+	return;
++	return 0;
++}
++
++static int netlink_show_netlink(struct filter *f, FILE *dump_fp)
++{
++	struct {
++		struct nlmsghdr nlh;
++		struct netlink_diag_req r;
++	} req;
++
++	memset(&req, 0, sizeof(req));
++	req.nlh.nlmsg_len = sizeof(req);
++	req.nlh.nlmsg_type = SOCK_DIAG_BY_FAMILY;
++	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
++	req.nlh.nlmsg_seq = 123456;
++
++	req.r.sdiag_family = AF_NETLINK;
++	req.r.sdiag_protocol = NDIAG_PROTO_ALL;
++	req.r.ndiag_show = NDIAG_SHOW_GROUPS | NDIAG_SHOW_MEMINFO;
++
++	return handle_netlink_request(f, dump_fp, &req.nlh,
++					sizeof(req), netlink_show_sock);
 +}
 +
  static int netlink_show(struct filter *f)
  {
  	FILE *fp;
-@@ -2486,6 +2553,10 @@ static int netlink_show(struct filter *f)
- 	if (!(f->states & (1<<SS_CLOSE)))
- 		return 0;
- 
-+	if (!getenv("PROC_NET_NETLINK") && !getenv("PROC_ROOT") &&
-+		netlink_show_netlink(f, NULL) == 0)
-+		return 0;
-+
- 	if ((fp = net_netlink_open()) == NULL)
- 		return -1;
- 	fgets(buf, sizeof(buf)-1, fp);
-@@ -2495,64 +2566,7 @@ static int netlink_show(struct filter *f)
- 		       &sk,
- 		       &prot, &pid, &groups, &rq, &wq, &cb, &rc);
- 
--		if (f->f) {
--			struct tcpstat tst;
--			tst.local.family = AF_NETLINK;
--			tst.remote.family = AF_NETLINK;
--			tst.rport = -1;
--			tst.lport = pid;
--			tst.local.data[0] = prot;
--			tst.remote.data[0] = 0;
--			if (run_ssfilter(f->f, &tst) == 0)
--				continue;
--		}
--
--		if (netid_width)
--			printf("%-*s ", netid_width, "nl");
--		if (state_width)
--			printf("%-*s ", state_width, "UNCONN");
--		printf("%-6d %-6d ", rq, wq);
--		if (resolve_services && prot == 0)
--			printf("%*s:", addr_width, "rtnl");
--		else if (resolve_services && prot == 3)
--			printf("%*s:", addr_width, "fw");
--		else if (resolve_services && prot == 4)
--			printf("%*s:", addr_width, "tcpdiag");
--		else
--			printf("%*d:", addr_width, prot);
--		if (pid == -1) {
--			printf("%-*s ", serv_width, "*");
--		} else if (resolve_services) {
--			int done = 0;
--			if (!pid) {
--				done = 1;
--				printf("%-*s ", serv_width, "kernel");
--			} else if (pid > 0) {
--				char procname[64];
--				FILE *fp;
--				sprintf(procname, "%s/%d/stat",
--					getenv("PROC_ROOT") ? : "/proc", pid);
--				if ((fp = fopen(procname, "r")) != NULL) {
--					if (fscanf(fp, "%*d (%[^)])", procname) == 1) {
--						sprintf(procname+strlen(procname), "/%d", pid);
--						printf("%-*s ", serv_width, procname);
--						done = 1;
--					}
--					fclose(fp);
--				}
--			}
--			if (!done)
--				printf("%-*d ", serv_width, pid);
--		} else {
--			printf("%-*d ", serv_width, pid);
--		}
--		printf("%*s*%-*s",
--		       addr_width, "", serv_width, "");
--
--		if (show_details) {
--			printf(" sk=%llx cb=%llx groups=0x%08x", sk, cb, groups);
--		}
--		printf("\n");
-+		netlink_show_one(f, prot, pid, groups, rq, wq, sk, cb);
- 	}
- 
- 	return 0;
 -- 
 1.7.11.7
