@@ -1,80 +1,78 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH 2/4] xen-netfront: drop skb when skb->len >
- 65535
-Date: Thu, 21 Mar 2013 13:40:08 +0000
-Message-ID: <1363873208.2160.13.camel@zion.uk.xensource.com>
-References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
-	 <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>
-	 <51471AAC.2050509@citrix.com>
-	 <1363614500.30193.47.camel@zakaz.uk.xensource.com>
-	 <51471DE0.9060506@citrix.com> <514A15C8.1050209@citrix.com>
+From: Mauro Carvalho Chehab <mchehab@redhat.com>
+Subject: Re: [PATCH] net: add ETH_P_802_3_MIN
+Date: Thu, 21 Mar 2013 11:02:55 -0300
+Message-ID: <20130321110255.4c06b2b7@redhat.com>
+References: <1363854568-32228-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>, Ian Campbell <Ian.Campbell@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:29834 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757033Ab3CUNkK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 09:40:10 -0400
-In-Reply-To: <514A15C8.1050209@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev@openvswitch.org, Karsten Keil <isdn@linux-pingi.de>,
+	netdev@vger.kernel.org, Gross <jesse@nicira.com>,
+	linux-media@vger.kernel.org, Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	linux1394-devel@lists.sourceforge.net,
+	"David S. Miller" <davem@davemloft.net>, Jesse
+To: Simon Horman <horms@verge.net.au>
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1363854568-32228-1-git-send-email-horms@verge.net.au>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-03-20 at 20:02 +0000, David Vrabel wrote:
+Em Thu, 21 Mar 2013 17:29:28 +0900
+Simon Horman <horms@verge.net.au> escreveu:
 
-> >  		first->size -= txp->size;
-> > @@ -938,6 +949,12 @@ static int netbk_count_requests(struct xenvif *vif,
-> >  			return -EINVAL;
-> >  		}
-> >  	} while ((txp++)->flags & XEN_NETTXF_more_data);
-> > +
-> > +	if (drop) {
-> > +		netbk_tx_err(vif, txp, idx + frags);
+> Add a new constant ETH_P_802_3_MIN, the minimum ethernet type for
+> an 802.3 frame. Frames with a lower value in the ethernet type field
+> are Ethernet II.
 > 
-> This needs to be netbk_tx_err(vif, first, idx + frags) or the guest will
-> crash as we push a bunch of invalid responses.
+> Also update all the users of this value that I could find to use the
+> new constant.
 > 
-
-Can this really handle the situation when first->size overflows? In that
-case frag == 0, the netbk_tx_err call is in fact netbk_tx_err(vif, txp,
-idx). idx is the ring index of first txp, so in fact you're only
-responding to the head txp, ignoring other tx requests for the same skb?
-
-Even first->size doesn't overflow, a malicious / buggy frontend can
-still generate tx req that makes txp->size > first->size. In that case
-there could be also some trailing tx requests left un-responded.
-
-I check the code before XSA-39 fix, its logic is more or less the same,
-but it did work. My suspicion is that those trailing tx requests are
-invalidated in future loops of xen_netbk_tx_build_gops.
-
-I think the correct action is to just take first txp and loop responding
-until we consume the whole packet.
-
-
-Wei.
-
-
-> David
+> I anticipate adding some more users of this constant when
+> adding MPLS support to Open vSwtich.
 > 
-> > +		return -EIO;
-> > +	}
-> > +
-> >  	return frags;
-> >  }
-> > 
-> > @@ -1327,7 +1344,7 @@ static unsigned xen_netbk_tx_build_gops(struct
-> > xen_netbk *netbk)
-> >  				continue;
-> >  		}
-> > 
-> > -		ret = netbk_count_requests(vif, &txreq, txfrags, work_to_do);
-> > +		ret = netbk_count_requests(vif, &txreq, txfrags, work_to_do, idx);
-> >  		if (unlikely(ret < 0))
-> >  			continue;
+> As suggested by Jesse Gross.
+> 
+> Compile tested only.
+> 
+> Cc: Jesse Gross <jesse@nicira.com>
+> Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>
+> Cc: Karsten Keil <isdn@linux-pingi.de>
+> Cc: Mauro Carvalho Chehab <mchehab@redhat.com>
+> Cc: linux1394-devel@lists.sourceforge.net
+> Cc: linux-media@vger.kernel.org
+> Cc: dev@openvswitch.org
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+
+...
+
+> diff --git a/drivers/media/dvb-core/dvb_net.c b/drivers/media/dvb-core/dvb_net.c
+> index 44225b1..9fc82a1 100644
+> --- a/drivers/media/dvb-core/dvb_net.c
+> +++ b/drivers/media/dvb-core/dvb_net.c
+> @@ -185,7 +185,7 @@ static __be16 dvb_net_eth_type_trans(struct sk_buff *skb,
+>  			skb->pkt_type=PACKET_MULTICAST;
+>  	}
+>  
+> -	if (ntohs(eth->h_proto) >= 1536)
+> +	if (ntohs(eth->h_proto) >= ETH_P_802_3_MIN)
+>  		return eth->h_proto;
+
+...
+
+Acked-by: Mauro Carvalho Chehab <mchehab@redhat.com>
+
+Cheers,
+Mauro
+
+------------------------------------------------------------------------------
+Everyone hates slow websites. So do we.
+Make your web apps faster with AppDynamics
+Download AppDynamics Lite for free today:
+http://p.sf.net/sfu/appdyn_d2d_mar
