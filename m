@@ -1,36 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] gro: relax ID check in inet_gro_receive()
-Date: Thu, 21 Mar 2013 11:46:16 -0400 (EDT)
-Message-ID: <20130321.114616.279859400813363663.davem@davemloft.net>
-References: <1363841553.3333.47.camel@edumazet-glaptop>
+Subject: Re: [PATCH v2 1/3 net-next] tcp: refactor F-RTO
+Date: Thu, 21 Mar 2013 11:48:46 -0400 (EDT)
+Message-ID: <20130321.114846.1223686835494479249.davem@davemloft.net>
+References: <1363822380-16687-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dmitry@broadcom.com, eilong@broadcom.com,
-	pshelar@nicira.com, hkchu@google.com, maze@google.com
-To: eric.dumazet@gmail.com
+Cc: ncardwell@google.com, edumazet@google.com, nanditad@google.com,
+	ilpo.jarvinen@cs.helsinki.fi, netdev@vger.kernel.org
+To: ycheng@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43458 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43480 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932093Ab3CUPqS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 11:46:18 -0400
-In-Reply-To: <1363841553.3333.47.camel@edumazet-glaptop>
+	with ESMTP id S932093Ab3CUPss (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 11:48:48 -0400
+In-Reply-To: <1363822380-16687-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 20 Mar 2013 21:52:33 -0700
 
-> GRE TSO support doesn't increment the ID in the inner IP header.
+I've given Ilpo more than enough time to give some kind of
+even minimal feedback, and he has been silent instead.
 
-Is this a fundamental limitation of doing TSO over GRO or
-were the Broadcom folks just being lazy with their firmware
-implementation?
-
-I really don't want to apply this patch, because ipv4 frames
-even with DF set should have an incrementing ID field, in
-order to accomodate various header compression schemes.
-
-We go out of our way to do this for normal unencapsulated TCP stream
-packets, rather than set the ID field to zero (which we did for some
-time until the compression issue was pointed out to us).
+So I'm going to apply this series to net-next, thanks a lot
+for doing this work!
