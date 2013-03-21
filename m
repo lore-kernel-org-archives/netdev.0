@@ -1,68 +1,80 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH v2 3/3 net-next] tcp: implement RFC5682 F-RTO
-Date: Thu, 21 Mar 2013 09:26:17 -0400
-Message-ID: <CADVnQym3WOtUZQLmyO6KtymyeErMWTphR452O3wN=ZqusvvQHQ@mail.gmail.com>
-References: <1363822380-16687-1-git-send-email-ycheng@google.com>
-	<1363822380-16687-3-git-send-email-ycheng@google.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH 2/4] xen-netfront: drop skb when skb->len >
+ 65535
+Date: Thu, 21 Mar 2013 13:40:08 +0000
+Message-ID: <1363873208.2160.13.camel@zion.uk.xensource.com>
+References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
+	 <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>
+	 <51471AAC.2050509@citrix.com>
+	 <1363614500.30193.47.camel@zakaz.uk.xensource.com>
+	 <51471DE0.9060506@citrix.com> <514A15C8.1050209@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Ilpo Jarvinen <ilpo.jarvinen@cs.helsinki.fi>,
-	Netdev <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <wei.liu2@citrix.com>, Ian Campbell <Ian.Campbell@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:52228 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755777Ab3CUN0S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 09:26:18 -0400
-Received: by mail-ea0-f174.google.com with SMTP id q10so864339eaj.19
-        for <netdev@vger.kernel.org>; Thu, 21 Mar 2013 06:26:17 -0700 (PDT)
-In-Reply-To: <1363822380-16687-3-git-send-email-ycheng@google.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:29834 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757033Ab3CUNkK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 09:40:10 -0400
+In-Reply-To: <514A15C8.1050209@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 20, 2013 at 7:33 PM, Yuchung Cheng <ycheng@google.com> wrote:
-> This patch implements F-RTO (foward RTO recovery):
->
-> When the first retransmission after timeout is acknowledged, F-RTO
-> sends new data instead of old data. If the next ACK acknowledges
-> some never-retransmitted data, then the timeout was spurious and the
-> congestion state is reverted.  Otherwise if the next ACK selectively
-> acknowledges the new data, then the timeout was genuine and the
-> loss recovery continues. This idea applies to recurring timeouts
-> as well. While F-RTO sends different data during timeout recovery,
-> it does not (and should not) change the congestion control.
->
-> The implementaion follows the three steps of SACK enhanced algorithm
-> (section 3) in RFC5682. Step 1 is in tcp_enter_loss(). Step 2 and
-> 3 are in tcp_process_loss().  The basic version is not supported
-> because SACK enhanced version also works for non-SACK connections.
->
-> The new implementation is functionally in parity with the old F-RTO
-> implementation except the one case where it increases undo events:
-> In addition to the RFC algorithm, a spurious timeout may be detected
-> without sending data in step 2, as long as the SACK confirms not
-> all the original data are dropped. When this happens, the sender
-> will undo the cwnd and perhaps enter fast recovery instead. This
-> additional check increases the F-RTO undo events by 5x compared
-> to the prior implementation on Google Web servers, since the sender
-> often does not have new data to send for HTTP.
->
-> Note F-RTO may detect spurious timeout before Eifel with timestamps
-> does so.
->
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> ---
-> ChangeLog in v2:
->  - Removed extra while spaces
->  - Allow F-RTO in sack reneging case to detect spurious retransmit(s)
->  - Re-tested after merging with the recent TCP tail loss probe patch
->
->  Documentation/networking/ip-sysctl.txt | 18 +++------
->  include/linux/tcp.h                    |  3 +-
->  net/ipv4/tcp_input.c                   | 73 ++++++++++++++++++++++++++++------
->  3 files changed, 68 insertions(+), 26 deletions(-)
+On Wed, 2013-03-20 at 20:02 +0000, David Vrabel wrote:
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+> >  		first->size -= txp->size;
+> > @@ -938,6 +949,12 @@ static int netbk_count_requests(struct xenvif *vif,
+> >  			return -EINVAL;
+> >  		}
+> >  	} while ((txp++)->flags & XEN_NETTXF_more_data);
+> > +
+> > +	if (drop) {
+> > +		netbk_tx_err(vif, txp, idx + frags);
+> 
+> This needs to be netbk_tx_err(vif, first, idx + frags) or the guest will
+> crash as we push a bunch of invalid responses.
+> 
+
+Can this really handle the situation when first->size overflows? In that
+case frag == 0, the netbk_tx_err call is in fact netbk_tx_err(vif, txp,
+idx). idx is the ring index of first txp, so in fact you're only
+responding to the head txp, ignoring other tx requests for the same skb?
+
+Even first->size doesn't overflow, a malicious / buggy frontend can
+still generate tx req that makes txp->size > first->size. In that case
+there could be also some trailing tx requests left un-responded.
+
+I check the code before XSA-39 fix, its logic is more or less the same,
+but it did work. My suspicion is that those trailing tx requests are
+invalidated in future loops of xen_netbk_tx_build_gops.
+
+I think the correct action is to just take first txp and loop responding
+until we consume the whole packet.
+
+
+Wei.
+
+
+> David
+> 
+> > +		return -EIO;
+> > +	}
+> > +
+> >  	return frags;
+> >  }
+> > 
+> > @@ -1327,7 +1344,7 @@ static unsigned xen_netbk_tx_build_gops(struct
+> > xen_netbk *netbk)
+> >  				continue;
+> >  		}
+> > 
+> > -		ret = netbk_count_requests(vif, &txreq, txfrags, work_to_do);
+> > +		ret = netbk_count_requests(vif, &txreq, txfrags, work_to_do, idx);
+> >  		if (unlikely(ret < 0))
+> >  			continue;
