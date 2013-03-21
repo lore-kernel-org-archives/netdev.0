@@ -1,64 +1,56 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: FW: [PATCH ethtool] ethtool: Add string to display support for
- KR PHY
-Date: Thu, 21 Mar 2013 18:15:56 +0000
-Message-ID: <1363889756.2736.23.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1360659168-14346-1-git-send-email-vasundhara.volam@emulex.com>
-	 <f30e7788-1920-426f-88c2-afadac2cee75@CMEXHTCAS2.ad.emulex.com>
-	 <7C0C8AF2F9AEF149AE37E5CA3E2101D3216EDBB7@CMEXMB2.ad.emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Vasundhara, Volam" <Vasundhara.Volam@Emulex.Com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net-next] net: fix psock_fanout on sparc64
+Date: Thu, 21 Mar 2013 14:10:03 -0400
+Message-ID: <1363889403-7712-1-git-send-email-willemb@google.com>
+References: <CA+FuTSewLdQZbWPLrdbtG2xtaWSdrPDO3yz6boXqgStYhh3fcg@mail.gmail.com>
+Cc: Willem de Bruijn <willemb@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:18667 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752362Ab3CUSP7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 14:15:59 -0400
-In-Reply-To: <7C0C8AF2F9AEF149AE37E5CA3E2101D3216EDBB7@CMEXMB2.ad.emulex.com>
+Received: from mail-qc0-f201.google.com ([209.85.216.201]:55289 "EHLO
+	mail-qc0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752402Ab3CUSQB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 14:16:01 -0400
+Received: by mail-qc0-f201.google.com with SMTP id o22so286047qcr.0
+        for <netdev@vger.kernel.org>; Thu, 21 Mar 2013 11:15:59 -0700 (PDT)
+In-Reply-To: <CA+FuTSewLdQZbWPLrdbtG2xtaWSdrPDO3yz6boXqgStYhh3fcg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-03-13 at 09:29 +0000, Vasundhara, Volam wrote:
-> Please apply.
+The packetsocket fanout test uses a packet ring. Use TPACKET_V2
+instead of TPACKET_V1 to work around a known 32/64 bit issue in
+the older ring that manifests on sparc64.
 
-Sorry for the delay; I've applied this now.
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ tools/testing/selftests/net/psock_fanout.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-Ben.
-
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Vasundhara, Volam
-> Sent: Tuesday, February 12, 2013 3:16 PM
-> To: bhutchings@solarflare.com
-> Cc: netdev@vger.kernel.org; Vasundhara, Volam
-> Subject: [PATCH ethtool] ethtool: Add string to display support for KR PHY
-> 
-> 
-> Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
-> ---
->  ethtool.c |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/ethtool.c b/ethtool.c
-> index 55bc082..205f574 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -512,6 +512,7 @@ dump_link_caps(const char *prefix, const char *an_prefix, u32 mask,
->  		{ 0, ADVERTISED_2500baseX_Full,     "2500baseX/Full" },
->  		{ 0, ADVERTISED_10000baseT_Full,    "10000baseT/Full" },
->  		{ 0, ADVERTISED_10000baseKX4_Full,  "10000baseKX4/Full" },
-> +		{ 0, ADVERTISED_10000baseKR_Full,   "10000baseKR/Full" },
->  		{ 0, ADVERTISED_20000baseMLD2_Full, "20000baseMLD2/Full" },
->  		{ 0, ADVERTISED_40000baseKR4_Full,  "40000baseKR4/Full" },
->  		{ 0, ADVERTISED_40000baseCR4_Full,  "40000baseCR4/Full" },
-> --
-> 1.7.10.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+diff --git a/tools/testing/selftests/net/psock_fanout.c b/tools/testing/selftests/net/psock_fanout.c
+index 226e5e3..59bd636 100644
+--- a/tools/testing/selftests/net/psock_fanout.c
++++ b/tools/testing/selftests/net/psock_fanout.c
+@@ -182,7 +182,13 @@ static char *sock_fanout_open_ring(int fd)
+ 		.tp_frame_nr   = RING_NUM_FRAMES,
+ 	};
+ 	char *ring;
++	int val = TPACKET_V2;
+ 
++	if (setsockopt(fd, SOL_PACKET, PACKET_VERSION, (void *) &val,
++		       sizeof(val))) {
++		perror("packetsock ring setsockopt version");
++		exit(1);
++	}
+ 	if (setsockopt(fd, SOL_PACKET, PACKET_RX_RING, (void *) &req,
+ 		       sizeof(req))) {
+ 		perror("packetsock ring setsockopt");
+@@ -201,7 +207,7 @@ static char *sock_fanout_open_ring(int fd)
+ 
+ static int sock_fanout_read_ring(int fd, void *ring)
+ {
+-	struct tpacket_hdr *header = ring;
++	struct tpacket2_hdr *header = ring;
+ 	int count = 0;
+ 
+ 	while (header->tp_status & TP_STATUS_USER && count < RING_NUM_FRAMES) {
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.1.3
