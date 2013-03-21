@@ -1,42 +1,33 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] lantiq_etop: use free_netdev(netdev) instead of kfree()
-Date: Thu, 21 Mar 2013 15:31:42 +0800
-Message-ID: <CAPgLHd8S_MBawcZQNKvKXBWes6bg=1y32GT_UYs215htg3AkZQ@mail.gmail.com>
+From: Masatake YAMATO <yamato@redhat.com>
+Subject: Re: [PATCH 2/2] thermal: shorten too long mcast group name
+Date: Thu, 21 Mar 2013 16:46:23 +0900 (JST)
+Message-ID: <20130321.164623.197949072785579777.yamato@redhat.com>
+References: <1363693648-10015-1-git-send-email-yamato@redhat.com>
+	<1363693648-10015-3-git-send-email-yamato@redhat.com>
+	<20130320.120832.24140728832512231.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: davem@davemloft.net, jiri@resnulli.us, wfp5p@virginia.edu,
-	jdmason@kudzu.us, gregkh@linuxfoundation.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f52.google.com ([209.85.214.52]:48593 "EHLO
-	mail-bk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757840Ab3CUHbo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 03:31:44 -0400
-Received: by mail-bk0-f52.google.com with SMTP id jk13so1257788bkc.39
-        for <netdev@vger.kernel.org>; Thu, 21 Mar 2013 00:31:42 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:27053 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755317Ab3CUHq0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Mar 2013 03:46:26 -0400
+In-Reply-To: <20130320.120832.24140728832512231.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> From: Masatake YAMATO <yamato@redhat.com>
+> Date: Tue, 19 Mar 2013 20:47:28 +0900
+> 
+>> The original name is too long.
+>> 
+>> Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+> 
+> This change needs to go in via the Thermal driver maintainers.
 
-Freeing netdev without free_netdev() leads to net, tx leaks.
-And it may lead to dereferencing freed pointer.
+Thanks. I've submitted the patch to linux-acpi ML.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/ethernet/lantiq_etop.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
-index 6a21274..bfdb0686 100644
---- a/drivers/net/ethernet/lantiq_etop.c
-+++ b/drivers/net/ethernet/lantiq_etop.c
-@@ -769,7 +769,7 @@ ltq_etop_probe(struct platform_device *pdev)
- 	return 0;
- 
- err_free:
--	kfree(dev);
-+	free_netdev(dev);
- err_out:
- 	return err;
- }
+Masatake YAMATO
