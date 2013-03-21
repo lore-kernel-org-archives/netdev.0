@@ -1,95 +1,65 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next] net: fix psock_fanout selftest hash collision
-Date: Thu, 21 Mar 2013 13:27:51 -0400
-Message-ID: <CA+FuTSfkxkbZ8N1Vr2NVmT-8Obd2sGAo2a_Wwv=U-4KPvnLPPA@mail.gmail.com>
-References: <CA+FuTSeN1wXrSP8-piCdnv8MuqgokndSYsiidvdtC=d2tCqcDQ@mail.gmail.com>
- <1363761764-4374-1-git-send-email-willemb@google.com> <20130320.123344.1566685302188091721.davem@davemloft.net>
- <20130320.135934.156565403641352244.davem@davemloft.net> <CA+FuTScnkvSZ1U=vmELNEpS4hU62iMV7B2ZDHT8KGAwxCxA-Ng@mail.gmail.com>
- <514AA946.6020603@redhat.com>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH 2/3] netlink: Remove an unused pointer in netlink_skb_parms
+Date: Thu, 21 Mar 2013 10:41:21 -0700
+Message-ID: <CALCETrXEmxKmunP9HUORvT9rOjf4xu+7Fz9bZ=GXarcsYQNh7A@mail.gmail.com>
+References: <cover.1363815201.git.luto@amacapital.net>
+	<a8766c8b116b5e6fcaa932fe94f84a584554b98f.1363815201.git.luto@amacapital.net>
+	<87d2ut1cpj.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:55209 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751324Ab3CUR2W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 13:28:22 -0400
-Received: by mail-ie0-f176.google.com with SMTP id x14so3762223ief.21
-        for <netdev@vger.kernel.org>; Thu, 21 Mar 2013 10:28:22 -0700 (PDT)
-In-Reply-To: <514AA946.6020603@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <87d2ut1cpj.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 21, 2013 at 2:31 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 03/21/2013 01:07 AM, Willem de Bruijn wrote:
->>
->> On Wed, Mar 20, 2013 at 1:59 PM, David Miller <davem@davemloft.net> wrote:
->>>
->>> From: David Miller <davem@davemloft.net>
->>> Date: Wed, 20 Mar 2013 12:33:44 -0400 (EDT)
->>>
->>>> From: Willem de Bruijn <willemb@google.com>
->>>> Date: Wed, 20 Mar 2013 02:42:44 -0400
->>>>
->>>>> Fix flaky results with PACKET_FANOUT_HASH depending on whether the
->>>>> two flows hash into the same packet socket or not.
->>>>>
->>>>> Also adds tests for PACKET_FANOUT_LB and PACKET_FANOUT_CPU and
->>>>> replaces the counting method with a packet ring.
->>>>>
->>>>> Signed-off-by: Willem de Bruijn <willemb@google.com>
->>>>
->>>>
->>>> Applied, thanks.  I'll retest on my sparc64 box later today.
->>>
->>>
->>> Unfortunately, it's still broken there:
->>
->>
->> This looks like a new problem. Now the counters all stay zero.
->>
->> I am looking into it. I have not been able to reproduce this on my
->> x86_64 so far, so just brought a sparc32 up in qemu. Had less luck
->> with sparc64, but impressive that it works at all. Come to think of
->> it, is this a 64-bit kernel with 32-bit userland? Perhaps that
->> affects packet ring memory layout.
+On Wed, Mar 20, 2013 at 11:36 PM, Eric W. Biederman
+<ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org> wrote:
 >
+> net/ipv4/inet_diag.c:                      sk_user_ns(NETLINK_CB(in_skb).ssk),
+> net/ipv4/inet_diag.c:                             sk_user_ns(NETLINK_CB(cb->skb).ssk),
+> net/ipv4/inet_diag.c:                                          sk_user_ns(NETLINK_CB(cb->skb).ssk),
+> net/ipv4/udp_diag.c:                    sk_user_ns(NETLINK_CB(cb->skb).ssk),
+> net/ipv4/udp_diag.c:                       sk_user_ns(NETLINK_CB(in_skb).ssk),
+> net/netfilter/nfnetlink_log.c:                                         sk_user_ns(NETLINK_CB(skb).ssk));
+> net/netlink/af_netlink.c:               NETLINK_CB(skb).ssk = ssk;
+> net/sched/cls_flow.c:               sk_user_ns(NETLINK_CB(in_skb).ssk) != &init_user_ns)
 >
-> That can affect the ring buffer in case of TPACKET_V1, which is default
-> if not specified otherwise. See Documentation/networking/packet_mmap.txt
-> +514
+> I count 8 uses.
 
-Thanks, Daniel. In that case, the following should fix it.
-Unfortunately, I don't have the hardware to verify, but it still
-passes on my platforms. Let me know if you prefer it as a regular
-patch instead of inline.
+Whoops.  I clearly fail at grepping and building with the correct
+configuration.  I'll drop this patch entirely -- it's independent of
+the other two.
 
-diff --git a/tools/testing/selftests/net/psock_fanout.c
-b/tools/testing/selftests/net/psock_fanout.c
-index 226e5e3..59bd636 100644
---- a/tools/testing/selftests/net/psock_fanout.c
-+++ b/tools/testing/selftests/net/psock_fanout.c
-@@ -182,7 +182,13 @@ static char *sock_fanout_open_ring(int fd)
-                .tp_frame_nr   = RING_NUM_FRAMES,
-        };
-        char *ring;
-+       int val = TPACKET_V2;
+>
+> Eric
+>
+>>
+>> diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+>> index e0f746b..9ac1201 100644
+>> --- a/include/linux/netlink.h
+>> +++ b/include/linux/netlink.h
+>> @@ -19,7 +19,6 @@ struct netlink_skb_parms {
+>>       struct scm_creds        creds;          /* Skb credentials      */
+>>       __u32                   portid;
+>>       __u32                   dst_group;
+>> -     struct sock             *ssk;
+>>  };
+>>
+>>  #define NETLINK_CB(skb)              (*(struct netlink_skb_parms*)&((skb)->cb))
 
-+       if (setsockopt(fd, SOL_PACKET, PACKET_VERSION, (void *) &val,
-+                      sizeof(val))) {
-+               perror("packetsock ring setsockopt version");
-+               exit(1);
-+       }
-        if (setsockopt(fd, SOL_PACKET, PACKET_RX_RING, (void *) &req,
-                       sizeof(req))) {
-                perror("packetsock ring setsockopt");
-@@ -201,7 +207,7 @@ static char *sock_fanout_open_ring(int fd)
 
- static int sock_fanout_read_ring(int fd, void *ring)
- {
--       struct tpacket_hdr *header = ring;
-+       struct tpacket2_hdr *header = ring;
-        int count = 0;
 
-        while (header->tp_status & TP_STATUS_USER && count < RING_NUM_FRAMES) {
+-- 
+Andy Lutomirski
+AMA Capital Management, LLC
