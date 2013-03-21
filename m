@@ -1,26 +1,42 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH 3/3] net/macb: make clk_enable atomic
-Date: Fri, 22 Mar 2013 14:38:39 -0300
-Message-ID: <CAOMZO5BRDU_-fvv4PZQcLe-4OdZ4bDQ8m+nNHEFcC1Y2+zdh9g@mail.gmail.com>
-References: <1363973615-17863-1-git-send-email-s.trumtrar@pengutronix.de>
-	<1363973615-17863-3-git-send-email-s.trumtrar@pengutronix.de>
+From: "WERNER ERICH ZELLER" <e639@humv.es>
+Subject: ACHTUNG FRIEND!
+Date: Fri, 22 Mar 2013 00:57:10 +0100 (CET)
+Message-ID: <55112.82.128.17.98.1363910230.squirrel__43553.1884934337$1363975560$gmane$org@correo.humv.es>
+Reply-To: wernererichzeller@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Nicolas Ferre <nicolas.ferre@atmel.com>
-To: Steffen Trumtrar <s.trumtrar@pengutronix.de>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:53199 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422661Ab3CVRik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 13:38:40 -0400
-Received: by mail-pb0-f44.google.com with SMTP id wz12so3251235pbc.3
-        for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 10:38:40 -0700 (PDT)
-In-Reply-To: <1363973615-17863-3-git-send-email-s.trumtrar@pengutronix.de>
+Received: from agero.humv.es ([193.146.74.20]:58141 "EHLO agero.humv.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422633Ab3CVSFL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Mar 2013 14:05:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 22, 2013 at 2:33 PM, Steffen Trumtrar
-<s.trumtrar@pengutronix.de> wrote:
-> Use clk_prepare_enable to be safe on SMP systems.
 
-Wouldn't you have to use clk_disable_unprepare() now?
+
+
+--=20
+Eure Eminenz, das ist das dritte Mal, dass ich schreibe Ihnen bin, ich
+bete nur du es dieses Mal! Ich bin Barrister Werner Erich Zeller des
+Vereinigten K=F6nigreichs und ich schreibe auf Ihre 100% aufrichtiges
+Interesse und Partnerschaft bei der Wiederherstellung der H=F6he von =80=
+ 15
+Mio. (EURO) Privatbank, die fr=FCher zu einem sp=E4ten Kunde von mir, d=
+ie,
+ohne einem bestimmten Nest weitergegeben geh=F6rten zu suchen Angeh=F6r=
+igen
+und Empf=E4nger. Wie f=FCr die Rechtm=E4=DFigkeit und Echtheit, lassen =
+Sie das zu
+mir, ich werde es als Rechtsanwalt rechtlich 100% Griff! Wir stehen bei=
+de
+zu 50% des =80 15 Mio. (EURO) jeweils als Partner profitieren. Schicken=
+ Sie
+mir eine private E-Mail f=FCr die Details: wernererichzeller@yahoo.com =
+und
+Telefon: +447024090820
+
+Bitte zur=FCck zu mir sofort!
+Werner Erich Zeller (Attorney)
