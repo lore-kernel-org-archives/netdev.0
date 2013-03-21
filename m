@@ -1,84 +1,57 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH 4/4] xen-netback: coalesce slots before copying
-Date: Thu, 21 Mar 2013 18:37:05 +0000
-Message-ID: <1363891025.17509.1.camel@zion.uk.xensource.com>
-References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
-	 <1363602955-24790-5-git-send-email-wei.liu2@citrix.com>
-	 <1363608462.30193.34.camel@zakaz.uk.xensource.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH] net: reduce net_rx_action() latency to 2 HZ
+Date: Thu, 21 Mar 2013 14:45:44 -0400
+Message-ID: <1363891544.6345.53.camel@gandalf.local.home>
+References: <1362503713.15793.121.camel@edumazet-glaptop>
+	 <CAP=VYLrvXREA=HGnnUCi2N77yRdktQDop1PpzJkveXDihJ3DOw@mail.gmail.com>
+	 <1363879647.4431.8.camel@edumazet-glaptop> <514B429C.5070605@windriver.com>
+	 <1363887794.4431.29.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"annie.li@oracle.com" <annie.li@oracle.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:35358 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750979Ab3CUShH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Mar 2013 14:37:07 -0400
-In-Reply-To: <1363608462.30193.34.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, stable <stable@vger.kernel.org>,
+	Willy Tarreau <w@1wt.eu>, Tom Herbert <therbert@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1363887794.4431.29.camel@edumazet-glaptop>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-03-18 at 12:07 +0000, Ian Campbell wrote:
-
-> >  	/* Skip first skb fragment if it is on same page as header fragment. */
-> >  	start = (frag_get_pending_idx(&shinfo->frags[0]) == pending_idx);
-> >  
-> > -	for (i = start; i < shinfo->nr_frags; i++, txp++) {
-> > -		struct page *page;
-> > -		pending_ring_idx_t index;
-> > +	/* Coalesce tx requests, at this point the packet passed in
-> > +	 * should be <= 64K. Any packets larger than 64K has been
-> > +	 * dropped / caused fatal error early on.
+On Thu, 2013-03-21 at 10:43 -0700, Eric Dumazet wrote:
+> On Thu, 2013-03-21 at 13:25 -0400, Paul Gortmaker wrote:
 > 
-> Whereabouts is this? Since the size field is u16 how do we even detect
-> this case. Since (at least prior to your other fix in this series) it
-> would have overflowed when the guest constructed the request.
+> > That is also reasonably portable back to 2.6.34.  And it is more
+> > interesting too -- it will be interesting in a preempt_rt context
+> > too, once RT moves ahead off the current 3.6 baseline, which still
+> > has the old count-limit of 10 vs the new 2ms time limit.
+> > 
+> > RT (3.4 and 3.6 based) currently has this patch from Steven:
+> > http://git.kernel.org/cgit/linux/kernel/git/paulg/3.6-rt-patches.git/tree/net-tx-action-avoid-livelock-on-rt.patch
 > 
+> Interesting, as Google has an internal patch removing this trylock() as
+> well.
+> 
+> I think I should upstream it eventually ;)
 
-This is done in netbk_count_requests(). I will fix the comment here.
+Yes please :-)
+
+-- Steve
+
 
 > 
-> > @@ -1025,6 +1108,7 @@ static int xen_netbk_tx_check_gop(struct xen_netbk *netbk,
-> >  	struct gnttab_copy *gop = *gopp;
-> >  	u16 pending_idx = *((u16 *)skb->data);
-> >  	struct skb_shared_info *shinfo = skb_shinfo(skb);
-> > +	struct pending_tx_info *tx_info;
-> >  	int nr_frags = shinfo->nr_frags;
-> >  	int i, err, start;
-> >  
-> > @@ -1037,12 +1121,17 @@ static int xen_netbk_tx_check_gop(struct xen_netbk *netbk,
-> >  	start = (frag_get_pending_idx(&shinfo->frags[0]) == pending_idx);
-> >  
-> >  	for (i = start; i < nr_frags; i++) {
-> > -		int j, newerr;
-> > +		int j, newerr = 0, n;
-> >  
-> >  		pending_idx = frag_get_pending_idx(&shinfo->frags[i]);
-> > +		tx_info = &netbk->pending_tx_info[pending_idx];
-> >  
-> >  		/* Check error status: if okay then remember grant handle. */
-> > -		newerr = (++gop)->status;
-> > +		for (n = 0; n < tx_info->nr_tx_req; n++) {
-> struct pending_tx_info is used in some arrays which can have a fair few
-> elements so if there are ways to reduce the size that is worth
-> considering I think.
+> commit 2f0a3f573b531dc57c268fd809dc65169edae369
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Thu Dec 13 09:18:01 2012 -0800
 > 
-> So rather than storing both nr_tx_req and start_idx can we just store
-> start_idx and loop while start_idx != 0 (where the first one has
-> start_idx == zero)?
+>     net-dev_xmit_hold_queues: fix a busy loop in net_tx_action
+>     
+>     Under load, net_tx_action() fails to acquire qdisc lock
+>     and reschedules qdisc in a never ending loop.
+>     
+>     The spin_trylock() has almost no chance to complete because
+>     of ticket spinlock and xmit_hold_queue holding the lock for long
+>     period of times.
+>     
 > 
-> This might fall out more naturally if you were to instead store next_idx
-> in each pending tx with a suitable terminator at the end? Or could be
-> last_idx if it is convenient to count that way round, you don't need to
-> respond in-order.
-> 
-
-Done shrinking this structure.
-
-
-Wei.
