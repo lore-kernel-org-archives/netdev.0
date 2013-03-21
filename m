@@ -1,68 +1,78 @@
-From: Frank Li <lznuaa@gmail.com>
-Subject: Re: [PATCH] fec: Unify fec_ptp.c and fec.c
-Date: Thu, 21 Mar 2013 18:15:28 +0800
-Message-ID: <CAHrpEqSKS66EK_0L-e3=kDGAAYH3uBKzs=4pkmzvrJoVZpBgyQ@mail.gmail.com>
-References: <1363810268-24398-1-git-send-email-festevam@gmail.com>
-	<20130321062146.GL20530@pengutronix.de>
-	<CAHrpEqTd2mVaTW6pwJaHqYreDo6rT_6s_o=Z=OtU71PZzZCSVg@mail.gmail.com>
-	<20130321100949.GO20530@pengutronix.de>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: virtio: remove obsolete virtqueue_get_queue_index()
+Date: Thu, 21 Mar 2013 10:01:46 +0100
+Message-ID: <20130321100146.7a741c75@gondolin>
+References: <878v5hp6hc.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Fabio Estevam <festevam@gmail.com>, davem@davemloft.net,
-	Frank.Li@freescale.com, netdev@vger.kernel.org,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: =?ISO-8859-1?Q?Uwe_Kleine=2DK=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <mst@redhat.com>, <netdev@vger.kernel.org>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:51309 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752245Ab3CUKPa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 06:15:30 -0400
-Received: by mail-wg0-f49.google.com with SMTP id gg9so1670239wgb.4
-        for <netdev@vger.kernel.org>; Thu, 21 Mar 2013 03:15:29 -0700 (PDT)
-In-Reply-To: <20130321100949.GO20530@pengutronix.de>
+Received: from e06smtp18.uk.ibm.com ([195.75.94.114]:58030 "EHLO
+	e06smtp18.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752151Ab3CUKSi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 06:18:38 -0400
+Received: from /spool/local
+	by e06smtp18.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <cornelia.huck@de.ibm.com>;
+	Thu, 21 Mar 2013 10:15:43 -0000
+Received: from b06cxnps3075.portsmouth.uk.ibm.com (d06relay10.portsmouth.uk.ibm.com [9.149.109.195])
+	by d06dlp01.portsmouth.uk.ibm.com (Postfix) with ESMTP id 84C653130698
+	for <netdev@vger.kernel.org>; Thu, 21 Mar 2013 09:02:32 +0000 (GMT)
+Received: from d06av11.portsmouth.uk.ibm.com (d06av11.portsmouth.uk.ibm.com [9.149.37.252])
+	by b06cxnps3075.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r2L91euQ52232414
+	for <netdev@vger.kernel.org>; Thu, 21 Mar 2013 09:01:40 GMT
+Received: from d06av11.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av11.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r2L91m5o010047
+	for <netdev@vger.kernel.org>; Thu, 21 Mar 2013 03:01:49 -0600
+In-Reply-To: <878v5hp6hc.fsf@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/3/21 Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>:
-> Hello,
->
-> On Thu, Mar 21, 2013 at 06:02:02PM +0800, Frank Li wrote:
->> I suggest use below patch to fix this problem
->>
->> --- a/drivers/net/ethernet/freescale/Makefile
->> +++ b/drivers/net/ethernet/freescale/Makefile
->> @@ -2,7 +2,8 @@
->>  # Makefile for the Freescale network device drivers.
->>  #
->>
->> -obj-$(CONFIG_FEC) +=3D fec.o fec_ptp.o
->> +obj-$(CONFIG_FEC) +=3D fec_driver.o
->> +fec_driver-objs :=3D fec.o fec_ptp.o
->>  obj-$(CONFIG_FEC_MPC52xx) +=3D fec_mpc52xx.o
->>  ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
->>         obj-$(CONFIG_FEC_MPC52xx) +=3D fec_mpc52xx_phy.o
-> I thought about suggesting something similar, too. I would have renam=
-ed
-> fec.c to (say) fec_base.c and then kept the module name fec.ko. Not s=
-ure
-> keeping the module name is critical.
+On Thu, 21 Mar 2013 17:47:03 +1030
+Rusty Russell <rusty@rustcorp.com.au> wrote:
 
-Okay, how about rename fec.c to fec_main.c?
+> You can access it directly now, since 3.8: v3.7-rc1-13-g06ca287
+> 'virtio: move queue_index and num_free fields into core struct
+> virtqueue.'
+> 
+> Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> 
 
->
-> What is missing from your patch is dropping the EXPORT_SYMBOLs. Other
-> than that I like it better than using a single .c file.
+> diff --git a/drivers/s390/kvm/virtio_ccw.c b/drivers/s390/kvm/virtio_ccw.c
+> index 2029b6c..a7eddc7 100644
+> --- a/drivers/s390/kvm/virtio_ccw.c
+> +++ b/drivers/s390/kvm/virtio_ccw.c
+> @@ -166,7 +166,7 @@ static void virtio_ccw_kvm_notify(struct virtqueue *vq)
+> 
+>  	vcdev = to_vc_device(info->vq->vdev);
+>  	ccw_device_get_schid(vcdev->cdev, &schid);
+> -	do_kvm_notify(schid, virtqueue_get_queue_index(vq));
+> +	do_kvm_notify(schid, vq->index);
+>  }
+> 
+>  static int virtio_ccw_read_vq_conf(struct virtio_ccw_device *vcdev,
+> @@ -188,7 +188,7 @@ static void virtio_ccw_del_vq(struct virtqueue *vq, struct ccw1 *ccw)
+>  	unsigned long flags;
+>  	unsigned long size;
+>  	int ret;
+> -	unsigned int index = virtqueue_get_queue_index(vq);
+> +	unsigned int index = vq->index;
+> 
+>  	/* Remove from our list. */
+>  	spin_lock_irqsave(&vcdev->lock, flags);
+> @@ -610,7 +610,7 @@ static struct virtqueue *virtio_ccw_vq_by_ind(struct virtio_ccw_device *vcdev,
+>  	vq = NULL;
+>  	spin_lock_irqsave(&vcdev->lock, flags);
+>  	list_for_each_entry(info, &vcdev->virtqueues, node) {
+> -		if (virtqueue_get_queue_index(info->vq) == index) {
+> +		if (vq->index == index) {
 
-There are not EXPORT_SYMBOL in my fec.c? which version do you use?
+Should be
+		if (info->vq->index == index) {
 
->
-> Best regards
-> Uwe
->
-> --
-> Pengutronix e.K.                           | Uwe Kleine-K=F6nig      =
-      |
-> Industrial Linux Solutions                 | http://www.pengutronix.d=
-e/  |
+>  			vq = info->vq;
+>  			break;
+>  		}
