@@ -1,39 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] Get rid of attribute parsing in
- rtnetlink_rcv_msg()
-Date: Thu, 21 Mar 2013 15:19:01 -0400 (EDT)
-Message-ID: <20130321.151901.586254173559160329.davem@davemloft.net>
-References: <cover.1363885020.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tgraf@suug.ch
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next] ptp: increase the maximum number of clocks
+Date: Thu, 21 Mar 2013 20:24:19 +0100
+Message-ID: <d219aa87bd5b3e2fa42449720d845a7110f642f0.1363893841.git.jbenc@redhat.com>
+Cc: Richard Cochran <richardcochran@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46081 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751265Ab3CUTTD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 15:19:03 -0400
-In-Reply-To: <cover.1363885020.git.tgraf@suug.ch>
+Received: from mx1.redhat.com ([209.132.183.28]:1567 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751265Ab3CUTYd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Mar 2013 15:24:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu, 21 Mar 2013 18:45:27 +0100
+As network adapters supporting PTP are becoming more common, machines with
+many NICs suddenly have many PHCs, too. Although the PHCs are not used in
+such cases, they produce error messages like this:
 
-> We have been wanting to get rid of rta_buf for a while. It is error
-> prone as it requires subsystems, especially modules, that register a
-> rtnetlink mesage type to also modify rtnetlink.c and thus require
-> the recompilation of the kernel. DECnet is the only user left so after
-> converting it we can safely remove it
-> 
-> Thomas Graf (2):
->   decnet: Parse netlink attributes on our own
->   rtnetlink: Remove passing of attributes into rtnl_doit functions
+igb 0000:07:00.0: ptp_clock_register failed
 
-Looks great.
+Currently, the maximum number of devices accepted by ptp_clock_register
+is 8 which is pretty low. We could silence the error messages but this would
+hurt in case somebody wants to use one of the interfaces to actually run
+PTP, as the /dev/ptp%d device for the desired interface may or may not be
+available after each boot.
 
-I'll apply this once at least some basic sanity test has been done
-on the decnet bits.
+Let's increase the maximum to 128. This shouldn't be a problem, as for the
+char devices, the whole major number is reserved anyway, and 128bit bitmap
+isn't a big deal, either.
 
-Thanks.
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+ drivers/ptp/ptp_clock.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
+index 79f4bce..381d557 100644
+--- a/drivers/ptp/ptp_clock.c
++++ b/drivers/ptp/ptp_clock.c
+@@ -32,7 +32,7 @@
+ #include "ptp_private.h"
+ 
+ #define PTP_MAX_ALARMS 4
+-#define PTP_MAX_CLOCKS 8
++#define PTP_MAX_CLOCKS 128
+ #define PTP_PPS_DEFAULTS (PPS_CAPTUREASSERT | PPS_OFFSETASSERT)
+ #define PTP_PPS_EVENT PPS_CAPTUREASSERT
+ #define PTP_PPS_MODE (PTP_PPS_DEFAULTS | PPS_CANWAIT | PPS_TSFMT_TSPEC)
+-- 
+1.7.6.5
