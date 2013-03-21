@@ -1,622 +1,654 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 1/2] decnet: Parse netlink attributes on our own
-Date: Thu, 21 Mar 2013 18:45:28 +0100
-Message-ID: <5b888618a6aebfebf496c91482794a606b3bb094.1363885020.git.tgraf@suug.ch>
+Subject: [PATCH net-next 2/2] rtnetlink: Remove passing of attributes into rtnl_doit functions
+Date: Thu, 21 Mar 2013 18:45:29 +0100
+Message-ID: <6ca95420a71ea6973c4d42cdbf54f5802d0846e5.1363885020.git.tgraf@suug.ch>
 References: <cover.1363885020.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, linux-decnet-user@lists.sourceforge.net
+Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:39002
+Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:39005
 	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751387Ab3CURph (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 13:45:37 -0400
+	by vger.kernel.org with ESMTP id S1751287Ab3CURpj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 13:45:39 -0400
 In-Reply-To: <cover.1363885020.git.tgraf@suug.ch>
 In-Reply-To: <cover.1363885020.git.tgraf@suug.ch>
 References: <cover.1363885020.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-decnet is the only subsystem left that is relying on the global
-netlink attribute buffer rta_buf. It's horrible design and we
-want to get rid of it.
+With decnet converted, we can finally get rid of rta_buf and its
+computations around it. It also gets rid of the minimal header
+length verification since all message handlers do that explicitly
+anyway.
 
-This converts all of decnet to do implicit attribute parsing. It
-also gets rid of the error prone struct dn_kern_rta.
-
-Yes, the fib_magic() stuff is not pretty.
-
-It's compiled tested but I need someone with appropriate hardware
-to test the patch since I don't have access to it.
-
-Cc: linux-decnet-user@lists.sourceforge.net
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- include/net/dn_fib.h  |  28 ++-----
- net/decnet/dn_fib.c   | 211 +++++++++++++++++++++++++++-----------------------
- net/decnet/dn_route.c |  27 ++++---
- net/decnet/dn_table.c |  42 +++++-----
- 4 files changed, 160 insertions(+), 148 deletions(-)
+ include/net/rtnetlink.h |  2 +-
+ net/bridge/br_mdb.c     |  4 +--
+ net/can/gw.c            |  5 ++-
+ net/core/fib_rules.c    |  4 +--
+ net/core/neighbour.c    |  6 ++--
+ net/core/rtnetlink.c    | 82 ++++++-------------------------------------------
+ net/dcb/dcbnl.c         |  2 +-
+ net/decnet/dn_dev.c     |  4 +--
+ net/decnet/dn_fib.c     |  4 +--
+ net/decnet/dn_route.c   |  2 +-
+ net/ipv4/devinet.c      |  7 ++---
+ net/ipv4/fib_frontend.c |  4 +--
+ net/ipv4/route.c        |  2 +-
+ net/ipv6/addrconf.c     | 10 +++---
+ net/ipv6/addrlabel.c    |  6 ++--
+ net/ipv6/route.c        |  6 ++--
+ net/phonet/pn_netlink.c |  4 +--
+ net/sched/act_api.c     |  2 +-
+ net/sched/cls_api.c     |  2 +-
+ net/sched/sch_api.c     |  6 ++--
+ 20 files changed, 47 insertions(+), 117 deletions(-)
 
-diff --git a/include/net/dn_fib.h b/include/net/dn_fib.h
-index 1ee9d4b..74004af 100644
---- a/include/net/dn_fib.h
-+++ b/include/net/dn_fib.h
-@@ -1,24 +1,9 @@
- #ifndef _NET_DN_FIB_H
- #define _NET_DN_FIB_H
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index 5a15fab..7026648 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -4,7 +4,7 @@
+ #include <linux/rtnetlink.h>
+ #include <net/netlink.h>
  
--/* WARNING: The ordering of these elements must match ordering
-- *          of RTA_* rtnetlink attribute numbers.
-- */
--struct dn_kern_rta {
--        void            *rta_dst;
--        void            *rta_src;
--        int             *rta_iif;
--        int             *rta_oif;
--        void            *rta_gw;
--        u32             *rta_priority;
--        void            *rta_prefsrc;
--        struct rtattr   *rta_mx;
--        struct rtattr   *rta_mp;
--        unsigned char   *rta_protoinfo;
--        u32             *rta_flow;
--        struct rta_cacheinfo *rta_ci;
--	struct rta_session *rta_sess;
+-typedef int (*rtnl_doit_func)(struct sk_buff *, struct nlmsghdr *, void *);
++typedef int (*rtnl_doit_func)(struct sk_buff *, struct nlmsghdr *);
+ typedef int (*rtnl_dumpit_func)(struct sk_buff *, struct netlink_callback *);
+ typedef u16 (*rtnl_calcit_func)(struct sk_buff *, struct nlmsghdr *);
+ 
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index ee79f3f..19942e3 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -382,7 +382,7 @@ static int __br_mdb_add(struct net *net, struct net_bridge *br,
+ 	return ret;
+ }
+ 
+-static int br_mdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int br_mdb_add(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct br_mdb_entry *entry;
+@@ -458,7 +458,7 @@ unlock:
+ 	return err;
+ }
+ 
+-static int br_mdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int br_mdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net_device *dev;
+ 	struct br_mdb_entry *entry;
+diff --git a/net/can/gw.c b/net/can/gw.c
+index 2d117dc..2dc619d 100644
+--- a/net/can/gw.c
++++ b/net/can/gw.c
+@@ -778,8 +778,7 @@ static int cgw_parse_attr(struct nlmsghdr *nlh, struct cf_mod *mod,
+ 	return 0;
+ }
+ 
+-static int cgw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh,
+-			  void *arg)
++static int cgw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh)
+ {
+ 	struct rtcanmsg *r;
+ 	struct cgw_job *gwj;
+@@ -868,7 +867,7 @@ static void cgw_remove_all_jobs(void)
+ 	}
+ }
+ 
+-static int cgw_remove_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
++static int cgw_remove_job(struct sk_buff *skb,  struct nlmsghdr *nlh)
+ {
+ 	struct cgw_job *gwj = NULL;
+ 	struct hlist_node *nx;
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 58a4ba2..d5a9f8e 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -266,7 +266,7 @@ errout:
+ 	return err;
+ }
+ 
+-static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
++static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct fib_rule_hdr *frh = nlmsg_data(nlh);
+@@ -415,7 +415,7 @@ errout:
+ 	return err;
+ }
+ 
+-static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
++static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct fib_rule_hdr *frh = nlmsg_data(nlh);
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 3863b8f..c72a646 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1613,7 +1613,7 @@ int neigh_table_clear(struct neigh_table *tbl)
+ }
+ EXPORT_SYMBOL(neigh_table_clear);
+ 
+-static int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ndmsg *ndm;
+@@ -1677,7 +1677,7 @@ out:
+ 	return err;
+ }
+ 
+-static int neigh_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int neigh_add(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ndmsg *ndm;
+@@ -1955,7 +1955,7 @@ static const struct nla_policy nl_ntbl_parm_policy[NDTPA_MAX+1] = {
+ 	[NDTPA_LOCKTIME]		= { .type = NLA_U64 },
+ };
+ 
+-static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct neigh_table *tbl;
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 9a9b99e..751f124 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -515,32 +515,6 @@ out:
+ 	return err;
+ }
+ 
+-static const int rtm_min[RTM_NR_FAMILIES] =
+-{
+-	[RTM_FAM(RTM_NEWLINK)]      = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
+-	[RTM_FAM(RTM_NEWADDR)]      = NLMSG_LENGTH(sizeof(struct ifaddrmsg)),
+-	[RTM_FAM(RTM_NEWROUTE)]     = NLMSG_LENGTH(sizeof(struct rtmsg)),
+-	[RTM_FAM(RTM_NEWRULE)]      = NLMSG_LENGTH(sizeof(struct fib_rule_hdr)),
+-	[RTM_FAM(RTM_NEWQDISC)]     = NLMSG_LENGTH(sizeof(struct tcmsg)),
+-	[RTM_FAM(RTM_NEWTCLASS)]    = NLMSG_LENGTH(sizeof(struct tcmsg)),
+-	[RTM_FAM(RTM_NEWTFILTER)]   = NLMSG_LENGTH(sizeof(struct tcmsg)),
+-	[RTM_FAM(RTM_NEWACTION)]    = NLMSG_LENGTH(sizeof(struct tcamsg)),
+-	[RTM_FAM(RTM_GETMULTICAST)] = NLMSG_LENGTH(sizeof(struct rtgenmsg)),
+-	[RTM_FAM(RTM_GETANYCAST)]   = NLMSG_LENGTH(sizeof(struct rtgenmsg)),
 -};
-+#include <linux/netlink.h>
-+
-+extern const struct nla_policy rtm_dn_policy[];
- 
- struct dn_fib_res {
- 	struct fib_rule *r;
-@@ -93,10 +78,10 @@ struct dn_fib_table {
- 	u32 n;
- 
- 	int (*insert)(struct dn_fib_table *t, struct rtmsg *r, 
--			struct dn_kern_rta *rta, struct nlmsghdr *n, 
-+			struct nlattr *attrs[], struct nlmsghdr *n,
- 			struct netlink_skb_parms *req);
- 	int (*delete)(struct dn_fib_table *t, struct rtmsg *r,
--			struct dn_kern_rta *rta, struct nlmsghdr *n,
-+			struct nlattr *attrs[], struct nlmsghdr *n,
- 			struct netlink_skb_parms *req);
- 	int (*lookup)(struct dn_fib_table *t, const struct flowidn *fld,
- 			struct dn_fib_res *res);
-@@ -116,13 +101,12 @@ extern void dn_fib_cleanup(void);
- extern int dn_fib_ioctl(struct socket *sock, unsigned int cmd, 
- 			unsigned long arg);
- extern struct dn_fib_info *dn_fib_create_info(const struct rtmsg *r, 
--				struct dn_kern_rta *rta, 
-+				struct nlattr *attrs[],
- 				const struct nlmsghdr *nlh, int *errp);
- extern int dn_fib_semantic_match(int type, struct dn_fib_info *fi, 
- 			const struct flowidn *fld,
- 			struct dn_fib_res *res);
- extern void dn_fib_release_info(struct dn_fib_info *fi);
--extern __le16 dn_fib_get_attr16(struct rtattr *attr, int attrlen, int type);
- extern void dn_fib_flush(void);
- extern void dn_fib_select_multipath(const struct flowidn *fld,
- 					struct dn_fib_res *res);
-diff --git a/net/decnet/dn_fib.c b/net/decnet/dn_fib.c
-index e36614e..42a8048 100644
---- a/net/decnet/dn_fib.c
-+++ b/net/decnet/dn_fib.c
-@@ -145,22 +145,10 @@ static inline struct dn_fib_info *dn_fib_find_info(const struct dn_fib_info *nfi
- 	return NULL;
- }
- 
--__le16 dn_fib_get_attr16(struct rtattr *attr, int attrlen, int type)
-+static int dn_fib_count_nhs(const struct nlattr *attr)
- {
--	while(RTA_OK(attr,attrlen)) {
--		if (attr->rta_type == type)
--			return *(__le16*)RTA_DATA(attr);
--		attr = RTA_NEXT(attr, attrlen);
--	}
 -
--	return 0;
--}
--
--static int dn_fib_count_nhs(struct rtattr *rta)
+-static const int rta_max[RTM_NR_FAMILIES] =
 -{
--	int nhs = 0;
--	struct rtnexthop *nhp = RTA_DATA(rta);
--	int nhlen = RTA_PAYLOAD(rta);
-+	struct rtnexthop *nhp = nla_data(attr);
-+	int nhs = 0, nhlen = nla_len(attr);
- 
- 	while(nhlen >= (int)sizeof(struct rtnexthop)) {
- 		if ((nhlen -= nhp->rtnh_len) < 0)
-@@ -172,10 +160,11 @@ static int dn_fib_count_nhs(struct rtattr *rta)
- 	return nhs;
+-	[RTM_FAM(RTM_NEWLINK)]      = IFLA_MAX,
+-	[RTM_FAM(RTM_NEWADDR)]      = IFA_MAX,
+-	[RTM_FAM(RTM_NEWROUTE)]     = RTA_MAX,
+-	[RTM_FAM(RTM_NEWRULE)]      = FRA_MAX,
+-	[RTM_FAM(RTM_NEWQDISC)]     = TCA_MAX,
+-	[RTM_FAM(RTM_NEWTCLASS)]    = TCA_MAX,
+-	[RTM_FAM(RTM_NEWTFILTER)]   = TCA_MAX,
+-	[RTM_FAM(RTM_NEWACTION)]    = TCAA_MAX,
+-};
+-
+ int rtnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, unsigned int group, int echo)
+ {
+ 	struct sock *rtnl = net->rtnl;
+@@ -1537,7 +1511,7 @@ errout:
+ 	return err;
  }
  
--static int dn_fib_get_nhs(struct dn_fib_info *fi, const struct rtattr *rta, const struct rtmsg *r)
-+static int dn_fib_get_nhs(struct dn_fib_info *fi, const struct nlattr *attr,
-+			  const struct rtmsg *r)
+-static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh)
  {
--	struct rtnexthop *nhp = RTA_DATA(rta);
--	int nhlen = RTA_PAYLOAD(rta);
-+	struct rtnexthop *nhp = nla_data(attr);
-+	int nhlen = nla_len(attr);
- 
- 	change_nexthops(fi) {
- 		int attrlen = nhlen - sizeof(struct rtnexthop);
-@@ -187,7 +176,10 @@ static int dn_fib_get_nhs(struct dn_fib_info *fi, const struct rtattr *rta, cons
- 		nh->nh_weight = nhp->rtnh_hops + 1;
- 
- 		if (attrlen) {
--			nh->nh_gw = dn_fib_get_attr16(RTNH_DATA(nhp), attrlen, RTA_GATEWAY);
-+			struct nlattr *gw_attr;
-+
-+			gw_attr = nla_find((struct nlattr *) (nhp + 1), attrlen, RTA_GATEWAY);
-+			nh->nh_gw = gw_attr ? nla_get_le16(gw_attr) : 0;
- 		}
- 		nhp = RTNH_NEXT(nhp);
- 	} endfor_nexthops(fi);
-@@ -268,7 +260,8 @@ out:
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ifinfomsg *ifm;
+@@ -1578,7 +1552,7 @@ errout:
+ 	return err;
  }
  
- 
--struct dn_fib_info *dn_fib_create_info(const struct rtmsg *r, struct dn_kern_rta *rta, const struct nlmsghdr *nlh, int *errp)
-+struct dn_fib_info *dn_fib_create_info(const struct rtmsg *r, struct nlattr *attrs[],
-+				       const struct nlmsghdr *nlh, int *errp)
+-static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
  {
+ 	struct net *net = sock_net(skb->sk);
+ 	const struct rtnl_link_ops *ops;
+@@ -1709,7 +1683,7 @@ static int rtnl_group_changelink(struct net *net, int group,
+ 	return 0;
+ }
+ 
+-static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	const struct rtnl_link_ops *ops;
+@@ -1864,7 +1838,7 @@ out:
+ 	}
+ }
+ 
+-static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
++static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ifinfomsg *ifm;
+@@ -2081,7 +2055,7 @@ int ndo_dflt_fdb_add(struct ndmsg *ndm,
+ }
+ EXPORT_SYMBOL(ndo_dflt_fdb_add);
+ 
+-static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ndmsg *ndm;
+@@ -2179,7 +2153,7 @@ int ndo_dflt_fdb_del(struct ndmsg *ndm,
+ }
+ EXPORT_SYMBOL(ndo_dflt_fdb_del);
+ 
+-static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ndmsg *ndm;
+@@ -2478,8 +2452,7 @@ errout:
+ 	return err;
+ }
+ 
+-static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh,
+-			       void *arg)
++static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ifinfomsg *ifm;
+@@ -2549,8 +2522,7 @@ out:
+ 	return err;
+ }
+ 
+-static int rtnl_bridge_dellink(struct sk_buff *skb, struct nlmsghdr *nlh,
+-			       void *arg)
++static int rtnl_bridge_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ifinfomsg *ifm;
+@@ -2620,10 +2592,6 @@ out:
+ 	return err;
+ }
+ 
+-/* Protected by RTNL sempahore.  */
+-static struct rtattr **rta_buf;
+-static int rtattr_max;
+-
+ /* Process one rtnetlink message. */
+ 
+ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+@@ -2631,7 +2599,6 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	struct net *net = sock_net(skb->sk);
+ 	rtnl_doit_func doit;
+ 	int sz_idx, kind;
+-	int min_len;
+ 	int family;
+ 	int type;
  	int err;
- 	struct dn_fib_info *fi = NULL;
-@@ -281,11 +274,9 @@ struct dn_fib_info *dn_fib_create_info(const struct rtmsg *r, struct dn_kern_rta
- 	if (dn_fib_props[r->rtm_type].scope > r->rtm_scope)
- 		goto err_inval;
- 
--	if (rta->rta_mp) {
--		nhs = dn_fib_count_nhs(rta->rta_mp);
--		if (nhs == 0)
--			goto err_inval;
--	}
-+	if (attrs[RTA_MULTIPATH] &&
-+	    (nhs = dn_fib_count_nhs(attrs[RTA_MULTIPATH])) == 0)
-+		goto err_inval;
- 
- 	fi = kzalloc(sizeof(*fi)+nhs*sizeof(struct dn_fib_nh), GFP_KERNEL);
- 	err = -ENOBUFS;
-@@ -295,53 +286,65 @@ struct dn_fib_info *dn_fib_create_info(const struct rtmsg *r, struct dn_kern_rta
- 	fi->fib_protocol = r->rtm_protocol;
- 	fi->fib_nhs = nhs;
- 	fi->fib_flags = r->rtm_flags;
--	if (rta->rta_priority)
--		fi->fib_priority = *rta->rta_priority;
--	if (rta->rta_mx) {
--		int attrlen = RTA_PAYLOAD(rta->rta_mx);
--		struct rtattr *attr = RTA_DATA(rta->rta_mx);
- 
--		while(RTA_OK(attr, attrlen)) {
--			unsigned int flavour = attr->rta_type;
-+	if (attrs[RTA_PRIORITY])
-+		fi->fib_priority = nla_get_u32(attrs[RTA_PRIORITY]);
-+
-+	if (attrs[RTA_METRICS]) {
-+		struct nlattr *attr;
-+		int rem;
- 
--			if (flavour) {
--				if (flavour > RTAX_MAX)
-+		nla_for_each_nested(attr, attrs[RTA_METRICS], rem) {
-+			int type = nla_type(attr);
-+
-+			if (type) {
-+				if (type > RTAX_MAX || nla_len(attr) < 4)
- 					goto err_inval;
--				fi->fib_metrics[flavour-1] = *(unsigned int *)RTA_DATA(attr);
-+
-+				fi->fib_metrics[type-1] = nla_get_u32(attr);
- 			}
--			attr = RTA_NEXT(attr, attrlen);
- 		}
- 	}
--	if (rta->rta_prefsrc)
--		memcpy(&fi->fib_prefsrc, rta->rta_prefsrc, 2);
- 
--	if (rta->rta_mp) {
--		if ((err = dn_fib_get_nhs(fi, rta->rta_mp, r)) != 0)
-+	if (attrs[RTA_PREFSRC])
-+		fi->fib_prefsrc = nla_get_le16(attrs[RTA_PREFSRC]);
-+
-+	if (attrs[RTA_MULTIPATH]) {
-+		if ((err = dn_fib_get_nhs(fi, attrs[RTA_MULTIPATH], r)) != 0)
- 			goto failure;
--		if (rta->rta_oif && fi->fib_nh->nh_oif != *rta->rta_oif)
-+
-+		if (attrs[RTA_OIF] &&
-+		    fi->fib_nh->nh_oif != nla_get_u32(attrs[RTA_OIF]))
- 			goto err_inval;
--		if (rta->rta_gw && memcmp(&fi->fib_nh->nh_gw, rta->rta_gw, 2))
-+
-+		if (attrs[RTA_GATEWAY] &&
-+		    fi->fib_nh->nh_gw != nla_get_le16(attrs[RTA_GATEWAY]))
- 			goto err_inval;
- 	} else {
- 		struct dn_fib_nh *nh = fi->fib_nh;
--		if (rta->rta_oif)
--			nh->nh_oif = *rta->rta_oif;
--		if (rta->rta_gw)
--			memcpy(&nh->nh_gw, rta->rta_gw, 2);
-+
-+		if (attrs[RTA_OIF])
-+			nh->nh_oif = nla_get_u32(attrs[RTA_OIF]);
-+
-+		if (attrs[RTA_GATEWAY])
-+			nh->nh_gw = nla_get_le16(attrs[RTA_GATEWAY]);
-+
- 		nh->nh_flags = r->rtm_flags;
- 		nh->nh_weight = 1;
+@@ -2679,32 +2646,11 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		return err;
  	}
  
- 	if (r->rtm_type == RTN_NAT) {
--		if (rta->rta_gw == NULL || nhs != 1 || rta->rta_oif)
-+		if (!attrs[RTA_GATEWAY] || nhs != 1 || attrs[RTA_OIF])
- 			goto err_inval;
--		memcpy(&fi->fib_nh->nh_gw, rta->rta_gw, 2);
-+
-+		fi->fib_nh->nh_gw = nla_get_le16(attrs[RTA_GATEWAY]);
- 		goto link_it;
- 	}
- 
- 	if (dn_fib_props[r->rtm_type].error) {
--		if (rta->rta_gw || rta->rta_oif || rta->rta_mp)
-+		if (attrs[RTA_GATEWAY] || attrs[RTA_OIF] || attrs[RTA_MULTIPATH])
- 			goto err_inval;
-+
- 		goto link_it;
- 	}
- 
-@@ -367,8 +370,8 @@ struct dn_fib_info *dn_fib_create_info(const struct rtmsg *r, struct dn_kern_rta
- 	}
- 
- 	if (fi->fib_prefsrc) {
--		if (r->rtm_type != RTN_LOCAL || rta->rta_dst == NULL ||
--		    memcmp(&fi->fib_prefsrc, rta->rta_dst, 2))
-+		if (r->rtm_type != RTN_LOCAL || !attrs[RTA_DST] ||
-+		    fi->fib_prefsrc != nla_get_le16(attrs[RTA_DST]))
- 			if (dnet_addr_type(fi->fib_prefsrc) != RTN_LOCAL)
- 				goto err_inval;
- 	}
-@@ -486,29 +489,24 @@ void dn_fib_select_multipath(const struct flowidn *fld, struct dn_fib_res *res)
- 	spin_unlock_bh(&dn_fib_multipath_lock);
- }
- 
-+const struct nla_policy rtm_dn_policy[RTA_MAX + 1] = {
-+	[RTA_DST]		= { .type = NLA_U16 },
-+	[RTA_SRC]		= { .type = NLA_U16 },
-+	[RTA_IIF]		= { .type = NLA_U32 },
-+	[RTA_OIF]		= { .type = NLA_U32 },
-+	[RTA_GATEWAY]		= { .type = NLA_U16 },
-+	[RTA_PRIORITY]		= { .type = NLA_U32 },
-+	[RTA_PREFSRC]		= { .type = NLA_U16 },
-+	[RTA_METRICS]		= { .type = NLA_NESTED },
-+	[RTA_MULTIPATH]		= { .type = NLA_NESTED },
-+	[RTA_TABLE]		= { .type = NLA_U32 },
-+	[RTA_MARK]		= { .type = NLA_U32 },
-+};
- 
--static int dn_fib_check_attr(struct rtmsg *r, struct rtattr **rta)
--{
--	int i;
+-	memset(rta_buf, 0, (rtattr_max * sizeof(struct rtattr *)));
 -
--	for(i = 1; i <= RTA_MAX; i++) {
--		struct rtattr *attr = rta[i-1];
--		if (attr) {
--			if (RTA_PAYLOAD(attr) < 4 && RTA_PAYLOAD(attr) != 2)
--				return -EINVAL;
--			if (i != RTA_MULTIPATH && i != RTA_METRICS &&
--			    i != RTA_TABLE)
--				rta[i-1] = (struct rtattr *)RTA_DATA(attr);
+-	min_len = rtm_min[sz_idx];
+-	if (nlh->nlmsg_len < min_len)
+-		return -EINVAL;
+-
+-	if (nlh->nlmsg_len > min_len) {
+-		int attrlen = nlh->nlmsg_len - NLMSG_ALIGN(min_len);
+-		struct rtattr *attr = (void *)nlh + NLMSG_ALIGN(min_len);
+-
+-		while (RTA_OK(attr, attrlen)) {
+-			unsigned int flavor = attr->rta_type & NLA_TYPE_MASK;
+-			if (flavor) {
+-				if (flavor > rta_max[sz_idx])
+-					return -EINVAL;
+-				rta_buf[flavor-1] = attr;
+-			}
+-			attr = RTA_NEXT(attr, attrlen);
 -		}
 -	}
 -
--	return 0;
--}
--
--static inline u32 rtm_get_table(struct rtattr **rta, u8 table)
-+static inline u32 rtm_get_table(struct nlattr *attrs[], u8 table)
- {
--	if (rta[RTA_TABLE - 1])
--		table = nla_get_u32((struct nlattr *) rta[RTA_TABLE - 1]);
-+	if (attrs[RTA_TABLE])
-+		table = nla_get_u32(attrs[RTA_TABLE]);
+ 	doit = rtnl_get_doit(family, type);
+ 	if (doit == NULL)
+ 		return -EOPNOTSUPP;
  
+-	return doit(skb, nlh, (void *)&rta_buf[0]);
++	return doit(skb, nlh);
+ }
+ 
+ static void rtnetlink_rcv(struct sk_buff *skb)
+@@ -2774,16 +2720,6 @@ static struct pernet_operations rtnetlink_net_ops = {
+ 
+ void __init rtnetlink_init(void)
+ {
+-	int i;
+-
+-	rtattr_max = 0;
+-	for (i = 0; i < ARRAY_SIZE(rta_max); i++)
+-		if (rta_max[i] > rtattr_max)
+-			rtattr_max = rta_max[i];
+-	rta_buf = kmalloc(rtattr_max * sizeof(struct rtattr *), GFP_KERNEL);
+-	if (!rta_buf)
+-		panic("rtnetlink_init: cannot allocate rta_buf\n");
+-
+ 	if (register_pernet_subsys(&rtnetlink_net_ops))
+ 		panic("rtnetlink_init: cannot initialize rtnetlink\n");
+ 
+diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
+index 21291f1..40d5829 100644
+--- a/net/dcb/dcbnl.c
++++ b/net/dcb/dcbnl.c
+@@ -1658,7 +1658,7 @@ static const struct reply_func reply_funcs[DCB_CMD_MAX+1] = {
+ 	[DCB_CMD_CEE_GET]	= { RTM_GETDCB, dcbnl_cee_get },
+ };
+ 
+-static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct net_device *netdev;
+diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
+index c8da116..7d91970 100644
+--- a/net/decnet/dn_dev.c
++++ b/net/decnet/dn_dev.c
+@@ -563,7 +563,7 @@ static const struct nla_policy dn_ifa_policy[IFA_MAX+1] = {
+ 				    .len = IFNAMSIZ - 1 },
+ };
+ 
+-static int dn_nl_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int dn_nl_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct nlattr *tb[IFA_MAX+1];
+@@ -607,7 +607,7 @@ errout:
+ 	return err;
+ }
+ 
+-static int dn_nl_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int dn_nl_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct nlattr *tb[IFA_MAX+1];
+diff --git a/net/decnet/dn_fib.c b/net/decnet/dn_fib.c
+index 42a8048..f093059 100644
+--- a/net/decnet/dn_fib.c
++++ b/net/decnet/dn_fib.c
+@@ -511,7 +511,7 @@ static inline u32 rtm_get_table(struct nlattr *attrs[], u8 table)
  	return table;
  }
-@@ -517,8 +515,9 @@ static int dn_fib_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *
+ 
+-static int dn_fib_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int dn_fib_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh)
  {
  	struct net *net = sock_net(skb->sk);
  	struct dn_fib_table *tb;
--	struct rtattr **rta = arg;
--	struct rtmsg *r = NLMSG_DATA(nlh);
-+	struct rtmsg *r = nlmsg_data(nlh);
-+	struct nlattr *attrs[RTA_MAX+1];
-+	int err;
- 
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
-@@ -526,22 +525,24 @@ static int dn_fib_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *
- 	if (!net_eq(net, &init_net))
- 		return -EINVAL;
- 
--	if (dn_fib_check_attr(r, rta))
--		return -EINVAL;
-+	err = nlmsg_parse(nlh, sizeof(*r), attrs, RTA_MAX, rtm_dn_policy);
-+	if (err < 0)
-+		return err;
- 
--	tb = dn_fib_get_table(rtm_get_table(rta, r->rtm_table), 0);
--	if (tb)
--		return tb->delete(tb, r, (struct dn_kern_rta *)rta, nlh, &NETLINK_CB(skb));
-+	tb = dn_fib_get_table(rtm_get_table(attrs, r->rtm_table), 0);
-+	if (!tb)
-+		return -ESRCH;
- 
--	return -ESRCH;
-+	return tb->delete(tb, r, attrs, nlh, &NETLINK_CB(skb));
+@@ -536,7 +536,7 @@ static int dn_fib_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *
+ 	return tb->delete(tb, r, attrs, nlh, &NETLINK_CB(skb));
  }
  
- static int dn_fib_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+-static int dn_fib_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int dn_fib_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh)
  {
  	struct net *net = sock_net(skb->sk);
  	struct dn_fib_table *tb;
--	struct rtattr **rta = arg;
--	struct rtmsg *r = NLMSG_DATA(nlh);
-+	struct rtmsg *r = nlmsg_data(nlh);
-+	struct nlattr *attrs[RTA_MAX+1];
-+	int err;
- 
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
-@@ -549,14 +550,15 @@ static int dn_fib_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *
- 	if (!net_eq(net, &init_net))
- 		return -EINVAL;
- 
--	if (dn_fib_check_attr(r, rta))
--		return -EINVAL;
-+	err = nlmsg_parse(nlh, sizeof(*r), attrs, RTA_MAX, rtm_dn_policy);
-+	if (err < 0)
-+		return err;
- 
--	tb = dn_fib_get_table(rtm_get_table(rta, r->rtm_table), 1);
--	if (tb)
--		return tb->insert(tb, r, (struct dn_kern_rta *)rta, nlh, &NETLINK_CB(skb));
-+	tb = dn_fib_get_table(rtm_get_table(attrs, r->rtm_table), 1);
-+	if (!tb)
-+		return -ENOBUFS;
- 
--	return -ENOBUFS;
-+	return tb->insert(tb, r, attrs, nlh, &NETLINK_CB(skb));
- }
- 
- static void fib_magic(int cmd, int type, __le16 dst, int dst_len, struct dn_ifaddr *ifa)
-@@ -566,10 +568,31 @@ static void fib_magic(int cmd, int type, __le16 dst, int dst_len, struct dn_ifad
- 		struct nlmsghdr nlh;
- 		struct rtmsg rtm;
- 	} req;
--	struct dn_kern_rta rta;
-+	struct {
-+		struct nlattr hdr;
-+		__le16 dst;
-+	} dst_attr = {
-+		.dst = dst,
-+	};
-+	struct {
-+		struct nlattr hdr;
-+		__le16 prefsrc;
-+	} prefsrc_attr = {
-+		.prefsrc = ifa->ifa_local,
-+	};
-+	struct {
-+		struct nlattr hdr;
-+		u32 oif;
-+	} oif_attr = {
-+		.oif = ifa->ifa_dev->dev->ifindex,
-+	};
-+	struct nlattr *attrs[RTA_MAX+1] = {
-+		[RTA_DST] = (struct nlattr *) &dst_attr,
-+		[RTA_PREFSRC] = (struct nlattr * ) &prefsrc_attr,
-+		[RTA_OIF] = (struct nlattr *) &oif_attr,
-+	};
- 
- 	memset(&req.rtm, 0, sizeof(req.rtm));
--	memset(&rta, 0, sizeof(rta));
- 
- 	if (type == RTN_UNICAST)
- 		tb = dn_fib_get_table(RT_MIN_TABLE, 1);
-@@ -591,14 +614,10 @@ static void fib_magic(int cmd, int type, __le16 dst, int dst_len, struct dn_ifad
- 	req.rtm.rtm_scope = (type != RTN_LOCAL ? RT_SCOPE_LINK : RT_SCOPE_HOST);
- 	req.rtm.rtm_type = type;
- 
--	rta.rta_dst = &dst;
--	rta.rta_prefsrc = &ifa->ifa_local;
--	rta.rta_oif = &ifa->ifa_dev->dev->ifindex;
--
- 	if (cmd == RTM_NEWROUTE)
--		tb->insert(tb, &req.rtm, &rta, &req.nlh, NULL);
-+		tb->insert(tb, &req.rtm, attrs, &req.nlh, NULL);
- 	else
--		tb->delete(tb, &req.rtm, &rta, &req.nlh, NULL);
-+		tb->delete(tb, &req.rtm, attrs, &req.nlh, NULL);
- }
- 
- static void dn_fib_add_ifaddr(struct dn_ifaddr *ifa)
 diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index 5ac0e15..b4b3508 100644
+index b4b3508..5904429 100644
 --- a/net/decnet/dn_route.c
 +++ b/net/decnet/dn_route.c
-@@ -1619,17 +1619,21 @@ errout:
- static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh, void *arg)
+@@ -1616,7 +1616,7 @@ errout:
+ /*
+  * This is called by both endnodes and routers now.
+  */
+-static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh, void *arg)
++static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
  {
  	struct net *net = sock_net(in_skb->sk);
--	struct rtattr **rta = arg;
  	struct rtmsg *rtm = nlmsg_data(nlh);
- 	struct dn_route *rt = NULL;
- 	struct dn_skb_cb *cb;
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index af57bba..20a9f92 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -536,7 +536,7 @@ struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix,
+ 	return NULL;
+ }
+ 
+-static int inet_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int inet_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct nlattr *tb[IFA_MAX+1];
+@@ -775,7 +775,7 @@ static struct in_ifaddr *find_matching_ifa(struct in_ifaddr *ifa)
+ 	return NULL;
+ }
+ 
+-static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct in_ifaddr *ifa;
+@@ -1730,8 +1730,7 @@ static const struct nla_policy devconf_ipv4_policy[NETCONFA_MAX+1] = {
+ };
+ 
+ static int inet_netconf_get_devconf(struct sk_buff *in_skb,
+-				    struct nlmsghdr *nlh,
+-				    void *arg)
++				    struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(in_skb->sk);
+ 	struct nlattr *tb[NETCONFA_MAX+1];
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index eb4bb12..0e74398 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -604,7 +604,7 @@ errout:
+ 	return err;
+ }
+ 
+-static int inet_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int inet_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct fib_config cfg;
+@@ -626,7 +626,7 @@ errout:
+ 	return err;
+ }
+ 
+-static int inet_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++static int inet_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct fib_config cfg;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 6e28514..550781a 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2311,7 +2311,7 @@ nla_put_failure:
+ 	return -EMSGSIZE;
+ }
+ 
+-static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh, void *arg)
++static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(in_skb->sk);
+ 	struct rtmsg *rtm;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index fa36a67..15794fd 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -544,8 +544,7 @@ static const struct nla_policy devconf_ipv6_policy[NETCONFA_MAX+1] = {
+ };
+ 
+ static int inet6_netconf_get_devconf(struct sk_buff *in_skb,
+-				     struct nlmsghdr *nlh,
+-				     void *arg)
++				     struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(in_skb->sk);
+ 	struct nlattr *tb[NETCONFA_MAX+1];
+@@ -3578,7 +3577,7 @@ static const struct nla_policy ifa_ipv6_policy[IFA_MAX+1] = {
+ };
+ 
+ static int
+-inet6_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++inet6_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ifaddrmsg *ifm;
+@@ -3644,7 +3643,7 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u8 ifa_flags,
+ }
+ 
+ static int
+-inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
++inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ifaddrmsg *ifm;
+@@ -3983,8 +3982,7 @@ static int inet6_dump_ifacaddr(struct sk_buff *skb, struct netlink_callback *cb)
+ 	return inet6_dump_addr(skb, cb, type);
+ }
+ 
+-static int inet6_rtm_getaddr(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+-			     void *arg)
++static int inet6_rtm_getaddr(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(in_skb->sk);
+ 	struct ifaddrmsg *ifm;
+diff --git a/net/ipv6/addrlabel.c b/net/ipv6/addrlabel.c
+index 6f226c8..f083a58 100644
+--- a/net/ipv6/addrlabel.c
++++ b/net/ipv6/addrlabel.c
+@@ -414,8 +414,7 @@ static const struct nla_policy ifal_policy[IFAL_MAX+1] = {
+ 	[IFAL_LABEL]		= { .len = sizeof(u32), },
+ };
+ 
+-static int ip6addrlbl_newdel(struct sk_buff *skb, struct nlmsghdr *nlh,
+-			     void *arg)
++static int ip6addrlbl_newdel(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ifaddrlblmsg *ifal;
+@@ -530,8 +529,7 @@ static inline int ip6addrlbl_msgsize(void)
+ 		+ nla_total_size(4);	/* IFAL_LABEL */
+ }
+ 
+-static int ip6addrlbl_get(struct sk_buff *in_skb, struct nlmsghdr* nlh,
+-			  void *arg)
++static int ip6addrlbl_get(struct sk_buff *in_skb, struct nlmsghdr* nlh)
+ {
+ 	struct net *net = sock_net(in_skb->sk);
+ 	struct ifaddrlblmsg *ifal;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index e5fe004..ad0aa6b 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2355,7 +2355,7 @@ beginning:
+ 	return last_err;
+ }
+ 
+-static int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
++static int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh)
+ {
+ 	struct fib6_config cfg;
  	int err;
- 	struct sk_buff *skb;
- 	struct flowidn fld;
-+	struct nlattr *tb[RTA_MAX+1];
- 
- 	if (!net_eq(net, &init_net))
- 		return -EINVAL;
- 
-+	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_dn_policy);
-+	if (err < 0)
-+		return err;
-+
- 	memset(&fld, 0, sizeof(fld));
- 	fld.flowidn_proto = DNPROTO_NSP;
- 
-@@ -1639,12 +1643,14 @@ static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh, void
- 	skb_reset_mac_header(skb);
- 	cb = DN_SKB_CB(skb);
- 
--	if (rta[RTA_SRC-1])
--		memcpy(&fld.saddr, RTA_DATA(rta[RTA_SRC-1]), 2);
--	if (rta[RTA_DST-1])
--		memcpy(&fld.daddr, RTA_DATA(rta[RTA_DST-1]), 2);
--	if (rta[RTA_IIF-1])
--		memcpy(&fld.flowidn_iif, RTA_DATA(rta[RTA_IIF-1]), sizeof(int));
-+	if (tb[RTA_SRC])
-+		fld.saddr = nla_get_le16(tb[RTA_SRC]);
-+
-+	if (tb[RTA_DST])
-+		fld.daddr = nla_get_le16(tb[RTA_DST]);
-+
-+	if (tb[RTA_IIF])
-+		fld.flowidn_iif = nla_get_u32(tb[RTA_IIF]);
- 
- 	if (fld.flowidn_iif) {
- 		struct net_device *dev;
-@@ -1669,10 +1675,9 @@ static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh, void
- 		if (!err && -rt->dst.error)
- 			err = rt->dst.error;
- 	} else {
--		int oif = 0;
--		if (rta[RTA_OIF - 1])
--			memcpy(&oif, RTA_DATA(rta[RTA_OIF - 1]), sizeof(int));
--		fld.flowidn_oif = oif;
-+		if (tb[RTA_OIF])
-+			fld.flowidn_oif = nla_get_u32(tb[RTA_OIF]);
-+
- 		err = dn_route_output_key((struct dst_entry **)&rt, &fld, 0);
- 	}
- 
-diff --git a/net/decnet/dn_table.c b/net/decnet/dn_table.c
-index 6c2445b..fc42a0a 100644
---- a/net/decnet/dn_table.c
-+++ b/net/decnet/dn_table.c
-@@ -224,26 +224,27 @@ static struct dn_zone *dn_new_zone(struct dn_hash *table, int z)
+@@ -2370,7 +2370,7 @@ static int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *a
+ 		return ip6_route_del(&cfg);
  }
  
- 
--static int dn_fib_nh_match(struct rtmsg *r, struct nlmsghdr *nlh, struct dn_kern_rta *rta, struct dn_fib_info *fi)
-+static int dn_fib_nh_match(struct rtmsg *r, struct nlmsghdr *nlh, struct nlattr *attrs[], struct dn_fib_info *fi)
+-static int inet6_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
++static int inet6_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh)
  {
- 	struct rtnexthop *nhp;
- 	int nhlen;
- 
--	if (rta->rta_priority && *rta->rta_priority != fi->fib_priority)
-+	if (attrs[RTA_PRIORITY] &&
-+	    nla_get_u32(attrs[RTA_PRIORITY]) != fi->fib_priority)
- 		return 1;
- 
--	if (rta->rta_oif || rta->rta_gw) {
--		if ((!rta->rta_oif || *rta->rta_oif == fi->fib_nh->nh_oif) &&
--		    (!rta->rta_gw  || memcmp(rta->rta_gw, &fi->fib_nh->nh_gw, 2) == 0))
-+	if (attrs[RTA_OIF] || attrs[RTA_GATEWAY]) {
-+		if ((!attrs[RTA_OIF] || nla_get_u32(attrs[RTA_OIF]) == fi->fib_nh->nh_oif) &&
-+		    (!attrs[RTA_GATEWAY]  || nla_get_le16(attrs[RTA_GATEWAY]) != fi->fib_nh->nh_gw))
- 			return 0;
- 		return 1;
- 	}
- 
--	if (rta->rta_mp == NULL)
-+	if (!attrs[RTA_MULTIPATH])
- 		return 0;
- 
--	nhp = RTA_DATA(rta->rta_mp);
--	nhlen = RTA_PAYLOAD(rta->rta_mp);
-+	nhp = nla_data(attrs[RTA_MULTIPATH]);
-+	nhlen = nla_len(attrs[RTA_MULTIPATH]);
- 
- 	for_nexthops(fi) {
- 		int attrlen = nhlen - sizeof(struct rtnexthop);
-@@ -254,7 +255,10 @@ static int dn_fib_nh_match(struct rtmsg *r, struct nlmsghdr *nlh, struct dn_kern
- 		if (nhp->rtnh_ifindex && nhp->rtnh_ifindex != nh->nh_oif)
- 			return 1;
- 		if (attrlen) {
--			gw = dn_fib_get_attr16(RTNH_DATA(nhp), attrlen, RTA_GATEWAY);
-+			struct nlattr *gw_attr;
-+
-+			gw_attr = nla_find((struct nlattr *) (nhp + 1), attrlen, RTA_GATEWAY);
-+			gw = gw_attr ? nla_get_le16(gw_attr) : 0;
- 
- 			if (gw && gw != nh->nh_gw)
- 				return 1;
-@@ -517,7 +521,8 @@ out:
- 	return skb->len;
+ 	struct fib6_config cfg;
+ 	int err;
+@@ -2562,7 +2562,7 @@ int rt6_dump_route(struct rt6_info *rt, void *p_arg)
+ 		     prefix, 0, NLM_F_MULTI);
  }
  
--static int dn_fib_table_insert(struct dn_fib_table *tb, struct rtmsg *r, struct dn_kern_rta *rta, struct nlmsghdr *n, struct netlink_skb_parms *req)
-+static int dn_fib_table_insert(struct dn_fib_table *tb, struct rtmsg *r, struct nlattr *attrs[],
-+			       struct nlmsghdr *n, struct netlink_skb_parms *req)
+-static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void *arg)
++static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh)
  {
- 	struct dn_hash *table = (struct dn_hash *)tb->data;
- 	struct dn_fib_node *new_f, *f, **fp, **del_fp;
-@@ -536,15 +541,14 @@ static int dn_fib_table_insert(struct dn_fib_table *tb, struct rtmsg *r, struct
- 		return -ENOBUFS;
+ 	struct net *net = sock_net(in_skb->sk);
+ 	struct nlattr *tb[RTA_MAX+1];
+diff --git a/net/phonet/pn_netlink.c b/net/phonet/pn_netlink.c
+index 0193630..dc15f43 100644
+--- a/net/phonet/pn_netlink.c
++++ b/net/phonet/pn_netlink.c
+@@ -61,7 +61,7 @@ static const struct nla_policy ifa_phonet_policy[IFA_MAX+1] = {
+ 	[IFA_LOCAL] = { .type = NLA_U8 },
+ };
  
- 	dz_key_0(key);
--	if (rta->rta_dst) {
--		__le16 dst;
--		memcpy(&dst, rta->rta_dst, 2);
-+	if (attrs[RTA_DST]) {
-+		__le16 dst = nla_get_le16(attrs[RTA_DST]);
- 		if (dst & ~DZ_MASK(dz))
- 			return -EINVAL;
- 		key = dz_key(dst, dz);
- 	}
+-static int addr_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *attr)
++static int addr_doit(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct nlattr *tb[IFA_MAX+1];
+@@ -224,7 +224,7 @@ static const struct nla_policy rtm_phonet_policy[RTA_MAX+1] = {
+ 	[RTA_OIF] = { .type = NLA_U32 },
+ };
  
--	if ((fi = dn_fib_create_info(r, rta, n, &err)) == NULL)
-+	if ((fi = dn_fib_create_info(r, attrs, n, &err)) == NULL)
- 		return err;
- 
- 	if (dz->dz_nent > (dz->dz_divisor << 2) &&
-@@ -654,7 +658,8 @@ out:
+-static int route_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *attr)
++static int route_doit(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct nlattr *tb[RTA_MAX+1];
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 8579c4b..fd70728 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -982,7 +982,7 @@ done:
+ 	return ret;
  }
  
- 
--static int dn_fib_table_delete(struct dn_fib_table *tb, struct rtmsg *r, struct dn_kern_rta *rta, struct nlmsghdr *n, struct netlink_skb_parms *req)
-+static int dn_fib_table_delete(struct dn_fib_table *tb, struct rtmsg *r, struct nlattr *attrs[],
-+			       struct nlmsghdr *n, struct netlink_skb_parms *req)
+-static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
++static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n)
  {
- 	struct dn_hash *table = (struct dn_hash*)tb->data;
- 	struct dn_fib_node **fp, **del_fp, *f;
-@@ -671,9 +676,8 @@ static int dn_fib_table_delete(struct dn_fib_table *tb, struct rtmsg *r, struct
- 		return -ESRCH;
+ 	struct net *net = sock_net(skb->sk);
+ 	struct nlattr *tca[TCA_ACT_MAX + 1];
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 964f5e4..9a04b98 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -118,7 +118,7 @@ static inline u32 tcf_auto_prio(struct tcf_proto *tp)
  
- 	dz_key_0(key);
--	if (rta->rta_dst) {
--		__le16 dst;
--		memcpy(&dst, rta->rta_dst, 2);
-+	if (attrs[RTA_DST]) {
-+		__le16 dst = nla_get_le16(attrs[RTA_DST]);
- 		if (dst & ~DZ_MASK(dz))
- 			return -EINVAL;
- 		key = dz_key(dst, dz);
-@@ -703,7 +707,7 @@ static int dn_fib_table_delete(struct dn_fib_table *tb, struct rtmsg *r, struct
- 				(r->rtm_scope == RT_SCOPE_NOWHERE || f->fn_scope == r->rtm_scope) &&
- 				(!r->rtm_protocol ||
- 					fi->fib_protocol == r->rtm_protocol) &&
--				dn_fib_nh_match(r, n, rta, fi) == 0)
-+				dn_fib_nh_match(r, n, attrs, fi) == 0)
- 			del_fp = fp;
- 	}
+ /* Add/change/delete/get a filter node */
  
+-static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
++static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct nlattr *tca[TCA_MAX + 1];
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index c297e2a..0bbce22 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -971,7 +971,7 @@ check_loop_fn(struct Qdisc *q, unsigned long cl, struct qdisc_walker *w)
+  * Delete/get qdisc.
+  */
+ 
+-static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
++static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct tcmsg *tcm = nlmsg_data(n);
+@@ -1038,7 +1038,7 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+  * Create/change qdisc.
+  */
+ 
+-static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
++static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct tcmsg *tcm;
+@@ -1372,7 +1372,7 @@ done:
+ 
+ 
+ 
+-static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
++static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct tcmsg *tcm = nlmsg_data(n);
 -- 
 1.7.11.7
