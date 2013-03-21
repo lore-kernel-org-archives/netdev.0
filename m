@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] gro: relax ID check in inet_gro_receive()
-Date: Thu, 21 Mar 2013 17:05:11 -0400 (EDT)
-Message-ID: <20130321.170511.612698812448620739.davem@davemloft.net>
-References: <CANP3RGc1+n3Qt7k53NJtPO9njZw+WNVLKTLJq=ErYJmyb-Skcg@mail.gmail.com>
-	<20130321.162017.605403865098695084.davem@davemloft.net>
-	<CANP3RGdjmgm10rH4AZAVt8Zx+MjwKkzxZ6hoJYuYmQXEz25qQg@mail.gmail.com>
+Subject: Re: [PATCH] net: Fix p3_gelic_net sparse warnings
+Date: Thu, 21 Mar 2013 17:17:23 -0400 (EDT)
+Message-ID: <20130321.171723.2170130040090928680.davem@davemloft.net>
+References: <1363898133.1075.43.camel@smoke>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dkravkov@gmail.com, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	dmitry@broadcom.com, eilong@broadcom.com, pshelar@nicira.com,
-	hkchu@google.com
-To: maze@google.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: geoff@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47135 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47173 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753220Ab3CUVFZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 17:05:25 -0400
-In-Reply-To: <CANP3RGdjmgm10rH4AZAVt8Zx+MjwKkzxZ6hoJYuYmQXEz25qQg@mail.gmail.com>
+	with ESMTP id S1752965Ab3CUVRY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 17:17:24 -0400
+In-Reply-To: <1363898133.1075.43.camel@smoke>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Maciej =AFenczykowski <maze@google.com>
-Date: Thu, 21 Mar 2013 13:47:07 -0700
+From: Geoff Levand <geoff@infradead.org>
+Date: Thu, 21 Mar 2013 13:35:33 -0700
 
-> They might create non incrementing IP ID packet sequences on the wire=
-,
-> and this may prevent GRO from kicking in, but it does not make TSO
-> non-reversible
-> (if anything it makes it easy to detect that it happened).
+> Fix these sparse warnings:
+> 
+>   ps3_gelic_net.c: error: marked inline, but without a definition
+> 
+> Signed-off-by: Geoff Levand <geoff@infradead.org>
+> ---
+> 
+> Hi Dave,
+> 
+> Please queue for 3.10.  Thanks.
 
-This is not an acceptable outcome for any form GSO, it should be
-completely transparent.  The packets we would have output individually
-and those which result from the segmented frame must be
-indistinguishable.
+I'd rather you removed all of the inline tags from this foo.c
+file, they are pointless with modern compilers.
