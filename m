@@ -1,68 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] gro: relax ID check in inet_gro_receive()
-Date: Thu, 21 Mar 2013 09:08:11 -0700
-Message-ID: <1363882091.4431.20.camel@edumazet-glaptop>
-References: <1363841553.3333.47.camel@edumazet-glaptop>
-	 <20130321.114616.279859400813363663.davem@davemloft.net>
+From: Alan Ott <alan@signal11.us>
+Subject: Re: RFC: mac802154 Packet Queueing and Slave Devices
+Date: Thu, 21 Mar 2013 12:09:32 -0400
+Message-ID: <514B30BC.4040802@signal11.us>
+References: <504D37A7.60109@signal11.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dmitry@broadcom.com, eilong@broadcom.com,
-	pshelar@nicira.com, hkchu@google.com, maze@google.com
-To: David Miller <davem@davemloft.net>
+Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	slapin@ossfans.org, Tony Cheneau <tony.cheneau@amnesiak.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:32962 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934038Ab3CUQIQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 12:08:16 -0400
-Received: by mail-pb0-f47.google.com with SMTP id rp2so2352069pbb.34
-        for <netdev@vger.kernel.org>; Thu, 21 Mar 2013 09:08:15 -0700 (PDT)
-In-Reply-To: <20130321.114616.279859400813363663.davem@davemloft.net>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:44979 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933005Ab3CUQJd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 12:09:33 -0400
+In-Reply-To: <504D37A7.60109@signal11.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-03-21 at 11:46 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 20 Mar 2013 21:52:33 -0700
+On 09/09/2012 08:43 PM, Alan Ott wrote:
+> Tony and I were recently talking about packet queueing on 802.15.4. What
+> currently happens (in net/mac802154/tx.c) is that each tx packet (skb)
+> is stuck on a work queue, and the worker function then sends each packet
+> to the hardware driver in order.
 > 
-> > GRE TSO support doesn't increment the ID in the inner IP header.
+> The problem with this is that it defeats the netif flow control. The
+> networking layer thinks the packet is sent as soon as it's put on the
+> workqueue (because the function that queues it returns NETDEV_TX_OK to
+> the networking layer), and the workqueue can then get arbitrarily large
+> if an application tries to send a lot of data. (Tony has shown this with
+> iperf)
 > 
-> Is this a fundamental limitation of doing TSO over GRO or
-> were the Broadcom folks just being lazy with their firmware
-> implementation?
-> 
 
-Well, I suspect this hardware is not capable of doing the proper ID
-manipulation twice. (inner and outer header)
+So I tried fixing this using netif_stop_queue() and netif_wake_queue(),
+the standard way. The flow control works, but I'm now losing packets.
 
-Still TSO support permits a single GRE flow going from 3Gbps to 9Gbps on
-our hosts. So even if the inner IP id is 'broken', we are going to use
-TSO.
+It happens like this:
 
-Note we are limited by the receiver, as the receiver has to perform the
-tcp checksum in software (bnx2x doesnt support CHECKSUM_COMPLETE yet)
+ipv6           -> 6lowpan   -> net core -> mac802154         -> hardware
+ single packet     fragment                 netif_stop_queue()
+                   fragment
+                   fragment
+                   fragment
 
-Hopefully next firmware or NIC will do the right thing.
+  Above: a single ipv6 packet is split into fragments by 6lowpan. Each
+  fragment is sent through the networking core where it ends up in
+  mac802154, which will call netif_stop_queue() and netif_wake_queue()
+  for flow control as packets are sent.
 
-> I really don't want to apply this patch, because ipv4 frames
-> even with DF set should have an incrementing ID field, in
-> order to accomodate various header compression schemes.
-> 
-> We go out of our way to do this for normal unencapsulated TCP stream
-> packets, rather than set the ID field to zero (which we did for some
-> time until the compression issue was pointed out to us).
 
-I understand your concern, but this check in GRO brings nothing at all.
+The problem is that since many ieee802154 hardware devices can only hold
+one packet at a time in their tx buffer, netif_stop_queue() gets called
+after the first fragment. Since the 6lowpan code is trying to, in the
+above case, send 4 packets, the remaining 3 will get dropped when
+they're handed to the networking core (dev_queue_xmit()) when the queue
+is stopped.
 
-Once we receive frames with 'bad IPv4 ID', should we accept them or drop
-them ?
+So as a solution, one could envision 6lowpan putting the fragments into
+a queue, and submitting one at a time, as the queue gets woken. The
+problem with this is that there's no way to get notification for when a
+queue is woken. I checked both ppp and ax25 (which would seem to have
+this same issue), and they both have a fragment queue, but they rely on
+external events (mostly unrelated to the queue being woken) to trigger
+sending packets from the queue (see calls to ax25_kick()). That seems
+hacky at best.
 
-TCP stack doesn't care at receive (obviously as this ID is not a concern
-for the transport layer), so GRO should do the same, as GRO is a best
-effort to reduce cpu load.
+A thread from pppoe[1] talks about what's a similar issue. The patch
+from that email was never merged. Even so, their solution seems a bit
+hacky too (because it would basically cause a kick to (in this case)
+6lowpan, whenever an skb gets destroyed (ie: after it's sent). With the
+desire for 6lowpan to be a generic protocol[2], one would want it to be
+efficient on MAC layers which do support longer queues[3].
 
-I fully understand the 'tos' check because of proper ECN support, but
-the ttl check or id check are totally useless and time consuming.
+What am I missing here? What's the right way to do this?
 
-GRO aggregation should roughly work the same than TCP coalescing, and we
-don't care of IP ID or ttl in TCP stack.
+Alan.
+
+[1] http://thread.gmane.org/gmane.linux.network/233089
+[2] There has been some discussion about using 6lowpan on Bluetooth
+low-energy.
+[3] There's also the case where 2 6lowpan instances are on attached to
+the same hardware, or where 6lowpan and raw are being used concurrently.
