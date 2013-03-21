@@ -1,57 +1,51 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH] net: reduce net_rx_action() latency to 2 HZ
-Date: Thu, 21 Mar 2013 14:45:44 -0400
-Message-ID: <1363891544.6345.53.camel@gandalf.local.home>
-References: <1362503713.15793.121.camel@edumazet-glaptop>
-	 <CAP=VYLrvXREA=HGnnUCi2N77yRdktQDop1PpzJkveXDihJ3DOw@mail.gmail.com>
-	 <1363879647.4431.8.camel@edumazet-glaptop> <514B429C.5070605@windriver.com>
-	 <1363887794.4431.29.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] gro: relax ID check in inet_gro_receive()
+Date: Thu, 21 Mar 2013 14:56:27 -0400 (EDT)
+Message-ID: <20130321.145627.565133121162775865.davem@davemloft.net>
+References: <20130321.114616.279859400813363663.davem@davemloft.net>
+	<1363882091.4431.20.camel@edumazet-glaptop>
+	<CAM8tLiMbSQZZW0NBPXGgdHRSJ8UqH+q=QaR+2KOqsf-gt6RHGg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, stable <stable@vger.kernel.org>,
-	Willy Tarreau <w@1wt.eu>, Tom Herbert <therbert@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1363887794.4431.29.camel@edumazet-glaptop>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	dmitry@broadcom.com, eilong@broadcom.com, pshelar@nicira.com,
+	hkchu@google.com, maze@google.com
+To: dkravkov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45892 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751643Ab3CUS4a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 14:56:30 -0400
+In-Reply-To: <CAM8tLiMbSQZZW0NBPXGgdHRSJ8UqH+q=QaR+2KOqsf-gt6RHGg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-03-21 at 10:43 -0700, Eric Dumazet wrote:
-> On Thu, 2013-03-21 at 13:25 -0400, Paul Gortmaker wrote:
-> 
-> > That is also reasonably portable back to 2.6.34.  And it is more
-> > interesting too -- it will be interesting in a preempt_rt context
-> > too, once RT moves ahead off the current 3.6 baseline, which still
-> > has the old count-limit of 10 vs the new 2ms time limit.
-> > 
-> > RT (3.4 and 3.6 based) currently has this patch from Steven:
-> > http://git.kernel.org/cgit/linux/kernel/git/paulg/3.6-rt-patches.git/tree/net-tx-action-avoid-livelock-on-rt.patch
-> 
-> Interesting, as Google has an internal patch removing this trylock() as
-> well.
-> 
-> I think I should upstream it eventually ;)
+From: Dmitry Kravkov <dkravkov@gmail.com>
+Date: Thu, 21 Mar 2013 20:11:37 +0200
 
-Yes please :-)
-
--- Steve
-
-
+>> Well, I suspect this hardware is not capable of doing the proper ID
+>> manipulation twice. (inner and outer header)
 > 
-> commit 2f0a3f573b531dc57c268fd809dc65169edae369
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Thu Dec 13 09:18:01 2012 -0800
-> 
->     net-dev_xmit_hold_queues: fix a busy loop in net_tx_action
->     
->     Under load, net_tx_action() fails to acquire qdisc lock
->     and reschedules qdisc in a never ending loop.
->     
->     The spin_trylock() has almost no chance to complete because
->     of ticket spinlock and xmit_hold_queue holding the lock for long
->     period of times.
->     
-> 
+> This is correct: ID only for one of the headers can be handled with
+> current FW/HW, for other DF is set.
+
+DF does not matter.
+
+Regardless of DF, we must set the ID field correctly.
+
+It is abundantly clear that the current GRE tunnel segmentation
+is not generating packets according to our well documented
+rules, in that we must be able to precisely create exactly
+the original packet stream from the segmented frame.
+
+Someone needs to send me patches to revert the bnx2x GRE segmentation
+support, and any software implementation in our tree that has the same
+bug.
+
+If someone doesn't do it, I will revert all of this code myself.  You
+simply will have to cope with not having this optimization until
+your hardware can do it properly and according to our well established
+rules for segmentation offloads.
+
+Thanks.
