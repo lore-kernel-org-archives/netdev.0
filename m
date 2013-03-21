@@ -1,46 +1,59 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
-Subject: Re: [PATCH net-next] gro: relax ID check in inet_gro_receive()
-Date: Thu, 21 Mar 2013 13:47:07 -0700
-Message-ID: <CANP3RGdjmgm10rH4AZAVt8Zx+MjwKkzxZ6hoJYuYmQXEz25qQg@mail.gmail.com>
-References: <CAM8tLiMbSQZZW0NBPXGgdHRSJ8UqH+q=QaR+2KOqsf-gt6RHGg@mail.gmail.com>
-	<20130321.145627.565133121162775865.davem@davemloft.net>
-	<CANP3RGc1+n3Qt7k53NJtPO9njZw+WNVLKTLJq=ErYJmyb-Skcg@mail.gmail.com>
-	<20130321.162017.605403865098695084.davem@davemloft.net>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [PATCH] ioat/dca: Update DCA BIOS workarounds to use
+ TAINT_FIRMWARE_WORKAROUND
+Date: Thu, 21 Mar 2013 13:55:03 -0700
+Message-ID: <20130321205503.14096.95867.stgit@ahduyck-cp1.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dmitry Kravkov <dkravkov@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux NetDev <netdev@vger.kernel.org>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Hsiao-keng Jerry Chu <hkchu@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: david.woodhouse@intel.com, jeffrey.t.kirsher@intel.com,
+	gospo@redhat.com, bhutchings@solarflare.com, davem@davemloft.net,
+	sassmann@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:35984 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752949Ab3CUUrI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 16:47:08 -0400
-Received: by mail-ob0-f179.google.com with SMTP id un3so3306854obb.24
-        for <netdev@vger.kernel.org>; Thu, 21 Mar 2013 13:47:08 -0700 (PDT)
-In-Reply-To: <20130321.162017.605403865098695084.davem@davemloft.net>
+Received: from mga09.intel.com ([134.134.136.24]:3816 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753177Ab3CUU5F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Mar 2013 16:57:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> We have very reasonable requirements for segmentation offloads
+This change makes it so that the DCA workarounds for broken BIOSes will now
+use WARN_TAINT_ONCE(1, TAINT_FIRMWARE_WORKAROUND, ...) instead of just
+printing a message via dev_err.  This is more appropriate since we are working
+around a sever bug in the BIOS which is the intention of this call.
 
-I would tend to disagree with reversibility being a reasonable requirement.
-It offers extremely little benefit, and thus it's a nice to have at best.
-However, I do understand why you might want it, and thus I can
-understand why you might not want to accept this patch (which would
-make GRO less reversible).
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+ drivers/dma/ioat/dca.c |   11 ++++++++---
+ 1 files changed, 8 insertions(+), 3 deletions(-)
 
-This logic does not apply to the GRE segmentation offload patches.
-They might create non incrementing IP ID packet sequences on the wire,
-and this may prevent GRO from kicking in, but it does not make TSO
-non-reversible
-(if anything it makes it easy to detect that it happened).
-
-Would you perhaps be willing to take a patch which simply removes the
-flag from the driver features?
-But leaves the code in?
+diff --git a/drivers/dma/ioat/dca.c b/drivers/dma/ioat/dca.c
+index 9b04185..9e84d5b 100644
+--- a/drivers/dma/ioat/dca.c
++++ b/drivers/dma/ioat/dca.c
+@@ -470,8 +470,10 @@ struct dca_provider *ioat2_dca_init(struct pci_dev *pdev, void __iomem *iobase)
+ 	}
+ 
+ 	if (!dca2_tag_map_valid(ioatdca->tag_map)) {
+-		dev_err(&pdev->dev, "APICID_TAG_MAP set incorrectly by BIOS, "
+-			"disabling DCA\n");
++		WARN_TAINT_ONCE(1, TAINT_FIRMWARE_WORKAROUND,
++				"%s %s: APICID_TAG_MAP set incorrectly by BIOS, disabling DCA\n",
++				dev_driver_string(&pdev->dev),
++				dev_name(&pdev->dev));
+ 		free_dca_provider(dca);
+ 		return NULL;
+ 	}
+@@ -689,7 +691,10 @@ struct dca_provider *ioat3_dca_init(struct pci_dev *pdev, void __iomem *iobase)
+ 	}
+ 
+ 	if (dca3_tag_map_invalid(ioatdca->tag_map)) {
+-		dev_err(&pdev->dev, "APICID_TAG_MAP set incorrectly by BIOS, disabling DCA\n");
++		WARN_TAINT_ONCE(1, TAINT_FIRMWARE_WORKAROUND,
++				"%s %s: APICID_TAG_MAP set incorrectly by BIOS, disabling DCA\n",
++				dev_driver_string(&pdev->dev),
++				dev_name(&pdev->dev));
+ 		free_dca_provider(dca);
+ 		return NULL;
+ 	}
