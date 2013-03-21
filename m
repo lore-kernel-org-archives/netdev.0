@@ -1,53 +1,42 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/2] netlink: Diag core and basic socket info dumping
-Date: Thu, 21 Mar 2013 12:52:30 +0000
-Message-ID: <20130321125230.GB9046@casper.infradead.org>
-References: <1363857669-19990-1-git-send-email-avagin@openvz.org>
- <1363857669-19990-3-git-send-email-avagin@openvz.org>
+Subject: Re: [PATCH 2/2] thermal: shorten too long mcast group name
+Date: Thu, 21 Mar 2013 13:04:12 +0000
+Message-ID: <20130321130412.GC9046@casper.infradead.org>
+References: <1363693648-10015-1-git-send-email-yamato@redhat.com>
+ <1363693648-10015-3-git-send-email-yamato@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: Andrey Vagin <avagin@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Masatake YAMATO <yamato@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:50013 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754977Ab3CUNEN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 09:04:13 -0400
 Content-Disposition: inline
-In-Reply-To: <1363857669-19990-3-git-send-email-avagin@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1363693648-10015-3-git-send-email-yamato@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/21/13 at 01:21pm, Andrey Vagin wrote:
-> diff --git a/include/uapi/linux/netlink_diag.h b/include/uapi/linux/netlink_diag.h
-> new file mode 100644
-> index 0000000..9328866
-> --- /dev/null
-> +++ b/include/uapi/linux/netlink_diag.h
-> +enum {
-> +	NETLINK_DIAG_MEMINFO,
-> +	NETLINK_DIAG_GROUPS,
-> +
-> +	NETLINK_DIAG_MAX,
-> +};
+On 03/19/13 at 08:47pm, Masatake YAMATO wrote:
+> The original name is too long.
+> 
+> Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+> ---
+>  include/linux/thermal.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/include/linux/thermal.h b/include/linux/thermal.h
+> index f0bd7f9..e3c0ae9 100644
+> --- a/include/linux/thermal.h
+> +++ b/include/linux/thermal.h
+> @@ -44,7 +44,7 @@
+>  /* Adding event notification support elements */
+>  #define THERMAL_GENL_FAMILY_NAME                "thermal_event"
+>  #define THERMAL_GENL_VERSION                    0x01
+> -#define THERMAL_GENL_MCAST_GROUP_NAME           "thermal_mc_group"
+> +#define THERMAL_GENL_MCAST_GROUP_NAME           "thermal_mc_grp"
 
-Please follow the common pattern and define NETLINK_DIAG_MAX as
-NETLINK_DIAG_GROUPS like other by doing>
-
-	[...] 
-        __NETLINK_DIAG_MAX,
-};
- 
-#define NETLINK_DIAG_MAX (__NETLINK_DIAG_MAX - 1)
- 
-Everyone is used to do:
- 
-        struct nlattr *attrs[NETLINK_DIAG_MAX+1];
-         
-        nla_parse([...], NETLINK_DIAG_MAX, [...]
-
-In fact, the follow-up patch to ss is buggy because of this.
-UNIX_DIAG_MAX suffers from the same problem which is problem the
-cause for this.
+Just saying that this would not be OK in general as this would
+break any application looking up the multicast group id by name
+via genetlink but since it's broken anyway right now it's OK I guess.
