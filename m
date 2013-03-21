@@ -1,55 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: add ETH_P_802_3_MIN
-Date: Thu, 21 Mar 2013 11:56:08 -0400 (EDT)
-Message-ID: <20130321.115608.570355867509300023.davem@davemloft.net>
-References: <1363854568-32228-1-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@nicira.com,
-	stefanr@s5r6.in-berlin.de, isdn@linux-pingi.de, mchehab@redhat.com,
-	linux1394-devel@lists.sourceforge.net, linux-media@vger.kernel.org,
-	dev@openvswitch.org
-To: horms@verge.net.au
-Return-path: <linux-media-owner@vger.kernel.org>
-In-Reply-To: <1363854568-32228-1-git-send-email-horms@verge.net.au>
-Sender: linux-media-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 3/5] net/mlx4_en: Remove ethtool flow steering rules before releasing QPs
+Date: Thu, 21 Mar 2013 17:55:53 +0200
+Message-ID: <1363881355-21137-4-git-send-email-ogerlitz@mellanox.com>
+References: <1363881355-21137-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com,
+	jackm@dev.mellanox.co.il, hadarh@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:48758 "EHLO
+	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755979Ab3CUP4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 11:56:05 -0400
+In-Reply-To: <1363881355-21137-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Thu, 21 Mar 2013 17:29:28 +0900
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
-> Add a new constant ETH_P_802_3_MIN, the minimum ethernet type for
-> an 802.3 frame. Frames with a lower value in the ethernet type field
-> are Ethernet II.
-> 
-> Also update all the users of this value that I could find to use the
-> new constant.
-> 
-> I anticipate adding some more users of this constant when
-> adding MPLS support to Open vSwtich.
-> 
-> As suggested by Jesse Gross.
-> 
-> Compile tested only.
-> 
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+Fix the ethtool flow steering rules cleanup to be carried out before
+releasing the RX QPs.
 
-You missed a few cases:
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   22 +++++++++++-----------
+ 1 files changed, 11 insertions(+), 11 deletions(-)
 
-drivers/media/dvb-core/dvb_net.c:       } while (p->ule_sndu_type < 1536);
-drivers/media/dvb-core/dvb_net.c:                               if (priv->ule_sndu_type < 1536) {
-net/atm/lec.h: *    is less than 1536(0x0600) MUST be encoded by placing that length
-drivers/net/wireless/ray_cs.c:  if (ntohs(proto) >= 1536) { /* DIX II ethernet frame */
-net/bridge/netfilter/ebtables.c:                if (FWINV2(ntohs(ethproto) >= 1536, EBT_IPROTO))
-include/linux/if_vlan.h:        if (ntohs(proto) >= 1536) {
-net/bluetooth/bnep/netdev.c:    if (proto >= 1536)
-net/openvswitch/flow.c: if (ntohs(proto) >= 1536)
-net/mac80211/tx.c:      } else if (ethertype >= 0x600) {
-net/wireless/util.c:    } else if (ethertype > 0x600) {
-
-In fact, the last line looks like a bug, it should be >= not >.
-
-Could you take care of these bits and respin your patch?
-
-Thanks!
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 995d4b6..f278b10 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1637,6 +1637,17 @@ void mlx4_en_stop_port(struct net_device *dev, int detach)
+ 	/* Flush multicast filter */
+ 	mlx4_SET_MCAST_FLTR(mdev->dev, priv->port, 0, 1, MLX4_MCAST_CONFIG);
+ 
++	/* Remove flow steering rules for the port*/
++	if (mdev->dev->caps.steering_mode ==
++	    MLX4_STEERING_MODE_DEVICE_MANAGED) {
++		ASSERT_RTNL();
++		list_for_each_entry_safe(flow, tmp_flow,
++					 &priv->ethtool_list, list) {
++			mlx4_flow_detach(mdev->dev, flow->id);
++			list_del(&flow->list);
++		}
++	}
++
+ 	mlx4_en_destroy_drop_qp(priv);
+ 
+ 	/* Free TX Rings */
+@@ -1657,17 +1668,6 @@ void mlx4_en_stop_port(struct net_device *dev, int detach)
+ 	if (!(mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAGS2_REASSIGN_MAC_EN))
+ 		mdev->mac_removed[priv->port] = 1;
+ 
+-	/* Remove flow steering rules for the port*/
+-	if (mdev->dev->caps.steering_mode ==
+-	    MLX4_STEERING_MODE_DEVICE_MANAGED) {
+-		ASSERT_RTNL();
+-		list_for_each_entry_safe(flow, tmp_flow,
+-					 &priv->ethtool_list, list) {
+-			mlx4_flow_detach(mdev->dev, flow->id);
+-			list_del(&flow->list);
+-		}
+-	}
+-
+ 	/* Free RX Rings */
+ 	for (i = 0; i < priv->rx_ring_num; i++) {
+ 		mlx4_en_deactivate_rx_ring(priv, &priv->rx_ring[i]);
+-- 
+1.7.1
