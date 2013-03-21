@@ -1,255 +1,34 @@
-From: =?UTF-8?B?SsOhbiBTdGFuxI1law==?= <jan.stancek@gmail.com>
-Subject: NULL pointer deref, selinux_socket_unix_may_send+0x34/0x90
-Date: Thu, 21 Mar 2013 23:19:22 +0100
-Message-ID: <CAMpz-8YY1ZFJnx5JAuGu3GBYhkbnYggEAqmVMQoHg7eqKNtyeg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sh_eth: fix unused variable warning
+Date: Thu, 21 Mar 2013 18:27:50 -0400 (EDT)
+Message-ID: <20130321.182750.1209336291753319090.davem@davemloft.net>
+References: <201303220159.00633.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=bcaec5523a5608e01504d876bbfd
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com
+To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:38681 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753443Ab3CUWTX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 18:19:23 -0400
-Received: by mail-ob0-f177.google.com with SMTP id eh20so3449805obb.36
-        for <netdev@vger.kernel.org>; Thu, 21 Mar 2013 15:19:22 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:48019 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932925Ab3CUW1y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 18:27:54 -0400
+In-Reply-To: <201303220159.00633.sergei.shtylyov@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---bcaec5523a5608e01504d876bbfd
-Content-Type: text/plain; charset=ISO-8859-1
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Fri, 22 Mar 2013 01:59:00 +0300
 
-Hi,
+> Commit d5e07e69218fd9aa21d6c8c5ccc629d92bdb9b0f (sh_eth: use managed device API)
+> has caused this warning (due to my overlook):
+> 
+> drivers/net/ethernet/renesas/sh_eth.c: In function `sh_eth_drv_remove':
+> drivers/net/ethernet/renesas/sh_eth.c:2482:25: warning: unused variable `mdp'
+> [-Wunused-variable]
+> 
+> Kill the darn variable now...
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-I'm occasionally seeing a panic early after system booted and while
-systemd is starting other services.
-
-I made a reproducer which is quite reliable on my system (32 CPU Intel)
-and can usually trigger this issue within a minute or two. I can reproduce
-this issue with 3.9.0-rc3 as root or unprivileged user (see call trace below).
-
-I'm attaching my reproducer and (experimental) patch, which fixes the
-issue for me.
-
-Regards,
-Jan
-
-  [  307.419660] BUG: unable to handle kernel NULL pointer dereference
-at 0000000000000250
-  [  307.428453] IP: [<ffffffff812a2d04>] selinux_socket_unix_may_send+0x34/0x90
-  [  307.436258] PGD 422cd8067 PUD 4081b1067 PMD 0
-  [  307.441266] Oops: 0000 [#1] SMP
-  [  307.558800] CPU 25
-  [  307.560953] Pid: 7412, comm: a.out Tainted: GF
-3.9.0-rc3 #1 Intel Corporation W2600CR/W2600CR
-  [  307.571736] RIP: 0010:[<ffffffff812a2d04>]  [<ffffffff812a2d04>]
-selinux_socket_unix_may_send+0x34/0x90
-  [  307.582240] RSP: 0018:ffff880423c67ab8  EFLAGS: 00010246
-  [  307.588171] RAX: ffff8808243a0680 RBX: ffff880423c67be8 RCX:
-0000000000000007
-  [  307.596139] RDX: 0000000000000000 RSI: ffff88042ef1c380 RDI:
-ffff880423c67ad8
-  [  307.604100] RBP: ffff880423c67b18 R08: ffff88042511e180 R09:
-0000000000000000
-  [  307.612067] R10: 0000000000000000 R11: 0000000000000000 R12:
-ffff8808243a0680
-  [  307.620034] R13: 7fffffffffffffff R14: ffff88042511e180 R15:
-ffff88042511e470
-  [  307.628001] FS:  00007f19d1bb2740(0000) GS:ffff88082ef20000(0000)
-knlGS:0000000000000000
-  [  307.637028] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-  [  307.643437] CR2: 0000000000000250 CR3: 0000000404ff4000 CR4:
-00000000000407e0
-  [  307.651397] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
-0000000000000000
-  [  307.659358] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
-0000000000000400
-  [  307.667331] Process a.out (pid: 7412, threadinfo
-ffff880423c66000, task ffff880423600000)
-  [  307.676453] Stack:
-  [  307.678694]  ffff88042511e102 ffff88042749f600 ffff8808243a0680
-ffff88042511e180
-  [  307.686990]  ffff88042511e180 000000000000000a ffff880423c67af8
-ffffffff8129ef36
-  [  307.695284]  ffff880423c67b28 ffffffff81529747 ffff880423c67be8
-00000000fdbc1448
-  [  307.703584] Call Trace:
-  [  307.706332]  [<ffffffff8129ef36>] ? security_sock_rcv_skb+0x16/0x20
-  [  307.713339]  [<ffffffff81529747>] ? sk_filter+0x37/0xd0
-  [  307.719168]  [<ffffffff8129ef16>] security_unix_may_send+0x16/0x20
-  [  307.726075]  [<ffffffff815b694d>] unix_dgram_sendmsg+0x48d/0x640
-  [  307.732802]  [<ffffffff814fd9c0>] sock_sendmsg+0xb0/0xe0
-  [  307.738732]  [<ffffffff8103edde>] ? physflat_send_IPI_mask+0xe/0x10
-  [  307.745726]  [<ffffffff814ff55c>] __sys_sendmsg+0x3ac/0x3c0
-  [  307.751961]  [<ffffffff811a3357>] ? do_sync_write+0xa7/0xe0
-  [  307.758186]  [<ffffffff811e31fb>] ? fsnotify+0x24b/0x340
-  [  307.764120]  [<ffffffff815013c9>] sys_sendmsg+0x49/0x90
-  [  307.769966]  [<ffffffff81630b99>] system_call_fastpath+0x16/0x1b
-  [  307.776665] Code: 00 00 45 31 c9 48 89 e5 48 83 ec 60 48 8b 56 20
-65 48 8b 04 25 28 00 00 00 48 89 45 f8 31 c0 48 8b 47 20 48 8d 7d c0
-c6 45 a0 02 <48> 8b b2 50 02 00 00 4c 8b 80 50 02 00 00 31 c0 f3 48 ab
-48 89
-  [  307.798450] RIP  [<ffffffff812a2d04>]
-selinux_socket_unix_may_send+0x34/0x90
-  [  307.806334]  RSP <ffff880423c67ab8>
-  [  307.810223] CR2: 0000000000000250
-  [  307.813957] ---[ end trace 0829e3985976c28a ]---
-
---bcaec5523a5608e01504d876bbfd
-Content-Type: application/octet-stream;
-	name="0001-af_unix-fix-race-in-unix_release-unix_dgram_sendmsg.patch"
-Content-Disposition: attachment;
-	filename="0001-af_unix-fix-race-in-unix_release-unix_dgram_sendmsg.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hekh7u3u0
-
-RnJvbSA3YmVkNTg1ZjM3ZDEwZjYyZmU3Mzg5ZmRkNzA0ZDM2ODRkNjFjZGY5IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpNZXNzYWdlLUlkOiA8N2JlZDU4NWYzN2QxMGY2MmZlNzM4OWZkZDcwNGQz
-Njg0ZDYxY2RmOS4xMzYzODYzNDQ3LmdpdC5qYW5Ac3RhbmNlay5ldT4KRnJvbTogSmFuIFN0YW5j
-ZWsgPGphbkBzdGFuY2VrLmV1PgpEYXRlOiBUaHUsIDIxIE1hciAyMDEzIDExOjIwOjE4ICswMTAw
-ClN1YmplY3Q6IFtQQVRDSF0gYWZfdW5peDogZml4IHJhY2UgaW4gdW5peF9yZWxlYXNlL3VuaXhf
-ZGdyYW1fc2VuZG1zZwoKdW5peF9yZWxlYXNlKCkgd2lsbCBzZXQgc29jay0+c2sgdG8gTlVMTCBm
-b3Igc2VydmVyIHNpZGUsCndoaWxlIGNsaWVudCBtYXkgc3RpbGwgYmUgYXQgdW5peF9kZ3JhbV9z
-ZW5kbXNnKCkuIFdoZW4gY2xpZW50Cm5vdyBjYWxscyBzZWN1cml0eV91bml4X21heV9zZW5kKCks
-IG90aGVyLT5zay0+c2tfc2VjdXJpdHkgd2lsbApjYXVzZSBOVUxMIHBvaW50ZXIgZGVyZWZlcmVu
-Y2UuCgpDaGVjayB0aGF0ICdvdGhlcicgaXMgbm90IGluIHByb2Nlc3Mgb2YgYmVpbmcgcmVsZWFz
-ZWQuCgogIFsgIDMwNy40MTk2NjBdIEJVRzogdW5hYmxlIHRvIGhhbmRsZSBrZXJuZWwgTlVMTCBw
-b2ludGVyIGRlcmVmZXJlbmNlIGF0IDAwMDAwMDAwMDAwMDAyNTAKICBbICAzMDcuNDI4NDUzXSBJ
-UDogWzxmZmZmZmZmZjgxMmEyZDA0Pl0gc2VsaW51eF9zb2NrZXRfdW5peF9tYXlfc2VuZCsweDM0
-LzB4OTAKICBbICAzMDcuNDM2MjU4XSBQR0QgNDIyY2Q4MDY3IFBVRCA0MDgxYjEwNjcgUE1EIDAK
-ICBbICAzMDcuNDQxMjY2XSBPb3BzOiAwMDAwIFsjMV0gU01QCiAgWyAgMzA3LjU1ODgwMF0gQ1BV
-IDI1CiAgWyAgMzA3LjU2MDk1M10gUGlkOiA3NDEyLCBjb21tOiBhLm91dCBUYWludGVkOiBHRiAg
-ICAgICAgICAgIDMuOS4wLXJjMyAjMSBJbnRlbCBDb3Jwb3JhdGlvbiBXMjYwMENSL1cyNjAwQ1IK
-ICBbICAzMDcuNTcxNzM2XSBSSVA6IDAwMTA6WzxmZmZmZmZmZjgxMmEyZDA0Pl0gIFs8ZmZmZmZm
-ZmY4MTJhMmQwND5dIHNlbGludXhfc29ja2V0X3VuaXhfbWF5X3NlbmQrMHgzNC8weDkwCiAgWyAg
-MzA3LjU4MjI0MF0gUlNQOiAwMDE4OmZmZmY4ODA0MjNjNjdhYjggIEVGTEFHUzogMDAwMTAyNDYK
-ICBbICAzMDcuNTg4MTcxXSBSQVg6IGZmZmY4ODA4MjQzYTA2ODAgUkJYOiBmZmZmODgwNDIzYzY3
-YmU4IFJDWDogMDAwMDAwMDAwMDAwMDAwNwogIFsgIDMwNy41OTYxMzldIFJEWDogMDAwMDAwMDAw
-MDAwMDAwMCBSU0k6IGZmZmY4ODA0MmVmMWMzODAgUkRJOiBmZmZmODgwNDIzYzY3YWQ4CiAgWyAg
-MzA3LjYwNDEwMF0gUkJQOiBmZmZmODgwNDIzYzY3YjE4IFIwODogZmZmZjg4MDQyNTExZTE4MCBS
-MDk6IDAwMDAwMDAwMDAwMDAwMDAKICBbICAzMDcuNjEyMDY3XSBSMTA6IDAwMDAwMDAwMDAwMDAw
-MDAgUjExOiAwMDAwMDAwMDAwMDAwMDAwIFIxMjogZmZmZjg4MDgyNDNhMDY4MAogIFsgIDMwNy42
-MjAwMzRdIFIxMzogN2ZmZmZmZmZmZmZmZmZmZiBSMTQ6IGZmZmY4ODA0MjUxMWUxODAgUjE1OiBm
-ZmZmODgwNDI1MTFlNDcwCiAgWyAgMzA3LjYyODAwMV0gRlM6ICAwMDAwN2YxOWQxYmIyNzQwKDAw
-MDApIEdTOmZmZmY4ODA4MmVmMjAwMDAoMDAwMCkga25sR1M6MDAwMDAwMDAwMDAwMDAwMAogIFsg
-IDMwNy42MzcwMjhdIENTOiAgMDAxMCBEUzogMDAwMCBFUzogMDAwMCBDUjA6IDAwMDAwMDAwODAw
-NTAwMzMKICBbICAzMDcuNjQzNDM3XSBDUjI6IDAwMDAwMDAwMDAwMDAyNTAgQ1IzOiAwMDAwMDAw
-NDA0ZmY0MDAwIENSNDogMDAwMDAwMDAwMDA0MDdlMAogIFsgIDMwNy42NTEzOTddIERSMDogMDAw
-MDAwMDAwMDAwMDAwMCBEUjE6IDAwMDAwMDAwMDAwMDAwMDAgRFIyOiAwMDAwMDAwMDAwMDAwMDAw
-CiAgWyAgMzA3LjY1OTM1OF0gRFIzOiAwMDAwMDAwMDAwMDAwMDAwIERSNjogMDAwMDAwMDBmZmZm
-MGZmMCBEUjc6IDAwMDAwMDAwMDAwMDA0MDAKICBbICAzMDcuNjY3MzMxXSBQcm9jZXNzIGEub3V0
-IChwaWQ6IDc0MTIsIHRocmVhZGluZm8gZmZmZjg4MDQyM2M2NjAwMCwgdGFzayBmZmZmODgwNDIz
-NjAwMDAwKQogIFsgIDMwNy42NzY0NTNdIFN0YWNrOgogIFsgIDMwNy42Nzg2OTRdICBmZmZmODgw
-NDI1MTFlMTAyIGZmZmY4ODA0Mjc0OWY2MDAgZmZmZjg4MDgyNDNhMDY4MCBmZmZmODgwNDI1MTFl
-MTgwCiAgWyAgMzA3LjY4Njk5MF0gIGZmZmY4ODA0MjUxMWUxODAgMDAwMDAwMDAwMDAwMDAwYSBm
-ZmZmODgwNDIzYzY3YWY4IGZmZmZmZmZmODEyOWVmMzYKICBbICAzMDcuNjk1Mjg0XSAgZmZmZjg4
-MDQyM2M2N2IyOCBmZmZmZmZmZjgxNTI5NzQ3IGZmZmY4ODA0MjNjNjdiZTggMDAwMDAwMDBmZGJj
-MTQ0OAogIFsgIDMwNy43MDM1ODRdIENhbGwgVHJhY2U6CiAgWyAgMzA3LjcwNjMzMl0gIFs8ZmZm
-ZmZmZmY4MTI5ZWYzNj5dID8gc2VjdXJpdHlfc29ja19yY3Zfc2tiKzB4MTYvMHgyMAogIFsgIDMw
-Ny43MTMzMzldICBbPGZmZmZmZmZmODE1Mjk3NDc+XSA/IHNrX2ZpbHRlcisweDM3LzB4ZDAKICBb
-ICAzMDcuNzE5MTY4XSAgWzxmZmZmZmZmZjgxMjllZjE2Pl0gc2VjdXJpdHlfdW5peF9tYXlfc2Vu
-ZCsweDE2LzB4MjAKICBbICAzMDcuNzI2MDc1XSAgWzxmZmZmZmZmZjgxNWI2OTRkPl0gdW5peF9k
-Z3JhbV9zZW5kbXNnKzB4NDhkLzB4NjQwCiAgWyAgMzA3LjczMjgwMl0gIFs8ZmZmZmZmZmY4MTRm
-ZDljMD5dIHNvY2tfc2VuZG1zZysweGIwLzB4ZTAKICBbICAzMDcuNzM4NzMyXSAgWzxmZmZmZmZm
-ZjgxMDNlZGRlPl0gPyBwaHlzZmxhdF9zZW5kX0lQSV9tYXNrKzB4ZS8weDEwCiAgWyAgMzA3Ljc0
-NTcyNl0gIFs8ZmZmZmZmZmY4MTRmZjU1Yz5dIF9fc3lzX3NlbmRtc2crMHgzYWMvMHgzYzAKICBb
-ICAzMDcuNzUxOTYxXSAgWzxmZmZmZmZmZjgxMWEzMzU3Pl0gPyBkb19zeW5jX3dyaXRlKzB4YTcv
-MHhlMAogIFsgIDMwNy43NTgxODZdICBbPGZmZmZmZmZmODExZTMxZmI+XSA/IGZzbm90aWZ5KzB4
-MjRiLzB4MzQwCiAgWyAgMzA3Ljc2NDEyMF0gIFs8ZmZmZmZmZmY4MTUwMTNjOT5dIHN5c19zZW5k
-bXNnKzB4NDkvMHg5MAogIFsgIDMwNy43Njk5NjZdICBbPGZmZmZmZmZmODE2MzBiOTk+XSBzeXN0
-ZW1fY2FsbF9mYXN0cGF0aCsweDE2LzB4MWIKICBbICAzMDcuNzc2NjY1XSBDb2RlOiAwMCAwMCA0
-NSAzMSBjOSA0OCA4OSBlNSA0OCA4MyBlYyA2MCA0OCA4YiA1NiAyMCA2NSA0OCA4YiAwNCAyNSAy
-OCAwMCAwMCAwMCA0OCA4OSA0NSBmOCAzMSBjMCA0OCA4YiA0NyAyMCA0OCA4ZCA3ZCBjMCBjNiA0
-NSBhMCAwMiA8NDg+IDhiIGIyIDUwIDAyIDAwIDAwIDRjIDhiIDgwIDUwIDAyIDAwIDAwIDMxIGMw
-IGYzIDQ4IGFiIDQ4IDg5CiAgWyAgMzA3Ljc5ODQ1MF0gUklQICBbPGZmZmZmZmZmODEyYTJkMDQ+
-XSBzZWxpbnV4X3NvY2tldF91bml4X21heV9zZW5kKzB4MzQvMHg5MAogIFsgIDMwNy44MDYzMzRd
-ICBSU1AgPGZmZmY4ODA0MjNjNjdhYjg+CiAgWyAgMzA3LjgxMDIyM10gQ1IyOiAwMDAwMDAwMDAw
-MDAwMjUwCiAgWyAgMzA3LjgxMzk1N10gLS0tWyBlbmQgdHJhY2UgMDgyOWUzOTg1OTc2YzI4YSBd
-LS0tCgpTaWduZWQtb2ZmLWJ5OiBKYW4gU3RhbmNlayA8amFuQHN0YW5jZWsuZXU+Ci0tLQogbmV0
-L3VuaXgvYWZfdW5peC5jIHwgICAxMCArKysrKysrKysrCiAxIGZpbGVzIGNoYW5nZWQsIDEwIGlu
-c2VydGlvbnMoKyksIDAgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvbmV0L3VuaXgvYWZfdW5p
-eC5jIGIvbmV0L3VuaXgvYWZfdW5peC5jCmluZGV4IDUxYmU2NGYuLjQzMzk1MmMgMTAwNjQ0Ci0t
-LSBhL25ldC91bml4L2FmX3VuaXguYworKysgYi9uZXQvdW5peC9hZl91bml4LmMKQEAgLTk5Myw2
-ICs5OTMsMTEgQEAgcmVzdGFydDoKIAkJaWYgKCF1bml4X21heV9zZW5kKHNrLCBvdGhlcikpCiAJ
-CQlnb3RvIG91dF91bmxvY2s7CiAKKwkJZXJyID0gLUVDT05OUkVGVVNFRDsKKwkJLyogb3RoZXIg
-aXMgYmVpbmcgcmVsZWFzZWQgKi8KKwkJaWYgKCFvdGhlci0+c2tfc29ja2V0LT5zaykKKwkJCWdv
-dG8gb3V0X3VubG9jazsKKwogCQllcnIgPSBzZWN1cml0eV91bml4X21heV9zZW5kKHNrLT5za19z
-b2NrZXQsIG90aGVyLT5za19zb2NrZXQpOwogCQlpZiAoZXJyKQogCQkJZ290byBvdXRfdW5sb2Nr
-OwpAQCAtMTU1NCw2ICsxNTU5LDExIEBAIHJlc3RhcnQ6CiAJCWdvdG8gb3V0X3VubG9jazsKIAog
-CWlmIChzay0+c2tfdHlwZSAhPSBTT0NLX1NFUVBBQ0tFVCkgeworCQllcnIgPSAtRUNPTk5SRUZV
-U0VEOworCQkvKiBvdGhlciBpcyBiZWluZyByZWxlYXNlZCAqLworCQlpZiAoIW90aGVyLT5za19z
-b2NrZXQtPnNrKQorCQkJZ290byBvdXRfdW5sb2NrOworCiAJCWVyciA9IHNlY3VyaXR5X3VuaXhf
-bWF5X3NlbmQoc2stPnNrX3NvY2tldCwgb3RoZXItPnNrX3NvY2tldCk7CiAJCWlmIChlcnIpCiAJ
-CQlnb3RvIG91dF91bmxvY2s7Ci0tIAoxLjcuMQoK
---bcaec5523a5608e01504d876bbfd
-Content-Type: text/x-csrc; charset=US-ASCII; name="selinux_socket_unix_may_send.c"
-Content-Disposition: attachment; filename="selinux_socket_unix_may_send.c"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hekh7u4t1
-
-LyogCiAqIHJlcHJvZHVjZXIgZm9yIEJ1ZyA4ODc2ODMKICogICB1bmFibGUgdG8gaGFuZGxlIGtl
-cm5lbCBOVUxMIGluIHNlbGludXhfc29ja2V0X3VuaXhfbWF5X3NlbmQKICoKICogVGhpcyByZXBy
-b2R1Y2VyIGlzIGJhc2VkIG9uIHN5c3RlbWQvam91cm5hbGQgc291cmNlcywKICogaXQncyBwb3Nz
-aWJsZSB0aGVyZSBpcyB3YXkgdG8gbWFrZSBpdCBldmVuIG1vcmUgc2ltcGxlLCBidXQKICogc2lu
-Y2UgSSB3YXMgYWJsZSB0byB0cmlnZ2VyIHRoZSBCdWcsIEkgcmF0aGVyIGtlcHQgaXQgYXMgaXQg
-aXMuCiAqCiAqIGpzdGFuY2VrQHJlZGhhdC5jb20KICoKICogZ2NjIHNlbGludXhfc29ja2V0X3Vu
-aXhfbWF5X3NlbmQuYzsgLi9hLm91dAogKi8KCiNpbmNsdWRlIDxzeXMvdHlwZXMuaD4KI2luY2x1
-ZGUgPHN5cy9zb2NrZXQuaD4KI2luY2x1ZGUgPHN5cy91bi5oPgojaW5jbHVkZSA8c3RkaW8uaD4K
-I2luY2x1ZGUgPHN0ZGxpYi5oPgojaW5jbHVkZSA8ZXJybm8uaD4KI2luY2x1ZGUgPHNpZ25hbC5o
-PgojaW5jbHVkZSA8bmV0L2lmLmg+CiNpbmNsdWRlIDxuZXRpbmV0L2luLmg+CiNpbmNsdWRlIDxs
-aW51eC9uZXRsaW5rLmg+CiNpbmNsdWRlIDx1bmlzdGQuaD4KCiNkZWZpbmUgb2Zmc2V0b2YodHlw
-ZSwgbWVtYmVyKSAgX19idWlsdGluX29mZnNldG9mICh0eXBlLCBtZW1iZXIpCiNkZWZpbmUgU05E
-QlVGX1NJWkUgKDgqMTAyNCoxMDI0KQoKaW50IHBpcGVmZFsyXTsKCnVuaW9uIHNvY2thZGRyX3Vu
-aW9uIHsKCXN0cnVjdCBzb2NrYWRkciBzYTsKCXN0cnVjdCBzb2NrYWRkcl9pbiBpbjQ7CglzdHJ1
-Y3Qgc29ja2FkZHJfaW42IGluNjsKCXN0cnVjdCBzb2NrYWRkcl91biB1bjsKCXN0cnVjdCBzb2Nr
-YWRkcl9ubCBubDsKCXN0cnVjdCBzb2NrYWRkcl9zdG9yYWdlIHN0b3JhZ2U7Cn07CgppbnQgZmRf
-aW5jX3NuZGJ1ZihpbnQgZmQsIHNpemVfdCBuKSB7CglpbnQgciwgdmFsdWU7Cglzb2NrbGVuX3Qg
-bCA9IHNpemVvZih2YWx1ZSk7CgoJciA9IGdldHNvY2tvcHQoZmQsIFNPTF9TT0NLRVQsIFNPX1NO
-REJVRiwgJnZhbHVlLCAmbCk7CglpZiAociA+PSAwICYmCgkJCWwgPT0gc2l6ZW9mKHZhbHVlKSAm
-JgoJCQkoc2l6ZV90KSB2YWx1ZSA+PSBuKjIpCgkJcmV0dXJuIDA7CgoJdmFsdWUgPSAoaW50KSBu
-OwoJciA9IHNldHNvY2tvcHQoZmQsIFNPTF9TT0NLRVQsIFNPX1NOREJVRiwgJnZhbHVlLCBzaXpl
-b2YodmFsdWUpKTsKCWlmIChyIDwgMCkKCQlyZXR1cm4gLWVycm5vOwoKCXJldHVybiAxOwp9Cgpp
-bnQgY2hpbGQoKQp7CglpbnQgZmQgPSBzb2NrZXQoQUZfVU5JWCwgU09DS19ER1JBTXxTT0NLX0NM
-T0VYRUMsIDApOwoJY2hhciBkYXRhWzEwMjRdID0gIjEyMzQ1Njc4OSI7CglzdHJ1Y3QgaW92ZWMg
-Knc7CglpbnQgaiA9IDA7CglpbnQgbiA9IDE7CglpbnQgcmV0OwoJaW50IGR1bW15OwoJc3RydWN0
-IHNvY2thZGRyX3VuIHNhOwoJc3RydWN0IG1zZ2hkciBtaDsKCXVuaW9uIHsKCQlzdHJ1Y3QgY21z
-Z2hkciBjbXNnaGRyOwoJCXVpbnQ4X3QgYnVmW0NNU0dfU1BBQ0Uoc2l6ZW9mKGludCkpXTsKCX0g
-Y29udHJvbDsKCgoJaWYgKGZkIDwgMCkKCQlyZXR1cm4gLWVycm5vOwoKCXJldCA9IGZkX2luY19z
-bmRidWYoZmQsIFNOREJVRl9TSVpFKTsKCWlmIChyZXQgPCAwKQoJCXBlcnJvcigiZmRfaW5jX3Nu
-ZGJ1ZiIpOwoKCW1lbXNldCgmc2EsIDAsIHNpemVvZihzYSkpOwoJc2Euc3VuX2ZhbWlseSA9IEFG
-X1VOSVg7CglzdHJuY3B5KHNhLnN1bl9wYXRoLCAiL3J1bi9zeXN0ZW1kL2pvdXJuYWwvc29ja2V0
-X3Rlc3QiLCBzaXplb2Yoc2Euc3VuX3BhdGgpKTsKCgl3ID0gbWFsbG9jKHNpemVvZihzdHJ1Y3Qg
-aW92ZWMpICogbiAqIDUgKyAzKTsKCXdbal0uaW92X2Jhc2UgPSBkYXRhOwoJd1tqXS5pb3ZfbGVu
-ID0gMTA7CglqKys7CgoJbWVtc2V0KCZjb250cm9sLCAwLCBzaXplb2YoY29udHJvbCkpOwoJbWgu
-bXNnX2NvbnRyb2wgPSAmY29udHJvbDsKCW1oLm1zZ19jb250cm9sbGVuID0gc2l6ZW9mKGNvbnRy
-b2wpOwoKCW1lbXNldCgmbWgsIDAsIHNpemVvZihtaCkpOwoJbWgubXNnX25hbWUgPSAmc2E7Cglt
-aC5tc2dfbmFtZWxlbiA9IG9mZnNldG9mKHN0cnVjdCBzb2NrYWRkcl91biwgc3VuX3BhdGgpICsg
-c3RybGVuKHNhLnN1bl9wYXRoKTsKCW1oLm1zZ19pb3YgPSB3OwoJbWgubXNnX2lvdmxlbiA9IDE7
-CgoJd3JpdGUocGlwZWZkWzFdLCAmZHVtbXksIDEpOwoJcmV0ID0gc2VuZG1zZyhmZCwgJm1oLCBN
-U0dfTk9TSUdOQUwpOwoJLyppZiAocmV0IDwgMCkKCQlwZXJyb3IoInJldDoiKTsKCWVsc2UKCQlw
-cmludGYoInJldDogJWRcbiIsIHJldCk7Ki8KCgljbG9zZShmZCk7Cn0KCmludCBwYXJlbnQoKQp7
-CglpbnQgZmQsIHJldCwgc3RhdHVzOwoJdW5pb24gc29ja2FkZHJfdW5pb24gc2E7CglpbnQgZHVt
-bXk7CgoJZmQgPSBzb2NrZXQoQUZfVU5JWCwgU09DS19ER1JBTXxTT0NLX0NMT0VYRUN8U09DS19O
-T05CTE9DSywgMCk7CglpZiAoZmQgPCAwKQoJCXBlcnJvcigic29ja2V0Iik7CgoJc2EudW4uc3Vu
-X2ZhbWlseSA9IEFGX1VOSVg7CglzdHJuY3B5KHNhLnVuLnN1bl9wYXRoLCAiL3J1bi9zeXN0ZW1k
-L2pvdXJuYWwvc29ja2V0X3Rlc3QiLCBzaXplb2Yoc2EudW4uc3VuX3BhdGgpKTsKCXVubGluayhz
-YS51bi5zdW5fcGF0aCk7CgoJaW50IG9uZSA9IDE7CglyZXQgPSBzZXRzb2Nrb3B0KGZkLCBTT0xf
-U09DS0VULCBTT19QQVNTQ1JFRCwgJm9uZSwgc2l6ZW9mKG9uZSkpOwoJaWYgKHJldCA8IDApCgkJ
-cGVycm9yKCJzZXRzb2Nrb3B0IDEiKTsKCglyZXQgPSBzZXRzb2Nrb3B0KGZkLCBTT0xfU09DS0VU
-LCBTT19QQVNTU0VDLCAmb25lLCBzaXplb2Yob25lKSk7CglpZiAocmV0IDwgMCkKCQlwZXJyb3Io
-InNldHNvY2tvcHQgMiIpOwoKCXJldCA9IHNldHNvY2tvcHQoZmQsIFNPTF9TT0NLRVQsIFNPX1RJ
-TUVTVEFNUCwgJm9uZSwgc2l6ZW9mKG9uZSkpOwoJaWYgKHJldCA8IDApCgkJcGVycm9yKCJzZXRz
-b2Nrb3B0IDMiKTsKCglyZXQgPSBiaW5kKGZkLCAmc2Euc2EsIG9mZnNldG9mKHVuaW9uIHNvY2th
-ZGRyX3VuaW9uLCB1bi5zdW5fcGF0aCkgKyBzdHJsZW4oc2EudW4uc3VuX3BhdGgpKTsKCWlmIChy
-ZXQgPCAwKQoJCXBlcnJvcigiYmluZCIpOwoKCXJlYWQocGlwZWZkWzBdLCAmZHVtbXksIDEpOwoJ
-Y2xvc2UoZmQpOwoJd2FpdCgmc3RhdHVzKTsKfQoKaW50IG1haW4oKQp7CglpbnQgYnVzeXBpZHNb
-ODE5Ml07CglpbnQgY2hpbGRwaWQ7CglpbnQgaSA9IDA7CglpbnQgY3B1cyA9IHN5c2NvbmYoX1ND
-X05QUk9DRVNTT1JTX09OTE4pKjI7CgkKCWlmIChwaXBlKHBpcGVmZCkgPCAwKSB7CgkJcGVycm9y
-KCJwaXBlIik7CgkJcmV0dXJuIDE7Cgl9CgoJZm9yIChpID0gMDsgaSA8IGNwdXM7IGkrKykgewoJ
-CWNoaWxkcGlkID0gZm9yaygpOwoJCWlmIChjaGlsZHBpZCA9PSAwKSB7CgkJCXdoaWxlKDEpOwoJ
-CX0KCQlidXN5cGlkc1tpXSA9IGNoaWxkcGlkOwoJfQoKCWkgPSAwOwoJd2hpbGUgKGkgPCAxMDAw
-MDApIHsKCQljaGlsZHBpZCA9IGZvcmsoKTsKCQlpZiAoY2hpbGRwaWQgPT0gMCkgewoJCQljaGls
-ZCgpOwoJCQlleGl0KDApOwoJCX0KCQlwYXJlbnQoKTsKCQlpKys7CgkJaWYgKGkgJSAxMCA9PSAw
-KSB7CgkJCXByaW50ZigibG9vcDogJWRcbiIsIGkpOwoJCX0KCX0KCQoJZm9yIChpID0gMDsgaSA8
-IGNwdXM7IGkrKykgewoJCWtpbGwoYnVzeXBpZHNbaV0sIFNJR0tJTEwpOwoJfQoKCXByaW50Zigi
-RG9uZS5cbiIpOwoJcmV0dXJuIDA7Cn0KCg==
---bcaec5523a5608e01504d876bbfd--
+Applied, thanks.
