@@ -1,61 +1,53 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH] net: reduce net_rx_action() latency to 2 HZ
-Date: Thu, 21 Mar 2013 11:03:18 -0400
-Message-ID: <CAP=VYLrvXREA=HGnnUCi2N77yRdktQDop1PpzJkveXDihJ3DOw@mail.gmail.com>
-References: <1362503713.15793.121.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fix *_DIAG_MAX constants
+Date: Thu, 21 Mar 2013 11:14:37 -0400 (EDT)
+Message-ID: <20130321.111437.2012746070698745131.davem@davemloft.net>
+References: <1363875500-14574-1-git-send-email-avagin@openvz.org>
+	<20130321144218.GF9046@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, stable <stable@vger.kernel.org>,
-	Willy Tarreau <w@1wt.eu>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1362503713.15793.121.camel@edumazet-glaptop>
-Sender: stable-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: avagin@openvz.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, xemul@parallels.com, edumazet@google.com,
+	paulmck@linux.vnet.ibm.com, dhowells@redhat.com
+To: tgraf@suug.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130321144218.GF9046@casper.infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[CC'ing stable & Willy - for the older releases not fed by
-http://patchwork.ozlabs.org/bundle/davem/stable/ ]
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 21 Mar 2013 14:42:18 +0000
 
-On Tue, Mar 5, 2013 at 12:15 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazt@google.com>
->
-> We should use time_after_eq() to get maximum latency of two ticks,
-> instead of three.
->
-> Bug added in commit 24f8b2385 (net: increase receive packet quantum)
+> On 03/21/13 at 06:18pm, Andrey Vagin wrote:
+>> Follow the common pattern and define *_DIAG_MAX like:
+>> 
+>>         [...]
+>>         __XXX_DIAG_MAX,
+>> };
+>> 
+>> Because everyone is used to do:
+>> 
+>>         struct nlattr *attrs[XXX_DIAG_MAX+1];
+>> 
+>>         nla_parse([...], XXX_DIAG_MAX, [...]
+>> 
+>> Reported-by: Thomas Graf <tgraf@suug.ch>
+>> Cc: "David S. Miller" <davem@davemloft.net>
+>> Cc: Pavel Emelyanov <xemul@parallels.com>
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+>> Cc: David Howells <dhowells@redhat.com>
+>> Signed-off-by: Andrey Vagin <avagin@openvz.org>
+> 
+> Acked-by: Thomas Graf <tgraf@suug.ch>
 
-I'm not sure what applications would notice the extra tick, but 24f8b takes
-us back to 2.6.29.  It cherry picks cleanly onto 2.6.34, so it probably also
-does the same for Willy's 2.6.32 longterm too.
+So you're ACK'ing a patch that makes changes to files that don't even
+exist in the repository?
 
-Commit is now mainline d114a3338747255518 - v3.9-rc3~36^2~34.
+Andrey, post a clean patch against 'net' that fixes these constants
+for existing code, don't just assume that your original patch set is
+applied and post changes relative to that.  That's not how we work.
 
-Paul.
---
-
->
-> Signed-off-by: Eric Dumazet <edumazt@google.com>
-> ---
->  net/core/dev.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 18d8b5a..461b315 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4107,7 +4107,7 @@ static void net_rx_action(struct softirq_action *h)
->                  * Allow this to run for 2 jiffies since which will allow
->                  * an average latency of 1.5/HZ.
->                  */
-> -               if (unlikely(budget <= 0 || time_after(jiffies, time_limit)))
-> +               if (unlikely(budget <= 0 || time_after_eq(jiffies, time_limit)))
->                         goto softnet_break;
->
->                 local_irq_enable();
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+After the bug fix for the existing cases goes in, you have to repost
+your original patch set on top of that.
