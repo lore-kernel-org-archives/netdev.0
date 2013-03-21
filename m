@@ -1,42 +1,80 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/2] thermal: shorten too long mcast group name
-Date: Thu, 21 Mar 2013 13:04:12 +0000
-Message-ID: <20130321130412.GC9046@casper.infradead.org>
-References: <1363693648-10015-1-git-send-email-yamato@redhat.com>
- <1363693648-10015-3-git-send-email-yamato@redhat.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH net-next 3/3] gianfar: Remove superfluous kernel_dropped local counter
+Date: Thu, 21 Mar 2013 15:12:15 +0200
+Message-ID: <1363871535-29612-3-git-send-email-claudiu.manoil@freescale.com>
+References: <1363871535-29612-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Masatake YAMATO <yamato@redhat.com>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:50013 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754977Ab3CUNEN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 09:04:13 -0400
-Content-Disposition: inline
-In-Reply-To: <1363693648-10015-3-git-send-email-yamato@redhat.com>
+Received: from co9ehsobe002.messaging.microsoft.com ([207.46.163.25]:40467
+	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755823Ab3CUNMZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 09:12:25 -0400
+In-Reply-To: <1363871535-29612-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/19/13 at 08:47pm, Masatake YAMATO wrote:
-> The original name is too long.
-> 
-> Signed-off-by: Masatake YAMATO <yamato@redhat.com>
-> ---
->  include/linux/thermal.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/include/linux/thermal.h b/include/linux/thermal.h
-> index f0bd7f9..e3c0ae9 100644
-> --- a/include/linux/thermal.h
-> +++ b/include/linux/thermal.h
-> @@ -44,7 +44,7 @@
->  /* Adding event notification support elements */
->  #define THERMAL_GENL_FAMILY_NAME                "thermal_event"
->  #define THERMAL_GENL_VERSION                    0x01
-> -#define THERMAL_GENL_MCAST_GROUP_NAME           "thermal_mc_group"
-> +#define THERMAL_GENL_MCAST_GROUP_NAME           "thermal_mc_grp"
+The GRO_DROP return code is handled by the core network layer.
+The current kernel approach is to factorize this kind of statistics into
+the upper layers, instead of having all the drivers maintaining them.
 
-Just saying that this would not be OK in general as this would
-break any application looking up the multicast group id by name
-via genetlink but since it's broken anyway right now it's OK I guess.
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+---
+ drivers/net/ethernet/freescale/gianfar.c         | 6 +-----
+ drivers/net/ethernet/freescale/gianfar.h         | 1 -
+ drivers/net/ethernet/freescale/gianfar_ethtool.c | 1 -
+ 3 files changed, 1 insertion(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 434b31b..96fbe35 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -2695,8 +2695,6 @@ static void gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	struct rxfcb *fcb = NULL;
+ 
+-	gro_result_t ret;
+-
+ 	/* fcb is at the beginning if exists */
+ 	fcb = (struct rxfcb *)skb->data;
+ 
+@@ -2735,10 +2733,8 @@ static void gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
+ 		__vlan_hwaccel_put_tag(skb, fcb->vlctl);
+ 
+ 	/* Send the packet up the stack */
+-	ret = napi_gro_receive(napi, skb);
++	napi_gro_receive(napi, skb);
+ 
+-	if (unlikely(GRO_DROP == ret))
+-		atomic64_inc(&priv->extra_stats.kernel_dropped);
+ }
+ 
+ /* gfar_clean_rx_ring() -- Processes each frame in the rx ring
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index eec87ea..04b552c 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -629,7 +629,6 @@ struct rmon_mib
+ };
+ 
+ struct gfar_extra_stats {
+-	atomic64_t kernel_dropped;
+ 	atomic64_t rx_large;
+ 	atomic64_t rx_short;
+ 	atomic64_t rx_nonoctet;
+diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+index 8248df7..4e7118f 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
++++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+@@ -66,7 +66,6 @@ static void gfar_gdrvinfo(struct net_device *dev,
+ 			  struct ethtool_drvinfo *drvinfo);
+ 
+ static const char stat_gstrings[][ETH_GSTRING_LEN] = {
+-	"rx-dropped-by-kernel",
+ 	"rx-large-frame-errors",
+ 	"rx-short-frame-errors",
+ 	"rx-non-octet-errors",
+-- 
+1.7.11.3
