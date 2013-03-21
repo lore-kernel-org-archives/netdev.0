@@ -1,25 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: remove redundant ifdef CONFIG_CGROUPS
-Date: Thu, 21 Mar 2013 11:49:00 -0400 (EDT)
-Message-ID: <20130321.114900.1573555053097095750.davem@davemloft.net>
-References: <514A767B.7000307@huawei.com>
+Subject: Re: [PATCH] lantiq_etop: use free_netdev(netdev) instead of kfree()
+Date: Thu, 21 Mar 2013 11:50:48 -0400 (EDT)
+Message-ID: <20130321.115048.379172511891255551.davem@davemloft.net>
+References: <CAPgLHd8S_MBawcZQNKvKXBWes6bg=1y32GT_UYs215htg3AkZQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, linux-kernel@vger.kernel.org,
+Cc: jiri@resnulli.us, wfp5p@virginia.edu, jdmason@kudzu.us,
+	gregkh@linuxfoundation.org, yongjun_wei@trendmicro.com.cn,
 	netdev@vger.kernel.org
-To: lizefan@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <514A767B.7000307@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: weiyj.lk@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43518 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933714Ab3CUPuu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 11:50:50 -0400
+In-Reply-To: <CAPgLHd8S_MBawcZQNKvKXBWes6bg=1y32GT_UYs215htg3AkZQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Li Zefan <lizefan@huawei.com>
-Date: Thu, 21 Mar 2013 10:54:51 +0800
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Thu, 21 Mar 2013 15:31:42 +0800
 
-> The cgroup code has been surrounded by ifdef CONFIG_NET_CLS_CGROUP
-> and CONFIG_NETPRIO_CGROUP.
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
-> Signed-off-by: Li Zefan <lizefan@huawei.com>
+> Freeing netdev without free_netdev() leads to net, tx leaks.
+> And it may lead to dereferencing freed pointer.
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
 Applied, thanks.
