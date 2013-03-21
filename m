@@ -1,26 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/3 net-next] tcp: refactor F-RTO
-Date: Thu, 21 Mar 2013 11:48:46 -0400 (EDT)
-Message-ID: <20130321.114846.1223686835494479249.davem@davemloft.net>
-References: <1363822380-16687-1-git-send-email-ycheng@google.com>
+Subject: Re: [PATCH] net: remove redundant ifdef CONFIG_CGROUPS
+Date: Thu, 21 Mar 2013 11:49:00 -0400 (EDT)
+Message-ID: <20130321.114900.1573555053097095750.davem@davemloft.net>
+References: <514A767B.7000307@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com, edumazet@google.com, nanditad@google.com,
-	ilpo.jarvinen@cs.helsinki.fi, netdev@vger.kernel.org
-To: ycheng@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43480 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932093Ab3CUPss (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 11:48:48 -0400
-In-Reply-To: <1363822380-16687-1-git-send-email-ycheng@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nhorman@tuxdriver.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: lizefan@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <514A767B.7000307@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Li Zefan <lizefan@huawei.com>
+Date: Thu, 21 Mar 2013 10:54:51 +0800
 
-I've given Ilpo more than enough time to give some kind of
-even minimal feedback, and he has been silent instead.
+> The cgroup code has been surrounded by ifdef CONFIG_NET_CLS_CGROUP
+> and CONFIG_NETPRIO_CGROUP.
+> 
+> Signed-off-by: Li Zefan <lizefan@huawei.com>
 
-So I'm going to apply this series to net-next, thanks a lot
-for doing this work!
+Applied, thanks.
