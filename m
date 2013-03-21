@@ -1,186 +1,69 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 3/3] sh_eth: use managed device API
-Date: Thu, 21 Mar 2013 23:41:11 +0300
-Message-ID: <201303212341.11657.sergei.shtylyov@cogentembedded.com>
+From: Frank Rowand <frank.rowand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [BUG] bisected: PandaBoard smsc95xx ethernet driver error from
+ USB timeout
+Date: Thu, 21 Mar 2013 13:05:02 -0700
+Message-ID: <514B67EE.8030404@am.sony.com>
+References: <Pine.LNX.4.44L0.1303211037070.1899-100000@iolanthe.rowland.org>
+Reply-To: <frank.rowand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:40450 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752263Ab3CUTjw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 15:39:52 -0400
-Received: by mail-la0-f54.google.com with SMTP id gw10so5944273lab.27
-        for <netdev@vger.kernel.org>; Thu, 21 Mar 2013 12:39:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Rowand, Frank" <Frank_Rowand-FuZ7eS5WsvxBDgjK7y7TUQ@public.gmane.org>,
+	"gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org" <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"balbi-l0cyMroinI0@public.gmane.org" <balbi-l0cyMroinI0@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"steve.glendinning-sdUf+H5yV5I@public.gmane.org" <steve.glendinning-sdUf+H5yV5I@public.gmane.org>
+To: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <Pine.LNX.4.44L0.1303211037070.1899-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Switch the driver to the managed device API by replacing ioremap() calls with
-devm_ioremap_resource() (that will also result in calling request_mem_region()
-which the driver forgot to do until now) and k[mz]alloc() with devm_kzalloc() --
-this permits to simplify driver's probe()/remove() method cleanup. We can now
-remove the ioremap() error messages since the error messages are printed by
- devm_ioremap_resource() itself. We can also remove the 'bitbang' field from
-'struct sh_eth_private' as we don't need it anymore in order to free the memory
-behind it...
+On 03/21/13 07:41, Alan Stern wrote:
+> On Wed, 20 Mar 2013, Frank Rowand wrote:
+> 
+>> Hi All,
+>>
+>> Not quite sure quite where the problem is (USB, OMAP, smsc95xx driver, other???),
+>> so casting the nets wide...
+>>
+>> The PandaBoard frequently fails to boot with an eth0 error when mounting
+>> the root file system via NFS (ethernet driver fails due to a USB timeout;
+>> no ethernet means NFS won't work).  A typical set of error messages is:
+>>
+>> [    3.264373] smsc95xx 1-1.1:1.0: usb_probe_interface
+>> [    3.269500] smsc95xx 1-1.1:1.0: usb_probe_interface - got id
+>> [    3.275543] smsc95xx v1.0.4
+>> [    8.078674] smsc95xx 1-1.1:1.0: eth0: register 'smsc95xx' at usb-ehci-omap.0-1.1, smsc95xx USB 2.0 Ethernet, 82:b9:1d:fa:67:0d
+>> [    8.091003] hub 1-1:1.0: state 7 ports 5 chg 0000 evt 0002
+>> [   13.509918] usb 1-1.1: swapper/0 timed out on ep0out len=0/4
+>> [   13.515869] smsc95xx 1-1.1:1.0: eth0: Failed to write register index 0x00000108
+>> [   13.523559] smsc95xx 1-1.1:1.0: eth0: Failed to write ADDRL: -110
+>> [   13.529998] IP-Config: Failed to open eth0
+>>
+>> I have bisected this to:
+>>
+>>   commit 18aafe64d75d0e27dae206cacf4171e4e485d285
+>>   Author: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+>>   Date:   Wed Jul 11 11:23:04 2012 -0400
+>>
+>>      USB: EHCI: use hrtimer for the I/O watchdog
+> 
+> I don't understand how that commit could cause a timeout unless there 
+> are at least two other bugs present in your system.
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Yes, I would not be at all surprised if this commit merely exposes a
+problem in other code.  That is why I included so many different people
+and subsystems on the email distribution list.
 
----
- drivers/net/ethernet/renesas/sh_eth.c |   47 +++++++++-------------------------
- drivers/net/ethernet/renesas/sh_eth.h |    1 
- 2 files changed, 13 insertions(+), 35 deletions(-)
+< snip >
 
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2215,7 +2215,6 @@ static void sh_eth_tsu_init(struct sh_et
- /* MDIO bus release function */
- static int sh_mdio_release(struct net_device *ndev)
- {
--	struct sh_eth_private *mdp = netdev_priv(ndev);
- 	struct mii_bus *bus = dev_get_drvdata(&ndev->dev);
- 
- 	/* unregister mdio bus */
-@@ -2224,15 +2223,9 @@ static int sh_mdio_release(struct net_de
- 	/* remove mdio bus info from net_device */
- 	dev_set_drvdata(&ndev->dev, NULL);
- 
--	/* free interrupts memory */
--	kfree(bus->irq);
--
- 	/* free bitbang info */
- 	free_mdio_bitbang(bus);
- 
--	/* free bitbang memory */
--	kfree(mdp->bitbang);
--
- 	return 0;
- }
- 
-@@ -2245,7 +2238,8 @@ static int sh_mdio_init(struct net_devic
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 
- 	/* create bit control struct for PHY */
--	bitbang = kzalloc(sizeof(struct bb_info), GFP_KERNEL);
-+	bitbang = devm_kzalloc(&ndev->dev, sizeof(struct bb_info),
-+			       GFP_KERNEL);
- 	if (!bitbang) {
- 		ret = -ENOMEM;
- 		goto out;
-@@ -2261,11 +2255,10 @@ static int sh_mdio_init(struct net_devic
- 	bitbang->ctrl.ops = &bb_ops;
- 
- 	/* MII controller setting */
--	mdp->bitbang = bitbang;
- 	mdp->mii_bus = alloc_mdio_bitbang(&bitbang->ctrl);
- 	if (!mdp->mii_bus) {
- 		ret = -ENOMEM;
--		goto out_free_bitbang;
-+		goto out;
- 	}
- 
- 	/* Hook up MII support for ethtool */
-@@ -2275,7 +2268,9 @@ static int sh_mdio_init(struct net_devic
- 		mdp->pdev->name, id);
- 
- 	/* PHY IRQ */
--	mdp->mii_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
-+	mdp->mii_bus->irq = devm_kzalloc(&ndev->dev,
-+					 sizeof(int) * PHY_MAX_ADDR,
-+					 GFP_KERNEL);
- 	if (!mdp->mii_bus->irq) {
- 		ret = -ENOMEM;
- 		goto out_free_bus;
-@@ -2287,21 +2282,15 @@ static int sh_mdio_init(struct net_devic
- 	/* register mdio bus */
- 	ret = mdiobus_register(mdp->mii_bus);
- 	if (ret)
--		goto out_free_irq;
-+		goto out_free_bus;
- 
- 	dev_set_drvdata(&ndev->dev, mdp->mii_bus);
- 
- 	return 0;
- 
--out_free_irq:
--	kfree(mdp->mii_bus->irq);
--
- out_free_bus:
- 	free_mdio_bitbang(mdp->mii_bus);
- 
--out_free_bitbang:
--	kfree(bitbang);
--
- out:
- 	return ret;
- }
-@@ -2389,10 +2378,9 @@ static int sh_eth_drv_probe(struct platf
- 	mdp = netdev_priv(ndev);
- 	mdp->num_tx_ring = TX_RING_SIZE;
- 	mdp->num_rx_ring = RX_RING_SIZE;
--	mdp->addr = ioremap(res->start, resource_size(res));
--	if (mdp->addr == NULL) {
--		ret = -ENOMEM;
--		dev_err(&pdev->dev, "ioremap failed.\n");
-+	mdp->addr = devm_ioremap_resource(&pdev->dev, res);
-+	if (IS_ERR(mdp->addr)) {
-+		ret = PTR_ERR(mdp->addr);
- 		goto out_release;
- 	}
- 
-@@ -2438,11 +2426,9 @@ static int sh_eth_drv_probe(struct platf
- 			ret = -ENODEV;
- 			goto out_release;
- 		}
--		mdp->tsu_addr = ioremap(rtsu->start,
--					resource_size(rtsu));
--		if (mdp->tsu_addr == NULL) {
--			ret = -ENOMEM;
--			dev_err(&pdev->dev, "TSU ioremap failed.\n");
-+		mdp->tsu_addr = devm_ioremap_resource(&pdev->dev, rtsu);
-+		if (IS_ERR(mdp->tsu_addr)) {
-+			ret = PTR_ERR(mdp->tsu_addr);
- 			goto out_release;
- 		}
- 		mdp->port = devno % 2;
-@@ -2483,10 +2469,6 @@ out_unregister:
- 
- out_release:
- 	/* net_dev free */
--	if (mdp && mdp->addr)
--		iounmap(mdp->addr);
--	if (mdp && mdp->tsu_addr)
--		iounmap(mdp->tsu_addr);
- 	if (ndev)
- 		free_netdev(ndev);
- 
-@@ -2499,12 +2481,9 @@ static int sh_eth_drv_remove(struct plat
- 	struct net_device *ndev = platform_get_drvdata(pdev);
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 
--	if (mdp->cd->tsu)
--		iounmap(mdp->tsu_addr);
- 	sh_mdio_release(ndev);
- 	unregister_netdev(ndev);
- 	pm_runtime_disable(&pdev->dev);
--	iounmap(mdp->addr);
- 	free_netdev(ndev);
- 	platform_set_drvdata(pdev, NULL);
- 
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.h
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.h
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.h
-@@ -705,7 +705,6 @@ struct sh_eth_private {
- 	const u16 *reg_offset;
- 	void __iomem *addr;
- 	void __iomem *tsu_addr;
--	struct bb_info *bitbang;
- 	u32 num_rx_ring;
- 	u32 num_tx_ring;
- 	dma_addr_t rx_desc_dma;
+-Frank
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
