@@ -1,80 +1,64 @@
-From: Dmitry Kravkov <dkravkov@gmail.com>
-Subject: Re: [PATCH net-next] gro: relax ID check in inet_gro_receive()
-Date: Thu, 21 Mar 2013 20:11:37 +0200
-Message-ID: <CAM8tLiMbSQZZW0NBPXGgdHRSJ8UqH+q=QaR+2KOqsf-gt6RHGg@mail.gmail.com>
-References: <1363841553.3333.47.camel@edumazet-glaptop>
-	<20130321.114616.279859400813363663.davem@davemloft.net>
-	<1363882091.4431.20.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: FW: [PATCH ethtool] ethtool: Add string to display support for
+ KR PHY
+Date: Thu, 21 Mar 2013 18:15:56 +0000
+Message-ID: <1363889756.2736.23.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1360659168-14346-1-git-send-email-vasundhara.volam@emulex.com>
+	 <f30e7788-1920-426f-88c2-afadac2cee75@CMEXHTCAS2.ad.emulex.com>
+	 <7C0C8AF2F9AEF149AE37E5CA3E2101D3216EDBB7@CMEXMB2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>, pshelar@nicira.com,
-	hkchu@google.com, maze@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Vasundhara, Volam" <Vasundhara.Volam@Emulex.Com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f177.google.com ([209.85.220.177]:37797 "EHLO
-	mail-vc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751427Ab3CUSLi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 14:11:38 -0400
-Received: by mail-vc0-f177.google.com with SMTP id ia10so2553515vcb.36
-        for <netdev@vger.kernel.org>; Thu, 21 Mar 2013 11:11:37 -0700 (PDT)
-In-Reply-To: <1363882091.4431.20.camel@edumazet-glaptop>
+Received: from webmail.solarflare.com ([12.187.104.25]:18667 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752362Ab3CUSP7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 14:15:59 -0400
+In-Reply-To: <7C0C8AF2F9AEF149AE37E5CA3E2101D3216EDBB7@CMEXMB2.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Resending for netdev in plantext.
+On Wed, 2013-03-13 at 09:29 +0000, Vasundhara, Volam wrote:
+> Please apply.
 
+Sorry for the delay; I've applied this now.
 
-On Thu, Mar 21, 2013 at 6:08 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> On Thu, 2013-03-21 at 11:46 -0400, David Miller wrote:
-> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> > Date: Wed, 20 Mar 2013 21:52:33 -0700
-> >
-> > > GRE TSO support doesn't increment the ID in the inner IP header.
-> >
-> > Is this a fundamental limitation of doing TSO over GRO or
-> > were the Broadcom folks just being lazy with their firmware
-> > implementation?
-> >
->
-> Well, I suspect this hardware is not capable of doing the proper ID
-> manipulation twice. (inner and outer header)
+Ben.
 
-This is correct: ID only for one of the headers can be handled with
-current FW/HW, for other DF is set.
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Vasundhara, Volam
+> Sent: Tuesday, February 12, 2013 3:16 PM
+> To: bhutchings@solarflare.com
+> Cc: netdev@vger.kernel.org; Vasundhara, Volam
+> Subject: [PATCH ethtool] ethtool: Add string to display support for KR PHY
+> 
+> 
+> Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
+> ---
+>  ethtool.c |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/ethtool.c b/ethtool.c
+> index 55bc082..205f574 100644
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -512,6 +512,7 @@ dump_link_caps(const char *prefix, const char *an_prefix, u32 mask,
+>  		{ 0, ADVERTISED_2500baseX_Full,     "2500baseX/Full" },
+>  		{ 0, ADVERTISED_10000baseT_Full,    "10000baseT/Full" },
+>  		{ 0, ADVERTISED_10000baseKX4_Full,  "10000baseKX4/Full" },
+> +		{ 0, ADVERTISED_10000baseKR_Full,   "10000baseKR/Full" },
+>  		{ 0, ADVERTISED_20000baseMLD2_Full, "20000baseMLD2/Full" },
+>  		{ 0, ADVERTISED_40000baseKR4_Full,  "40000baseKR4/Full" },
+>  		{ 0, ADVERTISED_40000baseCR4_Full,  "40000baseCR4/Full" },
+> --
+> 1.7.10.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-> Still TSO support permits a single GRE flow going from 3Gbps to 9Gbps on
-> our hosts. So even if the inner IP id is 'broken', we are going to use
-> TSO.
->
-> Note we are limited by the receiver, as the receiver has to perform the
-> tcp checksum in software (bnx2x doesnt support CHECKSUM_COMPLETE yet)
->
-> Hopefully next firmware or NIC will do the right thing.
->
-> > I really don't want to apply this patch, because ipv4 frames
-> > even with DF set should have an incrementing ID field, in
-> > order to accomodate various header compression schemes.
-> >
-> > We go out of our way to do this for normal unencapsulated TCP stream
-> > packets, rather than set the ID field to zero (which we did for some
-> > time until the compression issue was pointed out to us).
->
-> I understand your concern, but this check in GRO brings nothing at all.
->
-> Once we receive frames with 'bad IPv4 ID', should we accept them or drop
-> them ?
->
-> TCP stack doesn't care at receive (obviously as this ID is not a concern
-> for the transport layer), so GRO should do the same, as GRO is a best
-> effort to reduce cpu load.
->
-> I fully understand the 'tos' check because of proper ECN support, but
-> the ttl check or id check are totally useless and time consuming.
->
-> GRO aggregation should roughly work the same than TCP coalescing, and we
-> don't care of IP ID or ttl in TCP stack.
->
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
