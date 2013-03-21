@@ -1,65 +1,48 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [PATCH 2/3] netlink: Remove an unused pointer in netlink_skb_parms
-Date: Thu, 21 Mar 2013 10:41:21 -0700
-Message-ID: <CALCETrXEmxKmunP9HUORvT9rOjf4xu+7Fz9bZ=GXarcsYQNh7A@mail.gmail.com>
-References: <cover.1363815201.git.luto@amacapital.net>
-	<a8766c8b116b5e6fcaa932fe94f84a584554b98f.1363815201.git.luto@amacapital.net>
-	<87d2ut1cpj.fsf@xmission.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: reduce net_rx_action() latency to 2 HZ
+Date: Thu, 21 Mar 2013 10:43:14 -0700
+Message-ID: <1363887794.4431.29.camel@edumazet-glaptop>
+References: <1362503713.15793.121.camel@edumazet-glaptop>
+	  <CAP=VYLrvXREA=HGnnUCi2N77yRdktQDop1PpzJkveXDihJ3DOw@mail.gmail.com>
+	 <1363879647.4431.8.camel@edumazet-glaptop> <514B429C.5070605@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <87d2ut1cpj.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, stable <stable@vger.kernel.org>,
+	Willy Tarreau <w@1wt.eu>, Tom Herbert <therbert@google.com>,
+	Steven Rostedt <rostedt@goodmis.org>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <514B429C.5070605@windriver.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 20, 2013 at 11:36 PM, Eric W. Biederman
-<ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org> wrote:
->
-> net/ipv4/inet_diag.c:                      sk_user_ns(NETLINK_CB(in_skb).ssk),
-> net/ipv4/inet_diag.c:                             sk_user_ns(NETLINK_CB(cb->skb).ssk),
-> net/ipv4/inet_diag.c:                                          sk_user_ns(NETLINK_CB(cb->skb).ssk),
-> net/ipv4/udp_diag.c:                    sk_user_ns(NETLINK_CB(cb->skb).ssk),
-> net/ipv4/udp_diag.c:                       sk_user_ns(NETLINK_CB(in_skb).ssk),
-> net/netfilter/nfnetlink_log.c:                                         sk_user_ns(NETLINK_CB(skb).ssk));
-> net/netlink/af_netlink.c:               NETLINK_CB(skb).ssk = ssk;
-> net/sched/cls_flow.c:               sk_user_ns(NETLINK_CB(in_skb).ssk) != &init_user_ns)
->
-> I count 8 uses.
+On Thu, 2013-03-21 at 13:25 -0400, Paul Gortmaker wrote:
 
-Whoops.  I clearly fail at grepping and building with the correct
-configuration.  I'll drop this patch entirely -- it's independent of
-the other two.
+> That is also reasonably portable back to 2.6.34.  And it is more
+> interesting too -- it will be interesting in a preempt_rt context
+> too, once RT moves ahead off the current 3.6 baseline, which still
+> has the old count-limit of 10 vs the new 2ms time limit.
+> 
+> RT (3.4 and 3.6 based) currently has this patch from Steven:
+> http://git.kernel.org/cgit/linux/kernel/git/paulg/3.6-rt-patches.git/tree/net-tx-action-avoid-livelock-on-rt.patch
 
->
-> Eric
->
->>
->> diff --git a/include/linux/netlink.h b/include/linux/netlink.h
->> index e0f746b..9ac1201 100644
->> --- a/include/linux/netlink.h
->> +++ b/include/linux/netlink.h
->> @@ -19,7 +19,6 @@ struct netlink_skb_parms {
->>       struct scm_creds        creds;          /* Skb credentials      */
->>       __u32                   portid;
->>       __u32                   dst_group;
->> -     struct sock             *ssk;
->>  };
->>
->>  #define NETLINK_CB(skb)              (*(struct netlink_skb_parms*)&((skb)->cb))
+Interesting, as Google has an internal patch removing this trylock() as
+well.
 
+I think I should upstream it eventually ;)
 
+commit 2f0a3f573b531dc57c268fd809dc65169edae369
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Thu Dec 13 09:18:01 2012 -0800
 
--- 
-Andy Lutomirski
-AMA Capital Management, LLC
+    net-dev_xmit_hold_queues: fix a busy loop in net_tx_action
+    
+    Under load, net_tx_action() fails to acquire qdisc lock
+    and reschedules qdisc in a never ending loop.
+    
+    The spin_trylock() has almost no chance to complete because
+    of ticket spinlock and xmit_hold_queue holding the lock for long
+    period of times.
+    
