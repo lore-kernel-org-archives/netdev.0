@@ -1,78 +1,44 @@
-From: Andrew Vagin <avagin@parallels.com>
-Subject: Re: [PATCH 2/2] netlink: Diag core and basic socket info dumping
-Date: Thu, 21 Mar 2013 18:31:19 +0400
-Message-ID: <20130321143119.GA14763@paralelels.com>
-References: <1363857669-19990-1-git-send-email-avagin@openvz.org>
- <1363857669-19990-3-git-send-email-avagin@openvz.org>
- <20130321125230.GB9046@casper.infradead.org>
+From: Holger Eitzenberger <holger@eitzenberger.org>
+Subject: [BUG NFQUEUE] NFQUEUE readers get -PERM from sys_sendto() if !root
+Date: Thu, 21 Mar 2013 15:36:43 +0100
+Message-ID: <20130321143643.GH13505@imap.eitzenberger.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="koi8-r"
-Cc: Andrey Vagin <avagin@openvz.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:45504 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932539Ab3CUOdA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 10:33:00 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: netfilter-devel <netfilter-devel@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130321125230.GB9046@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 21, 2013 at 12:52:30PM +0000, Thomas Graf wrote:
-> On 03/21/13 at 01:21pm, Andrey Vagin wrote:
-> > diff --git a/include/uapi/linux/netlink_diag.h b/include/uapi/linux/netlink_diag.h
-> > new file mode 100644
-> > index 0000000..9328866
-> > --- /dev/null
-> > +++ b/include/uapi/linux/netlink_diag.h
-> > +enum {
-> > +	NETLINK_DIAG_MEMINFO,
-> > +	NETLINK_DIAG_GROUPS,
-> > +
-> > +	NETLINK_DIAG_MAX,
-> > +};
-> 
-> Please follow the common pattern and define NETLINK_DIAG_MAX as
-> NETLINK_DIAG_GROUPS like other by doing>
-> 
-> 	[...] 
->         __NETLINK_DIAG_MAX,
-> };
->  
-> #define NETLINK_DIAG_MAX (__NETLINK_DIAG_MAX - 1)
->  
-> Everyone is used to do:
->  
->         struct nlattr *attrs[NETLINK_DIAG_MAX+1];
->          
->         nla_parse([...], NETLINK_DIAG_MAX, [...]
-> 
+Hi,
 
-Thank you for this issue. I sent the separate patch
-"[PATCH] net: fix *_DIAG_MAX constants", because currently only
-INET_DIAG_MAX is correct.
+after updating to kernel v3.8.4 I see that Netfilter NFQUEUE readers
+get -EPERM from sys_sendto() at the time they try to inject the verdict
+back to the kernel.  This only occurs iff not running as 'root'.
 
-> In fact, the follow-up patch to ss is buggy because of this.
-> UNIX_DIAG_MAX suffers from the same problem which is problem the
-> cause for this.
+The last working kernel is v3.7.7.
 
-The code in ss looks like you described:
-        struct rtattr *tb[UNIX_DIAG_MAX+1];
-...
-        parse_rtattr(tb, UNIX_DIAG_MAX, (struct rtattr*)(r+1),
-                     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
+Skimming through the changeset since v3.7.7 the following changes
+pop up:
 
+ userns: Require CAP_SYS_ADMIN for most uses of setns.
+ userns: Allow unprivileged use of setns.
 
-        struct rtattr *tb[NETLINK_DIAG_MAX+1];
-...
-        parse_rtattr(tb, NETLINK_DIAG_MAX, (struct rtattr*)(r+1),
-                     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)))
+So it could be related to my current namespace config, which is
 
-I think I should only update headers... Or I don't understand something.
+  CONFIG_NAMESPACES=y
+  # CONFIG_UTS_NS is not set
+  # CONFIG_IPC_NS is not set
+  # CONFIG_USER_NS is not set
+  # CONFIG_PID_NS is not set
+  # CONFIG_NET_NS is not set
+
+I rate this a major issue, as quite some of those programs
+drop privileges for various reasons.
+
+Is this a known issue?  Well, I skimmed through the list, but didn't
+find anything.
+
+ /Holger
+
