@@ -1,41 +1,44 @@
-From: Fleming Andy-AFLEMING <afleming@freescale.com>
-Subject: Re: [PATCH] phy: Add support for VSC8234
-Date: Fri, 22 Mar 2013 14:27:35 +0000
-Message-ID: <45F3FB2F-D5AA-42BD-A3B8-B38A93569303@freescale.com>
-References: <E1UJ1fR-0004hp-2j@swissweb.swissdisk.com>,<20130322.101351.803684806942512280.davem@davemloft.net>
+From: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
+Subject: RE: [PATCH -next] caif_virtio: fix error return code in
+ cfv_create_genpool()
+Date: Fri, 22 Mar 2013 15:27:39 +0100
+Message-ID: <81C3A93C17462B4BBD7E272753C10579249583EE23@EXDCVYMBSTM005.EQ1STM.local>
+References: <CAPgLHd-VdCq3qfDGYpCE1VmPeHGFneyR3TaarS=bMROqWmj2uA@mail.gmail.com>
+ <20130322.102425.1728735565421860819.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Gala Kumar-B11780 <B11780@freescale.com>,
+Cc: "rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
+	"yongjun_wei@trendmicro.com.cn" <yongjun_wei@trendmicro.com.cn>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130322.101351.803684806942512280.davem@davemloft.net>
+To: David Miller <davem@davemloft.net>,
+	"weiyj.lk@gmail.com" <weiyj.lk@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog125.obsmtp.com ([207.126.144.159]:36516 "EHLO
+	eu1sys200aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933416Ab3CVO1z convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Mar 2013 10:27:55 -0400
+In-Reply-To: <20130322.102425.1728735565421860819.davem@davemloft.net>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On Mar 22, 2013, at 9:13, "David Miller" <davem@davemloft.net> wrote:
-
-> From: Andy Fleming <afleming@freescale.com>
-> Date: Sun, 16 Oct 2011 01:49:49 -0500
+> From: David Miller [mailto:davem@davemloft.net]
+> > From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> >
+> > Fix to return a negative error code from the error handling
+> > case instead of 0, as returned elsewhere in this function.
+> >
+> > Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> > ---
+> >  drivers/net/caif/caif_virtio.c | 4 +++-
+> >  1 file changed, 3 insertions(+), 1 deletion(-)
 > 
->> No functional changes other than to recognize this PHYID.
->> 
->> Signed-off-by: Andy Fleming <afleming@freescale.com>
->> Signed-off-by: Kumar Gala <kumar.gala@freescale.com>
->> Signed-off-by: Ben Collins <ben.c@servergy.com>
-> 
-> Please do not submit patches with the commit date integrated
-> into your formal email headers.
-> 
-> This screws up archives and patch queue maintainence systems which
-> order submissions by date.
+> I can't apply this as this file doesn't exist in my tree.
 
+caif_virtio.c lives in Rusty's "virtio-next" tree. 
+I guess this patch should have been tagged "virtio-next" instead.
 
-Yes, I'm very confused, as I didn't send any of these.
-
-Andy
+Thanks,
+Sjur
