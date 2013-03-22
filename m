@@ -1,41 +1,43 @@
-From: Ben Collins <benmcollins13@gmail.com>
-Subject: Re: [PATCH] net: Add support for handling queueing in hardware
-Date: Fri, 22 Mar 2013 10:43:44 -0400
-Message-ID: <FE78128C-01DB-4831-ACBE-BA3E3A428BFC@gmail.com>
-References: <E1UJ1fR-0004hs-4l@swissweb.swissdisk.com> <20130322.101139.1942128058226201237.davem@davemloft.net> <A5ACC15C-361D-48E6-BFFF-9AA3966C2A68@freescale.com> <20130322.103302.1277256650283142022.davem@davemloft.net>
-Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: afleming@freescale.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130322.103302.1277256650283142022.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [net-next.git 0/9] stmmac: update to March_2013 (adding PTP &
+ RGMII/SGMII)
+Date: Fri, 22 Mar 2013 15:27:27 +0100
+Message-ID: <514C6A4F.3020601@st.com>
+References: <1362653419-1047-1-git-send-email-peppe.cavallaro@st.com> <20130307.153456.83724032858548621.davem@davemloft.net> <51399048.3070505@st.com> <20130308.112219.1999774630969953487.davem@davemloft.net> <513D839A.8000009@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, bh74.an@samsung.com,
+	rayagond@vayavyalabs.com,
+	Richard Cochran <richardcochran@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog121.obsmtp.com ([207.126.144.151]:34091 "EHLO
+	eu1sys200aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933511Ab3CVOo5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 10:44:57 -0400
+In-Reply-To: <513D839A.8000009@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mar 22, 2013, at 10:33 AM, David Miller <davem@davemloft.net> wrote:
+On 3/11/2013 8:11 AM, Giuseppe CAVALLARO wrote:
+[snip]
+> At any case, I'll arrange to change the code removing the Koption and
+> continuing (as done in the past) to setup at probe time the right
+> configuration. This will be in the next version of the patches.
 
-> From: Fleming Andy-AFLEMING <afleming@freescale.com>
-> Date: Fri, 22 Mar 2013 14:31:50 +0000
-> 
->> It would appear one of our customers is attempting to upstream our
->> code for us. We are aware that this current solution is unacceptable
->> (which is why we have not submitted it), and we are currently trying
->> to develop a less hacky solution that integrates with qdisc.
-> 
-> Ben, can can you coordinate with people instead of doing crap like
-> this?
+I've finally completed this task and I've reworked all the code to
+completely remove the Koption (also for chain/ring mode).
+Now all is done at probe time as discussed in this email thread.
+On top of this, the PTP will be ported with Richard's advice
+Pls let me know if there are other suggestions about the patches, I have
+sent, so I can review and update them before resending the new versions.
 
+peppe
 
-"For us" is a loose term, when it's more that we are attempting to upstream code so our system is supported by a mainline kernel instead of having one-off kernels.
-
-And we have been talking with Freescale about this for quite some time (couple years?). They have a roadmap that doesn't include getting this driver supported in mainline any time soon, so I'm taking time to get this done for our own system. I'm not meaning to step on any toes.
-
-Believe me, I've attempted to make this as painless as possible. Only having 5 patches (and each just a few lines) is significantly less than how this driver started out. I can toss out the QDisc patch and work on a better way. I'm not totally familiar with the queueing, so any pointers to a better way to handle this would be appreciated.
-
---
-Servergy  : http://www.servergy.com/
-SwissDisk : http://www.swissdisk.com/
-Ubuntu    : http://www.ubuntu.com/
-My Blog   : http://ben-collins.blogspot.com/
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
