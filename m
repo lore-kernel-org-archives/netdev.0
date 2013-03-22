@@ -1,124 +1,59 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: virtio: remove obsolete virtqueue_get_queue_index()
-Date: Fri, 22 Mar 2013 10:47:34 +1030
-Message-ID: <87ehf8fftt.fsf@rustcorp.com.au>
-References: <878v5hp6hc.fsf@rustcorp.com.au> <20130321100146.7a741c75@gondolin>
+From: "Meng, Jilin" <Jilin.Meng@emc.com>
+Subject: [PATCH] net: Fix tentative IPv6 address due to DAD looping back
+Date: Thu, 21 Mar 2013 23:20:09 -0400
+Message-ID: <D6EA916C7149064CB4D5C686612478A3183E2D27D1@MX34A.corp.emc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mst@redhat.com, netdev@vger.kernel.org
-To: Cornelia Huck <cornelia.huck@de.ibm.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Sun, Yinglin" <yinglin.sun@emc.com>,
+	"Prithviraj, Lakshmanan" <lakshmanan.prithviraj@emc.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "davem@davemloft.net" <davem@davemloft.net>,
+	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+	"kaber@trash.net" <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:57608 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751604Ab3CVDEk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Mar 2013 23:04:40 -0400
-In-Reply-To: <20130321100146.7a741c75@gondolin>
+Received: from hop-nat-141.emc.com ([168.159.213.141]:27305 "EHLO
+	mexforward.lss.emc.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751862Ab3CVDVK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 23:21:10 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cornelia Huck <cornelia.huck@de.ibm.com> writes:
-> On Thu, 21 Mar 2013 17:47:03 +1030
-> Rusty Russell <rusty@rustcorp.com.au> wrote:
->
->> You can access it directly now, since 3.8: v3.7-rc1-13-g06ca287
->> 'virtio: move queue_index and num_free fields into core struct
->> virtqueue.'
->> 
->> Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
->> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-...
->> @@ -610,7 +610,7 @@ static struct virtqueue *virtio_ccw_vq_by_ind(struct virtio_ccw_device *vcdev,
->>  	vq = NULL;
->>  	spin_lock_irqsave(&vcdev->lock, flags);
->>  	list_for_each_entry(info, &vcdev->virtqueues, node) {
->> -		if (virtqueue_get_queue_index(info->vq) == index) {
->> +		if (vq->index == index) {
->
-> Should be
-> 		if (info->vq->index == index) {
->
->>  			vq = info->vq;
->>  			break;
->>  		}
+we should ignore the looped-back IPv6 DAD packet to avoid configuration failure.
+This occurs when a bonding interface with roundrobin mode is being configured an IPv6 address 
+while the switch side isn't configured bonding/channel yet.
 
-Thanks, fixed.
-
-virtio: remove obsolete virtqueue_get_queue_index()
-
-You can access it directly now, since 3.8: v3.7-rc1-13-g06ca287
-'virtio: move queue_index and num_free fields into core struct
-virtqueue.'
-
-Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index d88d436..24fc9f5 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -153,7 +153,7 @@ struct padded_vnet_hdr {
-  */
- static int vq2txq(struct virtqueue *vq)
- {
--	return (virtqueue_get_queue_index(vq) - 1) / 2;
-+	return (vq->index - 1) / 2;
- }
+Signed-off-by: Jilin Meng <jilin.meng@emc.com>
+Signed-off-by: Yinglin Sun <yinglin.sun@emc.com>
+Signed-off-by: Lakshmanan Prithviraj <lakshmanan.prithviraj@emc.com>
+---
+--- linux/net/ipv6/ndisc.c.orig	2013-03-12 17:16:18.000000000 +0800
++++ linux/net/ipv6/ndisc.c	2013-03-21 10:37:06.000000000 +0800
+@@ -757,6 +757,24 @@ static void ndisc_recv_ns(struct sk_buff
  
- static int txq2vq(int txq)
-@@ -163,7 +163,7 @@ static int txq2vq(int txq)
- 
- static int vq2rxq(struct virtqueue *vq)
- {
--	return virtqueue_get_queue_index(vq) / 2;
-+	return vq->index / 2;
- }
- 
- static int rxq2vq(int rxq)
-diff --git a/drivers/s390/kvm/virtio_ccw.c b/drivers/s390/kvm/virtio_ccw.c
-index 2029b6c..a7eddc7 100644
---- a/drivers/s390/kvm/virtio_ccw.c
-+++ b/drivers/s390/kvm/virtio_ccw.c
-@@ -166,7 +166,7 @@ static void virtio_ccw_kvm_notify(struct virtqueue *vq)
- 
- 	vcdev = to_vc_device(info->vq->vdev);
- 	ccw_device_get_schid(vcdev->cdev, &schid);
--	do_kvm_notify(schid, virtqueue_get_queue_index(vq));
-+	do_kvm_notify(schid, vq->index);
- }
- 
- static int virtio_ccw_read_vq_conf(struct virtio_ccw_device *vcdev,
-@@ -188,7 +188,7 @@ static void virtio_ccw_del_vq(struct virtqueue *vq, struct ccw1 *ccw)
- 	unsigned long flags;
- 	unsigned long size;
- 	int ret;
--	unsigned int index = virtqueue_get_queue_index(vq);
-+	unsigned int index = vq->index;
- 
- 	/* Remove from our list. */
- 	spin_lock_irqsave(&vcdev->lock, flags);
-@@ -610,7 +610,7 @@ static struct virtqueue *virtio_ccw_vq_by_ind(struct virtio_ccw_device *vcdev,
- 	vq = NULL;
- 	spin_lock_irqsave(&vcdev->lock, flags);
- 	list_for_each_entry(info, &vcdev->virtqueues, node) {
--		if (virtqueue_get_queue_index(info->vq) == index) {
-+		if (info->vq->index == index) {
- 			vq = info->vq;
- 			break;
- 		}
-diff --git a/include/linux/virtio.h b/include/linux/virtio.h
-index 833f17b..9ff8645 100644
---- a/include/linux/virtio.h
-+++ b/include/linux/virtio.h
-@@ -76,12 +76,6 @@ void *virtqueue_detach_unused_buf(struct virtqueue *vq);
- 
- unsigned int virtqueue_get_vring_size(struct virtqueue *vq);
- 
--/* FIXME: Obsolete accessor, but required for virtio_net merge. */
--static inline unsigned int virtqueue_get_queue_index(struct virtqueue *vq)
--{
--	return vq->index;
--}
--
- /**
-  * virtio_device - representation of a device using virtio
-  * @index: unique position on the virtio bus
+ 		if (ifp->flags & (IFA_F_TENTATIVE|IFA_F_OPTIMISTIC)) {
+ 			if (dad) {
++				if (dev->type == ARPHRD_ETHER) {
++					const unsigned char *sadr;
++					sadr = skb_mac_header(skb);
++					if (sadr[6] == dev->dev_addr[0] &&
++					    sadr[7] == dev->dev_addr[1] &&
++					    sadr[8] == dev->dev_addr[2] &&
++					    sadr[9] == dev->dev_addr[3] &&
++					    sadr[10] == dev->dev_addr[4] &&
++					    sadr[11] == dev->dev_addr[5]) {
++					/*
++					 * looped-back to us. This occurs when
++					 * a bonding interface with roundrobin
++					 * mode is being configured while the
++					 * switch side isn't configured yet.
++					 */
++						goto out;
++				}
++
+ 				/*
+ 				 * We are colliding with another node
+ 				 * who is doing DAD
