@@ -1,67 +1,70 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: Re: [PATCH] net: add ETH_P_802_3_MIN
-Date: Fri, 22 Mar 2013 22:49:38 +0900
-Message-ID: <20130322134938.GA4220@verge.net.au>
-References: <1363854568-32228-1-git-send-email-horms@verge.net.au>
-	<20130321.115608.570355867509300023.davem@davemloft.net>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH 0/4 v3] mv643xx_eth: use mvmdio MDIO bus driver
+Date: Fri, 22 Mar 2013 14:53:37 +0100
+Message-ID: <20130322145337.3814fcc8@skate>
+References: <1363284515-9865-1-git-send-email-florian@openwrt.org>
+	<1363959568-16976-1-git-send-email-florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org, mchehab-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stefanr-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org,
-	linux1394-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20130321.115608.570355867509300023.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: davem@davemloft.net, Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Rob Landley <rob@landley.net>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Russell King <linux@arm.linux.org.uk>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1363959568-16976-1-git-send-email-florian@openwrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 21, 2013 at 11:56:08AM -0400, David Miller wrote:
-> From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-> Date: Thu, 21 Mar 2013 17:29:28 +0900
-> 
-> > Add a new constant ETH_P_802_3_MIN, the minimum ethernet type for
-> > an 802.3 frame. Frames with a lower value in the ethernet type field
-> > are Ethernet II.
-> > 
-> > Also update all the users of this value that I could find to use the
-> > new constant.
-> > 
-> > I anticipate adding some more users of this constant when
-> > adding MPLS support to Open vSwtich.
-> > 
-> > As suggested by Jesse Gross.
-> > 
-> > Compile tested only.
-> > 
-> > Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-> 
-> You missed a few cases:
-> 
-> drivers/media/dvb-core/dvb_net.c:       } while (p->ule_sndu_type < 1536);
-> drivers/media/dvb-core/dvb_net.c:                               if (priv->ule_sndu_type < 1536) {
-> net/atm/lec.h: *    is less than 1536(0x0600) MUST be encoded by placing that length
-> drivers/net/wireless/ray_cs.c:  if (ntohs(proto) >= 1536) { /* DIX II ethernet frame */
-> net/bridge/netfilter/ebtables.c:                if (FWINV2(ntohs(ethproto) >= 1536, EBT_IPROTO))
-> include/linux/if_vlan.h:        if (ntohs(proto) >= 1536) {
-> net/bluetooth/bnep/netdev.c:    if (proto >= 1536)
-> net/openvswitch/flow.c: if (ntohs(proto) >= 1536)
-> net/mac80211/tx.c:      } else if (ethertype >= 0x600) {
-> net/wireless/util.c:    } else if (ethertype > 0x600) {
-> 
-> In fact, the last line looks like a bug, it should be >= not >.
+Hello,
 
-Thanks for finding those.
+On Fri, 22 Mar 2013 14:39:24 +0100, Florian Fainelli wrote:
+> Hi all,
+> 
+> This patch converts the mv643xx_eth driver to use the mvmdio MDIO bus driver
+> instead of rolling its own implementation. As a result, all users of this
+> mv643xx_eth driver are converted to register an "orion-mdio" platform_device.
+> The mvmdio driver is also updated to support an interrupt line which reports
+> SMI error/completion, and to allow traditionnal platform device registration
+> instead of just device tree.
+> 
+> David, I think it makes sense for you to merge all of this, since we do
+> not want the architecture files to be desynchronized from the mv643xx_eth to
+> avoid runtime breakage. The potential for merge conflicts should be very small.
+> 
+> Florian Fainelli (4):
+>   net: mvmdio: allow platform device style registration
+>   net: mvmdio: rename base register cookie from smireg to regs
+>   net: mvmdio: enhance driver to support SMI error/done interrupts
+>   mv643xx_eth: convert to use the Marvell Orion MDIO driver
 
-> Could you take care of these bits and respin your patch?
+For the entire series:
 
-Sure.
+Tested-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+
+tested on:
+
+ * Armada XP DB, DT-based, which uses the mvneta driver. It is affected
+   by the 3 first commits since Armada XP also uses the mvmdio driver.
+
+ * Kirkwood development board, non-DT, which uses the mv643xx_eth
+   driver.
+
+Thanks Florian for this work,
+
+Thomas
+-- 
+Thomas Petazzoni, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
