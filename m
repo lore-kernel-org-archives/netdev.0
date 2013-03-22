@@ -1,115 +1,123 @@
-From: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] ath9k : Fix ieee80211 work while going to suspend
-Date: Fri, 22 Mar 2013 10:13:42 +0100
-Message-ID: <20130322091342.GB1496@redhat.com>
-References: <CAOULuOb0_40EX+6A_HM8eJN7kj9J4WhO9UhZbUUqng1Sfy_SQg@mail.gmail.com>
- <20130318191340.GA28919@tuxdriver.com>
- <20130318210308.GD32416@pogo>
- <20130321114219.GB1459@redhat.com>
- <20130321193331.GB32416@pogo>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Parag Warudkar <parag.lkml-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Jouni Malinen <jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Vasanthakumar Thiagarajan <vthiagar-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-juf53994utBLZpfksSYvnA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	senthilb-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org
-To: "Luis R. Rodriguez" <rodrigue-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20130321193331.GB32416@pogo>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH net-next 03/19] ipvs: add ip_vs_dest_hold and ip_vs_dest_put
+Date: Fri, 22 Mar 2013 11:46:38 +0200
+Message-ID: <1363945614-11752-4-git-send-email-ja@ssi.bg>
+References: <1363945614-11752-1-git-send-email-ja@ssi.bg>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:43375 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754900Ab3CVJpZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Mar 2013 05:45:25 -0400
+In-Reply-To: <1363945614-11752-1-git-send-email-ja@ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 21, 2013 at 12:33:31PM -0700, Luis R. Rodriguez wrote:
-> So when does this work get called?
-> 
-> Given the trace this is hit when the timer rx_poll_timer runs,
-> which in turn calls ath_rx_poll() to schedule hw_check_work work.
-> The rx_poll_timer however was originally only set at the end of
-> the routine that hw_check_work sets off but also at other entry
-> points (ath_start_rx_poll() callers). Once ath_start_rx_poll()
-> gets called though we can go on looping as follows:
-> 
-> work			timer			work
-> hw_check_work	-->	rx_poll_timer	-->	hw_check_work
->
-> At suspend time we do this though:
-> 
-> ath_cancel_work(sc);                                                    
-> del_timer_sync(&sc->rx_poll_timer);  
->  
-> +	del_timer_sync(&sc->rx_poll_timer);
->  	ath_cancel_work(sc);
->  	ath_stop_ani(sc);
-> -	del_timer_sync(&sc->rx_poll_timer);
+	ip_vs_dest_hold will be used under RCU lock
+while ip_vs_dest_put can be called even after dest
+is removed from service, as it happens for conns and
+some schedulers.
 
-[snip]
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+ include/net/ip_vs.h             |   10 ++++++++++
+ net/netfilter/ipvs/ip_vs_conn.c |    9 ++-------
+ net/netfilter/ipvs/ip_vs_ctl.c  |    4 ++--
+ net/netfilter/ipvs/ip_vs_sync.c |    4 ++--
+ 4 files changed, 16 insertions(+), 11 deletions(-)
 
-> But then we have the chicken and the egg problem, as the work item
-> could fire off the timer so it would seem to be good to prevent
-> adding new work when suspending.
-
-Yup, this is egg and chicken problem, I think it can not be fixed by
-changing ordering of del_timer and cancel_work, it would be like:
-
-del_timer_sync(&sc->rx_poll_timer);
-/* but timer could schedule work */
-ath_cancel_work(sc);
-/* but work could schedule timer */ 
-del_timer_sync(&sc->rx_poll_timer);
-/* but timer could schedule work */
-ath_cancel_work(sc);
-/* And so on ... */
-
-Check is needed in work or timer callback, depending what is canceled
-last, to fix the problem ...
-
-> > In mac80211 we use local->suspended and local->quiesce booleans to
-> > prevent reschedule of timers when going to suspend for example.
-> > Works use ifmgd->associted to prevent reschedule when we are
-> > disassociating.
-> > 
-> > I think on ath9k also some boolean variable should be used, not only
-> > for rx_poll_timer but also for other works i.e. tx_complete_work.
-> > Is possible to use SC_OP_INVALID flags, since mac80211 call ath9k_stop
-> > on suspend and ath9k_start on resume.
-> 
-> Indeed however ieee80211_queue_work() already does a suspend check for
-> us, it just complains as many drivers including mac80211 were setting
-> up work incorrectly. The warning was put in place to help us find the
-> issues. Using SC_OP_INVALID seems fair but we could also add a routine
-> ieee80211_queue_work_safe() that silently fails if we are quiescing or
-> suspended and not resuming but I can see that creating very sloppy
-> driver writing and everyone abusing it.
-
-We also have to reliable cancel works on ath9k_stop() if device goes
-down for other reason than suspend, new mac80211 ieee80211_queue_work_safe()
-routine will not help with that.
-
-> OK how about this for stable for now:
-> 
-> diff --git a/drivers/net/wireless/ath/ath9k/link.c b/drivers/net/wireless/ath/ath9k/link.c
-> index 39c84ec..7fdac6c 100644
-> --- a/drivers/net/wireless/ath/ath9k/link.c
-> +++ b/drivers/net/wireless/ath/ath9k/link.c
-> @@ -170,7 +170,8 @@ void ath_rx_poll(unsigned long data)
->  {
->  	struct ath_softc *sc = (struct ath_softc *)data;
->  
-> -	ieee80211_queue_work(sc->hw, &sc->hw_check_work);
-> +	if (!test_bit(SC_OP_INVALID, &sc->sc_flags))
-> +		ieee80211_queue_work(sc->hw, &sc->hw_check_work);
->  }
-
-That looks ok for me as -stable fix
-
-Reviewed-by: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-
-Stanislaw 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 5af338b..2752c86 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1427,6 +1427,16 @@ ip_vs_find_dest(struct net *net, int af, const union nf_inet_addr *daddr,
+ 		__u16 protocol, __u32 fwmark, __u32 flags);
+ extern struct ip_vs_dest *ip_vs_try_bind_dest(struct ip_vs_conn *cp);
+ 
++static inline void ip_vs_dest_hold(struct ip_vs_dest *dest)
++{
++	atomic_inc(&dest->refcnt);
++}
++
++static inline void ip_vs_dest_put(struct ip_vs_dest *dest)
++{
++	smp_mb__before_atomic_dec();
++	atomic_dec(&dest->refcnt);
++}
+ 
+ /*
+  *      IPVS sync daemon data and function prototypes
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index e3e2b4d..1b29e4a 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -554,7 +554,7 @@ ip_vs_bind_dest(struct ip_vs_conn *cp, struct ip_vs_dest *dest)
+ 		return;
+ 
+ 	/* Increase the refcnt counter of the dest */
+-	atomic_inc(&dest->refcnt);
++	ip_vs_dest_hold(dest);
+ 
+ 	conn_flags = atomic_read(&dest->conn_flags);
+ 	if (cp->protocol != IPPROTO_UDP)
+@@ -700,12 +700,7 @@ static inline void ip_vs_unbind_dest(struct ip_vs_conn *cp)
+ 			dest->flags &= ~IP_VS_DEST_F_OVERLOAD;
+ 	}
+ 
+-	/*
+-	 * Simply decrease the refcnt of the dest, because the
+-	 * dest will be either in service's destination list
+-	 * or in the trash.
+-	 */
+-	atomic_dec(&dest->refcnt);
++	ip_vs_dest_put(dest);
+ }
+ 
+ static int expire_quiescent_template(struct netns_ipvs *ipvs,
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index ae765b8..36d9cd8 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -614,7 +614,7 @@ struct ip_vs_dest *ip_vs_find_dest(struct net  *net, int af,
+ 	if (!dest)
+ 		dest = ip_vs_lookup_dest(svc, daddr, port ^ dport);
+ 	if (dest)
+-		atomic_inc(&dest->refcnt);
++		ip_vs_dest_hold(dest);
+ 	ip_vs_service_put(svc);
+ 	return dest;
+ }
+@@ -1054,7 +1054,7 @@ static void __ip_vs_del_dest(struct net *net, struct ip_vs_dest *dest)
+ 			      ntohs(dest->port),
+ 			      atomic_read(&dest->refcnt));
+ 		list_add(&dest->n_list, &ipvs->dest_trash);
+-		atomic_inc(&dest->refcnt);
++		ip_vs_dest_hold(dest);
+ 	}
+ }
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index 44fd10c..6cc3e52 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -861,7 +861,7 @@ static void ip_vs_proc_conn(struct net *net, struct ip_vs_conn_param *param,
+ 		if (!dest) {
+ 			dest = ip_vs_try_bind_dest(cp);
+ 			if (dest)
+-				atomic_dec(&dest->refcnt);
++				ip_vs_dest_put(dest);
+ 		}
+ 	} else {
+ 		/*
+@@ -874,7 +874,7 @@ static void ip_vs_proc_conn(struct net *net, struct ip_vs_conn_param *param,
+ 
+ 		cp = ip_vs_conn_new(param, daddr, dport, flags, dest, fwmark);
+ 		if (dest)
+-			atomic_dec(&dest->refcnt);
++			ip_vs_dest_put(dest);
+ 		if (!cp) {
+ 			if (param->pe_data)
+ 				kfree(param->pe_data);
+-- 
+1.7.3.4
