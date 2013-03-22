@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4 v3] mv643xx_eth: use mvmdio MDIO bus driver
-Date: Fri, 22 Mar 2013 10:26:26 -0400 (EDT)
-Message-ID: <20130322.102626.1889236227505288422.davem@davemloft.net>
-References: <1363284515-9865-1-git-send-email-florian@openwrt.org>
-	<1363959568-16976-1-git-send-email-florian@openwrt.org>
+Subject: Re: [PATCH] phy: Add XGMII phy interface type
+Date: Fri, 22 Mar 2013 10:27:38 -0400 (EDT)
+Message-ID: <20130322.102738.100763719710671227.davem@davemloft.net>
+References: <5BDCE647-67A3-423B-AB9C-8C50CC0B6C02@gmail.com>
+	<20130322.101900.1947638393872492900.davem@davemloft.net>
+	<9CC1FA76-1620-4E0F-82DC-89535633329F@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
-	rob@landley.net, jason@lakedaemon.net, andrew@lunn.ch,
-	linux@arm.linux.org.uk, benh@kernel.crashing.org, paulus@samba.org,
-	buytenh@wantstofly.org, thomas.petazzoni@free-electrons.com,
-	gregkh@linuxfoundation.org, devicetree-discuss@lists.ozlabs.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
-To: florian@openwrt.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: benmcollins13@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1363959568-16976-1-git-send-email-florian@openwrt.org>
+In-Reply-To: <9CC1FA76-1620-4E0F-82DC-89535633329F@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <florian@openwrt.org>
-Date: Fri, 22 Mar 2013 14:39:24 +0100
+From: Ben Collins <benmcollins13@gmail.com>
+Date: Fri, 22 Mar 2013 10:22:05 -0400
 
-> This patch converts the mv643xx_eth driver to use the mvmdio MDIO bus driver
-> instead of rolling its own implementation. As a result, all users of this
-> mv643xx_eth driver are converted to register an "orion-mdio" platform_device.
-> The mvmdio driver is also updated to support an interrupt line which reports
-> SMI error/completion, and to allow traditionnal platform device registration
-> instead of just device tree.
-> 
-> David, I think it makes sense for you to merge all of this, since we do
-> not want the architecture files to be desynchronized from the mv643xx_eth to
-> avoid runtime breakage. The potential for merge conflicts should be very small.
+> It's code that I've manually stripped down as a subset of a larger
+> code base for Freescale's DPAA driver. I've only tested it on our
+> (Servergy's) platform, so until it gets more broad testing (and some
+> code review), I want to at least get it into staging so our hardware
+> is supported.
 
-Series applied to net-next, thanks Florian.
+Then why don't you submit the PHY type addition with the staging
+driver, which will be the only user, and you can add my:
+
+Acked-by: David S. Miller <davem@davemloft.net>
+
+to that.
+
+Thanks.
