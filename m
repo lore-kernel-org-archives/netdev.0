@@ -1,65 +1,102 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [git pull] firewire net: resource management improvements
-Date: Fri, 22 Mar 2013 12:34:23 +0900
-Message-ID: <1363923263.16608.14.camel@cirrhata>
-References: <5139419A.2040309@linux-ipv6.org>
-	 <20130313151919.68068bae@stein>
-	 <20130313.102448.1103259275832948992.davem@davemloft.net>
-	 <20130313163742.73a3a842@stein>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tcp: preserve ACK clocking in TSO
+Date: Thu, 21 Mar 2013 20:36:09 -0700
+Message-ID: <1363923369.4431.53.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
+Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Van Jacobson <vanj@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:45820 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752706Ab3CVDbN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 23:31:13 -0400
-In-Reply-To: <20130313163742.73a3a842@stein>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:55260 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753645Ab3CVDgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 23:36:12 -0400
+Received: by mail-pd0-f172.google.com with SMTP id w10so1387287pde.17
+        for <netdev@vger.kernel.org>; Thu, 21 Mar 2013 20:36:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+From: Eric Dumazet <edumazet@google.com>
 
-would you consider pulling this one to net-next, please?
-I can prepare rebased tree, if you want.
+A long standing problem with TSO is the fact that tcp_tso_should_defer()
+rearms the deferred timer, while it should not.
 
-Thanks.
+Current code leads to following bad bursty behavior :
 
---yoshfuji
+20:11:24.484333 IP A > B: . 297161:316921(19760) ack 1 win 119
+20:11:24.484337 IP B > A: . ack 263721 win 1117
+20:11:24.485086 IP B > A: . ack 265241 win 1117
+20:11:24.485925 IP B > A: . ack 266761 win 1117
+20:11:24.486759 IP B > A: . ack 268281 win 1117
+20:11:24.487594 IP B > A: . ack 269801 win 1117
+20:11:24.488430 IP B > A: . ack 271321 win 1117
+20:11:24.489267 IP B > A: . ack 272841 win 1117
+20:11:24.490104 IP B > A: . ack 274361 win 1117
+20:11:24.490939 IP B > A: . ack 275881 win 1117
+20:11:24.491775 IP B > A: . ack 277401 win 1117
+20:11:24.491784 IP A > B: . 316921:332881(15960) ack 1 win 119
+20:11:24.492620 IP B > A: . ack 278921 win 1117
+20:11:24.493448 IP B > A: . ack 280441 win 1117
+20:11:24.494286 IP B > A: . ack 281961 win 1117
+20:11:24.495122 IP B > A: . ack 283481 win 1117
+20:11:24.495958 IP B > A: . ack 285001 win 1117
+20:11:24.496791 IP B > A: . ack 286521 win 1117
+20:11:24.497628 IP B > A: . ack 288041 win 1117
+20:11:24.498459 IP B > A: . ack 289561 win 1117
+20:11:24.499296 IP B > A: . ack 291081 win 1117
+20:11:24.500133 IP B > A: . ack 292601 win 1117
+20:11:24.500970 IP B > A: . ack 294121 win 1117
+20:11:24.501388 IP B > A: . ack 295641 win 1117
+20:11:24.501398 IP A > B: . 332881:351881(19000) ack 1 win 119
 
-Stefan Richter wrote:
-> David,
-> 
-> please pull from the tag "firewire-net-resource-mgt" at
-> 
->     git://git.kernel.org/pub/scm/linux/kernel/git/ieee1394/linux1394.git firewire-net-resource-mgt
-> 
-> to receive the following firewire-net driver changes:
->   - fix memory leak and kmap leak at shutdown
->   - release IR DMA context already at ifdown rather than shutdown
->     (many controllers have got only 4 of them, so let's not hold it
->     longer than strictly necessary)
->   - misc startup/shutdown changes which prepare for later addition
->     of IPv6-over-1394 support
-> 
-> YOSHIFUJI Hideaki (11):
->       firewire net: No need to reset dev->local_fifo after failure of fw_core_add_address_handler().
->       firewire net: Introduce fwnet_fifo_{start, stop}() helpers.
->       firewire net: Setup broadcast and local fifo independently.
->       firewire net: Check dev->broadcast_state inside fwnet_broadcast_start().
->       firewire net: Fix memory leakage in fwnet_remove().
->       firewire net: Clear dev->broadcast_rcv_context and dev->broadcast_state after destruction of context.
->       firewire net: Omit checking dev->broadcast_rcv_context in fwnet_broadcast_start().
->       firewire net: Fix leakage of kmap for broadcast receive buffer.
->       firewire net: Allocate dev->broadcast_rcv_buffer_ptrs early.
->       firewire net: Introduce fwnet_broadcast_stop() to destroy broadcast resources.
->       firewire net: Release broadcast/fifo resources on ifdown.
-> 
->  drivers/firewire/net.c | 177 +++++++++++++++++++--------------
->  1 file changed, 105 insertions(+), 72 deletions(-)
-> 
-> Thanks,
+While the expected behavior is more like :
+
+20:19:49.259620 IP A > B: . 197601:202161(4560) ack 1 win 119
+20:19:49.260446 IP B > A: . ack 154281 win 1212
+20:19:49.261282 IP B > A: . ack 155801 win 1212
+20:19:49.262125 IP B > A: . ack 157321 win 1212
+20:19:49.262136 IP A > B: . 202161:206721(4560) ack 1 win 119
+20:19:49.262958 IP B > A: . ack 158841 win 1212
+20:19:49.263795 IP B > A: . ack 160361 win 1212
+20:19:49.264628 IP B > A: . ack 161881 win 1212
+20:19:49.264637 IP A > B: . 206721:211281(4560) ack 1 win 119
+20:19:49.265465 IP B > A: . ack 163401 win 1212
+20:19:49.265886 IP B > A: . ack 164921 win 1212
+20:19:49.266722 IP B > A: . ack 166441 win 1212
+20:19:49.266732 IP A > B: . 211281:215841(4560) ack 1 win 119
+20:19:49.267559 IP B > A: . ack 167961 win 1212
+20:19:49.268394 IP B > A: . ack 169481 win 1212
+20:19:49.269232 IP B > A: . ack 171001 win 1212
+20:19:49.269241 IP A > B: . 215841:221161(5320) ack 1 win 119
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Van Jacobson <vanj@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Nandita Dukkipati <nanditad@google.com>
+---
+ net/ipv4/tcp_output.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 817fbb3..5d0b438 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1809,8 +1809,11 @@ static bool tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb)
+ 			goto send_now;
+ 	}
+ 
+-	/* Ok, it looks like it is advisable to defer.  */
+-	tp->tso_deferred = 1 | (jiffies << 1);
++	/* Ok, it looks like it is advisable to defer.
++	 * Do not rearm the timer if already set to not break TCP ACK clocking.
++	 */
++	if (!tp->tso_deferred)
++		tp->tso_deferred = 1 | (jiffies << 1);
+ 
+ 	return true;
+ 
