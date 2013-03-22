@@ -1,39 +1,55 @@
-From: Ben Collins <benmcollins13@gmail.com>
-Subject: Re: [PATCH] net: Add support for handling queueing in hardware
-Date: Fri, 22 Mar 2013 12:23:19 -0400
-Message-ID: <CAA3A00E-3D5B-4A9E-91E6-F47566C0A4D4@gmail.com>
-References: <14243FE7-A0A6-4C0C-AEFB-95F19C8898E3@gmail.com> <20130322.115924.1452021957855498515.davem@davemloft.net> <0FF79196-E252-4738-BFB5-C0B10F447B33@gmail.com> <20130322.121600.1984397550534213180.davem@davemloft.net>
-Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: afleming@freescale.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130322.121600.1984397550534213180.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: NULL pointer deref, selinux_socket_unix_may_send+0x34/0x90
+Date: Fri, 22 Mar 2013 12:24:38 -0400
+Message-ID: <3405435.XFBqjMtCVW@sifl>
+References: <CAMpz-8YY1ZFJnx5JAuGu3GBYhkbnYggEAqmVMQoHg7eqKNtyeg@mail.gmail.com> <2355680.noQDWa4NlY@sifl> <CAMpz-8bzjyBzk+mkaR-hHndtRZVyTb0LX8idEvypRV-itdSRYw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, eparis@redhat.com, sds@tycho.nsa.gov
+To: =?utf-8?B?SsOhbiBTdGFuxI1law==?= <jan.stancek@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve0-f178.google.com ([209.85.128.178]:45444 "EHLO
+	mail-ve0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933715Ab3CVQYl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 12:24:41 -0400
+Received: by mail-ve0-f178.google.com with SMTP id db10so3408511veb.23
+        for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 09:24:41 -0700 (PDT)
+In-Reply-To: <CAMpz-8bzjyBzk+mkaR-hHndtRZVyTb0LX8idEvypRV-itdSRYw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mar 22, 2013, at 12:16 PM, David Miller <davem@davemloft.net> wrote:
+On Friday, March 22, 2013 04:48:32 PM J=C3=A1n Stan=C4=8Dek wrote:
+> Hi Paul,
+>=20
+> thanks for reply, I'll try your patch and let you know.
 
-> From: Ben Collins <benmcollins13@gmail.com>
-> Date: Fri, 22 Mar 2013 12:14:44 -0400
-> 
->> I'm sorry, I thought we were working on open source projects
->> here. If the code isn't encumbered by patents, legal issues or
->> technical problems, and is licensed compatible with the kernel, I
->> just thought it was fair game.
-> 
-> This is about being nice to people, rather than exercising your rights
-> to the maximum possible extent regardless of how that effects other
-> people.
+Great, thanks.
+=20
+> I'm not certain about cause either, but patch I sent in last email
+> makes it go away, so maybe that can help in some way.
 
+At the very least you've found a way to reproduce the problem and your =
+patch=20
+furthers my belief that we've got a race condition somewhere - all very=
+=20
+helpful!  It may also turn out that your patch is the "right" solution,=
+ I'd=20
+just like to better understand why we are seeing the race in the first =
+place.
 
+> I made a v2 of the reproducer (attached), which triggers the issue a =
+lot
+> faster on 2 systems I tried (32 CPU and 4 CPU systems) - just in coup=
+le of
+> seconds.
 
-Right, because a 3-line patch is such a ballsy move on my part. Better restrain myself next time.
+Excellent, while I don't have a 32 cpu system handy, I do have a 4 cpu =
+system=20
+that I can play with.  Thanks again.
 
---
-Servergy  : http://www.servergy.com/
-SwissDisk : http://www.swissdisk.com/
-Ubuntu    : http://www.ubuntu.com/
-My Blog   : http://ben-collins.blogspot.com/
+-Paul
+
+--=20
+paul moore
+www.paul-moore.com
