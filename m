@@ -1,41 +1,444 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] SUNRPC/cache: add module_put() on error path in cache_open()
-Date: Sat, 23 Mar 2013 00:36:44 +0400
-Message-ID: <1363984604-17739-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: "J. Bruce Fields" <bfields@fieldses.org>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH net-next] dsa: add device tree bindings to register DSA switches
+Date: Fri, 22 Mar 2013 21:50:50 +0100
+Message-ID: <2044972.NvctqPqDPo@bender>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+To: davem@davemloft.net, devicetree-discuss@lists.ozlabs.org,
+	rob.herring@calxeda.com, grant.likely@secretlab.ca,
+	thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com, jason@lakedaemon.net,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
+	linux-arm-kernel@lists.infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:52513 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423029Ab3CVUvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 16:51:14 -0400
+Received: by mail-wg0-f42.google.com with SMTP id 12so2528256wgh.3
+        for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 13:51:13 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If kmalloc() fails in cache_open(), module cd->owner left locked.
-The patch adds module_put(cd->owner) on this path.
+This patch adds support for registering DSA switches using Device Tree
+bindings. Note that we support programming the switch routing table even
+though no in-tree user seems to require it. I tested this on Armada 370
+with a Marvell 88E6172 (not supported by mainline yet).
 
-Found by Linux Driver Verification project (linuxtesting.org).
-
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
 ---
- net/sunrpc/cache.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ Documentation/devicetree/bindings/net/dsa/dsa.txt |   91 ++++++++
+ net/dsa/dsa.c                                     |  233 ++++++++++++++++++++-
+ 2 files changed, 319 insertions(+), 5 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/dsa/dsa.txt
 
-diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
-index 25d58e76..1d3c514 100644
---- a/net/sunrpc/cache.c
-+++ b/net/sunrpc/cache.c
-@@ -986,8 +986,10 @@ static int cache_open(struct inode *inode, struct file *filp,
- 	nonseekable_open(inode, filp);
- 	if (filp->f_mode & FMODE_READ) {
- 		rp = kmalloc(sizeof(*rp), GFP_KERNEL);
--		if (!rp)
-+		if (!rp) {
-+			module_put(cd->owner);
- 			return -ENOMEM;
+diff --git a/Documentation/devicetree/bindings/net/dsa/dsa.txt b/Documentation/devicetree/bindings/net/dsa/dsa.txt
+new file mode 100644
+index 0000000..db92f55
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/dsa/dsa.txt
+@@ -0,0 +1,91 @@
++Marvell Distributed Switch Architecture Device Tree Bindings
++------------------------------------------------------------
++
++Required properties:
++- compatible		: Should be "marvell,dsa"
++- #address-cells	: Must be 2, first cell is the address on the MDIO bus
++			  and second cell is the address in the switch tree.
++			  Second cell is used only when cascading/chaining.
++- #size-cells		: Must be 0
++- dsa,ethernet		: Should be a phandle to a valid Ethernet device node
++- dsa,mii-bus		: Should be a phandle to a valid MDIO bus device node
++
++Optionnal properties:
++- interrupts		: property with a value describing the switch
++			  interrupt number (not supported by the driver)
++
++A DSA node can contain multiple switch chips which are therefore child nodes of
++the parent DSA node. The maximum number of allowed child nodes is 4
++(DSA_MAX_SWITCHES).
++Each of these switch child nodes should have the following required properties:
++
++- reg			: Describes the switch address on the MII bus
++- #address-cells	: Must be 1
++- #size-cells		: Must be 0
++
++A switch may have multiple "port" children nodes
++
++Each port children node must have the following mandatory properties:
++- reg			: Describes the port address in the switch
++- label			: Describes the label associated with this port, special
++			  labels are "cpu" to indicate a CPU port and "dsa" to
++			  indicate an uplink/downlink port.
++
++Note that a port labelled "dsa" will imply checking for the uplink phandle
++described below.
++
++Optionnal property:
++- link			: Should be a phandle to another switch's DSA port.
++			  This property is only used when switches are being
++			  chained/cascaded together.
++
++Example:
++
++	dsa@0 {
++		compatible = "marvell,dsa";
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		interrupts = <10>;
++		dsa,ethernet = <&ethernet0>;
++		dsa,mii-bus = <&mii_bus0>;
++
++		switch@0 {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			reg = <16 0>;	/* MDIO address 16, switch 0 in tree */
++
++			port@0 {
++				reg = <0>;
++				label = "lan1";
++			};
++
++			port@1 {
++				reg = <1>;
++				label = "lan2";
++			};
++
++			port@5 {
++				reg = <5>;
++				label = "cpu";
++			};
++
++			switch0uplink: port@6 {
++				reg = <6>;
++				label = "dsa";
++				link = <&switch1uplink>;
++			};
++		};
++
++		switch@1 {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			reg = <17 1>;	/* MDIO address 17, switch 1 in tree */
++
++			switch1uplink: port@0 {
++				reg = <0>;
++				label = "dsa";
++				link = <&switch0uplink>;
++			};
++		};
++	};
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 2bc62ea..908bc11 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -1,6 +1,7 @@
+ /*
+  * net/dsa/dsa.c - Hardware switch handling
+  * Copyright (c) 2008-2009 Marvell Semiconductor
++ * Copyright (c) 2013 Florian Fainelli <florian@openwrt.org>
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -14,6 +15,9 @@
+ #include <linux/slab.h>
+ #include <linux/module.h>
+ #include <net/dsa.h>
++#include <linux/of.h>
++#include <linux/of_mdio.h>
++#include <linux/of_platform.h>
+ #include "dsa_priv.h"
+ 
+ char dsa_driver_version[] = "0.1";
+@@ -287,34 +291,239 @@ static struct net_device *dev_to_net_device(struct device *dev)
+ 	return NULL;
+ }
+ 
++#ifdef CONFIG_OF
++static int dsa_of_setup_routing_table(struct dsa_platform_data *pd,
++					struct dsa_chip_data *cd,
++					int chip_index,
++					struct device_node *link)
++{
++	int ret;
++	const __be32 *reg;
++	int link_port_addr;
++	int link_sw_addr;
++	struct device_node *parent_sw;
++	int len;
++
++	parent_sw = of_get_parent(link);
++	if (!parent_sw)
++		return -EINVAL;
++
++	reg = of_get_property(parent_sw, "reg", &len);
++	if (!reg || (len != sizeof(*reg) * 2))
++		return -EINVAL;
++
++	link_sw_addr = be32_to_cpup(reg + 1);
++
++	if (link_sw_addr >= pd->nr_chips)
++		return -EINVAL;
++
++	/* First time routing table allocation */
++	if (!cd->rtable) {
++		cd->rtable = kmalloc(pd->nr_chips * sizeof(s8), GFP_KERNEL);
++		if (!cd->rtable)
++			return -ENOMEM;
++
++		/* default to no valid uplink/downlink */
++		memset(cd->rtable, -1, pd->nr_chips * sizeof(s8));
++	}
++
++	reg = of_get_property(link, "reg", NULL);
++	if (!reg) {
++		ret = -EINVAL;
++		goto out;
++	}
++
++	link_port_addr = be32_to_cpup(reg);
++
++	cd->rtable[link_sw_addr] = link_port_addr;
++
++	return 0;
++out:
++	kfree(cd->rtable);
++	return ret;
++}
++
++static int dsa_of_probe(struct platform_device *pdev)
++{
++	struct device_node *np = pdev->dev.of_node;
++	struct device_node *child, *mdio, *ethernet, *port, *link;
++	struct mii_bus *mdio_bus;
++	struct platform_device *ethernet_dev;
++	struct dsa_platform_data *pd;
++	struct dsa_chip_data *cd;
++	const char *port_name;
++	int chip_index, port_index;
++	const unsigned int *sw_addr, *port_reg;
++	int ret, i;
++
++	mdio = of_parse_phandle(np, "dsa,mii-bus", 0);
++	if (!mdio)
++		return -EINVAL;
++
++	mdio_bus = of_mdio_find_bus(mdio);
++	if (!mdio_bus)
++		return -EINVAL;
++
++	ethernet = of_parse_phandle(np, "dsa,ethernet", 0);
++	if (!ethernet)
++		return -EINVAL;
++
++	ethernet_dev = of_find_device_by_node(ethernet);
++	if (!ethernet_dev)
++		return -ENODEV;
++
++	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
++	if (!pd)
++		return -ENOMEM;
++
++	pdev->dev.platform_data = pd;
++	pd->netdev = &ethernet_dev->dev;
++	pd->nr_chips = of_get_child_count(np);
++	if (pd->nr_chips > DSA_MAX_SWITCHES)
++		pd->nr_chips = DSA_MAX_SWITCHES;
++
++	pd->chip = kzalloc(pd->nr_chips * sizeof(struct dsa_chip_data),
++			GFP_KERNEL);
++	if (!pd->chip) {
++		ret = -ENOMEM;
++		goto out_free;
++	}
++
++	chip_index = 0;
++	for_each_available_child_of_node(np, child) {
++		cd = &pd->chip[chip_index];
++
++		cd->mii_bus = &mdio_bus->dev;
++
++		sw_addr = of_get_property(child, "reg", NULL);
++		if (!sw_addr)
++			continue;
++
++		cd->sw_addr = be32_to_cpup(sw_addr);
++		if (cd->sw_addr > PHY_MAX_ADDR)
++			continue;
++
++		for_each_available_child_of_node(child, port) {
++			port_reg = of_get_property(port, "reg", NULL);
++			if (!port_reg)
++				continue;
++
++			port_index = be32_to_cpup(port_reg);
++
++			port_name = of_get_property(port, "label", NULL);
++			if (!port_name)
++				continue;
++
++			cd->port_names[port_index] = kstrdup(port_name,
++					GFP_KERNEL);
++			if (!cd->port_names[port_index]) {
++				ret = -ENOMEM;
++				goto out_free_chip;
++			}
++
++			link = of_parse_phandle(port, "link", 0);
++
++			if (!strcmp(port_name, "dsa") && link &&
++					pd->nr_chips > 1) {
++				ret = dsa_of_setup_routing_table(pd, cd,
++						chip_index, link);
++				if (ret)
++					goto out_free_chip;
++			}
++
++			if (port_index == DSA_MAX_PORTS)
++				break;
 +		}
- 		rp->offset = 0;
- 		rp->q.reader = 1;
- 		atomic_inc(&cd->readers);
++	}
++
++	return 0;
++
++out_free_chip:
++	for (i = 0; i < pd->nr_chips; i++) {
++		port_index = 0;
++		while (pd->chip[i].port_names &&
++			pd->chip[i].port_names[++port_index])
++			kfree(pd->chip[i].port_names[port_index]);
++		kfree(pd->chip[i].rtable);
++	}
++	kfree(pd->chip);
++out_free:
++	kfree(pd);
++	pdev->dev.platform_data = NULL;
++	return ret;
++}
++
++static void dsa_of_remove(struct platform_device *pdev)
++{
++	struct dsa_platform_data *pd = pdev->dev.platform_data;
++	int i;
++	int port_index;
++
++	if (!pdev->dev.of_node)
++		return;
++
++	for (i = 0; i < pd->nr_chips; i++) {
++		port_index = 0;
++		while (pd->chip[i].port_names &&
++			pd->chip[i].port_names[++port_index])
++			kfree(pd->chip[i].port_names[port_index]);
++		kfree(pd->chip[i].rtable);
++	}
++
++	kfree(pd->chip);
++	kfree(pd);
++}
++#else
++static inline int dsa_of_probe(struct platform_device *pdev)
++{
++	return 0;
++}
++
++static inline void dsa_of_remove(struct platform_device *pdev)
++{
++}
++#endif
++
+ static int dsa_probe(struct platform_device *pdev)
+ {
+ 	static int dsa_version_printed;
+ 	struct dsa_platform_data *pd = pdev->dev.platform_data;
+ 	struct net_device *dev;
+ 	struct dsa_switch_tree *dst;
+-	int i;
++	int i, ret;
+ 
+ 	if (!dsa_version_printed++)
+ 		printk(KERN_NOTICE "Distributed Switch Architecture "
+ 			"driver version %s\n", dsa_driver_version);
+ 
++	if (pdev->dev.of_node) {
++		ret = dsa_of_probe(pdev);
++		if (ret)
++			return ret;
++
++		pd = pdev->dev.platform_data;
++	}
++
+ 	if (pd == NULL || pd->netdev == NULL)
+ 		return -EINVAL;
+ 
+ 	dev = dev_to_net_device(pd->netdev);
+-	if (dev == NULL)
+-		return -EINVAL;
++	if (dev == NULL) {
++		ret = -EINVAL;
++		goto out;
++	}
+ 
+ 	if (dev->dsa_ptr != NULL) {
+ 		dev_put(dev);
+-		return -EEXIST;
++		ret = -EEXIST;
++		goto out;
+ 	}
+ 
+ 	dst = kzalloc(sizeof(*dst), GFP_KERNEL);
+ 	if (dst == NULL) {
+ 		dev_put(dev);
+-		return -ENOMEM;
++		ret = -ENOMEM;
++		goto out;
+ 	}
+ 
+ 	platform_set_drvdata(pdev, dst);
+@@ -366,6 +575,11 @@ static int dsa_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	return 0;
++
++out:
++	dsa_of_remove(pdev);
++
++	return ret;
+ }
+ 
+ static int dsa_remove(struct platform_device *pdev)
+@@ -385,6 +599,8 @@ static int dsa_remove(struct platform_device *pdev)
+ 			dsa_switch_destroy(ds);
+ 	}
+ 
++	dsa_of_remove(pdev);
++
+ 	return 0;
+ }
+ 
+@@ -392,6 +608,12 @@ static void dsa_shutdown(struct platform_device *pdev)
+ {
+ }
+ 
++static const struct of_device_id dsa_of_match_table[] = {
++	{ .compatible = "marvell,dsa", },
++	{}
++};
++MODULE_DEVICE_TABLE(of, dsa_of_match_table);
++
+ static struct platform_driver dsa_driver = {
+ 	.probe		= dsa_probe,
+ 	.remove		= dsa_remove,
+@@ -399,6 +621,7 @@ static struct platform_driver dsa_driver = {
+ 	.driver = {
+ 		.name	= "dsa",
+ 		.owner	= THIS_MODULE,
++		.of_match_table = dsa_of_match_table,
+ 	},
+ };
+ 
 -- 
-1.7.9.5
+1.7.10.4
