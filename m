@@ -1,171 +1,103 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 2/2] ipv6: implement RFC3168 5.3 (ecn protection) for ipv6 fragmentation handling
-Date: Fri, 22 Mar 2013 19:24:44 +0100
-Message-ID: <20130322182444.GA939@order.stressinduktion.org>
+From: Frank Rowand <frank.rowand@am.sony.com>
+Subject: Re: [BUG] bisected: PandaBoard smsc95xx ethernet driver error from
+ USB timeout
+Date: Fri, 22 Mar 2013 11:23:33 -0700
+Message-ID: <514CA1A5.1090606@am.sony.com>
+References: <Pine.LNX.4.44L0.1303211037070.1899-100000@iolanthe.rowland.org> <514BC5C3.9080808@am.sony.com> <20130322100329.GH29378@enea.se>
+Reply-To: <frank.rowand@am.sony.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: eric.dumazet@gmail.com, jbrouer@redhat.com, yoshfuji@linux-ipv6.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:52606 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422877Ab3CVSYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 14:24:47 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	"balbi@ti.com" <balbi@ti.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Mats Liljegren <liljegren.mats2@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130322100329.GH29378@enea.se>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello!
+On 03/22/13 03:03, Mats Liljegren wrote:
+> Frank Rowand wrote:
+>> On 03/21/13 07:41, Alan Stern wrote:
+>>> On Wed, 20 Mar 2013, Frank Rowand wrote:
+>>>
+>>>> Hi All,
+>>>>
+>>>> Not quite sure quite where the problem is (USB, OMAP, smsc95xx driver, other???),
+>>>> so casting the nets wide...
+>>>>
+>>>> The PandaBoard frequently fails to boot with an eth0 error when mounting
+>>>> the root file system via NFS (ethernet driver fails due to a USB timeout;
+>>>> no ethernet means NFS won't work).  A typical set of error messages is:
+>>>>
+>>>> [    3.264373] smsc95xx 1-1.1:1.0: usb_probe_interface
+>>>> [    3.269500] smsc95xx 1-1.1:1.0: usb_probe_interface - got id
+>>>> [    3.275543] smsc95xx v1.0.4
+>>>> [    8.078674] smsc95xx 1-1.1:1.0: eth0: register 'smsc95xx' at usb-ehci-omap.0-1.1, smsc95xx USB 2.0 Ethernet, 82:b9:1d:fa:67:0d
+>>>> [    8.091003] hub 1-1:1.0: state 7 ports 5 chg 0000 evt 0002
+>>>> [   13.509918] usb 1-1.1: swapper/0 timed out on ep0out len=0/4
+>>>> [   13.515869] smsc95xx 1-1.1:1.0: eth0: Failed to write register index 0x00000108
+>>>> [   13.523559] smsc95xx 1-1.1:1.0: eth0: Failed to write ADDRL: -110
+>>>> [   13.529998] IP-Config: Failed to open eth0
+>>>>
+>>>> I have bisected this to:
+>>>>
+>>>>   commit 18aafe64d75d0e27dae206cacf4171e4e485d285
+>>>>   Author: Alan Stern <stern@rowland.harvard.edu>
+>>>>   Date:   Wed Jul 11 11:23:04 2012 -0400
+>>>>
+>>>>      USB: EHCI: use hrtimer for the I/O watchdog
+>>>
+>>> I don't understand how that commit could cause a timeout unless there 
+>>> are at least two other bugs present in your system.
+>>>
+>>>> Note that to compile this version of the kernel, an additional fix must
+>>>> also be applied:
+>>>>
+>>>>   commit ba5952e0711b14d8d4fe172671f8aa6091ace3ee
+>>>>   Author: Ming Lei <ming.lei@canonical.com>
+>>>>   Date:   Fri Jul 13 17:25:24 2012 +0800
+>>>>
+>>>>      USB: ehci-omap: fix compile failure(v1)
+>>>>
+>>>> The symptom can be worked around by retrying the USB access if a timeout
+>>>> occurs.  This is clearly _not_ the fix, just a hack that I used to
+>>>> investigate the problem:
+>>>>
+>>>>   http://article.gmane.org/gmane.linux.rt.user/9773
+>>>>
+>>>> My kernel configuration is:
+>>>>
+>>>>   arch/arm/configs/omap2plus_defconfig
+>>>>
+>>>>   plus to get the ethernet driver I add:
+>>>>
+>>>>     CONFIG_USB_EHCI_HCD
+>>>>     CONFIG_USB_NET_SMSC95XX
+>>>>
+>>>> I found the problem on 3.6.11, but have not replicated it on 3.9-rcX
+>>>> yet because my config fails to build on 3.9-rc1 and 3.9-rc2.  I'll try
+>>>> to work on that issue tomorrow.
+>>>
+>>> Let me know how it works out.
+>>
+>> My PandaBoard builds fail on 3.9-rcX due to ARM multiplatform issues.
+>> Either there is something I need to change about the way I build it,
+>> or it is broken (that is a side issue).  My simple expedient was to
+>> hack around multiplatform, and just make it build (patch below if
+>> anyone else wants a _temporary_ hack).
+> 
+> I have built 3.9-RC2 for PandaBoard ES and the only problem I have seen is
+> that you need to add "LOADADDR=0x80008000" when building uImage target.
 
-After patch 1 got accepted to net-next I will also send a patch to
-netfilter-devel to make the corresponding changes to the netfilter
-reassembly logic.
+Yes, that is essentially what my hack patch does.  The result of my patch
+is that arch/arm/boot/Makefile is invoked with MACHINE="arch/arm/mach-omap2"
+so that at the top of the makefile, the "include $(srctree)/$(MACHINE)/Makefile.boot"
+which pulls in the proper values for addresses.
 
-Thanks,
-
-  Hannes
-
--- >8 --
-[PATCH 2/2] ipv6: implement RFC3168 5.3 (ecn protection) for ipv6 fragmentation handling
-
-This patch also ensures that INET_ECN_CE is propagated if one fragment
-had the codepoint set.
-
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/net/ipv6.h    |  2 ++
- net/ipv6/reassembly.c | 23 +++++++++++++++++++++--
- 2 files changed, 23 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 42ef6ab..0810aa5 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -478,6 +478,7 @@ struct ip6_create_arg {
- 	u32 user;
- 	const struct in6_addr *src;
- 	const struct in6_addr *dst;
-+	u8 ecn;
- };
- 
- void ip6_frag_init(struct inet_frag_queue *q, void *a);
-@@ -497,6 +498,7 @@ struct frag_queue {
- 	int			iif;
- 	unsigned int		csum;
- 	__u16			nhoffset;
-+	u8			ecn;
- };
- 
- void ip6_expire_frag_queue(struct net *net, struct frag_queue *fq,
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 196ab93..e6e44ce 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -58,6 +58,7 @@
- #include <net/ndisc.h>
- #include <net/addrconf.h>
- #include <net/inet_frag.h>
-+#include <net/inet_ecn.h>
- 
- struct ip6frag_skb_cb
- {
-@@ -67,6 +68,10 @@ struct ip6frag_skb_cb
- 
- #define FRAG6_CB(skb)	((struct ip6frag_skb_cb*)((skb)->cb))
- 
-+static inline u8 ip6_frag_ecn(const struct ipv6hdr *ipv6h)
-+{
-+	return 1 << (ipv6_get_dsfield(ipv6h) & INET_ECN_MASK);
-+}
- 
- static struct inet_frags ip6_frags;
- 
-@@ -119,6 +124,7 @@ void ip6_frag_init(struct inet_frag_queue *q, void *a)
- 	fq->user = arg->user;
- 	fq->saddr = *arg->src;
- 	fq->daddr = *arg->dst;
-+	fq->ecn = arg->ecn;
- }
- EXPORT_SYMBOL(ip6_frag_init);
- 
-@@ -173,7 +179,8 @@ static void ip6_frag_expire(unsigned long data)
- }
- 
- static __inline__ struct frag_queue *
--fq_find(struct net *net, __be32 id, const struct in6_addr *src, const struct in6_addr *dst)
-+fq_find(struct net *net, __be32 id, const struct in6_addr *src,
-+	const struct in6_addr *dst, u8 ecn)
- {
- 	struct inet_frag_queue *q;
- 	struct ip6_create_arg arg;
-@@ -183,6 +190,7 @@ fq_find(struct net *net, __be32 id, const struct in6_addr *src, const struct in6
- 	arg.user = IP6_DEFRAG_LOCAL_DELIVER;
- 	arg.src = src;
- 	arg.dst = dst;
-+	arg.ecn = ecn;
- 
- 	read_lock(&ip6_frags.lock);
- 	hash = inet6_hash_frag(id, src, dst, ip6_frags.rnd);
-@@ -202,6 +210,7 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
- 	struct net_device *dev;
- 	int offset, end;
- 	struct net *net = dev_net(skb_dst(skb)->dev);
-+	u8 ecn;
- 
- 	if (fq->q.last_in & INET_FRAG_COMPLETE)
- 		goto err;
-@@ -219,6 +228,8 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
- 		return -1;
- 	}
- 
-+	ecn = ip6_frag_ecn(ipv6_hdr(skb));
-+
- 	if (skb->ip_summed == CHECKSUM_COMPLETE) {
- 		const unsigned char *nh = skb_network_header(skb);
- 		skb->csum = csum_sub(skb->csum,
-@@ -319,6 +330,7 @@ found:
- 	}
- 	fq->q.stamp = skb->tstamp;
- 	fq->q.meat += skb->len;
-+	fq->ecn |= ecn;
- 	add_frag_mem_limit(&fq->q, skb->truesize);
- 
- 	/* The first fragment.
-@@ -362,9 +374,14 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
- 	int    payload_len;
- 	unsigned int nhoff;
- 	int sum_truesize;
-+	u8 ecn;
- 
- 	inet_frag_kill(&fq->q, &ip6_frags);
- 
-+	ecn = ip_frag_ecn_table[fq->ecn];
-+	if (unlikely(ecn == 0xff))
-+		goto out_fail;
-+
- 	/* Make the one we just received the head. */
- 	if (prev) {
- 		head = prev->next;
-@@ -463,6 +480,7 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
- 	head->dev = dev;
- 	head->tstamp = fq->q.stamp;
- 	ipv6_hdr(head)->payload_len = htons(payload_len);
-+	ipv6_change_dsfield(ipv6_hdr(head), 0xff, ecn);
- 	IP6CB(head)->nhoff = nhoff;
- 
- 	/* Yes, and fold redundant checksum back. 8) */
-@@ -526,7 +544,8 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
- 		IP6_ADD_STATS_BH(net, ip6_dst_idev(skb_dst(skb)),
- 				 IPSTATS_MIB_REASMFAILS, evicted);
- 
--	fq = fq_find(net, fhdr->identification, &hdr->saddr, &hdr->daddr);
-+	fq = fq_find(net, fhdr->identification, &hdr->saddr, &hdr->daddr,
-+		     ip6_frag_ecn(hdr));
- 	if (fq != NULL) {
- 		int ret;
- 
--- 
-1.8.1.4
+-Frank
