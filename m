@@ -1,122 +1,120 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: Re: [BUG] bisected: PandaBoard smsc95xx ethernet driver error from
- USB timeout
-Date: Fri, 22 Mar 2013 10:42:36 +0200
-Message-ID: <514C197C.2000808@ti.com>
-References: <Pine.LNX.4.44L0.1303211037070.1899-100000@iolanthe.rowland.org> <514BC5C3.9080808@am.sony.com>
+From: Cornelia Huck <cornelia.huck@de.ibm.com>
+Subject: Re: virtio: remove obsolete virtqueue_get_queue_index()
+Date: Fri, 22 Mar 2013 10:10:09 +0100
+Message-ID: <20130322101009.6076b0ba@gondolin>
+References: <878v5hp6hc.fsf@rustcorp.com.au>
+	<20130321100146.7a741c75@gondolin>
+	<87ehf8fftt.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Alan Stern <stern@rowland.harvard.edu>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"balbi@ti.com" <balbi@ti.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: <frank.rowand@am.sony.com>
+Cc: mst@redhat.com, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:33627 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932592Ab3CVImm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Mar 2013 04:42:42 -0400
-In-Reply-To: <514BC5C3.9080808@am.sony.com>
+Received: from e06smtp18.uk.ibm.com ([195.75.94.114]:41379 "EHLO
+	e06smtp18.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753936Ab3CVJKa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 05:10:30 -0400
+Received: from /spool/local
+	by e06smtp18.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <cornelia.huck@de.ibm.com>;
+	Fri, 22 Mar 2013 09:07:31 -0000
+Received: from b06cxnps3075.portsmouth.uk.ibm.com (d06relay10.portsmouth.uk.ibm.com [9.149.109.195])
+	by d06dlp03.portsmouth.uk.ibm.com (Postfix) with ESMTP id 2D7B81B08061
+	for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 09:10:20 +0000 (GMT)
+Received: from d06av08.portsmouth.uk.ibm.com (d06av08.portsmouth.uk.ibm.com [9.149.37.249])
+	by b06cxnps3075.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r2M9AAaZ40370408
+	for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 09:10:10 GMT
+Received: from d06av08.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av08.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r2M9AJfM013487
+	for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 03:10:19 -0600
+In-Reply-To: <87ehf8fftt.fsf@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Frank,
+On Fri, 22 Mar 2013 10:47:34 +1030
+Rusty Russell <rusty@rustcorp.com.au> wrote:
 
-On 03/22/2013 04:45 AM, Frank Rowand wrote:
-> On 03/21/13 07:41, Alan Stern wrote:
->> On Wed, 20 Mar 2013, Frank Rowand wrote:
->>
->>> Hi All,
->>>
->>> Not quite sure quite where the problem is (USB, OMAP, smsc95xx driver, other???),
->>> so casting the nets wide...
->>>
->>> The PandaBoard frequently fails to boot with an eth0 error when mounting
->>> the root file system via NFS (ethernet driver fails due to a USB timeout;
->>> no ethernet means NFS won't work).  A typical set of error messages is:
->>>
->>> [    3.264373] smsc95xx 1-1.1:1.0: usb_probe_interface
->>> [    3.269500] smsc95xx 1-1.1:1.0: usb_probe_interface - got id
->>> [    3.275543] smsc95xx v1.0.4
->>> [    8.078674] smsc95xx 1-1.1:1.0: eth0: register 'smsc95xx' at usb-ehci-omap.0-1.1, smsc95xx USB 2.0 Ethernet, 82:b9:1d:fa:67:0d
->>> [    8.091003] hub 1-1:1.0: state 7 ports 5 chg 0000 evt 0002
->>> [   13.509918] usb 1-1.1: swapper/0 timed out on ep0out len=0/4
->>> [   13.515869] smsc95xx 1-1.1:1.0: eth0: Failed to write register index 0x00000108
->>> [   13.523559] smsc95xx 1-1.1:1.0: eth0: Failed to write ADDRL: -110
->>> [   13.529998] IP-Config: Failed to open eth0
->>>
->>> I have bisected this to:
->>>
->>>   commit 18aafe64d75d0e27dae206cacf4171e4e485d285
->>>   Author: Alan Stern <stern@rowland.harvard.edu>
->>>   Date:   Wed Jul 11 11:23:04 2012 -0400
->>>
->>>      USB: EHCI: use hrtimer for the I/O watchdog
->>
->> I don't understand how that commit could cause a timeout unless there 
->> are at least two other bugs present in your system.
->>
->>> Note that to compile this version of the kernel, an additional fix must
->>> also be applied:
->>>
->>>   commit ba5952e0711b14d8d4fe172671f8aa6091ace3ee
->>>   Author: Ming Lei <ming.lei@canonical.com>
->>>   Date:   Fri Jul 13 17:25:24 2012 +0800
->>>
->>>      USB: ehci-omap: fix compile failure(v1)
->>>
->>> The symptom can be worked around by retrying the USB access if a timeout
->>> occurs.  This is clearly _not_ the fix, just a hack that I used to
->>> investigate the problem:
->>>
->>>   http://article.gmane.org/gmane.linux.rt.user/9773
->>>
->>> My kernel configuration is:
->>>
->>>   arch/arm/configs/omap2plus_defconfig
->>>
->>>   plus to get the ethernet driver I add:
->>>
->>>     CONFIG_USB_EHCI_HCD
->>>     CONFIG_USB_NET_SMSC95XX
->>>
->>> I found the problem on 3.6.11, but have not replicated it on 3.9-rcX
->>> yet because my config fails to build on 3.9-rc1 and 3.9-rc2.  I'll try
->>> to work on that issue tomorrow.
->>
->> Let me know how it works out.
+> virtio: remove obsolete virtqueue_get_queue_index()
 > 
-> My PandaBoard builds fail on 3.9-rcX due to ARM multiplatform issues.
-> Either there is something I need to change about the way I build it,
-> or it is broken (that is a side issue).  My simple expedient was to
-> hack around multiplatform, and just make it build (patch below if
-> anyone else wants a _temporary_ hack).
-
-This is a known issue and will be resolved the proper way in 3.10.
-For 3.9 you could also use a temporary fix posted here
-
-http://thread.gmane.org/gmane.linux.usb.general/82693/
-
+> You can access it directly now, since 3.8: v3.7-rc1-13-g06ca287
+> 'virtio: move queue_index and num_free fields into core struct
+> virtqueue.'
 > 
-> The problem appears to not be present in 3.9-rc3.  In older kernel versions, 
-> the worst case to see the problem was 18 boots.  For 3.9-rc3 I booted 42
-> times without seeing the problem.
+> Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
 
-This is good to hear.
+Acked-by: Cornelia Huck <cornelia.huck@de.ibm.com>
 
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 > 
-> The problem occurs at least up through 3.8.  I'll try to reverse bisect
-> between 3.8 and 3.9-rc3 to see when the problem disappeared (I'm running
-> short of time, so no promises for a near term result).
-
-Thanks for the tests. There were a lot of OMAP EHCI related cleanup/fixes [1]
-that went into 3.9. It would be interesting to know what fixed it.
-
-[1] - https://lkml.org/lkml/2013/1/23/155
-
-cheers,
--roger
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index d88d436..24fc9f5 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -153,7 +153,7 @@ struct padded_vnet_hdr {
+>   */
+>  static int vq2txq(struct virtqueue *vq)
+>  {
+> -	return (virtqueue_get_queue_index(vq) - 1) / 2;
+> +	return (vq->index - 1) / 2;
+>  }
+> 
+>  static int txq2vq(int txq)
+> @@ -163,7 +163,7 @@ static int txq2vq(int txq)
+> 
+>  static int vq2rxq(struct virtqueue *vq)
+>  {
+> -	return virtqueue_get_queue_index(vq) / 2;
+> +	return vq->index / 2;
+>  }
+> 
+>  static int rxq2vq(int rxq)
+> diff --git a/drivers/s390/kvm/virtio_ccw.c b/drivers/s390/kvm/virtio_ccw.c
+> index 2029b6c..a7eddc7 100644
+> --- a/drivers/s390/kvm/virtio_ccw.c
+> +++ b/drivers/s390/kvm/virtio_ccw.c
+> @@ -166,7 +166,7 @@ static void virtio_ccw_kvm_notify(struct virtqueue *vq)
+> 
+>  	vcdev = to_vc_device(info->vq->vdev);
+>  	ccw_device_get_schid(vcdev->cdev, &schid);
+> -	do_kvm_notify(schid, virtqueue_get_queue_index(vq));
+> +	do_kvm_notify(schid, vq->index);
+>  }
+> 
+>  static int virtio_ccw_read_vq_conf(struct virtio_ccw_device *vcdev,
+> @@ -188,7 +188,7 @@ static void virtio_ccw_del_vq(struct virtqueue *vq, struct ccw1 *ccw)
+>  	unsigned long flags;
+>  	unsigned long size;
+>  	int ret;
+> -	unsigned int index = virtqueue_get_queue_index(vq);
+> +	unsigned int index = vq->index;
+> 
+>  	/* Remove from our list. */
+>  	spin_lock_irqsave(&vcdev->lock, flags);
+> @@ -610,7 +610,7 @@ static struct virtqueue *virtio_ccw_vq_by_ind(struct virtio_ccw_device *vcdev,
+>  	vq = NULL;
+>  	spin_lock_irqsave(&vcdev->lock, flags);
+>  	list_for_each_entry(info, &vcdev->virtqueues, node) {
+> -		if (virtqueue_get_queue_index(info->vq) == index) {
+> +		if (info->vq->index == index) {
+>  			vq = info->vq;
+>  			break;
+>  		}
+> diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+> index 833f17b..9ff8645 100644
+> --- a/include/linux/virtio.h
+> +++ b/include/linux/virtio.h
+> @@ -76,12 +76,6 @@ void *virtqueue_detach_unused_buf(struct virtqueue *vq);
+> 
+>  unsigned int virtqueue_get_vring_size(struct virtqueue *vq);
+> 
+> -/* FIXME: Obsolete accessor, but required for virtio_net merge. */
+> -static inline unsigned int virtqueue_get_queue_index(struct virtqueue *vq)
+> -{
+> -	return vq->index;
+> -}
+> -
+>  /**
+>   * virtio_device - representation of a device using virtio
+>   * @index: unique position on the virtio bus
+> 
