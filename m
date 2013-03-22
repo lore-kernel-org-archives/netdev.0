@@ -1,56 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH iproute2 v2] libnetlink: check flag NLM_F_DUMP_INTR
- during dumps
-Date: Fri, 22 Mar 2013 08:49:32 -0700
-Message-ID: <1363967372.4431.71.camel@edumazet-glaptop>
-References: <20130322152213.GB11368@casper.infradead.org>
-	 <1363966944-4420-1-git-send-email-nicolas.dichtel@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, shemminger@vyatta.com, netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+From: Ben Collins <benmcollins13@gmail.com>
+Subject: Re: [PATCH] net: Add support for handling queueing in hardware
+Date: Fri, 22 Mar 2013 11:53:54 -0400
+Message-ID: <14243FE7-A0A6-4C0C-AEFB-95F19C8898E3@gmail.com>
+References: <FE78128C-01DB-4831-ACBE-BA3E3A428BFC@gmail.com> <20130322.111759.2108472348146991505.davem@davemloft.net> <9AEAD974-4549-475A-AE15-C92523CD2466@gmail.com> <20130322.114159.2303026992656610194.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: afleming@freescale.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:60689 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933488Ab3CVPte (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 11:49:34 -0400
-Received: by mail-pb0-f44.google.com with SMTP id wz12so3165529pbc.31
-        for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 08:49:34 -0700 (PDT)
-In-Reply-To: <1363966944-4420-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-da0-f53.google.com ([209.85.210.53]:47219 "EHLO
+	mail-da0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933516Ab3CVPxx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 11:53:53 -0400
+In-Reply-To: <20130322.114159.2303026992656610194.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-03-22 at 16:42 +0100, Nicolas Dichtel wrote:
-> When this flag is set, it means that dump was interrupted and result may be
-> wrong. Inform the user and let him choose to restart or not.
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
-> 
-> v2: do not stop the dump, only display a warning
-> 
->  lib/libnetlink.c | 4 ++++
->  1 file changed, 4 insertions(+)
-> 
-> diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-> index f262959..1a882b2 100644
-> --- a/lib/libnetlink.c
-> +++ b/lib/libnetlink.c
-> @@ -230,6 +230,10 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
->  				    h->nlmsg_seq != rth->dump)
->  					goto skip_it;
->  
-> +				if (h->nlmsg_flags & NLM_F_DUMP_INTR)
-> +					fprintf(stderr,
-> +						"Dump was interrupted and may be wrong.\n");
-> +
->  				if (h->nlmsg_type == NLMSG_DONE) {
->  					found_done = 1;
->  					break; /* process next filter */
 
+On Mar 22, 2013, at 11:41 AM, David Miller <davem@davemloft.net> wrote:
 
-How many times this will be displayed ?
+> From: Ben Collins <benmcollins13@gmail.com>
+> Date: Fri, 22 Mar 2013 11:39:20 -0400
+> 
+>> If your company had hardware going to production, you'd want it
+>> supported in mainline too, I suspect.
+> 
+> But never against the wishes of the author of the code.
+> 
+> This has firm and strict precedence, for example one of the
+> implementations block layer encryption was not wanted to be merged by
+> the author, and Linus reverted it.
+> 
+> So if the person who wrote the code doesn't want it upstream, you can't
+> bypass them against their wishes, ever.  It's their code not your's.
 
-Please try to cook something that wont emit one warning per 8KB fetched
-from the kernel ;)
+They never made such a statement. The commit (which is publicly available in Freescale's git repo) makes no mention of it being "good enough for our SDK, but don't send upstream". Freescale wants this upstream, but doesn't have the resources because they are embedded focused and gear more toward SDKs to support their SoCs (currently that means a 3.0.x kernel).
+
+Don't accuse me of something I didn't do. Also, if there's a patch that makes my hardware work, but I can't use it because (even though it's open source licensed) the author doesn't want it in mainline, then that is effectively squatting.
+
+We are a hardware company. We've been provided with a driver for the platform we designed by the SoC vendor. It's GPL licensed. We've attempted to get this done by them, but they haven't been able to, so we are exercising prudence and making sure our platform is supported in mainline. I don't see where that's any different than tons of other patches that go into the kernel.
+
+If it makes everyone feel better, I'll limit attribution in the patches to just an Originally-By: line.
+
+--
+Servergy  : http://www.servergy.com/
+SwissDisk : http://www.swissdisk.com/
+Ubuntu    : http://www.ubuntu.com/
+My Blog   : http://ben-collins.blogspot.com/
