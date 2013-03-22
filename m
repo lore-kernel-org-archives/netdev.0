@@ -1,33 +1,38 @@
-From: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
-Subject: RE: [PATCH -next] caif_virtio: fix error return code in
- cfv_create_genpool()
-Date: Fri, 22 Mar 2013 15:02:07 +0100
-Message-ID: <81C3A93C17462B4BBD7E272753C10579249583EE07@EXDCVYMBSTM005.EQ1STM.local>
-References: <CAPgLHd-VdCq3qfDGYpCE1VmPeHGFneyR3TaarS=bMROqWmj2uA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4 v3] mv643xx_eth: use mvmdio MDIO bus driver
+Date: Fri, 22 Mar 2013 10:26:26 -0400 (EDT)
+Message-ID: <20130322.102626.1889236227505288422.davem@davemloft.net>
+References: <1363284515-9865-1-git-send-email-florian@openwrt.org>
+	<1363959568-16976-1-git-send-email-florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "yongjun_wei@trendmicro.com.cn" <yongjun_wei@trendmicro.com.cn>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Wei Yongjun <weiyj.lk@gmail.com>,
-	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:53021 "EHLO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933406Ab3CVO0K convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Mar 2013 10:26:10 -0400
-In-Reply-To: <CAPgLHd-VdCq3qfDGYpCE1VmPeHGFneyR3TaarS=bMROqWmj2uA@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
+	rob@landley.net, jason@lakedaemon.net, andrew@lunn.ch,
+	linux@arm.linux.org.uk, benh@kernel.crashing.org, paulus@samba.org,
+	buytenh@wantstofly.org, thomas.petazzoni@free-electrons.com,
+	gregkh@linuxfoundation.org, devicetree-discuss@lists.ozlabs.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
+To: florian@openwrt.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1363959568-16976-1-git-send-email-florian@openwrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->=20
-> Fix to return a negative error code from the error handling
-> case instead of 0, as returned elsewhere in this function.
->=20
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+From: Florian Fainelli <florian@openwrt.org>
+Date: Fri, 22 Mar 2013 14:39:24 +0100
 
-Yes, this looks good to me,
-Acked-by: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
+> This patch converts the mv643xx_eth driver to use the mvmdio MDIO bus driver
+> instead of rolling its own implementation. As a result, all users of this
+> mv643xx_eth driver are converted to register an "orion-mdio" platform_device.
+> The mvmdio driver is also updated to support an interrupt line which reports
+> SMI error/completion, and to allow traditionnal platform device registration
+> instead of just device tree.
+> 
+> David, I think it makes sense for you to merge all of this, since we do
+> not want the architecture files to be desynchronized from the mv643xx_eth to
+> avoid runtime breakage. The potential for merge conflicts should be very small.
+
+Series applied to net-next, thanks Florian.
