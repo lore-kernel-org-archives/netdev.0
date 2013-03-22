@@ -1,25 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] appletalk: remove "config IPDDP_DECAP"
-Date: Fri, 22 Mar 2013 10:21:23 -0400 (EDT)
-Message-ID: <20130322.102123.171722271202170551.davem@davemloft.net>
-References: <1363908924.1390.164.camel@x61.thuisdomein>
+Subject: Re: [PATCH v2] net: Fix p3_gelic_net sparse warnings
+Date: Fri, 22 Mar 2013 10:21:58 -0400 (EDT)
+Message-ID: <20130322.102158.1484906038006332303.davem@davemloft.net>
+References: <1363898133.1075.43.camel@smoke>
+	<20130321.171723.2170130040090928680.davem@davemloft.net>
+	<1363910819.1075.60.camel@smoke>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: acme@ghostprotocols.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: pebolle@tiscali.nl
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1363908924.1390.164.camel@x61.thuisdomein>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: geoff@infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49837 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932116Ab3CVOWA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 10:22:00 -0400
+In-Reply-To: <1363910819.1075.60.camel@smoke>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paul Bolle <pebolle@tiscali.nl>
-Date: Fri, 22 Mar 2013 00:35:24 +0100
+From: Geoff Levand <geoff@infradead.org>
+Date: Thu, 21 Mar 2013 17:06:59 -0700
 
-> The Kconfig symbol IPDDP_DECAP got added in v2.1.75. It has never been
-> used. Its entry can safely be removed.
+> Rearrange routines to avoid local declarations and remove
+> unnecessary inline tags.  No functional changes.
 > 
-> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+> Fixes sparse warnings like these:
+> 
+>   ps3_gelic_net.c: error: marked inline, but without a definition
+> 
+> Signed-off-by: Geoff Levand <geoff@infradead.org>
 
-Applied, thanks.
+This looks a lot better, applied, thanks Geoff.
