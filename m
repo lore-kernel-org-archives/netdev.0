@@ -1,34 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: Fix p3_gelic_net sparse warnings
-Date: Fri, 22 Mar 2013 10:21:58 -0400 (EDT)
-Message-ID: <20130322.102158.1484906038006332303.davem@davemloft.net>
-References: <1363898133.1075.43.camel@smoke>
-	<20130321.171723.2170130040090928680.davem@davemloft.net>
-	<1363910819.1075.60.camel@smoke>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: geoff@infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49837 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932116Ab3CVOWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 10:22:00 -0400
-In-Reply-To: <1363910819.1075.60.camel@smoke>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Collins <benmcollins13@gmail.com>
+Subject: Re: [PATCH] phy: Add XGMII phy interface type
+Date: Fri, 22 Mar 2013 10:22:05 -0400
+Message-ID: <9CC1FA76-1620-4E0F-82DC-89535633329F@gmail.com>
+References: <E1UJ1fR-0004hy-AI@swissweb.swissdisk.com> <20130322.101259.1120794715082991238.davem@davemloft.net> <5BDCE647-67A3-423B-AB9C-8C50CC0B6C02@gmail.com> <20130322.101900.1947638393872492900.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130322.101900.1947638393872492900.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Geoff Levand <geoff@infradead.org>
-Date: Thu, 21 Mar 2013 17:06:59 -0700
+On Mar 22, 2013, at 10:19 AM, David Miller <davem@davemloft.net> wrote:
 
-> Rearrange routines to avoid local declarations and remove
-> unnecessary inline tags.  No functional changes.
+> From: Ben Collins <benmcollins13@gmail.com>
+> Date: Fri, 22 Mar 2013 10:17:35 -0400
 > 
-> Fixes sparse warnings like these:
+>> On Mar 22, 2013, at 10:12 AM, David Miller <davem@davemloft.net> wrote:
+>> 
+>>> From: Ben Collins <ben.c@servergy.com>
+>>> Date: Mon, 18 Mar 2013 19:53:42 -0400
+>>> 
+>>>> Used by systems based on certain Freescale SoCs (specifically the
+>>>> Servergy CTS-1000 system).
+>>>> 
+>>>> Signed-off-by: Ben Collins <ben.c@servergy.com>
+>>> 
+>>> You can resubmit this patch when you submit a driver upstream that
+>>> uses it, so we can see what the use case looks like.
+>> 
+>> That patch is getting sent soon. It's starting out in staging. Should I Cc you on that?
 > 
->   ps3_gelic_net.c: error: marked inline, but without a definition
-> 
-> Signed-off-by: Geoff Levand <geoff@infradead.org>
+> Why don't you wait until the driver is good enough for drivers/net proper?
 
-This looks a lot better, applied, thanks Geoff.
+
+It's code that I've manually stripped down as a subset of a larger code base for Freescale's DPAA driver. I've only tested it on our (Servergy's) platform, so until it gets more broad testing (and some code review), I want to at least get it into staging so our hardware is supported.
+
+--
+Servergy  : http://www.servergy.com/
+SwissDisk : http://www.swissdisk.com/
+Ubuntu    : http://www.ubuntu.com/
+My Blog   : http://ben-collins.blogspot.com/
