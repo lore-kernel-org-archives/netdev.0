@@ -1,41 +1,49 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH iproute2] libnetlink: check flag NLM_F_DUMP_INTR during dumps
-Date: Fri, 22 Mar 2013 15:45:57 +0100
-Message-ID: <1363963557-3888-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56258 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751862Ab3CVOqP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 10:46:15 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fleming Andy-AFLEMING <afleming@freescale.com>
+Subject: Re: [PATCH] net: Add support for handling queueing in hardware
+Date: Fri, 22 Mar 2013 14:31:50 +0000
+Message-ID: <A5ACC15C-361D-48E6-BFFF-9AA3966C2A68@freescale.com>
+References: <E1UJ1fR-0004hs-4l@swissweb.swissdisk.com>,<20130322.101139.1942128058226201237.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130322.101139.1942128058226201237.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When this flag is set, it means that dump was interrupted and result may be
-wrong. Ask user to restart.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- lib/libnetlink.c | 6 ++++++
- 1 file changed, 6 insertions(+)
 
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index f262959..91991cf 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -230,6 +230,12 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
- 				    h->nlmsg_seq != rth->dump)
- 					goto skip_it;
- 
-+				if (h->nlmsg_flags & NLM_F_DUMP_INTR) {
-+					fprintf(stderr,
-+						"Dump was interrupted, please restart.\n");
-+					return -1;
-+				}
-+
- 				if (h->nlmsg_type == NLMSG_DONE) {
- 					found_done = 1;
- 					break; /* process next filter */
--- 
-1.8.0.1
+On Mar 22, 2013, at 9:11, "David Miller" <davem@davemloft.net> wrote:
+
+> From: Andy Fleming <afleming@freescale.com>
+> Date: Wed, 13 Jul 2011 08:52:04 -0500
+> 
+>> The QDisc code does a bunch of locking which is unnecessary if
+>> you have hardware which handles all of the queueing. Add
+>> support for this, and skip over all of the queueing code if
+>> the feature is enabled on a given device, which breaks QDisc
+>> support on dpaa_eth, and also coopts the FCOE feature bit.
+>> 
+>> Signed-off-by: Andy Fleming <afleming@freescale.com>
+>> Signed-off-by: Ben Collins <ben.c@servergy.com>
+> 
+> Sorry, no.
+> 
+> If we are going to support something like this then there needs to
+> be full coordination, configuration wise, so that if we enable
+> a qdisc that the hardware supports we submit it directly, but if
+> we enable a qdisc the HW does not support, we still use the software
+> qdisc.
+> 
+> This also means that we need to have a way to determine if the qdisc
+> configuration exceeds that parametorial limits of the device's HW
+> capabilities, and fallback to software qdisc in those cases too.
+
+
+It would appear one of our customers is attempting to upstream our code for us. We are aware that this current solution is unacceptable (which is why we have not submitted it), and we are currently trying to develop a less hacky solution that integrates with qdisc.
+
+Andy
