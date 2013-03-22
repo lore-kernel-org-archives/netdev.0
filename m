@@ -1,38 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [git pull] firewire net: resource management improvements
-Date: Fri, 22 Mar 2013 10:35:01 -0400 (EDT)
-Message-ID: <20130322.103501.1681106916245750016.davem@davemloft.net>
-References: <20130313.102448.1103259275832948992.davem@davemloft.net>
-	<20130313163742.73a3a842@stein>
-	<1363923263.16608.14.camel@cirrhata>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: Fix tentative IPv6 address due to DAD looping back
+Date: Fri, 22 Mar 2013 18:37:30 +0400
+Message-ID: <514C6CAA.2090902@cogentembedded.com>
+References: <D6EA916C7149064CB4D5C686612478A3183E2D27D1@MX34A.corp.emc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stefanr@s5r6.in-berlin.de,
-	linux1394-devel@lists.sourceforge.net
-To: yoshfuji@linux-ipv6.org
-Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1363923263.16608.14.camel@cirrhata>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
-List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
-List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: linux1394-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"Sun, Yinglin" <yinglin.sun@emc.com>,
+	"Prithviraj, Lakshmanan" <lakshmanan.prithviraj@emc.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Meng, Jilin" <Jilin.Meng@emc.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:61728 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932192Ab3CVOil (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 10:38:41 -0400
+Received: by mail-la0-f49.google.com with SMTP id fs13so7433612lab.36
+        for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 07:38:40 -0700 (PDT)
+In-Reply-To: <D6EA916C7149064CB4D5C686612478A3183E2D27D1@MX34A.corp.emc.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Fri, 22 Mar 2013 12:34:23 +0900
+Hello.
 
-> would you consider pulling this one to net-next, please?
-> I can prepare rebased tree, if you want.
+On 22-03-2013 7:20, Meng, Jilin wrote:
 
-So the firewire maintainers are OK with these changes?
+> we should ignore the looped-back IPv6 DAD packet to avoid configuration failure.
+> This occurs when a bonding interface with roundrobin mode is being configured an IPv6 address
+> while the switch side isn't configured bonding/channel yet.
 
-------------------------------------------------------------------------------
-Everyone hates slow websites. So do we.
-Make your web apps faster with AppDynamics
-Download AppDynamics Lite for free today:
-http://p.sf.net/sfu/appdyn_d2d_mar
+> Signed-off-by: Jilin Meng <jilin.meng@emc.com>
+> Signed-off-by: Yinglin Sun <yinglin.sun@emc.com>
+> Signed-off-by: Lakshmanan Prithviraj <lakshmanan.prithviraj@emc.com>
+> ---
+> --- linux/net/ipv6/ndisc.c.orig	2013-03-12 17:16:18.000000000 +0800
+> +++ linux/net/ipv6/ndisc.c	2013-03-21 10:37:06.000000000 +0800
+> @@ -757,6 +757,24 @@ static void ndisc_recv_ns(struct sk_buff
+>
+>   		if (ifp->flags & (IFA_F_TENTATIVE|IFA_F_OPTIMISTIC)) {
+>   			if (dad) {
+> +				if (dev->type == ARPHRD_ETHER) {
+> +					const unsigned char *sadr;
+
+    Empty line after declaration wouldn't hurt.
+
+> +					sadr = skb_mac_header(skb);
+> +					if (sadr[6] == dev->dev_addr[0] &&
+> +					    sadr[7] == dev->dev_addr[1] &&
+> +					    sadr[8] == dev->dev_addr[2] &&
+> +					    sadr[9] == dev->dev_addr[3] &&
+> +					    sadr[10] == dev->dev_addr[4] &&
+> +					    sadr[11] == dev->dev_addr[5]) {
+
+    Don't we have memcmp() in Linux?
+
+WBR, Sergei
