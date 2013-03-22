@@ -1,51 +1,53 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH 0/4 v3] mv643xx_eth: use mvmdio MDIO bus driver
-Date: Fri, 22 Mar 2013 15:31:09 +0100
-Message-ID: <514C6B2D.5000100@openwrt.org>
-References: <1363284515-9865-1-git-send-email-florian@openwrt.org> <1363959568-16976-1-git-send-email-florian@openwrt.org> <20130322141423.GJ13280@titan.lakedaemon.net> <514C69B7.8090106@openwrt.org> <20130322142924.GK13280@titan.lakedaemon.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] decnet: Parse netlink attributes on our
+ own
+Date: Fri, 22 Mar 2013 10:31:35 -0400 (EDT)
+Message-ID: <20130322.103135.962113441677649820.davem@davemloft.net>
+References: <5b888618a6aebfebf496c91482794a606b3bb094.1363885020.git.tgraf@suug.ch>
+	<1363889099.2707.14.camel@menhir>
+	<20130322142735.GA11368@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Rob Landley <rob@landley.net>, Andrew Lunn <andrew@lunn.ch>,
-	Russell King <linux@arm.linux.org.uk>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
-To: Jason Cooper <jason@lakedaemon.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130322142924.GK13280@titan.lakedaemon.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: swhiteho@redhat.com, netdev@vger.kernel.org,
+	linux-decnet-user@lists.sourceforge.net
+To: tgraf@suug.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50084 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933003Ab3CVObh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 10:31:37 -0400
+In-Reply-To: <20130322142735.GA11368@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 03/22/13 15:29, Jason Cooper a =C3=A9crit :
->> Ok, thanks! Does that mean that you want these changes to go via
->> your tree? David initially applied my v2 of this patchset, and since
->> it thouches mostly ethernet driver stuff, I would rather make it go
->> via his tree if both of you agree.
->
-> Yeah, I thought I should have reworded that after I hit send :)  I
-> simply meant it applied cleanly against v3.9-rc3, booted, and worked.=
-  I
-> Acked it so David could take the whole series through his tree.  Sorr=
-y
-> for the confusion.
->
-> Now that I can build mv643xx_eth DT on top of this, I'll structure it=
- so
-> those changes go on top of yours (in David's tree) and try to avoid t=
-he
-> external dependency for the DT bits going though arm-soc.
+From: Thomas Graf <tgraf@suug.ch>
+Date: Fri, 22 Mar 2013 14:27:35 +0000
 
-Sounds good! FYI, I am finishing up DSA Device Tree bindings so that we=
-=20
-can finally get rid of board-specific Kirkwood files.
---
-=46lorian
+> On 03/21/13 at 06:04pm, Steven Whitehouse wrote:
+>> You shouldn't need any special hardware to test this. A copy of iproute2
+>> should be enough as you should be able to use that to create an
+>> interface or two and a route between them, etc. Although DECnet routing
+>> works in a different way to ip routing, the Linux implementation tries
+>> to stick fairly closely to the ip way of doing things whenever it can in
+>> order to share infrastructure. Now that ip has diverged a fair bit over
+>> time that isn't quite as true as it was, but there shouldn't be anything
+>> too surprising in there.
+> 
+> Alright, I did some basic testing with iproute2. I do not claim
+> to understand what I did but I ran the following:
+> 
+> $ ip -f dnet route add 1.661 dev em1
+> $ ip -f dnet route list
+> 1.661 dev em1  scope link
+> 
+> $ ip -f dnet neigh add 6.662 dev em1
+> $ ip -f dnet neigh list
+> 6.662 dev em1 lladdr aa:00:04:00:96:1a PERMANENT
+> 
+> $ ip -f dnet addr add 1.111 dev em1
+> $ ip -f dnet addr list
+> 2: em1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN qlen 1000
+>     dnet 1.111/16 scope global em1
+
+That's good enough for me, both patches applied, thanks Thomas!
