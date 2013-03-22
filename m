@@ -1,7 +1,7 @@
 From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 4/4 v3] mv643xx_eth: convert to use the Marvell Orion MDIO driver
-Date: Fri, 22 Mar 2013 14:39:28 +0100
-Message-ID: <1363959568-16976-5-git-send-email-florian@openwrt.org>
+Subject: [PATCH 2/4 v3] net: mvmdio: rename base register cookie from smireg to regs
+Date: Fri, 22 Mar 2013 14:39:26 +0100
+Message-ID: <1363959568-16976-3-git-send-email-florian@openwrt.org>
 References: <1363284515-9865-1-git-send-email-florian@openwrt.org>
  <1363959568-16976-1-git-send-email-florian@openwrt.org>
 Cc: Grant Likely <grant.likely@secretlab.ca>,
@@ -20,604 +20,88 @@ Cc: Grant Likely <grant.likely@secretlab.ca>,
 	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <linux-doc-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zmc.proxad.net ([212.27.53.206]:46996 "EHLO zmc.proxad.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933311Ab3CVNjj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Mar 2013 09:39:39 -0400
 In-Reply-To: <1363959568-16976-1-git-send-email-florian@openwrt.org>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch converts the Marvell MV643XX ethernet driver to use the
-Marvell Orion MDIO driver. As a result, PowerPC and ARM platforms
-registering the Marvell MV643XX ethernet driver are also updated to
-register a Marvell Orion MDIO driver. This driver voluntarily overlaps
-with the Marvell Ethernet shared registers because it will use a subset
-of this shared register (shared_base + 0x4 to shared_base + 0x84). The
-Ethernet driver is also updated to look up for a PHY device using the
-Orion MDIO bus driver.
+This patch renames the base register cookie in the mvmdio drive from
+"smireg" to "regs" since a subsequent patch is going to use an ioremap()
+cookie whose size is larger than a single register of 4 bytes. No
+functionnal code change introduced.
 
-For ARM and PowerPC we register a single instance of the "mvmdio" driver
-in the system like it used to be done with the use of the "shared_smi"
-platform_data cookie on ARM.
-
-Note that it is safe to register the mvmdio driver only for the "ge00"
-instance of the driver because this "ge00" interface is guaranteed to
-always be explicitely registered by consumers of
-arch/arm/plat-orion/common.c and other instances (ge01, ge10 and ge11)
-were all pointing their shared_smi to ge00. For PowerPC the in-tree
-Device Tree Source files mention only one MV643XX ethernet MAC instance
-so the MDIO bus driver is registered only when id == 0.
-
+Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Signed-off-by: Florian Fainelli <florian@openwrt.org>
 ---
 Changes since v2:
-- added missing adjust_link callback to phy_connect
-- removed superfluous phy_attach() call
-- modified PowerPC code to register a single orion-mdio instance
-- modified arm code to register a single orion-mdio instance for
-  all GE* interfaces
+- rebased against latest version
 
 Changes since v1:
-- removed one too many mdio bus registration for Orion5x/Kirkwood
+- added Thomas Acked-by tag
 
+ drivers/net/ethernet/marvell/mvmdio.c |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
- arch/arm/plat-orion/common.c               |   54 ++++----
- arch/powerpc/platforms/chrp/pegasos_eth.c  |   20 +++
- arch/powerpc/sysdev/mv64x60_dev.c          |   16 ++-
- drivers/net/ethernet/marvell/Kconfig       |    5 +-
- drivers/net/ethernet/marvell/Makefile      |    2 +-
- drivers/net/ethernet/marvell/mv643xx_eth.c |  195 +++-------------------------
- include/linux/mv643xx_eth.h                |    1 -
- 7 files changed, 84 insertions(+), 209 deletions(-)
-
-diff --git a/arch/arm/plat-orion/common.c b/arch/arm/plat-orion/common.c
-index 2d4b641..251f827 100644
---- a/arch/arm/plat-orion/common.c
-+++ b/arch/arm/plat-orion/common.c
-@@ -238,6 +238,7 @@ static __init void ge_complete(
- 	struct mv643xx_eth_shared_platform_data *orion_ge_shared_data,
- 	struct resource *orion_ge_resource, unsigned long irq,
- 	struct platform_device *orion_ge_shared,
-+	struct platform_device *orion_ge_mvmdio,
- 	struct mv643xx_eth_platform_data *eth_data,
- 	struct platform_device *orion_ge)
- {
-@@ -247,6 +248,8 @@ static __init void ge_complete(
- 	orion_ge->dev.platform_data = eth_data;
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index bbc5fde..3e2711d 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -39,7 +39,7 @@
  
- 	platform_device_register(orion_ge_shared);
-+	if (orion_ge_mvmdio)
-+		platform_device_register(orion_ge_mvmdio);
- 	platform_device_register(orion_ge);
- }
- 
-@@ -258,8 +261,6 @@ struct mv643xx_eth_shared_platform_data orion_ge00_shared_data;
- static struct resource orion_ge00_shared_resources[] = {
- 	{
- 		.name	= "ge00 base",
--	}, {
--		.name	= "ge00 err irq",
- 	},
+ struct orion_mdio_dev {
+ 	struct mutex lock;
+-	void __iomem *smireg;
++	void __iomem *regs;
  };
  
-@@ -271,6 +272,19 @@ static struct platform_device orion_ge00_shared = {
- 	},
- };
+ /* Wait for the SMI unit to be ready for another operation
+@@ -52,7 +52,7 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
  
-+static struct resource orion_ge_mvmdio_resources[] = {
-+	{
-+		.name	= "ge00 mvmdio base",
-+	}, {
-+		.name	= "ge00 mvmdio err irq",
-+	},
-+};
-+
-+static struct platform_device orion_ge_mvmdio = {
-+	.name		= "orion-mdio",
-+	.id		= -1,
-+};
-+
- static struct resource orion_ge00_resources[] = {
- 	{
- 		.name	= "ge00 irq",
-@@ -295,26 +309,25 @@ void __init orion_ge00_init(struct mv643xx_eth_platform_data *eth_data,
- 			    unsigned int tx_csum_limit)
- {
- 	fill_resources(&orion_ge00_shared, orion_ge00_shared_resources,
--		       mapbase + 0x2000, SZ_16K - 1, irq_err);
-+		       mapbase + 0x2000, SZ_16K - 1, NO_IRQ);
-+	fill_resources(&orion_ge_mvmdio, orion_ge_mvmdio_resources,
-+			mapbase + 0x2004, 0x84 - 1, irq_err);
- 	orion_ge00_shared_data.tx_csum_limit = tx_csum_limit;
- 	ge_complete(&orion_ge00_shared_data,
- 		    orion_ge00_resources, irq, &orion_ge00_shared,
-+		    &orion_ge_mvmdio,
- 		    eth_data, &orion_ge00);
- }
+ 	count = 0;
+ 	while (1) {
+-		val = readl(dev->smireg);
++		val = readl(dev->regs);
+ 		if (!(val & MVMDIO_SMI_BUSY))
+ 			break;
  
- /*****************************************************************************
-  * GE01
-  ****************************************************************************/
--struct mv643xx_eth_shared_platform_data orion_ge01_shared_data = {
--	.shared_smi	= &orion_ge00_shared,
--};
-+struct mv643xx_eth_shared_platform_data orion_ge01_shared_data;
+@@ -87,12 +87,12 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
+ 	writel(((mii_id << MVMDIO_SMI_PHY_ADDR_SHIFT) |
+ 		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
+ 		MVMDIO_SMI_READ_OPERATION),
+-	       dev->smireg);
++	       dev->regs);
  
- static struct resource orion_ge01_shared_resources[] = {
- 	{
- 		.name	= "ge01 base",
--	}, {
--		.name	= "ge01 err irq",
--	},
-+	}
- };
+ 	/* Wait for the value to become available */
+ 	count = 0;
+ 	while (1) {
+-		val = readl(dev->smireg);
++		val = readl(dev->regs);
+ 		if (val & MVMDIO_SMI_READ_VALID)
+ 			break;
  
- static struct platform_device orion_ge01_shared = {
-@@ -349,26 +362,23 @@ void __init orion_ge01_init(struct mv643xx_eth_platform_data *eth_data,
- 			    unsigned int tx_csum_limit)
- {
- 	fill_resources(&orion_ge01_shared, orion_ge01_shared_resources,
--		       mapbase + 0x2000, SZ_16K - 1, irq_err);
-+		       mapbase + 0x2000, SZ_16K - 1, NO_IRQ);
- 	orion_ge01_shared_data.tx_csum_limit = tx_csum_limit;
- 	ge_complete(&orion_ge01_shared_data,
- 		    orion_ge01_resources, irq, &orion_ge01_shared,
-+		    NULL,
- 		    eth_data, &orion_ge01);
- }
+@@ -129,7 +129,7 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
+ 		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
+ 		MVMDIO_SMI_WRITE_OPERATION            |
+ 		(value << MVMDIO_SMI_DATA_SHIFT)),
+-	       dev->smireg);
++	       dev->regs);
  
- /*****************************************************************************
-  * GE10
-  ****************************************************************************/
--struct mv643xx_eth_shared_platform_data orion_ge10_shared_data = {
--	.shared_smi	= &orion_ge00_shared,
--};
-+struct mv643xx_eth_shared_platform_data orion_ge10_shared_data;
+ 	mutex_unlock(&dev->lock);
  
- static struct resource orion_ge10_shared_resources[] = {
- 	{
- 		.name	= "ge10 base",
--	}, {
--		.name	= "ge10 err irq",
--	},
-+	}
- };
+@@ -178,8 +178,8 @@ static int orion_mdio_probe(struct platform_device *pdev)
+ 		bus->irq[i] = PHY_POLL;
  
- static struct platform_device orion_ge10_shared = {
-@@ -402,24 +412,21 @@ void __init orion_ge10_init(struct mv643xx_eth_platform_data *eth_data,
- 			    unsigned long irq_err)
- {
- 	fill_resources(&orion_ge10_shared, orion_ge10_shared_resources,
--		       mapbase + 0x2000, SZ_16K - 1, irq_err);
-+		       mapbase + 0x2000, SZ_16K - 1, NO_IRQ);
- 	ge_complete(&orion_ge10_shared_data,
- 		    orion_ge10_resources, irq, &orion_ge10_shared,
-+		    NULL,
- 		    eth_data, &orion_ge10);
- }
- 
- /*****************************************************************************
-  * GE11
-  ****************************************************************************/
--struct mv643xx_eth_shared_platform_data orion_ge11_shared_data = {
--	.shared_smi	= &orion_ge00_shared,
--};
-+struct mv643xx_eth_shared_platform_data orion_ge11_shared_data;
- 
- static struct resource orion_ge11_shared_resources[] = {
- 	{
- 		.name	= "ge11 base",
--	}, {
--		.name	= "ge11 err irq",
- 	},
- };
- 
-@@ -454,9 +461,10 @@ void __init orion_ge11_init(struct mv643xx_eth_platform_data *eth_data,
- 			    unsigned long irq_err)
- {
- 	fill_resources(&orion_ge11_shared, orion_ge11_shared_resources,
--		       mapbase + 0x2000, SZ_16K - 1, irq_err);
-+		       mapbase + 0x2000, SZ_16K - 1, NO_IRQ);
- 	ge_complete(&orion_ge11_shared_data,
- 		    orion_ge11_resources, irq, &orion_ge11_shared,
-+		    NULL,
- 		    eth_data, &orion_ge11);
- }
- 
-diff --git a/arch/powerpc/platforms/chrp/pegasos_eth.c b/arch/powerpc/platforms/chrp/pegasos_eth.c
-index 039fc8e..2b4dc6a 100644
---- a/arch/powerpc/platforms/chrp/pegasos_eth.c
-+++ b/arch/powerpc/platforms/chrp/pegasos_eth.c
-@@ -47,6 +47,25 @@ static struct platform_device mv643xx_eth_shared_device = {
- 	.resource	= mv643xx_eth_shared_resources,
- };
- 
-+/*
-+ * The orion mdio driver only covers shared + 0x4 up to shared + 0x84 - 1
-+ */
-+static struct resource mv643xx_eth_mvmdio_resources[] = {
-+	[0] = {
-+		.name	= "ethernet mdio base",
-+		.start	= 0xf1000000 + MV643XX_ETH_SHARED_REGS + 0x4,
-+		.end	= 0xf1000000 + MV643XX_ETH_SHARED_REGS + 0x83,
-+		.flags	= IORESOURCE_MEM,
-+	},
-+};
-+
-+static struct platform_device mv643xx_eth_mvmdio_device = {
-+	.name		= "orion-mdio",
-+	.id		= -1,
-+	.num_resources	= ARRAY_SIZE(mv643xx_eth_mvmdio_resources),
-+	.resource	= mv643xx_eth_shared_resources,
-+};
-+
- static struct resource mv643xx_eth_port1_resources[] = {
- 	[0] = {
- 		.name	= "eth port1 irq",
-@@ -82,6 +101,7 @@ static struct platform_device eth_port1_device = {
- 
- static struct platform_device *mv643xx_eth_pd_devs[] __initdata = {
- 	&mv643xx_eth_shared_device,
-+	&mv643xx_eth_mvmdio_device,
- 	&eth_port1_device,
- };
- 
-diff --git a/arch/powerpc/sysdev/mv64x60_dev.c b/arch/powerpc/sysdev/mv64x60_dev.c
-index 0f6af41..4a25c26 100644
---- a/arch/powerpc/sysdev/mv64x60_dev.c
-+++ b/arch/powerpc/sysdev/mv64x60_dev.c
-@@ -214,15 +214,27 @@ static struct platform_device * __init mv64x60_eth_register_shared_pdev(
- 						struct device_node *np, int id)
- {
- 	struct platform_device *pdev;
--	struct resource r[1];
-+	struct resource r[2];
- 	int err;
- 
- 	err = of_address_to_resource(np, 0, &r[0]);
- 	if (err)
- 		return ERR_PTR(err);
- 
-+	/* register an orion mdio bus driver */
-+	r[1].start = r[0].start + 0x4;
-+	r[1].end = r[0].start + 0x84 - 1;
-+	r[1].flags = IORESOURCE_MEM;
-+
-+	if (id == 0) {
-+		pdev = platform_device_register_simple("orion-mdio", -1, &r[1], 1);
-+		if (!pdev)
-+			return pdev;
-+	}
-+
- 	pdev = platform_device_register_simple(MV643XX_ETH_SHARED_NAME, id,
--					       r, 1);
-+					       &r[0], 1);
-+
- 	return pdev;
- }
- 
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index edfba93..5170ecb 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -23,6 +23,7 @@ config MV643XX_ETH
- 	depends on (MV64X60 || PPC32 || PLAT_ORION) && INET
- 	select INET_LRO
- 	select PHYLIB
-+	select MVMDIO
- 	---help---
- 	  This driver supports the gigabit ethernet MACs in the
- 	  Marvell Discovery PPC/MIPS chipset family (MV643XX) and
-@@ -38,9 +39,7 @@ config MVMDIO
- 	  interface units of the Marvell EBU SoCs (Kirkwood, Orion5x,
- 	  Dove, Armada 370 and Armada XP).
- 
--	  For now, this driver is only needed for the MVNETA driver
--	  (used on Armada 370 and XP), but it could be used in the
--	  future by the MV643XX_ETH driver.
-+	  This driver is used by the MV643XX_ETH and MVNETA drivers.
- 
- config MVNETA
- 	tristate "Marvell Armada 370/XP network interface support"
-diff --git a/drivers/net/ethernet/marvell/Makefile b/drivers/net/ethernet/marvell/Makefile
-index 7f63b4a..5c4a776 100644
---- a/drivers/net/ethernet/marvell/Makefile
-+++ b/drivers/net/ethernet/marvell/Makefile
-@@ -2,8 +2,8 @@
- # Makefile for the Marvell device drivers.
- #
- 
--obj-$(CONFIG_MV643XX_ETH) += mv643xx_eth.o
- obj-$(CONFIG_MVMDIO) += mvmdio.o
-+obj-$(CONFIG_MV643XX_ETH) += mv643xx_eth.o
- obj-$(CONFIG_MVNETA) += mvneta.o
- obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
- obj-$(CONFIG_SKGE) += skge.o
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index d1ecf4b..a65a92e 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -69,14 +69,6 @@ static char mv643xx_eth_driver_version[] = "1.4";
-  * Registers shared between all ports.
-  */
- #define PHY_ADDR			0x0000
--#define SMI_REG				0x0004
--#define  SMI_BUSY			0x10000000
--#define  SMI_READ_VALID			0x08000000
--#define  SMI_OPCODE_READ		0x04000000
--#define  SMI_OPCODE_WRITE		0x00000000
--#define ERR_INT_CAUSE			0x0080
--#define  ERR_INT_SMI_DONE		0x00000010
--#define ERR_INT_MASK			0x0084
- #define WINDOW_BASE(w)			(0x0200 + ((w) << 3))
- #define WINDOW_SIZE(w)			(0x0204 + ((w) << 3))
- #define WINDOW_REMAP_HIGH(w)		(0x0280 + ((w) << 2))
-@@ -266,25 +258,6 @@ struct mv643xx_eth_shared_private {
- 	void __iomem *base;
- 
- 	/*
--	 * Points at the right SMI instance to use.
--	 */
--	struct mv643xx_eth_shared_private *smi;
--
--	/*
--	 * Provides access to local SMI interface.
--	 */
--	struct mii_bus *smi_bus;
--
--	/*
--	 * If we have access to the error interrupt pin (which is
--	 * somewhat misnamed as it not only reflects internal errors
--	 * but also reflects SMI completion), use that to wait for
--	 * SMI access completion instead of polling the SMI busy bit.
--	 */
--	int err_interrupt;
--	wait_queue_head_t smi_busy_wait;
--
--	/*
- 	 * Per-port MBUS window access register value.
- 	 */
- 	u32 win_protect;
-@@ -1122,97 +1095,6 @@ out_write:
- 	wrlp(mp, PORT_SERIAL_CONTROL, pscr);
- }
- 
--static irqreturn_t mv643xx_eth_err_irq(int irq, void *dev_id)
--{
--	struct mv643xx_eth_shared_private *msp = dev_id;
--
--	if (readl(msp->base + ERR_INT_CAUSE) & ERR_INT_SMI_DONE) {
--		writel(~ERR_INT_SMI_DONE, msp->base + ERR_INT_CAUSE);
--		wake_up(&msp->smi_busy_wait);
--		return IRQ_HANDLED;
--	}
--
--	return IRQ_NONE;
--}
--
--static int smi_is_done(struct mv643xx_eth_shared_private *msp)
--{
--	return !(readl(msp->base + SMI_REG) & SMI_BUSY);
--}
--
--static int smi_wait_ready(struct mv643xx_eth_shared_private *msp)
--{
--	if (msp->err_interrupt == NO_IRQ) {
--		int i;
--
--		for (i = 0; !smi_is_done(msp); i++) {
--			if (i == 10)
--				return -ETIMEDOUT;
--			msleep(10);
--		}
--
--		return 0;
--	}
--
--	if (!smi_is_done(msp)) {
--		wait_event_timeout(msp->smi_busy_wait, smi_is_done(msp),
--				   msecs_to_jiffies(100));
--		if (!smi_is_done(msp))
--			return -ETIMEDOUT;
--	}
--
--	return 0;
--}
--
--static int smi_bus_read(struct mii_bus *bus, int addr, int reg)
--{
--	struct mv643xx_eth_shared_private *msp = bus->priv;
--	void __iomem *smi_reg = msp->base + SMI_REG;
--	int ret;
--
--	if (smi_wait_ready(msp)) {
--		pr_warn("SMI bus busy timeout\n");
--		return -ETIMEDOUT;
--	}
--
--	writel(SMI_OPCODE_READ | (reg << 21) | (addr << 16), smi_reg);
--
--	if (smi_wait_ready(msp)) {
--		pr_warn("SMI bus busy timeout\n");
--		return -ETIMEDOUT;
--	}
--
--	ret = readl(smi_reg);
--	if (!(ret & SMI_READ_VALID)) {
--		pr_warn("SMI bus read not valid\n");
--		return -ENODEV;
--	}
--
--	return ret & 0xffff;
--}
--
--static int smi_bus_write(struct mii_bus *bus, int addr, int reg, u16 val)
--{
--	struct mv643xx_eth_shared_private *msp = bus->priv;
--	void __iomem *smi_reg = msp->base + SMI_REG;
--
--	if (smi_wait_ready(msp)) {
--		pr_warn("SMI bus busy timeout\n");
--		return -ETIMEDOUT;
--	}
--
--	writel(SMI_OPCODE_WRITE | (reg << 21) |
--		(addr << 16) | (val & 0xffff), smi_reg);
--
--	if (smi_wait_ready(msp)) {
--		pr_warn("SMI bus busy timeout\n");
--		return -ETIMEDOUT;
--	}
--
--	return 0;
--}
--
--
- /* statistics ***************************************************************/
- static struct net_device_stats *mv643xx_eth_get_stats(struct net_device *dev)
- {
-@@ -2688,47 +2570,6 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
- 		goto out_free;
- 
- 	/*
--	 * Set up and register SMI bus.
--	 */
--	if (pd == NULL || pd->shared_smi == NULL) {
--		msp->smi_bus = mdiobus_alloc();
--		if (msp->smi_bus == NULL)
--			goto out_unmap;
--
--		msp->smi_bus->priv = msp;
--		msp->smi_bus->name = "mv643xx_eth smi";
--		msp->smi_bus->read = smi_bus_read;
--		msp->smi_bus->write = smi_bus_write,
--		snprintf(msp->smi_bus->id, MII_BUS_ID_SIZE, "%s-%d",
--			pdev->name, pdev->id);
--		msp->smi_bus->parent = &pdev->dev;
--		msp->smi_bus->phy_mask = 0xffffffff;
--		if (mdiobus_register(msp->smi_bus) < 0)
--			goto out_free_mii_bus;
--		msp->smi = msp;
--	} else {
--		msp->smi = platform_get_drvdata(pd->shared_smi);
--	}
--
--	msp->err_interrupt = NO_IRQ;
--	init_waitqueue_head(&msp->smi_busy_wait);
--
--	/*
--	 * Check whether the error interrupt is hooked up.
--	 */
--	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
--	if (res != NULL) {
--		int err;
--
--		err = request_irq(res->start, mv643xx_eth_err_irq,
--				  IRQF_SHARED, "mv643xx_eth", msp);
--		if (!err) {
--			writel(ERR_INT_SMI_DONE, msp->base + ERR_INT_MASK);
--			msp->err_interrupt = res->start;
--		}
--	}
--
--	/*
- 	 * (Re-)program MBUS remapping windows if we are asked to.
- 	 */
- 	dram = mv_mbus_dram_info();
-@@ -2743,10 +2584,6 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
- 
- 	return 0;
- 
--out_free_mii_bus:
--	mdiobus_free(msp->smi_bus);
--out_unmap:
--	iounmap(msp->base);
- out_free:
- 	kfree(msp);
- out:
-@@ -2756,14 +2593,7 @@ out:
- static int mv643xx_eth_shared_remove(struct platform_device *pdev)
- {
- 	struct mv643xx_eth_shared_private *msp = platform_get_drvdata(pdev);
--	struct mv643xx_eth_shared_platform_data *pd = pdev->dev.platform_data;
- 
--	if (pd == NULL || pd->shared_smi == NULL) {
--		mdiobus_unregister(msp->smi_bus);
--		mdiobus_free(msp->smi_bus);
--	}
--	if (msp->err_interrupt != NO_IRQ)
--		free_irq(msp->err_interrupt, msp);
- 	iounmap(msp->base);
- 	kfree(msp);
- 
-@@ -2826,14 +2656,21 @@ static void set_params(struct mv643xx_eth_private *mp,
- 	mp->txq_count = pd->tx_queue_count ? : 1;
- }
- 
-+static void mv643xx_eth_adjust_link(struct net_device *dev)
-+{
-+	struct mv643xx_eth_private *mp = netdev_priv(dev);
-+
-+	mv643xx_adjust_pscr(mp);
-+}
-+
- static struct phy_device *phy_scan(struct mv643xx_eth_private *mp,
- 				   int phy_addr)
- {
--	struct mii_bus *bus = mp->shared->smi->smi_bus;
- 	struct phy_device *phydev;
- 	int start;
- 	int num;
- 	int i;
-+	char phy_id[MII_BUS_ID_SIZE + 3];
- 
- 	if (phy_addr == MV643XX_ETH_PHY_ADDR_DEFAULT) {
- 		start = phy_addr_get(mp) & 0x1f;
-@@ -2843,17 +2680,19 @@ static struct phy_device *phy_scan(struct mv643xx_eth_private *mp,
- 		num = 1;
- 	}
- 
-+	/* Attempt to connect to the PHY using orion-mdio */
- 	phydev = NULL;
- 	for (i = 0; i < num; i++) {
- 		int addr = (start + i) & 0x1f;
- 
--		if (bus->phy_map[addr] == NULL)
--			mdiobus_scan(bus, addr);
-+		snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT,
-+				"orion-mdio-mii", addr);
- 
--		if (phydev == NULL) {
--			phydev = bus->phy_map[addr];
--			if (phydev != NULL)
--				phy_addr_set(mp, addr);
-+		phydev = phy_connect(mp->dev, phy_id, mv643xx_eth_adjust_link,
-+				PHY_INTERFACE_MODE_GMII);
-+		if (!IS_ERR(phydev)) {
-+			phy_addr_set(mp, addr);
-+			break;
- 		}
- 	}
- 
-@@ -2866,8 +2705,6 @@ static void phy_init(struct mv643xx_eth_private *mp, int speed, int duplex)
- 
- 	phy_reset(mp);
- 
--	phy_attach(mp->dev, dev_name(&phy->dev), PHY_INTERFACE_MODE_GMII);
--
- 	if (speed == 0) {
- 		phy->autoneg = AUTONEG_ENABLE;
- 		phy->speed = 0;
-diff --git a/include/linux/mv643xx_eth.h b/include/linux/mv643xx_eth.h
-index 49258e0..141d395 100644
---- a/include/linux/mv643xx_eth.h
-+++ b/include/linux/mv643xx_eth.h
-@@ -19,7 +19,6 @@
- 
- struct mv643xx_eth_shared_platform_data {
- 	struct mbus_dram_target_info	*dram;
--	struct platform_device	*shared_smi;
- 	/*
- 	 * Max packet size for Tx IP/Layer 4 checksum, when set to 0, default
- 	 * limit of 9KiB will be used.
+ 	dev = bus->priv;
+-	dev->smireg = devm_ioremap(&pdev->dev, r->start, resource_size(r));
+-	if (!dev->smireg) {
++	dev->regs = devm_ioremap(&pdev->dev, r->start, resource_size(r));
++	if (!dev->regs) {
+ 		dev_err(&pdev->dev, "Unable to remap SMI register\n");
+ 		kfree(bus->irq);
+ 		mdiobus_free(bus);
 -- 
 1.7.10.4
-
