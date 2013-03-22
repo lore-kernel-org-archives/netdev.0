@@ -1,57 +1,26 @@
-From: Steffen Trumtrar <s.trumtrar@pengutronix.de>
-Subject: [PATCH 2/3] net/macb: force endian_swp_pkt_en to off
-Date: Fri, 22 Mar 2013 18:33:34 +0100
-Message-ID: <1363973615-17863-2-git-send-email-s.trumtrar@pengutronix.de>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH 3/3] net/macb: make clk_enable atomic
+Date: Fri, 22 Mar 2013 14:38:39 -0300
+Message-ID: <CAOMZO5BRDU_-fvv4PZQcLe-4OdZ4bDQ8m+nNHEFcC1Y2+zdh9g@mail.gmail.com>
 References: <1363973615-17863-1-git-send-email-s.trumtrar@pengutronix.de>
-Cc: Steffen Trumtrar <s.trumtrar@pengutronix.de>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>
-To: netdev@vger.kernel.org
+	<1363973615-17863-3-git-send-email-s.trumtrar@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Nicolas Ferre <nicolas.ferre@atmel.com>
+To: Steffen Trumtrar <s.trumtrar@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:37963 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161061Ab3CVRdv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 13:33:51 -0400
-In-Reply-To: <1363973615-17863-1-git-send-email-s.trumtrar@pengutronix.de>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:53199 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422661Ab3CVRik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 13:38:40 -0400
+Received: by mail-pb0-f44.google.com with SMTP id wz12so3251235pbc.3
+        for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 10:38:40 -0700 (PDT)
+In-Reply-To: <1363973615-17863-3-git-send-email-s.trumtrar@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The core has a bit for swapping packet data endianism.
-Reset default from Cadence is off. Xilinx however, who uses this core on the
-Zynq SoCs, opted for on.
-Force it to off. This shouldn't change the behaviour for current users of the
-macb, but enables usage on Zynq devices.
+On Fri, Mar 22, 2013 at 2:33 PM, Steffen Trumtrar
+<s.trumtrar@pengutronix.de> wrote:
+> Use clk_prepare_enable to be safe on SMP systems.
 
-Signed-off-by: Steffen Trumtrar <s.trumtrar@pengutronix.de>
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
----
- drivers/net/ethernet/cadence/macb.c | 1 +
- drivers/net/ethernet/cadence/macb.h | 2 ++
- 2 files changed, 3 insertions(+)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 817835e..71e766b 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1057,6 +1057,7 @@ static void macb_configure_dma(struct macb *bp)
- 		dmacfg |= GEM_BF(RXBS, RX_BUFFER_SIZE / 64);
- 		dmacfg |= GEM_BF(FBLDO, 16);
- 		dmacfg |= GEM_BIT(TXPBMS) | GEM_BF(RXBMS, -1L);
-+		dmacfg &= ~GEM_BIT(ENDIA);
- 		gem_writel(bp, DMACFG, dmacfg);
- 	}
- }
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 570908b..993d703 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -173,6 +173,8 @@
- /* Bitfields in DMACFG. */
- #define GEM_FBLDO_OFFSET			0
- #define GEM_FBLDO_SIZE				5
-+#define GEM_ENDIA_OFFSET			7
-+#define GEM_ENDIA_SIZE				1
- #define GEM_RXBMS_OFFSET			8
- #define GEM_RXBMS_SIZE				2
- #define GEM_TXPBMS_OFFSET			10
--- 
-1.8.2.rc2
+Wouldn't you have to use clk_disable_unprepare() now?
