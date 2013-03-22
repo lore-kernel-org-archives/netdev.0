@@ -1,34 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phy: Add XGMII phy interface type
-Date: Fri, 22 Mar 2013 10:27:38 -0400 (EDT)
-Message-ID: <20130322.102738.100763719710671227.davem@davemloft.net>
-References: <5BDCE647-67A3-423B-AB9C-8C50CC0B6C02@gmail.com>
-	<20130322.101900.1947638393872492900.davem@davemloft.net>
-	<9CC1FA76-1620-4E0F-82DC-89535633329F@gmail.com>
+From: Fleming Andy-AFLEMING <afleming@freescale.com>
+Subject: Re: [PATCH] phy: Add support for VSC8234
+Date: Fri, 22 Mar 2013 14:27:35 +0000
+Message-ID: <45F3FB2F-D5AA-42BD-A3B8-B38A93569303@freescale.com>
+References: <E1UJ1fR-0004hp-2j@swissweb.swissdisk.com>,<20130322.101351.803684806942512280.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: benmcollins13@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Gala Kumar-B11780 <B11780@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <9CC1FA76-1620-4E0F-82DC-89535633329F@gmail.com>
+In-Reply-To: <20130322.101351.803684806942512280.davem@davemloft.net>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Collins <benmcollins13@gmail.com>
-Date: Fri, 22 Mar 2013 10:22:05 -0400
 
-> It's code that I've manually stripped down as a subset of a larger
-> code base for Freescale's DPAA driver. I've only tested it on our
-> (Servergy's) platform, so until it gets more broad testing (and some
-> code review), I want to at least get it into staging so our hardware
-> is supported.
 
-Then why don't you submit the PHY type addition with the staging
-driver, which will be the only user, and you can add my:
+On Mar 22, 2013, at 9:13, "David Miller" <davem@davemloft.net> wrote:
 
-Acked-by: David S. Miller <davem@davemloft.net>
+> From: Andy Fleming <afleming@freescale.com>
+> Date: Sun, 16 Oct 2011 01:49:49 -0500
+> 
+>> No functional changes other than to recognize this PHYID.
+>> 
+>> Signed-off-by: Andy Fleming <afleming@freescale.com>
+>> Signed-off-by: Kumar Gala <kumar.gala@freescale.com>
+>> Signed-off-by: Ben Collins <ben.c@servergy.com>
+> 
+> Please do not submit patches with the commit date integrated
+> into your formal email headers.
+> 
+> This screws up archives and patch queue maintainence systems which
+> order submissions by date.
 
-to that.
 
-Thanks.
+Yes, I'm very confused, as I didn't send any of these.
+
+Andy
