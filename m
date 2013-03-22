@@ -1,120 +1,115 @@
-From: Cornelia Huck <cornelia.huck@de.ibm.com>
-Subject: Re: virtio: remove obsolete virtqueue_get_queue_index()
-Date: Fri, 22 Mar 2013 10:10:09 +0100
-Message-ID: <20130322101009.6076b0ba@gondolin>
-References: <878v5hp6hc.fsf@rustcorp.com.au>
-	<20130321100146.7a741c75@gondolin>
-	<87ehf8fftt.fsf@rustcorp.com.au>
+From: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] ath9k : Fix ieee80211 work while going to suspend
+Date: Fri, 22 Mar 2013 10:13:42 +0100
+Message-ID: <20130322091342.GB1496@redhat.com>
+References: <CAOULuOb0_40EX+6A_HM8eJN7kj9J4WhO9UhZbUUqng1Sfy_SQg@mail.gmail.com>
+ <20130318191340.GA28919@tuxdriver.com>
+ <20130318210308.GD32416@pogo>
+ <20130321114219.GB1459@redhat.com>
+ <20130321193331.GB32416@pogo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp18.uk.ibm.com ([195.75.94.114]:41379 "EHLO
-	e06smtp18.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753936Ab3CVJKa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 05:10:30 -0400
-Received: from /spool/local
-	by e06smtp18.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <cornelia.huck@de.ibm.com>;
-	Fri, 22 Mar 2013 09:07:31 -0000
-Received: from b06cxnps3075.portsmouth.uk.ibm.com (d06relay10.portsmouth.uk.ibm.com [9.149.109.195])
-	by d06dlp03.portsmouth.uk.ibm.com (Postfix) with ESMTP id 2D7B81B08061
-	for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 09:10:20 +0000 (GMT)
-Received: from d06av08.portsmouth.uk.ibm.com (d06av08.portsmouth.uk.ibm.com [9.149.37.249])
-	by b06cxnps3075.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r2M9AAaZ40370408
-	for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 09:10:10 GMT
-Received: from d06av08.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av08.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r2M9AJfM013487
-	for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 03:10:19 -0600
-In-Reply-To: <87ehf8fftt.fsf@rustcorp.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Parag Warudkar <parag.lkml-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Jouni Malinen <jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	Vasanthakumar Thiagarajan <vthiagar-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-juf53994utBLZpfksSYvnA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	senthilb-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org
+To: "Luis R. Rodriguez" <rodrigue-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20130321193331.GB32416@pogo>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 22 Mar 2013 10:47:34 +1030
-Rusty Russell <rusty@rustcorp.com.au> wrote:
-
-> virtio: remove obsolete virtqueue_get_queue_index()
+On Thu, Mar 21, 2013 at 12:33:31PM -0700, Luis R. Rodriguez wrote:
+> So when does this work get called?
 > 
-> You can access it directly now, since 3.8: v3.7-rc1-13-g06ca287
-> 'virtio: move queue_index and num_free fields into core struct
-> virtqueue.'
+> Given the trace this is hit when the timer rx_poll_timer runs,
+> which in turn calls ath_rx_poll() to schedule hw_check_work work.
+> The rx_poll_timer however was originally only set at the end of
+> the routine that hw_check_work sets off but also at other entry
+> points (ath_start_rx_poll() callers). Once ath_start_rx_poll()
+> gets called though we can go on looping as follows:
 > 
-> Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
-
-Acked-by: Cornelia Huck <cornelia.huck@de.ibm.com>
-
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> work			timer			work
+> hw_check_work	-->	rx_poll_timer	-->	hw_check_work
+>
+> At suspend time we do this though:
 > 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index d88d436..24fc9f5 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -153,7 +153,7 @@ struct padded_vnet_hdr {
->   */
->  static int vq2txq(struct virtqueue *vq)
+> ath_cancel_work(sc);                                                    
+> del_timer_sync(&sc->rx_poll_timer);  
+>  
+> +	del_timer_sync(&sc->rx_poll_timer);
+>  	ath_cancel_work(sc);
+>  	ath_stop_ani(sc);
+> -	del_timer_sync(&sc->rx_poll_timer);
+
+[snip]
+
+> But then we have the chicken and the egg problem, as the work item
+> could fire off the timer so it would seem to be good to prevent
+> adding new work when suspending.
+
+Yup, this is egg and chicken problem, I think it can not be fixed by
+changing ordering of del_timer and cancel_work, it would be like:
+
+del_timer_sync(&sc->rx_poll_timer);
+/* but timer could schedule work */
+ath_cancel_work(sc);
+/* but work could schedule timer */ 
+del_timer_sync(&sc->rx_poll_timer);
+/* but timer could schedule work */
+ath_cancel_work(sc);
+/* And so on ... */
+
+Check is needed in work or timer callback, depending what is canceled
+last, to fix the problem ...
+
+> > In mac80211 we use local->suspended and local->quiesce booleans to
+> > prevent reschedule of timers when going to suspend for example.
+> > Works use ifmgd->associted to prevent reschedule when we are
+> > disassociating.
+> > 
+> > I think on ath9k also some boolean variable should be used, not only
+> > for rx_poll_timer but also for other works i.e. tx_complete_work.
+> > Is possible to use SC_OP_INVALID flags, since mac80211 call ath9k_stop
+> > on suspend and ath9k_start on resume.
+> 
+> Indeed however ieee80211_queue_work() already does a suspend check for
+> us, it just complains as many drivers including mac80211 were setting
+> up work incorrectly. The warning was put in place to help us find the
+> issues. Using SC_OP_INVALID seems fair but we could also add a routine
+> ieee80211_queue_work_safe() that silently fails if we are quiescing or
+> suspended and not resuming but I can see that creating very sloppy
+> driver writing and everyone abusing it.
+
+We also have to reliable cancel works on ath9k_stop() if device goes
+down for other reason than suspend, new mac80211 ieee80211_queue_work_safe()
+routine will not help with that.
+
+> OK how about this for stable for now:
+> 
+> diff --git a/drivers/net/wireless/ath/ath9k/link.c b/drivers/net/wireless/ath/ath9k/link.c
+> index 39c84ec..7fdac6c 100644
+> --- a/drivers/net/wireless/ath/ath9k/link.c
+> +++ b/drivers/net/wireless/ath/ath9k/link.c
+> @@ -170,7 +170,8 @@ void ath_rx_poll(unsigned long data)
 >  {
-> -	return (virtqueue_get_queue_index(vq) - 1) / 2;
-> +	return (vq->index - 1) / 2;
+>  	struct ath_softc *sc = (struct ath_softc *)data;
+>  
+> -	ieee80211_queue_work(sc->hw, &sc->hw_check_work);
+> +	if (!test_bit(SC_OP_INVALID, &sc->sc_flags))
+> +		ieee80211_queue_work(sc->hw, &sc->hw_check_work);
 >  }
-> 
->  static int txq2vq(int txq)
-> @@ -163,7 +163,7 @@ static int txq2vq(int txq)
-> 
->  static int vq2rxq(struct virtqueue *vq)
->  {
-> -	return virtqueue_get_queue_index(vq) / 2;
-> +	return vq->index / 2;
->  }
-> 
->  static int rxq2vq(int rxq)
-> diff --git a/drivers/s390/kvm/virtio_ccw.c b/drivers/s390/kvm/virtio_ccw.c
-> index 2029b6c..a7eddc7 100644
-> --- a/drivers/s390/kvm/virtio_ccw.c
-> +++ b/drivers/s390/kvm/virtio_ccw.c
-> @@ -166,7 +166,7 @@ static void virtio_ccw_kvm_notify(struct virtqueue *vq)
-> 
->  	vcdev = to_vc_device(info->vq->vdev);
->  	ccw_device_get_schid(vcdev->cdev, &schid);
-> -	do_kvm_notify(schid, virtqueue_get_queue_index(vq));
-> +	do_kvm_notify(schid, vq->index);
->  }
-> 
->  static int virtio_ccw_read_vq_conf(struct virtio_ccw_device *vcdev,
-> @@ -188,7 +188,7 @@ static void virtio_ccw_del_vq(struct virtqueue *vq, struct ccw1 *ccw)
->  	unsigned long flags;
->  	unsigned long size;
->  	int ret;
-> -	unsigned int index = virtqueue_get_queue_index(vq);
-> +	unsigned int index = vq->index;
-> 
->  	/* Remove from our list. */
->  	spin_lock_irqsave(&vcdev->lock, flags);
-> @@ -610,7 +610,7 @@ static struct virtqueue *virtio_ccw_vq_by_ind(struct virtio_ccw_device *vcdev,
->  	vq = NULL;
->  	spin_lock_irqsave(&vcdev->lock, flags);
->  	list_for_each_entry(info, &vcdev->virtqueues, node) {
-> -		if (virtqueue_get_queue_index(info->vq) == index) {
-> +		if (info->vq->index == index) {
->  			vq = info->vq;
->  			break;
->  		}
-> diff --git a/include/linux/virtio.h b/include/linux/virtio.h
-> index 833f17b..9ff8645 100644
-> --- a/include/linux/virtio.h
-> +++ b/include/linux/virtio.h
-> @@ -76,12 +76,6 @@ void *virtqueue_detach_unused_buf(struct virtqueue *vq);
-> 
->  unsigned int virtqueue_get_vring_size(struct virtqueue *vq);
-> 
-> -/* FIXME: Obsolete accessor, but required for virtio_net merge. */
-> -static inline unsigned int virtqueue_get_queue_index(struct virtqueue *vq)
-> -{
-> -	return vq->index;
-> -}
-> -
->  /**
->   * virtio_device - representation of a device using virtio
->   * @index: unique position on the virtio bus
-> 
+
+That looks ok for me as -stable fix
+
+Reviewed-by: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+
+Stanislaw 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
