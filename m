@@ -1,43 +1,41 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next.git 0/9] stmmac: update to March_2013 (adding PTP &
- RGMII/SGMII)
-Date: Fri, 22 Mar 2013 15:27:27 +0100
-Message-ID: <514C6A4F.3020601@st.com>
-References: <1362653419-1047-1-git-send-email-peppe.cavallaro@st.com> <20130307.153456.83724032858548621.davem@davemloft.net> <51399048.3070505@st.com> <20130308.112219.1999774630969953487.davem@davemloft.net> <513D839A.8000009@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, bh74.an@samsung.com,
-	rayagond@vayavyalabs.com,
-	Richard Cochran <richardcochran@gmail.com>
-To: netdev@vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH iproute2] libnetlink: check flag NLM_F_DUMP_INTR during dumps
+Date: Fri, 22 Mar 2013 15:45:57 +0100
+Message-ID: <1363963557-3888-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog121.obsmtp.com ([207.126.144.151]:34091 "EHLO
-	eu1sys200aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933511Ab3CVOo5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 10:44:57 -0400
-In-Reply-To: <513D839A.8000009@st.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56258 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751862Ab3CVOqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 10:46:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/11/2013 8:11 AM, Giuseppe CAVALLARO wrote:
-[snip]
-> At any case, I'll arrange to change the code removing the Koption and
-> continuing (as done in the past) to setup at probe time the right
-> configuration. This will be in the next version of the patches.
+When this flag is set, it means that dump was interrupted and result may be
+wrong. Ask user to restart.
 
-I've finally completed this task and I've reworked all the code to
-completely remove the Koption (also for chain/ring mode).
-Now all is done at probe time as discussed in this email thread.
-On top of this, the PTP will be ported with Richard's advice
-Pls let me know if there are other suggestions about the patches, I have
-sent, so I can review and update them before resending the new versions.
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ lib/libnetlink.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-peppe
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index f262959..91991cf 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -230,6 +230,12 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 				    h->nlmsg_seq != rth->dump)
+ 					goto skip_it;
+ 
++				if (h->nlmsg_flags & NLM_F_DUMP_INTR) {
++					fprintf(stderr,
++						"Dump was interrupted, please restart.\n");
++					return -1;
++				}
++
+ 				if (h->nlmsg_type == NLMSG_DONE) {
+ 					found_done = 1;
+ 					break; /* process next filter */
+-- 
+1.8.0.1
