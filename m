@@ -1,67 +1,63 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH net-next 2/2] udp: increase inner ip header ID during segmentation
-Date: Fri, 22 Mar 2013 18:31:32 +0800
-Message-ID: <1363948292-9902-2-git-send-email-amwang@redhat.com>
-References: <1363938600-26129-1-git-send-email-amwang@redhat.com>
- <1363948292-9902-1-git-send-email-amwang@redhat.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH 4/4] xen-netback: coalesce slots before
+ copying
+Date: Fri, 22 Mar 2013 11:06:00 +0000
+Message-ID: <20130322110600.GA5742@zion.uk.xensource.com>
+References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
+ <1363602955-24790-5-git-send-email-wei.liu2@citrix.com>
+ <6035A0D088A63A46850C3988ED045A4B387EC758@BITCOM1.int.sbss.com.au>
+ <6035A0D088A63A46850C3988ED045A4B387EC8DC@BITCOM1.int.sbss.com.au>
+ <CAOsiSVWSRmo1+Ubo7GyAKcvUr8XUenkMvnAqt607gPoJm-sXFQ@mail.gmail.com>
+ <6035A0D088A63A46850C3988ED045A4B387FB199@BITCOM1.int.sbss.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <liuw@liuw.name>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: James Harper <james.harper@bendigoit.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41513 "EHLO mx1.redhat.com"
+Received: from smtp.citrix.com ([66.165.176.89]:60322 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751862Ab3CVKcH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Mar 2013 06:32:07 -0400
-In-Reply-To: <1363948292-9902-1-git-send-email-amwang@redhat.com>
+	id S932245Ab3CVLGC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Mar 2013 07:06:02 -0400
+Content-Disposition: inline
+In-Reply-To: <6035A0D088A63A46850C3988ED045A4B387FB199@BITCOM1.int.sbss.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+On Thu, Mar 21, 2013 at 10:14:17PM +0000, James Harper wrote:
+> > 
+> >> Actually it turns out GPLPV just stops counting at 20. If I keep
+> >> counting I can sometimes see over 1000 buffers per GSO packet under
+> >> Windows using "iperf -
+> > 
+> > Do you think it is necessary to increase MAX_SKB_SLOTS_DEFAULT to 21?
+> > 
+> 
+> Doesn't really matter. Under windows you have to coalesce anyway and the number of cases where the skb count is 20 or 21 is very small so there will be negligible gain and it will break guests that can't handle more than 19.
 
-Similar to GRE tunnel, UDP tunnel should take care of IP header ID
-too.
+It's not about performance, it's about usability. If frontend uses more
+slots than backend allows it to, it gets disconnected. In case we don't
+push the wrong value upstream, it is important to know whether 20 is
+enough for Windows PV driver.
 
-Cc: Pravin B Shelar <pshelar@nicira.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
----
- net/ipv4/udp.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+> 
+> Has anyone done the benchmarks on if memcpy to coalesce is better or worse than consuming additional ring slots? Probably OT here but I'm talking about packets that might have 19 buffers but could fit on a page or two of coalesced.
+> 
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 7117d14..3c362ee 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -2304,7 +2304,8 @@ static struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
- 	int mac_len = skb->mac_len;
- 	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
--	int outer_hlen;
-+	int outer_hlen, id;
-+	struct iphdr *iph;
- 	netdev_features_t enc_features;
- 
- 	if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
-@@ -2315,6 +2316,8 @@ static struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
- 	skb_reset_mac_header(skb);
- 	skb_set_network_header(skb, skb_inner_network_offset(skb));
- 	skb->mac_len = skb_inner_network_offset(skb);
-+	iph = ip_hdr(skb);
-+	id = ntohs(iph->id);
- 
- 	/* segment inner packet. */
- 	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
-@@ -2329,6 +2332,8 @@ static struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
- 		int udp_offset = outer_hlen - tnl_hlen;
- 
- 		skb->mac_len = mac_len;
-+		iph = (struct iphdr *)skb_inner_network_header(skb);
-+		iph->id = htons(id++);
- 
- 		skb_push(skb, outer_hlen);
- 		skb_reset_mac_header(skb);
--- 
-1.7.7.6
+After this changeset number of grant copy operations is greater or equal
+to number of slots. I run iperf as my functional test, I also notice
+the result is within the same range before this change.
+
+And a future improvement would be using compound page for backend, which
+can make number of grant copy ops more or less equal to number of slots
+used.
+
+
+Wei.
+
+> James
+> 
