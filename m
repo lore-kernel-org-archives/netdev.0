@@ -1,343 +1,134 @@
-From: Geoff Levand <geoff@infradead.org>
-Subject: [PATCH v2] net: Fix p3_gelic_net sparse warnings
-Date: Thu, 21 Mar 2013 17:06:59 -0700
-Message-ID: <1363910819.1075.60.camel@smoke>
-References: <1363898133.1075.43.camel@smoke>
-	 <20130321.171723.2170130040090928680.davem@davemloft.net>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH net-next] bnx2x: increase inner ip id during
+ encapsulated tso
+Date: Fri, 22 Mar 2013 03:38:24 +0200
+Message-ID: <1363916305-15690-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Ariel Elior" <ariele@broadcom.com>,
+	"Maciej Zenczykowski" <maze@google.com>,
+	"Jesse Gross" <jesse@nicira.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:40508
-	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932089Ab3CVAHH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Mar 2013 20:07:07 -0400
-In-Reply-To: <20130321.171723.2170130040090928680.davem@davemloft.net>
+Received: from mms2.broadcom.com ([216.31.210.18]:4146 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751773Ab3CVBia (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Mar 2013 21:38:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rearrange routines to avoid local declarations and remove
-unnecessary inline tags.  No functional changes.
+57712/578xx devices during handling of encapsulated TSO can
+properly increase ip id for only one ip header.
+The patch selects inner header to be increased.
 
-Fixes sparse warnings like these:
-
-  ps3_gelic_net.c: error: marked inline, but without a definition
-
-Signed-off-by: Geoff Levand <geoff@infradead.org>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+CC: Eilon Greenstein <eilong@broadcom.com>
+CC: Ariel Elior <ariele@broadcom.com>
+CC: Maciej Zenczykowski <maze@google.com>
+CC: Jesse Gross <jesse@nicira.com>
 ---
-
-V2: 
-* Rearrange routines to avoid local declarations.
-* Remove unnecessary inline tags.
-
-Hi Dave,
-
-Cleaned up as suggested.  Please apply.
-
--Geoff
-
+tested over 1bc277f79
 ---
- drivers/net/ethernet/toshiba/ps3_gelic_net.c |  240 +++++++++++++-------------
- 1 file changed, 117 insertions(+), 123 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |   22 ++++++++++------------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c   |    2 ++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h   |    3 ++-
+ 4 files changed, 15 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/toshiba/ps3_gelic_net.c b/drivers/net/ethernet/toshiba/ps3_gelic_net.c
-index 445c059..ad32af6 100644
---- a/drivers/net/ethernet/toshiba/ps3_gelic_net.c
-+++ b/drivers/net/ethernet/toshiba/ps3_gelic_net.c
-@@ -58,13 +58,6 @@ MODULE_DESCRIPTION("Gelic Network driver");
- MODULE_LICENSE("GPL");
- 
- 
--static inline void gelic_card_enable_rxdmac(struct gelic_card *card);
--static inline void gelic_card_disable_rxdmac(struct gelic_card *card);
--static inline void gelic_card_disable_txdmac(struct gelic_card *card);
--static inline void gelic_card_reset_chain(struct gelic_card *card,
--					  struct gelic_descr_chain *chain,
--					  struct gelic_descr *start_descr);
--
- /* set irq_mask */
- int gelic_card_set_irq_mask(struct gelic_card *card, u64 mask)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 3f5cd7c..352e58e 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -3464,30 +3464,28 @@ static void bnx2x_update_pbds_gso_enc(struct sk_buff *skb,
+ 				      u16 *global_data,
+ 				      u32 xmit_type)
  {
-@@ -78,12 +71,12 @@ int gelic_card_set_irq_mask(struct gelic_card *card, u64 mask)
- 	return status;
- }
+-	u16 inner_hlen_w = 0;
++	u16 hlen_w = 0;
+ 	u8 outerip_off, outerip_len = 0;
+-
+-	/* IP len */
+-	inner_hlen_w = (skb_inner_transport_header(skb) -
+-			skb_inner_network_header(skb)) >> 1;
++	/* from outer IP to transport */
++	hlen_w = (skb_inner_transport_header(skb) -
++		  skb_network_header(skb)) >> 1;
  
--static inline void gelic_card_rx_irq_on(struct gelic_card *card)
-+static void gelic_card_rx_irq_on(struct gelic_card *card)
- {
- 	card->irq_mask |= GELIC_CARD_RXINT;
- 	gelic_card_set_irq_mask(card, card->irq_mask);
- }
--static inline void gelic_card_rx_irq_off(struct gelic_card *card)
-+static void gelic_card_rx_irq_off(struct gelic_card *card)
- {
- 	card->irq_mask &= ~GELIC_CARD_RXINT;
- 	gelic_card_set_irq_mask(card, card->irq_mask);
-@@ -127,6 +120,120 @@ static int gelic_card_set_link_mode(struct gelic_card *card, int mode)
- 	return 0;
- }
+ 	/* transport len */
+ 	if (xmit_type & XMIT_CSUM_TCP)
+-		inner_hlen_w += inner_tcp_hdrlen(skb) >> 1;
++		hlen_w += inner_tcp_hdrlen(skb) >> 1;
+ 	else
+-		inner_hlen_w += sizeof(struct udphdr) >> 1;
++		hlen_w += sizeof(struct udphdr) >> 1;
  
-+/**
-+ * gelic_card_disable_txdmac - disables the transmit DMA controller
-+ * @card: card structure
-+ *
-+ * gelic_card_disable_txdmac terminates processing on the DMA controller by
-+ * turing off DMA and issuing a force end
-+ */
-+static void gelic_card_disable_txdmac(struct gelic_card *card)
-+{
-+	int status;
-+
-+	/* this hvc blocks until the DMA in progress really stopped */
-+	status = lv1_net_stop_tx_dma(bus_id(card), dev_id(card));
-+	if (status)
-+		dev_err(ctodev(card),
-+			"lv1_net_stop_tx_dma failed, status=%d\n", status);
-+}
-+
-+/**
-+ * gelic_card_enable_rxdmac - enables the receive DMA controller
-+ * @card: card structure
-+ *
-+ * gelic_card_enable_rxdmac enables the DMA controller by setting RX_DMA_EN
-+ * in the GDADMACCNTR register
-+ */
-+static void gelic_card_enable_rxdmac(struct gelic_card *card)
-+{
-+	int status;
-+
-+#ifdef DEBUG
-+	if (gelic_descr_get_status(card->rx_chain.head) !=
-+	    GELIC_DESCR_DMA_CARDOWNED) {
-+		printk(KERN_ERR "%s: status=%x\n", __func__,
-+		       be32_to_cpu(card->rx_chain.head->dmac_cmd_status));
-+		printk(KERN_ERR "%s: nextphy=%x\n", __func__,
-+		       be32_to_cpu(card->rx_chain.head->next_descr_addr));
-+		printk(KERN_ERR "%s: head=%p\n", __func__,
-+		       card->rx_chain.head);
-+	}
-+#endif
-+	status = lv1_net_start_rx_dma(bus_id(card), dev_id(card),
-+				card->rx_chain.head->bus_addr, 0);
-+	if (status)
-+		dev_info(ctodev(card),
-+			 "lv1_net_start_rx_dma failed, status=%d\n", status);
-+}
-+
-+/**
-+ * gelic_card_disable_rxdmac - disables the receive DMA controller
-+ * @card: card structure
-+ *
-+ * gelic_card_disable_rxdmac terminates processing on the DMA controller by
-+ * turing off DMA and issuing a force end
-+ */
-+static void gelic_card_disable_rxdmac(struct gelic_card *card)
-+{
-+	int status;
-+
-+	/* this hvc blocks until the DMA in progress really stopped */
-+	status = lv1_net_stop_rx_dma(bus_id(card), dev_id(card));
-+	if (status)
-+		dev_err(ctodev(card),
-+			"lv1_net_stop_rx_dma failed, %d\n", status);
-+}
-+
-+/**
-+ * gelic_descr_set_status -- sets the status of a descriptor
-+ * @descr: descriptor to change
-+ * @status: status to set in the descriptor
-+ *
-+ * changes the status to the specified value. Doesn't change other bits
-+ * in the status
-+ */
-+static void gelic_descr_set_status(struct gelic_descr *descr,
-+				   enum gelic_descr_dma_status status)
-+{
-+	descr->dmac_cmd_status = cpu_to_be32(status |
-+			(be32_to_cpu(descr->dmac_cmd_status) &
-+			 ~GELIC_DESCR_DMA_STAT_MASK));
-+	/*
-+	 * dma_cmd_status field is used to indicate whether the descriptor
-+	 * is valid or not.
-+	 * Usually caller of this function wants to inform that to the
-+	 * hardware, so we assure here the hardware sees the change.
-+	 */
-+	wmb();
-+}
-+
-+/**
-+ * gelic_card_reset_chain - reset status of a descriptor chain
-+ * @card: card structure
-+ * @chain: address of chain
-+ * @start_descr: address of descriptor array
-+ *
-+ * Reset the status of dma descriptors to ready state
-+ * and re-initialize the hardware chain for later use
-+ */
-+static void gelic_card_reset_chain(struct gelic_card *card,
-+				   struct gelic_descr_chain *chain,
-+				   struct gelic_descr *start_descr)
-+{
-+	struct gelic_descr *descr;
-+
-+	for (descr = start_descr; start_descr != descr->next; descr++) {
-+		gelic_descr_set_status(descr, GELIC_DESCR_DMA_CARDOWNED);
-+		descr->next_descr_addr = cpu_to_be32(descr->next->bus_addr);
-+	}
-+
-+	chain->head = start_descr;
-+	chain->tail = (descr - 1);
-+
-+	(descr - 1)->next_descr_addr = 0;
-+}
-+
- void gelic_card_up(struct gelic_card *card)
- {
- 	pr_debug("%s: called\n", __func__);
-@@ -183,29 +290,6 @@ gelic_descr_get_status(struct gelic_descr *descr)
- }
+-	pbd2->fw_ip_hdr_to_payload_w = inner_hlen_w;
++	pbd2->fw_ip_hdr_to_payload_w = hlen_w;
  
- /**
-- * gelic_descr_set_status -- sets the status of a descriptor
-- * @descr: descriptor to change
-- * @status: status to set in the descriptor
-- *
-- * changes the status to the specified value. Doesn't change other bits
-- * in the status
-- */
--static void gelic_descr_set_status(struct gelic_descr *descr,
--				   enum gelic_descr_dma_status status)
--{
--	descr->dmac_cmd_status = cpu_to_be32(status |
--			(be32_to_cpu(descr->dmac_cmd_status) &
--			 ~GELIC_DESCR_DMA_STAT_MASK));
--	/*
--	 * dma_cmd_status field is used to indicate whether the descriptor
--	 * is valid or not.
--	 * Usually caller of this function wants to inform that to the
--	 * hardware, so we assure here the hardware sees the change.
--	 */
--	wmb();
--}
+ 	if (xmit_type & XMIT_CSUM_ENC_V4) {
+-		struct iphdr *iph = inner_ip_hdr(skb);
 -
--/**
-  * gelic_card_free_chain - free descriptor chain
-  * @card: card structure
-  * @descr_in: address of desc
-@@ -286,31 +370,6 @@ iommu_error:
- }
- 
- /**
-- * gelic_card_reset_chain - reset status of a descriptor chain
-- * @card: card structure
-- * @chain: address of chain
-- * @start_descr: address of descriptor array
-- *
-- * Reset the status of dma descriptors to ready state
-- * and re-initialize the hardware chain for later use
-- */
--static void gelic_card_reset_chain(struct gelic_card *card,
--				   struct gelic_descr_chain *chain,
--				   struct gelic_descr *start_descr)
--{
--	struct gelic_descr *descr;
--
--	for (descr = start_descr; start_descr != descr->next; descr++) {
--		gelic_descr_set_status(descr, GELIC_DESCR_DMA_CARDOWNED);
--		descr->next_descr_addr = cpu_to_be32(descr->next->bus_addr);
--	}
--
--	chain->head = start_descr;
--	chain->tail = (descr - 1);
--
--	(descr - 1)->next_descr_addr = 0;
--}
--/**
-  * gelic_descr_prepare_rx - reinitializes a rx descriptor
-  * @card: card structure
-  * @descr: descriptor to re-init
-@@ -599,71 +658,6 @@ void gelic_net_set_multi(struct net_device *netdev)
- }
- 
- /**
-- * gelic_card_enable_rxdmac - enables the receive DMA controller
-- * @card: card structure
-- *
-- * gelic_card_enable_rxdmac enables the DMA controller by setting RX_DMA_EN
-- * in the GDADMACCNTR register
-- */
--static inline void gelic_card_enable_rxdmac(struct gelic_card *card)
--{
--	int status;
--
--#ifdef DEBUG
--	if (gelic_descr_get_status(card->rx_chain.head) !=
--	    GELIC_DESCR_DMA_CARDOWNED) {
--		printk(KERN_ERR "%s: status=%x\n", __func__,
--		       be32_to_cpu(card->rx_chain.head->dmac_cmd_status));
--		printk(KERN_ERR "%s: nextphy=%x\n", __func__,
--		       be32_to_cpu(card->rx_chain.head->next_descr_addr));
--		printk(KERN_ERR "%s: head=%p\n", __func__,
--		       card->rx_chain.head);
--	}
--#endif
--	status = lv1_net_start_rx_dma(bus_id(card), dev_id(card),
--				card->rx_chain.head->bus_addr, 0);
--	if (status)
--		dev_info(ctodev(card),
--			 "lv1_net_start_rx_dma failed, status=%d\n", status);
--}
--
--/**
-- * gelic_card_disable_rxdmac - disables the receive DMA controller
-- * @card: card structure
-- *
-- * gelic_card_disable_rxdmac terminates processing on the DMA controller by
-- * turing off DMA and issuing a force end
-- */
--static inline void gelic_card_disable_rxdmac(struct gelic_card *card)
--{
--	int status;
--
--	/* this hvc blocks until the DMA in progress really stopped */
--	status = lv1_net_stop_rx_dma(bus_id(card), dev_id(card));
--	if (status)
--		dev_err(ctodev(card),
--			"lv1_net_stop_rx_dma failed, %d\n", status);
--}
--
--/**
-- * gelic_card_disable_txdmac - disables the transmit DMA controller
-- * @card: card structure
-- *
-- * gelic_card_disable_txdmac terminates processing on the DMA controller by
-- * turing off DMA and issuing a force end
-- */
--static inline void gelic_card_disable_txdmac(struct gelic_card *card)
--{
--	int status;
--
--	/* this hvc blocks until the DMA in progress really stopped */
--	status = lv1_net_stop_tx_dma(bus_id(card), dev_id(card));
--	if (status)
--		dev_err(ctodev(card),
--			"lv1_net_stop_tx_dma failed, status=%d\n", status);
--}
--
--/**
-  * gelic_net_stop - called upon ifconfig down
-  * @netdev: interface device structure
-  *
-@@ -746,7 +740,7 @@ static void gelic_descr_set_tx_cmdstat(struct gelic_descr *descr,
++		struct iphdr *iph = ip_hdr(skb);
+ 		pbd2->fw_ip_csum_wo_len_flags_frag =
+ 			bswab16(csum_fold((~iph->check) -
+ 					  iph->tot_len - iph->frag_off));
+ 	} else {
+ 		pbd2->fw_ip_hdr_to_payload_w =
+-			inner_hlen_w - ((sizeof(struct ipv6hdr)) >> 1);
++			hlen_w - ((sizeof(struct ipv6hdr)) >> 1);
  	}
- }
  
--static inline struct sk_buff *gelic_put_vlan_tag(struct sk_buff *skb,
-+static struct sk_buff *gelic_put_vlan_tag(struct sk_buff *skb,
- 						 unsigned short tag)
- {
- 	struct vlan_ethhdr *veth;
+ 	pbd2->tcp_send_seq = bswab32(inner_tcp_hdr(skb)->seq);
+@@ -3495,7 +3493,7 @@ static void bnx2x_update_pbds_gso_enc(struct sk_buff *skb,
+ 	pbd2->tcp_flags = pbd_tcp_flags(inner_tcp_hdr(skb));
+ 
+ 	if (xmit_type & XMIT_GSO_V4) {
+-		pbd2->hw_ip_id = bswab16(ip_hdr(skb)->id);
++		pbd2->hw_ip_id = bswab16(inner_ip_hdr(skb)->id);
+ 
+ 		pbd_e2->data.tunnel_data.pseudo_csum =
+ 			bswab16(~csum_tcpudp_magic(
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 10b0748..2c6a2a6 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -2962,6 +2962,7 @@ static unsigned long bnx2x_get_common_flags(struct bnx2x *bp,
+ 		__set_bit(BNX2X_Q_FLG_ZERO_STATS, &flags);
+ 
+ 	__set_bit(BNX2X_Q_FLG_PCSUM_ON_PKT, &flags);
++	__set_bit(BNX2X_Q_FLG_TUN_INC_INNER_IP_ID, &flags);
+ 
+ #ifdef BNX2X_STOP_ON_ERROR
+ 	__set_bit(BNX2X_Q_FLG_TX_SEC, &flags);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+index 5bdc1d6..32a9609 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+@@ -4432,6 +4432,8 @@ static void bnx2x_q_fill_init_tx_data(struct bnx2x_queue_sp_obj *o,
+ 	tx_data->force_default_pri_flg =
+ 		test_bit(BNX2X_Q_FLG_FORCE_DEFAULT_PRI, flags);
+ 
++	tx_data->tunnel_lso_inc_ip_id =
++		test_bit(BNX2X_Q_FLG_TUN_INC_INNER_IP_ID, flags);
+ 	tx_data->tunnel_non_lso_pcsum_location =
+ 		test_bit(BNX2X_Q_FLG_PCSUM_ON_PKT, flags) ? PCSUM_ON_PKT :
+ 								  PCSUM_ON_BD;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+index 35479da..43c00bc 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+@@ -828,7 +828,8 @@ enum {
+ 	BNX2X_Q_FLG_ANTI_SPOOF,
+ 	BNX2X_Q_FLG_SILENT_VLAN_REM,
+ 	BNX2X_Q_FLG_FORCE_DEFAULT_PRI,
+-	BNX2X_Q_FLG_PCSUM_ON_PKT
++	BNX2X_Q_FLG_PCSUM_ON_PKT,
++	BNX2X_Q_FLG_TUN_INC_INNER_IP_ID
+ };
+ 
+ /* Queue type options: queue type may be a compination of below. */
 -- 
-1.7.9.5
+1.7.7.2
