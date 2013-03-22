@@ -1,33 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: preserve ACK clocking in TSO
-Date: Fri, 22 Mar 2013 10:34:35 -0400 (EDT)
-Message-ID: <20130322.103435.879689479406836333.davem@davemloft.net>
-References: <1363923369.4431.53.camel@edumazet-glaptop>
+Subject: Re: [git pull] firewire net: resource management improvements
+Date: Fri, 22 Mar 2013 10:35:01 -0400 (EDT)
+Message-ID: <20130322.103501.1681106916245750016.davem@davemloft.net>
+References: <20130313.102448.1103259275832948992.davem@davemloft.net>
+	<20130313163742.73a3a842@stein>
+	<1363923263.16608.14.camel@cirrhata>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ycheng@google.com, ncardwell@google.com,
-	nanditad@google.com, vanj@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50139 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933519Ab3CVOei (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 10:34:38 -0400
-In-Reply-To: <1363923369.4431.53.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, stefanr@s5r6.in-berlin.de,
+	linux1394-devel@lists.sourceforge.net
+To: yoshfuji@linux-ipv6.org
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1363923263.16608.14.camel@cirrhata>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 21 Mar 2013 20:36:09 -0700
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Fri, 22 Mar 2013 12:34:23 +0900
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> A long standing problem with TSO is the fact that tcp_tso_should_defer()
-> rearms the deferred timer, while it should not.
- ...
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> would you consider pulling this one to net-next, please?
+> I can prepare rebased tree, if you want.
 
-I always wondered about this, good catch.
+So the firewire maintainers are OK with these changes?
 
-Applied and queued up for -stable, thanks!
+------------------------------------------------------------------------------
+Everyone hates slow websites. So do we.
+Make your web apps faster with AppDynamics
+Download AppDynamics Lite for free today:
+http://p.sf.net/sfu/appdyn_d2d_mar
