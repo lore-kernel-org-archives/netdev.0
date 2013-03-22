@@ -1,32 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Add support for handling queueing in hardware
-Date: Fri, 22 Mar 2013 11:41:59 -0400 (EDT)
-Message-ID: <20130322.114159.2303026992656610194.davem@davemloft.net>
-References: <FE78128C-01DB-4831-ACBE-BA3E3A428BFC@gmail.com>
-	<20130322.111759.2108472348146991505.davem@davemloft.net>
-	<9AEAD974-4549-475A-AE15-C92523CD2466@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: afleming@freescale.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: benmcollins13@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <9AEAD974-4549-475A-AE15-C92523CD2466@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH iproute2 v2] libnetlink: check flag NLM_F_DUMP_INTR during dumps
+Date: Fri, 22 Mar 2013 16:42:24 +0100
+Message-ID: <1363966944-4420-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <20130322152213.GB11368@casper.infradead.org>
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: tgraf@suug.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56331 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933382Ab3CVPmj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 11:42:39 -0400
+In-Reply-To: <20130322152213.GB11368@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Collins <benmcollins13@gmail.com>
-Date: Fri, 22 Mar 2013 11:39:20 -0400
+When this flag is set, it means that dump was interrupted and result may be
+wrong. Inform the user and let him choose to restart or not.
 
-> If your company had hardware going to production, you'd want it
-> supported in mainline too, I suspect.
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
 
-But never against the wishes of the author of the code.
+v2: do not stop the dump, only display a warning
 
-This has firm and strict precedence, for example one of the
-implementations block layer encryption was not wanted to be merged by
-the author, and Linus reverted it.
+ lib/libnetlink.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-So if the person who wrote the code doesn't want it upstream, you can't
-bypass them against their wishes, ever.  It's their code not your's.
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index f262959..1a882b2 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -230,6 +230,10 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 				    h->nlmsg_seq != rth->dump)
+ 					goto skip_it;
+ 
++				if (h->nlmsg_flags & NLM_F_DUMP_INTR)
++					fprintf(stderr,
++						"Dump was interrupted and may be wrong.\n");
++
+ 				if (h->nlmsg_type == NLMSG_DONE) {
+ 					found_done = 1;
+ 					break; /* process next filter */
+-- 
+1.8.0.1
