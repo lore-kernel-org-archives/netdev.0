@@ -1,44 +1,47 @@
-From: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
-Subject: RE: [PATCH -next] caif_virtio: fix error return code in
- cfv_create_genpool()
-Date: Fri, 22 Mar 2013 15:27:39 +0100
-Message-ID: <81C3A93C17462B4BBD7E272753C10579249583EE23@EXDCVYMBSTM005.EQ1STM.local>
-References: <CAPgLHd-VdCq3qfDGYpCE1VmPeHGFneyR3TaarS=bMROqWmj2uA@mail.gmail.com>
- <20130322.102425.1728735565421860819.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next 1/2] decnet: Parse netlink attributes on our own
+Date: Fri, 22 Mar 2013 14:27:35 +0000
+Message-ID: <20130322142735.GA11368@casper.infradead.org>
+References: <cover.1363885020.git.tgraf@suug.ch>
+ <5b888618a6aebfebf496c91482794a606b3bb094.1363885020.git.tgraf@suug.ch>
+ <1363889099.2707.14.camel@menhir>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
-	"yongjun_wei@trendmicro.com.cn" <yongjun_wei@trendmicro.com.cn>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"weiyj.lk@gmail.com" <weiyj.lk@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-decnet-user@lists.sourceforge.net
+To: Steven Whitehouse <swhiteho@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog125.obsmtp.com ([207.126.144.159]:36516 "EHLO
-	eu1sys200aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933416Ab3CVO1z convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Mar 2013 10:27:55 -0400
-In-Reply-To: <20130322.102425.1728735565421860819.davem@davemloft.net>
-Content-Language: en-US
+Received: from casper.infradead.org ([85.118.1.10]:59570 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932605Ab3CVO1j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 10:27:39 -0400
+Content-Disposition: inline
+In-Reply-To: <1363889099.2707.14.camel@menhir>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: David Miller [mailto:davem@davemloft.net]
-> > From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> >
-> > Fix to return a negative error code from the error handling
-> > case instead of 0, as returned elsewhere in this function.
-> >
-> > Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> > ---
-> >  drivers/net/caif/caif_virtio.c | 4 +++-
-> >  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> I can't apply this as this file doesn't exist in my tree.
+On 03/21/13 at 06:04pm, Steven Whitehouse wrote:
+> You shouldn't need any special hardware to test this. A copy of iproute2
+> should be enough as you should be able to use that to create an
+> interface or two and a route between them, etc. Although DECnet routing
+> works in a different way to ip routing, the Linux implementation tries
+> to stick fairly closely to the ip way of doing things whenever it can in
+> order to share infrastructure. Now that ip has diverged a fair bit over
+> time that isn't quite as true as it was, but there shouldn't be anything
+> too surprising in there.
 
-caif_virtio.c lives in Rusty's "virtio-next" tree. 
-I guess this patch should have been tagged "virtio-next" instead.
+Alright, I did some basic testing with iproute2. I do not claim
+to understand what I did but I ran the following:
 
-Thanks,
-Sjur
+$ ip -f dnet route add 1.661 dev em1
+$ ip -f dnet route list
+1.661 dev em1  scope link
+
+$ ip -f dnet neigh add 6.662 dev em1
+$ ip -f dnet neigh list
+6.662 dev em1 lladdr aa:00:04:00:96:1a PERMANENT
+
+$ ip -f dnet addr add 1.111 dev em1
+$ ip -f dnet addr list
+2: em1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN qlen 1000
+    dnet 1.111/16 scope global em1
