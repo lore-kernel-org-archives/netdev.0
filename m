@@ -1,122 +1,74 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH net-next 02/19] ipvs: preparations for using rcu in schedulers
-Date: Fri, 22 Mar 2013 11:46:37 +0200
-Message-ID: <1363945614-11752-3-git-send-email-ja@ssi.bg>
-References: <1363945614-11752-1-git-send-email-ja@ssi.bg>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v5 10/11] tbf: take into account gso skbs
+Date: Fri, 22 Mar 2013 11:02:05 +0100
+Message-ID: <20130322100205.GA1593@minipsycho.orion>
+References: <1360663929-1023-1-git-send-email-jiri@resnulli.us>
+ <1360663929-1023-11-git-send-email-jiri@resnulli.us>
+ <1360687182.6884.5.camel@edumazet-glaptop>
+ <20130217161803.GB1931@minipsycho.orion>
+ <1361123663.19353.94.camel@edumazet-glaptop>
+ <20130218095837.GA1566@minipsycho.orion>
+ <1361290502.19353.136.camel@edumazet-glaptop>
+ <20130219164626.GC1506@minipsycho.orion>
+ <1361293287.19353.149.camel@edumazet-glaptop>
+ <20130308152338.GA1520@minipsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:43378 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754904Ab3CVJpZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Mar 2013 05:45:25 -0400
-In-Reply-To: <1363945614-11752-1-git-send-email-ja@ssi.bg>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:62955 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751698Ab3CVKCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 06:02:09 -0400
+Received: by mail-wi0-f171.google.com with SMTP id hn17so7572860wib.10
+        for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 03:02:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130308152338.GA1520@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Allow schedulers to use rcu_dereference when
-returning destination on lookup. The RCU read-side critical
-section will allow ip_vs_bind_dest to get dest refcnt as
-preparation for the step where destinations will be
-deleted without an IP_VS_WAIT_WHILE guard that holds the
-packet processing during update.
+Fri, Mar 08, 2013 at 04:23:38PM CET, jiri@resnulli.us wrote:
+>Tue, Feb 19, 2013 at 06:01:27PM CET, eric.dumazet@gmail.com wrote:
+>>On Tue, 2013-02-19 at 17:46 +0100, Jiri Pirko wrote:
+>>
+>>> About the gso_segment, do you see any cons doing that on enqueue path
+>>> rather than dequeue?
+>>> 
+>>
+>>It would be fine, and could be done in core stack instead of qdisc.
+>>
+>
+>So you mean for example in tcp code? the maximum possible size would be
+>propagated from set qdiscs up to the tcp code?
+>
+>I'm not sure how exactly do that.
+>
+>>netif_skb_features() for example has the following (incomplete) check
+>>
+>>if (skb_shinfo(skb)->gso_segs > skb->dev->gso_max_segs)
+>>    features &= ~NETIF_F_GSO_MASK;
+>
+>Why this is incomplete?
+>
+>>
+>>We do have a dev->gso_max_size, but its currently used in TCP stack to
+>>size the skbs built in tcp_sendmsg().
+>
+>Where exactly in tcp_sendmsg() this is? I found dev->gso_max_size is copied to
+>sk_gso_max_size in tcp_v4_connect->sk_setup_caps.
+>
+>>
+>>In a forwarding workload, it seems we dont use/check gso_max_size.
+>
+>Yep, that would require to do the segmentation in enqueue anyway. Maybe
+>I can implement segmentation in enqueue path first and provide tcp
+>optimalization after that. What do you think?
 
-	Add new optional scheduler methods add_dest,
-del_dest and upd_dest. For now the methods are called
-together with update_service but update_service will be
-removed in a following change.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
- include/net/ip_vs.h             |    6 ++++++
- net/netfilter/ipvs/ip_vs_core.c |    6 ++++++
- net/netfilter/ipvs/ip_vs_ctl.c  |    8 ++++++++
- 3 files changed, 20 insertions(+), 0 deletions(-)
+Reminding myself with this...
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 5ed8939..5af338b 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -805,6 +805,12 @@ struct ip_vs_scheduler {
- 	int (*done_service)(struct ip_vs_service *svc);
- 	/* scheduler updating service */
- 	int (*update_service)(struct ip_vs_service *svc);
-+	/* dest is linked */
-+	int (*add_dest)(struct ip_vs_service *svc, struct ip_vs_dest *dest);
-+	/* dest is unlinked */
-+	int (*del_dest)(struct ip_vs_service *svc, struct ip_vs_dest *dest);
-+	/* dest is updated */
-+	int (*upd_dest)(struct ip_vs_service *svc, struct ip_vs_dest *dest);
- 
- 	/* selecting a server from the given service */
- 	struct ip_vs_dest* (*schedule)(struct ip_vs_service *svc,
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 207c3b9..7bf62d0 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -304,8 +304,10 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
- 		 * template is not available.
- 		 * return *ignored=0 i.e. ICMP and NF_DROP
- 		 */
-+		rcu_read_lock();
- 		dest = svc->scheduler->schedule(svc, skb);
- 		if (!dest) {
-+			rcu_read_unlock();
- 			IP_VS_DBG(1, "p-schedule: no dest found.\n");
- 			kfree(param.pe_data);
- 			*ignored = 0;
-@@ -321,6 +323,7 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
- 		 * when the template expires */
- 		ct = ip_vs_conn_new(&param, &dest->addr, dport,
- 				    IP_VS_CONN_F_TEMPLATE, dest, skb->mark);
-+		rcu_read_unlock();
- 		if (ct == NULL) {
- 			kfree(param.pe_data);
- 			*ignored = -1;
-@@ -449,8 +452,10 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
- 		return NULL;
- 	}
- 
-+	rcu_read_lock();
- 	dest = svc->scheduler->schedule(svc, skb);
- 	if (dest == NULL) {
-+		rcu_read_unlock();
- 		IP_VS_DBG(1, "Schedule: no dest found.\n");
- 		return NULL;
- 	}
-@@ -471,6 +476,7 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
- 		cp = ip_vs_conn_new(&p, &dest->addr,
- 				    dest->port ? dest->port : pptr[1],
- 				    flags, dest, skb->mark);
-+		rcu_read_unlock();
- 		if (!cp) {
- 			*ignored = -1;
- 			return NULL;
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index a66b1c7..ae765b8 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -823,6 +823,11 @@ __ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
- 	if (add) {
- 		list_add(&dest->n_list, &svc->destinations);
- 		svc->num_dests++;
-+		if (svc->scheduler->add_dest)
-+			svc->scheduler->add_dest(svc, dest);
-+	} else {
-+		if (svc->scheduler->upd_dest)
-+			svc->scheduler->upd_dest(svc, dest);
- 	}
- 
- 	/* call the update_service, because server weight may be changed */
-@@ -1069,6 +1074,9 @@ static void __ip_vs_unlink_dest(struct ip_vs_service *svc,
- 	list_del(&dest->n_list);
- 	svc->num_dests--;
- 
-+	if (svcupd && svc->scheduler->del_dest)
-+		svc->scheduler->del_dest(svc, dest);
-+
- 	/*
- 	 *  Call the update_service function of its scheduler
- 	 */
--- 
-1.7.3.4
+Thanks.
+
+Jiri
