@@ -1,70 +1,41 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH 0/4 v3] mv643xx_eth: use mvmdio MDIO bus driver
-Date: Fri, 22 Mar 2013 10:14:23 -0400
-Message-ID: <20130322141423.GJ13280@titan.lakedaemon.net>
-References: <1363284515-9865-1-git-send-email-florian@openwrt.org>
- <1363959568-16976-1-git-send-email-florian@openwrt.org>
-Mime-Version: 1.0
+From: Ben Collins <benmcollins13@gmail.com>
+Subject: Re: [PATCH] phy: Add support for VSC8234
+Date: Fri, 22 Mar 2013 10:16:51 -0400
+Message-ID: <D8FB2E8D-E8DD-49A3-85CC-7DE57433C602@gmail.com>
+References: <E1UJ1fR-0004hp-2j@swissweb.swissdisk.com> <20130322.101351.803684806942512280.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Rob Landley <rob@landley.net>, Andrew Lunn <andrew@lunn.ch>,
-	Russell King <linux@arm.linux.org.uk>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1363959568-16976-1-git-send-email-florian@openwrt.org>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: afleming@freescale.com, linux-kernel@vger.kernel.org,
+	kumar.gala@freescale.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130322.101351.803684806942512280.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 22, 2013 at 02:39:24PM +0100, Florian Fainelli wrote:
-> Hi all,
+On Mar 22, 2013, at 10:13 AM, David Miller <davem@davemloft.net> wrote:
+
+> From: Andy Fleming <afleming@freescale.com>
+> Date: Sun, 16 Oct 2011 01:49:49 -0500
 > 
-> This patch converts the mv643xx_eth driver to use the mvmdio MDIO bus driver
-> instead of rolling its own implementation. As a result, all users of this
-> mv643xx_eth driver are converted to register an "orion-mdio" platform_device.
-> The mvmdio driver is also updated to support an interrupt line which reports
-> SMI error/completion, and to allow traditionnal platform device registration
-> instead of just device tree.
+>> No functional changes other than to recognize this PHYID.
+>> 
+>> Signed-off-by: Andy Fleming <afleming@freescale.com>
+>> Signed-off-by: Kumar Gala <kumar.gala@freescale.com>
+>> Signed-off-by: Ben Collins <ben.c@servergy.com>
 > 
-> David, I think it makes sense for you to merge all of this, since we do
-> not want the architecture files to be desynchronized from the mv643xx_eth to
-> avoid runtime breakage. The potential for merge conflicts should be very small.
+> Please do not submit patches with the commit date integrated
+> into your formal email headers.
 > 
-> Florian Fainelli (4):
->   net: mvmdio: allow platform device style registration
->   net: mvmdio: rename base register cookie from smireg to regs
->   net: mvmdio: enhance driver to support SMI error/done interrupts
->   mv643xx_eth: convert to use the Marvell Orion MDIO driver
-> 
->  .../devicetree/bindings/net/marvell-orion-mdio.txt |    3 +
->  arch/arm/plat-orion/common.c                       |   54 +++---
->  arch/powerpc/platforms/chrp/pegasos_eth.c          |   20 ++
->  arch/powerpc/sysdev/mv64x60_dev.c                  |   16 +-
->  drivers/net/ethernet/marvell/Kconfig               |    5 +-
->  drivers/net/ethernet/marvell/Makefile              |    2 +-
->  drivers/net/ethernet/marvell/mv643xx_eth.c         |  195 ++------------------
->  drivers/net/ethernet/marvell/mvmdio.c              |  130 ++++++++++---
->  include/linux/mv643xx_eth.h                        |    1 -
->  9 files changed, 187 insertions(+), 239 deletions(-)
+> This screws up archives and patch queue maintainence systems which
+> order submissions by date.
 
-Whole series applied on top of v3.9-rc3 and tested on dreamplug
-(kirkwood DT boot with legacy mv643xx_eth init)
 
-Tested-by: Jason Cooper <jason@lakedaemon.net>
+For the record, this wasn't Andy, it was me. Noted.
 
-also, for the bits changing plat-orion:
-
-Acked-by: Jason Cooper <jason@lakedaemon.net>
-
-thx,
-
-Jason.
+--
+Servergy  : http://www.servergy.com/
+SwissDisk : http://www.swissdisk.com/
+Ubuntu    : http://www.ubuntu.com/
+My Blog   : http://ben-collins.blogspot.com/
