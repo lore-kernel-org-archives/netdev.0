@@ -1,105 +1,33 @@
-From: Kumar Amit Mehta <gmate.amit@gmail.com>
-Subject: [PATCH] bnx2x: fix assignment of signed expression to unsigned variable
-Date: Sat, 23 Mar 2013 11:52:55 -0700
-Message-ID: <1364064775-19319-1-git-send-email-gmate.amit@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: eilong@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jason Oster <parasytic@gmail.com>
+Subject: Re: Missing TCP SYN on loopback, retransmits after 1s
+Date: Sat, 23 Mar 2013 12:17:29 -0700
+Message-ID: <B0544E9D-BC59-449D-88A5-6DAFCB676F91@gmail.com>
+References: <20111122.192338.1206677511966747729.davem@davemloft.net> <20111122183727.01ab6f04@telperion.jlyo.org> <1322059124.17693.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111123.172959.909786536317740314.davem@davemloft.net> <c873451a-71aa-418b-96e2-d8875e7fec3e@googlegroups.com> <1364057885.29473.4.camel@edumazet-glaptop>
+Mime-Version: 1.0 (Mac OS X Mail 6.3 \(1503\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: jlyo@jlyo.org, netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:32878 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751707Ab3CWTYy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Mar 2013 15:24:54 -0400
+Received: by mail-pa0-f53.google.com with SMTP id bh4so201179pad.40
+        for <netdev@vger.kernel.org>; Sat, 23 Mar 2013 12:24:54 -0700 (PDT)
+In-Reply-To: <1364057885.29473.4.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-fix for incorrect assignment of signed expression to unsigned variable.
+Hello Eric,
 
-Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c |   20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
+On Mar 23, 2013, at 9:58 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-index 5682054..b90533a 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-@@ -2139,12 +2139,12 @@ static u8 bnx2x_dcbnl_get_cap(struct net_device *netdev, int capid, u8 *cap)
- 			break;
- 		default:
- 			BNX2X_ERR("Non valid capability ID\n");
--			rval = -EINVAL;
-+			rval = EINVAL;
- 			break;
- 		}
- 	} else {
- 		DP(BNX2X_MSG_DCB, "DCB disabled\n");
--		rval = -EINVAL;
-+		rval = EINVAL;
- 	}
- 
- 	DP(BNX2X_MSG_DCB, "capid %d:%x\n", capid, *cap);
-@@ -2154,7 +2154,7 @@ static u8 bnx2x_dcbnl_get_cap(struct net_device *netdev, int capid, u8 *cap)
- static int bnx2x_dcbnl_get_numtcs(struct net_device *netdev, int tcid, u8 *num)
- {
- 	struct bnx2x *bp = netdev_priv(netdev);
--	u8 rval = 0;
-+	s8 rval = 0;
- 
- 	DP(BNX2X_MSG_DCB, "tcid %d\n", tcid);
- 
-@@ -2188,7 +2188,7 @@ static int bnx2x_dcbnl_set_numtcs(struct net_device *netdev, int tcid, u8 num)
- 	return -EINVAL;
- }
- 
--static u8  bnx2x_dcbnl_get_pfc_state(struct net_device *netdev)
-+static u8 bnx2x_dcbnl_get_pfc_state(struct net_device *netdev)
- {
- 	struct bnx2x *bp = netdev_priv(netdev);
- 	DP(BNX2X_MSG_DCB, "state = %d\n", bp->dcbx_local_feat.pfc.enabled);
-@@ -2282,7 +2282,7 @@ static int bnx2x_set_admin_app_up(struct bnx2x *bp, u8 idtype, u16 idval, u8 up)
- 	else {
- 		/* app table is full */
- 		BNX2X_ERR("Application table is too large\n");
--		return -EBUSY;
-+		return EBUSY;
- 	}
- 
- 	/* up configured, if not 0 make sure feature is enabled */
-@@ -2312,7 +2312,7 @@ static u8 bnx2x_dcbnl_set_app_up(struct net_device *netdev, u8 idtype,
- 		break;
- 	default:
- 		DP(BNX2X_MSG_DCB, "Wrong ID type\n");
--		return -EINVAL;
-+		return EINVAL;
- 	}
- 	return bnx2x_set_admin_app_up(bp, idtype, idval, up);
- }
-@@ -2390,12 +2390,12 @@ static u8 bnx2x_dcbnl_get_featcfg(struct net_device *netdev, int featid,
- 			break;
- 		default:
- 			BNX2X_ERR("Non valid featrue-ID\n");
--			rval = -EINVAL;
-+			rval = EINVAL;
- 			break;
- 		}
- 	} else {
- 		DP(BNX2X_MSG_DCB, "DCB disabled\n");
--		rval = -EINVAL;
-+		rval = EINVAL;
- 	}
- 
- 	return rval;
-@@ -2431,12 +2431,12 @@ static u8 bnx2x_dcbnl_set_featcfg(struct net_device *netdev, int featid,
- 			break;
- 		default:
- 			BNX2X_ERR("Non valid featrue-ID\n");
--			rval = -EINVAL;
-+			rval = EINVAL;
- 			break;
- 		}
- 	} else {
- 		DP(BNX2X_MSG_DCB, "dcbnl call not valid\n");
--		rval = -EINVAL;
-+		rval = EINVAL;
- 	}
- 
- 	return rval;
--- 
-1.7.9.5
+> Hi Jay
+> 
+> Not reproducible on current kernels (net-next tree for example)
+
+Thank you for looking into this so quickly! And it sounds like promising news, too. I'll experiment with newer kernels right away.
+
+Thanks again,
+Jay
