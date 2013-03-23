@@ -1,65 +1,32 @@
-From: Damien Wyart <damien.wyart@gmail.com>
-Subject: Re: [RFC PATCH] udp: don't rereference dst_entry dev pointer on rcv
-Date: Sat, 23 Mar 2013 11:31:39 +0100
-Message-ID: <20130323103139.GA4190@brouette>
-References: <1362695800-8633-1-git-send-email-tparkin@katalix.com>
- <1362695800-8633-2-git-send-email-tparkin@katalix.com>
- <1362696444.15793.220.camel@edumazet-glaptop>
- <20130307.181527.390191009324148471.davem@davemloft.net>
- <20130313232743.GA3686@raven>
- <1363223884.29475.0.camel@edumazet-glaptop>
- <20130314144550.GB2512@raven>
- <1363273531.29475.21.camel@edumazet-glaptop>
- <1363274946.29475.24.camel@edumazet-glaptop>
- <20130314161436.GC2512@raven>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: [PATCH] brcmsmac: Remove unused macro SI_MSG
+Date: Sat, 23 Mar 2013 13:14:05 +0100
+Message-ID: <514D9C8D.20302@broadcom.com>
+References: <25a69b0ba20a54e5c1c0165e68a1ef2c69c84255.1363982285.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Parkin <tparkin@katalix.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhost-p3-p2.mangoosta.org ([195.5.209.60]:43119 "EHLO
-	smtp-delay1.nerim.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750998Ab3CWKkK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Mar 2013 06:40:10 -0400
-Received: from mallaury.nerim.net (smtp-106-saturday.noc.nerim.net [178.132.17.106])
-	by smtp-delay1.nerim.net (Postfix) with ESMTP id 2024A23407C
-	for <netdev@vger.kernel.org>; Sat, 23 Mar 2013 10:57:36 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <20130314161436.GC2512@raven>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Brett Rudley" <brudley@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	"Hante Meuleman" <meuleman@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Joe Perches" <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <25a69b0ba20a54e5c1c0165e68a1ef2c69c84255.1363982285.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+On 03/22/2013 09:00 PM, Joe Perches wrote:
+> commit 6236dc2e2 ("brcmsmac: remove some redundant chip common workarounds")
+> removed the last uses.
 
-* Tom Parkin <tparkin@katalix.com> [2013-03-14 16:14]:
-> On Thu, Mar 14, 2013 at 04:29:06PM +0100, Eric Dumazet wrote:
-> > OK, I tested the following one instead, please test it so that I can send an official patch.
+Good riddance.
 
-> > Thanks
-
-> > diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-> > index b6d30ac..2d23830 100644
-> > --- a/net/ipv4/ip_fragment.c
-> > +++ b/net/ipv4/ip_fragment.c
-> > @@ -529,6 +529,7 @@ found:
-> >  	    qp->q.meat == qp->q.len)
-> >  		return ip_frag_reasm(qp, prev, dev);
-
-> > +	skb_dst_drop(skb);
-> >  	inet_frag_lru_move(&qp->q);
-> >  	return -EINPROGRESS;
-
-> Thanks again, Eric.
-
-> Sadly, with this patch the oops is back :-(  It falls over quite
-> quickly for me.
-
-Just a quick check: do you plan to have another look at this in the
-coming days/weeks? You said you had a huge backlog, but in the meantime,
-you sent many patches on many topics, so just wanted to check if this
-one had not be forgotten for ever.
-
-Thanks,
--- 
-Damien Wyart
+Acked-by: Arend van Spriel <arend@broadcom.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  drivers/net/wireless/brcm80211/brcmsmac/aiutils.c | 6 ------
+>  1 file changed, 6 deletions(-)
