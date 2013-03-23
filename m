@@ -1,79 +1,93 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: [PATCH] Fix IXP4xx coherent allocations
-Date: Sat, 23 Mar 2013 20:35:46 +0100
-Message-ID: <m3obe9lxil.fsf@intrepid.localdomain>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH] bnx2x: fix assignment of signed expression to unsigned
+ variable
+Date: Sat, 23 Mar 2013 22:56:47 +0300
+Message-ID: <20130323195454.GB9138@mwanda>
+References: <1364064775-19319-1-git-send-email-gmate.amit@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org,
-	Christophe Aeschlimann <c.aeschlimann@acn-group.ch>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: eilong@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Kumar Amit Mehta <gmate.amit@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:38120 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751779Ab3CWT5G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Mar 2013 15:57:06 -0400
+Content-Disposition: inline
+In-Reply-To: <1364064775-19319-1-git-send-email-gmate.amit@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ARM core code currently requires coherent DMA mask to be set. Make sure
-we limit PCI devices to 64 MiB while allowing on-chip devices to access
-the whole 4 GiB address space.
+On Sat, Mar 23, 2013 at 11:52:55AM -0700, Kumar Amit Mehta wrote:
+> fix for incorrect assignment of signed expression to unsigned variable.
+> 
 
-This fixes a v3.7+ regression which broke IXP4xx built-in network devic=
-es.
+This fix isn't right.
 
-Signed-off-by: Krzysztof Ha=C5=82asa <khc@pm.waw.pl>
-Cc: <stable@vger.kernel.org>
+> Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c |   20 ++++++++++----------
+>  1 file changed, 10 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+> index 5682054..b90533a 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+> @@ -2139,12 +2139,12 @@ static u8 bnx2x_dcbnl_get_cap(struct net_device *netdev, int capid, u8 *cap)
+>  			break;
+>  		default:
+>  			BNX2X_ERR("Non valid capability ID\n");
+> -			rval = -EINVAL;
+> +			rval = EINVAL;
+>  			break;
+>  		}
+>  	} else {
+>  		DP(BNX2X_MSG_DCB, "DCB disabled\n");
+> -		rval = -EINVAL;
+> +		rval = EINVAL;
 
-diff --git a/arch/arm/mach-ixp4xx/common-pci.c b/arch/arm/mach-ixp4xx/c=
-ommon-pci.c
-index ea1933d..8629fc9 100644
---- a/arch/arm/mach-ixp4xx/common-pci.c
-+++ b/arch/arm/mach-ixp4xx/common-pci.c
-@@ -454,10 +454,15 @@ int ixp4xx_setup(int nr, struct pci_sys_data *sys=
-)
-=20
- int dma_set_coherent_mask(struct device *dev, u64 mask)
- {
--	if (mask >=3D SZ_64M - 1)
--		return 0;
-+	if ((mask & DMA_BIT_MASK(26)) !=3D DMA_BIT_MASK(26))
-+		return -EIO;
-+
-+	/* PCI devices are limited to 64 MiB */
-+	if (dev_is_pci(dev))
-+		mask &=3D DMA_BIT_MASK(26); /* Use DMA region */
-=20
--	return -EIO;
-+	dev->coherent_dma_mask =3D mask;
-+	return 0;
- }
-=20
- EXPORT_SYMBOL(ixp4xx_pci_read);
-diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/eth=
-ernet/xscale/ixp4xx_eth.c
-index 6958a5e..7c08269 100644
---- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
-+++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
-@@ -1423,7 +1423,7 @@ static int eth_init_one(struct platform_device *p=
-dev)
- 	dev->netdev_ops =3D &ixp4xx_netdev_ops;
- 	dev->ethtool_ops =3D &ixp4xx_ethtool_ops;
- 	dev->tx_queue_len =3D 100;
--
-+	dma_set_coherent_mask(&dev->dev, DMA_BIT_MASK(32));
- 	netif_napi_add(dev, &port->napi, eth_poll, NAPI_WEIGHT);
-=20
- 	if (!(port->npe =3D npe_request(NPE_ID(port->id)))) {
-diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4xx_hss.=
-c
-index 95d0451..83b4597 100644
---- a/drivers/net/wan/ixp4xx_hss.c
-+++ b/drivers/net/wan/ixp4xx_hss.c
-@@ -1367,6 +1367,7 @@ static int hss_init_one(struct platform_device *p=
-dev)
- 	port->id =3D pdev->id;
- 	port->dev =3D &pdev->dev;
- 	port->plat =3D pdev->dev.platform_data;
-+	dma_set_coherent_mask(&dev->dev, DMA_BIT_MASK(32));
- 	netif_napi_add(dev, &port->napi, hss_hdlc_poll, NAPI_WEIGHT);
-=20
- 	if ((err =3D register_hdlc_device(dev)))
+This function is called from dcbnl_getcap().  It returns zero on
+success, but it's not clear what it should return on failure.  But
+certainly it's not a positive EINVAL.
+
+>  	}
+>  
+>  	DP(BNX2X_MSG_DCB, "capid %d:%x\n", capid, *cap);
+> @@ -2154,7 +2154,7 @@ static u8 bnx2x_dcbnl_get_cap(struct net_device *netdev, int capid, u8 *cap)
+>  static int bnx2x_dcbnl_get_numtcs(struct net_device *netdev, int tcid, u8 *num)
+>  {
+>  	struct bnx2x *bp = netdev_priv(netdev);
+> -	u8 rval = 0;
+> +	s8 rval = 0;
+
+Just use "int" here.
+
+>  
+>  	DP(BNX2X_MSG_DCB, "tcid %d\n", tcid);
+>  
+> @@ -2188,7 +2188,7 @@ static int bnx2x_dcbnl_set_numtcs(struct net_device *netdev, int tcid, u8 num)
+>  	return -EINVAL;
+>  }
+>  
+> -static u8  bnx2x_dcbnl_get_pfc_state(struct net_device *netdev)
+> +static u8 bnx2x_dcbnl_get_pfc_state(struct net_device *netdev)
+>  {
+>  	struct bnx2x *bp = netdev_priv(netdev);
+>  	DP(BNX2X_MSG_DCB, "state = %d\n", bp->dcbx_local_feat.pfc.enabled);
+> @@ -2282,7 +2282,7 @@ static int bnx2x_set_admin_app_up(struct bnx2x *bp, u8 idtype, u16 idval, u8 up)
+>  	else {
+>  		/* app table is full */
+>  		BNX2X_ERR("Application table is too large\n");
+> -		return -EBUSY;
+> +		return EBUSY;
+>  	}
+
+The fix for this is more involved.  The function prototype should
+be changed to return an int.  The caller should be updated to check
+for errors.
+
+Etc.
+
+regards,
+dan carpenter
