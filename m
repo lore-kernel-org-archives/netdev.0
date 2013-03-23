@@ -1,36 +1,105 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH 1/1 v2 net-next] net: fec: fix the build as module
-Date: Sat, 23 Mar 2013 15:12:06 -0300
-Message-ID: <CAOMZO5Cn4xG38fB9snS2cJSjZDzaWQJSGLp3+hFyxTXmOkO7BQ@mail.gmail.com>
-References: <1363915193-22179-1-git-send-email-Frank.Li@freescale.com>
-	<CAOMZO5D1p-QJ=7N-QrLbjcwK0b=280QEFuxNkbmYsmTeRitv+w@mail.gmail.com>
-	<CAHrpEqQU9e-qAYvtHmB9bDhXafHmG=yWJxxv96f94FxVq9QYgQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Frank Li <Frank.Li@freescale.com>, u.kleine-koenig@pengutronix.de,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org
-To: Frank Li <lznuaa@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f45.google.com ([209.85.212.45]:46203 "EHLO
-	mail-vb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751622Ab3CWSMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Mar 2013 14:12:07 -0400
-Received: by mail-vb0-f45.google.com with SMTP id q16so853323vbe.4
-        for <netdev@vger.kernel.org>; Sat, 23 Mar 2013 11:12:06 -0700 (PDT)
-In-Reply-To: <CAHrpEqQU9e-qAYvtHmB9bDhXafHmG=yWJxxv96f94FxVq9QYgQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kumar Amit Mehta <gmate.amit@gmail.com>
+Subject: [PATCH] bnx2x: fix assignment of signed expression to unsigned variable
+Date: Sat, 23 Mar 2013 11:52:55 -0700
+Message-ID: <1364064775-19319-1-git-send-email-gmate.amit@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: eilong@broadcom.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 21, 2013 at 11:39 PM, Frank Li <lznuaa@gmail.com> wrote:
->>
->> This error does not not happen in 'net-next' anymore.
->
-> what's your suggestion? change commit message or request apply to 3.9
+fix for incorrect assignment of signed expression to unsigned variable.
 
-Your motivation now is to generate a single kernel module instead of
-two for the fec, rather than fixing the the build error.
+Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c |   20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
 
-So you need to adjust the Subject and commit log.
-
-I am not sure if we really need to rename fec.c though.
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+index 5682054..b90533a 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+@@ -2139,12 +2139,12 @@ static u8 bnx2x_dcbnl_get_cap(struct net_device *netdev, int capid, u8 *cap)
+ 			break;
+ 		default:
+ 			BNX2X_ERR("Non valid capability ID\n");
+-			rval = -EINVAL;
++			rval = EINVAL;
+ 			break;
+ 		}
+ 	} else {
+ 		DP(BNX2X_MSG_DCB, "DCB disabled\n");
+-		rval = -EINVAL;
++		rval = EINVAL;
+ 	}
+ 
+ 	DP(BNX2X_MSG_DCB, "capid %d:%x\n", capid, *cap);
+@@ -2154,7 +2154,7 @@ static u8 bnx2x_dcbnl_get_cap(struct net_device *netdev, int capid, u8 *cap)
+ static int bnx2x_dcbnl_get_numtcs(struct net_device *netdev, int tcid, u8 *num)
+ {
+ 	struct bnx2x *bp = netdev_priv(netdev);
+-	u8 rval = 0;
++	s8 rval = 0;
+ 
+ 	DP(BNX2X_MSG_DCB, "tcid %d\n", tcid);
+ 
+@@ -2188,7 +2188,7 @@ static int bnx2x_dcbnl_set_numtcs(struct net_device *netdev, int tcid, u8 num)
+ 	return -EINVAL;
+ }
+ 
+-static u8  bnx2x_dcbnl_get_pfc_state(struct net_device *netdev)
++static u8 bnx2x_dcbnl_get_pfc_state(struct net_device *netdev)
+ {
+ 	struct bnx2x *bp = netdev_priv(netdev);
+ 	DP(BNX2X_MSG_DCB, "state = %d\n", bp->dcbx_local_feat.pfc.enabled);
+@@ -2282,7 +2282,7 @@ static int bnx2x_set_admin_app_up(struct bnx2x *bp, u8 idtype, u16 idval, u8 up)
+ 	else {
+ 		/* app table is full */
+ 		BNX2X_ERR("Application table is too large\n");
+-		return -EBUSY;
++		return EBUSY;
+ 	}
+ 
+ 	/* up configured, if not 0 make sure feature is enabled */
+@@ -2312,7 +2312,7 @@ static u8 bnx2x_dcbnl_set_app_up(struct net_device *netdev, u8 idtype,
+ 		break;
+ 	default:
+ 		DP(BNX2X_MSG_DCB, "Wrong ID type\n");
+-		return -EINVAL;
++		return EINVAL;
+ 	}
+ 	return bnx2x_set_admin_app_up(bp, idtype, idval, up);
+ }
+@@ -2390,12 +2390,12 @@ static u8 bnx2x_dcbnl_get_featcfg(struct net_device *netdev, int featid,
+ 			break;
+ 		default:
+ 			BNX2X_ERR("Non valid featrue-ID\n");
+-			rval = -EINVAL;
++			rval = EINVAL;
+ 			break;
+ 		}
+ 	} else {
+ 		DP(BNX2X_MSG_DCB, "DCB disabled\n");
+-		rval = -EINVAL;
++		rval = EINVAL;
+ 	}
+ 
+ 	return rval;
+@@ -2431,12 +2431,12 @@ static u8 bnx2x_dcbnl_set_featcfg(struct net_device *netdev, int featid,
+ 			break;
+ 		default:
+ 			BNX2X_ERR("Non valid featrue-ID\n");
+-			rval = -EINVAL;
++			rval = EINVAL;
+ 			break;
+ 		}
+ 	} else {
+ 		DP(BNX2X_MSG_DCB, "dcbnl call not valid\n");
+-		rval = -EINVAL;
++		rval = EINVAL;
+ 	}
+ 
+ 	return rval;
+-- 
+1.7.9.5
