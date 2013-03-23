@@ -1,55 +1,51 @@
 From: Guenter Roeck <linux@roeck-us.net>
 Subject: Re: [PATCH] net: Add support for handling queueing in hardware
-Date: Sat, 23 Mar 2013 12:10:23 -0700
-Message-ID: <20130323191023.GB22005@roeck-us.net>
-References: <A5ACC15C-361D-48E6-BFFF-9AA3966C2A68@freescale.com>
+Date: Sat, 23 Mar 2013 12:02:21 -0700
+Message-ID: <20130323190221.GA22005@roeck-us.net>
+References: <E1UJ1fR-0004hs-4l@swissweb.swissdisk.com>
+ <20130322.101139.1942128058226201237.davem@davemloft.net>
+ <A5ACC15C-361D-48E6-BFFF-9AA3966C2A68@freescale.com>
  <20130322.103302.1277256650283142022.davem@davemloft.net>
  <FE78128C-01DB-4831-ACBE-BA3E3A428BFC@gmail.com>
- <20130322.111759.2108472348146991505.davem@davemloft.net>
- <20130322220840.GA6647@thunk.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Theodore Ts'o <tytso@mit.edu>,
-	Ben Collins <benmcollins13@gmail.com>,
-	David Miller <davem@davemloft.net>, afleming@freescale.com,
+Cc: David Miller <davem@davemloft.net>, afleming@freescale.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.active-venture.com ([67.228.131.205]:62181 "EHLO
-	mail.active-venture.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752602Ab3CXJRs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 05:17:48 -0400
+To: Ben Collins <benmcollins13@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130322220840.GA6647@thunk.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <FE78128C-01DB-4831-ACBE-BA3E3A428BFC@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 22, 2013 at 06:08:40PM -0400, Theodore Ts'o wrote:
-> On Fri, Mar 22, 2013 at 11:39:20AM -0400, Ben Collins wrote:
+On Fri, Mar 22, 2013 at 10:43:44AM -0400, Ben Collins wrote:
+> On Mar 22, 2013, at 10:33 AM, David Miller <davem@davemloft.net> wrote:
+> 
+> > From: Fleming Andy-AFLEMING <afleming@freescale.com>
+> > Date: Fri, 22 Mar 2013 14:31:50 +0000
 > > 
-> > If your company had hardware going to production, you'd want it supported in mainline too, I suspect.
+> >> It would appear one of our customers is attempting to upstream our
+> >> code for us. We are aware that this current solution is unacceptable
+> >> (which is why we have not submitted it), and we are currently trying
+> >> to develop a less hacky solution that integrates with qdisc.
+> > 
+> > Ben, can can you coordinate with people instead of doing crap like
+> > this?
 > 
-> And if companies told their hardware partners that they will drop use
-> of their hardware in future products unless they get their !@#@S
-> drivers upstream, I'd bet they'd change their engineering priorities
-> so they would work on it, instead of foisting this work on their
-> customers.
 > 
-I would love to be in that position. However, the decision to choose
-a specific chip is not always coordinated with those who have to provide
-the software to run on those chips.
+> "For us" is a loose term, when it's more that we are attempting to upstream code so our system is supported by a mainline kernel instead of having one-off kernels.
+> 
+> And we have been talking with Freescale about this for quite some time (couple years?). They have a roadmap that doesn't include getting this driver supported in mainline any time soon, so I'm taking time to get this done for our own system. I'm not meaning to step on any toes.
+> 
+How true. You are not the only one with thatt problem.
 
-> I've seen this work in enterprise computing, where the RFP had
-> requirements for upstream drivers (i.e., if you want your 10gig
-> ethernet NIC to be used in HP or IBM's servers, get the darned thing
-> upstream!).  The trick is making it clear that selection of components
-> depends not just on an OSS driver, but an OSS driver which has been
-> accepted upstream (which also helps from a quality-of-code
-> requirement).
-> 
-> I've been waiting for this to start happening in the consumer
-> electronics/embedded world, but it's been slow coming,
-> unfortunately....
-> 
-The same applies to vendors of non-consumer network devices, unfortunately.
+Ben, can you possibly send me your complete patch set on top of 3.8, or point me
+to a git tree ?
 
+I have exactly the same problem, I need the code in 3.8, it doesn't seem
+like the Freescale code will show up anytime soon, and I don't seem to be able
+to get early code for testing either. I can promise you a free test coverage
+and bug fixing ...
+
+Thanks,
 Guenter
