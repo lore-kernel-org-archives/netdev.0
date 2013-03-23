@@ -1,40 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] 8021q: fix a potential use-after-free
-Date: Sat, 23 Mar 2013 08:16:06 -0700
-Message-ID: <1364051766.4431.86.camel@edumazet-glaptop>
-References: <1363938600-26129-1-git-send-email-amwang@redhat.com>
-	 <1364015648-4195-1-git-send-email-amwang@redhat.com>
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: Re: regression: tethering fails in 3.5 with iwlwifi
+Date: Sat, 23 Mar 2013 15:45:56 +0000
+Message-ID: <20130323154556.GA3953@hercules>
+References: <1347361823.26457.3.camel@sauron.fi.intel.com>
+ <1DC40B07CD6EC041A66726C271A73AE6195AE9C8@IRSMSX102.ger.corp.intel.com>
+ <1347631355.5263.19.camel@sauron.fi.intel.com>
+ <1347640763.5263.24.camel@sauron.fi.intel.com>
+ <1347892887.7112.9.camel@sauron.fi.intel.com>
+ <1363894451.8181.4.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:44152 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751050Ab3CWPQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Mar 2013 11:16:09 -0400
-Received: by mail-pa0-f50.google.com with SMTP id bg2so372961pad.9
-        for <netdev@vger.kernel.org>; Sat, 23 Mar 2013 08:16:09 -0700 (PDT)
-In-Reply-To: <1364015648-4195-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: artem.bityutskiy@linux.intel.com, patrik.flykt@intel.com,
+	Eric Dumazet <edumazet@google.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	stable@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1363894451.8181.4.camel@jlt4.sipsolutions.net>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2013-03-23 at 13:14 +0800, Cong Wang wrote:
-> From: Cong Wang <amwang@redhat.com>
+On Thu, Mar 21, 2013 at 08:34:11PM +0100, Johannes Berg wrote:
+> On Mon, 2012-09-17 at 17:41 +0300, Artem Bityutskiy wrote:
 > 
-> vlan_vid_del() could possibly free ->vlan_info after a RCU grace
-> period, however, we may still refer to the freed memory area
-> by 'grp' pointer. Found by code inspection.
+> > OK, finally I got it. After 3 days of hardcore intelligent bisecting
+> >         I've found out that tethering in 3.5 works for me if I revert
+> > these 2
+> >         patches:
+> >         
+> >             56138f5 iwlwifi: dont pull too much payload in skb head
 > 
-> This patch moves vlan_vid_del() as behind as possible.
+> I got back to this for a customer running 3.5, and after many failed
+> attempts realized that you have to have iptables for this problem to
+> actually happen. I reverse-bisected that the *fix* is
+> 6caab7b0544e83e6c160b5e80f5a4a7dd69545c7, in 3.7.
 > 
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> ---
->  net/8021q/vlan.c |   14 +++++++-------
->  1 files changed, 7 insertions(+), 7 deletions(-)
+> Is there still any stable kernel 3.5/3.6 (or possibly before, though for
+> iwlwifi before doesn't matter) that this should be applied to?
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+The 3.5.y.z extended stable tree already contains this commit as well.
+
+Cheers,
+--
+Luis
