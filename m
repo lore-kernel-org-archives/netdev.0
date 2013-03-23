@@ -1,78 +1,50 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next] ip_gre: increase inner ip header ID only for IPv4
-Date: Sat, 23 Mar 2013 16:36:09 -0700
-Message-ID: <CALnjE+qJ-BaGYEohfWB3-ZWaa9LwhFi5maR=yjP5_TD5N_jtog@mail.gmail.com>
-References: <1364016584-7189-1-git-send-email-amwang@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ptp: increase the maximum number of clocks
+Date: Sat, 23 Mar 2013 19:53:01 -0400 (EDT)
+Message-ID: <20130323.195301.955074293040961923.davem@davemloft.net>
+References: <d219aa87bd5b3e2fa42449720d845a7110f642f0.1363893841.git.jbenc@redhat.com>
+	<20130321.172017.1499060411785395307.davem@davemloft.net>
+	<20130323175915.GA3036@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jbenc@redhat.com, netdev@vger.kernel.org
+To: richardcochran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:43958 "HELO
-	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752634Ab3CWXgL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Mar 2013 19:36:11 -0400
-Received: by mail-qc0-f200.google.com with SMTP id j34so5775478qco.11
-        for <netdev@vger.kernel.org>; Sat, 23 Mar 2013 16:36:09 -0700 (PDT)
-In-Reply-To: <1364016584-7189-1-git-send-email-amwang@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35416 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752457Ab3CWXxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Mar 2013 19:53:03 -0400
+In-Reply-To: <20130323175915.GA3036@netboy.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 22, 2013 at 10:29 PM, Cong Wang <amwang@redhat.com> wrote:
-> From: Cong Wang <amwang@redhat.com>
->
-> Pravin pointed out the inner network header of a GRE tunnel packet
-> could be IPv6, where there is no ID. So we should check the version.
->
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Sat, 23 Mar 2013 18:59:15 +0100
 
-inet_gso_segment() already increment ip-header identification. What is
-problem with that?
+> On Thu, Mar 21, 2013 at 05:20:17PM -0400, David Miller wrote:
+>> 
+>> This really needs to be dynamic, and it shows what a bad idea it was
+>> to use character drivers for this which introduces arbitrary device
+>> arity limitations.
+> 
+> If a clock is not a character device, what then should it be? Network
+> interface?  Block device?  sysfs apparition?
+> 
+> IIRC, the RTCs appear as char devices. In any case, we are better off
+> with char devices than with an enumeration of SYSV clock IDs.
 
+It should be an abstract device created/deleted/changed by netlink
+operations.
 
-> Cc: Pravin B Shelar <pshelar@nicira.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
->
-> ---
-> diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
-> index e20631c..a2516f5 100644
-> --- a/net/ipv4/gre.c
-> +++ b/net/ipv4/gre.c
-> @@ -128,7 +128,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
->         struct iphdr *iph;
->         int mac_len = skb->mac_len;
->         int tnl_hlen, id;
-> -       bool csum;
-> +       bool csum, ipv4;
->
->         if (unlikely(skb_shinfo(skb)->gso_type &
->                                 ~(SKB_GSO_TCPV4 |
-> @@ -172,7 +172,12 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
->         skb->mac_len = skb_inner_network_offset(skb);
->
->         iph = ip_hdr(skb);
-> -       id = ntohs(iph->id);
-> +       if (iph->version == 4) {
-> +               ipv4 = true;
-> +               id = ntohs(iph->id);
-> +       } else
-> +               ipv4 = false;
-> +
->         /* segment inner packet. */
->         enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
->         segs = skb_mac_gso_segment(skb, enc_features);
-> @@ -182,8 +187,10 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
->         skb = segs;
->         tnl_hlen = skb_tnl_header_len(skb);
->         do {
-> -               iph = (struct iphdr *)skb->data;
-> -               iph->id = htons(id++);
-> +               if (ipv4) {
-> +                       iph = (struct iphdr *)skb->data;
-> +                       iph->id = htons(id++);
-> +               }
->                 __skb_push(skb, ghl);
->                 if (csum) {
->                         __be32 *pcsum;
+Then there are no limitations.  PTP devices are then referened by
+string names, rather than some bogus set of character device minor
+numbers which have no meaning and have arbitrary limitations
+wrt. arity.
+
+If, in theory, we can have as many PTP devices as network devices,
+we damn well better be able to create as many PTP devices as
+network devices.
+
+That means they must have the same capabilities as far as how many
+of them you can create.
