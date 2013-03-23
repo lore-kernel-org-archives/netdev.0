@@ -1,113 +1,66 @@
-From: rebelyouth <rebelyouth.hacklab@gmail.com>
-Subject: Re: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or Fast
- Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba (updated)
- Version 2
-Date: Fri, 22 Mar 2013 20:07:22 -0400
-Message-ID: <514CF23A.3010702@gmail.com>
-References: <514CE440.3010003@gmail.com> <1363996448.4431.73.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: remove a WARN_ON() in net_enable_timestamp()
+Date: Fri, 22 Mar 2013 17:38:28 -0700
+Message-ID: <1363999108.4431.81.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, Laurent Chavey <chavey@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f180.google.com ([209.85.210.180]:52862 "EHLO
-	mail-ia0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422650Ab3CWAH1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 20:07:27 -0400
-Received: by mail-ia0-f180.google.com with SMTP id f27so4089927iae.11
-        for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 17:07:26 -0700 (PDT)
-In-Reply-To: <1363996448.4431.73.camel@edumazet-glaptop>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:52449 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933549Ab3CWAib (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 20:38:31 -0400
+Received: by mail-pa0-f43.google.com with SMTP id rl6so172038pac.16
+        for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 17:38:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 22/03/13 07:54 PM, Eric Dumazet wrote:
-> On Fri, 2013-03-22 at 19:07 -0400, rebelyouth wrote:
->> Hi,
->>
->> I'm writing again for the same issue about :
->>
-> Your mail is so long that we are lost.
->
-> Have you done some research to tell if the bug is :
->
-> 1) Sending corrupt frames
->
-> 2) receive corrupt frames
->
->
-Hi Eric and Hannes,
+From: Eric Dumazet <edumazet@google.com>
 
-The server receiver errors  when I use the atheros:
+The WARN_ON(in_interrupt()) in net_enable_timestamp() can get false
+positive, in socket clone path, run from softirq context :
 
-RX packets:78125369 errors:58741 dropped:0 overruns:58741 frame:0
+[ 3641.624425] WARNING: at net/core/dev.c:1532 net_enable_timestamp+0x7b/0x80()
+[ 3641.668811] Call Trace:
+[ 3641.671254]  <IRQ>  [<ffffffff80286817>] warn_slowpath_common+0x87/0xc0
+[ 3641.677871]  [<ffffffff8028686a>] warn_slowpath_null+0x1a/0x20
+[ 3641.683683]  [<ffffffff80742f8b>] net_enable_timestamp+0x7b/0x80
+[ 3641.689668]  [<ffffffff80732ce5>] sk_clone_lock+0x425/0x450
+[ 3641.695222]  [<ffffffff8078db36>] inet_csk_clone_lock+0x16/0x170
+[ 3641.701213]  [<ffffffff807ae449>] tcp_create_openreq_child+0x29/0x820
+[ 3641.707663]  [<ffffffff807d62e2>] ? ipt_do_table+0x222/0x670
+[ 3641.713354]  [<ffffffff807aaf5b>] tcp_v4_syn_recv_sock+0xab/0x3d0
+[ 3641.719425]  [<ffffffff807af63a>] tcp_check_req+0x3da/0x530
+[ 3641.724979]  [<ffffffff8078b400>] ? inet_hashinfo_init+0x60/0x80
+[ 3641.730964]  [<ffffffff807ade6f>] ? tcp_v4_rcv+0x79f/0xbe0
+[ 3641.736430]  [<ffffffff807ab9bd>] tcp_v4_do_rcv+0x38d/0x4f0
+[ 3641.741985]  [<ffffffff807ae14a>] tcp_v4_rcv+0xa7a/0xbe0
 
-but on the client side  there aren't any error but the file  is corrupted
+Its safe at this point because the parent socket owns a reference
+on the netstamp_needed, so we cant have a 0 -> 1 transition, which
+requires to lock a mutex.
 
-I rebooted  the server and did the test with the Realtek:
+Instead of refining the check, lets remove it, as all known callers
+are safe. If it ever changes in the future, static_key_slow_inc()
+will complain anyway.
 
-  file ok , no errors in both sides
+Reported-by: Laurent Chavey <chavey@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/dev.c |    1 -
+ 1 file changed, 1 deletion(-)
 
-I also reset again the server and did a test on windows using samba and 
-the Atheros:
-
-  file ok , no errors in both sides
-
-my lspci -vv
-
-03:00.0 Ethernet controller: Atheros Communications Inc. 
-AR8121/AR8113/AR8114 Gigabit or Fast Ethernet (rev b0)
-         Subsystem: ASUSTeK Computer Inc. Device 831c
-         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- 
-ParErr- Stepping- SERR+ FastB2B- DisINTx+
-         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR- INTx-
-         Latency: 0, Cache Line Size: 64 bytes
-         Interrupt: pin A routed to IRQ 47
-         Region 0: Memory at fbfc0000 (64-bit, non-prefetchable) [size=256K]
-         Region 2: I/O ports at ec00 [size=128]
-         Capabilities: [40] Power Management version 2
-                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA 
-PME(D0-,D1-,D2-,D3hot+,D3cold+)
-                 Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
-         Capabilities: [48] MSI: Enable+ Count=1/1 Maskable- 64bit+
-                 Address: 00000000fee0f00c  Data: 4142
-         Capabilities: [58] Express (v1) Endpoint, MSI 00
-                 DevCap: MaxPayload 4096 bytes, PhantFunc 0, Latency L0s 
-<4us, L1 unlimited
-                         ExtTag- AttnBtn+ AttnInd+ PwrInd+ RBE- FLReset-
-                 DevCtl: Report errors: Correctable- Non-Fatal- Fatal- 
-Unsupported-
-                         RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
-                         MaxPayload 128 bytes, MaxReadReq 512 bytes
-                 DevSta: CorrErr- UncorrErr+ FatalErr- UnsuppReq+ 
-AuxPwr+ TransPend-
-                 LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM L0s, 
-Latency L0 unlimited, L1 unlimited
-                         ClockPM- Surprise- LLActRep- BwNot-
-                 LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- 
-CommClk+
-                         ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-                 LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ 
-DLActive- BWMgmt- ABWMgmt-
-         Capabilities: [100 v1] Advanced Error Reporting
-                 UESta:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- 
-UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq+ ACSViol-
-                 UEMsk:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- 
-UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
-                 UESvrt: DLP+ SDES- TLP- FCP+ CmpltTO- CmpltAbrt- 
-UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
-                 CESta:  RxErr- BadTLP- BadDLLP- Rollover- Timeout- 
-NonFatalErr-
-                 CEMsk:  RxErr- BadTLP- BadDLLP- Rollover- Timeout- 
-NonFatalErr-
-                 AERCap: First Error Pointer: 14, GenCap+ CGenEn- 
-ChkCap+ ChkEn-
-         Capabilities: [180 v1] Device Serial Number ff-62-72-f5-00-26-18-ff
-
-
-and for the ASPM:
-
-[    0.407310] pci 0000:03:00.0: disabling ASPM on pre-1.1 PCIe device.  
-You can enable it with 'pcie_aspm=force'
-[    0.407800]  pci0000:00: ACPI _OSC support notification failed, 
-disabling PCIe ASPM
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d540ced..b13e5c7 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1545,7 +1545,6 @@ void net_enable_timestamp(void)
+ 		return;
+ 	}
+ #endif
+-	WARN_ON(in_interrupt());
+ 	static_key_slow_inc(&netstamp_needed);
+ }
+ EXPORT_SYMBOL(net_enable_timestamp);
