@@ -1,68 +1,65 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH net-next] ip_gre: increase inner ip header ID only for IPv4
-Date: Sat, 23 Mar 2013 13:29:44 +0800
-Message-ID: <1364016584-7189-1-git-send-email-amwang@redhat.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Damien Wyart <damien.wyart@gmail.com>
+Subject: Re: [RFC PATCH] udp: don't rereference dst_entry dev pointer on rcv
+Date: Sat, 23 Mar 2013 11:31:39 +0100
+Message-ID: <20130323103139.GA4190@brouette>
+References: <1362695800-8633-1-git-send-email-tparkin@katalix.com>
+ <1362695800-8633-2-git-send-email-tparkin@katalix.com>
+ <1362696444.15793.220.camel@edumazet-glaptop>
+ <20130307.181527.390191009324148471.davem@davemloft.net>
+ <20130313232743.GA3686@raven>
+ <1363223884.29475.0.camel@edumazet-glaptop>
+ <20130314144550.GB2512@raven>
+ <1363273531.29475.21.camel@edumazet-glaptop>
+ <1363274946.29475.24.camel@edumazet-glaptop>
+ <20130314161436.GC2512@raven>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Parkin <tparkin@katalix.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4613 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755535Ab3CWFaR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Mar 2013 01:30:17 -0400
+Received: from mailhost-p3-p2.mangoosta.org ([195.5.209.60]:43119 "EHLO
+	smtp-delay1.nerim.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750998Ab3CWKkK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Mar 2013 06:40:10 -0400
+Received: from mallaury.nerim.net (smtp-106-saturday.noc.nerim.net [178.132.17.106])
+	by smtp-delay1.nerim.net (Postfix) with ESMTP id 2024A23407C
+	for <netdev@vger.kernel.org>; Sat, 23 Mar 2013 10:57:36 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20130314161436.GC2512@raven>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+Hi Eric,
 
-Pravin pointed out the inner network header of a GRE tunnel packet
-could be IPv6, where there is no ID. So we should check the version.
+* Tom Parkin <tparkin@katalix.com> [2013-03-14 16:14]:
+> On Thu, Mar 14, 2013 at 04:29:06PM +0100, Eric Dumazet wrote:
+> > OK, I tested the following one instead, please test it so that I can send an official patch.
 
-Cc: Pravin B Shelar <pshelar@nicira.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+> > Thanks
 
----
-diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
-index e20631c..a2516f5 100644
---- a/net/ipv4/gre.c
-+++ b/net/ipv4/gre.c
-@@ -128,7 +128,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 	struct iphdr *iph;
- 	int mac_len = skb->mac_len;
- 	int tnl_hlen, id;
--	bool csum;
-+	bool csum, ipv4;
- 
- 	if (unlikely(skb_shinfo(skb)->gso_type &
- 				~(SKB_GSO_TCPV4 |
-@@ -172,7 +172,12 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 	skb->mac_len = skb_inner_network_offset(skb);
- 
- 	iph = ip_hdr(skb);
--	id = ntohs(iph->id);
-+	if (iph->version == 4) {
-+		ipv4 = true;
-+		id = ntohs(iph->id);
-+	} else
-+		ipv4 = false;
-+
- 	/* segment inner packet. */
- 	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
- 	segs = skb_mac_gso_segment(skb, enc_features);
-@@ -182,8 +187,10 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 	skb = segs;
- 	tnl_hlen = skb_tnl_header_len(skb);
- 	do {
--		iph = (struct iphdr *)skb->data;
--		iph->id = htons(id++);
-+		if (ipv4) {
-+			iph = (struct iphdr *)skb->data;
-+			iph->id = htons(id++);
-+		}
- 		__skb_push(skb, ghl);
- 		if (csum) {
- 			__be32 *pcsum;
+> > diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+> > index b6d30ac..2d23830 100644
+> > --- a/net/ipv4/ip_fragment.c
+> > +++ b/net/ipv4/ip_fragment.c
+> > @@ -529,6 +529,7 @@ found:
+> >  	    qp->q.meat == qp->q.len)
+> >  		return ip_frag_reasm(qp, prev, dev);
+
+> > +	skb_dst_drop(skb);
+> >  	inet_frag_lru_move(&qp->q);
+> >  	return -EINPROGRESS;
+
+> Thanks again, Eric.
+
+> Sadly, with this patch the oops is back :-(  It falls over quite
+> quickly for me.
+
+Just a quick check: do you plan to have another look at this in the
+coming days/weeks? You said you had a huge backlog, but in the meantime,
+you sent many patches on many topics, so just wanted to check if this
+one had not be forgotten for ever.
+
+Thanks,
+-- 
+Damien Wyart
