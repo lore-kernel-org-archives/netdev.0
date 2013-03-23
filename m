@@ -1,46 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: tingwei liu <tingw.liu@gmail.com>
 Subject: Re: [PATCH 1/1]core:Change a wrong explain about dev_get_by_name
-Date: Fri, 22 Mar 2013 18:32:04 -0700
-Message-ID: <1364002324.4431.84.camel@edumazet-glaptop>
+Date: Sat, 23 Mar 2013 09:33:35 +0800
+Message-ID: <CA+qZnSQABuJfJDQRi5n+HQqNcRCgYDyZy_Fa0EY-s=_CcNfP9g@mail.gmail.com>
 References: <CA+qZnSSMfbeGsThYe-=tK-kZ3h1GEKDGkNom+07-hRSqgLUUWg@mail.gmail.com>
-	 <1363793549.3333.12.camel@edumazet-glaptop>
-	 <1363799443.2677.2.camel@bwh-desktop.uk.solarflarecom.com>
-	 <1363801389.3333.25.camel@edumazet-glaptop>
-	 <CA+qZnST22XrkFgsNqE8aAziD++4EZXzBGzM-4GNbbxfi8z+yvQ@mail.gmail.com>
+	<1363793549.3333.12.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, davem@davemloft.net
-To: tingwei liu <tingw.liu@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f54.google.com ([209.85.210.54]:47981 "EHLO
-	mail-da0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422660Ab3CWBcI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 21:32:08 -0400
-Received: by mail-da0-f54.google.com with SMTP id p1so2471629dad.27
-        for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 18:32:07 -0700 (PDT)
-In-Reply-To: <CA+qZnST22XrkFgsNqE8aAziD++4EZXzBGzM-4GNbbxfi8z+yvQ@mail.gmail.com>
+Received: from mail-ia0-f171.google.com ([209.85.210.171]:37745 "EHLO
+	mail-ia0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422670Ab3CWBdg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 21:33:36 -0400
+Received: by mail-ia0-f171.google.com with SMTP id z13so4099082iaz.30
+        for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 18:33:36 -0700 (PDT)
+In-Reply-To: <1363793549.3333.12.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-03-23 at 09:24 +0800, tingwei liu wrote:
-> On Thu, Mar 21, 2013 at 1:43 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Wed, 2013-03-20 at 17:10 +0000, Ben Hutchings wrote:
-> >
-> >> If they are wrongly documented as 'can be called from any context', yes.
-> >
-> > Wow, thats really useful.
-> >
-> > Why is this function not allowed from hard irq context, we have no idea.
-> When function "list_netdevice" get write lock "dev_base_lock" only
-> disable soft interrupt. So dev_get_by_name get read lock
-> "dev_base_lock", can not called on interrupt context.
-
-
-dev_get_by_name() doesn't read lock dev_base_lock
-since commit 72c9528bab94cc052
-
-This was back to linux-2.6.33
-
-Are you sending patches for older kernel versions per chance ?
+On Wed, Mar 20, 2013 at 11:32 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2013-03-20 at 17:33 +0800, tingwei liu wrote:
+>> From 5d787e8c3725efa6af3036eeb52aba1905c70de9 Mon Sep 17 00:00:00 2001
+>> From: root <root@linux-19.site>
+>> Date: Wed, 20 Mar 2013 17:39:59 +0800
+>> Subject: [PATCH] Change a wrong explain about dev_get_by_name
+>>
+>
+> No changelog ? This patch really needs a changelog.
+>
+How to get the lastest commit about this comment?
+Thanks a lot.
+> I have no idea why we should document this function being not safe in
+> irq context.
+>
+> Most part of networking stack is non safe in hard irq context.
+>
+> Should we add a comment in front of all possible entry points ?
+>
+>
+>
