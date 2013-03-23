@@ -1,29 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: fix assignment of signed expression to unsigned
- variable
-Date: Sat, 23 Mar 2013 19:56:51 -0400 (EDT)
-Message-ID: <20130323.195651.2270136988020869155.davem@davemloft.net>
-References: <1364064775-19319-1-git-send-email-gmate.amit@gmail.com>
+Subject: Re: [PATCH] Fix IXP4xx coherent allocations
+Date: Sat, 23 Mar 2013 19:57:40 -0400 (EDT)
+Message-ID: <20130323.195740.2108147521543354261.davem@davemloft.net>
+References: <m3obe9lxil.fsf@intrepid.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: gmate.amit@gmail.com
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, c.aeschlimann@acn-group.ch
+To: khc@pm.waw.pl
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1364064775-19319-1-git-send-email-gmate.amit@gmail.com>
+In-Reply-To: <m3obe9lxil.fsf@intrepid.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kumar Amit Mehta <gmate.amit@gmail.com>
-Date: Sat, 23 Mar 2013 11:52:55 -0700
+=46rom: Krzysztof Halasa <khc@pm.waw.pl>
+Date: Sat, 23 Mar 2013 20:35:46 +0100
 
-> fix for incorrect assignment of signed expression to unsigned variable.
-> 
-> Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
+> ARM core code currently requires coherent DMA mask to be set. Make su=
+re
+> we limit PCI devices to 64 MiB while allowing on-chip devices to acce=
+ss
+> the whole 4 GiB address space.
+>=20
+> This fixes a v3.7+ regression which broke IXP4xx built-in network dev=
+ices.
+>=20
+> Signed-off-by: Krzysztof Ha=A9=A9asa <khc@pm.waw.pl>
 
-Returning positive error codes is just as broken as what is there
-currently.
+This requirement is not reasonable.
 
-These routines should return 0 or 1, the return value isn't even used
-in any way, it is just tested against zero.
+The DMA API documentation clearly states what the default must be,
+and what drivers are guarenteed will be the default.
