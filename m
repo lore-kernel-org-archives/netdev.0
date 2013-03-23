@@ -1,117 +1,55 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: [PATCH v2] bnx2x: fix assignment of signed expression to
- unsigned variable
-Date: Sun, 24 Mar 2013 08:00:10 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F20BEBB46@SJEXCHMB06.corp.ad.broadcom.com>
-References: <1364105425-8198-1-git-send-email-gmate.amit@gmail.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH] net: Add support for handling queueing in hardware
+Date: Sat, 23 Mar 2013 12:10:23 -0700
+Message-ID: <20130323191023.GB22005@roeck-us.net>
+References: <A5ACC15C-361D-48E6-BFFF-9AA3966C2A68@freescale.com>
+ <20130322.103302.1277256650283142022.davem@davemloft.net>
+ <FE78128C-01DB-4831-ACBE-BA3E3A428BFC@gmail.com>
+ <20130322.111759.2108472348146991505.davem@davemloft.net>
+ <20130322220840.GA6647@thunk.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"dan.carpenter@oracle.com" <dan.carpenter@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: "Kumar Amit Mehta" <gmate.amit@gmail.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1364105425-8198-1-git-send-email-gmate.amit@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Theodore Ts'o <tytso@mit.edu>,
+	Ben Collins <benmcollins13@gmail.com>,
+	David Miller <davem@davemloft.net>, afleming@freescale.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.active-venture.com ([67.228.131.205]:62181 "EHLO
+	mail.active-venture.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752602Ab3CXJRs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 05:17:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20130322220840.GA6647@thunk.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Kumar Amit Mehta
-> Sent: Sunday, March 24, 2013 8:10 AM
-> To: Eilon Greenstein
-> Cc: davem@davemloft.net; dan.carpenter@oracle.com; netdev@vger.kernel.org; linux-kernel@vger.kernel.org; kernel-
-> janitors@vger.kernel.org
-> Subject: [PATCH v2] bnx2x: fix assignment of signed expression to unsigned variable
+On Fri, Mar 22, 2013 at 06:08:40PM -0400, Theodore Ts'o wrote:
+> On Fri, Mar 22, 2013 at 11:39:20AM -0400, Ben Collins wrote:
+> > 
+> > If your company had hardware going to production, you'd want it supported in mainline too, I suspect.
 > 
-> fix for incorrect assignment of signed expression to unsigned variable.
+> And if companies told their hardware partners that they will drop use
+> of their hardware in future products unless they get their !@#@S
+> drivers upstream, I'd bet they'd change their engineering priorities
+> so they would work on it, instead of foisting this work on their
+> customers.
 > 
-> Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
-> ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c |   18 +++++++++---------
->  1 file changed, 9 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-> index 5682054..91ecd6a 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-> @@ -2139,12 +2139,12 @@ static u8 bnx2x_dcbnl_get_cap(struct net_device *netdev, int capid, u8 *cap)
->  			break;
->  		default:
->  			BNX2X_ERR("Non valid capability ID\n");
-> -			rval = -EINVAL;
-> +			rval = 1;
->  			break;
->  		}
->  	} else {
->  		DP(BNX2X_MSG_DCB, "DCB disabled\n");
-> -		rval = -EINVAL;
-> +		rval = 1;
->  	}
-> 
->  	DP(BNX2X_MSG_DCB, "capid %d:%x\n", capid, *cap);
-> @@ -2170,12 +2170,12 @@ static int bnx2x_dcbnl_get_numtcs(struct net_device *netdev, int tcid, u8 *num)
->  			break;
->  		default:
->  			BNX2X_ERR("Non valid TC-ID\n");
-> -			rval = -EINVAL;
-> +			rval = 1;
->  			break;
->  		}
->  	} else {
->  		DP(BNX2X_MSG_DCB, "DCB disabled\n");
-> -		rval = -EINVAL;
-> +		rval = 1;
->  	}
-> 
->  	return rval;
-> @@ -2188,7 +2188,7 @@ static int bnx2x_dcbnl_set_numtcs(struct net_device *netdev, int tcid, u8 num)
->  	return -EINVAL;
->  }
-> 
-> -static u8  bnx2x_dcbnl_get_pfc_state(struct net_device *netdev)
-> +static u8 bnx2x_dcbnl_get_pfc_state(struct net_device *netdev)
->  {
->  	struct bnx2x *bp = netdev_priv(netdev);
->  	DP(BNX2X_MSG_DCB, "state = %d\n", bp->dcbx_local_feat.pfc.enabled);
-> @@ -2390,12 +2390,12 @@ static u8 bnx2x_dcbnl_get_featcfg(struct net_device *netdev, int featid,
->  			break;
->  		default:
->  			BNX2X_ERR("Non valid featrue-ID\n");
-> -			rval = -EINVAL;
-> +			rval = 1;
->  			break;
->  		}
->  	} else {
->  		DP(BNX2X_MSG_DCB, "DCB disabled\n");
-> -		rval = -EINVAL;
-> +		rval = 1;
->  	}
-> 
->  	return rval;
-> @@ -2431,12 +2431,12 @@ static u8 bnx2x_dcbnl_set_featcfg(struct net_device *netdev, int featid,
->  			break;
->  		default:
->  			BNX2X_ERR("Non valid featrue-ID\n");
-> -			rval = -EINVAL;
-> +			rval = 1;
->  			break;
->  		}
->  	} else {
->  		DP(BNX2X_MSG_DCB, "dcbnl call not valid\n");
-> -		rval = -EINVAL;
-> +		rval = 1;
->  	}
-> 
->  	return rval;
-> --
-> 1.7.9.5
+I would love to be in that position. However, the decision to choose
+a specific chip is not always coordinated with those who have to provide
+the software to run on those chips.
 
-Kumar,  thanks!
+> I've seen this work in enterprise computing, where the RFP had
+> requirements for upstream drivers (i.e., if you want your 10gig
+> ethernet NIC to be used in HP or IBM's servers, get the darned thing
+> upstream!).  The trick is making it clear that selection of components
+> depends not just on an OSS driver, but an OSS driver which has been
+> accepted upstream (which also helps from a quality-of-code
+> requirement).
+> 
+> I've been waiting for this to start happening in the consumer
+> electronics/embedded world, but it's been slow coming,
+> unfortunately....
+> 
+The same applies to vendors of non-consumer network devices, unfortunately.
 
-Acked-by: Dmitry Kravkov <dmitry@broadcom.com>
+Guenter
