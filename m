@@ -1,43 +1,79 @@
-From: tingwei liu <tingw.liu@gmail.com>
-Subject: Re: [PATCH 1/1]core:Change a wrong explain about dev_get_by_name
-Date: Sat, 23 Mar 2013 09:33:35 +0800
-Message-ID: <CA+qZnSQABuJfJDQRi5n+HQqNcRCgYDyZy_Fa0EY-s=_CcNfP9g@mail.gmail.com>
-References: <CA+qZnSSMfbeGsThYe-=tK-kZ3h1GEKDGkNom+07-hRSqgLUUWg@mail.gmail.com>
-	<1363793549.3333.12.camel@edumazet-glaptop>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba (updated) Version 2
+Date: Sat, 23 Mar 2013 03:10:08 +0100
+Message-ID: <20130323021008.GC939@order.stressinduktion.org>
+References: <514CE440.3010003@gmail.com> <1363996448.4431.73.camel@edumazet-glaptop> <514CF23A.3010702@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: rebelyouth <rebelyouth.hacklab@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f171.google.com ([209.85.210.171]:37745 "EHLO
-	mail-ia0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422670Ab3CWBdg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 21:33:36 -0400
-Received: by mail-ia0-f171.google.com with SMTP id z13so4099082iaz.30
-        for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 18:33:36 -0700 (PDT)
-In-Reply-To: <1363793549.3333.12.camel@edumazet-glaptop>
+Received: from order.stressinduktion.org ([87.106.68.36]:53189 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422826Ab3CWCKJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 22:10:09 -0400
+Content-Disposition: inline
+In-Reply-To: <514CF23A.3010702@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 20, 2013 at 11:32 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2013-03-20 at 17:33 +0800, tingwei liu wrote:
->> From 5d787e8c3725efa6af3036eeb52aba1905c70de9 Mon Sep 17 00:00:00 2001
->> From: root <root@linux-19.site>
->> Date: Wed, 20 Mar 2013 17:39:59 +0800
->> Subject: [PATCH] Change a wrong explain about dev_get_by_name
->>
->
-> No changelog ? This patch really needs a changelog.
->
-How to get the lastest commit about this comment?
-Thanks a lot.
-> I have no idea why we should document this function being not safe in
-> irq context.
->
-> Most part of networking stack is non safe in hard irq context.
->
-> Should we add a comment in front of all possible entry points ?
->
->
->
+On Fri, Mar 22, 2013 at 08:07:22PM -0400, rebelyouth wrote:
+> On 22/03/13 07:54 PM, Eric Dumazet wrote:
+> >On Fri, 2013-03-22 at 19:07 -0400, rebelyouth wrote:
+> >>Hi,
+> >>
+> >>I'm writing again for the same issue about :
+> >>
+> >Your mail is so long that we are lost.
+> >
+> >Have you done some research to tell if the bug is :
+> >
+> >1) Sending corrupt frames
+> >
+> >2) receive corrupt frames
+> >
+> >
+> Hi Eric and Hannes,
+> 
+> The server receiver errors  when I use the atheros:
+> 
+> RX packets:78125369 errors:58741 dropped:0 overruns:58741 frame:0
+> 
+> but on the client side  there aren't any error but the file  is corrupted
+> 
+> I rebooted  the server and did the test with the Realtek:
+> 
+>  file ok , no errors in both sides
+> 
+> I also reset again the server and did a test on windows using samba and 
+> the Atheros:
+> 
+>  file ok , no errors in both sides
+
+Could you try this patch? It solves the problem with an atl1e nic on my
+friends computer. This does not solve the real problem, which I have
+not yet understood (wrong packets will be discarded now and will be
+hopefully resend).
+
+[PATCH RFC] atl1e: don't rely on hardware checksumming
+
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ drivers/net/ethernet/atheros/atl1e/atl1e_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+index e1f1b2a..0363e5b 100644
+--- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
++++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+@@ -1337,6 +1337,8 @@ static inline void atl1e_rx_checksum(struct atl1e_adapter *adapter,
+ 	u16 err_flags;
+ 
+ 	skb_checksum_none_assert(skb);
++	goto hw_xsum;
++
+ 	pkt_flags = prrs->pkt_flag;
+ 	err_flags = prrs->err_flag;
+ 	if (((pkt_flags & RRS_IS_IPV4) || (pkt_flags & RRS_IS_IPV6)) &&
+-- 
+1.8.1.4
