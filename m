@@ -1,9 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] inet: generalize ipv4-only RFC3168 5.3
- ecn fragmentation handling for future use by ipv6
-Date: Sun, 24 Mar 2013 17:17:20 -0400 (EDT)
-Message-ID: <20130324.171720.923983789492647520.davem@davemloft.net>
-References: <20130322182437.GC19365@order.stressinduktion.org>
+Subject: Re: [PATCH net-next 2/2] ipv6: implement RFC3168 5.3 (ecn
+ protection) for ipv6 fragmentation handling
+Date: Sun, 24 Mar 2013 17:17:30 -0400 (EDT)
+Message-ID: <20130324.171730.1955202802291261072.davem@davemloft.net>
+References: <20130322182444.GA939@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,20 +11,21 @@ Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, jbrouer@redhat.com,
 	yoshfuji@linux-ipv6.org
 To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43854 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43868 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754763Ab3CXVRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:17:22 -0400
-In-Reply-To: <20130322182437.GC19365@order.stressinduktion.org>
+	with ESMTP id S1754850Ab3CXVRb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:17:31 -0400
+In-Reply-To: <20130322182444.GA939@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 22 Mar 2013 19:24:37 +0100
+Date: Fri, 22 Mar 2013 19:24:44 +0100
 
-> This patch just moves some code arround to make the ip4_frag_ecn_table
-> and IPFRAG_ECN_* constants accessible from the other reassembly engines. I
-> also renamed ip4_frag_ecn_table to ip_frag_ecn_table.
+> [PATCH 2/2] ipv6: implement RFC3168 5.3 (ecn protection) for ipv6 fragmentation handling
+> 
+> This patch also ensures that INET_ECN_CE is propagated if one fragment
+> had the codepoint set.
 > 
 > Cc: Eric Dumazet <eric.dumazet@gmail.com>
 > Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>
