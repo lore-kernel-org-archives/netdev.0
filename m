@@ -1,34 +1,73 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH net-next 1/2] inet: generalize ipv4-only RFC3168 5.3 ecn
- fragmentation handling for future use by ipv6
-Date: Sun, 24 Mar 2013 21:23:15 +0900
-Message-ID: <514EF033.1000807@linux-ipv6.org>
-References: <20130322182437.GC19365@order.stressinduktion.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC PATCH v2, part4 09/39] mm: use totalram_pages instead of
+ num_physpages at runtime
+Date: Sun, 24 Mar 2013 16:26:54 +0400
+Message-ID: <514EF10E.6070506@cogentembedded.com>
+References: <1364109934-7851-1-git-send-email-jiang.liu@huawei.com> <1364109934-7851-11-git-send-email-jiang.liu@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jbrouer@redhat.com,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:43022 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753410Ab3CXMXT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 08:23:19 -0400
-In-Reply-To: <20130322182437.GC19365@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+ David Rientjes <rientjes@google.com>,
+ Jiang Liu <jiang.liu@huawei.com>, Wen Congyang <wency@cn.fujitsu.com>,
+ Mel Gorman <mgorman@suse.de>,
+ Minchan Kim <minchan@kernel.org>,
+ KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
+ Michal Hocko <mhocko@suse.cz>, Jianguo Wu <wujianguo@huawei.com>,
+ linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+ Miklos Szeredi <miklos@szeredi.hu>,
+ "David S. Miller" <davem@davemloft.net>,
+ Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+ James Morris <jmorris@namei.org>,
+ Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+ Patrick McHardy <kaber@trash.net>, fuse-devel@lists.sourceforge.net,
+ netdev@vger.kernel.org
+To: Jiang Liu <liuj97@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1364109934-7851-11-git-send-email-jiang.liu@huawei.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Hannes Frederic Sowa wrote:
-> This patch just moves some code arround to make the ip4_frag_ecn_table
-> and IPFRAG_ECN_* constants accessible from the other reassembly engines. I
-> also renamed ip4_frag_ecn_table to ip_frag_ecn_table.
-> 
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Hello.
 
+On 24-03-2013 11:24, Jiang Liu wrote:
 
---yoshfuji
+> The global variable num_physpages is scheduled to be removed, so use
+> totalram_pages instead of num_physpages at runtime.
+
+> Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+> Cc: Miklos Szeredi <miklos@szeredi.hu>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Cc: James Morris <jmorris@namei.org>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: fuse-devel@lists.sourceforge.net
+> Cc: linux-kernel@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+[...]
+
+> diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+> index 4750d2b..94a99a1 100644
+> --- a/net/ipv4/inet_fragment.c
+> +++ b/net/ipv4/inet_fragment.c
+> @@ -60,7 +60,7 @@ void inet_frags_init(struct inet_frags *f)
+>
+>   	rwlock_init(&f->lock);
+>
+> -	f->rnd = (u32) ((num_physpages ^ (num_physpages>>7)) ^
+> +	f->rnd = (u32) ((totalram_pages ^ (totalram_pages>>7)) ^
+
+    Wouldn't hurt to add spaces around >> for consistency's sake.
+
+>   				   (jiffies ^ (jiffies >> 6)));
+>
+>   	setup_timer(&f->secret_timer, inet_frag_secret_rebuild,
+
+WBR, Sergei
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
