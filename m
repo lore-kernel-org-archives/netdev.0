@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 2/2] ipv6: provide addr and netconf dump
- consistency info
-Date: Sun, 24 Mar 2013 17:17:03 -0400 (EDT)
-Message-ID: <20130324.171703.1834039579807612597.davem@davemloft.net>
-References: <514C8559.5030301@6wind.com>
-	<1363969723-4390-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1363969723-4390-2-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next 1/2] inet: generalize ipv4-only RFC3168 5.3
+ ecn fragmentation handling for future use by ipv6
+Date: Sun, 24 Mar 2013 17:17:20 -0400 (EDT)
+Message-ID: <20130324.171720.923983789492647520.davem@davemloft.net>
+References: <20130322182437.GC19365@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, junwei.zhang@6wind.com,
-	hongjun.li@6wind.com
-To: nicolas.dichtel@6wind.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, jbrouer@redhat.com,
+	yoshfuji@linux-ipv6.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43848 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43854 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754763Ab3CXVRG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:17:06 -0400
-In-Reply-To: <1363969723-4390-2-git-send-email-nicolas.dichtel@6wind.com>
-	<1363970042-12625-1-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S1754763Ab3CXVRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:17:22 -0400
+In-Reply-To: <20130322182437.GC19365@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Fri, 22 Mar 2013 17:34:02 +0100
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Fri, 22 Mar 2013 19:24:37 +0100
 
-> When this flag is set, it means that dump was interrupted and result may be
-> inconsistent.
+> This patch just moves some code arround to make the ip4_frag_ecn_table
+> and IPFRAG_ECN_* constants accessible from the other reassembly engines. I
+> also renamed ip4_frag_ecn_table to ip_frag_ecn_table.
 > 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>
+> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
 Applied.
