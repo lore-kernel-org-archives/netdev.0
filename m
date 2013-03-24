@@ -1,41 +1,53 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] bridge: avoid br_ifinfo_notify when nothing
- changed
-Date: Sun, 24 Mar 2013 17:34:47 +0300
-Message-ID: <514F0F07.9050702@cogentembedded.com>
-References: <1364015653-7322-1-git-send-email-honkiko@gmail.com> <1364131607-11698-1-git-send-email-honkiko@gmail.com>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: [PATCH v3 1/1 net-next] net: fec: put tx to napi poll function
+ to fix dead lock
+Date: Sun, 24 Mar 2013 22:35:28 +0800
+Message-ID: <20130324143525.GI6281@S2101-09.ap.freescale.net>
+References: <1362368065-5809-1-git-send-email-Frank.Li@freescale.com>
+ <20130320114824.GA6088@S2101-09.ap.freescale.net>
+ <CAOMZO5B-ipzyb2uiLW12fFd3PD3JfLS8R0YLM5vtLgFNz8abUw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	davem@davemloft.net, stephen@networkplumber.org,
-	herbert@gondor.hengli.com.au, zhiguo.hong@emc.com
-To: Hong Zhiguo <honkiko@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Frank Li <Frank.Li@freescale.com>, <B38611@freescale.com>,
+	<netdev@vger.kernel.org>, <s.hauer@pengutronix.de>,
+	<lznuaa@gmail.com>, <davem@davemloft.net>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Fabio Estevam <festevam@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:57441 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753728Ab3CXNdY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 09:33:24 -0400
-Received: by mail-la0-f51.google.com with SMTP id fo13so9884654lab.10
-        for <netdev@vger.kernel.org>; Sun, 24 Mar 2013 06:33:22 -0700 (PDT)
-In-Reply-To: <1364131607-11698-1-git-send-email-honkiko@gmail.com>
+Received: from am1ehsobe006.messaging.microsoft.com ([213.199.154.209]:50077
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753900Ab3CXOfZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 10:35:25 -0400
+Content-Disposition: inline
+In-Reply-To: <CAOMZO5B-ipzyb2uiLW12fFd3PD3JfLS8R0YLM5vtLgFNz8abUw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Fri, Mar 22, 2013 at 04:00:26PM -0300, Fabio Estevam wrote:
+> On Wed, Mar 20, 2013 at 8:48 AM, Shawn Guo <shawn.guo@linaro.org> wrote:
+> > Frank,
+> >
+> > I'm running v3.9-rc3 image with NFS on imx6q, and seeing system fail
+> > to resume back.  The resume seems being stopped by fec driver.  If you
+> > wait long enough, you might see the repeated "eth0: tx queue full!."
+> > error message.
+> 
+> On mx28, only reverting this patch does not solve the suspend/resume issue.
 
-On 03/24/2013 04:26 PM, Hong Zhiguo wrote:
+Are you sure?  After reverting the patch on next-20130322, I can get
+imx28 resume back to console as below.
 
-> When neither IFF_BRIDGE nor IFF_BRIDGE_PORT is set,
-> and afspec == NULL but  protinfo != NULL, we run into
-> "if (err == 0) br_ifinfo_notify(RTM_NEWLINK, p);" with
-> random value in ret.
->
-> Thanks to Sergei for pointing out the error in commit comments.
->
-> Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
+Shawn
 
-     For the future, if you post the revised version of the patch, you
-should indicate in the subject it like this: [PATCH v2].
-
-WBR, Sergei
+root@freescale ~$ echo mem > /sys/power/state
+[   20.943170] PM: Syncing filesystems ... done.
+[   20.976303] Freezing user space processes ... (elapsed 0.01 seconds) done.
+[   20.998050] Freezing remaining freezable tasks ... (elapsed 0.01 seconds) done.
+[   21.025647] PM: suspend of devices complete after 6.283 msecs
+[   21.032543] PM: late suspend of devices complete after 1.092 msecs
+[   21.040489] PM: noirq suspend of devices complete after 1.603 msecs
+[   21.048045] PM: noirq resume of devices complete after 0.794 msecs
+[   21.055891] PM: early resume of devices complete after 1.088 msecs
+[   21.167790] PM: resume of devices complete after 105.641 msecs
+[   21.174939] Restarting tasks ... done.
+root@freescale ~$
