@@ -1,53 +1,104 @@
-From: tingwei liu <tingw.liu@gmail.com>
-Subject: Re: [PATCH 1/1]core:Change a wrong explain about dev_get_by_name
-Date: Sun, 24 Mar 2013 15:07:00 +0800
-Message-ID: <CA+qZnSR8Rfs0e2BtHsYwLGEBN5Wah2Hks1QYHcsuo3DdvL3yQA@mail.gmail.com>
-References: <CA+qZnSSMfbeGsThYe-=tK-kZ3h1GEKDGkNom+07-hRSqgLUUWg@mail.gmail.com>
-	<1363793549.3333.12.camel@edumazet-glaptop>
-	<1363799443.2677.2.camel@bwh-desktop.uk.solarflarecom.com>
-	<1363801389.3333.25.camel@edumazet-glaptop>
-	<CA+qZnST22XrkFgsNqE8aAziD++4EZXzBGzM-4GNbbxfi8z+yvQ@mail.gmail.com>
-	<1364002324.4431.84.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f175.google.com ([209.85.210.175]:43657 "EHLO
-	mail-ia0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752703Ab3CXHHB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 03:07:01 -0400
-Received: by mail-ia0-f175.google.com with SMTP id y26so4709327iab.34
-        for <netdev@vger.kernel.org>; Sun, 24 Mar 2013 00:07:00 -0700 (PDT)
-In-Reply-To: <1364002324.4431.84.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiang Liu <liuj97@gmail.com>
+Subject: [RFC PATCH v2, part4 09/39] mm: use totalram_pages instead of num_physpages at runtime
+Date: Sun, 24 Mar 2013 15:24:36 +0800
+Message-ID: <1364109934-7851-11-git-send-email-jiang.liu@huawei.com>
+References: <1364109934-7851-1-git-send-email-jiang.liu@huawei.com>
+Cc: Jiang Liu <jiang.liu@huawei.com>,
+	Wen Congyang <wency@cn.fujitsu.com>,
+	Mel Gorman <mgorman@suse.de>,
+	Minchan Kim <minchan@kernel.org>,
+	KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
+	Michal Hocko <mhocko@suse.cz>,
+	Jianguo Wu <wujianguo@huawei.com>,
+	linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org,
+	Miklos Szeredi <miklos@szeredi.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	fuse-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	David Rientjes <rientjes@google.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1364109934-7851-1-git-send-email-jiang.liu@huawei.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 23, 2013 at 9:32 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sat, 2013-03-23 at 09:24 +0800, tingwei liu wrote:
->> On Thu, Mar 21, 2013 at 1:43 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Wed, 2013-03-20 at 17:10 +0000, Ben Hutchings wrote:
->> >
->> >> If they are wrongly documented as 'can be called from any context', yes.
->> >
->> > Wow, thats really useful.
->> >
->> > Why is this function not allowed from hard irq context, we have no idea.
->> When function "list_netdevice" get write lock "dev_base_lock" only
->> disable soft interrupt. So dev_get_by_name get read lock
->> "dev_base_lock", can not called on interrupt context.
->
->
-> dev_get_by_name() doesn't read lock dev_base_lock
-> since commit 72c9528bab94cc052
->
-> This was back to linux-2.6.33
->
-> Are you sending patches for older kernel versions per chance ?
-No. I only sending patch for lastest kernel. I don't know which kernel
-should be patched.
-Thanks.
->
->
->
+The global variable num_physpages is scheduled to be removed, so use
+totalram_pages instead of num_physpages at runtime.
+
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+Cc: Miklos Szeredi <miklos@szeredi.hu>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: fuse-devel@lists.sourceforge.net
+Cc: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
+---
+ fs/fuse/inode.c          |    2 +-
+ kernel/power/snapshot.c  |    4 ++--
+ net/ipv4/inet_fragment.c |    2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
+index b730fda..4c2a420 100644
+--- a/fs/fuse/inode.c
++++ b/fs/fuse/inode.c
+@@ -781,7 +781,7 @@ static const struct super_operations fuse_super_operations = {
+ static void sanitize_global_limit(unsigned *limit)
+ {
+ 	if (*limit == 0)
+-		*limit = ((num_physpages << PAGE_SHIFT) >> 13) /
++		*limit = ((totalram_pages << PAGE_SHIFT) >> 13) /
+ 			 sizeof(struct fuse_req);
+ 
+ 	if (*limit >= 1 << 16)
+diff --git a/kernel/power/snapshot.c b/kernel/power/snapshot.c
+index 0de2857..8b5d1cd 100644
+--- a/kernel/power/snapshot.c
++++ b/kernel/power/snapshot.c
+@@ -1651,7 +1651,7 @@ unsigned long snapshot_get_image_size(void)
+ static int init_header(struct swsusp_info *info)
+ {
+ 	memset(info, 0, sizeof(struct swsusp_info));
+-	info->num_physpages = num_physpages;
++	info->num_physpages = get_num_physpages();
+ 	info->image_pages = nr_copy_pages;
+ 	info->pages = snapshot_get_image_size();
+ 	info->size = info->pages;
+@@ -1795,7 +1795,7 @@ static int check_header(struct swsusp_info *info)
+ 	char *reason;
+ 
+ 	reason = check_image_kernel(info);
+-	if (!reason && info->num_physpages != num_physpages)
++	if (!reason && info->num_physpages != get_num_physpages())
+ 		reason = "memory size";
+ 	if (reason) {
+ 		printk(KERN_ERR "PM: Image mismatch: %s\n", reason);
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 4750d2b..94a99a1 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -60,7 +60,7 @@ void inet_frags_init(struct inet_frags *f)
+ 
+ 	rwlock_init(&f->lock);
+ 
+-	f->rnd = (u32) ((num_physpages ^ (num_physpages>>7)) ^
++	f->rnd = (u32) ((totalram_pages ^ (totalram_pages>>7)) ^
+ 				   (jiffies ^ (jiffies >> 6)));
+ 
+ 	setup_timer(&f->secret_timer, inet_frag_secret_rebuild,
+-- 
+1.7.9.5
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
