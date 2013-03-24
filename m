@@ -1,36 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] 8021q: fix a potential use-after-free
-Date: Sun, 24 Mar 2013 17:27:56 -0400 (EDT)
-Message-ID: <20130324.172756.1733514118551455926.davem@davemloft.net>
-References: <1363938600-26129-1-git-send-email-amwang@redhat.com>
-	<1364015648-4195-1-git-send-email-amwang@redhat.com>
+Subject: Re: [PATCH v2] bnx2x: fix assignment of signed expression to
+ unsigned variable
+Date: Sun, 24 Mar 2013 17:28:13 -0400 (EDT)
+Message-ID: <20130324.172813.1125045357453229626.davem@davemloft.net>
+References: <1364105425-8198-1-git-send-email-gmate.amit@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: amwang@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43991 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755077Ab3CXV15 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:27:57 -0400
-In-Reply-To: <1364015648-4195-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eilong@broadcom.com, dan.carpenter@oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: gmate.amit@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1364105425-8198-1-git-send-email-gmate.amit@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
-Date: Sat, 23 Mar 2013 13:14:07 +0800
+From: Kumar Amit Mehta <gmate.amit@gmail.com>
+Date: Sat, 23 Mar 2013 23:10:25 -0700
 
-> From: Cong Wang <amwang@redhat.com>
+> fix for incorrect assignment of signed expression to unsigned variable.
 > 
-> vlan_vid_del() could possibly free ->vlan_info after a RCU grace
-> period, however, we may still refer to the freed memory area
-> by 'grp' pointer. Found by code inspection.
-> 
-> This patch moves vlan_vid_del() as behind as possible.
-> 
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+> Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
 
 Applied.
