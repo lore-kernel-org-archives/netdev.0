@@ -1,43 +1,37 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] Fix IXP4xx coherent allocations
-Date: Sun, 24 Mar 2013 22:15:36 +0100
-Message-ID: <m3r4j4sdmv.fsf@intrepid.localdomain>
-References: <m3obe9lxil.fsf@intrepid.localdomain>
-	<20130323.195740.2108147521543354261.davem@davemloft.net>
-	<1364152267.3620.31.camel@deadeye.wl.decadent.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 1/2] ipv4: provide addr and netconf dump
+ consistency info
+Date: Sun, 24 Mar 2013 17:16:53 -0400 (EDT)
+Message-ID: <20130324.171653.1210930844712331473.davem@davemloft.net>
+References: <514C8559.5030301@6wind.com>
+	<1363969723-4390-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	c.aeschlimann@acn-group.ch, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1364152267.3620.31.camel@deadeye.wl.decadent.org.uk> (Ben
-	Hutchings's message of "Sun, 24 Mar 2013 19:11:07 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, junwei.zhang@6wind.com,
+	hongjun.li@6wind.com
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43843 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754763Ab3CXVQz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:16:55 -0400
+In-Reply-To: <1363969723-4390-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings <bhutchings@solarflare.com> writes:
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Fri, 22 Mar 2013 17:28:42 +0100
 
-> I'm failing to see where it says the default can't be narrower than 32
-> bits due to platform limits.  And how do you think DMA mapping is
-> supposed to work for PCI devices on these platforms, anyway?
+> This patch takes benefit of dev_addr_genid and dev_base_seq to check if a change
+> occurs during a netlink dump. If a change is detected, the flag NLM_F_DUMP_INTR
+> is set in the first message after the dump was interrupted.
+> 
+> Note that seq and prev_seq must be reset between each family in rtnl_dump_all()
+> because they are specific to each family.
+> 
+> Reported-by: Junwei Zhang <junwei.zhang@6wind.com>
+> Reported-by: Hongjun Li <hongjun.li@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-The problem on ARM (and probably on powerpc, and on something called
-"metag" - grep -r 'coherent DMA mask is unset' arch) is that the default
-coherent DMA mask is zero. IOW, coherent DMA allocations are, by
-default, disabled. A driver has to dma_set_coherent_mask() or, as many
-drivers do, set dev->coherent_dma_mask directly (IMHO
-dev->coherent_dma_mask along with dev->dma_mask are private DMA API
-stuff and e.g. device drivers have no interest there).
-
-The zero default is IMHO, WRT the actual DMA API, an ARM bug (and
-powerpc's etc). Nevertheless, the patch I posted does everything as
-required by the API. Specifically, the IXP4xx arch part makes
-IXP4xx's dma_set_coherent_mask() compliant with DMA API, and the actual
-dma_set_coherent_mask() calls in drivers are both valid and I guess
-recommended by the API.
-
-The patch doesn't touch the core ARM issue, that's right.
--- 
-Krzysztof Halasa
+Applied.
