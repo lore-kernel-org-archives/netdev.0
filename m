@@ -1,46 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] 802: fix a possible race condition
-Date: Sun, 24 Mar 2013 17:24:03 -0400 (EDT)
-Message-ID: <20130324.172403.776354963637295731.davem@davemloft.net>
-References: <1363938600-26129-1-git-send-email-amwang@redhat.com>
-	<1364015648-4195-1-git-send-email-amwang@redhat.com>
-	<1364015648-4195-2-git-send-email-amwang@redhat.com>
+Subject: Re: [PATCH] net: remove a WARN_ON() in net_enable_timestamp()
+Date: Sun, 24 Mar 2013 17:27:50 -0400 (EDT)
+Message-ID: <20130324.172750.346803352885480915.davem@davemloft.net>
+References: <1363999108.4431.81.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, david.ward@ll.mit.edu, jorge@dti2.net
-To: amwang@redhat.com
+Cc: netdev@vger.kernel.org, chavey@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43917 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43986 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754808Ab3CXVYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:24:05 -0400
-In-Reply-To: <1364015648-4195-2-git-send-email-amwang@redhat.com>
+	with ESMTP id S1754688Ab3CXV1w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:27:52 -0400
+In-Reply-To: <1363999108.4431.81.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Sat, 23 Mar 2013 13:14:08 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 22 Mar 2013 17:38:28 -0700
 
-> From: Cong Wang <amwang@redhat.com>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> garp_pdu_queue() should ways be called with this spin lock.
-> garp_uninit_applicant() only holds rtnl lock which is not
-> enough here.
+> The WARN_ON(in_interrupt()) in net_enable_timestamp() can get false
+> positive, in socket clone path, run from softirq context :
+ ...
+> Its safe at this point because the parent socket owns a reference
+> on the netstamp_needed, so we cant have a 0 -> 1 transition, which
+> requires to lock a mutex.
 > 
-> Found by code inspection.
+> Instead of refining the check, lets remove it, as all known callers
+> are safe. If it ever changes in the future, static_key_slow_inc()
+> will complain anyway.
 > 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: David Ward <david.ward@ll.mit.edu>
-> Cc: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+> Reported-by: Laurent Chavey <chavey@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Under what conditions can entries be removed or added to
-these RB-trees without the RTNL being held?
-
-If such events cannot happen, then no locking is needed.
-
-Even if your change is correct and necessary, the answer to my
-needs to be added to your commit message.
-
-Thanks.
+Applied.
