@@ -1,41 +1,64 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next] ip_gre: increase inner ip header ID only for IPv4
-Date: Sat, 23 Mar 2013 21:13:09 -0700
-Message-ID: <CALnjE+qTr5LxozvmN2yBZMN88ra6SVchHcmbgMXhh0cG1ZM41w@mail.gmail.com>
-References: <1364016584-7189-1-git-send-email-amwang@redhat.com>
-	<CALnjE+qJ-BaGYEohfWB3-ZWaa9LwhFi5maR=yjP5_TD5N_jtog@mail.gmail.com>
-	<1364092641.10694.2.camel@cr0>
+From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Subject: RE: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or
+ Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba
+ (updated) Version 2
+Date: Sun, 24 Mar 2013 04:21:27 +0000
+Message-ID: <157393863283F442885425D2C4542856489E7CA8@nasanexd02f.na.qualcomm.com>
+References: <1363996448.4431.73.camel@edumazet-glaptop>
+ <514CF23A.3010702@gmail.com>
+ <20130323021008.GC939@order.stressinduktion.org>
+ <514D3581.4040001@gmail.com>
+ <20130323150655.GA10779@order.stressinduktion.org>
+ <69jo698argv8@mids.svenhartge.de>
+ <20130324012625.GA17948@order.stressinduktion.org>
+ <89joa2largv8@mids.svenhartge.de>
+ <20130324014125.GB17948@order.stressinduktion.org>
+ <157393863283F442885425D2C4542856489E7C79@nasanexd02f.na.qualcomm.com>
+ <20130324034037.GC17948@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Sven Hartge <sven@svenhartge.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog105.obsmtp.com ([74.125.149.75]:51302 "HELO
-	na3sys009aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750742Ab3CXENK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 00:13:10 -0400
-Received: by mail-ia0-f198.google.com with SMTP id y26so17044710iab.9
-        for <netdev@vger.kernel.org>; Sat, 23 Mar 2013 21:13:09 -0700 (PDT)
-In-Reply-To: <1364092641.10694.2.camel@cr0>
+Received: from sabertooth01.qualcomm.com ([65.197.215.72]:28144 "EHLO
+	sabertooth01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750871Ab3CXEVu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 00:21:50 -0400
+In-Reply-To: <20130324034037.GC17948@order.stressinduktion.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 23, 2013 at 7:37 PM, Cong Wang <amwang@redhat.com> wrote:
-> On Sat, 2013-03-23 at 16:36 -0700, Pravin Shelar wrote:
->> On Fri, Mar 22, 2013 at 10:29 PM, Cong Wang <amwang@redhat.com> wrote:
->> > From: Cong Wang <amwang@redhat.com>
->> >
->> > Pravin pointed out the inner network header of a GRE tunnel packet
->> > could be IPv6, where there is no ID. So we should check the version.
->> >
->>
->> inet_gso_segment() already increment ip-header identification. What is
->> problem with that?
->
-> Let tcpdump speak:
->
-> (Inner ID is always 3b65 without my patch)
->
-Thanks for report.
-I just sent out fix, Can you please try that.
+SSBrbm93IHRoYXQgZnJvbSBzb21lIHZlcnNpb24gb2YgY2hpcHMsIHRoZXJlIGlzIGEgRE1BIGJ1
+ZyB0aGF0IGNhbid0IGJlIGZpeGVkIGJ5IHNvZnR3YXJlLCBhbmQgdGhpcyBidWcgY291bGQgYmUg
+ZGV0ZWN0ZWQgYnkgY2hlY2tpbmcgU2VxdWVuY2UgbnVtYmVyLCBhbmQgZG8gTUFDIHJlc2V0Lg0K
+QmVzaWRlcywgdGhlIGNoaXAgd3JvbmdseSBpbmRpY2F0ZSByeC1jaGVja3N1bSBmb3IgSVAtZnJh
+Z21lbnQgcGFja2V0LCBJIGNoZWNrZWQgd2luZG93cyBjb2RlLCBpdCBzZWVtcyBhIGxpdHRsZSBi
+aXQgZGlmZmVyZW50IHdpdGggbGludXggY29kZToNCg0KCWlmICgoKHBrdF9mbGFncyAmIFJSU19J
+U19JUFY0KSAmJiAoKHBrdF9mbGFncyAmIFJSU19JU19UQ1ApIHx8IChwa3RfZmxhZ3MgJiBSUlNf
+SVNfVURQKSkpIHsNCgkJaWYgKHBrdF9mbGFncyAmIFJSU19JU184MDJfMykNCgkJCWhlYWRfbGVu
+ICs9IDg7DQoJCWlwaCA9IChzdHJ1Y3QgaXBoZHIgKikgKHBhY2tldCArIGhlYWRfbGVuKTsNCgkJ
+aWYgKChpcGgtPmZyYWdfb2ZmICE9IDAgfHwgKHBrdF9mbGFncyAmIFJSU19JU19JUF9GUkFHKSkg
+ICYmICEocGt0X2ZsYWdzICYgUlJTX0lTX0lQX0RGKSkNCgkJCWdvdG8gaHdfeHN1bTsJCQkNCgl9
+DQoJaWYgKCEoZXJyX2ZsYWdzICYgKFJSU19FUlJfSVBfQ1NVTSB8IFJSU19FUlJfTDRfQ1NVTSkp
+KSB7DQoJCXNrYi0+aXBfc3VtbWVkID0gQ0hFQ0tTVU1fVU5ORUNFU1NBUlk7DQoJCXJldHVybjsN
+Cgl9DQoNCg0KDQpUaGFua3MNClhpb25nDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0N
+Cj4gRnJvbTogSGFubmVzIEZyZWRlcmljIFNvd2EgW21haWx0bzpoYW5uZXNAc3RyZXNzaW5kdWt0
+aW9uLm9yZ10NCj4gU2VudDogU3VuZGF5LCBNYXJjaCAyNCwgMjAxMyAxMTo0MSBBTQ0KPiBUbzog
+SHVhbmcsIFhpb25nDQo+IENjOiBTdmVuIEhhcnRnZTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0K
+PiBTdWJqZWN0OiBSZTogQXRoZXJvcyBDb21tdW5pY2F0aW9ucyBJbmMuIEFSODEyMS9BUjgxMTMv
+QVI4MTE0IEdpZ2FiaXQgb3INCj4gRmFzdCBFdGhlcm5ldCAocmV2IGIwKSAxLjAuMC43IG1kNS9z
+aGExIGNvcnJ1cHRlZCB1c2luZyBORlMgYW5kIHNhbWJhDQo+ICh1cGRhdGVkKSBWZXJzaW9uIDIN
+Cj4gDQo+IE9uIFN1biwgTWFyIDI0LCAyMDEzIGF0IDAzOjI3OjU1QU0gKzAwMDAsIEh1YW5nLCBY
+aW9uZyB3cm90ZToNCj4gPiBDb3VsZCB5b3UgcG9pbnQgbWUgd2hlcmUgdGhlIHBhdGNoIGlzID8N
+Cj4gPiBJIGNoZWNrZWQgd2luZG93cyBkcml2ZXIsIGl0IGRvZXNuJ3QgZGlzYWJsZSBjaGVja3N1
+bSBvZmZsb2FkIGluIFJYDQo+IGRpcmVjdGlvbi4NCj4gDQo+IA0KPiBUaGUgcGF0Y2ggaXMgaGVy
+ZTogPGh0dHA6Ly9hcnRpY2xlLmdtYW5lLm9yZy9nbWFuZS5saW51eC5uZXR3b3JrLzI2MzExNj4N
+Cj4gDQo+IEl0IGRvZXMgbm90IGRpc2FibGUgY2hlY2tzdW0gb2ZmbG9hZGluZyBidXQgcmF0aGVy
+IHN1cHByZXNzIHRoZSB1cGRhdGUgb2YNCj4gdGhlIGlwX3N1bW1lZCBmaWVsZC4gVGhpcyBmb3Jj
+ZXMgdGhlIGtlcm5lbCB0byByZWNoZWNrIHRoZSBjaGVja3N1bXMgYW5kDQo+IGRpc2NhcmQgdGhl
+IHBhY2tldC4gT3RoZXJ3aXNlIGl0IHdvdWxkIGJlIHNlZW4gYXMgYSB2YWxpZCBvbmUgYW5kIGNv
+dWxkDQo+IGNvcnJ1cHQgZGF0YSBzdHJlYW1zLg0KPiANCj4gVGhhbmtzLA0KPiANCj4gICBIYW5u
+ZXMNCg0K
