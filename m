@@ -1,7 +1,7 @@
 From: Jiang Liu <liuj97@gmail.com>
-Subject: [RFC PATCH v2, part4 09/39] mm: use totalram_pages instead of num_physpages at runtime
-Date: Sun, 24 Mar 2013 15:24:36 +0800
-Message-ID: <1364109934-7851-11-git-send-email-jiang.liu@huawei.com>
+Subject: [RFC PATCH v2, part4 37/39] mm: use totalram_pages instead of num_physpages at runtime
+Date: Sun, 24 Mar 2013 15:25:31 +0800
+Message-ID: <1364109934-7851-66-git-send-email-jiang.liu@huawei.com>
 References: <1364109934-7851-1-git-send-email-jiang.liu@huawei.com>
 Cc: Jiang Liu <jiang.liu@huawei.com>,
 	Wen Congyang <wency@cn.fujitsu.com>,
