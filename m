@@ -1,39 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: undo spurious timeout after SACK reneging
-Date: Sun, 24 Mar 2013 17:28:21 -0400 (EDT)
-Message-ID: <20130324.172821.1575298454791235977.davem@davemloft.net>
-References: <1364157745-24866-1-git-send-email-ycheng@google.com>
-	<CADVnQy=koYif1cM+VuXirz26jV33zDK2KHNW=EQUfRaGqBHa+g@mail.gmail.com>
+Subject: Re: [git pull] firewire net: resource management improvements
+Date: Sun, 24 Mar 2013 17:32:23 -0400 (EDT)
+Message-ID: <20130324.173223.1205786150045946893.davem@davemloft.net>
+References: <1363923263.16608.14.camel@cirrhata>
+	<20130322.103501.1681106916245750016.davem@davemloft.net>
+	<20130322222109.613093ba@stein>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ycheng@google.com, edumazet@google.com, nanditad@google.com,
+Cc: yoshfuji@linux-ipv6.org, linux1394-devel@lists.sourceforge.net,
 	netdev@vger.kernel.org
-To: ncardwell@google.com
+To: stefanr@s5r6.in-berlin.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44011 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44045 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754814Ab3CXV2W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:28:22 -0400
-In-Reply-To: <CADVnQy=koYif1cM+VuXirz26jV33zDK2KHNW=EQUfRaGqBHa+g@mail.gmail.com>
+	with ESMTP id S1754733Ab3CXVcZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:32:25 -0400
+In-Reply-To: <20130322222109.613093ba@stein>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neal Cardwell <ncardwell@google.com>
-Date: Sun, 24 Mar 2013 16:50:41 -0400
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Date: Fri, 22 Mar 2013 22:21:09 +0100
 
-> On Sun, Mar 24, 2013 at 4:42 PM, Yuchung Cheng <ycheng@google.com> wrote:
->> On SACK reneging the sender immediately retransmits and forces a
->> timeout but disables Eifel (undo). If the (buggy) receiver does not
->> drop any packet this can trigger a false slow-start retransmit storm
->> driven by the ACKs of the original packets. This can be detected with
->> undo and TCP timestamps.
->>
->> Signed-off-by: Yuchung Cheng <ycheng@google.com>
->> ---
->>  net/ipv4/tcp_input.c | 7 ++-----
->>  1 file changed, 2 insertions(+), 5 deletions(-)
+> On Mar 22 David Miller wrote:
+>> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>> Date: Fri, 22 Mar 2013 12:34:23 +0900
+>> 
+>> > would you consider pulling this one to net-next, please?
+>> > I can prepare rebased tree, if you want.
+>> 
+>> So the firewire maintainers are OK with these changes?
 > 
-> Acked-by: Neal Cardwell <ncardwell@google.com>
+> The firewire maintainers (that is me, myself, and I) have reviewed these
+> changes, signed off on them, committed them to linux1394.git at
+> kernel.org, and on top of that are OK with them and with their being
+> routed through net-next, indeed. :-)
 
-Applied.
+That's good enough for me, pulled into net-next, thanks.
