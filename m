@@ -1,40 +1,48 @@
-From: Simon Baatz <gmbnomis@gmail.com>
-Subject: [PATCH 1/2] net: mvmdio: define module alias for platform device
-Date: Sun, 24 Mar 2013 21:33:59 +0100
-Message-ID: <1364157240-28883-2-git-send-email-gmbnomis@gmail.com>
-References: <1364157240-28883-1-git-send-email-gmbnomis@gmail.com>
-Cc: jason@lakedaemon.net, andrew@lunn.ch, davem@davemloft.net,
-	Simon Baatz <gmbnomis@gmail.com>
-To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, florian@openwrt.org,
-	thomas.petazzoni@free-electrons.com
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH] tcp: undo spurious timeout after SACK reneging
+Date: Sun, 24 Mar 2013 13:42:25 -0700
+Message-ID: <1364157745-24866-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, ncardwell@google.com, edumazet@google.com,
+	nanditad@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:10680 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752463Ab3CXUer (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 16:34:47 -0400
-In-Reply-To: <1364157240-28883-1-git-send-email-gmbnomis@gmail.com>
+Received: from mail-ve0-f201.google.com ([209.85.128.201]:46378 "EHLO
+	mail-ve0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753869Ab3CXUm2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 16:42:28 -0400
+Received: by mail-ve0-f201.google.com with SMTP id 14so560889vea.0
+        for <netdev@vger.kernel.org>; Sun, 24 Mar 2013 13:42:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mvmdio driver can be instantiated using device tree or as a classic
-platform device.  In order to load the driver automatically by udev in
-the latter case, the driver needs to define a module alias for the
-platform device.
+On SACK reneging the sender immediately retransmits and forces a
+timeout but disables Eifel (undo). If the (buggy) receiver does not
+drop any packet this can trigger a false slow-start retransmit storm
+driven by the ACKs of the original packets. This can be detected with
+undo and TCP timestamps.
 
-Signed-off-by: Simon Baatz <gmbnomis@gmail.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
 ---
- drivers/net/ethernet/marvell/mvmdio.c |    1 +
- 1 file changed, 1 insertion(+)
+ net/ipv4/tcp_input.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 3472574..7b5158f 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -295,3 +295,4 @@ module_platform_driver(orion_mdio_driver);
- MODULE_DESCRIPTION("Marvell MDIO interface driver");
- MODULE_AUTHOR("Thomas Petazzoni <thomas.petazzoni@free-electrons.com>");
- MODULE_LICENSE("GPL");
-+MODULE_ALIAS("platform:orion-mdio");
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index b2b3619..6d9ca35 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1858,11 +1858,8 @@ void tcp_enter_loss(struct sock *sk, int how)
+ 	if (tcp_is_reno(tp))
+ 		tcp_reset_reno_sack(tp);
+ 
+-	if (!how) {
+-		/* Push undo marker, if it was plain RTO and nothing
+-		 * was retransmitted. */
+-		tp->undo_marker = tp->snd_una;
+-	} else {
++	tp->undo_marker = tp->snd_una;
++	if (how) {
+ 		tp->sacked_out = 0;
+ 		tp->fackets_out = 0;
+ 	}
 -- 
-1.7.9.5
+1.8.1.3
