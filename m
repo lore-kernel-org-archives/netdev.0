@@ -1,51 +1,34 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH] net: Add support for handling queueing in hardware
-Date: Sat, 23 Mar 2013 12:02:21 -0700
-Message-ID: <20130323190221.GA22005@roeck-us.net>
-References: <E1UJ1fR-0004hs-4l@swissweb.swissdisk.com>
- <20130322.101139.1942128058226201237.davem@davemloft.net>
- <A5ACC15C-361D-48E6-BFFF-9AA3966C2A68@freescale.com>
- <20130322.103302.1277256650283142022.davem@davemloft.net>
- <FE78128C-01DB-4831-ACBE-BA3E3A428BFC@gmail.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH net-next 1/2] inet: generalize ipv4-only RFC3168 5.3 ecn
+ fragmentation handling for future use by ipv6
+Date: Sun, 24 Mar 2013 21:23:15 +0900
+Message-ID: <514EF033.1000807@linux-ipv6.org>
+References: <20130322182437.GC19365@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, afleming@freescale.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Ben Collins <benmcollins13@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <FE78128C-01DB-4831-ACBE-BA3E3A428BFC@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: jbrouer@redhat.com,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:43022 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753410Ab3CXMXT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 08:23:19 -0400
+In-Reply-To: <20130322182437.GC19365@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 22, 2013 at 10:43:44AM -0400, Ben Collins wrote:
-> On Mar 22, 2013, at 10:33 AM, David Miller <davem@davemloft.net> wrote:
+Hannes Frederic Sowa wrote:
+> This patch just moves some code arround to make the ip4_frag_ecn_table
+> and IPFRAG_ECN_* constants accessible from the other reassembly engines. I
+> also renamed ip4_frag_ecn_table to ip_frag_ecn_table.
 > 
-> > From: Fleming Andy-AFLEMING <afleming@freescale.com>
-> > Date: Fri, 22 Mar 2013 14:31:50 +0000
-> > 
-> >> It would appear one of our customers is attempting to upstream our
-> >> code for us. We are aware that this current solution is unacceptable
-> >> (which is why we have not submitted it), and we are currently trying
-> >> to develop a less hacky solution that integrates with qdisc.
-> > 
-> > Ben, can can you coordinate with people instead of doing crap like
-> > this?
-> 
-> 
-> "For us" is a loose term, when it's more that we are attempting to upstream code so our system is supported by a mainline kernel instead of having one-off kernels.
-> 
-> And we have been talking with Freescale about this for quite some time (couple years?). They have a roadmap that doesn't include getting this driver supported in mainline any time soon, so I'm taking time to get this done for our own system. I'm not meaning to step on any toes.
-> 
-How true. You are not the only one with thatt problem.
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>
+> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Ben, can you possibly send me your complete patch set on top of 3.8, or point me
-to a git tree ?
 
-I have exactly the same problem, I need the code in 3.8, it doesn't seem
-like the Freescale code will show up anytime soon, and I don't seem to be able
-to get early code for testing either. I can promise you a free test coverage
-and bug fixing ...
-
-Thanks,
-Guenter
+--yoshfuji
