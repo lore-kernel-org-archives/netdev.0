@@ -1,64 +1,45 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or
- Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba
- (updated) Version 2
-Date: Sun, 24 Mar 2013 04:21:27 +0000
-Message-ID: <157393863283F442885425D2C4542856489E7CA8@nasanexd02f.na.qualcomm.com>
-References: <1363996448.4431.73.camel@edumazet-glaptop>
- <514CF23A.3010702@gmail.com>
- <20130323021008.GC939@order.stressinduktion.org>
- <514D3581.4040001@gmail.com>
- <20130323150655.GA10779@order.stressinduktion.org>
- <69jo698argv8@mids.svenhartge.de>
- <20130324012625.GA17948@order.stressinduktion.org>
- <89joa2largv8@mids.svenhartge.de>
- <20130324014125.GB17948@order.stressinduktion.org>
- <157393863283F442885425D2C4542856489E7C79@nasanexd02f.na.qualcomm.com>
- <20130324034037.GC17948@order.stressinduktion.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba (updated) Version 2
+Date: Sun, 24 Mar 2013 05:37:38 +0100
+Message-ID: <20130324043738.GD17948@order.stressinduktion.org>
+References: <20130323021008.GC939@order.stressinduktion.org> <514D3581.4040001@gmail.com> <20130323150655.GA10779@order.stressinduktion.org> <69jo698argv8@mids.svenhartge.de> <20130324012625.GA17948@order.stressinduktion.org> <89joa2largv8@mids.svenhartge.de> <20130324014125.GB17948@order.stressinduktion.org> <157393863283F442885425D2C4542856489E7C79@nasanexd02f.na.qualcomm.com> <20130324034037.GC17948@order.stressinduktion.org> <157393863283F442885425D2C4542856489E7CA8@nasanexd02f.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=utf-8
 Cc: Sven Hartge <sven@svenhartge.de>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: "Huang, Xiong" <xiong@qca.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabertooth01.qualcomm.com ([65.197.215.72]:28144 "EHLO
-	sabertooth01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750871Ab3CXEVu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 00:21:50 -0400
-In-Reply-To: <20130324034037.GC17948@order.stressinduktion.org>
-Content-Language: en-US
+Received: from order.stressinduktion.org ([87.106.68.36]:54413 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751225Ab3CXEhj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 00:37:39 -0400
+Content-Disposition: inline
+In-Reply-To: <157393863283F442885425D2C4542856489E7CA8@nasanexd02f.na.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SSBrbm93IHRoYXQgZnJvbSBzb21lIHZlcnNpb24gb2YgY2hpcHMsIHRoZXJlIGlzIGEgRE1BIGJ1
-ZyB0aGF0IGNhbid0IGJlIGZpeGVkIGJ5IHNvZnR3YXJlLCBhbmQgdGhpcyBidWcgY291bGQgYmUg
-ZGV0ZWN0ZWQgYnkgY2hlY2tpbmcgU2VxdWVuY2UgbnVtYmVyLCBhbmQgZG8gTUFDIHJlc2V0Lg0K
-QmVzaWRlcywgdGhlIGNoaXAgd3JvbmdseSBpbmRpY2F0ZSByeC1jaGVja3N1bSBmb3IgSVAtZnJh
-Z21lbnQgcGFja2V0LCBJIGNoZWNrZWQgd2luZG93cyBjb2RlLCBpdCBzZWVtcyBhIGxpdHRsZSBi
-aXQgZGlmZmVyZW50IHdpdGggbGludXggY29kZToNCg0KCWlmICgoKHBrdF9mbGFncyAmIFJSU19J
-U19JUFY0KSAmJiAoKHBrdF9mbGFncyAmIFJSU19JU19UQ1ApIHx8IChwa3RfZmxhZ3MgJiBSUlNf
-SVNfVURQKSkpIHsNCgkJaWYgKHBrdF9mbGFncyAmIFJSU19JU184MDJfMykNCgkJCWhlYWRfbGVu
-ICs9IDg7DQoJCWlwaCA9IChzdHJ1Y3QgaXBoZHIgKikgKHBhY2tldCArIGhlYWRfbGVuKTsNCgkJ
-aWYgKChpcGgtPmZyYWdfb2ZmICE9IDAgfHwgKHBrdF9mbGFncyAmIFJSU19JU19JUF9GUkFHKSkg
-ICYmICEocGt0X2ZsYWdzICYgUlJTX0lTX0lQX0RGKSkNCgkJCWdvdG8gaHdfeHN1bTsJCQkNCgl9
-DQoJaWYgKCEoZXJyX2ZsYWdzICYgKFJSU19FUlJfSVBfQ1NVTSB8IFJSU19FUlJfTDRfQ1NVTSkp
-KSB7DQoJCXNrYi0+aXBfc3VtbWVkID0gQ0hFQ0tTVU1fVU5ORUNFU1NBUlk7DQoJCXJldHVybjsN
-Cgl9DQoNCg0KDQpUaGFua3MNClhpb25nDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0N
-Cj4gRnJvbTogSGFubmVzIEZyZWRlcmljIFNvd2EgW21haWx0bzpoYW5uZXNAc3RyZXNzaW5kdWt0
-aW9uLm9yZ10NCj4gU2VudDogU3VuZGF5LCBNYXJjaCAyNCwgMjAxMyAxMTo0MSBBTQ0KPiBUbzog
-SHVhbmcsIFhpb25nDQo+IENjOiBTdmVuIEhhcnRnZTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0K
-PiBTdWJqZWN0OiBSZTogQXRoZXJvcyBDb21tdW5pY2F0aW9ucyBJbmMuIEFSODEyMS9BUjgxMTMv
-QVI4MTE0IEdpZ2FiaXQgb3INCj4gRmFzdCBFdGhlcm5ldCAocmV2IGIwKSAxLjAuMC43IG1kNS9z
-aGExIGNvcnJ1cHRlZCB1c2luZyBORlMgYW5kIHNhbWJhDQo+ICh1cGRhdGVkKSBWZXJzaW9uIDIN
-Cj4gDQo+IE9uIFN1biwgTWFyIDI0LCAyMDEzIGF0IDAzOjI3OjU1QU0gKzAwMDAsIEh1YW5nLCBY
-aW9uZyB3cm90ZToNCj4gPiBDb3VsZCB5b3UgcG9pbnQgbWUgd2hlcmUgdGhlIHBhdGNoIGlzID8N
-Cj4gPiBJIGNoZWNrZWQgd2luZG93cyBkcml2ZXIsIGl0IGRvZXNuJ3QgZGlzYWJsZSBjaGVja3N1
-bSBvZmZsb2FkIGluIFJYDQo+IGRpcmVjdGlvbi4NCj4gDQo+IA0KPiBUaGUgcGF0Y2ggaXMgaGVy
-ZTogPGh0dHA6Ly9hcnRpY2xlLmdtYW5lLm9yZy9nbWFuZS5saW51eC5uZXR3b3JrLzI2MzExNj4N
-Cj4gDQo+IEl0IGRvZXMgbm90IGRpc2FibGUgY2hlY2tzdW0gb2ZmbG9hZGluZyBidXQgcmF0aGVy
-IHN1cHByZXNzIHRoZSB1cGRhdGUgb2YNCj4gdGhlIGlwX3N1bW1lZCBmaWVsZC4gVGhpcyBmb3Jj
-ZXMgdGhlIGtlcm5lbCB0byByZWNoZWNrIHRoZSBjaGVja3N1bXMgYW5kDQo+IGRpc2NhcmQgdGhl
-IHBhY2tldC4gT3RoZXJ3aXNlIGl0IHdvdWxkIGJlIHNlZW4gYXMgYSB2YWxpZCBvbmUgYW5kIGNv
-dWxkDQo+IGNvcnJ1cHQgZGF0YSBzdHJlYW1zLg0KPiANCj4gVGhhbmtzLA0KPiANCj4gICBIYW5u
-ZXMNCg0K
+On Sun, Mar 24, 2013 at 04:21:27AM +0000, Huang, Xiong wrote:
+> I know that from some version of chips, there is a DMA bug that can't be fixed by software, and this bug could be detected by checking Sequence number, and do MAC reset.
+> Besides, the chip wrongly indicate rx-checksum for IP-fragment packet, I checked windows code, it seems a little bit different with linux code:
+
+Thanks, I will have a closer look at it tomorrow.
+
+> 
+> 	if (((pkt_flags & RRS_IS_IPV4) && ((pkt_flags & RRS_IS_TCP) || (pkt_flags & RRS_IS_UDP))) {
+> 		if (pkt_flags & RRS_IS_802_3)
+> 			head_len += 8;
+> 		iph = (struct iphdr *) (packet + head_len);
+> 		if ((iph->frag_off != 0 || (pkt_flags & RRS_IS_IP_FRAG))  && !(pkt_flags & RRS_IS_IP_DF))
+> 			goto hw_xsum;			
+> 	}
+> 	if (!(err_flags & (RRS_ERR_IP_CSUM | RRS_ERR_L4_CSUM))) {
+> 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+> 		return;
+> 	}
+
+Btw the captured corrupted packets are ordinary non-fragmented TCP IPv4
+packets. But perhaps these flags are dual-use?
+
+Thanks for looking into it,
+
+  Hannes
