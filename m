@@ -1,94 +1,75 @@
-From: Kumar Amit Mehta <gmate.amit@gmail.com>
-Subject: [PATCH v2] bnx2x: fix assignment of signed expression to unsigned variable
-Date: Sat, 23 Mar 2013 23:10:25 -0700
-Message-ID: <1364105425-8198-1-git-send-email-gmate.amit@gmail.com>
-Cc: davem@davemloft.net, dan.carpenter@oracle.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: eilong@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Subject: RE: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or
+ Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba
+ (updated) Version 2
+Date: Sun, 24 Mar 2013 06:12:08 +0000
+Message-ID: <157393863283F442885425D2C4542856489E7D3C@nasanexd02f.na.qualcomm.com>
+References: <20130324012625.GA17948@order.stressinduktion.org>
+ <89joa2largv8@mids.svenhartge.de>
+ <20130324014125.GB17948@order.stressinduktion.org>
+ <157393863283F442885425D2C4542856489E7C79@nasanexd02f.na.qualcomm.com>
+ <20130324034037.GC17948@order.stressinduktion.org>
+ <157393863283F442885425D2C4542856489E7CA8@nasanexd02f.na.qualcomm.com>
+ <20130324043738.GD17948@order.stressinduktion.org>
+ <157393863283F442885425D2C4542856489E7CCD@nasanexd02f.na.qualcomm.com>
+ <20130324051325.GE17948@order.stressinduktion.org>
+ <157393863283F442885425D2C4542856489E7CFC@nasanexd02f.na.qualcomm.com>
+ <20130324052300.GA12968@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Sven Hartge <sven@svenhartge.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sabertooth01.qualcomm.com ([65.197.215.72]:11999 "EHLO
+	sabertooth01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752239Ab3CXGM2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 02:12:28 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-fix for incorrect assignment of signed expression to unsigned variable.
-
-Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c |   18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-index 5682054..91ecd6a 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-@@ -2139,12 +2139,12 @@ static u8 bnx2x_dcbnl_get_cap(struct net_device *netdev, int capid, u8 *cap)
- 			break;
- 		default:
- 			BNX2X_ERR("Non valid capability ID\n");
--			rval = -EINVAL;
-+			rval = 1;
- 			break;
- 		}
- 	} else {
- 		DP(BNX2X_MSG_DCB, "DCB disabled\n");
--		rval = -EINVAL;
-+		rval = 1;
- 	}
- 
- 	DP(BNX2X_MSG_DCB, "capid %d:%x\n", capid, *cap);
-@@ -2170,12 +2170,12 @@ static int bnx2x_dcbnl_get_numtcs(struct net_device *netdev, int tcid, u8 *num)
- 			break;
- 		default:
- 			BNX2X_ERR("Non valid TC-ID\n");
--			rval = -EINVAL;
-+			rval = 1;
- 			break;
- 		}
- 	} else {
- 		DP(BNX2X_MSG_DCB, "DCB disabled\n");
--		rval = -EINVAL;
-+		rval = 1;
- 	}
- 
- 	return rval;
-@@ -2188,7 +2188,7 @@ static int bnx2x_dcbnl_set_numtcs(struct net_device *netdev, int tcid, u8 num)
- 	return -EINVAL;
- }
- 
--static u8  bnx2x_dcbnl_get_pfc_state(struct net_device *netdev)
-+static u8 bnx2x_dcbnl_get_pfc_state(struct net_device *netdev)
- {
- 	struct bnx2x *bp = netdev_priv(netdev);
- 	DP(BNX2X_MSG_DCB, "state = %d\n", bp->dcbx_local_feat.pfc.enabled);
-@@ -2390,12 +2390,12 @@ static u8 bnx2x_dcbnl_get_featcfg(struct net_device *netdev, int featid,
- 			break;
- 		default:
- 			BNX2X_ERR("Non valid featrue-ID\n");
--			rval = -EINVAL;
-+			rval = 1;
- 			break;
- 		}
- 	} else {
- 		DP(BNX2X_MSG_DCB, "DCB disabled\n");
--		rval = -EINVAL;
-+		rval = 1;
- 	}
- 
- 	return rval;
-@@ -2431,12 +2431,12 @@ static u8 bnx2x_dcbnl_set_featcfg(struct net_device *netdev, int featid,
- 			break;
- 		default:
- 			BNX2X_ERR("Non valid featrue-ID\n");
--			rval = -EINVAL;
-+			rval = 1;
- 			break;
- 		}
- 	} else {
- 		DP(BNX2X_MSG_DCB, "dcbnl call not valid\n");
--		rval = -EINVAL;
-+		rval = 1;
- 	}
- 
- 	return rval;
--- 
-1.7.9.5
+QW5kIHRyeSB0byB1c2UgZm9sbG93aW5nIGNvZGUgdG8gcmVwbGFjZSBhdGwxY19jb25maWd1cmVf
+ZG1hDQoNCnN0YXRpYyBpbmxpbmUgdm9pZCBhdGwxZV9jb25maWd1cmVfZG1hKHN0cnVjdCBhdGwx
+ZV9hZGFwdGVyICphZGFwdGVyKQ0Kew0KCXN0cnVjdCBhdGwxZV9odyAqaHcgPSAmYWRhcHRlci0+
+aHc7DQoJdTMyIGRtYV9jdHJsX2RhdGE7DQoNCglkbWFfY3RybF9kYXRhID0gRE1BX0NUUkxfUlhD
+TUJfRU4gfCAweDQwMDAwMDsNCglkbWFfY3RybF9kYXRhIHw9ICgoKHUzMilody0+ZG1hcl9ibG9j
+aykgJiBETUFfQ1RSTF9ETUFSX0JVUlNUX0xFTl9NQVNLKQ0KCQk8PCBETUFfQ1RSTF9ETUFSX0JV
+UlNUX0xFTl9TSElGVDsNCglkbWFfY3RybF9kYXRhIHw9ICgoKHUzMilody0+ZG1hd19ibG9jaykg
+JiBETUFfQ1RSTF9ETUFXX0JVUlNUX0xFTl9NQVNLKQ0KCQk8PCBETUFfQ1RSTF9ETUFXX0JVUlNU
+X0xFTl9TSElGVDsNCglkbWFfY3RybF9kYXRhIHw9IERNQV9DVFJMX0RNQVJfUkVRX1BSSSB8IERN
+QV9DVFJMX0RNQVJfT1VUX09SREVSOw0KCWRtYV9jdHJsX2RhdGEgfD0gKCgodTMyKWh3LT5kbWFy
+X2RseV9jbnQpICYgRE1BX0NUUkxfRE1BUl9ETFlfQ05UX01BU0spDQoJCTw8IERNQV9DVFJMX0RN
+QVJfRExZX0NOVF9TSElGVDsNCglkbWFfY3RybF9kYXRhIHw9ICgoKHUzMilody0+ZG1hd19kbHlf
+Y250KSAmIERNQV9DVFJMX0RNQVdfRExZX0NOVF9NQVNLKQ0KCQk8PCBETUFfQ1RSTF9ETUFXX0RM
+WV9DTlRfU0hJRlQ7DQoNCglBVF9XUklURV9SRUcoaHcsIFJFR19ETUFfQ1RSTCwgZG1hX2N0cmxf
+ZGF0YSk7DQoJcmV0dXJuOw0KfQ0KDQoNClRoYW5rcw0KWGlvbmcNCg0KPiAtLS0tLU9yaWdpbmFs
+IE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBIdWFuZywgWGlvbmcNCj4gU2VudDogU3VuZGF5LCBNYXJj
+aCAyNCwgMjAxMyAxOjQzIFBNDQo+IFRvOiAnSGFubmVzIEZyZWRlcmljIFNvd2EnDQo+IENjOiBT
+dmVuIEhhcnRnZTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSRTogQXRoZXJv
+cyBDb21tdW5pY2F0aW9ucyBJbmMuIEFSODEyMS9BUjgxMTMvQVI4MTE0IEdpZ2FiaXQgb3INCj4g
+RmFzdCBFdGhlcm5ldCAocmV2IGIwKSAxLjAuMC43IG1kNS9zaGExIGNvcnJ1cHRlZCB1c2luZyBO
+RlMgYW5kIHNhbWJhDQo+ICh1cGRhdGVkKSBWZXJzaW9uIDINCj4gDQo+ID4gPiA+DQo+ID4gPiA+
+IFRoZSBjYXB1dGVyZWQgcGFja2V0cyBzaG93IHRoYXQgYSAxNiBieXRlIHNlZ21lbnQgb3Zlcndy
+aXRlcyBsYXRlcg0KPiA+ID4gPiBkYXRhIGluIHRoZSBzYW1lIHBhY2tldCwgc29tZXRpbWVzIGV2
+ZW4gbXVsdGlwbGUgY29udGlndW91cyAxNg0KPiA+ID4gPiBieXRlDQo+ID4gc2VnbWVudHMuDQo+
+ID4gPiA+DQo+ID4gPiA+IFRoZSBjb3JydXB0ZWQgcGFja2V0cyBsb29rIGxpa2UgdGhpczoNCj4g
+PiA+ID4NCj4gPiA+ID4gLi4uQUJDLi4uLkRCQkVGLi4NCj4gPiA+ID4NCj4gPiA+ID4gRWFjaCBj
+aGFyYWN0ZXIgcmVwcmVzZW50cyBhIDE2IGJ5dGUgcmVnaW9uLCB0aGUgZG90cyBhcmUgZG9udC1j
+YXJlDQo+ID4gPiA+IHBsYWNlaG9sZGVycy4gVGhlIEJCLXJlZ2lvbiBpcyBvdmVyd3JpdHRlbiBi
+eSB0aGUgZGF0YSBvZiB0aGUNCj4gPiA+ID4gZmlyc3QgQi0NCj4gPiByZWdpb24uDQo+ID4gPiA+
+DQo+ID4gPg0KPiA+ID4gSXQgbG9va3MgbGlrZSBhIERNQSBpc3N1ZS4gTm90IGNoZWNrc3VtIHJl
+bGF0ZWQuIDooDQo+ID4NCj4gPiBZZXMsIEkgdGhpbmsgc28sIHRvby4gVW50aWwgdGhpcyBpcyBy
+ZXNvbHZlZCBJIHdvdWxkIHByb3Bvc2UgdG8gbm90DQo+ID4gc2V0IENIRUNLU1VNX1VOTkVDRVNT
+QVJZIGJlY2F1c2UgaXQgY291bGQgY29ycnVwdCBkYXRhIChsaWtlIGZvciB0aGUNCj4gPiBvcmln
+aW5hbCBwb3N0ZXIpLg0KPiA+DQo+ID4gRG8geW91IGhhdmUgYW55IGlkZWEgd2hlcmUgaG93IHRo
+ZXNlIGVycm9ycyBjb3VsZCBiZSByZXNvbHZlZD8gSSBlLmcuDQo+ID4gY291bGQgbm90IHJlcHJv
+ZHVjZSBpdCB3aXRoIEZyZWVCU0QgYW5kIHRoZSBkcml2ZXIgc2VlbXMgdG8gYmUgcmVsYXRlZA0K
+PiA+IHRvIHRoZSBsaW51eCBkcml2ZXIuDQo+IA0KPiAxLiAgcGFnZXMgY3Jvc3MgNEdCIGJvdWFu
+ZGFyeSA/ICBvciBvdmVybGFwIHdpdGggZWFjaCBvdGhlciA/DQo+IDIuIHRyeSB0byBzZXQgaHct
+PmRtYXdfYmxvY2sgPSBhdGwxZV9kbWFfcmVxXzEyOCAzLiBjYW4geW91IHByaW50IHJlZzE1QzAN
+Cj4gY29udGVudCB3aGVuIHRoZSBOSUMgaXMgaW4gbm9ybWFsIHR4L3J4IHN0YXR1cyA/DQo+IDQu
+IG90aGVyIHBvc3NpYmxlIG1heSBiZSByZWxhdGVkIHRoZSBkaWZmIHJlZ2lzdGVyIGNvbmZpZ3Vy
+YXRpb24sIGJ1dCBpdCdzIHZlcnkNCj4gZGlmZmljdWx0IHRvIGNvbXBhcmUgd2l0aCBXaW5kb3dz
+IGRyaXZlciA6KA0KPiANCj4gVGhhbmtzDQo+IFhpb25nDQo=
