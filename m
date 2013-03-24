@@ -1,89 +1,42 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba (updated) Version 2
-Date: Sun, 24 Mar 2013 02:41:25 +0100
-Message-ID: <20130324014125.GB17948@order.stressinduktion.org>
-References: <514CE440.3010003@gmail.com> <1363996448.4431.73.camel@edumazet-glaptop> <514CF23A.3010702@gmail.com> <20130323021008.GC939@order.stressinduktion.org> <514D3581.4040001@gmail.com> <20130323150655.GA10779@order.stressinduktion.org> <69jo698argv8@mids.svenhartge.de> <20130324012625.GA17948@order.stressinduktion.org> <89joa2largv8@mids.svenhartge.de>
+From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [BUG] bisected: PandaBoard smsc95xx ethernet driver error from
+ USB timeout
+Date: Sun, 24 Mar 2013 10:17:36 +0800
+Message-ID: <CACVXFVNQV8SAP+oKJWJta0WPhjQO6TreU9U8OjHKtZwa6p6_=A@mail.gmail.com>
+References: <514A7E81.9000501@am.sony.com>
+	<CACVXFVODZNuoLYSk60YwhFhEv5SX2QkszjjoYDWBHij7zwmhdQ@mail.gmail.com>
+	<514B6D77.8080202@am.sony.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, Jie.Yang@Atheros.com,
-	xiong.huang@atheros.com
-To: Sven Hartge <sven@svenhartge.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:54255 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752633Ab3CXBl0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Mar 2013 21:41:26 -0400
-Content-Disposition: inline
-In-Reply-To: <89joa2largv8@mids.svenhartge.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Rowand, Frank" <Frank_Rowand-FuZ7eS5WsvxBDgjK7y7TUQ@public.gmane.org>,
+	"stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org" <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	"gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org" <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"balbi-l0cyMroinI0@public.gmane.org" <balbi-l0cyMroinI0@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"steve.glendinning-sdUf+H5yV5I@public.gmane.org" <steve.glendinning-sdUf+H5yV5I@public.gmane.org>
+To: frank.rowand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <514B6D77.8080202-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 24, 2013 at 02:35:11AM +0100, Sven Hartge wrote:
-> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> > On Sun, Mar 24, 2013 at 01:36:33AM +0100, Sven Hartge wrote:
-> >> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> >> > On Sat, Mar 23, 2013 at 12:54:25AM -0400, rebelyouth wrote:
-> >> >> I applied your patch on my the kernel 3.7.9 and look like the patch do 
-> >> >> what you said before :
-> >> >> 
-> >> >> "This does not solve the real problem, which I have not yet understood 
-> >> >> (wrong packets will be discarded now and will be hopefully resend). "
-> >> >> 
-> >> >> There are errors on the RX side of the server and the speed is 5~10% 
-> >> >> less but the files are ok in nfsv4 , SFTP/FTP and samba.
-> >> >> 
-> >> >> Maybe the Atheros drivers for windows had a patch for the checksum 
-> >> >> already in the drivers and the chipset  have some hardware bug, but for 
-> >> >> me your patch is already an achievement and I really thank you for your 
-> >> >> time and consideration.
-> >> 
-> >> > The upstream driver (which is a tarball I found with google
-> >> > AR81Family-linux-v1.0.1.14.tar.gz) has this function ifdefed out. I have
-> >> > a couple of more things I want to test as soon as I have access to the
-> >> > hardware again.  If I don't find a better solution I will submit a patch
-> >> > which disables rx checksumming as a whole for inclusion to net-next.
-> >> 
-> >> I remember having the some problem with an atl1e chip on my Asus
-> >> PQ5-Pro. It would corrupt ethernet frames, resulting in dropped
-> >> connections when using SSH (bailing out with a HMAC crypto error) etc.
-> >> 
-> >> After some conversations with an Atheros engineer (Jie Yang
-> >> <Jie.Yang@Atheros.com>) I got the following patch, which I applied for
-> >> some time to my local Debian kernel packages. It fixed the problem for
-> >> me, until I switched the board to a newer one.
-> >> 
-> >> As far as I understand, this patch rips out any checksumming function
-> >> and just advertises the chip as not using and providing any.
-> 
-> > Yes, my patch does the same, just jumpes over the body of the function
-> > and returns without updating the ip_summed field.
-> 
-> >> My mail archive indicates, this bug has been fixed in the upstream atl1e
-> >> driver since version l1c-linux-v1.0.0.11-test.tar.gz.
-> 
-> > Yes, they ifdefed out the body of the function.
-> 
-> > What we have found so far:
-> 
-> > It seems packet content overwrites itself. We have not yet found a
-> > pattern but it seems that some 16 bytes from the payload overwrite
-> > other parts of the packet, even mulitple times (but the same 16 bytes
-> > though).
-> 
-> > I also checked freebsd. Hardware rx checksumming is disabled there and
-> > we did not see any checksum errors in the stack. So I assume they
-> > don't have this problem.
-> 
-> I understand from my conversation with Jie Yang, that he reproduced the
-> problem at Atheros and then decided to disable checksumming in the
-> driver. My guess would be that is some kind of confirmation this feature
-> is broken in that hardware and should not be used.
+On Fri, Mar 22, 2013 at 4:28 AM, Frank Rowand <frank.rowand-mEdOJwZ7QcZBDgjK7y7TUQ@public.gmane.org> wrote:
+>> I play upstream kernel on Pandaboard A1 frequently, looks not
+>> see the failure problem before. Maybe the problem is config dependent.
+>>
+>> If you may share your config file, I'd like to do the test too.
 
-Added Jie Yang and Xiong Huang to Cc.
+3.9-rc2-20130314 doesn't have the problem observed on my Pandaboard A1,
+but I only tested booting from MMC, not from NFS.
 
-I don't know if checksumming is the cause of this problem. Perhaps the dma
-transfers get corrupted and the data was correct in the card's buffers.
 
-Greetings,
-
-  Hannes
+Thanks,
+-- 
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
