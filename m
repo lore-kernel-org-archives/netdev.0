@@ -1,47 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bridge: avoid br_ifinfo_notify when nothing
- changed
-Date: Sun, 24 Mar 2013 17:15:37 -0400 (EDT)
-Message-ID: <20130324.171537.1255124338630598287.davem@davemloft.net>
-References: <1364015653-7322-1-git-send-email-honkiko@gmail.com>
-	<1364131607-11698-1-git-send-email-honkiko@gmail.com>
-	<514F0F07.9050702@cogentembedded.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] Fix IXP4xx coherent allocations
+Date: Sun, 24 Mar 2013 22:15:36 +0100
+Message-ID: <m3r4j4sdmv.fsf@intrepid.localdomain>
+References: <m3obe9lxil.fsf@intrepid.localdomain>
+	<20130323.195740.2108147521543354261.davem@davemloft.net>
+	<1364152267.3620.31.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: honkiko@gmail.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, stephen@networkplumber.org,
-	herbert@gondor.hengli.com.au, zhiguo.hong@emc.com
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43824 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754161Ab3CXVPi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:15:38 -0400
-In-Reply-To: <514F0F07.9050702@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	c.aeschlimann@acn-group.ch, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1364152267.3620.31.camel@deadeye.wl.decadent.org.uk> (Ben
+	Hutchings's message of "Sun, 24 Mar 2013 19:11:07 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Sun, 24 Mar 2013 17:34:47 +0300
+Ben Hutchings <bhutchings@solarflare.com> writes:
 
-> Hello.
-> 
-> On 03/24/2013 04:26 PM, Hong Zhiguo wrote:
-> 
->> When neither IFF_BRIDGE nor IFF_BRIDGE_PORT is set,
->> and afspec == NULL but  protinfo != NULL, we run into
->> "if (err == 0) br_ifinfo_notify(RTM_NEWLINK, p);" with
->> random value in ret.
->>
->> Thanks to Sergei for pointing out the error in commit comments.
->>
->> Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
-> 
->     For the future, if you post the revised version of the patch, you
-> should indicate in the subject it like this: [PATCH v2].
+> I'm failing to see where it says the default can't be narrower than 32
+> bits due to platform limits.  And how do you think DMA mapping is
+> supposed to work for PCI devices on these platforms, anyway?
 
-I'm disappointed that you have enough energy to point out such a lower
-priority omission, but you lack the time for something more important,
-which is giving this patch your explicit ACK if it fixes all of the
-issues you pointed out to him.
+The problem on ARM (and probably on powerpc, and on something called
+"metag" - grep -r 'coherent DMA mask is unset' arch) is that the default
+coherent DMA mask is zero. IOW, coherent DMA allocations are, by
+default, disabled. A driver has to dma_set_coherent_mask() or, as many
+drivers do, set dev->coherent_dma_mask directly (IMHO
+dev->coherent_dma_mask along with dev->dma_mask are private DMA API
+stuff and e.g. device drivers have no interest there).
+
+The zero default is IMHO, WRT the actual DMA API, an ARM bug (and
+powerpc's etc). Nevertheless, the patch I posted does everything as
+required by the API. Specifically, the IXP4xx arch part makes
+IXP4xx's dma_set_coherent_mask() compliant with DMA API, and the actual
+dma_set_coherent_mask() calls in drivers are both valid and I guess
+recommended by the API.
+
+The patch doesn't touch the core ARM issue, that's right.
+-- 
+Krzysztof Halasa
