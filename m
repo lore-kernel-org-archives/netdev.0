@@ -1,52 +1,71 @@
-From: Sven Hartge <sven@svenhartge.de>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Subject: Re: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba (updated) Version 2
-Date: Sun, 24 Mar 2013 02:07:11 +0100
-Message-ID: <79jo8bjargv8@mids.svenhartge.de>
-References: <514CE440.3010003@gmail.com> <1363996448.4431.73.camel@edumazet-glaptop> <514CF23A.3010702@gmail.com> <20130323021008.GC939@order.stressinduktion.org> <514D3581.4040001@gmail.com> <20130323150655.GA10779@order.stressinduktion.org>
+Date: Sun, 24 Mar 2013 02:26:25 +0100
+Message-ID: <20130324012625.GA17948@order.stressinduktion.org>
+References: <514CE440.3010003@gmail.com> <1363996448.4431.73.camel@edumazet-glaptop> <514CF23A.3010702@gmail.com> <20130323021008.GC939@order.stressinduktion.org> <514D3581.4040001@gmail.com> <20130323150655.GA10779@order.stressinduktion.org> <69jo698argv8@mids.svenhartge.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Sven Hartge <sven@svenhartge.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:37479 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752296Ab3CXBIP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Mar 2013 21:08:15 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UJZQK-0007lC-9H
-	for netdev@vger.kernel.org; Sun, 24 Mar 2013 02:08:36 +0100
-Received: from ip-178-200-42-118.unitymediagroup.de ([178.200.42.118])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 24 Mar 2013 02:08:36 +0100
-Received: from sven by ip-178-200-42-118.unitymediagroup.de with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 24 Mar 2013 02:08:36 +0100
+Received: from order.stressinduktion.org ([87.106.68.36]:54248 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752030Ab3CXB01 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Mar 2013 21:26:27 -0400
+Content-Disposition: inline
+In-Reply-To: <69jo698argv8@mids.svenhartge.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+On Sun, Mar 24, 2013 at 01:36:33AM +0100, Sven Hartge wrote:
+> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> > On Sat, Mar 23, 2013 at 12:54:25AM -0400, rebelyouth wrote:
+> >> I applied your patch on my the kernel 3.7.9 and look like the patch do 
+> >> what you said before :
+> >> 
+> >> "This does not solve the real problem, which I have not yet understood 
+> >> (wrong packets will be discarded now and will be hopefully resend). "
+> >> 
+> >> There are errors on the RX side of the server and the speed is 5~10% 
+> >> less but the files are ok in nfsv4 , SFTP/FTP and samba.
+> >> 
+> >> Maybe the Atheros drivers for windows had a patch for the checksum 
+> >> already in the drivers and the chipset  have some hardware bug, but for 
+> >> me your patch is already an achievement and I really thank you for your 
+> >> time and consideration.
+> 
+> > The upstream driver (which is a tarball I found with google
+> > AR81Family-linux-v1.0.1.14.tar.gz) has this function ifdefed out. I have
+> > a couple of more things I want to test as soon as I have access to the
+> > hardware again.  If I don't find a better solution I will submit a patch
+> > which disables rx checksumming as a whole for inclusion to net-next.
+> 
+> I remember having the some problem with an atl1e chip on my Asus
+> PQ5-Pro. It would corrupt ethernet frames, resulting in dropped
+> connections when using SSH (bailing out with a HMAC crypto error) etc.
+> 
+> After some conversations with an Atheros engineer (Jie Yang
+> <Jie.Yang@Atheros.com>) I got the following patch, which I applied for
+> some time to my local Debian kernel packages. It fixed the problem for
+> me, until I switched the board to a newer one.
+> 
+> As far as I understand, this patch rips out any checksumming function
+> and just advertises the chip as not using and providing any.
 
-> The upstream driver (which is a tarball I found with google
-> AR81Family-linux-v1.0.1.14.tar.gz) has this function ifdefed out. I
-> have a couple of more things I want to test as soon as I have access
-> to the hardware again.  If I don't find a better solution I will
-> submit a patch which disables rx checksumming as a whole for inclusio=
-n
-> to net-next.
+Yes, my patch does the same, just jumpes over the body of the function
+and returns without updating the ip_summed field.
 
-In addition to my other mail: Please have a look at Debian Bug #558426
-<http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=3D558426> which is ab=
-out
-TSO and TCP/IPv6 on atl1e which had problems as well.
+> My mail archive indicates, this bug has been fixed in the upstream atl1e
+> driver since version l1c-linux-v1.0.0.11-test.tar.gz.
 
-I wouldn't find it surprising if any offloading or hardware checksummin=
-g
-is broken on that hardware.
+Yes, they ifdefed out the body of the function.
 
-Gr=C3=BC=C3=9Fe,
-Sven.
+What we have found so far:
 
---=20
-Sigmentation fault. Core dumped.
+It seems packet content overwrites itself. We have not yet found a pattern
+but it seems that some 16 bytes from the payload overwrite other parts
+of the packet, even mulitple times (but the same 16 bytes though).
+
+I also checked freebsd. Hardware rx checksumming is disabled there and
+we did not see any checksum errors in the stack. So I assume they don't
+have this problem.
