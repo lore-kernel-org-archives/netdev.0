@@ -1,101 +1,68 @@
-From: Sven Hartge <sven@svenhartge.de>
-Subject: Re: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba (updated) Version 2
-Date: Sun, 24 Mar 2013 01:36:33 +0100
-Message-ID: <69jo698argv8@mids.svenhartge.de>
-References: <514CE440.3010003@gmail.com> <1363996448.4431.73.camel@edumazet-glaptop> <514CF23A.3010702@gmail.com> <20130323021008.GC939@order.stressinduktion.org> <514D3581.4040001@gmail.com> <20130323150655.GA10779@order.stressinduktion.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:35764 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752329Ab3CXAjm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Mar 2013 20:39:42 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UJYyi-0000Gz-EZ
-	for netdev@vger.kernel.org; Sun, 24 Mar 2013 01:40:04 +0100
-Received: from ip-178-200-42-118.unitymediagroup.de ([178.200.42.118])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 24 Mar 2013 01:40:04 +0100
-Received: from sven by ip-178-200-42-118.unitymediagroup.de with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 24 Mar 2013 01:40:04 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] net: reduce net_rx_action() latency to 2 HZ
+Date: Sun, 24 Mar 2013 02:02:17 +0100
+Message-ID: <20130324010217.GO15527@1wt.eu>
+References: <1362503713.15793.121.camel@edumazet-glaptop> <CAP=VYLrvXREA=HGnnUCi2N77yRdktQDop1PpzJkveXDihJ3DOw@mail.gmail.com> <1363879647.4431.8.camel@edumazet-glaptop> <514B429C.5070605@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, stable <stable@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Steven Rostedt <rostedt@goodmis.org>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <514B429C.5070605@windriver.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> On Sat, Mar 23, 2013 at 12:54:25AM -0400, rebelyouth wrote:
->> I applied your patch on my the kernel 3.7.9 and look like the patch do 
->> what you said before :
->> 
->> "This does not solve the real problem, which I have not yet understood 
->> (wrong packets will be discarded now and will be hopefully resend). "
->> 
->> There are errors on the RX side of the server and the speed is 5~10% 
->> less but the files are ok in nfsv4 , SFTP/FTP and samba.
->> 
->> Maybe the Atheros drivers for windows had a patch for the checksum 
->> already in the drivers and the chipset  have some hardware bug, but for 
->> me your patch is already an achievement and I really thank you for your 
->> time and consideration.
+On Thu, Mar 21, 2013 at 01:25:48PM -0400, Paul Gortmaker wrote:
+> On 13-03-21 11:27 AM, Eric Dumazet wrote:
+> > On Thu, 2013-03-21 at 11:03 -0400, Paul Gortmaker wrote:
+> >> [CC'ing stable & Willy - for the older releases not fed by
+> >> http://patchwork.ozlabs.org/bundle/davem/stable/ ]
+> >>
+> >> On Tue, Mar 5, 2013 at 12:15 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >>> From: Eric Dumazet <edumazt@google.com>
+> >>>
+> >>> We should use time_after_eq() to get maximum latency of two ticks,
+> >>> instead of three.
+> >>>
+> >>> Bug added in commit 24f8b2385 (net: increase receive packet quantum)
+> >>
+> >> I'm not sure what applications would notice the extra tick, but 24f8b takes
+> >> us back to 2.6.29.  It cherry picks cleanly onto 2.6.34, so it probably also
+> >> does the same for Willy's 2.6.32 longterm too.
+> >>
+> >> Commit is now mainline d114a3338747255518 - v3.9-rc3~36^2~34.
+> > 
+> > BQL (Bytes Queue Limit) relies on TX completion being run often, and
+> > Qdisc being serviced often as well. If net_rx_action() hogs the cpu,
+> > net_tx_action() is delayed and NIC can stall.
+> > 
+> > I wrote this patch because I was investigating a regression when a
+> > Google application began using BQL enabled kernels.
+> > 
+> > About the latency in itself, following commit is way more interesting.
+> > 
+> > commit c10d73671ad30f5 (softirq: reduce latencies)
+> > 
+> > As without it, I could trigger more than 50ms latencies for the poor
+> > user thread interrupted by softirq processing.
+> 
+> That is also reasonably portable back to 2.6.34.  And it is more
+> interesting too -- it will be interesting in a preempt_rt context
+> too, once RT moves ahead off the current 3.6 baseline, which still
+> has the old count-limit of 10 vs the new 2ms time limit.
+> 
+> RT (3.4 and 3.6 based) currently has this patch from Steven:
+> http://git.kernel.org/cgit/linux/kernel/git/paulg/3.6-rt-patches.git/tree/net-tx-action-avoid-livelock-on-rt.patch
+> 
+> Anyway, thanks for the heads up on this commit.
 
-> The upstream driver (which is a tarball I found with google
-> AR81Family-linux-v1.0.1.14.tar.gz) has this function ifdefed out. I have
-> a couple of more things I want to test as soon as I have access to the
-> hardware again.  If I don't find a better solution I will submit a patch
-> which disables rx checksumming as a whole for inclusion to net-next.
+And thanks to you Paul for the heads up as well, I'll pick them from
+your branch :-)
 
-I remember having the some problem with an atl1e chip on my Asus
-PQ5-Pro. It would corrupt ethernet frames, resulting in dropped
-connections when using SSH (bailing out with a HMAC crypto error) etc.
-
-After some conversations with an Atheros engineer (Jie Yang
-<Jie.Yang@Atheros.com>) I got the following patch, which I applied for
-some time to my local Debian kernel packages. It fixed the problem for
-me, until I switched the board to a newer one.
-
-As far as I understand, this patch rips out any checksumming function
-and just advertises the chip as not using and providing any.
-
-My mail archive indicates, this bug has been fixed in the upstream atl1e
-driver since version l1c-linux-v1.0.0.11-test.tar.gz.
-
-diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
-index 9fc6d6d..73d44d5 100644
---- a/drivers/net/atl1e/atl1e_main.c
-+++ b/drivers/net/atl1e/atl1e_main.c
-@@ -1343,29 +1343,8 @@ static inline void atl1e_rx_checksum(struct atl1e_adapter *adapter,
- {
-       u8 *packet = (u8 *)(prrs + 1);
-       struct iphdr *iph;
--      u16 head_len = ETH_HLEN;
--      u16 pkt_flags;
--      u16 err_flags;
- 
-       skb->ip_summed = CHECKSUM_NONE;
--      pkt_flags = prrs->pkt_flag;
--      err_flags = prrs->err_flag;
--      if (((pkt_flags & RRS_IS_IPV4) || (pkt_flags & RRS_IS_IPV6)) &&
--              ((pkt_flags & RRS_IS_TCP) || (pkt_flags & RRS_IS_UDP))) {
--              if (pkt_flags & RRS_IS_IPV4) {
--                      if (pkt_flags & RRS_IS_802_3)
--                              head_len += 8;
--                      iph = (struct iphdr *) (packet + head_len);
--                      if (iph->frag_off != 0 && !(pkt_flags & RRS_IS_IP_DF))
--                              goto hw_xsum;
--              }
--              if (!(err_flags & (RRS_ERR_IP_CSUM | RRS_ERR_L4_CSUM))) {
--                      skb->ip_summed = CHECKSUM_UNNECESSARY;
--                      return;
--              }
--      }
--
--hw_xsum :
-       return;
- }
- 
-
-
-
--- 
-Sigmentation fault. Core dumped.
+Cheers,
+Willy
