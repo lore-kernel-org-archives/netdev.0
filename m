@@ -1,54 +1,66 @@
-From: Parag Warudkar <parag.lkml@gmail.com>
-Subject: Re: [PATCH] ath9k : Fix ieee80211 work while going to suspend
-Date: Sun, 24 Mar 2013 12:16:27 -0400
-Message-ID: <CAOULuOYfwEAwBWbWAUYX2FaPtufTUqkCndcfA1ntiMPGkPi5qA@mail.gmail.com>
-References: <CAOULuOb0_40EX+6A_HM8eJN7kj9J4WhO9UhZbUUqng1Sfy_SQg@mail.gmail.com>
-	<20130318191340.GA28919@tuxdriver.com>
-	<20130318210308.GD32416@pogo>
-	<20130321114219.GB1459@redhat.com>
-	<20130321193331.GB32416@pogo>
-	<20130322091342.GB1496@redhat.com>
-	<20130322150847.GH32416@pogo>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or
+ Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba
+ (updated) Version 2
+Date: Sun, 24 Mar 2013 10:22:48 -0700
+Message-ID: <1364145768.29473.9.camel@edumazet-glaptop>
+References: <20130324012625.GA17948@order.stressinduktion.org>
+	 <89joa2largv8@mids.svenhartge.de>
+	 <20130324014125.GB17948@order.stressinduktion.org>
+	 <157393863283F442885425D2C4542856489E7C79@nasanexd02f.na.qualcomm.com>
+	 <20130324034037.GC17948@order.stressinduktion.org>
+	 <157393863283F442885425D2C4542856489E7CA8@nasanexd02f.na.qualcomm.com>
+	 <20130324043738.GD17948@order.stressinduktion.org>
+	 <157393863283F442885425D2C4542856489E7CCD@nasanexd02f.na.qualcomm.com>
+	 <20130324051325.GE17948@order.stressinduktion.org>
+	 <157393863283F442885425D2C4542856489E7CFC@nasanexd02f.na.qualcomm.com>
+	 <20130324052300.GA12968@order.stressinduktion.org>
+	 <157393863283F442885425D2C4542856489E7D1E@nasanexd02f.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jouni Malinen <jouni@qca.qualcomm.com>,
-	Vasanthakumar Thiagarajan <vthiagar@qca.qualcomm.com>,
-	linux-wireless@vger.kernel.org, ath9k-devel@venema.h4ckr.net,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	senthilb@qca.qualcomm.com
-To: "Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130322150847.GH32416@pogo>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Sven Hartge <sven@svenhartge.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:42890 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754112Ab3CXRWv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 13:22:51 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y14so2186077pdi.22
+        for <netdev@vger.kernel.org>; Sun, 24 Mar 2013 10:22:51 -0700 (PDT)
+In-Reply-To: <157393863283F442885425D2C4542856489E7D1E@nasanexd02f.na.qualcomm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 22, 2013 at 11:08 AM, Luis R. Rodriguez
-<rodrigue@qca.qualcomm.com> wrote:
-> On Fri, Mar 22, 2013 at 10:13:42AM +0100, Stanislaw Gruszka wrote:
->> On Thu, Mar 21, 2013 at 12:33:31PM -0700, Luis R. Rodriguez wrote:
->> > OK how about this for stable for now:
->> >
->> > diff --git a/drivers/net/wireless/ath/ath9k/link.c b/drivers/net/wireless/ath/ath9k/link.c
->> > index 39c84ec..7fdac6c 100644
->> > --- a/drivers/net/wireless/ath/ath9k/link.c
->> > +++ b/drivers/net/wireless/ath/ath9k/link.c
->> > @@ -170,7 +170,8 @@ void ath_rx_poll(unsigned long data)
->> >  {
->> >     struct ath_softc *sc = (struct ath_softc *)data;
->> >
->> > -   ieee80211_queue_work(sc->hw, &sc->hw_check_work);
->> > +   if (!test_bit(SC_OP_INVALID, &sc->sc_flags))
->> > +           ieee80211_queue_work(sc->hw, &sc->hw_check_work);
->> >  }
->>
->> That looks ok for me as -stable fix
->>
->> Reviewed-by: Stanislaw Gruszka <sgruszka@redhat.com>
->
-> Parag, can you test the above to ensure it fixes your issue ?
+On Sun, 2013-03-24 at 05:42 +0000, Huang, Xiong wrote:
 
-Seems to be working ok so far.
+> 1.  pages cross 4GB bouandary ?  or overlap with each other ?
 
-Reported-and-tested-by: Parag Warudkar <parag.lkml@gmail.com>
+Normally this should not happen.
+
+However the frame could span two 4K pages.
+
+(physically contigous, and not spanning a 32K boundary)
+
+> 2. try to set hw->dmaw_block = atl1e_dma_req_128 
+> 3. can you print reg15C0 content when the NIC is in normal tx/rx status ?
+> 4. other possible may be related the diff register configuration, but it's very difficult to compare with Windows driver :(  
+> 
+
+What could be tried is to remove the possibility of page spanning.
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 441f5bf..d0f4dd1 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1849,7 +1849,7 @@ static inline void __skb_queue_purge(struct sk_buff_head *list)
+ 		kfree_skb(skb);
+ }
+ 
+-#define NETDEV_FRAG_PAGE_MAX_ORDER get_order(32768)
++#define NETDEV_FRAG_PAGE_MAX_ORDER 0
+ #define NETDEV_FRAG_PAGE_MAX_SIZE  (PAGE_SIZE << NETDEV_FRAG_PAGE_MAX_ORDER)
+ #define NETDEV_PAGECNT_MAX_BIAS	   NETDEV_FRAG_PAGE_MAX_SIZE
+ 
