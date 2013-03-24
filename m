@@ -1,102 +1,35 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or
- Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba
- (updated) Version 2
-Date: Sun, 24 Mar 2013 03:27:55 +0000
-Message-ID: <157393863283F442885425D2C4542856489E7C79@nasanexd02f.na.qualcomm.com>
-References: <514CE440.3010003@gmail.com>
- <1363996448.4431.73.camel@edumazet-glaptop> <514CF23A.3010702@gmail.com>
- <20130323021008.GC939@order.stressinduktion.org>
- <514D3581.4040001@gmail.com>
- <20130323150655.GA10779@order.stressinduktion.org>
- <69jo698argv8@mids.svenhartge.de>
- <20130324012625.GA17948@order.stressinduktion.org>
- <89joa2largv8@mids.svenhartge.de>
- <20130324014125.GB17948@order.stressinduktion.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba (updated) Version 2
+Date: Sun, 24 Mar 2013 04:40:37 +0100
+Message-ID: <20130324034037.GC17948@order.stressinduktion.org>
+References: <1363996448.4431.73.camel@edumazet-glaptop> <514CF23A.3010702@gmail.com> <20130323021008.GC939@order.stressinduktion.org> <514D3581.4040001@gmail.com> <20130323150655.GA10779@order.stressinduktion.org> <69jo698argv8@mids.svenhartge.de> <20130324012625.GA17948@order.stressinduktion.org> <89joa2largv8@mids.svenhartge.de> <20130324014125.GB17948@order.stressinduktion.org> <157393863283F442885425D2C4542856489E7C79@nasanexd02f.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Sven Hartge <sven@svenhartge.de>
+Content-Type: text/plain; charset=utf-8
+Cc: Sven Hartge <sven@svenhartge.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Huang, Xiong" <xiong@qca.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:10814 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752762Ab3CXD14 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Mar 2013 23:27:56 -0400
-In-Reply-To: <20130324014125.GB17948@order.stressinduktion.org>
-Content-Language: en-US
+Received: from order.stressinduktion.org ([87.106.68.36]:54353 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752598Ab3CXDkj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Mar 2013 23:40:39 -0400
+Content-Disposition: inline
+In-Reply-To: <157393863283F442885425D2C4542856489E7C79@nasanexd02f.na.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Q291bGQgeW91IHBvaW50IG1lIHdoZXJlIHRoZSBwYXRjaCBpcyA/IA0KSSBjaGVja2VkIHdpbmRv
-d3MgZHJpdmVyLCBpdCBkb2Vzbid0IGRpc2FibGUgY2hlY2tzdW0gb2ZmbG9hZCBpbiBSWCBkaXJl
-Y3Rpb24uDQoNClRoYW5rcw0KWGlvbmcNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0K
-PiBGcm9tOiBIYW5uZXMgRnJlZGVyaWMgU293YSBbbWFpbHRvOmhhbm5lc0BzdHJlc3NpbmR1a3Rp
-b24ub3JnXQ0KPiBTZW50OiBTdW5kYXksIE1hcmNoIDI0LCAyMDEzIDk6NDEgQU0NCj4gVG86IFN2
-ZW4gSGFydGdlDQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBKaWUuWWFuZ0BBdGhlcm9z
-LmNvbTsgSHVhbmcsIFhpb25nDQo+IFN1YmplY3Q6IFJlOiBBdGhlcm9zIENvbW11bmljYXRpb25z
-IEluYy4gQVI4MTIxL0FSODExMy9BUjgxMTQgR2lnYWJpdCBvcg0KPiBGYXN0IEV0aGVybmV0IChy
-ZXYgYjApIDEuMC4wLjcgbWQ1L3NoYTEgY29ycnVwdGVkIHVzaW5nIE5GUyBhbmQgc2FtYmENCj4g
-KHVwZGF0ZWQpIFZlcnNpb24gMg0KPiANCj4gT24gU3VuLCBNYXIgMjQsIDIwMTMgYXQgMDI6MzU6
-MTFBTSArMDEwMCwgU3ZlbiBIYXJ0Z2Ugd3JvdGU6DQo+ID4gSGFubmVzIEZyZWRlcmljIFNvd2Eg
-PGhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnPiB3cm90ZToNCj4gPiA+IE9uIFN1biwgTWFyIDI0
-LCAyMDEzIGF0IDAxOjM2OjMzQU0gKzAxMDAsIFN2ZW4gSGFydGdlIHdyb3RlOg0KPiA+ID4+IEhh
-bm5lcyBGcmVkZXJpYyBTb3dhIDxoYW5uZXNAc3RyZXNzaW5kdWt0aW9uLm9yZz4gd3JvdGU6DQo+
-ID4gPj4gPiBPbiBTYXQsIE1hciAyMywgMjAxMyBhdCAxMjo1NDoyNUFNIC0wNDAwLCByZWJlbHlv
-dXRoIHdyb3RlOg0KPiA+ID4+ID4+IEkgYXBwbGllZCB5b3VyIHBhdGNoIG9uIG15IHRoZSBrZXJu
-ZWwgMy43LjkgYW5kIGxvb2sgbGlrZSB0aGUNCj4gPiA+PiA+PiBwYXRjaCBkbyB3aGF0IHlvdSBz
-YWlkIGJlZm9yZSA6DQo+ID4gPj4gPj4NCj4gPiA+PiA+PiAiVGhpcyBkb2VzIG5vdCBzb2x2ZSB0
-aGUgcmVhbCBwcm9ibGVtLCB3aGljaCBJIGhhdmUgbm90IHlldA0KPiA+ID4+ID4+IHVuZGVyc3Rv
-b2QgKHdyb25nIHBhY2tldHMgd2lsbCBiZSBkaXNjYXJkZWQgbm93IGFuZCB3aWxsIGJlDQo+IGhv
-cGVmdWxseSByZXNlbmQpLiAiDQo+ID4gPj4gPj4NCj4gPiA+PiA+PiBUaGVyZSBhcmUgZXJyb3Jz
-IG9uIHRoZSBSWCBzaWRlIG9mIHRoZSBzZXJ2ZXIgYW5kIHRoZSBzcGVlZCBpcw0KPiA+ID4+ID4+
-IDV+MTAlIGxlc3MgYnV0IHRoZSBmaWxlcyBhcmUgb2sgaW4gbmZzdjQgLCBTRlRQL0ZUUCBhbmQg
-c2FtYmEuDQo+ID4gPj4gPj4NCj4gPiA+PiA+PiBNYXliZSB0aGUgQXRoZXJvcyBkcml2ZXJzIGZv
-ciB3aW5kb3dzIGhhZCBhIHBhdGNoIGZvciB0aGUNCj4gPiA+PiA+PiBjaGVja3N1bSBhbHJlYWR5
-IGluIHRoZSBkcml2ZXJzIGFuZCB0aGUgY2hpcHNldCAgaGF2ZSBzb21lDQo+ID4gPj4gPj4gaGFy
-ZHdhcmUgYnVnLCBidXQgZm9yIG1lIHlvdXIgcGF0Y2ggaXMgYWxyZWFkeSBhbiBhY2hpZXZlbWVu
-dA0KPiA+ID4+ID4+IGFuZCBJIHJlYWxseSB0aGFuayB5b3UgZm9yIHlvdXIgdGltZSBhbmQgY29u
-c2lkZXJhdGlvbi4NCj4gPiA+Pg0KPiA+ID4+ID4gVGhlIHVwc3RyZWFtIGRyaXZlciAod2hpY2gg
-aXMgYSB0YXJiYWxsIEkgZm91bmQgd2l0aCBnb29nbGUNCj4gPiA+PiA+IEFSODFGYW1pbHktbGlu
-dXgtdjEuMC4xLjE0LnRhci5neikgaGFzIHRoaXMgZnVuY3Rpb24gaWZkZWZlZCBvdXQuDQo+ID4g
-Pj4gPiBJIGhhdmUgYSBjb3VwbGUgb2YgbW9yZSB0aGluZ3MgSSB3YW50IHRvIHRlc3QgYXMgc29v
-biBhcyBJIGhhdmUNCj4gPiA+PiA+IGFjY2VzcyB0byB0aGUgaGFyZHdhcmUgYWdhaW4uICBJZiBJ
-IGRvbid0IGZpbmQgYSBiZXR0ZXIgc29sdXRpb24NCj4gPiA+PiA+IEkgd2lsbCBzdWJtaXQgYSBw
-YXRjaCB3aGljaCBkaXNhYmxlcyByeCBjaGVja3N1bW1pbmcgYXMgYSB3aG9sZSBmb3INCj4gaW5j
-bHVzaW9uIHRvIG5ldC1uZXh0Lg0KPiA+ID4+DQo+ID4gPj4gSSByZW1lbWJlciBoYXZpbmcgdGhl
-IHNvbWUgcHJvYmxlbSB3aXRoIGFuIGF0bDFlIGNoaXAgb24gbXkgQXN1cw0KPiA+ID4+IFBRNS1Q
-cm8uIEl0IHdvdWxkIGNvcnJ1cHQgZXRoZXJuZXQgZnJhbWVzLCByZXN1bHRpbmcgaW4gZHJvcHBl
-ZA0KPiA+ID4+IGNvbm5lY3Rpb25zIHdoZW4gdXNpbmcgU1NIIChiYWlsaW5nIG91dCB3aXRoIGEg
-SE1BQyBjcnlwdG8gZXJyb3IpIGV0Yy4NCj4gPiA+Pg0KPiA+ID4+IEFmdGVyIHNvbWUgY29udmVy
-c2F0aW9ucyB3aXRoIGFuIEF0aGVyb3MgZW5naW5lZXIgKEppZSBZYW5nDQo+ID4gPj4gPEppZS5Z
-YW5nQEF0aGVyb3MuY29tPikgSSBnb3QgdGhlIGZvbGxvd2luZyBwYXRjaCwgd2hpY2ggSSBhcHBs
-aWVkDQo+ID4gPj4gZm9yIHNvbWUgdGltZSB0byBteSBsb2NhbCBEZWJpYW4ga2VybmVsIHBhY2th
-Z2VzLiBJdCBmaXhlZCB0aGUNCj4gPiA+PiBwcm9ibGVtIGZvciBtZSwgdW50aWwgSSBzd2l0Y2hl
-ZCB0aGUgYm9hcmQgdG8gYSBuZXdlciBvbmUuDQo+ID4gPj4NCj4gPiA+PiBBcyBmYXIgYXMgSSB1
-bmRlcnN0YW5kLCB0aGlzIHBhdGNoIHJpcHMgb3V0IGFueSBjaGVja3N1bW1pbmcNCj4gPiA+PiBm
-dW5jdGlvbiBhbmQganVzdCBhZHZlcnRpc2VzIHRoZSBjaGlwIGFzIG5vdCB1c2luZyBhbmQgcHJv
-dmlkaW5nIGFueS4NCj4gPg0KPiA+ID4gWWVzLCBteSBwYXRjaCBkb2VzIHRoZSBzYW1lLCBqdXN0
-IGp1bXBlcyBvdmVyIHRoZSBib2R5IG9mIHRoZQ0KPiA+ID4gZnVuY3Rpb24gYW5kIHJldHVybnMg
-d2l0aG91dCB1cGRhdGluZyB0aGUgaXBfc3VtbWVkIGZpZWxkLg0KPiA+DQo+ID4gPj4gTXkgbWFp
-bCBhcmNoaXZlIGluZGljYXRlcywgdGhpcyBidWcgaGFzIGJlZW4gZml4ZWQgaW4gdGhlIHVwc3Ry
-ZWFtDQo+ID4gPj4gYXRsMWUgZHJpdmVyIHNpbmNlIHZlcnNpb24gbDFjLWxpbnV4LXYxLjAuMC4x
-MS10ZXN0LnRhci5nei4NCj4gPg0KPiA+ID4gWWVzLCB0aGV5IGlmZGVmZWQgb3V0IHRoZSBib2R5
-IG9mIHRoZSBmdW5jdGlvbi4NCj4gPg0KPiA+ID4gV2hhdCB3ZSBoYXZlIGZvdW5kIHNvIGZhcjoN
-Cj4gPg0KPiA+ID4gSXQgc2VlbXMgcGFja2V0IGNvbnRlbnQgb3ZlcndyaXRlcyBpdHNlbGYuIFdl
-IGhhdmUgbm90IHlldCBmb3VuZCBhDQo+ID4gPiBwYXR0ZXJuIGJ1dCBpdCBzZWVtcyB0aGF0IHNv
-bWUgMTYgYnl0ZXMgZnJvbSB0aGUgcGF5bG9hZCBvdmVyd3JpdGUNCj4gPiA+IG90aGVyIHBhcnRz
-IG9mIHRoZSBwYWNrZXQsIGV2ZW4gbXVsaXRwbGUgdGltZXMgKGJ1dCB0aGUgc2FtZSAxNg0KPiA+
-ID4gYnl0ZXMgdGhvdWdoKS4NCj4gPg0KPiA+ID4gSSBhbHNvIGNoZWNrZWQgZnJlZWJzZC4gSGFy
-ZHdhcmUgcnggY2hlY2tzdW1taW5nIGlzIGRpc2FibGVkIHRoZXJlDQo+ID4gPiBhbmQgd2UgZGlk
-IG5vdCBzZWUgYW55IGNoZWNrc3VtIGVycm9ycyBpbiB0aGUgc3RhY2suIFNvIEkgYXNzdW1lDQo+
-ID4gPiB0aGV5IGRvbid0IGhhdmUgdGhpcyBwcm9ibGVtLg0KPiA+DQo+ID4gSSB1bmRlcnN0YW5k
-IGZyb20gbXkgY29udmVyc2F0aW9uIHdpdGggSmllIFlhbmcsIHRoYXQgaGUgcmVwcm9kdWNlZA0K
-PiA+IHRoZSBwcm9ibGVtIGF0IEF0aGVyb3MgYW5kIHRoZW4gZGVjaWRlZCB0byBkaXNhYmxlIGNo
-ZWNrc3VtbWluZyBpbiB0aGUNCj4gPiBkcml2ZXIuIE15IGd1ZXNzIHdvdWxkIGJlIHRoYXQgaXMg
-c29tZSBraW5kIG9mIGNvbmZpcm1hdGlvbiB0aGlzDQo+ID4gZmVhdHVyZSBpcyBicm9rZW4gaW4g
-dGhhdCBoYXJkd2FyZSBhbmQgc2hvdWxkIG5vdCBiZSB1c2VkLg0KPiANCj4gQWRkZWQgSmllIFlh
-bmcgYW5kIFhpb25nIEh1YW5nIHRvIENjLg0KPiANCj4gSSBkb24ndCBrbm93IGlmIGNoZWNrc3Vt
-bWluZyBpcyB0aGUgY2F1c2Ugb2YgdGhpcyBwcm9ibGVtLiBQZXJoYXBzIHRoZSBkbWENCj4gdHJh
-bnNmZXJzIGdldCBjb3JydXB0ZWQgYW5kIHRoZSBkYXRhIHdhcyBjb3JyZWN0IGluIHRoZSBjYXJk
-J3MgYnVmZmVycy4NCj4gDQo+IEdyZWV0aW5ncywNCj4gDQo+ICAgSGFubmVzDQoNCg==
+On Sun, Mar 24, 2013 at 03:27:55AM +0000, Huang, Xiong wrote:
+> Could you point me where the patch is ? 
+> I checked windows driver, it doesn't disable checksum offload in RX direction.
+
+
+The patch is here: <http://article.gmane.org/gmane.linux.network/263116>
+
+It does not disable checksum offloading but rather suppress the update of the
+ip_summed field. This forces the kernel to recheck the checksums and discard
+the packet. Otherwise it would be seen as a valid one and could corrupt data
+streams.
+
+Thanks,
+
+  Hannes
