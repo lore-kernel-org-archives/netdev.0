@@ -1,41 +1,101 @@
-From: Jason Oster <parasytic@gmail.com>
-Subject: Re: Missing TCP SYN on loopback, retransmits after 1s
-Date: Sat, 23 Mar 2013 17:08:29 -0700
-Message-ID: <02604F4C-1288-4739-86C9-6EB8322E4C7A@gmail.com>
-References: <20111122.192338.1206677511966747729.davem@davemloft.net> <20111122183727.01ab6f04@telperion.jlyo.org> <1322059124.17693.24.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111123.172959.909786536317740314.davem@davemloft.net> <c873451a-71aa-418b-96e2-d8875e7fec3e@googlegroups.com> <1364057885.29473.4.camel@edumazet-glaptop> <B0544E9D-BC59-449D-88A5-6DAFCB676F91@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 6.3 \(1503\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: jlyo@jlyo.org, netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Sven Hartge <sven@svenhartge.de>
+Subject: Re: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba (updated) Version 2
+Date: Sun, 24 Mar 2013 01:36:33 +0100
+Message-ID: <69jo698argv8@mids.svenhartge.de>
+References: <514CE440.3010003@gmail.com> <1363996448.4431.73.camel@edumazet-glaptop> <514CF23A.3010702@gmail.com> <20130323021008.GC939@order.stressinduktion.org> <514D3581.4040001@gmail.com> <20130323150655.GA10779@order.stressinduktion.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:61962 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752296Ab3CXAId convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Mar 2013 20:08:33 -0400
-Received: by mail-pb0-f50.google.com with SMTP id up1so3555950pbc.23
-        for <netdev@vger.kernel.org>; Sat, 23 Mar 2013 17:08:32 -0700 (PDT)
-In-Reply-To: <B0544E9D-BC59-449D-88A5-6DAFCB676F91@gmail.com>
+Received: from plane.gmane.org ([80.91.229.3]:35764 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752329Ab3CXAjm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Mar 2013 20:39:42 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UJYyi-0000Gz-EZ
+	for netdev@vger.kernel.org; Sun, 24 Mar 2013 01:40:04 +0100
+Received: from ip-178-200-42-118.unitymediagroup.de ([178.200.42.118])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 24 Mar 2013 01:40:04 +0100
+Received: from sven by ip-178-200-42-118.unitymediagroup.de with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 24 Mar 2013 01:40:04 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi again,
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> On Sat, Mar 23, 2013 at 12:54:25AM -0400, rebelyouth wrote:
+>> I applied your patch on my the kernel 3.7.9 and look like the patch do 
+>> what you said before :
+>> 
+>> "This does not solve the real problem, which I have not yet understood 
+>> (wrong packets will be discarded now and will be hopefully resend). "
+>> 
+>> There are errors on the RX side of the server and the speed is 5~10% 
+>> less but the files are ok in nfsv4 , SFTP/FTP and samba.
+>> 
+>> Maybe the Atheros drivers for windows had a patch for the checksum 
+>> already in the drivers and the chipset  have some hardware bug, but for 
+>> me your patch is already an achievement and I really thank you for your 
+>> time and consideration.
 
-Resending this; it didn't make it to the netdev list.
+> The upstream driver (which is a tarball I found with google
+> AR81Family-linux-v1.0.1.14.tar.gz) has this function ifdefed out. I have
+> a couple of more things I want to test as soon as I have access to the
+> hardware again.  If I don't find a better solution I will submit a patch
+> which disables rx checksumming as a whole for inclusion to net-next.
 
-On Mar 23, 2013, at 12:17 PM, Jason Oster <parasytic@gmail.com> wrote:
+I remember having the some problem with an atl1e chip on my Asus
+PQ5-Pro. It would corrupt ethernet frames, resulting in dropped
+connections when using SSH (bailing out with a HMAC crypto error) etc.
 
-> Hello Eric,
-> 
-> Thank you for looking into this so quickly! And it sounds like promising news, too. I'll experiment with newer kernels right away.
-> 
-> Thanks again,
-> Jay
+After some conversations with an Atheros engineer (Jie Yang
+<Jie.Yang@Atheros.com>) I got the following patch, which I applied for
+some time to my local Debian kernel packages. It fixed the problem for
+me, until I switched the board to a newer one.
+
+As far as I understand, this patch rips out any checksumming function
+and just advertises the chip as not using and providing any.
+
+My mail archive indicates, this bug has been fixed in the upstream atl1e
+driver since version l1c-linux-v1.0.0.11-test.tar.gz.
+
+diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
+index 9fc6d6d..73d44d5 100644
+--- a/drivers/net/atl1e/atl1e_main.c
++++ b/drivers/net/atl1e/atl1e_main.c
+@@ -1343,29 +1343,8 @@ static inline void atl1e_rx_checksum(struct atl1e_adapter *adapter,
+ {
+       u8 *packet = (u8 *)(prrs + 1);
+       struct iphdr *iph;
+-      u16 head_len = ETH_HLEN;
+-      u16 pkt_flags;
+-      u16 err_flags;
+ 
+       skb->ip_summed = CHECKSUM_NONE;
+-      pkt_flags = prrs->pkt_flag;
+-      err_flags = prrs->err_flag;
+-      if (((pkt_flags & RRS_IS_IPV4) || (pkt_flags & RRS_IS_IPV6)) &&
+-              ((pkt_flags & RRS_IS_TCP) || (pkt_flags & RRS_IS_UDP))) {
+-              if (pkt_flags & RRS_IS_IPV4) {
+-                      if (pkt_flags & RRS_IS_802_3)
+-                              head_len += 8;
+-                      iph = (struct iphdr *) (packet + head_len);
+-                      if (iph->frag_off != 0 && !(pkt_flags & RRS_IS_IP_DF))
+-                              goto hw_xsum;
+-              }
+-              if (!(err_flags & (RRS_ERR_IP_CSUM | RRS_ERR_L4_CSUM))) {
+-                      skb->ip_summed = CHECKSUM_UNNECESSARY;
+-                      return;
+-              }
+-      }
+-
+-hw_xsum :
+       return;
+ }
+ 
 
 
-FYI net-next may have some changes not available in 3.9.0-rc3, because I can still reproduce it there:
 
-$ uname -a
-Linux test 3.9.0-030900rc3-generic #201303171935 SMP Sun Mar 17 23:36:17 UTC 2013 x86_64 x86_64 x86_64 GNU/Linux
-
-This is from the Ubuntu kernel mainline PPA (on Raring Ringtail-dev). I haven't built the kernel yet.
+-- 
+Sigmentation fault. Core dumped.
