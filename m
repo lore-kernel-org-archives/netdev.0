@@ -1,48 +1,47 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] Fix IXP4xx coherent allocations
-Date: Sun, 24 Mar 2013 19:11:07 +0000
-Message-ID: <1364152267.3620.31.camel@deadeye.wl.decadent.org.uk>
-References: <m3obe9lxil.fsf@intrepid.localdomain>
-	 <20130323.195740.2108147521543354261.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <khc@pm.waw.pl>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <c.aeschlimann@acn-group.ch>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130323.195740.2108147521543354261.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Baatz <gmbnomis@gmail.com>
+Subject: [PATCH 0/2] Fix for mv643xx_eth built as module
+Date: Sun, 24 Mar 2013 21:33:58 +0100
+Message-ID: <1364157240-28883-1-git-send-email-gmbnomis@gmail.com>
+Cc: jason@lakedaemon.net, andrew@lunn.ch, davem@davemloft.net,
+	Simon Baatz <gmbnomis@gmail.com>
+To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, florian@openwrt.org,
+	thomas.petazzoni@free-electrons.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:43760 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752463Ab3CXUen (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 16:34:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-03-23 at 19:57 -0400, David Miller wrote:
-> From: Krzysztof Halasa <khc@pm.waw.pl>
-> Date: Sat, 23 Mar 2013 20:35:46 +0100
->=20
-> > ARM core code currently requires coherent DMA mask to be set. Make =
-sure
-> > we limit PCI devices to 64 MiB while allowing on-chip devices to ac=
-cess
-> > the whole 4 GiB address space.
-> >=20
-> > This fixes a v3.7+ regression which broke IXP4xx built-in network d=
-evices.
-> >=20
-> > Signed-off-by: Krzysztof Ha=C5=82asa <khc@pm.waw.pl>
->=20
-> This requirement is not reasonable.
->=20
-> The DMA API documentation clearly states what the default must be,
-> and what drivers are guarenteed will be the default.
+Recently [1], mv643xx_eth was changed to make use of mvmdio. However,
+this change introduces two problems when mvmdio and mv643xx_eth are
+built as modules:
 
-I'm failing to see where it says the default can't be narrower than 32
-bits due to platform limits.  And how do you think DMA mapping is
-supposed to work for PCI devices on these platforms, anyway?
+- mvmdio is not loaded automatically by udev
+- mv643xx_eth oopses when it can't find its PHY, i.e. when mvmdio is
+  not yet loaded
 
-Ben.
+The first problem can be fixed easily by adding a module alias for the
+respective platform device.  The proposed fix for the second problem
+uses EPROBE_DEFER as suggested by Thomas Petazzoni when the driver
+can't find its PHY.
 
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+These patches apply on top of Florian Fainelli's patchset. They have
+been tested on Marvel Kirkwood non-DT.
+
+- Simon
+
+[1] https://lkml.org/lkml/2013/3/22/247
+
+Simon Baatz (2):
+  net: mvmdio: define module alias for platform device
+  mv643xx_eth: defer probing if Marvell Orion MDIO driver not loaded
+
+ drivers/net/ethernet/marvell/mv643xx_eth.c |   12 +++++++++---
+ drivers/net/ethernet/marvell/mvmdio.c      |    1 +
+ 2 files changed, 10 insertions(+), 3 deletions(-)
+
+-- 
+1.7.9.5
