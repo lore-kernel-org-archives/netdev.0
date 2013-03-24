@@ -1,39 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: remove a WARN_ON() in net_enable_timestamp()
-Date: Sun, 24 Mar 2013 17:27:50 -0400 (EDT)
-Message-ID: <20130324.172750.346803352885480915.davem@davemloft.net>
-References: <1363999108.4431.81.camel@edumazet-glaptop>
+Subject: Re: [PATCH] bridge: fix crash when set mac address of br
+	interface
+Date: Sun, 24 Mar 2013 17:28:04 -0400 (EDT)
+Message-ID: <20130324.172804.152818486141712380.davem@davemloft.net>
+References: <1364041670-3408-1-git-send-email-honkiko@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, chavey@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43986 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754688Ab3CXV1w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:27:52 -0400
-In-Reply-To: <1363999108.4431.81.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, zhiguo.hong@emc.com,
+	herbert@gondor.hengli.com.au
+To: honkiko@gmail.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1364041670-3408-1-git-send-email-honkiko@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 22 Mar 2013 17:38:28 -0700
+From: Hong Zhiguo <honkiko@gmail.com>
+Date: Sat, 23 Mar 2013 20:27:50 +0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> When I tried to set mac address of a bridge interface to a mac
+> address which already learned on this bridge, I got system hang.
 > 
-> The WARN_ON(in_interrupt()) in net_enable_timestamp() can get false
-> positive, in socket clone path, run from softirq context :
- ...
-> Its safe at this point because the parent socket owns a reference
-> on the netstamp_needed, so we cant have a 0 -> 1 transition, which
-> requires to lock a mutex.
+> The cause is straight forward: function br_fdb_change_mac_address
+> calls fdb_insert with NULL source nbp. Then an fdb lookup is
+> performed. If an fdb entry is found and it's local, it's OK. But
+> if it's not local, source is dereferenced for printk without NULL
+> check.
 > 
-> Instead of refining the check, lets remove it, as all known callers
-> are safe. If it ever changes in the future, static_key_slow_inc()
-> will complain anyway.
-> 
-> Reported-by: Laurent Chavey <chavey@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
 
 Applied.
