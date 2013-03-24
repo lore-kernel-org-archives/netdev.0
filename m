@@ -1,34 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv4: Fix ip-header identification for gso packets.
-Date: Sun, 24 Mar 2013 17:13:45 -0400 (EDT)
-Message-ID: <20130324.171345.2090371435636317842.davem@davemloft.net>
-References: <1364098248-1766-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH net-next] bridge: avoid br_ifinfo_notify when nothing
+ changed
+Date: Sun, 24 Mar 2013 17:15:37 -0400 (EDT)
+Message-ID: <20130324.171537.1255124338630598287.davem@davemloft.net>
+References: <1364015653-7322-1-git-send-email-honkiko@gmail.com>
+	<1364131607-11698-1-git-send-email-honkiko@gmail.com>
+	<514F0F07.9050702@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org
-To: pshelar@nicira.com
+Cc: honkiko@gmail.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, stephen@networkplumber.org,
+	herbert@gondor.hengli.com.au, zhiguo.hong@emc.com
+To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43815 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43824 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754161Ab3CXVNq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:13:46 -0400
-In-Reply-To: <1364098248-1766-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S1754161Ab3CXVPi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:15:38 -0400
+In-Reply-To: <514F0F07.9050702@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Sat, 23 Mar 2013 21:10:48 -0700
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Sun, 24 Mar 2013 17:34:47 +0300
 
-> For TCP protocol ip-header id needs to be incremented even if
-> IP_DF flag is set. This behaviour was changed in commit
-> 490ab08127cebc25e3a26 (IP_GRE: Fix IP-Identification).
+> Hello.
 > 
-> Following patch fixes it so that identification is always
-> incremented for TCP.
+> On 03/24/2013 04:26 PM, Hong Zhiguo wrote:
 > 
-> Reported-by: Cong Wang <amwang@redhat.com>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+>> When neither IFF_BRIDGE nor IFF_BRIDGE_PORT is set,
+>> and afspec == NULL but  protinfo != NULL, we run into
+>> "if (err == 0) br_ifinfo_notify(RTM_NEWLINK, p);" with
+>> random value in ret.
+>>
+>> Thanks to Sergei for pointing out the error in commit comments.
+>>
+>> Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
+> 
+>     For the future, if you post the revised version of the patch, you
+> should indicate in the subject it like this: [PATCH v2].
 
-We should do this increment for all protocols when DF is set,
-not just TCP.
+I'm disappointed that you have enough energy to point out such a lower
+priority omission, but you lack the time for something more important,
+which is giving this patch your explicit ACK if it fixes all of the
+issues you pointed out to him.
