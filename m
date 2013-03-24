@@ -1,36 +1,111 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH net-next 2/2] ipv6: implement RFC3168 5.3 (ecn protection)
- for ipv6 fragmentation handling
-Date: Sun, 24 Mar 2013 21:28:15 +0900
-Message-ID: <514EF15F.9090009@linux-ipv6.org>
-References: <20130322182444.GA939@order.stressinduktion.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC PATCH v2, part4 37/39] mm: use totalram_pages instead of
+ num_physpages at runtime
+Date: Sun, 24 Mar 2013 16:27:52 +0400
+Message-ID: <514EF148.7060106@cogentembedded.com>
+References: <1364109934-7851-1-git-send-email-jiang.liu@huawei.com> <1364109934-7851-66-git-send-email-jiang.liu@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, jbrouer@redhat.com,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Rientjes <rientjes@google.com>,
+	Jiang Liu <jiang.liu@huawei.com>,
+	Wen Congyang <wency@cn.fujitsu.com>,
+	Mel Gorman <mgorman@suse.de>, Minchan Kim <minchan@kernel.org>,
+	KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
+	Michal Hocko <mhocko@suse.cz>,
+	Jianguo Wu <wujianguo@huawei.com>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, Miklos Szeredi <miklos@szeredi.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	fuse-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Jiang Liu <liuj97@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:43150 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753629Ab3CXM2S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 08:28:18 -0400
-In-Reply-To: <20130322182444.GA939@order.stressinduktion.org>
+Received: from mail-la0-f51.google.com ([209.85.215.51]:55668 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753503Ab3CXM25 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 08:28:57 -0400
+Received: by mail-la0-f51.google.com with SMTP id fo13so9844691lab.38
+        for <netdev@vger.kernel.org>; Sun, 24 Mar 2013 05:28:55 -0700 (PDT)
+In-Reply-To: <1364109934-7851-66-git-send-email-jiang.liu@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa wrote:
+Hello.
 
-> [PATCH 2/2] ipv6: implement RFC3168 5.3 (ecn protection) for ipv6 fragmentation handling
-> 
-> This patch also ensures that INET_ECN_CE is propagated if one fragment
-> had the codepoint set.
-> 
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+On 24-03-2013 11:25, Jiang Liu wrote:
 
---yoshfuji
+> The global variable num_physpages is scheduled to be removed, so use
+> totalram_pages instead of num_physpages at runtime.
+
+> Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+> Cc: Miklos Szeredi <miklos@szeredi.hu>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Cc: James Morris <jmorris@namei.org>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: fuse-devel@lists.sourceforge.net
+> Cc: linux-kernel@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> ---
+>   fs/fuse/inode.c          |    2 +-
+>   kernel/power/snapshot.c  |    4 ++--
+>   net/ipv4/inet_fragment.c |    2 +-
+>   3 files changed, 4 insertions(+), 4 deletions(-)
+
+> diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
+> index b730fda..4c2a420 100644
+> --- a/fs/fuse/inode.c
+> +++ b/fs/fuse/inode.c
+> @@ -781,7 +781,7 @@ static const struct super_operations fuse_super_operations = {
+>   static void sanitize_global_limit(unsigned *limit)
+>   {
+>   	if (*limit == 0)
+> -		*limit = ((num_physpages << PAGE_SHIFT) >> 13) /
+> +		*limit = ((totalram_pages << PAGE_SHIFT) >> 13) /
+>   			 sizeof(struct fuse_req);
+>
+>   	if (*limit >= 1 << 16)
+> diff --git a/kernel/power/snapshot.c b/kernel/power/snapshot.c
+> index 0de2857..8b5d1cd 100644
+> --- a/kernel/power/snapshot.c
+> +++ b/kernel/power/snapshot.c
+> @@ -1651,7 +1651,7 @@ unsigned long snapshot_get_image_size(void)
+>   static int init_header(struct swsusp_info *info)
+>   {
+>   	memset(info, 0, sizeof(struct swsusp_info));
+> -	info->num_physpages = num_physpages;
+> +	info->num_physpages = get_num_physpages();
+>   	info->image_pages = nr_copy_pages;
+>   	info->pages = snapshot_get_image_size();
+>   	info->size = info->pages;
+> @@ -1795,7 +1795,7 @@ static int check_header(struct swsusp_info *info)
+>   	char *reason;
+>
+>   	reason = check_image_kernel(info);
+> -	if (!reason && info->num_physpages != num_physpages)
+> +	if (!reason && info->num_physpages != get_num_physpages())
+>   		reason = "memory size";
+>   	if (reason) {
+>   		printk(KERN_ERR "PM: Image mismatch: %s\n", reason);
+> diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+> index 4750d2b..94a99a1 100644
+> --- a/net/ipv4/inet_fragment.c
+> +++ b/net/ipv4/inet_fragment.c
+> @@ -60,7 +60,7 @@ void inet_frags_init(struct inet_frags *f)
+>
+>   	rwlock_init(&f->lock);
+>
+> -	f->rnd = (u32) ((num_physpages ^ (num_physpages>>7)) ^
+> +	f->rnd = (u32) ((totalram_pages ^ (totalram_pages>>7)) ^
+>   				   (jiffies ^ (jiffies >> 6)));
+>
+>   	setup_timer(&f->secret_timer, inet_frag_secret_rebuild,
+
+    Isn't patch 37 the same as patch 9?
+
+WBR, Sergei
