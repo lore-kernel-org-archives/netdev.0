@@ -1,35 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] dsa: add device tree bindings to register DSA
- switches
-Date: Sun, 24 Mar 2013 17:17:38 -0400 (EDT)
-Message-ID: <20130324.171738.301089541347666424.davem@davemloft.net>
-References: <2044972.NvctqPqDPo@bender>
+Subject: Re: [PATCH net-next] bridge: avoid br_ifinfo_notify when
+ nothing changed
+Date: Sun, 24 Mar 2013 17:18:07 -0400 (EDT)
+Message-ID: <20130324.171807.1183155678794281928.davem@davemloft.net>
+References: <1364015653-7322-1-git-send-email-honkiko@gmail.com>
+	<1364131607-11698-1-git-send-email-honkiko@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devicetree-discuss@lists.ozlabs.org, rob.herring@calxeda.com,
-	grant.likely@secretlab.ca, thomas.petazzoni@free-electrons.com,
-	gregory.clement@free-electrons.com, jason@lakedaemon.net,
-	buytenh@wantstofly.org, netdev@vger.kernel.org, andrew@lunn.ch,
-	linux-arm-kernel@lists.infradead.org
-To: florian@openwrt.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43879 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754758Ab3CXVRk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:17:40 -0400
-In-Reply-To: <2044972.NvctqPqDPo@bender>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, zhiguo.hong@emc.com,
+	stephen@networkplumber.org, herbert@gondor.hengli.com.au
+To: honkiko@gmail.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1364131607-11698-1-git-send-email-honkiko@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <florian@openwrt.org>
-Date: Fri, 22 Mar 2013 21:50:50 +0100
+From: Hong Zhiguo <honkiko@gmail.com>
+Date: Sun, 24 Mar 2013 21:26:47 +0800
 
-> This patch adds support for registering DSA switches using Device Tree
-> bindings. Note that we support programming the switch routing table even
-> though no in-tree user seems to require it. I tested this on Armada 370
-> with a Marvell 88E6172 (not supported by mainline yet).
+> When neither IFF_BRIDGE nor IFF_BRIDGE_PORT is set,
+> and afspec == NULL but  protinfo != NULL, we run into
+> "if (err == 0) br_ifinfo_notify(RTM_NEWLINK, p);" with
+> random value in ret.
 > 
-> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+> Thanks to Sergei for pointing out the error in commit comments.
+> 
+> Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
 
 Applied.
