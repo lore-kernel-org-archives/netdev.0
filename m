@@ -1,73 +1,68 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: [PATCH] unix: fix a race condition in unix_release()
-Date: Mon, 25 Mar 2013 09:18:33 -0400
-Message-ID: <20130325131833.10376.68379.stgit@localhost>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH net-next] 802: fix a possible race condition
+Date: Mon, 25 Mar 2013 21:32:18 +0800
+Message-ID: <1364218338.2532.15.camel@cr0>
+References: <1363938600-26129-1-git-send-email-amwang@redhat.com>
+	 <1364015648-4195-1-git-send-email-amwang@redhat.com>
+	 <1364015648-4195-2-git-send-email-amwang@redhat.com>
+	 <20130324.172403.776354963637295731.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jan.stancek@gmail.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, david.ward@ll.mit.edu, jorge@dti2.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51283 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56926 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757889Ab3CYNSg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Mar 2013 09:18:36 -0400
+	id S1757941Ab3CYNce (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Mar 2013 09:32:34 -0400
+In-Reply-To: <20130324.172403.776354963637295731.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As reported by Jan, and others over the past few years, there is a
-race condition caused by unix_release setting the sock->sk pointer
-to NULL before properly marking the socket as dead/orphaned.  This
-can cause a problem with the LSM hook security_unix_may_send() if
-there is another socket attempting to write to this partially
-released socket in between when sock->sk is set to NULL and it is
-marked as dead/orphaned.  This patch fixes this by only setting
-sock->sk to NULL after the socket has been marked as dead; I also
-take the opportunity to make unix_release_sock() a void function
-as it only ever returned 0/success.
+On Sun, 2013-03-24 at 17:24 -0400, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Sat, 23 Mar 2013 13:14:08 +0800
+> 
+> > From: Cong Wang <amwang@redhat.com>
+> > 
+> > garp_pdu_queue() should ways be called with this spin lock.
+> > garp_uninit_applicant() only holds rtnl lock which is not
+> > enough here.
+> > 
+> > Found by code inspection.
+> > 
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Cc: David Ward <david.ward@ll.mit.edu>
+> > Cc: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
+> > Signed-off-by: Cong Wang <amwang@redhat.com>
+> 
+> Under what conditions can entries be removed or added to
+> these RB-trees without the RTNL being held?
 
-Dave, I think this one should go on the -stable pile.
+At least garp_join_timer() calls garp_pdu_queue() in a timer:
 
-Special thanks to Jan for coming up with a reproducer for this
-problem.
+static void garp_join_timer(unsigned long data)
+{
+        struct garp_applicant *app = (struct garp_applicant *)data;
 
-Reported-by: Jan Stancek <jan.stancek@gmail.com>
-Signed-off-by: Paul Moore <pmoore@redhat.com>
----
- net/unix/af_unix.c |    7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+        spin_lock(&app->lock);
+        garp_gid_event(app, GARP_EVENT_TRANSMIT_PDU);
+        garp_pdu_queue(app);
+        spin_unlock(&app->lock);
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 51be64f..f153a8d 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -382,7 +382,7 @@ static void unix_sock_destructor(struct sock *sk)
- #endif
- }
- 
--static int unix_release_sock(struct sock *sk, int embrion)
-+static void unix_release_sock(struct sock *sk, int embrion)
- {
- 	struct unix_sock *u = unix_sk(sk);
- 	struct path path;
-@@ -451,8 +451,6 @@ static int unix_release_sock(struct sock *sk, int embrion)
- 
- 	if (unix_tot_inflight)
- 		unix_gc();		/* Garbage collect fds */
--
--	return 0;
- }
- 
- static void init_peercred(struct sock *sk)
-@@ -699,9 +697,10 @@ static int unix_release(struct socket *sock)
- 	if (!sk)
- 		return 0;
- 
-+	unix_release_sock(sk, 0);
- 	sock->sk = NULL;
- 
--	return unix_release_sock(sk, 0);
-+	return 0;
- }
- 
- static int unix_autobind(struct socket *sock)
+        garp_queue_xmit(app);
+        garp_join_timer_arm(app);
+}
+
+which I don't think can hold RTNL lock possibly.
+
+> 
+> If such events cannot happen, then no locking is needed.
+> 
+> Even if your change is correct and necessary, the answer to my
+> needs to be added to your commit message.
+
+Ok, I will.
+
+Thanks.
