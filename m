@@ -1,107 +1,31 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH] drivers/isdn: break out of the loop after call isdn_tty_send_msg
-Date: Mon, 25 Mar 2013 11:27:38 +0800
-Message-ID: <514FC42A.3030807@asianux.com>
-References: <512DD2B3.2070404@asianux.com> <512DD94C.2020008@suse.cz> <512EC79C.3010700@asianux.com> <512F296E.1050303@suse.cz> <51428134.50601@asianux.com> <51494336.7070202@asianux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Slaby <jslaby@suse.cz>, David Miller <davem@davemloft.net>,
-	isdn@linux-pingi.de, Greg KH <gregkh@linuxfoundation.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	netdev <netdev@vger.kernel.org>
-To: Jiri Kosina <jkosina@suse.cz>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net 0/3] ipv4: Fix ip-header identification for gso packets.
+Date: Sun, 24 Mar 2013 20:36:07 -0700
+Message-ID: <1364182567-1667-1-git-send-email-pshelar@nicira.com>
+Cc: amwang@redhat.com, Pravin B Shelar <pshelar@nicira.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:63988 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755180Ab3CYD2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 23:28:09 -0400
-In-Reply-To: <51494336.7070202@asianux.com>
+Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:58644 "HELO
+	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756524Ab3CYDhN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 23:37:13 -0400
+Received: by mail-pb0-f72.google.com with SMTP id rp2so1219210pbb.11
+        for <netdev@vger.kernel.org>; Sun, 24 Mar 2013 20:37:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Jiri Kosina:
+Following patch fixes ip-header identification according to comments from
+David Miller and Cong Wang.
+First two patches reverts fixes to upper layer gso handlers which is not
+required after fixing ipv4 gso handler.
 
-  could you help to check this patch whether is OK ?
+Pravin B Shelar (3):
+  Revert "ip_gre: increase inner ip header ID during segmentation"
+  Revert "udp: increase inner ip header ID during segmentation"
+  ipv4: Fix ip-header identification for gso packets.
 
-  thanks.
-
-  :-)
-
-gchen.
-
-
-On 2013=E5=B9=B403=E6=9C=8820=E6=97=A5 13:03, Chen Gang wrote:
-> Hello Maintainers:
->=20
->   did I send incorrect mail address ?
->     ./scripts/get_maintainers.pl leads to cc netdev, but exclude Davi=
-d Miller.
->     is it a bug of ./scripts/get_maintainers.pl ?
->       (this time, I include him in this mail address).
->=20
->   welcome any members to providing suggestions or completions.
->=20
->   thanks.
->=20
-> gchen.
->=20
-> On 2013=E5=B9=B403=E6=9C=8815=E6=97=A5 10:02, Chen Gang wrote:
->> Hello Maintainers:
->>
->>   is it qualified to be applied ?
->>
->>   thanks.
->>
->>
->> =E4=BA=8E 2013=E5=B9=B402=E6=9C=8828=E6=97=A5 17:54, Jiri Slaby =E5=86=
-=99=E9=81=93:
->>> On 02/28/2013 03:57 AM, Chen Gang wrote:
->>>>
->>>>   need break out of the loop after call isdn_tty_send_msg.
->>>>     isdn_tty_send_msg is intended to eat the rest of the string.
->>>>     so need not scan again the string which appended "+M...".
->>>
->>> Yes, looks good.
->>>
->>>> Signed-off-by: Chen Gang <gang.chen@asianux.com>
->>>> ---
->>>>  drivers/isdn/i4l/isdn_tty.c |    4 +++-
->>>>  1 files changed, 3 insertions(+), 1 deletions(-)
->>>>
->>>> diff --git a/drivers/isdn/i4l/isdn_tty.c b/drivers/isdn/i4l/isdn_t=
-ty.c
->>>> index d8a7d83..8ac7b33 100644
->>>> --- a/drivers/isdn/i4l/isdn_tty.c
->>>> +++ b/drivers/isdn/i4l/isdn_tty.c
->>>> @@ -3587,7 +3587,7 @@ isdn_tty_parse_at(modem_info *info)
->>>>  			case 'M':	/* MESSAGE */
->>>>  				p++;
->>>>  				isdn_tty_send_msg(info, m, p);
->>>> -				break;
->>>> +				goto tail;
->>>>  			default:
->>>>  				PARSE_ERROR;
->>>>  			}
->>>> @@ -3601,6 +3601,8 @@ isdn_tty_parse_at(modem_info *info)
->>>>  			PARSE_ERROR;
->>>>  		}
->>>>  	}
->>>> +
->>>> +tail:
->>>>  #ifdef CONFIG_ISDN_AUDIO
->>>>  	if (!info->vonline)
->>>>  #endif
->>>>
->>>
->>>
->>
->>
->=20
->=20
-
-
---=20
-Chen Gang
-
-Asianux Corporation
+ include/net/ipip.h |   16 ++++++----------
+ net/ipv4/af_inet.c |    3 +--
+ net/ipv4/gre.c     |    7 +------
+ net/ipv4/udp.c     |    7 +------
+ 4 files changed, 9 insertions(+), 24 deletions(-)
