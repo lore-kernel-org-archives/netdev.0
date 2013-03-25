@@ -1,109 +1,51 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [PATCH 5/6] xen-netback: coalesce slots before copying
-Date: Mon, 25 Mar 2013 15:13:32 +0000
-Message-ID: <5150699C.6080209@citrix.com>
-References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com> <1364209702-12437-6-git-send-email-wei.liu2@citrix.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] bridge: avoid br_ifinfo_notify when nothing
+ changed
+Date: Mon, 25 Mar 2013 19:32:14 +0400
+Message-ID: <51506DFE.4040405@cogentembedded.com>
+References: <1364015653-7322-1-git-send-email-honkiko@gmail.com> <1364131607-11698-1-git-send-email-honkiko@gmail.com> <514F0F07.9050702@cogentembedded.com> <20130324.171537.1255124338630598287.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Cc: honkiko@gmail.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, stephen@networkplumber.org,
+	herbert@gondor.hengli.com.au, zhiguo.hong@emc.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:9560 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756832Ab3CYPNf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Mar 2013 11:13:35 -0400
-In-Reply-To: <1364209702-12437-6-git-send-email-wei.liu2@citrix.com>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:46627 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757479Ab3CYPdN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 11:33:13 -0400
+Received: by mail-la0-f45.google.com with SMTP id er20so11499779lab.4
+        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 08:33:11 -0700 (PDT)
+In-Reply-To: <20130324.171537.1255124338630598287.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25/03/13 11:08, Wei Liu wrote:
-> This patch tries to coalesce tx requests when constructing grant copy
-> structures. It enables netback to deal with situation when frontend's
-> MAX_SKB_FRAGS is larger than backend's MAX_SKB_FRAGS.
-> 
-> It defines max_skb_slots, which is a estimation of the maximum number of slots
-> a guest can send, anything bigger than that is considered malicious. Now it is
-> set to 20, which should be enough to accommodate Linux (16 to 19).
+Hello.
 
-This maximum needs to be defined as part of the protocol and added to
-the interface header.
+On 25-03-2013 1:15, David Miller wrote:
 
-> Also change variable name from "frags" to "slots" in netbk_count_requests.
+>>> When neither IFF_BRIDGE nor IFF_BRIDGE_PORT is set,
+>>> and afspec == NULL but  protinfo != NULL, we run into
+>>> "if (err == 0) br_ifinfo_notify(RTM_NEWLINK, p);" with
+>>> random value in ret.
 
-I think this renaming should have been done as a separate patch.
+>>> Thanks to Sergei for pointing out the error in commit comments.
 
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -47,11 +47,26 @@
->  #include <asm/xen/hypercall.h>
->  #include <asm/xen/page.h>
->  
-> +/*
-> + * This is an estimation of the maximum possible frags a SKB might
-> + * have, anything larger than this is considered malicious. Typically
-> + * Linux has 16 to 19.
-> + */
+>>> Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
 
-Do you mean "max possible /slots/" a packet might have?
+>>      For the future, if you post the revised version of the patch, you
+>> should indicate in the subject it like this: [PATCH v2].
 
-> @@ -968,48 +987,114 @@ static struct gnttab_copy *xen_netbk_get_requests(struct xen_netbk *netbk,
-[...]
-> +				/* Poison these fields, corresponding
-> +				 * fields for head tx req will be set
-> +				 * to correct values after the loop.
-> +				 */
-> +				netbk->mmap_pages[pending_idx] = (void *)(~0UL);
-> +				pending_tx_info[pending_idx].head =
-> +					INVALID_PENDING_RING_IDX;
+> I'm disappointed that you have enough energy to point out such a lower
+> priority omission, but you lack the time for something more important,
+> which is giving this patch your explicit ACK if it fixes all of the
+> issues you pointed out to him.
 
-Do you need to poison both values?
+    Sorry, I don't usuallly ACK patches in an area I'm not closely familiar 
+with. Though I can add:
 
-> +
-> +				if (unlikely(!first)) {
+Reviewed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-This isn't unlikely is it?
-
-> +					first = &pending_tx_info[pending_idx];
-> +					start_idx = index;
-> +					head_idx = pending_idx;
-> +				}
-
-Instead of setting first here why not move the code below here?
-
-> +		first->req.offset = 0;
-> +		first->req.size = dst_offset;
-> +		first->head = start_idx;
-> +		set_page_ext(page, netbk, head_idx);
-> +		netbk->mmap_pages[head_idx] = page;
-> +		frag_set_pending_idx(&frags[shinfo->nr_frags], head_idx);
-
-> @@ -1548,13 +1649,34 @@ static void xen_netbk_idx_release(struct xen_netbk *netbk, u16 pending_idx,
-[...]
-> +		/* Setting any number other than
-> +		 * INVALID_PENDING_RING_IDX indicates this slot is
-> +		 * starting a new packet / ending a previous packet.
-> +		 */
-> +		pending_tx_info->head = 0;
-
-This doesn't look needed.  It will be initialized again when reusing t
-his pending_tx_info again, right?
-
-> +		index = pending_index(netbk->pending_prod++);
-> +		netbk->pending_ring[index] = netbk->pending_ring[info_idx];
-> +
-> +		xenvif_put(vif);
-> +
-> +		peek = netbk->pending_ring[pending_index(++head)];
-> +
-> +	} while (netbk->pending_tx_info[peek].head
-> +		 == INVALID_PENDING_RING_IDX);
->  
->  	netbk->mmap_pages[pending_idx]->mapping = 0;
->  	put_page(netbk->mmap_pages[pending_idx]);
-
-David
+WBR, Sergei
