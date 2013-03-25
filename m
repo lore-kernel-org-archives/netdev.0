@@ -1,33 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] virtio: remove obsolete virtqueue_get_queue_index()
-Date: Sun, 24 Mar 2013 21:51:10 -0400 (EDT)
-Message-ID: <20130324.215110.1406536052480990199.davem@davemloft.net>
-References: <87fvzke45u.fsf@rustcorp.com.au>
+From: Frank Li <Frank.Li@freescale.com>
+Subject: [PATCH 1/1 net-next] net: fec: build fec.c and fec_ptp.c to one module
+Date: Mon, 25 Mar 2013 09:03:42 +0800
+Message-ID: <1364173422-7865-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: rusty@rustcorp.com.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46159 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754996Ab3CYBvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 21:51:13 -0400
-In-Reply-To: <87fvzke45u.fsf@rustcorp.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Frank Li <Frank.Li@freescale.com>
+To: <festevam@gmail.com>, <lznuaa@gmail.com>,
+ <u.kleine-koenig@pengutronix.de>, <netdev@vger.kernel.org>,
+ <davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Mon, 25 Mar 2013 10:33:57 +1030
+fec_ptp.ko can't run individually
+rename fec.c to fec_main.c
+Build fec.o and fec_ptp.o into one fec.ko
+Remove unnessary EXPORT_SYMBOL in fec_ptp
 
-> You can access it directly now, since 3.8: v3.7-rc1-13-g06ca287
-> 'virtio: move queue_index and num_free fields into core struct
-> virtqueue.'
-> 
-> (Handing to DaveM for Ack or just take it...)
-> 
-> Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-> Acked-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
+---
+ drivers/net/ethernet/freescale/Makefile            |    3 ++-
+ .../net/ethernet/freescale/{fec.c => fec_main.c}   |    0
+ drivers/net/ethernet/freescale/fec_ptp.c           |    3 ---
+ 3 files changed, 2 insertions(+), 4 deletions(-)
+ rename drivers/net/ethernet/freescale/{fec.c => fec_main.c} (100%)
 
-This is already in my net-next tree.
+diff --git a/drivers/net/ethernet/freescale/Makefile b/drivers/net/ethernet/freescale/Makefile
+index b7d58fe..549ce13 100644
+--- a/drivers/net/ethernet/freescale/Makefile
++++ b/drivers/net/ethernet/freescale/Makefile
+@@ -2,7 +2,8 @@
+ # Makefile for the Freescale network device drivers.
+ #
+ 
+-obj-$(CONFIG_FEC) += fec.o fec_ptp.o
++obj-$(CONFIG_FEC) += fec.o
++fec-objs :=fec_main.o fec_ptp.o
+ obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx.o
+ ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
+ 	obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx_phy.o
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec_main.c
+similarity index 100%
+rename from drivers/net/ethernet/freescale/fec.c
+rename to drivers/net/ethernet/freescale/fec_main.c
+diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+index 0d8df40..1f17ca0 100644
+--- a/drivers/net/ethernet/freescale/fec_ptp.c
++++ b/drivers/net/ethernet/freescale/fec_ptp.c
+@@ -128,7 +128,6 @@ void fec_ptp_start_cyclecounter(struct net_device *ndev)
+ 
+ 	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+ }
+-EXPORT_SYMBOL(fec_ptp_start_cyclecounter);
+ 
+ /**
+  * fec_ptp_adjfreq - adjust ptp cycle frequency
+@@ -319,7 +318,6 @@ int fec_ptp_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
+ 	return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?
+ 	    -EFAULT : 0;
+ }
+-EXPORT_SYMBOL(fec_ptp_ioctl);
+ 
+ /**
+  * fec_time_keep - call timecounter_read every second to avoid timer overrun
+@@ -385,4 +383,3 @@ void fec_ptp_init(struct net_device *ndev, struct platform_device *pdev)
+ 		pr_info("registered PHC device on %s\n", ndev->name);
+ 	}
+ }
+-EXPORT_SYMBOL(fec_ptp_init);
+-- 
+1.7.1
