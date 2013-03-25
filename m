@@ -1,41 +1,27 @@
-From: Daniel Drake <dsd@laptop.org>
-Subject: Re: [PATCH] libertas: drop maintainership
-Date: Mon, 25 Mar 2013 10:21:43 -0600
-Message-ID: <CAMLZHHSF_=ZMOtX5ZDpnS4JN6B-x6Z=LEHUmx1KRNP9jKPzqaA@mail.gmail.com>
-References: <1363625321.1597.28.camel@dcbw.foobar.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3 net-next] dsa: bugfixing and typos after Device
+ Tree bindings
+Date: Mon, 25 Mar 2013 12:23:57 -0400 (EDT)
+Message-ID: <20130325.122357.1847999712035834192.davem@davemloft.net>
+References: <1364223820-26051-1-git-send-email-florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Bing Zhao <bzhao@marvell.com>
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: florian@openwrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f49.google.com ([209.85.128.49]:54791 "EHLO
-	mail-qe0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932184Ab3CYQVp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 12:21:45 -0400
-In-Reply-To: <1363625321.1597.28.camel@dcbw.foobar.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53174 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932314Ab3CYQX7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 12:23:59 -0400
+In-Reply-To: <1364223820-26051-1-git-send-email-florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 18, 2013 at 10:48 AM, Dan Williams <dcbw@redhat.com> wrote:
-> Would be better maintained by somebody who actualy has time for it.
->
-> Signed-off-by: Dan Williams <dcbw@redhat.com>
-> ---
-> Daniel?  Bing? :)
->
-> I'm quite happy to ACK somebody else picking libertas up, and I'm also
-> happy to investigate how to send my hardware cache to the new
-> maintainer.  (usb8388 dev modules, some CF8385s, some sd8686s, etc).
-> Also happy to forward along the libertas-dev moderator password.
+From: Florian Fainelli <florian@openwrt.org>
+Date: Mon, 25 Mar 2013 16:03:37 +0100
 
-Thanks for all your work on libertas over the years.
+> Please find here 3 minor bugfixes related to my recent device tree bindings
+> additions to DSA. Thanks!
 
-I imagine I will continue to send small numbers of libertas patches as
-and when new issues are found on OLPC XO, but I wouldn't be able to
-make any other form of commitment, certainly not with other hardware.
-I am already overstretched with my roles. So I don't really see myself
-as a maintainer candidate.
-
-Daniel
+Series applied, thanks Florian.
