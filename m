@@ -1,76 +1,43 @@
-From: tingwei liu <tingw.liu@gmail.com>
-Subject: [PATCH v2 1/1]core:Change a wrong explain about dev_get_by_name
-Date: Mon, 25 Mar 2013 12:10:51 +0800
-Message-ID: <CA+qZnSTm8kdmrzQLc03Jyk81cBtEpCNHqsT1fFCQ_vstzYcOiw@mail.gmail.com>
+From: Ani Sinha <ani@aristanetworks.com>
+Subject: RX/dropped counter values for tagged packets
+Date: Sun, 24 Mar 2013 21:43:16 -0700
+Message-ID: <CAOxq_8OrE6=XtJ9TDbL7NH9313-WutZPZP8=cRBH7pVUdBDvCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	davem@davemloft.net, Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Linus Torvalds <linus971@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org, linuxdev@anirban.org,
+	linux-netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f173.google.com ([209.85.210.173]:61300 "EHLO
-	mail-ia0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752611Ab3CYEKw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 00:10:52 -0400
-Received: by mail-ia0-f173.google.com with SMTP id h37so5178591iak.18
-        for <netdev@vger.kernel.org>; Sun, 24 Mar 2013 21:10:52 -0700 (PDT)
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:37869 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756892Ab3CYEnR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 00:43:17 -0400
+Received: by mail-ie0-f177.google.com with SMTP id tp5so2517971ieb.22
+        for <netdev@vger.kernel.org>; Sun, 24 Mar 2013 21:43:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tingwei Liu <tingw.liu@gmail.com>
-Date: Mon, 25 Mar 2013 11:09:59 +0800
-Subject: [PATCH] Change a wrong explain about dev_get_by_name
+hello everyone :
 
-a long time ago by the  commit.
+Please bear with me if you think I said something wrong.
 
- commit 1da177e4c3f41524e886b7f1b8a0c1fc7321cac2
- Author: Linus Torvalds <torvalds@ppc970.osdl.org>
- Date:   Sat Apr 16 15:20:36 2005 -0700
+I was looking at the netif_receive_skb() code and it seems to me that
+for vlan tagged packets, the counters are manipulated at two different
+places. One is from vlan_do_receive() where the receive counters are
+incremented. The other counter (the dropped counter) is incremented at
+the very end of netif_receive_skb() when there are no takers for this
+packet. The dropped counts are incremented for skb->dev->rx_dropped
+whereas the receive counts are incremented for the vlan device
+specific private stat counter values. When the numbers are reported on
+/proc/net/dev (from where ifconfig gets the numbers), these two stat
+counters are combined together (see dev_get_stats() where rx_dropped
+is added to the device private stat numbers). So if no one is
+receiving the tagged packets, it will be reported both as received and
+dropped! I wonder whether I am analyzing it wrong or whether no one
+has noticed this before or whether this is intentional.
 
-    Linux-2.6.12-rc2
+Any  clarification will be greatly appreciated. Again, I could be
+wrong looking at the code, so please bear with me.
 
-    Initial git repository build. I'm not bothering with the full history,
-    even though we have it. We can create a separate "historical" git
-    archive of that later if we want to, and in the meantime it's about
-    3.2GB when imported into git - space that would just make the early
-    git days unnecessarily complicated, when we don't have a lot of good
-    infrastructure for it.
+Thanks
 
-    Let it rip!
-
-When function "list_netdevice" get write lock "dev_base_lock" only
-disable soft interrupt. So dev_get_by_name get read lock
-"dev_base_lock", can not called on interrupt context.
-
-
-Signed-off-by: Tingwei Liu <tingw.liu@gmail.com>
----
-Changes from v1:
-- add change log
-- add the commnet
-
- net/core/dev.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d540ced..20c5c7c 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -700,10 +700,10 @@ EXPORT_SYMBOL(dev_get_by_name_rcu);
-  *     @name: name to find
-  *
-  *     Find an interface by name. This can be called from any
-- *     context and does its own locking. The returned handle has
-- *     the usage count incremented and the caller must use dev_put() to
-- *     release it when it is no longer needed. %NULL is returned if no
-- *     matching device is found.
-+ *     context except hard irq context and does its own locking.
-+ *     The returned handle has the usage count incremented and the
-+ *     caller must use dev_put() to release it when it is no longer
-+ *     needed. %NULL is returned if no matching device is found.
-  */
-
- struct net_device *dev_get_by_name(struct net *net, const char *name)
---
-1.6.0.2
+ani
