@@ -1,99 +1,29 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH 6/6] xen-netback: don't disconnect frontend when seeing oversize frame
-Date: Mon, 25 Mar 2013 11:08:22 +0000
-Message-ID: <1364209702-12437-7-git-send-email-wei.liu2@citrix.com>
-References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
+Subject: [PATCH 0/6 V2] Bundle fixes for Xen netfront / netback
+Date: Mon, 25 Mar 2013 11:08:16 +0000
+Message-ID: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <ian.campbell@citrix.com>, <annie.li@oracle.com>,
-	<konrad.wilk@oracle.com>, <david.vrabel@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
+	<konrad.wilk@oracle.com>, <david.vrabel@citrix.com>
 To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:49608 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756380Ab3CYLId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 07:08:33 -0400
-In-Reply-To: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
+Received: from smtp.citrix.com ([66.165.176.89]:64946 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756518Ab3CYLJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Mar 2013 07:09:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some buggy frontends may generate frames larger than 64 KiB. We should
-aggresively consume all slots and drop the packet instead of disconnecting the
-frontend.
+1, 3 and 4 are just mechanical fixes to make code cleaner.
 
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
----
- drivers/net/xen-netback/netback.c |   32 ++++++++++++++++++++++++++------
- 1 file changed, 26 insertions(+), 6 deletions(-)
+2 fixes the bug that netfront generates oversize skbs. The fix was suggested by
+Ben. My test shows that netfront doesn't generate oversize skb after this fix.
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index a634dc5..1971623 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -924,10 +924,12 @@ static void netbk_fatal_tx_err(struct xenvif *vif)
- static int netbk_count_requests(struct xenvif *vif,
- 				struct xen_netif_tx_request *first,
- 				struct xen_netif_tx_request *txp,
--				int work_to_do)
-+				int work_to_do,
-+				RING_IDX first_idx)
- {
- 	RING_IDX cons = vif->tx.req_cons;
- 	int slots = 0;
-+	bool drop = false;
- 
- 	if (!(first->flags & XEN_NETTXF_more_data))
- 		return 0;
-@@ -947,10 +949,21 @@ static int netbk_count_requests(struct xenvif *vif,
- 
- 		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + slots),
- 		       sizeof(*txp));
--		if (txp->size > first->size) {
--			netdev_err(vif->dev, "Packet is bigger than frame.\n");
--			netbk_fatal_tx_err(vif);
--			return -EIO;
-+
-+		/* If the guest submitted a frame >= 64 KiB then
-+		 * first->size overflowed and following slots will
-+		 * appear to be larger than the frame.
-+		 *
-+		 * This cannot be fatal error as there are buggy
-+		 * frontends that do this.
-+		 *
-+		 * Consume all slots and drop the packet.
-+		 */
-+		if (!drop && txp->size > first->size) {
-+			if (net_ratelimit())
-+				netdev_dbg(vif->dev,
-+					   "Packet is bigger than frame.\n");
-+			drop = true;
- 		}
- 
- 		first->size -= txp->size;
-@@ -963,6 +976,12 @@ static int netbk_count_requests(struct xenvif *vif,
- 			return -EINVAL;
- 		}
- 	} while ((txp++)->flags & XEN_NETTXF_more_data);
-+
-+	if (drop) {
-+		netbk_tx_err(vif, first, first_idx + slots);
-+		return -EIO;
-+	}
-+
- 	return slots;
- }
- 
-@@ -1429,7 +1448,8 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
- 				continue;
- 		}
- 
--		ret = netbk_count_requests(vif, &txreq, txfrags, work_to_do);
-+		ret = netbk_count_requests(vif, &txreq, txfrags,
-+					   work_to_do, idx);
- 		if (unlikely(ret < 0))
- 			continue;
- 
--- 
-1.7.10.4
+4 tries to coalesce slots before copying. This version enlarges the grant copy
+buffer to avoid overflow.
+
+6 loosens the punishment when netback sees oversize packet.
+
+
+Wei.
