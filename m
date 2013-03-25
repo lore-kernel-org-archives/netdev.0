@@ -1,8 +1,8 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next (TAKE 4) 2/6] firewire net: Send L2 multicast via
- GASP.
-Date: Tue, 26 Mar 2013 03:25:48 +0900
-Message-ID: <515096AC.6050505@linux-ipv6.org>
+Subject: [PATCH net-next (TAKE 4) 3/6] firewire net: Allocate address handler
+ before registering net_device.
+Date: Tue, 26 Mar 2013 03:25:57 +0900
+Message-ID: <515096B5.4000204@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
@@ -10,58 +10,96 @@ Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
 	stephan.gatzka@gmail.com, yoshfuji@linux-ipv6.org
 To: davem@davemloft.net, stefanr@s5r6.in-berlin.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:58075 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:58085 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932576Ab3CYSZt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 14:25:49 -0400
+	with ESMTP id S932830Ab3CYSZ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 14:25:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Send L2 multicast packet via GASP (Global asynchronous stream packet) by
-seeing the multicast bit in the L2 hardware address, not by seeing upper-
-layer protocol address.
+Allocate FIFO address before registering net_device.
+This is preparation to change the pseudo hardware address format
+for firewire devices to include the offset of the FIFO for receipt
+of unicast datagrams, instead of mangling ARP/NDP messages in the
+driver layer.
 
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- drivers/firewire/net.c |   12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ drivers/firewire/net.c |   22 ++++++++++------------
+ 1 file changed, 10 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/firewire/net.c b/drivers/firewire/net.c
-index d438c5b..7c2e16a 100644
+index 7c2e16a..72536e7 100644
 --- a/drivers/firewire/net.c
 +++ b/drivers/firewire/net.c
-@@ -84,6 +84,11 @@ struct fwnet_header {
- 	__be16 h_proto;		/* packet type ID field */
- } __packed;
+@@ -1286,13 +1286,9 @@ static int fwnet_open(struct net_device *net)
+ 	struct fwnet_device *dev = netdev_priv(net);
+ 	int ret;
  
-+static bool fwnet_hwaddr_is_multicast(u8 *ha)
-+{
-+	return !!(*ha & 1);
-+}
+-	ret = fwnet_fifo_start(dev);
+-	if (ret)
+-		return ret;
+-
+ 	ret = fwnet_broadcast_start(dev);
+ 	if (ret)
+-		goto out;
++		return ret;
+ 
+ 	netif_start_queue(net);
+ 
+@@ -1301,9 +1297,6 @@ static int fwnet_open(struct net_device *net)
+ 	spin_unlock_irq(&dev->lock);
+ 
+ 	return 0;
+-out:
+-	fwnet_fifo_stop(dev);
+-	return ret;
+ }
+ 
+ /* ifdown */
+@@ -1312,9 +1305,7 @@ static int fwnet_stop(struct net_device *net)
+ 	struct fwnet_device *dev = netdev_priv(net);
+ 
+ 	netif_stop_queue(net);
+-
+ 	fwnet_broadcast_stop(dev);
+-	fwnet_fifo_stop(dev);
+ 
+ 	return 0;
+ }
+@@ -1593,6 +1584,11 @@ static int fwnet_probe(struct device *_dev)
+ 	dev->card = card;
+ 	dev->netdev = net;
+ 
++	ret = fwnet_fifo_start(dev);
++	if (ret < 0)
++		goto out;
++	dev->local_fifo = dev->handler.offset;
 +
- /* IPv4 and IPv6 encapsulation header */
- struct rfc2734_header {
- 	u32 w0;
-@@ -626,7 +631,7 @@ static int fwnet_finish_incoming_packet(struct net_device *net,
- 		skb_reset_mac_header(skb);
- 		skb_pull(skb, sizeof(*eth));
- 		eth = (struct fwnet_header *)skb_mac_header(skb);
--		if (*eth->h_dest & 1) {
-+		if (fwnet_hwaddr_is_multicast(eth->h_dest)) {
- 			if (memcmp(eth->h_dest, net->broadcast,
- 				   net->addr_len) == 0)
- 				skb->pkt_type = PACKET_BROADCAST;
-@@ -1366,10 +1371,7 @@ static netdev_tx_t fwnet_tx(struct sk_buff *skb, struct net_device *net)
- 	 * Set the transmission type for the packet.  ARP packets and IP
- 	 * broadcast packets are sent via GASP.
- 	 */
--	if (memcmp(hdr_buf.h_dest, net->broadcast, FWNET_ALEN) == 0
--	    || proto == htons(ETH_P_ARP)
--	    || (proto == htons(ETH_P_IP)
--		&& IN_MULTICAST(ntohl(ip_hdr(skb)->daddr)))) {
-+	if (fwnet_hwaddr_is_multicast(hdr_buf.h_dest)) {
- 		max_payload        = dev->broadcast_xmt_max_payload;
- 		datagram_label_ptr = &dev->broadcast_xmt_datagramlabel;
+ 	/*
+ 	 * Use the RFC 2734 default 1500 octets or the maximum payload
+ 	 * as initial MTU
+@@ -1616,10 +1612,10 @@ static int fwnet_probe(struct device *_dev)
+ 	if (ret && allocated_netdev) {
+ 		unregister_netdev(net);
+ 		list_del(&dev->dev_link);
+-	}
+  out:
+-	if (ret && allocated_netdev)
++		fwnet_fifo_stop(dev);
+ 		free_netdev(net);
++	}
  
+ 	mutex_unlock(&fwnet_device_mutex);
+ 
+@@ -1660,6 +1656,8 @@ static int fwnet_remove(struct device *_dev)
+ 	if (list_empty(&dev->peer_list)) {
+ 		unregister_netdev(net);
+ 
++		fwnet_fifo_stop(dev);
++
+ 		for (i = 0; dev->queued_datagrams && i < 5; i++)
+ 			ssleep(1);
+ 		WARN_ON(dev->queued_datagrams);
 -- 
 1.7.9.5
