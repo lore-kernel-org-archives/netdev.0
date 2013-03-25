@@ -1,62 +1,77 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] libertas: drop maintainership
-Date: Mon, 25 Mar 2013 14:59:43 -0400
-Message-ID: <20130325185942.GC17454@tuxdriver.com>
-References: <1363625321.1597.28.camel@dcbw.foobar.com>
- <1363627392.2074.21.camel@joe-AO722>
- <1363629095.6437.10.camel@dcbw.foobar.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH 5/6] xen-netback: coalesce slots before
+ copying
+Date: Mon, 25 Mar 2013 19:09:11 +0000
+Message-ID: <20130325190911.GC7004@zion.uk.xensource.com>
+References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
+ <1364209702-12437-6-git-send-email-wei.liu2@citrix.com>
+ <5150699C.6080209@citrix.com>
+ <CAOsiSVUNO0FQkfJWjv9bcoMgKNnHu4XYciz61hG3YNFzZNxK3w@mail.gmail.com>
+ <51507C9B.3080109@citrix.com>
+ <CAOsiSVV8gtKqFxyAr3XN9YF78WjtFqzvx5mnA1dKTrS_4qzXBw@mail.gmail.com>
+ <51509789.8090608@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, Daniel Drake <dsd@laptop.org>,
-	Bing Zhao <bzhao@marvell.com>
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <liuw@liuw.name>, Ian Campbell <Ian.Campbell@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"annie.li@oracle.com" <annie.li@oracle.com>
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40617 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757606Ab3CYTAo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 15:00:44 -0400
+Received: from smtp.citrix.com ([66.165.176.89]:11953 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757443Ab3CYTJM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Mar 2013 15:09:12 -0400
 Content-Disposition: inline
-In-Reply-To: <1363629095.6437.10.camel@dcbw.foobar.com>
+In-Reply-To: <51509789.8090608@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 18, 2013 at 12:51:35PM -0500, Dan Williams wrote:
-> On Mon, 2013-03-18 at 10:23 -0700, Joe Perches wrote:
-> > On Mon, 2013-03-18 at 11:48 -0500, Dan Williams wrote:
-> > > Would be better maintained by somebody who actualy has time for it.
-> > []
-> > > diff --git a/MAINTAINERS b/MAINTAINERS
-> > []
-> > > -MARVELL LIBERTAS WIRELESS DRIVER
-> > > -M:	Dan Williams <dcbw@redhat.com>
-> > > -L:	libertas-dev@lists.infradead.org
-> > > -S:	Maintained
-> > > -F:	drivers/net/wireless/libertas/
+On Mon, Mar 25, 2013 at 06:29:29PM +0000, David Vrabel wrote:
+> >>
 > > 
-> > I think it better to mark it as Orphan
-> > and maybe leave the list.
-> > 
-> > Maybe:
-> > 
-> > MARVELL LIBERTAS WIRELESS DRIVER
-> > L:	libertas-dev@lists.infradead.org
-> > S:	Orphan
-> > F:	drivers/net/wireless/libertas/
-> > 
-> > or
-> > 
-> > MARVELL LIBERTAS WIRELESS DRIVER
-> > S:	Orphan
-> > F:	drivers/net/wireless/libertas/
+> > Are you suggesting move the default macro value to header file? It is
+> > just an estimation, I have no knowledge of the accurate maximum value,
+> > so I think make it part of the protocol a bad idea.
 > 
-> I can do that; I wasn't quite sure how to do this.  A quick check showed
-> patches that did what mine did, and oddly MAINTAINERS has no section for
-> dropping maintainership that I could quickly find.  If this is what
-> others prefer I'm happy to resubmit?
+> How is the author of a new frontend supposed to know how many slots they
+> can use per packet if it is not precisely defined?
+> 
 
-I probably would prefer an "Orphan" listing as well...
+A new frontend shuold use the scheme you mentioned below to get the
+maximum value. For old frontends that cannot be fixed, administrator can
+configure max_skb_slots to accommodate their need.
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+> > Do you have a handle on the maximum value?
+> 
+> Backends should provide the value to the frontend via a xenstore key
+> (e.g., max-slots-per-frame).  This value should be at least 18 (the
+> historical value of MAX_SKB_FRAGS).
+> 
+> The frontend may use up to this specified value or 17 if the
+> max-slots-per-frame key is missing.
+> 
+> Supporting at least 18 in the backend is required for existing
+> frontends.  Limiting frontends to 17 allows them to work with all
+> backends (including recent Linux version that only supported 17).
+> 
+> It's not clear why 19 or 20 were suggested as possible values.  I
+> checked back to 2.6.18 and MAX_SKB_FRAGS there is (65536/PAGE_SIZE + 2)
+
+Because the check is >= MAX_SKB_FRAGS originally and James Harper told
+me that "Windows stops counting on 20".
+
+> == 18.
+> 
+> Separately, it may be sensible for the backend to drop packets with more
+> frags than max-slots-per-frame up to some threshold where anything more
+> is considered malicious (i.e., 1 - 18 slots is a valid packet, 19-20 are
+> dropped and 21 or more is a fatal error).
+> 
+
+Why drop the packet when we are able to process it? Frontend cannot know
+it has crossed the line anyway.
+
+
+Wei.
