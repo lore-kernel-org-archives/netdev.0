@@ -1,116 +1,47 @@
-From: Mike Turquette <mturquette@linaro.org>
-Subject: Re: [PATCH net-next 2/2] net/davinci_emac: use clk_{prepare|unprepare}
-Date: Mon, 25 Mar 2013 09:16:54 -0700
-Message-ID: <20130325161654.4014.68401@quantum>
-References: <1364203547-2960-1-git-send-email-nsekhar@ti.com>
- <1364203547-2960-3-git-send-email-nsekhar@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/6] xen-netfront: reduce gso_max_size to account for
+ ethernet header
+Date: Mon, 25 Mar 2013 12:18:09 -0400 (EDT)
+Message-ID: <20130325.121809.2023305728304341952.davem@davemloft.net>
+References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
+	<1364209702-12437-3-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>,
-	<davinci-linux-open-source@linux.davincidsp.com>,
-	Sekhar Nori <nsekhar@ti.com>
-To: Sekhar Nori <nsekhar@ti.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	ian.campbell@citrix.com, annie.li@oracle.com,
+	konrad.wilk@oracle.com, david.vrabel@citrix.com
+To: wei.liu2@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:45130 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758200Ab3CYQRJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 12:17:09 -0400
-Received: by mail-pb0-f51.google.com with SMTP id rr4so1569417pbb.10
-        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 09:17:09 -0700 (PDT)
-In-Reply-To: <1364203547-2960-3-git-send-email-nsekhar@ti.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53079 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932072Ab3CYQSM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 12:18:12 -0400
+In-Reply-To: <1364209702-12437-3-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Sekhar Nori (2013-03-25 02:25:47)
-> Use clk_prepare()/clk_unprepare() in the driver since common
-> clock framework needs these to be called before clock is enabled.
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Mon, 25 Mar 2013 11:08:18 +0000
+
+> The maximum packet including ethernet header that can be handled by netfront /
+> netback wire format is 65535. Reduce gso_max_size accordingly.
 > 
-> This is in preparation of common clock framework migration
-> for DaVinci.
+> Drop skb and print warning when skb->len > 65535. This can 1) save the effort
+> to send malformed packet to netback, 2) help spotting misconfiguration of
+> netfront in the future.
 > 
-> Cc: Mike Turquette <mturquette@linaro.org>
-> Signed-off-by: Sekhar Nori <nsekhar@ti.com>
-> ---
->  drivers/net/ethernet/ti/davinci_emac.c |   19 +++++++++++++++++--
->  1 file changed, 17 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-> index b1349b5..436296c 100644
-> --- a/drivers/net/ethernet/ti/davinci_emac.c
-> +++ b/drivers/net/ethernet/ti/davinci_emac.c
-> @@ -350,6 +350,7 @@ struct emac_priv {
->         /*platform specific members*/
->         void (*int_enable) (void);
->         void (*int_disable) (void);
-> +       struct clk *clk;
->  };
->  
->  /* EMAC TX Host Error description strings */
-> @@ -1870,19 +1871,29 @@ static int davinci_emac_probe(struct platform_device *pdev)
->                 dev_err(&pdev->dev, "failed to get EMAC clock\n");
->                 return -EBUSY;
->         }
-> +
-> +       rc = clk_prepare(emac_clk);
-> +       if (rc) {
-> +               dev_err(&pdev->dev, "emac clock prepare failed.\n");
-> +               return rc;
-> +       }
-> +
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
 
-Is clk_enable ever called for emac_clk here?  I don't see it in the
-diff.  clk_prepare and clk_enable should usually be paired, even if
-simply calling clk_prepare generates the clock signal that your device
-needs.
+This is effectively the default already, you don't need to change this
+value explicitly.
 
-Also this change only calls clk_prepare at probe-time and clk_unprepare
-at remove-time.  Preparing a clock can result in power consumption.
-With that in mind should your implementation be more aggressive about
-calling clk_{un}prepare?
+->gso_max_size is set by default to 65536 and then TCP performs this
+calculation:
 
-Regards,
-Mike
+                xmit_size_goal = ((sk->sk_gso_max_size - 1) -                          
+                                  inet_csk(sk)->icsk_af_ops->net_header_len -          
+                                  inet_csk(sk)->icsk_ext_hdr_len -                     
+                                  tp->tcp_header_len);                                 
 
->         emac_bus_frequency = clk_get_rate(emac_clk);
->  
->         /* TODO: Probe PHY here if possible */
->  
->         ndev = alloc_etherdev(sizeof(struct emac_priv));
-> -       if (!ndev)
-> -               return -ENOMEM;
-> +       if (!ndev) {
-> +               rc = -ENOMEM;
-> +               goto no_etherdev;
-> +       }
->  
->         platform_set_drvdata(pdev, ndev);
->         priv = netdev_priv(ndev);
->         priv->pdev = pdev;
->         priv->ndev = ndev;
->         priv->msg_enable = netif_msg_init(debug_level, DAVINCI_EMAC_DEBUG);
-> +       priv->clk = emac_clk;
->  
->         spin_lock_init(&priv->lock);
->  
-> @@ -2020,6 +2031,8 @@ no_cpdma_chan:
->         cpdma_ctlr_destroy(priv->dma);
->  no_pdata:
->         free_netdev(ndev);
-> +no_etherdev:
-> +       clk_unprepare(emac_clk);
->         return rc;
->  }
->  
-> @@ -2048,6 +2061,8 @@ static int davinci_emac_remove(struct platform_device *pdev)
->         unregister_netdev(ndev);
->         free_netdev(ndev);
->  
-> +       clk_unprepare(priv->clk);
-> +
->         return 0;
->  }
->  
-> -- 
-> 1.7.10.1
+thereby making it adhere to your limits just fine.
