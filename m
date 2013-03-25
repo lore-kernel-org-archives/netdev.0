@@ -1,155 +1,203 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 00/25] Update rtlwifi drivers to 020713 vendor driver and add new rtl8188ee driver
-Date: Sun, 24 Mar 2013 22:06:32 -0500
-Message-ID: <1364180817-8028-1-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 01/25] rtlwifi: Modify the master header for for updates to vendor version 2013.02.07
+Date: Sun, 24 Mar 2013 22:06:33 -0500
+Message-ID: <1364180817-8028-2-git-send-email-Larry.Finger@lwfinger.net>
+References: <1364180817-8028-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless@vger.kernel.org,
 	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, page_he@realsil.com.cn
+	netdev@vger.kernel.org, jcheung@suse.com, machen@suse.com,
+	mmarek@suse.cz, zhiyuan_yang@realsil.com.cn, page_he@realsil.com.cn
 To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:40545 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755674Ab3CYDHR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 23:07:17 -0400
+Received: from mail-oa0-f50.google.com ([209.85.219.50]:39646 "EHLO
+	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755845Ab3CYDHT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 23:07:19 -0400
+In-Reply-To: <1364180817-8028-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This set of patches are intended for the 3.10 stream. These patches are
-relatively large as I do not currently have access the Realtek revision
-control system, which forces me to generate the patches based on the
-differences between their release versions. It is difficult to break
-those changes into the sort of small patches preferred for the Linux
-kernel.
+These changes add the new variables for P2P and modify the various struct
+definitions for other new features.
 
-The changes in the existing drivers can be characterized as adding P2P,
-and mesh capability. There are some changes in the handling of AP mode,
-and other bug fixes.
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: jcheung@suse.com
+Cc: machen@suse.com
+Cc: mmarek@suse.cz
+Cc: zhiyuan_yang@realsil.com.cn
+Cc: page_he@realsil.com.cn
+---
+ drivers/net/wireless/rtlwifi/wifi.h | 80 ++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 79 insertions(+), 1 deletion(-)
 
-Larry Finger (25):
-  rtlwifi: Modify the master header for for updates to vendor version
-    2013.02.07
-  rtlwifi: Modify files for 2013.02.07 vendor version - part 2
-  rtlwifi: Modify files for 2013.02.07 vendor version - part 3
-  rtlwifi: Modify files for 2013.02.07 vendor version - part 4
-  rtlwifi: Modify files for 2013.02.07 vendor version - part 5
-  rtlwifi: rtl8192se: Update driver to match vendor driver of 2013.02.07
-  rtlwifi: rtl8723ae: Update to vendor driver of 2013.02.07
-  rtlwifi: rtl8192c: rtl8192ce: Update to vendor driver of 2013.02.07
-  rtlwifi: Rework rtl_lps_leave() and rtl_lps_enter() to use work queue
-  rtlwifi: rtl8188ee: Add new driver - part 1
-  rtlwifi: rtl8188ee: Add new driver files - part 2
-  rtlwifi: rtl8188ee: Add new driver files - part 3
-  rtlwifi: rtl8188ee: Add files for new driver - part 4
-  rtlwifi: rtl8188ee: Add files for new driver - part 5
-  rtlwifi: rtl8188ee: Add files for new driver - part 6
-  rtlwifi: rtl8188ee: Add files for new driver - part 7
-  rtlwifi: rtl8188ee: Add files for new driver - part 8
-  rtlwifi: rtl8188ee: Add files for new driver - part 9
-  rtlwifi: rtl8188ee: Add files for new driver - part 10
-  rtlwifi: rtl8188ee: Add files for new driver - part 11
-  rtlwifi: rtl8188ee: Add files for new driver - part 12
-  rtlwifi: rtl8188ee: Add files for new driver - part 13
-  rtlwifi: rtl8192c: rtl8192ce: rtl8192cu: rtl8192de: rtl8723ae: Add
-    changes required by adding rtl81988ee
-  rtlwifi: rtl8188ee: Enable recognition of RTL8188EE
-  rtlwifi: rtl8188ee: Enable build of new driver
-
- drivers/net/wireless/rtlwifi/Kconfig               |    9 +
- drivers/net/wireless/rtlwifi/Makefile              |    1 +
- drivers/net/wireless/rtlwifi/base.c                |  379 ++-
- drivers/net/wireless/rtlwifi/base.h                |   14 +-
- drivers/net/wireless/rtlwifi/core.c                |  213 +-
- drivers/net/wireless/rtlwifi/debug.c               |    5 +-
- drivers/net/wireless/rtlwifi/debug.h               |   13 +-
- drivers/net/wireless/rtlwifi/efuse.c               |   53 +-
- drivers/net/wireless/rtlwifi/efuse.h               |    1 -
- drivers/net/wireless/rtlwifi/pci.c                 |  150 +-
- drivers/net/wireless/rtlwifi/pci.h                 |    2 +
- drivers/net/wireless/rtlwifi/ps.c                  |  330 ++-
- drivers/net/wireless/rtlwifi/ps.h                  |    2 +
- drivers/net/wireless/rtlwifi/rtl8188ee/Makefile    |   16 +
- drivers/net/wireless/rtlwifi/rtl8188ee/def.h       |  324 +++
- drivers/net/wireless/rtlwifi/rtl8188ee/dm.c        | 1794 ++++++++++++++
- drivers/net/wireless/rtlwifi/rtl8188ee/dm.h        |  326 +++
- drivers/net/wireless/rtlwifi/rtl8188ee/fw.c        |  830 +++++++
- drivers/net/wireless/rtlwifi/rtl8188ee/fw.h        |  301 +++
- drivers/net/wireless/rtlwifi/rtl8188ee/hw.c        | 2529 ++++++++++++++++++++
- drivers/net/wireless/rtlwifi/rtl8188ee/hw.h        |   68 +
- drivers/net/wireless/rtlwifi/rtl8188ee/led.c       |  157 ++
- drivers/net/wireless/rtlwifi/rtl8188ee/led.h       |   38 +
- drivers/net/wireless/rtlwifi/rtl8188ee/phy.c       | 2212 +++++++++++++++++
- drivers/net/wireless/rtlwifi/rtl8188ee/phy.h       |  237 ++
- drivers/net/wireless/rtlwifi/rtl8188ee/pwrseq.c    |  109 +
- drivers/net/wireless/rtlwifi/rtl8188ee/pwrseq.h    |  327 +++
- drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.c |  140 ++
- drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.h |   97 +
- drivers/net/wireless/rtlwifi/rtl8188ee/reg.h       | 2258 +++++++++++++++++
- drivers/net/wireless/rtlwifi/rtl8188ee/rf.c        |  467 ++++
- drivers/net/wireless/rtlwifi/rtl8188ee/rf.h        |   46 +
- drivers/net/wireless/rtlwifi/rtl8188ee/sw.c        |  400 ++++
- drivers/net/wireless/rtlwifi/rtl8188ee/sw.h        |   36 +
- drivers/net/wireless/rtlwifi/rtl8188ee/table.c     |  643 +++++
- drivers/net/wireless/rtlwifi/rtl8188ee/table.h     |   47 +
- drivers/net/wireless/rtlwifi/rtl8188ee/trx.c       |  817 +++++++
- drivers/net/wireless/rtlwifi/rtl8188ee/trx.h       |  795 ++++++
- drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c  |  101 +-
- drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c  |   99 +-
- drivers/net/wireless/rtlwifi/rtl8192c/fw_common.h  |    4 +
- drivers/net/wireless/rtlwifi/rtl8192ce/hw.c        |  118 +-
- drivers/net/wireless/rtlwifi/rtl8192ce/hw.h        |    4 +
- drivers/net/wireless/rtlwifi/rtl8192ce/reg.h       |    1 +
- drivers/net/wireless/rtlwifi/rtl8192ce/sw.c        |    4 +-
- drivers/net/wireless/rtlwifi/rtl8192ce/trx.c       |  324 +--
- drivers/net/wireless/rtlwifi/rtl8192cu/hw.c        |   20 +-
- drivers/net/wireless/rtlwifi/rtl8192cu/sw.c        |    2 +-
- drivers/net/wireless/rtlwifi/rtl8192de/dm.c        |   32 +-
- drivers/net/wireless/rtlwifi/rtl8192de/hw.c        |    2 +-
- drivers/net/wireless/rtlwifi/rtl8192de/phy.c       |   40 +-
- drivers/net/wireless/rtlwifi/rtl8192de/reg.h       |    2 +-
- drivers/net/wireless/rtlwifi/rtl8192de/sw.c        |    6 +-
- drivers/net/wireless/rtlwifi/rtl8192se/def.h       |    7 -
- drivers/net/wireless/rtlwifi/rtl8192se/dm.c        |   49 +-
- drivers/net/wireless/rtlwifi/rtl8192se/hw.c        |  150 +-
- drivers/net/wireless/rtlwifi/rtl8192se/hw.h        |    3 +-
- drivers/net/wireless/rtlwifi/rtl8192se/phy.c       |   61 +-
- drivers/net/wireless/rtlwifi/rtl8192se/phy.h       |    1 +
- drivers/net/wireless/rtlwifi/rtl8192se/sw.c        |    3 +-
- drivers/net/wireless/rtlwifi/rtl8192se/trx.c       |  296 +--
- drivers/net/wireless/rtlwifi/rtl8723ae/dm.c        |   88 +-
- drivers/net/wireless/rtlwifi/rtl8723ae/dm.h        |    6 +
- drivers/net/wireless/rtlwifi/rtl8723ae/fw.c        |   97 +-
- drivers/net/wireless/rtlwifi/rtl8723ae/fw.h        |    7 +-
- drivers/net/wireless/rtlwifi/rtl8723ae/hw.c        |   70 +-
- drivers/net/wireless/rtlwifi/rtl8723ae/led.c       |   22 +-
- drivers/net/wireless/rtlwifi/rtl8723ae/sw.c        |    2 +-
- drivers/net/wireless/rtlwifi/rtl8723ae/trx.c       |   10 +-
- drivers/net/wireless/rtlwifi/wifi.h                |  221 +-
- 70 files changed, 17048 insertions(+), 990 deletions(-)
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/Makefile
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/def.h
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/dm.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/dm.h
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/fw.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/fw.h
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/hw.h
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/led.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/led.h
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/phy.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/phy.h
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/pwrseq.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/pwrseq.h
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.h
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/reg.h
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/rf.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/rf.h
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/sw.h
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/table.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/table.h
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/trx.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/trx.h
-
+diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
+index c3eff32..8098038 100644
+--- a/drivers/net/wireless/rtlwifi/wifi.h
++++ b/drivers/net/wireless/rtlwifi/wifi.h
+@@ -278,7 +278,10 @@ enum hw_variables {
+ 	HW_VAR_SET_RPWM,
+ 	HW_VAR_H2C_FW_PWRMODE,
+ 	HW_VAR_H2C_FW_JOINBSSRPT,
++	HW_VAR_H2C_FW_P2P_PS_OFFLOAD,
+ 	HW_VAR_FW_PSMODE_STATUS,
++	HW_VAR_RESUME_CLK_ON,
++	HW_VAR_FW_LPS_ACTION,
+ 	HW_VAR_1X1_RECV_COMBINE,
+ 	HW_VAR_STOP_SEND_BEACON,
+ 	HW_VAR_TSF_TIMER,
+@@ -461,6 +464,7 @@ enum rtl_var_map {
+ 	EFUSE_MAX_SECTION_MAP,
+ 	EFUSE_REAL_CONTENT_SIZE,
+ 	EFUSE_OOB_PROTECT_BYTES_LEN,
++	EFUSE_ACCESS,
+ 
+ 	/*CAM map */
+ 	RWCAM,
+@@ -826,7 +830,64 @@ struct rtl_rfkill {
+ 	bool rfkill_state;	/*0 is off, 1 is on */
+ };
+ 
+-#define IQK_MATRIX_REG_NUM	8
++/*for P2P PS**/
++#define	P2P_MAX_NOA_NUM		2
++
++enum p2p_role {
++	P2P_ROLE_DISABLE = 0,
++	P2P_ROLE_DEVICE = 1,
++	P2P_ROLE_CLIENT = 2,
++	P2P_ROLE_GO = 3
++};
++
++enum p2p_ps_state {
++	P2P_PS_DISABLE = 0,
++	P2P_PS_ENABLE = 1,
++	P2P_PS_SCAN = 2,
++	P2P_PS_SCAN_DONE = 3,
++	P2P_PS_ALLSTASLEEP = 4, /* for P2P GO */
++};
++
++enum p2p_ps_mode {
++	P2P_PS_NONE = 0,
++	P2P_PS_CTWINDOW = 1,
++	P2P_PS_NOA	 = 2,
++	P2P_PS_MIX = 3, /* CTWindow and NoA */
++};
++
++struct rtl_p2p_ps_info {
++	enum p2p_ps_mode p2p_ps_mode; /* indicate p2p ps mode */
++	enum p2p_ps_state p2p_ps_state; /*  indicate p2p ps state */
++	u8 noa_index; /*  Identifies instance of Notice of Absence timing. */
++	/*  Client traffic window. A period of time in TU after TBTT. */
++	u8 ctwindow;
++	u8 opp_ps; /*  opportunistic power save. */
++	u8 noa_num; /*  number of NoA descriptor in P2P IE. */
++	/*  Count for owner, Type of client. */
++	u8 noa_count_type[P2P_MAX_NOA_NUM];
++	/*  Max duration for owner, preferred or min acceptable duration
++	 * for client.
++	 */
++	u32 noa_duration[P2P_MAX_NOA_NUM];
++	/*  Length of interval for owner, preferred or max acceptable intervali
++	 * of client.
++	 */
++	u32 noa_interval[P2P_MAX_NOA_NUM];
++	/*  schedule in terms of the lower 4 bytes of the TSF timer. */
++	u32 noa_start_time[P2P_MAX_NOA_NUM];
++};
++
++struct p2p_ps_offload_t {
++	u8 offload_en:1;
++	u8 role:1; /* 1: Owner, 0: Client */
++	u8 ctwindow_en:1;
++	u8 noa0_en:1;
++	u8 noa1_en:1;
++	u8 allstasleep:1;
++	u8 discovery:1;
++	u8 reserved:1;
++};
++ #define IQK_MATRIX_REG_NUM	8
+ #define IQK_MATRIX_SETTINGS_NUM	(1 + 24 + 21)
+ struct iqk_matrix_regs {
+ 	bool iqk_done;
+@@ -954,6 +1015,7 @@ struct rtl_sta_info {
+ 	u8 ratr_index;
+ 	u8 wireless_mode;
+ 	u8 mimo_ps;
++	u8 mac_addr[ETH_ALEN];
+ 	struct rtl_tid_data tids[MAX_TID_COUNT];
+ 
+ 	/* just used for ap adhoc or mesh*/
+@@ -1005,6 +1067,8 @@ struct rtl_mac {
+ 	int n_bitrates;
+ 
+ 	bool offchan_delay;
++	u8 p2p;	/*using p2p role*/
++	bool p2p_in_use;
+ 
+ 	/*filters */
+ 	u32 rx_conf;
+@@ -1014,6 +1078,7 @@ struct rtl_mac {
+ 
+ 	bool act_scanning;
+ 	u8 cnt_after_linked;
++	bool skip_scan;
+ 
+ 	/* early mode */
+ 	/* skb wait queue */
+@@ -1341,6 +1406,7 @@ struct rtl_ps_ctl {
+ 	bool fw_current_inpsmode;
+ 	u8 reg_max_lps_awakeintvl;
+ 	bool report_linked;
++	bool low_power_enable;/*for 32k*/
+ 
+ 	/*for IPS */
+ 	bool inactiveps;
+@@ -1373,6 +1439,11 @@ struct rtl_ps_ctl {
+ 	unsigned long last_beacon;
+ 	unsigned long last_action;
+ 	unsigned long last_slept;
++
++	/*For P2P PS */
++	struct rtl_p2p_ps_info p2p_ps_info;
++	u8 pwr_mode;
++	u8 smart_ps;
+ };
+ 
+ struct rtl_stats {
+@@ -1670,6 +1741,9 @@ struct rtl_locks {
+ 	spinlock_t entry_list_lock;
+ 	spinlock_t usb_lock;
+ 
++	/*FW clock change */
++	spinlock_t fw_ps_lock;
++
+ 	/*Dual mac*/
+ 	spinlock_t cck_and_rw_pagea_lock;
+ 
+@@ -1683,6 +1757,8 @@ struct rtl_works {
+ 	/*timer */
+ 	struct timer_list watchdog_timer;
+ 	struct timer_list dualmac_easyconcurrent_retrytimer;
++	struct timer_list fw_clockoff_timer;
++	struct timer_list fast_antenna_training_timer;
+ 
+ 	/*task */
+ 	struct tasklet_struct irq_tasklet;
+@@ -1696,6 +1772,7 @@ struct rtl_works {
+ 	/* For SW LPS */
+ 	struct delayed_work ps_work;
+ 	struct delayed_work ps_rfon_wq;
++	struct delayed_work fwevt_wq;
+ 
+ 	struct work_struct lps_leave_work;
+ };
+@@ -1802,6 +1879,7 @@ struct rtl_global_var {
+ };
+ 
+ struct rtl_priv {
++	struct ieee80211_hw *hw;
+ 	struct completion firmware_loading_complete;
+ 	struct list_head list;
+ 	struct rtl_priv *buddy_priv;
 -- 
 1.8.1.4
