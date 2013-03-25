@@ -1,60 +1,46 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH 4/6] xen-netback: remove skb in xen_netbk_alloc_page
-Date: Mon, 25 Mar 2013 11:08:20 +0000
-Message-ID: <1364209702-12437-5-git-send-email-wei.liu2@citrix.com>
-References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [PATCH 6/6] xen-netback: don't disconnect frontend when seeing
+ oversize frame
+Date: Mon, 25 Mar 2013 11:47:17 +0000
+Message-ID: <51503945.6040204@citrix.com>
+References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com> <1364209702-12437-7-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ian.campbell@citrix.com>, <annie.li@oracle.com>,
-	<konrad.wilk@oracle.com>, <david.vrabel@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:56407 "EHLO SMTP.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:4092 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756523Ab3CYLJD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Mar 2013 07:09:03 -0400
-In-Reply-To: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
+	id S1756025Ab3CYLrU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Mar 2013 07:47:20 -0400
+In-Reply-To: <1364209702-12437-7-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This variable is never used.
+On 25/03/13 11:08, Wei Liu wrote:
+> Some buggy frontends may generate frames larger than 64 KiB. We should
+> aggresively consume all slots and drop the packet instead of disconnecting the
+> frontend.
 
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
----
- drivers/net/xen-netback/netback.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+The following is the changeset description I wrote internally.  It's a
+bit more descriptive.
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index da726a3..6e8e51a 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -948,7 +948,6 @@ static int netbk_count_requests(struct xenvif *vif,
- }
- 
- static struct page *xen_netbk_alloc_page(struct xen_netbk *netbk,
--					 struct sk_buff *skb,
- 					 u16 pending_idx)
- {
- 	struct page *page;
-@@ -982,7 +981,7 @@ static struct gnttab_copy *xen_netbk_get_requests(struct xen_netbk *netbk,
- 
- 		index = pending_index(netbk->pending_cons++);
- 		pending_idx = netbk->pending_ring[index];
--		page = xen_netbk_alloc_page(netbk, skb, pending_idx);
-+		page = xen_netbk_alloc_page(netbk, pending_idx);
- 		if (!page)
- 			goto err;
- 
-@@ -1387,7 +1386,7 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
- 		}
- 
- 		/* XXX could copy straight to head */
--		page = xen_netbk_alloc_page(netbk, skb, pending_idx);
-+		page = xen_netbk_alloc_page(netbk, pending_idx);
- 		if (!page) {
- 			kfree_skb(skb);
- 			netbk_tx_err(vif, &txreq, idx);
--- 
-1.7.10.4
+Apologies for not sending out a proper patch in the first place.
+
+"Some frontend drivers are sending packets >= 64 KiB in length.  This
+length overflows the length field in the first frag making the
+following frags have an invalid length ("Frag is bigger than frame").
+
+Turn this error back into a non-fatal error by dropping the packet.
+To avoid having the following frags having fatal errors, consume all
+frags in the packet.
+
+This does not reopen the security hole as if the packet as an invalid
+number of frags it will still hit this fatal error case."
+
+David
