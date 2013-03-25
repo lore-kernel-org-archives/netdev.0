@@ -1,84 +1,127 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 1/1]core:Change a wrong explain about dev_get_by_name
-Date: Mon, 25 Mar 2013 19:44:10 +0400
-Message-ID: <515070CA.2010701@cogentembedded.com>
-References: <CA+qZnSTm8kdmrzQLc03Jyk81cBtEpCNHqsT1fFCQ_vstzYcOiw@mail.gmail.com>
+From: Wei Liu <liuw@liuw.name>
+Subject: Re: [Xen-devel] [PATCH 5/6] xen-netback: coalesce slots before copying
+Date: Mon, 25 Mar 2013 15:47:34 +0000
+Message-ID: <CAOsiSVUNO0FQkfJWjv9bcoMgKNnHu4XYciz61hG3YNFzZNxK3w@mail.gmail.com>
+References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
+ <1364209702-12437-6-git-send-email-wei.liu2@citrix.com> <5150699C.6080209@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	davem@davemloft.net, Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Linus Torvalds <linus971@gmail.com>
-To: tingwei liu <tingw.liu@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:49854 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758520Ab3CYPpJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 11:45:09 -0400
-Received: by mail-la0-f45.google.com with SMTP id er20so11702897lab.18
-        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 08:45:08 -0700 (PDT)
-In-Reply-To: <CA+qZnSTm8kdmrzQLc03Jyk81cBtEpCNHqsT1fFCQ_vstzYcOiw@mail.gmail.com>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:44541 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758200Ab3CYPsG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 11:48:06 -0400
+Received: by mail-wi0-f175.google.com with SMTP id c10so4992254wiw.14
+        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 08:48:04 -0700 (PDT)
+In-Reply-To: <5150699C.6080209@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 25-03-2013 8:10, tingwei liu wrote:
-
-> From: Tingwei Liu <tingw.liu@gmail.com>
-> Date: Mon, 25 Mar 2013 11:09:59 +0800
-> Subject: [PATCH] Change a wrong explain about dev_get_by_name
-
-> a long time ago by the  commit.
-
-    Did you mean "before the commit"?
-
->   commit 1da177e4c3f41524e886b7f1b8a0c1fc7321cac2
->   Author: Linus Torvalds <torvalds@ppc970.osdl.org>
->   Date:   Sat Apr 16 15:20:36 2005 -0700
-
->      Linux-2.6.12-rc2
-
->      Initial git repository build. I'm not bothering with the full history,
->      even though we have it. We can create a separate "historical" git
->      archive of that later if we want to, and in the meantime it's about
->      3.2GB when imported into git - space that would just make the early
->      git days unnecessarily complicated, when we don't have a lot of good
->      infrastructure for it.
-
->      Let it rip!
-
-> When function "list_netdevice" get write lock "dev_base_lock" only
-> disable soft interrupt. So dev_get_by_name get read lock
-> "dev_base_lock", can not called on interrupt context.
-
-> Signed-off-by: Tingwei Liu <tingw.liu@gmail.com>
-> ---
-> Changes from v1:
-> - add change log
-> - add the commnet
+On Mon, Mar 25, 2013 at 3:13 PM, David Vrabel <david.vrabel@citrix.com> wrote:
+> On 25/03/13 11:08, Wei Liu wrote:
+>> This patch tries to coalesce tx requests when constructing grant copy
+>> structures. It enables netback to deal with situation when frontend's
+>> MAX_SKB_FRAGS is larger than backend's MAX_SKB_FRAGS.
+>>
+>> It defines max_skb_slots, which is a estimation of the maximum number of slots
+>> a guest can send, anything bigger than that is considered malicious. Now it is
+>> set to 20, which should be enough to accommodate Linux (16 to 19).
 >
->   net/core/dev.c |    8 ++++----
->   1 files changed, 4 insertions(+), 4 deletions(-)
+> This maximum needs to be defined as part of the protocol and added to
+> the interface header.
 >
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index d540ced..20c5c7c 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -700,10 +700,10 @@ EXPORT_SYMBOL(dev_get_by_name_rcu);
->   *     @name: name to find
->   *
->   *     Find an interface by name. This can be called from any
-> - *     context and does its own locking. The returned handle has
-> - *     the usage count incremented and the caller must use dev_put() to
-> - *     release it when it is no longer needed. %NULL is returned if no
-> - *     matching device is found.
-> + *     context except hard irq context and does its own locking.
-> + *     The returned handle has the usage count incremented and the
-> + *     caller must use dev_put() to release it when it is no longer
-> + *     needed. %NULL is returned if no matching device is found.
 
-    It seems your patch has all the tabs replaced by spaces.
+No, this is not part of the protocol and not a hard limit. It is
+configurable by system administrator.
 
-WBR, Sergei
+>> Also change variable name from "frags" to "slots" in netbk_count_requests.
+>
+> I think this renaming should have been done as a separate patch.
+>
+
+The frag -> slot thing only make sense after this patch. If I do this,
+I will need to partially reverted what I've done in a previous patch
+(like the frag -> slot in comment below you pointed out). :-(
+
+>> --- a/drivers/net/xen-netback/netback.c
+>> +++ b/drivers/net/xen-netback/netback.c
+>> @@ -47,11 +47,26 @@
+>>  #include <asm/xen/hypercall.h>
+>>  #include <asm/xen/page.h>
+>>
+>> +/*
+>> + * This is an estimation of the maximum possible frags a SKB might
+>> + * have, anything larger than this is considered malicious. Typically
+>> + * Linux has 16 to 19.
+>> + */
+>
+> Do you mean "max possible /slots/" a packet might have?
+>
+
+Yes.
+
+>> @@ -968,48 +987,114 @@ static struct gnttab_copy *xen_netbk_get_requests(struct xen_netbk *netbk,
+> [...]
+>> +                             /* Poison these fields, corresponding
+>> +                              * fields for head tx req will be set
+>> +                              * to correct values after the loop.
+>> +                              */
+>> +                             netbk->mmap_pages[pending_idx] = (void *)(~0UL);
+>> +                             pending_tx_info[pending_idx].head =
+>> +                                     INVALID_PENDING_RING_IDX;
+>
+> Do you need to poison both values?
+>
+
+Just for safety. I have BUG_ON in the release path to check for possible error.
+
+>> +
+>> +                             if (unlikely(!first)) {
+>
+> This isn't unlikely is it?
+>
+
+For big packet the chance is 1 in max_skb_slots, so 5% (1/20) in default case.
+
+>> +                                     first = &pending_tx_info[pending_idx];
+>> +                                     start_idx = index;
+>> +                                     head_idx = pending_idx;
+>> +                             }
+>
+> Instead of setting first here why not move the code below here?
+>
+
+Because first->req.size needs to be set to dst_offset, it has to be
+here anyway. So I put other fields here as well.
+
+>> +             first->req.offset = 0;
+>> +             first->req.size = dst_offset;
+>> +             first->head = start_idx;
+>> +             set_page_ext(page, netbk, head_idx);
+>> +             netbk->mmap_pages[head_idx] = page;
+>> +             frag_set_pending_idx(&frags[shinfo->nr_frags], head_idx);
+>
+>> @@ -1548,13 +1649,34 @@ static void xen_netbk_idx_release(struct xen_netbk *netbk, u16 pending_idx,
+> [...]
+>> +             /* Setting any number other than
+>> +              * INVALID_PENDING_RING_IDX indicates this slot is
+>> +              * starting a new packet / ending a previous packet.
+>> +              */
+>> +             pending_tx_info->head = 0;
+>
+> This doesn't look needed.  It will be initialized again when reusing t
+> his pending_tx_info again, right?
+>
+
+Yes, it is needed. Otherwise netback responses to invalid tx_info and
+cause netfront to crash before coming into the re-initialization path.
+
+
+Wei.
