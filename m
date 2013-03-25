@@ -1,41 +1,32 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next] ptp: increase the maximum number of clocks
-Date: Mon, 25 Mar 2013 17:08:55 +0100
-Message-ID: <20130325170855.0194ce13@griffin>
-References: <d219aa87bd5b3e2fa42449720d845a7110f642f0.1363893841.git.jbenc@redhat.com>
-	<20130321.172017.1499060411785395307.davem@davemloft.net>
-	<20130323175915.GA3036@netboy.at.omicron.at>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 1/1]core:Change a wrong explain about dev_get_by_name
+Date: Mon, 25 Mar 2013 12:09:40 -0400 (EDT)
+Message-ID: <20130325.120940.864632931813432788.davem@davemloft.net>
+References: <CA+qZnSTm8kdmrzQLc03Jyk81cBtEpCNHqsT1fFCQ_vstzYcOiw@mail.gmail.com>
+	<515070CA.2010701@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
+Cc: tingw.liu@gmail.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	linus971@gmail.com
+To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48170 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758417Ab3CYQJC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Mar 2013 12:09:02 -0400
-In-Reply-To: <20130323175915.GA3036@netboy.at.omicron.at>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52957 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758458Ab3CYQJm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 12:09:42 -0400
+In-Reply-To: <515070CA.2010701@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 23 Mar 2013 18:59:15 +0100, Richard Cochran wrote:
-> Jiri, do you want to work on making the number of clocks essentially
-> unlimited? If not, I can take a look at this, but not right away.
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Mon, 25 Mar 2013 19:44:10 +0400
 
-I'm currently thinking of using just /dev/ptp for all PHCs in the
-system and specifying the desired network device (ifindex, likely)
-by an ioctl as the very first operation. What do you think? If this
-is viable, I can try to implement it.
+>    It seems your patch has all the tabs replaced by spaces.
 
-As for netlink, I don't see how to do that without reimplementing the
-whole kernel<->user space timer API. The API expects clockid_t which
-is either a const (a new constant wouldn't help, we can have multiple
-PHCs in the system), or a dynamic value. There is no space for more
-dynamic values as far as I can see, all combinations of the three lower
-bits are already defined. It seems we're left with file descriptors.
-
- Jiri
-
--- 
-Jiri Benc
+I think this patch should simply be aborted.  It hasn't addressed any
+of Eric Dumazet's concerns, the patch submitter can't even keep the
+patch from being corrupted by his email client, and the patch is of
+near zero value as far as I'm concerned especially considering how
+much work and effort is going into hand holding this patch submitter.
