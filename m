@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 10/12] netfilter: nfnetlink_queue: zero copy support
-Date: Mon, 25 Mar 2013 13:15:50 +0100
-Message-ID: <1364213752-3934-11-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 09/12] netfilter: ctnetlink: allow to dump expectation per master conntrack
+Date: Mon, 25 Mar 2013 13:15:49 +0100
+Message-ID: <1364213752-3934-10-git-send-email-pablo@netfilter.org>
 References: <1364213752-3934-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,180 +10,134 @@ In-Reply-To: <1364213752-3934-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-nfqnl_build_packet_message() actually copy the packet
-inside the netlink message, while it can instead use
-zero copy.
+This patch adds the ability to dump all existing expectations
+per master conntrack.
 
-Make sure the skb 'copy' is the last component of the
-cooked netlink message, as we cant add anything after it.
-
-Patch cooked in Copenhagen at Netfilter Workshop ;)
-
-Still to be addressed in separate patches :
-
--GRO/GSO packets are segmented in nf_queue()
-and checksummed in nfqnl_build_packet_message().
-
-Proper support for GSO/GRO packets (no segmentation,
-and no checksumming) needs application cooperation, if we
-want no regressions.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_queue_core.c |   94 ++++++++++++++++++++++++++--------
- 1 file changed, 72 insertions(+), 22 deletions(-)
+ net/netfilter/nf_conntrack_netlink.c |  100 ++++++++++++++++++++++++++++++++--
+ 1 file changed, 95 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index 350c50f..da91b86 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -217,14 +217,59 @@ nfqnl_flush(struct nfqnl_instance *queue, nfqnl_cmpfn cmpfn, unsigned long data)
- 	spin_unlock_bh(&queue->lock);
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 9904b15..6d0f8a1 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -2409,6 +2409,92 @@ out:
+ 	return skb->len;
  }
  
-+static void
-+nfqnl_zcopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
++static int
++ctnetlink_exp_ct_dump_table(struct sk_buff *skb, struct netlink_callback *cb)
 +{
-+	int i, j = 0;
-+	int plen = 0; /* length of skb->head fragment */
-+	struct page *page;
-+	unsigned int offset;
++	struct nf_conntrack_expect *exp, *last;
++	struct nfgenmsg *nfmsg = nlmsg_data(cb->nlh);
++	struct nf_conn *ct = cb->data;
++	struct nf_conn_help *help = nfct_help(ct);
++	u_int8_t l3proto = nfmsg->nfgen_family;
 +
-+	/* dont bother with small payloads */
-+	if (len <= skb_tailroom(to)) {
-+		skb_copy_bits(from, 0, skb_put(to, len), len);
-+		return;
-+	}
++	if (cb->args[0])
++		return 0;
 +
-+	if (hlen) {
-+		skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
-+		len -= hlen;
-+	} else {
-+		plen = min_t(int, skb_headlen(from), len);
-+		if (plen) {
-+			page = virt_to_head_page(from->head);
-+			offset = from->data - (unsigned char *)page_address(page);
-+			__skb_fill_page_desc(to, 0, page, offset, plen);
-+			get_page(page);
-+			j = 1;
-+			len -= plen;
++	rcu_read_lock();
++	last = (struct nf_conntrack_expect *)cb->args[1];
++restart:
++	hlist_for_each_entry(exp, &help->expectations, lnode) {
++		if (l3proto && exp->tuple.src.l3num != l3proto)
++			continue;
++		if (cb->args[1]) {
++			if (exp != last)
++				continue;
++			cb->args[1] = 0;
++		}
++		if (ctnetlink_exp_fill_info(skb, NETLINK_CB(cb->skb).portid,
++					    cb->nlh->nlmsg_seq,
++					    IPCTNL_MSG_EXP_NEW,
++					    exp) < 0) {
++			if (!atomic_inc_not_zero(&exp->use))
++				continue;
++			cb->args[1] = (unsigned long)exp;
++			goto out;
 +		}
 +	}
-+
-+	to->truesize += len + plen;
-+	to->len += len + plen;
-+	to->data_len += len + plen;
-+
-+	for (i = 0; i < skb_shinfo(from)->nr_frags; i++) {
-+		if (!len)
-+			break;
-+		skb_shinfo(to)->frags[j] = skb_shinfo(from)->frags[i];
-+		skb_shinfo(to)->frags[j].size = min_t(int, skb_shinfo(to)->frags[j].size, len);
-+		len -= skb_shinfo(to)->frags[j].size;
-+		skb_frag_ref(to, j);
-+		j++;
++	if (cb->args[1]) {
++		cb->args[1] = 0;
++		goto restart;
 +	}
-+	skb_shinfo(to)->nr_frags = j;
++	cb->args[0] = 1;
++out:
++	rcu_read_unlock();
++	if (last)
++		nf_ct_expect_put(last);
++
++	return skb->len;
 +}
 +
- static struct sk_buff *
- nfqnl_build_packet_message(struct nfqnl_instance *queue,
- 			   struct nf_queue_entry *entry,
- 			   __be32 **packet_id_ptr)
- {
--	sk_buff_data_t old_tail;
- 	size_t size;
- 	size_t data_len = 0, cap_len = 0;
-+	int hlen = 0;
- 	struct sk_buff *skb;
- 	struct nlattr *nla;
- 	struct nfqnl_msg_packet_hdr *pmsg;
-@@ -246,8 +291,10 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
- #endif
- 		+ nla_total_size(sizeof(u_int32_t))	/* mark */
- 		+ nla_total_size(sizeof(struct nfqnl_msg_packet_hw))
--		+ nla_total_size(sizeof(struct nfqnl_msg_packet_timestamp)
--		+ nla_total_size(sizeof(u_int32_t)));	/* cap_len */
-+		+ nla_total_size(sizeof(u_int32_t));	/* cap_len */
++static int ctnetlink_dump_exp_ct(struct sock *ctnl, struct sk_buff *skb,
++				 const struct nlmsghdr *nlh,
++				 const struct nlattr * const cda[])
++{
++	int err;
++	struct net *net = sock_net(ctnl);
++	struct nfgenmsg *nfmsg = nlmsg_data(nlh);
++	u_int8_t u3 = nfmsg->nfgen_family;
++	struct nf_conntrack_tuple tuple;
++	struct nf_conntrack_tuple_hash *h;
++	struct nf_conn *ct;
++	u16 zone = 0;
++	struct netlink_dump_control c = {
++		.dump = ctnetlink_exp_ct_dump_table,
++		.done = ctnetlink_exp_done,
++	};
 +
-+	if (entskb->tstamp.tv64)
-+		size += nla_total_size(sizeof(struct nfqnl_msg_packet_timestamp));
- 
- 	outdev = entry->outdev;
- 
-@@ -265,7 +312,16 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
- 		if (data_len == 0 || data_len > entskb->len)
- 			data_len = entskb->len;
- 
--		size += nla_total_size(data_len);
++	err = ctnetlink_parse_tuple(cda, &tuple, CTA_EXPECT_MASTER, u3);
++	if (err < 0)
++		return err;
 +
-+		if (!entskb->head_frag ||
-+		    skb_headlen(entskb) < L1_CACHE_BYTES ||
-+		    skb_shinfo(entskb)->nr_frags >= MAX_SKB_FRAGS)
-+			hlen = skb_headlen(entskb);
++	if (cda[CTA_EXPECT_ZONE]) {
++		err = ctnetlink_parse_zone(cda[CTA_EXPECT_ZONE], &zone);
++		if (err < 0)
++			return err;
++	}
 +
-+		if (skb_has_frag_list(entskb))
-+			hlen = entskb->len;
-+		hlen = min_t(int, data_len, hlen);
-+		size += sizeof(struct nlattr) + hlen;
- 		cap_len = entskb->len;
- 		break;
- 	}
-@@ -277,7 +333,6 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
- 	if (!skb)
- 		return NULL;
- 
--	old_tail = skb->tail;
- 	nlh = nlmsg_put(skb, 0, 0,
- 			NFNL_SUBSYS_QUEUE << 8 | NFQNL_MSG_PACKET,
- 			sizeof(struct nfgenmsg), 0);
-@@ -382,31 +437,26 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
- 			goto nla_put_failure;
- 	}
- 
-+	if (ct && nfqnl_ct_put(skb, ct, ctinfo) < 0)
-+		goto nla_put_failure;
++	h = nf_conntrack_find_get(net, zone, &tuple);
++	if (!h)
++		return -ENOENT;
 +
-+	if (cap_len > 0 && nla_put_be32(skb, NFQA_CAP_LEN, htonl(cap_len)))
-+		goto nla_put_failure;
++	ct = nf_ct_tuplehash_to_ctrack(h);
++	c.data = ct;
 +
- 	if (data_len) {
- 		struct nlattr *nla;
--		int sz = nla_attr_size(data_len);
++	err = netlink_dump_start(ctnl, skb, nlh, &c);
++	nf_ct_put(ct);
++
++	return err;
++}
++
+ static const struct nla_policy exp_nla_policy[CTA_EXPECT_MAX+1] = {
+ 	[CTA_EXPECT_MASTER]	= { .type = NLA_NESTED },
+ 	[CTA_EXPECT_TUPLE]	= { .type = NLA_NESTED },
+@@ -2439,11 +2525,15 @@ ctnetlink_get_expect(struct sock *ctnl, struct sk_buff *skb,
+ 	int err;
  
--		if (skb_tailroom(skb) < nla_total_size(data_len)) {
--			printk(KERN_WARNING "nf_queue: no tailroom!\n");
--			kfree_skb(skb);
--			return NULL;
--		}
-+		if (skb_tailroom(skb) < sizeof(*nla) + hlen)
-+			goto nla_put_failure;
- 
--		nla = (struct nlattr *)skb_put(skb, nla_total_size(data_len));
-+		nla = (struct nlattr *)skb_put(skb, sizeof(*nla));
- 		nla->nla_type = NFQA_PAYLOAD;
--		nla->nla_len = sz;
-+		nla->nla_len = nla_attr_size(data_len);
- 
--		if (skb_copy_bits(entskb, 0, nla_data(nla), data_len))
--			BUG();
-+		nfqnl_zcopy(skb, entskb, data_len, hlen);
+ 	if (nlh->nlmsg_flags & NLM_F_DUMP) {
+-		struct netlink_dump_control c = {
+-			.dump = ctnetlink_exp_dump_table,
+-			.done = ctnetlink_exp_done,
+-		};
+-		return netlink_dump_start(ctnl, skb, nlh, &c);
++		if (cda[CTA_EXPECT_MASTER])
++			return ctnetlink_dump_exp_ct(ctnl, skb, nlh, cda);
++		else {
++			struct netlink_dump_control c = {
++				.dump = ctnetlink_exp_dump_table,
++				.done = ctnetlink_exp_done,
++			};
++			return netlink_dump_start(ctnl, skb, nlh, &c);
++		}
  	}
  
--	if (ct && nfqnl_ct_put(skb, ct, ctinfo) < 0)
--		goto nla_put_failure;
--
--	if (cap_len > 0 && nla_put_be32(skb, NFQA_CAP_LEN, htonl(cap_len)))
--		goto nla_put_failure;
--
--	nlh->nlmsg_len = skb->tail - old_tail;
-+	nlh->nlmsg_len = skb->len;
- 	return skb;
- 
- nla_put_failure:
+ 	err = ctnetlink_parse_zone(cda[CTA_EXPECT_ZONE], &zone);
 -- 
 1.7.10.4
 
