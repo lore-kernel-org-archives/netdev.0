@@ -1,45 +1,36 @@
-From: Hong Zhiguo <honkiko@gmail.com>
-Subject: [PATCH net-next] ipv6: don't free static mem in the case of init_net
-Date: Tue, 26 Mar 2013 00:25:25 +0800
-Message-ID: <1364228725-16218-1-git-send-email-honkiko@gmail.com>
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-	Hong Zhiguo <honkiko@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/3] ipv4: Fix ip-header identification for gso
+ packets.
+Date: Mon, 25 Mar 2013 12:29:18 -0400 (EDT)
+Message-ID: <20130325.122918.1454194776490435084.davem@davemloft.net>
+References: <1364182567-1667-1-git-send-email-pshelar@nicira.com>
+	<1364183295.2532.9.camel@cr0>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pshelar@nicira.com, netdev@vger.kernel.org
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:61299 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758200Ab3CYQZl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 12:25:41 -0400
-Received: by mail-pb0-f41.google.com with SMTP id mc8so905147pbc.14
-        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 09:25:41 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:53242 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758617Ab3CYQ3U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 12:29:20 -0400
+In-Reply-To: <1364183295.2532.9.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
----
- net/ipv6/addrconf.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+From: Cong Wang <amwang@redhat.com>
+Date: Mon, 25 Mar 2013 11:48:15 +0800
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index fa36a67..1f5f51f 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4891,10 +4891,14 @@ static int __net_init addrconf_init_net(struct net *net)
- err_reg_dflt:
- 	__addrconf_sysctl_unregister(all);
- err_reg_all:
--	kfree(dflt);
-+	if (dflt != &ipv6_devconf_dflt) {
-+		kfree(dflt);
-+	}
- #endif
- err_alloc_dflt:
--	kfree(all);
-+	if (all != &ipv6_devconf) {
-+		kfree(all);
-+	}
- err_alloc_all:
- 	return err;
- }
--- 
-1.7.10.4
+> On Sun, 2013-03-24 at 20:36 -0700, Pravin B Shelar wrote:
+>> Following patch fixes ip-header identification according to comments from
+>> David Miller and Cong Wang.
+>> First two patches reverts fixes to upper layer gso handlers which is not
+>> required after fixing ipv4 gso handler.
+>> 
+> 
+> Looks good to me now:
+> 
+> Acked-by: Cong Wang <amwang@redhat.com>
+
+Looks good to me too, all applied, thanks.
