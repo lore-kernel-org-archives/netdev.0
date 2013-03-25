@@ -1,7 +1,7 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 17/25] rtlwifi: rtl8188ee: Add files for new driver - part 8
-Date: Sun, 24 Mar 2013 22:06:49 -0500
-Message-ID: <1364180817-8028-18-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 03/25] rtlwifi: Modify files for 2013.02.07 vendor version - part 3
+Date: Sun, 24 Mar 2013 22:06:35 -0500
+Message-ID: <1364180817-8028-4-git-send-email-Larry.Finger@lwfinger.net>
 References: <1364180817-8028-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless@vger.kernel.org,
 	Larry Finger <Larry.Finger@lwfinger.net>,
@@ -9,13 +9,16 @@ Cc: linux-wireless@vger.kernel.org,
 	mmarek@suse.cz, zhiyuan_yang@realsil.com.cn, page_he@realsil.com.cn
 To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:34216 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756343Ab3CYDHn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 23:07:43 -0400
+Received: from mail-oa0-f45.google.com ([209.85.219.45]:44177 "EHLO
+	mail-oa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756203Ab3CYDHW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 23:07:22 -0400
 In-Reply-To: <1364180817-8028-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+This patch updates files ps.{c,h} for the changes in the newest vendor
+driver.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 Cc: jcheung@suse.com
@@ -24,260 +27,399 @@ Cc: mmarek@suse.cz
 Cc: zhiyuan_yang@realsil.com.cn
 Cc: page_he@realsil.com.cn
 ---
- drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.c | 140 +++++++++++++++++++++
- drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.h |  97 ++++++++++++++
- 2 files changed, 237 insertions(+)
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.h
+ drivers/net/wireless/rtlwifi/ps.c | 330 +++++++++++++++++++++++++++++++++++---
+ drivers/net/wireless/rtlwifi/ps.h |   2 +
+ 2 files changed, 306 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.c b/drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.c
-new file mode 100644
-index 0000000..4798000
---- /dev/null
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.c
-@@ -0,0 +1,140 @@
-+/******************************************************************************
-+ *
-+ * Copyright(c) 2009-2013  Realtek Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of version 2 of the GNU General Public License as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-+ *
-+ * The full GNU General Public License is included in this distribution in the
-+ * file called LICENSE.
-+ *
-+ * Contact Information:
-+ * wlanfae <wlanfae@realtek.com>
-+ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
-+ * Hsinchu 300, Taiwan.
-+ *
-+ * Larry Finger <Larry.Finger@lwfinger.net>
-+ *
-+ *****************************************************************************/
+diff --git a/drivers/net/wireless/rtlwifi/ps.c b/drivers/net/wireless/rtlwifi/ps.c
+index 13ad33e..101b569 100644
+--- a/drivers/net/wireless/rtlwifi/ps.c
++++ b/drivers/net/wireless/rtlwifi/ps.c
+@@ -189,6 +189,9 @@ void rtl_ips_nic_off_wq_callback(void *data)
+ 	if (rtlpriv->sec.being_setkey)
+ 		return;
+ 
++	if (rtlpriv->cfg->ops->bt_coex_off_before_lps)
++		rtlpriv->cfg->ops->bt_coex_off_before_lps(hw);
 +
-+#include "pwrseq.h"
-+
-+
-+/*	Description:
-+ *		This routine deal with the Power Configuration CMDs
-+ *		 parsing for RTL8723/RTL8188E Series IC.
-+ *	Assumption:
-+ *		We should follow specific format which was released from HW SD.
-+ *
-+ *	2011.07.07, added by Roger.
+ 	if (ppsc->inactiveps) {
+ 		rtstate = ppsc->rfpwr_state;
+ 
+@@ -231,6 +234,9 @@ void rtl_ips_nic_off(struct ieee80211_hw *hw)
+ 			   &rtlpriv->works.ips_nic_off_wq, MSECS(100));
+ }
+ 
++/* NOTICE: any opmode should exc nic_on, or disable without
++ * nic_on may something wrong, like adhoc TP
 + */
+ void rtl_ips_nic_on(struct ieee80211_hw *hw)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+@@ -299,7 +305,7 @@ static void rtl_lps_set_psmode(struct ieee80211_hw *hw, u8 rt_psmode)
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
+ 	struct rtl_ps_ctl *ppsc = rtl_psc(rtl_priv(hw));
+-	u8 rpwm_val, fw_pwrmode;
++	bool enter_fwlps;
+ 
+ 	if (mac->opmode == NL80211_IFTYPE_ADHOC)
+ 		return;
+@@ -324,43 +330,31 @@ static void rtl_lps_set_psmode(struct ieee80211_hw *hw, u8 rt_psmode)
+ 	 */
+ 
+ 	if ((ppsc->fwctrl_lps) && ppsc->report_linked) {
+-		bool fw_current_inps;
+ 		if (ppsc->dot11_psmode == EACTIVE) {
+ 			RT_TRACE(rtlpriv, COMP_RF, DBG_DMESG,
+ 				 "FW LPS leave ps_mode:%x\n",
+ 				 FW_PS_ACTIVE_MODE);
+-
+-			rpwm_val = 0x0C;	/* RF on */
+-			fw_pwrmode = FW_PS_ACTIVE_MODE;
+-			rtlpriv->cfg->ops->set_hw_reg(hw, HW_VAR_SET_RPWM,
+-					&rpwm_val);
+-			rtlpriv->cfg->ops->set_hw_reg(hw,
+-					HW_VAR_H2C_FW_PWRMODE,
+-					&fw_pwrmode);
+-			fw_current_inps = false;
+-
+-			rtlpriv->cfg->ops->set_hw_reg(hw,
+-					HW_VAR_FW_PSMODE_STATUS,
+-					(u8 *) (&fw_current_inps));
++				enter_fwlps = false;
++				ppsc->pwr_mode = FW_PS_ACTIVE_MODE;
++				ppsc->smart_ps = 0;
++				rtlpriv->cfg->ops->set_hw_reg(hw,
++							HW_VAR_FW_LPS_ACTION,
++							(u8 *)(&enter_fwlps));
++				if (ppsc->p2p_ps_info.opp_ps)
++					rtl_p2p_ps_cmd(hw, P2P_PS_ENABLE);
+ 
+ 		} else {
+ 			if (rtl_get_fwlps_doze(hw)) {
+ 				RT_TRACE(rtlpriv, COMP_RF, DBG_DMESG,
+ 					 "FW LPS enter ps_mode:%x\n",
+ 					 ppsc->fwctrl_psmode);
+-
+-				rpwm_val = 0x02;	/* RF off */
+-				fw_current_inps = true;
++				enter_fwlps = true;
++				ppsc->pwr_mode = ppsc->fwctrl_psmode;
++				ppsc->smart_ps = 2;
+ 				rtlpriv->cfg->ops->set_hw_reg(hw,
+-						HW_VAR_FW_PSMODE_STATUS,
+-						(u8 *) (&fw_current_inps));
+-				rtlpriv->cfg->ops->set_hw_reg(hw,
+-						HW_VAR_H2C_FW_PWRMODE,
+-						&ppsc->fwctrl_psmode);
++							HW_VAR_FW_LPS_ACTION,
++							(u8 *)(&enter_fwlps));
+ 
+-				rtlpriv->cfg->ops->set_hw_reg(hw,
+-						HW_VAR_SET_RPWM,
+-						&rpwm_val);
+ 			} else {
+ 				/* Reset the power save related parameters. */
+ 				ppsc->dot11_psmode = EACTIVE;
+@@ -642,3 +636,287 @@ void rtl_swlps_wq_callback(void *data)
+ 		rtlpriv->psc.state = ps;
+ 	}
+ }
 +
-+bool rtl_hal_pwrseqcmdparsing(struct rtl_priv *rtlpriv, u8 cut_version,
-+			      u8 fab_version, u8 interface_type,
-+			      struct wlan_pwr_cfg pwrcfgcmd[])
++void rtl_p2p_noa_ie(struct ieee80211_hw *hw, void *data, unsigned int len)
 +{
-+	struct wlan_pwr_cfg cmd = {0};
-+	bool polling_bit = false;
-+	u32 ary_idx = 0;
-+	u8 val = 0;
-+	u32 offset = 0;
-+	u32 polling_count = 0;
-+	u32 max_polling_cnt = 5000;
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct ieee80211_mgmt *mgmt = (void *)data;
++	struct rtl_p2p_ps_info *p2pinfo = &(rtlpriv->psc.p2p_ps_info);
++	u8 *pos, *end, *ie;
++	u16 noa_len;
++	static u8 p2p_oui_ie_type[4] = {0x50, 0x6f, 0x9a, 0x09};
++	u8 noa_num, index, i, noa_index = 0;
++	bool find_p2p_ie = false , find_p2p_ps_ie = false;
++	pos = (u8 *)mgmt->u.beacon.variable;
++	end = data + len;
++	ie = NULL;
 +
-+	do {
-+		cmd = pwrcfgcmd[ary_idx];
-+		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
-+			 "rtl_hal_pwrseqcmdparsing(): offset(%#x), cut_msk(%#x), fab_msk(%#x),"
-+			 "interface_msk(%#x), base(%#x), cmd(%#x), msk(%#x), val(%#x)\n",
-+			 GET_PWR_CFG_OFFSET(cmd),
-+			 GET_PWR_CFG_CUT_MASK(cmd),
-+			 GET_PWR_CFG_FAB_MASK(cmd),
-+			 GET_PWR_CFG_INTF_MASK(cmd),
-+			 GET_PWR_CFG_BASE(cmd),
-+			 GET_PWR_CFG_CMD(cmd),
-+			 GET_PWR_CFG_MASK(cmd),
-+			 GET_PWR_CFG_VALUE(cmd));
++	while (pos + 1 < end) {
++		if (pos + 2 + pos[1] > end)
++			return;
 +
-+		if ((GET_PWR_CFG_FAB_MASK(cmd) & fab_version) &&
-+		    (GET_PWR_CFG_CUT_MASK(cmd) & cut_version) &&
-+		    (GET_PWR_CFG_INTF_MASK(cmd) & interface_type)) {
-+			switch (GET_PWR_CFG_CMD(cmd)) {
-+			case PWR_CMD_READ:
-+				RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
-+					 "rtl_hal_pwrseqcmdparsing(): PWR_CMD_READ\n");
-+				break;
-+			case PWR_CMD_WRITE: {
-+				RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
-+					 "rtl_hal_pwrseqcmdparsing(): PWR_CMD_WRITE\n");
-+				offset = GET_PWR_CFG_OFFSET(cmd);
-+
-+					/*Read the val from system register*/
-+					val = rtl_read_byte(rtlpriv, offset);
-+					val &= (~(GET_PWR_CFG_MASK(cmd)));
-+					val |= (GET_PWR_CFG_VALUE(cmd) &
-+						GET_PWR_CFG_MASK(cmd));
-+
-+					/*Write the val back to sytem register*/
-+					rtl_write_byte(rtlpriv, offset, val);
-+				}
-+				break;
-+			case PWR_CMD_POLLING:
-+				RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
-+					 "rtl_hal_pwrseqcmdparsing(): PWR_CMD_POLLING\n");
-+				polling_bit = false;
-+				offset = GET_PWR_CFG_OFFSET(cmd);
-+
-+				do {
-+					val = rtl_read_byte(rtlpriv, offset);
-+
-+					val = val & GET_PWR_CFG_MASK(cmd);
-+					if (val == (GET_PWR_CFG_VALUE(cmd) &
-+						    GET_PWR_CFG_MASK(cmd)))
-+						polling_bit = true;
-+					else
-+						udelay(10);
-+
-+					if (polling_count++ > max_polling_cnt) {
-+						RT_TRACE(rtlpriv, COMP_INIT,
-+							 DBG_LOUD,
-+							 "polling fail in pwrseqcmd\n");
-+						return false;
-+					}
-+				} while (!polling_bit);
-+
-+				break;
-+			case PWR_CMD_DELAY:
-+				RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
-+					 "rtl_hal_pwrseqcmdparsing(): PWR_CMD_DELAY\n");
-+				if (GET_PWR_CFG_VALUE(cmd) == PWRSEQ_DELAY_US)
-+					udelay(GET_PWR_CFG_OFFSET(cmd));
-+				else
-+					mdelay(GET_PWR_CFG_OFFSET(cmd));
-+				break;
-+			case PWR_CMD_END:
-+				RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
-+					 "rtl_hal_pwrseqcmdparsing(): PWR_CMD_END\n");
-+				return true;
-+				break;
-+			default:
-+				RT_ASSERT(false,
-+					  "rtl_hal_pwrseqcmdparsing(): Unknown CMD!!\n");
++		if (pos[0] == 221 && pos[1] > 4) {
++			if (memcmp(&pos[2], p2p_oui_ie_type, 4) == 0) {
++				ie = pos + 2+4;
 +				break;
 +			}
 +		}
++		pos += 2 + pos[1];
++	}
 +
-+		ary_idx++;
-+	} while (1);
++	if (ie == NULL)
++		return;
++	find_p2p_ie = true;
++	/*to find noa ie*/
++	while (ie + 1 < end) {
++		noa_len = READEF2BYTE(&ie[1]);
++		if (ie + 3 + ie[1] > end)
++			return;
 +
-+	return true;
++		if (ie[0] == 12) {
++			find_p2p_ps_ie = true;
++			if ((noa_len - 2) % 13 != 0) {
++				RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD,
++					 "P2P notice of absence: invalid length.%d\n",
++					 noa_len);
++				return;
++			} else {
++				noa_num = (noa_len - 2) / 13;
++			}
++			noa_index = ie[3];
++			if (rtlpriv->psc.p2p_ps_info.p2p_ps_mode ==
++			    P2P_PS_NONE || noa_index != p2pinfo->noa_index) {
++				RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD,
++					 "update NOA ie.\n");
++				p2pinfo->noa_index = noa_index;
++				p2pinfo->opp_ps = (ie[4] >> 7);
++				p2pinfo->ctwindow = ie[4] & 0x7F;
++				p2pinfo->noa_num = noa_num;
++				index = 5;
++				for (i = 0; i < noa_num; i++) {
++					p2pinfo->noa_count_type[i] =
++						 READEF1BYTE(ie+index);
++					index += 1;
++					p2pinfo->noa_duration[i] =
++						 READEF4BYTE(ie+index);
++					index += 4;
++					p2pinfo->noa_interval[i] =
++						 READEF4BYTE(ie+index);
++					index += 4;
++					p2pinfo->noa_start_time[i] =
++						 READEF4BYTE(ie+index);
++					index += 4;
++				}
++
++				if (p2pinfo->opp_ps == 1) {
++					p2pinfo->p2p_ps_mode = P2P_PS_CTWINDOW;
++					/* Driver should wait LPS entering
++					 * CTWindow
++					 */
++					if (rtlpriv->psc.fw_current_inpsmode)
++						rtl_p2p_ps_cmd(hw,
++							       P2P_PS_ENABLE);
++				} else if (p2pinfo->noa_num > 0) {
++					p2pinfo->p2p_ps_mode = P2P_PS_NOA;
++					rtl_p2p_ps_cmd(hw, P2P_PS_ENABLE);
++				} else if (p2pinfo->p2p_ps_mode > P2P_PS_NONE) {
++					rtl_p2p_ps_cmd(hw, P2P_PS_DISABLE);
++				}
++			}
++		break;
++		}
++		ie += 3 + noa_len;
++	}
++
++	if (find_p2p_ie == true) {
++		if ((p2pinfo->p2p_ps_mode > P2P_PS_NONE) &&
++		    (find_p2p_ps_ie == false))
++			rtl_p2p_ps_cmd(hw, P2P_PS_DISABLE);
++	}
 +}
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.h b/drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.h
-new file mode 100644
-index 0000000..622ea7e
---- /dev/null
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.h
-@@ -0,0 +1,97 @@
-+/******************************************************************************
-+ *
-+ * Copyright(c) 2009-2013  Realtek Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of version 2 of the GNU General Public License as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-+ *
-+ * The full GNU General Public License is included in this distribution in the
-+ * file called LICENSE.
-+ *
-+ * Contact Information:
-+ * wlanfae <wlanfae@realtek.com>
-+ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
-+ * Hsinchu 300, Taiwan.
-+ *
-+ * Larry Finger <Larry.Finger@lwfinger.net>
-+ *
-+ *****************************************************************************/
 +
-+#ifndef __RTL8723E_PWRSEQCMD_H__
-+#define __RTL8723E_PWRSEQCMD_H__
++void rtl_p2p_action_ie(struct ieee80211_hw *hw, void *data, unsigned int len)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct ieee80211_mgmt *mgmt = (void *)data;
++	struct rtl_p2p_ps_info *p2pinfo = &(rtlpriv->psc.p2p_ps_info);
++	bool find_p2p_ie = false , find_p2p_ps_ie = false;
++	u8 noa_num, index, i, noa_index = 0;
++	u8 *pos, *end, *ie;
++	u16 noa_len;
++	static u8 p2p_oui_ie_type[4] = {0x50, 0x6f, 0x9a, 0x09};
 +
-+#include "wifi.h"
-+/*---------------------------------------------*/
-+/* The value of cmd: 4 bits */
-+/*---------------------------------------------*/
-+#define PWR_CMD_READ		0x00
-+#define PWR_CMD_WRITE		0x01
-+#define PWR_CMD_POLLING		0x02
-+#define PWR_CMD_DELAY		0x03
-+#define PWR_CMD_END		0x04
++	pos = (u8 *)&mgmt->u.action.category;
++	end = data + len;
++	ie = NULL;
 +
-+/* define the base address of each block */
-+#define PWR_BASEADDR_MAC	0x00
-+#define PWR_BASEADDR_USB	0x01
-+#define PWR_BASEADDR_PCIE	0x02
-+#define PWR_BASEADDR_SDIO	0x03
++	if (pos[0] == 0x7f) {
++		if (memcmp(&pos[1], p2p_oui_ie_type, 4) == 0)
++			ie = pos + 3+4;
++	}
 +
-+#define PWR_INTF_SDIO_MSK	BIT(0)
-+#define PWR_INTF_USB_MSK	BIT(1)
-+#define PWR_INTF_PCI_MSK	BIT(2)
-+#define PWR_INTF_ALL_MSK	(BIT(0)|BIT(1)|BIT(2)|BIT(3))
++	if (ie == NULL)
++		return;
++	find_p2p_ie = true;
 +
-+#define	PWR_FAB_TSMC_MSK	BIT(0)
-+#define	PWR_FAB_UMC_MSK		BIT(1)
-+#define	PWR_FAB_ALL_MSK		(BIT(0)|BIT(1)|BIT(2)|BIT(3))
++	RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "action frame find P2P IE.\n");
++	/*to find noa ie*/
++	while (ie + 1 < end) {
++		noa_len = READEF2BYTE(&ie[1]);
++		if (ie + 3 + ie[1] > end)
++			return;
 +
-+#define	PWR_CUT_TESTCHIP_MSK	BIT(0)
-+#define	PWR_CUT_A_MSK		BIT(1)
-+#define	PWR_CUT_B_MSK		BIT(2)
-+#define	PWR_CUT_C_MSK		BIT(3)
-+#define	PWR_CUT_D_MSK		BIT(4)
-+#define	PWR_CUT_E_MSK		BIT(5)
-+#define	PWR_CUT_F_MSK		BIT(6)
-+#define	PWR_CUT_G_MSK		BIT(7)
-+#define	PWR_CUT_ALL_MSK		0xFF
++		if (ie[0] == 12) {
++			RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "find NOA IE.\n");
++			RT_PRINT_DATA(rtlpriv, COMP_FW, DBG_LOUD, "noa ie ",
++				      ie, noa_len);
++			find_p2p_ps_ie = true;
++			if ((noa_len - 2) % 13 != 0) {
++				RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD,
++					 "P2P notice of absence: invalid length.%d\n",
++					 noa_len);
++				return;
++			} else {
++				noa_num = (noa_len - 2) / 13;
++			}
++			noa_index = ie[3];
++			if (rtlpriv->psc.p2p_ps_info.p2p_ps_mode ==
++			    P2P_PS_NONE || noa_index != p2pinfo->noa_index) {
++				p2pinfo->noa_index = noa_index;
++				p2pinfo->opp_ps = (ie[4] >> 7);
++				p2pinfo->ctwindow = ie[4] & 0x7F;
++				p2pinfo->noa_num = noa_num;
++				index = 5;
++				for (i = 0; i < noa_num; i++) {
++					p2pinfo->noa_count_type[i] =
++							 READEF1BYTE(ie+index);
++					index += 1;
++					p2pinfo->noa_duration[i] =
++							 READEF4BYTE(ie+index);
++					index += 4;
++					p2pinfo->noa_interval[i] =
++							 READEF4BYTE(ie+index);
++					index += 4;
++					p2pinfo->noa_start_time[i] =
++							 READEF4BYTE(ie+index);
++					index += 4;
++				}
 +
-+enum pwrseq_delay_unit {
-+	PWRSEQ_DELAY_US,
-+	PWRSEQ_DELAY_MS,
-+};
++				if (p2pinfo->opp_ps == 1) {
++					p2pinfo->p2p_ps_mode = P2P_PS_CTWINDOW;
++					/* Driver should wait LPS entering
++					 * CTWindow
++					 */
++					if (rtlpriv->psc.fw_current_inpsmode)
++						rtl_p2p_ps_cmd(hw,
++							       P2P_PS_ENABLE);
++				} else if (p2pinfo->noa_num > 0) {
++					p2pinfo->p2p_ps_mode = P2P_PS_NOA;
++					rtl_p2p_ps_cmd(hw, P2P_PS_ENABLE);
++				} else if (p2pinfo->p2p_ps_mode > P2P_PS_NONE) {
++					rtl_p2p_ps_cmd(hw, P2P_PS_DISABLE);
++				}
++			}
++		break;
++		}
++		ie += 3 + noa_len;
++	}
++}
 +
-+struct wlan_pwr_cfg {
-+	u16 offset;
-+	u8 cut_msk;
-+	u8 fab_msk:4;
-+	u8 interface_msk:4;
-+	u8 base:4;
-+	u8 cmd:4;
-+	u8 msk;
-+	u8 value;
-+};
++void rtl_p2p_ps_cmd(struct ieee80211_hw *hw, u8 p2p_ps_state)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_ps_ctl *rtlps = rtl_psc(rtl_priv(hw));
++	struct rtl_p2p_ps_info  *p2pinfo = &(rtlpriv->psc.p2p_ps_info);
 +
-+#define	GET_PWR_CFG_OFFSET(__PWR)	(__PWR.offset)
-+#define	GET_PWR_CFG_CUT_MASK(__PWR)	(__PWR.cut_msk)
-+#define	GET_PWR_CFG_FAB_MASK(__PWR)	(__PWR.fab_msk)
-+#define	GET_PWR_CFG_INTF_MASK(__PWR)	(__PWR.interface_msk)
-+#define	GET_PWR_CFG_BASE(__PWR)		(__PWR.base)
-+#define	GET_PWR_CFG_CMD(__PWR)		(__PWR.cmd)
-+#define	GET_PWR_CFG_MASK(__PWR)		(__PWR.msk)
-+#define	GET_PWR_CFG_VALUE(__PWR)	(__PWR.value)
++	RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, " p2p state %x\n", p2p_ps_state);
++	switch (p2p_ps_state) {
++	case P2P_PS_DISABLE:
++		p2pinfo->p2p_ps_state = p2p_ps_state;
++		rtlpriv->cfg->ops->set_hw_reg(hw,
++				 HW_VAR_H2C_FW_P2P_PS_OFFLOAD,
++				 (u8 *)(&p2p_ps_state));
 +
-+bool rtl_hal_pwrseqcmdparsing(struct rtl_priv *rtlpriv, u8 cut_version,
-+			      u8 fab_version, u8 interface_type,
-+			      struct wlan_pwr_cfg pwrcfgcmd[]);
++		p2pinfo->noa_index = 0;
++		p2pinfo->ctwindow = 0;
++		p2pinfo->opp_ps = 0;
++		p2pinfo->noa_num = 0;
++		p2pinfo->p2p_ps_mode = P2P_PS_NONE;
++		if (rtlps->fw_current_inpsmode == true) {
++			if (rtlps->smart_ps == 0) {
++				rtlps->smart_ps = 2;
++				rtlpriv->cfg->ops->set_hw_reg(hw,
++					 HW_VAR_H2C_FW_PWRMODE,
++					 (u8 *)(&rtlps->pwr_mode));
++			}
++		}
++		break;
++	case P2P_PS_ENABLE:
++		if (p2pinfo->p2p_ps_mode > P2P_PS_NONE) {
++			p2pinfo->p2p_ps_state = p2p_ps_state;
 +
-+#endif
++			if (p2pinfo->ctwindow > 0) {
++				if (rtlps->smart_ps != 0) {
++					rtlps->smart_ps = 0;
++					rtlpriv->cfg->ops->set_hw_reg(hw,
++						 HW_VAR_H2C_FW_PWRMODE,
++						 (u8 *)(&rtlps->pwr_mode));
++				}
++			}
++			rtlpriv->cfg->ops->set_hw_reg(hw,
++				 HW_VAR_H2C_FW_P2P_PS_OFFLOAD,
++				 (u8 *)(&p2p_ps_state));
++		}
++		break;
++	case P2P_PS_SCAN:
++	case P2P_PS_SCAN_DONE:
++	case P2P_PS_ALLSTASLEEP:
++		if (p2pinfo->p2p_ps_mode > P2P_PS_NONE) {
++			p2pinfo->p2p_ps_state = p2p_ps_state;
++			rtlpriv->cfg->ops->set_hw_reg(hw,
++				 HW_VAR_H2C_FW_P2P_PS_OFFLOAD,
++				 (u8 *)(&p2p_ps_state));
++		}
++		break;
++	default:
++		break;
++	}
++	RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD,
++		 "ctwindow %x oppps %x\n", p2pinfo->ctwindow, p2pinfo->opp_ps);
++	RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD,
++		 "count %x duration %x index %x interval %x start time %x noa num %x\n",
++		 p2pinfo->noa_count_type[0], p2pinfo->noa_duration[0],
++		 p2pinfo->noa_index, p2pinfo->noa_interval[0],
++		 p2pinfo->noa_start_time[0], p2pinfo->noa_num);
++	RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "end\n");
++}
++
++void rtl_p2p_info(struct ieee80211_hw *hw, void *data, unsigned int len)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
++	struct ieee80211_hdr *hdr = (void *)data;
++
++	if (!mac->p2p)
++		return;
++	if (mac->link_state != MAC80211_LINKED)
++		return;
++	/* min. beacon length + FCS_LEN */
++	if (len <= 40 + FCS_LEN)
++		return;
++
++	/* and only beacons from the associated BSSID, please */
++	if (compare_ether_addr(hdr->addr3, rtlpriv->mac80211.bssid))
++		return;
++
++	/* check if this really is a beacon */
++	if (!(ieee80211_is_beacon(hdr->frame_control) ||
++	      ieee80211_is_probe_resp(hdr->frame_control) ||
++	      ieee80211_is_action(hdr->frame_control)))
++		return;
++
++	if (ieee80211_is_action(hdr->frame_control))
++		rtl_p2p_action_ie(hw, data, len - FCS_LEN);
++	else
++		rtl_p2p_noa_ie(hw, data, len - FCS_LEN);
++}
+diff --git a/drivers/net/wireless/rtlwifi/ps.h b/drivers/net/wireless/rtlwifi/ps.h
+index 1357856..4d682b7 100644
+--- a/drivers/net/wireless/rtlwifi/ps.h
++++ b/drivers/net/wireless/rtlwifi/ps.h
+@@ -47,5 +47,7 @@ void rtl_swlps_wq_callback(void *data);
+ void rtl_swlps_rfon_wq_callback(void *data);
+ void rtl_swlps_rf_awake(struct ieee80211_hw *hw);
+ void rtl_swlps_rf_sleep(struct ieee80211_hw *hw);
++void rtl_p2p_ps_cmd(struct ieee80211_hw *hw, u8 p2p_ps_state);
++void rtl_p2p_info(struct ieee80211_hw *hw, void *data, unsigned int len);
+ 
+ #endif
 -- 
 1.8.1.4
