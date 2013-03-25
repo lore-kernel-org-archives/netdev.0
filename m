@@ -1,52 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 Subject: Re: [PATCH 2/6] xen-netfront: reduce gso_max_size to account for
  ethernet header
-Date: Mon, 25 Mar 2013 09:54:32 -0700
-Message-ID: <1364230472.29473.21.camel@edumazet-glaptop>
+Date: Mon, 25 Mar 2013 12:56:37 -0400
+Message-ID: <20130325165637.GA25740@phenom.dumpdata.com>
 References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
-	 <1364209702-12437-3-git-send-email-wei.liu2@citrix.com>
-	 <20130325.121809.2023305728304341952.davem@davemloft.net>
+ <1364209702-12437-3-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, xen-devel@lists.xen.org,
-	netdev@vger.kernel.org, ian.campbell@citrix.com,
-	annie.li@oracle.com, konrad.wilk@oracle.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	ian.campbell@citrix.com, annie.li@oracle.com,
 	david.vrabel@citrix.com
-To: David Miller <davem@davemloft.net>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:43046 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758086Ab3CYQyf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 12:54:35 -0400
-Received: by mail-ie0-f179.google.com with SMTP id k11so7685351iea.10
-        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 09:54:35 -0700 (PDT)
-In-Reply-To: <20130325.121809.2023305728304341952.davem@davemloft.net>
+Received: from aserp1040.oracle.com ([141.146.126.69]:17429 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932748Ab3CYQ4q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 12:56:46 -0400
+Content-Disposition: inline
+In-Reply-To: <1364209702-12437-3-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-03-25 at 12:18 -0400, David Miller wrote:
-
+On Mon, Mar 25, 2013 at 11:08:18AM +0000, Wei Liu wrote:
+> The maximum packet including ethernet header that can be handled by netfront /
+> netback wire format is 65535. Reduce gso_max_size accordingly.
 > 
-> This is effectively the default already, you don't need to change this
-> value explicitly.
+> Drop skb and print warning when skb->len > 65535. This can 1) save the effort
+> to send malformed packet to netback, 2) help spotting misconfiguration of
+> netfront in the future.
 > 
-> ->gso_max_size is set by default to 65536 and then TCP performs this
-> calculation:
+
+Should it also CC stable@vger.kernel.org?
+
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> ---
+>  drivers/net/xen-netfront.c |   14 ++++++++++++++
+>  1 file changed, 14 insertions(+)
 > 
->                 xmit_size_goal = ((sk->sk_gso_max_size - 1) -                          
->                                   inet_csk(sk)->icsk_af_ops->net_header_len -          
->                                   inet_csk(sk)->icsk_ext_hdr_len -                     
->                                   tp->tcp_header_len);                                 
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 5527663..3ae9dc1 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -547,6 +547,18 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	unsigned int len = skb_headlen(skb);
+>  	unsigned long flags;
+>  
+> +	/* Wire format of xen_netif_tx_request only supports skb->len
+> +	 * < 64K, because size field in xen_netif_tx_request is
+> +	 * uint16_t. If skb->len is too big, drop it and alert user about
+> +	 * misconfiguration.
+> +	 */
+> +	if (unlikely(skb->len >= (uint16_t)(~0))) {
+> +		net_alert_ratelimited(
+> +			"xennet: skb->len = %u, too big for wire format\n",
+> +			skb->len);
+> +		goto drop;
+> +	}
+> +
+>  	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
+>  		xennet_count_skb_frag_slots(skb);
+>  	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
+> @@ -1362,6 +1374,8 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
+>  	SET_ETHTOOL_OPS(netdev, &xennet_ethtool_ops);
+>  	SET_NETDEV_DEV(netdev, &dev->dev);
+>  
+> +	netif_set_gso_max_size(netdev, 65535 - ETH_HLEN);
+> +
+>  	np->netdev = netdev;
+>  
+>  	netif_carrier_off(netdev);
+> -- 
+> 1.7.10.4
 > 
-> thereby making it adhere to your limits just fine.
-
-For locally generated TCP traffic this is the case.
-
-However, GRO can build packets up to 65535 bytes, not including the
-Ethernet header.
-
-For such packets, it seems xen-netfront needs a segmentation.
-
-And we might have other providers as well (UFO for example ?), but I
-have not checked.
