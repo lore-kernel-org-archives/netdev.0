@@ -1,38 +1,46 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba (updated) Version 2
-Date: Mon, 25 Mar 2013 17:30:46 +0100
-Message-ID: <20130325163046.GA29705@order.stressinduktion.org>
-References: <157393863283F442885425D2C4542856489E7C79@nasanexd02f.na.qualcomm.com> <20130324034037.GC17948@order.stressinduktion.org> <157393863283F442885425D2C4542856489E7CA8@nasanexd02f.na.qualcomm.com> <20130324043738.GD17948@order.stressinduktion.org> <157393863283F442885425D2C4542856489E7CCD@nasanexd02f.na.qualcomm.com> <20130324051325.GE17948@order.stressinduktion.org> <157393863283F442885425D2C4542856489E7CFC@nasanexd02f.na.qualcomm.com> <20130324052300.GA12968@order.stressinduktion.org> <157393863283F442885425D2C4542856489E7D1E@nasanexd02f.na.qualcomm.com> <20130324172304.GB12968@order.stressinduktion.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] bridge: avoid br_ifinfo_notify when nothing
+ changed
+Date: Mon, 25 Mar 2013 20:31:40 +0400
+Message-ID: <51507BEC.9000300@cogentembedded.com>
+References: <514F0F07.9050702@cogentembedded.com> <20130324.171537.1255124338630598287.davem@davemloft.net> <51506DFE.4040405@cogentembedded.com> <20130325.120808.1143527366649356424.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: "Huang, Xiong" <xiong@qca.qualcomm.com>,
-	Sven Hartge <sven@svenhartge.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: honkiko@gmail.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, stephen@networkplumber.org,
+	herbert@gondor.hengli.com.au, zhiguo.hong@emc.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:57213 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758694Ab3CYQas (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 12:30:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20130324172304.GB12968@order.stressinduktion.org>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:33701 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758704Ab3CYQcm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 12:32:42 -0400
+Received: by mail-la0-f53.google.com with SMTP id fr10so11829671lab.12
+        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 09:32:41 -0700 (PDT)
+In-Reply-To: <20130325.120808.1143527366649356424.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 24, 2013 at 06:23:04PM +0100, Hannes Frederic Sowa wrote:
-> > 2. try to set hw->dmaw_block = atl1e_dma_req_128 
-> 
-> Sorry, we can still reproduce corrupted frames with this change.
+Hello.
 
-In atl1e_main.c
+On 25-03-2013 20:08, David Miller wrote:
 
-    940         max_pay_load  = ((dev_ctrl_data >> DEVICE_CTRL_MAX_PAYLOAD_SHIFT)) &
-    941                         DEVICE_CTRL_MAX_PAYLOAD_MASK;
-    942 
-    943         hw->dmaw_block = min_t(u32, max_pay_load, hw->dmaw_block);
+>>     Sorry, I don't usuallly ACK patches in an area I'm not closely
+>>     familiar with. Though I can add:
 
-the value dmaw_block always gets reset to 0 on my machine. I forced it
-to use atl1e_dma_req_1024 as it seems intended. But no change either.
+> If you feel confident enough to ask for corrections, you better be
+> ready to ACK the result when your requests have been met.
 
-Thanks,
+   Come on, I only asked to correct an evident cut and paste typo in the 
+description. That's too little a correction to ACK the whole patch. To ACK it, 
+I should know well the code it's patching and be confident that the whole 
+patch is correct. I have neither knowledge.
 
-  Hannes
+> You can't hold other people accountable yet take none of the
+> same responsibility yourself.
+
+    I don't hold anyone accountable, I just provide my comments which might as 
+well be ignored by the submitter/maintainer.
+
+WBR, Sergei
