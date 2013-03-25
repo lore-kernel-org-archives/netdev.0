@@ -1,122 +1,49 @@
-From: Hong Zhiguo <honkiko@gmail.com>
-Subject: [PATCH net-next] netlink: add missing length check of rtnl msg
-Date: Tue, 26 Mar 2013 01:22:23 +0800
-Message-ID: <1364232143-16754-1-git-send-email-honkiko@gmail.com>
-Cc: davem@davemloft.net, stephen@networkplumber.org, tgraf@suug.ch,
-	Hong Zhiguo <honkiko@gmail.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/6] xen-netfront: reduce gso_max_size to account for
+ ethernet header
+Date: Mon, 25 Mar 2013 10:24:31 -0700
+Message-ID: <1364232271.29473.27.camel@edumazet-glaptop>
+References: <1364209702-12437-3-git-send-email-wei.liu2@citrix.com>
+	 <20130325.121809.2023305728304341952.davem@davemloft.net>
+	 <1364230472.29473.21.camel@edumazet-glaptop>
+	 <20130325.125949.1046297562456662826.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: wei.liu2@citrix.com, xen-devel@lists.xen.org,
+	netdev@vger.kernel.org, ian.campbell@citrix.com,
+	annie.li@oracle.com, konrad.wilk@oracle.com,
+	david.vrabel@citrix.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f48.google.com ([209.85.210.48]:62594 "EHLO
-	mail-da0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758012Ab3CYRWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 13:22:42 -0400
-Received: by mail-da0-f48.google.com with SMTP id p8so3273498dan.21
-        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 10:22:41 -0700 (PDT)
+Received: from mail-ia0-f170.google.com ([209.85.210.170]:33059 "EHLO
+	mail-ia0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758012Ab3CYRYe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 13:24:34 -0400
+Received: by mail-ia0-f170.google.com with SMTP id h8so5730398iaa.1
+        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 10:24:34 -0700 (PDT)
+In-Reply-To: <20130325.125949.1046297562456662826.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the legacy array rtm_min still exists, the length check within these 
-functions is covered by rtm_min[RTM_NEWTFILTER], rtm_min[RTM_NEWQDISC] 
-and rtm_min[RTM_NEWTCLASS].
+On Mon, 2013-03-25 at 12:59 -0400, David Miller wrote:
 
-But after Thomas Graf removed rtm_min several days ago, these checks are 
-missing. 
+> If this GRO packet ends up being transmitted, the gso limit should be
+> applied, otherwise we would be violating the device's advertised GSO
+> limit value.
+> 
+> Assume that this kind of check is performed (it must), then I don't
+> see how GRO can cause any problems for Xen.
 
-Other doit functions should be OK.
+It seems nobody cared to perform this generic check.
 
-Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
----
- net/sched/cls_api.c |    4 ++++
- net/sched/sch_api.c |   22 ++++++++++++++++++----
- 2 files changed, 22 insertions(+), 4 deletions(-)
+netif_skb_features() only deals with max_segs :
 
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 9a04b98..01bfa9c 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -141,6 +141,10 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
- 
- 	if ((n->nlmsg_type != RTM_GETTFILTER) && !capable(CAP_NET_ADMIN))
- 		return -EPERM;
-+
-+	if (nlmsg_len(n) < sizeof(*t))
-+		return -EINVAL;
-+
- replay:
- 	t = nlmsg_data(n);
- 	protocol = TC_H_MIN(t->tcm_info);
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 0bbce22..b30a988 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -977,7 +977,7 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n)
- 	struct tcmsg *tcm = nlmsg_data(n);
- 	struct nlattr *tca[TCA_MAX + 1];
- 	struct net_device *dev;
--	u32 clid = tcm->tcm_parent;
-+	u32 clid;
- 	struct Qdisc *q = NULL;
- 	struct Qdisc *p = NULL;
- 	int err;
-@@ -985,6 +985,9 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n)
- 	if ((n->nlmsg_type != RTM_GETQDISC) && !capable(CAP_NET_ADMIN))
- 		return -EPERM;
- 
-+	if (nlmsg_len(n) < sizeof(*tcm))
-+		return -EINVAL;
-+
- 	dev = __dev_get_by_index(net, tcm->tcm_ifindex);
- 	if (!dev)
- 		return -ENODEV;
-@@ -993,6 +996,7 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n)
- 	if (err < 0)
- 		return err;
- 
-+	clid = tcm->tcm_parent;
- 	if (clid) {
- 		if (clid != TC_H_ROOT) {
- 			if (TC_H_MAJ(clid) != TC_H_MAJ(TC_H_INGRESS)) {
-@@ -1051,6 +1055,9 @@ static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n)
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
- 
-+	if (nlmsg_len(n) < sizeof(*tcm))
-+		return -EINVAL;
-+
- replay:
- 	/* Reinit, just in case something touches this. */
- 	tcm = nlmsg_data(n);
-@@ -1382,14 +1389,17 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n)
- 	const struct Qdisc_class_ops *cops;
- 	unsigned long cl = 0;
- 	unsigned long new_cl;
--	u32 portid = tcm->tcm_parent;
--	u32 clid = tcm->tcm_handle;
--	u32 qid = TC_H_MAJ(clid);
-+	u32 portid;
-+	u32 clid;
-+	u32 qid;
- 	int err;
- 
- 	if ((n->nlmsg_type != RTM_GETTCLASS) && !capable(CAP_NET_ADMIN))
- 		return -EPERM;
- 
-+	if (nlmsg_len(n) < sizeof(*tcm))
-+		return -EINVAL;
-+
- 	dev = __dev_get_by_index(net, tcm->tcm_ifindex);
- 	if (!dev)
- 		return -ENODEV;
-@@ -1413,6 +1423,10 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n)
- 
- 	/* Step 1. Determine qdisc handle X:0 */
- 
-+	portid = tcm->tcm_parent;
-+	clid = tcm->tcm_handle;
-+	qid = TC_H_MAJ(clid);
-+
- 	if (portid != TC_H_ROOT) {
- 		u32 qid1 = TC_H_MAJ(portid);
- 
--- 
-1.7.10.4
+if (skb_shinfo(skb)->gso_segs > skb->dev->gso_max_segs) 
+	features &= ~NETIF_F_GSO_MASK; 
+
+
+dev->gso_max_size is currently only used to populate sk->sk_gso_max_size
+
+For regular 1500 MTU and at most 17 frags per skb, its hardly a problem,
+but it could happen with jumbo frames, or using loopback and splice()
