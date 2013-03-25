@@ -1,45 +1,33 @@
-From: Steffen Trumtrar <s.trumtrar@pengutronix.de>
-Subject: Re: [PATCH 3/3] net/macb: make clk_enable atomic
-Date: Mon, 25 Mar 2013 09:33:34 +0100
-Message-ID: <20130325083334.GA27739@pengutronix.de>
-References: <1363973615-17863-1-git-send-email-s.trumtrar@pengutronix.de>
- <1363973615-17863-3-git-send-email-s.trumtrar@pengutronix.de>
- <CAOMZO5BRDU_-fvv4PZQcLe-4OdZ4bDQ8m+nNHEFcC1Y2+zdh9g@mail.gmail.com>
- <20130324.170849.1662647665547155225.davem@davemloft.net>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: [PATCH net-next 0/2] net/davinci_emac updates
+Date: Mon, 25 Mar 2013 14:55:45 +0530
+Message-ID: <1364203547-2960-1-git-send-email-nsekhar@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: festevam@gmail.com, netdev@vger.kernel.org, nicolas.ferre@atmel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	<davinci-linux-open-source@linux.davincidsp.com>,
+	Sekhar Nori <nsekhar@ti.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:41336 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756585Ab3CYIdk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 04:33:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20130324.170849.1662647665547155225.davem@davemloft.net>
+Received: from comal.ext.ti.com ([198.47.26.152]:47955 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757757Ab3CYJ07 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Mar 2013 05:26:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 24, 2013 at 05:08:49PM -0400, David Miller wrote:
-> From: Fabio Estevam <festevam@gmail.com>
-> Date: Fri, 22 Mar 2013 14:38:39 -0300
-> 
-> > On Fri, Mar 22, 2013 at 2:33 PM, Steffen Trumtrar
-> > <s.trumtrar@pengutronix.de> wrote:
-> >> Use clk_prepare_enable to be safe on SMP systems.
-> > 
-> > Wouldn't you have to use clk_disable_unprepare() now?
-> 
-> Indeed I think he does.
-> 
+This patch series converts davinci_emac driver to use
+clk_prepare/unprepare in preparation towards common
+clock migration for DaVinci. While at it, also introduce
+a patch to start using devres APIs to simplify error
+handling during probe.
 
-I will fix that of course.
+Sekhar Nori (2):
+  net/davinci_emac: use devres APIs
+  net/davinci_emac: use clk_{prepare|unprepare}
 
-Thanks,
-Steffen
+ drivers/net/ethernet/ti/davinci_emac.c |   55 ++++++++++++++++----------------
+ 1 file changed, 28 insertions(+), 27 deletions(-)
 
 -- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+1.7.10.1
