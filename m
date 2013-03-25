@@ -1,8 +1,8 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next (TAKE 4) 3/6] firewire net: Allocate address handler
- before registering net_device.
-Date: Tue, 26 Mar 2013 03:25:57 +0900
-Message-ID: <515096B5.4000204@linux-ipv6.org>
+Subject: [PATCH net-next (TAKE 4) 4/6] firewire net: Ignore spd and max_payload
+ advertised by ARP.
+Date: Tue, 26 Mar 2013 03:26:08 +0900
+Message-ID: <515096C0.8030302@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
@@ -10,96 +10,91 @@ Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
 	stephan.gatzka@gmail.com, yoshfuji@linux-ipv6.org
 To: davem@davemloft.net, stefanr@s5r6.in-berlin.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:58085 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:58095 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932830Ab3CYSZ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 14:25:59 -0400
+	with ESMTP id S932672Ab3CYS0J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 14:26:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allocate FIFO address before registering net_device.
-This is preparation to change the pseudo hardware address format
-for firewire devices to include the offset of the FIFO for receipt
-of unicast datagrams, instead of mangling ARP/NDP messages in the
-driver layer.
+Stefan Richter <stefanr@s5r6.in-berlin.de> says:
+| As far as I can tell, it would be best to ignore max_rec and sspd from ARP
+| and NDP but keep using the respective information from firewire-core
+| instead (handed over by fwnet_probe()).
+|
+| Why?  As I noted earlier, RFC 2734:1999 and RFC 3146:2001 were apparently
+| written with a too simplistic notion of IEEE 1394 bus topology, resulting
+| in max_rec and sspd in ARP-1394 and NDP-1394 to be useless, IMO.
+|
+| Consider a bus like this:
+|
+|     A ---- B ==== C
+|
+| A, B, C are all IP-over-1394 capable nodes.  ---- is an S400 cable hop,
+| and ==== is an S800 cable hop.
+|
+| In case of unicasts or multicasts in which node A is involved as
+| transmitter or receiver, as well as in case of broadcasts, the speeds
+| S100, S200, S400 work and speed S400 is optimal.
+|
+| In case of anything else, IOW in case of unicasts or multicasts in which
+| only nodes B and C are involved, the speeds S100, S200, S400, S800 work
+| and speed S800 is optimal.
+|
+| Clearly, node A should indicate sspd = S400 in its ARP or NDP packets.
+| But which sspd should nodes B and C set there?  Maybe they set S400, which
+| would work but would waste half of the available bandwidth in the second
+| case.  Or maybe they set S800, which is OK in the second case but would
+| prohibit any communication with node A if blindly taken for correct.
+|
+| On the other hand, firewire-core *always* gives us the correct and optimum
+| peer-to-peer speed and asynchronous packet payload, no matter how simple
+| or complex the bus topology is and no matter in which temporal order nodes
+| join the bus and are discovered.
 
+CC: Stefan Richter <stefanr@s5r6.in-berlin.de>
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- drivers/firewire/net.c |   22 ++++++++++------------
- 1 file changed, 10 insertions(+), 12 deletions(-)
+ drivers/firewire/net.c |   16 ----------------
+ 1 file changed, 16 deletions(-)
 
 diff --git a/drivers/firewire/net.c b/drivers/firewire/net.c
-index 7c2e16a..72536e7 100644
+index 72536e7..cb8aa86 100644
 --- a/drivers/firewire/net.c
 +++ b/drivers/firewire/net.c
-@@ -1286,13 +1286,9 @@ static int fwnet_open(struct net_device *net)
- 	struct fwnet_device *dev = netdev_priv(net);
- 	int ret;
+@@ -552,8 +552,6 @@ static int fwnet_finish_incoming_packet(struct net_device *net,
+ 		unsigned char *arp_ptr;
+ 		u64 fifo_addr;
+ 		u64 peer_guid;
+-		unsigned sspd;
+-		u16 max_payload;
+ 		struct fwnet_peer *peer;
+ 		unsigned long flags;
  
--	ret = fwnet_fifo_start(dev);
--	if (ret)
--		return ret;
+@@ -564,24 +562,10 @@ static int fwnet_finish_incoming_packet(struct net_device *net,
+ 		fifo_addr = (u64)get_unaligned_be16(&arp1394->fifo_hi) << 32
+ 				| get_unaligned_be32(&arp1394->fifo_lo);
+ 
+-		sspd = arp1394->sspd;
+-		/* Sanity check.  OS X 10.3 PPC reportedly sends 131. */
+-		if (sspd > SCODE_3200) {
+-			dev_notice(&net->dev, "sspd %x out of range\n", sspd);
+-			sspd = SCODE_3200;
+-		}
+-		max_payload = fwnet_max_payload(arp1394->max_rec, sspd);
 -
- 	ret = fwnet_broadcast_start(dev);
- 	if (ret)
--		goto out;
-+		return ret;
- 
- 	netif_start_queue(net);
- 
-@@ -1301,9 +1297,6 @@ static int fwnet_open(struct net_device *net)
- 	spin_unlock_irq(&dev->lock);
- 
- 	return 0;
--out:
--	fwnet_fifo_stop(dev);
--	return ret;
- }
- 
- /* ifdown */
-@@ -1312,9 +1305,7 @@ static int fwnet_stop(struct net_device *net)
- 	struct fwnet_device *dev = netdev_priv(net);
- 
- 	netif_stop_queue(net);
+ 		spin_lock_irqsave(&dev->lock, flags);
+ 		peer = fwnet_peer_find_by_guid(dev, peer_guid);
+ 		if (peer) {
+ 			peer->fifo = fifo_addr;
 -
- 	fwnet_broadcast_stop(dev);
--	fwnet_fifo_stop(dev);
- 
- 	return 0;
- }
-@@ -1593,6 +1584,11 @@ static int fwnet_probe(struct device *_dev)
- 	dev->card = card;
- 	dev->netdev = net;
- 
-+	ret = fwnet_fifo_start(dev);
-+	if (ret < 0)
-+		goto out;
-+	dev->local_fifo = dev->handler.offset;
-+
- 	/*
- 	 * Use the RFC 2734 default 1500 octets or the maximum payload
- 	 * as initial MTU
-@@ -1616,10 +1612,10 @@ static int fwnet_probe(struct device *_dev)
- 	if (ret && allocated_netdev) {
- 		unregister_netdev(net);
- 		list_del(&dev->dev_link);
--	}
-  out:
--	if (ret && allocated_netdev)
-+		fwnet_fifo_stop(dev);
- 		free_netdev(net);
-+	}
- 
- 	mutex_unlock(&fwnet_device_mutex);
- 
-@@ -1660,6 +1656,8 @@ static int fwnet_remove(struct device *_dev)
- 	if (list_empty(&dev->peer_list)) {
- 		unregister_netdev(net);
- 
-+		fwnet_fifo_stop(dev);
-+
- 		for (i = 0; dev->queued_datagrams && i < 5; i++)
- 			ssleep(1);
- 		WARN_ON(dev->queued_datagrams);
+-			if (peer->speed > sspd)
+-				peer->speed = sspd;
+-			if (peer->max_payload > max_payload)
+-				peer->max_payload = max_payload;
+-
+ 			peer->ip = arp1394->sip;
+ 		}
+ 		spin_unlock_irqrestore(&dev->lock, flags);
 -- 
 1.7.9.5
