@@ -1,59 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/6] xen-netfront: reduce gso_max_size to account for
- ethernet header
-Date: Mon, 25 Mar 2013 14:39:23 -0400 (EDT)
-Message-ID: <20130325.143923.762657816602656826.davem@davemloft.net>
-References: <1364209702-12437-3-git-send-email-wei.liu2@citrix.com>
-	<20130325.121809.2023305728304341952.davem@davemloft.net>
-	<20130325183206.GA7004@zion.uk.xensource.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next] ptp: increase the maximum number of clocks
+Date: Mon, 25 Mar 2013 19:51:20 +0100
+Message-ID: <20130325185120.GB3100@netboy.at.omicron.at>
+References: <d219aa87bd5b3e2fa42449720d845a7110f642f0.1363893841.git.jbenc@redhat.com>
+ <20130321.172017.1499060411785395307.davem@davemloft.net>
+ <20130323175915.GA3036@netboy.at.omicron.at>
+ <20130325170855.0194ce13@griffin>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	Ian.Campbell@citrix.com, annie.li@oracle.com,
-	konrad.wilk@oracle.com, david.vrabel@citrix.com
-To: wei.liu2@citrix.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55114 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932611Ab3CYSj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 14:39:27 -0400
-In-Reply-To: <20130325183206.GA7004@zion.uk.xensource.com>
+Received: from mail-ee0-f49.google.com ([74.125.83.49]:65420 "EHLO
+	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933371Ab3CYSvc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 14:51:32 -0400
+Received: by mail-ee0-f49.google.com with SMTP id d41so3350628eek.22
+        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 11:51:31 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130325170855.0194ce13@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Liu <wei.liu2@citrix.com>
-Date: Mon, 25 Mar 2013 18:32:06 +0000
-
-> On Mon, Mar 25, 2013 at 04:18:09PM +0000, David Miller wrote:
->> From: Wei Liu <wei.liu2@citrix.com>
->> Date: Mon, 25 Mar 2013 11:08:18 +0000
->> 
->> > The maximum packet including ethernet header that can be handled by netfront /
->> > netback wire format is 65535. Reduce gso_max_size accordingly.
->> > 
->> > Drop skb and print warning when skb->len > 65535. This can 1) save the effort
->> > to send malformed packet to netback, 2) help spotting misconfiguration of
->> > netfront in the future.
->> > 
->> > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
->> 
->> This is effectively the default already, you don't need to change this
->> value explicitly.
->> 
->> ->gso_max_size is set by default to 65536 and then TCP performs this
->> calculation:
->> 
->>                 xmit_size_goal = ((sk->sk_gso_max_size - 1) -                          
->>                                   inet_csk(sk)->icsk_af_ops->net_header_len -          
->>                                   inet_csk(sk)->icsk_ext_hdr_len -                     
->>                                   tp->tcp_header_len);                                 
+On Mon, Mar 25, 2013 at 05:08:55PM +0100, Jiri Benc wrote:
+> On Sat, 23 Mar 2013 18:59:15 +0100, Richard Cochran wrote:
+> > Jiri, do you want to work on making the number of clocks essentially
+> > unlimited? If not, I can take a look at this, but not right away.
 > 
-> OK. But I see similar fix for a physical nic (commit b7e5887e0e414b), am
-> I missing something here?
-> 
-> And the symptom is that if I don't reserve headroom I see skb->len =
-> 65538. Can you shed some light on this?
+> I'm currently thinking of using just /dev/ptp for all PHCs in the
+> system and specifying the desired network device (ifindex, likely)
+> by an ioctl as the very first operation. What do you think? If this
+> is viable, I can try to implement it.
 
-See Eric's reply.  If a GRO frame is forwarded we don't make the GSO size
-checks on the send size as we should.
+While that might work for the PTP ioctls, it won't for the main
+clock_gettime/settime/adjtime call. As you wrote below, these take a
+dynamic clockid_t (which comes from a file descriptor), and so each
+device needs its own, unique file system node.
+
+For better or worse, we are stuck with char devs, unless we want to
+redo the clock_xyz API. I certainly don't want to. We can have over a
+million PTP clocks on a single major number. That should be enough.
+
+IIRC, it is possible to grow the range of minor numbers
+incrementally. Perhaps you could take a look at that?
+
+Thanks,
+Richard
+ 
+> As for netlink, I don't see how to do that without reimplementing the
+> whole kernel<->user space timer API. The API expects clockid_t which
+> is either a const (a new constant wouldn't help, we can have multiple
+> PHCs in the system), or a dynamic value. There is no space for more
+> dynamic values as far as I can see, all combinations of the three lower
+> bits are already defined. It seems we're left with file descriptors.
+> 
+>  Jiri
+> 
+> -- 
+> Jiri Benc
