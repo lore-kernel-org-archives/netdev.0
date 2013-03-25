@@ -1,32 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 1/7] ip/xfrm: Extend SPI validity checking
-Date: Mon, 25 Mar 2013 08:03:23 -0700
-Message-ID: <20130325080323.238987de@nehalam.linuxnetplumber.net>
-References: <1364221399-1024-1-git-send-email-david.ward@ll.mit.edu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Ward <david.ward@ll.mit.edu>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH 1/3] dsa: fix device tree binding documentation typo on #address-cells
+Date: Mon, 25 Mar 2013 16:03:38 +0100
+Message-ID: <1364223820-26051-2-git-send-email-florian@openwrt.org>
+References: <1364223820-26051-1-git-send-email-florian@openwrt.org>
+Cc: netdev@vger.kernel.org, Florian Fainelli <florian@openwrt.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:55265 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757292Ab3CYPDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 11:03:35 -0400
-Received: by mail-pb0-f49.google.com with SMTP id um15so472661pbc.36
-        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 08:03:34 -0700 (PDT)
-In-Reply-To: <1364221399-1024-1-git-send-email-david.ward@ll.mit.edu>
+Received: from zmc.proxad.net ([212.27.53.206]:43613 "EHLO zmc.proxad.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756682Ab3CYPDw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Mar 2013 11:03:52 -0400
+In-Reply-To: <1364223820-26051-1-git-send-email-florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 25 Mar 2013 10:23:13 -0400
-David Ward <david.ward@ll.mit.edu> wrote:
+The device tree binding documentation for dsa explicitely states that a
+DSA node should have its #address-cells property set to 2, yet the
+example still used 1, fix that typo.
 
-> A Security Policy Index (SPI) is not used with Mobile IPv6. IPComp
-> uses a smaller 16-bit Compression Parameter Index (CPI) which is
-> passed as the SPI value. Perform checks whenever specifying an ID.
-> 
-> Signed-off-by: David Ward <david.ward@ll.mit.edu>
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
+---
+ Documentation/devicetree/bindings/net/dsa/dsa.txt |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-These all look fine to me, I will apply them in a couple of days
-unless there is anybody who sees a compatibility problem with current usage.
+diff --git a/Documentation/devicetree/bindings/net/dsa/dsa.txt b/Documentation/devicetree/bindings/net/dsa/dsa.txt
+index db92f55..49f4f7a 100644
+--- a/Documentation/devicetree/bindings/net/dsa/dsa.txt
++++ b/Documentation/devicetree/bindings/net/dsa/dsa.txt
+@@ -43,7 +43,7 @@ Example:
+ 
+ 	dsa@0 {
+ 		compatible = "marvell,dsa";
+-		#address-cells = <1>;
++		#address-cells = <2>;
+ 		#size-cells = <0>;
+ 
+ 		interrupts = <10>;
+-- 
+1.7.10.4
