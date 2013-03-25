@@ -1,7 +1,7 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 08/25] rtlwifi: rtl8192c: rtl8192ce: Update to vendor driver of 2013.02.07
-Date: Sun, 24 Mar 2013 22:06:40 -0500
-Message-ID: <1364180817-8028-9-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 20/25] rtlwifi: rtl8188ee: Add files for new driver - part 11
+Date: Sun, 24 Mar 2013 22:06:52 -0500
+Message-ID: <1364180817-8028-21-git-send-email-Larry.Finger@lwfinger.net>
 References: <1364180817-8028-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless@vger.kernel.org,
 	Larry Finger <Larry.Finger@lwfinger.net>,
@@ -9,10 +9,10 @@ Cc: linux-wireless@vger.kernel.org,
 	mmarek@suse.cz, zhiyuan_yang@realsil.com.cn, page_he@realsil.com.cn
 To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f41.google.com ([209.85.219.41]:51515 "EHLO
+Received: from mail-oa0-f41.google.com ([209.85.219.41]:46816 "EHLO
 	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756242Ab3CYDH2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 23:07:28 -0400
+	with ESMTP id S1756227Ab3CYDHr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 23:07:47 -0400
 In-Reply-To: <1364180817-8028-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -24,993 +24,459 @@ Cc: mmarek@suse.cz
 Cc: zhiyuan_yang@realsil.com.cn
 Cc: page_he@realsil.com.cn
 ---
- drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c |  89 +-----
- drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c |  99 ++++++-
- drivers/net/wireless/rtlwifi/rtl8192c/fw_common.h |   4 +
- drivers/net/wireless/rtlwifi/rtl8192ce/hw.c       |  98 ++++++-
- drivers/net/wireless/rtlwifi/rtl8192ce/hw.h       |   4 +
- drivers/net/wireless/rtlwifi/rtl8192ce/reg.h      |   1 +
- drivers/net/wireless/rtlwifi/rtl8192ce/sw.c       |   2 +
- drivers/net/wireless/rtlwifi/rtl8192ce/trx.c      | 324 ++++++----------------
- 8 files changed, 298 insertions(+), 323 deletions(-)
+ drivers/net/wireless/rtlwifi/rtl8188ee/sw.c | 400 ++++++++++++++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8188ee/sw.h |  36 +++
+ 2 files changed, 436 insertions(+)
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/sw.h
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c b/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
-index b793a65..b0b9f90 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
-@@ -1147,75 +1147,6 @@ void rtl92c_dm_init_rate_adaptive_mask(struct ieee80211_hw *hw)
- }
- EXPORT_SYMBOL(rtl92c_dm_init_rate_adaptive_mask);
- 
--static void rtl92c_dm_refresh_rate_adaptive_mask(struct ieee80211_hw *hw)
--{
--	struct rtl_priv *rtlpriv = rtl_priv(hw);
--	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
--	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
--	struct rate_adaptive *p_ra = &(rtlpriv->ra);
--	u32 low_rssi_thresh, high_rssi_thresh;
--	struct ieee80211_sta *sta = NULL;
--
--	if (is_hal_stop(rtlhal)) {
--		RT_TRACE(rtlpriv, COMP_RATE, DBG_LOUD,
--			 "<---- driver is going to unload\n");
--		return;
--	}
--
--	if (!rtlpriv->dm.useramask) {
--		RT_TRACE(rtlpriv, COMP_RATE, DBG_LOUD,
--			 "<---- driver does not control rate adaptive mask\n");
--		return;
--	}
--
--	if (mac->link_state == MAC80211_LINKED &&
--	    mac->opmode == NL80211_IFTYPE_STATION) {
--		switch (p_ra->pre_ratr_state) {
--		case DM_RATR_STA_HIGH:
--			high_rssi_thresh = 50;
--			low_rssi_thresh = 20;
--			break;
--		case DM_RATR_STA_MIDDLE:
--			high_rssi_thresh = 55;
--			low_rssi_thresh = 20;
--			break;
--		case DM_RATR_STA_LOW:
--			high_rssi_thresh = 50;
--			low_rssi_thresh = 25;
--			break;
--		default:
--			high_rssi_thresh = 50;
--			low_rssi_thresh = 20;
--			break;
--		}
--
--		if (rtlpriv->dm.undec_sm_pwdb > (long)high_rssi_thresh)
--			p_ra->ratr_state = DM_RATR_STA_HIGH;
--		else if (rtlpriv->dm.undec_sm_pwdb > (long)low_rssi_thresh)
--			p_ra->ratr_state = DM_RATR_STA_MIDDLE;
--		else
--			p_ra->ratr_state = DM_RATR_STA_LOW;
--
--		if (p_ra->pre_ratr_state != p_ra->ratr_state) {
--			RT_TRACE(rtlpriv, COMP_RATE, DBG_LOUD, "RSSI = %ld\n",
--				 rtlpriv->dm.undec_sm_pwdb);
--			RT_TRACE(rtlpriv, COMP_RATE, DBG_LOUD,
--				 "RSSI_LEVEL = %d\n", p_ra->ratr_state);
--			RT_TRACE(rtlpriv, COMP_RATE, DBG_LOUD,
--				 "PreState = %d, CurState = %d\n",
--				 p_ra->pre_ratr_state, p_ra->ratr_state);
--
--			rcu_read_lock();
--			sta = ieee80211_find_sta(mac->vif, mac->bssid);
--			rtlpriv->cfg->ops->update_rate_tbl(hw, sta,
--					p_ra->ratr_state);
--
--			p_ra->pre_ratr_state = p_ra->ratr_state;
--			rcu_read_unlock();
--		}
--	}
--}
--
- static void rtl92c_dm_init_dynamic_bb_powersaving(struct ieee80211_hw *hw)
- {
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
-@@ -1437,6 +1368,9 @@ void rtl92c_dm_watchdog(struct ieee80211_hw *hw)
- 	rtlpriv->cfg->ops->get_hw_reg(hw, HW_VAR_FWLPS_RF_ON,
- 				      (u8 *) (&fw_ps_awake));
- 
-+	if (ppsc->p2p_ps_info.p2p_ps_mode)
-+		fw_ps_awake = false;
+diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
+new file mode 100644
+index 0000000..e8ce189
+--- /dev/null
++++ b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
+@@ -0,0 +1,400 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2009-2013  Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
++ *
++ * The full GNU General Public License is included in this distribution in the
++ * file called LICENSE.
++ *
++ * Contact Information:
++ * wlanfae <wlanfae@realtek.com>
++ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
++ * Hsinchu 300, Taiwan.
++ *
++ * Larry Finger <Larry.Finger@lwfinger.net>
++ *
++ *****************************************************************************/
 +
- 	if ((ppsc->rfpwr_state == ERFON) && ((!fw_current_inpsmode) &&
- 					     fw_ps_awake)
- 	    && (!ppsc->rfchange_inprogress)) {
-@@ -1446,7 +1380,7 @@ void rtl92c_dm_watchdog(struct ieee80211_hw *hw)
- 		rtl92c_dm_dynamic_bb_powersaving(hw);
- 		rtl92c_dm_dynamic_txpower(hw);
- 		rtl92c_dm_check_txpower_tracking(hw);
--		rtl92c_dm_refresh_rate_adaptive_mask(hw);
-+		/* rtl92c_dm_refresh_rate_adaptive_mask(hw); */
- 		rtl92c_dm_bt_coexist(hw);
- 		rtl92c_dm_check_edca_turbo(hw);
- 	}
-@@ -1651,7 +1585,7 @@ static void rtl92c_bt_set_normal(struct ieee80211_hw *hw)
- 	}
- }
- 
--static void rtl92c_bt_ant_isolation(struct ieee80211_hw *hw)
-+static void rtl92c_bt_ant_isolation(struct ieee80211_hw *hw, u8 tmp1byte)
- {
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
- 	struct rtl_pci_priv *rtlpcipriv = rtl_pcipriv(hw);
-@@ -1673,9 +1607,9 @@ static void rtl92c_bt_ant_isolation(struct ieee80211_hw *hw)
- 			    BT_RSSI_STATE_SPECIAL_LOW)) {
- 			rtl_write_byte(rtlpriv, REG_GPIO_MUXCFG, 0xa0);
- 		} else if (rtlpcipriv->bt_coexist.bt_service == BT_PAN) {
--			rtl_write_byte(rtlpriv, REG_GPIO_MUXCFG, 0x00);
-+			rtl_write_byte(rtlpriv, REG_GPIO_MUXCFG, tmp1byte);
- 		} else {
--			rtl_write_byte(rtlpriv, REG_GPIO_MUXCFG, 0x00);
-+			rtl_write_byte(rtlpriv, REG_GPIO_MUXCFG, tmp1byte);
- 		}
- 	}
- 
-@@ -1726,12 +1660,17 @@ static void rtl92c_check_bt_change(struct ieee80211_hw *hw)
- {
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
- 	struct rtl_pci_priv *rtlpcipriv = rtl_pcipriv(hw);
-+	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
-+	u8 tmp1byte = 0;
- 
-+	if (IS_81xxC_VENDOR_UMC_B_CUT(rtlhal->version) &&
-+	    rtlpcipriv->bt_coexist.bt_coexistence)
-+		tmp1byte |= BIT(5);
- 	if (rtlpcipriv->bt_coexist.bt_cur_state) {
- 		if (rtlpcipriv->bt_coexist.bt_ant_isolation)
--			rtl92c_bt_ant_isolation(hw);
-+			rtl92c_bt_ant_isolation(hw, tmp1byte);
- 	} else {
--		rtl_write_byte(rtlpriv, REG_GPIO_MUXCFG, 0x00);
-+		rtl_write_byte(rtlpriv, REG_GPIO_MUXCFG, tmp1byte);
- 		rtlpriv->cfg->ops->set_rfreg(hw, RF90_PATH_A, 0x1e, 0xf0,
- 				rtlpcipriv->bt_coexist.bt_rfreg_origin_1e);
- 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c b/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c
-index 883f23a..04a4162 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c
-@@ -552,7 +552,9 @@ void rtl92c_set_fw_pwrmode_cmd(struct ieee80211_hw *hw, u8 mode)
- 	RT_TRACE(rtlpriv, COMP_POWER, DBG_LOUD, "FW LPS mode = %d\n", mode);
- 
- 	SET_H2CCMD_PWRMODE_PARM_MODE(u1_h2c_set_pwrmode, mode);
--	SET_H2CCMD_PWRMODE_PARM_SMART_PS(u1_h2c_set_pwrmode, 1);
-+	SET_H2CCMD_PWRMODE_PARM_SMART_PS(u1_h2c_set_pwrmode,
-+					 (rtlpriv->mac80211.p2p) ?
-+					 ppsc->smart_ps : 1);
- 	SET_H2CCMD_PWRMODE_PARM_BCN_PASS_TIME(u1_h2c_set_pwrmode,
- 					      ppsc->reg_max_lps_awakeintvl);
- 
-@@ -808,3 +810,98 @@ void rtl92c_set_fw_joinbss_report_cmd(struct ieee80211_hw *hw, u8 mstatus)
- 	rtl92c_fill_h2c_cmd(hw, H2C_JOINBSSRPT, 1, u1_joinbssrpt_parm);
- }
- EXPORT_SYMBOL(rtl92c_set_fw_joinbss_report_cmd);
++#include "wifi.h"
++#include "core.h"
++#include "pci.h"
++#include "reg.h"
++#include "def.h"
++#include "phy.h"
++#include "dm.h"
++#include "hw.h"
++#include "sw.h"
++#include "trx.h"
++#include "led.h"
++#include "table.h"
 +
-+static void rtl92c_set_p2p_ctw_period_cmd(struct ieee80211_hw *hw, u8 ctwindow)
++#include <linux/vmalloc.h>
++#include <linux/module.h>
++
++static void rtl88e_init_aspm_vars(struct ieee80211_hw *hw)
 +{
-+	u8 u1_ctwindow_period[1] = {ctwindow};
-+
-+	rtl92c_fill_h2c_cmd(hw, H2C_P2P_PS_CTW_CMD, 1, u1_ctwindow_period);
-+}
-+
-+void rtl92c_set_p2p_ps_offload_cmd(struct ieee80211_hw *hw, u8 p2p_ps_state)
-+{
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	struct rtl_ps_ctl *rtlps = rtl_psc(rtl_priv(hw));
-+	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
-+	struct rtl_p2p_ps_info *p2pinfo = &(rtlps->p2p_ps_info);
-+	struct p2p_ps_offload_t *p2p_ps_offload = &rtlhal->p2p_ps_offload;
-+	u8	i;
-+	u16	ctwindow;
-+	u32	start_time, tsf_low;
-+
-+	switch (p2p_ps_state) {
-+	case P2P_PS_DISABLE:
-+		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_DISABLE\n");
-+		memset(p2p_ps_offload, 0, sizeof(struct p2p_ps_offload_t));
-+		break;
-+	case P2P_PS_ENABLE:
-+		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_ENABLE\n");
-+		/* update CTWindow value. */
-+		if (p2pinfo->ctwindow > 0) {
-+			p2p_ps_offload->ctwindow_en = 1;
-+			ctwindow = p2pinfo->ctwindow;
-+			rtl92c_set_p2p_ctw_period_cmd(hw, ctwindow);
-+		}
-+		/* hw only support 2 set of NoA */
-+		for (i = 0; i < p2pinfo->noa_num; i++) {
-+			/* To control the register setting for which NOA*/
-+			rtl_write_byte(rtlpriv, 0x5cf, (i << 4));
-+			if (i == 0)
-+				p2p_ps_offload->noa0_en = 1;
-+			else
-+				p2p_ps_offload->noa1_en = 1;
-+
-+			/* config P2P NoA Descriptor Register */
-+			rtl_write_dword(rtlpriv, 0x5E0,
-+					p2pinfo->noa_duration[i]);
-+			rtl_write_dword(rtlpriv, 0x5E4,
-+					p2pinfo->noa_interval[i]);
-+
-+			/*Get Current TSF value */
-+			tsf_low = rtl_read_dword(rtlpriv, REG_TSFTR);
-+
-+			start_time = p2pinfo->noa_start_time[i];
-+			if (p2pinfo->noa_count_type[i] != 1) {
-+				while (start_time <= (tsf_low+(50*1024))) {
-+					start_time += p2pinfo->noa_interval[i];
-+					if (p2pinfo->noa_count_type[i] != 255)
-+						p2pinfo->noa_count_type[i]--;
-+				}
-+			}
-+			rtl_write_dword(rtlpriv, 0x5E8, start_time);
-+			rtl_write_dword(rtlpriv, 0x5EC,
-+					p2pinfo->noa_count_type[i]);
-+		}
-+
-+		if ((p2pinfo->opp_ps == 1) || (p2pinfo->noa_num > 0)) {
-+			/* rst p2p circuit */
-+			rtl_write_byte(rtlpriv, REG_DUAL_TSF_RST, BIT(4));
-+
-+			p2p_ps_offload->offload_en = 1;
-+
-+			if (P2P_ROLE_GO == rtlpriv->mac80211.p2p) {
-+				p2p_ps_offload->role = 1;
-+				p2p_ps_offload->allstasleep = 0;
-+			} else {
-+				p2p_ps_offload->role = 0;
-+			}
-+
-+			p2p_ps_offload->discovery = 0;
-+		}
-+		break;
-+	case P2P_PS_SCAN:
-+		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_SCAN\n");
-+		p2p_ps_offload->discovery = 1;
-+		break;
-+	case P2P_PS_SCAN_DONE:
-+		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_SCAN_DONE\n");
-+		p2p_ps_offload->discovery = 0;
-+		p2pinfo->p2p_ps_state = P2P_PS_ENABLE;
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	rtl92c_fill_h2c_cmd(hw, H2C_P2P_PS_OFFLOAD, 1, (u8 *)p2p_ps_offload);
-+}
-+EXPORT_SYMBOL_GPL(rtl92c_set_p2p_ps_offload_cmd);
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.h b/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.h
-index 780ea5b..15b2055 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.h
-+++ b/drivers/net/wireless/rtlwifi/rtl8192c/fw_common.h
-@@ -67,6 +67,9 @@ enum rtl8192c_h2c_cmd {
- 	H2C_RSVDPAGE = 3,
- 	H2C_RSSI_REPORT = 5,
- 	H2C_RA_MASK = 6,
-+	H2C_MACID_PS_MODE = 7,
-+	H2C_P2P_PS_OFFLOAD = 8,
-+	H2C_P2P_PS_CTW_CMD = 32,
- 	MAX_H2CCMD
- };
- 
-@@ -95,5 +98,6 @@ void rtl92c_set_fw_pwrmode_cmd(struct ieee80211_hw *hw, u8 mode);
- void rtl92c_set_fw_rsvdpagepkt(struct ieee80211_hw *hw, bool b_dl_finished);
- void rtl92c_set_fw_joinbss_report_cmd(struct ieee80211_hw *hw, u8 mstatus);
- void usb_writeN_async(struct rtl_priv *rtlpriv, u32 addr, void *data, u16 len);
-+void rtl92c_set_p2p_ps_offload_cmd(struct ieee80211_hw *hw, u8 p2p_ps_state);
- 
- #endif
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
-index 1b65db7..3da9a78 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.c
-@@ -475,6 +475,9 @@ void rtl92ce_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
- 
- 			break;
- 		}
-+	case HW_VAR_H2C_FW_P2P_PS_OFFLOAD:
-+		rtl92c_set_p2p_ps_offload_cmd(hw, (*(u8 *)val));
-+		break;
- 	case HW_VAR_AID:{
- 			u16 u2btmp;
- 			u2btmp = rtl_read_word(rtlpriv, REG_BCN_PSR_RPT);
-@@ -505,6 +508,40 @@ void rtl92ce_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
- 			break;
- 
- 		}
-+	case HW_VAR_FW_LPS_ACTION: {
-+			bool enter_fwlps = *((bool *)val);
-+			u8 rpwm_val, fw_pwrmode;
-+			bool fw_current_inps;
-+
-+			if (enter_fwlps) {
-+				rpwm_val = 0x02;	/* RF off */
-+				fw_current_inps = true;
-+				rtlpriv->cfg->ops->set_hw_reg(hw,
-+						HW_VAR_FW_PSMODE_STATUS,
-+						(u8 *)(&fw_current_inps));
-+				rtlpriv->cfg->ops->set_hw_reg(hw,
-+						HW_VAR_H2C_FW_PWRMODE,
-+						(u8 *)(&ppsc->fwctrl_psmode));
-+
-+				rtlpriv->cfg->ops->set_hw_reg(hw,
-+						HW_VAR_SET_RPWM,
-+						(u8 *)(&rpwm_val));
-+			} else {
-+				rpwm_val = 0x0C;	/* RF on */
-+				fw_pwrmode = FW_PS_ACTIVE_MODE;
-+				fw_current_inps = false;
-+				rtlpriv->cfg->ops->set_hw_reg(hw,
-+						HW_VAR_SET_RPWM,
-+						(u8 *)(&rpwm_val));
-+				rtlpriv->cfg->ops->set_hw_reg(hw,
-+						HW_VAR_H2C_FW_PWRMODE,
-+						(u8 *)(&fw_pwrmode));
-+
-+				rtlpriv->cfg->ops->set_hw_reg(hw,
-+						HW_VAR_FW_PSMODE_STATUS,
-+						(u8 *)(&fw_current_inps));
-+			}
-+		break; }
- 	default:
- 		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
- 			 "switch case not processed\n");
-@@ -1105,7 +1142,8 @@ static int _rtl92ce_set_media_status(struct ieee80211_hw *hw,
- 	    type == NL80211_IFTYPE_STATION) {
- 		_rtl92ce_stop_tx_beacon(hw);
- 		_rtl92ce_enable_bcn_sub_func(hw);
--	} else if (type == NL80211_IFTYPE_ADHOC || type == NL80211_IFTYPE_AP) {
-+	} else if (type == NL80211_IFTYPE_ADHOC || type == NL80211_IFTYPE_AP ||
-+		   type == NL80211_IFTYPE_MESH_POINT) {
- 		_rtl92ce_resume_tx_beacon(hw);
- 		_rtl92ce_disable_bcn_sub_func(hw);
- 	} else {
-@@ -1137,6 +1175,11 @@ static int _rtl92ce_set_media_status(struct ieee80211_hw *hw,
- 		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
- 			 "Set Network type to AP!\n");
- 		break;
-+	case NL80211_IFTYPE_MESH_POINT:
-+		bt_msr |= MSR_ADHOC;
-+		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
-+			 "Set Network type to Mesh Point!\n");
-+		break;
- 	default:
- 		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
- 			 "Network type %d not supported!\n", type);
-@@ -1184,7 +1227,8 @@ int rtl92ce_set_network_type(struct ieee80211_hw *hw, enum nl80211_iftype type)
- 		return -EOPNOTSUPP;
- 
- 	if (rtlpriv->mac80211.link_state == MAC80211_LINKED) {
--		if (type != NL80211_IFTYPE_AP)
-+		if (type != NL80211_IFTYPE_AP &&
-+		    type != NL80211_IFTYPE_MESH_POINT)
- 			rtl92ce_set_check_bssid(hw, true);
- 	} else {
- 		rtl92ce_set_check_bssid(hw, false);
-@@ -1629,6 +1673,21 @@ static void _rtl92ce_read_adapter_info(struct ieee80211_hw *hw)
- 	if (rtlefuse->autoload_failflag)
- 		return;
- 
-+	rtlefuse->eeprom_vid = *(u16 *)&hwinfo[EEPROM_VID];
-+	rtlefuse->eeprom_did = *(u16 *)&hwinfo[EEPROM_DID];
-+	rtlefuse->eeprom_svid = *(u16 *)&hwinfo[EEPROM_SVID];
-+	rtlefuse->eeprom_smid = *(u16 *)&hwinfo[EEPROM_SMID];
-+	RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD,
-+		 "EEPROMId = 0x%4x\n", eeprom_id);
-+	RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD,
-+		 "EEPROM VID = 0x%4x\n", rtlefuse->eeprom_vid);
-+	RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD,
-+		 "EEPROM DID = 0x%4x\n", rtlefuse->eeprom_did);
-+	RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD,
-+		 "EEPROM SVID = 0x%4x\n", rtlefuse->eeprom_svid);
-+	RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD,
-+		 "EEPROM SMID = 0x%4x\n", rtlefuse->eeprom_smid);
-+
- 	for (i = 0; i < 6; i += 2) {
- 		usvalue = *(u16 *)&hwinfo[EEPROM_MAC_ADDR + i];
- 		*((u16 *) (&rtlefuse->dev_addr[i])) = usvalue;
-@@ -1766,6 +1825,9 @@ static void rtl92ce_update_hal_rate_table(struct ieee80211_hw *hw,
- 		ratr_value = sta->supp_rates[1] << 4;
- 	else
- 		ratr_value = sta->supp_rates[0];
-+	if (mac->opmode == NL80211_IFTYPE_ADHOC)
-+		ratr_value = 0xfff;
-+
- 	ratr_value |= (sta->ht_cap.mcs.rx_mask[1] << 20 |
- 			sta->ht_cap.mcs.rx_mask[0] << 12);
- 	switch (wirelessmode) {
-@@ -1860,7 +1922,8 @@ static void rtl92ce_update_hal_rate_mask(struct ieee80211_hw *hw,
- 
- 	sta_entry = (struct rtl_sta_info *) sta->drv_priv;
- 	wirelessmode = sta_entry->wireless_mode;
--	if (mac->opmode == NL80211_IFTYPE_STATION)
-+	if (mac->opmode == NL80211_IFTYPE_STATION ||
-+	    mac->opmode == NL80211_IFTYPE_MESH_POINT)
- 		curtxbw_40mhz = mac->bw_40;
- 	else if (mac->opmode == NL80211_IFTYPE_AP ||
- 		mac->opmode == NL80211_IFTYPE_ADHOC)
-@@ -1870,6 +1933,8 @@ static void rtl92ce_update_hal_rate_mask(struct ieee80211_hw *hw,
- 		ratr_bitmap = sta->supp_rates[1] << 4;
- 	else
- 		ratr_bitmap = sta->supp_rates[0];
-+	if (mac->opmode == NL80211_IFTYPE_ADHOC)
-+		ratr_bitmap = 0xfff;
- 	ratr_bitmap |= (sta->ht_cap.mcs.rx_mask[1] << 20 |
- 			sta->ht_cap.mcs.rx_mask[0] << 12);
- 	switch (wirelessmode) {
-@@ -2135,7 +2200,8 @@ void rtl92ce_set_key(struct ieee80211_hw *hw, u32 key_index,
- 				macaddr = cam_const_broad;
- 				entry_id = key_index;
- 			} else {
--				if (mac->opmode == NL80211_IFTYPE_AP) {
-+				if (mac->opmode == NL80211_IFTYPE_AP ||
-+				    mac->opmode == NL80211_IFTYPE_MESH_POINT) {
- 					entry_id = rtl_cam_get_free_entry(hw,
- 								 p_macaddr);
- 					if (entry_id >=  TOTAL_CAM_ENTRY) {
-@@ -2157,7 +2223,8 @@ void rtl92ce_set_key(struct ieee80211_hw *hw, u32 key_index,
- 			RT_TRACE(rtlpriv, COMP_SEC, DBG_DMESG,
- 				 "delete one entry, entry_id is %d\n",
- 				 entry_id);
--			if (mac->opmode == NL80211_IFTYPE_AP)
-+			if (mac->opmode == NL80211_IFTYPE_AP ||
-+			    mac->opmode == NL80211_IFTYPE_MESH_POINT)
- 				rtl_cam_del_entry(hw, p_macaddr);
- 			rtl_cam_delete_one_entry(hw, p_macaddr, entry_id);
- 		} else {
-@@ -2338,3 +2405,24 @@ void rtl92ce_suspend(struct ieee80211_hw *hw)
- void rtl92ce_resume(struct ieee80211_hw *hw)
- {
- }
-+
-+/* Turn on AAP (RCR:bit 0) for promicuous mode. */
-+void rtl92ce_allow_all_destaddr(struct ieee80211_hw *hw,
-+	bool allow_all_da, bool write_into_reg)
-+{
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
 +	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
 +
-+	if (allow_all_da) {/* Set BIT0 */
-+		rtlpci->receive_config |= RCR_AAP;
-+	} else {/* Clear BIT0 */
-+		rtlpci->receive_config &= ~RCR_AAP;
-+	}
++	/*close ASPM for AMD defaultly */
++	rtlpci->const_amdpci_aspm = 0;
 +
-+	if (write_into_reg)
-+		rtl_write_dword(rtlpriv, REG_RCR, rtlpci->receive_config);
++	/* ASPM PS mode.
++	 * 0 - Disable ASPM,
++	 * 1 - Enable ASPM without Clock Req,
++	 * 2 - Enable ASPM with Clock Req,
++	 * 3 - Alwyas Enable ASPM with Clock Req,
++	 * 4 - Always Enable ASPM without Clock Req.
++	 * set defult to RTL8192CE:3 RTL8192E:2
++	 */
++	rtlpci->const_pci_aspm = 3;
 +
-+	RT_TRACE(rtlpriv, COMP_TURBO | COMP_INIT, DBG_LOUD,
-+		 "receive_config=0x%08X, write_into_reg=%d\n",
-+		 rtlpci->receive_config, write_into_reg);
++	/*Setting for PCI-E device */
++	rtlpci->const_devicepci_aspm_setting = 0x03;
++
++	/*Setting for PCI-E bridge */
++	rtlpci->const_hostpci_aspm_setting = 0x02;
++
++	/* In Hw/Sw Radio Off situation.
++	 * 0 - Default,
++	 * 1 - From ASPM setting without low Mac Pwr,
++	 * 2 - From ASPM setting with low Mac Pwr,
++	 * 3 - Bus D3
++	 * set default to RTL8192CE:0 RTL8192SE:2
++	 */
++	rtlpci->const_hwsw_rfoff_d3 = 0;
++
++	/* This setting works for those device with
++	 * backdoor ASPM setting such as EPHY setting.
++	 * 0 - Not support ASPM,
++	 * 1 - Support ASPM,
++	 * 2 - According to chipset.
++	 */
++	rtlpci->const_support_pciaspm = 1;
 +}
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.h b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.h
-index 52a3aea..2d063b0 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ce/hw.h
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ce/hw.h
-@@ -61,6 +61,8 @@ void rtl92ce_update_interrupt_mask(struct ieee80211_hw *hw,
- void rtl92ce_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val);
- void rtl92ce_update_hal_rate_tbl(struct ieee80211_hw *hw,
- 				 struct ieee80211_sta *sta, u8 rssi_level);
-+void rtl92ce_update_hal_rate_tbl(struct ieee80211_hw *hw,
-+				 struct ieee80211_sta *sta, u8 rssi_level);
- void rtl92ce_update_channel_access_setting(struct ieee80211_hw *hw);
- bool rtl92ce_gpio_radio_on_off_checking(struct ieee80211_hw *hw, u8 *valid);
- void rtl92ce_enable_hw_security_config(struct ieee80211_hw *hw);
-@@ -74,5 +76,7 @@ void rtl8192ce_bt_reg_init(struct ieee80211_hw *hw);
- void rtl8192ce_bt_hw_init(struct ieee80211_hw *hw);
- void rtl92ce_suspend(struct ieee80211_hw *hw);
- void rtl92ce_resume(struct ieee80211_hw *hw);
-+void rtl92ce_allow_all_destaddr(struct ieee80211_hw *hw,
-+				bool allow_all_da, bool write_into_reg);
- 
- #endif
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/reg.h b/drivers/net/wireless/rtlwifi/rtl8192ce/reg.h
-index e4d738f..bd4aef7 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ce/reg.h
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ce/reg.h
-@@ -544,6 +544,7 @@
- #define	IMR_WLANOFF				BIT(0)
- 
- #define EFUSE_REAL_CONTENT_LEN			512
-+#define EFUSE_OOB_PROTECT_BYTES			15
- 
- #define	EEPROM_DEFAULT_TSSI			0x0
- #define EEPROM_DEFAULT_TXPOWERDIFF		0x0
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/sw.c b/drivers/net/wireless/rtlwifi/rtl8192ce/sw.c
-index 49f663b..7347f59 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ce/sw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ce/sw.c
-@@ -228,6 +228,7 @@ static struct rtl_hal_ops rtl8192ce_hal_ops = {
- 	.enable_hw_sec = rtl92ce_enable_hw_security_config,
- 	.set_key = rtl92ce_set_key,
- 	.init_sw_leds = rtl92ce_init_sw_leds,
-+	.allow_all_destaddr = rtl92ce_allow_all_destaddr,
- 	.get_bbreg = rtl92c_phy_query_bb_reg,
- 	.set_bbreg = rtl92c_phy_set_bb_reg,
- 	.set_rfreg = rtl92ce_phy_set_rf_reg,
-@@ -278,6 +279,7 @@ static struct rtl_hal_cfg rtl92ce_hal_cfg = {
- 	.maps[EFUSE_HWSET_MAX_SIZE] = HWSET_MAX_SIZE,
- 	.maps[EFUSE_MAX_SECTION_MAP] = EFUSE_MAX_SECTION,
- 	.maps[EFUSE_REAL_CONTENT_SIZE] = EFUSE_REAL_CONTENT_LEN,
-+	.maps[EFUSE_OOB_PROTECT_BYTES_LEN] = EFUSE_OOB_PROTECT_BYTES,
- 
- 	.maps[RWCAM] = REG_CAMCMD,
- 	.maps[WCAMI] = REG_CAMWRITE,
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
-index b9b1a6e..65bf5fb 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
-@@ -30,6 +30,7 @@
- #include "../wifi.h"
- #include "../pci.h"
- #include "../base.h"
-+#include "../stats.h"
- #include "reg.h"
- #include "def.h"
- #include "phy.h"
-@@ -42,7 +43,7 @@ static u8 _rtl92ce_map_hwqueue_to_fwqueue(struct sk_buff *skb, u8 hw_queue)
- 
- 	if (unlikely(ieee80211_is_beacon(fc)))
- 		return QSLT_BEACON;
--	if (ieee80211_is_mgmt(fc))
-+	if (ieee80211_is_mgmt(fc) || ieee80211_is_ctl(fc))
- 		return QSLT_MGNT;
- 
- 	return skb->priority;
-@@ -78,16 +79,6 @@ static u8 _rtl92c_evm_db_to_percentage(char value)
- 	return ret_val;
- }
- 
--static long _rtl92ce_translate_todbm(struct ieee80211_hw *hw,
--				     u8 signal_strength_index)
--{
--	long signal_power;
--
--	signal_power = (long)((signal_strength_index + 1) >> 1);
--	signal_power -= 95;
--	return signal_power;
--}
--
- static long _rtl92ce_signal_scale_mapping(struct ieee80211_hw *hw,
- 		long currsig)
- {
-@@ -139,7 +130,6 @@ static void _rtl92ce_query_rxphystatus(struct ieee80211_hw *hw,
- 	pstats->packet_toself = packet_toself;
- 	pstats->is_cck = is_cck_rate;
- 	pstats->packet_beacon = packet_beacon;
--	pstats->is_cck = is_cck_rate;
- 	pstats->rx_mimo_sig_qual[0] = -1;
- 	pstats->rx_mimo_sig_qual[1] = -1;
- 
-@@ -192,10 +182,30 @@ static void _rtl92ce_query_rxphystatus(struct ieee80211_hw *hw,
- 			}
- 		}
- 
--		pwdb_all = _rtl92c_query_rxpwrpercentage(rx_pwr_all);
-+		pwdb_all = rtl_query_rxpwrpercentage(rx_pwr_all);
-+		/* CCK gain is smaller than OFDM/MCS gain,
-+		 * so we add gain diff by experiences,
-+		 * the val is 6
-+		 */
-+		pwdb_all += 6;
-+		if (pwdb_all > 100)
-+			pwdb_all = 100;
-+		/* modify the offset to make the same
-+		 * gain index with OFDM.
-+		 */
-+		if (pwdb_all > 34 && pwdb_all <= 42)
-+			pwdb_all -= 2;
-+		else if (pwdb_all > 26 && pwdb_all <= 34)
-+			pwdb_all -= 6;
-+		else if (pwdb_all > 14 && pwdb_all <= 26)
-+			pwdb_all -= 8;
-+		else if (pwdb_all > 4 && pwdb_all <= 14)
-+			pwdb_all -= 4;
 +
- 		pstats->rx_pwdb_all = pwdb_all;
- 		pstats->recvsignalpower = rx_pwr_all;
- 
-+		/* (3) Get Signal Quality (EVM) */
- 		if (packet_match_bssid) {
- 			u8 sq;
- 			if (pstats->rx_pwdb_all > 40)
-@@ -217,29 +227,38 @@ static void _rtl92ce_query_rxphystatus(struct ieee80211_hw *hw,
- 	} else {
- 		rtlpriv->dm.rfpath_rxenable[0] =
- 		    rtlpriv->dm.rfpath_rxenable[1] = true;
-+		/* (1)Get RSSI for HT rate */
- 		for (i = RF90_PATH_A; i < RF90_PATH_MAX; i++) {
-+			/* we will judge RF RX path now. */
- 			if (rtlpriv->dm.rfpath_rxenable[i])
- 				rf_rx_num++;
- 
- 			rx_pwr[i] =
- 			    ((p_drvinfo->gain_trsw[i] & 0x3f) * 2) - 110;
-+			/* Translate DBM to percentage. */
- 			rssi = _rtl92c_query_rxpwrpercentage(rx_pwr[i]);
- 			total_rssi += rssi;
-+			/* Get Rx snr value in DB */
- 			rtlpriv->stats.rx_snr_db[i] =
- 			    (long)(p_drvinfo->rxsnr[i] / 2);
- 
-+			/* Record Signal Strength for next packet */
- 			if (packet_match_bssid)
- 				pstats->rx_mimo_signalstrength[i] = (u8) rssi;
- 		}
- 
-+		/* (2)PWDB, Average PWDB cacluated by
-+		 * hardware (for rate adaptive)
-+		 */
- 		rx_pwr_all = ((p_drvinfo->pwdb_all >> 1) & 0x7f) - 110;
- 		pwdb_all = _rtl92c_query_rxpwrpercentage(rx_pwr_all);
- 		pstats->rx_pwdb_all = pwdb_all;
- 		pstats->rxpower = rx_pwr_all;
- 		pstats->recvsignalpower = rx_pwr_all;
- 
--		if (pdesc->rxht && pdesc->rxmcs >= DESC92_RATEMCS8 &&
--		    pdesc->rxmcs <= DESC92_RATEMCS15)
-+		/* (3)EVM of HT rate */
-+		if (pstats->is_ht && pstats->rate >= DESC92_RATEMCS8 &&
-+		    pstats->rate <= DESC92_RATEMCS15)
- 			max_spatial_stream = 2;
- 		else
- 			max_spatial_stream = 1;
-@@ -248,6 +267,9 @@ static void _rtl92ce_query_rxphystatus(struct ieee80211_hw *hw,
- 			evm = _rtl92c_evm_db_to_percentage(p_drvinfo->rxevm[i]);
- 
- 			if (packet_match_bssid) {
-+				/* Fill value in RFD, Get the first
-+				 * spatial stream only
-+				 */
- 				if (i == 0)
- 					pstats->signalquality =
- 					    (u8) (evm & 0xff);
-@@ -256,6 +278,9 @@ static void _rtl92ce_query_rxphystatus(struct ieee80211_hw *hw,
- 		}
- 	}
- 
-+	/* UI BSS List signal strength(in percentage),
-+	 * make it good looking, from 0~100.
-+	 */
- 	if (is_cck_rate)
- 		pstats->signalstrength =
- 		    (u8) (_rtl92ce_signal_scale_mapping(hw, pwdb_all));
-@@ -265,215 +290,6 @@ static void _rtl92ce_query_rxphystatus(struct ieee80211_hw *hw,
- 			  (hw, total_rssi /= rf_rx_num));
- }
- 
--static void _rtl92ce_process_ui_rssi(struct ieee80211_hw *hw,
--		struct rtl_stats *pstats)
--{
--	struct rtl_priv *rtlpriv = rtl_priv(hw);
--	struct rtl_phy *rtlphy = &(rtlpriv->phy);
--	u8 rfpath;
--	u32 last_rssi, tmpval;
--
--	if (pstats->packet_toself || pstats->packet_beacon) {
--		rtlpriv->stats.rssi_calculate_cnt++;
--
--		if (rtlpriv->stats.ui_rssi.total_num++ >=
--		    PHY_RSSI_SLID_WIN_MAX) {
--
--			rtlpriv->stats.ui_rssi.total_num =
--			    PHY_RSSI_SLID_WIN_MAX;
--			last_rssi =
--			    rtlpriv->stats.ui_rssi.elements[rtlpriv->
--						    stats.ui_rssi.index];
--			rtlpriv->stats.ui_rssi.total_val -= last_rssi;
--		}
--
--		rtlpriv->stats.ui_rssi.total_val += pstats->signalstrength;
--		rtlpriv->stats.ui_rssi.elements[rtlpriv->stats.ui_rssi.
--						index++] =
--		    pstats->signalstrength;
--
--		if (rtlpriv->stats.ui_rssi.index >= PHY_RSSI_SLID_WIN_MAX)
--			rtlpriv->stats.ui_rssi.index = 0;
--
--		tmpval = rtlpriv->stats.ui_rssi.total_val /
--		    rtlpriv->stats.ui_rssi.total_num;
--		rtlpriv->stats.signal_strength =
--		    _rtl92ce_translate_todbm(hw, (u8) tmpval);
--		pstats->rssi = rtlpriv->stats.signal_strength;
--	}
--
--	if (!pstats->is_cck && pstats->packet_toself) {
--		for (rfpath = RF90_PATH_A; rfpath < rtlphy->num_total_rfpath;
--		     rfpath++) {
--			if (rtlpriv->stats.rx_rssi_percentage[rfpath] == 0) {
--				rtlpriv->stats.rx_rssi_percentage[rfpath] =
--				    pstats->rx_mimo_signalstrength[rfpath];
--
--			}
--
--			if (pstats->rx_mimo_signalstrength[rfpath] >
--			    rtlpriv->stats.rx_rssi_percentage[rfpath]) {
--				rtlpriv->stats.rx_rssi_percentage[rfpath] =
--				    ((rtlpriv->stats.
--				      rx_rssi_percentage[rfpath] *
--				      (RX_SMOOTH_FACTOR - 1)) +
--				     (pstats->rx_mimo_signalstrength[rfpath])) /
--				    (RX_SMOOTH_FACTOR);
--
--				rtlpriv->stats.rx_rssi_percentage[rfpath] =
--				    rtlpriv->stats.rx_rssi_percentage[rfpath] +
--				    1;
--			} else {
--				rtlpriv->stats.rx_rssi_percentage[rfpath] =
--				    ((rtlpriv->stats.
--				      rx_rssi_percentage[rfpath] *
--				      (RX_SMOOTH_FACTOR - 1)) +
--				     (pstats->rx_mimo_signalstrength[rfpath])) /
--				    (RX_SMOOTH_FACTOR);
--			}
--
--		}
--	}
--}
--
--static void _rtl92ce_update_rxsignalstatistics(struct ieee80211_hw *hw,
--					       struct rtl_stats *pstats)
--{
--	struct rtl_priv *rtlpriv = rtl_priv(hw);
--	int weighting = 0;
--
--	if (rtlpriv->stats.recv_signal_power == 0)
--		rtlpriv->stats.recv_signal_power = pstats->recvsignalpower;
--
--	if (pstats->recvsignalpower > rtlpriv->stats.recv_signal_power)
--		weighting = 5;
--
--	else if (pstats->recvsignalpower < rtlpriv->stats.recv_signal_power)
--		weighting = (-5);
--
--	rtlpriv->stats.recv_signal_power =
--	    (rtlpriv->stats.recv_signal_power * 5 +
--	     pstats->recvsignalpower + weighting) / 6;
--}
--
--static void _rtl92ce_process_pwdb(struct ieee80211_hw *hw,
--		struct rtl_stats *pstats)
--{
--	struct rtl_priv *rtlpriv = rtl_priv(hw);
--	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
--	long undec_sm_pwdb;
--
--	if (mac->opmode == NL80211_IFTYPE_ADHOC) {
--		return;
--	} else {
--		undec_sm_pwdb = rtlpriv->dm.undec_sm_pwdb;
--	}
--
--	if (pstats->packet_toself || pstats->packet_beacon) {
--		if (undec_sm_pwdb < 0)
--			undec_sm_pwdb = pstats->rx_pwdb_all;
--
--		if (pstats->rx_pwdb_all > (u32) undec_sm_pwdb) {
--			undec_sm_pwdb = (((undec_sm_pwdb) *
--			      (RX_SMOOTH_FACTOR - 1)) +
--			     (pstats->rx_pwdb_all)) / (RX_SMOOTH_FACTOR);
--
--			undec_sm_pwdb += 1;
--		} else {
--			undec_sm_pwdb = (((undec_sm_pwdb) *
--			      (RX_SMOOTH_FACTOR - 1)) +
--			     (pstats->rx_pwdb_all)) / (RX_SMOOTH_FACTOR);
--		}
--
--		rtlpriv->dm.undec_sm_pwdb = undec_sm_pwdb;
--		_rtl92ce_update_rxsignalstatistics(hw, pstats);
--	}
--}
--
--static void _rtl92ce_process_ui_link_quality(struct ieee80211_hw *hw,
--					     struct rtl_stats *pstats)
--{
--	struct rtl_priv *rtlpriv = rtl_priv(hw);
--	u32 last_evm, n_spatialstream, tmpval;
--
--	if (pstats->signalquality != 0) {
--		if (pstats->packet_toself || pstats->packet_beacon) {
--
--			if (rtlpriv->stats.ui_link_quality.total_num++ >=
--			    PHY_LINKQUALITY_SLID_WIN_MAX) {
--				rtlpriv->stats.ui_link_quality.total_num =
--				    PHY_LINKQUALITY_SLID_WIN_MAX;
--				last_evm =
--				    rtlpriv->stats.
--				    ui_link_quality.elements[rtlpriv->
--							  stats.ui_link_quality.
--							  index];
--				rtlpriv->stats.ui_link_quality.total_val -=
--				    last_evm;
--			}
--
--			rtlpriv->stats.ui_link_quality.total_val +=
--			    pstats->signalquality;
--			rtlpriv->stats.ui_link_quality.elements[rtlpriv->stats.
--								ui_link_quality.
--								index++] =
--			    pstats->signalquality;
--
--			if (rtlpriv->stats.ui_link_quality.index >=
--			    PHY_LINKQUALITY_SLID_WIN_MAX)
--				rtlpriv->stats.ui_link_quality.index = 0;
--
--			tmpval = rtlpriv->stats.ui_link_quality.total_val /
--			    rtlpriv->stats.ui_link_quality.total_num;
--			rtlpriv->stats.signal_quality = tmpval;
--
--			rtlpriv->stats.last_sigstrength_inpercent = tmpval;
--
--			for (n_spatialstream = 0; n_spatialstream < 2;
--			     n_spatialstream++) {
--				if (pstats->
--				    rx_mimo_sig_qual[n_spatialstream] != -1) {
--					if (rtlpriv->stats.
--					    rx_evm_percentage[n_spatialstream]
--					    == 0) {
--						rtlpriv->stats.
--						   rx_evm_percentage
--						   [n_spatialstream] =
--						   pstats->rx_mimo_sig_qual
--						   [n_spatialstream];
--					}
--
--					rtlpriv->stats.
--					    rx_evm_percentage[n_spatialstream] =
--					    ((rtlpriv->
--					      stats.rx_evm_percentage
--					      [n_spatialstream] *
--					      (RX_SMOOTH_FACTOR - 1)) +
--					     (pstats->rx_mimo_sig_qual
--					      [n_spatialstream] * 1)) /
--					    (RX_SMOOTH_FACTOR);
--				}
--			}
--		}
--	} else {
--		;
--	}
--}
--
--static void _rtl92ce_process_phyinfo(struct ieee80211_hw *hw,
--				     u8 *buffer,
--				     struct rtl_stats *pcurrent_stats)
--{
--
--	if (!pcurrent_stats->packet_matchbssid &&
--	    !pcurrent_stats->packet_beacon)
--		return;
--
--	_rtl92ce_process_ui_rssi(hw, pcurrent_stats);
--	_rtl92ce_process_pwdb(hw, pcurrent_stats);
--	_rtl92ce_process_ui_link_quality(hw, pcurrent_stats);
--}
--
- static void _rtl92ce_translate_rx_signal_stuff(struct ieee80211_hw *hw,
- 					       struct sk_buff *skb,
- 					       struct rtl_stats *pstats,
-@@ -516,7 +332,7 @@ static void _rtl92ce_translate_rx_signal_stuff(struct ieee80211_hw *hw,
- 				   packet_matchbssid, packet_toself,
- 				   packet_beacon);
- 
--	_rtl92ce_process_phyinfo(hw, tmp_buf, pstats);
-+	rtl_process_phyinfo(hw, tmp_buf, pstats);
- }
- 
- bool rtl92ce_rx_query_desc(struct ieee80211_hw *hw,
-@@ -526,7 +342,7 @@ bool rtl92ce_rx_query_desc(struct ieee80211_hw *hw,
- {
- 	struct rx_fwinfo_92c *p_drvinfo;
- 	struct rx_desc_92c *pdesc = (struct rx_desc_92c *)p_desc;
--
-+	struct ieee80211_hdr *hdr;
- 	u32 phystatus = GET_RX_DESC_PHYST(pdesc);
- 	stats->length = (u16) GET_RX_DESC_PKT_LEN(pdesc);
- 	stats->rx_drvinfo_size = (u8) GET_RX_DESC_DRV_INFO_SIZE(pdesc) *
-@@ -539,37 +355,60 @@ bool rtl92ce_rx_query_desc(struct ieee80211_hw *hw,
- 	stats->rate = (u8) GET_RX_DESC_RXMCS(pdesc);
- 	stats->shortpreamble = (u16) GET_RX_DESC_SPLCP(pdesc);
- 	stats->isampdu = (bool) (GET_RX_DESC_PAGGR(pdesc) == 1);
--	stats->isampdu = (bool) ((GET_RX_DESC_PAGGR(pdesc) == 1)
-+	stats->isfirst_ampdu = (bool) ((GET_RX_DESC_PAGGR(pdesc) == 1)
- 				   && (GET_RX_DESC_FAGGR(pdesc) == 1));
- 	stats->timestamp_low = GET_RX_DESC_TSFL(pdesc);
- 	stats->rx_is40Mhzpacket = (bool) GET_RX_DESC_BW(pdesc);
-+	stats->is_ht = (bool)GET_RX_DESC_RXHT(pdesc);
++int rtl88e_init_sw_vars(struct ieee80211_hw *hw)
++{
++	int err = 0;
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
++	u8 tid;
 +
-+	stats->is_cck = RX_HAL_IS_CCK_RATE(pdesc);
- 
- 	rx_status->freq = hw->conf.channel->center_freq;
- 	rx_status->band = hw->conf.channel->band;
- 
--	if (GET_RX_DESC_CRC32(pdesc))
--		rx_status->flag |= RX_FLAG_FAILED_FCS_CRC;
-+	hdr = (struct ieee80211_hdr *)(skb->data + stats->rx_drvinfo_size
-+			+ stats->rx_bufshift);
- 
--	if (!GET_RX_DESC_SWDEC(pdesc))
--		rx_status->flag |= RX_FLAG_DECRYPTED;
-+	if (stats->crc)
-+		rx_status->flag |= RX_FLAG_FAILED_FCS_CRC;
- 
--	if (GET_RX_DESC_BW(pdesc))
-+	if (stats->rx_is40Mhzpacket)
- 		rx_status->flag |= RX_FLAG_40MHZ;
- 
--	if (GET_RX_DESC_RXHT(pdesc))
-+	if (stats->is_ht)
- 		rx_status->flag |= RX_FLAG_HT;
- 
- 	rx_status->flag |= RX_FLAG_MACTIME_START;
- 
--	if (stats->decrypted)
--		rx_status->flag |= RX_FLAG_DECRYPTED;
--
-+	/* hw will set stats->decrypted true, if it finds the
-+	 * frame is open data frame or mgmt frame.
-+	 * So hw will not decryption robust managment frame
-+	 * for IEEE80211w but still set status->decrypted
-+	 * true, so here we should set it back to undecrypted
-+	 * for IEEE80211w frame, and mac80211 sw will help
-+	 * to decrypt it
++	rtl8188ee_bt_reg_init(hw);
++
++	rtlpriv->dm.dm_initialgain_enable = 1;
++	rtlpriv->dm.dm_flag = 0;
++	rtlpriv->dm.disable_framebursting = 0;
++	rtlpriv->dm.thermalvalue = 0;
++	rtlpci->transmit_config = CFENDFORM | BIT(15);
++
++	/* compatible 5G band 88ce just 2.4G band & smsp */
++	rtlpriv->rtlhal.current_bandtype = BAND_ON_2_4G;
++	rtlpriv->rtlhal.bandset = BAND_ON_2_4G;
++	rtlpriv->rtlhal.macphymode = SINGLEMAC_SINGLEPHY;
++
++	rtlpci->receive_config = (RCR_APPFCS |
++				  RCR_APP_MIC |
++				  RCR_APP_ICV |
++				  RCR_APP_PHYST_RXFF |
++				  RCR_HTC_LOC_CTRL |
++				  RCR_AMF |
++				  RCR_ACF |
++				  RCR_ADF |
++				  RCR_AICV |
++				  RCR_ACRC32 |
++				  RCR_AB |
++				  RCR_AM |
++				  RCR_APM |
++				  0);
++
++	rtlpci->irq_mask[0] =
++				(u32) (IMR_PSTIMEOUT	|
++				IMR_HSISR_IND_ON_INT	|
++				IMR_C2HCMD		|
++				IMR_HIGHDOK		|
++				IMR_MGNTDOK		|
++				IMR_BKDOK		|
++				IMR_BEDOK		|
++				IMR_VIDOK		|
++				IMR_VODOK		|
++				IMR_RDU			|
++				IMR_ROK			|
++				0);
++	rtlpci->irq_mask[1] = (u32) (IMR_RXFOVW | 0);
++	rtlpci->sys_irq_mask = (u32) (HSIMR_PDN_INT_EN | HSIMR_RON_INT_EN);
++
++	/* for debug level */
++	rtlpriv->dbg.global_debuglevel = rtlpriv->cfg->mod_params->debug;
++	/* for LPS & IPS */
++	rtlpriv->psc.inactiveps = rtlpriv->cfg->mod_params->inactiveps;
++	rtlpriv->psc.swctrl_lps = rtlpriv->cfg->mod_params->swctrl_lps;
++	rtlpriv->psc.fwctrl_lps = rtlpriv->cfg->mod_params->fwctrl_lps;
++	if (!rtlpriv->psc.inactiveps)
++		pr_info("rtl8188ee: Power Save off (module option)\n");
++	if (!rtlpriv->psc.fwctrl_lps)
++		pr_info("rtl8188ee: FW Power Save off (module option)\n");
++	rtlpriv->psc.reg_fwctrl_lps = 3;
++	rtlpriv->psc.reg_max_lps_awakeintvl = 5;
++	/* for ASPM, you can close aspm through
++	 * set const_support_pciaspm = 0
 +	 */
-+	if (stats->decrypted) {
-+		if (!hdr) {
-+			/* In testing, hdr was NULL here */
-+			return false;
-+		}
-+		if ((ieee80211_is_robust_mgmt_frame(hdr)) &&
-+		    (ieee80211_has_protected(hdr->frame_control)))
-+			rx_status->flag &= ~RX_FLAG_DECRYPTED;
-+		else
-+			rx_status->flag |= RX_FLAG_DECRYPTED;
++	rtl88e_init_aspm_vars(hw);
++
++	if (rtlpriv->psc.reg_fwctrl_lps == 1)
++		rtlpriv->psc.fwctrl_psmode = FW_PS_MIN_MODE;
++	else if (rtlpriv->psc.reg_fwctrl_lps == 2)
++		rtlpriv->psc.fwctrl_psmode = FW_PS_MAX_MODE;
++	else if (rtlpriv->psc.reg_fwctrl_lps == 3)
++		rtlpriv->psc.fwctrl_psmode = FW_PS_DTIM_MODE;
++
++	/* for firmware buf */
++	rtlpriv->rtlhal.pfirmware = vmalloc(0x8000);
++	if (!rtlpriv->rtlhal.pfirmware) {
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++			 "Can't alloc buffer for fw.\n");
++		return 1;
 +	}
-+	/* rate_idx: index of data rate into band's
-+	 * supported rates or MCS index if HT rates
-+	 * are use (RX_FLAG_HT)
-+	 * Notice: this is diff with windows define
-+	 */
- 	rx_status->rate_idx = rtlwifi_rate_mapping(hw,
--				(bool)GET_RX_DESC_RXHT(pdesc),
--				(u8)GET_RX_DESC_RXMCS(pdesc),
--				(bool)GET_RX_DESC_PAGGR(pdesc));
-+				stats->is_ht, stats->rate,
-+				stats->isfirst_ampdu);
- 
--	rx_status->mactime = GET_RX_DESC_TSFL(pdesc);
-+	rx_status->mactime = stats->timestamp_low;
- 	if (phystatus) {
- 		p_drvinfo = (struct rx_fwinfo_92c *)(skb->data +
- 						     stats->rx_bufshift);
-@@ -580,7 +419,7 @@ bool rtl92ce_rx_query_desc(struct ieee80211_hw *hw,
- 	}
- 
- 	/*rx_status->qual = stats->signal; */
--	rx_status->signal = stats->rssi + 10;
-+	rx_status->signal = stats->recvsignalpower + 10;
- 	/*rx_status->noise = -stats->noise; */
- 
- 	return true;
-@@ -624,7 +463,8 @@ void rtl92ce_tx_fill_desc(struct ieee80211_hw *hw,
- 	if (mac->opmode == NL80211_IFTYPE_STATION) {
- 		bw_40 = mac->bw_40;
- 	} else if (mac->opmode == NL80211_IFTYPE_AP ||
--		mac->opmode == NL80211_IFTYPE_ADHOC) {
-+		   mac->opmode == NL80211_IFTYPE_ADHOC ||
-+		   mac->opmode == NL80211_IFTYPE_MESH_POINT) {
- 		if (sta)
- 			bw_40 = sta->bandwidth >= IEEE80211_STA_RX_BW_40;
- 	}
++
++	rtlpriv->cfg->fw_name = "rtlwifi/rtl8188efw.bin";
++	rtlpriv->max_fw_size = 0x8000;
++	pr_info("Using firmware %s\n", rtlpriv->cfg->fw_name);
++	err = request_firmware_nowait(THIS_MODULE, 1, rtlpriv->cfg->fw_name,
++				      rtlpriv->io.dev, GFP_KERNEL, hw,
++				      rtl_fw_cb);
++	if (err) {
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++			 "Failed to request firmware!\n");
++		return 1;
++	}
++
++	/* for early mode */
++	rtlpriv->rtlhal.earlymode_enable = false;
++	rtlpriv->rtlhal.max_earlymode_num = 10;
++	for (tid = 0; tid < 8; tid++)
++		skb_queue_head_init(&rtlpriv->mac80211.skb_waitq[tid]);
++
++	/*low power */
++	rtlpriv->psc.low_power_enable = false;
++	if (rtlpriv->psc.low_power_enable) {
++		init_timer(&rtlpriv->works.fw_clockoff_timer);
++		setup_timer(&rtlpriv->works.fw_clockoff_timer,
++			    rtl88ee_fw_clk_off_timer_callback,
++			    (unsigned long)hw);
++	}
++
++	init_timer(&rtlpriv->works.fast_antenna_training_timer);
++	setup_timer(&rtlpriv->works.fast_antenna_training_timer,
++		    rtl88e_dm_fast_antenna_training_callback,
++		    (unsigned long)hw);
++	return err;
++}
++
++void rtl88e_deinit_sw_vars(struct ieee80211_hw *hw)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++
++	if (rtlpriv->rtlhal.pfirmware) {
++		vfree(rtlpriv->rtlhal.pfirmware);
++		rtlpriv->rtlhal.pfirmware = NULL;
++	}
++
++	if (rtlpriv->psc.low_power_enable)
++		del_timer_sync(&rtlpriv->works.fw_clockoff_timer);
++
++	del_timer_sync(&rtlpriv->works.fast_antenna_training_timer);
++}
++
++static struct rtl_hal_ops rtl8188ee_hal_ops = {
++	.init_sw_vars = rtl88e_init_sw_vars,
++	.deinit_sw_vars = rtl88e_deinit_sw_vars,
++	.read_eeprom_info = rtl88ee_read_eeprom_info,
++	.interrupt_recognized = rtl88ee_interrupt_recognized,/*need check*/
++	.hw_init = rtl88ee_hw_init,
++	.hw_disable = rtl88ee_card_disable,
++	.hw_suspend = rtl88ee_suspend,
++	.hw_resume = rtl88ee_resume,
++	.enable_interrupt = rtl88ee_enable_interrupt,
++	.disable_interrupt = rtl88ee_disable_interrupt,
++	.set_network_type = rtl88ee_set_network_type,
++	.set_chk_bssid = rtl88ee_set_check_bssid,
++	.set_qos = rtl88ee_set_qos,
++	.set_bcn_reg = rtl88ee_set_beacon_related_registers,
++	.set_bcn_intv = rtl88ee_set_beacon_interval,
++	.update_interrupt_mask = rtl88ee_update_interrupt_mask,
++	.get_hw_reg = rtl88ee_get_hw_reg,
++	.set_hw_reg = rtl88ee_set_hw_reg,
++	.update_rate_tbl = rtl88ee_update_hal_rate_tbl,
++	.fill_tx_desc = rtl88ee_tx_fill_desc,
++	.fill_tx_cmddesc = rtl88ee_tx_fill_cmddesc,
++	.query_rx_desc = rtl88ee_rx_query_desc,
++	.set_channel_access = rtl88ee_update_channel_access_setting,
++	.radio_onoff_checking = rtl88ee_gpio_radio_on_off_checking,
++	.set_bw_mode = rtl88e_phy_set_bw_mode,
++	.switch_channel = rtl88e_phy_sw_chnl,
++	.dm_watchdog = rtl88e_dm_watchdog,
++	.scan_operation_backup = rtl88e_phy_scan_operation_backup,
++	.set_rf_power_state = rtl88e_phy_set_rf_power_state,
++	.led_control = rtl88ee_led_control,
++	.set_desc = rtl88ee_set_desc,
++	.get_desc = rtl88ee_get_desc,
++	.tx_polling = rtl88ee_tx_polling,
++	.enable_hw_sec = rtl88ee_enable_hw_security_config,
++	.set_key = rtl88ee_set_key,
++	.init_sw_leds = rtl88ee_init_sw_leds,
++	.allow_all_destaddr = rtl88ee_allow_all_destaddr,
++	.get_bbreg = rtl88e_phy_query_bb_reg,
++	.set_bbreg = rtl88e_phy_set_bb_reg,
++	.get_rfreg = rtl88e_phy_query_rf_reg,
++	.set_rfreg = rtl88e_phy_set_rf_reg,
++};
++
++static struct rtl_mod_params rtl88ee_mod_params = {
++	.sw_crypto = false,
++	.inactiveps = true,
++	.swctrl_lps = false,
++	.fwctrl_lps = true,
++	.debug = DBG_EMERG,
++};
++
++static struct rtl_hal_cfg rtl88ee_hal_cfg = {
++	.bar_id = 2,
++	.write_readback = true,
++	.name = "rtl88e_pci",
++	.ops = &rtl8188ee_hal_ops,
++	.mod_params = &rtl88ee_mod_params,
++
++	.maps[SYS_ISO_CTRL] = REG_SYS_ISO_CTRL,
++	.maps[SYS_FUNC_EN] = REG_SYS_FUNC_EN,
++	.maps[SYS_CLK] = REG_SYS_CLKR,
++	.maps[MAC_RCR_AM] = AM,
++	.maps[MAC_RCR_AB] = AB,
++	.maps[MAC_RCR_ACRC32] = ACRC32,
++	.maps[MAC_RCR_ACF] = ACF,
++	.maps[MAC_RCR_AAP] = AAP,
++
++	.maps[EFUSE_ACCESS] = REG_EFUSE_ACCESS,
++
++	.maps[EFUSE_TEST] = REG_EFUSE_TEST,
++	.maps[EFUSE_CTRL] = REG_EFUSE_CTRL,
++	.maps[EFUSE_CLK] = 0,
++	.maps[EFUSE_CLK_CTRL] = REG_EFUSE_CTRL,
++	.maps[EFUSE_PWC_EV12V] = PWC_EV12V,
++	.maps[EFUSE_FEN_ELDR] = FEN_ELDR,
++	.maps[EFUSE_LOADER_CLK_EN] = LOADER_CLK_EN,
++	.maps[EFUSE_ANA8M] = ANA8M,
++	.maps[EFUSE_HWSET_MAX_SIZE] = HWSET_MAX_SIZE,
++	.maps[EFUSE_MAX_SECTION_MAP] = EFUSE_MAX_SECTION,
++	.maps[EFUSE_REAL_CONTENT_SIZE] = EFUSE_REAL_CONTENT_LEN,
++	.maps[EFUSE_OOB_PROTECT_BYTES_LEN] = EFUSE_OOB_PROTECT_BYTES,
++
++	.maps[RWCAM] = REG_CAMCMD,
++	.maps[WCAMI] = REG_CAMWRITE,
++	.maps[RCAMO] = REG_CAMREAD,
++	.maps[CAMDBG] = REG_CAMDBG,
++	.maps[SECR] = REG_SECCFG,
++	.maps[SEC_CAM_NONE] = CAM_NONE,
++	.maps[SEC_CAM_WEP40] = CAM_WEP40,
++	.maps[SEC_CAM_TKIP] = CAM_TKIP,
++	.maps[SEC_CAM_AES] = CAM_AES,
++	.maps[SEC_CAM_WEP104] = CAM_WEP104,
++
++	.maps[RTL_IMR_BCNDMAINT6] = IMR_BCNDMAINT6,
++	.maps[RTL_IMR_BCNDMAINT5] = IMR_BCNDMAINT5,
++	.maps[RTL_IMR_BCNDMAINT4] = IMR_BCNDMAINT4,
++	.maps[RTL_IMR_BCNDMAINT3] = IMR_BCNDMAINT3,
++	.maps[RTL_IMR_BCNDMAINT2] = IMR_BCNDMAINT2,
++	.maps[RTL_IMR_BCNDMAINT1] = IMR_BCNDMAINT1,
++/*	.maps[RTL_IMR_BCNDOK8] = IMR_BCNDOK8,     */   /*need check*/
++	.maps[RTL_IMR_BCNDOK7] = IMR_BCNDOK7,
++	.maps[RTL_IMR_BCNDOK6] = IMR_BCNDOK6,
++	.maps[RTL_IMR_BCNDOK5] = IMR_BCNDOK5,
++	.maps[RTL_IMR_BCNDOK4] = IMR_BCNDOK4,
++	.maps[RTL_IMR_BCNDOK3] = IMR_BCNDOK3,
++	.maps[RTL_IMR_BCNDOK2] = IMR_BCNDOK2,
++	.maps[RTL_IMR_BCNDOK1] = IMR_BCNDOK1,
++/*	.maps[RTL_IMR_TIMEOUT2] = IMR_TIMEOUT2,*/
++/*	.maps[RTL_IMR_TIMEOUT1] = IMR_TIMEOUT1,*/
++
++	.maps[RTL_IMR_TXFOVW] = IMR_TXFOVW,
++	.maps[RTL_IMR_PSTIMEOUT] = IMR_PSTIMEOUT,
++	.maps[RTL_IMR_BCNINT] = IMR_BCNDMAINT0,
++	.maps[RTL_IMR_RXFOVW] = IMR_RXFOVW,
++	.maps[RTL_IMR_RDU] = IMR_RDU,
++	.maps[RTL_IMR_ATIMEND] = IMR_ATIMEND,
++	.maps[RTL_IMR_BDOK] = IMR_BCNDOK0,
++	.maps[RTL_IMR_MGNTDOK] = IMR_MGNTDOK,
++	.maps[RTL_IMR_TBDER] = IMR_TBDER,
++	.maps[RTL_IMR_HIGHDOK] = IMR_HIGHDOK,
++	.maps[RTL_IMR_TBDOK] = IMR_TBDOK,
++	.maps[RTL_IMR_BKDOK] = IMR_BKDOK,
++	.maps[RTL_IMR_BEDOK] = IMR_BEDOK,
++	.maps[RTL_IMR_VIDOK] = IMR_VIDOK,
++	.maps[RTL_IMR_VODOK] = IMR_VODOK,
++	.maps[RTL_IMR_ROK] = IMR_ROK,
++	.maps[RTL_IBSS_INT_MASKS] = (IMR_BCNDMAINT0 | IMR_TBDOK | IMR_TBDER),
++
++	.maps[RTL_RC_CCK_RATE1M] = DESC92C_RATE1M,
++	.maps[RTL_RC_CCK_RATE2M] = DESC92C_RATE2M,
++	.maps[RTL_RC_CCK_RATE5_5M] = DESC92C_RATE5_5M,
++	.maps[RTL_RC_CCK_RATE11M] = DESC92C_RATE11M,
++	.maps[RTL_RC_OFDM_RATE6M] = DESC92C_RATE6M,
++	.maps[RTL_RC_OFDM_RATE9M] = DESC92C_RATE9M,
++	.maps[RTL_RC_OFDM_RATE12M] = DESC92C_RATE12M,
++	.maps[RTL_RC_OFDM_RATE18M] = DESC92C_RATE18M,
++	.maps[RTL_RC_OFDM_RATE24M] = DESC92C_RATE24M,
++	.maps[RTL_RC_OFDM_RATE36M] = DESC92C_RATE36M,
++	.maps[RTL_RC_OFDM_RATE48M] = DESC92C_RATE48M,
++	.maps[RTL_RC_OFDM_RATE54M] = DESC92C_RATE54M,
++
++	.maps[RTL_RC_HT_RATEMCS7] = DESC92C_RATEMCS7,
++	.maps[RTL_RC_HT_RATEMCS15] = DESC92C_RATEMCS15,
++};
++
++static DEFINE_PCI_DEVICE_TABLE(rtl88ee_pci_ids) = {
++	{RTL_PCI_DEVICE(PCI_VENDOR_ID_REALTEK, 0x8179, rtl88ee_hal_cfg)},
++	{},
++};
++
++MODULE_DEVICE_TABLE(pci, rtl88ee_pci_ids);
++
++MODULE_AUTHOR("zhiyuan_yang	<zhiyuan_yang@realsil.com.cn>");
++MODULE_AUTHOR("Realtek WlanFAE	<wlanfae@realtek.com>");
++MODULE_AUTHOR("Larry Finger	<Larry.Finger@lwfinger.net>");
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Realtek 8188E 802.11n PCI wireless");
++MODULE_FIRMWARE("rtlwifi/rtl8188efw.bin");
++
++module_param_named(swenc, rtl88ee_mod_params.sw_crypto, bool, 0444);
++module_param_named(debug, rtl88ee_mod_params.debug, int, 0444);
++module_param_named(ips, rtl88ee_mod_params.inactiveps, bool, 0444);
++module_param_named(swlps, rtl88ee_mod_params.swctrl_lps, bool, 0444);
++module_param_named(fwlps, rtl88ee_mod_params.fwctrl_lps, bool, 0444);
++MODULE_PARM_DESC(swenc, "Set to 1 for software crypto (default 0)\n");
++MODULE_PARM_DESC(ips, "Set to 0 to not use link power save (default 1)\n");
++MODULE_PARM_DESC(swlps, "Set to 1 to use SW control power save (default 0)\n");
++MODULE_PARM_DESC(fwlps, "Set to 1 to use FW control power save (default 1)\n");
++MODULE_PARM_DESC(debug, "Set debug level (0-5) (default 0)");
++
++static SIMPLE_DEV_PM_OPS(rtlwifi_pm_ops, rtl_pci_suspend, rtl_pci_resume);
++
++static struct pci_driver rtl88ee_driver = {
++	.name = KBUILD_MODNAME,
++	.id_table = rtl88ee_pci_ids,
++	.probe = rtl_pci_probe,
++	.remove = rtl_pci_disconnect,
++	.driver.pm = &rtlwifi_pm_ops,
++};
++
++module_pci_driver(rtl88ee_driver);
+diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/sw.h b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.h
+new file mode 100644
+index 0000000..85e02b3
+--- /dev/null
++++ b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.h
+@@ -0,0 +1,36 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2009-2013  Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
++ *
++ * The full GNU General Public License is included in this distribution in the
++ * file called LICENSE.
++ *
++ * Contact Information:
++ * wlanfae <wlanfae@realtek.com>
++ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
++ * Hsinchu 300, Taiwan.
++ *
++ * Larry Finger <Larry.Finger@lwfinger.net>
++ *
++ *****************************************************************************/
++
++#ifndef __RTL92CE_SW_H__
++#define __RTL92CE_SW_H__
++
++int rtl88e_init_sw_vars(struct ieee80211_hw *hw);
++void rtl88e_deinit_sw_vars(struct ieee80211_hw *hw);
++
++#endif
 -- 
 1.8.1.4
