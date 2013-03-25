@@ -1,40 +1,56 @@
-From: pablo@netfilter.org
-Subject: [PATCH 06/12] netfilter: nfnetlink_queue: use xor hash function to distribute instances
-Date: Mon, 25 Mar 2013 13:15:46 +0100
-Message-ID: <1364213752-3934-7-git-send-email-pablo@netfilter.org>
-References: <1364213752-3934-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] [PATCH 6/6] xen-netback: don't disconnect
+ frontend when seeing oversize frame
+Date: Mon, 25 Mar 2013 12:53:57 +0000
+Message-ID: <515056F502000078000C8184@nat28.tlf.novell.com>
+References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
+ <1364209702-12437-7-git-send-email-wei.liu2@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <david.vrabel@citrix.com>, <ian.campbell@citrix.com>,
+	<xen-devel@lists.xen.org>, <annie.li@oracle.com>,
+	<konrad.wilk@oracle.com>, <netdev@vger.kernel.org>
+To: "Wei Liu" <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:46530 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756974Ab3CYMQQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Mar 2013 08:16:16 -0400
-In-Reply-To: <1364213752-3934-1-git-send-email-pablo@netfilter.org>
+Received: from nat28.tlf.novell.com ([130.57.49.28]:45252 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757114Ab3CYMxN convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:4:1>);
+	Mon, 25 Mar 2013 08:53:13 -0400
+In-Reply-To: <1364209702-12437-7-git-send-email-wei.liu2@citrix.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+>>> On 25.03.13 at 12:08, Wei Liu <wei.liu2@citrix.com> wrote:
+> @@ -947,10 +949,21 @@ static int netbk_count_requests(struct xenvif *vif,
+>  
+>  		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + slots),
+>  		       sizeof(*txp));
+> -		if (txp->size > first->size) {
+> -			netdev_err(vif->dev, "Packet is bigger than frame.\n");
+> -			netbk_fatal_tx_err(vif);
+> -			return -EIO;
+> +
+> +		/* If the guest submitted a frame >= 64 KiB then
+> +		 * first->size overflowed and following slots will
+> +		 * appear to be larger than the frame.
+> +		 *
+> +		 * This cannot be fatal error as there are buggy
+> +		 * frontends that do this.
+> +		 *
+> +		 * Consume all slots and drop the packet.
+> +		 */
+> +		if (!drop && txp->size > first->size) {
+> +			if (net_ratelimit())
+> +				netdev_dbg(vif->dev,
+> +					   "Packet is bigger than frame.\n");
+> +			drop = true;
 
-Thanks to Eric Dumazet for suggesting this during the NFWS.
+So this deals with one half of the problem, but shouldn't we also
+revert the disconnect when slots would exceed MAX_SKB_FRAGS
+(or max_skb_slots after patch 5)? Afaict you could trivially extend
+this patch to also cover that case...
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nfnetlink_queue_core.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index 858fd52..350c50f 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -73,7 +73,7 @@ static struct hlist_head instance_table[INSTANCE_BUCKETS] __read_mostly;
- 
- static inline u_int8_t instance_hashfn(u_int16_t queue_num)
- {
--	return ((queue_num >> 8) | queue_num) % INSTANCE_BUCKETS;
-+	return ((queue_num >> 8) ^ queue_num) % INSTANCE_BUCKETS;
- }
- 
- static struct nfqnl_instance *
--- 
-1.7.10.4
+Jan
