@@ -1,40 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [git pull] firewire net: resource management improvements
-Date: Sun, 24 Mar 2013 17:32:23 -0400 (EDT)
-Message-ID: <20130324.173223.1205786150045946893.davem@davemloft.net>
-References: <1363923263.16608.14.camel@cirrhata>
-	<20130322.103501.1681106916245750016.davem@davemloft.net>
-	<20130322222109.613093ba@stein>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH] virtio: remove obsolete virtqueue_get_queue_index()
+Date: Mon, 25 Mar 2013 10:33:57 +1030
+Message-ID: <87fvzke45u.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, linux1394-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: stefanr@s5r6.in-berlin.de
+Content-Type: text/plain; charset=us-ascii
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44045 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754733Ab3CXVcZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 17:32:25 -0400
-In-Reply-To: <20130322222109.613093ba@stein>
+Received: from ozlabs.org ([203.10.76.45]:36876 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755000Ab3CYAF5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Mar 2013 20:05:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Date: Fri, 22 Mar 2013 22:21:09 +0100
+You can access it directly now, since 3.8: v3.7-rc1-13-g06ca287
+'virtio: move queue_index and num_free fields into core struct
+virtqueue.'
 
-> On Mar 22 David Miller wrote:
->> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
->> Date: Fri, 22 Mar 2013 12:34:23 +0900
->> 
->> > would you consider pulling this one to net-next, please?
->> > I can prepare rebased tree, if you want.
->> 
->> So the firewire maintainers are OK with these changes?
-> 
-> The firewire maintainers (that is me, myself, and I) have reviewed these
-> changes, signed off on them, committed them to linux1394.git at
-> kernel.org, and on top of that are OK with them and with their being
-> routed through net-next, indeed. :-)
+(Handing to DaveM for Ack or just take it...)
 
-That's good enough for me, pulled into net-next, thanks.
+Cc: Cornelia Huck <cornelia.huck@de.ibm.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Acked-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index d88d436..24fc9f5 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -153,7 +153,7 @@ struct padded_vnet_hdr {
+  */
+ static int vq2txq(struct virtqueue *vq)
+ {
+-	return (virtqueue_get_queue_index(vq) - 1) / 2;
++	return (vq->index - 1) / 2;
+ }
+ 
+ static int txq2vq(int txq)
+@@ -163,7 +163,7 @@ static int txq2vq(int txq)
+ 
+ static int vq2rxq(struct virtqueue *vq)
+ {
+-	return virtqueue_get_queue_index(vq) / 2;
++	return vq->index / 2;
+ }
+ 
+ static int rxq2vq(int rxq)
+diff --git a/drivers/s390/kvm/virtio_ccw.c b/drivers/s390/kvm/virtio_ccw.c
+index 2029b6c..a7eddc7 100644
+--- a/drivers/s390/kvm/virtio_ccw.c
++++ b/drivers/s390/kvm/virtio_ccw.c
+@@ -166,7 +166,7 @@ static void virtio_ccw_kvm_notify(struct virtqueue *vq)
+ 
+ 	vcdev = to_vc_device(info->vq->vdev);
+ 	ccw_device_get_schid(vcdev->cdev, &schid);
+-	do_kvm_notify(schid, virtqueue_get_queue_index(vq));
++	do_kvm_notify(schid, vq->index);
+ }
+ 
+ static int virtio_ccw_read_vq_conf(struct virtio_ccw_device *vcdev,
+@@ -188,7 +188,7 @@ static void virtio_ccw_del_vq(struct virtqueue *vq, struct ccw1 *ccw)
+ 	unsigned long flags;
+ 	unsigned long size;
+ 	int ret;
+-	unsigned int index = virtqueue_get_queue_index(vq);
++	unsigned int index = vq->index;
+ 
+ 	/* Remove from our list. */
+ 	spin_lock_irqsave(&vcdev->lock, flags);
+@@ -610,7 +610,7 @@ static struct virtqueue *virtio_ccw_vq_by_ind(struct virtio_ccw_device *vcdev,
+ 	vq = NULL;
+ 	spin_lock_irqsave(&vcdev->lock, flags);
+ 	list_for_each_entry(info, &vcdev->virtqueues, node) {
+-		if (virtqueue_get_queue_index(info->vq) == index) {
++		if (info->vq->index == index) {
+ 			vq = info->vq;
+ 			break;
+ 		}
+diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+index 833f17b..9ff8645 100644
+--- a/include/linux/virtio.h
++++ b/include/linux/virtio.h
+@@ -76,12 +76,6 @@ void *virtqueue_detach_unused_buf(struct virtqueue *vq);
+ 
+ unsigned int virtqueue_get_vring_size(struct virtqueue *vq);
+ 
+-/* FIXME: Obsolete accessor, but required for virtio_net merge. */
+-static inline unsigned int virtqueue_get_queue_index(struct virtqueue *vq)
+-{
+-	return vq->index;
+-}
+-
+ /**
+  * virtio_device - representation of a device using virtio
+  * @index: unique position on the virtio bus
