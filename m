@@ -1,61 +1,62 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH 3/3] dsa: fix freeing of sparse port allocation
-Date: Mon, 25 Mar 2013 20:55:33 +0100
-Message-ID: <201303252055.33840.florian@openwrt.org>
-References: <1364223820-26051-1-git-send-email-florian@openwrt.org> <1364223820-26051-4-git-send-email-florian@openwrt.org> <AE90C24D6B3A694183C094C60CF0A2F6026B71B3@saturn3.aculab.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 1/5] GRE: Refactor GRE tunneling code.
+Date: Mon, 25 Mar 2013 16:23:08 -0400 (EDT)
+Message-ID: <20130325.162308.2256591153052830191.davem@davemloft.net>
+References: <20130319.175612.1450380502469601673.davem@davemloft.net>
+	<CALnjE+rjnWs7z3_R3k6Fy_8jzYb7jJL-LnkjypTBmsyXs-xuhA@mail.gmail.com>
+	<20130325.153934.1155634067907894585.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "David Laight" <David.Laight@aculab.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	jesse@nicira.com
+To: pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:62744 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933000Ab3CYTzl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 15:55:41 -0400
-Received: by mail-wg0-f47.google.com with SMTP id dt14so3473790wgb.26
-        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 12:55:40 -0700 (PDT)
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B71B3@saturn3.aculab.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56156 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751600Ab3CYUXM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 16:23:12 -0400
+In-Reply-To: <20130325.153934.1155634067907894585.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 25 mars 2013 17:03:23, David Laight a =E9crit :
-> > If we have defined a sparse port allocation which is non-contiguous=
- and
-> > contains gaps, the code freeing port_names will just stop when it
-> > encouters a first NULL port_names, which is not right, we should it=
-erate
-> > over all possible number of ports (DSA_MAX_PORTS) until we are done=
-=2E
->=20
-> ...
->=20
-> >  		port_index =3D 0;
-> >=20
-> > -		while (pd->chip[i].port_names &&
-> > -			pd->chip[i].port_names[++port_index])
-> > -			kfree(pd->chip[i].port_names[port_index]);
-> > +		while (port_index < DSA_MAX_PORTS) {
-> > +			if (pd->chip[i].port_names[port_index])
-> > +				kfree(pd->chip[i].port_names[port_index]);
-> > +			port_index++;
-> > +		}
->=20
-> A couple of 'odd' differences:
->=20
-> The old code checked pd->chip[i].port_names (as if it
-> might be a pointer) that is absent from the new version.
-> (If it is separately allocated it is leaked).
->=20
-> The new code tests and frees pd->chip[i].port_names[0]
-> whereas the old code ignored the 0th entry.
+From: David Miller <davem@davemloft.net>
+Date: Mon, 25 Mar 2013 15:39:34 -0400 (EDT)
 
-The old code was wrong, it was off by one for the first array index, an=
-d would=20
-stop whenever it encountered the first NULL port_names[index] so we wou=
-ld not=20
-skip other these and free the possibly non-NULL next one.
+> From: Pravin Shelar <pshelar@nicira.com>
+> Date: Mon, 25 Mar 2013 12:30:46 -0700
+> 
+>> On Tue, Mar 19, 2013 at 2:56 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Pravin Shelar <pshelar@nicira.com>
+>>> Date: Tue, 19 Mar 2013 14:38:11 -0700
+>>>
+>>>> On Tue, Mar 19, 2013 at 2:26 PM, David Miller <davem@davemloft.net> wrote:
+>>>>> From: Stephen Hemminger <stephen@networkplumber.org>
+>>>>> Date: Tue, 19 Mar 2013 14:21:41 -0700
+>>>>>
+>>>>>> Doesn't build with this patch alone (ie. not bisectable).
+>>>>>>
+>>>>>>   CC [M]  net/ipv6/ip6_gre.o
+>>>>>> net/ipv6/ip6_gre.c:41:27: fatal error: net/ip_tunnel.h: No such file or directory
+>>>>>> compilation terminated.
+>>>>>
+>>>>> Oh well, too late, it's all already in my tree.
+>>>>
+>>>> sorry about that.
+>>>> I am sending update patch soon.
+>>>
+>>> There is nothing for you to send, what's in my tree is not changing.
+>> 
+>> I do not see these patches in net-next and now there are few conflicts
+>> due GRE commits.
+>> Do you want me to send updated patches against latest net-next?
+> 
+> You need to send whatever relative fixes are necessary.
 
-I think the current code is now correct, but thanks for the review!
---
-=46lorian
+Actually I see where the confusion is.
+
+I thought I had applied v3 of this series, looks like I didn't,
+so yes you should respin this fixing the build problems Stephen
+pointed out.
+
+Thanks.
