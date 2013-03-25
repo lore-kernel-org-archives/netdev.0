@@ -1,43 +1,88 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: RE: [PATCH -next] caif_virtio: fix error return code in cfv_create_genpool()
-Date: Mon, 25 Mar 2013 20:43:19 +1030
-Message-ID: <87txnzdby8.fsf@rustcorp.com.au>
-References: <CAPgLHd-VdCq3qfDGYpCE1VmPeHGFneyR3TaarS=bMROqWmj2uA@mail.gmail.com> <20130322.102425.1728735565421860819.davem@davemloft.net> <81C3A93C17462B4BBD7E272753C10579249583EE23@EXDCVYMBSTM005.EQ1STM.local>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next] netlink: add missing length check of rtnl msg
+Date: Mon, 25 Mar 2013 23:12:04 +0000
+Message-ID: <20130325231204.GC27194@casper.infradead.org>
+References: <1364232143-16754-1-git-send-email-honkiko@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "yongjun_wei\@trendmicro.com.cn" <yongjun_wei@trendmicro.com.cn>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Sjur BRENDELAND <sjur.brandeland@stericsson.com>,
-	David Miller <davem@davemloft.net>,
-	"weiyj.lk\@gmail.com" <weiyj.lk@gmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	stephen@networkplumber.org
+To: Hong Zhiguo <honkiko@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:43628 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751951Ab3CYXAX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Mar 2013 19:00:23 -0400
-In-Reply-To: <81C3A93C17462B4BBD7E272753C10579249583EE23@EXDCVYMBSTM005.EQ1STM.local>
+Received: from casper.infradead.org ([85.118.1.10]:49028 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752702Ab3CYXMH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 19:12:07 -0400
+Content-Disposition: inline
+In-Reply-To: <1364232143-16754-1-git-send-email-honkiko@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sjur BRENDELAND <sjur.brandeland@stericsson.com> writes:
+On 03/26/13 at 01:22am, Hong Zhiguo wrote:
+>  	protocol = TC_H_MIN(t->tcm_info);
+> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+> index 0bbce22..b30a988 100644
+> --- a/net/sched/sch_api.c
+> +++ b/net/sched/sch_api.c
+> @@ -977,7 +977,7 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n)
+>  	struct tcmsg *tcm = nlmsg_data(n);
+>  	struct nlattr *tca[TCA_MAX + 1];
+>  	struct net_device *dev;
+> -	u32 clid = tcm->tcm_parent;
+> +	u32 clid;
+>  	struct Qdisc *q = NULL;
+>  	struct Qdisc *p = NULL;
+>  	int err;
+> @@ -985,6 +985,9 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n)
+>  	if ((n->nlmsg_type != RTM_GETQDISC) && !capable(CAP_NET_ADMIN))
+>  		return -EPERM;
+>  
+> +	if (nlmsg_len(n) < sizeof(*tcm))
+> +		return -EINVAL;
+> +
+>  	dev = __dev_get_by_index(net, tcm->tcm_ifindex);
+>  	if (!dev)
+>  		return -ENODEV;
 
->> From: David Miller [mailto:davem@davemloft.net]
->> > From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->> >
->> > Fix to return a negative error code from the error handling
->> > case instead of 0, as returned elsewhere in this function.
->> >
->> > Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->> > ---
->> >  drivers/net/caif/caif_virtio.c | 4 +++-
->> >  1 file changed, 3 insertions(+), 1 deletion(-)
->> 
->> I can't apply this as this file doesn't exist in my tree.
->
-> caif_virtio.c lives in Rusty's "virtio-next" tree. 
-> I guess this patch should have been tagged "virtio-next" instead.
+What do you think about moving the nlmsg_parse() call from below here
+to before __dev_get_by_index()? It also verifies the header length and
+it's how other netlink code verifies the message type specific header
+as well.
 
-Thanks, I've applied this.
+>  	if (err < 0)
+> @@ -1051,6 +1055,9 @@ static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n)
+>  	if (!capable(CAP_NET_ADMIN))
+>  		return -EPERM;
+>  
+> +	if (nlmsg_len(n) < sizeof(*tcm))
+> +		return -EINVAL;
+> +
 
-Cheers,
-Rusty.
+Same here.
+
+>  replay:
+>  	/* Reinit, just in case something touches this. */
+>  	tcm = nlmsg_data(n);
+> @@ -1382,14 +1389,17 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n)
+>  	const struct Qdisc_class_ops *cops;
+>  	unsigned long cl = 0;
+>  	unsigned long new_cl;
+> -	u32 portid = tcm->tcm_parent;
+> -	u32 clid = tcm->tcm_handle;
+> -	u32 qid = TC_H_MAJ(clid);
+> +	u32 portid;
+> +	u32 clid;
+> +	u32 qid;
+>  	int err;
+>  
+>  	if ((n->nlmsg_type != RTM_GETTCLASS) && !capable(CAP_NET_ADMIN))
+>  		return -EPERM;
+>  
+> +	if (nlmsg_len(n) < sizeof(*tcm))
+> +		return -EINVAL;
+> +
+>  	dev = __dev_get_by_index(net, tcm->tcm_ifindex);
+>  	if (!dev)
+>  		return -ENODEV;
+
+And here.
