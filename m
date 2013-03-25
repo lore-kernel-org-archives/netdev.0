@@ -1,77 +1,48 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH 5/6] xen-netback: coalesce slots before
- copying
-Date: Mon, 25 Mar 2013 19:09:11 +0000
-Message-ID: <20130325190911.GC7004@zion.uk.xensource.com>
-References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
- <1364209702-12437-6-git-send-email-wei.liu2@citrix.com>
- <5150699C.6080209@citrix.com>
- <CAOsiSVUNO0FQkfJWjv9bcoMgKNnHu4XYciz61hG3YNFzZNxK3w@mail.gmail.com>
- <51507C9B.3080109@citrix.com>
- <CAOsiSVV8gtKqFxyAr3XN9YF78WjtFqzvx5mnA1dKTrS_4qzXBw@mail.gmail.com>
- <51509789.8090608@citrix.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH v2 net-next 1/5] GRE: Refactor GRE tunneling code.
+Date: Mon, 25 Mar 2013 12:30:46 -0700
+Message-ID: <CALnjE+rjnWs7z3_R3k6Fy_8jzYb7jJL-LnkjypTBmsyXs-xuhA@mail.gmail.com>
+References: <20130319142141.5d32cae2@nehalam.linuxnetplumber.net>
+	<20130319.172645.2081434694692631052.davem@davemloft.net>
+	<CALnjE+ryZpcfev4xDQ8dcnrxFqXFjjxvnnxN_dU35gu_KEk86g@mail.gmail.com>
+	<20130319.175612.1450380502469601673.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <liuw@liuw.name>, Ian Campbell <Ian.Campbell@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"annie.li@oracle.com" <annie.li@oracle.com>
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	jesse@nicira.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:11953 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757443Ab3CYTJM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Mar 2013 15:09:12 -0400
-Content-Disposition: inline
-In-Reply-To: <51509789.8090608@citrix.com>
+Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:35111 "HELO
+	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757443Ab3CYTbA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 15:31:00 -0400
+Received: by mail-ve0-f200.google.com with SMTP id m1so2098633ves.7
+        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 12:30:47 -0700 (PDT)
+In-Reply-To: <20130319.175612.1450380502469601673.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 25, 2013 at 06:29:29PM +0000, David Vrabel wrote:
-> >>
-> > 
-> > Are you suggesting move the default macro value to header file? It is
-> > just an estimation, I have no knowledge of the accurate maximum value,
-> > so I think make it part of the protocol a bad idea.
-> 
-> How is the author of a new frontend supposed to know how many slots they
-> can use per packet if it is not precisely defined?
-> 
+On Tue, Mar 19, 2013 at 2:56 PM, David Miller <davem@davemloft.net> wrote:
+> From: Pravin Shelar <pshelar@nicira.com>
+> Date: Tue, 19 Mar 2013 14:38:11 -0700
+>
+>> On Tue, Mar 19, 2013 at 2:26 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Stephen Hemminger <stephen@networkplumber.org>
+>>> Date: Tue, 19 Mar 2013 14:21:41 -0700
+>>>
+>>>> Doesn't build with this patch alone (ie. not bisectable).
+>>>>
+>>>>   CC [M]  net/ipv6/ip6_gre.o
+>>>> net/ipv6/ip6_gre.c:41:27: fatal error: net/ip_tunnel.h: No such file or directory
+>>>> compilation terminated.
+>>>
+>>> Oh well, too late, it's all already in my tree.
+>>
+>> sorry about that.
+>> I am sending update patch soon.
+>
+> There is nothing for you to send, what's in my tree is not changing.
 
-A new frontend shuold use the scheme you mentioned below to get the
-maximum value. For old frontends that cannot be fixed, administrator can
-configure max_skb_slots to accommodate their need.
-
-> > Do you have a handle on the maximum value?
-> 
-> Backends should provide the value to the frontend via a xenstore key
-> (e.g., max-slots-per-frame).  This value should be at least 18 (the
-> historical value of MAX_SKB_FRAGS).
-> 
-> The frontend may use up to this specified value or 17 if the
-> max-slots-per-frame key is missing.
-> 
-> Supporting at least 18 in the backend is required for existing
-> frontends.  Limiting frontends to 17 allows them to work with all
-> backends (including recent Linux version that only supported 17).
-> 
-> It's not clear why 19 or 20 were suggested as possible values.  I
-> checked back to 2.6.18 and MAX_SKB_FRAGS there is (65536/PAGE_SIZE + 2)
-
-Because the check is >= MAX_SKB_FRAGS originally and James Harper told
-me that "Windows stops counting on 20".
-
-> == 18.
-> 
-> Separately, it may be sensible for the backend to drop packets with more
-> frags than max-slots-per-frame up to some threshold where anything more
-> is considered malicious (i.e., 1 - 18 slots is a valid packet, 19-20 are
-> dropped and 21 or more is a fatal error).
-> 
-
-Why drop the packet when we are able to process it? Frontend cannot know
-it has crossed the line anyway.
-
-
-Wei.
+I do not see these patches in net-next and now there are few conflicts
+due GRE commits.
+Do you want me to send updated patches against latest net-next?
