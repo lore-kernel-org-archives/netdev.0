@@ -1,58 +1,96 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH 6/6] xen-netback: don't disconnect frontend when seeing
- oversize frame
-Date: Mon, 25 Mar 2013 12:00:07 +0000
-Message-ID: <20130325120007.GA21271@zion.uk.xensource.com>
-References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
- <1364209702-12437-7-git-send-email-wei.liu2@citrix.com>
- <51503945.6040204@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:25346 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756704Ab3CYMAJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 08:00:09 -0400
-Content-Disposition: inline
-In-Reply-To: <51503945.6040204@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: pablo@netfilter.org
+Subject: [PATCH 00/12] Netfilter updates for net-next
+Date: Mon, 25 Mar 2013 13:15:40 +0100
+Message-ID: <1364213752-3934-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 25, 2013 at 11:47:17AM +0000, David Vrabel wrote:
-> On 25/03/13 11:08, Wei Liu wrote:
-> > Some buggy frontends may generate frames larger than 64 KiB. We should
-> > aggresively consume all slots and drop the packet instead of disconnecting the
-> > frontend.
-> 
-> The following is the changeset description I wrote internally.  It's a
-> bit more descriptive.
-> 
-> Apologies for not sending out a proper patch in the first place.
-> 
-> "Some frontend drivers are sending packets >= 64 KiB in length.  This
-> length overflows the length field in the first frag making the
-> following frags have an invalid length ("Frag is bigger than frame").
-> 
-> Turn this error back into a non-fatal error by dropping the packet.
-> To avoid having the following frags having fatal errors, consume all
-> frags in the packet.
-> 
-> This does not reopen the security hole as if the packet as an invalid
-> number of frags it will still hit this fatal error case."
-> 
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Thanks.
+Hi David,
 
-Overall this looks good. I will need to change 'frags' to 'slots'
-though.
+The following patchset contains Netfilter/IPVS updates for
+your net-next tree, they are:
 
+* Better performance in nfnetlink_queue by avoiding copy from the
+  packet to netlink message, from Eric Dumazet.
 
-Wei.
+* Remove unnecessary locking in the exit path of ebt_ulog, from Gao Feng.
 
-> David
+* Use new function ipv6_iface_scope_id in nf_ct_ipv6, from Hannes Frederic Sowa.
+
+* A couple of sparse fixes for IPVS, from Julian Anastasov.
+
+* Use xor hashing in nfnetlink_queue, as suggested by Eric Dumazet, from
+  myself.
+
+* Allow to dump expectations per master conntrack via ctnetlink, from myself.
+
+* A couple of cleanups to use PTR_RET in module init path, from Silviu-Mihai
+  Popescu.
+
+* Remove nf_conntrack module a bit faster if netns are in use, from
+  Vladimir Davydov.
+
+* Use checksum_partial in ip6t_NPT, from YOSHIFUJI Hideaki.
+
+* Sparse fix for nf_conntrack, from Stephen Hemminger.
+
+You can pull these changes from:
+
+git://1984.lsi.us.es/nf-next master
+
+Thanks!
+
+Eric Dumazet (1):
+  netfilter: nfnetlink_queue: zero copy support
+
+Gao feng (1):
+  netfilter: ebt_ulog: remove unnecessary spin lock protection
+
+Hannes Frederic Sowa (1):
+  netfilter: nf_ct_ipv6: use ipv6_iface_scope_id in conntrack to return scope id
+
+Julian Anastasov (2):
+  ipvs: fix hashing in ip_vs_svc_hashkey
+  ipvs: fix some sparse warnings
+
+Pablo Neira Ayuso (2):
+  netfilter: nfnetlink_queue: use xor hash function to distribute instances
+  netfilter: ctnetlink: allow to dump expectation per master conntrack
+
+Silviu-Mihai Popescu (2):
+  ipv4: netfilter: use PTR_RET instead of IS_ERR + PTR_ERR
+  bridge: netfilter: use PTR_RET instead of IS_ERR + PTR_ERR
+
+Vladimir Davydov (1):
+  netfilter: nf_conntrack: speed up module removal path if netns in use
+
+YOSHIFUJI Hideaki (1):
+  netfilter: ip6t_NPT: Use csum_partial()
+
+stephen hemminger (1):
+  netfilter: nf_conntrack: add include to fix sparse warning
+
+ include/net/ip_vs.h                            |    2 +-
+ include/net/netfilter/nf_conntrack_core.h      |    1 +
+ net/bridge/netfilter/ebt_ulog.c                |    3 +-
+ net/bridge/netfilter/ebtable_broute.c          |    4 +-
+ net/ipv4/netfilter/arptable_filter.c           |    4 +-
+ net/ipv6/netfilter/ip6t_NPT.c                  |   11 +--
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |    8 +-
+ net/netfilter/ipvs/ip_vs_core.c                |    8 +-
+ net/netfilter/ipvs/ip_vs_ctl.c                 |    8 +-
+ net/netfilter/ipvs/ip_vs_est.c                 |    2 +-
+ net/netfilter/nf_conntrack_core.c              |   47 +++++++----
+ net/netfilter/nf_conntrack_netlink.c           |  100 ++++++++++++++++++++++--
+ net/netfilter/nf_conntrack_standalone.c        |   16 ++--
+ net/netfilter/nfnetlink_queue_core.c           |   96 +++++++++++++++++------
+ 14 files changed, 228 insertions(+), 82 deletions(-)
+
+-- 
+1.7.10.4
+
