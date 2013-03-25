@@ -1,7 +1,7 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 20/25] rtlwifi: rtl8188ee: Add files for new driver - part 11
-Date: Sun, 24 Mar 2013 22:06:52 -0500
-Message-ID: <1364180817-8028-21-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 07/25] rtlwifi: rtl8723ae: Update to vendor driver of 2013.02.07
+Date: Sun, 24 Mar 2013 22:06:39 -0500
+Message-ID: <1364180817-8028-8-git-send-email-Larry.Finger@lwfinger.net>
 References: <1364180817-8028-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless@vger.kernel.org,
 	Larry Finger <Larry.Finger@lwfinger.net>,
@@ -9,10 +9,10 @@ Cc: linux-wireless@vger.kernel.org,
 	mmarek@suse.cz, zhiyuan_yang@realsil.com.cn, page_he@realsil.com.cn
 To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f41.google.com ([209.85.219.41]:46816 "EHLO
-	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756227Ab3CYDHr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 23:07:47 -0400
+Received: from mail-ob0-f182.google.com ([209.85.214.182]:49640 "EHLO
+	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756227Ab3CYDH1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Mar 2013 23:07:27 -0400
 In-Reply-To: <1364180817-8028-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -24,459 +24,367 @@ Cc: mmarek@suse.cz
 Cc: zhiyuan_yang@realsil.com.cn
 Cc: page_he@realsil.com.cn
 ---
- drivers/net/wireless/rtlwifi/rtl8188ee/sw.c | 400 ++++++++++++++++++++++++++++
- drivers/net/wireless/rtlwifi/rtl8188ee/sw.h |  36 +++
- 2 files changed, 436 insertions(+)
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/sw.h
+ drivers/net/wireless/rtlwifi/rtl8723ae/dm.c  | 76 +++++++++++++++++++++-
+ drivers/net/wireless/rtlwifi/rtl8723ae/dm.h  |  6 ++
+ drivers/net/wireless/rtlwifi/rtl8723ae/fw.c  | 97 +++++++++++++++++++++++++++-
+ drivers/net/wireless/rtlwifi/rtl8723ae/fw.h  |  7 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/hw.c  | 36 +++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/trx.c | 10 ++-
+ drivers/net/wireless/rtlwifi/wifi.h          |  2 +-
+ 7 files changed, 226 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
-new file mode 100644
-index 0000000..e8ce189
---- /dev/null
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
-@@ -0,0 +1,400 @@
-+/******************************************************************************
-+ *
-+ * Copyright(c) 2009-2013  Realtek Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of version 2 of the GNU General Public License as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-+ *
-+ * The full GNU General Public License is included in this distribution in the
-+ * file called LICENSE.
-+ *
-+ * Contact Information:
-+ * wlanfae <wlanfae@realtek.com>
-+ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
-+ * Hsinchu 300, Taiwan.
-+ *
-+ * Larry Finger <Larry.Finger@lwfinger.net>
-+ *
-+ *****************************************************************************/
-+
-+#include "wifi.h"
-+#include "core.h"
-+#include "pci.h"
-+#include "reg.h"
-+#include "def.h"
-+#include "phy.h"
-+#include "dm.h"
-+#include "hw.h"
-+#include "sw.h"
-+#include "trx.h"
-+#include "led.h"
-+#include "table.h"
-+
-+#include <linux/vmalloc.h>
-+#include <linux/module.h>
-+
-+static void rtl88e_init_aspm_vars(struct ieee80211_hw *hw)
-+{
-+	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
-+
-+	/*close ASPM for AMD defaultly */
-+	rtlpci->const_amdpci_aspm = 0;
-+
-+	/* ASPM PS mode.
-+	 * 0 - Disable ASPM,
-+	 * 1 - Enable ASPM without Clock Req,
-+	 * 2 - Enable ASPM with Clock Req,
-+	 * 3 - Alwyas Enable ASPM with Clock Req,
-+	 * 4 - Always Enable ASPM without Clock Req.
-+	 * set defult to RTL8192CE:3 RTL8192E:2
-+	 */
-+	rtlpci->const_pci_aspm = 3;
-+
-+	/*Setting for PCI-E device */
-+	rtlpci->const_devicepci_aspm_setting = 0x03;
-+
-+	/*Setting for PCI-E bridge */
-+	rtlpci->const_hostpci_aspm_setting = 0x02;
-+
-+	/* In Hw/Sw Radio Off situation.
-+	 * 0 - Default,
-+	 * 1 - From ASPM setting without low Mac Pwr,
-+	 * 2 - From ASPM setting with low Mac Pwr,
-+	 * 3 - Bus D3
-+	 * set default to RTL8192CE:0 RTL8192SE:2
-+	 */
-+	rtlpci->const_hwsw_rfoff_d3 = 0;
-+
-+	/* This setting works for those device with
-+	 * backdoor ASPM setting such as EPHY setting.
-+	 * 0 - Not support ASPM,
-+	 * 1 - Support ASPM,
-+	 * 2 - According to chipset.
-+	 */
-+	rtlpci->const_support_pciaspm = 1;
-+}
-+
-+int rtl88e_init_sw_vars(struct ieee80211_hw *hw)
-+{
-+	int err = 0;
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
-+	u8 tid;
-+
-+	rtl8188ee_bt_reg_init(hw);
-+
-+	rtlpriv->dm.dm_initialgain_enable = 1;
-+	rtlpriv->dm.dm_flag = 0;
-+	rtlpriv->dm.disable_framebursting = 0;
-+	rtlpriv->dm.thermalvalue = 0;
-+	rtlpci->transmit_config = CFENDFORM | BIT(15);
-+
-+	/* compatible 5G band 88ce just 2.4G band & smsp */
-+	rtlpriv->rtlhal.current_bandtype = BAND_ON_2_4G;
-+	rtlpriv->rtlhal.bandset = BAND_ON_2_4G;
-+	rtlpriv->rtlhal.macphymode = SINGLEMAC_SINGLEPHY;
-+
-+	rtlpci->receive_config = (RCR_APPFCS |
-+				  RCR_APP_MIC |
-+				  RCR_APP_ICV |
-+				  RCR_APP_PHYST_RXFF |
-+				  RCR_HTC_LOC_CTRL |
-+				  RCR_AMF |
-+				  RCR_ACF |
-+				  RCR_ADF |
-+				  RCR_AICV |
-+				  RCR_ACRC32 |
-+				  RCR_AB |
-+				  RCR_AM |
-+				  RCR_APM |
-+				  0);
-+
-+	rtlpci->irq_mask[0] =
-+				(u32) (IMR_PSTIMEOUT	|
-+				IMR_HSISR_IND_ON_INT	|
-+				IMR_C2HCMD		|
-+				IMR_HIGHDOK		|
-+				IMR_MGNTDOK		|
-+				IMR_BKDOK		|
-+				IMR_BEDOK		|
-+				IMR_VIDOK		|
-+				IMR_VODOK		|
-+				IMR_RDU			|
-+				IMR_ROK			|
-+				0);
-+	rtlpci->irq_mask[1] = (u32) (IMR_RXFOVW | 0);
-+	rtlpci->sys_irq_mask = (u32) (HSIMR_PDN_INT_EN | HSIMR_RON_INT_EN);
-+
-+	/* for debug level */
-+	rtlpriv->dbg.global_debuglevel = rtlpriv->cfg->mod_params->debug;
-+	/* for LPS & IPS */
-+	rtlpriv->psc.inactiveps = rtlpriv->cfg->mod_params->inactiveps;
-+	rtlpriv->psc.swctrl_lps = rtlpriv->cfg->mod_params->swctrl_lps;
-+	rtlpriv->psc.fwctrl_lps = rtlpriv->cfg->mod_params->fwctrl_lps;
-+	if (!rtlpriv->psc.inactiveps)
-+		pr_info("rtl8188ee: Power Save off (module option)\n");
-+	if (!rtlpriv->psc.fwctrl_lps)
-+		pr_info("rtl8188ee: FW Power Save off (module option)\n");
-+	rtlpriv->psc.reg_fwctrl_lps = 3;
-+	rtlpriv->psc.reg_max_lps_awakeintvl = 5;
-+	/* for ASPM, you can close aspm through
-+	 * set const_support_pciaspm = 0
-+	 */
-+	rtl88e_init_aspm_vars(hw);
-+
-+	if (rtlpriv->psc.reg_fwctrl_lps == 1)
-+		rtlpriv->psc.fwctrl_psmode = FW_PS_MIN_MODE;
-+	else if (rtlpriv->psc.reg_fwctrl_lps == 2)
-+		rtlpriv->psc.fwctrl_psmode = FW_PS_MAX_MODE;
-+	else if (rtlpriv->psc.reg_fwctrl_lps == 3)
-+		rtlpriv->psc.fwctrl_psmode = FW_PS_DTIM_MODE;
-+
-+	/* for firmware buf */
-+	rtlpriv->rtlhal.pfirmware = vmalloc(0x8000);
-+	if (!rtlpriv->rtlhal.pfirmware) {
-+		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
-+			 "Can't alloc buffer for fw.\n");
-+		return 1;
-+	}
-+
-+	rtlpriv->cfg->fw_name = "rtlwifi/rtl8188efw.bin";
-+	rtlpriv->max_fw_size = 0x8000;
-+	pr_info("Using firmware %s\n", rtlpriv->cfg->fw_name);
-+	err = request_firmware_nowait(THIS_MODULE, 1, rtlpriv->cfg->fw_name,
-+				      rtlpriv->io.dev, GFP_KERNEL, hw,
-+				      rtl_fw_cb);
-+	if (err) {
-+		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
-+			 "Failed to request firmware!\n");
-+		return 1;
-+	}
-+
-+	/* for early mode */
-+	rtlpriv->rtlhal.earlymode_enable = false;
-+	rtlpriv->rtlhal.max_earlymode_num = 10;
-+	for (tid = 0; tid < 8; tid++)
-+		skb_queue_head_init(&rtlpriv->mac80211.skb_waitq[tid]);
-+
-+	/*low power */
-+	rtlpriv->psc.low_power_enable = false;
-+	if (rtlpriv->psc.low_power_enable) {
-+		init_timer(&rtlpriv->works.fw_clockoff_timer);
-+		setup_timer(&rtlpriv->works.fw_clockoff_timer,
-+			    rtl88ee_fw_clk_off_timer_callback,
-+			    (unsigned long)hw);
-+	}
-+
-+	init_timer(&rtlpriv->works.fast_antenna_training_timer);
-+	setup_timer(&rtlpriv->works.fast_antenna_training_timer,
-+		    rtl88e_dm_fast_antenna_training_callback,
-+		    (unsigned long)hw);
-+	return err;
-+}
-+
-+void rtl88e_deinit_sw_vars(struct ieee80211_hw *hw)
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/dm.c b/drivers/net/wireless/rtlwifi/rtl8723ae/dm.c
+index 12e2a3c..f9b7467 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8723ae/dm.c
++++ b/drivers/net/wireless/rtlwifi/rtl8723ae/dm.c
+@@ -707,6 +707,77 @@ void rtl8723ae_dm_init_rate_adaptive_mask(struct ieee80211_hw *hw)
+ 		rtlpriv->dm.useramask = false;
+ }
+ 
++static void rtl8723ae_dm_refresh_rate_adaptive_mask(struct ieee80211_hw *hw)
 +{
 +	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
++	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
++	struct rate_adaptive *p_ra = &(rtlpriv->ra);
++	u32 low_rssithresh_for_ra, high_rssithresh_for_ra;
++	struct ieee80211_sta *sta = NULL;
 +
-+	if (rtlpriv->rtlhal.pfirmware) {
-+		vfree(rtlpriv->rtlhal.pfirmware);
-+		rtlpriv->rtlhal.pfirmware = NULL;
++	if (is_hal_stop(rtlhal)) {
++		RT_TRACE(rtlpriv, COMP_RATE, DBG_LOUD,
++			 " driver is going to unload\n");
++		return;
 +	}
 +
-+	if (rtlpriv->psc.low_power_enable)
-+		del_timer_sync(&rtlpriv->works.fw_clockoff_timer);
++	if (!rtlpriv->dm.useramask) {
++		RT_TRACE(rtlpriv, COMP_RATE, DBG_LOUD,
++			 " driver does not control rate adaptive mask\n");
++		return;
++	}
 +
-+	del_timer_sync(&rtlpriv->works.fast_antenna_training_timer);
++	if (mac->link_state == MAC80211_LINKED &&
++	    mac->opmode == NL80211_IFTYPE_STATION) {
++		switch (p_ra->pre_ratr_state) {
++		case DM_RATR_STA_HIGH:
++			high_rssithresh_for_ra = 50;
++			low_rssithresh_for_ra = 20;
++			break;
++		case DM_RATR_STA_MIDDLE:
++			high_rssithresh_for_ra = 55;
++			low_rssithresh_for_ra = 20;
++			break;
++		case DM_RATR_STA_LOW:
++			high_rssithresh_for_ra = 50;
++			low_rssithresh_for_ra = 25;
++			break;
++		default:
++			high_rssithresh_for_ra = 50;
++			low_rssithresh_for_ra = 20;
++			break;
++		}
++
++		if (rtlpriv->dm.undec_sm_pwdb > high_rssithresh_for_ra)
++			p_ra->ratr_state = DM_RATR_STA_HIGH;
++		else if (rtlpriv->dm.undec_sm_pwdb > low_rssithresh_for_ra)
++			p_ra->ratr_state = DM_RATR_STA_MIDDLE;
++		else
++			p_ra->ratr_state = DM_RATR_STA_LOW;
++
++		if (p_ra->pre_ratr_state != p_ra->ratr_state) {
++			RT_TRACE(rtlpriv, COMP_RATE, DBG_LOUD,
++				 "RSSI = %ld\n",
++				 rtlpriv->dm.undec_sm_pwdb);
++			RT_TRACE(rtlpriv, COMP_RATE, DBG_LOUD,
++				 "RSSI_LEVEL = %d\n", p_ra->ratr_state);
++			RT_TRACE(rtlpriv, COMP_RATE, DBG_LOUD,
++				 "PreState = %d, CurState = %d\n",
++				 p_ra->pre_ratr_state, p_ra->ratr_state);
++
++			rcu_read_lock();
++			sta = rtl_find_sta(hw, mac->bssid);
++			if (sta)
++				rtlpriv->cfg->ops->update_rate_tbl(hw, sta,
++							   p_ra->ratr_state);
++			rcu_read_unlock();
++
++			p_ra->pre_ratr_state = p_ra->ratr_state;
++		}
++	}
 +}
 +
-+static struct rtl_hal_ops rtl8188ee_hal_ops = {
-+	.init_sw_vars = rtl88e_init_sw_vars,
-+	.deinit_sw_vars = rtl88e_deinit_sw_vars,
-+	.read_eeprom_info = rtl88ee_read_eeprom_info,
-+	.interrupt_recognized = rtl88ee_interrupt_recognized,/*need check*/
-+	.hw_init = rtl88ee_hw_init,
-+	.hw_disable = rtl88ee_card_disable,
-+	.hw_suspend = rtl88ee_suspend,
-+	.hw_resume = rtl88ee_resume,
-+	.enable_interrupt = rtl88ee_enable_interrupt,
-+	.disable_interrupt = rtl88ee_disable_interrupt,
-+	.set_network_type = rtl88ee_set_network_type,
-+	.set_chk_bssid = rtl88ee_set_check_bssid,
-+	.set_qos = rtl88ee_set_qos,
-+	.set_bcn_reg = rtl88ee_set_beacon_related_registers,
-+	.set_bcn_intv = rtl88ee_set_beacon_interval,
-+	.update_interrupt_mask = rtl88ee_update_interrupt_mask,
-+	.get_hw_reg = rtl88ee_get_hw_reg,
-+	.set_hw_reg = rtl88ee_set_hw_reg,
-+	.update_rate_tbl = rtl88ee_update_hal_rate_tbl,
-+	.fill_tx_desc = rtl88ee_tx_fill_desc,
-+	.fill_tx_cmddesc = rtl88ee_tx_fill_cmddesc,
-+	.query_rx_desc = rtl88ee_rx_query_desc,
-+	.set_channel_access = rtl88ee_update_channel_access_setting,
-+	.radio_onoff_checking = rtl88ee_gpio_radio_on_off_checking,
-+	.set_bw_mode = rtl88e_phy_set_bw_mode,
-+	.switch_channel = rtl88e_phy_sw_chnl,
-+	.dm_watchdog = rtl88e_dm_watchdog,
-+	.scan_operation_backup = rtl88e_phy_scan_operation_backup,
-+	.set_rf_power_state = rtl88e_phy_set_rf_power_state,
-+	.led_control = rtl88ee_led_control,
-+	.set_desc = rtl88ee_set_desc,
-+	.get_desc = rtl88ee_get_desc,
-+	.tx_polling = rtl88ee_tx_polling,
-+	.enable_hw_sec = rtl88ee_enable_hw_security_config,
-+	.set_key = rtl88ee_set_key,
-+	.init_sw_leds = rtl88ee_init_sw_leds,
-+	.allow_all_destaddr = rtl88ee_allow_all_destaddr,
-+	.get_bbreg = rtl88e_phy_query_bb_reg,
-+	.set_bbreg = rtl88e_phy_set_bb_reg,
-+	.get_rfreg = rtl88e_phy_query_rf_reg,
-+	.set_rfreg = rtl88e_phy_set_rf_reg,
-+};
+ static void rtl8723ae_dm_init_dynamic_bpowersaving(struct ieee80211_hw *hw)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+@@ -853,6 +924,9 @@ void rtl8723ae_dm_watchdog(struct ieee80211_hw *hw)
+ 	rtlpriv->cfg->ops->get_hw_reg(hw, HW_VAR_FWLPS_RF_ON,
+ 				      (u8 *) (&fw_ps_awake));
+ 
++	if (ppsc->p2p_ps_info.p2p_ps_mode)
++		fw_ps_awake = false;
 +
-+static struct rtl_mod_params rtl88ee_mod_params = {
-+	.sw_crypto = false,
-+	.inactiveps = true,
-+	.swctrl_lps = false,
-+	.fwctrl_lps = true,
-+	.debug = DBG_EMERG,
-+};
+ 	if ((ppsc->rfpwr_state == ERFON) &&
+ 	    ((!fw_current_inpsmode) && fw_ps_awake) &&
+ 	    (!ppsc->rfchange_inprogress)) {
+@@ -861,7 +935,7 @@ void rtl8723ae_dm_watchdog(struct ieee80211_hw *hw)
+ 		rtl8723ae_dm_false_alarm_counter_statistics(hw);
+ 		rtl8723ae_dm_dynamic_bpowersaving(hw);
+ 		rtl8723ae_dm_dynamic_txpower(hw);
+-		/* rtl92c_dm_refresh_rate_adaptive_mask(hw); */
++		rtl8723ae_dm_refresh_rate_adaptive_mask(hw);
+ 		rtl8723ae_dm_bt_coexist(hw);
+ 		rtl8723ae_dm_check_edca_turbo(hw);
+ 	}
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/dm.h b/drivers/net/wireless/rtlwifi/rtl8723ae/dm.h
+index 39d2461..a372b02 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8723ae/dm.h
++++ b/drivers/net/wireless/rtlwifi/rtl8723ae/dm.h
+@@ -55,7 +55,13 @@
+ #define DM_DIG_BACKOFF_MIN			-4
+ #define DM_DIG_BACKOFF_DEFAULT			10
+ 
++#define RXPATHSELECTION_SS_TH_LOW		30
++#define RXPATHSELECTION_DIFF_TH			18
 +
-+static struct rtl_hal_cfg rtl88ee_hal_cfg = {
-+	.bar_id = 2,
-+	.write_readback = true,
-+	.name = "rtl88e_pci",
-+	.ops = &rtl8188ee_hal_ops,
-+	.mod_params = &rtl88ee_mod_params,
+ #define DM_RATR_STA_INIT			0
++#define DM_RATR_STA_HIGH			1
++#define DM_RATR_STA_MIDDLE			2
++#define DM_RATR_STA_LOW				3
+ 
+ #define TXHIGHPWRLEVEL_NORMAL			0
+ #define TXHIGHPWRLEVEL_LEVEL1			1
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/fw.c b/drivers/net/wireless/rtlwifi/rtl8723ae/fw.c
+index 35cb8f8..dedfa1e 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8723ae/fw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8723ae/fw.c
+@@ -494,7 +494,9 @@ void rtl8723ae_set_fw_pwrmode_cmd(struct ieee80211_hw *hw, u8 mode)
+ 	RT_TRACE(rtlpriv, COMP_POWER, DBG_LOUD, "FW LPS mode = %d\n", mode);
+ 
+ 	SET_H2CCMD_PWRMODE_PARM_MODE(u1_h2c_set_pwrmode, mode);
+-	SET_H2CCMD_PWRMODE_PARM_SMART_PS(u1_h2c_set_pwrmode, 1);
++	SET_H2CCMD_PWRMODE_PARM_SMART_PS(u1_h2c_set_pwrmode,
++					 (rtlpriv->mac80211.p2p) ?
++					 ppsc->smart_ps : 1);
+ 	SET_H2CCMD_PWRMODE_PARM_BCN_PASS_TIME(u1_h2c_set_pwrmode,
+ 					      ppsc->reg_max_lps_awakeintvl);
+ 
+@@ -741,3 +743,96 @@ void rtl8723ae_set_fw_joinbss_report_cmd(struct ieee80211_hw *hw, u8 mstatus)
+ 
+ 	rtl8723ae_fill_h2c_cmd(hw, H2C_JOINBSSRPT, 1, u1_joinbssrpt_parm);
+ }
 +
-+	.maps[SYS_ISO_CTRL] = REG_SYS_ISO_CTRL,
-+	.maps[SYS_FUNC_EN] = REG_SYS_FUNC_EN,
-+	.maps[SYS_CLK] = REG_SYS_CLKR,
-+	.maps[MAC_RCR_AM] = AM,
-+	.maps[MAC_RCR_AB] = AB,
-+	.maps[MAC_RCR_ACRC32] = ACRC32,
-+	.maps[MAC_RCR_ACF] = ACF,
-+	.maps[MAC_RCR_AAP] = AAP,
++static void rtl8723e_set_p2p_ctw_period_cmd(struct ieee80211_hw *hw,
++					    u8 ctwindow)
++{
++	u8 u1_ctwindow_period[1] = {ctwindow};
 +
-+	.maps[EFUSE_ACCESS] = REG_EFUSE_ACCESS,
++	rtl8723ae_fill_h2c_cmd(hw, H2C_P2P_PS_CTW_CMD, 1, u1_ctwindow_period);
++}
 +
-+	.maps[EFUSE_TEST] = REG_EFUSE_TEST,
-+	.maps[EFUSE_CTRL] = REG_EFUSE_CTRL,
-+	.maps[EFUSE_CLK] = 0,
-+	.maps[EFUSE_CLK_CTRL] = REG_EFUSE_CTRL,
-+	.maps[EFUSE_PWC_EV12V] = PWC_EV12V,
-+	.maps[EFUSE_FEN_ELDR] = FEN_ELDR,
-+	.maps[EFUSE_LOADER_CLK_EN] = LOADER_CLK_EN,
-+	.maps[EFUSE_ANA8M] = ANA8M,
-+	.maps[EFUSE_HWSET_MAX_SIZE] = HWSET_MAX_SIZE,
-+	.maps[EFUSE_MAX_SECTION_MAP] = EFUSE_MAX_SECTION,
-+	.maps[EFUSE_REAL_CONTENT_SIZE] = EFUSE_REAL_CONTENT_LEN,
-+	.maps[EFUSE_OOB_PROTECT_BYTES_LEN] = EFUSE_OOB_PROTECT_BYTES,
++void rtl8723ae_set_p2p_ps_offload_cmd(struct ieee80211_hw *hw, u8 p2p_ps_state)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_ps_ctl *rtlps = rtl_psc(rtl_priv(hw));
++	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
++	struct rtl_p2p_ps_info *p2pinfo = &(rtlps->p2p_ps_info);
++	struct p2p_ps_offload_t *p2p_ps_offload = &rtlhal->p2p_ps_offload;
++	u8	i;
++	u16	ctwindow;
++	u32	start_time, tsf_low;
 +
-+	.maps[RWCAM] = REG_CAMCMD,
-+	.maps[WCAMI] = REG_CAMWRITE,
-+	.maps[RCAMO] = REG_CAMREAD,
-+	.maps[CAMDBG] = REG_CAMDBG,
-+	.maps[SECR] = REG_SECCFG,
-+	.maps[SEC_CAM_NONE] = CAM_NONE,
-+	.maps[SEC_CAM_WEP40] = CAM_WEP40,
-+	.maps[SEC_CAM_TKIP] = CAM_TKIP,
-+	.maps[SEC_CAM_AES] = CAM_AES,
-+	.maps[SEC_CAM_WEP104] = CAM_WEP104,
++	switch (p2p_ps_state) {
++	case P2P_PS_DISABLE:
++		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_DISABLE\n");
++		memset(p2p_ps_offload, 0, sizeof(struct p2p_ps_offload_t));
++		break;
++	case P2P_PS_ENABLE:
++		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_ENABLE\n");
++		/* update CTWindow value. */
++		if (p2pinfo->ctwindow > 0) {
++			p2p_ps_offload->ctwindow_en = 1;
++			ctwindow = p2pinfo->ctwindow;
++			rtl8723e_set_p2p_ctw_period_cmd(hw, ctwindow);
++		}
 +
-+	.maps[RTL_IMR_BCNDMAINT6] = IMR_BCNDMAINT6,
-+	.maps[RTL_IMR_BCNDMAINT5] = IMR_BCNDMAINT5,
-+	.maps[RTL_IMR_BCNDMAINT4] = IMR_BCNDMAINT4,
-+	.maps[RTL_IMR_BCNDMAINT3] = IMR_BCNDMAINT3,
-+	.maps[RTL_IMR_BCNDMAINT2] = IMR_BCNDMAINT2,
-+	.maps[RTL_IMR_BCNDMAINT1] = IMR_BCNDMAINT1,
-+/*	.maps[RTL_IMR_BCNDOK8] = IMR_BCNDOK8,     */   /*need check*/
-+	.maps[RTL_IMR_BCNDOK7] = IMR_BCNDOK7,
-+	.maps[RTL_IMR_BCNDOK6] = IMR_BCNDOK6,
-+	.maps[RTL_IMR_BCNDOK5] = IMR_BCNDOK5,
-+	.maps[RTL_IMR_BCNDOK4] = IMR_BCNDOK4,
-+	.maps[RTL_IMR_BCNDOK3] = IMR_BCNDOK3,
-+	.maps[RTL_IMR_BCNDOK2] = IMR_BCNDOK2,
-+	.maps[RTL_IMR_BCNDOK1] = IMR_BCNDOK1,
-+/*	.maps[RTL_IMR_TIMEOUT2] = IMR_TIMEOUT2,*/
-+/*	.maps[RTL_IMR_TIMEOUT1] = IMR_TIMEOUT1,*/
++		/* hw only support 2 set of NoA */
++		for (i = 0; i < p2pinfo->noa_num; i++) {
++			/* To control the register setting for which NOA*/
++			rtl_write_byte(rtlpriv, 0x5cf, (i << 4));
++			if (i == 0)
++				p2p_ps_offload->noa0_en = 1;
++			else
++				p2p_ps_offload->noa1_en = 1;
 +
-+	.maps[RTL_IMR_TXFOVW] = IMR_TXFOVW,
-+	.maps[RTL_IMR_PSTIMEOUT] = IMR_PSTIMEOUT,
-+	.maps[RTL_IMR_BCNINT] = IMR_BCNDMAINT0,
-+	.maps[RTL_IMR_RXFOVW] = IMR_RXFOVW,
-+	.maps[RTL_IMR_RDU] = IMR_RDU,
-+	.maps[RTL_IMR_ATIMEND] = IMR_ATIMEND,
-+	.maps[RTL_IMR_BDOK] = IMR_BCNDOK0,
-+	.maps[RTL_IMR_MGNTDOK] = IMR_MGNTDOK,
-+	.maps[RTL_IMR_TBDER] = IMR_TBDER,
-+	.maps[RTL_IMR_HIGHDOK] = IMR_HIGHDOK,
-+	.maps[RTL_IMR_TBDOK] = IMR_TBDOK,
-+	.maps[RTL_IMR_BKDOK] = IMR_BKDOK,
-+	.maps[RTL_IMR_BEDOK] = IMR_BEDOK,
-+	.maps[RTL_IMR_VIDOK] = IMR_VIDOK,
-+	.maps[RTL_IMR_VODOK] = IMR_VODOK,
-+	.maps[RTL_IMR_ROK] = IMR_ROK,
-+	.maps[RTL_IBSS_INT_MASKS] = (IMR_BCNDMAINT0 | IMR_TBDOK | IMR_TBDER),
++			/* config P2P NoA Descriptor Register */
++			rtl_write_dword(rtlpriv, 0x5E0,
++					p2pinfo->noa_duration[i]);
++			rtl_write_dword(rtlpriv, 0x5E4,
++					p2pinfo->noa_interval[i]);
 +
-+	.maps[RTL_RC_CCK_RATE1M] = DESC92C_RATE1M,
-+	.maps[RTL_RC_CCK_RATE2M] = DESC92C_RATE2M,
-+	.maps[RTL_RC_CCK_RATE5_5M] = DESC92C_RATE5_5M,
-+	.maps[RTL_RC_CCK_RATE11M] = DESC92C_RATE11M,
-+	.maps[RTL_RC_OFDM_RATE6M] = DESC92C_RATE6M,
-+	.maps[RTL_RC_OFDM_RATE9M] = DESC92C_RATE9M,
-+	.maps[RTL_RC_OFDM_RATE12M] = DESC92C_RATE12M,
-+	.maps[RTL_RC_OFDM_RATE18M] = DESC92C_RATE18M,
-+	.maps[RTL_RC_OFDM_RATE24M] = DESC92C_RATE24M,
-+	.maps[RTL_RC_OFDM_RATE36M] = DESC92C_RATE36M,
-+	.maps[RTL_RC_OFDM_RATE48M] = DESC92C_RATE48M,
-+	.maps[RTL_RC_OFDM_RATE54M] = DESC92C_RATE54M,
++			/*Get Current TSF value */
++			tsf_low = rtl_read_dword(rtlpriv, REG_TSFTR);
 +
-+	.maps[RTL_RC_HT_RATEMCS7] = DESC92C_RATEMCS7,
-+	.maps[RTL_RC_HT_RATEMCS15] = DESC92C_RATEMCS15,
-+};
++			start_time = p2pinfo->noa_start_time[i];
++			if (p2pinfo->noa_count_type[i] != 1) {
++				while (start_time <= (tsf_low+(50*1024))) {
++					start_time += p2pinfo->noa_interval[i];
++					if (p2pinfo->noa_count_type[i] != 255)
++						p2pinfo->noa_count_type[i]--;
++				}
++			}
++			rtl_write_dword(rtlpriv, 0x5E8, start_time);
++			rtl_write_dword(rtlpriv, 0x5EC,
++					p2pinfo->noa_count_type[i]);
++		}
++		if ((p2pinfo->opp_ps == 1) || (p2pinfo->noa_num > 0)) {
++			/* rst p2p circuit */
++			rtl_write_byte(rtlpriv, REG_DUAL_TSF_RST, BIT(4));
 +
-+static DEFINE_PCI_DEVICE_TABLE(rtl88ee_pci_ids) = {
-+	{RTL_PCI_DEVICE(PCI_VENDOR_ID_REALTEK, 0x8179, rtl88ee_hal_cfg)},
-+	{},
-+};
++			p2p_ps_offload->offload_en = 1;
 +
-+MODULE_DEVICE_TABLE(pci, rtl88ee_pci_ids);
++			if (P2P_ROLE_GO == rtlpriv->mac80211.p2p) {
++				p2p_ps_offload->role = 1;
++				p2p_ps_offload->allstasleep = 0;
++			} else {
++				p2p_ps_offload->role = 0;
++			}
++			p2p_ps_offload->discovery = 0;
++		}
++		break;
++	case P2P_PS_SCAN:
++		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_SCAN\n");
++		p2p_ps_offload->discovery = 1;
++		break;
++	case P2P_PS_SCAN_DONE:
++		RT_TRACE(rtlpriv, COMP_FW, DBG_LOUD, "P2P_PS_SCAN_DONE\n");
++		p2p_ps_offload->discovery = 0;
++		p2pinfo->p2p_ps_state = P2P_PS_ENABLE;
++		break;
++	default:
++		break;
++	}
++	rtl8723ae_fill_h2c_cmd(hw, H2C_P2P_PS_OFFLOAD, 1, (u8 *)p2p_ps_offload);
++}
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/fw.h b/drivers/net/wireless/rtlwifi/rtl8723ae/fw.h
+index 89994e1..ed3b795 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8723ae/fw.h
++++ b/drivers/net/wireless/rtlwifi/rtl8723ae/fw.h
+@@ -70,8 +70,10 @@ enum rtl8192c_h2c_cmd {
+ 	H2C_SETPWRMODE = 1,
+ 	H2C_JOINBSSRPT = 2,
+ 	H2C_RSVDPAGE = 3,
+-	H2C_RSSI_REPORT = 5,
+-	H2C_RA_MASK = 6,
++	H2C_RSSI_REPORT = 4,
++	H2C_P2P_PS_CTW_CMD = 5,
++	H2C_P2P_PS_OFFLOAD = 6,
++	H2C_RA_MASK = 7,
+ 	MAX_H2CCMD
+ };
+ 
+@@ -97,5 +99,6 @@ void rtl8723ae_firmware_selfreset(struct ieee80211_hw *hw);
+ void rtl8723ae_set_fw_pwrmode_cmd(struct ieee80211_hw *hw, u8 mode);
+ void rtl8723ae_set_fw_rsvdpagepkt(struct ieee80211_hw *hw, bool b_dl_finished);
+ void rtl8723ae_set_fw_joinbss_report_cmd(struct ieee80211_hw *hw, u8 mstatus);
++void rtl8723ae_set_p2p_ps_offload_cmd(struct ieee80211_hw *hw, u8 p2p_ps_state);
+ 
+ #endif
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/hw.c b/drivers/net/wireless/rtlwifi/rtl8723ae/hw.c
+index 9a0c71c..1784622 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8723ae/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8723ae/hw.c
+@@ -449,6 +449,9 @@ void rtl8723ae_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
+ 		rtl8723ae_set_fw_joinbss_report_cmd(hw, (*(u8 *) val));
+ 
+ 		break; }
++	case HW_VAR_H2C_FW_P2P_PS_OFFLOAD:
++		rtl8723ae_set_p2p_ps_offload_cmd(hw, (*(u8 *)val));
++		break;
+ 	case HW_VAR_AID:{
+ 		u16 u2btmp;
+ 		u2btmp = rtl_read_word(rtlpriv, REG_BCN_PSR_RPT);
+@@ -474,6 +477,39 @@ void rtl8723ae_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
+ 		if (btype_ibss == true)
+ 			_rtl8723ae_resume_tx_beacon(hw);
+ 		break; }
++	case HW_VAR_FW_LPS_ACTION: {
++		bool enter_fwlps = *((bool *)val);
++		u8 rpwm_val, fw_pwrmode;
++		bool fw_current_inps;
 +
-+MODULE_AUTHOR("zhiyuan_yang	<zhiyuan_yang@realsil.com.cn>");
-+MODULE_AUTHOR("Realtek WlanFAE	<wlanfae@realtek.com>");
-+MODULE_AUTHOR("Larry Finger	<Larry.Finger@lwfinger.net>");
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("Realtek 8188E 802.11n PCI wireless");
-+MODULE_FIRMWARE("rtlwifi/rtl8188efw.bin");
++		if (enter_fwlps) {
++			rpwm_val = 0x02;	/* RF off */
++			fw_current_inps = true;
++			rtlpriv->cfg->ops->set_hw_reg(hw,
++					HW_VAR_FW_PSMODE_STATUS,
++					(u8 *)(&fw_current_inps));
++			rtlpriv->cfg->ops->set_hw_reg(hw,
++					HW_VAR_H2C_FW_PWRMODE,
++					(u8 *)(&ppsc->fwctrl_psmode));
 +
-+module_param_named(swenc, rtl88ee_mod_params.sw_crypto, bool, 0444);
-+module_param_named(debug, rtl88ee_mod_params.debug, int, 0444);
-+module_param_named(ips, rtl88ee_mod_params.inactiveps, bool, 0444);
-+module_param_named(swlps, rtl88ee_mod_params.swctrl_lps, bool, 0444);
-+module_param_named(fwlps, rtl88ee_mod_params.fwctrl_lps, bool, 0444);
-+MODULE_PARM_DESC(swenc, "Set to 1 for software crypto (default 0)\n");
-+MODULE_PARM_DESC(ips, "Set to 0 to not use link power save (default 1)\n");
-+MODULE_PARM_DESC(swlps, "Set to 1 to use SW control power save (default 0)\n");
-+MODULE_PARM_DESC(fwlps, "Set to 1 to use FW control power save (default 1)\n");
-+MODULE_PARM_DESC(debug, "Set debug level (0-5) (default 0)");
++			rtlpriv->cfg->ops->set_hw_reg(hw,
++					HW_VAR_SET_RPWM,
++					(u8 *)(&rpwm_val));
++		} else {
++			rpwm_val = 0x0C;	/* RF on */
++			fw_pwrmode = FW_PS_ACTIVE_MODE;
++			fw_current_inps = false;
++			rtlpriv->cfg->ops->set_hw_reg(hw, HW_VAR_SET_RPWM,
++					(u8 *)(&rpwm_val));
++			rtlpriv->cfg->ops->set_hw_reg(hw,
++					HW_VAR_H2C_FW_PWRMODE,
++					(u8 *)(&fw_pwrmode));
 +
-+static SIMPLE_DEV_PM_OPS(rtlwifi_pm_ops, rtl_pci_suspend, rtl_pci_resume);
++			rtlpriv->cfg->ops->set_hw_reg(hw,
++					HW_VAR_FW_PSMODE_STATUS,
++					(u8 *)(&fw_current_inps));
++		}
++		break; }
+ 	default:
+ 		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
+ 			 "switch case not processed\n");
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
+index ac08129..6c64365 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
++++ b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
+@@ -307,9 +307,6 @@ bool rtl8723ae_rx_query_desc(struct ieee80211_hw *hw,
+ 	rx_status->freq = hw->conf.channel->center_freq;
+ 	rx_status->band = hw->conf.channel->band;
+ 
+-	hdr = (struct ieee80211_hdr *)(skb->data + status->rx_drvinfo_size
+-		+ status->rx_bufshift);
+-
+ 	if (status->crc)
+ 		rx_status->flag |= RX_FLAG_FAILED_FCS_CRC;
+ 
+@@ -330,6 +327,13 @@ bool rtl8723ae_rx_query_desc(struct ieee80211_hw *hw,
+ 	 * to decrypt it
+ 	 */
+ 	if (status->decrypted) {
++		hdr = (struct ieee80211_hdr *)(skb->data +
++		       status->rx_drvinfo_size + status->rx_bufshift);
 +
-+static struct pci_driver rtl88ee_driver = {
-+	.name = KBUILD_MODNAME,
-+	.id_table = rtl88ee_pci_ids,
-+	.probe = rtl_pci_probe,
-+	.remove = rtl_pci_disconnect,
-+	.driver.pm = &rtlwifi_pm_ops,
-+};
-+
-+module_pci_driver(rtl88ee_driver);
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/sw.h b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.h
-new file mode 100644
-index 0000000..85e02b3
---- /dev/null
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.h
-@@ -0,0 +1,36 @@
-+/******************************************************************************
-+ *
-+ * Copyright(c) 2009-2013  Realtek Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of version 2 of the GNU General Public License as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-+ *
-+ * The full GNU General Public License is included in this distribution in the
-+ * file called LICENSE.
-+ *
-+ * Contact Information:
-+ * wlanfae <wlanfae@realtek.com>
-+ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
-+ * Hsinchu 300, Taiwan.
-+ *
-+ * Larry Finger <Larry.Finger@lwfinger.net>
-+ *
-+ *****************************************************************************/
-+
-+#ifndef __RTL92CE_SW_H__
-+#define __RTL92CE_SW_H__
-+
-+int rtl88e_init_sw_vars(struct ieee80211_hw *hw);
-+void rtl88e_deinit_sw_vars(struct ieee80211_hw *hw);
-+
-+#endif
++		if (!hdr) {
++			/* during testing, hdr could be NULL here */
++			return false;
++		}
+ 		if ((ieee80211_is_robust_mgmt_frame(hdr)) &&
+ 			(ieee80211_has_protected(hdr->frame_control)))
+ 			rx_status->flag &= ~RX_FLAG_DECRYPTED;
+diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
+index 528888d..7ec95cb 100644
+--- a/drivers/net/wireless/rtlwifi/wifi.h
++++ b/drivers/net/wireless/rtlwifi/wifi.h
+@@ -1221,10 +1221,10 @@ struct rtl_hal {
+ 	bool set_fwcmd_inprogress;
+ 	u8 current_fwcmd_io;
+ 
++	struct p2p_ps_offload_t p2p_ps_offload;
+ 	bool fw_clk_change_in_progress;
+ 	bool allow_sw_to_change_hwclc;
+ 	u8 fw_ps_state;
+-	struct p2p_ps_offload_t p2p_ps_offload;
+ 	/**/
+ 	bool driver_going2unload;
+ 
 -- 
 1.8.1.4
