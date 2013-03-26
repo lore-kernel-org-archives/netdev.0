@@ -1,101 +1,78 @@
-From: dingtianhong <dingtianhong@huawei.com>
-Subject: Re: [Eulerkernel] [PATCH] af_unix: dont send SCM_CREDENTIAL when
- dest socket is NULL
-Date: Tue, 26 Mar 2013 19:35:18 +0800
-Message-ID: <515187F6.4030905@huawei.com>
-References: <515026DA.7050306@huawei.com>  <1364220269.29473.13.camel@edumazet-glaptop> <51511148.4000804@huawei.com> <1364272360.1716.11.camel@edumazet-glaptop>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [Xen-devel] [PATCH 5/6] xen-netback: coalesce slots before
+ copying
+Date: Tue, 26 Mar 2013 11:38:20 +0000
+Message-ID: <291EDFCB1E9E224A99088639C4762022013F7D8E0E14@LONPMAILBOX01.citrite.net>
+References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
+	<1364209702-12437-6-git-send-email-wei.liu2@citrix.com>
+	<5150699C.6080209@citrix.com>
+	<CAOsiSVUNO0FQkfJWjv9bcoMgKNnHu4XYciz61hG3YNFzZNxK3w@mail.gmail.com>
+	<51507C9B.3080109@citrix.com>
+	<CAOsiSVV8gtKqFxyAr3XN9YF78WjtFqzvx5mnA1dKTrS_4qzXBw@mail.gmail.com>
+	<51509789.8090608@citrix.com>	<20130325190911.GC7004@zion.uk.xensource.com>
+ <291EDFCB1E9E224A99088639C4762022013F7D8E0DC6@LONPMAILBOX01.citrite.net>
+ <6035A0D088A63A46850C3988ED045A4B3880B4F4@BITCOM1.int.sbss.com.au>
+ <291EDFCB1E9E224A99088639C4762022013F7D8E0E06@LONPMAILBOX01.citrite.net>
+ <6035A0D088A63A46850C3988ED045A4B3880B6AE@BITCOM1.int.sbss.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, <netdev@vger.kernel.org>,
-	Li Zefan <lizefan@huawei.com>, Xinwei Hu <huxinwei@huawei.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ian Campbell <Ian.Campbell@citrix.com>, Wei Liu <liuw@liuw.name>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"annie.li@oracle.com" <annie.li@oracle.com>
+To: James Harper <james.harper@bendigoit.com.au>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:2420 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757535Ab3CZLgK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 07:36:10 -0400
-In-Reply-To: <1364272360.1716.11.camel@edumazet-glaptop>
+Received: from smtp.eu.citrix.com ([46.33.159.39]:58237 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757217Ab3CZLiM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 07:38:12 -0400
+In-Reply-To: <6035A0D088A63A46850C3988ED045A4B3880B6AE@BITCOM1.int.sbss.com.au>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/3/26 12:32, Eric Dumazet wrote:
-> On Tue, 2013-03-26 at 11:08 +0800, dingtianhong wrote:
->> On 2013/3/25 22:04, Eric Dumazet wrote:
->>> On Mon, 2013-03-25 at 18:28 +0800, dingtianhong wrote:
->>>> SCM_SCREDENTIALS should apply to write() syscalls only either source or destination
->>>> socket asserted SOCK_PASSCRED. The original implememtation in maybe_add_creds is wrong,
->>>> and breaks several LSB testcases ( i.e. /tset/LSB.os/netowkr/recvfrom/T.recvfrom).
->>>>
->>>> Origionally-authored-by: Karel Srot <ksrot@redhat.com>
->>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>>> ---
->>>>    net/unix/af_unix.c | 4 ++--
->>>>    1 file changed, 2 insertions(+), 2 deletions(-)
->>>>
->>>> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
->>>> index 51be64f..99189fd 100644
->>>> --- a/net/unix/af_unix.c
->>>> +++ b/net/unix/af_unix.c
->>>> @@ -1413,8 +1413,8 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
->>>>           if (UNIXCB(skb).cred)
->>>>                   return;
->>>>           if (test_bit(SOCK_PASSCRED, &sock->flags) ||
->>>> -           !other->sk_socket ||
->>>> -           test_bit(SOCK_PASSCRED, &other->sk_socket->flags)) {
->>>> +           (other->sk_socket &&
->>>> +           test_bit(SOCK_PASSCRED, &other->sk_socket->flags))) {
->>>>                   UNIXCB(skb).pid  = get_pid(task_tgid(current));
->>>>                   UNIXCB(skb).cred = get_current_cred();
->>>>           }
->>>
->>> I am not sure why adding credentials if other->sk_socket is NULL could
->>> break an application ?
->> The bugzilla has report the bug:https://lsbbugs.linuxfoundation.org/show_bug.cgi?id=3523
->>
+> -----Original Message-----
+> From: James Harper [mailto:james.harper@bendigoit.com.au]
+> Sent: 26 March 2013 11:29
+> To: Paul Durrant; Wei Liu; David Vrabel
+> Cc: Ian Campbell; Wei Liu; netdev@vger.kernel.org;
+> konrad.wilk@oracle.com; xen-devel@lists.xen.org; annie.li@oracle.com
+> Subject: RE: [Xen-devel] [PATCH 5/6] xen-netback: coalesce slots before
+> copying
 > 
-> OK
+> > > As stated previously, I've observed windows issuing staggering numbers
+> of
+> > > buffers to NDIS miniport drivers, so you will need to coalesce in a
+> windows
+> > > driver anyway. I'm not sure what the break even point is but I think it's
+> safe
+> > > to say that in the choice between using 1000 (worst case) ring slots (with
+> > > the
+> > > resulting mapping overheads) and coalescing in the frontend, coalescing
+> is
+> > > going to be the better option.
+> > >
+> >
+> > Oh quite, if the backend is mapping and not copying then coalescing in the
+> > frontend is the right way to go. I guess coalescing once the frag count
+> > reaches a full ring count is probably necessary (since we can't push a partial
+> > packet) but it would be nice not to have to do it if the backend is going to
+> > copy anyway.
+> >
 > 
->>>
->>> This was the case before commit introducing this code.
->>
->> The commit 16e5726269(af_unix: dont send SCM_CREDENTIALS by default) may  introducing the problem.
->>
+> For a 9k packet with 100 frags (not a common case, but an example), what is
+> the cost of mapping those 100 frags into the backend vs coalescing to three
+> pages in the frontend and mapping those?
 > 
-> So the problem is that two messages have different credentials,
-> because other->sk_socket changed between first and second message.
+> I may be misremembering but wasn't there a patch floating around for
+> persistent mapping to avoid some of this overhead? (not applicable here but
+> I thought it meant that the cost wasn't insignificant)
 > 
-> and unix_stream_recvmsg() has the following check :
-> 
->                 if (check_creds) {
->                         /* Never glue messages from different writers */
->                         if ((UNIXCB(skb).pid  != siocb->scm->pid) ||
->                             (UNIXCB(skb).cred != siocb->scm->cred))
->                                 break;
->                 } else {
->                         /* Copy credentials */
->                         scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).cred);
->                         check_creds = 1;
->                 }
-> 
-> In the case the receiver doesnt care at all (using recvfrom(), not recvmsg()), 
-> we probably should not even call scm_set_creds() and avoid extra refcounting.
-> 
-I think if not call scm_set_creds(), the credential would useles in recvmsg().
-we could remove code:
-		if (check_creds) {
-                        /* Never glue messages from different writers */
-                        if ((UNIXCB(skb).pid  != siocb->scm->pid) ||
-                            (UNIXCB(skb).cred != siocb->scm->cred))
-                                break;
-                } else {
-                        /* Copy credentials */
-                        scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).cred);
-                        check_creds = 1;
-                }
-> 
-> 
-> 
-> .
-> 
+
+The current version of netback does not map, it always grant-copies.
+
+  Paul
