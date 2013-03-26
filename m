@@ -1,8 +1,8 @@
 From: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH v2 net-next 10/12] 6lowpan: obtain
-	IEEE802.15.4 sequence number from the MAC layer
-Date: Mon, 25 Mar 2013 23:59:30 -0400
-Message-ID: <1364270372-19430-11-git-send-email-tony.cheneau@amnesiak.org>
+Subject: [PATCH v2 net-next 12/12] 6lowpan: modify udp
+	compression/uncompression to match the standard
+Date: Mon, 25 Mar 2013 23:59:32 -0400
+Message-ID: <1364270372-19430-13-git-send-email-tony.cheneau@amnesiak.org>
 References: <1364270372-19430-1-git-send-email-tony.cheneau@amnesiak.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,47 +23,87 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Sets the sequence number in the frame format. Without this fix, the sequence
-number is always set to 0. This makes trafic analysis very hard.
+The previous code would just compress the UDP header and send the compressed
+UDP header along with the uncompressed one.
 
 Signed-off-by: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
 ---
- net/ieee802154/6lowpan.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ net/ieee802154/6lowpan.c | 39 ++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 36 insertions(+), 3 deletions(-)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index f952451..d1d4ee6 100644
+index 276971b..c9c3f3d 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -573,6 +573,7 @@ static int lowpan_header_create(struct sk_buff *skb,
- 	 */
- 	{
- 		mac_cb(skb)->flags = IEEE802154_FC_TYPE_DATA;
-+		mac_cb(skb)->seq = ieee802154_mlme_ops(dev)->get_dsn(dev);
- 
- 		/* prepare wpan address data */
- 		sa.addr_type = IEEE802154_ADDR_LONG;
-@@ -1127,6 +1128,12 @@ static u16 lowpan_get_short_addr(const struct net_device *dev)
- 	return ieee802154_mlme_ops(real_dev)->get_short_addr(real_dev);
+@@ -284,6 +284,9 @@ lowpan_compress_udp_header(u8 **hc06_ptr, struct sk_buff *skb)
+ 	/* checksum is always inline */
+ 	memcpy(*hc06_ptr, &uh->check, 2);
+ 	*hc06_ptr += 2;
++
++	/* skip the UDP header */
++	skb_pull(skb, sizeof(struct udphdr));
  }
  
-+static u8 lowpan_get_dsn(const struct net_device *dev)
-+{
-+	struct net_device *real_dev = lowpan_dev_info(dev)->real_dev;
-+	return ieee802154_mlme_ops(real_dev)->get_dsn(real_dev);
-+}
-+
- static struct header_ops lowpan_header_ops = {
- 	.create	= lowpan_header_create,
- };
-@@ -1140,6 +1147,7 @@ static struct ieee802154_mlme_ops lowpan_mlme = {
- 	.get_pan_id = lowpan_get_pan_id,
- 	.get_phy = lowpan_get_phy,
- 	.get_short_addr = lowpan_get_short_addr,
-+	.get_dsn = lowpan_get_dsn,
- };
+ static inline int lowpan_fetch_skb_u8(struct sk_buff *skb, u8 *val)
+@@ -309,9 +312,8 @@ static inline int lowpan_fetch_skb_u16(struct sk_buff *skb, u16 *val)
+ }
  
- static void lowpan_setup(struct net_device *dev)
+ static int
+-lowpan_uncompress_udp_header(struct sk_buff *skb)
++lowpan_uncompress_udp_header(struct sk_buff *skb, struct udphdr *uh)
+ {
+-	struct udphdr *uh = udp_hdr(skb);
+ 	u8 tmp;
+ 
+ 	if (!uh)
+@@ -358,6 +360,14 @@ lowpan_uncompress_udp_header(struct sk_buff *skb)
+ 		/* copy checksum */
+ 		memcpy(&uh->check, &skb->data[0], 2);
+ 		skb_pull(skb, 2);
++
++		/*
++		 * UDP lenght needs to be infered from the lower layers
++		 * here, we obtain the hint from the remaining size of the
++		 * frame
++		 */
++		uh->len = htons(skb->len + sizeof(struct udphdr));
++		pr_debug("uncompressed UDP length: src = %d", uh->len);
+ 	} else {
+ 		pr_debug("ERROR: unsupported NH format\n");
+ 		goto err;
+@@ -944,8 +954,31 @@ lowpan_process_data(struct sk_buff *skb)
+ 
+ 	/* UDP data uncompression */
+ 	if (iphc0 & LOWPAN_IPHC_NH_C) {
+-		if (lowpan_uncompress_udp_header(skb))
++		struct udphdr uh;
++		struct sk_buff *new;
++		if (lowpan_uncompress_udp_header(skb, &uh))
+ 			goto drop;
++
++		/*
++		 * replace the compressed UDP head by the uncompressed UDP
++		 * header
++		 */
++		new = skb_copy_expand(skb, sizeof(struct udphdr),
++				      skb_tailroom(skb), GFP_ATOMIC);
++		kfree_skb(skb);
++
++		if (!new)
++			return -ENOMEM;
++
++		skb = new;
++
++		skb_push(skb, sizeof(struct udphdr));
++		skb_reset_transport_header(skb);
++		skb_copy_to_linear_data(skb, &uh, sizeof(struct udphdr));
++
++		lowpan_raw_dump_table(__func__, "raw UDP header dump",
++				      (u8 *)&uh, sizeof(uh));
++
+ 		hdr.nexthdr = UIP_PROTO_UDP;
+ 	}
+ 
 -- 
 1.7.12.4
 
