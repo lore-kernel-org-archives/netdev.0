@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 3/6] igb: Fix null pointer dereference
-Date: Tue, 26 Mar 2013 03:42:31 -0700
-Message-ID: <1364294554-7967-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 4/6] igb: SR-IOV init reordering
+Date: Tue, 26 Mar 2013 03:42:32 -0700
+Message-ID: <1364294554-7967-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1364294554-7967-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alex Williamson <alex.williamson@redhat.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:30723 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:39352 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759224Ab3CZKmj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1759695Ab3CZKmj (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 26 Mar 2013 06:42:39 -0400
 In-Reply-To: <1364294554-7967-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,26 +18,16 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alex Williamson <alex.williamson@redhat.com>
 
-The max_vfs= option has always been self limiting to the number of VFs
-supported by the device.  fa44f2f1 added SR-IOV configuration via
-sysfs, but in the process broke this self correction factor.  The
-failing path is:
+igb is ineffective at setting a lower total VFs because:
 
-igb_probe
-  igb_sw_init
-    if (max_vfs > 7) {
-        adapter->vfs_allocated_count = 7;
-    ...
-    igb_probe_vfs
-    igb_enable_sriov(, max_vfs)
-      if (num_vfs > 7) {
-        err = -EPERM;
+int pci_sriov_set_totalvfs(struct pci_dev *dev, u16 numvfs)
+{
         ...
+        /* Shouldn't change if VFs already enabled */
+        if (dev->sriov->ctrl & PCI_SRIOV_CTRL_VFE)
+                return -EBUSY;
 
-This leaves vfs_allocated_count = 7 and vf_data = NULL, so we bomb out
-when igb_probe finally calls igb_reset.  It seems like a really bad
-idea, and somewhat pointless, to set vfs_allocated_count separate from
-vf_data, but limiting max_vfs is enough to avoid the null pointer.
+Swap init ordering.
 
 Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
 Acked-by: Greg Rose <gregory.v.rose@intel.com>
@@ -48,17 +38,18 @@ Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 4dbd629..2ae8886 100644
+index 2ae8886..8496adf 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2652,7 +2652,7 @@ static int igb_sw_init(struct igb_adapter *adapter)
- 		if (max_vfs > 7) {
- 			dev_warn(&pdev->dev,
- 				 "Maximum of 7 VFs per PF, using max\n");
--			adapter->vfs_allocated_count = 7;
-+			max_vfs = adapter->vfs_allocated_count = 7;
- 		} else
- 			adapter->vfs_allocated_count = max_vfs;
- 		if (adapter->vfs_allocated_count)
+@@ -2542,8 +2542,8 @@ static void igb_probe_vfs(struct igb_adapter *adapter)
+ 	if ((hw->mac.type == e1000_i210) || (hw->mac.type == e1000_i211))
+ 		return;
+ 
+-	igb_enable_sriov(pdev, max_vfs);
+ 	pci_sriov_set_totalvfs(pdev, 7);
++	igb_enable_sriov(pdev, max_vfs);
+ 
+ #endif /* CONFIG_PCI_IOV */
+ }
 -- 
 1.7.11.7
