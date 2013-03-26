@@ -1,10 +1,10 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next 1/5] macvtap: set transport header before passing skb
- to lower device
-Date: Tue, 26 Mar 2013 08:06:47 -0700
-Message-ID: <1364310407.1716.16.camel@edumazet-glaptop>
+Subject: Re: [net-next 2/5] tuntap: set transport header before passing it
+ to kernel
+Date: Tue, 26 Mar 2013 08:07:22 -0700
+Message-ID: <1364310442.1716.17.camel@edumazet-glaptop>
 References: <1364278799-37285-1-git-send-email-jasowang@redhat.com>
-	 <1364278799-37285-2-git-send-email-jasowang@redhat.com>
+	 <1364278799-37285-3-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -13,66 +13,60 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	Eric Dumazet <edumazet@google.com>
 To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1364278799-37285-2-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1364278799-37285-3-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Tue, 2013-03-26 at 14:19 +0800, Jason Wang wrote:
-> Set the transport header for 1) some drivers (e.g ixgbe) needs l4 header 2)
-> precise packet length estimation (introduced in 1def9238) needs l4 header to
-> compute header length.
+> Currently, for the packets receives from tuntap, before doing header check,
+> kernel just reset the transport header in netif_receive_skb() which pretends no
+> l4 header. This is suboptimal for precise packet length estimation (introduced
+> in 1def9238) which needs correct l4 header for gso packets.
 > 
-> For the packets with partial checksum, the patch just set the transport header
-> to csum_start. Otherwise tries to use skb_flow_dissect() to get l4 offset, if it
-> fails, just pretend no l4 header.
+> So this patch set the transport header to csum_start for partial checksum
+> packets, otherwise it first try skb_flow_dissect(), if it fails, just reset the
+> transport header.
 > 
 > Cc: Eric Dumazet <edumazet@google.com>
 > Signed-off-by: Jason Wang <jasowang@redhat.com>
 > ---
->  drivers/net/macvtap.c |    9 +++++++++
->  1 files changed, 9 insertions(+), 0 deletions(-)
+>  drivers/net/tun.c |   10 ++++++++++
+>  1 files changed, 10 insertions(+), 0 deletions(-)
 > 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index a449439..acf6450 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -21,6 +21,7 @@
->  #include <net/rtnetlink.h>
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 95837c1..48cd73a 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -70,6 +70,7 @@
 >  #include <net/sock.h>
->  #include <linux/virtio_net.h>
+>  
+>  #include <asm/uaccess.h>
 > +#include <net/flow_keys.h>
 >  
->  /*
->   * A macvtap queue is the central object of this driver, it connects
-> @@ -645,6 +646,7 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
->  	int vnet_hdr_len = 0;
->  	int copylen = 0;
+>  /* Uncomment to enable debugging */
+>  /* #define TUN_DEBUG 1 */
+> @@ -1049,6 +1050,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
 >  	bool zerocopy = false;
+>  	int err;
+>  	u32 rxhash;
 > +	struct flow_keys keys;
 >  
->  	if (q->flags & IFF_VNET_HDR) {
->  		vnet_hdr_len = q->vnet_hdr_sz;
-> @@ -725,6 +727,13 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
->  			goto err_kfree;
+>  	if (!(tun->flags & TUN_NO_PI)) {
+>  		if ((len -= sizeof(pi)) > total_len)
+> @@ -1203,6 +1205,14 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
 >  	}
 >  
+>  	skb_reset_network_header(skb);
+> +
 > +	if (skb->ip_summed == CHECKSUM_PARTIAL)
-
-where ip_summed is set to this value ?
-
 > +		skb_set_transport_header(skb, skb_checksum_start_offset(skb));
 > +	else if (skb_flow_dissect(skb, &keys))
 > +		skb_set_transport_header(skb, keys.thoff);
 > +	else
-> +		skb_set_transport_header(skb, ETH_HLEN);
+> +		skb_reset_transport_header(skb);
 > +
->  	rcu_read_lock_bh();
->  	vlan = rcu_dereference_bh(q->vlan);
->  	/* copy skb_ubuf_info for callback when skb has no error */
+>  	rxhash = skb_get_rxhash(skb);
+>  	netif_rx_ni(skb);
+>  
 
-This driver has nice helpers.
-
-You should add this code in a helper as well.
-
-Because its not clear at this point if csum_start/csum_offset/ip_summed
-are consistent.
+Another call for a common helper.
