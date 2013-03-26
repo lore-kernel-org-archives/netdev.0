@@ -1,64 +1,70 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next] VXLAN: Fix sparse warnings.
-Date: Tue, 26 Mar 2013 11:29:30 -0700
-Message-ID: <1364322570-27179-1-git-send-email-pshelar@nicira.com>
-Cc: davem@davemloft.net, jesse@nicira.com,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next] ptp: increase the maximum number of clocks
+Date: Tue, 26 Mar 2013 19:44:33 +0100
+Message-ID: <20130326184433.GA2494@netboy.at.omicron.at>
+References: <d219aa87bd5b3e2fa42449720d845a7110f642f0.1363893841.git.jbenc@redhat.com>
+ <20130321.172017.1499060411785395307.davem@davemloft.net>
+ <20130323175915.GA3036@netboy.at.omicron.at>
+ <20130325170855.0194ce13@griffin>
+ <20130325185120.GB3100@netboy.at.omicron.at>
+ <20130326104836.1379592f@griffin>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog122.obsmtp.com ([74.125.149.147]:35445 "HELO
-	na3sys009aog122.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754057Ab3CZS3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 14:29:36 -0400
-Received: by mail-pd0-f198.google.com with SMTP id 4so6798115pdd.5
-        for <netdev@vger.kernel.org>; Tue, 26 Mar 2013 11:29:35 -0700 (PDT)
+Received: from mail-ee0-f54.google.com ([74.125.83.54]:45914 "EHLO
+	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754685Ab3CZSoq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 14:44:46 -0400
+Received: by mail-ee0-f54.google.com with SMTP id e51so262304eek.27
+        for <netdev@vger.kernel.org>; Tue, 26 Mar 2013 11:44:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130326104836.1379592f@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes following warning:-
-drivers/net/vxlan.c:471:35: warning: symbol 'dev' shadows an earlier one
-drivers/net/vxlan.c:433:26: originally declared here
-drivers/net/vxlan.c:794:34: warning: symbol 'vxlan' shadows an earlier one
-drivers/net/vxlan.c:757:26: originally declared here
+On Tue, Mar 26, 2013 at 10:48:36AM +0100, Jiri Benc wrote:
+> On Mon, 25 Mar 2013 19:51:20 +0100, Richard Cochran wrote:
+> > While that might work for the PTP ioctls, it won't for the main
+> > clock_gettime/settime/adjtime call. As you wrote below, these take a
+> > dynamic clockid_t (which comes from a file descriptor), and so each
+> > device needs its own, unique file system node.
+> 
+> They need an unique file descriptor, not an unique file. There's nothing
+> preventing you from opening the same file multiple times, using each
+> obtained file descriptor to access a different PHC. Sure, there is
+> currently no place to store a per-fd data in posix-clock implementation
+> but that could be added.
 
-CC: Stephen Hemminger <stephen@networkplumber.org>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- drivers/net/vxlan.c |    9 ++++-----
- 1 files changed, 4 insertions(+), 5 deletions(-)
+Assume you have multiple clocks in the system. You open /dev/ptp, and
+you get a FD to be passed to clock_gettime. But *which* clock's time
+should be read?
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 7624ab1..62a4438 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -468,15 +468,15 @@ static int vxlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 		vni = vxlan->vni;
- 
- 	if (tb[NDA_IFINDEX]) {
--		struct net_device *dev;
-+		struct net_device *tdev;
- 
- 		if (nla_len(tb[NDA_IFINDEX]) != sizeof(u32))
- 			return -EINVAL;
- 		ifindex = nla_get_u32(tb[NDA_IFINDEX]);
--		dev = dev_get_by_index(net, ifindex);
--		if (!dev)
-+		tdev = dev_get_by_index(net, ifindex);
-+		if (!tdev)
- 			return -EADDRNOTAVAIL;
--		dev_put(dev);
-+		dev_put(tdev);
- 	} else
- 		ifindex = 0;
- 
-@@ -792,7 +792,6 @@ static int arp_reduce(struct net_device *dev, struct sk_buff *skb)
- 	n = neigh_lookup(&arp_tbl, &tip, dev);
- 
- 	if (n) {
--		struct vxlan_dev *vxlan = netdev_priv(dev);
- 		struct vxlan_fdb *f;
- 		struct sk_buff	*reply;
- 
--- 
-1.7.1
+(An extra ioctl to choose the active clock seems a bit gross to me.)
+
+> > For better or worse, we are stuck with char devs, unless we want to
+> > redo the clock_xyz API. I certainly don't want to. We can have over a
+> > million PTP clocks on a single major number. That should be enough.
+> > 
+> > IIRC, it is possible to grow the range of minor numbers
+> > incrementally. Perhaps you could take a look at that?
+> 
+> That was what I was originally thinking about. But I don't like it much
+> - the overhead will increase significantly with increasing number of
+> devices, as the chrdev allocations for a given major are kept in a
+> linked list which has to be completely traversed on each allocation.
+> We'd also need to replace the ptp_clocks_map with a different data
+> structure (e.g. a linked list of bitmaps if we allocate minors in
+> chunks to alleviate the chrdev allocation overhead), not helping the
+> overhead.
+
+How about using idr and then, at each clock registration, just
+increase the range of minors to include the new number?
+
+I wouldn't worry about the overhead at allocation time. It is one time
+only, during device registration, and so is not performance critical.
+
+Thanks,
+Richard
