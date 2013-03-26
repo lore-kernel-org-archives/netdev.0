@@ -1,35 +1,33 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next] ptp_pch: fix typo in module parameter description
-Date: Tue, 26 Mar 2013 14:54:16 +0100
-Message-ID: <2eb67bf713f5c8fae6566b040690fa932087da5f.1364305861.git.jbenc@redhat.com>
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	Takahiro Shimizu <tshimizu818@gmail.com>
+Subject: [PATCH net-next] MAINTAINERS: add netdev list for PTP (IEEE 1588)
+Date: Tue, 26 Mar 2013 15:01:12 +0100
+Message-ID: <4b0d96e199e0c4ff5efa90c14ea457067321125c.1364306426.git.jbenc@redhat.com>
+Cc: Richard Cochran <richardcochran@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1890 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:5224 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932970Ab3CZNyc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Mar 2013 09:54:32 -0400
+	id S1758268Ab3CZOBw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Mar 2013 10:01:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- drivers/ptp/ptp_pch.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ MAINTAINERS |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
-index 1367655..e85926b 100644
---- a/drivers/ptp/ptp_pch.c
-+++ b/drivers/ptp/ptp_pch.c
-@@ -725,7 +725,7 @@ module_exit(ptp_pch_exit);
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 86c0843..77b3748 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -6310,6 +6310,7 @@ F:	drivers/acpi/apei/erst.c
  
- module_param_string(station, pch_param.station, sizeof pch_param.station, 0444);
- MODULE_PARM_DESC(station,
--	 "IEEE 1588 station address to use - column separated hex values");
-+	 "IEEE 1588 station address to use - colon separated hex values");
- 
- MODULE_AUTHOR("LAPIS SEMICONDUCTOR, <tshimizu818@gmail.com>");
- MODULE_DESCRIPTION("PTP clock using the EG20T timer");
+ PTP HARDWARE CLOCK SUPPORT
+ M:	Richard Cochran <richardcochran@gmail.com>
++L:	netdev@vger.kernel.org
+ S:	Maintained
+ W:	http://linuxptp.sourceforge.net/
+ F:	Documentation/ABI/testing/sysfs-ptp
 -- 
 1.7.6.5
