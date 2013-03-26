@@ -1,8 +1,8 @@
 From: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH v2 net-next 09/12] mac802154: add
-	mac802154_dev_get_dsn()
-Date: Mon, 25 Mar 2013 23:59:29 -0400
-Message-ID: <1364270372-19430-10-git-send-email-tony.cheneau@amnesiak.org>
+Subject: [PATCH v2 net-next 11/12] 6lowpan: use the
+	PANID provided by the device instead of a static value
+Date: Mon, 25 Mar 2013 23:59:31 -0400
+Message-ID: <1364270372-19430-12-git-send-email-tony.cheneau@amnesiak.org>
 References: <1364270372-19430-1-git-send-email-tony.cheneau@amnesiak.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,59 +23,30 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Bring-over mac802154_dev_get_dsn() function that was present in the
-Linux ZigBee kernel. This function is called by the 6LoWPAN code in
-order to properly set the DSN (Data Sequence Number) value in the IEEE
-802.15.4 frame.
-
 Signed-off-by: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
 ---
- net/mac802154/mac802154.h | 1 +
- net/mac802154/mac_cmd.c   | 1 +
- net/mac802154/mib.c       | 9 +++++++++
- 3 files changed, 11 insertions(+)
+ net/ieee802154/6lowpan.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-index a4dcaf1..21fa386 100644
---- a/net/mac802154/mac802154.h
-+++ b/net/mac802154/mac802154.h
-@@ -114,5 +114,6 @@ void mac802154_dev_set_ieee_addr(struct net_device *dev);
- u16 mac802154_dev_get_pan_id(const struct net_device *dev);
- void mac802154_dev_set_pan_id(struct net_device *dev, u16 val);
- void mac802154_dev_set_page_channel(struct net_device *dev, u8 page, u8 chan);
-+u8 mac802154_dev_get_dsn(const struct net_device *dev);
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index d1d4ee6..276971b 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -577,10 +577,12 @@ static int lowpan_header_create(struct sk_buff *skb,
  
- #endif /* MAC802154_H */
-diff --git a/net/mac802154/mac_cmd.c b/net/mac802154/mac_cmd.c
-index d8d2770..a99910d 100644
---- a/net/mac802154/mac_cmd.c
-+++ b/net/mac802154/mac_cmd.c
-@@ -73,4 +73,5 @@ struct ieee802154_mlme_ops mac802154_mlme_wpan = {
- 	.start_req = mac802154_mlme_start_req,
- 	.get_pan_id = mac802154_dev_get_pan_id,
- 	.get_short_addr = mac802154_dev_get_short_addr,
-+	.get_dsn = mac802154_dev_get_dsn,
- };
-diff --git a/net/mac802154/mib.c b/net/mac802154/mib.c
-index f47781a..f03e55f 100644
---- a/net/mac802154/mib.c
-+++ b/net/mac802154/mib.c
-@@ -159,6 +159,15 @@ void mac802154_dev_set_pan_id(struct net_device *dev, u16 val)
- 	}
- }
+ 		/* prepare wpan address data */
+ 		sa.addr_type = IEEE802154_ADDR_LONG;
+-		sa.pan_id = 0xff;
++		sa.pan_id = ieee802154_mlme_ops(dev)->get_pan_id(dev);
++
+ 		memcpy(&(sa.hwaddr), saddr, 8);
++		/* intra-PAN communications */
++		da.pan_id = ieee802154_mlme_ops(dev)->get_pan_id(dev);
  
-+u8 mac802154_dev_get_dsn(const struct net_device *dev)
-+{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
-+
-+	return priv->dsn++;
-+}
-+
- static void phy_chan_notify(struct work_struct *work)
- {
- 	struct phy_chan_notify_work *nw = container_of(work,
+-		da.pan_id = 0xff;
+ 		/*
+ 		 * if the destination address is the broadcast address, use the
+ 		 * corresponding short address
 -- 
 1.7.12.4
 
