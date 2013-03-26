@@ -1,29 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: cleanup unneeded rcu_read_lock()
-Date: Tue, 26 Mar 2013 12:50:07 -0400 (EDT)
-Message-ID: <20130326.125007.36370421934179455.davem@davemloft.net>
-References: <1364307002-11242-1-git-send-email-vfalico@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
-To: vfalico@redhat.com
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH] bonding: remove already created master sysfs link on failure
+Date: Tue, 26 Mar 2013 17:43:28 +0100
+Message-ID: <1364316208-1068-1-git-send-email-vfalico@redhat.com>
+Cc: vfalico@redhat.com, andy@greyhouse.net, fubar@us.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41129 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751035Ab3CZQuJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 12:50:09 -0400
-In-Reply-To: <1364307002-11242-1-git-send-email-vfalico@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:56851 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751252Ab3CZQyr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Mar 2013 12:54:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Tue, 26 Mar 2013 15:10:02 +0100
+If slave sysfs symlink failes to be created - we end up without removing
+the master sysfs symlink. Remove it in case of failure.
 
-> bond_resend_igmp_join_requests_delayed() calls _resend_igmp_join_requests()
-> under rcu_read_lock(), while it gets its own rcu_read_lock() for the whole
-> function. Remove the lock from the _delayed function.
-> 
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+ drivers/net/bonding/bond_sysfs.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-Applied.
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 1c9e09f..db103e0 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -183,6 +183,11 @@ int bond_create_slave_symlinks(struct net_device *master,
+ 	sprintf(linkname, "slave_%s", slave->name);
+ 	ret = sysfs_create_link(&(master->dev.kobj), &(slave->dev.kobj),
+ 				linkname);
++
++	/* free the master link created earlier in case of error */
++	if (ret)
++		sysfs_remove_link(&(slave->dev.kobj), "master");
++
+ 	return ret;
+ 
+ }
+-- 
+1.7.1
