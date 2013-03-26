@@ -1,12 +1,12 @@
 From: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH v2 net-next 04/12] mac802154: turn on
-	ACK when enabled by the upper layers
-Date: Mon, 25 Mar 2013 23:59:24 -0400
-Message-ID: <1364270372-19430-5-git-send-email-tony.cheneau@amnesiak.org>
+Subject: =?utf-8?q?=5BPATCH_v2_net-next_06/12=5D_6low?=
+	=?utf-8?q?pan=3A_fix_first_fragment_=28FRAG1=29_handling?=
+Date: Mon, 25 Mar 2013 23:59:26 -0400
+Message-ID: <1364270372-19430-7-git-send-email-tony.cheneau@amnesiak.org>
 References: <1364270372-19430-1-git-send-email-tony.cheneau@amnesiak.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
 	Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
@@ -23,31 +23,75 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
----
- net/mac802154/wpan.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
-index d20c6d3..7d3f659 100644
---- a/net/mac802154/wpan.c
-+++ b/net/mac802154/wpan.c
-@@ -145,6 +145,8 @@ static int mac802154_header_create(struct sk_buff *skb,
- 
- 	head[pos++] = mac_cb(skb)->seq; /* DSN/BSN */
- 	fc = mac_cb_type(skb);
-+	if (mac_cb_is_ackreq(skb))
-+		fc |= IEEE802154_FC_ACK_REQ;
- 
- 	if (!saddr) {
- 		spin_lock_bh(&priv->mib_lock);
--- 
-1.7.12.4
-
-
-------------------------------------------------------------------------------
-Own the Future-Intel&reg; Level Up Game Demo Contest 2013
-Rise to greatness in Intel's independent game demo contest.
-Compete for recognition, cash, and the chance to get your game 
-on Steam. $5K grand prize plus 10 genre and skill prizes. 
-Submit your demo by 6/6/13. http://p.sf.net/sfu/intel_levelupd2d
+VGhlIGZpcnN0IGZyYWdtZW50LCBGUkFHMSwgbXVzdCBjb250YWluIHNvbWUgcGF5bG9hZCBhY2Nv
+cmRpbmcgdG8gdGhlCnNwZWNzLiBIb3dldmVyLCBhcyBpdCBpcyBjdXJyZW50bHkgd3JpdHRlbiwg
+dGhlIGZpcnN0IGZyYWdtZW50IHdpbGwKcmVtYWluIGVtcHR5IGFuZCBvbmx5IGNvbnRhaW4gdGhl
+IDZsb3dwYW4gaGVhZGVycy4KClRoaXMgcGF0Y2ggYWxzbyBleHRyYWN0cyB0aGUgdHJhbnNwb3J0
+IGxheWVyIGluZm9ybWF0aW9uIGZyb20gdGhlIGZpcnN0CmZyYWdtZW50LiBUaGlzIGluZm9ybWF0
+aW9uIGlzIHVzZWQgbGF0ZXIgb24gd2hlbiB1bmNvbXByZXNzaW5nIFVEUApoZWFkZXIuCgpUaGFu
+a3MgdG8gV29sZi1CYXN0aWFuIFDDtnR0bmVyIGZvciBub3RpY2luZyB0aGF0IHRoZSBvZmZzZXQg
+dmFsdWUgd2FzCm5vdCBwcm9wZXJseSBpbml0aWFsaXplZC4KClNpZ25lZC1vZmYtYnk6IFRvbnkg
+Q2hlbmVhdSA8dG9ueS5jaGVuZWF1QGFtbmVzaWFrLm9yZz4KLS0tCiBuZXQvaWVlZTgwMjE1NC82
+bG93cGFuLmMgfCAzNiArKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0tLS0KIDEgZmls
+ZSBjaGFuZ2VkLCAyMyBpbnNlcnRpb25zKCspLCAxMyBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQg
+YS9uZXQvaWVlZTgwMjE1NC82bG93cGFuLmMgYi9uZXQvaWVlZTgwMjE1NC82bG93cGFuLmMKaW5k
+ZXggMGVlYmI5Ni4uNGE2MjI4OSAxMDA2NDQKLS0tIGEvbmV0L2llZWU4MDIxNTQvNmxvd3Bhbi5j
+CisrKyBiL25ldC9pZWVlODAyMTU0LzZsb3dwYW4uYwpAQCAtNjYxLDcgKzY2MSw3IEBAIHN0YXRp
+YyB2b2lkIGxvd3Bhbl9mcmFnbWVudF90aW1lcl9leHBpcmVkKHVuc2lnbmVkIGxvbmcgZW50cnlf
+YWRkcikKIH0KIAogc3RhdGljIHN0cnVjdCBsb3dwYW5fZnJhZ21lbnQgKgotbG93cGFuX2FsbG9j
+X25ld19mcmFtZShzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCB1OCBsZW4sIHUxNiB0YWcpCitsb3dwYW5f
+YWxsb2NfbmV3X2ZyYW1lKHN0cnVjdCBza19idWZmICpza2IsIHUxNiBsZW4sIHUxNiB0YWcpCiB7
+CiAJc3RydWN0IGxvd3Bhbl9mcmFnbWVudCAqZnJhbWU7CiAKQEAgLTczMSw3ICs3MzEsNyBAQCBs
+b3dwYW5fcHJvY2Vzc19kYXRhKHN0cnVjdCBza19idWZmICpza2IpCiAJewogCQlzdHJ1Y3QgbG93
+cGFuX2ZyYWdtZW50ICpmcmFtZTsKIAkJLyogc2xlbiBzdG9yZXMgdGhlIHJpZ2h0bW9zdCA4IGJp
+dHMgb2YgdGhlIDExIGJpdHMgbGVuZ3RoICovCi0JCXU4IHNsZW4sIG9mZnNldDsKKwkJdTggc2xl
+biwgb2Zmc2V0ID0gMDsKIAkJdTE2IGxlbiwgdGFnOwogCQlib29sIGZvdW5kID0gZmFsc2U7CiAK
+QEAgLTc0Miw2ICs3NDIsMTIgQEAgbG93cGFuX3Byb2Nlc3NfZGF0YShzdHJ1Y3Qgc2tfYnVmZiAq
+c2tiKQogCQkvKiBhZGRzIHRoZSAzIE1TQiB0byB0aGUgOCBMU0IgdG8gcmV0cmlldmUgdGhlIDEx
+IGJpdHMgbGVuZ3RoICovCiAJCWxlbiA9ICgoaXBoYzAgJiA3KSA8PCA4KSB8IHNsZW47CiAKKwkJ
+LyogRlJBR04gKi8KKwkJaWYgKChpcGhjMCAmIExPV1BBTl9ESVNQQVRDSF9NQVNLKSAhPSBMT1dQ
+QU5fRElTUEFUQ0hfRlJBRzEpIHsKKwkJCWlmIChsb3dwYW5fZmV0Y2hfc2tiX3U4KHNrYiwgJm9m
+ZnNldCkpCisJCQkJZ290byB1bmxvY2tfYW5kX2Ryb3A7CisJCX0KKwogCQkvKgogCQkgKiBjaGVj
+ayBpZiBmcmFtZSBhc3NlbWJsaW5nIHdpdGggdGhlIHNhbWUgdGFnIGlzCiAJCSAqIGFscmVhZHkg
+aW4gcHJvZ3Jlc3MKQEAgLTc2MSwxMiArNzY3LDYgQEAgbG93cGFuX3Byb2Nlc3NfZGF0YShzdHJ1
+Y3Qgc2tfYnVmZiAqc2tiKQogCQkJCWdvdG8gdW5sb2NrX2FuZF9kcm9wOwogCQl9CiAKLQkJaWYg
+KChpcGhjMCAmIExPV1BBTl9ESVNQQVRDSF9NQVNLKSA9PSBMT1dQQU5fRElTUEFUQ0hfRlJBRzEp
+Ci0JCQlnb3RvIHVubG9ja19hbmRfZHJvcDsKLQotCQlpZiAobG93cGFuX2ZldGNoX3NrYl91OChz
+a2IsICZvZmZzZXQpKSAvKiBmZXRjaCBvZmZzZXQgKi8KLQkJCWdvdG8gdW5sb2NrX2FuZF9kcm9w
+OwotCiAJCS8qIGlmIHBheWxvYWQgZml0cyBidWZmZXIsIGNvcHkgaXQgKi8KIAkJaWYgKGxpa2Vs
+eSgob2Zmc2V0ICogOCArIHNrYi0+bGVuKSA8PSBmcmFtZS0+bGVuZ3RoKSkKIAkJCXNrYl9jb3B5
+X3RvX2xpbmVhcl9kYXRhX29mZnNldChmcmFtZS0+c2tiLCBvZmZzZXQgKiA4LApAQCAtOTgyLDEz
+ICs5ODIsMTMgQEAgc3RhdGljIGludCBsb3dwYW5fZ2V0X21hY19oZWFkZXJfbGVuZ3RoKHN0cnVj
+dCBza19idWZmICpza2IpCiAKIHN0YXRpYyBpbnQKIGxvd3Bhbl9mcmFnbWVudF94bWl0KHN0cnVj
+dCBza19idWZmICpza2IsIHU4ICpoZWFkLAotCQkJaW50IG1sZW4sIGludCBwbGVuLCBpbnQgb2Zm
+c2V0KQorCQkJaW50IG1sZW4sIGludCBwbGVuLCBpbnQgb2Zmc2V0LCBpbnQgdHlwZSkKIHsKIAlz
+dHJ1Y3Qgc2tfYnVmZiAqZnJhZzsKIAlpbnQgaGxlbiwgcmV0OwogCi0JLyogaWYgcGF5bG9hZCBs
+ZW5ndGggaXMgemVybywgdGhlcmVmb3JlIGl0J3MgYSBmaXJzdCBmcmFnbWVudCAqLwotCWhsZW4g
+PSAocGxlbiA9PSAwID8gTE9XUEFOX0ZSQUcxX0hFQURfU0laRSA6ICBMT1dQQU5fRlJBR05fSEVB
+RF9TSVpFKTsKKwlobGVuID0gKHR5cGUgPT0gTE9XUEFOX0RJU1BBVENIX0ZSQUcxKSA/CisJCQlM
+T1dQQU5fRlJBRzFfSEVBRF9TSVpFIDogTE9XUEFOX0ZSQUdOX0hFQURfU0laRTsKIAogCWxvd3Bh
+bl9yYXdfZHVtcF9pbmxpbmUoX19mdW5jX18sICI2bG93cGFuIGZyYWdtZW50IGhlYWRlciIsIGhl
+YWQsIGhsZW4pOwogCkBAIC0xMDMxLDcgKzEwMzEsMTMgQEAgbG93cGFuX3NrYl9mcmFnbWVudGF0
+aW9uKHN0cnVjdCBza19idWZmICpza2IpCiAJaGVhZFsyXSA9IHRhZyA+PiA4OwogCWhlYWRbM10g
+PSB0YWcgJiAweGZmOwogCi0JZXJyID0gbG93cGFuX2ZyYWdtZW50X3htaXQoc2tiLCBoZWFkLCBo
+ZWFkZXJfbGVuZ3RoLCAwLCAwKTsKKwllcnIgPSBsb3dwYW5fZnJhZ21lbnRfeG1pdChza2IsIGhl
+YWQsIGhlYWRlcl9sZW5ndGgsIExPV1BBTl9GUkFHX1NJWkUsCisJCQkJICAgMCwgTE9XUEFOX0RJ
+U1BBVENIX0ZSQUcxKTsKKworCWlmIChlcnIpCisJCWdvdG8gZXhpdDsKKworCW9mZnNldCA9IExP
+V1BBTl9GUkFHX1NJWkU7CiAKIAkvKiBuZXh0IGZyYWdtZW50IGhlYWRlciAqLwogCWhlYWRbMF0g
+Jj0gfkxPV1BBTl9ESVNQQVRDSF9GUkFHMTsKQEAgLTEwNDYsMTAgKzEwNTIsMTQgQEAgbG93cGFu
+X3NrYl9mcmFnbWVudGF0aW9uKHN0cnVjdCBza19idWZmICpza2IpCiAJCQlsZW4gPSBwYXlsb2Fk
+X2xlbmd0aCAtIG9mZnNldDsKIAogCQllcnIgPSBsb3dwYW5fZnJhZ21lbnRfeG1pdChza2IsIGhl
+YWQsIGhlYWRlcl9sZW5ndGgsCi0JCQkJCQkJbGVuLCBvZmZzZXQpOworCQkJCQkgICBsZW4sIG9m
+ZnNldCwgTE9XUEFOX0RJU1BBVENIX0ZSQUdOKTsKKwkJaWYgKGVycikKKwkJCWdvdG8gZXhpdDsK
+KwogCQlvZmZzZXQgKz0gbGVuOwogCX0KIAorZXhpdDoKIAlyZXR1cm4gZXJyOwogfQogCi0tIAox
+LjcuMTIuNAoKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpPd24gdGhlIEZ1dHVyZS1JbnRlbCZyZWc7
+IExldmVsIFVwIEdhbWUgRGVtbyBDb250ZXN0IDIwMTMKUmlzZSB0byBncmVhdG5lc3MgaW4gSW50
+ZWwncyBpbmRlcGVuZGVudCBnYW1lIGRlbW8gY29udGVzdC4KQ29tcGV0ZSBmb3IgcmVjb2duaXRp
+b24sIGNhc2gsIGFuZCB0aGUgY2hhbmNlIHRvIGdldCB5b3VyIGdhbWUgCm9uIFN0ZWFtLiAkNUsg
+Z3JhbmQgcHJpemUgcGx1cyAxMCBnZW5yZSBhbmQgc2tpbGwgcHJpemVzLiAKU3VibWl0IHlvdXIg
+ZGVtbyBieSA2LzYvMTMuIGh0dHA6Ly9wLnNmLm5ldC9zZnUvaW50ZWxfbGV2ZWx1cGQyZApfX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eC16aWdiZWUt
+ZGV2ZWwgbWFpbGluZyBsaXN0CkxpbnV4LXppZ2JlZS1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5u
+ZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vbGludXgtemln
+YmVlLWRldmVsCg==
