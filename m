@@ -1,76 +1,58 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [PATCH 5/6] xen-netback: coalesce slots before copying
-Date: Tue, 26 Mar 2013 18:02:34 +0000
-Message-ID: <5151E2BA.6070703@citrix.com>
-References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com> <1364209702-12437-6-git-send-email-wei.liu2@citrix.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net] ipv6: don't accept node local multicast traffic from the wire
+Date: Tue, 26 Mar 2013 19:13:34 +0100
+Message-ID: <20130326181334.GH29705@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=utf-8
+Cc: erik.hugne@ericsson.com, yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:20640 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932113Ab3CZSCh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Mar 2013 14:02:37 -0400
-In-Reply-To: <1364209702-12437-6-git-send-email-wei.liu2@citrix.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:60014 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752345Ab3CZSNf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 14:13:35 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25/03/13 11:08, Wei Liu wrote:
-> This patch tries to coalesce tx requests when constructing grant copy
-> structures. It enables netback to deal with situation when frontend's
-> MAX_SKB_FRAGS is larger than backend's MAX_SKB_FRAGS.
-> 
-> It defines max_skb_slots, which is a estimation of the maximum number of slots
-> a guest can send, anything bigger than that is considered malicious. Now it is
-> set to 20, which should be enough to accommodate Linux (16 to 19).
-> 
-> Also change variable name from "frags" to "slots" in netbk_count_requests.
+Erik Hugne's errata proposal (Errata ID: 3480) to RFC4291 has been
+verified: http://www.rfc-editor.org/errata_search.php?eid=3480
 
-It it worth summarizing an (off-line) discussion I had with Wei on this
-patch.
+We have to check for pkt_type and loopback flag because either the
+packets are allowed to travel over the loopback interface (in which case
+pkt_type is PACKET_HOST and IFF_LOOPBACK flag is set) or they travel
+over a non-loopback interface back to us (in which case PACKET_TYPE is
+PACKET_LOOPBACK and IFF_LOOPBACK flag is not set).
 
-There are two regression that need to be addressed here.
+Cc: Erik Hugne <erik.hugne@ericsson.com>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv6/ip6_input.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-1. The reduction of the number of supported ring entries (slots) per
-packet (from 18 to 17).
-
-2. The XSA-39 security fix turning "too many frags" errors from just
-dropping the packet to a fatal error and disabling the VIF.
-
-The key root cause of the problem is that the protocol is poorly
-specified using a property external to the netback/netfront drivers
-(i.e., MAX_SKB_FRAGS).
-
-A secondary problem is some frontends have used a max slots per packet
-value that is larger than netback as supported. e.g., the Windows GPLPV
-drivers use up to 19.  These packets have always been dropped.
-
-The first step is to properly specify the maximum slots per-packet as
-part of the interface.  This should be specified as 18 (the historical
-value).
-
-The second step is to define a threshold for slots per packet, above
-which the guest is considered to be malicious and the error is fatal.
-20 seems a sensible value here.
-
-The behavior of netback for packet is thus:
-
-    1-18 slots: valid
-   19-20 slots: drop and respond with an error
-   21+   slots: fatal error
-
-Note that we do not make 19-20 valid as this is a change to the protocol
-and guests may end up relying on this which would then break the guests
-if they migrate or start on host with a limit of 18.
-
-A third (and future) step would be to investigate whether increasing the
-slots per-packet limit is sensible.  There would then need to be a
-mechanism to negotiate this limit between the front and back ends.
-
-David
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index e33fe0a..2bab2aa 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -118,6 +118,18 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+ 	    ipv6_addr_loopback(&hdr->daddr))
+ 		goto err;
+ 
++	/* RFC4291 Errata ID: 3480
++	 * Interface-Local scope spans only a single interface on a
++	 * node and is useful only for loopback transmission of
++	 * multicast.  Packets with interface-local scope received
++	 * from another node must be discarded.
++	 */
++	if (!(skb->pkt_type == PACKET_LOOPBACK ||
++	      dev->flags & IFF_LOOPBACK) &&
++	    ipv6_addr_is_multicast(&hdr->daddr) &&
++	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) == 1)
++		goto err;
++
+ 	/* RFC4291 2.7
+ 	 * Nodes must not originate a packet to a multicast address whose scope
+ 	 * field contains the reserved value 0; if such a packet is received, it
+-- 
+1.8.1.4
