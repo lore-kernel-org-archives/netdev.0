@@ -1,69 +1,161 @@
-From: dingtianhong <dingtianhong@huawei.com>
-Subject: Re: [Eulerkernel] [PATCH] af_unix: dont send SCM_CREDENTIAL when
- dest socket is NULL
-Date: Tue, 26 Mar 2013 11:08:56 +0800
-Message-ID: <51511148.4000804@huawei.com>
-References: <515026DA.7050306@huawei.com> <1364220269.29473.13.camel@edumazet-glaptop>
+From: Frank Li <Frank.Li@freescale.com>
+Subject: [PATCH 1/1] enet: fec: fix fail resume from suspend state
+Date: Tue, 26 Mar 2013 10:14:57 +0800
+Message-ID: <1364264097-26157-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, <netdev@vger.kernel.org>,
-	Li Zefan <lizefan@huawei.com>, Xinwei Hu <huxinwei@huawei.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: Frank Li <Frank.Li@freescale.com>
+To: <shawn.guo@linaro.org>, <lznuaa@gmail.com>,
+	<u.kleine-koenig@pengutronix.de>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:6117 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759049Ab3CZDJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 23:09:20 -0400
-In-Reply-To: <1364220269.29473.13.camel@edumazet-glaptop>
+Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:36907 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756255Ab3CZD0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 23:26:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/3/25 22:04, Eric Dumazet wrote:
-> On Mon, 2013-03-25 at 18:28 +0800, dingtianhong wrote:
->> SCM_SCREDENTIALS should apply to write() syscalls only either source or destination
->> socket asserted SOCK_PASSCRED. The original implememtation in maybe_add_creds is wrong,
->> and breaks several LSB testcases ( i.e. /tset/LSB.os/netowkr/recvfrom/T.recvfrom).
->>
->> Origionally-authored-by: Karel Srot <ksrot@redhat.com>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
->>    net/unix/af_unix.c | 4 ++--
->>    1 file changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
->> index 51be64f..99189fd 100644
->> --- a/net/unix/af_unix.c
->> +++ b/net/unix/af_unix.c
->> @@ -1413,8 +1413,8 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
->>           if (UNIXCB(skb).cred)
->>                   return;
->>           if (test_bit(SOCK_PASSCRED, &sock->flags) ||
->> -           !other->sk_socket ||
->> -           test_bit(SOCK_PASSCRED, &other->sk_socket->flags)) {
->> +           (other->sk_socket &&
->> +           test_bit(SOCK_PASSCRED, &other->sk_socket->flags))) {
->>                   UNIXCB(skb).pid  = get_pid(task_tgid(current));
->>                   UNIXCB(skb).cred = get_current_cred();
->>           }
-> 
-> I am not sure why adding credentials if other->sk_socket is NULL could
-> break an application ?
-The bugzilla has report the bug:https://lsbbugs.linuxfoundation.org/show_bug.cgi?id=3523
+Without this patch
+1. boot with nfs (no_console_suspend)
+2. echo mem >/sys/power/state
+3. wakeup by wakesource
+4. print "eth0: tx queue full"
 
-> 
-> This was the case before commit introducing this code.
+This fix above problem by reinit bd queue at restart function
 
-The commit 16e5726269(af_unix: dont send SCM_CREDENTIALS by default) may  introducing the problem.
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec.c |   82 ++++++++++++++++++++-------------
+ 1 files changed, 50 insertions(+), 32 deletions(-)
 
-> 
-> Anyway patch looks fine
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> 
-> 
-> 
-> 
-> 
-> 
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index 069a155..78b25db 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -345,6 +345,53 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	return NETDEV_TX_OK;
+ }
+ 
++/* Init RX & TX buffer descriptors
++ */
++static void fec_enet_bd_init(struct net_device *dev)
++{
++	struct fec_enet_private *fep = netdev_priv(dev);
++	struct bufdesc *bdp;
++	int i;
++
++	/* Initialize the receive buffer descriptors. */
++	bdp = fep->rx_bd_base;
++	for (i = 0; i < RX_RING_SIZE; i++) {
++
++		/* Initialize the BD for every fragment in the page. */
++		if (bdp->cbd_bufaddr)
++			bdp->cbd_sc = BD_ENET_RX_EMPTY;
++		else
++			bdp->cbd_sc = 0;
++		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
++	}
++
++	/* Set the last buffer to wrap */
++	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
++	bdp->cbd_sc |= BD_SC_WRAP;
++
++	fep->cur_rx = fep->rx_bd_base;
++
++	/* ...and the same for transmit */
++	bdp = fep->tx_bd_base;
++	fep->cur_tx = bdp;
++	for (i = 0; i < TX_RING_SIZE; i++) {
++
++		/* Initialize the BD for every fragment in the page. */
++		bdp->cbd_sc = 0;
++		if (bdp->cbd_bufaddr && fep->tx_skbuff[i]) {
++			dev_kfree_skb_any(fep->tx_skbuff[i]);
++			fep->tx_skbuff[i] = NULL;
++		}
++		bdp->cbd_bufaddr = 0;
++		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
++	}
++
++	/* Set the last buffer to wrap */
++	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
++	bdp->cbd_sc |= BD_SC_WRAP;
++	fep->dirty_tx = bdp;
++}
++
+ /* This function is called to start or restart the FEC during a link
+  * change.  This only happens when switching between half and full
+  * duplex.
+@@ -388,6 +435,8 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	/* Set maximum receive buffer size. */
+ 	writel(PKT_MAXBLR_SIZE, fep->hwp + FEC_R_BUFF_SIZE);
+ 
++	fec_enet_bd_init(ndev);
++
+ 	/* Set receive and transmit descriptor base. */
+ 	writel(fep->bd_dma, fep->hwp + FEC_R_DES_START);
+ 	if (fep->bufdesc_ex)
+@@ -397,7 +446,6 @@ fec_restart(struct net_device *ndev, int duplex)
+ 		writel((unsigned long)fep->bd_dma + sizeof(struct bufdesc)
+ 			* RX_RING_SIZE,	fep->hwp + FEC_X_DES_START);
+ 
+-	fep->cur_rx = fep->rx_bd_base;
+ 
+ 	for (i = 0; i <= TX_RING_MOD_MASK; i++) {
+ 		if (fep->tx_skbuff[i]) {
+@@ -1592,8 +1640,6 @@ static int fec_enet_init(struct net_device *ndev)
+ {
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	struct bufdesc *cbd_base;
+-	struct bufdesc *bdp;
+-	int i;
+ 
+ 	/* Allocate memory for buffer descriptors. */
+ 	cbd_base = dma_alloc_coherent(NULL, PAGE_SIZE, &fep->bd_dma,
+@@ -1603,6 +1649,7 @@ static int fec_enet_init(struct net_device *ndev)
+ 		return -ENOMEM;
+ 	}
+ 
++	memset(cbd_base, 0, PAGE_SIZE);
+ 	spin_lock_init(&fep->hw_lock);
+ 
+ 	fep->netdev = ndev;
+@@ -1626,35 +1673,6 @@ static int fec_enet_init(struct net_device *ndev)
+ 	writel(FEC_RX_DISABLED_IMASK, fep->hwp + FEC_IMASK);
+ 	netif_napi_add(ndev, &fep->napi, fec_enet_rx_napi, FEC_NAPI_WEIGHT);
+ 
+-	/* Initialize the receive buffer descriptors. */
+-	bdp = fep->rx_bd_base;
+-	for (i = 0; i < RX_RING_SIZE; i++) {
+-
+-		/* Initialize the BD for every fragment in the page. */
+-		bdp->cbd_sc = 0;
+-		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
+-	}
+-
+-	/* Set the last buffer to wrap */
+-	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
+-	bdp->cbd_sc |= BD_SC_WRAP;
+-
+-	/* ...and the same for transmit */
+-	bdp = fep->tx_bd_base;
+-	fep->cur_tx = bdp;
+-	for (i = 0; i < TX_RING_SIZE; i++) {
+-
+-		/* Initialize the BD for every fragment in the page. */
+-		bdp->cbd_sc = 0;
+-		bdp->cbd_bufaddr = 0;
+-		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
+-	}
+-
+-	/* Set the last buffer to wrap */
+-	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
+-	bdp->cbd_sc |= BD_SC_WRAP;
+-	fep->dirty_tx = bdp;
+-
+ 	fec_restart(ndev, 0);
+ 
+ 	return 0;
+-- 
+1.7.1
