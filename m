@@ -1,32 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next (TAKE 4) 0/6] IPv6 over Firewire
-Date: Tue, 26 Mar 2013 12:32:59 -0400 (EDT)
-Message-ID: <20130326.123259.353351738581905875.davem@davemloft.net>
-References: <51509696.6060600@linux-ipv6.org>
+Subject: Re: [PATCH Resend] af_unix: dont send SCM_CREDENTIAL when dest
+ socket is NULL
+Date: Tue, 26 Mar 2013 12:34:45 -0400 (EDT)
+Message-ID: <20130326.123445.810551732450695869.davem@davemloft.net>
+References: <51510FAC.5090605@huawei.com>
+	<1364272687.1716.12.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stefanr@s5r6.in-berlin.de, netdev@vger.kernel.org,
-	linux1394-devel@lists.sourceforge.net, stephan.gatzka@gmail.com
-To: yoshfuji@linux-ipv6.org
+Cc: dingtianhong@huawei.com, edumazet@google.com, lizefan@huawei.com,
+	huxinwei@huawei.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40621 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40677 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934635Ab3CZQdC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 12:33:02 -0400
-In-Reply-To: <51509696.6060600@linux-ipv6.org>
+	with ESMTP id S934635Ab3CZQet (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 12:34:49 -0400
+In-Reply-To: <1364272687.1716.12.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Tue, 26 Mar 2013 03:25:26 +0900
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 25 Mar 2013 21:38:07 -0700
 
-> This is take 4 of supporting IPv6 over Firewire (IEEE 1394) based on
-> RFC3146.
+> On Tue, 2013-03-26 at 11:02 +0800, dingtianhong wrote:
+>> SCM_SCREDENTIALS should apply to write() syscalls only either source or destination
+>> socket asserted SOCK_PASSCRED. The original implememtation in maybe_add_creds is wrong,
+>> and breaks several LSB testcases ( i.e. /tset/LSB.os/netowkr/recvfrom/T.recvfrom).
+>> 
+>> Origionally-authored-by: Karel Srot <ksrot@redhat.com>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> ---
+>>  net/unix/af_unix.c | 4 ++--
+>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>> 
+>> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+>> index 51be64f..99189fd 100644
+>> --- a/net/unix/af_unix.c
+>> +++ b/net/unix/af_unix.c
+>> @@ -1413,8 +1413,8 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
+>>  	if (UNIXCB(skb).cred)
+>>  		return;
+>>  	if (test_bit(SOCK_PASSCRED, &sock->flags) ||
+>> -	    !other->sk_socket ||
+>> -	    test_bit(SOCK_PASSCRED, &other->sk_socket->flags)) {
+>> +	    (other->sk_socket &&
+>> +	    test_bit(SOCK_PASSCRED, &other->sk_socket->flags))) {
+>>  		UNIXCB(skb).pid  = get_pid(task_tgid(current));
+>>  		UNIXCB(skb).cred = get_current_cred();
+>>  	}
 > 
-> Take 3->4:
-> - Fix receiving 1394 ARP, which comes without arp$tha.
-> - Remove rfc3146 unit directory on module exit.
-> - other minor clean-ups - minimize diffs.
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Series applied, thanks.
+Applied and queued up for -stable.
+
+ 
