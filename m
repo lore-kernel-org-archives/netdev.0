@@ -1,53 +1,64 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 6/6] igb: fix PHC stopping on max freq
-Date: Tue, 26 Mar 2013 03:42:34 -0700
-Message-ID: <1364294554-7967-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 3/6] igb: Fix null pointer dereference
+Date: Tue, 26 Mar 2013 03:42:31 -0700
+Message-ID: <1364294554-7967-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1364294554-7967-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jiri Benc <jbenc@redhat.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alex Williamson <alex.williamson@redhat.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:47745 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:30723 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759706Ab3CZKmk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Mar 2013 06:42:40 -0400
+	id S1759224Ab3CZKmj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Mar 2013 06:42:39 -0400
 In-Reply-To: <1364294554-7967-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
+From: Alex Williamson <alex.williamson@redhat.com>
 
-For 82576 MAC type, max_adj is reported as 1000000000 ppb. However, if
-this value is passed to igb_ptp_adjfreq_82576, incvalue overflows out of
-INCVALUE_82576_MASK, resulting in setting of zero TIMINCA.incvalue, stopping
-the PHC (instead of going at twice the nominal speed).
+The max_vfs= option has always been self limiting to the number of VFs
+supported by the device.  fa44f2f1 added SR-IOV configuration via
+sysfs, but in the process broke this self correction factor.  The
+failing path is:
 
-Fix the advertised max_adj value to the largest value hardware can handle.
-As there is no min_adj value available (-max_adj is used instead), this will
-also prevent stopping the clock intentionally. It's probably not a big deal,
-other igb MAC types don't support stopping the clock, either.
+igb_probe
+  igb_sw_init
+    if (max_vfs > 7) {
+        adapter->vfs_allocated_count = 7;
+    ...
+    igb_probe_vfs
+    igb_enable_sriov(, max_vfs)
+      if (num_vfs > 7) {
+        err = -EPERM;
+        ...
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
-Acked-by: Matthew Vick <matthew.vick@intel.com>
+This leaves vfs_allocated_count = 7 and vf_data = NULL, so we bomb out
+when igb_probe finally calls igb_reset.  It seems like a really bad
+idea, and somewhat pointless, to set vfs_allocated_count separate from
+vf_data, but limiting max_vfs is enough to avoid the null pointer.
+
+Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_ptp.c | 2 +-
+ drivers/net/ethernet/intel/igb/igb_main.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index 0987822..0a23750 100644
---- a/drivers/net/ethernet/intel/igb/igb_ptp.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -740,7 +740,7 @@ void igb_ptp_init(struct igb_adapter *adapter)
- 	case e1000_82576:
- 		snprintf(adapter->ptp_caps.name, 16, "%pm", netdev->dev_addr);
- 		adapter->ptp_caps.owner = THIS_MODULE;
--		adapter->ptp_caps.max_adj = 1000000000;
-+		adapter->ptp_caps.max_adj = 999999881;
- 		adapter->ptp_caps.n_ext_ts = 0;
- 		adapter->ptp_caps.pps = 0;
- 		adapter->ptp_caps.adjfreq = igb_ptp_adjfreq_82576;
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 4dbd629..2ae8886 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2652,7 +2652,7 @@ static int igb_sw_init(struct igb_adapter *adapter)
+ 		if (max_vfs > 7) {
+ 			dev_warn(&pdev->dev,
+ 				 "Maximum of 7 VFs per PF, using max\n");
+-			adapter->vfs_allocated_count = 7;
++			max_vfs = adapter->vfs_allocated_count = 7;
+ 		} else
+ 			adapter->vfs_allocated_count = max_vfs;
+ 		if (adapter->vfs_allocated_count)
 -- 
 1.7.11.7
