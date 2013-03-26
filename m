@@ -1,35 +1,115 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] net: wireless: iwlegacy: add CONFIG_PM_SLEEP to
- suspend/resume functions
-Date: Tue, 26 Mar 2013 12:47:50 -0400 (EDT)
-Message-ID: <20130326.124750.814875123580847401.davem@davemloft.net>
-References: <001b01ce29ef$f09cbf10$d1d63d30$%han@samsung.com>
-	<001d01ce29f0$1267de90$37379bb0$%han@samsung.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jg1.han@samsung.com
+From: James Chapman <jchapman@katalix.com>
+Subject: [PATCH 1/2] iproute2: add l2spec_type param to l2tp add session
+Date: Tue, 26 Mar 2013 16:49:22 +0000
+Message-ID: <1364316563-23303-1-git-send-email-jchapman@katalix.com>
+Cc: tlund@nxs.se, James Chapman <jchapman@katalix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41072 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934628Ab3CZQrv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 12:47:51 -0400
-In-Reply-To: <001d01ce29f0$1267de90$37379bb0$%han@samsung.com>
+Received: from katalix.com ([82.103.140.233]:36403 "EHLO bert.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750958Ab3CZQti (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Mar 2013 12:49:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jingoo Han <jg1.han@samsung.com>
-Date: Tue, 26 Mar 2013 16:03:51 +0900
+When unmanaged L2TP sessions are created using "ip l2tp add session",
+there is no option to allow the session's Layer2SpecificHeader type to
+be selected - the kernel's default setting is always used. For
+interopability with some vendor equipment, it might be necessary to
+use a different setting. So add a new l2spec_type parameter to the "ip
+l2tp add session" parameter list, allowing operators to set a specific
+Layer2SpecificHeader type. The kernel already exposes the setting as a
+netlink attribute so it is straightforward to add support for it in
+iproute2.
 
-> Add CONFIG_PM_SLEEP to suspend/resume functions to fix the following
-> build warning when CONFIG_PM_SLEEP is not selected. This is because
-> sleep PM callbacks defined by SIMPLE_DEV_PM_OPS are only used when
-> the CONFIG_PM_SLEEP is enabled.
-> 
-> drivers/net/wireless/iwlegacy/common.c:4894:1: warning: 'il_pci_suspend' defined but not used [-Wunused-function]
-> drivers/net/wireless/iwlegacy/common.c:4912:1: warning: 'il_pci_resume' defined but not used [-Wunused-function]
-> 
-> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+This change allows unmanaged L2TP sessions to be configured between
+Linux and some Cisco equipment by specifying "l2spec_type none" in "ip
+l2tp add session" command parameters.
 
-Applied to net-next
+Signed-off-by: James Chapman <jchapman@katalix.com>
+---
+:100644 100644 2d22317... 5cd8632... M	ip/ipl2tp.c
+ ip/ipl2tp.c |   26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/ip/ipl2tp.c b/ip/ipl2tp.c
+index 2d22317..5cd8632 100644
+--- a/ip/ipl2tp.c
++++ b/ip/ipl2tp.c
+@@ -65,6 +65,8 @@ struct l2tp_parm {
+ 	int session:1;
+ 	int reorder_timeout;
+ 	const char *ifname;
++	uint8_t l2spec_type;
++	uint8_t l2spec_len;
+ };
+ 
+ struct l2tp_stats {
+@@ -146,6 +148,8 @@ static int create_session(struct l2tp_parm *p)
+ 	addattr32(&req.n, 1024, L2TP_ATTR_SESSION_ID, p->session_id);
+ 	addattr32(&req.n, 1024, L2TP_ATTR_PEER_SESSION_ID, p->peer_session_id);
+ 	addattr16(&req.n, 1024, L2TP_ATTR_PW_TYPE, p->pw_type);
++	addattr8(&req.n, 1024, L2TP_ATTR_L2SPEC_TYPE, p->l2spec_type);
++	addattr8(&req.n, 1024, L2TP_ATTR_L2SPEC_LEN, p->l2spec_len);
+ 
+ 	if (p->mtu)		addattr16(&req.n, 1024, L2TP_ATTR_MTU, p->mtu);
+ 	if (p->recv_seq)	addattr(&req.n, 1024, L2TP_ATTR_RECV_SEQ);
+@@ -271,6 +275,10 @@ static int get_response(struct nlmsghdr *n, void *arg)
+ 		p->session_id = rta_getattr_u32(attrs[L2TP_ATTR_SESSION_ID]);
+ 	if (attrs[L2TP_ATTR_PEER_SESSION_ID])
+ 		p->peer_session_id = rta_getattr_u32(attrs[L2TP_ATTR_PEER_SESSION_ID]);
++	if (attrs[L2TP_ATTR_L2SPEC_TYPE])
++		p->l2spec_type = rta_getattr_u8(attrs[L2TP_ATTR_L2SPEC_TYPE]);
++	if (attrs[L2TP_ATTR_L2SPEC_LEN])
++		p->l2spec_len = rta_getattr_u8(attrs[L2TP_ATTR_L2SPEC_LEN]);
+ 
+ 	p->udp_csum = !!attrs[L2TP_ATTR_UDP_CSUM];
+ 	if (attrs[L2TP_ATTR_COOKIE])
+@@ -466,6 +474,7 @@ static void usage(void)
+ 	fprintf(stderr, "          session_id ID peer_session_id ID\n");
+ 	fprintf(stderr, "          [ cookie HEXSTR ] [ peer_cookie HEXSTR ]\n");
+ 	fprintf(stderr, "          [ offset OFFSET ] [ peer_offset OFFSET ]\n");
++	fprintf(stderr, "          [ l2spec_type L2SPEC ]\n");
+ 	fprintf(stderr, "       ip l2tp del tunnel tunnel_id ID\n");
+ 	fprintf(stderr, "       ip l2tp del session tunnel_id ID session_id ID\n");
+ 	fprintf(stderr, "       ip l2tp show tunnel [ tunnel_id ID ]\n");
+@@ -476,6 +485,7 @@ static void usage(void)
+ 	fprintf(stderr, "       PORT   := { 0..65535 }\n");
+ 	fprintf(stderr, "       ID     := { 1..4294967295 }\n");
+ 	fprintf(stderr, "       HEXSTR := { 8 or 16 hex digits (4 / 8 bytes) }\n");
++	fprintf(stderr, "       L2SPEC := { none | default }\n");
+ 	exit(-1);
+ }
+ 
+@@ -486,6 +496,10 @@ static int parse_args(int argc, char **argv, int cmd, struct l2tp_parm *p)
+ 	if (argc == 0)
+ 		usage();
+ 
++	/* Defaults */
++	p->l2spec_type = L2TP_L2SPECTYPE_DEFAULT;
++	p->l2spec_len = 4;
++
+ 	while (argc > 0) {
+ 		if (strcmp(*argv, "encap") == 0) {
+ 			NEXT_ARG();
+@@ -580,6 +594,18 @@ static int parse_args(int argc, char **argv, int cmd, struct l2tp_parm *p)
+ 			p->peer_cookie_len = slen / 2;
+ 			if (hex2mem(*argv, p->peer_cookie, p->peer_cookie_len) < 0)
+ 				invarg("cookie must be a hex string\n", *argv);
++		} else if (strcmp(*argv, "l2spec_type") == 0) {
++			NEXT_ARG();
++			if (strcasecmp(*argv, "default") == 0) {
++				p->l2spec_type = L2TP_L2SPECTYPE_DEFAULT;
++				p->l2spec_len = 4;
++			} else if (strcasecmp(*argv, "none") == 0) {
++				p->l2spec_type = L2TP_L2SPECTYPE_NONE;
++				p->l2spec_len = 0;
++			} else {
++				fprintf(stderr, "Unknown layer2specific header type \"%s\"\n", *argv);
++				exit(-1);
++			}
+ 		} else if (strcmp(*argv, "tunnel") == 0) {
+ 			p->tunnel = 1;
+ 		} else if (strcmp(*argv, "session") == 0) {
+-- 
+1.7.9.5
