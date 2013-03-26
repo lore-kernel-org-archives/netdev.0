@@ -1,38 +1,28 @@
-From: David Oostdyk <daveo@ll.mit.edu>
-Subject: defxx: skb_push() failing?
-Date: Tue, 26 Mar 2013 10:29:34 -0400
-Message-ID: <5151B0CE.5000000@ll.mit.edu>
+From: Serge Hallyn <serge.hallyn@ubuntu.com>
+Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
+Date: Tue, 26 Mar 2013 09:33:21 -0500
+Message-ID: <20130326143321.GA21768@sergelap>
+References: <CD773D0D.7614%blourdel@juniper.net>
+ <87wqsu72r6.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <macro@linux-mips.org>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Benoit Lourdelet <blourdel@juniper.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:46265 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759793Ab3CZO3p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Mar 2013 10:29:45 -0400
+Received: from youngberry.canonical.com ([91.189.89.112]:53107 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759803Ab3CZOd2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 10:33:28 -0400
+Content-Disposition: inline
+In-Reply-To: <87wqsu72r6.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Actually, lxc is using random names now, so it's ok.
 
-In dfx_xmt_queue_pkt() in defxx.c, there is a skb_push(3) call which 
-makes room for 3 packet request header bytes.  There is some discussion 
-in the driver explaining why those three bytes will be available.  I 
-have an old FDDI card that I'm trying to bring up:
+Benoit, can you use the patches from Eric with lxc (or use the script
+you were using before but specify names as he said)?
 
-05:05.0 FDDI network controller: Digital Equipment Corporation 
-PCI-to-PDQ Interface Chip [PFI] (rev 02)
-
-Most skbuffs that come through dfx_xmit_queue_pkt() have 11 bytes 
-between skb->head and skb->data.  On the other hand, at almost exactly 
-60-second intervals, an skb arrives that has zero bytes between 
-skb->head and skb->data.  This normally causes a kernel panic, and for 
-the time I just skip over such skb's.
-
-Does anyone have advice on where I should start digging to find the 
-cause of this?
-
-Thanks in advance!
-- David Oostdyk
+-serge
