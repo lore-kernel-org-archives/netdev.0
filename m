@@ -1,83 +1,28 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 2/6] igb: fix i350 anti spoofing config
-Date: Tue, 26 Mar 2013 03:42:30 -0700
-Message-ID: <1364294554-7967-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1364294554-7967-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Lior Levy <lior.levy@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:39352 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759607Ab3CZKmi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Mar 2013 06:42:38 -0400
-In-Reply-To: <1364294554-7967-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/2] man/send(2): add EPERM to the list of possible errors
+Date: Tue, 26 Mar 2013 11:48:33 +0100
+Message-ID: <20130326104833.GA5331@localhost>
+References: <1363675513.4767.6.camel@nexus>
+ <51515E5E.7020309@lab.ntt.co.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Kerrisk <mtk.manpages@gmail.com>,
+	linux-man@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Hirotaka Sasaki <sasaki.hirotaka@lab.ntt.co.jp>
+To: Fernando Luis Vazquez Cao <fernando_b1@lab.ntt.co.jp>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <51515E5E.7020309@lab.ntt.co.jp>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Lior Levy <lior.levy@intel.com>
+On Tue, Mar 26, 2013 at 05:37:50PM +0900, Fernando Luis Vazquez Cao wrote:
+> Hi Michael,
+> 
+> Do you see any problem with these two patches?
 
-Fix a problem in i350 where anti spoofing configuration was written into a
-wrong register.
+Please, hold on with the second patch.
 
-Signed-off-by: Lior Levy <lior.levy@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/e1000_82575.c | 33 ++++++++++++++++------------
- 1 file changed, 19 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index b64542a..12b1d84 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -1818,27 +1818,32 @@ out:
-  **/
- void igb_vmdq_set_anti_spoofing_pf(struct e1000_hw *hw, bool enable, int pf)
- {
--	u32 dtxswc;
-+	u32 reg_val, reg_offset;
- 
- 	switch (hw->mac.type) {
- 	case e1000_82576:
-+		reg_offset = E1000_DTXSWC;
-+		break;
- 	case e1000_i350:
--		dtxswc = rd32(E1000_DTXSWC);
--		if (enable) {
--			dtxswc |= (E1000_DTXSWC_MAC_SPOOF_MASK |
--				   E1000_DTXSWC_VLAN_SPOOF_MASK);
--			/* The PF can spoof - it has to in order to
--			 * support emulation mode NICs */
--			dtxswc ^= (1 << pf | 1 << (pf + MAX_NUM_VFS));
--		} else {
--			dtxswc &= ~(E1000_DTXSWC_MAC_SPOOF_MASK |
--				    E1000_DTXSWC_VLAN_SPOOF_MASK);
--		}
--		wr32(E1000_DTXSWC, dtxswc);
-+		reg_offset = E1000_TXSWC;
- 		break;
- 	default:
--		break;
-+		return;
-+	}
-+
-+	reg_val = rd32(reg_offset);
-+	if (enable) {
-+		reg_val |= (E1000_DTXSWC_MAC_SPOOF_MASK |
-+			     E1000_DTXSWC_VLAN_SPOOF_MASK);
-+		/* The PF can spoof - it has to in order to
-+		 * support emulation mode NICs
-+		 */
-+		reg_val ^= (1 << pf | 1 << (pf + MAX_NUM_VFS));
-+	} else {
-+		reg_val &= ~(E1000_DTXSWC_MAC_SPOOF_MASK |
-+			     E1000_DTXSWC_VLAN_SPOOF_MASK);
- 	}
-+	wr32(reg_offset, reg_val);
- }
- 
- /**
--- 
-1.7.11.7
+I'd like to find a possible solution for the EPERM problem that we've
+been discussing. It requires some rework and performance evaluation.
