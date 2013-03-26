@@ -1,26 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] MAINTAINERS: add netdev list for PTP (IEEE
- 1588)
-Date: Tue, 26 Mar 2013 12:50:01 -0400 (EDT)
-Message-ID: <20130326.125001.548778102940495517.davem@davemloft.net>
-References: <4b0d96e199e0c4ff5efa90c14ea457067321125c.1364306426.git.jbenc@redhat.com>
+Subject: Re: [PATCH] bonding: cleanup unneeded rcu_read_lock()
+Date: Tue, 26 Mar 2013 12:50:07 -0400 (EDT)
+Message-ID: <20130326.125007.36370421934179455.davem@davemloft.net>
+References: <1364307002-11242-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, richardcochran@gmail.com
-To: jbenc@redhat.com
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
+To: vfalico@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41123 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41129 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750960Ab3CZQuD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 12:50:03 -0400
-In-Reply-To: <4b0d96e199e0c4ff5efa90c14ea457067321125c.1364306426.git.jbenc@redhat.com>
+	with ESMTP id S1751035Ab3CZQuJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 12:50:09 -0400
+In-Reply-To: <1364307002-11242-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Tue, 26 Mar 2013 15:01:12 +0100
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Tue, 26 Mar 2013 15:10:02 +0100
 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> bond_resend_igmp_join_requests_delayed() calls _resend_igmp_join_requests()
+> under rcu_read_lock(), while it gets its own rcu_read_lock() for the whole
+> function. Remove the lock from the _delayed function.
+> 
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
 Applied.
