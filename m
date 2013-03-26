@@ -1,105 +1,94 @@
-From: Sekhar Nori <nsekhar@ti.com>
-Subject: Re: [PATCH net-next 2/2] net/davinci_emac: use clk_{prepare|unprepare}
-Date: Tue, 26 Mar 2013 15:35:43 +0530
-Message-ID: <515172F7.3050600@ti.com>
-References: <1364203547-2960-1-git-send-email-nsekhar@ti.com> <1364203547-2960-3-git-send-email-nsekhar@ti.com> <20130325161654.4014.68401@quantum>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<davinci-linux-open-source@linux.davincidsp.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>
-To: Mike Turquette <mturquette@linaro.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 1/6] ixgbevf: don't release the soft entries
+Date: Tue, 26 Mar 2013 03:42:29 -0700
+Message-ID: <1364294554-7967-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1364294554-7967-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: xunleer <xunleer.li@huawei.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:55852 "EHLO bear.ext.ti.com"
+Received: from mga11.intel.com ([192.55.52.93]:30723 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751742Ab3CZKF6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Mar 2013 06:05:58 -0400
-In-Reply-To: <20130325161654.4014.68401@quantum>
+	id S1759531Ab3CZKmi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Mar 2013 06:42:38 -0400
+In-Reply-To: <1364294554-7967-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: xunleer <xunleer.li@huawei.com>
 
+When the ixgbevf driver is opened the request to allocate MSIX irq
+vectors may fail.  In that case the driver will call ixgbevf_down()
+which will call ixgbevf_irq_disable() to clear the HW interrupt
+registers and calls synchronize_irq() using the msix_entries pointer in
+the adapter structure.  However, when the function to request the MSIX
+irq vectors failed it had already freed the msix_entries which causes
+an OOPs from using the NULL pointer in synchronize_irq().
 
-On 3/25/2013 9:46 PM, Mike Turquette wrote:
-> Quoting Sekhar Nori (2013-03-25 02:25:47)
->> Use clk_prepare()/clk_unprepare() in the driver since common
->> clock framework needs these to be called before clock is enabled.
->>
->> This is in preparation of common clock framework migration
->> for DaVinci.
->>
->> Cc: Mike Turquette <mturquette@linaro.org>
->> Signed-off-by: Sekhar Nori <nsekhar@ti.com>
->> ---
->>  drivers/net/ethernet/ti/davinci_emac.c |   19 +++++++++++++++++--
->>  1 file changed, 17 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
->> index b1349b5..436296c 100644
->> --- a/drivers/net/ethernet/ti/davinci_emac.c
->> +++ b/drivers/net/ethernet/ti/davinci_emac.c
->> @@ -350,6 +350,7 @@ struct emac_priv {
->>         /*platform specific members*/
->>         void (*int_enable) (void);
->>         void (*int_disable) (void);
->> +       struct clk *clk;
->>  };
->>  
->>  /* EMAC TX Host Error description strings */
->> @@ -1870,19 +1871,29 @@ static int davinci_emac_probe(struct platform_device *pdev)
->>                 dev_err(&pdev->dev, "failed to get EMAC clock\n");
->>                 return -EBUSY;
->>         }
->> +
->> +       rc = clk_prepare(emac_clk);
->> +       if (rc) {
->> +               dev_err(&pdev->dev, "emac clock prepare failed.\n");
->> +               return rc;
->> +       }
->> +
-> 
-> Is clk_enable ever called for emac_clk here?  I don't see it in the
-> diff.  clk_prepare and clk_enable should usually be paired, even if
-> simply calling clk_prepare generates the clock signal that your device
-> needs.
+The calls to pci_disable_msix() and to free the msix_entries memory
+should not occur if device open fails.  Instead they should be called
+during device driver removal to balance with the call to
+pci_enable_msix() and the call to allocate msix_entries memory
+during the device probe and driver load.
 
-clk_enable() is called by pm_runtime framework. Without this patch, the 
-clk_enable() call from pm_clk_resume() will result in a warning when 
-using common clock framework. This issue can actually be fixed by patch
-below which fixes this in drivers/base/power/clock_ops.c so 
-individual drivers don't have to do this, but we need to careful since 
-will break for callers who intend to use the pm_runtime apis from atomic 
-context.
+Signed-off-by: Li Xun <xunleer.li@huawei.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 24 +++++++++++++++++++----
+ 1 file changed, 20 insertions(+), 4 deletions(-)
 
-Anyway, its probably much better to fix this in pm_runtime framework so I will 
-work with Rafael to see if I can come up with something acceptable.
-
-This patch can then be dropped for now, but 1/2 can still be applied.
-That one is pretty harmless!
-
-Thanks,
-Sekhar
-
-diff --git a/drivers/base/power/clock_ops.c b/drivers/base/power/clock_ops.c
-index 9d8fde7..60d389a 100644
---- a/drivers/base/power/clock_ops.c
-+++ b/drivers/base/power/clock_ops.c
-@@ -230,7 +230,7 @@ int pm_clk_suspend(struct device *dev)
-        list_for_each_entry_reverse(ce, &psd->clock_list, node) {
-                if (ce->status < PCE_STATUS_ERROR) {
-                        if (ce->status == PCE_STATUS_ENABLED)
--                               clk_disable(ce->clk);
-+                               clk_disable_unprepare(ce->clk);
-                        ce->status = PCE_STATUS_ACQUIRED;
-                }
-        }
-@@ -259,7 +259,7 @@ int pm_clk_resume(struct device *dev)
-
-        list_for_each_entry(ce, &psd->clock_list, node) {
-                if (ce->status < PCE_STATUS_ERROR) {
--                       clk_enable(ce->clk);
-+                       clk_prepare_enable(ce->clk);
-                        ce->status = PCE_STATUS_ENABLED;
-                }
-        }
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index c3db6cd..2b6cb5c 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -944,9 +944,17 @@ free_queue_irqs:
+ 		free_irq(adapter->msix_entries[vector].vector,
+ 			 adapter->q_vector[vector]);
+ 	}
+-	pci_disable_msix(adapter->pdev);
+-	kfree(adapter->msix_entries);
+-	adapter->msix_entries = NULL;
++	/* This failure is non-recoverable - it indicates the system is
++	 * out of MSIX vector resources and the VF driver cannot run
++	 * without them.  Set the number of msix vectors to zero
++	 * indicating that not enough can be allocated.  The error
++	 * will be returned to the user indicating device open failed.
++	 * Any further attempts to force the driver to open will also
++	 * fail.  The only way to recover is to unload the driver and
++	 * reload it again.  If the system has recovered some MSIX
++	 * vectors then it may succeed.
++	 */
++	adapter->num_msix_vectors = 0;
+ 	return err;
+ }
+ 
+@@ -2572,6 +2580,15 @@ static int ixgbevf_open(struct net_device *netdev)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	int err;
+ 
++	/* A previous failure to open the device because of a lack of
++	 * available MSIX vector resources may have reset the number
++	 * of msix vectors variable to zero.  The only way to recover
++	 * is to unload/reload the driver and hope that the system has
++	 * been able to recover some MSIX vector resources.
++	 */
++	if (!adapter->num_msix_vectors)
++		return -ENOMEM;
++
+ 	/* disallow open during test */
+ 	if (test_bit(__IXGBEVF_TESTING, &adapter->state))
+ 		return -EBUSY;
+@@ -2628,7 +2645,6 @@ static int ixgbevf_open(struct net_device *netdev)
+ 
+ err_req_irq:
+ 	ixgbevf_down(adapter);
+-	ixgbevf_free_irq(adapter);
+ err_setup_rx:
+ 	ixgbevf_free_all_rx_resources(adapter);
+ err_setup_tx:
+-- 
+1.7.11.7
