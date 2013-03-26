@@ -1,85 +1,82 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: Active URB submitted twice in pegasus driver
-Date: Tue, 26 Mar 2013 19:28:53 +0200 (EET)
-Message-ID: <alpine.DEB.2.02.1303261909260.4226@fry.nucleusys.com>
-References: <20130325223834.GF6869@xanatos> <alpine.DEB.2.02.1303261655450.3724@fry.nucleusys.com> <20130326170140.GC10317@xanatos>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net 3/3] ipv4: Fix ip-header identification for gso packets.
+Date: Tue, 26 Mar 2013 10:34:17 -0700
+Message-ID: <CALnjE+qAo5GsnTP=EU87N7KHWXE8UWnhn4HtV16tDJ00SnsKzw@mail.gmail.com>
+References: <1364182589-1766-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: linux-usb@vger.kernel.org, Greg KH <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Sarah Sharp <sarah.a.sharp@linux.intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: amwang@redhat.com
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lan.nucleusys.com ([92.247.61.126]:60341 "EHLO
-	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752941Ab3CZR3E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 13:29:04 -0400
-In-Reply-To: <20130326170140.GC10317@xanatos>
+Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:43251 "HELO
+	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753543Ab3CZReS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 13:34:18 -0400
+Received: by mail-ve0-f197.google.com with SMTP id jz10so6291122veb.0
+        for <netdev@vger.kernel.org>; Tue, 26 Mar 2013 10:34:18 -0700 (PDT)
+In-Reply-To: <1364182589-1766-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 Mar 2013, Sarah Sharp wrote:
+This issue is present in net-tree. Can you apply this patch net-tree?
 
-> On Tue, Mar 26, 2013 at 05:22:07PM +0200, Petko Manolov wrote:
->> On Mon, 25 Mar 2013, Sarah Sharp wrote:
->>
->>> Hi Petko,
->>>
->>> I'm testing a USB to ethernet adapter with Greg's usb-linus branch (based
->>> on 3.9-rc4).  I'm seeing an odd behavior, and I'm suspicious that a
->>> second behavior found by Stephen Hemminger may also be related:
->>>
->>> http://marc.info/?l=linux-usb&m=136364625519235&w=2
->>>
->>> When I load the pegasus driver for this adapter (without an ethernet
->>> cable hooked to it), and this is on a cold system boot or a complete
->>> unloading and reloading of the usbcore, I get the following warning:
->>
->> Unfortunately the machine i ran my tests on does not have xHCI nor i
->> used Greg's tree.  I did not observe this warning on both 3.8.4 and
->> Linus' 3.9-rc4.  It looks like to me that the issue is outside the
->> driver code.
+Thanks.
+
+On Sun, Mar 24, 2013 at 8:36 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+> ip-header id needs to be incremented even if IP_DF flag is set.
+> This behaviour was changed in commit 490ab08127cebc25e3a26
+> (IP_GRE: Fix IP-Identification).
 >
-> Or it could be a race condition that's only triggered by the xHCI driver
-> (or me having xHCI debugging turned on).  Control transfer completions
-> may be delayed when I have debug turned on.
-
-They most likely are.  However, considering the stuff below these delays 
-may not be the real cause.
-
-> The only other USB to ethernet adapter I have is also an ADMteck device:
+> Following patch fixes it so that identification is always
+> incremented.
 >
-> Bus 001 Device 008: ID 07a6:8513 ADMtek, Inc. AN8513 Ethernet
-
-I've got another one, rtl8150 based adapter.  The way things look i'll 
-have to do some testing on my own.
-
-> What do you mean by an asynchronous call?  Do you mean that
-> xxx_set_multicast() could be called at any time?
-
-Yep.  The first call to pegasus_set_multicast() is done by the network 
-layer upon device insertion and those often happen outside process 
-context.
-
-> After taking a brief glance at the pegasus code, pegasus_set_multicast 
-> looks broken.  It sets the control URB status to zero and calls 
-> ctrl_callback(), which does some stuff if the URB status is zero.  It 
-> doesn't look like pegasus_set_multicast() is an URB callback function, 
-> so why in the world is it touching a control URB that could possibly be 
-> in flight else where?
-
-Beats me, i've got nothing to do with this driver. :-P
-
-Anyway, playing with the URB status looks rather stupid and is definitely 
-a bug.  I'll make a patch that fixes the problem.
-
-> It looks like the control URB is used to do things like get or set 
-> registers, so what's stopping the upper layers from calling get 
-> registers (which will submit the control URB and schedule a wait queue), 
-> and then pegasus_set_multicast(), which will go overwrite the active URB 
-> status?  USB device drivers should not be writing or reading fields in a 
-> submitted URB until the completion handler's callback function is 
-> called.
-
-Err, see my previous comment.  It can't be me.  Maybe i've been too drunk. 
-Or stupid.  Or both... :-)
+> Reported-by: Cong Wang <amwang@redhat.com>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> ---
+>  include/net/ipip.h |   16 ++++++----------
+>  net/ipv4/af_inet.c |    3 +--
+>  2 files changed, 7 insertions(+), 12 deletions(-)
+>
+> diff --git a/include/net/ipip.h b/include/net/ipip.h
+> index 0c046e3..483b91a 100644
+> --- a/include/net/ipip.h
+> +++ b/include/net/ipip.h
+> @@ -74,15 +74,11 @@ static inline void tunnel_ip_select_ident(struct sk_buff *skb,
+>  {
+>         struct iphdr *iph = ip_hdr(skb);
+>
+> -       if (iph->frag_off & htons(IP_DF))
+> -               iph->id = 0;
+> -       else {
+> -               /* Use inner packet iph-id if possible. */
+> -               if (skb->protocol == htons(ETH_P_IP) && old_iph->id)
+> -                       iph->id = old_iph->id;
+> -               else
+> -                       __ip_select_ident(iph, dst,
+> -                                         (skb_shinfo(skb)->gso_segs ?: 1) - 1);
+> -       }
+> +       /* Use inner packet iph-id if possible. */
+> +       if (skb->protocol == htons(ETH_P_IP) && old_iph->id)
+> +               iph->id = old_iph->id;
+> +       else
+> +               __ip_select_ident(iph, dst,
+> +                                 (skb_shinfo(skb)->gso_segs ?: 1) - 1);
+>  }
+>  #endif
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index 9e5882c..70b2d4c 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -1334,8 +1334,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+>                                 iph->frag_off |= htons(IP_MF);
+>                         offset += (skb->len - skb->mac_len - iph->ihl * 4);
+>                 } else  {
+> -                       if (!(iph->frag_off & htons(IP_DF)))
+> -                               iph->id = htons(id++);
+> +                       iph->id = htons(id++);
+>                 }
+>                 iph->tot_len = htons(skb->len - skb->mac_len);
+>                 iph->check = 0;
+> --
+> 1.7.1
+>
