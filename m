@@ -1,77 +1,62 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the wireless
- tree
-Date: Tue, 26 Mar 2013 11:51:20 +1100
-Message-ID: <20130326115120.054f909e36cdc63b5607a8a8@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Tue__26_Mar_2013_11_51_20_+1100_0ajwKeG+fm0T/OIm"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Johannes Berg <johannes.berg@intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Stanislaw Gruszka <sgruszka@redhat.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH v4 net-next 0/5] Tunneling: Tunnel restructuring.
+Date: Mon, 25 Mar 2013 17:49:29 -0700
+Message-ID: <1364258969-3120-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, jesse@nicira.com,
+	Pravin B Shelar <pshelar@nicira.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na6sys009bog022.obsmtp.com ([74.125.150.84]:36045 "HELO
+	na6sys009bog022.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753202Ab3CZAzA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 20:55:00 -0400
+Received: by mail-pa0-f72.google.com with SMTP id fa10so3083721pad.3
+        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 17:54:59 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__26_Mar_2013_11_51_20_+1100_0ajwKeG+fm0T/OIm
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Following patch series restructure GRE and IPIP tunneling code
+to make it modular. It adds ip_tunnel module which acts as
+generic tunneling layer which has common code.
 
-Hi all,
+These patches do not change any functionality.
+v3:v4:
+ - Fixed compilation error in ipv6.
+ - Few coding style fixes.
+v2-v3:
+ - Use GPL exports for all export symbols.
+ - Set default config NET_IP_TUNNEL to m.
+v1-v2:
+ - Dropped patch to convert gre_proto_lock to rtnl lock.
 
-Today's linux-next merge of the net-next tree got a conflict in
-net/wireless/core.h between commit f9f475292dbb ("cfg80211: always check
-for scan end on P2P device") from the wireless tree and commit
-812569699119 ("cfg80211/mac80211: disconnect on suspend") from the
-net-next tree.
+Pravin B Shelar (5):
+  GRE: Refactor GRE tunneling code.
+  IPIP: Use ip-tunneling code.
+  VXLAN: Fix vxlan stats handling.
+  VXLAN: Use IP Tunnels tunnel ENC encap API
+  Tunneling: use IP Tunnel stats APIs.
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
---=20
-Stephen Rothwell <sfr@canb.auug.org.au>
-
-diff --cc net/wireless/core.h
-index 5845c2b,d5d06fd..0000000
---- a/net/wireless/core.h
-+++ b/net/wireless/core.h
-@@@ -503,9 -500,9 +500,12 @@@ int cfg80211_validate_beacon_int(struc
-  void cfg80211_update_iface_num(struct cfg80211_registered_device *rdev,
-  			       enum nl80211_iftype iftype, int num);
- =20
- +void cfg80211_stop_p2p_device(struct cfg80211_registered_device *rdev,
- +			      struct wireless_dev *wdev);
- +
-+ void cfg80211_leave(struct cfg80211_registered_device *rdev,
-+ 		    struct wireless_dev *wdev);
-+=20
-  #define CFG80211_MAX_NUM_DIFFERENT_CHANNELS 10
- =20
-  #ifdef CONFIG_CFG80211_DEVELOPER_WARNINGS
-
---Signature=_Tue__26_Mar_2013_11_51_20_+1100_0ajwKeG+fm0T/OIm
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBCAAGBQJRUPEIAAoJEECxmPOUX5FEKM4P/2m6YToka03lwMpadGhuswXP
-E83mewAQ2hU1gq3wEBA8mlSbwYE93axxJK8gK0t/INwVIdJR1/5FtzyGrIPOXOaq
-F1+1jQ7+a7D7SsDZ7HkKmj7ZcFdHp0OySEjlF25w2Yym2M1VyTQZnOkKzz1fmODx
-FEwiGP+CrzNLHKrR9qf1HRlD/4l7T+GbEJnjKUF0swj3fr0M9kP6g62QJ+zMudJj
-CwFf8e30Cn1bpBh+Q+zx9B1LwUAX4B3Z1/MMVX1lpQS76od/+Kcpil5N2Lqnvhd/
-AHxTiFMAhRlDAbztwHoXKGn2jUoy/lyILOjO4ne2o1FHq04idOruk8KIBWTIRywK
-f2F9xQTiD/vbbGM9MC20rjlbM26cHdyc8ql5Gz8D7dUpYWszrwQjIuKG3IB3c0vT
-XJVio8gkbOXw0bIKzfvtqtNjyLVo5U4YDclJnbTohsZ8WWT/8/6EmK/sRyuSLDOK
-uU0Em6/vupTB5mb+aWTlEAGFiuQEhTCUdiInsWK3TnDRmR3slTUND2pMBBri7V1l
-5MzMZrvgYP1WOwOBTTT2rcDVmkTnhmg/3bSTaer7AX4CxeAaj0YVdcIwJoJdSrMH
-BQRYSmDpsuvk2xFwxkyZzq+SreItIg264qxREo3D589Zza9GjCUkdLgAK/o/a+gl
-KUceOF/dbjGuRoBJd35a
-=+5kA
------END PGP SIGNATURE-----
-
---Signature=_Tue__26_Mar_2013_11_51_20_+1100_0ajwKeG+fm0T/OIm--
+ drivers/net/Kconfig      |    1 +
+ drivers/net/vxlan.c      |  100 +---
+ include/net/gre.h        |   51 ++
+ include/net/ip6_tunnel.h |    1 +
+ include/net/ip_tunnels.h |  177 ++++++
+ include/net/ipip.h       |   84 ---
+ net/ipv4/Kconfig         |    7 +
+ net/ipv4/Makefile        |    1 +
+ net/ipv4/af_inet.c       |    1 -
+ net/ipv4/gre.c           |    5 -
+ net/ipv4/ip_gre.c        | 1504 ++++++++++------------------------------------
+ net/ipv4/ip_tunnel.c     | 1035 +++++++++++++++++++++++++++++++
+ net/ipv4/ip_vti.c        |   42 +--
+ net/ipv4/ipip.c          |  748 ++---------------------
+ net/ipv4/ipmr.c          |    2 +-
+ net/ipv6/Kconfig         |    2 +
+ net/ipv6/af_inet6.c      |    1 -
+ net/ipv6/ip6_gre.c       |   45 +--
+ net/ipv6/ip6_tunnel.c    |    1 +
+ net/ipv6/sit.c           |   39 +--
+ 20 files changed, 1668 insertions(+), 2179 deletions(-)
+ create mode 100644 include/net/ip_tunnels.h
+ delete mode 100644 include/net/ipip.h
+ create mode 100644 net/ipv4/ip_tunnel.c
