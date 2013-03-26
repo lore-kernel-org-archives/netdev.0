@@ -1,40 +1,32 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH] bonding: cleanup unneeded rcu_read_lock()
-Date: Tue, 26 Mar 2013 15:10:02 +0100
-Message-ID: <1364307002-11242-1-git-send-email-vfalico@redhat.com>
-Cc: vfalico@redhat.com, andy@greyhouse.net, fubar@us.ibm.com
-To: netdev@vger.kernel.org
+From: Serge Hallyn <serge.hallyn@ubuntu.com>
+Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
+Date: Tue, 26 Mar 2013 09:17:47 -0500
+Message-ID: <20130326141747.GA18692@sergelap>
+References: <CD773D0D.7614%blourdel@juniper.net>
+ <87wqsu72r6.fsf@xmission.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Benoit Lourdelet <blourdel@juniper.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32052 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759792Ab3CZOLL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Mar 2013 10:11:11 -0400
+Received: from youngberry.canonical.com ([91.189.89.112]:53003 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758355Ab3CZOR5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 10:17:57 -0400
+Content-Disposition: inline
+In-Reply-To: <87wqsu72r6.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bond_resend_igmp_join_requests_delayed() calls _resend_igmp_join_requests()
-under rcu_read_lock(), while it gets its own rcu_read_lock() for the whole
-function. Remove the lock from the _delayed function.
+Quoting Eric W. Biederman (ebiederm@xmission.com):
+> Specifing the names would dramatically improve your creation
+> performance.  It should only take you about 10s for 5000 veth pairs.
+> But you have to specify the names.
 
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bond_main.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+Thanks, Eric.  I'm going to update lxc to always specify names for
+the veth pairs, rather than only when they are requested by the
+user's configuration file.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 6bbd90e..11a8cb3 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -796,9 +796,8 @@ static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
- {
- 	struct bonding *bond = container_of(work, struct bonding,
- 					    mcast_work.work);
--	rcu_read_lock();
-+
- 	bond_resend_igmp_join_requests(bond);
--	rcu_read_unlock();
- }
- 
- /*
--- 
-1.7.1
+-serge
