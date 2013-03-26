@@ -1,60 +1,79 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next] ptp: increase the maximum number of clocks
-Date: Tue, 26 Mar 2013 10:48:36 +0100
-Message-ID: <20130326104836.1379592f@griffin>
-References: <d219aa87bd5b3e2fa42449720d845a7110f642f0.1363893841.git.jbenc@redhat.com>
-	<20130321.172017.1499060411785395307.davem@davemloft.net>
-	<20130323175915.GA3036@netboy.at.omicron.at>
-	<20130325170855.0194ce13@griffin>
-	<20130325185120.GB3100@netboy.at.omicron.at>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH 5/6] xen-netback: coalesce slots before
+ copying
+Date: Tue, 26 Mar 2013 09:51:00 +0000
+Message-ID: <20130326095100.GE7004@zion.uk.xensource.com>
+References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
+ <1364209702-12437-6-git-send-email-wei.liu2@citrix.com>
+ <5150699C.6080209@citrix.com>
+ <CAOsiSVUNO0FQkfJWjv9bcoMgKNnHu4XYciz61hG3YNFzZNxK3w@mail.gmail.com>
+ <51507C9B.3080109@citrix.com>
+ <CAOsiSVV8gtKqFxyAr3XN9YF78WjtFqzvx5mnA1dKTrS_4qzXBw@mail.gmail.com>
+ <51509789.8090608@citrix.com>
+ <20130325190911.GC7004@zion.uk.xensource.com>
+ <291EDFCB1E9E224A99088639C4762022013F7D8E0DC6@LONPMAILBOX01.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Vrabel <david.vrabel@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <liuw@liuw.name>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"annie.li@oracle.com" <annie.li@oracle.com>
+To: Paul Durrant <Paul.Durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7303 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757306Ab3CZJsq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Mar 2013 05:48:46 -0400
-In-Reply-To: <20130325185120.GB3100@netboy.at.omicron.at>
+Received: from smtp02.citrix.com ([66.165.176.63]:18472 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753652Ab3CZJvC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 05:51:02 -0400
+Content-Disposition: inline
+In-Reply-To: <291EDFCB1E9E224A99088639C4762022013F7D8E0DC6@LONPMAILBOX01.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 25 Mar 2013 19:51:20 +0100, Richard Cochran wrote:
-> While that might work for the PTP ioctls, it won't for the main
-> clock_gettime/settime/adjtime call. As you wrote below, these take a
-> dynamic clockid_t (which comes from a file descriptor), and so each
-> device needs its own, unique file system node.
-
-They need an unique file descriptor, not an unique file. There's nothing
-preventing you from opening the same file multiple times, using each
-obtained file descriptor to access a different PHC. Sure, there is
-currently no place to store a per-fd data in posix-clock implementation
-but that could be added.
-
-> For better or worse, we are stuck with char devs, unless we want to
-> redo the clock_xyz API. I certainly don't want to. We can have over a
-> million PTP clocks on a single major number. That should be enough.
+On Tue, Mar 26, 2013 at 09:16:10AM +0000, Paul Durrant wrote:
+> > >
+> > > It's not clear why 19 or 20 were suggested as possible values.  I
+> > > checked back to 2.6.18 and MAX_SKB_FRAGS there is (65536/PAGE_SIZE
+> > > +
+> > 2)
+> > 
+> > Because the check is >= MAX_SKB_FRAGS originally and James Harper
+> > told me that "Windows stops counting on 20".
+> > 
 > 
-> IIRC, it is possible to grow the range of minor numbers
-> incrementally. Perhaps you could take a look at that?
+> For the Citrix PV drivers I lifted the #define of MAX_SKB_FRAGS from
+> the dom0 kernel (i.e. 18). If a packet coming from the stack has more
 
-That was what I was originally thinking about. But I don't like it much
-- the overhead will increase significantly with increasing number of
-devices, as the chrdev allocations for a given major are kept in a
-linked list which has to be completely traversed on each allocation.
-We'd also need to replace the ptp_clocks_map with a different data
-structure (e.g. a linked list of bitmaps if we allocate minors in
-chunks to alleviate the chrdev allocation overhead), not helping the
-overhead.
+That means Citrix PV drivers cannot run on a vanilla kernel backend
+because upstream MAX_SKB_FRAGS now is 17. The scope of the patch is to
+fix this sort of problems without touching frontend because it is
+impossible for us to fix every frontend in the world.
 
-Please correct me if I misunderstood something.
+> than that number of fragments then it's copied and coalesced. The
+> value advertised for TSO size is chosen such that a maximally sized
+> TSO will always fit in 18 fragments after coalescing but (since this
+> is Windows) the drivers don't trust the stack to stick to that limit
+> and will drop a packet if it won't fit.
+> 
+> It seems reasonable that, since the backend is copying anyway, that it
+> should handle any fragment list coming from the frontend that it can.
+> This would allow the copy-and-coalesce code to be removed from the
+> frontend (and the double-copy avoided). If there is a maximum backend
+> packet size though then I think this needs to be advertised to the
+> frontend. The backend should clearly bin packets coming from the
+> frontend that exceed that limit but advertising that limit in xenstore
+> allows the frontend to choose the right TSO maximum size to advertise
+> to its stack, rather than having to make it based on some historical
+> value that actually has little meaning (in the absence of grant
+> mapping).
+> 
 
-Thanks for the ideas,
+The historical is choosen based on the idea that it should cope with all
+known frontend limits and leave a bit more space for frontends that
+slightly cross the line. Advertising through Xenstore is the future plan
+as it cannot be done without modifying frontend.
 
- Jiri
 
--- 
-Jiri Benc
+Wei.
