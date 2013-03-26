@@ -1,8 +1,8 @@
 From: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH v2 net-next 08/12] 6lowpan: store
-	fragment tag values per device instead of net stack wide
-Date: Mon, 25 Mar 2013 23:59:28 -0400
-Message-ID: <1364270372-19430-9-git-send-email-tony.cheneau@amnesiak.org>
+Subject: [PATCH v2 net-next 09/12] mac802154: add
+	mac802154_dev_get_dsn()
+Date: Mon, 25 Mar 2013 23:59:29 -0400
+Message-ID: <1364270372-19430-10-git-send-email-tony.cheneau@amnesiak.org>
 References: <1364270372-19430-1-git-send-email-tony.cheneau@amnesiak.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,65 +23,59 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Bring-over mac802154_dev_get_dsn() function that was present in the
+Linux ZigBee kernel. This function is called by the 6LoWPAN code in
+order to properly set the DSN (Data Sequence Number) value in the IEEE
+802.15.4 frame.
+
 Signed-off-by: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
 ---
- net/ieee802154/6lowpan.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ net/mac802154/mac802154.h | 1 +
+ net/mac802154/mac_cmd.c   | 1 +
+ net/mac802154/mib.c       | 9 +++++++++
+ 3 files changed, 11 insertions(+)
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 61eee9d..f952451 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -104,6 +104,7 @@ static const u8 lowpan_llprefix[] = {0xfe, 0x80};
- struct lowpan_dev_info {
- 	struct net_device	*real_dev; /* real WPAN device ptr */
- 	struct mutex		dev_list_mtx; /* mutex for list ops */
-+	unsigned short fragment_tag;
+diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
+index a4dcaf1..21fa386 100644
+--- a/net/mac802154/mac802154.h
++++ b/net/mac802154/mac802154.h
+@@ -114,5 +114,6 @@ void mac802154_dev_set_ieee_addr(struct net_device *dev);
+ u16 mac802154_dev_get_pan_id(const struct net_device *dev);
+ void mac802154_dev_set_pan_id(struct net_device *dev, u16 val);
+ void mac802154_dev_set_page_channel(struct net_device *dev, u8 page, u8 chan);
++u8 mac802154_dev_get_dsn(const struct net_device *dev);
+ 
+ #endif /* MAC802154_H */
+diff --git a/net/mac802154/mac_cmd.c b/net/mac802154/mac_cmd.c
+index d8d2770..a99910d 100644
+--- a/net/mac802154/mac_cmd.c
++++ b/net/mac802154/mac_cmd.c
+@@ -73,4 +73,5 @@ struct ieee802154_mlme_ops mac802154_mlme_wpan = {
+ 	.start_req = mac802154_mlme_start_req,
+ 	.get_pan_id = mac802154_dev_get_pan_id,
+ 	.get_short_addr = mac802154_dev_get_short_addr,
++	.get_dsn = mac802154_dev_get_dsn,
  };
- 
- struct lowpan_dev_record {
-@@ -120,7 +121,6 @@ struct lowpan_fragment {
- 	struct list_head	list;		/* fragments list */
- };
- 
--static unsigned short fragment_tag;
- static LIST_HEAD(lowpan_fragments);
- static DEFINE_SPINLOCK(flist_lock);
- 
-@@ -1027,14 +1027,14 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
+diff --git a/net/mac802154/mib.c b/net/mac802154/mib.c
+index f47781a..f03e55f 100644
+--- a/net/mac802154/mib.c
++++ b/net/mac802154/mib.c
+@@ -159,6 +159,15 @@ void mac802154_dev_set_pan_id(struct net_device *dev, u16 val)
+ 	}
  }
  
- static int
--lowpan_skb_fragmentation(struct sk_buff *skb)
-+lowpan_skb_fragmentation(struct sk_buff *skb, struct net_device *dev)
++u8 mac802154_dev_get_dsn(const struct net_device *dev)
++{
++	struct mac802154_sub_if_data *priv = netdev_priv(dev);
++
++	BUG_ON(dev->type != ARPHRD_IEEE802154);
++
++	return priv->dsn++;
++}
++
+ static void phy_chan_notify(struct work_struct *work)
  {
- 	int  err, header_length, payload_length, tag, offset = 0;
- 	u8 head[5];
- 
- 	header_length = lowpan_get_mac_header_length(skb);
- 	payload_length = skb->len - header_length;
--	tag = fragment_tag++;
-+	tag = lowpan_dev_info(dev)->fragment_tag++;
- 
- 	/* first fragment header */
- 	head[0] = LOWPAN_DISPATCH_FRAG1 | ((payload_length >> 8) & 0x7);
-@@ -1099,7 +1099,7 @@ static netdev_tx_t lowpan_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 	pr_debug("frame is too big, fragmentation is needed\n");
--	err = lowpan_skb_fragmentation(skb);
-+	err = lowpan_skb_fragmentation(skb, dev);
- error:
- 	dev_kfree_skb(skb);
- out:
-@@ -1243,6 +1243,7 @@ static int lowpan_newlink(struct net *src_net, struct net_device *dev,
- 		return -ENODEV;
- 
- 	lowpan_dev_info(dev)->real_dev = real_dev;
-+	lowpan_dev_info(dev)->fragment_tag = 0;
- 	mutex_init(&lowpan_dev_info(dev)->dev_list_mtx);
- 
- 	entry = kzalloc(sizeof(struct lowpan_dev_record), GFP_KERNEL);
+ 	struct phy_chan_notify_work *nw = container_of(work,
 -- 
 1.7.12.4
 
