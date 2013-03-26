@@ -1,48 +1,79 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 net-next 08/12] 6lowpan: store fragment tag values
- per device instead of net stack wide
-Date: Tue, 26 Mar 2013 16:38:15 +0400
-Message-ID: <515196B7.2010507@cogentembedded.com>
-References: <1364270372-19430-1-git-send-email-tony.cheneau@amnesiak.org> <1364270372-19430-9-git-send-email-tony.cheneau@amnesiak.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
+Date: Tue, 26 Mar 2013 05:40:45 -0700
+Message-ID: <87wqsu72r6.fsf@xmission.com>
+References: <CD773D0D.7614%blourdel@juniper.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Alan Ott <alan@signal11.us>,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
-To: Tony Cheneau <tony.cheneau@amnesiak.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	Serge Hallyn <serge.hallyn@ubuntu.com>
+To: Benoit Lourdelet <blourdel@juniper.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:37410 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759528Ab3CZMjS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 08:39:18 -0400
-Received: by mail-la0-f42.google.com with SMTP id fe20so13493405lab.1
-        for <netdev@vger.kernel.org>; Tue, 26 Mar 2013 05:39:16 -0700 (PDT)
-In-Reply-To: <1364270372-19430-9-git-send-email-tony.cheneau@amnesiak.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:55246 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758077Ab3CZMk4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 08:40:56 -0400
+In-Reply-To: <CD773D0D.7614%blourdel@juniper.net> (Benoit Lourdelet's message
+	of "Tue, 26 Mar 2013 11:51:07 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Benoit Lourdelet <blourdel@juniper.net> writes:
 
-On 26-03-2013 7:59, Tony Cheneau wrote:
+> Hello,
+>
+> I re-tested with the patch and got the following results on a 32x 2Gh=
+z
+> core system.
+>
+> # veth 	add 	delete
+> 1000 	36 	34
+> 3000 	259 	137
+> 4000 	462 	195
+> 5000 	729     N/A
+>
+> The script to create is the following :
+> for i in `seq 1 5000`; do
+> 	sudo ip link add type veth
+> Done
 
-> Signed-off-by: Tony Cheneau <tony.cheneau@amnesiak.org>
-> ---
->   net/ieee802154/6lowpan.c | 9 +++++----
->   1 file changed, 5 insertions(+), 4 deletions(-)
+Which performs horribly as I mentioned earlier because you are asking
+the kernel to create the names.  If you want performance you need to
+specify the names of the network devices you are creating.
 
-> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-> index 61eee9d..f952451 100644
-> --- a/net/ieee802154/6lowpan.c
-> +++ b/net/ieee802154/6lowpan.c
-> @@ -104,6 +104,7 @@ static const u8 lowpan_llprefix[] = {0xfe, 0x80};
->   struct lowpan_dev_info {
->   	struct net_device	*real_dev; /* real WPAN device ptr */
->   	struct mutex		dev_list_mtx; /* mutex for list ops */
-> +	unsigned short fragment_tag;
+aka ip link add a$i type veth name b$i
 
-    Small formatting nit: align field name with the others above please.
+> The script to delete:
+> for d in /sys/class/net/veth*; do
+> 	ip link del `basename $d` 2>/dev/null || true
+> Done
+>
+> There is a very good improvement in deletion.
+>
+>
+>
+> iproute2 does not seems to be well multithread as I get time divided =
+by a
+> factor of 2 with a 8x  3.2 Ghz core system.
 
-WBR, Sergei
+All netlink traffic and all network stack configuration is serialized b=
+y
+the rtnl_lock in the kernel.  This is the slow path in the kernel, not
+the fast path.
+
+> I don=C2=B9t know if that is the improvement you expected ?
+>
+> Would the iproute2 redesign you mentioned help improve performance ev=
+en
+> further ?
+
+Specifing the names would dramatically improve your creation
+performance.  It should only take you about 10s for 5000 veth pairs.
+But you have to specify the names.
+
+Anyway I have exhausted my time, and inclination in this matter.  Good
+luck with whatever your problem is.
+
+Eric
