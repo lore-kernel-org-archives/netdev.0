@@ -1,49 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: defxx: skb_push() failing?
-Date: Tue, 26 Mar 2013 08:15:00 -0700
-Message-ID: <1364310900.1716.21.camel@edumazet-glaptop>
-References: <5151B0CE.5000000@ll.mit.edu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, macro@linux-mips.org
-To: David Oostdyk <daveo@ll.mit.edu>
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: [PATCH net-next 1/1] net: fec: TX Buffer incorrectly initialized
+Date: Tue, 26 Mar 2013 15:25:07 +0000
+Message-ID: <1364311507-7489-1-git-send-email-jim_baxter@mentor.com>
+References: <y>
+Cc: Fabio Estevam <fabio.estevam@freescale.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f42.google.com ([209.85.210.42]:48132 "EHLO
-	mail-da0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934485Ab3CZPPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 11:15:04 -0400
-Received: by mail-da0-f42.google.com with SMTP id n15so3715540dad.29
-        for <netdev@vger.kernel.org>; Tue, 26 Mar 2013 08:15:03 -0700 (PDT)
-In-Reply-To: <5151B0CE.5000000@ll.mit.edu>
+Received: from relay1.mentorg.com ([192.94.38.131]:37641 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965357Ab3CZPZU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 11:25:20 -0400
+In-Reply-To: <y>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-03-26 at 10:29 -0400, David Oostdyk wrote:
-> Hello,
-> 
-> In dfx_xmt_queue_pkt() in defxx.c, there is a skb_push(3) call which 
-> makes room for 3 packet request header bytes.  There is some discussion 
-> in the driver explaining why those three bytes will be available.  I 
-> have an old FDDI card that I'm trying to bring up:
-> 
-> 05:05.0 FDDI network controller: Digital Equipment Corporation 
-> PCI-to-PDQ Interface Chip [PFI] (rev 02)
-> 
-> Most skbuffs that come through dfx_xmit_queue_pkt() have 11 bytes 
-> between skb->head and skb->data.  On the other hand, at almost exactly 
-> 60-second intervals, an skb arrives that has zero bytes between 
-> skb->head and skb->data.  This normally causes a kernel panic, and for 
-> the time I just skip over such skb's.
-> 
-> Does anyone have advice on where I should start digging to find the 
-> cause of this?
-> 
+The TX Buffer in fec_enet_alloc_buffers was being initialized
+with the receive register define BD_ENET_RX_INT instead of
+the transmit register define BD_ENET_TX_INT
 
-Have you read comments in defxx.c file around line 151 ?
+Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-If one skb arrives with not enough headroom, you could add a
-
-WARN_ON_ONCE(skb_headroom(skb) < 3);
-
-and report stack trace so that we can identify and fix the caller.
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 3eb608f..2b78a1e 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1391,7 +1391,7 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
+ 
+ 		if (fep->bufdesc_ex) {
+ 			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
+-			ebdp->cbd_esc = BD_ENET_RX_INT;
++			ebdp->cbd_esc = BD_ENET_TX_INT;
+ 		}
+ 
+ 		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
+-- 
+1.7.10.4
