@@ -1,42 +1,42 @@
-From: Hong Zhiguo <honkiko@gmail.com>
-Subject: [PATCH net-next] netlink: remove duplicated NLMSG_ALIGN
-Date: Tue, 26 Mar 2013 13:04:05 +0800
-Message-ID: <1364274245-20689-1-git-send-email-honkiko@gmail.com>
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-	zhiguo.hong@emc.com
-To: netdev@vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: [net-next 0/5] set transport header for untrusted packets
+Date: Tue, 26 Mar 2013 14:19:54 +0800
+Message-ID: <1364278799-37285-1-git-send-email-jasowang@redhat.com>
+Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f48.google.com ([209.85.210.48]:41250 "EHLO
-	mail-da0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752825Ab3CZFER (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 01:04:17 -0400
-Received: by mail-da0-f48.google.com with SMTP id p8so3482817dan.7
-        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 22:04:17 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:44427 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753759Ab3CZG3V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Mar 2013 02:29:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NLMSG_HDRLEN is already aligned value. It's for directly reference
-without extra alignment.
+We don't set transport header for untrusted packets in the past, but for the
+follwoing reasons, we need to do it now.
 
-The redundant alignment here may confuse the API users.
+- Better packet length estimation (introduced in 1def9238) needs l4 header for
+  gso packets to compute the header length.
+- Some driver needs l4 header (e.g. ixgbe needs tcp header to do atr).
 
-Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
----
- include/uapi/linux/netlink.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+So this patches tries to set transport header for packets from untrusted source
+(netback, packet, tuntap, macvtap). Plus a fix for better estimation on packet
+length for DODGY packet.
 
-diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
-index 78d5b8a..32a354f 100644
---- a/include/uapi/linux/netlink.h
-+++ b/include/uapi/linux/netlink.h
-@@ -78,7 +78,7 @@ struct nlmsghdr {
- #define NLMSG_ALIGNTO	4U
- #define NLMSG_ALIGN(len) ( ((len)+NLMSG_ALIGNTO-1) & ~(NLMSG_ALIGNTO-1) )
- #define NLMSG_HDRLEN	 ((int) NLMSG_ALIGN(sizeof(struct nlmsghdr)))
--#define NLMSG_LENGTH(len) ((len)+NLMSG_ALIGN(NLMSG_HDRLEN))
-+#define NLMSG_LENGTH(len) ((len) + NLMSG_HDRLEN)
- #define NLMSG_SPACE(len) NLMSG_ALIGN(NLMSG_LENGTH(len))
- #define NLMSG_DATA(nlh)  ((void*)(((char*)nlh) + NLMSG_LENGTH(0)))
- #define NLMSG_NEXT(nlh,len)	 ((len) -= NLMSG_ALIGN((nlh)->nlmsg_len), \
--- 
-1.7.10.4
+Tested on tun/macvtap/packet, compile test on netback.
+
+Jason Wang (5):
+  macvtap: set transport header before passing skb to lower device
+  tuntap: set transport header before passing it to kernel
+  packet: set transport header before doing xmit
+  netback: set transport header before passing it to kernel
+  net_sched: better precise estimation on packet length for untrusted
+    packets
+
+ drivers/net/macvtap.c             |    9 +++++++++
+ drivers/net/tun.c                 |   10 ++++++++++
+ drivers/net/xen-netback/netback.c |   12 ++++++++++++
+ net/core/dev.c                    |    8 +++++++-
+ net/packet/af_packet.c            |   21 +++++++++++++++++++++
+ 5 files changed, 59 insertions(+), 1 deletions(-)
