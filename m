@@ -1,15 +1,14 @@
 From: Stefan Schmidt <stefan-OrPQZGeq07wqhVmZOOOmNx2eb7JE58TQ@public.gmane.org>
-Subject: [PATCH 1/3] ieee802154/dgram: Pass source
-	address in dgram_recvmsg
-Date: Tue, 26 Mar 2013 22:41:29 +0000
-Message-ID: <1364337691-20163-2-git-send-email-stefan@datenfreihafen.org>
+Subject: [PATCH 3/3] ieee802154/at86rf230: Fix register
+	names for RX_AACK_ON and TX_ARET_ON
+Date: Tue, 26 Mar 2013 22:41:31 +0000
+Message-ID: <1364337691-20163-4-git-send-email-stefan@datenfreihafen.org>
 References: <1364337691-20163-1-git-send-email-stefan@datenfreihafen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?UTF-8?q?Stephen=20R=C3=B6ttger?= <stephen.roettger-TeCqvEHXhnIW3Ws93icwHA@public.gmane.org>,
-	alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 In-Reply-To: <1364337691-20163-1-git-send-email-stefan-OrPQZGeq07wqhVmZOOOmNx2eb7JE58TQ@public.gmane.org>
@@ -23,37 +22,36 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogU3RlcGhlbiBSw7Z0dGdlciA8c3RlcGhlbi5yb2V0dGdlckB6ZXJvLWVudHJvcHkuZGU+
-CgpUaGlzIHBhdGNoIGxldHMgZGdyYW1fcmVjdm1zZyBmaWxsIGluIHRoZSBzb2NrYWRkciBzdHJ1
-Y3QgaW4KbXNnLT5tc2dfbmFtZSB3aXRoIHRoZSBzb3VyY2UgYWRkcmVzcyBvZiB0aGUgcGFja2V0
-LgpUaGlzIGlzIHVzZWQgYnkgdGhlIHVzZXJsYW5kIGZ1bmN0aW9ucyByZWN2bXNnIGFuZCByZWN2
-ZnJvbSB0byBnZXQgdGhlCnNlbmRlcnMgYWRkcmVzcy4KCltTdGVmYW46IENoYW5nZWQgZnJvbSBv
-bGQgemlnYmVlIGxlZ2FjeSB0cmVlIHRvIG1haW5saW5lXQoKU2lnbmVkLW9mZi1ieTogU3RlcGhl
-biBSw7Z0dGdlciA8c3RlcGhlbi5yb2V0dGdlckB6ZXJvLWVudHJvcHkuZGU+ClNpZ25lZC1vZmYt
-Ynk6IFN0ZWZhbiBTY2htaWR0IDxzdGVmYW5AZGF0ZW5mcmVpaGFmZW4ub3JnPgotLS0KIG5ldC9p
-ZWVlODAyMTU0L2RncmFtLmMgfCAgIDEwICsrKysrKysrKysKIDEgZmlsZSBjaGFuZ2VkLCAxMCBp
-bnNlcnRpb25zKCspCgpkaWZmIC0tZ2l0IGEvbmV0L2llZWU4MDIxNTQvZGdyYW0uYyBiL25ldC9p
-ZWVlODAyMTU0L2RncmFtLmMKaW5kZXggZTBkYTE3NS4uNTgxYTU5NSAxMDA2NDQKLS0tIGEvbmV0
-L2llZWU4MDIxNTQvZGdyYW0uYworKysgYi9uZXQvaWVlZTgwMjE1NC9kZ3JhbS5jCkBAIC0yOTEs
-NiArMjkxLDkgQEAgc3RhdGljIGludCBkZ3JhbV9yZWN2bXNnKHN0cnVjdCBraW9jYiAqaW9jYiwg
-c3RydWN0IHNvY2sgKnNrLAogCXNpemVfdCBjb3BpZWQgPSAwOwogCWludCBlcnIgPSAtRU9QTk9U
-U1VQUDsKIAlzdHJ1Y3Qgc2tfYnVmZiAqc2tiOworCXN0cnVjdCBzb2NrYWRkcl9pZWVlODAyMTU0
-ICpzYWRkcjsKKworCXNhZGRyID0gKHN0cnVjdCBzb2NrYWRkcl9pZWVlODAyMTU0ICopbXNnLT5t
-c2dfbmFtZTsKIAogCXNrYiA9IHNrYl9yZWN2X2RhdGFncmFtKHNrLCBmbGFncywgbm9ibG9jaywg
-JmVycik7CiAJaWYgKCFza2IpCkBAIC0zMDksNiArMzEyLDEzIEBAIHN0YXRpYyBpbnQgZGdyYW1f
-cmVjdm1zZyhzdHJ1Y3Qga2lvY2IgKmlvY2IsIHN0cnVjdCBzb2NrICpzaywKIAogCXNvY2tfcmVj
-dl90c19hbmRfZHJvcHMobXNnLCBzaywgc2tiKTsKIAorCWlmIChzYWRkcikgeworCQlzYWRkci0+
-ZmFtaWx5ID0gQUZfSUVFRTgwMjE1NDsKKwkJc2FkZHItPmFkZHIgPSBtYWNfY2Ioc2tiKS0+c2E7
-CisJfQorCWlmIChhZGRyX2xlbikKKwkJKmFkZHJfbGVuID0gc2l6ZW9mKCpzYWRkcik7CisKIAlp
-ZiAoZmxhZ3MgJiBNU0dfVFJVTkMpCiAJCWNvcGllZCA9IHNrYi0+bGVuOwogZG9uZToKLS0gCjEu
-Ny4xMC40CgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCk93biB0aGUgRnV0dXJlLUludGVsJnJlZzsg
-TGV2ZWwgVXAgR2FtZSBEZW1vIENvbnRlc3QgMjAxMwpSaXNlIHRvIGdyZWF0bmVzcyBpbiBJbnRl
-bCdzIGluZGVwZW5kZW50IGdhbWUgZGVtbyBjb250ZXN0LgpDb21wZXRlIGZvciByZWNvZ25pdGlv
-biwgY2FzaCwgYW5kIHRoZSBjaGFuY2UgdG8gZ2V0IHlvdXIgZ2FtZSAKb24gU3RlYW0uICQ1SyBn
-cmFuZCBwcml6ZSBwbHVzIDEwIGdlbnJlIGFuZCBza2lsbCBwcml6ZXMuIApTdWJtaXQgeW91ciBk
-ZW1vIGJ5IDYvNi8xMy4gaHR0cDovL3Auc2YubmV0L3NmdS9pbnRlbF9sZXZlbHVwZDJkCl9fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4LXppZ2JlZS1k
-ZXZlbCBtYWlsaW5nIGxpc3QKTGludXgtemlnYmVlLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5l
-dApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9saW51eC16aWdi
-ZWUtZGV2ZWwK
+The register names have been wrong since the beginning but it only showed up now
+as they are actualy used for the upcoming auto ACK support.
+
+Signed-off-by: Stefan Schmidt <stefan-OrPQZGeq07wqhVmZOOOmNx2eb7JE58TQ@public.gmane.org>
+---
+ drivers/net/ieee802154/at86rf230.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+index 2ff1f20..6e88eab 100644
+--- a/drivers/net/ieee802154/at86rf230.c
++++ b/drivers/net/ieee802154/at86rf230.c
+@@ -233,8 +233,8 @@ struct at86rf230_local {
+ #define STATE_SLEEP		0x0F
+ #define STATE_BUSY_RX_AACK	0x11
+ #define STATE_BUSY_TX_ARET	0x12
+-#define STATE_BUSY_RX_AACK_ON	0x16
+-#define STATE_BUSY_TX_ARET_ON	0x19
++#define STATE_RX_AACK_ON	0x16
++#define STATE_TX_ARET_ON	0x19
+ #define STATE_RX_ON_NOCLK	0x1C
+ #define STATE_RX_AACK_ON_NOCLK	0x1D
+ #define STATE_BUSY_RX_AACK_NOCLK 0x1E
+-- 
+1.7.10.4
+
+
+------------------------------------------------------------------------------
+Own the Future-Intel&reg; Level Up Game Demo Contest 2013
+Rise to greatness in Intel's independent game demo contest.
+Compete for recognition, cash, and the chance to get your game 
+on Steam. $5K grand prize plus 10 genre and skill prizes. 
+Submit your demo by 6/6/13. http://p.sf.net/sfu/intel_levelupd2d
