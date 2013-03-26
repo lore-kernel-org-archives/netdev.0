@@ -1,118 +1,61 @@
-From: Jiang Liu <liuj97@gmail.com>
-Subject: [PATCH v3, part4 09/39] mm: use totalram_pages instead of num_physpages at runtime
-Date: Tue, 26 Mar 2013 23:54:28 +0800
-Message-ID: <1364313298-17336-10-git-send-email-jiang.liu@huawei.com>
-References: <1364313298-17336-1-git-send-email-jiang.liu@huawei.com>
-Cc: Jiang Liu <jiang.liu@huawei.com>,
-	Wen Congyang <wency@cn.fujitsu.com>,
-	Mel Gorman <mgorman@suse.de>,
-	Minchan Kim <minchan@kernel.org>,
-	KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
-	Michal Hocko <mhocko@suse.cz>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	David Howells <dhowells@redhat.com>,
-	Mark Salter <msalter@redhat.com>,
-	Jianguo Wu <wujianguo@huawei.com>,
-	linux-mm@kvack.org,
-	linux-arch@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Miklos Szeredi <miklos@szeredi.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	fuse-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	David Rientjes <rientjes@google.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1364313298-17336-1-git-send-email-jiang.liu@huawei.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: Re: [PATCH net-next 1/1] net: fec: TX Buffer incorrectly initialized
+Date: Tue, 26 Mar 2013 16:00:55 +0000
+Message-ID: <5151C637.9010403@mentor.com>
+References: <y> <1364311507-7489-1-git-send-email-jim_baxter@mentor.com> <1364312644.1716.33.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay1.mentorg.com ([192.94.38.131]:41317 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965566Ab3CZQA6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 12:00:58 -0400
+Received: from svr-orw-fem-01.mgc.mentorg.com ([147.34.98.93])
+	by relay1.mentorg.com with esmtp
+	id 1UKWJ0-0006YP-Ax from Jim_Baxter@mentor.com
+	for netdev@vger.kernel.org; Tue, 26 Mar 2013 09:00:58 -0700
+In-Reply-To: <1364312644.1716.33.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The global variable num_physpages is scheduled to be removed, so use
-totalram_pages instead of num_physpages at runtime.
-
-Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
-Cc: Miklos Szeredi <miklos@szeredi.hu>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: fuse-devel@lists.sourceforge.net
-Cc: linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org
----
-Hi all,
-	Sorry for my mistake that my previous patch series has been screwed up.
-So I regenerate a third version and also set up a git tree at:
-	git://github.com/jiangliu/linux.git mem_init
-	Any help to review and test are welcomed!
-
-	Regards!
-	Gerry
----
- fs/fuse/inode.c          |    2 +-
- kernel/power/snapshot.c  |    4 ++--
- net/ipv4/inet_fragment.c |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
-index b730fda..4c2a420 100644
---- a/fs/fuse/inode.c
-+++ b/fs/fuse/inode.c
-@@ -781,7 +781,7 @@ static const struct super_operations fuse_super_operations = {
- static void sanitize_global_limit(unsigned *limit)
- {
- 	if (*limit == 0)
--		*limit = ((num_physpages << PAGE_SHIFT) >> 13) /
-+		*limit = ((totalram_pages << PAGE_SHIFT) >> 13) /
- 			 sizeof(struct fuse_req);
- 
- 	if (*limit >= 1 << 16)
-diff --git a/kernel/power/snapshot.c b/kernel/power/snapshot.c
-index 0de2857..8b5d1cd 100644
---- a/kernel/power/snapshot.c
-+++ b/kernel/power/snapshot.c
-@@ -1651,7 +1651,7 @@ unsigned long snapshot_get_image_size(void)
- static int init_header(struct swsusp_info *info)
- {
- 	memset(info, 0, sizeof(struct swsusp_info));
--	info->num_physpages = num_physpages;
-+	info->num_physpages = get_num_physpages();
- 	info->image_pages = nr_copy_pages;
- 	info->pages = snapshot_get_image_size();
- 	info->size = info->pages;
-@@ -1795,7 +1795,7 @@ static int check_header(struct swsusp_info *info)
- 	char *reason;
- 
- 	reason = check_image_kernel(info);
--	if (!reason && info->num_physpages != num_physpages)
-+	if (!reason && info->num_physpages != get_num_physpages())
- 		reason = "memory size";
- 	if (reason) {
- 		printk(KERN_ERR "PM: Image mismatch: %s\n", reason);
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 4750d2b..87c4b09 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -60,7 +60,7 @@ void inet_frags_init(struct inet_frags *f)
- 
- 	rwlock_init(&f->lock);
- 
--	f->rnd = (u32) ((num_physpages ^ (num_physpages>>7)) ^
-+	f->rnd = (u32) ((totalram_pages ^ (totalram_pages >> 7)) ^
- 				   (jiffies ^ (jiffies >> 6)));
- 
- 	setup_timer(&f->secret_timer, inet_frag_secret_rebuild,
--- 
-1.7.9.5
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+The field is the extended status control for the FEC network device, the
+values written to it are used to set the hardware transmit and receive
+state.
+*From:* Eric Dumazet (eric.dumazet@gmail.com) *Sent:* Tue, 26 Mar 2013
+08:44:04 -0700 *To:* jim_baxter@mentor.com *Cc:* davem@davemloft.net,
+Frank.Li@freescale.com, fabio.estevam@freescale.com,
+netdev@vger.kernel.org *Subject:* Re: [PATCH net-next 1/1] net: fec: TX
+Buffer incorrectly initialized
+> On Tue, 2013-03-26 at 15:25 +0000, Jim Baxter wrote:
+>> The TX Buffer in fec_enet_alloc_buffers was being initialized
+>> with the receive register define BD_ENET_RX_INT instead of
+>> the transmit register define BD_ENET_TX_INT
+>>
+>> Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
+>> ---
+>>  drivers/net/ethernet/freescale/fec_main.c |    2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+>> index 3eb608f..2b78a1e 100644
+>> --- a/drivers/net/ethernet/freescale/fec_main.c
+>> +++ b/drivers/net/ethernet/freescale/fec_main.c
+>> @@ -1391,7 +1391,7 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
+>>  
+>>  		if (fep->bufdesc_ex) {
+>>  			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
+>> -			ebdp->cbd_esc = BD_ENET_RX_INT;
+>> +			ebdp->cbd_esc = BD_ENET_TX_INT;
+>>  		}
+>>  
+>>  		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
+> 
+> I am curious. What is the point having cbd_esc ?
+> 
+> Its a written only field.
+> 
+> 
+> 
