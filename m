@@ -1,61 +1,45 @@
-From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
-Subject: Re: Active URB submitted twice in pegasus driver
-Date: Tue, 26 Mar 2013 11:52:18 -0700
-Message-ID: <20130326185218.GD10317@xanatos>
-References: <20130325223834.GF6869@xanatos>
- <alpine.DEB.2.02.1303261655450.3724@fry.nucleusys.com>
- <20130326170140.GC10317@xanatos>
- <alpine.DEB.2.02.1303261909260.4226@fry.nucleusys.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next] VXLAN: Precompute vin for VXLAN header.
+Date: Tue, 26 Mar 2013 12:02:12 -0700
+Message-ID: <CALnjE+pZyaP=PpRiwDq0aWzXoQ7WDVN+kOp8jkfvbzzbK0UVVA@mail.gmail.com>
+References: <1364322539-27141-1-git-send-email-pshelar@nicira.com>
+	<OF112514D1.BA5AC352-ON85257B3A.00666CE7-85257B3A.0066D5ED@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-usb@vger.kernel.org, Greg KH <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, jesse@nicira.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org,
 	Stephen Hemminger <stephen@networkplumber.org>
-To: Petko Manolov <petkan@nucleusys.com>
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:45626 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760102Ab3CZSwT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Mar 2013 14:52:19 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.02.1303261909260.4226@fry.nucleusys.com>
+Received: from na3sys009aog118.obsmtp.com ([74.125.149.244]:46453 "HELO
+	na3sys009aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755108Ab3CZTCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 15:02:13 -0400
+Received: by mail-gh0-f198.google.com with SMTP id r11so5157455ghr.5
+        for <netdev@vger.kernel.org>; Tue, 26 Mar 2013 12:02:12 -0700 (PDT)
+In-Reply-To: <OF112514D1.BA5AC352-ON85257B3A.00666CE7-85257B3A.0066D5ED@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 26, 2013 at 07:28:53PM +0200, Petko Manolov wrote:
-> On Tue, 26 Mar 2013, Sarah Sharp wrote:
-> 
-> >On Tue, Mar 26, 2013 at 05:22:07PM +0200, Petko Manolov wrote:
-> >>On Mon, 25 Mar 2013, Sarah Sharp wrote:
-> >After taking a brief glance at the pegasus code,
-> >pegasus_set_multicast looks broken.  It sets the control URB
-> >status to zero and calls ctrl_callback(), which does some stuff if
-> >the URB status is zero.  It doesn't look like
-> >pegasus_set_multicast() is an URB callback function, so why in the
-> >world is it touching a control URB that could possibly be in
-> >flight else where?
-> 
-> Beats me, i've got nothing to do with this driver. :-P
-> 
-> Anyway, playing with the URB status looks rather stupid and is
-> definitely a bug.  I'll make a patch that fixes the problem.
-> 
-> >It looks like the control URB is used to do things like get or set
-> >registers, so what's stopping the upper layers from calling get
-> >registers (which will submit the control URB and schedule a wait
-> >queue), and then pegasus_set_multicast(), which will go overwrite
-> >the active URB status?  USB device drivers should not be writing
-> >or reading fields in a submitted URB until the completion
-> >handler's callback function is called.
-> 
-> Err, see my previous comment.  It can't be me.  Maybe i've been too
-> drunk. Or stupid.  Or both... :-)
+On Tue, Mar 26, 2013 at 11:43 AM, David Stevens <dlstevens@us.ibm.com> wrote:
+> netdev-owner@vger.kernel.org wrote on 03/26/2013 02:28:59 PM:
+>  Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+>
+>> @@ -1006,7 +1004,7 @@ static netdev_tx_t vxlan_xmit_one(struct
+>> sk_buff *skb, struct net_device *dev,
+>>
+>>     vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
+>>     vxh->vx_flags = htonl(VXLAN_FLAGS);
+>> -   vxh->vx_vni = htonl(vni << 8);
+>> +   vxh->vx_vni = vxlan->vni;
+>
+>         This is not correct since vni != vxlan->vni if an alternate
+> vni is specified via the fdb entry. You would need to also store
+> the fdb vni's as htonl(vni<<<8) and translate those back for netlink
+> dump operations, too.
+>
+>                                                         +-DLS
+>
+Right I missed fdb vin , Let me send updated patch.
 
-Nah, everybody makes silly coding mistakes.  I was just trying to
-clarify, since I don't know the driver.  Send me a patch and I'll see if
-it fixes the warning.
-
-But considering the multicast code is pretty old, I bet I'm running into
-a different bug...
-
-Sarah Sharp
+Thanks.
