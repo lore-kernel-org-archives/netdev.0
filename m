@@ -1,66 +1,87 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next 2/5] tuntap: set transport header before passing it to kernel
-Date: Tue, 26 Mar 2013 14:19:56 +0800
-Message-ID: <1364278799-37285-3-git-send-email-jasowang@redhat.com>
-References: <1364278799-37285-1-git-send-email-jasowang@redhat.com>
-Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <edumazet@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1364278799-37285-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 1/3] net: ethernet: wiznet: add CONFIG_PM_SLEEP to
+ suspend/resume functions
+Date: Tue, 26 Mar 2013 16:02:55 +0900
+Message-ID: <001b01ce29ef$f09cbf10$d1d63d30$%han@samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
+To: "'David S. Miller'" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout4.samsung.com ([203.254.224.34]:43690 "EHLO
+	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753825Ab3CZHC5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 03:02:57 -0400
+Received: from epcpsbgr1.samsung.com
+ (u141.gpu120.samsung.co.kr [203.254.230.141])
+ by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MK9007B0A8PPXS0@mailout4.samsung.com> for
+ netdev@vger.kernel.org; Tue, 26 Mar 2013 16:02:55 +0900 (KST)
+Content-language: ko
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently, for the packets receives from tuntap, before doing header check,
-kernel just reset the transport header in netif_receive_skb() which pretends no
-l4 header. This is suboptimal for precise packet length estimation (introduced
-in 1def9238) which needs correct l4 header for gso packets.
+Add CONFIG_PM_SLEEP to suspend/resume functions to fix the following
+build warning when CONFIG_PM_SLEEP is not selected. This is because
+sleep PM callbacks defined by SIMPLE_DEV_PM_OPS are only used when
+the CONFIG_PM_SLEEP is enabled.
 
-So this patch set the transport header to csum_start for partial checksum
-packets, otherwise it first try skb_flow_dissect(), if it fails, just reset the
-transport header.
+drivers/net/ethernet/wiznet/w5100.c:758:12: warning: 'w5100_suspend' defined but not used [-Wunused-function]
+drivers/net/ethernet/wiznet/w5100.c:773:12: warning: 'w5100_resume' defined but not used [-Wunused-function]
+drivers/net/ethernet/wiznet/w5300.c:670:12: warning: 'w5300_suspend' defined but not used [-Wunused-function]
+drivers/net/ethernet/wiznet/w5300.c:685:12: warning: 'w5300_resume' defined but not used [-Wunused-function]
 
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- drivers/net/tun.c |   10 ++++++++++
- 1 files changed, 10 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/wiznet/w5100.c |    4 ++--
+ drivers/net/ethernet/wiznet/w5300.c |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 95837c1..48cd73a 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -70,6 +70,7 @@
- #include <net/sock.h>
+diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
+index 545043c..a518dca 100644
+--- a/drivers/net/ethernet/wiznet/w5100.c
++++ b/drivers/net/ethernet/wiznet/w5100.c
+@@ -754,7 +754,7 @@ static int w5100_remove(struct platform_device *pdev)
+ 	return 0;
+ }
  
- #include <asm/uaccess.h>
-+#include <net/flow_keys.h>
- 
- /* Uncomment to enable debugging */
- /* #define TUN_DEBUG 1 */
-@@ -1049,6 +1050,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	bool zerocopy = false;
- 	int err;
- 	u32 rxhash;
-+	struct flow_keys keys;
- 
- 	if (!(tun->flags & TUN_NO_PI)) {
- 		if ((len -= sizeof(pi)) > total_len)
-@@ -1203,6 +1205,14 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+-#ifdef CONFIG_PM
++#ifdef CONFIG_PM_SLEEP
+ static int w5100_suspend(struct device *dev)
+ {
+ 	struct platform_device *pdev = to_platform_device(dev);
+@@ -787,7 +787,7 @@ static int w5100_resume(struct device *dev)
  	}
+ 	return 0;
+ }
+-#endif /* CONFIG_PM */
++#endif /* CONFIG_PM_SLEEP */
  
- 	skb_reset_network_header(skb);
-+
-+	if (skb->ip_summed == CHECKSUM_PARTIAL)
-+		skb_set_transport_header(skb, skb_checksum_start_offset(skb));
-+	else if (skb_flow_dissect(skb, &keys))
-+		skb_set_transport_header(skb, keys.thoff);
-+	else
-+		skb_reset_transport_header(skb);
-+
- 	rxhash = skb_get_rxhash(skb);
- 	netif_rx_ni(skb);
+ static SIMPLE_DEV_PM_OPS(w5100_pm_ops, w5100_suspend, w5100_resume);
+ 
+diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethernet/wiznet/w5300.c
+index 7cbd0e6..6e00e3f 100644
+--- a/drivers/net/ethernet/wiznet/w5300.c
++++ b/drivers/net/ethernet/wiznet/w5300.c
+@@ -666,7 +666,7 @@ static int w5300_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-#ifdef CONFIG_PM
++#ifdef CONFIG_PM_SLEEP
+ static int w5300_suspend(struct device *dev)
+ {
+ 	struct platform_device *pdev = to_platform_device(dev);
+@@ -699,7 +699,7 @@ static int w5300_resume(struct device *dev)
+ 	}
+ 	return 0;
+ }
+-#endif /* CONFIG_PM */
++#endif /* CONFIG_PM_SLEEP */
+ 
+ static SIMPLE_DEV_PM_OPS(w5300_pm_ops, w5300_suspend, w5300_resume);
  
 -- 
-1.7.1
+1.7.2.5
