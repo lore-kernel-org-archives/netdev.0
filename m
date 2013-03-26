@@ -1,74 +1,77 @@
-From: Alan Ott <alan@signal11.us>
-Subject: Re: [PATCH v2 net-next 00/12] 6lowpan: Some more bug fixes
-Date: Tue, 26 Mar 2013 07:48:17 -0400
-Message-ID: <51518B01.9060309@signal11.us>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [Linux-zigbee-devel] [PATCH v2 net-next 05/12] 6lowpan: use
+ short IEEE 802.15.4 addresses for broadcast destination
+Date: Tue, 26 Mar 2013 12:56:21 +0100
+Message-ID: <20130326115620.GB1341@x61s.campuswlan.hs-rm.de>
 References: <1364270372-19430-1-git-send-email-tony.cheneau@amnesiak.org>
+ <1364270372-19430-6-git-send-email-tony.cheneau@amnesiak.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Tony Cheneau <tony.cheneau@amnesiak.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net,
+	Alan Ott <alan@signal11.us>
+To: Tony Cheneau <tony.cheneau@amnesiak.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:37762 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757217Ab3CZLsW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 07:48:22 -0400
-In-Reply-To: <1364270372-19430-1-git-send-email-tony.cheneau@amnesiak.org>
+Received: from mail-ea0-f179.google.com ([209.85.215.179]:36742 "EHLO
+	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757535Ab3CZLyr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 07:54:47 -0400
+Received: by mail-ea0-f179.google.com with SMTP id f15so2784852eak.10
+        for <netdev@vger.kernel.org>; Tue, 26 Mar 2013 04:54:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1364270372-19430-6-git-send-email-tony.cheneau@amnesiak.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/25/2013 11:59 PM, Tony Cheneau wrote:
-> This patchset fixes serious bugs within the 6LoWPAN modules. I wrote a script
-> (available at [1]) to prove the issues are real.  One can try and see that
-> without these patches, most of the test fail (e.g. packet dropped by the
-> receiver or node crashing). With all patches applied, all tests succeed. The
-> tests themselves are very basic: sending ICMP packets, sending UDP packets,
-> sending TCP packets, varying size of the packets. This actually triggers some
-> 6LoWPAN specific code, namely fragmentation, packet reassembly and header
-> compression.
-> 
-> This code passed the checkpatch.pl tool with a few warnings, that I believe
-> are OK. It should apply cleanly on the latest net-next.
-> 
+Hi Tony,
 
-I and have been running some form of this patchset since October, and
-have reviewed it several times.
+On Mon, Mar 25, 2013 at 11:59:25PM -0400, Tony Cheneau wrote:
+> The IEEE 802.15.4 standard uses the 0xFFFF short address (2 bytes) for message
+> broadcasting.
+> 
+> Signed-off-by: Tony Cheneau <tony.cheneau@amnesiak.org>
+> ---
+>  net/ieee802154/6lowpan.c | 23 +++++++++++++++--------
+>  1 file changed, 15 insertions(+), 8 deletions(-)
+> 
+> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+> index e7f61de..0eebb96 100644
+> --- a/net/ieee802154/6lowpan.c
+> +++ b/net/ieee802154/6lowpan.c
+> @@ -572,21 +572,28 @@ static int lowpan_header_create(struct sk_buff *skb,
+>  	 * this isn't implemented in mainline yet, so currently we assign 0xff
+>  	 */
+>  	{
+> +		mac_cb(skb)->flags = IEEE802154_FC_TYPE_DATA;
+> +
+>  		/* prepare wpan address data */
+>  		sa.addr_type = IEEE802154_ADDR_LONG;
+>  		sa.pan_id = 0xff;
+> -
+> -		da.addr_type = IEEE802154_ADDR_LONG;
+> -		da.pan_id = 0xff;
+> -
+> -		memcpy(&(da.hwaddr), daddr, 8);
+>  		memcpy(&(sa.hwaddr), saddr, 8);
+>  
+> -		mac_cb(skb)->flags = IEEE802154_FC_TYPE_DATA;
+> +		da.pan_id = 0xff;
+> +		/*
+> +		 * if the destination address is the broadcast address, use the
+> +		 * corresponding short address
+> +		 */
+> +		if (lowpan_is_addr_broadcast(daddr)) {
+> +			da.addr_type = IEEE802154_ADDR_SHORT;
+> +			da.short_addr = IEEE802154_ADDR_BROADCAST;
+> +		} else {
+> +			da.addr_type = IEEE802154_ADDR_LONG;
+> +			memcpy(&(da.hwaddr), daddr, 8);
 
-Reviewed-by: Alan Ott <alan@signal11.us>
-Tested-by: Alan Ott <alan@signal11.us>
+It's some nitpick here.
+Maybe it's better to use IEEE802154_ADDR_LEN instead of 8.
 
+I mean we have this define, and we should use it if we mean the
+ieee802154 address length.
 
-> Regards,
-> 	Tony Cheneau
-> 
-> [1]: https://github.com/tcheneau/linux802154-regression-tests
-> 
-> Tony Cheneau (12):
->   6lowpan: lowpan_is_iid_16_bit_compressable() does not detect
->     compressible address correctly
->   6lowpan: next header is not properly set upon decompression of a UDP
->     header.
->   6lowpan: always enable link-layer acknowledgments
->   mac802154: turn on ACK when enabled by the upper layers
->   6lowpan: use short IEEE 802.15.4 addresses for broadcast destination
->   6lowpan: fix first fragment (FRAG1) handling
->   6lowpan: add debug messages for 6LoWPAN fragmentation
->   6lowpan: store fragment tag values per device instead of net stack
->     wide
->   mac802154: re-introduce mac802154_dev_get_dsn()
->   6lowpan: obtain IEEE802.15.4 sequence number from the MAC layer
->   6lowpan: use the PANID provided by the device instead of a static
->     value
->   6lowpan: modify udp compression/uncompression to match the standard
-> 
->  net/ieee802154/6lowpan.c  | 136 +++++++++++++++++++++++++++++++++++++---------
->  net/ieee802154/6lowpan.h  |   7 ++-
->  net/mac802154/mac802154.h |   1 +
->  net/mac802154/mac_cmd.c   |   1 +
->  net/mac802154/mib.c       |   9 +++
->  net/mac802154/wpan.c      |   2 +
->  6 files changed, 127 insertions(+), 29 deletions(-)
-> 
+Alex
