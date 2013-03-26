@@ -1,53 +1,27 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH Resend] af_unix: dont send SCM_CREDENTIAL when dest
- socket is NULL
-Date: Mon, 25 Mar 2013 21:38:07 -0700
-Message-ID: <1364272687.1716.12.camel@edumazet-glaptop>
-References: <51510FAC.5090605@huawei.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba (updated) Version 2
+Date: Tue, 26 Mar 2013 05:40:25 +0100
+Message-ID: <20130326044025.GD29705@order.stressinduktion.org>
+References: <20130324034037.GC17948@order.stressinduktion.org> <157393863283F442885425D2C4542856489E7CA8@nasanexd02f.na.qualcomm.com> <20130324043738.GD17948@order.stressinduktion.org> <157393863283F442885425D2C4542856489E7CCD@nasanexd02f.na.qualcomm.com> <20130324051325.GE17948@order.stressinduktion.org> <157393863283F442885425D2C4542856489E7CFC@nasanexd02f.na.qualcomm.com> <20130324052300.GA12968@order.stressinduktion.org> <157393863283F442885425D2C4542856489E7D1E@nasanexd02f.na.qualcomm.com> <20130326042700.GC29705@order.stressinduktion.org> <157393863283F442885425D2C4542856489E821B@nasanexd02f.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Li Zefan <lizefan@huawei.com>, Xinwei Hu <huxinwei@huawei.com>,
-	netdev@vger.kernel.org
-To: dingtianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sven Hartge <sven@svenhartge.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Huang, Xiong" <xiong@qca.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f175.google.com ([209.85.210.175]:60664 "EHLO
-	mail-ia0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754881Ab3CZEiJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 00:38:09 -0400
-Received: by mail-ia0-f175.google.com with SMTP id y26so6175967iab.34
-        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 21:38:09 -0700 (PDT)
-In-Reply-To: <51510FAC.5090605@huawei.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:58242 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759391Ab3CZEk0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 00:40:26 -0400
+Content-Disposition: inline
+In-Reply-To: <157393863283F442885425D2C4542856489E821B@nasanexd02f.na.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-03-26 at 11:02 +0800, dingtianhong wrote:
-> SCM_SCREDENTIALS should apply to write() syscalls only either source or destination
-> socket asserted SOCK_PASSCRED. The original implememtation in maybe_add_creds is wrong,
-> and breaks several LSB testcases ( i.e. /tset/LSB.os/netowkr/recvfrom/T.recvfrom).
-> 
-> Origionally-authored-by: Karel Srot <ksrot@redhat.com>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
->  net/unix/af_unix.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> index 51be64f..99189fd 100644
-> --- a/net/unix/af_unix.c
-> +++ b/net/unix/af_unix.c
-> @@ -1413,8 +1413,8 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
->  	if (UNIXCB(skb).cred)
->  		return;
->  	if (test_bit(SOCK_PASSCRED, &sock->flags) ||
-> -	    !other->sk_socket ||
-> -	    test_bit(SOCK_PASSCRED, &other->sk_socket->flags)) {
-> +	    (other->sk_socket &&
-> +	    test_bit(SOCK_PASSCRED, &other->sk_socket->flags))) {
->  		UNIXCB(skb).pid  = get_pid(task_tgid(current));
->  		UNIXCB(skb).cred = get_current_cred();
->  	}
+On Tue, Mar 26, 2013 at 04:34:36AM +0000, Huang, Xiong wrote:
+> Are you sure the NIC is ok for windows driver ? it might be an HW bug=
+, if it=E2=80=99s the case, your checksum verificated by protocol is a =
+workaround.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Yes, the NIC is ok in Windows.
