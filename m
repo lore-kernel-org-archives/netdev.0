@@ -1,39 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] netlink: have length check of rtnl msg
- before deref
-Date: Tue, 26 Mar 2013 12:36:17 -0400 (EDT)
-Message-ID: <20130326.123617.948609374458177904.davem@davemloft.net>
-References: <1364232143-16754-1-git-send-email-honkiko@gmail.com>
-	<1364268993-19947-1-git-send-email-honkiko@gmail.com>
-	<20130326085937.GE27194@casper.infradead.org>
+Subject: Re: [PATCH v2 net-next 00/12] 6lowpan: Some more bug fixes
+Date: Tue, 26 Mar 2013 12:39:17 -0400 (EDT)
+Message-ID: <20130326.123917.76576913792839595.davem@davemloft.net>
+References: <1364270372-19430-1-git-send-email-tony.cheneau@amnesiak.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: honkiko@gmail.com, netdev@vger.kernel.org,
-	stephen@networkplumber.org
-To: tgraf@suug.ch
+Cc: eric.dumazet@gmail.com, alan@signal11.us,
+	alex.bluesman.smirnov@gmail.com, netdev@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net
+To: tony.cheneau@amnesiak.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40722 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40833 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965643Ab3CZQgT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 12:36:19 -0400
-In-Reply-To: <20130326085937.GE27194@casper.infradead.org>
+	with ESMTP id S965531Ab3CZQjT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 12:39:19 -0400
+In-Reply-To: <1364270372-19430-1-git-send-email-tony.cheneau@amnesiak.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Tue, 26 Mar 2013 08:59:37 +0000
+From: Tony Cheneau <tony.cheneau@amnesiak.org>
+Date: Mon, 25 Mar 2013 23:59:20 -0400
 
-> On 03/26/13 at 11:36am, Hong Zhiguo wrote:
->> When the legacy array rtm_min still exists, the length check within
->> these functions is covered by rtm_min[RTM_NEWTFILTER],
->> rtm_min[RTM_NEWQDISC] and rtm_min[RTM_NEWTCLASS].
->> 
->> But after Thomas Graf removed rtm_min several days ago, these checks
->> are missing. Other doit functions should be OK.
->> 
->> Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
+> This patchset fixes serious bugs within the 6LoWPAN modules. I wrote a script
+> (available at [1]) to prove the issues are real.  One can try and see that
+> without these patches, most of the test fail (e.g. packet dropped by the
+> receiver or node crashing). With all patches applied, all tests succeed. The
+> tests themselves are very basic: sending ICMP packets, sending UDP packets,
+> sending TCP packets, varying size of the packets. This actually triggers some
+> 6LoWPAN specific code, namely fragmentation, packet reassembly and header
+> compression.
 > 
-> Acked-by: Thomas Graf <tgraf@suug.ch>
+> This code passed the checkpatch.pl tool with a few warnings, that I believe
+> are OK. It should apply cleanly on the latest net-next.
 
-Applied, thanks.
+Series applied, thanks.
