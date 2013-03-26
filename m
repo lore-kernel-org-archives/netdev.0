@@ -1,121 +1,121 @@
-From: Darren Hart <dvhart@linux.intel.com>
-Subject: pch_gbe: Expanding PHY and Board support (MinnowBoard)
-Date: Tue, 26 Mar 2013 16:25:48 -0700
-Message-ID: <51522E7C.4040204@linux.intel.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH v2 net-next] VXLAN: Precompute vin for VXLAN header.
+Date: Tue, 26 Mar 2013 18:44:14 -0400
+Message-ID: <OF76F7D73D.E7992933-ON85257B3A.0077FC53-85257B3A.007CE48E@us.ibm.com>
+References: <1364333594-8809-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Decotigny <decot@google.com>,
-	Tomoya <tomoya-linux@dsn.okisemi.com>,
-	Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>,
-	Tomoya MORINAGA <tomoya.rohm@gmail.com>,
-	Takahiro Shimizu <tshimizu818@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Veaceslav Falico <vfalico@redhat.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: davem@davemloft.net, jesse@nicira.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:35224 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755944Ab3CZXZu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Mar 2013 19:25:50 -0400
+Received: from e38.co.us.ibm.com ([32.97.110.159]:36348 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755002Ab3CZWoU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 18:44:20 -0400
+Received: from /spool/local
+	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Tue, 26 Mar 2013 16:44:19 -0600
+In-Reply-To: <1364333594-8809-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm working on adding support for the MinnowBoard (minnowboard.org) as
-we're working through the last of the hardware changes. There are a few
-things about the pch_gbe driver that I'm having to update to support
-this board. I'd appreciate your thoughts on how to best go about the
-specializations.
+netdev-owner@vger.kernel.org wrote on 03/26/2013 05:33:14 PM:
 
-1) It uses an Atheros AR8031 PHY instead of the more typical Realtek
-   a) This PHY hibernates after 10s of no cable and can prevent
-successful PHY
-      init during PCI probe of the device. This can be addressed by
-disabling
-      hibernation in firmware and enabling later in the Kernel or by
-adding support
-      for the HW Reset of this PHY with the GPIO line tied to it on this
-board.
-   b) The board doesn't have a long trace to add the 2ns delay to TX
-clock like
-      other boards using this platform. This can be addressed by
-instructing the
-      PHY to introduce the delay.
+> 
+> Compute VXLAN vin at time of device create so that there is no need
+> to translate it on packet send and receive.
+> This patch do not change userspace interface.
 
-2) Like another board which led to the following commit, this board does not
-   have an EEPROM for the Ethernet address (MAC).
+        The name of the field is "VNI" (Virtual Network Identifier), not 
+"vin")
 
-    commit 2b53d07891630dead46d65c8f896955fd3ae0302
-    Author: Darren Hart <dvhart@linux.intel.com>
-    Date:   Mon Jan 16 09:50:19 2012 +0000
+> -static inline struct hlist_head *vni_head(struct net *net, u32 id)
+> +static u32 vni_to_vid(__be32 vni)
+> +{
+> +   return ntohl(vni) >> 8;
+> +}
+> +
+> +static __be32 vid_to_vni(u32 id)
+> +{
+> +   return htonl(id << 8);
+> +}
 
-        pch_gbe: Do not abort probe on bad MAC
+        What's a "vid"? I know what you're trying to do here, but like 
+"vin",
+it is not proper VXLAN terminology. I don't think these need to be
+functions at all, but rather simply in-line code. I think renaming
+this as a "vid" just obscures what it is.
+        Changing it to a bitfield of the right size and place might
+be more proper, but probably not worth the complexity.
+        But if you want them to be functions (or, I'd prefer macros),
+I'd suggest something like hton_vni() and ntoh_vni() -- transforming
+between the host and packet (network) formats -- and adding "inline".
 
-   On this board, we plan to have the MAC provided by the firmware
-(NVRAM, EFI
-   VAR, something along those lines).
+> +
+> +static inline struct hlist_head *vni_head(struct net *net, __be32 id)
+>  {
+>     struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+> 
+> -   return &vn->vni_list[hash_32(id, VNI_HASH_BITS)];
+> +   return &vn->vni_list[hash_32((__force u32)id, VNI_HASH_BITS)];
+>  }
+> 
+>  /* Look up VNI in a per net namespace table */
+> -static struct vxlan_dev *vxlan_find_vni(struct net *net, u32 id)
+> +static struct vxlan_dev *vxlan_find_vni(struct net *net, __be32 id)
+>  {
+>     struct vxlan_dev *vxlan;
+> 
+> @@ -195,7 +205,7 @@ static int vxlan_fdb_info(struct sk_buff *skb, 
+> struct vxlan_dev *vxlan,
+>         nla_put_be16(skb, NDA_PORT, rdst->remote_port))
+>        goto nla_put_failure;
+>     if (rdst->remote_vni != vxlan->vni &&
+> -       nla_put_be32(skb, NDA_VNI, rdst->remote_vni))
+> +       nla_put_be32(skb, NDA_VNI, vni_to_vid(rdst->remote_vni)))
+>        goto nla_put_failure;
+>     if (rdst->remote_ifindex &&
+>         nla_put_u32(skb, NDA_IFINDEX, rdst->remote_ifindex))
+> @@ -261,7 +271,7 @@ static void vxlan_ip_miss(struct net_device 
+> *dev, __be32 ipa)
+>     memset(&f, 0, sizeof f);
+>     f.state = NUD_STALE;
+>     f.remote.remote_ip = ipa; /* goes to NDA_DST */
+> -   f.remote.remote_vni = VXLAN_N_VID;
+> +   f.remote.remote_vni = vid_to_vni(VXLAN_N_VID);
 
-Looking at the driver and our options, using a PCI subsystem
-vendor/device IDs
-to identify the board seems like the best way to go. I have a start at
-this but
-would appreciate your thoughts on the following:
+        This is not correct -- VXLAN_N_VID is an invalid VNI with
+value 1<<24. Applying vid_to_vni() makes it 1<<32 (==0 since it's 32
+bits wide). To do the same thing correctly here, you'd either need to
+make it 64 bits, or now set a bit in the low-order byte and then have
+that transform to 1<<24 in host representation.
 
-1) Is the PCI subsystem vendor/device IDs the right approach, e.g. in
-probe():
+So, perhaps [again, ought to have a name changes], so:
 
-	adapter = netdev_priv(netdev);
+static u32 ntoh_vni(__be32 vni)
+{
+        if (vni & 0xff)
+                return VXLAN_N_VID;
+        return ntohl(vni) >> 8;
+}
 
-	/* Identify PCI subsystem ID tweaks */
-	adapter->hw.mac_in_nvram = NULL
-	adapter->hw.phy.hw_rst_gpio = -1;
-	adapter->hw.phy.tx_clk_delay = false;
-	switch (pdev->subsystem_vendor) {
-	case PCI_VENDOR_ID_INTEL:
-		switch (pdev->subsystem_device) {
-		case PCI_SUBDEVICE_ID_MINNOWBOARD:
-			pr_debug("MinnowBoard detected\n");
-			adapter->hw.mac_in_nvram = MINNOW_NVRAM_MAC_ADDR;
-			adapter->hw.phy.hw_reset_gpio = MINNOW_PHY_RST_GPIO;
-			adapter->hw.phy.tx_clk_delay = true;
-	}
+static __be32 hton_vni(u32 id)
+{
+        if (vni >= VXLAN_N_VID)
+                return 1;
+        return htonl(id << 8);
+}
 
-   The mac_in_nvram, hw_rst_gpio, and tx_clk_delay vars were added to the
-   existing structures in support of this.
+        Or, instead of "1", you could use a define of VXLAN_N_VID_NET or
+some such.
+        Of course, that'll work internally only as long as the reserved
+bits in the packet are 0; if they're used for something else, you need
+to mask them before calling this.
 
-2) The physical reset of the PHY is extremely board and PHY specifc as it
-   requires knowledge of the GPIO line used and the specifics of the
-reset and
-   clock timings on the particular PHY. I believe I can avoid this by just
-   disabling hibernation in firmware and enabling after the driver is
-up. There
-   are scenarios where this could fail though, such as loading the module,
-   unloading the module, removing the cable, waiting 10+ seconds, and
-trying to
-   load the driver again. It should however load successfully after a
-cable was
-   reinserted.
+        All in all, I'm not sure it's worth the trouble for a few 
+byte-swaps.
 
-3) It appears as though the pch_gbe was written with a very specific PHY in
-   mind. I've switched on phy.id where needed:
-
-	switch (hw->phy.id) {
-	case PHY_AR803X_ID:
-		pr_info("AR803x PHY: configuring tx clock delay.\n");
-		...
-
-   But I wonder if converting pch_gbe over to the PHY Abstraction Layer and
-   fleshing out the two known PHYs for this platform would be "the right"
-   approach. Sounds like a lot more work...
-
-Anyway, I'm new to networking drivers and would appreciate any feedback
-that would help me start with the preferred approach for this type of
-specialization.
-
-Thanks,
-
--- 
-Darren Hart
-Intel Open Source Technology Center
-Yocto Project - Technical Lead - Linux Kernel
+                                                        +-DLS
