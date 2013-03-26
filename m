@@ -1,161 +1,156 @@
-From: Frank Li <Frank.Li@freescale.com>
-Subject: [PATCH 1/1] enet: fec: fix fail resume from suspend state
-Date: Tue, 26 Mar 2013 10:14:57 +0800
-Message-ID: <1364264097-26157-1-git-send-email-Frank.Li@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Frank Li <Frank.Li@freescale.com>
-To: <shawn.guo@linaro.org>, <lznuaa@gmail.com>,
-	<u.kleine-koenig@pengutronix.de>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>
+From: Hong Zhiguo <honkiko@gmail.com>
+Subject: [PATCH v2 net-next] netlink: have length check of rtnl msg before deref
+Date: Tue, 26 Mar 2013 11:36:33 +0800
+Message-ID: <1364268993-19947-1-git-send-email-honkiko@gmail.com>
+References: <1364232143-16754-1-git-send-email-honkiko@gmail.com>
+Cc: davem@davemloft.net, stephen@networkplumber.org, tgraf@suug.ch
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:36907 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756255Ab3CZD0o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 23:26:44 -0400
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:58414 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756255Ab3CZDgu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Mar 2013 23:36:50 -0400
+Received: by mail-pa0-f42.google.com with SMTP id kq13so741783pab.15
+        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 20:36:49 -0700 (PDT)
+In-Reply-To: <1364232143-16754-1-git-send-email-honkiko@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Without this patch
-1. boot with nfs (no_console_suspend)
-2. echo mem >/sys/power/state
-3. wakeup by wakesource
-4. print "eth0: tx queue full"
+When the legacy array rtm_min still exists, the length check within
+these functions is covered by rtm_min[RTM_NEWTFILTER],
+rtm_min[RTM_NEWQDISC] and rtm_min[RTM_NEWTCLASS].
 
-This fix above problem by reinit bd queue at restart function
+But after Thomas Graf removed rtm_min several days ago, these checks
+are missing. Other doit functions should be OK.
 
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
+Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
 ---
- drivers/net/ethernet/freescale/fec.c |   82 ++++++++++++++++++++-------------
- 1 files changed, 50 insertions(+), 32 deletions(-)
+ net/sched/cls_api.c |    9 +++++----
+ net/sched/sch_api.c |   36 +++++++++++++++++++++---------------
+ 2 files changed, 26 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index 069a155..78b25db 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -345,6 +345,53 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	return NETDEV_TX_OK;
- }
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 9a04b98..9d71d4d 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -141,7 +141,12 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
  
-+/* Init RX & TX buffer descriptors
-+ */
-+static void fec_enet_bd_init(struct net_device *dev)
-+{
-+	struct fec_enet_private *fep = netdev_priv(dev);
-+	struct bufdesc *bdp;
-+	int i;
+ 	if ((n->nlmsg_type != RTM_GETTFILTER) && !capable(CAP_NET_ADMIN))
+ 		return -EPERM;
 +
-+	/* Initialize the receive buffer descriptors. */
-+	bdp = fep->rx_bd_base;
-+	for (i = 0; i < RX_RING_SIZE; i++) {
+ replay:
++	err = nlmsg_parse(n, sizeof(*t), tca, TCA_MAX, NULL);
++	if (err < 0)
++		return err;
 +
-+		/* Initialize the BD for every fragment in the page. */
-+		if (bdp->cbd_bufaddr)
-+			bdp->cbd_sc = BD_ENET_RX_EMPTY;
-+		else
-+			bdp->cbd_sc = 0;
-+		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-+	}
-+
-+	/* Set the last buffer to wrap */
-+	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-+	bdp->cbd_sc |= BD_SC_WRAP;
-+
-+	fep->cur_rx = fep->rx_bd_base;
-+
-+	/* ...and the same for transmit */
-+	bdp = fep->tx_bd_base;
-+	fep->cur_tx = bdp;
-+	for (i = 0; i < TX_RING_SIZE; i++) {
-+
-+		/* Initialize the BD for every fragment in the page. */
-+		bdp->cbd_sc = 0;
-+		if (bdp->cbd_bufaddr && fep->tx_skbuff[i]) {
-+			dev_kfree_skb_any(fep->tx_skbuff[i]);
-+			fep->tx_skbuff[i] = NULL;
-+		}
-+		bdp->cbd_bufaddr = 0;
-+		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-+	}
-+
-+	/* Set the last buffer to wrap */
-+	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
-+	bdp->cbd_sc |= BD_SC_WRAP;
-+	fep->dirty_tx = bdp;
-+}
-+
- /* This function is called to start or restart the FEC during a link
-  * change.  This only happens when switching between half and full
-  * duplex.
-@@ -388,6 +435,8 @@ fec_restart(struct net_device *ndev, int duplex)
- 	/* Set maximum receive buffer size. */
- 	writel(PKT_MAXBLR_SIZE, fep->hwp + FEC_R_BUFF_SIZE);
+ 	t = nlmsg_data(n);
+ 	protocol = TC_H_MIN(t->tcm_info);
+ 	prio = TC_H_MAJ(t->tcm_info);
+@@ -164,10 +169,6 @@ replay:
+ 	if (dev == NULL)
+ 		return -ENODEV;
  
-+	fec_enet_bd_init(ndev);
-+
- 	/* Set receive and transmit descriptor base. */
- 	writel(fep->bd_dma, fep->hwp + FEC_R_DES_START);
- 	if (fep->bufdesc_ex)
-@@ -397,7 +446,6 @@ fec_restart(struct net_device *ndev, int duplex)
- 		writel((unsigned long)fep->bd_dma + sizeof(struct bufdesc)
- 			* RX_RING_SIZE,	fep->hwp + FEC_X_DES_START);
- 
--	fep->cur_rx = fep->rx_bd_base;
- 
- 	for (i = 0; i <= TX_RING_MOD_MASK; i++) {
- 		if (fep->tx_skbuff[i]) {
-@@ -1592,8 +1640,6 @@ static int fec_enet_init(struct net_device *ndev)
- {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	struct bufdesc *cbd_base;
--	struct bufdesc *bdp;
--	int i;
- 
- 	/* Allocate memory for buffer descriptors. */
- 	cbd_base = dma_alloc_coherent(NULL, PAGE_SIZE, &fep->bd_dma,
-@@ -1603,6 +1649,7 @@ static int fec_enet_init(struct net_device *ndev)
- 		return -ENOMEM;
- 	}
- 
-+	memset(cbd_base, 0, PAGE_SIZE);
- 	spin_lock_init(&fep->hw_lock);
- 
- 	fep->netdev = ndev;
-@@ -1626,35 +1673,6 @@ static int fec_enet_init(struct net_device *ndev)
- 	writel(FEC_RX_DISABLED_IMASK, fep->hwp + FEC_IMASK);
- 	netif_napi_add(ndev, &fep->napi, fec_enet_rx_napi, FEC_NAPI_WEIGHT);
- 
--	/* Initialize the receive buffer descriptors. */
--	bdp = fep->rx_bd_base;
--	for (i = 0; i < RX_RING_SIZE; i++) {
+-	err = nlmsg_parse(n, sizeof(*t), tca, TCA_MAX, NULL);
+-	if (err < 0)
+-		return err;
 -
--		/* Initialize the BD for every fragment in the page. */
--		bdp->cbd_sc = 0;
--		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
--	}
--
--	/* Set the last buffer to wrap */
--	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
--	bdp->cbd_sc |= BD_SC_WRAP;
--
--	/* ...and the same for transmit */
--	bdp = fep->tx_bd_base;
--	fep->cur_tx = bdp;
--	for (i = 0; i < TX_RING_SIZE; i++) {
--
--		/* Initialize the BD for every fragment in the page. */
--		bdp->cbd_sc = 0;
--		bdp->cbd_bufaddr = 0;
--		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
--	}
--
--	/* Set the last buffer to wrap */
--	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
--	bdp->cbd_sc |= BD_SC_WRAP;
--	fep->dirty_tx = bdp;
--
- 	fec_restart(ndev, 0);
+ 	/* Find qdisc */
+ 	if (!parent) {
+ 		q = dev->qdisc;
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 0bbce22..d7468ba 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -977,7 +977,7 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n)
+ 	struct tcmsg *tcm = nlmsg_data(n);
+ 	struct nlattr *tca[TCA_MAX + 1];
+ 	struct net_device *dev;
+-	u32 clid = tcm->tcm_parent;
++	u32 clid;
+ 	struct Qdisc *q = NULL;
+ 	struct Qdisc *p = NULL;
+ 	int err;
+@@ -985,14 +985,15 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n)
+ 	if ((n->nlmsg_type != RTM_GETQDISC) && !capable(CAP_NET_ADMIN))
+ 		return -EPERM;
  
- 	return 0;
+-	dev = __dev_get_by_index(net, tcm->tcm_ifindex);
+-	if (!dev)
+-		return -ENODEV;
+-
+ 	err = nlmsg_parse(n, sizeof(*tcm), tca, TCA_MAX, NULL);
+ 	if (err < 0)
+ 		return err;
+ 
++	dev = __dev_get_by_index(net, tcm->tcm_ifindex);
++	if (!dev)
++		return -ENODEV;
++
++	clid = tcm->tcm_parent;
+ 	if (clid) {
+ 		if (clid != TC_H_ROOT) {
+ 			if (TC_H_MAJ(clid) != TC_H_MAJ(TC_H_INGRESS)) {
+@@ -1053,6 +1054,10 @@ static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n)
+ 
+ replay:
+ 	/* Reinit, just in case something touches this. */
++	err = nlmsg_parse(n, sizeof(*tcm), tca, TCA_MAX, NULL);
++	if (err < 0)
++		return err;
++
+ 	tcm = nlmsg_data(n);
+ 	clid = tcm->tcm_parent;
+ 	q = p = NULL;
+@@ -1061,9 +1066,6 @@ replay:
+ 	if (!dev)
+ 		return -ENODEV;
+ 
+-	err = nlmsg_parse(n, sizeof(*tcm), tca, TCA_MAX, NULL);
+-	if (err < 0)
+-		return err;
+ 
+ 	if (clid) {
+ 		if (clid != TC_H_ROOT) {
+@@ -1382,22 +1384,22 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n)
+ 	const struct Qdisc_class_ops *cops;
+ 	unsigned long cl = 0;
+ 	unsigned long new_cl;
+-	u32 portid = tcm->tcm_parent;
+-	u32 clid = tcm->tcm_handle;
+-	u32 qid = TC_H_MAJ(clid);
++	u32 portid;
++	u32 clid;
++	u32 qid;
+ 	int err;
+ 
+ 	if ((n->nlmsg_type != RTM_GETTCLASS) && !capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+-	dev = __dev_get_by_index(net, tcm->tcm_ifindex);
+-	if (!dev)
+-		return -ENODEV;
+-
+ 	err = nlmsg_parse(n, sizeof(*tcm), tca, TCA_MAX, NULL);
+ 	if (err < 0)
+ 		return err;
+ 
++	dev = __dev_get_by_index(net, tcm->tcm_ifindex);
++	if (!dev)
++		return -ENODEV;
++
+ 	/*
+ 	   parent == TC_H_UNSPEC - unspecified parent.
+ 	   parent == TC_H_ROOT   - class is root, which has no parent.
+@@ -1413,6 +1415,10 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n)
+ 
+ 	/* Step 1. Determine qdisc handle X:0 */
+ 
++	portid = tcm->tcm_parent;
++	clid = tcm->tcm_handle;
++	qid = TC_H_MAJ(clid);
++
+ 	if (portid != TC_H_ROOT) {
+ 		u32 qid1 = TC_H_MAJ(portid);
+ 
 -- 
-1.7.1
+1.7.10.4
