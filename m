@@ -1,37 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next 0/5] Tunneling: Tunnel restructuring.
-Date: Tue, 26 Mar 2013 12:27:56 -0400 (EDT)
-Message-ID: <20130326.122756.1279568367408031984.davem@davemloft.net>
-References: <1364258969-3120-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH net-next 2/2] net/davinci_emac: use
+ clk_{prepare|unprepare}
+Date: Tue, 26 Mar 2013 12:29:12 -0400 (EDT)
+Message-ID: <20130326.122912.2193051620893427218.davem@davemloft.net>
+References: <1364203547-2960-3-git-send-email-nsekhar@ti.com>
+	<20130325161654.4014.68401@quantum>
+	<515172F7.3050600@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@nicira.com
-To: pshelar@nicira.com
+Cc: mturquette@linaro.org, netdev@vger.kernel.org,
+	davinci-linux-open-source@linux.davincidsp.com, rjw@sisk.pl
+To: nsekhar@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40455 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40503 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933737Ab3CZQ16 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 12:27:58 -0400
-In-Reply-To: <1364258969-3120-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S1752981Ab3CZQ3O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 12:29:14 -0400
+In-Reply-To: <515172F7.3050600@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Mon, 25 Mar 2013 17:49:29 -0700
+From: Sekhar Nori <nsekhar@ti.com>
+Date: Tue, 26 Mar 2013 15:35:43 +0530
 
-> Following patch series restructure GRE and IPIP tunneling code
-> to make it modular. It adds ip_tunnel module which acts as
-> generic tunneling layer which has common code.
-> 
-> These patches do not change any functionality.
-> v3:v4:
->  - Fixed compilation error in ipv6.
->  - Few coding style fixes.
-> v2-v3:
->  - Use GPL exports for all export symbols.
->  - Set default config NET_IP_TUNNEL to m.
-> v1-v2:
->  - Dropped patch to convert gre_proto_lock to rtnl lock.
+> This patch can then be dropped for now, but 1/2 can still be applied.
+> That one is pretty harmless!
 
-Series applied, thanks.
+I've applied it.
