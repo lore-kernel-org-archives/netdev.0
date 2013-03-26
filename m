@@ -1,72 +1,49 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next 2/5] tuntap: set transport header before passing it
- to kernel
-Date: Tue, 26 Mar 2013 08:07:22 -0700
-Message-ID: <1364310442.1716.17.camel@edumazet-glaptop>
-References: <1364278799-37285-1-git-send-email-jasowang@redhat.com>
-	 <1364278799-37285-3-git-send-email-jasowang@redhat.com>
+Subject: Re: defxx: skb_push() failing?
+Date: Tue, 26 Mar 2013 08:15:00 -0700
+Message-ID: <1364310900.1716.21.camel@edumazet-glaptop>
+References: <5151B0CE.5000000@ll.mit.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com,
-	Eric Dumazet <edumazet@google.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1364278799-37285-3-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, macro@linux-mips.org
+To: David Oostdyk <daveo@ll.mit.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f42.google.com ([209.85.210.42]:48132 "EHLO
+	mail-da0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934485Ab3CZPPE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 11:15:04 -0400
+Received: by mail-da0-f42.google.com with SMTP id n15so3715540dad.29
+        for <netdev@vger.kernel.org>; Tue, 26 Mar 2013 08:15:03 -0700 (PDT)
+In-Reply-To: <5151B0CE.5000000@ll.mit.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-03-26 at 14:19 +0800, Jason Wang wrote:
-> Currently, for the packets receives from tuntap, before doing header check,
-> kernel just reset the transport header in netif_receive_skb() which pretends no
-> l4 header. This is suboptimal for precise packet length estimation (introduced
-> in 1def9238) which needs correct l4 header for gso packets.
+On Tue, 2013-03-26 at 10:29 -0400, David Oostdyk wrote:
+> Hello,
 > 
-> So this patch set the transport header to csum_start for partial checksum
-> packets, otherwise it first try skb_flow_dissect(), if it fails, just reset the
-> transport header.
+> In dfx_xmt_queue_pkt() in defxx.c, there is a skb_push(3) call which 
+> makes room for 3 packet request header bytes.  There is some discussion 
+> in the driver explaining why those three bytes will be available.  I 
+> have an old FDDI card that I'm trying to bring up:
 > 
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/net/tun.c |   10 ++++++++++
->  1 files changed, 10 insertions(+), 0 deletions(-)
+> 05:05.0 FDDI network controller: Digital Equipment Corporation 
+> PCI-to-PDQ Interface Chip [PFI] (rev 02)
 > 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 95837c1..48cd73a 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -70,6 +70,7 @@
->  #include <net/sock.h>
->  
->  #include <asm/uaccess.h>
-> +#include <net/flow_keys.h>
->  
->  /* Uncomment to enable debugging */
->  /* #define TUN_DEBUG 1 */
-> @@ -1049,6 +1050,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->  	bool zerocopy = false;
->  	int err;
->  	u32 rxhash;
-> +	struct flow_keys keys;
->  
->  	if (!(tun->flags & TUN_NO_PI)) {
->  		if ((len -= sizeof(pi)) > total_len)
-> @@ -1203,6 +1205,14 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->  	}
->  
->  	skb_reset_network_header(skb);
-> +
-> +	if (skb->ip_summed == CHECKSUM_PARTIAL)
-> +		skb_set_transport_header(skb, skb_checksum_start_offset(skb));
-> +	else if (skb_flow_dissect(skb, &keys))
-> +		skb_set_transport_header(skb, keys.thoff);
-> +	else
-> +		skb_reset_transport_header(skb);
-> +
->  	rxhash = skb_get_rxhash(skb);
->  	netif_rx_ni(skb);
->  
+> Most skbuffs that come through dfx_xmit_queue_pkt() have 11 bytes 
+> between skb->head and skb->data.  On the other hand, at almost exactly 
+> 60-second intervals, an skb arrives that has zero bytes between 
+> skb->head and skb->data.  This normally causes a kernel panic, and for 
+> the time I just skip over such skb's.
+> 
+> Does anyone have advice on where I should start digging to find the 
+> cause of this?
+> 
 
-Another call for a common helper.
+Have you read comments in defxx.c file around line 151 ?
+
+If one skb arrives with not enough headroom, you could add a
+
+WARN_ON_ONCE(skb_headroom(skb) < 3);
+
+and report stack trace so that we can identify and fix the caller.
