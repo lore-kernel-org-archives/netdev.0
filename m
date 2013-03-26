@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] enet: fec: fix fail resume from suspend state
-Date: Tue, 26 Mar 2013 12:19:40 -0400 (EDT)
-Message-ID: <20130326.121940.937673963522554506.davem@davemloft.net>
-References: <1364264097-26157-1-git-send-email-Frank.Li@freescale.com>
+Subject: Re: [PATCH] pch_gbe: fix ip_summed checksum reporting on rx
+Date: Tue, 26 Mar 2013 12:21:19 -0400 (EDT)
+Message-ID: <20130326.122119.991326464629967782.davem@davemloft.net>
+References: <1364286381-10031-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shawn.guo@linaro.org, lznuaa@gmail.com,
-	u.kleine-koenig@pengutronix.de, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Frank.Li@freescale.com
+Cc: netdev@vger.kernel.org, richardcochran@gmail.com,
+	tshimizu818@gmail.com, andy.cress@us.kontron.com
+To: vfalico@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40164 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40224 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964887Ab3CZQTo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 12:19:44 -0400
-In-Reply-To: <1364264097-26157-1-git-send-email-Frank.Li@freescale.com>
+	with ESMTP id S965650Ab3CZQVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 12:21:21 -0400
+In-Reply-To: <1364286381-10031-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Li <Frank.Li@freescale.com>
-Date: Tue, 26 Mar 2013 10:14:57 +0800
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Tue, 26 Mar 2013 09:26:21 +0100
 
-> Without this patch
-> 1. boot with nfs (no_console_suspend)
-> 2. echo mem >/sys/power/state
-> 3. wakeup by wakesource
-> 4. print "eth0: tx queue full"
+> skb->ip_summed should be CHECKSUM_UNNECESSARY when the driver reports that
+> checksums were correct and CHECKSUM_NONE in any other case. They're
+> currently placed vice versa, which breaks the forwarding scenario. Fix it
+> by placing them as described above.
 > 
-> This fix above problem by reinit bd queue at restart function
-> 
-> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
-Patch applies neither to 'net' nor 'net-next'.
-
-Please respin this cleanly against current sources.
+Applied and queued up for -stable, thanks.
