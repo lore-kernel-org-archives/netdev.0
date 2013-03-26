@@ -1,82 +1,79 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net 3/3] ipv4: Fix ip-header identification for gso packets.
-Date: Tue, 26 Mar 2013 10:34:17 -0700
-Message-ID: <CALnjE+qAo5GsnTP=EU87N7KHWXE8UWnhn4HtV16tDJ00SnsKzw@mail.gmail.com>
-References: <1364182589-1766-1-git-send-email-pshelar@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: amwang@redhat.com
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:43251 "HELO
-	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753543Ab3CZReS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 13:34:18 -0400
-Received: by mail-ve0-f197.google.com with SMTP id jz10so6291122veb.0
-        for <netdev@vger.kernel.org>; Tue, 26 Mar 2013 10:34:18 -0700 (PDT)
-In-Reply-To: <1364182589-1766-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Subject: [PATCH 02/86] batman-adv: fix random jitter
+	calculation
+Date: Tue, 26 Mar 2013 13:21:01 -0400
+Message-ID: <20130326173600.211530324@goodmis.org>
+References: <20130326172059.136127374@goodmis.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ Akinobu Mita <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>,
+ Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline;
+ filename=0002-batman-adv-fix-random-jitter-calculation.patch
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-This issue is present in net-tree. Can you apply this patch net-tree?
+3.6.11.1 stable review patch.
+If anyone has any objections, please let me know.
 
-Thanks.
+------------------
 
-On Sun, Mar 24, 2013 at 8:36 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
-> ip-header id needs to be incremented even if IP_DF flag is set.
-> This behaviour was changed in commit 490ab08127cebc25e3a26
-> (IP_GRE: Fix IP-Identification).
->
-> Following patch fixes it so that identification is always
-> incremented.
->
-> Reported-by: Cong Wang <amwang@redhat.com>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-> ---
->  include/net/ipip.h |   16 ++++++----------
->  net/ipv4/af_inet.c |    3 +--
->  2 files changed, 7 insertions(+), 12 deletions(-)
->
-> diff --git a/include/net/ipip.h b/include/net/ipip.h
-> index 0c046e3..483b91a 100644
-> --- a/include/net/ipip.h
-> +++ b/include/net/ipip.h
-> @@ -74,15 +74,11 @@ static inline void tunnel_ip_select_ident(struct sk_buff *skb,
->  {
->         struct iphdr *iph = ip_hdr(skb);
->
-> -       if (iph->frag_off & htons(IP_DF))
-> -               iph->id = 0;
-> -       else {
-> -               /* Use inner packet iph-id if possible. */
-> -               if (skb->protocol == htons(ETH_P_IP) && old_iph->id)
-> -                       iph->id = old_iph->id;
-> -               else
-> -                       __ip_select_ident(iph, dst,
-> -                                         (skb_shinfo(skb)->gso_segs ?: 1) - 1);
-> -       }
-> +       /* Use inner packet iph-id if possible. */
-> +       if (skb->protocol == htons(ETH_P_IP) && old_iph->id)
-> +               iph->id = old_iph->id;
-> +       else
-> +               __ip_select_ident(iph, dst,
-> +                                 (skb_shinfo(skb)->gso_segs ?: 1) - 1);
->  }
->  #endif
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 9e5882c..70b2d4c 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1334,8 +1334,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
->                                 iph->frag_off |= htons(IP_MF);
->                         offset += (skb->len - skb->mac_len - iph->ihl * 4);
->                 } else  {
-> -                       if (!(iph->frag_off & htons(IP_DF)))
-> -                               iph->id = htons(id++);
-> +                       iph->id = htons(id++);
->                 }
->                 iph->tot_len = htons(skb->len - skb->mac_len);
->                 iph->check = 0;
-> --
-> 1.7.1
->
+From: Akinobu Mita <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+[ Upstream commit 143cdd8f33909ff5a153e3f02048738c5964ba26 ]
+
+batadv_iv_ogm_emit_send_time() attempts to calculates a random integer
+in the range of 'orig_interval +- BATADV_JITTER' by the below lines.
+
+        msecs = atomic_read(&bat_priv->orig_interval) - BATADV_JITTER;
+        msecs += (random32() % 2 * BATADV_JITTER);
+
+But it actually gets 'orig_interval' or 'orig_interval - BATADV_JITTER'
+because '%' and '*' have same precedence and associativity is
+left-to-right.
+
+This adds the parentheses at the appropriate position so that it matches
+original intension.
+
+Signed-off-by: Akinobu Mita <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Acked-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Cc: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Cc: Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
+Cc: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Cc: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+---
+ net/batman-adv/bat_iv_ogm.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+index 469daab..1476f26 100644
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -119,7 +119,7 @@ batadv_iv_ogm_emit_send_time(const struct batadv_priv *bat_priv)
+ 	unsigned int msecs;
+ 
+ 	msecs = atomic_read(&bat_priv->orig_interval) - BATADV_JITTER;
+-	msecs += (random32() % 2 * BATADV_JITTER);
++	msecs += random32() % (2 * BATADV_JITTER);
+ 
+ 	return jiffies + msecs_to_jiffies(msecs);
+ }
+-- 
+1.7.10.4
