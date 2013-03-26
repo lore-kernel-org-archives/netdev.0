@@ -1,62 +1,108 @@
-From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: [PATCH] ipv6: fix raw socket checksum for udplite
-Date: Tue, 26 Mar 2013 15:31:35 -0700
-Message-ID: <1364337095-19663-1-git-send-email-zenczykowski@gmail.com>
+From: Stefan Schmidt <stefan-OrPQZGeq07wqhVmZOOOmNx2eb7JE58TQ@public.gmane.org>
+Subject: [PATCH 2/3] ieee802154/at86rf230: Implement
+	hardware address filter callback.
+Date: Tue, 26 Mar 2013 22:41:30 +0000
+Message-ID: <1364337691-20163-3-git-send-email-stefan@datenfreihafen.org>
+References: <1364337691-20163-1-git-send-email-stefan@datenfreihafen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Mike Dalton <mwdalton@google.com>,
-	Brian Haley <brian.haley@hp.com>
-To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f53.google.com ([209.85.210.53]:49679 "EHLO
-	mail-da0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751478Ab3CZWjh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 18:39:37 -0400
-Received: by mail-da0-f53.google.com with SMTP id n34so2724653dal.26
-        for <netdev@vger.kernel.org>; Tue, 26 Mar 2013 15:39:37 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1364337691-20163-1-git-send-email-stefan-OrPQZGeq07wqhVmZOOOmNx2eb7JE58TQ@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Maciej =C5=BBenczykowski <maze@google.com>
+Implement the filter function to update short address, pan id and ieee
+address on change. Allowing for hardware address filtering needed for
+auto ACK.
 
-Commit d3a1be9cba86 from Brian Haley in Nov 2006
-"[IPv6]: Only modify checksum for UDP" forgot about
-UDPLITE.
-
-(Not clear if this fix is sufficient for udp over raw6 socket
-checksumming in kernel to be useful, but it's obviously wrong
-as is.)
-
-RFC 3828 section 3.1, 3rd paragraph:
-
-If the computed checksum is 0, it is transmitted as all ones
-(the equivalent in one's complement arithmetic).
-
-Signed-off-by: Maciej =C5=BBenczykowski <maze@google.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Mike Dalton <mwdalton@google.com>
-Cc: Brian Haley <brian.haley@hp.com>
+Signed-off-by: Stefan Schmidt <stefan-OrPQZGeq07wqhVmZOOOmNx2eb7JE58TQ@public.gmane.org>
 ---
- net/ipv6/raw.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ieee802154/at86rf230.c |   47 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 47 insertions(+)
 
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index eedff8ccded5..745e925eff17 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -590,7 +590,8 @@ static int rawv6_push_pending_frames(struct sock *s=
-k, struct flowi6 *fl6,
- 	csum =3D csum_ipv6_magic(&fl6->saddr, &fl6->daddr,
- 			       total_len, fl6->flowi6_proto, tmp_csum);
-=20
--	if (csum =3D=3D 0 && fl6->flowi6_proto =3D=3D IPPROTO_UDP)
-+	if (csum =3D=3D 0 && (fl6->flowi6_proto =3D=3D IPPROTO_UDP
-+	    || fl6->flowi6_proto =3D=3D IPPROTO_UDPLITE))
- 		csum =3D CSUM_MANGLED_0;
-=20
- 	if (skb_store_bits(skb, offset, &csum, 2))
---=20
-1.8.1.3
+diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+index fc1687e..2ff1f20 100644
+--- a/drivers/net/ieee802154/at86rf230.c
++++ b/drivers/net/ieee802154/at86rf230.c
+@@ -619,6 +619,52 @@ err:
+ 	return -EINVAL;
+ }
+ 
++static int
++at86rf230_set_hw_addr_filt(struct ieee802154_dev *dev,
++			   struct ieee802154_hw_addr_filt *filt,
++			   unsigned long changed)
++{
++	struct at86rf230_local *lp = dev->priv;
++
++	if (changed & IEEE802515_AFILT_SADDR_CHANGED) {
++		dev_vdbg(&lp->spi->dev,
++			"at86rf230_set_hw_addr_filt called for saddr\n");
++		__at86rf230_write(lp, RG_SHORT_ADDR_0, filt->short_addr);
++		__at86rf230_write(lp, RG_SHORT_ADDR_1, filt->short_addr >> 8);
++	}
++
++	if (changed & IEEE802515_AFILT_PANID_CHANGED) {
++		dev_vdbg(&lp->spi->dev,
++			"at86rf230_set_hw_addr_filt called for pan id\n");
++		__at86rf230_write(lp, RG_PAN_ID_0, filt->pan_id);
++		__at86rf230_write(lp, RG_PAN_ID_1, filt->pan_id >> 8);
++	}
++
++	if (changed & IEEE802515_AFILT_IEEEADDR_CHANGED) {
++		dev_vdbg(&lp->spi->dev,
++			"at86rf230_set_hw_addr_filt called for IEEE addr\n");
++		at86rf230_write_subreg(lp, SR_IEEE_ADDR_0, filt->ieee_addr[7]);
++		at86rf230_write_subreg(lp, SR_IEEE_ADDR_1, filt->ieee_addr[6]);
++		at86rf230_write_subreg(lp, SR_IEEE_ADDR_2, filt->ieee_addr[5]);
++		at86rf230_write_subreg(lp, SR_IEEE_ADDR_3, filt->ieee_addr[4]);
++		at86rf230_write_subreg(lp, SR_IEEE_ADDR_4, filt->ieee_addr[3]);
++		at86rf230_write_subreg(lp, SR_IEEE_ADDR_5, filt->ieee_addr[2]);
++		at86rf230_write_subreg(lp, SR_IEEE_ADDR_6, filt->ieee_addr[1]);
++		at86rf230_write_subreg(lp, SR_IEEE_ADDR_7, filt->ieee_addr[0]);
++	}
++
++	if (changed & IEEE802515_AFILT_PANC_CHANGED) {
++		dev_vdbg(&lp->spi->dev,
++			"at86rf230_set_hw_addr_filt called for panc change\n");
++		if (filt->pan_coord)
++			at86rf230_write_subreg(lp, SR_AACK_I_AM_COORD, 1);
++		else
++			at86rf230_write_subreg(lp, SR_AACK_I_AM_COORD, 0);
++	}
++
++	return 0;
++}
++
+ static struct ieee802154_ops at86rf230_ops = {
+ 	.owner = THIS_MODULE,
+ 	.xmit = at86rf230_xmit,
+@@ -626,6 +672,7 @@ static struct ieee802154_ops at86rf230_ops = {
+ 	.set_channel = at86rf230_channel,
+ 	.start = at86rf230_start,
+ 	.stop = at86rf230_stop,
++	.set_hw_addr_filt = at86rf230_set_hw_addr_filt,
+ };
+ 
+ static void at86rf230_irqwork(struct work_struct *work)
+-- 
+1.7.10.4
+
+
+------------------------------------------------------------------------------
+Own the Future-Intel&reg; Level Up Game Demo Contest 2013
+Rise to greatness in Intel's independent game demo contest.
+Compete for recognition, cash, and the chance to get your game 
+on Steam. $5K grand prize plus 10 genre and skill prizes. 
+Submit your demo by 6/6/13. http://p.sf.net/sfu/intel_levelupd2d
