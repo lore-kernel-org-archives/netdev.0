@@ -1,62 +1,101 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH 5/6] xen-netback: coalesce slots before
- copying
-Date: Tue, 26 Mar 2013 11:29:59 +0000
-Message-ID: <20130326112959.GF7004@zion.uk.xensource.com>
-References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
- <1364209702-12437-6-git-send-email-wei.liu2@citrix.com>
- <5150699C.6080209@citrix.com>
- <CAOsiSVUNO0FQkfJWjv9bcoMgKNnHu4XYciz61hG3YNFzZNxK3w@mail.gmail.com>
- <51507C9B.3080109@citrix.com>
- <CAOsiSVV8gtKqFxyAr3XN9YF78WjtFqzvx5mnA1dKTrS_4qzXBw@mail.gmail.com>
- <51509789.8090608@citrix.com>
- <20130325190911.GC7004@zion.uk.xensource.com>
- <515182E2.50103@citrix.com>
+From: dingtianhong <dingtianhong@huawei.com>
+Subject: Re: [Eulerkernel] [PATCH] af_unix: dont send SCM_CREDENTIAL when
+ dest socket is NULL
+Date: Tue, 26 Mar 2013 19:35:18 +0800
+Message-ID: <515187F6.4030905@huawei.com>
+References: <515026DA.7050306@huawei.com>  <1364220269.29473.13.camel@edumazet-glaptop> <51511148.4000804@huawei.com> <1364272360.1716.11.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <liuw@liuw.name>, Ian Campbell <Ian.Campbell@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"annie.li@oracle.com" <annie.li@oracle.com>
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, <netdev@vger.kernel.org>,
+	Li Zefan <lizefan@huawei.com>, Xinwei Hu <huxinwei@huawei.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:6570 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756792Ab3CZLaB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Mar 2013 07:30:01 -0400
-Content-Disposition: inline
-In-Reply-To: <515182E2.50103@citrix.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:2420 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757535Ab3CZLgK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 07:36:10 -0400
+In-Reply-To: <1364272360.1716.11.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 26, 2013 at 11:13:38AM +0000, David Vrabel wrote:
-> >>
-> >> Separately, it may be sensible for the backend to drop packets with more
-> >> frags than max-slots-per-frame up to some threshold where anything more
-> >> is considered malicious (i.e., 1 - 18 slots is a valid packet, 19-20 are
-> >> dropped and 21 or more is a fatal error).
-> >>
-> > 
-> > Why drop the packet when we are able to process it? Frontend cannot know
-> > it has crossed the line anyway.
+On 2013/3/26 12:32, Eric Dumazet wrote:
+> On Tue, 2013-03-26 at 11:08 +0800, dingtianhong wrote:
+>> On 2013/3/25 22:04, Eric Dumazet wrote:
+>>> On Mon, 2013-03-25 at 18:28 +0800, dingtianhong wrote:
+>>>> SCM_SCREDENTIALS should apply to write() syscalls only either source or destination
+>>>> socket asserted SOCK_PASSCRED. The original implememtation in maybe_add_creds is wrong,
+>>>> and breaks several LSB testcases ( i.e. /tset/LSB.os/netowkr/recvfrom/T.recvfrom).
+>>>>
+>>>> Origionally-authored-by: Karel Srot <ksrot@redhat.com>
+>>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>>>> ---
+>>>>    net/unix/af_unix.c | 4 ++--
+>>>>    1 file changed, 2 insertions(+), 2 deletions(-)
+>>>>
+>>>> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+>>>> index 51be64f..99189fd 100644
+>>>> --- a/net/unix/af_unix.c
+>>>> +++ b/net/unix/af_unix.c
+>>>> @@ -1413,8 +1413,8 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
+>>>>           if (UNIXCB(skb).cred)
+>>>>                   return;
+>>>>           if (test_bit(SOCK_PASSCRED, &sock->flags) ||
+>>>> -           !other->sk_socket ||
+>>>> -           test_bit(SOCK_PASSCRED, &other->sk_socket->flags)) {
+>>>> +           (other->sk_socket &&
+>>>> +           test_bit(SOCK_PASSCRED, &other->sk_socket->flags))) {
+>>>>                   UNIXCB(skb).pid  = get_pid(task_tgid(current));
+>>>>                   UNIXCB(skb).cred = get_current_cred();
+>>>>           }
+>>>
+>>> I am not sure why adding credentials if other->sk_socket is NULL could
+>>> break an application ?
+>> The bugzilla has report the bug:https://lsbbugs.linuxfoundation.org/show_bug.cgi?id=3523
+>>
 > 
-> Because it's a change to the protocol and we do not want to do this for
-> a regression fix.
+> OK
 > 
-
-If I understand correctly the regression you talked about was introduced
-by harsh punishment in XSA-39? If so, this is the patch you need to fix
-that. Frontend only knows that it has connectivity or not. This patch
-guarantee that the old netfront with larger MAX_SKB_FRAGS still see the
-same thing from its point of view.  Netfront cannot know the
-intermediate state between 18 and 20.
-
-> As a separate fix we can consider increasing the number of slots
-> per-packet once there is a mechanism to report this to the front end.
+>>>
+>>> This was the case before commit introducing this code.
+>>
+>> The commit 16e5726269(af_unix: dont send SCM_CREDENTIALS by default) may  introducing the problem.
+>>
 > 
-
-Sure, that's on my TODO list.
-
-
-Wei.
+> So the problem is that two messages have different credentials,
+> because other->sk_socket changed between first and second message.
+> 
+> and unix_stream_recvmsg() has the following check :
+> 
+>                 if (check_creds) {
+>                         /* Never glue messages from different writers */
+>                         if ((UNIXCB(skb).pid  != siocb->scm->pid) ||
+>                             (UNIXCB(skb).cred != siocb->scm->cred))
+>                                 break;
+>                 } else {
+>                         /* Copy credentials */
+>                         scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).cred);
+>                         check_creds = 1;
+>                 }
+> 
+> In the case the receiver doesnt care at all (using recvfrom(), not recvmsg()), 
+> we probably should not even call scm_set_creds() and avoid extra refcounting.
+> 
+I think if not call scm_set_creds(), the credential would useles in recvmsg().
+we could remove code:
+		if (check_creds) {
+                        /* Never glue messages from different writers */
+                        if ((UNIXCB(skb).pid  != siocb->scm->pid) ||
+                            (UNIXCB(skb).cred != siocb->scm->cred))
+                                break;
+                } else {
+                        /* Copy credentials */
+                        scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).cred);
+                        check_creds = 1;
+                }
+> 
+> 
+> 
+> .
+> 
