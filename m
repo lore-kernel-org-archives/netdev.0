@@ -1,49 +1,42 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or
- Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba
- (updated) Version 2
-Date: Tue, 26 Mar 2013 04:44:50 +0000
-Message-ID: <157393863283F442885425D2C4542856489E8232@nasanexd02f.na.qualcomm.com>
-References: <20130324034037.GC17948@order.stressinduktion.org>
- <157393863283F442885425D2C4542856489E7CA8@nasanexd02f.na.qualcomm.com>
- <20130324043738.GD17948@order.stressinduktion.org>
- <157393863283F442885425D2C4542856489E7CCD@nasanexd02f.na.qualcomm.com>
- <20130324051325.GE17948@order.stressinduktion.org>
- <157393863283F442885425D2C4542856489E7CFC@nasanexd02f.na.qualcomm.com>
- <20130324052300.GA12968@order.stressinduktion.org>
- <157393863283F442885425D2C4542856489E7D1E@nasanexd02f.na.qualcomm.com>
- <20130326042700.GC29705@order.stressinduktion.org>
- <157393863283F442885425D2C4542856489E821B@nasanexd02f.na.qualcomm.com>
- <20130326044025.GD29705@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Sven Hartge <sven@svenhartge.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Hong Zhiguo <honkiko@gmail.com>
+Subject: [PATCH net-next] netlink: remove duplicated NLMSG_ALIGN
+Date: Tue, 26 Mar 2013 13:04:05 +0800
+Message-ID: <1364274245-20689-1-git-send-email-honkiko@gmail.com>
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+	zhiguo.hong@emc.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:4910 "EHLO
-	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753514Ab3CZEov (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 00:44:51 -0400
-In-Reply-To: <20130326044025.GD29705@order.stressinduktion.org>
-Content-Language: en-US
+Received: from mail-da0-f48.google.com ([209.85.210.48]:41250 "EHLO
+	mail-da0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752825Ab3CZFER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 01:04:17 -0400
+Received: by mail-da0-f48.google.com with SMTP id p8so3482817dan.7
+        for <netdev@vger.kernel.org>; Mon, 25 Mar 2013 22:04:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-WW91IGNhbiB0cnkgdG8gZ2V0IHdpbmRvd3MgcmVnaXN0ZXIgc2V0dGluZyBieQ0KDQpQY2kgY29u
-ZmlnIHNwYWNlIHJlZ2lzdGVyIDB4ODAvMHg4NA0KRm9yIGV4YW1wbGUsIHRvIHJlYWQgcmVnaXN0
-ZXIgMHgxNDgwDQpQY2kgY29uZmlndXJlIHdyaXRlIDB4MTQ4MCB0byBbMHg4MF0gKDMyYml0KQ0K
-UGNpIGNvbmZpZ3VyZSByZWFkIFsweDg0XQ0KDQpPbmx5IDMyIGJpdCByZWFkL3dyaXRlIGlzIGFs
-bG93ZWQuDQoNClRoYW5rcw0KWGlvbmcNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0K
-PiBGcm9tOiBIYW5uZXMgRnJlZGVyaWMgU293YSBbbWFpbHRvOmhhbm5lc0BzdHJlc3NpbmR1a3Rp
-b24ub3JnXQ0KPiBTZW50OiBUdWVzZGF5LCBNYXJjaCAyNiwgMjAxMyAxMjo0MCBQTQ0KPiBUbzog
-SHVhbmcsIFhpb25nDQo+IENjOiBTdmVuIEhhcnRnZTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0K
-PiBTdWJqZWN0OiBSZTogQXRoZXJvcyBDb21tdW5pY2F0aW9ucyBJbmMuIEFSODEyMS9BUjgxMTMv
-QVI4MTE0IEdpZ2FiaXQgb3INCj4gRmFzdCBFdGhlcm5ldCAocmV2IGIwKSAxLjAuMC43IG1kNS9z
-aGExIGNvcnJ1cHRlZCB1c2luZyBORlMgYW5kIHNhbWJhDQo+ICh1cGRhdGVkKSBWZXJzaW9uIDIN
-Cj4gDQo+IE9uIFR1ZSwgTWFyIDI2LCAyMDEzIGF0IDA0OjM0OjM2QU0gKzAwMDAsIEh1YW5nLCBY
-aW9uZyB3cm90ZToNCj4gPiBBcmUgeW91IHN1cmUgdGhlIE5JQyBpcyBvayBmb3Igd2luZG93cyBk
-cml2ZXIgPyBpdCBtaWdodCBiZSBhbiBIVyBidWcsIGlmIGl04oCZcw0KPiB0aGUgY2FzZSwgeW91
-ciBjaGVja3N1bSB2ZXJpZmljYXRlZCBieSBwcm90b2NvbCBpcyBhIHdvcmthcm91bmQuDQo+IA0K
-PiBZZXMsIHRoZSBOSUMgaXMgb2sgaW4gV2luZG93cy4NCg0K
+NLMSG_HDRLEN is already aligned value. It's for directly reference
+without extra alignment.
+
+The redundant alignment here may confuse the API users.
+
+Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
+---
+ include/uapi/linux/netlink.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
+index 78d5b8a..32a354f 100644
+--- a/include/uapi/linux/netlink.h
++++ b/include/uapi/linux/netlink.h
+@@ -78,7 +78,7 @@ struct nlmsghdr {
+ #define NLMSG_ALIGNTO	4U
+ #define NLMSG_ALIGN(len) ( ((len)+NLMSG_ALIGNTO-1) & ~(NLMSG_ALIGNTO-1) )
+ #define NLMSG_HDRLEN	 ((int) NLMSG_ALIGN(sizeof(struct nlmsghdr)))
+-#define NLMSG_LENGTH(len) ((len)+NLMSG_ALIGN(NLMSG_HDRLEN))
++#define NLMSG_LENGTH(len) ((len) + NLMSG_HDRLEN)
+ #define NLMSG_SPACE(len) NLMSG_ALIGN(NLMSG_LENGTH(len))
+ #define NLMSG_DATA(nlh)  ((void*)(((char*)nlh) + NLMSG_LENGTH(0)))
+ #define NLMSG_NEXT(nlh,len)	 ((len) -= NLMSG_ALIGN((nlh)->nlmsg_len), \
+-- 
+1.7.10.4
