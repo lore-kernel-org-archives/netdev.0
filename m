@@ -1,8 +1,8 @@
 From: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH v2 net-next 02/12] 6lowpan: next header
-	is not properly set upon decompression of a UDP header.
-Date: Mon, 25 Mar 2013 23:59:22 -0400
-Message-ID: <1364270372-19430-3-git-send-email-tony.cheneau@amnesiak.org>
+Subject: [PATCH v2 net-next 03/12] 6lowpan: always
+	enable link-layer acknowledgments
+Date: Mon, 25 Mar 2013 23:59:23 -0400
+Message-ID: <1364270372-19430-4-git-send-email-tony.cheneau@amnesiak.org>
 References: <1364270372-19430-1-git-send-email-tony.cheneau@amnesiak.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,30 +23,32 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This causes a drop of the UDP packet.
+This feature is especially important when using fragmentation, because
+the reassembly mechanism cannot recover from the loss of a fragment.
+
+Note that some hardware ignore this flag and not will not transmit
+acknowledgments even if this is set.
 
 Signed-off-by: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
 ---
- net/ieee802154/6lowpan.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/ieee802154/6lowpan.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 43b95ca..9f53904 100644
+index 9f53904..e7f61de 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -918,9 +918,11 @@ lowpan_process_data(struct sk_buff *skb)
+@@ -584,6 +584,10 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 
+ 		mac_cb(skb)->flags = IEEE802154_FC_TYPE_DATA;
+ 
++		/* request acknowledgment when possible */
++		if (!lowpan_is_addr_broadcast(daddr))
++			mac_cb(skb)->flags |= MAC_CB_FLAG_ACKREQ;
++
+ 		return dev_hard_header(skb, lowpan_dev_info(dev)->real_dev,
+ 				type, (void *)&da, (void *)&sa, skb->len);
  	}
- 
- 	/* UDP data uncompression */
--	if (iphc0 & LOWPAN_IPHC_NH_C)
-+	if (iphc0 & LOWPAN_IPHC_NH_C) {
- 		if (lowpan_uncompress_udp_header(skb))
- 			goto drop;
-+		hdr.nexthdr = UIP_PROTO_UDP;
-+	}
- 
- 	/* Not fragmented package */
- 	hdr.payload_len = htons(skb->len);
 -- 
 1.7.12.4
 
