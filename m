@@ -1,92 +1,60 @@
-From: "Piotr Haber" <phaber@broadcom.com>
-Subject: Re: [PATCH regression/bisected] Revert
- "brcmsmac: support 4313iPA"
-Date: Tue, 26 Mar 2013 10:31:00 +0100
-Message-ID: <51516AD4.8080306@broadcom.com>
-References: <1363603503-2378-1-git-send-email-dh.herrmann@gmail.com>
- <51471B85.5060404@broadcom.com>
- <CANq1E4TsM6yoSt9aELFan0ayEw3PSfYCe+PEe35YFHzZ-9rTuA@mail.gmail.com>
- <20130325185821.GB17454@tuxdriver.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next] ptp: increase the maximum number of clocks
+Date: Tue, 26 Mar 2013 10:48:36 +0100
+Message-ID: <20130326104836.1379592f@griffin>
+References: <d219aa87bd5b3e2fa42449720d845a7110f642f0.1363893841.git.jbenc@redhat.com>
+	<20130321.172017.1499060411785395307.davem@davemloft.net>
+	<20130323175915.GA3036@netboy.at.omicron.at>
+	<20130325170855.0194ce13@griffin>
+	<20130325185120.GB3100@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David Herrmann" <dh.herrmann@gmail.com>,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Arend van Spriel" <arend@broadcom.com>,
-	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org,
-	"Pieter-Paul Giesberts" <pieterpg@broadcom.com>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130325185821.GB17454@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:7303 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757306Ab3CZJsq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Mar 2013 05:48:46 -0400
+In-Reply-To: <20130325185120.GB3100@netboy.at.omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/25/13 19:58, John W. Linville wrote:
-> On Mon, Mar 18, 2013 at 02:58:08PM +0100, David Herrmann wrote:
->> Hi Piotr
->>
->> On Mon, Mar 18, 2013 at 2:49 PM, Piotr Haber <phaber@broadcom.com> wrote:
->>> On 03/18/13 11:45, David Herrmann wrote:
->>>> This reverts commit b6fc28a158076ca2764edc9a6d1e1402f56e1c0c. It breaks
->>>> wireless AP reconnection on: (14e4:4727)
->>>>   Broadcom Corporation BCM4313 802.11b/g/n Wireless LAN Controller
->>>>
->>>> Any attempt to reconnect to an AP results in timeouts no matter how near to the
->>>> AP I am:
->>>>  00:10:40 $nb kernel: wlan0: authenticate with 00:18:39:0a:8e:23
->>>>  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 1/3)
->>>>  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 2/3)
->>>>  00:10:41 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 3/3)
->>>>  00:10:41 $nb kernel: wlan0: authentication with 00:18:39:0a:8e:23 timed out
->>>> ---
->>>> Hi
->>>>
->>>> I tried coming up with a fix instead of reverting this commit, but the commit is
->>>> way to big for me to understand what's going on. Sorry.
->>>>
->>>> With linux-3.8 connecting to an AP broke on my machine. I could connect to an AP
->>>> one time, but any further attempt resulted in:
->>>>  00:10:40 $nb kernel: wlan0: authenticate with 00:18:39:0a:8e:23
->>>>  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 1/3)
->>>>  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 2/3)
->>>>  00:10:41 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 3/3)
->>>>  00:10:41 $nb kernel: wlan0: authentication with 00:18:39:0a:8e:23 timed out
->>>>
->>>> Even sitting right next to the AP didn't help so I started bisecting and it
->>>> turned out to be:
->>>>   "brcmsmac: support 4313iPA" b6fc28a158076ca2764edc9a6d1e1402f56e1c0c
->>>> Please revert it.
->>>>
->>>> Thanks
->>>> David
->>>>
->>> Hi,
->>> unfortunately this is not a first report of this patch breaking 4313 for some users.
->>> I'm pretty confident that it is hardware revision related as we have 4313ePA and iPA boards running
->>> successfully in our test setup.
->>> Could you aid us in effort of finding the problem by supplying the contents of this debugfs file:
->>> <debugfs_mount>/brcmsmac/bcma0:0/hardware
->>
->> Hi
->>
->> $ cat /sys/kernel/debug/brcmsmac/bcma0\:0/hardware
->> board vendor: 185f
->> board type: 51a
->> board revision: 1408
->> board flags: 8402a01
->> board flags2: 880
->> firmware revision: 262032b
->>
->> I can also try partial reverts of that commit, but I really don't know
->> which parts might be important.
+On Mon, 25 Mar 2013 19:51:20 +0100, Richard Cochran wrote:
+> While that might work for the PTP ioctls, it won't for the main
+> clock_gettime/settime/adjtime call. As you wrote below, these take a
+> dynamic clockid_t (which comes from a file descriptor), and so each
+> device needs its own, unique file system node.
+
+They need an unique file descriptor, not an unique file. There's nothing
+preventing you from opening the same file multiple times, using each
+obtained file descriptor to access a different PHC. Sure, there is
+currently no place to store a per-fd data in posix-clock implementation
+but that could be added.
+
+> For better or worse, we are stuck with char devs, unless we want to
+> redo the clock_xyz API. I certainly don't want to. We can have over a
+> million PTP clocks on a single major number. That should be enough.
 > 
-> Are we going to see a fix for this (very) soon?  Or should I just go
-> ahead and revert this patch?
-> 
-I cannot reproduce the issue on a set of devices we have here (3 different 4313 ePA models).
-Some of the devices that are reported to be broken are being shipped to us.
-So I would say we need around 2 weeks at least to resolve this (if we reproduce the problem and find
-a fix).
-Not sure this is soon enough.
-If not please go ahead an revert the patch.
+> IIRC, it is possible to grow the range of minor numbers
+> incrementally. Perhaps you could take a look at that?
+
+That was what I was originally thinking about. But I don't like it much
+- the overhead will increase significantly with increasing number of
+devices, as the chrdev allocations for a given major are kept in a
+linked list which has to be completely traversed on each allocation.
+We'd also need to replace the ptp_clocks_map with a different data
+structure (e.g. a linked list of bitmaps if we allocate minors in
+chunks to alleviate the chrdev allocation overhead), not helping the
+overhead.
+
+Please correct me if I misunderstood something.
+
+Thanks for the ideas,
+
+ Jiri
+
+-- 
+Jiri Benc
