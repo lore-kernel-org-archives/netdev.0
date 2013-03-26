@@ -1,9 +1,8 @@
 From: Stefan Schmidt <stefan-OrPQZGeq07wqhVmZOOOmNx2eb7JE58TQ@public.gmane.org>
-Subject: [PATCH 2/3] ieee802154/at86rf230: Implement
-	hardware address filter callback.
-Date: Tue, 26 Mar 2013 22:41:30 +0000
-Message-ID: <1364337691-20163-3-git-send-email-stefan@datenfreihafen.org>
-References: <1364337691-20163-1-git-send-email-stefan@datenfreihafen.org>
+Subject: ieee802154: Source addr fix for dgram and some
+	small at86rf230 driver enhancements
+Date: Tue, 26 Mar 2013 22:41:28 +0000
+Message-ID: <1364337691-20163-1-git-send-email-stefan@datenfreihafen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,7 +10,6 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alan-yzvJWuRpmD1zbRFIqnYvSA@
 	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1364337691-20163-1-git-send-email-stefan-OrPQZGeq07wqhVmZOOOmNx2eb7JE58TQ@public.gmane.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
 	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
@@ -22,83 +20,36 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Implement the filter function to update short address, pan id and ieee
-address on change. Allowing for hardware address filtering needed for
-auto ACK.
+Hello.
 
-Signed-off-by: Stefan Schmidt <stefan-OrPQZGeq07wqhVmZOOOmNx2eb7JE58TQ@public.gmane.org>
----
- drivers/net/ieee802154/at86rf230.c |   47 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 47 insertions(+)
+Second version. Changes since version 1:
+- Obey 80 chars rules
+- Switch logging mode to vdbg to avoid noise
+- Remove uneeded might_sleep()
 
-diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index fc1687e..2ff1f20 100644
---- a/drivers/net/ieee802154/at86rf230.c
-+++ b/drivers/net/ieee802154/at86rf230.c
-@@ -619,6 +619,52 @@ err:
- 	return -EINVAL;
- }
- 
-+static int
-+at86rf230_set_hw_addr_filt(struct ieee802154_dev *dev,
-+			   struct ieee802154_hw_addr_filt *filt,
-+			   unsigned long changed)
-+{
-+	struct at86rf230_local *lp = dev->priv;
-+
-+	if (changed & IEEE802515_AFILT_SADDR_CHANGED) {
-+		dev_vdbg(&lp->spi->dev,
-+			"at86rf230_set_hw_addr_filt called for saddr\n");
-+		__at86rf230_write(lp, RG_SHORT_ADDR_0, filt->short_addr);
-+		__at86rf230_write(lp, RG_SHORT_ADDR_1, filt->short_addr >> 8);
-+	}
-+
-+	if (changed & IEEE802515_AFILT_PANID_CHANGED) {
-+		dev_vdbg(&lp->spi->dev,
-+			"at86rf230_set_hw_addr_filt called for pan id\n");
-+		__at86rf230_write(lp, RG_PAN_ID_0, filt->pan_id);
-+		__at86rf230_write(lp, RG_PAN_ID_1, filt->pan_id >> 8);
-+	}
-+
-+	if (changed & IEEE802515_AFILT_IEEEADDR_CHANGED) {
-+		dev_vdbg(&lp->spi->dev,
-+			"at86rf230_set_hw_addr_filt called for IEEE addr\n");
-+		at86rf230_write_subreg(lp, SR_IEEE_ADDR_0, filt->ieee_addr[7]);
-+		at86rf230_write_subreg(lp, SR_IEEE_ADDR_1, filt->ieee_addr[6]);
-+		at86rf230_write_subreg(lp, SR_IEEE_ADDR_2, filt->ieee_addr[5]);
-+		at86rf230_write_subreg(lp, SR_IEEE_ADDR_3, filt->ieee_addr[4]);
-+		at86rf230_write_subreg(lp, SR_IEEE_ADDR_4, filt->ieee_addr[3]);
-+		at86rf230_write_subreg(lp, SR_IEEE_ADDR_5, filt->ieee_addr[2]);
-+		at86rf230_write_subreg(lp, SR_IEEE_ADDR_6, filt->ieee_addr[1]);
-+		at86rf230_write_subreg(lp, SR_IEEE_ADDR_7, filt->ieee_addr[0]);
-+	}
-+
-+	if (changed & IEEE802515_AFILT_PANC_CHANGED) {
-+		dev_vdbg(&lp->spi->dev,
-+			"at86rf230_set_hw_addr_filt called for panc change\n");
-+		if (filt->pan_coord)
-+			at86rf230_write_subreg(lp, SR_AACK_I_AM_COORD, 1);
-+		else
-+			at86rf230_write_subreg(lp, SR_AACK_I_AM_COORD, 0);
-+	}
-+
-+	return 0;
-+}
-+
- static struct ieee802154_ops at86rf230_ops = {
- 	.owner = THIS_MODULE,
- 	.xmit = at86rf230_xmit,
-@@ -626,6 +672,7 @@ static struct ieee802154_ops at86rf230_ops = {
- 	.set_channel = at86rf230_channel,
- 	.start = at86rf230_start,
- 	.stop = at86rf230_stop,
-+	.set_hw_addr_filt = at86rf230_set_hw_addr_filt,
- };
- 
- static void at86rf230_irqwork(struct work_struct *work)
--- 
-1.7.10.4
+Thanks Alan, Werner and Alex for the feedback.
 
+I feel these are ready so I added DaveM and netdev to pick them up if they think
+the same.
+
+[PATCH 1/3] ieee802154/dgram: Pass source address in dgram_recvmsg
+
+Patch from Stephen to fix the ieee802154 stack to actually put in the source
+address in datagrams. This allows using recvfrom() from userspace. This is a
+long standing bug. Actually I think it never worked. :)
+
+[PATCH 2/3] ieee802154/at86rf230: Implement hardware address filter
+
+Allows the to filter frames directly in the transceiver hardware. Useful for
+normal operation mode and mandatory for automatic ACK and automatic retransmits.
+
+[PATCH 3/3] ieee802154/at86rf230: Fix register names for RX_AACK_ON
+
+Not needed right now but still a good idea to get in imho. Register names have
+always been wrong but never used.
+
+regards
+Stefan Schmidt
 
 ------------------------------------------------------------------------------
 Own the Future-Intel&reg; Level Up Game Demo Contest 2013
