@@ -1,28 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Wed, 27 Mar 2013 00:54:52 -0400 (EDT)
-Message-ID: <20130327.005452.686619573507820021.davem@davemloft.net>
-References: <20130327115743.7d6c10f1e1c67f02e9c96ff8@canb.auug.org.au>
+Subject: Re: [PATCH] ipv6: fix raw socket checksum for udplite
+Date: Wed, 27 Mar 2013 00:55:14 -0400 (EDT)
+Message-ID: <20130327.005514.1091004361831592240.davem@davemloft.net>
+References: <1364337095-19663-1-git-send-email-zenczykowski@gmail.com>
+	<515259C1.20204@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, pshelar@nicira.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20130327115743.7d6c10f1e1c67f02e9c96ff8@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: zenczykowski@gmail.com, maze@google.com, netdev@vger.kernel.org,
+	edumazet@google.com, mwdalton@google.com
+To: brian.haley@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51224 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754322Ab3C0EzP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 00:55:15 -0400
+In-Reply-To: <515259C1.20204@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 27 Mar 2013 11:57:43 +1100
+=46rom: Brian Haley <brian.haley@hp.com>
+Date: Tue, 26 Mar 2013 22:30:25 -0400
 
-> Today's linux-next merge of the net-next tree got a conflict in
-> include/net/ipip.h between commit 330305cc4a6b ("pv4: Fix ip-header
-> identification for gso packets") from Linus' tree and commit c54419321455
-> ("GRE: Refactor GRE tunneling code") from the net-next tree.
-> 
-> I just dropped the file (as the latter change did) and can carry the fix
-> as necessary (no action is required).
+> On 03/26/2013 06:31 PM, Maciej =AFenczykowski wrote:
+>> From: Maciej =AFenczykowski <maze@google.com>
+>>=20
+>> Commit d3a1be9cba86 from Brian Haley in Nov 2006
+>> "[IPv6]: Only modify checksum for UDP" forgot about
+>> UDPLITE.
+>=20
+> I'm not sure I'd say I "forgot about" it, UDPLITE support didn't exis=
+t in Linux
+> until three+ weeks after that commit.
 
-Thanks, I'll take care of this when I next merge.
+Maciej, please fix the commit message to not blame that commit, and
+resubmit, thanks.
