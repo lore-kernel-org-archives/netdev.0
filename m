@@ -1,56 +1,38 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net): ipsec 2013-03-27
-Date: Wed, 27 Mar 2013 08:41:05 +0100
-Message-ID: <1364370068-20025-1-git-send-email-steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Michele Roca <michele.rocca@cacciatoritrentini.it>
+Subject: MY GOOD FRIEND!
+Date: Wed, 27 Mar 2013 09:10:09 +0100
+Message-ID: <858397a3c3e05f3d5407156d0b746379__7822.87381957776$1364372453$gmane$org@cacciatoritrentini.it>
+Reply-To: <wernererichzeller@yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:53927 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753842Ab3C0HlZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Mar 2013 03:41:25 -0400
+Received: from vm0854.cs10.seeweb.it ([95.174.23.70]:55178 "EHLO
+	smtpserver01.ergonet.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750716Ab3C0ISs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 04:18:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) Initialize the satype field in key_notify_policy_flush(),
-   this was left uninitialized. From Nicolas Dichtel.
-
-2) The sequence number difference for replay notifications
-   was misscalculated on ESN sequence number wrap. We need
-   a separate replay notify function for esn.
-
-3) Fix an off by one in the esn replay notify function.
-   From Mathias Krause.
-
-Please pull or let me know if there are problems.
-
-Thanks!
-
-The following changes since commit a0b1c42951dd06ec83cc1bc2c9788131d9fefcd8:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next (2013-02-20 18:58:50 -0800)
-
-are available in the git repository at:
 
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec.git master
 
-for you to fetch changes up to 799ef90c55e692e096d8bd9e5871b95264b1e9ba:
+I am Barrister Werner Erich Zeller; I need your sincere partnership in
+transferring the sum of 15,000,000.00 EUR The details await you as you=20
+reply!
 
-  xfrm: Fix esn sequence number diff calculation in xfrm_replay_notify_esn() (2013-03-25 07:25:50 +0100)
+please! Call +44 702 409 0820 (office)
 
-----------------------------------------------------------------
-Mathias Krause (1):
-      xfrm: Fix esn sequence number diff calculation in xfrm_replay_notify_esn()
+--=20
+Ich bin Barrister Werner Erich Zeller, ich brauche eure aufrichtige
+Partnerschaft intransferring die Summe von 15.000.000,00 EUR auf Ihr
+Bankkonto in dieser Woche f=C3=BCr den Nutzen der beiden von uns 50% ea=
+ch.It
+ist 100% legal, legitim und sicher! f=C3=BCr Details, schreiben Sie mir=
+ auf
+dieser meiner privaten E-Mail statt: Dies ist dringende und ernste Sie
+m=C3=BCssen bereit sein und bereit, bevor Sie mich kontaktieren.
 
-Nicolas Dichtel (1):
-      af_key: initialize satype in key_notify_policy_flush()
-
-Steffen Klassert (1):
-      xfrm: Fix replay notification for esn.
-
- net/key/af_key.c       |    1 +
- net/xfrm/xfrm_replay.c |   66 +++++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 66 insertions(+), 1 deletion(-)
+bitte! Rufen Sie +44 702 409 0820 (B=C3=BCro)
