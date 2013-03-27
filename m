@@ -1,46 +1,170 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] rtnetlink: fix error return code in rtnl_link_fill()
-Date: Wed, 27 Mar 2013 21:22:45 +0800
-Message-ID: <CAPgLHd8F8-uRfAi4R=xqHa76X8N9P+-UosF-6zC=OXStKbcP-A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: davem@davemloft.net, john.r.fastabend@intel.com, jiri@resnulli.us,
-	edumazet@google.com, vyasevic@redhat.com
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH] bonding: fix disabling of arp_interval and miimon
+Date: Wed, 27 Mar 2013 14:32:41 +0100
+Message-ID: <1364391161-26605-1-git-send-email-nikolay@redhat.com>
+Cc: andy@greyhouse.net, fubar@us.ibm.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:43541 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751049Ab3C0NWq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 09:22:46 -0400
-Received: by mail-bk0-f46.google.com with SMTP id je9so1804900bkc.33
-        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 06:22:45 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:45676 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751035Ab3C0NfY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Mar 2013 09:35:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Currently if either arp_interval or miimon is disabled, they both get
+disabled, and upon disabling they get executed once more which is not
+the proper behaviour. Also when doing a no-op and disabling an already
+disabled one, the other again gets disabled.
+Also fix the error messages with the proper valid ranges, and a small
+typo fix in the up delay error message (outputting "down delay", instead
+of "up delay").
 
-Fix to return a negative error code from the error handling case
-instead of 0(possible overwrite to 0 by ops->fill_xstats call),
-as returned elsewhere in this function.
-
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- net/core/rtnetlink.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/bonding/bond_sysfs.c | 92 +++++++++++++++++++++-------------------
+ 1 file changed, 48 insertions(+), 44 deletions(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 5fb8d7e..b65441d 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -496,8 +496,10 @@ static int rtnl_link_fill(struct sk_buff *skb, const struct net_device *dev)
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index db103e0..ea7a388 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -527,7 +527,7 @@ static ssize_t bonding_store_arp_interval(struct device *d,
+ 		goto out;
  	}
- 	if (ops->fill_info) {
- 		data = nla_nest_start(skb, IFLA_INFO_DATA);
--		if (data == NULL)
-+		if (data == NULL) {
-+			err = -EMSGSIZE;
- 			goto err_cancel_link;
+ 	if (new_value < 0) {
+-		pr_err("%s: Invalid arp_interval value %d not in range 1-%d; rejected.\n",
++		pr_err("%s: Invalid arp_interval value %d not in range 0-%d; rejected.\n",
+ 		       bond->dev->name, new_value, INT_MAX);
+ 		ret = -EINVAL;
+ 		goto out;
+@@ -542,14 +542,15 @@ static ssize_t bonding_store_arp_interval(struct device *d,
+ 	pr_info("%s: Setting ARP monitoring interval to %d.\n",
+ 		bond->dev->name, new_value);
+ 	bond->params.arp_interval = new_value;
+-	if (bond->params.miimon) {
+-		pr_info("%s: ARP monitoring cannot be used with MII monitoring. %s Disabling MII monitoring.\n",
+-			bond->dev->name, bond->dev->name);
+-		bond->params.miimon = 0;
+-	}
+-	if (!bond->params.arp_targets[0]) {
+-		pr_info("%s: ARP monitoring has been set up, but no ARP targets have been specified.\n",
+-			bond->dev->name);
++	if (new_value) {
++		if (bond->params.miimon) {
++			pr_info("%s: ARP monitoring cannot be used with MII monitoring. %s Disabling MII monitoring.\n",
++				bond->dev->name, bond->dev->name);
++			bond->params.miimon = 0;
 +		}
- 		err = ops->fill_info(skb, dev);
- 		if (err < 0)
- 			goto err_cancel_data;
++		if (!bond->params.arp_targets[0])
++			pr_info("%s: ARP monitoring has been set up, but no ARP targets have been specified.\n",
++				bond->dev->name);
+ 	}
+ 	if (bond->dev->flags & IFF_UP) {
+ 		/* If the interface is up, we may need to fire off
+@@ -557,10 +558,13 @@ static ssize_t bonding_store_arp_interval(struct device *d,
+ 		 * timer will get fired off when the open function
+ 		 * is called.
+ 		 */
+-		cancel_delayed_work_sync(&bond->mii_work);
+-		queue_delayed_work(bond->wq, &bond->arp_work, 0);
++		if (!new_value) {
++			cancel_delayed_work_sync(&bond->arp_work);
++		} else {
++			cancel_delayed_work_sync(&bond->mii_work);
++			queue_delayed_work(bond->wq, &bond->arp_work, 0);
++		}
+ 	}
+-
+ out:
+ 	rtnl_unlock();
+ 	return ret;
+@@ -702,7 +706,7 @@ static ssize_t bonding_store_downdelay(struct device *d,
+ 	}
+ 	if (new_value < 0) {
+ 		pr_err("%s: Invalid down delay value %d not in range %d-%d; rejected.\n",
+-		       bond->dev->name, new_value, 1, INT_MAX);
++		       bond->dev->name, new_value, 0, INT_MAX);
+ 		ret = -EINVAL;
+ 		goto out;
+ 	} else {
+@@ -757,8 +761,8 @@ static ssize_t bonding_store_updelay(struct device *d,
+ 		goto out;
+ 	}
+ 	if (new_value < 0) {
+-		pr_err("%s: Invalid down delay value %d not in range %d-%d; rejected.\n",
+-		       bond->dev->name, new_value, 1, INT_MAX);
++		pr_err("%s: Invalid up delay value %d not in range %d-%d; rejected.\n",
++		       bond->dev->name, new_value, 0, INT_MAX);
+ 		ret = -EINVAL;
+ 		goto out;
+ 	} else {
+@@ -968,37 +972,37 @@ static ssize_t bonding_store_miimon(struct device *d,
+ 	}
+ 	if (new_value < 0) {
+ 		pr_err("%s: Invalid miimon value %d not in range %d-%d; rejected.\n",
+-		       bond->dev->name, new_value, 1, INT_MAX);
++		       bond->dev->name, new_value, 0, INT_MAX);
+ 		ret = -EINVAL;
+ 		goto out;
+-	} else {
+-		pr_info("%s: Setting MII monitoring interval to %d.\n",
+-			bond->dev->name, new_value);
+-		bond->params.miimon = new_value;
+-		if (bond->params.updelay)
+-			pr_info("%s: Note: Updating updelay (to %d) since it is a multiple of the miimon value.\n",
+-				bond->dev->name,
+-				bond->params.updelay * bond->params.miimon);
+-		if (bond->params.downdelay)
+-			pr_info("%s: Note: Updating downdelay (to %d) since it is a multiple of the miimon value.\n",
+-				bond->dev->name,
+-				bond->params.downdelay * bond->params.miimon);
+-		if (bond->params.arp_interval) {
+-			pr_info("%s: MII monitoring cannot be used with ARP monitoring. Disabling ARP monitoring...\n",
+-				bond->dev->name);
+-			bond->params.arp_interval = 0;
+-			if (bond->params.arp_validate) {
+-				bond->params.arp_validate =
+-					BOND_ARP_VALIDATE_NONE;
+-			}
+-		}
+-
+-		if (bond->dev->flags & IFF_UP) {
+-			/* If the interface is up, we may need to fire off
+-			 * the MII timer. If the interface is down, the
+-			 * timer will get fired off when the open function
+-			 * is called.
+-			 */
++	}
++	pr_info("%s: Setting MII monitoring interval to %d.\n",
++		bond->dev->name, new_value);
++	bond->params.miimon = new_value;
++	if (bond->params.updelay)
++		pr_info("%s: Note: Updating updelay (to %d) since it is a multiple of the miimon value.\n",
++			bond->dev->name,
++			bond->params.updelay * bond->params.miimon);
++	if (bond->params.downdelay)
++		pr_info("%s: Note: Updating downdelay (to %d) since it is a multiple of the miimon value.\n",
++			bond->dev->name,
++			bond->params.downdelay * bond->params.miimon);
++	if (new_value && bond->params.arp_interval) {
++		pr_info("%s: MII monitoring cannot be used with ARP monitoring. Disabling ARP monitoring...\n",
++			bond->dev->name);
++		bond->params.arp_interval = 0;
++		if (bond->params.arp_validate)
++			bond->params.arp_validate = BOND_ARP_VALIDATE_NONE;
++	}
++	if (bond->dev->flags & IFF_UP) {
++		/* If the interface is up, we may need to fire off
++		 * the MII timer. If the interface is down, the
++		 * timer will get fired off when the open function
++		 * is called.
++		 */
++		if (!new_value) {
++			cancel_delayed_work_sync(&bond->mii_work);
++		} else {
+ 			cancel_delayed_work_sync(&bond->arp_work);
+ 			queue_delayed_work(bond->wq, &bond->mii_work, 0);
+ 		}
+-- 
+1.7.11.7
