@@ -1,49 +1,55 @@
-From: Benoit Lourdelet <blourdel@juniper.net>
-Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
-Date: Wed, 27 Mar 2013 13:37:45 +0000
-Message-ID: <CD78B3C3.76D3%blourdel@juniper.net>
-References: <20130326143321.GA21768@sergelap>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Serge Hallyn <serge.hallyn@ubuntu.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og101.obsmtp.com ([64.18.2.155]:51423 "EHLO
-	exprod7og101.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750798Ab3C0NjQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 09:39:16 -0400
-Received: from mail89-co1 (localhost [127.0.0.1])	by mail89-co1-R.bigfish.com
- (Postfix) with ESMTP id 2C90768004B	for
- <netdev@vger.kernel.org.FOPE.CONNECTOR.OVERRIDE>; Wed, 27 Mar 2013 13:37:53
- +0000 (UTC)
-In-Reply-To: <20130326143321.GA21768@sergelap>
-Content-Language: en-US
-Content-ID: <099C20A0B9A4E749B96D6DD1C3B6ABCC@namprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2013-03-27
+Date: Wed, 27 Mar 2013 15:05:26 +0100
+Message-ID: <1364393128-19701-1-git-send-email-mkl@pengutronix.de>
+Cc: linux-can@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Serge,
+Hello David,
 
-I am indeed using Eric patch with lxc.
+here's a patch series for net for the v3.9 release cycle. Fengguang Wu found
+two problems with the sja1000 drivers:
 
-It solves the initial problem of slowness to start around 1600 containers.
+A macro in the SH architecture collides with one in the sja1000 driver. I
+created a minimal patch suited for stable, only changing this particular
+define. (Once net is merged back to net-next, I'll post a patch to uniformly
+use a SJA1000_ prefix for the sja100 private defines.) If you prefer, I can
+squash both patches together.
 
-I am now able to start more than  2000 without having new containers
-slower and slower to start.
+Fengguang further noticed that the peak pcmcia driver will not compile on archs
+without ioport support. I created a patch to limit the driver to archs which
+select HAS_IOPORT in Kconfig.
 
-thanks
+regards,
+Marc
 
-Benoit
+---
 
-On 26/03/2013 15:33, "Serge Hallyn" <serge.hallyn@ubuntu.com> wrote:
+The following changes since commit b175293ccc98ab84e93d25472d7422b4a897614b:
 
->Actually, lxc is using random names now, so it's ok.
->
->Benoit, can you use the patches from Eric with lxc (or use the script
->you were using before but specify names as he said)?
->
->-serge
->
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2013-03-26 14:24:29 -0700)
+
+are available in the git repository at:
+
+
+  git://gitorious.org/linux-can/linux-can.git fixes-for-3.9
+
+for you to fetch changes up to 3fd33497f80aa528ded0db2851b48638635d5caa:
+
+  can: sja1000: limit PEAK PCAN-PC Card to HAS_IOPORT (2013-03-27 14:51:49 +0100)
+
+----------------------------------------------------------------
+Marc Kleine-Budde (2):
+      can: sja1000: fix define conflict on SH
+      can: sja1000: limit PEAK PCAN-PC Card to HAS_IOPORT
+
+ drivers/net/can/sja1000/Kconfig   | 1 +
+ drivers/net/can/sja1000/plx_pci.c | 4 ++--
+ drivers/net/can/sja1000/sja1000.c | 6 +++---
+ drivers/net/can/sja1000/sja1000.h | 2 +-
+ 4 files changed, 7 insertions(+), 6 deletions(-)
+
+
