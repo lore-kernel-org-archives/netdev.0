@@ -1,31 +1,30 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: /128 link-local subnet on 6in4 (sit) tunnels?
-Date: Wed, 27 Mar 2013 16:12:10 +0100
-Message-ID: <20130327151210.GA23223@order.stressinduktion.org>
-References: <1364335457.8215.21.camel@localhost>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next] openvswitch: correct an invalid
+	BUG_ON
+Date: Wed, 27 Mar 2013 08:19:35 -0700
+Message-ID: <CAEP_g=-=mv=ZOR17hfDYAq_zSEQzyetG0n=sJjTrkOjLTHLt8Q@mail.gmail.com>
+References: <1364388077-30480-1-git-send-email-honkiko@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Wilco Baan Hofman <wilco@baanhofman.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:34038 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752625Ab3C0PML (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 11:12:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1364335457.8215.21.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Hong Zhiguo <honkiko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1364388077-30480-1-git-send-email-honkiko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 26, 2013 at 11:04:17PM +0100, Wilco Baan Hofman wrote:
-> I was trying to get OSPFv3 working on NBMA 6in4 tunnel on linux 3.8, but
-> it does not work. I noticed it uses a /128 fe80 link-local subnet
-> instead of the rfc4213[1]-mandated /64.. This breaks bird (likely for
-> other reasons), but also interoperability with cisco, which mandates
-> OSPFv3 NBMA on link-local addresses.
-> 
-> So I was wondering, is there any particular reason for the use of a /128
-> link-local or is this just a bug?
+On Wed, Mar 27, 2013 at 5:41 AM, Hong Zhiguo <honkiko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> table->count is uint32_t
+>
+> Signed-off-by: Hong Zhiguo <honkiko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Can you show me the commands how you set up the tunnel. It does create /64 ll
-with embedded ipv4 addresses for me here on v3.8.
+Applied, thanks.
