@@ -1,30 +1,41 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next] openvswitch: correct an invalid
-	BUG_ON
-Date: Wed, 27 Mar 2013 08:19:35 -0700
-Message-ID: <CAEP_g=-=mv=ZOR17hfDYAq_zSEQzyetG0n=sJjTrkOjLTHLt8Q@mail.gmail.com>
-References: <1364388077-30480-1-git-send-email-honkiko@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net : Fix broken IPv6 routing table after loopback
+ down-up
+Date: Wed, 27 Mar 2013 08:26:48 -0700
+Message-ID: <1364398008.15753.14.camel@edumazet-glaptop>
+References: <CAHPKR9KjB+6+WD9R4D81vZ6eFvcwgDJKgHFYvKxQQ2t_T7x9fg@mail.gmail.com>
+	 <5152D012.4030805@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Hong Zhiguo <honkiko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1364388077-30480-1-git-send-email-honkiko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Balakumaran Kannan <kumaran.4353@gmail.com>, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+	netdev@vger.kernel.org, Balakumaran.Kannan@ap.sony.com,
+	maruthi.thotad@ap.sony.com
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ia0-f181.google.com ([209.85.210.181]:61789 "EHLO
+	mail-ia0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751077Ab3C0P0w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 11:26:52 -0400
+Received: by mail-ia0-f181.google.com with SMTP id o25so7292509iad.40
+        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 08:26:52 -0700 (PDT)
+In-Reply-To: <5152D012.4030805@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 27, 2013 at 5:41 AM, Hong Zhiguo <honkiko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> table->count is uint32_t
->
-> Signed-off-by: Hong Zhiguo <honkiko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+On Wed, 2013-03-27 at 19:55 +0900, YOSHIFUJI Hideaki wrote:
+> Balakumaran Kannan wrote:
 
-Applied, thanks.
+> >  	add_addr(idev, &in6addr_loopback, 128, IFA_HOST);
+> > +
+> > +	while ((sp_dev = dev_get_by_index(dev_net(dev), i++))) {
+> > +
+> 
+> I think this cannot work because we may have missing index.
+> Why no dev_get_by_name()?
+
+I might 'work' because lo interface index is 1 on all network
+namespaces.
+
+But yes, this ugly loop is not needed at all.
