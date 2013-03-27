@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 1/3] net: frag,
-	avoid several CPUs grabbing same frag queue during LRU evictor loop
-Date: Wed, 27 Mar 2013 16:55:25 +0100
-Message-ID: <20130327155457.15203.69656.stgit@dragon>
+Subject: [net-next PATCH 2/3] net: use the frag lru_lock to protect
+	netns_frags.nqueues update
+Date: Wed, 27 Mar 2013 16:55:56 +0100
+Message-ID: <20130327155530.15203.45784.stgit@dragon>
 References: <20130327155238.15203.6688.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,44 +14,62 @@ Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
 To: Eric Dumazet <eric.dumazet@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13950 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:58503 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751348Ab3C0Pzd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Mar 2013 11:55:33 -0400
+	id S1751348Ab3C0P4B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Mar 2013 11:56:01 -0400
 In-Reply-To: <20130327155238.15203.6688.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The LRU list is protected by its own lock, since commit 3ef0eb0db4
-(net: frag, move LRU list maintenance outside of rwlock), and
-no-longer by a read_lock.
-
-This makes it possible, to remove the inet_frag_queue, which is about
-to be "evicted", from the LRU list head.  This avoids the problem, of
-several CPUs grabbing the same frag queue.
-
-Note, cannot remove the inet_frag_lru_del() call in fq_unlink()
-called by inet_frag_kill(), because inet_frag_kill() is also used in
-other situations.  Thus, we use list_del_init() to allow this
-double list_del to work.
+Move the protection of netns_frags.nqueues updates under the LRU_lock,
+instead of the write lock.  As they are located on the same cacheline,
+and this is also needed when transitioning to use per hash bucket locking.
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
 
- net/ipv4/inet_fragment.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ include/net/inet_frag.h  |    2 ++
+ net/ipv4/inet_fragment.c |    2 --
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index 64b4e7d..7cac9c5 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -143,6 +143,7 @@ static inline void inet_frag_lru_del(struct inet_frag_queue *q)
+ {
+ 	spin_lock(&q->net->lru_lock);
+ 	list_del(&q->lru_list);
++	q->net->nqueues--;
+ 	spin_unlock(&q->net->lru_lock);
+ }
+ 
+@@ -151,6 +152,7 @@ static inline void inet_frag_lru_add(struct netns_frags *nf,
+ {
+ 	spin_lock(&nf->lru_lock);
+ 	list_add_tail(&q->lru_list, &nf->lru_list);
++	q->net->nqueues++;
+ 	spin_unlock(&nf->lru_lock);
+ }
+ 
 diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 2bff045..8ba548a 100644
+index 8ba548a..1206ca6 100644
 --- a/net/ipv4/inet_fragment.c
 +++ b/net/ipv4/inet_fragment.c
-@@ -204,6 +204,9 @@ int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force)
- 		q = list_first_entry(&nf->lru_list,
- 				struct inet_frag_queue, lru_list);
- 		atomic_inc(&q->refcnt);
-+		/* Remove q from list to avoid several CPUs grabbing it */
-+		list_del_init(&q->lru_list);
-+
- 		spin_unlock(&nf->lru_lock);
+@@ -124,7 +124,6 @@ static inline void fq_unlink(struct inet_frag_queue *fq, struct inet_frags *f)
+ {
+ 	write_lock(&f->lock);
+ 	hlist_del(&fq->list);
+-	fq->net->nqueues--;
+ 	write_unlock(&f->lock);
+ 	inet_frag_lru_del(fq);
+ }
+@@ -260,7 +259,6 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
  
- 		spin_lock(&q->lock);
+ 	atomic_inc(&qp->refcnt);
+ 	hlist_add_head(&qp->list, &f->hash[hash]);
+-	nf->nqueues++;
+ 	write_unlock(&f->lock);
+ 	inet_frag_lru_add(nf, qp);
+ 	return qp;
