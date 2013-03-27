@@ -1,9 +1,10 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/3] net: core: let skb_partial_csum_set() set
- transport header
-Date: Wed, 27 Mar 2013 07:42:56 -0700
-Message-ID: <1364395376.15753.5.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next 2/3] net: core: introduce
+ skb_probe_transport_header()
+Date: Wed, 27 Mar 2013 07:45:50 -0700
+Message-ID: <1364395550.15753.6.camel@edumazet-glaptop>
 References: <1364375482-7439-1-git-send-email-jasowang@redhat.com>
+	 <1364375482-7439-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,32 +13,21 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	Eric Dumazet <edumazet@google.com>
 To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1364375482-7439-1-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1364375482-7439-2-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Wed, 2013-03-27 at 17:11 +0800, Jason Wang wrote:
-> For untrusted packets with partial checksum, we need to set the transport header
-> for precise packet length estimation. We can just let skb_pratial_csum_set() to
-> do this to avoid extra call to skb_flow_dissect() and simplify the caller.
+> Sometimes, we need probe and set the transport header for packets (e.g from
+> untrusted source). This patch introduces a new helper
+> skb_probe_transport_header() which tries to probe and set the l4 header through
+> skb_flow_dissect(), if not just set the transport header to the hint passed by
+> caller.
 > 
 > Cc: Eric Dumazet <edumazet@google.com>
 > Signed-off-by: Jason Wang <jasowang@redhat.com>
 > ---
->  net/core/skbuff.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 31c6737..ba64614 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -3370,6 +3370,7 @@ bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off)
->  	skb->ip_summed = CHECKSUM_PARTIAL;
->  	skb->csum_start = skb_headroom(skb) + start;
->  	skb->csum_offset = off;
-> +	skb_set_transport_header(skb, start);
->  	return true;
->  }
->  EXPORT_SYMBOL_GPL(skb_partial_csum_set);
+>  include/linux/skbuff.h |   14 ++++++++++++++
+>  1 files changed, 14 insertions(+), 0 deletions(-)
 
 Acked-by: Eric Dumazet <edumazet@google.com>
