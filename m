@@ -1,28 +1,36 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba (updated) Version 2
-Date: Wed, 27 Mar 2013 23:34:33 +0100
-Message-ID: <20130327223433.GE23223@order.stressinduktion.org>
-References: <20130324051325.GE17948@order.stressinduktion.org> <157393863283F442885425D2C4542856489E7CFC@nasanexd02f.na.qualcomm.com> <20130324052300.GA12968@order.stressinduktion.org> <157393863283F442885425D2C4542856489E7D1E@nasanexd02f.na.qualcomm.com> <20130326042700.GC29705@order.stressinduktion.org> <157393863283F442885425D2C4542856489E821B@nasanexd02f.na.qualcomm.com> <20130326044025.GD29705@order.stressinduktion.org> <157393863283F442885425D2C4542856489E8232@nasanexd02f.na.qualcomm.com> <20130327220248.GD23223@order.stressinduktion.org> <157393863283F442885425D2C45428564F1FDF82@nasanexd02f.na.qualcomm.com>
+From: "Vick, Matthew" <matthew.vick@intel.com>
+Subject: Re: [net-next PATCH] [RFC] net: add option to enable error queue
+ packets waking select
+Date: Wed, 27 Mar 2013 23:43:52 +0000
+Message-ID: <CD78D1C2.17703%matthew.vick@intel.com>
+References: <20130327220028.13267.89112.stgit@jekeller-hub.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Sven Hartge <sven@svenhartge.de>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Richard Cochran <richardcochran@gmail.com>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Huang, Xiong" <xiong@qca.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:35077 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753571Ab3C0Wef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 18:34:35 -0400
-Content-Disposition: inline
-In-Reply-To: <157393863283F442885425D2C45428564F1FDF82@nasanexd02f.na.qualcomm.com>
+Received: from mga01.intel.com ([192.55.52.88]:62262 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754253Ab3C0Xnx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 19:43:53 -0400
+In-Reply-To: <20130327220028.13267.89112.stgit@jekeller-hub.jf.intel.com>
+Content-Language: en-US
+Content-ID: <FE05C46ABB93BB489AA0D7B5387EB7B8@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 27, 2013 at 10:28:24PM +0000, Huang, Xiong wrote:
->     What Windows are you using ? XP or Win7 ?
+>index 4ef3acb..c5d2e3a 100644
+>--- a/include/uapi/asm-generic/socket.h
+>+++ b/include/uapi/asm-generic/socket.h
+>@@ -74,4 +74,6 @@
+> 
+> #define SO_LOCK_FILTER		44
+> 
+>+#define SO_SELECT_ERR_QUEUE	45
+>+
+> #endif /* __ASM_GENERIC_SOCKET_H */
 
-It is a Windows 7 x86_64. The version of the windows driver is 1.0.0.45.
-
-Thanks,
-
-  Hannes
+Shouldn't this also go in the arch/*/include/uapi/asm/socket.h headers?
