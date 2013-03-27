@@ -1,41 +1,31 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
-Date: Wed, 27 Mar 2013 08:11:43 -0700
-Message-ID: <874nfwri6o.fsf@xmission.com>
-References: <CD78B3C3.76D3%blourdel@juniper.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: /128 link-local subnet on 6in4 (sit) tunnels?
+Date: Wed, 27 Mar 2013 16:12:10 +0100
+Message-ID: <20130327151210.GA23223@order.stressinduktion.org>
+References: <1364335457.8215.21.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Serge Hallyn <serge.hallyn@ubuntu.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Benoit Lourdelet <blourdel@juniper.net>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Wilco Baan Hofman <wilco@baanhofman.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:36272 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751885Ab3C0PL4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 11:11:56 -0400
-In-Reply-To: <CD78B3C3.76D3%blourdel@juniper.net> (Benoit Lourdelet's message
-	of "Wed, 27 Mar 2013 13:37:45 +0000")
+Received: from order.stressinduktion.org ([87.106.68.36]:34038 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752625Ab3C0PML (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 11:12:11 -0400
+Content-Disposition: inline
+In-Reply-To: <1364335457.8215.21.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Benoit Lourdelet <blourdel@juniper.net> writes:
+On Tue, Mar 26, 2013 at 11:04:17PM +0100, Wilco Baan Hofman wrote:
+> I was trying to get OSPFv3 working on NBMA 6in4 tunnel on linux 3.8, but
+> it does not work. I noticed it uses a /128 fe80 link-local subnet
+> instead of the rfc4213[1]-mandated /64.. This breaks bird (likely for
+> other reasons), but also interoperability with cisco, which mandates
+> OSPFv3 NBMA on link-local addresses.
+> 
+> So I was wondering, is there any particular reason for the use of a /128
+> link-local or is this just a bug?
 
-> Hello Serge,
->
-> I am indeed using Eric patch with lxc.
->
-> It solves the initial problem of slowness to start around 1600
-> containers.
-
-Good so now we just need a production ready patch for iproute.
-
-> I am now able to start more than  2000 without having new containers
-> slower and slower to start.
-
-May I ask how large a box you are running and how complex your
-containers are.  I am trying to get a feel for how common it is likely
-to be to find people running thousands of containers on a single
-machine.
-
-Eric
+Can you show me the commands how you set up the tunnel. It does create /64 ll
+with embedded ipv4 addresses for me here on v3.8.
