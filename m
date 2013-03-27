@@ -1,65 +1,50 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: Is there a preferred way to get the VXLAN port number?
-Date: Wed, 27 Mar 2013 11:32:59 -0700
-Message-ID: <51533B5B.9030405@intel.com>
-References: <51521B05.6060401@intel.com> <CAEP_g=9cXwxNE=Fxis2F_qStp1gPsjyXr2wE2agHO9rLZcquXA@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: /128 link-local subnet on 6in4 (sit) tunnels?
+Date: Wed, 27 Mar 2013 19:35:58 +0100
+Message-ID: <20130327183558.GC23223@order.stressinduktion.org>
+References: <1364335457.8215.21.camel@localhost> <20130327151210.GA23223@order.stressinduktion.org> <1364398673.21709.4.camel@localhost> <20130327181146.GB23223@order.stressinduktion.org> <1364408454.15362.1.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Gasparakis, Joseph" <joseph.gasparakis@intel.com>,
-	Stephen Hemminger <shemminger@vyatta.com>, pshelar@nicira.com,
-	David Miller <davem@davemloft.net>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Wilco Baan Hofman <wilco@baanhofman.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:12272 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752905Ab3C0SdA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Mar 2013 14:33:00 -0400
-In-Reply-To: <CAEP_g=9cXwxNE=Fxis2F_qStp1gPsjyXr2wE2agHO9rLZcquXA@mail.gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:34577 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753554Ab3C0Sf7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 14:35:59 -0400
+Content-Disposition: inline
+In-Reply-To: <1364408454.15362.1.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/27/2013 10:26 AM, Jesse Gross wrote:
-> On Tue, Mar 26, 2013 at 3:02 PM, Alexander Duyck
-> <alexander.h.duyck@intel.com> wrote:
->> I was wondering if someone would happen to know if there is already a
->> preferred way to get the VXLAN port number for things such as
->> configuring a device to recognize a VXLAN frame on receive for parsing
->> purposes?
->>
->> I just wanted to check to make sure I hadn't missed something before
->> submitting a patch that would export a simple function for supplying the
->> vxlan_port value.
-> There isn't a good way to do this at the moment.  One thing that would
-> be nice though is if we can make this as generic as possible to
-> different tunneling formats that might need to be configured in this
-> way rather than specific to VXLAN.
->
-> Another area think about is how best to supply the information to
-> GRO/RPS to do the software version of these offloads.
+On Wed, Mar 27, 2013 at 07:20:54PM +0100, Wilco Baan Hofman wrote:
+> 
+> 
+> On Wed, 2013-03-27 at 19:11 +0100, Hannes Frederic Sowa wrote:
+> > On Wed, Mar 27, 2013 at 04:37:53PM +0100, Wilco Baan Hofman wrote:
+> > > 
+> > > Weird, but sure, here goes:
+> > > 
+> > > ip tunnel add tunv6-uplink1 mode sit remote 192.168.1.1 local
+> > > 192.168.1.21
+> > > ip link set tunv6-uplink1 up mtu 1472
+> > 
+> > In my test I didn't specify the local address so addr.s6_addr32[3]
+> > seems to be zero.  I'll have to search the RFCs why this is the case.
+> 
+> See section 3.7, rfc4213:
+> 
+>    The interface identifier [RFC3513] for such an interface may be based
+>    on the 32-bit IPv4 address of an underlying interface, or formed
+>    using some other means, as long as it is unique from the other tunnel
+>    endpoint with a reasonably high probability.
+> 
+> http://tools.ietf.org/html/rfc4213
 
-The problem is what I am looking for is very specific to VXLAN.  I need
-the port number so I can tell the hardware where to expect the VXLAN
-frames to be bound to so that the hardware will recognize them and parse
-them correctly.
+Thanks, I have seen that already. The sit driver is used for more than 6in4
+(6to4, isatap, 6rd). So such a change has to be ok with all the other
+protocols implemented by sit. I also looked in the historic git archive for a
+rationale of this but couldn't find one. Commit messages 2002 where not as
+descriptive as today("Import changeset"). :)
 
-In the case of GRO/RPS the situation is somewhat reversed.  You have a
-packet with a given port number and you need to offload it.  In that
-case you can probably do a socket search to determine which offload to
-use and have those offloads associated with the socket via something
-like the encap_rcv pointer that exists in the udp socket.
-
-The main think I want to do is keep this simple since I would prefer to
-not build up any infrastructure that will just get in the way.  My
-thought for now is to just export a function to allow drivers to fetch
-the port number of VXLAN.  The only downside is that it forces the VXLAN
-module to load if a driver comes up with offload support, similar to how
-we have been loading the 8021q module for many of the drivers that
-support VLAN offloads.  Hopefully if the fixed port number approach wins
-out we can simplify things by replacing the function call with a static
-define. 
-
-Thanks,
-
-Alex
+I also added YOSHIFUJI Hideaki as Cc, perhaps he knows the reason.
