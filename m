@@ -1,56 +1,54 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: unmanaged L2TPv3 ethernet pseudowire Cisco <=> Linux
-Date: Wed, 27 Mar 2013 20:56:54 +0000
-Message-ID: <51535D16.4080207@katalix.com>
-References: <Pine.LNX.4.61.1303241153000.20041@envy.nxs.se> <CAEwTi7Rbo3dBqhyDJXYvrkMWfrX9xwUr5VovFoW7BfPAZp4XFw@mail.gmail.com> <Pine.LNX.4.61.1303272104470.20041@envy.nxs.se>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: RE: [PATCH net-next] bnx2x: handle spurious interrupts
+Date: Wed, 27 Mar 2013 21:08:17 +0000
+Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52ABF944F@SJEXCHMB10.corp.ad.broadcom.com>
+References: <1364408379-4353-1-git-send-email-yuvalmin@broadcom.com>
+ <20130327.152716.1731476572805884795.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Tomas Agartz <tlund@nxs.se>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Ariel Elior" <ariele@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:36474 "EHLO bert.katalix.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1192 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751841Ab3C0U45 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Mar 2013 16:56:57 -0400
-In-Reply-To: <Pine.LNX.4.61.1303272104470.20041@envy.nxs.se>
+	id S1752465Ab3C0VI0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 17:08:26 -0400
+In-Reply-To: <20130327.152716.1731476572805884795.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27/03/13 20:08, Tomas Agartz wrote:
-> On Tue, 26 Mar 2013, James Chapman wrote:
+> > Since the driver must request the IRQ prior to enabling HW generation of
+> > interrupts, it would still need to ignore every interrupt arriving during that
+> > interval.
 > 
->> The issue is that Linux and Cisco use a different default for the
->> L2SpecificSublayer header setting and neither implementation provides
->> a config option to change its setting. :-( The Linux default is to use
->> the Default L2SpecificSublayer as defined in the RFC. Unfortunately
->> the Cisco default is to use no L2SpecificSublayer.
->>
->> The kernel already has an API to allow the L2SpecificSublayer setting
->> to be configured. The missing piece is an iproute2 l2tp config option
->> to configure it. I'll work on an iproute2 patch now to allow this
->> setting to be configured.
+> This is the real issue.
 > 
-> I patched my iproute2 with your patch and now my tunnel is working.
-> Thank you! :)
-
-Great. Thanks for reporting back.
-
->> For unmanaged tunnels, these parameters must be manually configured
->> consistently at each side. Both Cisco and Linux default to use no
->> cookies and both already have config parameters to set cookie
->> parameters, if needed. However, for L2SpecificSublayer this isn't the
->> case. We need to add a config option on the Linux side to force the
->> same setting as Cisco is using.
+> request_irq() must not be invoked until you are ready to handle
+> interrupts, and this means initializing any and all software
+> datastructures that might be accessed in the interrupt handler.
 > 
-> Does the API in the kernel allow you to set the cookie? In that case it
-> seems like a good idea to add that to iproute2 as well?
+> If this requirement is met, seeing NULL pointers is not possible.
 
-It is already supported. See the cookie and peer_cookie parameters of ip
-l2tp add session.
+I agree we won't be seeing NULL pointers, but that's only the manifestation of the
+problem, not the problem itself - if we would have handled those spurious 
+interrupts in the same manner we do regular ones, we might leave HW in an 
+unsteady state.
 
-ip l2tp help
-or
-man ip-l2tp
+The real issue (well, both are real but this is the one THIS patch tries
+solving, while the one you describe is the one I've named `orthogonal') is that 
+there exists a scenario in which the HW generates an interrupt although it's 
+configured not to do so, and the bnx2x driver shouldn't ACK but rather discard it. 
 
-James
+> I still reject this patch, please fix the fundamental issue instead,
+> thanks.
+
+This is of course your prerogative.
+We will work on solving both issues.
+
+Thanks,
+Yuval
