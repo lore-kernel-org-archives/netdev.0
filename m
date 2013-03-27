@@ -1,72 +1,100 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH net-next] core: should call pskb_expand_head if skb header is cloned in skb_gso_segment in rx path
-Date: Wed, 27 Mar 2013 17:34:05 +0800
-Message-ID: <1364376845-5000-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:41298 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751475Ab3C0JeQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 05:34:16 -0400
-Received: by mail-bk0-f46.google.com with SMTP id je9so1715345bkc.19
-        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 02:34:15 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net-next PATCH 1/1] drivers: net: ethernet: ti: sparse warning fix for ti ethernet drivers
+Date: Wed, 27 Mar 2013 15:28:07 +0530
+Message-ID: <1364378287-11194-1-git-send-email-mugunthanvnm@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Li RongQing <roy.qing.li@gmail.com>
+fix for the below sparse warnings
 
-12b0004d1d1 (adjust skb_gso_segment() for calling in rx path) tries to kill warnings
-by checking if ip_summed is CHECK_NONE or not in rx path, since if skb_gso_segment()
-is called on rx path, and ->ip_summed has different meaning.
+drivers/net/ethernet/ti/davinci_cpdma.c:182:29: warning: incorrect type in assignment (different address spaces)
+drivers/net/ethernet/ti/davinci_cpdma.c:182:29:    expected void [noderef] <asn:2>*iomap
+drivers/net/ethernet/ti/davinci_cpdma.c:182:29:    got void *cpumap
+drivers/net/ethernet/ti/davinci_cpdma.c:953:27: warning: symbol 'controls' was not declared. Should it be static?
+drivers/net/ethernet/ti/cpsw.c:451:6: warning: symbol 'cpsw_tx_handler' was not declared. Should it be static?
+drivers/net/ethernet/ti/cpsw.c:468:6: warning: symbol 'cpsw_rx_handler' was not declared. Should it be static?
+drivers/net/ethernet/ti/cpsw_ale.c:151:5: warning: symbol 'cpsw_ale_match_addr' was not declared. Should it be static?
+drivers/net/ethernet/ti/cpsw_ale.c:172:5: warning: symbol 'cpsw_ale_match_vlan' was not declared. Should it be static?
 
-but this maybe break skb if skb header is cloned, and not expand the header, since when
-step into skb_mac_gso_segment(), which will still check ip_summed with CHECKSUM_PARTIAL,
-then do gso_send_check(). and after __skb_gso_segment() in queue_gso_packets() of
-openvswitch, queue_userspace_packet() still checks ip_summed with CHECKSUM_PARTIAL,
-and do checksum.
-
-so I think it is enough to ignore the warning in rx path.
-
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- net/core/dev.c |   16 +++-------------
- 1 file changed, 3 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c          |    4 ++--
+ drivers/net/ethernet/ti/cpsw_ale.c      |    4 ++--
+ drivers/net/ethernet/ti/davinci_cpdma.c |    4 ++--
+ 3 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index de930b7..bf0e586 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2269,17 +2269,6 @@ struct sk_buff *skb_mac_gso_segment(struct sk_buff *skb,
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 7aebc0c..f4be85b 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -448,7 +448,7 @@ static void cpsw_intr_disable(struct cpsw_priv *priv)
+ 	return;
  }
- EXPORT_SYMBOL(skb_mac_gso_segment);
  
--
--/* openvswitch calls this on rx path, so we need a different check.
-- */
--static inline bool skb_needs_check(struct sk_buff *skb, bool tx_path)
--{
--	if (tx_path)
--		return skb->ip_summed != CHECKSUM_PARTIAL;
--	else
--		return skb->ip_summed == CHECKSUM_NONE;
--}
--
- /**
-  *	__skb_gso_segment - Perform segmentation on skb.
-  *	@skb: buffer to segment
-@@ -2294,10 +2283,11 @@ static inline bool skb_needs_check(struct sk_buff *skb, bool tx_path)
- struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
- 				  netdev_features_t features, bool tx_path)
+-void cpsw_tx_handler(void *token, int len, int status)
++static void cpsw_tx_handler(void *token, int len, int status)
  {
--	if (unlikely(skb_needs_check(skb, tx_path))) {
-+	if (unlikely(skb->ip_summed != CHECKSUM_PARTIAL)) {
- 		int err;
+ 	struct sk_buff		*skb = token;
+ 	struct net_device	*ndev = skb->dev;
+@@ -465,7 +465,7 @@ void cpsw_tx_handler(void *token, int len, int status)
+ 	dev_kfree_skb_any(skb);
+ }
  
--		skb_warn_bad_offload(skb);
-+		if (tx_path)
-+			skb_warn_bad_offload(skb);
+-void cpsw_rx_handler(void *token, int len, int status)
++static void cpsw_rx_handler(void *token, int len, int status)
+ {
+ 	struct sk_buff		*skb = token;
+ 	struct net_device	*ndev = skb->dev;
+diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
+index 7fa60d6..79f0b79 100644
+--- a/drivers/net/ethernet/ti/cpsw_ale.c
++++ b/drivers/net/ethernet/ti/cpsw_ale.c
+@@ -148,7 +148,7 @@ static int cpsw_ale_write(struct cpsw_ale *ale, int idx, u32 *ale_entry)
+ 	return idx;
+ }
  
- 		if (skb_header_cloned(skb) &&
- 		    (err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
+-int cpsw_ale_match_addr(struct cpsw_ale *ale, u8 *addr, u16 vid)
++static int cpsw_ale_match_addr(struct cpsw_ale *ale, u8 *addr, u16 vid)
+ {
+ 	u32 ale_entry[ALE_ENTRY_WORDS];
+ 	int type, idx;
+@@ -169,7 +169,7 @@ int cpsw_ale_match_addr(struct cpsw_ale *ale, u8 *addr, u16 vid)
+ 	return -ENOENT;
+ }
+ 
+-int cpsw_ale_match_vlan(struct cpsw_ale *ale, u16 vid)
++static int cpsw_ale_match_vlan(struct cpsw_ale *ale, u16 vid)
+ {
+ 	u32 ale_entry[ALE_ENTRY_WORDS];
+ 	int type, idx;
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index ee13dc7..a6f5de9 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -179,7 +179,7 @@ cpdma_desc_pool_create(struct device *dev, u32 phys, u32 hw_addr,
+ 	} else {
+ 		pool->cpumap = dma_alloc_coherent(dev, size, &pool->phys,
+ 						  GFP_KERNEL);
+-		pool->iomap = pool->cpumap;
++		pool->iomap = (void __iomem *) pool->cpumap;
+ 		pool->hw_addr = pool->phys;
+ 	}
+ 
+@@ -950,7 +950,7 @@ struct cpdma_control_info {
+ #define ACCESS_RW	(ACCESS_RO | ACCESS_WO)
+ };
+ 
+-struct cpdma_control_info controls[] = {
++static struct cpdma_control_info controls[] = {
+ 	[CPDMA_CMD_IDLE]	  = {CPDMA_DMACONTROL,	3,  1,      ACCESS_WO},
+ 	[CPDMA_COPY_ERROR_FRAMES] = {CPDMA_DMACONTROL,	4,  1,      ACCESS_RW},
+ 	[CPDMA_RX_OFF_LEN_UPDATE] = {CPDMA_DMACONTROL,	2,  1,      ACCESS_RW},
 -- 
-1.7.10.4
+1.7.9.5
+
