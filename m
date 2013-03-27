@@ -1,54 +1,100 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: RE: [PATCH net-next] bnx2x: handle spurious interrupts
-Date: Wed, 27 Mar 2013 21:08:17 +0000
-Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52ABF944F@SJEXCHMB10.corp.ad.broadcom.com>
-References: <1364408379-4353-1-git-send-email-yuvalmin@broadcom.com>
- <20130327.152716.1731476572805884795.davem@davemloft.net>
+From: Stefan Schmidt <stefan-OrPQZGeq07wqhVmZOOOmNx2eb7JE58TQ@public.gmane.org>
+Subject: Re: ieee802154: Source addr fix for dgram and
+ some small at86rf230 driver enhancements
+Date: Wed, 27 Mar 2013 21:21:25 +0000
+Message-ID: <20130327212125.GA23555@novatech.datenfreihafen.org>
+References: <1364337691-20163-1-git-send-email-stefan@datenfreihafen.org>
+	<20130327.005318.1058473513349640907.davem@davemloft.net>
+	<20130327185204.GH22584@novatech.datenfreihafen.org>
+	<20130327.151037.378525240140621201.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Ariel Elior" <ariele@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1192 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752465Ab3C0VI0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 17:08:26 -0400
-In-Reply-To: <20130327.152716.1731476572805884795.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20130327.151037.378525240140621201.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> > Since the driver must request the IRQ prior to enabling HW generation of
-> > interrupts, it would still need to ignore every interrupt arriving during that
-> > interval.
+Hello.
+
+On Wed, 2013-03-27 at 15:10, David Miller wrote:
+> From: Stefan Schmidt <stefan-OrPQZGeq07wqhVmZOOOmNx2eb7JE58TQ@public.gmane.org>
+> Date: Wed, 27 Mar 2013 18:52:05 +0000
 > 
-> This is the real issue.
+> > On Wed, 2013-03-27 at 00:53, David Miller wrote:
+> >> From: Stefan Schmidt <stefan-OrPQZGeq07wqhVmZOOOmNx2eb7JE58TQ@public.gmane.org>
+> >> Date: Tue, 26 Mar 2013 22:41:28 +0000
+> >> 
+> >> > Hello.
+> >> > 
+> >> > Second version. Changes since version 1:
+> >> > - Obey 80 chars rules
+> >> > - Switch logging mode to vdbg to avoid noise
+> >> > - Remove uneeded might_sleep()
+> >> > 
+> >> > Thanks Alan, Werner and Alex for the feedback.
+> >> > 
+> >> > I feel these are ready so I added DaveM and netdev to pick them up if they think
+> >> > the same.
+> >> 
+> >> All applied.
+> > 
+> > Thanks. That was quick. :)
+> > 
+> > I wonder what happened to the from of two of my commits. Looking at
+> > your repo they only show up my email address:
+> > 
+> > https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=1486774d69f6e58da16cdae8f17c77ec6569f711
+> > https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=028889b0b32064a3a23d6d8d4ef589a42a6d43c7
+> > 
+> > The one from Stephen is fine
+> > https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=6364e6ee788ae60f1c2de5c59e39adb157327e6c
+> > 
+> > The later as an explicit from as he was the author and I just the
+> > sender. For the two problematic ones git am should have picked up the
+> > normal mail from header, no?
 > 
-> request_irq() must not be invoked until you are ready to handle
-> interrupts, and this means initializing any and all software
-> datastructures that might be accessed in the interrupt handler.
+> I don't understand what the problem is.
 > 
-> If this requirement is met, seeing NULL pointers is not possible.
+> The first two patches list you as the author, as that is the sender in
+> the From: field.
 
-I agree we won't be seeing NULL pointers, but that's only the manifestation of the
-problem, not the problem itself - if we would have handled those spurious 
-interrupts in the same manner we do regular ones, we might leave HW in an 
-unsteady state.
+Yeah, sorry. Should have made that more clear.
 
-The real issue (well, both are real but this is the one THIS patch tries
-solving, while the one you describe is the one I've named `orthogonal') is that 
-there exists a scenario in which the HW generates an interrupt although it's 
-configured not to do so, and the bnx2x driver shouldn't ACK but rather discard it. 
+> Oh, I see, the name, have a look at:
+> 
+> http://patchwork.ozlabs.org/patch/231579/
+> 
+> That's where I take the patches from, click on Download "mbox" and you'll
+> see that it gave me the headers as:
+> 
+> Date: Tue, 26 Mar 2013 12:41:30 -0000
+> From: stefan-OrPQZGeq07wqhVmZOOOmNx2eb7JE58TQ@public.gmane.org
 
-> I still reject this patch, please fix the fundamental issue instead,
-> thanks.
+Strange, patchwork somehow got the From wrong. Looking through the
+headers again it seems all correct to me. The only occurance of my
+email without proper name is the return-path which should should not
+matter.
 
-This is of course your prerogative.
-We will work on solving both issues.
+Its not a big deal anyway, just strange.
 
-Thanks,
-Yuval
+regards
+Stefan Schmidt
+
+------------------------------------------------------------------------------
+Own the Future-Intel&reg; Level Up Game Demo Contest 2013
+Rise to greatness in Intel's independent game demo contest.
+Compete for recognition, cash, and the chance to get your game 
+on Steam. $5K grand prize plus 10 genre and skill prizes. 
+Submit your demo by 6/6/13. http://p.sf.net/sfu/intel_levelupd2d
