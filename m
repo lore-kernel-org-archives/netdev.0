@@ -1,71 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH -next] GRE: Use strlcat() for size checking
-Date: Wed, 27 Mar 2013 20:06:16 +0000
-Message-ID: <1364414776.2922.19.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1364410111-29418-1-git-send-email-geert@linux-m68k.org>
+From: Tomas Agartz <tlund@nxs.se>
+Subject: Re: unmanaged L2TPv3 ethernet pseudowire Cisco <=> Linux
+Date: Wed, 27 Mar 2013 21:08:14 +0100 (CET)
+Message-ID: <Pine.LNX.4.61.1303272104470.20041@envy.nxs.se>
+References: <Pine.LNX.4.61.1303241153000.20041@envy.nxs.se>
+ <CAEwTi7Rbo3dBqhyDJXYvrkMWfrX9xwUr5VovFoW7BfPAZp4XFw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Pravin B Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <linux-next@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1364410111-29418-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from envy.nxs.se ([212.247.200.182]:38181 "EHLO envy.nxs.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754365Ab3C0UIR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Mar 2013 16:08:17 -0400
+In-Reply-To: <CAEwTi7Rbo3dBqhyDJXYvrkMWfrX9xwUr5VovFoW7BfPAZp4XFw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-03-27 at 19:48 +0100, Geert Uytterhoeven wrote:
-> On m68k, gcc tries to be smart and turns
-> 
->     strncat(name, "%d", 2);
-> 
-> into a call to strlen() and a 16-bit store, causing a link failure,
-> as arch/m68k/include/asm/string.h provides strlen() using a macro:
-> 
->     ERROR: "strlen" [net/ipv4/ip_tunnel.ko] undefined!
+On Tue, 26 Mar 2013, James Chapman wrote:
 
-Perhaps you should fix the string library for m68k, then!
+> The issue is that Linux and Cisco use a different default for the 
+> L2SpecificSublayer header setting and neither implementation provides a 
+> config option to change its setting. :-( The Linux default is to use the 
+> Default L2SpecificSublayer as defined in the RFC. Unfortunately the 
+> Cisco default is to use no L2SpecificSublayer.
+>
+> The kernel already has an API to allow the L2SpecificSublayer setting to 
+> be configured. The missing piece is an iproute2 l2tp config option to 
+> configure it. I'll work on an iproute2 patch now to allow this setting 
+> to be configured.
 
-> Use strlcat() instead to avoid this, which also allows to simplify the
-> check for buffer overflows.
+I patched my iproute2 with your patch and now my tunnel is working. Thank 
+you! :)
 
-It looks like you're also fixing an off-by-one error: the maximum length
-of ops->kind will be IFNAMSIZ - 3 (just enough to add "%d" and the null
-terminator), rather than IFNAMSIZ - 4.
+> For unmanaged tunnels, these parameters must be manually configured 
+> consistently at each side. Both Cisco and Linux default to use no 
+> cookies and both already have config parameters to set cookie 
+> parameters, if needed. However, for L2SpecificSublayer this isn't the 
+> case. We need to add a config option on the Linux side to force the same 
+> setting as Cisco is using.
 
-Ben.
+Does the API in the kernel allow you to set the cookie? In that 
+case it seems like a good idea to add that to iproute2 as well?
 
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> --
-> Compile-tested only
-> 
-> http://kisskb.ellerman.id.au/kisskb/buildresult/8462108/
-> ---
->  net/ipv4/ip_tunnel.c |    5 ++---
->  1 files changed, 2 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-> index 9d96b68..8dbe672 100644
-> --- a/net/ipv4/ip_tunnel.c
-> +++ b/net/ipv4/ip_tunnel.c
-> @@ -284,12 +284,11 @@ static struct net_device *__ip_tunnel_create(struct net *net,
->  	if (parms->name[0])
->  		strlcpy(name, parms->name, IFNAMSIZ);
->  	else {
-> -		if (strlen(ops->kind) + 3 >= IFNAMSIZ) {
-> +		strlcpy(name, ops->kind, IFNAMSIZ);
-> +		if (strlcat(name, "%d", IFNAMSIZ) >= IFNAMSIZ) {
->  			err = -E2BIG;
->  			goto failed;
->  		}
-> -		strlcpy(name, ops->kind, IFNAMSIZ);
-> -		strncat(name, "%d", 2);
->  	}
->  
->  	ASSERT_RTNL();
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+//tlund
