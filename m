@@ -1,63 +1,66 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] tg3: fix length overflow in VPD firmware parsing
-Date: Wed, 27 Mar 2013 09:40:50 -0700
-Message-ID: <20130327164050.GA26838@www.outflux.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
-	Oded Horovitz <oded@privatecore.com>,
-	Brad Spengler <spender@grsecurity.net>,
-	Benjamin Li <benli@broadcom.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Hong Zhiguo <honkiko@gmail.com>
+Subject: [PATCH 2/6] audit: replace obsolete NLMSG_* with type safe nlmsg_*
+Date: Thu, 28 Mar 2013 00:49:06 +0800
+Message-ID: <1364402946-32715-1-git-send-email-honkiko@gmail.com>
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	davem@davemloft.net, tgraf@suug.ch
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 184b89044fb6e2a74611dafa69b1dce0d98612c6 ("tg3: Use VPD fw version
-when present") introduced VPD parsing that contained a potential length
-overflow.
-
-Limit the hardware's reported firmware string length (max 255 bytes) to
-stay inside the driver's firmware string length (32 bytes). On overflow,
-truncate the formatted firmware string instead of potentially overwriting
-portions of the tg3 struct.
-
-http://cansecwest.com/slides/2013/PrivateCore%20CSW%202013.pdf
-
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Reported-by: Oded Horovitz <oded@privatecore.com>
-Reported-by: Brad Spengler <spender@grsecurity.net>
-Cc: stable@vger.kernel.org
-Cc: Matt Carlson <mcarlson@broadcom.com>
+Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ kernel/audit.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 67d2663..17a9727 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -14604,8 +14604,11 @@ static void tg3_read_vpd(struct tg3 *tp)
- 		if (j + len > block_end)
- 			goto partno;
+diff --git a/kernel/audit.c b/kernel/audit.c
+index d596e53..4dbb047 100644
+--- a/kernel/audit.c
++++ b/kernel/audit.c
+@@ -58,7 +58,7 @@
+ #ifdef CONFIG_SECURITY
+ #include <linux/security.h>
+ #endif
+-#include <linux/netlink.h>
++#include <net/netlink.h>
+ #include <linux/freezer.h>
+ #include <linux/tty.h>
+ #include <linux/pid_namespace.h>
+@@ -910,7 +910,7 @@ static void audit_receive_skb(struct sk_buff *skb)
+ {
+ 	struct nlmsghdr *nlh;
+ 	/*
+-	 * len MUST be signed for NLMSG_NEXT to be able to dec it below 0
++	 * len MUST be signed for nlmsg_next to be able to dec it below 0
+ 	 * if the nlmsg_len was not aligned
+ 	 */
+ 	int len;
+@@ -919,13 +919,13 @@ static void audit_receive_skb(struct sk_buff *skb)
+ 	nlh = nlmsg_hdr(skb);
+ 	len = skb->len;
  
--		memcpy(tp->fw_ver, &vpd_data[j], len);
--		strncat(tp->fw_ver, " bc ", vpdlen - len - 1);
-+		if (len >= sizeof(tp->fw_ver))
-+			len = sizeof(tp->fw_ver) - 1;
-+		memset(tp->fw_ver, 0, sizeof(tp->fw_ver));
-+		snprintf(tp->fw_ver, sizeof(tp->fw_ver), "%.*s bc ", len,
-+			 &vpd_data[j]);
+-	while (NLMSG_OK(nlh, len)) {
++	while (nlmsg_ok(nlh, len)) {
+ 		err = audit_receive_msg(skb, nlh);
+ 		/* if err or if this message says it wants a response */
+ 		if (err || (nlh->nlmsg_flags & NLM_F_ACK))
+ 			netlink_ack(skb, nlh, err);
+ 
+-		nlh = NLMSG_NEXT(nlh, len);
++		nlh = nlmsg_next(nlh, len);
  	}
+ }
  
- partno:
+@@ -1483,7 +1483,7 @@ void audit_log_end(struct audit_buffer *ab)
+ 		audit_log_lost("rate limit exceeded");
+ 	} else {
+ 		struct nlmsghdr *nlh = nlmsg_hdr(ab->skb);
+-		nlh->nlmsg_len = ab->skb->len - NLMSG_SPACE(0);
++		nlh->nlmsg_len = ab->skb->len - NLMSG_HDRLEN;
+ 
+ 		if (audit_pid) {
+ 			skb_queue_tail(&audit_skb_queue, ab->skb);
 -- 
-1.7.9.5
+1.7.10.4
 
-
--- 
-Kees Cook
-Chrome OS Security
