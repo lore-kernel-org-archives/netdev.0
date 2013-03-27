@@ -1,7 +1,7 @@
 From: Joseph CHANG <josright123@gmail.com>
 Subject: [PATCH 1/1] ethernet: dm9000 driver: davicom: upgrade driver
-Date: Wed, 27 Mar 2013 06:42:48 +0000 (UTC)
-Message-ID: <315925806-1352-1-git-send-email-josright123__19506.6666500226$1364366595$gmane$org@gmail.com>
+Date: Wed, 27 Mar 2013 06:42:54 +0000 (UTC)
+Message-ID: <315925806-1352-1-git-send-email-josright123__11033.582504797$1364366602$gmane$org__18749.7050197393$1364366602$gmane$org@gmail.com>
 Cc: linux-kernel@vger.kernel.org, Joseph CHANG <josright123@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>,
 	Bill Pemberton <wfp5p@virginia.edu>,
@@ -9,10 +9,14 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	Joseph CHANG <joseph_chang@davicom.com.tw>,
 	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f47.google.com ([209.85.210.47]:62499 "EHLO
+	mail-da0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751007Ab3C0Gmi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 02:42:38 -0400
 Date: Sat,  5 Jan 1980 21:10:06 +0800
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Fixing bug for DM9000B which is a DSP revision!
 
