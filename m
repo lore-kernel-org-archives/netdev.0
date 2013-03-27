@@ -1,56 +1,50 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Wed, 27 Mar 2013 11:57:43 +1100
-Message-ID: <20130327115743.7d6c10f1e1c67f02e9c96ff8@canb.auug.org.au>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] ipv6: fix raw socket checksum for udplite
+Date: Tue, 26 Mar 2013 22:30:25 -0400
+Message-ID: <515259C1.20204@hp.com>
+References: <1364337095-19663-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Wed__27_Mar_2013_11_57_43_+1100_Nsh5HxZ5UA=__njk"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pravin B Shelar <pshelar@nicira.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <maze@google.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	Mike Dalton <mwdalton@google.com>
+To: =?UTF-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <zenczykowski@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:17613 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625Ab3C0Ca3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 22:30:29 -0400
+In-Reply-To: <1364337095-19663-1-git-send-email-zenczykowski@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__27_Mar_2013_11_57_43_+1100_Nsh5HxZ5UA=__njk
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 03/26/2013 06:31 PM, Maciej =C5=BBenczykowski wrote:
+> From: Maciej =C5=BBenczykowski <maze@google.com>
+>=20
+> Commit d3a1be9cba86 from Brian Haley in Nov 2006
+> "[IPv6]: Only modify checksum for UDP" forgot about
+> UDPLITE.
 
-Hi all,
+I'm not sure I'd say I "forgot about" it, UDPLITE support didn't exist =
+in Linux
+until three+ weeks after that commit.
 
-Today's linux-next merge of the net-next tree got a conflict in
-include/net/ipip.h between commit 330305cc4a6b ("pv4: Fix ip-header
-identification for gso packets") from Linus' tree and commit c54419321455
-("GRE: Refactor GRE tunneling code") from the net-next tree.
+commit d3a1be9cba86c4385a5fe46673bbb4730551f454
+Author: Brian Haley <brian.haley@hp.com>
+Date:   Fri Nov 10 14:54:51 2006 -0800
 
-I just dropped the file (as the latter change did) and can carry the fix
-as necessary (no action is required).
+    [IPv6]: Only modify checksum for UDP
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+commit ba4e58eca8aa9473b44fdfd312f26c4a2e7798b3
+Author: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date:   Mon Nov 27 11:10:57 2006 -0800
 
---Signature=_Wed__27_Mar_2013_11_57_43_+1100_Nsh5HxZ5UA=__njk
-Content-Type: application/pgp-signature
+    [NET]: Supporting UDP-Lite (RFC 3828) in Linux
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+I see no reason your patch isn't correct though.
 
-iQIcBAEBCAAGBQJRUkQHAAoJEECxmPOUX5FEgGcQAIpoYOTTVWNFnLPle4ds+Wdk
-QA+vgzI/RM7vK3CGHC7dcDenJdAgp4bmxgFImiVOMR0PNYJ9se2EBFXN7krbrFXN
-kJ/famdQJRnZKMw1Wd9na3Rcb1hLtHUe9ASErq4PKl41Cn0C4edwI9dBQcJJ13xJ
-1uIg31IOZmZsakLoXw5V+l+BYYD3vSPJfGEw5EMDAtW6vKo5+NZFYmw3jABxRG5X
-lm83qBXAaJsg1IV1J4ZzDUVfepE5djXIHpzlWeCLupdMnQx86WK1DwwmW8jLe29l
-kkvQ3nThBUbOGSZ4ITfkZqNbxwQx3rWLlCysRvQzaEljt+fMilVqCC60MuWfTtTs
-0mnu/Ednm/+aifaD3TQnWXDHAGNUvBnkMvffJ/qOH/2G8tyBuuTkFdXRbwW6ykU9
-GV2+18E6jeTTjm3jDLASA1WhqrL1q7MdfR5giyML71JBkhr2ZupJmiUEwKHI1xqT
-SCuP00bYXRUH5O5xP2s30E1tWXgUw954ghOSMfKexSxlky4IDvdTWborYKZ+p0s4
-rtc1SNmBBrzYhYeALJl+vv2NefuqZJ1zGPl8tc2orINHlLiLaZNW8xti+YTaGh0Q
-Wroam+2hy2Hmepy3omL37ivIuAgrOLYAF7iYgONFvGXtAlMgBHDDaNI18gT7qCdx
-zf0brDL/LfNVzojNdvIA
-=kTCc
------END PGP SIGNATURE-----
+Acked-by: Brian Haley <brian.haley@hp.com>
 
---Signature=_Wed__27_Mar_2013_11_57_43_+1100_Nsh5HxZ5UA=__njk--
+-Brian
