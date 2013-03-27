@@ -1,51 +1,73 @@
-From: Wilco Baan Hofman <wilco@baanhofman.nl>
-Subject: Re: /128 link-local subnet on 6in4 (sit) tunnels?
-Date: Wed, 27 Mar 2013 16:37:53 +0100
-Message-ID: <1364398673.21709.4.camel@localhost>
-References: <1364335457.8215.21.camel@localhost>
-	 <20130327151210.GA23223@order.stressinduktion.org>
+From: Sergey Popovich <popovich_sergei@mail.ru>
+Subject: [PATCH] sch: add missing u64 in psched_ratecfg_precompute()
+Date: Wed, 27 Mar 2013 17:41:59 +0200
+Message-ID: <10857839.dV42UeFzbk@tuxracer.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "vger.kernel.org " <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 37-251-2-65.FTTH.ispfabriek.nl ([37.251.2.65]:54867 "EHLO
-	mail.baanhofman.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751837Ab3C0PiN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 11:38:13 -0400
-In-Reply-To: <20130327151210.GA23223@order.stressinduktion.org>
+Received: from smtp36.i.mail.ru ([94.100.177.96]:56093 "EHLO smtp36.i.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751843Ab3C0PmK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Mar 2013 11:42:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+It seems that commit
 
-On Wed, 2013-03-27 at 16:12 +0100, Hannes Frederic Sowa wrote:
-> On Tue, Mar 26, 2013 at 11:04:17PM +0100, Wilco Baan Hofman wrote:
-> > So I was wondering, is there any particular reason for the use of a /128
-> > link-local or is this just a bug?
-> 
-> Can you show me the commands how you set up the tunnel. It does create /64 ll
-> with embedded ipv4 addresses for me here on v3.8.
-> 
+commit 292f1c7ff6cc10516076ceeea45ed11833bb71c7
+Author: Jiri Pirko <jiri@resnulli.us>
+Date:   Tue Feb 12 00:12:03 2013 +0000
 
-Weird, but sure, here goes:
+    sch: make htb_rate_cfg and functions around that generic
 
-ip tunnel add tunv6-uplink1 mode sit remote 192.168.1.1 local
-192.168.1.21
-ip link set tunv6-uplink1 up mtu 1472
+adds little regression.
 
+Before:
 
-Also, this patch seems to fix it:
+# tc qdisc add dev eth0 root handle 1: htb default ffff
+# tc class add dev eth0 classid 1:ffff htb rate 5Gbit
+# tc -s class show dev eth0
+class htb 1:ffff root prio 0 rate 5000Mbit ceil 5000Mbit burst 625b cburst 
+625b 
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
+ rate 0bit 0pps backlog 0b 0p requeues 0 
+ lended: 0 borrowed: 0 giants: 0
+ tokens: 31 ctokens: 31
 
---- linux-3.8.3.orig/net/ipv6/addrconf.c
-+++ linux-3.8.3/net/ipv6/addrconf.c
-@@ -2487,7 +2487,7 @@ static void sit_add_v4_addrs(struct inet
- 	}
+After:
+
+# tc qdisc add dev eth0 root handle 1: htb default ffff
+# tc class add dev eth0 classid 1:ffff htb rate 5Gbit
+# tc -s class show dev eth0
+class htb 1:ffff root prio 0 rate 1544Mbit ceil 1544Mbit burst 625b cburst 
+625b
+ Sent 5073 bytes 41 pkt (dropped 0, overlimits 0 requeues 0)
+ rate 1976bit 2pps backlog 0b 0p requeues 0
+ lended: 41 borrowed: 0 giants: 0
+ tokens: 1802 ctokens: 1802
+
+This probably due to lost u64 cast of rate parameter in 
+psched_ratecfg_precompute() (net/sched/sch_generic.c).
+
+Signed-off-by: Sergey Popovich <popovich_sergei@mail.ru>
+
+---
+diff -uprN a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+--- a/net/sched/sch_generic.c	2013-03-27 14:52:27.419643015 +0200
++++ b/net/sched/sch_generic.c	2013-03-20 12:02:08.569366312 +0200
+@@ -921,7 +921,7 @@ void psched_ratecfg_precompute(struct ps
+ 	u64 mult;
+ 	int shift;
  
- 	if (addr.s6_addr32[3]) {
--		add_addr(idev, &addr, 128, scope);
-+		add_addr(idev, &addr, 64, scope);
- 		return;
- 	}
+-	r->rate_bps = rate << 3;
++	r->rate_bps = (u64)rate << 3;
+ 	r->shift = 0;
+ 	r->mult = 1;
+ 	/*
 
--- Wilco
+-- 
+SP5474-RIPE
+Sergey Popovich
