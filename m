@@ -1,60 +1,48 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/2] man/send(2): add EPERM to the list of possible errors
-Date: Wed, 27 Mar 2013 18:51:38 +0100
-Message-ID: <20130327175138.GA5717@localhost>
-References: <1363675513.4767.6.camel@nexus>
- <51515E5E.7020309@lab.ntt.co.jp>
- <20130326104833.GA5331@localhost>
- <51527239.5070505@lab.ntt.co.jp>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: Is there a preferred way to get the VXLAN port number?
+Date: Wed, 27 Mar 2013 10:52:54 -0700
+Message-ID: <20130327105254.2e10de02@nehalam.linuxnetplumber.net>
+References: <51521B05.6060401@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Kerrisk <mtk.manpages@gmail.com>,
-	linux-man@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Hirotaka Sasaki <sasaki.hirotaka@lab.ntt.co.jp>
-To: Fernando Luis Vazquez Cao <fernando_b1@lab.ntt.co.jp>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <51527239.5070505@lab.ntt.co.jp>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"Gasparakis, Joseph" <joseph.gasparakis@intel.com>,
+	Stephen Hemminger <shemminger@vyatta.com>, pshelar@nicira.com,
+	David Miller <davem@davemloft.net>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:38811 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753725Ab3C0RxG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 13:53:06 -0400
+Received: by mail-pa0-f52.google.com with SMTP id fb10so694233pad.11
+        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 10:53:06 -0700 (PDT)
+In-Reply-To: <51521B05.6060401@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Fernando,
+On Tue, 26 Mar 2013 15:02:45 -0700
+Alexander Duyck <alexander.h.duyck@intel.com> wrote:
 
-On Wed, Mar 27, 2013 at 01:14:49PM +0900, Fernando Luis Vazquez Cao wrote:
-> Hi Pablo,
+> I was wondering if someone would happen to know if there is already a
+> preferred way to get the VXLAN port number for things such as
+> configuring a device to recognize a VXLAN frame on receive for parsing
+> purposes?
 > 
-> On 2013/03/26 19:48, Pablo Neira Ayuso wrote:
-> >On Tue, Mar 26, 2013 at 05:37:50PM +0900, Fernando Luis Vazquez Cao wrote:
-> >>Hi Michael,
-> >>
-> >>Do you see any problem with these two patches?
-> >Please, hold on with the second patch.
+> I just wanted to check to make sure I hadn't missed something before
+> submitting a patch that would export a simple function for supplying the
+> vxlan_port value.
 > 
-> Are you Ok with getting patch 1 merged while be discuss
-> what to do about the issue that the second patch tried to
-> document? Could I get your "Acked-by" for it?
-
-Done.
-
-> >I'd like to find a possible solution for the EPERM problem that we've
-> >been discussing. It requires some rework and performance evaluation.
+> Thanks,
 > 
-> The problem is that there is a huge installed base of
-> systems that show this broken behaviour, so even if
-> we find a proper fix for it we still should document
-> which systems may be affected by the spurious EPERM
-> bug, thus giving application programmers a chance to
-> add logic to their programs to recover from such
-> eventualities.
+> Alex
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-I see. The problem is that it will take some time until that manpage
-update reaches main distributions, by that time we may have fixed it
-already in existing kernels. Then, we'll have to remove it again. I
-still think patch 1 already provides some clue to programmers
-regarding EPERM at this moment (even if not so explicit and detailed).
-
-Please, ping me again if we didn't come up with some solution for this
-in some prudential amount of time.
-
-Regards.
+There are two views of the world. One view is that the UDP port number
+should be a fixed assigned number by IANA, and since VXLAN looks exactly
+like Cisco LISP, that is what most people use. Others like DOVE seem
+to want to use lots of values.
