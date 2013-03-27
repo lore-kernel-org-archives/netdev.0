@@ -1,55 +1,54 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH -next] GRE: Use strlcat() for size checking
-Date: Wed, 27 Mar 2013 19:48:31 +0100
-Message-ID: <1364410111-29418-1-git-send-email-geert@linux-m68k.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-next@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Pravin B Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: Is there a preferred way to get the VXLAN port number?
+Date: Wed, 27 Mar 2013 14:35:51 -0400
+Message-ID: <OFDD155B0F.E457F85C-ON85257B3B.0065B415-85257B3B.00662700@us.ibm.com>
+References: <51521B05.6060401@intel.com> <20130327105254.2e10de02@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"Gasparakis, Joseph" <joseph.gasparakis@intel.com>,
+	netdev <netdev@vger.kernel.org>, netdev-owner@vger.kernel.org,
+	pshelar@nicira.com, Stephen Hemminger <shemminger@vyatta.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:47160 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753364Ab3C0Sv2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 14:51:28 -0400
+Received: from /spool/local
+	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Wed, 27 Mar 2013 12:51:25 -0600
+In-Reply-To: <20130327105254.2e10de02@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On m68k, gcc tries to be smart and turns
+netdev-owner@vger.kernel.org wrote on 03/27/2013 01:52:54 PM:
 
-    strncat(name, "%d", 2);
+> On Tue, 26 Mar 2013 15:02:45 -0700
+> Alexander Duyck <alexander.h.duyck@intel.com> wrote:
+> 
+> > I was wondering if someone would happen to know if there is already a
+> > preferred way to get the VXLAN port number for things such as
+> > configuring a device to recognize a VXLAN frame on receive for parsing
+> > purposes?
+> > 
+> > I just wanted to check to make sure I hadn't missed something before
+> > submitting a patch that would export a simple function for supplying 
+the
+> > vxlan_port value.
 
-into a call to strlen() and a 16-bit store, causing a link failure,
-as arch/m68k/include/asm/string.h provides strlen() using a macro:
+        To answer your question, though, the current vxlan can only listen
+on one port per host, supplied with by a module parameter. You can find
+what port it's listening on by:
 
-    ERROR: "strlen" [net/ipv4/ip_tunnel.ko] undefined!
+cat /sys/modules/vxlan/parameters/udp_port
 
-Use strlcat() instead to avoid this, which also allows to simplify the
-check for buffer overflows.
+[which you can also read with a program, of course].
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
---
-Compile-tested only
+If multi-port server support is added, that should probably include the
+port as part of the current "ip -d link show dev XXX" output, where other
+per-device parameters are found.
 
-http://kisskb.ellerman.id.au/kisskb/buildresult/8462108/
----
- net/ipv4/ip_tunnel.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 9d96b68..8dbe672 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -284,12 +284,11 @@ static struct net_device *__ip_tunnel_create(struct net *net,
- 	if (parms->name[0])
- 		strlcpy(name, parms->name, IFNAMSIZ);
- 	else {
--		if (strlen(ops->kind) + 3 >= IFNAMSIZ) {
-+		strlcpy(name, ops->kind, IFNAMSIZ);
-+		if (strlcat(name, "%d", IFNAMSIZ) >= IFNAMSIZ) {
- 			err = -E2BIG;
- 			goto failed;
- 		}
--		strlcpy(name, ops->kind, IFNAMSIZ);
--		strncat(name, "%d", 2);
- 	}
- 
- 	ASSERT_RTNL();
--- 
-1.7.0.4
+                                                        +-DLS
