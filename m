@@ -1,37 +1,32 @@
-From: Hong zhi guo <honkiko@gmail.com>
-Subject: Re: [PATCH net-next] openvswitch: correct an invalid BUG_ON
-Date: Thu, 28 Mar 2013 00:58:46 +0800
-Message-ID: <CAA7+ByV3Otp9EKi0wvVa2bP9NR-GFt1zOSnFvkwOjWhcwCQSog@mail.gmail.com>
-References: <1364388077-30480-1-git-send-email-honkiko@gmail.com>
-	<CAEP_g=-=mv=ZOR17hfDYAq_zSEQzyetG0n=sJjTrkOjLTHLt8Q@mail.gmail.com>
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: Difference between Net and Net-Next
+Date: Wed, 27 Mar 2013 17:02:28 +0000 (UTC)
+Message-ID: <loom.20130327T180118-245@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f43.google.com ([209.85.212.43]:50211 "EHLO
-	mail-vb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750886Ab3C0Q6r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 12:58:47 -0400
-Received: by mail-vb0-f43.google.com with SMTP id fs19so5405435vbb.30
-        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 09:58:46 -0700 (PDT)
-In-Reply-To: <CAEP_g=-=mv=ZOR17hfDYAq_zSEQzyetG0n=sJjTrkOjLTHLt8Q@mail.gmail.com>
+Received: from plane.gmane.org ([80.91.229.3]:50804 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751279Ab3C0RCq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Mar 2013 13:02:46 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UKtki-00024x-8c
+	for netdev@vger.kernel.org; Wed, 27 Mar 2013 18:03:08 +0100
+Received: from jimbax.plus.com ([81.174.248.107])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 18:03:08 +0100
+Received: from jim_baxter by jimbax.plus.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 18:03:08 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for your review comments. I re-patched according to your
-comments. Please help to review it. Thanks.
+How do you decide which changes should go into "net" and which ones go into "net-
+next"?
 
-On Wed, Mar 27, 2013 at 11:19 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Wed, Mar 27, 2013 at 5:41 AM, Hong Zhiguo <honkiko@gmail.com> wrote:
->> table->count is uint32_t
->>
->> Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
->
-> Applied, thanks.
-
-
-
--- 
-best regards
-Hong Zhiguo
+At a guess I would think bug fixes are in "net" and feature changes into
+"net-next" but it is not obvious from the commit log.
