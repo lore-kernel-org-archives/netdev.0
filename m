@@ -1,166 +1,152 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: pch_gbe: Expanding PHY and Board support (MinnowBoard)
-Date: Wed, 27 Mar 2013 11:53:51 +0100
-Message-ID: <5152CFBF.9050407@openwrt.org>
-References: <51522E7C.4040204@linux.intel.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] net : Fix broken IPv6 routing table after loopback down-up
+Date: Wed, 27 Mar 2013 19:55:14 +0900
+Message-ID: <5152D012.4030805@linux-ipv6.org>
+References: <CAHPKR9KjB+6+WD9R4D81vZ6eFvcwgDJKgHFYvKxQQ2t_T7x9fg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Decotigny <decot@google.com>,
-	Tomoya <tomoya-linux@dsn.okisemi.com>,
-	Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>,
-	Tomoya MORINAGA <tomoya.rohm@gmail.com>,
-	Takahiro Shimizu <tshimizu818@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Veaceslav Falico <vfalico@redhat.com>
-To: Darren Hart <dvhart@linux.intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	Balakumaran.Kannan@ap.sony.com, maruthi.thotad@ap.sony.com,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Balakumaran Kannan <kumaran.4353@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f53.google.com ([74.125.82.53]:46382 "EHLO
-	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751011Ab3C0KyD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 06:54:03 -0400
-Received: by mail-wg0-f53.google.com with SMTP id c11so347464wgh.20
-        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 03:54:02 -0700 (PDT)
-In-Reply-To: <51522E7C.4040204@linux.intel.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:59940 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750958Ab3C0KzT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 06:55:19 -0400
+In-Reply-To: <CAHPKR9KjB+6+WD9R4D81vZ6eFvcwgDJKgHFYvKxQQ2t_T7x9fg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Balakumaran Kannan wrote:
+> IPv6 Routing table becomes broken once we do ifdown, ifup of the loopback(lo)
+> interface. After down-up, routes of other interface's IPv6 addresses through
+> 'lo' are lost.
+> 
+> IPv6 addresses assigned to all interfaces are routed through 'lo' for internal
+> communication. Once 'lo' is down, those routing entries are removed from
+> routing table. But those removed entries are not being re-created properly when
+> 'lo' is brought up. So IPv6 addresses of other interfaces becomes unreachable
+> from the same machine. Also this breaks communication with other machines
+> because of NDISC packet processing failure.
+> 
+> This patch fixes this issue by reading all interface's IPv6 addresses and
+> adding them to IPv6 routing table while bringing up 'lo'.
+> 
+> Patch is prepared for Linux-3.9.rc4 kernel.
+> 
+> Signed-off-by: Balakumaran Kannan <Balakumaran.Kannan@ap.sony.com>
+> Signed-off-by: Maruthi Thotad <Maruthi.Thotad@ap.sm.sony.com>
+> ---
+> ==Testing==
+> Before applying the patch:
+> $ route -A inet6
+> Kernel IPv6 routing table
+> Destination                    Next Hop                   Flag Met Ref Use If
+> 2000::20/128                   ::                         U    256 0     0 eth0
+> fe80::/64                      ::                         U    256 0     0 eth0
+> ::/0                           ::                         !n   -1  1     1 lo
+> ::1/128                        ::                         Un   0   1     0 lo
+> 2000::20/128                   ::                         Un   0   1     0 lo
+> fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
+> ff00::/8                       ::                         U    256 0     0 eth0
+> ::/0                           ::                         !n   -1  1     1 lo
+> $ sudo ifdown lo
+> $ sudo ifup lo
+> $ route -A inet6
+> Kernel IPv6 routing table
+> Destination                    Next Hop                   Flag Met Ref Use If
+> 2000::20/128                   ::                         U    256 0     0 eth0
+> fe80::/64                      ::                         U    256 0     0 eth0
+> ::/0                           ::                         !n   -1  1     1 lo
+> ::1/128                        ::                         Un   0   1     0 lo
+> ff00::/8                       ::                         U    256 0     0 eth0
+> ::/0                           ::                         !n   -1  1     1 lo
+> $
+> 
+> After applying the patch:
+> $ route -A inet6
+> Kernel IPv6 routing
+> table
+> Destination                    Next Hop                   Flag Met Ref Use If
+> 2000::20/128                   ::                         U    256 0     0 eth0
+> fe80::/64                      ::                         U    256 0     0 eth0
+> ::/0                           ::                         !n   -1  1     1 lo
+> ::1/128                        ::                         Un   0   1     0 lo
+> 2000::20/128                   ::                         Un   0   1     0 lo
+> fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
+> ff00::/8                       ::                         U    256 0     0 eth0
+> ::/0                           ::                         !n   -1  1     1 lo
+> $ sudo ifdown lo
+> $ sudo ifup lo
+> $ route -A inet6
+> Kernel IPv6 routing table
+> Destination                    Next Hop                   Flag Met Ref Use If
+> 2000::20/128                   ::                         U    256 0     0 eth0
+> fe80::/64                      ::                         U    256 0     0 eth0
+> ::/0                           ::                         !n   -1  1     1 lo
+> ::1/128                        ::                         Un   0   1     0 lo
+> 2000::20/128                   ::                         Un   0   1     0 lo
+> fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
+> ff00::/8                       ::                         U    256 0     0 eth0
+> ::/0                           ::                         !n   -1  1     1 lo
+> $
+> ---
+> --- linux-3.9-rc4/net/ipv6/addrconf.c.orig	2013-03-27 10:40:26.382569527 +0530
+> +++ linux-3.9-rc4/net/ipv6/addrconf.c	2013-03-27 10:56:45.227354856 +0530
+> @@ -2529,6 +2529,11 @@ static void sit_add_v4_addrs(struct inet
+>  static void init_loopback(struct net_device *dev)
+>  {
+>  	struct inet6_dev  *idev;
+> +	struct net_device *sp_dev;
+> +	struct inet6_ifaddr *sp_ifa;
+> +	struct list_head *sp_ifap;> 
+>  static void addrconf_add_linklocal(struct inet6_dev *idev, const
+> struct in6_addr *addr)
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-Le 03/27/13 00:25, Darren Hart a =C3=A9crit :
-> I'm working on adding support for the MinnowBoard (minnowboard.org) a=
-s
-> we're working through the last of the hardware changes. There are a f=
-ew
-> things about the pch_gbe driver that I'm having to update to support
-> this board. I'd appreciate your thoughts on how to best go about the
-> specializations.
->
-> 1) It uses an Atheros AR8031 PHY instead of the more typical Realtek
->     a) This PHY hibernates after 10s of no cable and can prevent
-> successful PHY
->        init during PCI probe of the device. This can be addressed by
-> disabling
->        hibernation in firmware and enabling later in the Kernel or by
-> adding support
->        for the HW Reset of this PHY with the GPIO line tied to it on =
-this
-> board.
->     b) The board doesn't have a long trace to add the 2ns delay to TX
-> clock like
->        other boards using this platform. This can be addressed by
-> instructing the
->        PHY to introduce the delay.
->
-> 2) Like another board which led to the following commit, this board d=
-oes not
->     have an EEPROM for the Ethernet address (MAC).
->
->      commit 2b53d07891630dead46d65c8f896955fd3ae0302
->      Author: Darren Hart <dvhart@linux.intel.com>
->      Date:   Mon Jan 16 09:50:19 2012 +0000
->
->          pch_gbe: Do not abort probe on bad MAC
->
->     On this board, we plan to have the MAC provided by the firmware
-> (NVRAM, EFI
->     VAR, something along those lines).
->
-> Looking at the driver and our options, using a PCI subsystem
-> vendor/device IDs
-> to identify the board seems like the best way to go. I have a start a=
-t
-> this but
-> would appreciate your thoughts on the following:
->
-> 1) Is the PCI subsystem vendor/device IDs the right approach, e.g. in
-> probe():
->
-> 	adapter =3D netdev_priv(netdev);
->
-> 	/* Identify PCI subsystem ID tweaks */
-> 	adapter->hw.mac_in_nvram =3D NULL
-> 	adapter->hw.phy.hw_rst_gpio =3D -1;
-> 	adapter->hw.phy.tx_clk_delay =3D false;
-> 	switch (pdev->subsystem_vendor) {
-> 	case PCI_VENDOR_ID_INTEL:
-> 		switch (pdev->subsystem_device) {
-> 		case PCI_SUBDEVICE_ID_MINNOWBOARD:
-> 			pr_debug("MinnowBoard detected\n");
-> 			adapter->hw.mac_in_nvram =3D MINNOW_NVRAM_MAC_ADDR;
-> 			adapter->hw.phy.hw_reset_gpio =3D MINNOW_PHY_RST_GPIO;
-> 			adapter->hw.phy.tx_clk_delay =3D true;
-> 	}
->
->     The mac_in_nvram, hw_rst_gpio, and tx_clk_delay vars were added t=
-o the
->     existing structures in support of this.
+> +	struct rt6_info *sp_rt;
+> +	int i = 1;
+> 
+>  	/* ::1 */
+> 
+> @@ -2540,6 +2545,27 @@ static void init_loopback(struct net_dev
+>  	}
+> 
+>  	add_addr(idev, &in6addr_loopback, 128, IFA_HOST);
+> +
+> +	while ((sp_dev = dev_get_by_index(dev_net(dev), i++))) {
+> +
 
-Each PCI device entry in your PCI ID table can be tight to a driver_dat=
-a=20
-cookie holding device specific information like the one you mention=20
-above, this should eliminate the need for the switch/case here. The=20
-8250_pci.c driver extensively makes use of this for instance.
+I think this cannot work because we may have missing index.
+Why no dev_get_by_name()?
 
->
-> 2) The physical reset of the PHY is extremely board and PHY specifc a=
-s it
->     requires knowledge of the GPIO line used and the specifics of the
-> reset and
->     clock timings on the particular PHY. I believe I can avoid this b=
-y just
->     disabling hibernation in firmware and enabling after the driver i=
-s
-> up. There
->     are scenarios where this could fail though, such as loading the m=
-odule,
->     unloading the module, removing the cable, waiting 10+ seconds, an=
-d
-> trying to
->     load the driver again. It should however load successfully after =
-a
-> cable was
->     reinserted.
+> +		if (!strcmp(sp_dev->name, dev->name)) {
+> +			dev_put(sp_dev);
+> +			continue;
+> +		}
+> +
+> +		idev = ipv6_find_idev(sp_dev);
+> +		dev_put(sp_dev);
+> +		if (NULL == idev)
+> +			continue;
+> +
+> +		list_for_each(sp_ifap, &idev->addr_list) {
+> +			sp_ifa = list_entry(sp_ifap, struct inet6_ifaddr,
+> +						if_list);
+> +			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
+> +			if (!IS_ERR(sp_rt))
+> +			ip6_ins_rt(sp_rt);
+> +		}
+> +	}
+>  }
 
-If this board can be uniquely identified using a PCI vendor/device id,=20
-then you should be good with this, otherwise, you may need to find for=20
-alternate solutions, like checking for a specific DMI string, or=20
-whatever the firmware/BIOS can provide to you to uniquely identify this=
-=20
-board, and thus deduce the GPIO line.
+lock?
 
->
-> 3) It appears as though the pch_gbe was written with a very specific =
-PHY in
->     mind. I've switched on phy.id where needed:
->
-> 	switch (hw->phy.id) {
-> 	case PHY_AR803X_ID:
-> 		pr_info("AR803x PHY: configuring tx clock delay.\n");
-> 		...
->
->     But I wonder if converting pch_gbe over to the PHY Abstraction La=
-yer and
->     fleshing out the two known PHYs for this platform would be "the r=
-ight"
->     approach. Sounds like a lot more work...
-
-I would recommend you switch over to PHYLIB which nicely abstracts all=20
-PHY specific details for you, provided that you write a corresponding=20
-PHY driver if needed. Looking at the existing pch_gbe driver, it should=
-=20
-not be too much of work since it seems to already have everything in=20
-place, just not tight together. Specifically, here are roughly the step=
-s=20
-needed:
-
-- pch_gbe_phy.c should be turned into a proper PHY driver (looks like=20
-this file supports some kind of internal PHY?
-- most of the code in pch_gbe_main.c, especially pch_gbe_init_phy()=20
-should be removed or moved to the corresponding PHY driver
-- you should register and implement a mdio bus driver for the pch_gbe=20
-adapter
---
-=46lorian
+--yoshfuji
