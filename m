@@ -1,41 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net : Fix broken IPv6 routing table after loopback
- down-up
-Date: Wed, 27 Mar 2013 08:26:48 -0700
-Message-ID: <1364398008.15753.14.camel@edumazet-glaptop>
-References: <CAHPKR9KjB+6+WD9R4D81vZ6eFvcwgDJKgHFYvKxQQ2t_T7x9fg@mail.gmail.com>
-	 <5152D012.4030805@linux-ipv6.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 55861] New: PMTU discovery no longer works in Linux 3.6+
+ with routers that do not send next hop MTU information
+Date: Wed, 27 Mar 2013 08:31:27 -0700
+Message-ID: <20130327083127.0740d793@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Balakumaran Kannan <kumaran.4353@gmail.com>, davem@davemloft.net,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-	netdev@vger.kernel.org, Balakumaran.Kannan@ap.sony.com,
-	maruthi.thotad@ap.sony.com
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f181.google.com ([209.85.210.181]:61789 "EHLO
-	mail-ia0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751077Ab3C0P0w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 11:26:52 -0400
-Received: by mail-ia0-f181.google.com with SMTP id o25so7292509iad.40
-        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 08:26:52 -0700 (PDT)
-In-Reply-To: <5152D012.4030805@linux-ipv6.org>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:60109 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752518Ab3C0Pbk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 11:31:40 -0400
+Received: by mail-pb0-f51.google.com with SMTP id rr4so2633205pbb.38
+        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 08:31:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-03-27 at 19:55 +0900, YOSHIFUJI Hideaki wrote:
-> Balakumaran Kannan wrote:
 
-> >  	add_addr(idev, &in6addr_loopback, 128, IFA_HOST);
-> > +
-> > +	while ((sp_dev = dev_get_by_index(dev_net(dev), i++))) {
-> > +
-> 
-> I think this cannot work because we may have missing index.
-> Why no dev_get_by_name()?
 
-I might 'work' because lo interface index is 1 on all network
-namespaces.
+Begin forwarded message:
 
-But yes, this ugly loop is not needed at all.
+Date: Wed, 27 Mar 2013 08:25:40 -0700
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 55861] New: PMTU discovery no longer works in Linux 3.6+ with routers that do not send next hop MTU information
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=55861
+
+           Summary: PMTU discovery no longer works in Linux 3.6+ with
+                    routers that do not send next hop MTU information
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.6 onwards
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: _@maxb.eu
+        Regression: Yes
+
+
+After upgrading recently, I found that path MTU discovery no longer worked
+correctly for accessing some devices on the other side of an IPsec tunnel.
+
+Bisection revealed the problems started with 3.6 and are still present in
+3.9-rc4 (latest available at time of reporting).
+
+Some investigation into code changes leads me to the belief that Linux lost
+support for handling ICMP destination unreachable fragmentation needed packets
+for which the next hop MTU field is zero. This is an expected condition when
+dealing with older routers, as RFC792 originally defined ICMP destination
+unreachable fragmentation needed without a next hop MTU field, and it was later
+added in bytes previously allocated as unused.
+
+The particular router in my case generating such packets is a machine running
+OpenBSD 4.6.
+
+A commit that appears to be of particular interest in this bug is
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=46517008e1168dc926cf2c47d529efc07eca85c0
+
+-- 
+Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
