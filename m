@@ -1,50 +1,90 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] ipv6: fix raw socket checksum for udplite
-Date: Tue, 26 Mar 2013 22:30:25 -0400
-Message-ID: <515259C1.20204@hp.com>
-References: <1364337095-19663-1-git-send-email-zenczykowski@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next 1/5] macvtap: set transport header before passing skb
+ to lower device
+Date: Wed, 27 Mar 2013 11:12:38 +0800
+Message-ID: <515263A6.1080709@redhat.com>
+References: <1364278799-37285-1-git-send-email-jasowang@redhat.com>  <1364278799-37285-2-git-send-email-jasowang@redhat.com> <1364310407.1716.16.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <maze@google.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Mike Dalton <mwdalton@google.com>
-To: =?UTF-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <zenczykowski@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:17613 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751625Ab3C0Ca3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Mar 2013 22:30:29 -0400
-In-Reply-To: <1364337095-19663-1-git-send-email-zenczykowski@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com,
+	Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1364310407.1716.16.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/26/2013 06:31 PM, Maciej =C5=BBenczykowski wrote:
-> From: Maciej =C5=BBenczykowski <maze@google.com>
->=20
-> Commit d3a1be9cba86 from Brian Haley in Nov 2006
-> "[IPv6]: Only modify checksum for UDP" forgot about
-> UDPLITE.
+On 03/26/2013 11:06 PM, Eric Dumazet wrote:
+> On Tue, 2013-03-26 at 14:19 +0800, Jason Wang wrote:
+>> Set the transport header for 1) some drivers (e.g ixgbe) needs l4 header 2)
+>> precise packet length estimation (introduced in 1def9238) needs l4 header to
+>> compute header length.
+>>
+>> For the packets with partial checksum, the patch just set the transport header
+>> to csum_start. Otherwise tries to use skb_flow_dissect() to get l4 offset, if it
+>> fails, just pretend no l4 header.
+>>
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>  drivers/net/macvtap.c |    9 +++++++++
+>>  1 files changed, 9 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+>> index a449439..acf6450 100644
+>> --- a/drivers/net/macvtap.c
+>> +++ b/drivers/net/macvtap.c
+>> @@ -21,6 +21,7 @@
+>>  #include <net/rtnetlink.h>
+>>  #include <net/sock.h>
+>>  #include <linux/virtio_net.h>
+>> +#include <net/flow_keys.h>
+>>  
+>>  /*
+>>   * A macvtap queue is the central object of this driver, it connects
+>> @@ -645,6 +646,7 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+>>  	int vnet_hdr_len = 0;
+>>  	int copylen = 0;
+>>  	bool zerocopy = false;
+>> +	struct flow_keys keys;
+>>  
+>>  	if (q->flags & IFF_VNET_HDR) {
+>>  		vnet_hdr_len = q->vnet_hdr_sz;
+>> @@ -725,6 +727,13 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+>>  			goto err_kfree;
+>>  	}
+>>  
+>> +	if (skb->ip_summed == CHECKSUM_PARTIAL)
+> where ip_summed is set to this value ?
+>
+>> +		skb_set_transport_header(skb, skb_checksum_start_offset(skb));
+>> +	else if (skb_flow_dissect(skb, &keys))
+>> +		skb_set_transport_header(skb, keys.thoff);
+>> +	else
+>> +		skb_set_transport_header(skb, ETH_HLEN);
+>> +
+>>  	rcu_read_lock_bh();
+>>  	vlan = rcu_dereference_bh(q->vlan);
+>>  	/* copy skb_ubuf_info for callback when skb has no error */
+> This driver has nice helpers.
 
-I'm not sure I'd say I "forgot about" it, UDPLITE support didn't exist =
-in Linux
-until three+ weeks after that commit.
+Yes, skb_set_partial_csum()
+> You should add this code in a helper as well.
 
-commit d3a1be9cba86c4385a5fe46673bbb4730551f454
-Author: Brian Haley <brian.haley@hp.com>
-Date:   Fri Nov 10 14:54:51 2006 -0800
+Ok
+> Because its not clear at this point if csum_start/csum_offset/ip_summed
+> are consistent.
 
-    [IPv6]: Only modify checksum for UDP
+Since David has applied the seires, will send patches on top.
 
-commit ba4e58eca8aa9473b44fdfd312f26c4a2e7798b3
-Author: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date:   Mon Nov 27 11:10:57 2006 -0800
-
-    [NET]: Supporting UDP-Lite (RFC 3828) in Linux
-
-I see no reason your patch isn't correct though.
-
-Acked-by: Brian Haley <brian.haley@hp.com>
-
--Brian
+Thanks
+>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
