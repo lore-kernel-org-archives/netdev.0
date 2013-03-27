@@ -1,54 +1,68 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Is there a preferred way to get the VXLAN port number?
-Date: Wed, 27 Mar 2013 14:35:51 -0400
-Message-ID: <OFDD155B0F.E457F85C-ON85257B3B.0065B415-85257B3B.00662700@us.ibm.com>
-References: <51521B05.6060401@intel.com> <20130327105254.2e10de02@nehalam.linuxnetplumber.net>
+From: Stefan Schmidt <stefan@datenfreihafen.org>
+Subject: Re: ieee802154: Source addr fix for dgram and some small at86rf230
+ driver enhancements
+Date: Wed, 27 Mar 2013 18:52:05 +0000
+Message-ID: <20130327185204.GH22584@novatech.datenfreihafen.org>
+References: <1364337691-20163-1-git-send-email-stefan@datenfreihafen.org>
+ <20130327.005318.1058473513349640907.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"Gasparakis, Joseph" <joseph.gasparakis@intel.com>,
-	netdev <netdev@vger.kernel.org>, netdev-owner@vger.kernel.org,
-	pshelar@nicira.com, Stephen Hemminger <shemminger@vyatta.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: stefan@datenfreihafen.org, netdev@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net, alan@signal11.us
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:47160 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753364Ab3C0Sv2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 14:51:28 -0400
-Received: from /spool/local
-	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Wed, 27 Mar 2013 12:51:25 -0600
-In-Reply-To: <20130327105254.2e10de02@nehalam.linuxnetplumber.net>
+Received: from sirius.lasnet.de ([78.47.116.19]:60530 "EHLO sirius.lasnet.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753108Ab3C0SwO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Mar 2013 14:52:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20130327.005318.1058473513349640907.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev-owner@vger.kernel.org wrote on 03/27/2013 01:52:54 PM:
+Hello.
 
-> On Tue, 26 Mar 2013 15:02:45 -0700
-> Alexander Duyck <alexander.h.duyck@intel.com> wrote:
+On Wed, 2013-03-27 at 00:53, David Miller wrote:
+> From: Stefan Schmidt <stefan@datenfreihafen.org>
+> Date: Tue, 26 Mar 2013 22:41:28 +0000
 > 
-> > I was wondering if someone would happen to know if there is already a
-> > preferred way to get the VXLAN port number for things such as
-> > configuring a device to recognize a VXLAN frame on receive for parsing
-> > purposes?
+> > Hello.
 > > 
-> > I just wanted to check to make sure I hadn't missed something before
-> > submitting a patch that would export a simple function for supplying 
-the
-> > vxlan_port value.
+> > Second version. Changes since version 1:
+> > - Obey 80 chars rules
+> > - Switch logging mode to vdbg to avoid noise
+> > - Remove uneeded might_sleep()
+> > 
+> > Thanks Alan, Werner and Alex for the feedback.
+> > 
+> > I feel these are ready so I added DaveM and netdev to pick them up if they think
+> > the same.
+> 
+> All applied.
 
-        To answer your question, though, the current vxlan can only listen
-on one port per host, supplied with by a module parameter. You can find
-what port it's listening on by:
+Thanks. That was quick. :)
 
-cat /sys/modules/vxlan/parameters/udp_port
+I wonder what happened to the from of two of my commits. Looking at
+your repo they only show up my email address:
 
-[which you can also read with a program, of course].
+https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=1486774d69f6e58da16cdae8f17c77ec6569f711
+https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=028889b0b32064a3a23d6d8d4ef589a42a6d43c7
 
-If multi-port server support is added, that should probably include the
-port as part of the current "ip -d link show dev XXX" output, where other
-per-device parameters are found.
+The one from Stephen is fine
+https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=6364e6ee788ae60f1c2de5c59e39adb157327e6c
 
-                                                        +-DLS
+The later as an explicit from as he was the author and I just the
+sender. For the two problematic ones git am should have picked up the
+normal mail from header, no?
+
+I did the patches from my local branch with git format-patch and git
+send-email as I have done quite often already. Looking at the mails I
+got as CC the from line looks fine too. Also I just saved the mails
+here from my mutt and did a git am on it and the name was picked up
+correctly.
+
+Is there still some error on my side? I would really like to get it
+fixed if there is one. :) Or was it juts a glitch on your side?
+
+regards
+Stefan Schmidt
