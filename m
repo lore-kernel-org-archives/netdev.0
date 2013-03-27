@@ -1,35 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sch: add missing u64 in psched_ratecfg_precompute()
-Date: Wed, 27 Mar 2013 14:11:13 -0400 (EDT)
-Message-ID: <20130327.141113.1783472428071007326.davem@davemloft.net>
-References: <10857839.dV42UeFzbk@tuxracer.localdomain>
+Subject: Re: [PATCH net-next] line up comment for ndo_bridge_getlink
+Date: Wed, 27 Mar 2013 14:11:40 -0400 (EDT)
+Message-ID: <20130327.141140.2275939744160067011.davem@davemloft.net>
+References: <1364403241-9061-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: popovich_sergei@mail.ru
+Cc: netdev@vger.kernel.org
+To: dmitry@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58932 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58947 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751934Ab3C0SLP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 14:11:15 -0400
-In-Reply-To: <10857839.dV42UeFzbk@tuxracer.localdomain>
+	with ESMTP id S1752278Ab3C0SLl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 14:11:41 -0400
+In-Reply-To: <1364403241-9061-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergey Popovich <popovich_sergei@mail.ru>
-Date: Wed, 27 Mar 2013 17:41:59 +0200
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Date: Wed, 27 Mar 2013 18:54:00 +0200
 
-> It seems that commit
-> 
-> commit 292f1c7ff6cc10516076ceeea45ed11833bb71c7
-> Author: Jiri Pirko <jiri@resnulli.us>
-> Date:   Tue Feb 12 00:12:03 2013 +0000
-> 
->     sch: make htb_rate_cfg and functions around that generic
-> 
-> adds little regression.
- ...
-> Signed-off-by: Sergey Popovich <popovich_sergei@mail.ru>
+> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 
-Applied.
+This bug exists in 'net' so that's where I applied this patch.
