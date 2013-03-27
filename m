@@ -1,64 +1,36 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next 2/3] net: core: introduce skb_probe_transport_header()
-Date: Wed, 27 Mar 2013 17:11:21 +0800
-Message-ID: <1364375482-7439-2-git-send-email-jasowang@redhat.com>
-References: <1364375482-7439-1-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next 1/3] net: core: let skb_partial_csum_set() set transport header
+Date: Wed, 27 Mar 2013 17:11:20 +0800
+Message-ID: <1364375482-7439-1-git-send-email-jasowang@redhat.com>
 Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>,
 	Eric Dumazet <edumazet@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37976 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751094Ab3C0JUw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Mar 2013 05:20:52 -0400
-In-Reply-To: <1364375482-7439-1-git-send-email-jasowang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sometimes, we need probe and set the transport header for packets (e.g from
-untrusted source). This patch introduces a new helper
-skb_probe_transport_header() which tries to probe and set the l4 header through
-skb_flow_dissect(), if not just set the transport header to the hint passed by
-caller.
+For untrusted packets with partial checksum, we need to set the transport header
+for precise packet length estimation. We can just let skb_pratial_csum_set() to
+do this to avoid extra call to skb_flow_dissect() and simplify the caller.
 
 Cc: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- include/linux/skbuff.h |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
+ net/core/skbuff.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 4974121..fa88b96 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -32,6 +32,7 @@
- #include <linux/hrtimer.h>
- #include <linux/dma-mapping.h>
- #include <linux/netdev_features.h>
-+#include <net/flow_keys.h>
- 
- /* Don't change this without changing skb_csum_unnecessary! */
- #define CHECKSUM_NONE 0
-@@ -1559,6 +1560,19 @@ static inline void skb_set_transport_header(struct sk_buff *skb,
- 	skb->transport_header += offset;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 31c6737..ba64614 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3370,6 +3370,7 @@ bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off)
+ 	skb->ip_summed = CHECKSUM_PARTIAL;
+ 	skb->csum_start = skb_headroom(skb) + start;
+ 	skb->csum_offset = off;
++	skb_set_transport_header(skb, start);
+ 	return true;
  }
- 
-+static inline void skb_probe_transport_header(struct sk_buff *skb,
-+					      const int offset_hint)
-+{
-+	struct flow_keys keys;
-+
-+	if (skb_transport_header_was_set(skb))
-+		return;
-+	else if (skb_flow_dissect(skb, &keys))
-+		skb_set_transport_header(skb, keys.thoff);
-+	else
-+		skb_set_transport_header(skb, offset_hint);
-+}
-+
- static inline unsigned char *skb_network_header(const struct sk_buff *skb)
- {
- 	return skb->head + skb->network_header;
+ EXPORT_SYMBOL_GPL(skb_partial_csum_set);
 -- 
 1.7.1
