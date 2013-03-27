@@ -1,32 +1,38 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: Difference between Net and Net-Next
-Date: Wed, 27 Mar 2013 17:02:28 +0000 (UTC)
-Message-ID: <loom.20130327T180118-245@post.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] ptp_pch: eliminate a number of sparse warnings
+Date: Wed, 27 Mar 2013 13:07:19 -0400 (EDT)
+Message-ID: <20130327.130719.1545669883064047427.davem@davemloft.net>
+References: <1364360843-6777-1-git-send-email-kpark3469@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: richardcochran@gmail.com, keun-o.park@windriver.com,
+	netdev@vger.kernel.org
+To: kpark3469@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:50804 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751279Ab3C0RCq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Mar 2013 13:02:46 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UKtki-00024x-8c
-	for netdev@vger.kernel.org; Wed, 27 Mar 2013 18:03:08 +0100
-Received: from jimbax.plus.com ([81.174.248.107])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 18:03:08 +0100
-Received: from jim_baxter by jimbax.plus.com with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 18:03:08 +0100
+Received: from shards.monkeyblade.net ([149.20.54.216]:57961 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751595Ab3C0RHV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 13:07:21 -0400
+In-Reply-To: <1364360843-6777-1-git-send-email-kpark3469@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-How do you decide which changes should go into "net" and which ones go into "net-
-next"?
+From: kpark3469@gmail.com
+Date: Wed, 27 Mar 2013 14:07:23 +0900
 
-At a guess I would think bug fixes are in "net" and feature changes into
-"net-next" but it is not obvious from the commit log.
+> From: Sahara <keun-o.park@windriver.com>
+> 
+> This fixes a number of sparse warnings like:
+>   warning: incorrect type in argument 2 (different address spaces)
+>     expected void volatile [noderef] <asn:2>*addr
+>     got unsigned int *<noident>
+> 
+>   warning: Using plain integer as NULL pointer
+> 
+> Additionally this fixes a warning from checkpatch.pl like:
+>   WARNING: sizeof pch_param.station should be sizeof(pch_param.station)
+> 
+> Signed-off-by: Sahara <keun-o.park@windriver.com>
+
+Applied.
