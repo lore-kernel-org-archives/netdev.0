@@ -1,136 +1,34 @@
-From: Balakumaran Kannan <kumaran.4353@gmail.com>
-Subject: [PATCH] net : Fix broken IPv6 routing table after loopback down-up
-Date: Wed, 27 Mar 2013 15:31:13 +0530
-Message-ID: <CAHPKR9KjB+6+WD9R4D81vZ6eFvcwgDJKgHFYvKxQQ2t_T7x9fg@mail.gmail.com>
+From: William Dauchy <wdauchy@gmail.com>
+Subject: Re: [Xen-devel] [PATCH 6/6] xen-netback: don't disconnect frontend
+ when seeing oversize frame
+Date: Wed, 27 Mar 2013 11:03:13 +0100
+Message-ID: <CAJ75kXbRfV8pDuoptQUOZmgmMVLC0tEX3EZAWMNB1Q8gUwQw-w@mail.gmail.com>
+References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
+ <1364209702-12437-7-git-send-email-wei.liu2@citrix.com> <20130325165834.GC25740@phenom.dumpdata.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Balakumaran.Kannan@ap.sony.com,
-	maruthi.thotad@ap.sony.com
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
+Cc: Wei Liu <wei.liu2@citrix.com>, netdev@vger.kernel.org,
+	annie.li@oracle.com, david.vrabel@citrix.com,
+	Ian Campbell <ian.campbell@citrix.com>,
+	xen-devel <xen-devel@lists.xen.org>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:47552 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750794Ab3C0KBP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 06:01:15 -0400
-Received: by mail-wi0-f173.google.com with SMTP id ez12so2082304wid.12
-        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 03:01:13 -0700 (PDT)
+Received: from mail-vc0-f171.google.com ([209.85.220.171]:56674 "EHLO
+	mail-vc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754572Ab3C0KDe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 06:03:34 -0400
+Received: by mail-vc0-f171.google.com with SMTP id ha11so6297414vcb.2
+        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 03:03:33 -0700 (PDT)
+In-Reply-To: <20130325165834.GC25740@phenom.dumpdata.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPv6 Routing table becomes broken once we do ifdown, ifup of the loopback(lo)
-interface. After down-up, routes of other interface's IPv6 addresses through
-'lo' are lost.
+On Mon, Mar 25, 2013 at 5:58 PM, Konrad Rzeszutek Wilk
+<konrad.wilk@oracle.com> wrote:
+> CC stable@vger.kernel.org ?
 
-IPv6 addresses assigned to all interfaces are routed through 'lo' for internal
-communication. Once 'lo' is down, those routing entries are removed from
-routing table. But those removed entries are not being re-created properly when
-'lo' is brought up. So IPv6 addresses of other interfaces becomes unreachable
-from the same machine. Also this breaks communication with other machines
-because of NDISC packet processing failure.
+I agree on that. I got several issues with the previous patch on a 3.4.x
 
-This patch fixes this issue by reading all interface's IPv6 addresses and
-adding them to IPv6 routing table while bringing up 'lo'.
-
-Patch is prepared for Linux-3.9.rc4 kernel.
-
-Signed-off-by: Balakumaran Kannan <Balakumaran.Kannan@ap.sony.com>
-Signed-off-by: Maruthi Thotad <Maruthi.Thotad@ap.sm.sony.com>
----
-==Testing==
-Before applying the patch:
-$ route -A inet6
-Kernel IPv6 routing table
-Destination                    Next Hop                   Flag Met Ref Use If
-2000::20/128                   ::                         U    256 0     0 eth0
-fe80::/64                      ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-::1/128                        ::                         Un   0   1     0 lo
-2000::20/128                   ::                         Un   0   1     0 lo
-fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
-ff00::/8                       ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-$ sudo ifdown lo
-$ sudo ifup lo
-$ route -A inet6
-Kernel IPv6 routing table
-Destination                    Next Hop                   Flag Met Ref Use If
-2000::20/128                   ::                         U    256 0     0 eth0
-fe80::/64                      ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-::1/128                        ::                         Un   0   1     0 lo
-ff00::/8                       ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-$
-
-After applying the patch:
-$ route -A inet6
-Kernel IPv6 routing
-table
-Destination                    Next Hop                   Flag Met Ref Use If
-2000::20/128                   ::                         U    256 0     0 eth0
-fe80::/64                      ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-::1/128                        ::                         Un   0   1     0 lo
-2000::20/128                   ::                         Un   0   1     0 lo
-fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
-ff00::/8                       ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-$ sudo ifdown lo
-$ sudo ifup lo
-$ route -A inet6
-Kernel IPv6 routing table
-Destination                    Next Hop                   Flag Met Ref Use If
-2000::20/128                   ::                         U    256 0     0 eth0
-fe80::/64                      ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-::1/128                        ::                         Un   0   1     0 lo
-2000::20/128                   ::                         Un   0   1     0 lo
-fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
-ff00::/8                       ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-$
----
---- linux-3.9-rc4/net/ipv6/addrconf.c.orig	2013-03-27 10:40:26.382569527 +0530
-+++ linux-3.9-rc4/net/ipv6/addrconf.c	2013-03-27 10:56:45.227354856 +0530
-@@ -2529,6 +2529,11 @@ static void sit_add_v4_addrs(struct inet
- static void init_loopback(struct net_device *dev)
- {
- 	struct inet6_dev  *idev;
-+	struct net_device *sp_dev;
-+	struct inet6_ifaddr *sp_ifa;
-+	struct list_head *sp_ifap;
-+	struct rt6_info *sp_rt;
-+	int i = 1;
-
- 	/* ::1 */
-
-@@ -2540,6 +2545,27 @@ static void init_loopback(struct net_dev
- 	}
-
- 	add_addr(idev, &in6addr_loopback, 128, IFA_HOST);
-+
-+	while ((sp_dev = dev_get_by_index(dev_net(dev), i++))) {
-+
-+		if (!strcmp(sp_dev->name, dev->name)) {
-+			dev_put(sp_dev);
-+			continue;
-+		}
-+
-+		idev = ipv6_find_idev(sp_dev);
-+		dev_put(sp_dev);
-+		if (NULL == idev)
-+			continue;
-+
-+		list_for_each(sp_ifap, &idev->addr_list) {
-+			sp_ifa = list_entry(sp_ifap, struct inet6_ifaddr,
-+						if_list);
-+			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
-+			if (!IS_ERR(sp_rt))
-+				ip6_ins_rt(sp_rt);
-+		}
-+	}
- }
-
- static void addrconf_add_linklocal(struct inet6_dev *idev, const
-struct in6_addr *addr)
+Regards,
+--
+William
