@@ -1,37 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ieee802154: Source addr fix for dgram and some small at86rf230
- driver enhancements
-Date: Wed, 27 Mar 2013 00:53:18 -0400 (EDT)
-Message-ID: <20130327.005318.1058473513349640907.davem@davemloft.net>
-References: <1364337691-20163-1-git-send-email-stefan@datenfreihafen.org>
+Subject: Re: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Wed, 27 Mar 2013 00:54:52 -0400 (EDT)
+Message-ID: <20130327.005452.686619573507820021.davem@davemloft.net>
+References: <20130327115743.7d6c10f1e1c67f02e9c96ff8@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net,
-	alan@signal11.us
-To: stefan@datenfreihafen.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51204 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755845Ab3C0ExV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 00:53:21 -0400
-In-Reply-To: <1364337691-20163-1-git-send-email-stefan@datenfreihafen.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, pshelar@nicira.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20130327115743.7d6c10f1e1c67f02e9c96ff8@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stefan Schmidt <stefan@datenfreihafen.org>
-Date: Tue, 26 Mar 2013 22:41:28 +0000
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 27 Mar 2013 11:57:43 +1100
 
-> Hello.
+> Today's linux-next merge of the net-next tree got a conflict in
+> include/net/ipip.h between commit 330305cc4a6b ("pv4: Fix ip-header
+> identification for gso packets") from Linus' tree and commit c54419321455
+> ("GRE: Refactor GRE tunneling code") from the net-next tree.
 > 
-> Second version. Changes since version 1:
-> - Obey 80 chars rules
-> - Switch logging mode to vdbg to avoid noise
-> - Remove uneeded might_sleep()
-> 
-> Thanks Alan, Werner and Alex for the feedback.
-> 
-> I feel these are ready so I added DaveM and netdev to pick them up if they think
-> the same.
+> I just dropped the file (as the latter change did) and can carry the fix
+> as necessary (no action is required).
 
-All applied.
+Thanks, I'll take care of this when I next merge.
