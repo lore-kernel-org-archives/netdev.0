@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net): ipsec 2013-03-27
-Date: Wed, 27 Mar 2013 14:09:55 -0400 (EDT)
-Message-ID: <20130327.140955.1821575651387808159.davem@davemloft.net>
-References: <1364370068-20025-1-git-send-email-steffen.klassert@secunet.com>
+Subject: Re: [net 0/3][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 27 Mar 2013 14:10:05 -0400 (EDT)
+Message-ID: <20130327.141005.2019226838588462523.davem@davemloft.net>
+References: <1364382333-14721-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58876 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58892 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751540Ab3C0SJ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 14:09:57 -0400
-In-Reply-To: <1364370068-20025-1-git-send-email-steffen.klassert@secunet.com>
+	with ESMTP id S1752905Ab3C0SKJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 14:10:09 -0400
+In-Reply-To: <1364382333-14721-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Wed, 27 Mar 2013 08:41:05 +0100
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 27 Mar 2013 04:05:30 -0700
 
-> 1) Initialize the satype field in key_notify_policy_flush(),
->    this was left uninitialized. From Nicolas Dichtel.
+> This series contains updates to e1000, ixgb and e1000e for Christoph.
 > 
-> 2) The sequence number difference for replay notifications
->    was misscalculated on ESN sequence number wrap. We need
->    a separate replay notify function for esn.
-> 
-> 3) Fix an off by one in the esn replay notify function.
->    From Mathias Krause.
-> 
-> Please pull or let me know if there are problems.
+> Christoph provides 3 patches to resolve missing dma_error_call's to
+> provided Intel drivers which did not have this fix.
 
-Pulled, thanks Steffen.
+Pulled, thanks Jeff.
