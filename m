@@ -1,51 +1,38 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] yam: avoid null pointer dereference error
-Date: Wed, 27 Mar 2013 11:19:34 +0000
-Message-ID: <1364383174-17708-1-git-send-email-colin.king@canonical.com>
-To: Jean-Paul Roubelat <jpr@f6fbb.org>, linux-hams@vger.kernel.org,
-	netdev@vger.kernel.org
+From: Michele Roca <michele.rocca@cacciatoritrentini.it>
+Subject: MY GOOD FRIEND!
+Date: Wed, 27 Mar 2013 04:28:06 -0700
+Message-ID: <9b32d93747f0bdc22614c5ed86922bf4@cacciatoritrentini.it>
+Reply-To: <wernererichzeller@yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:58934 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751114Ab3C0LTh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 07:19:37 -0400
+Received: from vm0854.cs10.seeweb.it ([95.174.23.70]:55858 "EHLO
+	smtpserver01.ergonet.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751391Ab3C0L2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 07:28:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
 
-yam_open checks if dev is null, however, before that check it
-accesses some of the fields from dev in a proceeding printk which
-will cause a null pointer dereference error if dev is nul. Move
-the printk to after the null check.
 
-Smatch analysis:
 
-drivers/net/hamradio/yam.c:869 yam_open() warn: variable
-  dereferenced before check 'dev' (see line 867)
+I am Barrister Werner Erich Zeller; I need your sincere partnership in
+transferring the sum of 15,000,000.00 EUR The details await you as you=20
+reply!
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/hamradio/yam.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+please! Call +44 702 409 0820 (office)
 
-diff --git a/drivers/net/hamradio/yam.c b/drivers/net/hamradio/yam.c
-index 4cf8f10..e021e51 100644
---- a/drivers/net/hamradio/yam.c
-+++ b/drivers/net/hamradio/yam.c
-@@ -864,10 +864,11 @@ static int yam_open(struct net_device *dev)
- 	int i;
- 	int ret=0;
- 
--	printk(KERN_INFO "Trying %s at iobase 0x%lx irq %u\n", dev->name, dev->base_addr, dev->irq);
--
- 	if (!dev || !yp->bitrate)
- 		return -ENXIO;
-+
-+	printk(KERN_INFO "Trying %s at iobase 0x%lx irq %u\n", dev->name, dev->base_addr, dev->irq);
-+
- 	if (!dev->base_addr || dev->base_addr > 0x1000 - YAM_EXTENT ||
- 		dev->irq < 2 || dev->irq > 15) {
- 		return -ENXIO;
--- 
-1.7.9.5
+--=20
+Ich bin Barrister Werner Erich Zeller, ich brauche eure aufrichtige
+Partnerschaft intransferring die Summe von 15.000.000,00 EUR auf Ihr
+Bankkonto in dieser Woche f=C3=BCr den Nutzen der beiden von uns 50% ea=
+ch.It
+ist 100% legal, legitim und sicher! f=C3=BCr Details, schreiben Sie mir=
+ auf
+dieser meiner privaten E-Mail statt: Dies ist dringende und ernste Sie
+m=C3=BCssen bereit sein und bereit, bevor Sie mich kontaktieren.
+
+bitte! Rufen Sie +44 702 409 0820 (B=C3=BCro)
