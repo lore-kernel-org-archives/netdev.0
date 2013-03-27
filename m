@@ -1,98 +1,41 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH regression/bisected] Revert "brcmsmac: support 4313iPA"
-Date: Wed, 27 Mar 2013 10:56:55 -0400
-Message-ID: <20130327145654.GA1868@tuxdriver.com>
-References: <1363603503-2378-1-git-send-email-dh.herrmann@gmail.com>
- <51471B85.5060404@broadcom.com>
- <CANq1E4TsM6yoSt9aELFan0ayEw3PSfYCe+PEe35YFHzZ-9rTuA@mail.gmail.com>
- <20130325185821.GB17454@tuxdriver.com>
- <51516AD4.8080306@broadcom.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
+Date: Wed, 27 Mar 2013 08:11:43 -0700
+Message-ID: <874nfwri6o.fsf@xmission.com>
+References: <CD78B3C3.76D3%blourdel@juniper.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Herrmann <dh.herrmann@gmail.com>,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Arend van Spriel <arend@broadcom.com>,
-	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>
-To: Piotr Haber <phaber@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <51516AD4.8080306@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Serge Hallyn <serge.hallyn@ubuntu.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: Benoit Lourdelet <blourdel@juniper.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out03.mta.xmission.com ([166.70.13.233]:36272 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751885Ab3C0PL4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 11:11:56 -0400
+In-Reply-To: <CD78B3C3.76D3%blourdel@juniper.net> (Benoit Lourdelet's message
+	of "Wed, 27 Mar 2013 13:37:45 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 26, 2013 at 10:31:00AM +0100, Piotr Haber wrote:
-> On 03/25/13 19:58, John W. Linville wrote:
-> > On Mon, Mar 18, 2013 at 02:58:08PM +0100, David Herrmann wrote:
-> >> Hi Piotr
-> >>
-> >> On Mon, Mar 18, 2013 at 2:49 PM, Piotr Haber <phaber@broadcom.com> wrote:
-> >>> On 03/18/13 11:45, David Herrmann wrote:
-> >>>> This reverts commit b6fc28a158076ca2764edc9a6d1e1402f56e1c0c. It breaks
-> >>>> wireless AP reconnection on: (14e4:4727)
-> >>>>   Broadcom Corporation BCM4313 802.11b/g/n Wireless LAN Controller
-> >>>>
-> >>>> Any attempt to reconnect to an AP results in timeouts no matter how near to the
-> >>>> AP I am:
-> >>>>  00:10:40 $nb kernel: wlan0: authenticate with 00:18:39:0a:8e:23
-> >>>>  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 1/3)
-> >>>>  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 2/3)
-> >>>>  00:10:41 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 3/3)
-> >>>>  00:10:41 $nb kernel: wlan0: authentication with 00:18:39:0a:8e:23 timed out
-> >>>> ---
-> >>>> Hi
-> >>>>
-> >>>> I tried coming up with a fix instead of reverting this commit, but the commit is
-> >>>> way to big for me to understand what's going on. Sorry.
-> >>>>
-> >>>> With linux-3.8 connecting to an AP broke on my machine. I could connect to an AP
-> >>>> one time, but any further attempt resulted in:
-> >>>>  00:10:40 $nb kernel: wlan0: authenticate with 00:18:39:0a:8e:23
-> >>>>  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 1/3)
-> >>>>  00:10:40 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 2/3)
-> >>>>  00:10:41 $nb kernel: wlan0: direct probe to 00:18:39:0a:8e:23 (try 3/3)
-> >>>>  00:10:41 $nb kernel: wlan0: authentication with 00:18:39:0a:8e:23 timed out
-> >>>>
-> >>>> Even sitting right next to the AP didn't help so I started bisecting and it
-> >>>> turned out to be:
-> >>>>   "brcmsmac: support 4313iPA" b6fc28a158076ca2764edc9a6d1e1402f56e1c0c
-> >>>> Please revert it.
-> >>>>
-> >>>> Thanks
-> >>>> David
-> >>>>
-> >>> Hi,
-> >>> unfortunately this is not a first report of this patch breaking 4313 for some users.
-> >>> I'm pretty confident that it is hardware revision related as we have 4313ePA and iPA boards running
-> >>> successfully in our test setup.
-> >>> Could you aid us in effort of finding the problem by supplying the contents of this debugfs file:
-> >>> <debugfs_mount>/brcmsmac/bcma0:0/hardware
-> >>
-> >> Hi
-> >>
-> >> $ cat /sys/kernel/debug/brcmsmac/bcma0\:0/hardware
-> >> board vendor: 185f
-> >> board type: 51a
-> >> board revision: 1408
-> >> board flags: 8402a01
-> >> board flags2: 880
-> >> firmware revision: 262032b
-> >>
-> >> I can also try partial reverts of that commit, but I really don't know
-> >> which parts might be important.
-> > 
-> > Are we going to see a fix for this (very) soon?  Or should I just go
-> > ahead and revert this patch?
-> > 
-> I cannot reproduce the issue on a set of devices we have here (3 different 4313 ePA models).
-> Some of the devices that are reported to be broken are being shipped to us.
-> So I would say we need around 2 weeks at least to resolve this (if we reproduce the problem and find
-> a fix).
-> Not sure this is soon enough.
-> If not please go ahead an revert the patch.
+Benoit Lourdelet <blourdel@juniper.net> writes:
 
-I am reverting the patch.
+> Hello Serge,
+>
+> I am indeed using Eric patch with lxc.
+>
+> It solves the initial problem of slowness to start around 1600
+> containers.
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Good so now we just need a production ready patch for iproute.
+
+> I am now able to start more than  2000 without having new containers
+> slower and slower to start.
+
+May I ask how large a box you are running and how complex your
+containers are.  I am trying to get a feel for how common it is likely
+to be to find people running thousands of containers on a single
+machine.
+
+Eric
