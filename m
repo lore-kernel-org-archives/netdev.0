@@ -1,68 +1,57 @@
-From: Stefan Schmidt <stefan@datenfreihafen.org>
-Subject: Re: ieee802154: Source addr fix for dgram and some small at86rf230
- driver enhancements
-Date: Wed, 27 Mar 2013 18:52:05 +0000
-Message-ID: <20130327185204.GH22584@novatech.datenfreihafen.org>
-References: <1364337691-20163-1-git-send-email-stefan@datenfreihafen.org>
- <20130327.005318.1058473513349640907.davem@davemloft.net>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH net-next] bnx2x: fix compilation without
+ CONFIG_BNX2X_SRIOV
+Date: Wed, 27 Mar 2013 20:56:10 +0200
+Message-ID: <1364410570-18129-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stefan@datenfreihafen.org, netdev@vger.kernel.org,
-	linux-zigbee-devel@lists.sourceforge.net, alan@signal11.us
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Dmitry Kravkov" <dmitry@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sirius.lasnet.de ([78.47.116.19]:60530 "EHLO sirius.lasnet.de"
+Received: from mms3.broadcom.com ([216.31.210.19]:2100 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753108Ab3C0SwO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Mar 2013 14:52:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20130327.005318.1058473513349640907.davem@davemloft.net>
+	id S1752966Ab3C0S4R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Mar 2013 14:56:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Move mutex initialization by allocation of the mailbox it protects.
 
-On Wed, 2013-03-27 at 00:53, David Miller wrote:
-> From: Stefan Schmidt <stefan@datenfreihafen.org>
-> Date: Tue, 26 Mar 2013 22:41:28 +0000
-> 
-> > Hello.
-> > 
-> > Second version. Changes since version 1:
-> > - Obey 80 chars rules
-> > - Switch logging mode to vdbg to avoid noise
-> > - Remove uneeded might_sleep()
-> > 
-> > Thanks Alan, Werner and Alex for the feedback.
-> > 
-> > I feel these are ready so I added DaveM and netdev to pick them up if they think
-> > the same.
-> 
-> All applied.
+introduced in commit 1d6f3cd89 'bnx2x: Prevent VF race'
 
-Thanks. That was quick. :)
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
 
-I wonder what happened to the from of two of my commits. Looking at
-your repo they only show up my email address:
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |    1 -
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |    2 ++
+ 2 files changed, 2 insertions(+), 1 deletions(-)
 
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=1486774d69f6e58da16cdae8f17c77ec6569f711
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=028889b0b32064a3a23d6d8d4ef589a42a6d43c7
-
-The one from Stephen is fine
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=6364e6ee788ae60f1c2de5c59e39adb157327e6c
-
-The later as an explicit from as he was the author and I just the
-sender. For the two problematic ones git am should have picked up the
-normal mail from header, no?
-
-I did the patches from my local branch with git format-patch and git
-send-email as I have done quite often already. Looking at the mails I
-got as CC the from line looks fine too. Also I just saved the mails
-here from my mutt and did a git am on it and the name was picked up
-correctly.
-
-Is there still some error on my side? I would really like to get it
-fixed if there is one. :) Or was it juts a glitch on your side?
-
-regards
-Stefan Schmidt
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 10af03e..fdfe33b 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -12522,7 +12522,6 @@ static int bnx2x_init_one(struct pci_dev *pdev,
+ 	 */
+ 	if (IS_VF(bp)) {
+ 		bp->doorbells = bnx2x_vf_doorbells(bp);
+-		mutex_init(&bp->vf2pf_mutex);
+ 		rc = bnx2x_vf_pci_alloc(bp);
+ 		if (rc)
+ 			goto init_one_exit;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index db63d86..2ce7c74 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -3425,6 +3425,8 @@ void __iomem *bnx2x_vf_doorbells(struct bnx2x *bp)
+ 
+ int bnx2x_vf_pci_alloc(struct bnx2x *bp)
+ {
++	mutex_init(&bp->vf2pf_mutex);
++
+ 	/* allocate vf2pf mailbox for vf to pf channel */
+ 	BNX2X_PCI_ALLOC(bp->vf2pf_mbox, &bp->vf2pf_mbox_mapping,
+ 			sizeof(struct bnx2x_vf_mbx_msg));
+-- 
+1.7.7.2
