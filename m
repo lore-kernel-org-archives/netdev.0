@@ -1,94 +1,351 @@
-From: Sergey Popovich <popovich_sergei@mail.ru>
-Subject: sch_generic: missing u64 in psched_ratecfg_precompute()?
-Date: Wed, 27 Mar 2013 15:00:06 +0200
-Message-ID: <4306359.Sd6orIF4zo@tuxracer.localdomain>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: Re: [PATCH 1/2] ethernet: dm9000 driver: davicom: upgrade driver: 3rd trial
+Date: Wed, 27 Mar 2013 17:14:27 +0400
+Message-ID: <CAOJe8K24A6jSLsfLn6yc0cKvLPNU8+8wLs+ip0AsVUYS_HVBGg@mail.gmail.com>
+References: <1364386168-12503-1-git-send-email-josright123@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="nextPart2389811.VlZ5zP96i8"
-Content-Transfer-Encoding: 7Bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Bill Pemberton <wfp5p@virginia.edu>,
+	Matthew Leach <matthew@mattleach.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Joseph CHANG <joseph_chang@davicom.com.tw>,
+	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joseph CHANG <josright123@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback2.mail.ru ([94.100.176.87]:58627 "EHLO
-	fallback2.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751459Ab3C0NBZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 09:01:25 -0400
-Received: from smtp1.mail.ru (smtp1.mail.ru [94.100.176.129])
-	by fallback2.mail.ru (mPOP.Fallback_MX) with ESMTP id 525B1D1A003B
-	for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 17:00:43 +0400 (MSK)
-Received: from [195.234.68.4] (port=38575 helo=tuxracer.localdomain)
-	by smtp1.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
-	id 1UKpxe-0005af-BX
-	for netdev@vger.kernel.org; Wed, 27 Mar 2013 17:00:16 +0400
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:63394 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753630Ab3C0NO2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 09:14:28 -0400
+Received: by mail-ob0-f180.google.com with SMTP id wo10so5683375obc.25
+        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 06:14:27 -0700 (PDT)
+In-Reply-To: <1364386168-12503-1-git-send-email-josright123@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
+It's not clear from your log what was wrong with the driver. Could you
+please update the log message.
 
---nextPart2389811.VlZ5zP96i8
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
-
-Hello!
-
-It seems that commit
-
-  commit 292f1c7ff6cc10516076ceeea45ed11833bb71c7                                                                                             
-  Author: Jiri Pirko <jiri@resnulli.us>                                                                                                       
-  Date:   Tue Feb 12 00:12:03 2013 +0000                                                                                                      
-                                                                                                                                            
-      sch: make htb_rate_cfg and functions around that generic
-
-adds little regression.
-
-Before
-----
-# tc qdisc add dev eth0 root handle 1: htb default ffff
-# tc class add dev eth0 classid 1:ffff htb rate 5Gbit
-# tc -s class show dev eth0
-class htb 1:ffff root prio 0 rate 5000Mbit ceil 5000Mbit burst 625b cburst 
-625b 
- Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
- rate 0bit 0pps backlog 0b 0p requeues 0 
- lended: 0 borrowed: 0 giants: 0
- tokens: 31 ctokens: 31
-
-After
-----
-# tc qdisc add dev eth0 root handle 1: htb default ffff
-# tc class add dev eth0 classid 1:ffff htb rate 5Gbit
-# tc -s class show dev eth0
-class htb 1:ffff root prio 0 rate 1544Mbit ceil 1544Mbit burst 625b cburst 
-625b
- Sent 5073 bytes 41 pkt (dropped 0, overlimits 0 requeues 0)
- rate 1976bit 2pps backlog 0b 0p requeues 0
- lended: 41 borrowed: 0 giants: 0
- tokens: 1802 ctokens: 1802
-
-This probably due to lost u64 cast of rate parameter in 
-psched_ratecfg_precompute() (net/sched/sch_generic.c).
-
-Simple patch attached. Tested and found working for me at least
-on amd64.
-
--- 
-SP5474-RIPE
-Sergey Popovich
-
---nextPart2389811.VlZ5zP96i8
-Content-Disposition: attachment; filename="sch_generic-add-missing-u64-cast.patch"
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/x-patch; charset="utf-8"; name="sch_generic-add-missing-u64-cast.patch"
-
-diff -purN a/net/sched/sch_generic.c b/net/sched/sch_generic.c
---- a/net/sched/sch_generic.c	2013-03-27 14:52:27.419643015 +0200
-+++ b/net/sched/sch_generic.c	2013-03-20 12:02:08.569366312 +0200
-@@ -921,7 +921,7 @@ void psched_ratecfg_precompute(struct ps
- 	u64 mult;
- 	int shift;
- 
--	r->rate_bps = rate << 3;
-+	r->rate_bps = (u64)rate << 3;
- 	r->shift = 0;
- 	r->mult = 1;
- 	/*
-
---nextPart2389811.VlZ5zP96i8--
+On 3/27/13, Joseph CHANG <josright123@gmail.com> wrote:
+> Fixing bug for DM9000B(DSP) which is a DSP revision! 3rd trial.
+>
+> Tested to Davicom DM9000 series include DM9000E(analog),
+> DM9000A(analog), DM9000B(DSP), and DM9000C(DSP) in X86 and
+> ARM Embedded Linux these years.
+>
+> Signed-off-by: Joseph CHANG <josright123@gmail.com>
+> ---
+>  drivers/net/ethernet/davicom/dm9000.c |  219
+> +++++++++++++++++----------------
+>  drivers/net/ethernet/davicom/dm9000.h |   11 ++-
+>  2 files changed, 124 insertions(+), 106 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/davicom/dm9000.c
+> b/drivers/net/ethernet/davicom/dm9000.c
+> index 8cdf025..9dd4bd6 100644
+> --- a/drivers/net/ethernet/davicom/dm9000.c
+> +++ b/drivers/net/ethernet/davicom/dm9000.c
+> @@ -47,7 +47,7 @@
+>  #define DM9000_PHY		0x40	/* PHY address 0x01 */
+>
+>  #define CARDNAME	"dm9000"
+> -#define DRV_VERSION	"1.31"
+> +#define DRV_VERSION	"1.39"
+>
+>  /*
+>   * Transmit timeout, default 5 seconds.
+> @@ -257,6 +257,109 @@ static void dm9000_dumpblk_32bit(void __iomem *reg,
+> int count)
+>  		tmp = readl(reg);
+>  }
+>
+> +/*
+> + * Sleep, either by using msleep() or if we are suspending, then
+> + * use mdelay() to sleep.
+> + */
+> +static void dm9000_msleep(board_info_t *db, unsigned int ms)
+> +{
+> +	if (db->in_suspend)
+> +		mdelay(ms);
+> +	else
+> +		msleep(ms);
+> +}
+> +
+> +/*
+> + *   Read a word from phyxcer
+> + */
+> +static int
+> +dm9000_phy_read(struct net_device *dev, int phy_reg_unused, int reg)
+> +{
+> +	board_info_t *db = netdev_priv(dev);
+> +	unsigned long flags;
+> +	unsigned int reg_save;
+> +	int ret;
+> +
+> +	mutex_lock(&db->addr_lock);
+> +
+> +	spin_lock_irqsave(&db->lock,flags);
+> +
+> +	/* Save previous register address */
+> +	reg_save = readb(db->io_addr);
+> +
+> +	/* Fill the phyxcer register into REG_0C */
+> +	iow(db, DM9000_EPAR, DM9000_PHY | reg);
+> +
+> +	iow(db, DM9000_EPCR, EPCR_ERPRR | EPCR_EPOS);	/* Issue phyxcer read
+> command */
+> +
+> +	writeb(reg_save, db->io_addr);
+> +	spin_unlock_irqrestore(&db->lock,flags);
+> +
+> +	dm9000_msleep(db, 1);		/* Wait read complete */
+> +
+> +	spin_lock_irqsave(&db->lock,flags);
+> +	reg_save = readb(db->io_addr);
+> +
+> +	iow(db, DM9000_EPCR, 0x0);	/* Clear phyxcer read command */
+> +
+> +	/* The read data keeps on REG_0D & REG_0E */
+> +	ret = (ior(db, DM9000_EPDRH) << 8) | ior(db, DM9000_EPDRL);
+> +
+> +	/* restore the previous address */
+> +	writeb(reg_save, db->io_addr);
+> +	spin_unlock_irqrestore(&db->lock,flags);
+> +
+> +	mutex_unlock(&db->addr_lock);
+> +
+> +	dm9000_dbg(db, 5, "phy_read[%02x] -> %04x\n", reg, ret);
+> +	return ret;
+> +}
+> +
+> +/*
+> + *   Write a word to phyxcer
+> + */
+> +static void
+> +dm9000_phy_write(struct net_device *dev,
+> +		 int phyaddr_unused, int reg, int value)
+> +{
+> +	board_info_t *db = netdev_priv(dev);
+> +	unsigned long flags;
+> +	unsigned long reg_save;
+> +
+> +	dm9000_dbg(db, 5, "phy_write[%02x] = %04x\n", reg, value);
+> +	mutex_lock(&db->addr_lock);
+> +
+> +	spin_lock_irqsave(&db->lock,flags);
+> +
+> +	/* Save previous register address */
+> +	reg_save = readb(db->io_addr);
+> +
+> +	/* Fill the phyxcer register into REG_0C */
+> +	iow(db, DM9000_EPAR, DM9000_PHY | reg);
+> +
+> +	/* Fill the written data into REG_0D & REG_0E */
+> +	iow(db, DM9000_EPDRL, value);
+> +	iow(db, DM9000_EPDRH, value >> 8);
+> +
+> +	iow(db, DM9000_EPCR, EPCR_EPOS | EPCR_ERPRW);	/* Issue phyxcer write
+> command */
+> +
+> +	writeb(reg_save, db->io_addr);
+> +	spin_unlock_irqrestore(&db->lock, flags);
+> +
+> +	dm9000_msleep(db, 1);		/* Wait write complete */
+> +
+> +	spin_lock_irqsave(&db->lock,flags);
+> +	reg_save = readb(db->io_addr);
+> +
+> +	iow(db, DM9000_EPCR, 0x0);	/* Clear phyxcer write command */
+> +
+> +	/* restore the previous address */
+> +	writeb(reg_save, db->io_addr);
+> +
+> +	spin_unlock_irqrestore(&db->lock, flags);
+> +	mutex_unlock(&db->addr_lock);
+> +}
+> +
+>  /* dm9000_set_io
+>   *
+>   * select the specified set of io routines to use with the
+> @@ -795,6 +898,8 @@ dm9000_init_dm9000(struct net_device *dev)
+>
+>  	iow(db, DM9000_GPCR, GPCR_GEP_CNTL);	/* Let GPIO0 output */
+>
+> +	dm9000_phy_write(dev, 0, MII_BMCR, BMCR_RESET); /* PHY RESET */
+> +
+>  	ncr = (db->flags & DM9000_PLATF_EXT_PHY) ? NCR_EXT_PHY : 0;
+>
+>  	/* if wol is needed, then always set NCR_WAKEEN otherwise we end
+> @@ -830,6 +935,8 @@ dm9000_init_dm9000(struct net_device *dev)
+>  	db->tx_pkt_cnt = 0;
+>  	db->queue_pkt_len = 0;
+>  	dev->trans_start = jiffies;
+> +
+> +	dm9000_phy_write(dev, 0, MII_DM_DSPCR, DSPCR_INIT_PARAM); /* Init */
+>  }
+>
+>  /* Our watchdog timed out. Called by the networking layer */
+> @@ -1201,109 +1308,6 @@ dm9000_open(struct net_device *dev)
+>  	return 0;
+>  }
+>
+> -/*
+> - * Sleep, either by using msleep() or if we are suspending, then
+> - * use mdelay() to sleep.
+> - */
+> -static void dm9000_msleep(board_info_t *db, unsigned int ms)
+> -{
+> -	if (db->in_suspend)
+> -		mdelay(ms);
+> -	else
+> -		msleep(ms);
+> -}
+> -
+> -/*
+> - *   Read a word from phyxcer
+> - */
+> -static int
+> -dm9000_phy_read(struct net_device *dev, int phy_reg_unused, int reg)
+> -{
+> -	board_info_t *db = netdev_priv(dev);
+> -	unsigned long flags;
+> -	unsigned int reg_save;
+> -	int ret;
+> -
+> -	mutex_lock(&db->addr_lock);
+> -
+> -	spin_lock_irqsave(&db->lock,flags);
+> -
+> -	/* Save previous register address */
+> -	reg_save = readb(db->io_addr);
+> -
+> -	/* Fill the phyxcer register into REG_0C */
+> -	iow(db, DM9000_EPAR, DM9000_PHY | reg);
+> -
+> -	iow(db, DM9000_EPCR, EPCR_ERPRR | EPCR_EPOS);	/* Issue phyxcer read
+> command */
+> -
+> -	writeb(reg_save, db->io_addr);
+> -	spin_unlock_irqrestore(&db->lock,flags);
+> -
+> -	dm9000_msleep(db, 1);		/* Wait read complete */
+> -
+> -	spin_lock_irqsave(&db->lock,flags);
+> -	reg_save = readb(db->io_addr);
+> -
+> -	iow(db, DM9000_EPCR, 0x0);	/* Clear phyxcer read command */
+> -
+> -	/* The read data keeps on REG_0D & REG_0E */
+> -	ret = (ior(db, DM9000_EPDRH) << 8) | ior(db, DM9000_EPDRL);
+> -
+> -	/* restore the previous address */
+> -	writeb(reg_save, db->io_addr);
+> -	spin_unlock_irqrestore(&db->lock,flags);
+> -
+> -	mutex_unlock(&db->addr_lock);
+> -
+> -	dm9000_dbg(db, 5, "phy_read[%02x] -> %04x\n", reg, ret);
+> -	return ret;
+> -}
+> -
+> -/*
+> - *   Write a word to phyxcer
+> - */
+> -static void
+> -dm9000_phy_write(struct net_device *dev,
+> -		 int phyaddr_unused, int reg, int value)
+> -{
+> -	board_info_t *db = netdev_priv(dev);
+> -	unsigned long flags;
+> -	unsigned long reg_save;
+> -
+> -	dm9000_dbg(db, 5, "phy_write[%02x] = %04x\n", reg, value);
+> -	mutex_lock(&db->addr_lock);
+> -
+> -	spin_lock_irqsave(&db->lock,flags);
+> -
+> -	/* Save previous register address */
+> -	reg_save = readb(db->io_addr);
+> -
+> -	/* Fill the phyxcer register into REG_0C */
+> -	iow(db, DM9000_EPAR, DM9000_PHY | reg);
+> -
+> -	/* Fill the written data into REG_0D & REG_0E */
+> -	iow(db, DM9000_EPDRL, value);
+> -	iow(db, DM9000_EPDRH, value >> 8);
+> -
+> -	iow(db, DM9000_EPCR, EPCR_EPOS | EPCR_ERPRW);	/* Issue phyxcer write
+> command */
+> -
+> -	writeb(reg_save, db->io_addr);
+> -	spin_unlock_irqrestore(&db->lock, flags);
+> -
+> -	dm9000_msleep(db, 1);		/* Wait write complete */
+> -
+> -	spin_lock_irqsave(&db->lock,flags);
+> -	reg_save = readb(db->io_addr);
+> -
+> -	iow(db, DM9000_EPCR, 0x0);	/* Clear phyxcer write command */
+> -
+> -	/* restore the previous address */
+> -	writeb(reg_save, db->io_addr);
+> -
+> -	spin_unlock_irqrestore(&db->lock, flags);
+> -	mutex_unlock(&db->addr_lock);
+> -}
+> -
+>  static void
+>  dm9000_shutdown(struct net_device *dev)
+>  {
+> @@ -1502,7 +1506,12 @@ dm9000_probe(struct platform_device *pdev)
+>  	db->flags |= DM9000_PLATF_SIMPLE_PHY;
+>  #endif
+>
+> -	dm9000_reset(db);
+> +	/* Fixing bug on dm9000_probe, takeover dm9000_reset(db),
+> +	 * Need 'NCR_MAC_LBK' bit to indeed stable our DM9000 fifo
+> +	 * while probe stage.
+> +	 */
+> +
+> +	iow(db, DM9000_NCR, NCR_MAC_LBK | NCR_RST);
+>
+>  	/* try multiple times, DM9000 sometimes gets the read wrong */
+>  	for (i = 0; i < 8; i++) {
+> diff --git a/drivers/net/ethernet/davicom/dm9000.h
+> b/drivers/net/ethernet/davicom/dm9000.h
+> index 55688bd..9ce058a 100644
+> --- a/drivers/net/ethernet/davicom/dm9000.h
+> +++ b/drivers/net/ethernet/davicom/dm9000.h
+> @@ -69,7 +69,9 @@
+>  #define NCR_WAKEEN          (1<<6)
+>  #define NCR_FCOL            (1<<4)
+>  #define NCR_FDX             (1<<3)
+> -#define NCR_LBK             (3<<1)
+> +
+> +#define NCR_RESERVED        (3<<1)
+> +#define NCR_MAC_LBK         (1<<1)
+>  #define NCR_RST	            (1<<0)
+>
+>  #define NSR_SPEED           (1<<7)
+> @@ -167,5 +169,12 @@
+>  #define ISR_LNKCHNG		(1<<5)
+>  #define ISR_UNDERRUN		(1<<4)
+>
+> +/* Davicom MII registers.
+> + */
+> +
+> +#define MII_DM_DSPCR		0x1b    /* DSP Control Register */
+> +
+> +#define DSPCR_INIT_PARAM	0xE100	/* DSP init parameter */
+> +
+>  #endif /* _DM9000X_H_ */
+>
+> --
+> 1.7.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
