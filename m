@@ -1,38 +1,119 @@
-From: Michele Roca <michele.rocca@cacciatoritrentini.it>
-Subject: MY GOOD FRIEND!
-Date: Wed, 27 Mar 2013 04:28:06 -0700
-Message-ID: <9b32d93747f0bdc22614c5ed86922bf4@cacciatoritrentini.it>
-Reply-To: <wernererichzeller@yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vm0854.cs10.seeweb.it ([95.174.23.70]:55858 "EHLO
-	smtpserver01.ergonet.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751391Ab3C0L2I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 07:28:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joseph CHANG <josright123@gmail.com>
+Subject: [PATCH 2/2] ethernet: dm9000 driver: davicom: upgrade driver: 3rd trial patch2
+Date: Wed, 27 Mar 2013 20:09:28 +0800
+Message-ID: <1364386168-12503-2-git-send-email-josright123@gmail.com>
+References: <1364386168-12503-1-git-send-email-josright123@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Joseph CHANG <josright123@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Bill Pemberton <wfp5p@virginia.edu>,
+	Matthew Leach <matthew@mattleach.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Joseph CHANG <joseph_chang@davicom.com.tw>,
+	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1364386168-12503-1-git-send-email-josright123@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Fixing bug for DM9000B(DSP) patch2
 
+Tested to Davicom DM9000E, DM9000A, DM9000B(DSP),
+and DM9000C(DSP) patch2
 
+Signed-off-by: Joseph CHANG <josright123@gmail.com>
+---
+ drivers/net/ethernet/davicom/dm9000.c |   26 ++++++++++++--------------
+ 1 files changed, 12 insertions(+), 14 deletions(-)
 
-I am Barrister Werner Erich Zeller; I need your sincere partnership in
-transferring the sum of 15,000,000.00 EUR The details await you as you=20
-reply!
-
-please! Call +44 702 409 0820 (office)
-
---=20
-Ich bin Barrister Werner Erich Zeller, ich brauche eure aufrichtige
-Partnerschaft intransferring die Summe von 15.000.000,00 EUR auf Ihr
-Bankkonto in dieser Woche f=C3=BCr den Nutzen der beiden von uns 50% ea=
-ch.It
-ist 100% legal, legitim und sicher! f=C3=BCr Details, schreiben Sie mir=
- auf
-dieser meiner privaten E-Mail statt: Dies ist dringende und ernste Sie
-m=C3=BCssen bereit sein und bereit, bevor Sie mich kontaktieren.
-
-bitte! Rufen Sie +44 702 409 0820 (B=C3=BCro)
+diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+index 9dd4bd6..a5cd4ad 100644
+--- a/drivers/net/ethernet/davicom/dm9000.c
++++ b/drivers/net/ethernet/davicom/dm9000.c
+@@ -269,9 +269,7 @@ static void dm9000_msleep(board_info_t *db, unsigned int ms)
+ 		msleep(ms);
+ }
+ 
+-/*
+- *   Read a word from phyxcer
+- */
++/* Read a word from phyxcer */
+ static int
+ dm9000_phy_read(struct net_device *dev, int phy_reg_unused, int reg)
+ {
+@@ -282,7 +280,7 @@ dm9000_phy_read(struct net_device *dev, int phy_reg_unused, int reg)
+ 
+ 	mutex_lock(&db->addr_lock);
+ 
+-	spin_lock_irqsave(&db->lock,flags);
++	spin_lock_irqsave(&db->lock, flags);
+ 
+ 	/* Save previous register address */
+ 	reg_save = readb(db->io_addr);
+@@ -290,14 +288,15 @@ dm9000_phy_read(struct net_device *dev, int phy_reg_unused, int reg)
+ 	/* Fill the phyxcer register into REG_0C */
+ 	iow(db, DM9000_EPAR, DM9000_PHY | reg);
+ 
+-	iow(db, DM9000_EPCR, EPCR_ERPRR | EPCR_EPOS);	/* Issue phyxcer read command */
++	/* Issue phyxcer read command */
++	iow(db, DM9000_EPCR, EPCR_ERPRR | EPCR_EPOS);
+ 
+ 	writeb(reg_save, db->io_addr);
+-	spin_unlock_irqrestore(&db->lock,flags);
++	spin_unlock_irqrestore(&db->lock, flags);
+ 
+ 	dm9000_msleep(db, 1);		/* Wait read complete */
+ 
+-	spin_lock_irqsave(&db->lock,flags);
++	spin_lock_irqsave(&db->lock, flags);
+ 	reg_save = readb(db->io_addr);
+ 
+ 	iow(db, DM9000_EPCR, 0x0);	/* Clear phyxcer read command */
+@@ -307,7 +306,7 @@ dm9000_phy_read(struct net_device *dev, int phy_reg_unused, int reg)
+ 
+ 	/* restore the previous address */
+ 	writeb(reg_save, db->io_addr);
+-	spin_unlock_irqrestore(&db->lock,flags);
++	spin_unlock_irqrestore(&db->lock, flags);
+ 
+ 	mutex_unlock(&db->addr_lock);
+ 
+@@ -315,9 +314,7 @@ dm9000_phy_read(struct net_device *dev, int phy_reg_unused, int reg)
+ 	return ret;
+ }
+ 
+-/*
+- *   Write a word to phyxcer
+- */
++/* Write a word to phyxcer */
+ static void
+ dm9000_phy_write(struct net_device *dev,
+ 		 int phyaddr_unused, int reg, int value)
+@@ -329,7 +326,7 @@ dm9000_phy_write(struct net_device *dev,
+ 	dm9000_dbg(db, 5, "phy_write[%02x] = %04x\n", reg, value);
+ 	mutex_lock(&db->addr_lock);
+ 
+-	spin_lock_irqsave(&db->lock,flags);
++	spin_lock_irqsave(&db->lock, flags);
+ 
+ 	/* Save previous register address */
+ 	reg_save = readb(db->io_addr);
+@@ -341,14 +338,15 @@ dm9000_phy_write(struct net_device *dev,
+ 	iow(db, DM9000_EPDRL, value);
+ 	iow(db, DM9000_EPDRH, value >> 8);
+ 
+-	iow(db, DM9000_EPCR, EPCR_EPOS | EPCR_ERPRW);	/* Issue phyxcer write command */
++	/* Issue phyxcer write command */
++	iow(db, DM9000_EPCR, EPCR_EPOS | EPCR_ERPRW);
+ 
+ 	writeb(reg_save, db->io_addr);
+ 	spin_unlock_irqrestore(&db->lock, flags);
+ 
+ 	dm9000_msleep(db, 1);		/* Wait write complete */
+ 
+-	spin_lock_irqsave(&db->lock,flags);
++	spin_lock_irqsave(&db->lock, flags);
+ 	reg_save = readb(db->io_addr);
+ 
+ 	iow(db, DM9000_EPCR, 0x0);	/* Clear phyxcer write command */
+-- 
+1.7.1
