@@ -1,122 +1,121 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH net-next] vxlan: Provide means for obtaining port information
-Date: Wed, 27 Mar 2013 14:48:25 -0700
-Message-ID: <51536929.9090109@intel.com>
-References: <20130327212842.13367.68803.stgit@ahduyck-cp1.jf.intel.com> <20130327143849.29afdbdc@nehalam.linuxnetplumber.net>
+From: Jacob Keller <jacob.e.keller@intel.com>
+Subject: [net-next PATCH] [RFC] net: add option to enable error queue packets waking select
+Date: Wed, 27 Mar 2013 15:00:28 -0700
+Message-ID: <20130327220028.13267.89112.stgit@jekeller-hub.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@nicira.com, pshelar@nicira.com,
-	jeffrey.t.kirsher@intel.com, shemminger@vyatta.com,
-	joseph.gasparakis@intel.com, davem@davemloft.net
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Jeffrey Kirsher <jeffrey.t.kirsher@intel.com>,
+	Richard Cochran <richardcochran@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:5377 "EHLO mga01.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:38414 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753507Ab3C0Vs1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Mar 2013 17:48:27 -0400
-In-Reply-To: <20130327143849.29afdbdc@nehalam.linuxnetplumber.net>
+	id S1751774Ab3C0WAa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Mar 2013 18:00:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/27/2013 02:38 PM, Stephen Hemminger wrote:
-> On Wed, 27 Mar 2013 14:33:11 -0700
-> Alexander Duyck <alexander.h.duyck@intel.com> wrote:
->
->> This patch provides a very simple means for device drivers to obtain access to
->> the VXLAN destination port number configuration.  This information is needed
->> in order to provide devices with a means of determining if a given UDP flow is
->> a VXLAN flow or if it is a standard flow for offload purposes.
->>
->> The main disadvantage with this approach is that loading a driver that calls
->> this interface will mean that it will also load the vxlan module and any other
->> modules it depends on.  To that end I really hope at some point the value
->> becomes static as we could then avoid this extra overhead.  The alternative to
->> this though is significantly more complicated as it would likely require
->> registering notifiers to capture when the vxlan module is loaded and then
->> updating the value.
->>
->> This patch adds a new header, if_vxlan.h which I suspect will slowly be
->> populated with more details such as the header layout as more devices end up
->> needing to figure out how to parse VXLAN for various offloads.
->>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->> ---
->>
->>  drivers/net/vxlan.c      |    7 +++++++
->>  include/linux/if_vxlan.h |   28 ++++++++++++++++++++++++++++
->>  2 files changed, 35 insertions(+), 0 deletions(-)
->>  create mode 100644 include/linux/if_vxlan.h
->>
->> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
->> index 62a4438..5b3bb9a 100644
->> --- a/drivers/net/vxlan.c
->> +++ b/drivers/net/vxlan.c
->> @@ -898,6 +898,13 @@ static u16 vxlan_src_port(const struct vxlan_dev *vxlan, struct sk_buff *skb)
->>  	return (((u64) hash * range) >> 32) + vxlan->port_min;
->>  }
->>  
->> +/* simple accessor function for getting VXLAN destination port number */
->> +int vxlan_dst_port(void)
->> +{
->> +	return vxlan_port;
->> +}
->> +EXPORT_SYMBOL_GPL(vxlan_dst_port);
->> +
->>  static int handle_offloads(struct sk_buff *skb)
->>  {
->>  	if (skb_is_gso(skb)) {
->> diff --git a/include/linux/if_vxlan.h b/include/linux/if_vxlan.h
->> new file mode 100644
->> index 0000000..b997eac
->> --- /dev/null
->> +++ b/include/linux/if_vxlan.h
->> @@ -0,0 +1,28 @@
->> +/*
->> + * VXLAN: Virtual eXtensible Local Area Network
->> + *
->> + * Copyright (c) 2013, Intel Corporation.
->> + *
->> + * This program is free software; you can redistribute it and/or modify it
->> + * under the terms and conditions of the GNU General Public License,
->> + * version 2, as published by the Free Software Foundation.
->> + *
->> + * This program is distributed in the hope it will be useful, but WITHOUT
->> + * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
->> + * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
->> + * more details.
->> + *
->> + * You should have received a copy of the GNU General Public License along with
->> + * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
->> + * Place - Suite 330, Boston, MA 02111-1307 USA.
->> + *
->> + */
->> +
->> +#if IS_ENABLED(CONFIG_VXLAN)
->> +extern int vxlan_dst_port(void);
->> +#else
->> +static inline int vxlan_dst_port(void)
->> +{
->> +	return 0;
->> +}
->> +#endif
-> Won't this all break if we what Dave wants and allow listening on multiple ports.
-> The port should be a property of the vxlan device not global.
+Currently, when a socket receives something on the error queue it only wakes up
+the socket on select if it is in the "read" list, that is the socket has
+something to read. It is useful also to wake the socket if it is in the error
+list, which would enable software to wait on error queue packets without waking
+up for regular data on the socket. The main use case is for receiving
+timestamped transmit packets which return the timestamp to the socket via the
+error queue. This enables an application to select on the socket for the error
+queue only instead of for the regular traffic.
 
-Yes this will break if we ended up supporting a different port per
-VXLAN.  The problem is a port per VXLAN is going to be much more
-difficult to support for any sort of hardware offload as well.  What we
-end up having to do is add a significant number of filters just to
-identify all of the possible ports that may be used.  In addition it
-will mean having to add some sort of notifier as I mentioned in the
-patch description since we will have VXLANs going into and out of
-existence, each one with their own port number..
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Cc: Jeffrey Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Richard Cochran <richardcochran@gmail.com>
+---
+ include/net/sock.h                |    1 +
+ include/uapi/asm-generic/socket.h |    2 ++
+ net/core/datagram.c               |    5 ++++-
+ net/core/sock.c                   |    8 ++++++++
+ net/unix/af_unix.c                |    5 ++++-
+ 5 files changed, 19 insertions(+), 2 deletions(-)
 
-This was essentially a "good enough for now" fix to address the fact
-that I needed the port number for offload testing, but I will sit back
-and wait for the port per VXLAN stuff to be pushed in before I take any
-steps to try to sort that out.
-
-Thanks,
-
-Alex
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 14f6e9d..08f05f9 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -667,6 +667,7 @@ enum sock_flags {
+ 		     * user-space instead.
+ 		     */
+ 	SOCK_FILTER_LOCKED, /* Filter cannot be changed anymore */
++	SOCK_SELECT_ERR_QUEUE, /* Wake select on error queue */
+ };
+ 
+ static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
+diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+index 4ef3acb..c5d2e3a 100644
+--- a/include/uapi/asm-generic/socket.h
++++ b/include/uapi/asm-generic/socket.h
+@@ -74,4 +74,6 @@
+ 
+ #define SO_LOCK_FILTER		44
+ 
++#define SO_SELECT_ERR_QUEUE	45
++
+ #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 368f9c3..f7d7b64 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -748,8 +748,11 @@ unsigned int datagram_poll(struct file *file, struct socket *sock,
+ 	mask = 0;
+ 
+ 	/* exceptional events? */
+-	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
++	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue)) {
+ 		mask |= POLLERR;
++		if (sock_flag(sk, SOCK_SELECT_ERR_QUEUE))
++			mask |= POLLPRI;
++	}
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
+ 	if (sk->sk_shutdown == SHUTDOWN_MASK)
+diff --git a/net/core/sock.c b/net/core/sock.c
+index a19e728..2ff5f36 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -907,6 +907,10 @@ set_rcvbuf:
+ 		sock_valbool_flag(sk, SOCK_NOFCS, valbool);
+ 		break;
+ 
++	case SO_SELECT_ERR_QUEUE:
++		sock_valbool_flag(sk, SOCK_SELECT_ERR_QUEUE, valbool);
++		break;
++
+ 	default:
+ 		ret = -ENOPROTOOPT;
+ 		break;
+@@ -1160,6 +1164,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		v.val = sock_flag(sk, SOCK_FILTER_LOCKED);
+ 		break;
+ 
++	case SO_SELECT_ERR_QUEUE:
++		v.val = sock_flag(sk, SOCK_SELECT_ERR_QUEUE);
++		break;
++
+ 	default:
+ 		return -ENOPROTOOPT;
+ 	}
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 51be64f..f435555 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2196,8 +2196,11 @@ static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
+ 	mask = 0;
+ 
+ 	/* exceptional events? */
+-	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
++	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue)) {
+ 		mask |= POLLERR;
++		if (sock_flag(sk, SOCK_SELECT_ERR_QUEUE))
++			mask |= POLLPRI;
++	}
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
+ 	if (sk->sk_shutdown == SHUTDOWN_MASK)
