@@ -1,38 +1,83 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: /128 link-local subnet on 6in4 (sit) tunnels?
-Date: Wed, 27 Mar 2013 19:11:46 +0100
-Message-ID: <20130327181146.GB23223@order.stressinduktion.org>
-References: <1364335457.8215.21.camel@localhost> <20130327151210.GA23223@order.stressinduktion.org> <1364398673.21709.4.camel@localhost>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] yam: avoid null pointer dereference error
+Date: Wed, 27 Mar 2013 18:12:33 +0000
+Message-ID: <1364407953.2922.12.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1364383174-17708-1-git-send-email-colin.king@canonical.com>
+	 <1364406257.2922.11.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20130327.134651.702432728001011428.davem@davemloft.net>
+	 <5153358A.5010505@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Wilco Baan Hofman <wilco@baanhofman.nl>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <jpr@f6fbb.org>,
+	<linux-hams@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Colin Ian King <colin.king@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:34519 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753053Ab3C0SLr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 14:11:47 -0400
-Content-Disposition: inline
-In-Reply-To: <1364398673.21709.4.camel@localhost>
+Received: from webmail.solarflare.com ([12.187.104.25]:42437 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752159Ab3C0SMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 14:12:37 -0400
+In-Reply-To: <5153358A.5010505@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 27, 2013 at 04:37:53PM +0100, Wilco Baan Hofman wrote:
-> 
-> On Wed, 2013-03-27 at 16:12 +0100, Hannes Frederic Sowa wrote:
-> > On Tue, Mar 26, 2013 at 11:04:17PM +0100, Wilco Baan Hofman wrote:
-> > > So I was wondering, is there any particular reason for the use of a /128
-> > > link-local or is this just a bug?
-> > 
-> > Can you show me the commands how you set up the tunnel. It does create /64 ll
-> > with embedded ipv4 addresses for me here on v3.8.
-> > 
-> 
-> Weird, but sure, here goes:
-> 
-> ip tunnel add tunv6-uplink1 mode sit remote 192.168.1.1 local
-> 192.168.1.21
-> ip link set tunv6-uplink1 up mtu 1472
+On Wed, 2013-03-27 at 18:08 +0000, Colin Ian King wrote:
+> On 27/03/13 17:46, David Miller wrote:
+> > From: Ben Hutchings <bhutchings@solarflare.com>
+> > Date: Wed, 27 Mar 2013 17:44:17 +0000
+> >
+> >> On Wed, 2013-03-27 at 11:19 +0000, Colin King wrote:
+> >>> From: Colin Ian King <colin.king@canonical.com>
+> >>>
+> >>> yam_open checks if dev is null, however, before that check it
+> >>> accesses some of the fields from dev in a proceeding printk which
+> >>> will cause a null pointer dereference error if dev is nul. Move
+> >>> the printk to after the null check.
+> >>
+> >> This function will never be called with dev == NULL.
+> >
+> > Then let's remove at least that part of the check.
+> >
+> Good point. How about the following..
 
-In my test I didn't specify the local address so addr.s6_addr32[3]
-seems to be zero.  I'll have to search the RFCs why this is the case.
+> From 564f111f196d9d7293e922a68ba973210d191129 Mon Sep 17 00:00:00 2001
+> From: Colin Ian King <colin.king@canonical.com>
+> Date: Wed, 27 Mar 2013 13:59:05 -0400
+> Subject: [PATCH] yam: remove redundant null check on dev
+> 
+> yam_open has a redundant null check on null,  it will
+> never be called with dev == NULL. Remove this redundant check.
+> This also cleans up a smatch warning:
+> 
+> drivers/net/hamradio/yam.c:869 yam_open() warn: variable
+>   dereferenced before check 'dev' (see line 867)
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+
+(for what it's worth)
+
+> ---
+>  drivers/net/hamradio/yam.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/hamradio/yam.c b/drivers/net/hamradio/yam.c
+> index 4cf8f10..b2d863f 100644
+> --- a/drivers/net/hamradio/yam.c
+> +++ b/drivers/net/hamradio/yam.c
+> @@ -866,7 +866,7 @@ static int yam_open(struct net_device *dev)
+>  
+>         printk(KERN_INFO "Trying %s at iobase 0x%lx irq %u\n",
+> dev->name, dev->base_addr, dev->irq);
+>  
+> -       if (!dev || !yp->bitrate)
+> +       if (!yp->bitrate)
+>                 return -ENXIO;
+>         if (!dev->base_addr || dev->base_addr > 0x1000 - YAM_EXTENT ||
+>                 dev->irq < 2 || dev->irq > 15) {
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
