@@ -1,33 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/06] bnx2x: net-next patch series
-Date: Wed, 27 Mar 2013 13:09:24 -0400 (EDT)
-Message-ID: <20130327.130924.505606378915006951.davem@davemloft.net>
-References: <1364382319-24952-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: [PATCH 1/2] net: core: let's use native isxdigit instead of
+ custom
+Date: Wed, 27 Mar 2013 13:09:46 -0400 (EDT)
+Message-ID: <20130327.130946.2022129944371817627.davem@davemloft.net>
+References: <1364399654-9729-1-git-send-email-andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com, ariele@broadcom.com
-To: yuvalmin@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58034 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752651Ab3C0RJ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 13:09:27 -0400
-In-Reply-To: <1364382319-24952-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: paulus@samba.org, linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+To: andriy.shevchenko@linux.intel.com
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <1364399654-9729-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Wed, 27 Mar 2013 13:05:13 +0200
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Date: Wed, 27 Mar 2013 17:54:13 +0200
 
-> Hi Dave,
+> In kernel we have fast and pretty implementation of the isxdigit() function.
+> Let's use it.
 > 
-> This patch series mostly contains patches correcting the
-> behaviour of VFs - preventing races, correcting VFs' statistics,
-> etc. 
-> 
-> It also enhances bnx2x's `ethtool -m' command.
-> 
-> Please consider applying these patches to 'net-next'.
+> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 
-Series applied.
+Applied.
