@@ -1,47 +1,44 @@
-From: Wilco Baan Hofman <wilco@baanhofman.nl>
-Subject: Re: /128 link-local subnet on 6in4 (sit) tunnels?
-Date: Wed, 27 Mar 2013 19:20:54 +0100
-Message-ID: <1364408454.15362.1.camel@localhost>
-References: <1364335457.8215.21.camel@localhost>
-	 <20130327151210.GA23223@order.stressinduktion.org>
-	 <1364398673.21709.4.camel@localhost>
-	 <20130327181146.GB23223@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH v2] yam: remove redundant null check on dev
+Date: Wed, 27 Mar 2013 18:25:04 +0000
+Message-ID: <1364408704-27359-1-git-send-email-colin.king@canonical.com>
+To: Jean-Paul Roubelat <jpr@f6fbb.org>, linux-hams@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 37-251-2-65.FTTH.ispfabriek.nl ([37.251.2.65]:55434 "EHLO
-	mail.baanhofman.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751705Ab3C0SVA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 14:21:00 -0400
-In-Reply-To: <20130327181146.GB23223@order.stressinduktion.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:33295 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752568Ab3C0SZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 14:25:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Colin Ian King <colin.king@canonical.com>
 
+yam_open has a redundant null check on null,  it will
+never be called with dev == NULL. Remove this redundant check.
+This also cleans up a smatch warning:
 
-On Wed, 2013-03-27 at 19:11 +0100, Hannes Frederic Sowa wrote:
-> On Wed, Mar 27, 2013 at 04:37:53PM +0100, Wilco Baan Hofman wrote:
-> > 
-> > Weird, but sure, here goes:
-> > 
-> > ip tunnel add tunv6-uplink1 mode sit remote 192.168.1.1 local
-> > 192.168.1.21
-> > ip link set tunv6-uplink1 up mtu 1472
-> 
-> In my test I didn't specify the local address so addr.s6_addr32[3]
-> seems to be zero.  I'll have to search the RFCs why this is the case.
+drivers/net/hamradio/yam.c:869 yam_open() warn: variable
+  dereferenced before check 'dev' (see line 867)
 
-See section 3.7, rfc4213:
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/hamradio/yam.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-   The interface identifier [RFC3513] for such an interface may be based
-   on the 32-bit IPv4 address of an underlying interface, or formed
-   using some other means, as long as it is unique from the other tunnel
-   endpoint with a reasonably high probability.
-
-http://tools.ietf.org/html/rfc4213
-
-
--- Wilco
+diff --git a/drivers/net/hamradio/yam.c b/drivers/net/hamradio/yam.c
+index 4cf8f10..b2d863f 100644
+--- a/drivers/net/hamradio/yam.c
++++ b/drivers/net/hamradio/yam.c
+@@ -866,7 +866,7 @@ static int yam_open(struct net_device *dev)
+ 
+ 	printk(KERN_INFO "Trying %s at iobase 0x%lx irq %u\n", dev->name, dev->base_addr, dev->irq);
+ 
+-	if (!dev || !yp->bitrate)
++	if (!yp->bitrate)
+ 		return -ENXIO;
+ 	if (!dev->base_addr || dev->base_addr > 0x1000 - YAM_EXTENT ||
+ 		dev->irq < 2 || dev->irq > 15) {
+-- 
+1.7.9.5
