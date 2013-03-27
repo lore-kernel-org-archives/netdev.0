@@ -1,31 +1,39 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 2/2] iproute2: update ip-l2tp man page
-Date: Wed, 27 Mar 2013 13:22:52 -0700
-Message-ID: <20130327132252.4b2fbaec@nehalam.linuxnetplumber.net>
-References: <1364316563-23303-1-git-send-email-jchapman@katalix.com>
-	<1364316563-23303-2-git-send-email-jchapman@katalix.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: [PATCH] tokenring: delete last holdout of CONFIG_TR
+Date: Wed, 27 Mar 2013 21:52:28 +0100
+Message-ID: <1364417548.1345.38.camel@x61.thuisdomein>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tlund@nxs.se
-To: James Chapman <jchapman@katalix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:48943 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754413Ab3C0UXF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 16:23:05 -0400
-Received: by mail-pb0-f42.google.com with SMTP id xb4so5434794pbc.1
-        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 13:23:04 -0700 (PDT)
-In-Reply-To: <1364316563-23303-2-git-send-email-jchapman@katalix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Mar 2013 16:49:23 +0000
-James Chapman <jchapman@katalix.com> wrote:
+Tokenring support was deleted in v3.5. One last holdout of the macro
+CONFIG_TR escaped that fate. Until now.
 
-> Add documentation about the new l2spec_type parameter for "ip l2tp add
-> session".
-> 
-> Signed-off-by: James Chapman <jchapman@katalix.com>
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+---
+Untested.
 
-Both applied, thanks
+ include/linux/netdevice.h | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index b3d00fa..05d142f 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -144,8 +144,6 @@ static inline bool dev_xmit_complete(int rc)
+ # else
+ #  define LL_MAX_HEADER 96
+ # endif
+-#elif IS_ENABLED(CONFIG_TR)
+-# define LL_MAX_HEADER 48
+ #else
+ # define LL_MAX_HEADER 32
+ #endif
+-- 
+1.7.11.7
