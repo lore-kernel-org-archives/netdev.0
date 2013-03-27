@@ -1,43 +1,55 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/3] af_key: initialize satype in key_notify_policy_flush()
-Date: Wed, 27 Mar 2013 08:41:06 +0100
-Message-ID: <1364370068-20025-2-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 3/3] xfrm: Fix esn sequence number diff calculation in xfrm_replay_notify_esn()
+Date: Wed, 27 Mar 2013 08:41:08 +0100
+Message-ID: <1364370068-20025-4-git-send-email-steffen.klassert@secunet.com>
 References: <1364370068-20025-1-git-send-email-steffen.klassert@secunet.com>
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:53929 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:53937 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754537Ab3C0HlZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Mar 2013 03:41:25 -0400
+	id S1754696Ab3C0Hl0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Mar 2013 03:41:26 -0400
 In-Reply-To: <1364370068-20025-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+From: Mathias Krause <minipli@googlemail.com>
 
-This field was left uninitialized. Some user daemons perform check against this
-field.
+Commit 0017c0b "xfrm: Fix replay notification for esn." is off by one
+for the sequence number wrapped case as UINT_MAX is 0xffffffff, not
+0x100000000. ;)
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Just calculate the diff like done everywhere else in the file.
+
+Signed-off-by: Mathias Krause <minipli@googlemail.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/key/af_key.c |    1 +
- 1 file changed, 1 insertion(+)
+ net/xfrm/xfrm_replay.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 9ef7985..d5a4a79 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -2694,6 +2694,7 @@ static int key_notify_policy_flush(const struct km_event *c)
- 	hdr->sadb_msg_pid = c->portid;
- 	hdr->sadb_msg_version = PF_KEY_V2;
- 	hdr->sadb_msg_errno = (uint8_t) 0;
-+	hdr->sadb_msg_satype = SADB_SATYPE_UNSPEC;
- 	hdr->sadb_msg_len = (sizeof(struct sadb_msg) / sizeof(uint64_t));
- 	pfkey_broadcast(skb_out, GFP_ATOMIC, BROADCAST_ALL, NULL, c->net);
- 	return 0;
+diff --git a/net/xfrm/xfrm_replay.c b/net/xfrm/xfrm_replay.c
+index a390673..8dafe6d3 100644
+--- a/net/xfrm/xfrm_replay.c
++++ b/net/xfrm/xfrm_replay.c
+@@ -359,14 +359,12 @@ static void xfrm_replay_notify_esn(struct xfrm_state *x, int event)
+ 		if (replay_esn->seq_hi == preplay_esn->seq_hi)
+ 			seq_diff = replay_esn->seq - preplay_esn->seq;
+ 		else
+-			seq_diff = UINT_MAX - preplay_esn->seq
+-				   + replay_esn->seq;
++			seq_diff = ~preplay_esn->seq + replay_esn->seq + 1;
+ 
+ 		if (replay_esn->oseq_hi == preplay_esn->oseq_hi)
+ 			oseq_diff = replay_esn->oseq - preplay_esn->oseq;
+ 		else
+-			oseq_diff = UINT_MAX - preplay_esn->oseq
+-				    + replay_esn->oseq;
++			oseq_diff = ~preplay_esn->oseq + replay_esn->oseq + 1;
+ 
+ 		if (seq_diff < x->replay_maxdiff &&
+ 		    oseq_diff < x->replay_maxdiff) {
 -- 
 1.7.9.5
