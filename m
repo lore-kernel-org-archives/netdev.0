@@ -1,41 +1,37 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: Is there a preferred way to get the VXLAN port number?
-Date: Wed, 27 Mar 2013 10:26:06 -0700
-Message-ID: <CAEP_g=9cXwxNE=Fxis2F_qStp1gPsjyXr2wE2agHO9rLZcquXA@mail.gmail.com>
-References: <51521B05.6060401@intel.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/2] man/send(2): add EPERM to the list of possible errors
+Date: Wed, 27 Mar 2013 18:42:08 +0100
+Message-ID: <20130327174207.GA5725@localhost>
+References: <1363675513.4767.6.camel@nexus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"Gasparakis, Joseph" <joseph.gasparakis@intel.com>,
-	Stephen Hemminger <shemminger@vyatta.com>, pshelar@nicira.com,
-	David Miller <davem@davemloft.net>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michael Kerrisk <mtk.manpages@gmail.com>,
+	linux-man@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Hirotaka Sasaki <sasaki.hirotaka@lab.ntt.co.jp>
+To: Fernando Luis =?iso-8859-1?Q?V=E1zquez?= Cao
+	<fernando_b1@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog102.obsmtp.com ([74.125.149.69]:53089 "HELO
-	na3sys009aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751457Ab3C0R01 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 13:26:27 -0400
-Received: by mail-ob0-f200.google.com with SMTP id un3so43077359obb.7
-        for <netdev@vger.kernel.org>; Wed, 27 Mar 2013 10:26:27 -0700 (PDT)
-In-Reply-To: <51521B05.6060401@intel.com>
+Received: from mail.us.es ([193.147.175.20]:33200 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754044Ab3C0RmN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Mar 2013 13:42:13 -0400
+Content-Disposition: inline
+In-Reply-To: <1363675513.4767.6.camel@nexus>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 26, 2013 at 3:02 PM, Alexander Duyck
-<alexander.h.duyck@intel.com> wrote:
-> I was wondering if someone would happen to know if there is already a
-> preferred way to get the VXLAN port number for things such as
-> configuring a device to recognize a VXLAN frame on receive for parsing
-> purposes?
->
-> I just wanted to check to make sure I hadn't missed something before
-> submitting a patch that would export a simple function for supplying the
-> vxlan_port value.
+On Tue, Mar 19, 2013 at 03:45:13PM +0900, Fernando Luis V=E1zquez Cao w=
+rote:
+> Subject: [PATCH 1/2] man/send(2): add EPERM to the list of possible e=
+rrors
+>=20
+> System policy (for example netfilter rule) can cause a send* operatio=
+n
+> to fail with EPERM.
+>=20
+> Reported-by: Hirotaka Sasaki <sasaki.hirotaka@lab.ntt.co.jp>
+> Signed-off-by: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
 
-There isn't a good way to do this at the moment.  One thing that would
-be nice though is if we can make this as generic as possible to
-different tunneling formats that might need to be configured in this
-way rather than specific to VXLAN.
-
-Another area think about is how best to supply the information to
-GRO/RPS to do the software version of these offloads.
+Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
