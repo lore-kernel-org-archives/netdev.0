@@ -1,84 +1,104 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/3] e1000: ethtool: Add missing dma_mapping_error-call in e1000_setup_desc_rings
-Date: Wed, 27 Mar 2013 04:05:31 -0700
-Message-ID: <1364382333-14721-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1364382333-14721-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Christoph Paasch <christoph.paasch@uclouvain.be>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:8713 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751950Ab3C0LFn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Mar 2013 07:05:43 -0400
-In-Reply-To: <1364382333-14721-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kirill Kapranov <kapranoff@inbox.ru>
+Subject: [PATCH] phy: Elimination the forced speed reduction algorithm.
+Date: Wed, 27 Mar 2013 15:16:13 +0400
+Message-ID: <1364382973-5047-1-git-send-email-kapranoff@inbox.ru>
+Cc: davem@davemloft.net, bhutchings@solarflare.com,
+	peppe.cavallaro@st.com, joe@perches.com, bruce.w.allan@intel.com,
+	linux-kernel@vger.kernel.org, Kirill Kapranov <kapranoff@inbox.ru>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
+In case of fixed speed set up for a NIC (e.g. ethtool -s eth0 autoneg off speed
+100 duplex full) with an ethernet cable plugged off, the mentioned algorithm
+slows down a NIC speed, so further cable hook-up leads to nonoperable link state.
 
-After dma_map_single, dma_mapping_error must be called.
-
-Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Kirill Kapranov <kapranoff@inbox.ru>
 ---
- drivers/net/ethernet/intel/e1000/e1000_ethtool.c | 14 +++++++++++---
- 1 file changed, 11 insertions(+), 3 deletions(-)
+ drivers/net/phy/phy.c |   50 +------------------------------------------------
+ 1 files changed, 1 insertions(+), 49 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-index 43462d5..ffd2871 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-@@ -1053,6 +1053,10 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
- 		txdr->buffer_info[i].dma =
- 			dma_map_single(&pdev->dev, skb->data, skb->len,
- 				       DMA_TO_DEVICE);
-+		if (dma_mapping_error(&pdev->dev, txdr->buffer_info[i].dma)) {
-+			ret_val = 4;
-+			goto err_nomem;
-+		}
- 		tx_desc->buffer_addr = cpu_to_le64(txdr->buffer_info[i].dma);
- 		tx_desc->lower.data = cpu_to_le32(skb->len);
- 		tx_desc->lower.data |= cpu_to_le32(E1000_TXD_CMD_EOP |
-@@ -1069,7 +1073,7 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
- 	rxdr->buffer_info = kcalloc(rxdr->count, sizeof(struct e1000_buffer),
- 				    GFP_KERNEL);
- 	if (!rxdr->buffer_info) {
--		ret_val = 4;
-+		ret_val = 5;
- 		goto err_nomem;
- 	}
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index ef9ea92..828d4e6 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -463,33 +463,6 @@ void phy_stop_machine(struct phy_device *phydev)
+ }
  
-@@ -1077,7 +1081,7 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
- 	rxdr->desc = dma_alloc_coherent(&pdev->dev, rxdr->size, &rxdr->dma,
- 					GFP_KERNEL);
- 	if (!rxdr->desc) {
--		ret_val = 5;
-+		ret_val = 6;
- 		goto err_nomem;
- 	}
- 	memset(rxdr->desc, 0, rxdr->size);
-@@ -1101,7 +1105,7 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
+ /**
+- * phy_force_reduction - reduce PHY speed/duplex settings by one step
+- * @phydev: target phy_device struct
+- *
+- * Description: Reduces the speed/duplex settings by one notch,
+- *   in this order--
+- *   1000/FULL, 1000/HALF, 100/FULL, 100/HALF, 10/FULL, 10/HALF.
+- *   The function bottoms out at 10/HALF.
+- */
+-static void phy_force_reduction(struct phy_device *phydev)
+-{
+-	int idx;
+-
+-	idx = phy_find_setting(phydev->speed, phydev->duplex);
+-	
+-	idx++;
+-
+-	idx = phy_find_valid(idx, phydev->supported);
+-
+-	phydev->speed = settings[idx].speed;
+-	phydev->duplex = settings[idx].duplex;
+-
+-	pr_info("Trying %d/%s\n",
+-		phydev->speed, DUPLEX_FULL == phydev->duplex ? "FULL" : "HALF");
+-}
+-
+-
+-/**
+  * phy_error - enter HALTED state for this PHY device
+  * @phydev: target phy_device struct
+  *
+@@ -818,30 +791,11 @@ void phy_state_machine(struct work_struct *work)
+ 				phydev->adjust_link(phydev->attached_dev);
  
- 		skb = alloc_skb(E1000_RXBUFFER_2048 + NET_IP_ALIGN, GFP_KERNEL);
- 		if (!skb) {
--			ret_val = 6;
-+			ret_val = 7;
- 			goto err_nomem;
- 		}
- 		skb_reserve(skb, NET_IP_ALIGN);
-@@ -1110,6 +1114,10 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
- 		rxdr->buffer_info[i].dma =
- 			dma_map_single(&pdev->dev, skb->data,
- 				       E1000_RXBUFFER_2048, DMA_FROM_DEVICE);
-+		if (dma_mapping_error(&pdev->dev, rxdr->buffer_info[i].dma)) {
-+			ret_val = 8;
-+			goto err_nomem;
-+		}
- 		rx_desc->buffer_addr = cpu_to_le64(rxdr->buffer_info[i].dma);
- 		memset(skb->data, 0x00, skb->len);
- 	}
+ 			} else if (0 == phydev->link_timeout--) {
+-				int idx;
+-
+ 				needs_aneg = 1;
+ 				/* If we have the magic_aneg bit,
+ 				 * we try again */
+ 				if (phydev->drv->flags & PHY_HAS_MAGICANEG)
+ 					break;
+-
+-				/* The timer expired, and we still
+-				 * don't have a setting, so we try
+-				 * forcing it until we find one that
+-				 * works, starting from the fastest speed,
+-				 * and working our way down */
+-				idx = phy_find_valid(0, phydev->supported);
+-
+-				phydev->speed = settings[idx].speed;
+-				phydev->duplex = settings[idx].duplex;
+-
+-				phydev->autoneg = AUTONEG_DISABLE;
+-
+-				pr_info("Trying %d/%s\n",
+-					phydev->speed,
+-					DUPLEX_FULL == phydev->duplex ?
+-					"FULL" : "HALF");
+ 			}
+ 			break;
+ 		case PHY_NOLINK:
+@@ -866,10 +820,8 @@ void phy_state_machine(struct work_struct *work)
+ 				phydev->state = PHY_RUNNING;
+ 				netif_carrier_on(phydev->attached_dev);
+ 			} else {
+-				if (0 == phydev->link_timeout--) {
+-					phy_force_reduction(phydev);
++				if (0 == phydev->link_timeout--)
+ 					needs_aneg = 1;
+-				}
+ 			}
+ 
+ 			phydev->adjust_link(phydev->attached_dev);
 -- 
-1.7.11.7
+1.7.2.5
