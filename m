@@ -1,25 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] line up comment for ndo_bridge_getlink
-Date: Wed, 27 Mar 2013 14:11:40 -0400 (EDT)
-Message-ID: <20130327.141140.2275939744160067011.davem@davemloft.net>
-References: <1364403241-9061-1-git-send-email-dmitry@broadcom.com>
+Subject: Re: [PATCH] tg3: fix length overflow in VPD firmware parsing
+Date: Wed, 27 Mar 2013 14:11:26 -0400 (EDT)
+Message-ID: <20130327.141126.2163700256471831702.davem@davemloft.net>
+References: <20130327164050.GA26838@www.outflux.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dmitry@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58947 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752278Ab3C0SLl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 14:11:41 -0400
-In-Reply-To: <1364403241-9061-1-git-send-email-dmitry@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, mcarlson@broadcom.com,
+	mchan@broadcom.com, netdev@vger.kernel.org, oded@privatecore.com,
+	spender@grsecurity.net, benli@broadcom.com
+To: keescook@chromium.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130327164050.GA26838@www.outflux.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Wed, 27 Mar 2013 18:54:00 +0200
+From: Kees Cook <keescook@chromium.org>
+Date: Wed, 27 Mar 2013 09:40:50 -0700
 
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> Commit 184b89044fb6e2a74611dafa69b1dce0d98612c6 ("tg3: Use VPD fw version
+> when present") introduced VPD parsing that contained a potential length
+> overflow.
+> 
+> Limit the hardware's reported firmware string length (max 255 bytes) to
+> stay inside the driver's firmware string length (32 bytes). On overflow,
+> truncate the formatted firmware string instead of potentially overwriting
+> portions of the tg3 struct.
+> 
+> http://cansecwest.com/slides/2013/PrivateCore%20CSW%202013.pdf
+> 
+> Signed-off-by: Kees Cook <keescook@chromium.org>
+> Reported-by: Oded Horovitz <oded@privatecore.com>
+> Reported-by: Brad Spengler <spender@grsecurity.net>
 
-This bug exists in 'net' so that's where I applied this patch.
+Applied.
