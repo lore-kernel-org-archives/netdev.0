@@ -1,152 +1,102 @@
-From: kpark3469@gmail.com
-Subject: [PATCH v2] ptp_pch: eliminate a number of sparse warnings
-Date: Wed, 27 Mar 2013 14:07:23 +0900
-Message-ID: <1364360843-6777-1-git-send-email-kpark3469@gmail.com>
-Cc: keun-o.park@windriver.com, netdev@vger.kernel.org,
-	kpark3469@gmail.com, davem@davemloft.net
-To: richardcochran@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f54.google.com ([209.85.214.54]:55938 "EHLO
-	mail-bk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751988Ab3C0FHj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 01:07:39 -0400
-Received: by mail-bk0-f54.google.com with SMTP id q16so1262551bkw.41
-        for <netdev@vger.kernel.org>; Tue, 26 Mar 2013 22:07:37 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joseph CHANG <josright123@gmail.com>
+Subject: [PATCH 1/1] ethernet: dm9000 driver: davicom: upgrade driver
+Date: Wed, 27 Mar 2013 06:42:48 +0000 (UTC)
+Message-ID: <315925806-1352-1-git-send-email-josright123__19506.6666500226$1364366595$gmane$org@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Joseph CHANG <josright123@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Bill Pemberton <wfp5p@virginia.edu>,
+	Matthew Leach <matthew@mattleach.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Joseph CHANG <joseph_chang@davicom.com.tw>,
+	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Date: Sat,  5 Jan 1980 21:10:06 +0800
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sahara <keun-o.park@windriver.com>
+Fixing bug for DM9000B which is a DSP revision!
 
-This fixes a number of sparse warnings like:
-  warning: incorrect type in argument 2 (different address spaces)
-    expected void volatile [noderef] <asn:2>*addr
-    got unsigned int *<noident>
+Had tested to Davicom DM9000 series include DM9000E(analog),
+DM9000A(analog), DM9000B(dsp) and DM9000C(dsp) in X86 and
+ARM Embedded Linux these years.
 
-  warning: Using plain integer as NULL pointer
-
-Additionally this fixes a warning from checkpatch.pl like:
-  WARNING: sizeof pch_param.station should be sizeof(pch_param.station)
-
-Signed-off-by: Sahara <keun-o.park@windriver.com>
+Signed-off-by: Joseph CHANG <josright123@gmail.com>
 ---
- drivers/ptp/ptp_pch.c |   27 ++++++++++++++-------------
- 1 files changed, 14 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/davicom/dm9000.c |   12 ++++++++++--
+ drivers/net/ethernet/davicom/dm9000.h |   11 ++++++++++-
+ 2 files changed, 20 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
-index 1367655..6b4e3ad 100644
---- a/drivers/ptp/ptp_pch.c
-+++ b/drivers/ptp/ptp_pch.c
-@@ -118,7 +118,7 @@ struct pch_ts_regs {
-  * struct pch_dev - Driver private data
-  */
- struct pch_dev {
--	struct pch_ts_regs *regs;
-+	struct pch_ts_regs __iomem *regs;
- 	struct ptp_clock *ptp_clock;
- 	struct ptp_clock_info caps;
- 	int exts0_enabled;
-@@ -154,7 +154,7 @@ static inline void pch_eth_enable_set(struct pch_dev *chip)
- 	iowrite32(val, (&chip->regs->ts_sel));
+diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+index 8cdf025..252f1da 100644
+--- a/drivers/net/ethernet/davicom/dm9000.c
++++ b/drivers/net/ethernet/davicom/dm9000.c
+@@ -47,7 +47,7 @@
+ #define DM9000_PHY		0x40	/* PHY address 0x01 */
+ 
+ #define CARDNAME	"dm9000"
+-#define DRV_VERSION	"1.31"
++#define DRV_VERSION	"1.39"
+ 
+ /*
+  * Transmit timeout, default 5 seconds.
+@@ -795,6 +795,8 @@ dm9000_init_dm9000(struct net_device *dev)
+ 
+ 	iow(db, DM9000_GPCR, GPCR_GEP_CNTL);	/* Let GPIO0 output */
+ 
++	dm9000_phy_write(dev, 0, MII_BMCR, BMCR_RESET); /* PHY RESET */
++
+ 	ncr = (db->flags & DM9000_PLATF_EXT_PHY) ? NCR_EXT_PHY : 0;
+ 
+ 	/* if wol is needed, then always set NCR_WAKEEN otherwise we end
+@@ -830,6 +832,8 @@ dm9000_init_dm9000(struct net_device *dev)
+ 	db->tx_pkt_cnt = 0;
+ 	db->queue_pkt_len = 0;
+ 	dev->trans_start = jiffies;
++
++	dm9000_phy_write(dev, 0, MII_DM_DSPCR, DSPCR_INIT_PARAM); /* Init */
  }
  
--static u64 pch_systime_read(struct pch_ts_regs *regs)
-+static u64 pch_systime_read(struct pch_ts_regs __iomem *regs)
- {
- 	u64 ns;
- 	u32 lo, hi;
-@@ -169,7 +169,7 @@ static u64 pch_systime_read(struct pch_ts_regs *regs)
- 	return ns;
- }
+ /* Our watchdog timed out. Called by the networking layer */
+@@ -1502,7 +1506,11 @@ dm9000_probe(struct platform_device *pdev)
+ 	db->flags |= DM9000_PLATF_SIMPLE_PHY;
+ #endif
  
--static void pch_systime_write(struct pch_ts_regs *regs, u64 ns)
-+static void pch_systime_write(struct pch_ts_regs __iomem *regs, u64 ns)
- {
- 	u32 hi, lo;
+-	dm9000_reset(db);
++	/* Fixing bug on dm9000_probe, takeover dm9000_reset(db),
++	 * Need 'NCR_MAC_LBK' bit to indeed stable our DM9000 fifo
++	 * while probe stage */
++
++	iow(db, DM9000_NCR, NCR_MAC_LBK | NCR_RST);
  
-@@ -315,7 +315,7 @@ int pch_set_station_address(u8 *addr, struct pci_dev *pdev)
- 	struct pch_dev *chip = pci_get_drvdata(pdev);
+ 	/* try multiple times, DM9000 sometimes gets the read wrong */
+ 	for (i = 0; i < 8; i++) {
+diff --git a/drivers/net/ethernet/davicom/dm9000.h b/drivers/net/ethernet/davicom/dm9000.h
+index 55688bd..9ce058a 100644
+--- a/drivers/net/ethernet/davicom/dm9000.h
++++ b/drivers/net/ethernet/davicom/dm9000.h
+@@ -69,7 +69,9 @@
+ #define NCR_WAKEEN          (1<<6)
+ #define NCR_FCOL            (1<<4)
+ #define NCR_FDX             (1<<3)
+-#define NCR_LBK             (3<<1)
++
++#define NCR_RESERVED        (3<<1)
++#define NCR_MAC_LBK         (1<<1)
+ #define NCR_RST	            (1<<0)
  
- 	/* Verify the parameter */
--	if ((chip->regs == 0) || addr == (u8 *)NULL) {
-+	if ((chip->regs == NULL) || addr == (u8 *)NULL) {
- 		dev_err(&pdev->dev,
- 			"invalid params returning PCH_INVALIDPARAM\n");
- 		return PCH_INVALIDPARAM;
-@@ -361,7 +361,7 @@ EXPORT_SYMBOL(pch_set_station_address);
- static irqreturn_t isr(int irq, void *priv)
- {
- 	struct pch_dev *pch_dev = priv;
--	struct pch_ts_regs *regs = pch_dev->regs;
-+	struct pch_ts_regs __iomem *regs = pch_dev->regs;
- 	struct ptp_clock_event event;
- 	u32 ack = 0, lo, hi, val;
+ #define NSR_SPEED           (1<<7)
+@@ -167,5 +169,12 @@
+ #define ISR_LNKCHNG		(1<<5)
+ #define ISR_UNDERRUN		(1<<4)
  
-@@ -415,7 +415,7 @@ static int ptp_pch_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
- 	u32 diff, addend;
- 	int neg_adj = 0;
- 	struct pch_dev *pch_dev = container_of(ptp, struct pch_dev, caps);
--	struct pch_ts_regs *regs = pch_dev->regs;
-+	struct pch_ts_regs __iomem *regs = pch_dev->regs;
- 
- 	if (ppb < 0) {
- 		neg_adj = 1;
-@@ -438,7 +438,7 @@ static int ptp_pch_adjtime(struct ptp_clock_info *ptp, s64 delta)
- 	s64 now;
- 	unsigned long flags;
- 	struct pch_dev *pch_dev = container_of(ptp, struct pch_dev, caps);
--	struct pch_ts_regs *regs = pch_dev->regs;
-+	struct pch_ts_regs __iomem *regs = pch_dev->regs;
- 
- 	spin_lock_irqsave(&pch_dev->register_lock, flags);
- 	now = pch_systime_read(regs);
-@@ -455,7 +455,7 @@ static int ptp_pch_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
- 	u32 remainder;
- 	unsigned long flags;
- 	struct pch_dev *pch_dev = container_of(ptp, struct pch_dev, caps);
--	struct pch_ts_regs *regs = pch_dev->regs;
-+	struct pch_ts_regs __iomem *regs = pch_dev->regs;
- 
- 	spin_lock_irqsave(&pch_dev->register_lock, flags);
- 	ns = pch_systime_read(regs);
-@@ -472,7 +472,7 @@ static int ptp_pch_settime(struct ptp_clock_info *ptp,
- 	u64 ns;
- 	unsigned long flags;
- 	struct pch_dev *pch_dev = container_of(ptp, struct pch_dev, caps);
--	struct pch_ts_regs *regs = pch_dev->regs;
-+	struct pch_ts_regs __iomem *regs = pch_dev->regs;
- 
- 	ns = ts->tv_sec * 1000000000ULL;
- 	ns += ts->tv_nsec;
-@@ -567,9 +567,9 @@ static void pch_remove(struct pci_dev *pdev)
- 		free_irq(pdev->irq, chip);
- 
- 	/* unmap the virtual IO memory space */
--	if (chip->regs != 0) {
-+	if (chip->regs != NULL) {
- 		iounmap(chip->regs);
--		chip->regs = 0;
-+		chip->regs = NULL;
- 	}
- 	/* release the reserved IO memory space */
- 	if (chip->mem_base != 0) {
-@@ -670,7 +670,7 @@ pch_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- err_req_irq:
- 	ptp_clock_unregister(chip->ptp_clock);
- 	iounmap(chip->regs);
--	chip->regs = 0;
-+	chip->regs = NULL;
- 
- err_ioremap:
- 	release_mem_region(chip->mem_base, chip->mem_size);
-@@ -723,7 +723,8 @@ static s32 __init ptp_pch_init(void)
- module_init(ptp_pch_init);
- module_exit(ptp_pch_exit);
- 
--module_param_string(station, pch_param.station, sizeof pch_param.station, 0444);
-+module_param_string(station,
-+		    pch_param.station, sizeof(pch_param.station), 0444);
- MODULE_PARM_DESC(station,
- 	 "IEEE 1588 station address to use - column separated hex values");
++/* Davicom MII registers.
++ */
++
++#define MII_DM_DSPCR		0x1b    /* DSP Control Register */
++
++#define DSPCR_INIT_PARAM	0xE100	/* DSP init parameter */
++
+ #endif /* _DM9000X_H_ */
  
 -- 
 1.7.1
