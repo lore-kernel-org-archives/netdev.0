@@ -1,45 +1,43 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH 2/2] drivers: net: ethernet: davinci_emac: use netif_wake_queue() while restarting tx queue
-Date: Wed, 27 Mar 2013 20:12:00 +0530
-Message-ID: <1364395320-14973-3-git-send-email-mugunthanvnm@ti.com>
-References: <1364395320-14973-1-git-send-email-mugunthanvnm@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/3] net: core: let skb_partial_csum_set() set
+ transport header
+Date: Wed, 27 Mar 2013 07:42:56 -0700
+Message-ID: <1364395376.15753.5.camel@edumazet-glaptop>
+References: <1364375482-7439-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:37402 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752320Ab3C0OmN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Mar 2013 10:42:13 -0400
-In-Reply-To: <1364395320-14973-1-git-send-email-mugunthanvnm@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com,
+	Eric Dumazet <edumazet@google.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1364375482-7439-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-To restart tx queue use netif_wake_queue() intead of netif_start_queue()
-so that net schedule will restart transmission immediately which will
-increase network performance while doing huge data transfers.
+On Wed, 2013-03-27 at 17:11 +0800, Jason Wang wrote:
+> For untrusted packets with partial checksum, we need to set the transport header
+> for precise packet length estimation. We can just let skb_pratial_csum_set() to
+> do this to avoid extra call to skb_flow_dissect() and simplify the caller.
+> 
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  net/core/skbuff.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 31c6737..ba64614 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -3370,6 +3370,7 @@ bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off)
+>  	skb->ip_summed = CHECKSUM_PARTIAL;
+>  	skb->csum_start = skb_headroom(skb) + start;
+>  	skb->csum_offset = off;
+> +	skb_set_transport_header(skb, start);
+>  	return true;
+>  }
+>  EXPORT_SYMBOL_GPL(skb_partial_csum_set);
 
-Reported-by: Dan Franke <dan.franke@schneider-electric.com>
-Suggested-by: Sriramakrishnan A G <srk@ti.com>
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- drivers/net/ethernet/ti/davinci_emac.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 8121a3d..6a0b477 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -1053,7 +1053,7 @@ static void emac_tx_handler(void *token, int len, int status)
- 	 * queue is stopped then start the queue as we have free desc for tx
- 	 */
- 	if (unlikely(netif_queue_stopped(ndev)))
--		netif_start_queue(ndev);
-+		netif_wake_queue(ndev);
- 	ndev->stats.tx_packets++;
- 	ndev->stats.tx_bytes += len;
- 	dev_kfree_skb_any(skb);
--- 
-1.7.9.5
+Acked-by: Eric Dumazet <edumazet@google.com>
