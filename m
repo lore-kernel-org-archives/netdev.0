@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1 net] enet: fec: fix fail resume from suspend
- state
-Date: Wed, 27 Mar 2013 14:09:45 -0400 (EDT)
-Message-ID: <20130327.140945.1084520243407747388.davem@davemloft.net>
-References: <1364350323-2488-1-git-send-email-Frank.Li@freescale.com>
+Subject: Re: pull request (net): ipsec 2013-03-27
+Date: Wed, 27 Mar 2013 14:09:55 -0400 (EDT)
+Message-ID: <20130327.140955.1821575651387808159.davem@davemloft.net>
+References: <1364370068-20025-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shawn.guo@linaro.org, lznuaa@gmail.com,
-	u.kleine-koenig@pengutronix.de, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Frank.Li@freescale.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58870 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58876 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751540Ab3C0SJt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 14:09:49 -0400
-In-Reply-To: <1364350323-2488-1-git-send-email-Frank.Li@freescale.com>
+	with ESMTP id S1751540Ab3C0SJ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 14:09:57 -0400
+In-Reply-To: <1364370068-20025-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Li <Frank.Li@freescale.com>
-Date: Wed, 27 Mar 2013 10:12:03 +0800
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Wed, 27 Mar 2013 08:41:05 +0100
 
-> Without this patch
-> 1. boot with nfs (no_console_suspend)
-> 2. echo mem >/sys/power/state
-> 3. wakeup by wakesource
-> 4. print "eth0: tx queue full"
+> 1) Initialize the satype field in key_notify_policy_flush(),
+>    this was left uninitialized. From Nicolas Dichtel.
 > 
-> This fix above problem by reinit bd queue at restart function
+> 2) The sequence number difference for replay notifications
+>    was misscalculated on ESN sequence number wrap. We need
+>    a separate replay notify function for esn.
 > 
-> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+> 3) Fix an off by one in the esn replay notify function.
+>    From Mathias Krause.
+> 
+> Please pull or let me know if there are problems.
 
-Applied.
+Pulled, thanks Steffen.
