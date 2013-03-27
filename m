@@ -1,46 +1,38 @@
-From: Tomas Agartz <tlund@nxs.se>
-Subject: Re: unmanaged L2TPv3 ethernet pseudowire Cisco <=> Linux
-Date: Wed, 27 Mar 2013 21:08:14 +0100 (CET)
-Message-ID: <Pine.LNX.4.61.1303272104470.20041@envy.nxs.se>
-References: <Pine.LNX.4.61.1303241153000.20041@envy.nxs.se>
- <CAEwTi7Rbo3dBqhyDJXYvrkMWfrX9xwUr5VovFoW7BfPAZp4XFw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next] GRE: Use strlcat() for size checking
+Date: Wed, 27 Mar 2013 16:10:15 -0400 (EDT)
+Message-ID: <20130327.161015.2272912627472653661.davem@davemloft.net>
+References: <1364410111-29418-1-git-send-email-geert@linux-m68k.org>
+	<1364414776.2922.19.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from envy.nxs.se ([212.247.200.182]:38181 "EHLO envy.nxs.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754365Ab3C0UIR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Mar 2013 16:08:17 -0400
-In-Reply-To: <CAEwTi7Rbo3dBqhyDJXYvrkMWfrX9xwUr5VovFoW7BfPAZp4XFw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: geert@linux-m68k.org, pshelar@nicira.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1364414776.2922.19.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Mar 2013, James Chapman wrote:
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 27 Mar 2013 20:06:16 +0000
 
-> The issue is that Linux and Cisco use a different default for the 
-> L2SpecificSublayer header setting and neither implementation provides a 
-> config option to change its setting. :-( The Linux default is to use the 
-> Default L2SpecificSublayer as defined in the RFC. Unfortunately the 
-> Cisco default is to use no L2SpecificSublayer.
->
-> The kernel already has an API to allow the L2SpecificSublayer setting to 
-> be configured. The missing piece is an iproute2 l2tp config option to 
-> configure it. I'll work on an iproute2 patch now to allow this setting 
-> to be configured.
+> On Wed, 2013-03-27 at 19:48 +0100, Geert Uytterhoeven wrote:
+>> On m68k, gcc tries to be smart and turns
+>> 
+>>     strncat(name, "%d", 2);
+>> 
+>> into a call to strlen() and a 16-bit store, causing a link failure,
+>> as arch/m68k/include/asm/string.h provides strlen() using a macro:
+>> 
+>>     ERROR: "strlen" [net/ipv4/ip_tunnel.ko] undefined!
+> 
+> Perhaps you should fix the string library for m68k, then!
 
-I patched my iproute2 with your patch and now my tunnel is working. Thank 
-you! :)
+Right, this symbol really must be provided.
 
-> For unmanaged tunnels, these parameters must be manually configured 
-> consistently at each side. Both Cisco and Linux default to use no 
-> cookies and both already have config parameters to set cookie 
-> parameters, if needed. However, for L2SpecificSublayer this isn't the 
-> case. We need to add a config option on the Linux side to force the same 
-> setting as Cisco is using.
+You cannot merely provide inlines.
 
-Does the API in the kernel allow you to set the cookie? In that 
-case it seems like a good idea to add that to iproute2 as well?
-
-//tlund
+The off-by-one error is seperate, but that should be fixed
+differently.
