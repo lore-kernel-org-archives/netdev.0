@@ -1,34 +1,102 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net IPv6 : Fix broken IPv6 routing table after
- loopback down-up
-Date: Thu, 28 Mar 2013 06:45:16 -0700
-Message-ID: <1364478316.15753.43.camel@edumazet-glaptop>
-References: <CAHPKR9KE4LT_AEzUZ8cuJwBeMEEu0Ppe+jjynFQk7+N-A4YUmQ@mail.gmail.com>
-	 <1364478265.15753.42.camel@edumazet-glaptop>
+From: Benoit Lourdelet <blourdel@juniper.net>
+Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
+Date: Thu, 28 Mar 2013 13:42:29 +0000
+Message-ID: <CD7A05CE.7802%blourdel@juniper.net>
+References: <20130328133652.GA6652@sergelap>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, davem@davemloft.net,
-	Patrick McHardy <kaber@trash.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
-	Balakumaran.Kannan@ap.sony.com, maruthi.thotad@ap.sony.com,
-	netdev@vger.kernel.org, jamshed.a@ap.sony.com,
-	amit.agarwal@ap.sony.com, takuzo.ohara@jp.sony.com,
-	aaditya.kumar@ap.sony.com
-To: Balakumaran Kannan <kumaran.4353@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Serge Hallyn <serge.hallyn@ubuntu.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:34169 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755733Ab3C1NpT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 09:45:19 -0400
-Received: by mail-pd0-f173.google.com with SMTP id v10so4129916pde.4
-        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 06:45:18 -0700 (PDT)
-In-Reply-To: <1364478265.15753.42.camel@edumazet-glaptop>
+Received: from exprod7og123.obsmtp.com ([64.18.2.24]:41382 "EHLO
+	exprod7og123.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754922Ab3C1Nqq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 09:46:46 -0400
+Received: from mail40-db3 (localhost [127.0.0.1])	by mail40-db3-R.bigfish.com
+ (Postfix) with ESMTP id 957713409E1	for
+ <netdev@vger.kernel.org.FOPE.CONNECTOR.OVERRIDE>; Thu, 28 Mar 2013 13:42:44
+ +0000 (UTC)
+In-Reply-To: <20130328133652.GA6652@sergelap>
+Content-Language: en-US
+Content-ID: <EF98899CB9E69F47A2ECA89A75658E9A@namprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-03-28 at 06:44 -0700, Eric Dumazet wrote:
+Hello,
 
-> __in6_dev_get() should be OK.
+My test consists in starting small containers (10MB of RAM ) each. Each
+container has 2x physical VLAN interfaces attached.
 
-more exactly : __in_dev_get_rtnl()
+lxc.network.type = phys
+lxc.network.flags = up
+lxc.network.link = eth6.3
+lxc.network.name = eth2
+lxc.network.hwaddr = 00:50:56:a8:03:03
+lxc.network.ipv4 = 192.168.1.1/24
+lxc.network.type = phys
+lxc.network.flags = up
+lxc.network.link = eth7.3
+lxc.network.name = eth1
+lxc.network.ipv4 = 2.2.2.2/24
+lxc.network.hwaddr = 00:50:57:b8:00:01
+
+
+
+With initial iproute2 , when I reach around 1600 containers, container
+creation almost stops.It takes at least 20s per container to start.
+With patched iproutes2 , I have started 4000 containers at a rate of 1 per
+second w/o problem. I have 8000 clan interfaces configured on the host (2x
+4000).
+
+
+Regards
+
+Benoit
+
+On 28/03/2013 14:36, "Serge Hallyn" <serge.hallyn@ubuntu.com> wrote:
+
+>Quoting Eric W. Biederman (ebiederm@xmission.com):
+>> Serge Hallyn <serge.hallyn@ubuntu.com> writes:
+>> 
+>> > Quoting Eric W. Biederman (ebiederm@xmission.com):
+>> >> Serge Hallyn <serge.hallyn@ubuntu.com> writes:
+>> >> 
+>> >> > Quoting Eric W. Biederman (ebiederm@xmission.com):
+>> >> >> Stephen Hemminger <stephen@networkplumber.org> writes:
+>> >> >> 
+>> >> >> > If you need to do lots of operations the --batch mode will be
+>>significantly faster.
+>> >> >> > One command start and one link map.
+>> >> >> 
+>> >> >> The problem in this case as I understand it is lots of independent
+>> >> >> operations. Now maybe lxc should not shell out to ip and perform
+>>the
+>> >> >> work itself.
+>> >> >
+>> >> > fwiw lxc uses netlink to create new veths, and picks random names
+>>with
+>> >> > mktemp() ahead of time.
+>> >> 
+>> >> I am puzzled where does the slownes in iproute2 come into play?
+>> >
+>> > Benoit originally reported slowness when starting >1500 containers.  I
+>> > asked him to run a few manual tests to figure out what was taking the
+>> > time.  Manually creating a large # of veths was an obvious test, and
+>> > one which showed poorly scaling performance.
+>> 
+>> Apparently iproute is involved somehwere as when he tested with a
+>> patched iproute (as you asked him to) the lxc startup slowdown was
+>> gone.
+>> 
+>> > May well be there are other things slowing down lxc of course.
+>> 
+>> The evidence indicates it was iproute being called somewhere...
+>
+>Benoit can you tell us exactly what test you were running when you saw
+>the slowdown was gone?
+>
+>-serge
+>
