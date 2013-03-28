@@ -1,60 +1,51 @@
-From: David Shwatrz <dshwatrz@gmail.com>
-Subject: Re: Deleting a network namespace
-Date: Thu, 28 Mar 2013 15:41:25 +0200
-Message-ID: <CAJJAcof98k+GDt88MORMz6sS-JFODeuyqYSwP6dk-ZYqFMGTWg@mail.gmail.com>
-References: <CAJJAcodGG6nmRNcF_rC+AUUpCp1MWjU3faGLfRTm9FNc6LT_Yw@mail.gmail.com>
-	<87y5d7lr73.fsf@xmission.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] net IPv6 : Fix broken IPv6 routing table after
+ loopback down-up
+Date: Thu, 28 Mar 2013 06:44:25 -0700
+Message-ID: <1364478265.15753.42.camel@edumazet-glaptop>
+References: <CAHPKR9KE4LT_AEzUZ8cuJwBeMEEu0Ppe+jjynFQk7+N-A4YUmQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, davem@davemloft.net,
+	Patrick McHardy <kaber@trash.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
+	Balakumaran.Kannan@ap.sony.com, maruthi.thotad@ap.sony.com,
+	netdev@vger.kernel.org, jamshed.a@ap.sony.com,
+	amit.agarwal@ap.sony.com, takuzo.ohara@jp.sony.com,
+	aaditya.kumar@ap.sony.com
+To: Balakumaran Kannan <kumaran.4353@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f178.google.com ([209.85.220.178]:62737 "EHLO
-	mail-vc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755711Ab3C1Nl0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 09:41:26 -0400
-Received: by mail-vc0-f178.google.com with SMTP id hz11so7555745vcb.23
-        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 06:41:25 -0700 (PDT)
-In-Reply-To: <87y5d7lr73.fsf@xmission.com>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:48839 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755629Ab3C1No2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 09:44:28 -0400
+Received: by mail-pd0-f180.google.com with SMTP id g10so4119700pdj.39
+        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 06:44:27 -0700 (PDT)
+In-Reply-To: <CAHPKR9KE4LT_AEzUZ8cuJwBeMEEu0Ppe+jjynFQk7+N-A4YUmQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-I checked and indeed physical hardware are moved to init_net.
-I wonder how it is done, as in netns_delete() there is only
-umount2() and unlink() syscalls (might these syscalls trigger this
-movement to init_net)? I really could not figure how this is
-implemented and where in code do we differentiate between physical and
-non physical devices.
+On Thu, 2013-03-28 at 18:57 +0530, Balakumaran Kannan wrote:
+> IPv6 Routing table becomes broken once we do ifdown, ifup of the loopback(lo)
+> interface. After down-up, routes of other interface's IPv6 addresses through
+> 'lo' are lost.
+> 
 
-Best,
-DS
+>  	add_addr(idev, &in6addr_loopback, 128, IFA_HOST);
+> +
+> +	/* Add routes to other interface's IPv6 addresses */
+> +	rcu_read_lock();
+> +	for_each_netdev_rcu(dev_net(dev), sp_dev) {
+> +
 
-On Thu, Mar 28, 2013 at 1:05 PM, Eric W. Biederman
-<ebiederm@xmission.com> wrote:
-> David Shwatrz <dshwatrz@gmail.com> writes:
->
->> Hello,
->> When assigning a network interface to a network namespace and
->> afterwards deleting the namespace, we will not see the network
->> interface in any other namespace (including the default namespace) anymore:
->>
->> ip netns add ns1
->> ip link set eth0 netns ns1
->> ip netns del ns1
->>
->> This means that in fact we cannot use this interface again (only after
->> rebooting)
->> Am I right on this ?
->
-> Interfaces that represent physical hardware are moved to init_net.
-> Interfaces that are purely software constructs are deleted.
->
->> Is moving an interface back to the default (init) namespace,
->> when deleting the namespace which contains it, can be considered?
->
-> If you aren't seeing that your interface is either a purely software
-> construct like the veth or dummy interfaces or something still has a
-> reference to your network namespace.
->
-> Eric
+We hold RTNL at this point, so why use RCU at all, and adding potential
+long latencies ?
+
+Just use for_each_netdev()
+
+This way, a preemption is still allowed.
+
+Also, I am not sure we need ipv6_find_idev()
+
+__in6_dev_get() should be OK.
