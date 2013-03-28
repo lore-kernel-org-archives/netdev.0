@@ -1,40 +1,41 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: [PATCH net] net: fq_codel: Fix off-by-one error
-Date: Thu, 28 Mar 2013 16:52:00 -0700
-Message-ID: <1364514720-20780-1-git-send-email-subramanian.vijay@gmail.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com,
-	Vijay Subramanian <subramanian.vijay@gmail.com>
-To: netdev@vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
+Date: Thu, 28 Mar 2013 16:52:51 -0700
+Message-ID: <87zjxn84ks.fsf@xmission.com>
+References: <20130328150410.GA22789@sergelap>
+	<CD7A1D9A.78BA%blourdel@juniper.net>
+	<20130328152040.2c905ad9@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Benoit Lourdelet <blourdel@juniper.net>,
+	Serge Hallyn <serge.hallyn@ubuntu.com>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f41.google.com ([209.85.210.41]:50297 "EHLO
-	mail-da0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754099Ab3C1XxO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 19:53:14 -0400
-Received: by mail-da0-f41.google.com with SMTP id w4so26296dam.28
-        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 16:53:13 -0700 (PDT)
+Received: from out02.mta.xmission.com ([166.70.13.232]:45720 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753951Ab3C1XxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 19:53:04 -0400
+In-Reply-To: <20130328152040.2c905ad9@nehalam.linuxnetplumber.net> (Stephen
+	Hemminger's message of "Thu, 28 Mar 2013 15:20:40 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, we hold a max of sch->limit -1 number of packets instead of
-sch->limit packets. Fix this off-by-one error.
+Stephen Hemminger <stephen@networkplumber.org> writes:
 
-Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
----
- net/sched/sch_fq_codel.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Try the following two patches. It adds a name hash list, and uses Eric's idea
+> to avoid loading map on add/delete operations.
 
-diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-index 4e606fc..5578628 100644
---- a/net/sched/sch_fq_codel.c
-+++ b/net/sched/sch_fq_codel.c
-@@ -195,7 +195,7 @@ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		flow->deficit = q->quantum;
- 		flow->dropped = 0;
- 	}
--	if (++sch->q.qlen < sch->limit)
-+	if (++sch->q.qlen <= sch->limit)
- 		return NET_XMIT_SUCCESS;
- 
- 	q->drop_overlimit++;
--- 
-1.7.9.5
+On my microbenchmark of just creating 5000 veth pairs this takes pairs
+16s instead of 13s of my earlier hacks but that is well down in the
+usable range.
+
+Deleting all of those network interfaces one by one takes me 60s.
+
+So on the microbenchmark side this looks like a good improvement and
+pretty usable.
+
+I expect Benoit's container startup workload will also reflect this, but
+it will be interesting to see the actual result.
+
+Eric
