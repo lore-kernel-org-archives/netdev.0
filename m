@@ -1,148 +1,65 @@
-From: David Oostdyk <daveo@ll.mit.edu>
-Subject: Re: defxx: skb_push() failing?
-Date: Thu, 28 Mar 2013 00:11:20 -0400
-Message-ID: <5153C2E8.6050604@ll.mit.edu>
-References: <5151B0CE.5000000@ll.mit.edu>  <1364310900.1716.21.camel@edumazet-glaptop> <5151C6C3.6090408@ll.mit.edu> <1364315410.1716.40.camel@edumazet-glaptop> <5151ECAC.9040404@ll.mit.edu> <alpine.LFD.2.03.1303261852220.8240@linux-mips.org>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH v2] igb: fix error return code in
+	igb_sysfs_init()
+Date: Thu, 28 Mar 2013 12:18:59 +0800
+Message-ID: <CAPgLHd9_LiJkbPs9vdEU0M0yHJKL0eMhX2yEwsVBVWY6KGHtHg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pkcs7-signature";
-	micalg=sha1; boundary="------------ms080709040706030800060705"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:45858 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750827Ab3C1ELj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Mar 2013 00:11:39 -0400
-In-Reply-To: <alpine.LFD.2.03.1303261852220.8240@linux-mips.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	yongjun_wei@trendmicro.com.cn
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
+	peter.p.waskiewicz.jr@intel.com, alexander.h.duyck@intel.com,
+	john.ronciak@intel.com, tushar.n.dave@intel.com,
+	stephen@networkplumber.org, akeem.g.abodunrin@intel.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
---------------ms080709040706030800060705
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Hi Maciej,
+Fix to return a negative error code from the error handling
+case instead of 0, as returned elsewhere in this function.
 
-I can confirm that the two FDDI cards work on a 32-bit kernel. I'm not=20
-getting anywhere near the data rates I'd expect (3.5MB/sec?) but it's a=20
-start.  I'd be glad to help test any 64-bit patches you come up with,=20
-Maciej.
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+v1 -> v2: use EIO instead of ENOMEM
+---
+ drivers/net/ethernet/intel/igb/igb_hwmon.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Either way, Eric Dumazet's patch to drivers/block/aoe/aoecmd.c seems to=20
-be required to prevent a panic right after defxx is loaded.  Eric - good =
-
-find.  Should your patch be submitted upstream, then?
-
-Dave O.
-
-On 03/26/13 15:00, Maciej W. Rozycki wrote:
-> On Tue, 26 Mar 2013, David Oostdyk wrote:
->
->> (Now if I could only figure out why these FDDI cards don't want to tal=
-k to
->> each other... I was hoping that was it.)
->   I saw 64-bit addresses in your log -- the driver is known not to be
-> 64-bit-clean, I've had an initial look into it recently and will be
-> addressing it shortly.
->
->    Maciej
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/intel/igb/igb_hwmon.c b/drivers/net/ethernet/intel/igb/igb_hwmon.c
+index 0478a1a..770455e 100644
+--- a/drivers/net/ethernet/intel/igb/igb_hwmon.c
++++ b/drivers/net/ethernet/intel/igb/igb_hwmon.c
+@@ -208,6 +208,7 @@ int igb_sysfs_init(struct igb_adapter *adapter)
+ 	if (client == NULL) {
+ 		dev_info(&adapter->pdev->dev,
+ 			"Failed to create new i2c device..\n");
++		rc = -EIO;
+ 		goto exit;
+ 	}
+ 	adapter->i2c_client = client;
 
 
 
---------------ms080709040706030800060705
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
-
-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
-nLGXAtzo1mIsnwexqTEWMA4GA1UdDwEB/wQEAwIGwDAfBgNVHSMEGDAWgBSOSn2JoWMXHIGI
-NFc3JkVeGYp+JDAzBgNVHR8ELDAqMCigJqAkhiJodHRwOi8vY3JsLmxsLm1pdC5lZHUvZ2V0
-Y3JsL0xMQ0EyMGIGCCsGAQUFBwEBBFYwVDAtBggrBgEFBQcwAoYhaHR0cDovL2NybC5sbC5t
-aXQuZWR1L2dldHRvL0xMQ0EyMCMGCCsGAQUFBzABhhdodHRwOi8vb2NzcC5sbC5taXQuZWR1
-LzAMBgNVHRMBAf8EAjAAMD0GCSsGAQQBgjcVBwQwMC4GJisGAQQBgjcVCIOD5R2H7Kdmhq2H
-FYPq8EWFtqEfHYXL3jKH/4pzAgFkAgEFMCIGA1UdJQEB/wQYMBYGCCsGAQUFBwMEBgorBgEE
-AYI3CgMMMBgGA1UdIAQRMA8wDQYLKoZIhvcSAgEDAQgwGwYDVR0RBBQwEoEQZGF2ZW9AbGwu
-bWl0LmVkdTANBgkqhkiG9w0BAQsFAAOCAQEAN0sDbMECUU+lLNEAK/Md5d98WfE3A2hfdJPx
-VtYNv0ceHVWp5E/obqpbyEl8PuyAQ+dzjoUBHaqYLIRvssXlY7nFbM75bGsgFOWSQR03zXKw
-1Ej7zd2qRS2FT+HIz02rQxpndIwKd7+bmw+gjrBZ5lwHKYAtLRMeqta1Gb9n/FLUBc65jlmt
-PFNzSTroVwFq49aWzCwoCUvT4SgDjbd4JK0/I26rC8oCwetHGzTGXO+6x+rEbl6gWR1AKkg4
-7sT1ChoxQ4gDh1HdeYyRt1kpZtcp7p9sD8YUkUTfM2mLN3VggTcAcUxP8Jwg7SoU9E/rImLR
-gprlNC9ku6NRkHJUbTCCBNEwggO5oAMCAQICCmIFT/YAAAAAOoIwDQYJKoZIhvcNAQELBQAw
-UTELMAkGA1UEBhMCVVMxHzAdBgNVBAoTFk1JVCBMaW5jb2xuIExhYm9yYXRvcnkxDDAKBgNV
-BAsTA1BLSTETMBEGA1UEAxMKTUlUTEwgQ0EtMjAeFw0xMjA1MjIxNDQwNDlaFw0xMzA1MjIx
-NDQwNDlaMGIxCzAJBgNVBAYTAlVTMR8wHQYDVQQKExZNSVQgTGluY29sbiBMYWJvcmF0b3J5
-MQ8wDQYDVQQLEwZQZW9wbGUxITAfBgNVBAMTGE9vc3RkeWsuRGF2aWQuSi41MDAwODgwMTCC
-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
---------------ms080709040706030800060705--
+------------------------------------------------------------------------------
+Own the Future-Intel&reg; Level Up Game Demo Contest 2013
+Rise to greatness in Intel's independent game demo contest.
+Compete for recognition, cash, and the chance to get your game 
+on Steam. $5K grand prize plus 10 genre and skill prizes. 
+Submit your demo by 6/6/13. http://p.sf.net/sfu/intel_levelupd2d
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
