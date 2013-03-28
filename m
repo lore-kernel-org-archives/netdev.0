@@ -1,82 +1,50 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 03/11] batman-adv: Move deinitialization of soft-interface to destructor
-Date: Thu, 28 Mar 2013 08:50:23 +0100
-Message-ID: <1364457031-3194-4-git-send-email-ordex@autistici.org>
-References: <1364457031-3194-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Sven Eckelmann <sven@narfation.org>,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Antonio Quartulli <ordex@autistici.org>
-To: davem@davemloft.net
+From: Yi Li <lovelylich@gmail.com>
+Subject: Re: Difference between Net and Net-Next
+Date: Thu, 28 Mar 2013 16:06:27 +0800
+Message-ID: <5153FA03.6010005@gmail.com>
+References: <loom.20130327T180118-245@post.gmane.org> <20130328062814.GC2511@netboy.at.omicron.at>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from diserzione.investici.org ([82.221.99.153]:33284 "EHLO
-	diserzione.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756527Ab3C1HwI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 03:52:08 -0400
-In-Reply-To: <1364457031-3194-1-git-send-email-ordex@autistici.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:36196 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755134Ab3C1IGc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 04:06:32 -0400
+Received: by mail-pd0-f173.google.com with SMTP id v10so3974298pde.32
+        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 01:06:31 -0700 (PDT)
+In-Reply-To: <20130328062814.GC2511@netboy.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
+=E4=BA=8E 2013=E5=B9=B403=E6=9C=8828=E6=97=A5 14:28, Richard Cochran =E5=
+=86=99=E9=81=93:
+> On Wed, Mar 27, 2013 at 05:02:28PM +0000, Jim Baxter wrote:
+>> How do you decide which changes should go into "net" and which ones =
+go into "net-
+>> next"?
+>>
+>> At a guess I would think bug fixes are in "net" and feature changes =
+into
+>> "net-next" but it is not obvious from the commit log.
+> I'll go out on a limb and try to explain this:
+>
+> net-next - changes for the next merge window
+> net      - bug fixes and cleanups for the current release candidate
+>
+> HTR (hope thats right),
+> Richard
+>
+net-next - new features added in development and *experimental*
+net - features(thought as steady and come frome net-next tree) and bug=20
+fixes, can be merged into linux.git(which is the tree below) by Linus.
+linux - the mainline release.
 
-The deinitialization of the soft-interface created in ndo_init/constructor
-should be done in the destructor and not directly before calling
-unregister_netdevice
+That's my opinion.
 
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
-Acked-by: Antonio Quartulli <ordex@autistici.org>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
----
- net/batman-adv/soft-interface.c | 15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
 
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index c5cb0a7..e889bfb 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -417,7 +417,6 @@ static void batadv_softif_destroy_finish(struct work_struct *work)
- 				cleanup_work);
- 	soft_iface = bat_priv->soft_iface;
- 
--	batadv_debugfs_del_meshif(soft_iface);
- 	batadv_sysfs_del_meshif(soft_iface);
- 
- 	rtnl_lock();
-@@ -522,6 +521,17 @@ static const struct net_device_ops batadv_netdev_ops = {
- };
- 
- /**
-+ * batadv_softif_free - Deconstructor of batadv_soft_interface
-+ * @dev: Device to cleanup and remove
-+ */
-+static void batadv_softif_free(struct net_device *dev)
-+{
-+	batadv_debugfs_del_meshif(dev);
-+	batadv_mesh_free(dev);
-+	free_netdev(dev);
-+}
-+
-+/**
-  * batadv_softif_init_early - early stage initialization of soft interface
-  * @dev: registered network device to modify
-  */
-@@ -532,7 +542,7 @@ static void batadv_softif_init_early(struct net_device *dev)
- 	ether_setup(dev);
- 
- 	dev->netdev_ops = &batadv_netdev_ops;
--	dev->destructor = free_netdev;
-+	dev->destructor = batadv_softif_free;
- 	dev->tx_queue_len = 0;
- 
- 	/* can't call min_mtu, because the needed variables
-@@ -575,7 +585,6 @@ void batadv_softif_destroy(struct net_device *soft_iface)
- {
- 	struct batadv_priv *bat_priv = netdev_priv(soft_iface);
- 
--	batadv_mesh_free(soft_iface);
- 	queue_work(batadv_event_workqueue, &bat_priv->cleanup_work);
- }
- 
--- 
-1.8.1.5
+regards,
+Yi
