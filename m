@@ -1,61 +1,492 @@
-From: Benoit Lourdelet <blourdel@juniper.net>
-Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
-Date: Thu, 28 Mar 2013 20:27:44 +0000
-Message-ID: <CD7A6510.796E%blourdel@juniper.net>
-References: <874nfwri6o.fsf@xmission.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH 1/2] sh_eth: move data from header file to driver
+Date: Fri, 29 Mar 2013 00:48:26 +0300
+Message-ID: <201303290048.27020.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Serge Hallyn <serge.hallyn@ubuntu.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og129.obsmtp.com ([64.18.2.122]:33482 "EHLO
-	exprod7og129.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752893Ab3C1UdH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 16:33:07 -0400
-Received: from mail121-co1 (localhost [127.0.0.1])	by
- mail121-co1-R.bigfish.com (Postfix) with ESMTP id 888ED7C018B	for
- <netdev@vger.kernel.org.FOPE.CONNECTOR.OVERRIDE>; Thu, 28 Mar 2013 20:27:48
- +0000 (UTC)
-In-Reply-To: <874nfwri6o.fsf@xmission.com>
-Content-Language: en-US
-Content-ID: <F7B12C0413DBD0488A48AC8A5E28E51E@namprd05.prod.outlook.com>
+Received: from mail-la0-f51.google.com ([209.85.215.51]:60400 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751160Ab3C1Uq6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 16:46:58 -0400
+Received: by mail-la0-f51.google.com with SMTP id fo13so18598417lab.38
+        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 13:46:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Eric,
+The driver's header file contains initialized register offset tables which (as
+any data definitions), of course, have no business being there.  Move them  to
+the driver's body, somewhat beautifying the initializers, while at it...
 
-I am running simple containers (2 network interfaces, 10MB of RAM, default
-routing) and want to test scalability.
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Out test platform is a 32x 2Ghz cores x86.
+---
+The patch is against the David Miller's 'net-next.git' repo.
 
-Regards
+ drivers/net/ethernet/renesas/sh_eth.c |  218 +++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/renesas/sh_eth.h |  219 ----------------------------------
+ 2 files changed, 218 insertions(+), 219 deletions(-)
 
-Benoit
-
-On 27/03/2013 16:11, "Eric W. Biederman" <ebiederm@xmission.com> wrote:
-
->Benoit Lourdelet <blourdel@juniper.net> writes:
->
->> Hello Serge,
->>
->> I am indeed using Eric patch with lxc.
->>
->> It solves the initial problem of slowness to start around 1600
->> containers.
->
->Good so now we just need a production ready patch for iproute.
->
->> I am now able to start more than  2000 without having new containers
->> slower and slower to start.
->
->May I ask how large a box you are running and how complex your
->containers are.  I am trying to get a feel for how common it is likely
->to be to find people running thousands of containers on a single
->machine.
->
->Eric
->
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+@@ -49,6 +49,224 @@
+ 		NETIF_MSG_RX_ERR| \
+ 		NETIF_MSG_TX_ERR)
+ 
++static const u16 sh_eth_offset_gigabit[SH_ETH_MAX_REGISTER_OFFSET] = {
++	[EDSR]		= 0x0000,
++	[EDMR]		= 0x0400,
++	[EDTRR]		= 0x0408,
++	[EDRRR]		= 0x0410,
++	[EESR]		= 0x0428,
++	[EESIPR]	= 0x0430,
++	[TDLAR]		= 0x0010,
++	[TDFAR]		= 0x0014,
++	[TDFXR]		= 0x0018,
++	[TDFFR]		= 0x001c,
++	[RDLAR]		= 0x0030,
++	[RDFAR]		= 0x0034,
++	[RDFXR]		= 0x0038,
++	[RDFFR]		= 0x003c,
++	[TRSCER]	= 0x0438,
++	[RMFCR]		= 0x0440,
++	[TFTR]		= 0x0448,
++	[FDR]		= 0x0450,
++	[RMCR]		= 0x0458,
++	[RPADIR]	= 0x0460,
++	[FCFTR]		= 0x0468,
++	[CSMR]		= 0x04E4,
++
++	[ECMR]		= 0x0500,
++	[ECSR]		= 0x0510,
++	[ECSIPR]	= 0x0518,
++	[PIR]		= 0x0520,
++	[PSR]		= 0x0528,
++	[PIPR]		= 0x052c,
++	[RFLR]		= 0x0508,
++	[APR]		= 0x0554,
++	[MPR]		= 0x0558,
++	[PFTCR]		= 0x055c,
++	[PFRCR]		= 0x0560,
++	[TPAUSER]	= 0x0564,
++	[GECMR]		= 0x05b0,
++	[BCULR]		= 0x05b4,
++	[MAHR]		= 0x05c0,
++	[MALR]		= 0x05c8,
++	[TROCR]		= 0x0700,
++	[CDCR]		= 0x0708,
++	[LCCR]		= 0x0710,
++	[CEFCR]		= 0x0740,
++	[FRECR]		= 0x0748,
++	[TSFRCR]	= 0x0750,
++	[TLFRCR]	= 0x0758,
++	[RFCR]		= 0x0760,
++	[CERCR]		= 0x0768,
++	[CEECR]		= 0x0770,
++	[MAFCR]		= 0x0778,
++	[RMII_MII]	= 0x0790,
++
++	[ARSTR]		= 0x0000,
++	[TSU_CTRST]	= 0x0004,
++	[TSU_FWEN0]	= 0x0010,
++	[TSU_FWEN1]	= 0x0014,
++	[TSU_FCM]	= 0x0018,
++	[TSU_BSYSL0]	= 0x0020,
++	[TSU_BSYSL1]	= 0x0024,
++	[TSU_PRISL0]	= 0x0028,
++	[TSU_PRISL1]	= 0x002c,
++	[TSU_FWSL0]	= 0x0030,
++	[TSU_FWSL1]	= 0x0034,
++	[TSU_FWSLC]	= 0x0038,
++	[TSU_QTAG0]	= 0x0040,
++	[TSU_QTAG1]	= 0x0044,
++	[TSU_FWSR]	= 0x0050,
++	[TSU_FWINMK]	= 0x0054,
++	[TSU_ADQT0]	= 0x0048,
++	[TSU_ADQT1]	= 0x004c,
++	[TSU_VTAG0]	= 0x0058,
++	[TSU_VTAG1]	= 0x005c,
++	[TSU_ADSBSY]	= 0x0060,
++	[TSU_TEN]	= 0x0064,
++	[TSU_POST1]	= 0x0070,
++	[TSU_POST2]	= 0x0074,
++	[TSU_POST3]	= 0x0078,
++	[TSU_POST4]	= 0x007c,
++	[TSU_ADRH0]	= 0x0100,
++	[TSU_ADRL0]	= 0x0104,
++	[TSU_ADRH31]	= 0x01f8,
++	[TSU_ADRL31]	= 0x01fc,
++
++	[TXNLCR0]	= 0x0080,
++	[TXALCR0]	= 0x0084,
++	[RXNLCR0]	= 0x0088,
++	[RXALCR0]	= 0x008c,
++	[FWNLCR0]	= 0x0090,
++	[FWALCR0]	= 0x0094,
++	[TXNLCR1]	= 0x00a0,
++	[TXALCR1]	= 0x00a0,
++	[RXNLCR1]	= 0x00a8,
++	[RXALCR1]	= 0x00ac,
++	[FWNLCR1]	= 0x00b0,
++	[FWALCR1]	= 0x00b4,
++};
++
++static const u16 sh_eth_offset_fast_sh4[SH_ETH_MAX_REGISTER_OFFSET] = {
++	[ECMR]		= 0x0100,
++	[RFLR]		= 0x0108,
++	[ECSR]		= 0x0110,
++	[ECSIPR]	= 0x0118,
++	[PIR]		= 0x0120,
++	[PSR]		= 0x0128,
++	[RDMLR]		= 0x0140,
++	[IPGR]		= 0x0150,
++	[APR]		= 0x0154,
++	[MPR]		= 0x0158,
++	[TPAUSER]	= 0x0164,
++	[RFCF]		= 0x0160,
++	[TPAUSECR]	= 0x0168,
++	[BCFRR]		= 0x016c,
++	[MAHR]		= 0x01c0,
++	[MALR]		= 0x01c8,
++	[TROCR]		= 0x01d0,
++	[CDCR]		= 0x01d4,
++	[LCCR]		= 0x01d8,
++	[CNDCR]		= 0x01dc,
++	[CEFCR]		= 0x01e4,
++	[FRECR]		= 0x01e8,
++	[TSFRCR]	= 0x01ec,
++	[TLFRCR]	= 0x01f0,
++	[RFCR]		= 0x01f4,
++	[MAFCR]		= 0x01f8,
++	[RTRATE]	= 0x01fc,
++
++	[EDMR]		= 0x0000,
++	[EDTRR]		= 0x0008,
++	[EDRRR]		= 0x0010,
++	[TDLAR]		= 0x0018,
++	[RDLAR]		= 0x0020,
++	[EESR]		= 0x0028,
++	[EESIPR]	= 0x0030,
++	[TRSCER]	= 0x0038,
++	[RMFCR]		= 0x0040,
++	[TFTR]		= 0x0048,
++	[FDR]		= 0x0050,
++	[RMCR]		= 0x0058,
++	[TFUCR]		= 0x0064,
++	[RFOCR]		= 0x0068,
++	[FCFTR]		= 0x0070,
++	[RPADIR]	= 0x0078,
++	[TRIMD]		= 0x007c,
++	[RBWAR]		= 0x00c8,
++	[RDFAR]		= 0x00cc,
++	[TBRAR]		= 0x00d4,
++	[TDFAR]		= 0x00d8,
++};
++
++static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
++	[ECMR]		= 0x0160,
++	[ECSR]		= 0x0164,
++	[ECSIPR]	= 0x0168,
++	[PIR]		= 0x016c,
++	[MAHR]		= 0x0170,
++	[MALR]		= 0x0174,
++	[RFLR]		= 0x0178,
++	[PSR]		= 0x017c,
++	[TROCR]		= 0x0180,
++	[CDCR]		= 0x0184,
++	[LCCR]		= 0x0188,
++	[CNDCR]		= 0x018c,
++	[CEFCR]		= 0x0194,
++	[FRECR]		= 0x0198,
++	[TSFRCR]	= 0x019c,
++	[TLFRCR]	= 0x01a0,
++	[RFCR]		= 0x01a4,
++	[MAFCR]		= 0x01a8,
++	[IPGR]		= 0x01b4,
++	[APR]		= 0x01b8,
++	[MPR]		= 0x01bc,
++	[TPAUSER]	= 0x01c4,
++	[BCFR]		= 0x01cc,
++
++	[ARSTR]		= 0x0000,
++	[TSU_CTRST]	= 0x0004,
++	[TSU_FWEN0]	= 0x0010,
++	[TSU_FWEN1]	= 0x0014,
++	[TSU_FCM]	= 0x0018,
++	[TSU_BSYSL0]	= 0x0020,
++	[TSU_BSYSL1]	= 0x0024,
++	[TSU_PRISL0]	= 0x0028,
++	[TSU_PRISL1]	= 0x002c,
++	[TSU_FWSL0]	= 0x0030,
++	[TSU_FWSL1]	= 0x0034,
++	[TSU_FWSLC]	= 0x0038,
++	[TSU_QTAGM0]	= 0x0040,
++	[TSU_QTAGM1]	= 0x0044,
++	[TSU_ADQT0]	= 0x0048,
++	[TSU_ADQT1]	= 0x004c,
++	[TSU_FWSR]	= 0x0050,
++	[TSU_FWINMK]	= 0x0054,
++	[TSU_ADSBSY]	= 0x0060,
++	[TSU_TEN]	= 0x0064,
++	[TSU_POST1]	= 0x0070,
++	[TSU_POST2]	= 0x0074,
++	[TSU_POST3]	= 0x0078,
++	[TSU_POST4]	= 0x007c,
++
++	[TXNLCR0]	= 0x0080,
++	[TXALCR0]	= 0x0084,
++	[RXNLCR0]	= 0x0088,
++	[RXALCR0]	= 0x008c,
++	[FWNLCR0]	= 0x0090,
++	[FWALCR0]	= 0x0094,
++	[TXNLCR1]	= 0x00a0,
++	[TXALCR1]	= 0x00a0,
++	[RXNLCR1]	= 0x00a8,
++	[RXALCR1]	= 0x00ac,
++	[FWNLCR1]	= 0x00b0,
++	[FWALCR1]	= 0x00b4,
++
++	[TSU_ADRH0]	= 0x0100,
++	[TSU_ADRL0]	= 0x0104,
++	[TSU_ADRL31]	= 0x01fc,
++};
++
+ #if defined(CONFIG_CPU_SUBTYPE_SH7734) || \
+ 	defined(CONFIG_CPU_SUBTYPE_SH7763) || \
+ 	defined(CONFIG_ARCH_R8A7740)
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.h
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.h
++++ net-next/drivers/net/ethernet/renesas/sh_eth.h
+@@ -156,225 +156,6 @@ enum {
+ 	SH_ETH_MAX_REGISTER_OFFSET,
+ };
+ 
+-static const u16 sh_eth_offset_gigabit[SH_ETH_MAX_REGISTER_OFFSET] = {
+-	[EDSR]	= 0x0000,
+-	[EDMR]	= 0x0400,
+-	[EDTRR]	= 0x0408,
+-	[EDRRR]	= 0x0410,
+-	[EESR]	= 0x0428,
+-	[EESIPR]	= 0x0430,
+-	[TDLAR]	= 0x0010,
+-	[TDFAR]	= 0x0014,
+-	[TDFXR]	= 0x0018,
+-	[TDFFR]	= 0x001c,
+-	[RDLAR]	= 0x0030,
+-	[RDFAR]	= 0x0034,
+-	[RDFXR]	= 0x0038,
+-	[RDFFR]	= 0x003c,
+-	[TRSCER]	= 0x0438,
+-	[RMFCR]	= 0x0440,
+-	[TFTR]	= 0x0448,
+-	[FDR]	= 0x0450,
+-	[RMCR]	= 0x0458,
+-	[RPADIR]	= 0x0460,
+-	[FCFTR]	= 0x0468,
+-	[CSMR] = 0x04E4,
+-
+-	[ECMR]	= 0x0500,
+-	[ECSR]	= 0x0510,
+-	[ECSIPR]	= 0x0518,
+-	[PIR]	= 0x0520,
+-	[PSR]	= 0x0528,
+-	[PIPR]	= 0x052c,
+-	[RFLR]	= 0x0508,
+-	[APR]	= 0x0554,
+-	[MPR]	= 0x0558,
+-	[PFTCR]	= 0x055c,
+-	[PFRCR]	= 0x0560,
+-	[TPAUSER]	= 0x0564,
+-	[GECMR]	= 0x05b0,
+-	[BCULR]	= 0x05b4,
+-	[MAHR]	= 0x05c0,
+-	[MALR]	= 0x05c8,
+-	[TROCR]	= 0x0700,
+-	[CDCR]	= 0x0708,
+-	[LCCR]	= 0x0710,
+-	[CEFCR]	= 0x0740,
+-	[FRECR]	= 0x0748,
+-	[TSFRCR]	= 0x0750,
+-	[TLFRCR]	= 0x0758,
+-	[RFCR]	= 0x0760,
+-	[CERCR]	= 0x0768,
+-	[CEECR]	= 0x0770,
+-	[MAFCR]	= 0x0778,
+-	[RMII_MII] =  0x0790,
+-
+-	[ARSTR]	= 0x0000,
+-	[TSU_CTRST]	= 0x0004,
+-	[TSU_FWEN0]	= 0x0010,
+-	[TSU_FWEN1]	= 0x0014,
+-	[TSU_FCM]	= 0x0018,
+-	[TSU_BSYSL0]	= 0x0020,
+-	[TSU_BSYSL1]	= 0x0024,
+-	[TSU_PRISL0]	= 0x0028,
+-	[TSU_PRISL1]	= 0x002c,
+-	[TSU_FWSL0]	= 0x0030,
+-	[TSU_FWSL1]	= 0x0034,
+-	[TSU_FWSLC]	= 0x0038,
+-	[TSU_QTAG0]	= 0x0040,
+-	[TSU_QTAG1]	= 0x0044,
+-	[TSU_FWSR]	= 0x0050,
+-	[TSU_FWINMK]	= 0x0054,
+-	[TSU_ADQT0]	= 0x0048,
+-	[TSU_ADQT1]	= 0x004c,
+-	[TSU_VTAG0]	= 0x0058,
+-	[TSU_VTAG1]	= 0x005c,
+-	[TSU_ADSBSY]	= 0x0060,
+-	[TSU_TEN]	= 0x0064,
+-	[TSU_POST1]	= 0x0070,
+-	[TSU_POST2]	= 0x0074,
+-	[TSU_POST3]	= 0x0078,
+-	[TSU_POST4]	= 0x007c,
+-	[TSU_ADRH0]	= 0x0100,
+-	[TSU_ADRL0]	= 0x0104,
+-	[TSU_ADRH31]	= 0x01f8,
+-	[TSU_ADRL31]	= 0x01fc,
+-
+-	[TXNLCR0]	= 0x0080,
+-	[TXALCR0]	= 0x0084,
+-	[RXNLCR0]	= 0x0088,
+-	[RXALCR0]	= 0x008c,
+-	[FWNLCR0]	= 0x0090,
+-	[FWALCR0]	= 0x0094,
+-	[TXNLCR1]	= 0x00a0,
+-	[TXALCR1]	= 0x00a0,
+-	[RXNLCR1]	= 0x00a8,
+-	[RXALCR1]	= 0x00ac,
+-	[FWNLCR1]	= 0x00b0,
+-	[FWALCR1]	= 0x00b4,
+-};
+-
+-static const u16 sh_eth_offset_fast_sh4[SH_ETH_MAX_REGISTER_OFFSET] = {
+-	[ECMR]	= 0x0100,
+-	[RFLR]	= 0x0108,
+-	[ECSR]	= 0x0110,
+-	[ECSIPR]	= 0x0118,
+-	[PIR]	= 0x0120,
+-	[PSR]	= 0x0128,
+-	[RDMLR]	= 0x0140,
+-	[IPGR]	= 0x0150,
+-	[APR]	= 0x0154,
+-	[MPR]	= 0x0158,
+-	[TPAUSER]	= 0x0164,
+-	[RFCF]	= 0x0160,
+-	[TPAUSECR]	= 0x0168,
+-	[BCFRR]	= 0x016c,
+-	[MAHR]	= 0x01c0,
+-	[MALR]	= 0x01c8,
+-	[TROCR]	= 0x01d0,
+-	[CDCR]	= 0x01d4,
+-	[LCCR]	= 0x01d8,
+-	[CNDCR]	= 0x01dc,
+-	[CEFCR]	= 0x01e4,
+-	[FRECR]	= 0x01e8,
+-	[TSFRCR]	= 0x01ec,
+-	[TLFRCR]	= 0x01f0,
+-	[RFCR]	= 0x01f4,
+-	[MAFCR]	= 0x01f8,
+-	[RTRATE]	= 0x01fc,
+-
+-	[EDMR]	= 0x0000,
+-	[EDTRR]	= 0x0008,
+-	[EDRRR]	= 0x0010,
+-	[TDLAR]	= 0x0018,
+-	[RDLAR]	= 0x0020,
+-	[EESR]	= 0x0028,
+-	[EESIPR]	= 0x0030,
+-	[TRSCER]	= 0x0038,
+-	[RMFCR]	= 0x0040,
+-	[TFTR]	= 0x0048,
+-	[FDR]	= 0x0050,
+-	[RMCR]	= 0x0058,
+-	[TFUCR]	= 0x0064,
+-	[RFOCR]	= 0x0068,
+-	[FCFTR]	= 0x0070,
+-	[RPADIR]	= 0x0078,
+-	[TRIMD]	= 0x007c,
+-	[RBWAR]	= 0x00c8,
+-	[RDFAR]	= 0x00cc,
+-	[TBRAR]	= 0x00d4,
+-	[TDFAR]	= 0x00d8,
+-};
+-
+-static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
+-	[ECMR]	= 0x0160,
+-	[ECSR]	= 0x0164,
+-	[ECSIPR]	= 0x0168,
+-	[PIR]	= 0x016c,
+-	[MAHR]	= 0x0170,
+-	[MALR]	= 0x0174,
+-	[RFLR]	= 0x0178,
+-	[PSR]	= 0x017c,
+-	[TROCR]	= 0x0180,
+-	[CDCR]	= 0x0184,
+-	[LCCR]	= 0x0188,
+-	[CNDCR]	= 0x018c,
+-	[CEFCR]	= 0x0194,
+-	[FRECR]	= 0x0198,
+-	[TSFRCR]	= 0x019c,
+-	[TLFRCR]	= 0x01a0,
+-	[RFCR]	= 0x01a4,
+-	[MAFCR]	= 0x01a8,
+-	[IPGR]	= 0x01b4,
+-	[APR]	= 0x01b8,
+-	[MPR]	= 0x01bc,
+-	[TPAUSER]	= 0x01c4,
+-	[BCFR]	= 0x01cc,
+-
+-	[ARSTR]	= 0x0000,
+-	[TSU_CTRST]	= 0x0004,
+-	[TSU_FWEN0]	= 0x0010,
+-	[TSU_FWEN1]	= 0x0014,
+-	[TSU_FCM]	= 0x0018,
+-	[TSU_BSYSL0]	= 0x0020,
+-	[TSU_BSYSL1]	= 0x0024,
+-	[TSU_PRISL0]	= 0x0028,
+-	[TSU_PRISL1]	= 0x002c,
+-	[TSU_FWSL0]	= 0x0030,
+-	[TSU_FWSL1]	= 0x0034,
+-	[TSU_FWSLC]	= 0x0038,
+-	[TSU_QTAGM0]	= 0x0040,
+-	[TSU_QTAGM1]	= 0x0044,
+-	[TSU_ADQT0]	= 0x0048,
+-	[TSU_ADQT1]	= 0x004c,
+-	[TSU_FWSR]	= 0x0050,
+-	[TSU_FWINMK]	= 0x0054,
+-	[TSU_ADSBSY]	= 0x0060,
+-	[TSU_TEN]	= 0x0064,
+-	[TSU_POST1]	= 0x0070,
+-	[TSU_POST2]	= 0x0074,
+-	[TSU_POST3]	= 0x0078,
+-	[TSU_POST4]	= 0x007c,
+-
+-	[TXNLCR0]	= 0x0080,
+-	[TXALCR0]	= 0x0084,
+-	[RXNLCR0]	= 0x0088,
+-	[RXALCR0]	= 0x008c,
+-	[FWNLCR0]	= 0x0090,
+-	[FWALCR0]	= 0x0094,
+-	[TXNLCR1]	= 0x00a0,
+-	[TXALCR1]	= 0x00a0,
+-	[RXNLCR1]	= 0x00a8,
+-	[RXALCR1]	= 0x00ac,
+-	[FWNLCR1]	= 0x00b0,
+-	[FWALCR1]	= 0x00b4,
+-
+-	[TSU_ADRH0]	= 0x0100,
+-	[TSU_ADRL0]	= 0x0104,
+-	[TSU_ADRL31]	= 0x01fc,
+-
+-};
+-
+ /* Driver's parameters */
+ #if defined(CONFIG_CPU_SH4) || defined(CONFIG_ARCH_SHMOBILE)
+ #define SH4_SKB_RX_ALIGN	32
