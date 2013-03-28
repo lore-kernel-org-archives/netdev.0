@@ -1,57 +1,41 @@
-From: Steffen Trumtrar <s.trumtrar@pengutronix.de>
-Subject: [PATCH v2 2/3] net/macb: force endian_swp_pkt_en to off
-Date: Thu, 28 Mar 2013 10:07:06 +0100
-Message-ID: <1364461627-26521-3-git-send-email-s.trumtrar@pengutronix.de>
-References: <1364461627-26521-1-git-send-email-s.trumtrar@pengutronix.de>
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Steffen Trumtrar <s.trumtrar@pengutronix.de>
-To: netdev@vger.kernel.org
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: [PATCH] net: core: Remove redundant call to 'nf_reset' in 'dev_forward_skb'
+Date: Thu, 28 Mar 2013 11:13:26 +0200
+Message-ID: <1364462006-5814-1-git-send-email-shmulik.ladkani@gmail.com>
+Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org,
+	Igor Michailov <rgohita@gmail.com>,
+	Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:37637 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754890Ab3C1JHY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 05:07:24 -0400
-In-Reply-To: <1364461627-26521-1-git-send-email-s.trumtrar@pengutronix.de>
+Received: from mail-ee0-f50.google.com ([74.125.83.50]:44242 "EHLO
+	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754983Ab3C1JOO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 05:14:14 -0400
+Received: by mail-ee0-f50.google.com with SMTP id e53so1371242eek.37
+        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 02:14:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The core has a bit for swapping packet data endianism.
-Reset default from Cadence is off. Xilinx however, who uses this core on the
-Zynq SoCs, opted for on.
-Force it to off. This shouldn't change the behaviour for current users of the
-macb, but enables usage on Zynq devices.
+'nf_reset' is called just prior calling 'netif_rx'.
+No need to call it twice.
 
-Signed-off-by: Steffen Trumtrar <s.trumtrar@pengutronix.de>
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
+Reported-by: Igor Michailov <rgohita@gmail.com>
+Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 ---
- drivers/net/ethernet/cadence/macb.c | 1 +
- drivers/net/ethernet/cadence/macb.h | 2 ++
- 2 files changed, 3 insertions(+)
+ net/core/dev.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 817835e..71e766b 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1057,6 +1057,7 @@ static void macb_configure_dma(struct macb *bp)
- 		dmacfg |= GEM_BF(RXBS, RX_BUFFER_SIZE / 64);
- 		dmacfg |= GEM_BF(FBLDO, 16);
- 		dmacfg |= GEM_BIT(TXPBMS) | GEM_BF(RXBMS, -1L);
-+		dmacfg &= ~GEM_BIT(ENDIA);
- 		gem_writel(bp, DMACFG, dmacfg);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 2db88df..071f398 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1624,7 +1624,6 @@ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
  	}
- }
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 570908b..993d703 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -173,6 +173,8 @@
- /* Bitfields in DMACFG. */
- #define GEM_FBLDO_OFFSET			0
- #define GEM_FBLDO_SIZE				5
-+#define GEM_ENDIA_OFFSET			7
-+#define GEM_ENDIA_SIZE				1
- #define GEM_RXBMS_OFFSET			8
- #define GEM_RXBMS_SIZE				2
- #define GEM_TXPBMS_OFFSET			10
+ 
+ 	skb_orphan(skb);
+-	nf_reset(skb);
+ 
+ 	if (unlikely(!is_skb_forwardable(dev, skb))) {
+ 		atomic_long_inc(&dev->rx_dropped);
 -- 
-1.8.2.rc2
+1.7.9
