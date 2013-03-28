@@ -1,39 +1,49 @@
 From: Steffen Trumtrar <s.trumtrar@pengutronix.de>
-Subject: [PATCH v2 0/3] net/macb: fixes to use core on Zynq SoCs
-Date: Thu, 28 Mar 2013 10:07:04 +0100
-Message-ID: <1364461627-26521-1-git-send-email-s.trumtrar@pengutronix.de>
+Subject: [PATCH v2 1/3] net/macb: clear tx/rx completion flags in ISR
+Date: Thu, 28 Mar 2013 10:07:05 +0100
+Message-ID: <1364461627-26521-2-git-send-email-s.trumtrar@pengutronix.de>
+References: <1364461627-26521-1-git-send-email-s.trumtrar@pengutronix.de>
 Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
 	Steffen Trumtrar <s.trumtrar@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:37632 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:37634 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754890Ab3C1JHU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 05:07:20 -0400
+	with ESMTP id S1754910Ab3C1JHW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 05:07:22 -0400
+In-Reply-To: <1364461627-26521-1-git-send-email-s.trumtrar@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+At least in the cadence IP core on the Xilinx Zynq SoC the TCOMP/RCOMP flags
+are not auto-cleaned. As these flags are evaluated, they need to be cleaned.
 
-The Cadence GEM is also licensed for the Xilinx Zynq7000 SoCs.
-As Xilinx uses other reset defaults, some fixes are necessary to have it
-working there. And as the Zynq is dualcore, the clk_enables/disables now need
-to be atomic.
+Signed-off-by: Steffen Trumtrar <s.trumtrar@pengutronix.de>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+ drivers/net/ethernet/cadence/macb.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Changes in v2:
-	- only 3/3 was changed to correctly use the atomic clk_[en|dis]able
-
-Regards,
-Steffen
-
-Steffen Trumtrar (3):
-  net/macb: clear tx/rx completion flags in ISR
-  net/macb: force endian_swp_pkt_en to off
-  net/macb: make clk_enable atomic
-
- drivers/net/ethernet/cadence/macb.c | 24 ++++++++++++++----------
- drivers/net/ethernet/cadence/macb.h |  2 ++
- 2 files changed, 16 insertions(+), 10 deletions(-)
-
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 7903943..817835e 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -485,6 +485,8 @@ static void macb_tx_interrupt(struct macb *bp)
+ 	status = macb_readl(bp, TSR);
+ 	macb_writel(bp, TSR, status);
+ 
++	macb_writel(bp, ISR, MACB_BIT(TCOMP));
++
+ 	netdev_vdbg(bp->dev, "macb_tx_interrupt status = 0x%03lx\n",
+ 		(unsigned long)status);
+ 
+@@ -736,6 +738,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 			 * now.
+ 			 */
+ 			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
++			macb_writel(bp, ISR, MACB_BIT(RCOMP));
+ 
+ 			if (napi_schedule_prep(&bp->napi)) {
+ 				netdev_vdbg(bp->dev, "scheduling RX softirq\n");
 -- 
 1.8.2.rc2
