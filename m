@@ -1,75 +1,36 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or
- Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba
- (updated) Version 2
-Date: Thu, 28 Mar 2013 01:01:05 +0000
-Message-ID: <157393863283F442885425D2C45428564F200FE9@nasanexd02f.na.qualcomm.com>
-References: <20130324052300.GA12968@order.stressinduktion.org>
- <157393863283F442885425D2C4542856489E7D1E@nasanexd02f.na.qualcomm.com>
- <20130326042700.GC29705@order.stressinduktion.org>
- <157393863283F442885425D2C4542856489E821B@nasanexd02f.na.qualcomm.com>
- <20130326044025.GD29705@order.stressinduktion.org>
- <157393863283F442885425D2C4542856489E8232@nasanexd02f.na.qualcomm.com>
- <20130327220248.GD23223@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F1FDF82@nasanexd02f.na.qualcomm.com>
- <20130327223433.GE23223@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F1FFFCE@nasanexd02f.na.qualcomm.com>
- <20130328004024.GA2176@order.stressinduktion.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba (updated) Version 2
+Date: Thu, 28 Mar 2013 02:16:02 +0100
+Message-ID: <20130328011602.GB2176@order.stressinduktion.org>
+References: <20130326042700.GC29705@order.stressinduktion.org> <157393863283F442885425D2C4542856489E821B@nasanexd02f.na.qualcomm.com> <20130326044025.GD29705@order.stressinduktion.org> <157393863283F442885425D2C4542856489E8232@nasanexd02f.na.qualcomm.com> <20130327220248.GD23223@order.stressinduktion.org> <157393863283F442885425D2C45428564F1FDF82@nasanexd02f.na.qualcomm.com> <20130327223433.GE23223@order.stressinduktion.org> <157393863283F442885425D2C45428564F1FFFCE@nasanexd02f.na.qualcomm.com> <20130328004024.GA2176@order.stressinduktion.org> <157393863283F442885425D2C45428564F200FE9@nasanexd02f.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=utf-8
 Cc: Sven Hartge <sven@svenhartge.de>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: "Huang, Xiong" <xiong@qca.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabertooth02.qualcomm.com ([65.197.215.38]:4819 "EHLO
-	sabertooth02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752771Ab3C1BGe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 21:06:34 -0400
-In-Reply-To: <20130328004024.GA2176@order.stressinduktion.org>
-Content-Language: en-US
+Received: from order.stressinduktion.org ([87.106.68.36]:35309 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753514Ab3C1BQD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 21:16:03 -0400
+Content-Disposition: inline
+In-Reply-To: <157393863283F442885425D2C45428564F200FE9@nasanexd02f.na.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UGxlYXNlIHRyeSB0byB1c2UgZm9sbG93aW5nIGRlZmluZSBpbiBhdGwxZV9ody5oDQogDQojZGVm
-aW5lICAgICBHUEhZX0NUUkxfREVGQVVMVCAoXA0KCQlHUEhZX0NUUkxfU0VMX0FOQV9SU1QJfFwN
-CgkJR1BIWV9DVFJMX0hJQl9QVUxTRQl8XA0KCQlHUEhZX0NUUkxfSElCX0VOKQ0KDQpCUg0KWGlv
-bmcNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBIYW5uZXMgRnJlZGVy
-aWMgU293YSBbbWFpbHRvOmhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnXQ0KPiBTZW50OiBUaHVy
-c2RheSwgTWFyY2ggMjgsIDIwMTMgODo0MCBBTQ0KPiBUbzogSHVhbmcsIFhpb25nDQo+IENjOiBT
-dmVuIEhhcnRnZTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogQXRoZXJv
-cyBDb21tdW5pY2F0aW9ucyBJbmMuIEFSODEyMS9BUjgxMTMvQVI4MTE0IEdpZ2FiaXQgb3INCj4g
-RmFzdCBFdGhlcm5ldCAocmV2IGIwKSAxLjAuMC43IG1kNS9zaGExIGNvcnJ1cHRlZCB1c2luZyBO
-RlMgYW5kIHNhbWJhDQo+ICh1cGRhdGVkKSBWZXJzaW9uIDINCj4gDQo+IE9uIFRodSwgTWFyIDI4
-LCAyMDEzIGF0IDEyOjEwOjU3QU0gKzAwMDAsIEh1YW5nLCBYaW9uZyB3cm90ZToNCj4gPiBUaGVy
-ZSBpcyBubyBtdWNoIGRpZmZlcmVuY2Ugb24gdGhvc2UgcmVnaXN0ZXJzIDooIEJ1dCB5b3UgY291
-bGQgdHJ5IHRvDQo+ID4gcmVwbGFjZSA6DQo+ID4NCj4gPiBzdGF0aWMgdm9pZCBhdGwxZV9jYWxf
-cmluZ19zaXplKHN0cnVjdCBhdGwxZV9hZGFwdGVyICphZGFwdGVyLCB1MzINCj4gPiAqcmluZ19z
-aXplKSB7DQo+ID4gCSpyaW5nX3NpemUgPSAoKHUzMikoYWRhcHRlci0+dHhfcmluZy5jb3VudCAq
-DQo+ID4gCQkgICAgIHNpemVvZihzdHJ1Y3QgYXRsMWVfdHBkX2Rlc2MpICsgNw0KPiA+IAkJCS8q
-IHR4IHJpbmcsIHF3b3JkIGFsaWduICovDQo+ID4gCQkgICAgICsgYWRhcHRlci0+cnhfcmluZy5y
-ZWFsX3BhZ2Vfc2l6ZSAqDQo+IEFUX1BBR0VfTlVNX1BFUl9RVUVVRSAqDQo+ID4gCQkJYWRhcHRl
-ci0+bnVtX3J4X3F1ZXVlcyArIDMxDQo+ID4gCQkJLyogcnggcmluZywgIDMyIGJ5dGVzIGFsaWdu
-ICovDQo+ID4gCQkgICAgICsgKDEgKyBBVF9QQUdFX05VTV9QRVJfUVVFVUUgKiBhZGFwdGVyLQ0K
-PiA+bnVtX3J4X3F1ZXVlcykgKg0KPiA+IAkJCTE2ICsgMTUpKTsNCj4gPiAJCQkvKiB0eCwgcngg
-Y21kLCBkd29yZCBhbGlnbiAgICovDQo+ID4gfQ0KPiA+DQo+ID4NCj4gPiBzdGF0aWMgaW50IGF0
-bDFlX3NldHVwX3JpbmdfcmVzb3VyY2VzKHN0cnVjdCBhdGwxZV9hZGFwdGVyICphZGFwdGVyKSB7
-DQo+ID4gLi4uLi4NCj4gPiAJLyogSW5pdCBDTUIgZG1hIGFkZHJlc3MgKi8NCj4gPiAJb2Zmc2V0
-ID0gcm91bmR1cChvZmZzZXQsIDE2KTsNCj4gPiAJdHhfcmluZy0+Y21iX2RtYSA9IGFkYXB0ZXIt
-PnJpbmdfZG1hICsgb2Zmc2V0Ow0KPiA+IAl0eF9yaW5nLT5jbWIgPSBhZGFwdGVyLT5yaW5nX3Zp
-cl9hZGRyICsgb2Zmc2V0Ow0KPiA+IAlvZmZzZXQgKz0gc2l6ZW9mKHUzMik7DQo+ID4gCW9mZnNl
-dCA9IHJvdW5kdXAob2Zmc2V0LCAxNik7DQo+ID4NCj4gPiAJZm9yIChpID0gMDsgaSA8IGFkYXB0
-ZXItPm51bV9yeF9xdWV1ZXM7IGkrKykgew0KPiA+IAkJZm9yIChqID0gMDsgaiA8IEFUX1BBR0Vf
-TlVNX1BFUl9RVUVVRTsgaisrKSB7DQo+ID4gCQkJcnhfcGFnZV9kZXNjW2ldLnJ4X3BhZ2Vbal0u
-d3JpdGVfb2Zmc2V0X2RtYSA9DQo+ID4gCQkJCWFkYXB0ZXItPnJpbmdfZG1hICsgb2Zmc2V0Ow0K
-PiA+IAkJCXJ4X3BhZ2VfZGVzY1tpXS5yeF9wYWdlW2pdLndyaXRlX29mZnNldF9hZGRyID0NCj4g
-PiAJCQkJYWRhcHRlci0+cmluZ192aXJfYWRkciArIG9mZnNldDsNCj4gPiAJCQlvZmZzZXQgKz0g
-c2l6ZW9mKHUzMik7DQo+ID4gCQkJb2Zmc2V0ID0gcm91bmR1cChvZmZzZXQsIDE2KTsNCj4gPiAJ
-CX0NCj4gPiAJfQ0KPiA+IC4uLi4uDQo+ID4NCj4gPg0KPiA+DQo+ID4gSnVzdCBndWVzcywgbm8g
-Y29uZmlkZW5jZSBvbiBpdCAuLi4uDQo+IA0KPiBObywgcHJvYmxlbSBzdGlsbCBwZXJzaXN0cy4g
-OigNCj4gDQo+IEJ0dywgaW4gdGhlIG1lYW50aW1lIEkgZXh0cmFjdGVkIGFub3RoZXIgbW1pb3Ry
-YWNlICh0aGlzIHRpbWUgd2l0aCBhIGRoY3ANCj4gZXhjaGFuZ2UpIGFuZCByZXNvbHZlZCB0aGUg
-c3ltYm9sczoNCj4gDQo+IGh0dHBzOi8vZ2lzdC5naXRodWIuY29tL2hhbm5lcy81MjU5NDY4L3Jh
-dy80YzIyZGZmODU0MjU0YzQ2NTM0YzFiODdlNDcNCj4gN2VmZjdkM2NhMmM1ZC9tbWlvdHJhY2Uu
-dHh0DQo+IA0KPiBQZXJoYXBzIGl0IGhlbHBzLg0KPiANCj4gVGhhbmtzLA0KPiANCj4gICBIYW5u
-ZXMNCg0K
+On Thu, Mar 28, 2013 at 01:01:05AM +0000, Huang, Xiong wrote:
+> Please try to use following define in atl1e_hw.h
+>  
+> #define     GPHY_CTRL_DEFAULT (\
+> 		GPHY_CTRL_SEL_ANA_RST	|\
+> 		GPHY_CTRL_HIB_PULSE	|\
+> 		GPHY_CTRL_HIB_EN)
+
+No change either.
+
+We will try to go with RXQ_CTRL_PBA_ALIGN_256 in REG_RXQ_CTRL next. Just have
+to check the ring resources are initialized correctly.
+
+Thanks,
+
+  Hannes
