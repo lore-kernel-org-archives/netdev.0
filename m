@@ -1,74 +1,96 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] bridge: remove unused variable ifm
-Date: Thu, 28 Mar 2013 10:03:44 -0700
-Message-ID: <20130328100344.70c78134@nehalam.linuxnetplumber.net>
-References: <1364487682-5839-1-git-send-email-honkiko@gmail.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: [BUG] Crash with NULL pointer dereference in bond_handle_frame in
+ -rt (possibly mainline)
+Date: Thu, 28 Mar 2013 13:16:37 -0400
+Message-ID: <1364490997.6345.237.camel@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	davem@davemloft.net
-To: Hong Zhiguo <honkiko@gmail.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1364487682-5839-1-git-send-email-honkiko@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Nicolas de =?ISO-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Guy Streeter <streeter@redhat.com>,
+	"Paul E. McKenney" <paulmck@us.ibm.com>
+To: Jiri Pirko <jpirko@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Mar 2013 00:21:22 +0800
-Hong Zhiguo <honkiko@gmail.com> wrote:
+Hi,
 
-> Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
-> ---
->  net/bridge/br_netlink.c |   12 +++---------
->  1 file changed, 3 insertions(+), 9 deletions(-)
-> 
-> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-> index b96e02e..8e3abf5 100644
-> --- a/net/bridge/br_netlink.c
-> +++ b/net/bridge/br_netlink.c
-> @@ -352,17 +352,14 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
->  /* Change state and parameters on port. */
->  int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
->  {
-> -	struct ifinfomsg *ifm;
->  	struct nlattr *protinfo;
->  	struct nlattr *afspec;
->  	struct net_bridge_port *p;
->  	struct nlattr *tb[IFLA_BRPORT_MAX + 1];
->  	int err = 0;
->  
-> -	ifm = nlmsg_data(nlh);
-> -
-> -	protinfo = nlmsg_find_attr(nlh, sizeof(*ifm), IFLA_PROTINFO);
-> -	afspec = nlmsg_find_attr(nlh, sizeof(*ifm), IFLA_AF_SPEC);
-> +	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_PROTINFO);
-> +	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
->  	if (!protinfo && !afspec)
->  		return 0;
->  
-> @@ -411,14 +408,11 @@ out:
->  /* Delete port information */
->  int br_dellink(struct net_device *dev, struct nlmsghdr *nlh)
->  {
-> -	struct ifinfomsg *ifm;
->  	struct nlattr *afspec;
->  	struct net_bridge_port *p;
->  	int err;
->  
-> -	ifm = nlmsg_data(nlh);
-> -
-> -	afspec = nlmsg_find_attr(nlh, sizeof(*ifm), IFLA_AF_SPEC);
-> +	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
->  	if (!afspec)
->  		return 0;
->  
+I'm currently debugging a crash in an old 3.0-rt kernel that one of our
+customers is seeing. The bug happens with a stress test that loads and
+unloads the bonding module in a loop (I don't know all the details as
+I'm not the one that is directly interacting with the customer). But the
+bug looks to be something that may still be present and possibly present
+in mainline too. It will just be much harder to trigger it in mainline.
 
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+In -rt, interrupts are threads, and can schedule in and out just like
+any other thread. Note, mainline now supports interrupt threads so this
+may be easily reproducible in mainline as well. I don't have the ability
+to tell the customer to try mainline or other kernels, so my hands are
+somewhat tied to what I can do.
+
+But according to a core dump, I tracked down that the eth irq thread
+crashed in bond_handle_frame() here:
+
+	slave = bond_slave_get_rcu(skb->dev);
+	bond = slave->bond; <--- BUG
+
+
+the slave returned was NULL and accessing slave->bond caused a NULL
+pointer dereference.
+
+Looking at the code that unregisters the handler:
+
+void netdev_rx_handler_unregister(struct net_device *dev)
+{
+
+        ASSERT_RTNL();
+        RCU_INIT_POINTER(dev->rx_handler, NULL);
+        RCU_INIT_POINTER(dev->rx_handler_data, NULL);
+}
+
+Which is basically:
+	dev->rx_handler = NULL;
+	dev->rx_handler_data = NULL;
+
+And looking at __netif_receive_skb() we have:
+
+        rx_handler = rcu_dereference(skb->dev->rx_handler);
+        if (rx_handler) {
+                if (pt_prev) {
+                        ret = deliver_skb(skb, pt_prev, orig_dev);
+                        pt_prev = NULL;
+                }
+                switch (rx_handler(&skb)) {
+
+My question to all of you is, what stops this interrupt from happening
+while the bonding module is unloading?  What happens if the interrupt
+triggers and we have this:
+
+
+	CPU0			CPU1
+	----			----
+  rx_handler = skb->dev->rx_handler
+
+			netdev_rx_handler_unregister() {
+			   dev->rx_handler = NULL;
+			   dev->rx_handler_data = NULL;
+
+  rx_handler()
+   bond_handle_frame() {
+    slave = skb->dev->rx_handler;
+    bond = slave->bond; <-- NULL pointer dereference!!!
+
+
+What protection am I missing in the bond release handler that would
+prevent the above from happening?
+
+Thanks!
+
+-- Steve
