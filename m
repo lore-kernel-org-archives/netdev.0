@@ -1,86 +1,77 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next 00/19] IPVS optimizations, part 2
-Date: Thu, 28 Mar 2013 10:57:12 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1303281052370.2010@ja.ssi.bg>
-References: <1363945614-11752-1-git-send-email-ja@ssi.bg> <20130328054127.GC10171@verge.net.au>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20130328054127.GC10171@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/12] e1000e: additional error handling on PHY register accesses
+Date: Thu, 28 Mar 2013 02:00:04 -0700
+Message-ID: <1364461215-7793-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1364461215-7793-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:20438 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751087Ab3C1JAV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Mar 2013 05:00:21 -0400
+In-Reply-To: <1364461215-7793-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-	Hello,
+PHY reads/writes via the MDIC register could potentially return results
+from a previous PHY register access.  If that happens, the offset in the
+returned results will be that of the previous access and if that is
+different from the expected offset, log a debug message and error out.
 
-On Thu, 28 Mar 2013, Simon Horman wrote:
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/defines.h |  1 +
+ drivers/net/ethernet/intel/e1000e/phy.c     | 12 ++++++++++++
+ 2 files changed, 13 insertions(+)
 
-> On Fri, Mar 22, 2013 at 11:46:35AM +0200, Julian Anastasov wrote:
-> > 	This is the second patchset with IPVS optimizations.
-> > Now we convert the schedulers, dests and services to RCU.
-> > 
-> > 	All patches are for net-next based on the first
-> > patchset v3. The idea is after discussion and review Simon to
-> > apply the patchset after a week or so to ipvs-next tree.
-> > 
-> > 	The changes in this patchset eliminate global locks
-> > from packet processing by using RCU. There are more details
-> > in the patches.
-> > 
-> > 	After this patchset the situation is as follows:
-> > 
-> > - dests:
-> > 	- lookups under RCU lock allow ip_vs_dest_hold, used
-> > 	for binding dest to conn or to select dest by scheduler
-> > 	- dests are freed by dest_trash code long after grace period
-> > 
-> > - services:
-> > 	- no global read_lock
-> > 	- lookups under RCU lock allow scheduler to select
-> > 	dests under RCU lock
-> > 	- grace period implemented with IP_VS_WAIT_WHILE is
-> > 	gone allowing scheduler's dest selection and scheduler
-> > 	reconfiguration to run in parallel
-> > 
-> > - schedulers:
-> > 	- schedule method runs under RCU lock, needs _rcu
-> > 	if using svc->destinations, needs _bh suffix to locks
-> > 	because it can be called in LOCAL_OUT hook
-> > 	- when dest is added, the add_dest method is called
-> > 	instead of update_service
-> > 	- when dest is deleted, the del_dest method is called
-> > 	instead of update_service
-> > 	- when dest is updated, the upd_dest method is called
-> > 	instead of update_service
-> > 	- scheduler can hold dests in its state long after they are
-> > 	unlinked from svc, even without providing del_dest handler.
-> > 	But such dests must not be returned by the
-> > 	schedule method (needs IP_VS_DEST_F_AVAILABLE check)
-> > 	- sched_data must be freed after grace period and
-> > 	module exit should be delayed with synchronize_rcu
-> > 	to wait all RCU read-side critical sections to
-> > 	complete
-> > 
-> > - BH:
-> > 	- we do not disable BHs in LOCAL_OUT and sync code anymore
-> > 	- _bh suffixes are added to all places that need them,
-> > 	except timer handlers
-> 
-> Hi Julian,
-> 
-> what is the status of this series?
-> 
-> N.B: THis series is different to "[PATCH 00/15 v3] IPVS optimizations (repost)"
-
-	Yes, I posted 2 parts with optimizations. Part 1 is
-at v3 while part 2 is at its first version. Both series
-are ready for applying. BTW, Hans plans more tests in
-the next days, may be we will have some numbers for
-comparison.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
+index b7c664f..a6aeb19 100644
+--- a/drivers/net/ethernet/intel/e1000e/defines.h
++++ b/drivers/net/ethernet/intel/e1000e/defines.h
+@@ -788,6 +788,7 @@
+ 	GG82563_REG(194, 18) /* Inband Control */
+ 
+ /* MDI Control */
++#define E1000_MDIC_REG_MASK	0x001F0000
+ #define E1000_MDIC_REG_SHIFT 16
+ #define E1000_MDIC_PHY_SHIFT 21
+ #define E1000_MDIC_OP_WRITE  0x04000000
+diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
+index 60dbf02..cbb310f 100644
+--- a/drivers/net/ethernet/intel/e1000e/phy.c
++++ b/drivers/net/ethernet/intel/e1000e/phy.c
+@@ -178,6 +178,12 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
+ 		e_dbg("MDI Error\n");
+ 		return -E1000_ERR_PHY;
+ 	}
++	if (((mdic & E1000_MDIC_REG_MASK) >> E1000_MDIC_REG_SHIFT) != offset) {
++		e_dbg("MDI Read offset error - requested %d, returned %d\n",
++		      offset,
++		      (mdic & E1000_MDIC_REG_MASK) >> E1000_MDIC_REG_SHIFT);
++		return -E1000_ERR_PHY;
++	}
+ 	*data = (u16)mdic;
+ 
+ 	/* Allow some time after each MDIC transaction to avoid
+@@ -236,6 +242,12 @@ s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
+ 		e_dbg("MDI Error\n");
+ 		return -E1000_ERR_PHY;
+ 	}
++	if (((mdic & E1000_MDIC_REG_MASK) >> E1000_MDIC_REG_SHIFT) != offset) {
++		e_dbg("MDI Write offset error - requested %d, returned %d\n",
++		      offset,
++		      (mdic & E1000_MDIC_REG_MASK) >> E1000_MDIC_REG_SHIFT);
++		return -E1000_ERR_PHY;
++	}
+ 
+ 	/* Allow some time after each MDIC transaction to avoid
+ 	 * reading duplicate data in the next MDIC transaction.
+-- 
+1.7.11.7
