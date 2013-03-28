@@ -1,91 +1,152 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH net-next] vxlan: Provide means for obtaining port information
-Date: Thu, 28 Mar 2013 09:23:13 -0400
-Message-ID: <OF67C23F4E.05FEE247-ON85257B3C.0045D89E-85257B3C.00498794@us.ibm.com>
-References: <20130327212842.13367.68803.stgit@ahduyck-cp1.jf.intel.com> <20130327143849.29afdbdc@nehalam.linuxnetplumber.net> <51536929.9090109@intel.com>
+From: Balakumaran Kannan <kumaran.4353@gmail.com>
+Subject: [PATCH v2] net IPv6 : Fix broken IPv6 routing table after loopback down-up
+Date: Thu, 28 Mar 2013 18:57:15 +0530
+Message-ID: <CAHPKR9KE4LT_AEzUZ8cuJwBeMEEu0Ppe+jjynFQk7+N-A4YUmQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com, jesse@nicira.com,
-	joseph.gasparakis@intel.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, pshelar@nicira.com,
-	shemminger@vyatta.com,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Balakumaran.Kannan@ap.sony.com, maruthi.thotad@ap.sony.com,
+	netdev@vger.kernel.org, jamshed.a@ap.sony.com,
+	amit.agarwal@ap.sony.com, takuzo.ohara@jp.sony.com,
+	aaditya.kumar@ap.sony.com
+To: yoshfuji@linux-ipv6.org, davem@davemloft.net,
+	Patrick McHardy <kaber@trash.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
+	eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:50660 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755387Ab3C1NXZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Mar 2013 09:23:25 -0400
-Received: from /spool/local
-	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Thu, 28 Mar 2013 09:23:23 -0400
-In-Reply-To: <51536929.9090109@intel.com>
+Received: from mail-we0-f175.google.com ([74.125.82.175]:55237 "EHLO
+	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756014Ab3C1N1Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 09:27:16 -0400
+Received: by mail-we0-f175.google.com with SMTP id t11so5964751wey.20
+        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 06:27:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
- 
-> Yes this will break if we ended up supporting a different port per
-> VXLAN.  The problem is a port per VXLAN is going to be much more
-> difficult to support for any sort of hardware offload as well.  What we
-> end up having to do is add a significant number of filters just to
-> identify all of the possible ports that may be used. 
+IPv6 Routing table becomes broken once we do ifdown, ifup of the loopback(lo)
+interface. After down-up, routes of other interface's IPv6 addresses through
+'lo' are lost.
 
-        I assume this would only be an issue if you actually have lots
-of ports. If you're using only one, or a couple, which I'd expect to
-be the common case, your filtering needs should be the same, right?
+IPv6 addresses assigned to all interfaces are routed through 'lo' for internal
+communication. Once 'lo' is down, those routing entries are removed from
+routing table. But those removed entries are not being re-created properly when
+'lo' is brought up. So IPv6 addresses of other interfaces becomes unreachable
+from the same machine. Also this breaks communication with other machines
+because of NDISC packet processing failure.
 
-> In addition it
-> will mean having to add some sort of notifier as I mentioned in the
-> patch description since we will have VXLANs going into and out of
-> existence, each one with their own port number..
+This patch fixes this issue by reading all interface's IPv6 addresses and
+adding them to IPv6 routing table while bringing up 'lo'.
 
-        I don't know the context in which you're planning to call this,
-but regardless of the port or ports in use by VXLAN, the devices will
-come and go and the module may be unloaded, so I don't see how what
-you've said here applies to one case and not the other.
+Patch is prepared for Linux-3.9.rc4 kernel.
 
+Signed-off-by: Balakumaran Kannan <Balakumaran.Kannan@ap.sony.com>
+Signed-off-by: Maruthi Thotad <Maruthi.Thotad@ap.sm.sony.com>
+---
+This is version-2 of the patch sent earlier.
+[Ref: http://marc.info/?l=linux-netdev&m=136437848103355&w=2]
 
-> This was essentially a "good enough for now" fix to address the fact
-> that I needed the port number for offload testing, but I will sit back
-> and wait for the port per VXLAN stuff to be pushed in before I take any
-> steps to try to sort that out.
+Change Log:
+ 1. Used 'for_each_netdev_rcu' instead of while loop.
+ 2. Added required locks.
+ 3. Skipping IPv6 addresses with 'IFA_F_DADFAILED' or 'IFA_F_TENTATIVE' flags
 
-        What I was suggesting "for now" is that you create an interface
-that need not change to support multiple ports. For example:
+==Testing==
+Before applying the patch:
+$ route -A inet6
+Kernel IPv6 routing table
+Destination                    Next Hop                   Flag Met Ref Use If
+2000::20/128                   ::                         U    256 0     0 eth0
+fe80::/64                      ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+::1/128                        ::                         Un   0   1     0 lo
+2000::20/128                   ::                         Un   0   1     0 lo
+fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
+ff00::/8                       ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+$ sudo ifdown lo
+$ sudo ifup lo
+$ route -A inet6
+Kernel IPv6 routing table
+Destination                    Next Hop                   Flag Met Ref Use If
+2000::20/128                   ::                         U    256 0     0 eth0
+fe80::/64                      ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+::1/128                        ::                         Un   0   1     0 lo
+ff00::/8                       ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+$
 
-int vxlan_get_ports(struct net_device *dev, int *ports, int portcount)
-{
-        if (portcount <= 0 || vxlan_port == 0)
-                return 0;
-        if (ports)
-                ports[0] = vxlan_port;
-        return 1;
-}
+After applying the patch:
+$ route -A inet6
+Kernel IPv6 routing
+table
+Destination                    Next Hop                   Flag Met Ref Use If
+2000::20/128                   ::                         U    256 0     0 eth0
+fe80::/64                      ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+::1/128                        ::                         Un   0   1     0 lo
+2000::20/128                   ::                         Un   0   1     0 lo
+fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
+ff00::/8                       ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+$ sudo ifdown lo
+$ sudo ifup lo
+$ route -A inet6
+Kernel IPv6 routing table
+Destination                    Next Hop                   Flag Met Ref Use If
+2000::20/128                   ::                         U    256 0     0 eth0
+fe80::/64                      ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+::1/128                        ::                         Un   0   1     0 lo
+2000::20/128                   ::                         Un   0   1     0 lo
+fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
+ff00::/8                       ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+$
+---
+--- linux-3.9-rc4/net/ipv6/addrconf.c.orig	2013-03-27 10:40:26.382569527 +0530
++++ linux-3.9-rc4/net/ipv6/addrconf.c	2013-03-28 18:29:00.492241840 +0530
+@@ -2529,6 +2529,9 @@ static void sit_add_v4_addrs(struct inet
+ static void init_loopback(struct net_device *dev)
+ {
+ 	struct inet6_dev  *idev;
++	struct net_device *sp_dev;
++	struct inet6_ifaddr *sp_ifa;
++	struct rt6_info *sp_rt;
 
-The return value would be the count of ports in use, and we'd fill up to a 
-maximum
-of portcount in the "ports" array. If you don't have a "dev" you're 
-interested in,
-pass it as NULL and in the future this code would match dev only if it is 
-non-NULL;
-otherwise it would go through the vxlan device list adding ports not in 
-the list to it.
+ 	/* ::1 */
 
-And for the right functionality now, change the VXLAN driver to leave 
-vxlan_port
-zero until a device is instantiated, so you can detect no ports at the 
-moment,
-and set it to zero again when the last one is deleted.
+@@ -2540,6 +2543,33 @@ static void init_loopback(struct net_dev
+ 	}
 
-You need a mechanism to delete your filters if there are no VXLAN devices,
-whether or not multiple ports are supported, because "0" is a legal count
-now too. If I haven't created any vxlan devices, I can use port 8472 for
-something else and your loading of the vxlan driver as a side-effect of
-checking the port shouldn't prevent that. That's especially true in a
-distro release where, while I might be able to change the port, I'd have
-to burn one regardless if your driver were loaded, if it can't go without
-a binding when there are no vxlan devices on the system.
+ 	add_addr(idev, &in6addr_loopback, 128, IFA_HOST);
++
++	/* Add routes to other interface's IPv6 addresses */
++	rcu_read_lock();
++	for_each_netdev_rcu(dev_net(dev), sp_dev) {
++
++		if (!strcmp(sp_dev->name, dev->name))
++			continue;
++
++		idev = ipv6_find_idev(sp_dev);
++		if (NULL == idev)
++			continue;
++
++		read_lock_bh(&idev->lock);
++		list_for_each_entry(sp_ifa, &idev->addr_list, if_list) {
++
++			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
++				continue;
++
++			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
++
++			/* Failure cases are ignored */
++			if (!IS_ERR(sp_rt))
++				ip6_ins_rt(sp_rt);
++		}
++		read_unlock_bh(&idev->lock);
++	}
++	rcu_read_unlock();
+ }
 
-                                                                +-DLS
+ static void addrconf_add_linklocal(struct inet6_dev *idev, const
+struct in6_addr *addr)
