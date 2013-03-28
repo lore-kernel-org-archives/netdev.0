@@ -1,39 +1,43 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH net-next] core: simplify the getting percpu of flow_cache
-Date: Thu, 28 Mar 2013 20:24:11 +0800
-Message-ID: <1364473451-3640-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f51.google.com ([209.85.214.51]:54069 "EHLO
-	mail-bk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755676Ab3C1MYT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 08:24:19 -0400
-Received: by mail-bk0-f51.google.com with SMTP id y8so2012286bkt.24
-        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 05:24:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: Re: 3.7.10 kernel crash
+Date: Thu, 28 Mar 2013 08:35:47 -0400
+Message-ID: <1364474147.3261.1.camel@thor.lan>
+References: <CADpTngWo_c0MHNwYEFwSR_9KQrWKrOVgQSze+rZc4Ze9Rj2hsw@mail.gmail.com>
+	 <CADpTngW8RTVX28bVJQe5tV_ccc+FNOJezeQbczXFudy+7bMRDQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	netdev@vger.kernel.org, Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+To: Fabio Coatti <fabio.coatti@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CADpTngW8RTVX28bVJQe5tV_ccc+FNOJezeQbczXFudy+7bMRDQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Li RongQing <roy.qing.li@gmail.com>
 
-replace per_cpu with per_cpu_ptr to save conversion between address and pointer
+[ +cc Matt Carlson, Michael Chan, netdev because this is a tg3-related oops]
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/core/flow.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Thu, 2013-03-28 at 09:31 +0100, Fabio Coatti wrote:
+> 2013/3/27 Fabio Coatti <fabio.coatti@gmail.com>:
+> > Hi all,
+> > we are experiencing crashes on some servers, right now running 3.7.10;
+> > I've been able to get only screenshots from dying server that I
+> > attached below. Probably we can exclude hardware issues, as it
+> > happened on two different servers.
+> 
+> Further information: those crashes seems to happen only when the
+> machine is heavily loaded (process, network and so on). We have seen
+> this pattern several times.
 
-diff --git a/net/core/flow.c b/net/core/flow.c
-index 7fae135..707fb7b 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -334,7 +334,7 @@ static int flow_cache_percpu_empty(struct flow_cache *fc, int cpu)
- 	struct flow_cache_percpu *fcp;
- 	int i;
- 
--	fcp = &per_cpu(*fc->percpu, cpu);
-+	fcp = per_cpu_ptr(fc->percpu, cpu);
- 	for (i = 0; i < flow_cache_hash_size(fc); i++)
- 		if (!hlist_empty(&fcp->hash_table[i]))
- 			return 0;
--- 
-1.7.10.4
+I would recommend capturing the entire oops text (it will likely be
+necessary anyway for someone to properly identify and fix the cause).
+
+If the machine has a 2nd network port, then use netconsole on that
+interface. If not, set up a serial console or try to get 50-line VGA
+working.
+
+Regards,
+Peter Hurley
