@@ -1,149 +1,126 @@
-From: Balakumaran Kannan <kumaran.4353@gmail.com>
-Subject: Re: [PATCH v2] net IPv6 : Fix broken IPv6 routing table after
- loopback down-up
-Date: Thu, 28 Mar 2013 20:44:36 +0530
-Message-ID: <CAHPKR9J=niSHrGmeX7ZM-1fosjnRA_CFrfd+ha3zwNibNGe1bg@mail.gmail.com>
-References: <CAHPKR9KE4LT_AEzUZ8cuJwBeMEEu0Ppe+jjynFQk7+N-A4YUmQ@mail.gmail.com>
-	<1364478265.15753.42.camel@edumazet-glaptop>
-	<1364478316.15753.43.camel@edumazet-glaptop>
-	<CAHPKR9L4Y0=cbH7w_iZ20CBsH=nt4UuZwyBvDOMSrMmM_sJt1w@mail.gmail.com>
-	<CAHPKR9J4vmPp6SFn-betmb6GLimZE6dRf0Tapeu5jzyUJ=vK6Q@mail.gmail.com>
+From: Benoit Lourdelet <blourdel@juniper.net>
+Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
+Date: Thu, 28 Mar 2013 15:21:48 +0000
+Message-ID: <CD7A1D9A.78BA%blourdel@juniper.net>
+References: <20130328150410.GA22789@sergelap>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yoshfuji@linux-ipv6.org, davem@davemloft.net,
-	Patrick McHardy <kaber@trash.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
-	Balakumaran.Kannan@ap.sony.com, maruthi.thotad@ap.sony.com,
-	netdev@vger.kernel.org, jamshed.a@ap.sony.com,
-	amit.agarwal@ap.sony.com, takuzo.ohara@jp.sony.com,
-	aaditya.kumar@ap.sony.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Serge Hallyn <serge.hallyn@ubuntu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:34193 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751697Ab3C1PUH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 11:20:07 -0400
-Received: by mail-wi0-f177.google.com with SMTP id hm14so3348302wib.4
-        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 08:20:06 -0700 (PDT)
-In-Reply-To: <CAHPKR9J4vmPp6SFn-betmb6GLimZE6dRf0Tapeu5jzyUJ=vK6Q@mail.gmail.com>
+Received: from exprod7og108.obsmtp.com ([64.18.2.169]:46151 "EHLO
+	exprod7og108.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755479Ab3C1PXj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 11:23:39 -0400
+Received: from mail130-co1 (localhost [127.0.0.1])	by
+ mail130-co1-R.bigfish.com (Postfix) with ESMTP id 62BADD60474	for
+ <netdev@vger.kernel.org.FOPE.CONNECTOR.OVERRIDE>; Thu, 28 Mar 2013 15:21:54
+ +0000 (UTC)
+In-Reply-To: <20130328150410.GA22789@sergelap>
+Content-Language: en-US
+Content-ID: <25343ABC19FCB641A1FF04B144EE1AFA@namprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPv6 Routing table becomes broken once we do ifdown, ifup of the loopback(lo)
-interface. After down-up, routes of other interface's IPv6 addresses through
-'lo' are lost.
+I use, for each container :
 
-IPv6 addresses assigned to all interfaces are routed through 'lo' for internal
-communication. Once 'lo' is down, those routing entries are removed from
-routing table. But those removed entries are not being re-created properly when
-'lo' is brought up. So IPv6 addresses of other interfaces becomes unreachable
-from the same machine. Also this breaks communication with other machines
-because of NDISC packet processing failure.
+lxc-start -n lwb2001 -f /var/lib/lxc/lwb2001/config -d
 
-This patch fixes this issue by reading all interface's IPv6 addresses and
-adding them to IPv6 routing table while bringing up 'lo'.
+I created the containers with lxc-ubuntu -n lwb2001
 
-Patch is prepared for Linux-3.9.rc4 kernel.
+Benoit
 
-Signed-off-by: Balakumaran Kannan <Balakumaran.Kannan@ap.sony.com>
-Signed-off-by: Maruthi Thotad <Maruthi.Thotad@ap.sony.com>
----
-==Testing==
-Before applying the patch:
-$ route -A inet6
-Kernel IPv6 routing table
-Destination                    Next Hop                   Flag Met Ref Use If
-2000::20/128                   ::                         U    256 0     0 eth0
-fe80::/64                      ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-::1/128                        ::                         Un   0   1     0 lo
-2000::20/128                   ::                         Un   0   1     0 lo
-fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
-ff00::/8                       ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-$ sudo ifdown lo
-$ sudo ifup lo
-$ route -A inet6
-Kernel IPv6 routing table
-Destination                    Next Hop                   Flag Met Ref Use If
-2000::20/128                   ::                         U    256 0     0 eth0
-fe80::/64                      ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-::1/128                        ::                         Un   0   1     0 lo
-ff00::/8                       ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-$
+On 28/03/2013 16:04, "Serge Hallyn" <serge.hallyn@ubuntu.com> wrote:
 
-After applying the patch:
-$ route -A inet6
-Kernel IPv6 routing
-table
-Destination                    Next Hop                   Flag Met Ref Use If
-2000::20/128                   ::                         U    256 0     0 eth0
-fe80::/64                      ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-::1/128                        ::                         Un   0   1     0 lo
-2000::20/128                   ::                         Un   0   1     0 lo
-fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
-ff00::/8                       ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-$ sudo ifdown lo
-$ sudo ifup lo
-$ route -A inet6
-Kernel IPv6 routing table
-Destination                    Next Hop                   Flag Met Ref Use If
-2000::20/128                   ::                         U    256 0     0 eth0
-fe80::/64                      ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-::1/128                        ::                         Un   0   1     0 lo
-2000::20/128                   ::                         Un   0   1     0 lo
-fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
-ff00::/8                       ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-$
----
---- linux-3.9-rc4/net/ipv6/addrconf.c.orig	2013-03-27 10:40:26.382569527 +0530
-+++ linux-3.9-rc4/net/ipv6/addrconf.c	2013-03-28 20:33:59.908228232 +0530
-@@ -2529,6 +2529,9 @@ static void sit_add_v4_addrs(struct inet
- static void init_loopback(struct net_device *dev)
- {
- 	struct inet6_dev  *idev;
-+	struct net_device *sp_dev;
-+	struct inet6_ifaddr *sp_ifa;
-+	struct rt6_info *sp_rt;
-
- 	/* ::1 */
-
-@@ -2540,6 +2543,31 @@ static void init_loopback(struct net_dev
- 	}
-
- 	add_addr(idev, &in6addr_loopback, 128, IFA_HOST);
-+
-+	/* Add routes to other interface's IPv6 addresses */
-+	for_each_netdev(dev_net(dev), sp_dev) {
-+
-+		if (!strcmp(sp_dev->name, dev->name))
-+			continue;
-+
-+		idev = __in6_dev_get(sp_dev);
-+		if (NULL == idev)
-+			continue;
-+
-+		read_lock_bh(&idev->lock);
-+		list_for_each_entry(sp_ifa, &idev->addr_list, if_list) {
-+
-+			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
-+				continue;
-+
-+			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
-+
-+			/* Failure cases are ignored */
-+			if (!IS_ERR(sp_rt))
-+				ip6_ins_rt(sp_rt);
-+		}
-+		read_unlock_bh(&idev->lock);
-+	}
- }
-
- static void addrconf_add_linklocal(struct inet6_dev *idev, const
-struct in6_addr *addr)
+>Quoting Benoit Lourdelet (blourdel@juniper.net):
+>> Hello,
+>> 
+>> My test consists in starting small containers (10MB of RAM ) each. Each
+>> container has 2x physical VLAN interfaces attached.
+>
+>Which commands were you using to create/start them?
+>
+>> lxc.network.type = phys
+>> lxc.network.flags = up
+>> lxc.network.link = eth6.3
+>> lxc.network.name = eth2
+>> lxc.network.hwaddr = 00:50:56:a8:03:03
+>> lxc.network.ipv4 = 192.168.1.1/24
+>> lxc.network.type = phys
+>> lxc.network.flags = up
+>> lxc.network.link = eth7.3
+>> lxc.network.name = eth1
+>> lxc.network.ipv4 = 2.2.2.2/24
+>> lxc.network.hwaddr = 00:50:57:b8:00:01
+>> 
+>> 
+>> 
+>> With initial iproute2 , when I reach around 1600 containers, container
+>> creation almost stops.It takes at least 20s per container to start.
+>> With patched iproutes2 , I have started 4000 containers at a rate of 1
+>>per
+>> second w/o problem. I have 8000 clan interfaces configured on the host
+>>(2x
+>> 4000).
+>> 
+>> 
+>> Regards
+>> 
+>> Benoit
+>> 
+>> On 28/03/2013 14:36, "Serge Hallyn" <serge.hallyn@ubuntu.com> wrote:
+>> 
+>> >Quoting Eric W. Biederman (ebiederm@xmission.com):
+>> >> Serge Hallyn <serge.hallyn@ubuntu.com> writes:
+>> >> 
+>> >> > Quoting Eric W. Biederman (ebiederm@xmission.com):
+>> >> >> Serge Hallyn <serge.hallyn@ubuntu.com> writes:
+>> >> >> 
+>> >> >> > Quoting Eric W. Biederman (ebiederm@xmission.com):
+>> >> >> >> Stephen Hemminger <stephen@networkplumber.org> writes:
+>> >> >> >> 
+>> >> >> >> > If you need to do lots of operations the --batch mode will be
+>> >>significantly faster.
+>> >> >> >> > One command start and one link map.
+>> >> >> >> 
+>> >> >> >> The problem in this case as I understand it is lots of
+>>independent
+>> >> >> >> operations. Now maybe lxc should not shell out to ip and
+>>perform
+>> >>the
+>> >> >> >> work itself.
+>> >> >> >
+>> >> >> > fwiw lxc uses netlink to create new veths, and picks random
+>>names
+>> >>with
+>> >> >> > mktemp() ahead of time.
+>> >> >> 
+>> >> >> I am puzzled where does the slownes in iproute2 come into play?
+>> >> >
+>> >> > Benoit originally reported slowness when starting >1500
+>>containers.  I
+>> >> > asked him to run a few manual tests to figure out what was taking
+>>the
+>> >> > time.  Manually creating a large # of veths was an obvious test,
+>>and
+>> >> > one which showed poorly scaling performance.
+>> >> 
+>> >> Apparently iproute is involved somehwere as when he tested with a
+>> >> patched iproute (as you asked him to) the lxc startup slowdown was
+>> >> gone.
+>> >> 
+>> >> > May well be there are other things slowing down lxc of course.
+>> >> 
+>> >> The evidence indicates it was iproute being called somewhere...
+>> >
+>> >Benoit can you tell us exactly what test you were running when you saw
+>> >the slowdown was gone?
+>> >
+>> >-serge
+>> >
+>> 
+>> 
+>
