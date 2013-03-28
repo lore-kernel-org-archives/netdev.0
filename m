@@ -1,96 +1,31 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or
- Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba
- (updated) Version 2
-Date: Thu, 28 Mar 2013 03:25:29 +0000
-Message-ID: <157393863283F442885425D2C45428564F201026@nasanexd02f.na.qualcomm.com>
-References: <20130326044025.GD29705@order.stressinduktion.org>
- <157393863283F442885425D2C4542856489E8232@nasanexd02f.na.qualcomm.com>
- <20130327220248.GD23223@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F1FDF82@nasanexd02f.na.qualcomm.com>
- <20130327223433.GE23223@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F1FFFCE@nasanexd02f.na.qualcomm.com>
- <20130328004024.GA2176@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F200FE9@nasanexd02f.na.qualcomm.com>
- <20130328011602.GB2176@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F200FFD@nasanexd02f.na.qualcomm.com>
- <20130328031932.GC2176@order.stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bnx2x: fix compilation without
+ CONFIG_BNX2X_SRIOV
+Date: Wed, 27 Mar 2013 23:26:42 -0400 (EDT)
+Message-ID: <20130327.232642.1821114868784632446.davem@davemloft.net>
+References: <1364410570-18129-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Sven Hartge <sven@svenhartge.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dmitry@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabertooth02.qualcomm.com ([65.197.215.38]:39434 "EHLO
-	sabertooth02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755224Ab3C1DZb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 23:25:31 -0400
-In-Reply-To: <20130328031932.GC2176@order.stressinduktion.org>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:35722 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752930Ab3C1D0n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 23:26:43 -0400
+In-Reply-To: <1364410570-18129-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UGxlYXNlIGRvbid0IHJldmlzZSBmb2xsb3dpbmcgY29kZToNCg0KCQkJcnhfcGFnZS0+cmVhZF9v
-ZmZzZXQgKz0NCgkJCQkoKCh1MzIpKChwcnJzLT53b3JkMSA+PiBSUlNfUEtUX1NJWkVfU0hJRlQp
-ICYNCgkJCQlSUlNfUEtUX1NJWkVfTUFTSykgKw0KCQkJCXNpemVvZihzdHJ1Y3QgYXRsMWVfcmVj
-dl9yZXRfc3RhdHVzKSArIDMxKSAmDQoJCQkJCQkweEZGRkZGRkUwKTsNCg0KSGVyZSAzMmJ5dGVz
-IGFsaWdubWVudCBpcyBubyBtYXR0ZXIgd2l0aCBQYWdlIGFsaWdubWVudC4NCg0KVGhhbmtzDQpY
-aW9uZw0KDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSGFubmVzIEZy
-ZWRlcmljIFNvd2EgW21haWx0bzpoYW5uZXNAc3RyZXNzaW5kdWt0aW9uLm9yZ10NCj4gU2VudDog
-VGh1cnNkYXksIE1hcmNoIDI4LCAyMDEzIDExOjIwIEFNDQo+IFRvOiBIdWFuZywgWGlvbmcNCj4g
-Q2M6IFN2ZW4gSGFydGdlOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBB
-dGhlcm9zIENvbW11bmljYXRpb25zIEluYy4gQVI4MTIxL0FSODExMy9BUjgxMTQgR2lnYWJpdCBv
-cg0KPiBGYXN0IEV0aGVybmV0IChyZXYgYjApIDEuMC4wLjcgbWQ1L3NoYTEgY29ycnVwdGVkIHVz
-aW5nIE5GUyBhbmQgc2FtYmENCj4gKHVwZGF0ZWQpIFZlcnNpb24gMg0KPiANCj4gT24gVGh1LCBN
-YXIgMjgsIDIwMTMgYXQgMDE6MTc6NTNBTSArMDAwMCwgSHVhbmcsIFhpb25nIHdyb3RlOg0KPiA+
-ID4NCj4gPiA+IFdlIHdpbGwgdHJ5IHRvIGdvIHdpdGggUlhRX0NUUkxfUEJBX0FMSUdOXzI1NiBp
-biBSRUdfUlhRX0NUUkwgbmV4dC4NCj4gPiA+IEp1c3QgaGF2ZSB0byBjaGVjayB0aGUgcmluZyBy
-ZXNvdXJjZXMgYXJlIGluaXRpYWxpemVkIGNvcnJlY3RseS4NCj4gPiA+DQo+ID4gPiBUaGFua3Ms
-DQo+ID4NCj4gPg0KPiA+IEFMSUdOXzI1NiByZXF1aXJlIHRoZSBSWEYgcGFnZSAyNTYgYnl0ZSBh
-bGlnbm1lbnQsIHlvdSBzaG91bGQgYWxzbyByZXZpc2UNCj4gdGhlIG1lbW9yeSBhbGxvY2F0aW9u
-IGZ1bmN0aW9uLg0KPiANCj4gQ291bGQgeW91IGhhdmUgYSBsb29rIGF0IHRoZSBmb2xsb3dpbmcg
-ZGlmZj8gSXQgZG9lcyBub3Qgd29yayBlaXRoZXIuIFBlcmhhcHMNCj4gc29tZXRoaW5nIGlzIHdy
-b25nIGluIHRoZSBjYWxjdWxhdGlvbnMgKGJ1dCB0aGVyZSBhcmUgbm8gc2VxIG51bWJlcg0KPiBt
-aXNtYXRjaGVzKS4NCj4gDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9hdGhl
-cm9zL2F0bDFlL2F0bDFlX21haW4uYw0KPiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2F0aGVyb3Mv
-YXRsMWUvYXRsMWVfbWFpbi5jDQo+IGluZGV4IGUxZjFiMmEuLjUyNjQ4MTAgMTAwNjQ0DQo+IC0t
-LSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2F0aGVyb3MvYXRsMWUvYXRsMWVfbWFpbi5jDQo+ICsr
-KyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2F0aGVyb3MvYXRsMWUvYXRsMWVfbWFpbi5jDQo+IEBA
-IC02OTcsNyArNjk3LDcgQEAgc3RhdGljIHZvaWQgYXRsMWVfY2FsX3Jpbmdfc2l6ZShzdHJ1Y3Qg
-YXRsMWVfYWRhcHRlcg0KPiAqYWRhcHRlciwgdTMyICpyaW5nX3NpemUpDQo+ICAJCSAgICAgc2l6
-ZW9mKHN0cnVjdCBhdGwxZV90cGRfZGVzYykgKyA3DQo+ICAJCQkvKiB0eCByaW5nLCBxd29yZCBh
-bGlnbiAqLw0KPiAgCQkgICAgICsgYWRhcHRlci0+cnhfcmluZy5yZWFsX3BhZ2Vfc2l6ZSAqDQo+
-IEFUX1BBR0VfTlVNX1BFUl9RVUVVRSAqDQo+IC0JCQlhZGFwdGVyLT5udW1fcnhfcXVldWVzICsg
-MzENCj4gKwkJCWFkYXB0ZXItPm51bV9yeF9xdWV1ZXMgKyAyNTUNCj4gIAkJCS8qIHJ4IHJpbmcs
-ICAzMiBieXRlcyBhbGlnbiAqLw0KPiAgCQkgICAgICsgKDEgKyBBVF9QQUdFX05VTV9QRVJfUVVF
-VUUgKiBhZGFwdGVyLQ0KPiA+bnVtX3J4X3F1ZXVlcykgKg0KPiAgCQkJc2l6ZW9mKHUzMikgKyAz
-KSk7DQo+IEBAIC03MTQsNyArNzE0LDcgQEAgc3RhdGljIHZvaWQgYXRsMWVfaW5pdF9yaW5nX3Jl
-c291cmNlcyhzdHJ1Y3QNCj4gYXRsMWVfYWRhcHRlciAqYWRhcHRlcikNCj4gIAkJCQkgKyBhZGFw
-dGVyLT5ody5tYXhfZnJhbWVfc2l6ZQ0KPiAgCQkJCSArIEVUSF9ITEVOICsgVkxBTl9ITEVODQo+
-ICAJCQkJICsgRVRIX0ZDU19MRU47DQo+IC0JcnhfcmluZy0+cmVhbF9wYWdlX3NpemUgPSByb3Vu
-ZHVwKHJ4X3JpbmctPnJlYWxfcGFnZV9zaXplLCAzMik7DQo+ICsJcnhfcmluZy0+cmVhbF9wYWdl
-X3NpemUgPSByb3VuZHVwKHJ4X3JpbmctPnJlYWxfcGFnZV9zaXplLCAyNTYpOw0KPiAgCWF0bDFl
-X2NhbF9yaW5nX3NpemUoYWRhcHRlciwgJmFkYXB0ZXItPnJpbmdfc2l6ZSk7DQo+IA0KPiAgCWFk
-YXB0ZXItPnJpbmdfdmlyX2FkZHIgPSBOVUxMOw0KPiBAQCAtODI1LDcgKzgyNSw3IEBAIHN0YXRp
-YyBpbnQgYXRsMWVfc2V0dXBfcmluZ19yZXNvdXJjZXMoc3RydWN0DQo+IGF0bDFlX2FkYXB0ZXIg
-KmFkYXB0ZXIpDQo+IA0KPiAgCS8qIEluaXQgUlhGLVBhZ2VzICovDQo+ICAJb2Zmc2V0ICs9IChz
-aXplb2Yoc3RydWN0IGF0bDFlX3RwZF9kZXNjKSAqIHR4X3JpbmctPmNvdW50KTsNCj4gLQlvZmZz
-ZXQgPSByb3VuZHVwKG9mZnNldCwgMzIpOw0KPiArCW9mZnNldCA9IHJvdW5kdXAob2Zmc2V0LCAy
-NTYpOw0KPiANCj4gIAlmb3IgKGkgPSAwOyBpIDwgYWRhcHRlci0+bnVtX3J4X3F1ZXVlczsgaSsr
-KSB7DQo+ICAJCWZvciAoaiA9IDA7IGogPCBBVF9QQUdFX05VTV9QRVJfUVVFVUU7IGorKykgeyBA
-QCAtMTAwMyw3DQo+ICsxMDAzLDcgQEAgc3RhdGljIGlubGluZSB2b2lkIGF0bDFlX2NvbmZpZ3Vy
-ZV9yeChzdHJ1Y3QgYXRsMWVfYWRhcHRlcg0KPiAqYWRhcHRlcikNCj4gIAkJcnhxX2N0cmxfZGF0
-YSB8PQ0KPiAgCQkJKFJYUV9DVFJMX0hBU0hfRU5BQkxFIHwNCj4gUlhRX0NUUkxfUlNTX01PREVf
-TVFVRVNJTlQpOw0KPiANCj4gLQlyeHFfY3RybF9kYXRhIHw9IFJYUV9DVFJMX0lQVjZfWFNVTV9W
-RVJJRllfRU4gfA0KPiBSWFFfQ1RSTF9QQkFfQUxJR05fMzIgfA0KPiArCXJ4cV9jdHJsX2RhdGEg
-fD0gUlhRX0NUUkxfSVBWNl9YU1VNX1ZFUklGWV9FTiB8DQo+IFJYUV9DVFJMX1BCQV9BTElHTl8y
-NTYNCj4gK3wNCj4gIAkJCSBSWFFfQ1RSTF9DVVRfVEhSVV9FTiB8IFJYUV9DVFJMX0VOOw0KPiAN
-Cj4gIAlBVF9XUklURV9SRUcoaHcsIFJFR19SWFFfQ1RSTCwgcnhxX2N0cmxfZGF0YSk7IEBAIC0x
-NDQ0LDgNCj4gKzE0NDQsOCBAQCBza2lwX3BrdDoNCj4gIAkJCXJ4X3BhZ2UtPnJlYWRfb2Zmc2V0
-ICs9DQo+ICAJCQkJKCgodTMyKSgocHJycy0+d29yZDEgPj4NCj4gUlJTX1BLVF9TSVpFX1NISUZU
-KSAmDQo+ICAJCQkJUlJTX1BLVF9TSVpFX01BU0spICsNCj4gLQkJCQlzaXplb2Yoc3RydWN0IGF0
-bDFlX3JlY3ZfcmV0X3N0YXR1cykgKyAzMSkgJg0KPiAtCQkJCQkJMHhGRkZGRkZFMCk7DQo+ICsJ
-CQkJc2l6ZW9mKHN0cnVjdCBhdGwxZV9yZWN2X3JldF9zdGF0dXMpICsgMjU1KSAmDQo+ICsJCQkJ
-CQkweEZGRkZGRjAwKTsNCj4gDQo+ICAJCQlpZiAocnhfcGFnZS0+cmVhZF9vZmZzZXQgPj0gcnhf
-cmluZy0+cGFnZV9zaXplKSB7DQo+ICAJCQkJLyogbWFyayB0aGlzIHBhZ2UgY2xlYW4gKi8NCg==
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Date: Wed, 27 Mar 2013 20:56:10 +0200
+
+> Move mutex initialization by allocation of the mailbox it protects.
+> 
+> introduced in commit 1d6f3cd89 'bnx2x: Prevent VF race'
+> 
+> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+
+Applied, thanks.
