@@ -1,99 +1,72 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: Bug in ks8851.c
-Date: Thu, 28 Mar 2013 12:31:54 -0700
-Message-ID: <CA+55aFyAAEvm4KMc2ERGbwUxNH==PJ440nW1aDf3wwxEipXKfw@mail.gmail.com>
-References: <OF7BC8BFEB.18C33C7E-ON44257B3C.0064CB53-44257B3C.00652C31@gb.elster.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2] net IPv6 : Fix broken IPv6 routing table after
+ loopback down-up
+Date: Thu, 28 Mar 2013 12:39:57 -0700
+Message-ID: <20130328193957.GH3337@linux.vnet.ibm.com>
+References: <CAHPKR9KE4LT_AEzUZ8cuJwBeMEEu0Ppe+jjynFQk7+N-A4YUmQ@mail.gmail.com>
+ <1364478265.15753.42.camel@edumazet-glaptop>
+ <20130328182356.GE3337@linux.vnet.ibm.com>
+ <1364496577.15753.51.camel@edumazet-glaptop>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=bcaec5040e060af93104d901359d
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	trivial@rustcorp.com.au
-To: Max.Nekludov@us.elster.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Stephen Boyd <sboyd@codeaurora.org>,
-	Matt Renzelmann <mjr@cs.wisc.edu>,
-	Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <OF7BC8BFEB.18C33C7E-ON44257B3C.0064CB53-44257B3C.00652C31@gb.elster.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Balakumaran Kannan <kumaran.4353@gmail.com>,
+	yoshfuji@linux-ipv6.org, davem@davemloft.net,
+	Patrick McHardy <kaber@trash.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
+	Balakumaran.Kannan@ap.sony.com, maruthi.thotad@ap.sony.com,
+	netdev@vger.kernel.org, jamshed.a@ap.sony.com,
+	amit.agarwal@ap.sony.com, takuzo.ohara@jp.sony.com,
+	aaditya.kumar@ap.sony.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:60728 "EHLO e8.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751145Ab3C1Tku (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Mar 2013 15:40:50 -0400
+Received: from /spool/local
+	by e8.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Thu, 28 Mar 2013 15:40:49 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 6490E38C804F
+	for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 15:40:46 -0400 (EDT)
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r2SJej8K347094
+	for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 15:40:45 -0400
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r2SJgdoF031309
+	for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 13:42:41 -0600
+Content-Disposition: inline
+In-Reply-To: <1364496577.15753.51.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---bcaec5040e060af93104d901359d
-Content-Type: text/plain; charset=UTF-8
+On Thu, Mar 28, 2013 at 11:49:37AM -0700, Eric Dumazet wrote:
+> On Thu, 2013-03-28 at 11:23 -0700, Paul E. McKenney wrote:
+> 
+> > 
+> > Agreed, there is no point in using RCU when it is not needed.
+> > 
+> > That said...
+> > 
+> > Since v3.1, in CONFIG_PREEMPT=y kernels, rcu_read_lock() does not
+> > disable preemption.  In CONFIG_PREEMPT=n kernels, rcu_read_lock() does
+> > disable preemption, but to no effect because preemption is already
+> > disabled anyway.
+> > 
+> > The net effect is that rcu_read_lock() has no effect on preemption.
+> > 
+> 
+> Good point, but this patch might be a stable candidate.
+> 
+> Rule of thumb for networking is 
+> 
+> 1) Control path : RTNL mutex
+> 
+> 2) Data path : RTNL cant be taken (from softirq), so use RCU if
+> possible.
 
-Max,
- please cc the actual maintainers of the driver. The patch looks sane,
-though. I assume you've tested it in practice?
+Stable candidate and rules of thumb sound good to me!
 
-You also seem to have based this on an ancient version, the code has
-long since moved from drivers/net/ks8851.c to
-drivers/net/ethernet/micrel/ks8851.c (back in June of 2011), and it's
-missing a sign-off from you.
-
-I'm attaching an updated patch for the rename/capitalization issue.
-
-     Linus
-
-On Thu, Mar 28, 2013 at 11:25 AM,  <Max.Nekludov@us.elster.com> wrote:
->
-> According to the Datasheet (page 52):
-> 15-12 Reserved
-> 11-0 RXBC Receive Byte Count
-> This field indicates the present received frame byte size.
->
-> I suppose the code has a bug:
->                 rxh = ks8851_rdreg32(ks, KS_RXFHSR);
->                 rxstat = rxh & 0xffff;
->                 rxlen = rxh >> 16; // BUG!!! 0xFFF mask should be applied
->
-> P.S.
-> without bit mask applied I saw rxlen equal to 15360 which is bigger then
-> entire RX queue size (12KB).
->
-> Thanks,
-> Max Nekludov
->
-> From cb3199cee4490f98d6062e32a75ca377a32b55bc Mon Sep 17 00:00:00 2001
-> From: Max Neklyudov <macscomp@gmail.com>
-> Date: Tue, 26 Mar 2013 11:46:57 +0400
-> Subject: [PATCH] Fix bug in ks8851 driver
->
-> ---
->  drivers/net/ks8851.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ks8851.c b/drivers/net/ks8851.c
-> index 91a93cb..0dc03da 100644
-> --- a/drivers/net/ks8851.c
-> +++ b/drivers/net/ks8851.c
-> @@ -553,7 +553,7 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
->         for (; rxfc != 0; rxfc--) {
->                 rxh = ks8851_rdreg32(ks, KS_RXFHSR);
->                 rxstat = rxh & 0xffff;
-> -               rxlen = rxh >> 16;
-> +               rxlen = (rxh >> 16) & 0xFFF;
->
->                 netif_dbg(ks, rx_status, ks->netdev,
->                           "rx: stat 0x%04x, len 0x%04x\n", rxstat, rxlen);
-> --
-> 1.7.10.4
->
-
---bcaec5040e060af93104d901359d
-Content-Type: application/octet-stream; name="patch.diff"
-Content-Disposition: attachment; filename="patch.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_heubigou0
-
-IGRyaXZlcnMvbmV0L2V0aGVybmV0L21pY3JlbC9rczg4NTEuYyB8IDIgKy0KIDEgZmlsZSBjaGFu
-Z2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMv
-bmV0L2V0aGVybmV0L21pY3JlbC9rczg4NTEuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L21pY3Jl
-bC9rczg4NTEuYwppbmRleCAzM2JjYjYzZDU2YTIuLjhmYjQ4MTI1MmUyYyAxMDA2NDQKLS0tIGEv
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvbWljcmVsL2tzODg1MS5jCisrKyBiL2RyaXZlcnMvbmV0L2V0
-aGVybmV0L21pY3JlbC9rczg4NTEuYwpAQCAtNTI4LDcgKzUyOCw3IEBAIHN0YXRpYyB2b2lkIGtz
-ODg1MV9yeF9wa3RzKHN0cnVjdCBrczg4NTFfbmV0ICprcykKIAlmb3IgKDsgcnhmYyAhPSAwOyBy
-eGZjLS0pIHsKIAkJcnhoID0ga3M4ODUxX3JkcmVnMzIoa3MsIEtTX1JYRkhTUik7CiAJCXJ4c3Rh
-dCA9IHJ4aCAmIDB4ZmZmZjsKLQkJcnhsZW4gPSByeGggPj4gMTY7CisJCXJ4bGVuID0gKHJ4aCA+
-PiAxNikgJiAweGZmZjsKIAogCQluZXRpZl9kYmcoa3MsIHJ4X3N0YXR1cywga3MtPm5ldGRldiwK
-IAkJCSAgInJ4OiBzdGF0IDB4JTA0eCwgbGVuIDB4JTA0eFxuIiwgcnhzdGF0LCByeGxlbik7Cg==
---bcaec5040e060af93104d901359d--
+							Thanx, Paul
