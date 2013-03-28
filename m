@@ -1,66 +1,41 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or
- Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba
- (updated) Version 2
-Date: Thu, 28 Mar 2013 03:39:33 +0000
-Message-ID: <157393863283F442885425D2C45428564F201039@nasanexd02f.na.qualcomm.com>
-References: <20130327220248.GD23223@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F1FDF82@nasanexd02f.na.qualcomm.com>
- <20130327223433.GE23223@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F1FFFCE@nasanexd02f.na.qualcomm.com>
- <20130328004024.GA2176@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F200FE9@nasanexd02f.na.qualcomm.com>
- <20130328011602.GB2176@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F200FFD@nasanexd02f.na.qualcomm.com>
- <20130328031932.GC2176@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F201026@nasanexd02f.na.qualcomm.com>
- <20130328032934.GD2176@order.stressinduktion.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
+Date: Wed, 27 Mar 2013 20:44:40 -0700
+Message-ID: <87vc8cnq6v.fsf@xmission.com>
+References: <CD78B3C3.76D3%blourdel@juniper.net> <874nfwri6o.fsf@xmission.com>
+	<20130327104746.0ec9dcb5@nehalam.linuxnetplumber.net>
+	<87620cpd0y.fsf@xmission.com> <20130328032046.GA32083@sergelap>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Sven Hartge <sven@svenhartge.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Benoit Lourdelet <blourdel@juniper.net>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: Serge Hallyn <serge.hallyn@ubuntu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:20064 "EHLO
-	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753571Ab3C1Dji (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 23:39:38 -0400
-In-Reply-To: <20130328032934.GD2176@order.stressinduktion.org>
-Content-Language: en-US
+Received: from out02.mta.xmission.com ([166.70.13.232]:55866 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754904Ab3C1Dov (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 23:44:51 -0400
+In-Reply-To: <20130328032046.GA32083@sergelap> (Serge Hallyn's message of
+	"Wed, 27 Mar 2013 22:20:46 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RHVtcCBldmVyeSBwYWNrZXQgbGVuZ3RoICYgcmVhZF9vZmZzZXQgdmFsdWUsICBjb21wYXJlIHRo
-ZW0uDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSGFubmVzIEZyZWRl
-cmljIFNvd2EgW21haWx0bzpoYW5uZXNAc3RyZXNzaW5kdWt0aW9uLm9yZ10NCj4gU2VudDogVGh1
-cnNkYXksIE1hcmNoIDI4LCAyMDEzIDExOjMwIEFNDQo+IFRvOiBIdWFuZywgWGlvbmcNCj4gQ2M6
-IFN2ZW4gSGFydGdlOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBBdGhl
-cm9zIENvbW11bmljYXRpb25zIEluYy4gQVI4MTIxL0FSODExMy9BUjgxMTQgR2lnYWJpdCBvcg0K
-PiBGYXN0IEV0aGVybmV0IChyZXYgYjApIDEuMC4wLjcgbWQ1L3NoYTEgY29ycnVwdGVkIHVzaW5n
-IE5GUyBhbmQgc2FtYmENCj4gKHVwZGF0ZWQpIFZlcnNpb24gMg0KPiANCj4gT24gVGh1LCBNYXIg
-MjgsIDIwMTMgYXQgMDM6MjU6MjlBTSArMDAwMCwgSHVhbmcsIFhpb25nIHdyb3RlOg0KPiA+IFBs
-ZWFzZSBkb24ndCByZXZpc2UgZm9sbG93aW5nIGNvZGU6DQo+ID4NCj4gPiAJCQlyeF9wYWdlLT5y
-ZWFkX29mZnNldCArPQ0KPiA+IAkJCQkoKCh1MzIpKChwcnJzLT53b3JkMSA+Pg0KPiBSUlNfUEtU
-X1NJWkVfU0hJRlQpICYNCj4gPiAJCQkJUlJTX1BLVF9TSVpFX01BU0spICsNCj4gPiAJCQkJc2l6
-ZW9mKHN0cnVjdCBhdGwxZV9yZWN2X3JldF9zdGF0dXMpICsgMzEpICYNCj4gPiAJCQkJCQkweEZG
-RkZGRkUwKTsNCj4gPg0KPiA+IEhlcmUgMzJieXRlcyBhbGlnbm1lbnQgaXMgbm8gbWF0dGVyIHdp
-dGggUGFnZSBhbGlnbm1lbnQuDQo+IA0KPiBJZiBJIHJldmVydCB0aGlzIGNoYW5nZSBJIGdldCBz
-ZXF1ZW5jZSBlcnJvcnM6DQo+IA0KPiBbICA3ODEuNDQ5ODY0XSBBVEwxRSAwMDAwOjA0OjAwLjA6
-IGlycSA0NSBmb3IgTVNJL01TSS1YIFsgIDc4MS40NTQ2MzRdIElQdjY6DQo+IEFERFJDT05GKE5F
-VERFVl9VUCk6IHAzM3AxOiBsaW5rIGlzIG5vdCByZWFkeSBbICA3ODIuODkzNzQ0XSBBVEwxRQ0K
-PiAwMDAwOjA0OjAwLjAgcDMzcDE6IE5JQyBMaW5rIGlzIFVwIDwxMDAgTWJwcyBGdWxsIER1cGxl
-eD4gWyAgNzgyLjg5Mzc5N10gSVB2NjoNCj4gQUREUkNPTkYoTkVUREVWX0NIQU5HRSk6IHAzM3Ax
-OiBsaW5rIGJlY29tZXMgcmVhZHkgWyAgNzgzLjE5NDQ0M10NCj4gQVRMMUUgMDAwMDowNDowMC4w
-IHAzM3AxOiByeCBzZXF1ZW5jZSBudW1iZXIgZXJyb3IgKHJ4PTApIChleHBlY3Q9MSkNCj4gWyAg
-NzgzLjIwNDQ5N10gQVRMMUUgMDAwMDowNDowMC4wIHAzM3AxOiBOSUMgTGluayBpcyBVcCA8MTAw
-IE1icHMgRnVsbCBEdXBsZXg+DQo+IFsgIDc4My4yMjUzMzZdIEFUTDFFIDAwMDA6MDQ6MDAuMCBw
-MzNwMTogcnggc2VxdWVuY2UgbnVtYmVyIGVycm9yIChyeD0wKQ0KPiAoZXhwZWN0PTEpIFsgIDc4
-My4yMzY2MzZdIEFUTDFFIDAwMDA6MDQ6MDAuMCBwMzNwMTogTklDIExpbmsgaXMgVXAgPDEwMCBN
-YnBzDQo+IEZ1bGwgRHVwbGV4PiBbICA3ODMuNDYyNjUyXSBBVEwxRSAwMDAwOjA0OjAwLjAgcDMz
-cDE6IHJ4IHNlcXVlbmNlIG51bWJlcg0KPiBlcnJvciAocng9MCkgKGV4cGVjdD0xKSBbICA3ODMu
-NDcyNTMwXSBBVEwxRSAwMDAwOjA0OjAwLjAgcDMzcDE6IE5JQyBMaW5rIGlzDQo+IFVwIDwxMDAg
-TWJwcyBGdWxsIER1cGxleD4gWyAgNzg0LjAzODk3Nl0gQVRMMUUgMDAwMDowNDowMC4wIHAzM3Ax
-OiByeA0KPiBzZXF1ZW5jZSBudW1iZXIgZXJyb3IgKHJ4PTApIChleHBlY3Q9MSkgWyAgNzg0LjA0
-NzM1NF0gQVRMMUUgMDAwMDowNDowMC4wDQo+IHAzM3AxOiBOSUMgTGluayBpcyBVcCA8MTAwIE1i
-cHMgRnVsbCBEdXBsZXg+IC4uLg0KDQo=
+Serge Hallyn <serge.hallyn@ubuntu.com> writes:
+
+> Quoting Eric W. Biederman (ebiederm@xmission.com):
+>> Stephen Hemminger <stephen@networkplumber.org> writes:
+>> 
+>> > If you need to do lots of operations the --batch mode will be significantly faster.
+>> > One command start and one link map.
+>> 
+>> The problem in this case as I understand it is lots of independent
+>> operations. Now maybe lxc should not shell out to ip and perform the
+>> work itself.
+>
+> fwiw lxc uses netlink to create new veths, and picks random names with
+> mktemp() ahead of time.
+
+I am puzzled where does the slownes in iproute2 come into play?
+
+Eric
