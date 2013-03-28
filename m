@@ -1,60 +1,58 @@
-From: Fernando Luis Vazquez Cao <fernando_b1-Zyj7fXuS5i5L9jVzuh4AOg@public.gmane.org>
-Subject: Re: [PATCH 1/2] man/send(2): add EPERM to the list of possible errors
-Date: Thu, 28 Mar 2013 14:37:18 +0900
-Message-ID: <5153D70E.5070302@lab.ntt.co.jp>
-References: <1363675513.4767.6.camel@nexus> <51515E5E.7020309@lab.ntt.co.jp> <20130326104833.GA5331@localhost> <51527239.5070505@lab.ntt.co.jp> <20130327175138.GA5717@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
-	Hirotaka Sasaki <sasaki.hirotaka-Zyj7fXuS5i5L9jVzuh4AOg@public.gmane.org>
-To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130327175138.GA5717@localhost>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH 03/15] ipvs: prefer NETDEV_DOWN event to free cached dsts
+Date: Thu, 28 Mar 2013 14:39:32 +0900
+Message-ID: <1364449184-26672-4-git-send-email-horms@verge.net.au>
+References: <1364449184-26672-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1364449184-26672-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2013-03-28 02:51, Pablo Neira Ayuso wrote:
-> On Wed, Mar 27, 2013 at 01:14:49PM +0900, Fernando Luis Vazquez Cao wrote:
->>> I'd like to find a possible solution for the EPERM problem that we've
->>> been discussing. It requires some rework and performance evaluation.
->> The problem is that there is a huge installed base of
->> systems that show this broken behaviour, so even if
->> we find a proper fix for it we still should document
->> which systems may be affected by the spurious EPERM
->> bug, thus giving application programmers a chance to
->> add logic to their programs to recover from such
->> eventualities.
-> I see. The problem is that it will take some time until that manpage
-> update reaches main distributions, by that time we may have fixed it
-> already in existing kernels. Then, we'll have to remove it again.
+From: Julian Anastasov <ja@ssi.bg>
 
-IMHO, if the second patch were applied too and we managed to
-fix the bug it documents after that, we should not revert it but
-apply a new patch along the lines of: "In older versions of the
-Linux kernel (< 3.??) ...". I will certainly want applications
-developed on future distributions to work properly on my legacy
-Debian Squeeze systems (a distribution upgrade or a backport
-of the upstream fix to your distribution's kernel may not possible).
+The real server becomes unreachable on down event,
+no need to wait device unregistration. Should help in
+releasing dsts early before dst->dev is replaced with lo.
 
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off by: Hans Schillstrom <hans@schillstrom.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_ctl.c |    8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-> I still think patch 1 already provides some clue to programmers
-> regarding EPERM at this moment (even if not so explicit and detailed).
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index a528178..2af8074 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1514,10 +1514,8 @@ __ip_vs_dev_reset(struct ip_vs_dest *dest, struct net_device *dev)
+ 	spin_unlock_bh(&dest->dst_lock);
+ 
+ }
+-/*
+- * Netdev event receiver
+- * Currently only NETDEV_UNREGISTER is handled, i.e. if we hold a reference to
+- * a device that is "unregister" it must be released.
++/* Netdev event receiver
++ * Currently only NETDEV_DOWN is handled to release refs to cached dsts
+  */
+ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
+ 			    void *ptr)
+@@ -1529,7 +1527,7 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
+ 	struct ip_vs_dest *dest;
+ 	unsigned int idx;
+ 
+-	if (event != NETDEV_UNREGISTER || !ipvs)
++	if (event != NETDEV_DOWN || !ipvs)
+ 		return NOTIFY_DONE;
+ 	IP_VS_DBG(3, "%s() dev=%s\n", __func__, dev->name);
+ 	EnterFunction(2);
+-- 
+1.7.10.4
 
-For the reasons exposed above I'd rather have the second patch
-applied too, but I will defer to you and Michael on that regard.
-
-
-> Please, ping me again if we didn't come up with some solution for this
-> in some prudential amount of time.
-
-I will. Thank you. I would appreciate it if you kept me CCed.
-
-
-- Fernando
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
