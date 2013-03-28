@@ -1,78 +1,81 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next.git 3/7] stmmac: review private structure fields
-Date: Wed, 3 Apr 2013 17:09:12 +0100
-Message-ID: <1365005352.2897.12.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1364967689-11155-1-git-send-email-peppe.cavallaro@st.com>
-	  <1364967689-11155-3-git-send-email-peppe.cavallaro@st.com>
-	 <1364973691.13853.7.camel@edumazet-glaptop> <515BDB30.4080603@st.com>
+From: =?UTF-8?B?0JzQsNGA0Log0JrQvtGA0LXQvdCx0LXRgNCz?= <socketpair@gmail.com>
+Subject: network namespace + bridge visibility
+Date: Fri, 29 Mar 2013 00:17:16 +0600
+Message-ID: <CAEmTpZH80KrDoQb0KRJNYPsEDCrRg6qLVxLXrcgskLmXDyFMzg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:38412 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761572Ab3DCQJP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 12:09:15 -0400
-In-Reply-To: <515BDB30.4080603@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/alternative; boundary=00248c7118151d5d2c04d9002ac9
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-04-03 at 09:33 +0200, Giuseppe CAVALLARO wrote:
-> On 4/3/2013 9:21 AM, Eric Dumazet wrote:
-> > On Wed, 2013-04-03 at 07:41 +0200, Giuseppe CAVALLARO wrote:
-> >> recently many new supports have been added in the stmmac driver w/o taking care
-> >> about where each new field had to be placed inside the private structure for
-> >> guaranteeing the best cache usage.
-> >> This is what I wanted in the beginning, so this patch reorganizes all the fields
-> >> in order to keep adjacent fields for cache effect.
-> >> I have also tried to optimize them by using pahole.
-> >>
-> >> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> >> ---
-> >>   drivers/net/ethernet/stmicro/stmmac/stmmac.h |   70 +++++++++++++-------------
-> >>   1 files changed, 35 insertions(+), 35 deletions(-)
-> >>
-> >> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-> >> index 75f997b..8aa28c5 100644
-> >> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-> >> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-> >> @@ -35,36 +35,45 @@
-> >>
-> >>   struct stmmac_priv {
-> >>   	/* Frequently used values are kept adjacent for cache effect */
-> >> -	struct dma_desc *dma_tx ____cacheline_aligned;	/* Basic TX desc */
-> >> -	struct dma_extended_desc *dma_etx;	/* Extended TX descriptor */
-> >> -	dma_addr_t dma_tx_phy;
-> >> -	struct sk_buff **tx_skbuff;
-> >> -	dma_addr_t *tx_skbuff_dma;
-> >> +	struct dma_extended_desc *dma_etx;
-> >> +	struct dma_desc *dma_tx ____cacheline_aligned_in_smp;
-> >> +	struct sk_buff **tx_skbuff ____cacheline_aligned_in_smp;
-> >
-> > dma_tx & tx_skbuff are readonly, why put them in separate cache lines ?
-> 
-> I put tx_skbuff in a separate cache line because, when we use extended
-> descriptors, the driver works with dma_etx instead of dma_tx.
-> So my idea was to have both dma_etx, dma_tx and tx_skbuff aligned in
-> any case.
-[...]
+--00248c7118151d5d2c04d9002ac9
+Content-Type: text/plain; charset=UTF-8
 
-It's generally not that important to put fields at the beginning of a
-cache line.  (If you've measured with typical systems using stmmac and
-found an advantage, then I accept that you have a good reason to do
-this.  But that advantage is unlikely to be specific to SMP systems.)
+==========================
+mmarkk@imac:~# brctl addbr qwe
+mmarkk@imac:~# unshare -n /bin/bash
+root@imac:~# ip link
+14: lo: <LOOPBACK> mtu 16436 qdisc noop state DOWN
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+root@imac:~# brctl show
+bridge name bridge id STP enabled interfaces
+qwe 8000.000000000000 no
+root@imac:~# brctl delbr qwe
+bridge qwe doesn't exist; can't delete it
+=============================
 
-I would use ____cacheline_aligned_in_smp to separate fields that are
-likely to be changed on different CPUs, so that the cache line doesn't
-bounce between their caches.  Fields that are rarely modified (such as
-these pointers), or are used together on the same CPU should be packed
-together into a small number of cache lines.
+So, network device is not available, but present in list of bridges. This
+is the bug, as I think.
 
-Ben.
+Reproducible in linux kernels 3.8.2 and 3.2.0
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Segmentation fault
+
+--00248c7118151d5d2c04d9002ac9
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr"><div style=3D"font-family:arial,sans-serif;font-size:13px"=
+>=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D</div><div style=3D"font-family:arial,sans-serif;font-size:13px">mmar=
+kk@imac:~# brctl addbr qwe<br></div><div style=3D"font-family:arial,sans-se=
+rif;font-size:13px">
+mmarkk@imac:~# unshare -n /bin/bash</div><div style=3D"font-family:arial,sa=
+ns-serif;font-size:13px"><div>root@imac:~# ip link<br></div><div>14: lo: &l=
+t;LOOPBACK&gt; mtu 16436 qdisc noop state DOWN=C2=A0</div><div>=C2=A0 =C2=
+=A0 link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00</div>
+<div style=3D"font-family:arial;font-size:small"></div></div><div style=3D"=
+font-family:arial,sans-serif;font-size:13px">root@imac:~# brctl show</div><=
+div style=3D"font-family:arial,sans-serif;font-size:13px">bridge name<span =
+style=3D"white-space:pre-wrap">	</span>bridge id<span style=3D"white-space:=
+pre-wrap">		</span>STP enabled<span style=3D"white-space:pre-wrap">	</span>=
+interfaces</div>
+<div style=3D"font-family:arial,sans-serif;font-size:13px">qwe<span style=
+=3D"white-space:pre-wrap">		</span>8000.000000000000<span style=3D"white-sp=
+ace:pre-wrap">	</span>no<span style=3D"white-space:pre-wrap">		</span></div=
+><div style=3D"font-family:arial,sans-serif;font-size:13px">
+<span style=3D"font-size:small">root@imac:~# brctl delbr qwe</span><br></di=
+v><div><div><font face=3D"arial, sans-serif">bridge qwe doesn&#39;t exist; =
+can&#39;t delete it</font></div><div style=3D"font-family:arial,sans-serif;=
+font-size:13px">
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D</div></div><div><br></div><div>So, network device is not avail=
+able, but present in list of bridges. This is the bug, as I think.<br></div=
+><div style><br></div><div style>Reproducible in linux kernels 3.8.2 and 3.=
+2.0</div>
+<div><br></div>-- <br>Segmentation fault
+</div>
+
+--00248c7118151d5d2c04d9002ac9--
