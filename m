@@ -1,48 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: core: Remove redundant call to 'nf_reset' in
- 'dev_forward_skb'
-Date: Thu, 28 Mar 2013 06:36:50 -0700
-Message-ID: <1364477810.15753.39.camel@edumazet-glaptop>
-References: <1364462006-5814-1-git-send-email-shmulik.ladkani@gmail.com>
+From: Serge Hallyn <serge.hallyn@ubuntu.com>
+Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
+Date: Thu, 28 Mar 2013 08:36:52 -0500
+Message-ID: <20130328133652.GA6652@sergelap>
+References: <CD78B3C3.76D3%blourdel@juniper.net>
+ <874nfwri6o.fsf@xmission.com>
+ <20130327104746.0ec9dcb5@nehalam.linuxnetplumber.net>
+ <87620cpd0y.fsf@xmission.com>
+ <20130328032046.GA32083@sergelap>
+ <87vc8cnq6v.fsf@xmission.com>
+ <20130328042808.GA11672@sergelap>
+ <87d2uknmnu.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org,
-	Igor Michailov <rgohita@gmail.com>
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Benoit Lourdelet <blourdel@juniper.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:44556 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755715Ab3C1Ngw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 09:36:52 -0400
-Received: by mail-pb0-f51.google.com with SMTP id rr4so3100557pbb.24
-        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 06:36:52 -0700 (PDT)
-In-Reply-To: <1364462006-5814-1-git-send-email-shmulik.ladkani@gmail.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:37123 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755715Ab3C1NhA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 09:37:00 -0400
+Content-Disposition: inline
+In-Reply-To: <87d2uknmnu.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-03-28 at 11:13 +0200, Shmulik Ladkani wrote:
-> 'nf_reset' is called just prior calling 'netif_rx'.
-> No need to call it twice.
+Quoting Eric W. Biederman (ebiederm@xmission.com):
+> Serge Hallyn <serge.hallyn@ubuntu.com> writes:
 > 
-> Reported-by: Igor Michailov <rgohita@gmail.com>
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-> ---
->  net/core/dev.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
+> > Quoting Eric W. Biederman (ebiederm@xmission.com):
+> >> Serge Hallyn <serge.hallyn@ubuntu.com> writes:
+> >> 
+> >> > Quoting Eric W. Biederman (ebiederm@xmission.com):
+> >> >> Stephen Hemminger <stephen@networkplumber.org> writes:
+> >> >> 
+> >> >> > If you need to do lots of operations the --batch mode will be significantly faster.
+> >> >> > One command start and one link map.
+> >> >> 
+> >> >> The problem in this case as I understand it is lots of independent
+> >> >> operations. Now maybe lxc should not shell out to ip and perform the
+> >> >> work itself.
+> >> >
+> >> > fwiw lxc uses netlink to create new veths, and picks random names with
+> >> > mktemp() ahead of time.
+> >> 
+> >> I am puzzled where does the slownes in iproute2 come into play?
+> >
+> > Benoit originally reported slowness when starting >1500 containers.  I
+> > asked him to run a few manual tests to figure out what was taking the
+> > time.  Manually creating a large # of veths was an obvious test, and
+> > one which showed poorly scaling performance.
 > 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 2db88df..071f398 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1624,7 +1624,6 @@ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
->  	}
->  
->  	skb_orphan(skb);
-> -	nf_reset(skb);
->  
->  	if (unlikely(!is_skb_forwardable(dev, skb))) {
->  		atomic_long_inc(&dev->rx_dropped);
+> Apparently iproute is involved somehwere as when he tested with a
+> patched iproute (as you asked him to) the lxc startup slowdown was
+> gone.
+> 
+> > May well be there are other things slowing down lxc of course.
+> 
+> The evidence indicates it was iproute being called somewhere...
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Benoit can you tell us exactly what test you were running when you saw
+the slowdown was gone?
+
+-serge
