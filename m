@@ -1,65 +1,52 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH v2] igb: fix error return code in
-	igb_sysfs_init()
-Date: Thu, 28 Mar 2013 12:18:59 +0800
-Message-ID: <CAPgLHd9_LiJkbPs9vdEU0M0yHJKL0eMhX2yEwsVBVWY6KGHtHg@mail.gmail.com>
+From: Serge Hallyn <serge.hallyn@ubuntu.com>
+Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
+Date: Wed, 27 Mar 2013 23:28:08 -0500
+Message-ID: <20130328042808.GA11672@sergelap>
+References: <CD78B3C3.76D3%blourdel@juniper.net>
+ <874nfwri6o.fsf@xmission.com>
+ <20130327104746.0ec9dcb5@nehalam.linuxnetplumber.net>
+ <87620cpd0y.fsf@xmission.com>
+ <20130328032046.GA32083@sergelap>
+ <87vc8cnq6v.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	yongjun_wei@trendmicro.com.cn
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
-	peter.p.waskiewicz.jr@intel.com, alexander.h.duyck@intel.com,
-	john.ronciak@intel.com, tushar.n.dave@intel.com,
-	stephen@networkplumber.org, akeem.g.abodunrin@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Benoit Lourdelet <blourdel@juniper.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:35100 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752305Ab3C1E2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 00:28:17 -0400
+Content-Disposition: inline
+In-Reply-To: <87vc8cnq6v.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Quoting Eric W. Biederman (ebiederm@xmission.com):
+> Serge Hallyn <serge.hallyn@ubuntu.com> writes:
+> 
+> > Quoting Eric W. Biederman (ebiederm@xmission.com):
+> >> Stephen Hemminger <stephen@networkplumber.org> writes:
+> >> 
+> >> > If you need to do lots of operations the --batch mode will be significantly faster.
+> >> > One command start and one link map.
+> >> 
+> >> The problem in this case as I understand it is lots of independent
+> >> operations. Now maybe lxc should not shell out to ip and perform the
+> >> work itself.
+> >
+> > fwiw lxc uses netlink to create new veths, and picks random names with
+> > mktemp() ahead of time.
+> 
+> I am puzzled where does the slownes in iproute2 come into play?
 
-Fix to return a negative error code from the error handling
-case instead of 0, as returned elsewhere in this function.
+Benoit originally reported slowness when starting >1500 containers.  I
+asked him to run a few manual tests to figure out what was taking the
+time.  Manually creating a large # of veths was an obvious test, and
+one which showed poorly scaling performance.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
-v1 -> v2: use EIO instead of ENOMEM
----
- drivers/net/ethernet/intel/igb/igb_hwmon.c | 1 +
- 1 file changed, 1 insertion(+)
+May well be there are other things slowing down lxc of course.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_hwmon.c b/drivers/net/ethernet/intel/igb/igb_hwmon.c
-index 0478a1a..770455e 100644
---- a/drivers/net/ethernet/intel/igb/igb_hwmon.c
-+++ b/drivers/net/ethernet/intel/igb/igb_hwmon.c
-@@ -208,6 +208,7 @@ int igb_sysfs_init(struct igb_adapter *adapter)
- 	if (client == NULL) {
- 		dev_info(&adapter->pdev->dev,
- 			"Failed to create new i2c device..\n");
-+		rc = -EIO;
- 		goto exit;
- 	}
- 	adapter->i2c_client = client;
-
-
-
-------------------------------------------------------------------------------
-Own the Future-Intel&reg; Level Up Game Demo Contest 2013
-Rise to greatness in Intel's independent game demo contest.
-Compete for recognition, cash, and the chance to get your game 
-on Steam. $5K grand prize plus 10 genre and skill prizes. 
-Submit your demo by 6/6/13. http://p.sf.net/sfu/intel_levelupd2d
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+-serge
