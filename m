@@ -1,56 +1,99 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 3/3] net: frag queue per hash bucket locking
-Date: Thu, 28 Mar 2013 15:19:10 -0400 (EDT)
-Message-ID: <20130328.151910.540325879819648208.davem@davemloft.net>
-References: <20130328185721.GA20223@order.stressinduktion.org>
-	<20130328.150359.1119974430252894273.davem@davemloft.net>
-	<20130328191050.GB20223@order.stressinduktion.org>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: Bug in ks8851.c
+Date: Thu, 28 Mar 2013 12:31:54 -0700
+Message-ID: <CA+55aFyAAEvm4KMc2ERGbwUxNH==PJ440nW1aDf3wwxEipXKfw@mail.gmail.com>
+References: <OF7BC8BFEB.18C33C7E-ON44257B3C.0064CB53-44257B3C.00652C31@gb.elster.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, brouer@redhat.com, netdev@vger.kernel.org,
-	fw@strlen.de, dborkman@redhat.com
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44664 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752300Ab3C1TTM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 15:19:12 -0400
-In-Reply-To: <20130328191050.GB20223@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary=bcaec5040e060af93104d901359d
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	trivial@rustcorp.com.au
+To: Max.Nekludov@us.elster.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Stephen Boyd <sboyd@codeaurora.org>,
+	Matt Renzelmann <mjr@cs.wisc.edu>,
+	Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <OF7BC8BFEB.18C33C7E-ON44257B3C.0064CB53-44257B3C.00652C31@gb.elster.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu, 28 Mar 2013 20:10:50 +0100
+--bcaec5040e060af93104d901359d
+Content-Type: text/plain; charset=UTF-8
 
-> On Thu, Mar 28, 2013 at 03:03:59PM -0400, David Miller wrote:
->> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> Date: Thu, 28 Mar 2013 19:57:21 +0100
->> 
->> > On Wed, Mar 27, 2013 at 10:25:59AM -0700, Eric Dumazet wrote:
->> >> On Wed, 2013-03-27 at 16:56 +0100, Jesper Dangaard Brouer wrote:
->> >> > This patch implements per hash bucket locking for the frag queue
->> >> > hash.  This removes two write locks, and the only remaining write
->> >> > lock is for protecting hash rebuild.  This essentially reduce the
->> >> > readers-writer lock to a rebuild lock.
->>  ...
->> >> I am not sure why you added _bh suffix to spin_lock()/spin_unlock()
->> >> here ?
->> > 
->> > I assume that it has to do with the usage of this code in
->> > ipv6/netfilter/nf_conntrack_reasm.c, which could be invoked from process
->> > context, if I read it correctly.
->> 
->> That appears to be the case yes.
->> 
->> That's an odd environment for these routines to be invoked from,
->> so longer term we should probably make the nf conntrack code do
->> the BH disabling around the inet frag calls, rather than make the
->> inet frag code eat the extra overhead for the more common invocations.
-> 
-> My idea was a bh-safe flag in struct inet_frags and conditionally use
-> spin_lock and spin_unlock_bh (these could be wrapped in inline functions just
-> for inet_fragment.c).
+Max,
+ please cc the actual maintainers of the driver. The patch looks sane,
+though. I assume you've tested it in practice?
 
-That's an extra check eaten by all users.  Really, put the overhead into
-the call sites that need it, and nowhere else.
+You also seem to have based this on an ancient version, the code has
+long since moved from drivers/net/ks8851.c to
+drivers/net/ethernet/micrel/ks8851.c (back in June of 2011), and it's
+missing a sign-off from you.
+
+I'm attaching an updated patch for the rename/capitalization issue.
+
+     Linus
+
+On Thu, Mar 28, 2013 at 11:25 AM,  <Max.Nekludov@us.elster.com> wrote:
+>
+> According to the Datasheet (page 52):
+> 15-12 Reserved
+> 11-0 RXBC Receive Byte Count
+> This field indicates the present received frame byte size.
+>
+> I suppose the code has a bug:
+>                 rxh = ks8851_rdreg32(ks, KS_RXFHSR);
+>                 rxstat = rxh & 0xffff;
+>                 rxlen = rxh >> 16; // BUG!!! 0xFFF mask should be applied
+>
+> P.S.
+> without bit mask applied I saw rxlen equal to 15360 which is bigger then
+> entire RX queue size (12KB).
+>
+> Thanks,
+> Max Nekludov
+>
+> From cb3199cee4490f98d6062e32a75ca377a32b55bc Mon Sep 17 00:00:00 2001
+> From: Max Neklyudov <macscomp@gmail.com>
+> Date: Tue, 26 Mar 2013 11:46:57 +0400
+> Subject: [PATCH] Fix bug in ks8851 driver
+>
+> ---
+>  drivers/net/ks8851.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ks8851.c b/drivers/net/ks8851.c
+> index 91a93cb..0dc03da 100644
+> --- a/drivers/net/ks8851.c
+> +++ b/drivers/net/ks8851.c
+> @@ -553,7 +553,7 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
+>         for (; rxfc != 0; rxfc--) {
+>                 rxh = ks8851_rdreg32(ks, KS_RXFHSR);
+>                 rxstat = rxh & 0xffff;
+> -               rxlen = rxh >> 16;
+> +               rxlen = (rxh >> 16) & 0xFFF;
+>
+>                 netif_dbg(ks, rx_status, ks->netdev,
+>                           "rx: stat 0x%04x, len 0x%04x\n", rxstat, rxlen);
+> --
+> 1.7.10.4
+>
+
+--bcaec5040e060af93104d901359d
+Content-Type: application/octet-stream; name="patch.diff"
+Content-Disposition: attachment; filename="patch.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_heubigou0
+
+IGRyaXZlcnMvbmV0L2V0aGVybmV0L21pY3JlbC9rczg4NTEuYyB8IDIgKy0KIDEgZmlsZSBjaGFu
+Z2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L21pY3JlbC9rczg4NTEuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L21pY3Jl
+bC9rczg4NTEuYwppbmRleCAzM2JjYjYzZDU2YTIuLjhmYjQ4MTI1MmUyYyAxMDA2NDQKLS0tIGEv
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvbWljcmVsL2tzODg1MS5jCisrKyBiL2RyaXZlcnMvbmV0L2V0
+aGVybmV0L21pY3JlbC9rczg4NTEuYwpAQCAtNTI4LDcgKzUyOCw3IEBAIHN0YXRpYyB2b2lkIGtz
+ODg1MV9yeF9wa3RzKHN0cnVjdCBrczg4NTFfbmV0ICprcykKIAlmb3IgKDsgcnhmYyAhPSAwOyBy
+eGZjLS0pIHsKIAkJcnhoID0ga3M4ODUxX3JkcmVnMzIoa3MsIEtTX1JYRkhTUik7CiAJCXJ4c3Rh
+dCA9IHJ4aCAmIDB4ZmZmZjsKLQkJcnhsZW4gPSByeGggPj4gMTY7CisJCXJ4bGVuID0gKHJ4aCA+
+PiAxNikgJiAweGZmZjsKIAogCQluZXRpZl9kYmcoa3MsIHJ4X3N0YXR1cywga3MtPm5ldGRldiwK
+IAkJCSAgInJ4OiBzdGF0IDB4JTA0eCwgbGVuIDB4JTA0eFxuIiwgcnhzdGF0LCByeGxlbik7Cg==
+--bcaec5040e060af93104d901359d--
