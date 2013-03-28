@@ -1,34 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 3/3] net: frag queue per hash bucket locking
-Date: Thu, 28 Mar 2013 13:22:44 -0700
-Message-ID: <1364502164.15753.56.camel@edumazet-glaptop>
-References: <20130327155238.15203.6688.stgit@dragon>
-	 <20130327155601.15203.25289.stgit@dragon>
-	 <1364405159.15753.26.camel@edumazet-glaptop>
-	 <20130328185721.GA20223@order.stressinduktion.org>
+From: Benoit Lourdelet <blourdel@juniper.net>
+Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
+Date: Thu, 28 Mar 2013 20:27:44 +0000
+Message-ID: <CD7A6510.796E%blourdel@juniper.net>
+References: <874nfwri6o.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Serge Hallyn <serge.hallyn@ubuntu.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:35246 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752568Ab3C1UWq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 16:22:46 -0400
-Received: by mail-pd0-f182.google.com with SMTP id 3so1124506pdj.27
-        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 13:22:46 -0700 (PDT)
-In-Reply-To: <20130328185721.GA20223@order.stressinduktion.org>
+Received: from exprod7og129.obsmtp.com ([64.18.2.122]:33482 "EHLO
+	exprod7og129.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752893Ab3C1UdH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 16:33:07 -0400
+Received: from mail121-co1 (localhost [127.0.0.1])	by
+ mail121-co1-R.bigfish.com (Postfix) with ESMTP id 888ED7C018B	for
+ <netdev@vger.kernel.org.FOPE.CONNECTOR.OVERRIDE>; Thu, 28 Mar 2013 20:27:48
+ +0000 (UTC)
+In-Reply-To: <874nfwri6o.fsf@xmission.com>
+Content-Language: en-US
+Content-ID: <F7B12C0413DBD0488A48AC8A5E28E51E@namprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-03-28 at 19:57 +0100, Hannes Frederic Sowa wrote:
+Hello Eric,
 
-> I assume that it has to do with the usage of this code in
-> ipv6/netfilter/nf_conntrack_reasm.c, which could be invoked from process
-> context, if I read it correctly.
+I am running simple containers (2 network interfaces, 10MB of RAM, default
+routing) and want to test scalability.
 
-Then there would be a possible deadlock in current code.
+Out test platform is a 32x 2Ghz cores x86.
+
+Regards
+
+Benoit
+
+On 27/03/2013 16:11, "Eric W. Biederman" <ebiederm@xmission.com> wrote:
+
+>Benoit Lourdelet <blourdel@juniper.net> writes:
+>
+>> Hello Serge,
+>>
+>> I am indeed using Eric patch with lxc.
+>>
+>> It solves the initial problem of slowness to start around 1600
+>> containers.
+>
+>Good so now we just need a production ready patch for iproute.
+>
+>> I am now able to start more than  2000 without having new containers
+>> slower and slower to start.
+>
+>May I ask how large a box you are running and how complex your
+>containers are.  I am trying to get a feel for how common it is likely
+>to be to find people running thousands of containers on a single
+>machine.
+>
+>Eric
+>
