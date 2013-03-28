@@ -1,44 +1,64 @@
-From: Hong zhi guo <honkiko@gmail.com>
-Subject: Re: [PATCH 1/6] net-next: replace obsolete NLMSG_* with type safe nlmsg_*
-Date: Fri, 29 Mar 2013 00:08:26 +0800
-Message-ID: <CAA7+ByVp4K__=mESAu4jEy=t4TJD+rV0KOA2ZhHSinm1fvedzg@mail.gmail.com>
-References: <1364402824-32680-1-git-send-email-honkiko@gmail.com>
-	<20130328143216.GC23043@casper.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>, stephen@networkplumber.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130328143216.GC23043@casper.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hong Zhiguo <honkiko@gmail.com>
+Subject: [PATCH net-next] bridge: remove unused variable ifm
+Date: Fri, 29 Mar 2013 00:21:22 +0800
+Message-ID: <1364487682-5839-1-git-send-email-honkiko@gmail.com>
+Cc: bridge@lists.linux-foundation.org, davem@davemloft.net,
+	stephen@networkplumber.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:55720 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756886Ab3C1QVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 12:21:39 -0400
+Received: by mail-pa0-f54.google.com with SMTP id fa10so2752739pad.27
+        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 09:21:39 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks, Thomas. But I didn't change any formatting. Just do the
-substitution in place.
-Should I re-format and re-send the patch?
+Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
+---
+ net/bridge/br_netlink.c |   12 +++---------
+ 1 file changed, 3 insertions(+), 9 deletions(-)
 
-On Thu, Mar 28, 2013 at 10:32 PM, Thomas Graf <tgraf@suug.ch> wrote:
-> On 03/28/13 at 12:47am, Hong Zhiguo wrote:
->> diff --git a/net/ipv4/udp_diag.c b/net/ipv4/udp_diag.c
->> index 505b30a..467fb92 100644
->> --- a/net/ipv4/udp_diag.c
->> +++ b/net/ipv4/udp_diag.c
->> @@ -64,9 +64,9 @@ static int udp_dump_one(struct udp_table *tbl, struct sk_buff *in_skb,
->>               goto out;
->>
->>       err = -ENOMEM;
->> -     rep = alloc_skb(NLMSG_SPACE((sizeof(struct inet_diag_msg) +
->> -                                  sizeof(struct inet_diag_meminfo) +
->> -                                  64)), GFP_KERNEL);
->> +     rep = nlmsg_new(sizeof(struct inet_diag_msg) +
->> +                                  sizeof(struct inet_diag_meminfo) + 64,
->> +                                  GFP_KERNEL);
->
-> This is formatted incorrectly, otherwise the patch looks good.
-
-
-
---
-best regards
-Hong Zhiguo
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index b96e02e..8e3abf5 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -352,17 +352,14 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
+ /* Change state and parameters on port. */
+ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
+ {
+-	struct ifinfomsg *ifm;
+ 	struct nlattr *protinfo;
+ 	struct nlattr *afspec;
+ 	struct net_bridge_port *p;
+ 	struct nlattr *tb[IFLA_BRPORT_MAX + 1];
+ 	int err = 0;
+ 
+-	ifm = nlmsg_data(nlh);
+-
+-	protinfo = nlmsg_find_attr(nlh, sizeof(*ifm), IFLA_PROTINFO);
+-	afspec = nlmsg_find_attr(nlh, sizeof(*ifm), IFLA_AF_SPEC);
++	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_PROTINFO);
++	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
+ 	if (!protinfo && !afspec)
+ 		return 0;
+ 
+@@ -411,14 +408,11 @@ out:
+ /* Delete port information */
+ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh)
+ {
+-	struct ifinfomsg *ifm;
+ 	struct nlattr *afspec;
+ 	struct net_bridge_port *p;
+ 	int err;
+ 
+-	ifm = nlmsg_data(nlh);
+-
+-	afspec = nlmsg_find_attr(nlh, sizeof(*ifm), IFLA_AF_SPEC);
++	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
+ 	if (!afspec)
+ 		return 0;
+ 
+-- 
+1.7.10.4
