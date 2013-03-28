@@ -1,29 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/6] scsi: replace obsolete NLMSG_* with type safe
- nlmsg_*
-Date: Thu, 28 Mar 2013 14:01:17 -0400 (EDT)
-Message-ID: <20130328.140117.68651169941346627.davem@davemloft.net>
-References: <1364403195-32839-1-git-send-email-honkiko@gmail.com>
-	<20130328144502.GG23043@casper.infradead.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: honkiko@gmail.com, linux-kernel@vger.kernel.org,
-	linux-scsi@vger.kernel.org, netdev@vger.kernel.org
-To: tgraf@suug.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130328144502.GG23043@casper.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
 From: Thomas Graf <tgraf@suug.ch>
-Date: Thu, 28 Mar 2013 14:45:02 +0000
+Subject: Re: [PATCH 1/6] net-next: replace obsolete NLMSG_* with type safe
+ nlmsg_*
+Date: Thu, 28 Mar 2013 18:01:42 +0000
+Message-ID: <20130328180142.GJ23043@casper.infradead.org>
+References: <1364402824-32680-1-git-send-email-honkiko@gmail.com>
+ <20130328143216.GC23043@casper.infradead.org>
+ <CAA7+ByVp4K__=mESAu4jEy=t4TJD+rV0KOA2ZhHSinm1fvedzg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>, stephen@networkplumber.org
+To: Hong zhi guo <honkiko@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:35822 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751360Ab3C1SBo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 14:01:44 -0400
+Content-Disposition: inline
+In-Reply-To: <CAA7+ByVp4K__=mESAu4jEy=t4TJD+rV0KOA2ZhHSinm1fvedzg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On 03/28/13 at 12:53am, Hong Zhiguo wrote:
->> Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
-> 
-> There are some formatting errors but the Netlink bits themselves
-> look good.
-> 
+On 03/29/13 at 12:08am, Hong zhi guo wrote:
+> Thanks, Thomas. But I didn't change any formatting. Just do the
+> substitution in place.
 
-I'll fix these up too when I commit.
+Your change would require reformatting on the lines following
+your change because the required level of indentation changed.
+I don't want to cause you unneeded pain but it really helps
+everyone used to the kernel coding style.
+
+> >> -     rep = alloc_skb(NLMSG_SPACE((sizeof(struct inet_diag_msg) +
+> >> -                                  sizeof(struct inet_diag_meminfo) +
+> >> -                                  64)), GFP_KERNEL);
+> >> +     rep = nlmsg_new(sizeof(struct inet_diag_msg) +
+> >> +                                  sizeof(struct inet_diag_meminfo) + 64,
+> >> +                                  GFP_KERNEL);
+                           ^^^^^^^^^^^^^^
+
+> Should I re-format and re-send the patch?
+
+Yes please, just resubmit the patches that changed and include
+a proper vN in the subject.
