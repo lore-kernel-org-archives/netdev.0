@@ -1,27 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2013-03-28
-Date: Thu, 28 Mar 2013 17:42:58 -0400 (EDT)
-Message-ID: <20130328.174258.600921919654964205.davem@davemloft.net>
-References: <20130328191058.GA27701@tuxdriver.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 7/7] ip/xfrm: Improve error strings
+Date: Thu, 28 Mar 2013 14:47:32 -0700
+Message-ID: <20130328144732.011781c9@nehalam.linuxnetplumber.net>
+References: <1364221399-1024-1-git-send-email-david.ward@ll.mit.edu>
+	<1364221399-1024-7-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: <netdev@vger.kernel.org>
+To: David Ward <david.ward@ll.mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46172 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752320Ab3C1Vm7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 17:42:59 -0400
-In-Reply-To: <20130328191058.GA27701@tuxdriver.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:50527 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753909Ab3C1Vrp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 17:47:45 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y14so4225644pdi.22
+        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 14:47:44 -0700 (PDT)
+In-Reply-To: <1364221399-1024-7-git-send-email-david.ward@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 28 Mar 2013 15:10:58 -0400
+On Mon, 25 Mar 2013 10:23:19 -0400
+David Ward <david.ward@ll.mit.edu> wrote:
 
-> Please excuse this larger-than-I-would-like pull request intended
-> for the 3.9 stream.  There are a number of late-breaking fixes,
-> including a revert...
+> Quotation marks are now used only to indicate literal text on the
+> command line.
+> 
+> Signed-off-by: David Ward <david.ward@ll.mit.edu>
 
-Pulled, thanks John.
+All applied, although last one need a little whitespace fix up.
+
+/usr/src/iproute2/.git/rebase-apply/patch:16: space before tab in indent.
+ 	fprintf(stderr, "MODE := transport | tunnel | beet | ro | in_trigger\n");
+/usr/src/iproute2/.git/rebase-apply/patch:39: space before tab in indent.
+ 	fprintf(stderr, "MODE := transport | tunnel | beet | ro | in_trigger\n");
+warning: 2 lines add whitespace errors.
