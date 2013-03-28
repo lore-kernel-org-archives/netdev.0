@@ -1,51 +1,62 @@
-From: Alexandru Copot <alex.mihai.c@gmail.com>
-Subject: [PATCH net-next] audit: pass int* to nlmsg_next
-Date: Thu, 28 Mar 2013 23:31:29 +0200
-Message-ID: <1364506289-9146-1-git-send-email-alex.mihai.c@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: honkiko@gmail.com, tgraf@suug.ch,
-	Alexandru Copot <alex.mihai.c@gmail.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net
+From: Rob Herring <robherring2@gmail.com>
+Subject: [PATCH 2/2] net: calxedaxgmac: Wake-on-LAN fixes
+Date: Thu, 28 Mar 2013 16:32:45 -0500
+Message-ID: <1364506365-13689-2-git-send-email-robherring2@gmail.com>
+References: <1364506365-13689-1-git-send-email-robherring2@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Rob Herring <rob.herring@calxeda.com>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1364506365-13689-1-git-send-email-robherring2@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 941912133025926307c7a65b203fa38403b1063a replaced the macros
-NLMSG_NEXT with calls to nlmsg_next which produces this warning:
+From: Rob Herring <rob.herring@calxeda.com>
 
-kernel/audit.c: In function =E2=80=98audit_receive_skb=E2=80=99:
-kernel/audit.c:928:3: warning: passing argument 2 of =E2=80=98nlmsg_nex=
-t=E2=80=99 makes pointer from integer without a cast
-In file included from include/net/rtnetlink.h:5:0,
-                 from include/net/neighbour.h:28,
-                 from include/net/dst.h:17,
-                 from include/net/sock.h:68,
-                 from kernel/audit.c:55:
-include/net/netlink.h:359:1: note: expected =E2=80=98int *=E2=80=99 but=
- argument is of type =E2=80=98int=E2=80=99
+WOL is broken because the magic packet status bit is getting set rather
+than the enable bit. The PMT interrupt is not getting serviced because
+the PMT interrupt is also enabled on the global interrupt, but not
+cleared by the global interrupt and the global interrupt is higher
+priority. This fixes both of these issues to get WOL working.
 
-=46ix this by sending the intended pointer.
+There's still a problem with receive after resume, but at least now we
+can wake-up.
 
-Signed-off-by: Alexandru Copot <alex.mihai.c@gmail.com>
+Signed-off-by: Rob Herring <rob.herring@calxeda.com>
 ---
- kernel/audit.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/calxeda/xgmac.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/kernel/audit.c b/kernel/audit.c
-index 4dbb047..488f85f 100644
---- a/kernel/audit.c
-+++ b/kernel/audit.c
-@@ -925,7 +925,7 @@ static void audit_receive_skb(struct sk_buff *skb)
- 		if (err || (nlh->nlmsg_flags & NLM_F_ACK))
- 			netlink_ack(skb, nlh, err);
-=20
--		nlh =3D nlmsg_next(nlh, len);
-+		nlh =3D nlmsg_next(nlh, &len);
- 	}
- }
-=20
---=20
-1.8.2
+diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+index bb1e80b..b0ebc9f 100644
+--- a/drivers/net/ethernet/calxeda/xgmac.c
++++ b/drivers/net/ethernet/calxeda/xgmac.c
+@@ -163,6 +163,7 @@
+ #define XGMAC_FLOW_CTRL_FCB_BPA	0x00000001	/* Flow Control Busy ... */
+ 
+ /* XGMAC_INT_STAT reg */
++#define XGMAC_INT_STAT_PMTIM	0x00800000	/* PMT Interrupt Mask */
+ #define XGMAC_INT_STAT_PMT	0x0080		/* PMT Interrupt Status */
+ #define XGMAC_INT_STAT_LPI	0x0040		/* LPI Interrupt Status */
+ 
+@@ -960,6 +961,9 @@ static int xgmac_hw_init(struct net_device *dev)
+ 	writel(DMA_INTR_DEFAULT_MASK, ioaddr + XGMAC_DMA_STATUS);
+ 	writel(DMA_INTR_DEFAULT_MASK, ioaddr + XGMAC_DMA_INTR_ENA);
+ 
++	/* Mask power mgt interrupt */
++	writel(XGMAC_INT_STAT_PMTIM, ioaddr + XGMAC_INT_STAT);
++
+ 	/* XGMAC requires AXI bus init. This is a 'magic number' for now */
+ 	writel(0x0077000E, ioaddr + XGMAC_DMA_AXI_BUS);
+ 
+@@ -1828,7 +1832,7 @@ static void xgmac_pmt(void __iomem *ioaddr, unsigned long mode)
+ 	unsigned int pmt = 0;
+ 
+ 	if (mode & WAKE_MAGIC)
+-		pmt |= XGMAC_PMT_POWERDOWN | XGMAC_PMT_MAGIC_PKT;
++		pmt |= XGMAC_PMT_POWERDOWN | XGMAC_PMT_MAGIC_PKT_EN;
+ 	if (mode & WAKE_UCAST)
+ 		pmt |= XGMAC_PMT_POWERDOWN | XGMAC_PMT_GLBL_UNICAST;
+ 
+-- 
+1.7.10.4
