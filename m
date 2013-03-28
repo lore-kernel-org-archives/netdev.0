@@ -1,121 +1,140 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: pull request: batman-adv 2013-03-28
-Date: Thu, 28 Mar 2013 08:50:20 +0100
-Message-ID: <1364457031-3194-1-git-send-email-ordex@autistici.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+Subject: [PATCH 06/11] batman-adv: Allow to use rntl_link for device creation/deletion
+Date: Thu, 28 Mar 2013 08:50:26 +0100
+Message-ID: <1364457031-3194-7-git-send-email-ordex@autistici.org>
+References: <1364457031-3194-1-git-send-email-ordex@autistici.org>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Sven Eckelmann <sven@narfation.org>,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from diserzione.investici.org ([82.221.99.153]:33236 "EHLO
+Received: from diserzione.investici.org ([82.221.99.153]:33342 "EHLO
 	diserzione.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755957Ab3C1HwI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 03:52:08 -0400
+	with ESMTP id S1756647Ab3C1HwL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 03:52:11 -0400
+In-Reply-To: <1364457031-3194-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-here you have another batch of patches intended for net-next/linux-3.10=
-=2E
+From: Sven Eckelmann <sven@narfation.org>
 
-The first one fixes an endianess bug in the new network coding componen=
-t,
-sent within our last pull request. It was discovered thanks to
-=46engguang Wu's automated daily checks on our tree (we upgraded our da=
-ily
-check to look for endianess bugs as well ;-))
+The sysfs configuration interface of batman-adv to add/remove soft-interfaces
+is not deadlock free and doesn't follow the currently common way to create new
+virtual interfaces.
 
-Then you have patches from 2/11 to 8/11 implementing the RTNL API for v=
-irtual
-interfaces manipulation: now users can use the "ip" tool to create/dele=
-te
-batman-adv interfaces and to enslave real ones below them. However, to =
-avoid
-breaking any user tool, we did not disrupt our sysfs API.
+An additional interface though rtnl_link is introduced which provides easy device
+creation/deletion with tools like "ip":
 
-Patch 11/11 is addressing a new checkpatch complaining by substituting =
-seq_printf
-with seq_puts when possible (however, checkpatch seems to be broken bec=
-ause it
-raises false positives in case of multi-line seq_printf).
+$ ip link add dev bat0 type batadv
+$ ip link del dev bat0
 
-The rest is ordinary house keeping.
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+---
+ net/batman-adv/main.c           |  2 ++
+ net/batman-adv/main.h           |  1 +
+ net/batman-adv/soft-interface.c | 29 +++++++++++++++++++++++++++++
+ net/batman-adv/soft-interface.h |  1 +
+ 4 files changed, 33 insertions(+)
 
-
-Please pull or let me know if there is any problem!
-
-Thank you,
-	Antonio
-
-
-
-The following changes since commit 6bdeaba47d87f48a3943b6899d6c6e6f17d5=
-2f1d:
-
-  6lowpan: use IEEE802154_ADDR_LEN instead of a magic number (2013-03-2=
-7 00:52:16 -0400)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
-
-for you to fetch changes up to 0c81465357ffe29da9ff20103afe4a59908e0d30=
-:
-
-  batman-adv: use seq_puts instead of seq_printf when the format is con=
-stant (2013-03-27 10:29:55 +0100)
-
-----------------------------------------------------------------
-Included changes:
-- A fix for the network coding component which has been added within th=
-e last
-  pull request (so it is in linux-3.10). The problem has been spotted t=
-hanks to
-  Fengguang Wu's automated daily checks on our tree.
-- Implementation of the RTNL API for virtual interface creation/deletio=
-n and slave
-  manipulation
-- substitution of seq_printf with seq_puts when possible
-- minor cleanups
-
-----------------------------------------------------------------
-Antonio Quartulli (3):
-      batman-adv: free an hard-interface before adding it
-      batman-adv: update Makefile copyright years
-      batman-adv: use seq_puts instead of seq_printf when the format is=
- constant
-
-Marek Lindner (1):
-      batman-adv: rename batadv_softif_destroy to reflect sysfs use cas=
-e
-
-Martin Hundeb=C3=B8ll (1):
-      batman-adv: Fix endianness errors for network coding
-
-Simon Wunderlich (1):
-      batman-adv: Start new development cycle
-
-Sven Eckelmann (5):
-      batman-adv: Move soft-interface initialization to ndo_init
-      batman-adv: Move deinitialization of soft-interface to destructor
-      batman-adv: Don't always delete softif when last slave was remove=
-d
-      batman-adv: Allow to use rntl_link for device creation/deletion
-      batman-adv: Allow to modify slaves of soft-interfaces through rnt=
-l_link
-
- net/batman-adv/Makefile         |   2 +-
- net/batman-adv/gateway_client.c |   2 +-
- net/batman-adv/hard-interface.c |  66 ++++++++--
- net/batman-adv/hard-interface.h |  13 +-
- net/batman-adv/main.c           |   4 +-
- net/batman-adv/main.h           |   3 +-
- net/batman-adv/network-coding.c |  10 +-
- net/batman-adv/originator.c     |   4 +-
- net/batman-adv/packet.h         |   2 +-
- net/batman-adv/soft-interface.c | 269 ++++++++++++++++++++++++++------=
---------
- net/batman-adv/soft-interface.h |   3 +-
- net/batman-adv/sysfs.c          |   6 +-
- net/batman-adv/vis.c            |   4 +-
- 13 files changed, 268 insertions(+), 120 deletions(-)
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index 0495a7d..62b1f89 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -71,6 +71,7 @@ static int __init batadv_init(void)
+ 	batadv_debugfs_init();
+ 
+ 	register_netdevice_notifier(&batadv_hard_if_notifier);
++	rtnl_link_register(&batadv_link_ops);
+ 
+ 	pr_info("B.A.T.M.A.N. advanced %s (compatibility version %i) loaded\n",
+ 		BATADV_SOURCE_VERSION, BATADV_COMPAT_VERSION);
+@@ -81,6 +82,7 @@ static int __init batadv_init(void)
+ static void __exit batadv_exit(void)
+ {
+ 	batadv_debugfs_destroy();
++	rtnl_link_unregister(&batadv_link_ops);
+ 	unregister_netdevice_notifier(&batadv_hard_if_notifier);
+ 	batadv_hardif_remove_interfaces();
+ 
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index 0afd4ee..a9e12e6 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -152,6 +152,7 @@ enum batadv_uev_type {
+ #include <linux/percpu.h>
+ #include <linux/slab.h>
+ #include <net/sock.h>		/* struct sock */
++#include <net/rtnetlink.h>
+ #include <linux/jiffies.h>
+ #include <linux/seq_file.h>
+ #include "types.h"
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index bc77a5be..545c863 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -570,6 +570,8 @@ struct net_device *batadv_softif_create(const char *name)
+ 	if (!soft_iface)
+ 		return NULL;
+ 
++	soft_iface->rtnl_link_ops = &batadv_link_ops;
++
+ 	ret = register_netdevice(soft_iface);
+ 	if (ret < 0) {
+ 		pr_err("Unable to register the batman interface '%s': %i\n",
+@@ -592,6 +594,26 @@ void batadv_softif_destroy_sysfs(struct net_device *soft_iface)
+ 	queue_work(batadv_event_workqueue, &bat_priv->cleanup_work);
+ }
+ 
++/**
++ * batadv_softif_destroy_netlink - deletion of batadv_soft_interface via netlink
++ * @soft_iface: the to-be-removed batman-adv interface
++ * @head: list pointer
++ */
++static void batadv_softif_destroy_netlink(struct net_device *soft_iface,
++					  struct list_head *head)
++{
++	struct batadv_hard_iface *hard_iface;
++
++	list_for_each_entry(hard_iface, &batadv_hardif_list, list) {
++		if (hard_iface->soft_iface == soft_iface)
++			batadv_hardif_disable_interface(hard_iface,
++							BATADV_IF_CLEANUP_KEEP);
++	}
++
++	batadv_sysfs_del_meshif(soft_iface);
++	unregister_netdevice_queue(soft_iface, head);
++}
++
+ int batadv_softif_is_valid(const struct net_device *net_dev)
+ {
+ 	if (net_dev->netdev_ops->ndo_start_xmit == batadv_interface_tx)
+@@ -600,6 +622,13 @@ int batadv_softif_is_valid(const struct net_device *net_dev)
+ 	return 0;
+ }
+ 
++struct rtnl_link_ops batadv_link_ops __read_mostly = {
++	.kind		= "batadv",
++	.priv_size	= sizeof(struct batadv_priv),
++	.setup		= batadv_softif_init_early,
++	.dellink	= batadv_softif_destroy_netlink,
++};
++
+ /* ethtool */
+ static int batadv_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+diff --git a/net/batman-adv/soft-interface.h b/net/batman-adv/soft-interface.h
+index 49bc66b..2f2472c 100644
+--- a/net/batman-adv/soft-interface.h
++++ b/net/batman-adv/soft-interface.h
+@@ -27,5 +27,6 @@ void batadv_interface_rx(struct net_device *soft_iface,
+ struct net_device *batadv_softif_create(const char *name);
+ void batadv_softif_destroy_sysfs(struct net_device *soft_iface);
+ int batadv_softif_is_valid(const struct net_device *net_dev);
++extern struct rtnl_link_ops batadv_link_ops;
+ 
+ #endif /* _NET_BATMAN_ADV_SOFT_INTERFACE_H_ */
+-- 
+1.8.1.5
