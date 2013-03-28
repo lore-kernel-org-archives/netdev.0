@@ -1,44 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: fix compile error of implicit
- declaration of skb_probe_transport_header
-Date: Wed, 27 Mar 2013 23:22:13 -0400 (EDT)
-Message-ID: <20130327.232213.1286089823569084478.davem@davemloft.net>
-References: <1364438766-14042-1-git-send-email-ying.xue@windriver.com>
-	<5153B506.40105@redhat.com>
+From: "Joseph Chang" <joseph_chang@davicom.com.tw>
+Subject: RE: Davicom Linux driver
+Date: Thu, 28 Mar 2013 10:25:58 +0800
+Message-ID: <201303280225.r2S2PuG2009800@mail.davicom.com.tw>
+References: <20130327.221023.858242820429458866.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: ying.xue@windriver.com, netdev@vger.kernel.org, edumazet@google.com
-To: jasowang@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35627 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754401Ab3C1DWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 23:22:14 -0400
-In-Reply-To: <5153B506.40105@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <R.E.Wolff@BitWizard.nl>, <corbet@lwn.net>,
+	<bonbons@linux-vserver.org>, <wfp5p@virginia.edu>,
+	<matthew@mattleach.net>, <gregkh@linuxfoundation.org>,
+	<jiri@resnulli.us>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <michael_chen@mail.davicom.com.tw>,
+	<andrew_chen@davicom.com.tw>, <spenser_tsai@davicom.com.tw>,
+	<willie_niou@mail.davicom.com.tw>, <charles_tsai@davicom.com.tw>
+To: "'David Miller'" <davem@davemloft.net>,
+	<allen_huang@davicom.com.tw>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130327.221023.858242820429458866.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogSmFzb24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4NCkRhdGU6IFRodSwgMjggTWFy
-IDIwMTMgMTE6MTI6MDYgKzA4MDANCg0KPiBPbiAwMy8yOC8yMDEzIDEwOjQ2IEFNLCBZaW5nIFh1
-ZSB3cm90ZToNCj4+IFRoZSBjb21taXQgNDA4OTNmZChuZXQ6IHN3aXRjaCB0byB1c2Ugc2tiX3By
-b2JlX3RyYW5zcG9ydF9oZWFkZXIoKSkNCj4+IGludm9sZXMgYSBuZXcgZXJyb3IgYWNjaWRlbnRs
-eS4gV2hlbiBORVRfU0tCVUZGX0RBVEFfVVNFU19PRkZTRSBpcw0KPj4gbm90IGVuYWJsZWQsIGJl
-bG93IGNvbXBpbGUgZXJyb3IgaGFwcGVuczoNCj4+DQo+PiAgIENDICAgICAgbmV0L3BhY2tldC9h
-Zl9wYWNrZXQubw0KPj4gICBuZXQvcGFja2V0L2FmX3BhY2tldC5jOiBJbiBmdW5jdGlvbiChcGFj
-a2V0X3NlbmRtc2dfc3BrdKI6DQo+PiAgIG5ldC9wYWNrZXQvYWZfcGFja2V0LmM6MTUxNjoyOiBl
-cnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goXNrYl9wcm9iZV90cmFuc3Bv
-cnRfaGVhZGVyoiBbLVdlcnJvcj1pbXBsaWNpdC1mdW5jdGlvbi1kZWNsYXJhdGlvbl0NCj4+ICAg
-Y2MxOiBzb21lIHdhcm5pbmdzIGJlaW5nIHRyZWF0ZWQgYXMgZXJyb3JzDQo+PiAgIG1ha2VbMl06
-ICoqKiBbbmV0L3BhY2tldC9hZl9wYWNrZXQub10gRXJyb3IgMQ0KPj4gICBtYWtlWzFdOiAqKiog
-W25ldC9wYWNrZXRdIEVycm9yIDINCj4+ICAgbWFrZTogKioqIFtuZXRdIEVycm9yIDINCj4+DQo+
-PiBBcyBpdCBzZWVtcyBza2JfcHJvYmVfdHJhbnNwb3J0X2hlYWRlcigpIGlzIG5vdCByZWxhdGVk
-IHRvDQo+PiBORVRfU0tCVUZGX0RBVEFfVVNFU19PRkZTRSwgd2Ugc2hvdWxkIG1vdmUgdGhlIGRl
-ZmluaXRpb24gb2YNCj4+IHNrYl9wcm9iZV90cmFuc3BvcnRfaGVhZGVyKCkgb3V0IG9mIHNjb3Bl
-IG9mDQo+PiBORVRfU0tCVUZGX0RBVEFfVVNFU19PRkZTRSBtYWNyby4NCj4+DQo+PiBDYzogSmFz
-b24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4NCj4+IENjOiBFcmljIER1bWF6ZXQgPGVkdW1h
-emV0QGdvb2dsZS5jb20+DQo+PiBTaWduZWQtb2ZmLWJ5OiBZaW5nIFh1ZSA8eWluZy54dWVAd2lu
-ZHJpdmVyLmNvbT4NCj4+IC0tLQ0KPj4gIGluY2x1ZGUvbGludXgvc2tidWZmLmggfCAgIDI2ICsr
-KysrKysrKysrKystLS0tLS0tLS0tLS0tDQo+PiAgMSBmaWxlIGNoYW5nZWQsIDEzIGluc2VydGlv
-bnMoKyksIDEzIGRlbGV0aW9ucygtKQ0KPiANCj4gT29wcy4NCj4gDQo+IEFja2VkLWJ5OiBKYXNv
-biBXYW5nIDxqYXNvd2FuZ0ByZWRoYXQuY29tPg0KDQpBcHBsaWVkLCB0aGFua3MuDQo=
+Dear Miller,
+
+ This is Joseph CHANG.
+ I had sent you the patches used my gmail earlier than Allen did.
+ My gmail account is josright123@gmail.com
+ The patches's subjects were:
+   [PATCH 1/2] ethernet: dm9000 driver: davicom: upgrade driver: 3rd trial
+   [PATCH 2/2] ethernet: dm9000 driver: davicom: upgrade driver: 3rd trial
+patch2
+ 
+Would you help confirm it again, Thanks.
+
+Best Regards,
+Joseph CHANG 
+System Application Engineering Division 
+Davicom Semiconductor, Inc. 
+No. 6 Li-Hsin Rd. VI, Science-Based Park, 
+Hsin-Chu, Taiwan. 
+Tel: 886-3-5798797 Ex 8534
+Fax: 886-3-5646929 
+Web: http://www.davicom.com.tw 
+
+
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Thursday, March 28, 2013 10:10 AM
+To: allen_huang@davicom.com.tw
+Cc: R.E.Wolff@BitWizard.nl; corbet@lwn.net; bonbons@linux-vserver.org;
+wfp5p@virginia.edu; matthew@mattleach.net; gregkh@linuxfoundation.org;
+jiri@resnulli.us; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+michael_chen@mail.davicom.com.tw; andrew_chen@davicom.com.tw;
+spenser_tsai@davicom.com.tw; willie_niou@mail.davicom.com.tw;
+charles_tsai@davicom.com.tw; joseph_chang@mail.davicom.com.tw
+Subject: Re: Davicom Linux driver
+
+
+This is not the correct way to submit a patch for inclusion upstream
+
+You should post each patch in a seperate, numbered, list posting, in
+plain ASCII text, and not as an attachment.
+
+-- 
+This message has been scanned for viruses and
+dangerous content by MailScanner, and is
+believed to be clean.
