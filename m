@@ -1,162 +1,105 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 07/11] batman-adv: Allow to modify slaves of soft-interfaces through rntl_link
-Date: Thu, 28 Mar 2013 08:50:27 +0100
-Message-ID: <1364457031-3194-8-git-send-email-ordex@autistici.org>
+Subject: [PATCH 08/11] batman-adv: free an hard-interface before adding it
+Date: Thu, 28 Mar 2013 08:50:28 +0100
+Message-ID: <1364457031-3194-9-git-send-email-ordex@autistici.org>
 References: <1364457031-3194-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Sven Eckelmann <sven@narfation.org>,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Antonio Quartulli <ordex@autistici.org>
+	Antonio Quartulli <ordex@autistici.org>,
+	Marek Lindner <lindner_marek@yahoo.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from diserzione.investici.org ([82.221.99.153]:33323 "EHLO
+Received: from diserzione.investici.org ([82.221.99.153]:33342 "EHLO
 	diserzione.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755957Ab3C1HwL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 03:52:11 -0400
+	with ESMTP id S1756391Ab3C1HwM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 03:52:12 -0400
 In-Reply-To: <1364457031-3194-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
+When adding a new hard interface (e.g. wlan0) to a soft interface (e.g. bat0)
+and the former is already enslaved in another virtual interface (e.g. a software
+bridge) batman-adv has to free it first and then continue with the adding
+mechanism.
 
-The sysfs configuration interface of batman-adv to add/remove slaves of an
-soft-iface is not deadlock free and doesn't follow the currently common way to
-modify slaves of an interface.
+In this way the behaviour becomes consistent with what "ip link set master"
+does. At the moment batman-adv enslaves the hard interface without checking for
+the master device, possibly causing strange behaviours which are never wanted by
+the users.
 
-An additional configuration interface though rtnl_link is introduced which
-provides easy device adding/removing with tools like "ip":
-$ ip link set dev eth0 master bat0
-$ ip link set dev eth0 nomaster
-
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
-Acked-by: Antonio Quartulli <ordex@autistici.org>
+Reported-by: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 ---
- net/batman-adv/hard-interface.c | 12 +++++++--
- net/batman-adv/soft-interface.c | 56 ++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 65 insertions(+), 3 deletions(-)
+ net/batman-adv/hard-interface.c | 39 +++++++++++++++++++++++++++++++++------
+ 1 file changed, 33 insertions(+), 6 deletions(-)
 
 diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index 6c32607..f33ced8 100644
+index f33ced8..522243a 100644
 --- a/net/batman-adv/hard-interface.c
 +++ b/net/batman-adv/hard-interface.c
-@@ -350,9 +350,13 @@ int batadv_hardif_enable_interface(struct batadv_hard_iface *hard_iface,
- 	hard_iface->soft_iface = soft_iface;
- 	bat_priv = netdev_priv(hard_iface->soft_iface);
- 
-+	ret = netdev_master_upper_dev_link(hard_iface->net_dev, soft_iface);
-+	if (ret)
-+		goto err_dev;
-+
- 	ret = bat_priv->bat_algo_ops->bat_iface_enable(hard_iface);
- 	if (ret < 0)
--		goto err_dev;
-+		goto err_upper;
- 
- 	hard_iface->if_num = bat_priv->num_ifaces;
- 	bat_priv->num_ifaces++;
-@@ -362,7 +366,7 @@ int batadv_hardif_enable_interface(struct batadv_hard_iface *hard_iface,
- 		bat_priv->bat_algo_ops->bat_iface_disable(hard_iface);
- 		bat_priv->num_ifaces--;
- 		hard_iface->if_status = BATADV_IF_NOT_IN_USE;
--		goto err_dev;
-+		goto err_upper;
- 	}
- 
- 	hard_iface->batman_adv_ptype.type = ethertype;
-@@ -401,7 +405,10 @@ int batadv_hardif_enable_interface(struct batadv_hard_iface *hard_iface,
- out:
- 	return 0;
- 
-+err_upper:
-+	netdev_upper_dev_unlink(hard_iface->net_dev, soft_iface);
- err_dev:
-+	hard_iface->soft_iface = NULL;
- 	dev_put(soft_iface);
- err:
- 	batadv_hardif_free_ref(hard_iface);
-@@ -450,6 +457,7 @@ void batadv_hardif_disable_interface(struct batadv_hard_iface *hard_iface,
- 	if (!bat_priv->num_ifaces && autodel == BATADV_IF_CLEANUP_AUTO)
- 		batadv_softif_destroy_sysfs(hard_iface->soft_iface);
- 
-+	netdev_upper_dev_unlink(hard_iface->net_dev, hard_iface->soft_iface);
- 	hard_iface->soft_iface = NULL;
- 	batadv_hardif_free_ref(hard_iface);
- 
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 545c863..403b8c4 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -509,6 +509,58 @@ free_bat_counters:
- 	return ret;
+@@ -307,11 +307,35 @@ batadv_hardif_deactivate_interface(struct batadv_hard_iface *hard_iface)
+ 	batadv_update_min_mtu(hard_iface->soft_iface);
  }
  
 +/**
-+ * batadv_softif_slave_add - Add a slave interface to a batadv_soft_interface
-+ * @dev: batadv_soft_interface used as master interface
-+ * @slave_dev: net_device which should become the slave interface
++ * batadv_master_del_slave - remove hard_iface from the current master interface
++ * @slave: the interface enslaved in another master
++ * @master: the master from which slave has to be removed
 + *
-+ * Return 0 if successful or error otherwise.
++ * Invoke ndo_del_slave on master passing slave as argument. In this way slave
++ * is free'd and master can correctly change its internal state.
++ * Return 0 on success, a negative value representing the error otherwise
 + */
-+static int batadv_softif_slave_add(struct net_device *dev,
-+				   struct net_device *slave_dev)
++static int batadv_master_del_slave(struct batadv_hard_iface *slave,
++				   struct net_device *master)
 +{
-+	struct batadv_hard_iface *hard_iface;
-+	int ret = -EINVAL;
++	int ret;
 +
-+	hard_iface = batadv_hardif_get_by_netdev(slave_dev);
-+	if (!hard_iface || hard_iface->soft_iface != NULL)
-+		goto out;
++	if (!master)
++		return 0;
 +
-+	ret = batadv_hardif_enable_interface(hard_iface, dev->name);
++	ret = -EBUSY;
++	if (master->netdev_ops->ndo_del_slave)
++		ret = master->netdev_ops->ndo_del_slave(master, slave->net_dev);
 +
-+out:
-+	if (hard_iface)
-+		batadv_hardif_free_ref(hard_iface);
 +	return ret;
 +}
 +
-+/**
-+ * batadv_softif_slave_del - Delete a slave iface from a batadv_soft_interface
-+ * @dev: batadv_soft_interface used as master interface
-+ * @slave_dev: net_device which should be removed from the master interface
-+ *
-+ * Return 0 if successful or error otherwise.
-+ */
-+static int batadv_softif_slave_del(struct net_device *dev,
-+				   struct net_device *slave_dev)
-+{
-+	struct batadv_hard_iface *hard_iface;
-+	int ret = -EINVAL;
-+
-+	hard_iface = batadv_hardif_get_by_netdev(slave_dev);
-+
-+	if (!hard_iface || hard_iface->soft_iface != dev)
-+		goto out;
-+
-+	batadv_hardif_disable_interface(hard_iface, BATADV_IF_CLEANUP_KEEP);
-+	ret = 0;
-+
-+out:
-+	if (hard_iface)
-+		batadv_hardif_free_ref(hard_iface);
-+	return ret;
-+}
-+
- static const struct net_device_ops batadv_netdev_ops = {
- 	.ndo_init = batadv_softif_init_late,
- 	.ndo_open = batadv_interface_open,
-@@ -517,7 +569,9 @@ static const struct net_device_ops batadv_netdev_ops = {
- 	.ndo_set_mac_address = batadv_interface_set_mac_addr,
- 	.ndo_change_mtu = batadv_interface_change_mtu,
- 	.ndo_start_xmit = batadv_interface_tx,
--	.ndo_validate_addr = eth_validate_addr
-+	.ndo_validate_addr = eth_validate_addr,
-+	.ndo_add_slave = batadv_softif_slave_add,
-+	.ndo_del_slave = batadv_softif_slave_del,
- };
+ int batadv_hardif_enable_interface(struct batadv_hard_iface *hard_iface,
+ 				   const char *iface_name)
+ {
+ 	struct batadv_priv *bat_priv;
+-	struct net_device *soft_iface;
++	struct net_device *soft_iface, *master;
+ 	__be16 ethertype = __constant_htons(ETH_P_BATMAN);
+ 	int ret;
  
- /**
+@@ -321,11 +345,6 @@ int batadv_hardif_enable_interface(struct batadv_hard_iface *hard_iface,
+ 	if (!atomic_inc_not_zero(&hard_iface->refcount))
+ 		goto out;
+ 
+-	/* hard-interface is part of a bridge */
+-	if (hard_iface->net_dev->priv_flags & IFF_BRIDGE_PORT)
+-		pr_err("You are about to enable batman-adv on '%s' which already is part of a bridge. Unless you know exactly what you are doing this is probably wrong and won't work the way you think it would.\n",
+-		       hard_iface->net_dev->name);
+-
+ 	soft_iface = dev_get_by_name(&init_net, iface_name);
+ 
+ 	if (!soft_iface) {
+@@ -347,6 +366,14 @@ int batadv_hardif_enable_interface(struct batadv_hard_iface *hard_iface,
+ 		goto err_dev;
+ 	}
+ 
++	/* check if the interface is enslaved in another virtual one and
++	 * in that case unlink it first
++	 */
++	master = netdev_master_upper_dev_get(hard_iface->net_dev);
++	ret = batadv_master_del_slave(hard_iface, master);
++	if (ret)
++		goto err_dev;
++
+ 	hard_iface->soft_iface = soft_iface;
+ 	bat_priv = netdev_priv(hard_iface->soft_iface);
+ 
 -- 
 1.8.1.5
