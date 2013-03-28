@@ -1,59 +1,66 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
-Date: Wed, 27 Mar 2013 22:00:53 -0700
-Message-ID: <87d2uknmnu.fsf@xmission.com>
-References: <CD78B3C3.76D3%blourdel@juniper.net> <874nfwri6o.fsf@xmission.com>
-	<20130327104746.0ec9dcb5@nehalam.linuxnetplumber.net>
-	<87620cpd0y.fsf@xmission.com> <20130328032046.GA32083@sergelap>
-	<87vc8cnq6v.fsf@xmission.com> <20130328042808.GA11672@sergelap>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the final tree (net-next
+ tree related)
+Date: Thu, 28 Mar 2013 16:04:20 +1100
+Message-ID: <20130328160420.e57d7fdbd2894807e73e8497@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Benoit Lourdelet <blourdel@juniper.net>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Serge Hallyn <serge.hallyn@ubuntu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:55356 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750777Ab3C1FBE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 01:01:04 -0400
-In-Reply-To: <20130328042808.GA11672@sergelap> (Serge Hallyn's message of
-	"Wed, 27 Mar 2013 23:28:08 -0500")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__28_Mar_2013_16_04_20_+1100_TGef+=DYYQ0ECeQT"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jason Wang <jasowang@redhat.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Serge Hallyn <serge.hallyn@ubuntu.com> writes:
+--Signature=_Thu__28_Mar_2013_16_04_20_+1100_TGef+=DYYQ0ECeQT
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Quoting Eric W. Biederman (ebiederm@xmission.com):
->> Serge Hallyn <serge.hallyn@ubuntu.com> writes:
->> 
->> > Quoting Eric W. Biederman (ebiederm@xmission.com):
->> >> Stephen Hemminger <stephen@networkplumber.org> writes:
->> >> 
->> >> > If you need to do lots of operations the --batch mode will be significantly faster.
->> >> > One command start and one link map.
->> >> 
->> >> The problem in this case as I understand it is lots of independent
->> >> operations. Now maybe lxc should not shell out to ip and perform the
->> >> work itself.
->> >
->> > fwiw lxc uses netlink to create new veths, and picks random names with
->> > mktemp() ahead of time.
->> 
->> I am puzzled where does the slownes in iproute2 come into play?
->
-> Benoit originally reported slowness when starting >1500 containers.  I
-> asked him to run a few manual tests to figure out what was taking the
-> time.  Manually creating a large # of veths was an obvious test, and
-> one which showed poorly scaling performance.
+Hi all,
 
-Apparently iproute is involved somehwere as when he tested with a
-patched iproute (as you asked him to) the lxc startup slowdown was
-gone.
+After merging the final tree, today's linux-next build (powerpc
+ppc44x_defconfig) failed like this:
 
-> May well be there are other things slowing down lxc of course.
+net/packet/af_packet.c: In function 'packet_sendmsg_spkt':
+net/packet/af_packet.c:1515:2: error: implicit declaration of function 'skb=
+_probe_transport_header' [-Werror=3Dimplicit-function-declaration]
+drivers/net/tun.c: In function 'tun_get_user':
+drivers/net/tun.c:1206:2: error: implicit declaration of function 'skb_prob=
+e_transport_header' [-Werror=3Dimplicit-function-declaration]
 
-The evidence indicates it was iproute being called somewhere...
+Caused by commit 40893fd0fd4e ("net: switch to use
+skb_probe_transport_header()").  This is a 32 bit build, so that
+"BITS_PER_LONG > 32" is false and so NET_SKBUFF_DATA_USES_OFFSET is not
+defined ... and skb_probe_transport_header() is only defined in an area of
+skbuff.h protected by "#ifdef NET_SKBUFF_DATA_USES_OFFSET"  :-(
 
+I have reverted that commit for today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-Eric
+--Signature=_Thu__28_Mar_2013_16_04_20_+1100_TGef+=DYYQ0ECeQT
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRU89UAAoJEECxmPOUX5FEn6IP/3vN6nDZpA0VF/AQ7P/rF31Q
+gU1bYl40SHBe8Nmb+bZYGXXAdU2o2y7u52nR+rOQsnjlRL7V22BUyCVY/glpqIP8
+82r0i5zCplZ+6cK+LqzFEy86//YSMivUi0Tu+rrmXMPsBtEAsQhV+oF50hSZIhn/
+/4JpO8+M5IdxkjjWyhkaNJEVSzzgK0hazQ4ZRn5qL71YV7oC8fj9Zr035C1/0Iut
+ns5Z1cnWOAbrBtmKz86tKPUAF1rtrGipKqnWetnEbDktV8eHw5H3xdZ11TRuzax8
+LzcE3q/uIYA76D5qlqHbsPpIEZYMl+UmL1dTjgm/Gr0hrJPIZeBFRpx+bYHtT3tp
+nozQrkVuQGVKbV6VOas0sFxo2AbQHLVM1ySQfkzy90oH52UCVYOJCsBCn9HeKl35
+Fw7hPz1PS9+muexoVREH8O2VFDHZozCOMQe4e0JDQXi9V7K6PbcOKzV2xvVchXlh
+Rhttok2fjkeqsFPLfn0yBx9414GEtZTpMr+ws1IG1xkAGcOLw0JOMOHiOhUD8C3q
+Fi3Mghjr+01omQUlh7BIMbTObURLujsEb/nHX1trKNxQJy3vsmR7A4t6oHNOQq0p
+zzqwoC0cB7VvhP4aM1wPerWyYnsysaUt4AjiPp77bLChRsJBiOCYGmqIVpEy7pMh
+E5meeCUSWr0JviLofgNT
+=a1zM
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__28_Mar_2013_16_04_20_+1100_TGef+=DYYQ0ECeQT--
