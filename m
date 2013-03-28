@@ -1,102 +1,39 @@
-From: Benoit Lourdelet <blourdel@juniper.net>
-Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
-Date: Thu, 28 Mar 2013 13:42:29 +0000
-Message-ID: <CD7A05CE.7802%blourdel@juniper.net>
-References: <20130328133652.GA6652@sergelap>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2 6/6] sctp: convert sctp_assoc_set_id to use
+ idr_alloc_cyclic
+Date: Thu, 28 Mar 2013 09:53:08 -0400
+Message-ID: <20130328135308.GA14489@neilslaptop.think-freely.org>
+References: <1364412578-7462-1-git-send-email-jlayton@redhat.com>
+ <1364412578-7462-7-git-send-email-jlayton@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Serge Hallyn <serge.hallyn@ubuntu.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og123.obsmtp.com ([64.18.2.24]:41382 "EHLO
-	exprod7og123.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754922Ab3C1Nqq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 09:46:46 -0400
-Received: from mail40-db3 (localhost [127.0.0.1])	by mail40-db3-R.bigfish.com
- (Postfix) with ESMTP id 957713409E1	for
- <netdev@vger.kernel.org.FOPE.CONNECTOR.OVERRIDE>; Thu, 28 Mar 2013 13:42:44
- +0000 (UTC)
-In-Reply-To: <20130328133652.GA6652@sergelap>
-Content-Language: en-US
-Content-ID: <EF98899CB9E69F47A2ECA89A75658E9A@namprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	tj@kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: Jeff Layton <jlayton@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1364412578-7462-7-git-send-email-jlayton@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
-
-My test consists in starting small containers (10MB of RAM ) each. Each
-container has 2x physical VLAN interfaces attached.
-
-lxc.network.type = phys
-lxc.network.flags = up
-lxc.network.link = eth6.3
-lxc.network.name = eth2
-lxc.network.hwaddr = 00:50:56:a8:03:03
-lxc.network.ipv4 = 192.168.1.1/24
-lxc.network.type = phys
-lxc.network.flags = up
-lxc.network.link = eth7.3
-lxc.network.name = eth1
-lxc.network.ipv4 = 2.2.2.2/24
-lxc.network.hwaddr = 00:50:57:b8:00:01
-
-
-
-With initial iproute2 , when I reach around 1600 containers, container
-creation almost stops.It takes at least 20s per container to start.
-With patched iproutes2 , I have started 4000 containers at a rate of 1 per
-second w/o problem. I have 8000 clan interfaces configured on the host (2x
-4000).
-
-
-Regards
-
-Benoit
-
-On 28/03/2013 14:36, "Serge Hallyn" <serge.hallyn@ubuntu.com> wrote:
-
->Quoting Eric W. Biederman (ebiederm@xmission.com):
->> Serge Hallyn <serge.hallyn@ubuntu.com> writes:
->> 
->> > Quoting Eric W. Biederman (ebiederm@xmission.com):
->> >> Serge Hallyn <serge.hallyn@ubuntu.com> writes:
->> >> 
->> >> > Quoting Eric W. Biederman (ebiederm@xmission.com):
->> >> >> Stephen Hemminger <stephen@networkplumber.org> writes:
->> >> >> 
->> >> >> > If you need to do lots of operations the --batch mode will be
->>significantly faster.
->> >> >> > One command start and one link map.
->> >> >> 
->> >> >> The problem in this case as I understand it is lots of independent
->> >> >> operations. Now maybe lxc should not shell out to ip and perform
->>the
->> >> >> work itself.
->> >> >
->> >> > fwiw lxc uses netlink to create new veths, and picks random names
->>with
->> >> > mktemp() ahead of time.
->> >> 
->> >> I am puzzled where does the slownes in iproute2 come into play?
->> >
->> > Benoit originally reported slowness when starting >1500 containers.  I
->> > asked him to run a few manual tests to figure out what was taking the
->> > time.  Manually creating a large # of veths was an obvious test, and
->> > one which showed poorly scaling performance.
->> 
->> Apparently iproute is involved somehwere as when he tested with a
->> patched iproute (as you asked him to) the lxc startup slowdown was
->> gone.
->> 
->> > May well be there are other things slowing down lxc of course.
->> 
->> The evidence indicates it was iproute being called somewhere...
->
->Benoit can you tell us exactly what test you were running when you saw
->the slowdown was gone?
->
->-serge
->
+On Wed, Mar 27, 2013 at 03:29:38PM -0400, Jeff Layton wrote:
+> (Note: compile-tested only)
+> 
+> Signed-off-by: Jeff Layton <jlayton@redhat.com>
+> Cc: Vlad Yasevich <vyasevich@gmail.com>
+> Cc: Sridhar Samudrala <sri@us.ibm.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: linux-sctp@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> ---
+>  net/sctp/associola.c | 16 ++--------------
+>  1 file changed, 2 insertions(+), 14 deletions(-)
+> 
+I don't see anything wrong with this patch per-se, but the idr_alloc_cyclic call
+isn't integrated with net/net-next or Linus' tree yet.  If we don't gate this
+patch on that integration, we'll break the build.
+Neil
