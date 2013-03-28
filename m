@@ -1,36 +1,66 @@
-From: "Vick, Matthew" <matthew.vick@intel.com>
-Subject: Re: [net-next PATCH] [RFC] net: add option to enable error queue
- packets waking select
-Date: Wed, 27 Mar 2013 23:43:52 +0000
-Message-ID: <CD78D1C2.17703%matthew.vick@intel.com>
-References: <20130327220028.13267.89112.stgit@jekeller-hub.jf.intel.com>
+From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Subject: RE: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or
+ Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba
+ (updated) Version 2
+Date: Thu, 28 Mar 2013 00:10:57 +0000
+Message-ID: <157393863283F442885425D2C45428564F1FFFCE@nasanexd02f.na.qualcomm.com>
+References: <20130324051325.GE17948@order.stressinduktion.org>
+ <157393863283F442885425D2C4542856489E7CFC@nasanexd02f.na.qualcomm.com>
+ <20130324052300.GA12968@order.stressinduktion.org>
+ <157393863283F442885425D2C4542856489E7D1E@nasanexd02f.na.qualcomm.com>
+ <20130326042700.GC29705@order.stressinduktion.org>
+ <157393863283F442885425D2C4542856489E821B@nasanexd02f.na.qualcomm.com>
+ <20130326044025.GD29705@order.stressinduktion.org>
+ <157393863283F442885425D2C4542856489E8232@nasanexd02f.na.qualcomm.com>
+ <20130327220248.GD23223@order.stressinduktion.org>
+ <157393863283F442885425D2C45428564F1FDF82@nasanexd02f.na.qualcomm.com>
+ <20130327223433.GE23223@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Richard Cochran <richardcochran@gmail.com>
-To: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Sven Hartge <sven@svenhartge.de>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:62262 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754253Ab3C0Xnx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 19:43:53 -0400
-In-Reply-To: <20130327220028.13267.89112.stgit@jekeller-hub.jf.intel.com>
+Received: from sabertooth01.qualcomm.com ([65.197.215.72]:64162 "EHLO
+	sabertooth01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753353Ab3C1AOq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 20:14:46 -0400
+In-Reply-To: <20130327223433.GE23223@order.stressinduktion.org>
 Content-Language: en-US
-Content-ID: <FE05C46ABB93BB489AA0D7B5387EB7B8@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->index 4ef3acb..c5d2e3a 100644
->--- a/include/uapi/asm-generic/socket.h
->+++ b/include/uapi/asm-generic/socket.h
->@@ -74,4 +74,6 @@
-> 
-> #define SO_LOCK_FILTER		44
-> 
->+#define SO_SELECT_ERR_QUEUE	45
->+
-> #endif /* __ASM_GENERIC_SOCKET_H */
-
-Shouldn't this also go in the arch/*/include/uapi/asm/socket.h headers?
+VGhlcmUgaXMgbm8gbXVjaCBkaWZmZXJlbmNlIG9uIHRob3NlIHJlZ2lzdGVycyA6KA0KQnV0IHlv
+dSBjb3VsZCB0cnkgdG8gcmVwbGFjZSA6DQoNCnN0YXRpYyB2b2lkIGF0bDFlX2NhbF9yaW5nX3Np
+emUoc3RydWN0IGF0bDFlX2FkYXB0ZXIgKmFkYXB0ZXIsIHUzMiAqcmluZ19zaXplKQ0Kew0KCSpy
+aW5nX3NpemUgPSAoKHUzMikoYWRhcHRlci0+dHhfcmluZy5jb3VudCAqDQoJCSAgICAgc2l6ZW9m
+KHN0cnVjdCBhdGwxZV90cGRfZGVzYykgKyA3DQoJCQkvKiB0eCByaW5nLCBxd29yZCBhbGlnbiAq
+Lw0KCQkgICAgICsgYWRhcHRlci0+cnhfcmluZy5yZWFsX3BhZ2Vfc2l6ZSAqIEFUX1BBR0VfTlVN
+X1BFUl9RVUVVRSAqDQoJCQlhZGFwdGVyLT5udW1fcnhfcXVldWVzICsgMzENCgkJCS8qIHJ4IHJp
+bmcsICAzMiBieXRlcyBhbGlnbiAqLw0KCQkgICAgICsgKDEgKyBBVF9QQUdFX05VTV9QRVJfUVVF
+VUUgKiBhZGFwdGVyLT5udW1fcnhfcXVldWVzKSAqDQoJCQkxNiArIDE1KSk7DQoJCQkvKiB0eCwg
+cnggY21kLCBkd29yZCBhbGlnbiAgICovDQp9DQoNCg0Kc3RhdGljIGludCBhdGwxZV9zZXR1cF9y
+aW5nX3Jlc291cmNlcyhzdHJ1Y3QgYXRsMWVfYWRhcHRlciAqYWRhcHRlcikNCnsNCi4uLi4uDQoJ
+LyogSW5pdCBDTUIgZG1hIGFkZHJlc3MgKi8NCglvZmZzZXQgPSByb3VuZHVwKG9mZnNldCwgMTYp
+Ow0KCXR4X3JpbmctPmNtYl9kbWEgPSBhZGFwdGVyLT5yaW5nX2RtYSArIG9mZnNldDsNCgl0eF9y
+aW5nLT5jbWIgPSBhZGFwdGVyLT5yaW5nX3Zpcl9hZGRyICsgb2Zmc2V0Ow0KCW9mZnNldCArPSBz
+aXplb2YodTMyKTsNCglvZmZzZXQgPSByb3VuZHVwKG9mZnNldCwgMTYpOw0KDQoJZm9yIChpID0g
+MDsgaSA8IGFkYXB0ZXItPm51bV9yeF9xdWV1ZXM7IGkrKykgew0KCQlmb3IgKGogPSAwOyBqIDwg
+QVRfUEFHRV9OVU1fUEVSX1FVRVVFOyBqKyspIHsNCgkJCXJ4X3BhZ2VfZGVzY1tpXS5yeF9wYWdl
+W2pdLndyaXRlX29mZnNldF9kbWEgPQ0KCQkJCWFkYXB0ZXItPnJpbmdfZG1hICsgb2Zmc2V0Ow0K
+CQkJcnhfcGFnZV9kZXNjW2ldLnJ4X3BhZ2Vbal0ud3JpdGVfb2Zmc2V0X2FkZHIgPQ0KCQkJCWFk
+YXB0ZXItPnJpbmdfdmlyX2FkZHIgKyBvZmZzZXQ7DQoJCQlvZmZzZXQgKz0gc2l6ZW9mKHUzMik7
+DQoJCQlvZmZzZXQgPSByb3VuZHVwKG9mZnNldCwgMTYpOw0KCQl9DQoJfQ0KLi4uLi4NCg0KDQoN
+Ckp1c3QgZ3Vlc3MsIG5vIGNvbmZpZGVuY2Ugb24gaXQgLi4uLg0KDQpCUi4NClhpb25nDQoNCj4g
+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSGFubmVzIEZyZWRlcmljIFNvd2Eg
+W21haWx0bzpoYW5uZXNAc3RyZXNzaW5kdWt0aW9uLm9yZ10NCj4gU2VudDogVGh1cnNkYXksIE1h
+cmNoIDI4LCAyMDEzIDY6MzUgQU0NCj4gVG86IEh1YW5nLCBYaW9uZw0KPiBDYzogU3ZlbiBIYXJ0
+Z2U7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IEF0aGVyb3MgQ29tbXVu
+aWNhdGlvbnMgSW5jLiBBUjgxMjEvQVI4MTEzL0FSODExNCBHaWdhYml0IG9yDQo+IEZhc3QgRXRo
+ZXJuZXQgKHJldiBiMCkgMS4wLjAuNyBtZDUvc2hhMSBjb3JydXB0ZWQgdXNpbmcgTkZTIGFuZCBz
+YW1iYQ0KPiAodXBkYXRlZCkgVmVyc2lvbiAyDQo+IA0KPiBPbiBXZWQsIE1hciAyNywgMjAxMyBh
+dCAxMDoyODoyNFBNICswMDAwLCBIdWFuZywgWGlvbmcgd3JvdGU6DQo+ID4gICAgIFdoYXQgV2lu
+ZG93cyBhcmUgeW91IHVzaW5nID8gWFAgb3IgV2luNyA/DQo+IA0KPiBJdCBpcyBhIFdpbmRvd3Mg
+NyB4ODZfNjQuIFRoZSB2ZXJzaW9uIG9mIHRoZSB3aW5kb3dzIGRyaXZlciBpcyAxLjAuMC40NS4N
+Cj4gDQo+IFRoYW5rcywNCj4gDQo+ICAgSGFubmVzDQo=
