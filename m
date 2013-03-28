@@ -1,66 +1,60 @@
-From: Serge Hallyn <serge.hallyn@ubuntu.com>
-Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
-Date: Thu, 28 Mar 2013 08:36:52 -0500
-Message-ID: <20130328133652.GA6652@sergelap>
-References: <CD78B3C3.76D3%blourdel@juniper.net>
- <874nfwri6o.fsf@xmission.com>
- <20130327104746.0ec9dcb5@nehalam.linuxnetplumber.net>
- <87620cpd0y.fsf@xmission.com>
- <20130328032046.GA32083@sergelap>
- <87vc8cnq6v.fsf@xmission.com>
- <20130328042808.GA11672@sergelap>
- <87d2uknmnu.fsf@xmission.com>
+From: David Shwatrz <dshwatrz@gmail.com>
+Subject: Re: Deleting a network namespace
+Date: Thu, 28 Mar 2013 15:41:25 +0200
+Message-ID: <CAJJAcof98k+GDt88MORMz6sS-JFODeuyqYSwP6dk-ZYqFMGTWg@mail.gmail.com>
+References: <CAJJAcodGG6nmRNcF_rC+AUUpCp1MWjU3faGLfRTm9FNc6LT_Yw@mail.gmail.com>
+	<87y5d7lr73.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Benoit Lourdelet <blourdel@juniper.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
 To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:37123 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755715Ab3C1NhA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 09:37:00 -0400
-Content-Disposition: inline
-In-Reply-To: <87d2uknmnu.fsf@xmission.com>
+Received: from mail-vc0-f178.google.com ([209.85.220.178]:62737 "EHLO
+	mail-vc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755711Ab3C1Nl0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 09:41:26 -0400
+Received: by mail-vc0-f178.google.com with SMTP id hz11so7555745vcb.23
+        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 06:41:25 -0700 (PDT)
+In-Reply-To: <87y5d7lr73.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Eric W. Biederman (ebiederm@xmission.com):
-> Serge Hallyn <serge.hallyn@ubuntu.com> writes:
-> 
-> > Quoting Eric W. Biederman (ebiederm@xmission.com):
-> >> Serge Hallyn <serge.hallyn@ubuntu.com> writes:
-> >> 
-> >> > Quoting Eric W. Biederman (ebiederm@xmission.com):
-> >> >> Stephen Hemminger <stephen@networkplumber.org> writes:
-> >> >> 
-> >> >> > If you need to do lots of operations the --batch mode will be significantly faster.
-> >> >> > One command start and one link map.
-> >> >> 
-> >> >> The problem in this case as I understand it is lots of independent
-> >> >> operations. Now maybe lxc should not shell out to ip and perform the
-> >> >> work itself.
-> >> >
-> >> > fwiw lxc uses netlink to create new veths, and picks random names with
-> >> > mktemp() ahead of time.
-> >> 
-> >> I am puzzled where does the slownes in iproute2 come into play?
-> >
-> > Benoit originally reported slowness when starting >1500 containers.  I
-> > asked him to run a few manual tests to figure out what was taking the
-> > time.  Manually creating a large # of veths was an obvious test, and
-> > one which showed poorly scaling performance.
-> 
-> Apparently iproute is involved somehwere as when he tested with a
-> patched iproute (as you asked him to) the lxc startup slowdown was
-> gone.
-> 
-> > May well be there are other things slowing down lxc of course.
-> 
-> The evidence indicates it was iproute being called somewhere...
+Hello,
+I checked and indeed physical hardware are moved to init_net.
+I wonder how it is done, as in netns_delete() there is only
+umount2() and unlink() syscalls (might these syscalls trigger this
+movement to init_net)? I really could not figure how this is
+implemented and where in code do we differentiate between physical and
+non physical devices.
 
-Benoit can you tell us exactly what test you were running when you saw
-the slowdown was gone?
+Best,
+DS
 
--serge
+On Thu, Mar 28, 2013 at 1:05 PM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+> David Shwatrz <dshwatrz@gmail.com> writes:
+>
+>> Hello,
+>> When assigning a network interface to a network namespace and
+>> afterwards deleting the namespace, we will not see the network
+>> interface in any other namespace (including the default namespace) anymore:
+>>
+>> ip netns add ns1
+>> ip link set eth0 netns ns1
+>> ip netns del ns1
+>>
+>> This means that in fact we cannot use this interface again (only after
+>> rebooting)
+>> Am I right on this ?
+>
+> Interfaces that represent physical hardware are moved to init_net.
+> Interfaces that are purely software constructs are deleted.
+>
+>> Is moving an interface back to the default (init) namespace,
+>> when deleting the namespace which contains it, can be considered?
+>
+> If you aren't seeing that your interface is either a purely software
+> construct like the veth or dummy interfaces or something still has a
+> reference to your network namespace.
+>
+> Eric
