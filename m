@@ -1,68 +1,75 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC][PATCH] iproute: Faster ip link add, set and delete
-Date: Wed, 27 Mar 2013 17:46:05 -0700
-Message-ID: <87620cpd0y.fsf@xmission.com>
-References: <CD78B3C3.76D3%blourdel@juniper.net> <874nfwri6o.fsf@xmission.com>
-	<20130327104746.0ec9dcb5@nehalam.linuxnetplumber.net>
+From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Subject: RE: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or
+ Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba
+ (updated) Version 2
+Date: Thu, 28 Mar 2013 01:01:05 +0000
+Message-ID: <157393863283F442885425D2C45428564F200FE9@nasanexd02f.na.qualcomm.com>
+References: <20130324052300.GA12968@order.stressinduktion.org>
+ <157393863283F442885425D2C4542856489E7D1E@nasanexd02f.na.qualcomm.com>
+ <20130326042700.GC29705@order.stressinduktion.org>
+ <157393863283F442885425D2C4542856489E821B@nasanexd02f.na.qualcomm.com>
+ <20130326044025.GD29705@order.stressinduktion.org>
+ <157393863283F442885425D2C4542856489E8232@nasanexd02f.na.qualcomm.com>
+ <20130327220248.GD23223@order.stressinduktion.org>
+ <157393863283F442885425D2C45428564F1FDF82@nasanexd02f.na.qualcomm.com>
+ <20130327223433.GE23223@order.stressinduktion.org>
+ <157393863283F442885425D2C45428564F1FFFCE@nasanexd02f.na.qualcomm.com>
+ <20130328004024.GA2176@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Benoit Lourdelet <blourdel@juniper.net>,
-	Serge Hallyn <serge.hallyn@ubuntu.com>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Sven Hartge <sven@svenhartge.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:36043 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754906Ab3C1AqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 20:46:16 -0400
-In-Reply-To: <20130327104746.0ec9dcb5@nehalam.linuxnetplumber.net> (Stephen
-	Hemminger's message of "Wed, 27 Mar 2013 10:47:46 -0700")
+Received: from sabertooth02.qualcomm.com ([65.197.215.38]:4819 "EHLO
+	sabertooth02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752771Ab3C1BGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 21:06:34 -0400
+In-Reply-To: <20130328004024.GA2176@order.stressinduktion.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <stephen@networkplumber.org> writes:
-
-> If you need to do lots of operations the --batch mode will be significantly faster.
-> One command start and one link map.
-
-The problem in this case as I understand it is lots of independent
-operations. Now maybe lxc should not shell out to ip and perform the
-work itself.
-
-> I have an updated version of link map hash (index and name). Could you test this patch
-> which applies to latest version in git.
-
-This still dumps all of the interfaces in ll_init_map causing things to
-slow down noticably.
-
-# with your patch
-# time ~/projects/iproute/iproute2/ip/ip link add a4511 type veth peer name b4511
-
-real	0m0.049s
-user	0m0.000s
-sys	0m0.048s
-
-# With a hack to make ll_map_init a nop.
-# time ~/projects/iproute/iproute2/ip/ip link add a4512 type veth peer name b4512
-
-real	0m0.003s
-user	0m0.000s
-sys	0m0.000s
-eric-ThinkPad-X220 6bed4 # 
-
-# Without any patches.
-# time ~/projects/iproute/iproute2/ip/ip link add a5002 type veth peer name b5002
-
-real	0m0.052s
-user	0m0.004s
-sys	0m0.044s
-
-So it looks like dumping all of the interfaces is taking 46 miliseconds,
-longer than otherwise.  Causing ip to take nearly an order of magnitude
-longer to run when there are a lot of interfaces, and causing ip to slow
-down with each command.
-
-So the ideal situation is probably just to fill in the ll_map on demand
-instead of up front.
-
-Eric
+UGxlYXNlIHRyeSB0byB1c2UgZm9sbG93aW5nIGRlZmluZSBpbiBhdGwxZV9ody5oDQogDQojZGVm
+aW5lICAgICBHUEhZX0NUUkxfREVGQVVMVCAoXA0KCQlHUEhZX0NUUkxfU0VMX0FOQV9SU1QJfFwN
+CgkJR1BIWV9DVFJMX0hJQl9QVUxTRQl8XA0KCQlHUEhZX0NUUkxfSElCX0VOKQ0KDQpCUg0KWGlv
+bmcNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBIYW5uZXMgRnJlZGVy
+aWMgU293YSBbbWFpbHRvOmhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnXQ0KPiBTZW50OiBUaHVy
+c2RheSwgTWFyY2ggMjgsIDIwMTMgODo0MCBBTQ0KPiBUbzogSHVhbmcsIFhpb25nDQo+IENjOiBT
+dmVuIEhhcnRnZTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogQXRoZXJv
+cyBDb21tdW5pY2F0aW9ucyBJbmMuIEFSODEyMS9BUjgxMTMvQVI4MTE0IEdpZ2FiaXQgb3INCj4g
+RmFzdCBFdGhlcm5ldCAocmV2IGIwKSAxLjAuMC43IG1kNS9zaGExIGNvcnJ1cHRlZCB1c2luZyBO
+RlMgYW5kIHNhbWJhDQo+ICh1cGRhdGVkKSBWZXJzaW9uIDINCj4gDQo+IE9uIFRodSwgTWFyIDI4
+LCAyMDEzIGF0IDEyOjEwOjU3QU0gKzAwMDAsIEh1YW5nLCBYaW9uZyB3cm90ZToNCj4gPiBUaGVy
+ZSBpcyBubyBtdWNoIGRpZmZlcmVuY2Ugb24gdGhvc2UgcmVnaXN0ZXJzIDooIEJ1dCB5b3UgY291
+bGQgdHJ5IHRvDQo+ID4gcmVwbGFjZSA6DQo+ID4NCj4gPiBzdGF0aWMgdm9pZCBhdGwxZV9jYWxf
+cmluZ19zaXplKHN0cnVjdCBhdGwxZV9hZGFwdGVyICphZGFwdGVyLCB1MzINCj4gPiAqcmluZ19z
+aXplKSB7DQo+ID4gCSpyaW5nX3NpemUgPSAoKHUzMikoYWRhcHRlci0+dHhfcmluZy5jb3VudCAq
+DQo+ID4gCQkgICAgIHNpemVvZihzdHJ1Y3QgYXRsMWVfdHBkX2Rlc2MpICsgNw0KPiA+IAkJCS8q
+IHR4IHJpbmcsIHF3b3JkIGFsaWduICovDQo+ID4gCQkgICAgICsgYWRhcHRlci0+cnhfcmluZy5y
+ZWFsX3BhZ2Vfc2l6ZSAqDQo+IEFUX1BBR0VfTlVNX1BFUl9RVUVVRSAqDQo+ID4gCQkJYWRhcHRl
+ci0+bnVtX3J4X3F1ZXVlcyArIDMxDQo+ID4gCQkJLyogcnggcmluZywgIDMyIGJ5dGVzIGFsaWdu
+ICovDQo+ID4gCQkgICAgICsgKDEgKyBBVF9QQUdFX05VTV9QRVJfUVVFVUUgKiBhZGFwdGVyLQ0K
+PiA+bnVtX3J4X3F1ZXVlcykgKg0KPiA+IAkJCTE2ICsgMTUpKTsNCj4gPiAJCQkvKiB0eCwgcngg
+Y21kLCBkd29yZCBhbGlnbiAgICovDQo+ID4gfQ0KPiA+DQo+ID4NCj4gPiBzdGF0aWMgaW50IGF0
+bDFlX3NldHVwX3JpbmdfcmVzb3VyY2VzKHN0cnVjdCBhdGwxZV9hZGFwdGVyICphZGFwdGVyKSB7
+DQo+ID4gLi4uLi4NCj4gPiAJLyogSW5pdCBDTUIgZG1hIGFkZHJlc3MgKi8NCj4gPiAJb2Zmc2V0
+ID0gcm91bmR1cChvZmZzZXQsIDE2KTsNCj4gPiAJdHhfcmluZy0+Y21iX2RtYSA9IGFkYXB0ZXIt
+PnJpbmdfZG1hICsgb2Zmc2V0Ow0KPiA+IAl0eF9yaW5nLT5jbWIgPSBhZGFwdGVyLT5yaW5nX3Zp
+cl9hZGRyICsgb2Zmc2V0Ow0KPiA+IAlvZmZzZXQgKz0gc2l6ZW9mKHUzMik7DQo+ID4gCW9mZnNl
+dCA9IHJvdW5kdXAob2Zmc2V0LCAxNik7DQo+ID4NCj4gPiAJZm9yIChpID0gMDsgaSA8IGFkYXB0
+ZXItPm51bV9yeF9xdWV1ZXM7IGkrKykgew0KPiA+IAkJZm9yIChqID0gMDsgaiA8IEFUX1BBR0Vf
+TlVNX1BFUl9RVUVVRTsgaisrKSB7DQo+ID4gCQkJcnhfcGFnZV9kZXNjW2ldLnJ4X3BhZ2Vbal0u
+d3JpdGVfb2Zmc2V0X2RtYSA9DQo+ID4gCQkJCWFkYXB0ZXItPnJpbmdfZG1hICsgb2Zmc2V0Ow0K
+PiA+IAkJCXJ4X3BhZ2VfZGVzY1tpXS5yeF9wYWdlW2pdLndyaXRlX29mZnNldF9hZGRyID0NCj4g
+PiAJCQkJYWRhcHRlci0+cmluZ192aXJfYWRkciArIG9mZnNldDsNCj4gPiAJCQlvZmZzZXQgKz0g
+c2l6ZW9mKHUzMik7DQo+ID4gCQkJb2Zmc2V0ID0gcm91bmR1cChvZmZzZXQsIDE2KTsNCj4gPiAJ
+CX0NCj4gPiAJfQ0KPiA+IC4uLi4uDQo+ID4NCj4gPg0KPiA+DQo+ID4gSnVzdCBndWVzcywgbm8g
+Y29uZmlkZW5jZSBvbiBpdCAuLi4uDQo+IA0KPiBObywgcHJvYmxlbSBzdGlsbCBwZXJzaXN0cy4g
+OigNCj4gDQo+IEJ0dywgaW4gdGhlIG1lYW50aW1lIEkgZXh0cmFjdGVkIGFub3RoZXIgbW1pb3Ry
+YWNlICh0aGlzIHRpbWUgd2l0aCBhIGRoY3ANCj4gZXhjaGFuZ2UpIGFuZCByZXNvbHZlZCB0aGUg
+c3ltYm9sczoNCj4gDQo+IGh0dHBzOi8vZ2lzdC5naXRodWIuY29tL2hhbm5lcy81MjU5NDY4L3Jh
+dy80YzIyZGZmODU0MjU0YzQ2NTM0YzFiODdlNDcNCj4gN2VmZjdkM2NhMmM1ZC9tbWlvdHJhY2Uu
+dHh0DQo+IA0KPiBQZXJoYXBzIGl0IGhlbHBzLg0KPiANCj4gVGhhbmtzLA0KPiANCj4gICBIYW5u
+ZXMNCg0K
