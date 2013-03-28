@@ -1,51 +1,53 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Deleting a network namespace
-Date: Thu, 28 Mar 2013 07:00:52 -0700
-Message-ID: <87hajvhbe3.fsf@xmission.com>
-References: <CAJJAcodGG6nmRNcF_rC+AUUpCp1MWjU3faGLfRTm9FNc6LT_Yw@mail.gmail.com>
-	<87y5d7lr73.fsf@xmission.com>
-	<CAJJAcof98k+GDt88MORMz6sS-JFODeuyqYSwP6dk-ZYqFMGTWg@mail.gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2 6/6] sctp: convert sctp_assoc_set_id to use
+ idr_alloc_cyclic
+Date: Thu, 28 Mar 2013 10:04:06 -0400
+Message-ID: <20130328140406.GB14489@neilslaptop.think-freely.org>
+References: <1364412578-7462-1-git-send-email-jlayton@redhat.com>
+ <1364412578-7462-7-git-send-email-jlayton@redhat.com>
+ <20130328135308.GA14489@neilslaptop.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: David Shwatrz <dshwatrz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:46938 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751028Ab3C1OBE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 10:01:04 -0400
-In-Reply-To: <CAJJAcof98k+GDt88MORMz6sS-JFODeuyqYSwP6dk-ZYqFMGTWg@mail.gmail.com>
-	(David Shwatrz's message of "Thu, 28 Mar 2013 15:41:25 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	tj@kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: Jeff Layton <jlayton@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130328135308.GA14489@neilslaptop.think-freely.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Shwatrz <dshwatrz@gmail.com> writes:
+On Thu, Mar 28, 2013 at 09:53:08AM -0400, Neil Horman wrote:
+> On Wed, Mar 27, 2013 at 03:29:38PM -0400, Jeff Layton wrote:
+> > (Note: compile-tested only)
+> > 
+> > Signed-off-by: Jeff Layton <jlayton@redhat.com>
+> > Cc: Vlad Yasevich <vyasevich@gmail.com>
+> > Cc: Sridhar Samudrala <sri@us.ibm.com>
+> > Cc: Neil Horman <nhorman@tuxdriver.com>
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Cc: linux-sctp@vger.kernel.org
+> > Cc: netdev@vger.kernel.org
+> > ---
+> >  net/sctp/associola.c | 16 ++--------------
+> >  1 file changed, 2 insertions(+), 14 deletions(-)
+> > 
+> I don't see anything wrong with this patch per-se, but the idr_alloc_cyclic call
+> isn't integrated with net/net-next or Linus' tree yet.  If we don't gate this
+> patch on that integration, we'll break the build.
+> Neil
+> 
+Actually, I just noticed that you only sent us 6/6 here, I'm assuming a prior
+patch in the series adds the idr_alloc_cyclic code?  if so, I've seen the prior
+version
 
-> Hello,
-> I checked and indeed physical hardware are moved to init_net.
-> I wonder how it is done, as in netns_delete() there is only
-> umount2() and unlink() syscalls (might these syscalls trigger this
-> movement to init_net)?
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-The mount holds a refcount to the network namespace, the unmount drops
-that refcount.
-
-> I really could not figure how this is
-> implemented and where in code do we differentiate between physical and
-> non physical devices.
-
-When the refcount drops to zero put_net calls __put_net in
-net/core/net_namespace.c which wiggles around and arranges
-for cleanup_net to be called.
-
-As for what happens to the network devices look at default_device_exit
-and default_device_exit_batch in net/core/dev.c
-
-As for the rest having software based network devices vanish is by
-design and I can't think of a single reason why it would make sense to
-do anything differently.  Depending on your configuration the initial
-network namespace really isn't where you would want network devices to
-be moved.   Think about what happens when you run your use can in a lxc
-based container for example.
-
-Eric
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
