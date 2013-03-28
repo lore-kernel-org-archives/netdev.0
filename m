@@ -1,41 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] aoe: reserve enough headroom on skbs
-Date: Thu, 28 Mar 2013 14:30:54 -0400 (EDT)
-Message-ID: <20130328.143054.1501826894226585575.davem@davemloft.net>
-References: <alpine.LFD.2.03.1303261852220.8240@linux-mips.org>
-	<5153C2E8.6050604@ll.mit.edu>
-	<1364444921.15753.32.camel@edumazet-glaptop>
+Subject: Re: pull request: batman-adv 2013-03-28
+Date: Thu, 28 Mar 2013 14:34:43 -0400 (EDT)
+Message-ID: <20130328.143443.1091407364578033264.davem@davemloft.net>
+References: <1364457031-3194-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daveo@ll.mit.edu, ecashin@coraid.com, macro@linux-mips.org,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: ordex@autistici.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44244 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44290 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752727Ab3C1Sa4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 14:30:56 -0400
-In-Reply-To: <1364444921.15753.32.camel@edumazet-glaptop>
+	with ESMTP id S1753578Ab3C1Sep (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 14:34:45 -0400
+In-Reply-To: <1364457031-3194-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 27 Mar 2013 21:28:41 -0700
+From: Antonio Quartulli <ordex@autistici.org>
+Date: Thu, 28 Mar 2013 08:50:20 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> here you have another batch of patches intended for net-next/linux-3.10.
 > 
-> Some network drivers use a non default hard_header_len
+> The first one fixes an endianess bug in the new network coding component,
+> sent within our last pull request. It was discovered thanks to
+> Fengguang Wu's automated daily checks on our tree (we upgraded our daily
+> check to look for endianess bugs as well ;-))
 > 
-> Transmitted skb should take into account dev->hard_header_len, or risk
-> crashes or expensive reallocations.
+> Then you have patches from 2/11 to 8/11 implementing the RTNL API for virtual
+> interfaces manipulation: now users can use the "ip" tool to create/delete
+> batman-adv interfaces and to enslave real ones below them. However, to avoid
+> breaking any user tool, we did not disrupt our sysfs API.
 > 
-> In the case of aoe, lets reserve MAX_HEADER bytes.
+> Patch 11/11 is addressing a new checkpatch complaining by substituting seq_printf
+> with seq_puts when possible (however, checkpatch seems to be broken because it
+> raises false positives in case of multi-line seq_printf).
 > 
-> David reported a crash in defxx driver, solved by this patch.
-> 
-> Reported-by: David Oostdyk <daveo@ll.mit.edu>
-> Tested-by: David Oostdyk <daveo@ll.mit.edu>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> The rest is ordinary house keeping.
 
-Applied and queued up for -stable, thanks.
+Pulled, thanks.
