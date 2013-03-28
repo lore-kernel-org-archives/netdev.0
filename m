@@ -1,83 +1,59 @@
-From: Wilco Baan Hofman <wilco@baanhofman.nl>
-Subject: Re: /128 link-local subnet on 6in4 (sit) tunnels?
-Date: Thu, 28 Mar 2013 14:00:38 +0100
-Message-ID: <1364475638.5000.19.camel@localhost>
-References: <1364335457.8215.21.camel@localhost>
-	 <20130327151210.GA23223@order.stressinduktion.org>
-	 <1364398673.21709.4.camel@localhost>
-	 <20130327181146.GB23223@order.stressinduktion.org>
-	 <1364408454.15362.1.camel@localhost>
-	 <20130327183558.GC23223@order.stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] core: fix the use of this_cpu_ptr
+Date: Thu, 28 Mar 2013 06:05:33 -0700
+Message-ID: <1364475933.15753.36.camel@edumazet-glaptop>
+References: <1364463761-32510-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com, Shan Wei <davidshan@tencent.com>,
+	Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 37-251-2-65.FTTH.ispfabriek.nl ([37.251.2.65]:59164 "EHLO
-	mail.baanhofman.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755389Ab3C1NAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 09:00:42 -0400
-In-Reply-To: <20130327183558.GC23223@order.stressinduktion.org>
+Received: from mail-da0-f42.google.com ([209.85.210.42]:55528 "EHLO
+	mail-da0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755479Ab3C1NFg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 09:05:36 -0400
+Received: by mail-da0-f42.google.com with SMTP id n15so4537934dad.29
+        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 06:05:35 -0700 (PDT)
+In-Reply-To: <1364463761-32510-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-03-27 at 19:35 +0100, Hannes Frederic Sowa wrote:
-> On Wed, Mar 27, 2013 at 07:20:54PM +0100, Wilco Baan Hofman wrote:
-> > http://tools.ietf.org/html/rfc4213
+On Thu, 2013-03-28 at 17:42 +0800, roy.qing.li@gmail.com wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> Thanks, I have seen that already. The sit driver is used for more than 6in4
-> (6to4, isatap, 6rd). So such a change has to be ok with all the other
-> protocols implemented by sit. I also looked in the historic git archive for a
-> rationale of this but couldn't find one. Commit messages 2002 where not as
-> descriptive as today("Import changeset"). :)
+> flush_tasklet is not percpu var, and percpu is percpu var, and
+> 	this_cpu_ptr(&info->cache->percpu->flush_tasklet)
+> is not equal to
+> 	&this_cpu_ptr(info->cache->percpu)->flush_tasklet
 > 
-> I also added YOSHIFUJI Hideaki as Cc, perhaps he knows the reason.
+> 1f743b076(use this_cpu_ptr per-cpu helper) introduced this bug.
 > 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> ---
+>  net/core/flow.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/core/flow.c b/net/core/flow.c
+> index 7fae135..e8084b8 100644
+> --- a/net/core/flow.c
+> +++ b/net/core/flow.c
+> @@ -346,7 +346,7 @@ static void flow_cache_flush_per_cpu(void *data)
+>  	struct flow_flush_info *info = data;
+>  	struct tasklet_struct *tasklet;
+>  
+> -	tasklet = this_cpu_ptr(&info->cache->percpu->flush_tasklet);
+> +	tasklet = &this_cpu_ptr(info->cache->percpu)->flush_tasklet;
+>  	tasklet->data = (unsigned long)info;
+>  	tasklet_schedule(tasklet);
+>  }
 
+Hi
 
-I've been doing some RFC checking of my own..
+Any reason you dont Cc Shan Wei & Christoph Lameter ?
 
-As far as 6to4 and 6rd go, a link-local address is optional and not very
-useful at all. ISATAP should have a /64 subnet configured as far as I
-can tell, same for 6in4.
+Christoph, could this kind of error be detected by the compiler or
+sparse ?
 
->From rfc3056 section 3.1 [1]:
-
-   The link-local address of a 6to4 pseudo-interface performing 6to4
-   encapsulation would, if needed, be formed as described in Section 3.7
-   of [MECH].  However, no scenario is known in which such an address
-   would be useful, since a peer 6to4 gateway cannot determine the
-   appropriate link-layer (IPv4) address to send to.
-
-
-For 6rd, rfc5969 section 9 specifies that a link *may*, if needed, have
-a non-used link-local address [2], this may be where the /128 comes in:
-
-   The 6rd link is modeled as an NBMA link similar to other automatic
-   IPv6 in IPv4 tunneling mechanisms like [RFC5214], with all 6rd CEs
-   and BRs defined as off-link neighbors from one other.  The link-local
-   address of a 6rd virtual interface performing the 6rd encapsulation
-   would, if needed, be formed as described in Section 3.7 of [RFC4213].
-   However, no communication using link-local addresses will occur.
-
-
-For ISATAP, it basically states that a link-local should have a "subnet
-of appropriate length".
-rfc5214 section 6.2 refers to rfc4862 [2] for link local addressing:
-
-   ISATAP interfaces form ISATAP interface identifiers from IPv4
-   addresses in their locator set and use them to create link-local
-   ISATAP addresses (Section 5.3 of [RFC4862]).
-
-Which states:
-
-   A link-local address is formed by combining the well-known link-local
-   prefix FE80::0 [RFC4291] (of appropriate length) with an interface
-   identifier as follows: >snip<
-
-
-[1] http://tools.ietf.org/html/rfc3056#section-3.1
-[2] http://tools.ietf.org/html/rfc5969#section-9
-[3] http://tools.ietf.org/html/rfc5214#section-6.2
-[4] http://tools.ietf.org/html/rfc4862#section-5.3
+Thanks
