@@ -1,48 +1,155 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/12] e1000e: enable EEE by default
-Date: Thu, 28 Mar 2013 02:00:09 -0700
-Message-ID: <1364461215-7793-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/12] e1000e: add support for LTR on I217/I218
+Date: Thu, 28 Mar 2013 02:00:10 -0700
+Message-ID: <1364461215-7793-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1364461215-7793-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:20438 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:31739 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751087Ab3C1JAX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Mar 2013 05:00:23 -0400
+	id S1751831Ab3C1JAY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Mar 2013 05:00:24 -0400
 In-Reply-To: <1364461215-7793-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Now that IEEE802.3az-2010 Energy Efficient Ethernet has been approved as
-standard (September 2010) and the driver can enable and disable it via
-ethtool, enable the feature by default on parts which support it.
+Set the Latency Tolerance Reporting (LTR) values for the "PCIe-like"
+GbE MAC in the Lynx Point PCH based on Rx buffer size and link speed
+when link is up (which must not exceed the maximum latency supported
+by the platform), otherwise specify there is no LTR requirement.
+Unlike true-PCIe devices which set the LTR maximum snoop/no-snoop
+latencies in the LTR Extended Capability Structure in the PCIe Extended
+Capability register set, on this device LTR is set by writing the
+equivalent snoop/no-snoop latencies in the LTRV register in the MAC and
+set the SEND bit to send an Intel On-chip System Fabric sideband (IOSF-SB)
+message to the PMC.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 4 ----
- 1 file changed, 4 deletions(-)
+ drivers/net/ethernet/intel/e1000e/ich8lan.c | 97 +++++++++++++++++++++++++++++
+ 1 file changed, 97 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 174507c..56c4935 100644
+index 56c4935..ad9d8f2 100644
 --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
 +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -1034,10 +1034,6 @@ static s32 e1000_get_variants_ich8lan(struct e1000_adapter *adapter)
- 	    (er32(FWSM) & E1000_ICH_FWSM_FW_VALID))
- 		adapter->flags2 |= FLAG2_PCIM2PCI_ARBITER_WA;
- 
--	/* Disable EEE by default until IEEE802.3az spec is finalized */
--	if (adapter->flags2 & FLAG2_HAS_EEE)
--		adapter->hw.dev_spec.ich8lan.eee_disable = true;
--
- 	return 0;
+@@ -839,6 +839,94 @@ release:
  }
+ 
+ /**
++ *  e1000_platform_pm_pch_lpt - Set platform power management values
++ *  @hw: pointer to the HW structure
++ *  @link: bool indicating link status
++ *
++ *  Set the Latency Tolerance Reporting (LTR) values for the "PCIe-like"
++ *  GbE MAC in the Lynx Point PCH based on Rx buffer size and link speed
++ *  when link is up (which must not exceed the maximum latency supported
++ *  by the platform), otherwise specify there is no LTR requirement.
++ *  Unlike true-PCIe devices which set the LTR maximum snoop/no-snoop
++ *  latencies in the LTR Extended Capability Structure in the PCIe Extended
++ *  Capability register set, on this device LTR is set by writing the
++ *  equivalent snoop/no-snoop latencies in the LTRV register in the MAC and
++ *  set the SEND bit to send an Intel On-chip System Fabric sideband (IOSF-SB)
++ *  message to the PMC.
++ **/
++static s32 e1000_platform_pm_pch_lpt(struct e1000_hw *hw, bool link)
++{
++	u32 reg = link << (E1000_LTRV_REQ_SHIFT + E1000_LTRV_NOSNOOP_SHIFT) |
++	    link << E1000_LTRV_REQ_SHIFT | E1000_LTRV_SEND;
++	u16 lat_enc = 0;	/* latency encoded */
++
++	if (link) {
++		u16 speed, duplex, scale = 0;
++		u16 max_snoop, max_nosnoop;
++		u16 max_ltr_enc;	/* max LTR latency encoded */
++		s64 lat_ns;	/* latency (ns) */
++		s64 value;
++		u32 rxa;
++
++		if (!hw->adapter->max_frame_size) {
++			e_dbg("max_frame_size not set.\n");
++			return -E1000_ERR_CONFIG;
++		}
++
++		hw->mac.ops.get_link_up_info(hw, &speed, &duplex);
++		if (!speed) {
++			e_dbg("Speed not set.\n");
++			return -E1000_ERR_CONFIG;
++		}
++
++		/* Rx Packet Buffer Allocation size (KB) */
++		rxa = er32(PBA) & E1000_PBA_RXA_MASK;
++
++		/* Determine the maximum latency tolerated by the device.
++		 *
++		 * Per the PCIe spec, the tolerated latencies are encoded as
++		 * a 3-bit encoded scale (only 0-5 are valid) multiplied by
++		 * a 10-bit value (0-1023) to provide a range from 1 ns to
++		 * 2^25*(2^10-1) ns.  The scale is encoded as 0=2^0ns,
++		 * 1=2^5ns, 2=2^10ns,...5=2^25ns.
++		 */
++		lat_ns = ((s64)rxa * 1024 -
++			  (2 * (s64)hw->adapter->max_frame_size)) * 8 * 1000;
++		if (lat_ns < 0)
++			lat_ns = 0;
++		else
++			do_div(lat_ns, speed);
++
++		value = lat_ns;
++		while (value > PCI_LTR_VALUE_MASK) {
++			scale++;
++			value = DIV_ROUND_UP(value, (1 << 5));
++		}
++		if (scale > E1000_LTRV_SCALE_MAX) {
++			e_dbg("Invalid LTR latency scale %d\n", scale);
++			return -E1000_ERR_CONFIG;
++		}
++		lat_enc = (u16)((scale << PCI_LTR_SCALE_SHIFT) | value);
++
++		/* Determine the maximum latency tolerated by the platform */
++		pci_read_config_word(hw->adapter->pdev, E1000_PCI_LTR_CAP_LPT,
++				     &max_snoop);
++		pci_read_config_word(hw->adapter->pdev,
++				     E1000_PCI_LTR_CAP_LPT + 2, &max_nosnoop);
++		max_ltr_enc = max_t(u16, max_snoop, max_nosnoop);
++
++		if (lat_enc > max_ltr_enc)
++			lat_enc = max_ltr_enc;
++	}
++
++	/* Set Snoop and No-Snoop latencies the same */
++	reg |= lat_enc | (lat_enc << E1000_LTRV_NOSNOOP_SHIFT);
++	ew32(LTRV, reg);
++
++	return 0;
++}
++
++/**
+  *  e1000_check_for_copper_link_ich8lan - Check for link (Copper)
+  *  @hw: pointer to the HW structure
+  *
+@@ -911,6 +999,15 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
+ 			return ret_val;
+ 	}
+ 
++	if (hw->mac.type == e1000_pch_lpt) {
++		/* Set platform power management values for
++		 * Latency Tolerance Reporting (LTR)
++		 */
++		ret_val = e1000_platform_pm_pch_lpt(hw, link);
++		if (ret_val)
++			return ret_val;
++	}
++
+ 	/* Clear link partner's EEE ability */
+ 	hw->dev_spec.ich8lan.eee_lp_ability = 0;
  
 -- 
 1.7.11.7
