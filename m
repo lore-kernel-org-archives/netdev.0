@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/3] net/macb: fixes to use core on Zynq SoCs
-Date: Thu, 28 Mar 2013 14:41:37 -0400 (EDT)
-Message-ID: <20130328.144137.1965366538495795999.davem@davemloft.net>
-References: <1364461627-26521-1-git-send-email-s.trumtrar@pengutronix.de>
+Subject: Re: [PATCH net-next] bridge: remove unused variable ifm
+Date: Thu, 28 Mar 2013 14:41:51 -0400 (EDT)
+Message-ID: <20130328.144151.1510777989353483660.davem@davemloft.net>
+References: <1364487682-5839-1-git-send-email-honkiko@gmail.com>
+	<20130328100344.70c78134@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.ferre@atmel.com
-To: s.trumtrar@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44340 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753439Ab3C1Slk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 14:41:40 -0400
-In-Reply-To: <1364461627-26521-1-git-send-email-s.trumtrar@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	honkiko@gmail.com
+To: stephen@networkplumber.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130328100344.70c78134@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Trumtrar <s.trumtrar@pengutronix.de>
-Date: Thu, 28 Mar 2013 10:07:04 +0100
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 28 Mar 2013 10:03:44 -0700
 
-> The Cadence GEM is also licensed for the Xilinx Zynq7000 SoCs.
-> As Xilinx uses other reset defaults, some fixes are necessary to have it
-> working there. And as the Zynq is dualcore, the clk_enables/disables now need
-> to be atomic.
+> On Fri, 29 Mar 2013 00:21:22 +0800
+> Hong Zhiguo <honkiko@gmail.com> wrote:
 > 
-> Changes in v2:
-> 	- only 3/3 was changed to correctly use the atomic clk_[en|dis]able
+>> Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
+ ...
+> Acked-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Series applied, thanks.
+Applied.
