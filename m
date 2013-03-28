@@ -1,39 +1,36 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: [PATCH 1/2] net: calxedaxgmac: fix rx ring handling when OOM
-Date: Thu, 28 Mar 2013 16:32:44 -0500
-Message-ID: <1364506365-13689-1-git-send-email-robherring2@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Rob Herring <rob.herring@calxeda.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 1/2] sky2: Receive Overflows not counted
+Date: Thu, 28 Mar 2013 14:40:20 -0700
+Message-ID: <20130328144020.138cdc71@nehalam.linuxnetplumber.net>
+References: <1902752B0C92F943AB7EA9EE13E2DEEC7F1545@HQ1-EXCH02.corp.brocade.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Mirko Lindner <mlindner@marvell.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:63704 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751766Ab3C1Vkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 17:40:33 -0400
+Received: by mail-pa0-f44.google.com with SMTP id bi5so87035pad.31
+        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 14:40:33 -0700 (PDT)
+In-Reply-To: <1902752B0C92F943AB7EA9EE13E2DEEC7F1545@HQ1-EXCH02.corp.brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rob Herring <rob.herring@calxeda.com>
+> The sky2 driver doesn't count the Receive Overflows because the MAC 
+> interrupt for this event is not set in the MAC's interrupt mask.
+> The MAC's interrupt mask is set only for Transmit FIFO Underruns.
+> 
+> Fix: The correct setting should be (GM_IS_TX_FF_UR | GM_IS_RX_FF_OR)
+> Otherwise the Receive Overflow event will not generate any interrupt.
+> The  Receive Overflow interrupt is handled correctly
+> 
+> Signed-off-by: Mirko Lindner <mlindner@marvell.com>
 
-If skb allocation for the rx ring fails repeatedly, we can reach a point
-were the ring is empty. In this condition, the driver is out of sync with
-the h/w. While this has always been possible, the removal of the skb
-recycling seems to have made triggering this problem easier.
+Both these patches are fine, but the patch format seems corrupted since
+they won't directly apply with quilt.
 
-Signed-off-by: Rob Herring <rob.herring@calxeda.com>
----
- drivers/net/ethernet/calxeda/xgmac.c |    3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
-index a170065..bb1e80b 100644
---- a/drivers/net/ethernet/calxeda/xgmac.c
-+++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -1141,6 +1141,9 @@ static int xgmac_rx(struct xgmac_priv *priv, int limit)
- 		struct sk_buff *skb;
- 		int frame_len;
- 
-+		if (!dma_ring_cnt(priv->rx_head, priv->rx_tail, DMA_RX_RING_SZ))
-+			break;
-+
- 		entry = priv->rx_tail;
- 		p = priv->dma_rx + entry;
- 		if (desc_get_owner(p))
--- 
-1.7.10.4
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
