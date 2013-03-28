@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] audit: pass int* to nlmsg_next
-Date: Thu, 28 Mar 2013 17:40:39 -0400 (EDT)
-Message-ID: <20130328.174039.1409554953798783786.davem@davemloft.net>
-References: <1364506289-9146-1-git-send-email-alex.mihai.c@gmail.com>
+Subject: Re: pull request: wireless 2013-03-28
+Date: Thu, 28 Mar 2013 17:42:58 -0400 (EDT)
+Message-ID: <20130328.174258.600921919654964205.davem@davemloft.net>
+References: <20130328191058.GA27701@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	honkiko@gmail.com, tgraf@suug.ch
-To: alex.mihai.c@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1364506289-9146-1-git-send-email-alex.mihai.c@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46172 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752320Ab3C1Vm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 17:42:59 -0400
+In-Reply-To: <20130328191058.GA27701@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQWxleGFuZHJ1IENvcG90IDxhbGV4Lm1paGFpLmNAZ21haWwuY29tPg0KRGF0ZTogVGh1
-LCAyOCBNYXIgMjAxMyAyMzozMToyOSArMDIwMA0KDQo+IENvbW1pdCA5NDE5MTIxMzMwMjU5MjYz
-MDdjN2E2NWIyMDNmYTM4NDAzYjEwNjNhIHJlcGxhY2VkIHRoZSBtYWNyb3MNCj4gTkxNU0dfTkVY
-VCB3aXRoIGNhbGxzIHRvIG5sbXNnX25leHQgd2hpY2ggcHJvZHVjZXMgdGhpcyB3YXJuaW5nOg0K
-PiANCj4ga2VybmVsL2F1ZGl0LmM6IEluIGZ1bmN0aW9uIKFhdWRpdF9yZWNlaXZlX3NrYqI6DQo+
-IGtlcm5lbC9hdWRpdC5jOjkyODozOiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50IDIgb2YgoW5s
-bXNnX25leHSiIG1ha2VzIHBvaW50ZXIgZnJvbSBpbnRlZ2VyIHdpdGhvdXQgYSBjYXN0DQo+IElu
-IGZpbGUgaW5jbHVkZWQgZnJvbSBpbmNsdWRlL25ldC9ydG5ldGxpbmsuaDo1OjAsDQo+ICAgICAg
-ICAgICAgICAgICAgZnJvbSBpbmNsdWRlL25ldC9uZWlnaGJvdXIuaDoyOCwNCj4gICAgICAgICAg
-ICAgICAgICBmcm9tIGluY2x1ZGUvbmV0L2RzdC5oOjE3LA0KPiAgICAgICAgICAgICAgICAgIGZy
-b20gaW5jbHVkZS9uZXQvc29jay5oOjY4LA0KPiAgICAgICAgICAgICAgICAgIGZyb20ga2VybmVs
-L2F1ZGl0LmM6NTU6DQo+IGluY2x1ZGUvbmV0L25ldGxpbmsuaDozNTk6MTogbm90ZTogZXhwZWN0
-ZWQgoWludCAqoiBidXQgYXJndW1lbnQgaXMgb2YgdHlwZSChaW50og0KPiANCj4gRml4IHRoaXMg
-Ynkgc2VuZGluZyB0aGUgaW50ZW5kZWQgcG9pbnRlci4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEFs
-ZXhhbmRydSBDb3BvdCA8YWxleC5taWhhaS5jQGdtYWlsLmNvbT4NCg0KQXBwbGllZCwgdGhhbmtz
-Lg0K
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Thu, 28 Mar 2013 15:10:58 -0400
+
+> Please excuse this larger-than-I-would-like pull request intended
+> for the 3.9 stream.  There are a number of late-breaking fixes,
+> including a revert...
+
+Pulled, thanks John.
