@@ -1,39 +1,27 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or
- Fast Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba
- (updated) Version 2
-Date: Thu, 28 Mar 2013 01:17:53 +0000
-Message-ID: <157393863283F442885425D2C45428564F200FFD@nasanexd02f.na.qualcomm.com>
-References: <20130326042700.GC29705@order.stressinduktion.org>
- <157393863283F442885425D2C4542856489E821B@nasanexd02f.na.qualcomm.com>
- <20130326044025.GD29705@order.stressinduktion.org>
- <157393863283F442885425D2C4542856489E8232@nasanexd02f.na.qualcomm.com>
- <20130327220248.GD23223@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F1FDF82@nasanexd02f.na.qualcomm.com>
- <20130327223433.GE23223@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F1FFFCE@nasanexd02f.na.qualcomm.com>
- <20130328004024.GA2176@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F200FE9@nasanexd02f.na.qualcomm.com>
- <20130328011602.GB2176@order.stressinduktion.org>
+From: Bing Zhao <bzhao@marvell.com>
+Subject: RE: [PATCH] libertas: drop maintainership
+Date: Wed, 27 Mar 2013 19:06:46 -0700
+Message-ID: <477F20668A386D41ADCC57781B1F70430D9DCBEBA9@SC-VEXCH1.marvell.com>
+References: <1363625321.1597.28.camel@dcbw.foobar.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: Sven Hartge <sven@svenhartge.de>,
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	Daniel Drake <dsd@laptop.org>
+To: Dan Williams <dcbw@redhat.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabertooth02.qualcomm.com ([65.197.215.38]:18584 "EHLO
-	sabertooth02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754951Ab3C1BSV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 21:18:21 -0400
-In-Reply-To: <20130328011602.GB2176@order.stressinduktion.org>
+Received: from na3sys009aog137.obsmtp.com ([74.125.149.18]:46468 "EHLO
+	na3sys009aog137.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754367Ab3C1CJb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Mar 2013 22:09:31 -0400
+In-Reply-To: <1363625321.1597.28.camel@dcbw.foobar.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiANCj4gV2Ugd2lsbCB0cnkgdG8gZ28gd2l0aCBSWFFfQ1RSTF9QQkFfQUxJR05fMjU2IGluIFJF
-R19SWFFfQ1RSTCBuZXh0Lg0KPiBKdXN0IGhhdmUgdG8gY2hlY2sgdGhlIHJpbmcgcmVzb3VyY2Vz
-IGFyZSBpbml0aWFsaXplZCBjb3JyZWN0bHkuDQo+IA0KPiBUaGFua3MsDQoNCg0KQUxJR05fMjU2
-IHJlcXVpcmUgdGhlIFJYRiBwYWdlIDI1NiBieXRlIGFsaWdubWVudCwgeW91IHNob3VsZCBhbHNv
-IHJldmlzZSB0aGUgbWVtb3J5IGFsbG9jYXRpb24gZnVuY3Rpb24uDQoNCg0KVGhhbmtzDQpYaW9u
-Zw0K
+SGkgRGFuLA0KDQo+IFdvdWxkIGJlIGJldHRlciBtYWludGFpbmVkIGJ5IHNvbWVib2R5IHdobyBh
+Y3R1YWx5IGhhcyB0aW1lIGZvciBpdC4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IERhbiBXaWxsaWFt
+cyA8ZGNid0ByZWRoYXQuY29tPg0KPiAtLS0NCj4gRGFuaWVsPyAgQmluZz8gOikNCg0KSSBkb24n
+dCBoYXZlIG11Y2ggdGltZSBmb3IgTGliZXJ0YXMgZWl0aGVyLiBIb3BlIHNvbWVvbmUgZWxzZSBk
+b2VzLg0KDQpUaGFua3MsDQpCaW5nDQo=
