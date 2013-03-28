@@ -1,48 +1,49 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: /128 link-local subnet on 6in4 (sit) tunnels?
-Date: Thu, 28 Mar 2013 14:12:12 +0100
-Message-ID: <20130328131212.GA7721@order.stressinduktion.org>
-References: <1364335457.8215.21.camel@localhost> <20130327151210.GA23223@order.stressinduktion.org> <1364398673.21709.4.camel@localhost> <20130327181146.GB23223@order.stressinduktion.org> <1364408454.15362.1.camel@localhost> <20130327183558.GC23223@order.stressinduktion.org> <1364475638.5000.19.camel@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] core: simplify the getting percpu of flow_cache
+Date: Thu, 28 Mar 2013 06:15:27 -0700
+Message-ID: <1364476527.15753.38.camel@edumazet-glaptop>
+References: <1364473451-3640-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Wilco Baan Hofman <wilco@baanhofman.nl>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Christoph Lameter <cl@linux.com>
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:36314 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755004Ab3C1NMO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 09:12:14 -0400
-Content-Disposition: inline
-In-Reply-To: <1364475638.5000.19.camel@localhost>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:60882 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755980Ab3C1NPa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Mar 2013 09:15:30 -0400
+Received: by mail-pd0-f182.google.com with SMTP id 3so972074pdj.13
+        for <netdev@vger.kernel.org>; Thu, 28 Mar 2013 06:15:29 -0700 (PDT)
+In-Reply-To: <1364473451-3640-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 28, 2013 at 02:00:38PM +0100, Wilco Baan Hofman wrote:
-> For 6rd, rfc5969 section 9 specifies that a link *may*, if needed, have
-> a non-used link-local address [2], this may be where the /128 comes in:
+On Thu, 2013-03-28 at 20:24 +0800, roy.qing.li@gmail.com wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
->    The 6rd link is modeled as an NBMA link similar to other automatic
->    IPv6 in IPv4 tunneling mechanisms like [RFC5214], with all 6rd CEs
->    and BRs defined as off-link neighbors from one other.  The link-local
->    address of a 6rd virtual interface performing the 6rd encapsulation
->    would, if needed, be formed as described in Section 3.7 of [RFC4213].
->    However, no communication using link-local addresses will occur.
+> replace per_cpu with per_cpu_ptr to save conversion between address and pointer
 > 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> ---
+>  net/core/flow.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/core/flow.c b/net/core/flow.c
+> index 7fae135..707fb7b 100644
+> --- a/net/core/flow.c
+> +++ b/net/core/flow.c
+> @@ -334,7 +334,7 @@ static int flow_cache_percpu_empty(struct flow_cache *fc, int cpu)
+>  	struct flow_cache_percpu *fcp;
+>  	int i;
+>  
+> -	fcp = &per_cpu(*fc->percpu, cpu);
+> +	fcp = per_cpu_ptr(fc->percpu, cpu);
+>  	for (i = 0; i < flow_cache_hash_size(fc); i++)
+>  		if (!hlist_empty(&fcp->hash_table[i]))
+>  			return 0;
 
-Hm, perhaps this is the reason. Also, RFC3964 ("Security Considerations for
-6to4") states that the use of non-global addresses on a 6to4 link should be
-prohibited:
 
-|   o  Disallow traffic in which the destination IPv6 address is not a
-|      global address; in particular, link-local addresses, mapped
-|      addresses, and such should not be used.
+This makes no difference at all, at least on x86
 
-Could you check if the creation of a /128 ll address does act as a guard
-against that and does suppress ll traffic? I am not sure.
-
-Perhaps a patch where we check the IFF_POINTTOPOINT flag and selectively
-create a /128 or /64 would be a solution.
-
-Thanks,
-
-  Hannes
+Care to elaborate ?
