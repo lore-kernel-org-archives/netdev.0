@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] core: simplify the getting percpu of
- flow_cache
-Date: Fri, 29 Mar 2013 15:15:13 -0400 (EDT)
-Message-ID: <20130329.151513.1257133937847843316.davem@davemloft.net>
-References: <1364473451-3640-1-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: [PATCH] smsc75xx: fix jumbo frame support
+Date: Fri, 29 Mar 2013 15:16:59 -0400 (EDT)
+Message-ID: <20130329.151659.638890791929368860.davem@davemloft.net>
+References: <1364474081-21918-1-git-send-email-steve.glendinning@shawell.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+Cc: netdev@vger.kernel.org, philip.dawson@paconsulting.com
+To: steve.glendinning@shawell.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56154 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56180 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756235Ab3C2TPP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 15:15:15 -0400
-In-Reply-To: <1364473451-3640-1-git-send-email-roy.qing.li@gmail.com>
+	with ESMTP id S1756564Ab3C2TRA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 15:17:00 -0400
+In-Reply-To: <1364474081-21918-1-git-send-email-steve.glendinning@shawell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roy.qing.li@gmail.com
-Date: Thu, 28 Mar 2013 20:24:11 +0800
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Date: Thu, 28 Mar 2013 12:34:41 +0000
 
-> From: Li RongQing <roy.qing.li@gmail.com>
+> This patch enables RX of jumbo frames for LAN7500.
 > 
-> replace per_cpu with per_cpu_ptr to save conversion between address and pointer
+> Previously the driver would transmit jumbo frames succesfully but
+> would drop received jumbo frames (incrementing the interface errors
+> count).
 > 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> With this patch applied the device can succesfully receive jumbo
+> frames up to MTU 9000 (9014 bytes on the wire including ethernet
+> header).
+> 
+> Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
 
-Applied.
+Applied and queued up for -stable, thanks Steve.
