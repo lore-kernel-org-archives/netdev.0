@@ -1,35 +1,42 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next 0/6] Open vSwitch updates
-Date: Fri, 29 Mar 2013 15:52:15 -0400 (EDT)
-Message-ID: <20130329.155215.2019739910321301961.davem@davemloft.net>
-References: <cover.1364563346.git.tgraf@suug.ch>
+From: Joseph Salisbury <joseph.salisbury@canonical.com>
+Subject: [v3.8, v3.9] [Regression] brcmsmac: move PHY functions
+Date: Fri, 29 Mar 2013 15:52:39 -0400
+Message-ID: <5155F107.6050408@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: tgraf-G/eBtMaohhA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1364563346.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: arend@broadcom.com, pieterpg@broadcom.com, meuleman@broadcom.com,
+	phaber@broadcom.com, linville@tuxdriver.com,
+	LKML <linux-kernel@vger.kernel.org>, brudley@broadcom.com,
+	frankyl@broadcom.com, linux-wireless@vger.kernel.org,
+	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org
+To: phaber@broadcom.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Date: Fri, 29 Mar 2013 14:46:46 +0100
+Hi Piotr,
 
-> A couple of small Open vSwitch fixes and cleanups that accumulated
-> while working on larger pieces.
-> 
-> The biggest change is the exposure of <linux/openvswitch.h> to user
-> space to make the Netlink interface available without requiring every
-> appliation to copy the header file from a source tree.
+A bug was opened against the Ubuntu kernel[0].  After a kernel
+bisect, it was found that reverting the following commit resolved
+this bug:
 
-Jesse, I'm assuming you will take these into your tree and then submit
-them to me in an expediant manner? :-)
+commit b83576341664957978e125f5f5db2f15496980b1
+Author: Piotr Haber <phaber@broadcom.com>
+Date:   Wed Nov 28 21:44:09 2012 +0100
+
+     brcmsmac: move PHY functions
+
+The regression was introduced as of v3.8-rc1.  The regression still 
+exists in v3.9-rc4.
+
+I see that you are the author of this patch, so I wanted to run this
+by you.  I was thinking of requesting a revert for v3.9, but I
+wanted to get your feedback first.
+
+
+Thanks,
+
+Joe
+
+[0] http://pad.lv/1131914
