@@ -1,159 +1,201 @@
-From: David L Stevens <dlstevens@us.ibm.com>
-Subject: [PATCH] iproute2: generalize VXLAN forwarding tables
-Date: Fri, 29 Mar 2013 11:12:19 -0400
-Message-ID: <201303291512.r2TFCJ5L002671@lab1.dls>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:40836 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754104Ab3C2PON (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Mar 2013 11:14:13 -0400
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Fri, 29 Mar 2013 11:14:12 -0400
-Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
-	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id A67426E8040
-	for <netdev@vger.kernel.org>; Fri, 29 Mar 2013 11:14:06 -0400 (EDT)
-Received: from d01av05.pok.ibm.com (d01av05.pok.ibm.com [9.56.224.195])
-	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r2TFE8UN259358
-	for <netdev@vger.kernel.org>; Fri, 29 Mar 2013 11:14:08 -0400
-Received: from d01av05.pok.ibm.com (loopback [127.0.0.1])
-	by d01av05.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r2TFE8Kv031826
-	for <netdev@vger.kernel.org>; Fri, 29 Mar 2013 11:14:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Max.Nekludov@us.elster.com
+Subject: Re: Fw: Bug in ks8851.c
+Date: Fri, 29 Mar 2013 19:27:36 +0400
+Message-ID: <OF95B2AB6A.BE754AB4-ON44257B3D.00544464-44257B3D.0054ECCB@gb.elster.com>
+References: <OF2DFE75BF.1BA5B9C8-ON44257B3D.00492A11-44257B3D.0049472A@gb.elster.com> <CAOJe8K1LbPgBN5kgXF5W2Fg_JM0BGp69+auSZ6Nk+3appmXZOg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Ungerer <gerg@uclinux.org>, Jiri Pirko <jiri@resnulli.us>,
+	linus971@gmail.com, linux-arm-kernel@lists.infradead.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Matt Renzelmann <mjr@cs.wisc.edu>,
+	Network Development <netdev@vger.kernel.org>,
+	Stephen Boyd <sboyd@codeaurora.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: kda@linux-powerpc.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAOJe8K1LbPgBN5kgXF5W2Fg_JM0BGp69+auSZ6Nk+3appmXZOg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Denis,
+here is patch with commit message:
+
+Subject: [PATCH] Fix bug in ks8851 driver
+
+According to the Datasheet (page 52):
+15-12 Reserved
+11-0 RXBC Receive Byte Count
+This field indicates the present received frame byte size.
+
+The code has a bug:
+                 rxh = ks8851_rdreg32(ks, KS_RXFHSR);
+                 rxstat = rxh & 0xffff;
+                 rxlen = rxh >> 16; // BUG!!! 0xFFF mask should be applied
+
+Signed-off-by: Max Nekludov <Max.Nekludov@us.elster.com>
+---
+drivers/net/ethernet/micrel/ks8851.c | 2 +-
+1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/micrel/ks8851.c
+b/drivers/net/ethernet/micrel/ks8851.c
+index 33bcb63d56a2..8fb481252e2c 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -528,7 +528,7 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
+ 	for (; rxfc != 0; rxfc--) {
+ 		rxh = ks8851_rdreg32(ks, KS_RXFHSR);
+ 		rxstat = rxh & 0xffff;
+-		rxlen = rxh >> 16;
++		rxlen = (rxh >> 16) & 0xfff;
+
+ 		netif_dbg(ks, rx_status, ks->netdev,
+ 			  "rx: stat 0x%04x, len 0x%04x\n", rxstat, rxlen);
 
 
-iproute2 patch to generalize VXLAN forwarding tables
+|------------>
+| From:      |
+|------------>
+  >--------------------------------------------------------------------------------------------------------------------------------------------------|
+  |Denis Kirjanov <kda@linux-powerpc.org>                                                                                                            |
+  >--------------------------------------------------------------------------------------------------------------------------------------------------|
+|------------>
+| To:        |
+|------------>
+  >--------------------------------------------------------------------------------------------------------------------------------------------------|
+  |Max.Nekludov@us.elster.com                                                                                                                        |
+  >--------------------------------------------------------------------------------------------------------------------------------------------------|
+|------------>
+| Cc:        |
+|------------>
+  >--------------------------------------------------------------------------------------------------------------------------------------------------|
+  |Linus Torvalds <torvalds@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>, Jiri Pirko <jiri@resnulli.us>, linus971@gmail.com, Linux |
+  |Kernel Mailing List <linux-kernel@vger.kernel.org>, Matt Renzelmann <mjr@cs.wisc.edu>, Network Development <netdev@vger.kernel.org>, Stephen Boyd |
+  |<sboyd@codeaurora.org>, Greg Ungerer <gerg@uclinux.org>, linux-arm-kernel@lists.infradead.org                                                     |
+  >--------------------------------------------------------------------------------------------------------------------------------------------------|
+|------------>
+| Date:      |
+|------------>
+  >--------------------------------------------------------------------------------------------------------------------------------------------------|
+  |29.03.2013 18:07                                                                                                                                  |
+  >--------------------------------------------------------------------------------------------------------------------------------------------------|
+|------------>
+| Subject:   |
+|------------>
+  >--------------------------------------------------------------------------------------------------------------------------------------------------|
+  |Re: Fw: Bug in ks8851.c                                                                                                                           |
+  >--------------------------------------------------------------------------------------------------------------------------------------------------|
 
-This is the iproute2 support allowing an administrator to specify alternate
-ports, vnis and outgoing interfaces for VXLAN device forwarding tables.
 
-Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
 
-diff --git a/bridge/fdb.c b/bridge/fdb.c
-index 6ad8118..821d3c5 100644
---- a/bridge/fdb.c
-+++ b/bridge/fdb.c
-@@ -9,6 +9,7 @@
- #include <stdio.h>
- #include <stdlib.h>
- #include <unistd.h>
-+#include <netdb.h>
- #include <time.h>
- #include <fcntl.h>
- #include <sys/socket.h>
-@@ -30,7 +31,8 @@ int filter_index;
- static void usage(void)
- {
- 	fprintf(stderr, "Usage: bridge fdb { add | del } ADDR dev DEV {self|master} [ temp ]\n"
--		        "              [ dst IPADDR] [ vlan VID ]\n");
-+		        "              [ dst IPADDR] [ vlan VID ]\n"
-+		        "              [ port PORT] [ vni VNI ] [via DEV]\n");
- 	fprintf(stderr, "       bridge fdb {show} [ dev DEV ]\n");
- 	exit(-1);
- }
-@@ -113,6 +115,23 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 		fprintf(fp, "vlan %hu ", vid);
- 	}
- 
-+	if (tb[NDA_PORT])
-+		fprintf(fp, "port %d ", rta_getattr_u32(tb[NDA_PORT]));
-+	if (tb[NDA_VNI])
-+		fprintf(fp, "vni %d ", rta_getattr_u32(tb[NDA_VNI]));
-+	if (tb[NDA_IFINDEX]) {
-+		unsigned int ifindex = rta_getattr_u32(tb[NDA_IFINDEX]);
-+
-+		if (ifindex) {
-+			char ifname[IF_NAMESIZE];
-+
-+			if (if_indextoname(ifindex, ifname))
-+				fprintf(fp, "via %s ", ifname);
-+			else
-+				fprintf(fp, "via ifindex %u ", ifindex);
-+		}
-+	}
-+
- 	if (show_stats && tb[NDA_CACHEINFO]) {
- 		struct nda_cacheinfo *ci = RTA_DATA(tb[NDA_CACHEINFO]);
- 		int hz = get_user_hz();
-@@ -177,6 +196,10 @@ static int fdb_modify(int cmd, int flags, int argc, char **argv)
- 	char abuf[ETH_ALEN];
- 	int dst_ok = 0;
- 	inet_prefix dst;
-+	unsigned long port = 0;
-+	unsigned long vni = ~0;
-+	unsigned int via = 0;
-+	char *endptr;
- 	short vid = -1;
- 
- 	memset(&req, 0, sizeof(req));
-@@ -197,6 +220,29 @@ static int fdb_modify(int cmd, int flags, int argc, char **argv)
- 				duparg2("dst", *argv);
- 			get_addr(&dst, *argv, preferred_family);
- 			dst_ok = 1;
-+		} else if (strcmp(*argv, "port") == 0) {
-+
-+			NEXT_ARG();
-+			port = strtoul(*argv, &endptr, 0);
-+			if (endptr && *endptr) {
-+				struct servent *pse;
-+
-+				pse = getservbyname(*argv, "udp");
-+				if (!pse)
-+					invarg("invalid port\n", *argv);
-+			} else if (port > 0xffff)
-+				invarg("invalid port\n", *argv);
-+		} else if (strcmp(*argv, "vni") == 0) {
-+			NEXT_ARG();
-+			vni = strtoul(*argv, &endptr, 0);
-+			if ((endptr && *endptr) ||
-+			    (vni >> 24) || vni == ULONG_MAX)
-+				invarg("invalid VNI\n", *argv);
-+		} else if (strcmp(*argv, "via") == 0) {
-+			NEXT_ARG();
-+			via = if_nametoindex(*argv);
-+			if (via == 0)
-+				invarg("invalid device\n", *argv);
- 		} else if (strcmp(*argv, "self") == 0) {
- 			req.ndm.ndm_flags |= NTF_SELF;
- 		} else if (matches(*argv, "master") == 0) {
-@@ -251,6 +297,13 @@ static int fdb_modify(int cmd, int flags, int argc, char **argv)
- 	if (vid >= 0)
- 		addattr16(&req.n, sizeof(req), NDA_VLAN, vid);
- 
-+	if (port)
-+		addattr32(&req.n, sizeof(req), NDA_PORT, port);
-+	if (vni != ~0)
-+		addattr32(&req.n, sizeof(req), NDA_VNI, vni);
-+	if (via)
-+		addattr32(&req.n, sizeof(req), NDA_IFINDEX, via);
-+
- 	req.ndm.ndm_ifindex = ll_name_to_index(d);
- 	if (req.ndm.ndm_ifindex == 0) {
- 		fprintf(stderr, "Cannot find device \"%s\"\n", d);
-@@ -270,6 +323,8 @@ int do_fdb(int argc, char **argv)
- 	if (argc > 0) {
- 		if (matches(*argv, "add") == 0)
- 			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_EXCL, argc-1, argv+1);
-+		if (matches(*argv, "append") == 0)
-+			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_APPEND, argc-1, argv+1);
- 		if (matches(*argv, "delete") == 0)
- 			return fdb_modify(RTM_DELNEIGH, 0, argc-1, argv+1);
- 		if (matches(*argv, "show") == 0 ||
-diff --git a/include/linux/neighbour.h b/include/linux/neighbour.h
-index adb068c..f175212 100644
---- a/include/linux/neighbour.h
-+++ b/include/linux/neighbour.h
-@@ -21,6 +21,9 @@ enum {
- 	NDA_CACHEINFO,
- 	NDA_PROBES,
- 	NDA_VLAN,
-+	NDA_PORT,
-+	NDA_VNI,
-+	NDA_IFINDEX,
- 	__NDA_MAX
- };
- 
+
+
+please respin this patch with a commit description.
+
+On 3/29/13, Max.Nekludov@us.elster.com <Max.Nekludov@us.elster.com> wrote:
+>
+> Linus,
+>
+> I tried to send the mail to 'Ben Dooks <ben@simtec.co.uk>' but the
+address
+> is dead now.
+>> I assume you've tested it in practice?
+> Yes, I'm running the modified code both in bootloader and Linux kernel on
+> my board.
+>
+> Thanks,
+> Max
+>
+>  Signed-off-by: Max Nekludov <Max.Nekludov@us.elster.com>
+>  ---
+>  drivers/net/ethernet/micrel/ks8851.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/micrel/ks8851.c
+> b/drivers/net/ethernet/micrel/ks8851.c
+> index 33bcb63d56a2..8fb481252e2c 100644
+> --- a/drivers/net/ethernet/micrel/ks8851.c
+> +++ b/drivers/net/ethernet/micrel/ks8851.c
+> @@ -528,7 +528,7 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
+>  		 for (; rxfc != 0; rxfc--) {
+>  		 		 rxh = ks8851_rdreg32(ks, KS_RXFHSR);
+>  		 		 rxstat = rxh & 0xffff;
+> -		 		 rxlen = rxh >> 16;
+> +		 		 rxlen = (rxh >> 16) & 0xfff;
+>
+>  		 		 netif_dbg(ks, rx_status, ks->netdev,
+>  		 		 		   "rx: stat 0x%04x, len 0x%04x\n",
+rxstat, rxlen);
+>
+>
+>
+>
+> Max,
+>  please cc the actual maintainers of the driver. The patch looks sane,
+> though. I assume you've tested it in practice?
+>
+> You also seem to have based this on an ancient version, the code has
+> long since moved from drivers/net/ks8851.c to
+> drivers/net/ethernet/micrel/ks8851.c (back in June of 2011), and it's
+> missing a sign-off from you.
+>
+> I'm attaching an updated patch for the rename/capitalization issue.
+>
+>      Linus
+>
+> On Thu, Mar 28, 2013 at 11:25 AM,  <Max.Nekludov@us.elster.com> wrote:
+>>
+>> According to the Datasheet (page 52):
+>> 15-12 Reserved
+>> 11-0 RXBC Receive Byte Count
+>> This field indicates the present received frame byte size.
+>>
+>> I suppose the code has a bug:
+>>                 rxh = ks8851_rdreg32(ks, KS_RXFHSR);
+>>                 rxstat = rxh & 0xffff;
+>>                 rxlen = rxh >> 16; // BUG!!! 0xFFF mask should be
+applied
+>>
+>> P.S.
+>> without bit mask applied I saw rxlen equal to 15360 which is bigger then
+>> entire RX queue size (12KB).
+>>
+>> Thanks,
+>> Max Nekludov
+>>
+>> From cb3199cee4490f98d6062e32a75ca377a32b55bc Mon Sep 17 00:00:00 2001
+>> From: Max Neklyudov <macscomp@gmail.com>
+>> Date: Tue, 26 Mar 2013 11:46:57 +0400
+>> Subject: [PATCH] Fix bug in ks8851 driver
+>>
+>> ---
+>>  drivers/net/ks8851.c |    2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ks8851.c b/drivers/net/ks8851.c
+>> index 91a93cb..0dc03da 100644
+>> --- a/drivers/net/ks8851.c
+>> +++ b/drivers/net/ks8851.c
+>> @@ -553,7 +553,7 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
+>>         for (; rxfc != 0; rxfc--) {
+>>                 rxh = ks8851_rdreg32(ks, KS_RXFHSR);
+>>                 rxstat = rxh & 0xffff;
+>> -               rxlen = rxh >> 16;
+>> +               rxlen = (rxh >> 16) & 0xFFF;
+>>
+>>                 netif_dbg(ks, rx_status, ks->netdev,
+>>                           "rx: stat 0x%04x, len 0x%04x\n", rxstat,
+> rxlen);
+>> --
+>> 1.7.10.4
+>>
+>
+>
+> ______________________________________________________________________
+> This email has been spam and virus checked by Elster IT Services.(See
+> attached file: patch.diff)
+
+______________________________________________________________________
+This email has been spam and virus checked by Elster IT Services.
