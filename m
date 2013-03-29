@@ -1,42 +1,50 @@
-From: Joseph Salisbury <joseph.salisbury@canonical.com>
-Subject: [v3.8, v3.9] [Regression] brcmsmac: move PHY functions
-Date: Fri, 29 Mar 2013 15:52:39 -0400
-Message-ID: <5155F107.6050408@canonical.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [BUG] Crash with NULL pointer dereference in bond_handle_frame
+ in -rt (possibly mainline)
+Date: Fri, 29 Mar 2013 15:55:13 -0400
+Message-ID: <1364586913.10629.40.camel@gandalf.local.home>
+References: <1364490997.6345.237.camel@gandalf.local.home>
+	 <1364491792.15753.47.camel@edumazet-glaptop>
+	 <20130329094856.GB1677@minipsycho.orion>
+	 <1364582184.10629.34.camel@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: arend@broadcom.com, pieterpg@broadcom.com, meuleman@broadcom.com,
-	phaber@broadcom.com, linville@tuxdriver.com,
-	LKML <linux-kernel@vger.kernel.org>, brudley@broadcom.com,
-	frankyl@broadcom.com, linux-wireless@vger.kernel.org,
-	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org
-To: phaber@broadcom.com
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Nicolas de =?ISO-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Guy Streeter <streeter@redhat.com>,
+	"Paul E. McKenney" <paulmck@us.ibm.com>, stephen@networkplumber.org
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1364582184.10629.34.camel@gandalf.local.home>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Piotr,
+On Fri, 2013-03-29 at 14:36 -0400, Steven Rostedt wrote:
 
-A bug was opened against the Ubuntu kernel[0].  After a kernel
-bisect, it was found that reverting the following commit resolved
-this bug:
+This one's for you Paul ;-)
 
-commit b83576341664957978e125f5f5db2f15496980b1
-Author: Piotr Haber <phaber@broadcom.com>
-Date:   Wed Nov 28 21:44:09 2012 +0100
+That means Eric's solution fits perfectly well here.
 
-     brcmsmac: move PHY functions
+	< system in single state : everyone sees cat = alive >
 
-The regression was introduced as of v3.8-rc1.  The regression still 
-exists in v3.9-rc4.
+	insert_into_box(cat);
 
-I see that you are the author of this patch, so I wanted to run this
-by you.  I was thinking of requesting a revert for v3.9, but I
-wanted to get your feedback first.
+	< system in dual state : new calls see cat == dead, but
+	  current calls see cat == alive >
 
+	open_box();
 
-Thanks,
+	< system is back to single state: everyone sees cat = dead >
 
-Joe
+	funeral(cat); 
 
-[0] http://pad.lv/1131914
+no problem ;-)
+
+-- Steve
