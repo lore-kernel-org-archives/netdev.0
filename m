@@ -1,33 +1,100 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: [PATCH net] net: fq_codel: Fix off-by-one error
-Date: Fri, 29 Mar 2013 14:49:34 -0700
-Message-ID: <CAGK4HS_MQDzQZpTv6RXj--Sxyx8DcnP0Zk2PHxoiDLvHE9rW0A@mail.gmail.com>
-References: <1364514720-20780-1-git-send-email-subramanian.vijay@gmail.com>
-	<1364569280.5113.21.camel@edumazet-glaptop>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 06/34] ipvs: no need to reroute anymore on DNAT over
+ loopback
+Date: Fri, 29 Mar 2013 23:47:01 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1303292318090.1804@ja.ssi.bg>
+References: <1364530311-11512-1-git-send-email-horms@verge.net.au> <1364530311-11512-7-git-send-email-horms@verge.net.au> <5155A8B6.9030303@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:46905 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756936Ab3C2Vtf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 17:49:35 -0400
-Received: by mail-ob0-f176.google.com with SMTP id er7so649479obc.21
-        for <netdev@vger.kernel.org>; Fri, 29 Mar 2013 14:49:35 -0700 (PDT)
-In-Reply-To: <1364569280.5113.21.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <5155A8B6.9030303@cogentembedded.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Just curious, did you play changing the default limit (10240 packets) ?
->
->
 
-Eric,
-So far we have not changed the default but we are planning to run some
-more tests next week with fq_codel.
-We can try different values for limit. If you have any other
-suggestions for testing, please let me know.
+	Hello,
 
-Thanks!
-Vijay
+On Fri, 29 Mar 2013, Sergei Shtylyov wrote:
+
+> On 29-03-2013 8:11, Simon Horman wrote:
+> 
+> > From: Julian Anastasov <ja@ssi.bg>
+> 
+> > After commit 70e7341673 (ipv4: Show that ip_send_reply()
+> > is purely unicast routine.) we do not need to reroute DNAT-ed
+> > traffic over loopback because reply uses iph daddr and not
+> > rt_spec_dst.
+> 
+> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> > Signed-off by: Hans Schillstrom <hans@schillstrom.com>
+> > Signed-off-by: Simon Horman <horms@verge.net.au>
+> > ---
+> >   net/netfilter/ipvs/ip_vs_xmit.c |   58
+> > ++-------------------------------------
+> >   1 file changed, 2 insertions(+), 56 deletions(-)
+> 
+> > diff --git a/net/netfilter/ipvs/ip_vs_xmit.c
+> > b/net/netfilter/ipvs/ip_vs_xmit.c
+> > index 6448a2e..c942d36 100644
+> > --- a/net/netfilter/ipvs/ip_vs_xmit.c
+> > +++ b/net/netfilter/ipvs/ip_vs_xmit.c
+> [...]
+> > @@ -635,16 +597,8 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn
+> > *cp,
+> >   		/* drop old route */
+> >   		skb_dst_drop(skb);
+> >   		skb_dst_set(skb, &rt->dst);
+> > -	} else {
+> > +	} else
+> 
+>    {} should be kept after *else*, according to Documentation/CodingStyle,
+> chapter 3.
+
+	Sigh. I missed this rule from Nov 2011.
+It seems checkpatch.pl can not stop such crimes to occur :)
+
+> >   		ip_rt_put(rt);
+> > -		/*
+> > -		 * Some IPv4 replies get local address from routes,
+> > -		 * not from iph, so while we DNAT after routing
+> > -		 * we need this second input/output route.
+> > -		 */
+> > -		if (!__ip_vs_reroute_locally(skb))
+> > -			goto tx_error;
+> > -	}
+> > 
+> >   	IP_VS_DBG_PKT(10, AF_INET, pp, skb, 0, "After DNAT");
+> > 
+> > @@ -1269,16 +1223,8 @@ ip_vs_icmp_xmit(struct sk_buff *skb, struct
+> > ip_vs_conn *cp,
+> >   		/* drop the old route when skb is not shared */
+> >   		skb_dst_drop(skb);
+> >   		skb_dst_set(skb, &rt->dst);
+> > -	} else {
+> > +	} else
+> 
+>    Same here.
+> 
+> >   		ip_rt_put(rt);
+> > -		/*
+> > -		 * Some IPv4 replies get local address from routes,
+> > -		 * not from iph, so while we DNAT after routing
+> > -		 * we need this second input/output route.
+> > -		 */
+> > -		if (!__ip_vs_reroute_locally(skb))
+> > -			goto tx_error;
+> > -	}
+> > 
+> >   	/* Another hack: avoid icmp_send in ip_fragment */
+> >   	skb->local_df = 1;
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
