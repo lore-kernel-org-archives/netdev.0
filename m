@@ -1,108 +1,38 @@
-From: Kirill Kapranov <kapranoff@inbox.ru>
-Subject: [PATCH] phy: Elimination the forced speed reduction algorithm.
-Date: Tue, 26 Mar 2013 17:34:32 +0400
-Message-ID: <1364304872-6408-1-git-send-email-kapranoff@inbox.ru>
-Cc: davem@davemloft.net, bhutchings@solarflare.com,
-	peppe.cavallaro@st.com, joe@perches.com, bruce.w.allan@intel.com,
-	linux-kernel@vger.kernel.org, Kirill Kapranov <kapranoff@inbox.ru>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback6.mail.ru ([94.100.176.134]:36563 "EHLO
-	fallback6.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754379Ab3C2HWW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 03:22:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: r8169 auto speed down issue
+Date: Fri, 29 Mar 2013 16:20:43 +0800
+Message-ID: <555174DCA0B0431BB3AE9CCD464E5896@realtek.com.tw>
+References: <4EECA12DD88643FD9006350514D96C8E@realtek.com.tw> <20130328231955.GA26182@electric-eye.fr.zoreil.com> <83FC3118294143DC81063B29EF570FC1@realtek.com.tw> <20130329072056.GA31269@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<bowgotsai@google.com>, 'Ryankao' <ryankao@realtek.com>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130329072056.GA31269@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In case of fixed speed set up for a NIC (e.g. ethtool -s eth0 autoneg off speed
-100 duplex full) with an ethernet cable plugged off, the mentioned algorithm
-slows down a NIC speed, so further cable hook-up leads to nonoperable link state.
+Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Friday, March 29, 2013 3:21 PM
+> To: Hayeswang
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; 
+> bowgotsai@google.com; Ryankao
+> Subject: Re: r8169 auto speed down issue
+> 
+[...]
+> 
+> I don't get your point. Can you reformulate ?
 
-Signed-off-by: Kirill Kapranov <kapranoff@inbox.ru>
----
- drivers/net/phy/phy.c |   50 +------------------------------------------------
- 1 files changed, 1 insertions(+), 49 deletions(-)
+Sorry for my unclear descriptor. I just think a case that the nic suspends or
+shutdowns without cable plugging. Then, the cable is plugged again. If the nic
+speed down to 10M and the link partner force 100M, the issue appears again. If
+the nic doesn't speed down for normal link partner, it requires more power when
+the linking recovers. Finally, I determine to set the speed to 10M when the link
+partner supports 10M. And for the other case, setting the speed to 100M. This
+avoids the giga nic to keep the speed to 1000M, and could fix this issue.
+However, I wonder if there is a switch which forces the speed to giga.
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index ef9ea92..fc2dd94 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -463,33 +463,6 @@ void phy_stop_machine(struct phy_device *phydev)
- }
- 
- /**
-- * phy_force_reduction - reduce PHY speed/duplex settings by one step
-- * @phydev: target phy_device struct
-- *
-- * Description: Reduces the speed/duplex settings by one notch,
-- *   in this order--
-- *   1000/FULL, 1000/HALF, 100/FULL, 100/HALF, 10/FULL, 10/HALF.
-- *   The function bottoms out at 10/HALF.
-- */
--static void phy_force_reduction(struct phy_device *phydev)
--{
--	int idx;
--
--	idx = phy_find_setting(phydev->speed, phydev->duplex);
--	
--	idx++;
--
--	idx = phy_find_valid(idx, phydev->supported);
--
--	phydev->speed = settings[idx].speed;
--	phydev->duplex = settings[idx].duplex;
--
--	pr_info("Trying %d/%s\n",
--		phydev->speed, DUPLEX_FULL == phydev->duplex ? "FULL" : "HALF");
--}
--
--
--/**
-  * phy_error - enter HALTED state for this PHY device
-  * @phydev: target phy_device struct
-  *
-@@ -818,30 +791,11 @@ void phy_state_machine(struct work_struct *work)
- 				phydev->adjust_link(phydev->attached_dev);
- 
- 			} else if (0 == phydev->link_timeout--) {
--				int idx;
--
- 				needs_aneg = 1;
- 				/* If we have the magic_aneg bit,
- 				 * we try again */
- 				if (phydev->drv->flags & PHY_HAS_MAGICANEG)
- 					break;
--
--				/* The timer expired, and we still
--				 * don't have a setting, so we try
--				 * forcing it until we find one that
--				 * works, starting from the fastest speed,
--				 * and working our way down */
--				idx = phy_find_valid(0, phydev->supported);
--
--				phydev->speed = settings[idx].speed;
--				phydev->duplex = settings[idx].duplex;
--
--				phydev->autoneg = AUTONEG_DISABLE;
--
--				pr_info("Trying %d/%s\n",
--					phydev->speed,
--					DUPLEX_FULL == phydev->duplex ?
--					"FULL" : "HALF");
- 			}
- 			break;
- 		case PHY_NOLINK:
-@@ -866,10 +820,8 @@ void phy_state_machine(struct work_struct *work)
- 				phydev->state = PHY_RUNNING;
- 				netif_carrier_on(phydev->attached_dev);
- 			} else {
--				if (0 == phydev->link_timeout--) {
--					phy_force_reduction(phydev);
-+				if (0 == phydev->link_timeout--) 
- 					needs_aneg = 1;
--				}
- 			}
- 
- 			phydev->adjust_link(phydev->attached_dev);
--- 
-1.7.2.5
+Best Regards,
+Hayes
