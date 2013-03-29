@@ -1,286 +1,50 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: [PATCH net-next 3/7] qlcnic: Use shared interrupt vector for Tx and Rx
-Date: Fri, 29 Mar 2013 11:46:35 -0400
-Message-ID: <1364571999-31593-4-git-send-email-rajesh.borundia@qlogic.com>
-References: <1364571999-31593-1-git-send-email-rajesh.borundia@qlogic.com>
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:2119 "HELO linux-zupk.site"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1755015Ab3C2QJo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Mar 2013 12:09:44 -0400
-In-Reply-To: <1364571999-31593-1-git-send-email-rajesh.borundia@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] net: add a synchronize_net() in
+ netdev_rx_handler_unregister()
+Date: Fri, 29 Mar 2013 17:12:19 +0100
+Message-ID: <20130329161219.GA1668@minipsycho.orion>
+References: <1364490997.6345.237.camel@gandalf.local.home>
+ <1364491792.15753.47.camel@edumazet-glaptop>
+ <20130329094856.GB1677@minipsycho.orion>
+ <1364562082.5113.16.camel@edumazet-glaptop>
+ <5155AF24.3090305@redhat.com>
+ <1364571495.5113.23.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ivan Vecera <ivecera@redhat.com>, Jiri Pirko <jpirko@redhat.com>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Guy Streeter <streeter@redhat.com>,
+	"Paul E. McKenney" <paulmck@us.ibm.com>, stephen@networkplumber.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1364571495.5113.23.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-o VF will use shared MSI-X interrupt vector for Tx and Rx.
-o When QLCNIC_INTR_SHARED flag is set Tx and Rx will
-  share MSI-X interrupt vector. Tx will use a separate
-  MSI-X interrupt vector from Rx otherwise.
+Fri, Mar 29, 2013 at 04:38:15PM CET, eric.dumazet@gmail.com wrote:
+>On Fri, 2013-03-29 at 16:11 +0100, Ivan Vecera wrote:
+>
+>> Erik, why doesn't help the write barrier between the assignments. It 
+>> should guarantee their orders... or not?
+>> 
+>
+>Its not enough, I wont explain here why as RCU is quite well documented
+>in Documentation/RCU
 
-Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    1 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   21 ++++++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |   56 ++++++++++++++++----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   23 ++++++---
- .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |    1 +
- 5 files changed, 80 insertions(+), 22 deletions(-)
+Can you point me exact paragraph? I'm unable to find that :(
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 2332d2e..002f0bd 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -897,6 +897,7 @@ struct qlcnic_ipaddr {
- #define QLCNIC_FW_RESET_OWNER		0x2000
- #define QLCNIC_FW_HANG			0x4000
- #define QLCNIC_FW_LRO_MSS_CAP		0x8000
-+#define QLCNIC_TX_INTR_SHARED		0x10000
- #define QLCNIC_IS_MSI_FAMILY(adapter) \
- 	((adapter)->flags & (QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED))
- 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 433456b..c08974f 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -410,7 +410,10 @@ int qlcnic_83xx_setup_intr(struct qlcnic_adapter *adapter, u8 num_intr)
- 					      num_intr));
- 	/* account for AEN interrupt MSI-X based interrupts */
- 	num_msix += 1;
--	num_msix += adapter->max_drv_tx_rings;
-+
-+	if (!(adapter->flags & QLCNIC_TX_INTR_SHARED))
-+		num_msix += adapter->max_drv_tx_rings;
-+
- 	err = qlcnic_enable_msix(adapter, num_msix);
- 	if (err == -ENOMEM)
- 		return err;
-@@ -1243,6 +1246,7 @@ int qlcnic_83xx_create_tx_ctx(struct qlcnic_adapter *adapter,
- 	struct qlcnic_tx_mbx mbx;
- 	struct qlcnic_tx_mbx_out *mbx_out;
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	u32 msix_vector;
- 
- 	/* Reset host resources */
- 	tx->producer = 0;
-@@ -1257,10 +1261,16 @@ int qlcnic_83xx_create_tx_ctx(struct qlcnic_adapter *adapter,
- 	mbx.cnsmr_index_low = LSD(tx->hw_cons_phys_addr);
- 	mbx.cnsmr_index_high = MSD(tx->hw_cons_phys_addr);
- 	mbx.size = tx->num_desc;
--	if (adapter->flags & QLCNIC_MSIX_ENABLED)
--		msix_id = ahw->intr_tbl[adapter->max_sds_rings + ring].id;
--	else
-+	if (adapter->flags & QLCNIC_MSIX_ENABLED) {
-+		if (!(adapter->flags & QLCNIC_TX_INTR_SHARED))
-+			msix_vector = adapter->max_sds_rings + ring;
-+		else
-+			msix_vector = adapter->max_sds_rings - 1;
-+		msix_id = ahw->intr_tbl[msix_vector].id;
-+	} else {
- 		msix_id = QLCRDX(ahw, QLCNIC_DEF_INT_ID);
-+	}
-+
- 	if (adapter->ahw->diag_test != QLCNIC_LOOPBACK_TEST)
- 		mbx.intr_id = msix_id;
- 	else
-@@ -1282,7 +1292,8 @@ int qlcnic_83xx_create_tx_ctx(struct qlcnic_adapter *adapter,
- 	mbx_out = (struct qlcnic_tx_mbx_out *)&cmd.rsp.arg[2];
- 	tx->crb_cmd_producer = ahw->pci_base0 + mbx_out->host_prod;
- 	tx->ctx_id = mbx_out->ctx_id;
--	if (adapter->flags & QLCNIC_MSIX_ENABLED) {
-+	if ((adapter->flags & QLCNIC_MSIX_ENABLED) &&
-+	    !(adapter->flags & QLCNIC_TX_INTR_SHARED)) {
- 		intr_mask = ahw->intr_tbl[adapter->max_sds_rings + ring].src;
- 		tx->crb_intr_mask = ahw->pci_base0 + intr_mask;
- 	}
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-index 891f12d..25b6188 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -1691,6 +1691,29 @@ skip:
- 	return count;
- }
- 
-+static int qlcnic_83xx_msix_sriov_vf_poll(struct napi_struct *napi, int budget)
-+{
-+	int tx_complete;
-+	int work_done;
-+	struct qlcnic_host_sds_ring *sds_ring;
-+	struct qlcnic_adapter *adapter;
-+	struct qlcnic_host_tx_ring *tx_ring;
-+
-+	sds_ring = container_of(napi, struct qlcnic_host_sds_ring, napi);
-+	adapter = sds_ring->adapter;
-+	/* tx ring count = 1 */
-+	tx_ring = adapter->tx_ring;
-+
-+	tx_complete = qlcnic_process_cmd_ring(adapter, tx_ring, budget);
-+	work_done = qlcnic_83xx_process_rcv_ring(sds_ring, budget);
-+	if ((work_done < budget) && tx_complete) {
-+		napi_complete(&sds_ring->napi);
-+		qlcnic_83xx_enable_intr(adapter, sds_ring);
-+	}
-+
-+	return work_done;
-+}
-+
- static int qlcnic_83xx_poll(struct napi_struct *napi, int budget)
- {
- 	int tx_complete;
-@@ -1768,7 +1791,8 @@ void qlcnic_83xx_napi_enable(struct qlcnic_adapter *adapter)
- 			qlcnic_83xx_enable_intr(adapter, sds_ring);
- 	}
- 
--	if (adapter->flags & QLCNIC_MSIX_ENABLED) {
-+	if ((adapter->flags & QLCNIC_MSIX_ENABLED) &&
-+	    !(adapter->flags & QLCNIC_TX_INTR_SHARED)) {
- 		for (ring = 0; ring < adapter->max_drv_tx_rings; ring++) {
- 			tx_ring = &adapter->tx_ring[ring];
- 			napi_enable(&tx_ring->napi);
-@@ -1795,7 +1819,8 @@ void qlcnic_83xx_napi_disable(struct qlcnic_adapter *adapter)
- 		napi_disable(&sds_ring->napi);
- 	}
- 
--	if (adapter->flags & QLCNIC_MSIX_ENABLED) {
-+	if ((adapter->flags & QLCNIC_MSIX_ENABLED) &&
-+	    !(adapter->flags & QLCNIC_TX_INTR_SHARED)) {
- 		for (ring = 0; ring < adapter->max_drv_tx_rings; ring++) {
- 			tx_ring = &adapter->tx_ring[ring];
- 			qlcnic_83xx_disable_tx_intr(adapter, tx_ring);
-@@ -1808,7 +1833,7 @@ void qlcnic_83xx_napi_disable(struct qlcnic_adapter *adapter)
- int qlcnic_83xx_napi_add(struct qlcnic_adapter *adapter,
- 			 struct net_device *netdev)
- {
--	int ring, max_sds_rings;
-+	int ring, max_sds_rings, temp;
- 	struct qlcnic_host_sds_ring *sds_ring;
- 	struct qlcnic_host_tx_ring *tx_ring;
- 	struct qlcnic_recv_context *recv_ctx = adapter->recv_ctx;
-@@ -1819,14 +1844,23 @@ int qlcnic_83xx_napi_add(struct qlcnic_adapter *adapter,
- 	max_sds_rings = adapter->max_sds_rings;
- 	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
- 		sds_ring = &recv_ctx->sds_rings[ring];
--		if (adapter->flags & QLCNIC_MSIX_ENABLED)
--			netif_napi_add(netdev, &sds_ring->napi,
--				       qlcnic_83xx_rx_poll,
--				       QLCNIC_NETDEV_WEIGHT * 2);
--		else
-+		if (adapter->flags & QLCNIC_MSIX_ENABLED) {
-+			if (!(adapter->flags & QLCNIC_TX_INTR_SHARED)) {
-+				netif_napi_add(netdev, &sds_ring->napi,
-+					       qlcnic_83xx_rx_poll,
-+					       QLCNIC_NETDEV_WEIGHT * 2);
-+			} else {
-+				temp = QLCNIC_NETDEV_WEIGHT / max_sds_rings;
-+				netif_napi_add(netdev, &sds_ring->napi,
-+					       qlcnic_83xx_msix_sriov_vf_poll,
-+					       temp);
-+			}
-+
-+		} else {
- 			netif_napi_add(netdev, &sds_ring->napi,
- 				       qlcnic_83xx_poll,
- 				       QLCNIC_NETDEV_WEIGHT / max_sds_rings);
-+		}
- 	}
- 
- 	if (qlcnic_alloc_tx_rings(adapter, netdev)) {
-@@ -1834,7 +1868,8 @@ int qlcnic_83xx_napi_add(struct qlcnic_adapter *adapter,
- 		return -ENOMEM;
- 	}
- 
--	if (adapter->flags & QLCNIC_MSIX_ENABLED) {
-+	if ((adapter->flags & QLCNIC_MSIX_ENABLED) &&
-+	    !(adapter->flags & QLCNIC_TX_INTR_SHARED)) {
- 		for (ring = 0; ring < adapter->max_drv_tx_rings; ring++) {
- 			tx_ring = &adapter->tx_ring[ring];
- 			netif_napi_add(netdev, &tx_ring->napi,
-@@ -1860,7 +1895,8 @@ void qlcnic_83xx_napi_del(struct qlcnic_adapter *adapter)
- 
- 	qlcnic_free_sds_rings(adapter->recv_ctx);
- 
--	if ((adapter->flags & QLCNIC_MSIX_ENABLED)) {
-+	if ((adapter->flags & QLCNIC_MSIX_ENABLED) &&
-+	    !(adapter->flags & QLCNIC_TX_INTR_SHARED)) {
- 		for (ring = 0; ring < adapter->max_drv_tx_rings; ring++) {
- 			tx_ring = &adapter->tx_ring[ring];
- 			netif_napi_del(&tx_ring->napi);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 2f3001c..f67e8c6 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -400,7 +400,15 @@ int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
- {
- 	struct pci_dev *pdev = adapter->pdev;
- 	int err = -1, i;
--	int max_tx_rings;
-+	int max_tx_rings, tx_vector;
-+
-+	if (adapter->flags & QLCNIC_TX_INTR_SHARED) {
-+		max_tx_rings = 0;
-+		tx_vector = 0;
-+	} else {
-+		max_tx_rings = adapter->max_drv_tx_rings;
-+		tx_vector = 1;
-+	}
- 
- 	if (!adapter->msix_entries) {
- 		adapter->msix_entries = kcalloc(num_msix,
-@@ -423,7 +431,6 @@ int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
- 			if (qlcnic_83xx_check(adapter)) {
- 				adapter->ahw->num_msix = num_msix;
- 				/* subtract mail box and tx ring vectors */
--				max_tx_rings = adapter->max_drv_tx_rings;
- 				adapter->max_sds_rings = num_msix -
- 							 max_tx_rings - 1;
- 			} else {
-@@ -436,11 +443,11 @@ int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
- 				 "Unable to allocate %d MSI-X interrupt vectors\n",
- 				 num_msix);
- 			if (qlcnic_83xx_check(adapter)) {
--				if (err < QLC_83XX_MINIMUM_VECTOR)
-+				if (err < (QLC_83XX_MINIMUM_VECTOR - tx_vector))
- 					return err;
--				err -= (adapter->max_drv_tx_rings + 1);
-+				err -= (max_tx_rings + 1);
- 				num_msix = rounddown_pow_of_two(err);
--				num_msix += (adapter->max_drv_tx_rings + 1);
-+				num_msix += (max_tx_rings + 1);
- 			} else {
- 				num_msix = rounddown_pow_of_two(err);
- 			}
-@@ -1285,7 +1292,8 @@ qlcnic_request_irq(struct qlcnic_adapter *adapter)
- 			}
- 		}
- 		if (qlcnic_83xx_check(adapter) &&
--		    (adapter->flags & QLCNIC_MSIX_ENABLED)) {
-+		    (adapter->flags & QLCNIC_MSIX_ENABLED) &&
-+		    !(adapter->flags & QLCNIC_TX_INTR_SHARED)) {
- 			handler = qlcnic_msix_tx_intr;
- 			for (ring = 0; ring < adapter->max_drv_tx_rings;
- 			     ring++) {
-@@ -1321,7 +1329,8 @@ qlcnic_free_irq(struct qlcnic_adapter *adapter)
- 				free_irq(sds_ring->irq, sds_ring);
- 			}
- 		}
--		if (qlcnic_83xx_check(adapter)) {
-+		if (qlcnic_83xx_check(adapter) &&
-+		    !(adapter->flags & QLCNIC_TX_INTR_SHARED)) {
- 			for (ring = 0; ring < adapter->max_drv_tx_rings;
- 			     ring++) {
- 				tx_ring = &adapter->tx_ring[ring];
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-index 0c04e88..0e097f7 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-@@ -137,6 +137,7 @@ int qlcnic_sriov_vf_init(struct qlcnic_adapter *adapter, int pci_using_dac)
- 	spin_lock_init(&ahw->mbx_lock);
- 	set_bit(QLC_83XX_MBX_READY, &adapter->ahw->idc.status);
- 	ahw->msix_supported = 1;
-+	adapter->flags |= QLCNIC_TX_INTR_SHARED;
- 
- 	if (qlcnic_sriov_setup_vf(adapter, pci_using_dac))
- 		return -EIO;
--- 
-1.6.3.3
+>
+>
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
