@@ -1,123 +1,86 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: Re: Fw: Bug in ks8851.c
-Date: Fri, 29 Mar 2013 18:07:05 +0400
-Message-ID: <CAOJe8K1LbPgBN5kgXF5W2Fg_JM0BGp69+auSZ6Nk+3appmXZOg@mail.gmail.com>
-References: <OF2DFE75BF.1BA5B9C8-ON44257B3D.00492A11-44257B3D.0049472A@gb.elster.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 06/34] ipvs: no need to reroute anymore on DNAT over loopback
+Date: Fri, 29 Mar 2013 18:44:06 +0400
+Message-ID: <5155A8B6.9030303@cogentembedded.com>
+References: <1364530311-11512-1-git-send-email-horms@verge.net.au> <1364530311-11512-7-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>, linus971@gmail.com,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Matt Renzelmann <mjr@cs.wisc.edu>,
-	Network Development <netdev@vger.kernel.org>,
-	Stephen Boyd <sboyd@codeaurora.org>,
-	Greg Ungerer <gerg@uclinux.org>,
-	linux-arm-kernel@lists.infradead.org
-To: Max.Nekludov@us.elster.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <OF2DFE75BF.1BA5B9C8-ON44257B3D.00492A11-44257B3D.0049472A@gb.elster.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1364530311-11512-7-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-please respin this patch with a commit description.
+Hello.
 
-On 3/29/13, Max.Nekludov@us.elster.com <Max.Nekludov@us.elster.com> wrote:
+On 29-03-2013 8:11, Simon Horman wrote:
+
+> From: Julian Anastasov <ja@ssi.bg>
+
+> After commit 70e7341673 (ipv4: Show that ip_send_reply()
+> is purely unicast routine.) we do not need to reroute DNAT-ed
+> traffic over loopback because reply uses iph daddr and not
+> rt_spec_dst.
+
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Signed-off by: Hans Schillstrom <hans@schillstrom.com>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> ---
+>   net/netfilter/ipvs/ip_vs_xmit.c |   58 ++-------------------------------------
+>   1 file changed, 2 insertions(+), 56 deletions(-)
+
+> diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+> index 6448a2e..c942d36 100644
+> --- a/net/netfilter/ipvs/ip_vs_xmit.c
+> +++ b/net/netfilter/ipvs/ip_vs_xmit.c
+[...]
+> @@ -635,16 +597,8 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+>   		/* drop old route */
+>   		skb_dst_drop(skb);
+>   		skb_dst_set(skb, &rt->dst);
+> -	} else {
+> +	} else
+
+    {} should be kept after *else*, according to Documentation/CodingStyle, 
+chapter 3.
+
+>   		ip_rt_put(rt);
+> -		/*
+> -		 * Some IPv4 replies get local address from routes,
+> -		 * not from iph, so while we DNAT after routing
+> -		 * we need this second input/output route.
+> -		 */
+> -		if (!__ip_vs_reroute_locally(skb))
+> -			goto tx_error;
+> -	}
 >
-> Linus,
+>   	IP_VS_DBG_PKT(10, AF_INET, pp, skb, 0, "After DNAT");
 >
-> I tried to send the mail to 'Ben Dooks <ben@simtec.co.uk>' but the address
-> is dead now.
->> I assume you've tested it in practice?
-> Yes, I'm running the modified code both in bootloader and Linux kernel on
-> my board.
+> @@ -1269,16 +1223,8 @@ ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+>   		/* drop the old route when skb is not shared */
+>   		skb_dst_drop(skb);
+>   		skb_dst_set(skb, &rt->dst);
+> -	} else {
+> +	} else
+
+    Same here.
+
+>   		ip_rt_put(rt);
+> -		/*
+> -		 * Some IPv4 replies get local address from routes,
+> -		 * not from iph, so while we DNAT after routing
+> -		 * we need this second input/output route.
+> -		 */
+> -		if (!__ip_vs_reroute_locally(skb))
+> -			goto tx_error;
+> -	}
 >
-> Thanks,
-> Max
+>   	/* Another hack: avoid icmp_send in ip_fragment */
+>   	skb->local_df = 1;
 >
->  Signed-off-by: Max Nekludov <Max.Nekludov@us.elster.com>
->  ---
->  drivers/net/ethernet/micrel/ks8851.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/micrel/ks8851.c
-> b/drivers/net/ethernet/micrel/ks8851.c
-> index 33bcb63d56a2..8fb481252e2c 100644
-> --- a/drivers/net/ethernet/micrel/ks8851.c
-> +++ b/drivers/net/ethernet/micrel/ks8851.c
-> @@ -528,7 +528,7 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
->  	for (; rxfc != 0; rxfc--) {
->  		rxh = ks8851_rdreg32(ks, KS_RXFHSR);
->  		rxstat = rxh & 0xffff;
-> -		rxlen = rxh >> 16;
-> +		rxlen = (rxh >> 16) & 0xfff;
->
->  		netif_dbg(ks, rx_status, ks->netdev,
->  			  "rx: stat 0x%04x, len 0x%04x\n", rxstat, rxlen);
->
->
->
->
-> Max,
->  please cc the actual maintainers of the driver. The patch looks sane,
-> though. I assume you've tested it in practice?
->
-> You also seem to have based this on an ancient version, the code has
-> long since moved from drivers/net/ks8851.c to
-> drivers/net/ethernet/micrel/ks8851.c (back in June of 2011), and it's
-> missing a sign-off from you.
->
-> I'm attaching an updated patch for the rename/capitalization issue.
->
->      Linus
->
-> On Thu, Mar 28, 2013 at 11:25 AM,  <Max.Nekludov@us.elster.com> wrote:
->>
->> According to the Datasheet (page 52):
->> 15-12 Reserved
->> 11-0 RXBC Receive Byte Count
->> This field indicates the present received frame byte size.
->>
->> I suppose the code has a bug:
->>                 rxh = ks8851_rdreg32(ks, KS_RXFHSR);
->>                 rxstat = rxh & 0xffff;
->>                 rxlen = rxh >> 16; // BUG!!! 0xFFF mask should be applied
->>
->> P.S.
->> without bit mask applied I saw rxlen equal to 15360 which is bigger then
->> entire RX queue size (12KB).
->>
->> Thanks,
->> Max Nekludov
->>
->> From cb3199cee4490f98d6062e32a75ca377a32b55bc Mon Sep 17 00:00:00 2001
->> From: Max Neklyudov <macscomp@gmail.com>
->> Date: Tue, 26 Mar 2013 11:46:57 +0400
->> Subject: [PATCH] Fix bug in ks8851 driver
->>
->> ---
->>  drivers/net/ks8851.c |    2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ks8851.c b/drivers/net/ks8851.c
->> index 91a93cb..0dc03da 100644
->> --- a/drivers/net/ks8851.c
->> +++ b/drivers/net/ks8851.c
->> @@ -553,7 +553,7 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
->>         for (; rxfc != 0; rxfc--) {
->>                 rxh = ks8851_rdreg32(ks, KS_RXFHSR);
->>                 rxstat = rxh & 0xffff;
->> -               rxlen = rxh >> 16;
->> +               rxlen = (rxh >> 16) & 0xFFF;
->>
->>                 netif_dbg(ks, rx_status, ks->netdev,
->>                           "rx: stat 0x%04x, len 0x%04x\n", rxstat,
-> rxlen);
->> --
->> 1.7.10.4
->>
->
->
-> ______________________________________________________________________
-> This email has been spam and virus checked by Elster IT Services.(See
-> attached file: patch.diff)
+
