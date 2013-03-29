@@ -1,45 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] core: should call pskb_expand_head if skb
- header is cloned in skb_gso_segment in rx path
-Date: Fri, 29 Mar 2013 14:59:47 -0400 (EDT)
-Message-ID: <20130329.145947.1829620308225114250.davem@davemloft.net>
-References: <1364376845-5000-1-git-send-email-roy.qing.li@gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH 3/3] net: frag queue per hash bucket locking
+Date: Fri, 29 Mar 2013 20:01:33 +0100
+Message-ID: <1364583693.3232.257.camel@localhost>
+References: <20130327155238.15203.6688.stgit@dragon>
+	 <20130327155601.15203.25289.stgit@dragon>
+	 <1364405159.15753.26.camel@edumazet-glaptop>
+	 <20130328185721.GA20223@order.stressinduktion.org>
+	 <1364502164.15753.56.camel@edumazet-glaptop>
+	 <20130328233002.GC20223@order.stressinduktion.org>
+	 <1364513982.15753.57.camel@edumazet-glaptop>
+	 <20130329003308.GD20223@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55984 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754251Ab3C2S7t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 14:59:49 -0400
-In-Reply-To: <1364376845-5000-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:17952 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754251Ab3C2TBo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Mar 2013 15:01:44 -0400
+In-Reply-To: <20130329003308.GD20223@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roy.qing.li@gmail.com
-Date: Wed, 27 Mar 2013 17:34:05 +0800
+On Fri, 2013-03-29 at 01:33 +0100, Hannes Frederic Sowa wrote:
+> On Thu, Mar 28, 2013 at 04:39:42PM -0700, Eric Dumazet wrote:
+> > On Fri, 2013-03-29 at 00:30 +0100, Hannes Frederic Sowa wrote:
+> > > On Thu, Mar 28, 2013 at 01:22:44PM -0700, Eric Dumazet wrote:
+> > > > On Thu, 2013-03-28 at 19:57 +0100, Hannes Frederic Sowa wrote:
+> > > > 
+> > > > > I assume that it has to do with the usage of this code in
+> > > > > ipv6/netfilter/nf_conntrack_reasm.c, which could be invoked from process
+> > > > > context, if I read it correctly.
+> > > > 
+> > > > Then there would be a possible deadlock in current code.
+> > > 
+> > > Netfilter currently does a local_bh_disable() before entering inet_fragment
+> > > (and later enables it, again).
+> > > 
+> > 
+> > Good, so no need for the _bh() as I suspected.
+> 
+> Ack.
+> 
+> I replaced the _bh spin_locks with plain spinlocks and tested the code
+> with sending fragments and receiving fragments (netfilter and reassmbly
+> logic) with lockdep and didn't get any splats. Looks good so far.
 
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> 12b0004d1d1 (adjust skb_gso_segment() for calling in rx path) tries to kill warnings
-> by checking if ip_summed is CHECK_NONE or not in rx path, since if skb_gso_segment()
-> is called on rx path, and ->ip_summed has different meaning.
-> 
-> but this maybe break skb if skb header is cloned, and not expand the header, since when
-> step into skb_mac_gso_segment(), which will still check ip_summed with CHECKSUM_PARTIAL,
-> then do gso_send_check(). and after __skb_gso_segment() in queue_gso_packets() of
-> openvswitch, queue_userspace_packet() still checks ip_summed with CHECKSUM_PARTIAL,
-> and do checksum.
-> 
-> so I think it is enough to ignore the warning in rx path.
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+Well, it's great to see, that you are working on solving my patch
+proposal.  While I'm on Easter vacation ;-)  Much appreciated.
+I'm officially back from vacation Tuesday, and I'll repost then (after
+testing it on my 10G testlab).
 
-I'm not going back-and-forth on this issue yet another time.
-
-I want to see discussion amongst people involved in this area
-before applying a patch like this, and I'm therefore not applying
-this patch for now (you'll have to submit it again after the
-discussions take place).
+--Jesper
