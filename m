@@ -1,1503 +1,361 @@
 From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: [PATCH net-next 4/7] qlcnic: VF-PF communication channel implementation
-Date: Fri, 29 Mar 2013 11:46:36 -0400
-Message-ID: <1364571999-31593-5-git-send-email-rajesh.borundia@qlogic.com>
+Subject: [PATCH net-next 6/7] qlcnic: Support atomic commands
+Date: Fri, 29 Mar 2013 11:46:38 -0400
+Message-ID: <1364571999-31593-7-git-send-email-rajesh.borundia@qlogic.com>
 References: <1364571999-31593-1-git-send-email-rajesh.borundia@qlogic.com>
 Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Manish Chopra <manish.chopra@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+	Manish Chopra <manish.chopra@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:12973 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:61668 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1755293Ab3C2QJq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Mar 2013 12:09:46 -0400
+	id S1755293Ab3C2QJt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Mar 2013 12:09:49 -0400
 In-Reply-To: <1364571999-31593-1-git-send-email-rajesh.borundia@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o Adapter provides communication channel between VF and PF.
-  Any control commands from the VF driver are sent to the PF driver
-  through this communication channel. PF driver validates the
-  commands before sending them to the adapter. Similarly PF driver
-  forwards any control command responses  to the VF driver
-  through this communication channel.  Adapter sends message pending
-  event to VF or PF when there is an outstanding response or a command
-  for VF or PF respectively. When a command or a response is sent over
-  a channel VF or PF cannot send another command or a response
-  until adapter sends a channel free event. Adapter allocates 1K area to
-  VF and  PF each for this communication.
-o Commands and  responses are encapsulated in a header. Header determines
-  sequence id, number of fragments, fragment number etc.
+o VFs might get scheduled out after sending a command to a PF
+  and scheduled in after receiving a response. Implement a
+  worker thread to handle atomic commands.
 
 Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    1 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   14 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    2 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |    2 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |  111 +++
- .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |  951 +++++++++++++++++++-
- .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |  118 +++-
- 7 files changed, 1191 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    4 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |   47 ++++++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    2 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |    9 ++
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |  130 +++++++++++++++++++-
+ 5 files changed, 183 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 002f0bd..78d1db6 100644
+index e5f7695..c0b3ccf 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1360,6 +1360,7 @@ struct _cdrp_cmd {
- struct qlcnic_cmd_args {
- 	struct _cdrp_cmd req;
- 	struct _cdrp_cmd rsp;
-+	int op_type;
- };
+@@ -1013,6 +1013,7 @@ struct qlcnic_adapter {
  
- int qlcnic_fw_cmd_get_minidump_temp(struct qlcnic_adapter *adapter);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index c08974f..89dcea5 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -14,6 +14,7 @@
+ 	struct qlcnic_filter_hash fhash;
+ 	struct qlcnic_filter_hash rx_fhash;
++	struct list_head vf_mc_list;
  
- #define QLCNIC_MAX_TX_QUEUES		1
- #define RSS_HASHTYPE_IP_TCP		0x3
-+#define QLC_83XX_FW_MBX_CMD		0
+ 	spinlock_t tx_clean_lock;
+ 	spinlock_t mac_learn_lock;
+@@ -1443,6 +1444,7 @@ void qlcnic_post_rx_buffers(struct qlcnic_adapter *adapter,
+ 		struct qlcnic_host_rds_ring *rds_ring, u8 ring_id);
+ int qlcnic_process_rcv_ring(struct qlcnic_host_sds_ring *sds_ring, int max);
+ void qlcnic_set_multi(struct net_device *netdev);
++void __qlcnic_set_multi(struct net_device *netdev);
+ int qlcnic_nic_add_mac(struct qlcnic_adapter *, const u8 *);
+ int qlcnic_nic_del_mac(struct qlcnic_adapter *, const u8 *);
+ void qlcnic_free_mac_list(struct qlcnic_adapter *adapter);
+@@ -1527,6 +1529,8 @@ void qlcnic_add_lb_filter(struct qlcnic_adapter *, struct sk_buff *, int,
+ int qlcnic_83xx_configure_opmode(struct qlcnic_adapter *adapter);
+ int qlcnic_read_mac_addr(struct qlcnic_adapter *);
+ int qlcnic_setup_netdev(struct qlcnic_adapter *, struct net_device *, int);
++void qlcnic_sriov_vf_schedule_multi(struct net_device *);
++void qlcnic_vf_add_mc_list(struct net_device *);
  
- /* status descriptor mailbox data
-  * @phy_addr_{low|high}: physical address of buffer
-@@ -211,6 +212,7 @@ static const struct qlcnic_mailbox_metadata qlcnic_83xx_mbx_tbl[] = {
- 	{QLCNIC_CMD_GET_LED_CONFIG, 1, 5},
- 	{QLCNIC_CMD_ADD_RCV_RINGS, 130, 26},
- 	{QLCNIC_CMD_CONFIG_VPORT, 4, 4},
-+	{QLCNIC_CMD_BC_EVENT_SETUP, 2, 1},
- };
- 
- const u32 qlcnic_83xx_ext_reg_tbl[] = {
-@@ -824,7 +826,7 @@ static void qlcnic_dump_mbx(struct qlcnic_adapter *adapter,
+ /*
+  * QLOGIC Board information
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+index f89cc7a..ddc130b 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+@@ -496,7 +496,7 @@ int qlcnic_nic_add_mac(struct qlcnic_adapter *adapter, const u8 *addr)
+ 	return 0;
  }
  
- /* Mailbox response for mac rcode */
--static u32 qlcnic_83xx_mac_rcode(struct qlcnic_adapter *adapter)
-+u32 qlcnic_83xx_mac_rcode(struct qlcnic_adapter *adapter)
+-void qlcnic_set_multi(struct net_device *netdev)
++void __qlcnic_set_multi(struct net_device *netdev)
  {
- 	u32 fw_data;
- 	u8 mac_cmd_rcode;
-@@ -838,7 +840,7 @@ static u32 qlcnic_83xx_mac_rcode(struct qlcnic_adapter *adapter)
- 	return 1;
- }
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	struct netdev_hw_addr *ha;
+@@ -508,7 +508,8 @@ void qlcnic_set_multi(struct net_device *netdev)
+ 	if (!test_bit(__QLCNIC_FW_ATTACHED, &adapter->state))
+ 		return;
  
--static u32 qlcnic_83xx_mbx_poll(struct qlcnic_adapter *adapter)
-+u32 qlcnic_83xx_mbx_poll(struct qlcnic_adapter *adapter)
- {
- 	u32 data;
- 	unsigned long wait_time = 0;
-@@ -953,6 +955,7 @@ int qlcnic_83xx_alloc_mbx_args(struct qlcnic_cmd_args *mbx,
- 	size = ARRAY_SIZE(qlcnic_83xx_mbx_tbl);
- 	for (i = 0; i < size; i++) {
- 		if (type == mbx_tbl[i].cmd) {
-+			mbx->op_type = QLC_83XX_FW_MBX_CMD;
- 			mbx->req.num = mbx_tbl[i].in_args;
- 			mbx->rsp.num = mbx_tbl[i].out_args;
- 			mbx->req.arg = kcalloc(mbx->req.num, sizeof(u32),
-@@ -970,10 +973,10 @@ int qlcnic_83xx_alloc_mbx_args(struct qlcnic_cmd_args *mbx,
- 			memset(mbx->rsp.arg, 0, sizeof(u32) * mbx->rsp.num);
- 			temp = adapter->ahw->fw_hal_version << 29;
- 			mbx->req.arg[0] = (type | (mbx->req.num << 16) | temp);
--			break;
-+			return 0;
+-	qlcnic_nic_add_mac(adapter, adapter->mac_addr);
++	if (!qlcnic_sriov_vf_check(adapter))
++		qlcnic_nic_add_mac(adapter, adapter->mac_addr);
+ 	qlcnic_nic_add_mac(adapter, bcast_addr);
+ 
+ 	if (netdev->flags & IFF_PROMISC) {
+@@ -523,23 +524,53 @@ void qlcnic_set_multi(struct net_device *netdev)
+ 		goto send_fw_cmd;
+ 	}
+ 
+-	if (!netdev_mc_empty(netdev)) {
++	if (!netdev_mc_empty(netdev) && !qlcnic_sriov_vf_check(adapter)) {
+ 		netdev_for_each_mc_addr(ha, netdev) {
+ 			qlcnic_nic_add_mac(adapter, ha->addr);
  		}
  	}
--	return 0;
-+	return -EINVAL;
+ 
++	if (qlcnic_sriov_vf_check(adapter))
++		qlcnic_vf_add_mc_list(netdev);
++
+ send_fw_cmd:
+-	if (mode == VPORT_MISS_MODE_ACCEPT_ALL && !adapter->fdb_mac_learn) {
+-		qlcnic_alloc_lb_filters_mem(adapter);
+-		adapter->drv_mac_learn = true;
+-	} else {
+-		adapter->drv_mac_learn = false;
++	if (!qlcnic_sriov_vf_check(adapter)) {
++		if (mode == VPORT_MISS_MODE_ACCEPT_ALL &&
++		    !adapter->fdb_mac_learn) {
++			qlcnic_alloc_lb_filters_mem(adapter);
++			adapter->drv_mac_learn = true;
++		} else {
++			adapter->drv_mac_learn = false;
++		}
+ 	}
+ 
+ 	qlcnic_nic_set_promisc(adapter, mode);
  }
  
- void qlcnic_83xx_idc_aen_work(struct work_struct *work)
-@@ -1029,6 +1032,9 @@ void qlcnic_83xx_process_aen(struct qlcnic_adapter *adapter)
- 		break;
- 	case QLCNIC_MBX_TIME_EXTEND_EVENT:
- 		break;
-+	case QLCNIC_MBX_BC_EVENT:
-+		qlcnic_sriov_handle_bc_event(adapter, event[1]);
-+		break;
- 	case QLCNIC_MBX_SFP_INSERT_EVENT:
- 		dev_info(&adapter->pdev->dev, "SFP+ Insert AEN:0x%x.\n",
- 			 QLCNIC_MBX_RSP(event[0]));
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index da0fcc7..3e8dc0b 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -456,4 +456,6 @@ int qlcnic_83xx_set_led(struct net_device *, enum ethtool_phys_id_state);
- int qlcnic_83xx_flash_test(struct qlcnic_adapter *);
- int qlcnic_83xx_enable_flash_write(struct qlcnic_adapter *);
- int qlcnic_83xx_disable_flash_write(struct qlcnic_adapter *);
-+u32 qlcnic_83xx_mac_rcode(struct qlcnic_adapter *);
-+u32 qlcnic_83xx_mbx_poll(struct qlcnic_adapter *);
- #endif
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-index 91db4ed..d606e50 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-@@ -83,6 +83,7 @@ enum qlcnic_regs {
- #define QLCNIC_CMD_CONFIG_PORT			0x2e
- #define QLCNIC_CMD_TEMP_SIZE			0x2f
- #define QLCNIC_CMD_GET_TEMP_HDR			0x30
-+#define QLCNIC_CMD_BC_EVENT_SETUP		0x31
- #define	QLCNIC_CMD_CONFIG_VPORT			0x32
- #define QLCNIC_CMD_GET_MAC_STATS		0x37
- #define QLCNIC_CMD_SET_DRV_VER			0x38
-@@ -115,6 +116,7 @@ enum qlcnic_regs {
- #define QLCNIC_SET_FAC_DEF_MAC			5
++void qlcnic_set_multi(struct net_device *netdev)
++{
++	struct qlcnic_adapter *adapter = netdev_priv(netdev);
++	struct netdev_hw_addr *ha;
++	struct qlcnic_mac_list_s *cur;
++
++	if (!test_bit(__QLCNIC_FW_ATTACHED, &adapter->state))
++		return;
++	if (qlcnic_sriov_vf_check(adapter)) {
++		if (!netdev_mc_empty(netdev)) {
++			netdev_for_each_mc_addr(ha, netdev) {
++				cur = kzalloc(sizeof(struct qlcnic_mac_list_s),
++					      GFP_ATOMIC);
++				memcpy(cur->mac_addr,
++				       ha->addr, ETH_ALEN);
++				list_add_tail(&cur->list, &adapter->vf_mc_list);
++			}
++		}
++		qlcnic_sriov_vf_schedule_multi(adapter->netdev);
++		return;
++	}
++	__qlcnic_set_multi(netdev);
++}
++
+ int qlcnic_82xx_nic_set_promisc(struct qlcnic_adapter *adapter, u32 mode)
+ {
+ 	struct qlcnic_nic_req req;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 7d5727c..3ee593e 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -1425,6 +1425,8 @@ void __qlcnic_down(struct qlcnic_adapter *adapter, struct net_device *netdev)
+ 	if (!test_and_clear_bit(__QLCNIC_DEV_UP, &adapter->state))
+ 		return;
  
- #define QLCNIC_MBX_LINK_EVENT		0x8001
-+#define QLCNIC_MBX_BC_EVENT		0x8002
- #define QLCNIC_MBX_COMP_EVENT		0x8100
- #define QLCNIC_MBX_REQUEST_EVENT	0x8101
- #define QLCNIC_MBX_TIME_EXTEND_EVENT	0x8102
++	if (qlcnic_sriov_vf_check(adapter))
++		qlcnic_sriov_cleanup_async_list(&adapter->ahw->sriov->bc);
+ 	smp_mb();
+ 	spin_lock(&adapter->tx_clean_lock);
+ 	netif_carrier_off(netdev);
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
-index e849939..00053ad 100644
+index 3c05f17..b476eba 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
-@@ -15,6 +15,84 @@
- extern const u32 qlcnic_83xx_reg_tbl[];
- extern const u32 qlcnic_83xx_ext_reg_tbl[];
- 
-+struct qlcnic_bc_payload {
-+	u64 payload[126];
-+};
-+
-+struct qlcnic_bc_hdr {
-+#if defined(__LITTLE_ENDIAN)
-+	u8	version;
-+	u8	msg_type:4;
-+	u8	rsvd1:3;
-+	u8	op_type:1;
-+	u8	num_cmds;
-+	u8	num_frags;
-+	u8	frag_num;
-+	u8	cmd_op;
-+	u16	seq_id;
-+	u64	rsvd3;
-+#elif defined(__BIG_ENDIAN)
-+	u8	num_frags;
-+	u8	num_cmds;
-+	u8	op_type:1;
-+	u8	rsvd1:3;
-+	u8	msg_type:4;
-+	u8	version;
-+	u16	seq_id;
-+	u8	cmd_op;
-+	u8	frag_num;
-+	u64	rsvd3;
-+#endif
-+};
-+
-+enum qlcnic_bc_commands {
-+	QLCNIC_BC_CMD_CHANNEL_INIT = 0x0,
-+	QLCNIC_BC_CMD_CHANNEL_TERM = 0x1,
-+};
-+
-+#define QLC_BC_CMD 1
-+
-+struct qlcnic_trans_list {
-+	/* Lock for manipulating list */
-+	spinlock_t		lock;
-+	struct list_head	wait_list;
-+	int			count;
-+};
-+
-+enum qlcnic_trans_state {
-+	QLC_INIT = 0,
-+	QLC_WAIT_FOR_CHANNEL_FREE,
-+	QLC_WAIT_FOR_RESP,
-+	QLC_ABORT,
-+	QLC_END,
-+};
-+
-+struct qlcnic_bc_trans {
-+	u8				func_id;
-+	u8				active;
-+	u8				curr_rsp_frag;
-+	u8				curr_req_frag;
-+	u16				cmd_id;
-+	u16				req_pay_size;
-+	u16				rsp_pay_size;
-+	u32				trans_id;
-+	enum qlcnic_trans_state		trans_state;
-+	struct list_head		list;
-+	struct qlcnic_bc_hdr		*req_hdr;
-+	struct qlcnic_bc_hdr		*rsp_hdr;
-+	struct qlcnic_bc_payload	*req_pay;
-+	struct qlcnic_bc_payload	*rsp_pay;
-+	struct completion		resp_cmpl;
-+	struct qlcnic_vf_info		*vf;
-+};
-+
-+enum qlcnic_vf_state {
-+	QLC_BC_VF_SEND = 0,
-+	QLC_BC_VF_RECV,
-+	QLC_BC_VF_CHANNEL,
-+	QLC_BC_VF_STATE,
-+};
-+
- struct qlcnic_resources {
- 	u16 num_tx_mac_filters;
- 	u16 num_rx_ucast_mac_filters;
-@@ -34,10 +112,36 @@ struct qlcnic_resources {
- 	u16 max_remote_ipv6_addrs;
+@@ -133,9 +133,17 @@ struct qlcnic_vf_info {
+ 	struct qlcnic_vport		*vp;
  };
  
-+struct qlcnic_vport {
-+	u16			handle;
-+	u8			mac[6];
++struct qlcnic_async_work_list {
++	struct list_head	list;
++	struct work_struct	work;
++	void			*ptr;
 +};
 +
-+struct qlcnic_vf_info {
-+	u8				pci_func;
-+	unsigned long			state;
-+	struct completion		ch_free_cmpl;
-+	struct work_struct		trans_work;
-+	/* It synchronizes commands sent from VF */
-+	struct mutex			send_cmd_lock;
-+	struct qlcnic_bc_trans		*send_cmd;
-+	struct qlcnic_trans_list	rcv_act;
-+	struct qlcnic_trans_list	rcv_pend;
-+	struct qlcnic_adapter		*adapter;
-+	struct qlcnic_vport		*vp;
-+};
-+
-+struct qlcnic_back_channel {
-+	u16			trans_counter;
-+	struct workqueue_struct *bc_trans_wq;
-+};
-+
+ struct qlcnic_back_channel {
+ 	u16			trans_counter;
+ 	struct workqueue_struct *bc_trans_wq;
++	struct workqueue_struct *bc_async_wq;
++	struct list_head	async_list;
+ };
+ 
  struct qlcnic_sriov {
- 	u16				vp_handle;
- 	u8				num_vfs;
- 	struct qlcnic_resources		ff_max;
-+	struct qlcnic_back_channel	bc;
-+	struct qlcnic_vf_info		*vf_info;
- };
- 
- int qlcnic_sriov_init(struct qlcnic_adapter *, int);
-@@ -46,6 +150,10 @@ void __qlcnic_sriov_cleanup(struct qlcnic_adapter *);
- void qlcnic_sriov_vf_register_map(struct qlcnic_hardware_context *);
- int qlcnic_sriov_vf_init(struct qlcnic_adapter *, int);
- void qlcnic_sriov_vf_set_ops(struct qlcnic_adapter *);
-+int qlcnic_sriov_func_to_index(struct qlcnic_adapter *, u8);
-+int qlcnic_sriov_channel_cfg_cmd(struct qlcnic_adapter *, u8);
-+void qlcnic_sriov_handle_bc_event(struct qlcnic_adapter *, u32);
-+int qlcnic_sriov_cfg_bc_intr(struct qlcnic_adapter *, u8);
+@@ -156,6 +164,7 @@ int qlcnic_sriov_func_to_index(struct qlcnic_adapter *, u8);
+ int qlcnic_sriov_channel_cfg_cmd(struct qlcnic_adapter *, u8);
+ void qlcnic_sriov_handle_bc_event(struct qlcnic_adapter *, u32);
+ int qlcnic_sriov_cfg_bc_intr(struct qlcnic_adapter *, u8);
++void qlcnic_sriov_cleanup_async_list(struct qlcnic_back_channel *);
  
  static inline bool qlcnic_sriov_enable_check(struct qlcnic_adapter *adapter)
  {
-@@ -53,6 +161,9 @@ static inline bool qlcnic_sriov_enable_check(struct qlcnic_adapter *adapter)
- }
- 
- #ifdef CONFIG_QLCNIC_SRIOV
-+void qlcnic_sriov_pf_process_bc_cmd(struct qlcnic_adapter *,
-+				    struct qlcnic_bc_trans *,
-+				    struct qlcnic_cmd_args *);
- void qlcnic_sriov_pf_disable(struct qlcnic_adapter *);
- void qlcnic_sriov_pf_cleanup(struct qlcnic_adapter *);
- int qlcnic_pci_sriov_configure(struct pci_dev *, int);
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-index 0e097f7..0615086 100644
+index 6e927f2..14e9ebd 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-@@ -10,6 +10,20 @@
- #include "qlcnic_83xx_hw.h"
- #include <linux/types.h>
+@@ -141,6 +141,16 @@ int qlcnic_sriov_init(struct qlcnic_adapter *adapter, int num_vfs)
  
-+#define QLC_BC_COMMAND	0
-+#define QLC_BC_RESPONSE	1
-+
-+#define QLC_MBOX_RESP_TIMEOUT		(10 * HZ)
-+#define QLC_MBOX_CH_FREE_TIMEOUT	(10 * HZ)
-+
-+#define QLC_BC_MSG		0
-+#define QLC_BC_CFREE		1
-+#define QLC_BC_HDR_SZ		16
-+#define QLC_BC_PAYLOAD_SZ	(1024 - QLC_BC_HDR_SZ)
-+
-+static int qlcnic_sriov_vf_mbx_op(struct qlcnic_adapter *,
-+				  struct qlcnic_cmd_args *);
-+
- static struct qlcnic_hardware_ops qlcnic_sriov_vf_hw_ops = {
- 	.read_crb			= qlcnic_83xx_read_crb,
- 	.write_crb			= qlcnic_83xx_write_crb,
-@@ -18,6 +32,7 @@ static struct qlcnic_hardware_ops qlcnic_sriov_vf_hw_ops = {
- 	.get_mac_address		= qlcnic_83xx_get_mac_address,
- 	.setup_intr			= qlcnic_83xx_setup_intr,
- 	.alloc_mbx_args			= qlcnic_83xx_alloc_mbx_args,
-+	.mbx_cmd			= qlcnic_sriov_vf_mbx_op,
- 	.get_func_no			= qlcnic_83xx_get_func_no,
- 	.api_lock			= qlcnic_83xx_cam_lock,
- 	.api_unlock			= qlcnic_83xx_cam_unlock,
-@@ -49,9 +64,50 @@ static struct qlcnic_nic_template qlcnic_sriov_vf_ops = {
- 	.clear_legacy_intr	= qlcnic_83xx_clear_legacy_intr,
- };
+ 	bc->bc_trans_wq = wq;
  
-+static const struct qlcnic_mailbox_metadata qlcnic_sriov_bc_mbx_tbl[] = {
-+	{QLCNIC_BC_CMD_CHANNEL_INIT, 2, 2},
-+	{QLCNIC_BC_CMD_CHANNEL_TERM, 2, 2},
-+};
-+
-+static inline bool qlcnic_sriov_bc_msg_check(u32 val)
-+{
-+	return (val & (1 << QLC_BC_MSG)) ? true : false;
-+}
-+
-+static inline bool qlcnic_sriov_channel_free_check(u32 val)
-+{
-+	return (val & (1 << QLC_BC_CFREE)) ? true : false;
-+}
-+
-+static inline u8 qlcnic_sriov_target_func_id(u32 val)
-+{
-+	return (val >> 4) & 0xff;
-+}
-+
-+static int qlcnic_sriov_virtid_fn(struct qlcnic_adapter *adapter, int vf_id)
-+{
-+	struct pci_dev *dev = adapter->pdev;
-+	int pos;
-+	u16 stride, offset;
-+
-+	if (qlcnic_sriov_vf_check(adapter))
-+		return 0;
-+
-+	pos = pci_find_ext_capability(dev, PCI_EXT_CAP_ID_SRIOV);
-+	pci_read_config_word(dev, pos + PCI_SRIOV_VF_OFFSET, &offset);
-+	pci_read_config_word(dev, pos + PCI_SRIOV_VF_STRIDE, &stride);
-+
-+	return (dev->devfn + offset + stride * vf_id) & 0xff;
-+}
-+
- int qlcnic_sriov_init(struct qlcnic_adapter *adapter, int num_vfs)
- {
- 	struct qlcnic_sriov *sriov;
-+	struct qlcnic_back_channel *bc;
-+	struct workqueue_struct *wq;
-+	struct qlcnic_vport *vp;
-+	struct qlcnic_vf_info *vf;
-+	int err, i;
- 
- 	if (!qlcnic_sriov_enable_check(adapter))
- 		return -EIO;
-@@ -62,19 +118,84 @@ int qlcnic_sriov_init(struct qlcnic_adapter *adapter, int num_vfs)
- 
- 	adapter->ahw->sriov = sriov;
- 	sriov->num_vfs = num_vfs;
-+	bc = &sriov->bc;
-+	sriov->vf_info = kzalloc(sizeof(struct qlcnic_vf_info) *
-+				 num_vfs, GFP_KERNEL);
-+	if (!sriov->vf_info) {
-+		err = -ENOMEM;
-+		goto qlcnic_free_sriov;
-+	}
-+
-+	wq = create_singlethread_workqueue("bc-trans");
++	wq = create_singlethread_workqueue("async");
 +	if (wq == NULL) {
 +		err = -ENOMEM;
-+		dev_err(&adapter->pdev->dev,
-+			"Cannot create bc-trans workqueue\n");
-+		goto qlcnic_free_vf_info;
++		dev_err(&adapter->pdev->dev, "Cannot create async workqueue\n");
++		goto qlcnic_destroy_trans_wq;
 +	}
 +
-+	bc->bc_trans_wq = wq;
++	bc->bc_async_wq =  wq;
++	INIT_LIST_HEAD(&bc->async_list);
 +
-+	for (i = 0; i < num_vfs; i++) {
-+		vf = &sriov->vf_info[i];
-+		vf->adapter = adapter;
-+		vf->pci_func = qlcnic_sriov_virtid_fn(adapter, i);
-+		mutex_init(&vf->send_cmd_lock);
-+		INIT_LIST_HEAD(&vf->rcv_act.wait_list);
-+		INIT_LIST_HEAD(&vf->rcv_pend.wait_list);
-+		spin_lock_init(&vf->rcv_act.lock);
-+		spin_lock_init(&vf->rcv_pend.lock);
-+		init_completion(&vf->ch_free_cmpl);
-+
-+		if (qlcnic_sriov_pf_check(adapter)) {
-+			vp = kzalloc(sizeof(struct qlcnic_vport), GFP_KERNEL);
-+			if (!vp) {
-+				err = -ENOMEM;
-+				goto qlcnic_destroy_trans_wq;
-+			}
-+			sriov->vf_info[i].vp = vp;
-+			random_ether_addr(vp->mac);
-+			dev_info(&adapter->pdev->dev,
-+				 "MAC Address %pM is configured for VF %d\n",
-+				 vp->mac, i);
-+		}
-+	}
-+
- 	return 0;
-+
-+qlcnic_destroy_trans_wq:
-+	destroy_workqueue(bc->bc_trans_wq);
-+
-+qlcnic_free_vf_info:
-+	kfree(sriov->vf_info);
-+
-+qlcnic_free_sriov:
-+	kfree(adapter->ahw->sriov);
-+	return err;
- }
+ 	for (i = 0; i < num_vfs; i++) {
+ 		vf = &sriov->vf_info[i];
+ 		vf->adapter = adapter;
+@@ -156,7 +166,7 @@ int qlcnic_sriov_init(struct qlcnic_adapter *adapter, int num_vfs)
+ 			vp = kzalloc(sizeof(struct qlcnic_vport), GFP_KERNEL);
+ 			if (!vp) {
+ 				err = -ENOMEM;
+-				goto qlcnic_destroy_trans_wq;
++				goto qlcnic_destroy_async_wq;
+ 			}
+ 			sriov->vf_info[i].vp = vp;
+ 			random_ether_addr(vp->mac);
+@@ -168,6 +178,9 @@ int qlcnic_sriov_init(struct qlcnic_adapter *adapter, int num_vfs)
  
- void __qlcnic_sriov_cleanup(struct qlcnic_adapter *adapter)
- {
-+	struct qlcnic_sriov *sriov = adapter->ahw->sriov;
-+	struct qlcnic_back_channel *bc = &sriov->bc;
-+	int i;
+ 	return 0;
+ 
++qlcnic_destroy_async_wq:
++	destroy_workqueue(bc->bc_async_wq);
 +
+ qlcnic_destroy_trans_wq:
+ 	destroy_workqueue(bc->bc_trans_wq);
+ 
+@@ -188,6 +201,8 @@ void __qlcnic_sriov_cleanup(struct qlcnic_adapter *adapter)
  	if (!qlcnic_sriov_enable_check(adapter))
  		return;
  
-+	destroy_workqueue(bc->bc_trans_wq);
-+
-+	for (i = 0; i < sriov->num_vfs; i++)
-+		kfree(sriov->vf_info[i].vp);
-+
-+	kfree(sriov->vf_info);
- 	kfree(adapter->ahw->sriov);
- }
++	qlcnic_sriov_cleanup_async_list(bc);
++	destroy_workqueue(bc->bc_async_wq);
+ 	destroy_workqueue(bc->bc_trans_wq);
  
- static void qlcnic_sriov_vf_cleanup(struct qlcnic_adapter *adapter)
+ 	for (i = 0; i < sriov->num_vfs; i++)
+@@ -351,6 +366,7 @@ static int qlcnic_sriov_setup_vf(struct qlcnic_adapter *adapter,
  {
-+	qlcnic_sriov_channel_cfg_cmd(adapter, QLCNIC_BC_CMD_CHANNEL_TERM);
-+	qlcnic_sriov_cfg_bc_intr(adapter, 0);
- 	__qlcnic_sriov_cleanup(adapter);
- }
+ 	int err;
  
-@@ -87,6 +208,103 @@ void qlcnic_sriov_cleanup(struct qlcnic_adapter *adapter)
- 		qlcnic_sriov_vf_cleanup(adapter);
- }
- 
-+static int qlcnic_sriov_post_bc_msg(struct qlcnic_adapter *adapter, u32 *hdr,
-+				    u32 *pay, u8 pci_func, u8 size)
-+{
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	unsigned long flags;
-+	u32 rsp, mbx_val, fw_data, rsp_num, mbx_cmd, val;
-+	u16 opcode;
-+	u8 mbx_err_code;
-+	int i, j;
-+
-+	opcode = ((struct qlcnic_bc_hdr *)hdr)->cmd_op;
-+
-+	if (!test_bit(QLC_83XX_MBX_READY, &adapter->ahw->idc.status)) {
-+		dev_info(&adapter->pdev->dev,
-+			 "Mailbox cmd attempted, 0x%x\n", opcode);
-+		dev_info(&adapter->pdev->dev, "Mailbox detached\n");
-+		return 0;
-+	}
-+
-+	spin_lock_irqsave(&ahw->mbx_lock, flags);
-+
-+	mbx_val = QLCRDX(ahw, QLCNIC_HOST_MBX_CTRL);
-+	if (mbx_val) {
-+		QLCDB(adapter, DRV, "Mailbox cmd attempted, 0x%x\n", opcode);
-+		spin_unlock_irqrestore(&ahw->mbx_lock, flags);
-+		return QLCNIC_RCODE_TIMEOUT;
-+	}
-+	/* Fill in mailbox registers */
-+	val = size + (sizeof(struct qlcnic_bc_hdr) / sizeof(u32));
-+	mbx_cmd = 0x31 | (val << 16) | (adapter->ahw->fw_hal_version << 29);
-+
-+	writel(mbx_cmd, QLCNIC_MBX_HOST(ahw, 0));
-+	mbx_cmd = 0x1 | (1 << 4);
-+
-+	if (qlcnic_sriov_pf_check(adapter))
-+		mbx_cmd |= (pci_func << 5);
-+
-+	writel(mbx_cmd, QLCNIC_MBX_HOST(ahw, 1));
-+	for (i = 2, j = 0; j < (sizeof(struct qlcnic_bc_hdr) / sizeof(u32));
-+			i++, j++) {
-+		writel(*(hdr++), QLCNIC_MBX_HOST(ahw, i));
-+	}
-+	for (j = 0; j < size; j++, i++)
-+		writel(*(pay++), QLCNIC_MBX_HOST(ahw, i));
-+
-+	/* Signal FW about the impending command */
-+	QLCWRX(ahw, QLCNIC_HOST_MBX_CTRL, QLCNIC_SET_OWNER);
-+
-+	/* Waiting for the mailbox cmd to complete and while waiting here
-+	 * some AEN might arrive. If more than 5 seconds expire we can
-+	 * assume something is wrong.
-+	 */
-+poll:
-+	rsp = qlcnic_83xx_mbx_poll(adapter);
-+	if (rsp != QLCNIC_RCODE_TIMEOUT) {
-+		/* Get the FW response data */
-+		fw_data = readl(QLCNIC_MBX_FW(ahw, 0));
-+		if (fw_data &  QLCNIC_MBX_ASYNC_EVENT) {
-+			qlcnic_83xx_process_aen(adapter);
-+			mbx_val = QLCRDX(ahw, QLCNIC_HOST_MBX_CTRL);
-+			if (mbx_val)
-+				goto poll;
-+		}
-+		mbx_err_code = QLCNIC_MBX_STATUS(fw_data);
-+		rsp_num = QLCNIC_MBX_NUM_REGS(fw_data);
-+		opcode = QLCNIC_MBX_RSP(fw_data);
-+
-+		switch (mbx_err_code) {
-+		case QLCNIC_MBX_RSP_OK:
-+		case QLCNIC_MBX_PORT_RSP_OK:
-+			rsp = QLCNIC_RCODE_SUCCESS;
-+			break;
-+		default:
-+			if (opcode == QLCNIC_CMD_CONFIG_MAC_VLAN) {
-+				rsp = qlcnic_83xx_mac_rcode(adapter);
-+				if (!rsp)
-+					goto out;
-+			}
-+			dev_err(&adapter->pdev->dev,
-+				"MBX command 0x%x failed with err:0x%x\n",
-+				opcode, mbx_err_code);
-+			rsp = mbx_err_code;
-+			break;
-+		}
-+		goto out;
-+	}
-+
-+	dev_err(&adapter->pdev->dev, "MBX command 0x%x timed out\n",
-+		QLCNIC_MBX_RSP(mbx_cmd));
-+	rsp = QLCNIC_RCODE_TIMEOUT;
-+out:
-+	/* clear fw mbx control register */
-+	QLCWRX(ahw, QLCNIC_FW_MBX_CTRL, QLCNIC_CLR_OWNER);
-+	spin_unlock_irqrestore(&adapter->ahw->mbx_lock, flags);
-+	return rsp;
-+}
-+
- static int qlcnic_sriov_setup_vf(struct qlcnic_adapter *adapter,
- 				 int pci_using_dac)
- {
-@@ -110,15 +328,29 @@ static int qlcnic_sriov_setup_vf(struct qlcnic_adapter *adapter,
- 	if (err)
- 		goto err_out_disable_mbx_intr;
- 
--	err = qlcnic_setup_netdev(adapter, adapter->netdev, pci_using_dac);
-+	err = qlcnic_sriov_cfg_bc_intr(adapter, 1);
- 	if (err)
- 		goto err_out_cleanup_sriov;
- 
-+	err = qlcnic_sriov_channel_cfg_cmd(adapter, QLCNIC_BC_CMD_CHANNEL_INIT);
-+	if (err)
-+		goto err_out_disable_bc_intr;
-+
-+	err = qlcnic_setup_netdev(adapter, adapter->netdev, pci_using_dac);
-+	if (err)
-+		goto err_out_send_channel_term;
-+
- 	pci_set_drvdata(adapter->pdev, adapter);
- 	dev_info(&adapter->pdev->dev, "%s: XGbE port initialized\n",
- 		 adapter->netdev->name);
- 	return 0;
- 
-+err_out_send_channel_term:
-+	qlcnic_sriov_channel_cfg_cmd(adapter, QLCNIC_BC_CMD_CHANNEL_TERM);
-+
-+err_out_disable_bc_intr:
-+	qlcnic_sriov_cfg_bc_intr(adapter, 0);
-+
- err_out_cleanup_sriov:
- 	__qlcnic_sriov_cleanup(adapter);
- 
-@@ -173,3 +405,720 @@ void qlcnic_sriov_vf_register_map(struct qlcnic_hardware_context *ahw)
- 	ahw->reg_tbl		= (u32 *)qlcnic_83xx_reg_tbl;
- 	ahw->ext_reg_tbl	= (u32 *)qlcnic_83xx_ext_reg_tbl;
++	INIT_LIST_HEAD(&adapter->vf_mc_list);
+ 	if (!qlcnic_use_msi_x && !!qlcnic_use_msi)
+ 		dev_warn(&adapter->pdev->dev,
+ 			 "83xx adapter do not support MSI interrupts\n");
+@@ -1167,3 +1183,115 @@ out:
+ 	qlcnic_free_mbx_args(&cmd);
+ 	return ret;
  }
 +
-+static u32 qlcnic_sriov_get_bc_paysize(u32 real_pay_size, u8 curr_frag)
++void qlcnic_vf_add_mc_list(struct net_device *netdev)
 +{
-+	u32 pay_size;
++	struct qlcnic_adapter *adapter = netdev_priv(netdev);
++	struct qlcnic_mac_list_s *cur;
++	struct list_head *head, tmp_list;
 +
-+	pay_size = real_pay_size / ((curr_frag + 1) * QLC_BC_PAYLOAD_SZ);
++	INIT_LIST_HEAD(&tmp_list);
++	head = &adapter->vf_mc_list;
++	netif_addr_lock_bh(netdev);
 +
-+	if (pay_size)
-+		pay_size = QLC_BC_PAYLOAD_SZ;
-+	else
-+		pay_size = real_pay_size % QLC_BC_PAYLOAD_SZ;
-+
-+	return pay_size;
-+}
-+
-+int qlcnic_sriov_func_to_index(struct qlcnic_adapter *adapter, u8 pci_func)
-+{
-+	struct qlcnic_vf_info *vf_info = adapter->ahw->sriov->vf_info;
-+	u8 i;
-+
-+	if (qlcnic_sriov_vf_check(adapter))
-+		return 0;
-+
-+	for (i = 0; i < adapter->ahw->sriov->num_vfs; i++) {
-+		if (vf_info[i].pci_func == pci_func)
-+			return i;
++	while (!list_empty(head)) {
++		cur = list_entry(head->next, struct qlcnic_mac_list_s, list);
++		list_move(&cur->list, &tmp_list);
 +	}
 +
-+	return -EINVAL;
-+}
++	netif_addr_unlock_bh(netdev);
 +
-+static inline int qlcnic_sriov_alloc_bc_trans(struct qlcnic_bc_trans **trans)
-+{
-+	*trans = kzalloc(sizeof(struct qlcnic_bc_trans), GFP_ATOMIC);
-+	if (!*trans)
-+		return -ENOMEM;
-+
-+	init_completion(&(*trans)->resp_cmpl);
-+	return 0;
-+}
-+
-+static inline int qlcnic_sriov_alloc_bc_msg(struct qlcnic_bc_hdr **hdr,
-+					    u32 size)
-+{
-+	*hdr = kzalloc(sizeof(struct qlcnic_bc_hdr) * size, GFP_ATOMIC);
-+	if (!*hdr)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+static int qlcnic_sriov_alloc_bc_mbx_args(struct qlcnic_cmd_args *mbx, u32 type)
-+{
-+	const struct qlcnic_mailbox_metadata *mbx_tbl;
-+	int i, size;
-+
-+	mbx_tbl = qlcnic_sriov_bc_mbx_tbl;
-+	size = ARRAY_SIZE(qlcnic_sriov_bc_mbx_tbl);
-+
-+	for (i = 0; i < size; i++) {
-+		if (type == mbx_tbl[i].cmd) {
-+			mbx->op_type = QLC_BC_CMD;
-+			mbx->req.num = mbx_tbl[i].in_args;
-+			mbx->rsp.num = mbx_tbl[i].out_args;
-+			mbx->req.arg = kcalloc(mbx->req.num, sizeof(u32),
-+					       GFP_ATOMIC);
-+			if (!mbx->req.arg)
-+				return -ENOMEM;
-+			mbx->rsp.arg = kcalloc(mbx->rsp.num, sizeof(u32),
-+					       GFP_ATOMIC);
-+			if (!mbx->rsp.arg) {
-+				kfree(mbx->req.arg);
-+				mbx->req.arg = NULL;
-+				return -ENOMEM;
-+			}
-+			memset(mbx->req.arg, 0, sizeof(u32) * mbx->req.num);
-+			memset(mbx->rsp.arg, 0, sizeof(u32) * mbx->rsp.num);
-+			mbx->req.arg[0] = (type | (mbx->req.num << 16) |
-+					   (3 << 29));
-+			return 0;
-+		}
++	while (!list_empty(&tmp_list)) {
++		cur = list_entry((&tmp_list)->next,
++				 struct qlcnic_mac_list_s, list);
++		qlcnic_nic_add_mac(adapter, cur->mac_addr);
++		list_del(&cur->list);
++		kfree(cur);
 +	}
-+	return -EINVAL;
 +}
 +
-+static int qlcnic_sriov_prepare_bc_hdr(struct qlcnic_bc_trans *trans,
-+				       struct qlcnic_cmd_args *cmd,
-+				       u16 seq, u8 msg_type)
++void qlcnic_sriov_cleanup_async_list(struct qlcnic_back_channel *bc)
 +{
-+	struct qlcnic_bc_hdr *hdr;
-+	int i;
-+	u32 num_regs, bc_pay_sz;
-+	u16 remainder;
-+	u8 cmd_op, num_frags, t_num_frags;
++	struct list_head *head = &bc->async_list;
++	struct qlcnic_async_work_list *entry;
 +
-+	bc_pay_sz = QLC_BC_PAYLOAD_SZ;
-+	if (msg_type == QLC_BC_COMMAND) {
-+		trans->req_pay = (struct qlcnic_bc_payload *)cmd->req.arg;
-+		trans->rsp_pay = (struct qlcnic_bc_payload *)cmd->rsp.arg;
-+		num_regs = cmd->req.num;
-+		trans->req_pay_size = (num_regs * 4);
-+		num_regs = cmd->rsp.num;
-+		trans->rsp_pay_size = (num_regs * 4);
-+		cmd_op = cmd->req.arg[0] & 0xff;
-+		remainder = (trans->req_pay_size) % (bc_pay_sz);
-+		num_frags = (trans->req_pay_size) / (bc_pay_sz);
-+		if (remainder)
-+			num_frags++;
-+		t_num_frags = num_frags;
-+		if (qlcnic_sriov_alloc_bc_msg(&trans->req_hdr, num_frags))
-+			return -ENOMEM;
-+		remainder = (trans->rsp_pay_size) % (bc_pay_sz);
-+		num_frags = (trans->rsp_pay_size) / (bc_pay_sz);
-+		if (remainder)
-+			num_frags++;
-+		if (qlcnic_sriov_alloc_bc_msg(&trans->rsp_hdr, num_frags))
-+			return -ENOMEM;
-+		num_frags  = t_num_frags;
-+		hdr = trans->req_hdr;
-+	}  else {
-+		cmd->req.arg = (u32 *)trans->req_pay;
-+		cmd->rsp.arg = (u32 *)trans->rsp_pay;
-+		cmd_op = cmd->req.arg[0] & 0xff;
-+		remainder = (trans->rsp_pay_size) % (bc_pay_sz);
-+		num_frags = (trans->rsp_pay_size) / (bc_pay_sz);
-+		if (remainder)
-+			num_frags++;
-+		cmd->req.num = trans->req_pay_size / 4;
-+		cmd->rsp.num = trans->rsp_pay_size / 4;
-+		hdr = trans->rsp_hdr;
++	while (!list_empty(head)) {
++		entry = list_entry(head->next, struct qlcnic_async_work_list,
++				   list);
++		cancel_work_sync(&entry->work);
++		list_del(&entry->list);
++		kfree(entry);
 +	}
-+
-+	trans->trans_id = seq;
-+	trans->cmd_id = cmd_op;
-+	for (i = 0; i < num_frags; i++) {
-+		hdr[i].version = 2;
-+		hdr[i].msg_type = msg_type;
-+		hdr[i].op_type = cmd->op_type;
-+		hdr[i].num_cmds = 1;
-+		hdr[i].num_frags = num_frags;
-+		hdr[i].frag_num = i + 1;
-+		hdr[i].cmd_op = cmd_op;
-+		hdr[i].seq_id = seq;
-+	}
-+	return 0;
 +}
 +
-+static void qlcnic_sriov_cleanup_transaction(struct qlcnic_bc_trans *trans)
++static void qlcnic_sriov_vf_set_multi(struct net_device *netdev)
 +{
-+	if (!trans)
++	struct qlcnic_adapter *adapter = netdev_priv(netdev);
++
++	if (!test_bit(__QLCNIC_FW_ATTACHED, &adapter->state))
 +		return;
-+	kfree(trans->req_hdr);
-+	kfree(trans->rsp_hdr);
-+	kfree(trans);
++
++	__qlcnic_set_multi(netdev);
 +}
 +
-+static int qlcnic_sriov_clear_trans(struct qlcnic_vf_info *vf,
-+				    struct qlcnic_bc_trans *trans, u8 type)
++static void qlcnic_sriov_handle_async_multi(struct work_struct *work)
 +{
-+	struct qlcnic_trans_list *t_list;
-+	unsigned long flags;
-+	int ret = 0;
++	struct qlcnic_async_work_list *entry;
++	struct net_device *netdev;
 +
-+	if (type == QLC_BC_RESPONSE) {
-+		t_list = &vf->rcv_act;
-+		spin_lock_irqsave(&t_list->lock, flags);
-+		t_list->count--;
-+		list_del(&trans->list);
-+		if (t_list->count > 0)
-+			ret = 1;
-+		spin_unlock_irqrestore(&t_list->lock, flags);
-+	}
-+	if (type == QLC_BC_COMMAND) {
-+		while (test_and_set_bit(QLC_BC_VF_SEND, &vf->state))
-+			msleep(100);
-+		vf->send_cmd = NULL;
-+		clear_bit(QLC_BC_VF_SEND, &vf->state);
-+	}
-+	return ret;
-+}
++	entry = container_of(work, struct qlcnic_async_work_list, work);
++	netdev = (struct net_device *)entry->ptr;
 +
-+static void qlcnic_sriov_schedule_bc_cmd(struct qlcnic_sriov *sriov,
-+					 struct qlcnic_vf_info *vf,
-+					 work_func_t func)
-+{
-+	INIT_WORK(&vf->trans_work, func);
-+	queue_work(sriov->bc.bc_trans_wq, &vf->trans_work);
-+}
-+
-+static inline void qlcnic_sriov_wait_for_resp(struct qlcnic_bc_trans *trans)
-+{
-+	struct completion *cmpl = &trans->resp_cmpl;
-+
-+	if (wait_for_completion_timeout(cmpl, QLC_MBOX_RESP_TIMEOUT))
-+		trans->trans_state = QLC_END;
-+	else
-+		trans->trans_state = QLC_ABORT;
-+
++	qlcnic_sriov_vf_set_multi(netdev);
 +	return;
 +}
 +
-+static void qlcnic_sriov_handle_multi_frags(struct qlcnic_bc_trans *trans,
-+					    u8 type)
++static struct qlcnic_async_work_list *
++qlcnic_sriov_get_free_node_async_work(struct qlcnic_back_channel *bc)
 +{
-+	if (type == QLC_BC_RESPONSE) {
-+		trans->curr_rsp_frag++;
-+		if (trans->curr_rsp_frag < trans->rsp_hdr->num_frags)
-+			trans->trans_state = QLC_INIT;
-+		else
-+			trans->trans_state = QLC_END;
-+	} else {
-+		trans->curr_req_frag++;
-+		if (trans->curr_req_frag < trans->req_hdr->num_frags)
-+			trans->trans_state = QLC_INIT;
-+		else
-+			trans->trans_state = QLC_WAIT_FOR_RESP;
-+	}
-+}
-+
-+static void qlcnic_sriov_wait_for_channel_free(struct qlcnic_bc_trans *trans,
-+					       u8 type)
-+{
-+	struct qlcnic_vf_info *vf = trans->vf;
-+	struct completion *cmpl = &vf->ch_free_cmpl;
-+
-+	if (!wait_for_completion_timeout(cmpl, QLC_MBOX_CH_FREE_TIMEOUT)) {
-+		trans->trans_state = QLC_ABORT;
-+		return;
-+	}
-+
-+	clear_bit(QLC_BC_VF_CHANNEL, &vf->state);
-+	qlcnic_sriov_handle_multi_frags(trans, type);
-+}
-+
-+static void qlcnic_sriov_pull_bc_msg(struct qlcnic_adapter *adapter,
-+				     u32 *hdr, u32 *pay, u32 size)
-+{
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	u32 fw_mbx;
-+	u8 i, max = 2, hdr_size, j;
-+
-+	hdr_size = (sizeof(struct qlcnic_bc_hdr) / sizeof(u32));
-+	max = (size / sizeof(u32)) + hdr_size;
-+
-+	fw_mbx = readl(QLCNIC_MBX_FW(ahw, 0));
-+	for (i = 2, j = 0; j < hdr_size; i++, j++)
-+		*(hdr++) = readl(QLCNIC_MBX_FW(ahw, i));
-+	for (; j < max; i++, j++)
-+		*(pay++) = readl(QLCNIC_MBX_FW(ahw, i));
-+}
-+
-+static int __qlcnic_sriov_issue_bc_post(struct qlcnic_vf_info *vf)
-+{
-+	int ret = -EBUSY;
-+	u32 timeout = 10000;
-+
-+	do {
-+		if (!test_and_set_bit(QLC_BC_VF_CHANNEL, &vf->state)) {
-+			ret = 0;
-+			break;
-+		}
-+		mdelay(1);
-+	} while (--timeout);
-+
-+	return ret;
-+}
-+
-+static int qlcnic_sriov_issue_bc_post(struct qlcnic_bc_trans *trans, u8 type)
-+{
-+	struct qlcnic_vf_info *vf = trans->vf;
-+	u32 pay_size, hdr_size;
-+	u32 *hdr, *pay;
-+	int ret;
-+	u8 pci_func = trans->func_id;
-+
-+	if (__qlcnic_sriov_issue_bc_post(vf))
-+		return -EBUSY;
-+
-+	if (type == QLC_BC_COMMAND) {
-+		hdr = (u32 *)(trans->req_hdr + trans->curr_req_frag);
-+		pay = (u32 *)(trans->req_pay + trans->curr_req_frag);
-+		hdr_size = (sizeof(struct qlcnic_bc_hdr) / sizeof(u32));
-+		pay_size = qlcnic_sriov_get_bc_paysize(trans->req_pay_size,
-+						       trans->curr_req_frag);
-+		pay_size = (pay_size / sizeof(u32));
-+	} else {
-+		hdr = (u32 *)(trans->rsp_hdr + trans->curr_rsp_frag);
-+		pay = (u32 *)(trans->rsp_pay + trans->curr_rsp_frag);
-+		hdr_size = (sizeof(struct qlcnic_bc_hdr) / sizeof(u32));
-+		pay_size = qlcnic_sriov_get_bc_paysize(trans->rsp_pay_size,
-+						       trans->curr_rsp_frag);
-+		pay_size = (pay_size / sizeof(u32));
-+	}
-+
-+	ret = qlcnic_sriov_post_bc_msg(vf->adapter, hdr, pay,
-+				       pci_func, pay_size);
-+	return ret;
-+}
-+
-+static int __qlcnic_sriov_send_bc_msg(struct qlcnic_bc_trans *trans,
-+				      struct qlcnic_vf_info *vf, u8 type)
-+{
-+	int err;
-+	bool flag = true;
-+
-+	while (flag) {
-+		switch (trans->trans_state) {
-+		case QLC_INIT:
-+			trans->trans_state = QLC_WAIT_FOR_CHANNEL_FREE;
-+			if (qlcnic_sriov_issue_bc_post(trans, type))
-+				trans->trans_state = QLC_ABORT;
-+			break;
-+		case QLC_WAIT_FOR_CHANNEL_FREE:
-+			qlcnic_sriov_wait_for_channel_free(trans, type);
-+			break;
-+		case QLC_WAIT_FOR_RESP:
-+			qlcnic_sriov_wait_for_resp(trans);
-+			break;
-+		case QLC_END:
-+			err = 0;
-+			flag = false;
-+			break;
-+		case QLC_ABORT:
-+			err = -EIO;
-+			flag = false;
-+			clear_bit(QLC_BC_VF_CHANNEL, &vf->state);
-+			break;
-+		default:
-+			err = -EIO;
-+			flag = false;
-+		}
-+	}
-+	return err;
-+}
-+
-+static int qlcnic_sriov_send_bc_cmd(struct qlcnic_adapter *adapter,
-+				    struct qlcnic_bc_trans *trans, int pci_func)
-+{
-+	struct qlcnic_vf_info *vf;
-+	int err, index = qlcnic_sriov_func_to_index(adapter, pci_func);
-+
-+	if (index < 0)
-+		return -EIO;
-+
-+	vf = &adapter->ahw->sriov->vf_info[index];
-+	trans->vf = vf;
-+	trans->func_id = pci_func;
-+
-+	if (!test_bit(QLC_BC_VF_STATE, &vf->state)) {
-+		if (qlcnic_sriov_pf_check(adapter))
-+			return -EIO;
-+		if (qlcnic_sriov_vf_check(adapter) &&
-+		    trans->cmd_id != QLCNIC_BC_CMD_CHANNEL_INIT)
-+			return -EIO;
-+	}
-+
-+	mutex_lock(&vf->send_cmd_lock);
-+	vf->send_cmd = trans;
-+	err = __qlcnic_sriov_send_bc_msg(trans, vf, QLC_BC_COMMAND);
-+	qlcnic_sriov_clear_trans(vf, trans, QLC_BC_COMMAND);
-+	mutex_unlock(&vf->send_cmd_lock);
-+	return err;
-+}
-+
-+static void __qlcnic_sriov_process_bc_cmd(struct qlcnic_adapter *adapter,
-+					  struct qlcnic_bc_trans *trans,
-+					  struct qlcnic_cmd_args *cmd)
-+{
-+#ifdef CONFIG_QLCNIC_SRIOV
-+	if (qlcnic_sriov_pf_check(adapter)) {
-+		qlcnic_sriov_pf_process_bc_cmd(adapter, trans, cmd);
-+		return;
-+	}
-+#endif
-+	cmd->rsp.arg[0] |= (0x9 << 25);
-+	return;
-+}
-+
-+static void qlcnic_sriov_process_bc_cmd(struct work_struct *work)
-+{
-+	struct qlcnic_vf_info *vf = container_of(work, struct qlcnic_vf_info,
-+						 trans_work);
-+	struct qlcnic_bc_trans *trans = NULL;
-+	struct qlcnic_adapter *adapter  = vf->adapter;
-+	struct qlcnic_cmd_args cmd;
-+	u8 req;
-+
-+	trans = list_first_entry(&vf->rcv_act.wait_list,
-+				 struct qlcnic_bc_trans, list);
-+	adapter = vf->adapter;
-+
-+	if (qlcnic_sriov_prepare_bc_hdr(trans, &cmd, trans->req_hdr->seq_id,
-+					QLC_BC_RESPONSE))
-+		goto cleanup_trans;
-+
-+	__qlcnic_sriov_process_bc_cmd(adapter, trans, &cmd);
-+	trans->trans_state = QLC_INIT;
-+	__qlcnic_sriov_send_bc_msg(trans, vf, QLC_BC_RESPONSE);
-+
-+cleanup_trans:
-+	qlcnic_free_mbx_args(&cmd);
-+	req = qlcnic_sriov_clear_trans(vf, trans, QLC_BC_RESPONSE);
-+	qlcnic_sriov_cleanup_transaction(trans);
-+	if (req)
-+		qlcnic_sriov_schedule_bc_cmd(adapter->ahw->sriov, vf,
-+					     qlcnic_sriov_process_bc_cmd);
-+}
-+
-+static void qlcnic_sriov_handle_bc_resp(struct qlcnic_bc_hdr *hdr,
-+					struct qlcnic_vf_info *vf)
-+{
-+	struct qlcnic_bc_trans *trans;
-+	u32 pay_size;
-+
-+	if (test_and_set_bit(QLC_BC_VF_SEND, &vf->state))
-+		return;
-+
-+	trans = vf->send_cmd;
-+
-+	if (trans == NULL)
-+		goto clear_send;
-+
-+	if (trans->trans_id != hdr->seq_id)
-+		goto clear_send;
-+
-+	pay_size = qlcnic_sriov_get_bc_paysize(trans->rsp_pay_size,
-+					       trans->curr_rsp_frag);
-+	qlcnic_sriov_pull_bc_msg(vf->adapter,
-+				 (u32 *)(trans->rsp_hdr + trans->curr_rsp_frag),
-+				 (u32 *)(trans->rsp_pay + trans->curr_rsp_frag),
-+				 pay_size);
-+	if (++trans->curr_rsp_frag < trans->rsp_hdr->num_frags)
-+		goto clear_send;
-+
-+	complete(&trans->resp_cmpl);
-+
-+clear_send:
-+	clear_bit(QLC_BC_VF_SEND, &vf->state);
-+}
-+
-+static int qlcnic_sriov_add_act_list(struct qlcnic_sriov *sriov,
-+				     struct qlcnic_vf_info *vf,
-+				     struct qlcnic_bc_trans *trans)
-+{
-+	struct qlcnic_trans_list *t_list = &vf->rcv_act;
-+
-+	spin_lock(&t_list->lock);
-+	t_list->count++;
-+	list_add_tail(&trans->list, &t_list->wait_list);
-+	if (t_list->count == 1)
-+		qlcnic_sriov_schedule_bc_cmd(sriov, vf,
-+					     qlcnic_sriov_process_bc_cmd);
-+	spin_unlock(&t_list->lock);
-+	return 0;
-+}
-+
-+static void qlcnic_sriov_handle_pending_trans(struct qlcnic_sriov *sriov,
-+					      struct qlcnic_vf_info *vf,
-+					      struct qlcnic_bc_hdr *hdr)
-+{
-+	struct qlcnic_bc_trans *trans = NULL;
 +	struct list_head *node;
-+	u32 pay_size, curr_frag;
-+	u8 found = 0, active = 0;
++	struct qlcnic_async_work_list *entry = NULL;
++	u8 empty = 0;
 +
-+	spin_lock(&vf->rcv_pend.lock);
-+	if (vf->rcv_pend.count > 0) {
-+		list_for_each(node, &vf->rcv_pend.wait_list) {
-+			trans = list_entry(node, struct qlcnic_bc_trans, list);
-+			if (trans->trans_id == hdr->seq_id) {
-+				found = 1;
-+				break;
-+			}
++	list_for_each(node, &bc->async_list) {
++		entry = list_entry(node, struct qlcnic_async_work_list, list);
++		if (!work_pending(&entry->work)) {
++			empty = 1;
++			break;
 +		}
 +	}
 +
-+	if (found) {
-+		curr_frag = trans->curr_req_frag;
-+		pay_size = qlcnic_sriov_get_bc_paysize(trans->req_pay_size,
-+						       curr_frag);
-+		qlcnic_sriov_pull_bc_msg(vf->adapter,
-+					 (u32 *)(trans->req_hdr + curr_frag),
-+					 (u32 *)(trans->req_pay + curr_frag),
-+					 pay_size);
-+		trans->curr_req_frag++;
-+		if (trans->curr_req_frag >= hdr->num_frags) {
-+			vf->rcv_pend.count--;
-+			list_del(&trans->list);
-+			active = 1;
-+		}
++	if (!empty) {
++		entry = kzalloc(sizeof(struct qlcnic_async_work_list),
++				GFP_ATOMIC);
++		if (entry == NULL)
++			return NULL;
++		list_add_tail(&entry->list, &bc->async_list);
 +	}
-+	spin_unlock(&vf->rcv_pend.lock);
 +
-+	if (active)
-+		if (qlcnic_sriov_add_act_list(sriov, vf, trans))
-+			qlcnic_sriov_cleanup_transaction(trans);
-+
-+	return;
++	return entry;
 +}
 +
-+static void qlcnic_sriov_handle_bc_cmd(struct qlcnic_sriov *sriov,
-+				       struct qlcnic_bc_hdr *hdr,
-+				       struct qlcnic_vf_info *vf)
++static void qlcnic_sriov_schedule_bc_async_work(struct qlcnic_back_channel *bc,
++						work_func_t func, void *data)
 +{
-+	struct qlcnic_bc_trans *trans;
-+	struct qlcnic_adapter *adapter = vf->adapter;
-+	struct qlcnic_cmd_args cmd;
-+	u32 pay_size;
-+	int err;
-+	u8 cmd_op;
++	struct qlcnic_async_work_list *entry = NULL;
 +
-+	if (!test_bit(QLC_BC_VF_STATE, &vf->state) &&
-+	    hdr->op_type != QLC_BC_CMD &&
-+	    hdr->cmd_op != QLCNIC_BC_CMD_CHANNEL_INIT)
++	entry = qlcnic_sriov_get_free_node_async_work(bc);
++	if (!entry)
 +		return;
 +
-+	if (hdr->frag_num > 1) {
-+		qlcnic_sriov_handle_pending_trans(sriov, vf, hdr);
-+		return;
-+	}
-+
-+	cmd_op = hdr->cmd_op;
-+	if (qlcnic_sriov_alloc_bc_trans(&trans))
-+		return;
-+
-+	if (hdr->op_type == QLC_BC_CMD)
-+		err = qlcnic_sriov_alloc_bc_mbx_args(&cmd, cmd_op);
-+	else
-+		err = qlcnic_alloc_mbx_args(&cmd, adapter, cmd_op);
-+
-+	if (err) {
-+		qlcnic_sriov_cleanup_transaction(trans);
-+		return;
-+	}
-+
-+	cmd.op_type = hdr->op_type;
-+	if (qlcnic_sriov_prepare_bc_hdr(trans, &cmd, hdr->seq_id,
-+					QLC_BC_COMMAND)) {
-+		qlcnic_free_mbx_args(&cmd);
-+		qlcnic_sriov_cleanup_transaction(trans);
-+		return;
-+	}
-+
-+	pay_size = qlcnic_sriov_get_bc_paysize(trans->req_pay_size,
-+					 trans->curr_req_frag);
-+	qlcnic_sriov_pull_bc_msg(vf->adapter,
-+				 (u32 *)(trans->req_hdr + trans->curr_req_frag),
-+				 (u32 *)(trans->req_pay + trans->curr_req_frag),
-+				 pay_size);
-+	trans->func_id = vf->pci_func;
-+	trans->vf = vf;
-+	trans->trans_id = hdr->seq_id;
-+	trans->curr_req_frag++;
-+	if (trans->curr_req_frag == trans->req_hdr->num_frags) {
-+		if (qlcnic_sriov_add_act_list(sriov, vf, trans)) {
-+			qlcnic_free_mbx_args(&cmd);
-+			qlcnic_sriov_cleanup_transaction(trans);
-+		}
-+	} else {
-+		spin_lock(&vf->rcv_pend.lock);
-+		list_add_tail(&trans->list, &vf->rcv_pend.wait_list);
-+		vf->rcv_pend.count++;
-+		spin_unlock(&vf->rcv_pend.lock);
-+	}
++	entry->ptr = data;
++	INIT_WORK(&entry->work, func);
++	queue_work(bc->bc_async_wq, &entry->work);
 +}
 +
-+static void qlcnic_sriov_handle_msg_event(struct qlcnic_sriov *sriov,
-+					  struct qlcnic_vf_info *vf)
++void qlcnic_sriov_vf_schedule_multi(struct net_device *netdev)
 +{
-+	struct qlcnic_bc_hdr hdr;
-+	u32 *ptr = (u32 *)&hdr;
-+	u8 msg_type, i;
 +
-+	for (i = 2; i < 6; i++)
-+		ptr[i - 2] = readl(QLCNIC_MBX_FW(vf->adapter->ahw, i));
-+	msg_type = hdr.msg_type;
++	struct qlcnic_adapter *adapter = netdev_priv(netdev);
++	struct qlcnic_back_channel *bc = &adapter->ahw->sriov->bc;
 +
-+	switch (msg_type) {
-+	case QLC_BC_COMMAND:
-+		qlcnic_sriov_handle_bc_cmd(sriov, &hdr, vf);
-+		break;
-+	case QLC_BC_RESPONSE:
-+		qlcnic_sriov_handle_bc_resp(&hdr, vf);
-+		break;
-+	}
-+}
-+
-+void qlcnic_sriov_handle_bc_event(struct qlcnic_adapter *adapter, u32 event)
-+{
-+	struct qlcnic_vf_info *vf;
-+	struct qlcnic_sriov *sriov;
-+	int index;
-+	u8 pci_func;
-+
-+	sriov = adapter->ahw->sriov;
-+	pci_func = qlcnic_sriov_target_func_id(event);
-+	index = qlcnic_sriov_func_to_index(adapter, pci_func);
-+
-+	if (index < 0)
-+		return;
-+
-+	vf = &sriov->vf_info[index];
-+	vf->pci_func = pci_func;
-+
-+	if (qlcnic_sriov_channel_free_check(event))
-+		complete(&vf->ch_free_cmpl);
-+
-+	if (qlcnic_sriov_bc_msg_check(event))
-+		qlcnic_sriov_handle_msg_event(sriov, vf);
-+}
-+
-+int qlcnic_sriov_cfg_bc_intr(struct qlcnic_adapter *adapter, u8 enable)
-+{
-+	struct qlcnic_cmd_args cmd;
-+	int err;
-+
-+	if (!test_bit(__QLCNIC_SRIOV_ENABLE, &adapter->state))
-+		return 0;
-+
-+	if (qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_BC_EVENT_SETUP))
-+		return -ENOMEM;
-+
-+	if (enable)
-+		cmd.req.arg[1] = (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7);
-+
-+	err = qlcnic_83xx_mbx_op(adapter, &cmd);
-+
-+	if (err != QLCNIC_RCODE_SUCCESS) {
-+		dev_err(&adapter->pdev->dev,
-+			"Failed to %s bc events, err=%d\n",
-+			(enable ? "enable" : "disable"), err);
-+	}
-+
-+	qlcnic_free_mbx_args(&cmd);
-+	return err;
-+}
-+
-+static int qlcnic_sriov_vf_mbx_op(struct qlcnic_adapter *adapter,
-+				  struct qlcnic_cmd_args *cmd)
-+{
-+	struct qlcnic_bc_trans *trans;
-+	int err;
-+	u32 rsp_data, opcode, mbx_err_code, rsp;
-+	u16 seq = ++adapter->ahw->sriov->bc.trans_counter;
-+
-+	if (qlcnic_sriov_alloc_bc_trans(&trans))
-+		return -ENOMEM;
-+
-+	if (qlcnic_sriov_prepare_bc_hdr(trans, cmd, seq, QLC_BC_COMMAND))
-+		return -ENOMEM;
-+
-+	if (!test_bit(QLC_83XX_MBX_READY, &adapter->ahw->idc.status)) {
-+		rsp = -EIO;
-+		QLCDB(adapter, DRV, "MBX not Ready!(cmd 0x%x) for VF 0x%x\n",
-+		      QLCNIC_MBX_RSP(cmd->req.arg[0]), adapter->ahw->pci_func);
-+		goto err_out;
-+	}
-+
-+	err = qlcnic_sriov_send_bc_cmd(adapter, trans, adapter->ahw->pci_func);
-+	if (err) {
-+		dev_err(&adapter->pdev->dev,
-+			"MBX command 0x%x timed out for VF %d\n",
-+			(cmd->req.arg[0] & 0xffff), adapter->ahw->pci_func);
-+		rsp = QLCNIC_RCODE_TIMEOUT;
-+		goto err_out;
-+	}
-+
-+	rsp_data = cmd->rsp.arg[0];
-+	mbx_err_code = QLCNIC_MBX_STATUS(rsp_data);
-+	opcode = QLCNIC_MBX_RSP(cmd->req.arg[0]);
-+
-+	if ((mbx_err_code == QLCNIC_MBX_RSP_OK) ||
-+	    (mbx_err_code == QLCNIC_MBX_PORT_RSP_OK)) {
-+		rsp = QLCNIC_RCODE_SUCCESS;
-+	} else {
-+		rsp = mbx_err_code;
-+		if (!rsp)
-+			rsp = 1;
-+		dev_err(&adapter->pdev->dev,
-+			"MBX command 0x%x failed with err:0x%x for VF %d\n",
-+			opcode, mbx_err_code, adapter->ahw->pci_func);
-+	}
-+
-+err_out:
-+	qlcnic_sriov_cleanup_transaction(trans);
-+	return rsp;
-+}
-+
-+int qlcnic_sriov_channel_cfg_cmd(struct qlcnic_adapter *adapter, u8 cmd_op)
-+{
-+	struct qlcnic_cmd_args cmd;
-+	struct qlcnic_vf_info *vf = &adapter->ahw->sriov->vf_info[0];
-+	int ret;
-+
-+	if (qlcnic_sriov_alloc_bc_mbx_args(&cmd, cmd_op))
-+		return -ENOMEM;
-+
-+	ret = qlcnic_issue_cmd(adapter, &cmd);
-+	if (ret) {
-+		dev_err(&adapter->pdev->dev,
-+			"Failed bc channel %s %d\n", cmd_op ? "term" : "init",
-+			ret);
-+		goto out;
-+	}
-+
-+	cmd_op = (cmd.rsp.arg[0] & 0xff);
-+	if (cmd.rsp.arg[0] >> 25 == 2)
-+		return 2;
-+	if (cmd_op == QLCNIC_BC_CMD_CHANNEL_INIT)
-+		set_bit(QLC_BC_VF_STATE, &vf->state);
-+	else
-+		clear_bit(QLC_BC_VF_STATE, &vf->state);
-+
-+out:
-+	qlcnic_free_mbx_args(&cmd);
-+	return ret;
-+}
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-index aa5ba6e..87ff58d 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-@@ -13,6 +13,10 @@
- 
- static int qlcnic_sriov_pf_get_vport_handle(struct qlcnic_adapter *, u8);
- 
-+struct qlcnic_sriov_cmd_handler {
-+	int (*fn) (struct qlcnic_bc_trans *, struct qlcnic_cmd_args *);
-+};
-+
- static int qlcnic_sriov_pf_set_vport_info(struct qlcnic_adapter *adapter,
- 					  struct qlcnic_info *npar_info,
- 					  u16 vport_id)
-@@ -174,27 +178,54 @@ static void qlcnic_sriov_pf_reset_vport_handle(struct qlcnic_adapter *adapter,
- 					       u8 func)
- {
- 	struct qlcnic_sriov  *sriov = adapter->ahw->sriov;
-+	struct qlcnic_vport *vp;
-+	int index;
- 
--	if (adapter->ahw->pci_func == func)
-+	if (adapter->ahw->pci_func == func) {
- 		sriov->vp_handle = 0;
-+	} else {
-+		index = qlcnic_sriov_func_to_index(adapter, func);
-+		if (index < 0)
-+			return;
-+		vp = sriov->vf_info[index].vp;
-+		vp->handle = 0;
-+	}
- }
- 
- static void qlcnic_sriov_pf_set_vport_handle(struct qlcnic_adapter *adapter,
- 					     u16 vport_handle, u8 func)
- {
- 	struct qlcnic_sriov  *sriov = adapter->ahw->sriov;
-+	struct qlcnic_vport *vp;
-+	int index;
- 
--	if (adapter->ahw->pci_func == func)
-+	if (adapter->ahw->pci_func == func) {
- 		sriov->vp_handle = vport_handle;
-+	} else {
-+		index = qlcnic_sriov_func_to_index(adapter, func);
-+		if (index < 0)
-+			return;
-+		vp = sriov->vf_info[index].vp;
-+		vp->handle = vport_handle;
-+	}
- }
- 
- static int qlcnic_sriov_pf_get_vport_handle(struct qlcnic_adapter *adapter,
- 					    u8 func)
- {
- 	struct qlcnic_sriov  *sriov = adapter->ahw->sriov;
-+	struct qlcnic_vf_info *vf_info;
-+	int index;
- 
--	if (adapter->ahw->pci_func == func)
-+	if (adapter->ahw->pci_func == func) {
- 		return sriov->vp_handle;
-+	} else {
-+		index = qlcnic_sriov_func_to_index(adapter, func);
-+		if (index >= 0) {
-+			vf_info = &sriov->vf_info[index];
-+			return vf_info->vp->handle;
-+		}
-+	}
- 
- 	return -EINVAL;
- }
-@@ -273,6 +304,7 @@ void qlcnic_sriov_pf_cleanup(struct qlcnic_adapter *adapter)
- 	if (!qlcnic_sriov_enable_check(adapter))
- 		return;
- 
-+	qlcnic_sriov_cfg_bc_intr(adapter, 0);
- 	qlcnic_sriov_pf_config_vport(adapter, 0, func);
- 	qlcnic_sriov_pf_cfg_eswitch(adapter, func, 0);
- 	__qlcnic_sriov_cleanup(adapter);
-@@ -349,6 +381,10 @@ static int qlcnic_sriov_pf_init(struct qlcnic_adapter *adapter)
- 	if (err)
- 		goto delete_vport;
- 
-+	err = qlcnic_sriov_cfg_bc_intr(adapter, 1);
-+	if (err)
-+		goto delete_vport;
-+
- 	ahw->physical_port = (u8) nic_info.phys_port;
- 	ahw->switch_mode = nic_info.switch_mode;
- 	ahw->max_mtu = nic_info.max_mtu;
-@@ -453,3 +489,79 @@ int qlcnic_pci_sriov_configure(struct pci_dev *dev, int num_vfs)
- 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
- 	return err;
- }
-+
-+static int qlcnic_sriov_set_vf_vport_info(struct qlcnic_adapter *adapter,
-+					  u16 func)
-+{
-+	struct qlcnic_info defvp_info;
-+	int err;
-+
-+	err = qlcnic_sriov_pf_cal_res_limit(adapter, &defvp_info, func);
-+	if (err)
-+		return -EIO;
-+
-+	return 0;
-+}
-+
-+static int qlcnic_sriov_pf_channel_cfg_cmd(struct qlcnic_bc_trans *trans,
-+					   struct qlcnic_cmd_args *cmd)
-+{
-+	struct qlcnic_vf_info *vf = trans->vf;
-+	struct qlcnic_adapter *adapter = vf->adapter;
-+	int err;
-+	u16 func = vf->pci_func;
-+
-+	cmd->rsp.arg[0] = trans->req_hdr->cmd_op;
-+	cmd->rsp.arg[0] |= (1 << 16);
-+
-+	if (trans->req_hdr->cmd_op == QLCNIC_BC_CMD_CHANNEL_INIT) {
-+		err = qlcnic_sriov_pf_config_vport(adapter, 1, func);
-+		if (!err) {
-+			err = qlcnic_sriov_set_vf_vport_info(adapter, func);
-+			if (err)
-+				qlcnic_sriov_pf_config_vport(adapter, 0, func);
-+		}
-+	} else {
-+		err = qlcnic_sriov_pf_config_vport(adapter, 0, func);
-+	}
-+
-+	if (err)
-+		goto err_out;
-+
-+	cmd->rsp.arg[0] |= (1 << 25);
-+
-+	if (trans->req_hdr->cmd_op == QLCNIC_BC_CMD_CHANNEL_INIT)
-+		set_bit(QLC_BC_VF_STATE, &vf->state);
-+	else
-+		clear_bit(QLC_BC_VF_STATE, &vf->state);
-+
-+	return err;
-+
-+err_out:
-+	cmd->rsp.arg[0] |= (2 << 25);
-+	return err;
-+}
-+
-+static const struct qlcnic_sriov_cmd_handler qlcnic_pf_bc_cmd_hdlr[] = {
-+	[QLCNIC_BC_CMD_CHANNEL_INIT] = {&qlcnic_sriov_pf_channel_cfg_cmd},
-+	[QLCNIC_BC_CMD_CHANNEL_TERM] = {&qlcnic_sriov_pf_channel_cfg_cmd},
-+};
-+
-+void qlcnic_sriov_pf_process_bc_cmd(struct qlcnic_adapter *adapter,
-+				    struct qlcnic_bc_trans *trans,
-+				    struct qlcnic_cmd_args *cmd)
-+{
-+	u8 size, cmd_op;
-+
-+	cmd_op = trans->req_hdr->cmd_op;
-+
-+	if (trans->req_hdr->op_type == QLC_BC_CMD) {
-+		size = ARRAY_SIZE(qlcnic_pf_bc_cmd_hdlr);
-+		if (cmd_op < size) {
-+			qlcnic_pf_bc_cmd_hdlr[cmd_op].fn(trans, cmd);
-+			return;
-+		}
-+	}
-+
-+	cmd->rsp.arg[0] |= (0x9 << 25);
++	qlcnic_sriov_schedule_bc_async_work(bc, qlcnic_sriov_handle_async_multi,
++					    netdev);
 +}
 -- 
 1.6.3.3
