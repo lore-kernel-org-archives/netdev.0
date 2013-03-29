@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] include/linux: printk is needed in filter.h when
- CONFIG_BPF_JIT is defined
-Date: Fri, 29 Mar 2013 15:34:47 -0400 (EDT)
-Message-ID: <20130329.153447.426374969178935845.davem@davemloft.net>
-References: <5153DC24.4010104@asianux.com>
-	<5154ED65.5090607@asianux.com>
+Subject: Re: [PATCH net] atl1e: drop pci-msi support because of packet
+ corruption
+Date: Fri, 29 Mar 2013 15:35:58 -0400 (EDT)
+Message-ID: <20130329.153558.994660857588648339.davem@davemloft.net>
+References: <20130329041050.GA29040@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, dborkman@redhat.com, wad@chromium.org,
-	eparis@redhat.com, netdev@vger.kernel.org
-To: gang.chen@asianux.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, rebelyouth.hacklab@gmail.com,
+	xiong@qca.qualcomm.com, christian.suenkenberg@student.kit.edu,
+	sven@svenhartge.de
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56435 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56463 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756641Ab3C2Tet (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 15:34:49 -0400
-In-Reply-To: <5154ED65.5090607@asianux.com>
+	with ESMTP id S1756282Ab3C2TgA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 15:36:00 -0400
+In-Reply-To: <20130329041050.GA29040@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chen Gang <gang.chen@asianux.com>
-Date: Fri, 29 Mar 2013 09:24:53 +0800
+=46rom: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Fri, 29 Mar 2013 05:10:50 +0100
 
-> 
->   for make V=1 EXTRA_CFLAGS=-W ARCH=arm allmodconfig
->     printk is need when CONFIG_BPF_JIT is defined
->     or it will report pr_err and print_hex_dump are implicit declaration
-> 
-> Signed-off-by: Chen Gang <gang.chen@asianux.com>
+> Usage of pci-msi results in corrupted dma packet transfers to the hos=
+t.
+>=20
+> Reported-by: rebelyouth <rebelyouth.hacklab@gmail.com>
+> Cc: Huang, Xiong <xiong@qca.qualcomm.com>
+> Tested-by: Christian S=FCnkenberg <christian.suenkenberg@student.kit.=
+edu>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-There are no references to pr_err nor print_hex_dump in this
-filter.h header file.
-
-I think the issue is more like that the ARM bpf jit code uses
-those routines, and therefore the ARM bpf jit code is what needs
-to add these includes.
-
-I'm not applying this patch, it isn't correct.
+Applied and queued up for -stable, thanks.
