@@ -1,52 +1,52 @@
-From: Hong Zhiguo <honkiko@gmail.com>
-Subject: [PATCH v2 net-next] netlink: fix the warning introduced by netlink API replacement
-Date: Fri, 29 Mar 2013 23:09:35 +0800
-Message-ID: <1364569775-4419-1-git-send-email-honkiko@gmail.com>
-References: <1364402824-32680-1-git-send-email-honkiko@gmail.com>
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-	brian.haley@hp.com, tgraf@suug.ch
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:47589 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752861Ab3C2PJu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 11:09:50 -0400
-Received: by mail-pa0-f48.google.com with SMTP id lj1so381795pab.21
-        for <netdev@vger.kernel.org>; Fri, 29 Mar 2013 08:09:50 -0700 (PDT)
-In-Reply-To: <1364402824-32680-1-git-send-email-honkiko@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [PATCH] net: add a synchronize_net() in netdev_rx_handler_unregister()
+Date: Fri, 29 Mar 2013 16:11:32 +0100
+Message-ID: <5155AF24.3090305@redhat.com>
+References: <1364490997.6345.237.camel@gandalf.local.home>  <1364491792.15753.47.camel@edumazet-glaptop>  <20130329094856.GB1677@minipsycho.orion> <1364562082.5113.16.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jpirko@redhat.com>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
+	<nicolas.2p.debian@gmail.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Guy Streeter <streeter@redhat.com>,
+	"Paul E. McKenney" <paulmck@us.ibm.com>, stephen@networkplumber.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1364562082.5113.16.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
----
- net/ieee802154/netlink.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+On 03/29/2013 02:01 PM, Eric Dumazet wrote:
+>> CPU0 will see rx_handler set and yet, rx_handler_data nulled. Write
+>> >barrier in rcu_assign_pointer() might prevent this reorder from happening.
+>> >Therefore I suggest:
+>> >
+>> >diff --git a/net/core/dev.c b/net/core/dev.c
+>> >index 0caa38e..c16b829 100644
+>> >--- a/net/core/dev.c
+>> >+++ b/net/core/dev.c
+>> >@@ -3332,8 +3332,8 @@ void netdev_rx_handler_unregister(struct net_device *dev)
+>> >  {
+>> >
+>> >  	ASSERT_RTNL();
+>> >-	RCU_INIT_POINTER(dev->rx_handler, NULL);
+>> >-	RCU_INIT_POINTER(dev->rx_handler_data, NULL);
+>> >+	rcu_assign_pointer(dev->rx_handler, NULL);
+>> >+	rcu_assign_pointer(dev->rx_handler_data, NULL);
+>> >  }
+>> >  EXPORT_SYMBOL_GPL(netdev_rx_handler_unregister);
+>> >
+>> >
+> Nope this changes nothing at all.
+Erik, why doesn't help the write barrier between the assignments. It 
+should guarantee their orders... or not?
 
-diff --git a/net/ieee802154/netlink.c b/net/ieee802154/netlink.c
-index 9247252..7e49bbc 100644
---- a/net/ieee802154/netlink.c
-+++ b/net/ieee802154/netlink.c
-@@ -64,8 +64,8 @@ struct sk_buff *ieee802154_nl_create(int flags, u8 req)
- 
- int ieee802154_nl_mcast(struct sk_buff *msg, unsigned int group)
- {
--	/* XXX: nlh is right at the start of msg */
--	void *hdr = genlmsg_data(nlmsg_data(msg->data));
-+	struct nlmsghdr *nlh = nlmsg_hdr(msg);
-+	void *hdr = genlmsg_data(nlmsg_data(nlh));
- 
- 	if (genlmsg_end(msg, hdr) < 0)
- 		goto out;
-@@ -97,8 +97,8 @@ struct sk_buff *ieee802154_nl_new_reply(struct genl_info *info,
- 
- int ieee802154_nl_reply(struct sk_buff *msg, struct genl_info *info)
- {
--	/* XXX: nlh is right at the start of msg */
--	void *hdr = genlmsg_data(nlmsg_data(msg->data));
-+	struct nlmsghdr *nlh = nlmsg_hdr(msg);
-+	void *hdr = genlmsg_data(nlmsg_data(nlh));
- 
- 	if (genlmsg_end(msg, hdr) < 0)
- 		goto out;
--- 
-1.7.10.4
+Thanks,
+Ivan
