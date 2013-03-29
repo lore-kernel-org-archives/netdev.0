@@ -1,82 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: core: Remove redundant call to 'nf_reset' in
- 'dev_forward_skb'
-Date: Fri, 29 Mar 2013 12:17:36 -0700
-Message-ID: <1364584656.5113.55.camel@edumazet-glaptop>
-References: <1364462006-5814-1-git-send-email-shmulik.ladkani@gmail.com>
-	 <20130329.151120.296920819953677221.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net IPv6 : Fix broken IPv6 routing table after
+ loopback down-up
+Date: Fri, 29 Mar 2013 15:17:59 -0400 (EDT)
+Message-ID: <20130329.151759.1699178800809051958.davem@davemloft.net>
+References: <CAHPKR9L4Y0=cbH7w_iZ20CBsH=nt4UuZwyBvDOMSrMmM_sJt1w@mail.gmail.com>
+	<CAHPKR9J4vmPp6SFn-betmb6GLimZE6dRf0Tapeu5jzyUJ=vK6Q@mail.gmail.com>
+	<CAHPKR9J=niSHrGmeX7ZM-1fosjnRA_CFrfd+ha3zwNibNGe1bg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shmulik.ladkani@gmail.com, greearb@candelatech.com,
-	netdev@vger.kernel.org, rgohita@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: eric.dumazet@gmail.com, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	Balakumaran.Kannan@ap.sony.com, maruthi.thotad@ap.sony.com,
+	netdev@vger.kernel.org, jamshed.a@ap.sony.com,
+	amit.agarwal@ap.sony.com, takuzo.ohara@jp.sony.com,
+	aaditya.kumar@ap.sony.com
+To: kumaran.4353@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f177.google.com ([209.85.210.177]:52681 "EHLO
-	mail-ia0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756784Ab3C2TRj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 15:17:39 -0400
-Received: by mail-ia0-f177.google.com with SMTP id w33so622444iag.22
-        for <netdev@vger.kernel.org>; Fri, 29 Mar 2013 12:17:38 -0700 (PDT)
-In-Reply-To: <20130329.151120.296920819953677221.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56202 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756395Ab3C2TSB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 15:18:01 -0400
+In-Reply-To: <CAHPKR9J=niSHrGmeX7ZM-1fosjnRA_CFrfd+ha3zwNibNGe1bg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-03-29 at 15:11 -0400, David Miller wrote:
-> From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-> Date: Thu, 28 Mar 2013 11:13:26 +0200
-> 
-> > 'nf_reset' is called just prior calling 'netif_rx'.
-> > No need to call it twice.
-> > 
-> > Reported-by: Igor Michailov <rgohita@gmail.com>
-> > Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-> 
-> I do not see this happening in the:
-> 
-> 	macvlan_start_xmit()
-> 
-> 		 --> macvlan_queue_xmit()
-> 
-> code path.
-> 
-> I'm not applying this patch.  There seems to be no real agreement
-> that the caller of dev_forward_skb() takes care of the nf_reset().
-> 
-> And wouldn't it be better to consolidate the nf_reset() calls
-> into one place instead of several, increasing the audit burdon.
-> 
+From: Balakumaran Kannan <kumaran.4353@gmail.com>
+Date: Thu, 28 Mar 2013 20:44:36 +0530
 
-Hmm, I believe you misread this patch :
+>  static void addrconf_add_linklocal(struct inet6_dev *idev, const
+> struct in6_addr *addr)
 
-nf_reset() is called _twice_ in dev_forward_skb()
+Your email client corrupted this patch, please resubmit but only after
+you have emailed the patch to yourself and successfully applied the
+patch you receive in that test email.
 
-int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
-{
-        if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
-                if (skb_copy_ubufs(skb, GFP_ATOMIC)) {
-                        atomic_long_inc(&dev->rx_dropped);
-                        kfree_skb(skb);
-                        return NET_RX_DROP;
-                }
-        }
-
-        skb_orphan(skb);
-<1>     nf_reset(skb);
-
-        if (unlikely(!is_skb_forwardable(dev, skb))) {
-                atomic_long_inc(&dev->rx_dropped);
-                kfree_skb(skb);
-                return NET_RX_DROP;
-        }
-        skb->skb_iif = 0;
-        skb->dev = dev;
-        skb_dst_drop(skb);
-        skb->tstamp.tv64 = 0;
-        skb->pkt_type = PACKET_HOST;
-        skb->protocol = eth_type_trans(skb, dev);
-        skb->mark = 0;
-        secpath_reset(skb);
-<2>     nf_reset(skb);
-        return netif_rx(skb);
-}
+Thanks.
