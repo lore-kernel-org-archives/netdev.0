@@ -1,35 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: fix disabling of arp_interval and miimon
-Date: Fri, 29 Mar 2013 15:03:28 -0400 (EDT)
-Message-ID: <20130329.150328.1429949615777944148.davem@davemloft.net>
-References: <1364391161-26605-1-git-send-email-nikolay@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH 3/3] net: frag queue per hash bucket locking
+Date: Fri, 29 Mar 2013 12:05:14 -0700
+Message-ID: <1364583914.5113.53.camel@edumazet-glaptop>
+References: <20130327155238.15203.6688.stgit@dragon>
+	 <20130327155601.15203.25289.stgit@dragon>
+	 <1364405159.15753.26.camel@edumazet-glaptop>
+	 <20130328185721.GA20223@order.stressinduktion.org>
+	 <1364502164.15753.56.camel@edumazet-glaptop>
+	 <20130328233002.GC20223@order.stressinduktion.org>
+	 <1364513982.15753.57.camel@edumazet-glaptop>
+	 <20130329003308.GD20223@order.stressinduktion.org>
+	 <1364583693.3232.257.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
-To: nikolay@redhat.com
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56050 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754502Ab3C2TDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 15:03:35 -0400
-In-Reply-To: <1364391161-26605-1-git-send-email-nikolay@redhat.com>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:47036 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754502Ab3C2TFR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 15:05:17 -0400
+Received: by mail-ie0-f169.google.com with SMTP id qd14so845277ieb.28
+        for <netdev@vger.kernel.org>; Fri, 29 Mar 2013 12:05:16 -0700 (PDT)
+In-Reply-To: <1364583693.3232.257.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Wed, 27 Mar 2013 14:32:41 +0100
+On Fri, 2013-03-29 at 20:01 +0100, Jesper Dangaard Brouer wrote:
 
-> Currently if either arp_interval or miimon is disabled, they both get
-> disabled, and upon disabling they get executed once more which is not
-> the proper behaviour. Also when doing a no-op and disabling an already
-> disabled one, the other again gets disabled.
-> Also fix the error messages with the proper valid ranges, and a small
-> typo fix in the up delay error message (outputting "down delay", instead
-> of "up delay").
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> Well, it's great to see, that you are working on solving my patch
+> proposal.  While I'm on Easter vacation ;-)  Much appreciated.
+> I'm officially back from vacation Tuesday, and I'll repost then (after
+> testing it on my 10G testlab).
 
-Indeed the existing code looks completely wrong.
-
-Applied and queued up for -stable, thanks.
+Have a nice Easter break !
