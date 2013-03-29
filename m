@@ -1,42 +1,52 @@
-From: "McMillan, Scott A" <scott.a.mcmillan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH] man: packet.7: document fanout, ring and auxiliary
- options
-Date: Fri, 29 Mar 2013 15:02:24 +0000
-Message-ID: <3E1EA20FF626AF48A6AB8DB7754BB3E524350980@FMSMSX104.amr.corp.intel.com>
-References: <CA+FuTScjf2nkPykOkscuWXMuUSfAhDtQGCBhByxcyJ_cSsOPcQ@mail.gmail.com>
- <1364563798-20221-1-git-send-email-willemb@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org" <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
-	"johann.baudy-1YmjpbiIw0bR7s880joybQ@public.gmane.org" <johann.baudy-1YmjpbiIw0bR7s880joybQ@public.gmane.org>,
-	"herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org" <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-To: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	"mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1364563798-20221-1-git-send-email-willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Hong Zhiguo <honkiko@gmail.com>
+Subject: [PATCH v2 net-next] netlink: fix the warning introduced by netlink API replacement
+Date: Fri, 29 Mar 2013 23:09:35 +0800
+Message-ID: <1364569775-4419-1-git-send-email-honkiko@gmail.com>
+References: <1364402824-32680-1-git-send-email-honkiko@gmail.com>
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+	brian.haley@hp.com, tgraf@suug.ch
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:47589 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752861Ab3C2PJu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 11:09:50 -0400
+Received: by mail-pa0-f48.google.com with SMTP id lj1so381795pab.21
+        for <netdev@vger.kernel.org>; Fri, 29 Mar 2013 08:09:50 -0700 (PDT)
+In-Reply-To: <1364402824-32680-1-git-send-email-honkiko@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->If you are on the CC: list, then you are the author of one of the commits referred to in this manpage. If you can, please check whether my description of your change is correct. Thanks.
+Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
+---
+ net/ieee802154/netlink.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
->+.BR PACKET_TIMESTAMP " (with PACKET_RX_RING)"
->+.\" commit 614f60fa9d73a9e8fdff3df83381907fea7c5649
->+The packet receive ring always stores a timestamp in the metadata header.
->+By default, this is a software generated timestamp generated when the 
->+packet is copied into the ring.
->+This integer option selects the type of timestamp.
->+Besides the default, it support the two hardware formats described in 
->+.IR Documentation/networking/timestamping.txt
->+in the Linux kernel source tree.
-
-Acked-by: Scott McMillan <scott.a.mcmillan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ieee802154/netlink.c b/net/ieee802154/netlink.c
+index 9247252..7e49bbc 100644
+--- a/net/ieee802154/netlink.c
++++ b/net/ieee802154/netlink.c
+@@ -64,8 +64,8 @@ struct sk_buff *ieee802154_nl_create(int flags, u8 req)
+ 
+ int ieee802154_nl_mcast(struct sk_buff *msg, unsigned int group)
+ {
+-	/* XXX: nlh is right at the start of msg */
+-	void *hdr = genlmsg_data(nlmsg_data(msg->data));
++	struct nlmsghdr *nlh = nlmsg_hdr(msg);
++	void *hdr = genlmsg_data(nlmsg_data(nlh));
+ 
+ 	if (genlmsg_end(msg, hdr) < 0)
+ 		goto out;
+@@ -97,8 +97,8 @@ struct sk_buff *ieee802154_nl_new_reply(struct genl_info *info,
+ 
+ int ieee802154_nl_reply(struct sk_buff *msg, struct genl_info *info)
+ {
+-	/* XXX: nlh is right at the start of msg */
+-	void *hdr = genlmsg_data(nlmsg_data(msg->data));
++	struct nlmsghdr *nlh = nlmsg_hdr(msg);
++	void *hdr = genlmsg_data(nlmsg_data(nlh));
+ 
+ 	if (genlmsg_end(msg, hdr) < 0)
+ 		goto out;
+-- 
+1.7.10.4
