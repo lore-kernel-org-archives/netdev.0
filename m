@@ -1,173 +1,41 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 05/34] ipvs: rename functions related to dst_cache reset
-Date: Fri, 29 Mar 2013 13:11:22 +0900
-Message-ID: <1364530311-11512-6-git-send-email-horms@verge.net.au>
-References: <1364530311-11512-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1364530311-11512-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Subject: RE: [PATCH net] atl1e: drop pci-msi support because of packet
+ corruption
+Date: Fri, 29 Mar 2013 05:03:43 +0000
+Message-ID: <157393863283F442885425D2C45428564F2022D0@nasanexd02f.na.qualcomm.com>
+References: <20130329041050.GA29040@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "rebelyouth.hacklab@gmail.com" <rebelyouth.hacklab@gmail.com>,
+	"christian.suenkenberg@student.kit.edu"
+	<christian.suenkenberg@student.kit.edu>,
+	"sven@svenhartge.de" <sven@svenhartge.de>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sabertooth02.qualcomm.com ([65.197.215.38]:6476 "EHLO
+	sabertooth02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751247Ab3C2FDp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 01:03:45 -0400
+In-Reply-To: <20130329041050.GA29040@order.stressinduktion.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-
-Move and give better names to two functions:
-
-- ip_vs_dst_reset to __ip_vs_dst_cache_reset
-- __ip_vs_dev_reset to ip_vs_forget_dev
-
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off by: Hans Schillstrom <hans@schillstrom.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- include/net/ip_vs.h             |    1 -
- net/netfilter/ipvs/ip_vs_ctl.c  |   34 ++++++++++++++++++++++------------
- net/netfilter/ipvs/ip_vs_xmit.c |   14 --------------
- 3 files changed, 22 insertions(+), 27 deletions(-)
-
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 64db117..8ad73a8 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1427,7 +1427,6 @@ extern int ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- extern int ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 			   struct ip_vs_protocol *pp, int offset,
- 			   unsigned int hooknum, struct ip_vs_iphdr *iph);
--extern void ip_vs_dst_reset(struct ip_vs_dest *dest);
- 
- #ifdef CONFIG_IP_VS_IPV6
- extern int ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 6b55ba6..5265eaa 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -641,6 +641,17 @@ struct ip_vs_dest *ip_vs_find_dest(struct net  *net, int af,
- 	return dest;
- }
- 
-+/* Release dst_cache for dest in user context */
-+static void __ip_vs_dst_cache_reset(struct ip_vs_dest *dest)
-+{
-+	struct dst_entry *old_dst;
-+
-+	old_dst = dest->dst_cache;
-+	dest->dst_cache = NULL;
-+	dst_release(old_dst);
-+	dest->dst_saddr.ip = 0;
-+}
-+
- /*
-  *  Lookup dest by {svc,addr,port} in the destination trash.
-  *  The destination trash is used to hold the destinations that are removed
-@@ -690,7 +701,7 @@ ip_vs_trash_get_dest(struct ip_vs_service *svc, const union nf_inet_addr *daddr,
- 				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
- 				      ntohs(dest->port));
- 			list_del(&dest->n_list);
--			ip_vs_dst_reset(dest);
-+			__ip_vs_dst_cache_reset(dest);
- 			__ip_vs_unbind_svc(dest);
- 			free_percpu(dest->stats.cpustats);
- 			kfree(dest);
-@@ -717,7 +728,7 @@ static void ip_vs_trash_cleanup(struct net *net)
- 
- 	list_for_each_entry_safe(dest, nxt, &ipvs->dest_trash, n_list) {
- 		list_del(&dest->n_list);
--		ip_vs_dst_reset(dest);
-+		__ip_vs_dst_cache_reset(dest);
- 		__ip_vs_unbind_svc(dest);
- 		free_percpu(dest->stats.cpustats);
- 		kfree(dest);
-@@ -811,7 +822,7 @@ __ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
- 	dest->l_threshold = udest->l_threshold;
- 
- 	spin_lock_bh(&dest->dst_lock);
--	ip_vs_dst_reset(dest);
-+	__ip_vs_dst_cache_reset(dest);
- 	spin_unlock_bh(&dest->dst_lock);
- 
- 	if (add)
-@@ -1037,7 +1048,7 @@ static void __ip_vs_del_dest(struct net *net, struct ip_vs_dest *dest)
- 			      dest->vfwmark,
- 			      IP_VS_DBG_ADDR(dest->af, &dest->addr),
- 			      ntohs(dest->port));
--		ip_vs_dst_reset(dest);
-+		__ip_vs_dst_cache_reset(dest);
- 		/* simply decrease svc->refcnt here, let the caller check
- 		   and release the service if nobody refers to it.
- 		   Only user context can release destination and service,
-@@ -1496,11 +1507,10 @@ void ip_vs_service_net_cleanup(struct net *net)
- 	mutex_unlock(&__ip_vs_mutex);
- 	LeaveFunction(2);
- }
--/*
-- * Release dst hold by dst_cache
-- */
-+
-+/* Put all references for device (dst_cache) */
- static inline void
--__ip_vs_dev_reset(struct ip_vs_dest *dest, struct net_device *dev)
-+ip_vs_forget_dev(struct ip_vs_dest *dest, struct net_device *dev)
- {
- 	spin_lock_bh(&dest->dst_lock);
- 	if (dest->dst_cache && dest->dst_cache->dev == dev) {
-@@ -1509,7 +1519,7 @@ __ip_vs_dev_reset(struct ip_vs_dest *dest, struct net_device *dev)
- 			      IP_VS_DBG_ADDR(dest->af, &dest->addr),
- 			      ntohs(dest->port),
- 			      atomic_read(&dest->refcnt));
--		ip_vs_dst_reset(dest);
-+		__ip_vs_dst_cache_reset(dest);
- 	}
- 	spin_unlock_bh(&dest->dst_lock);
- 
-@@ -1537,7 +1547,7 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
- 			if (net_eq(svc->net, net)) {
- 				list_for_each_entry(dest, &svc->destinations,
- 						    n_list) {
--					__ip_vs_dev_reset(dest, dev);
-+					ip_vs_forget_dev(dest, dev);
- 				}
- 			}
- 		}
-@@ -1546,7 +1556,7 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
- 			if (net_eq(svc->net, net)) {
- 				list_for_each_entry(dest, &svc->destinations,
- 						    n_list) {
--					__ip_vs_dev_reset(dest, dev);
-+					ip_vs_forget_dev(dest, dev);
- 				}
- 			}
- 
-@@ -1554,7 +1564,7 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
- 	}
- 
- 	list_for_each_entry(dest, &ipvs->dest_trash, n_list) {
--		__ip_vs_dev_reset(dest, dev);
-+		ip_vs_forget_dev(dest, dev);
- 	}
- 	mutex_unlock(&__ip_vs_mutex);
- 	LeaveFunction(2);
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 7cd7c61..6448a2e 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -362,20 +362,6 @@ __ip_vs_get_out_rt_v6(struct sk_buff *skb, struct ip_vs_dest *dest,
- #endif
- 
- 
--/*
-- *	Release dest->dst_cache before a dest is removed
-- */
--void
--ip_vs_dst_reset(struct ip_vs_dest *dest)
--{
--	struct dst_entry *old_dst;
--
--	old_dst = dest->dst_cache;
--	dest->dst_cache = NULL;
--	dst_release(old_dst);
--	dest->dst_saddr.ip = 0;
--}
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSGFubmVzIEZyZWRlcmlj
+IFNvd2EgW21haWx0bzpoYW5uZXNAc3RyZXNzaW5kdWt0aW9uLm9yZ10NCj4gU2VudDogRnJpZGF5
+LCBNYXJjaCAyOSwgMjAxMyAxMjoxMSBQTQ0KPiBUbzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0K
+PiBDYzogcmViZWx5b3V0aC5oYWNrbGFiQGdtYWlsLmNvbTsgSHVhbmcsIFhpb25nOw0KPiBjaHJp
+c3RpYW4uc3VlbmtlbmJlcmdAc3R1ZGVudC5raXQuZWR1OyBzdmVuQHN2ZW5oYXJ0Z2UuZGUNCj4g
+U3ViamVjdDogW1BBVENIIG5ldF0gYXRsMWU6IGRyb3AgcGNpLW1zaSBzdXBwb3J0IGJlY2F1c2Ug
+b2YgcGFja2V0DQo+IGNvcnJ1cHRpb24NCj4gDQo+IFVzYWdlIG9mIHBjaS1tc2kgcmVzdWx0cyBp
+biBjb3JydXB0ZWQgZG1hIHBhY2tldCB0cmFuc2ZlcnMgdG8gdGhlIGhvc3QuDQo+IA0KPiBSZXBv
+cnRlZC1ieTogcmViZWx5b3V0aCA8cmViZWx5b3V0aC5oYWNrbGFiQGdtYWlsLmNvbT4NCj4gQ2M6
+IEh1YW5nLCBYaW9uZyA8eGlvbmdAcWNhLnF1YWxjb21tLmNvbT4NCj4gVGVzdGVkLWJ5OiBDaHJp
+c3RpYW4gU8O8bmtlbmJlcmcgPGNocmlzdGlhbi5zdWVua2VuYmVyZ0BzdHVkZW50LmtpdC5lZHU+
+DQo+IFNpZ25lZC1vZmYtYnk6IEhhbm5lcyBGcmVkZXJpYyBTb3dhIDxoYW5uZXNAc3RyZXNzaW5k
+dWt0aW9uLm9yZz4NCj4gLS0tDQo+IEkgdGhpbmsgdGhpcyBpcyBtYXRlcmlhbCBmb3IgLXN0YWJs
+ZS4NCj4gDQpIaSAgSGFubmVzLCANCg0KeW91IGNhbiB0cnkgdG8gZW5hYmxlIHJ4LWNoZWNrc3Vt
+IG9mZmxvYWQgaWYgRE1BIGlzc3VlIGRpc2FwcGVhciwgYXMgd2luZG93cyBkcml2ZXIgZW5hYmxl
+IHRoaXMgZmVhdHVyZS4NCg0KDQpUaGFua3MNCi1YaW9uZw0KDQo=
