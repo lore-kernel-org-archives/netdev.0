@@ -1,30 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH iproute2] ss: add fastopen support
-Date: Fri, 29 Mar 2013 16:56:59 -0400 (EDT)
-Message-ID: <20130329.165659.1297013790823482161.davem@davemloft.net>
-References: <1364590317.5113.63.camel@edumazet-glaptop>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [PATCH net] net: fq_codel: Fix off-by-one error
+Date: Fri, 29 Mar 2013 14:49:34 -0700
+Message-ID: <CAGK4HS_MQDzQZpTv6RXj--Sxyx8DcnP0Zk2PHxoiDLvHE9rW0A@mail.gmail.com>
+References: <1364514720-20780-1-git-send-email-subramanian.vijay@gmail.com>
+	<1364569280.5113.21.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	ycheng@google.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57299 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756969Ab3C2U5E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 16:57:04 -0400
-In-Reply-To: <1364590317.5113.63.camel@edumazet-glaptop>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:46905 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756936Ab3C2Vtf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 17:49:35 -0400
+Received: by mail-ob0-f176.google.com with SMTP id er7so649479obc.21
+        for <netdev@vger.kernel.org>; Fri, 29 Mar 2013 14:49:35 -0700 (PDT)
+In-Reply-To: <1364569280.5113.21.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 29 Mar 2013 13:51:57 -0700
+> Just curious, did you play changing the default limit (10240 packets) ?
+>
+>
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> ss -i can output "fastopen" attribute if socket used Fast Open
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Eric,
+So far we have not changed the default but we are planning to run some
+more tests next week with fq_codel.
+We can try different values for limit. If you have any other
+suggestions for testing, please let me know.
 
-Reviewed-by: David S. Miller <davem@davemloft.net>
+Thanks!
+Vijay
