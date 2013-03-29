@@ -1,69 +1,57 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH] r8169: fix auto speed down issue
-Date: Fri, 29 Mar 2013 15:11:02 +0800
-Message-ID: <1364541062-9024-1-git-send-email-hayeswang@realtek.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [net-next PATCH] [RFC] [v2] net: add option to enable error
+ queue packets waking select
+Date: Fri, 29 Mar 2013 08:20:04 +0100
+Message-ID: <20130329072004.GA2463@netboy.at.omicron.at>
+References: <20130328211925.7644.15781.stgit@jekeller-hub.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<bowgotsai@google.com>, Hayes Wang <hayeswang@realtek.com>
-To: <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Jeffrey Kirsher <jeffrey.t.kirsher@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>
+To: Jacob Keller <jacob.e.keller@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:50967 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751565Ab3C2HLU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 03:11:20 -0400
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:50055 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755815Ab3C2HUQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 03:20:16 -0400
+Received: by mail-ee0-f46.google.com with SMTP id e49so95290eek.19
+        for <netdev@vger.kernel.org>; Fri, 29 Mar 2013 00:20:15 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130328211925.7644.15781.stgit@jekeller-hub.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It would cause no link after suspending or shutdowning when the
-nic changes the speed to 10M and connects to a link partner which
-forces the speed to 100M.
+On Thu, Mar 28, 2013 at 02:19:25PM -0700, Jacob Keller wrote:
+> Currently, when a socket receives something on the error queue it only wakes up
+> the socket on select if it is in the "read" list, that is the socket has
+> something to read. It is useful also to wake the socket if it is in the error
+> list, which would enable software to wait on error queue packets without waking
+> up for regular data on the socket. The main use case is for receiving
+> timestamped transmit packets which return the timestamp to the socket via the
+> error queue. This enables an application to select on the socket for the error
+> queue only instead of for the regular traffic.
 
-Check the link partner ability to determine if to change the speed
-to 10M when suspending or shutdowning. Regardless of keeping the
-speed to giga for power saving.
+I would fully support having this kind of ability. As it stands now,
+the SO_TIMESTAMPING interface makes it very inconvenient for the
+application to obtain transmit time stamps.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/ethernet/realtek/r8169.c | 19 ++++++++++++++++---
- 1 file changed, 16 insertions(+), 3 deletions(-)
+As a concrete example, take the ptp4l [1] program. After sending a
+packet for which a time stamp is expected, we call recvmsg() on the
+MSG_ERRQUEUE repeatedly, but give up after a certain number of
+tries. The repetitions are needed because the driver may delay the
+time stamped packet for quite some time, and the giving up is required
+because it is possible for time stamps to be lost or dropped.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 28fb50a..a9eedf7 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -3818,6 +3818,21 @@ static void rtl_init_mdio_ops(struct rtl8169_private *tp)
- 	}
- }
- 
-+static void rtl_speed_down(struct rtl8169_private *tp)
-+{
-+	u32	adv;
-+	int	lpa;
-+
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+	lpa = rtl_readphy(tp, MII_LPA);
-+
-+	adv = ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full;
-+	if (!(lpa & (ADVERTISE_10HALF | ADVERTISE_10FULL)))
-+		adv |= ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full;
-+
-+	rtl8169_set_speed(tp->dev, AUTONEG_ENABLE, SPEED_100, DUPLEX_FULL, adv);
-+}
-+
- static void rtl_wol_suspend_quirk(struct rtl8169_private *tp)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
-@@ -3848,9 +3863,7 @@ static bool rtl_wol_pll_power_down(struct rtl8169_private *tp)
- 	if (!(__rtl8169_get_wol(tp) & WAKE_ANY))
- 		return false;
- 
--	rtl_writephy(tp, 0x1f, 0x0000);
--	rtl_writephy(tp, MII_BMCR, 0x0000);
--
-+	rtl_speed_down(tp);
- 	rtl_wol_suspend_quirk(tp);
- 
- 	return true;
--- 
-1.8.1
+Having the ability to poll/select the error queue would open more
+attractive possibilities for applications. Instead of a cheesy retry
+loop, just poll/select the error queue with a reasonable timeout
+value.
+
+Thanks,
+Richard
+
+1. http://linuxptp.sourceforge.net/
+   file: sk.c
+   line: 199
+   function: sk_receive()
