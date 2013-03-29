@@ -1,361 +1,1552 @@
 From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: [PATCH net-next 6/7] qlcnic: Support atomic commands
-Date: Fri, 29 Mar 2013 11:46:38 -0400
-Message-ID: <1364571999-31593-7-git-send-email-rajesh.borundia@qlogic.com>
+Subject: [PATCH net-next 5/7] qlcnic: Support VF-PF communication channel commands.
+Date: Fri, 29 Mar 2013 11:46:37 -0400
+Message-ID: <1364571999-31593-6-git-send-email-rajesh.borundia@qlogic.com>
 References: <1364571999-31593-1-git-send-email-rajesh.borundia@qlogic.com>
 Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Manish Chopra <manish.chopra@qlogic.com>
+	Manish Chopra <manish.chopra@qlogic.com>,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:61668 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:22000 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1755293Ab3C2QJt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Mar 2013 12:09:49 -0400
+	id S1755317Ab3C2QJr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Mar 2013 12:09:47 -0400
 In-Reply-To: <1364571999-31593-1-git-send-email-rajesh.borundia@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o VFs might get scheduled out after sending a command to a PF
-  and scheduled in after receiving a response. Implement a
-  worker thread to handle atomic commands.
+o Add support for commands from VF to PF.
+o PF validates the commands sent by the VF before sending
+  it to adapter.
+o vPort is a container of resources. PF creates vPort
+  for VFs and attach resources to it. vPort is
+  transparent to the VF.
+o Separate 83xx TX and RX hardware resource cleanup from 82xx.
 
 Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    4 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |   47 ++++++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    2 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |    9 ++
- .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |  130 +++++++++++++++++++-
- 5 files changed, 183 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |   14 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |  288 ++++------
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |  150 +++++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c    |   20 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |    3 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |    5 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    5 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |   30 +
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |   45 ++
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |  609 ++++++++++++++++++++
+ 10 files changed, 994 insertions(+), 175 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index e5f7695..c0b3ccf 100644
+index 78d1db6..e5f7695 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1013,6 +1013,7 @@ struct qlcnic_adapter {
- 
- 	struct qlcnic_filter_hash fhash;
- 	struct qlcnic_filter_hash rx_fhash;
-+	struct list_head vf_mc_list;
- 
- 	spinlock_t tx_clean_lock;
- 	spinlock_t mac_learn_lock;
-@@ -1443,6 +1444,7 @@ void qlcnic_post_rx_buffers(struct qlcnic_adapter *adapter,
- 		struct qlcnic_host_rds_ring *rds_ring, u8 ring_id);
- int qlcnic_process_rcv_ring(struct qlcnic_host_sds_ring *sds_ring, int max);
- void qlcnic_set_multi(struct net_device *netdev);
-+void __qlcnic_set_multi(struct net_device *netdev);
- int qlcnic_nic_add_mac(struct qlcnic_adapter *, const u8 *);
- int qlcnic_nic_del_mac(struct qlcnic_adapter *, const u8 *);
- void qlcnic_free_mac_list(struct qlcnic_adapter *adapter);
-@@ -1527,6 +1529,8 @@ void qlcnic_add_lb_filter(struct qlcnic_adapter *, struct sk_buff *, int,
- int qlcnic_83xx_configure_opmode(struct qlcnic_adapter *adapter);
- int qlcnic_read_mac_addr(struct qlcnic_adapter *);
- int qlcnic_setup_netdev(struct qlcnic_adapter *, struct net_device *, int);
-+void qlcnic_sriov_vf_schedule_multi(struct net_device *);
-+void qlcnic_vf_add_mc_list(struct net_device *);
- 
- /*
-  * QLOGIC Board information
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-index f89cc7a..ddc130b 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-@@ -496,7 +496,7 @@ int qlcnic_nic_add_mac(struct qlcnic_adapter *adapter, const u8 *addr)
- 	return 0;
+@@ -1584,6 +1584,9 @@ struct qlcnic_hardware_ops {
+ 	int (*create_rx_ctx) (struct qlcnic_adapter *);
+ 	int (*create_tx_ctx) (struct qlcnic_adapter *,
+ 	struct qlcnic_host_tx_ring *, int);
++	void (*del_rx_ctx) (struct qlcnic_adapter *);
++	void (*del_tx_ctx) (struct qlcnic_adapter *,
++			    struct qlcnic_host_tx_ring *);
+ 	int (*setup_link_event) (struct qlcnic_adapter *, int);
+ 	int (*get_nic_info) (struct qlcnic_adapter *, struct qlcnic_info *, u8);
+ 	int (*get_pci_info) (struct qlcnic_adapter *, struct qlcnic_pci_info *);
+@@ -1703,6 +1706,17 @@ static inline int qlcnic_fw_cmd_create_tx_ctx(struct qlcnic_adapter *adapter,
+ 	return adapter->ahw->hw_ops->create_tx_ctx(adapter, ptr, ring);
  }
  
--void qlcnic_set_multi(struct net_device *netdev)
-+void __qlcnic_set_multi(struct net_device *netdev)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	struct netdev_hw_addr *ha;
-@@ -508,7 +508,8 @@ void qlcnic_set_multi(struct net_device *netdev)
- 	if (!test_bit(__QLCNIC_FW_ATTACHED, &adapter->state))
- 		return;
- 
--	qlcnic_nic_add_mac(adapter, adapter->mac_addr);
-+	if (!qlcnic_sriov_vf_check(adapter))
-+		qlcnic_nic_add_mac(adapter, adapter->mac_addr);
- 	qlcnic_nic_add_mac(adapter, bcast_addr);
- 
- 	if (netdev->flags & IFF_PROMISC) {
-@@ -523,23 +524,53 @@ void qlcnic_set_multi(struct net_device *netdev)
- 		goto send_fw_cmd;
- 	}
- 
--	if (!netdev_mc_empty(netdev)) {
-+	if (!netdev_mc_empty(netdev) && !qlcnic_sriov_vf_check(adapter)) {
- 		netdev_for_each_mc_addr(ha, netdev) {
- 			qlcnic_nic_add_mac(adapter, ha->addr);
- 		}
- 	}
- 
-+	if (qlcnic_sriov_vf_check(adapter))
-+		qlcnic_vf_add_mc_list(netdev);
-+
- send_fw_cmd:
--	if (mode == VPORT_MISS_MODE_ACCEPT_ALL && !adapter->fdb_mac_learn) {
--		qlcnic_alloc_lb_filters_mem(adapter);
--		adapter->drv_mac_learn = true;
--	} else {
--		adapter->drv_mac_learn = false;
-+	if (!qlcnic_sriov_vf_check(adapter)) {
-+		if (mode == VPORT_MISS_MODE_ACCEPT_ALL &&
-+		    !adapter->fdb_mac_learn) {
-+			qlcnic_alloc_lb_filters_mem(adapter);
-+			adapter->drv_mac_learn = true;
-+		} else {
-+			adapter->drv_mac_learn = false;
-+		}
- 	}
- 
- 	qlcnic_nic_set_promisc(adapter, mode);
- }
- 
-+void qlcnic_set_multi(struct net_device *netdev)
++static inline void qlcnic_fw_cmd_del_rx_ctx(struct qlcnic_adapter *adapter)
 +{
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+	struct netdev_hw_addr *ha;
-+	struct qlcnic_mac_list_s *cur;
-+
-+	if (!test_bit(__QLCNIC_FW_ATTACHED, &adapter->state))
-+		return;
-+	if (qlcnic_sriov_vf_check(adapter)) {
-+		if (!netdev_mc_empty(netdev)) {
-+			netdev_for_each_mc_addr(ha, netdev) {
-+				cur = kzalloc(sizeof(struct qlcnic_mac_list_s),
-+					      GFP_ATOMIC);
-+				memcpy(cur->mac_addr,
-+				       ha->addr, ETH_ALEN);
-+				list_add_tail(&cur->list, &adapter->vf_mc_list);
-+			}
-+		}
-+		qlcnic_sriov_vf_schedule_multi(adapter->netdev);
-+		return;
-+	}
-+	__qlcnic_set_multi(netdev);
++	return adapter->ahw->hw_ops->del_rx_ctx(adapter);
 +}
 +
- int qlcnic_82xx_nic_set_promisc(struct qlcnic_adapter *adapter, u32 mode)
++static inline void qlcnic_fw_cmd_del_tx_ctx(struct qlcnic_adapter *adapter,
++					    struct qlcnic_host_tx_ring *ptr)
++{
++	return adapter->ahw->hw_ops->del_tx_ctx(adapter, ptr);
++}
++
+ static inline int qlcnic_linkevent_request(struct qlcnic_adapter *adapter,
+ 					   int enable)
  {
- 	struct qlcnic_nic_req req;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 7d5727c..3ee593e 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -1425,6 +1425,8 @@ void __qlcnic_down(struct qlcnic_adapter *adapter, struct net_device *netdev)
- 	if (!test_and_clear_bit(__QLCNIC_DEV_UP, &adapter->state))
- 		return;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index 89dcea5..374fa8a 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -16,153 +16,6 @@
+ #define RSS_HASHTYPE_IP_TCP		0x3
+ #define QLC_83XX_FW_MBX_CMD		0
  
-+	if (qlcnic_sriov_vf_check(adapter))
-+		qlcnic_sriov_cleanup_async_list(&adapter->ahw->sriov->bc);
- 	smp_mb();
- 	spin_lock(&adapter->tx_clean_lock);
- 	netif_carrier_off(netdev);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
-index 3c05f17..b476eba 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
-@@ -133,9 +133,17 @@ struct qlcnic_vf_info {
- 	struct qlcnic_vport		*vp;
- };
+-/* status descriptor mailbox data
+- * @phy_addr_{low|high}: physical address of buffer
+- * @sds_ring_size: buffer size
+- * @intrpt_id: interrupt id
+- * @intrpt_val: source of interrupt
+- */
+-struct qlcnic_sds_mbx {
+-	u32	phy_addr_low;
+-	u32	phy_addr_high;
+-	u32	rsvd1[4];
+-#if defined(__LITTLE_ENDIAN)
+-	u16	sds_ring_size;
+-	u16	rsvd2;
+-	u16	rsvd3[2];
+-	u16	intrpt_id;
+-	u8	intrpt_val;
+-	u8	rsvd4;
+-#elif defined(__BIG_ENDIAN)
+-	u16	rsvd2;
+-	u16	sds_ring_size;
+-	u16	rsvd3[2];
+-	u8	rsvd4;
+-	u8	intrpt_val;
+-	u16	intrpt_id;
+-#endif
+-	u32	rsvd5;
+-} __packed;
+-
+-/* receive descriptor buffer data
+- * phy_addr_reg_{low|high}: physical address of regular buffer
+- * phy_addr_jmb_{low|high}: physical address of jumbo buffer
+- * reg_ring_sz: size of regular buffer
+- * reg_ring_len: no. of entries in regular buffer
+- * jmb_ring_len: no. of entries in jumbo buffer
+- * jmb_ring_sz: size of jumbo buffer
+- */
+-struct qlcnic_rds_mbx {
+-	u32	phy_addr_reg_low;
+-	u32	phy_addr_reg_high;
+-	u32	phy_addr_jmb_low;
+-	u32	phy_addr_jmb_high;
+-#if defined(__LITTLE_ENDIAN)
+-	u16	reg_ring_sz;
+-	u16	reg_ring_len;
+-	u16	jmb_ring_sz;
+-	u16	jmb_ring_len;
+-#elif defined(__BIG_ENDIAN)
+-	u16	reg_ring_len;
+-	u16	reg_ring_sz;
+-	u16	jmb_ring_len;
+-	u16	jmb_ring_sz;
+-#endif
+-} __packed;
+-
+-/* host producers for regular and jumbo rings */
+-struct __host_producer_mbx {
+-	u32	reg_buf;
+-	u32	jmb_buf;
+-} __packed;
+-
+-/* Receive context mailbox data outbox registers
+- * @state: state of the context
+- * @vport_id: virtual port id
+- * @context_id: receive context id
+- * @num_pci_func: number of pci functions of the port
+- * @phy_port: physical port id
+- */
+-struct qlcnic_rcv_mbx_out {
+-#if defined(__LITTLE_ENDIAN)
+-	u8	rcv_num;
+-	u8	sts_num;
+-	u16	ctx_id;
+-	u8	state;
+-	u8	num_pci_func;
+-	u8	phy_port;
+-	u8	vport_id;
+-#elif defined(__BIG_ENDIAN)
+-	u16	ctx_id;
+-	u8	sts_num;
+-	u8	rcv_num;
+-	u8	vport_id;
+-	u8	phy_port;
+-	u8	num_pci_func;
+-	u8	state;
+-#endif
+-	u32	host_csmr[QLCNIC_MAX_RING_SETS];
+-	struct __host_producer_mbx host_prod[QLCNIC_MAX_RING_SETS];
+-} __packed;
+-
+-struct qlcnic_add_rings_mbx_out {
+-#if defined(__LITTLE_ENDIAN)
+-	u8      rcv_num;
+-	u8      sts_num;
+-	u16	ctx_id;
+-#elif defined(__BIG_ENDIAN)
+-	u16	ctx_id;
+-	u8	sts_num;
+-	u8	rcv_num;
+-#endif
+-	u32  host_csmr[QLCNIC_MAX_RING_SETS];
+-	struct __host_producer_mbx host_prod[QLCNIC_MAX_RING_SETS];
+-} __packed;
+-
+-/* Transmit context mailbox inbox registers
+- * @phys_addr_{low|high}: DMA address of the transmit buffer
+- * @cnsmr_index_{low|high}: host consumer index
+- * @size: legth of transmit buffer ring
+- * @intr_id: interrput id
+- * @src: src of interrupt
+- */
+-struct qlcnic_tx_mbx {
+-	u32	phys_addr_low;
+-	u32	phys_addr_high;
+-	u32	cnsmr_index_low;
+-	u32	cnsmr_index_high;
+-#if defined(__LITTLE_ENDIAN)
+-	u16	size;
+-	u16	intr_id;
+-	u8	src;
+-	u8	rsvd[3];
+-#elif defined(__BIG_ENDIAN)
+-	u16	intr_id;
+-	u16	size;
+-	u8	rsvd[3];
+-	u8	src;
+-#endif
+-} __packed;
+-
+-/* Transmit context mailbox outbox registers
+- * @host_prod: host producer index
+- * @ctx_id: transmit context id
+- * @state: state of the transmit context
+- */
+-
+-struct qlcnic_tx_mbx_out {
+-	u32	host_prod;
+-#if defined(__LITTLE_ENDIAN)
+-	u16	ctx_id;
+-	u8	state;
+-	u8	rsvd;
+-#elif defined(__BIG_ENDIAN)
+-	u8	rsvd;
+-	u8	state;
+-	u16	ctx_id;
+-#endif
+-} __packed;
+-
+ static const struct qlcnic_mailbox_metadata qlcnic_83xx_mbx_tbl[] = {
+ 	{QLCNIC_CMD_CONFIGURE_IP_ADDR, 6, 1},
+ 	{QLCNIC_CMD_CONFIG_INTRPT, 18, 34},
+@@ -304,6 +157,8 @@ static struct qlcnic_hardware_ops qlcnic_83xx_hw_ops = {
+ 	.process_lb_rcv_ring_diag	= qlcnic_83xx_process_rcv_ring_diag,
+ 	.create_rx_ctx			= qlcnic_83xx_create_rx_ctx,
+ 	.create_tx_ctx			= qlcnic_83xx_create_tx_ctx,
++	.del_rx_ctx			= qlcnic_83xx_del_rx_ctx,
++	.del_tx_ctx			= qlcnic_83xx_del_tx_ctx,
+ 	.setup_link_event		= qlcnic_83xx_setup_link_event,
+ 	.get_nic_info			= qlcnic_83xx_get_nic_info,
+ 	.get_pci_info			= qlcnic_83xx_get_pci_info,
+@@ -1126,6 +981,32 @@ out:
+ 	return err;
+ }
  
-+struct qlcnic_async_work_list {
-+	struct list_head	list;
-+	struct work_struct	work;
-+	void			*ptr;
-+};
++void qlcnic_83xx_del_rx_ctx(struct qlcnic_adapter *adapter)
++{
++	int err;
++	u32 temp = 0;
++	struct qlcnic_cmd_args cmd;
++	struct qlcnic_recv_context *recv_ctx = adapter->recv_ctx;
 +
- struct qlcnic_back_channel {
- 	u16			trans_counter;
- 	struct workqueue_struct *bc_trans_wq;
-+	struct workqueue_struct *bc_async_wq;
-+	struct list_head	async_list;
- };
- 
- struct qlcnic_sriov {
-@@ -156,6 +164,7 @@ int qlcnic_sriov_func_to_index(struct qlcnic_adapter *, u8);
- int qlcnic_sriov_channel_cfg_cmd(struct qlcnic_adapter *, u8);
- void qlcnic_sriov_handle_bc_event(struct qlcnic_adapter *, u32);
- int qlcnic_sriov_cfg_bc_intr(struct qlcnic_adapter *, u8);
-+void qlcnic_sriov_cleanup_async_list(struct qlcnic_back_channel *);
- 
- static inline bool qlcnic_sriov_enable_check(struct qlcnic_adapter *adapter)
++	if (qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_DESTROY_RX_CTX))
++		return;
++
++	if (qlcnic_sriov_pf_check(adapter) || qlcnic_sriov_vf_check(adapter))
++		cmd.req.arg[0] |= (0x3 << 29);
++
++	if (qlcnic_sriov_pf_check(adapter))
++		qlcnic_pf_set_interface_id_del_rx_ctx(adapter, &temp);
++
++	cmd.req.arg[1] = recv_ctx->context_id | temp;
++	err = qlcnic_issue_cmd(adapter, &cmd);
++	if (err)
++		dev_err(&adapter->pdev->dev,
++			"Failed to destroy rx ctx in firmware\n");
++
++	recv_ctx->state = QLCNIC_HOST_CTX_STATE_FREED;
++	qlcnic_free_mbx_args(&cmd);
++}
++
+ int qlcnic_83xx_create_rx_ctx(struct qlcnic_adapter *adapter)
  {
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-index 6e927f2..14e9ebd 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-@@ -141,6 +141,16 @@ int qlcnic_sriov_init(struct qlcnic_adapter *adapter, int num_vfs)
- 
- 	bc->bc_trans_wq = wq;
- 
-+	wq = create_singlethread_workqueue("async");
-+	if (wq == NULL) {
-+		err = -ENOMEM;
-+		dev_err(&adapter->pdev->dev, "Cannot create async workqueue\n");
-+		goto qlcnic_destroy_trans_wq;
-+	}
+ 	int i, err, index, sds_mbx_size, rds_mbx_size;
+@@ -1156,9 +1037,17 @@ int qlcnic_83xx_create_rx_ctx(struct qlcnic_adapter *adapter)
+ 	/* set mailbox hdr and capabilities */
+ 	qlcnic_alloc_mbx_args(&cmd, adapter,
+ 			      QLCNIC_CMD_CREATE_RX_CTX);
 +
-+	bc->bc_async_wq =  wq;
-+	INIT_LIST_HEAD(&bc->async_list);
++	if (qlcnic_sriov_pf_check(adapter) || qlcnic_sriov_vf_check(adapter))
++		cmd.req.arg[0] |= (0x3 << 29);
 +
- 	for (i = 0; i < num_vfs; i++) {
- 		vf = &sriov->vf_info[i];
- 		vf->adapter = adapter;
-@@ -156,7 +166,7 @@ int qlcnic_sriov_init(struct qlcnic_adapter *adapter, int num_vfs)
- 			vp = kzalloc(sizeof(struct qlcnic_vport), GFP_KERNEL);
- 			if (!vp) {
- 				err = -ENOMEM;
--				goto qlcnic_destroy_trans_wq;
-+				goto qlcnic_destroy_async_wq;
- 			}
- 			sriov->vf_info[i].vp = vp;
- 			random_ether_addr(vp->mac);
-@@ -168,6 +178,9 @@ int qlcnic_sriov_init(struct qlcnic_adapter *adapter, int num_vfs)
- 
- 	return 0;
- 
-+qlcnic_destroy_async_wq:
-+	destroy_workqueue(bc->bc_async_wq);
+ 	cmd.req.arg[1] = cap;
+ 	cmd.req.arg[5] = 1 | (num_rds << 5) | (num_sds << 8) |
+ 			 (QLC_83XX_HOST_RDS_MODE_UNIQUE << 16);
 +
- qlcnic_destroy_trans_wq:
- 	destroy_workqueue(bc->bc_trans_wq);
++	if (qlcnic_sriov_pf_check(adapter))
++		qlcnic_pf_set_interface_id_create_rx_ctx(adapter,
++							 &cmd.req.arg[6]);
+ 	/* set up status rings, mbx 8-57/87 */
+ 	index = QLC_83XX_HOST_SDS_MBX_IDX;
+ 	for (i = 0; i < num_sds; i++) {
+@@ -1242,12 +1131,34 @@ out:
+ 	return err;
+ }
  
-@@ -188,6 +201,8 @@ void __qlcnic_sriov_cleanup(struct qlcnic_adapter *adapter)
- 	if (!qlcnic_sriov_enable_check(adapter))
- 		return;
- 
-+	qlcnic_sriov_cleanup_async_list(bc);
-+	destroy_workqueue(bc->bc_async_wq);
- 	destroy_workqueue(bc->bc_trans_wq);
- 
- 	for (i = 0; i < sriov->num_vfs; i++)
-@@ -351,6 +366,7 @@ static int qlcnic_sriov_setup_vf(struct qlcnic_adapter *adapter,
++void qlcnic_83xx_del_tx_ctx(struct qlcnic_adapter *adapter,
++			    struct qlcnic_host_tx_ring *tx_ring)
++{
++	struct qlcnic_cmd_args cmd;
++	u32 temp = 0;
++
++	if (qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_DESTROY_TX_CTX))
++		return;
++
++	if (qlcnic_sriov_pf_check(adapter) || qlcnic_sriov_vf_check(adapter))
++		cmd.req.arg[0] |= (0x3 << 29);
++
++	if (qlcnic_sriov_pf_check(adapter))
++		qlcnic_pf_set_interface_id_del_tx_ctx(adapter, &temp);
++
++	cmd.req.arg[1] = tx_ring->ctx_id | temp;
++	if (qlcnic_issue_cmd(adapter, &cmd))
++		dev_err(&adapter->pdev->dev,
++			"Failed to destroy tx ctx in firmware\n");
++	qlcnic_free_mbx_args(&cmd);
++}
++
+ int qlcnic_83xx_create_tx_ctx(struct qlcnic_adapter *adapter,
+ 			      struct qlcnic_host_tx_ring *tx, int ring)
  {
  	int err;
+ 	u16 msix_id;
+-	u32 *buf, intr_mask;
++	u32 *buf, intr_mask, temp = 0;
+ 	struct qlcnic_cmd_args cmd;
+ 	struct qlcnic_tx_mbx mbx;
+ 	struct qlcnic_tx_mbx_out *mbx_out;
+@@ -1284,8 +1195,15 @@ int qlcnic_83xx_create_tx_ctx(struct qlcnic_adapter *adapter,
+ 	mbx.src = 0;
  
-+	INIT_LIST_HEAD(&adapter->vf_mc_list);
- 	if (!qlcnic_use_msi_x && !!qlcnic_use_msi)
- 		dev_warn(&adapter->pdev->dev,
- 			 "83xx adapter do not support MSI interrupts\n");
-@@ -1167,3 +1183,115 @@ out:
+ 	qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_CREATE_TX_CTX);
++
++	if (qlcnic_sriov_pf_check(adapter) || qlcnic_sriov_vf_check(adapter))
++		cmd.req.arg[0] |= (0x3 << 29);
++
++	if (qlcnic_sriov_pf_check(adapter))
++		qlcnic_pf_set_interface_id_create_tx_ctx(adapter, &temp);
++
+ 	cmd.req.arg[1] = QLCNIC_CAP0_LEGACY_CONTEXT;
+-	cmd.req.arg[5] = QLCNIC_MAX_TX_QUEUES;
++	cmd.req.arg[5] = QLCNIC_MAX_TX_QUEUES | temp;
+ 	buf = &cmd.req.arg[6];
+ 	memcpy(buf, &mbx, sizeof(struct qlcnic_tx_mbx));
+ 	/* send the mailbox command*/
+@@ -1578,24 +1496,35 @@ int qlcnic_83xx_setup_link_event(struct qlcnic_adapter *adapter, int enable)
+ 	return err;
+ }
+ 
++static void qlcnic_83xx_set_interface_id_promisc(struct qlcnic_adapter *adapter,
++						 u32 *interface_id)
++{
++	if (qlcnic_sriov_pf_check(adapter)) {
++		qlcnic_pf_set_interface_id_promisc(adapter, interface_id);
++	} else {
++		if (!qlcnic_sriov_vf_check(adapter))
++			*interface_id = adapter->recv_ctx->context_id << 16;
++	}
++}
++
+ int qlcnic_83xx_nic_set_promisc(struct qlcnic_adapter *adapter, u32 mode)
+ {
+ 	int err;
+-	u32 temp;
++	u32 temp = 0;
+ 	struct qlcnic_cmd_args cmd;
+ 
+ 	if (adapter->recv_ctx->state == QLCNIC_HOST_CTX_STATE_FREED)
+ 		return -EIO;
+ 
+ 	qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_CONFIGURE_MAC_RX_MODE);
+-	temp = adapter->recv_ctx->context_id << 16;
++	qlcnic_83xx_set_interface_id_promisc(adapter, &temp);
+ 	cmd.req.arg[1] = (mode ? 1 : 0) | temp;
+ 	err = qlcnic_issue_cmd(adapter, &cmd);
+ 	if (err)
+ 		dev_info(&adapter->pdev->dev,
+ 			 "Promiscous mode config failed\n");
+-	qlcnic_free_mbx_args(&cmd);
+ 
++	qlcnic_free_mbx_args(&cmd);
+ 	return err;
+ }
+ 
+@@ -1735,21 +1664,31 @@ int qlcnic_83xx_clear_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
+ 	return status;
+ }
+ 
++static void qlcnic_83xx_set_interface_id_ipaddr(struct qlcnic_adapter *adapter,
++						u32 *interface_id)
++{
++	if (qlcnic_sriov_pf_check(adapter)) {
++		qlcnic_pf_set_interface_id_ipaddr(adapter, interface_id);
++	} else {
++		if (!qlcnic_sriov_vf_check(adapter))
++			*interface_id = adapter->recv_ctx->context_id << 16;
++	}
++}
++
+ void qlcnic_83xx_config_ipaddr(struct qlcnic_adapter *adapter, __be32 ip,
+ 			       int mode)
+ {
+ 	int err;
+-	u32 temp, temp_ip;
++	u32 temp = 0, temp_ip;
+ 	struct qlcnic_cmd_args cmd;
+ 
+ 	qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_CONFIGURE_IP_ADDR);
+-	if (mode == QLCNIC_IP_UP) {
+-		temp = adapter->recv_ctx->context_id << 16;
++	qlcnic_83xx_set_interface_id_ipaddr(adapter, &temp);
++
++	if (mode == QLCNIC_IP_UP)
+ 		cmd.req.arg[1] = 1 | temp;
+-	} else {
+-		temp = adapter->recv_ctx->context_id << 16;
++	else
+ 		cmd.req.arg[1] = 2 | temp;
+-	}
+ 
+ 	/*
+ 	 * Adapter needs IP address in network byte order.
+@@ -1766,6 +1705,7 @@ void qlcnic_83xx_config_ipaddr(struct qlcnic_adapter *adapter, __be32 ip,
+ 		dev_err(&adapter->netdev->dev,
+ 			"could not notify %s IP 0x%x request\n",
+ 			(mode == QLCNIC_IP_UP) ? "Add" : "Remove", ip);
++
  	qlcnic_free_mbx_args(&cmd);
- 	return ret;
+ }
+ 
+@@ -1832,11 +1772,22 @@ int qlcnic_83xx_config_rss(struct qlcnic_adapter *adapter, int enable)
+ 
+ }
+ 
++static void qlcnic_83xx_set_interface_id_macaddr(struct qlcnic_adapter *adapter,
++						 u32 *interface_id)
++{
++	if (qlcnic_sriov_pf_check(adapter)) {
++		qlcnic_pf_set_interface_id_macaddr(adapter, interface_id);
++	} else {
++		if (!qlcnic_sriov_vf_check(adapter))
++			*interface_id = adapter->recv_ctx->context_id << 16;
++	}
++}
++
+ int qlcnic_83xx_sre_macaddr_change(struct qlcnic_adapter *adapter, u8 *addr,
+ 				   __le16 vlan_id, u8 op)
+ {
+ 	int err;
+-	u32 *buf;
++	u32 *buf, temp = 0;
+ 	struct qlcnic_cmd_args cmd;
+ 	struct qlcnic_macvlan_mbx mv;
+ 
+@@ -1846,9 +1797,10 @@ int qlcnic_83xx_sre_macaddr_change(struct qlcnic_adapter *adapter, u8 *addr,
+ 	err = qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_CONFIG_MAC_VLAN);
+ 	if (err)
+ 		return err;
+-	cmd.req.arg[1] = op | (1 << 8) |
+-			(adapter->recv_ctx->context_id << 16);
+ 
++	cmd.req.arg[1] = op | (1 << 8);
++	qlcnic_83xx_set_interface_id_macaddr(adapter, &temp);
++	cmd.req.arg[1] |= temp;
+ 	mv.vlan = le16_to_cpu(vlan_id);
+ 	mv.mac_addr0 = addr[0];
+ 	mv.mac_addr1 = addr[1];
+@@ -2151,6 +2103,10 @@ int qlcnic_83xx_config_intrpt(struct qlcnic_adapter *adapter, bool op_type)
+ 	max_ints = adapter->ahw->num_msix - 1;
+ 	qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_CONFIG_INTRPT);
+ 	cmd.req.arg[1] = max_ints;
++
++	if (qlcnic_sriov_vf_check(adapter))
++		cmd.req.arg[1] |= (adapter->ahw->pci_func << 8) | BIT_16;
++
+ 	for (i = 0, index = 2; i < max_ints; i++) {
+ 		type = op_type ? QLCNIC_INTRPT_ADD : QLCNIC_INTRPT_DEL;
+ 		val = type | (adapter->ahw->intr_tbl[i].type << 4);
+@@ -2757,13 +2713,19 @@ int qlcnic_83xx_flash_read32(struct qlcnic_adapter *adapter, u32 flash_addr,
+ 
+ int qlcnic_83xx_test_link(struct qlcnic_adapter *adapter)
+ {
++	u8 pci_func;
+ 	int err;
+ 	u32 config = 0, state;
+ 	struct qlcnic_cmd_args cmd;
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
+ 
+-	state = readl(ahw->pci_base0 + QLC_83XX_LINK_STATE(ahw->pci_func));
+-	if (!QLC_83xx_FUNC_VAL(state, ahw->pci_func)) {
++	if (qlcnic_sriov_vf_check(adapter))
++		pci_func = adapter->portnum;
++	else
++		pci_func = ahw->pci_func;
++
++	state = readl(ahw->pci_base0 + QLC_83XX_LINK_STATE(pci_func));
++	if (!QLC_83xx_FUNC_VAL(state, pci_func)) {
+ 		dev_info(&adapter->pdev->dev, "link state down\n");
+ 		return config;
+ 	}
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
+index 3e8dc0b..32ed4b4 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
+@@ -88,6 +88,153 @@
+ 
+ #define QLC_83XX_MAX_RESET_SEQ_ENTRIES	16
+ 
++/* status descriptor mailbox data
++ * @phy_addr_{low|high}: physical address of buffer
++ * @sds_ring_size: buffer size
++ * @intrpt_id: interrupt id
++ * @intrpt_val: source of interrupt
++ */
++struct qlcnic_sds_mbx {
++	u32	phy_addr_low;
++	u32	phy_addr_high;
++	u32	rsvd1[4];
++#if defined(__LITTLE_ENDIAN)
++	u16	sds_ring_size;
++	u16	rsvd2;
++	u16	rsvd3[2];
++	u16	intrpt_id;
++	u8	intrpt_val;
++	u8	rsvd4;
++#elif defined(__BIG_ENDIAN)
++	u16	rsvd2;
++	u16	sds_ring_size;
++	u16	rsvd3[2];
++	u8	rsvd4;
++	u8	intrpt_val;
++	u16	intrpt_id;
++#endif
++	u32	rsvd5;
++} __packed;
++
++/* receive descriptor buffer data
++ * phy_addr_reg_{low|high}: physical address of regular buffer
++ * phy_addr_jmb_{low|high}: physical address of jumbo buffer
++ * reg_ring_sz: size of regular buffer
++ * reg_ring_len: no. of entries in regular buffer
++ * jmb_ring_len: no. of entries in jumbo buffer
++ * jmb_ring_sz: size of jumbo buffer
++ */
++struct qlcnic_rds_mbx {
++	u32	phy_addr_reg_low;
++	u32	phy_addr_reg_high;
++	u32	phy_addr_jmb_low;
++	u32	phy_addr_jmb_high;
++#if defined(__LITTLE_ENDIAN)
++	u16	reg_ring_sz;
++	u16	reg_ring_len;
++	u16	jmb_ring_sz;
++	u16	jmb_ring_len;
++#elif defined(__BIG_ENDIAN)
++	u16	reg_ring_len;
++	u16	reg_ring_sz;
++	u16	jmb_ring_len;
++	u16	jmb_ring_sz;
++#endif
++} __packed;
++
++/* host producers for regular and jumbo rings */
++struct __host_producer_mbx {
++	u32	reg_buf;
++	u32	jmb_buf;
++} __packed;
++
++/* Receive context mailbox data outbox registers
++ * @state: state of the context
++ * @vport_id: virtual port id
++ * @context_id: receive context id
++ * @num_pci_func: number of pci functions of the port
++ * @phy_port: physical port id
++ */
++struct qlcnic_rcv_mbx_out {
++#if defined(__LITTLE_ENDIAN)
++	u8	rcv_num;
++	u8	sts_num;
++	u16	ctx_id;
++	u8	state;
++	u8	num_pci_func;
++	u8	phy_port;
++	u8	vport_id;
++#elif defined(__BIG_ENDIAN)
++	u16	ctx_id;
++	u8	sts_num;
++	u8	rcv_num;
++	u8	vport_id;
++	u8	phy_port;
++	u8	num_pci_func;
++	u8	state;
++#endif
++	u32	host_csmr[QLCNIC_MAX_RING_SETS];
++	struct __host_producer_mbx host_prod[QLCNIC_MAX_RING_SETS];
++} __packed;
++
++struct qlcnic_add_rings_mbx_out {
++#if defined(__LITTLE_ENDIAN)
++	u8      rcv_num;
++	u8      sts_num;
++	u16	ctx_id;
++#elif defined(__BIG_ENDIAN)
++	u16	ctx_id;
++	u8	sts_num;
++	u8	rcv_num;
++#endif
++	u32  host_csmr[QLCNIC_MAX_RING_SETS];
++	struct __host_producer_mbx host_prod[QLCNIC_MAX_RING_SETS];
++} __packed;
++
++/* Transmit context mailbox inbox registers
++ * @phys_addr_{low|high}: DMA address of the transmit buffer
++ * @cnsmr_index_{low|high}: host consumer index
++ * @size: legth of transmit buffer ring
++ * @intr_id: interrput id
++ * @src: src of interrupt
++ */
++struct qlcnic_tx_mbx {
++	u32	phys_addr_low;
++	u32	phys_addr_high;
++	u32	cnsmr_index_low;
++	u32	cnsmr_index_high;
++#if defined(__LITTLE_ENDIAN)
++	u16	size;
++	u16	intr_id;
++	u8	src;
++	u8	rsvd[3];
++#elif defined(__BIG_ENDIAN)
++	u16	intr_id;
++	u16	size;
++	u8	rsvd[3];
++	u8	src;
++#endif
++} __packed;
++
++/* Transmit context mailbox outbox registers
++ * @host_prod: host producer index
++ * @ctx_id: transmit context id
++ * @state: state of the transmit context
++ */
++
++struct qlcnic_tx_mbx_out {
++	u32	host_prod;
++#if defined(__LITTLE_ENDIAN)
++	u16	ctx_id;
++	u8	state;
++	u8	rsvd;
++#elif defined(__BIG_ENDIAN)
++	u8	rsvd;
++	u8	state;
++	u16	ctx_id;
++#endif
++} __packed;
++
+ struct qlcnic_intrpt_config {
+ 	u8	type;
+ 	u8	enabled;
+@@ -369,6 +516,9 @@ int qlcnic_ind_rd(struct qlcnic_adapter *, u32);
+ int qlcnic_83xx_create_rx_ctx(struct qlcnic_adapter *);
+ int qlcnic_83xx_create_tx_ctx(struct qlcnic_adapter *,
+ 			      struct qlcnic_host_tx_ring *, int);
++void qlcnic_83xx_del_rx_ctx(struct qlcnic_adapter *);
++void qlcnic_83xx_del_tx_ctx(struct qlcnic_adapter *,
++			    struct qlcnic_host_tx_ring *);
+ int qlcnic_83xx_get_nic_info(struct qlcnic_adapter *, struct qlcnic_info *, u8);
+ int qlcnic_83xx_setup_link_event(struct qlcnic_adapter *, int);
+ void qlcnic_83xx_process_rcv_ring_diag(struct qlcnic_host_sds_ring *);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+index c645c94..43562c2 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+@@ -382,8 +382,7 @@ out_free_rq:
+ 	return err;
+ }
+ 
+-static void
+-qlcnic_fw_cmd_destroy_rx_ctx(struct qlcnic_adapter *adapter)
++void qlcnic_82xx_fw_cmd_del_rx_ctx(struct qlcnic_adapter *adapter)
+ {
+ 	int err;
+ 	struct qlcnic_cmd_args cmd;
+@@ -484,13 +483,13 @@ out_free_rq:
+ 	return err;
+ }
+ 
+-static void
+-qlcnic_fw_cmd_destroy_tx_ctx(struct qlcnic_adapter *adapter,
+-			     struct qlcnic_host_tx_ring *tx_ring)
++void qlcnic_82xx_fw_cmd_del_tx_ctx(struct qlcnic_adapter *adapter,
++				   struct qlcnic_host_tx_ring *tx_ring)
+ {
+ 	struct qlcnic_cmd_args cmd;
+ 
+ 	qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_DESTROY_TX_CTX);
++
+ 	cmd.req.arg[1] = tx_ring->ctx_id;
+ 	if (qlcnic_issue_cmd(adapter, &cmd))
+ 		dev_err(&adapter->pdev->dev,
+@@ -605,13 +604,12 @@ int qlcnic_fw_create_ctx(struct qlcnic_adapter *dev)
+ 						  &dev->tx_ring[ring],
+ 						  ring);
+ 		if (err) {
+-			qlcnic_fw_cmd_destroy_rx_ctx(dev);
++			qlcnic_fw_cmd_del_rx_ctx(dev);
+ 			if (ring == 0)
+ 				goto err_out;
+ 
+ 			for (i = 0; i < ring; i++)
+-				qlcnic_fw_cmd_destroy_tx_ctx(dev,
+-							     &dev->tx_ring[i]);
++				qlcnic_fw_cmd_del_tx_ctx(dev, &dev->tx_ring[i]);
+ 
+ 			goto err_out;
+ 		}
+@@ -633,10 +631,10 @@ void qlcnic_fw_destroy_ctx(struct qlcnic_adapter *adapter)
+ 	int ring;
+ 
+ 	if (test_and_clear_bit(__QLCNIC_FW_ATTACHED, &adapter->state)) {
+-		qlcnic_fw_cmd_destroy_rx_ctx(adapter);
++		qlcnic_fw_cmd_del_rx_ctx(adapter);
+ 		for (ring = 0; ring < adapter->max_drv_tx_rings; ring++)
+-			qlcnic_fw_cmd_destroy_tx_ctx(adapter,
+-						     &adapter->tx_ring[ring]);
++			qlcnic_fw_cmd_del_tx_ctx(adapter,
++						 &adapter->tx_ring[ring]);
+ 
+ 		if (qlcnic_83xx_check(adapter) &&
+ 		    (adapter->flags & QLCNIC_MSIX_ENABLED)) {
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
+index d606e50..e862a77 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
+@@ -178,6 +178,9 @@ int qlcnic_82xx_issue_cmd(struct qlcnic_adapter *adapter,
+ int qlcnic_82xx_fw_cmd_create_rx_ctx(struct qlcnic_adapter *);
+ int qlcnic_82xx_fw_cmd_create_tx_ctx(struct qlcnic_adapter *,
+ 				     struct qlcnic_host_tx_ring *tx_ring, int);
++void qlcnic_82xx_fw_cmd_del_rx_ctx(struct qlcnic_adapter *);
++void qlcnic_82xx_fw_cmd_del_tx_ctx(struct qlcnic_adapter *,
++				   struct qlcnic_host_tx_ring *);
+ int qlcnic_82xx_sre_macaddr_change(struct qlcnic_adapter *, u8 *, __le16, u8);
+ int qlcnic_82xx_get_mac_address(struct qlcnic_adapter *, u8*);
+ int qlcnic_82xx_get_nic_info(struct qlcnic_adapter *, struct qlcnic_info *, u8);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+index 25b6188..a85ca63 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+@@ -147,7 +147,10 @@ static inline u8 qlcnic_mac_hash(u64 mac)
+ static inline u32 qlcnic_get_ref_handle(struct qlcnic_adapter *adapter,
+ 					u16 handle, u8 ring_id)
+ {
+-	if (adapter->pdev->device == PCI_DEVICE_ID_QLOGIC_QLE834X)
++	unsigned short device = adapter->pdev->device;
++
++	if ((device == PCI_DEVICE_ID_QLOGIC_QLE834X) ||
++	    (device == PCI_DEVICE_ID_QLOGIC_VF_QLE834X))
+ 		return handle | (ring_id << 15);
+ 	else
+ 		return handle;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index f67e8c6..7d5727c 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -226,6 +226,9 @@ static int qlcnic_set_mac(struct net_device *netdev, void *p)
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	struct sockaddr *addr = p;
+ 
++	if (qlcnic_sriov_vf_check(adapter))
++		return -EINVAL;
++
+ 	if ((adapter->flags & QLCNIC_MAC_OVERRIDE_DISABLED))
+ 		return -EOPNOTSUPP;
+ 
+@@ -379,6 +382,8 @@ static struct qlcnic_hardware_ops qlcnic_hw_ops = {
+ 	.process_lb_rcv_ring_diag	= qlcnic_82xx_process_rcv_ring_diag,
+ 	.create_rx_ctx			= qlcnic_82xx_fw_cmd_create_rx_ctx,
+ 	.create_tx_ctx			= qlcnic_82xx_fw_cmd_create_tx_ctx,
++	.del_rx_ctx			= qlcnic_82xx_fw_cmd_del_rx_ctx,
++	.del_tx_ctx			= qlcnic_82xx_fw_cmd_del_tx_ctx,
+ 	.setup_link_event		= qlcnic_82xx_linkevent_request,
+ 	.get_nic_info			= qlcnic_82xx_get_nic_info,
+ 	.get_pci_info			= qlcnic_82xx_get_pci_info,
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
+index 00053ad..3c05f17 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
+@@ -119,6 +119,8 @@ struct qlcnic_vport {
+ 
+ struct qlcnic_vf_info {
+ 	u8				pci_func;
++	u16				rx_ctx_id;
++	u16				tx_ctx_id;
+ 	unsigned long			state;
+ 	struct completion		ch_free_cmpl;
+ 	struct work_struct		trans_work;
+@@ -167,9 +169,37 @@ void qlcnic_sriov_pf_process_bc_cmd(struct qlcnic_adapter *,
+ void qlcnic_sriov_pf_disable(struct qlcnic_adapter *);
+ void qlcnic_sriov_pf_cleanup(struct qlcnic_adapter *);
+ int qlcnic_pci_sriov_configure(struct pci_dev *, int);
++void qlcnic_pf_set_interface_id_create_rx_ctx(struct qlcnic_adapter *, u32 *);
++void qlcnic_pf_set_interface_id_create_tx_ctx(struct qlcnic_adapter *, u32 *);
++void qlcnic_pf_set_interface_id_del_rx_ctx(struct qlcnic_adapter *, u32 *);
++void qlcnic_pf_set_interface_id_del_tx_ctx(struct qlcnic_adapter *, u32 *);
++void qlcnic_pf_set_interface_id_promisc(struct qlcnic_adapter *, u32 *);
++void qlcnic_pf_set_interface_id_ipaddr(struct qlcnic_adapter *, u32 *);
++void qlcnic_pf_set_interface_id_macaddr(struct qlcnic_adapter *, u32 *);
+ #else
+ static inline void qlcnic_sriov_pf_disable(struct qlcnic_adapter *adapter) {}
+ static inline void qlcnic_sriov_pf_cleanup(struct qlcnic_adapter *adapter) {}
++static inline void
++qlcnic_pf_set_interface_id_create_rx_ctx(struct qlcnic_adapter *adapter,
++					 u32 *int_id) {}
++static inline void
++qlcnic_pf_set_interface_id_create_tx_ctx(struct qlcnic_adapter *adapter,
++					 u32 *int_id) {}
++static inline void
++qlcnic_pf_set_interface_id_del_rx_ctx(struct qlcnic_adapter *adapter,
++				      u32 *int_id) {}
++static inline void
++qlcnic_pf_set_interface_id_del_tx_ctx(struct qlcnic_adapter *adapter,
++				      u32 *int_id) {}
++static inline void
++qlcnic_pf_set_interface_id_ipaddr(struct qlcnic_adapter *adapter, u32 *int_id)
++{}
++static inline void
++qlcnic_pf_set_interface_id_macaddr(struct qlcnic_adapter *adapter, u32 *int_id)
++{}
++static inline void
++qlcnic_pf_set_interface_id_promisc(struct qlcnic_adapter *adapter, u32 *int_id)
++{}
+ #endif
+ 
+ #endif
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
+index 0615086..6e927f2 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
+@@ -21,6 +21,9 @@
+ #define QLC_BC_HDR_SZ		16
+ #define QLC_BC_PAYLOAD_SZ	(1024 - QLC_BC_HDR_SZ)
+ 
++#define QLC_DEFAULT_RCV_DESCRIPTORS_SRIOV_VF		2048
++#define QLC_DEFAULT_JUMBO_RCV_DESCRIPTORS_SRIOV_VF	512
++
+ static int qlcnic_sriov_vf_mbx_op(struct qlcnic_adapter *,
+ 				  struct qlcnic_cmd_args *);
+ 
+@@ -39,6 +42,8 @@ static struct qlcnic_hardware_ops qlcnic_sriov_vf_hw_ops = {
+ 	.process_lb_rcv_ring_diag	= qlcnic_83xx_process_rcv_ring_diag,
+ 	.create_rx_ctx			= qlcnic_83xx_create_rx_ctx,
+ 	.create_tx_ctx			= qlcnic_83xx_create_tx_ctx,
++	.del_rx_ctx			= qlcnic_83xx_del_rx_ctx,
++	.del_tx_ctx			= qlcnic_83xx_del_tx_ctx,
+ 	.setup_link_event		= qlcnic_83xx_setup_link_event,
+ 	.get_nic_info			= qlcnic_83xx_get_nic_info,
+ 	.get_pci_info			= qlcnic_83xx_get_pci_info,
+@@ -305,6 +310,42 @@ out:
+ 	return rsp;
+ }
+ 
++static void qlcnic_sriov_vf_cfg_buff_desc(struct qlcnic_adapter *adapter)
++{
++	adapter->num_rxd = QLC_DEFAULT_RCV_DESCRIPTORS_SRIOV_VF;
++	adapter->max_rxd = MAX_RCV_DESCRIPTORS_10G;
++	adapter->num_jumbo_rxd = QLC_DEFAULT_JUMBO_RCV_DESCRIPTORS_SRIOV_VF;
++	adapter->max_jumbo_rxd = MAX_JUMBO_RCV_DESCRIPTORS_10G;
++	adapter->num_txd = MAX_CMD_DESCRIPTORS;
++	adapter->max_rds_rings = MAX_RDS_RINGS;
++}
++
++static int qlcnic_sriov_vf_init_driver(struct qlcnic_adapter *adapter)
++{
++	struct qlcnic_info nic_info;
++	struct qlcnic_hardware_context *ahw = adapter->ahw;
++	int err;
++
++	err = qlcnic_get_nic_info(adapter, &nic_info, ahw->pci_func);
++	if (err)
++		return -EIO;
++
++	if (qlcnic_83xx_get_port_info(adapter))
++		return -EIO;
++
++	qlcnic_sriov_vf_cfg_buff_desc(adapter);
++	adapter->flags |= QLCNIC_ADAPTER_INITIALIZED;
++	dev_info(&adapter->pdev->dev, "HAL Version: %d\n",
++		 adapter->ahw->fw_hal_version);
++
++	ahw->physical_port = (u8) nic_info.phys_port;
++	ahw->switch_mode = nic_info.switch_mode;
++	ahw->max_mtu = nic_info.max_mtu;
++	ahw->op_mode = nic_info.op_mode;
++	ahw->capabilities = nic_info.capabilities;
++	return 0;
++}
++
+ static int qlcnic_sriov_setup_vf(struct qlcnic_adapter *adapter,
+ 				 int pci_using_dac)
+ {
+@@ -336,6 +377,10 @@ static int qlcnic_sriov_setup_vf(struct qlcnic_adapter *adapter,
+ 	if (err)
+ 		goto err_out_disable_bc_intr;
+ 
++	err = qlcnic_sriov_vf_init_driver(adapter);
++	if (err)
++		goto err_out_send_channel_term;
++
+ 	err = qlcnic_setup_netdev(adapter, adapter->netdev, pci_using_dac);
+ 	if (err)
+ 		goto err_out_send_channel_term;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+index 87ff58d..d6ac7dc 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+@@ -17,6 +17,11 @@ struct qlcnic_sriov_cmd_handler {
+ 	int (*fn) (struct qlcnic_bc_trans *, struct qlcnic_cmd_args *);
+ };
+ 
++struct qlcnic_sriov_fw_cmd_handler {
++	u32 cmd;
++	int (*fn) (struct qlcnic_bc_trans *, struct qlcnic_cmd_args *);
++};
++
+ static int qlcnic_sriov_pf_set_vport_info(struct qlcnic_adapter *adapter,
+ 					  struct qlcnic_info *npar_info,
+ 					  u16 vport_id)
+@@ -542,11 +547,528 @@ err_out:
+ 	return err;
+ }
+ 
++static int qlcnic_sriov_cfg_vf_def_mac(struct qlcnic_adapter *adapter,
++				       struct qlcnic_vport *vp,
++				       u16 func, __le16 vlan, u8 op)
++{
++	struct qlcnic_cmd_args cmd;
++	struct qlcnic_macvlan_mbx mv;
++	u8 *addr;
++	int err;
++	u32 *buf;
++	int vpid;
++
++	if (qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_CONFIG_MAC_VLAN))
++		return -ENOMEM;
++
++	vpid = qlcnic_sriov_pf_get_vport_handle(adapter, func);
++	if (vpid < 0) {
++		err = -EINVAL;
++		goto out;
++	}
++
++	if (vlan)
++		op = ((op == QLCNIC_MAC_ADD || op == QLCNIC_MAC_VLAN_ADD) ?
++		      QLCNIC_MAC_VLAN_ADD : QLCNIC_MAC_VLAN_DEL);
++
++	cmd.req.arg[1] = op | (1 << 8) | (3 << 6);
++	cmd.req.arg[1] |= ((vpid & 0xffff) << 16) | BIT_31;
++
++	addr = vp->mac;
++	mv.vlan = le16_to_cpu(vlan);
++	mv.mac_addr0 = addr[0];
++	mv.mac_addr1 = addr[1];
++	mv.mac_addr2 = addr[2];
++	mv.mac_addr3 = addr[3];
++	mv.mac_addr4 = addr[4];
++	mv.mac_addr5 = addr[5];
++	buf = &cmd.req.arg[2];
++	memcpy(buf, &mv, sizeof(struct qlcnic_macvlan_mbx));
++
++	err = qlcnic_issue_cmd(adapter, &cmd);
++
++	if (err)
++		dev_err(&adapter->pdev->dev,
++			"MAC-VLAN %s to CAM failed, err=%d.\n",
++			((op == 1) ? "add " : "delete "), err);
++
++out:
++	qlcnic_free_mbx_args(&cmd);
++	return err;
++}
++
++static int qlcnic_sriov_validate_create_rx_ctx(struct qlcnic_cmd_args *cmd)
++{
++	if ((cmd->req.arg[0] >> 29) != 0x3)
++		return -EINVAL;
++
++	return 0;
++}
++
++static int qlcnic_sriov_pf_create_rx_ctx_cmd(struct qlcnic_bc_trans *tran,
++					     struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_vf_info *vf = tran->vf;
++	struct qlcnic_adapter *adapter = vf->adapter;
++	struct qlcnic_rcv_mbx_out *mbx_out;
++	int err;
++
++	err = qlcnic_sriov_validate_create_rx_ctx(cmd);
++	if (err) {
++		cmd->rsp.arg[0] |= (0x6 << 25);
++		return err;
++	}
++
++	cmd->req.arg[6] = vf->vp->handle;
++	err = qlcnic_issue_cmd(adapter, cmd);
++
++	if (!err) {
++		mbx_out = (struct qlcnic_rcv_mbx_out *)&cmd->rsp.arg[1];
++		vf->rx_ctx_id = mbx_out->ctx_id;
++		qlcnic_sriov_cfg_vf_def_mac(adapter, vf->vp, vf->pci_func,
++					    0, QLCNIC_MAC_ADD);
++	} else {
++		vf->rx_ctx_id = 0;
++	}
++
++	return err;
++}
++
++static int qlcnic_sriov_pf_mac_address_cmd(struct qlcnic_bc_trans *trans,
++					   struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_vf_info *vf = trans->vf;
++	u8 type, *mac;
++
++	type = cmd->req.arg[1];
++	switch (type) {
++	case QLCNIC_SET_STATION_MAC:
++	case QLCNIC_SET_FAC_DEF_MAC:
++		cmd->rsp.arg[0] = (2 << 25);
++		break;
++	case QLCNIC_GET_CURRENT_MAC:
++		cmd->rsp.arg[0] = (1 << 25);
++		mac = vf->vp->mac;
++		cmd->rsp.arg[2] = mac[1] | ((mac[0] << 8) & 0xff00);
++		cmd->rsp.arg[1] = mac[5] | ((mac[4] << 8) & 0xff00) |
++				  ((mac[3]) << 16 & 0xff0000) |
++				  ((mac[2]) << 24 & 0xff000000);
++	}
++
++	return 0;
++}
++
++static int qlcnic_sriov_validate_create_tx_ctx(struct qlcnic_cmd_args *cmd)
++{
++	if ((cmd->req.arg[0] >> 29) != 0x3)
++		return -EINVAL;
++
++	return 0;
++}
++
++static int qlcnic_sriov_pf_create_tx_ctx_cmd(struct qlcnic_bc_trans *trans,
++					     struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_vf_info *vf = trans->vf;
++	struct qlcnic_adapter *adapter = vf->adapter;
++	struct qlcnic_tx_mbx_out *mbx_out;
++	int err;
++
++	err = qlcnic_sriov_validate_create_tx_ctx(cmd);
++	if (err) {
++		cmd->rsp.arg[0] |= (0x6 << 25);
++		return err;
++	}
++
++	cmd->req.arg[5] |= vf->vp->handle << 16;
++	err = qlcnic_issue_cmd(adapter, cmd);
++	if (!err) {
++		mbx_out = (struct qlcnic_tx_mbx_out *)&cmd->rsp.arg[2];
++		vf->tx_ctx_id = mbx_out->ctx_id;
++	} else {
++		vf->tx_ctx_id = 0;
++	}
++
++	return err;
++}
++
++static int qlcnic_sriov_validate_del_rx_ctx(struct qlcnic_vf_info *vf,
++					    struct qlcnic_cmd_args *cmd)
++{
++	if ((cmd->req.arg[0] >> 29) != 0x3)
++		return -EINVAL;
++
++	if ((cmd->req.arg[1] & 0xffff) != vf->rx_ctx_id)
++		return -EINVAL;
++
++	return 0;
++}
++
++static int qlcnic_sriov_pf_del_rx_ctx_cmd(struct qlcnic_bc_trans *trans,
++					  struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_vf_info *vf = trans->vf;
++	struct qlcnic_adapter *adapter = vf->adapter;
++	int err;
++
++	err = qlcnic_sriov_validate_del_rx_ctx(vf, cmd);
++	if (err) {
++		cmd->rsp.arg[0] |= (0x6 << 25);
++		return err;
++	}
++
++	qlcnic_sriov_cfg_vf_def_mac(adapter, vf->vp, vf->pci_func,
++				    0, QLCNIC_MAC_DEL);
++	cmd->req.arg[1] |= vf->vp->handle << 16;
++	err = qlcnic_issue_cmd(adapter, cmd);
++
++	if (!err)
++		vf->rx_ctx_id = 0;
++
++	return err;
++}
++
++static int qlcnic_sriov_validate_del_tx_ctx(struct qlcnic_vf_info *vf,
++					    struct qlcnic_cmd_args *cmd)
++{
++	if ((cmd->req.arg[0] >> 29) != 0x3)
++		return -EINVAL;
++
++	if ((cmd->req.arg[1] & 0xffff) != vf->tx_ctx_id)
++		return -EINVAL;
++
++	return 0;
++}
++
++static int qlcnic_sriov_pf_del_tx_ctx_cmd(struct qlcnic_bc_trans *trans,
++					  struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_vf_info *vf = trans->vf;
++	struct qlcnic_adapter *adapter = vf->adapter;
++	int err;
++
++	err = qlcnic_sriov_validate_del_tx_ctx(vf, cmd);
++	if (err) {
++		cmd->rsp.arg[0] |= (0x6 << 25);
++		return err;
++	}
++
++	cmd->req.arg[1] |= vf->vp->handle << 16;
++	err = qlcnic_issue_cmd(adapter, cmd);
++
++	if (!err)
++		vf->tx_ctx_id = 0;
++
++	return err;
++}
++
++static int qlcnic_sriov_validate_cfg_lro(struct qlcnic_vf_info *vf,
++					 struct qlcnic_cmd_args *cmd)
++{
++	if ((cmd->req.arg[1] >> 16) != vf->rx_ctx_id)
++		return -EINVAL;
++
++	return 0;
++}
++
++static int qlcnic_sriov_pf_cfg_lro_cmd(struct qlcnic_bc_trans *trans,
++				       struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_vf_info *vf = trans->vf;
++	struct qlcnic_adapter *adapter = vf->adapter;
++	int err;
++
++	err = qlcnic_sriov_validate_cfg_lro(vf, cmd);
++	if (err) {
++		cmd->rsp.arg[0] |= (0x6 << 25);
++		return err;
++	}
++
++	err = qlcnic_issue_cmd(adapter, cmd);
++	return err;
++}
++
++static int qlcnic_sriov_pf_cfg_ip_cmd(struct qlcnic_bc_trans *trans,
++				      struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_vf_info *vf = trans->vf;
++	struct qlcnic_adapter *adapter = vf->adapter;
++	int err = -EIO;
++	u8 op;
++
++	op =  cmd->req.arg[1] & 0xff;
++
++	cmd->req.arg[1] |= vf->vp->handle << 16;
++	cmd->req.arg[1] |= BIT_31;
++
++	err = qlcnic_issue_cmd(adapter, cmd);
++	return err;
++}
++
++static int qlcnic_sriov_validate_cfg_intrpt(struct qlcnic_vf_info *vf,
++					    struct qlcnic_cmd_args *cmd)
++{
++	if (((cmd->req.arg[1] >> 8) & 0xff) != vf->pci_func)
++		return -EINVAL;
++
++	if (!(cmd->req.arg[1] & BIT_16))
++		return -EINVAL;
++
++	if ((cmd->req.arg[1] & 0xff) != 0x1)
++		return -EINVAL;
++
++	return 0;
++}
++
++static int qlcnic_sriov_pf_cfg_intrpt_cmd(struct qlcnic_bc_trans *trans,
++					  struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_vf_info *vf = trans->vf;
++	struct qlcnic_adapter *adapter = vf->adapter;
++	int err;
++
++	err = qlcnic_sriov_validate_cfg_intrpt(vf, cmd);
++	if (err)
++		cmd->rsp.arg[0] |= (0x6 << 25);
++	else
++		err = qlcnic_issue_cmd(adapter, cmd);
++
++	return err;
++}
++
++static int qlcnic_sriov_validate_mtu(struct qlcnic_adapter *adapter,
++				     struct qlcnic_vf_info *vf,
++				     struct qlcnic_cmd_args *cmd)
++{
++	if (cmd->req.arg[1] != vf->rx_ctx_id)
++		return -EINVAL;
++
++	if (cmd->req.arg[2] > adapter->ahw->max_mtu)
++		return -EINVAL;
++
++	return 0;
++}
++
++static int qlcnic_sriov_pf_set_mtu_cmd(struct qlcnic_bc_trans *trans,
++				       struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_vf_info *vf = trans->vf;
++	struct qlcnic_adapter *adapter = vf->adapter;
++	int err;
++
++	err = qlcnic_sriov_validate_mtu(adapter, vf, cmd);
++	if (err)
++		cmd->rsp.arg[0] |= (0x6 << 25);
++	else
++		err = qlcnic_issue_cmd(adapter, cmd);
++
++	return err;
++}
++
++static int qlcnic_sriov_validate_get_nic_info(struct qlcnic_vf_info *vf,
++					      struct qlcnic_cmd_args *cmd)
++{
++	if (cmd->req.arg[1] & BIT_31) {
++		if (((cmd->req.arg[1] >> 16) & 0x7fff) != vf->pci_func)
++			return -EINVAL;
++	} else {
++		cmd->req.arg[1] |= vf->vp->handle << 16;
++	}
++
++	return 0;
++}
++
++static int qlcnic_sriov_pf_get_nic_info_cmd(struct qlcnic_bc_trans *trans,
++					    struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_vf_info *vf = trans->vf;
++	struct qlcnic_adapter *adapter = vf->adapter;
++	int err;
++
++	err = qlcnic_sriov_validate_get_nic_info(vf, cmd);
++	if (err) {
++		cmd->rsp.arg[0] |= (0x6 << 25);
++		return err;
++	}
++
++	err = qlcnic_issue_cmd(adapter, cmd);
++	return err;
++}
++
++static int qlcnic_sriov_validate_cfg_rss(struct qlcnic_vf_info *vf,
++					 struct qlcnic_cmd_args *cmd)
++{
++	if (cmd->req.arg[1] != vf->rx_ctx_id)
++		return -EINVAL;
++
++	return 0;
++}
++
++static int qlcnic_sriov_pf_cfg_rss_cmd(struct qlcnic_bc_trans *trans,
++				       struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_vf_info *vf = trans->vf;
++	struct qlcnic_adapter *adapter = vf->adapter;
++	int err;
++
++	err = qlcnic_sriov_validate_cfg_rss(vf, cmd);
++	if (err)
++		cmd->rsp.arg[0] |= (0x6 << 25);
++	else
++		err = qlcnic_issue_cmd(adapter, cmd);
++
++	return err;
++}
++
++static int qlcnic_sriov_validate_cfg_intrcoal(struct qlcnic_adapter *adapter,
++					      struct qlcnic_vf_info *vf,
++					      struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_nic_intr_coalesce *coal = &adapter->ahw->coal;
++	u16 ctx_id, pkts, time;
++
++	ctx_id = cmd->req.arg[1] >> 16;
++	pkts = cmd->req.arg[2] & 0xffff;
++	time = cmd->req.arg[2] >> 16;
++
++	if (ctx_id != vf->rx_ctx_id)
++		return -EINVAL;
++	if (pkts > coal->rx_packets)
++		return -EINVAL;
++	if (time < coal->rx_time_us)
++		return -EINVAL;
++
++	return 0;
++}
++
++static int qlcnic_sriov_pf_cfg_intrcoal_cmd(struct qlcnic_bc_trans *tran,
++					    struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_vf_info *vf = tran->vf;
++	struct qlcnic_adapter *adapter = vf->adapter;
++	int err;
++
++	err = qlcnic_sriov_validate_cfg_intrcoal(adapter, vf, cmd);
++	if (err) {
++		cmd->rsp.arg[0] |= (0x6 << 25);
++		return err;
++	}
++
++	err = qlcnic_issue_cmd(adapter, cmd);
++	return err;
++}
++
++static int qlcnic_sriov_validate_cfg_macvlan(struct qlcnic_adapter *adapter,
++					     struct qlcnic_vf_info *vf,
++					     struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_macvlan_mbx *macvlan;
++
++	if (!(cmd->req.arg[1] & BIT_8))
++		return -EINVAL;
++
++	cmd->req.arg[1] |= (vf->vp->handle << 16);
++	cmd->req.arg[1] |= BIT_31;
++
++	macvlan = (struct qlcnic_macvlan_mbx *)&cmd->req.arg[2];
++	if (!(macvlan->mac_addr0 & BIT_0)) {
++		dev_err(&adapter->pdev->dev,
++			"MAC address change is not allowed from VF %d",
++			vf->pci_func);
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int qlcnic_sriov_pf_cfg_macvlan_cmd(struct qlcnic_bc_trans *trans,
++					   struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_vf_info *vf = trans->vf;
++	struct qlcnic_adapter *adapter = vf->adapter;
++	int err;
++
++	err = qlcnic_sriov_validate_cfg_macvlan(adapter, vf, cmd);
++	if (err) {
++		cmd->rsp.arg[0] |= (0x6 << 25);
++		return err;
++	}
++
++	err = qlcnic_issue_cmd(adapter, cmd);
++	return err;
++}
++
++static int qlcnic_sriov_validate_linkevent(struct qlcnic_vf_info *vf,
++					   struct qlcnic_cmd_args *cmd)
++{
++	if ((cmd->req.arg[1] >> 16) != vf->rx_ctx_id)
++		return -EINVAL;
++
++	if (!(cmd->req.arg[1] & BIT_8))
++		return -EINVAL;
++
++	return 0;
++}
++
++static int qlcnic_sriov_pf_linkevent_cmd(struct qlcnic_bc_trans *trans,
++					 struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_vf_info *vf = trans->vf;
++	struct qlcnic_adapter *adapter = vf->adapter;
++	int err;
++
++	err = qlcnic_sriov_validate_linkevent(vf, cmd);
++	if (err) {
++		cmd->rsp.arg[0] |= (0x6 << 25);
++		return err;
++	}
++
++	err = qlcnic_issue_cmd(adapter, cmd);
++	return err;
++}
++
++static int qlcnic_sriov_pf_cfg_promisc_cmd(struct qlcnic_bc_trans *trans,
++					   struct qlcnic_cmd_args *cmd)
++{
++	struct qlcnic_vf_info *vf = trans->vf;
++	struct qlcnic_adapter *adapter = vf->adapter;
++	int err;
++
++	cmd->req.arg[1] |= vf->vp->handle << 16;
++	cmd->req.arg[1] |= BIT_31;
++	err = qlcnic_issue_cmd(adapter, cmd);
++	return err;
++}
++
++static const int qlcnic_pf_passthru_supp_cmds[] = {
++	QLCNIC_CMD_GET_STATISTICS,
++	QLCNIC_CMD_GET_PORT_CONFIG,
++	QLCNIC_CMD_GET_LINK_STATUS,
++};
++
+ static const struct qlcnic_sriov_cmd_handler qlcnic_pf_bc_cmd_hdlr[] = {
+ 	[QLCNIC_BC_CMD_CHANNEL_INIT] = {&qlcnic_sriov_pf_channel_cfg_cmd},
+ 	[QLCNIC_BC_CMD_CHANNEL_TERM] = {&qlcnic_sriov_pf_channel_cfg_cmd},
+ };
+ 
++static const struct qlcnic_sriov_fw_cmd_handler qlcnic_pf_fw_cmd_hdlr[] = {
++	{QLCNIC_CMD_CREATE_RX_CTX, qlcnic_sriov_pf_create_rx_ctx_cmd},
++	{QLCNIC_CMD_CREATE_TX_CTX, qlcnic_sriov_pf_create_tx_ctx_cmd},
++	{QLCNIC_CMD_MAC_ADDRESS, qlcnic_sriov_pf_mac_address_cmd},
++	{QLCNIC_CMD_DESTROY_RX_CTX, qlcnic_sriov_pf_del_rx_ctx_cmd},
++	{QLCNIC_CMD_DESTROY_TX_CTX, qlcnic_sriov_pf_del_tx_ctx_cmd},
++	{QLCNIC_CMD_CONFIGURE_HW_LRO, qlcnic_sriov_pf_cfg_lro_cmd},
++	{QLCNIC_CMD_CONFIGURE_IP_ADDR, qlcnic_sriov_pf_cfg_ip_cmd},
++	{QLCNIC_CMD_CONFIG_INTRPT, qlcnic_sriov_pf_cfg_intrpt_cmd},
++	{QLCNIC_CMD_SET_MTU, qlcnic_sriov_pf_set_mtu_cmd},
++	{QLCNIC_CMD_GET_NIC_INFO, qlcnic_sriov_pf_get_nic_info_cmd},
++	{QLCNIC_CMD_CONFIGURE_RSS, qlcnic_sriov_pf_cfg_rss_cmd},
++	{QLCNIC_CMD_CONFIG_INTR_COAL, qlcnic_sriov_pf_cfg_intrcoal_cmd},
++	{QLCNIC_CMD_CONFIG_MAC_VLAN, qlcnic_sriov_pf_cfg_macvlan_cmd},
++	{QLCNIC_CMD_GET_LINK_EVENT, qlcnic_sriov_pf_linkevent_cmd},
++	{QLCNIC_CMD_CONFIGURE_MAC_RX_MODE, qlcnic_sriov_pf_cfg_promisc_cmd},
++};
++
+ void qlcnic_sriov_pf_process_bc_cmd(struct qlcnic_adapter *adapter,
+ 				    struct qlcnic_bc_trans *trans,
+ 				    struct qlcnic_cmd_args *cmd)
+@@ -561,7 +1083,94 @@ void qlcnic_sriov_pf_process_bc_cmd(struct qlcnic_adapter *adapter,
+ 			qlcnic_pf_bc_cmd_hdlr[cmd_op].fn(trans, cmd);
+ 			return;
+ 		}
++	} else {
++		int i;
++		size = ARRAY_SIZE(qlcnic_pf_fw_cmd_hdlr);
++		for (i = 0; i < size; i++) {
++			if (cmd_op == qlcnic_pf_fw_cmd_hdlr[i].cmd) {
++				qlcnic_pf_fw_cmd_hdlr[i].fn(trans, cmd);
++				return;
++			}
++		}
++
++		size = ARRAY_SIZE(qlcnic_pf_passthru_supp_cmds);
++		for (i = 0; i < size; i++) {
++			if (cmd_op == qlcnic_pf_passthru_supp_cmds[i]) {
++				qlcnic_issue_cmd(adapter, cmd);
++				return;
++			}
++		}
+ 	}
+ 
+ 	cmd->rsp.arg[0] |= (0x9 << 25);
  }
 +
-+void qlcnic_vf_add_mc_list(struct net_device *netdev)
++void qlcnic_pf_set_interface_id_create_rx_ctx(struct qlcnic_adapter *adapter,
++					     u32 *int_id)
 +{
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+	struct qlcnic_mac_list_s *cur;
-+	struct list_head *head, tmp_list;
++	u16 vpid;
 +
-+	INIT_LIST_HEAD(&tmp_list);
-+	head = &adapter->vf_mc_list;
-+	netif_addr_lock_bh(netdev);
-+
-+	while (!list_empty(head)) {
-+		cur = list_entry(head->next, struct qlcnic_mac_list_s, list);
-+		list_move(&cur->list, &tmp_list);
-+	}
-+
-+	netif_addr_unlock_bh(netdev);
-+
-+	while (!list_empty(&tmp_list)) {
-+		cur = list_entry((&tmp_list)->next,
-+				 struct qlcnic_mac_list_s, list);
-+		qlcnic_nic_add_mac(adapter, cur->mac_addr);
-+		list_del(&cur->list);
-+		kfree(cur);
-+	}
++	vpid = qlcnic_sriov_pf_get_vport_handle(adapter,
++						adapter->ahw->pci_func);
++	*int_id |= vpid;
 +}
 +
-+void qlcnic_sriov_cleanup_async_list(struct qlcnic_back_channel *bc)
++void qlcnic_pf_set_interface_id_del_rx_ctx(struct qlcnic_adapter *adapter,
++					   u32 *int_id)
 +{
-+	struct list_head *head = &bc->async_list;
-+	struct qlcnic_async_work_list *entry;
++	u16 vpid;
 +
-+	while (!list_empty(head)) {
-+		entry = list_entry(head->next, struct qlcnic_async_work_list,
-+				   list);
-+		cancel_work_sync(&entry->work);
-+		list_del(&entry->list);
-+		kfree(entry);
-+	}
++	vpid = qlcnic_sriov_pf_get_vport_handle(adapter,
++						adapter->ahw->pci_func);
++	*int_id |= vpid << 16;
 +}
 +
-+static void qlcnic_sriov_vf_set_multi(struct net_device *netdev)
++void qlcnic_pf_set_interface_id_create_tx_ctx(struct qlcnic_adapter *adapter,
++					      u32 *int_id)
 +{
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
++	int vpid;
 +
-+	if (!test_bit(__QLCNIC_FW_ATTACHED, &adapter->state))
-+		return;
-+
-+	__qlcnic_set_multi(netdev);
++	vpid = qlcnic_sriov_pf_get_vport_handle(adapter,
++						adapter->ahw->pci_func);
++	*int_id |= vpid << 16;
 +}
 +
-+static void qlcnic_sriov_handle_async_multi(struct work_struct *work)
++void qlcnic_pf_set_interface_id_del_tx_ctx(struct qlcnic_adapter *adapter,
++					   u32 *int_id)
 +{
-+	struct qlcnic_async_work_list *entry;
-+	struct net_device *netdev;
++	u16 vpid;
 +
-+	entry = container_of(work, struct qlcnic_async_work_list, work);
-+	netdev = (struct net_device *)entry->ptr;
-+
-+	qlcnic_sriov_vf_set_multi(netdev);
-+	return;
++	vpid = qlcnic_sriov_pf_get_vport_handle(adapter,
++						adapter->ahw->pci_func);
++	*int_id |= vpid << 16;
 +}
 +
-+static struct qlcnic_async_work_list *
-+qlcnic_sriov_get_free_node_async_work(struct qlcnic_back_channel *bc)
++void qlcnic_pf_set_interface_id_promisc(struct qlcnic_adapter *adapter,
++					u32 *int_id)
 +{
-+	struct list_head *node;
-+	struct qlcnic_async_work_list *entry = NULL;
-+	u8 empty = 0;
++	u16 vpid;
 +
-+	list_for_each(node, &bc->async_list) {
-+		entry = list_entry(node, struct qlcnic_async_work_list, list);
-+		if (!work_pending(&entry->work)) {
-+			empty = 1;
-+			break;
-+		}
-+	}
-+
-+	if (!empty) {
-+		entry = kzalloc(sizeof(struct qlcnic_async_work_list),
-+				GFP_ATOMIC);
-+		if (entry == NULL)
-+			return NULL;
-+		list_add_tail(&entry->list, &bc->async_list);
-+	}
-+
-+	return entry;
++	vpid = qlcnic_sriov_pf_get_vport_handle(adapter,
++						adapter->ahw->pci_func);
++	*int_id |= (vpid << 16) | BIT_31;
 +}
 +
-+static void qlcnic_sriov_schedule_bc_async_work(struct qlcnic_back_channel *bc,
-+						work_func_t func, void *data)
++void qlcnic_pf_set_interface_id_ipaddr(struct qlcnic_adapter *adapter,
++				       u32 *int_id)
 +{
-+	struct qlcnic_async_work_list *entry = NULL;
++	u16 vpid;
 +
-+	entry = qlcnic_sriov_get_free_node_async_work(bc);
-+	if (!entry)
-+		return;
-+
-+	entry->ptr = data;
-+	INIT_WORK(&entry->work, func);
-+	queue_work(bc->bc_async_wq, &entry->work);
++	vpid = qlcnic_sriov_pf_get_vport_handle(adapter,
++						adapter->ahw->pci_func);
++	*int_id |= (vpid << 16) | BIT_31;
 +}
 +
-+void qlcnic_sriov_vf_schedule_multi(struct net_device *netdev)
++void qlcnic_pf_set_interface_id_macaddr(struct qlcnic_adapter *adapter,
++					u32 *int_id)
 +{
++	u16 vpid;
 +
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+	struct qlcnic_back_channel *bc = &adapter->ahw->sriov->bc;
-+
-+	qlcnic_sriov_schedule_bc_async_work(bc, qlcnic_sriov_handle_async_multi,
-+					    netdev);
++	vpid = qlcnic_sriov_pf_get_vport_handle(adapter,
++						adapter->ahw->pci_func);
++	*int_id |= (vpid << 16) | BIT_31;
 +}
 -- 
 1.6.3.3
