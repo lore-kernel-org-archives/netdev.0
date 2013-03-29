@@ -1,50 +1,334 @@
-From: Hong Zhiguo <honkiko@gmail.com>
-Subject: [PATCH] netlink: fix the warning introduced by netlink API replacement
-Date: Fri, 29 Mar 2013 21:22:40 +0800
-Message-ID: <1364563360-3516-1-git-send-email-honkiko@gmail.com>
-References: <1364402824-32680-1-git-send-email-honkiko@gmail.com>
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-	brian.haley@hp.com, tgraf@suug.ch
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f53.google.com ([209.85.210.53]:34368 "EHLO
-	mail-da0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755443Ab3C2NXD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 09:23:03 -0400
-Received: by mail-da0-f53.google.com with SMTP id n34so220353dal.40
-        for <netdev@vger.kernel.org>; Fri, 29 Mar 2013 06:23:02 -0700 (PDT)
-In-Reply-To: <1364402824-32680-1-git-send-email-honkiko@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] man: packet.7: document fanout, ring and auxiliary options
+Date: Fri, 29 Mar 2013 09:25:16 -0400
+Message-ID: <CA+FuTScjf2nkPykOkscuWXMuUSfAhDtQGCBhByxcyJ_cSsOPcQ@mail.gmail.com>
+References: <1363626807-22894-1-git-send-email-willemb@google.com> <CAKgNAkgYG7_iSAg0zZYs4V4TbYaBpQmNFcV8=XBGwUfrzi1amA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAKgNAkgYG7_iSAg0zZYs4V4TbYaBpQmNFcV8=XBGwUfrzi1amA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
----
- net/ieee802154/netlink.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+On Thu, Mar 28, 2013 at 6:01 AM, Michael Kerrisk (man-pages)
+<mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> Willem,
+>
+> Thanks for sending this patch. This all looks good and authoritative.
+> Could I ask you to make a few small clean-ups and resubmit? See below.
 
-diff --git a/net/ieee802154/netlink.c b/net/ieee802154/netlink.c
-index 9247252..91b0363 100644
---- a/net/ieee802154/netlink.c
-+++ b/net/ieee802154/netlink.c
-@@ -65,7 +65,8 @@ struct sk_buff *ieee802154_nl_create(int flags, u8 req)
- int ieee802154_nl_mcast(struct sk_buff *msg, unsigned int group)
- {
- 	/* XXX: nlh is right at the start of msg */
--	void *hdr = genlmsg_data(nlmsg_data(msg->data));
-+	struct nlmsghdr *nlh = (struct nlmsghdr *)msg->data;
-+	void *hdr = genlmsg_data(nlmsg_data(nlh));
- 
- 	if (genlmsg_end(msg, hdr) < 0)
- 		goto out;
-@@ -98,7 +99,8 @@ struct sk_buff *ieee802154_nl_new_reply(struct genl_info *info,
- int ieee802154_nl_reply(struct sk_buff *msg, struct genl_info *info)
- {
- 	/* XXX: nlh is right at the start of msg */
--	void *hdr = genlmsg_data(nlmsg_data(msg->data));
-+	struct nlmsghdr *nlh = (struct nlmsghdr *)msg->data;
-+	void *hdr = genlmsg_data(nlmsg_data(nlh));
- 
- 	if (genlmsg_end(msg, hdr) < 0)
- 		goto out;
--- 
-1.7.10.4
+Thanks for reviewing the patch, Michael. I will send the revised
+version following this email.
+
+> On Mon, Mar 18, 2013 at 6:13 PM, Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org> wrote:
+>> The packet socket manual page does not list all socket options.
+>>
+>> This patch adds descriptions of the common packet socket options
+>>   PACKET_AUXDATA, PACKET_FANOUT, PACKET_RX_RING, PACKET_STATISTICS,
+>>   PACKET_TX_RING
+>>
+>> and the ring-specific options
+>>   PACKET_LOSS, PACKET_RESERVE, PACKET_TIMESTAMP, PACKET_VERSION
+>>
+>> It does not yet add descriptions for
+>>   PACKET_COPY_THRESH, PACKET_HDRLEN, PACKET_ORIGDEV,
+>>   PACKET_TX_HAS_OFF, PACKET_TX_TIMESTAMP, PACKET_VNET_HDR
+>>
+>> It tries to balance being informative with exposing kernel detail
+>> that is unlikely to be used by most readers or that may change
+>> frequently. For implementation details, the manpage points to the
+>> documentation in kernel Documentation/networking. Let me know if
+>> options should be added or removed.
+>
+> For the commit log message, could you just add a few lines for each of
+> the options stating how you determined the information. Also, if there
+> are specific individuals who could Ack the patch, please CC them and
+> ask them if they might Ack the patch.
+
+I will cc: the developers of the commits referenced in the man page.
+
+>
+>> Signed-off-by: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+>> ---
+>>  man7/packet.7 | 183 +++++++++++++++++++++++++++++++++++++++++++++++++++++++---
+>>  1 file changed, 175 insertions(+), 8 deletions(-)
+>>
+>> diff --git a/man7/packet.7 b/man7/packet.7
+>> index 006f2ac..a9cc168 100644
+>> --- a/man7/packet.7
+>> +++ b/man7/packet.7
+>> @@ -177,17 +177,21 @@ and
+>>  .I sll_ifindex
+>>  are used.
+>>  .SS Socket options
+>> +Packet socket options are configured by calling
+>> +. BR setsockopt (2)
+>> +with level SOL_PACKET.
+>
+> +with level
+> +.BR SOL_PACKET .
+>
+>> +.TP
+>> +.BR PACKET_ADD_MEMBERSHIP
+>> +.PD 0
+>> +.TP
+>> +.BR PACKET_DROP_MEMBERSHIP
+>> +.PD
+>>  Packet sockets can be used to configure physical layer multicasting
+>>  and promiscuous mode.
+>> -It works by calling
+>> -.BR setsockopt (2)
+>> -on a packet socket for
+>> -.B SOL_PACKET
+>> -and one of the options
+>>  .B PACKET_ADD_MEMBERSHIP
+>> -to add a binding or
+>> +adds a binding and
+>>  .B PACKET_DROP_MEMBERSHIP
+>> -to drop it.
+>> +drops it.
+>>  They both expect a
+>>  .B packet_mreq
+>>  structure as argument:
+>> @@ -227,6 +231,169 @@ In addition the traditional ioctls
+>>  .BR SIOCADDMULTI ,
+>>  .B SIOCDELMULTI
+>>  can be used for the same purpose.
+>> +.TP
+>> +.BR PACKET_AUXDATA " (since Linux 2.6.21)"
+>> +.\" commit 8dc419447
+>
+> It's great that you include these commit IDs, but I strongly prefer to
+> have the full 40-char ID. Potentially useful one day for scripting,
+> etc. Same comment for the instances below.
+>
+>> +If this binary option is enabled, the packet socket passes a metadata
+>> +structure along with each packet in the
+>> +.BR recvmsg (2)
+>> +control field. The
+>
+> Please start new sentences on new source lines (see man-pages(7)).
+> Same comment at numerous places below.
+>
+>
+>> +structure can be read with
+>> +.BR cmsg (3). It is defined as
+>
+> Formatting broken there. Start new line after the period.
+>
+>> +
+>> +.in +4n
+>> +.nf
+>> +struct tpacket_auxdata {
+>> +    __u32 tp_status;
+>> +    __u32 tp_len;      /* packet length */
+>> +    __u32 tp_snaplen;  /* captured length */
+>> +    __u16 tp_mac;
+>> +    __u16 tp_net;
+>> +    __u16 tp_vlan_tci;
+>> +    __u16 tp_padding;
+>> +};
+>> +.fi
+>> +.in
+>> +
+>> +.B tp_net
+>
+> .I tp_net
+>
+>> +stores the offset to the network layer. If the packet socket is of type
+>> +.BR SOCK_DGRAM ,
+>> +then
+>> +.B tp_mac
+>> +is the same. If it is of type
+>> +.B SOCK_RAW ,
+>
+> .BR SOCK_RAW ,
+>
+>> +then that stores the offset to the link layer frame.
+>> +.TP
+>> +.BR PACKET_FANOUT " (since Linux 3.1)"
+>> +.\" commit dc99f6006
+>> +To scale processing across threads, packet sockets can form a fanout
+>> +group. In this mode, each matching packet is enqueued onto only one
+>> +socket in the group. A socket joins a fanout group by calling
+>> +.B setsockopt(2)
+>> +with level SOL_PACKET and option PACKET_FANOUT.
+>
+> .B SOL_PACKET
+> .BR PACKET_FANOUT .
+>
+>> +Each network namespace can have up to 65536 independent groups. A
+>> +socket selects a group by encoding the ID in the first 16 bits of
+>> +the integer option value. The first packet socket to join a group
+>> +implicitly creates it. To successfully join an existing group,
+>> +subsequent packet sockets must have the same
+>> +protocol, device settings and fanout mode and flags (see below).
+>> +Packet sockets can leave a fanout group only by closing the socket.
+>> +The group is deleted when the last socket is closed.
+>> +
+>> +Fanout supports multiple algorithms to spread traffic between sockets.
+>> +The default mode,
+>> +. BR PACKET_FANOUT_HASH ,
+>> +sends packets from the same flow to the same socket to maintain per-flow
+>> +ordering. For each packet, it chooses a socket by taking the packet
+>> +flow hash modulo the number of sockets in the group, where a flow hash
+>> +is a hash over network layer address and optional transport layer port
+>> +fields. The load balance mode
+>> +. BR PACKET_FANOUT_LB
+>> +implements a round robin algorithm.
+>
+> round-robin
+>
+>> +. BR PACKET_FANOUT_CPU
+>> +selects the socket based on the cpu that the packet arrived on.
+>
+> CPU
+>
+>> +
+>> +Fanout modes can take additional options. IP fragmentation causes packets
+>> +from the same flow to have different flow hashes. The flag
+>> +.BR PACKET_FANOUT_FLAG_DEFRAG ,
+>> +if set, causes packet to be defragmented before fanout is applied, to
+>> +preserve order even in this case. Fanout mode and options are communicated
+>> +in the second 16 bits of the integer option value.
+>> +.TP
+>> +.BR PACKET_LOSS " (with PACKET_TX_RING)"
+>> +If set, do not silently drop on transmission errors, but return the
+>> +packet with status set to
+>> +.BR TP_STATUS_WRONG_FORMAT
+>> +.TP
+>> +.BR PACKET_RESERVE " (with PACKET_RX_RING)"
+>> +By default, a packet receive ring writes packets immediately following the
+>> +metadata structure and alignment padding. This integer option reserves
+>> +additional headroom.
+>> +.TP
+>> +.BR PACKET_RX_RING
+>> +Create a memory mapped ring buffer for asynchronous packet reception.
+>> +The packet socket reserves a contiguous region of application address
+>> +space, lays it out into an array of packet slots and copies packets
+>> +(up to snaplen)
+>
+> .IR tp_snaplen )
+>
+>> into subsequent slots. Each packet is preceded by a
+>> +metadata structure similar to
+>> +.B tpacket_auxdata.
+>
+> .IR tpacket_auxdata .
+>
+>> +Packet socket and application communicate the head and tail of the ring
+>> +through the
+>> +.B tp_status
+>
+> .I
+>
+>> +field. The packet socket owns all slots with status
+>> +.BR TP_STATUS_KERNEL .
+>> +After filling a slot, it changes the status of the slot to transfer
+>> +ownership to the application. During normal operation, the new status is
+>> +.BR TP_STATUS_USER ,
+>> +to signal that a correctly received packet has been stored. When the
+>> +application has finished processing a packet, it transfers ownership of
+>> +the slot back to the socket by setting the status to
+>> +.BR TP_STATUS_KERNEL .
+>> +Packet sockets implement multiple
+>> +variants of the packet ring. The implementation details are described in
+>> +.IR Documentation/networking/packet_mmap.txt
+>> +in the Linux kernel source tree.
+>> +.TP
+>> +.BR PACKET_STATISTICS
+>> +Retrieve packet socket statistics in the form of a structure
+>> +
+>> +.in +4n
+>> +.nf
+>> +struct tpacket_stats {
+>> +    __u32 tp_packets;  /* total packet count */
+>> +    __u32 tp_drops;    /* dropped packet count */
+>> +};
+>> +.fi
+>> +.in
+>> +
+>> +Receiving statistics resets the internal counters. The exact statistics
+>> +structure differs when using a ring of variant
+>> +.BR TPACKET_V3 .
+>> +.TP
+>> +.BR PACKET_TIMESTAMP " (with PACKET_RX_RING)"
+>> +The packet receive ring always stores a timestamp in the metadata header.
+>> +By default, this is a software generated timestamp generated when the
+>> +packet is copied into the ring. This integer option selects the type of
+>> +timestamp. Besides the default, it support the two hardware formats
+>> +described in
+>> +.IR Documentation/networking/timestamping.txt
+>> +in the Linux kernel source tree.
+>> +.TP
+>> +.BR PACKET_TX_RING " (since Linux 2.6.31)"
+>> +.\" commit 69e3c75f4
+>> +Create a memory mapped ring buffer for packet transmission. This option
+>> +is similar to
+>> +.BR PACKET_RX_RING
+>> +and takes the same arguments. The application writes packets into slots
+>> +with status
+>> +.BR TP_STATUS_AVAILABLE
+>> +and schedules them for transmission by changing the status to
+>> +.BR TP_STATUS_SEND_REQUEST .
+>> +When packets are ready to be transmitted, the application calls
+>> +.BR send (2)
+>> +Or a variant thereof. The
+>
+> s/Or/or/
+>
+>> +.B buf
+>
+> .I buf
+>
+>> +and
+>> +.B len
+>
+> .I len
+>
+>> +fields of this call are ignored. If an address is passed using
+>> +.BR sendto (2)
+>> +or
+>> +.BR sendmsg (2) ,
+>> +then that overrides the socket default. On successful transmission, the
+>> +socket resets the slot to
+>> +.BR TP_STATUS_AVAILABLE .
+>> +It discards packets silently on error unless
+>> +.BR PACKET_LOSS
+>> +is set.
+>> +.TP
+>> +.BR PACKET_VERSION " (with PACKET_RX_RING)"
+>> +By default,
+>> +.BR PACKET_RX_RING
+>> +creates a packet receive ring of variant
+>> +.BR TPACKET_V1 .
+>> +To create another variant, configure the desired variant by setting this
+>> +integer option before creating the ring.
+>> +
+>>  .SS Ioctls
+>>  .B SIOCGSTAMP
+>>  can be used to receive the timestamp of the last received packet.
+>> @@ -318,7 +485,7 @@ header to get a fully conforming packet.
+>>  Incoming 802.3 packets are not multiplexed on the DSAP/SSAP protocol
+>>  fields; instead they are supplied to the user as protocol
+>>  .B ETH_P_802_2
+>> -with the LLC header prepended.
+>> +with the LLC header prefixed.
+>>  It is thus not possible to bind to
+>>  .BR ETH_P_802_3 ;
+>>  bind to
+>
+> Thanks,
+>
+> Michael
+>
+> --
+> Michael Kerrisk
+> Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+> Author of "The Linux Programming Interface"; http://man7.org/tlpi/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
