@@ -1,40 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 3/3] net: frag queue per hash bucket locking
-Date: Fri, 29 Mar 2013 12:05:14 -0700
-Message-ID: <1364583914.5113.53.camel@edumazet-glaptop>
-References: <20130327155238.15203.6688.stgit@dragon>
-	 <20130327155601.15203.25289.stgit@dragon>
-	 <1364405159.15753.26.camel@edumazet-glaptop>
-	 <20130328185721.GA20223@order.stressinduktion.org>
-	 <1364502164.15753.56.camel@edumazet-glaptop>
-	 <20130328233002.GC20223@order.stressinduktion.org>
-	 <1364513982.15753.57.camel@edumazet-glaptop>
-	 <20130329003308.GD20223@order.stressinduktion.org>
-	 <1364583693.3232.257.camel@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: core: Remove redundant call to 'nf_reset' in
+ 'dev_forward_skb'
+Date: Fri, 29 Mar 2013 15:11:20 -0400 (EDT)
+Message-ID: <20130329.151120.296920819953677221.davem@davemloft.net>
+References: <1364462006-5814-1-git-send-email-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: greearb@candelatech.com, netdev@vger.kernel.org, rgohita@gmail.com
+To: shmulik.ladkani@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:47036 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754502Ab3C2TFR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 15:05:17 -0400
-Received: by mail-ie0-f169.google.com with SMTP id qd14so845277ieb.28
-        for <netdev@vger.kernel.org>; Fri, 29 Mar 2013 12:05:16 -0700 (PDT)
-In-Reply-To: <1364583693.3232.257.camel@localhost>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56120 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754480Ab3C2TLV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 15:11:21 -0400
+In-Reply-To: <1364462006-5814-1-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-03-29 at 20:01 +0100, Jesper Dangaard Brouer wrote:
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Date: Thu, 28 Mar 2013 11:13:26 +0200
 
-> Well, it's great to see, that you are working on solving my patch
-> proposal.  While I'm on Easter vacation ;-)  Much appreciated.
-> I'm officially back from vacation Tuesday, and I'll repost then (after
-> testing it on my 10G testlab).
+> 'nf_reset' is called just prior calling 'netif_rx'.
+> No need to call it twice.
+> 
+> Reported-by: Igor Michailov <rgohita@gmail.com>
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 
-Have a nice Easter break !
+I do not see this happening in the:
+
+	macvlan_start_xmit()
+
+		 --> macvlan_queue_xmit()
+
+code path.
+
+I'm not applying this patch.  There seems to be no real agreement
+that the caller of dev_forward_skb() takes care of the nf_reset().
+
+And wouldn't it be better to consolidate the nf_reset() calls
+into one place instead of several, increasing the audit burdon.
