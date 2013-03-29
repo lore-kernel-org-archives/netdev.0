@@ -1,49 +1,49 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] audit: pass int* to nlmsg_next
-Date: Fri, 29 Mar 2013 18:54:09 +0400
-Message-ID: <5155AB11.60009@cogentembedded.com>
-References: <1364506289-9146-1-git-send-email-alex.mihai.c@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net: fq_codel: Fix off-by-one error
+Date: Fri, 29 Mar 2013 08:01:20 -0700
+Message-ID: <1364569280.5113.21.camel@edumazet-glaptop>
+References: <1364514720-20780-1-git-send-email-subramanian.vijay@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, honkiko@gmail.com, tgraf@suug.ch
-To: Alexandru Copot <alex.mihai.c@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1364506289-9146-1-git-send-email-alex.mihai.c@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f48.google.com ([209.85.210.48]:57026 "EHLO
+	mail-da0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755117Ab3C2PBX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 11:01:23 -0400
+Received: by mail-da0-f48.google.com with SMTP id p8so246800dan.21
+        for <netdev@vger.kernel.org>; Fri, 29 Mar 2013 08:01:23 -0700 (PDT)
+In-Reply-To: <1364514720-20780-1-git-send-email-subramanian.vijay@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Thu, 2013-03-28 at 16:52 -0700, Vijay Subramanian wrote:
+> Currently, we hold a max of sch->limit -1 number of packets instead of
+> sch->limit packets. Fix this off-by-one error.
+> 
+> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> ---
+>  net/sched/sch_fq_codel.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+> index 4e606fc..5578628 100644
+> --- a/net/sched/sch_fq_codel.c
+> +++ b/net/sched/sch_fq_codel.c
+> @@ -195,7 +195,7 @@ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>  		flow->deficit = q->quantum;
+>  		flow->dropped = 0;
+>  	}
+> -	if (++sch->q.qlen < sch->limit)
+> +	if (++sch->q.qlen <= sch->limit)
+>  		return NET_XMIT_SUCCESS;
+>  
+>  	q->drop_overlimit++;
 
-On 29-03-2013 1:31, Alexandru Copot wrote:
+Just curious, did you play changing the default limit (10240 packets) ?
 
-> Commit 941912133025926307c7a65b203fa38403b1063a
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-    Please also specify the summary line of that commit in parens (or h=
-owever=20
-you like).
-    With that, you can add my:
-
-Acked-by: Sergei Shtylyov <segei.shtylyov@cogentembedded.com>
-
-> replaced the macros
-> NLMSG_NEXT with calls to nlmsg_next which produces this warning:
-
-> kernel/audit.c: In function =E2=80=98audit_receive_skb=E2=80=99:
-> kernel/audit.c:928:3: warning: passing argument 2 of =E2=80=98nlmsg_n=
-ext=E2=80=99 makes pointer from integer without a cast
-> In file included from include/net/rtnetlink.h:5:0,
->                   from include/net/neighbour.h:28,
->                   from include/net/dst.h:17,
->                   from include/net/sock.h:68,
->                   from kernel/audit.c:55:
-> include/net/netlink.h:359:1: note: expected =E2=80=98int *=E2=80=99 b=
-ut argument is of type =E2=80=98int=E2=80=99
-
-> Fix this by sending the intended pointer.
-
-> Signed-off-by: Alexandru Copot <alex.mihai.c@gmail.com>
-
-WBR, Sergei
+Thanks !
