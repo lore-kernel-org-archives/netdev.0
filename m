@@ -1,149 +1,141 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH] net: add a synchronize_net() in
- netdev_rx_handler_unregister()
-Date: Fri, 29 Mar 2013 09:17:19 -0400
-Message-ID: <1364563039.10629.19.camel@gandalf.local.home>
-References: <1364490997.6345.237.camel@gandalf.local.home>
-	 <1364491792.15753.47.camel@edumazet-glaptop>
-	 <20130329094856.GB1677@minipsycho.orion>
-	 <1364562082.5113.16.camel@edumazet-glaptop>
+From: Max.Nekludov@us.elster.com
+Subject: Fw: Bug in ks8851.c
+Date: Fri, 29 Mar 2013 17:20:23 +0400
+Message-ID: <OF2DFE75BF.1BA5B9C8-ON44257B3D.00492A11-44257B3D.0049472A@gb.elster.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jpirko@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Nicolas de =?ISO-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Guy Streeter <streeter@redhat.com>,
-	"Paul E. McKenney" <paulmck@us.ibm.com>, stephen@networkplumber.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.122]:20747 "EHLO
-	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755933Ab3C2NRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 09:17:22 -0400
-In-Reply-To: <1364562082.5113.16.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+	Boundary="0__=CBBBF1AEDFDAAC818f9e8a93df938690918cCBBBF1AEDFDAAC81"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@resnulli.us>, linus971@gmail.com,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Matt Renzelmann <mjr@cs.wisc.edu>,
+	Network Development <netdev@vger.kernel.org>,
+	Stephen Boyd <sboyd@codeaurora.org>,
+	Greg Ungerer <gerg@uclinux.org>,
+	linux-arm-kernel@lists.infradead.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-03-29 at 06:01 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> On Fri, 2013-03-29 at 10:48 +0100, Jiri Pirko wrote:
-> 
-> > Hmm. I think that this might be issue introduced by:
-> > commit a9b3cd7f323b2e57593e7215362a7b02fc933e3a
-> > Author: Stephen Hemminger <shemminger@vyatta.com>
-> > Date:   Mon Aug 1 16:19:00 2011 +0000
-> > 
-> >     rcu: convert uses of rcu_assign_pointer(x, NULL) to RCU_INIT_POINTER
-> > 
-> > 
-> > Because, if rcu_dereference(dev->rx_handler) is null,
-> > rcu_dereference(dev->rx_handler_data) is never done. Therefore I believe
-> > we are hitting following scenario:
-> > 
-> > 
-> >    CPU0				CPU1
-> >    ----				----
-> >   			    dev->rx_handler_data = NULL
-> >  rcu_read_lock()
-> >  			    dev->rx_handler = NULL
-> > 
-> > 
-> > CPU0 will see rx_handler set and yet, rx_handler_data nulled. Write
-> > barrier in rcu_assign_pointer() might prevent this reorder from happening.
-> > Therefore I suggest:
-> > 
-> > diff --git a/net/core/dev.c b/net/core/dev.c
-> > index 0caa38e..c16b829 100644
-> > --- a/net/core/dev.c
-> > +++ b/net/core/dev.c
-> > @@ -3332,8 +3332,8 @@ void netdev_rx_handler_unregister(struct net_device *dev)
-> >  {
-> >  
-> >  	ASSERT_RTNL();
-> > -	RCU_INIT_POINTER(dev->rx_handler, NULL);
-> > -	RCU_INIT_POINTER(dev->rx_handler_data, NULL);
-> > +	rcu_assign_pointer(dev->rx_handler, NULL);
-> > +	rcu_assign_pointer(dev->rx_handler_data, NULL);
-> >  }
-> >  EXPORT_SYMBOL_GPL(netdev_rx_handler_unregister);
-> >  
-> > 
-> 
-> Nope this changes nothing at all.
+--0__=CBBBF1AEDFDAAC818f9e8a93df938690918cCBBBF1AEDFDAAC81
+Content-type: text/plain; charset=US-ASCII
 
-Exactly! In fact, the bug triggered on an older kernel that had the
-original rcu_assign_pointer()
 
-> 
-> However, we can fix the bug in a different way, if we want to avoid a
-> test in fast path.
-> 
-> With following patch, we can make sure that a reader seeing a non NULL
-> rx_handler has a guarantee to see a non NULL rx_handler_data
-> 
+Linus,
 
-[..]
+I tried to send the mail to 'Ben Dooks <ben@simtec.co.uk>' but the address
+is dead now.
+> I assume you've tested it in practice?
+Yes, I'm running the modified code both in bootloader and Linux kernel on
+my board.
 
-> We can fix bug this in two ways. First is adding a test in
-> bond_handle_frame() and others to check if rx_handler_data is NULL.
-> 
-> A second way is adding a synchronize_net() in
-> netdev_rx_handler_unregister() to make sure that a rcu protected reader
-> has the guarantee to see a non NULL rx_handler_data.
-> 
-> The second way is better as it avoids an extra test in fast path.
-> 
-> Reported-by: Steven Rostedt <rostedt@goodmis.org>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Jiri Pirko <jpirko@redhat.com>
-> Cc: Paul E. McKenney <paulmck@us.ibm.com>
+Thanks,
+Max
+
+ Signed-off-by: Max Nekludov <Max.Nekludov@us.elster.com>
+ ---
+ drivers/net/ethernet/micrel/ks8851.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/micrel/ks8851.c
+b/drivers/net/ethernet/micrel/ks8851.c
+index 33bcb63d56a2..8fb481252e2c 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -528,7 +528,7 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
+ 	for (; rxfc != 0; rxfc--) {
+ 		rxh = ks8851_rdreg32(ks, KS_RXFHSR);
+ 		rxstat = rxh & 0xffff;
+-		rxlen = rxh >> 16;
++		rxlen = (rxh >> 16) & 0xfff;
+
+ 		netif_dbg(ks, rx_status, ks->netdev,
+ 			  "rx: stat 0x%04x, len 0x%04x\n", rxstat, rxlen);
+
+
+
+
+Max,
+ please cc the actual maintainers of the driver. The patch looks sane,
+though. I assume you've tested it in practice?
+
+You also seem to have based this on an ancient version, the code has
+long since moved from drivers/net/ks8851.c to
+drivers/net/ethernet/micrel/ks8851.c (back in June of 2011), and it's
+missing a sign-off from you.
+
+I'm attaching an updated patch for the rename/capitalization issue.
+
+     Linus
+
+On Thu, Mar 28, 2013 at 11:25 AM,  <Max.Nekludov@us.elster.com> wrote:
+>
+> According to the Datasheet (page 52):
+> 15-12 Reserved
+> 11-0 RXBC Receive Byte Count
+> This field indicates the present received frame byte size.
+>
+> I suppose the code has a bug:
+>                 rxh = ks8851_rdreg32(ks, KS_RXFHSR);
+>                 rxstat = rxh & 0xffff;
+>                 rxlen = rxh >> 16; // BUG!!! 0xFFF mask should be applied
+>
+> P.S.
+> without bit mask applied I saw rxlen equal to 15360 which is bigger then
+> entire RX queue size (12KB).
+>
+> Thanks,
+> Max Nekludov
+>
+> From cb3199cee4490f98d6062e32a75ca377a32b55bc Mon Sep 17 00:00:00 2001
+> From: Max Neklyudov <macscomp@gmail.com>
+> Date: Tue, 26 Mar 2013 11:46:57 +0400
+> Subject: [PATCH] Fix bug in ks8851 driver
+>
 > ---
->  net/core/dev.c |    6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index b13e5c7..56932a4 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3314,6 +3314,7 @@ int netdev_rx_handler_register(struct net_device *dev,
->  	if (dev->rx_handler)
->  		return -EBUSY;
->  
-> +	/* Note: rx_handler_data must be set before rx_handler */
->  	rcu_assign_pointer(dev->rx_handler_data, rx_handler_data);
->  	rcu_assign_pointer(dev->rx_handler, rx_handler);
->  
-> @@ -3334,6 +3335,11 @@ void netdev_rx_handler_unregister(struct net_device *dev)
->  
->  	ASSERT_RTNL();
->  	RCU_INIT_POINTER(dev->rx_handler, NULL);
-> +	/* a reader seeing a non NULL rx_handler in a rcu_read_lock()
-> +	 * section has a guarantee to see a non NULL rx_handler_data
-> +	 * as well.
-> +	 */
-> +	synchronize_net();
+>  drivers/net/ks8851.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ks8851.c b/drivers/net/ks8851.c
+> index 91a93cb..0dc03da 100644
+> --- a/drivers/net/ks8851.c
+> +++ b/drivers/net/ks8851.c
+> @@ -553,7 +553,7 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
+>         for (; rxfc != 0; rxfc--) {
+>                 rxh = ks8851_rdreg32(ks, KS_RXFHSR);
+>                 rxstat = rxh & 0xffff;
+> -               rxlen = rxh >> 16;
+> +               rxlen = (rxh >> 16) & 0xFFF;
+>
+>                 netif_dbg(ks, rx_status, ks->netdev,
+>                           "rx: stat 0x%04x, len 0x%04x\n", rxstat,
+rxlen);
+> --
+> 1.7.10.4
+>
 
-I've thought about this too, but I wasn't sure we wanted two
-synchronize_*() functions, as the caller does a synchronize as well.
-That said, I think this is the more robust solution and it lets all
-rx_handler() functions assume that their rx_handler_data is set. And it
-removes the check from the fast path which outweighs an added
-synchronization in the slow path.
 
-Acked-by: Steven Rostedt <rostedt@goodmis.org>
+______________________________________________________________________
+This email has been spam and virus checked by Elster IT Services.(See
+attached file: patch.diff)
+--0__=CBBBF1AEDFDAAC818f9e8a93df938690918cCBBBF1AEDFDAAC81
+Content-type: application/octet-stream;
+	name="patch.diff"
+Content-Disposition: attachment; filename="patch.diff"
+Content-transfer-encoding: base64
 
-Thanks!
+IGRyaXZlcnMvbmV0L2V0aGVybmV0L21pY3JlbC9rczg4NTEuYyB8IDIgKy0KIDEgZmlsZSBjaGFu
+Z2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L21pY3JlbC9rczg4NTEuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L21pY3Jl
+bC9rczg4NTEuYwppbmRleCAzM2JjYjYzZDU2YTIuLjhmYjQ4MTI1MmUyYyAxMDA2NDQKLS0tIGEv
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvbWljcmVsL2tzODg1MS5jCisrKyBiL2RyaXZlcnMvbmV0L2V0
+aGVybmV0L21pY3JlbC9rczg4NTEuYwpAQCAtNTI4LDcgKzUyOCw3IEBAIHN0YXRpYyB2b2lkIGtz
+ODg1MV9yeF9wa3RzKHN0cnVjdCBrczg4NTFfbmV0ICprcykKIAlmb3IgKDsgcnhmYyAhPSAwOyBy
+eGZjLS0pIHsKIAkJcnhoID0ga3M4ODUxX3JkcmVnMzIoa3MsIEtTX1JYRkhTUik7CiAJCXJ4c3Rh
+dCA9IHJ4aCAmIDB4ZmZmZjsKLQkJcnhsZW4gPSByeGggPj4gMTY7CisJCXJ4bGVuID0gKHJ4aCA+
+PiAxNikgJiAweGZmZjsKIAogCQluZXRpZl9kYmcoa3MsIHJ4X3N0YXR1cywga3MtPm5ldGRldiwK
+IAkJCSAgInJ4OiBzdGF0IDB4JTA0eCwgbGVuIDB4JTA0eFxuIiwgcnhzdGF0LCByeGxlbik7Cg==
 
--- Steve
-
->  	RCU_INIT_POINTER(dev->rx_handler_data, NULL);
->  }
->  EXPORT_SYMBOL_GPL(netdev_rx_handler_unregister);
-> 
+--0__=CBBBF1AEDFDAAC818f9e8a93df938690918cCBBBF1AEDFDAAC81--
