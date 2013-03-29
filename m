@@ -1,69 +1,52 @@
 From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 4/4] ARM: dove: add gigabit device tree nodes to dove.dtsi
-Date: Fri, 29 Mar 2013 19:14:39 +0100
-Message-ID: <1364580879-4297-5-git-send-email-florian@openwrt.org>
-References: <1364580879-4297-1-git-send-email-florian@openwrt.org>
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+Subject: Re: [PATCH 1/4] mv643xx_eth: add Device Tree bindings
+Date: Fri, 29 Mar 2013 19:25:30 +0100
+Message-ID: <5155DC9A.6050806@openwrt.org>
+References: <1364580879-4297-1-git-send-email-florian@openwrt.org> <1364580879-4297-2-git-send-email-florian@openwrt.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
 	devicetree-discuss@lists.ozlabs.org,
 	thomas.petazzoni@free-electrons.com, jm@lentin.co.uk,
 	moinejf@free.fr, sebastian.hesselbarth@gmail.com,
 	buytenh@wantstofly.org, andrew@lunn.ch, jason@lakedaemon.net,
-	grant.likely@secretlab.ca, rob.herring@calxeda.com,
-	Florian Fainelli <florian@openwrt.org>
-To: davem@davemloft.net
+	grant.likely@secretlab.ca, rob.herring@calxeda.com
+To: Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zmc.proxad.net ([212.27.53.206]:34604 "EHLO zmc.proxad.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756268Ab3C2SOy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Mar 2013 14:14:54 -0400
-In-Reply-To: <1364580879-4297-1-git-send-email-florian@openwrt.org>
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:39021 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756164Ab3C2SZp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 14:25:45 -0400
+Received: by mail-wg0-f50.google.com with SMTP id k13so643753wgh.5
+        for <netdev@vger.kernel.org>; Fri, 29 Mar 2013 11:25:44 -0700 (PDT)
+In-Reply-To: <1364580879-4297-2-git-send-email-florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the gigabit ethernet device tree nodes to dove.dtsi in a
-disabled state. The gigabit ethernet device tree node must be enabled on
-a per-board basis. For completeness and easier testing the MDIO node is
-also added in a disabled state.
+Le 03/29/13 19:14, Florian Fainelli a =C3=A9crit :
+> This patch adds Device Tree bindings following the already defined
+> bindings at Documentation/devicetree/bindings/marvell.txt. The bindin=
+g
+> documentation is also enhanced with new optionnal properties required
+> for supporting certain devices (RX/TX queue and SRAM). Since we now h=
+ave
+> proper support for the orion MDIO bus driver, there is no need to fid=
+dle
+> around with device tree phandles.
+>
+> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+> ---
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
- arch/arm/boot/dts/dove.dtsi |   25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
+[snip]
 
-diff --git a/arch/arm/boot/dts/dove.dtsi b/arch/arm/boot/dts/dove.dtsi
-index f7509ca..8a24d6b 100644
---- a/arch/arm/boot/dts/dove.dtsi
-+++ b/arch/arm/boot/dts/dove.dtsi
-@@ -253,5 +253,30 @@
- 				dmacap,xor;
- 			};
- 		};
-+
-+		mdio@72004 {
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			compatible = "marvell,orion-mdio";
-+			reg = <0x72004 0x84>;
-+			status = "disabled";
-+		};
-+
-+		ethernet-group@70000 {
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			compatible = "marvell,mv643xx-eth-block";
-+			reg = <0x70000 0x4000>;
-+			tx-csum-limit = <1600>;
-+			status = "disabled";
-+
-+			egiga0: ethernet@0 {
-+				device_type = "network";
-+				compatible = "marvell,mv643xx-eth";
-+				reg = <0>;
-+				interrupts = <29>;
-+				clocks = <&gate_clk 2>;
-+			};
-+		};
- 	};
- };
--- 
-1.7.10.4
+>
+> -	return 0;
+> +	return of_platform_bus_probe(np, mv643xx_eth_match, &pdev->dev);
+
+This breaks on non-OF builds, I will wait for more comments to show up=20
+and fix this in the next round.
+--
+=46lorian
