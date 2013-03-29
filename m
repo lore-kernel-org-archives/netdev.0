@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] sh_eth: add R-Car support for real
-Date: Fri, 29 Mar 2013 15:31:53 -0400 (EDT)
-Message-ID: <20130329.153153.139679960603982330.davem@davemloft.net>
-References: <201303290051.32106.sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net] net: fq_codel: Fix off-by-one error
+Date: Fri, 29 Mar 2013 15:33:05 -0400 (EDT)
+Message-ID: <20130329.153305.1464690884667907437.davem@davemloft.net>
+References: <1364514720-20780-1-git-send-email-subramanian.vijay@gmail.com>
+	<1364569280.5113.21.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	linux-sh@vger.kernel.org, phil.edworthy@renesas.com
-To: sergei.shtylyov@cogentembedded.com
+Cc: subramanian.vijay@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56401 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56417 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756861Ab3C2Tbz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 15:31:55 -0400
-In-Reply-To: <201303290051.32106.sergei.shtylyov@cogentembedded.com>
+	with ESMTP id S1756616Ab3C2TdM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 15:33:12 -0400
+In-Reply-To: <1364569280.5113.21.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Fri, 29 Mar 2013 00:51:31 +0300
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 29 Mar 2013 08:01:20 -0700
 
-> Commit d0418bb7123f44b23d69ac349eec7daf9103472f (net: sh_eth: Add eth support
-> for R8A7779 device) was a failed attempt to add support for one of members of
-> the R-Car SoC family.  That's for three reasons: it treated R8A7779 the  same
-> as SH7724 except including quite dirty hack adding ECMR_ELB  bit  to the mask
-> in sh_eth_set_rate() while not removing ECMR_RTM bit (despite it's reserved in
-> R-Car Ether), and it didn't add a new register offset array despite the closest
-> SH_ETH_REG_FAST_SH4 mapping differs by 0x200 to the offsets all the R-Car Ether
-> registers have, and also some of the registers in this old mapping don't exist
-> on R-Car Ether (due to this, SH7724's 'sh_eth_my_cpu_data' structure is not
-> adequeate for R-Car too).  Fix all these shortcomings, restoring the SH7724
-> related section to its pristine state...
-> 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> On Thu, 2013-03-28 at 16:52 -0700, Vijay Subramanian wrote:
+>> Currently, we hold a max of sch->limit -1 number of packets instead of
+>> sch->limit packets. Fix this off-by-one error.
+>> 
+>> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+ ...
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Applied.
+Applied and queued up for -stable.
