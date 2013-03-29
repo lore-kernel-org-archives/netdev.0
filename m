@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] net: rtnetlink: fdb dflt dump must set idx
- used for cb->arg[0]
-Date: Fri, 29 Mar 2013 15:27:04 -0400 (EDT)
-Message-ID: <20130329.152704.895903622717759647.davem@davemloft.net>
-References: <20130329181831.9902.70451.stgit@nitbit.x32>
+Subject: Re: [PATCH 1/2] net: calxedaxgmac: fix rx ring handling when OOM
+Date: Fri, 29 Mar 2013 15:29:58 -0400 (EDT)
+Message-ID: <20130329.152958.576829381792957267.davem@davemloft.net>
+References: <1364506365-13689-1-git-send-email-robherring2@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com
-To: john.fastabend@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56325 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756282Ab3C2T1G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 15:27:06 -0400
-In-Reply-To: <20130329181831.9902.70451.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rob.herring@calxeda.com
+To: robherring2@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1364506365-13689-1-git-send-email-robherring2@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Fri, 29 Mar 2013 11:18:37 -0700
+From: Rob Herring <robherring2@gmail.com>
+Date: Thu, 28 Mar 2013 16:32:44 -0500
 
-> In rtnl_fdb_dump() when the fdb_dump ndo op is not populated
-> we never set the idx value so that cb->arg[0] is always 0.
-> Resulting in a endless loop of messages.
+> From: Rob Herring <rob.herring@calxeda.com>
 > 
-> Introduced with this commit,
+> If skb allocation for the rx ring fails repeatedly, we can reach a point
+> were the ring is empty. In this condition, the driver is out of sync with
+> the h/w. While this has always been possible, the removal of the skb
+> recycling seems to have made triggering this problem easier.
 > 
-> commit 090096bf3db1c281ddd034573260045888a68fea
-> Author: Vlad Yasevich <vyasevic@redhat.com>
-> Date:   Wed Mar 6 15:39:42 2013 +0000
-> 
->     net: generic fdb support for drivers without ndo_fdb_<op>
-> 
-> CC: Vlad Yasevich <vyasevic@redhat.com>
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Rob Herring <rob.herring@calxeda.com>
 
-Applied, thanks John.
+Applied.
