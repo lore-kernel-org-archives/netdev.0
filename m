@@ -1,49 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: fq_codel: Fix off-by-one error
-Date: Fri, 29 Mar 2013 08:01:20 -0700
-Message-ID: <1364569280.5113.21.camel@edumazet-glaptop>
-References: <1364514720-20780-1-git-send-email-subramanian.vijay@gmail.com>
+From: "McMillan, Scott A" <scott.a.mcmillan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH] man: packet.7: document fanout, ring and auxiliary
+ options
+Date: Fri, 29 Mar 2013 15:02:24 +0000
+Message-ID: <3E1EA20FF626AF48A6AB8DB7754BB3E524350980@FMSMSX104.amr.corp.intel.com>
+References: <CA+FuTScjf2nkPykOkscuWXMuUSfAhDtQGCBhByxcyJ_cSsOPcQ@mail.gmail.com>
+ <1364563798-20221-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f48.google.com ([209.85.210.48]:57026 "EHLO
-	mail-da0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755117Ab3C2PBX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 11:01:23 -0400
-Received: by mail-da0-f48.google.com with SMTP id p8so246800dan.21
-        for <netdev@vger.kernel.org>; Fri, 29 Mar 2013 08:01:23 -0700 (PDT)
-In-Reply-To: <1364514720-20780-1-git-send-email-subramanian.vijay@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org" <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
+	"johann.baudy-1YmjpbiIw0bR7s880joybQ@public.gmane.org" <johann.baudy-1YmjpbiIw0bR7s880joybQ@public.gmane.org>,
+	"herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org" <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+To: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	"mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1364563798-20221-1-git-send-email-willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-03-28 at 16:52 -0700, Vijay Subramanian wrote:
-> Currently, we hold a max of sch->limit -1 number of packets instead of
-> sch->limit packets. Fix this off-by-one error.
-> 
-> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
-> ---
->  net/sched/sch_fq_codel.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-> index 4e606fc..5578628 100644
-> --- a/net/sched/sch_fq_codel.c
-> +++ b/net/sched/sch_fq_codel.c
-> @@ -195,7 +195,7 @@ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->  		flow->deficit = q->quantum;
->  		flow->dropped = 0;
->  	}
-> -	if (++sch->q.qlen < sch->limit)
-> +	if (++sch->q.qlen <= sch->limit)
->  		return NET_XMIT_SUCCESS;
->  
->  	q->drop_overlimit++;
+>If you are on the CC: list, then you are the author of one of the commits referred to in this manpage. If you can, please check whether my description of your change is correct. Thanks.
 
-Just curious, did you play changing the default limit (10240 packets) ?
+>+.BR PACKET_TIMESTAMP " (with PACKET_RX_RING)"
+>+.\" commit 614f60fa9d73a9e8fdff3df83381907fea7c5649
+>+The packet receive ring always stores a timestamp in the metadata header.
+>+By default, this is a software generated timestamp generated when the 
+>+packet is copied into the ring.
+>+This integer option selects the type of timestamp.
+>+Besides the default, it support the two hardware formats described in 
+>+.IR Documentation/networking/timestamping.txt
+>+in the Linux kernel source tree.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Scott McMillan <scott.a.mcmillan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-Thanks !
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
