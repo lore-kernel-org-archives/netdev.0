@@ -1,93 +1,57 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] atl1e: drop pci-msi support because of packet corruption
-Date: Fri, 29 Mar 2013 05:10:50 +0100
-Message-ID: <20130329041050.GA29040@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: rebelyouth.hacklab@gmail.com, xiong@qca.qualcomm.com,
-	christian.suenkenberg@student.kit.edu, sven@svenhartge.de
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:37762 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751665Ab3C2EKw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 00:10:52 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH 03/34] ipvs: prefer NETDEV_DOWN event to free cached dsts
+Date: Fri, 29 Mar 2013 13:11:20 +0900
+Message-ID: <1364530311-11512-4-git-send-email-horms@verge.net.au>
+References: <1364530311-11512-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1364530311-11512-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Usage of pci-msi results in corrupted dma packet transfers to the host.
+From: Julian Anastasov <ja@ssi.bg>
 
-Reported-by: rebelyouth <rebelyouth.hacklab@gmail.com>
-Cc: Huang, Xiong <xiong@qca.qualcomm.com>
-Tested-by: Christian S=C3=BCnkenberg <christian.suenkenberg@student.kit=
-=2Eedu>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+The real server becomes unreachable on down event,
+no need to wait device unregistration. Should help in
+releasing dsts early before dst->dev is replaced with lo.
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off by: Hans Schillstrom <hans@schillstrom.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
-I think this is material for -stable.
+ net/netfilter/ipvs/ip_vs_ctl.c |    8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
- drivers/net/ethernet/atheros/atl1e/atl1e.h      |  1 -
- drivers/net/ethernet/atheros/atl1e/atl1e_main.c | 19 ++---------------=
---
- 2 files changed, 2 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e.h b/drivers/net/e=
-thernet/atheros/atl1e/atl1e.h
-index 829b5ad..edfdf6b 100644
---- a/drivers/net/ethernet/atheros/atl1e/atl1e.h
-+++ b/drivers/net/ethernet/atheros/atl1e/atl1e.h
-@@ -438,7 +438,6 @@ struct atl1e_adapter {
- 	struct atl1e_hw        hw;
- 	struct atl1e_hw_stats  hw_stats;
-=20
--	bool have_msi;
- 	u32 wol;
- 	u16 link_speed;
- 	u16 link_duplex;
-diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/=
-net/ethernet/atheros/atl1e/atl1e_main.c
-index e1f1b2a..7e0a822 100644
---- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-+++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-@@ -1847,34 +1847,19 @@ static void atl1e_free_irq(struct atl1e_adapter=
- *adapter)
- 	struct net_device *netdev =3D adapter->netdev;
-=20
- 	free_irq(adapter->pdev->irq, netdev);
--
--	if (adapter->have_msi)
--		pci_disable_msi(adapter->pdev);
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 8104120..6b55ba6 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1514,10 +1514,8 @@ __ip_vs_dev_reset(struct ip_vs_dest *dest, struct net_device *dev)
+ 	spin_unlock_bh(&dest->dst_lock);
+ 
  }
-=20
- static int atl1e_request_irq(struct atl1e_adapter *adapter)
- {
- 	struct pci_dev    *pdev   =3D adapter->pdev;
- 	struct net_device *netdev =3D adapter->netdev;
--	int flags =3D 0;
- 	int err =3D 0;
-=20
--	adapter->have_msi =3D true;
--	err =3D pci_enable_msi(pdev);
--	if (err) {
--		netdev_dbg(netdev,
--			   "Unable to allocate MSI interrupt Error: %d\n", err);
--		adapter->have_msi =3D false;
--	}
--
--	if (!adapter->have_msi)
--		flags |=3D IRQF_SHARED;
--	err =3D request_irq(pdev->irq, atl1e_intr, flags, netdev->name, netde=
-v);
-+	err =3D request_irq(pdev->irq, atl1e_intr, IRQF_SHARED, netdev->name,
-+			  netdev);
- 	if (err) {
- 		netdev_dbg(adapter->netdev,
- 			   "Unable to allocate interrupt Error: %d\n", err);
--		if (adapter->have_msi)
--			pci_disable_msi(pdev);
- 		return err;
- 	}
- 	netdev_dbg(netdev, "atl1e_request_irq OK\n");
---=20
-1.8.1.4
+-/*
+- * Netdev event receiver
+- * Currently only NETDEV_UNREGISTER is handled, i.e. if we hold a reference to
+- * a device that is "unregister" it must be released.
++/* Netdev event receiver
++ * Currently only NETDEV_DOWN is handled to release refs to cached dsts
+  */
+ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
+ 			    void *ptr)
+@@ -1529,7 +1527,7 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
+ 	struct ip_vs_dest *dest;
+ 	unsigned int idx;
+ 
+-	if (event != NETDEV_UNREGISTER || !ipvs)
++	if (event != NETDEV_DOWN || !ipvs)
+ 		return NOTIFY_DONE;
+ 	IP_VS_DBG(3, "%s() dev=%s\n", __func__, dev->name);
+ 	EnterFunction(2);
+-- 
+1.7.10.4
+
