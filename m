@@ -1,956 +1,296 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: [PATCH net-next 6/6] openvswitch: Expose
-	<linux/openvswitch.h> to userspace
-Date: Fri, 29 Mar 2013 14:46:52 +0100
-Message-ID: <31891932c767ec44b79786035d2be2fd90ce4a9f.1364563347.git.tgraf@suug.ch>
-References: <cover.1364563346.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1364563346.git.tgraf-G/eBtMaohhA@public.gmane.org>
-In-Reply-To: <cover.1364563346.git.tgraf-G/eBtMaohhA@public.gmane.org>
-References: <cover.1364563346.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+From: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] man: packet.7: document fanout, ring and auxiliary options
+Date: Fri, 29 Mar 2013 09:29:58 -0400
+Message-ID: <1364563798-20221-1-git-send-email-willemb@google.com>
+References: <CA+FuTScjf2nkPykOkscuWXMuUSfAhDtQGCBhByxcyJ_cSsOPcQ@mail.gmail.com>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, scott.a.mcmillan-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	johann.baudy-1YmjpbiIw0bR7s880joybQ@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
+	Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+FuTScjf2nkPykOkscuWXMuUSfAhDtQGCBhByxcyJ_cSsOPcQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-It contains the public netlink interface bits required by userspace to
-make use of the interface.
+The packet socket manual page does not list all socket options.
 
-Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+This patch adds descriptions of the common packet socket options
+  PACKET_AUXDATA, PACKET_FANOUT, PACKET_RX_RING, PACKET_STATISTICS,
+  PACKET_TX_RING
+
+and the ring-specific options
+  PACKET_LOSS, PACKET_RESERVE, PACKET_TIMESTAMP, PACKET_VERSION
+
+It does not yet add descriptions for
+  PACKET_COPY_THRESH, PACKET_HDRLEN, PACKET_ORIGDEV,
+  PACKET_TX_HAS_OFF, PACKET_TX_TIMESTAMP, PACKET_VNET_HDR
+
+It tries to balance being informative with exposing kernel detail
+that is unlikely to be used by most readers or that may change
+frequently. For implementation details, the manpage points to the
+documentation in kernel Documentation/networking. Let me know if
+options should be added or removed.
+
+Source: PACKET_FANOUT, PACKET_RX_RING and PACKET_VERSION are in
+/tools/testing/net/psock_fanout.c in the latest Linux kernel source
+tree. PACKET_STATISTICS was in the first version of that test.
+PACKET_TX_RING I have used elsewhere. The other options are based
+on reading kernel code.
+
+If you are on the CC: list, then you are the author of one of
+the commits referred to in this manpage. If you can, please
+check whether my description of your change is correct. Thanks.
+
+Signed-off-by: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 ---
- include/linux/openvswitch.h      | 433 +------------------------------------
- include/uapi/linux/Kbuild        |   1 +
- include/uapi/linux/openvswitch.h | 456 +++++++++++++++++++++++++++++++++++++++
- 3 files changed, 458 insertions(+), 432 deletions(-)
- create mode 100644 include/uapi/linux/openvswitch.h
+ man7/packet.7 | 207 +++++++++++++++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 198 insertions(+), 9 deletions(-)
 
-diff --git a/include/linux/openvswitch.h b/include/linux/openvswitch.h
-index 8b9d721..e6b240b 100644
---- a/include/linux/openvswitch.h
-+++ b/include/linux/openvswitch.h
-@@ -19,437 +19,6 @@
- #ifndef _LINUX_OPENVSWITCH_H
- #define _LINUX_OPENVSWITCH_H 1
+diff --git a/man7/packet.7 b/man7/packet.7
+index 006f2ac..a84ebee 100644
+--- a/man7/packet.7
++++ b/man7/packet.7
+@@ -177,17 +177,22 @@ and
+ .I sll_ifindex
+ are used.
+ .SS Socket options
++Packet socket options are configured by calling
++.BR setsockopt (2)
++with level
++.BR SOL_PACKET .
++.TP
++.BR PACKET_ADD_MEMBERSHIP
++.PD 0
++.TP
++.BR PACKET_DROP_MEMBERSHIP
++.PD
+ Packet sockets can be used to configure physical layer multicasting
+ and promiscuous mode.
+-It works by calling
+-.BR setsockopt (2)
+-on a packet socket for
+-.B SOL_PACKET
+-and one of the options
+ .B PACKET_ADD_MEMBERSHIP
+-to add a binding or
++adds a binding and
+ .B PACKET_DROP_MEMBERSHIP
+-to drop it.
++drops it.
+ They both expect a
+ .B packet_mreq
+ structure as argument:
+@@ -227,11 +232,195 @@ In addition the traditional ioctls
+ .BR SIOCADDMULTI ,
+ .B SIOCDELMULTI
+ can be used for the same purpose.
++.TP
++.BR PACKET_AUXDATA " (since Linux 2.6.21)"
++.\" commit 8dc4194474159660d7f37c495e3fc3f10d0db8cc
++If this binary option is enabled, the packet socket passes a metadata
++structure along with each packet in the
++.BR recvmsg (2)
++control field.
++The structure can be read with
++.BR cmsg (3).
++It is defined as
++
++.in +4n
++.nf
++struct tpacket_auxdata {
++    __u32 tp_status;
++    __u32 tp_len;      /* packet length */
++    __u32 tp_snaplen;  /* captured length */
++    __u16 tp_mac;
++    __u16 tp_net;
++    __u16 tp_vlan_tci;
++    __u16 tp_padding;
++};
++.fi
++.in
++
++.I tp_net
++stores the offset to the network layer.
++If the packet socket is of type
++.BR SOCK_DGRAM ,
++then
++.I tp_mac
++is the same.
++If it is of type
++.BR SOCK_RAW ,
++then that field stores the offset to the link layer frame.
++.TP
++.BR PACKET_FANOUT " (since Linux 3.1)"
++.\" commit dc99f600698dcac69b8f56dda9a8a00d645c5ffc
++To scale processing across threads, packet sockets can form a fanout
++group.
++In this mode, each matching packet is enqueued onto only one
++socket in the group.
++A socket joins a fanout group by calling
++.BR setsockopt (2)
++with level
++.B SOL_PACKET
++and option
++.BR PACKET_FANOUT .
++Each network namespace can have up to 65536 independent groups.
++A socket selects a group by encoding the ID in the first 16 bits of
++the integer option value.
++The first packet socket to join a group implicitly creates it.
++To successfully join an existing group, subsequent packet sockets
++must have the same protocol, device settings and fanout mode and
++flags (see below).
++Packet sockets can leave a fanout group only by closing the socket.
++The group is deleted when the last socket is closed.
++
++Fanout supports multiple algorithms to spread traffic between sockets.
++The default mode,
++.BR PACKET_FANOUT_HASH ,
++sends packets from the same flow to the same socket to maintain
++per-flow ordering.
++For each packet, it chooses a socket by taking the packet flow hash
++modulo the number of sockets in the group, where a flow hash is a hash
++over network layer address and optional transport layer port fields.
++The load balance mode
++.BR PACKET_FANOUT_LB
++implements a round-robin algorithm.
++.BR PACKET_FANOUT_CPU
++selects the socket based on the CPU that the packet arrived on.
++
++Fanout modes can take additional options.
++IP fragmentation causes packets from the same flow to have different
++flow hashes.
++The flag
++.BR PACKET_FANOUT_FLAG_DEFRAG ,
++if set, causes packet to be defragmented before fanout is applied, to
++preserve order even in this case.
++Fanout mode and options are communicated in the second 16 bits of the
++integer option value.
++.TP
++.BR PACKET_LOSS " (with PACKET_TX_RING)"
++If set, do not silently drop a packet on transmission error, but
++return it with status set to
++.BR TP_STATUS_WRONG_FORMAT .
++.TP
++.BR PACKET_RESERVE " (with PACKET_RX_RING)"
++By default, a packet receive ring writes packets immediately following the
++metadata structure and alignment padding.
++This integer option reserves additional headroom.
++.TP
++.BR PACKET_RX_RING
++Create a memory mapped ring buffer for asynchronous packet reception.
++The packet socket reserves a contiguous region of application address
++space, lays it out into an array of packet slots and copies packets
++(up to
++.IR tp_snaplen)
++into subsequent slots.
++Each packet is preceded by a metadata structure similar to
++.IR tpacket_auxdata .
++Packet socket and application communicate the head and tail of the ring
++through the
++.I tp_status
++field.
++The packet socket owns all slots with status
++.BR TP_STATUS_KERNEL .
++After filling a slot, it changes the status of the slot to transfer
++ownership to the application.
++During normal operation, the new status is
++.BR TP_STATUS_USER ,
++to signal that a correctly received packet has been stored.
++When the application has finished processing a packet, it transfers
++ownership of the slot back to the socket by setting the status to
++.BR TP_STATUS_KERNEL .
++Packet sockets implement multiple variants of the packet ring.
++The implementation details are described in
++.IR Documentation/networking/packet_mmap.txt
++in the Linux kernel source tree.
++.TP
++.BR PACKET_STATISTICS
++Retrieve packet socket statistics in the form of a structure
++
++.in +4n
++.nf
++struct tpacket_stats {
++    __u32 tp_packets;  /* total packet count */
++    __u32 tp_drops;    /* dropped packet count */
++};
++.fi
++.in
++
++Receiving statistics resets the internal counters.
++The statistics structure differs when using a ring of variant
++.BR TPACKET_V3 .
++.TP
++.BR PACKET_TIMESTAMP " (with PACKET_RX_RING)"
++.\" commit 614f60fa9d73a9e8fdff3df83381907fea7c5649
++The packet receive ring always stores a timestamp in the metadata header.
++By default, this is a software generated timestamp generated when the
++packet is copied into the ring.
++This integer option selects the type of timestamp.
++Besides the default, it support the two hardware formats described in
++.IR Documentation/networking/timestamping.txt
++in the Linux kernel source tree.
++.TP
++.BR PACKET_TX_RING " (since Linux 2.6.31)"
++.\" commit 69e3c75f4d541a6eb151b3ef91f34033cb3ad6e1
++Create a memory mapped ring buffer for packet transmission.
++This option is similar to
++.BR PACKET_RX_RING
++and takes the same arguments.
++The application writes packets into slots with status
++.BR TP_STATUS_AVAILABLE
++and schedules them for transmission by changing the status to
++.BR TP_STATUS_SEND_REQUEST .
++When packets are ready to be transmitted, the application calls
++.BR send (2)
++or a variant thereof.
++The
++.I buf
++and
++.I len
++fields of this call are ignored.
++If an address is passed using
++.BR sendto (2)
++or
++.BR sendmsg (2) ,
++then that overrides the socket default.
++On successful transmission, the socket resets the slot to
++.BR TP_STATUS_AVAILABLE .
++It discards packets silently on error unless
++.BR PACKET_LOSS
++is set.
++.TP
++.BR PACKET_VERSION " (with PACKET_RX_RING)"
++.\" commit bbd6ef87c544d88c30e4b762b1b61ef267a7d279
++By default,
++.BR PACKET_RX_RING
++creates a packet receive ring of variant
++.BR TPACKET_V1 .
++To create another variant, configure the desired variant by setting this
++integer option before creating the ring.
++
+ .SS Ioctls
+ .B SIOCGSTAMP
+ can be used to receive the timestamp of the last received packet.
+ Argument is a
+-.I struct timeval.
++.I struct timeval .
+ .\" FIXME Document SIOCGSTAMPNS
  
--#include <linux/types.h>
--#include <linux/if_ether.h>
--
--/**
-- * struct ovs_header - header for OVS Generic Netlink messages.
-- * @dp_ifindex: ifindex of local port for datapath (0 to make a request not
-- * specific to a datapath).
-- *
-- * Attributes following the header are specific to a particular OVS Generic
-- * Netlink family, but all of the OVS families use this header.
-- */
--
--struct ovs_header {
--	int dp_ifindex;
--};
--
--/* Datapaths. */
--
--#define OVS_DATAPATH_FAMILY  "ovs_datapath"
--#define OVS_DATAPATH_MCGROUP "ovs_datapath"
--#define OVS_DATAPATH_VERSION 0x1
--
--enum ovs_datapath_cmd {
--	OVS_DP_CMD_UNSPEC,
--	OVS_DP_CMD_NEW,
--	OVS_DP_CMD_DEL,
--	OVS_DP_CMD_GET,
--	OVS_DP_CMD_SET
--};
--
--/**
-- * enum ovs_datapath_attr - attributes for %OVS_DP_* commands.
-- * @OVS_DP_ATTR_NAME: Name of the network device that serves as the "local
-- * port".  This is the name of the network device whose dp_ifindex is given in
-- * the &struct ovs_header.  Always present in notifications.  Required in
-- * %OVS_DP_NEW requests.  May be used as an alternative to specifying
-- * dp_ifindex in other requests (with a dp_ifindex of 0).
-- * @OVS_DP_ATTR_UPCALL_PID: The Netlink socket in userspace that is initially
-- * set on the datapath port (for OVS_ACTION_ATTR_MISS).  Only valid on
-- * %OVS_DP_CMD_NEW requests. A value of zero indicates that upcalls should
-- * not be sent.
-- * @OVS_DP_ATTR_STATS: Statistics about packets that have passed through the
-- * datapath.  Always present in notifications.
-- *
-- * These attributes follow the &struct ovs_header within the Generic Netlink
-- * payload for %OVS_DP_* commands.
-- */
--enum ovs_datapath_attr {
--	OVS_DP_ATTR_UNSPEC,
--	OVS_DP_ATTR_NAME,       /* name of dp_ifindex netdev */
--	OVS_DP_ATTR_UPCALL_PID, /* Netlink PID to receive upcalls */
--	OVS_DP_ATTR_STATS,      /* struct ovs_dp_stats */
--	__OVS_DP_ATTR_MAX
--};
--
--#define OVS_DP_ATTR_MAX (__OVS_DP_ATTR_MAX - 1)
--
--struct ovs_dp_stats {
--	__u64 n_hit;             /* Number of flow table matches. */
--	__u64 n_missed;          /* Number of flow table misses. */
--	__u64 n_lost;            /* Number of misses not sent to userspace. */
--	__u64 n_flows;           /* Number of flows present */
--};
--
--struct ovs_vport_stats {
--	__u64   rx_packets;		/* total packets received       */
--	__u64   tx_packets;		/* total packets transmitted    */
--	__u64   rx_bytes;		/* total bytes received         */
--	__u64   tx_bytes;		/* total bytes transmitted      */
--	__u64   rx_errors;		/* bad packets received         */
--	__u64   tx_errors;		/* packet transmit problems     */
--	__u64   rx_dropped;		/* no space in linux buffers    */
--	__u64   tx_dropped;		/* no space available in linux  */
--};
--
--/* Fixed logical ports. */
--#define OVSP_LOCAL      ((__u32)0)
--
--/* Packet transfer. */
--
--#define OVS_PACKET_FAMILY "ovs_packet"
--#define OVS_PACKET_VERSION 0x1
--
--enum ovs_packet_cmd {
--	OVS_PACKET_CMD_UNSPEC,
--
--	/* Kernel-to-user notifications. */
--	OVS_PACKET_CMD_MISS,    /* Flow table miss. */
--	OVS_PACKET_CMD_ACTION,  /* OVS_ACTION_ATTR_USERSPACE action. */
--
--	/* Userspace commands. */
--	OVS_PACKET_CMD_EXECUTE  /* Apply actions to a packet. */
--};
--
--/**
-- * enum ovs_packet_attr - attributes for %OVS_PACKET_* commands.
-- * @OVS_PACKET_ATTR_PACKET: Present for all notifications.  Contains the entire
-- * packet as received, from the start of the Ethernet header onward.  For
-- * %OVS_PACKET_CMD_ACTION, %OVS_PACKET_ATTR_PACKET reflects changes made by
-- * actions preceding %OVS_ACTION_ATTR_USERSPACE, but %OVS_PACKET_ATTR_KEY is
-- * the flow key extracted from the packet as originally received.
-- * @OVS_PACKET_ATTR_KEY: Present for all notifications.  Contains the flow key
-- * extracted from the packet as nested %OVS_KEY_ATTR_* attributes.  This allows
-- * userspace to adapt its flow setup strategy by comparing its notion of the
-- * flow key against the kernel's.
-- * @OVS_PACKET_ATTR_ACTIONS: Contains actions for the packet.  Used
-- * for %OVS_PACKET_CMD_EXECUTE.  It has nested %OVS_ACTION_ATTR_* attributes.
-- * @OVS_PACKET_ATTR_USERDATA: Present for an %OVS_PACKET_CMD_ACTION
-- * notification if the %OVS_ACTION_ATTR_USERSPACE action specified an
-- * %OVS_USERSPACE_ATTR_USERDATA attribute, with the same length and content
-- * specified there.
-- *
-- * These attributes follow the &struct ovs_header within the Generic Netlink
-- * payload for %OVS_PACKET_* commands.
-- */
--enum ovs_packet_attr {
--	OVS_PACKET_ATTR_UNSPEC,
--	OVS_PACKET_ATTR_PACKET,      /* Packet data. */
--	OVS_PACKET_ATTR_KEY,         /* Nested OVS_KEY_ATTR_* attributes. */
--	OVS_PACKET_ATTR_ACTIONS,     /* Nested OVS_ACTION_ATTR_* attributes. */
--	OVS_PACKET_ATTR_USERDATA,    /* OVS_ACTION_ATTR_USERSPACE arg. */
--	__OVS_PACKET_ATTR_MAX
--};
--
--#define OVS_PACKET_ATTR_MAX (__OVS_PACKET_ATTR_MAX - 1)
--
--/* Virtual ports. */
--
--#define OVS_VPORT_FAMILY  "ovs_vport"
--#define OVS_VPORT_MCGROUP "ovs_vport"
--#define OVS_VPORT_VERSION 0x1
--
--enum ovs_vport_cmd {
--	OVS_VPORT_CMD_UNSPEC,
--	OVS_VPORT_CMD_NEW,
--	OVS_VPORT_CMD_DEL,
--	OVS_VPORT_CMD_GET,
--	OVS_VPORT_CMD_SET
--};
--
--enum ovs_vport_type {
--	OVS_VPORT_TYPE_UNSPEC,
--	OVS_VPORT_TYPE_NETDEV,   /* network device */
--	OVS_VPORT_TYPE_INTERNAL, /* network device implemented by datapath */
--	__OVS_VPORT_TYPE_MAX
--};
--
--#define OVS_VPORT_TYPE_MAX (__OVS_VPORT_TYPE_MAX - 1)
--
--/**
-- * enum ovs_vport_attr - attributes for %OVS_VPORT_* commands.
-- * @OVS_VPORT_ATTR_PORT_NO: 32-bit port number within datapath.
-- * @OVS_VPORT_ATTR_TYPE: 32-bit %OVS_VPORT_TYPE_* constant describing the type
-- * of vport.
-- * @OVS_VPORT_ATTR_NAME: Name of vport.  For a vport based on a network device
-- * this is the name of the network device.  Maximum length %IFNAMSIZ-1 bytes
-- * plus a null terminator.
-- * @OVS_VPORT_ATTR_OPTIONS: Vport-specific configuration information.
-- * @OVS_VPORT_ATTR_UPCALL_PID: The Netlink socket in userspace that
-- * OVS_PACKET_CMD_MISS upcalls will be directed to for packets received on
-- * this port.  A value of zero indicates that upcalls should not be sent.
-- * @OVS_VPORT_ATTR_STATS: A &struct ovs_vport_stats giving statistics for
-- * packets sent or received through the vport.
-- *
-- * These attributes follow the &struct ovs_header within the Generic Netlink
-- * payload for %OVS_VPORT_* commands.
-- *
-- * For %OVS_VPORT_CMD_NEW requests, the %OVS_VPORT_ATTR_TYPE and
-- * %OVS_VPORT_ATTR_NAME attributes are required.  %OVS_VPORT_ATTR_PORT_NO is
-- * optional; if not specified a free port number is automatically selected.
-- * Whether %OVS_VPORT_ATTR_OPTIONS is required or optional depends on the type
-- * of vport.
-- * and other attributes are ignored.
-- *
-- * For other requests, if %OVS_VPORT_ATTR_NAME is specified then it is used to
-- * look up the vport to operate on; otherwise dp_idx from the &struct
-- * ovs_header plus %OVS_VPORT_ATTR_PORT_NO determine the vport.
-- */
--enum ovs_vport_attr {
--	OVS_VPORT_ATTR_UNSPEC,
--	OVS_VPORT_ATTR_PORT_NO,	/* u32 port number within datapath */
--	OVS_VPORT_ATTR_TYPE,	/* u32 OVS_VPORT_TYPE_* constant. */
--	OVS_VPORT_ATTR_NAME,	/* string name, up to IFNAMSIZ bytes long */
--	OVS_VPORT_ATTR_OPTIONS, /* nested attributes, varies by vport type */
--	OVS_VPORT_ATTR_UPCALL_PID, /* u32 Netlink PID to receive upcalls */
--	OVS_VPORT_ATTR_STATS,	/* struct ovs_vport_stats */
--	__OVS_VPORT_ATTR_MAX
--};
--
--#define OVS_VPORT_ATTR_MAX (__OVS_VPORT_ATTR_MAX - 1)
--
--/* Flows. */
--
--#define OVS_FLOW_FAMILY  "ovs_flow"
--#define OVS_FLOW_MCGROUP "ovs_flow"
--#define OVS_FLOW_VERSION 0x1
--
--enum ovs_flow_cmd {
--	OVS_FLOW_CMD_UNSPEC,
--	OVS_FLOW_CMD_NEW,
--	OVS_FLOW_CMD_DEL,
--	OVS_FLOW_CMD_GET,
--	OVS_FLOW_CMD_SET
--};
--
--struct ovs_flow_stats {
--	__u64 n_packets;         /* Number of matched packets. */
--	__u64 n_bytes;           /* Number of matched bytes. */
--};
--
--enum ovs_key_attr {
--	OVS_KEY_ATTR_UNSPEC,
--	OVS_KEY_ATTR_ENCAP,	/* Nested set of encapsulated attributes. */
--	OVS_KEY_ATTR_PRIORITY,  /* u32 skb->priority */
--	OVS_KEY_ATTR_IN_PORT,   /* u32 OVS dp port number */
--	OVS_KEY_ATTR_ETHERNET,  /* struct ovs_key_ethernet */
--	OVS_KEY_ATTR_VLAN,	/* be16 VLAN TCI */
--	OVS_KEY_ATTR_ETHERTYPE,	/* be16 Ethernet type */
--	OVS_KEY_ATTR_IPV4,      /* struct ovs_key_ipv4 */
--	OVS_KEY_ATTR_IPV6,      /* struct ovs_key_ipv6 */
--	OVS_KEY_ATTR_TCP,       /* struct ovs_key_tcp */
--	OVS_KEY_ATTR_UDP,       /* struct ovs_key_udp */
--	OVS_KEY_ATTR_ICMP,      /* struct ovs_key_icmp */
--	OVS_KEY_ATTR_ICMPV6,    /* struct ovs_key_icmpv6 */
--	OVS_KEY_ATTR_ARP,       /* struct ovs_key_arp */
--	OVS_KEY_ATTR_ND,        /* struct ovs_key_nd */
--	OVS_KEY_ATTR_SKB_MARK,  /* u32 skb mark */
--	__OVS_KEY_ATTR_MAX
--};
--
--#define OVS_KEY_ATTR_MAX (__OVS_KEY_ATTR_MAX - 1)
--
--/**
-- * enum ovs_frag_type - IPv4 and IPv6 fragment type
-- * @OVS_FRAG_TYPE_NONE: Packet is not a fragment.
-- * @OVS_FRAG_TYPE_FIRST: Packet is a fragment with offset 0.
-- * @OVS_FRAG_TYPE_LATER: Packet is a fragment with nonzero offset.
-- *
-- * Used as the @ipv4_frag in &struct ovs_key_ipv4 and as @ipv6_frag &struct
-- * ovs_key_ipv6.
-- */
--enum ovs_frag_type {
--	OVS_FRAG_TYPE_NONE,
--	OVS_FRAG_TYPE_FIRST,
--	OVS_FRAG_TYPE_LATER,
--	__OVS_FRAG_TYPE_MAX
--};
--
--#define OVS_FRAG_TYPE_MAX (__OVS_FRAG_TYPE_MAX - 1)
--
--struct ovs_key_ethernet {
--	__u8	 eth_src[ETH_ALEN];
--	__u8	 eth_dst[ETH_ALEN];
--};
--
--struct ovs_key_ipv4 {
--	__be32 ipv4_src;
--	__be32 ipv4_dst;
--	__u8   ipv4_proto;
--	__u8   ipv4_tos;
--	__u8   ipv4_ttl;
--	__u8   ipv4_frag;	/* One of OVS_FRAG_TYPE_*. */
--};
--
--struct ovs_key_ipv6 {
--	__be32 ipv6_src[4];
--	__be32 ipv6_dst[4];
--	__be32 ipv6_label;	/* 20-bits in least-significant bits. */
--	__u8   ipv6_proto;
--	__u8   ipv6_tclass;
--	__u8   ipv6_hlimit;
--	__u8   ipv6_frag;	/* One of OVS_FRAG_TYPE_*. */
--};
--
--struct ovs_key_tcp {
--	__be16 tcp_src;
--	__be16 tcp_dst;
--};
--
--struct ovs_key_udp {
--	__be16 udp_src;
--	__be16 udp_dst;
--};
--
--struct ovs_key_icmp {
--	__u8 icmp_type;
--	__u8 icmp_code;
--};
--
--struct ovs_key_icmpv6 {
--	__u8 icmpv6_type;
--	__u8 icmpv6_code;
--};
--
--struct ovs_key_arp {
--	__be32 arp_sip;
--	__be32 arp_tip;
--	__be16 arp_op;
--	__u8   arp_sha[ETH_ALEN];
--	__u8   arp_tha[ETH_ALEN];
--};
--
--struct ovs_key_nd {
--	__u32 nd_target[4];
--	__u8  nd_sll[ETH_ALEN];
--	__u8  nd_tll[ETH_ALEN];
--};
--
--/**
-- * enum ovs_flow_attr - attributes for %OVS_FLOW_* commands.
-- * @OVS_FLOW_ATTR_KEY: Nested %OVS_KEY_ATTR_* attributes specifying the flow
-- * key.  Always present in notifications.  Required for all requests (except
-- * dumps).
-- * @OVS_FLOW_ATTR_ACTIONS: Nested %OVS_ACTION_ATTR_* attributes specifying
-- * the actions to take for packets that match the key.  Always present in
-- * notifications.  Required for %OVS_FLOW_CMD_NEW requests, optional for
-- * %OVS_FLOW_CMD_SET requests.
-- * @OVS_FLOW_ATTR_STATS: &struct ovs_flow_stats giving statistics for this
-- * flow.  Present in notifications if the stats would be nonzero.  Ignored in
-- * requests.
-- * @OVS_FLOW_ATTR_TCP_FLAGS: An 8-bit value giving the OR'd value of all of the
-- * TCP flags seen on packets in this flow.  Only present in notifications for
-- * TCP flows, and only if it would be nonzero.  Ignored in requests.
-- * @OVS_FLOW_ATTR_USED: A 64-bit integer giving the time, in milliseconds on
-- * the system monotonic clock, at which a packet was last processed for this
-- * flow.  Only present in notifications if a packet has been processed for this
-- * flow.  Ignored in requests.
-- * @OVS_FLOW_ATTR_CLEAR: If present in a %OVS_FLOW_CMD_SET request, clears the
-- * last-used time, accumulated TCP flags, and statistics for this flow.
-- * Otherwise ignored in requests.  Never present in notifications.
-- *
-- * These attributes follow the &struct ovs_header within the Generic Netlink
-- * payload for %OVS_FLOW_* commands.
-- */
--enum ovs_flow_attr {
--	OVS_FLOW_ATTR_UNSPEC,
--	OVS_FLOW_ATTR_KEY,       /* Sequence of OVS_KEY_ATTR_* attributes. */
--	OVS_FLOW_ATTR_ACTIONS,   /* Nested OVS_ACTION_ATTR_* attributes. */
--	OVS_FLOW_ATTR_STATS,     /* struct ovs_flow_stats. */
--	OVS_FLOW_ATTR_TCP_FLAGS, /* 8-bit OR'd TCP flags. */
--	OVS_FLOW_ATTR_USED,      /* u64 msecs last used in monotonic time. */
--	OVS_FLOW_ATTR_CLEAR,     /* Flag to clear stats, tcp_flags, used. */
--	__OVS_FLOW_ATTR_MAX
--};
--
--#define OVS_FLOW_ATTR_MAX (__OVS_FLOW_ATTR_MAX - 1)
--
--/**
-- * enum ovs_sample_attr - Attributes for %OVS_ACTION_ATTR_SAMPLE action.
-- * @OVS_SAMPLE_ATTR_PROBABILITY: 32-bit fraction of packets to sample with
-- * @OVS_ACTION_ATTR_SAMPLE.  A value of 0 samples no packets, a value of
-- * %UINT32_MAX samples all packets and intermediate values sample intermediate
-- * fractions of packets.
-- * @OVS_SAMPLE_ATTR_ACTIONS: Set of actions to execute in sampling event.
-- * Actions are passed as nested attributes.
-- *
-- * Executes the specified actions with the given probability on a per-packet
-- * basis.
-- */
--enum ovs_sample_attr {
--	OVS_SAMPLE_ATTR_UNSPEC,
--	OVS_SAMPLE_ATTR_PROBABILITY, /* u32 number */
--	OVS_SAMPLE_ATTR_ACTIONS,     /* Nested OVS_ACTION_ATTR_* attributes. */
--	__OVS_SAMPLE_ATTR_MAX,
--};
--
--#define OVS_SAMPLE_ATTR_MAX (__OVS_SAMPLE_ATTR_MAX - 1)
--
--/**
-- * enum ovs_userspace_attr - Attributes for %OVS_ACTION_ATTR_USERSPACE action.
-- * @OVS_USERSPACE_ATTR_PID: u32 Netlink PID to which the %OVS_PACKET_CMD_ACTION
-- * message should be sent.  Required.
-- * @OVS_USERSPACE_ATTR_USERDATA: If present, its variable-length argument is
-- * copied to the %OVS_PACKET_CMD_ACTION message as %OVS_PACKET_ATTR_USERDATA.
-- */
--enum ovs_userspace_attr {
--	OVS_USERSPACE_ATTR_UNSPEC,
--	OVS_USERSPACE_ATTR_PID,	      /* u32 Netlink PID to receive upcalls. */
--	OVS_USERSPACE_ATTR_USERDATA,  /* Optional user-specified cookie. */
--	__OVS_USERSPACE_ATTR_MAX
--};
--
--#define OVS_USERSPACE_ATTR_MAX (__OVS_USERSPACE_ATTR_MAX - 1)
--
--/**
-- * struct ovs_action_push_vlan - %OVS_ACTION_ATTR_PUSH_VLAN action argument.
-- * @vlan_tpid: Tag protocol identifier (TPID) to push.
-- * @vlan_tci: Tag control identifier (TCI) to push.  The CFI bit must be set
-- * (but it will not be set in the 802.1Q header that is pushed).
-- *
-- * The @vlan_tpid value is typically %ETH_P_8021Q.  The only acceptable TPID
-- * values are those that the kernel module also parses as 802.1Q headers, to
-- * prevent %OVS_ACTION_ATTR_PUSH_VLAN followed by %OVS_ACTION_ATTR_POP_VLAN
-- * from having surprising results.
-- */
--struct ovs_action_push_vlan {
--	__be16 vlan_tpid;	/* 802.1Q TPID. */
--	__be16 vlan_tci;	/* 802.1Q TCI (VLAN ID and priority). */
--};
--
--/**
-- * enum ovs_action_attr - Action types.
-- *
-- * @OVS_ACTION_ATTR_OUTPUT: Output packet to port.
-- * @OVS_ACTION_ATTR_USERSPACE: Send packet to userspace according to nested
-- * %OVS_USERSPACE_ATTR_* attributes.
-- * @OVS_ACTION_ATTR_SET: Replaces the contents of an existing header.  The
-- * single nested %OVS_KEY_ATTR_* attribute specifies a header to modify and its
-- * value.
-- * @OVS_ACTION_ATTR_PUSH_VLAN: Push a new outermost 802.1Q header onto the
-- * packet.
-- * @OVS_ACTION_ATTR_POP_VLAN: Pop the outermost 802.1Q header off the packet.
-- * @OVS_ACTION_ATTR_SAMPLE: Probabilitically executes actions, as specified in
-- * the nested %OVS_SAMPLE_ATTR_* attributes.
-- *
-- * Only a single header can be set with a single %OVS_ACTION_ATTR_SET.  Not all
-- * fields within a header are modifiable, e.g. the IPv4 protocol and fragment
-- * type may not be changed.
-- */
--
--enum ovs_action_attr {
--	OVS_ACTION_ATTR_UNSPEC,
--	OVS_ACTION_ATTR_OUTPUT,	      /* u32 port number. */
--	OVS_ACTION_ATTR_USERSPACE,    /* Nested OVS_USERSPACE_ATTR_*. */
--	OVS_ACTION_ATTR_SET,          /* One nested OVS_KEY_ATTR_*. */
--	OVS_ACTION_ATTR_PUSH_VLAN,    /* struct ovs_action_push_vlan. */
--	OVS_ACTION_ATTR_POP_VLAN,     /* No argument. */
--	OVS_ACTION_ATTR_SAMPLE,       /* Nested OVS_SAMPLE_ATTR_*. */
--	__OVS_ACTION_ATTR_MAX
--};
--
--#define OVS_ACTION_ATTR_MAX (__OVS_ACTION_ATTR_MAX - 1)
-+#include <uapi/linux/openvswitch.h>
- 
- #endif /* _LINUX_OPENVSWITCH_H */
-diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
-index 5c8a1d2..d8fbc6a 100644
---- a/include/uapi/linux/Kbuild
-+++ b/include/uapi/linux/Kbuild
-@@ -285,6 +285,7 @@ header-y += nvram.h
- header-y += omap3isp.h
- header-y += omapfb.h
- header-y += oom.h
-+header-y += openvswitch.h
- header-y += packet_diag.h
- header-y += param.h
- header-y += parport.h
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-new file mode 100644
-index 0000000..405918d
---- /dev/null
-+++ b/include/uapi/linux/openvswitch.h
-@@ -0,0 +1,456 @@
-+
-+/*
-+ * Copyright (c) 2007-2011 Nicira Networks.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA
-+ */
-+
-+#ifndef _UAPI__LINUX_OPENVSWITCH_H
-+#define _UAPI__LINUX_OPENVSWITCH_H 1
-+
-+#include <linux/types.h>
-+#include <linux/if_ether.h>
-+
-+/**
-+ * struct ovs_header - header for OVS Generic Netlink messages.
-+ * @dp_ifindex: ifindex of local port for datapath (0 to make a request not
-+ * specific to a datapath).
-+ *
-+ * Attributes following the header are specific to a particular OVS Generic
-+ * Netlink family, but all of the OVS families use this header.
-+ */
-+
-+struct ovs_header {
-+	int dp_ifindex;
-+};
-+
-+/* Datapaths. */
-+
-+#define OVS_DATAPATH_FAMILY  "ovs_datapath"
-+#define OVS_DATAPATH_MCGROUP "ovs_datapath"
-+#define OVS_DATAPATH_VERSION 0x1
-+
-+enum ovs_datapath_cmd {
-+	OVS_DP_CMD_UNSPEC,
-+	OVS_DP_CMD_NEW,
-+	OVS_DP_CMD_DEL,
-+	OVS_DP_CMD_GET,
-+	OVS_DP_CMD_SET
-+};
-+
-+/**
-+ * enum ovs_datapath_attr - attributes for %OVS_DP_* commands.
-+ * @OVS_DP_ATTR_NAME: Name of the network device that serves as the "local
-+ * port".  This is the name of the network device whose dp_ifindex is given in
-+ * the &struct ovs_header.  Always present in notifications.  Required in
-+ * %OVS_DP_NEW requests.  May be used as an alternative to specifying
-+ * dp_ifindex in other requests (with a dp_ifindex of 0).
-+ * @OVS_DP_ATTR_UPCALL_PID: The Netlink socket in userspace that is initially
-+ * set on the datapath port (for OVS_ACTION_ATTR_MISS).  Only valid on
-+ * %OVS_DP_CMD_NEW requests. A value of zero indicates that upcalls should
-+ * not be sent.
-+ * @OVS_DP_ATTR_STATS: Statistics about packets that have passed through the
-+ * datapath.  Always present in notifications.
-+ *
-+ * These attributes follow the &struct ovs_header within the Generic Netlink
-+ * payload for %OVS_DP_* commands.
-+ */
-+enum ovs_datapath_attr {
-+	OVS_DP_ATTR_UNSPEC,
-+	OVS_DP_ATTR_NAME,       /* name of dp_ifindex netdev */
-+	OVS_DP_ATTR_UPCALL_PID, /* Netlink PID to receive upcalls */
-+	OVS_DP_ATTR_STATS,      /* struct ovs_dp_stats */
-+	__OVS_DP_ATTR_MAX
-+};
-+
-+#define OVS_DP_ATTR_MAX (__OVS_DP_ATTR_MAX - 1)
-+
-+struct ovs_dp_stats {
-+	__u64 n_hit;             /* Number of flow table matches. */
-+	__u64 n_missed;          /* Number of flow table misses. */
-+	__u64 n_lost;            /* Number of misses not sent to userspace. */
-+	__u64 n_flows;           /* Number of flows present */
-+};
-+
-+struct ovs_vport_stats {
-+	__u64   rx_packets;		/* total packets received       */
-+	__u64   tx_packets;		/* total packets transmitted    */
-+	__u64   rx_bytes;		/* total bytes received         */
-+	__u64   tx_bytes;		/* total bytes transmitted      */
-+	__u64   rx_errors;		/* bad packets received         */
-+	__u64   tx_errors;		/* packet transmit problems     */
-+	__u64   rx_dropped;		/* no space in linux buffers    */
-+	__u64   tx_dropped;		/* no space available in linux  */
-+};
-+
-+/* Fixed logical ports. */
-+#define OVSP_LOCAL      ((__u32)0)
-+
-+/* Packet transfer. */
-+
-+#define OVS_PACKET_FAMILY "ovs_packet"
-+#define OVS_PACKET_VERSION 0x1
-+
-+enum ovs_packet_cmd {
-+	OVS_PACKET_CMD_UNSPEC,
-+
-+	/* Kernel-to-user notifications. */
-+	OVS_PACKET_CMD_MISS,    /* Flow table miss. */
-+	OVS_PACKET_CMD_ACTION,  /* OVS_ACTION_ATTR_USERSPACE action. */
-+
-+	/* Userspace commands. */
-+	OVS_PACKET_CMD_EXECUTE  /* Apply actions to a packet. */
-+};
-+
-+/**
-+ * enum ovs_packet_attr - attributes for %OVS_PACKET_* commands.
-+ * @OVS_PACKET_ATTR_PACKET: Present for all notifications.  Contains the entire
-+ * packet as received, from the start of the Ethernet header onward.  For
-+ * %OVS_PACKET_CMD_ACTION, %OVS_PACKET_ATTR_PACKET reflects changes made by
-+ * actions preceding %OVS_ACTION_ATTR_USERSPACE, but %OVS_PACKET_ATTR_KEY is
-+ * the flow key extracted from the packet as originally received.
-+ * @OVS_PACKET_ATTR_KEY: Present for all notifications.  Contains the flow key
-+ * extracted from the packet as nested %OVS_KEY_ATTR_* attributes.  This allows
-+ * userspace to adapt its flow setup strategy by comparing its notion of the
-+ * flow key against the kernel's.
-+ * @OVS_PACKET_ATTR_ACTIONS: Contains actions for the packet.  Used
-+ * for %OVS_PACKET_CMD_EXECUTE.  It has nested %OVS_ACTION_ATTR_* attributes.
-+ * @OVS_PACKET_ATTR_USERDATA: Present for an %OVS_PACKET_CMD_ACTION
-+ * notification if the %OVS_ACTION_ATTR_USERSPACE action specified an
-+ * %OVS_USERSPACE_ATTR_USERDATA attribute, with the same length and content
-+ * specified there.
-+ *
-+ * These attributes follow the &struct ovs_header within the Generic Netlink
-+ * payload for %OVS_PACKET_* commands.
-+ */
-+enum ovs_packet_attr {
-+	OVS_PACKET_ATTR_UNSPEC,
-+	OVS_PACKET_ATTR_PACKET,      /* Packet data. */
-+	OVS_PACKET_ATTR_KEY,         /* Nested OVS_KEY_ATTR_* attributes. */
-+	OVS_PACKET_ATTR_ACTIONS,     /* Nested OVS_ACTION_ATTR_* attributes. */
-+	OVS_PACKET_ATTR_USERDATA,    /* OVS_ACTION_ATTR_USERSPACE arg. */
-+	__OVS_PACKET_ATTR_MAX
-+};
-+
-+#define OVS_PACKET_ATTR_MAX (__OVS_PACKET_ATTR_MAX - 1)
-+
-+/* Virtual ports. */
-+
-+#define OVS_VPORT_FAMILY  "ovs_vport"
-+#define OVS_VPORT_MCGROUP "ovs_vport"
-+#define OVS_VPORT_VERSION 0x1
-+
-+enum ovs_vport_cmd {
-+	OVS_VPORT_CMD_UNSPEC,
-+	OVS_VPORT_CMD_NEW,
-+	OVS_VPORT_CMD_DEL,
-+	OVS_VPORT_CMD_GET,
-+	OVS_VPORT_CMD_SET
-+};
-+
-+enum ovs_vport_type {
-+	OVS_VPORT_TYPE_UNSPEC,
-+	OVS_VPORT_TYPE_NETDEV,   /* network device */
-+	OVS_VPORT_TYPE_INTERNAL, /* network device implemented by datapath */
-+	__OVS_VPORT_TYPE_MAX
-+};
-+
-+#define OVS_VPORT_TYPE_MAX (__OVS_VPORT_TYPE_MAX - 1)
-+
-+/**
-+ * enum ovs_vport_attr - attributes for %OVS_VPORT_* commands.
-+ * @OVS_VPORT_ATTR_PORT_NO: 32-bit port number within datapath.
-+ * @OVS_VPORT_ATTR_TYPE: 32-bit %OVS_VPORT_TYPE_* constant describing the type
-+ * of vport.
-+ * @OVS_VPORT_ATTR_NAME: Name of vport.  For a vport based on a network device
-+ * this is the name of the network device.  Maximum length %IFNAMSIZ-1 bytes
-+ * plus a null terminator.
-+ * @OVS_VPORT_ATTR_OPTIONS: Vport-specific configuration information.
-+ * @OVS_VPORT_ATTR_UPCALL_PID: The Netlink socket in userspace that
-+ * OVS_PACKET_CMD_MISS upcalls will be directed to for packets received on
-+ * this port.  A value of zero indicates that upcalls should not be sent.
-+ * @OVS_VPORT_ATTR_STATS: A &struct ovs_vport_stats giving statistics for
-+ * packets sent or received through the vport.
-+ *
-+ * These attributes follow the &struct ovs_header within the Generic Netlink
-+ * payload for %OVS_VPORT_* commands.
-+ *
-+ * For %OVS_VPORT_CMD_NEW requests, the %OVS_VPORT_ATTR_TYPE and
-+ * %OVS_VPORT_ATTR_NAME attributes are required.  %OVS_VPORT_ATTR_PORT_NO is
-+ * optional; if not specified a free port number is automatically selected.
-+ * Whether %OVS_VPORT_ATTR_OPTIONS is required or optional depends on the type
-+ * of vport.
-+ * and other attributes are ignored.
-+ *
-+ * For other requests, if %OVS_VPORT_ATTR_NAME is specified then it is used to
-+ * look up the vport to operate on; otherwise dp_idx from the &struct
-+ * ovs_header plus %OVS_VPORT_ATTR_PORT_NO determine the vport.
-+ */
-+enum ovs_vport_attr {
-+	OVS_VPORT_ATTR_UNSPEC,
-+	OVS_VPORT_ATTR_PORT_NO,	/* u32 port number within datapath */
-+	OVS_VPORT_ATTR_TYPE,	/* u32 OVS_VPORT_TYPE_* constant. */
-+	OVS_VPORT_ATTR_NAME,	/* string name, up to IFNAMSIZ bytes long */
-+	OVS_VPORT_ATTR_OPTIONS, /* nested attributes, varies by vport type */
-+	OVS_VPORT_ATTR_UPCALL_PID, /* u32 Netlink PID to receive upcalls */
-+	OVS_VPORT_ATTR_STATS,	/* struct ovs_vport_stats */
-+	__OVS_VPORT_ATTR_MAX
-+};
-+
-+#define OVS_VPORT_ATTR_MAX (__OVS_VPORT_ATTR_MAX - 1)
-+
-+/* Flows. */
-+
-+#define OVS_FLOW_FAMILY  "ovs_flow"
-+#define OVS_FLOW_MCGROUP "ovs_flow"
-+#define OVS_FLOW_VERSION 0x1
-+
-+enum ovs_flow_cmd {
-+	OVS_FLOW_CMD_UNSPEC,
-+	OVS_FLOW_CMD_NEW,
-+	OVS_FLOW_CMD_DEL,
-+	OVS_FLOW_CMD_GET,
-+	OVS_FLOW_CMD_SET
-+};
-+
-+struct ovs_flow_stats {
-+	__u64 n_packets;         /* Number of matched packets. */
-+	__u64 n_bytes;           /* Number of matched bytes. */
-+};
-+
-+enum ovs_key_attr {
-+	OVS_KEY_ATTR_UNSPEC,
-+	OVS_KEY_ATTR_ENCAP,	/* Nested set of encapsulated attributes. */
-+	OVS_KEY_ATTR_PRIORITY,  /* u32 skb->priority */
-+	OVS_KEY_ATTR_IN_PORT,   /* u32 OVS dp port number */
-+	OVS_KEY_ATTR_ETHERNET,  /* struct ovs_key_ethernet */
-+	OVS_KEY_ATTR_VLAN,	/* be16 VLAN TCI */
-+	OVS_KEY_ATTR_ETHERTYPE,	/* be16 Ethernet type */
-+	OVS_KEY_ATTR_IPV4,      /* struct ovs_key_ipv4 */
-+	OVS_KEY_ATTR_IPV6,      /* struct ovs_key_ipv6 */
-+	OVS_KEY_ATTR_TCP,       /* struct ovs_key_tcp */
-+	OVS_KEY_ATTR_UDP,       /* struct ovs_key_udp */
-+	OVS_KEY_ATTR_ICMP,      /* struct ovs_key_icmp */
-+	OVS_KEY_ATTR_ICMPV6,    /* struct ovs_key_icmpv6 */
-+	OVS_KEY_ATTR_ARP,       /* struct ovs_key_arp */
-+	OVS_KEY_ATTR_ND,        /* struct ovs_key_nd */
-+	OVS_KEY_ATTR_SKB_MARK,  /* u32 skb mark */
-+	__OVS_KEY_ATTR_MAX
-+};
-+
-+#define OVS_KEY_ATTR_MAX (__OVS_KEY_ATTR_MAX - 1)
-+
-+/**
-+ * enum ovs_frag_type - IPv4 and IPv6 fragment type
-+ * @OVS_FRAG_TYPE_NONE: Packet is not a fragment.
-+ * @OVS_FRAG_TYPE_FIRST: Packet is a fragment with offset 0.
-+ * @OVS_FRAG_TYPE_LATER: Packet is a fragment with nonzero offset.
-+ *
-+ * Used as the @ipv4_frag in &struct ovs_key_ipv4 and as @ipv6_frag &struct
-+ * ovs_key_ipv6.
-+ */
-+enum ovs_frag_type {
-+	OVS_FRAG_TYPE_NONE,
-+	OVS_FRAG_TYPE_FIRST,
-+	OVS_FRAG_TYPE_LATER,
-+	__OVS_FRAG_TYPE_MAX
-+};
-+
-+#define OVS_FRAG_TYPE_MAX (__OVS_FRAG_TYPE_MAX - 1)
-+
-+struct ovs_key_ethernet {
-+	__u8	 eth_src[ETH_ALEN];
-+	__u8	 eth_dst[ETH_ALEN];
-+};
-+
-+struct ovs_key_ipv4 {
-+	__be32 ipv4_src;
-+	__be32 ipv4_dst;
-+	__u8   ipv4_proto;
-+	__u8   ipv4_tos;
-+	__u8   ipv4_ttl;
-+	__u8   ipv4_frag;	/* One of OVS_FRAG_TYPE_*. */
-+};
-+
-+struct ovs_key_ipv6 {
-+	__be32 ipv6_src[4];
-+	__be32 ipv6_dst[4];
-+	__be32 ipv6_label;	/* 20-bits in least-significant bits. */
-+	__u8   ipv6_proto;
-+	__u8   ipv6_tclass;
-+	__u8   ipv6_hlimit;
-+	__u8   ipv6_frag;	/* One of OVS_FRAG_TYPE_*. */
-+};
-+
-+struct ovs_key_tcp {
-+	__be16 tcp_src;
-+	__be16 tcp_dst;
-+};
-+
-+struct ovs_key_udp {
-+	__be16 udp_src;
-+	__be16 udp_dst;
-+};
-+
-+struct ovs_key_icmp {
-+	__u8 icmp_type;
-+	__u8 icmp_code;
-+};
-+
-+struct ovs_key_icmpv6 {
-+	__u8 icmpv6_type;
-+	__u8 icmpv6_code;
-+};
-+
-+struct ovs_key_arp {
-+	__be32 arp_sip;
-+	__be32 arp_tip;
-+	__be16 arp_op;
-+	__u8   arp_sha[ETH_ALEN];
-+	__u8   arp_tha[ETH_ALEN];
-+};
-+
-+struct ovs_key_nd {
-+	__u32 nd_target[4];
-+	__u8  nd_sll[ETH_ALEN];
-+	__u8  nd_tll[ETH_ALEN];
-+};
-+
-+/**
-+ * enum ovs_flow_attr - attributes for %OVS_FLOW_* commands.
-+ * @OVS_FLOW_ATTR_KEY: Nested %OVS_KEY_ATTR_* attributes specifying the flow
-+ * key.  Always present in notifications.  Required for all requests (except
-+ * dumps).
-+ * @OVS_FLOW_ATTR_ACTIONS: Nested %OVS_ACTION_ATTR_* attributes specifying
-+ * the actions to take for packets that match the key.  Always present in
-+ * notifications.  Required for %OVS_FLOW_CMD_NEW requests, optional for
-+ * %OVS_FLOW_CMD_SET requests.
-+ * @OVS_FLOW_ATTR_STATS: &struct ovs_flow_stats giving statistics for this
-+ * flow.  Present in notifications if the stats would be nonzero.  Ignored in
-+ * requests.
-+ * @OVS_FLOW_ATTR_TCP_FLAGS: An 8-bit value giving the OR'd value of all of the
-+ * TCP flags seen on packets in this flow.  Only present in notifications for
-+ * TCP flows, and only if it would be nonzero.  Ignored in requests.
-+ * @OVS_FLOW_ATTR_USED: A 64-bit integer giving the time, in milliseconds on
-+ * the system monotonic clock, at which a packet was last processed for this
-+ * flow.  Only present in notifications if a packet has been processed for this
-+ * flow.  Ignored in requests.
-+ * @OVS_FLOW_ATTR_CLEAR: If present in a %OVS_FLOW_CMD_SET request, clears the
-+ * last-used time, accumulated TCP flags, and statistics for this flow.
-+ * Otherwise ignored in requests.  Never present in notifications.
-+ *
-+ * These attributes follow the &struct ovs_header within the Generic Netlink
-+ * payload for %OVS_FLOW_* commands.
-+ */
-+enum ovs_flow_attr {
-+	OVS_FLOW_ATTR_UNSPEC,
-+	OVS_FLOW_ATTR_KEY,       /* Sequence of OVS_KEY_ATTR_* attributes. */
-+	OVS_FLOW_ATTR_ACTIONS,   /* Nested OVS_ACTION_ATTR_* attributes. */
-+	OVS_FLOW_ATTR_STATS,     /* struct ovs_flow_stats. */
-+	OVS_FLOW_ATTR_TCP_FLAGS, /* 8-bit OR'd TCP flags. */
-+	OVS_FLOW_ATTR_USED,      /* u64 msecs last used in monotonic time. */
-+	OVS_FLOW_ATTR_CLEAR,     /* Flag to clear stats, tcp_flags, used. */
-+	__OVS_FLOW_ATTR_MAX
-+};
-+
-+#define OVS_FLOW_ATTR_MAX (__OVS_FLOW_ATTR_MAX - 1)
-+
-+/**
-+ * enum ovs_sample_attr - Attributes for %OVS_ACTION_ATTR_SAMPLE action.
-+ * @OVS_SAMPLE_ATTR_PROBABILITY: 32-bit fraction of packets to sample with
-+ * @OVS_ACTION_ATTR_SAMPLE.  A value of 0 samples no packets, a value of
-+ * %UINT32_MAX samples all packets and intermediate values sample intermediate
-+ * fractions of packets.
-+ * @OVS_SAMPLE_ATTR_ACTIONS: Set of actions to execute in sampling event.
-+ * Actions are passed as nested attributes.
-+ *
-+ * Executes the specified actions with the given probability on a per-packet
-+ * basis.
-+ */
-+enum ovs_sample_attr {
-+	OVS_SAMPLE_ATTR_UNSPEC,
-+	OVS_SAMPLE_ATTR_PROBABILITY, /* u32 number */
-+	OVS_SAMPLE_ATTR_ACTIONS,     /* Nested OVS_ACTION_ATTR_* attributes. */
-+	__OVS_SAMPLE_ATTR_MAX,
-+};
-+
-+#define OVS_SAMPLE_ATTR_MAX (__OVS_SAMPLE_ATTR_MAX - 1)
-+
-+/**
-+ * enum ovs_userspace_attr - Attributes for %OVS_ACTION_ATTR_USERSPACE action.
-+ * @OVS_USERSPACE_ATTR_PID: u32 Netlink PID to which the %OVS_PACKET_CMD_ACTION
-+ * message should be sent.  Required.
-+ * @OVS_USERSPACE_ATTR_USERDATA: If present, its variable-length argument is
-+ * copied to the %OVS_PACKET_CMD_ACTION message as %OVS_PACKET_ATTR_USERDATA.
-+ */
-+enum ovs_userspace_attr {
-+	OVS_USERSPACE_ATTR_UNSPEC,
-+	OVS_USERSPACE_ATTR_PID,	      /* u32 Netlink PID to receive upcalls. */
-+	OVS_USERSPACE_ATTR_USERDATA,  /* Optional user-specified cookie. */
-+	__OVS_USERSPACE_ATTR_MAX
-+};
-+
-+#define OVS_USERSPACE_ATTR_MAX (__OVS_USERSPACE_ATTR_MAX - 1)
-+
-+/**
-+ * struct ovs_action_push_vlan - %OVS_ACTION_ATTR_PUSH_VLAN action argument.
-+ * @vlan_tpid: Tag protocol identifier (TPID) to push.
-+ * @vlan_tci: Tag control identifier (TCI) to push.  The CFI bit must be set
-+ * (but it will not be set in the 802.1Q header that is pushed).
-+ *
-+ * The @vlan_tpid value is typically %ETH_P_8021Q.  The only acceptable TPID
-+ * values are those that the kernel module also parses as 802.1Q headers, to
-+ * prevent %OVS_ACTION_ATTR_PUSH_VLAN followed by %OVS_ACTION_ATTR_POP_VLAN
-+ * from having surprising results.
-+ */
-+struct ovs_action_push_vlan {
-+	__be16 vlan_tpid;	/* 802.1Q TPID. */
-+	__be16 vlan_tci;	/* 802.1Q TCI (VLAN ID and priority). */
-+};
-+
-+/**
-+ * enum ovs_action_attr - Action types.
-+ *
-+ * @OVS_ACTION_ATTR_OUTPUT: Output packet to port.
-+ * @OVS_ACTION_ATTR_USERSPACE: Send packet to userspace according to nested
-+ * %OVS_USERSPACE_ATTR_* attributes.
-+ * @OVS_ACTION_ATTR_SET: Replaces the contents of an existing header.  The
-+ * single nested %OVS_KEY_ATTR_* attribute specifies a header to modify and its
-+ * value.
-+ * @OVS_ACTION_ATTR_PUSH_VLAN: Push a new outermost 802.1Q header onto the
-+ * packet.
-+ * @OVS_ACTION_ATTR_POP_VLAN: Pop the outermost 802.1Q header off the packet.
-+ * @OVS_ACTION_ATTR_SAMPLE: Probabilitically executes actions, as specified in
-+ * the nested %OVS_SAMPLE_ATTR_* attributes.
-+ *
-+ * Only a single header can be set with a single %OVS_ACTION_ATTR_SET.  Not all
-+ * fields within a header are modifiable, e.g. the IPv4 protocol and fragment
-+ * type may not be changed.
-+ */
-+
-+enum ovs_action_attr {
-+	OVS_ACTION_ATTR_UNSPEC,
-+	OVS_ACTION_ATTR_OUTPUT,	      /* u32 port number. */
-+	OVS_ACTION_ATTR_USERSPACE,    /* Nested OVS_USERSPACE_ATTR_*. */
-+	OVS_ACTION_ATTR_SET,          /* One nested OVS_KEY_ATTR_*. */
-+	OVS_ACTION_ATTR_PUSH_VLAN,    /* struct ovs_action_push_vlan. */
-+	OVS_ACTION_ATTR_POP_VLAN,     /* No argument. */
-+	OVS_ACTION_ATTR_SAMPLE,       /* Nested OVS_SAMPLE_ATTR_*. */
-+	__OVS_ACTION_ATTR_MAX
-+};
-+
-+#define OVS_ACTION_ATTR_MAX (__OVS_ACTION_ATTR_MAX - 1)
-+
-+#endif /* _LINUX_OPENVSWITCH_H */
+ In addition all standard ioctls defined in
+@@ -318,7 +507,7 @@ header to get a fully conforming packet.
+ Incoming 802.3 packets are not multiplexed on the DSAP/SSAP protocol
+ fields; instead they are supplied to the user as protocol
+ .B ETH_P_802_2
+-with the LLC header prepended.
++with the LLC header prefixed.
+ It is thus not possible to bind to
+ .BR ETH_P_802_3 ;
+ bind to
 -- 
-1.7.11.7
+1.8.1.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
