@@ -1,28 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] netlink: fix the warning introduced by
- netlink API replacement
-Date: Fri, 29 Mar 2013 14:45:24 -0400 (EDT)
-Message-ID: <20130329.144524.1265614874098619812.davem@davemloft.net>
-References: <1364402824-32680-1-git-send-email-honkiko@gmail.com>
-	<1364569775-4419-1-git-send-email-honkiko@gmail.com>
+From: Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>
+Subject: Re: [PATCH 2/4] ARM: kirkwood: add device node entries for the
+ gigabit interfaces
+Date: Fri, 29 Mar 2013 14:48:52 -0400
+Message-ID: <20130329184852.GM13280@titan.lakedaemon.net>
+References: <1364580879-4297-1-git-send-email-florian@openwrt.org>
+ <1364580879-4297-3-git-send-email-florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	brian.haley@hp.com, tgraf@suug.ch
-To: honkiko@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55828 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756522Ab3C2Sp0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Mar 2013 14:45:26 -0400
-In-Reply-To: <1364569775-4419-1-git-send-email-honkiko@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: moinejf-GANU6spQydw@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org,
+ buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, jm-Pj/HzkgeCk7QXOPxS62xeg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+ linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Florian Fainelli <florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1364580879-4297-3-git-send-email-florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Hong Zhiguo <honkiko@gmail.com>
-Date: Fri, 29 Mar 2013 23:09:35 +0800
+On Fri, Mar 29, 2013 at 07:14:37PM +0100, Florian Fainelli wrote:
+> This patch modifies kirkwood.dtsi to specify the various gigabit
+> interfaces nodes available on kirkwood devices. They are disabled by
+> default and should be enabled on a per-board basis. egiga0 and egiga1
+> aliases are defined for convenience. The mdio node is also present and
+> should be enabled on a per-board basis as well.
+> 
+> Signed-off-by: Florian Fainelli <florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+> ---
+>  arch/arm/boot/dts/kirkwood.dtsi |   46 +++++++++++++++++++++++++++++++++++++++
+>  arch/arm/mach-kirkwood/common.c |    4 ++--
+>  2 files changed, 48 insertions(+), 2 deletions(-)
+> 
+...
+> diff --git a/arch/arm/mach-kirkwood/common.c b/arch/arm/mach-kirkwood/common.c
+> index 49792a0..a606f9f 100644
+> --- a/arch/arm/mach-kirkwood/common.c
+> +++ b/arch/arm/mach-kirkwood/common.c
+> @@ -251,8 +251,8 @@ void __init kirkwood_clk_init(void)
+>  	/* clkdev entries, mapping clks to devices */
+>  	orion_clkdev_add(NULL, "orion_spi.0", runit);
+>  	orion_clkdev_add(NULL, "orion_spi.1", runit);
+> -	orion_clkdev_add(NULL, MV643XX_ETH_NAME ".0", ge0);
+> -	orion_clkdev_add(NULL, MV643XX_ETH_NAME ".1", ge1);
+> +	orion_clkdev_add("0", MV643XX_ETH_NAME ".0", ge0);
+> +	orion_clkdev_add("1", MV643XX_ETH_NAME ".1", ge1);
 
-> Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
+Your first patch is going to go through David's tree, and I'd like to
+prevent any hard dependency between his tree and arm-soc.  Can this
+change be pulled out and applied separately?  At first glance, it looks
+like a fix to match sata and pcie.
 
-Applied, thanks.
+thx,
+
+Jason.
