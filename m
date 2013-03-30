@@ -1,74 +1,135 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [patch net-next] net: squash ->rx_handler and
- ->rx_handler_data into single rcu pointer
-Date: Sat, 30 Mar 2013 09:23:08 -0700
-Message-ID: <1364660588.5113.110.camel@edumazet-glaptop>
-References: <1364659034-7049-1-git-send-email-jiri@resnulli.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: reorder some fields of net_device
+Date: Sat, 30 Mar 2013 09:31:03 -0700
+Message-ID: <1364661063.5113.116.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, paulmck-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	streeter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nicolas.2p.debian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
-	kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, ivecera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1364659034-7049-1-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f49.google.com ([209.85.210.49]:35824 "EHLO
+	mail-da0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756639Ab3C3QbG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Mar 2013 12:31:06 -0400
+Received: by mail-da0-f49.google.com with SMTP id t11so556476daj.22
+        for <netdev@vger.kernel.org>; Sat, 30 Mar 2013 09:31:05 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-03-30 at 16:57 +0100, Jiri Pirko wrote:
-> No need to have two pointers in struct netdevice for rx_handler func and
-> priv data. Just embed rx_handler structure into driver port_priv and
-> have ->func pointer there. This introduces no performance penalty,
-> reduces struct netdevice by one pointer and reduces number of needed
-> rcu_dereference calls from 2 to 1.
-> 
+From: Eric Dumazet <edumazet@google.com>
 
-Thats not true.
+As time passed, some fields were added in net_device, and not
+at sensible offsets.
 
-> Note this also fixes the race bug pointed out by Steven Rostedt and
-> fixed by patch "[PATCH] net: add a synchronize_net() in
-> netdev_rx_handler_unregister()" by Eric Dumazet. This is based on
-> current net-next tree where the patch is not applied yet.
-> I can rebase it on whatever tree/state, just say so.
-> 
-> Smoke tested with all drivers who use rx_handler.
-> 
-> Reported-by: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-> ---
+Lets reorder some fields to reduce number of cache lines in RX path.
+Fields not used in data path should be moved out of this critical cache
+line.
 
-I see no value for this patch.
+In particular, move broadcast[] to the end of the rx section,
+as it is less used, and ethernet uses only the beginning of the 32bytes
+field.
 
-It obfuscates things for no good reason.
-
-Once again rcu_dereference(dev->field) has no cost, its a memory read,
-like dev->field.
-
-I fear you don't understand enough RCU to make so invasive changes.
-
-Your patch adds a double dereference on fast path, and its more
-expensive than two single deref.
-
-dev->rx_handler actually gets the function pointer, and after your patch
-we would have to do dev->rx_handler->func instead, which is bad on many
-cpus.
-
-I'll send a patch reordering some fields of net_device, because as time
-passed, it seems a lot of junk broke work done in commit
-cd13539b8bc9ae884 (net: shrinks struct net_device)
+Before patch :
 
 offsetof(struct net_device,dev_addr)=0x258
 offsetof(struct net_device,rx_handler)=0x2b8
 offsetof(struct net_device,ingress_queue)=0x2c8
 offsetof(struct net_device,broadcast)=0x278
+
+After :
+
+offsetof(struct net_device,dev_addr)=0x280
+offsetof(struct net_device,rx_handler)=0x298
+offsetof(struct net_device,ingress_queue)=0x2a8
+offsetof(struct net_device,broadcast)=0x2b0
+
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/linux/netdevice.h |   33 +++++++++++++++++----------------
+ 1 file changed, 17 insertions(+), 16 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1dbb02c..4491414 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1071,6 +1071,8 @@ struct net_device {
+ 	struct list_head	dev_list;
+ 	struct list_head	napi_list;
+ 	struct list_head	unreg_list;
++	struct list_head	upper_dev_list; /* List of upper devices */
++
+ 
+ 	/* currently active device features */
+ 	netdev_features_t	features;
+@@ -1143,6 +1145,13 @@ struct net_device {
+ 	spinlock_t		addr_list_lock;
+ 	struct netdev_hw_addr_list	uc;	/* Unicast mac addresses */
+ 	struct netdev_hw_addr_list	mc;	/* Multicast mac addresses */
++	struct netdev_hw_addr_list	dev_addrs; /* list of device
++						    * hw addresses
++						    */
++#ifdef CONFIG_SYSFS
++	struct kset		*queues_kset;
++#endif
++
+ 	bool			uc_promisc;
+ 	unsigned int		promiscuity;
+ 	unsigned int		allmulti;
+@@ -1175,21 +1184,11 @@ struct net_device {
+ 						 * avoid dirtying this cache line.
+ 						 */
+ 
+-	struct list_head	upper_dev_list; /* List of upper devices */
+-
+ 	/* Interface address info used in eth_type_trans() */
+ 	unsigned char		*dev_addr;	/* hw address, (before bcast
+ 						   because most packets are
+ 						   unicast) */
+ 
+-	struct netdev_hw_addr_list	dev_addrs; /* list of device
+-						      hw addresses */
+-
+-	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
+-
+-#ifdef CONFIG_SYSFS
+-	struct kset		*queues_kset;
+-#endif
+ 
+ #ifdef CONFIG_RPS
+ 	struct netdev_rx_queue	*_rx;
+@@ -1200,18 +1199,14 @@ struct net_device {
+ 	/* Number of RX queues currently active in device */
+ 	unsigned int		real_num_rx_queues;
+ 
+-#ifdef CONFIG_RFS_ACCEL
+-	/* CPU reverse-mapping for RX completion interrupts, indexed
+-	 * by RX queue number.  Assigned by driver.  This must only be
+-	 * set if the ndo_rx_flow_steer operation is defined. */
+-	struct cpu_rmap		*rx_cpu_rmap;
+-#endif
+ #endif
+ 
+ 	rx_handler_func_t __rcu	*rx_handler;
+ 	void __rcu		*rx_handler_data;
+ 
+ 	struct netdev_queue __rcu *ingress_queue;
++	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
++
+ 
+ /*
+  * Cache lines mostly used on transmit path
+@@ -1233,6 +1228,12 @@ struct net_device {
+ #ifdef CONFIG_XPS
+ 	struct xps_dev_maps __rcu *xps_maps;
+ #endif
++#ifdef CONFIG_RFS_ACCEL
++	/* CPU reverse-mapping for RX completion interrupts, indexed
++	 * by RX queue number.  Assigned by driver.  This must only be
++	 * set if the ndo_rx_flow_steer operation is defined. */
++	struct cpu_rmap		*rx_cpu_rmap;
++#endif
+ 
+ 	/* These may be needed for future network-power-down code. */
+ 
