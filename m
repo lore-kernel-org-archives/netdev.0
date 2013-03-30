@@ -1,38 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: reorder some fields of net_device
-Date: Sat, 30 Mar 2013 17:31:53 -0400 (EDT)
-Message-ID: <20130330.173153.1283819859704936260.davem@davemloft.net>
-References: <1364661063.5113.116.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next] macvlan: use the right RCU api
+Date: Sat, 30 Mar 2013 17:32:00 -0400 (EDT)
+Message-ID: <20130330.173200.1869970263303871433.davem@davemloft.net>
+References: <1364674124.5113.132.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40001 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40004 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753951Ab3C3Vby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Mar 2013 17:31:54 -0400
-In-Reply-To: <1364661063.5113.116.camel@edumazet-glaptop>
+	with ESMTP id S1753951Ab3C3VcB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Mar 2013 17:32:01 -0400
+In-Reply-To: <1364674124.5113.132.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 30 Mar 2013 09:31:03 -0700
+Date: Sat, 30 Mar 2013 13:08:44 -0700
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> As time passed, some fields were added in net_device, and not
-> at sensible offsets.
+> Make sure we use proper API to fetch dev->rx_handler_data,
+> instead of ugly casts.
 > 
-> Lets reorder some fields to reduce number of cache lines in RX path.
-> Fields not used in data path should be moved out of this critical cache
-> line.
+> Rename macvlan_port_get() to macvlan_port_get_rtnl() to document fact
+> that we hold RTNL when needed, with lockdep support.
 > 
-> In particular, move broadcast[] to the end of the rx section,
-> as it is less used, and ethernet uses only the beginning of the 32bytes
-> field.
- ...
+> This removes sparse warnings as well (CONFIG_SPARSE_RCU_POINTER=y)
+> 
+> CHECK   drivers/net/macvlan.c
+> drivers/net/macvlan.c:706:37: warning: cast removes address space of expression
+> drivers/net/macvlan.c:775:16: warning: cast removes address space of expression
+> drivers/net/macvlan.c:924:16: warning: cast removes address space of expression
+> 
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied.
