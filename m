@@ -1,140 +1,44 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: Re: WARNING: at net/batman-adv/hard-interface.c:92
- batadv_is_on_batman_iface()
-Date: Sat, 30 Mar 2013 12:52:45 +0100
-Message-ID: <20130330115245.GA4024@ritirata.org>
-References: <20130330093635.GA31605@localhost>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 auto speed down issue
+Date: Sat, 30 Mar 2013 13:42:56 +0100
+Message-ID: <20130330124256.GA19236@electric-eye.fr.zoreil.com>
+References: <4EECA12DD88643FD9006350514D96C8E@realtek.com.tw>
+ <20130328231955.GA26182@electric-eye.fr.zoreil.com>
+ <83FC3118294143DC81063B29EF570FC1@realtek.com.tw>
+ <20130329072056.GA31269@electric-eye.fr.zoreil.com>
+ <555174DCA0B0431BB3AE9CCD464E5896@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="lrZ03NoBR/3+SXJZ"
-Cc: Pravin B Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Fengguang Wu <fengguang.wu@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bowgotsai@google.com, "'Ryankao'" <ryankao@realtek.com>
+To: hayeswang <hayeswang@realtek.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130330093635.GA31605@localhost>
+In-Reply-To: <555174DCA0B0431BB3AE9CCD464E5896@realtek.com.tw>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+hayeswang <hayeswang@realtek.com> :
+[...]
+> Sorry for my unclear descriptor. I just think a case that the nic suspends or
+> shutdowns without cable plugging. Then, the cable is plugged again. If the nic
+> speed down to 10M and the link partner force 100M, the issue appears again. If
+> the nic doesn't speed down for normal link partner, it requires more power
+> when the linking recovers.
 
---lrZ03NoBR/3+SXJZ
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Yes. The nic can not guess what the user values most: power saving in a
+stable link layer configuration vs ability to detect and adapt to a yet
+unseen configuration.
 
-Hello all,
+It could be a reason why EEE exists.
 
-On Sat, Mar 30, 2013 at 05:36:35PM +0800, Fengguang Wu wrote:
-> Greetings,
->=20
-> I got the below WARNING in net-next/master (head commit f498354793d5)
-> and the first bad commit is
->=20
-> commit c54419321455631079c7d6e60bc732dd0c5914c5
-> Author: Pravin B Shelar <pshelar@nicira.com>
-> Date:   Mon Mar 25 14:49:35 2013 +0000
->=20
->     GRE: Refactor GRE tunneling code.
->    =20
->     Following patch refactors GRE code into ip tunneling code and GRE
->     specific code. Common tunneling code is moved to ip_tunnel module.
->     ip_tunnel module is written as generic library which can be used
->     by different tunneling implementations.
->    =20
->     ip_tunnel module contains following components:
->      - packet xmit and rcv generic code. xmit flow looks like
->        (gre_xmit/ipip_xmit)->ip_tunnel_xmit->ip_local_out.
->      - hash table of all devices.
->      - lookup for tunnel devices.
->      - control plane operations like device create, destroy, ioctl, netli=
-nk
->        operations code.
->      - registration for tunneling modules, like gre, ipip etc.
->      - define single pcpu_tstats dev->tstats.
->      - struct tnl_ptk_info added to pass parsed tunnel packet parameters.
->    =20
->     ipip.h header is renamed to ip_tunnel.h
->    =20
->     Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->=20
-> [   27.507156] libceph: loaded (mon/osd proto 15/24)
-> [   27.515409] ------------[ cut here ]------------
-> [   27.518917] WARNING: at /c/kernel-tests/src/stable/net/batman-adv/hard=
--interface.c:92 batadv_is_on_batman_iface+0x5c/0x7a()
-> [   27.521935] Hardware name: Bochs
-> [   27.525356] Cannot find parent device
-> [   27.528296] Modules linked in:
-> [   27.529923] Pid: 1, comm: swapper/0 Not tainted 3.9.0-rc4-00896-g03ba9=
-10 #794
-> [   27.531747] Call Trace:
-> [   27.534683]  [<ffffffff81098ab4>] warn_slowpath_common+0x83/0x9e
-> [   27.536338]  [<ffffffff81098b72>] warn_slowpath_fmt+0x46/0x48
-> [   27.537872]  [<ffffffff828e6402>] ? rcu_read_unlock+0x1c/0x2d
-> [   27.539441]  [<ffffffff810ca498>] ? local_clock+0x19/0x52
-> [   27.541023]  [<ffffffff82c0e796>] batadv_is_on_batman_iface+0x5c/0x7a
-> [   27.542803]  [<ffffffff82c0efe2>] batadv_hard_if_event+0x8f/0x285
-> [   27.544551]  [<ffffffff828e4ff0>] register_netdevice_notifier+0x71/0x1=
-7e
-> [   27.550617]  [<ffffffff8420a030>] ? batadv_iv_init+0x3f/0x3f
-> [   27.552248]  [<ffffffff8420a114>] batadv_init+0xe4/0x104
-> [   27.553770]  [<ffffffff810020be>] do_one_initcall+0x7f/0x13d
-> [   27.555386]  [<ffffffff84177eb0>] kernel_init_freeable+0x141/0x1d0
-> [   27.557177]  [<ffffffff84177734>] ? do_early_param+0x8c/0x8c
-> [   27.558813]  [<ffffffff82c1f146>] ? rest_init+0xda/0xda
-> [   27.560348]  [<ffffffff82c1f154>] kernel_init+0xe/0xdb
-> [   27.561813]  [<ffffffff82c694ac>] ret_from_fork+0x7c/0xb0
-> [   27.563356]  [<ffffffff82c1f146>] ? rest_init+0xda/0xda
-> [   27.564974] ---[ end trace f78f9f0651ffcb0b ]---
->=20
+> Finally, I determine to set the speed to 10M when the link partner supports
+> 10M. And for the other case, setting the speed to 100M. This avoids the giga
+> nic to keep the speed to 1000M, and could fix this issue.
+> However, I wonder if there is a switch which forces the speed to giga.
 
-The reason why batman-adv it raising this warning is because this call is
-returning NULL:
+We can check if the partner supports 100M too. It's almost free and it will
+avoid this problem.
 
-dev_get_by_index(&init_net, net_dev->iflink);
-
-net_dev is an interface that has been registered now and batman-adv is tryi=
-ng to
-analyse it to decide if it is a potential candidate for its virtual device =
-or
-not.
-
-To the best of my knowledge, if the function above is returning NULL, it me=
-ans
-that the iflink attribute contains a broken value.
-
-Am I wrong or iflink should never contain 0? If there is no parent device it
-should contain the same value of ifindex. Right?
-
-
-Regards,
-
---=20
-Antonio Quartulli
-
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
-
---lrZ03NoBR/3+SXJZ
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iQIcBAEBCAAGBQJRVtINAAoJEADl0hg6qKeO5RQP/RxAikx4oL8Gvsw39nuUhy0t
-T6bxiVB6p/aHwsZMNZMtYYVggTwAu6HDey7/xluAeu7xjz+alzUvEagA6TnGCSVw
-I4h2TkR7xXSD2czaskmhLAzqS3AHqPV14MYdKxsCnaPV50S364qRy3/n54YOUcOY
-+yhKNP3hqciXp9ke7vP4RGX0IYJRbYE8baHeBb3qzvp8f8DUOJF8CjpNNl4BFOdD
-cFAVbwgsRJQZpf9b06zmzVu/tza2hxgosudV0OS+5xTSAvxrZQSQHRQs1SA7Zryh
-ShSrzfR1eaLMj9ksW0YtJ2KZVbhboSlso+aI/ezvOKq2QmLTNvp6HCpVdRfYt9gS
-/gxsUcZmHiQBaSMjVwxYRNF+thzyca3s3aFmQt5vjdJPVKbQAMW9KzWqbKDL6MJl
-ZOQH+VzISrKHGSJP6+J6/gFNOm+7EotixsCGTzGe2zW99D7pFBbJww5Io7OIUvc9
-ZKTqUvFx8fsqOe9/0NTJvrGsDlIxdoRvU74NEokNPbOjh6qQTBgXskccJCTkb2xh
-wliEz1plABpblu4Sd3xAW7PLVpFcA+LtSM1+KCCnfO2f4l06nbnlsX7baSkupgq9
-jITJzxUNJHVuVBx6vQxKDuiQo2UtAcqmxu/1kYpWIaid+OAy92a1SUruGkQpiNIV
-j/cvPiePrYs6G6//PQ2L
-=Gx0q
------END PGP SIGNATURE-----
-
---lrZ03NoBR/3+SXJZ--
+-- 
+Ueimor
