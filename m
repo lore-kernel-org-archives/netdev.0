@@ -1,8 +1,8 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] sh_eth: fix handling of no LINK signal
-Date: Sun, 31 Mar 2013 19:44:42 -0400 (EDT)
-Message-ID: <20130331.194442.1848586251646334735.davem@davemloft.net>
-References: <201303312350.08153.sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/2] sh_eth: workaround for spurious ECI interrupt
+Date: Sun, 31 Mar 2013 19:44:48 -0400 (EDT)
+Message-ID: <20130331.194448.1126574548002783274.davem@davemloft.net>
+References: <201303312354.20695.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,26 +10,34 @@ Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
 	linux-sh@vger.kernel.org
 To: sergei.shtylyov@cogentembedded.com
 Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201303312350.08153.sergei.shtylyov@cogentembedded.com>
+In-Reply-To: <201303312354.20695.sergei.shtylyov@cogentembedded.com>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Sun, 31 Mar 2013 23:50:07 +0400
+Date: Sun, 31 Mar 2013 23:54:20 +0400
 
-> The code handling the absent LINK signal (or the absent PSR register -- which
-> reflects the state of this signal) is quite naive and has probably never really
-> worked.  It's probably enough to say that this code is executed only on the LINK
-> change interrupt (sic!) but even if we actually have the signal and choose to
-> ignore it (it might be connected to PHY's link/activity LED output as on the
-> Renesas BOCK-W board), sh_eth_adjust_link() on which this code relies to update
-> 'mdp->link' gets executed later than the LINK change interrupt where it is
-> checked, and so RX/TX never get enabled via ECMR register.
+> At least on Renesas R8A7778, EESR.ECI interrupt seems to fire regardless of its
+> mask in EESIPR register. I can 100% reproduce it with the following scenario:
+> target is booted with 'ip=on' option, and so IP-Config opens SoC Ether device
+> but doesn't get a proper reply and then succeeds with on-board SMC chip; then
+> I login and try to bring up the SoC Ether device with 'ifconfig', and I get
+> an ECI interrupt once request_irq() is called by sh_eth_open() (while interrupt
+> mask in EESIPR register is all 0), if that interrupt is accompanied by a pending
+> EESR.FRC (frame receive completion) interrupt, I get kernel oops in sh_eth_rx()
+> because sh_eth_ring_init() hasn't been called yet!
 > 
-> So, ignore the LINK changed interrupt iff LINK signal is absent (or just chosen
-> not to be used) or PSR register is absent, and enable/disable RX/TX directly in
-> sh_eth_adjust_link() in this case. 
+> The solution I worked out is the following: in sh_eth_interrupt(), mask the
+> interrupt status from EESR register with the interrupt mask from EESIPR register
+> in order not to handle the disabled interrupts -- but forcing EESIPR.M_ECI bit
+> in this mask set because we always need to fully handle EESR.ECI interrupt in
+> sh_eth_error() in order to quench it (as it doesn't get cleared by just writing
+> 1 to the this bit as all the other interrupts).
+> 
+> While at it, remove unneeded initializer for 'intr_status' variable and give it
+> *unsigned long* type, matching the type of sh_eth_read()'s result; fix comment.
 > 
 > Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Reviewed-by: Max Filippov <max.filippov@cogentembedded.com>
 
 Applied.
