@@ -1,8 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] sh_eth: workaround for spurious ECI interrupt
-Date: Sun, 31 Mar 2013 19:44:48 -0400 (EDT)
-Message-ID: <20130331.194448.1126574548002783274.davem@davemloft.net>
-References: <201303312354.20695.sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: make 'link' field of 'struct sh_eth_private'
+ *int*
+Date: Sun, 31 Mar 2013 19:44:54 -0400 (EDT)
+Message-ID: <20130331.194454.590712799179779794.davem@davemloft.net>
+References: <201304010011.04950.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,34 +11,18 @@ Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
 	linux-sh@vger.kernel.org
 To: sergei.shtylyov@cogentembedded.com
 Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201303312354.20695.sergei.shtylyov@cogentembedded.com>
+In-Reply-To: <201304010011.04950.sergei.shtylyov@cogentembedded.com>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Sun, 31 Mar 2013 23:54:20 +0400
+Date: Mon, 1 Apr 2013 00:11:04 +0400
 
-> At least on Renesas R8A7778, EESR.ECI interrupt seems to fire regardless of its
-> mask in EESIPR register. I can 100% reproduce it with the following scenario:
-> target is booted with 'ip=on' option, and so IP-Config opens SoC Ether device
-> but doesn't get a proper reply and then succeeds with on-board SMC chip; then
-> I login and try to bring up the SoC Ether device with 'ifconfig', and I get
-> an ECI interrupt once request_irq() is called by sh_eth_open() (while interrupt
-> mask in EESIPR register is all 0), if that interrupt is accompanied by a pending
-> EESR.FRC (frame receive completion) interrupt, I get kernel oops in sh_eth_rx()
-> because sh_eth_ring_init() hasn't been called yet!
-> 
-> The solution I worked out is the following: in sh_eth_interrupt(), mask the
-> interrupt status from EESR register with the interrupt mask from EESIPR register
-> in order not to handle the disabled interrupts -- but forcing EESIPR.M_ECI bit
-> in this mask set because we always need to fully handle EESR.ECI interrupt in
-> sh_eth_error() in order to quench it (as it doesn't get cleared by just writing
-> 1 to the this bit as all the other interrupts).
-> 
-> While at it, remove unneeded initializer for 'intr_status' variable and give it
-> *unsigned long* type, matching the type of sh_eth_read()'s result; fix comment.
+> The 'link' field of 'struct sh_eth_private' has type 'enum phy_state' while the
+> 'link' field of 'struct phy_device' is merely *int* (having values 0 and 1) and
+> the former field gets assigned from the latter. Make the field match, getting
+> rid of incorrectly used PHY_DOWN value in assignments/comparisons.  
 > 
 > Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Reviewed-by: Max Filippov <max.filippov@cogentembedded.com>
 
 Applied.
