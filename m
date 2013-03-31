@@ -1,38 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] DM9000B: driver initialization upgrade
-Date: Sun, 31 Mar 2013 19:45:01 -0400 (EDT)
-Message-ID: <20130331.194501.2152753313602353257.davem@davemloft.net>
-References: <1364548422-3051-1-git-send-email-josright123@gmail.com>
+Subject: Re: [net-next PATCH] [RFC] [v2] net: add option to enable error
+ queue packets waking select
+Date: Sun, 31 Mar 2013 19:45:22 -0400 (EDT)
+Message-ID: <20130331.194522.608435617919159346.davem@davemloft.net>
+References: <20130328211925.7644.15781.stgit@jekeller-hub.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wfp5p@virginia.edu, matthew@mattleach.net,
-	gregkh@linuxfoundation.org, joseph_chang@davicom.com.tw,
-	jiri@resnulli.us, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: josright123@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1364548422-3051-1-git-send-email-josright123@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	richardcochran@gmail.com, matthew.vick@intel.com
+To: jacob.e.keller@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49911 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756374Ab3CaXpY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Mar 2013 19:45:24 -0400
+In-Reply-To: <20130328211925.7644.15781.stgit@jekeller-hub.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joseph CHANG <josright123@gmail.com>
-Date: Fri, 29 Mar 2013 17:13:42 +0800
+From: Jacob Keller <jacob.e.keller@intel.com>
+Date: Thu, 28 Mar 2013 14:19:25 -0700
 
-> Fix bug for DM9000 revision B which contain a DSP PHY
+> Currently, when a socket receives something on the error queue it only wakes up
+> the socket on select if it is in the "read" list, that is the socket has
+> something to read. It is useful also to wake the socket if it is in the error
+> list, which would enable software to wait on error queue packets without waking
+> up for regular data on the socket. The main use case is for receiving
+> timestamped transmit packets which return the timestamp to the socket via the
+> error queue. This enables an application to select on the socket for the error
+> queue only instead of for the regular traffic.
 > 
-> DM9000B use DSP PHY instead previouse DM9000 revisions' analog PHY,
-> So need extra change in initialization, For
-> explicity PHY Reset and PHY init parameter, and
-> first DM9000_NCR reset need NCR_MAC_LBK bit by dm9000_probe().
+> -v2-
+> * Added the SO_SELECT_ERR_QUEUE socket option to every architechture specific file
+> * Modified every socket poll function that checks error queue
 > 
-> Following DM9000_NCR reset cause by dm9000_open() clear the
-> NCR_MAC_LBK bit.
-> 
-> Without this fix, Power-up FIFO pointers error happen around 2%
-> rate among Davicom's customers' boards. With this fix, All above
-> cases can be solved.
-> 
-> Signed-off-by: Joseph CHANG <josright123@gmail.com>
+> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 
-Applied.
+Applied, thanks.
