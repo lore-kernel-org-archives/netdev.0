@@ -1,51 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] doc: packet: add minimal TPACKET_V3 example
- code
-Date: Sat, 30 Mar 2013 17:40:49 -0400 (EDT)
-Message-ID: <20130330.174049.775595204047285193.davem@davemloft.net>
-References: <1364571389-26326-1-git-send-email-dborkman@redhat.com>
-	<1364571737.5113.25.camel@edumazet-glaptop>
-	<5155B82A.2050701@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 55951] New: usbatm BUG when killing pppd or br2684ctl
+Date: Sat, 30 Mar 2013 17:06:01 -0700
+Message-ID: <20130330170601.621bda4f@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, eric@regit.org,
-	victor@inliniac.net
-To: dborkman@redhat.com
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
+To: Chas Williams <chas@cmf.nrl.navy.mil>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40072 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753125Ab3C3Vkv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Mar 2013 17:40:51 -0400
-In-Reply-To: <5155B82A.2050701@redhat.com>
+Received: from mail-da0-f51.google.com ([209.85.210.51]:40443 "EHLO
+	mail-da0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754615Ab3CaAGP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Mar 2013 20:06:15 -0400
+Received: by mail-da0-f51.google.com with SMTP id g27so627626dan.38
+        for <netdev@vger.kernel.org>; Sat, 30 Mar 2013 17:06:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Fri, 29 Mar 2013 16:50:02 +0100
 
-> On 03/29/2013 04:42 PM, Eric Dumazet wrote:
->> On Fri, 2013-03-29 at 16:36 +0100, Daniel Borkmann wrote:
->>> Lost in space for a long time, but it finally came back to us from
->>> some ancient code tombs. This patch adds a minimal runnable example
->>> of Linux' packet mmap(2) from Chetan Loke's TPACKET_V3. Special
->>> thanks to David S. Miller, and also Eric Leblond and Victor Julien!
->>>
->>> Cc: Eric Leblond <eric@regit.org>
->>> Cc: Victor Julien <victor@inliniac.net>
->>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->>> ---
->>>   Documentation/networking/packet_mmap.txt | 327
->>>   +++++++++++++++++++++++++++++++
->>>   1 file changed, 327 insertions(+)
->>
->> tools/testing/selftests/net  seems a better place to get another
->> program ?
-> 
-> Hm, well. Actually, it should serve as nothing more than a code
-> example that does nothing useful except shows how to use it. Just
-> like the packet fanout example in the same file. It should just
-> provide a starting point for people to grab it and build something
-> bigger out of it.
 
-Agreed, and applied, thanks Daniel.
+Begin forwarded message:
+
+Date: Fri, 29 Mar 2013 17:45:31 -0700
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 55951] New: usbatm BUG when killing pppd or br2684ctl
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=55951
+
+           Summary: usbatm BUG when killing pppd or br2684ctl
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.8.2
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: jd.girard@sysnux.pf
+        Regression: Yes
+
+
+Created an attachment (id=96631)
+ --> (https://bugzilla.kernel.org/attachment.cgi?id=96631)
+Kernel BUG
+
+The system is an alix2d2 acting as my Internet router through an USB ADSL modem
+(DLink DSL200); xusbatm is driving the modem, but it needs a patched version of
+usbatm (patch was written by Roman Kagan). I've been using this setup since
+November 2011 (kernel 2.6.36 or 2.6.37), regularly updating the kernel without
+trouble, so I think this is a regression.
+
+The problem only occurs when killing pppd or br2684ctl (done in a script when
+connection is lost), otherwise the system works fine:
+[xxxxx@ix100 ~]$ uptime 
+ 14:34:36 up 9 days,  8:48,  1 user,  load average: 0.20, 0.13, 0.14
+
+-- 
+Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
