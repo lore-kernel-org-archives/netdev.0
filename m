@@ -1,75 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] bnx2x: handle spurious interrupts
-Date: Sun, 31 Mar 2013 17:31:32 +0100
-Message-ID: <1364747492.3557.62.camel@deadeye.wl.decadent.org.uk>
-References: <1364729701-18855-1-git-send-email-yuvalmin@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V4 2/4] PHYLIB: queue work on unbound wq
+Date: Sun, 31 Mar 2013 12:45:22 -0400 (EDT)
+Message-ID: <20130331.124522.495583446567617837.davem@davemloft.net>
+References: <cover.1364740180.git.viresh.kumar@linaro.org>
+	<cover.1364740180.git.viresh.kumar@linaro.org>
+	<6be4e9ad2048a2a9d60143f58931c3fe94770175.1364740180.git.viresh.kumar@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<ariele@broadcom.com>, Eilon Greenstein <eilong@broadcom.com>
-To: Yuval Mintz <yuvalmin@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:27191 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755532Ab3CaQbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Mar 2013 12:31:41 -0400
-In-Reply-To: <1364729701-18855-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tj@kernel.org, linaro-kernel@lists.linaro.org, patches@linaro.org,
+	robin.randhawa@arm.com, Steve.Bannister@arm.com,
+	Liviu.Dudau@arm.com, charles.garcia-tobin@arm.com,
+	arvind.chauhan@arm.com, airlied@redhat.com, axboe@kernel.dk,
+	tglx@linutronix.de, peterz@infradead.org, mingo@redhat.com,
+	rostedt@goodmis.org, linux-rt-users@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: viresh.kumar@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6be4e9ad2048a2a9d60143f58931c3fe94770175.1364740180.git.viresh.kumar@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-03-31 at 14:35 +0300, Yuval Mintz wrote:
-> In scenarios in which a previous driver was removed without proper cleanup
-> (e.g., kdump), it is possible for the chip to generate an interrupt without
-> any apparent reason once interrupts are requested.
+From: Viresh Kumar <viresh.kumar@linaro.org>
+Date: Sun, 31 Mar 2013 20:01:45 +0530
+
+> Phylib uses workqueues for multiple purposes. There is no real dependency of
+> scheduling these on the cpu which scheduled them.
 > 
-> This patch introduces 2 changes:
+> On a idle system, it is observed that and idle cpu wakes up many times just to
+> service this work. It would be better if we can schedule it on a cpu which the
+> scheduler believes to be the most appropriate one.
 > 
->   - It changes bnx2x's interrupt request scheme so that bnx2x would only
->     request interrupts from the kernel after it has finished initializing
->     all the inner structs required for those interrupts' handling.
+> This patch replaces system_wq with system_unbound_wq for PHYLIB.
 > 
->   - The driver ignores any interrupt which arrives in an inappropriate time,
->     i.e., when the HW generates interrupts without being configured to do so.
->     Acking the HW for such an interrupt will prevent HW from generating further
->     interrupts, thus ignoring them is necessary.
->    
-> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-[...]
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
 
-The flag changes can still race with the interrupt handler, so I think
-you need to add:
-
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> @@ -866,6 +866,7 @@ static void bnx2x_int_disable(struct bnx2x *bp)
->  		bnx2x_hc_int_disable(bp);
->  	else
->  		bnx2x_igu_int_disable(bp);
-
-for (each interrupt vector)
-	synchronize_irq(irq);
-
-> +	bp->flags &= ~INTERRUPTS_ENABLED_FLAG;
->  }
->  
->  void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int)
-> @@ -1605,6 +1606,8 @@ static void bnx2x_igu_int_enable(struct bnx2x *bp)
->  
->  void bnx2x_int_enable(struct bnx2x *bp)
->  {
-> +	bp->flags |= INTERRUPTS_ENABLED_FLAG;
-> +
-
-wmb();
-
->  	if (bp->common.int_block == INT_BLOCK_HC)
->  		bnx2x_hc_int_enable(bp);
->  	else
-[...]
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Acked-by: David S. Miller <davem@davemloft.net>
