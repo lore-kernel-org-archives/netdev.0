@@ -1,27 +1,23 @@
 From: Viresh Kumar <viresh.kumar@linaro.org>
 Subject: [PATCH V4 2/4] PHYLIB: queue work on unbound wq
-Date: Sun, 31 Mar 2013 19:57:03 +0530
-Message-ID: <6be4e9ad2048a2a9d60143f58931c3fe94770175.1364739015.git.viresh.kumar@linaro.org>
-References: <cover.1364739015.git.viresh.kumar@linaro.org>
+Date: Sun, 31 Mar 2013 20:01:45 +0530
+Message-ID: <6be4e9ad2048a2a9d60143f58931c3fe94770175.1364740180.git.viresh.kumar@linaro.org>
+References: <cover.1364740180.git.viresh.kumar@linaro.org>
 Cc: linaro-kernel@lists.linaro.org, patches@linaro.org,
 	robin.randhawa@arm.com, Steve.Bannister@arm.com,
 	Liviu.Dudau@arm.com, charles.garcia-tobin@arm.com,
 	arvind.chauhan@arm.com, davem@davemloft.net, airlied@redhat.com,
-	axboe@kernel.dk, Viresh Kumar <viresh.kumar@linaro.org>,
-	netdev@vger.kernel.org
+	axboe@kernel.dk, tglx@linutronix.de, peterz@infradead.org,
+	mingo@redhat.com, rostedt@goodmis.org,
+	linux-rt-users@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Viresh Kumar <viresh.kumar@linaro.org>, netdev@vger.kernel.org
 To: tj@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:57157 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755100Ab3CaO1d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Mar 2013 10:27:33 -0400
-Received: by mail-pd0-f174.google.com with SMTP id p12so848681pdj.5
-        for <netdev@vger.kernel.org>; Sun, 31 Mar 2013 07:27:33 -0700 (PDT)
-In-Reply-To: <cover.1364739015.git.viresh.kumar@linaro.org>
-In-Reply-To: <cover.1364739015.git.viresh.kumar@linaro.org>
-References: <cover.1364739015.git.viresh.kumar@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1364740180.git.viresh.kumar@linaro.org>
+In-Reply-To: <cover.1364740180.git.viresh.kumar@linaro.org>
+References: <cover.1364740180.git.viresh.kumar@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Phylib uses workqueues for multiple purposes. There is no real dependency of
 scheduling these on the cpu which scheduled them.
