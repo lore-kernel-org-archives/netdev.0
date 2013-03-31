@@ -1,40 +1,82 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V4 2/4] PHYLIB: queue work on unbound wq
-Date: Sun, 31 Mar 2013 12:45:22 -0400 (EDT)
-Message-ID: <20130331.124522.495583446567617837.davem@davemloft.net>
-References: <cover.1364740180.git.viresh.kumar@linaro.org>
-	<cover.1364740180.git.viresh.kumar@linaro.org>
-	<6be4e9ad2048a2a9d60143f58931c3fe94770175.1364740180.git.viresh.kumar@linaro.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH 1/2] sh_eth: fix handling of no LINK signal
+Date: Sun, 31 Mar 2013 23:50:07 +0400
+Message-ID: <201303312350.08153.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: tj@kernel.org, linaro-kernel@lists.linaro.org, patches@linaro.org,
-	robin.randhawa@arm.com, Steve.Bannister@arm.com,
-	Liviu.Dudau@arm.com, charles.garcia-tobin@arm.com,
-	arvind.chauhan@arm.com, airlied@redhat.com, axboe@kernel.dk,
-	tglx@linutronix.de, peterz@infradead.org, mingo@redhat.com,
-	rostedt@goodmis.org, linux-rt-users@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: viresh.kumar@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6be4e9ad2048a2a9d60143f58931c3fe94770175.1364740180.git.viresh.kumar@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:58662 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755535Ab3CaTva (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Mar 2013 15:51:30 -0400
+Received: by mail-la0-f52.google.com with SMTP id fs12so1638949lab.39
+        for <netdev@vger.kernel.org>; Sun, 31 Mar 2013 12:51:28 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Viresh Kumar <viresh.kumar@linaro.org>
-Date: Sun, 31 Mar 2013 20:01:45 +0530
+The code handling the absent LINK signal (or the absent PSR register -- which
+reflects the state of this signal) is quite naive and has probably never really
+worked.  It's probably enough to say that this code is executed only on the LINK
+change interrupt (sic!) but even if we actually have the signal and choose to
+ignore it (it might be connected to PHY's link/activity LED output as on the
+Renesas BOCK-W board), sh_eth_adjust_link() on which this code relies to update
+'mdp->link' gets executed later than the LINK change interrupt where it is
+checked, and so RX/TX never get enabled via ECMR register.
 
-> Phylib uses workqueues for multiple purposes. There is no real dependency of
-> scheduling these on the cpu which scheduled them.
-> 
-> On a idle system, it is observed that and idle cpu wakes up many times just to
-> service this work. It would be better if we can schedule it on a cpu which the
-> scheduler believes to be the most appropriate one.
-> 
-> This patch replaces system_wq with system_unbound_wq for PHYLIB.
-> 
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
+So, ignore the LINK changed interrupt iff LINK signal is absent (or just chosen
+not to be used) or PSR register is absent, and enable/disable RX/TX directly in
+sh_eth_adjust_link() in this case. 
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+---
+The patch is against the David Miller's 'net.git' repo.
+
+ drivers/net/ethernet/renesas/sh_eth.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+Index: net/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1216,10 +1216,7 @@ static void sh_eth_error(struct net_devi
+ 		if (felic_stat & ECSR_LCHNG) {
+ 			/* Link Changed */
+ 			if (mdp->cd->no_psr || mdp->no_ether_link) {
+-				if (mdp->link == PHY_DOWN)
+-					link_stat = 0;
+-				else
+-					link_stat = PHY_ST_LINK;
++				goto ignore_link;
+ 			} else {
+ 				link_stat = (sh_eth_read(ndev, PSR));
+ 				if (mdp->ether_link_active_low)
+@@ -1242,6 +1239,7 @@ static void sh_eth_error(struct net_devi
+ 		}
+ 	}
+ 
++ignore_link:
+ 	if (intr_status & EESR_TWB) {
+ 		/* Write buck end. unused write back interrupt */
+ 		if (intr_status & EESR_TABT)	/* Transmit Abort int */
+@@ -1392,12 +1390,16 @@ static void sh_eth_adjust_link(struct ne
+ 				(sh_eth_read(ndev, ECMR) & ~ECMR_TXF), ECMR);
+ 			new_state = 1;
+ 			mdp->link = phydev->link;
++			if (mdp->cd->no_psr || mdp->no_ether_link)
++				sh_eth_rcv_snd_enable(ndev);
+ 		}
+ 	} else if (mdp->link) {
+ 		new_state = 1;
+ 		mdp->link = PHY_DOWN;
+ 		mdp->speed = 0;
+ 		mdp->duplex = -1;
++		if (mdp->cd->no_psr || mdp->no_ether_link)
++			sh_eth_rcv_snd_disable(ndev);
+ 	}
+ 
+ 	if (new_state && netif_msg_link(mdp))
