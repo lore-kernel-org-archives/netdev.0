@@ -1,41 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next v1 3/4] vxlan: add ipv6 support
-Date: Mon, 01 Apr 2013 14:15:48 -0400 (EDT)
-Message-ID: <20130401.141548.1477224368912481541.davem@davemloft.net>
-References: <OF5EB046E4.6295C3A5-ON85257B40.00537077-85257B40.00542577@us.ibm.com>
-	<20130401.130223.1527520446382659798.davem@davemloft.net>
-	<OF1E30BC31.571FBD44-ON85257B40.005F5AF2-85257B40.0063627F@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, stephen@networkplumber.org
-To: dlstevens@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58079 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756575Ab3DASPw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 14:15:52 -0400
-In-Reply-To: <OF1E30BC31.571FBD44-ON85257B40.005F5AF2-85257B40.0063627F@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH] of_net.h: Provide dummy functions if OF_NET is not configured
+Date: Mon,  1 Apr 2013 11:19:09 -0700
+Message-ID: <1364840349-10696-1-git-send-email-linux@roeck-us.net>
+Cc: Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	David Daney <david.daney@cavium.com>
+To: linux-kernel@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Stevens <dlstevens@us.ibm.com>
-Date: Mon, 1 Apr 2013 14:05:37 -0400
+of_get_mac_address() and of_get_phy_mode() are only provided if OF_NET
+is configured. While most callers check for the define, not all do, and those
+who do require #ifdef around the code. For those who don't, the missing check
+can result in errors such as
 
->         I guess, but in this case, I'm not saying it's like a sockaddr 
-> with
-> device-specific requirements. Rather, I'm saying it's exactly a sockaddr--
-> it is either a sockaddr_in or a sockaddr_in6 and a family field to say
-> which.
+arch/powerpc/sysdev/tsi108_dev.c:107:3: error: implicit declaration of
+	function 'of_get_mac_address' [-Werror=implicit-function-declaration]
+arch/powerpc/sysdev/mv64x60_dev.c:253:2: error: implicit declaration of
+	function 'of_get_mac_address' [-Werror=implicit-function-declaration]
 
-in6_addr, which is what sockaddr_in6 is composed of, is precisely the
-problematic type that we want to avoid to elide the double definition
-error.
+Provide dummy function declarations if OF_NET is not configured. This is safe
+because all callers do check the return values. If desired, at least some of
+the #ifdefs in the code can subsequently be removed.
 
-http://www.spinics.net/linux/fedora/libvir/msg70921.html
+Cc: David Daney <david.daney@cavium.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ include/linux/of_net.h |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-It's really not safe to use at the moment.
-
-We're not creating more instances of this mess, and that decision
-is final.
+diff --git a/include/linux/of_net.h b/include/linux/of_net.h
+index f474641..61bf53b 100644
+--- a/include/linux/of_net.h
++++ b/include/linux/of_net.h
+@@ -11,6 +11,16 @@
+ #include <linux/of.h>
+ extern const int of_get_phy_mode(struct device_node *np);
+ extern const void *of_get_mac_address(struct device_node *np);
++#else
++static inline const int of_get_phy_mode(struct device_node *np)
++{
++	return -ENODEV;
++}
++
++static inline const void *of_get_mac_address(struct device_node *np)
++{
++	return NULL;
++}
+ #endif
+ 
+ #endif /* __LINUX_OF_NET_H */
+-- 
+1.7.9.7
