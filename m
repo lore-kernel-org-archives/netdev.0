@@ -1,36 +1,84 @@
-From: Prashant Batra <prbatra.lists@gmail.com>
-Subject: attach multiple programs to tun/tap interface
-Date: Mon, 01 Apr 2013 22:42:21 +0530
-Message-ID: <5159BFF5.90209@gmail.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [Patch net-next v1 3/4] vxlan: add ipv6 support
+Date: Mon, 1 Apr 2013 14:05:37 -0400
+Message-ID: <OF1E30BC31.571FBD44-ON85257B40.005F5AF2-85257B40.0063627F@us.ibm.com>
+References: <1364708625-29063-1-git-send-email-amwang@redhat.com>	<1364708625-29063-3-git-send-email-amwang@redhat.com>
+	<OF5EB046E4.6295C3A5-ON85257B40.00537077-85257B40.00542577@us.ibm.com> <20130401.130223.1527520446382659798.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, linux-newbie@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: amwang@redhat.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, stephen@networkplumber.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:62493 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755789Ab3DARNY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 13:13:24 -0400
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:43854 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758506Ab3DASGE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Apr 2013 14:06:04 -0400
+Received: from /spool/local
+	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Mon, 1 Apr 2013 14:06:02 -0400
+In-Reply-To: <20130401.130223.1527520446382659798.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+David Miller <davem@davemloft.net> wrote on 04/01/2013 01:02:23 PM:
 
-I have a basic query on tun/tap driver design. Is it possible to attach=
-=20
-multiple user-space programs to the same tun/tap interface. I have not=20
-set the interface as EXCLUSIVE,
-but still on trying to do ioctl with cmd as =93TUNSETIFF=94 from the se=
-cond=20
-user space program, I get =93Device busy=94.
+> 
+> People avoid using sockaddr because it gets defined both in the kernel
+> exported userland headers and the native libc ones with no easy
+> protection between the two to avoid getting a double definition error.
+> 
+> Once you start including kernel exported headers for things like these
+> network device specific interfaces, you potentially run into that issue.
+> 
+> Therefore I'd rather the subsystem define their own unique type both
+> to avoid this double definition problem and to allow easy extention
+> later.
 
-Seeing through the driver code, it looks like it does not allow multipl=
-e=20
-user-programs to attach to the same interface, but is this valid, and=20
-please let me know why this requirement was taken.
+        I guess, but in this case, I'm not saying it's like a sockaddr 
+with
+device-specific requirements. Rather, I'm saying it's exactly a sockaddr--
+it is either a sockaddr_in or a sockaddr_in6 and a family field to say
+which.
+        As is, any user/kernel include file conflicts (in the "ip" 
+command,
+presumably) are still present because he's using in6_addr, another 
+structure
+both in user and kernel space.
+        The primary multiple include issue here would be in the "ip" 
+command,
+presumably, but sockaddrs in particular have to agree between user and
+kernel space already and both appear with "ip".
+        This patch also has issues due to NOT copying other fields in the
+sockaddr_in6 structure (scope_id and port).
 
-Will you please help me in understanding this?
+        Personally, I don't think it's too difficult to make correct code
+using sockaddr/sockaddr_in/sockaddr_in6 here, but even with a new type,
+the code within vxlan.c could (and I argue should) use something like:
 
-Thanks,
-Prashant
+       union {
+               struct sockaddr_in       vip_un_sin;
+               struct sockaddr_in6      vip_un_sin6;
+               struct sockaddr          vip_un_sa;
+       } vip_sun;
+
+#define vip_sa  vip_sun.vip_un_sa
+#define vip_sin vip_sun.vip_un_sin
+#define vip_sin6        vip_sun.vip_un.sin6
+
+and then code like:
+switch (vip->vip_sa.sa_family) {
+case AF_INET:
+        vip->vip_sin.sin_addr.s_addr = blah blah
+        break;
+case AF_INET6:
+        vip->vip_sin6.sin6_addr = blah blah
+        break;
+...
+}
+
+...or whatever appropriate to the context and family.
+
+
+                                                        +-DLS
