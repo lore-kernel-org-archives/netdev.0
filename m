@@ -1,142 +1,131 @@
-From: Balakumaran Kannan <kumaran.4353@gmail.com>
-Subject: Re: [PATCH v2] net IPv6 : Fix broken IPv6 routing table after loopback
- down-up
-Date: Mon, 01 Apr 2013 17:29:58 +0530
-Message-ID: <515976BE.6060607@gmail.com>
-References: <CAHPKR9L4Y0=cbH7w_iZ20CBsH=nt4UuZwyBvDOMSrMmM_sJt1w@mail.gmail.com> <CAHPKR9J4vmPp6SFn-betmb6GLimZE6dRf0Tapeu5jzyUJ=vK6Q@mail.gmail.com> <CAHPKR9J=niSHrGmeX7ZM-1fosjnRA_CFrfd+ha3zwNibNGe1bg@mail.gmail.com> <20130329.151759.1699178800809051958.davem@davemloft.net> <CAHPKR9+=fFPTpjdE+diyXDvjEdPcqcRXJvWP_rHWrqB7wMTEPA@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 01/34] net: add skb_dst_set_noref_force
+Date: Mon, 1 Apr 2013 14:06:44 +0200
+Message-ID: <20130401120644.GA4882@localhost>
+References: <1364530311-11512-1-git-send-email-horms@verge.net.au>
+ <1364530311-11512-2-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	Balakumaran.Kannan@ap.sony.com, maruthi.thotad@ap.sony.com,
-	netdev@vger.kernel.org, jamshed.a@ap.sony.com,
-	amit.agarwal@ap.sony.com, takuzo.ohara@jp.sony.com,
-	aaditya.kumar@ap.sony.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:55255 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751750Ab3DAMAM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 08:00:12 -0400
-Received: by mail-pa0-f50.google.com with SMTP id bg2so1288942pad.37
-        for <netdev@vger.kernel.org>; Mon, 01 Apr 2013 05:00:12 -0700 (PDT)
-In-Reply-To: <CAHPKR9+=fFPTpjdE+diyXDvjEdPcqcRXJvWP_rHWrqB7wMTEPA@mail.gmail.com>
+Received: from mail.us.es ([193.147.175.20]:54319 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756792Ab3DAMGw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Apr 2013 08:06:52 -0400
+Content-Disposition: inline
+In-Reply-To: <1364530311-11512-2-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPv6 Routing table becomes broken once we do ifdown, ifup of the loopback(lo)
-interface. After down-up, routes of other interface's IPv6 addresses through
-'lo' are lost.
+Hi Simon,
 
-IPv6 addresses assigned to all interfaces are routed through 'lo' for internal
-communication. Once 'lo' is down, those routing entries are removed from routing
-table. But those removed entries are not being re-created properly when 'lo' is
-brought up. So IPv6 addresses of other interfaces becomes unreachable from the
-same machine. Also this breaks communication with other machines because of
-NDISC packet processing failure.
+On Fri, Mar 29, 2013 at 01:11:18PM +0900, Simon Horman wrote:
+> From: Julian Anastasov <ja@ssi.bg>
+> 
+> Rename skb_dst_set_noref to __skb_dst_set_noref and
+> add force flag as suggested by David Miller. The new wrapper
+> skb_dst_set_noref_force will force dst entries that are not
+> cached to be attached as skb dst without taking reference
+> as long as provided dst is reclaimed after RCU grace period.
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Signed-off by: Hans Schillstrom <hans@schillstrom.com>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-This patch fixes this issue by reading all interface's IPv6 addresses and adding
-them to IPv6 routing table while bringing up 'lo'.
+I think was acked by David, right?
 
-Patch is prepared for Linux-3.9.rc4 kernel.
-
-Signed-off-by: Balakumaran Kannan <Balakumaran.Kannan@ap.sony.com>
-Signed-off-by: Maruthi Thotad <Maruthi.Thotad@ap.sony.com>
----
-==Testing==
-Before applying the patch:
-$ route -A inet6
-Kernel IPv6 routing table
-Destination                    Next Hop                   Flag Met Ref Use If
-2000::20/128                   ::                         U    256 0     0 eth0
-fe80::/64                      ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-::1/128                        ::                         Un   0   1     0 lo
-2000::20/128                   ::                         Un   0   1     0 lo
-fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
-ff00::/8                       ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-$ sudo ifdown lo
-$ sudo ifup lo
-$ route -A inet6
-Kernel IPv6 routing table
-Destination                    Next Hop                   Flag Met Ref Use If
-2000::20/128                   ::                         U    256 0     0 eth0
-fe80::/64                      ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-::1/128                        ::                         Un   0   1     0 lo
-ff00::/8                       ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-$
-
-After applying the patch:
-$ route -A inet6
-Kernel IPv6 routing
-table
-Destination                    Next Hop                   Flag Met Ref Use If
-2000::20/128                   ::                         U    256 0     0 eth0
-fe80::/64                      ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-::1/128                        ::                         Un   0   1     0 lo
-2000::20/128                   ::                         Un   0   1     0 lo
-fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
-ff00::/8                       ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-$ sudo ifdown lo
-$ sudo ifup lo
-$ route -A inet6
-Kernel IPv6 routing table
-Destination                    Next Hop                   Flag Met Ref Use If
-2000::20/128                   ::                         U    256 0     0 eth0
-fe80::/64                      ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-::1/128                        ::                         Un   0   1     0 lo
-2000::20/128                   ::                         Un   0   1     0 lo
-fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
-ff00::/8                       ::                         U    256 0     0 eth0
-::/0                           ::                         !n   -1  1     1 lo
-$
----
---- linux-3.9-rc4/net/ipv6/addrconf.c.orig	2013-03-27 10:40:26.382569527 +0530
-+++ linux-3.9-rc4/net/ipv6/addrconf.c	2013-03-28 20:33:59.908228232 +0530
-@@ -2529,6 +2529,9 @@ static void sit_add_v4_addrs(struct inet  static void init_loopback(struct net_device *dev)  {
- 	struct inet6_dev  *idev;
-+	struct net_device *sp_dev;
-+	struct inet6_ifaddr *sp_ifa;
-+	struct rt6_info *sp_rt;
-
- 	/* ::1 */
-
-@@ -2540,6 +2543,31 @@ static void init_loopback(struct net_dev
- 	}
-
- 	add_addr(idev, &in6addr_loopback, 128, IFA_HOST);
-+
-+	/* Add routes to other interface's IPv6 addresses */
-+	for_each_netdev(dev_net(dev), sp_dev) {
-+
-+		if (!strcmp(sp_dev->name, dev->name))
-+			continue;
-+
-+		idev = __in6_dev_get(sp_dev);
-+		if (NULL == idev)
-+			continue;
-+
-+		read_lock_bh(&idev->lock);
-+		list_for_each_entry(sp_ifa, &idev->addr_list, if_list) {
-+
-+			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
-+				continue;
-+
-+			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
-+
-+			/* Failure cases are ignored */
-+			if (!IS_ERR(sp_rt))
-+				ip6_ins_rt(sp_rt);
-+		}
-+		read_unlock_bh(&idev->lock);
-+	}
- }
-
- static void addrconf_add_linklocal(struct inet6_dev *idev, const struct in6_addr *addr)
+> ---
+>  include/linux/skbuff.h |   35 ++++++++++++++++++++++++++++++++++-
+>  net/core/dst.c         |    9 +++++----
+>  2 files changed, 39 insertions(+), 5 deletions(-)
+> 
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 878e0ee..364e244 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -575,7 +575,40 @@ static inline void skb_dst_set(struct sk_buff *skb, struct dst_entry *dst)
+>  	skb->_skb_refdst = (unsigned long)dst;
+>  }
+>  
+> -extern void skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst);
+> +extern void __skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst,
+> +				bool force);
+> +
+> +/**
+> + * skb_dst_set_noref - sets skb dst, hopefully, without taking reference
+> + * @skb: buffer
+> + * @dst: dst entry
+> + *
+> + * Sets skb dst, assuming a reference was not taken on dst.
+> + * If dst entry is cached, we do not take reference and dst_release
+> + * will be avoided by refdst_drop. If dst entry is not cached, we take
+> + * reference, so that last dst_release can destroy the dst immediately.
+> + */
+> +static inline void skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst)
+> +{
+> +	__skb_dst_set_noref(skb, dst, false);
+> +}
+> +
+> +/**
+> + * skb_dst_set_noref_force - sets skb dst, without taking reference
+> + * @skb: buffer
+> + * @dst: dst entry
+> + *
+> + * Sets skb dst, assuming a reference was not taken on dst.
+> + * No reference is taken and no dst_release will be called. While for
+> + * cached dsts deferred reclaim is a basic feature, for entries that are
+> + * not cached it is caller's job to guarantee that last dst_release for
+> + * provided dst happens when nobody uses it, eg. after a RCU grace period.
+> + */
+> +static inline void skb_dst_set_noref_force(struct sk_buff *skb,
+> +					   struct dst_entry *dst)
+> +{
+> +	__skb_dst_set_noref(skb, dst, true);
+> +}
+>  
+>  /**
+>   * skb_dst_is_noref - Test if skb dst isn't refcounted
+> diff --git a/net/core/dst.c b/net/core/dst.c
+> index 35fd12f..df9cc81 100644
+> --- a/net/core/dst.c
+> +++ b/net/core/dst.c
+> @@ -320,27 +320,28 @@ void __dst_destroy_metrics_generic(struct dst_entry *dst, unsigned long old)
+>  EXPORT_SYMBOL(__dst_destroy_metrics_generic);
+>  
+>  /**
+> - * skb_dst_set_noref - sets skb dst, without a reference
+> + * __skb_dst_set_noref - sets skb dst, without a reference
+>   * @skb: buffer
+>   * @dst: dst entry
+> + * @force: if force is set, use noref version even for DST_NOCACHE entries
+>   *
+>   * Sets skb dst, assuming a reference was not taken on dst
+>   * skb_dst_drop() should not dst_release() this dst
+>   */
+> -void skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst)
+> +void __skb_dst_set_noref(struct sk_buff *skb, struct dst_entry *dst, bool force)
+>  {
+>  	WARN_ON(!rcu_read_lock_held() && !rcu_read_lock_bh_held());
+>  	/* If dst not in cache, we must take a reference, because
+>  	 * dst_release() will destroy dst as soon as its refcount becomes zero
+>  	 */
+> -	if (unlikely(dst->flags & DST_NOCACHE)) {
+> +	if (unlikely((dst->flags & DST_NOCACHE) && !force)) {
+>  		dst_hold(dst);
+>  		skb_dst_set(skb, dst);
+>  	} else {
+>  		skb->_skb_refdst = (unsigned long)dst | SKB_DST_NOREF;
+>  	}
+>  }
+> -EXPORT_SYMBOL(skb_dst_set_noref);
+> +EXPORT_SYMBOL(__skb_dst_set_noref);
+>  
+>  /* Dirty hack. We did it in 2.2 (in __dst_free),
+>   * we have _very_ good reasons not to repeat
+> -- 
+> 1.7.10.4
+> 
