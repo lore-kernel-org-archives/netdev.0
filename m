@@ -1,42 +1,48 @@
-From: Kirill Kapranov <kapranoff@inbox.ru>
-Subject: Re: [PATCH] phy: Elimination the forced speed reduction algorithm.
-Date: Mon, 01 Apr 2013 17:51:44 +0400
-Message-ID: <1364824304.6276.28.camel@kkk.nita.ru>
-References: <1364304872-6408-1-git-send-email-kapranoff@inbox.ru>
-	 <20130329.143808.647821389772332250.davem@davemloft.net>
-Reply-To: kapranoff@inbox.ru
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/2] sh_eth: workaround for spurious ECI interrupt
+Date: Mon, 01 Apr 2013 17:53:26 +0400
+Message-ID: <51599156.7000802@cogentembedded.com>
+References: <201303312354.20695.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
-	peppe.cavallaro@st.com, joe@perches.com, bruce.w.allan@intel.com,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130329.143808.647821389772332250.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <201303312354.20695.sergei.shtylyov@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello.
 
-=46ri, 29/03/2013 14:38 -0400, David Miller =D0=C9=DB=C5=D4:
-> Why are you posting this again?  I've applied your patch 3 days
-> ago.
+On 31-03-2013 23:54, Sergei Shtylyov wrote:
 
-oops...
-The last letter I sent was a coding style correction -- removing
-trailing whitespace in response to remark of Tue, 26 Mar 2013 12:59:13
--0400 (EDT)  by David Miller:
->=20
->=20
-> > -                                     phy_force_reduction(phydev);
-> > +                             if (0 =3D=3D phydev->link_timeout--)=20
->                                                                 ^^^^
-> Trailing whitespace, please remove.
+> At least on Renesas R8A7778, EESR.ECI interrupt seems to fire regardless of its
+> mask in EESIPR register. I can 100% reproduce it with the following scenario:
+> target is booted with 'ip=on' option, and so IP-Config opens SoC Ether device
+> but doesn't get a proper reply and then succeeds with on-board SMC chip; then
+> I login and try to bring up the SoC Ether device with 'ifconfig', and I get
+> an ECI interrupt once request_irq() is called by sh_eth_open() (while interrupt
+> mask in EESIPR register is all 0), if that interrupt is accompanied by a pending
+> EESR.FRC (frame receive completion) interrupt, I get kernel oops in sh_eth_rx()
+> because sh_eth_ring_init() hasn't been called yet!
 
-I sent it  Wed, 27 Mar 2013 15:16:13 +0400
+> The solution I worked out is the following: in sh_eth_interrupt(), mask the
+> interrupt status from EESR register with the interrupt mask from EESIPR register
+> in order not to handle the disabled interrupts -- but forcing EESIPR.M_ECI bit
+> in this mask set because we always need to fully handle EESR.ECI interrupt in
+> sh_eth_error() in order to quench it (as it doesn't get cleared by just writing
+> 1 to the this bit as all the other interrupts).
 
-After receiving confirmation (Wed, 27 Mar 2013 13:11:02 -0400 (EDT))
+> While at it, remove unneeded initializer for 'intr_status' variable and give it
+> *unsigned long* type, matching the type of sh_eth_read()'s result; fix comment.
 
-> Applied.
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Reviewed-by: Max Filippov <max.filippov@cogentembedded.com>
 
-from David Miller, I haven't sent any post.
+    Though maybe writing 0 to ECSIPR (feLic interrupt mask) register in 
+sh_eth_close() could have prevented the spurious interrupts too, masking all 
+its primary sources -- I should have tried it beforehand. Still can try though...
+
+WBR, Sergei
+
