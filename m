@@ -1,43 +1,46 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 7/7] r8169: fix could not dump registers
-Date: Mon, 01 Apr 2013 18:07:16 +0400
-Message-ID: <51599494.3020307@cogentembedded.com>
-References: <1364824539-4156-1-git-send-email-hayeswang@realtek.com> <1364824539-4156-7-git-send-email-hayeswang@realtek.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH v2] net IPv6 : Fix broken IPv6 routing table after loopback
+ down-up
+Date: Mon, 01 Apr 2013 23:16:47 +0900
+Message-ID: <515996CF.3030809@linux-ipv6.org>
+References: <CAHPKR9L4Y0=cbH7w_iZ20CBsH=nt4UuZwyBvDOMSrMmM_sJt1w@mail.gmail.com> <CAHPKR9J4vmPp6SFn-betmb6GLimZE6dRf0Tapeu5jzyUJ=vK6Q@mail.gmail.com> <CAHPKR9J=niSHrGmeX7ZM-1fosjnRA_CFrfd+ha3zwNibNGe1bg@mail.gmail.com> <20130329.151759.1699178800809051958.davem@davemloft.net> <CAHPKR9+=fFPTpjdE+diyXDvjEdPcqcRXJvWP_rHWrqB7wMTEPA@mail.gmail.com> <515976BE.6060607@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1364824539-4156-7-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	kaber@trash.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	Balakumaran.Kannan@ap.sony.com, maruthi.thotad@ap.sony.com,
+	netdev@vger.kernel.org, jamshed.a@ap.sony.com,
+	amit.agarwal@ap.sony.com, takuzo.ohara@jp.sony.com,
+	aaditya.kumar@ap.sony.com,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Balakumaran Kannan <kumaran.4353@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:39937 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758038Ab3DAOQ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 10:16:57 -0400
+In-Reply-To: <515976BE.6060607@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Balakumaran Kannan wrote:
 
-On 01-04-2013 17:55, Hayes Wang wrote:
+> @@ -2540,6 +2543,31 @@ static void init_loopback(struct net_dev
+>  	}
+> 
+>  	add_addr(idev, &in6addr_loopback, 128, IFA_HOST);
+> +
+> +	/* Add routes to other interface's IPv6 addresses */
+> +	for_each_netdev(dev_net(dev), sp_dev) {
+> +
+> +		if (!strcmp(sp_dev->name, dev->name))
+> +			continue;
+> +
+> +		idev = __in6_dev_get(sp_dev);
+> +		if (NULL == idev)
+> +			continue;
 
-> For new version of Fedora and Ubuntu, we see all 0xff when dumping
-> the hw regs through ethtool. Using a loop to read registers could
-> fix it.
+idev == NULL or !idev.
 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> ---
->   drivers/net/ethernet/realtek/r8169.c | 6 +++++-
->   1 file changed, 5 insertions(+), 1 deletion(-)
-
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 876e088..c9cd64c 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -1889,12 +1889,16 @@ static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
->   			     void *p)
->   {
->   	struct rtl8169_private *tp = netdev_priv(dev);
-> +	void __iomem *ioaddr = tp->mmio_addr;
-> +	u8 *d = (u8 *)p;
-
-    Casts from 'void *' are automatic, so no need for explicit one.
-
-WBR, Sergei
+--yoshfuji
