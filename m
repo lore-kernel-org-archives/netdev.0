@@ -1,56 +1,38 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH]  net-sysfs: make flags symmetrical
-Date: Mon, 01 Apr 2013 15:26:06 -0700
-Message-ID: <515A097E.60600@candelatech.com>
-References: <20130401115315.1f8e4213@nehalam.linuxnetplumber.net> <5159EB2B.7070504@candelatech.com> <20130401150407.0d689980@nehalam.linuxnetplumber.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf-next] IPVS optimisations for v3.10
+Date: Tue, 2 Apr 2013 00:41:19 +0200
+Message-ID: <20130401224119.GA12345@localhost>
+References: <1364530311-11512-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:42643 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756591Ab3DAW0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 18:26:08 -0400
-In-Reply-To: <20130401150407.0d689980@nehalam.linuxnetplumber.net>
+Received: from mail.us.es ([193.147.175.20]:34352 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753618Ab3DAWl0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Apr 2013 18:41:26 -0400
+Content-Disposition: inline
+In-Reply-To: <1364530311-11512-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/01/2013 03:04 PM, Stephen Hemminger wrote:
-> On Mon, 01 Apr 2013 13:16:43 -0700
-> Ben Greear <greearb@candelatech.com> wrote:
->
->> On 04/01/2013 11:53 AM, Stephen Hemminger wrote:
->>> The flags reported by sysfs are the raw kernel flags, not the version
->>> exported to user space. This leads to the unsymmetrical behaviour that
->>> read != write. An example of this is when a device is part of a
->>> bridge.  The PROMISC flag returned from sysfs will not be the same as
->>> other API's.
->>>
->>> The reason this patch deserves wider discussion is someone might be
->>> depending on sysfs to read raw kernel flags.
->>
->> I am depending on this feature.  There is no other way I know
->> of to determine if an interface is actually currently acting
->> PROMISC or not.
->>
->> Please don't 'fix' this.
->>
->> Thanks,
->> Ben
->>
->
-> The real problem is there isn't a netlink attribute that encodes
-> the real flags (there should be), and when device changes state a notification
-> should be sent.
+On Fri, Mar 29, 2013 at 01:11:17PM +0900, Simon Horman wrote:
+> Hi Pablo,
+> 
+> The following changes since commit e5c5d22e8dcf7c2d430336cbf8e180bd38e8daf1:
+> 
+>   net: add ETH_P_802_3_MIN (2013-03-28 01:20:42 -0400)
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs2-for-v3.10
+> 
+> for you to fetch changes up to e0566a7cef2f1afca4aa98244224fb9ca6ded08e:
+> 
+>   ipvs: do not disable bh for long time (2013-03-29 12:59:02 +0900)
 
-Ok, that sounds great to me...but plz don't remove the work-around
-in sysfs in the meantime :)
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Pulled, thanks Simon.
