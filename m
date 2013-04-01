@@ -1,40 +1,49 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH] core: fix the use of this_cpu_ptr
-Date: Mon, 1 Apr 2013 15:21:39 +0000
-Message-ID: <0000013dc6307f44-940f2bf1-7556-4d9e-92ab-1a84d2a47ca8-000000@email.amazonses.com>
-References: <1364463761-32510-1-git-send-email-roy.qing.li@gmail.com> <1364475933.15753.36.camel@edumazet-glaptop> <0000013db16f1e1d-abcb7d9e-1c9d-4ef9-b4de-767bc0282ccf-000000@email.amazonses.com>
- <CAJFZqHzkGcFT_gcqgu=ktuig7UEoR4FVTUZF6G46=6n6FkYZ2A@mail.gmail.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [Patch net-next v1 3/4] vxlan: add ipv6 support
+Date: Mon, 1 Apr 2013 11:19:10 -0400
+Message-ID: <OF5EB046E4.6295C3A5-ON85257B40.00537077-85257B40.00542577@us.ibm.com>
+References: <1364708625-29063-1-git-send-email-amwang@redhat.com> <1364708625-29063-3-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Shan Wei <davidshan@tencent.com>, netdev@vger.kernel.org
-To: RongQing Li <roy.qing.li@gmail.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Cong Wang <amwang@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a9-78.smtp-out.amazonses.com ([54.240.9.78]:60066 "EHLO
-	a9-78.smtp-out.amazonses.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758543Ab3DAP2M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 11:28:12 -0400
-In-Reply-To: <CAJFZqHzkGcFT_gcqgu=ktuig7UEoR4FVTUZF6G46=6n6FkYZ2A@mail.gmail.com>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:36898 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758665Ab3DAPcL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 11:32:11 -0400
+Received: from /spool/local
+	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Mon, 1 Apr 2013 09:32:10 -0600
+In-Reply-To: <1364708625-29063-3-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 29 Mar 2013, RongQing Li wrote:
+netdev-owner@vger.kernel.org wrote on 03/31/2013 01:43:44 AM:
+ 
+> +struct vxlan_ip {
+> +   union {
+> +      __be32  ip4;
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +      struct in6_addr ip6;
+> +#endif
+> +   };
+> +   __be16          proto;
+> +};
+> +
 
-> > &this_cpu_ptr is always an error since you are taking the addresss of an
-> > address.
-> >
->
-> &this_cpu_ptr()->flush_tasklet,   "->" has high priority than "&"
-> so the result is same as
->  &(this_cpu_ptr()->flush_tasklet)
+        This looks suspiciously like a sockaddr. sockaddr_storage is
+much bigger than you need, but you could just make it a sockaddr_in6
+and cast it to sockaddr_in when needed, make it sockaddr_in6 and use
+V4_MAPPED addresses for v4, or make it a union of sockaddr_in and
+sockaddr_in6, or have a buffer the size of sockaddr_in6 and use it
+as a sockaddr to determine the family, then go from there.
+        I think anything along those lines is better than a new variant
+with the same functionality of sockaddr that isn't an overlay of a
+sockaddr.
 
-Ok. This is the same as
-
-	this_cpu_read(xxx.flush_tasklet)
-
-Looks less confusing to me.
-
-> flush_tasklet is not a percpu var, it is a member of percpu var.
-
-Well then it would be best to use this_cpu_read() instead of this_cpu_ptr.
-It also will generate better code.
+                                                        +-DLS
