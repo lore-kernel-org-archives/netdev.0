@@ -1,46 +1,142 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH v2] net IPv6 : Fix broken IPv6 routing table after loopback
- down-up
-Date: Mon, 01 Apr 2013 23:16:47 +0900
-Message-ID: <515996CF.3030809@linux-ipv6.org>
-References: <CAHPKR9L4Y0=cbH7w_iZ20CBsH=nt4UuZwyBvDOMSrMmM_sJt1w@mail.gmail.com> <CAHPKR9J4vmPp6SFn-betmb6GLimZE6dRf0Tapeu5jzyUJ=vK6Q@mail.gmail.com> <CAHPKR9J=niSHrGmeX7ZM-1fosjnRA_CFrfd+ha3zwNibNGe1bg@mail.gmail.com> <20130329.151759.1699178800809051958.davem@davemloft.net> <CAHPKR9+=fFPTpjdE+diyXDvjEdPcqcRXJvWP_rHWrqB7wMTEPA@mail.gmail.com> <515976BE.6060607@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	kaber@trash.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	Balakumaran.Kannan@ap.sony.com, maruthi.thotad@ap.sony.com,
-	netdev@vger.kernel.org, jamshed.a@ap.sony.com,
-	amit.agarwal@ap.sony.com, takuzo.ohara@jp.sony.com,
-	aaditya.kumar@ap.sony.com,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Balakumaran Kannan <kumaran.4353@gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH net-next] forcedeth: Do a dma_mapping_error check after skb_frag_dma_map
+Date: Mon,  1 Apr 2013 10:31:58 -0400
+Message-ID: <1364826718-16269-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:39937 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758038Ab3DAOQ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 10:16:57 -0400
-In-Reply-To: <515976BE.6060607@gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53634 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757718Ab3DAOcf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 10:32:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Balakumaran Kannan wrote:
+This backtrace was recently reported on a 3.9 kernel:
 
-> @@ -2540,6 +2543,31 @@ static void init_loopback(struct net_dev
->  	}
-> 
->  	add_addr(idev, &in6addr_loopback, 128, IFA_HOST);
-> +
-> +	/* Add routes to other interface's IPv6 addresses */
-> +	for_each_netdev(dev_net(dev), sp_dev) {
-> +
-> +		if (!strcmp(sp_dev->name, dev->name))
-> +			continue;
-> +
-> +		idev = __in6_dev_get(sp_dev);
-> +		if (NULL == idev)
-> +			continue;
+Actual results: from syslog /var/log/messsages:
+kernel: [17539.340285] ------------[ cut here ]------------
+kernel: [17539.341012] WARNING: at lib/dma-debug.c:937 check_unmap+0x493/0x960()
+kernel: [17539.341012] Hardware name: MS-7125
+kernel: [17539.341012] forcedeth 0000:00:0a.0: DMA-API: device driver failed to
+check map error[device address=0x0000000013c88000] [size=544 bytes] [mapped as
+page]
+kernel: [17539.341012] Modules linked in: fuse ebtable_nat ipt_MASQUERADE
+nf_conntrack_netbios_ns nf_conntrack_broadcast ip6table_nat nf_nat_ipv6
+ip6table_mangle ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 iptable_nat
+nf_nat_ipv4 nf_nat iptable_mangle nf_conntrack_ipv4 nf_defrag_ipv4 xt_conntrack
+nf_conntrack bnep bluetooth rfkill ebtable_filter ebtables ip6table_filter
+ip6_tables snd_hda_codec_hdmi snd_cmipci snd_mpu401_uart snd_hda_intel
+snd_intel8x0 snd_opl3_lib snd_ac97_codec gameport snd_hda_codec snd_rawmidi
+ac97_bus snd_hwdep snd_seq snd_seq_device snd_pcm snd_page_alloc snd_timer snd
+k8temp soundcore serio_raw i2c_nforce2 forcedeth ata_generic pata_acpi nouveau
+video mxm_wmi wmi i2c_algo_bit drm_kms_helper ttm drm i2c_core sata_sil pata_amd
+sata_nv uinput
+kernel: [17539.341012] Pid: 17340, comm: sshd Not tainted
+3.9.0-0.rc4.git0.1.fc19.i686.PAE #1
+kernel: [17539.341012] Call Trace:
+kernel: [17539.341012]  [<c045573c>] warn_slowpath_common+0x6c/0xa0
+kernel: [17539.341012]  [<c0701953>] ? check_unmap+0x493/0x960
+kernel: [17539.341012]  [<c0701953>] ? check_unmap+0x493/0x960
+kernel: [17539.341012]  [<c04557a3>] warn_slowpath_fmt+0x33/0x40
+kernel: [17539.341012]  [<c0701953>] check_unmap+0x493/0x960
+kernel: [17539.341012]  [<c049238f>] ? sched_clock_cpu+0xdf/0x150
+kernel: [17539.341012]  [<c0701e87>] debug_dma_unmap_page+0x67/0x70
+kernel: [17539.341012]  [<f7eae8f2>] nv_unmap_txskb.isra.32+0x92/0x100
 
-idev == NULL or !idev.
+Its pretty plainly the result of an skb fragment getting unmapped without having
+its initial mapping operation checked for errors.  This patch corrects that.
 
---yoshfuji
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: "David S. Miller" <davem@davemloft.net>
+---
+ drivers/net/ethernet/nvidia/forcedeth.c | 41 ++++++++++++++++++++++++++++++++-
+ 1 file changed, 40 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index b62262c..5ae1247 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -2200,6 +2200,7 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct ring_desc *start_tx;
+ 	struct ring_desc *prev_tx;
+ 	struct nv_skb_map *prev_tx_ctx;
++	struct nv_skb_map *tmp_tx_ctx = NULL, *start_tx_ctx = NULL;
+ 	unsigned long flags;
+ 
+ 	/* add fragments to entries count */
+@@ -2261,12 +2262,31 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		do {
+ 			prev_tx = put_tx;
+ 			prev_tx_ctx = np->put_tx_ctx;
++			if (!start_tx_ctx)
++				start_tx_ctx = tmp_tx_ctx = np->put_tx_ctx;
++
+ 			bcnt = (frag_size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : frag_size;
+ 			np->put_tx_ctx->dma = skb_frag_dma_map(
+ 							&np->pci_dev->dev,
+ 							frag, offset,
+ 							bcnt,
+ 							DMA_TO_DEVICE);
++			if (dma_mapping_error(&np->pci_dev->dev, np->put_tx_ctx->dma)) {
++
++				/* Unwind the mapped fragments */
++				do {
++					nv_unmap_txskb(np, start_tx_ctx);
++					if (unlikely(tmp_tx_ctx++ == np->last_tx_ctx))
++						tmp_tx_ctx = np->first_tx_ctx;
++				} while (tmp_tx_ctx != np->put_tx_ctx);
++				kfree_skb(skb);
++				np->put_tx_ctx = start_tx_ctx;
++				u64_stats_update_begin(&np->swstats_tx_syncp);
++				np->stat_tx_dropped++;
++				u64_stats_update_end(&np->swstats_tx_syncp);
++				return NETDEV_TX_OK;
++			}
++
+ 			np->put_tx_ctx->dma_len = bcnt;
+ 			np->put_tx_ctx->dma_single = 0;
+ 			put_tx->buf = cpu_to_le32(np->put_tx_ctx->dma);
+@@ -2327,7 +2347,8 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
+ 	struct ring_desc_ex *start_tx;
+ 	struct ring_desc_ex *prev_tx;
+ 	struct nv_skb_map *prev_tx_ctx;
+-	struct nv_skb_map *start_tx_ctx;
++	struct nv_skb_map *start_tx_ctx = NULL;
++	struct nv_skb_map *tmp_tx_ctx = NULL;
+ 	unsigned long flags;
+ 
+ 	/* add fragments to entries count */
+@@ -2392,11 +2413,29 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
+ 			prev_tx = put_tx;
+ 			prev_tx_ctx = np->put_tx_ctx;
+ 			bcnt = (frag_size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : frag_size;
++			if (!start_tx_ctx)
++				start_tx_ctx = tmp_tx_ctx = np->put_tx_ctx;
+ 			np->put_tx_ctx->dma = skb_frag_dma_map(
+ 							&np->pci_dev->dev,
+ 							frag, offset,
+ 							bcnt,
+ 							DMA_TO_DEVICE);
++
++			if (dma_mapping_error(&np->pci_dev->dev, np->put_tx_ctx->dma)) {
++
++				/* Unwind the mapped fragments */
++				do {
++					nv_unmap_txskb(np, start_tx_ctx);
++					if (unlikely(tmp_tx_ctx++ == np->last_tx_ctx))
++						tmp_tx_ctx = np->first_tx_ctx;
++				} while (tmp_tx_ctx != np->put_tx_ctx);
++				kfree_skb(skb);
++				np->put_tx_ctx = start_tx_ctx;
++				u64_stats_update_begin(&np->swstats_tx_syncp);
++				np->stat_tx_dropped++;
++				u64_stats_update_end(&np->swstats_tx_syncp);
++				return NETDEV_TX_OK;
++			}
+ 			np->put_tx_ctx->dma_len = bcnt;
+ 			np->put_tx_ctx->dma_single = 0;
+ 			put_tx->bufhigh = cpu_to_le32(dma_high(np->put_tx_ctx->dma));
+-- 
+1.7.11.7
