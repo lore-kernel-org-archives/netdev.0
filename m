@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 3/7] r8169: Modify the method for setting firmware
-Date: Mon, 1 Apr 2013 21:55:35 +0800
-Message-ID: <1364824539-4156-3-git-send-email-hayeswang@realtek.com>
+Subject: [PATCH net-next 4/7] r8169: Update the RTL8111G parameters
+Date: Mon, 1 Apr 2013 21:55:36 +0800
+Message-ID: <1364824539-4156-4-git-send-email-hayeswang@realtek.com>
 References: <1364824539-4156-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,129 +13,127 @@ In-Reply-To: <1364824539-4156-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove useless action PHY_READ_EFUSE, PHY_READ_MAC_BYTE, PHY_WRITE_MAC_BYTE,
-PHY_WRITE_ERI_WORD. And define the new action PHY_MDIO_CHG.
-
-PHY_MDIO_CHG is used to modify the mdio operation. By the way, the
-firmware could support setting mac ocp.
+- replace rtl8168g-1.fw with rtl8168g-2.fw which support new method.
+- fix PHY power down is useless.
+- disable rx early which causes the rx abnormal.
+- enable auto fifo.
+- set 10M IFG to default value.
+- fix the conflict between jumbo frame and flow control.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/ethernet/realtek/r8169.c | 45 +++++++++++++++++++++++++-----------
- 1 file changed, 32 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c | 29 +++++++++++++++++++++++++----
+ 1 file changed, 25 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index b8b59a9..e7e7d37 100644
+index e7e7d37..0211836 100644
 --- a/drivers/net/ethernet/realtek/r8169.c
 +++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1069,6 +1069,21 @@ static int r8168g_mdio_read(struct rtl8169_private *tp, int reg)
- 	return r8168_phy_ocp_read(tp, tp->ocp_base + reg * 2);
- }
+@@ -47,7 +47,7 @@
+ #define FIRMWARE_8402_1		"rtl_nic/rtl8402-1.fw"
+ #define FIRMWARE_8411_1		"rtl_nic/rtl8411-1.fw"
+ #define FIRMWARE_8106E_1	"rtl_nic/rtl8106e-1.fw"
+-#define FIRMWARE_8168G_1	"rtl_nic/rtl8168g-1.fw"
++#define FIRMWARE_8168G_2	"rtl_nic/rtl8168g-2.fw"
  
-+static void mac_mcu_write(struct rtl8169_private *tp, int reg, int value)
-+{
-+	if (reg == 0x1f) {
-+		tp->ocp_base = value << 4;
-+		return;
-+	}
-+
-+	r8168_mac_ocp_write(tp, tp->ocp_base + reg, value);
-+}
-+
-+static int mac_mcu_read(struct rtl8169_private *tp, int reg)
-+{
-+	return r8168_mac_ocp_read(tp, tp->ocp_base + reg);
-+}
-+
- DECLARE_RTL_COND(rtl_phyar_cond)
+ #ifdef RTL8169_DEBUG
+ #define assert(expr) \
+@@ -262,7 +262,7 @@ static const struct {
+ 		_R("RTL8106e",		RTL_TD_1, FIRMWARE_8106E_1,
+ 							JUMBO_1K, true),
+ 	[RTL_GIGA_MAC_VER_40] =
+-		_R("RTL8168g/8111g",	RTL_TD_1, FIRMWARE_8168G_1,
++		_R("RTL8168g/8111g",	RTL_TD_1, FIRMWARE_8168G_2,
+ 							JUMBO_9K, false),
+ 	[RTL_GIGA_MAC_VER_41] =
+ 		_R("RTL8168g/8111g",	RTL_TD_1, NULL, JUMBO_9K, false),
+@@ -329,6 +329,7 @@ enum rtl_registers {
+ #define	RXCFG_FIFO_SHIFT		13
+ 					/* No threshold before first PCI xfer */
+ #define	RX_FIFO_THRESH			(7 << RXCFG_FIFO_SHIFT)
++#define	RX_EARLY_OFF			(1 << 11)
+ #define	RXCFG_DMA_SHIFT			8
+ 					/* Unlimited maximum PCI burst. */
+ #define	RX_DMA_BURST			(7 << RXCFG_DMA_SHIFT)
+@@ -814,7 +815,7 @@ MODULE_FIRMWARE(FIRMWARE_8168F_2);
+ MODULE_FIRMWARE(FIRMWARE_8402_1);
+ MODULE_FIRMWARE(FIRMWARE_8411_1);
+ MODULE_FIRMWARE(FIRMWARE_8106E_1);
+-MODULE_FIRMWARE(FIRMWARE_8168G_1);
++MODULE_FIRMWARE(FIRMWARE_8168G_2);
+ 
+ static void rtl_lock_work(struct rtl8169_private *tp)
  {
- 	void __iomem *ioaddr = tp->mmio_addr;
-@@ -2134,9 +2149,7 @@ static void rtl_writephy_batch(struct rtl8169_private *tp,
- #define PHY_DATA_OR		0x10000000
- #define PHY_DATA_AND		0x20000000
- #define PHY_BJMPN		0x30000000
--#define PHY_READ_EFUSE		0x40000000
--#define PHY_READ_MAC_BYTE	0x50000000
--#define PHY_WRITE_MAC_BYTE	0x60000000
-+#define PHY_MDIO_CHG		0x40000000
- #define PHY_CLEAR_READCOUNT	0x70000000
- #define PHY_WRITE		0x80000000
- #define PHY_READCOUNT_EQ_SKIP	0x90000000
-@@ -2145,7 +2158,6 @@ static void rtl_writephy_batch(struct rtl8169_private *tp,
- #define PHY_WRITE_PREVIOUS	0xc0000000
- #define PHY_SKIPN		0xd0000000
- #define PHY_DELAY_MS		0xe0000000
--#define PHY_WRITE_ERI_WORD	0xf0000000
+@@ -3967,6 +3968,8 @@ static void r8168_phy_power_down(struct rtl8169_private *tp)
+ 	switch (tp->mac_version) {
+ 	case RTL_GIGA_MAC_VER_32:
+ 	case RTL_GIGA_MAC_VER_33:
++	case RTL_GIGA_MAC_VER_40:
++	case RTL_GIGA_MAC_VER_41:
+ 		rtl_writephy(tp, MII_BMCR, BMCR_ANENABLE | BMCR_PDOWN);
+ 		break;
  
- struct fw_info {
- 	u32	magic;
-@@ -2222,7 +2234,7 @@ static bool rtl_fw_data_ok(struct rtl8169_private *tp, struct net_device *dev,
- 		case PHY_READ:
- 		case PHY_DATA_OR:
- 		case PHY_DATA_AND:
--		case PHY_READ_EFUSE:
-+		case PHY_MDIO_CHG:
- 		case PHY_CLEAR_READCOUNT:
- 		case PHY_WRITE:
- 		case PHY_WRITE_PREVIOUS:
-@@ -2253,9 +2265,6 @@ static bool rtl_fw_data_ok(struct rtl8169_private *tp, struct net_device *dev,
- 			}
- 			break;
- 
--		case PHY_READ_MAC_BYTE:
--		case PHY_WRITE_MAC_BYTE:
--		case PHY_WRITE_ERI_WORD:
- 		default:
- 			netif_err(tp, ifup, tp->dev,
- 				  "Invalid action 0x%08x\n", action);
-@@ -2286,10 +2295,13 @@ out:
- static void rtl_phy_write_fw(struct rtl8169_private *tp, struct rtl_fw *rtl_fw)
- {
- 	struct rtl_fw_phy_action *pa = &rtl_fw->phy_action;
-+	struct mdio_ops org, *ops = &tp->mdio_ops;
- 	u32 predata, count;
- 	size_t index;
- 
- 	predata = count = 0;
-+	org.write = ops->write;
-+	org.read = ops->read;
- 
- 	for (index = 0; index < pa->size; ) {
- 		u32 action = le32_to_cpu(pa->code[index]);
-@@ -2316,8 +2328,15 @@ static void rtl_phy_write_fw(struct rtl8169_private *tp, struct rtl_fw *rtl_fw)
- 		case PHY_BJMPN:
- 			index -= regno;
- 			break;
--		case PHY_READ_EFUSE:
--			predata = rtl8168d_efuse_read(tp, regno);
-+		case PHY_MDIO_CHG:
-+			if (data == 0) {
-+				ops->write = org.write;
-+				ops->read = org.read;
-+			} else if (data == 1) {
-+				ops->write = mac_mcu_write;
-+				ops->read = mac_mcu_read;
-+			}
-+
- 			index++;
- 			break;
- 		case PHY_CLEAR_READCOUNT:
-@@ -2353,13 +2372,13 @@ static void rtl_phy_write_fw(struct rtl8169_private *tp, struct rtl_fw *rtl_fw)
- 			index++;
- 			break;
- 
--		case PHY_READ_MAC_BYTE:
--		case PHY_WRITE_MAC_BYTE:
--		case PHY_WRITE_ERI_WORD:
- 		default:
- 			BUG();
- 		}
+@@ -4028,6 +4031,11 @@ static void r8168_pll_power_down(struct rtl8169_private *tp)
+ 	case RTL_GIGA_MAC_VER_33:
+ 		RTL_W8(PMCH, RTL_R8(PMCH) & ~0x80);
+ 		break;
++	case RTL_GIGA_MAC_VER_40:
++	case RTL_GIGA_MAC_VER_41:
++		rtl_w1w0_eri(tp, 0x1a8, ERIAR_MASK_1111, 0x00000000,
++			     0xfc000000, ERIAR_EXGMAC);
++		break;
  	}
-+
-+	ops->write = org.write;
-+	ops->read = org.read;
  }
  
- static void rtl_release_firmware(struct rtl8169_private *tp)
+@@ -4045,6 +4053,11 @@ static void r8168_pll_power_up(struct rtl8169_private *tp)
+ 	case RTL_GIGA_MAC_VER_33:
+ 		RTL_W8(PMCH, RTL_R8(PMCH) | 0x80);
+ 		break;
++	case RTL_GIGA_MAC_VER_40:
++	case RTL_GIGA_MAC_VER_41:
++		rtl_w1w0_eri(tp, 0x1a8, ERIAR_MASK_1111, 0xfc000000,
++			     0x00000000, ERIAR_EXGMAC);
++		break;
+ 	}
+ 
+ 	r8168_phy_power_up(tp);
+@@ -4150,6 +4163,10 @@ static void rtl_init_rxcfg(struct rtl8169_private *tp)
+ 	case RTL_GIGA_MAC_VER_34:
+ 		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST);
+ 		break;
++	case RTL_GIGA_MAC_VER_40:
++	case RTL_GIGA_MAC_VER_41:
++		RTL_W32(RxConfig, RX128_INT_EN | RX_DMA_BURST | RX_EARLY_OFF);
++		break;
+ 	default:
+ 		RTL_W32(RxConfig, RX128_INT_EN | RX_DMA_BURST);
+ 		break;
+@@ -5128,6 +5145,8 @@ static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
+ 	void __iomem *ioaddr = tp->mmio_addr;
+ 	struct pci_dev *pdev = tp->pci_dev;
+ 
++	RTL_W32(TxConfig, RTL_R32(TxConfig) | TXCFG_AUTO_FIFO);
++
+ 	rtl_eri_write(tp, 0xc8, ERIAR_MASK_0101, 0x080002, ERIAR_EXGMAC);
+ 	rtl_eri_write(tp, 0xcc, ERIAR_MASK_0001, 0x38, ERIAR_EXGMAC);
+ 	rtl_eri_write(tp, 0xd0, ERIAR_MASK_0001, 0x48, ERIAR_EXGMAC);
+@@ -5139,6 +5158,7 @@ static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
+ 
+ 	rtl_w1w0_eri(tp, 0xdc, ERIAR_MASK_0001, 0x00, 0x01, ERIAR_EXGMAC);
+ 	rtl_w1w0_eri(tp, 0xdc, ERIAR_MASK_0001, 0x01, 0x00, ERIAR_EXGMAC);
++	rtl_eri_write(tp, 0x2f8, ERIAR_MASK_0011, 0x1d8f, ERIAR_EXGMAC);
+ 
+ 	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
+ 	RTL_W32(MISC, RTL_R32(MISC) & ~RXDV_GATED_EN);
+@@ -5150,7 +5170,8 @@ static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
+ 	/* Adjust EEE LED frequency */
+ 	RTL_W8(EEE_LED, RTL_R8(EEE_LED) & ~0x07);
+ 
+-	rtl_w1w0_eri(tp, 0x2fc, ERIAR_MASK_0001, 0x01, 0x02, ERIAR_EXGMAC);
++	rtl_w1w0_eri(tp, 0x2fc, ERIAR_MASK_0001, 0x01, 0x06, ERIAR_EXGMAC);
++	rtl_w1w0_eri(tp, 0x1b0, ERIAR_MASK_0011, 0x0000, 0x1000, ERIAR_EXGMAC);
+ }
+ 
+ static void rtl_hw_start_8168(struct net_device *dev)
 -- 
 1.8.1
