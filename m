@@ -1,54 +1,34 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next 6/7] r8169: add a new chip for RTL8106E
-Date: Tue, 2 Apr 2013 00:23:35 +0200
-Message-ID: <20130401222335.GC19335@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH net-next 7/7] r8169: fix could not dump registers
+Date: Tue, 2 Apr 2013 00:24:32 +0200
+Message-ID: <20130401222432.GD19335@electric-eye.fr.zoreil.com>
 References: <1364824539-4156-1-git-send-email-hayeswang@realtek.com>
- <1364824539-4156-6-git-send-email-hayeswang@realtek.com>
+ <1364824539-4156-7-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Hayes Wang <hayeswang@realtek.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1364824539-4156-6-git-send-email-hayeswang@realtek.com>
+In-Reply-To: <1364824539-4156-7-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hayes Wang <hayeswang@realtek.com> :
-[...]
-> - move rtl_set_rx_tx_desc_registers to avoid the tx/rx are enabled
->   before setting desc registers.
+> For new version of Fedora and Ubuntu, we see all 0xff when dumping
+> the hw regs through ethtool. Using a loop to read registers could
+> fix it.
 
-This is a wholesale change for the 810x family.
+If it fixes a problem which lives outside of net-next, it should target
+"net", not "net-next".
 
-Please explain why issuing rtl_set_rx_tx_desc_registers before writing
-ChipCmd is not enough and feed it through a standalone commit.
+"new version" does not help when a commit log can be read at any time
+and/or when people try to identify patches for -stable branches. You do
+not say which kernel / chipsets combination are known to exhibit the
+problem.
 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> ---
->  drivers/net/ethernet/realtek/r8169.c | 25 +++++++++++++++++++++++--
->  1 file changed, 23 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 8d41508..876e088 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -49,6 +49,7 @@
->  #define FIRMWARE_8106E_1	"rtl_nic/rtl8106e-1.fw"
->  #define FIRMWARE_8168G_2	"rtl_nic/rtl8168g-2.fw"
->  #define FIRMWARE_8168G_3	"rtl_nic/rtl8168g-3.fw"
-> +#define FIRMWARE_8106E_2	"rtl_nic/rtl8106e-2.fw"
-
-I'd rather keep those sorted.
-
-[...]
-> @@ -824,6 +829,7 @@ MODULE_FIRMWARE(FIRMWARE_8411_1);
->  MODULE_FIRMWARE(FIRMWARE_8106E_1);
->  MODULE_FIRMWARE(FIRMWARE_8168G_2);
->  MODULE_FIRMWARE(FIRMWARE_8168G_3);
-> +MODULE_FIRMWARE(FIRMWARE_8106E_2);
-
-Same thing as above.
+Fundamentally, nobody can tell from the description if it is a kernel
+or hardware problem nor why things work better after the change.
 
 -- 
 Ueimor
