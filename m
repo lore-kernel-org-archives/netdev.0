@@ -1,76 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] cbq: incorrect processing of high limits
-Date: Mon, 01 Apr 2013 09:24:36 -0700
-Message-ID: <1364833476.5113.157.camel@edumazet-glaptop>
-References: <5159852C.8060003@parallels.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Linux driver for Realtek RTL8723AU devices with USB ID 0bda:1724
+ such as found in Lenovo IdeaPad Yoga 13
+Date: Mon, 01 Apr 2013 11:26:21 -0500
+Message-ID: <5159B52D.3050601@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Vasily Averin <vvs@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:54722 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751875Ab3DAQYi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 12:24:38 -0400
-Received: by mail-pa0-f47.google.com with SMTP id bj3so1392321pad.34
-        for <netdev@vger.kernel.org>; Mon, 01 Apr 2013 09:24:38 -0700 (PDT)
-In-Reply-To: <5159852C.8060003@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Dan Williams <dcbw@redhat.com>,
+	'George0505' <george0505@realtek.com>,
+	Joon Ro <joonhyoung.ro@gmail.com>
+To: linux-wireless <linux-wireless@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-04-01 at 17:01 +0400, Vasily Averin wrote:
-> currently cbq works incorrectly for limits > 10% real link bandwidth,
-> and practically does not work for limits > 50% real link bandwidth.
-> Below are results of experiments taken on 1 Gbit link
-> 
->  In shaper | Actual Result
-> -----------+---------------
->   100M     | 108 Mbps
->   200M     | 244 Mbps
->   300M     | 412 Mbps
->   500M     | 893 Mbps
-> 
-> This happen because of q->now changes incorrectly in cbq_dequeue():
-> when it is called before real end of packet transmitting,
-> L2T is greater than real time delay, q_now gets an extra boost
-> but never compensate it.
-> 
-> To fix this problem we prevent change of q->now until its synchronization
-> with real time.
-> 
-> Signed-off-by: Vasily Averin <vvs@openvz.org>
-> Reviewed-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> ---
->  net/sched/sch_cbq.c |    5 ++++-
->  1 files changed, 4 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-> index 6aabd77..5b5c83a 100644
-> --- a/net/sched/sch_cbq.c
-> +++ b/net/sched/sch_cbq.c
-> @@ -962,8 +962,11 @@ cbq_dequeue(struct Qdisc *sch)
-> 		cbq_update(q);
-> 		if ((incr -= incr2) < 0)
-> 			incr = 0;
-> +		q->now += incr;
-> +	} else {
-> +		if (now > q->now)
-> +			q->now = now;
-> 	}
-> -	q->now += incr;
-> 	q->now_rt = now;
-> 
-> 	for (;;) {
+After receiving a number of inquiries regarding a Linux driver for the RTL8723AU 
+device with USB ID 0bda:1724, I asked my contacts in the USB group at Realtek if 
+such a driver were available. They responded that there is one, but not on their 
+public FTP site; however, they gave me the necessary info to get it from their 
+private site, and also granted permission for me to make it publicly available.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Therefore, I have created a git repository that can be copied using the command:
 
-Still, after your patch a limit of 500Mbit gives :
+git clone http://github.com/lwfinger/rtl8723au.git
 
- rate 515872Kbit 946pps backlog 0b 2p requeues 0 
+Once cloned, the command sequence 'make && sudo make install' in the resulting 
+source directory will build and install the driver, which is named 8723au. At 
+the moment, it does not require external firmware. The driver will build on all 
+kernel versions up to, and including 3.9. I have not tested on kernels older 
+than 3.7, but the code contains conditional statements testing against kernel 
+2.6.18. It should build on any kernel new enough for the base hardware.
 
-HTB is more precise :
+My plan is to evolve this driver into a form that is suitable for inclusion in 
+the staging tree of the kernel; however, that will take some effort and time, 
+which is why I am making the intermediate results available now. As that work 
+proceeds, the git version will evolve into code that can be submitted to the 
+kernel with only small changes.
 
- rate 500667Kbit 41336pps backlog 0b 2p requeues 0 
+Please be aware that I do not have any hardware that uses this driver, thus I 
+can only guarantee that the code compiles; however, Joon Ro has tested the 
+driver and he assures me that it works. Together we have been eliminating 
+spurious log entries.
+
+The 8723a chip also includes Bluetooth hardware. I have not received any 
+indication that it is active in the RTL8723AU, but it certainly is in the 
+RTL8723AE, the PCIe version. In a separate activity, I am working with Realtek 
+to prepare a kernel driver for this portion of the device.
+
+I welcome your comments, bug reports, patches, suggestions for changes, and 
+testing. In addition, please spread the word to anyone that has been seeking 
+this driver.
+
+Thanks,
+
+Larry
