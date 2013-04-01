@@ -1,142 +1,37 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH net-next] forcedeth: Do a dma_mapping_error check after skb_frag_dma_map
-Date: Mon,  1 Apr 2013 10:31:58 -0400
-Message-ID: <1364826718-16269-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Subject: Re: [PATCH] net: Add support for handling queueing in hardware
+Date: Mon, 1 Apr 2013 15:13:57 +0100
+Message-ID: <20130401141357.GA10600@sirena.org.uk>
+References: <A5ACC15C-361D-48E6-BFFF-9AA3966C2A68@freescale.com>
+ <20130322.103302.1277256650283142022.davem@davemloft.net>
+ <FE78128C-01DB-4831-ACBE-BA3E3A428BFC@gmail.com>
+ <20130322.111759.2108472348146991505.davem@davemloft.net>
+ <9AEAD974-4549-475A-AE15-C92523CD2466@gmail.com>
+ <20130322220840.GA6647@thunk.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: Theodore Ts'o <tytso@mit.edu>,
+	Ben Collins <benmcollins13@gmail.com>,
+	David Miller <davem@davemloft.net>, afleming@freescale.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53634 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757718Ab3DAOcf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 10:32:35 -0400
+Received: from cassiel.sirena.org.uk ([80.68.93.111]:38181 "EHLO
+	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756736Ab3DAOeC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 10:34:02 -0400
+Content-Disposition: inline
+In-Reply-To: <20130322220840.GA6647@thunk.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This backtrace was recently reported on a 3.9 kernel:
+On Fri, Mar 22, 2013 at 06:08:40PM -0400, Theodore Ts'o wrote:
 
-Actual results: from syslog /var/log/messsages:
-kernel: [17539.340285] ------------[ cut here ]------------
-kernel: [17539.341012] WARNING: at lib/dma-debug.c:937 check_unmap+0x493/0x960()
-kernel: [17539.341012] Hardware name: MS-7125
-kernel: [17539.341012] forcedeth 0000:00:0a.0: DMA-API: device driver failed to
-check map error[device address=0x0000000013c88000] [size=544 bytes] [mapped as
-page]
-kernel: [17539.341012] Modules linked in: fuse ebtable_nat ipt_MASQUERADE
-nf_conntrack_netbios_ns nf_conntrack_broadcast ip6table_nat nf_nat_ipv6
-ip6table_mangle ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 iptable_nat
-nf_nat_ipv4 nf_nat iptable_mangle nf_conntrack_ipv4 nf_defrag_ipv4 xt_conntrack
-nf_conntrack bnep bluetooth rfkill ebtable_filter ebtables ip6table_filter
-ip6_tables snd_hda_codec_hdmi snd_cmipci snd_mpu401_uart snd_hda_intel
-snd_intel8x0 snd_opl3_lib snd_ac97_codec gameport snd_hda_codec snd_rawmidi
-ac97_bus snd_hwdep snd_seq snd_seq_device snd_pcm snd_page_alloc snd_timer snd
-k8temp soundcore serio_raw i2c_nforce2 forcedeth ata_generic pata_acpi nouveau
-video mxm_wmi wmi i2c_algo_bit drm_kms_helper ttm drm i2c_core sata_sil pata_amd
-sata_nv uinput
-kernel: [17539.341012] Pid: 17340, comm: sshd Not tainted
-3.9.0-0.rc4.git0.1.fc19.i686.PAE #1
-kernel: [17539.341012] Call Trace:
-kernel: [17539.341012]  [<c045573c>] warn_slowpath_common+0x6c/0xa0
-kernel: [17539.341012]  [<c0701953>] ? check_unmap+0x493/0x960
-kernel: [17539.341012]  [<c0701953>] ? check_unmap+0x493/0x960
-kernel: [17539.341012]  [<c04557a3>] warn_slowpath_fmt+0x33/0x40
-kernel: [17539.341012]  [<c0701953>] check_unmap+0x493/0x960
-kernel: [17539.341012]  [<c049238f>] ? sched_clock_cpu+0xdf/0x150
-kernel: [17539.341012]  [<c0701e87>] debug_dma_unmap_page+0x67/0x70
-kernel: [17539.341012]  [<f7eae8f2>] nv_unmap_txskb.isra.32+0x92/0x100
+[Insisting on upstream drivers]
+> I've been waiting for this to start happening in the consumer
+> electronics/embedded world, but it's been slow coming,
+> unfortunately....
 
-Its pretty plainly the result of an skb fragment getting unmapped without having
-its initial mapping operation checked for errors.  This patch corrects that.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
----
- drivers/net/ethernet/nvidia/forcedeth.c | 41 ++++++++++++++++++++++++++++++++-
- 1 file changed, 40 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index b62262c..5ae1247 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -2200,6 +2200,7 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct ring_desc *start_tx;
- 	struct ring_desc *prev_tx;
- 	struct nv_skb_map *prev_tx_ctx;
-+	struct nv_skb_map *tmp_tx_ctx = NULL, *start_tx_ctx = NULL;
- 	unsigned long flags;
- 
- 	/* add fragments to entries count */
-@@ -2261,12 +2262,31 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		do {
- 			prev_tx = put_tx;
- 			prev_tx_ctx = np->put_tx_ctx;
-+			if (!start_tx_ctx)
-+				start_tx_ctx = tmp_tx_ctx = np->put_tx_ctx;
-+
- 			bcnt = (frag_size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : frag_size;
- 			np->put_tx_ctx->dma = skb_frag_dma_map(
- 							&np->pci_dev->dev,
- 							frag, offset,
- 							bcnt,
- 							DMA_TO_DEVICE);
-+			if (dma_mapping_error(&np->pci_dev->dev, np->put_tx_ctx->dma)) {
-+
-+				/* Unwind the mapped fragments */
-+				do {
-+					nv_unmap_txskb(np, start_tx_ctx);
-+					if (unlikely(tmp_tx_ctx++ == np->last_tx_ctx))
-+						tmp_tx_ctx = np->first_tx_ctx;
-+				} while (tmp_tx_ctx != np->put_tx_ctx);
-+				kfree_skb(skb);
-+				np->put_tx_ctx = start_tx_ctx;
-+				u64_stats_update_begin(&np->swstats_tx_syncp);
-+				np->stat_tx_dropped++;
-+				u64_stats_update_end(&np->swstats_tx_syncp);
-+				return NETDEV_TX_OK;
-+			}
-+
- 			np->put_tx_ctx->dma_len = bcnt;
- 			np->put_tx_ctx->dma_single = 0;
- 			put_tx->buf = cpu_to_le32(np->put_tx_ctx->dma);
-@@ -2327,7 +2347,8 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
- 	struct ring_desc_ex *start_tx;
- 	struct ring_desc_ex *prev_tx;
- 	struct nv_skb_map *prev_tx_ctx;
--	struct nv_skb_map *start_tx_ctx;
-+	struct nv_skb_map *start_tx_ctx = NULL;
-+	struct nv_skb_map *tmp_tx_ctx = NULL;
- 	unsigned long flags;
- 
- 	/* add fragments to entries count */
-@@ -2392,11 +2413,29 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
- 			prev_tx = put_tx;
- 			prev_tx_ctx = np->put_tx_ctx;
- 			bcnt = (frag_size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : frag_size;
-+			if (!start_tx_ctx)
-+				start_tx_ctx = tmp_tx_ctx = np->put_tx_ctx;
- 			np->put_tx_ctx->dma = skb_frag_dma_map(
- 							&np->pci_dev->dev,
- 							frag, offset,
- 							bcnt,
- 							DMA_TO_DEVICE);
-+
-+			if (dma_mapping_error(&np->pci_dev->dev, np->put_tx_ctx->dma)) {
-+
-+				/* Unwind the mapped fragments */
-+				do {
-+					nv_unmap_txskb(np, start_tx_ctx);
-+					if (unlikely(tmp_tx_ctx++ == np->last_tx_ctx))
-+						tmp_tx_ctx = np->first_tx_ctx;
-+				} while (tmp_tx_ctx != np->put_tx_ctx);
-+				kfree_skb(skb);
-+				np->put_tx_ctx = start_tx_ctx;
-+				u64_stats_update_begin(&np->swstats_tx_syncp);
-+				np->stat_tx_dropped++;
-+				u64_stats_update_end(&np->swstats_tx_syncp);
-+				return NETDEV_TX_OK;
-+			}
- 			np->put_tx_ctx->dma_len = bcnt;
- 			np->put_tx_ctx->dma_single = 0;
- 			put_tx->bufhigh = cpu_to_le32(dma_high(np->put_tx_ctx->dma));
--- 
-1.7.11.7
+For CE at least it's not really relevant as nobody's got much intention
+of upgrading the kernel on a shipping device, other than code review
+there's not much benefit to the system integrator and that's generally
+tilting at windmills a bit.
