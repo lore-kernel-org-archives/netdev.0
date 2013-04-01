@@ -1,66 +1,54 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: Re: [PATCH] of_net.h: Provide dummy functions if OF_NET is not configured
-Date: Mon, 01 Apr 2013 13:44:24 -0500
-Message-ID: <5159D588.5070603@gmail.com>
-References: <1364840349-10696-1-git-send-email-linux@roeck-us.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH]  net-sysfs: make flags symmetrical
+Date: Mon, 1 Apr 2013 11:53:15 -0700
+Message-ID: <20130401115315.1f8e4213@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Rob Herring <rob.herring@calxeda.com>,
-	David Daney <david.daney@cavium.com>
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1364840349-10696-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:43738 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758184Ab3DASxc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 14:53:32 -0400
+Received: by mail-pd0-f171.google.com with SMTP id z10so1372742pdj.16
+        for <netdev@vger.kernel.org>; Mon, 01 Apr 2013 11:53:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/01/2013 01:19 PM, Guenter Roeck wrote:
-> of_get_mac_address() and of_get_phy_mode() are only provided if OF_NET
-> is configured. While most callers check for the define, not all do, and those
-> who do require #ifdef around the code. For those who don't, the missing check
-> can result in errors such as
+The flags reported by sysfs are the raw kernel flags, not the version
+exported to user space. This leads to the unsymmetrical behaviour that
+read != write. An example of this is when a device is part of a
+bridge.  The PROMISC flag returned from sysfs will not be the same as
+other API's.
 
-How about removing the ifdef from those callers?
+The reason this patch deserves wider discussion is someone might be
+depending on sysfs to read raw kernel flags.
 
-Rob
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-> 
-> arch/powerpc/sysdev/tsi108_dev.c:107:3: error: implicit declaration of
-> 	function 'of_get_mac_address' [-Werror=implicit-function-declaration]
-> arch/powerpc/sysdev/mv64x60_dev.c:253:2: error: implicit declaration of
-> 	function 'of_get_mac_address' [-Werror=implicit-function-declaration]
-> 
-> Provide dummy function declarations if OF_NET is not configured. This is safe
-> because all callers do check the return values. If desired, at least some of
-> the #ifdefs in the code can subsequently be removed.
-> 
-> Cc: David Daney <david.daney@cavium.com>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> ---
->  include/linux/of_net.h |   10 ++++++++++
->  1 file changed, 10 insertions(+)
-> 
-> diff --git a/include/linux/of_net.h b/include/linux/of_net.h
-> index f474641..61bf53b 100644
-> --- a/include/linux/of_net.h
-> +++ b/include/linux/of_net.h
-> @@ -11,6 +11,16 @@
->  #include <linux/of.h>
->  extern const int of_get_phy_mode(struct device_node *np);
->  extern const void *of_get_mac_address(struct device_node *np);
-> +#else
-> +static inline const int of_get_phy_mode(struct device_node *np)
-> +{
-> +	return -ENODEV;
-> +}
-> +
-> +static inline const void *of_get_mac_address(struct device_node *np)
-> +{
-> +	return NULL;
-> +}
->  #endif
->  
->  #endif /* __LINUX_OF_NET_H */
-> 
+
+--- a/net/core/net-sysfs.c	2013-03-21 14:17:08.740354291 -0700
++++ b/net/core/net-sysfs.c	2013-04-01 11:47:46.949728288 -0700
+@@ -252,7 +252,19 @@ static ssize_t store_mtu(struct device *
+ 	return netdev_store(dev, attr, buf, len, change_mtu);
+ }
+ 
+-NETDEVICE_SHOW(flags, fmt_hex);
++static ssize_t show_flags(struct device *dev,
++			  struct device_attribute *attr, char *buf)
++{
++	struct net_device *ndev = to_net_dev(dev);
++	ssize_t ret = -EINVAL;
++
++	read_lock(&dev_base_lock);
++	if (dev_isalive(ndev))
++		ret = sprintf(buf, fmt_hex, dev_get_flags(ndev));
++	read_unlock(&dev_base_lock);
++
++	return ret;
++}
+ 
+ static int change_flags(struct net_device *net, unsigned long new_flags)
+ {
