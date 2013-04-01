@@ -1,48 +1,78 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
-Date: Mon, 1 Apr 2013 02:51:56 +0000
-Message-ID: <157393863283F442885425D2C45428564F20261B@nasanexd02f.na.qualcomm.com>
-References: <CDAFEDABF718A54BABD0DA5476695307475CCD42@SHEXMB-01.global.atheros.com>
-	 <20100125.163612.582489483209420341.anders@netinsight.net>
-	 <CDAFEDABF718A54BABD0DA5476695307475CCFF8@SHEXMB-01.global.atheros.com>
-	 <20100126.093439.651115405791675606.anders@netinsight.net>
-	 <1364689558.3557.22.camel@deadeye.wl.decadent.org.uk>
-	  <157393863283F442885425D2C45428564F202477@nasanexd02f.na.qualcomm.com>
- <1364695805.3557.41.camel@deadeye.wl.decadent.org.uk>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH v2] r8169: fix auto speed down issue
+Date: Mon, 1 Apr 2013 11:02:04 +0800
+Message-ID: <1364785324-1604-1-git-send-email-hayeswang@realtek.com>
+References: <1364541062-9024-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: =?utf-8?B?QW5kZXJzIEJvc3Ryw7Zt?= <anders@netinsight.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"565404@bugs.debian.org" <565404@bugs.debian.org>,
-	"Hannes Frederic Sowa (hannes@stressinduktion.org)"
-	<hannes@stressinduktion.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<bowgotsai@google.com>, Hayes Wang <hayeswang@realtek.com>
+To: <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:63952 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756234Ab3DACv5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Mar 2013 22:51:57 -0400
-In-Reply-To: <1364695805.3557.41.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
+Received: from rtits2.realtek.com ([60.250.210.242]:37379 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755766Ab3DADDW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Mar 2013 23:03:22 -0400
+In-Reply-To: <1364541062-9024-1-git-send-email-hayeswang@realtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+DQo+ID4gSSBjaGVja2VkIHdpbmRvd3MgZHJpdmVyLCBpdCBkb2VzIGxpbWl0ICB0aGUgbWF4
-IHBhY2tldCBsZW5ndGggZm9yIFRTTw0KPiA+IHdpbmRvd3MgWFAgOiAzMioxMDI0IGJ5dGVzIChp
-bmNsdWRlIE1BQyBoZWFkZXIgYW5kIGFsbCBNQUMgcGF5bG9hZCkuIE5vDQo+IHN1cHBvcnQgSVAv
-VENQIG9wdGlvbi4NCj4gPiBXaW5kb3dzIDc6ICAxNSwgMDAwIGJ5dGVzLCBzdXBwb3J0IElQL1RD
-UCBvcHRpb24uDQo+IA0KPiBJZiBUU08gb24gdGhlc2UgZGV2aWNlcyBkb24ndCB3b3JrIHByb3Bl
-cmx5IHdpdGggVENQIG9wdGlvbnMgdGhlbiB5b3UncmUNCj4ganVzdCBnb2luZyB0byBoYXZlIHRv
-IGRpc2FibGUgaXQgLSBMaW51eCByZXF1aXJlcyBpdCB0byBzdXBwb3J0IGF0IGxlYXN0IHRoZQ0K
-PiB0aW1lc3RhbXAgb3B0aW9uLiAgSSdtIG5vdCBzdXJlIGFib3V0IElQIG9wdGlvbnMgKHRoaXMg
-cmVhbGx5IG91Z2h0IHRvIGJlDQo+IGRvY3VtZW50ZWQpLg0KPiANCj4gSWYgdGhlcmUncyBhIGxl
-bmd0aCBsaW1pdCBsb3dlciB0aGFuIDY0SywgeW91J2xsIG5lZWQgdG8gc2V0IHRoZSBsaW1pdCB1
-c2luZw0KPiBuZXRpZl9zZXRfZ3NvX21heF9zaXplKCkgYmVmb3JlIHJlZ2lzdGVyaW5nIHRoZSBu
-ZXQgZGV2aWNlLg0KPiANCg0KQmVuLCB0aGFua3MgZm9yIHlvdXIgYWR2aWNlLiANCkkgaGF2ZSBk
-aXNjdXNzZWQgd2l0aCB3aW5kb3dzIGRyaXZlciBkZXZlbG9wZXIgYW5kIGhhcmR3YXJlIGRlc2ln
-bmVyLCB0aGUgVFNPIGxpbWl0YXRpb24gZm9yIHdpbiBkcml2ZXIgaXMganVzdA0KRm9yIHNpbXBs
-aWZ5aW5nIHdpbmRvd3MgZHJpdmVyIGR1ZSB0byB0aGUgYnVmZmVyIGxlbmd0aCBsaW1pdGF0aW9u
-IG9mIFRYIGRlc2NyaXB0b3IuIFRoZSBoYXJkd2FyZSBpdHNlbGYgaGFzIG5vIGxpbWl0YXRpb24g
-b24NClRTTyBwYWNrZXQgbGVuZ3RoLg0KDQpCVFcuIElwL3RjcCBvcHRpb24gaXMgc3VwcG9ydGVk
-IGFzIHdlbGwuDQoNClRoYW5rcw0KWGlvbmcNCg==
+It would cause no link after suspending or shutdowning when the
+nic changes the speed to 10M and connects to a link partner which
+forces the speed to 100M.
+
+Check the link partner ability to determine which speed to set.
+
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/ethernet/realtek/r8169.c | 28 +++++++++++++++++++++++++---
+ 1 file changed, 25 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 28fb50a..bdc03a9 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -3818,6 +3818,30 @@ static void rtl_init_mdio_ops(struct rtl8169_private *tp)
+ 	}
+ }
+ 
++static void rtl_speed_down(struct rtl8169_private *tp)
++{
++	u32	adv;
++	int	lpa;
++
++	rtl_writephy(tp, 0x1f, 0x0000);
++	lpa = rtl_readphy(tp, MII_LPA);
++
++	if (lpa & (LPA_10HALF | LPA_10FULL))
++		adv = ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full;
++	else if (lpa & (LPA_100HALF | LPA_100FULL))
++		adv = ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
++		      ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full;
++	else
++		adv = ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
++		      ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full |
++		      (tp->mii.supports_gmii ?
++		       ADVERTISED_1000baseT_Half |
++		       ADVERTISED_1000baseT_Full : 0);
++
++	rtl8169_set_speed(tp->dev, AUTONEG_ENABLE, SPEED_1000, DUPLEX_FULL,
++			  adv);
++}
++
+ static void rtl_wol_suspend_quirk(struct rtl8169_private *tp)
+ {
+ 	void __iomem *ioaddr = tp->mmio_addr;
+@@ -3848,9 +3872,7 @@ static bool rtl_wol_pll_power_down(struct rtl8169_private *tp)
+ 	if (!(__rtl8169_get_wol(tp) & WAKE_ANY))
+ 		return false;
+ 
+-	rtl_writephy(tp, 0x1f, 0x0000);
+-	rtl_writephy(tp, MII_BMCR, 0x0000);
+-
++	rtl_speed_down(tp);
+ 	rtl_wol_suspend_quirk(tp);
+ 
+ 	return true;
+-- 
+1.8.1
