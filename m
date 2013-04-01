@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 7/7] r8169: fix could not dump registers
-Date: Mon, 1 Apr 2013 21:55:39 +0800
-Message-ID: <1364824539-4156-7-git-send-email-hayeswang@realtek.com>
+Subject: [PATCH net-next 5/7] r8169: add a new chip for RTL8111G
+Date: Mon, 1 Apr 2013 21:55:37 +0800
+Message-ID: <1364824539-4156-5-git-send-email-hayeswang@realtek.com>
 References: <1364824539-4156-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,36 +13,257 @@ In-Reply-To: <1364824539-4156-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-For new version of Fedora and Ubuntu, we see all 0xff when dumping
-the hw regs through ethtool. Using a loop to read registers could
-fix it.
+Add a new chip for RTL8111G series.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/ethernet/realtek/r8169.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/realtek/r8169.c | 115 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 115 insertions(+)
 
 diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 876e088..c9cd64c 100644
+index 0211836..8d41508 100644
 --- a/drivers/net/ethernet/realtek/r8169.c
 +++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1889,12 +1889,16 @@ static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
- 			     void *p)
+@@ -48,6 +48,7 @@
+ #define FIRMWARE_8411_1		"rtl_nic/rtl8411-1.fw"
+ #define FIRMWARE_8106E_1	"rtl_nic/rtl8106e-1.fw"
+ #define FIRMWARE_8168G_2	"rtl_nic/rtl8168g-2.fw"
++#define FIRMWARE_8168G_3	"rtl_nic/rtl8168g-3.fw"
+ 
+ #ifdef RTL8169_DEBUG
+ #define assert(expr) \
+@@ -140,6 +141,7 @@ enum mac_version {
+ 	RTL_GIGA_MAC_VER_39,
+ 	RTL_GIGA_MAC_VER_40,
+ 	RTL_GIGA_MAC_VER_41,
++	RTL_GIGA_MAC_VER_42,
+ 	RTL_GIGA_MAC_NONE   = 0xff,
+ };
+ 
+@@ -266,6 +268,9 @@ static const struct {
+ 							JUMBO_9K, false),
+ 	[RTL_GIGA_MAC_VER_41] =
+ 		_R("RTL8168g/8111g",	RTL_TD_1, NULL, JUMBO_9K, false),
++	[RTL_GIGA_MAC_VER_42] =
++		_R("RTL8168g/8111g",	RTL_TD_1, FIRMWARE_8168G_3,
++							JUMBO_9K, false),
+ };
+ #undef _R
+ 
+@@ -514,6 +519,7 @@ enum rtl_register_content {
+ 	PMEnable	= (1 << 0),	/* Power Management Enable */
+ 
+ 	/* Config2 register p. 25 */
++	ClkReqEn	= (1 << 7),	/* Clock Request Enable */
+ 	MSIEnable	= (1 << 5),	/* 8169 only. Reserved in the 8168. */
+ 	PCI_Clock_66MHz = 0x01,
+ 	PCI_Clock_33MHz = 0x00,
+@@ -534,6 +540,7 @@ enum rtl_register_content {
+ 	Spi_en		= (1 << 3),
+ 	LanWake		= (1 << 1),	/* LanWake enable/disable */
+ 	PMEStatus	= (1 << 0),	/* PME status can be reset by PCI RST# */
++	ASPM_en		= (1 << 0),	/* ASPM enable */
+ 
+ 	/* TBICSR p.28 */
+ 	TBIReset	= 0x80000000,
+@@ -816,6 +823,7 @@ MODULE_FIRMWARE(FIRMWARE_8402_1);
+ MODULE_FIRMWARE(FIRMWARE_8411_1);
+ MODULE_FIRMWARE(FIRMWARE_8106E_1);
+ MODULE_FIRMWARE(FIRMWARE_8168G_2);
++MODULE_FIRMWARE(FIRMWARE_8168G_3);
+ 
+ static void rtl_lock_work(struct rtl8169_private *tp)
+ {
+@@ -2036,6 +2044,7 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
+ 		int mac_version;
+ 	} mac_info[] = {
+ 		/* 8168G family. */
++		{ 0x7cf00000, 0x50900000,	RTL_GIGA_MAC_VER_42 },
+ 		{ 0x7cf00000, 0x4c100000,	RTL_GIGA_MAC_VER_41 },
+ 		{ 0x7cf00000, 0x4c000000,	RTL_GIGA_MAC_VER_40 },
+ 
+@@ -3439,6 +3448,81 @@ static void rtl8168g_1_hw_phy_config(struct rtl8169_private *tp)
+ 	rtl_writephy(tp, 0x1f, 0x0000);
+ }
+ 
++static void rtl8168g_2_hw_phy_config(struct rtl8169_private *tp)
++{
++	rtl_apply_firmware(tp);
++
++	rtl_writephy(tp, 0x1f, 0x0bcc);
++	rtl_w1w0_phy(tp, 0x14, 0x0000, 0x0100);
++	rtl_writephy(tp, 0x1f, 0x0a44);
++	rtl_w1w0_phy(tp, 0x11, 0x00c0, 0x0000);
++	rtl_writephy(tp, 0x1f, 0x0a43);
++	rtl_writephy(tp, 0x13, 0x8084);
++	rtl_w1w0_phy(tp, 0x14, 0x0000, 0x6000);
++	rtl_w1w0_phy(tp, 0x10, 0x1003, 0x0000);
++
++	/* Enable UC LPF tune function */
++	rtl_writephy(tp, 0x1f, 0x0a43);
++	rtl_writephy(tp, 0x13, 0x8012);
++	rtl_w1w0_phy(tp, 0x14, 0x8000, 0x0000);
++
++	rtl_writephy(tp, 0x1f, 0x0bce);
++	rtl_writephy(tp, 0x12, 0x8860);
++
++	/* Channel Estimation: master */
++	rtl_writephy(tp, 0x1f, 0x0a43);
++	rtl_writephy(tp, 0x13, 0x80f3);
++	rtl_w1w0_phy(tp, 0x14, 0x8b00, 0x7400);
++	rtl_writephy(tp, 0x13, 0x80f0);
++	rtl_w1w0_phy(tp, 0x14, 0x3a00, 0xc500);
++	rtl_writephy(tp, 0x13, 0x80ef);
++	rtl_w1w0_phy(tp, 0x14, 0x0500, 0xfa00);
++	rtl_writephy(tp, 0x13, 0x80f6);
++	rtl_w1w0_phy(tp, 0x14, 0x6e00, 0x9100);
++	rtl_writephy(tp, 0x13, 0x80ec);
++	rtl_w1w0_phy(tp, 0x14, 0x6800, 0x9700);
++	rtl_writephy(tp, 0x13, 0x80ed);
++	rtl_w1w0_phy(tp, 0x14, 0x7c00, 0x8300);
++	rtl_writephy(tp, 0x13, 0x80f2);
++	rtl_w1w0_phy(tp, 0x14, 0xf400, 0x0b00);
++	rtl_writephy(tp, 0x13, 0x80f4);
++	rtl_w1w0_phy(tp, 0x14, 0x8500, 0x7a00);
++
++	/* Channel Estimation: slave */
++	rtl_writephy(tp, 0x1f, 0x0a43);
++	rtl_writephy(tp, 0x13, 0x8110);
++	rtl_w1w0_phy(tp, 0x14, 0xa800, 0x5700);
++	rtl_writephy(tp, 0x13, 0x810f);
++	rtl_w1w0_phy(tp, 0x14, 0x1d00, 0xe200);
++	rtl_writephy(tp, 0x13, 0x8111);
++	rtl_w1w0_phy(tp, 0x14, 0xf500, 0x0a00);
++	rtl_writephy(tp, 0x13, 0x8113);
++	rtl_w1w0_phy(tp, 0x14, 0x6100, 0x9e00);
++	rtl_writephy(tp, 0x13, 0x8115);
++	rtl_w1w0_phy(tp, 0x14, 0x9200, 0x6d00);
++	rtl_writephy(tp, 0x13, 0x810e);
++	rtl_w1w0_phy(tp, 0x14, 0x0400, 0xfb00);
++	rtl_writephy(tp, 0x13, 0x810c);
++	rtl_w1w0_phy(tp, 0x14, 0x7c00, 0x8300);
++	rtl_writephy(tp, 0x13, 0x810b);
++	rtl_w1w0_phy(tp, 0x14, 0x5a00, 0xa500);
++
++	/* Channel Estimation: 100 */
++	rtl_writephy(tp, 0x1f, 0x0a43);
++	rtl_writephy(tp, 0x13, 0x80d1);
++	rtl_w1w0_phy(tp, 0x14, 0xff00, 0x0000);
++	rtl_writephy(tp, 0x13, 0x80cd);
++	rtl_w1w0_phy(tp, 0x14, 0x9e00, 0x6100);
++	rtl_writephy(tp, 0x13, 0x80d3);
++	rtl_w1w0_phy(tp, 0x14, 0x0e00, 0xf100);
++	rtl_writephy(tp, 0x13, 0x80d5);
++	rtl_w1w0_phy(tp, 0x14, 0xca00, 0x3500);
++	rtl_writephy(tp, 0x13, 0x80d7);
++	rtl_w1w0_phy(tp, 0x14, 0x8400, 0x7b00);
++
++	rtl_writephy(tp, 0x1f, 0x0000);
++}
++
+ static void rtl8102e_hw_phy_config(struct rtl8169_private *tp)
+ {
+ 	static const struct phy_reg phy_reg_init[] = {
+@@ -3624,6 +3708,9 @@ static void rtl_hw_phy_config(struct net_device *dev)
+ 	case RTL_GIGA_MAC_VER_40:
+ 		rtl8168g_1_hw_phy_config(tp);
+ 		break;
++	case RTL_GIGA_MAC_VER_42:
++		rtl8168g_2_hw_phy_config(tp);
++		break;
+ 
+ 	case RTL_GIGA_MAC_VER_41:
+ 	default:
+@@ -3832,6 +3919,7 @@ static void rtl_init_mdio_ops(struct rtl8169_private *tp)
+ 		break;
+ 	case RTL_GIGA_MAC_VER_40:
+ 	case RTL_GIGA_MAC_VER_41:
++	case RTL_GIGA_MAC_VER_42:
+ 		ops->write	= r8168g_mdio_write;
+ 		ops->read	= r8168g_mdio_read;
+ 		break;
+@@ -3859,6 +3947,7 @@ static void rtl_wol_suspend_quirk(struct rtl8169_private *tp)
+ 	case RTL_GIGA_MAC_VER_39:
+ 	case RTL_GIGA_MAC_VER_40:
+ 	case RTL_GIGA_MAC_VER_41:
++	case RTL_GIGA_MAC_VER_42:
+ 		RTL_W32(RxConfig, RTL_R32(RxConfig) |
+ 			AcceptBroadcast | AcceptMulticast | AcceptMyPhys);
+ 		break;
+@@ -4121,6 +4210,7 @@ static void rtl_init_pll_power_ops(struct rtl8169_private *tp)
+ 	case RTL_GIGA_MAC_VER_38:
+ 	case RTL_GIGA_MAC_VER_40:
+ 	case RTL_GIGA_MAC_VER_41:
++	case RTL_GIGA_MAC_VER_42:
+ 		ops->down	= r8168_pll_power_down;
+ 		ops->up		= r8168_pll_power_up;
+ 		break;
+@@ -4165,6 +4255,7 @@ static void rtl_init_rxcfg(struct rtl8169_private *tp)
+ 		break;
+ 	case RTL_GIGA_MAC_VER_40:
+ 	case RTL_GIGA_MAC_VER_41:
++	case RTL_GIGA_MAC_VER_42:
+ 		RTL_W32(RxConfig, RX128_INT_EN | RX_DMA_BURST | RX_EARLY_OFF);
+ 		break;
+ 	default:
+@@ -4323,6 +4414,7 @@ static void rtl_init_jumbo_ops(struct rtl8169_private *tp)
+ 	 */
+ 	case RTL_GIGA_MAC_VER_40:
+ 	case RTL_GIGA_MAC_VER_41:
++	case RTL_GIGA_MAC_VER_42:
+ 	default:
+ 		ops->disable	= NULL;
+ 		ops->enable	= NULL;
+@@ -4430,6 +4522,7 @@ static void rtl8169_hw_reset(struct rtl8169_private *tp)
+ 	           tp->mac_version == RTL_GIGA_MAC_VER_37 ||
+ 	           tp->mac_version == RTL_GIGA_MAC_VER_40 ||
+ 	           tp->mac_version == RTL_GIGA_MAC_VER_41 ||
++	           tp->mac_version == RTL_GIGA_MAC_VER_42 ||
+ 	           tp->mac_version == RTL_GIGA_MAC_VER_38) {
+ 		RTL_W8(ChipCmd, RTL_R8(ChipCmd) | StopReq);
+ 		rtl_udelay_loop_wait_high(tp, &rtl_txcfg_empty_cond, 100, 666);
+@@ -5174,6 +5267,24 @@ static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
+ 	rtl_w1w0_eri(tp, 0x1b0, ERIAR_MASK_0011, 0x0000, 0x1000, ERIAR_EXGMAC);
+ }
+ 
++static void rtl_hw_start_8168g_2(struct rtl8169_private *tp)
++{
++	void __iomem *ioaddr = tp->mmio_addr;
++	static const struct ephy_info e_info_8168g_2[] = {
++		{ 0x00, 0x0000,	0x0008 },
++		{ 0x0c, 0x3df0,	0x0200 },
++		{ 0x19, 0xffff,	0xfc00 },
++		{ 0x1e, 0xffff,	0x20eb }
++	};
++
++	rtl_hw_start_8168g_1(tp);
++
++	/* disable aspm and clock request before access ephy */
++	RTL_W8(Config2, RTL_R8(Config2) & ~ClkReqEn);
++	RTL_W8(Config5, RTL_R8(Config5) & ~ASPM_en);
++	rtl_ephy_init(tp, e_info_8168g_2, ARRAY_SIZE(e_info_8168g_2));
++}
++
+ static void rtl_hw_start_8168(struct net_device *dev)
  {
  	struct rtl8169_private *tp = netdev_priv(dev);
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	u8 *d = (u8 *)p;
-+	int i;
+@@ -5279,6 +5390,9 @@ static void rtl_hw_start_8168(struct net_device *dev)
+ 	case RTL_GIGA_MAC_VER_41:
+ 		rtl_hw_start_8168g_1(tp);
+ 		break;
++	case RTL_GIGA_MAC_VER_42:
++		rtl_hw_start_8168g_2(tp);
++		break;
  
- 	if (regs->len > R8169_REGS_SIZE)
- 		regs->len = R8169_REGS_SIZE;
- 
- 	rtl_lock_work(tp);
--	memcpy_fromio(p, tp->mmio_addr, regs->len);
-+	for (i = 0; i < regs->len; i++)
-+		*d++ = RTL_R8(i);
- 	rtl_unlock_work(tp);
- }
+ 	default:
+ 		printk(KERN_ERR PFX "%s: unknown chipset (mac_version = %d).\n",
+@@ -6766,6 +6880,7 @@ static void rtl_hw_initialize(struct rtl8169_private *tp)
+ 	switch (tp->mac_version) {
+ 	case RTL_GIGA_MAC_VER_40:
+ 	case RTL_GIGA_MAC_VER_41:
++	case RTL_GIGA_MAC_VER_42:
+ 		rtl_hw_init_8168g(tp);
+ 		break;
  
 -- 
 1.8.1
