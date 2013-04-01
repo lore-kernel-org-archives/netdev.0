@@ -1,47 +1,49 @@
-From: Ani Sinha <linuxdev@anirban.org>
-Subject: Re: RX/dropped counter values for tagged packets
-Date: Sun, 31 Mar 2013 18:24:04 -0700
-Message-ID: <CAOQZsUj71vX-71S4WhJUmerh5VhtheacXVCkGKpyFEHTG9WBgA@mail.gmail.com>
-References: <CAOxq_8OrE6=XtJ9TDbL7NH9313-WutZPZP8=cRBH7pVUdBDvCg@mail.gmail.com>
-	<CAOxq_8OBcHktjmkwiz2j=DXDAdNx3t7D_nTmDtuJudfs49VNrg@mail.gmail.com>
-	<1364708664.5113.139.camel@edumazet-glaptop>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [PATCH] drivers/isdn/divert: beautify code, delete useless 'break'
+Date: Mon, 01 Apr 2013 09:52:20 +0800
+Message-ID: <5158E854.7060902@asianux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ani Sinha <ani@aristanetworks.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org >> netdev" <netdev@vger.kernel.org>
+To: isdn@linux-pingi.de, Jiri Slaby <jslaby@suse.cz>,
+	'Jiri Kosina' <trivial@kernel.org>, tilman@imap.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:51518 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753004Ab3DABYG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Mar 2013 21:24:06 -0400
-Received: by mail-ie0-f177.google.com with SMTP id tp5so1864633ieb.8
-        for <netdev@vger.kernel.org>; Sun, 31 Mar 2013 18:24:05 -0700 (PDT)
-In-Reply-To: <1364708664.5113.139.camel@edumazet-glaptop>
+Received: from intranet.asianux.com ([58.214.24.6]:6480 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754589Ab3DABwx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Mar 2013 21:52:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 30, 2013 at 10:44 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> I don't know, I am not reading this code like you, I see no problem.
->
-> If vlan_do_receive() return true, we "goto another_round" to deliver the
-> packt to vlan device.
->
-> vlan_do_receive() doesn't deliver the packet at all. It only prepares
-> the "another_round"
 
+  delete useless break statements.
 
-yes, I am with you on this. But let's focus on this "another_round" code.
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+---
+ drivers/isdn/divert/isdn_divert.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
->
-> So if packet is delivered to vlan, we don't increment rx_dropped.
-
-So in "another_round", if pt_prev is null at the end of the function
-(not sure if this can actually happen in reality, but from the code it
-looks like a possibility), the dropped counts will get incremented.
-
-
-Does that make sense?
-
-cheers,
-ani
+diff --git a/drivers/isdn/divert/isdn_divert.c b/drivers/isdn/divert/isdn_divert.c
+index db432e6..76d505e 100644
+--- a/drivers/isdn/divert/isdn_divert.c
++++ b/drivers/isdn/divert/isdn_divert.c
+@@ -442,7 +442,6 @@ static int isdn_divert_icall(isdn_ctrl *ic)
+ 		switch (dv->rule.action) {
+ 		case DEFLECT_IGNORE:
+ 			return (0);
+-			break;
+ 
+ 		case DEFLECT_ALERT:
+ 		case DEFLECT_PROCEED:
+@@ -511,7 +510,6 @@ static int isdn_divert_icall(isdn_ctrl *ic)
+ 
+ 		default:
+ 			return (0); /* ignore call */
+-			break;
+ 		} /* switch action */
+ 		break;
+ 	} /* scan_table */
+-- 
+1.7.7.6
