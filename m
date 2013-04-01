@@ -1,74 +1,48 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH Resend] core: should call pskb_expand_head if skb header is cloned in skb_gso_segment in rx path
-Date: Mon,  1 Apr 2013 10:37:41 +0800
-Message-ID: <1364783861-3363-1-git-send-email-roy.qing.li@gmail.com>
-Cc: amwang@redhat.com
-To: netdev@vger.kernel.org
+From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Subject: RE: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
+Date: Mon, 1 Apr 2013 02:51:56 +0000
+Message-ID: <157393863283F442885425D2C45428564F20261B@nasanexd02f.na.qualcomm.com>
+References: <CDAFEDABF718A54BABD0DA5476695307475CCD42@SHEXMB-01.global.atheros.com>
+	 <20100125.163612.582489483209420341.anders@netinsight.net>
+	 <CDAFEDABF718A54BABD0DA5476695307475CCFF8@SHEXMB-01.global.atheros.com>
+	 <20100126.093439.651115405791675606.anders@netinsight.net>
+	 <1364689558.3557.22.camel@deadeye.wl.decadent.org.uk>
+	  <157393863283F442885425D2C45428564F202477@nasanexd02f.na.qualcomm.com>
+ <1364695805.3557.41.camel@deadeye.wl.decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: =?utf-8?B?QW5kZXJzIEJvc3Ryw7Zt?= <anders@netinsight.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"565404@bugs.debian.org" <565404@bugs.debian.org>,
+	"Hannes Frederic Sowa (hannes@stressinduktion.org)"
+	<hannes@stressinduktion.org>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f53.google.com ([209.85.210.53]:55115 "EHLO
-	mail-da0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756236Ab3DACht (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Mar 2013 22:37:49 -0400
-Received: by mail-da0-f53.google.com with SMTP id n34so874332dal.12
-        for <netdev@vger.kernel.org>; Sun, 31 Mar 2013 19:37:48 -0700 (PDT)
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:63952 "EHLO
+	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756234Ab3DACv5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Mar 2013 22:51:57 -0400
+In-Reply-To: <1364695805.3557.41.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
-
-12b0004d1d1 (adjust skb_gso_segment() for calling in rx path) tries to kill warnings
-by checking if ip_summed is CHECK_NONE or not in rx path, since if skb_gso_segment()
-is called on rx path, and ->ip_summed has different meaning.
-
-but this maybe break skb if skb header is cloned, and not expand the header, since when
-step into skb_mac_gso_segment(), which will still check ip_summed with CHECKSUM_PARTIAL,
-then do gso_send_check(). and after __skb_gso_segment() in queue_gso_packets() of
-openvswitch, queue_userspace_packet() still checks ip_summed with CHECKSUM_PARTIAL,
-and do checksum.
-
-so I think it is enough to ignore the warning in rx path.
-
-Cc: Cong Wang <amwang@redhat.com>
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/core/dev.c |   16 +++-------------
- 1 file changed, 3 insertions(+), 13 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index de930b7..bf0e586 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2269,17 +2269,6 @@ struct sk_buff *skb_mac_gso_segment(struct sk_buff *skb,
- }
- EXPORT_SYMBOL(skb_mac_gso_segment);
- 
--
--/* openvswitch calls this on rx path, so we need a different check.
-- */
--static inline bool skb_needs_check(struct sk_buff *skb, bool tx_path)
--{
--	if (tx_path)
--		return skb->ip_summed != CHECKSUM_PARTIAL;
--	else
--		return skb->ip_summed == CHECKSUM_NONE;
--}
--
- /**
-  *	__skb_gso_segment - Perform segmentation on skb.
-  *	@skb: buffer to segment
-@@ -2294,10 +2283,11 @@ static inline bool skb_needs_check(struct sk_buff *skb, bool tx_path)
- struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
- 				  netdev_features_t features, bool tx_path)
- {
--	if (unlikely(skb_needs_check(skb, tx_path))) {
-+	if (unlikely(skb->ip_summed != CHECKSUM_PARTIAL)) {
- 		int err;
- 
--		skb_warn_bad_offload(skb);
-+		if (tx_path)
-+			skb_warn_bad_offload(skb);
- 
- 		if (skb_header_cloned(skb) &&
- 		    (err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
--- 
-1.7.10.4
+PiA+DQo+ID4gSSBjaGVja2VkIHdpbmRvd3MgZHJpdmVyLCBpdCBkb2VzIGxpbWl0ICB0aGUgbWF4
+IHBhY2tldCBsZW5ndGggZm9yIFRTTw0KPiA+IHdpbmRvd3MgWFAgOiAzMioxMDI0IGJ5dGVzIChp
+bmNsdWRlIE1BQyBoZWFkZXIgYW5kIGFsbCBNQUMgcGF5bG9hZCkuIE5vDQo+IHN1cHBvcnQgSVAv
+VENQIG9wdGlvbi4NCj4gPiBXaW5kb3dzIDc6ICAxNSwgMDAwIGJ5dGVzLCBzdXBwb3J0IElQL1RD
+UCBvcHRpb24uDQo+IA0KPiBJZiBUU08gb24gdGhlc2UgZGV2aWNlcyBkb24ndCB3b3JrIHByb3Bl
+cmx5IHdpdGggVENQIG9wdGlvbnMgdGhlbiB5b3UncmUNCj4ganVzdCBnb2luZyB0byBoYXZlIHRv
+IGRpc2FibGUgaXQgLSBMaW51eCByZXF1aXJlcyBpdCB0byBzdXBwb3J0IGF0IGxlYXN0IHRoZQ0K
+PiB0aW1lc3RhbXAgb3B0aW9uLiAgSSdtIG5vdCBzdXJlIGFib3V0IElQIG9wdGlvbnMgKHRoaXMg
+cmVhbGx5IG91Z2h0IHRvIGJlDQo+IGRvY3VtZW50ZWQpLg0KPiANCj4gSWYgdGhlcmUncyBhIGxl
+bmd0aCBsaW1pdCBsb3dlciB0aGFuIDY0SywgeW91J2xsIG5lZWQgdG8gc2V0IHRoZSBsaW1pdCB1
+c2luZw0KPiBuZXRpZl9zZXRfZ3NvX21heF9zaXplKCkgYmVmb3JlIHJlZ2lzdGVyaW5nIHRoZSBu
+ZXQgZGV2aWNlLg0KPiANCg0KQmVuLCB0aGFua3MgZm9yIHlvdXIgYWR2aWNlLiANCkkgaGF2ZSBk
+aXNjdXNzZWQgd2l0aCB3aW5kb3dzIGRyaXZlciBkZXZlbG9wZXIgYW5kIGhhcmR3YXJlIGRlc2ln
+bmVyLCB0aGUgVFNPIGxpbWl0YXRpb24gZm9yIHdpbiBkcml2ZXIgaXMganVzdA0KRm9yIHNpbXBs
+aWZ5aW5nIHdpbmRvd3MgZHJpdmVyIGR1ZSB0byB0aGUgYnVmZmVyIGxlbmd0aCBsaW1pdGF0aW9u
+IG9mIFRYIGRlc2NyaXB0b3IuIFRoZSBoYXJkd2FyZSBpdHNlbGYgaGFzIG5vIGxpbWl0YXRpb24g
+b24NClRTTyBwYWNrZXQgbGVuZ3RoLg0KDQpCVFcuIElwL3RjcCBvcHRpb24gaXMgc3VwcG9ydGVk
+IGFzIHdlbGwuDQoNClRoYW5rcw0KWGlvbmcNCg==
