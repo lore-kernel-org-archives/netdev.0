@@ -1,64 +1,26 @@
-From: Joseph Salisbury <joseph.salisbury@canonical.com>
-Subject: Re: [v3.8, v3.9] [Regression] brcmsmac: move PHY functions
-Date: Mon, 01 Apr 2013 11:18:49 -0400
-Message-ID: <5159A559.4000808@canonical.com>
-References: <5155F107.6050408@canonical.com> <20130401144225.GC21859@tuxdriver.com>
+From: Lawrence Lee <lawrenceqli@gmail.com>
+Subject: How to deliver packets to the L4 layer in the NF_IP_PRE_ROUTING hook
+Date: Mon, 1 Apr 2013 17:24:30 +0200
+Message-ID: <CAGXkBO-ewTupoFXmq9CYeJHr9LT1QLq774LooNWMTh0j1wZwRA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: phaber@broadcom.com, arend@broadcom.com, pieterpg@broadcom.com,
-	meuleman@broadcom.com, LKML <linux-kernel@vger.kernel.org>,
-	brudley@broadcom.com, frankyl@broadcom.com,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130401144225.GC21859@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ia0-f180.google.com ([209.85.210.180]:53804 "EHLO
+	mail-ia0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757344Ab3DAPYb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 11:24:31 -0400
+Received: by mail-ia0-f180.google.com with SMTP id f27so1944910iae.39
+        for <netdev@vger.kernel.org>; Mon, 01 Apr 2013 08:24:30 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/01/2013 10:42 AM, John W. Linville wrote:
-> On Fri, Mar 29, 2013 at 03:52:39PM -0400, Joseph Salisbury wrote:
->> Hi Piotr,
->>
->> A bug was opened against the Ubuntu kernel[0].  After a kernel
->> bisect, it was found that reverting the following commit resolved
->> this bug:
->>
->> commit b83576341664957978e125f5f5db2f15496980b1
->> Author: Piotr Haber <phaber@broadcom.com>
->> Date:   Wed Nov 28 21:44:09 2012 +0100
->>
->>      brcmsmac: move PHY functions
->>
->> The regression was introduced as of v3.8-rc1.  The regression still
->> exists in v3.9-rc4.
->>
->> I see that you are the author of this patch, so I wanted to run this
->> by you.  I was thinking of requesting a revert for v3.9, but I
->> wanted to get your feedback first.
->>
->>
->> Thanks,
->>
->> Joe
->>
->> [0] http://pad.lv/1131914
-> I recently reverted b6fc28a1, which is the follow-on to that patch.
-> The revert is _not_ in 3.9-rc5.
->
-> Could you try reverting that patch instead?  Does that fix the issue
-> for you?
->
-> John
+Hi,
 
-Hi John,
+I  want to directly deliver some packets to the L4 layer when the
+packets are in the hook of NF_IP_PRE_ROUTING. I use the use
+ip_local_deliver() function. However, it does not work. May I know how
+I can make it work. Thank you!
 
-Thanks for the response.
-
-Yes, reverting commit b6fc28a1 does resolve this bug.  That is the 
-appropriate fix for this issue.  Thanks for the assistance.
-
-Thanks,
-
-Joe
+Best Regards,
+Lawrence
