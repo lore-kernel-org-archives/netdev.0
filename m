@@ -1,56 +1,157 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH] core: fix the use of this_cpu_ptr
-Date: Mon, 1 Apr 2013 18:15:24 +0000
-Message-ID: <0000013dc6cf8f55-82165231-d5d6-4403-85fd-790899bfd49f-000000@email.amazonses.com>
-References: <1364463761-32510-1-git-send-email-roy.qing.li@gmail.com> <1364475933.15753.36.camel@edumazet-glaptop> <0000013db16f1e1d-abcb7d9e-1c9d-4ef9-b4de-767bc0282ccf-000000@email.amazonses.com> <CAJFZqHzkGcFT_gcqgu=ktuig7UEoR4FVTUZF6G46=6n6FkYZ2A@mail.gmail.com>
- <0000013dc6307f44-940f2bf1-7556-4d9e-92ab-1a84d2a47ca8-000000@email.amazonses.com> <1364833887.5113.161.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: RongQing Li <roy.qing.li@gmail.com>,
-	Shan Wei <davidshan@tencent.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a9-66.smtp-out.amazonses.com ([54.240.9.66]:43243 "EHLO
-	a9-66.smtp-out.amazonses.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756501Ab3DASUw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 14:20:52 -0400
-In-Reply-To: <1364833887.5113.161.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Reilly Grant <grantr@vmware.com>
+Subject: [PATCH] VSOCK: Handle changes to the VMCI context ID.
+Date: Mon,  1 Apr 2013 11:41:52 -0700
+Message-ID: <1364841712-22810-1-git-send-email-grantr@vmware.com>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	pv-drivers@vmware.com, Reilly Grant <grantr@vmware.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 1 Apr 2013, Eric Dumazet wrote:
+The VMCI context ID of a virtual machine may change at any time. There
+is a VMCI event which signals this but datagrams may be processed before
+this is handled. It is therefore necessary to be flexible about the
+destination context ID of any datagrams received. (It can be assumed to
+be correct because it is provided by the hypervisor.) The context ID on
+existing sockets should be updated to reflect how the hypervisor is
+currently referring to the system.
 
-> On Mon, 2013-04-01 at 15:21 +0000, Christoph Lameter wrote:
-> > On Fri, 29 Mar 2013, RongQing Li wrote:
->
-> > > flush_tasklet is not a percpu var, it is a member of percpu var.
-> >
-> > Well then it would be best to use this_cpu_read() instead of this_cpu_ptr.
-> > It also will generate better code.
->
-> I believe we already had this discussion in the past.
->
-> flush_tasklet is a structure, and we need its address, not read its
-> content.
->
-> You can not use this_cpu_read() to get its address, and following
-> code is fine.
->
-> tasklet = &this_cpu_ptr(info->cache->percpu)->flush_tasklet;
+Signed-off-by: Reilly Grant <grantr@vmware.com>
+Acked-by: Andy King <acking@vmware.com>
+---
+ net/vmw_vsock/af_vsock.c       |  6 +++---
+ net/vmw_vsock/vmci_transport.c | 31 ++++++++++++++++++++-----------
+ net/vmw_vsock/vsock_addr.c     | 10 ----------
+ net/vmw_vsock/vsock_addr.h     |  2 --
+ 4 files changed, 23 insertions(+), 26 deletions(-)
 
-that is confusing..
-
-tasklet = this_cpu_ptr(&info->cache->percpu->flushtasklet)
-
-this_cpu_ptr performs an address relocation. The address then is the one
-of flushtasklet.
-
-> Similar to this code in mm/page_alloc.c
->
-> pcp = &this_cpu_ptr(zone->pageset)->pcp;
-
-Yeah thats my (early) code using these features.
-
-	pcp = this_cpu_ptr(&zone->pageset->pcp)
-
-I need to do a writeup on this one.
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index ca511c4..d8079da 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -207,7 +207,7 @@ static struct sock *__vsock_find_bound_socket(struct sockaddr_vm *addr)
+ 	struct vsock_sock *vsk;
+ 
+ 	list_for_each_entry(vsk, vsock_bound_sockets(addr), bound_table)
+-		if (vsock_addr_equals_addr_any(addr, &vsk->local_addr))
++		if (addr->svm_port == vsk->local_addr.svm_port)
+ 			return sk_vsock(vsk);
+ 
+ 	return NULL;
+@@ -220,8 +220,8 @@ static struct sock *__vsock_find_connected_socket(struct sockaddr_vm *src,
+ 
+ 	list_for_each_entry(vsk, vsock_connected_sockets(src, dst),
+ 			    connected_table) {
+-		if (vsock_addr_equals_addr(src, &vsk->remote_addr)
+-		    && vsock_addr_equals_addr(dst, &vsk->local_addr)) {
++		if (vsock_addr_equals_addr(src, &vsk->remote_addr) &&
++		    dst->svm_port == vsk->local_addr.svm_port) {
+ 			return sk_vsock(vsk);
+ 		}
+ 	}
+diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
+index faf81b8..9caa91c 100644
+--- a/net/vmw_vsock/vmci_transport.c
++++ b/net/vmw_vsock/vmci_transport.c
+@@ -472,19 +472,16 @@ static struct sock *vmci_transport_get_pending(
+ 	struct vsock_sock *vlistener;
+ 	struct vsock_sock *vpending;
+ 	struct sock *pending;
++	struct sockaddr_vm src;
++
++	vsock_addr_init(&src, pkt->dg.src.context, pkt->src_port);
+ 
+ 	vlistener = vsock_sk(listener);
+ 
+ 	list_for_each_entry(vpending, &vlistener->pending_links,
+ 			    pending_links) {
+-		struct sockaddr_vm src;
+-		struct sockaddr_vm dst;
+-
+-		vsock_addr_init(&src, pkt->dg.src.context, pkt->src_port);
+-		vsock_addr_init(&dst, pkt->dg.dst.context, pkt->dst_port);
+-
+ 		if (vsock_addr_equals_addr(&src, &vpending->remote_addr) &&
+-		    vsock_addr_equals_addr(&dst, &vpending->local_addr)) {
++		    pkt->dst_port == vpending->local_addr.svm_port) {
+ 			pending = sk_vsock(vpending);
+ 			sock_hold(pending);
+ 			goto found;
+@@ -749,10 +746,15 @@ static int vmci_transport_recv_stream_cb(void *data, struct vmci_datagram *dg)
+ 	 */
+ 	bh_lock_sock(sk);
+ 
+-	if (!sock_owned_by_user(sk) && sk->sk_state == SS_CONNECTED)
+-		vmci_trans(vsk)->notify_ops->handle_notify_pkt(
+-				sk, pkt, true, &dst, &src,
+-				&bh_process_pkt);
++	if (!sock_owned_by_user(sk)) {
++		/* The local context ID may be out of date, update it. */
++		vsk->local_addr.svm_cid = dst.svm_cid;
++
++		if (sk->sk_state == SS_CONNECTED)
++			vmci_trans(vsk)->notify_ops->handle_notify_pkt(
++					sk, pkt, true, &dst, &src,
++					&bh_process_pkt);
++	}
+ 
+ 	bh_unlock_sock(sk);
+ 
+@@ -912,6 +914,9 @@ static void vmci_transport_recv_pkt_work(struct work_struct *work)
+ 
+ 	lock_sock(sk);
+ 
++	/* The local context ID may be out of date. */
++	vsock_sk(sk)->local_addr.svm_cid = pkt->dg.dst.context;
++
+ 	switch (sk->sk_state) {
+ 	case SS_LISTEN:
+ 		vmci_transport_recv_listen(sk, pkt);
+@@ -968,6 +973,10 @@ static int vmci_transport_recv_listen(struct sock *sk,
+ 	pending = vmci_transport_get_pending(sk, pkt);
+ 	if (pending) {
+ 		lock_sock(pending);
++
++		/* The local context ID may be out of date. */
++		vsock_sk(pending)->local_addr.svm_cid = pkt->dg.dst.context;
++
+ 		switch (pending->sk_state) {
+ 		case SS_CONNECTING:
+ 			err = vmci_transport_recv_connecting_server(sk,
+diff --git a/net/vmw_vsock/vsock_addr.c b/net/vmw_vsock/vsock_addr.c
+index b7df1ae..ec2611b 100644
+--- a/net/vmw_vsock/vsock_addr.c
++++ b/net/vmw_vsock/vsock_addr.c
+@@ -64,16 +64,6 @@ bool vsock_addr_equals_addr(const struct sockaddr_vm *addr,
+ }
+ EXPORT_SYMBOL_GPL(vsock_addr_equals_addr);
+ 
+-bool vsock_addr_equals_addr_any(const struct sockaddr_vm *addr,
+-				const struct sockaddr_vm *other)
+-{
+-	return (addr->svm_cid == VMADDR_CID_ANY ||
+-		other->svm_cid == VMADDR_CID_ANY ||
+-		addr->svm_cid == other->svm_cid) &&
+-	       addr->svm_port == other->svm_port;
+-}
+-EXPORT_SYMBOL_GPL(vsock_addr_equals_addr_any);
+-
+ int vsock_addr_cast(const struct sockaddr *addr,
+ 		    size_t len, struct sockaddr_vm **out_addr)
+ {
+diff --git a/net/vmw_vsock/vsock_addr.h b/net/vmw_vsock/vsock_addr.h
+index cdfbcef..9ccd531 100644
+--- a/net/vmw_vsock/vsock_addr.h
++++ b/net/vmw_vsock/vsock_addr.h
+@@ -24,8 +24,6 @@ bool vsock_addr_bound(const struct sockaddr_vm *addr);
+ void vsock_addr_unbind(struct sockaddr_vm *addr);
+ bool vsock_addr_equals_addr(const struct sockaddr_vm *addr,
+ 			    const struct sockaddr_vm *other);
+-bool vsock_addr_equals_addr_any(const struct sockaddr_vm *addr,
+-				const struct sockaddr_vm *other);
+ int vsock_addr_cast(const struct sockaddr *addr, size_t len,
+ 		    struct sockaddr_vm **out_addr);
+ 
+-- 
+1.8.1.5
