@@ -1,50 +1,142 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [Suggestion] drivers/isdn/divert: break looping, or memory leak
- by calling kmalloc again
-Date: Mon, 01 Apr 2013 18:19:56 +0800
-Message-ID: <51595F4C.3040107@asianux.com>
-References: <5158ECBD.4050109@asianux.com> <51595C9A.1060608@imap.cc>
+From: Balakumaran Kannan <kumaran.4353@gmail.com>
+Subject: Re: [PATCH v2] net IPv6 : Fix broken IPv6 routing table after loopback
+ down-up
+Date: Mon, 01 Apr 2013 17:29:58 +0530
+Message-ID: <515976BE.6060607@gmail.com>
+References: <CAHPKR9L4Y0=cbH7w_iZ20CBsH=nt4UuZwyBvDOMSrMmM_sJt1w@mail.gmail.com> <CAHPKR9J4vmPp6SFn-betmb6GLimZE6dRf0Tapeu5jzyUJ=vK6Q@mail.gmail.com> <CAHPKR9J=niSHrGmeX7ZM-1fosjnRA_CFrfd+ha3zwNibNGe1bg@mail.gmail.com> <20130329.151759.1699178800809051958.davem@davemloft.net> <CAHPKR9+=fFPTpjdE+diyXDvjEdPcqcRXJvWP_rHWrqB7wMTEPA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: isdn@linux-pingi.de, Jiri Slaby <jslaby@suse.cz>,
-	Jiri Kosina <jkosina@suse.cz>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Tilman Schmidt <tilman@imap.cc>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	Balakumaran.Kannan@ap.sony.com, maruthi.thotad@ap.sony.com,
+	netdev@vger.kernel.org, jamshed.a@ap.sony.com,
+	amit.agarwal@ap.sony.com, takuzo.ohara@jp.sony.com,
+	aaditya.kumar@ap.sony.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:48669 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757056Ab3DAKU3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 06:20:29 -0400
-In-Reply-To: <51595C9A.1060608@imap.cc>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:55255 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751750Ab3DAMAM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 08:00:12 -0400
+Received: by mail-pa0-f50.google.com with SMTP id bg2so1288942pad.37
+        for <netdev@vger.kernel.org>; Mon, 01 Apr 2013 05:00:12 -0700 (PDT)
+In-Reply-To: <CAHPKR9+=fFPTpjdE+diyXDvjEdPcqcRXJvWP_rHWrqB7wMTEPA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013=E5=B9=B404=E6=9C=8801=E6=97=A5 18:08, Tilman Schmidt wrote:
-> Am 01.04.2013 04:11, schrieb Chen Gang:
->> > in drivers/isdn/divert/isdn_divert.c:
->> >=20
->> >   in 'for' looping (line 395..515)
->> >     the 'cs' may call kmalloc again (line 453).
->> >=20
->> >   it seems need break looping, when get valid 'cs' value (line 509=
-)
-> I don't think so. If the kmalloc for cs succeeds, control flow will
-> continue linearly up to the 'if' statement in line 503. Then it will
-> either kfree(cs) and return, or reach the 'break' in line 514 which
-> will end the 'for' loop.
+IPv6 Routing table becomes broken once we do ifdown, ifup of the loopback(lo)
+interface. After down-up, routes of other interface's IPv6 addresses through
+'lo' are lost.
 
-  oh, really it is, it is my fault !
-    (I did not see the break at line 514)
+IPv6 addresses assigned to all interfaces are routed through 'lo' for internal
+communication. Once 'lo' is down, those routing entries are removed from routing
+table. But those removed entries are not being re-created properly when 'lo' is
+brought up. So IPv6 addresses of other interfaces becomes unreachable from the
+same machine. Also this breaks communication with other machines because of
+NDISC packet processing failure.
 
-  thanks.
+This patch fixes this issue by reading all interface's IPv6 addresses and adding
+them to IPv6 routing table while bringing up 'lo'.
 
-  :-)
+Patch is prepared for Linux-3.9.rc4 kernel.
 
+Signed-off-by: Balakumaran Kannan <Balakumaran.Kannan@ap.sony.com>
+Signed-off-by: Maruthi Thotad <Maruthi.Thotad@ap.sony.com>
+---
+==Testing==
+Before applying the patch:
+$ route -A inet6
+Kernel IPv6 routing table
+Destination                    Next Hop                   Flag Met Ref Use If
+2000::20/128                   ::                         U    256 0     0 eth0
+fe80::/64                      ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+::1/128                        ::                         Un   0   1     0 lo
+2000::20/128                   ::                         Un   0   1     0 lo
+fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
+ff00::/8                       ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+$ sudo ifdown lo
+$ sudo ifup lo
+$ route -A inet6
+Kernel IPv6 routing table
+Destination                    Next Hop                   Flag Met Ref Use If
+2000::20/128                   ::                         U    256 0     0 eth0
+fe80::/64                      ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+::1/128                        ::                         Un   0   1     0 lo
+ff00::/8                       ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+$
 
+After applying the patch:
+$ route -A inet6
+Kernel IPv6 routing
+table
+Destination                    Next Hop                   Flag Met Ref Use If
+2000::20/128                   ::                         U    256 0     0 eth0
+fe80::/64                      ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+::1/128                        ::                         Un   0   1     0 lo
+2000::20/128                   ::                         Un   0   1     0 lo
+fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
+ff00::/8                       ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+$ sudo ifdown lo
+$ sudo ifup lo
+$ route -A inet6
+Kernel IPv6 routing table
+Destination                    Next Hop                   Flag Met Ref Use If
+2000::20/128                   ::                         U    256 0     0 eth0
+fe80::/64                      ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+::1/128                        ::                         Un   0   1     0 lo
+2000::20/128                   ::                         Un   0   1     0 lo
+fe80::xxxx:xxxx:xxxx:xxxx/128  ::                         Un   0   1     0 lo
+ff00::/8                       ::                         U    256 0     0 eth0
+::/0                           ::                         !n   -1  1     1 lo
+$
+---
+--- linux-3.9-rc4/net/ipv6/addrconf.c.orig	2013-03-27 10:40:26.382569527 +0530
++++ linux-3.9-rc4/net/ipv6/addrconf.c	2013-03-28 20:33:59.908228232 +0530
+@@ -2529,6 +2529,9 @@ static void sit_add_v4_addrs(struct inet  static void init_loopback(struct net_device *dev)  {
+ 	struct inet6_dev  *idev;
++	struct net_device *sp_dev;
++	struct inet6_ifaddr *sp_ifa;
++	struct rt6_info *sp_rt;
 
---=20
-Chen Gang
+ 	/* ::1 */
 
-Asianux Corporation
+@@ -2540,6 +2543,31 @@ static void init_loopback(struct net_dev
+ 	}
+
+ 	add_addr(idev, &in6addr_loopback, 128, IFA_HOST);
++
++	/* Add routes to other interface's IPv6 addresses */
++	for_each_netdev(dev_net(dev), sp_dev) {
++
++		if (!strcmp(sp_dev->name, dev->name))
++			continue;
++
++		idev = __in6_dev_get(sp_dev);
++		if (NULL == idev)
++			continue;
++
++		read_lock_bh(&idev->lock);
++		list_for_each_entry(sp_ifa, &idev->addr_list, if_list) {
++
++			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
++				continue;
++
++			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
++
++			/* Failure cases are ignored */
++			if (!IS_ERR(sp_rt))
++				ip6_ins_rt(sp_rt);
++		}
++		read_unlock_bh(&idev->lock);
++	}
+ }
+
+ static void addrconf_add_linklocal(struct inet6_dev *idev, const struct in6_addr *addr)
