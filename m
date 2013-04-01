@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 4/7] r8169: Update the RTL8111G parameters
-Date: Mon, 1 Apr 2013 21:55:36 +0800
-Message-ID: <1364824539-4156-4-git-send-email-hayeswang@realtek.com>
+Subject: [PATCH net-next 2/7] r8169: Update PHY settings of RTL8111G
+Date: Mon, 1 Apr 2013 21:55:34 +0800
+Message-ID: <1364824539-4156-2-git-send-email-hayeswang@realtek.com>
 References: <1364824539-4156-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,127 +13,109 @@ In-Reply-To: <1364824539-4156-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-- replace rtl8168g-1.fw with rtl8168g-2.fw which support new method.
-- fix PHY power down is useless.
-- disable rx early which causes the rx abnormal.
-- enable auto fifo.
-- set 10M IFG to default value.
-- fix the conflict between jumbo frame and flow control.
+- Replace the current settings with rtl_writephy and rtl_readphy.
+  For the hardware, the settings are same with previous ones. This
+  make the setting method like the previous chips.
+- Add new PHY settings.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/ethernet/realtek/r8169.c | 29 +++++++++++++++++++++++++----
- 1 file changed, 25 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c | 72 +++++++++++++++++++++++++-----------
+ 1 file changed, 51 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index e7e7d37..0211836 100644
+index d36aa76..b8b59a9 100644
 --- a/drivers/net/ethernet/realtek/r8169.c
 +++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -47,7 +47,7 @@
- #define FIRMWARE_8402_1		"rtl_nic/rtl8402-1.fw"
- #define FIRMWARE_8411_1		"rtl_nic/rtl8411-1.fw"
- #define FIRMWARE_8106E_1	"rtl_nic/rtl8106e-1.fw"
--#define FIRMWARE_8168G_1	"rtl_nic/rtl8168g-1.fw"
-+#define FIRMWARE_8168G_2	"rtl_nic/rtl8168g-2.fw"
+@@ -1024,14 +1024,6 @@ static u16 r8168_phy_ocp_read(struct rtl8169_private *tp, u32 reg)
+ 		(RTL_R32(GPHY_OCP) & 0xffff) : ~0;
+ }
  
- #ifdef RTL8169_DEBUG
- #define assert(expr) \
-@@ -262,7 +262,7 @@ static const struct {
- 		_R("RTL8106e",		RTL_TD_1, FIRMWARE_8106E_1,
- 							JUMBO_1K, true),
- 	[RTL_GIGA_MAC_VER_40] =
--		_R("RTL8168g/8111g",	RTL_TD_1, FIRMWARE_8168G_1,
-+		_R("RTL8168g/8111g",	RTL_TD_1, FIRMWARE_8168G_2,
- 							JUMBO_9K, false),
- 	[RTL_GIGA_MAC_VER_41] =
- 		_R("RTL8168g/8111g",	RTL_TD_1, NULL, JUMBO_9K, false),
-@@ -329,6 +329,7 @@ enum rtl_registers {
- #define	RXCFG_FIFO_SHIFT		13
- 					/* No threshold before first PCI xfer */
- #define	RX_FIFO_THRESH			(7 << RXCFG_FIFO_SHIFT)
-+#define	RX_EARLY_OFF			(1 << 11)
- #define	RXCFG_DMA_SHIFT			8
- 					/* Unlimited maximum PCI burst. */
- #define	RX_DMA_BURST			(7 << RXCFG_DMA_SHIFT)
-@@ -814,7 +815,7 @@ MODULE_FIRMWARE(FIRMWARE_8168F_2);
- MODULE_FIRMWARE(FIRMWARE_8402_1);
- MODULE_FIRMWARE(FIRMWARE_8411_1);
- MODULE_FIRMWARE(FIRMWARE_8106E_1);
--MODULE_FIRMWARE(FIRMWARE_8168G_1);
-+MODULE_FIRMWARE(FIRMWARE_8168G_2);
- 
- static void rtl_lock_work(struct rtl8169_private *tp)
+-static void rtl_w1w0_phy_ocp(struct rtl8169_private *tp, int reg, int p, int m)
+-{
+-	int val;
+-
+-	val = r8168_phy_ocp_read(tp, reg);
+-	r8168_phy_ocp_write(tp, reg, (val | p) & ~m);
+-}
+-
+ static void r8168_mac_ocp_write(struct rtl8169_private *tp, u32 reg, u32 data)
  {
-@@ -3967,6 +3968,8 @@ static void r8168_phy_power_down(struct rtl8169_private *tp)
- 	switch (tp->mac_version) {
- 	case RTL_GIGA_MAC_VER_32:
- 	case RTL_GIGA_MAC_VER_33:
-+	case RTL_GIGA_MAC_VER_40:
-+	case RTL_GIGA_MAC_VER_41:
- 		rtl_writephy(tp, MII_BMCR, BMCR_ANENABLE | BMCR_PDOWN);
- 		break;
- 
-@@ -4028,6 +4031,11 @@ static void r8168_pll_power_down(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_33:
- 		RTL_W8(PMCH, RTL_R8(PMCH) & ~0x80);
- 		break;
-+	case RTL_GIGA_MAC_VER_40:
-+	case RTL_GIGA_MAC_VER_41:
-+		rtl_w1w0_eri(tp, 0x1a8, ERIAR_MASK_1111, 0x00000000,
-+			     0xfc000000, ERIAR_EXGMAC);
-+		break;
- 	}
- }
- 
-@@ -4045,6 +4053,11 @@ static void r8168_pll_power_up(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_33:
- 		RTL_W8(PMCH, RTL_R8(PMCH) | 0x80);
- 		break;
-+	case RTL_GIGA_MAC_VER_40:
-+	case RTL_GIGA_MAC_VER_41:
-+		rtl_w1w0_eri(tp, 0x1a8, ERIAR_MASK_1111, 0xfc000000,
-+			     0x00000000, ERIAR_EXGMAC);
-+		break;
- 	}
- 
- 	r8168_phy_power_up(tp);
-@@ -4150,6 +4163,10 @@ static void rtl_init_rxcfg(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_34:
- 		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST);
- 		break;
-+	case RTL_GIGA_MAC_VER_40:
-+	case RTL_GIGA_MAC_VER_41:
-+		RTL_W32(RxConfig, RX128_INT_EN | RX_DMA_BURST | RX_EARLY_OFF);
-+		break;
- 	default:
- 		RTL_W32(RxConfig, RX128_INT_EN | RX_DMA_BURST);
- 		break;
-@@ -5128,6 +5145,8 @@ static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
  	void __iomem *ioaddr = tp->mmio_addr;
- 	struct pci_dev *pdev = tp->pci_dev;
+@@ -3370,23 +3362,61 @@ static void rtl8168g_1_hw_phy_config(struct rtl8169_private *tp)
+ {
+ 	rtl_apply_firmware(tp);
  
-+	RTL_W32(TxConfig, RTL_R32(TxConfig) | TXCFG_AUTO_FIFO);
+-	if (r8168_phy_ocp_read(tp, 0xa460) & 0x0100)
+-		rtl_w1w0_phy_ocp(tp, 0xbcc4, 0x0000, 0x8000);
+-	else
+-		rtl_w1w0_phy_ocp(tp, 0xbcc4, 0x8000, 0x0000);
++	rtl_writephy(tp, 0x1f, 0x0a46);
++	if (rtl_readphy(tp, 0x10) & 0x0100) {
++		rtl_writephy(tp, 0x1f, 0x0bcc);
++		rtl_w1w0_phy(tp, 0x12, 0x0000, 0x8000);
++	} else {
++		rtl_writephy(tp, 0x1f, 0x0bcc);
++		rtl_w1w0_phy(tp, 0x12, 0x8000, 0x0000);
++	}
+ 
+-	if (r8168_phy_ocp_read(tp, 0xa466) & 0x0100)
+-		rtl_w1w0_phy_ocp(tp, 0xc41a, 0x0002, 0x0000);
+-	else
+-		rtl_w1w0_phy_ocp(tp, 0xbcc4, 0x0000, 0x0002);
++	rtl_writephy(tp, 0x1f, 0x0a46);
++	if (rtl_readphy(tp, 0x13) & 0x0100) {
++		rtl_writephy(tp, 0x1f, 0x0c41);
++		rtl_w1w0_phy(tp, 0x15, 0x0002, 0x0000);
++	} else {
++		rtl_writephy(tp, 0x1f, 0x0c41);
++		rtl_w1w0_phy(tp, 0x15, 0x0000, 0x0002);
++	}
+ 
+-	rtl_w1w0_phy_ocp(tp, 0xa442, 0x000c, 0x0000);
+-	rtl_w1w0_phy_ocp(tp, 0xa4b2, 0x0004, 0x0000);
++	/* Enable PHY auto speed down */
++	rtl_writephy(tp, 0x1f, 0x0a44);
++	rtl_w1w0_phy(tp, 0x11, 0x000c, 0x0000);
 +
- 	rtl_eri_write(tp, 0xc8, ERIAR_MASK_0101, 0x080002, ERIAR_EXGMAC);
- 	rtl_eri_write(tp, 0xcc, ERIAR_MASK_0001, 0x38, ERIAR_EXGMAC);
- 	rtl_eri_write(tp, 0xd0, ERIAR_MASK_0001, 0x48, ERIAR_EXGMAC);
-@@ -5139,6 +5158,7 @@ static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
++	rtl_writephy(tp, 0x1f, 0x0bcc);
++	rtl_w1w0_phy(tp, 0x14, 0x0100, 0x0000);
++	rtl_writephy(tp, 0x1f, 0x0a44);
++	rtl_w1w0_phy(tp, 0x11, 0x00c0, 0x0000);
++	rtl_writephy(tp, 0x1f, 0x0a43);
++	rtl_writephy(tp, 0x13, 0x8084);
++	rtl_w1w0_phy(tp, 0x14, 0x0000, 0x6000);
++	rtl_w1w0_phy(tp, 0x10, 0x1003, 0x0000);
++
++	/* EEE auto-fallback function */
++	rtl_writephy(tp, 0x1f, 0x0a4b);
++	rtl_w1w0_phy(tp, 0x11, 0x0004, 0x0000);
++
++	/* Enable UC LPF tune function */
++	rtl_writephy(tp, 0x1f, 0x0a43);
++	rtl_writephy(tp, 0x13, 0x8012);
++	rtl_w1w0_phy(tp, 0x14, 0x8000, 0x0000);
++
++	rtl_writephy(tp, 0x1f, 0x0c42);
++	rtl_w1w0_phy(tp, 0x11, 0x4000, 0x2000);
  
- 	rtl_w1w0_eri(tp, 0xdc, ERIAR_MASK_0001, 0x00, 0x01, ERIAR_EXGMAC);
- 	rtl_w1w0_eri(tp, 0xdc, ERIAR_MASK_0001, 0x01, 0x00, ERIAR_EXGMAC);
-+	rtl_eri_write(tp, 0x2f8, ERIAR_MASK_0011, 0x1d8f, ERIAR_EXGMAC);
+-	r8168_phy_ocp_write(tp, 0xa436, 0x8012);
+-	rtl_w1w0_phy_ocp(tp, 0xa438, 0x8000, 0x0000);
++	/* Improve SWR Efficiency */
++	rtl_writephy(tp, 0x1f, 0x0bcd);
++	rtl_writephy(tp, 0x14, 0x5065);
++	rtl_writephy(tp, 0x14, 0xd065);
++	rtl_writephy(tp, 0x1f, 0x0bc8);
++	rtl_writephy(tp, 0x11, 0x5655);
++	rtl_writephy(tp, 0x1f, 0x0bcd);
++	rtl_writephy(tp, 0x14, 0x1065);
++	rtl_writephy(tp, 0x14, 0x9065);
++	rtl_writephy(tp, 0x14, 0x1065);
  
- 	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
- 	RTL_W32(MISC, RTL_R32(MISC) & ~RXDV_GATED_EN);
-@@ -5150,7 +5170,8 @@ static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
- 	/* Adjust EEE LED frequency */
- 	RTL_W8(EEE_LED, RTL_R8(EEE_LED) & ~0x07);
- 
--	rtl_w1w0_eri(tp, 0x2fc, ERIAR_MASK_0001, 0x01, 0x02, ERIAR_EXGMAC);
-+	rtl_w1w0_eri(tp, 0x2fc, ERIAR_MASK_0001, 0x01, 0x06, ERIAR_EXGMAC);
-+	rtl_w1w0_eri(tp, 0x1b0, ERIAR_MASK_0011, 0x0000, 0x1000, ERIAR_EXGMAC);
+-	rtl_w1w0_phy_ocp(tp, 0xc422, 0x4000, 0x2000);
++	rtl_writephy(tp, 0x1f, 0x0000);
  }
  
- static void rtl_hw_start_8168(struct net_device *dev)
+ static void rtl8102e_hw_phy_config(struct rtl8169_private *tp)
 -- 
 1.8.1
