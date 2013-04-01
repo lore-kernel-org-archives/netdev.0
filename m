@@ -1,29 +1,52 @@
-From: David Miller <davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: [Patch net-next v1 3/4] vxlan: add ipv6 support
-Date: Mon, 01 Apr 2013 16:05:43 -0400 (EDT)
-Message-ID: <20130401.160543.594994238827642673.davem@davemloft.net>
-References: <OF1E30BC31.571FBD44-ON85257B40.005F5AF2-85257B40.0063627F@us.ibm.com>
-	<20130401.141548.1477224368912481541.davem@davemloft.net>
-	<OFCC7D4E76.D0FD3154-ON85257B40.00659778-85257B40.006E30A9@us.ibm.com>
+Date: Mon, 1 Apr 2013 13:14:50 -0700
+Message-ID: <20130401131450.5d6bbc1e@nehalam.linuxnetplumber.net>
+References: <1364708625-29063-1-git-send-email-amwang@redhat.com>
+	<1364708625-29063-3-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, stephen@networkplumber.org
-To: dlstevens@us.ibm.com
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59175 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759706Ab3DAUFs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 16:05:48 -0400
-In-Reply-To: <OFCC7D4E76.D0FD3154-ON85257B40.00659778-85257B40.006E30A9@us.ibm.com>
+Received: from mail-da0-f54.google.com ([209.85.210.54]:44553 "EHLO
+	mail-da0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752969Ab3DAUPI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 16:15:08 -0400
+Received: by mail-da0-f54.google.com with SMTP id p1so1193736dad.27
+        for <netdev@vger.kernel.org>; Mon, 01 Apr 2013 13:15:07 -0700 (PDT)
+In-Reply-To: <1364708625-29063-3-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Stevens <dlstevens@us.ibm.com>
-Date: Mon, 1 Apr 2013 16:03:38 -0400
+On Sun, 31 Mar 2013 13:43:44 +0800
+Cong Wang <amwang@redhat.com> wrote:
 
-> My suggestion doesn't apply to anything at user level, or visible
-> to user level through an include file, kernel or glibc.
+>  	/* Need to drop RTNL to call multicast leave */
+>  	rtnl_unlock();
+> -	lock_sock(sk);
+> -	err = ip_mc_leave_group(sk, &mreq);
+> +	if (vxlan->gaddr.proto == htons(ETH_P_IP)) {
+> +		lock_sock(sk);
+> +		err = ip_mc_leave_group(sk, &mreq);
+> +	} else {
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +		lock_sock(sk);
+> +		err = ipv6_sock_mc_drop(sk, vxlan->link, &vxlan->gaddr.ip6);
+> +#endif
+> +	}
+>  	release_sock(sk);
 
-In that case I rescind my objection.
+Since both v4 and v6 need socket locked why not?
+
+	rtnl_unlock();
+	lock_sock(sk);
+	if (vxlan->gaddr.proto == htons(ETH_P_IP)) 
+		err = ip_mc_leave_group(sk, &mreq);
+if IS_ENABLED(CONFIG_IPV6)
+	else
+		err = ipv6_sock_mc_drop(sk, vxlan->link, &vxlan->gaddr.ip6);
+#endif
+
+  	release_sock(sk);
