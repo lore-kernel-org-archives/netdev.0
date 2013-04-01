@@ -1,17 +1,17 @@
 From: "Matthew O'Connor" <liquidhorse@gmail.com>
-Subject: [PATCH 3.0-longterm] bonding: ARP packet fix for balance-ALB (mode=6)
-Date: Mon, 1 Apr 2013 12:36:07 -0400
-Message-ID: <CAK8PzVnNfLSnvxY83z3Em3gtJM4zWM0Xd4P3CWy3xt=7feJgMA@mail.gmail.com>
+Subject: [PATCH 3.2-longterm] bonding: ARP packet fix for balance-ALB (mode=6)
+Date: Mon, 1 Apr 2013 12:38:20 -0400
+Message-ID: <CAK8PzVn6kMgWRDnSwHT32Sou7qB6E2_Axp-AgHgmN2jd9ktajg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:64697 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758899Ab3DAQgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 12:36:08 -0400
-Received: by mail-wg0-f50.google.com with SMTP id k13so2309061wgh.29
-        for <netdev@vger.kernel.org>; Mon, 01 Apr 2013 09:36:07 -0700 (PDT)
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:57625 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758988Ab3DAQiW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 12:38:22 -0400
+Received: by mail-wi0-f174.google.com with SMTP id hj8so1709619wib.7
+        for <netdev@vger.kernel.org>; Mon, 01 Apr 2013 09:38:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -26,13 +26,13 @@ originating via bridge
 Signed-off-by:  Matthew O'Connor <liquidhorse@gmail.com>
 
 ---
-diff -uNr linux-3.0.0-a/drivers/net/bonding/bond_alb.c
-linux-3.0.0-b/drivers/net/bonding/bond_alb.c
---- linux-3.0.0-a/drivers/net/bonding/bond_alb.c    2013-01-10
-12:47:53.000000000 -0500
-+++ linux-3.0.0-b/drivers/net/bonding/bond_alb.c    2013-01-10
-12:50:58.000000000 -0500
-@@ -666,6 +666,12 @@
+diff -uprN linux-3.2.37/drivers/net/bonding/bond_alb.c
+linux-3.2.37-patched/drivers/net/bonding/bond_alb.c
+--- linux-3.2.37/drivers/net/bonding/bond_alb.c    2013-01-15
+20:13:30.000000000 -0500
++++ linux-3.2.37-patched/drivers/net/bonding/bond_alb.c    2013-01-30
+15:37:12.717485854 -0500
+@@ -666,6 +666,12 @@ static struct slave *rlb_arp_xmit(struct
      struct arp_pkt *arp = arp_pkt(skb);
      struct slave *tx_slave = NULL;
 
@@ -45,12 +45,12 @@ linux-3.0.0-b/drivers/net/bonding/bond_alb.c
      if (arp->op_code == htons(ARPOP_REPLY)) {
          /* the arp must be sent on the selected
          * rx channel
-diff -uNr linux-3.0.0-a/drivers/net/bonding/bonding.h
-linux-3.0.0-b/drivers/net/bonding/bonding.h
---- linux-3.0.0-a/drivers/net/bonding/bonding.h    2011-07-21
-22:17:23.000000000 -0400
-+++ linux-3.0.0-b/drivers/net/bonding/bonding.h    2013-01-10
-12:51:05.000000000 -0500
+diff -uprN linux-3.2.37/drivers/net/bonding/bonding.h
+linux-3.2.37-patched/drivers/net/bonding/bonding.h
+--- linux-3.2.37/drivers/net/bonding/bonding.h    2013-01-15
+20:13:30.000000000 -0500
++++ linux-3.2.37-patched/drivers/net/bonding/bonding.h    2013-01-30
+15:37:12.729485790 -0500
 @@ -18,6 +18,7 @@
  #include <linux/timer.h>
  #include <linux/proc_fs.h>
@@ -59,7 +59,7 @@ linux-3.0.0-b/drivers/net/bonding/bonding.h
  #include <linux/cpumask.h>
  #include <linux/in6.h>
  #include <linux/netpoll.h>
-@@ -431,6 +432,18 @@
+@@ -436,6 +437,18 @@ static inline void bond_destroy_proc_dir
  }
  #endif
 
@@ -78,13 +78,13 @@ linux-3.0.0-b/drivers/net/bonding/bonding.h
 
  /* exported from bond_main.c */
  extern int bond_net_id;
-diff -uNr linux-3.0.0-a/include/linux/etherdevice.h
-linux-3.0.0-b/include/linux/etherdevice.h
---- linux-3.0.0-a/include/linux/etherdevice.h    2011-07-21
-22:17:23.000000000 -0400
-+++ linux-3.0.0-b/include/linux/etherdevice.h    2013-01-10
-12:51:16.000000000 -0500
-@@ -275,4 +275,37 @@
+diff -uprN linux-3.2.37/include/linux/etherdevice.h
+linux-3.2.37-patched/include/linux/etherdevice.h
+--- linux-3.2.37/include/linux/etherdevice.h    2013-01-15
+20:13:30.000000000 -0500
++++ linux-3.2.37-patched/include/linux/etherdevice.h    2013-01-30
+15:37:12.729485790 -0500
+@@ -275,4 +275,37 @@ static inline unsigned long compare_ethe
  #endif
  }
 
