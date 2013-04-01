@@ -1,63 +1,42 @@
-From: Vasily Averin <vvs@parallels.com>
-Subject: [PATCH 1/1] cbq: incorrect processing of high limits
-Date: Mon, 01 Apr 2013 17:01:32 +0400
-Message-ID: <5159852C.8060003@parallels.com>
+From: Kirill Kapranov <kapranoff@inbox.ru>
+Subject: Re: [PATCH] phy: Elimination the forced speed reduction algorithm.
+Date: Mon, 01 Apr 2013 17:51:44 +0400
+Message-ID: <1364824304.6276.28.camel@kkk.nita.ru>
+References: <1364304872-6408-1-git-send-email-kapranoff@inbox.ru>
+	 <20130329.143808.647821389772332250.davem@davemloft.net>
+Reply-To: kapranoff@inbox.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:2357 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756725Ab3DANC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Apr 2013 09:02:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=KOI8-R
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
+	peppe.cavallaro@st.com, joe@perches.com, bruce.w.allan@intel.com,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130329.143808.647821389772332250.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-currently cbq works incorrectly for limits > 10% real link bandwidth,
-and practically does not work for limits > 50% real link bandwidth.
-Below are results of experiments taken on 1 Gbit link
 
- In shaper | Actual Result
------------+---------------
-  100M     | 108 Mbps
-  200M     | 244 Mbps
-  300M     | 412 Mbps
-  500M     | 893 Mbps
+=46ri, 29/03/2013 14:38 -0400, David Miller =D0=C9=DB=C5=D4:
+> Why are you posting this again?  I've applied your patch 3 days
+> ago.
 
-This happen because of q->now changes incorrectly in cbq_dequeue():
-when it is called before real end of packet transmitting,
-L2T is greater than real time delay, q_now gets an extra boost
-but never compensate it.
+oops...
+The last letter I sent was a coding style correction -- removing
+trailing whitespace in response to remark of Tue, 26 Mar 2013 12:59:13
+-0400 (EDT)  by David Miller:
+>=20
+>=20
+> > -                                     phy_force_reduction(phydev);
+> > +                             if (0 =3D=3D phydev->link_timeout--)=20
+>                                                                 ^^^^
+> Trailing whitespace, please remove.
 
-To fix this problem we prevent change of q->now until its synchronization
-with real time.
+I sent it  Wed, 27 Mar 2013 15:16:13 +0400
 
-Signed-off-by: Vasily Averin <vvs@openvz.org>
-Reviewed-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
----
- net/sched/sch_cbq.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+After receiving confirmation (Wed, 27 Mar 2013 13:11:02 -0400 (EDT))
 
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 6aabd77..5b5c83a 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -962,8 +962,11 @@ cbq_dequeue(struct Qdisc *sch)
-		cbq_update(q);
-		if ((incr -= incr2) < 0)
-			incr = 0;
-+		q->now += incr;
-+	} else {
-+		if (now > q->now)
-+			q->now = now;
-	}
--	q->now += incr;
-	q->now_rt = now;
+> Applied.
 
-	for (;;) {
---
-1.7.5.4
+from David Miller, I haven't sent any post.
