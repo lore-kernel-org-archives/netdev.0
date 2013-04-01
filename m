@@ -1,48 +1,59 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/2] sh_eth: workaround for spurious ECI interrupt
-Date: Mon, 01 Apr 2013 17:53:26 +0400
-Message-ID: <51599156.7000802@cogentembedded.com>
-References: <201303312354.20695.sergei.shtylyov@cogentembedded.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next 1/7] r8169: Remove firmware code
+Date: Mon, 1 Apr 2013 21:55:33 +0800
+Message-ID: <1364824539-4156-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201303312354.20695.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Hayes Wang <hayeswang@realtek.com>
+To: <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Some codes are belong to binary codes and should be removed.
 
-On 31-03-2013 23:54, Sergei Shtylyov wrote:
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/ethernet/realtek/r8169.c | 26 --------------------------
+ 1 file changed, 26 deletions(-)
 
-> At least on Renesas R8A7778, EESR.ECI interrupt seems to fire regardless of its
-> mask in EESIPR register. I can 100% reproduce it with the following scenario:
-> target is booted with 'ip=on' option, and so IP-Config opens SoC Ether device
-> but doesn't get a proper reply and then succeeds with on-board SMC chip; then
-> I login and try to bring up the SoC Ether device with 'ifconfig', and I get
-> an ECI interrupt once request_irq() is called by sh_eth_open() (while interrupt
-> mask in EESIPR register is all 0), if that interrupt is accompanied by a pending
-> EESR.FRC (frame receive completion) interrupt, I get kernel oops in sh_eth_rx()
-> because sh_eth_ring_init() hasn't been called yet!
-
-> The solution I worked out is the following: in sh_eth_interrupt(), mask the
-> interrupt status from EESR register with the interrupt mask from EESIPR register
-> in order not to handle the disabled interrupts -- but forcing EESIPR.M_ECI bit
-> in this mask set because we always need to fully handle EESR.ECI interrupt in
-> sh_eth_error() in order to quench it (as it doesn't get cleared by just writing
-> 1 to the this bit as all the other interrupts).
-
-> While at it, remove unneeded initializer for 'intr_status' variable and give it
-> *unsigned long* type, matching the type of sh_eth_read()'s result; fix comment.
-
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Reviewed-by: Max Filippov <max.filippov@cogentembedded.com>
-
-    Though maybe writing 0 to ECSIPR (feLic interrupt mask) register in 
-sh_eth_close() could have prevented the spurious interrupts too, masking all 
-its primary sources -- I should have tried it beforehand. Still can try though...
-
-WBR, Sergei
-
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 28fb50a..d36aa76 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -3368,32 +3368,6 @@ static void rtl8411_hw_phy_config(struct rtl8169_private *tp)
+ 
+ static void rtl8168g_1_hw_phy_config(struct rtl8169_private *tp)
+ {
+-	static const u16 mac_ocp_patch[] = {
+-		0xe008, 0xe01b, 0xe01d, 0xe01f,
+-		0xe021, 0xe023, 0xe025, 0xe027,
+-		0x49d2, 0xf10d, 0x766c, 0x49e2,
+-		0xf00a, 0x1ec0, 0x8ee1, 0xc60a,
+-
+-		0x77c0, 0x4870, 0x9fc0, 0x1ea0,
+-		0xc707, 0x8ee1, 0x9d6c, 0xc603,
+-		0xbe00, 0xb416, 0x0076, 0xe86c,
+-		0xc602, 0xbe00, 0x0000, 0xc602,
+-
+-		0xbe00, 0x0000, 0xc602, 0xbe00,
+-		0x0000, 0xc602, 0xbe00, 0x0000,
+-		0xc602, 0xbe00, 0x0000, 0xc602,
+-		0xbe00, 0x0000, 0xc602, 0xbe00,
+-
+-		0x0000, 0x0000, 0x0000, 0x0000
+-	};
+-	u32 i;
+-
+-	/* Patch code for GPHY reset */
+-	for (i = 0; i < ARRAY_SIZE(mac_ocp_patch); i++)
+-		r8168_mac_ocp_write(tp, 0xf800 + 2*i, mac_ocp_patch[i]);
+-	r8168_mac_ocp_write(tp, 0xfc26, 0x8000);
+-	r8168_mac_ocp_write(tp, 0xfc28, 0x0075);
+-
+ 	rtl_apply_firmware(tp);
+ 
+ 	if (r8168_phy_ocp_read(tp, 0xa460) & 0x0100)
+-- 
+1.8.1
