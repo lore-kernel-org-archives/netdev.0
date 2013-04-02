@@ -1,237 +1,127 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH net-next] e100: Add dma mapping error check
-Date: Tue,  2 Apr 2013 13:30:38 -0400
-Message-ID: <1364923838-14271-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Josh Boyer <jwboyer@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	e1000-devel@lists.sourceforge.net
-To: netdev@vger.kernel.org
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH net-next] vxlan: Bypass encapsulation if the destination is
+ local
+Date: Tue, 02 Apr 2013 11:10:42 -0700
+Message-ID: <1364926242.29336.32.camel@oc1677441337.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com, davem@davemloft.net, dlstevens@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:45493 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757850Ab3DBRbS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 13:31:18 -0400
+Received: from e39.co.us.ibm.com ([32.97.110.160]:38496 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759718Ab3DBSLA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 14:11:00 -0400
+Received: from /spool/local
+	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <sri@us.ibm.com>;
+	Tue, 2 Apr 2013 12:11:00 -0600
+Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 3B81819D8065
+	for <netdev@vger.kernel.org>; Tue,  2 Apr 2013 12:10:51 -0600 (MDT)
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r32IAiKO056244
+	for <netdev@vger.kernel.org>; Tue, 2 Apr 2013 12:10:47 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r32IAiC2029248
+	for <netdev@vger.kernel.org>; Tue, 2 Apr 2013 12:10:44 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-e100 uses pci_map_single, but fails to check for a dma mapping error after its
-use, resulting in a stack trace:
+This patch bypasses vxlan encapsulation if the destination vxlan
+endpoint is a local device.
 
-[   46.656594] ------------[ cut here ]------------
-[   46.657004] WARNING: at lib/dma-debug.c:933 check_unmap+0x47b/0x950()
-[   46.657004] Hardware name: To Be Filled By O.E.M.
-[   46.657004] e100 0000:00:0e.0: DMA-API: device driver failed to check map
-error[device address=0x000000007a4540fa] [size=90 bytes] [mapped as single]
-[   46.657004] Modules linked in:
-[   46.657004]  w83627hf hwmon_vid snd_via82xx ppdev snd_ac97_codec ac97_bus
-snd_seq snd_pcm snd_mpu401 snd_mpu401_uart ns558 snd_rawmidi gameport parport_pc
-e100 snd_seq_device parport snd_page_alloc snd_timer snd soundcore skge shpchp
-k8temp mii edac_core i2c_viapro edac_mce_amd nfsd auth_rpcgss nfs_acl lockd
-sunrpc binfmt_misc uinput ata_generic pata_acpi radeon i2c_algo_bit
-drm_kms_helper ttm firewire_ohci drm firewire_core pata_via sata_via i2c_core
-sata_promise crc_itu_t
-[   46.657004] Pid: 792, comm: ip Not tainted 3.8.0-0.rc6.git0.1.fc19.x86_64 #1
-[   46.657004] Call Trace:
-[   46.657004]  <IRQ>  [<ffffffff81065ed0>] warn_slowpath_common+0x70/0xa0
-[   46.657004]  [<ffffffff81065f4c>] warn_slowpath_fmt+0x4c/0x50
-[   46.657004]  [<ffffffff81364cfb>] check_unmap+0x47b/0x950
-[   46.657004]  [<ffffffff8136522f>] debug_dma_unmap_page+0x5f/0x70
-[   46.657004]  [<ffffffffa030f0f0>] ? e100_tx_clean+0x30/0x210 [e100]
-[   46.657004]  [<ffffffffa030f1a8>] e100_tx_clean+0xe8/0x210 [e100]
-[   46.657004]  [<ffffffffa030fc6f>] e100_poll+0x56f/0x6c0 [e100]
-[   46.657004]  [<ffffffff8159dce1>] ? net_rx_action+0xa1/0x370
-[   46.657004]  [<ffffffff8159ddb2>] net_rx_action+0x172/0x370
-[   46.657004]  [<ffffffff810703bf>] __do_softirq+0xef/0x3d0
-[   46.657004]  [<ffffffff816e4ebc>] call_softirq+0x1c/0x30
-[   46.657004]  [<ffffffff8101c485>] do_softirq+0x85/0xc0
-[   46.657004]  [<ffffffff81070885>] irq_exit+0xd5/0xe0
-[   46.657004]  [<ffffffff816e5756>] do_IRQ+0x56/0xc0
-[   46.657004]  [<ffffffff816dacb2>] common_interrupt+0x72/0x72
-[   46.657004]  <EOI>  [<ffffffff816da1eb>] ?
-_raw_spin_unlock_irqrestore+0x3b/0x70
-[   46.657004]  [<ffffffff816d124d>] __slab_free+0x58/0x38b
-[   46.657004]  [<ffffffff81214424>] ? fsnotify_clear_marks_by_inode+0x34/0x120
-[   46.657004]  [<ffffffff811b0417>] ? kmem_cache_free+0x97/0x320
-[   46.657004]  [<ffffffff8157fc14>] ? sock_destroy_inode+0x34/0x40
-[   46.657004]  [<ffffffff8157fc14>] ? sock_destroy_inode+0x34/0x40
-[   46.657004]  [<ffffffff811b0692>] kmem_cache_free+0x312/0x320
-[   46.657004]  [<ffffffff8157fc14>] sock_destroy_inode+0x34/0x40
-[   46.657004]  [<ffffffff811e8c28>] destroy_inode+0x38/0x60
-[   46.657004]  [<ffffffff811e8d5e>] evict+0x10e/0x1a0
-[   46.657004]  [<ffffffff811e9605>] iput+0xf5/0x180
-[   46.657004]  [<ffffffff811e4338>] dput+0x248/0x310
-[   46.657004]  [<ffffffff811ce0e1>] __fput+0x171/0x240
-[   46.657004]  [<ffffffff811ce26e>] ____fput+0xe/0x10
-[   46.657004]  [<ffffffff8108d54c>] task_work_run+0xac/0xe0
-[   46.657004]  [<ffffffff8106c6ed>] do_exit+0x26d/0xc30
-[   46.657004]  [<ffffffff8109eccc>] ? finish_task_switch+0x7c/0x120
-[   46.657004]  [<ffffffff816dad58>] ? retint_swapgs+0x13/0x1b
-[   46.657004]  [<ffffffff8106d139>] do_group_exit+0x49/0xc0
-[   46.657004]  [<ffffffff8106d1c4>] sys_exit_group+0x14/0x20
-[   46.657004]  [<ffffffff816e3b19>] system_call_fastpath+0x16/0x1b
-[   46.657004] ---[ end trace 4468c44e2156e7d1 ]---
-[   46.657004] Mapped at:
-[   46.657004]  [<ffffffff813663d1>] debug_dma_map_page+0x91/0x140
-[   46.657004]  [<ffffffffa030e8eb>] e100_xmit_prepare+0x12b/0x1c0 [e100]
-[   46.657004]  [<ffffffffa030c924>] e100_exec_cb+0x84/0x140 [e100]
-[   46.657004]  [<ffffffffa030e56a>] e100_xmit_frame+0x3a/0x190 [e100]
-[   46.657004]  [<ffffffff8159ee89>] dev_hard_start_xmit+0x259/0x6c0
-
-Easy fix, modify the cb paramter to e100_exec_cb to return an error, and do the
-dma_mapping_error check in the obvious place
-
-This was reported previously here:
-http://article.gmane.org/gmane.linux.network/257893
-
-But nobody stepped up and fixed it.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Reported-by: Michal Jaegermann <michal@harddata.com>
-CC: Josh Boyer <jwboyer@redhat.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-CC: e1000-devel@lists.sourceforge.net
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 ---
- drivers/net/ethernet/intel/e100.c | 36 +++++++++++++++++++++++++-----------
- 1 file changed, 25 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index ec800b0..d2bea3f 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -870,7 +870,7 @@ err_unlock:
- }
- 
- static int e100_exec_cb(struct nic *nic, struct sk_buff *skb,
--	void (*cb_prepare)(struct nic *, struct cb *, struct sk_buff *))
-+	int (*cb_prepare)(struct nic *, struct cb *, struct sk_buff *))
- {
- 	struct cb *cb;
- 	unsigned long flags;
-@@ -888,10 +888,13 @@ static int e100_exec_cb(struct nic *nic, struct sk_buff *skb,
- 	nic->cbs_avail--;
- 	cb->skb = skb;
- 
-+	err = cb_prepare(nic, cb, skb);
-+	if (err)
-+		goto err_unlock;
-+
- 	if (unlikely(!nic->cbs_avail))
- 		err = -ENOSPC;
- 
--	cb_prepare(nic, cb, skb);
- 
- 	/* Order is important otherwise we'll be in a race with h/w:
- 	 * set S-bit in current first, then clear S-bit in previous. */
-@@ -1091,7 +1094,7 @@ static void e100_get_defaults(struct nic *nic)
- 	nic->mii.mdio_write = mdio_write;
- }
- 
--static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
-+static int e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
- {
- 	struct config *config = &cb->u.config;
- 	u8 *c = (u8 *)config;
-@@ -1181,6 +1184,7 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
- 	netif_printk(nic, hw, KERN_DEBUG, nic->netdev,
- 		     "[16-23]=%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n",
- 		     c[16], c[17], c[18], c[19], c[20], c[21], c[22], c[23]);
-+	return 0;
- }
- 
- /*************************************************************************
-@@ -1331,7 +1335,7 @@ static const struct firmware *e100_request_firmware(struct nic *nic)
- 	return fw;
- }
- 
--static void e100_setup_ucode(struct nic *nic, struct cb *cb,
-+static int e100_setup_ucode(struct nic *nic, struct cb *cb,
- 			     struct sk_buff *skb)
- {
- 	const struct firmware *fw = (void *)skb;
-@@ -1358,6 +1362,7 @@ static void e100_setup_ucode(struct nic *nic, struct cb *cb,
- 	cb->u.ucode[min_size] |= cpu_to_le32((BUNDLESMALL) ? 0xFFFF : 0xFF80);
- 
- 	cb->command = cpu_to_le16(cb_ucode | cb_el);
-+	return 0;
- }
- 
- static inline int e100_load_ucode_wait(struct nic *nic)
-@@ -1400,18 +1405,20 @@ static inline int e100_load_ucode_wait(struct nic *nic)
- 	return err;
- }
- 
--static void e100_setup_iaaddr(struct nic *nic, struct cb *cb,
-+static int e100_setup_iaaddr(struct nic *nic, struct cb *cb,
- 	struct sk_buff *skb)
- {
- 	cb->command = cpu_to_le16(cb_iaaddr);
- 	memcpy(cb->u.iaaddr, nic->netdev->dev_addr, ETH_ALEN);
-+	return 0;
- }
- 
--static void e100_dump(struct nic *nic, struct cb *cb, struct sk_buff *skb)
-+static int e100_dump(struct nic *nic, struct cb *cb, struct sk_buff *skb)
- {
- 	cb->command = cpu_to_le16(cb_dump);
- 	cb->u.dump_buffer_addr = cpu_to_le32(nic->dma_addr +
- 		offsetof(struct mem, dump_buf));
-+	return 0;
- }
- 
- static int e100_phy_check_without_mii(struct nic *nic)
-@@ -1581,7 +1588,7 @@ static int e100_hw_init(struct nic *nic)
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 62a4438..2ad2311 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -912,6 +912,36 @@ static int handle_offloads(struct sk_buff *skb)
  	return 0;
  }
  
--static void e100_multi(struct nic *nic, struct cb *cb, struct sk_buff *skb)
-+static int e100_multi(struct nic *nic, struct cb *cb, struct sk_buff *skb)
- {
- 	struct net_device *netdev = nic->netdev;
- 	struct netdev_hw_addr *ha;
-@@ -1596,6 +1603,7 @@ static void e100_multi(struct nic *nic, struct cb *cb, struct sk_buff *skb)
- 		memcpy(&cb->u.multi.addr[i++ * ETH_ALEN], &ha->addr,
- 			ETH_ALEN);
- 	}
-+	return 0;
- }
- 
- static void e100_set_multicast_list(struct net_device *netdev)
-@@ -1756,11 +1764,18 @@ static void e100_watchdog(unsigned long data)
- 		  round_jiffies(jiffies + E100_WATCHDOG_PERIOD));
- }
- 
--static void e100_xmit_prepare(struct nic *nic, struct cb *cb,
-+static int e100_xmit_prepare(struct nic *nic, struct cb *cb,
- 	struct sk_buff *skb)
- {
-+	dma_addr_t dma_addr;
- 	cb->command = nic->tx_command;
- 
-+	dma_addr = pci_map_single(nic->pdev,
-+				  skb->data, skb->len, PCI_DMA_TODEVICE);
-+	/* If we can't map the skb, have the upper layer try later */
-+	if (pci_dma_mapping_error(nic->pdev, dma_addr))
-+		return -ENOMEM;
++/* Bypass encapsulation if the destination is local */
++static void vxlan_encap_bypass(struct sk_buff *skb, struct vxlan_dev *src_vxlan,
++			       struct vxlan_dev *dst_vxlan)
++{
++	struct pcpu_tstats *tx_stats = this_cpu_ptr(src_vxlan->dev->tstats);
++	struct pcpu_tstats *rx_stats = this_cpu_ptr(dst_vxlan->dev->tstats);
 +
- 	/*
- 	 * Use the last 4 bytes of the SKB payload packet as the CRC, used for
- 	 * testing, ie sending frames with bad CRC.
-@@ -1777,11 +1792,10 @@ static void e100_xmit_prepare(struct nic *nic, struct cb *cb,
- 	cb->u.tcb.tcb_byte_count = 0;
- 	cb->u.tcb.threshold = nic->tx_threshold;
- 	cb->u.tcb.tbd_count = 1;
--	cb->u.tcb.tbd.buf_addr = cpu_to_le32(pci_map_single(nic->pdev,
--		skb->data, skb->len, PCI_DMA_TODEVICE));
--	/* check for mapping failure? */
-+	cb->u.tcb.tbd.buf_addr = cpu_to_le32(dma_addr);
- 	cb->u.tcb.tbd.size = cpu_to_le16(skb->len);
- 	skb_tx_timestamp(skb);
-+	return 0;
- }
++	skb->pkt_type = PACKET_HOST;
++	skb->encapsulation = 0;
++	skb->dev = dst_vxlan->dev;
++	__skb_pull(skb, skb_network_offset(skb));
++
++	if (dst_vxlan->flags & VXLAN_F_LEARN)
++		vxlan_snoop(skb->dev, INADDR_LOOPBACK, eth_hdr(skb)->h_source);
++
++	u64_stats_update_begin(&tx_stats->syncp);
++	tx_stats->tx_packets++;
++	tx_stats->tx_bytes += skb->len;
++	u64_stats_update_end(&tx_stats->syncp);
++
++	if (netif_rx(skb) == NET_RX_SUCCESS) {
++		u64_stats_update_begin(&rx_stats->syncp);
++		rx_stats->rx_packets++;
++		rx_stats->rx_bytes += skb->len;
++		u64_stats_update_end(&rx_stats->syncp);
++	} else {
++		skb->dev->stats.rx_dropped++;
++	}
++}
++
+ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 				  struct vxlan_rdst *rdst, bool did_rsc)
+ {
+@@ -922,7 +952,6 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	struct vxlanhdr *vxh;
+ 	struct udphdr *uh;
+ 	struct flowi4 fl4;
+-	unsigned int pkt_len = skb->len;
+ 	__be32 dst;
+ 	__u16 src_port, dst_port;
+         u32 vni;
+@@ -935,22 +964,8 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
  
- static netdev_tx_t e100_xmit_frame(struct sk_buff *skb,
--- 
-1.7.11.7
+ 	if (!dst) {
+ 		if (did_rsc) {
+-			__skb_pull(skb, skb_network_offset(skb));
+-			skb->ip_summed = CHECKSUM_NONE;
+-			skb->pkt_type = PACKET_HOST;
+-
+ 			/* short-circuited back to local bridge */
+-			if (netif_rx(skb) == NET_RX_SUCCESS) {
+-				struct pcpu_tstats *stats = this_cpu_ptr(dev->tstats);
+-
+-				u64_stats_update_begin(&stats->syncp);
+-				stats->tx_packets++;
+-				stats->tx_bytes += pkt_len;
+-				u64_stats_update_end(&stats->syncp);
+-			} else {
+-				dev->stats.tx_errors++;
+-				dev->stats.tx_aborted_errors++;
+-			}
++			vxlan_encap_bypass(skb, vxlan, vxlan);
+ 			return NETDEV_TX_OK;
+ 		}
+ 		goto drop;
+@@ -997,6 +1012,16 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 		goto tx_error;
+ 	}
+ 
++	/* Bypass encapsulation if the destination is local */
++	if (rt->rt_flags & RTCF_LOCAL) {
++		struct vxlan_dev *dst_vxlan;
++
++		dst_vxlan = vxlan_find_vni(dev_net(dev), vni);
++		vxlan_encap_bypass(skb, vxlan, dst_vxlan);
++		ip_rt_put(rt);
++		return NETDEV_TX_OK;
++	}
++
+ 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+ 	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
+ 			      IPSKB_REROUTED);
