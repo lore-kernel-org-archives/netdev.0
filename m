@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] net: fix smatch warnings inside datagram_poll
-Date: Tue, 02 Apr 2013 16:40:25 -0400 (EDT)
-Message-ID: <20130402.164025.2237059970586581339.davem@davemloft.net>
-References: <20130402203414.24602.6059.stgit@jekeller-hub.jf.intel.com>
+Subject: Re: [PATCH 0/5] Provide empty functions if OF_NET is not configured
+Date: Tue, 02 Apr 2013 16:44:35 -0400 (EDT)
+Message-ID: <20130402.164435.394488805917592019.davem@davemloft.net>
+References: <1364931311-30603-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jacob.e.keller@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46739 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759559Ab3DBUka (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 16:40:30 -0400
-In-Reply-To: <20130402203414.24602.6059.stgit@jekeller-hub.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nicolas.ferre@atmel.com, grant.likely@secretlab.ca,
+	rob.herring@calxeda.com, david.daney@cavium.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org
+To: linux@roeck-us.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1364931311-30603-1-git-send-email-linux@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jacob Keller <jacob.e.keller@intel.com>
-Date: Tue,  2 Apr 2013 13:34:15 -0700
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue,  2 Apr 2013 12:35:06 -0700
 
-> The code for commit 1218a2a1d233fd604a41e584163ec291418f8ea8 actually turns out
-> to be incorrect.
+> Provide empty functions for of_get_phy_mode() and of_get_mac_address()
+> if OF_NET is not configured. Modify affected drivers to rely on the
+> now available functions.
 
-This commit object SHA ID is not correct, it should be
-7d4c04fc170087119727119074e72445f2bb192b.
+All applied, but please post your patches against the appropriate
+tree.
 
-Also, when referencing commits, always follow the SHA ID with the commit
-log message header line, enclosed in both parenthesis and double quotes.
+In net-next, fec.c has been renamed to fec_main.c so I had to adjust
+your patch so that it would apply correctly.
