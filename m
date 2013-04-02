@@ -1,41 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: oops in udpv6_sendmsg
-Date: Mon, 01 Apr 2013 18:23:59 -0700
-Message-ID: <1364865839.5113.165.camel@edumazet-glaptop>
-References: <20130329184006.GA23893@redhat.com>
-	 <1364582958.5113.49.camel@edumazet-glaptop>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [PATCH] ISDN:divert: beautify code: useless 'break', 'return (0)',
+ additional comments.
+Date: Tue, 02 Apr 2013 09:37:56 +0800
+Message-ID: <515A3674.7090606@asianux.com>
+References: <5158E854.7060902@asianux.com> <515993E1.5010508@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@redhat.com>
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org >> netdev" <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	isdn@linux-pingi.de, Jiri Slaby <jslaby@suse.cz>,
+	'Jiri Kosina' <trivial@kernel.org>, tilman@imap.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:40660 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757811Ab3DBBYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 21:24:05 -0400
-Received: by mail-pa0-f41.google.com with SMTP id kx1so1594563pab.0
-        for <netdev@vger.kernel.org>; Mon, 01 Apr 2013 18:24:03 -0700 (PDT)
-In-Reply-To: <1364582958.5113.49.camel@edumazet-glaptop>
+Received: from intranet.asianux.com ([58.214.24.6]:41399 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759704Ab3DBBi2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 21:38:28 -0400
+In-Reply-To: <515993E1.5010508@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-03-29 at 11:49 -0700, Eric Dumazet wrote:
-> On Fri, 2013-03-29 at 14:40 -0400, Dave Jones wrote:
-> > Just hit this on Linus' current tree.
-> > 
-> > BUG: unable to handle kernel NULL pointer dereference at 0000000000000031
-> > IP: [<ffffffff8166ca6b>] udpv6_sendmsg+0x34b/0xa90
-> > 
-> > Looks like the last line of an inlined __ip6_dst_store() call. So line 1243 of net/ipv6/udp.c
-> > 
-> > 	Dave
-> 
-> Yes, I had the same problem on my lab machine yesterday and was working
-> on it (Using a linux-3.3.8 code base)
-> 
-> In my case, the invalid rt6i_node value was 0x66b579de
 
-I am mystified by this problem, I could not reproduce it...
+  delete useless 'break' after 'return'.
+  let 'return 0' instead of 'return (0)'
+  also give a comment for 'break' to let readers notice it.
 
-Hmm...
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+---
+ drivers/isdn/divert/isdn_divert.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/isdn/divert/isdn_divert.c b/drivers/isdn/divert/isdn_divert.c
+index db432e6..50749a7 100644
+--- a/drivers/isdn/divert/isdn_divert.c
++++ b/drivers/isdn/divert/isdn_divert.c
+@@ -441,8 +441,7 @@ static int isdn_divert_icall(isdn_ctrl *ic)
+ 
+ 		switch (dv->rule.action) {
+ 		case DEFLECT_IGNORE:
+-			return (0);
+-			break;
++			return 0;
+ 
+ 		case DEFLECT_ALERT:
+ 		case DEFLECT_PROCEED:
+@@ -510,10 +509,9 @@ static int isdn_divert_icall(isdn_ctrl *ic)
+ 			break;
+ 
+ 		default:
+-			return (0); /* ignore call */
+-			break;
++			return 0; /* ignore call */
+ 		} /* switch action */
+-		break;
++		break; /* will break the 'for' looping */
+ 	} /* scan_table */
+ 
+ 	if (cs) {
+-- 
+1.7.7.6
