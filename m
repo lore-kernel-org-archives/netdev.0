@@ -1,8 +1,8 @@
 From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: [PATCH 6/6] 6lowpan: return the
-	dev_queue_xmit() return value from lowpan_xmit()
-Date: Tue,  2 Apr 2013 14:48:01 -0400
-Message-ID: <1364928481-1813-7-git-send-email-alan@signal11.us>
+Subject: [PATCH 5/6] 6lowpan: handle dev_queue_xmit
+	error code properly
+Date: Tue,  2 Apr 2013 14:48:00 -0400
+Message-ID: <1364928481-1813-6-git-send-email-alan@signal11.us>
 References: <1364928481-1813-1-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,10 +24,7 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-dev_queue_xmit() will return a positive value if the packet could not be
-queued, often because the real network device (in our case the mac802154
-wpan device) has its queue stopped.  lowpan_xmit() should return that value
-to the higher layer so the higher layer will retry sending the packet.
+dev_queue_xmit() can return positive error codes, so check for nonzero.
 
 Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
 ---
@@ -35,18 +32,18 @@ Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index a68c792..55e1fd5 100644
+index e1b4580..a68c792 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -1142,7 +1142,7 @@ out:
- 	if (err)
+@@ -1139,7 +1139,7 @@ static netdev_tx_t lowpan_xmit(struct sk_buff *skb, struct net_device *dev)
+ error:
+ 	dev_kfree_skb(skb);
+ out:
+-	if (err < 0)
++	if (err)
  		pr_debug("ERROR: xmit failed\n");
  
--	return (err < 0 ? NETDEV_TX_BUSY : NETDEV_TX_OK);
-+	return (err < 0) ? NET_XMIT_DROP : err;
- }
- 
- static struct wpan_phy *lowpan_get_phy(const struct net_device *dev)
+ 	return (err < 0 ? NETDEV_TX_BUSY : NETDEV_TX_OK);
 -- 
 1.7.11.2
 
