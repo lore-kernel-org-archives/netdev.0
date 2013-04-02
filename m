@@ -1,105 +1,72 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH 2/5] net/cadence/at91_ether: Simplify OF dependencies
-Date: Tue,  2 Apr 2013 12:35:08 -0700
-Message-ID: <1364931311-30603-3-git-send-email-linux@roeck-us.net>
+From: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH 1/5] of_net.h: Provide empty functions if OF_NET is not
+ configured
+Date: Tue,  2 Apr 2013 12:35:07 -0700
+Message-ID: <1364931311-30603-2-git-send-email-linux@roeck-us.net>
 References: <1364931311-30603-1-git-send-email-linux@roeck-us.net>
-Cc: Rob Herring <rob.herring@calxeda.com>,
-	David Daney <david.daney@cavium.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	Guenter Roeck <linux@roeck-us.net>
-To: "David S. Miller" <davem@davemloft.net>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Grant Likely <grant.likely@secretlab.ca>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1364931311-30603-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>, Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>,
+ Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1364931311-30603-1-git-send-email-linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-With of_get_mac_address() and of_get_phy_mode() now defined as dummy
-functions if OF_NET is not configured, it is no longer necessary to
-provide OF dependent functions as front-end. Also, the two functions
-depend on OF_NET, not on OF, so the conditional code was not correct
-anyway.
+of_get_mac_address() and of_get_phy_mode() are only provided if OF_NET
+is configured. While most callers check for the define, not all do, and those
+who do require #ifdef around the code. For those who don't, the missing check
+can result in errors such as
 
-Drop the front-end functions and call of_get_mac_address() and
-of_get_phy_mode() directly instead.
+arch/powerpc/sysdev/tsi108_dev.c:107:3: error: implicit declaration of
+	function 'of_get_mac_address' [-Werror=implicit-function-declaration]
+arch/powerpc/sysdev/mv64x60_dev.c:253:2: error: implicit declaration of
+	function 'of_get_mac_address' [-Werror=implicit-function-declaration]
 
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Provide empty functions if OF_NET is not configured.
+This is safe because all callers do check the return values.
+
+Cc: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
+Acked-by: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/net/ethernet/cadence/at91_ether.c |   44 ++++-------------------------
- 1 file changed, 6 insertions(+), 38 deletions(-)
+ include/linux/of_net.h |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-index 3becdb2..50565cb 100644
---- a/drivers/net/ethernet/cadence/at91_ether.c
-+++ b/drivers/net/ethernet/cadence/at91_ether.c
-@@ -303,42 +303,7 @@ static const struct of_device_id at91ether_dt_ids[] = {
- 	{ .compatible = "cdns,emac" },
- 	{ /* sentinel */ }
- };
--
- MODULE_DEVICE_TABLE(of, at91ether_dt_ids);
--
--static int at91ether_get_phy_mode_dt(struct platform_device *pdev)
--{
--	struct device_node *np = pdev->dev.of_node;
--
--	if (np)
--		return of_get_phy_mode(np);
--
--	return -ENODEV;
--}
--
--static int at91ether_get_hwaddr_dt(struct macb *bp)
--{
--	struct device_node *np = bp->pdev->dev.of_node;
--
--	if (np) {
--		const char *mac = of_get_mac_address(np);
--		if (mac) {
--			memcpy(bp->dev->dev_addr, mac, ETH_ALEN);
--			return 0;
--		}
--	}
--
--	return -ENODEV;
--}
--#else
--static int at91ether_get_phy_mode_dt(struct platform_device *pdev)
--{
--	return -ENODEV;
--}
--static int at91ether_get_hwaddr_dt(struct macb *bp)
--{
--	return -ENODEV;
--}
+diff --git a/include/linux/of_net.h b/include/linux/of_net.h
+index f474641..61bf53b 100644
+--- a/include/linux/of_net.h
++++ b/include/linux/of_net.h
+@@ -11,6 +11,16 @@
+ #include <linux/of.h>
+ extern const int of_get_phy_mode(struct device_node *np);
+ extern const void *of_get_mac_address(struct device_node *np);
++#else
++static inline const int of_get_phy_mode(struct device_node *np)
++{
++	return -ENODEV;
++}
++
++static inline const void *of_get_mac_address(struct device_node *np)
++{
++	return NULL;
++}
  #endif
  
- /* Detect MAC & PHY and perform ethernet interface initialization */
-@@ -352,6 +317,7 @@ static int __init at91ether_probe(struct platform_device *pdev)
- 	struct macb *lp;
- 	int res;
- 	u32 reg;
-+	const char *mac;
- 
- 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (!regs)
-@@ -403,11 +369,13 @@ static int __init at91ether_probe(struct platform_device *pdev)
- 	platform_set_drvdata(pdev, dev);
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 
--	res = at91ether_get_hwaddr_dt(lp);
--	if (res < 0)
-+	mac = of_get_mac_address(pdev->dev.of_node);
-+	if (mac)
-+		memcpy(lp->dev->dev_addr, mac, ETH_ALEN);
-+	else
- 		macb_get_hwaddr(lp);
- 
--	res = at91ether_get_phy_mode_dt(pdev);
-+	res = of_get_phy_mode(pdev->dev.of_node);
- 	if (res < 0) {
- 		if (board_data && board_data->is_rmii)
- 			lp->phy_interface = PHY_INTERFACE_MODE_RMII;
+ #endif /* __LINUX_OF_NET_H */
 -- 
 1.7.9.7
