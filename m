@@ -1,72 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Tue, 02 Apr 2013 17:11:38 -0400 (EDT)
-Message-ID: <20130402.171138.487778516861745347.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
+Date: Tue, 2 Apr 2013 23:15:24 +0200
+Message-ID: <20130402211524.GE4924@order.stressinduktion.org>
+References: <CDAFEDABF718A54BABD0DA5476695307475CCD42@SHEXMB-01.global.atheros.com> <20100125.163612.582489483209420341.anders@netinsight.net> <CDAFEDABF718A54BABD0DA5476695307475CCFF8@SHEXMB-01.global.atheros.com> <20100126.093439.651115405791675606.anders@netinsight.net> <1364689558.3557.22.camel@deadeye.wl.decadent.org.uk> <157393863283F442885425D2C45428564F202477@nasanexd02f.na.qualcomm.com> <1364695805.3557.41.camel@deadeye.wl.decadent.org.uk> <157393863283F442885425D2C45428564F20261B@nasanexd02f.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=utf-8
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	Anders =?utf-8?Q?Bostr=C3=B6m?= <anders@netinsight.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"565404@bugs.debian.org" <565404@bugs.debian.org>
+To: "Huang, Xiong" <xiong@qca.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47288 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760340Ab3DBVLk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 17:11:40 -0400
+Received: from order.stressinduktion.org ([87.106.68.36]:46974 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758910Ab3DBVP0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 17:15:26 -0400
+Content-Disposition: inline
+In-Reply-To: <157393863283F442885425D2C45428564F20261B@nasanexd02f.na.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Apr 01, 2013 at 02:51:56AM +0000, Huang, Xiong wrote:
+> > >
+> > > I checked windows driver, it does limit  the max packet length for TSO
+> > > windows XP : 32*1024 bytes (include MAC header and all MAC payload). No
+> > support IP/TCP option.
+> > > Windows 7:  15, 000 bytes, support IP/TCP option.
+> > 
+> > If TSO on these devices don't work properly with TCP options then you're
+> > just going to have to disable it - Linux requires it to support at least the
+> > timestamp option.  I'm not sure about IP options (this really ought to be
+> > documented).
+> > 
+> > If there's a length limit lower than 64K, you'll need to set the limit using
+> > netif_set_gso_max_size() before registering the net device.
+> > 
+> 
+> Ben, thanks for your advice. 
+> I have discussed with windows driver developer and hardware designer, the TSO limitation for win driver is just
+> For simplifying windows driver due to the buffer length limitation of TX descriptor. The hardware itself has no limitation on
+> TSO packet length.
 
-1) Fix VSOCK layer handling of context ID changes, from Reilly Grant.
+The error vanishes as soon as I put a gso size limit of MAX_TX_BUF_LEN
+in the driver. MAX_TX_BUF_LEN seems to be arbitrary set to 0x2000. I
+can even raise it to 0x3000 and don't see any tcp retransmits. Do you
+have an advice on how to size this value (e.g. should we switch to the
+windows values)?
 
-2) Now that we have a synchronize_net() in netdev_rx_handler_unregister(),
-   we can't let any call sites hold locks.  Unfortunately bonding does,
-   so we have to drop the rwlock there a little bit earlier, fix from
-   Veaceslav Falico.
-
-3) MAC address setting loop exits one iteration too early in mlx4 driver,
-   from Yan Burman.
-
-4) Restore ipv6 routes properly upon ifdown/ifup of loopback, from
-   Balakumaran Kannan.
-
-Please pull, thanks a lot!
-
-The following changes since commit 118c9a45fdacc6fe57910fa1d048e2d5bbc193f4:
-
-  Merge tag 'fixes' of git://git.kernel.org/pub/scm/linux/kernel/git/arm/arm-soc (2013-04-02 08:35:03 -0700)
-
-are available in the git repository at:
-
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-
-for you to fetch changes up to 990454b5a48babde44a23c0f22bae5523f4fdf13:
-
-  VSOCK: Handle changes to the VMCI context ID. (2013-04-02 14:39:17 -0400)
-
-----------------------------------------------------------------
-Balakumaran Kannan (1):
-      net IPv6 : Fix broken IPv6 routing table after loopback down-up
-
-Reilly Grant (1):
-      VSOCK: Handle changes to the VMCI context ID.
-
-Vasily Averin (1):
-      cbq: incorrect processing of high limits
-
-Veaceslav Falico (1):
-      bonding: get netdev_rx_handler_unregister out of locks
-
-Yan Burman (1):
-      net/mlx4_en: Fix setting initial MAC address
-
- drivers/net/bonding/bond_main.c                |  3 +--
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  4 ++--
- net/ipv6/addrconf.c                            | 27 +++++++++++++++++++++++++++
- net/sched/sch_cbq.c                            |  5 ++++-
- net/vmw_vsock/af_vsock.c                       |  6 +++---
- net/vmw_vsock/vmci_transport.c                 | 31 ++++++++++++++++++++-----------
- net/vmw_vsock/vsock_addr.c                     | 10 ----------
- net/vmw_vsock/vsock_addr.h                     |  2 --
- 8 files changed, 57 insertions(+), 31 deletions(-)
+I also found some irregularities in the mtu update code. It differs from the
+calculations in the init function (I will send a patch for that).
