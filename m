@@ -1,8 +1,8 @@
 From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: [PATCH 2/6] mac802154: Move xmit_attemps to
-	stack
-Date: Tue,  2 Apr 2013 14:47:57 -0400
-Message-ID: <1364928481-1813-3-git-send-email-alan@signal11.us>
+Subject: [PATCH 1/6] mac802154: Immediately retry
+	sending failed packets
+Date: Tue,  2 Apr 2013 14:47:56 -0400
+Message-ID: <1364928481-1813-2-git-send-email-alan@signal11.us>
 References: <1364928481-1813-1-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,47 +24,45 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-There's no reason to have it in the work struct anymore.
+When ops->xmit() fails, immediately retry. Previously the packet was sent
+to the back of the workqueue.
 
 Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
 ---
- net/mac802154/tx.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ net/mac802154/tx.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
 diff --git a/net/mac802154/tx.c b/net/mac802154/tx.c
-index fbf937c..a248246 100644
+index 4e09d07..fbf937c 100644
 --- a/net/mac802154/tx.c
 +++ b/net/mac802154/tx.c
-@@ -39,12 +39,12 @@ struct xmit_work {
- 	struct mac802154_priv *priv;
- 	u8 chan;
- 	u8 page;
--	u8 xmit_attempts;
- };
+@@ -59,19 +59,18 @@ static void mac802154_xmit_worker(struct work_struct *work)
+ 		}
+ 	}
  
- static void mac802154_xmit_worker(struct work_struct *work)
- {
- 	struct xmit_work *xw = container_of(work, struct xmit_work, work);
-+	u8 xmit_attempts = 0;
- 	int res;
+-	res = xw->priv->ops->xmit(&xw->priv->hw, xw->skb);
++	do {
++		res = xw->priv->ops->xmit(&xw->priv->hw, xw->skb);
++		if (res && ++xw->xmit_attempts >= MAC802154_MAX_XMIT_ATTEMPTS) {
++			pr_debug("transmission failed for %d times",
++				 MAC802154_MAX_XMIT_ATTEMPTS);
++			break;
++		}
++	} while (res);
  
- 	mutex_lock(&xw->priv->phy->pib_lock);
-@@ -61,7 +61,7 @@ static void mac802154_xmit_worker(struct work_struct *work)
+ out:
+ 	mutex_unlock(&xw->priv->phy->pib_lock);
  
- 	do {
- 		res = xw->priv->ops->xmit(&xw->priv->hw, xw->skb);
--		if (res && ++xw->xmit_attempts >= MAC802154_MAX_XMIT_ATTEMPTS) {
-+		if (res && ++xmit_attempts >= MAC802154_MAX_XMIT_ATTEMPTS) {
- 			pr_debug("transmission failed for %d times",
- 				 MAC802154_MAX_XMIT_ATTEMPTS);
- 			break;
-@@ -113,7 +113,6 @@ netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
- 	work->priv = priv;
- 	work->page = page;
- 	work->chan = chan;
--	work->xmit_attempts = 0;
+-	if (res) {
+-		if (xw->xmit_attempts++ < MAC802154_MAX_XMIT_ATTEMPTS) {
+-			queue_work(xw->priv->dev_workqueue, &xw->work);
+-			return;
+-		} else
+-			pr_debug("transmission failed for %d times",
+-				 MAC802154_MAX_XMIT_ATTEMPTS);
+-	}
  
- 	queue_work(priv->dev_workqueue, &work->work);
+ 	dev_kfree_skb(xw->skb);
  
 -- 
 1.7.11.2
