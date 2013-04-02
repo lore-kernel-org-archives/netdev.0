@@ -1,65 +1,131 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: [PATCH net-next] openvswitch: Don't insert empty
-	OVS_VPORT_ATTR_OPTIONS attribute
-Date: Wed,  3 Apr 2013 00:30:43 +0200
-Message-ID: <8f6704668f7f795658b48a7b0219c88d0ca088a3.1364941760.git.tgraf@suug.ch>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH v2 net-next] vxlan: Bypass encapsulation if the destination
+ is local
+Date: Tue, 02 Apr 2013 15:31:52 -0700
+Message-ID: <1364941912.29336.36.camel@oc1677441337.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com, davem@davemloft.net, dlstevens@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:39281 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933631Ab3DBWb6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 18:31:58 -0400
+Received: from /spool/local
+	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <sri@us.ibm.com>;
+	Tue, 2 Apr 2013 16:31:57 -0600
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 4E63D3E40060
+	for <netdev@vger.kernel.org>; Tue,  2 Apr 2013 16:31:42 -0600 (MDT)
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r32MVsu9359114
+	for <netdev@vger.kernel.org>; Tue, 2 Apr 2013 16:31:54 -0600
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r32MYbtY013668
+	for <netdev@vger.kernel.org>; Tue, 2 Apr 2013 16:34:38 -0600
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The port specific options are currently unused resulting in an
-empty OVS_VPORT_ATTR_OPTIONS nested attribute being inserted
-into every OVS_VPORT_CMD_GET message.
+This patch bypasses vxlan encapsulation if the destination vxlan
+endpoint is a local device.
 
-Don't insert OVS_VPORT_ATTR_OPTIONS if no options are present.
+Changes since v1: added missing check for vxlan_find_vni() failure
 
-Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 ---
- net/openvswitch/vport.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index f6b8132..71a2de8 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -301,17 +301,19 @@ void ovs_vport_get_stats(struct vport *vport, struct ovs_vport_stats *stats)
- int ovs_vport_get_options(const struct vport *vport, struct sk_buff *skb)
- {
- 	struct nlattr *nla;
-+	int err;
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 62a4438..f3610cd 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -912,6 +912,36 @@ static int handle_offloads(struct sk_buff *skb)
+ 	return 0;
+ }
+ 
++/* Bypass encapsulation if the destination is local */
++static void vxlan_encap_bypass(struct sk_buff *skb, struct vxlan_dev *src_vxlan,
++			       struct vxlan_dev *dst_vxlan)
++{
++	struct pcpu_tstats *tx_stats = this_cpu_ptr(src_vxlan->dev->tstats);
++	struct pcpu_tstats *rx_stats = this_cpu_ptr(dst_vxlan->dev->tstats);
 +
-+	if (!vport->ops->get_options)
-+		return 0;
++	skb->pkt_type = PACKET_HOST;
++	skb->encapsulation = 0;
++	skb->dev = dst_vxlan->dev;
++	__skb_pull(skb, skb_network_offset(skb));
++
++	if (dst_vxlan->flags & VXLAN_F_LEARN)
++		vxlan_snoop(skb->dev, INADDR_LOOPBACK, eth_hdr(skb)->h_source);
++
++	u64_stats_update_begin(&tx_stats->syncp);
++	tx_stats->tx_packets++;
++	tx_stats->tx_bytes += skb->len;
++	u64_stats_update_end(&tx_stats->syncp);
++
++	if (netif_rx(skb) == NET_RX_SUCCESS) {
++		u64_stats_update_begin(&rx_stats->syncp);
++		rx_stats->rx_packets++;
++		rx_stats->rx_bytes += skb->len;
++		u64_stats_update_end(&rx_stats->syncp);
++	} else {
++		skb->dev->stats.rx_dropped++;
++	}
++}
++
+ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 				  struct vxlan_rdst *rdst, bool did_rsc)
+ {
+@@ -922,7 +952,6 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	struct vxlanhdr *vxh;
+ 	struct udphdr *uh;
+ 	struct flowi4 fl4;
+-	unsigned int pkt_len = skb->len;
+ 	__be32 dst;
+ 	__u16 src_port, dst_port;
+         u32 vni;
+@@ -935,22 +964,8 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
  
- 	nla = nla_nest_start(skb, OVS_VPORT_ATTR_OPTIONS);
- 	if (!nla)
- 		return -EMSGSIZE;
- 
--	if (vport->ops->get_options) {
--		int err = vport->ops->get_options(vport, skb);
--		if (err) {
--			nla_nest_cancel(skb, nla);
--			return err;
--		}
-+	err = vport->ops->get_options(vport, skb);
-+	if (err) {
-+		nla_nest_cancel(skb, nla);
-+		return err;
+ 	if (!dst) {
+ 		if (did_rsc) {
+-			__skb_pull(skb, skb_network_offset(skb));
+-			skb->ip_summed = CHECKSUM_NONE;
+-			skb->pkt_type = PACKET_HOST;
+-
+ 			/* short-circuited back to local bridge */
+-			if (netif_rx(skb) == NET_RX_SUCCESS) {
+-				struct pcpu_tstats *stats = this_cpu_ptr(dev->tstats);
+-
+-				u64_stats_update_begin(&stats->syncp);
+-				stats->tx_packets++;
+-				stats->tx_bytes += pkt_len;
+-				u64_stats_update_end(&stats->syncp);
+-			} else {
+-				dev->stats.tx_errors++;
+-				dev->stats.tx_aborted_errors++;
+-			}
++			vxlan_encap_bypass(skb, vxlan, vxlan);
+ 			return NETDEV_TX_OK;
+ 		}
+ 		goto drop;
+@@ -997,6 +1012,18 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 		goto tx_error;
  	}
  
- 	nla_nest_end(skb, nla);
--- 
-1.7.11.7
++	/* Bypass encapsulation if the destination is local */
++	if (rt->rt_flags & RTCF_LOCAL) {
++		struct vxlan_dev *dst_vxlan;
++
++		ip_rt_put(rt);
++		dst_vxlan = vxlan_find_vni(dev_net(dev), vni);
++		if (!dst_vxlan)
++			goto tx_error;	
++		vxlan_encap_bypass(skb, vxlan, dst_vxlan);
++		return NETDEV_TX_OK;
++	}
++
+ 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+ 	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
+ 			      IPSKB_REROUTED);
