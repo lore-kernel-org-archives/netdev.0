@@ -1,8 +1,9 @@
 From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: [PATCH 0/6] 802.15.4 and 6LoWPAN Buffering
-	Fixes
-Date: Tue,  2 Apr 2013 14:47:55 -0400
-Message-ID: <1364928481-1813-1-git-send-email-alan@signal11.us>
+Subject: [PATCH 2/6] mac802154: Move xmit_attemps to
+	stack
+Date: Tue,  2 Apr 2013 14:47:57 -0400
+Message-ID: <1364928481-1813-3-git-send-email-alan@signal11.us>
+References: <1364928481-1813-1-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,6 +13,7 @@ To: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane
 	Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
 	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1364928481-1813-1-git-send-email-alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
 	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
@@ -22,38 +24,48 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-These patches fix an issue in the 802.15.4 code where the output buffer
-(which prior to this patchset is just a workqueue) can grow to an arbitrary
-size.  This is basically fixed as follows:
+There's no reason to have it in the work struct anymore.
 
-1. Use netif_stop_queue() and netif_wake_queue() to stop and start the
-transmit queue, preventing packets from piling up without bound on the
-mac802154 workqueue.
+Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+---
+ net/mac802154/tx.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-2.  Increase the default tx_buffer_len for mac802154 (wpan) devices from 10
-to 300, enabling Qdisc to work properly on the transmit queue.
-
-Additionally the following related issues are fixed:
-
-1. Handle dev_queue_xmit() return values properly in the 6LoWPAN code (and
-return the proper errors to the higher layers).  This will cause the higher
-layers to retry later if the mac802154 queue is full.
-
-2. Fix the retry of transmit failures in mac802154.
-
-Alan Ott (6):
-  mac802154: Immediately retry sending failed packets
-  mac802154: Move xmit_attemps to stack
-  mac802154: Use netif flow control
-  mac802154: Increase tx_buffer_len
-  6lowpan: handle dev_queue_xmit error code properly
-  6lowpan: return the dev_queue_xmit() return value from lowpan_xmit()
-
- net/ieee802154/6lowpan.c |  4 ++--
- net/mac802154/tx.c       | 34 ++++++++++++++++++++++++----------
- net/mac802154/wpan.c     |  2 +-
- 3 files changed, 27 insertions(+), 13 deletions(-)
-
+diff --git a/net/mac802154/tx.c b/net/mac802154/tx.c
+index fbf937c..a248246 100644
+--- a/net/mac802154/tx.c
++++ b/net/mac802154/tx.c
+@@ -39,12 +39,12 @@ struct xmit_work {
+ 	struct mac802154_priv *priv;
+ 	u8 chan;
+ 	u8 page;
+-	u8 xmit_attempts;
+ };
+ 
+ static void mac802154_xmit_worker(struct work_struct *work)
+ {
+ 	struct xmit_work *xw = container_of(work, struct xmit_work, work);
++	u8 xmit_attempts = 0;
+ 	int res;
+ 
+ 	mutex_lock(&xw->priv->phy->pib_lock);
+@@ -61,7 +61,7 @@ static void mac802154_xmit_worker(struct work_struct *work)
+ 
+ 	do {
+ 		res = xw->priv->ops->xmit(&xw->priv->hw, xw->skb);
+-		if (res && ++xw->xmit_attempts >= MAC802154_MAX_XMIT_ATTEMPTS) {
++		if (res && ++xmit_attempts >= MAC802154_MAX_XMIT_ATTEMPTS) {
+ 			pr_debug("transmission failed for %d times",
+ 				 MAC802154_MAX_XMIT_ATTEMPTS);
+ 			break;
+@@ -113,7 +113,6 @@ netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
+ 	work->priv = priv;
+ 	work->page = page;
+ 	work->chan = chan;
+-	work->xmit_attempts = 0;
+ 
+ 	queue_work(priv->dev_workqueue, &work->work);
+ 
 -- 
 1.7.11.2
 
