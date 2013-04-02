@@ -1,58 +1,34 @@
-From: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
-Subject: Re: [PATCH 1/6] mac802154: Immediately retry
- sending failed packets
-Date: Tue, 2 Apr 2013 20:13:19 -0300
-Message-ID: <20130402231319.GD28141@ws>
-References: <1364928481-1813-1-git-send-email-alan@signal11.us>
-	<1364928481-1813-2-git-send-email-alan@signal11.us>
-	<CAJmB2rCr5ds11+iN=W5GCKsUgdfb57uKg+mH4NY4CWw6EFCTbg@mail.gmail.com>
-	<515B3F78.2020301@signal11.us> <515B4D79.40805@signal11.us>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next 5/7] r8169: add a new chip for RTL8111G
+Date: Wed, 3 Apr 2013 01:20:08 +0200
+Message-ID: <20130402232008.GB16612@electric-eye.fr.zoreil.com>
+References: <1364824539-4156-1-git-send-email-hayeswang@realtek.com>
+ <1364824539-4156-5-git-send-email-hayeswang@realtek.com>
+ <20130401222235.GB19335@electric-eye.fr.zoreil.com>
+ <2808A1ABA9A5470C8CB9534309588984@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-zigbee-devel <linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: hayeswang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <515B4D79.40805-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+In-Reply-To: <2808A1ABA9A5470C8CB9534309588984@realtek.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alan Ott wrote:
-> it's now my opinion that we should _not_ try to retransmit at
-> all in mac802154/tx.c.
+hayeswang <hayeswang@realtek.com> :
+> Francois Romieu [mailto:romieu@fr.zoreil.com] 
+[...]
+> > There is close to zero added value for this stuff in the kernel.
+> > You may as well move it completely into the firmware.
+> 
+> Do you mean all of the phy settings ? I have checked these settings with
+> our hw engineers. These are not firmware. 
 
-I think the currently blocking workqueue design is ugly and
-quite contrary to how most the rest of the stack works. So
-anything that kills it has my blessing :-)
+Undocumented configuration data which is subject to change over time ?
 
-I do wonder though why it was done like this in the first place.
-Just for convenience ?
+No one outside of Realtek can make any sense of this opaque pile of data.
+There is no point in me or anybody else rubber stamping it for inclusion.
 
-If we want to move towards an asynchronous interface, it could
-exist in parallel with the current one. That way, drivers could
-be migrated one by one.
-
-Having said that, the errors you get there may not be failed
-single transmissions on the air but some form of congestion in
-the driver or a problem with the device. But I don't think
-that's a valid reason for retrying the transmission at that
-level.
-
-- Werner
-
-------------------------------------------------------------------------------
-Minimize network downtime and maximize team effectiveness.
-Reduce network management and security costs.Learn how to hire 
-the most talented Cisco Certified professionals. Visit the 
-Employer Resources Portal
-http://www.cisco.com/web/learning/employer_resources/index.html
+-- 
+Ueimor
