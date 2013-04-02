@@ -1,75 +1,65 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] openvswitch: Provide OVS_DP_ATTR_UPCALL_PID in datapath messages
-Date: Wed,  3 Apr 2013 00:28:29 +0200
-Message-ID: <e7d0e105e879fb78ff3e5628147e41d52fb0cddd.1364941614.git.tgraf@suug.ch>
-Cc: dev@openvswitch.org, netdev@vger.kernel.org
-To: jesse@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:43592
-	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933679Ab3DBW2h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 18:28:37 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: [PATCH net-next] openvswitch: Don't insert empty
+	OVS_VPORT_ATTR_OPTIONS attribute
+Date: Wed,  3 Apr 2013 00:30:43 +0200
+Message-ID: <8f6704668f7f795658b48a7b0219c88d0ca088a3.1364941760.git.tgraf@suug.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The upcall port configured when adding a new datapath is currently
-only provided to user space as part of the vport message. Therefore
-user space has to request two separate messages which is prone to
-race conditions.
+The port specific options are currently unused resulting in an
+empty OVS_VPORT_ATTR_OPTIONS nested attribute being inserted
+into every OVS_VPORT_CMD_GET message.
 
-Provide the upcall port of the local port (0) of a data path in the
-datapath message to gain symmetry between the SET and GET command.
+Don't insert OVS_VPORT_ATTR_OPTIONS if no options are present.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
 ---
- net/openvswitch/datapath.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+ net/openvswitch/vport.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index d406503..e9b9469 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -1240,6 +1240,7 @@ static size_t ovs_dp_cmd_msg_size(void)
- 	size_t msgsize = NLMSG_ALIGN(sizeof(struct ovs_header));
- 
- 	msgsize += nla_total_size(IFNAMSIZ);
-+	msgsize += nla_total_size(4); /* OVS_DP_ATTR_UPCALL_PID */
- 	msgsize += nla_total_size(sizeof(struct ovs_dp_stats));
- 
- 	return msgsize;
-@@ -1250,6 +1251,7 @@ static int ovs_dp_cmd_fill_info(struct datapath *dp, struct sk_buff *skb,
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index f6b8132..71a2de8 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -301,17 +301,19 @@ void ovs_vport_get_stats(struct vport *vport, struct ovs_vport_stats *stats)
+ int ovs_vport_get_options(const struct vport *vport, struct sk_buff *skb)
  {
- 	struct ovs_header *ovs_header;
- 	struct ovs_dp_stats dp_stats;
-+	struct vport *local;
- 	int err;
- 
- 	ovs_header = genlmsg_put(skb, portid, seq, &dp_datapath_genl_family,
-@@ -1261,17 +1263,24 @@ static int ovs_dp_cmd_fill_info(struct datapath *dp, struct sk_buff *skb,
- 
- 	rcu_read_lock();
- 	err = nla_put_string(skb, OVS_DP_ATTR_NAME, ovs_dp_name(dp));
--	rcu_read_unlock();
- 	if (err)
- 		goto nla_put_failure;
- 
-+	local = ovs_vport_rcu(dp, OVSP_LOCAL);
-+	if (local &&
-+	    nla_put_u32(skb, OVS_DP_ATTR_UPCALL_PID, local->upcall_portid))
-+		goto nla_put_failure;
+ 	struct nlattr *nla;
++	int err;
 +
- 	get_dp_stats(dp, &dp_stats);
- 	if (nla_put(skb, OVS_DP_ATTR_STATS, sizeof(struct ovs_dp_stats), &dp_stats))
- 		goto nla_put_failure;
++	if (!vport->ops->get_options)
++		return 0;
  
-+	rcu_read_unlock();
-+
- 	return genlmsg_end(skb, ovs_header);
+ 	nla = nla_nest_start(skb, OVS_VPORT_ATTR_OPTIONS);
+ 	if (!nla)
+ 		return -EMSGSIZE;
  
- nla_put_failure:
-+	rcu_read_unlock();
- 	genlmsg_cancel(skb, ovs_header);
- error:
- 	return -EMSGSIZE;
+-	if (vport->ops->get_options) {
+-		int err = vport->ops->get_options(vport, skb);
+-		if (err) {
+-			nla_nest_cancel(skb, nla);
+-			return err;
+-		}
++	err = vport->ops->get_options(vport, skb);
++	if (err) {
++		nla_nest_cancel(skb, nla);
++		return err;
+ 	}
+ 
+ 	nla_nest_end(skb, nla);
 -- 
 1.7.11.7
