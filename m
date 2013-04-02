@@ -1,38 +1,55 @@
-From: support@yazoocity.k12.ms.us
-Subject: Re-confirm
-Date: Tue, 2 Apr 2013 04:27:17 -0500
-Message-ID: <7f885cd568980e69cd3bd94a388f62ea.squirrel__31853.0087512501$1364910357$gmane$org@www.yazoocity.k12.ms.us>
-Reply-To: bayfordfaily2004@hotmail.com
+From: "Peter Huang(Peng)" <peter.huangpeng@huawei.com>
+Subject: intel 82580 nic hang problem.
+Date: Tue, 2 Apr 2013 21:56:21 +0800
+Message-ID: <515AE385.7040006@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Majun <harry.majun@huawei.com>, <netdev@vger.kernel.org>,
+	Zhoukang <zhoukang7@huawei.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.yazoocity.k12.ms.us ([68.153.119.253]:59404 "EHLO
-	fc5.yazoocity.k12.ms.us" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760984Ab3DBNpI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 09:45:08 -0400
+Received: from szxga01-in.huawei.com ([119.145.14.64]:31808 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760162Ab3DBN4u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 09:56:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Eric
 
+Here I have a nic hang problem in our customer environment, from Intel's 82575
+driver release notes, there was a similar problem, but only occurred with older
+linux 2.6 kernel ( we are using 3.0.13-0.27-xen kernel).
 
+We are using 82580 dual port NIC:
+#ethtool -i eth1
 
-This is a personal email directed to you. I am Adrian Bayford,I and my
-wife won a Jackpot Lottery of 148 million pounds  in the latest
-Euromillion Lottery result that was announced recently. If you get this
-mail, I want you to consider yourself lucky.Kindly provide the requried
-details of yours for claims(click reply )
+driver: igb
+version: 3.0.6-k2
+firmware-version: 3.2-9
+bus-info: 0000:02:00.0
+supports-statistics: yes
+supports-test: yes
+supports-eeprom-access: yes
+supports-register-dump: yes
 
-NAME-----
+Below is the error message (this msg will repeated over 8 hours):
+Mar 28 10:46:25 CNA001_0_010203 kernel: [ 4412.812078] igb 0000:02:00.1: eth1: Reset adapter
+Mar 28 10:46:31 CNA001_0_010203 kernel: [ 4418.816189] igb 0000:02:00.1: Detected Tx Unit Hang
+Mar 28 10:46:31 CNA001_0_010203 kernel: [ 4418.816191]   Tx Queue             <1>
+Mar 28 10:46:31 CNA001_0_010203 kernel: [ 4418.816191]   TDH                  <0>
+Mar 28 10:46:31 CNA001_0_010203 kernel: [ 4418.816192]   TDT                  <2>
+Mar 28 10:46:31 CNA001_0_010203 kernel: [ 4418.816192]   next_to_use          <2>
+Mar 28 10:46:31 CNA001_0_010203 kernel: [ 4418.816193]   next_to_clean        <0>
+Mar 28 10:46:31 CNA001_0_010203 kernel: [ 4418.816193] buffer_info[next_to_clean]
+Mar 28 10:46:31 CNA001_0_010203 kernel: [ 4418.816194]   time_stamp           <1000fb54c>
+Mar 28 10:46:31 CNA001_0_010203 kernel: [ 4418.816194]   next_to_watch        <0>
+Mar 28 10:46:31 CNA001_0_010203 kernel: [ 4418.816195]   jiffies              <1000fb649>
+Mar 28 10:46:31 CNA001_0_010203 kernel: [ 4418.816196]   desc.status          <118000>
 
-ADDRESS------
+Are you familiar with this problem, or could you give us any suggestion to move on?
 
-MOBILE-----------
+Thanks very much!
 
-AGE------------
-
-
-KINDLY VIEW LINK FOR PROPER
-UNDERSTANDING(http://www.bbc.co.uk/news/uk-england-19254228) We await your
-response in this regards
+Peter.Huang
