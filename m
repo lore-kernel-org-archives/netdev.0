@@ -1,51 +1,97 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [net-next PATCH] net: fix smatch warnings inside datagram_poll
-Date: Tue, 2 Apr 2013 20:46:32 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5855B0E482@ORSMSX105.amr.corp.intel.com>
-References: <20130402203414.24602.6059.stgit@jekeller-hub.jf.intel.com>
- <20130402.164025.2237059970586581339.davem@davemloft.net>
+From: Jacob Keller <jacob.e.keller@intel.com>
+Subject: [net-next PATCH v2] net: fix smatch warnings inside datagram_poll
+Date: Tue,  2 Apr 2013 13:55:40 -0700
+Message-ID: <20130402205539.26083.7462.stgit@jekeller-hub.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:5131 "EHLO mga03.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:38786 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762230Ab3DBUqe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 16:46:34 -0400
-In-Reply-To: <20130402.164025.2237059970586581339.davem@davemloft.net>
-Content-Language: en-US
+	id S1762407Ab3DBUzm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Apr 2013 16:55:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of David Miller
-> Sent: Tuesday, April 02, 2013 1:40 PM
-> To: Keller, Jacob E
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [net-next PATCH] net: fix smatch warnings inside
-> datagram_poll
-> 
-> From: Jacob Keller <jacob.e.keller@intel.com>
-> Date: Tue,  2 Apr 2013 13:34:15 -0700
-> 
-> > The code for commit 1218a2a1d233fd604a41e584163ec291418f8ea8
-> actually turns out
-> > to be incorrect.
-> 
-> This commit object SHA ID is not correct, it should be
-> 7d4c04fc170087119727119074e72445f2bb192b.
-> 
-> Also, when referencing commits, always follow the SHA ID with the
-> commit
-> log message header line, enclosed in both parenthesis and double
-> quotes.
+Commit 7d4c04fc170087119727119074e72445f2bb192b ("net: add option to enable
+error queue packets waking select") has an issue due to operator precedence
+causing the bit-wise OR to bind to the sock_flags call instead of the result of
+the terniary conditional. This fixes the *_poll functions to work properly. The
+old code results in "mask |= POLLPRI" instead of what was intended, which is to
+only include POLLPRI when the socket option is enabled.
 
-Ok sorry about that. I will resend with correct format. Not sure how I had wrong commit ID.
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+---
+ net/bluetooth/af_bluetooth.c |    2 +-
+ net/core/datagram.c          |    2 +-
+ net/iucv/af_iucv.c           |    2 +-
+ net/nfc/llcp/sock.c          |    2 +-
+ net/unix/af_unix.c           |    2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)
 
-Thanks
-
-- Jake
+diff --git a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
+index 409902f..fea778e 100644
+--- a/net/bluetooth/af_bluetooth.c
++++ b/net/bluetooth/af_bluetooth.c
+@@ -423,7 +423,7 @@ unsigned int bt_sock_poll(struct file *file, struct socket *sock,
  
+ 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+ 		mask |= POLLERR |
+-			sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0;
++			(sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0);
+ 
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 36da5b6..ebba65d 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -750,7 +750,7 @@ unsigned int datagram_poll(struct file *file, struct socket *sock,
+ 	/* exceptional events? */
+ 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+ 		mask |= POLLERR |
+-			sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0;
++			(sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0);
+ 
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
+diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
+index f0550a3..7dfb9ed 100644
+--- a/net/iucv/af_iucv.c
++++ b/net/iucv/af_iucv.c
+@@ -1462,7 +1462,7 @@ unsigned int iucv_sock_poll(struct file *file, struct socket *sock,
+ 
+ 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+ 		mask |= POLLERR |
+-			sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0;
++			(sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0);
+ 
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		mask |= POLLRDHUP;
+diff --git a/net/nfc/llcp/sock.c b/net/nfc/llcp/sock.c
+index 2d55e8a..6b32544 100644
+--- a/net/nfc/llcp/sock.c
++++ b/net/nfc/llcp/sock.c
+@@ -522,7 +522,7 @@ static unsigned int llcp_sock_poll(struct file *file, struct socket *sock,
+ 
+ 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+ 		mask |= POLLERR |
+-			sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0;
++			(sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0);
+ 
+ 	if (!skb_queue_empty(&sk->sk_receive_queue))
+ 		mask |= POLLIN | POLLRDNORM;
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index fb7a63f..2e4d900 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2197,7 +2197,7 @@ static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
+ 	/* exceptional events? */
+ 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+ 		mask |= POLLERR |
+-			sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0;
++			(sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0);
+ 
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
