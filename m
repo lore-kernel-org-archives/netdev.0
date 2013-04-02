@@ -1,24 +1,41 @@
-From: <info@privateassignment.com>
-Subject: Private Assignment
-Date: Mon, 1 Apr 2013 22:00:36 -0500 (CDT)
-Message-ID: <201304020300.r3230ajT057566@mars.uplync.com>
-Reply-To: kamara.william147@gmail.com
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next 2/7] r8169: Update PHY settings of RTL8111G
+Date: Tue, 2 Apr 2013 10:19:17 +0800
+Message-ID: <2CDCEE66B3D64940AB7259FBACFFDC6F@realtek.com.tw>
+References: <1364824539-4156-1-git-send-email-hayeswang@realtek.com> <1364824539-4156-2-git-send-email-hayeswang@realtek.com> <20130401222048.GA19335@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.getgoin.net ([208.73.196.197]:51645 "EHLO mx2.getgoin.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758738Ab3DBCG4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Apr 2013 22:06:56 -0400
-Received: from mars.uplync.com (mars.uplync.com [208.73.196.198])
-	by mx2.getgoin.net (Postfix) with ESMTP id C3064225348
-	for <netdev@vger.kernel.org>; Mon,  1 Apr 2013 21:02:11 -0500 (CDT)
-Received: from mars.uplync.com (localhost.uplync.com [127.0.0.1])
-	by mars.uplync.com (Postfix) with ESMTP id 0CDF28C939
-	for <netdev@vger.kernel.org>; Mon,  1 Apr 2013 22:00:36 -0500 (CDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130401222048.GA19335@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I need a Personal Representative to work in your area on part time and i will pay six hundred dollars per week. Kindly send your name & location for more info.
+Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Tuesday, April 02, 2013 6:21 AM
+> To: Hayeswang
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: Re: [PATCH net-next 2/7] r8169: Update PHY settings 
+> of RTL8111G
+> 
+> Hayes Wang <hayeswang@realtek.com> :
+> > - Replace the current settings with rtl_writephy and rtl_readphy.
+> >   For the hardware, the settings are same with previous ones. This
+> >   make the setting method like the previous chips.
+> > - Add new PHY settings.
+> 
+> Would you mind spliting it in two ?
+
+OK.
+
+[...]
+> > -	if (r8168_phy_ocp_read(tp, 0xa466) & 0x0100)
+> > -		rtl_w1w0_phy_ocp(tp, 0xc41a, 0x0002, 0x0000);
+> > -	else
+> > -		rtl_w1w0_phy_ocp(tp, 0xbcc4, 0x0000, 0x0002);
+>                                      ^^^^^^
+> This one was not right, was it ?
+
+No, it was not right. It seems a mistake for copying and pasting.
