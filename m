@@ -1,57 +1,24 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH] drivers/isdn/divert: beautify code, delete useless 'break'
-Date: Tue, 02 Apr 2013 08:44:29 +0800
-Message-ID: <515A29ED.7010809@asianux.com>
-References: <5158E854.7060902@asianux.com> <515993E1.5010508@cogentembedded.com>
+From: <info@privateassignment.com>
+Subject: Private Assignment
+Date: Mon, 1 Apr 2013 20:43:53 -0500 (CDT)
+Message-ID: <201304020143.r321hrB5011906@mars.uplync.com>
+Reply-To: kamara.william147@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: isdn@linux-pingi.de, Jiri Slaby <jslaby@suse.cz>,
-	'Jiri Kosina' <trivial@kernel.org>, tilman@imap.cc,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org >> netdev" <netdev@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:33406 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756242Ab3DBApK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 20:45:10 -0400
-In-Reply-To: <515993E1.5010508@cogentembedded.com>
+Received: from mx2.getgoin.net ([208.73.196.197]:56474 "EHLO mx2.getgoin.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759687Ab3DBAuN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Apr 2013 20:50:13 -0400
+Received: from mars.uplync.com (mars.uplync.com [208.73.196.198])
+	by mx2.getgoin.net (Postfix) with ESMTP id 4A48D1BA833
+	for <netdev@vger.kernel.org>; Mon,  1 Apr 2013 19:45:29 -0500 (CDT)
+Received: from mars.uplync.com (localhost.uplync.com [127.0.0.1])
+	by mars.uplync.com (Postfix) with ESMTP id 874D88B331
+	for <netdev@vger.kernel.org>; Mon,  1 Apr 2013 20:43:53 -0500 (CDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013=E5=B9=B404=E6=9C=8801=E6=97=A5 22:04, Sergei Shtylyov wrote:
->=20
->> diff --git a/drivers/isdn/divert/isdn_divert.c
->> b/drivers/isdn/divert/isdn_divert.c
->> index db432e6..76d505e 100644
->> --- a/drivers/isdn/divert/isdn_divert.c
->> +++ b/drivers/isdn/divert/isdn_divert.c
->> @@ -442,7 +442,6 @@ static int isdn_divert_icall(isdn_ctrl *ic)
->>           switch (dv->rule.action) {
->>           case DEFLECT_IGNORE:
->>               return (0);
->> -            break;
->>
->>           case DEFLECT_ALERT:
->>           case DEFLECT_PROCEED:
->> @@ -511,7 +510,6 @@ static int isdn_divert_icall(isdn_ctrl *ic)
->>
->>           default:
->>               return (0); /* ignore call */
->> -            break;
->=20
->    You could have removed stupid () around 0, while at it.
-
-  oh, really, I should do it.
-
-  I will send patch v2 for it
-
-  thanks.
-
-  :-)
-
---=20
-Chen Gang
-
-Asianux Corporation
+I need a Personal Representative to work in your area on part time and i will pay six hundred dollars per week. Kindly send your name & location for more info.
