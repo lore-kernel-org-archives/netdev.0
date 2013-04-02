@@ -1,40 +1,57 @@
-From: Teto <mattator@gmail.com>
-Subject: How to find an available TCP port
-Date: Tue, 2 Apr 2013 17:25:58 +0200
-Message-ID: <CADHp1Nzgjs5OGXWhs-zy6LZ2wsbspRAc+EW4_J3EsUjOOPCxTA@mail.gmail.com>
-Reply-To: mattator@gmail.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bonding: get netdev_rx_handler_unregister out of locks
+Date: Tue, 02 Apr 2013 08:26:02 -0700
+Message-ID: <1364916362.5113.167.camel@edumazet-glaptop>
+References: <1364915716-4857-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	edumazet@google.com
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f178.google.com ([209.85.220.178]:44494 "EHLO
-	mail-vc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761135Ab3DBPZ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 11:25:58 -0400
-Received: by mail-vc0-f178.google.com with SMTP id hz11so555342vcb.9
-        for <netdev@vger.kernel.org>; Tue, 02 Apr 2013 08:25:58 -0700 (PDT)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:63715 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932437Ab3DBP0J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 11:26:09 -0400
+Received: by mail-pa0-f54.google.com with SMTP id fa11so346167pad.13
+        for <netdev@vger.kernel.org>; Tue, 02 Apr 2013 08:26:08 -0700 (PDT)
+In-Reply-To: <1364915716-4857-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, 2013-04-02 at 17:15 +0200, Veaceslav Falico wrote:
+> Now that netdev_rx_handler_unregister contains synchronize_net(), we need
+> to call it outside of bond->lock, cause it might sleep. Also, remove the
+> already unneded synchronize_net().
+> 
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> ---
+>  drivers/net/bonding/bond_main.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 11a8cb3..78c9e2d 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1975,12 +1975,11 @@ static int __bond_release_one(struct net_device *bond_dev,
+>  		return -EINVAL;
+>  	}
+>  
+> +	write_unlock_bh(&bond->lock);
+>  	/* unregister rx_handler early so bond_handle_frame wouldn't be called
+>  	 * for this slave anymore.
+>  	 */
+>  	netdev_rx_handler_unregister(slave_dev);
+> -	write_unlock_bh(&bond->lock);
+> -	synchronize_net();
+>  	write_lock_bh(&bond->lock);
+>  
+>  	if (!all && !bond->params.fail_over_mac) {
 
-I would like to do deterministic port-based load balancing, that is
-choosing a free port number N so that N % K = X while knowing K and X.
+Good catch, thanks !
 
-Since I am patching a specific implementation, I would like to check
-the availibility of the port without having to check bind() return
-value.
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-I believe the function tcp_lport_inuse ( in this file
-http://www.cab.u-szeged.hu/linux/kernel/linux/net/ipv4/tcp.c.html)
-does what I wish. I would like to call it from another file but it is
-static. So here are my questions:
-1st/ Is that the correct function ?
-2/ How to use it in another src file ? or do you have any other workaround ?
-
-Sorry if that's too noobish a question, I am not used to kernel
-development (yet). I f that's the case redirect me to the proper
-mailing list.
-
-Best regards
-Matt
+I'll send a net-next patch to remove the synchronize_net() from bridge
+code as well.
