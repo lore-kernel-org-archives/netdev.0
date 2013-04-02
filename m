@@ -1,74 +1,56 @@
-From: Anders =?iso-8859-1?Q?Bostr=F6m?= <anders@netinsight.net>
-Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
-Date: Tue, 02 Apr 2013 09:35:04 +0200 (CEST)
-Message-ID: <20130402.093504.1785848735327620554.anders@netinsight.net>
-References: <CDAFEDABF718A54BABD0DA5476695307475CCFF8@SHEXMB-01.global.atheros.com>
-	<20100126.093439.651115405791675606.anders@netinsight.net>
-	<1364689558.3557.22.camel@deadeye.wl.decadent.org.uk>
+From: Frank Li <lznuaa@gmail.com>
+Subject: Re: Freescale FEC: fall back to random address
+Date: Tue, 2 Apr 2013 16:23:13 +0800
+Message-ID: <CAHrpEqSVUc1yedCoyOrRoxkjY7=N_pCDB1F7-WvRaP+4UEY68A@mail.gmail.com>
+References: <20130331210605.GA29191@amd.pavel.ucw.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jie.Yang@Atheros.com, netdev@vger.kernel.org,
-	565404@bugs.debian.org, Xiong.Huang@Atheros.com
-To: ben@decadent.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ernst.netinsight.se ([194.16.221.21]:25694 "HELO
-	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1760167Ab3DBHpR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 03:45:17 -0400
-In-Reply-To: <1364689558.3557.22.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: kernel list <linux-kernel@vger.kernel.org>,
+	fabio.estevam@freescale.com, l.stach@pengutronix.de,
+	Frank.Li@freescale.com, netdev@vger.kernel.org
+To: Pavel Machek <pavel@denx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130331210605.GA29191@amd.pavel.ucw.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>>>> "BH" =3D=3D Ben Hutchings <ben@decadent.org.uk> writes:
+I think it is okay.
 
- BH> On Tue, 2010-01-26 at 09:34 +0100, Anders Bostr=F6m wrote:
- >> >>>>> "JY" =3D=3D Jie Yang <Jie.Yang@Atheros.com> writes:
- >>=20
- JY> Anders Bostr=F6m <anders@netinsight.net> wrote:
- >>=20
- JY> following is my test cese,
- >> >>=20
- JY> a nfs server server with ar8131chip, device id 1063.
- >> >> export /tmp/ dir as the nfs share directory,  JY> the client,
- >> >> mount the server_ip:/tmp to local dir /mnt/nfs, ust a python
- >> >> script to write and read data on the  JY>
- >> >> /mnt/nfs/testnfs.log. it works fine.
- >> >>=20
- >> >> OK, the device-ID in our NFS-server is 1026, rev. b0. So it
- >> >> is possible that the problem is specific to that chip/version.
- JY> oops, its my mistake in writing, my case is 1026 device ID
- >>=20
- >> >>=20
- JY> Can you give me some advice on how to reproduce this bug??
- >> >>=20
- >> >> The only suggestion I have is to try to find a board with a
- >> >> 1026-chip on it.
- >> >>=20
- >> >> My test-case is just copy of a 1 Gbyte file from the
- >> >> NFS-server to /dev/null , after making sure that the file
- >> >> isn't cached on the client by reading huge amounts of other data=
-=2E
- >> >>=20
- JY> just to check, if the kernel version is 2.6.26-2 ??
- >>=20
- >> I've tested with
- >> Debian linux-image-2.6.26-2-amd64 version 2.6.26-19lenny2,
- >> Debian linux-image-2.6.30-bpo.2-amd64 version 2.6.30-8~bpo50+2 and
- >> kernel.org 2.6.30.10 amd64 with ethtool patch for setting of tso. S=
-ame
- >> result.
-
- BH> Does booting with the kernel parameter 'pci=3Dnomsi' avoid the pro=
-blem?
-
-I'm sorry, but I can't test this at the moment. The computer with the
-TSO-problem is running as a file-server =3D> can't be used for testing.
-Also, we don't use the Atheros Ethernet interface any more due to
-other problems, hard hang (need reset) of the Eth-interface
-every ~6 month's.
-
-However, the computer is scheduled to be replaced as file-server quite
-soon, so I might be able to test this again after the replacement.
-
-/ Anders
+2013/4/1 Pavel Machek <pavel@denx.de>:
+> If there's no valid ethernet address, fall back to randomly generated
+> one.
+>
+> (Yes, I need to get newer u-boot for the board, but as the only
+> available one is from 2009... this might be good idea).
+>
+> Signed-off-by: Pavel Machek <pavel@denx.de>
+>
+>
+> index e3f3937..5a7d1e1 100644
+> pp--- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -906,6 +914,16 @@ static void fec_get_mac(struct net_device *ndev)
+>                 iap = &tmpaddr[0];
+>         }
+>
+> +       /*
+> +        * 5) random mac address
+> +        */
+> +       if (!is_valid_ether_addr(iap)) {
+> +               /* Report it and use a random ethernet address instead */
+> +               netdev_err(ndev, "Invalid MAC address: %pM\n", iap);
+> +               random_ether_addr(iap);
+> +               netdev_info(ndev, "Using random MAC address: %pM\n", iap);
+> +       }
+> +
+>         memcpy(ndev->dev_addr, iap, ETH_ALEN);
+>
+>         /* Adjust MAC if using macaddr */
+>
+> --
+> (english) http://www.livejournal.com/~pavelmachek
+> (cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
