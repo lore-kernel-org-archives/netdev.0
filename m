@@ -1,63 +1,56 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: [PATCH] ISDN:divert: beautify code: useless 'break', 'return (0)',
- additional comments.
-Date: Tue, 02 Apr 2013 09:37:56 +0800
-Message-ID: <515A3674.7090606@asianux.com>
-References: <5158E854.7060902@asianux.com> <515993E1.5010508@cogentembedded.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v1 3/4] vxlan: add ipv6 support
+Date: Tue, 02 Apr 2013 09:39:49 +0800
+Message-ID: <1364866789.17029.2.camel@cr0>
+References: <1364708625-29063-1-git-send-email-amwang@redhat.com>
+	 <1364708625-29063-3-git-send-email-amwang@redhat.com>
+	 <20130401131450.5d6bbc1e@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org >> netdev" <netdev@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	isdn@linux-pingi.de, Jiri Slaby <jslaby@suse.cz>,
-	'Jiri Kosina' <trivial@kernel.org>, tilman@imap.cc
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:41399 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759704Ab3DBBi2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Apr 2013 21:38:28 -0400
-In-Reply-To: <515993E1.5010508@cogentembedded.com>
+Received: from mx1.redhat.com ([209.132.183.28]:49026 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759724Ab3DBBj4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Apr 2013 21:39:56 -0400
+In-Reply-To: <20130401131450.5d6bbc1e@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2013-04-01 at 13:14 -0700, Stephen Hemminger wrote:
+> On Sun, 31 Mar 2013 13:43:44 +0800
+> Cong Wang <amwang@redhat.com> wrote:
+> 
+> >  	/* Need to drop RTNL to call multicast leave */
+> >  	rtnl_unlock();
+> > -	lock_sock(sk);
+> > -	err = ip_mc_leave_group(sk, &mreq);
+> > +	if (vxlan->gaddr.proto == htons(ETH_P_IP)) {
+> > +		lock_sock(sk);
+> > +		err = ip_mc_leave_group(sk, &mreq);
+> > +	} else {
+> > +#if IS_ENABLED(CONFIG_IPV6)
+> > +		lock_sock(sk);
+> > +		err = ipv6_sock_mc_drop(sk, vxlan->link, &vxlan->gaddr.ip6);
+> > +#endif
+> > +	}
+> >  	release_sock(sk);
+> 
+> Since both v4 and v6 need socket locked why not?
+> 
+> 	rtnl_unlock();
+> 	lock_sock(sk);
+> 	if (vxlan->gaddr.proto == htons(ETH_P_IP)) 
+> 		err = ip_mc_leave_group(sk, &mreq);
+> if IS_ENABLED(CONFIG_IPV6)
+> 	else
+> 		err = ipv6_sock_mc_drop(sk, vxlan->link, &vxlan->gaddr.ip6);
+> #endif
+> 
+>   	release_sock(sk);
 
-  delete useless 'break' after 'return'.
-  let 'return 0' instead of 'return (0)'
-  also give a comment for 'break' to let readers notice it.
+Oh, of course, I missed that...
 
-Signed-off-by: Chen Gang <gang.chen@asianux.com>
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
----
- drivers/isdn/divert/isdn_divert.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/isdn/divert/isdn_divert.c b/drivers/isdn/divert/isdn_divert.c
-index db432e6..50749a7 100644
---- a/drivers/isdn/divert/isdn_divert.c
-+++ b/drivers/isdn/divert/isdn_divert.c
-@@ -441,8 +441,7 @@ static int isdn_divert_icall(isdn_ctrl *ic)
- 
- 		switch (dv->rule.action) {
- 		case DEFLECT_IGNORE:
--			return (0);
--			break;
-+			return 0;
- 
- 		case DEFLECT_ALERT:
- 		case DEFLECT_PROCEED:
-@@ -510,10 +509,9 @@ static int isdn_divert_icall(isdn_ctrl *ic)
- 			break;
- 
- 		default:
--			return (0); /* ignore call */
--			break;
-+			return 0; /* ignore call */
- 		} /* switch action */
--		break;
-+		break; /* will break the 'for' looping */
- 	} /* scan_table */
- 
- 	if (cs) {
--- 
-1.7.7.6
+Thanks!
