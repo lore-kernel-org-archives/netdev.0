@@ -1,51 +1,64 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
-Date: Tue, 2 Apr 2013 23:15:24 +0200
-Message-ID: <20130402211524.GE4924@order.stressinduktion.org>
-References: <CDAFEDABF718A54BABD0DA5476695307475CCD42@SHEXMB-01.global.atheros.com> <20100125.163612.582489483209420341.anders@netinsight.net> <CDAFEDABF718A54BABD0DA5476695307475CCFF8@SHEXMB-01.global.atheros.com> <20100126.093439.651115405791675606.anders@netinsight.net> <1364689558.3557.22.camel@deadeye.wl.decadent.org.uk> <157393863283F442885425D2C45428564F202477@nasanexd02f.na.qualcomm.com> <1364695805.3557.41.camel@deadeye.wl.decadent.org.uk> <157393863283F442885425D2C45428564F20261B@nasanexd02f.na.qualcomm.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 3/6] mac802154: Use netif flow control
+Date: Wed, 03 Apr 2013 01:21:39 +0400
+Message-ID: <515B4BE3.7060606@cogentembedded.com>
+References: <1364928481-1813-1-git-send-email-alan@signal11.us> <1364928481-1813-4-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	Anders =?utf-8?Q?Bostr=C3=B6m?= <anders@netinsight.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"565404@bugs.debian.org" <565404@bugs.debian.org>
-To: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:46974 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758910Ab3DBVP0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 17:15:26 -0400
-Content-Disposition: inline
-In-Reply-To: <157393863283F442885425D2C45428564F20261B@nasanexd02f.na.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alan Ott <alan@signal11.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1364928481-1813-4-git-send-email-alan@signal11.us>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 01, 2013 at 02:51:56AM +0000, Huang, Xiong wrote:
-> > >
-> > > I checked windows driver, it does limit  the max packet length for TSO
-> > > windows XP : 32*1024 bytes (include MAC header and all MAC payload). No
-> > support IP/TCP option.
-> > > Windows 7:  15, 000 bytes, support IP/TCP option.
-> > 
-> > If TSO on these devices don't work properly with TCP options then you're
-> > just going to have to disable it - Linux requires it to support at least the
-> > timestamp option.  I'm not sure about IP options (this really ought to be
-> > documented).
-> > 
-> > If there's a length limit lower than 64K, you'll need to set the limit using
-> > netif_set_gso_max_size() before registering the net device.
-> > 
-> 
-> Ben, thanks for your advice. 
-> I have discussed with windows driver developer and hardware designer, the TSO limitation for win driver is just
-> For simplifying windows driver due to the buffer length limitation of TX descriptor. The hardware itself has no limitation on
-> TSO packet length.
+Hello.
 
-The error vanishes as soon as I put a gso size limit of MAX_TX_BUF_LEN
-in the driver. MAX_TX_BUF_LEN seems to be arbitrary set to 0x2000. I
-can even raise it to 0x3000 and don't see any tcp retransmits. Do you
-have an advice on how to size this value (e.g. should we switch to the
-windows values)?
+On 04/02/2013 10:47 PM, Alan Ott wrote:
 
-I also found some irregularities in the mtu update code. It differs from the
-calculations in the init function (I will send a patch for that).
+> Use netif_stop_queue() and netif_wake_queue() to control the flow of
+> packets to mac802154 devices.  Since many IEEE 802.15.4 devices have no
+> output buffer, and since the mac802154 xmit() function is designed to
+> block, netif_stop_queue() is called after each packet.
+>
+> Signed-off-by: Alan Ott <alan@signal11.us>
+> ---
+>   net/mac802154/tx.c | 16 ++++++++++++++++
+>   1 file changed, 16 insertions(+)
+>
+> diff --git a/net/mac802154/tx.c b/net/mac802154/tx.c
+> index a248246..fe3e02c 100644
+> --- a/net/mac802154/tx.c
+> +++ b/net/mac802154/tx.c
+[...]
+> @@ -71,6 +73,12 @@ static void mac802154_xmit_worker(struct work_struct *work)
+>   out:
+>   	mutex_unlock(&xw->priv->phy->pib_lock);
+>   
+> +	/* Restart the netif queue on each sub_if_data object. */
+> +	rcu_read_lock();
+> +	list_for_each_entry_rcu(sdata, &xw->priv->slaves, list) {
+> +		netif_wake_queue(sdata->dev);
+> +	}
+
+
+    Are {} really necessary here?
+
+> @@ -108,6 +117,13 @@ netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
+>   		return NETDEV_TX_BUSY;
+>   	}
+>   
+> +	/* Stop the netif queue on each sub_if_data object. */
+> +	rcu_read_lock();
+> +	list_for_each_entry_rcu(sdata, &priv->slaves, list) {
+> +		netif_stop_queue(sdata->dev);
+> +	}
+
+    And here?
+
+WBR, Sergei
