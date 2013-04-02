@@ -1,49 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipconfig: add informative timeout messages
- while waiting for carrier
-Date: Tue, 02 Apr 2013 14:35:56 -0400 (EDT)
-Message-ID: <20130402.143556.1226949973977697625.davem@davemloft.net>
-References: <1364911105-21734-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: Re: [PATCH v2] net IPv6 : Fix broken IPv6 routing table after
+ loopback down-up
+Date: Tue, 02 Apr 2013 14:37:55 -0400 (EDT)
+Message-ID: <20130402.143755.2007878338808163006.davem@davemloft.net>
+References: <515976BE.6060607@gmail.com>
+	<515996CF.3030809@linux-ipv6.org>
+	<515AB6B1.4080501@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: paul.gortmaker@windriver.com
+Cc: yoshfuji@linux-ipv6.org, eric.dumazet@gmail.com, kaber@trash.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	Balakumaran.Kannan@ap.sony.com, maruthi.thotad@ap.sony.com,
+	netdev@vger.kernel.org, jamshed.a@ap.sony.com,
+	amit.agarwal@ap.sony.com, takuzo.ohara@jp.sony.com,
+	aaditya.kumar@ap.sony.com
+To: kumaran.4353@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45127 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45150 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760612Ab3DBSf5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 14:35:57 -0400
-In-Reply-To: <1364911105-21734-1-git-send-email-paul.gortmaker@windriver.com>
+	with ESMTP id S1760910Ab3DBSiA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 14:38:00 -0400
+In-Reply-To: <515AB6B1.4080501@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Tue, 2 Apr 2013 09:58:25 -0400
+From: Balakumaran Kannan <kumaran.4353@gmail.com>
+Date: Tue, 02 Apr 2013 16:15:05 +0530
 
-> Commit 3fb72f1e6e6165c5f495e8dc11c5bbd14c73385c ("ipconfig wait
-> for carrier") added a "wait for carrier on at least one interface"
-> policy, with a worst case maximum wait of two minutes.
+> IPv6 Routing table becomes broken once we do ifdown, ifup of the loopback(lo)
+> interface. After down-up, routes of other interface's IPv6 addresses through
+> 'lo' are lost.
 > 
-> However, if you encounter this, you won't get any feedback from
-> the console as to the nature of what is going on.  You just see
-> the booting process hang for two minutes and then continue.
+> IPv6 addresses assigned to all interfaces are routed through 'lo' for internal
+> communication. Once 'lo' is down, those routing entries are removed from routing
+> table. But those removed entries are not being re-created properly when 'lo' is
+> brought up. So IPv6 addresses of other interfaces becomes unreachable from the
+> same machine. Also this breaks communication with other machines because of
+> NDISC packet processing failure.
 > 
-> Here we add a message so the user knows what is going on, and
-> hence can take action to rectify the situation (e.g. fix network
-> cable or whatever.)  After the 1st 10s pause, output now begins
-> that looks like this:
+> This patch fixes this issue by reading all interface's IPv6 addresses and adding
+> them to IPv6 routing table while bringing up 'lo'.
 > 
-> 	Waiting up to 110 more seconds for network.
-> 	Waiting up to 100 more seconds for network.
-> 	Waiting up to 90 more seconds for network.
-> 	Waiting up to 80 more seconds for network.
-> 	...
+> Patch is prepared for Linux-3.9.rc5 kernel.
 > 
-> Since most systems will have no problem getting link/carrier in the
-> 1st 10s, the only people who will see these messages are people with
-> genuine issues that need to be resolved.
-> 
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Signed-off-by: Balakumaran Kannan <Balakumaran.Kannan@ap.sony.com>
+> Signed-off-by: Maruthi Thotad <Maruthi.Thotad@ap.sony.com>
 
-This is fine, applied, thanks.
+Applied, thanks.
