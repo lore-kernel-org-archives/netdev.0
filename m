@@ -1,131 +1,95 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH v2 net-next] vxlan: Bypass encapsulation if the destination
- is local
-Date: Tue, 02 Apr 2013 15:31:52 -0700
-Message-ID: <1364941912.29336.36.camel@oc1677441337.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
+Date: Tue, 02 Apr 2013 15:34:53 -0700
+Message-ID: <1364942093.5113.189.camel@edumazet-glaptop>
+References: <CDAFEDABF718A54BABD0DA5476695307475CCD42@SHEXMB-01.global.atheros.com>
+	 <20100125.163612.582489483209420341.anders@netinsight.net>
+	 <CDAFEDABF718A54BABD0DA5476695307475CCFF8@SHEXMB-01.global.atheros.com>
+	 <20100126.093439.651115405791675606.anders@netinsight.net>
+	 <1364689558.3557.22.camel@deadeye.wl.decadent.org.uk>
+	 <157393863283F442885425D2C45428564F202477@nasanexd02f.na.qualcomm.com>
+	 <1364695805.3557.41.camel@deadeye.wl.decadent.org.uk>
+	 <157393863283F442885425D2C45428564F20261B@nasanexd02f.na.qualcomm.com>
+	 <20130402211524.GE4924@order.stressinduktion.org>
+	 <1364940038.5113.187.camel@edumazet-glaptop>
+	 <20130402221520.GF4924@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com, davem@davemloft.net, dlstevens@us.ibm.com
+Cc: "Huang, Xiong" <xiong@qca.qualcomm.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Anders =?ISO-8859-1?Q?Bostr=F6m?= <anders@netinsight.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"565404@bugs.debian.org" <565404@bugs.debian.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:39281 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933631Ab3DBWb6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 18:31:58 -0400
-Received: from /spool/local
-	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <sri@us.ibm.com>;
-	Tue, 2 Apr 2013 16:31:57 -0600
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 4E63D3E40060
-	for <netdev@vger.kernel.org>; Tue,  2 Apr 2013 16:31:42 -0600 (MDT)
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r32MVsu9359114
-	for <netdev@vger.kernel.org>; Tue, 2 Apr 2013 16:31:54 -0600
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r32MYbtY013668
-	for <netdev@vger.kernel.org>; Tue, 2 Apr 2013 16:34:38 -0600
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:39786 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932322Ab3DBWe4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 18:34:56 -0400
+Received: by mail-pb0-f48.google.com with SMTP id xb4so484541pbc.21
+        for <netdev@vger.kernel.org>; Tue, 02 Apr 2013 15:34:56 -0700 (PDT)
+In-Reply-To: <20130402221520.GF4924@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch bypasses vxlan encapsulation if the destination vxlan
-endpoint is a local device.
+On Wed, 2013-04-03 at 00:15 +0200, Hannes Frederic Sowa wrote:
+> On Tue, Apr 02, 2013 at 03:00:38PM -0700, Eric Dumazet wrote:
+> > On Tue, 2013-04-02 at 23:15 +0200, Hannes Frederic Sowa wrote:
+> > 
+> > > The error vanishes as soon as I put a gso size limit of MAX_TX_BUF_LEN
+> > > in the driver. MAX_TX_BUF_LEN seems to be arbitrary set to 0x2000. I
+> > > can even raise it to 0x3000 and don't see any tcp retransmits. Do you
+> > > have an advice on how to size this value (e.g. should we switch to the
+> > > windows values)?
+> > 
+> > This looks like an overflow error...
+> 
+> Thanks for your input, Eric.
+> 
+> I am limited in my time to work on this today but nontheless just tested
+> your patch without any of my changes and count a lot of TcpRetransSegs
+> again. Either there is really some hardware limitation or another
+> overflow.
 
-Changes since v1: added missing check for vxlan_find_vni() failure
+Another overflow...
 
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
----
+Really I don't understand why people use u16 instead of u32.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 62a4438..f3610cd 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -912,6 +912,36 @@ static int handle_offloads(struct sk_buff *skb)
- 	return 0;
- }
- 
-+/* Bypass encapsulation if the destination is local */
-+static void vxlan_encap_bypass(struct sk_buff *skb, struct vxlan_dev *src_vxlan,
-+			       struct vxlan_dev *dst_vxlan)
-+{
-+	struct pcpu_tstats *tx_stats = this_cpu_ptr(src_vxlan->dev->tstats);
-+	struct pcpu_tstats *rx_stats = this_cpu_ptr(dst_vxlan->dev->tstats);
-+
-+	skb->pkt_type = PACKET_HOST;
-+	skb->encapsulation = 0;
-+	skb->dev = dst_vxlan->dev;
-+	__skb_pull(skb, skb_network_offset(skb));
-+
-+	if (dst_vxlan->flags & VXLAN_F_LEARN)
-+		vxlan_snoop(skb->dev, INADDR_LOOPBACK, eth_hdr(skb)->h_source);
-+
-+	u64_stats_update_begin(&tx_stats->syncp);
-+	tx_stats->tx_packets++;
-+	tx_stats->tx_bytes += skb->len;
-+	u64_stats_update_end(&tx_stats->syncp);
-+
-+	if (netif_rx(skb) == NET_RX_SUCCESS) {
-+		u64_stats_update_begin(&rx_stats->syncp);
-+		rx_stats->rx_packets++;
-+		rx_stats->rx_bytes += skb->len;
-+		u64_stats_update_end(&rx_stats->syncp);
-+	} else {
-+		skb->dev->stats.rx_dropped++;
-+	}
-+}
-+
- static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 				  struct vxlan_rdst *rdst, bool did_rsc)
+u16 is slower most of the time, and more prone to overflows.
+
+diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+index 7e0a822..48ac487 100644
+--- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
++++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+@@ -1569,18 +1569,17 @@ static u16 atl1e_cal_tdp_req(const struct sk_buff *skb)
  {
-@@ -922,7 +952,6 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	struct vxlanhdr *vxh;
- 	struct udphdr *uh;
- 	struct flowi4 fl4;
--	unsigned int pkt_len = skb->len;
- 	__be32 dst;
- 	__u16 src_port, dst_port;
-         u32 vni;
-@@ -935,22 +964,8 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	int i = 0;
+ 	u16 tpd_req = 1;
+-	u16 fg_size = 0;
+-	u16 proto_hdr_len = 0;
  
- 	if (!dst) {
- 		if (did_rsc) {
--			__skb_pull(skb, skb_network_offset(skb));
--			skb->ip_summed = CHECKSUM_NONE;
--			skb->pkt_type = PACKET_HOST;
--
- 			/* short-circuited back to local bridge */
--			if (netif_rx(skb) == NET_RX_SUCCESS) {
--				struct pcpu_tstats *stats = this_cpu_ptr(dev->tstats);
--
--				u64_stats_update_begin(&stats->syncp);
--				stats->tx_packets++;
--				stats->tx_bytes += pkt_len;
--				u64_stats_update_end(&stats->syncp);
--			} else {
--				dev->stats.tx_errors++;
--				dev->stats.tx_aborted_errors++;
--			}
-+			vxlan_encap_bypass(skb, vxlan, vxlan);
- 			return NETDEV_TX_OK;
- 		}
- 		goto drop;
-@@ -997,6 +1012,18 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 		goto tx_error;
+ 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+-		fg_size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
++		u32 fg_size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
++
+ 		tpd_req += ((fg_size + MAX_TX_BUF_LEN - 1) >> MAX_TX_BUF_SHIFT);
  	}
  
-+	/* Bypass encapsulation if the destination is local */
-+	if (rt->rt_flags & RTCF_LOCAL) {
-+		struct vxlan_dev *dst_vxlan;
-+
-+		ip_rt_put(rt);
-+		dst_vxlan = vxlan_find_vni(dev_net(dev), vni);
-+		if (!dst_vxlan)
-+			goto tx_error;	
-+		vxlan_encap_bypass(skb, vxlan, dst_vxlan);
-+		return NETDEV_TX_OK;
-+	}
-+
- 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
- 	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
- 			      IPSKB_REROUTED);
+ 	if (skb_is_gso(skb)) {
+ 		if (skb->protocol == htons(ETH_P_IP) ||
+ 		   (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6)) {
+-			proto_hdr_len = skb_transport_offset(skb) +
++			u32 proto_hdr_len = skb_transport_offset(skb) +
+ 					tcp_hdrlen(skb);
+ 			if (proto_hdr_len < skb_headlen(skb)) {
+ 				tpd_req += ((skb_headlen(skb) - proto_hdr_len +
+@@ -1670,7 +1669,7 @@ static void atl1e_tx_map(struct atl1e_adapter *adapter,
+ {
+ 	struct atl1e_tpd_desc *use_tpd = NULL;
+ 	struct atl1e_tx_buffer *tx_buffer = NULL;
+-	u16 buf_len = skb_headlen(skb);
++	u32 buf_len = skb_headlen(skb);
+ 	u16 map_len = 0;
+ 	u16 mapped_len = 0;
+ 	u16 hdr_len = 0;
