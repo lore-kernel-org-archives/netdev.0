@@ -1,84 +1,43 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next] ipconfig: add informative timeout messages while waiting for carrier
-Date: Tue, 2 Apr 2013 09:58:25 -0400
-Message-ID: <1364911105-21734-1-git-send-email-paul.gortmaker@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: David Miller <davem@davemloft.net>
+From: Yan Burman <yanb@mellanox.com>
+Subject: [PATCH net] net/mlx4_en: Fix setting initial MAC address
+Date: Tue,  2 Apr 2013 16:49:45 +0300
+Message-ID: <1364910585-2963-1-git-send-email-yanb@mellanox.com>
+Cc: Yan Burman <yanb@mellanox.com>,
+	"Or Gerlitz" <ogerlitz@mellanox.com>,
+	"Amir Vadai" <amirv@mellanox.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:56356 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761101Ab3DBN6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 09:58:39 -0400
+Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:60499 "EHLO
+	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759611Ab3DBONE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 10:13:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 3fb72f1e6e6165c5f495e8dc11c5bbd14c73385c ("ipconfig wait
-for carrier") added a "wait for carrier on at least one interface"
-policy, with a worst case maximum wait of two minutes.
+Commit 6bbb6d9 "net/mlx4_en: Optimize Rx fast path filter checks" introduced a regression
+under which the MAC address read from the card was not converted correctly
+(the most significant byte was not handled), fix that.
 
-However, if you encounter this, you won't get any feedback from
-the console as to the nature of what is going on.  You just see
-the booting process hang for two minutes and then continue.
-
-Here we add a message so the user knows what is going on, and
-hence can take action to rectify the situation (e.g. fix network
-cable or whatever.)  After the 1st 10s pause, output now begins
-that looks like this:
-
-	Waiting up to 110 more seconds for network.
-	Waiting up to 100 more seconds for network.
-	Waiting up to 90 more seconds for network.
-	Waiting up to 80 more seconds for network.
-	...
-
-Since most systems will have no problem getting link/carrier in the
-1st 10s, the only people who will see these messages are people with
-genuine issues that need to be resolved.
-
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Yan Burman <yanb@mellanox.com>
 ---
- net/ipv4/ipconfig.c | 13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index bf6c5cf..efa1138 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -206,7 +206,7 @@ static int __init ic_open_devs(void)
- 	struct ic_device *d, **last;
- 	struct net_device *dev;
- 	unsigned short oflags;
--	unsigned long start;
-+	unsigned long start, next_msg;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index f278b10..30d78f8 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -411,8 +411,8 @@ static int mlx4_en_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
  
- 	last = &ic_first_dev;
- 	rtnl_lock();
-@@ -263,12 +263,23 @@ static int __init ic_open_devs(void)
- 
- 	/* wait for a carrier on at least one device */
- 	start = jiffies;
-+	next_msg = start + msecs_to_jiffies(CONF_CARRIER_TIMEOUT/12);
- 	while (jiffies - start < msecs_to_jiffies(CONF_CARRIER_TIMEOUT)) {
-+		int wait, elapsed;
-+
- 		for_each_netdev(&init_net, dev)
- 			if (ic_is_init_dev(dev) && netif_carrier_ok(dev))
- 				goto have_carrier;
- 
- 		msleep(1);
-+
-+		if time_before(jiffies, next_msg)
-+			continue;
-+
-+		elapsed = jiffies_to_msecs(jiffies - start);
-+		wait = (CONF_CARRIER_TIMEOUT - elapsed + 500)/1000;
-+		pr_info("Waiting up to %d more seconds for network.\n", wait);
-+		next_msg = jiffies + msecs_to_jiffies(CONF_CARRIER_TIMEOUT/12);
+ static void mlx4_en_u64_to_mac(unsigned char dst_mac[ETH_ALEN + 2], u64 src_mac)
+ {
+-	unsigned int i;
+-	for (i = ETH_ALEN - 1; i; --i) {
++	int i;
++	for (i = ETH_ALEN - 1; i >= 0; --i) {
+ 		dst_mac[i] = src_mac & 0xff;
+ 		src_mac >>= 8;
  	}
- have_carrier:
- 	rtnl_unlock();
 -- 
-1.8.1.2
+1.7.10.1
