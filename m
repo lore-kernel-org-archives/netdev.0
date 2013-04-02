@@ -1,48 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bridge: remove a redundant synchronize_net()
-Date: Tue, 02 Apr 2013 12:12:23 -0400 (EDT)
-Message-ID: <20130402.121223.496337697838525487.davem@davemloft.net>
-References: <1364917500.5113.176.camel@edumazet-glaptop>
-	<20130402155822.GB29115@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch 2/2] qeth: fix qeth_wait_for_threads() deadlock for OSN
+ devices
+Date: Tue, 02 Apr 2013 09:13:48 -0700
+Message-ID: <1364919228.5113.178.camel@edumazet-glaptop>
+References: <20130402105650.056630101@de.ibm.com>
+	 <20130402105707.222865335@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	stephen@networkplumber.org
-To: vfalico@redhat.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, Stefan Raspl <raspl@linux.vnet.ibm.com>
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43534 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760999Ab3DBQMY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 12:12:24 -0400
-In-Reply-To: <20130402155822.GB29115@redhat.com>
+Received: from mail-da0-f48.google.com ([209.85.210.48]:55781 "EHLO
+	mail-da0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761063Ab3DBQNv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 12:13:51 -0400
+In-Reply-To: <20130402105707.222865335@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Tue, 2 Apr 2013 17:58:22 +0200
+On Tue, 2013-04-02 at 12:56 +0200, frank.blaschka@de.ibm.com wrote:
+> plain text document attachment (602-qeth-thread-deadlock.diff)
+> From: Stefan Raspl <raspl@linux.vnet.ibm.com>
 
-> On Tue, Apr 02, 2013 at 08:45:00AM -0700, Eric Dumazet wrote:
->>From: Eric Dumazet <edumazet@google.com>
->>
->>commit 00cfec37484761 (net: add a synchronize_net() in
->>netdev_rx_handler_unregister())
->>allows us to remove the synchronized_net() call from del_nbp()
->>
->>Signed-off-by: Eric Dumazet <edumazet@google.com>
- ...
-> Acked-by: Veaceslav Falico <vfalico@redhat.com>
+> +static bool qeth_is_recovery_task(struct qeth_card *card)
+> +{
+> +	return (card->recovery_task == current);
+> +}
+> +
 
-Applied.
-
-Note that we have a few spots now that do two synchronize_net()'s per
-opertaion, such as team port removal, and openvswitch has such a path
-as well.  They all are of the form:
-
-	netdev_rx_handler_unregister()
-	...
-	lots of other stuff
-	...
-	synchronize_net();
-
-So might be harder to factor back out than this br_if.c case.
+static bool qeth_is_recovery_task(const struct qeth_card *card)
+{
+	return card->recovery_task == current;
+}
