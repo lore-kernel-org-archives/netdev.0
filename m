@@ -1,37 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 5/7] r8169: add a new chip for RTL8111G
-Date: Tue, 02 Apr 2013 19:26:01 -0400 (EDT)
-Message-ID: <20130402.192601.800808445795589231.davem@davemloft.net>
-References: <20130401222235.GB19335@electric-eye.fr.zoreil.com>
-	<2808A1ABA9A5470C8CB9534309588984@realtek.com.tw>
-	<20130402232008.GB16612@electric-eye.fr.zoreil.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next] openvswitch: Provide OVS_DP_ATTR_UPCALL_PID in
+ datapath messages
+Date: Tue, 2 Apr 2013 16:30:43 -0700
+Message-ID: <CAEP_g=_5+1ZjiXEMCTSXE2Rt6HNkfFx1uR3KNCzwitJrLQYesg@mail.gmail.com>
+References: <e7d0e105e879fb78ff3e5628147e41d52fb0cddd.1364941614.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: romieu@fr.zoreil.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130402232008.GB16612@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog122.obsmtp.com ([74.125.149.147]:40579 "HELO
+	na3sys009aog122.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750957Ab3DBXbF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 19:31:05 -0400
+Received: by mail-ia0-f198.google.com with SMTP id f27so3055781iae.1
+        for <netdev@vger.kernel.org>; Tue, 02 Apr 2013 16:31:03 -0700 (PDT)
+In-Reply-To: <e7d0e105e879fb78ff3e5628147e41d52fb0cddd.1364941614.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Wed, 3 Apr 2013 01:20:08 +0200
+On Tue, Apr 2, 2013 at 3:28 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> The upcall port configured when adding a new datapath is currently
+> only provided to user space as part of the vport message. Therefore
+> user space has to request two separate messages which is prone to
+> race conditions.
+>
+> Provide the upcall port of the local port (0) of a data path in the
+> datapath message to gain symmetry between the SET and GET command.
+>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-> hayeswang <hayeswang@realtek.com> :
->> Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> [...]
->> > There is close to zero added value for this stuff in the kernel.
->> > You may as well move it completely into the firmware.
->> 
->> Do you mean all of the phy settings ? I have checked these settings with
->> our hw engineers. These are not firmware. 
-> 
-> Undocumented configuration data which is subject to change over time ?
-> 
-> No one outside of Realtek can make any sense of this opaque pile of data.
-> There is no point in me or anybody else rubber stamping it for inclusion.
+Can you describe the race condition some more?  The kernel doesn't
+change the port ID on its own so even needing to request the value
+seems rare.
 
-Right, so either document all of these indirect registers being programmed
-in the PHY or move it to firmware.
+Assigning the local ports upcall PID through datapath creation is
+really somewhat of a hack since it's port state.  I don't disagree
+that it's somewhat asymmetric now but it seems better to move away
+from the current model if possible.
