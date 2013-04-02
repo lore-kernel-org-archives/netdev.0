@@ -1,56 +1,61 @@
-From: Frank Li <lznuaa@gmail.com>
-Subject: Re: Freescale FEC: fall back to random address
-Date: Tue, 2 Apr 2013 16:23:13 +0800
-Message-ID: <CAHrpEqSVUc1yedCoyOrRoxkjY7=N_pCDB1F7-WvRaP+4UEY68A@mail.gmail.com>
-References: <20130331210605.GA29191@amd.pavel.ucw.cz>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH v2 net-next 1/8] r8169: Remove firmware code
+Date: Tue, 2 Apr 2013 16:23:35 +0800
+Message-ID: <1364891022-3220-1-git-send-email-hayeswang@realtek.com>
+References: <1364824539-4156-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: kernel list <linux-kernel@vger.kernel.org>,
-	fabio.estevam@freescale.com, l.stach@pengutronix.de,
-	Frank.Li@freescale.com, netdev@vger.kernel.org
-To: Pavel Machek <pavel@denx.de>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Hayes Wang <hayeswang@realtek.com>
+To: <romieu@fr.zoreil.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130331210605.GA29191@amd.pavel.ucw.cz>
+In-Reply-To: <1364824539-4156-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I think it is okay.
+Some codes are belong to binary codes and should be removed.
 
-2013/4/1 Pavel Machek <pavel@denx.de>:
-> If there's no valid ethernet address, fall back to randomly generated
-> one.
->
-> (Yes, I need to get newer u-boot for the board, but as the only
-> available one is from 2009... this might be good idea).
->
-> Signed-off-by: Pavel Machek <pavel@denx.de>
->
->
-> index e3f3937..5a7d1e1 100644
-> pp--- a/drivers/net/ethernet/freescale/fec.c
-> +++ b/drivers/net/ethernet/freescale/fec.c
-> @@ -906,6 +914,16 @@ static void fec_get_mac(struct net_device *ndev)
->                 iap = &tmpaddr[0];
->         }
->
-> +       /*
-> +        * 5) random mac address
-> +        */
-> +       if (!is_valid_ether_addr(iap)) {
-> +               /* Report it and use a random ethernet address instead */
-> +               netdev_err(ndev, "Invalid MAC address: %pM\n", iap);
-> +               random_ether_addr(iap);
-> +               netdev_info(ndev, "Using random MAC address: %pM\n", iap);
-> +       }
-> +
->         memcpy(ndev->dev_addr, iap, ETH_ALEN);
->
->         /* Adjust MAC if using macaddr */
->
-> --
-> (english) http://www.livejournal.com/~pavelmachek
-> (cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/ethernet/realtek/r8169.c | 26 --------------------------
+ 1 file changed, 26 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 28fb50a..d36aa76 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -3368,32 +3368,6 @@ static void rtl8411_hw_phy_config(struct rtl8169_private *tp)
+ 
+ static void rtl8168g_1_hw_phy_config(struct rtl8169_private *tp)
+ {
+-	static const u16 mac_ocp_patch[] = {
+-		0xe008, 0xe01b, 0xe01d, 0xe01f,
+-		0xe021, 0xe023, 0xe025, 0xe027,
+-		0x49d2, 0xf10d, 0x766c, 0x49e2,
+-		0xf00a, 0x1ec0, 0x8ee1, 0xc60a,
+-
+-		0x77c0, 0x4870, 0x9fc0, 0x1ea0,
+-		0xc707, 0x8ee1, 0x9d6c, 0xc603,
+-		0xbe00, 0xb416, 0x0076, 0xe86c,
+-		0xc602, 0xbe00, 0x0000, 0xc602,
+-
+-		0xbe00, 0x0000, 0xc602, 0xbe00,
+-		0x0000, 0xc602, 0xbe00, 0x0000,
+-		0xc602, 0xbe00, 0x0000, 0xc602,
+-		0xbe00, 0x0000, 0xc602, 0xbe00,
+-
+-		0x0000, 0x0000, 0x0000, 0x0000
+-	};
+-	u32 i;
+-
+-	/* Patch code for GPHY reset */
+-	for (i = 0; i < ARRAY_SIZE(mac_ocp_patch); i++)
+-		r8168_mac_ocp_write(tp, 0xf800 + 2*i, mac_ocp_patch[i]);
+-	r8168_mac_ocp_write(tp, 0xfc26, 0x8000);
+-	r8168_mac_ocp_write(tp, 0xfc28, 0x0075);
+-
+ 	rtl_apply_firmware(tp);
+ 
+ 	if (r8168_phy_ocp_read(tp, 0xa460) & 0x0100)
+-- 
+1.8.1
