@@ -1,133 +1,95 @@
-From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: Re: [PATCH 1/6] mac802154: Immediately retry
-	sending failed packets
-Date: Tue, 02 Apr 2013 16:28:40 -0400
-Message-ID: <515B3F78.2020301@signal11.us>
-References: <1364928481-1813-1-git-send-email-alan@signal11.us>
-	<1364928481-1813-2-git-send-email-alan@signal11.us>
-	<CAJmB2rCr5ds11+iN=W5GCKsUgdfb57uKg+mH4NY4CWw6EFCTbg@mail.gmail.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
+Subject: [net-next PATCH] net: fix smatch warnings inside datagram_poll
+Date: Tue,  2 Apr 2013 13:34:15 -0700
+Message-ID: <20130402203414.24602.6059.stgit@jekeller-hub.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-zigbee-devel <linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <CAJmB2rCr5ds11+iN=W5GCKsUgdfb57uKg+mH4NY4CWw6EFCTbg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:12147 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760329Ab3DBUe3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Apr 2013 16:34:29 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/02/2013 03:11 PM, Alexander Smirnov wrote:
-> 2013/4/2 Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org <mailto:alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>>
-> 
->     When ops->xmit() fails, immediately retry. Previously the packet was
->     sent
->     to the back of the workqueue.
-> 
->     Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org <mailto:alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>>
->     ---
->      net/mac802154/tx.c | 17 ++++++++---------
->      1 file changed, 8 insertions(+), 9 deletions(-)
-> 
->     diff --git a/net/mac802154/tx.c b/net/mac802154/tx.c
->     index 4e09d07..fbf937c 100644
->     --- a/net/mac802154/tx.c
->     +++ b/net/mac802154/tx.c
->     @@ -59,19 +59,18 @@ static void mac802154_xmit_worker(struct
->     work_struct *work)
->                     }
->             }
-> 
->     -       res = xw->priv->ops->xmit(&xw->priv->hw, xw->skb);
->     +       do {
->     +               res = xw->priv->ops->xmit(&xw->priv->hw, xw->skb);
->     +               if (res && ++xw->xmit_attempts >=
->     MAC802154_MAX_XMIT_ATTEMPTS) {
->     +                       pr_debug("transmission failed for %d times",
->     +                                MAC802154_MAX_XMIT_ATTEMPTS);
->     +                       break;
->     +               }
->     +       } while (res);
-> 
->  
-> 
-> IIRC this 802.15.4 stack uses single-thread-work-queue and all RX/TX
-> are performed by using it.
+The code for commit 1218a2a1d233fd604a41e584163ec291418f8ea8 actually turns out
+to be incorrect. This fixes the *_poll functions to work properly. The old code
+results in "mask |= POLLPRI" instead of what was intended, due to incorrect
+assumption about operator precedence.
 
-Hi Alexander,
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+---
+ net/bluetooth/af_bluetooth.c |    2 +-
+ net/core/datagram.c          |    2 +-
+ net/iucv/af_iucv.c           |    2 +-
+ net/nfc/llcp/sock.c          |    2 +-
+ net/unix/af_unix.c           |    2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)
 
-Yes, that is true. As is currently implemented, the driver xmit()
-functions are called from a workqueue and block until the packet is sent.
-
-
-> Doing TX retry in the way you proposed -
-> it's possible that you will block other packets pending in this
-> queue.
-
-Yes. Since sending data is a blocking operation, any time spent sending
-(or re-sending) is blocking.
-
-As it was before this patch series, with the buffer (workqueue) growing
-arbitrarily large, doing retry by putting a packet at the end of the
-workqueue was largely useless because by the time it came to retry it,
-any state associated with it (with respect to fragmentation/reassembly)
-had expired.
-
-Keep in mind that with the netif stop/wake code, putting retries at the
-end of the workqueue or doing them immediately is basically the same
-thing, since the workqueue is no longer the packet queue (and will
-ideally only have 0 or 1 packets in it). The workqueue (with these
-patches) only serves to lift the driver xmit() calls out of atomic
-context, allowing them to block.
-
-However, it is easy to envision one process clogging up the works with
-retries by sending many packets to an unavailable address.
-
-What do you recommend doing here instead?
-
-> Despite on Linux is already 'slow' system to provide
-> real-time for specific 802.15.4 features, I think it's not a good
-> idea to increase nodes communication latency.
-
-With the transmit buffer length increased (and actually being used),
-maybe the packets with realtime requirements can be given a higher
-priority to deal with these requirements.
-
-Alan.
-
-> 
-> 
->      out:
->             mutex_unlock(&xw->priv->phy->pib_lock);
-> 
->     -       if (res) {
->     -               if (xw->xmit_attempts++ < MAC802154_MAX_XMIT_ATTEMPTS) {
->     -                       queue_work(xw->priv->dev_workqueue, &xw->work);
->     -                       return;
->     -               } else
->     -                       pr_debug("transmission failed for %d times",
->     -                                MAC802154_MAX_XMIT_ATTEMPTS);
->     -       }
-> 
->             dev_kfree_skb(xw->skb);
-> 
->     --
->     1.7.11.2
-> 
-> 
-
-
-------------------------------------------------------------------------------
-Minimize network downtime and maximize team effectiveness.
-Reduce network management and security costs.Learn how to hire 
-the most talented Cisco Certified professionals. Visit the 
-Employer Resources Portal
-http://www.cisco.com/web/learning/employer_resources/index.html
+diff --git a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
+index 409902f..fea778e 100644
+--- a/net/bluetooth/af_bluetooth.c
++++ b/net/bluetooth/af_bluetooth.c
+@@ -423,7 +423,7 @@ unsigned int bt_sock_poll(struct file *file, struct socket *sock,
+ 
+ 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+ 		mask |= POLLERR |
+-			sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0;
++			(sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0);
+ 
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 36da5b6..ebba65d 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -750,7 +750,7 @@ unsigned int datagram_poll(struct file *file, struct socket *sock,
+ 	/* exceptional events? */
+ 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+ 		mask |= POLLERR |
+-			sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0;
++			(sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0);
+ 
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
+diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
+index f0550a3..7dfb9ed 100644
+--- a/net/iucv/af_iucv.c
++++ b/net/iucv/af_iucv.c
+@@ -1462,7 +1462,7 @@ unsigned int iucv_sock_poll(struct file *file, struct socket *sock,
+ 
+ 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+ 		mask |= POLLERR |
+-			sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0;
++			(sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0);
+ 
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		mask |= POLLRDHUP;
+diff --git a/net/nfc/llcp/sock.c b/net/nfc/llcp/sock.c
+index 2d55e8a..6b32544 100644
+--- a/net/nfc/llcp/sock.c
++++ b/net/nfc/llcp/sock.c
+@@ -522,7 +522,7 @@ static unsigned int llcp_sock_poll(struct file *file, struct socket *sock,
+ 
+ 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+ 		mask |= POLLERR |
+-			sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0;
++			(sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0);
+ 
+ 	if (!skb_queue_empty(&sk->sk_receive_queue))
+ 		mask |= POLLIN | POLLRDNORM;
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 2d2ccf8..b0dc7c2 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2198,7 +2198,7 @@ static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
+ 	/* exceptional events? */
+ 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+ 		mask |= POLLERR |
+-			sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0;
++			(sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0);
+ 
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
