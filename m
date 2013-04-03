@@ -1,54 +1,65 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] SUNRPC/cache: add module_put() on error path in
- cache_open()
-Date: Wed, 3 Apr 2013 15:32:53 -0400
-Message-ID: <20130403193253.GK6044@fieldses.org>
-References: <1363984604-17739-1-git-send-email-khoroshilov@ispras.ru>
+From: Jon Maloy <jon.maloy-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH RFC 0/5] tipc: add support for TIPC over InfiniBand
+Date: Wed, 3 Apr 2013 15:44:44 -0400
+Message-ID: <515C86AC.1080808@ericsson.com>
+References: <1364993010-15515-1-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ldv-project-tpLiQldItUH5n4uC9ZG1Ww@public.gmane.org
-To: Alexey Khoroshilov <khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1363984604-17739-1-git-send-email-khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <allan.stephens-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Paul.Gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org" <Paul.Gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+To: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1364993010-15515-1-git-send-email-kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Thanks, applying.--b.
+On 04/03/2013 08:43 AM, Patrick McHardy wrote:
+> The following patchset adds support for running TIPC over InfiniBand.
+> The patchset consists of three parts (+ a minor fix for the ethernet media
+> type):
+> 
+> - Preparation: removal of an the unused str2addr callback and move of the
+>   bcast_addr from struct tipc_media to struct tipc_bearer. This is necessary
+>   because InfiniBand doesn't have a fixed broadcast address like ethernet,
+>   so it needs to be initialized with the device's broadcast address when
+>   the bearer is enabled
+> 
+> - Introduction of a TIPC InfiniBand media type. A new media type is needed
+>   to deal with the different address sizes
+> 
+> - Support for ETH_P_TIPC in IPoIB
+> 
+> The last patch is something I'd like to discuss, I realize that this diverges
+> from the IPoIB specification, however the alternative would be to implement
+> something which would be pretty much identical to IPoIB with the only
+> difference of handling a different ethertype in the xmit function.
+> 
+> In fact I'd like to propose to remove all higher layer protocol knowledge
+> from IPoIB except for ARP and RARP, which need special treatment. With the
+> recent patch to manage neighbour entries in IPoIB itself, no further knowledge
+> of higher layer protocols is required.
+> 
+> The patchset is based on net-next.
+> 
+> Comments welcome.
+> 
 
-On Sat, Mar 23, 2013 at 12:36:44AM +0400, Alexey Khoroshilov wrote:
-> If kmalloc() fails in cache_open(), module cd->owner left locked.
-> The patch adds module_put(cd->owner) on this path.
-> 
-> Found by Linux Driver Verification project (linuxtesting.org).
-> 
-> Signed-off-by: Alexey Khoroshilov <khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org>
-> ---
->  net/sunrpc/cache.c |    4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
-> index 25d58e76..1d3c514 100644
-> --- a/net/sunrpc/cache.c
-> +++ b/net/sunrpc/cache.c
-> @@ -986,8 +986,10 @@ static int cache_open(struct inode *inode, struct file *filp,
->  	nonseekable_open(inode, filp);
->  	if (filp->f_mode & FMODE_READ) {
->  		rp = kmalloc(sizeof(*rp), GFP_KERNEL);
-> -		if (!rp)
-> +		if (!rp) {
-> +			module_put(cd->owner);
->  			return -ENOMEM;
-> +		}
->  		rp->offset = 0;
->  		rp->q.reader = 1;
->  		atomic_inc(&cd->readers);
-> -- 
-> 1.7.9.5
-> 
+Happy to see this initiative being taken.
+It seems to me that you have grasped our intentions for 
+how to add a new bearer, so I really don't have much comments,
+except the one already made by Erik.
+
+To me it looks good.
+
+Regards
+///jon
+
+
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
