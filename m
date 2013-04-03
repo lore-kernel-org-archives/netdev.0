@@ -1,81 +1,39 @@
-From: =?UTF-8?B?0JzQsNGA0Log0JrQvtGA0LXQvdCx0LXRgNCz?= <socketpair@gmail.com>
-Subject: network namespace + bridge visibility
-Date: Fri, 29 Mar 2013 00:17:16 +0600
-Message-ID: <CAEmTpZH80KrDoQb0KRJNYPsEDCrRg6qLVxLXrcgskLmXDyFMzg@mail.gmail.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: TCP: snd_cwnd is nul, please report this bug.
+Date: Wed, 3 Apr 2013 10:01:32 -0700
+Message-ID: <CAK6E8=cLLsBYkYPgNwL08-BWsG+eR0Jkkck9S7e1Ts0RzfVHLQ@mail.gmail.com>
+References: <20130403035428.GA31709@redhat.com> <1364965967.5113.195.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary=00248c7118151d5d2c04d9002ac9
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Dave Jones <davej@redhat.com>, netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:41349 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757417Ab3DCRBy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 13:01:54 -0400
+Received: by mail-lb0-f180.google.com with SMTP id t11so1828899lbi.11
+        for <netdev@vger.kernel.org>; Wed, 03 Apr 2013 10:01:53 -0700 (PDT)
+In-Reply-To: <1364965967.5113.195.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---00248c7118151d5d2c04d9002ac9
-Content-Type: text/plain; charset=UTF-8
-
-==========================
-mmarkk@imac:~# brctl addbr qwe
-mmarkk@imac:~# unshare -n /bin/bash
-root@imac:~# ip link
-14: lo: <LOOPBACK> mtu 16436 qdisc noop state DOWN
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-root@imac:~# brctl show
-bridge name bridge id STP enabled interfaces
-qwe 8000.000000000000 no
-root@imac:~# brctl delbr qwe
-bridge qwe doesn't exist; can't delete it
-=============================
-
-So, network device is not available, but present in list of bridges. This
-is the bug, as I think.
-
-Reproducible in linux kernels 3.8.2 and 3.2.0
-
--- 
-Segmentation fault
-
---00248c7118151d5d2c04d9002ac9
-Content-Type: text/html; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-<div dir=3D"ltr"><div style=3D"font-family:arial,sans-serif;font-size:13px"=
->=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D</div><div style=3D"font-family:arial,sans-serif;font-size:13px">mmar=
-kk@imac:~# brctl addbr qwe<br></div><div style=3D"font-family:arial,sans-se=
-rif;font-size:13px">
-mmarkk@imac:~# unshare -n /bin/bash</div><div style=3D"font-family:arial,sa=
-ns-serif;font-size:13px"><div>root@imac:~# ip link<br></div><div>14: lo: &l=
-t;LOOPBACK&gt; mtu 16436 qdisc noop state DOWN=C2=A0</div><div>=C2=A0 =C2=
-=A0 link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00</div>
-<div style=3D"font-family:arial;font-size:small"></div></div><div style=3D"=
-font-family:arial,sans-serif;font-size:13px">root@imac:~# brctl show</div><=
-div style=3D"font-family:arial,sans-serif;font-size:13px">bridge name<span =
-style=3D"white-space:pre-wrap">	</span>bridge id<span style=3D"white-space:=
-pre-wrap">		</span>STP enabled<span style=3D"white-space:pre-wrap">	</span>=
-interfaces</div>
-<div style=3D"font-family:arial,sans-serif;font-size:13px">qwe<span style=
-=3D"white-space:pre-wrap">		</span>8000.000000000000<span style=3D"white-sp=
-ace:pre-wrap">	</span>no<span style=3D"white-space:pre-wrap">		</span></div=
-><div style=3D"font-family:arial,sans-serif;font-size:13px">
-<span style=3D"font-size:small">root@imac:~# brctl delbr qwe</span><br></di=
-v><div><div><font face=3D"arial, sans-serif">bridge qwe doesn&#39;t exist; =
-can&#39;t delete it</font></div><div style=3D"font-family:arial,sans-serif;=
-font-size:13px">
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D</div></div><div><br></div><div>So, network device is not avail=
-able, but present in list of bridges. This is the bug, as I think.<br></div=
-><div style><br></div><div style>Reproducible in linux kernels 3.8.2 and 3.=
-2.0</div>
-<div><br></div>-- <br>Segmentation fault
-</div>
-
---00248c7118151d5d2c04d9002ac9--
+On Tue, Apr 2, 2013 at 10:12 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2013-04-02 at 23:54 -0400, Dave Jones wrote:
+>> Just had this warning on 3.9-rc5
+>>
+>> Not sure what else to report.  Nothing really odd going on,
+>> just some ssh traffic and firefox over wifi (iwlwifi)
+>>
+>> anything else I can provide ?
+How did you get this warning? is this a WARN_ON?
+>
+> Thanks for the report.
+>
+> I guess we'll need to resurrect a patch I did to track the (buggy)
+> setting to 0.
+>
+>
+>
