@@ -1,119 +1,444 @@
-From: Shiraz Hashim <shiraz.hashim@st.com>
-Subject: Re: [net-next.git 2/7] stmmac: review barriers
-Date: Wed, 3 Apr 2013 14:21:06 +0530
-Message-ID: <20130403085106.GA2039@localhost.localdomain>
-References: <1364967689-11155-1-git-send-email-peppe.cavallaro@st.com>
- <1364967689-11155-2-git-send-email-peppe.cavallaro@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Deepak Sikri <deepak.sikri@st.com>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH v2] MPLS: Add limited GSO support
+Date: Wed,  3 Apr 2013 18:11:55 +0900
+Message-ID: <1364980315-13649-1-git-send-email-horms@verge.net.au>
+Cc: Jesse Gross <jesse@nicira.com>, jarno.rajahalme@nsn.com,
+	Simon Horman <horms@verge.net.au>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: dev@openvswitch.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:42644 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762714Ab3DCIvO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 04:51:14 -0400
-Received: from zeta.dmz-ap.st.com (ns6.st.com [138.198.234.13])
-	by beta.dmz-ap.st.com (STMicroelectronics) with ESMTP id 7AF7CD9
-	for <netdev@vger.kernel.org>; Wed,  3 Apr 2013 08:43:00 +0000 (GMT)
-Received: from Webmail-ap.st.com (eapex1hubcas4.st.com [10.80.176.69])
-	by zeta.dmz-ap.st.com (STMicroelectronics) with ESMTP id CC24749E
-	for <netdev@vger.kernel.org>; Wed,  3 Apr 2013 08:51:07 +0000 (GMT)
-Content-Disposition: inline
-In-Reply-To: <1364967689-11155-2-git-send-email-peppe.cavallaro@st.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:36428 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759772Ab3DCJMj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 05:12:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Giuseppe,
+In the case where a non-MPLS packet is recieved and an MPLS stack is
+added it may well be the case that the original skb is GSO but the
+NIC used for transmit does not support GSO of MPLS packets.
 
-On Wed, Apr 03, 2013 at 01:41:24PM +0800, Giuseppe CAVALLARO wrote:
-> In all my tests performed on SH4 and ARM A9 platforms, I've never met problems
-> that can be fixed by using memory barriers. In the past there was some issues
-> on SMP ARM but fixed by reviewing xmit spinlock.
+The aim of this code is to provide GSO in software for MPLS packets
+whose skbs are GSO.
 
-The problem which was addressed was not because of SMP IMO. It was
-rather due to the fact that the write to the GMAC descriptor (which
-happens to be in normal memory) has to be ordered with respect to GMAC
-DMA as observer. Isn't it ?
+When an implementation adds an MPLS stack to a non-MPLS packet it should do
+the following to skb metadata:
 
-> Further barriers have been added in the commits too: 8e83989106562326bf
-> 
-> This patch is to use the smp_wbm instead of wbm because the driver
-                           ^^^^^^^^^^^^^^^^^^^^^^
-Perhaps you meant smp_wmb and wmb
+* Set skb_mac_header(skb)->protocol to the new MPLS ethertype.
+  That is, either ETH_P_MPLS_UC or ETH_P_MPLS_MC.
 
-> runs on UP systems. Then, IMO it could make sense to only maintain the barriers
-> just in places where we touch the dma owner bits (that is the
-> only real critical path as we had seen and fixed in the commit:
-> eb0dc4bb2e22c04964d).
+* Leave skb->protocol as the old non-MPLS ethertype.
 
-Replacing wmb by smp_wmb may not be a good idea as we need to order
-the store transaction to the descriptor with respect to GMAC DMA and
-using smp_* version would just be compiler barrier in uniprocessor
-systems.
+* Set skb->encapsulation = 1.
 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Cc: Deepak Sikri <deepak.sikri@st.com>
-> Cc: Shiraz Hashim <shiraz.hashim@st.com>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    9 +++------
->  1 files changed, 3 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 8b69e3b..c92dcbc 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -1797,15 +1797,13 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
->  		priv->tx_skbuff[entry] = NULL;
->  		priv->hw->desc->prepare_tx_desc(desc, 0, len, csum_insertion,
->  						priv->mode);
-> -		wmb();
-> +		smp_wmb();
->  		priv->hw->desc->set_tx_owner(desc);
-> -		wmb();
+  This may not strictly be necessary as I believe that checking
+  skb_mac_header(skb)->protocol and skb->protocol should be necessary and
+  sufficient.
 
-Since it is a loop, shouldn't we ensure that the ownership of a tx
-descriptor is set before next descriptor in chain is programmed ?
+  However, it does seem to fit nicely with the current implementation of
+  dev_hard_start_xmit() where the more expensive check of
+  skb_mac_header(skb)->protocol may be guarded by an existing check of
+  skb->encapsulation.
 
->  	}
->  
->  	/* Finalize the latest segment. */
->  	priv->hw->desc->close_tx_desc(desc);
->  
-> -	wmb();
->  	/* According to the coalesce parameter the IC bit for the latest
->  	 * segment could be reset and the timer re-started to invoke the
->  	 * stmmac_tx function. This approach takes care about the fragments.
-> @@ -1821,9 +1819,9 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
->  	} else
->  		priv->tx_count_frames = 0;
->  
-> +	smp_wmb();
+One aspect of this patch that I am unsure about is the modification I have
+made to skb_segment(). This seems to be necessary as checskum accelearation
+may no longer be possible as the packet has changed to be MPLS from some
+other packet type which may have been supported by the hardware in use.
 
-Please reconsider, may be keeping wmb is better.
+I will post a patch, "[PATCH v3.24] datapath: Add basic MPLS support to
+kernel" which adds MPLS support to the kernel datapath of Open vSwtich.
+That patch sets the above requirements in
+datapath/actions.c:set_ethertype() and was used to exercise the MPLS GSO
+code. The datapath patch is against the Open vSwtich tree but it is
+intended that it be added to the Open vSwtich code present in the mainline
+Linux kernel at some point.
 
->  	/* To avoid raise condition */
->  	priv->hw->desc->set_tx_owner(first);
-> -	wmb();
+Suggested by Jesse Gross. Based heavily on "v4 GRE: Add TCP segmentation
+offload for GRE" by Pravin B Shelar.
 
-Not sure about this, perhaps can be removed.
+Cc: Jesse Gross <jesse@nicira.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
->  
->  	priv->cur_tx++;
->  
-> @@ -1899,9 +1897,8 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
->  
->  			RX_DBG(KERN_INFO "\trefill entry #%d\n", entry);
->  		}
-> -		wmb();
-> +		smp_wmb();
->  		priv->hw->desc->set_rx_owner(p);
-> -		wmb();
+---
 
-Similarly this is a part of a loop, we need to see if set rx owner
-should be reflected before next descriptor program.
+v2
+* As suggested by Jarno Rajahalme
+  - Update NETIF_F_GSO_LAST
+  - mpls_mc_offload to use ETH_P_MPLS_MC
+* Remove NETIF_F_iP_CSUM|NETIF_F_IPV6_CSUM features hack in
+  mpls_gso_segment()
+---
+ include/linux/netdev_features.h |    4 +-
+ include/linux/skbuff.h          |   15 +++--
+ net/Kconfig                     |    1 +
+ net/Makefile                    |    1 +
+ net/core/dev.c                  |    9 ++-
+ net/core/ethtool.c              |    1 +
+ net/core/skbuff.c               |    3 +-
+ net/ipv4/af_inet.c              |    1 +
+ net/ipv4/tcp.c                  |    1 +
+ net/ipv4/udp.c                  |    2 +-
+ net/ipv6/ip6_offload.c          |    1 +
+ net/ipv6/udp_offload.c          |    3 +-
+ net/mpls/Kconfig                |    9 +++
+ net/mpls/Makefile               |    4 ++
+ net/mpls/mpls_gso.c             |  124 +++++++++++++++++++++++++++++++++++++++
+ 15 files changed, 170 insertions(+), 9 deletions(-)
+ create mode 100644 net/mpls/Kconfig
+ create mode 100644 net/mpls/Makefile
+ create mode 100644 net/mpls/mpls_gso.c
 
---
-regards
-Shiraz
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index d6ee2d0..340f5cd 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -43,8 +43,9 @@ enum {
+ 	NETIF_F_FSO_BIT,		/* ... FCoE segmentation */
+ 	NETIF_F_GSO_GRE_BIT,		/* ... GRE with TSO */
+ 	NETIF_F_GSO_UDP_TUNNEL_BIT,	/* ... UDP TUNNEL with TSO */
++	NETIF_F_GSO_MPLS_BIT,		/* ... MPLS segmentation */
+ 	/**/NETIF_F_GSO_LAST =		/* last bit, see GSO_MASK */
+-		NETIF_F_GSO_UDP_TUNNEL_BIT,
++		NETIF_F_GSO_MPLS_BIT,
+ 
+ 	NETIF_F_FCOE_CRC_BIT,		/* FCoE CRC32 */
+ 	NETIF_F_SCTP_CSUM_BIT,		/* SCTP checksum offload */
+@@ -104,6 +105,7 @@ enum {
+ #define NETIF_F_RXALL		__NETIF_F(RXALL)
+ #define NETIF_F_GSO_GRE		__NETIF_F(GSO_GRE)
+ #define NETIF_F_GSO_UDP_TUNNEL	__NETIF_F(GSO_UDP_TUNNEL)
++#define NETIF_F_GSO_MPLS	__NETIF_F(GSO_MPLS)
+ 
+ /* Features valid for ethtool to change */
+ /* = all defined minus driver/device-class-related */
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 878e0ee..9a6c9ca 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -319,6 +319,8 @@ enum {
+ 	SKB_GSO_GRE = 1 << 6,
+ 
+ 	SKB_GSO_UDP_TUNNEL = 1 << 7,
++
++	SKB_GSO_MPLS = 1 << 8,
+ };
+ 
+ #if BITS_PER_LONG > 32
+@@ -2789,12 +2791,17 @@ static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
+ }
+ #endif
+ 
+-/* Keeps track of mac header offset relative to skb->head.
+- * It is useful for TSO of Tunneling protocol. e.g. GRE.
+- * For non-tunnel skb it points to skb_mac_header() and for
+- * tunnel skb it points to outer mac header. */
+ struct skb_gso_cb {
++	/* Keeps track of mac header offset relative to skb->head.
++	 * It is useful for TSO of Tunneling protocol. e.g. GRE.
++	 * For non-tunnel skb it points to skb_mac_header() and for
++	 * tunnel skb it points to outer mac header. */
+ 	int mac_offset;
++
++	/* Keeps track of the ethernet type of an encapsualted
++	 * packet where it is otherwise unknown. This is the case
++	 * if an MPLS stack is added to a non-MPLS packet. */
++	__be16 encap_eth_type;
+ };
+ #define SKB_GSO_CB(skb) ((struct skb_gso_cb *)(skb)->cb)
+ 
+diff --git a/net/Kconfig b/net/Kconfig
+index 2ddc904..d32a7fe 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -218,6 +218,7 @@ source "net/batman-adv/Kconfig"
+ source "net/openvswitch/Kconfig"
+ source "net/vmw_vsock/Kconfig"
+ source "net/netlink/Kconfig"
++source "net/mpls/Kconfig"
+ 
+ config RPS
+ 	boolean
+diff --git a/net/Makefile b/net/Makefile
+index 091e7b04..9492e8c 100644
+--- a/net/Makefile
++++ b/net/Makefile
+@@ -70,3 +70,4 @@ obj-$(CONFIG_BATMAN_ADV)	+= batman-adv/
+ obj-$(CONFIG_NFC)		+= nfc/
+ obj-$(CONFIG_OPENVSWITCH)	+= openvswitch/
+ obj-$(CONFIG_VSOCKETS)	+= vmw_vsock/
++obj-$(CONFIG_NET_MPLS_GSO)	+= mpls/
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 63e2533..3bc68df 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2493,8 +2493,15 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		 * hardware encapsulation features instead of standard
+ 		 * features for the netdev
+ 		 */
+-		if (skb->encapsulation)
++		if (skb->encapsulation) {
++			struct ethhdr *hdr = (struct ethhdr *)skb_mac_header(skb);
+ 			features &= dev->hw_enc_features;
++			if (hdr->h_proto == htons(ETH_P_MPLS_UC) ||
++			    hdr->h_proto == htons(ETH_P_MPLS_MC)) {
++				SKB_GSO_CB(skb)->encap_eth_type = skb->protocol;
++				skb->protocol = hdr->h_proto;
++			}
++		}
+ 
+ 		if (netif_needs_gso(skb, features)) {
+ 			if (unlikely(dev_gso_segment(skb, features)))
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index adc1351..f6d5d06 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -79,6 +79,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_FSO_BIT] =              "tx-fcoe-segmentation",
+ 	[NETIF_F_GSO_GRE_BIT] =		 "tx-gre-segmentation",
+ 	[NETIF_F_GSO_UDP_TUNNEL_BIT] =	 "tx-udp_tnl-segmentation",
++	[NETIF_F_GSO_MPLS_BIT] =	 "tx-mpls-segmentation",
+ 
+ 	[NETIF_F_FCOE_CRC_BIT] =         "tx-checksum-fcoe-crc",
+ 	[NETIF_F_SCTP_CSUM_BIT] =        "tx-checksum-sctp",
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index ba64614..d63292b 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2824,7 +2824,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 						 doffset + tnl_hlen);
+ 
+ 		if (fskb != skb_shinfo(skb)->frag_list)
+-			continue;
++			goto csum;
+ 
+ 		if (!sg) {
+ 			nskb->ip_summed = CHECKSUM_NONE;
+@@ -2888,6 +2888,7 @@ skip_fraglist:
+ 		nskb->len += nskb->data_len;
+ 		nskb->truesize += nskb->data_len;
+ 
++csum:
+ 		if (!csum) {
+ 			nskb->csum = skb_checksum(nskb, doffset,
+ 						  nskb->len - doffset, 0);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 93824c5..f5b4c9a 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1291,6 +1291,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 		       SKB_GSO_TCP_ECN |
+ 		       SKB_GSO_GRE |
+ 		       SKB_GSO_UDP_TUNNEL |
++		       SKB_GSO_MPLS |
+ 		       0)))
+ 		goto out;
+ 
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index a96f7b5..425c933 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2914,6 +2914,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb,
+ 			       SKB_GSO_TCP_ECN |
+ 			       SKB_GSO_TCPV6 |
+ 			       SKB_GSO_GRE |
++			       SKB_GSO_MPLS |
+ 			       SKB_GSO_UDP_TUNNEL |
+ 			       0) ||
+ 			     !(type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))))
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 7117d14..0b5b57f 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2371,7 +2371,7 @@ struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
+ 
+ 		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY |
+ 				      SKB_GSO_UDP_TUNNEL |
+-				      SKB_GSO_GRE) ||
++				      SKB_GSO_GRE | SKB_GSO_MPLS) ||
+ 			     !(type & (SKB_GSO_UDP))))
+ 			goto out;
+ 
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index 71b766e..a263b99 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -98,6 +98,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 		       SKB_GSO_TCP_ECN |
+ 		       SKB_GSO_GRE |
+ 		       SKB_GSO_UDP_TUNNEL |
++		       SKB_GSO_MPLS |
+ 		       SKB_GSO_TCPV6 |
+ 		       0)))
+ 		goto out;
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index 3bb3a89..76d401a 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -63,7 +63,8 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 		if (unlikely(type & ~(SKB_GSO_UDP |
+ 				      SKB_GSO_DODGY |
+ 				      SKB_GSO_UDP_TUNNEL |
+-				      SKB_GSO_GRE) ||
++				      SKB_GSO_GRE |
++				      SKB_GSO_MPLS) ||
+ 			     !(type & (SKB_GSO_UDP))))
+ 			goto out;
+ 
+diff --git a/net/mpls/Kconfig b/net/mpls/Kconfig
+new file mode 100644
+index 0000000..37421db
+--- /dev/null
++++ b/net/mpls/Kconfig
+@@ -0,0 +1,9 @@
++#
++# MPLS configuration
++#
++config NET_MPLS_GSO
++	tristate "MPLS: GSO support"
++	help
++	 This is helper module to allow segmentation of non-MPLS GSO packets
++	 that have had MPLS stack entries pushed onto them and thus
++	 become MPLS GSO packets.
+diff --git a/net/mpls/Makefile b/net/mpls/Makefile
+new file mode 100644
+index 0000000..0a3c171
+--- /dev/null
++++ b/net/mpls/Makefile
+@@ -0,0 +1,4 @@
++#
++# Makefile for MPLS.
++#
++obj-y += mpls_gso.o
+diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
+new file mode 100644
+index 0000000..f96e5b0
+--- /dev/null
++++ b/net/mpls/mpls_gso.c
+@@ -0,0 +1,124 @@
++/*
++ *	MPLS GSO Support
++ *
++ *	Authors: Simon Horman (horms@verge.net.au)
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ *
++ *	Based on: GSO portions of net/ipv4/gre.c
++ */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/err.h>
++#include <linux/module.h>
++#include <linux/netdev_features.h>
++#include <linux/netdevice.h>
++#include <linux/skbuff.h>
++
++#define MPLS_BOS_MASK	0x00000100	/* Bottom of Stack bit */
++#define MPLS_HLEN	(sizeof(__be32))
++
++static struct sk_buff *mpls_gso_segment(struct sk_buff *skb,
++				       netdev_features_t features)
++{
++	struct sk_buff *segs = ERR_PTR(-EINVAL);
++	netdev_features_t enc_features;
++	int stack_len = 0;
++	int mac_len = skb->mac_len;
++
++	if (unlikely(skb_shinfo(skb)->gso_type &
++				~(SKB_GSO_TCPV4 |
++				  SKB_GSO_TCPV6 |
++				  SKB_GSO_UDP |
++				  SKB_GSO_DODGY |
++				  SKB_GSO_TCP_ECN |
++				  SKB_GSO_GRE |
++				  SKB_GSO_MPLS)))
++		goto out;
++
++	while (1) {
++		__be32 lse = *(__be32 *)(skb_network_header(skb) + stack_len);
++
++		stack_len += MPLS_HLEN;
++		if (unlikely(!pskb_may_pull(skb, MPLS_HLEN)))
++			goto out;
++		__skb_pull(skb, MPLS_HLEN);
++
++		if (lse & htonl(MPLS_BOS_MASK))
++			break;
++	}
++
++	/* setup inner skb. */
++	skb_reset_mac_header(skb);
++	skb_reset_network_header(skb);
++	skb->mac_len = 0;
++	skb->protocol = SKB_GSO_CB(skb)->encap_eth_type;
++	skb->encapsulation = 0;
++
++	/* segment inner packet. */
++	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
++	segs = skb_mac_gso_segment(skb, enc_features);
++	if (IS_ERR_OR_NULL(segs))
++		goto out;
++
++	skb = segs;
++	do {
++		__skb_push(skb,  stack_len + mac_len);
++		skb_reset_mac_header(skb);
++		skb_set_network_header(skb, mac_len);
++		skb->mac_len = mac_len;
++	} while ((skb = skb->next));
++out:
++	return segs;
++}
++
++static int mpls_gso_send_check(struct sk_buff *skb)
++{
++	if (!skb->encapsulation)
++		return -EINVAL;
++	return 0;
++}
++
++static struct packet_offload mpls_mc_offload = {
++	.type = cpu_to_be16(ETH_P_MPLS_MC),
++	.callbacks = {
++		.gso_send_check =	mpls_gso_send_check,
++		.gso_segment    =	mpls_gso_segment,
++	},
++};
++
++static struct packet_offload mpls_uc_offload = {
++	.type = cpu_to_be16(ETH_P_MPLS_UC),
++	.callbacks = {
++		.gso_send_check =	mpls_gso_send_check,
++		.gso_segment    =	mpls_gso_segment,
++	},
++};
++
++static int __init mpls_gso_init(void)
++{
++	pr_info("MPLS GSO support\n");
++
++	dev_add_offload(&mpls_uc_offload);
++	dev_add_offload(&mpls_mc_offload);
++
++	return 0;
++}
++
++static void __exit mpls_gso_exit(void)
++{
++	dev_remove_offload(&mpls_uc_offload);
++	dev_remove_offload(&mpls_mc_offload);
++}
++
++module_init(mpls_gso_init);
++module_exit(mpls_gso_exit);
++
++MODULE_DESCRIPTION("MPLS GSO support");
++MODULE_AUTHOR("Simon Horman (horms@verge.net.au)");
++MODULE_LICENSE("GPL");
++
+-- 
+1.7.10.4
