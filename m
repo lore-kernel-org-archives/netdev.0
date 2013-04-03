@@ -1,158 +1,33 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [Suggestion] ISDN: isdnloop: C grammar issue, '}' miss match 'if'
- and 'switch' statement.
-Date: Wed, 3 Apr 2013 08:30:21 -0700
-Message-ID: <CA+55aFw+Efs+um15_V6t-9rXd-U1VJS9p+_6E-m5jr87h-BPVg@mail.gmail.com>
-References: <515C303B.1040304@asianux.com>
-	<20130403140823.GB3401@unicorn.suse.cz>
-	<1364999477.13853.21.camel@edumazet-glaptop>
+From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 5/5] IPoIB: add support for TIPC protocol
+Date: Wed, 3 Apr 2013 18:31:49 +0300
+Message-ID: <515C4B65.4040600@mellanox.com>
+References: <1364993010-15515-1-git-send-email-kaber@trash.net> <1364993010-15515-6-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=047d7b3432d037631304d9768845
-Cc: Michal Kubecek <mkubecek@suse.cz>,
-	Chen Gang <gang.chen@asianux.com>,
-	Wu Fengguang <fengguang.wu@intel.com>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Joe Perches <joe@perches.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f180.google.com ([209.85.128.180]:39227 "EHLO
-	mail-ve0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760962Ab3DCPaX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 11:30:23 -0400
-Received: by mail-ve0-f180.google.com with SMTP id c13so1760308vea.25
-        for <netdev@vger.kernel.org>; Wed, 03 Apr 2013 08:30:21 -0700 (PDT)
-In-Reply-To: <1364999477.13853.21.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <jon.maloy-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org>, <allan.stephens-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	<sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1364993010-15515-6-git-send-email-kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
---047d7b3432d037631304d9768845
-Content-Type: text/plain; charset=UTF-8
+On 03/04/2013 15:43, Patrick McHardy wrote:
+> [...] all TIPC needs to know about is ARP and RARP since
+> it wants to always perform "path find", even if a path is already known. [...]
 
-On Wed, Apr 3, 2013 at 7:31 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> And what is the problem exactly ?
+Not sure to follow this part... did you mean "all IPoIB  needs to know 
+about is ARP or RARP", this makes
+sense indeed, since for arp/rarp we want to call unicast_arp_send which 
+does path_find and looks
+also for the case the path isn't valid
 
-The indentation does look completely broken.
-
-It should still *work*, because case-statements don't actually care
-about nesting (you can use a case statement to jump into other control
-statements, the traditional example is the so-called "duff's device"),
-but I agree with Chen Gang that it looks wrong.
-
-I'm attaching a patch that would appear to fix the nesting, but I
-haven't actually tested it. Also, regardless of that patch, the code
-looks like complete and utter crap, because it sets the "i" variable
-in many of the case statements, and then doesn't actually *use* it.
-Finally, almost all of the case statements test for something like
-
-    if (c->arg < ISDNLOOP_BCH) {
-
-but if "c->arg" is out of range, it will then just break out of the
-switch statement and return 0, even though it looks like it should be
-an error.
-
-Of course, nobody sane actually cares about ISDN any more, so I think
-this is all pretty academic. I think even Germany (where ISDN *used*
-to be very common due to telephone monopolies and odd rules) no longer
-uses it. I can't imagine that anybody else does either.
-
-But if somebody does care, and can validate my patch (if not by
-actually using it, then by at least looking at it more), feel free to
-take it and take my sign-off.
-
-     Linus
-
---047d7b3432d037631304d9768845
-Content-Type: application/octet-stream; name="patch.diff"
-Content-Disposition: attachment; filename="patch.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hf2nir9o0
-
-IGRyaXZlcnMvaXNkbi9pc2RubG9vcC9pc2RubG9vcC5jIHwgMTQwICsrKysrKysrKysrKysrKysr
-KystLS0tLS0tLS0tLS0tLS0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDcwIGluc2VydGlvbnMoKyks
-IDcwIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvaXNkbi9pc2RubG9vcC9pc2Ru
-bG9vcC5jIGIvZHJpdmVycy9pc2RuL2lzZG5sb29wL2lzZG5sb29wLmMKaW5kZXggYmFmMjY4NmFh
-OGViLi45OTJiMGI3OGEwOTEgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvaXNkbi9pc2RubG9vcC9pc2Ru
-bG9vcC5jCisrKyBiL2RyaXZlcnMvaXNkbi9pc2RubG9vcC9pc2RubG9vcC5jCkBAIC0xMjYyLDgz
-ICsxMjYyLDgzIEBAIGlzZG5sb29wX2NvbW1hbmQoaXNkbl9jdHJsICpjLCBpc2RubG9vcF9jYXJk
-ICpjYXJkKQogCQkJfQogCQkJcHJpbnRrKEtFUk5fREVCVUcgImlzZG5sb29wIHdyaXRlY21kICcl
-cydcbiIsIGNidWYpOwogCQkJaSA9IGlzZG5sb29wX3dyaXRlY21kKGNidWYsIHN0cmxlbihjYnVm
-KSwgMCwgY2FyZCk7CisJCX0KKwkJYnJlYWs7CisJY2FzZSBJU0ROX0NNRF9IQU5HVVA6CisJCWlm
-ICghKGNhcmQtPmZsYWdzICYgSVNETkxPT1BfRkxBR1NfUlVOTklORykpCisJCQlyZXR1cm4gLUVO
-T0RFVjsKKwkJaWYgKGMtPmFyZyA8IElTRE5MT09QX0JDSCkgeworCQkJYSA9IGMtPmFyZyArIDE7
-CisJCQlzcHJpbnRmKGNidWYsICIlMDJkO0JESVNfUlxuJTAyZDtERElTX1JcbiIsIChpbnQpIGEs
-IChpbnQpIGEpOworCQkJaSA9IGlzZG5sb29wX3dyaXRlY21kKGNidWYsIHN0cmxlbihjYnVmKSwg
-MCwgY2FyZCk7CisJCX0KKwkJYnJlYWs7CisJY2FzZSBJU0ROX0NNRF9TRVRFQVo6CisJCWlmICgh
-KGNhcmQtPmZsYWdzICYgSVNETkxPT1BfRkxBR1NfUlVOTklORykpCisJCQlyZXR1cm4gLUVOT0RF
-VjsKKwkJaWYgKGNhcmQtPmxlYXNlZCkKIAkJCWJyZWFrOwotCQljYXNlIElTRE5fQ01EX0hBTkdV
-UDoKLQkJCWlmICghKGNhcmQtPmZsYWdzICYgSVNETkxPT1BfRkxBR1NfUlVOTklORykpCi0JCQkJ
-cmV0dXJuIC1FTk9ERVY7Ci0JCQlpZiAoYy0+YXJnIDwgSVNETkxPT1BfQkNIKSB7Ci0JCQkJYSA9
-IGMtPmFyZyArIDE7Ci0JCQkJc3ByaW50ZihjYnVmLCAiJTAyZDtCRElTX1JcbiUwMmQ7RERJU19S
-XG4iLCAoaW50KSBhLCAoaW50KSBhKTsKLQkJCQlpID0gaXNkbmxvb3Bfd3JpdGVjbWQoY2J1Ziwg
-c3RybGVuKGNidWYpLCAwLCBjYXJkKTsKLQkJCX0KLQkJCWJyZWFrOwotCQljYXNlIElTRE5fQ01E
-X1NFVEVBWjoKLQkJCWlmICghKGNhcmQtPmZsYWdzICYgSVNETkxPT1BfRkxBR1NfUlVOTklORykp
-Ci0JCQkJcmV0dXJuIC1FTk9ERVY7Ci0JCQlpZiAoY2FyZC0+bGVhc2VkKQotCQkJCWJyZWFrOwot
-CQkJaWYgKGMtPmFyZyA8IElTRE5MT09QX0JDSCkgewotCQkJCWEgPSBjLT5hcmcgKyAxOwotCQkJ
-CWlmIChjYXJkLT5wdHlwZSA9PSBJU0ROX1BUWVBFX0VVUk8pIHsKLQkJCQkJc3ByaW50ZihjYnVm
-LCAiJTAyZDtNUyVzJXNcbiIsIChpbnQpIGEsCi0JCQkJCQljLT5wYXJtLm51bVswXSA/ICJOIiA6
-ICJBTEwiLCBjLT5wYXJtLm51bSk7Ci0JCQkJfSBlbHNlCi0JCQkJCXNwcmludGYoY2J1ZiwgIiUw
-MmQ7RUFaJXNcbiIsIChpbnQpIGEsCi0JCQkJCQljLT5wYXJtLm51bVswXSA/IGMtPnBhcm0ubnVt
-IDogKHVfY2hhciAqKSAiMDEyMzQ1Njc4OSIpOwotCQkJCWkgPSBpc2RubG9vcF93cml0ZWNtZChj
-YnVmLCBzdHJsZW4oY2J1ZiksIDAsIGNhcmQpOwotCQkJfQorCQlpZiAoYy0+YXJnIDwgSVNETkxP
-T1BfQkNIKSB7CisJCQlhID0gYy0+YXJnICsgMTsKKwkJCWlmIChjYXJkLT5wdHlwZSA9PSBJU0RO
-X1BUWVBFX0VVUk8pIHsKKwkJCQlzcHJpbnRmKGNidWYsICIlMDJkO01TJXMlc1xuIiwgKGludCkg
-YSwKKwkJCQkJYy0+cGFybS5udW1bMF0gPyAiTiIgOiAiQUxMIiwgYy0+cGFybS5udW0pOworCQkJ
-fSBlbHNlCisJCQkJc3ByaW50ZihjYnVmLCAiJTAyZDtFQVolc1xuIiwgKGludCkgYSwKKwkJCQkJ
-Yy0+cGFybS5udW1bMF0gPyBjLT5wYXJtLm51bSA6ICh1X2NoYXIgKikgIjAxMjM0NTY3ODkiKTsK
-KwkJCWkgPSBpc2RubG9vcF93cml0ZWNtZChjYnVmLCBzdHJsZW4oY2J1ZiksIDAsIGNhcmQpOwor
-CQl9CisJCWJyZWFrOworCWNhc2UgSVNETl9DTURfQ0xSRUFaOgorCQlpZiAoIShjYXJkLT5mbGFn
-cyAmIElTRE5MT09QX0ZMQUdTX1JVTk5JTkcpKQorCQkJcmV0dXJuIC1FTk9ERVY7CisJCWlmIChj
-YXJkLT5sZWFzZWQpCiAJCQlicmVhazsKLQkJY2FzZSBJU0ROX0NNRF9DTFJFQVo6Ci0JCQlpZiAo
-IShjYXJkLT5mbGFncyAmIElTRE5MT09QX0ZMQUdTX1JVTk5JTkcpKQotCQkJCXJldHVybiAtRU5P
-REVWOwotCQkJaWYgKGNhcmQtPmxlYXNlZCkKKwkJaWYgKGMtPmFyZyA8IElTRE5MT09QX0JDSCkg
-eworCQkJYSA9IGMtPmFyZyArIDE7CisJCQlpZiAoY2FyZC0+cHR5cGUgPT0gSVNETl9QVFlQRV9F
-VVJPKQorCQkJCXNwcmludGYoY2J1ZiwgIiUwMmQ7TVNOQ1xuIiwgKGludCkgYSk7CisJCQllbHNl
-CisJCQkJc3ByaW50ZihjYnVmLCAiJTAyZDtFQVpDXG4iLCAoaW50KSBhKTsKKwkJCWkgPSBpc2Ru
-bG9vcF93cml0ZWNtZChjYnVmLCBzdHJsZW4oY2J1ZiksIDAsIGNhcmQpOworCQl9CisJCWJyZWFr
-OworCWNhc2UgSVNETl9DTURfU0VUTDI6CisJCWlmICghKGNhcmQtPmZsYWdzICYgSVNETkxPT1Bf
-RkxBR1NfUlVOTklORykpCisJCQlyZXR1cm4gLUVOT0RFVjsKKwkJaWYgKChjLT5hcmcgJiAyNTUp
-IDwgSVNETkxPT1BfQkNIKSB7CisJCQlhID0gYy0+YXJnOworCQkJc3dpdGNoIChhID4+IDgpIHsK
-KwkJCWNhc2UgSVNETl9QUk9UT19MMl9YNzVJOgorCQkJCXNwcmludGYoY2J1ZiwgIiUwMmQ7Qlg3
-NVxuIiwgKGludCkgKGEgJiAyNTUpICsgMSk7CiAJCQkJYnJlYWs7Ci0JCQlpZiAoYy0+YXJnIDwg
-SVNETkxPT1BfQkNIKSB7Ci0JCQkJYSA9IGMtPmFyZyArIDE7Ci0JCQkJaWYgKGNhcmQtPnB0eXBl
-ID09IElTRE5fUFRZUEVfRVVSTykKLQkJCQkJc3ByaW50ZihjYnVmLCAiJTAyZDtNU05DXG4iLCAo
-aW50KSBhKTsKLQkJCQllbHNlCi0JCQkJCXNwcmludGYoY2J1ZiwgIiUwMmQ7RUFaQ1xuIiwgKGlu
-dCkgYSk7Ci0JCQkJaSA9IGlzZG5sb29wX3dyaXRlY21kKGNidWYsIHN0cmxlbihjYnVmKSwgMCwg
-Y2FyZCk7Ci0JCQl9Ci0JCQlicmVhazsKLQkJY2FzZSBJU0ROX0NNRF9TRVRMMjoKLQkJCWlmICgh
-KGNhcmQtPmZsYWdzICYgSVNETkxPT1BfRkxBR1NfUlVOTklORykpCi0JCQkJcmV0dXJuIC1FTk9E
-RVY7Ci0JCQlpZiAoKGMtPmFyZyAmIDI1NSkgPCBJU0ROTE9PUF9CQ0gpIHsKLQkJCQlhID0gYy0+
-YXJnOwotCQkJCXN3aXRjaCAoYSA+PiA4KSB7Ci0JCQkJY2FzZSBJU0ROX1BST1RPX0wyX1g3NUk6
-Ci0JCQkJCXNwcmludGYoY2J1ZiwgIiUwMmQ7Qlg3NVxuIiwgKGludCkgKGEgJiAyNTUpICsgMSk7
-Ci0JCQkJCWJyZWFrOwogI2lmZGVmIENPTkZJR19JU0ROX1gyNQotCQkJCWNhc2UgSVNETl9QUk9U
-T19MMl9YMjVEVEU6Ci0JCQkJCXNwcmludGYoY2J1ZiwgIiUwMmQ7QlgyVFxuIiwgKGludCkgKGEg
-JiAyNTUpICsgMSk7Ci0JCQkJCWJyZWFrOwotCQkJCWNhc2UgSVNETl9QUk9UT19MMl9YMjVEQ0U6
-Ci0JCQkJCXNwcmludGYoY2J1ZiwgIiUwMmQ7QlgyQ1xuIiwgKGludCkgKGEgJiAyNTUpICsgMSk7
-Ci0JCQkJCWJyZWFrOworCQkJY2FzZSBJU0ROX1BST1RPX0wyX1gyNURURToKKwkJCQlzcHJpbnRm
-KGNidWYsICIlMDJkO0JYMlRcbiIsIChpbnQpIChhICYgMjU1KSArIDEpOworCQkJCWJyZWFrOwor
-CQkJY2FzZSBJU0ROX1BST1RPX0wyX1gyNURDRToKKwkJCQlzcHJpbnRmKGNidWYsICIlMDJkO0JY
-MkNcbiIsIChpbnQpIChhICYgMjU1KSArIDEpOworCQkJCWJyZWFrOwogI2VuZGlmCi0JCQkJY2Fz
-ZSBJU0ROX1BST1RPX0wyX0hETEM6Ci0JCQkJCXNwcmludGYoY2J1ZiwgIiUwMmQ7QlRSQVxuIiwg
-KGludCkgKGEgJiAyNTUpICsgMSk7Ci0JCQkJCWJyZWFrOwotCQkJCWNhc2UgSVNETl9QUk9UT19M
-Ml9UUkFOUzoKLQkJCQkJc3ByaW50ZihjYnVmLCAiJTAyZDtCVFJBXG4iLCAoaW50KSAoYSAmIDI1
-NSkgKyAxKTsKLQkJCQkJYnJlYWs7Ci0JCQkJZGVmYXVsdDoKLQkJCQkJcmV0dXJuIC1FSU5WQUw7
-Ci0JCQkJfQotCQkJCWkgPSBpc2RubG9vcF93cml0ZWNtZChjYnVmLCBzdHJsZW4oY2J1ZiksIDAs
-IGNhcmQpOwotCQkJCWNhcmQtPmwyX3Byb3RvW2EgJiAyNTVdID0gKGEgPj4gOCk7CisJCQljYXNl
-IElTRE5fUFJPVE9fTDJfSERMQzoKKwkJCQlzcHJpbnRmKGNidWYsICIlMDJkO0JUUkFcbiIsIChp
-bnQpIChhICYgMjU1KSArIDEpOworCQkJCWJyZWFrOworCQkJY2FzZSBJU0ROX1BST1RPX0wyX1RS
-QU5TOgorCQkJCXNwcmludGYoY2J1ZiwgIiUwMmQ7QlRSQVxuIiwgKGludCkgKGEgJiAyNTUpICsg
-MSk7CisJCQkJYnJlYWs7CisJCQlkZWZhdWx0OgorCQkJCXJldHVybiAtRUlOVkFMOwogCQkJfQot
-CQkJYnJlYWs7Ci0JCWNhc2UgSVNETl9DTURfU0VUTDM6Ci0JCQlpZiAoIShjYXJkLT5mbGFncyAm
-IElTRE5MT09QX0ZMQUdTX1JVTk5JTkcpKQotCQkJCXJldHVybiAtRU5PREVWOwotCQkJcmV0dXJu
-IDA7Ci0JCWRlZmF1bHQ6Ci0JCQlyZXR1cm4gLUVJTlZBTDsKKwkJCWkgPSBpc2RubG9vcF93cml0
-ZWNtZChjYnVmLCBzdHJsZW4oY2J1ZiksIDAsIGNhcmQpOworCQkJY2FyZC0+bDJfcHJvdG9bYSAm
-IDI1NV0gPSAoYSA+PiA4KTsKIAkJfQorCQlicmVhazsKKwljYXNlIElTRE5fQ01EX1NFVEwzOgor
-CQlpZiAoIShjYXJkLT5mbGFncyAmIElTRE5MT09QX0ZMQUdTX1JVTk5JTkcpKQorCQkJcmV0dXJu
-IC1FTk9ERVY7CisJCXJldHVybiAwOworCWRlZmF1bHQ6CisJCXJldHVybiAtRUlOVkFMOwogCX0K
-IAlyZXR1cm4gMDsKIH0K
---047d7b3432d037631304d9768845--
+Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
