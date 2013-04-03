@@ -1,40 +1,48 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
-Date: Wed, 3 Apr 2013 02:43:58 +0200
-Message-ID: <20130403004358.GB20292@order.stressinduktion.org>
-References: <1364689558.3557.22.camel@deadeye.wl.decadent.org.uk> <157393863283F442885425D2C45428564F202477@nasanexd02f.na.qualcomm.com> <1364695805.3557.41.camel@deadeye.wl.decadent.org.uk> <157393863283F442885425D2C45428564F20261B@nasanexd02f.na.qualcomm.com> <20130402211524.GE4924@order.stressinduktion.org> <157393863283F442885425D2C45428564F202AD5@nasanexd02f.na.qualcomm.com> <20130402221913.GG4924@order.stressinduktion.org> <157393863283F442885425D2C45428564F202B2A@nasanexd02f.na.qualcomm.com> <20130403000020.GI4924@order.stressinduktion.org> <157393863283F442885425D2C45428564F202BB6@nasanexd02f.na.qualcomm.com>
+From: RongQing Li <roy.qing.li@gmail.com>
+Subject: Re: [PATCH Resend] core: should call pskb_expand_head if skb header
+ is cloned in skb_gso_segment in rx path
+Date: Wed, 3 Apr 2013 08:51:25 +0800
+Message-ID: <CAJFZqHxn77yUpGkOUzywVR7wg2_L8tFaLNrFyaauuLWPJsQUHQ@mail.gmail.com>
+References: <1364783861-3363-1-git-send-email-roy.qing.li@gmail.com>
+	<1364905967.22165.4.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	Anders =?utf-8?Q?Bostr=C3=B6m?= <anders@netinsight.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"565404@bugs.debian.org" <565404@bugs.debian.org>
-To: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, jesse@nicira.com, pshelar@nicira.com,
+	herbert@gondor.apana.org.au, edumazet@google.com
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47532 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758265Ab3DCAoA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 20:44:00 -0400
-Content-Disposition: inline
-In-Reply-To: <157393863283F442885425D2C45428564F202BB6@nasanexd02f.na.qualcomm.com>
+Received: from mail-vc0-f172.google.com ([209.85.220.172]:63043 "EHLO
+	mail-vc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756493Ab3DCAv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 20:51:26 -0400
+Received: by mail-vc0-f172.google.com with SMTP id hr11so1108535vcb.3
+        for <netdev@vger.kernel.org>; Tue, 02 Apr 2013 17:51:25 -0700 (PDT)
+In-Reply-To: <1364905967.22165.4.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 03, 2013 at 12:12:12AM +0000, Huang, Xiong wrote:
-> > > Hannes,  Thanks for your testing !
-> > >
-> > >  simply revising MAX_TX_BUF_LEN to 0x4000 will cause incorrect TX
-> > configuration...
-> > > I mean you can try to put a gso size limit of 0x4000 (or 0x5000)....
-> > 
-> > I tested both values with multi-gigabyte nfsv4 traffic and both values are ok.
-> > If I understand you correctly 0x4000 is a safe limit?
-> 
-> Since Win7 driver uses 15000 bytes as its max packet length for TSO, I think 0x3C00 is more safer than 0x4000. :)
+ No, I just read and analyze it, and think it is bogus.
 
-Thanks again for helping to resolve this issue. I just submitted a patch
-but accidently killed the cc-line.
-
-Greetings,
-
-  Hannes
+2013/4/2 Cong Wang <amwang@redhat.com>:
+> On Mon, 2013-04-01 at 10:37 +0800, roy.qing.li@gmail.com wrote:
+>> From: Li RongQing <roy.qing.li@gmail.com>
+>>
+>> 12b0004d1d1 (adjust skb_gso_segment() for calling in rx path) tries to kill warnings
+>> by checking if ip_summed is CHECK_NONE or not in rx path, since if skb_gso_segment()
+>> is called on rx path, and ->ip_summed has different meaning.
+>>
+>> but this maybe break skb if skb header is cloned, and not expand the header, since when
+>> step into skb_mac_gso_segment(), which will still check ip_summed with CHECKSUM_PARTIAL,
+>> then do gso_send_check(). and after __skb_gso_segment() in queue_gso_packets() of
+>> openvswitch, queue_userspace_packet() still checks ip_summed with CHECKSUM_PARTIAL,
+>> and do checksum.
+>>
+>> so I think it is enough to ignore the warning in rx path.
+>>
+>
+> Did you see any bogus warning triggered by it?
+>
+> BTW, please Cc all the people involved in the original commit you
+> mentioned above.
+>
+>
