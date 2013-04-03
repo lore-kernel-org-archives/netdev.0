@@ -1,8 +1,8 @@
 From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: [PATCH v2 2/4] mac802154: Use netif flow
-	control
-Date: Wed,  3 Apr 2013 10:00:56 -0400
-Message-ID: <1364997658-16498-3-git-send-email-alan@signal11.us>
+Subject: [PATCH v2 3/4] mac802154: Increase
+	tx_buffer_len
+Date: Wed,  3 Apr 2013 10:00:57 -0400
+Message-ID: <1364997658-16498-4-git-send-email-alan@signal11.us>
 References: <1364928481-1813-1-git-send-email-alan@signal11.us>
 	<1364997658-16498-1-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
@@ -25,69 +25,34 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Use netif_stop_queue() and netif_wake_queue() to control the flow of
-packets to mac802154 devices.  Since many IEEE 802.15.4 devices have no
-output buffer, and since the mac802154 xmit() function is designed to
-block, netif_stop_queue() is called after each packet.
+Increase the buffer length from 10 to 300 packets. Consider that traffic on
+mac802154 devices will often be 6LoWPAN, and a full-length (1280 octet)
+IPv6 packet will fragment into 15 6LoWPAN fragments (because the MTU of
+IEEE 802.15.4 is 127).  A 300-packet queue is really 20 full-length IPv6
+packets.
+
+With a queue length of 10, an entire IPv6 packet was unable to get queued
+at one time, causing fragments to be dropped, and making reassembly
+impossible.
 
 Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
 ---
- net/mac802154/tx.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ net/mac802154/wpan.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/mac802154/tx.c b/net/mac802154/tx.c
-index 7264874..3fd3e07 100644
---- a/net/mac802154/tx.c
-+++ b/net/mac802154/tx.c
-@@ -25,6 +25,7 @@
- #include <linux/if_arp.h>
- #include <linux/crc-ccitt.h>
- 
-+#include <net/ieee802154_netdev.h>
- #include <net/mac802154.h>
- #include <net/wpan-phy.h>
- 
-@@ -44,6 +45,7 @@ struct xmit_work {
- static void mac802154_xmit_worker(struct work_struct *work)
- {
- 	struct xmit_work *xw = container_of(work, struct xmit_work, work);
-+	struct mac802154_sub_if_data *sdata;
- 	int res;
- 
- 	mutex_lock(&xw->priv->phy->pib_lock);
-@@ -65,6 +67,11 @@ static void mac802154_xmit_worker(struct work_struct *work)
- out:
- 	mutex_unlock(&xw->priv->phy->pib_lock);
- 
-+	/* Restart the netif queue on each sub_if_data object. */
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(sdata, &xw->priv->slaves, list)
-+		netif_wake_queue(sdata->dev);
-+	rcu_read_unlock();
- 
- 	dev_kfree_skb(xw->skb);
- 
-@@ -75,6 +82,7 @@ netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
- 			 u8 page, u8 chan)
- {
- 	struct xmit_work *work;
-+	struct mac802154_sub_if_data *sdata;
- 
- 	if (!(priv->phy->channels_supported[page] & (1 << chan))) {
- 		WARN_ON(1);
-@@ -102,6 +110,12 @@ netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
- 		return NETDEV_TX_BUSY;
- 	}
- 
-+	/* Stop the netif queue on each sub_if_data object. */
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(sdata, &priv->slaves, list)
-+		netif_stop_queue(sdata->dev);
-+	rcu_read_unlock();
-+
- 	INIT_WORK(&work->work, mac802154_xmit_worker);
- 	work->skb = skb;
- 	work->priv = priv;
+diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
+index 7d3f659..2ca2f4d 100644
+--- a/net/mac802154/wpan.c
++++ b/net/mac802154/wpan.c
+@@ -360,7 +360,7 @@ void mac802154_wpan_setup(struct net_device *dev)
+ 	dev->header_ops		= &mac802154_header_ops;
+ 	dev->needed_tailroom	= 2; /* FCS */
+ 	dev->mtu		= IEEE802154_MTU;
+-	dev->tx_queue_len	= 10;
++	dev->tx_queue_len	= 300;
+ 	dev->type		= ARPHRD_IEEE802154;
+ 	dev->flags		= IFF_NOARP | IFF_BROADCAST;
+ 	dev->watchdog_timeo	= 0;
 -- 
 1.7.11.2
 
