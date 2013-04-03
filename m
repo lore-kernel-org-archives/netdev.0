@@ -1,8 +1,8 @@
 From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: [PATCH v2 3/4] mac802154: Increase
-	tx_buffer_len
-Date: Wed,  3 Apr 2013 10:00:57 -0400
-Message-ID: <1364997658-16498-4-git-send-email-alan@signal11.us>
+Subject: [PATCH v2 4/4] 6lowpan: handle
+	dev_queue_xmit() error code properly
+Date: Wed,  3 Apr 2013 10:00:58 -0400
+Message-ID: <1364997658-16498-5-git-send-email-alan@signal11.us>
 References: <1364928481-1813-1-git-send-email-alan@signal11.us>
 	<1364997658-16498-1-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
@@ -25,34 +25,34 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Increase the buffer length from 10 to 300 packets. Consider that traffic on
-mac802154 devices will often be 6LoWPAN, and a full-length (1280 octet)
-IPv6 packet will fragment into 15 6LoWPAN fragments (because the MTU of
-IEEE 802.15.4 is 127).  A 300-packet queue is really 20 full-length IPv6
-packets.
-
-With a queue length of 10, an entire IPv6 packet was unable to get queued
-at one time, causing fragments to be dropped, and making reassembly
-impossible.
+dev_queue_xmit() will return a positive value if the packet could not be
+queued, often because the real network device (in our case the mac802154
+wpan device) has its queue stopped.  lowpan_xmit() should handle the
+positive return code (for the debug statement) and return that value to
+the higher layer so the higher layer will retry sending the packet.
 
 Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
 ---
- net/mac802154/wpan.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ieee802154/6lowpan.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
-index 7d3f659..2ca2f4d 100644
---- a/net/mac802154/wpan.c
-+++ b/net/mac802154/wpan.c
-@@ -360,7 +360,7 @@ void mac802154_wpan_setup(struct net_device *dev)
- 	dev->header_ops		= &mac802154_header_ops;
- 	dev->needed_tailroom	= 2; /* FCS */
- 	dev->mtu		= IEEE802154_MTU;
--	dev->tx_queue_len	= 10;
-+	dev->tx_queue_len	= 300;
- 	dev->type		= ARPHRD_IEEE802154;
- 	dev->flags		= IFF_NOARP | IFF_BROADCAST;
- 	dev->watchdog_timeo	= 0;
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index e1b4580..55e1fd5 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -1139,10 +1139,10 @@ static netdev_tx_t lowpan_xmit(struct sk_buff *skb, struct net_device *dev)
+ error:
+ 	dev_kfree_skb(skb);
+ out:
+-	if (err < 0)
++	if (err)
+ 		pr_debug("ERROR: xmit failed\n");
+ 
+-	return (err < 0 ? NETDEV_TX_BUSY : NETDEV_TX_OK);
++	return (err < 0) ? NET_XMIT_DROP : err;
+ }
+ 
+ static struct wpan_phy *lowpan_get_phy(const struct net_device *dev)
 -- 
 1.7.11.2
 
