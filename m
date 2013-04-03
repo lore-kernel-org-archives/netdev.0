@@ -1,71 +1,61 @@
-From: Rami Rosen <roszenrami@gmail.com>
-Subject: Re: [PATCH] af_unix: fix build warning
-Date: Wed, 3 Apr 2013 15:27:15 +0300
-Message-ID: <CAKoUArk67UyqAC26t7JCfL_LZWHAO1qB=dH=chaXHd-jsxrPfg@mail.gmail.com>
-References: <515BF6DA.9010007@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>, Li Zefan <lizefan@huawei.com>
-To: dingtianhong <dingtianhong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:36645 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759668Ab3DCM1R convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 08:27:17 -0400
-Received: by mail-la0-f53.google.com with SMTP id fr10so1363687lab.40
-        for <netdev@vger.kernel.org>; Wed, 03 Apr 2013 05:27:15 -0700 (PDT)
-In-Reply-To: <515BF6DA.9010007@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Subject: [PATCH 5/5] IPoIB: add support for TIPC protocol
+Date: Wed,  3 Apr 2013 14:43:30 +0200
+Message-ID: <1364993010-15515-6-git-send-email-kaber@trash.net>
+References: <1364993010-15515-1-git-send-email-kaber@trash.net>
+Cc: allan.stephens-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: jon.maloy-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1364993010-15515-1-git-send-email-kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-Which version of gcc are you using ?
-A patch like yours, for the same method, unix_bind(), was sent in the
-past, and Stephen Hemminger noted the
-with gcc 4.7 the warning you got does not occur.
-see:
-http://permalink.gmane.org/gmane.linux.network/247807
+Support TIPC in the IPoIB driver. Since IPoIB now keeps track of its own
+neighbour entries and doesn't require the packet to have a dst_entry
+anymore, the only necessary changes are to:
 
-Best Regards,
+- not drop multicast TIPC packets because of the unknown ethernet type
+- handle unicast TIPC packets similar to IPv4/IPv6 unicast packets
 
-Rami Rosen
-http://ramirose.wix.com/ramirosen
+in ipoib_start_xmit().
 
+An alternative would be to remove all ethertype limitations since they're
+not necessary anymore, all TIPC needs to know about is ARP and RARP since
+it wants to always perform "path find", even if a path is already known.
 
-On Wed, Apr 3, 2013 at 12:31 PM, dingtianhong <dingtianhong@huawei.com>=
- wrote:
-> net/unix/af_unix.c: In function =91unix_bind=92:
-> net/unix/af_unix.c:892: warning: =91path.mnt=92 may be used uninitial=
-ized in this function
-> net/unix/af_unix.c:892: warning: =91path.dentry=92 may be used uninit=
-ialized in this function
->
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
->  net/unix/af_unix.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> index 971282b..3ccc049 100644
-> --- a/net/unix/af_unix.c
-> +++ b/net/unix/af_unix.c
-> @@ -889,7 +889,7 @@ static int unix_bind(struct socket *sock, struct =
-sockaddr *uaddr, int addr_len)
->         atomic_set(&addr->refcnt, 1);
->
->         if (sun_path[0]) {
-> -               struct path path;
-> +               struct path path =3D {};
->                 umode_t mode =3D S_IFSOCK |
->                        (SOCK_INODE(sock)->i_mode & ~current_umask());
->                 err =3D unix_mknod(sun_path, mode, &path);
-> --
-> 1.8.0
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+---
+ drivers/infiniband/ulp/ipoib/ipoib_main.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index 8534afd..554b906 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -730,7 +730,8 @@ static int ipoib_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		if ((header->proto != htons(ETH_P_IP)) &&
+ 		    (header->proto != htons(ETH_P_IPV6)) &&
+ 		    (header->proto != htons(ETH_P_ARP)) &&
+-		    (header->proto != htons(ETH_P_RARP))) {
++		    (header->proto != htons(ETH_P_RARP)) &&
++		    (header->proto != htons(ETH_P_TIPC))) {
+ 			/* ethertype not supported by IPoIB */
+ 			++dev->stats.tx_dropped;
+ 			dev_kfree_skb_any(skb);
+@@ -751,6 +752,7 @@ static int ipoib_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	switch (header->proto) {
+ 	case htons(ETH_P_IP):
+ 	case htons(ETH_P_IPV6):
++	case htons(ETH_P_TIPC):
+ 		neigh = ipoib_neigh_get(dev, cb->hwaddr);
+ 		if (unlikely(!neigh)) {
+ 			neigh_add_path(skb, cb->hwaddr, dev);
+-- 
+1.8.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
