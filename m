@@ -1,122 +1,54 @@
-From: Kishon Vijay Abraham I <kishon@ti.com>
-Subject: Re: [PATCH v5 1/6] drivers: phy: add generic PHY framework
-Date: Wed, 3 Apr 2013 20:02:52 +0530
-Message-ID: <515C3D94.1060000@ti.com>
-References: <1364993634-6378-1-git-send-email-kishon@ti.com> <1364993634-6378-2-git-send-email-kishon@ti.com> <20130403134102.GC14680@arwen.pp.htv.fi> <515C3A42.4020404@ti.com> <20130403142747.GK14680@arwen.pp.htv.fi>
+From: Erik Hugne <erik.hugne@ericsson.com>
+Subject: Re: [PATCH 4/5] tipc: add InfiniBand media type
+Date: Wed, 3 Apr 2013 16:41:40 +0200
+Message-ID: <20130403144140.GA19219@eerihug-hybrid.ki.sw.ericsson.se>
+References: <1364993010-15515-1-git-send-email-kaber@trash.net>
+ <1364993010-15515-5-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <gregkh@linuxfoundation.org>, <arnd@arndb.de>,
-	<akpm@linux-foundation.org>, <swarren@wwwdotorg.org>,
-	<sylvester.nawrocki@gmail.com>, <rob@landley.net>,
-	<netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<cesarb@cesarb.net>, <linux-usb@vger.kernel.org>,
-	<linux-omap@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<tony@atomide.com>, <grant.likely@secretlab.ca>,
-	<rob.herring@calxeda.com>, <b-cousson@ti.com>,
-	<linux@arm.linux.org.uk>, <eballetbo@gmail.com>,
-	<javier@dowhile0.org>, <mchehab@redhat.com>,
-	<santosh.shilimkar@ti.com>, <broonie@opensource.wolfsonmicro.com>,
-	<swarren@nvidia.com>, <linux-doc@vger.kernel.org>,
-	<devicetree-discuss@lists.ozlabs.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: <balbi@ti.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20130403142747.GK14680@arwen.pp.htv.fi>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: jon.maloy@ericsson.com, allan.stephens@windriver.com,
+	netdev@vger.kernel.org, roland@kernel.org, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, linux-rdma@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw7.ericsson.se ([193.180.251.48]:62383 "EHLO
+	mailgw7.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758547Ab3DCOqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 10:46:39 -0400
+Content-Disposition: inline
+In-Reply-To: <1364993010-15515-5-git-send-email-kaber@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, Apr 03, 2013 at 02:43:29PM +0200, Patrick McHardy wrote:
+> diff --git a/net/tipc/Kconfig b/net/tipc/Kconfig
+> index 4f99600..900ee66 100644
+> --- a/net/tipc/Kconfig
+> +++ b/net/tipc/Kconfig
+> @@ -31,3 +31,10 @@ config TIPC_PORTS
+>  
+>  	  Setting this to a smaller value saves some memory,
+>  	  setting it to higher allows for more ports.
+> +
+> +config TIPC_MEDIA_IB
+> +	bool "InfiniBand media type support"
+> +	depends on INFINIBAND_IPOIB
+> +	help
+> +	  Saying Y here will enable support for running TIPC on
+> +	  IP-over-InfiniBand devices.
+> diff --git a/net/tipc/Makefile b/net/tipc/Makefile
+> index 6cd55d6..4df8e02 100644
+> --- a/net/tipc/Makefile
+> +++ b/net/tipc/Makefile
+> @@ -9,3 +9,5 @@ tipc-y	+= addr.o bcast.o bearer.o config.o \
+>  	   name_distr.o  subscr.o name_table.o net.o  \
+>  	   netlink.o node.o node_subscr.o port.o ref.o  \
+>  	   socket.o log.o eth_media.o
+> +
+> +tipc-$(CONFIG_TIPC_MEDIA_IB)	+= ib_media.o
 
-On Wednesday 03 April 2013 07:57 PM, Felipe Balbi wrote:
-> hi,
->
-> On Wed, Apr 03, 2013 at 07:48:42PM +0530, Kishon Vijay Abraham I wrote:
->>>> +struct phy *of_phy_xlate(struct phy *phy, struct of_phandle_args *args)
->>>> +{
->>>> +	return phy;
->>>> +}
->>>> +EXPORT_SYMBOL_GPL(of_phy_xlate);
->>>
->>> so you get a PHY and just return it ? What gives ?? (maybe I skipped
->>> some of the discussion...)
->>
->> hmm.. this is for the common case where the PHY provider implements
->> only one PHY. And both phy provider and phy_instance is represented
->> by struct phy *.
->>
->> For the case where PHY provider implements multiple PHYs (here it
->> will have a single dt node), the PHY provider will implement it's own
->> version of of_xlate that takes *of_phandle_args* as argument and
->> finds the appropriate PHY.
->
-> got it.
->
->>>> +struct phy *of_phy_get(struct device *dev, int index)
->>>> +{
->>>> +	int ret;
->>>> +	struct phy *phy = NULL;
->>>> +	struct phy_bind *phy_map = NULL;
->>>> +	struct of_phandle_args args;
->>>> +	struct device_node *node;
->>>> +
->>>> +	if (!dev->of_node) {
->>>> +		dev_dbg(dev, "device does not have a device node entry\n");
->>>> +		return ERR_PTR(-EINVAL);
->>>> +	}
->>>> +
->>>> +	ret = of_parse_phandle_with_args(dev->of_node, "phys", "#phy-cells",
->>>> +		index, &args);
->>>> +	if (ret) {
->>>> +		dev_dbg(dev, "failed to get phy in %s node\n",
->>>> +			dev->of_node->full_name);
->>>> +		return ERR_PTR(-ENODEV);
->>>> +	}
->>>> +
->>>> +	phy = of_phy_lookup(args.np);
->>>> +	if (IS_ERR(phy) || !try_module_get(phy->ops->owner)) {
->>>> +		phy = ERR_PTR(-EPROBE_DEFER);
->>>> +		goto err0;
->>>> +	}
->>>> +
->>>> +	phy = phy->ops->of_xlate(phy, &args);
->>>
->>> alright, so of_xlate() is optional, am I right ? How about not
->>
->> Not really. of_xlate is mandatory (it's even checked in phy_create).
->> Either the PHY provider can implement it's own version or use the
->> implementation above (by filling the function pointer).
->
-> alright.
->
->>> implementing the above and have a check for of_xlate() being a valid
->>> pointer here ?
->>
->> Having the way it is actually mandates the PHY providers to always
->> provide of_xlate which IMO is better since some PHY providers wont
->> accidentally be using the default implementation.
->
-> ok cool, thanks for clarifying.
->
->>>> +		ret = -EINVAL;
->>>> +		goto err0;
->>>> +	}
->>>> +
->>>> +	if (!phy_class)
->>>> +		phy_core_init();
->>>
->>> why don't you setup the class on module_init ? Then this would be a
->>> terrible error condition here :-)
->>
->> This is for the case where the PHY driver gets loaded before the PHY
->> framework. I could have returned EPROBE_DEFER here instead I thought
->> will have it this way.
->
-> looks a bit weird IMO. Is it really possible for PHY to load before ?
+The TIPC_MEDIA_IB option shows up directly under networking options,
+instead of under "TIPC". I think "depends on TIPC" is missing?
 
-yeah. it actually happened when I tried with beagle and had all the 
-modules as built-in. Because twl4030 has subsys_initcall(), it loads 
-before PHY framework.
 
-Thanks
-Kishon
+//E
