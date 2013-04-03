@@ -1,36 +1,163 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TCP: snd_cwnd is nul, please report this bug.
-Date: Wed, 03 Apr 2013 13:08:46 -0400 (EDT)
-Message-ID: <20130403.130846.1952148767156776528.davem@davemloft.net>
-References: <20130403035428.GA31709@redhat.com>
-	<1364965967.5113.195.camel@edumazet-glaptop>
-	<CAK6E8=cLLsBYkYPgNwL08-BWsG+eR0Jkkck9S7e1Ts0RzfVHLQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, davej@redhat.com, netdev@vger.kernel.org,
-	ncardwell@google.com, nanditad@google.com
-To: ycheng@google.com
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: [PATCH] netdev/phy: Implement ieee802.3 clause 45 in mdio-octeon.c
+Date: Wed,  3 Apr 2013 11:16:48 -0700
+Message-ID: <1365013008-10914-1-git-send-email-ddaney.cavm@gmail.com>
+Cc: linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59816 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758771Ab3DCRIv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 13:08:51 -0400
-In-Reply-To: <CAK6E8=cLLsBYkYPgNwL08-BWsG+eR0Jkkck9S7e1Ts0RzfVHLQ@mail.gmail.com>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:38366 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762536Ab3DCSQx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 14:16:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Wed, 3 Apr 2013 10:01:32 -0700
+From: David Daney <david.daney@cavium.com>
 
-> On Tue, Apr 2, 2013 at 10:12 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Tue, 2013-04-02 at 23:54 -0400, Dave Jones wrote:
->>> Just had this warning on 3.9-rc5
->>>
->>> Not sure what else to report.  Nothing really odd going on,
->>> just some ssh traffic and firefox over wifi (iwlwifi)
->>>
->>> anything else I can provide ?
-> How did you get this warning? is this a WARN_ON?
+The Octeon SMI/MDIO interfaces can do clause 45 communications, so
+implement this in the driver.
 
-net/ipv4/tcp_cong.c:		pr_err_once("snd_cwnd is nul, please report this bug.\n");
+Signed-off-by: David Daney <david.daney@cavium.com>
+---
+ drivers/net/phy/mdio-octeon.c | 89 +++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 86 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/phy/mdio-octeon.c b/drivers/net/phy/mdio-octeon.c
+index c2c878d..f4f3abf 100644
+--- a/drivers/net/phy/mdio-octeon.c
++++ b/drivers/net/phy/mdio-octeon.c
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (C) 2009,2011 Cavium, Inc.
++ * Copyright (C) 2009-2012 Cavium, Inc.
+  */
+ 
+ #include <linux/platform_device.h>
+@@ -27,23 +27,93 @@
+ #define SMI_CLK		0x18
+ #define SMI_EN		0x20
+ 
++enum octeon_mdiobus_mode {
++	UNINIT = 0,
++	C22,
++	C45
++};
++
+ struct octeon_mdiobus {
+ 	struct mii_bus *mii_bus;
+ 	u64 register_base;
+ 	resource_size_t mdio_phys;
+ 	resource_size_t regsize;
++	enum octeon_mdiobus_mode mode;
+ 	int phy_irq[PHY_MAX_ADDR];
+ };
+ 
++static void octeon_mdiobus_set_mode(struct octeon_mdiobus *p,
++				    enum octeon_mdiobus_mode m)
++{
++	union cvmx_smix_clk smi_clk;
++
++	if (m == p->mode)
++		return;
++
++	smi_clk.u64 = cvmx_read_csr(p->register_base + SMI_CLK);
++	smi_clk.s.mode = (m == C45) ? 1 : 0;
++	smi_clk.s.preamble = 1;
++	cvmx_write_csr(p->register_base + SMI_CLK, smi_clk.u64);
++	p->mode = m;
++}
++
++static int octeon_mdiobus_c45_addr(struct octeon_mdiobus *p,
++				   int phy_id, int regnum)
++{
++	union cvmx_smix_cmd smi_cmd;
++	union cvmx_smix_wr_dat smi_wr;
++	int timeout = 1000;
++
++	octeon_mdiobus_set_mode(p, C45);
++
++	smi_wr.u64 = 0;
++	smi_wr.s.dat = regnum & 0xffff;
++	cvmx_write_csr(p->register_base + SMI_WR_DAT, smi_wr.u64);
++
++	regnum = (regnum >> 16) & 0x1f;
++
++	smi_cmd.u64 = 0;
++	smi_cmd.s.phy_op = 0; /* MDIO_CLAUSE_45_ADDRESS */
++	smi_cmd.s.phy_adr = phy_id;
++	smi_cmd.s.reg_adr = regnum;
++	cvmx_write_csr(p->register_base + SMI_CMD, smi_cmd.u64);
++
++	do {
++		/*
++		 * Wait 1000 clocks so we don't saturate the RSL bus
++		 * doing reads.
++		 */
++		__delay(1000);
++		smi_wr.u64 = cvmx_read_csr(p->register_base + SMI_WR_DAT);
++	} while (smi_wr.s.pending && --timeout);
++
++	if (timeout <= 0)
++		return -EIO;
++	return 0;
++}
++
+ static int octeon_mdiobus_read(struct mii_bus *bus, int phy_id, int regnum)
+ {
+ 	struct octeon_mdiobus *p = bus->priv;
+ 	union cvmx_smix_cmd smi_cmd;
+ 	union cvmx_smix_rd_dat smi_rd;
++	unsigned int op = 1; /* MDIO_CLAUSE_22_READ */
+ 	int timeout = 1000;
+ 
++	if (regnum & MII_ADDR_C45) {
++		int r = octeon_mdiobus_c45_addr(p, phy_id, regnum);
++		if (r < 0)
++			return r;
++
++		regnum = (regnum >> 16) & 0x1f;
++		op = 3; /* MDIO_CLAUSE_45_READ */
++	} else {
++		octeon_mdiobus_set_mode(p, C22);
++	}
++
++
+ 	smi_cmd.u64 = 0;
+-	smi_cmd.s.phy_op = 1; /* MDIO_CLAUSE_22_READ */
++	smi_cmd.s.phy_op = op; /* MDIO_CLAUSE_22_READ */
+ 	smi_cmd.s.phy_adr = phy_id;
+ 	smi_cmd.s.reg_adr = regnum;
+ 	cvmx_write_csr(p->register_base + SMI_CMD, smi_cmd.u64);
+@@ -69,14 +139,27 @@ static int octeon_mdiobus_write(struct mii_bus *bus, int phy_id,
+ 	struct octeon_mdiobus *p = bus->priv;
+ 	union cvmx_smix_cmd smi_cmd;
+ 	union cvmx_smix_wr_dat smi_wr;
++	unsigned int op = 0; /* MDIO_CLAUSE_22_WRITE */
+ 	int timeout = 1000;
+ 
++
++	if (regnum & MII_ADDR_C45) {
++		int r = octeon_mdiobus_c45_addr(p, phy_id, regnum);
++		if (r < 0)
++			return r;
++
++		regnum = (regnum >> 16) & 0x1f;
++		op = 1; /* MDIO_CLAUSE_45_WRITE */
++	} else {
++		octeon_mdiobus_set_mode(p, C22);
++	}
++
+ 	smi_wr.u64 = 0;
+ 	smi_wr.s.dat = val;
+ 	cvmx_write_csr(p->register_base + SMI_WR_DAT, smi_wr.u64);
+ 
+ 	smi_cmd.u64 = 0;
+-	smi_cmd.s.phy_op = 0; /* MDIO_CLAUSE_22_WRITE */
++	smi_cmd.s.phy_op = op;
+ 	smi_cmd.s.phy_adr = phy_id;
+ 	smi_cmd.s.reg_adr = regnum;
+ 	cvmx_write_csr(p->register_base + SMI_CMD, smi_cmd.u64);
+-- 
+1.7.11.7
