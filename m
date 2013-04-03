@@ -1,73 +1,38 @@
-From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: Re: [PATCH 1/6] mac802154: Immediately retry
- sending failed packets
-Date: Tue, 02 Apr 2013 21:24:59 -0400
-Message-ID: <515B84EB.8020006@signal11.us>
-References: <1364928481-1813-1-git-send-email-alan@signal11.us>
-	<1364928481-1813-2-git-send-email-alan@signal11.us>
-	<CAJmB2rCr5ds11+iN=W5GCKsUgdfb57uKg+mH4NY4CWw6EFCTbg@mail.gmail.com>
-	<515B3F78.2020301@signal11.us> <515B4D79.40805@signal11.us>
-	<20130402231319.GD28141@ws>
+From: RongQing Li <roy.qing.li@gmail.com>
+Subject: Re: [PATCH Resend] core: should call pskb_expand_head if skb header
+ is cloned in skb_gso_segment in rx path
+Date: Wed, 3 Apr 2013 09:44:27 +0800
+Message-ID: <CAJFZqHw8USdorHwjJf7LKzPqetU2JbHR9uLcuurQ70O1hR2fLQ@mail.gmail.com>
+References: <1364783861-3363-1-git-send-email-roy.qing.li@gmail.com>
+	<1364905967.22165.4.camel@cr0>
+	<CAJFZqHxn77yUpGkOUzywVR7wg2_L8tFaLNrFyaauuLWPJsQUHQ@mail.gmail.com>
+	<1364951990.5113.192.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-zigbee-devel <linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20130402231319.GD28141@ws>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
+	jesse@nicira.com, pshelar@nicira.com,
+	Herbert Xu <herbert@gondor.apana.org.au>, edumazet@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f171.google.com ([209.85.220.171]:54313 "EHLO
+	mail-vc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760565Ab3DCBo2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 21:44:28 -0400
+Received: by mail-vc0-f171.google.com with SMTP id ha11so1096488vcb.16
+        for <netdev@vger.kernel.org>; Tue, 02 Apr 2013 18:44:27 -0700 (PDT)
+In-Reply-To: <1364951990.5113.192.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/02/2013 07:13 PM, Werner Almesberger wrote:
-> Alan Ott wrote:
->> it's now my opinion that we should _not_ try to retransmit at
->> all in mac802154/tx.c.
-> I think the currently blocking workqueue design is ugly and
-> quite contrary to how most the rest of the stack works. So
-> anything that kills it has my blessing :-)
+OK.
 
-I like it for a couple of reasons.
-1. Most supported devices have only single packet output buffer, so
-blocking in the driver is the most straight-forward way to handle it.
-The alternative is to make each driver have a workqueue for xmit() (to
-lift the blocking out from atomic context). This makes each driver simpler.
-
-2. All of the flow control can be handled one time in the mac802154 layer.
-
-> I do wonder though why it was done like this in the first place.
-> Just for convenience ?
+2013/4/3 Eric Dumazet <eric.dumazet@gmail.com>:
+> On Wed, 2013-04-03 at 08:51 +0800, RongQing Li wrote:
+>> No, I just read and analyze it, and think it is bogus.
 >
-> If we want to move towards an asynchronous interface, it could
-> exist in parallel with the current one. That way, drivers could
-> be migrated one by one.
-
-Maybe at some point this will be done. Right now we have a ton of
-pressing issues (in my opinion).
-
-> Having said that, the errors you get there may not be failed
-> single transmissions on the air but some form of congestion in
-> the driver or a problem with the device. But I don't think
-> that's a valid reason for retrying the transmission at that
-> level.
-
-Agreed. Like I said, I'm now of the opinion that the mac802154 layer
-should _not_ retry at all.
-
-Alan.
-
-
-------------------------------------------------------------------------------
-Minimize network downtime and maximize team effectiveness.
-Reduce network management and security costs.Learn how to hire 
-the most talented Cisco Certified professionals. Visit the 
-Employer Resources Portal
-http://www.cisco.com/web/learning/employer_resources/index.html
+> Please rewrite the changelog, because I read it several times and could
+> not understand it.
+>
+>
+>
+>
