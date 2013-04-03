@@ -1,65 +1,61 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] MPLS: Add limited GSO support
-Date: Wed, 3 Apr 2013 16:59:40 +0100
-Message-ID: <1365004780.2897.3.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1364966697-20131-1-git-send-email-horms@verge.net.au>
+Subject: Re: [net-next.git 1/7] stmmac: review napi gro support
+Date: Wed, 3 Apr 2013 17:01:53 +0100
+Message-ID: <1365004913.2897.5.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1364967689-11155-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <dev@openvswitch.org>, <netdev@vger.kernel.org>,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Simon Horman <horms@verge.net.au>
+Cc: <netdev@vger.kernel.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:6862 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:38260 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756083Ab3DCP7r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 11:59:47 -0400
-In-Reply-To: <1364966697-20131-1-git-send-email-horms@verge.net.au>
+	with ESMTP id S1762165Ab3DCQB4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 12:01:56 -0400
+In-Reply-To: <1364967689-11155-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I don't know anything about MPLS so this is a pretty superficial review.
+On Wed, 2013-04-03 at 07:41 +0200, Giuseppe CAVALLARO wrote:
+> This patch is to:
+> o use napi_gro_flush() before calling __napi_complete()
 
-On Wed, 2013-04-03 at 14:24 +0900, Simon Horman wrote:
-[...]
-> --- a/include/linux/netdev_features.h
-> +++ b/include/linux/netdev_features.h
-> @@ -43,6 +43,7 @@ enum {
->  	NETIF_F_FSO_BIT,		/* ... FCoE segmentation */
->  	NETIF_F_GSO_GRE_BIT,		/* ... GRE with TSO */
->  	NETIF_F_GSO_UDP_TUNNEL_BIT,	/* ... UDP TUNNEL with TSO */
-> +	NETIF_F_GSO_MPLS_BIT,		/* ... MPLS segmentation */
->  	/**/NETIF_F_GSO_LAST =		/* last bit, see GSO_MASK */
->  		NETIF_F_GSO_UDP_TUNNEL_BIT,
-
-You need to change NETIF_F_GSO_LAST as well.
-
-[...]
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-[...]
-> @@ -2789,12 +2791,17 @@ static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
->  }
->  #endif
->  
-> -/* Keeps track of mac header offset relative to skb->head.
-> - * It is useful for TSO of Tunneling protocol. e.g. GRE.
-> - * For non-tunnel skb it points to skb_mac_header() and for
-> - * tunnel skb it points to outer mac header. */
->  struct skb_gso_cb {
-> +	/* Keeps track of mac header offset relative to skb->head.
-> +	 * It is useful for TSO of Tunneling protocol. e.g. GRE.
-> +	 * For non-tunnel skb it points to skb_mac_header() and for
-> +	 * tunnel skb it points to outer mac header. */
->  	int mac_offset;
-> +
-> +	/* Keeps track of the ethernet type of an encapsualted
-[...]
-
-Typo: 'encapsualted' should be 'encapsulated'.
+napi_complete() already does that, and some other important things.  Why
+do you think it makes sense to call __napi_complete() directly?
 
 Ben.
+
+> o turn on NETIF_F_GRO by default
+> 
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    5 +++--
+>  1 files changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 6b26d31..8b69e3b 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -2046,7 +2046,8 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
+>  
+>  	work_done = stmmac_rx(priv, budget);
+>  	if (work_done < budget) {
+> -		napi_complete(napi);
+> +		napi_gro_flush(napi, false);
+> +		__napi_complete(napi);
+>  		stmmac_enable_dma_irq(priv);
+>  	}
+>  	return work_done;
+> @@ -2586,7 +2587,7 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+>  
+>  	ndev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+>  			    NETIF_F_RXCSUM;
+> -	ndev->features |= ndev->hw_features | NETIF_F_HIGHDMA;
+> +	ndev->features |= ndev->hw_features | NETIF_F_HIGHDMA | NETIF_F_GRO;
+>  	ndev->watchdog_timeo = msecs_to_jiffies(watchdog);
+>  #ifdef STMMAC_VLAN_TAG_USED
+>  	/* Both mac100 and gmac support receive VLAN tag detection */
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
