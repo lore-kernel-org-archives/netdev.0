@@ -1,48 +1,44 @@
-From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Subject: [PATCH 3/5] tipc: set skb->protocol in eth_media packet transmission
-Date: Wed,  3 Apr 2013 14:43:28 +0200
-Message-ID: <1364993010-15515-4-git-send-email-kaber@trash.net>
-References: <1364993010-15515-1-git-send-email-kaber@trash.net>
-Cc: allan.stephens-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jon.maloy-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1364993010-15515-1-git-send-email-kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH RFC 0/5] tipc: add support for TIPC over InfiniBand
+Date: Wed,  3 Apr 2013 14:43:25 +0200
+Message-ID: <1364993010-15515-1-git-send-email-kaber@trash.net>
+Cc: allan.stephens@windriver.com, netdev@vger.kernel.org,
+	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	linux-rdma@vger.kernel.org
+To: jon.maloy@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:48246 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759723Ab3DCMyB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 08:54:01 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The skb->protocol field is used by packet classifiers and for AF_PACKET
-cooked format, TIPC needs to set it properly.
+The following patchset adds support for running TIPC over InfiniBand.
+The patchset consists of three parts (+ a minor fix for the ethernet media
+type):
 
-Fixes packet classification and ethertype of 0x0000 in cooked captures:
+- Preparation: removal of an the unused str2addr callback and move of the
+  bcast_addr from struct tipc_media to struct tipc_bearer. This is necessary
+  because InfiniBand doesn't have a fixed broadcast address like ethernet,
+  so it needs to be initialized with the device's broadcast address when
+  the bearer is enabled
 
-Out 20:c9:d0:43:12:d9 ethertype Unknown (0x0000), length 56:
-	0x0000:  5b50 0028 0000 30d4 0100 1000 0100 1001  [P.(..0.........
-	0x0010:  0000 03e8 0000 0001 20c9 d043 12d9 0000  ...........C....
-	0x0020:  0000 0000 0000 0000                      ........
+- Introduction of a TIPC InfiniBand media type. A new media type is needed
+  to deal with the different address sizes
 
-Signed-off-by: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
----
- net/tipc/eth_media.c | 1 +
- 1 file changed, 1 insertion(+)
+- Support for ETH_P_TIPC in IPoIB
 
-diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
-index 0648819..120a676 100644
---- a/net/tipc/eth_media.c
-+++ b/net/tipc/eth_media.c
-@@ -111,6 +111,7 @@ static int send_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr,
- 
- 	skb_reset_network_header(clone);
- 	clone->dev = dev;
-+	clone->protocol = htons(ETH_P_TIPC);
- 	dev_hard_header(clone, dev, ETH_P_TIPC, dest->value,
- 			dev->dev_addr, clone->len);
- 	dev_queue_xmit(clone);
--- 
-1.8.1.4
+The last patch is something I'd like to discuss, I realize that this diverges
+from the IPoIB specification, however the alternative would be to implement
+something which would be pretty much identical to IPoIB with the only
+difference of handling a different ethertype in the xmit function.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+In fact I'd like to propose to remove all higher layer protocol knowledge
+from IPoIB except for ARP and RARP, which need special treatment. With the
+recent patch to manage neighbour entries in IPoIB itself, no further knowledge
+of higher layer protocols is required.
+
+The patchset is based on net-next.
+
+Comments welcome.
