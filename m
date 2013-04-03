@@ -1,51 +1,84 @@
-From: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
-Subject: Re: [PATCH v5 0/6] Generic PHY Framework
-Date: Wed, 03 Apr 2013 17:42:41 -0600
-Message-ID: <515CBE71.9000401@wwwdotorg.org>
-References: <1364993634-6378-1-git-send-email-kishon@ti.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2] MPLS: Add limited GSO support
+Date: Wed, 3 Apr 2013 16:51:38 -0700
+Message-ID: <CAEP_g=_Y0hN2DvyO4JitMrpQvN=TmTO5Pk28DpvF6Ya09AeTcg@mail.gmail.com>
+References: <1364980315-13649-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mchehab-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org, javier-0uQlZySMnqxg9hUCZPvPmw@public.gmane.org, cesarb-PWySMVKUnqmsTnJN9+BGXg@public.gmane.org,
- eballetbo-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org, swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org, sylvester.nawrocki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, broonie-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org, santosh.shilimkar-l0cyMroinI0@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Kishon Vijay Abraham I <kishon-l0cyMroinI0@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1364993634-6378-1-git-send-email-kishon-l0cyMroinI0@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog113.obsmtp.com ([74.125.149.209]:60096 "HELO
+	na3sys009aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757659Ab3DCXv7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 19:51:59 -0400
+Received: by mail-ia0-f197.google.com with SMTP id r13so7013188iar.0
+        for <netdev@vger.kernel.org>; Wed, 03 Apr 2013 16:51:58 -0700 (PDT)
+In-Reply-To: <1364980315-13649-1-git-send-email-horms@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/03/2013 06:53 AM, Kishon Vijay Abraham I wrote:
-> Added a generic PHY framework that provides a set of APIs for the PHY drivers
-> to create/destroy a PHY and APIs for the PHY users to obtain a reference to
-> the PHY with or without using phandle. To obtain a reference to the PHY
-> without using phandle, the platform specfic intialization code (say from board
-> file) should have already called phy_bind with the binding information. The
-> binding information consists of phy's device name, phy user device name and an
-> index. The index is used when the same phy user binds to mulitple phys.
-...
-> Changes from v4:
-> * removed of_phy_get_with_args/devm_of_phy_get_with_args. Now the *phy providers*
->   should use their custom implementation of of_xlate or use of_phy_xlate to get
->   *phy instance* from *phy providers*.
-> * Added of_phy_xlate to be used by *phy providers* if it provides only one PHY.
-> * changed phy_core from having subsys_initcall to module_init.
+On Wed, Apr 3, 2013 at 2:11 AM, Simon Horman <horms@verge.net.au> wrote:
+> In the case where a non-MPLS packet is recieved and an MPLS stack is
+> added it may well be the case that the original skb is GSO but the
+> NIC used for transmit does not support GSO of MPLS packets.
+>
+> The aim of this code is to provide GSO in software for MPLS packets
+> whose skbs are GSO.
+>
+> When an implementation adds an MPLS stack to a non-MPLS packet it should do
+> the following to skb metadata:
+>
+> * Set skb_mac_header(skb)->protocol to the new MPLS ethertype.
+>   That is, either ETH_P_MPLS_UC or ETH_P_MPLS_MC.
+>
+> * Leave skb->protocol as the old non-MPLS ethertype.
+>
+> * Set skb->encapsulation = 1.
+>
+>   This may not strictly be necessary as I believe that checking
+>   skb_mac_header(skb)->protocol and skb->protocol should be necessary and
+>   sufficient.
+>
+>   However, it does seem to fit nicely with the current implementation of
+>   dev_hard_start_xmit() where the more expensive check of
+>   skb_mac_header(skb)->protocol may be guarded by an existing check of
+>   skb->encapsulation.
+>
+> One aspect of this patch that I am unsure about is the modification I have
+> made to skb_segment(). This seems to be necessary as checskum accelearation
+> may no longer be possible as the packet has changed to be MPLS from some
+> other packet type which may have been supported by the hardware in use.
+>
+> I will post a patch, "[PATCH v3.24] datapath: Add basic MPLS support to
+> kernel" which adds MPLS support to the kernel datapath of Open vSwtich.
+> That patch sets the above requirements in
+> datapath/actions.c:set_ethertype() and was used to exercise the MPLS GSO
+> code. The datapath patch is against the Open vSwtich tree but it is
+> intended that it be added to the Open vSwtich code present in the mainline
+> Linux kernel at some point.
+>
+> Suggested by Jesse Gross. Based heavily on "v4 GRE: Add TCP segmentation
+> offload for GRE" by Pravin B Shelar.
+>
+> Cc: Jesse Gross <jesse@nicira.com>
+> Cc: Pravin B Shelar <pshelar@nicira.com>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-s/of_phy_xlate/of_phy_simple_xlate/ ? That would hightlight the fact
-it's just /an/ implementation for the simple case, not /the/
-implementation for all cases. It'd be consistent with e.g. drivers/gpio,
-which has of_gpio_simple_xlate().
+MPLS is very similar to both the Ethernet header and vlans in that GSO
+only requires replication without any modification.  That means that
+if we look at the mac_len as containing all three then we can just
+copy it without any special knowledge.  I don't know that we carefully
+maintain mac_len in all places but you are already doing that in your
+MPLS patches.
+
+The other piece at that point is getting the inner protocol.  I'm
+worried that using skb->protocol for this will break things that try
+to use it for filtering.  It also means that depending on whether an
+MPLS packet is locally sourced or not skb->protocol may be different
+because we won't always be able to find the inner header.  I think
+this will require a careful definition of that field to make it
+consistent.
