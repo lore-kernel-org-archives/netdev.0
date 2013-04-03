@@ -1,80 +1,99 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [Suggestion] ISDN: isdnloop:  C grammar issue,  '}' miss match
- 'if' and 'switch' statement.
-Date: Wed, 3 Apr 2013 17:08:09 +0200
-Message-ID: <20130403150809.GC3401@unicorn.suse.cz>
-References: <515C303B.1040304@asianux.com>
- <20130403140823.GB3401@unicorn.suse.cz>
- <1364999477.13853.21.camel@edumazet-glaptop>
+From: Joseph Salisbury <joseph.salisbury@canonical.com>
+Subject: Re: [v3.8, v3.9] [Regression] brcmsmac: move PHY functions
+Date: Wed, 03 Apr 2013 11:28:09 -0400
+Message-ID: <515C4A89.6040903@canonical.com>
+References: <5155F107.6050408@canonical.com> <20130401144225.GC21859@tuxdriver.com> <5159A559.4000808@canonical.com> <515A9EAF.4010005@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chen Gang <gang.chen@asianux.com>, fengguang.wu@intel.com,
-	isdn@linux-pingi.de,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Joe Perches <joe@perches.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:48385 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761450Ab3DCPIL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Apr 2013 11:08:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1364999477.13853.21.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>, arend@broadcom.com,
+	pieterpg@broadcom.com, meuleman@broadcom.com,
+	LKML <linux-kernel@vger.kernel.org>, brudley@broadcom.com,
+	frankyl@broadcom.com, linux-wireless@vger.kernel.org,
+	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org
+To: Piotr Haber <phaber@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <515A9EAF.4010005@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 03, 2013 at 07:31:17AM -0700, Eric Dumazet wrote:
-> On Wed, 2013-04-03 at 16:08 +0200, Michal Kubecek wrote:
-> 
-> > As far as I can see, this rather comes from
-> > 
-> > commit 475be4d85a274d0961593db41cf85689db1d583c
-> > Author: Joe Perches <joe@perches.com>
-> > Date:   Sun Feb 19 19:52:38 2012 -0800
-> > 
-> >     isdn: whitespace coding style cleanup
-> 
-> And what is the problem exactly ?
-> 
-> # make drivers/isdn/isdnloop/isdnloop.o
->   ...
->   CC [M]  drivers/isdn/isdnloop/isdnloop.o
-> 
-> No error here.
+On 04/02/2013 05:02 AM, Piotr Haber wrote:
+> On 04/01/13 17:18, Joseph Salisbury wrote:
+>> On 04/01/2013 10:42 AM, John W. Linville wrote:
+>>> On Fri, Mar 29, 2013 at 03:52:39PM -0400, Joseph Salisbury wrote:
+>>>> Hi Piotr,
+>>>>
+>>>> A bug was opened against the Ubuntu kernel[0].  After a kernel
+>>>> bisect, it was found that reverting the following commit resolved
+>>>> this bug:
+>>>>
+>>>> commit b83576341664957978e125f5f5db2f15496980b1
+>>>> Author: Piotr Haber <phaber@broadcom.com>
+>>>> Date:   Wed Nov 28 21:44:09 2012 +0100
+>>>>
+>>>>       brcmsmac: move PHY functions
+>>>>
+>>>> The regression was introduced as of v3.8-rc1.  The regression still
+>>>> exists in v3.9-rc4.
+>>>>
+>>>> I see that you are the author of this patch, so I wanted to run this
+>>>> by you.  I was thinking of requesting a revert for v3.9, but I
+>>>> wanted to get your feedback first.
+>>>>
+>>>>
+>>>> Thanks,
+>>>>
+>>>> Joe
+>>>>
+>>>> [0] http://pad.lv/1131914
+>>> I recently reverted b6fc28a1, which is the follow-on to that patch.
+>>> The revert is _not_ in 3.9-rc5.
+>>>
+>>> Could you try reverting that patch instead?  Does that fix the issue
+>>> for you?
+>>>
+>>> John
+>> Hi John,
+>>
+>> Thanks for the response.
+>>
+>> Yes, reverting commit b6fc28a1 does resolve this bug.  That is the appropriate fix for this issue.
+>> Thanks for the assistance.
+>>
+>> Thanks,
+>>
+>> Joe
+>>
+>>
+>>
+>>
+> Hi Joe,
+> could you elaborate a little bit on your failure scenario?
+> In bug report you say it happens after suspend/resume, are there any other scenarios you see this
+> behaviour? (like disassociation/association without suspend)
+> Also you mention it comes back after some time - what is the time needed?
+> We had reports of problems on 4313 with this patch (that's why the revert was done) but so far i
+> assumed it was a total breakdown, in your case this seem like a transient issue.
+This only happens after a suspend/resume cycle.  I haven't seen the 
+issue happen with disassociation/association without suspend.  After 
+suspend, the connection will re-establish after about 15 minutes or so.
 
-I just checked that gcc (surprisingly - at least for me) accepts
+>
+> One more thing, could you provide info about your hardware by sending me contents of:
+> <debugfs_mount>/brcmsmac/bcma0:0/hardware
 
-	switch(a) {
-	case 1:
-		if(...) {
-			do_something();
-			break;
-		case 2:
-			...
-			break;
-		default:
-			...
-			break;
-		}
-	}
+board vendor: 144f
+board type: 7179
+board revision: 1408
+board flags: 8402a01
+board flags2: 880
+firmware revision: 262032c
 
-and it seems to work the same as
 
-	switch(a) {
-	case 1:
-		if(...) {
-			do_something();
-		}
-		break;
-	case 2:
-		...
-		break;
-	default:
-		...
-		break;
-	}
 
-However, I can't think of a reason to use the former.
 
-Michal Kubecek
+>
+> Kind regards
+> Piotr
+>
+>
