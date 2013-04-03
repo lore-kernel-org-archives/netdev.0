@@ -1,83 +1,67 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [PATCH v5 2/6] usb: phy: omap-usb2: use the new generic PHY
- framework
-Date: Wed, 3 Apr 2013 18:48:07 +0300
-Message-ID: <20130403154807.GE19093@arwen.pp.htv.fi>
-References: <1364993634-6378-1-git-send-email-kishon@ti.com>
- <1364993634-6378-3-git-send-email-kishon@ti.com>
- <20130403134827.GF14680@arwen.pp.htv.fi>
- <201304031455.47864.arnd@arndb.de>
-Reply-To: <balbi@ti.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] MPLS: Add limited GSO support
+Date: Wed, 3 Apr 2013 16:59:40 +0100
+Message-ID: <1365004780.2897.3.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1364966697-20131-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="xA/XKXTdy9G3iaIz"
-Cc: <balbi@ti.com>, Kishon Vijay Abraham I <kishon@ti.com>,
-	<gregkh@linuxfoundation.org>, <akpm@linux-foundation.org>,
-	<swarren@wwwdotorg.org>, <sylvester.nawrocki@gmail.com>,
-	<rob@landley.net>, <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<cesarb@cesarb.net>, <linux-usb@vger.kernel.org>,
-	<linux-omap@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<tony@atomide.com>, <grant.likely@secretlab.ca>,
-	<rob.herring@calxeda.com>, <b-cousson@ti.com>,
-	<linux@arm.linux.org.uk>, <eballetbo@gmail.com>,
-	<javier@dowhile0.org>, <mchehab@redhat.com>,
-	<santosh.shilimkar@ti.com>, <broonie@opensource.wolfsonmicro.com>,
-	<swarren@nvidia.com>, <linux-doc@vger.kernel.org>,
-	<devicetree-discuss@lists.ozlabs.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201304031455.47864.arnd@arndb.de>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <dev@openvswitch.org>, <netdev@vger.kernel.org>,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:6862 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756083Ab3DCP7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 11:59:47 -0400
+In-Reply-To: <1364966697-20131-1-git-send-email-horms@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---xA/XKXTdy9G3iaIz
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I don't know anything about MPLS so this is a pretty superficial review.
 
-Hi,
+On Wed, 2013-04-03 at 14:24 +0900, Simon Horman wrote:
+[...]
+> --- a/include/linux/netdev_features.h
+> +++ b/include/linux/netdev_features.h
+> @@ -43,6 +43,7 @@ enum {
+>  	NETIF_F_FSO_BIT,		/* ... FCoE segmentation */
+>  	NETIF_F_GSO_GRE_BIT,		/* ... GRE with TSO */
+>  	NETIF_F_GSO_UDP_TUNNEL_BIT,	/* ... UDP TUNNEL with TSO */
+> +	NETIF_F_GSO_MPLS_BIT,		/* ... MPLS segmentation */
+>  	/**/NETIF_F_GSO_LAST =		/* last bit, see GSO_MASK */
+>  		NETIF_F_GSO_UDP_TUNNEL_BIT,
 
-On Wed, Apr 03, 2013 at 02:55:47PM +0000, Arnd Bergmann wrote:
-> On Wednesday 03 April 2013, Felipe Balbi wrote:
-> > const ? Maybe provide a:
-> >=20
-> > #define DEFINE_PHY_OPS(name)    \
-> > const struct phy_ops #name_phy_ops =3D {
-> >=20
-> > macro ? This will force people to add the const keyword :-)
->=20
-> Forcing people to use const structures is good, but I think it would be
-> better without the macro, just by marking the argument in=20
-> devm_phy_create() as const.
+You need to change NETIF_F_GSO_LAST as well.
 
-that won't force the definition of the struct to be const, however. But
-I get your point.
+[...]
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+[...]
+> @@ -2789,12 +2791,17 @@ static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
+>  }
+>  #endif
+>  
+> -/* Keeps track of mac header offset relative to skb->head.
+> - * It is useful for TSO of Tunneling protocol. e.g. GRE.
+> - * For non-tunnel skb it points to skb_mac_header() and for
+> - * tunnel skb it points to outer mac header. */
+>  struct skb_gso_cb {
+> +	/* Keeps track of mac header offset relative to skb->head.
+> +	 * It is useful for TSO of Tunneling protocol. e.g. GRE.
+> +	 * For non-tunnel skb it points to skb_mac_header() and for
+> +	 * tunnel skb it points to outer mac header. */
+>  	int mac_offset;
+> +
+> +	/* Keeps track of the ethernet type of an encapsualted
+[...]
 
---=20
-balbi
+Typo: 'encapsualted' should be 'encapsulated'.
 
---xA/XKXTdy9G3iaIz
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Ben.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBAgAGBQJRXE83AAoJEIaOsuA1yqREQ+sQAKeGj69voh941wu/KTn7tFb4
-D0RrvEHfbTUhaNkpsTUfurdzKk3k3GuH59HvfK9zoei36ogCIlSCwZKWWs4I9Yii
-IBpXzJp9n0fZUWLMdOrJgf/JOhouLuRJ1d5u5UTeAmRBtQT3dq89EEG1sixJCNBA
-QBGTW0bNdXAE2oglFG7EH2HMGeTxSJM49v2z+Lusv1bbbog8qjAOz+pL0WHBttzi
-h8wKxp8yOzrmCQ4ktsiin68JFV1AuaLS+BVdbxbtgKVdDDaJ7lvqfRHnmnBSOy27
-23Z2Vl36Gv299sZOiNEaYFI9z0ubNJc5N4YCVefGHPkn0+6Y/BeMrk8tXAnUnZq2
-HeCtlCLxtp7HmrvRt48paDOheQc7jcamPcMktIm5QhAD1uzRwVtk34XVMY1AEWKF
-TK3u7YJiy3THqXlvUvrYz+sPrpBFUEDK15Rcn/Cmk8H0gqpBtdCBU0HWHqeK//Jb
-vmpvmXzpWwPPWUYWDqumf3YyAonYz/oDCmaJR/mbuIMKK5A4IIcHiqGoU11j4BUI
-JU0yPf0n9BE8KEcZXKJy3LdRr6MOgSF3XZOZl4425pucdLnZNUJ1ILGHM7/6wkCx
-ILTlo6mtHSU3RE5do6JCw2EwqnK5lAAsrRUGtpuIQOclt2h4npWpYe+s3XR4fxz0
-xiUXWZKeY3w7HHLXlToJ
-=xgLX
------END PGP SIGNATURE-----
-
---xA/XKXTdy9G3iaIz--
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
