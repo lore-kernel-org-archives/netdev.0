@@ -1,42 +1,56 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: Bug#565404: linux-image-2.6.26-2-amd64: atl1e: TSO is broken
-Date: Wed, 3 Apr 2013 00:12:12 +0000
-Message-ID: <157393863283F442885425D2C45428564F202BB6@nasanexd02f.na.qualcomm.com>
-References: <CDAFEDABF718A54BABD0DA5476695307475CCFF8@SHEXMB-01.global.atheros.com>
- <20100126.093439.651115405791675606.anders@netinsight.net>
- <1364689558.3557.22.camel@deadeye.wl.decadent.org.uk>
- <157393863283F442885425D2C45428564F202477@nasanexd02f.na.qualcomm.com>
- <1364695805.3557.41.camel@deadeye.wl.decadent.org.uk>
- <157393863283F442885425D2C45428564F20261B@nasanexd02f.na.qualcomm.com>
- <20130402211524.GE4924@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F202AD5@nasanexd02f.na.qualcomm.com>
- <20130402221913.GG4924@order.stressinduktion.org>
- <157393863283F442885425D2C45428564F202B2A@nasanexd02f.na.qualcomm.com>
- <20130403000020.GI4924@order.stressinduktion.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net] atl1e: limit gso segment size to prevent generation of wrong ip length fields
+Date: Wed, 3 Apr 2013 02:36:46 +0200
+Message-ID: <20130403003646.GJ4924@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	=?utf-8?B?QW5kZXJzIEJvc3Ryw7Zt?= <anders@netinsight.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"565404@bugs.debian.org" <565404@bugs.debian.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabertooth01.qualcomm.com ([65.197.215.72]:20143 "EHLO
-	sabertooth01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756197Ab3DCAMO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 20:12:14 -0400
-In-Reply-To: <20130403000020.GI4924@order.stressinduktion.org>
-Content-Language: en-US
+Received: from order.stressinduktion.org ([87.106.68.36]:47516 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752717Ab3DCAgs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Apr 2013 20:36:48 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+IEhhbm5lcywgIFRoYW5rcyBmb3IgeW91ciB0ZXN0aW5nICENCj4gPg0KPiA+ICBzaW1wbHkg
-cmV2aXNpbmcgTUFYX1RYX0JVRl9MRU4gdG8gMHg0MDAwIHdpbGwgY2F1c2UgaW5jb3JyZWN0IFRY
-DQo+IGNvbmZpZ3VyYXRpb24uLi4NCj4gPiBJIG1lYW4geW91IGNhbiB0cnkgdG8gcHV0IGEgZ3Nv
-IHNpemUgbGltaXQgb2YgMHg0MDAwIChvciAweDUwMDApLi4uLg0KPiANCj4gSSB0ZXN0ZWQgYm90
-aCB2YWx1ZXMgd2l0aCBtdWx0aS1naWdhYnl0ZSBuZnN2NCB0cmFmZmljIGFuZCBib3RoIHZhbHVl
-cyBhcmUgb2suDQo+IElmIEkgdW5kZXJzdGFuZCB5b3UgY29ycmVjdGx5IDB4NDAwMCBpcyBhIHNh
-ZmUgbGltaXQ/DQoNClNpbmNlIFdpbjcgZHJpdmVyIHVzZXMgMTUwMDAgYnl0ZXMgYXMgaXRzIG1h
-eCBwYWNrZXQgbGVuZ3RoIGZvciBUU08sIEkgdGhpbmsgMHgzQzAwIGlzIG1vcmUgc2FmZXIgdGhh
-biAweDQwMDAuIDopDQoNClRoYW5rcw0KWGlvbmcNCg==
+The limit of 0x3c00 is taken from the windows driver.
+
+Suggested-by: Huang, Xiong <xiong@qca.qualcomm.com>
+Cc: Huang, Xiong <xiong@qca.qualcomm.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+I think this is stable material, too.
+
+ drivers/net/ethernet/atheros/atl1e/atl1e.h      | 2 +-
+ drivers/net/ethernet/atheros/atl1e/atl1e_main.c | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e.h b/drivers/net/ethernet/atheros/atl1e/atl1e.h
+index edfdf6b..b5fd934 100644
+--- a/drivers/net/ethernet/atheros/atl1e/atl1e.h
++++ b/drivers/net/ethernet/atheros/atl1e/atl1e.h
+@@ -186,7 +186,7 @@ struct atl1e_tpd_desc {
+ /* how about 0x2000 */
+ #define MAX_TX_BUF_LEN      0x2000
+ #define MAX_TX_BUF_SHIFT    13
+-/*#define MAX_TX_BUF_LEN  0x3000 */
++#define MAX_TSO_SEG_SIZE    0x3c00
+ 
+ /* rrs word 1 bit 0:31 */
+ #define RRS_RX_CSUM_MASK	0xFFFF
+diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+index 7e0a822..d058d00 100644
+--- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
++++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+@@ -2327,6 +2327,7 @@ static int atl1e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	INIT_WORK(&adapter->reset_task, atl1e_reset_task);
+ 	INIT_WORK(&adapter->link_chg_task, atl1e_link_chg_task);
++	netif_set_gso_max_size(netdev, MAX_TSO_SEG_SIZE);
+ 	err = register_netdev(netdev);
+ 	if (err) {
+ 		netdev_err(netdev, "register netdevice failed\n");
+-- 
+1.8.1.4
