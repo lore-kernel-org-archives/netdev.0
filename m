@@ -1,84 +1,104 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2] MPLS: Add limited GSO support
-Date: Wed, 3 Apr 2013 16:51:38 -0700
-Message-ID: <CAEP_g=_Y0hN2DvyO4JitMrpQvN=TmTO5Pk28DpvF6Ya09AeTcg@mail.gmail.com>
-References: <1364980315-13649-1-git-send-email-horms@verge.net.au>
+From: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
+Subject: Re: [PATCH v5 1/6] drivers: phy: add generic PHY framework
+Date: Wed, 03 Apr 2013 17:54:11 -0600
+Message-ID: <515CC123.4060402@wwwdotorg.org>
+References: <1364993634-6378-1-git-send-email-kishon@ti.com> <1364993634-6378-2-git-send-email-kishon@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog113.obsmtp.com ([74.125.149.209]:60096 "HELO
-	na3sys009aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1757659Ab3DCXv7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 19:51:59 -0400
-Received: by mail-ia0-f197.google.com with SMTP id r13so7013188iar.0
-        for <netdev@vger.kernel.org>; Wed, 03 Apr 2013 16:51:58 -0700 (PDT)
-In-Reply-To: <1364980315-13649-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: balbi-l0cyMroinI0@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, sylvester.nawrocki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	rob-VoJi6FS/r0vR7s880joybQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	cesarb-PWySMVKUnqmsTnJN9+BGXg@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org, grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org,
+	rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org, b-cousson-l0cyMroinI0@public.gmane.org, linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org,
+	eballetbo-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, javier-0uQlZySMnqxg9hUCZPvPmw@public.gmane.org, mchehab-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	santosh.shilimkar-l0cyMroinI0@public.gmane.org, broonie-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org,
+	swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org, linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Kishon Vijay Abraham I <kishon-l0cyMroinI0@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1364993634-6378-2-git-send-email-kishon-l0cyMroinI0@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 3, 2013 at 2:11 AM, Simon Horman <horms@verge.net.au> wrote:
-> In the case where a non-MPLS packet is recieved and an MPLS stack is
-> added it may well be the case that the original skb is GSO but the
-> NIC used for transmit does not support GSO of MPLS packets.
->
-> The aim of this code is to provide GSO in software for MPLS packets
-> whose skbs are GSO.
->
-> When an implementation adds an MPLS stack to a non-MPLS packet it should do
-> the following to skb metadata:
->
-> * Set skb_mac_header(skb)->protocol to the new MPLS ethertype.
->   That is, either ETH_P_MPLS_UC or ETH_P_MPLS_MC.
->
-> * Leave skb->protocol as the old non-MPLS ethertype.
->
-> * Set skb->encapsulation = 1.
->
->   This may not strictly be necessary as I believe that checking
->   skb_mac_header(skb)->protocol and skb->protocol should be necessary and
->   sufficient.
->
->   However, it does seem to fit nicely with the current implementation of
->   dev_hard_start_xmit() where the more expensive check of
->   skb_mac_header(skb)->protocol may be guarded by an existing check of
->   skb->encapsulation.
->
-> One aspect of this patch that I am unsure about is the modification I have
-> made to skb_segment(). This seems to be necessary as checskum accelearation
-> may no longer be possible as the packet has changed to be MPLS from some
-> other packet type which may have been supported by the hardware in use.
->
-> I will post a patch, "[PATCH v3.24] datapath: Add basic MPLS support to
-> kernel" which adds MPLS support to the kernel datapath of Open vSwtich.
-> That patch sets the above requirements in
-> datapath/actions.c:set_ethertype() and was used to exercise the MPLS GSO
-> code. The datapath patch is against the Open vSwtich tree but it is
-> intended that it be added to the Open vSwtich code present in the mainline
-> Linux kernel at some point.
->
-> Suggested by Jesse Gross. Based heavily on "v4 GRE: Add TCP segmentation
-> offload for GRE" by Pravin B Shelar.
->
-> Cc: Jesse Gross <jesse@nicira.com>
-> Cc: Pravin B Shelar <pshelar@nicira.com>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+On 04/03/2013 06:53 AM, Kishon Vijay Abraham I wrote:
+> The PHY framework provides a set of APIs for the PHY drivers to
+> create/destroy a PHY and APIs for the PHY users to obtain a reference to the
+> PHY with or without using phandle. To obtain a reference to the PHY without
+> using phandle, the platform specfic intialization code (say from board file)
+> should have already called phy_bind with the binding information. The binding
+> information consists of phy's device name, phy user device name and an index.
+> The index is used when the same phy user binds to mulitple phys.
+> 
+> PHY drivers should create the PHY by passing phy_descriptor that has
+> describes the PHY (label, type etc..) and ops like init, exit, suspend, resume,
+> power_on, power_off.
+> 
+> The documentation for the generic PHY framework is added in
+> Documentation/phy.txt and the documentation for the sysfs entry is added
+> in Documentation/ABI/testing/sysfs-class-phy and the documentation for
+> dt binding is can be found at
+> Documentation/devicetree/bindings/phy/phy-bindings.txt
 
-MPLS is very similar to both the Ethernet header and vlans in that GSO
-only requires replication without any modification.  That means that
-if we look at the mac_len as containing all three then we can just
-copy it without any special knowledge.  I don't know that we carefully
-maintain mac_len in all places but you are already doing that in your
-MPLS patches.
+> diff --git a/include/linux/phy/phy.h b/include/linux/phy/phy.h
 
-The other piece at that point is getting the inner protocol.  I'm
-worried that using skb->protocol for this will break things that try
-to use it for filtering.  It also means that depending on whether an
-MPLS packet is locally sourced or not skb->protocol may be different
-because we won't always be able to find the inner header.  I think
-this will require a careful definition of that field to make it
-consistent.
+> +extern struct phy *devm_phy_create(struct device *dev, const char *label,
+> +	struct device_node *of_node, int type, struct phy_ops *ops,
+> +	void *priv);
+
+Can't the function get of_node from dev->of_node?
+
+I wonder if we shouldn't split up the registration a bit though:
+
+A function which registers a PHY object itself. That's the function above.
+
+A function which registers a DT-based PHY provider.
+
+Then, the of_xlate op would be part of the PHY provider, not part of
+some random PHY that happens to exist on that node. So:
+
+struct phy {
+	struct device *dev;
+	struct module *owner;
+	int	(*init)(struct phy *phy);
+	int	(*exit)(struct phy *phy);
+	int	(*suspend)(struct phy *phy);
+	int	(*resume)(struct phy *phy);
+	int	(*power_on)(struct phy *phy);
+	int	(*power_off)(struct phy *phy);
+};
+
+int phy_register(struct phy *phy);
+
+All PHY providers would use that API, whether running in a DT-base
+system or not.
+
+struct of_phy_provider {
+	struct device *dev;
+	struct phy * (*of_xlate)(struct of_phy_provider *provider,
+			struct of_phandle_args *args);
+};
+
+int phy_register_of_provider(struct of_phy_provider *provider);
+
+Only DT-based PHY providers would use that API.
+
+... or something like that?
+
+phy_get() would do something like:
+
+	if dev->of_node:
+		# look up using registerd of_phy_providers
+		phy = phy_get_of(...)
+		if phy: return phy
+	# now look up using whatever other mapping table exists
+	phy = ...
+	return phy
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
