@@ -1,7 +1,8 @@
 From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 0/5 v2] mv643xx_eth: device tree bindings
-Date: Thu,  4 Apr 2013 12:27:10 +0200
-Message-ID: <1365071235-11611-1-git-send-email-florian@openwrt.org>
+Subject: [PATCH 5/5 v2] ARM: dove: add gigabit device tree nodes to dove.dtsi
+Date: Thu,  4 Apr 2013 12:27:15 +0200
+Message-ID: <1365071235-11611-6-git-send-email-florian@openwrt.org>
+References: <1365071235-11611-1-git-send-email-florian@openwrt.org>
 Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	devicetree-discuss@lists.ozlabs.org,
 	thomas.petazzoni@free-electrons.com, jm@lentin.co.uk,
@@ -11,39 +12,61 @@ Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	jogo@openwrt.org, Florian Fainelli <florian@openwrt.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zmc.proxad.net ([212.27.53.206]:51567 "EHLO zmc.proxad.net"
+Received: from zmc.proxad.net ([212.27.53.206]:51642 "EHLO zmc.proxad.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759074Ab3DDK1e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Apr 2013 06:27:34 -0400
+	id S1759136Ab3DDK1f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Apr 2013 06:27:35 -0400
+In-Reply-To: <1365071235-11611-1-git-send-email-florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+This patch adds the gigabit ethernet device tree nodes to dove.dtsi in a
+disabled state. The gigabit ethernet device tree node must be enabled on
+a per-board basis. For completeness and easier testing the MDIO node is
+also added in a disabled state.
 
-This patch serie implements mv643xx_eth device tree bindings. I opted for
-the reuse of the bindings already defined in
-Documentation/devicetree/bindings/marvell.txt so that we do not create
-any confusion.
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
+---
+Changes since v1:
+- fixed off-by 0x2000 address of the ethernet-group node
 
-For reference, I have included the mv643xx-eth related nodes in the
-corresponding Kirkwood, Dove and Orion5x .dtsi files so you can more
-easily test on your own platforms.
+ arch/arm/boot/dts/dove.dtsi |   25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
 
-I tested these on a custom 88F6181-based boards.
-
-Florian Fainelli (5):
-  mv643xx_eth: add Device Tree bindings
-  mv643xx_eth: update Device Tree bindings documentation
-  ARM: kirkwood: add device node entries for the gigabit interfaces
-  ARM: orion5x: add gigabit ethernet device tree node
-  ARM: dove: add gigabit device tree nodes to dove.dtsi
-
- Documentation/devicetree/bindings/marvell.txt |   25 +++++-
- arch/arm/boot/dts/dove.dtsi                   |   25 ++++++
- arch/arm/boot/dts/kirkwood.dtsi               |   46 ++++++++++
- arch/arm/boot/dts/orion5x.dtsi                |   23 +++++
- drivers/net/ethernet/marvell/mv643xx_eth.c    |  120 ++++++++++++++++++++++++-
- 5 files changed, 234 insertions(+), 5 deletions(-)
-
+diff --git a/arch/arm/boot/dts/dove.dtsi b/arch/arm/boot/dts/dove.dtsi
+index f7509ca..51de5f7 100644
+--- a/arch/arm/boot/dts/dove.dtsi
++++ b/arch/arm/boot/dts/dove.dtsi
+@@ -253,5 +253,30 @@
+ 				dmacap,xor;
+ 			};
+ 		};
++
++		mdio@72004 {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			compatible = "marvell,orion-mdio";
++			reg = <0x72004 0x84>;
++			status = "disabled";
++		};
++
++		ethernet-group@72000 {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			compatible = "marvell,mv643xx-eth-block";
++			reg = <0x72000 0x4000>;
++			tx-csum-limit = <1600>;
++			status = "disabled";
++
++			egiga0: ethernet@0 {
++				device_type = "network";
++				compatible = "marvell,mv643xx-eth";
++				reg = <0>;
++				interrupts = <29>;
++				clocks = <&gate_clk 2>;
++			};
++		};
+ 	};
+ };
 -- 
 1.7.10.4
