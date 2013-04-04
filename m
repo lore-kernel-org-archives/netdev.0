@@ -1,38 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Suggestion] ISDN: isdnloop: C grammar issue, '}' miss match
- 'if' and 'switch' statement.
-Date: Thu, 04 Apr 2013 14:09:56 -0400 (EDT)
-Message-ID: <20130404.140956.2233513394092413594.davem@davemloft.net>
-References: <1364999477.13853.21.camel@edumazet-glaptop>
-	<CA+55aFw+Efs+um15_V6t-9rXd-U1VJS9p+_6E-m5jr87h-BPVg@mail.gmail.com>
-	<515D3A09.7040202@asianux.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, eric.dumazet@gmail.com,
-	mkubecek@suse.cz, fengguang.wu@intel.com, isdn@linux-pingi.de,
-	netdev@vger.kernel.org, joe@perches.com
-To: gang.chen@asianux.com
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] net: ipv4: notify when address lifetime changes
+Date: Thu,  4 Apr 2013 20:33:00 +0200
+Message-ID: <1365100380-6796-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48410 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764318Ab3DDSJ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 14:09:59 -0400
-In-Reply-To: <515D3A09.7040202@asianux.com>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:48685 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761306Ab3DDSdH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 14:33:07 -0400
+Received: by mail-wg0-f47.google.com with SMTP id y10so3101339wgg.14
+        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 11:33:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chen Gang <gang.chen@asianux.com>
-Date: Thu, 04 Apr 2013 16:30:01 +0800
+if userspace changes lifetime of address, send netlink notification and
+call notifier.
 
->> Of course, nobody sane actually cares about ISDN any more, so I think
->> this is all pretty academic. I think even Germany (where ISDN *used*
->> to be very common due to telephone monopolies and odd rules) no longer
->> uses it. I can't imagine that anybody else does either.
->> 
-> 
->   can we delete it ?
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/ipv4/devinet.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-I think the point is no that we can delete it, but rather that we
-should concentrate our efforts on code that more people use rather
-than trying to clean up antiquated code with very few users.
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index f678507..96083b7 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -802,8 +802,10 @@ static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg
+ 		if (nlh->nlmsg_flags & NLM_F_EXCL ||
+ 		    !(nlh->nlmsg_flags & NLM_F_REPLACE))
+ 			return -EEXIST;
+-
+-		set_ifa_lifetime(ifa_existing, valid_lft, prefered_lft);
++		ifa = ifa_existing;
++		set_ifa_lifetime(ifa, valid_lft, prefered_lft);
++		rtmsg_ifa(RTM_NEWADDR, ifa, nlh, NETLINK_CB(skb).portid);
++		blocking_notifier_call_chain(&inetaddr_chain, NETDEV_UP, ifa);
+ 	}
+ 	return 0;
+ }
+-- 
+1.8.1.2
