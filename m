@@ -1,34 +1,37 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PERCPU] Remove & in front of this_cpu_ptr
-Date: Thu, 4 Apr 2013 15:02:07 +0000
-Message-ID: <0000013dd591ad74-75c6e15e-cdbd-4af5-87da-43823abc81d5-000000@email.amazonses.com>
-References: <CAJFZqHzkGcFT_gcqgu=ktuig7UEoR4FVTUZF6G46=6n6FkYZ2A@mail.gmail.com> <0000013dc6307f44-940f2bf1-7556-4d9e-92ab-1a84d2a47ca8-000000@email.amazonses.com> <1364833887.5113.161.camel@edumazet-glaptop> <alpine.DEB.2.02.1304031540110.3444@gentwo.org>
- <0000013dd1a300fb-1fbb26a9-77a7-4c24-95ff-f088309206d9-000000@email.amazonses.com> <20130403212450.GD3411@htj.dyndns.org> <1365024575.13853.39.camel@edumazet-glaptop> <0000013dd5517d80-151c27ac-ebf3-4ec7-bcd4-c85a7975852e-000000@email.amazonses.com>
- <20130404140040.GB9425@htj.dyndns.org> <0000013dd56ce988-aff8039a-dcd8-4267-b1c8-b8db60b4e4cd-000000@email.amazonses.com> <20130404142526.GG9425@htj.dyndns.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next.git 2/7] stmmac: review barriers
+Date: Thu, 04 Apr 2013 08:08:14 -0700
+Message-ID: <1365088094.13853.67.camel@edumazet-glaptop>
+References: <1364967689-11155-1-git-send-email-peppe.cavallaro@st.com>
+	 <1364967689-11155-2-git-send-email-peppe.cavallaro@st.com>
+	 <20130403085106.GA2039@localhost.localdomain> <515D1863.2070801@st.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	RongQing Li <roy.qing.li@gmail.com>,
-	Shan Wei <davidshan@tencent.com>, netdev@vger.kernel.org
-To: Tejun Heo <htejun@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Shiraz HASHIM <shiraz.hashim@st.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Deepak Sikri <deepak.sikri@st.com>,
+	sergei.shtylyov@cogentembedded.com
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a194-210.smtp-out.amazonses.com ([199.255.194.210]:44039 "EHLO
-	a194-210.smtp-out.amazonses.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762338Ab3DDPCI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 11:02:08 -0400
-In-Reply-To: <20130404142526.GG9425@htj.dyndns.org>
+Received: from mail-da0-f41.google.com ([209.85.210.41]:37959 "EHLO
+	mail-da0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762713Ab3DDPIS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 11:08:18 -0400
+Received: by mail-da0-f41.google.com with SMTP id w4so1170338dam.0
+        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 08:08:18 -0700 (PDT)
+In-Reply-To: <515D1863.2070801@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 4 Apr 2013, Tejun Heo wrote:
+On Thu, 2013-04-04 at 08:06 +0200, Giuseppe CAVALLARO wrote:
 
-> I was thinking above this_cpu_*() ops.  Let's make it as conspicious
-> as reasonably possible.  It's a similar problem with declaring per-cpu
-> arrays - there are a couple ways to do it and there's no way to
-> automatically reject the one which isn't preferred.  I don't know.
-> Maybe all we can do is periodic sweep through the source tree and fix
-> up the "wrong" ones.
+> In fact, if we can demonstrate that barriers are needed no problem to
+> keep them in the code. Otherwise I prefer to remove them.
+> 
+> What do you think?
 
-Both ways are working just fine. I'd like to use more of these though and
-would like to tighten things up a bit before doing sweeps through the
-kernel.
+I think there are needed, and its really obvious.
+
+Now maybe your arch can define wmb() as a pure compiler barrier(), but
+thats a completely different patch.
