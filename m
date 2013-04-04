@@ -1,69 +1,39 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] bridge: remove a redundant synchronize_net()
-Date: Thu, 4 Apr 2013 18:08:34 +0200
-Message-ID: <20130404160834.GC1688@minipsycho.brq.redhat.com>
-References: <1364917500.5113.176.camel@edumazet-glaptop>
- <20130402155822.GB29115@redhat.com>
- <20130402.121223.496337697838525487.davem@davemloft.net>
- <1364920077.5113.185.camel@edumazet-glaptop>
- <20130404153530.GA1688@minipsycho.brq.redhat.com>
- <1365090287.3308.3.camel@edumazet-glaptop>
- <1365091425.3308.7.camel@edumazet-glaptop>
+From: Sagi Grimberg <sagig@mellanox.com>
+Subject: Re: [PATCH net-next 3/3] net/mlx4_en: Enable open-lldp DCB support
+Date: Thu, 4 Apr 2013 19:08:25 +0300
+Message-ID: <515DA579.3050006@mellanox.com>
+References: <1365085574-12057-1-git-send-email-ogerlitz@mellanox.com> <1365085574-12057-4-git-send-email-ogerlitz@mellanox.com> <515DA342.5020503@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, vfalico@redhat.com,
-	netdev@vger.kernel.org, stephen@networkplumber.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Or Gerlitz <ogerlitz@mellanox.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <amirv@mellanox.com>
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f175.google.com ([74.125.82.175]:34360 "EHLO
-	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762575Ab3DDQIi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 12:08:38 -0400
-Received: by mail-we0-f175.google.com with SMTP id t11so2199464wey.34
-        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 09:08:37 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1365091425.3308.7.camel@edumazet-glaptop>
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:53189 "EHLO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1762397Ab3DDQIg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 12:08:36 -0400
+In-Reply-To: <515DA342.5020503@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Apr 04, 2013 at 06:03:45PM CEST, eric.dumazet@gmail.com wrote:
->On Thu, 2013-04-04 at 08:44 -0700, Eric Dumazet wrote:
+On 4/4/2013 6:58 PM, John Fastabend wrote:
+> On 4/4/2013 7:26 AM, Or Gerlitz wrote:
+>> From: Sagi Grimberg <sagig@mellanox.com>
+>>
+>> The lldpad daemon queries the driver caps via the getcaps and getstate
+>> routines. Added the prpoer dbcnl_ops entries to support that.
+>>
+>> Signed-off-by: Sagi Grimberg <sagig@mellanox.com>
+>> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+>> ---
 >
->> Because maybe the synchronize_net() in netdev_rx_handler_unregister()
->> is enough and you dont even need the call_rcu(). Thats was my question.
+> Does lldpad work now with the mlx4_en driver?
 >
->So we have the following sequence in team_port_del()
+> Reviewed-by: John Fastabend <john.r.fastabend@intel.com>
 >
->        netdev_rx_handler_unregister(port_dev);
->
->        netdev_upper_dev_unlink(port_dev, dev);
->        team_port_disable_netpoll(port);
->        vlan_vids_del_by_dev(port_dev, dev);
->        dev_uc_unsync(port_dev, dev);
->        dev_mc_unsync(port_dev, dev);
->        dev_close(port_dev);
->        team_port_leave(team, port);
->
->        __team_option_inst_mark_removed_port(team, port);
->        __team_options_change_check(team);
->        __team_option_inst_del_port(team, port);
->        __team_port_change_port_removed(port);
->
->        team_port_set_orig_dev_addr(port);
->        dev_set_mtu(port_dev, port->orig.mtu);
->        synchronize_rcu();
->        kfree(port);
->
->And I suspect we can remove synchronize_rcu() call.
 
-I agree.
+Yes.
 
->
->But as this is a long list of operations, maybe some of them requires
->the rcu grace period before kfree(port)
-
-None of them requires that.
-
->
->
->
+-Sagi
