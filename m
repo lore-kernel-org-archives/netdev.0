@@ -1,128 +1,56 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] tcp: add a global sysctl to control TCP delayed ack
-Date: Thu,  4 Apr 2013 18:16:00 +0800
-Message-ID: <1365070560-11544-1-git-send-email-amwang@redhat.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27375 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758599Ab3DDKQj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Apr 2013 06:16:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/2] Revert "af_unix: dont send SCM_CREDENTIAL when dest socket is NULL"
+Date: Thu, 04 Apr 2013 03:22:07 -0700
+Message-ID: <87r4iqegts.fsf@xmission.com>
+References: <20130402221104.163133110@linuxfoundation.org>
+	<20130402221116.307254752@linuxfoundation.org>
+	<87vc833kpf.fsf@turtle.gmx.de> <87k3ojnosa.fsf@xmission.com>
+	<1365034777.13853.46.camel@edumazet-glaptop>
+	<1365035424.13853.48.camel@edumazet-glaptop>
+	<878v4zjei0.fsf@xmission.com> <87li8zhwkw.fsf_-_@xmission.com>
+	<515D30F6.9010004@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sven Joachim <svenjoac@gmx.de>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	<linux-kernel@vger.kernel.org>, <stable@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Karel Srot <ksrot@redhat.com>, <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: dingtianhong <dingtianhong@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <515D30F6.9010004@huawei.com> (dingtianhong@huawei.com's message
+	of "Thu, 4 Apr 2013 15:51:18 +0800")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
+dingtianhong <dingtianhong@huawei.com> writes:
 
-Change from RFC:
-* make the sysctl per netns
+> On 2013/4/4 10:13, Eric W. Biederman wrote:
+>> 
+>> This reverts commit 14134f6584212d585b310ce95428014b653dfaf6.
+>> 
+>> The problem that the above patch was meant to address is that af_unix
+>> messages are not being coallesced because we are sending unnecesarry
+>> credentials.  Not sending credentials in maybe_add_creds totally
+>> breaks unconnected unix domain sockets that wish to send credentails
+>> to other sockets.
+>> 
+>
+> thanks for check the question and make a fix solution, but I still doubt that if unconnected unix
+> domain socket wish to send credentails to oher sockets, why dont set
+> SOCK_PASSCRED on sock->flags, I think the user need to decide the param
+> and shouldnt send creds by default way.
 
-According to previous discussion, it seems there is no
-reasonable heuristics.
+The big issue is the semantics are the receiver sets SOCK_PASSCRED when
+they want to receive credentials.  When transmitting packets from
+unconnected or unaccepted sockets we don't know if the receiver has set
+SOCK_PASSCRED so when in doubt transmit. Historically we always
+tranmitted credentials.
 
-Similar to TCP_QUICK_ACK option, but for people who can't
-modify the source code and still wants to control
-TCP delayed ACK behavior.
+Furthermore we have a real regression in udev that breaks systems, so
+this patch must be reverted.
 
-David, do you still have any objection?
-
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Rick Jones <rick.jones2@hp.com>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Thomas Graf <tgraf@suug.ch>
-CC: David Laight <David.Laight@ACULAB.COM>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
----
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index f98ca63..9b39681 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -572,6 +572,11 @@ tcp_challenge_ack_limit - INTEGER
- 	in RFC 5961 (Improving TCP's Robustness to Blind In-Window Attacks)
- 	Default: 100
- 
-+tcp_quick_ack - BOOLEAN
-+	Globally enables or disables TCP delayed ACK. The applications
-+	can still change the quick ACK mode by TCP_QUICK_ACK option.
-+	Default: off
-+
- UDP variables:
- 
- udp_mem - vector of 3 INTEGERs: min, pressure, max
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 2ba9de8..f03298a 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -63,6 +63,7 @@ struct netns_ipv4 {
- 	int sysctl_icmp_errors_use_inbound_ifaddr;
- 
- 	int sysctl_tcp_ecn;
-+	int sysctl_tcp_quick_ack;
- 
- 	kgid_t sysctl_ping_group_range[2];
- 	long sysctl_tcp_mem[3];
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index fa2f63f..1db1780 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -837,6 +837,13 @@ static struct ctl_table ipv4_net_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= ipv4_tcp_mem,
- 	},
-+	{
-+		.procname	= "tcp_quick_ack",
-+		.data		= &init_net.ipv4.sysctl_tcp_quick_ack,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
- 	{ }
- };
- 
-@@ -866,6 +873,8 @@ static __net_init int ipv4_sysctl_init_net(struct net *net)
- 			&net->ipv4.sysctl_ping_group_range;
- 		table[7].data =
- 			&net->ipv4.sysctl_tcp_ecn;
-+		table[9].data =
-+			&net->ipv4.sysctl_tcp_quick_ack;
- 
- 		/* Don't export sysctls to unprivileged users */
- 		if (net->user_ns != &init_user_ns)
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 6d9ca35..a1b44f3 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3781,7 +3781,8 @@ static void tcp_fin(struct sock *sk)
- 	case TCP_ESTABLISHED:
- 		/* Move to CLOSE_WAIT */
- 		tcp_set_state(sk, TCP_CLOSE_WAIT);
--		inet_csk(sk)->icsk_ack.pingpong = 1;
-+		if (!sock_net(sk)->ipv4.sysctl_tcp_quick_ack)
-+			inet_csk(sk)->icsk_ack.pingpong = 1;
- 		break;
- 
- 	case TCP_CLOSE_WAIT:
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index af354c98..130fc99 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -169,8 +169,9 @@ static void tcp_event_data_sent(struct tcp_sock *tp,
- 	/* If it is a reply for ato after last received
- 	 * packet, enter pingpong mode.
- 	 */
--	if ((u32)(now - icsk->icsk_ack.lrcvtime) < icsk->icsk_ack.ato)
--		icsk->icsk_ack.pingpong = 1;
-+	if ((u32)(now - icsk->icsk_ack.lrcvtime) < icsk->icsk_ack.ato &&
-+	    !sock_net(sk)->ipv4.sysctl_tcp_quick_ack)
-+			icsk->icsk_ack.pingpong = 1;
- }
- 
- /* Account for an ACK we sent. */
+Eric
