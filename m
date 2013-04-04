@@ -1,25 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 1/8] r8169: Remove firmware code
-Date: Thu, 04 Apr 2013 17:47:17 -0400 (EDT)
-Message-ID: <20130404.174717.2232220782916755499.davem@davemloft.net>
-References: <1364824539-4156-1-git-send-email-hayeswang@realtek.com>
-	<1364891022-3220-1-git-send-email-hayeswang@realtek.com>
+From: "Abodunrin, Akeem G" <akeem.g.abodunrin@intel.com>
+Subject: RE: [net-next 05/13] igb: Support to read and export SFF-8472/8079
+ data
+Date: Thu, 4 Apr 2013 22:17:34 +0000
+Message-ID: <CFEEE81102D91947B9CC368106979EBA3CF654BC@ORSMSX102.amr.corp.intel.com>
+References: <1365075480-20183-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1365075480-20183-6-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1365102471.2735.2.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1364891022-3220-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	=?utf-8?B?QXVyw6lsaWVuIEd1aWxsYXVtZQ==?= <footplus@gmail.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:40522 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1765178Ab3DDWR4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Apr 2013 18:17:56 -0400
+In-Reply-To: <1365102471.2735.2.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-Francois what is the status of this patch set?
-
-I see there is still some discussion about dependencies between
-patch #5 and #6, is that resolved?  If so, should I just apply
-this series as-is?
-
-Thanks!
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
+bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBBcHJp
+bCAwNCwgMjAxMyAxMjowOCBQTQ0KPiBUbzogS2lyc2hlciwgSmVmZnJleSBUDQo+IENjOiBkYXZl
+bUBkYXZlbWxvZnQubmV0OyBBYm9kdW5yaW4sIEFrZWVtIEc7IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmc7DQo+IGdvc3BvQHJlZGhhdC5jb207IHNhc3NtYW5uQHJlZGhhdC5jb207IEF1csOpbGllbiBH
+dWlsbGF1bWUNCj4gU3ViamVjdDogUmU6IFtuZXQtbmV4dCAwNS8xM10gaWdiOiBTdXBwb3J0IHRv
+IHJlYWQgYW5kIGV4cG9ydCBTRkYtODQ3Mi84MDc5DQo+IGRhdGENCj4gDQo+IE9uIFRodSwgMjAx
+My0wNC0wNCBhdCAwNDozNyAtMDcwMCwgSmVmZiBLaXJzaGVyIHdyb3RlOg0KPiA+IEZyb206ICJB
+a2VlbSBHLiBBYm9kdW5yaW4iIDxha2VlbS5nLmFib2R1bnJpbkBpbnRlbC5jb20+DQo+ID4NCj4g
+PiBUaGlzIHBhdGNoIGFkZHMgc3VwcG9ydCB0byByZWFkIGFuZCBleHBvcnQgU0ZGLTg0NzIvODA3
+OSAoU0ZQIGRhdGEpDQo+ID4gb3ZlciBpMmMsIHRocm91Z2ggRXRodG9vbC4NCj4gWy4uLl0NCj4g
+PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX2V0aHRvb2wuYw0KPiA+
+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfZXRodG9vbC5jDQo+IFsu
+Li5dDQo+ID4gK3N0YXRpYyBpbnQgaWdiX2dldF9tb2R1bGVfZWVwcm9tKHN0cnVjdCBuZXRfZGV2
+aWNlICpuZXRkZXYsDQo+ID4gKwkJCQkgc3RydWN0IGV0aHRvb2xfZWVwcm9tICplZSwgdTggKmRh
+dGEpIHsNCj4gPiArCXN0cnVjdCBpZ2JfYWRhcHRlciAqYWRhcHRlciA9IG5ldGRldl9wcml2KG5l
+dGRldik7DQo+ID4gKwlzdHJ1Y3QgZTEwMDBfaHcgKmh3ID0gJmFkYXB0ZXItPmh3Ow0KPiA+ICsJ
+dTMyIHN0YXR1cyA9IEUxMDAwX1NVQ0NFU1M7DQo+ID4gKwl1MTYgZGF0YXdvcmQgPSAweEZGOw0K
+PiA+ICsJaW50IGkgPSAwOw0KPiA+ICsNCj4gPiArCS8qIFJlYWQgdGhlIGZpcnN0IGJsb2NrLCBT
+RkYtODA3OSwgMiBieXRlcyBhdCBhIHRpbWUgKi8NCj4gPiArCWZvciAoaSA9IDA7IGkgPCBFVEhf
+TU9EVUxFX1NGRl84MDc5X0xFTjsgaSArPSAyKSB7DQo+ID4gKwkJc3RhdHVzID0gaWdiX3JlYWRf
+cGh5X3JlZ19pMmMoaHcsIGksICZkYXRhd29yZCk7DQo+ID4gKwkJaWYgKHN0YXR1cyAhPSBFMTAw
+MF9TVUNDRVNTKQ0KPiA+ICsJCQkvKiBFcnJvciBvY2N1cnJlZCB3aGlsZSByZWFkaW5nIG1vZHVs
+ZSAqLw0KPiA+ICsJCQlyZXR1cm4gLUVJTzsNCj4gPiArDQo+ID4gKwkJZGF0YVtpXSA9IChkYXRh
+d29yZCA+PiA4KSAmIDB4RkY7DQo+ID4gKwkJZGF0YVtpKzFdID0gZGF0YXdvcmQgJiAweEZGOw0K
+PiA+ICsJfQ0KPiANCj4gV2hhdCBpZiBlZS0+b2Zmc2V0ICE9IDAgb3IgZWUtPmxlbiA8IEVUSF9N
+T0RVTEVfU0ZGXzgwNzlfTEVOPw0KPiANCj4gPiArCS8qIElmIHRoZSBzZWNvbmQgYmxvY2sgaXMg
+cmVxdWVzdGVkLCBjaGVjayBpZiBTRkYtODQ3MiBpcyBzdXBwb3J0ZWQuICovDQo+ID4gKwlpZiAo
+ZWUtPmxlbiA9PSBFVEhfTU9EVUxFX1NGRl84NDcyX0xFTikgew0KPiA+ICsJCWlmIChkYXRhW0lH
+Ql9TRkZfODQ3Ml9DT01QXSA9PSBJR0JfU0ZGXzg0NzJfVU5TVVApDQo+ID4gKwkJCXJldHVybiAt
+RU9QTk9UU1VQUDsNCj4gPiArDQo+ID4gKwkJLyogUmVhZCB0aGUgc2Vjb25kIGJsb2NrLCBTRkYt
+ODQ3MiwgMiBieXRlcyBhdCBhIHRpbWUgKi8NCj4gPiArCQlmb3IgKGkgPSBFVEhfTU9EVUxFX1NG
+Rl84MDc5X0xFTjsNCj4gPiArCQkgICAgIGkgPCBFVEhfTU9EVUxFX1NGRl84NDcyX0xFTjsgaSAr
+PSAyKSB7DQo+ID4gKwkJCXN0YXR1cyA9IGlnYl9yZWFkX3BoeV9yZWdfaTJjKGh3LCBpLCAmZGF0
+YXdvcmQpOw0KPiA+ICsJCQlpZiAoc3RhdHVzICE9IEUxMDAwX1NVQ0NFU1MpDQo+ID4gKwkJCQly
+ZXR1cm4gLUVJTzsNCj4gPiArDQo+ID4gKwkJCWRhdGFbaV0gPSAoZGF0YXdvcmQgPj4gOCkgJiAw
+eEZGOw0KPiA+ICsJCQlkYXRhW2krMV0gPSBkYXRhd29yZCAmIDB4RkY7DQo+ID4gKwkJfQ0KPiA+
+ICsJfQ0KPiBbLi4uXQ0KPiANCj4gV2hhdCBpZiBlZS0+b2Zmc2V0ICE9IDAgb3IgRVRIX01PRFVM
+RV9TRkZfODA3OV9MRU4gPCBlZS0+bGVuIDwNCj4gRVRIX01PRFVMRV9TRkZfODQ3Ml9MRU4/DQoN
+ClRoYW5rcyBCZW4sDQogDQpZZXMsIHlvdSBhcmUgcmlnaHQuLi4gSSBiZWxpZXZlIHRoaXMgaXMg
+YW4gb3ZlcnNpZ2h0LiBUaGVyZSBtYXkgYmUgbmVlZCB0byB1c2UgZWUtPm9mZnNldCBhcyBzdGFy
+dGluZyBwb2ludCBhbmQgbWFrZSBzdXJlIEVUSF9NT0RVTEVfU0ZGXzgwNzlfTEVOIG9yIEVUSF9N
+T0RVTEVfU0ZGXzg0NzJfTEVOIGlzIHdpdGhpbiBlZS0+bGVuIHNjb3BlLg0KDQpXZSB3b3VsZCBh
+ZGRyZXNzIHRoaXMgaW4gdGhlIGZvbGxvdyB1cCBwYXRjaC4NCg0KUmVnYXJkcywNCg0KfkFrZWVt
+DQo+IA0KPiBCZW4uDQo+IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdzLCBTdGFmZiBFbmdpbmVlciwg
+U29sYXJmbGFyZSBOb3Qgc3BlYWtpbmcgZm9yIG15IGVtcGxveWVyOyB0aGF0J3MNCj4gdGhlIG1h
+cmtldGluZyBkZXBhcnRtZW50J3Mgam9iLg0KPiBUaGV5IGFza2VkIHVzIHRvIG5vdGUgdGhhdCBT
+b2xhcmZsYXJlIHByb2R1Y3QgbmFtZXMgYXJlIHRyYWRlbWFya2VkLg0KDQo=
