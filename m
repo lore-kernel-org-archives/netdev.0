@@ -1,47 +1,58 @@
-From: Tejun Heo <htejun@gmail.com>
-Subject: Re: this cpu documentation
-Date: Thu, 4 Apr 2013 11:52:06 -0700
-Message-ID: <20130404185206.GY9425@htj.dyndns.org>
-References: <0000013db16f1e1d-abcb7d9e-1c9d-4ef9-b4de-767bc0282ccf-000000@email.amazonses.com>
- <CAJFZqHzkGcFT_gcqgu=ktuig7UEoR4FVTUZF6G46=6n6FkYZ2A@mail.gmail.com>
- <0000013dc6307f44-940f2bf1-7556-4d9e-92ab-1a84d2a47ca8-000000@email.amazonses.com>
- <1364833887.5113.161.camel@edumazet-glaptop>
- <0000013dd1a20ebf-4a76fb06-4b9d-492e-9d77-4b3f43aceca7-000000@email.amazonses.com>
- <515F679E.8020203@infradead.org>
- <0000013dd57e7ad7-d5959142-ca41-4a53-9497-7559766aafc9-000000@email.amazonses.com>
- <515DB623.4060802@infradead.org>
- <0000013dd622cebd-a7fee90b-b297-4e92-9143-87f4771718a4-000000@email.amazonses.com>
- <515DC80B.5090403@infradead.org>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH net-next 3/3] net/mlx4_en: Enable open-lldp DCB support
+Date: Thu, 04 Apr 2013 12:01:06 -0700
+Message-ID: <515DCDF2.8070304@intel.com>
+References: <1365085574-12057-1-git-send-email-ogerlitz@mellanox.com> <1365085574-12057-4-git-send-email-ogerlitz@mellanox.com> <515DA342.5020503@intel.com> <515DA579.3050006@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Lameter <cl@linux.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	RongQing Li <roy.qing.li@gmail.com>,
-	Shan Wei <davidshan@tencent.com>, netdev@vger.kernel.org
-To: Randy Dunlap <rdunlap@infradead.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, amirv@mellanox.com
+To: Sagi Grimberg <sagig@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:60150 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762967Ab3DDSwK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 14:52:10 -0400
-Received: by mail-pb0-f50.google.com with SMTP id jt11so1585817pbb.9
-        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 11:52:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <515DC80B.5090403@infradead.org>
+Received: from mga03.intel.com ([143.182.124.21]:27757 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763581Ab3DDTBI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Apr 2013 15:01:08 -0400
+In-Reply-To: <515DA579.3050006@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 04, 2013 at 11:35:55AM -0700, Randy Dunlap wrote:
-> > +should be accessing that variable and therefore there are no concurirency
-> 
->                                                                 concurrency
-> again.  but hopefully Tejun has already corrected that.
+On 4/4/2013 9:08 AM, Sagi Grimberg wrote:
+> On 4/4/2013 6:58 PM, John Fastabend wrote:
+>> On 4/4/2013 7:26 AM, Or Gerlitz wrote:
+>>> From: Sagi Grimberg <sagig@mellanox.com>
+>>>
+>>> The lldpad daemon queries the driver caps via the getcaps and getstate
+>>> routines. Added the prpoer dbcnl_ops entries to support that.
+>>>
+>>> Signed-off-by: Sagi Grimberg <sagig@mellanox.com>
+>>> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+>>> ---
+>>
+>> Does lldpad work now with the mlx4_en driver?
+>>
+>> Reviewed-by: John Fastabend <john.r.fastabend@intel.com>
+>>
+>
+> Yes.
+>
+> -Sagi
 
-Yeap, the committed version is at
+So I looked at your code and lldpad a bit closer. I think this
+just works around a bug in lldpad. Also with this patch lldpad
+would try to xmit lldp pkts which would conflict with your firmware
+agent right?
 
-  https://git.kernel.org/cgit/linux/kernel/git/tj/percpu.git/tree/Documentation/this_cpu_ops.txt?h=for-3.10
+For IEEE DCBX modes lldpad should check the return values from
+the getdcbx dcbnl_rtnl_ops which you already have filled out. I
+would expect your driver to return DCB_CAP_DCBX_LLD_MANAGED to
+indicate it is being managed by firmware.
 
-Thanks.
+See bnx2x_dcbnl_get_dcbx() for an example of an implementation
+which I believe is correct. I'll fix the user space lldpad bug.
 
--- 
-tejun
+Looks like I added my reveiwed-by line too quickly.
+
+Thanks,
+.John
