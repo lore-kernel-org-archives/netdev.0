@@ -1,34 +1,32 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] bridge: remove a redundant synchronize_net()
-Date: Thu, 04 Apr 2013 09:18:58 -0700
-Message-ID: <1365092338.3308.8.camel@edumazet-glaptop>
-References: <1364917500.5113.176.camel@edumazet-glaptop>
-	 <20130402155822.GB29115@redhat.com>
-	 <20130402.121223.496337697838525487.davem@davemloft.net>
-	 <1364920077.5113.185.camel@edumazet-glaptop>
-	 <20130404153530.GA1688@minipsycho.brq.redhat.com>
-	 <1365090287.3308.3.camel@edumazet-glaptop>
-	 <20130404160706.GB1688@minipsycho.brq.redhat.com>
+Subject: Re: [net-next PATCH V3] net: frag queue per hash bucket locking
+Date: Thu, 04 Apr 2013 09:24:15 -0700
+Message-ID: <1365092655.3308.10.camel@edumazet-glaptop>
+References: <1365067672.12728.46.camel@localhost>
+	 <20130404093816.3613.42475.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, vfalico@redhat.com,
-	netdev@vger.kernel.org, stephen@networkplumber.org
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:61038 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762531Ab3DDQTA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 12:19:00 -0400
-Received: by mail-pa0-f43.google.com with SMTP id hz11so1576396pad.16
-        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 09:19:00 -0700 (PDT)
-In-Reply-To: <20130404160706.GB1688@minipsycho.brq.redhat.com>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:53047 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760835Ab3DDQYS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 12:24:18 -0400
+Received: by mail-pd0-f180.google.com with SMTP id q11so1517465pdj.39
+        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 09:24:17 -0700 (PDT)
+In-Reply-To: <20130404093816.3613.42475.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-04-04 at 18:07 +0200, Jiri Pirko wrote:
+On Thu, 2013-04-04 at 11:38 +0200, Jesper Dangaard Brouer wrote:
+> This patch implements per hash bucket locking for the frag queue
+> hash.  This removes two write locks, and the only remaining write
+> lock is for protecting hash rebuild.  This essentially reduce the
+> readers-writer lock to a rebuild lock.
 
-> I always thought that synchronize_rcu() is from the magic land of elfs and fairies...
-
-
-;)
+Acked-by: Eric Dumazet <edumazet@google.com>
