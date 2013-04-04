@@ -1,74 +1,55 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 07/13] igb: random code and comments fix
-Date: Thu, 04 Apr 2013 18:22:18 +0400
-Message-ID: <515D8C9A.8030606@cogentembedded.com>
-References: <1365075480-20183-1-git-send-email-jeffrey.t.kirsher@intel.com> <1365075480-20183-8-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Tejun Heo <htejun@gmail.com>
+Subject: Re: [PERCPU] Remove & in front of this_cpu_ptr
+Date: Thu, 4 Apr 2013 07:25:26 -0700
+Message-ID: <20130404142526.GG9425@htj.dyndns.org>
+References: <CAJFZqHzkGcFT_gcqgu=ktuig7UEoR4FVTUZF6G46=6n6FkYZ2A@mail.gmail.com>
+ <0000013dc6307f44-940f2bf1-7556-4d9e-92ab-1a84d2a47ca8-000000@email.amazonses.com>
+ <1364833887.5113.161.camel@edumazet-glaptop>
+ <alpine.DEB.2.02.1304031540110.3444@gentwo.org>
+ <0000013dd1a300fb-1fbb26a9-77a7-4c24-95ff-f088309206d9-000000@email.amazonses.com>
+ <20130403212450.GD3411@htj.dyndns.org>
+ <1365024575.13853.39.camel@edumazet-glaptop>
+ <0000013dd5517d80-151c27ac-ebf3-4ec7-bcd4-c85a7975852e-000000@email.amazonses.com>
+ <20130404140040.GB9425@htj.dyndns.org>
+ <0000013dd56ce988-aff8039a-dcd8-4267-b1c8-b8db60b4e4cd-000000@email.amazonses.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net,
-	"Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	RongQing Li <roy.qing.li@gmail.com>,
+	Shan Wei <davidshan@tencent.com>, netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:65501 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761441Ab3DDOXS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 10:23:18 -0400
-Received: by mail-lb0-f177.google.com with SMTP id r10so2722552lbi.22
-        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 07:23:17 -0700 (PDT)
-In-Reply-To: <1365075480-20183-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:37400 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761715Ab3DDOZc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 10:25:32 -0400
+Received: by mail-pb0-f51.google.com with SMTP id rr4so1460303pbb.10
+        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 07:25:31 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <0000013dd56ce988-aff8039a-dcd8-4267-b1c8-b8db60b4e4cd-000000@email.amazonses.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Thu, Apr 04, 2013 at 02:21:57PM +0000, Christoph Lameter wrote:
+> On Thu, 4 Apr 2013, Tejun Heo wrote:
+> 
+> > Right, this is true, and we *do* wanna support this_cpu ops other than
+> > this_cpu_ptr on per-cpu struct fields.  The usage is still somewhat
+> > unusual tho.  Can we please add documentation in the comments too?
+> 
+> I posted a patch adding documentation yesterday and you took it.
+> ???
+> 
+> Add comments where?
 
-On 04-04-2013 15:37, Jeff Kirsher wrote:
+I was thinking above this_cpu_*() ops.  Let's make it as conspicious
+as reasonably possible.  It's a similar problem with declaring per-cpu
+arrays - there are a couple ways to do it and there's no way to
+automatically reject the one which isn't preferred.  I don't know.
+Maybe all we can do is periodic sweep through the source tree and fix
+up the "wrong" ones.
 
-> From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
+Thanks.
 
-> This patch fixes code and comments as identified in the driver.
-
-   It seems you are doing 3 different things in 3 different files in this 
-patch... it would be better to split it up.
-
-> Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-[...]
-
-> diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.c b/drivers/net/ethernet/intel/igb/e1000_mac.c
-> index a5c7200..5d407f4 100644
-> --- a/drivers/net/ethernet/intel/igb/e1000_mac.c
-> +++ b/drivers/net/ethernet/intel/igb/e1000_mac.c
-> @@ -1007,9 +1007,9 @@ s32 igb_config_fc_after_link_up(struct e1000_hw *hw)
->   		 * be asked to delay transmission of packets than asking
->   		 * our link partner to pause transmission of frames.
->   		 */
-> -		else if ((hw->fc.requested_mode == e1000_fc_none ||
-> -			  hw->fc.requested_mode == e1000_fc_tx_pause) ||
-> -			 hw->fc.strict_ieee) {
-> +		else if ((hw->fc.requested_mode == e1000_fc_none) ||
-> +			 (hw->fc.requested_mode == e1000_fc_tx_pause) ||
-> +			 (hw->fc.strict_ieee)) {
-
-    The code was alright bnefore this change, so this isn't really a fix at 
-all. Aside of that, () around == are not needed, and yet less around 
-'hw->fc.strict_ieee'.
-
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-> index fb162ef..8752f4f 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -3859,9 +3859,8 @@ static bool igb_thermal_sensor_event(struct e1000_hw *hw, u32 event)
->   		ctrl_ext = rd32(E1000_CTRL_EXT);
->
->   		if ((hw->phy.media_type == e1000_media_type_copper) &&
-> -		    !(ctrl_ext & E1000_CTRL_EXT_LINK_MODE_SGMII)) {
-> +		    !(ctrl_ext & E1000_CTRL_EXT_LINK_MODE_SGMII))
->   			ret = !!(thstat & event);
-> -		}
-
-    This was checkpatch.pl's message right?
-
-WBR, Sergei
+-- 
+tejun
