@@ -1,44 +1,61 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PERCPU] Remove & in front of this_cpu_ptr
-Date: Thu, 4 Apr 2013 13:52:00 +0000
-Message-ID: <0000013dd5517d80-151c27ac-ebf3-4ec7-bcd4-c85a7975852e-000000@email.amazonses.com>
-References: <1364463761-32510-1-git-send-email-roy.qing.li@gmail.com> <1364475933.15753.36.camel@edumazet-glaptop> <0000013db16f1e1d-abcb7d9e-1c9d-4ef9-b4de-767bc0282ccf-000000@email.amazonses.com> <CAJFZqHzkGcFT_gcqgu=ktuig7UEoR4FVTUZF6G46=6n6FkYZ2A@mail.gmail.com>
- <0000013dc6307f44-940f2bf1-7556-4d9e-92ab-1a84d2a47ca8-000000@email.amazonses.com> <1364833887.5113.161.camel@edumazet-glaptop> <alpine.DEB.2.02.1304031540110.3444@gentwo.org> <0000013dd1a300fb-1fbb26a9-77a7-4c24-95ff-f088309206d9-000000@email.amazonses.com>
- <20130403212450.GD3411@htj.dyndns.org> <1365024575.13853.39.camel@edumazet-glaptop>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next 09/13] igb: Pull adapter out of main path in igb_xmit_frame_ring
+Date: Thu, 04 Apr 2013 18:15:25 +0400
+Message-ID: <515D8AFD.1000709@cogentembedded.com>
+References: <1365075480-20183-1-git-send-email-jeffrey.t.kirsher@intel.com> <1365075480-20183-10-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Tejun Heo <htejun@gmail.com>, RongQing Li <roy.qing.li@gmail.com>,
-	Shan Wei <davidshan@tencent.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a9-62.smtp-out.amazonses.com ([54.240.9.62]:34703 "EHLO
-	a9-62.smtp-out.amazonses.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761192Ab3DDOE5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 10:04:57 -0400
-In-Reply-To: <1365024575.13853.39.camel@edumazet-glaptop>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:60929 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760960Ab3DDOQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 10:16:25 -0400
+Received: by mail-la0-f42.google.com with SMTP id fe20so2548323lab.15
+        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 07:16:24 -0700 (PDT)
+In-Reply-To: <1365075480-20183-10-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 3 Apr 2013, Eric Dumazet wrote:
+Hello.
 
-> I agree with you, I prefer &this_cpu_ptr(percpu_pointer)->field
+On 04-04-2013 15:37, Jeff Kirsher wrote:
+
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+
+> We only need the adapter pointer in the case of ptp.  As such we can pull the
+> adapter out of the main path and place it inside the if statement to avoid
+> the temptation of accessing the adapter pointer in the fast path.
+
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+
+   Two minor nits.
+
+> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+> index 29facb5..6043245 100644
+> --- a/drivers/net/ethernet/intel/igb/igb_main.c
+> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
+[...]
+> @@ -4628,15 +4627,17 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
 >
-> The offset is added after getting the address of the (percpu) base
-> object.
+>   	skb_tx_timestamp(skb);
+>
+> -	if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
+> -		     !(adapter->ptp_tx_skb))) {
+> -		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+> -		tx_flags |= IGB_TX_FLAGS_TSTAMP;
+> +	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
+> +		struct igb_adapter *adapter = netdev_priv(tx_ring->netdev);
 
-There are two offsets being added! percpu_pointer is not a
-pointer but an offset. this_cpu_ptr creates a pointer from the
-percpu base of the current processor by adding the offset of the percpu
-variable. The offset calculation better be in the parenthesis.
+    An empty line wouldn't hurt here.
 
-The method that I proposed is also conforming with the use of other
-this_cpu_ops. F.e. In order to do a read one would need to do
+> +		if (!(adapter->ptp_tx_skb)) {
 
-x = this_cpu_read(percpu_pointer->field)
+    Parens not needed here.
 
-
-
-
-x = this_cpu_read(percpu_pointer)->field
-
-does not work (and does not pass sparse).
+WBR, Sergei
