@@ -1,35 +1,42 @@
-From: Stefan Roese <sr@denx.de>
-Subject: Re: [PATCH 1/5] net: Add EMAC ethernet driver found on Allwinner
- A10 SoC's
-Date: Thu, 04 Apr 2013 17:37:48 +0200
-Message-ID: <515D9E4C.6000409@denx.de>
-References: <1364077814-2233-1-git-send-email-maxime.ripard@free-electrons.com> <1364077814-2233-2-git-send-email-maxime.ripard@free-electrons.com> <201303242003.52827.florian@openwrt.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] bridge: remove a redundant synchronize_net()
+Date: Thu, 04 Apr 2013 08:44:47 -0700
+Message-ID: <1365090287.3308.3.camel@edumazet-glaptop>
+References: <1364917500.5113.176.camel@edumazet-glaptop>
+	 <20130402155822.GB29115@redhat.com>
+	 <20130402.121223.496337697838525487.davem@davemloft.net>
+	 <1364920077.5113.185.camel@edumazet-glaptop>
+	 <20130404153530.GA1688@minipsycho.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	linux-doc@vger.kernel.org, Alejandro Mery <amery@geeks.cl>,
-	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org,
-	Rob Herring <rob.herring@calxeda.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Rob Landley <rob@landley.net>, sunny@allwinnertech.com,
-	shuge@allwinnertech.com, kevin@allwinnertech.com
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <201303242003.52827.florian@openwrt.org>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, vfalico@redhat.com,
+	netdev@vger.kernel.org, stephen@networkplumber.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:38721 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759987Ab3DDPow (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 11:44:52 -0400
+Received: by mail-pb0-f44.google.com with SMTP id wz12so1506239pbc.17
+        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 08:44:51 -0700 (PDT)
+In-Reply-To: <20130404153530.GA1688@minipsycho.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+On Thu, 2013-04-04 at 17:35 +0200, Jiri Pirko wrote:
 
-On 24.03.2013 20:03, Florian Fainelli wrote:
-> Your phylib implementation looks good now, just some minor comments below:
+> It can be converted now to call_rcu. synchronize_rcu is making sure
+> no packet is in flight when changing modes.
 
-Thanks for the review. I'll try to address your new comments in a few
-days (currently swamped).
+What changes exactly ? You don't really answer to my question with this
+very vague sentence.
 
-Thanks,
-Stefan
+Because maybe the synchronize_net() in netdev_rx_handler_unregister()
+is enough and you dont even need the call_rcu(). Thats was my question.
 
+RCU barriers are not magical things we add when we are not exactly sure
+of what is happening.
+
+Like other barriers (wmb(), smb_wmb(), ...) we should document or
+understand why they are needed.
