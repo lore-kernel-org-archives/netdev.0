@@ -1,67 +1,99 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] MPLS: Add limited GSO support
-Date: Thu, 4 Apr 2013 09:17:23 +0900
-Message-ID: <20130404001722.GC29678@verge.net.au>
-References: <1364966697-20131-1-git-send-email-horms@verge.net.au>
- <1365004780.2897.3.camel@bwh-desktop.uk.solarflarecom.com>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: Re: [PATCH v2] MPLS: Add limited GSO support
+Date: Thu, 4 Apr 2013 09:28:09 +0900
+Message-ID: <20130404002809.GF29678@verge.net.au>
+References: <1364980315-13649-1-git-send-email-horms@verge.net.au>
+	<CAEP_g=_Y0hN2DvyO4JitMrpQvN=TmTO5Pk28DpvF6Ya09AeTcg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dev@openvswitch.org, netdev@vger.kernel.org,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:54245 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759285Ab3DDAR1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 20:17:27 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1365004780.2897.3.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CAEP_g=_Y0hN2DvyO4JitMrpQvN=TmTO5Pk28DpvF6Ya09AeTcg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 03, 2013 at 04:59:40PM +0100, Ben Hutchings wrote:
-> I don't know anything about MPLS so this is a pretty superficial review.
+On Wed, Apr 03, 2013 at 04:51:38PM -0700, Jesse Gross wrote:
+> On Wed, Apr 3, 2013 at 2:11 AM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
+> > In the case where a non-MPLS packet is recieved and an MPLS stack is
+> > added it may well be the case that the original skb is GSO but the
+> > NIC used for transmit does not support GSO of MPLS packets.
+> >
+> > The aim of this code is to provide GSO in software for MPLS packets
+> > whose skbs are GSO.
+> >
+> > When an implementation adds an MPLS stack to a non-MPLS packet it should do
+> > the following to skb metadata:
+> >
+> > * Set skb_mac_header(skb)->protocol to the new MPLS ethertype.
+> >   That is, either ETH_P_MPLS_UC or ETH_P_MPLS_MC.
+> >
+> > * Leave skb->protocol as the old non-MPLS ethertype.
+> >
+> > * Set skb->encapsulation = 1.
+> >
+> >   This may not strictly be necessary as I believe that checking
+> >   skb_mac_header(skb)->protocol and skb->protocol should be necessary and
+> >   sufficient.
+> >
+> >   However, it does seem to fit nicely with the current implementation of
+> >   dev_hard_start_xmit() where the more expensive check of
+> >   skb_mac_header(skb)->protocol may be guarded by an existing check of
+> >   skb->encapsulation.
+> >
+> > One aspect of this patch that I am unsure about is the modification I have
+> > made to skb_segment(). This seems to be necessary as checskum accelearation
+> > may no longer be possible as the packet has changed to be MPLS from some
+> > other packet type which may have been supported by the hardware in use.
+> >
+> > I will post a patch, "[PATCH v3.24] datapath: Add basic MPLS support to
+> > kernel" which adds MPLS support to the kernel datapath of Open vSwtich.
+> > That patch sets the above requirements in
+> > datapath/actions.c:set_ethertype() and was used to exercise the MPLS GSO
+> > code. The datapath patch is against the Open vSwtich tree but it is
+> > intended that it be added to the Open vSwtich code present in the mainline
+> > Linux kernel at some point.
+> >
+> > Suggested by Jesse Gross. Based heavily on "v4 GRE: Add TCP segmentation
+> > offload for GRE" by Pravin B Shelar.
+> >
+> > Cc: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+> > Cc: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+> > Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
 > 
-> On Wed, 2013-04-03 at 14:24 +0900, Simon Horman wrote:
-> [...]
-> > --- a/include/linux/netdev_features.h
-> > +++ b/include/linux/netdev_features.h
-> > @@ -43,6 +43,7 @@ enum {
-> >  	NETIF_F_FSO_BIT,		/* ... FCoE segmentation */
-> >  	NETIF_F_GSO_GRE_BIT,		/* ... GRE with TSO */
-> >  	NETIF_F_GSO_UDP_TUNNEL_BIT,	/* ... UDP TUNNEL with TSO */
-> > +	NETIF_F_GSO_MPLS_BIT,		/* ... MPLS segmentation */
-> >  	/**/NETIF_F_GSO_LAST =		/* last bit, see GSO_MASK */
-> >  		NETIF_F_GSO_UDP_TUNNEL_BIT,
-> 
-> You need to change NETIF_F_GSO_LAST as well.
+> MPLS is very similar to both the Ethernet header and vlans in that GSO
+> only requires replication without any modification.  That means that
+> if we look at the mac_len as containing all three then we can just
+> copy it without any special knowledge.  I don't know that we carefully
+> maintain mac_len in all places but you are already doing that in your
+> MPLS patches.
 
-Thanks, I have fixed that in v2.
+At least for the cases that I am aware of I think that mac_len is
+predictable. But I'm a little unsure of what you are getting at here.
 
-> 
-> [...]
-> > --- a/include/linux/skbuff.h
-> > +++ b/include/linux/skbuff.h
-> [...]
-> > @@ -2789,12 +2791,17 @@ static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
-> >  }
-> >  #endif
-> >  
-> > -/* Keeps track of mac header offset relative to skb->head.
-> > - * It is useful for TSO of Tunneling protocol. e.g. GRE.
-> > - * For non-tunnel skb it points to skb_mac_header() and for
-> > - * tunnel skb it points to outer mac header. */
-> >  struct skb_gso_cb {
-> > +	/* Keeps track of mac header offset relative to skb->head.
-> > +	 * It is useful for TSO of Tunneling protocol. e.g. GRE.
-> > +	 * For non-tunnel skb it points to skb_mac_header() and for
-> > +	 * tunnel skb it points to outer mac header. */
-> >  	int mac_offset;
-> > +
-> > +	/* Keeps track of the ethernet type of an encapsualted
-> [...]
-> 
-> Typo: 'encapsualted' should be 'encapsulated'.
+> The other piece at that point is getting the inner protocol.  I'm
+> worried that using skb->protocol for this will break things that try
+> to use it for filtering.  It also means that depending on whether an
+> MPLS packet is locally sourced or not skb->protocol may be different
+> because we won't always be able to find the inner header.  I think
+> this will require a careful definition of that field to make it
+> consistent.
 
-Thanks, I will fix that in v3.
+Yes, I agree. I was hoping that posting the patch to netdev would
+result in some analysis of this.
+
+Another idea I had would be to a new element to struct sk_buff to
+explicitly hold the encapsulated protocol for (cases like) MPLS.
+But it seems that it would be nicer to re-use the protocol element
+if possible.
