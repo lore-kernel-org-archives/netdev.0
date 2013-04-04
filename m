@@ -1,355 +1,274 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP: snd_cwnd is nul, please report this bug.
-Date: Wed, 03 Apr 2013 17:08:12 -0700
-Message-ID: <1365034092.13853.42.camel@edumazet-glaptop>
-References: <20130403035428.GA31709@redhat.com>
-	 <1364965967.5113.195.camel@edumazet-glaptop>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: this cpu documentation
+Date: Thu, 4 Apr 2013 00:09:38 +0000 (UTC)
+Message-ID: <515F679E.8020203@infradead.org>
+References: <1364463761-32510-1-git-send-email-roy.qing.li@gmail.com> <1364475933.15753.36.camel@edumazet-glaptop> <0000013db16f1e1d-abcb7d9e-1c9d-4ef9-b4de-767bc0282ccf-000000@email.amazonses.com> <CAJFZqHzkGcFT_gcqgu=ktuig7UEoR4FVTUZF6G46=6n6FkYZ2A@mail.gmail.com> <0000013dc6307f44-940f2bf1-7556-4d9e-92ab-1a84d2a47ca8-000000@email.amazonses.com> <1364833887.5113.161.camel@edumazet-glaptop> <0000013dd1a20ebf-4a76fb06-4b9d-492e-9d77-4b3f43aceca7-000000@email.amazonses.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Dave Jones <davej@redhat.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	RongQing Li <roy.qing.li@gmail.com>,
+	Shan Wei <davidshan@tencent.com>, netdev@vger.kernel.org,
+	Tejun Heo <htejun@gmail.com>, srostedt@linux.com
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:64212 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760450Ab3DDAIP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 20:08:15 -0400
-Received: by mail-pb0-f54.google.com with SMTP id xa7so1125891pbc.13
-        for <netdev@vger.kernel.org>; Wed, 03 Apr 2013 17:08:15 -0700 (PDT)
-In-Reply-To: <1364965967.5113.195.camel@edumazet-glaptop>
+Received: from casper.infradead.org ([85.118.1.10]:43421 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761871Ab3DDAJg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 20:09:36 -0400
+Date: Fri, 05 Apr 2013 17:09:02 -0700
+In-Reply-To: <0000013dd1a20ebf-4a76fb06-4b9d-492e-9d77-4b3f43aceca7-000000@email.amazonses.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-04-02 at 22:12 -0700, Eric Dumazet wrote:
-> On Tue, 2013-04-02 at 23:54 -0400, Dave Jones wrote:
-> > Just had this warning on 3.9-rc5
-> > 
-> > Not sure what else to report.  Nothing really odd going on,
-> > just some ssh traffic and firefox over wifi (iwlwifi)
-> > 
-> > anything else I can provide ?
+On 04/03/13 13:41, Christoph Lameter wrote:
 > 
-> Thanks for the report.
+> From: Christoph Lameter <cl@linux.com>
+> Subject: this_cpu: Add documentation
 > 
-> I guess we'll need to resurrect a patch I did to track the (buggy)
-> setting to 0.
+> Document the rationale and the way to use this_cpu operations.
+> 
+> Signed-off-by: Christoph Lameter <cl@linux.com>
+> 
+> Index: linux/Documentation/this_cpu_ops
+> ===================================================================
+> --- /dev/null	1970-01-01 00:00:00.000000000 +0000
+> +++ linux/Documentation/this_cpu_ops	2013-04-03 15:25:41.424846306 -0500
+> @@ -0,0 +1,194 @@
+> +this_cpu operations
+> +-------------------
+> +
+> +this_cpu operations are a way of optimizing access to per cpu variables
+> +associated with the *currently* executing processor
+> +through the use of segment registers (or a dedicated register where the cpu
+> +permanently stored the beginning of the per cpu area for a specific
+> +processor).
+> +
+> +The this_cpu operations add an per cpu variable offset to the processor
 
-Any chance you can use David net-next tree + following patch ?
+                           add a per
 
-(it also applies to Linus tree with some fuzz)
+> +specific percpu base and encode that operation in the instruction operating
+> +on the per cpu variable.
+> +
+> +This mean there are no atomicity issues between the calculation
 
-Thanks !
+        means
 
- include/net/tcp.h       |    8 ++++++++
- net/ipv4/tcp.c          |   27 +++++++++++++++++++++++++++
- net/ipv4/tcp_cong.c     |    2 +-
- net/ipv4/tcp_hybla.c    |    6 +++---
- net/ipv4/tcp_illinois.c |    5 +++--
- net/ipv4/tcp_input.c    |   24 +++++++++++++-----------
- net/ipv4/tcp_lp.c       |    2 +-
- net/ipv4/tcp_metrics.c  |    2 +-
- net/ipv4/tcp_output.c   |    2 +-
- net/ipv4/tcp_vegas.c    |    5 +++--
- net/ipv4/tcp_veno.c     |    2 +-
- net/ipv4/tcp_westwood.c |    3 ++-
- net/ipv4/tcp_yeah.c     |    6 ++----
- 13 files changed, 66 insertions(+), 28 deletions(-)
+> +of the offset and the operation on the data. Therefore it is not necessary
+> +to disable preempt or interrupts to ensure that the processor is not changed
+> +between the calculation of the address and the operation on the data.
+> +
+> +Read-modify-write operations are of particular interest. Frequently
+> +processors have special lower latency instructions that can operate without
+> +the typical synchronization overhead but still provide some sort of relaxed
+> +atomicity guarantee. The x86 for example can execute RMV instructions like
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 4475aaf..e2e89aa 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -609,6 +609,14 @@ static inline u32 __tcp_set_rto(const struct tcp_sock *tp)
- 
- extern void tcp_set_rto(struct sock *sk);
- 
-+extern void tcp_snd_cwnd_bad(const struct tcp_sock *tp);
-+static inline void tcp_snd_cwnd_set(struct tcp_sock *tp, u32 newval)
-+{
-+	if (unlikely(!newval))
-+		tcp_snd_cwnd_bad(tp);
-+	tp->snd_cwnd = newval;
-+}
-+
- static inline void __tcp_fast_path_on(struct tcp_sock *tp, u32 snd_wnd)
- {
- 	tp->pred_flags = htonl((tp->tcp_header_len << 26) |
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index a96f7b5..4347e22 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -3300,6 +3300,33 @@ void tcp_done(struct sock *sk)
- }
- EXPORT_SYMBOL_GPL(tcp_done);
- 
-+void tcp_snd_cwnd_bad(const struct tcp_sock *tp)
-+{
-+	static bool warned = false;
-+
-+	if (!warned) {
-+		const struct sock *sk = (struct sock *)tp;
-+		const struct inet_sock *inet = inet_sk(sk);
-+
-+		warned = true;
-+		if (sk->sk_family == AF_INET)
-+			pr_err("TCP: zero snd_cwnd src:%pI4.%u dst:%pI4.%u\n",
-+			       &inet->inet_saddr, ntohs(inet->inet_sport),
-+			       &inet->inet_daddr, ntohs(inet->inet_dport));
-+#if IS_ENABLED(CONFIG_IPV6)
-+		else if (sk->sk_family == AF_INET6) {
-+			const struct ipv6_pinfo *np = inet6_sk(sk);
-+
-+			pr_err("TCP: zero snd_cwnd src:%pI6.%u dst:%pI6.%u\n",
-+			       &np->saddr, ntohs(inet->inet_sport),
-+			       &np->daddr, ntohs(inet->inet_dport));
-+		}
-+#endif
-+		WARN_ON_ONCE(1);
-+	}
-+}
-+EXPORT_SYMBOL(tcp_snd_cwnd_bad);
-+
- extern struct tcp_congestion_ops tcp_reno;
- 
- static __initdata unsigned long thash_entries;
-diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index 019c238..6ddd167 100644
---- a/net/ipv4/tcp_cong.c
-+++ b/net/ipv4/tcp_cong.c
-@@ -327,7 +327,7 @@ void tcp_slow_start(struct tcp_sock *tp)
- 		tp->snd_cwnd_cnt -= snd_cwnd;
- 		delta++;
- 	}
--	tp->snd_cwnd = min(snd_cwnd + delta, tp->snd_cwnd_clamp);
-+	tcp_snd_cwnd_set(tp, min(snd_cwnd + delta, tp->snd_cwnd_clamp));
- }
- EXPORT_SYMBOL_GPL(tcp_slow_start);
- 
-diff --git a/net/ipv4/tcp_hybla.c b/net/ipv4/tcp_hybla.c
-index 57bdd17..d236b70 100644
---- a/net/ipv4/tcp_hybla.c
-+++ b/net/ipv4/tcp_hybla.c
-@@ -60,7 +60,7 @@ static void hybla_init(struct sock *sk)
- 
- 	/* set minimum rtt as this is the 1st ever seen */
- 	ca->minrtt = tp->srtt;
--	tp->snd_cwnd = ca->rho;
-+	tcp_snd_cwnd_set(tp, ca->rho);
- }
- 
- static void hybla_state(struct sock *sk, u8 ca_state)
-@@ -157,9 +157,9 @@ static void hybla_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
- 	}
- 	/* clamp down slowstart cwnd to ssthresh value. */
- 	if (is_slowstart)
--		tp->snd_cwnd = min(tp->snd_cwnd, tp->snd_ssthresh);
-+		tcp_snd_cwnd_set(tp, min(tp->snd_cwnd, tp->snd_ssthresh));
- 
--	tp->snd_cwnd = min_t(u32, tp->snd_cwnd, tp->snd_cwnd_clamp);
-+	tcp_snd_cwnd_set(tp, min_t(u32, tp->snd_cwnd, tp->snd_cwnd_clamp));
- }
- 
- static struct tcp_congestion_ops tcp_hybla __read_mostly = {
-diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
-index 834857f..71135e3 100644
---- a/net/ipv4/tcp_illinois.c
-+++ b/net/ipv4/tcp_illinois.c
-@@ -284,8 +284,9 @@ static void tcp_illinois_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
- 		*/
- 		delta = (tp->snd_cwnd_cnt * ca->alpha) >> ALPHA_SHIFT;
- 		if (delta >= tp->snd_cwnd) {
--			tp->snd_cwnd = min(tp->snd_cwnd + delta / tp->snd_cwnd,
--					   (u32) tp->snd_cwnd_clamp);
-+			tcp_snd_cwnd_set(tp,
-+					 min(tp->snd_cwnd + delta / tp->snd_cwnd,
-+					     (u32) tp->snd_cwnd_clamp));
- 			tp->snd_cwnd_cnt = 0;
- 		}
- 	}
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 6d9ca35..b972577 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2259,8 +2259,8 @@ static void tcp_update_scoreboard(struct sock *sk, int fast_rexmit)
-  */
- static inline void tcp_moderate_cwnd(struct tcp_sock *tp)
- {
--	tp->snd_cwnd = min(tp->snd_cwnd,
--			   tcp_packets_in_flight(tp) + tcp_max_burst(tp));
-+	tcp_snd_cwnd_set(tp, min(tp->snd_cwnd,
-+				 tcp_packets_in_flight(tp) + tcp_max_burst(tp)));
- 	tp->snd_cwnd_stamp = tcp_time_stamp;
- }
- 
-@@ -2312,18 +2312,20 @@ static void tcp_undo_cwr(struct sock *sk, const bool undo_ssthresh)
- 
- 	if (tp->prior_ssthresh) {
- 		const struct inet_connection_sock *icsk = inet_csk(sk);
-+		u32 newval;
- 
- 		if (icsk->icsk_ca_ops->undo_cwnd)
--			tp->snd_cwnd = icsk->icsk_ca_ops->undo_cwnd(sk);
-+			newval = icsk->icsk_ca_ops->undo_cwnd(sk);
- 		else
--			tp->snd_cwnd = max(tp->snd_cwnd, tp->snd_ssthresh << 1);
-+			newval = max(tp->snd_cwnd, tp->snd_ssthresh << 1);
-+		tcp_snd_cwnd_set(tp, newval);
- 
- 		if (undo_ssthresh && tp->prior_ssthresh > tp->snd_ssthresh) {
- 			tp->snd_ssthresh = tp->prior_ssthresh;
- 			TCP_ECN_withdraw_cwr(tp);
- 		}
- 	} else {
--		tp->snd_cwnd = max(tp->snd_cwnd, tp->snd_ssthresh);
-+		tcp_snd_cwnd_set(tp, max(tp->snd_cwnd, tp->snd_ssthresh));
- 	}
- 	tp->snd_cwnd_stamp = tcp_time_stamp;
- }
-@@ -2512,7 +2514,7 @@ static void tcp_cwnd_reduction(struct sock *sk, int newly_acked_sacked,
- 	}
- 
- 	sndcnt = max(sndcnt, (fast_rexmit ? 1 : 0));
--	tp->snd_cwnd = tcp_packets_in_flight(tp) + sndcnt;
-+	tcp_snd_cwnd_set(tp, tcp_packets_in_flight(tp) + sndcnt);
- }
- 
- static inline void tcp_end_cwnd_reduction(struct sock *sk)
-@@ -2522,7 +2524,7 @@ static inline void tcp_end_cwnd_reduction(struct sock *sk)
- 	/* Reset cwnd to ssthresh in CWR or Recovery (unless it's undone) */
- 	if (inet_csk(sk)->icsk_ca_state == TCP_CA_CWR ||
- 	    (tp->undo_marker && tp->snd_ssthresh < TCP_INFINITE_SSTHRESH)) {
--		tp->snd_cwnd = tp->snd_ssthresh;
-+		tcp_snd_cwnd_set(tp, tp->snd_ssthresh);
- 		tp->snd_cwnd_stamp = tcp_time_stamp;
- 	}
- 	tcp_ca_event(sk, CA_EVENT_COMPLETE_CWR);
-@@ -2591,9 +2593,9 @@ static void tcp_mtup_probe_success(struct sock *sk)
- 
- 	/* FIXME: breaks with very large cwnd */
- 	tp->prior_ssthresh = tcp_current_ssthresh(sk);
--	tp->snd_cwnd = tp->snd_cwnd *
--		       tcp_mss_to_mtu(sk, tp->mss_cache) /
--		       icsk->icsk_mtup.probe_size;
-+	tcp_snd_cwnd_set(tp, tp->snd_cwnd *
-+			     tcp_mss_to_mtu(sk, tp->mss_cache) /
-+			     icsk->icsk_mtup.probe_size);
- 	tp->snd_cwnd_cnt = 0;
- 	tp->snd_cwnd_stamp = tcp_time_stamp;
- 	tp->snd_ssthresh = tcp_current_ssthresh(sk);
-@@ -4665,7 +4667,7 @@ void tcp_cwnd_application_limited(struct sock *sk)
- 		u32 win_used = max(tp->snd_cwnd_used, init_win);
- 		if (win_used < tp->snd_cwnd) {
- 			tp->snd_ssthresh = tcp_current_ssthresh(sk);
--			tp->snd_cwnd = (tp->snd_cwnd + win_used) >> 1;
-+			tcp_snd_cwnd_set(tp, (tp->snd_cwnd + win_used) >> 1);
- 		}
- 		tp->snd_cwnd_used = 0;
- 	}
-diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
-index 72f7218..09bf418 100644
---- a/net/ipv4/tcp_lp.c
-+++ b/net/ipv4/tcp_lp.c
-@@ -307,7 +307,7 @@ static void tcp_lp_pkts_acked(struct sock *sk, u32 num_acked, s32 rtt_us)
- 	/* happened after inference
- 	 * cut snd_cwnd into half */
- 	else
--		tp->snd_cwnd = max(tp->snd_cwnd >> 1U, 1U);
-+		tcp_snd_cwnd_set(tp, max(tp->snd_cwnd >> 1U, 1U));
- 
- 	/* record this drop time */
- 	lp->last_drop = tcp_time_stamp;
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index f696d7c..d5a6608 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -526,7 +526,7 @@ reset:
- 	if (tp->total_retrans > 1)
- 		tp->snd_cwnd = 1;
- 	else
--		tp->snd_cwnd = tcp_init_cwnd(tp, dst);
-+		tcp_snd_cwnd_set(tp, tcp_init_cwnd(tp, dst));
- 	tp->snd_cwnd_stamp = tcp_time_stamp;
- }
- 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index af354c98..2b80083 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -148,7 +148,7 @@ static void tcp_cwnd_restart(struct sock *sk, const struct dst_entry *dst)
- 
- 	while ((delta -= inet_csk(sk)->icsk_rto) > 0 && cwnd > restart_cwnd)
- 		cwnd >>= 1;
--	tp->snd_cwnd = max(cwnd, restart_cwnd);
-+	tcp_snd_cwnd_set(tp, max(cwnd, restart_cwnd));
- 	tp->snd_cwnd_stamp = tcp_time_stamp;
- 	tp->snd_cwnd_used = 0;
- }
-diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
-index 80fa2bf..a270cf9 100644
---- a/net/ipv4/tcp_vegas.c
-+++ b/net/ipv4/tcp_vegas.c
-@@ -238,7 +238,8 @@ static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
- 				 * truncation robs us of full link
- 				 * utilization.
- 				 */
--				tp->snd_cwnd = min(tp->snd_cwnd, (u32)target_cwnd+1);
-+				tcp_snd_cwnd_set(tp, min(tp->snd_cwnd,
-+							 (u32)target_cwnd + 1));
- 				tp->snd_ssthresh = tcp_vegas_ssthresh(tp);
- 
- 			} else if (tp->snd_cwnd <= tp->snd_ssthresh) {
-@@ -272,7 +273,7 @@ static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
- 			if (tp->snd_cwnd < 2)
- 				tp->snd_cwnd = 2;
- 			else if (tp->snd_cwnd > tp->snd_cwnd_clamp)
--				tp->snd_cwnd = tp->snd_cwnd_clamp;
-+				tcp_snd_cwnd_set(tp, tp->snd_cwnd_clamp);
- 
- 			tp->snd_ssthresh = tcp_current_ssthresh(sk);
- 		}
-diff --git a/net/ipv4/tcp_veno.c b/net/ipv4/tcp_veno.c
-index ac43cd7..d1fa5c1 100644
---- a/net/ipv4/tcp_veno.c
-+++ b/net/ipv4/tcp_veno.c
-@@ -180,7 +180,7 @@ static void tcp_veno_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
- 		if (tp->snd_cwnd < 2)
- 			tp->snd_cwnd = 2;
- 		else if (tp->snd_cwnd > tp->snd_cwnd_clamp)
--			tp->snd_cwnd = tp->snd_cwnd_clamp;
-+			tcp_snd_cwnd_set(tp, tp->snd_cwnd_clamp);
- 	}
- 	/* Wipe the slate clean for the next rtt. */
- 	/* veno->cntrtt = 0; */
-diff --git a/net/ipv4/tcp_westwood.c b/net/ipv4/tcp_westwood.c
-index 76a1e23..060fbb5 100644
---- a/net/ipv4/tcp_westwood.c
-+++ b/net/ipv4/tcp_westwood.c
-@@ -233,7 +233,8 @@ static void tcp_westwood_event(struct sock *sk, enum tcp_ca_event event)
- 		break;
- 
- 	case CA_EVENT_COMPLETE_CWR:
--		tp->snd_cwnd = tp->snd_ssthresh = tcp_westwood_bw_rttmin(sk);
-+		tp->snd_ssthresh = tcp_westwood_bw_rttmin(sk);
-+		tcp_snd_cwnd_set(tp, tp->snd_ssthresh);
- 		break;
- 
- 	case CA_EVENT_LOSS:
-diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
-index 05c3b6f..3ad1dbb 100644
---- a/net/ipv4/tcp_yeah.c
-+++ b/net/ipv4/tcp_yeah.c
-@@ -161,11 +161,9 @@ static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
- 				    tp->snd_cwnd > yeah->reno_count) {
- 					u32 reduction = min(queue / TCP_YEAH_GAMMA ,
- 							    tp->snd_cwnd >> TCP_YEAH_EPSILON);
-+					u32 tmp = tp->snd_cwnd - reduction;
- 
--					tp->snd_cwnd -= reduction;
--
--					tp->snd_cwnd = max(tp->snd_cwnd,
--							   yeah->reno_count);
-+					tcp_snd_cwnd_set(tp, max(tmp, yeah->reno_count));
- 
- 					tp->snd_ssthresh = tp->snd_cwnd;
- 				}
+                                                        RMW ??
+
+> +inc/dec/cmpxchg without the lock prefix and the associated latency penalty.
+> +
+> +Access to the variable without the lock prefix is not synchronized but
+> +synchronization is not necessary since we are dealing with per cpu data
+> +specific to the currently executing processor. Only the current processor
+> +should be accessing that variable and therefore there are no concurency
+
+                                                                concurrency
+
+> +issues with other processors in the system.
+> +
+> +On x86 the fs: or the gs: segment registers contain the basis of the per cpu area. It is
+
+                                                           base
+
+> +then possible to simply use the segment override to relocate a per cpu relative address
+> +to the proper per cpu area for the processor. So the relocation to the per cpu base
+> +is encoded in the instruction via a segment register prefix.
+> +
+> +For example:
+> +
+> +	DEFINE_PER_CPU(int, x);
+> +	int z;
+> +
+> +	z = this_cpu_read(x);
+> +
+> +results in a single instruction
+> +
+> +	mov ax, gs:[x]
+> +
+> +instead of a sequence of calculation of the address and then a fetch from
+> +that address which occurs with the percpu operations. Before this_cpu_ops
+> +such sequence also required preempt disable/enable to prevent the Os from
+
+                                                                     OS or O/S or kernel
+
+> +moving the thread to a different processor while the calculation is performed.
+> +
+> +
+> +The main use of the this_cpu operations has been to optimize counter operations.
+> +
+> +
+> +	this_cpu_inc(x)
+> +
+> +results in the following single instruction (no lock prefix!)
+> +
+> +	inc gs:[x]
+> +
+> +
+> +instead of the following operations required if there is no segment register.
+> +
+> +	int *y;
+> +	int cpu;
+> +
+> +	cpu = get_cpu();
+> +	y = per_cpu_ptr(&x, cpu);
+> +	(*y)++;
+> +	put_cpu();
+> +
+> +
+> +Note that these operations can only be used on percpu data that is reserved for
+> +a specific processor. Without disabling preemption in the surrounding code
+> +this_cpu_inc() will only guarantee that one of the percpu counters is correctly
+> +incremented. However, there is no guarantee that the OS will not move the process
+> +directly before or after the this_cpu instruction is executed. In general this
+> +means that the value of the individual counters for each processor are
+> +meaningless. The sum of all the per cpu counters is the only value that is of
+> +interest.
+> +
+> +Per cpu variables are used for performance reasons. Bouncing cache lines can
+> +be avoided if multiple processors concurrently go through the same code paths.
+> +Since each processor has its own per cpu variables no concurrent cacheline
+> +updates take place. The price that has to be paid for this optimization is
+> +the need to add up the per cpu counters when the value of the counter is
+> +needed.
+> +
+> +
+> +Special operations:
+> +-------------------
+> +
+> +	y = this_cpu_ptr(&x)
+> +
+> +Takes the offset of a per cpu variable (&x !) and returns the address of the
+> +per cpu variable that belongs to the currently executing processor.
+> +this_cpu_ptr avoids multiple steps that the common get_cpu/put_cpu sequence
+> +requires. No processor number is available. Instead the offset of the local\
+
+drop ending backslash
+
+> +per cpu area is simply added to the percpu offset.
+> +
+> +
+> +
+> +Per cpu variables and offsets
+> +-----------------------------
+> +
+> +Per cpu variables have *offsets* to the beginning of the percpu area. They do
+> +not have addresses although they look like that in the code. Offsets
+> +cannot be directly dereferenced. The offset must be added to a base pointer of
+> +a percpu area of a processor in order to form a valid address.
+> +
+> +Therefore the use of x or &x outside of the context of per cpu operations
+> +is invalid and will generally be treated like a NULL pointer dereference.
+> +
+> +In the context of per cpu operations
+> +
+> +	x is a per cpu variable. Most this_cpu operations take a cpu variable.
+> +
+> +	&x is the *offset* a per cpu variable. this_cpu_ptr() takes the offset
+> +		of a per cpu variable which makes this look a bit strange.
+> +
+> +
+> +
+> +Operations on a field of a per cpu structure
+> +--------------------------------------------
+> +
+> +Lets say we have a percpu structure
+
+   Let's
+
+> +
+> +	struct s {
+> +		int n,m;
+> +	};
+> +
+> +	DEFINE_PER_CPU(struct s, p);
+> +
+> +
+> +Operations on these fields are straightforward
+> +
+> +	this_cpu_inc(p.m)
+> +
+> +	z = this_cpu_cmpxchg(p.m, 0, 1);
+> +
+> +
+> +If we have an offset to struct s:
+> +
+> +	struct s __percpu *ps = &p;
+> +
+> +	z = this_cpu_dec(ps->m);
+> +
+> +	z = this_cpu_inc_return(ps->n);
+> +
+> +
+> +The calculation of the pointer may require the use of this_cpu_ptr() if we
+> +do not make use of this_cpu ops later to manipulate fields:
+> +
+> +	struct s *pp;
+> +
+> +	pp = this_cpu_ptr(&p);
+> +
+> +	pp->m--
+
+	add    ;
+
+> +
+> +	z = pp->n++
+
+	add        ;
+
+> +
+> +
+> +Variants of this_cpu ops
+> +-------------------------
+> +
+> +this_cpu ops are interupt safe. Some architecture do not support these per
+
+                    interrupt
+
+> +cpu local operations. In that case the operation must be replaced by code
+> +that disables interrupts, then does the operations that are guaranteed to be
+> +atomic and then reenable interrupts. Doing so is expensive. If there are
+> +other reasons why the scheduler cannot change the processor we are executing
+> +on then there is no reason to disable interrupts. For that purpose
+> +the __this_cpu operations are provided. F.e.
+
+                                           E.g. or For example:
+
+
+> +
+> +	__this_cpu_inc(x)
+> +
+> +Will increment x and will not fallback to code that disables interrupts on
+> +platforms that cannot accomplish atomicity through address relocation and
+> +an RMV operation in the same instruction.
+
+      RMW ?
+
+> +
+> +
+> +
+> +&this_cpu_ptr(pp)->n vs this_cpu_ptr(&pp->n)
+> +--------------------------------------------
+> +
+> +The first operation takes the offset and forms an address and then adds
+> +the offset of the n field.
+> +
+> +The second one first adds the two offsets and then does the relocation.
+> +IMHO the second form looks cleaner and has an easier time with ().
+> +
+> +
+> +Christoph Lameter, April 3rd, 2013
+
+
+-- 
+~Randy
