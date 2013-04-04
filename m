@@ -1,83 +1,149 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: [net-next] stmmac: modified pcs mode support for SGMII
-Date: Thu, 04 Apr 2013 14:57:01 +0900
-Message-ID: <00b401ce30f9$3a628c50$af27a4f0$%an@samsung.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [net-next.git 2/7] stmmac: review barriers
+Date: Thu, 04 Apr 2013 08:06:27 +0200
+Message-ID: <515D1863.2070801@st.com>
+References: <1364967689-11155-1-git-send-email-peppe.cavallaro@st.com> <1364967689-11155-2-git-send-email-peppe.cavallaro@st.com> <20130403085106.GA2039@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ks_c_5601-1987
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: 'Giuseppe CAVALLARO' <peppe.cavallaro@st.com>,
-	=?ks_c_5601-1987?B?J7HosbnB+Cc=?= <kgene.kim@samsung.com>,
-	cpgs@samsung.com
-To: netdev@vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Deepak Sikri <deepak.sikri@st.com>,
+	sergei.shtylyov@cogentembedded.com
+To: Shiraz HASHIM <shiraz.hashim@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.samsung.com ([203.254.224.33]:64524 "EHLO
-	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755433Ab3DDF5L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 01:57:11 -0400
-Received: from epcpsbgr1.samsung.com
- (u141.gpu120.samsung.co.kr [203.254.230.141])
- by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MKP00EV8V74CWK0@mailout3.samsung.com> for
- netdev@vger.kernel.org; Thu, 04 Apr 2013 14:57:04 +0900 (KST)
-Content-language: ko
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:51829 "EHLO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756257Ab3DDGGl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 02:06:41 -0400
+In-Reply-To: <20130403085106.GA2039@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch modifies the pcs mode support for SGMII. Even though
-SGMII does auto-negotiation with phy, it needs stmmac_init_phy and
-stmmac_mdio_register function for initializing phy.
+Ciao Shiraz!
 
-Signed-off-by: Byungho An <bh74.an@samsung.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+On 4/3/2013 10:51 AM, Shiraz HASHIM wrote:
+> Hi Giuseppe,
+>
+> On Wed, Apr 03, 2013 at 01:41:24PM +0800, Giuseppe CAVALLARO wrote:
+>> In all my tests performed on SH4 and ARM A9 platforms, I've never met problems
+>> that can be fixed by using memory barriers. In the past there was some issues
+>> on SMP ARM but fixed by reviewing xmit spinlock.
+>
+> The problem which was addressed was not because of SMP IMO. It was
+> rather due to the fact that the write to the GMAC descriptor (which
+> happens to be in normal memory) has to be ordered with respect to GMAC
+> DMA as observer. Isn't it ?
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 6b26d31..3ac9bd7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1504,7 +1504,8 @@ static int stmmac_open(struct net_device *dev)
+Hmm yes you are right, now I remember that this was a code reordering
+issue especially when we had looked at the commit:
 
-        stmmac_check_ether_addr(priv);
+stmmac: add memory barriers at appropriate places
+  eb0dc4bb2e22c04964d
 
--       if (!priv->pcs) {
-+       if (priv->pcs != STMMAC_PCS_RGMII && priv->pcs != STMMAC_PCS_TBI &&
-+           priv->pcs != STMMAC_PCS_RTBI) {
-                ret = stmmac_init_phy(dev);
-                if (ret) {
-                        pr_err("%s: Cannot attach to PHY (error: %d)\n",
-@@ -1607,7 +1608,8 @@ static int stmmac_open(struct net_device *dev)
-        /* Using PCS we cannot dial with the phy registers at this stage
-         * so we do not support extra feature like EEE.
-         */
--       if (!priv->pcs)
-+       if (priv->pcs != STMMAC_PCS_RGMII && priv->pcs != STMMAC_PCS_TBI &&
-+           priv->pcs != STMMAC_PCS_RTBI)
-                priv->eee_enabled = stmmac_eee_init(priv);
+>> Further barriers have been added in the commits too: 8e83989106562326bf
+>>
+>> This patch is to use the smp_wbm instead of wbm because the driver
+>                             ^^^^^^^^^^^^^^^^^^^^^^
+> Perhaps you meant smp_wmb and wmb
 
-        stmmac_init_tx_coalesce(priv);
-@@ -2637,7 +2639,8 @@ struct stmmac_priv *stmmac_dvr_probe(struct device
-*device,
+sure.
 
-        stmmac_check_pcs_mode(priv);
+from the commit:
+stmmac: Fix for nfs hang on multiple reboot
+    8e83989106562326bf
 
--       if (!priv->pcs) {
-+       if (priv->pcs != STMMAC_PCS_RGMII && priv->pcs != STMMAC_PCS_TBI &&
-+           priv->pcs != STMMAC_PCS_RTBI) {
-                /* MDIO bus Registration */
-                ret = stmmac_mdio_register(ndev);
-                if (ret < 0) {
-@@ -2677,7 +2680,8 @@ int stmmac_dvr_remove(struct net_device *ndev)
-        priv->hw->dma->stop_tx(priv->ioaddr);
+I had not understand if the problem was related to the SMP or to the
+code ordering.
+>
+>> runs on UP systems. Then, IMO it could make sense to only maintain the barriers
+>> just in places where we touch the dma owner bits (that is the
+>> only real critical path as we had seen and fixed in the commit:
+>> eb0dc4bb2e22c04964d).
+>
+> Replacing wmb by smp_wmb may not be a good idea as we need to order
+> the store transaction to the descriptor with respect to GMAC DMA and
+> using smp_* version would just be compiler barrier in uniprocessor
+> systems.
 
-        stmmac_set_mac(priv->ioaddr, false);
--       if (!priv->pcs)
-+       if (priv->pcs != STMMAC_PCS_RGMII && priv->pcs != STMMAC_PCS_TBI &&
-+           priv->pcs != STMMAC_PCS_RTBI)
-                stmmac_mdio_unregister(ndev);
-        netif_carrier_off(ndev);
-        unregister_netdev(ndev);
---
-1.7.10.4
+Yes this what I wanted although the main point remains pending.
+On my side, on SH4 (UP) and ARM (SMP) with several different
+compiler and flags I have never seen problems and no barriers
+are needed.
+
+Especially in the commit "stmmac: Fix for nfs hang on multiple reboot"
+the description of the problem looks to be quite obscure and I cannot
+find any "particular" relation with extra barrier.
+
+In fact, if we can demonstrate that barriers are needed no problem to
+keep them in the code. Otherwise I prefer to remove them.
+
+What do you think?
+
+Cheers
+peppe
+
+>> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+>> Cc: Deepak Sikri <deepak.sikri@st.com>
+>> Cc: Shiraz Hashim <shiraz.hashim@st.com>
+>> ---
+>>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    9 +++------
+>>   1 files changed, 3 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> index 8b69e3b..c92dcbc 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> @@ -1797,15 +1797,13 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+>>   		priv->tx_skbuff[entry] = NULL;
+>>   		priv->hw->desc->prepare_tx_desc(desc, 0, len, csum_insertion,
+>>   						priv->mode);
+>> -		wmb();
+>> +		smp_wmb();
+>>   		priv->hw->desc->set_tx_owner(desc);
+>> -		wmb();
+>
+> Since it is a loop, shouldn't we ensure that the ownership of a tx
+> descriptor is set before next descriptor in chain is programmed ?
+>
+>>   	}
+>>
+>>   	/* Finalize the latest segment. */
+>>   	priv->hw->desc->close_tx_desc(desc);
+>>
+>> -	wmb();
+>>   	/* According to the coalesce parameter the IC bit for the latest
+>>   	 * segment could be reset and the timer re-started to invoke the
+>>   	 * stmmac_tx function. This approach takes care about the fragments.
+>> @@ -1821,9 +1819,9 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+>>   	} else
+>>   		priv->tx_count_frames = 0;
+>>
+>> +	smp_wmb();
+>
+> Please reconsider, may be keeping wmb is better.
+>
+>>   	/* To avoid raise condition */
+>>   	priv->hw->desc->set_tx_owner(first);
+>> -	wmb();
+>
+> Not sure about this, perhaps can be removed.
+>
+>>
+>>   	priv->cur_tx++;
+>>
+>> @@ -1899,9 +1897,8 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
+>>
+>>   			RX_DBG(KERN_INFO "\trefill entry #%d\n", entry);
+>>   		}
+>> -		wmb();
+>> +		smp_wmb();
+>>   		priv->hw->desc->set_rx_owner(p);
+>> -		wmb();
+>
+> Similarly this is a part of a loop, we need to see if set rx owner
+> should be reflected before next descriptor program.
+>
+> --
+> regards
+> Shiraz
+>
