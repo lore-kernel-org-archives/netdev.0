@@ -1,45 +1,59 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [Patch net-next] tcp: add a global sysctl to control TCP delayed ack
-Date: Fri, 5 Apr 2013 00:48:10 +0200
-Message-ID: <20130404224810.GE23056@order.stressinduktion.org>
-References: <1365070560-11544-1-git-send-email-amwang@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Fwd: New on this
+Date: Fri, 5 Apr 2013 00:06:24 +0100
+Message-ID: <1365116784.2735.3.camel@bwh-desktop.uk.solarflarecom.com>
+References: <CA+nFU8RrfrYDwvRUCyjvu3BmxZFA98dozfHSn-hTPoMF4dOUBA@mail.gmail.com>
+	 <CA+nFU8SrVn3+3aGzsmAy3xexiCQEMHS9a3AKc4p7H79toz9W7Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	David Laight <David.Laight@ACULAB.COM>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <linux-hams@vger.kernel.org>
+To: Marc =?ISO-8859-1?Q?Mar=ED?= <5.markmb.5@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:51953 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1765161Ab3DDWsL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 18:48:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1365070560-11544-1-git-send-email-amwang@redhat.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:22282 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764718Ab3DDXGa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 19:06:30 -0400
+In-Reply-To: <CA+nFU8SrVn3+3aGzsmAy3xexiCQEMHS9a3AKc4p7H79toz9W7Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 04, 2013 at 06:16:00PM +0800, Cong Wang wrote:
-> From: Cong Wang <amwang@redhat.com>
-> 
-> Change from RFC:
-> * make the sysctl per netns
-> 
-> According to previous discussion, it seems there is no
-> reasonable heuristics.
-> 
-> Similar to TCP_QUICK_ACK option, but for people who can't
-> modify the source code and still wants to control
-> TCP delayed ACK behavior.
-> 
-> David, do you still have any objection?
+On Thu, 2013-04-04 at 21:57 +0200, Marc Mar=C3=AD wrote:
+> Some friends and I are trying to develop an application using AX.25
+> encoding, but not in standard situation.
 
-I totally understand the objections that were given regarding this
-patch. But for defense of this patch we also provide a knob to disable
-slow start after idle, which from my point of view is as "evil" as
-this change.
+The linux-hams@vger.kernel.org list is probably a better place to
+discuss this.
 
-Btw I think we should make tcp_slow_start_after_idle namespace aware, too.
+Ben.
+
+> It is intended to not use a TNC, and do everything by software, excep=
+t
+> the transceiver itself, and by now, the transceiver can send data (no=
+t
+> AX.25, but plain data)
+>=20
+> So now, we want to implement AX.25, so we can communicate with a
+> reciver which uses a TNC31. We've been looking a lot of documentation=
+,
+> but we have not been able to determine what part of all the package
+> work will have to be done by hand.
+>=20
+> We didn't configure AX25 yet, but we have the thought that what AX25
+> will return will be the data with the headers and CRC encapsulated in
+> KISS. Is that true?
+>=20
+> So, we will have to do by hand the data whitening and scrambling
+> needed for the TNC?
+>=20
+> Do you know any way to simplify all the process for a all-software tr=
+ansmission?
+>=20
+> We are all a bit lost, and a bit of help would be very appreciated
+>=20
+> Thank you in advance!
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
