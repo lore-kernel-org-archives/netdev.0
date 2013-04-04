@@ -1,60 +1,48 @@
-From: Devendra Naga <devendra.aaru@gmail.com>
-Subject: [PATCH] bridge-utils: fix AF_LOCAL socket leaks
-Date: Thu,  4 Apr 2013 17:06:26 +0530
-Message-ID: <1365075386-2363-1-git-send-email-devendra.aaru@gmail.com>
-Cc: Devendra Naga <devendra.aaru@gmail.com>
-To: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/13] ixgbe: Mask off check of frag_off as we only want fragment offset
+Date: Thu,  4 Apr 2013 04:37:48 -0700
+Message-ID: <1365075480-20183-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1365075480-20183-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:49579 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758670Ab3DDLgh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 07:36:37 -0400
-Received: by mail-pb0-f43.google.com with SMTP id md4so1399548pbc.16
-        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 04:36:37 -0700 (PDT)
+Received: from mga02.intel.com ([134.134.136.20]:25690 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757852Ab3DDLiV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Apr 2013 07:38:21 -0400
+In-Reply-To: <1365075480-20183-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-valgrind reported the following leak on fc18 system:
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-valgrind -v --leak-check=full --track-fds=yes ./brctl show
+We were incorrectly checking the entire frag_off field when we only wanted the
+fragment offset.  As a result we were not pulling in TCP headers when the DNF
+flag was set.
 
-==27307==
-==27307== FILE DESCRIPTORS: 4 open at exit.
-==27307== Open AF_UNIX socket 3: <unknown>
-==27307==    at 0x397B2F3617: socket (in /usr/lib64/libc-2.16.so)
-==27307==    by 0x403CF7: br_init (libbridge_init.c:35)
-==27307==    by 0x4010BF: main (brctl.c:63)
+To correct that we will now check for frag off using the IP_OFFSET mask.
 
-fix it by calling br_shutdown
-
-Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- brctl/brctl.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/brctl/brctl.c b/brctl/brctl.c
-index 46ca352..16080a7 100644
---- a/brctl/brctl.c
-+++ b/brctl/brctl.c
-@@ -43,6 +43,7 @@ int main(int argc, char *const* argv)
- 		{ .name = "version", .val = 'V' },
- 		{ 0 }
- 	};
-+	int ret;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index e56a3d1..5cee5de 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1337,7 +1337,7 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
+ 			return hdr.network - data;
  
- 	while ((f = getopt_long(argc, argv, "Vh", options, NULL)) != EOF) 
- 		switch(f) {
-@@ -79,7 +80,10 @@ int main(int argc, char *const* argv)
- 		return 1;
- 	}
- 
--	return cmd->func(argc, argv);
-+	ret = cmd->func(argc, argv);
-+	br_shutdown();
-+
-+	return ret;
- 
- help:
- 	help();
+ 		/* record next protocol if header is present */
+-		if (!hdr.ipv4->frag_off)
++		if (!(hdr.ipv4->frag_off & htons(IP_OFFSET)))
+ 			nexthdr = hdr.ipv4->protocol;
+ 	} else if (protocol == __constant_htons(ETH_P_IPV6)) {
+ 		if ((hdr.network - data) > (max_len - sizeof(struct ipv6hdr)))
 -- 
-1.8.1.4
+1.7.11.7
