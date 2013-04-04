@@ -1,56 +1,70 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/2] Revert "af_unix: dont send SCM_CREDENTIAL when dest socket is NULL"
-Date: Thu, 04 Apr 2013 03:22:07 -0700
-Message-ID: <87r4iqegts.fsf@xmission.com>
-References: <20130402221104.163133110@linuxfoundation.org>
-	<20130402221116.307254752@linuxfoundation.org>
-	<87vc833kpf.fsf@turtle.gmx.de> <87k3ojnosa.fsf@xmission.com>
-	<1365034777.13853.46.camel@edumazet-glaptop>
-	<1365035424.13853.48.camel@edumazet-glaptop>
-	<878v4zjei0.fsf@xmission.com> <87li8zhwkw.fsf_-_@xmission.com>
-	<515D30F6.9010004@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Sven Joachim <svenjoac@gmx.de>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	<linux-kernel@vger.kernel.org>, <stable@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Karel Srot <ksrot@redhat.com>, <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: dingtianhong <dingtianhong@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <515D30F6.9010004@huawei.com> (dingtianhong@huawei.com's message
-	of "Thu, 4 Apr 2013 15:51:18 +0800")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH 4/5 v2] ARM: orion5x: add gigabit ethernet device tree node
+Date: Thu,  4 Apr 2013 12:27:14 +0200
+Message-ID: <1365071235-11611-5-git-send-email-florian@openwrt.org>
+References: <1365071235-11611-1-git-send-email-florian@openwrt.org>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	devicetree-discuss@lists.ozlabs.org,
+	thomas.petazzoni@free-electrons.com, jm@lentin.co.uk,
+	moinejf@free.fr, sebastian.hesselbarth@gmail.com,
+	buytenh@wantstofly.org, andrew@lunn.ch, jason@lakedaemon.net,
+	grant.likely@secretlab.ca, rob.herring@calxeda.com,
+	jogo@openwrt.org, Florian Fainelli <florian@openwrt.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zmc.proxad.net ([212.27.53.206]:51607 "EHLO zmc.proxad.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759079Ab3DDK1e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Apr 2013 06:27:34 -0400
+In-Reply-To: <1365071235-11611-1-git-send-email-florian@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-dingtianhong <dingtianhong@huawei.com> writes:
+This patch adds the gigabit ethernet device tree node to orion5x.dtsi.
+This node is disabled by default and must be enabled on a per-board
+basis. For completeness and easier testing the MDIO node is also added
+and disabled by default.
 
-> On 2013/4/4 10:13, Eric W. Biederman wrote:
->> 
->> This reverts commit 14134f6584212d585b310ce95428014b653dfaf6.
->> 
->> The problem that the above patch was meant to address is that af_unix
->> messages are not being coallesced because we are sending unnecesarry
->> credentials.  Not sending credentials in maybe_add_creds totally
->> breaks unconnected unix domain sockets that wish to send credentails
->> to other sockets.
->> 
->
-> thanks for check the question and make a fix solution, but I still doubt that if unconnected unix
-> domain socket wish to send credentails to oher sockets, why dont set
-> SOCK_PASSCRED on sock->flags, I think the user need to decide the param
-> and shouldnt send creds by default way.
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
+---
+Changes since v1:
+- fixed off-by 0x2000 address of the ethernet-group node
 
-The big issue is the semantics are the receiver sets SOCK_PASSCRED when
-they want to receive credentials.  When transmitting packets from
-unconnected or unaccepted sockets we don't know if the receiver has set
-SOCK_PASSCRED so when in doubt transmit. Historically we always
-tranmitted credentials.
+ arch/arm/boot/dts/orion5x.dtsi |   23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
 
-Furthermore we have a real regression in udev that breaks systems, so
-this patch must be reverted.
-
-Eric
+diff --git a/arch/arm/boot/dts/orion5x.dtsi b/arch/arm/boot/dts/orion5x.dtsi
+index f7bec3b..c49503e 100644
+--- a/arch/arm/boot/dts/orion5x.dtsi
++++ b/arch/arm/boot/dts/orion5x.dtsi
+@@ -99,5 +99,28 @@
+ 			interrupts = <28>;
+ 			status = "okay";
+ 		};
++
++		mdio@72004 {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			compatible = "marvell,orion-mdio";
++			reg = <0x72004 0x84>;
++			status = "disabled";
++		};
++
++		ethernet-group@72000 {
++			#address-cells = <1>.
++			#size-cells = <0>;
++			compatible = "marvell,mv643xx-eth-block";
++			reg = <0x72000 0x4000>;
++			status = "disabled";
++
++			egiga0: ethernet@0 {
++				device_type = "network";
++				compatible = "marvell,mv643xx-eth";
++				reg = <0>;
++				interrupts = <21>;
++			};
++		};
+ 	};
+ };
+-- 
+1.7.10.4
