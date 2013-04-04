@@ -1,85 +1,93 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2] MPLS: Add limited GSO support
-Date: Wed, 3 Apr 2013 17:44:17 -0700
-Message-ID: <CAEP_g=9cnm39i7rBk=Pi_1e6dFDLMa6oVFuO3PufEhODCVBqnw@mail.gmail.com>
-References: <1364980315-13649-1-git-send-email-horms@verge.net.au>
- <CAEP_g=_Y0hN2DvyO4JitMrpQvN=TmTO5Pk28DpvF6Ya09AeTcg@mail.gmail.com> <20130404002809.GF29678@verge.net.au>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the wireless
+ tree
+Date: Thu, 4 Apr 2013 11:44:44 +1100
+Message-ID: <20130404114444.de4e40c24f4e1a0e4c0b7328@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:42584 "HELO
-	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932071Ab3DDAol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Apr 2013 20:44:41 -0400
-Received: by mail-ob0-f200.google.com with SMTP id uz6so11218454obc.3
-        for <netdev@vger.kernel.org>; Wed, 03 Apr 2013 17:44:37 -0700 (PDT)
-In-Reply-To: <20130404002809.GF29678@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__4_Apr_2013_11_44_44_+1100_v3v+zd8ZXeCgqXdk"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Joe Perches <joe@perches.com>,
+	Gabor Juhos <juhosg@openwrt.org>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 3, 2013 at 5:28 PM, Simon Horman <horms@verge.net.au> wrote:
-> On Wed, Apr 03, 2013 at 04:51:38PM -0700, Jesse Gross wrote:
->> On Wed, Apr 3, 2013 at 2:11 AM, Simon Horman <horms@verge.net.au> wrote:
->> > In the case where a non-MPLS packet is recieved and an MPLS stack is
->> > added it may well be the case that the original skb is GSO but the
->> > NIC used for transmit does not support GSO of MPLS packets.
->> >
->> > The aim of this code is to provide GSO in software for MPLS packets
->> > whose skbs are GSO.
->> >
->> > When an implementation adds an MPLS stack to a non-MPLS packet it should do
->> > the following to skb metadata:
->> >
->> > * Set skb_mac_header(skb)->protocol to the new MPLS ethertype.
->> >   That is, either ETH_P_MPLS_UC or ETH_P_MPLS_MC.
->> >
->> > * Leave skb->protocol as the old non-MPLS ethertype.
->> >
->> > * Set skb->encapsulation = 1.
->> >
->> >   This may not strictly be necessary as I believe that checking
->> >   skb_mac_header(skb)->protocol and skb->protocol should be necessary and
->> >   sufficient.
->> >
->> >   However, it does seem to fit nicely with the current implementation of
->> >   dev_hard_start_xmit() where the more expensive check of
->> >   skb_mac_header(skb)->protocol may be guarded by an existing check of
->> >   skb->encapsulation.
->> >
->> > One aspect of this patch that I am unsure about is the modification I have
->> > made to skb_segment(). This seems to be necessary as checskum accelearation
->> > may no longer be possible as the packet has changed to be MPLS from some
->> > other packet type which may have been supported by the hardware in use.
->> >
->> > I will post a patch, "[PATCH v3.24] datapath: Add basic MPLS support to
->> > kernel" which adds MPLS support to the kernel datapath of Open vSwtich.
->> > That patch sets the above requirements in
->> > datapath/actions.c:set_ethertype() and was used to exercise the MPLS GSO
->> > code. The datapath patch is against the Open vSwtich tree but it is
->> > intended that it be added to the Open vSwtich code present in the mainline
->> > Linux kernel at some point.
->> >
->> > Suggested by Jesse Gross. Based heavily on "v4 GRE: Add TCP segmentation
->> > offload for GRE" by Pravin B Shelar.
->> >
->> > Cc: Jesse Gross <jesse@nicira.com>
->> > Cc: Pravin B Shelar <pshelar@nicira.com>
->> > Signed-off-by: Simon Horman <horms@verge.net.au>
->>
->> MPLS is very similar to both the Ethernet header and vlans in that GSO
->> only requires replication without any modification.  That means that
->> if we look at the mac_len as containing all three then we can just
->> copy it without any special knowledge.  I don't know that we carefully
->> maintain mac_len in all places but you are already doing that in your
->> MPLS patches.
->
-> At least for the cases that I am aware of I think that mac_len is
-> predictable. But I'm a little unsure of what you are getting at here.
+--Signature=_Thu__4_Apr_2013_11_44_44_+1100_v3v+zd8ZXeCgqXdk
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-If you have the MAC len then you don't need any new MPLS code here at
-all; just replicate the whole thing onto each packet.
+Hi all,
+
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/wireless/rt2x00/rt2x00pci.c between commit 69a2bac8984c
+("rt2x00: rt2x00pci: fix build error on Ralink RT3x5x SoCs") from the
+wireless tree and commit 1f9061d27d3d ("drivers:net: dma_alloc_coherent:
+use __GFP_ZERO instead of memset(, 0)") from the net-next tree.
+
+The former moved the code modified by the latter into a different file,
+so I added the following merge fix patch and can carry the fix as
+necessary (no action is required).
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 4 Apr 2013 11:42:05 +1100
+Subject: [PATCH] drivers:net: fix up for code movement from rt2x00pci.c
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ drivers/net/wireless/rt2x00/rt2x00mmio.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/rt2x00/rt2x00mmio.c b/drivers/net/wireles=
+s/rt2x00/rt2x00mmio.c
+index d84a680..9fe9a36 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00mmio.c
++++ b/drivers/net/wireless/rt2x00/rt2x00mmio.c
+@@ -123,12 +123,10 @@ static int rt2x00pci_alloc_queue_dma(struct rt2x00_de=
+v *rt2x00dev,
+ 	 */
+ 	addr =3D dma_alloc_coherent(rt2x00dev->dev,
+ 				  queue->limit * queue->desc_size,
+-				  &dma, GFP_KERNEL);
++				  &dma, GFP_KERNEL | __GFP_ZERO);
+ 	if (!addr)
+ 		return -ENOMEM;
+=20
+-	memset(addr, 0, queue->limit * queue->desc_size);
+-
+ 	/*
+ 	 * Initialize all queue entries to contain valid addresses.
+ 	 */
+--=20
+1.8.1
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Thu__4_Apr_2013_11_44_44_+1100_v3v+zd8ZXeCgqXdk
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRXMz8AAoJEECxmPOUX5FExBIP/jewPg6JVgi3GQuJ5zp4GFmv
+thlXnE13eSG/g5O3AiuMCM+QXwhtuWMTHUSn8KXLPqZQqur6QrTYYAtWUFKB3i6u
+xTSlx8DU722PSEFhkbdIjnoeKBqFHatQrk4CWk2GRBFGdvpZjH+bzSlKvqYK49Dr
+fYU6i/labWNTgpUY7apzdkFNuKmYRBrQmwZwGYNfMX4LLWkR61oMO6jzyNRFWj8f
+G3zQqnc+8hzq9DkPzPcBS7/C3gWjOb4fZPfVsydYdwt6WGSPZ+lZdyxD00+n9MhH
+gNQVaC1vkf6rkIs+24OHaK9l2seZz3B181CZr0n8JWkcBlSh3euOa+0B25+BJRZ6
+0aZNA5RoDglwgKMDI9n2Qlcfm+5XalqVMMk9A/QvwHc84qO1uCTYqjV0XXklhapI
+NZjcwvbay8o8FJ+q5L76SnbgGE8Ko5QI4Qndl87NzJvstbZarUkpm4ZZR/+FuBhW
+Ih4KLMp/toeM5Rpy3DYFKIuOTC97IvYT45QWRunecUVGF9QIdi9oAKcqUeN9gJ0g
+JIV8evPWGjvGf/+Aq31BusZFErKsmnweiJtPDSCb2aEVroM0HS5zjtHq8TxPx53e
+rOjqeSqvNLlV6HAE7hHXFfljWWaV3adjmyq5opysYncH0pOZmdWR48kkdv2bUvj6
+on2CSbvYhrrl0j8TJPBc
+=9fJF
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__4_Apr_2013_11_44_44_+1100_v3v+zd8ZXeCgqXdk--
