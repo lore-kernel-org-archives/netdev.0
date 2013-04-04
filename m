@@ -1,217 +1,48 @@
-From: Werner Almesberger <werner@almesberger.net>
-Subject: [PATCH net-next 2/2] ieee802154/nl-mac.c: make some MLME operations
- optional
-Date: Thu, 4 Apr 2013 13:32:35 -0300
-Message-ID: <1f81253db3f5f1fc8783bb9fd3304ea8e76faaaf.1365092820.git.werner@almesberger.net>
-References: <cover.1365092820.git.werner@almesberger.net>
+From: Tejun Heo <htejun@gmail.com>
+Subject: Re: this cpu documentation
+Date: Thu, 4 Apr 2013 09:28:09 -0700
+Message-ID: <20130404162809.GN9425@htj.dyndns.org>
+References: <1364463761-32510-1-git-send-email-roy.qing.li@gmail.com>
+ <1364475933.15753.36.camel@edumazet-glaptop>
+ <0000013db16f1e1d-abcb7d9e-1c9d-4ef9-b4de-767bc0282ccf-000000@email.amazonses.com>
+ <CAJFZqHzkGcFT_gcqgu=ktuig7UEoR4FVTUZF6G46=6n6FkYZ2A@mail.gmail.com>
+ <0000013dc6307f44-940f2bf1-7556-4d9e-92ab-1a84d2a47ca8-000000@email.amazonses.com>
+ <1364833887.5113.161.camel@edumazet-glaptop>
+ <0000013dd1a20ebf-4a76fb06-4b9d-492e-9d77-4b3f43aceca7-000000@email.amazonses.com>
+ <515F679E.8020203@infradead.org>
+ <0000013dd57e7ad7-d5959142-ca41-4a53-9497-7559766aafc9-000000@email.amazonses.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-zigbee-devel@lists.sourceforge.net
-To: netdev@vger.kernel.org
+Cc: Randy Dunlap <rdunlap@infradead.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	RongQing Li <roy.qing.li@gmail.com>,
+	Shan Wei <davidshan@tencent.com>, netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.openmoko.org ([88.198.124.205]:38758 "EHLO
-	mail.openmoko.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763239Ab3DDQdf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 12:33:35 -0400
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:39889 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763029Ab3DDQei (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 12:34:38 -0400
+Received: by mail-pa0-f47.google.com with SMTP id bj3so1570148pad.34
+        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 09:34:37 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <cover.1365092820.git.werner@almesberger.net>
+In-Reply-To: <0000013dd57e7ad7-d5959142-ca41-4a53-9497-7559766aafc9-000000@email.amazonses.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check for NULL before calling the following operations from "struct
-ieee802154_mlme_ops": assoc_req, assoc_resp, disassoc_req, start_req,
-and scan_req.
+On Thu, Apr 04, 2013 at 02:41:08PM +0000, Christoph Lameter wrote:
+> From: Christoph Lameter <cl@linux.com>
+> Subject: this_cpu: Add documentation V2
+> 
+> Document the rationale and the way to use this_cpu operations.
+> 
+> V2: Improved after feedback from Randy Dunlap
+> 
+> Signed-off-by: Christoph Lameter <cl@linux.com>
 
-This fixes a current oops where those functions are called but not
-implemented. It also updates the documentation to clarify that they
-are now optional by design. If a call to an unimplemented function
-is attempted, the kernel returns EOPNOTSUPP via netlink.
+Updated patch applied to wq/for-3.10.
 
-The following operations are still required: get_phy, get_pan_id,
-get_short_addr, and get_dsn.
+Thanks.
 
-Note that the places where this patch changes the initialization
-of "ret" should not affect the rest of the code since "ret" was
-always set (again) before returning its value.
-
-Signed-off-by: Werner Almesberger <werner@almesberger.net>
----
- Documentation/networking/ieee802154.txt |    5 +++--
- include/net/ieee802154_netdev.h         |    4 ++++
- net/ieee802154/nl-mac.c                 |   25 ++++++++++++++++++++-----
- 3 files changed, 27 insertions(+), 7 deletions(-)
-
-diff --git a/Documentation/networking/ieee802154.txt b/Documentation/networking/ieee802154.txt
-index 703cf43..67a9cb2 100644
---- a/Documentation/networking/ieee802154.txt
-+++ b/Documentation/networking/ieee802154.txt
-@@ -71,8 +71,9 @@ submits skb to qdisc), so if you need something from that cb later, you should
- store info in the skb->data on your own.
- 
- To hook the MLME interface you have to populate the ml_priv field of your
--net_device with a pointer to struct ieee802154_mlme_ops instance. All fields are
--required.
-+net_device with a pointer to struct ieee802154_mlme_ops instance. The fields
-+assoc_req, assoc_resp, disassoc_req, start_req, and scan_req are optional.
-+All other fields are required.
- 
- We provide an example of simple HardMAC driver at drivers/ieee802154/fakehard.c
- 
-diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
-index 642f94c..8196d5d 100644
---- a/include/net/ieee802154_netdev.h
-+++ b/include/net/ieee802154_netdev.h
-@@ -85,6 +85,8 @@ struct wpan_phy;
-  * Use wpan_wpy_put to put that reference.
-  */
- struct ieee802154_mlme_ops {
-+	/* The following fields are optional (can be NULL). */
-+
- 	int (*assoc_req)(struct net_device *dev,
- 			struct ieee802154_addr *addr,
- 			u8 channel, u8 page, u8 cap);
-@@ -101,6 +103,8 @@ struct ieee802154_mlme_ops {
- 	int (*scan_req)(struct net_device *dev,
- 			u8 type, u32 channels, u8 page, u8 duration);
- 
-+	/* The fields below are required. */
-+
- 	struct wpan_phy *(*get_phy)(const struct net_device *dev);
- 
- 	/*
-diff --git a/net/ieee802154/nl-mac.c b/net/ieee802154/nl-mac.c
-index 96bb08a..b0bdd8c 100644
---- a/net/ieee802154/nl-mac.c
-+++ b/net/ieee802154/nl-mac.c
-@@ -315,7 +315,7 @@ static int ieee802154_associate_req(struct sk_buff *skb,
- 	struct net_device *dev;
- 	struct ieee802154_addr addr;
- 	u8 page;
--	int ret = -EINVAL;
-+	int ret = -EOPNOTSUPP;
- 
- 	if (!info->attrs[IEEE802154_ATTR_CHANNEL] ||
- 	    !info->attrs[IEEE802154_ATTR_COORD_PAN_ID] ||
-@@ -327,6 +327,8 @@ static int ieee802154_associate_req(struct sk_buff *skb,
- 	dev = ieee802154_nl_get_dev(info);
- 	if (!dev)
- 		return -ENODEV;
-+	if (!ieee802154_mlme_ops(dev)->assoc_req)
-+		goto out;
- 
- 	if (info->attrs[IEEE802154_ATTR_COORD_HW_ADDR]) {
- 		addr.addr_type = IEEE802154_ADDR_LONG;
-@@ -350,6 +352,7 @@ static int ieee802154_associate_req(struct sk_buff *skb,
- 			page,
- 			nla_get_u8(info->attrs[IEEE802154_ATTR_CAPABILITY]));
- 
-+out:
- 	dev_put(dev);
- 	return ret;
- }
-@@ -359,7 +362,7 @@ static int ieee802154_associate_resp(struct sk_buff *skb,
- {
- 	struct net_device *dev;
- 	struct ieee802154_addr addr;
--	int ret = -EINVAL;
-+	int ret = -EOPNOTSUPP;
- 
- 	if (!info->attrs[IEEE802154_ATTR_STATUS] ||
- 	    !info->attrs[IEEE802154_ATTR_DEST_HW_ADDR] ||
-@@ -369,6 +372,8 @@ static int ieee802154_associate_resp(struct sk_buff *skb,
- 	dev = ieee802154_nl_get_dev(info);
- 	if (!dev)
- 		return -ENODEV;
-+	if (!ieee802154_mlme_ops(dev)->assoc_resp)
-+		goto out;
- 
- 	addr.addr_type = IEEE802154_ADDR_LONG;
- 	nla_memcpy(addr.hwaddr, info->attrs[IEEE802154_ATTR_DEST_HW_ADDR],
-@@ -380,6 +385,7 @@ static int ieee802154_associate_resp(struct sk_buff *skb,
- 		nla_get_u16(info->attrs[IEEE802154_ATTR_DEST_SHORT_ADDR]),
- 		nla_get_u8(info->attrs[IEEE802154_ATTR_STATUS]));
- 
-+out:
- 	dev_put(dev);
- 	return ret;
- }
-@@ -389,7 +395,7 @@ static int ieee802154_disassociate_req(struct sk_buff *skb,
- {
- 	struct net_device *dev;
- 	struct ieee802154_addr addr;
--	int ret = -EINVAL;
-+	int ret = -EOPNOTSUPP;
- 
- 	if ((!info->attrs[IEEE802154_ATTR_DEST_HW_ADDR] &&
- 		!info->attrs[IEEE802154_ATTR_DEST_SHORT_ADDR]) ||
-@@ -399,6 +405,8 @@ static int ieee802154_disassociate_req(struct sk_buff *skb,
- 	dev = ieee802154_nl_get_dev(info);
- 	if (!dev)
- 		return -ENODEV;
-+	if (!ieee802154_mlme_ops(dev)->disassoc_req)
-+		goto out;
- 
- 	if (info->attrs[IEEE802154_ATTR_DEST_HW_ADDR]) {
- 		addr.addr_type = IEEE802154_ADDR_LONG;
-@@ -415,6 +423,7 @@ static int ieee802154_disassociate_req(struct sk_buff *skb,
- 	ret = ieee802154_mlme_ops(dev)->disassoc_req(dev, &addr,
- 			nla_get_u8(info->attrs[IEEE802154_ATTR_REASON]));
- 
-+out:
- 	dev_put(dev);
- 	return ret;
- }
-@@ -432,7 +441,7 @@ static int ieee802154_start_req(struct sk_buff *skb, struct genl_info *info)
- 	u8 channel, bcn_ord, sf_ord;
- 	u8 page;
- 	int pan_coord, blx, coord_realign;
--	int ret;
-+	int ret = -EOPNOTSUPP;
- 
- 	if (!info->attrs[IEEE802154_ATTR_COORD_PAN_ID] ||
- 	    !info->attrs[IEEE802154_ATTR_COORD_SHORT_ADDR] ||
-@@ -448,6 +457,8 @@ static int ieee802154_start_req(struct sk_buff *skb, struct genl_info *info)
- 	dev = ieee802154_nl_get_dev(info);
- 	if (!dev)
- 		return -ENODEV;
-+	if (!ieee802154_mlme_ops(dev)->start_req)
-+		goto out;
- 
- 	addr.addr_type = IEEE802154_ADDR_SHORT;
- 	addr.short_addr = nla_get_u16(
-@@ -476,6 +487,7 @@ static int ieee802154_start_req(struct sk_buff *skb, struct genl_info *info)
- 	ret = ieee802154_mlme_ops(dev)->start_req(dev, &addr, channel, page,
- 		bcn_ord, sf_ord, pan_coord, blx, coord_realign);
- 
-+out:
- 	dev_put(dev);
- 	return ret;
- }
-@@ -483,7 +495,7 @@ static int ieee802154_start_req(struct sk_buff *skb, struct genl_info *info)
- static int ieee802154_scan_req(struct sk_buff *skb, struct genl_info *info)
- {
- 	struct net_device *dev;
--	int ret;
-+	int ret = -EOPNOTSUPP;
- 	u8 type;
- 	u32 channels;
- 	u8 duration;
-@@ -497,6 +509,8 @@ static int ieee802154_scan_req(struct sk_buff *skb, struct genl_info *info)
- 	dev = ieee802154_nl_get_dev(info);
- 	if (!dev)
- 		return -ENODEV;
-+	if (!ieee802154_mlme_ops(dev)->scan_req)
-+		goto out;
- 
- 	type = nla_get_u8(info->attrs[IEEE802154_ATTR_SCAN_TYPE]);
- 	channels = nla_get_u32(info->attrs[IEEE802154_ATTR_CHANNELS]);
-@@ -511,6 +525,7 @@ static int ieee802154_scan_req(struct sk_buff *skb, struct genl_info *info)
- 	ret = ieee802154_mlme_ops(dev)->scan_req(dev, type, channels, page,
- 			duration);
- 
-+out:
- 	dev_put(dev);
- 	return ret;
- }
 -- 
-1.7.10.4
+tejun
