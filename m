@@ -1,33 +1,73 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH net-next 3/3] net/mlx4_en: Enable open-lldp DCB support
-Date: Thu, 04 Apr 2013 08:58:58 -0700
-Message-ID: <515DA342.5020503@intel.com>
-References: <1365085574-12057-1-git-send-email-ogerlitz@mellanox.com> <1365085574-12057-4-git-send-email-ogerlitz@mellanox.com>
+From: Wang YanQing <udknight@gmail.com>
+Subject: [PATCH] lib80211: make lib80211 can be enabled independently
+Date: Fri, 5 Apr 2013 00:01:30 +0800
+Message-ID: <20130404160130.GA2577@udknight>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, amirv@mellanox.com
-To: Or Gerlitz <ogerlitz@mellanox.com>,
-	Sagi Grimberg <sagig@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:19179 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761627Ab3DDP66 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Apr 2013 11:58:58 -0400
-In-Reply-To: <1365085574-12057-4-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/4/2013 7:26 AM, Or Gerlitz wrote:
-> From: Sagi Grimberg <sagig@mellanox.com>
->
-> The lldpad daemon queries the driver caps via the getcaps and getstate
-> routines. Added the prpoer dbcnl_ops entries to support that.
->
-> Signed-off-by: Sagi Grimberg <sagig@mellanox.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> ---
+Current we can only enable lib80211 by enable a driver
+in tree use it which will select it, but some out tree's
+drivers also use it, so I think it has sense to make lib80211
+can be enabled independently.
 
-Does lldpad work now with the mlx4_en driver?
+A example of the out tree's drivers use lib80211 is:
+hybird driver(wl) for Broadcom Corporation BCM43225 802.11b/g/n
 
-Reviewed-by: John Fastabend <john.r.fastabend@intel.com>
+Signed-off-by: Wang YanQing <udknight@gmail.com>
+---
+ net/wireless/Kconfig | 22 +++++++++++++++++-----
+ 1 file changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/net/wireless/Kconfig b/net/wireless/Kconfig
+index 16d08b3..6e83f0a 100644
+--- a/net/wireless/Kconfig
++++ b/net/wireless/Kconfig
+@@ -140,22 +140,34 @@ config CFG80211_WEXT
+ 	  extensions with cfg80211-based drivers.
+ 
+ config LIB80211
+-	tristate
++	tristate "common routines used by IEEE802.11 wireless LAN drivers"
+ 	default n
+ 	help
+ 	  This options enables a library of common routines used
+ 	  by IEEE802.11 wireless LAN drivers.
+ 
+-	  Drivers should select this themselves if needed.
++	  Drivers could select this themselves if needed.
+ 
+ config LIB80211_CRYPT_WEP
+-	tristate
++	tristate "host-based WEP encryption implementation for lib80211"
++	depends on LIB80211
++	default n
++	---help---
++	   host-based WEP encryption implementation for lib80211
+ 
+ config LIB80211_CRYPT_CCMP
+-	tristate
++	tristate "host-based CCMP encryption implementation for lib80211"
++	depends on LIB80211
++	default n
++	---help---
++	   host-based CCMP encryption implementation for lib80211
+ 
+ config LIB80211_CRYPT_TKIP
+-	tristate
++	tristate "host-based TKIP encryption implementation for lib80211"
++	depends on LIB80211
++	default n
++	---help---
++	    host-based TKIP encryption implementation for lib80211
+ 
+ config LIB80211_DEBUG
+ 	bool "lib80211 debugging messages"
+-- 
+1.7.12.4.dirty
