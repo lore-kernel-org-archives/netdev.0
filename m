@@ -1,73 +1,80 @@
-From: Wang YanQing <udknight@gmail.com>
-Subject: [PATCH] lib80211: make lib80211 can be enabled independently
-Date: Fri, 5 Apr 2013 00:01:30 +0800
-Message-ID: <20130404160130.GA2577@udknight>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 1/2] net: ipv6: add tokenized interface identifier
+ support
+Date: Thu, 04 Apr 2013 18:02:02 +0200
+Message-ID: <515DA3FA.1000402@redhat.com>
+References: <1365086258-4512-1-git-send-email-dborkman@redhat.com> <1365086258-4512-2-git-send-email-dborkman@redhat.com> <20130404155837.GA23056@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: johannes@sipsolutions.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:29608 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762381Ab3DDQCK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Apr 2013 12:02:10 -0400
+In-Reply-To: <20130404155837.GA23056@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Current we can only enable lib80211 by enable a driver
-in tree use it which will select it, but some out tree's
-drivers also use it, so I think it has sense to make lib80211
-can be enabled independently.
+On 04/04/2013 05:58 PM, Hannes Frederic Sowa wrote:
+> On Thu, Apr 04, 2013 at 04:37:37PM +0200, Daniel Borkmann wrote:
+>> This patch adds support for tokenized IIDs, that allow for
+>> administrators to assign well-known host-part addresses to
+>> nodes whilst still obtaining global network prefix from
+>> Router Advertisements. It is currently in IETF RFC draft
+>> status [1]:
+>>
+>>    The primary target for such support is server platforms
+>>    where addresses are usually manually configured, rather
+>>    than using DHCPv6 or SLAAC. By using tokenised identifiers,
+>>    hosts can still determine their network prefix by use of
+>>    SLAAC, but more readily be automatically renumbered should
+>>    their network prefix change.
+>>
+>>   [1] http://tools.ietf.org/html/draft-chown-6man-tokenised-ipv6-identifiers-02
+>>
+>> The implementation is partially based on top of Mark K.
+>> Thompson's proof of concept. Successfully tested by myself.
+>
+> Cool, this looks really useful.
+>
+> One comment so far:
+>
+>> +#define IPV6_ADDR_SCOPE_TYPE(scope)	((scope) << 16)
+>> +
+>
+> I think we should not export this macro but instead...
+>
+>> +	/* Well, that's kinda nasty ... */
+>> +	list_for_each_entry(ifp, &idev->addr_list, if_list) {
+>> +		spin_lock(&ifp->lock);
+>> +		if (__ipv6_addr_type(&ifp->addr) &
+>> +		    IPV6_ADDR_SCOPE_TYPE(IPV6_ADDR_SCOPE_GLOBAL)) {
+>
+> ...use
+>
+> if (ipv6_addr_src_scope(&ifp->addr) == IPV6_ADDR_SCOPE_GLOBAL) {
+>
+> here.
+>
+>> diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
+>> index d051e5f..8b723de 100644
+>> --- a/net/ipv6/addrconf_core.c
+>> +++ b/net/ipv6/addrconf_core.c
+>> @@ -6,8 +6,6 @@
+>>   #include <linux/export.h>
+>>   #include <net/ipv6.h>
+>>
+>> -#define IPV6_ADDR_SCOPE_TYPE(scope)	((scope) << 16)
+>> -
+>
+> This hunk can be dropped then.
 
-A example of the out tree's drivers use lib80211 is:
-hybird driver(wl) for Broadcom Corporation BCM43225 802.11b/g/n
+Thanks for the review Hannes, I'll do that in a version 2 of the set.
 
-Signed-off-by: Wang YanQing <udknight@gmail.com>
----
- net/wireless/Kconfig | 22 +++++++++++++++++-----
- 1 file changed, 17 insertions(+), 5 deletions(-)
+Thanks,
 
-diff --git a/net/wireless/Kconfig b/net/wireless/Kconfig
-index 16d08b3..6e83f0a 100644
---- a/net/wireless/Kconfig
-+++ b/net/wireless/Kconfig
-@@ -140,22 +140,34 @@ config CFG80211_WEXT
- 	  extensions with cfg80211-based drivers.
- 
- config LIB80211
--	tristate
-+	tristate "common routines used by IEEE802.11 wireless LAN drivers"
- 	default n
- 	help
- 	  This options enables a library of common routines used
- 	  by IEEE802.11 wireless LAN drivers.
- 
--	  Drivers should select this themselves if needed.
-+	  Drivers could select this themselves if needed.
- 
- config LIB80211_CRYPT_WEP
--	tristate
-+	tristate "host-based WEP encryption implementation for lib80211"
-+	depends on LIB80211
-+	default n
-+	---help---
-+	   host-based WEP encryption implementation for lib80211
- 
- config LIB80211_CRYPT_CCMP
--	tristate
-+	tristate "host-based CCMP encryption implementation for lib80211"
-+	depends on LIB80211
-+	default n
-+	---help---
-+	   host-based CCMP encryption implementation for lib80211
- 
- config LIB80211_CRYPT_TKIP
--	tristate
-+	tristate "host-based TKIP encryption implementation for lib80211"
-+	depends on LIB80211
-+	default n
-+	---help---
-+	    host-based TKIP encryption implementation for lib80211
- 
- config LIB80211_DEBUG
- 	bool "lib80211 debugging messages"
--- 
-1.7.12.4.dirty
+Daniel
