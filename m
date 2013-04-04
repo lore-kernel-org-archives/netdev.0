@@ -1,75 +1,60 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 2/2] af_unix: If we don't care about credentials coallesce all messages
-Date: Wed, 03 Apr 2013 19:14:47 -0700
-Message-ID: <87d2ubhwiw.fsf_-_@xmission.com>
-References: <20130402221104.163133110@linuxfoundation.org>
-	<20130402221116.307254752@linuxfoundation.org>
-	<87vc833kpf.fsf@turtle.gmx.de> <87k3ojnosa.fsf@xmission.com>
-	<1365034777.13853.46.camel@edumazet-glaptop>
-	<1365035424.13853.48.camel@edumazet-glaptop>
-	<878v4zjei0.fsf@xmission.com> <87li8zhwkw.fsf_-_@xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sven Joachim <svenjoac@gmx.de>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	Ding Tianhong <dingtianhong@huawei.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Karel Srot <ksrot@redhat.com>, <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87li8zhwkw.fsf_-_@xmission.com> (Eric W. Biederman's message of
-	"Wed, 03 Apr 2013 19:13:35 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net] ixgbe: fix registration order of driver and DCA nofitication
+Date: Wed,  3 Apr 2013 19:50:54 -0700
+Message-ID: <1365043854-8443-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jakub Kicinski <jakub.kicinski@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	stable <stable@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:52385 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932610Ab3DDCvS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Apr 2013 22:51:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Jakub Kicinski <jakub.kicinski@intel.com>
 
-It was reported that the following LSB test case failed
-https://lsbbugs.linuxfoundation.org/attachment.cgi?id=2144 because we
-were not coallescing unix stream messages when the application was
-expecting us to.
+ixgbe_notify_dca cannot be called before driver registration
+because it expects driver's klist_devices to be allocated and
+initialized. While on it make sure debugfs files are removed
+when registration fails.
 
-The problem was that the first send was before the socket was accepted
-and thus sock->sk_socket was NULL in maybe_add_creds, and the second
-send after the socket was accepted had a non-NULL value for sk->socket
-and thus we could tell the credentials were not needed so we did not
-bother.
-
-The unnecessary credentials on the first message cause
-unix_stream_recvmsg to start verifying that all messages had the same
-credentials before coallescing and then the coallescing failed because
-the second message had no credentials.
-
-Ignoring credentials when we don't care in unix_stream_recvmsg fixes a
-long standing pessimization which would fail to coallesce messages when
-reading from a unix stream socket if the senders were different even if
-we did not care about their credentials.
-
-I have tested this and verified that the in the LSB test case mentioned
-above that the messages do coallesce now, while the were failing to
-coallesce without this change.
-
-Reported-by: Karel Srot <ksrot@redhat.com>
-Reported-by: Ding Tianhong <dingtianhong@huawei.com>
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: stable <stable@vger.kernel.org>
+Signed-off-by: Jakub Kicinski <jakub.kicinski@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/unix/af_unix.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index f153a8d..2db702d 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1993,7 +1993,7 @@ again:
- 			if ((UNIXCB(skb).pid  != siocb->scm->pid) ||
- 			    (UNIXCB(skb).cred != siocb->scm->cred))
- 				break;
--		} else {
-+		} else if (test_bit(SOCK_PASSCRED, &sock->flags)) {
- 			/* Copy credentials */
- 			scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).cred);
- 			check_creds = 1;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index db5611a..79f4a26 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7922,12 +7922,19 @@ static int __init ixgbe_init_module(void)
+ 	ixgbe_dbg_init();
+ #endif /* CONFIG_DEBUG_FS */
+ 
++	ret = pci_register_driver(&ixgbe_driver);
++	if (ret) {
++#ifdef CONFIG_DEBUG_FS
++		ixgbe_dbg_exit();
++#endif /* CONFIG_DEBUG_FS */
++		return ret;
++	}
++
+ #ifdef CONFIG_IXGBE_DCA
+ 	dca_register_notify(&dca_notifier);
+ #endif
+ 
+-	ret = pci_register_driver(&ixgbe_driver);
+-	return ret;
++	return 0;
+ }
+ 
+ module_init(ixgbe_init_module);
 -- 
-1.7.5.4
+1.7.11.7
