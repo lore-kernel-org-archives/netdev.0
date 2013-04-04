@@ -1,64 +1,76 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next.git 1/7] stmmac: review napi gro support
-Date: Thu, 04 Apr 2013 08:20:03 +0200
-Message-ID: <515D1B93.2080607@st.com>
-References: <1364967689-11155-1-git-send-email-peppe.cavallaro@st.com> <1365004913.2897.5.camel@bwh-desktop.uk.solarflarecom.com>
+From: dingtianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH] af_unix: fix build warning
+Date: Thu, 4 Apr 2013 15:00:34 +0800
+Message-ID: <515D2512.5040908@huawei.com>
+References: <515BF6DA.9010007@huawei.com> <CAKoUArk67UyqAC26t7JCfL_LZWHAO1qB=dH=chaXHd-jsxrPfg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Netdev <netdev@vger.kernel.org>, Li Zefan <lizefan@huawei.com>
+To: Rami Rosen <roszenrami@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:59949 "EHLO
-	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1763354Ab3DDGUI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 02:20:08 -0400
-In-Reply-To: <1365004913.2897.5.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:58058 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763852Ab3DDHB1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 03:01:27 -0400
+In-Reply-To: <CAKoUArk67UyqAC26t7JCfL_LZWHAO1qB=dH=chaXHd-jsxrPfg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/3/2013 6:01 PM, Ben Hutchings wrote:
-> On Wed, 2013-04-03 at 07:41 +0200, Giuseppe CAVALLARO wrote:
->> This patch is to:
->> o use napi_gro_flush() before calling __napi_complete()
->
-> napi_complete() already does that, and some other important things.  Why
-> do you think it makes sense to call __napi_complete() directly?
+On 2013/4/3 20:27, Rami Rosen wrote:
+> Hi,
+> Which version of gcc are you using ?
+> A patch like yours, for the same method, unix_bind(), was sent in the
+> past, and Stephen Hemminger noted the
+> with gcc 4.7 the warning you got does not occur.
+> see:
+> http://permalink.gmane.org/gmane.linux.network/247807
+>=20
+> Best Regards,
+>=20
+> Rami Rosen
+> http://ramirose.wix.com/ramirosen
+>=20
 
-yes Ben you are right. In fact Eric already alerted me on this.
-It is my fault, I'll remove this in my next set.
+ok,thanks
 
->
-> Ben.
->
->> o turn on NETIF_F_GRO by default
+>=20
+> On Wed, Apr 3, 2013 at 12:31 PM, dingtianhong <dingtianhong@huawei.co=
+m> wrote:
+>> net/unix/af_unix.c: In function =91unix_bind=92:
+>> net/unix/af_unix.c:892: warning: =91path.mnt=92 may be used uninitia=
+lized in this function
+>> net/unix/af_unix.c:892: warning: =91path.dentry=92 may be used unini=
+tialized in this function
 >>
->> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 >> ---
->>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    5 +++--
->>   1 files changed, 3 insertions(+), 2 deletions(-)
+>>  net/unix/af_unix.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
 >>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> index 6b26d31..8b69e3b 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> @@ -2046,7 +2046,8 @@ static int stmmac_poll(struct napi_struct *napi, int budget)
+>> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+>> index 971282b..3ccc049 100644
+>> --- a/net/unix/af_unix.c
+>> +++ b/net/unix/af_unix.c
+>> @@ -889,7 +889,7 @@ static int unix_bind(struct socket *sock, struct=
+ sockaddr *uaddr, int addr_len)
+>>         atomic_set(&addr->refcnt, 1);
 >>
->>   	work_done = stmmac_rx(priv, budget);
->>   	if (work_done < budget) {
->> -		napi_complete(napi);
->> +		napi_gro_flush(napi, false);
->> +		__napi_complete(napi);
->>   		stmmac_enable_dma_irq(priv);
->>   	}
->>   	return work_done;
->> @@ -2586,7 +2587,7 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+>>         if (sun_path[0]) {
+>> -               struct path path;
+>> +               struct path path =3D {};
+>>                 umode_t mode =3D S_IFSOCK |
+>>                        (SOCK_INODE(sock)->i_mode & ~current_umask())=
+;
+>>                 err =3D unix_mknod(sun_path, mode, &path);
+>> --
+>> 1.8.0
 >>
->>   	ndev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
->>   			    NETIF_F_RXCSUM;
->> -	ndev->features |= ndev->hw_features | NETIF_F_HIGHDMA;
->> +	ndev->features |= ndev->hw_features | NETIF_F_HIGHDMA | NETIF_F_GRO;
->>   	ndev->watchdog_timeo = msecs_to_jiffies(watchdog);
->>   #ifdef STMMAC_VLAN_TAG_USED
->>   	/* Both mac100 and gmac support receive VLAN tag detection */
->
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+>=20
