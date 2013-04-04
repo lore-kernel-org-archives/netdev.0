@@ -1,167 +1,157 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/13] igb: Support to read and export SFF-8472/8079 data
-Date: Thu,  4 Apr 2013 04:37:52 -0700
-Message-ID: <1365075480-20183-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/13] igb: Support for 100base-fx SFP
+Date: Thu,  4 Apr 2013 04:37:51 -0700
+Message-ID: <1365075480-20183-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1365075480-20183-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	=?UTF-8?q?Aur=C3=A9lien=20Guillaume?= <footplus@gmail.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:25690 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:29187 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758849Ab3DDLiX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1758847Ab3DDLiX (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 4 Apr 2013 07:38:23 -0400
 In-Reply-To: <1365075480-20183-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
+From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
 
-This patch adds support to read and export SFF-8472/8079 (SFP data)
-over i2c, through Ethtool.
+This patch adds support for 100base-fx SFP and report proper link
+speed/duplex via Ethtool.
 
-CC: Aur=C3=A9lien Guillaume <footplus@gmail.com>
-Reported-by: Aur=C3=A9lien Guillaume <footplus@gmail.com>
 Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h         |  8 +++
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 84 ++++++++++++++++++++=
-++++++++
- 2 files changed, 92 insertions(+)
+ drivers/net/ethernet/intel/igb/e1000_hw.h    |  3 +-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 48 ++++++++++++++++++++--------
+ drivers/net/ethernet/intel/igb/igb_main.c    | 13 +++++---
+ 3 files changed, 45 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/etherne=
-t/intel/igb/igb.h
-index 2515140..7cb0398 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -178,6 +178,14 @@ enum igb_tx_flags {
- #define TXD_USE_COUNT(S) DIV_ROUND_UP((S), IGB_MAX_DATA_PER_TXD)
- #define DESC_NEEDED (MAX_SKB_FRAGS + 4)
-=20
-+/* EEPROM byte offsets */
-+#define IGB_SFF_8472_SWAP		0x5C
-+#define IGB_SFF_8472_COMP		0x5E
-+
-+/* Bitmasks */
-+#define IGB_SFF_ADDRESSING_MODE		0x4
-+#define IGB_SFF_8472_UNSUP		0x00
-+
- /* wrapper around a pointer to a socket buffer,
-  * so a DMA handle can be stored along with the buffer */
- struct igb_tx_buffer {
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net=
-/ethernet/intel/igb/igb_ethtool.c
-index 8499c48..17443e4 100644
+diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
+index 0d5cf9c..f8cd124 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_hw.h
++++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
+@@ -98,7 +98,8 @@ enum e1000_mac_type {
+ enum e1000_media_type {
+ 	e1000_media_type_unknown = 0,
+ 	e1000_media_type_copper = 1,
+-	e1000_media_type_internal_serdes = 2,
++	e1000_media_type_fiber = 2,
++	e1000_media_type_internal_serdes = 3,
+ 	e1000_num_media_types
+ };
+ 
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index a3830a8..8499c48 100644
 --- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
 +++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -2622,6 +2622,88 @@ static int igb_set_eee(struct net_device *netdev=
-,
- 	return 0;
- }
-=20
-+static int igb_get_module_info(struct net_device *netdev,
-+			       struct ethtool_modinfo *modinfo)
-+{
-+	struct igb_adapter *adapter =3D netdev_priv(netdev);
-+	struct e1000_hw *hw =3D &adapter->hw;
-+	u32 status =3D E1000_SUCCESS;
-+	u16 sff8472_rev, addr_mode;
-+	bool page_swap =3D false;
+@@ -178,27 +178,33 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 
+ 		ecmd->port = PORT_TP;
+ 		ecmd->phy_address = hw->phy.addr;
++		ecmd->transceiver = XCVR_INTERNAL;
+ 	} else {
+ 		ecmd->supported   = (SUPPORTED_1000baseT_Full |
++				     SUPPORTED_100baseT_Full |
++				     SUPPORTED_Autoneg |
+ 				     SUPPORTED_FIBRE |
+-				     SUPPORTED_Autoneg);
++				     SUPPORTED_Pause);
+ 
+-		ecmd->advertising = (ADVERTISED_1000baseT_Full |
+-				     ADVERTISED_FIBRE |
+-				     ADVERTISED_Autoneg |
+-				     ADVERTISED_Pause);
++		ecmd->advertising = ADVERTISED_FIBRE;
 +
-+	if ((hw->phy.media_type =3D=3D e1000_media_type_copper) ||
-+	    (hw->phy.media_type =3D=3D e1000_media_type_unknown))
-+		return -EOPNOTSUPP;
++		if (adapter->link_speed == SPEED_100)
++			ecmd->advertising = ADVERTISED_100baseT_Full;
++		else if (adapter->link_speed == SPEED_1000)
++			ecmd->advertising = ADVERTISED_1000baseT_Full;
 +
-+	/* Check whether we support SFF-8472 or not */
-+	status =3D igb_read_phy_reg_i2c(hw, IGB_SFF_8472_COMP, &sff8472_rev);
-+	if (status !=3D E1000_SUCCESS)
-+		return -EIO;
-+
-+	/* addressing mode is not supported */
-+	status =3D igb_read_phy_reg_i2c(hw, IGB_SFF_8472_SWAP, &addr_mode);
-+	if (status !=3D E1000_SUCCESS)
-+		return -EIO;
-+
-+	/* addressing mode is not supported */
-+	if ((addr_mode & 0xFF) & IGB_SFF_ADDRESSING_MODE) {
-+		hw_dbg("Address change required to access page 0xA2, but not support=
-ed. Please report the module type to the driver maintainers.\n");
-+		page_swap =3D true;
-+	}
-+
-+	if ((sff8472_rev & 0xFF) =3D=3D IGB_SFF_8472_UNSUP || page_swap) {
-+		/* We have an SFP, but it does not support SFF-8472 */
-+		modinfo->type =3D ETH_MODULE_SFF_8079;
-+		modinfo->eeprom_len =3D ETH_MODULE_SFF_8079_LEN;
-+	} else {
-+		/* We have an SFP which supports a revision of SFF-8472 */
-+		modinfo->type =3D ETH_MODULE_SFF_8472;
-+		modinfo->eeprom_len =3D ETH_MODULE_SFF_8472_LEN;
-+	}
-+
-+	return 0;
-+}
-+
-+static int igb_get_module_eeprom(struct net_device *netdev,
-+				 struct ethtool_eeprom *ee, u8 *data)
-+{
-+	struct igb_adapter *adapter =3D netdev_priv(netdev);
-+	struct e1000_hw *hw =3D &adapter->hw;
-+	u32 status =3D E1000_SUCCESS;
-+	u16 dataword =3D 0xFF;
-+	int i =3D 0;
-+
-+	/* Read the first block, SFF-8079, 2 bytes at a time */
-+	for (i =3D 0; i < ETH_MODULE_SFF_8079_LEN; i +=3D 2) {
-+		status =3D igb_read_phy_reg_i2c(hw, i, &dataword);
-+		if (status !=3D E1000_SUCCESS)
-+			/* Error occurred while reading module */
-+			return -EIO;
-+
-+		data[i] =3D (dataword >> 8) & 0xFF;
-+		data[i+1] =3D dataword & 0xFF;
-+	}
-+
-+	/* If the second block is requested, check if SFF-8472 is supported. =
-*/
-+	if (ee->len =3D=3D ETH_MODULE_SFF_8472_LEN) {
-+		if (data[IGB_SFF_8472_COMP] =3D=3D IGB_SFF_8472_UNSUP)
-+			return -EOPNOTSUPP;
-+
-+		/* Read the second block, SFF-8472, 2 bytes at a time */
-+		for (i =3D ETH_MODULE_SFF_8079_LEN;
-+		     i < ETH_MODULE_SFF_8472_LEN; i +=3D 2) {
-+			status =3D igb_read_phy_reg_i2c(hw, i, &dataword);
-+			if (status !=3D E1000_SUCCESS)
-+				return -EIO;
-+
-+			data[i] =3D (dataword >> 8) & 0xFF;
-+			data[i+1] =3D dataword & 0xFF;
++		if (hw->mac.autoneg == 1)
++			ecmd->advertising |= ADVERTISED_Autoneg;
+ 
+ 		ecmd->port = PORT_FIBRE;
++		ecmd->transceiver = XCVR_EXTERNAL;
+ 	}
+ 
+-	ecmd->transceiver = XCVR_INTERNAL;
+-
+ 	status = rd32(E1000_STATUS);
+ 
+ 	if (status & E1000_STATUS_LU) {
+ 
+-		if ((status & E1000_STATUS_SPEED_1000) ||
+-		    hw->phy.media_type != e1000_media_type_copper)
++		if (status & E1000_STATUS_SPEED_1000)
+ 			ethtool_cmd_speed_set(ecmd, SPEED_1000);
+ 		else if (status & E1000_STATUS_SPEED_100)
+ 			ethtool_cmd_speed_set(ecmd, SPEED_100);
+@@ -215,7 +221,11 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 		ecmd->duplex = -1;
+ 	}
+ 
+-	ecmd->autoneg = hw->mac.autoneg ? AUTONEG_ENABLE : AUTONEG_DISABLE;
++	if ((hw->phy.media_type == e1000_media_type_fiber) ||
++	    hw->mac.autoneg)
++		ecmd->autoneg = AUTONEG_ENABLE;
++	else
++		ecmd->autoneg = AUTONEG_DISABLE;
+ 
+ 	/* MDI-X => 2; MDI =>1; Invalid =>0 */
+ 	if (hw->phy.media_type == e1000_media_type_copper)
+@@ -266,9 +276,21 @@ static int igb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 
+ 	if (ecmd->autoneg == AUTONEG_ENABLE) {
+ 		hw->mac.autoneg = 1;
+-		hw->phy.autoneg_advertised = ecmd->advertising |
+-					     ADVERTISED_TP |
+-					     ADVERTISED_Autoneg;
++		if (hw->phy.media_type == e1000_media_type_fiber) {
++			hw->phy.autoneg_advertised = ecmd->advertising |
++						     ADVERTISED_FIBRE |
++						     ADVERTISED_Autoneg;
++			if (adapter->link_speed == SPEED_1000)
++				hw->phy.autoneg_advertised =
++					ADVERTISED_1000baseT_Full;
++			else if (adapter->link_speed == SPEED_100)
++				hw->phy.autoneg_advertised =
++					ADVERTISED_100baseT_Full;
++		} else {
++			hw->phy.autoneg_advertised = ecmd->advertising |
++						     ADVERTISED_TP |
++						     ADVERTISED_Autoneg;
 +		}
+ 		ecmd->advertising = hw->phy.autoneg_advertised;
+ 		if (adapter->fc_autoneg)
+ 			hw->fc.requested_mode = e1000_fc_default;
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 8496adf..fb162ef 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -7008,11 +7008,14 @@ int igb_set_spd_dplx(struct igb_adapter *adapter, u32 spd, u8 dplx)
+ 	if ((spd & 1) || (dplx & ~1))
+ 		goto err_inval;
+ 
+-	/* Fiber NIC's only allow 1000 Gbps Full duplex */
+-	if ((adapter->hw.phy.media_type == e1000_media_type_internal_serdes) &&
+-	    spd != SPEED_1000 &&
+-	    dplx != DUPLEX_FULL)
+-		goto err_inval;
++	/* Fiber NIC's only allow 1000 gbps Full duplex
++	 * and 100Mbps Full duplex for 100baseFx sfp
++	 */
++	if (adapter->hw.phy.media_type == e1000_media_type_internal_serdes) {
++		if ((spd + dplx != (SPEED_1000 + DUPLEX_FULL)) ||
++		    (spd + dplx != (SPEED_100 + DUPLEX_FULL)))
++			goto err_inval;
 +	}
-+
-+	return 0;
-+}
-+
- static int igb_ethtool_begin(struct net_device *netdev)
- {
- 	struct igb_adapter *adapter =3D netdev_priv(netdev);
-@@ -2666,6 +2748,8 @@ static const struct ethtool_ops igb_ethtool_ops =3D=
- {
- 	.set_rxnfc		=3D igb_set_rxnfc,
- 	.get_eee		=3D igb_get_eee,
- 	.set_eee		=3D igb_set_eee,
-+	.get_module_info	=3D igb_get_module_info,
-+	.get_module_eeprom	=3D igb_get_module_eeprom,
- 	.begin			=3D igb_ethtool_begin,
- 	.complete		=3D igb_ethtool_complete,
- };
---=20
+ 
+ 	switch (spd + dplx) {
+ 	case SPEED_10 + DUPLEX_HALF:
+-- 
 1.7.11.7
