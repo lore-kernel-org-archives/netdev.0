@@ -1,58 +1,83 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH net-next 3/3] net/mlx4_en: Enable open-lldp DCB support
-Date: Thu, 04 Apr 2013 12:01:06 -0700
-Message-ID: <515DCDF2.8070304@intel.com>
-References: <1365085574-12057-1-git-send-email-ogerlitz@mellanox.com> <1365085574-12057-4-git-send-email-ogerlitz@mellanox.com> <515DA342.5020503@intel.com> <515DA579.3050006@mellanox.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next 05/13] igb: Support to read and export SFF-8472/8079
+ data
+Date: Thu, 4 Apr 2013 20:07:51 +0100
+Message-ID: <1365102471.2735.2.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1365075480-20183-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1365075480-20183-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, amirv@mellanox.com
-To: Sagi Grimberg <sagig@mellanox.com>
+Cc: <davem@davemloft.net>,
+	"Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
+	<netdev@vger.kernel.org>, <gospo@redhat.com>,
+	<sassmann@redhat.com>,
+	=?ISO-8859-1?Q?Aur=E9lien?= Guillaume <footplus@gmail.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:27757 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763581Ab3DDTBI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Apr 2013 15:01:08 -0400
-In-Reply-To: <515DA579.3050006@mellanox.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:50457 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764364Ab3DDTH7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 15:07:59 -0400
+In-Reply-To: <1365075480-20183-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/4/2013 9:08 AM, Sagi Grimberg wrote:
-> On 4/4/2013 6:58 PM, John Fastabend wrote:
->> On 4/4/2013 7:26 AM, Or Gerlitz wrote:
->>> From: Sagi Grimberg <sagig@mellanox.com>
->>>
->>> The lldpad daemon queries the driver caps via the getcaps and getstate
->>> routines. Added the prpoer dbcnl_ops entries to support that.
->>>
->>> Signed-off-by: Sagi Grimberg <sagig@mellanox.com>
->>> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
->>> ---
->>
->> Does lldpad work now with the mlx4_en driver?
->>
->> Reviewed-by: John Fastabend <john.r.fastabend@intel.com>
->>
->
-> Yes.
->
-> -Sagi
+On Thu, 2013-04-04 at 04:37 -0700, Jeff Kirsher wrote:
+> From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
+> 
+> This patch adds support to read and export SFF-8472/8079 (SFP data)
+> over i2c, through Ethtool.
+[...]
+> --- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
+> +++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+[...]
+> +static int igb_get_module_eeprom(struct net_device *netdev,
+> +				 struct ethtool_eeprom *ee, u8 *data)
+> +{
+> +	struct igb_adapter *adapter = netdev_priv(netdev);
+> +	struct e1000_hw *hw = &adapter->hw;
+> +	u32 status = E1000_SUCCESS;
+> +	u16 dataword = 0xFF;
+> +	int i = 0;
+> +
+> +	/* Read the first block, SFF-8079, 2 bytes at a time */
+> +	for (i = 0; i < ETH_MODULE_SFF_8079_LEN; i += 2) {
+> +		status = igb_read_phy_reg_i2c(hw, i, &dataword);
+> +		if (status != E1000_SUCCESS)
+> +			/* Error occurred while reading module */
+> +			return -EIO;
+> +
+> +		data[i] = (dataword >> 8) & 0xFF;
+> +		data[i+1] = dataword & 0xFF;
+> +	}
 
-So I looked at your code and lldpad a bit closer. I think this
-just works around a bug in lldpad. Also with this patch lldpad
-would try to xmit lldp pkts which would conflict with your firmware
-agent right?
+What if ee->offset != 0 or ee->len < ETH_MODULE_SFF_8079_LEN?
 
-For IEEE DCBX modes lldpad should check the return values from
-the getdcbx dcbnl_rtnl_ops which you already have filled out. I
-would expect your driver to return DCB_CAP_DCBX_LLD_MANAGED to
-indicate it is being managed by firmware.
+> +	/* If the second block is requested, check if SFF-8472 is supported. */
+> +	if (ee->len == ETH_MODULE_SFF_8472_LEN) {
+> +		if (data[IGB_SFF_8472_COMP] == IGB_SFF_8472_UNSUP)
+> +			return -EOPNOTSUPP;
+> +
+> +		/* Read the second block, SFF-8472, 2 bytes at a time */
+> +		for (i = ETH_MODULE_SFF_8079_LEN;
+> +		     i < ETH_MODULE_SFF_8472_LEN; i += 2) {
+> +			status = igb_read_phy_reg_i2c(hw, i, &dataword);
+> +			if (status != E1000_SUCCESS)
+> +				return -EIO;
+> +
+> +			data[i] = (dataword >> 8) & 0xFF;
+> +			data[i+1] = dataword & 0xFF;
+> +		}
+> +	}
+[...]
 
-See bnx2x_dcbnl_get_dcbx() for an example of an implementation
-which I believe is correct. I'll fix the user space lldpad bug.
+What if ee->offset != 0 or ETH_MODULE_SFF_8079_LEN < ee->len <
+ETH_MODULE_SFF_8472_LEN?
 
-Looks like I added my reveiwed-by line too quickly.
+Ben.
 
-Thanks,
-.John
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
