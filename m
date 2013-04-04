@@ -1,63 +1,43 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/5] netfilter updates for net
-Date: Thu,  4 Apr 2013 14:56:04 +0200
-Message-ID: <1365080169-6880-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/5] netfilter: ip6t_NPT: Fix translation for non-multiple of 32 prefix lengths
+Date: Thu,  4 Apr 2013 14:56:09 +0200
+Message-ID: <1365080169-6880-6-git-send-email-pablo@netfilter.org>
+References: <1365080169-6880-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:40139 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:40170 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760835Ab3DDM4i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Apr 2013 08:56:38 -0400
+	id S1760151Ab3DDM4q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Apr 2013 08:56:46 -0400
+In-Reply-To: <1365080169-6880-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Matthias Schiffer <mschiffer@universe-factory.net>
 
-The following patchset contains netfilter updates for your net tree,
-they are:
+The bitmask used for the prefix mangling was being calculated
+incorrectly, leading to the wrong part of the address being replaced
+when the prefix length wasn't a multiple of 32.
 
-* Fix missing the skb->trace reset in nf_reset, noticed by Gao Feng
-  while using the TRACE target with several net namespaces.
+Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/ipv6/netfilter/ip6t_NPT.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-* Fix prefix translation in IPv6 NPT if non-multiple of 32 prefixes
-  are used, from Matthias Schiffer.
-
-* Fix invalid nfacct objects with empty name, they are now rejected
-  with -EINVAL, spotted by Michael Zintakis, patch from myself.
-
-* A couple of fixes for wrong return values in the error path of
-  nfnetlink_queue and nf_conntrack, from Wei Yongjun.
-
-You can pull these changes from:
-
-git://1984.lsi.us.es/nf master
-
-Thanks!
-
-P.S: Next pull request for fixes will be done from my new trees at
-git.kernel.org. I still have to make a pull request for nf-next from 1984
-anytime soon though. After that, I'll close the trees in that machine.
-
-Gao feng (1):
-  netfilter: reset nf_trace in nf_reset
-
-Matthias Schiffer (1):
-  netfilter: ip6t_NPT: Fix translation for non-multiple of 32 prefix lengths
-
-Pablo Neira Ayuso (1):
-  netfilter: nfnetlink_acct: return -EINVAL if object name is empty
-
-Wei Yongjun (2):
-  netfilter: nfnetlink_queue: fix error return code in nfnetlink_queue_init()
-  netfilter: nf_conntrack: fix error return code
-
- include/linux/skbuff.h                  |    3 +++
- net/ipv6/netfilter/ip6t_NPT.c           |    2 +-
- net/netfilter/nf_conntrack_standalone.c |    1 +
- net/netfilter/nfnetlink_acct.c          |    2 ++
- net/netfilter/nfnetlink_queue_core.c    |    4 +++-
- 5 files changed, 10 insertions(+), 2 deletions(-)
-
+diff --git a/net/ipv6/netfilter/ip6t_NPT.c b/net/ipv6/netfilter/ip6t_NPT.c
+index 33608c6..cb63114 100644
+--- a/net/ipv6/netfilter/ip6t_NPT.c
++++ b/net/ipv6/netfilter/ip6t_NPT.c
+@@ -57,7 +57,7 @@ static bool ip6t_npt_map_pfx(const struct ip6t_npt_tginfo *npt,
+ 		if (pfx_len - i >= 32)
+ 			mask = 0;
+ 		else
+-			mask = htonl(~((1 << (pfx_len - i)) - 1));
++			mask = htonl((1 << (i - pfx_len + 32)) - 1);
+ 
+ 		idx = i / 32;
+ 		addr->s6_addr32[idx] &= mask;
 -- 
 1.7.10.4
