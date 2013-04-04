@@ -1,22 +1,23 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 09/13] igb: Pull adapter out of main path in igb_xmit_frame_ring
-Date: Thu, 04 Apr 2013 18:15:25 +0400
-Message-ID: <515D8AFD.1000709@cogentembedded.com>
-References: <1365075480-20183-1-git-send-email-jeffrey.t.kirsher@intel.com> <1365075480-20183-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 07/13] igb: random code and comments fix
+Date: Thu, 04 Apr 2013 18:22:18 +0400
+Message-ID: <515D8C9A.8030606@cogentembedded.com>
+References: <1365075480-20183-1-git-send-email-jeffrey.t.kirsher@intel.com> <1365075480-20183-8-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Alexander Duyck <alexander.h.duyck@intel.com>,
+Cc: davem@davemloft.net,
+	"Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
 To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:60929 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760960Ab3DDOQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 10:16:25 -0400
-Received: by mail-la0-f42.google.com with SMTP id fe20so2548323lab.15
-        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 07:16:24 -0700 (PDT)
-In-Reply-To: <1365075480-20183-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:65501 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761441Ab3DDOXS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 10:23:18 -0400
+Received: by mail-lb0-f177.google.com with SMTP id r10so2722552lbi.22
+        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 07:23:17 -0700 (PDT)
+In-Reply-To: <1365075480-20183-8-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -24,38 +25,50 @@ Hello.
 
 On 04-04-2013 15:37, Jeff Kirsher wrote:
 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
 
-> We only need the adapter pointer in the case of ptp.  As such we can pull the
-> adapter out of the main path and place it inside the if statement to avoid
-> the temptation of accessing the adapter pointer in the fast path.
+> This patch fixes code and comments as identified in the driver.
 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+   It seems you are doing 3 different things in 3 different files in this 
+patch... it would be better to split it up.
+
+> Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 > Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+[...]
 
-   Two minor nits.
+> diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.c b/drivers/net/ethernet/intel/igb/e1000_mac.c
+> index a5c7200..5d407f4 100644
+> --- a/drivers/net/ethernet/intel/igb/e1000_mac.c
+> +++ b/drivers/net/ethernet/intel/igb/e1000_mac.c
+> @@ -1007,9 +1007,9 @@ s32 igb_config_fc_after_link_up(struct e1000_hw *hw)
+>   		 * be asked to delay transmission of packets than asking
+>   		 * our link partner to pause transmission of frames.
+>   		 */
+> -		else if ((hw->fc.requested_mode == e1000_fc_none ||
+> -			  hw->fc.requested_mode == e1000_fc_tx_pause) ||
+> -			 hw->fc.strict_ieee) {
+> +		else if ((hw->fc.requested_mode == e1000_fc_none) ||
+> +			 (hw->fc.requested_mode == e1000_fc_tx_pause) ||
+> +			 (hw->fc.strict_ieee)) {
+
+    The code was alright bnefore this change, so this isn't really a fix at 
+all. Aside of that, () around == are not needed, and yet less around 
+'hw->fc.strict_ieee'.
 
 > diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-> index 29facb5..6043245 100644
+> index fb162ef..8752f4f 100644
 > --- a/drivers/net/ethernet/intel/igb/igb_main.c
 > +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-[...]
-> @@ -4628,15 +4627,17 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+> @@ -3859,9 +3859,8 @@ static bool igb_thermal_sensor_event(struct e1000_hw *hw, u32 event)
+>   		ctrl_ext = rd32(E1000_CTRL_EXT);
 >
->   	skb_tx_timestamp(skb);
->
-> -	if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
-> -		     !(adapter->ptp_tx_skb))) {
-> -		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
-> -		tx_flags |= IGB_TX_FLAGS_TSTAMP;
-> +	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
-> +		struct igb_adapter *adapter = netdev_priv(tx_ring->netdev);
+>   		if ((hw->phy.media_type == e1000_media_type_copper) &&
+> -		    !(ctrl_ext & E1000_CTRL_EXT_LINK_MODE_SGMII)) {
+> +		    !(ctrl_ext & E1000_CTRL_EXT_LINK_MODE_SGMII))
+>   			ret = !!(thstat & event);
+> -		}
 
-    An empty line wouldn't hurt here.
-
-> +		if (!(adapter->ptp_tx_skb)) {
-
-    Parens not needed here.
+    This was checkpatch.pl's message right?
 
 WBR, Sergei
