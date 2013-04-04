@@ -1,251 +1,102 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: this cpu documentation
-Date: Thu, 04 Apr 2013 10:19:31 -0700
-Message-ID: <515DB623.4060802@infradead.org>
-References: <1364463761-32510-1-git-send-email-roy.qing.li@gmail.com> <1364475933.15753.36.camel@edumazet-glaptop> <0000013db16f1e1d-abcb7d9e-1c9d-4ef9-b4de-767bc0282ccf-000000@email.amazonses.com> <CAJFZqHzkGcFT_gcqgu=ktuig7UEoR4FVTUZF6G46=6n6FkYZ2A@mail.gmail.com> <0000013dc6307f44-940f2bf1-7556-4d9e-92ab-1a84d2a47ca8-000000@email.amazonses.com> <1364833887.5113.161.camel@edumazet-glaptop> <0000013dd1a20ebf-4a76fb06-4b9d-492e-9d77-4b3f43aceca7-000000@email.amazonses.com> <515F679E.8020203@infradead.org> <0000013dd57e7ad7-d5959142-ca41-4a53-9497-7559766aafc9-000000@email.amazonses.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2] MPLS: Add limited GSO support
+Date: Thu, 4 Apr 2013 10:20:47 -0700
+Message-ID: <CAEP_g=-9sup3ny7Y8HKW85LrtM=xZfEme7UeKvGZ11uHUFqPcA@mail.gmail.com>
+References: <1364980315-13649-1-git-send-email-horms@verge.net.au>
+ <CAEP_g=_Y0hN2DvyO4JitMrpQvN=TmTO5Pk28DpvF6Ya09AeTcg@mail.gmail.com>
+ <20130404002809.GF29678@verge.net.au> <CAEP_g=9cnm39i7rBk=Pi_1e6dFDLMa6oVFuO3PufEhODCVBqnw@mail.gmail.com>
+ <20130404005539.GA17694@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	RongQing Li <roy.qing.li@gmail.com>,
-	Shan Wei <davidshan@tencent.com>, netdev@vger.kernel.org,
-	Tejun Heo <htejun@gmail.com>
-To: Christoph Lameter <cl@linux.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:57297 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763822Ab3DDRTi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 13:19:38 -0400
-In-Reply-To: <0000013dd57e7ad7-d5959142-ca41-4a53-9497-7559766aafc9-000000@email.amazonses.com>
+Received: from na3sys009aog114.obsmtp.com ([74.125.149.211]:38339 "HELO
+	na3sys009aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1763921Ab3DDRVJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 13:21:09 -0400
+Received: by mail-ie0-f197.google.com with SMTP id a11so15455778iee.0
+        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 10:21:09 -0700 (PDT)
+In-Reply-To: <20130404005539.GA17694@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/04/13 07:41, Christoph Lameter wrote:
-> From: Christoph Lameter <cl@linux.com>
-> Subject: this_cpu: Add documentation V2
-> 
-> Document the rationale and the way to use this_cpu operations.
-> 
-> V2: Improved after feedback from Randy Dunlap
+On Wed, Apr 3, 2013 at 5:55 PM, Simon Horman <horms@verge.net.au> wrote:
+> On Wed, Apr 03, 2013 at 05:44:17PM -0700, Jesse Gross wrote:
+>> On Wed, Apr 3, 2013 at 5:28 PM, Simon Horman <horms@verge.net.au> wrote:
+>> > On Wed, Apr 03, 2013 at 04:51:38PM -0700, Jesse Gross wrote:
+>> >> On Wed, Apr 3, 2013 at 2:11 AM, Simon Horman <horms@verge.net.au> wrote:
+>> >> > In the case where a non-MPLS packet is recieved and an MPLS stack is
+>> >> > added it may well be the case that the original skb is GSO but the
+>> >> > NIC used for transmit does not support GSO of MPLS packets.
+>> >> >
+>> >> > The aim of this code is to provide GSO in software for MPLS packets
+>> >> > whose skbs are GSO.
+>> >> >
+>> >> > When an implementation adds an MPLS stack to a non-MPLS packet it should do
+>> >> > the following to skb metadata:
+>> >> >
+>> >> > * Set skb_mac_header(skb)->protocol to the new MPLS ethertype.
+>> >> >   That is, either ETH_P_MPLS_UC or ETH_P_MPLS_MC.
+>> >> >
+>> >> > * Leave skb->protocol as the old non-MPLS ethertype.
+>> >> >
+>> >> > * Set skb->encapsulation = 1.
+>> >> >
+>> >> >   This may not strictly be necessary as I believe that checking
+>> >> >   skb_mac_header(skb)->protocol and skb->protocol should be necessary and
+>> >> >   sufficient.
+>> >> >
+>> >> >   However, it does seem to fit nicely with the current implementation of
+>> >> >   dev_hard_start_xmit() where the more expensive check of
+>> >> >   skb_mac_header(skb)->protocol may be guarded by an existing check of
+>> >> >   skb->encapsulation.
+>> >> >
+>> >> > One aspect of this patch that I am unsure about is the modification I have
+>> >> > made to skb_segment(). This seems to be necessary as checskum accelearation
+>> >> > may no longer be possible as the packet has changed to be MPLS from some
+>> >> > other packet type which may have been supported by the hardware in use.
+>> >> >
+>> >> > I will post a patch, "[PATCH v3.24] datapath: Add basic MPLS support to
+>> >> > kernel" which adds MPLS support to the kernel datapath of Open vSwtich.
+>> >> > That patch sets the above requirements in
+>> >> > datapath/actions.c:set_ethertype() and was used to exercise the MPLS GSO
+>> >> > code. The datapath patch is against the Open vSwtich tree but it is
+>> >> > intended that it be added to the Open vSwtich code present in the mainline
+>> >> > Linux kernel at some point.
+>> >> >
+>> >> > Suggested by Jesse Gross. Based heavily on "v4 GRE: Add TCP segmentation
+>> >> > offload for GRE" by Pravin B Shelar.
+>> >> >
+>> >> > Cc: Jesse Gross <jesse@nicira.com>
+>> >> > Cc: Pravin B Shelar <pshelar@nicira.com>
+>> >> > Signed-off-by: Simon Horman <horms@verge.net.au>
+>> >>
+>> >> MPLS is very similar to both the Ethernet header and vlans in that GSO
+>> >> only requires replication without any modification.  That means that
+>> >> if we look at the mac_len as containing all three then we can just
+>> >> copy it without any special knowledge.  I don't know that we carefully
+>> >> maintain mac_len in all places but you are already doing that in your
+>> >> MPLS patches.
+>> >
+>> > At least for the cases that I am aware of I think that mac_len is
+>> > predictable. But I'm a little unsure of what you are getting at here.
+>>
+>> If you have the MAC len then you don't need any new MPLS code here at
+>> all; just replicate the whole thing onto each packet.
+>
+> The MAC len is set to cover everything up to the top of the MPLS stack.
+> So it seems that something needs to be done to account for the length
+> of the MPLS stack.
+>
+> Are you suggesting that if Open vSwtich set up the MAC len to extend
+> to the end of the MPLS stack then mpls_gro_segment() would not be necessary?
 
-Thanks.  I have a few more corrections to V2 (please see below).
-
-
-> 
-> Signed-off-by: Christoph Lameter <cl@linux.com>
-> 
-> Index: linux/Documentation/this_cpu_ops
-> ===================================================================
-> --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-> +++ linux/Documentation/this_cpu_ops	2013-04-04 09:40:06.431946280 -0500
-> @@ -0,0 +1,197 @@
-> +this_cpu operations
-> +-------------------
-> +
-> +this_cpu operations are a way of optimizing access to per cpu variables
-> +associated with the *currently* executing processor
-> +through the use of segment registers (or a dedicated register where the cpu
-> +permanently stored the beginning of the per cpu area for a specific
-> +processor).
-> +
-> +The this_cpu operations add a per cpu variable offset to the processor
-> +specific percpu base and encode that operation in the instruction operating
-> +on the per cpu variable.
-> +
-> +This meanthere are no atomicity issues between the calculation
-
-        means there
-
-> +of the offset and the operation on the data. Therefore it is not necessary
-> +to disable preempt or interrupts to ensure that the processor is not changed
-> +between the calculation of the address and the operation on the data.
-> +
-> +Read-modify-write operations are of particular interest. Frequently
-> +processors have special lower latency instructions that can operate without
-> +the typical synchronization overhead but still provide some sort of relaxed
-> +atomicity guarantee. The x86 for example can execute RMV (Read Modify Write)
-> +instructions like inc/dec/cmpxchg without the lock prefix and the
-> +associated latency penalty.
-> +
-> +Access to the variable without the lock prefix is not synchronized but
-> +synchronization is not necessary since we are dealing with per cpu data
-> +specific to the currently executing processor. Only the current processor
-> +should be accessing that variable and therefore there are no concurirency
-
-                                                                concurrency
-
-> +issues with other processors in the system.
-> +
-> +On x86 the fs: or the gs: segment registers contain the base of the per cpu area. It is
-> +then possible to simply use the segment override to relocate a per cpu relative address
-> +to the proper per cpu area for the processor. So the relocation to the per cpu base
-> +is encoded in the instruction via a segment register prefix.
-> +
-> +For example:
-> +
-> +	DEFINE_PER_CPU(int, x);
-> +	int z;
-> +
-> +	z = this_cpu_read(x);
-> +
-> +results in a single instruction
-> +
-> +	mov ax, gs:[x]
-> +
-> +instead of a sequence of calculation of the address and then a fetch from
-> +that address which occurs with the percpu operations. Before this_cpu_ops
-> +such sequence also required preempt disable/enable to prevent the kernel from
-> +moving the thread to a different processor while the calculation is performed.
-> +
-> +
-> +The main use of the this_cpu operations has been to optimize counter operations.
-> +
-> +
-> +	this_cpu_inc(x)
-> +
-> +results in the following single instruction (no lock prefix!)
-> +
-> +	inc gs:[x]
-> +
-> +
-> +instead of the following operations required if there is no segment register.
-> +
-> +	int *y;
-> +	int cpu;
-> +
-> +	cpu = get_cpu();
-> +	y = per_cpu_ptr(&x, cpu);
-> +	(*y)++;
-> +	put_cpu();
-> +
-> +
-> +Note that these operations can only be used on percpu data that is reserved for
-> +a specific processor. Without disabling preemption in the surrounding code
-> +this_cpu_inc() will only guarantee that one of the percpu counters is correctly
-> +incremented. However, there is no guarantee that the OS will not move the process
-> +directly before or after the this_cpu instruction is executed. In general this
-> +means that the value of the individual counters for each processor are
-> +meaningless. The sum of all the per cpu counters is the only value that is of
-> +interest.
-> +
-> +Per cpu variables are used for performance reasons. Bouncing cache lines can
-> +be avoided if multiple processors concurrently go through the same code paths.
-> +Since each processor has its own per cpu variables no concurrent cacheline
-> +updates take place. The price that has to be paid for this optimization is
-> +the need to add up the per cpu counters when the value of the counter is
-> +needed.
-> +
-> +
-> +Special operations:
-> +-------------------
-> +
-> +	y = this_cpu_ptr(&x)
-> +
-> +Takes the offset of a per cpu variable (&x !) and returns the address of the
-> +per cpu variable that belongs to the currently executing processor.
-> +this_cpu_ptr avoids multiple steps that the common get_cpu/put_cpu sequence
-> +requires. No processor number is available. Instead the offset of the local
-> +per cpu area is simply added to the percpu offset.
-> +
-> +
-> +
-> +Per cpu variables and offsets
-> +-----------------------------
-> +
-> +Per cpu variables have *offsets* to the beginning of the percpu area. They do
-> +not have addresses although they look like that in the code. Offsets
-> +cannot be directly dereferenced. The offset must be added to a base pointer of
-> +a percpu area of a processor in order to form a valid address.
-> +
-> +Therefore the use of x or &x outside of the context of per cpu operations
-> +is invalid and will generally be treated like a NULL pointer dereference.
-> +
-> +In the context of per cpu operations
-> +
-> +	x is a per cpu variable. Most this_cpu operations take a cpu variable.
-> +
-> +	&x is the *offset* a per cpu variable. this_cpu_ptr() takes the offset
-> +		of a per cpu variable which makes this look a bit strange.
-> +
-> +
-> +
-> +Operations on a field of a per cpu structure
-> +--------------------------------------------
-> +
-> +Let's say we have a percpu structure
-> +
-> +	struct s {
-> +		int n,m;
-> +	};
-> +
-> +	DEFINE_PER_CPU(struct s, p);
-> +
-> +
-> +Operations on these fields are straightforward
-> +
-> +	this_cpu_inc(p.m)
-> +
-> +	z = this_cpu_cmpxchg(p.m, 0, 1);
-> +
-> +
-> +If we have an offset to struct s:
-> +
-> +	struct s __percpu *ps = &p;
-> +
-> +	z = this_cpu_dec(ps->m);
-> +
-> +	z = this_cpu_inc_return(ps->n);
-> +
-> +
-> +The calculation of the pointer may require the use of this_cpu_ptr() if we
-> +do not make use of this_cpu ops later to manipulate fields:
-> +
-> +	struct s *pp;
-> +
-> +	pp = this_cpu_ptr(&p);
-> +
-> +	pp->m--;
-> +
-> +	z = pp->n++;
-> +
-> +
-> +Variants of this_cpu ops
-> +-------------------------
-> +
-> +this_cpu ops are interrupt safe. Some architecture do not support these per
-> +cpu local operations. In that case the operation must be replaced by code
-> +that disables interrupts, then does the operations that are guaranteed to be
-> +atomic and then reenable interrupts. Doing so is expensive. If there are
-> +other reasons why the scheduler cannot change the processor we are executing
-> +on then there is no reason to disable interrupts. For that purpose
-> +the __this_cpu operations are provided. For example.
-> +
-> +	__this_cpu_inc(x);
-> +
-> +Will increment x and will not fallback to code that disables interrupts on
-> +platforms that cannot accomplish atomicity through address relocation and
-> +an Read-Modify-Write operation in the same instruction.
-
-   a
-
-> +
-> +
-> +
-> +&this_cpu_ptr(pp)->n vs this_cpu_ptr(&pp->n)
-> +--------------------------------------------
-> +
-> +The first operation takes the offset and forms an address and then adds
-> +the offset of the n field.
-> +
-> +The second one first adds the two offsets and then does the relocation.
-> +IMHO the second form looks cleaner and has an easier time with (). The
-> +second form also is consistent with the way this_cpu_read() and friends
-> +are used.
-> +
-> +
-> +Christoph Lameter, April 3rd, 2013
-
-
-
--- 
-~Randy
+Something along those lines.  I think this is very similar to the
+skb->protocol discussion (and likely influenced by the outcome of
+that).  MPLS is a little weird with respect to the existing layer
+pointers but if we can find a good definition then I think that the
+GSO code should be pretty minimal.
