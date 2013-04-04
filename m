@@ -1,76 +1,98 @@
-From: dingtianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH] af_unix: fix build warning
-Date: Thu, 4 Apr 2013 15:00:34 +0800
-Message-ID: <515D2512.5040908@huawei.com>
-References: <515BF6DA.9010007@huawei.com> <CAKoUArk67UyqAC26t7JCfL_LZWHAO1qB=dH=chaXHd-jsxrPfg@mail.gmail.com>
+From: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH v5 1/6] drivers: phy: add generic PHY framework
+Date: Thu, 4 Apr 2013 10:15:34 +0300
+Message-ID: <20130404071534.GC30287@arwen.pp.htv.fi>
+References: <1364993634-6378-1-git-send-email-kishon@ti.com>
+ <1364993634-6378-2-git-send-email-kishon@ti.com>
+ <515CC123.4060402@wwwdotorg.org>
+Reply-To: balbi-l0cyMroinI0@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>, Li Zefan <lizefan@huawei.com>
-To: Rami Rosen <roszenrami@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:58058 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763852Ab3DDHB1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 03:01:27 -0400
-In-Reply-To: <CAKoUArk67UyqAC26t7JCfL_LZWHAO1qB=dH=chaXHd-jsxrPfg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============5015946729000906689=="
+Cc: broonie-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org, mchehab-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org,
+ Kishon Vijay Abraham I <kishon-l0cyMroinI0@public.gmane.org>, javier-0uQlZySMnqxg9hUCZPvPmw@public.gmane.org, cesarb-PWySMVKUnqmsTnJN9+BGXg@public.gmane.org,
+ eballetbo-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+ rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org, swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org, sylvester.nawrocki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org, santosh.shilimkar-l0cyMroinI0@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <515CC123.4060402-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 2013/4/3 20:27, Rami Rosen wrote:
-> Hi,
-> Which version of gcc are you using ?
-> A patch like yours, for the same method, unix_bind(), was sent in the
-> past, and Stephen Hemminger noted the
-> with gcc 4.7 the warning you got does not occur.
-> see:
-> http://permalink.gmane.org/gmane.linux.network/247807
->=20
-> Best Regards,
->=20
-> Rami Rosen
-> http://ramirose.wix.com/ramirosen
->=20
+--===============5015946729000906689==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="KDt/GgjP6HVcx58l"
+Content-Disposition: inline
 
-ok,thanks
+--KDt/GgjP6HVcx58l
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->=20
-> On Wed, Apr 3, 2013 at 12:31 PM, dingtianhong <dingtianhong@huawei.co=
-m> wrote:
->> net/unix/af_unix.c: In function =91unix_bind=92:
->> net/unix/af_unix.c:892: warning: =91path.mnt=92 may be used uninitia=
-lized in this function
->> net/unix/af_unix.c:892: warning: =91path.dentry=92 may be used unini=
-tialized in this function
->>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
->>  net/unix/af_unix.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
->> index 971282b..3ccc049 100644
->> --- a/net/unix/af_unix.c
->> +++ b/net/unix/af_unix.c
->> @@ -889,7 +889,7 @@ static int unix_bind(struct socket *sock, struct=
- sockaddr *uaddr, int addr_len)
->>         atomic_set(&addr->refcnt, 1);
->>
->>         if (sun_path[0]) {
->> -               struct path path;
->> +               struct path path =3D {};
->>                 umode_t mode =3D S_IFSOCK |
->>                        (SOCK_INODE(sock)->i_mode & ~current_umask())=
-;
->>                 err =3D unix_mknod(sun_path, mode, &path);
->> --
->> 1.8.0
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
->=20
+Hi,
+
+On Wed, Apr 03, 2013 at 05:54:11PM -0600, Stephen Warren wrote:
+> struct phy {
+> 	struct device *dev;
+> 	struct module *owner;
+> 	int	(*init)(struct phy *phy);
+> 	int	(*exit)(struct phy *phy);
+> 	int	(*suspend)(struct phy *phy);
+> 	int	(*resume)(struct phy *phy);
+
+I wonder whether it makes sense to provide ->suspend/->resume callbacks
+here. We already have dev_pm_ops providing those methods and we can just
+wrap pm_runtime_* calls to be called by consumers.
+
+--=20
+balbi
+
+--KDt/GgjP6HVcx58l
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBAgAGBQJRXSiWAAoJEIaOsuA1yqREFXkQAIP3OrjLQw12ylU/UHkhNtSJ
+B9qlFZyTCIGB0Vt9B3LZj5E3Vr7+GjR6UVbgC4FrYGJ57kFM7bzF/s+4r/8IjHzQ
+OrVRwpQButjAQZ6AgOd3rWMl2GvV60Eq6qlaWxWnjYLlzyBon1ThFPcOqBwDXaxi
+FwADvC1Yi1RqPDyvAUz+awgwZI11F4PRv+CQtf2kzDrbSdyrM64IykFGzhe9SrMJ
+50A6YUZ2DSniypLc53dYFgaLQSatCBPVT5MAMrvGABE7XyiAN4WHYpWco75FfaM2
+/FGsGfp2JBewuWYOV/M2ARnE8YVYYMQYaBMlf1i0wdFmW4VWRbcRYeMPAKpjAOJn
+QLfhRyfDUeKb8L6IZxRLHo0LnF3UUXy27EmtZBAFGXDa2fTIieJSE1KE3nR9K9CF
+AKFdNwBxW54Z/FBn9atxJQzZcWaoVkp3iQhdZK3Nqhg5k5AaO5eZssm+YEPRMiZ0
+yjSintNTJDLR1JCwX6f4fgXgPhrKt48y7XdReHpeqFPZVnSCB4W+Y4STHI4sw6N8
+975ACZvbnw5NA+FpNwrBxcwsyQ7CdodsLsRDDlRrKRlu3jedXy5dhtIVu9Q7bCNn
+g5DK/nQ7mrVAZMpGN240eAdZszGR78RgZAL7+90YcoKJT7Kns667clNN2giJ6Tn9
+QbXnLOdkrSFA1+UF2k8E
+=jF/V
+-----END PGP SIGNATURE-----
+
+--KDt/GgjP6HVcx58l--
+
+--===============5015946729000906689==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+devicetree-discuss mailing list
+devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+https://lists.ozlabs.org/listinfo/devicetree-discuss
+
+--===============5015946729000906689==--
