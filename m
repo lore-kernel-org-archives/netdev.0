@@ -1,7 +1,7 @@
 From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 5/5 v2] ARM: dove: add gigabit device tree nodes to dove.dtsi
-Date: Thu,  4 Apr 2013 12:27:15 +0200
-Message-ID: <1365071235-11611-6-git-send-email-florian@openwrt.org>
+Subject: [PATCH 2/5] mv643xx_eth: update Device Tree bindings documentation
+Date: Thu,  4 Apr 2013 12:27:12 +0200
+Message-ID: <1365071235-11611-3-git-send-email-florian@openwrt.org>
 References: <1365071235-11611-1-git-send-email-florian@openwrt.org>
 Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	devicetree-discuss@lists.ozlabs.org,
@@ -12,61 +12,44 @@ Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	jogo@openwrt.org, Florian Fainelli <florian@openwrt.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zmc.proxad.net ([212.27.53.206]:51642 "EHLO zmc.proxad.net"
+Received: from zmc.proxad.net ([212.27.53.206]:51599 "EHLO zmc.proxad.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759136Ab3DDK1f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Apr 2013 06:27:35 -0400
+	id S1759070Ab3DDK1e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Apr 2013 06:27:34 -0400
 In-Reply-To: <1365071235-11611-1-git-send-email-florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the gigabit ethernet device tree nodes to dove.dtsi in a
-disabled state. The gigabit ethernet device tree node must be enabled on
-a per-board basis. For completeness and easier testing the MDIO node is
-also added in a disabled state.
+This patch updates the Device Tree bindings documentation for the
+Marvell MV643xx ethernet controller node and makes the
+"local-mac-address" and "phy" properties optional instead of required.
+The absence of a "phy" node is legal and describes a MAC to switch
+configuration, while not specifying the "local-mac-address" allows for
+reuse of the MAC address already programmed into the Ethernet
+controller.
 
 Signed-off-by: Florian Fainelli <florian@openwrt.org>
 ---
-Changes since v1:
-- fixed off-by 0x2000 address of the ethernet-group node
+ Documentation/devicetree/bindings/marvell.txt |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
- arch/arm/boot/dts/dove.dtsi |   25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
-
-diff --git a/arch/arm/boot/dts/dove.dtsi b/arch/arm/boot/dts/dove.dtsi
-index f7509ca..51de5f7 100644
---- a/arch/arm/boot/dts/dove.dtsi
-+++ b/arch/arm/boot/dts/dove.dtsi
-@@ -253,5 +253,30 @@
- 				dmacap,xor;
- 			};
- 		};
+diff --git a/Documentation/devicetree/bindings/marvell.txt b/Documentation/devicetree/bindings/marvell.txt
+index e70a013..994b933 100644
+--- a/Documentation/devicetree/bindings/marvell.txt
++++ b/Documentation/devicetree/bindings/marvell.txt
+@@ -141,11 +141,11 @@ prefixed with the string "marvell,", for Marvell Technology Group Ltd.
+      - interrupts : <a> where a is the interrupt number for the port.
+      - interrupt-parent : the phandle for the interrupt controller
+        that services interrupts for this device.
 +
-+		mdio@72004 {
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			compatible = "marvell,orion-mdio";
-+			reg = <0x72004 0x84>;
-+			status = "disabled";
-+		};
-+
-+		ethernet-group@72000 {
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			compatible = "marvell,mv643xx-eth-block";
-+			reg = <0x72000 0x4000>;
-+			tx-csum-limit = <1600>;
-+			status = "disabled";
-+
-+			egiga0: ethernet@0 {
-+				device_type = "network";
-+				compatible = "marvell,mv643xx-eth";
-+				reg = <0>;
-+				interrupts = <29>;
-+				clocks = <&gate_clk 2>;
-+			};
-+		};
- 	};
- };
++   Optional properties:
+      - phy : the phandle for the PHY connected to this ethernet
+        controller.
+      - local-mac-address : 6 bytes, MAC address
+-
+-   Optional properties:
+      - clocks : Phandle to the clock control device and gate bit
+      - clock-names : String describing the clock gate bit
+      - speed : Speed to force the link (10, 100, 1000), used when no
 -- 
 1.7.10.4
