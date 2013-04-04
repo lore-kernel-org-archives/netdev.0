@@ -1,42 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] bridge: remove a redundant synchronize_net()
-Date: Thu, 04 Apr 2013 08:44:47 -0700
-Message-ID: <1365090287.3308.3.camel@edumazet-glaptop>
-References: <1364917500.5113.176.camel@edumazet-glaptop>
-	 <20130402155822.GB29115@redhat.com>
-	 <20130402.121223.496337697838525487.davem@davemloft.net>
-	 <1364920077.5113.185.camel@edumazet-glaptop>
-	 <20130404153530.GA1688@minipsycho.brq.redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 1/2] net: ipv6: add tokenized interface identifier support
+Date: Thu, 4 Apr 2013 17:58:37 +0200
+Message-ID: <20130404155837.GA23056@order.stressinduktion.org>
+References: <1365086258-4512-1-git-send-email-dborkman@redhat.com> <1365086258-4512-2-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, vfalico@redhat.com,
-	netdev@vger.kernel.org, stephen@networkplumber.org
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:38721 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759987Ab3DDPow (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 11:44:52 -0400
-Received: by mail-pb0-f44.google.com with SMTP id wz12so1506239pbc.17
-        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 08:44:51 -0700 (PDT)
-In-Reply-To: <20130404153530.GA1688@minipsycho.brq.redhat.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:51213 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760047Ab3DDP6i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 11:58:38 -0400
+Content-Disposition: inline
+In-Reply-To: <1365086258-4512-2-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-04-04 at 17:35 +0200, Jiri Pirko wrote:
+On Thu, Apr 04, 2013 at 04:37:37PM +0200, Daniel Borkmann wrote:
+> This patch adds support for tokenized IIDs, that allow for
+> administrators to assign well-known host-part addresses to
+> nodes whilst still obtaining global network prefix from
+> Router Advertisements. It is currently in IETF RFC draft
+> status [1]:
+> 
+>   The primary target for such support is server platforms
+>   where addresses are usually manually configured, rather
+>   than using DHCPv6 or SLAAC. By using tokenised identifiers,
+>   hosts can still determine their network prefix by use of
+>   SLAAC, but more readily be automatically renumbered should
+>   their network prefix change.
+> 
+>  [1] http://tools.ietf.org/html/draft-chown-6man-tokenised-ipv6-identifiers-02
+> 
+> The implementation is partially based on top of Mark K.
+> Thompson's proof of concept. Successfully tested by myself.
 
-> It can be converted now to call_rcu. synchronize_rcu is making sure
-> no packet is in flight when changing modes.
+Cool, this looks really useful.
 
-What changes exactly ? You don't really answer to my question with this
-very vague sentence.
+One comment so far:
 
-Because maybe the synchronize_net() in netdev_rx_handler_unregister()
-is enough and you dont even need the call_rcu(). Thats was my question.
+> +#define IPV6_ADDR_SCOPE_TYPE(scope)	((scope) << 16)
+> +
 
-RCU barriers are not magical things we add when we are not exactly sure
-of what is happening.
+I think we should not export this macro but instead...
 
-Like other barriers (wmb(), smb_wmb(), ...) we should document or
-understand why they are needed.
+> +	/* Well, that's kinda nasty ... */
+> +	list_for_each_entry(ifp, &idev->addr_list, if_list) {
+> +		spin_lock(&ifp->lock);
+> +		if (__ipv6_addr_type(&ifp->addr) &
+> +		    IPV6_ADDR_SCOPE_TYPE(IPV6_ADDR_SCOPE_GLOBAL)) {
+
+...use
+
+if (ipv6_addr_src_scope(&ifp->addr) == IPV6_ADDR_SCOPE_GLOBAL) {
+
+here.
+
+> diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
+> index d051e5f..8b723de 100644
+> --- a/net/ipv6/addrconf_core.c
+> +++ b/net/ipv6/addrconf_core.c
+> @@ -6,8 +6,6 @@
+>  #include <linux/export.h>
+>  #include <net/ipv6.h>
+>  
+> -#define IPV6_ADDR_SCOPE_TYPE(scope)	((scope) << 16)
+> -
+
+This hunk can be dropped then.
+
+Thanks,
+
+  Hannes
