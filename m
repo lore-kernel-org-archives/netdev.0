@@ -1,141 +1,49 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 3/3] net/mlx4_en: Enable open-lldp DCB support
-Date: Thu,  4 Apr 2013 17:26:14 +0300
-Message-ID: <1365085574-12057-4-git-send-email-ogerlitz@mellanox.com>
-References: <1365085574-12057-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, amirv@mellanox.com,
-	Sagi Grimberg <sagig@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PERCPU] Remove & in front of this_cpu_ptr
+Date: Thu, 04 Apr 2013 07:29:46 -0700
+Message-ID: <1365085786.13853.65.camel@edumazet-glaptop>
+References: <1364463761-32510-1-git-send-email-roy.qing.li@gmail.com>
+	 <1364475933.15753.36.camel@edumazet-glaptop>
+	 <0000013db16f1e1d-abcb7d9e-1c9d-4ef9-b4de-767bc0282ccf-000000@email.amazonses.com>
+	 <CAJFZqHzkGcFT_gcqgu=ktuig7UEoR4FVTUZF6G46=6n6FkYZ2A@mail.gmail.com>
+	 <0000013dc6307f44-940f2bf1-7556-4d9e-92ab-1a84d2a47ca8-000000@email.amazonses.com>
+	 <1364833887.5113.161.camel@edumazet-glaptop>
+	 <alpine.DEB.2.02.1304031540110.3444@gentwo.org>
+	 <0000013dd1a300fb-1fbb26a9-77a7-4c24-95ff-f088309206d9-000000@email.amazonses.com>
+	 <20130403212450.GD3411@htj.dyndns.org>
+	 <1365024575.13853.39.camel@edumazet-glaptop>
+	 <0000013dd5517d80-151c27ac-ebf3-4ec7-bcd4-c85a7975852e-000000@email.amazonses.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tejun Heo <htejun@gmail.com>, RongQing Li <roy.qing.li@gmail.com>,
+	Shan Wei <davidshan@tencent.com>, netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:36277 "EHLO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761666Ab3DDO03 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 10:26:29 -0400
-In-Reply-To: <1365085574-12057-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:43201 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761009Ab3DDO3t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Apr 2013 10:29:49 -0400
+Received: by mail-pd0-f180.google.com with SMTP id q11so1453799pdj.25
+        for <netdev@vger.kernel.org>; Thu, 04 Apr 2013 07:29:48 -0700 (PDT)
+In-Reply-To: <0000013dd5517d80-151c27ac-ebf3-4ec7-bcd4-c85a7975852e-000000@email.amazonses.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sagi Grimberg <sagig@mellanox.com>
+On Thu, 2013-04-04 at 13:52 +0000, Christoph Lameter wrote:
+> On Wed, 3 Apr 2013, Eric Dumazet wrote:
+> 
+> > I agree with you, I prefer &this_cpu_ptr(percpu_pointer)->field
+> >
+> > The offset is added after getting the address of the (percpu) base
+> > object.
+> 
+> There are two offsets being added!
 
-The lldpad daemon queries the driver caps via the getcaps and getstate
-routines. Added the prpoer dbcnl_ops entries to support that.
 
-Signed-off-by: Sagi Grimberg <sagig@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c |   37 +++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 +
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    4 ++-
- 3 files changed, 41 insertions(+), 2 deletions(-)
+I was speaking of the offsetof(struct ..., field), not on the 'offset'
+you think (the percpu one).
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-index b7dc59f..f9f9164 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-@@ -36,6 +36,31 @@
- 
- #include "mlx4_en.h"
- 
-+static u8 mlx4_en_dcbnl_getcap(struct net_device *dev, int capid, u8 *cap)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+
-+	switch (capid) {
-+	case DCB_CAP_ATTR_PFC:
-+		*cap = true;
-+		break;
-+	case DCB_CAP_ATTR_UP2TC:
-+		if (priv->mdev->dev->caps.flags & MLX4_DEV_CAP_FLAG_SET_ETH_SCHED)
-+			*cap = true;
-+		else
-+			*cap = false;
-+		break;
-+	case DCB_CAP_ATTR_DCBX:
-+		*cap = priv->dcbx_cap;
-+		break;
-+	default:
-+		*cap = false;
-+		break;
-+	}
-+
-+	return 0;
-+}
-+
- static int mlx4_en_dcbnl_ieee_getets(struct net_device *dev,
- 				   struct ieee_ets *ets)
- {
-@@ -217,6 +242,13 @@ static int mlx4_en_dcbnl_ieee_getmaxrate(struct net_device *dev,
- 	return 0;
- }
- 
-+static u8 mlx4_en_dcbnl_get_state(struct net_device *dev)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+
-+	return !!(priv->flags & MLX4_EN_FLAG_DCB_ENABLED);
-+}
-+
- static int mlx4_en_dcbnl_ieee_setmaxrate(struct net_device *dev,
- 		struct ieee_maxrate *maxrate)
- {
-@@ -243,18 +275,21 @@ static int mlx4_en_dcbnl_ieee_setmaxrate(struct net_device *dev,
- }
- 
- const struct dcbnl_rtnl_ops mlx4_en_dcbnl_ops = {
-+	.getstate       = mlx4_en_dcbnl_get_state,
- 	.ieee_getets	= mlx4_en_dcbnl_ieee_getets,
- 	.ieee_setets	= mlx4_en_dcbnl_ieee_setets,
- 	.ieee_getmaxrate = mlx4_en_dcbnl_ieee_getmaxrate,
- 	.ieee_setmaxrate = mlx4_en_dcbnl_ieee_setmaxrate,
- 	.ieee_getpfc	= mlx4_en_dcbnl_ieee_getpfc,
- 	.ieee_setpfc	= mlx4_en_dcbnl_ieee_setpfc,
--
-+	.getcap		= mlx4_en_dcbnl_getcap,
- 	.getdcbx	= mlx4_en_dcbnl_getdcbx,
- 	.setdcbx	= mlx4_en_dcbnl_setdcbx,
- };
- 
- const struct dcbnl_rtnl_ops mlx4_en_dcbnl_pfc_ops = {
-+	.getstate       = mlx4_en_dcbnl_get_state,
- 	.ieee_getpfc	= mlx4_en_dcbnl_ieee_getpfc,
- 	.ieee_setpfc	= mlx4_en_dcbnl_ieee_setpfc,
-+	.getcap		= mlx4_en_dcbnl_getcap,
- };
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 62795b5..a390de0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2013,6 +2013,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	INIT_WORK(&priv->linkstate_task, mlx4_en_linkstate);
- 	INIT_DELAYED_WORK(&priv->stats_task, mlx4_en_do_get_stats);
- #ifdef CONFIG_MLX4_EN_DCB
-+	priv->dcbx_cap = DCB_CAP_DCBX_HOST;
-+	priv->flags |= MLX4_EN_FLAG_DCB_ENABLED;
- 	if (!mlx4_is_slave(priv->mdev->dev)) {
- 		if (mdev->dev->caps.flags & MLX4_DEV_CAP_FLAG_SET_ETH_SCHED) {
- 			dev->dcbnl_ops = &mlx4_en_dcbnl_ops;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index d4cb5d3..71960b1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -440,7 +440,8 @@ enum {
- 	MLX4_EN_FLAG_ENABLE_HW_LOOPBACK	= (1 << 2),
- 	/* whether we need to drop packets that hardware loopback-ed */
- 	MLX4_EN_FLAG_RX_FILTER_NEEDED	= (1 << 3),
--	MLX4_EN_FLAG_FORCE_PROMISC	= (1 << 4)
-+	MLX4_EN_FLAG_FORCE_PROMISC	= (1 << 4),
-+	MLX4_EN_FLAG_DCB_ENABLED	= (1 << 5)
- };
- 
- #define MLX4_EN_MAC_HASH_SIZE (1 << BITS_PER_BYTE)
-@@ -529,6 +530,7 @@ struct mlx4_en_priv {
- #ifdef CONFIG_MLX4_EN_DCB
- 	struct ieee_ets ets;
- 	u16 maxrate[IEEE_8021QAZ_MAX_TCS];
-+	u8 dcbx_cap;
- #endif
- #ifdef CONFIG_RFS_ACCEL
- 	spinlock_t filters_lock;
--- 
-1.7.1
+Thats why I prefer &this_cpu_ptr(percpu_pointer)->field
+
+Its clearer for me, but thats a very minor issue.
