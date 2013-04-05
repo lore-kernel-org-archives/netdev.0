@@ -1,117 +1,52 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/51] ipvs: no need to reroute anymore on DNAT over loopback
-Date: Sat,  6 Apr 2013 14:17:04 +0200
-Message-ID: <1365250670-14993-6-git-send-email-pablo@netfilter.org>
-References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Sascha Herrmann <sascha@ps.nvbi.de>
+Subject: Re: [Linux-zigbee-devel] [PATCH 2/2] at86rf230: change irq handling to prevent lockups with edge type irq
+Date: Fri, 05 Apr 2013 17:59:38 +0200
+Message-ID: <f947aa8f-75bc-4314-bb92-289d9f2bc93d@email.android.com>
+References: <cover.1365107512.git.sascha@ps.nvbi.de> <57c67195742f5e7482dc57f5a05b6d69156b00d2.1365107512.git.sascha@ps.nvbi.de> <20130405035949.GC29789@ws> <20130405105158.GD29789@ws>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+To: Werner Almesberger <werner@almesberger.net>,
+	netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38905 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1163377Ab3DFMSU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Apr 2013 08:18:20 -0400
-In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Received: from moutng.kundenserver.de ([212.227.126.187]:53822 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161724Ab3DEP7t convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 11:59:49 -0400
+In-Reply-To: <20130405105158.GD29789@ws>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
 
-After commit 70e7341673 (ipv4: Show that ip_send_reply()
-is purely unicast routine.) we do not need to reroute DNAT-ed
-traffic over loopback because reply uses iph daddr and not
-rt_spec_dst.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off by: Hans Schillstrom <hans@schillstrom.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_xmit.c |   58 ++-------------------------------------
- 1 file changed, 2 insertions(+), 56 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 6448a2e..c942d36 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -207,44 +207,6 @@ __ip_vs_get_out_rt(struct sk_buff *skb, struct ip_vs_dest *dest,
- 	return rt;
- }
- 
--/* Reroute packet to local IPv4 stack after DNAT */
--static int
--__ip_vs_reroute_locally(struct sk_buff *skb)
--{
--	struct rtable *rt = skb_rtable(skb);
--	struct net_device *dev = rt->dst.dev;
--	struct net *net = dev_net(dev);
--	struct iphdr *iph = ip_hdr(skb);
--
--	if (rt_is_input_route(rt)) {
--		unsigned long orefdst = skb->_skb_refdst;
--
--		if (ip_route_input(skb, iph->daddr, iph->saddr,
--				   iph->tos, skb->dev))
--			return 0;
--		refdst_drop(orefdst);
--	} else {
--		struct flowi4 fl4 = {
--			.daddr = iph->daddr,
--			.saddr = iph->saddr,
--			.flowi4_tos = RT_TOS(iph->tos),
--			.flowi4_mark = skb->mark,
--		};
--
--		rt = ip_route_output_key(net, &fl4);
--		if (IS_ERR(rt))
--			return 0;
--		if (!(rt->rt_flags & RTCF_LOCAL)) {
--			ip_rt_put(rt);
--			return 0;
--		}
--		/* Drop old route. */
--		skb_dst_drop(skb);
--		skb_dst_set(skb, &rt->dst);
--	}
--	return 1;
--}
--
- #ifdef CONFIG_IP_VS_IPV6
- 
- static inline int __ip_vs_is_local_route6(struct rt6_info *rt)
-@@ -635,16 +597,8 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		/* drop old route */
- 		skb_dst_drop(skb);
- 		skb_dst_set(skb, &rt->dst);
--	} else {
-+	} else
- 		ip_rt_put(rt);
--		/*
--		 * Some IPv4 replies get local address from routes,
--		 * not from iph, so while we DNAT after routing
--		 * we need this second input/output route.
--		 */
--		if (!__ip_vs_reroute_locally(skb))
--			goto tx_error;
--	}
- 
- 	IP_VS_DBG_PKT(10, AF_INET, pp, skb, 0, "After DNAT");
- 
-@@ -1269,16 +1223,8 @@ ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		/* drop the old route when skb is not shared */
- 		skb_dst_drop(skb);
- 		skb_dst_set(skb, &rt->dst);
--	} else {
-+	} else
- 		ip_rt_put(rt);
--		/*
--		 * Some IPv4 replies get local address from routes,
--		 * not from iph, so while we DNAT after routing
--		 * we need this second input/output route.
--		 */
--		if (!__ip_vs_reroute_locally(skb))
--			goto tx_error;
--	}
- 
- 	/* Another hack: avoid icmp_send in ip_fragment */
- 	skb->local_df = 1;
--- 
-1.7.10.4
+>I wrote:
+>> To achieve perfection, at86rf230_probe could try all four
+>> possible trigger modes, pick one the platform supports, and
+>> set TRX_CTRL_1.IRQ_POLARITY accordingly.
+>
+>Thinking of it, probing by trying request_irq has an unpleasant ring
+>to it. Perhaps a better way would be to leave this decision to the
+>platform code and do one of these:
+>
+>1) pass irqflags and the polarity in the platform data, or
+>
+>2) pass irqflags and extract the polarity from the irqflags, or
+>
+>3) set up the trigger mode outside the driver and pass only the
+>   polarity,
+>
+>where 1) with (irqflags & IRQF_TRIGGER_MASK) == 0 includes
+>case 3).
+
+The change with this patch is mostly about the trigger type of the interrupt. The trigger level isn't configurable in the rf230, as far as I understand the datasheet. I posted a version of this patch with the option to configure the interrupt type (edge or level) for discussion on the linux-zigbee list some time ago. The result tended toward hardcoding the interrupt type in the driver [1]. My assumption is, that every platform would support edge type interrupts.
+
+If it is preferred to have the interrupt type configurable I now would prefer to implement seperate isr and irqwork functions for each irq type. I fear the sollution to read the interrupt status register in a loop (as suggested in your earlier message) would leave chances for race conditions or spurious interrupts, depending on wheter interrupts are enabled before or after reading the status register. 
+
+Hard coding the interrupt type would have the pro of keeping the driver complexity low. Surely for this option, the assumption that (at least nearly) every platform supports edge type interrupts should hold.
+
+[1] http://www.mail-archive.com/linux-zigbee-devel@lists.sourceforge.net/msg01385.html
+
+Thanks,
+Sascha
