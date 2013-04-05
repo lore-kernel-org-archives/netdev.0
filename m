@@ -1,57 +1,62 @@
-From: "Arend van Spriel" <arend@broadcom.com>
-Subject: Re: [PATCH] lib80211: make lib80211 can be enabled
- independently
-Date: Fri, 5 Apr 2013 09:25:15 +0200
-Message-ID: <515E7C5B.2000408@broadcom.com>
-References: <20130404160130.GA2577@udknight>
- <CAGRGNgXj7mSF0Fgyjek4Xcc34N26WHtt4HMmHk7DOopaEPrYFw@mail.gmail.com>
- <515E4CB7.6020405@infradead.org>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [PATCH v2 net-next] drivers/net: Enable IOMMU pass through for
+ be2net
+Date: Fri, 05 Apr 2013 09:51:24 +0200
+Message-ID: <515E827C.3070702@redhat.com>
+References: <1358562195-2028-1-git-send-email-craig.hada@hp.com> <1358562195-2028-2-git-send-email-craig.hada@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1;
- format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Julian Calaby" <julian.calaby@gmail.com>,
-	"Wang YanQing" <udknight@gmail.com>,
-	"Johannes Berg" <johannes@sipsolutions.net>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Randy Dunlap" <rdunlap@infradead.org>
+Cc: Craig Hada <craig.hada@hp.com>, netdev@vger.kernel.org,
+	sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
+	ajit.khaparde@emulex.com, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <515E4CB7.6020405@infradead.org>
+In-Reply-To: <1358562195-2028-2-git-send-email-craig.hada@hp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/05/2013 06:01 AM, Randy Dunlap wrote:
-> On 04/04/13 16:51, Julian Calaby wrote:
->> Hi Wang,
->>
->> On Fri, Apr 5, 2013 at 3:01 AM, Wang YanQing <udknight@gmail.com> wrote:
->>>
->>> Current we can only enable lib80211 by enable a driver
->>> in tree use it which will select it, but some out tree's
->>> drivers also use it, so I think it has sense to make lib80211
->>> can be enabled independently.
->>
->> Just as a bit of explanation for Johannes' NACK:
->>
->> 1. The only reason lib80211 still exists is because a couple of
->> in-tree drivers still use it. If this weren't the case, the code would
->> have been removed a long time ago as it's been completely replaced by
->> mac80211 and cfg80211. All modern drivers _must_ use mac80211 or
->> cfg80211 without exception.
->> 2. In general, there is no official in-kernel support for
->> out-of-kernel drivers, regardless of quality, status or importance.
->> 3. I believe that the in-tree brcmsmac driver already supports the
->> Broadcom card you reference.
+On 01/19/2013 03:23 AM, Craig Hada wrote:
+> This patch sets the coherent DMA mask to 64-bit after the be2net driver
+> has been acknowledged that the system is 64-bit DMA capable. The coherent
+> DMA mask is examined by the Intel IOMMU driver to determine whether to
+> allow pass through context mapping for all devices. With this patch, the
+> be2net driver combined with be2net compatible hardware provides
+> comparable performance to the case where vt-d is disabled. The main use
+> case for this change is to decrease the time necessary to copy virtual
+> machine memory during KVM live migration instantiations.
 >
+> This patch was tested on a system that enables the IOMMU in non-coherent
+> mode. Two DMA remapper issues were encountered in the previous version and
+> both patches have been committed.
+>      commit ea2447f700cab264019b52e2b417d689e052dcfd
+>      commit 2e12bc29fc5a12242d68e11875db3dd58efad9ff
 >
-> 3b.  If 3. is not correct, someone should endeavor to merge this
-> out-of-tree driver into the kernel tree.
+> Signed-off-by: Craig Hada <craig.hada@hp.com>
+> ---
+>   drivers/net/ethernet/emulex/benet/be_main.c |    6 ++++++
+>   1 files changed, 6 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+> index 9dca22b..b507e99 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+> @@ -4052,6 +4052,12 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
+>
+>   	status = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
+>   	if (!status) {
+> +		status = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
+> +		if (status < 0) {
+> +			dev_err(&pdev->dev,
+> +				"dma_set_coherent_mask failed, aborting\n");
+> +			goto free_netdev;
+> +		}
+>   		netdev->features |= NETIF_F_HIGHDMA;
+>   	} else {
+>   		status = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
+>
 
-Actually, it is correct and brcmsmac and the out-of-tree wl driver are 
-coming from the same code base although you should not compare the two 
-these days.
+Dave, I'd like to ask when do you plan to apply this patch?
 
-Gr. AvS
+Thanks,
+Ivan
