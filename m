@@ -1,41 +1,40 @@
-From: Alan Ott <alan@signal11.us>
-Subject: [PATCH] mac802154: Keep track of the channel when changed
-Date: Fri,  5 Apr 2013 16:36:41 -0400
-Message-ID: <1365194201-2635-1-git-send-email-alan@signal11.us>
-Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Alan Ott <alan@signal11.us>
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH] TTY: ircomm, use GFP_KERNEL in ircomm_open()
+Date: Fri, 5 Apr 2013 14:15:00 -0700
+Message-ID: <20130405211500.GA14617@kroah.com>
+References: <1365195727-24780-1-git-send-email-minipli@googlemail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Samuel Ortiz <samuel@sortiz.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Mathias Krause <minipli@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:41922 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1162032Ab3DEUg6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 16:36:58 -0400
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:54871 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1162478Ab3DEVPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 17:15:03 -0400
+Received: by mail-pd0-f177.google.com with SMTP id u11so2222038pdi.36
+        for <netdev@vger.kernel.org>; Fri, 05 Apr 2013 14:15:02 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1365195727-24780-1-git-send-email-minipli@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prevent set_channel() from getting called every time a packet is sent. This
-looks like it was an oversight.
+On Fri, Apr 05, 2013 at 11:02:07PM +0200, Mathias Krause wrote:
+> Hi Greg,
+> 
+> I'm unsure if you or Dave should take that one as it's for one a TTY
+> patch but also living under net/. So I'm uncertain and let you decide!
 
-Signed-off-by: Alan Ott <alan@signal11.us>
----
- net/mac802154/tx.c | 3 +++
- 1 file changed, 3 insertions(+)
+If Dave want to take it, it's fine with me:
 
-diff --git a/net/mac802154/tx.c b/net/mac802154/tx.c
-index 3fd3e07..6d16473 100644
---- a/net/mac802154/tx.c
-+++ b/net/mac802154/tx.c
-@@ -58,6 +58,9 @@ static void mac802154_xmit_worker(struct work_struct *work)
- 			pr_debug("set_channel failed\n");
- 			goto out;
- 		}
-+
-+		xw->priv->phy->current_channel = xw->chan;
-+		xw->priv->phy->current_page = xw->page;
- 	}
- 
- 	res = xw->priv->ops->xmit(&xw->priv->hw, xw->skb);
--- 
-1.7.11.2
+> -- >8 --
+> Subject: [PATCH] TTY: ircomm, use GFP_KERNEL in ircomm_open()
+> 
+> We're clearly running in non-atomic context as our only call site is
+> able to call wait_event_interruptible(). So we're safe to use GFP_KERNEL
+> here instead of GFP_ATOMIC.
+> 
+> Signed-off-by: Mathias Krause <minipli@googlemail.com>
+
+Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
