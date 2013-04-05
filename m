@@ -1,586 +1,578 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 1/3] nfc: Replace nfc_dev_dbg with dev_dbg, remove function tracing
-Date: Fri,  5 Apr 2013 12:27:37 -0700
-Message-ID: <2cb852228bb418b927a0adebaeef612f24059b58.1365189658.git.joe@perches.com>
-References: <1365180413.2075.5.camel@joe-AO722>
-Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, linux-nfc@lists.01.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1365180413.2075.5.camel@joe-AO722>
-In-Reply-To: <cover.1365189658.git.joe@perches.com>
-References: <cover.1365189658.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Petko Manolov <petkan-nPnTwAqkgEqakBO8gow8eQ@public.gmane.org>
+Subject: Re: Active URB submitted twice in pegasus driver
+Date: Fri, 5 Apr 2013 20:01:03 +0300 (EEST)
+Message-ID: <alpine.DEB.2.02.1304051946020.7054@fry>
+References: <20130325223834.GF6869@xanatos> <alpine.DEB.2.02.1303261655450.3724@fry.nucleusys.com> <20130326170140.GC10317@xanatos> <alpine.DEB.2.02.1303261909260.4226@fry.nucleusys.com> <20130326185218.GD10317@xanatos> <alpine.DEB.2.02.1303262247490.3959@fry>
+ <20130326213757.GA19141@xanatos> <alpine.DEB.2.02.1303262348460.3959@fry>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463755285-1858618278-1365181264=:7054"
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+To: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.DEB.2.02.1303262348460.3959@fry>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Use the generic kernel function instead of a home-grown
-one that does the same thing.  Remove empty function
-tracing style uses as the kernel function tracer does
-that too.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Add \n to uses not at the macro.  Don't add \n where
-the nfc_dev_dbg macro mistakenly had them already.
+---1463755285-1858618278-1365181264=:7054
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/nfc/nfcwilink.c |  51 +++++++--------------
- drivers/nfc/pn533.c     | 118 ++++++++++++++++--------------------------------
- include/net/nfc/nfc.h   |   1 -
- 3 files changed, 56 insertions(+), 114 deletions(-)
+On Wed, 27 Mar 2013, Petko Manolov wrote:
 
-diff --git a/drivers/nfc/nfcwilink.c b/drivers/nfc/nfcwilink.c
-index 3b731ac..b2f4040 100644
---- a/drivers/nfc/nfcwilink.c
-+++ b/drivers/nfc/nfcwilink.c
-@@ -146,8 +146,6 @@ static int nfcwilink_get_bts_file_name(struct nfcwilink *drv, char *file_name)
- 	unsigned long comp_ret;
- 	int rc;
- 
--	nfc_dev_dbg(&drv->pdev->dev, "get_bts_file_name entry");
--
- 	skb = nfcwilink_skb_alloc(sizeof(struct nci_vs_nfcc_info_cmd),
- 					GFP_KERNEL);
- 	if (!skb) {
-@@ -172,17 +170,16 @@ static int nfcwilink_get_bts_file_name(struct nfcwilink *drv, char *file_name)
- 
- 	comp_ret = wait_for_completion_timeout(&drv->completed,
- 				msecs_to_jiffies(NFCWILINK_CMD_TIMEOUT));
--	nfc_dev_dbg(&drv->pdev->dev, "wait_for_completion_timeout returned %ld",
--			comp_ret);
-+	dev_dbg(&drv->pdev->dev, "wait_for_completion_timeout returned %ld\n",
-+		comp_ret);
- 	if (comp_ret == 0) {
--		nfc_dev_err(&drv->pdev->dev,
--				"timeout on wait_for_completion_timeout");
-+		dev_err(&drv->pdev->dev,
-+			"timeout on wait_for_completion_timeout\n");
- 		return -ETIMEDOUT;
- 	}
- 
--	nfc_dev_dbg(&drv->pdev->dev, "nci_vs_nfcc_info_rsp: plen %d, status %d",
--			drv->nfcc_info.plen,
--			drv->nfcc_info.status);
-+	dev_dbg(&drv->pdev->dev, "nci_vs_nfcc_info_rsp: plen %d, status %d\n",
-+		drv->nfcc_info.plen, drv->nfcc_info.status);
- 
- 	if ((drv->nfcc_info.plen != 5) || (drv->nfcc_info.status != 0)) {
- 		nfc_dev_err(&drv->pdev->dev,
-@@ -209,8 +206,6 @@ static int nfcwilink_send_bts_cmd(struct nfcwilink *drv, __u8 *data, int len)
- 	unsigned long comp_ret;
- 	int rc;
- 
--	nfc_dev_dbg(&drv->pdev->dev, "send_bts_cmd entry");
--
- 	/* verify valid cmd for the NFC channel */
- 	if ((len <= sizeof(struct nfcwilink_hdr)) ||
- 		(len > BTS_FILE_CMD_MAX_LEN) ||
-@@ -242,8 +237,8 @@ static int nfcwilink_send_bts_cmd(struct nfcwilink *drv, __u8 *data, int len)
- 
- 	comp_ret = wait_for_completion_timeout(&drv->completed,
- 				msecs_to_jiffies(NFCWILINK_CMD_TIMEOUT));
--	nfc_dev_dbg(&drv->pdev->dev, "wait_for_completion_timeout returned %ld",
--			comp_ret);
-+	dev_dbg(&drv->pdev->dev, "wait_for_completion_timeout returned %ld\n",
-+		comp_ret);
- 	if (comp_ret == 0) {
- 		nfc_dev_err(&drv->pdev->dev,
- 				"timeout on wait_for_completion_timeout");
-@@ -261,8 +256,6 @@ static int nfcwilink_download_fw(struct nfcwilink *drv)
- 	__u8 *ptr;
- 	int len, rc;
- 
--	nfc_dev_dbg(&drv->pdev->dev, "download_fw entry");
--
- 	set_bit(NFCWILINK_FW_DOWNLOAD, &drv->flags);
- 
- 	rc = nfcwilink_get_bts_file_name(drv, file_name);
-@@ -284,8 +277,8 @@ static int nfcwilink_download_fw(struct nfcwilink *drv)
- 	ptr = (__u8 *)fw->data;
- 
- 	if ((len == 0) || (ptr == NULL)) {
--		nfc_dev_dbg(&drv->pdev->dev,
--				"request_firmware returned size %d", len);
-+		dev_dbg(&drv->pdev->dev,
-+			"request_firmware returned size %d\n", len);
- 		goto release_fw;
- 	}
- 
-@@ -306,8 +299,8 @@ static int nfcwilink_download_fw(struct nfcwilink *drv)
- 		action_len =
- 			__le16_to_cpu(((struct bts_file_action *)ptr)->len);
- 
--		nfc_dev_dbg(&drv->pdev->dev, "bts_file_action type %d, len %d",
--				action_type, action_len);
-+		dev_dbg(&drv->pdev->dev, "bts_file_action type %d, len %d\n",
-+			action_type, action_len);
- 
- 		switch (action_type) {
- 		case BTS_FILE_ACTION_TYPE_SEND_CMD:
-@@ -337,8 +330,6 @@ static void nfcwilink_register_complete(void *priv_data, char data)
- {
- 	struct nfcwilink *drv = priv_data;
- 
--	nfc_dev_dbg(&drv->pdev->dev, "register_complete entry");
--
- 	/* store ST registration status */
- 	drv->st_register_cb_status = data;
- 
-@@ -360,7 +351,7 @@ static long nfcwilink_receive(void *priv_data, struct sk_buff *skb)
- 		return -EFAULT;
- 	}
- 
--	nfc_dev_dbg(&drv->pdev->dev, "receive entry, len %d", skb->len);
-+	dev_dbg(&drv->pdev->dev, "receive entry, len %d\n", skb->len);
- 
- 	/* strip the ST header
- 	(apart for the chnl byte, which is not received in the hdr) */
-@@ -402,8 +393,6 @@ static int nfcwilink_open(struct nci_dev *ndev)
- 	unsigned long comp_ret;
- 	int rc;
- 
--	nfc_dev_dbg(&drv->pdev->dev, "open entry");
--
- 	if (test_and_set_bit(NFCWILINK_RUNNING, &drv->flags)) {
- 		rc = -EBUSY;
- 		goto exit;
-@@ -421,9 +410,9 @@ static int nfcwilink_open(struct nci_dev *ndev)
- 			&drv->completed,
- 			msecs_to_jiffies(NFCWILINK_REGISTER_TIMEOUT));
- 
--			nfc_dev_dbg(&drv->pdev->dev,
--			"wait_for_completion_timeout returned %ld",
--			comp_ret);
-+			dev_dbg(&drv->pdev->dev,
-+				"wait_for_completion_timeout returned %ld\n",
-+				comp_ret);
- 
- 			if (comp_ret == 0) {
- 				/* timeout */
-@@ -466,8 +455,6 @@ static int nfcwilink_close(struct nci_dev *ndev)
- 	struct nfcwilink *drv = nci_get_drvdata(ndev);
- 	int rc;
- 
--	nfc_dev_dbg(&drv->pdev->dev, "close entry");
--
- 	if (!test_and_clear_bit(NFCWILINK_RUNNING, &drv->flags))
- 		return 0;
- 
-@@ -487,7 +474,7 @@ static int nfcwilink_send(struct sk_buff *skb)
- 	struct nfcwilink_hdr hdr = {NFCWILINK_CHNL, NFCWILINK_OPCODE, 0x0000};
- 	long len;
- 
--	nfc_dev_dbg(&drv->pdev->dev, "send entry, len %d", skb->len);
-+	dev_dbg(&drv->pdev->dev, "send entry, len %d\n", skb->len);
- 
- 	if (!test_bit(NFCWILINK_RUNNING, &drv->flags)) {
- 		kfree_skb(skb);
-@@ -524,8 +511,6 @@ static int nfcwilink_probe(struct platform_device *pdev)
- 	int rc;
- 	__u32 protocols;
- 
--	nfc_dev_dbg(&pdev->dev, "probe entry");
--
- 	drv = devm_kzalloc(&pdev->dev, sizeof(struct nfcwilink), GFP_KERNEL);
- 	if (!drv) {
- 		rc = -ENOMEM;
-@@ -576,8 +561,6 @@ static int nfcwilink_remove(struct platform_device *pdev)
- 	struct nfcwilink *drv = dev_get_drvdata(&pdev->dev);
- 	struct nci_dev *ndev;
- 
--	nfc_dev_dbg(&pdev->dev, "remove entry");
--
- 	if (!drv)
- 		return -EFAULT;
- 
-diff --git a/drivers/nfc/pn533.c b/drivers/nfc/pn533.c
-index f0f6763..e2956a6 100644
---- a/drivers/nfc/pn533.c
-+++ b/drivers/nfc/pn533.c
-@@ -527,9 +527,9 @@ static void pn533_recv_response(struct urb *urb)
- 		break; /* success */
- 	case -ECONNRESET:
- 	case -ENOENT:
--		nfc_dev_dbg(&dev->interface->dev,
--			    "The urb has been canceled (status %d)",
--			    urb->status);
-+		dev_dbg(&dev->interface->dev,
-+			"The urb has been canceled (status %d)\n",
-+			urb->status);
- 		dev->wq_in_error = urb->status;
- 		goto sched_wq;
- 	case -ESHUTDOWN:
-@@ -542,7 +542,7 @@ static void pn533_recv_response(struct urb *urb)
- 
- 	in_frame = dev->in_urb->transfer_buffer;
- 
--	nfc_dev_dbg(&dev->interface->dev, "Received a frame.");
-+	dev_dbg(&dev->interface->dev, "Received a frame\n");
- 	print_hex_dump(KERN_DEBUG, "PN533 RX: ", DUMP_PREFIX_NONE, 16, 1,
- 		       in_frame, dev->ops->rx_frame_size(in_frame), false);
- 
-@@ -583,9 +583,9 @@ static void pn533_recv_ack(struct urb *urb)
- 		break; /* success */
- 	case -ECONNRESET:
- 	case -ENOENT:
--		nfc_dev_dbg(&dev->interface->dev,
--			    "The urb has been stopped (status %d)",
--			    urb->status);
-+		dev_dbg(&dev->interface->dev,
-+			"The urb has been stopped (status %d)\n",
-+			urb->status);
- 		dev->wq_in_error = urb->status;
- 		goto sched_wq;
- 	case -ESHUTDOWN:
-@@ -631,8 +631,6 @@ static int pn533_send_ack(struct pn533 *dev, gfp_t flags)
- 	/* spec 7.1.1.3:  Preamble, SoPC (2), ACK Code (2), Postamble */
- 	int rc;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	dev->out_urb->transfer_buffer = ack;
- 	dev->out_urb->transfer_buffer_length = sizeof(ack);
- 	rc = usb_submit_urb(dev->out_urb, flags);
-@@ -739,7 +737,7 @@ static int __pn533_send_async(struct pn533 *dev, u8 cmd_code,
- 	struct pn533_send_async_complete_arg *arg;
- 	int rc = 0;
- 
--	nfc_dev_dbg(&dev->interface->dev, "Sending command 0x%x", cmd_code);
-+	dev_dbg(&dev->interface->dev, "Sending command 0x%x\n", cmd_code);
- 
- 	arg = kzalloc(sizeof(*arg), GFP_KERNEL);
- 	if (!arg)
-@@ -764,8 +762,8 @@ static int __pn533_send_async(struct pn533 *dev, u8 cmd_code,
- 		goto unlock;
- 	}
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s Queueing command 0x%x", __func__,
--		    cmd_code);
-+	dev_dbg(&dev->interface->dev, "%s Queueing command 0x%x\n",
-+		__func__, cmd_code);
- 
- 	cmd = kzalloc(sizeof(struct pn533_cmd), GFP_KERNEL);
- 	if (!cmd) {
-@@ -971,9 +969,9 @@ static void pn533_send_complete(struct urb *urb)
- 		break; /* success */
- 	case -ECONNRESET:
- 	case -ENOENT:
--		nfc_dev_dbg(&dev->interface->dev,
--			    "The urb has been stopped (status %d)",
--			    urb->status);
-+		dev_dbg(&dev->interface->dev,
-+			"The urb has been stopped (status %d)\n",
-+			urb->status);
- 		break;
- 	case -ESHUTDOWN:
- 	default:
-@@ -1235,8 +1233,8 @@ static int pn533_target_found(struct pn533 *dev, u8 tg, u8 *tgdata,
- 	struct nfc_target nfc_tgt;
- 	int rc;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s - modulation=%d", __func__,
--		    dev->poll_mod_curr);
-+	dev_dbg(&dev->interface->dev, "%s - modulation=%d\n",
-+		__func__, dev->poll_mod_curr);
- 
- 	if (tg != 1)
- 		return -EPROTO;
-@@ -1267,14 +1265,14 @@ static int pn533_target_found(struct pn533 *dev, u8 tg, u8 *tgdata,
- 		return rc;
- 
- 	if (!(nfc_tgt.supported_protocols & dev->poll_protocols)) {
--		nfc_dev_dbg(&dev->interface->dev,
--			    "The Tg found doesn't have the desired protocol");
-+		dev_dbg(&dev->interface->dev,
-+			"The Tg found doesn't have the desired protocol\n");
- 		return -EAGAIN;
- 	}
- 
--	nfc_dev_dbg(&dev->interface->dev,
--		    "Target found - supported protocols: 0x%x",
--		    nfc_tgt.supported_protocols);
-+	dev_dbg(&dev->interface->dev,
-+		"Target found - supported protocols: 0x%x\n",
-+		nfc_tgt.supported_protocols);
- 
- 	dev->tgt_available_prots = nfc_tgt.supported_protocols;
- 
-@@ -1331,8 +1329,6 @@ static int pn533_start_poll_complete(struct pn533 *dev, struct sk_buff *resp)
- 	u8 nbtg, tg, *tgdata;
- 	int rc, tgdata_len;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	nbtg = resp->data[0];
- 	tg = resp->data[1];
- 	tgdata = &resp->data[2];
-@@ -1412,8 +1408,6 @@ static int pn533_tm_get_data_complete(struct pn533 *dev, void *arg,
- {
- 	u8 status;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	if (IS_ERR(resp))
- 		return PTR_ERR(resp);
- 
-@@ -1437,8 +1431,6 @@ static void pn533_wq_tg_get_data(struct work_struct *work)
- 	struct sk_buff *skb;
- 	int rc;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	skb = pn533_alloc_skb(dev, 0);
- 	if (!skb)
- 		return;
-@@ -1459,16 +1451,14 @@ static int pn533_init_target_complete(struct pn533 *dev, struct sk_buff *resp)
- 	size_t gb_len;
- 	int rc;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	if (resp->len < ATR_REQ_GB_OFFSET + 1)
- 		return -EINVAL;
- 
- 	mode = resp->data[0];
- 	cmd = &resp->data[1];
- 
--	nfc_dev_dbg(&dev->interface->dev, "Target mode 0x%x len %d\n",
--		    mode, resp->len);
-+	dev_dbg(&dev->interface->dev, "Target mode 0x%x len %d\n",
-+		mode, resp->len);
- 
- 	if ((mode & PN533_INIT_TARGET_RESP_FRAME_MASK) ==
- 	    PN533_INIT_TARGET_RESP_ACTIVE)
-@@ -1498,8 +1488,6 @@ static void pn533_listen_mode_timer(unsigned long data)
- {
- 	struct pn533 *dev = (struct pn533 *)data;
- 
--	nfc_dev_dbg(&dev->interface->dev, "Listen mode timeout");
--
- 	/* An ack will cancel the last issued command (poll) */
- 	pn533_send_ack(dev, GFP_ATOMIC);
- 
-@@ -1516,8 +1504,6 @@ static int pn533_poll_complete(struct pn533 *dev, void *arg,
- 	struct pn533_poll_modulations *cur_mod;
- 	int rc;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	if (IS_ERR(resp)) {
- 		rc = PTR_ERR(resp);
- 
-@@ -1587,8 +1573,8 @@ static int pn533_send_poll_frame(struct pn533 *dev)
- 
- 	mod = dev->poll_mod_active[dev->poll_mod_curr];
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s mod len %d\n",
--		    __func__, mod->len);
-+	dev_dbg(&dev->interface->dev, "%s mod len %d\n",
-+		__func__, mod->len);
- 
- 	if (mod->len == 0) {  /* Listen mode */
- 		cmd_code = PN533_CMD_TG_INIT_AS_TARGET;
-@@ -1621,9 +1607,9 @@ static void pn533_wq_poll(struct work_struct *work)
- 
- 	cur_mod = dev->poll_mod_active[dev->poll_mod_curr];
- 
--	nfc_dev_dbg(&dev->interface->dev,
--		    "%s cancel_listen %d modulation len %d",
--		    __func__, dev->cancel_listen, cur_mod->len);
-+	dev_dbg(&dev->interface->dev,
-+		"%s cancel_listen %d modulation len %d\n",
-+		__func__, dev->cancel_listen, cur_mod->len);
- 
- 	if (dev->cancel_listen == 1) {
- 		dev->cancel_listen = 0;
-@@ -1645,9 +1631,9 @@ static int pn533_start_poll(struct nfc_dev *nfc_dev,
- {
- 	struct pn533 *dev = nfc_get_drvdata(nfc_dev);
- 
--	nfc_dev_dbg(&dev->interface->dev,
--		    "%s: im protocols 0x%x tm protocols 0x%x",
--		    __func__, im_protocols, tm_protocols);
-+	dev_dbg(&dev->interface->dev,
-+		"%s: im protocols 0x%x tm protocols 0x%x\n",
-+		__func__, im_protocols, tm_protocols);
- 
- 	if (dev->tgt_active_prot) {
- 		nfc_dev_err(&dev->interface->dev,
-@@ -1679,13 +1665,11 @@ static void pn533_stop_poll(struct nfc_dev *nfc_dev)
- {
- 	struct pn533 *dev = nfc_get_drvdata(nfc_dev);
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	del_timer(&dev->listen_timer);
- 
- 	if (!dev->poll_mod_count) {
--		nfc_dev_dbg(&dev->interface->dev,
--			    "Polling operation was not running");
-+		dev_dbg(&dev->interface->dev,
-+			"Polling operation was not running\n");
- 		return;
- 	}
- 
-@@ -1707,8 +1691,6 @@ static int pn533_activate_target_nfcdep(struct pn533 *dev)
- 	struct sk_buff *skb;
- 	struct sk_buff *resp;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	skb = pn533_alloc_skb(dev, sizeof(u8) * 2); /*TG + Next*/
- 	if (!skb)
- 		return -ENOMEM;
-@@ -1741,12 +1723,12 @@ static int pn533_activate_target(struct nfc_dev *nfc_dev,
- 	struct pn533 *dev = nfc_get_drvdata(nfc_dev);
- 	int rc;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s - protocol=%u", __func__,
--		    protocol);
-+	dev_dbg(&dev->interface->dev, "%s - protocol=%u\n",
-+		__func__, protocol);
- 
- 	if (dev->poll_mod_count) {
--		nfc_dev_err(&dev->interface->dev,
--			    "Cannot activate while polling");
-+		dev_err(&dev->interface->dev,
-+			"Cannot activate while polling\n");
- 		return -EBUSY;
- 	}
- 
-@@ -1794,8 +1776,6 @@ static void pn533_deactivate_target(struct nfc_dev *nfc_dev,
- 
- 	int rc;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	if (!dev->tgt_active_prot) {
- 		nfc_dev_err(&dev->interface->dev, "There is no active target");
- 		return;
-@@ -1857,7 +1837,7 @@ static int pn533_in_dep_link_up_complete(struct pn533 *dev, void *arg,
- 	if (!dev->tgt_available_prots) {
- 		struct nfc_target nfc_target;
- 
--		nfc_dev_dbg(&dev->interface->dev, "Creating new target");
-+		dev_dbg(&dev->interface->dev, "Creating new target\n");
- 
- 		nfc_target.supported_protocols = NFC_PROTO_NFC_DEP_MASK;
- 		nfc_target.nfcid1_len = 10;
-@@ -1910,8 +1890,6 @@ static int pn533_dep_link_up(struct nfc_dev *nfc_dev, struct nfc_target *target,
- 
- 	u8 passive_data[PASSIVE_DATA_LEN] = {0x00, 0xff, 0xff, 0x00, 0x3};
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	if (dev->poll_mod_count) {
- 		nfc_dev_err(&dev->interface->dev,
- 			    "Cannot bring the DEP link up while polling");
-@@ -1981,8 +1959,6 @@ static int pn533_dep_link_down(struct nfc_dev *nfc_dev)
- {
- 	struct pn533 *dev = nfc_get_drvdata(nfc_dev);
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	pn533_poll_reset_mod_list(dev);
- 
- 	if (dev->tgt_mode || dev->tgt_active_prot) {
-@@ -2008,8 +1984,6 @@ static struct sk_buff *pn533_build_response(struct pn533 *dev)
- 	struct sk_buff *skb, *tmp, *t;
- 	unsigned int skb_len = 0, tmp_len = 0;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	if (skb_queue_empty(&dev->resp_q))
- 		return NULL;
- 
-@@ -2021,8 +1995,8 @@ static struct sk_buff *pn533_build_response(struct pn533 *dev)
- 	skb_queue_walk_safe(&dev->resp_q, tmp, t)
- 		skb_len += tmp->len;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s total length %d\n",
--		    __func__, skb_len);
-+	dev_dbg(&dev->interface->dev, "%s total length %d\n",
-+		__func__, skb_len);
- 
- 	skb = alloc_skb(skb_len, GFP_KERNEL);
- 	if (skb == NULL)
-@@ -2049,8 +2023,6 @@ static int pn533_data_exchange_complete(struct pn533 *dev, void *_arg,
- 	int rc = 0;
- 	u8 status, ret, mi;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	if (IS_ERR(resp)) {
- 		rc = PTR_ERR(resp);
- 		goto _error;
-@@ -2103,8 +2075,6 @@ static int pn533_transceive(struct nfc_dev *nfc_dev,
- 	struct pn533_data_exchange_arg *arg = NULL;
- 	int rc;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	if (skb->len > PN533_CMD_DATAEXCH_DATA_MAXLEN) {
- 		/* TODO: Implement support to multi-part data exchange */
- 		nfc_dev_err(&dev->interface->dev,
-@@ -2166,8 +2136,6 @@ static int pn533_tm_send_complete(struct pn533 *dev, void *arg,
- {
- 	u8 status;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	if (IS_ERR(resp))
- 		return PTR_ERR(resp);
- 
-@@ -2193,8 +2161,6 @@ static int pn533_tm_send(struct nfc_dev *nfc_dev, struct sk_buff *skb)
- 	struct pn533 *dev = nfc_get_drvdata(nfc_dev);
- 	int rc;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	if (skb->len > PN533_CMD_DATAEXCH_DATA_MAXLEN) {
- 		nfc_dev_err(&dev->interface->dev,
- 			    "Data length greater than the max allowed: %d",
-@@ -2217,8 +2183,6 @@ static void pn533_wq_mi_recv(struct work_struct *work)
- 	struct sk_buff *skb;
- 	int rc;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	skb = pn533_alloc_skb(dev, PN533_CMD_DATAEXCH_HEAD_LEN);
- 	if (!skb)
- 		goto error;
-@@ -2268,8 +2232,6 @@ static int pn533_set_configuration(struct pn533 *dev, u8 cfgitem, u8 *cfgdata,
- 
- 	int skb_len;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	skb_len = sizeof(cfgitem) + cfgdata_len; /* cfgitem + cfgdata */
- 
- 	skb = pn533_alloc_skb(dev, skb_len);
-@@ -2315,8 +2277,6 @@ static int pn533_fw_reset(struct pn533 *dev)
- 	struct sk_buff *skb;
- 	struct sk_buff *resp;
- 
--	nfc_dev_dbg(&dev->interface->dev, "%s", __func__);
--
- 	skb = pn533_alloc_skb(dev, sizeof(u8));
- 	if (!skb)
- 		return -ENOMEM;
-diff --git a/include/net/nfc/nfc.h b/include/net/nfc/nfc.h
-index 87a6417..3448f09 100644
---- a/include/net/nfc/nfc.h
-+++ b/include/net/nfc/nfc.h
-@@ -30,7 +30,6 @@
- 
- #define nfc_dev_info(dev, fmt, arg...) dev_info((dev), "NFC: " fmt "\n", ## arg)
- #define nfc_dev_err(dev, fmt, arg...) dev_err((dev), "NFC: " fmt "\n", ## arg)
--#define nfc_dev_dbg(dev, fmt, arg...) dev_dbg((dev), fmt "\n", ## arg)
- 
- struct nfc_dev;
- 
--- 
-1.8.1.2.459.gbcd45b4.dirty
+> On Tue, 26 Mar 2013, Sarah Sharp wrote:
+>
+>> ctrl_callback is still reading the URB status, and using it in the
+>> switch statement.  It's also using the urb->context as well, to dig out
+>> a pointer (pegasus_t) that the pegasus_set_multicast already has access
+>> to.  What happens if an URB to get the registers completes at the same
+>> time pegasus_set_multicast calls ctrl_callback?  If the URB failed for
+>> some reason (e.g. bad cable, stall), you'll miss that if statement.  I
+>> don't think that's what you intended to do.
+>> 
+>> I think the fix should be to just to move the if block into a new
+>> function, and call it both in ctrl_callback() and
+>> pegasus_set_multicast().
+>
+> The _real_ fix would be to rework the whole callback mechanism, but this is a 
+> different story.  It is in my todo list.
+
+Attached you'll find two patches against Linus' 3.9.0-rc5.  These should 
+effectively cure the broken control requests callback logic.  The patch is 
+so big because i also cleaned up a lot of old cruft.
+
+The new driver actually compiles and runs fine with Pegasus-II based 
+device.  Please let me know if you run into problems.
+
+
+cheers,
+Petko
+---1463755285-1858618278-1365181264=:7054
+Content-Type: TEXT/x-diff; name=pegasus.h.diff
+Content-Transfer-Encoding: BASE64
+Content-ID: <alpine.DEB.2.02.1304052001021.7054@fry>
+Content-Description: 
+Content-Disposition: attachment; filename=pegasus.h.diff
+
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3VzYi9wZWdhc3VzLmggYi9kcml2
+ZXJzL25ldC91c2IvcGVnYXN1cy5oDQppbmRleCA2NWI3OGIzLi5hYWRhMmZh
+IDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvdXNiL3BlZ2FzdXMuaA0KKysr
+IGIvZHJpdmVycy9uZXQvdXNiL3BlZ2FzdXMuaA0KQEAgLTEsNSArMSw1IEBA
+DQogLyoNCi0gKiBDb3B5cmlnaHQgKGMpIDE5OTktMjAwMyBQZXRrbyBNYW5v
+bG92IC0gUGV0a2FuIChwZXRrYW5AdXNlcnMuc291cmNlZm9yZ2UubmV0KQ0K
+KyAqIENvcHlyaWdodCAoYykgMTk5OS0yMDEzIFBldGtvIE1hbm9sb3YgLSBQ
+ZXRrYW4gKHBldGthbkBudWNsZXVzeXMuY29tKQ0KICAqDQogICogVGhpcyBw
+cm9ncmFtIGlzIGZyZWUgc29mdHdhcmU7IHlvdSBjYW4gcmVkaXN0cmlidXRl
+IGl0IGFuZC9vciBtb2RpZnkNCiAgKiBpdCB1bmRlciB0aGUgdGVybXMgb2Yg
+dGhlIEdOVSBHZW5lcmFsIFB1YmxpYyBMaWNlbnNlIHZlcnNpb24gMiBhcyBw
+dWJsaXNoZWQNCkBAIC0zNCw4ICszNCw2IEBADQogI2RlZmluZQlDVFJMX1VS
+Ql9TTEVFUAkJMHgwMDAwMDAyMA0KICNkZWZpbmUJUEVHQVNVU19VTlBMVUcJ
+CTB4MDAwMDAwNDANCiAjZGVmaW5lCVBFR0FTVVNfUlhfVVJCX0ZBSUwJMHgw
+MDAwMDA4MA0KLSNkZWZpbmUJRVRIX1JFR1NfQ0hBTkdFCQkweDQwMDAwMDAw
+DQotI2RlZmluZQlFVEhfUkVHU19DSEFOR0VECTB4ODAwMDAwMDANCiANCiAj
+ZGVmaW5lCVJYX01VTFRJQ0FTVAkJMg0KICNkZWZpbmUJUlhfUFJPTUlTQ1VP
+VVMJCTQNCkBAIC05NiwxMiArOTQsOSBAQCB0eXBlZGVmIHN0cnVjdCBwZWdh
+c3VzIHsNCiAJaW50CQkJaW50cl9pbnRlcnZhbDsNCiAJc3RydWN0IHRhc2ts
+ZXRfc3RydWN0CXJ4X3RsOw0KIAlzdHJ1Y3QgZGVsYXllZF93b3JrCWNhcnJp
+ZXJfY2hlY2s7DQotCXN0cnVjdCB1cmIJCSpjdHJsX3VyYiwgKnJ4X3VyYiwg
+KnR4X3VyYiwgKmludHJfdXJiOw0KLQlzdHJ1Y3Qgc2tfYnVmZgkJKnJ4X3Bv
+b2xbUlhfU0tCU107DQorCXN0cnVjdCB1cmIJCSpyeF91cmIsICp0eF91cmIs
+ICppbnRyX3VyYjsNCiAJc3RydWN0IHNrX2J1ZmYJCSpyeF9za2I7DQogCXN0
+cnVjdCB1c2JfY3RybHJlcXVlc3QJZHI7DQotCXdhaXRfcXVldWVfaGVhZF90
+CWN0cmxfd2FpdDsNCi0Jc3BpbmxvY2tfdAkJcnhfcG9vbF9sb2NrOw0KIAlp
+bnQJCQljaGlwOw0KIAl1bnNpZ25lZCBjaGFyCQlpbnRyX2J1ZmZbOF07DQog
+CV9fdTgJCQl0eF9idWZmW1BFR0FTVVNfTVRVXTsNCg==
+
+---1463755285-1858618278-1365181264=:7054
+Content-Type: TEXT/x-diff; name=pegasus.c.diff
+Content-Transfer-Encoding: BASE64
+Content-ID: <alpine.DEB.2.02.1304052001030.7054@fry>
+Content-Description: 
+Content-Disposition: attachment; filename=pegasus.c.diff
+
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3VzYi9wZWdhc3VzLmMgYi9kcml2
+ZXJzL25ldC91c2IvcGVnYXN1cy5jDQppbmRleCA3MzA1MWQxLi42NGI3YTA0
+IDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvdXNiL3BlZ2FzdXMuYw0KKysr
+IGIvZHJpdmVycy9uZXQvdXNiL3BlZ2FzdXMuYw0KQEAgLTEsNSArMSw1IEBA
+DQogLyoNCi0gKiAgQ29weXJpZ2h0IChjKSAxOTk5LTIwMDUgUGV0a28gTWFu
+b2xvdiAocGV0a2FuQHVzZXJzLnNvdXJjZWZvcmdlLm5ldCkNCisgKiAgQ29w
+eXJpZ2h0IChjKSAxOTk5LTIwMTMgUGV0a28gTWFub2xvdiAocGV0a2FuQG51
+Y2xldXN5cy5jb20pDQogICoNCiAgKiBUaGlzIHByb2dyYW0gaXMgZnJlZSBz
+b2Z0d2FyZTsgeW91IGNhbiByZWRpc3RyaWJ1dGUgaXQgYW5kL29yIG1vZGlm
+eQ0KICAqIGl0IHVuZGVyIHRoZSB0ZXJtcyBvZiB0aGUgR05VIEdlbmVyYWwg
+UHVibGljIExpY2Vuc2UgdmVyc2lvbiAyIGFzDQpAQCAtMjYsNiArMjYsOSBA
+QA0KICAqCQl2MC41LjEJZXRodG9vbCBzdXBwb3J0IGFkZGVkDQogICoJCXYw
+LjUuNQlyeCBzb2NrZXQgYnVmZmVycyBhcmUgaW4gYSBwb29sIGFuZCB0aGUg
+dGhlaXIgYWxsb2NhdGlvbg0KICAqCQkJaXMgb3V0IG9mIHRoZSBpbnRlcnJ1
+cHQgcm91dGluZS4NCisgKgkJLi4uDQorICoJCXYwLjkuMQlzaW1wbGlmaWVk
+IFtnZXR8c2V0XV9yZWdpc3RlcihzKSwgYXN5bmMgdXBkYXRlIHJlZ2lzdGVy
+cw0KKyAqCQkJbG9naWMgcmV2aXNpdGVkLCByZWNlaXZlIHNrYl9wb29sIHJl
+bW92ZWQuDQogICovDQogDQogI2luY2x1ZGUgPGxpbnV4L3NjaGVkLmg+DQpA
+QCAtNDUsOCArNDgsOCBAQA0KIC8qDQogICogVmVyc2lvbiBJbmZvcm1hdGlv
+bg0KICAqLw0KLSNkZWZpbmUgRFJJVkVSX1ZFUlNJT04gInYwLjYuMTQgKDIw
+MDYvMDkvMjcpIg0KLSNkZWZpbmUgRFJJVkVSX0FVVEhPUiAiUGV0a28gTWFu
+b2xvdiA8cGV0a2FuQHVzZXJzLnNvdXJjZWZvcmdlLm5ldD4iDQorI2RlZmlu
+ZSBEUklWRVJfVkVSU0lPTiAidjAuOS4xICgyMDEzLzA0LzA0KSINCisjZGVm
+aW5lIERSSVZFUl9BVVRIT1IgIlBldGtvIE1hbm9sb3YgPHBldGthbkBudWNs
+ZXVzeXMuY29tPiINCiAjZGVmaW5lIERSSVZFUl9ERVNDICJQZWdhc3VzL1Bl
+Z2FzdXMgSUkgVVNCIEV0aGVybmV0IGRyaXZlciINCiANCiBzdGF0aWMgY29u
+c3QgY2hhciBkcml2ZXJfbmFtZVtdID0gInBlZ2FzdXMiOw0KQEAgLTEwOCw4
+OCArMTExLDQzIEBAIE1PRFVMRV9QQVJNX0RFU0MobXNnX2xldmVsLCAiT3Zl
+cnJpZGUgZGVmYXVsdCBtZXNzYWdlIGxldmVsIik7DQogTU9EVUxFX0RFVklD
+RV9UQUJMRSh1c2IsIHBlZ2FzdXNfaWRzKTsNCiBzdGF0aWMgY29uc3Qgc3Ry
+dWN0IG5ldF9kZXZpY2Vfb3BzIHBlZ2FzdXNfbmV0ZGV2X29wczsNCiANCi1z
+dGF0aWMgaW50IHVwZGF0ZV9ldGhfcmVnc19hc3luYyhwZWdhc3VzX3QgKik7
+DQotLyogQWFyZ2ghISEgSSBfcmVhbGx5XyBoYXRlIHN1Y2ggdHdlYWtzICov
+DQotc3RhdGljIHZvaWQgY3RybF9jYWxsYmFjayhzdHJ1Y3QgdXJiICp1cmIp
+DQorDQorc3RhdGljIHZvaWQgYXN5bmNfY3RybF9jYWxsYmFjayhzdHJ1Y3Qg
+dXJiICp1cmIpDQogew0KIAlwZWdhc3VzX3QgKnBlZ2FzdXMgPSB1cmItPmNv
+bnRleHQ7DQogCWludCBzdGF0dXMgPSB1cmItPnN0YXR1czsNCiANCiAJaWYg
+KCFwZWdhc3VzKQ0KLQkJcmV0dXJuOw0KKwkJZ290byBvdXQ7DQogDQogCXN3
+aXRjaCAoc3RhdHVzKSB7DQogCWNhc2UgMDoNCi0JCWlmIChwZWdhc3VzLT5m
+bGFncyAmIEVUSF9SRUdTX0NIQU5HRSkgew0KLQkJCXBlZ2FzdXMtPmZsYWdz
+ICY9IH5FVEhfUkVHU19DSEFOR0U7DQotCQkJcGVnYXN1cy0+ZmxhZ3MgfD0g
+RVRIX1JFR1NfQ0hBTkdFRDsNCi0JCQl1cGRhdGVfZXRoX3JlZ3NfYXN5bmMo
+cGVnYXN1cyk7DQotCQkJcmV0dXJuOw0KLQkJfQ0KIAkJYnJlYWs7DQogCWNh
+c2UgLUVJTlBST0dSRVNTOg0KLQkJcmV0dXJuOw0KKwkJZ290byBvdXQ7DQog
+CWNhc2UgLUVOT0VOVDoNCiAJCWJyZWFrOw0KIAlkZWZhdWx0Og0KIAkJaWYg
+KG5ldF9yYXRlbGltaXQoKSkNCiAJCQluZXRpZl9kYmcocGVnYXN1cywgZHJ2
+LCBwZWdhc3VzLT5uZXQsDQotCQkJCSAgIiVzLCBzdGF0dXMgJWRcbiIsIF9f
+ZnVuY19fLCBzdGF0dXMpOw0KKwkJCSAgICAgICAgICAiJXMsIHN0YXR1cyAl
+ZFxuIiwgX19mdW5jX18sIHN0YXR1cyk7DQogCQlicmVhazsNCiAJfQ0KLQlw
+ZWdhc3VzLT5mbGFncyAmPSB+RVRIX1JFR1NfQ0hBTkdFRDsNCi0Jd2FrZV91
+cCgmcGVnYXN1cy0+Y3RybF93YWl0KTsNCitvdXQ6DQorCXVzYl9mcmVlX3Vy
+Yih1cmIpOw0KIH0NCiANCiBzdGF0aWMgaW50IGdldF9yZWdpc3RlcnMocGVn
+YXN1c190ICpwZWdhc3VzLCBfX3UxNiBpbmR4LCBfX3UxNiBzaXplLA0KIAkJ
+CSB2b2lkICpkYXRhKQ0KIHsNCiAJaW50IHJldDsNCi0JY2hhciAqYnVmZmVy
+Ow0KLQlERUNMQVJFX1dBSVRRVUVVRSh3YWl0LCBjdXJyZW50KTsNCi0NCi0J
+YnVmZmVyID0ga21hbGxvYyhzaXplLCBHRlBfS0VSTkVMKTsNCi0JaWYgKCFi
+dWZmZXIpDQotCQlyZXR1cm4gLUVOT01FTTsNCi0NCi0JYWRkX3dhaXRfcXVl
+dWUoJnBlZ2FzdXMtPmN0cmxfd2FpdCwgJndhaXQpOw0KLQlzZXRfY3VycmVu
+dF9zdGF0ZShUQVNLX1VOSU5URVJSVVBUSUJMRSk7DQotCXdoaWxlIChwZWdh
+c3VzLT5mbGFncyAmIEVUSF9SRUdTX0NIQU5HRUQpDQotCQlzY2hlZHVsZSgp
+Ow0KLQlyZW1vdmVfd2FpdF9xdWV1ZSgmcGVnYXN1cy0+Y3RybF93YWl0LCAm
+d2FpdCk7DQotCXNldF9jdXJyZW50X3N0YXRlKFRBU0tfUlVOTklORyk7DQot
+DQotCXBlZ2FzdXMtPmRyLmJSZXF1ZXN0VHlwZSA9IFBFR0FTVVNfUkVRVF9S
+RUFEOw0KLQlwZWdhc3VzLT5kci5iUmVxdWVzdCA9IFBFR0FTVVNfUkVRX0dF
+VF9SRUdTOw0KLQlwZWdhc3VzLT5kci53VmFsdWUgPSBjcHVfdG9fbGUxNigw
+KTsNCi0JcGVnYXN1cy0+ZHIud0luZGV4ID0gY3B1X3RvX2xlMTYoaW5keCk7
+DQotCXBlZ2FzdXMtPmRyLndMZW5ndGggPSBjcHVfdG9fbGUxNihzaXplKTsN
+Ci0JcGVnYXN1cy0+Y3RybF91cmItPnRyYW5zZmVyX2J1ZmZlcl9sZW5ndGgg
+PSBzaXplOw0KLQ0KLQl1c2JfZmlsbF9jb250cm9sX3VyYihwZWdhc3VzLT5j
+dHJsX3VyYiwgcGVnYXN1cy0+dXNiLA0KLQkJCSAgICAgdXNiX3JjdmN0cmxw
+aXBlKHBlZ2FzdXMtPnVzYiwgMCksDQotCQkJICAgICAoY2hhciAqKSAmcGVn
+YXN1cy0+ZHIsDQotCQkJICAgICBidWZmZXIsIHNpemUsIGN0cmxfY2FsbGJh
+Y2ssIHBlZ2FzdXMpOw0KIA0KLQlhZGRfd2FpdF9xdWV1ZSgmcGVnYXN1cy0+
+Y3RybF93YWl0LCAmd2FpdCk7DQotCXNldF9jdXJyZW50X3N0YXRlKFRBU0tf
+VU5JTlRFUlJVUFRJQkxFKTsNCi0NCi0JLyogdXNpbmcgQVRPTUlDLCB3ZSdk
+IG5ldmVyIHdha2UgdXAgaWYgd2Ugc2xlcHQgKi8NCi0JaWYgKChyZXQgPSB1
+c2Jfc3VibWl0X3VyYihwZWdhc3VzLT5jdHJsX3VyYiwgR0ZQX0FUT01JQykp
+KSB7DQotCQlzZXRfY3VycmVudF9zdGF0ZShUQVNLX1JVTk5JTkcpOw0KLQkJ
+aWYgKHJldCA9PSAtRU5PREVWKQ0KLQkJCW5ldGlmX2RldmljZV9kZXRhY2go
+cGVnYXN1cy0+bmV0KTsNCi0JCWlmIChuZXRfcmF0ZWxpbWl0KCkpDQotCQkJ
+bmV0aWZfZXJyKHBlZ2FzdXMsIGRydiwgcGVnYXN1cy0+bmV0LA0KLQkJCQkg
+ICIlcywgc3RhdHVzICVkXG4iLCBfX2Z1bmNfXywgcmV0KTsNCi0JCWdvdG8g
+b3V0Ow0KLQl9DQotDQotCXNjaGVkdWxlKCk7DQotb3V0Og0KLQlyZW1vdmVf
+d2FpdF9xdWV1ZSgmcGVnYXN1cy0+Y3RybF93YWl0LCAmd2FpdCk7DQotCW1l
+bWNweShkYXRhLCBidWZmZXIsIHNpemUpOw0KLQlrZnJlZShidWZmZXIpOw0K
+KwlyZXQgPSB1c2JfY29udHJvbF9tc2cocGVnYXN1cy0+dXNiLCB1c2JfcmN2
+Y3RybHBpcGUocGVnYXN1cy0+dXNiLCAwKSwNCisJICAgICAgICAgICAgICAg
+ICAgICAgIFBFR0FTVVNfUkVRX0dFVF9SRUdTLCBQRUdBU1VTX1JFUVRfUkVB
+RCwgMCwNCisJICAgICAgICAgICAgICAgICAgICAgIGluZHgsIGRhdGEsIHNp
+emUsIDEwMDApOw0KKwlpZiAocmV0IDwgMCkNCisJCW5ldGlmX2RiZyhwZWdh
+c3VzLCBkcnYsIHBlZ2FzdXMtPm5ldCwNCisJCSAgICAgICAgICAiJXMgcmV0
+dXJuZWQgJWRcbiIsIF9fZnVuY19fLCByZXQpOw0KIA0KIAlyZXR1cm4gcmV0
+Ow0KIH0NCkBAIC0xOTgsMTI2ICsxNTYsNTUgQEAgc3RhdGljIGludCBzZXRf
+cmVnaXN0ZXJzKHBlZ2FzdXNfdCAqcGVnYXN1cywgX191MTYgaW5keCwgX191
+MTYgc2l6ZSwNCiAJCQkgdm9pZCAqZGF0YSkNCiB7DQogCWludCByZXQ7DQot
+CWNoYXIgKmJ1ZmZlcjsNCi0JREVDTEFSRV9XQUlUUVVFVUUod2FpdCwgY3Vy
+cmVudCk7DQotDQotCWJ1ZmZlciA9IGttZW1kdXAoZGF0YSwgc2l6ZSwgR0ZQ
+X0tFUk5FTCk7DQotCWlmICghYnVmZmVyKSB7DQotCQluZXRpZl93YXJuKHBl
+Z2FzdXMsIGRydiwgcGVnYXN1cy0+bmV0LA0KLQkJCSAgICJvdXQgb2YgbWVt
+b3J5IGluICVzXG4iLCBfX2Z1bmNfXyk7DQotCQlyZXR1cm4gLUVOT01FTTsN
+Ci0JfQ0KLQ0KLQlhZGRfd2FpdF9xdWV1ZSgmcGVnYXN1cy0+Y3RybF93YWl0
+LCAmd2FpdCk7DQotCXNldF9jdXJyZW50X3N0YXRlKFRBU0tfVU5JTlRFUlJV
+UFRJQkxFKTsNCi0Jd2hpbGUgKHBlZ2FzdXMtPmZsYWdzICYgRVRIX1JFR1Nf
+Q0hBTkdFRCkNCi0JCXNjaGVkdWxlKCk7DQotCXJlbW92ZV93YWl0X3F1ZXVl
+KCZwZWdhc3VzLT5jdHJsX3dhaXQsICZ3YWl0KTsNCi0Jc2V0X2N1cnJlbnRf
+c3RhdGUoVEFTS19SVU5OSU5HKTsNCi0NCi0JcGVnYXN1cy0+ZHIuYlJlcXVl
+c3RUeXBlID0gUEVHQVNVU19SRVFUX1dSSVRFOw0KLQlwZWdhc3VzLT5kci5i
+UmVxdWVzdCA9IFBFR0FTVVNfUkVRX1NFVF9SRUdTOw0KLQlwZWdhc3VzLT5k
+ci53VmFsdWUgPSBjcHVfdG9fbGUxNigwKTsNCi0JcGVnYXN1cy0+ZHIud0lu
+ZGV4ID0gY3B1X3RvX2xlMTYoaW5keCk7DQotCXBlZ2FzdXMtPmRyLndMZW5n
+dGggPSBjcHVfdG9fbGUxNihzaXplKTsNCi0JcGVnYXN1cy0+Y3RybF91cmIt
+PnRyYW5zZmVyX2J1ZmZlcl9sZW5ndGggPSBzaXplOw0KLQ0KLQl1c2JfZmls
+bF9jb250cm9sX3VyYihwZWdhc3VzLT5jdHJsX3VyYiwgcGVnYXN1cy0+dXNi
+LA0KLQkJCSAgICAgdXNiX3NuZGN0cmxwaXBlKHBlZ2FzdXMtPnVzYiwgMCks
+DQotCQkJICAgICAoY2hhciAqKSAmcGVnYXN1cy0+ZHIsDQotCQkJICAgICBi
+dWZmZXIsIHNpemUsIGN0cmxfY2FsbGJhY2ssIHBlZ2FzdXMpOw0KLQ0KLQlh
+ZGRfd2FpdF9xdWV1ZSgmcGVnYXN1cy0+Y3RybF93YWl0LCAmd2FpdCk7DQot
+CXNldF9jdXJyZW50X3N0YXRlKFRBU0tfVU5JTlRFUlJVUFRJQkxFKTsNCi0N
+Ci0JaWYgKChyZXQgPSB1c2Jfc3VibWl0X3VyYihwZWdhc3VzLT5jdHJsX3Vy
+YiwgR0ZQX0FUT01JQykpKSB7DQotCQlpZiAocmV0ID09IC1FTk9ERVYpDQot
+CQkJbmV0aWZfZGV2aWNlX2RldGFjaChwZWdhc3VzLT5uZXQpOw0KLQkJbmV0
+aWZfZXJyKHBlZ2FzdXMsIGRydiwgcGVnYXN1cy0+bmV0LA0KLQkJCSAgIiVz
+LCBzdGF0dXMgJWRcbiIsIF9fZnVuY19fLCByZXQpOw0KLQkJZ290byBvdXQ7
+DQotCX0NCi0NCi0Jc2NoZWR1bGUoKTsNCi1vdXQ6DQotCXJlbW92ZV93YWl0
+X3F1ZXVlKCZwZWdhc3VzLT5jdHJsX3dhaXQsICZ3YWl0KTsNCi0Ja2ZyZWUo
+YnVmZmVyKTsNCiANCisJcmV0ID0gdXNiX2NvbnRyb2xfbXNnKHBlZ2FzdXMt
+PnVzYiwgdXNiX3NuZGN0cmxwaXBlKHBlZ2FzdXMtPnVzYiwgMCksDQorCSAg
+ICAgICAgICAgICAgICAgICAgICBQRUdBU1VTX1JFUV9TRVRfUkVHUywgUEVH
+QVNVU19SRVFUX1dSSVRFLCAwLA0KKwkgICAgICAgICAgICAgICAgICAgICAg
+aW5keCwgZGF0YSwgc2l6ZSwgMTAwKTsNCisJaWYgKHJldCA8IDApDQorCQlu
+ZXRpZl9kYmcocGVnYXN1cywgZHJ2LCBwZWdhc3VzLT5uZXQsDQorCQkgICAg
+ICAgICAgIiVzIHJldHVybmVkICVkXG4iLCBfX2Z1bmNfXywgcmV0KTsNCiAJ
+cmV0dXJuIHJldDsNCiB9DQogDQogc3RhdGljIGludCBzZXRfcmVnaXN0ZXIo
+cGVnYXN1c190ICpwZWdhc3VzLCBfX3UxNiBpbmR4LCBfX3U4IGRhdGEpDQog
+ew0KIAlpbnQgcmV0Ow0KLQljaGFyICp0bXA7DQotCURFQ0xBUkVfV0FJVFFV
+RVVFKHdhaXQsIGN1cnJlbnQpOw0KLQ0KLQl0bXAgPSBrbWVtZHVwKCZkYXRh
+LCAxLCBHRlBfS0VSTkVMKTsNCi0JaWYgKCF0bXApIHsNCi0JCW5ldGlmX3dh
+cm4ocGVnYXN1cywgZHJ2LCBwZWdhc3VzLT5uZXQsDQotCQkJICAgIm91dCBv
+ZiBtZW1vcnkgaW4gJXNcbiIsIF9fZnVuY19fKTsNCi0JCXJldHVybiAtRU5P
+TUVNOw0KLQl9DQotCWFkZF93YWl0X3F1ZXVlKCZwZWdhc3VzLT5jdHJsX3dh
+aXQsICZ3YWl0KTsNCi0Jc2V0X2N1cnJlbnRfc3RhdGUoVEFTS19VTklOVEVS
+UlVQVElCTEUpOw0KLQl3aGlsZSAocGVnYXN1cy0+ZmxhZ3MgJiBFVEhfUkVH
+U19DSEFOR0VEKQ0KLQkJc2NoZWR1bGUoKTsNCi0JcmVtb3ZlX3dhaXRfcXVl
+dWUoJnBlZ2FzdXMtPmN0cmxfd2FpdCwgJndhaXQpOw0KLQlzZXRfY3VycmVu
+dF9zdGF0ZShUQVNLX1JVTk5JTkcpOw0KIA0KLQlwZWdhc3VzLT5kci5iUmVx
+dWVzdFR5cGUgPSBQRUdBU1VTX1JFUVRfV1JJVEU7DQotCXBlZ2FzdXMtPmRy
+LmJSZXF1ZXN0ID0gUEVHQVNVU19SRVFfU0VUX1JFRzsNCi0JcGVnYXN1cy0+
+ZHIud1ZhbHVlID0gY3B1X3RvX2xlMTYoZGF0YSk7DQotCXBlZ2FzdXMtPmRy
+LndJbmRleCA9IGNwdV90b19sZTE2KGluZHgpOw0KLQlwZWdhc3VzLT5kci53
+TGVuZ3RoID0gY3B1X3RvX2xlMTYoMSk7DQotCXBlZ2FzdXMtPmN0cmxfdXJi
+LT50cmFuc2Zlcl9idWZmZXJfbGVuZ3RoID0gMTsNCi0NCi0JdXNiX2ZpbGxf
+Y29udHJvbF91cmIocGVnYXN1cy0+Y3RybF91cmIsIHBlZ2FzdXMtPnVzYiwN
+Ci0JCQkgICAgIHVzYl9zbmRjdHJscGlwZShwZWdhc3VzLT51c2IsIDApLA0K
+LQkJCSAgICAgKGNoYXIgKikgJnBlZ2FzdXMtPmRyLA0KLQkJCSAgICAgdG1w
+LCAxLCBjdHJsX2NhbGxiYWNrLCBwZWdhc3VzKTsNCi0NCi0JYWRkX3dhaXRf
+cXVldWUoJnBlZ2FzdXMtPmN0cmxfd2FpdCwgJndhaXQpOw0KLQlzZXRfY3Vy
+cmVudF9zdGF0ZShUQVNLX1VOSU5URVJSVVBUSUJMRSk7DQotDQotCWlmICgo
+cmV0ID0gdXNiX3N1Ym1pdF91cmIocGVnYXN1cy0+Y3RybF91cmIsIEdGUF9B
+VE9NSUMpKSkgew0KLQkJaWYgKHJldCA9PSAtRU5PREVWKQ0KLQkJCW5ldGlm
+X2RldmljZV9kZXRhY2gocGVnYXN1cy0+bmV0KTsNCi0JCWlmIChuZXRfcmF0
+ZWxpbWl0KCkpDQotCQkJbmV0aWZfZXJyKHBlZ2FzdXMsIGRydiwgcGVnYXN1
+cy0+bmV0LA0KLQkJCQkgICIlcywgc3RhdHVzICVkXG4iLCBfX2Z1bmNfXywg
+cmV0KTsNCi0JCWdvdG8gb3V0Ow0KLQl9DQotDQotCXNjaGVkdWxlKCk7DQot
+b3V0Og0KLQlyZW1vdmVfd2FpdF9xdWV1ZSgmcGVnYXN1cy0+Y3RybF93YWl0
+LCAmd2FpdCk7DQotCWtmcmVlKHRtcCk7DQorCXJldCA9IHVzYl9jb250cm9s
+X21zZyhwZWdhc3VzLT51c2IsIHVzYl9zbmRjdHJscGlwZShwZWdhc3VzLT51
+c2IsIDApLA0KKwkgICAgICAgICAgICAgICAgICAgICAgUEVHQVNVU19SRVFf
+U0VUX1JFRywgUEVHQVNVU19SRVFUX1dSSVRFLCBkYXRhLA0KKwkgICAgICAg
+ICAgICAgICAgICAgICAgaW5keCwgJmRhdGEsIDEsIDEwMDApOw0KKwlpZiAo
+cmV0IDwgMCkNCisJCW5ldGlmX2RiZyhwZWdhc3VzLCBkcnYsIHBlZ2FzdXMt
+Pm5ldCwNCisJCSAgICAgICAgICAiJXMgcmV0dXJuZWQgJWRcbiIsIF9fZnVu
+Y19fLCByZXQpOw0KIA0KIAlyZXR1cm4gcmV0Ow0KIH0NCiANCiBzdGF0aWMg
+aW50IHVwZGF0ZV9ldGhfcmVnc19hc3luYyhwZWdhc3VzX3QgKnBlZ2FzdXMp
+DQogew0KLQlpbnQgcmV0Ow0KKwlpbnQgcmV0ID0gLUVOT01FTTsNCisJc3Ry
+dWN0IHVyYiAqYXN5bmNfdXJiOw0KKw0KKwlpZiAoKGFzeW5jX3VyYiA9IHVz
+Yl9hbGxvY191cmIoMCwgR0ZQX0FUT01JQykpID09IE5VTEwpDQorCQlyZXR1
+cm4gcmV0Ow0KIA0KIAlwZWdhc3VzLT5kci5iUmVxdWVzdFR5cGUgPSBQRUdB
+U1VTX1JFUVRfV1JJVEU7DQogCXBlZ2FzdXMtPmRyLmJSZXF1ZXN0ID0gUEVH
+QVNVU19SRVFfU0VUX1JFR1M7DQogCXBlZ2FzdXMtPmRyLndWYWx1ZSA9IGNw
+dV90b19sZTE2KDApOw0KIAlwZWdhc3VzLT5kci53SW5kZXggPSBjcHVfdG9f
+bGUxNihFdGhDdHJsMCk7DQogCXBlZ2FzdXMtPmRyLndMZW5ndGggPSBjcHVf
+dG9fbGUxNigzKTsNCi0JcGVnYXN1cy0+Y3RybF91cmItPnRyYW5zZmVyX2J1
+ZmZlcl9sZW5ndGggPSAzOw0KKwlhc3luY191cmItPnRyYW5zZmVyX2J1ZmZl
+cl9sZW5ndGggPSAzOw0KIA0KLQl1c2JfZmlsbF9jb250cm9sX3VyYihwZWdh
+c3VzLT5jdHJsX3VyYiwgcGVnYXN1cy0+dXNiLA0KLQkJCSAgICAgdXNiX3Nu
+ZGN0cmxwaXBlKHBlZ2FzdXMtPnVzYiwgMCksDQotCQkJICAgICAoY2hhciAq
+KSAmcGVnYXN1cy0+ZHIsDQotCQkJICAgICBwZWdhc3VzLT5ldGhfcmVncywg
+MywgY3RybF9jYWxsYmFjaywgcGVnYXN1cyk7DQorCXVzYl9maWxsX2NvbnRy
+b2xfdXJiKGFzeW5jX3VyYiwgcGVnYXN1cy0+dXNiLA0KKwkgICAgICAgICAg
+ICAgICAgICAgICB1c2Jfc25kY3RybHBpcGUocGVnYXN1cy0+dXNiLCAwKSwN
+CisJICAgICAgICAgICAgICAgICAgICAgKGNoYXIgKikgJnBlZ2FzdXMtPmRy
+LCBwZWdhc3VzLT5ldGhfcmVncywNCisJICAgICAgICAgICAgICAgICAgICAg
+MywgYXN5bmNfY3RybF9jYWxsYmFjaywgcGVnYXN1cyk7DQogDQotCWlmICgo
+cmV0ID0gdXNiX3N1Ym1pdF91cmIocGVnYXN1cy0+Y3RybF91cmIsIEdGUF9B
+VE9NSUMpKSkgew0KKwlpZiAoKHJldCA9IHVzYl9zdWJtaXRfdXJiKGFzeW5j
+X3VyYiwgR0ZQX0FUT01JQykpKSB7DQogCQlpZiAocmV0ID09IC1FTk9ERVYp
+DQogCQkJbmV0aWZfZGV2aWNlX2RldGFjaChwZWdhc3VzLT5uZXQpOw0KIAkJ
+bmV0aWZfZXJyKHBlZ2FzdXMsIGRydiwgcGVnYXN1cy0+bmV0LA0KLQkJCSAg
+IiVzLCBzdGF0dXMgJWRcbiIsIF9fZnVuY19fLCByZXQpOw0KKwkJICAgICAg
+ICAgICIlcyByZXR1cm5lZCAlZFxuIiwgX19mdW5jX18sIHJldCk7DQogCX0N
+CiANCiAJcmV0dXJuIHJldDsNCkBAIC0zNDIsOCArMjI5LDEwIEBAIHN0YXRp
+YyBpbnQgcmVhZF9taWlfd29yZChwZWdhc3VzX3QgKnBlZ2FzdXMsIF9fdTgg
+cGh5LCBfX3U4IGluZHgsIF9fdTE2ICpyZWdkKQ0KIAkJCWJyZWFrOw0KIAl9
+DQogDQotCWlmIChpID49IFJFR19USU1FT1VUKQ0KKwlpZiAoaSA+PSBSRUdf
+VElNRU9VVCkgew0KKwkJcmV0ID0gLUVCVVNZOw0KIAkJZ290byBmYWlsOw0K
+Kwl9DQogDQogCXJldCA9IGdldF9yZWdpc3RlcnMocGVnYXN1cywgUGh5RGF0
+YSwgMiwgJnJlZ2RpKTsNCiAJKnJlZ2QgPSBsZTE2X3RvX2NwdShyZWdkaSk7
+DQpAQCAtNDgwLDcgKzM2OSw3IEBAIGZhaWw6DQogCW5ldGlmX3dhcm4ocGVn
+YXN1cywgZHJ2LCBwZWdhc3VzLT5uZXQsICIlcyBmYWlsZWRcbiIsIF9fZnVu
+Y19fKTsNCiAJcmV0dXJuIC1FVElNRURPVVQ7DQogfQ0KLSNlbmRpZgkJCQkv
+KiBQRUdBU1VTX1dSSVRFX0VFUFJPTSAqLw0KKyNlbmRpZgkvKiBQRUdBU1VT
+X1dSSVRFX0VFUFJPTSAqLw0KIA0KIHN0YXRpYyBpbmxpbmUgdm9pZCBnZXRf
+bm9kZV9pZChwZWdhc3VzX3QgKnBlZ2FzdXMsIF9fdTggKmlkKQ0KIHsNCkBA
+IC01NDMsMTIgKzQzMiwxMSBAQCBzdGF0aWMgaW5saW5lIGludCByZXNldF9t
+YWMocGVnYXN1c190ICpwZWdhc3VzKQ0KIAlyZXR1cm4gMDsNCiB9DQogDQot
+c3RhdGljIGludCBlbmFibGVfbmV0X3RyYWZmaWMoc3RydWN0IG5ldF9kZXZp
+Y2UgKmRldiwgc3RydWN0IHVzYl9kZXZpY2UgKnVzYikNCitzdGF0aWMgdm9p
+ZCBlbmFibGVfbmV0X3RyYWZmaWMoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwg
+c3RydWN0IHVzYl9kZXZpY2UgKnVzYikNCiB7DQogCV9fdTE2IGxpbmtwYXJ0
+Ow0KIAlfX3U4IGRhdGFbNF07DQogCXBlZ2FzdXNfdCAqcGVnYXN1cyA9IG5l
+dGRldl9wcml2KGRldik7DQotCWludCByZXQ7DQogDQogCXJlYWRfbWlpX3dv
+cmQocGVnYXN1cywgcGVnYXN1cy0+cGh5LCBNSUlfTFBBLCAmbGlua3BhcnQp
+Ow0KIAlkYXRhWzBdID0gMHhjOTsNCkBAIC01NjIsNyArNDUwLDcgQEAgc3Rh
+dGljIGludCBlbmFibGVfbmV0X3RyYWZmaWMoc3RydWN0IG5ldF9kZXZpY2Ug
+KmRldiwgc3RydWN0IHVzYl9kZXZpY2UgKnVzYikNCiAJZGF0YVsyXSA9IGxv
+b3BiYWNrID8gMHgwOSA6IDB4MDE7DQogDQogCW1lbWNweShwZWdhc3VzLT5l
+dGhfcmVncywgZGF0YSwgc2l6ZW9mKGRhdGEpKTsNCi0JcmV0ID0gc2V0X3Jl
+Z2lzdGVycyhwZWdhc3VzLCBFdGhDdHJsMCwgMywgZGF0YSk7DQorCXNldF9y
+ZWdpc3RlcnMocGVnYXN1cywgRXRoQ3RybDAsIDMsIGRhdGEpOw0KIA0KIAlp
+ZiAodXNiX2Rldl9pZFtwZWdhc3VzLT5kZXZfaW5kZXhdLnZlbmRvciA9PSBW
+RU5ET1JfTElOS1NZUyB8fA0KIAkgICAgdXNiX2Rldl9pZFtwZWdhc3VzLT5k
+ZXZfaW5kZXhdLnZlbmRvciA9PSBWRU5ET1JfTElOS1NZUzIgfHwNCkBAIC01
+NzEsNTMgKzQ1OSw2IEBAIHN0YXRpYyBpbnQgZW5hYmxlX25ldF90cmFmZmlj
+KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHN0cnVjdCB1c2JfZGV2aWNlICp1
+c2IpDQogCQlyZWFkX21paV93b3JkKHBlZ2FzdXMsIDAsIDB4MWIsICZhdXht
+b2RlKTsNCiAJCXdyaXRlX21paV93b3JkKHBlZ2FzdXMsIDAsIDB4MWIsIGF1
+eG1vZGUgfCA0KTsNCiAJfQ0KLQ0KLQlyZXR1cm4gcmV0Ow0KLX0NCi0NCi1z
+dGF0aWMgdm9pZCBmaWxsX3NrYl9wb29sKHBlZ2FzdXNfdCAqcGVnYXN1cykN
+Ci17DQotCWludCBpOw0KLQ0KLQlmb3IgKGkgPSAwOyBpIDwgUlhfU0tCUzsg
+aSsrKSB7DQotCQlpZiAocGVnYXN1cy0+cnhfcG9vbFtpXSkNCi0JCQljb250
+aW51ZTsNCi0JCXBlZ2FzdXMtPnJ4X3Bvb2xbaV0gPSBkZXZfYWxsb2Nfc2ti
+KFBFR0FTVVNfTVRVICsgMik7DQotCQkvKg0KLQkJICoqIHdlIGdpdmUgdXAg
+aWYgdGhlIGFsbG9jYXRpb24gZmFpbC4gdGhlIHRhc2tsZXQgd2lsbCBiZQ0K
+LQkJICoqIHJlc2NoZWR1bGVkIGFnYWluIGFueXdheS4uLg0KLQkJICovDQot
+CQlpZiAocGVnYXN1cy0+cnhfcG9vbFtpXSA9PSBOVUxMKQ0KLQkJCXJldHVy
+bjsNCi0JCXNrYl9yZXNlcnZlKHBlZ2FzdXMtPnJ4X3Bvb2xbaV0sIDIpOw0K
+LQl9DQotfQ0KLQ0KLXN0YXRpYyB2b2lkIGZyZWVfc2tiX3Bvb2wocGVnYXN1
+c190ICpwZWdhc3VzKQ0KLXsNCi0JaW50IGk7DQotDQotCWZvciAoaSA9IDA7
+IGkgPCBSWF9TS0JTOyBpKyspIHsNCi0JCWlmIChwZWdhc3VzLT5yeF9wb29s
+W2ldKSB7DQotCQkJZGV2X2tmcmVlX3NrYihwZWdhc3VzLT5yeF9wb29sW2ld
+KTsNCi0JCQlwZWdhc3VzLT5yeF9wb29sW2ldID0gTlVMTDsNCi0JCX0NCi0J
+fQ0KLX0NCi0NCi1zdGF0aWMgaW5saW5lIHN0cnVjdCBza19idWZmICpwdWxs
+X3NrYihwZWdhc3VzX3QgKiBwZWdhc3VzKQ0KLXsNCi0JaW50IGk7DQotCXN0
+cnVjdCBza19idWZmICpza2I7DQotDQotCWZvciAoaSA9IDA7IGkgPCBSWF9T
+S0JTOyBpKyspIHsNCi0JCWlmIChsaWtlbHkocGVnYXN1cy0+cnhfcG9vbFtp
+XSAhPSBOVUxMKSkgew0KLQkJCXNrYiA9IHBlZ2FzdXMtPnJ4X3Bvb2xbaV07
+DQotCQkJcGVnYXN1cy0+cnhfcG9vbFtpXSA9IE5VTEw7DQotCQkJcmV0dXJu
+IHNrYjsNCi0JCX0NCi0JfQ0KLQlyZXR1cm4gTlVMTDsNCiB9DQogDQogc3Rh
+dGljIHZvaWQgcmVhZF9idWxrX2NhbGxiYWNrKHN0cnVjdCB1cmIgKnVyYikN
+CkBAIC02NDMsNyArNDg0LDcgQEAgc3RhdGljIHZvaWQgcmVhZF9idWxrX2Nh
+bGxiYWNrKHN0cnVjdCB1cmIgKnVyYikNCiAJCW5ldGlmX2RiZyhwZWdhc3Vz
+LCByeF9lcnIsIG5ldCwgInJlc2V0IE1BQ1xuIik7DQogCQlwZWdhc3VzLT5m
+bGFncyAmPSB+UEVHQVNVU19SWF9CVVNZOw0KIAkJYnJlYWs7DQotCWNhc2Ug
+LUVQSVBFOgkJLyogc3RhbGwsIG9yIGRpc2Nvbm5lY3QgZnJvbSBUVCAqLw0K
+KwljYXNlIC1FUElQRToJLyogc3RhbGwsIG9yIGRpc2Nvbm5lY3QgZnJvbSBU
+VCAqLw0KIAkJLyogRklYTUUgc2NoZWR1bGUgd29yayB0byBjbGVhciB0aGUg
+aGFsdCAqLw0KIAkJbmV0aWZfd2FybihwZWdhc3VzLCByeF9lcnIsIG5ldCwg
+Im5vIHJ4IHN0YWxsIHJlY292ZXJ5XG4iKTsNCiAJCXJldHVybjsNCkBAIC02
+NjMsNyArNTA0LDcgQEAgc3RhdGljIHZvaWQgcmVhZF9idWxrX2NhbGxiYWNr
+KHN0cnVjdCB1cmIgKnVyYikNCiAJcnhfc3RhdHVzID0gYnVmW2NvdW50IC0g
+Ml07DQogCWlmIChyeF9zdGF0dXMgJiAweDFlKSB7DQogCQluZXRpZl9kYmco
+cGVnYXN1cywgcnhfZXJyLCBuZXQsDQotCQkJICAiUlggcGFja2V0IGVycm9y
+ICV4XG4iLCByeF9zdGF0dXMpOw0KKwkJICAgICAgICAgICJSWCBwYWNrZXQg
+ZXJyb3IgJXhcbiIsIHJ4X3N0YXR1cyk7DQogCQlwZWdhc3VzLT5zdGF0cy5y
+eF9lcnJvcnMrKzsNCiAJCWlmIChyeF9zdGF0dXMgJiAweDA2KQkvKiBsb25n
+IG9yIHJ1bnQJKi8NCiAJCQlwZWdhc3VzLT5zdGF0cy5yeF9sZW5ndGhfZXJy
+b3JzKys7DQpAQCAtNzA0LDkgKzU0NSw4IEBAIHN0YXRpYyB2b2lkIHJlYWRf
+YnVsa19jYWxsYmFjayhzdHJ1Y3QgdXJiICp1cmIpDQogCWlmIChwZWdhc3Vz
+LT5mbGFncyAmIFBFR0FTVVNfVU5QTFVHKQ0KIAkJcmV0dXJuOw0KIA0KLQlz
+cGluX2xvY2soJnBlZ2FzdXMtPnJ4X3Bvb2xfbG9jayk7DQotCXBlZ2FzdXMt
+PnJ4X3NrYiA9IHB1bGxfc2tiKHBlZ2FzdXMpOw0KLQlzcGluX3VubG9jaygm
+cGVnYXN1cy0+cnhfcG9vbF9sb2NrKTsNCisJcGVnYXN1cy0+cnhfc2tiID0g
+X19uZXRkZXZfYWxsb2Nfc2tiX2lwX2FsaWduKHBlZ2FzdXMtPm5ldCwNCisJ
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+IFBFR0FTVVNfTVRVLCBHRlBfQVRPTUlDKTsNCiANCiAJaWYgKHBlZ2FzdXMt
+PnJ4X3NrYiA9PSBOVUxMKQ0KIAkJZ290byB0bF9zY2hlZDsNCkBAIC03MzQs
+MjQgKzU3NCwyMyBAQCB0bF9zY2hlZDoNCiBzdGF0aWMgdm9pZCByeF9maXh1
+cCh1bnNpZ25lZCBsb25nIGRhdGEpDQogew0KIAlwZWdhc3VzX3QgKnBlZ2Fz
+dXM7DQotCXVuc2lnbmVkIGxvbmcgZmxhZ3M7DQogCWludCBzdGF0dXM7DQog
+DQogCXBlZ2FzdXMgPSAocGVnYXN1c190ICopIGRhdGE7DQogCWlmIChwZWdh
+c3VzLT5mbGFncyAmIFBFR0FTVVNfVU5QTFVHKQ0KIAkJcmV0dXJuOw0KIA0K
+LQlzcGluX2xvY2tfaXJxc2F2ZSgmcGVnYXN1cy0+cnhfcG9vbF9sb2NrLCBm
+bGFncyk7DQotCWZpbGxfc2tiX3Bvb2wocGVnYXN1cyk7DQogCWlmIChwZWdh
+c3VzLT5mbGFncyAmIFBFR0FTVVNfUlhfVVJCX0ZBSUwpDQogCQlpZiAocGVn
+YXN1cy0+cnhfc2tiKQ0KIAkJCWdvdG8gdHJ5X2FnYWluOw0KIAlpZiAocGVn
+YXN1cy0+cnhfc2tiID09IE5VTEwpDQotCQlwZWdhc3VzLT5yeF9za2IgPSBw
+dWxsX3NrYihwZWdhc3VzKTsNCisJCXBlZ2FzdXMtPnJ4X3NrYiA9IF9fbmV0
+ZGV2X2FsbG9jX3NrYl9pcF9hbGlnbihwZWdhc3VzLT5uZXQsDQorCQkgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgUEVH
+QVNVU19NVFUsDQorCQkgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgR0ZQX0FUT01JQyk7DQogCWlmIChwZWdhc3VzLT5y
+eF9za2IgPT0gTlVMTCkgew0KIAkJbmV0aWZfd2FybihwZWdhc3VzLCByeF9l
+cnIsIHBlZ2FzdXMtPm5ldCwgImxvdyBvbiBtZW1vcnlcbiIpOw0KIAkJdGFz
+a2xldF9zY2hlZHVsZSgmcGVnYXN1cy0+cnhfdGwpOw0KLQkJZ290byBkb25l
+Ow0KKwkJcmV0dXJuOw0KIAl9DQogCXVzYl9maWxsX2J1bGtfdXJiKHBlZ2Fz
+dXMtPnJ4X3VyYiwgcGVnYXN1cy0+dXNiLA0KIAkJCSAgdXNiX3JjdmJ1bGtw
+aXBlKHBlZ2FzdXMtPnVzYiwgMSksDQpAQCAtNzY3LDggKzYwNiw2IEBAIHRy
+eV9hZ2FpbjoNCiAJfSBlbHNlIHsNCiAJCXBlZ2FzdXMtPmZsYWdzICY9IH5Q
+RUdBU1VTX1JYX1VSQl9GQUlMOw0KIAl9DQotZG9uZToNCi0Jc3Bpbl91bmxv
+Y2tfaXJxcmVzdG9yZSgmcGVnYXN1cy0+cnhfcG9vbF9sb2NrLCBmbGFncyk7
+DQogfQ0KIA0KIHN0YXRpYyB2b2lkIHdyaXRlX2J1bGtfY2FsbGJhY2soc3Ry
+dWN0IHVyYiAqdXJiKQ0KQEAgLTg2MCw3ICs2OTcsNyBAQCBzdGF0aWMgdm9p
+ZCBpbnRyX2NhbGxiYWNrKHN0cnVjdCB1cmIgKnVyYikNCiAJCW5ldGlmX2Rl
+dmljZV9kZXRhY2gocGVnYXN1cy0+bmV0KTsNCiAJaWYgKHJlcykNCiAJCW5l
+dGlmX2VycihwZWdhc3VzLCB0aW1lciwgbmV0LA0KLQkJCSAgImNhbid0IHJl
+c3VibWl0IGludGVycnVwdCB1cmIsICVkXG4iLCByZXMpOw0KKwkJICAgICAg
+ICAgICJjYW4ndCByZXN1Ym1pdCBpbnRlcnJ1cHQgdXJiLCAlZFxuIiwgcmVz
+KTsNCiB9DQogDQogc3RhdGljIHZvaWQgcGVnYXN1c190eF90aW1lb3V0KHN0
+cnVjdCBuZXRfZGV2aWNlICpuZXQpDQpAQCAtODkwLDEwICs3MjcsMTAgQEAg
+c3RhdGljIG5ldGRldl90eF90IHBlZ2FzdXNfc3RhcnRfeG1pdChzdHJ1Y3Qg
+c2tfYnVmZiAqc2tiLA0KIAlpZiAoKHJlcyA9IHVzYl9zdWJtaXRfdXJiKHBl
+Z2FzdXMtPnR4X3VyYiwgR0ZQX0FUT01JQykpKSB7DQogCQluZXRpZl93YXJu
+KHBlZ2FzdXMsIHR4X2VyciwgbmV0LCAiZmFpbCB0eCwgJWRcbiIsIHJlcyk7
+DQogCQlzd2l0Y2ggKHJlcykgew0KLQkJY2FzZSAtRVBJUEU6CQkvKiBzdGFs
+bCwgb3IgZGlzY29ubmVjdCBmcm9tIFRUICovDQorCQljYXNlIC1FUElQRToJ
+Lyogc3RhbGwsIG9yIGRpc2Nvbm5lY3QgZnJvbSBUVCAqLw0KIAkJCS8qIGNs
+ZWFudXAgc2hvdWxkIGFscmVhZHkgaGF2ZSBiZWVuIHNjaGVkdWxlZCAqLw0K
+IAkJCWJyZWFrOw0KLQkJY2FzZSAtRU5PREVWOgkJLyogZGlzY29ubmVjdCgp
+IHVwY29taW5nICovDQorCQljYXNlIC1FTk9ERVY6CS8qIGRpc2Nvbm5lY3Qo
+KSB1cGNvbWluZyAqLw0KIAkJY2FzZSAtRVBFUk06DQogCQkJbmV0aWZfZGV2
+aWNlX2RldGFjaChwZWdhc3VzLT5uZXQpOw0KIAkJCWJyZWFrOw0KQEAgLTkz
+Miw4ICs3NjksOCBAQCBzdGF0aWMgaW5saW5lIHZvaWQgZ2V0X2ludGVycnVw
+dF9pbnRlcnZhbChwZWdhc3VzX3QgKnBlZ2FzdXMpDQogCWlmIChwZWdhc3Vz
+LT51c2ItPnNwZWVkICE9IFVTQl9TUEVFRF9ISUdIKSB7DQogCQlpZiAoaW50
+ZXJ2YWwgPCAweDgwKSB7DQogCQkJbmV0aWZfaW5mbyhwZWdhc3VzLCB0aW1l
+ciwgcGVnYXN1cy0+bmV0LA0KLQkJCQkgICAiaW50ciBpbnRlcnZhbCBjaGFu
+Z2VkIGZyb20gJXVtcyB0byAldW1zXG4iLA0KLQkJCQkgICBpbnRlcnZhbCwg
+MHg4MCk7DQorCQkJICAgICAgICAgICAiaW50ciBpbnRlcnZhbCBjaGFuZ2Vk
+IGZyb20gJXVtcyB0byAldW1zXG4iLA0KKwkJCSAgICAgICAgICAgaW50ZXJ2
+YWwsIDB4ODApOw0KIAkJCWludGVydmFsID0gMHg4MDsNCiAJCQlkYXRhID0g
+KGRhdGEgJiAweDAwRkYpIHwgKCh1MTYpaW50ZXJ2YWwgPDwgOCk7DQogI2lm
+ZGVmIFBFR0FTVVNfV1JJVEVfRUVQUk9NDQpAQCAtOTUxLDcgKzc4OCw2IEBA
+IHN0YXRpYyB2b2lkIHNldF9jYXJyaWVyKHN0cnVjdCBuZXRfZGV2aWNlICpu
+ZXQpDQogDQogCWlmIChyZWFkX21paV93b3JkKHBlZ2FzdXMsIHBlZ2FzdXMt
+PnBoeSwgTUlJX0JNU1IsICZ0bXApKQ0KIAkJcmV0dXJuOw0KLQ0KIAlpZiAo
+dG1wICYgQk1TUl9MU1RBVFVTKQ0KIAkJbmV0aWZfY2Fycmllcl9vbihuZXQp
+Ow0KIAllbHNlDQpAQCAtOTYzLDcgKzc5OSw2IEBAIHN0YXRpYyB2b2lkIGZy
+ZWVfYWxsX3VyYnMocGVnYXN1c190ICpwZWdhc3VzKQ0KIAl1c2JfZnJlZV91
+cmIocGVnYXN1cy0+aW50cl91cmIpOw0KIAl1c2JfZnJlZV91cmIocGVnYXN1
+cy0+dHhfdXJiKTsNCiAJdXNiX2ZyZWVfdXJiKHBlZ2FzdXMtPnJ4X3VyYik7
+DQotCXVzYl9mcmVlX3VyYihwZWdhc3VzLT5jdHJsX3VyYik7DQogfQ0KIA0K
+IHN0YXRpYyB2b2lkIHVubGlua19hbGxfdXJicyhwZWdhc3VzX3QgKnBlZ2Fz
+dXMpDQpAQCAtOTcxLDMwICs4MDYsMjMgQEAgc3RhdGljIHZvaWQgdW5saW5r
+X2FsbF91cmJzKHBlZ2FzdXNfdCAqcGVnYXN1cykNCiAJdXNiX2tpbGxfdXJi
+KHBlZ2FzdXMtPmludHJfdXJiKTsNCiAJdXNiX2tpbGxfdXJiKHBlZ2FzdXMt
+PnR4X3VyYik7DQogCXVzYl9raWxsX3VyYihwZWdhc3VzLT5yeF91cmIpOw0K
+LQl1c2Jfa2lsbF91cmIocGVnYXN1cy0+Y3RybF91cmIpOw0KIH0NCiANCiBz
+dGF0aWMgaW50IGFsbG9jX3VyYnMocGVnYXN1c190ICpwZWdhc3VzKQ0KIHsN
+Ci0JcGVnYXN1cy0+Y3RybF91cmIgPSB1c2JfYWxsb2NfdXJiKDAsIEdGUF9L
+RVJORUwpOw0KLQlpZiAoIXBlZ2FzdXMtPmN0cmxfdXJiKQ0KLQkJcmV0dXJu
+IDA7DQogCXBlZ2FzdXMtPnJ4X3VyYiA9IHVzYl9hbGxvY191cmIoMCwgR0ZQ
+X0tFUk5FTCk7DQogCWlmICghcGVnYXN1cy0+cnhfdXJiKSB7DQotCQl1c2Jf
+ZnJlZV91cmIocGVnYXN1cy0+Y3RybF91cmIpOw0KIAkJcmV0dXJuIDA7DQog
+CX0NCiAJcGVnYXN1cy0+dHhfdXJiID0gdXNiX2FsbG9jX3VyYigwLCBHRlBf
+S0VSTkVMKTsNCiAJaWYgKCFwZWdhc3VzLT50eF91cmIpIHsNCiAJCXVzYl9m
+cmVlX3VyYihwZWdhc3VzLT5yeF91cmIpOw0KLQkJdXNiX2ZyZWVfdXJiKHBl
+Z2FzdXMtPmN0cmxfdXJiKTsNCiAJCXJldHVybiAwOw0KIAl9DQogCXBlZ2Fz
+dXMtPmludHJfdXJiID0gdXNiX2FsbG9jX3VyYigwLCBHRlBfS0VSTkVMKTsN
+CiAJaWYgKCFwZWdhc3VzLT5pbnRyX3VyYikgew0KIAkJdXNiX2ZyZWVfdXJi
+KHBlZ2FzdXMtPnR4X3VyYik7DQogCQl1c2JfZnJlZV91cmIocGVnYXN1cy0+
+cnhfdXJiKTsNCi0JCXVzYl9mcmVlX3VyYihwZWdhc3VzLT5jdHJsX3VyYik7
+DQogCQlyZXR1cm4gMDsNCiAJfQ0KIA0KQEAgLTEwMDQsMTUgKzgzMiwxMiBA
+QCBzdGF0aWMgaW50IGFsbG9jX3VyYnMocGVnYXN1c190ICpwZWdhc3VzKQ0K
+IHN0YXRpYyBpbnQgcGVnYXN1c19vcGVuKHN0cnVjdCBuZXRfZGV2aWNlICpu
+ZXQpDQogew0KIAlwZWdhc3VzX3QgKnBlZ2FzdXMgPSBuZXRkZXZfcHJpdihu
+ZXQpOw0KLQlpbnQgcmVzOw0KKwlpbnQgcmVzPS1FTk9NRU07DQogDQogCWlm
+IChwZWdhc3VzLT5yeF9za2IgPT0gTlVMTCkNCi0JCXBlZ2FzdXMtPnJ4X3Nr
+YiA9IHB1bGxfc2tiKHBlZ2FzdXMpOw0KLQkvKg0KLQkgKiogTm90ZTogbm8g
+cG9pbnQgdG8gZnJlZSB0aGUgcG9vbC4gIGl0IGlzIGVtcHR5IDotKQ0KLQkg
+Ki8NCisJCXBlZ2FzdXMtPnJ4X3NrYiA9IF9fbmV0ZGV2X2FsbG9jX3NrYl9p
+cF9hbGlnbihwZWdhc3VzLT5uZXQsIFBFR0FTVVNfTVRVLCBHRlBfS0VSTkVM
+KTsNCiAJaWYgKCFwZWdhc3VzLT5yeF9za2IpDQotCQlyZXR1cm4gLUVOT01F
+TTsNCisJCWdvdG8gZXhpdDsNCiANCiAJcmVzID0gc2V0X3JlZ2lzdGVycyhw
+ZWdhc3VzLCBFdGhJRCwgNiwgbmV0LT5kZXZfYWRkcik7DQogDQpAQCAtMTAz
+OCwxOCArODYzLDkgQEAgc3RhdGljIGludCBwZWdhc3VzX29wZW4oc3RydWN0
+IG5ldF9kZXZpY2UgKm5ldCkNCiAJCXVzYl9raWxsX3VyYihwZWdhc3VzLT5y
+eF91cmIpOw0KIAkJZ290byBleGl0Ow0KIAl9DQotCWlmICgocmVzID0gZW5h
+YmxlX25ldF90cmFmZmljKG5ldCwgcGVnYXN1cy0+dXNiKSkpIHsNCi0JCW5l
+dGlmX2RiZyhwZWdhc3VzLCBpZnVwLCBuZXQsDQotCQkJICAiY2FuJ3QgZW5h
+YmxlX25ldF90cmFmZmljKCkgLSAlZFxuIiwgcmVzKTsNCi0JCXJlcyA9IC1F
+SU87DQotCQl1c2Jfa2lsbF91cmIocGVnYXN1cy0+cnhfdXJiKTsNCi0JCXVz
+Yl9raWxsX3VyYihwZWdhc3VzLT5pbnRyX3VyYik7DQotCQlmcmVlX3NrYl9w
+b29sKHBlZ2FzdXMpOw0KLQkJZ290byBleGl0Ow0KLQl9DQorCWVuYWJsZV9u
+ZXRfdHJhZmZpYyhuZXQsIHBlZ2FzdXMtPnVzYik7DQogCXNldF9jYXJyaWVy
+KG5ldCk7DQogCW5ldGlmX3N0YXJ0X3F1ZXVlKG5ldCk7DQotCW5ldGlmX2Ri
+ZyhwZWdhc3VzLCBpZnVwLCBuZXQsICJvcGVuXG4iKTsNCiAJcmVzID0gMDsN
+CiBleGl0Og0KIAlyZXR1cm4gcmVzOw0KQEAgLTExMTMsOCArOTI5LDcgQEAg
+cGVnYXN1c19zZXRfd29sKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHN0cnVj
+dCBldGh0b29sX3dvbGluZm8gKndvbCkNCiANCiAJcmV0ID0gc2V0X3JlZ2lz
+dGVyKHBlZ2FzdXMsIFdha2V1cENvbnRyb2wsIHJlZzc4KTsNCiAJaWYgKCFy
+ZXQpDQotCQlyZXQgPSBkZXZpY2Vfc2V0X3dha2V1cF9lbmFibGUoJnBlZ2Fz
+dXMtPnVzYi0+ZGV2LA0KLQkJCQkJCXdvbC0+d29sb3B0cyk7DQorCQlyZXQg
+PSBkZXZpY2Vfc2V0X3dha2V1cF9lbmFibGUoJnBlZ2FzdXMtPnVzYi0+ZGV2
+LCB3b2wtPndvbG9wdHMpOw0KIAlyZXR1cm4gcmV0Ow0KIH0NCiANCkBAIC0x
+MjE0LDE2ICsxMDI5LDEzIEBAIHN0YXRpYyB2b2lkIHBlZ2FzdXNfc2V0X211
+bHRpY2FzdChzdHJ1Y3QgbmV0X2RldmljZSAqbmV0KQ0KIAl9IGVsc2UgaWYg
+KCFuZXRkZXZfbWNfZW1wdHkobmV0KSB8fCAobmV0LT5mbGFncyAmIElGRl9B
+TExNVUxUSSkpIHsNCiAJCXBlZ2FzdXMtPmV0aF9yZWdzW0V0aEN0cmwwXSB8
+PSBSWF9NVUxUSUNBU1Q7DQogCQlwZWdhc3VzLT5ldGhfcmVnc1tFdGhDdHJs
+Ml0gJj0gflJYX1BST01JU0NVT1VTOw0KLQkJbmV0aWZfZGJnKHBlZ2FzdXMs
+IGxpbmssIG5ldCwgInNldCBhbGxtdWx0aVxuIik7DQorCQluZXRpZl9pbmZv
+KHBlZ2FzdXMsIGxpbmssIG5ldCwgInNldCBhbGxtdWx0aVxuIik7DQogCX0g
+ZWxzZSB7DQogCQlwZWdhc3VzLT5ldGhfcmVnc1tFdGhDdHJsMF0gJj0gflJY
+X01VTFRJQ0FTVDsNCiAJCXBlZ2FzdXMtPmV0aF9yZWdzW0V0aEN0cmwyXSAm
+PSB+UlhfUFJPTUlTQ1VPVVM7DQorCQluZXRpZl9pbmZvKHBlZ2FzdXMsIGxp
+bmssIG5ldCwgImdlbmVyYWwgbW9kZVxuIik7DQogCX0NCi0NCi0JcGVnYXN1
+cy0+Y3RybF91cmItPnN0YXR1cyA9IDA7DQotDQotCXBlZ2FzdXMtPmZsYWdz
+IHw9IEVUSF9SRUdTX0NIQU5HRTsNCi0JY3RybF9jYWxsYmFjayhwZWdhc3Vz
+LT5jdHJsX3VyYik7DQorCXVwZGF0ZV9ldGhfcmVnc19hc3luYyhwZWdhc3Vz
+KTsNCiB9DQogDQogc3RhdGljIF9fdTggbWlpX3BoeV9wcm9iZShwZWdhc3Vz
+X3QgKnBlZ2FzdXMpDQpAQCAtMTI4MSwxMCArMTA5Myw5IEBAIHN0YXRpYyB2
+b2lkIGNoZWNrX2NhcnJpZXIoc3RydWN0IHdvcmtfc3RydWN0ICp3b3JrKQ0K
+IHsNCiAJcGVnYXN1c190ICpwZWdhc3VzID0gY29udGFpbmVyX29mKHdvcmss
+IHBlZ2FzdXNfdCwgY2Fycmllcl9jaGVjay53b3JrKTsNCiAJc2V0X2NhcnJp
+ZXIocGVnYXN1cy0+bmV0KTsNCi0JaWYgKCEocGVnYXN1cy0+ZmxhZ3MgJiBQ
+RUdBU1VTX1VOUExVRykpIHsNCisJaWYgKCEocGVnYXN1cy0+ZmxhZ3MgJiBQ
+RUdBU1VTX1VOUExVRykpDQogCQlxdWV1ZV9kZWxheWVkX3dvcmsocGVnYXN1
+c193b3JrcXVldWUsICZwZWdhc3VzLT5jYXJyaWVyX2NoZWNrLA0KLQkJCUNB
+UlJJRVJfQ0hFQ0tfREVMQVkpOw0KLQl9DQorCQkgICAgICAgICAgICAgICAg
+ICAgQ0FSUklFUl9DSEVDS19ERUxBWSk7DQogfQ0KIA0KIHN0YXRpYyBpbnQg
+cGVnYXN1c19ibGFja2xpc3RlZChzdHJ1Y3QgdXNiX2RldmljZSAqdWRldikN
+CkBAIC0xMzAzLDcgKzExMTQsOCBAQCBzdGF0aWMgaW50IHBlZ2FzdXNfYmxh
+Y2tsaXN0ZWQoc3RydWN0IHVzYl9kZXZpY2UgKnVkZXYpDQogCXJldHVybiAw
+Ow0KIH0NCiANCi0vKiB3ZSByZWx5IG9uIHByb2JlKCkgYW5kIHJlbW92ZSgp
+IGJlaW5nIHNlcmlhbGl6ZWQgc28gd2UNCisvKg0KKyAqIHdlIHJlbHkgb24g
+cHJvYmUoKSBhbmQgcmVtb3ZlKCkgYmVpbmcgc2VyaWFsaXplZCBzbyB3ZQ0K
+ICAqIGRvbid0IG5lZWQgZXh0cmEgbG9ja2luZyBvbiBwZWdhc3VzX2NvdW50
+Lg0KICAqLw0KIHN0YXRpYyB2b2lkIHBlZ2FzdXNfZGVjX3dvcmtxdWV1ZSh2
+b2lkKQ0KQEAgLTEzNDAsNyArMTE1Miw2IEBAIHN0YXRpYyBpbnQgcGVnYXN1
+c19wcm9iZShzdHJ1Y3QgdXNiX2ludGVyZmFjZSAqaW50ZiwNCiANCiAJcGVn
+YXN1cyA9IG5ldGRldl9wcml2KG5ldCk7DQogCXBlZ2FzdXMtPmRldl9pbmRl
+eCA9IGRldl9pbmRleDsNCi0JaW5pdF93YWl0cXVldWVfaGVhZCgmcGVnYXN1
+cy0+Y3RybF93YWl0KTsNCiANCiAJaWYgKCFhbGxvY191cmJzKHBlZ2FzdXMp
+KSB7DQogCQlkZXZfZXJyKCZpbnRmLT5kZXYsICJjYW4ndCBhbGxvY2F0ZSAl
+c1xuIiwgInVyYnMiKTsNCkBAIC0xMzY0LDcgKzExNzUsNiBAQCBzdGF0aWMg
+aW50IHBlZ2FzdXNfcHJvYmUoc3RydWN0IHVzYl9pbnRlcmZhY2UgKmludGYs
+DQogCXBlZ2FzdXMtPm1paS5tZGlvX3dyaXRlID0gbWRpb193cml0ZTsNCiAJ
+cGVnYXN1cy0+bWlpLnBoeV9pZF9tYXNrID0gMHgxZjsNCiAJcGVnYXN1cy0+
+bWlpLnJlZ19udW1fbWFzayA9IDB4MWY7DQotCXNwaW5fbG9ja19pbml0KCZw
+ZWdhc3VzLT5yeF9wb29sX2xvY2spOw0KIAlwZWdhc3VzLT5tc2dfZW5hYmxl
+ID0gbmV0aWZfbXNnX2luaXQobXNnX2xldmVsLCBORVRJRl9NU0dfRFJWDQog
+CQkJCXwgTkVUSUZfTVNHX1BST0JFIHwgTkVUSUZfTVNHX0xJTkspOw0KIA0K
+QEAgLTEzNzYsNyArMTE4Niw2IEBAIHN0YXRpYyBpbnQgcGVnYXN1c19wcm9i
+ZShzdHJ1Y3QgdXNiX2ludGVyZmFjZSAqaW50ZiwNCiAJCWdvdG8gb3V0MjsN
+CiAJfQ0KIAlzZXRfZXRoZXJuZXRfYWRkcihwZWdhc3VzKTsNCi0JZmlsbF9z
+a2JfcG9vbChwZWdhc3VzKTsNCiAJaWYgKHBlZ2FzdXMtPmZlYXR1cmVzICYg
+UEVHQVNVU19JSSkgew0KIAkJZGV2X2luZm8oJmludGYtPmRldiwgInNldHVw
+IFBlZ2FzdXMgSUkgc3BlY2lmaWMgcmVnaXN0ZXJzXG4iKTsNCiAJCXNldHVw
+X3BlZ2FzdXNfSUkocGVnYXN1cyk7DQpAQCAtMTM5NiwxNSArMTIwNSwxMiBA
+QCBzdGF0aWMgaW50IHBlZ2FzdXNfcHJvYmUoc3RydWN0IHVzYl9pbnRlcmZh
+Y2UgKmludGYsDQogCXF1ZXVlX2RlbGF5ZWRfd29yayhwZWdhc3VzX3dvcmtx
+dWV1ZSwgJnBlZ2FzdXMtPmNhcnJpZXJfY2hlY2ssDQogCQkJCUNBUlJJRVJf
+Q0hFQ0tfREVMQVkpOw0KIA0KLQlkZXZfaW5mbygmaW50Zi0+ZGV2LCAiJXMs
+ICVzLCAlcE1cbiIsDQotCQkgbmV0LT5uYW1lLA0KLQkJIHVzYl9kZXZfaWRb
+ZGV2X2luZGV4XS5uYW1lLA0KLQkJIG5ldC0+ZGV2X2FkZHIpOw0KKwlkZXZf
+aW5mbygmaW50Zi0+ZGV2LCAiJXMsICVzLCAlcE1cbiIsIG5ldC0+bmFtZSwN
+CisJICAgICAgICAgdXNiX2Rldl9pZFtkZXZfaW5kZXhdLm5hbWUsIG5ldC0+
+ZGV2X2FkZHIpOw0KIAlyZXR1cm4gMDsNCiANCiBvdXQzOg0KIAl1c2Jfc2V0
+X2ludGZkYXRhKGludGYsIE5VTEwpOw0KLQlmcmVlX3NrYl9wb29sKHBlZ2Fz
+dXMpOw0KIG91dDI6DQogCWZyZWVfYWxsX3VyYnMocGVnYXN1cyk7DQogb3V0
+MToNCkBAIC0xNDI5LDcgKzEyMzUsNiBAQCBzdGF0aWMgdm9pZCBwZWdhc3Vz
+X2Rpc2Nvbm5lY3Qoc3RydWN0IHVzYl9pbnRlcmZhY2UgKmludGYpDQogCXVu
+cmVnaXN0ZXJfbmV0ZGV2KHBlZ2FzdXMtPm5ldCk7DQogCXVubGlua19hbGxf
+dXJicyhwZWdhc3VzKTsNCiAJZnJlZV9hbGxfdXJicyhwZWdhc3VzKTsNCi0J
+ZnJlZV9za2JfcG9vbChwZWdhc3VzKTsNCiAJaWYgKHBlZ2FzdXMtPnJ4X3Nr
+YiAhPSBOVUxMKSB7DQogCQlkZXZfa2ZyZWVfc2tiKHBlZ2FzdXMtPnJ4X3Nr
+Yik7DQogCQlwZWdhc3VzLT5yeF9za2IgPSBOVUxMOw0K
+
+---1463755285-1858618278-1365181264=:7054--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
