@@ -1,52 +1,55 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net,1/2] hyperv: Fix a kernel warning from netvsc_linkstatus_callback()
-Date: Fri,  5 Apr 2013 14:44:39 -0700
-Message-ID: <1365198280-23270-1-git-send-email-haiyangz@microsoft.com>
-Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
-	jasowang@redhat.com, linux-kernel@vger.kernel.org,
-	devel@linuxdriverproject.org
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 2/2] ip: ipv6: add tokenized interface
+ identifier support
+Date: Fri, 5 Apr 2013 09:39:14 -0700
+Message-ID: <20130405093914.55c9114c@nehalam.linuxnetplumber.net>
+References: <1365086258-4512-1-git-send-email-dborkman@redhat.com>
+	<1365086258-4512-3-git-send-email-dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35640 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161970Ab3DEQjh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 12:39:37 -0400
+Received: by mail-pa0-f45.google.com with SMTP id kl13so2127174pab.18
+        for <netdev@vger.kernel.org>; Fri, 05 Apr 2013 09:39:36 -0700 (PDT)
+In-Reply-To: <1365086258-4512-3-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The warning about local_bh_enable inside IRQ happens when disconnecting a
-virtual NIC.
+On Thu,  4 Apr 2013 16:37:38 +0200
+Daniel Borkmann <dborkman@redhat.com> wrote:
 
-The reason for the warning is -- netif_tx_disable() is called when the NIC
-is disconnected. And it's called within irq context. netif_tx_disable() calls
-local_bh_enable() which displays warning if in irq.
+> This is experimental support for tokenized IIDs, that enable
+> administrators to assign well-known host-part addresses to nodes
+> whilst still obtaining global network prefix from Router
+> Advertisements. It is currently in IETF RFC draft status [1].
+> 
+> Example commands with iproute2:
+> 
+> Setting a device token:
+>   # ip token set ::1a:2b:3c:4d/64 dev eth1
+> 
+> Getting a device token:
+>   # ip token get dev eth1
+>   token ::1a:2b:3c:4d dev eth1
+> 
+> Listing all tokens:
+>   # ip token list  (or: ip token)
+>   token :: dev eth0
+>   token ::1a:2b:3c:4d dev eth1
+> 
+>  [1] http://tools.ietf.org/html/draft-chown-6man-tokenised-ipv6-identifiers-02
+> 
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-The fix is to remove the unnecessary netif_tx_disable & wake_queue() in the
-netvsc_linkstatus_callback().
-
-Reported-by: Richard Genoud <richard.genoud@gmail.com>
-Tested-by: Long Li <longli@microsoft.com>
-Tested-by: Richard Genoud <richard.genoud@gmail.com>
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-
----
- drivers/net/hyperv/netvsc_drv.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 5f85205..8341b62 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -241,13 +241,11 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
- 
- 	if (status == 1) {
- 		netif_carrier_on(net);
--		netif_wake_queue(net);
- 		ndev_ctx = netdev_priv(net);
- 		schedule_delayed_work(&ndev_ctx->dwork, 0);
- 		schedule_delayed_work(&ndev_ctx->dwork, msecs_to_jiffies(20));
- 	} else {
- 		netif_carrier_off(net);
--		netif_tx_disable(net);
- 	}
- }
- 
--- 
-1.7.4.1
+Deferred.
+Please resubmit during 3.10 merge window.
