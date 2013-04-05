@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/2] scm: Stop passing struct cred
-Date: Fri, 05 Apr 2013 00:47:54 -0400 (EDT)
-Message-ID: <20130405.004754.281478419999797757.davem@davemloft.net>
-References: <87li8zhwkw.fsf_-_@xmission.com>
-	<87d2ubhwiw.fsf_-_@xmission.com>
-	<87li8zezzj.fsf_-_@xmission.com>
+Subject: Re: [PATCH net] atl1e: limit gso segment size to prevent
+ generation of wrong ip length fields
+Date: Fri, 05 Apr 2013 00:49:49 -0400 (EDT)
+Message-ID: <20130405.004949.1039065624607918197.davem@davemloft.net>
+References: <20130403003646.GJ4924@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: svenjoac@gmx.de, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org, dingtianhong@huawei.com,
-	edumazet@google.com, luto@amacapital.net, ksrot@redhat.com,
-	netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: ebiederm@xmission.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87li8zezzj.fsf_-_@xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53464 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932520Ab3DEEtu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 00:49:50 -0400
+In-Reply-To: <20130403003646.GJ4924@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Wed, 03 Apr 2013 20:28:16 -0700
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed, 3 Apr 2013 02:36:46 +0200
 
+> The limit of 0x3c00 is taken from the windows driver.
 > 
-> Now that uids and gids are completely encapsulated in kuid_t
-> and kgid_t we no longer need to pass struct cred which allowed
-> us to test both the uid and the user namespace for equality.
-> 
-> Passing struct cred potentially allows us to pass the entire group
-> list as BSD does but I don't believe the cost of cache line misses
-> justifies retaining code for a future potential application.
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> Suggested-by: Huang, Xiong <xiong@qca.qualcomm.com>
+> Cc: Huang, Xiong <xiong@qca.qualcomm.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-I'll apply this to net-next once #1 and #2 propagate there.
-
-Thanks!
+Applied and queued up for -stable, thanks!
