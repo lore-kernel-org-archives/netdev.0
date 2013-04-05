@@ -1,69 +1,52 @@
-From: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
-Subject: Re: [PATCH 2/2] at86rf230: change irq handling
- to prevent lockups with edge type irq
-Date: Fri, 5 Apr 2013 00:59:49 -0300
-Message-ID: <20130405035949.GC29789@ws>
-References: <cover.1365107512.git.sascha@ps.nvbi.de>
-	<57c67195742f5e7482dc57f5a05b6d69156b00d2.1365107512.git.sascha@ps.nvbi.de>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: [PATCH] lib80211: make lib80211 can be enabled independently
+Date: Thu, 04 Apr 2013 21:01:59 -0700
+Message-ID: <515E4CB7.6020405@infradead.org>
+References: <20130404160130.GA2577@udknight> <CAGRGNgXj7mSF0Fgyjek4Xcc34N26WHtt4HMmHk7DOopaEPrYFw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: Sascha Herrmann <sascha-2k69yqSu1NaELgA04lAiVw@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <57c67195742f5e7482dc57f5a05b6d69156b00d2.1365107512.git.sascha-2k69yqSu1NaELgA04lAiVw@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Wang YanQing <udknight@gmail.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Julian Calaby <julian.calaby@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:53231 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750703Ab3DEEBz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 00:01:55 -0400
+In-Reply-To: <CAGRGNgXj7mSF0Fgyjek4Xcc34N26WHtt4HMmHk7DOopaEPrYFw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sascha Herrmann wrote:
-> -	rc = request_irq(spi->irq, at86rf230_isr, IRQF_SHARED,
-> +	rc = request_irq(spi->irq, at86rf230_isr,
-> +			 IRQF_SHARED | IRQF_TRIGGER_RISING,
+On 04/04/13 16:51, Julian Calaby wrote:
+> Hi Wang,
+> 
+> On Fri, Apr 5, 2013 at 3:01 AM, Wang YanQing <udknight@gmail.com> wrote:
+>>
+>> Current we can only enable lib80211 by enable a driver
+>> in tree use it which will select it, but some out tree's
+>> drivers also use it, so I think it has sense to make lib80211
+>> can be enabled independently.
+> 
+> Just as a bit of explanation for Johannes' NACK:
+> 
+> 1. The only reason lib80211 still exists is because a couple of
+> in-tree drivers still use it. If this weren't the case, the code would
+> have been removed a long time ago as it's been completely replaced by
+> mac80211 and cfg80211. All modern drivers _must_ use mac80211 or
+> cfg80211 without exception.
+> 2. In general, there is no official in-kernel support for
+> out-of-kernel drivers, regardless of quality, status or importance.
+> 3. I believe that the in-tree brcmsmac driver already supports the
+> Broadcom card you reference.
 
-To clarify the purpose of your patch, I think it's only needed
-for platforms that don't support level-triggered interrupts.
-I.e., if you used IRQF_TRIGGER_HIGH (and happened to have a
-platform that supports it, which you said on IRC you don't),
-the existing code should work fine. Correct ?
 
-I wonder if it wouldn't be better to make the code work with
-both edge and level interrupts instead of having to choose.
+3b.  If 3. is not correct, someone should endeavor to merge this
+out-of-tree driver into the kernel tree.
 
-E.g., this sort of loop in at86rf230_irqwork should work with
-either:
 
-	while (1) {
-		irq = read_and_clear_interrupt();
-		...
-		if (!test_and_clear_bit(0, &lp->irq_disabled))
-			break;
-		enable_irq();
-	}
-	lp->irq_busy = 0; /* allow _xmit */
-
-Disadvantage: you get extra IRQ_STATUS reads, which has a
-slight penalty, given that all this is on SPI.
-
-To achieve perfection, at86rf230_probe could try all four
-possible trigger modes, pick one the platform supports, and
-set TRX_CTRL_1.IRQ_POLARITY accordingly.
-
-In any case, I gave your patch very light testing on ATBEN and
-it performed as good as the original code.
-
-- Werner
-
-------------------------------------------------------------------------------
-Minimize network downtime and maximize team effectiveness.
-Reduce network management and security costs.Learn how to hire 
-the most talented Cisco Certified professionals. Visit the 
-Employer Resources Portal
-http://www.cisco.com/web/learning/employer_resources/index.html
+-- 
+~Randy
