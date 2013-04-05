@@ -1,41 +1,35 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH] netfilter: nf_conntrack_sip: don't drop packets with offsets pointing outside the packet
-Date: Fri,  5 Apr 2013 20:13:30 +0200
-Message-ID: <1365185610-2287-1-git-send-email-kaber@trash.net>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/3] nfc: standardize logging styles
+Date: Fri,  5 Apr 2013 12:27:36 -0700
+Message-ID: <cover.1365189658.git.joe@perches.com>
+References: <1365180413.2075.5.camel@joe-AO722>
+Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	linux-wireless@vger.kernel.org, linux-nfc@lists.01.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1365180413.2075.5.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some Cisco phones create huge messages that are spread over multiple packets.
-After calculating the offset of the SIP body, it is validated to be within
-the packet and the packet is dropped otherwise. This breaks operation of
-these phones. Since connection tracking is supposed to be passive, just let
-those packets pass unmodified and untracked.
+Fix some defects in the logging too
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
- net/netfilter/nf_conntrack_sip.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Joe Perches (3):
+  nfc: Replace nfc_dev_dbg with dev_dbg, remove function tracing
+  nfc: Convert nfc_dev_info and nfc_dev_err to nfc_<level>
+  nfc: Standardize logging style
 
-diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index 0e7d423..e0c4373 100644
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -1593,10 +1593,8 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
- 		end += strlen("\r\n\r\n") + clen;
- 
- 		msglen = origlen = end - dptr;
--		if (msglen > datalen) {
--			nf_ct_helper_log(skb, ct, "incomplete/bad SIP message");
--			return NF_DROP;
--		}
-+		if (msglen > datalen)
-+			return NF_ACCEPT;
- 
- 		ret = process_sip_msg(skb, ct, protoff, dataoff,
- 				      &dptr, &msglen);
+ drivers/nfc/microread/i2c.c       |  32 ++---
+ drivers/nfc/microread/mei.c       |  20 +--
+ drivers/nfc/microread/microread.c |   7 +-
+ drivers/nfc/nfcwilink.c           |  95 ++++++-------
+ drivers/nfc/pn533.c               | 271 ++++++++++++++++----------------------
+ drivers/nfc/pn544/i2c.c           |  38 +++---
+ drivers/nfc/pn544/pn544.c         |  13 +-
+ include/net/nfc/nfc.h             |   5 +-
+ 8 files changed, 196 insertions(+), 285 deletions(-)
+
 -- 
-1.8.1.4
-
+1.8.1.2.459.gbcd45b4.dirty
