@@ -1,235 +1,87 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 31/51] ipvs: convert dests to rcu
-Date: Sat,  6 Apr 2013 14:17:30 +0200
-Message-ID: <1365250670-14993-32-git-send-email-pablo@netfilter.org>
-References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH] bonding: remove sysfs before removing devices
+Date: Sat, 06 Apr 2013 00:15:11 +0200
+Message-ID: <515F4CEF.3030207@redhat.com>
+References: <1365003993-13181-1-git-send-email-vfalico@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	davem@davemloft.net
+To: Veaceslav Falico <vfalico@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:63979 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1162833Ab3DEWSC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Apr 2013 18:18:02 -0400
+In-Reply-To: <1365003993-13181-1-git-send-email-vfalico@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+Hi,
+Sorry for the late reply but I was travelling this week. In my opinion this
+fix is wrong because in bond_uninit() (called by rtnl_link_unregister)
+you have:
+list_del(&bond->bond_list);
+which is linked in the bond_net dev_list which is freed by
+unregister_pernet_subsys.
+You'll get a corrupted list warning at best.
 
-In previous commits the schedulers started to access
-svc->destinations with _rcu list traversal primitives
-because the IP_VS_WAIT_WHILE macro still plays the role of
-grace period. Now it is time to finish the updating part,
-i.e. adding and deleting of dests with _rcu suffix before
-removing the IP_VS_WAIT_WHILE in next commit.
+Here's a sample from running insmod max_bonds=3/rmmod in a loop with the
+patch applied:
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302186] ------------[ cut here
+]------------
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302191] WARNING: at
+lib/list_debug.c:62 __list_del_entry+0x82/0xd0()
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302192] Hardware name: VirtualBox
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302194] list_del corruption.
+next->prev should be ffff880036bc6860, but was ffff88002ee23000
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302194] Modules linked in:
+bonding(O-) ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6
+nf_conntrack_ipv4 nf_defrag_ipv4 ip6table_filter xt_conntrack
+nf_conntrack ip6_tables snd_hda_codec_idt snd_hda_intel snd_hda_codec
+snd_hwdep snd_seq snd_seq_device ppdev snd_pcm pcspkr snd_page_alloc
+i2c_piix4 joydev snd_timer snd soundcore i2c_core microcode parport_pc
+parport e1000 [last unloaded: bonding]
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302214] Call Trace:
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302219]  [<ffffffff8105e99f>]
+warn_slowpath_common+0x7f/0xc0
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302221]  [<ffffffff8105ea96>]
+warn_slowpath_fmt+0x46/0x50
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302225]  [<ffffffff8164efaf>]
+? printk+0x61/0x63
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302227]  [<ffffffff8130c302>]
+__list_del_entry+0x82/0xd0
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302229]  [<ffffffff8130c361>]
+list_del+0x11/0x40
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302233]  [<ffffffffa0187f70>]
+bond_uninit+0x70/0xd0 [bonding]
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302236]  [<ffffffff815486d8>]
+rollback_registered_many+0x158/0x220
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302238]  [<ffffffff815487f9>]
+unregister_netdevice_many+0x19/0x60
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302240]  [<ffffffff815575ae>]
+__rtnl_link_unregister+0x6e/0xb0
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302243]  [<ffffffff81557b7e>]
+rtnl_link_unregister+0x1e/0x30
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302246]  [<ffffffffa019359e>]
+bonding_exit+0x2d/0xa8f [bonding]
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302249]  [<ffffffff810c1dd0>]
+sys_delete_module+0x170/0x2d0
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302252]  [<ffffffff81014981>]
+? do_notify_resume+0x71/0xb0
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302255]  [<ffffffff81661899>]
+system_call_fastpath+0x16/0x1b
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302256] ---[ end trace
+31cca9f26623fa11 ]---
+Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302417] bonding: bond1:
+released all slaves
 
-We use the same rule for conns as for the
-schedulers: dests can be searched in RCU read-side critical
-section where ip_vs_dest_hold can be called by ip_vs_bind_dest.
+You can hit this also with a NULL pointer dereference.
+I have a correct fix for this bug which I intend to post next week when
+I get back and after some more testing.
 
-Some things are not perfect, for example, calling
-functions like ip_vs_lookup_dest from updating code under
-RCU, just because we use some function both from reader
-and from updater.
+Please let me know if I've missed something about this patch.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- include/net/ip_vs.h             |    2 +-
- net/netfilter/ipvs/ip_vs_conn.c |    8 +++++---
- net/netfilter/ipvs/ip_vs_ctl.c  |   32 +++++++++++++++++---------------
- net/netfilter/ipvs/ip_vs_sync.c |   11 ++++-------
- 4 files changed, 27 insertions(+), 26 deletions(-)
-
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 4a7bc63..78a6634 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1434,7 +1434,7 @@ extern struct ip_vs_dest *
- ip_vs_find_dest(struct net *net, int af, const union nf_inet_addr *daddr,
- 		__be16 dport, const union nf_inet_addr *vaddr, __be16 vport,
- 		__u16 protocol, __u32 fwmark, __u32 flags);
--extern struct ip_vs_dest *ip_vs_try_bind_dest(struct ip_vs_conn *cp);
-+extern void ip_vs_try_bind_dest(struct ip_vs_conn *cp);
- 
- static inline void ip_vs_dest_hold(struct ip_vs_dest *dest)
- {
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 1b29e4a..54de340 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -611,10 +611,11 @@ ip_vs_bind_dest(struct ip_vs_conn *cp, struct ip_vs_dest *dest)
-  * Check if there is a destination for the connection, if so
-  * bind the connection to the destination.
-  */
--struct ip_vs_dest *ip_vs_try_bind_dest(struct ip_vs_conn *cp)
-+void ip_vs_try_bind_dest(struct ip_vs_conn *cp)
- {
- 	struct ip_vs_dest *dest;
- 
-+	rcu_read_lock();
- 	dest = ip_vs_find_dest(ip_vs_conn_net(cp), cp->af, &cp->daddr,
- 			       cp->dport, &cp->vaddr, cp->vport,
- 			       cp->protocol, cp->fwmark, cp->flags);
-@@ -624,7 +625,8 @@ struct ip_vs_dest *ip_vs_try_bind_dest(struct ip_vs_conn *cp)
- 		spin_lock(&cp->lock);
- 		if (cp->dest) {
- 			spin_unlock(&cp->lock);
--			return dest;
-+			rcu_read_unlock();
-+			return;
- 		}
- 
- 		/* Applications work depending on the forwarding method
-@@ -648,7 +650,7 @@ struct ip_vs_dest *ip_vs_try_bind_dest(struct ip_vs_conn *cp)
- 		if (pd && atomic_read(&pd->appcnt))
- 			ip_vs_bind_app(cp, pd->pp);
- 	}
--	return dest;
-+	rcu_read_unlock();
- }
- 
- 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 2bfd807..0763cc6 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -565,8 +565,8 @@ bool ip_vs_has_real_service(struct net *net, int af, __u16 protocol,
- 	return false;
- }
- 
--/*
-- *	Lookup destination by {addr,port} in the given service
-+/* Lookup destination by {addr,port} in the given service
-+ * Called under RCU lock.
-  */
- static struct ip_vs_dest *
- ip_vs_lookup_dest(struct ip_vs_service *svc, const union nf_inet_addr *daddr,
-@@ -577,7 +577,7 @@ ip_vs_lookup_dest(struct ip_vs_service *svc, const union nf_inet_addr *daddr,
- 	/*
- 	 * Find the destination for the given service
- 	 */
--	list_for_each_entry(dest, &svc->destinations, n_list) {
-+	list_for_each_entry_rcu(dest, &svc->destinations, n_list) {
- 		if ((dest->af == svc->af)
- 		    && ip_vs_addr_equal(svc->af, &dest->addr, daddr)
- 		    && (dest->port == dport)) {
-@@ -591,10 +591,11 @@ ip_vs_lookup_dest(struct ip_vs_service *svc, const union nf_inet_addr *daddr,
- 
- /*
-  * Find destination by {daddr,dport,vaddr,protocol}
-- * Cretaed to be used in ip_vs_process_message() in
-+ * Created to be used in ip_vs_process_message() in
-  * the backup synchronization daemon. It finds the
-  * destination to be bound to the received connection
-  * on the backup.
-+ * Called under RCU lock, no refcnt is returned.
-  */
- struct ip_vs_dest *ip_vs_find_dest(struct net  *net, int af,
- 				   const union nf_inet_addr *daddr,
-@@ -615,8 +616,6 @@ struct ip_vs_dest *ip_vs_find_dest(struct net  *net, int af,
- 	dest = ip_vs_lookup_dest(svc, daddr, port);
- 	if (!dest)
- 		dest = ip_vs_lookup_dest(svc, daddr, port ^ dport);
--	if (dest)
--		ip_vs_dest_hold(dest);
- 	ip_vs_service_put(svc);
- 	return dest;
- }
-@@ -826,7 +825,7 @@ __ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
- 	IP_VS_WAIT_WHILE(atomic_read(&svc->usecnt) > 0);
- 
- 	if (add) {
--		list_add(&dest->n_list, &svc->destinations);
-+		list_add_rcu(&dest->n_list, &svc->destinations);
- 		svc->num_dests++;
- 		if (svc->scheduler->add_dest)
- 			svc->scheduler->add_dest(svc, dest);
-@@ -933,10 +932,10 @@ ip_vs_add_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest)
- 
- 	ip_vs_addr_copy(svc->af, &daddr, &udest->addr);
- 
--	/*
--	 * Check if the dest already exists in the list
--	 */
-+	/* We use function that requires RCU lock */
-+	rcu_read_lock();
- 	dest = ip_vs_lookup_dest(svc, &daddr, dport);
-+	rcu_read_unlock();
- 
- 	if (dest != NULL) {
- 		IP_VS_DBG(1, "%s(): dest already exists\n", __func__);
-@@ -997,10 +996,10 @@ ip_vs_edit_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest)
- 
- 	ip_vs_addr_copy(svc->af, &daddr, &udest->addr);
- 
--	/*
--	 *  Lookup the destination list
--	 */
-+	/* We use function that requires RCU lock */
-+	rcu_read_lock();
- 	dest = ip_vs_lookup_dest(svc, &daddr, dport);
-+	rcu_read_unlock();
- 
- 	if (dest == NULL) {
- 		IP_VS_DBG(1, "%s(): dest doesn't exist\n", __func__);
-@@ -1069,7 +1068,7 @@ static void __ip_vs_unlink_dest(struct ip_vs_service *svc,
- 	/*
- 	 *  Remove it from the d-linked destination list.
- 	 */
--	list_del(&dest->n_list);
-+	list_del_rcu(&dest->n_list);
- 	svc->num_dests--;
- 
- 	if (svcupd && svc->scheduler->del_dest)
-@@ -1094,7 +1093,10 @@ ip_vs_del_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest)
- 
- 	EnterFunction(2);
- 
-+	/* We use function that requires RCU lock */
-+	rcu_read_lock();
- 	dest = ip_vs_lookup_dest(svc, &udest->addr, dport);
-+	rcu_read_unlock();
- 
- 	if (dest == NULL) {
- 		IP_VS_DBG(1, "%s(): destination not found!\n", __func__);
-@@ -2104,7 +2106,7 @@ static int ip_vs_info_seq_show(struct seq_file *seq, void *v)
- 		else
- 			seq_putc(seq, '\n');
- 
--		list_for_each_entry(dest, &svc->destinations, n_list) {
-+		list_for_each_entry_rcu(dest, &svc->destinations, n_list) {
- #ifdef CONFIG_IP_VS_IPV6
- 			if (dest->af == AF_INET6)
- 				seq_printf(seq,
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index 6cc3e52..9724174 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -858,23 +858,20 @@ static void ip_vs_proc_conn(struct net *net, struct ip_vs_conn_param *param,
- 		flags |= cp->flags & ~IP_VS_CONN_F_BACKUP_UPD_MASK;
- 		cp->flags = flags;
- 		spin_unlock(&cp->lock);
--		if (!dest) {
--			dest = ip_vs_try_bind_dest(cp);
--			if (dest)
--				ip_vs_dest_put(dest);
--		}
-+		if (!dest)
-+			ip_vs_try_bind_dest(cp);
- 	} else {
- 		/*
- 		 * Find the appropriate destination for the connection.
- 		 * If it is not found the connection will remain unbound
- 		 * but still handled.
- 		 */
-+		rcu_read_lock();
- 		dest = ip_vs_find_dest(net, type, daddr, dport, param->vaddr,
- 				       param->vport, protocol, fwmark, flags);
- 
- 		cp = ip_vs_conn_new(param, daddr, dport, flags, dest, fwmark);
--		if (dest)
--			ip_vs_dest_put(dest);
-+		rcu_read_unlock();
- 		if (!cp) {
- 			if (param->pe_data)
- 				kfree(param->pe_data);
--- 
-1.7.10.4
-
+Best regards,
+ Nik
