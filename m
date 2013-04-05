@@ -1,67 +1,253 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: be2net: GRO for non-inet protocols
-Date: Fri, 05 Apr 2013 08:28:22 -0700
-Message-ID: <1365175702.3405.2.camel@edumazet-glaptop>
-References: <20130405132007.GF7551@eerihug-hybrid.ki.sw.ericsson.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com, netdev@vger.kernel.org
-To: Erik Hugne <erik.hugne@ericsson.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next v2 4/4] ipv6: Add generic UDP Tunnel segmentation
+Date: Fri,  5 Apr 2013 20:16:25 +0800
+Message-ID: <1365164186-21719-4-git-send-email-amwang@redhat.com>
+References: <1365164186-21719-1-git-send-email-amwang@redhat.com>
+Cc: Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:46415 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762185Ab3DEP21 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 11:28:27 -0400
-Received: by mail-pb0-f44.google.com with SMTP id wz12so2073477pbc.17
-        for <netdev@vger.kernel.org>; Fri, 05 Apr 2013 08:28:26 -0700 (PDT)
-In-Reply-To: <20130405132007.GF7551@eerihug-hybrid.ki.sw.ericsson.se>
+Received: from mx1.redhat.com ([209.132.183.28]:31976 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161305Ab3DEMQy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Apr 2013 08:16:54 -0400
+In-Reply-To: <1365164186-21719-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-04-05 at 15:20 +0200, Erik Hugne wrote:
-> I'm adding GRO support for the TIPC protocol and
-> tried to test it on a pair of HP G7 blades with 
-> Emulex Corporation OneConnect 10Gb NIC (be3) (rev 01) NICs.
-> 
-> However, my GRO callback is never invoked on this setup, and 
-> i suspect the be2net driver is to blame.
-> I had a brief look at the driver, first suspecting that the
-> do_gro check only passed for inet protocols (tcpf must be set 
-> in the be_rx_compl_info struct).
-> However, removing this check did not change the behavior.
+From: Cong Wang <amwang@redhat.com>
 
-Try following instead :
+Similar to commit 731362674580cb0c696cd1b1a03d8461a10cf90a
+(tunneling: Add generic Tunnel segmentation)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 536afa2..1b9e467 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1355,7 +1355,7 @@ static void skb_fill_rx_data(struct be_rx_obj *rxo, struct sk_buff *skb,
+This patch adds generic tunneling offloading support for IPv6-UDP based
+tunnels.
+
+This can be used by tunneling protocols like VXLAN.
+
+Cc: Jesse Gross <jesse@nicira.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+---
+ net/ipv6/ip6_offload.c |    4 +-
+ net/ipv6/udp_offload.c |  155 +++++++++++++++++++++++++++++++++---------------
+ 2 files changed, 110 insertions(+), 49 deletions(-)
+
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index 71b766e..f031ccf 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -91,6 +91,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 	unsigned int unfrag_ip6hlen;
+ 	u8 *prevhdr;
+ 	int offset = 0;
++	bool tunnel;
+ 
+ 	if (unlikely(skb_shinfo(skb)->gso_type &
+ 		     ~(SKB_GSO_UDP |
+@@ -105,6 +106,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 	if (unlikely(!pskb_may_pull(skb, sizeof(*ipv6h))))
+ 		goto out;
+ 
++	tunnel = !!skb->encapsulation;
+ 	ipv6h = ipv6_hdr(skb);
+ 	__skb_pull(skb, sizeof(*ipv6h));
+ 	segs = ERR_PTR(-EPROTONOSUPPORT);
+@@ -125,7 +127,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 		ipv6h = ipv6_hdr(skb);
+ 		ipv6h->payload_len = htons(skb->len - skb->mac_len -
+ 					   sizeof(*ipv6h));
+-		if (proto == IPPROTO_UDP) {
++		if (!tunnel && proto == IPPROTO_UDP) {
+ 			unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
+ 			fptr = (struct frag_hdr *)(skb_network_header(skb) +
+ 				unfrag_ip6hlen);
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index 3bb3a89..bbde7ba 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -21,26 +21,81 @@ static int udp6_ufo_send_check(struct sk_buff *skb)
+ 	const struct ipv6hdr *ipv6h;
+ 	struct udphdr *uh;
+ 
+-	/* UDP Tunnel offload on ipv6 is not yet supported. */
+-	if (skb->encapsulation)
+-		return -EINVAL;
+-
+ 	if (!pskb_may_pull(skb, sizeof(*uh)))
+ 		return -EINVAL;
+ 
+-	ipv6h = ipv6_hdr(skb);
+-	uh = udp_hdr(skb);
++	if (likely(!skb->encapsulation)) {
++		ipv6h = ipv6_hdr(skb);
++		uh = udp_hdr(skb);
++
++		uh->check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr, skb->len,
++					     IPPROTO_UDP, 0);
++		skb->csum_start = skb_transport_header(skb) - skb->head;
++		skb->csum_offset = offsetof(struct udphdr, check);
++		skb->ip_summed = CHECKSUM_PARTIAL;
++	}
+ 
+-	uh->check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr, skb->len,
+-				     IPPROTO_UDP, 0);
+-	skb->csum_start = skb_transport_header(skb) - skb->head;
+-	skb->csum_offset = offsetof(struct udphdr, check);
+-	skb->ip_summed = CHECKSUM_PARTIAL;
+ 	return 0;
  }
  
- /* Process the RX completion indicated by rxcp when GRO is disabled */
--static void be_rx_compl_process(struct be_rx_obj *rxo,
-+static void be_rx_compl_process(struct be_rx_obj *rxo, struct napi_struct *napi,
- 				struct be_rx_compl_info *rxcp)
++static struct sk_buff *skb_udp6_tunnel_segment(struct sk_buff *skb,
++					       netdev_features_t features)
++{
++	struct sk_buff *segs = ERR_PTR(-EINVAL);
++	int mac_len = skb->mac_len;
++	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
++	int outer_hlen;
++	netdev_features_t enc_features;
++
++	if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
++		goto out;
++
++	skb->encapsulation = 0;
++	__skb_pull(skb, tnl_hlen);
++	skb_reset_mac_header(skb);
++	skb_set_network_header(skb, skb_inner_network_offset(skb));
++	skb->mac_len = skb_inner_network_offset(skb);
++
++	/* segment inner packet. */
++	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
++	segs = skb_mac_gso_segment(skb, enc_features);
++	if (!segs || IS_ERR(segs))
++		goto out;
++
++	outer_hlen = skb_tnl_header_len(skb);
++	skb = segs;
++	do {
++		struct udphdr *uh;
++		int udp_offset = outer_hlen - tnl_hlen;
++
++		skb->mac_len = mac_len;
++
++		skb_push(skb, outer_hlen);
++		skb_reset_mac_header(skb);
++		skb_set_network_header(skb, mac_len);
++		skb_set_transport_header(skb, udp_offset);
++		uh = udp_hdr(skb);
++		uh->len = htons(skb->len - udp_offset);
++
++		/* csum segment if tunnel sets skb with csum. */
++		if (unlikely(uh->check)) {
++			struct ipv6hdr *iph = ipv6_hdr(skb);
++
++			uh->check = csum_ipv6_magic(&iph->saddr, &iph->daddr,
++						       skb->len - udp_offset,
++						       IPPROTO_UDP, 0);
++			if (uh->check == 0)
++				uh->check = CSUM_MANGLED_0;
++
++		}
++		skb->ip_summed = CHECKSUM_NONE;
++	} while ((skb = skb->next));
++out:
++	return segs;
++}
++
+ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+-	netdev_features_t features)
++					 netdev_features_t features)
  {
- 	struct be_adapter *adapter = rxo->adapter;
-@@ -1385,7 +1385,7 @@ static void be_rx_compl_process(struct be_rx_obj *rxo,
- 	if (rxcp->vlanf)
- 		__vlan_hwaccel_put_tag(skb, rxcp->vlan_tag);
- 
--	netif_receive_skb(skb);
-+	napi_gro_receive(&napi, skb);
- }
- 
- /* Process the RX completion indicated by rxcp when GRO is enabled */
-@@ -2113,7 +2113,7 @@ static int be_process_rx(struct be_rx_obj *rxo, struct napi_struct *napi,
- 		if (do_gro(rxcp))
- 			be_rx_compl_process_gro(rxo, napi, rxcp);
- 		else
--			be_rx_compl_process(rxo, rxcp);
-+			be_rx_compl_process(rxo, napi, rxcp);
- loop_continue:
- 		be_rx_stats_update(rxo, rxcp);
+ 	struct sk_buff *segs = ERR_PTR(-EINVAL);
+ 	unsigned int mss;
+@@ -73,43 +128,47 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 		goto out;
  	}
+ 
+-	/* Do software UFO. Complete and fill in the UDP checksum as HW cannot
+-	 * do checksum of UDP packets sent as multiple IP fragments.
+-	 */
+-	offset = skb_checksum_start_offset(skb);
+-	csum = skb_checksum(skb, offset, skb->len - offset, 0);
+-	offset += skb->csum_offset;
+-	*(__sum16 *)(skb->data + offset) = csum_fold(csum);
+-	skb->ip_summed = CHECKSUM_NONE;
+-
+-	/* Check if there is enough headroom to insert fragment header. */
+-	if ((skb_mac_header(skb) < skb->head + frag_hdr_sz) &&
+-	    pskb_expand_head(skb, frag_hdr_sz, 0, GFP_ATOMIC))
+-		goto out;
++	if (skb->encapsulation && skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL)
++		segs = skb_udp6_tunnel_segment(skb, features);
++	else {
++		/* Do software UFO. Complete and fill in the UDP checksum as HW cannot
++		 * do checksum of UDP packets sent as multiple IP fragments.
++		 */
++		offset = skb_checksum_start_offset(skb);
++		csum = skb_checksum(skb, offset, skb->len - offset, 0);
++		offset += skb->csum_offset;
++		*(__sum16 *)(skb->data + offset) = csum_fold(csum);
++		skb->ip_summed = CHECKSUM_NONE;
++
++		/* Check if there is enough headroom to insert fragment header. */
++		if ((skb_mac_header(skb) < skb->head + frag_hdr_sz) &&
++		    pskb_expand_head(skb, frag_hdr_sz, 0, GFP_ATOMIC))
++			goto out;
+ 
+-	/* Find the unfragmentable header and shift it left by frag_hdr_sz
+-	 * bytes to insert fragment header.
+-	 */
+-	unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
+-	nexthdr = *prevhdr;
+-	*prevhdr = NEXTHDR_FRAGMENT;
+-	unfrag_len = skb_network_header(skb) - skb_mac_header(skb) +
+-		     unfrag_ip6hlen;
+-	mac_start = skb_mac_header(skb);
+-	memmove(mac_start-frag_hdr_sz, mac_start, unfrag_len);
+-
+-	skb->mac_header -= frag_hdr_sz;
+-	skb->network_header -= frag_hdr_sz;
+-
+-	fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
+-	fptr->nexthdr = nexthdr;
+-	fptr->reserved = 0;
+-	ipv6_select_ident(fptr, (struct rt6_info *)skb_dst(skb));
+-
+-	/* Fragment the skb. ipv6 header and the remaining fields of the
+-	 * fragment header are updated in ipv6_gso_segment()
+-	 */
+-	segs = skb_segment(skb, features);
++		/* Find the unfragmentable header and shift it left by frag_hdr_sz
++		 * bytes to insert fragment header.
++		 */
++		unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
++		nexthdr = *prevhdr;
++		*prevhdr = NEXTHDR_FRAGMENT;
++		unfrag_len = skb_network_header(skb) - skb_mac_header(skb) +
++			     unfrag_ip6hlen;
++		mac_start = skb_mac_header(skb);
++		memmove(mac_start-frag_hdr_sz, mac_start, unfrag_len);
++
++		skb->mac_header -= frag_hdr_sz;
++		skb->network_header -= frag_hdr_sz;
++
++		fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
++		fptr->nexthdr = nexthdr;
++		fptr->reserved = 0;
++		ipv6_select_ident(fptr, (struct rt6_info *)skb_dst(skb));
++
++		/* Fragment the skb. ipv6 header and the remaining fields of the
++		 * fragment header are updated in ipv6_gso_segment()
++		 */
++		segs = skb_segment(skb, features);
++	}
+ 
+ out:
+ 	return segs;
+-- 
+1.7.7.6
