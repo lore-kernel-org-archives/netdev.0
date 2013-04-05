@@ -1,36 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: count hw_addr syncs so that unsync works properly.
-Date: Fri, 05 Apr 2013 00:20:04 -0400 (EDT)
-Message-ID: <20130405.002004.1687390683331436879.davem@davemloft.net>
-References: <1364937007-23894-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH 1/2] Revert "af_unix: dont send SCM_CREDENTIAL when
+ dest socket is NULL"
+Date: Fri, 05 Apr 2013 00:47:31 -0400 (EDT)
+Message-ID: <20130405.004731.151872753500597206.davem@davemloft.net>
+References: <1365035424.13853.48.camel@edumazet-glaptop>
+	<878v4zjei0.fsf@xmission.com>
+	<87li8zhwkw.fsf_-_@xmission.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53230 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750888Ab3DEEUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 00:20:06 -0400
-In-Reply-To: <1364937007-23894-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: svenjoac@gmx.de, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	dingtianhong@huawei.com, edumazet@google.com, luto@amacapital.net,
+	ksrot@redhat.com, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: ebiederm@xmission.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <87li8zhwkw.fsf_-_@xmission.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Tue,  2 Apr 2013 17:10:07 -0400
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Wed, 03 Apr 2013 19:13:35 -0700
 
-> A few drivers use dev_uc_sync/unsync to synchronize the
-> address lists from master down to slave/lower devices.  In
-> some cases (bond/team) a single address list is synched down
-> to multiple devices.  At the time of unsync, we have a leak
-> in these lower devices, because "synced" is treated as a
-> boolean and the address will not be unsynced for anything after
-> the fist device/call.
 > 
-> Treat "synced" as a count (same as refcount) and allow all
-> unsync calls to work.
+> This reverts commit 14134f6584212d585b310ce95428014b653dfaf6.
 > 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> The problem that the above patch was meant to address is that af_unix
+> messages are not being coallesced because we are sending unnecesarry
+> credentials.  Not sending credentials in maybe_add_creds totally
+> breaks unconnected unix domain sockets that wish to send credentails
+> to other sockets.
+> 
+> In practice this break some versions of udev because they receive a
+> message and the sending uid is bogus so they drop the message.
+> 
+> Cc: stable@vger.kernel.org
+> Reported-by: Sven Joachim <svenjoac@gmx.de>
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Applied and queued up for -stable, thanks Vlad.
+Applied.
