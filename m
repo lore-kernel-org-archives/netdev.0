@@ -1,88 +1,129 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH] bonding: remove sysfs before removing devices
-Date: Sat, 6 Apr 2013 03:49:24 +0200
-Message-ID: <20130406014924.GA8023@redhat.com>
-References: <1365003993-13181-1-git-send-email-vfalico@redhat.com>
- <515F4CEF.3030207@redhat.com>
- <20130405232133.GA19437@redhat.com>
- <515F5E6C.2030009@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: [PATCH net-next 3/4] netxen_nic: Add module parameters support to switch interrupts
+Date: Fri,  5 Apr 2013 08:36:42 -0400
+Message-ID: <1365165403-18348-4-git-send-email-manish.chopra@qlogic.com>
+References: <1365165403-18348-1-git-send-email-manish.chopra@qlogic.com>
+Cc: netdev@vger.kernel.org, rajesh.borundia@qlogic.com,
+	Dept_NX_Linux_NIC_Driver@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28996 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756458Ab3DFBvD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Apr 2013 21:51:03 -0400
-Content-Disposition: inline
-In-Reply-To: <515F5E6C.2030009@redhat.com>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:47363 "HELO linux-zupk.site"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1161660Ab3DEM76 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Apr 2013 08:59:58 -0400
+In-Reply-To: <1365165403-18348-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 06, 2013 at 01:29:48AM +0200, Nikolay Aleksandrov wrote:
->On 04/06/2013 01:21 AM, Veaceslav Falico wrote:
->> On Sat, Apr 06, 2013 at 12:15:11AM +0200, Nikolay Aleksandrov wrote:
->>> Hi,
->>> Sorry for the late reply but I was travelling this week. In my
->>> opinion this
->>> fix is wrong because in bond_uninit() (called by rtnl_link_unregister)
->>> you have:
->>> list_del(&bond->bond_list);
->>> which is linked in the bond_net dev_list which is freed by
->>> unregister_pernet_subsys.
->>
->> Yep, you're right, I've hit it recently with the patch applied, and now
->> working on it. However, I still think that the idea of the patch is
->> correct
->> - i.e. to first disable sysfs (especially bonding_masters) and only
->>  afterwards to start removing everything else. Or, obviously, to finally
->> add normal locking to sysfs functions.
->>
->> Anyway, this corruption is really rare, so I'll wait for your fix next
->> week.
->>
->Well, there's no need for that because you'll have to iterate over all
->"net"s to do it properly. Since we already have code that does it
->(unregister_pernet_subsys), my fix is to kill off any "left" bond
->devices in bond_net_exit() _after_ destroying the bonding_masters
->sysfs entry for that net. This way we preserve the code structure and avoid
->duplicating a loop over all nets.
+o Adapters do not support co-existence of legacy Interrupt with
+  MSI-X or MSI among multiple functions. Prevent attaching
+  to a function during normal load, if MSI-x or MSI vectors are not available.
 
-Yep, that was one approach that I wanted to do, however I didn't like the
-idea to duplicate the device destruction - i.e. the rtnl_link_unregister()
-already does that, and to re-delete them after sysfs gets out of the way
-feeled wrong. However, I've also missed the net->dev_list part, so seems
-like both approaches have drawbacks... Or did I miss something?
+o Using use_msi=0 and use_msi_x=0 module parameters driver can be loaded in
+  legacy mode as well as in MSI mode for all functions in the adapter.
 
->This is the fix we discussed a week ago.
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+---
+ .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |   34 +++++++++++++-------
+ 1 files changed, 22 insertions(+), 12 deletions(-)
 
-Not with me :). I didn't know of this bug by that time...
-
->I'd be happy to hear any comments on it before posting :-)
->
->Of course stopping the whole bonding sysfs handling is also an alternative.
-
-I think it'd be the best way to do that.
-
-1) We can't remove the net_ns before removing the devices cause they depend
-on it (and I think it's quite a hack anyway now that I'm aware of dev_list).
-2) We can't re-remove devices after sysfs deactivation, it's also a hack,
-cause rtnl does the same thing.
-3) We can't hold rtnl_mutex to do both rtnl and net_ns removal cause we can
-deadlock in sysfs code (when it gets removed).
-4) We can't remove the b_masters before all the logic cause it'll duplicate
-the code for unregister_pernet_operations(), and will also look like a
-hack (with looping through net_ns).
-
-Out of all these, #2 (your option) looks the best - the least intrusive and
-the easiest to read. However, I still think that it's the lesser evil, and
-there must exist a way to do it correctly (like with #3, and avoid the
-deadlock by restart_syscall() technique in bond_store_bonds() - however I
-don't really know if it'll work.).
-
-Anyway, I'd really like your feedback on these thoughts, and if nothing
-better comes up - your patch :).
-
-Thank you!
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index cde5109..ff113e7 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -52,9 +52,13 @@ static int port_mode = NETXEN_PORT_MODE_AUTO_NEG;
+ /* Default to restricted 1G auto-neg mode */
+ static int wol_port_mode = 5;
+ 
+-static int use_msi = 1;
++static int netxen_use_msi = 1;
++MODULE_PARM_DESC(use_msi, "MSI interrupt (0=disabled, 1=enabled)");
++module_param_named(use_msi, netxen_use_msi, int, 0444);
+ 
+-static int use_msi_x = 1;
++static int netxen_use_msi_x = 1;
++MODULE_PARM_DESC(use_msi_x, "MSI-X interrupt (0=disabled, 1=enabled)");
++module_param_named(use_msi_x, netxen_use_msi_x, int, 0444);
+ 
+ static int auto_fw_reset = AUTO_FW_RESET_ENABLED;
+ module_param(auto_fw_reset, int, 0644);
+@@ -592,8 +596,7 @@ static const struct net_device_ops netxen_netdev_ops = {
+ #endif
+ };
+ 
+-static void
+-netxen_setup_intr(struct netxen_adapter *adapter)
++static int netxen_setup_intr(struct netxen_adapter *adapter)
+ {
+ 	struct netxen_legacy_intr_set *legacy_intrp;
+ 	struct pci_dev *pdev = adapter->pdev;
+@@ -644,7 +647,7 @@ netxen_setup_intr(struct netxen_adapter *adapter)
+ 				adapter->max_sds_rings = num_msix;
+ 
+ 			dev_info(&pdev->dev, "using msi-x interrupts\n");
+-			return;
++			return err;
+ 		}
+ 
+ 		if (err > 0)
+@@ -653,17 +656,21 @@ netxen_setup_intr(struct netxen_adapter *adapter)
+ 		/* fall through for msi */
+ 	}
+ 
+-	if (use_msi && !pci_enable_msi(pdev)) {
++	if (netxen_use_msi && !pci_enable_msi(pdev)) {
+ 		adapter->flags |= NETXEN_NIC_MSI_ENABLED;
+ 		adapter->tgt_status_reg = netxen_get_ioaddr(adapter,
+ 				msi_tgt_status[adapter->ahw.pci_func]);
+ 		dev_info(&pdev->dev, "using msi interrupts\n");
+ 		adapter->msix_entries[0].vector = pdev->irq;
+-		return;
++		return 0;
+ 	}
+ 
++	if (netxen_use_msi || netxen_use_msi_x)
++		return -EOPNOTSUPP;
++
+ 	dev_info(&pdev->dev, "using legacy interrupts\n");
+ 	adapter->msix_entries[0].vector = pdev->irq;
++	return 0;
+ }
+ 
+ static void
+@@ -879,8 +886,8 @@ netxen_check_options(struct netxen_adapter *adapter)
+ 
+ 	adapter->msix_supported = 0;
+ 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id)) {
+-		adapter->msix_supported = !!use_msi_x;
+-		adapter->rss_supported = !!use_msi_x;
++		adapter->msix_supported = !!netxen_use_msi_x;
++		adapter->rss_supported = !!netxen_use_msi_x;
+ 	} else {
+ 		u32 flashed_ver = 0;
+ 		netxen_rom_fast_read(adapter,
+@@ -891,8 +898,8 @@ netxen_check_options(struct netxen_adapter *adapter)
+ 			switch (adapter->ahw.board_type) {
+ 			case NETXEN_BRDTYPE_P2_SB31_10G:
+ 			case NETXEN_BRDTYPE_P2_SB31_10G_CX4:
+-				adapter->msix_supported = !!use_msi_x;
+-				adapter->rss_supported = !!use_msi_x;
++				adapter->msix_supported = !!netxen_use_msi_x;
++				adapter->rss_supported = !!netxen_use_msi_x;
+ 				break;
+ 			default:
+ 				break;
+@@ -1510,7 +1517,10 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	netxen_nic_clear_stats(adapter);
+ 
+-	netxen_setup_intr(adapter);
++	if (netxen_setup_intr(adapter)) {
++		dev_err(&adapter->pdev->dev, "failed to setup interrupts\n");
++		goto err_out_decr_ref;
++	}
+ 
+ 	err = netxen_setup_netdev(adapter, netdev);
+ 	if (err)
+-- 
+1.5.6
