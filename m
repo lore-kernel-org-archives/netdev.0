@@ -1,42 +1,67 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH net-next 2/4] netxen_nic: Log driver version with firmware version
-Date: Fri,  5 Apr 2013 08:36:41 -0400
-Message-ID: <1365165403-18348-3-git-send-email-manish.chopra@qlogic.com>
-References: <1365165403-18348-1-git-send-email-manish.chopra@qlogic.com>
-Cc: netdev@vger.kernel.org, rajesh.borundia@qlogic.com,
-	Dept_NX_Linux_NIC_Driver@qlogic.com
-To: davem@davemloft.net
+From: Dmitry Kravkov <dkravkov@gmail.com>
+Subject: Re: bnx2x multicast packet loss on igmp join/leave
+Date: Fri, 5 Apr 2013 15:28:01 +0300
+Message-ID: <CAM8tLiMrMtrqzZKPK+65UFoojcAfWBeeBTWhsU7ALtaOSozwLw@mail.gmail.com>
+References: <CABVbdp_R7H5tWfFUF_8c=4GWLC80Vr8SajZskc8C51Hduue49Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: vincent Richard <vincent.richard449@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:5679 "HELO linux-zupk.site"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1161627Ab3DEM76 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Apr 2013 08:59:58 -0400
-In-Reply-To: <1365165403-18348-1-git-send-email-manish.chopra@qlogic.com>
+Received: from mail-vc0-f179.google.com ([209.85.220.179]:41066 "EHLO
+	mail-vc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161233Ab3DEM2D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 08:28:03 -0400
+Received: by mail-vc0-f179.google.com with SMTP id gf12so3227951vcb.10
+        for <netdev@vger.kernel.org>; Fri, 05 Apr 2013 05:28:01 -0700 (PDT)
+In-Reply-To: <CABVbdp_R7H5tWfFUF_8c=4GWLC80Vr8SajZskc8C51Hduue49Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
-Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
----
- .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+On Fri, Apr 5, 2013 at 1:13 PM, vincent Richard
+<vincent.richard449@gmail.com> wrote:
+>
+> I all,
+>
+> I am using a HP server with bnx2x ethernet cards in it.
+> I have compiled the latest linux 3.2 version, and I am encountering
+> the following error :
+>
+> when joining or leaving a multicast group, other multicast streams
+> lose some packets.
+>
+> I tried latest firmware and different drivers (latest HP recommended
+> one (redhat one)) but still the same..
+>
+> I observe that putting the interface in promiscuous mode make the
+> problem disappear.
+>
+> looking around bnx2x_set_rx_mode, i notice that there is 3 rx_mode,
+> NORMAL, PROMISCUOUS and ALLMULTI . forcing other than normal mode
+> correct my issue..
+>
+> My bnx2x is in a blade center so there is a switch just after. So
+> forcing PROMISCUOUS or ALLMULTI mode have no major impact.
+>
+> To reproduce the problem I just "listen" 2 multicast streams and
+> join/leave another one periodically.
+>
+> Thanks in advance for your help.
+> Regards,
+> Vincent
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-index 6049637..cde5109 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-@@ -862,9 +862,9 @@ netxen_check_options(struct netxen_adapter *adapter)
- 		adapter->ahw.cut_through = (i & 0x8000) ? 1 : 0;
- 	}
- 
--	dev_info(&pdev->dev, "firmware v%d.%d.%d [%s]\n",
--			fw_major, fw_minor, fw_build,
--			adapter->ahw.cut_through ? "cut-through" : "legacy");
-+	dev_info(&pdev->dev, "Driver v%s, firmware v%d.%d.%d [%s]\n",
-+		 NETXEN_NIC_LINUX_VERSIONID, fw_major, fw_minor, fw_build,
-+		 adapter->ahw.cut_through ? "cut-through" : "legacy");
- 
- 	if (adapter->fw_version >= NETXEN_VERSION_CODE(4, 0, 222))
- 		adapter->capabilities = NXRD32(adapter, CRB_FW_CAPABILITIES_1);
--- 
-1.5.6
+This because on MC group change, bnx2x first removes the devices from
+ALL MC groups and then
+add the device to newly configured groups:
+
+11112        /* first, clear all configured multicast MACs */
+11113        rc = bnx2x_config_mcast(bp, &rparam, BNX2X_MCAST_CMD_DEL);
+11114        if (rc < 0) {
+11115                BNX2X_ERR("Failed to clear multicast
+configuration: %d\n", rc);
+11116                return rc;
+11117        }
+11118
+11119        /* then, configure a new MACs list */
+11120        if (netdev_mc_count(dev)) {
+11121               rc = bnx2x_init_mcast_macs_list(bp, &rparam);
