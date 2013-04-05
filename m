@@ -1,55 +1,48 @@
-From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: Re: [PATCH] mac802154: Keep track of the
- channel when changed
-Date: Fri, 05 Apr 2013 17:20:23 -0400
-Message-ID: <515F4017.6060404@signal11.us>
-References: <1365194201-2635-1-git-send-email-alan@signal11.us>
-	<20130405210514.GF28141@ws>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netfilter: don't reset nf_trace in nf_reset()
+Date: Fri, 05 Apr 2013 14:56:53 -0400 (EDT)
+Message-ID: <20130405.145653.2046071452089341484.davem@davemloft.net>
+References: <1365187325-25147-1-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20130405210514.GF28141@ws>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, gaofeng@cn.fujitsu.com
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1365187325-25147-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/05/2013 05:05 PM, Werner Almesberger wrote:
-> Alan Ott wrote:
->> Prevent set_channel() from getting called every time a packet is sent. This
->> looks like it was an oversight.
-> at86rf230.c and derivatives avoid this problem by setting
-> phy->current_* in the *_channel function.
->
-> But I'd agree that it's nicer to do this in one place, not in
-> every driver.
->
-> In case a driver had a weird failure mode in which it leaves the
-> original channel but only makes it halfway to the new channel, it
-> could still set phy->current_* and return an error. So there's no
-> loss of functionality with your change.
+From: Patrick McHardy <kaber@trash.net>
+Date: Fri,  5 Apr 2013 20:42:05 +0200
 
-Hmm... I just noticed that mib.c does the same thing (and doesn't set
-phy->current_*). I'll need to fix that one too (and resubmit). :(
+> Commit 130549fe added code to reset nf_trace in nf_reset(). This is wrong
+> and unnecessary.
+> 
+> nf_reset() is used in the following cases:
+> 
+> - when passing packets up the the socket layer, at which point we want to
+>   release all netfilter references that might keep modules pinned while
+>   the packet is queued. nf_trace doesn't matter anymore at this point.
+> 
+> - when encapsulating or decapsulating IPsec packets. We want to continue
+>   tracing these packets after IPsec processing.
+> 
+> - when passing packets through virtual network devices. Only devices on
+>   that encapsulate in IPv4/v6 matter since otherwise nf_trace is not
+>   used anymore. Its not entirely clear whether those packets should
+>   be traced after that, however we've always done that.
+> 
+> - when passing packets through virtual network devices that make the
+>   packet cross network namespace boundaries. This is the only cases
+>   where we clearly want to reset nf_trace and is also what the
+>   original patch intended to fix.
+> 
+> Add a new function nf_reset_trace() and use it in dev_forward_skb() to
+> fix this properly.
+> 
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Alan.
-
-
-
-
-------------------------------------------------------------------------------
-Minimize network downtime and maximize team effectiveness.
-Reduce network management and security costs.Learn how to hire 
-the most talented Cisco Certified professionals. Visit the 
-Employer Resources Portal
-http://www.cisco.com/web/learning/employer_resources/index.html
+I'll apply this directly because I'm trying to get a pull request out
+to Linus.
