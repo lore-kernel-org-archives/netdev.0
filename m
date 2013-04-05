@@ -1,62 +1,52 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH v2 net-next] drivers/net: Enable IOMMU pass through for
- be2net
-Date: Fri, 05 Apr 2013 09:51:24 +0200
-Message-ID: <515E827C.3070702@redhat.com>
-References: <1358562195-2028-1-git-send-email-craig.hada@hp.com> <1358562195-2028-2-git-send-email-craig.hada@hp.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next 3/3] net/mlx4_en: Enable open-lldp DCB support
+Date: Fri, 05 Apr 2013 00:52:38 -0700
+Message-ID: <515E82C6.9080406@gmail.com>
+References: <1365085574-12057-1-git-send-email-ogerlitz@mellanox.com> <1365085574-12057-4-git-send-email-ogerlitz@mellanox.com> <515DA342.5020503@intel.com> <515DA579.3050006@mellanox.com> <515DCDF2.8070304@intel.com> <CAJZOPZKms=25WUR5WL0DEZ7yAi=zOKjZEGdO1BQsyJ+tvPMe+g@mail.gmail.com> <515E129D.2020009@gmail.com> <CAJZOPZJgZNkABE4+40+CnmpDRHDzEY-ZZmTH3L5JyoMHJX0Cow@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Craig Hada <craig.hada@hp.com>, netdev@vger.kernel.org,
-	sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1358562195-2028-2-git-send-email-craig.hada@hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Sagi Grimberg <sagig@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, amirv@mellanox.com
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:58142 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932563Ab3DEHyh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 03:54:37 -0400
+Received: by mail-ob0-f170.google.com with SMTP id uy19so1266682obc.15
+        for <netdev@vger.kernel.org>; Fri, 05 Apr 2013 00:54:37 -0700 (PDT)
+In-Reply-To: <CAJZOPZJgZNkABE4+40+CnmpDRHDzEY-ZZmTH3L5JyoMHJX0Cow@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/19/2013 03:23 AM, Craig Hada wrote:
-> This patch sets the coherent DMA mask to 64-bit after the be2net driver
-> has been acknowledged that the system is 64-bit DMA capable. The coherent
-> DMA mask is examined by the Intel IOMMU driver to determine whether to
-> allow pass through context mapping for all devices. With this patch, the
-> be2net driver combined with be2net compatible hardware provides
-> comparable performance to the case where vt-d is disabled. The main use
-> case for this change is to decrease the time necessary to copy virtual
-> machine memory during KVM live migration instantiations.
+On 04/05/2013 12:15 AM, Or Gerlitz wrote:
+> John Fastabend <john.fastabend@gmail.com> wrote:
 >
-> This patch was tested on a system that enables the IOMMU in non-coherent
-> mode. Two DMA remapper issues were encountered in the previous version and
-> both patches have been committed.
->      commit ea2447f700cab264019b52e2b417d689e052dcfd
->      commit 2e12bc29fc5a12242d68e11875db3dd58efad9ff
+>> Agree it doesn't work without this patch but we can fix it in user
+>> space. This has the nice benefit of letting lldpad work with mlx4 on
+>> older kernels. In general I think its easier to update user space then
+>> the kernel for most users. I'll send you a lldpad patch in a few moments.
 >
-> Signed-off-by: Craig Hada <craig.hada@hp.com>
-> ---
->   drivers/net/ethernet/emulex/benet/be_main.c |    6 ++++++
->   1 files changed, 6 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-> index 9dca22b..b507e99 100644
-> --- a/drivers/net/ethernet/emulex/benet/be_main.c
-> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-> @@ -4052,6 +4052,12 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
->
->   	status = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
->   	if (!status) {
-> +		status = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
-> +		if (status < 0) {
-> +			dev_err(&pdev->dev,
-> +				"dma_set_coherent_mask failed, aborting\n");
-> +			goto free_netdev;
-> +		}
->   		netdev->features |= NETIF_F_HIGHDMA;
->   	} else {
->   		status = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
+> So to be sure we're on the same page, what we should do is enhance
+> mlx4_en_dcbnl_getdcbx() routine to also return DCB_CAP_DCBX_HOST and
+
+Right I think this is a better approach in the long run.
+
+> work with your user space patch? sounds nice, except for what happens
+> if people run with older versions of lldpad..
 >
 
-Dave, I'd like to ask when do you plan to apply this patch?
+Well it won't work. But on the flip side all your older drivers _will_
+work with the new daemon. My working assumption is for most users its
+easier to upgrade a user space pkg than a kernel. And the simpler we
+can keep the kernel code the better. Oh and also if there is a bug in
+user space we shouldn't fix it with kernel code.
 
-Thanks,
-Ivan
+> Or.
+>
+
+-- 
+John Fastabend         Intel Corporation
