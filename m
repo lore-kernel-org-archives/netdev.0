@@ -1,48 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netfilter: don't reset nf_trace in nf_reset()
-Date: Fri, 05 Apr 2013 14:56:53 -0400 (EDT)
-Message-ID: <20130405.145653.2046071452089341484.davem@davemloft.net>
-References: <1365187325-25147-1-git-send-email-kaber@trash.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: be2net: GRO for non-inet protocols
+Date: Fri, 05 Apr 2013 08:28:22 -0700
+Message-ID: <1365175702.3405.2.camel@edumazet-glaptop>
+References: <20130405132007.GF7551@eerihug-hybrid.ki.sw.ericsson.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, gaofeng@cn.fujitsu.com
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1365187325-25147-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
+	ajit.khaparde@emulex.com, netdev@vger.kernel.org
+To: Erik Hugne <erik.hugne@ericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:46415 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762185Ab3DEP21 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 11:28:27 -0400
+Received: by mail-pb0-f44.google.com with SMTP id wz12so2073477pbc.17
+        for <netdev@vger.kernel.org>; Fri, 05 Apr 2013 08:28:26 -0700 (PDT)
+In-Reply-To: <20130405132007.GF7551@eerihug-hybrid.ki.sw.ericsson.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Fri,  5 Apr 2013 20:42:05 +0200
+On Fri, 2013-04-05 at 15:20 +0200, Erik Hugne wrote:
+> I'm adding GRO support for the TIPC protocol and
+> tried to test it on a pair of HP G7 blades with 
+> Emulex Corporation OneConnect 10Gb NIC (be3) (rev 01) NICs.
+> 
+> However, my GRO callback is never invoked on this setup, and 
+> i suspect the be2net driver is to blame.
+> I had a brief look at the driver, first suspecting that the
+> do_gro check only passed for inet protocols (tcpf must be set 
+> in the be_rx_compl_info struct).
+> However, removing this check did not change the behavior.
 
-> Commit 130549fe added code to reset nf_trace in nf_reset(). This is wrong
-> and unnecessary.
-> 
-> nf_reset() is used in the following cases:
-> 
-> - when passing packets up the the socket layer, at which point we want to
->   release all netfilter references that might keep modules pinned while
->   the packet is queued. nf_trace doesn't matter anymore at this point.
-> 
-> - when encapsulating or decapsulating IPsec packets. We want to continue
->   tracing these packets after IPsec processing.
-> 
-> - when passing packets through virtual network devices. Only devices on
->   that encapsulate in IPv4/v6 matter since otherwise nf_trace is not
->   used anymore. Its not entirely clear whether those packets should
->   be traced after that, however we've always done that.
-> 
-> - when passing packets through virtual network devices that make the
->   packet cross network namespace boundaries. This is the only cases
->   where we clearly want to reset nf_trace and is also what the
->   original patch intended to fix.
-> 
-> Add a new function nf_reset_trace() and use it in dev_forward_skb() to
-> fix this properly.
-> 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+Try following instead :
 
-I'll apply this directly because I'm trying to get a pull request out
-to Linus.
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 536afa2..1b9e467 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1355,7 +1355,7 @@ static void skb_fill_rx_data(struct be_rx_obj *rxo, struct sk_buff *skb,
+ }
+ 
+ /* Process the RX completion indicated by rxcp when GRO is disabled */
+-static void be_rx_compl_process(struct be_rx_obj *rxo,
++static void be_rx_compl_process(struct be_rx_obj *rxo, struct napi_struct *napi,
+ 				struct be_rx_compl_info *rxcp)
+ {
+ 	struct be_adapter *adapter = rxo->adapter;
+@@ -1385,7 +1385,7 @@ static void be_rx_compl_process(struct be_rx_obj *rxo,
+ 	if (rxcp->vlanf)
+ 		__vlan_hwaccel_put_tag(skb, rxcp->vlan_tag);
+ 
+-	netif_receive_skb(skb);
++	napi_gro_receive(&napi, skb);
+ }
+ 
+ /* Process the RX completion indicated by rxcp when GRO is enabled */
+@@ -2113,7 +2113,7 @@ static int be_process_rx(struct be_rx_obj *rxo, struct napi_struct *napi,
+ 		if (do_gro(rxcp))
+ 			be_rx_compl_process_gro(rxo, napi, rxcp);
+ 		else
+-			be_rx_compl_process(rxo, rxcp);
++			be_rx_compl_process(rxo, napi, rxcp);
+ loop_continue:
+ 		be_rx_stats_update(rxo, rxcp);
+ 	}
