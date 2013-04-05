@@ -1,39 +1,38 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH net-next 4/4] netxen_nic: Bump up the version to 4.0.81
-Date: Fri,  5 Apr 2013 08:36:43 -0400
-Message-ID: <1365165403-18348-5-git-send-email-manish.chopra@qlogic.com>
-References: <1365165403-18348-1-git-send-email-manish.chopra@qlogic.com>
-Cc: netdev@vger.kernel.org, rajesh.borundia@qlogic.com,
-	Dept_NX_Linux_NIC_Driver@qlogic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:45807 "HELO linux-zupk.site"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1161628Ab3DEM76 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Apr 2013 08:59:58 -0400
-In-Reply-To: <1365165403-18348-1-git-send-email-manish.chopra@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: hv_netvsc: WARNING in softirq.c
+Date: Fri, 5 Apr 2013 14:13:26 +0000
+Message-ID: <401a73f632fd499fbc0eb9d4f662e833@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <20130228083437.GA28143@lnx-rg>
+ <78fd1c1df13b449887de6e0b3505a988@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <CACQ1gAgyYp+Dxmk-0C3zfKK+CkEwQX51NvWjzkV7=8GC3CD=Qg@mail.gmail.com>
+ <4147bb5a7cf547c19c6a5a6b459a957d@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <CACQ1gAi1NNwJ_QDp7ipjwdYCskENGN=N-j+TFD5aHX8DHnoBQA@mail.gmail.com>
+ <CACQ1gAiadLrJQkDFe7_TEM_1OVSjECyewmxHyXvOcYCc7GLn_Q@mail.gmail.com>
+ <CACQ1gAgh7QX=cDYsrw9J5qYNKYpgQ841QijA145TDO_Ae5EsQQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: KY Srinivasan <kys@microsoft.com>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Richard Genoud <richard.genoud@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACQ1gAgh7QX=cDYsrw9J5qYNKYpgQ841QijA145TDO_Ae5EsQQ@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
----
- drivers/net/ethernet/qlogic/netxen/netxen_nic.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-index e5ab1ec..3fe09ab 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-@@ -53,8 +53,8 @@
- 
- #define _NETXEN_NIC_LINUX_MAJOR 4
- #define _NETXEN_NIC_LINUX_MINOR 0
--#define _NETXEN_NIC_LINUX_SUBVERSION 80
--#define NETXEN_NIC_LINUX_VERSIONID  "4.0.80"
-+#define _NETXEN_NIC_LINUX_SUBVERSION 81
-+#define NETXEN_NIC_LINUX_VERSIONID  "4.0.81"
- 
- #define NETXEN_VERSION_CODE(a, b, c)	(((a) << 24) + ((b) << 16) + (c))
- #define _major(v)	(((v) >> 24) & 0xff)
--- 
-1.5.6
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogUmljaGFyZCBHZW5vdWQg
+W21haWx0bzpyaWNoYXJkLmdlbm91ZEBnbWFpbC5jb21dDQo+IFNlbnQ6IEZyaWRheSwgQXByaWwg
+MDUsIDIwMTMgNzowMCBBTQ0KPiBUbzogSGFpeWFuZyBaaGFuZw0KPiBDYzogS1kgU3Jpbml2YXNh
+bjsgZGV2ZWxAbGludXhkcml2ZXJwcm9qZWN0Lm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsN
+Cj4gbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogaHZfbmV0dnNj
+OiBXQVJOSU5HIGluIHNvZnRpcnEuYw0KPiANCj4gT2ssIGl0IGhhcyBiZWVuIGEgbGl0dGxlIGJp
+dCBtb3JlIHRoYW4gMiB3ZWVrcyBub3csIGFuZCBJIGRpZCBub3Qgc2VlIHRoaXMNCj4gd2Fybmlu
+ZyBhbnkgbW9yZSwganVzdCB0aGUNCj4gImh2X3ZtYnVzOiBjaGlsZCBkZXZpY2Ugdm1idXNfMF84
+IHVucmVnaXN0ZXJlZCIgc29tZXRpbWVzLg0KPiANCj4gc28gaXQgc2VlbXMgdG8gYmUgZml4ZWQg
+IQ0KPiANCj4gVGhhbmtzICENCj4gDQo+IA0KPiBSZXBvcnRlZC1ieTogUmljaGFyZCBHZW5vdWQg
+PHJpY2hhcmQuZ2Vub3VkQGdtYWlsLmNvbT4NCj4gVGVzdGVkLWJ5OiBSaWNoYXJkIEdlbm91ZCA8
+cmljaGFyZC5nZW5vdWRAZ21haWwuY29tPg0KPiANCg0KVGhhbmsgeW91ISBJIHdpbGwgc3VibWl0
+IHRoZSBwYXRjaCBzb29uLg0KDQotIEhhaXlhbmcNCg==
