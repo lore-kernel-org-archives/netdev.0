@@ -1,45 +1,42 @@
-From: vincent Richard <vincent.richard449@gmail.com>
-Subject: bnx2x multicast packet loss on igmp join/leave
-Date: Fri, 5 Apr 2013 12:13:48 +0200
-Message-ID: <CABVbdp_R7H5tWfFUF_8c=4GWLC80Vr8SajZskc8C51Hduue49Q@mail.gmail.com>
+From: Werner Almesberger <werner@almesberger.net>
+Subject: Re: [Linux-zigbee-devel] [PATCH 2/2] at86rf230: change irq handling
+ to prevent lockups with edge type irq
+Date: Fri, 5 Apr 2013 07:51:58 -0300
+Message-ID: <20130405105158.GD29789@ws>
+References: <cover.1365107512.git.sascha@ps.nvbi.de>
+ <57c67195742f5e7482dc57f5a05b6d69156b00d2.1365107512.git.sascha@ps.nvbi.de>
+ <20130405035949.GC29789@ws>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
+To: Sascha Herrmann <sascha@ps.nvbi.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f175.google.com ([209.85.216.175]:49566 "EHLO
-	mail-qc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751469Ab3DEKUM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 06:20:12 -0400
-Received: by mail-qc0-f175.google.com with SMTP id j3so1130656qcs.6
-        for <netdev@vger.kernel.org>; Fri, 05 Apr 2013 03:20:11 -0700 (PDT)
+Received: from mail.openmoko.org ([88.198.124.205]:50627 "EHLO
+	mail.openmoko.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752141Ab3DEKxG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 06:53:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20130405035949.GC29789@ws>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I all,
+I wrote:
+> To achieve perfection, at86rf230_probe could try all four
+> possible trigger modes, pick one the platform supports, and
+> set TRX_CTRL_1.IRQ_POLARITY accordingly.
 
-I am using a HP server with bnx2x ethernet cards in it.
-I have compiled the latest linux 3.2 version, and I am encountering
-the following error :
+Thinking of it, probing by trying request_irq has an unpleasant ring
+to it. Perhaps a better way would be to leave this decision to the
+platform code and do one of these:
 
-when joining or leaving a multicast group, other multicast streams
-lose some packets.
+1) pass irqflags and the polarity in the platform data, or
 
-I tried latest firmware and different drivers (latest HP recommended
-one (redhat one)) but still the same..
+2) pass irqflags and extract the polarity from the irqflags, or
 
-I observe that putting the interface in promiscuous mode make the
-problem disappear.
+3) set up the trigger mode outside the driver and pass only the
+   polarity,
 
-looking around bnx2x_set_rx_mode, i notice that there is 3 rx_mode,
-NORMAL, PROMISCUOUS and ALLMULTI . forcing other than normal mode
-correct my issue..
+where 1) with (irqflags & IRQF_TRIGGER_MASK) == 0 includes
+case 3).
 
-My bnx2x is in a blade center so there is a switch just after. So
-forcing PROMISCUOUS or ALLMULTI mode have no major impact.
-
-To reproduce the problem I just "listen" 2 multicast streams and
-join/leave another one periodically.
-
-Thanks in advance for your help.
-Regards,
-Vincent
+- Werner
