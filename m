@@ -1,73 +1,99 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 7/7] net: phy: spi_ks8995: use spi_get_drvdata() and
- spi_set_drvdata()
-Date: Sat, 06 Apr 2013 15:37:07 +0900
-Message-ID: <001201ce3291$2909fc10$7b1df430$%han@samsung.com>
-References: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH] bonding: remove sysfs before removing devices
+Date: Sat, 6 Apr 2013 01:21:33 +0200
+Message-ID: <20130405232133.GA19437@redhat.com>
+References: <1365003993-13181-1-git-send-email-vfalico@redhat.com>
+ <515F4CEF.3030207@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	davem@davemloft.net
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.samsung.com ([203.254.224.25]:26951 "EHLO
-	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754448Ab3DFGhO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 02:37:14 -0400
-Received: from epcpsbgr1.samsung.com
- (u141.gpu120.samsung.co.kr [203.254.230.141])
- by mailout2.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MKT006MZMDK0CD0@mailout2.samsung.com> for
- netdev@vger.kernel.org; Sat, 06 Apr 2013 15:37:08 +0900 (KST)
-In-reply-to: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
-Content-language: ko
+Received: from mx1.redhat.com ([209.132.183.28]:57696 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759881Ab3DEXXc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Apr 2013 19:23:32 -0400
+Content-Disposition: inline
+In-Reply-To: <515F4CEF.3030207@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the wrapper functions for getting and setting the driver data using
-spi_device instead of using dev_{get|set}_drvdata with &spi->dev, so we
-can directly pass a struct spi_device.
+On Sat, Apr 06, 2013 at 12:15:11AM +0200, Nikolay Aleksandrov wrote:
+>Hi,
+>Sorry for the late reply but I was travelling this week. In my opinion this
+>fix is wrong because in bond_uninit() (called by rtnl_link_unregister)
+>you have:
+>list_del(&bond->bond_list);
+>which is linked in the bond_net dev_list which is freed by
+>unregister_pernet_subsys.
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
----
- drivers/net/phy/spi_ks8995.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+Yep, you're right, I've hit it recently with the patch applied, and now
+working on it. However, I still think that the idea of the patch is correct
+- i.e. to first disable sysfs (especially bonding_masters) and only
+  afterwards to start removing everything else. Or, obviously, to finally
+add normal locking to sysfs functions.
 
-diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
-index 5c87eef..d11c93e 100644
---- a/drivers/net/phy/spi_ks8995.c
-+++ b/drivers/net/phy/spi_ks8995.c
-@@ -281,7 +281,7 @@ static int ks8995_probe(struct spi_device *spi)
- 	mutex_init(&ks->lock);
- 	ks->pdata = pdata;
- 	ks->spi = spi_dev_get(spi);
--	dev_set_drvdata(&spi->dev, ks);
-+	spi_set_drvdata(spi, ks);
- 
- 	spi->mode = SPI_MODE_0;
- 	spi->bits_per_word = 8;
-@@ -325,7 +325,7 @@ static int ks8995_probe(struct spi_device *spi)
- 	return 0;
- 
- err_drvdata:
--	dev_set_drvdata(&spi->dev, NULL);
-+	spi_set_drvdata(spi, NULL);
- 	kfree(ks);
- 	return err;
- }
-@@ -334,10 +334,10 @@ static int ks8995_remove(struct spi_device *spi)
- {
- 	struct ks8995_data      *ks8995;
- 
--	ks8995 = dev_get_drvdata(&spi->dev);
-+	ks8995 = spi_get_drvdata(spi);
- 	sysfs_remove_bin_file(&spi->dev.kobj, &ks8995_registers_attr);
- 
--	dev_set_drvdata(&spi->dev, NULL);
-+	spi_set_drvdata(spi, NULL);
- 	kfree(ks8995);
- 
- 	return 0;
--- 
-1.7.2.5
+Anyway, this corruption is really rare, so I'll wait for your fix next
+week.
+
+>You'll get a corrupted list warning at best.
+>
+>Here's a sample from running insmod max_bonds=3/rmmod in a loop with the
+>patch applied:
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302186] ------------[ cut here
+>]------------
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302191] WARNING: at
+>lib/list_debug.c:62 __list_del_entry+0x82/0xd0()
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302192] Hardware name: VirtualBox
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302194] list_del corruption.
+>next->prev should be ffff880036bc6860, but was ffff88002ee23000
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302194] Modules linked in:
+>bonding(O-) ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6
+>nf_conntrack_ipv4 nf_defrag_ipv4 ip6table_filter xt_conntrack
+>nf_conntrack ip6_tables snd_hda_codec_idt snd_hda_intel snd_hda_codec
+>snd_hwdep snd_seq snd_seq_device ppdev snd_pcm pcspkr snd_page_alloc
+>i2c_piix4 joydev snd_timer snd soundcore i2c_core microcode parport_pc
+>parport e1000 [last unloaded: bonding]
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302214] Call Trace:
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302219]  [<ffffffff8105e99f>]
+>warn_slowpath_common+0x7f/0xc0
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302221]  [<ffffffff8105ea96>]
+>warn_slowpath_fmt+0x46/0x50
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302225]  [<ffffffff8164efaf>]
+>? printk+0x61/0x63
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302227]  [<ffffffff8130c302>]
+>__list_del_entry+0x82/0xd0
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302229]  [<ffffffff8130c361>]
+>list_del+0x11/0x40
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302233]  [<ffffffffa0187f70>]
+>bond_uninit+0x70/0xd0 [bonding]
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302236]  [<ffffffff815486d8>]
+>rollback_registered_many+0x158/0x220
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302238]  [<ffffffff815487f9>]
+>unregister_netdevice_many+0x19/0x60
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302240]  [<ffffffff815575ae>]
+>__rtnl_link_unregister+0x6e/0xb0
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302243]  [<ffffffff81557b7e>]
+>rtnl_link_unregister+0x1e/0x30
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302246]  [<ffffffffa019359e>]
+>bonding_exit+0x2d/0xa8f [bonding]
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302249]  [<ffffffff810c1dd0>]
+>sys_delete_module+0x170/0x2d0
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302252]  [<ffffffff81014981>]
+>? do_notify_resume+0x71/0xb0
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302255]  [<ffffffff81661899>]
+>system_call_fastpath+0x16/0x1b
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302256] ---[ end trace
+>31cca9f26623fa11 ]---
+>Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302417] bonding: bond1:
+>released all slaves
+>
+>You can hit this also with a NULL pointer dereference.
+>I have a correct fix for this bug which I intend to post next week when
+>I get back and after some more testing.
+>
+>Please let me know if I've missed something about this patch.
+>
+>Best regards,
+> Nik
