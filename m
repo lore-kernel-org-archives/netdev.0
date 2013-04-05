@@ -1,75 +1,40 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH] netfilter: don't reset nf_trace in nf_reset()
-Date: Fri,  5 Apr 2013 20:42:05 +0200
-Message-ID: <1365187325-25147-1-git-send-email-kaber@trash.net>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	gaofeng@cn.fujitsu.com
-To: pablo@netfilter.org
+From: Werner Almesberger <werner@almesberger.net>
+Subject: Re: [Linux-zigbee-devel] [PATCH] mac802154: Keep track of the
+ channel when changed
+Date: Fri, 5 Apr 2013 18:05:14 -0300
+Message-ID: <20130405210514.GF28141@ws>
+References: <1365194201-2635-1-git-send-email-alan@signal11.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net
+To: Alan Ott <alan@signal11.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37655 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1162434Ab3DESmJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 14:42:09 -0400
+Received: from mail.openmoko.org ([88.198.124.205]:50603 "EHLO
+	mail.openmoko.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1162241Ab3DEVGZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 17:06:25 -0400
+Content-Disposition: inline
+In-Reply-To: <1365194201-2635-1-git-send-email-alan@signal11.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 130549fe added code to reset nf_trace in nf_reset(). This is wrong
-and unnecessary.
+Alan Ott wrote:
+> Prevent set_channel() from getting called every time a packet is sent. This
+> looks like it was an oversight.
 
-nf_reset() is used in the following cases:
+at86rf230.c and derivatives avoid this problem by setting
+phy->current_* in the *_channel function.
 
-- when passing packets up the the socket layer, at which point we want to
-  release all netfilter references that might keep modules pinned while
-  the packet is queued. nf_trace doesn't matter anymore at this point.
+But I'd agree that it's nicer to do this in one place, not in
+every driver.
 
-- when encapsulating or decapsulating IPsec packets. We want to continue
-  tracing these packets after IPsec processing.
+In case a driver had a weird failure mode in which it leaves the
+original channel but only makes it halfway to the new channel, it
+could still set phy->current_* and return an error. So there's no
+loss of functionality with your change.
 
-- when passing packets through virtual network devices. Only devices on
-  that encapsulate in IPv4/v6 matter since otherwise nf_trace is not
-  used anymore. Its not entirely clear whether those packets should
-  be traced after that, however we've always done that.
-
-- when passing packets through virtual network devices that make the
-  packet cross network namespace boundaries. This is the only cases
-  where we clearly want to reset nf_trace and is also what the
-  original patch intended to fix.
-
-Add a new function nf_reset_trace() and use it in dev_forward_skb() to
-fix this properly.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
- include/linux/skbuff.h | 4 ++++
- net/core/dev.c         | 1 +
- 2 files changed, 5 insertions(+)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 72b3967..b8292d8 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2641,6 +2641,10 @@ static inline void nf_reset(struct sk_buff *skb)
- 	nf_bridge_put(skb->nf_bridge);
- 	skb->nf_bridge = NULL;
- #endif
-+}
-+
-+static inline void nf_reset_trace(struct sk_buff *skb)
-+{
- #if IS_ENABLED(CONFIG_NETFILTER_XT_TARGET_TRACE)
- 	skb->nf_trace = 0;
- #endif
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 13e6447..e7d68ed 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1639,6 +1639,7 @@ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
- 	skb->mark = 0;
- 	secpath_reset(skb);
- 	nf_reset(skb);
-+	nf_reset_trace(skb);
- 	return netif_rx(skb);
- }
- EXPORT_SYMBOL_GPL(dev_forward_skb);
--- 
-1.8.1.4
+- Werner
