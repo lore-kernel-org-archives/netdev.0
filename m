@@ -1,57 +1,42 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [Suggestion] ISDN: isdnloop: C grammar issue, '}' miss match
- 'if' and 'switch' statement.
-Date: Fri, 05 Apr 2013 14:13:45 +0800
-Message-ID: <515E6B99.1040204@asianux.com>
-References: <1364999477.13853.21.camel@edumazet-glaptop>  <CA+55aFw+Efs+um15_V6t-9rXd-U1VJS9p+_6E-m5jr87h-BPVg@mail.gmail.com>  <515D3A09.7040202@asianux.com>  <20130404.140956.2233513394092413594.davem@davemloft.net> <1365130824.25884.8.camel@joe-AO722>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net-next 3/3] net/mlx4_en: Enable open-lldp DCB support
+Date: Fri, 5 Apr 2013 10:15:22 +0300
+Message-ID: <CAJZOPZJgZNkABE4+40+CnmpDRHDzEY-ZZmTH3L5JyoMHJX0Cow@mail.gmail.com>
+References: <1365085574-12057-1-git-send-email-ogerlitz@mellanox.com>
+	<1365085574-12057-4-git-send-email-ogerlitz@mellanox.com>
+	<515DA342.5020503@intel.com>
+	<515DA579.3050006@mellanox.com>
+	<515DCDF2.8070304@intel.com>
+	<CAJZOPZKms=25WUR5WL0DEZ7yAi=zOKjZEGdO1BQsyJ+tvPMe+g@mail.gmail.com>
+	<515E129D.2020009@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-	eric.dumazet@gmail.com, mkubecek@suse.cz, fengguang.wu@intel.com,
-	isdn@linux-pingi.de, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Sagi Grimberg <sagig@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, amirv@mellanox.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:55750 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751204Ab3DEGOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 02:14:18 -0400
-In-Reply-To: <1365130824.25884.8.camel@joe-AO722>
+Received: from mail-qa0-f42.google.com ([209.85.216.42]:39680 "EHLO
+	mail-qa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751606Ab3DEHPX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 03:15:23 -0400
+Received: by mail-qa0-f42.google.com with SMTP id bv4so160593qab.1
+        for <netdev@vger.kernel.org>; Fri, 05 Apr 2013 00:15:22 -0700 (PDT)
+In-Reply-To: <515E129D.2020009@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013=E5=B9=B404=E6=9C=8805=E6=97=A5 11:00, Joe Perches wrote:
-> On Thu, 2013-04-04 at 14:09 -0400, David Miller wrote:
->> > From: Chen Gang <gang.chen@asianux.com>
->> > Date: Thu, 04 Apr 2013 16:30:01 +0800
->>>> > >> Of course, nobody sane actually cares about ISDN any more, so=
- I think
->>>> > >> this is all pretty academic. I think even Germany (where ISDN=
- *used*
->>>> > >> to be very common due to telephone monopolies and odd rules) =
-no longer
->>>> > >> uses it. I can't imagine that anybody else does either.
->>> > >   can we delete it ?
->> > I think the point is no that we can delete it, but rather that we
->> > should concentrate our efforts on code that more people use rather
->> > than trying to clean up antiquated code with very few users.
-> Very sensible.
->=20
-> I was going to see about moving drivers/isdn/hardware/eicon
-> to staging but it seems the hardware is still for sale.
->=20
-> http://www.dialogic.com/en/products/media/diva/diva-bri-2.aspx
->=20
-> Anyone have suggestions on other obsolete isdn drivers that
-> could be moved to staging for awhile before deletion?
->=20
->=20
->=20
+John Fastabend <john.fastabend@gmail.com> wrote:
 
-  thank you for your information
+> Agree it doesn't work without this patch but we can fix it in user
+> space. This has the nice benefit of letting lldpad work with mlx4 on
+> older kernels. In general I think its easier to update user space then
+> the kernel for most users. I'll send you a lldpad patch in a few moments.
 
+So to be sure we're on the same page, what we should do is enhance
+mlx4_en_dcbnl_getdcbx() routine to also return DCB_CAP_DCBX_HOST and
+work with your user space patch? sounds nice, except for what happens
+if people run with older versions of lldpad..
 
---=20
-Chen Gang
-
-Asianux Corporation
+Or.
