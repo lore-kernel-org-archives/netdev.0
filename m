@@ -1,42 +1,89 @@
-From: Werner Almesberger <werner@almesberger.net>
-Subject: Re: [Linux-zigbee-devel] [PATCH 2/2] at86rf230: change irq handling
- to prevent lockups with edge type irq
-Date: Fri, 5 Apr 2013 07:51:58 -0300
-Message-ID: <20130405105158.GD29789@ws>
-References: <cover.1365107512.git.sascha@ps.nvbi.de>
- <57c67195742f5e7482dc57f5a05b6d69156b00d2.1365107512.git.sascha@ps.nvbi.de>
- <20130405035949.GC29789@ws>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH 1/5 v2] mv643xx_eth: add Device Tree bindings
+Date: Fri, 05 Apr 2013 11:56:48 +0200
+Message-ID: <515E9FE0.8050402@openwrt.org>
+References: <1365071235-11611-1-git-send-email-florian@openwrt.org>
+ <1365071235-11611-2-git-send-email-florian@openwrt.org>
+ <20130404212906.GA25904@schnuecks.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
-To: Sascha Herrmann <sascha@ps.nvbi.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.openmoko.org ([88.198.124.205]:50627 "EHLO
-	mail.openmoko.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752141Ab3DEKxG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 06:53:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20130405035949.GC29789@ws>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: thomas.petazzoni@free-electrons.com, moinejf@free.fr, jason@lakedaemon.net,
+ andrew@lunn.ch, netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+ rob.herring@calxeda.com, grant.likely@secretlab.ca, jogo@openwrt.org,
+ linux-arm-kernel@lists.infradead.org, jm@lentin.co.uk, davem@davemloft.net,
+ buytenh@wantstofly.org, sebastian.hesselbarth@gmail.com
+To: Simon Baatz <gmbnomis@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20130404212906.GA25904@schnuecks.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-I wrote:
-> To achieve perfection, at86rf230_probe could try all four
-> possible trigger modes, pick one the platform supports, and
-> set TRX_CTRL_1.IRQ_POLARITY accordingly.
-
-Thinking of it, probing by trying request_irq has an unpleasant ring
-to it. Perhaps a better way would be to leave this decision to the
-platform code and do one of these:
-
-1) pass irqflags and the polarity in the platform data, or
-
-2) pass irqflags and extract the polarity from the irqflags, or
-
-3) set up the trigger mode outside the driver and pass only the
-   polarity,
-
-where 1) with (irqflags & IRQF_TRIGGER_MASK) == 0 includes
-case 3).
-
-- Werner
+SGVsbG8gU2ltb24sCgpGaXJzdCBvZiBhbGwsIHRoYW5rcyBmb3IgZ2V0dGluZyB0aGVzZSBwYXRj
+aGVzIGEgdHJ5IQoKTGUgMDQvMDQvMTMgMjM6MjksIFNpbW9uIEJhYXR6IGEgw6ljcml0IDoKPiBI
+aSBGbG9yaWFuCj4KCltzbmlwXQoKPj4gICAJaWYgKCFtdjY0M3h4X2V0aF92ZXJzaW9uX3ByaW50
+ZWQrKykKPj4gICAJCXByX25vdGljZSgiTVYtNjQzeHggMTAvMTAwLzEwMDAgZXRoZXJuZXQgZHJp
+dmVyIHZlcnNpb24gJXNcbiIsCj4KPiBUaGlzIGlzIG5vdCByZWxhdGVkIHRvIHlvdXIgY2hhbmdl
+LCBidXQgdGhlcmUgaXMgYSBwcm9ibGVtIGluIHRoaXMKPiBmdW5jdGlvbiB0aGF0IGhhcyBhbHJl
+YWR5IGJlZW4gZGlzY3Vzc2VkIGluIHRoZSBwYXN0IGlmIEkgcmVtZW1iZXIKPiBjb3JyZWN0bHk6
+IFRoZSByZXNwZWN0aXZlIGNsb2NrIG5lZWRzIHRvIGJlIGVuYWJsZWQgaGVyZSAoYXQgbGVhc3QK
+PiBvbiBLaXJrd29vZCksIHNpbmNlIGFjY2Vzc2VzIHRvIHRoZSBoYXJkd2FyZSBhcmUgZG9uZSBi
+ZWxvdy4KPiBFbmFibGluZyB0aGUgY2xvY2sgb25seSBpbiBtdjY0M3h4X2V0aF9wcm9iZSgpIGlz
+IHRvbyBsYXRlLgo+Cj4gQXMgc2FpZCwgdGhpcyBpcyBub3QgYSBwcm9ibGVtIGludHJvZHVjZWQg
+YnkgeW91ciBjaGFuZ2VzIChhbmQgd2hpY2gKPiBpcyBjdXJyZW50bHkgY2lyY3VtdmVudGVkIGJ5
+IGVuYWJsaW5nIHRoZSByZXNwZWN0aXZlIGNsb2NrcyBpbgo+IGtpcmt3b29kX2xlZ2FjeV9jbGtf
+aW5pdCgpIGFuZCBraXJrd29vZF9nZTB4X2luaXQoKSksIGJ1dCB3ZSBtaWdodAo+IHdhbnQgdG8g
+Zml4IHRoaXMgbm93IHRvIGdldCByaWQgb2YgdW5jb25kaXRpb25hbGx5IGVuYWJsaW5nIHRoZSBH
+RQo+IGNsb2NrcyBpbiB0aGUgRFQgY2FzZS4KCkkgdGhpbmsgdGhlcmUgbWF5IGhhdmUgYmVlbiBz
+b21lIGNvbmZ1c2lvbiBiZXR3ZWVuIHRoZSAiZXRoZXJuZXQtZ3JvdXAiIApjbG9jayBhbmQgdGhl
+IGFjdHVhbCBFdGhlcm5ldCBwb3J0IGluc2lkZSB0aGUgImV0aGVybmV0LWdyb3VwIi4gVGhlIApt
+djY0M3h4X2V0aCBkcml2ZXIgYXNzdW1lcyB3ZSBoYXZlIGEgcGVyLXBvcnQgY2xvY2sgZ2F0aW5n
+IHNjaGVtZSwgd2hpbGUgCkkgdGhpbmsgd2UgaGF2ZSBhIHBlciAiZXRoZXJuZXQtZ3JvdXAiIGNs
+b2NrIGdhdGluZyBzY2hlbWUgaW5zdGVhZC4gTGlrZSAKeW91IHNhaWQsIEkgdGhpbmsgdGhpcyBz
+aG91bGQgYmUgYWRkcmVzc2VkIHNlcGFyYXRlbHkuCgpbc25pcF0KCj4KPiBZb3UgZG9uJ3QgY2hh
+bmdlIHRoZSBjbGsgaW5pdGlhbGl6YXRpb24gaGVyZToKPgo+ICNpZiBkZWZpbmVkKENPTkZJR19I
+QVZFX0NMSykKPiAJbXAtPmNsayA9IGNsa19nZXQoJnBkZXYtPmRldiwgKHBkZXYtPmlkID8gIjEi
+IDogIjAiKSk7Cj4gCWlmICghSVNfRVJSKG1wLT5jbGspKSB7Cj4gCQljbGtfcHJlcGFyZV9lbmFi
+bGUobXAtPmNsayk7Cj4gCQltcC0+dF9jbGsgPSBjbGtfZ2V0X3JhdGUobXAtPmNsayk7Cj4gCX0K
+PiAjZW5kaWYKPgo+IFdoaWNoLCBpZiBJIHVuZGVyc3RhbmQgY29ycmVjdGx5LCB3b3JrcyBpbiB0
+aGUgRFQgY2FzZSBiZWNhdXNlIHlvdQo+IGFzc2lnbiAiY2xvY2stbmFtZXMiIHRvIHRoZSBjbG9j
+a3MgaW4gdGhlIERUUy4gSG93ZXZlciwgSSB3b25kZXIKPiB3aGV0aGVyIHRoaXMgd29ya3MgZm9y
+IGFueSBidXQgdGhlIGZpcnN0IEV0aGVybmV0IGRldmljZS4KPgo+IEluIHRoZSBvbGQgcGxhdGZv
+cm0gZGV2aWNlIHNldHVwLCB0aGUgcGRldi0+aWQgd2FzIHNldCB3aGVuCj4gaW5pdGlhbGlhemlu
+ZyB0aGUgcGxhdGZvcm1fZGV2aWNlIHN0cnVjdHVyZSBpbiBjb21tb24uYy4gIFdoZXJlIGlzCj4g
+dGhpcyBkb25lIGluIHRoZSBEVCBjYXNlPwoKTG9va3MgbGlrZSB5b3UgYXJlIHJpZ2h0LCBpbiB0
+aGUgRFQgY2FzZSwgSSBhc3N1bWUgdGhhdCB3ZSBzaG91bGQgbG9va3VwIAp0aGUgY2xvY2sgdXNp
+bmcgTlVMTCBpbnN0ZWFkIG9mICIxIiBvciAiMCIgc28gd2UgbWF0Y2ggYW55IGNsb2NrIGluc3Rl
+YWQgCm9mIGEgc3BlY2lmaWMgb25lLgoKW3NuaXBdCgo+Cj4KPiBJbiBwaHlfc2NhbigpLCB0aGUg
+cGh5IGlzIHNlYXJjaGVkIGxpa2UgdGhpczoKPgo+IAkJc25wcmludGYocGh5X2lkLCBzaXplb2Yo
+cGh5X2lkKSwgUEhZX0lEX0ZNVCwKPiAJCQkJIm9yaW9uLW1kaW8tbWlpIiwgYWRkcik7Cj4KPiAJ
+CXBoeWRldiA9IHBoeV9jb25uZWN0KG1wLT5kZXYsIHBoeV9pZCwgbXY2NDN4eF9ldGhfYWRqdXN0
+X2xpbmssCj4gCQkJCVBIWV9JTlRFUkZBQ0VfTU9ERV9HTUlJKTsKPgo+IEJ1dCAib3Jpb24tbWRp
+by1taWk6eHgiIGlzIHRoZSBuYW1lIG9mIHRoZSBQSFkgaWYgTURJTyBpcyBzZXR1cCB2aWEgYQo+
+IHBsYXRmb3JtX2RldmljZS4gSSBjb3VsZCBub3QgZ2V0IHRoaXMgdG8gd29yayBpZiB0aGUgTURJ
+TyBkZXZpY2UgaXMKPiBzZXR1cCB2aWEgRFQuIEFtIEkgZG9pbmcgc29tZXRoaW5nIHdyb25nPwoK
+SSBqdXN0IG1pc3NlZCB1cGRhdGluZyB0aGlzIHBhcnQgb2YgdGhlIGNvZGUgdG8gcHJvYmUgZm9y
+IFBIWXMuIFRoZSAKYm9hcmQgSSB0ZXN0ZWQgd2l0aCB1c2VzIGEgIlBIWV9OT05FIiBjb25maWd1
+cmF0aW9uLiBJIHdpbGwgYWRkIHRoZSAKbWlzc2luZyBiaXRzIGZvciBvZl9waHlfY29ubmVjdCgp
+IHRvIGJlIGNhbGxlZCBoZXJlLgoKPgo+Cj4gQWRkaXRpb25hbGx5LCBpbiBwaHlfc2NhbigpIHRo
+ZXJlIGlzIHRoaXM6Cj4KPiAJaWYgKHBoeV9hZGRyID09IE1WNjQzWFhfRVRIX1BIWV9BRERSX0RF
+RkFVTFQpIHsKPiAJCXN0YXJ0ID0gcGh5X2FkZHJfZ2V0KG1wKSAmIDB4MWY7Cj4gCQludW0gPSAz
+MjsKPiAJfSBlbHNlIHsKPiAJLi4uCj4KPiBNVjY0M1hYX0VUSF9QSFlfQUREUl9ERUZBVUxUIGlz
+IGRlZmluZWQgYXMgMC4gSG93ZXZlciwgbWFueSBLaXJrd29vZAo+IGRldmljZXMgdXNlICJNVjY0
+M1hYX0VUSF9QSFlfQUREUigwKSIuICBJZiB0aGUgbW9kdWxlIHByb2JlIGlzCj4gZGVmZXJyZWQg
+aW4gbXY2NDN4eF9ldGggYmVjYXVzZSB0aGUgTURJTyBkcml2ZXIgaXMgbm90IHlldCBsb2FkZWQs
+Cj4gYWxsIDMyIFBIWSBhZGRyZXNzZXMgYXJlIHNjYW5uZWQgd2l0aG91dCBzdWNjZXNzLiAgVGhp
+cyBpcyBub3QgbmVlZGVkCj4gYW5kIGNsdXR0ZXJzIHRoZSBsb2cuCgpPaywgSSBhbSBub3Qgc3Vy
+ZSBob3cgd2UgY2FuIGNpcmN1bXZlbnQgdGhlIGxvZyBjbHV0dGVyaW5nIHRoYXQgaGFwcGVucywg
+CndoYXQgd291bGQgYmUgeW91ciBzdWdnZXN0aW9uPwotLQpGbG9yaWFuCgpfX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpsaW51eC1hcm0ta2VybmVsIG1haWxp
+bmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3Rz
+LmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5mby9saW51eC1hcm0ta2VybmVsCg==
