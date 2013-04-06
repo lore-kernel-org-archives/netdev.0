@@ -1,78 +1,57 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 3/7] net: ethernet: ks8851: use spi_get_drvdata() and
- spi_set_drvdata()
-Date: Sat, 06 Apr 2013 15:35:43 +0900
-Message-ID: <000e01ce3290$f670a560$e351f020$%han@samsung.com>
-References: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 02/51] ipvs: prefer NETDEV_DOWN event to free cached dsts
+Date: Sat,  6 Apr 2013 14:17:01 +0200
+Message-ID: <1365250670-14993-3-git-send-email-pablo@netfilter.org>
+References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:21804 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932525Ab3DFGfo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 02:35:44 -0400
-Received: from epcpsbgr4.samsung.com
- (u144.gpu120.samsung.co.kr [203.254.230.144])
- by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MKT009RAMB7ZD90@mailout1.samsung.com> for
- netdev@vger.kernel.org; Sat, 06 Apr 2013 15:35:43 +0900 (KST)
-In-reply-to: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
-Content-language: ko
+Received: from mail.us.es ([193.147.175.20]:38871 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1163349Ab3DFMSH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Apr 2013 08:18:07 -0400
+In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the wrapper functions for getting and setting the driver data using
-spi_device instead of using dev_{get|set}_drvdata with &spi->dev, so we
-can directly pass a struct spi_device.
+From: Julian Anastasov <ja@ssi.bg>
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+The real server becomes unreachable on down event,
+no need to wait device unregistration. Should help in
+releasing dsts early before dst->dev is replaced with lo.
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off by: Hans Schillstrom <hans@schillstrom.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- drivers/net/ethernet/micrel/ks8851.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ net/netfilter/ipvs/ip_vs_ctl.c |    8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
-index 8fb4812..4a3b499 100644
---- a/drivers/net/ethernet/micrel/ks8851.c
-+++ b/drivers/net/ethernet/micrel/ks8851.c
-@@ -1367,7 +1367,7 @@ static int ks8851_read_selftest(struct ks8851_net *ks)
- #ifdef CONFIG_PM
- static int ks8851_suspend(struct spi_device *spi, pm_message_t state)
- {
--	struct ks8851_net *ks = dev_get_drvdata(&spi->dev);
-+	struct ks8851_net *ks = spi_get_drvdata(spi);
- 	struct net_device *dev = ks->netdev;
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 8104120..6b55ba6 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1514,10 +1514,8 @@ __ip_vs_dev_reset(struct ip_vs_dest *dest, struct net_device *dev)
+ 	spin_unlock_bh(&dest->dst_lock);
  
- 	if (netif_running(dev)) {
-@@ -1380,7 +1380,7 @@ static int ks8851_suspend(struct spi_device *spi, pm_message_t state)
+ }
+-/*
+- * Netdev event receiver
+- * Currently only NETDEV_UNREGISTER is handled, i.e. if we hold a reference to
+- * a device that is "unregister" it must be released.
++/* Netdev event receiver
++ * Currently only NETDEV_DOWN is handled to release refs to cached dsts
+  */
+ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
+ 			    void *ptr)
+@@ -1529,7 +1527,7 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
+ 	struct ip_vs_dest *dest;
+ 	unsigned int idx;
  
- static int ks8851_resume(struct spi_device *spi)
- {
--	struct ks8851_net *ks = dev_get_drvdata(&spi->dev);
-+	struct ks8851_net *ks = spi_get_drvdata(spi);
- 	struct net_device *dev = ks->netdev;
- 
- 	if (netif_running(dev)) {
-@@ -1456,7 +1456,7 @@ static int ks8851_probe(struct spi_device *spi)
- 	SET_ETHTOOL_OPS(ndev, &ks8851_ethtool_ops);
- 	SET_NETDEV_DEV(ndev, &spi->dev);
- 
--	dev_set_drvdata(&spi->dev, ks);
-+	spi_set_drvdata(spi, ks);
- 
- 	ndev->if_port = IF_PORT_100BASET;
- 	ndev->netdev_ops = &ks8851_netdev_ops;
-@@ -1516,7 +1516,7 @@ err_irq:
- 
- static int ks8851_remove(struct spi_device *spi)
- {
--	struct ks8851_net *priv = dev_get_drvdata(&spi->dev);
-+	struct ks8851_net *priv = spi_get_drvdata(spi);
- 
- 	if (netif_msg_drv(priv))
- 		dev_info(&spi->dev, "remove\n");
+-	if (event != NETDEV_UNREGISTER || !ipvs)
++	if (event != NETDEV_DOWN || !ipvs)
+ 		return NOTIFY_DONE;
+ 	IP_VS_DBG(3, "%s() dev=%s\n", __func__, dev->name);
+ 	EnterFunction(2);
 -- 
-1.7.2.5
+1.7.10.4
