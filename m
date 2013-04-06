@@ -1,65 +1,157 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [Suggestion] ISDN: isdnloop: C grammar issue, '}' miss match
- 'if' and 'switch' statement.
-Date: Fri, 05 Apr 2013 15:37:27 -0500
-Message-ID: <1365194247.22273.7.camel@dcbw.foobar.com>
-References: <1364999477.13853.21.camel@edumazet-glaptop>
-	 <CA+55aFw+Efs+um15_V6t-9rXd-U1VJS9p+_6E-m5jr87h-BPVg@mail.gmail.com>
-	 <515D3A09.7040202@asianux.com>
-	 <20130404.140956.2233513394092413594.davem@davemloft.net>
-	 <1365130824.25884.8.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, gang.chen@asianux.com,
-	torvalds@linux-foundation.org, eric.dumazet@gmail.com,
-	mkubecek@suse.cz, fengguang.wu@intel.com, isdn@linux-pingi.de,
-	netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53807 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1162192Ab3DEUhC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Apr 2013 16:37:02 -0400
-In-Reply-To: <1365130824.25884.8.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 35/51] netfilter: xt_NFQUEUE: introduce CPU fanout
+Date: Sat,  6 Apr 2013 14:17:34 +0200
+Message-ID: <1365250670-14993-36-git-send-email-pablo@netfilter.org>
+References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-04-04 at 20:00 -0700, Joe Perches wrote:
-> On Thu, 2013-04-04 at 14:09 -0400, David Miller wrote:
-> > From: Chen Gang <gang.chen@asianux.com>
-> > Date: Thu, 04 Apr 2013 16:30:01 +0800
-> > >> Of course, nobody sane actually cares about ISDN any more, so I think
-> > >> this is all pretty academic. I think even Germany (where ISDN *used*
-> > >> to be very common due to telephone monopolies and odd rules) no longer
-> > >> uses it. I can't imagine that anybody else does either.
-> > >   can we delete it ?
-> > I think the point is no that we can delete it, but rather that we
-> > should concentrate our efforts on code that more people use rather
-> > than trying to clean up antiquated code with very few users.
-> 
-> Very sensible.
-> 
-> I was going to see about moving drivers/isdn/hardware/eicon
-> to staging but it seems the hardware is still for sale.
-> 
-> http://www.dialogic.com/en/products/media/diva/diva-bri-2.aspx
-> 
-> Anyone have suggestions on other obsolete isdn drivers that
-> could be moved to staging for awhile before deletion?
+From: "holger@eitzenberger.org" <holger@eitzenberger.org>
 
-Anything PCMCIA or ISA?  There are a number of them:
+Current NFQUEUE target uses a hash, computed over source and
+destination address (and other parameters), for steering the packet
+to the actual NFQUEUE. This, however forgets about the fact that the
+packet eventually is handled by a particular CPU on user request.
 
-CONFIG_ISDN_DRV_AVMB1_B1ISA
-CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
-CONFIG_ISDN_DRV_AVMB1_AVM_CS
-CONFIG_ISDN_DRV_AVMB1_T1ISA
-CONFIG_HISAX_SEDLBAUER_CS
-CONFIG_HISAX_ELSA_CS
-CONFIG_HISAX_AVM_A1_CS
-CONFIG_HISAX_TELES_CS
-CONFIG_ISDN_DRV_ACT2000
+If E. g.
 
-That's all I can find in a quick look.
+  1) IRQ affinity is used to handle packets on a particular CPU already
+     (both single-queue or multi-queue case)
 
-Dan
+and/or
+
+  2) RPS is used to steer packets to a specific softirq
+
+the target easily chooses an NFQUEUE which is not handled by a process
+pinned to the same CPU.
+
+The idea is therefore to use the CPU index for determining the
+NFQUEUE handling the packet.
+
+E. g. when having a system with 4 CPUs, 4 MQ queues and 4 NFQUEUEs it
+looks like this:
+
+ +-----+  +-----+  +-----+  +-----+
+ |NFQ#0|  |NFQ#1|  |NFQ#2|  |NFQ#3|
+ +-----+  +-----+  +-----+  +-----+
+    ^        ^        ^        ^
+    |        |NFQUEUE |        |
+    +        +        +        +
+ +-----+  +-----+  +-----+  +-----+
+ |rx-0 |  |rx-1 |  |rx-2 |  |rx-3 |
+ +-----+  +-----+  +-----+  +-----+
+
+The NFQUEUEs not necessarily have to start with number 0, setups with
+less NFQUEUEs than packet-handling CPUs are not a problem as well.
+
+This patch extends the NFQUEUE target to accept a new
+NFQ_FLAG_CPU_FANOUT flag. If this is specified the target uses the
+CPU index for determining the NFQUEUE being used. I have to introduce
+rev3 for this. The 'flags' are folded into _v2 'bypass'.
+
+By changing the way which queue is assigned, I'm able to improve the
+performance if the processes reading on the NFQUEUs are pinned
+correctly.
+
+Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ include/uapi/linux/netfilter/xt_NFQUEUE.h |    9 +++++++
+ net/netfilter/xt_NFQUEUE.c                |   41 +++++++++++++++++++++++++++--
+ 2 files changed, 48 insertions(+), 2 deletions(-)
+
+diff --git a/include/uapi/linux/netfilter/xt_NFQUEUE.h b/include/uapi/linux/netfilter/xt_NFQUEUE.h
+index 9eafdbb..8bb5fe6 100644
+--- a/include/uapi/linux/netfilter/xt_NFQUEUE.h
++++ b/include/uapi/linux/netfilter/xt_NFQUEUE.h
+@@ -26,4 +26,13 @@ struct xt_NFQ_info_v2 {
+ 	__u16 bypass;
+ };
+ 
++struct xt_NFQ_info_v3 {
++	__u16 queuenum;
++	__u16 queues_total;
++	__u16 flags;
++#define NFQ_FLAG_BYPASS		0x01 /* for compatibility with v2 */
++#define NFQ_FLAG_CPU_FANOUT	0x02 /* use current CPU (no hashing) */
++#define NFQ_FLAG_MASK		0x03
++};
++
+ #endif /* _XT_NFQ_TARGET_H */
+diff --git a/net/netfilter/xt_NFQUEUE.c b/net/netfilter/xt_NFQUEUE.c
+index 817f9e9..a287ef2 100644
+--- a/net/netfilter/xt_NFQUEUE.c
++++ b/net/netfilter/xt_NFQUEUE.c
+@@ -108,7 +108,7 @@ nfqueue_tg_v2(struct sk_buff *skb, const struct xt_action_param *par)
+ 
+ static int nfqueue_tg_check(const struct xt_tgchk_param *par)
+ {
+-	const struct xt_NFQ_info_v2 *info = par->targinfo;
++	const struct xt_NFQ_info_v3 *info = par->targinfo;
+ 	u32 maxid;
+ 
+ 	if (unlikely(!rnd_inited)) {
+@@ -125,11 +125,39 @@ static int nfqueue_tg_check(const struct xt_tgchk_param *par)
+ 		       info->queues_total, maxid);
+ 		return -ERANGE;
+ 	}
+-	if (par->target->revision == 2 && info->bypass > 1)
++	if (par->target->revision == 2 && info->flags > 1)
++		return -EINVAL;
++	if (par->target->revision == 3 && info->flags & ~NFQ_FLAG_MASK)
+ 		return -EINVAL;
++
+ 	return 0;
+ }
+ 
++static unsigned int
++nfqueue_tg_v3(struct sk_buff *skb, const struct xt_action_param *par)
++{
++	const struct xt_NFQ_info_v3 *info = par->targinfo;
++	u32 queue = info->queuenum;
++
++	if (info->queues_total > 1) {
++		if (info->flags & NFQ_FLAG_CPU_FANOUT) {
++			int cpu = smp_processor_id();
++
++			queue = info->queuenum + cpu % info->queues_total;
++		} else {
++			if (par->family == NFPROTO_IPV4)
++				queue = (((u64) hash_v4(skb) * info->queues_total) >>
++						 32) + queue;
++#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
++			else if (par->family == NFPROTO_IPV6)
++				queue = (((u64) hash_v6(skb) * info->queues_total) >>
++						 32) + queue;
++#endif
++		}
++	}
++	return NF_QUEUE_NR(queue);
++}
++
+ static struct xt_target nfqueue_tg_reg[] __read_mostly = {
+ 	{
+ 		.name		= "NFQUEUE",
+@@ -156,6 +184,15 @@ static struct xt_target nfqueue_tg_reg[] __read_mostly = {
+ 		.targetsize	= sizeof(struct xt_NFQ_info_v2),
+ 		.me		= THIS_MODULE,
+ 	},
++	{
++		.name		= "NFQUEUE",
++		.revision	= 3,
++		.family		= NFPROTO_UNSPEC,
++		.checkentry	= nfqueue_tg_check,
++		.target		= nfqueue_tg_v3,
++		.targetsize	= sizeof(struct xt_NFQ_info_v3),
++		.me		= THIS_MODULE,
++	},
+ };
+ 
+ static int __init nfqueue_tg_init(void)
+-- 
+1.7.10.4
+
