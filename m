@@ -1,42 +1,24 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 22/51] ipvs: convert nq scheduler to rcu
-Date: Sat,  6 Apr 2013 14:17:21 +0200
-Message-ID: <1365250670-14993-23-git-send-email-pablo@netfilter.org>
-References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38946 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1163409Ab3DFMSa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Apr 2013 08:18:30 -0400
-In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: [PATCH] netfilter: nf_conntrack_sip: don't drop packets with
+ offsets pointing outside the packet
+Date: Sat, 6 Apr 2013 14:04:10 +0200
+Message-ID: <20130406120410.GA14907@localhost>
+References: <1365185610-2287-1-git-send-email-kaber@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1365185610-2287-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
+On Fri, Apr 05, 2013 at 08:13:30PM +0200, Patrick McHardy wrote:
+> Some Cisco phones create huge messages that are spread over multiple packets.
+> After calculating the offset of the SIP body, it is validated to be within
+> the packet and the packet is dropped otherwise. This breaks operation of
+> these phones. Since connection tracking is supposed to be passive, just let
+> those packets pass unmodified and untracked.
 
-The schedule method now needs _rcu list-traversal
-primitive for svc->destinations.
-
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_nq.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_nq.c b/net/netfilter/ipvs/ip_vs_nq.c
-index 984d9c1..51dc0cf 100644
---- a/net/netfilter/ipvs/ip_vs_nq.c
-+++ b/net/netfilter/ipvs/ip_vs_nq.c
-@@ -75,7 +75,7 @@ ip_vs_nq_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- 	 * new connections.
- 	 */
- 
--	list_for_each_entry(dest, &svc->destinations, n_list) {
-+	list_for_each_entry_rcu(dest, &svc->destinations, n_list) {
- 
- 		if (dest->flags & IP_VS_DEST_F_OVERLOAD ||
- 		    !atomic_read(&dest->weight))
--- 
-1.7.10.4
+Applied, thanks
