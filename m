@@ -1,77 +1,73 @@
-From: Werner Almesberger <werner@almesberger.net>
-Subject: Re: [Linux-zigbee-devel] [PATCH 2/2] at86rf230: change irq handling
- to prevent lockups with edge type irq
-Date: Sat, 6 Apr 2013 11:20:35 -0300
-Message-ID: <20130406142035.GG28141@ws>
-References: <cover.1365107512.git.sascha@ps.nvbi.de>
- <57c67195742f5e7482dc57f5a05b6d69156b00d2.1365107512.git.sascha@ps.nvbi.de>
- <20130405035949.GC29789@ws>
- <20130405105158.GD29789@ws>
- <f947aa8f-75bc-4314-bb92-289d9f2bc93d@email.android.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [Suggestion] ISDN: isdnloop: C grammar issue, '}' miss match
+ 'if' and 'switch' statement.
+Date: Sat, 06 Apr 2013 12:56:52 +0800
+Message-ID: <515FAB14.1020909@asianux.com>
+References: <1364999477.13853.21.camel@edumazet-glaptop>  <CA+55aFw+Efs+um15_V6t-9rXd-U1VJS9p+_6E-m5jr87h-BPVg@mail.gmail.com>  <515D3A09.7040202@asianux.com>  <20130404.140956.2233513394092413594.davem@davemloft.net>  <1365130824.25884.8.camel@joe-AO722> <1365194247.22273.7.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
-To: Sascha Herrmann <sascha@ps.nvbi.de>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
+	torvalds@linux-foundation.org, eric.dumazet@gmail.com,
+	mkubecek@suse.cz, fengguang.wu@intel.com, isdn@linux-pingi.de,
+	netdev@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.openmoko.org ([88.198.124.205]:35323 "EHLO
-	mail.openmoko.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422987Ab3DFOVn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 10:21:43 -0400
-Content-Disposition: inline
-In-Reply-To: <f947aa8f-75bc-4314-bb92-289d9f2bc93d@email.android.com>
+Received: from intranet.asianux.com ([58.214.24.6]:47234 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751956Ab3DFE51 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 00:57:27 -0400
+In-Reply-To: <1365194247.22273.7.camel@dcbw.foobar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sascha Herrmann wrote:
-> The trigger level isn't configurable in the rf230,
+On 2013=C4=EA04=D4=C206=C8=D5 04:37, Dan Williams wrote:
+> On Thu, 2013-04-04 at 20:00 -0700, Joe Perches wrote:
+>> > On Thu, 2013-04-04 at 14:09 -0400, David Miller wrote:
+>>> > > From: Chen Gang <gang.chen@asianux.com>
+>>> > > Date: Thu, 04 Apr 2013 16:30:01 +0800
+>>>>> > > >> Of course, nobody sane actually cares about ISDN any more,=
+ so I think
+>>>>> > > >> this is all pretty academic. I think even Germany (where I=
+SDN *used*
+>>>>> > > >> to be very common due to telephone monopolies and odd rule=
+s) no longer
+>>>>> > > >> uses it. I can't imagine that anybody else does either.
+>>>> > > >   can we delete it ?
+>>> > > I think the point is no that we can delete it, but rather that =
+we
+>>> > > should concentrate our efforts on code that more people use rat=
+her
+>>> > > than trying to clean up antiquated code with very few users.
+>> >=20
+>> > Very sensible.
+>> >=20
+>> > I was going to see about moving drivers/isdn/hardware/eicon
+>> > to staging but it seems the hardware is still for sale.
+>> >=20
+>> > http://www.dialogic.com/en/products/media/diva/diva-bri-2.aspx
+>> >=20
+>> > Anyone have suggestions on other obsolete isdn drivers that
+>> > could be moved to staging for awhile before deletion?
+> Anything PCMCIA or ISA?  There are a number of them:
+>=20
+> CONFIG_ISDN_DRV_AVMB1_B1ISA
+> CONFIG_ISDN_DRV_AVMB1_B1PCMCIA
+> CONFIG_ISDN_DRV_AVMB1_AVM_CS
+> CONFIG_ISDN_DRV_AVMB1_T1ISA
+> CONFIG_HISAX_SEDLBAUER_CS
+> CONFIG_HISAX_ELSA_CS
+> CONFIG_HISAX_AVM_A1_CS
+> CONFIG_HISAX_TELES_CS
+> CONFIG_ISDN_DRV_ACT2000
+>=20
+> That's all I can find in a quick look.
 
-Right, I should have mentioned that the polarity can only be set on
-the AT86RF231. The 230 has to make do with rising edge or high level.
+  thanks. it seems we really can not delete ISDN.
 
-> [...] discussion on the linux-zigbee list [...]
+  :-)
 
-I read it now. I think this chip is a bit unusual in that it has a
-very generic interface and for many things there is more than one way
-to do them (e.g., interrupts, reset, TX_START), which results in
-different hardware configurations, and differences in driver
-behaviour.
+--=20
+Chen Gang
 
-> I fear the sollution to read the interrupt status register in a loop
-> (as suggested in your earlier message) would leave chances for race
-> conditions or spurious interrupts, depending on wheter interrupts are
-> enabled before or after reading the status register. 
-
-I don't think the analysis is worse than for any other solution.
-There are also tools and methods that can help if it becomes too
-much of a headache.
-
-If you don't like the loop, a double read without loop would work in
-this case as well:
-
-	irq = read_and_clear_interrupt();
-	enable_irq();
-	irq |= read_and_clear_interrupt();
-	...
-
-By the way, once we switch to early RX_ON, I think we'll have the
-problem that two TRX_END interrupts may be generated without any
-host action between them, in which case the first will be
-interpreted as the end of sending and the second will be ignored,
-leaving a received frame in the buffer, which in turn leaves
-dynamic buffer protection on and thus prevents any further
-reception.
-
-Not sure yet how to solve this. I also don't know how bad our
-latencies are, but I fear that they can at times be substantial.
-Already a single register access with spi-gpio takes some 80 us
-(measured on an otherwise idle Ben, 336 MHz MIPS).
-
-> Surely for this option, the assumption that (at least nearly) every
-> platform supports edge type interrupts should hold.
-
-I think you're on relatively safe ground with the assumption that
-most relevant platforms per se can do it. But if the interrupt line
-happens to be shared with some other device, then level trigger is
-quite popular.
-
-- Werner
+Asianux Corporation
