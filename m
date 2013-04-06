@@ -1,136 +1,78 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 48/51] netfilter: implement RFC3168 5.3 (ecn protection) for ipv6 fragmentation handling
-Date: Sat,  6 Apr 2013 14:17:47 +0200
-Message-ID: <1365250670-14993-49-git-send-email-pablo@netfilter.org>
-References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 3/7] net: ethernet: ks8851: use spi_get_drvdata() and
+ spi_set_drvdata()
+Date: Sat, 06 Apr 2013 15:35:43 +0900
+Message-ID: <000e01ce3290$f670a560$e351f020$%han@samsung.com>
+References: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
+To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:39109 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1163481Ab3DFMS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Apr 2013 08:18:56 -0400
-In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Received: from mailout1.samsung.com ([203.254.224.24]:21804 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932525Ab3DFGfo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 02:35:44 -0400
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MKT009RAMB7ZD90@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Sat, 06 Apr 2013 15:35:43 +0900 (KST)
+In-reply-to: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Use the wrapper functions for getting and setting the driver data using
+spi_device instead of using dev_{get|set}_drvdata with &spi->dev, so we
+can directly pass a struct spi_device.
 
-This change brings netfilter reassembly logic on par with
-reassembly.c. The corresponding change in net-next is
-(eec2e61 ipv6: implement RFC3168 5.3 (ecn protection) for
-ipv6 fragmentation handling)
-
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- net/ipv6/netfilter/nf_conntrack_reasm.c |   22 ++++++++++++++++++++--
- 1 file changed, 20 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/micrel/ks8851.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 6700069..dffdc1a 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -41,6 +41,7 @@
- #include <net/rawv6.h>
- #include <net/ndisc.h>
- #include <net/addrconf.h>
-+#include <net/inet_ecn.h>
- #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
- #include <linux/sysctl.h>
- #include <linux/netfilter.h>
-@@ -138,6 +139,11 @@ static void __net_exit nf_ct_frags6_sysctl_unregister(struct net *net)
- }
- #endif
- 
-+static inline u8 ip6_frag_ecn(const struct ipv6hdr *ipv6h)
-+{
-+	return 1 << (ipv6_get_dsfield(ipv6h) & INET_ECN_MASK);
-+}
-+
- static unsigned int nf_hashfn(struct inet_frag_queue *q)
+diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+index 8fb4812..4a3b499 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -1367,7 +1367,7 @@ static int ks8851_read_selftest(struct ks8851_net *ks)
+ #ifdef CONFIG_PM
+ static int ks8851_suspend(struct spi_device *spi, pm_message_t state)
  {
- 	const struct frag_queue *nq;
-@@ -166,7 +172,7 @@ static void nf_ct_frag6_expire(unsigned long data)
- /* Creation primitives. */
- static inline struct frag_queue *fq_find(struct net *net, __be32 id,
- 					 u32 user, struct in6_addr *src,
--					 struct in6_addr *dst)
-+					 struct in6_addr *dst, u8 ecn)
+-	struct ks8851_net *ks = dev_get_drvdata(&spi->dev);
++	struct ks8851_net *ks = spi_get_drvdata(spi);
+ 	struct net_device *dev = ks->netdev;
+ 
+ 	if (netif_running(dev)) {
+@@ -1380,7 +1380,7 @@ static int ks8851_suspend(struct spi_device *spi, pm_message_t state)
+ 
+ static int ks8851_resume(struct spi_device *spi)
  {
- 	struct inet_frag_queue *q;
- 	struct ip6_create_arg arg;
-@@ -176,6 +182,7 @@ static inline struct frag_queue *fq_find(struct net *net, __be32 id,
- 	arg.user = user;
- 	arg.src = src;
- 	arg.dst = dst;
-+	arg.ecn = ecn;
+-	struct ks8851_net *ks = dev_get_drvdata(&spi->dev);
++	struct ks8851_net *ks = spi_get_drvdata(spi);
+ 	struct net_device *dev = ks->netdev;
  
- 	read_lock_bh(&nf_frags.lock);
- 	hash = inet6_hash_frag(id, src, dst, nf_frags.rnd);
-@@ -196,6 +203,7 @@ static int nf_ct_frag6_queue(struct frag_queue *fq, struct sk_buff *skb,
- 	struct sk_buff *prev, *next;
- 	unsigned int payload_len;
- 	int offset, end;
-+	u8 ecn;
+ 	if (netif_running(dev)) {
+@@ -1456,7 +1456,7 @@ static int ks8851_probe(struct spi_device *spi)
+ 	SET_ETHTOOL_OPS(ndev, &ks8851_ethtool_ops);
+ 	SET_NETDEV_DEV(ndev, &spi->dev);
  
- 	if (fq->q.last_in & INET_FRAG_COMPLETE) {
- 		pr_debug("Already completed\n");
-@@ -213,6 +221,8 @@ static int nf_ct_frag6_queue(struct frag_queue *fq, struct sk_buff *skb,
- 		return -1;
- 	}
+-	dev_set_drvdata(&spi->dev, ks);
++	spi_set_drvdata(spi, ks);
  
-+	ecn = ip6_frag_ecn(ipv6_hdr(skb));
-+
- 	if (skb->ip_summed == CHECKSUM_COMPLETE) {
- 		const unsigned char *nh = skb_network_header(skb);
- 		skb->csum = csum_sub(skb->csum,
-@@ -317,6 +327,7 @@ found:
- 	}
- 	fq->q.stamp = skb->tstamp;
- 	fq->q.meat += skb->len;
-+	fq->ecn |= ecn;
- 	if (payload_len > fq->q.max_size)
- 		fq->q.max_size = payload_len;
- 	add_frag_mem_limit(&fq->q, skb->truesize);
-@@ -352,12 +363,17 @@ nf_ct_frag6_reasm(struct frag_queue *fq, struct net_device *dev)
+ 	ndev->if_port = IF_PORT_100BASET;
+ 	ndev->netdev_ops = &ks8851_netdev_ops;
+@@ -1516,7 +1516,7 @@ err_irq:
+ 
+ static int ks8851_remove(struct spi_device *spi)
  {
- 	struct sk_buff *fp, *op, *head = fq->q.fragments;
- 	int    payload_len;
-+	u8 ecn;
+-	struct ks8851_net *priv = dev_get_drvdata(&spi->dev);
++	struct ks8851_net *priv = spi_get_drvdata(spi);
  
- 	inet_frag_kill(&fq->q, &nf_frags);
- 
- 	WARN_ON(head == NULL);
- 	WARN_ON(NFCT_FRAG6_CB(head)->offset != 0);
- 
-+	ecn = ip_frag_ecn_table[fq->ecn];
-+	if (unlikely(ecn == 0xff))
-+		goto out_fail;
-+
- 	/* Unfragmented part is taken from the first segment. */
- 	payload_len = ((head->data - skb_network_header(head)) -
- 		       sizeof(struct ipv6hdr) + fq->q.len -
-@@ -428,6 +444,7 @@ nf_ct_frag6_reasm(struct frag_queue *fq, struct net_device *dev)
- 	head->dev = dev;
- 	head->tstamp = fq->q.stamp;
- 	ipv6_hdr(head)->payload_len = htons(payload_len);
-+	ipv6_change_dsfield(ipv6_hdr(head), 0xff, ecn);
- 	IP6CB(head)->frag_max_size = sizeof(struct ipv6hdr) + fq->q.max_size;
- 
- 	/* Yes, and fold redundant checksum back. 8) */
-@@ -572,7 +589,8 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user)
- 	inet_frag_evictor(&net->nf_frag.frags, &nf_frags, false);
- 	local_bh_enable();
- 
--	fq = fq_find(net, fhdr->identification, user, &hdr->saddr, &hdr->daddr);
-+	fq = fq_find(net, fhdr->identification, user, &hdr->saddr, &hdr->daddr,
-+		     ip6_frag_ecn(hdr));
- 	if (fq == NULL) {
- 		pr_debug("Can't find and can't create new queue\n");
- 		goto ret_orig;
+ 	if (netif_msg_drv(priv))
+ 		dev_info(&spi->dev, "remove\n");
 -- 
-1.7.10.4
+1.7.2.5
