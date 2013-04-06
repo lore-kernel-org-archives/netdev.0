@@ -1,72 +1,44 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH] net: mvneta: enable features before registering the driver
-Date: Sat, 6 Apr 2013 20:47:01 +0200
-Message-ID: <20130406184701.GA16142@1wt.eu>
+From: Tetja Rediske <tetja@tetja.de>
+Subject: Re: PROBLEM: IPv6 TCP-Connections resetting
+Date: Sat, 06 Apr 2013 20:27:42 +0200
+Message-ID: <5160691E.2080105@tetja.de>
+References: <20130405174828.310a02c3@trediske.ws.office.manitu.net>  <20130406043534.GC30194@order.stressinduktion.org>  <1460015.zN3jPXiAbD@cpaasch-mac> <1365270879.3887.4.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: thomas.petazzoni@free-electrons.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: christoph.paasch@uclouvain.be,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	djduanjiong@gmail.com, netdev@vger.kernel.org,
+	steffen.klassert@secunet.com, Neal Cardwell <ncardwell@google.com>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:46479 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761703Ab3DFSrJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Apr 2013 14:47:09 -0400
-Content-Disposition: inline
+Received: from 159.75.238.89.in-addr.arpa.manitu.net ([89.238.75.159]:56642
+	"EHLO mail.py-ro.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759107Ab3DFSgi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 14:36:38 -0400
+In-Reply-To: <1365270879.3887.4.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi,
 
-I noticed that mvneta's tx-csum/sg were off until disabled then
-enabled, which led me to think that something was not made in the
-correct sequence. And indeed, setting the dev features _before_
-registering the device works much better :-)
+> OK, it seems bug was added in commit
+> ec18d9a2691d69cd14b48f9b919fddcef28b7f5c
+> (ipv6: Add redirect support to all protocol icmp error handlers.)
 
-This patch is for master but may be backported to 3.8-stable as well,
-which is where I first experienced the issue.
+> Not sure why Tetja Rediske  bisected t
+> 093d04d42fa094f6740bb188f0ad0c215ff61e2c
 
-Thanks,
-Willy
+there could be an simple explenation, because i couldn't realy provoke 
+it with direct connected machines I did it on one of our least important 
+DNS-Server, I did a "bad" everytime the connection fault and did a 
+"good" after a some succesful connects (with waiting Time in between). 
+If the Bug is based on an ICMPv6 redirect in the meantime a redirect 
+could be sent out without me noticing. I did not keep the tcpdump 
+running while bisect(?ing?).
 
->From 005eb7594a4304eed5e9b427ca6b745260c9eded Mon Sep 17 00:00:00 2001
-From: Willy Tarreau <w@1wt.eu>
-Date: Mon, 11 Mar 2013 07:56:58 +0100
-Subject: [PATCH] net: mvneta: enable features before registering the driver,
- not after
+I will happily try the patch, when I get to work Monday, weekend is 
+mostly for family. ;)
 
-It seems that the reason why the dev features were ignored was because
-they were enabled after registeration.
-
-Signed-off-by: Willy Tarreau <w@1wt.eu>
----
- drivers/net/ethernet/marvell/mvneta.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index cd345b8..1e628ce 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -2771,16 +2771,17 @@ static int mvneta_probe(struct platform_device *pdev)
- 
- 	netif_napi_add(dev, &pp->napi, mvneta_poll, pp->weight);
- 
-+	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM;
-+	dev->hw_features |= NETIF_F_SG | NETIF_F_IP_CSUM;
-+	dev->vlan_features |= NETIF_F_SG | NETIF_F_IP_CSUM;
-+	dev->priv_flags |= IFF_UNICAST_FLT;
-+
- 	err = register_netdev(dev);
- 	if (err < 0) {
- 		dev_err(&pdev->dev, "failed to register\n");
- 		goto err_deinit;
- 	}
- 
--	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM;
--	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM;
--	dev->priv_flags |= IFF_UNICAST_FLT;
--
- 	netdev_info(dev, "mac: %pM\n", dev->dev_addr);
- 
- 	platform_set_drvdata(pdev, pp->dev);
--- 
-1.7.12.2.21.g234cd45.dirty
+Tetja
