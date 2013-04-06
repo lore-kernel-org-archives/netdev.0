@@ -1,73 +1,117 @@
-From: Daniel Baluta <dbaluta@ixiacom.com>
-Subject: Re: [RFC PATCH ipsec] xfrm: use the right dev to fill xdst
-Date: Fri, 5 Apr 2013 15:59:59 +0300
-Message-ID: <CAEnQRZDUjaL56AggThN50sYJpA8diQdQ85D4xCqpwtv8PbR7mg@mail.gmail.com>
-References: <1365088362-4318-1-git-send-email-nicolas.dichtel@6wind.com>
-	<20130405094629.GV21448@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	herbert@gondor.apana.org.au, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 05/51] ipvs: no need to reroute anymore on DNAT over loopback
+Date: Sat,  6 Apr 2013 14:17:04 +0200
+Message-ID: <1365250670-14993-6-git-send-email-pablo@netfilter.org>
+References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:56364 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161627Ab3DENAB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Apr 2013 09:00:01 -0400
-Received: by mail-wg0-f50.google.com with SMTP id k13so3829203wgh.29
-        for <netdev@vger.kernel.org>; Fri, 05 Apr 2013 06:00:00 -0700 (PDT)
-In-Reply-To: <20130405094629.GV21448@secunet.com>
+Received: from mail.us.es ([193.147.175.20]:38905 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1163377Ab3DFMSU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Apr 2013 08:18:20 -0400
+In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 5, 2013 at 12:46 PM, Steffen Klassert
-<steffen.klassert@secunet.com> wrote:
-> On Thu, Apr 04, 2013 at 05:12:42PM +0200, Nicolas Dichtel wrote:
->> Commit bc8e4b954e46 (xfrm6: ensure to use the same dev when building a bundle)
->> broke IPsec for IPv4 over IPv6 tunnels (because dev points to an IPv4 only
->> interface, hence in6_dev_get(dev) returns NULL.
->
-> Can you give some informations on how to reproduce this? I'm running
-> interfamily tunnels on our testing environment and it seems to
-> work fine.
+From: Julian Anastasov <ja@ssi.bg>
 
-I can hit this in our setup while using some internal custom simulated
-interfaces.
+After commit 70e7341673 (ipv4: Show that ip_send_reply()
+is purely unicast routine.) we do not need to reroute DNAT-ed
+traffic over loopback because reply uses iph daddr and not
+rt_spec_dst.
 
-Anyhow, this should be reproducible with a classic IPv6 IPsec over
-IPv4 test.  Please make sure
-that the IPv4 interface doesn't have an IPv6 address set up.
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off by: Hans Schillstrom <hans@schillstrom.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_xmit.c |   58 ++-------------------------------------
+ 1 file changed, 2 insertions(+), 56 deletions(-)
 
-Quoting from commit bc8e4b954e46 (xfrm6: ensure to use the same dev
-when building a bundle):
-
--       xdst->u.rt6.rt6i_idev = in6_dev_get(rt->u.dst.dev);
-+       xdst->u.rt6.rt6i_idev = in6_dev_get(dev);
-
-dev points to IPv4 endpoint and if it doesn't have an IPv6 address
-associated then
-in6_dev_get(dev) will return NULL.
-
->
->>
->> After looking again into commit 25ee3286dcbc ([IPSEC]: Merge common code into
->> xfrm_bundle_create), it seems that previously we were using dev from the route,
->> for both IPv4 and IPv6.
->
-> I think this was the right way. We need to attach the dev from the
-> corresponding route to the xdst.
->
->>
->> In fact, xfrm_fill_dst() is called during a loop on chained dst, but dev points
->> always to the same device.
->
-> The way we do it now can be problematic for tunnel in tunnel scenarios too.
-> We assign the dev from the first tunnel route to all the bundle entries,
-> this looks really wrong.
->
-> I think your patch is correct, but I want understand the breaking
-> scenario first.
-
-thanks,
-Daniel.
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 6448a2e..c942d36 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -207,44 +207,6 @@ __ip_vs_get_out_rt(struct sk_buff *skb, struct ip_vs_dest *dest,
+ 	return rt;
+ }
+ 
+-/* Reroute packet to local IPv4 stack after DNAT */
+-static int
+-__ip_vs_reroute_locally(struct sk_buff *skb)
+-{
+-	struct rtable *rt = skb_rtable(skb);
+-	struct net_device *dev = rt->dst.dev;
+-	struct net *net = dev_net(dev);
+-	struct iphdr *iph = ip_hdr(skb);
+-
+-	if (rt_is_input_route(rt)) {
+-		unsigned long orefdst = skb->_skb_refdst;
+-
+-		if (ip_route_input(skb, iph->daddr, iph->saddr,
+-				   iph->tos, skb->dev))
+-			return 0;
+-		refdst_drop(orefdst);
+-	} else {
+-		struct flowi4 fl4 = {
+-			.daddr = iph->daddr,
+-			.saddr = iph->saddr,
+-			.flowi4_tos = RT_TOS(iph->tos),
+-			.flowi4_mark = skb->mark,
+-		};
+-
+-		rt = ip_route_output_key(net, &fl4);
+-		if (IS_ERR(rt))
+-			return 0;
+-		if (!(rt->rt_flags & RTCF_LOCAL)) {
+-			ip_rt_put(rt);
+-			return 0;
+-		}
+-		/* Drop old route. */
+-		skb_dst_drop(skb);
+-		skb_dst_set(skb, &rt->dst);
+-	}
+-	return 1;
+-}
+-
+ #ifdef CONFIG_IP_VS_IPV6
+ 
+ static inline int __ip_vs_is_local_route6(struct rt6_info *rt)
+@@ -635,16 +597,8 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 		/* drop old route */
+ 		skb_dst_drop(skb);
+ 		skb_dst_set(skb, &rt->dst);
+-	} else {
++	} else
+ 		ip_rt_put(rt);
+-		/*
+-		 * Some IPv4 replies get local address from routes,
+-		 * not from iph, so while we DNAT after routing
+-		 * we need this second input/output route.
+-		 */
+-		if (!__ip_vs_reroute_locally(skb))
+-			goto tx_error;
+-	}
+ 
+ 	IP_VS_DBG_PKT(10, AF_INET, pp, skb, 0, "After DNAT");
+ 
+@@ -1269,16 +1223,8 @@ ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 		/* drop the old route when skb is not shared */
+ 		skb_dst_drop(skb);
+ 		skb_dst_set(skb, &rt->dst);
+-	} else {
++	} else
+ 		ip_rt_put(rt);
+-		/*
+-		 * Some IPv4 replies get local address from routes,
+-		 * not from iph, so while we DNAT after routing
+-		 * we need this second input/output route.
+-		 */
+-		if (!__ip_vs_reroute_locally(skb))
+-			goto tx_error;
+-	}
+ 
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+ 	skb->local_df = 1;
+-- 
+1.7.10.4
