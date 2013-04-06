@@ -1,180 +1,293 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 04/51] ipvs: rename functions related to dst_cache reset
-Date: Sat,  6 Apr 2013 14:17:03 +0200
-Message-ID: <1365250670-14993-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 19/51] ipvs: convert lblc scheduler to rcu
+Date: Sat,  6 Apr 2013 14:17:18 +0200
+Message-ID: <1365250670-14993-20-git-send-email-pablo@netfilter.org>
 References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38876 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1163353Ab3DFMSK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Apr 2013 08:18:10 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Julian Anastasov <ja@ssi.bg>
 
-Move and give better names to two functions:
-
-- ip_vs_dst_reset to __ip_vs_dst_cache_reset
-- __ip_vs_dev_reset to ip_vs_forget_dev
+The schedule method now needs _rcu list-traversal
+primitive for svc->destinations. The read_lock for sched_lock is
+removed. Use a dead flag to prevent new entries to be created
+while scheduler is reclaimed. Use hlist for the hash table.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off by: Hans Schillstrom <hans@schillstrom.com>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/net/ip_vs.h             |    1 -
- net/netfilter/ipvs/ip_vs_ctl.c  |   34 ++++++++++++++++++++++------------
- net/netfilter/ipvs/ip_vs_xmit.c |   14 --------------
- 3 files changed, 22 insertions(+), 27 deletions(-)
+ net/netfilter/ipvs/ip_vs_lblc.c |   96 ++++++++++++++++++++++-----------------
+ 1 file changed, 55 insertions(+), 41 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 64db117..8ad73a8 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1427,7 +1427,6 @@ extern int ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- extern int ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 			   struct ip_vs_protocol *pp, int offset,
- 			   unsigned int hooknum, struct ip_vs_iphdr *iph);
--extern void ip_vs_dst_reset(struct ip_vs_dest *dest);
+diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
+index fdd89b9..b873e17 100644
+--- a/net/netfilter/ipvs/ip_vs_lblc.c
++++ b/net/netfilter/ipvs/ip_vs_lblc.c
+@@ -90,11 +90,12 @@
+  *      IP address and its destination server
+  */
+ struct ip_vs_lblc_entry {
+-	struct list_head        list;
++	struct hlist_node	list;
+ 	int			af;		/* address family */
+ 	union nf_inet_addr      addr;           /* destination IP address */
+-	struct ip_vs_dest       *dest;          /* real server (cache) */
++	struct ip_vs_dest __rcu	*dest;          /* real server (cache) */
+ 	unsigned long           lastuse;        /* last used time */
++	struct rcu_head		rcu_head;
+ };
  
- #ifdef CONFIG_IP_VS_IPV6
- extern int ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 6b55ba6..5265eaa 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -641,6 +641,17 @@ struct ip_vs_dest *ip_vs_find_dest(struct net  *net, int af,
- 	return dest;
- }
  
-+/* Release dst_cache for dest in user context */
-+static void __ip_vs_dst_cache_reset(struct ip_vs_dest *dest)
-+{
-+	struct dst_entry *old_dst;
-+
-+	old_dst = dest->dst_cache;
-+	dest->dst_cache = NULL;
-+	dst_release(old_dst);
-+	dest->dst_saddr.ip = 0;
-+}
-+
- /*
-  *  Lookup dest by {svc,addr,port} in the destination trash.
-  *  The destination trash is used to hold the destinations that are removed
-@@ -690,7 +701,7 @@ ip_vs_trash_get_dest(struct ip_vs_service *svc, const union nf_inet_addr *daddr,
- 				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
- 				      ntohs(dest->port));
- 			list_del(&dest->n_list);
--			ip_vs_dst_reset(dest);
-+			__ip_vs_dst_cache_reset(dest);
- 			__ip_vs_unbind_svc(dest);
- 			free_percpu(dest->stats.cpustats);
- 			kfree(dest);
-@@ -717,7 +728,7 @@ static void ip_vs_trash_cleanup(struct net *net)
+@@ -102,12 +103,14 @@ struct ip_vs_lblc_entry {
+  *      IPVS lblc hash table
+  */
+ struct ip_vs_lblc_table {
+-	struct list_head        bucket[IP_VS_LBLC_TAB_SIZE];  /* hash bucket */
++	struct rcu_head		rcu_head;
++	struct hlist_head __rcu bucket[IP_VS_LBLC_TAB_SIZE];  /* hash bucket */
++	struct timer_list       periodic_timer; /* collect stale entries */
+ 	atomic_t                entries;        /* number of entries */
+ 	int                     max_size;       /* maximum size of entries */
+-	struct timer_list       periodic_timer; /* collect stale entries */
+ 	int                     rover;          /* rover for expire check */
+ 	int                     counter;        /* counter for no expire */
++	bool			dead;
+ };
  
- 	list_for_each_entry_safe(dest, nxt, &ipvs->dest_trash, n_list) {
- 		list_del(&dest->n_list);
--		ip_vs_dst_reset(dest);
-+		__ip_vs_dst_cache_reset(dest);
- 		__ip_vs_unbind_svc(dest);
- 		free_percpu(dest->stats.cpustats);
- 		kfree(dest);
-@@ -811,7 +822,7 @@ __ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
- 	dest->l_threshold = udest->l_threshold;
  
- 	spin_lock_bh(&dest->dst_lock);
--	ip_vs_dst_reset(dest);
-+	__ip_vs_dst_cache_reset(dest);
- 	spin_unlock_bh(&dest->dst_lock);
+@@ -129,13 +132,16 @@ static ctl_table vs_vars_table[] = {
  
- 	if (add)
-@@ -1037,7 +1048,7 @@ static void __ip_vs_del_dest(struct net *net, struct ip_vs_dest *dest)
- 			      dest->vfwmark,
- 			      IP_VS_DBG_ADDR(dest->af, &dest->addr),
- 			      ntohs(dest->port));
--		ip_vs_dst_reset(dest);
-+		__ip_vs_dst_cache_reset(dest);
- 		/* simply decrease svc->refcnt here, let the caller check
- 		   and release the service if nobody refers to it.
- 		   Only user context can release destination and service,
-@@ -1496,11 +1507,10 @@ void ip_vs_service_net_cleanup(struct net *net)
- 	mutex_unlock(&__ip_vs_mutex);
- 	LeaveFunction(2);
- }
--/*
-- * Release dst hold by dst_cache
-- */
-+
-+/* Put all references for device (dst_cache) */
- static inline void
--__ip_vs_dev_reset(struct ip_vs_dest *dest, struct net_device *dev)
-+ip_vs_forget_dev(struct ip_vs_dest *dest, struct net_device *dev)
+ static inline void ip_vs_lblc_free(struct ip_vs_lblc_entry *en)
  {
- 	spin_lock_bh(&dest->dst_lock);
- 	if (dest->dst_cache && dest->dst_cache->dev == dev) {
-@@ -1509,7 +1519,7 @@ __ip_vs_dev_reset(struct ip_vs_dest *dest, struct net_device *dev)
- 			      IP_VS_DBG_ADDR(dest->af, &dest->addr),
- 			      ntohs(dest->port),
- 			      atomic_read(&dest->refcnt));
--		ip_vs_dst_reset(dest);
-+		__ip_vs_dst_cache_reset(dest);
- 	}
- 	spin_unlock_bh(&dest->dst_lock);
+-	list_del(&en->list);
++	struct ip_vs_dest *dest;
++
++	hlist_del_rcu(&en->list);
+ 	/*
+ 	 * We don't kfree dest because it is referred either by its service
+ 	 * or the trash dest list.
+ 	 */
+-	atomic_dec(&en->dest->refcnt);
+-	kfree(en);
++	dest = rcu_dereference_protected(en->dest, 1);
++	ip_vs_dest_put(dest);
++	kfree_rcu(en, rcu_head);
+ }
  
-@@ -1537,7 +1547,7 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
- 			if (net_eq(svc->net, net)) {
- 				list_for_each_entry(dest, &svc->destinations,
- 						    n_list) {
--					__ip_vs_dev_reset(dest, dev);
-+					ip_vs_forget_dev(dest, dev);
- 				}
- 			}
- 		}
-@@ -1546,7 +1556,7 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
- 			if (net_eq(svc->net, net)) {
- 				list_for_each_entry(dest, &svc->destinations,
- 						    n_list) {
--					__ip_vs_dev_reset(dest, dev);
-+					ip_vs_forget_dev(dest, dev);
- 				}
- 			}
  
-@@ -1554,7 +1564,7 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
- 	}
+@@ -165,15 +171,12 @@ ip_vs_lblc_hash(struct ip_vs_lblc_table *tbl, struct ip_vs_lblc_entry *en)
+ {
+ 	unsigned int hash = ip_vs_lblc_hashkey(en->af, &en->addr);
  
- 	list_for_each_entry(dest, &ipvs->dest_trash, n_list) {
--		__ip_vs_dev_reset(dest, dev);
-+		ip_vs_forget_dev(dest, dev);
- 	}
- 	mutex_unlock(&__ip_vs_mutex);
- 	LeaveFunction(2);
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 7cd7c61..6448a2e 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -362,20 +362,6 @@ __ip_vs_get_out_rt_v6(struct sk_buff *skb, struct ip_vs_dest *dest,
- #endif
+-	list_add(&en->list, &tbl->bucket[hash]);
++	hlist_add_head_rcu(&en->list, &tbl->bucket[hash]);
+ 	atomic_inc(&tbl->entries);
+ }
  
  
 -/*
-- *	Release dest->dst_cache before a dest is removed
+- *  Get ip_vs_lblc_entry associated with supplied parameters. Called under read
+- *  lock
 - */
--void
--ip_vs_dst_reset(struct ip_vs_dest *dest)
--{
--	struct dst_entry *old_dst;
++/* Get ip_vs_lblc_entry associated with supplied parameters. */
+ static inline struct ip_vs_lblc_entry *
+ ip_vs_lblc_get(int af, struct ip_vs_lblc_table *tbl,
+ 	       const union nf_inet_addr *addr)
+@@ -181,7 +184,7 @@ ip_vs_lblc_get(int af, struct ip_vs_lblc_table *tbl,
+ 	unsigned int hash = ip_vs_lblc_hashkey(af, addr);
+ 	struct ip_vs_lblc_entry *en;
+ 
+-	list_for_each_entry(en, &tbl->bucket[hash], list)
++	hlist_for_each_entry_rcu(en, &tbl->bucket[hash], list)
+ 		if (ip_vs_addr_equal(af, &en->addr, addr))
+ 			return en;
+ 
+@@ -209,14 +212,20 @@ ip_vs_lblc_new(struct ip_vs_lblc_table *tbl, const union nf_inet_addr *daddr,
+ 		ip_vs_addr_copy(dest->af, &en->addr, daddr);
+ 		en->lastuse = jiffies;
+ 
+-		atomic_inc(&dest->refcnt);
+-		en->dest = dest;
++		ip_vs_dest_hold(dest);
++		RCU_INIT_POINTER(en->dest, dest);
+ 
+ 		ip_vs_lblc_hash(tbl, en);
+-	} else if (en->dest != dest) {
+-		atomic_dec(&en->dest->refcnt);
+-		atomic_inc(&dest->refcnt);
+-		en->dest = dest;
++	} else {
++		struct ip_vs_dest *old_dest;
++
++		old_dest = rcu_dereference_protected(en->dest, 1);
++		if (old_dest != dest) {
++			ip_vs_dest_put(old_dest);
++			ip_vs_dest_hold(dest);
++			/* No ordering constraints for refcnt */
++			RCU_INIT_POINTER(en->dest, dest);
++		}
+ 	}
+ 
+ 	return en;
+@@ -226,17 +235,22 @@ ip_vs_lblc_new(struct ip_vs_lblc_table *tbl, const union nf_inet_addr *daddr,
+ /*
+  *      Flush all the entries of the specified table.
+  */
+-static void ip_vs_lblc_flush(struct ip_vs_lblc_table *tbl)
++static void ip_vs_lblc_flush(struct ip_vs_service *svc)
+ {
+-	struct ip_vs_lblc_entry *en, *nxt;
++	struct ip_vs_lblc_table *tbl = svc->sched_data;
++	struct ip_vs_lblc_entry *en;
++	struct hlist_node *next;
+ 	int i;
+ 
++	write_lock_bh(&svc->sched_lock);
++	tbl->dead = 1;
+ 	for (i=0; i<IP_VS_LBLC_TAB_SIZE; i++) {
+-		list_for_each_entry_safe(en, nxt, &tbl->bucket[i], list) {
++		hlist_for_each_entry_safe(en, next, &tbl->bucket[i], list) {
+ 			ip_vs_lblc_free(en);
+ 			atomic_dec(&tbl->entries);
+ 		}
+ 	}
++	write_unlock_bh(&svc->sched_lock);
+ }
+ 
+ static int sysctl_lblc_expiration(struct ip_vs_service *svc)
+@@ -252,7 +266,8 @@ static int sysctl_lblc_expiration(struct ip_vs_service *svc)
+ static inline void ip_vs_lblc_full_check(struct ip_vs_service *svc)
+ {
+ 	struct ip_vs_lblc_table *tbl = svc->sched_data;
+-	struct ip_vs_lblc_entry *en, *nxt;
++	struct ip_vs_lblc_entry *en;
++	struct hlist_node *next;
+ 	unsigned long now = jiffies;
+ 	int i, j;
+ 
+@@ -260,7 +275,7 @@ static inline void ip_vs_lblc_full_check(struct ip_vs_service *svc)
+ 		j = (j + 1) & IP_VS_LBLC_TAB_MASK;
+ 
+ 		write_lock(&svc->sched_lock);
+-		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
++		hlist_for_each_entry_safe(en, next, &tbl->bucket[j], list) {
+ 			if (time_before(now,
+ 					en->lastuse +
+ 					sysctl_lblc_expiration(svc)))
+@@ -293,7 +308,8 @@ static void ip_vs_lblc_check_expire(unsigned long data)
+ 	unsigned long now = jiffies;
+ 	int goal;
+ 	int i, j;
+-	struct ip_vs_lblc_entry *en, *nxt;
++	struct ip_vs_lblc_entry *en;
++	struct hlist_node *next;
+ 
+ 	if ((tbl->counter % COUNT_FOR_FULL_EXPIRATION) == 0) {
+ 		/* do full expiration check */
+@@ -315,7 +331,7 @@ static void ip_vs_lblc_check_expire(unsigned long data)
+ 		j = (j + 1) & IP_VS_LBLC_TAB_MASK;
+ 
+ 		write_lock(&svc->sched_lock);
+-		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
++		hlist_for_each_entry_safe(en, next, &tbl->bucket[j], list) {
+ 			if (time_before(now, en->lastuse + ENTRY_TIMEOUT))
+ 				continue;
+ 
+@@ -354,11 +370,12 @@ static int ip_vs_lblc_init_svc(struct ip_vs_service *svc)
+ 	 *    Initialize the hash buckets
+ 	 */
+ 	for (i=0; i<IP_VS_LBLC_TAB_SIZE; i++) {
+-		INIT_LIST_HEAD(&tbl->bucket[i]);
++		INIT_HLIST_HEAD(&tbl->bucket[i]);
+ 	}
+ 	tbl->max_size = IP_VS_LBLC_TAB_SIZE*16;
+ 	tbl->rover = 0;
+ 	tbl->counter = 1;
++	tbl->dead = 0;
+ 
+ 	/*
+ 	 *    Hook periodic timer for garbage collection
+@@ -379,10 +396,10 @@ static int ip_vs_lblc_done_svc(struct ip_vs_service *svc)
+ 	del_timer_sync(&tbl->periodic_timer);
+ 
+ 	/* got to clean up table entries here */
+-	ip_vs_lblc_flush(tbl);
++	ip_vs_lblc_flush(svc);
+ 
+ 	/* release the table itself */
+-	kfree(tbl);
++	kfree_rcu(tbl, rcu_head);
+ 	IP_VS_DBG(6, "LBLC hash table (memory=%Zdbytes) released\n",
+ 		  sizeof(*tbl));
+ 
+@@ -408,7 +425,7 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc)
+ 	 * The server with weight=0 is quiesced and will not receive any
+ 	 * new connection.
+ 	 */
+-	list_for_each_entry(dest, &svc->destinations, n_list) {
++	list_for_each_entry_rcu(dest, &svc->destinations, n_list) {
+ 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
+ 			continue;
+ 		if (atomic_read(&dest->weight) > 0) {
+@@ -423,7 +440,7 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc)
+ 	 *    Find the destination with the least load.
+ 	 */
+   nextstage:
+-	list_for_each_entry_continue(dest, &svc->destinations, n_list) {
++	list_for_each_entry_continue_rcu(dest, &svc->destinations, n_list) {
+ 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
+ 			continue;
+ 
+@@ -457,7 +474,7 @@ is_overloaded(struct ip_vs_dest *dest, struct ip_vs_service *svc)
+ 	if (atomic_read(&dest->activeconns) > atomic_read(&dest->weight)) {
+ 		struct ip_vs_dest *d;
+ 
+-		list_for_each_entry(d, &svc->destinations, n_list) {
++		list_for_each_entry_rcu(d, &svc->destinations, n_list) {
+ 			if (atomic_read(&d->activeconns)*2
+ 			    < atomic_read(&d->weight)) {
+ 				return 1;
+@@ -484,7 +501,6 @@ ip_vs_lblc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 	IP_VS_DBG(6, "%s(): Scheduling...\n", __func__);
+ 
+ 	/* First look in our cache */
+-	read_lock(&svc->sched_lock);
+ 	en = ip_vs_lblc_get(svc->af, tbl, &iph.daddr);
+ 	if (en) {
+ 		/* We only hold a read lock, but this is atomic */
+@@ -499,14 +515,11 @@ ip_vs_lblc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 		 * free up entries from the trash at any time.
+ 		 */
+ 
+-		if (en->dest->flags & IP_VS_DEST_F_AVAILABLE)
+-			dest = en->dest;
++		dest = rcu_dereference(en->dest);
++		if ((dest->flags & IP_VS_DEST_F_AVAILABLE) &&
++		    atomic_read(&dest->weight) > 0 && !is_overloaded(dest, svc))
++			goto out;
+ 	}
+-	read_unlock(&svc->sched_lock);
 -
--	old_dst = dest->dst_cache;
--	dest->dst_cache = NULL;
--	dst_release(old_dst);
--	dest->dst_saddr.ip = 0;
--}
--
- /* return NF_ACCEPT to allow forwarding or other NF_xxx on error */
- static inline int ip_vs_tunnel_xmit_prepare(struct sk_buff *skb,
- 					    struct ip_vs_conn *cp)
+-	/* If the destination has a weight and is not overloaded, use it */
+-	if (dest && atomic_read(&dest->weight) > 0 && !is_overloaded(dest, svc))
+-		goto out;
+ 
+ 	/* No cache entry or it is invalid, time to schedule */
+ 	dest = __ip_vs_lblc_schedule(svc);
+@@ -517,7 +530,8 @@ ip_vs_lblc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 
+ 	/* If we fail to create a cache entry, we'll just use the valid dest */
+ 	write_lock(&svc->sched_lock);
+-	ip_vs_lblc_new(tbl, &iph.daddr, dest);
++	if (!tbl->dead)
++		ip_vs_lblc_new(tbl, &iph.daddr, dest);
+ 	write_unlock(&svc->sched_lock);
+ 
+ out:
 -- 
 1.7.10.4
+
