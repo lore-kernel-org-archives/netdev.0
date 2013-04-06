@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 29/51] ipvs: do not expect result from done_service
-Date: Sat,  6 Apr 2013 14:17:28 +0200
-Message-ID: <1365250670-14993-30-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 14/51] ipvs: avoid kmem_cache_zalloc in ip_vs_conn_new
+Date: Sat,  6 Apr 2013 14:17:13 +0200
+Message-ID: <1365250670-14993-15-git-send-email-pablo@netfilter.org>
 References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,201 +12,113 @@ List-Id: netdev.vger.kernel.org
 
 From: Julian Anastasov <ja@ssi.bg>
 
-This method releases the scheduler state,
-it can not fail. Such change will help to properly
-replace the scheduler in following patch.
+We have many fields to set and few to reset,
+use kmem_cache_alloc instead to save some cycles.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off by: Hans Schillstrom <hans@schillstrom.com>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/net/ip_vs.h              |    4 ++--
- net/netfilter/ipvs/ip_vs_ctl.c   |    5 +----
- net/netfilter/ipvs/ip_vs_dh.c    |    4 +---
- net/netfilter/ipvs/ip_vs_lblc.c  |    4 +---
- net/netfilter/ipvs/ip_vs_lblcr.c |    4 +---
- net/netfilter/ipvs/ip_vs_sched.c |   13 ++++---------
- net/netfilter/ipvs/ip_vs_sh.c    |    4 +---
- net/netfilter/ipvs/ip_vs_wrr.c   |    4 +---
- 8 files changed, 12 insertions(+), 30 deletions(-)
+ include/net/ip_vs.h             |   15 +++++++++++++++
+ net/netfilter/ipvs/ip_vs_conn.c |   24 +++++++++++++++++++-----
+ 2 files changed, 34 insertions(+), 5 deletions(-)
 
 diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 18aeb85..4990de6 100644
+index 929e04c..43886bb 100644
 --- a/include/net/ip_vs.h
 +++ b/include/net/ip_vs.h
-@@ -806,7 +806,7 @@ struct ip_vs_scheduler {
- 	/* scheduler initializing service */
- 	int (*init_service)(struct ip_vs_service *svc);
- 	/* scheduling service finish */
--	int (*done_service)(struct ip_vs_service *svc);
-+	void (*done_service)(struct ip_vs_service *svc);
- 	/* scheduler updating service */
- 	int (*update_service)(struct ip_vs_service *svc);
- 	/* dest is linked */
-@@ -1392,7 +1392,7 @@ extern int register_ip_vs_scheduler(struct ip_vs_scheduler *scheduler);
- extern int unregister_ip_vs_scheduler(struct ip_vs_scheduler *scheduler);
- extern int ip_vs_bind_scheduler(struct ip_vs_service *svc,
- 				struct ip_vs_scheduler *scheduler);
--extern int ip_vs_unbind_scheduler(struct ip_vs_service *svc);
-+extern void ip_vs_unbind_scheduler(struct ip_vs_service *svc);
- extern struct ip_vs_scheduler *ip_vs_scheduler_get(const char *sched_name);
- extern void ip_vs_scheduler_put(struct ip_vs_scheduler *scheduler);
- extern struct ip_vs_conn *
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 80d366b..d022726 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1334,10 +1334,7 @@ ip_vs_edit_service(struct ip_vs_service *svc, struct ip_vs_service_user_kern *u)
- 		/*
- 		 * Unbind the old scheduler
- 		 */
--		if ((ret = ip_vs_unbind_scheduler(svc))) {
--			old_sched = sched;
--			goto out_unlock;
--		}
-+		ip_vs_unbind_scheduler(svc);
- 
- 		/*
- 		 * Bind the new scheduler
-diff --git a/net/netfilter/ipvs/ip_vs_dh.c b/net/netfilter/ipvs/ip_vs_dh.c
-index ebe80f4..89c2723 100644
---- a/net/netfilter/ipvs/ip_vs_dh.c
-+++ b/net/netfilter/ipvs/ip_vs_dh.c
-@@ -174,7 +174,7 @@ static int ip_vs_dh_init_svc(struct ip_vs_service *svc)
+@@ -233,6 +233,21 @@ static inline void ip_vs_addr_copy(int af, union nf_inet_addr *dst,
+ 	dst->ip = src->ip;
  }
  
- 
--static int ip_vs_dh_done_svc(struct ip_vs_service *svc)
-+static void ip_vs_dh_done_svc(struct ip_vs_service *svc)
- {
- 	struct ip_vs_dh_state *s = svc->sched_data;
- 
-@@ -185,8 +185,6 @@ static int ip_vs_dh_done_svc(struct ip_vs_service *svc)
- 	kfree_rcu(s, rcu_head);
- 	IP_VS_DBG(6, "DH hash table (memory=%Zdbytes) released\n",
- 		  sizeof(struct ip_vs_dh_bucket)*IP_VS_DH_TAB_SIZE);
--
--	return 0;
- }
- 
- 
-diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
-index b873e17..c7ff978 100644
---- a/net/netfilter/ipvs/ip_vs_lblc.c
-+++ b/net/netfilter/ipvs/ip_vs_lblc.c
-@@ -388,7 +388,7 @@ static int ip_vs_lblc_init_svc(struct ip_vs_service *svc)
- }
- 
- 
--static int ip_vs_lblc_done_svc(struct ip_vs_service *svc)
-+static void ip_vs_lblc_done_svc(struct ip_vs_service *svc)
- {
- 	struct ip_vs_lblc_table *tbl = svc->sched_data;
- 
-@@ -402,8 +402,6 @@ static int ip_vs_lblc_done_svc(struct ip_vs_service *svc)
- 	kfree_rcu(tbl, rcu_head);
- 	IP_VS_DBG(6, "LBLC hash table (memory=%Zdbytes) released\n",
- 		  sizeof(*tbl));
--
--	return 0;
- }
- 
- 
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index c22f173..6049b85 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -555,7 +555,7 @@ static int ip_vs_lblcr_init_svc(struct ip_vs_service *svc)
- }
- 
- 
--static int ip_vs_lblcr_done_svc(struct ip_vs_service *svc)
-+static void ip_vs_lblcr_done_svc(struct ip_vs_service *svc)
- {
- 	struct ip_vs_lblcr_table *tbl = svc->sched_data;
- 
-@@ -569,8 +569,6 @@ static int ip_vs_lblcr_done_svc(struct ip_vs_service *svc)
- 	kfree_rcu(tbl, rcu_head);
- 	IP_VS_DBG(6, "LBLCR hash table (memory=%Zdbytes) released\n",
- 		  sizeof(*tbl));
--
--	return 0;
- }
- 
- 
-diff --git a/net/netfilter/ipvs/ip_vs_sched.c b/net/netfilter/ipvs/ip_vs_sched.c
-index 7f11d3d..1b715d0 100644
---- a/net/netfilter/ipvs/ip_vs_sched.c
-+++ b/net/netfilter/ipvs/ip_vs_sched.c
-@@ -64,22 +64,17 @@ int ip_vs_bind_scheduler(struct ip_vs_service *svc,
- /*
-  *  Unbind a service with its scheduler
-  */
--int ip_vs_unbind_scheduler(struct ip_vs_service *svc)
-+void ip_vs_unbind_scheduler(struct ip_vs_service *svc)
- {
- 	struct ip_vs_scheduler *sched = svc->scheduler;
- 
- 	if (!sched)
--		return 0;
++static inline void ip_vs_addr_set(int af, union nf_inet_addr *dst,
++				  const union nf_inet_addr *src)
++{
++#ifdef CONFIG_IP_VS_IPV6
++	if (af == AF_INET6) {
++		dst->in6 = src->in6;
 +		return;
- 
--	if (sched->done_service) {
--		if (sched->done_service(svc) != 0) {
--			pr_err("%s(): done error\n", __func__);
--			return -EINVAL;
--		}
--	}
-+	if (sched->done_service)
-+		sched->done_service(svc);
- 
- 	svc->scheduler = NULL;
--	return 0;
- }
- 
- 
-diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
-index 55e76d8..81c1a10 100644
---- a/net/netfilter/ipvs/ip_vs_sh.c
-+++ b/net/netfilter/ipvs/ip_vs_sh.c
-@@ -187,7 +187,7 @@ static int ip_vs_sh_init_svc(struct ip_vs_service *svc)
- }
- 
- 
--static int ip_vs_sh_done_svc(struct ip_vs_service *svc)
-+static void ip_vs_sh_done_svc(struct ip_vs_service *svc)
++	}
++#endif
++	dst->ip = src->ip;
++	dst->all[1] = 0;
++	dst->all[2] = 0;
++	dst->all[3] = 0;
++}
++
+ static inline int ip_vs_addr_equal(int af, const union nf_inet_addr *a,
+ 				   const union nf_inet_addr *b)
  {
- 	struct ip_vs_sh_state *s = svc->sched_data;
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index 416015b..e3e2b4d 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -861,7 +861,7 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p,
+ 	struct ip_vs_proto_data *pd = ip_vs_proto_data_get(p->net,
+ 							   p->protocol);
  
-@@ -198,8 +198,6 @@ static int ip_vs_sh_done_svc(struct ip_vs_service *svc)
- 	kfree_rcu(s, rcu_head);
- 	IP_VS_DBG(6, "SH hash table (memory=%Zdbytes) released\n",
- 		  sizeof(struct ip_vs_sh_bucket)*IP_VS_SH_TAB_SIZE);
--
--	return 0;
- }
+-	cp = kmem_cache_zalloc(ip_vs_conn_cachep, GFP_ATOMIC);
++	cp = kmem_cache_alloc(ip_vs_conn_cachep, GFP_ATOMIC);
+ 	if (cp == NULL) {
+ 		IP_VS_ERR_RL("%s(): no memory\n", __func__);
+ 		return NULL;
+@@ -872,13 +872,13 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p,
+ 	ip_vs_conn_net_set(cp, p->net);
+ 	cp->af		   = p->af;
+ 	cp->protocol	   = p->protocol;
+-	ip_vs_addr_copy(p->af, &cp->caddr, p->caddr);
++	ip_vs_addr_set(p->af, &cp->caddr, p->caddr);
+ 	cp->cport	   = p->cport;
+-	ip_vs_addr_copy(p->af, &cp->vaddr, p->vaddr);
++	ip_vs_addr_set(p->af, &cp->vaddr, p->vaddr);
+ 	cp->vport	   = p->vport;
+ 	/* proto should only be IPPROTO_IP if d_addr is a fwmark */
+-	ip_vs_addr_copy(p->protocol == IPPROTO_IP ? AF_UNSPEC : p->af,
+-			&cp->daddr, daddr);
++	ip_vs_addr_set(p->protocol == IPPROTO_IP ? AF_UNSPEC : p->af,
++		       &cp->daddr, daddr);
+ 	cp->dport          = dport;
+ 	cp->flags	   = flags;
+ 	cp->fwmark         = fwmark;
+@@ -887,6 +887,10 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p,
+ 		cp->pe = p->pe;
+ 		cp->pe_data = p->pe_data;
+ 		cp->pe_data_len = p->pe_data_len;
++	} else {
++		cp->pe = NULL;
++		cp->pe_data = NULL;
++		cp->pe_data_len = 0;
+ 	}
+ 	spin_lock_init(&cp->lock);
  
- 
-diff --git a/net/netfilter/ipvs/ip_vs_wrr.c b/net/netfilter/ipvs/ip_vs_wrr.c
-index 98cb05e..a74fd9b 100644
---- a/net/netfilter/ipvs/ip_vs_wrr.c
-+++ b/net/netfilter/ipvs/ip_vs_wrr.c
-@@ -129,7 +129,7 @@ static int ip_vs_wrr_init_svc(struct ip_vs_service *svc)
- }
- 
- 
--static int ip_vs_wrr_done_svc(struct ip_vs_service *svc)
-+static void ip_vs_wrr_done_svc(struct ip_vs_service *svc)
- {
- 	struct ip_vs_wrr_mark *mark = svc->sched_data;
- 
-@@ -137,8 +137,6 @@ static int ip_vs_wrr_done_svc(struct ip_vs_service *svc)
- 	 *    Release the mark variable
+@@ -897,18 +901,28 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p,
  	 */
- 	kfree_rcu(mark, rcu_head);
--
--	return 0;
- }
+ 	atomic_set(&cp->refcnt, 1);
  
++	cp->control = NULL;
+ 	atomic_set(&cp->n_control, 0);
+ 	atomic_set(&cp->in_pkts, 0);
+ 
++	cp->packet_xmit = NULL;
++	cp->app = NULL;
++	cp->app_data = NULL;
++	/* reset struct ip_vs_seq */
++	cp->in_seq.delta = 0;
++	cp->out_seq.delta = 0;
++
+ 	atomic_inc(&ipvs->conn_count);
+ 	if (flags & IP_VS_CONN_F_NO_CPORT)
+ 		atomic_inc(&ip_vs_conn_no_cport_cnt);
+ 
+ 	/* Bind the connection with a destination server */
++	cp->dest = NULL;
+ 	ip_vs_bind_dest(cp, dest);
+ 
+ 	/* Set its state and timeout */
+ 	cp->state = 0;
++	cp->old_state = 0;
+ 	cp->timeout = 3*HZ;
+ 	cp->sync_endtime = jiffies & ~3UL;
  
 -- 
 1.7.10.4
