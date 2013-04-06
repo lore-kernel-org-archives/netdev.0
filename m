@@ -1,99 +1,127 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH] bonding: remove sysfs before removing devices
-Date: Sat, 6 Apr 2013 01:21:33 +0200
-Message-ID: <20130405232133.GA19437@redhat.com>
-References: <1365003993-13181-1-git-send-email-vfalico@redhat.com>
- <515F4CEF.3030207@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 41/51] netfilter: xt_LOG: add net namespace support for xt_LOG
+Date: Sat,  6 Apr 2013 14:17:40 +0200
+Message-ID: <1365250670-14993-42-git-send-email-pablo@netfilter.org>
+References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57696 "EHLO mx1.redhat.com"
+Received: from mail.us.es ([193.147.175.20]:39079 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759881Ab3DEXXc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Apr 2013 19:23:32 -0400
-Content-Disposition: inline
-In-Reply-To: <515F4CEF.3030207@redhat.com>
+	id S1163467Ab3DFMSw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Apr 2013 08:18:52 -0400
+In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 06, 2013 at 12:15:11AM +0200, Nikolay Aleksandrov wrote:
->Hi,
->Sorry for the late reply but I was travelling this week. In my opinion this
->fix is wrong because in bond_uninit() (called by rtnl_link_unregister)
->you have:
->list_del(&bond->bond_list);
->which is linked in the bond_net dev_list which is freed by
->unregister_pernet_subsys.
+From: Gao feng <gaofeng@cn.fujitsu.com>
 
-Yep, you're right, I've hit it recently with the patch applied, and now
-working on it. However, I still think that the idea of the patch is correct
-- i.e. to first disable sysfs (especially bonding_masters) and only
-  afterwards to start removing everything else. Or, obviously, to finally
-add normal locking to sysfs functions.
+Add pernet support to xt_LOG by means of the new nf_log_set
+function added in (30e0c6a netfilter: nf_log: prepare net
+namespace support for loggers).
 
-Anyway, this corruption is really rare, so I'll wait for your fix next
-week.
+Since syslog ns has yet not been implemented, we don't want
+the containers to DDOS host's syslogd. So only enable ebt_log
+only from init_net and wait for syslog ns support
 
->You'll get a corrupted list warning at best.
->
->Here's a sample from running insmod max_bonds=3/rmmod in a loop with the
->patch applied:
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302186] ------------[ cut here
->]------------
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302191] WARNING: at
->lib/list_debug.c:62 __list_del_entry+0x82/0xd0()
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302192] Hardware name: VirtualBox
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302194] list_del corruption.
->next->prev should be ffff880036bc6860, but was ffff88002ee23000
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302194] Modules linked in:
->bonding(O-) ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6
->nf_conntrack_ipv4 nf_defrag_ipv4 ip6table_filter xt_conntrack
->nf_conntrack ip6_tables snd_hda_codec_idt snd_hda_intel snd_hda_codec
->snd_hwdep snd_seq snd_seq_device ppdev snd_pcm pcspkr snd_page_alloc
->i2c_piix4 joydev snd_timer snd soundcore i2c_core microcode parport_pc
->parport e1000 [last unloaded: bonding]
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302214] Call Trace:
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302219]  [<ffffffff8105e99f>]
->warn_slowpath_common+0x7f/0xc0
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302221]  [<ffffffff8105ea96>]
->warn_slowpath_fmt+0x46/0x50
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302225]  [<ffffffff8164efaf>]
->? printk+0x61/0x63
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302227]  [<ffffffff8130c302>]
->__list_del_entry+0x82/0xd0
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302229]  [<ffffffff8130c361>]
->list_del+0x11/0x40
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302233]  [<ffffffffa0187f70>]
->bond_uninit+0x70/0xd0 [bonding]
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302236]  [<ffffffff815486d8>]
->rollback_registered_many+0x158/0x220
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302238]  [<ffffffff815487f9>]
->unregister_netdevice_many+0x19/0x60
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302240]  [<ffffffff815575ae>]
->__rtnl_link_unregister+0x6e/0xb0
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302243]  [<ffffffff81557b7e>]
->rtnl_link_unregister+0x1e/0x30
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302246]  [<ffffffffa019359e>]
->bonding_exit+0x2d/0xa8f [bonding]
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302249]  [<ffffffff810c1dd0>]
->sys_delete_module+0x170/0x2d0
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302252]  [<ffffffff81014981>]
->? do_notify_resume+0x71/0xb0
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302255]  [<ffffffff81661899>]
->system_call_fastpath+0x16/0x1b
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302256] ---[ end trace
->31cca9f26623fa11 ]---
->Apr  5 23:54:54 dhcp-1-171 kernel: [   21.302417] bonding: bond1:
->released all slaves
->
->You can hit this also with a NULL pointer dereference.
->I have a correct fix for this bug which I intend to post next week when
->I get back and after some more testing.
->
->Please let me know if I've missed something about this patch.
->
->Best regards,
-> Nik
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/xt_LOG.c |   52 +++++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 49 insertions(+), 3 deletions(-)
+
+diff --git a/net/netfilter/xt_LOG.c b/net/netfilter/xt_LOG.c
+index fa40096..fe573f6 100644
+--- a/net/netfilter/xt_LOG.c
++++ b/net/netfilter/xt_LOG.c
+@@ -474,7 +474,14 @@ ipt_log_packet(u_int8_t pf,
+ 	       const struct nf_loginfo *loginfo,
+ 	       const char *prefix)
+ {
+-	struct sbuff *m = sb_open();
++	struct sbuff *m;
++	struct net *net = dev_net(in ? in : out);
++
++	/* FIXME: Disabled from containers until syslog ns is supported */
++	if (!net_eq(net, &init_net))
++		return;
++
++	m = sb_open();
+ 
+ 	if (!loginfo)
+ 		loginfo = &default_loginfo;
+@@ -798,7 +805,14 @@ ip6t_log_packet(u_int8_t pf,
+ 		const struct nf_loginfo *loginfo,
+ 		const char *prefix)
+ {
+-	struct sbuff *m = sb_open();
++	struct sbuff *m;
++	struct net *net = dev_net(in ? in : out);
++
++	/* FIXME: Disabled from containers until syslog ns is supported */
++	if (!net_eq(net, &init_net))
++		return;
++
++	m = sb_open();
+ 
+ 	if (!loginfo)
+ 		loginfo = &default_loginfo;
+@@ -893,23 +907,55 @@ static struct nf_logger ip6t_log_logger __read_mostly = {
+ };
+ #endif
+ 
++static int __net_init log_net_init(struct net *net)
++{
++	nf_log_set(net, NFPROTO_IPV4, &ipt_log_logger);
++#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
++	nf_log_set(net, NFPROTO_IPV6, &ip6t_log_logger);
++#endif
++	return 0;
++}
++
++static void __net_exit log_net_exit(struct net *net)
++{
++	nf_log_unset(net, &ipt_log_logger);
++#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
++	nf_log_unset(net, &ip6t_log_logger);
++#endif
++}
++
++static struct pernet_operations log_net_ops = {
++	.init = log_net_init,
++	.exit = log_net_exit,
++};
++
+ static int __init log_tg_init(void)
+ {
+ 	int ret;
+ 
++	ret = register_pernet_subsys(&log_net_ops);
++	if (ret < 0)
++		goto err_pernet;
++
+ 	ret = xt_register_targets(log_tg_regs, ARRAY_SIZE(log_tg_regs));
+ 	if (ret < 0)
+-		return ret;
++		goto err_target;
+ 
+ 	nf_log_register(NFPROTO_IPV4, &ipt_log_logger);
+ #if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
+ 	nf_log_register(NFPROTO_IPV6, &ip6t_log_logger);
+ #endif
+ 	return 0;
++
++err_target:
++	unregister_pernet_subsys(&log_net_ops);
++err_pernet:
++	return ret;
+ }
+ 
+ static void __exit log_tg_exit(void)
+ {
++	unregister_pernet_subsys(&log_net_ops);
+ 	nf_log_unregister(&ipt_log_logger);
+ #if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
+ 	nf_log_unregister(&ip6t_log_logger);
+-- 
+1.7.10.4
