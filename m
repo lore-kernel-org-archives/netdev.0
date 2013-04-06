@@ -1,118 +1,109 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 38/51] netfilter: make /proc/net/netfilter pernet
-Date: Sat,  6 Apr 2013 14:17:37 +0200
-Message-ID: <1365250670-14993-39-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 45/51] netfilter: enable per netns support for nf_loggers
+Date: Sat,  6 Apr 2013 14:17:44 +0200
+Message-ID: <1365250670-14993-46-git-send-email-pablo@netfilter.org>
 References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:39095 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1163474Ab3DFMSy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Apr 2013 08:18:54 -0400
 In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Gao feng <gaofeng@cn.fujitsu.com>
 
-This patch makes this proc dentry pernet. So far only init_net
-had a /proc/net/netfilter directory.
+After this patch, all nf_loggers support net namespace. Still
+xt_LOG and ebt_log require syslog netns support.
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/net_namespace.h   |    2 ++
- include/net/netns/netfilter.h |   11 +++++++++++
- net/netfilter/core.c          |   33 +++++++++++++++++++++++++++++----
- 3 files changed, 42 insertions(+), 4 deletions(-)
- create mode 100644 include/net/netns/netfilter.h
+ net/netfilter/nf_log.c |   21 ---------------------
+ 1 file changed, 21 deletions(-)
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index de644bc..b176978 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -17,6 +17,7 @@
- #include <net/netns/ipv6.h>
- #include <net/netns/sctp.h>
- #include <net/netns/dccp.h>
-+#include <net/netns/netfilter.h>
- #include <net/netns/x_tables.h>
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- #include <net/netns/conntrack.h>
-@@ -94,6 +95,7 @@ struct net {
- 	struct netns_dccp	dccp;
- #endif
- #ifdef CONFIG_NETFILTER
-+	struct netns_nf		nf;
- 	struct netns_xt		xt;
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- 	struct netns_ct		ct;
-diff --git a/include/net/netns/netfilter.h b/include/net/netns/netfilter.h
-new file mode 100644
-index 0000000..248ca1c
---- /dev/null
-+++ b/include/net/netns/netfilter.h
-@@ -0,0 +1,11 @@
-+#ifndef __NETNS_NETFILTER_H
-+#define __NETNS_NETFILTER_H
-+
-+#include <linux/proc_fs.h>
-+
-+struct netns_nf {
-+#if defined CONFIG_PROC_FS
-+	struct proc_dir_entry *proc_netfilter;
-+#endif
-+};
-+#endif
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index a9c488b..b085184 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -281,6 +281,34 @@ struct proc_dir_entry *proc_net_netfilter;
- EXPORT_SYMBOL(proc_net_netfilter);
- #endif
- 
-+static int __net_init netfilter_net_init(struct net *net)
-+{
-+#ifdef CONFIG_PROC_FS
-+	net->nf.proc_netfilter = proc_net_mkdir(net, "netfilter",
-+						net->proc_net);
-+	if (net_eq(net, &init_net)) {
-+		if (!net->nf.proc_netfilter)
-+			return -ENOMEM;
-+		else
-+			proc_net_netfilter = net->nf.proc_netfilter;
-+	} else if (!net->nf.proc_netfilter) {
-+		pr_err("cannot create netfilter proc entry");
-+		return -ENOMEM;
-+	}
-+#endif
-+	return 0;
-+}
-+
-+static void __net_exit netfilter_net_exit(struct net *net)
-+{
-+	remove_proc_entry("netfilter", net->proc_net);
-+}
-+
-+static struct pernet_operations netfilter_net_ops = {
-+	.init = netfilter_net_init,
-+	.exit = netfilter_net_exit,
-+};
-+
- void __init netfilter_init(void)
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+index 8d331dc..388656d 100644
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -35,9 +35,6 @@ void nf_log_set(struct net *net, u_int8_t pf, const struct nf_logger *logger)
  {
- 	int i, h;
-@@ -289,11 +317,8 @@ void __init netfilter_init(void)
- 			INIT_LIST_HEAD(&nf_hooks[i][h]);
- 	}
+ 	const struct nf_logger *log;
  
--#ifdef CONFIG_PROC_FS
--	proc_net_netfilter = proc_mkdir("netfilter", init_net.proc_net);
--	if (!proc_net_netfilter)
-+	if (register_pernet_subsys(&netfilter_net_ops) < 0)
- 		panic("cannot create netfilter proc entry");
--#endif
+-	if (!net_eq(net, &init_net))
+-		return;
+-
+ 	if (pf == NFPROTO_UNSPEC)
+ 		return;
  
- 	if (netfilter_log_init() < 0)
- 		panic("cannot initialize nf_log");
+@@ -56,9 +53,6 @@ void nf_log_unset(struct net *net, const struct nf_logger *logger)
+ 	int i;
+ 	const struct nf_logger *log;
+ 
+-	if (!net_eq(net, &init_net))
+-		return;
+-
+ 	mutex_lock(&nf_log_mutex);
+ 	for (i = 0; i < NFPROTO_NUMPROTO; i++) {
+ 		log = rcu_dereference_protected(net->nf.nf_loggers[i],
+@@ -94,7 +88,6 @@ int nf_log_register(u_int8_t pf, struct nf_logger *logger)
+ 
+ 	mutex_unlock(&nf_log_mutex);
+ 
+-	nf_log_set(&init_net, pf, logger);
+ 	return 0;
+ }
+ EXPORT_SYMBOL(nf_log_register);
+@@ -107,17 +100,12 @@ void nf_log_unregister(struct nf_logger *logger)
+ 	for (i = 0; i < NFPROTO_NUMPROTO; i++)
+ 		list_del(&logger->list[i]);
+ 	mutex_unlock(&nf_log_mutex);
+-
+-	nf_log_unset(&init_net, logger);
+ }
+ EXPORT_SYMBOL(nf_log_unregister);
+ 
+ int nf_log_bind_pf(struct net *net, u_int8_t pf,
+ 		   const struct nf_logger *logger)
+ {
+-	if (!net_eq(net, &init_net))
+-		return 0;
+-
+ 	if (pf >= ARRAY_SIZE(net->nf.nf_loggers))
+ 		return -EINVAL;
+ 	mutex_lock(&nf_log_mutex);
+@@ -133,9 +121,6 @@ EXPORT_SYMBOL(nf_log_bind_pf);
+ 
+ void nf_log_unbind_pf(struct net *net, u_int8_t pf)
+ {
+-	if (!net_eq(net, &init_net))
+-		return;
+-
+ 	if (pf >= ARRAY_SIZE(net->nf.nf_loggers))
+ 		return;
+ 	mutex_lock(&nf_log_mutex);
+@@ -157,9 +142,6 @@ void nf_log_packet(struct net *net,
+ 	char prefix[NF_LOG_PREFIXLEN];
+ 	const struct nf_logger *logger;
+ 
+-	if (!net_eq(net, &init_net))
+-		return;
+-
+ 	rcu_read_lock();
+ 	logger = rcu_dereference(net->nf.nf_loggers[pf]);
+ 	if (logger) {
+@@ -274,9 +256,6 @@ static int nf_log_proc_dostring(ctl_table *table, int write,
+ 	struct net *net = current->nsproxy->net_ns;
+ 
+ 	if (write) {
+-		if (!net_eq(net, &init_net))
+-			return -EPERM;
+-
+ 		if (size > sizeof(buf))
+ 			size = sizeof(buf);
+ 		if (copy_from_user(buf, buffer, size))
 -- 
 1.7.10.4
-
