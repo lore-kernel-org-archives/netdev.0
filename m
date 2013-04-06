@@ -1,69 +1,94 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 6/7] net: wireless: p54spi: use spi_get_drvdata() and
- spi_set_drvdata()
-Date: Sat, 06 Apr 2013 15:36:47 +0900
-Message-ID: <001101ce3291$1d1846a0$5748d3e0$%han@samsung.com>
-References: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: PROBLEM: IPv6 TCP-Connections resetting
+Date: Sat, 06 Apr 2013 11:18:01 +0200
+Message-ID: <4796401.BXlLaoS7qO@cpaasch-mac>
+References: <20130405174828.310a02c3@trediske.ws.office.manitu.net> <20130406043534.GC30194@order.stressinduktion.org> <1460015.zN3jPXiAbD@cpaasch-mac>
+Reply-To: christoph.paasch@uclouvain.be
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Tetja Rediske <tetja@tetja.de>, djduanjiong@gmail.com,
+	netdev@vger.kernel.org, steffen.klassert@secunet.com,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:21852 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754821Ab3DFGgt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 02:36:49 -0400
-Received: from epcpsbgr1.samsung.com
- (u141.gpu120.samsung.co.kr [203.254.230.141])
- by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MKT00MHUMD7DE60@mailout1.samsung.com> for
- netdev@vger.kernel.org; Sat, 06 Apr 2013 15:36:48 +0900 (KST)
-In-reply-to: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
-Content-language: ko
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:35779 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1163074Ab3DFJSF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 05:18:05 -0400
+Received: by mail-wg0-f46.google.com with SMTP id l18so4348579wgh.1
+        for <netdev@vger.kernel.org>; Sat, 06 Apr 2013 02:18:03 -0700 (PDT)
+In-Reply-To: <1460015.zN3jPXiAbD@cpaasch-mac>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the wrapper functions for getting and setting the driver data using
-spi_device instead of using dev_{get|set}_drvdata with &spi->dev, so we
-can directly pass a struct spi_device.
+On Saturday 06 April 2013 11:14:44 Christoph Paasch wrote:
+> From: Christoph Paasch <christoph.paasch@uclouvain.be>
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Argh...
+Sorry, my e-mail client messed up the patch. Here the resend:
+
+
+------
+
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Date: Sat, 6 Apr 2013 10:21:01 +0200
+Subject: [PATCH] ipv6/tcp: Stop processing ICMPv6 redirect messages
+
+Upon reception of an ICMPv6 Redirect message, we should not continue
+inside tcp_v6_err. Otherwise, an error will be reported or request-socks
+will be closed.
+
+Adds also some parantheses to respect codingstyle guidelines.
+
+Reported-by: Tetja Rediske <tetja@tetja.de>
+Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 ---
- drivers/net/wireless/p54/p54spi.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ net/ipv6/tcp_ipv6.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/p54/p54spi.c b/drivers/net/wireless/p54/p54spi.c
-index 4fd49a0..978e7eb 100644
---- a/drivers/net/wireless/p54/p54spi.c
-+++ b/drivers/net/wireless/p54/p54spi.c
-@@ -396,7 +396,7 @@ static int p54spi_rx(struct p54s_priv *priv)
- static irqreturn_t p54spi_interrupt(int irq, void *config)
- {
- 	struct spi_device *spi = config;
--	struct p54s_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct p54s_priv *priv = spi_get_drvdata(spi);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 1033d2b..24434c5 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -386,6 +386,7 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
  
- 	ieee80211_queue_work(priv->hw, &priv->work);
+ 		if (dst)
+ 			dst->ops->redirect(dst, sk, skb);
++		goto out;
+ 	}
  
-@@ -609,7 +609,7 @@ static int p54spi_probe(struct spi_device *spi)
+ 	if (type == ICMPV6_PKT_TOOBIG) {
+@@ -441,16 +442,18 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 			sk->sk_error_report(sk);		/* Wake people up to see the error (see connect in sock.c) */
  
- 	priv = hw->priv;
- 	priv->hw = hw;
--	dev_set_drvdata(&spi->dev, priv);
-+	spi_set_drvdata(spi, priv);
- 	priv->spi = spi;
+ 			tcp_done(sk);
+-		} else
++		} else {
+ 			sk->sk_err_soft = err;
++		}
+ 		goto out;
+ 	}
  
- 	spi->bits_per_word = 16;
-@@ -685,7 +685,7 @@ err_free:
+ 	if (!sock_owned_by_user(sk) && np->recverr) {
+ 		sk->sk_err = err;
+ 		sk->sk_error_report(sk);
+-	} else
++	} else {
+ 		sk->sk_err_soft = err;
++	}
  
- static int p54spi_remove(struct spi_device *spi)
- {
--	struct p54s_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct p54s_priv *priv = spi_get_drvdata(spi);
- 
- 	p54_unregister_common(priv->hw);
- 
+ out:
+ 	bh_unlock_sock(sk);
 -- 
-1.7.2.5
+1.8.1.227.g44fe835
+
+
+
+-- 
+IP Networking Lab --- http://inl.info.ucl.ac.be
+MultiPath TCP in the Linux Kernel --- http://multipath-tcp.org
+UCLouvain
+--
