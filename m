@@ -1,66 +1,42 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 00/51] netfilter updates for net-next
-Date: Sat, 6 Apr 2013 15:52:44 +0200
-Message-ID: <20130406135244.GA17634@localhost>
+Subject: [PATCH 22/51] ipvs: convert nq scheduler to rcu
+Date: Sat,  6 Apr 2013 14:17:21 +0200
+Message-ID: <1365250670-14993-23-git-send-email-pablo@netfilter.org>
 References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
- <alpine.LFD.2.00.1304061612270.1627@ja.ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:43619 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:38946 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422919Ab3DFNxJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Apr 2013 09:53:09 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1304061612270.1627@ja.ssi.bg>
+	id S1163409Ab3DFMSa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Apr 2013 08:18:30 -0400
+In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Julian,
+From: Julian Anastasov <ja@ssi.bg>
 
-On Sat, Apr 06, 2013 at 04:14:54PM +0300, Julian Anastasov wrote:
-> > Julian Anastasov (33):
-> 
-> 	Is the "net: add skb_dst_set_noref_force" change
-> missing here?
+The schedule method now needs _rcu list-traversal
+primitive for svc->destinations.
 
-It's there, but I forgot to include it in this pull request email:
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_nq.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-http://1984.lsi.us.es/git/nf-next/commit/?id=932bc4d7a53ba418de67fdab533248df5b36c752
-
-> >   ipvs: avoid routing by TOS for real server
-> >   ipvs: prefer NETDEV_DOWN event to free cached dsts
-> >   ipvs: convert the IP_VS_XMIT macros to functions
-> >   ipvs: rename functions related to dst_cache reset
-> >   ipvs: no need to reroute anymore on DNAT over loopback
-> >   ipvs: do not use skb_share_check
-> >   ipvs: consolidate all dst checks on transmit in one place
-> >   ipvs: optimize dst usage for real server
-> >   ipvs: convert app locks
-> >   ipvs: remove rs_lock by using RCU
-> >   ipvs: convert locks used in persistence engines
-> >   ipvs: convert connection locking
-> >   ipvs: reorder keys in connection structure
-> >   ipvs: avoid kmem_cache_zalloc in ip_vs_conn_new
-> >   ipvs: change ip_vs_sched_lock to mutex
-> >   ipvs: preparations for using rcu in schedulers
-> >   ipvs: add ip_vs_dest_hold and ip_vs_dest_put
-> >   ipvs: convert dh scheduler to rcu
-> >   ipvs: convert lblc scheduler to rcu
-> >   ipvs: convert lblcr scheduler to rcu
-> >   ipvs: convert lc scheduler to rcu
-> >   ipvs: convert nq scheduler to rcu
-> >   ipvs: convert rr scheduler to rcu
-> >   ipvs: convert sed scheduler to rcu
-> >   ipvs: convert sh scheduler to rcu
-> >   ipvs: convert wlc scheduler to rcu
-> >   ipvs: convert wrr scheduler to rcu
-> >   ipvs: reorganize dest trash
-> >   ipvs: do not expect result from done_service
-> >   ipvs: convert sched_lock to spin lock
-> >   ipvs: convert dests to rcu
-> >   ipvs: convert services to rcu
-> >   ipvs: do not disable bh for long time
+diff --git a/net/netfilter/ipvs/ip_vs_nq.c b/net/netfilter/ipvs/ip_vs_nq.c
+index 984d9c1..51dc0cf 100644
+--- a/net/netfilter/ipvs/ip_vs_nq.c
++++ b/net/netfilter/ipvs/ip_vs_nq.c
+@@ -75,7 +75,7 @@ ip_vs_nq_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 	 * new connections.
+ 	 */
+ 
+-	list_for_each_entry(dest, &svc->destinations, n_list) {
++	list_for_each_entry_rcu(dest, &svc->destinations, n_list) {
+ 
+ 		if (dest->flags & IP_VS_DEST_F_OVERLOAD ||
+ 		    !atomic_read(&dest->weight))
+-- 
+1.7.10.4
