@@ -1,99 +1,97 @@
-From: Jiang Liu <liuj97@gmail.com>
-Subject: [PATCH v4, part3 09/41] mm: use totalram_pages instead of num_physpages at runtime
-Date: Sat,  6 Apr 2013 22:32:08 +0800
-Message-ID: <1365258760-30821-10-git-send-email-jiang.liu@huawei.com>
-References: <1365258760-30821-1-git-send-email-jiang.liu@huawei.com>
-Cc: Jiang Liu <jiang.liu@huawei.com>,
-	David Rientjes <rientjes@google.com>,
-	Wen Congyang <wency@cn.fujitsu.com>,
-	Mel Gorman <mgorman@suse.de>, Minchan Kim <minchan@kernel.org>,
-	KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
-	Michal Hocko <mhocko@suse.cz>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	David Howells <dhowells@redhat.com>,
-	Mark Salter <msalter@redhat.com>,
-	Jianguo Wu <wujianguo@huawei.com>, linux-mm@kvack.org,
-	linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Miklos Szeredi <miklos@szeredi.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	fuse-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1365258760-30821-1-git-send-email-jiang.liu@huawei.com>
-Sender: linux-arch-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 40/51] netfilter: ebt_log: add net namespace support for ebt_log
+Date: Sat,  6 Apr 2013 14:17:39 +0200
+Message-ID: <1365250670-14993-41-git-send-email-pablo@netfilter.org>
+References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The global variable num_physpages is scheduled to be removed, so use
-totalram_pages instead of num_physpages at runtime.
+From: Gao feng <gaofeng@cn.fujitsu.com>
 
-Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
-Cc: Miklos Szeredi <miklos@szeredi.hu>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: fuse-devel@lists.sourceforge.net
-Cc: linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org
+Add pernet support to ebt_log by means of the new nf_log_set
+function added in (30e0c6a netfilter: nf_log: prepare net
+namespace support for loggers).
+
+Since syslog ns has yet not been implemented, we don't want
+the containers to DDOS host's syslogd. So only enable ebt_log
+only from init_net and wait for syslog ns support.
+
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- fs/fuse/inode.c          |    2 +-
- kernel/power/snapshot.c  |    4 ++--
- net/ipv4/inet_fragment.c |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+ net/bridge/netfilter/ebt_log.c |   37 +++++++++++++++++++++++++++++++++++--
+ 1 file changed, 35 insertions(+), 2 deletions(-)
 
-diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
-index 137185c..0bca95d 100644
---- a/fs/fuse/inode.c
-+++ b/fs/fuse/inode.c
-@@ -782,7 +782,7 @@ static const struct super_operations fuse_super_operations = {
- static void sanitize_global_limit(unsigned *limit)
+diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
+index 08e5ea5..9878eb8 100644
+--- a/net/bridge/netfilter/ebt_log.c
++++ b/net/bridge/netfilter/ebt_log.c
+@@ -78,6 +78,11 @@ ebt_log_packet(u_int8_t pf, unsigned int hooknum,
+    const char *prefix)
  {
- 	if (*limit == 0)
--		*limit = ((num_physpages << PAGE_SHIFT) >> 13) /
-+		*limit = ((totalram_pages << PAGE_SHIFT) >> 13) /
- 			 sizeof(struct fuse_req);
+ 	unsigned int bitmask;
++	struct net *net = dev_net(in ? in : out);
++
++	/* FIXME: Disabled from containers until syslog ns is supported */
++	if (!net_eq(net, &init_net))
++		return;
  
- 	if (*limit >= 1 << 16)
-diff --git a/kernel/power/snapshot.c b/kernel/power/snapshot.c
-index 0de2857..8b5d1cd 100644
---- a/kernel/power/snapshot.c
-+++ b/kernel/power/snapshot.c
-@@ -1651,7 +1651,7 @@ unsigned long snapshot_get_image_size(void)
- static int init_header(struct swsusp_info *info)
+ 	spin_lock_bh(&ebt_log_lock);
+ 	printk(KERN_SOH "%c%s IN=%s OUT=%s MAC source = %pM MAC dest = %pM proto = 0x%04x",
+@@ -207,19 +212,47 @@ static struct nf_logger ebt_log_logger __read_mostly = {
+ 	.me		= THIS_MODULE,
+ };
+ 
++static int __net_init ebt_log_net_init(struct net *net)
++{
++	nf_log_set(net, NFPROTO_BRIDGE, &ebt_log_logger);
++	return 0;
++}
++
++static void __net_exit ebt_log_net_fini(struct net *net)
++{
++	nf_log_unset(net, &ebt_log_logger);
++}
++
++static struct pernet_operations ebt_log_net_ops = {
++	.init = ebt_log_net_init,
++	.exit = ebt_log_net_fini,
++};
++
+ static int __init ebt_log_init(void)
  {
- 	memset(info, 0, sizeof(struct swsusp_info));
--	info->num_physpages = num_physpages;
-+	info->num_physpages = get_num_physpages();
- 	info->image_pages = nr_copy_pages;
- 	info->pages = snapshot_get_image_size();
- 	info->size = info->pages;
-@@ -1795,7 +1795,7 @@ static int check_header(struct swsusp_info *info)
- 	char *reason;
+ 	int ret;
  
- 	reason = check_image_kernel(info);
--	if (!reason && info->num_physpages != num_physpages)
-+	if (!reason && info->num_physpages != get_num_physpages())
- 		reason = "memory size";
- 	if (reason) {
- 		printk(KERN_ERR "PM: Image mismatch: %s\n", reason);
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 2bff045..425eb23 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -83,7 +83,7 @@ void inet_frags_init(struct inet_frags *f)
++	ret = register_pernet_subsys(&ebt_log_net_ops);
++	if (ret < 0)
++		goto err_pernet;
++
+ 	ret = xt_register_target(&ebt_log_tg_reg);
+ 	if (ret < 0)
+-		return ret;
++		goto err_target;
++
+ 	nf_log_register(NFPROTO_BRIDGE, &ebt_log_logger);
+-	return 0;
++
++	return ret;
++
++err_target:
++	unregister_pernet_subsys(&ebt_log_net_ops);
++err_pernet:
++	return ret;
+ }
  
- 	rwlock_init(&f->lock);
- 
--	f->rnd = (u32) ((num_physpages ^ (num_physpages>>7)) ^
-+	f->rnd = (u32) ((totalram_pages ^ (totalram_pages >> 7)) ^
- 				   (jiffies ^ (jiffies >> 6)));
- 
- 	setup_timer(&f->secret_timer, inet_frag_secret_rebuild,
+ static void __exit ebt_log_fini(void)
+ {
++	unregister_pernet_subsys(&ebt_log_net_ops);
+ 	nf_log_unregister(&ebt_log_logger);
+ 	xt_unregister_target(&ebt_log_tg_reg);
+ }
 -- 
-1.7.9.5
+1.7.10.4
+
