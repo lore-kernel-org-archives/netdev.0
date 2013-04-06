@@ -1,106 +1,118 @@
-From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: [PATCH v2] mac802154: Keep track of the
-	channel when changed
-Date: Fri,  5 Apr 2013 19:03:10 -0400
-Message-ID: <1365202990-9006-1-git-send-email-alan@signal11.us>
-References: <515F4017.6060404@signal11.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <515F4017.6060404-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 38/51] netfilter: make /proc/net/netfilter pernet
+Date: Sat,  6 Apr 2013 14:17:37 +0200
+Message-ID: <1365250670-14993-39-git-send-email-pablo@netfilter.org>
+References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Two sections checked whether the current channel != the new channel
-without ever setting the current channel variables.
+From: Gao feng <gaofeng@cn.fujitsu.com>
 
-1. net/mac802154/tx.c: Prevent set_channel() from getting called every
-time a packet is sent.
+This patch makes this proc dentry pernet. So far only init_net
+had a /proc/net/netfilter directory.
 
-2. net/mac802154/mib.c: Lock (pib_lock) accesses to current_channel and
-current_page and make sure they are updated when the channel has been
-changed.
-
-Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/mac802154/mib.c | 12 +++++++++++-
- net/mac802154/tx.c  |  3 +++
- 2 files changed, 14 insertions(+), 1 deletion(-)
+ include/net/net_namespace.h   |    2 ++
+ include/net/netns/netfilter.h |   11 +++++++++++
+ net/netfilter/core.c          |   33 +++++++++++++++++++++++++++++----
+ 3 files changed, 42 insertions(+), 4 deletions(-)
+ create mode 100644 include/net/netns/netfilter.h
 
-diff --git a/net/mac802154/mib.c b/net/mac802154/mib.c
-index f03e55f..8ded97c 100644
---- a/net/mac802154/mib.c
-+++ b/net/mac802154/mib.c
-@@ -176,9 +176,15 @@ static void phy_chan_notify(struct work_struct *work)
- 	struct mac802154_sub_if_data *priv = netdev_priv(nw->dev);
- 	int res;
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index de644bc..b176978 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -17,6 +17,7 @@
+ #include <net/netns/ipv6.h>
+ #include <net/netns/sctp.h>
+ #include <net/netns/dccp.h>
++#include <net/netns/netfilter.h>
+ #include <net/netns/x_tables.h>
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ #include <net/netns/conntrack.h>
+@@ -94,6 +95,7 @@ struct net {
+ 	struct netns_dccp	dccp;
+ #endif
+ #ifdef CONFIG_NETFILTER
++	struct netns_nf		nf;
+ 	struct netns_xt		xt;
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	struct netns_ct		ct;
+diff --git a/include/net/netns/netfilter.h b/include/net/netns/netfilter.h
+new file mode 100644
+index 0000000..248ca1c
+--- /dev/null
++++ b/include/net/netns/netfilter.h
+@@ -0,0 +1,11 @@
++#ifndef __NETNS_NETFILTER_H
++#define __NETNS_NETFILTER_H
++
++#include <linux/proc_fs.h>
++
++struct netns_nf {
++#if defined CONFIG_PROC_FS
++	struct proc_dir_entry *proc_netfilter;
++#endif
++};
++#endif
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index a9c488b..b085184 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -281,6 +281,34 @@ struct proc_dir_entry *proc_net_netfilter;
+ EXPORT_SYMBOL(proc_net_netfilter);
+ #endif
  
-+	mutex_lock(&priv->hw->phy->pib_lock);
- 	res = hw->ops->set_channel(&hw->hw, priv->page, priv->chan);
- 	if (res)
- 		pr_debug("set_channel failed\n");
-+	else {
-+		priv->hw->phy->current_channel = priv->chan;
-+		priv->hw->phy->current_page = priv->page;
++static int __net_init netfilter_net_init(struct net *net)
++{
++#ifdef CONFIG_PROC_FS
++	net->nf.proc_netfilter = proc_net_mkdir(net, "netfilter",
++						net->proc_net);
++	if (net_eq(net, &init_net)) {
++		if (!net->nf.proc_netfilter)
++			return -ENOMEM;
++		else
++			proc_net_netfilter = net->nf.proc_netfilter;
++	} else if (!net->nf.proc_netfilter) {
++		pr_err("cannot create netfilter proc entry");
++		return -ENOMEM;
 +	}
-+	mutex_unlock(&priv->hw->phy->pib_lock);
- 
- 	kfree(nw);
- }
-@@ -195,8 +201,11 @@ void mac802154_dev_set_page_channel(struct net_device *dev, u8 page, u8 chan)
- 	priv->chan = chan;
- 	spin_unlock_bh(&priv->mib_lock);
- 
-+	mutex_lock(&priv->hw->phy->pib_lock);
- 	if (priv->hw->phy->current_channel != priv->chan ||
- 	    priv->hw->phy->current_page != priv->page) {
-+		mutex_unlock(&priv->hw->phy->pib_lock);
++#endif
++	return 0;
++}
 +
- 		work = kzalloc(sizeof(*work), GFP_ATOMIC);
- 		if (!work)
- 			return;
-@@ -204,5 +213,6 @@ void mac802154_dev_set_page_channel(struct net_device *dev, u8 page, u8 chan)
- 		INIT_WORK(&work->work, phy_chan_notify);
- 		work->dev = dev;
- 		queue_work(priv->hw->dev_workqueue, &work->work);
--	}
-+	} else
-+		mutex_unlock(&priv->hw->phy->pib_lock);
- }
-diff --git a/net/mac802154/tx.c b/net/mac802154/tx.c
-index 3fd3e07..6d16473 100644
---- a/net/mac802154/tx.c
-+++ b/net/mac802154/tx.c
-@@ -58,6 +58,9 @@ static void mac802154_xmit_worker(struct work_struct *work)
- 			pr_debug("set_channel failed\n");
- 			goto out;
- 		}
++static void __net_exit netfilter_net_exit(struct net *net)
++{
++	remove_proc_entry("netfilter", net->proc_net);
++}
 +
-+		xw->priv->phy->current_channel = xw->chan;
-+		xw->priv->phy->current_page = xw->page;
++static struct pernet_operations netfilter_net_ops = {
++	.init = netfilter_net_init,
++	.exit = netfilter_net_exit,
++};
++
+ void __init netfilter_init(void)
+ {
+ 	int i, h;
+@@ -289,11 +317,8 @@ void __init netfilter_init(void)
+ 			INIT_LIST_HEAD(&nf_hooks[i][h]);
  	}
  
- 	res = xw->priv->ops->xmit(&xw->priv->hw, xw->skb);
+-#ifdef CONFIG_PROC_FS
+-	proc_net_netfilter = proc_mkdir("netfilter", init_net.proc_net);
+-	if (!proc_net_netfilter)
++	if (register_pernet_subsys(&netfilter_net_ops) < 0)
+ 		panic("cannot create netfilter proc entry");
+-#endif
+ 
+ 	if (netfilter_log_init() < 0)
+ 		panic("cannot initialize nf_log");
 -- 
-1.7.11.2
+1.7.10.4
 
-
-------------------------------------------------------------------------------
-Minimize network downtime and maximize team effectiveness.
-Reduce network management and security costs.Learn how to hire 
-the most talented Cisco Certified professionals. Visit the 
-Employer Resources Portal
-http://www.cisco.com/web/learning/employer_resources/index.html
