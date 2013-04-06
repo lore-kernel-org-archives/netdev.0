@@ -1,57 +1,180 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/51] ipvs: prefer NETDEV_DOWN event to free cached dsts
-Date: Sat,  6 Apr 2013 14:17:01 +0200
-Message-ID: <1365250670-14993-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 04/51] ipvs: rename functions related to dst_cache reset
+Date: Sat,  6 Apr 2013 14:17:03 +0200
+Message-ID: <1365250670-14993-5-git-send-email-pablo@netfilter.org>
 References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38871 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:38876 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1163349Ab3DFMSH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Apr 2013 08:18:07 -0400
+	id S1163353Ab3DFMSK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Apr 2013 08:18:10 -0400
 In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Julian Anastasov <ja@ssi.bg>
 
-The real server becomes unreachable on down event,
-no need to wait device unregistration. Should help in
-releasing dsts early before dst->dev is replaced with lo.
+Move and give better names to two functions:
+
+- ip_vs_dst_reset to __ip_vs_dst_cache_reset
+- __ip_vs_dev_reset to ip_vs_forget_dev
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 Signed-off by: Hans Schillstrom <hans@schillstrom.com>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_ctl.c |    8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ include/net/ip_vs.h             |    1 -
+ net/netfilter/ipvs/ip_vs_ctl.c  |   34 ++++++++++++++++++++++------------
+ net/netfilter/ipvs/ip_vs_xmit.c |   14 --------------
+ 3 files changed, 22 insertions(+), 27 deletions(-)
 
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 64db117..8ad73a8 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1427,7 +1427,6 @@ extern int ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ extern int ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 			   struct ip_vs_protocol *pp, int offset,
+ 			   unsigned int hooknum, struct ip_vs_iphdr *iph);
+-extern void ip_vs_dst_reset(struct ip_vs_dest *dest);
+ 
+ #ifdef CONFIG_IP_VS_IPV6
+ extern int ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
 diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 8104120..6b55ba6 100644
+index 6b55ba6..5265eaa 100644
 --- a/net/netfilter/ipvs/ip_vs_ctl.c
 +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1514,10 +1514,8 @@ __ip_vs_dev_reset(struct ip_vs_dest *dest, struct net_device *dev)
+@@ -641,6 +641,17 @@ struct ip_vs_dest *ip_vs_find_dest(struct net  *net, int af,
+ 	return dest;
+ }
+ 
++/* Release dst_cache for dest in user context */
++static void __ip_vs_dst_cache_reset(struct ip_vs_dest *dest)
++{
++	struct dst_entry *old_dst;
++
++	old_dst = dest->dst_cache;
++	dest->dst_cache = NULL;
++	dst_release(old_dst);
++	dest->dst_saddr.ip = 0;
++}
++
+ /*
+  *  Lookup dest by {svc,addr,port} in the destination trash.
+  *  The destination trash is used to hold the destinations that are removed
+@@ -690,7 +701,7 @@ ip_vs_trash_get_dest(struct ip_vs_service *svc, const union nf_inet_addr *daddr,
+ 				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
+ 				      ntohs(dest->port));
+ 			list_del(&dest->n_list);
+-			ip_vs_dst_reset(dest);
++			__ip_vs_dst_cache_reset(dest);
+ 			__ip_vs_unbind_svc(dest);
+ 			free_percpu(dest->stats.cpustats);
+ 			kfree(dest);
+@@ -717,7 +728,7 @@ static void ip_vs_trash_cleanup(struct net *net)
+ 
+ 	list_for_each_entry_safe(dest, nxt, &ipvs->dest_trash, n_list) {
+ 		list_del(&dest->n_list);
+-		ip_vs_dst_reset(dest);
++		__ip_vs_dst_cache_reset(dest);
+ 		__ip_vs_unbind_svc(dest);
+ 		free_percpu(dest->stats.cpustats);
+ 		kfree(dest);
+@@ -811,7 +822,7 @@ __ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
+ 	dest->l_threshold = udest->l_threshold;
+ 
+ 	spin_lock_bh(&dest->dst_lock);
+-	ip_vs_dst_reset(dest);
++	__ip_vs_dst_cache_reset(dest);
  	spin_unlock_bh(&dest->dst_lock);
  
+ 	if (add)
+@@ -1037,7 +1048,7 @@ static void __ip_vs_del_dest(struct net *net, struct ip_vs_dest *dest)
+ 			      dest->vfwmark,
+ 			      IP_VS_DBG_ADDR(dest->af, &dest->addr),
+ 			      ntohs(dest->port));
+-		ip_vs_dst_reset(dest);
++		__ip_vs_dst_cache_reset(dest);
+ 		/* simply decrease svc->refcnt here, let the caller check
+ 		   and release the service if nobody refers to it.
+ 		   Only user context can release destination and service,
+@@ -1496,11 +1507,10 @@ void ip_vs_service_net_cleanup(struct net *net)
+ 	mutex_unlock(&__ip_vs_mutex);
+ 	LeaveFunction(2);
  }
 -/*
-- * Netdev event receiver
-- * Currently only NETDEV_UNREGISTER is handled, i.e. if we hold a reference to
-- * a device that is "unregister" it must be released.
-+/* Netdev event receiver
-+ * Currently only NETDEV_DOWN is handled to release refs to cached dsts
-  */
- static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
- 			    void *ptr)
-@@ -1529,7 +1527,7 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
- 	struct ip_vs_dest *dest;
- 	unsigned int idx;
+- * Release dst hold by dst_cache
+- */
++
++/* Put all references for device (dst_cache) */
+ static inline void
+-__ip_vs_dev_reset(struct ip_vs_dest *dest, struct net_device *dev)
++ip_vs_forget_dev(struct ip_vs_dest *dest, struct net_device *dev)
+ {
+ 	spin_lock_bh(&dest->dst_lock);
+ 	if (dest->dst_cache && dest->dst_cache->dev == dev) {
+@@ -1509,7 +1519,7 @@ __ip_vs_dev_reset(struct ip_vs_dest *dest, struct net_device *dev)
+ 			      IP_VS_DBG_ADDR(dest->af, &dest->addr),
+ 			      ntohs(dest->port),
+ 			      atomic_read(&dest->refcnt));
+-		ip_vs_dst_reset(dest);
++		__ip_vs_dst_cache_reset(dest);
+ 	}
+ 	spin_unlock_bh(&dest->dst_lock);
  
--	if (event != NETDEV_UNREGISTER || !ipvs)
-+	if (event != NETDEV_DOWN || !ipvs)
- 		return NOTIFY_DONE;
- 	IP_VS_DBG(3, "%s() dev=%s\n", __func__, dev->name);
- 	EnterFunction(2);
+@@ -1537,7 +1547,7 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
+ 			if (net_eq(svc->net, net)) {
+ 				list_for_each_entry(dest, &svc->destinations,
+ 						    n_list) {
+-					__ip_vs_dev_reset(dest, dev);
++					ip_vs_forget_dev(dest, dev);
+ 				}
+ 			}
+ 		}
+@@ -1546,7 +1556,7 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
+ 			if (net_eq(svc->net, net)) {
+ 				list_for_each_entry(dest, &svc->destinations,
+ 						    n_list) {
+-					__ip_vs_dev_reset(dest, dev);
++					ip_vs_forget_dev(dest, dev);
+ 				}
+ 			}
+ 
+@@ -1554,7 +1564,7 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
+ 	}
+ 
+ 	list_for_each_entry(dest, &ipvs->dest_trash, n_list) {
+-		__ip_vs_dev_reset(dest, dev);
++		ip_vs_forget_dev(dest, dev);
+ 	}
+ 	mutex_unlock(&__ip_vs_mutex);
+ 	LeaveFunction(2);
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 7cd7c61..6448a2e 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -362,20 +362,6 @@ __ip_vs_get_out_rt_v6(struct sk_buff *skb, struct ip_vs_dest *dest,
+ #endif
+ 
+ 
+-/*
+- *	Release dest->dst_cache before a dest is removed
+- */
+-void
+-ip_vs_dst_reset(struct ip_vs_dest *dest)
+-{
+-	struct dst_entry *old_dst;
+-
+-	old_dst = dest->dst_cache;
+-	dest->dst_cache = NULL;
+-	dst_release(old_dst);
+-	dest->dst_saddr.ip = 0;
+-}
+-
+ /* return NF_ACCEPT to allow forwarding or other NF_xxx on error */
+ static inline int ip_vs_tunnel_xmit_prepare(struct sk_buff *skb,
+ 					    struct ip_vs_conn *cp)
 -- 
 1.7.10.4
