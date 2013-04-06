@@ -1,90 +1,72 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: PROBLEM: IPv6 TCP-Connections resetting
-Date: Sat, 06 Apr 2013 21:43:36 +0400
-Message-ID: <51605EC8.7090900@cogentembedded.com>
-References: <20130405174828.310a02c3@trediske.ws.office.manitu.net> <20130406043534.GC30194@order.stressinduktion.org> <1460015.zN3jPXiAbD@cpaasch-mac> <4796401.BXlLaoS7qO@cpaasch-mac>
+From: Willy Tarreau <w@1wt.eu>
+Subject: [PATCH] net: mvneta: enable features before registering the driver
+Date: Sat, 6 Apr 2013 20:47:01 +0200
+Message-ID: <20130406184701.GA16142@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Tetja Rediske <tetja@tetja.de>, djduanjiong@gmail.com,
-	netdev@vger.kernel.org, steffen.klassert@secunet.com,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: christoph.paasch@uclouvain.be
+Content-Type: text/plain; charset=us-ascii
+Cc: thomas.petazzoni@free-electrons.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:35668 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753542Ab3DFRoi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 13:44:38 -0400
-Received: by mail-lb0-f176.google.com with SMTP id y8so4559903lbh.7
-        for <netdev@vger.kernel.org>; Sat, 06 Apr 2013 10:44:36 -0700 (PDT)
-In-Reply-To: <4796401.BXlLaoS7qO@cpaasch-mac>
+Received: from 1wt.eu ([62.212.114.60]:46479 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761703Ab3DFSrJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Apr 2013 14:47:09 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi,
 
-On 06-04-2013 13:18, Christoph Paasch wrote:
+I noticed that mvneta's tx-csum/sg were off until disabled then
+enabled, which led me to think that something was not made in the
+correct sequence. And indeed, setting the dev features _before_
+registering the device works much better :-)
 
-> From: Christoph Paasch <christoph.paasch@uclouvain.be>
-> Date: Sat, 6 Apr 2013 10:21:01 +0200
-> Subject: [PATCH] ipv6/tcp: Stop processing ICMPv6 redirect messages
+This patch is for master but may be backported to 3.8-stable as well,
+which is where I first experienced the issue.
 
-> Upon reception of an ICMPv6 Redirect message, we should not continue
-> inside tcp_v6_err. Otherwise, an error will be reported or request-so=
-cks
-> will be closed.
+Thanks,
+Willy
 
-> Adds also some parantheses to respect codingstyle guidelines.
+>From 005eb7594a4304eed5e9b427ca6b745260c9eded Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Mon, 11 Mar 2013 07:56:58 +0100
+Subject: [PATCH] net: mvneta: enable features before registering the driver,
+ not after
 
-    When you say "=E4lso", it's often a good indicator there should be =
-another=20
-patch -- like in this case.
+It seems that the reason why the dev features were ignored was because
+they were enabled after registeration.
 
-> Reported-by: Tetja Rediske <tetja@tetja.de>
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-> ---
->   net/ipv6/tcp_ipv6.c | 7 +++++--
->   1 file changed, 5 insertions(+), 2 deletions(-)
+Signed-off-by: Willy Tarreau <w@1wt.eu>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-> index 1033d2b..24434c5 100644
-> --- a/net/ipv6/tcp_ipv6.c
-> +++ b/net/ipv6/tcp_ipv6.c
-> @@ -386,6 +386,7 @@ static void tcp_v6_err(struct sk_buff *skb, struc=
-t inet6_skb_parm *opt,
->
->   		if (dst)
->   			dst->ops->redirect(dst, sk, skb);
-> +		goto out;
->   	}
->
->   	if (type =3D=3D ICMPV6_PKT_TOOBIG) {
-> @@ -441,16 +442,18 @@ static void tcp_v6_err(struct sk_buff *skb, str=
-uct inet6_skb_parm *opt,
->   			sk->sk_error_report(sk);		/* Wake people up to see the error (se=
-e connect in sock.c) */
->
->   			tcp_done(sk);
-> -		} else
-> +		} else {
->   			sk->sk_err_soft =3D err;
-> +		}
->   		goto out;
->   	}
->
->   	if (!sock_owned_by_user(sk) && np->recverr) {
->   		sk->sk_err =3D err;
->   		sk->sk_error_report(sk);
-> -	} else
-> +	} else {
->   		sk->sk_err_soft =3D err;
-> +	}
->
->   out:
->   	bh_unlock_sock(sk);
-
-WBR, Sergei
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index cd345b8..1e628ce 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -2771,16 +2771,17 @@ static int mvneta_probe(struct platform_device *pdev)
+ 
+ 	netif_napi_add(dev, &pp->napi, mvneta_poll, pp->weight);
+ 
++	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM;
++	dev->hw_features |= NETIF_F_SG | NETIF_F_IP_CSUM;
++	dev->vlan_features |= NETIF_F_SG | NETIF_F_IP_CSUM;
++	dev->priv_flags |= IFF_UNICAST_FLT;
++
+ 	err = register_netdev(dev);
+ 	if (err < 0) {
+ 		dev_err(&pdev->dev, "failed to register\n");
+ 		goto err_deinit;
+ 	}
+ 
+-	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM;
+-	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM;
+-	dev->priv_flags |= IFF_UNICAST_FLT;
+-
+ 	netdev_info(dev, "mac: %pM\n", dev->dev_addr);
+ 
+ 	platform_set_drvdata(pdev, pp->dev);
+-- 
+1.7.12.2.21.g234cd45.dirty
