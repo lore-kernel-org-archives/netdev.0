@@ -1,574 +1,297 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 12/51] ipvs: convert connection locking
-Date: Sat,  6 Apr 2013 14:17:11 +0200
-Message-ID: <1365250670-14993-13-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 03/51] ipvs: convert the IP_VS_XMIT macros to functions
+Date: Sat,  6 Apr 2013 14:17:02 +0200
+Message-ID: <1365250670-14993-4-git-send-email-pablo@netfilter.org>
 References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:38880 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1163357Ab3DFMSM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Apr 2013 08:18:12 -0400
 In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Julian Anastasov <ja@ssi.bg>
 
-Convert __ip_vs_conntbl_lock_array as follows:
-
-- readers that do not modify conn lists will use RCU lock
-- updaters that modify lists will use spinlock_t
-
-Now for conn lookups we will use RCU read-side
-critical section. Without using __ip_vs_conn_get such
-places have access to connection fields and can
-dereference some pointers like pe and pe_data plus
-the ability to update timer expiration. If full access
-is required we contend for reference.
-
-We add barrier in __ip_vs_conn_put, so that
-other CPUs see the refcnt operation after other writes.
-
-With the introduction of ip_vs_conn_unlink()
-we try to reorganize ip_vs_conn_expire(), so that
-unhashing of connections that should stay more time is
-avoided, even if it is for very short time.
+It was a bad idea to hide return statements in macros.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 Signed-off by: Hans Schillstrom <hans@schillstrom.com>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/net/ip_vs.h             |   12 ++
- net/netfilter/ipvs/ip_vs_conn.c |  230 +++++++++++++++++++++------------------
- 2 files changed, 134 insertions(+), 108 deletions(-)
+ net/netfilter/ipvs/ip_vs_xmit.c |  134 +++++++++++++++++++++------------------
+ 1 file changed, 72 insertions(+), 62 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index b06aa6c..5700b07 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -620,6 +620,8 @@ struct ip_vs_conn {
- 	const struct ip_vs_pe	*pe;
- 	char			*pe_data;
- 	__u8			pe_data_len;
-+
-+	struct rcu_head		rcu_head;
- };
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 4b0bd15..7cd7c61 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -376,45 +376,59 @@ ip_vs_dst_reset(struct ip_vs_dest *dest)
+ 	dest->dst_saddr.ip = 0;
+ }
  
- /*
-@@ -1185,9 +1187,19 @@ struct ip_vs_conn * ip_vs_conn_out_get_proto(int af, const struct sk_buff *skb,
- 					     const struct ip_vs_iphdr *iph,
- 					     int inverse);
- 
-+/* Get reference to gain full access to conn.
-+ * By default, RCU read-side critical sections have access only to
-+ * conn fields and its PE data, see ip_vs_conn_rcu_free() for reference.
-+ */
-+static inline bool __ip_vs_conn_get(struct ip_vs_conn *cp)
+-#define IP_VS_XMIT_TUNNEL(skb, cp)				\
+-({								\
+-	int __ret = NF_ACCEPT;					\
+-								\
+-	(skb)->ipvs_property = 1;				\
+-	if (unlikely((cp)->flags & IP_VS_CONN_F_NFCT))		\
+-		__ret = ip_vs_confirm_conntrack(skb);		\
+-	if (__ret == NF_ACCEPT) {				\
+-		nf_reset(skb);					\
+-		skb_forward_csum(skb);				\
+-	}							\
+-	__ret;							\
+-})
+-
+-#define IP_VS_XMIT_NAT(pf, skb, cp, local)		\
+-do {							\
+-	(skb)->ipvs_property = 1;			\
+-	if (likely(!((cp)->flags & IP_VS_CONN_F_NFCT)))	\
+-		ip_vs_notrack(skb);			\
+-	else						\
+-		ip_vs_update_conntrack(skb, cp, 1);	\
+-	if (local)					\
+-		return NF_ACCEPT;			\
+-	skb_forward_csum(skb);				\
+-	NF_HOOK(pf, NF_INET_LOCAL_OUT, (skb), NULL,	\
+-		skb_dst(skb)->dev, dst_output);		\
+-} while (0)
+-
+-#define IP_VS_XMIT(pf, skb, cp, local)			\
+-do {							\
+-	(skb)->ipvs_property = 1;			\
+-	if (likely(!((cp)->flags & IP_VS_CONN_F_NFCT)))	\
+-		ip_vs_notrack(skb);			\
+-	if (local)					\
+-		return NF_ACCEPT;			\
+-	skb_forward_csum(skb);				\
+-	NF_HOOK(pf, NF_INET_LOCAL_OUT, (skb), NULL,	\
+-		skb_dst(skb)->dev, dst_output);		\
+-} while (0)
++/* return NF_ACCEPT to allow forwarding or other NF_xxx on error */
++static inline int ip_vs_tunnel_xmit_prepare(struct sk_buff *skb,
++					    struct ip_vs_conn *cp)
 +{
-+	return atomic_inc_not_zero(&cp->refcnt);
-+}
++	int ret = NF_ACCEPT;
 +
- /* put back the conn without restarting its timer */
- static inline void __ip_vs_conn_put(struct ip_vs_conn *cp)
- {
-+	smp_mb__before_atomic_dec();
- 	atomic_dec(&cp->refcnt);
- }
- extern void ip_vs_conn_put(struct ip_vs_conn *cp);
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 704e514..b0cd2be 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -79,51 +79,21 @@ static unsigned int ip_vs_conn_rnd __read_mostly;
- 
- struct ip_vs_aligned_lock
- {
--	rwlock_t	l;
-+	spinlock_t	l;
- } __attribute__((__aligned__(SMP_CACHE_BYTES)));
- 
- /* lock array for conn table */
- static struct ip_vs_aligned_lock
- __ip_vs_conntbl_lock_array[CT_LOCKARRAY_SIZE] __cacheline_aligned;
- 
--static inline void ct_read_lock(unsigned int key)
--{
--	read_lock(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
--}
--
--static inline void ct_read_unlock(unsigned int key)
--{
--	read_unlock(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
--}
--
- static inline void ct_write_lock(unsigned int key)
- {
--	write_lock(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
-+	spin_lock(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
- }
- 
- static inline void ct_write_unlock(unsigned int key)
- {
--	write_unlock(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
--}
--
--static inline void ct_read_lock_bh(unsigned int key)
--{
--	read_lock_bh(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
--}
--
--static inline void ct_read_unlock_bh(unsigned int key)
--{
--	read_unlock_bh(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
--}
--
--static inline void ct_write_lock_bh(unsigned int key)
--{
--	write_lock_bh(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
--}
--
--static inline void ct_write_unlock_bh(unsigned int key)
--{
--	write_unlock_bh(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
-+	spin_unlock(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
- }
- 
- 
-@@ -201,9 +171,9 @@ static inline int ip_vs_conn_hash(struct ip_vs_conn *cp)
- 	spin_lock(&cp->lock);
- 
- 	if (!(cp->flags & IP_VS_CONN_F_HASHED)) {
--		hlist_add_head(&cp->c_list, &ip_vs_conn_tab[hash]);
- 		cp->flags |= IP_VS_CONN_F_HASHED;
- 		atomic_inc(&cp->refcnt);
-+		hlist_add_head_rcu(&cp->c_list, &ip_vs_conn_tab[hash]);
- 		ret = 1;
- 	} else {
- 		pr_err("%s(): request for already hashed, called from %pF\n",
-@@ -220,7 +190,7 @@ static inline int ip_vs_conn_hash(struct ip_vs_conn *cp)
- 
- /*
-  *	UNhashes ip_vs_conn from ip_vs_conn_tab.
-- *	returns bool success.
-+ *	returns bool success. Caller should hold conn reference.
-  */
- static inline int ip_vs_conn_unhash(struct ip_vs_conn *cp)
- {
-@@ -234,7 +204,7 @@ static inline int ip_vs_conn_unhash(struct ip_vs_conn *cp)
- 	spin_lock(&cp->lock);
- 
- 	if (cp->flags & IP_VS_CONN_F_HASHED) {
--		hlist_del(&cp->c_list);
-+		hlist_del_rcu(&cp->c_list);
- 		cp->flags &= ~IP_VS_CONN_F_HASHED;
- 		atomic_dec(&cp->refcnt);
- 		ret = 1;
-@@ -247,6 +217,36 @@ static inline int ip_vs_conn_unhash(struct ip_vs_conn *cp)
- 	return ret;
- }
- 
-+/* Try to unlink ip_vs_conn from ip_vs_conn_tab.
-+ * returns bool success.
-+ */
-+static inline bool ip_vs_conn_unlink(struct ip_vs_conn *cp)
-+{
-+	unsigned int hash;
-+	bool ret;
-+
-+	hash = ip_vs_conn_hashkey_conn(cp);
-+
-+	ct_write_lock(hash);
-+	spin_lock(&cp->lock);
-+
-+	if (cp->flags & IP_VS_CONN_F_HASHED) {
-+		ret = false;
-+		/* Decrease refcnt and unlink conn only if we are last user */
-+		if (atomic_cmpxchg(&cp->refcnt, 1, 0) == 1) {
-+			hlist_del_rcu(&cp->c_list);
-+			cp->flags &= ~IP_VS_CONN_F_HASHED;
-+			ret = true;
-+		}
-+	} else
-+		ret = atomic_read(&cp->refcnt) ? false : true;
-+
-+	spin_unlock(&cp->lock);
-+	ct_write_unlock(hash);
-+
++	skb->ipvs_property = 1;
++	if (unlikely(cp->flags & IP_VS_CONN_F_NFCT))
++		ret = ip_vs_confirm_conntrack(skb);
++	if (ret == NF_ACCEPT) {
++		nf_reset(skb);
++		skb_forward_csum(skb);
++	}
 +	return ret;
 +}
 +
- 
- /*
-  *  Gets ip_vs_conn associated with supplied parameters in the ip_vs_conn_tab.
-@@ -262,9 +262,9 @@ __ip_vs_conn_in_get(const struct ip_vs_conn_param *p)
- 
- 	hash = ip_vs_conn_hashkey_param(p, false);
- 
--	ct_read_lock(hash);
-+	rcu_read_lock();
- 
--	hlist_for_each_entry(cp, &ip_vs_conn_tab[hash], c_list) {
-+	hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[hash], c_list) {
- 		if (cp->af == p->af &&
- 		    p->cport == cp->cport && p->vport == cp->vport &&
- 		    ip_vs_addr_equal(p->af, p->caddr, &cp->caddr) &&
-@@ -272,14 +272,15 @@ __ip_vs_conn_in_get(const struct ip_vs_conn_param *p)
- 		    ((!p->cport) ^ (!(cp->flags & IP_VS_CONN_F_NO_CPORT))) &&
- 		    p->protocol == cp->protocol &&
- 		    ip_vs_conn_net_eq(cp, p->net)) {
-+			if (!__ip_vs_conn_get(cp))
-+				continue;
- 			/* HIT */
--			atomic_inc(&cp->refcnt);
--			ct_read_unlock(hash);
-+			rcu_read_unlock();
- 			return cp;
- 		}
- 	}
- 
--	ct_read_unlock(hash);
-+	rcu_read_unlock();
- 
- 	return NULL;
- }
-@@ -346,14 +347,16 @@ struct ip_vs_conn *ip_vs_ct_in_get(const struct ip_vs_conn_param *p)
- 
- 	hash = ip_vs_conn_hashkey_param(p, false);
- 
--	ct_read_lock(hash);
-+	rcu_read_lock();
- 
--	hlist_for_each_entry(cp, &ip_vs_conn_tab[hash], c_list) {
-+	hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[hash], c_list) {
- 		if (!ip_vs_conn_net_eq(cp, p->net))
- 			continue;
- 		if (p->pe_data && p->pe->ct_match) {
--			if (p->pe == cp->pe && p->pe->ct_match(p, cp))
--				goto out;
-+			if (p->pe == cp->pe && p->pe->ct_match(p, cp)) {
-+				if (__ip_vs_conn_get(cp))
-+					goto out;
-+			}
- 			continue;
- 		}
- 
-@@ -365,15 +368,15 @@ struct ip_vs_conn *ip_vs_ct_in_get(const struct ip_vs_conn_param *p)
- 				     p->af, p->vaddr, &cp->vaddr) &&
- 		    p->cport == cp->cport && p->vport == cp->vport &&
- 		    cp->flags & IP_VS_CONN_F_TEMPLATE &&
--		    p->protocol == cp->protocol)
--			goto out;
-+		    p->protocol == cp->protocol) {
-+			if (__ip_vs_conn_get(cp))
-+				goto out;
-+		}
- 	}
- 	cp = NULL;
- 
-   out:
--	if (cp)
--		atomic_inc(&cp->refcnt);
--	ct_read_unlock(hash);
-+	rcu_read_unlock();
- 
- 	IP_VS_DBG_BUF(9, "template lookup/in %s %s:%d->%s:%d %s\n",
- 		      ip_vs_proto_name(p->protocol),
-@@ -398,23 +401,24 @@ struct ip_vs_conn *ip_vs_conn_out_get(const struct ip_vs_conn_param *p)
- 	 */
- 	hash = ip_vs_conn_hashkey_param(p, true);
- 
--	ct_read_lock(hash);
-+	rcu_read_lock();
- 
--	hlist_for_each_entry(cp, &ip_vs_conn_tab[hash], c_list) {
-+	hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[hash], c_list) {
- 		if (cp->af == p->af &&
- 		    p->vport == cp->cport && p->cport == cp->dport &&
- 		    ip_vs_addr_equal(p->af, p->vaddr, &cp->caddr) &&
- 		    ip_vs_addr_equal(p->af, p->caddr, &cp->daddr) &&
- 		    p->protocol == cp->protocol &&
- 		    ip_vs_conn_net_eq(cp, p->net)) {
-+			if (!__ip_vs_conn_get(cp))
-+				continue;
- 			/* HIT */
--			atomic_inc(&cp->refcnt);
- 			ret = cp;
- 			break;
- 		}
- 	}
- 
--	ct_read_unlock(hash);
-+	rcu_read_unlock();
- 
- 	IP_VS_DBG_BUF(9, "lookup/out %s %s:%d->%s:%d %s\n",
- 		      ip_vs_proto_name(p->protocol),
-@@ -757,41 +761,36 @@ int ip_vs_check_template(struct ip_vs_conn *ct)
- 		 * Simply decrease the refcnt of the template,
- 		 * don't restart its timer.
- 		 */
--		atomic_dec(&ct->refcnt);
-+		__ip_vs_conn_put(ct);
- 		return 0;
- 	}
- 	return 1;
- }
- 
-+static void ip_vs_conn_rcu_free(struct rcu_head *head)
++/* return NF_STOLEN (sent) or NF_ACCEPT if local=1 (not sent) */
++static inline int ip_vs_nat_send_or_cont(int pf, struct sk_buff *skb,
++					 struct ip_vs_conn *cp, int local)
 +{
-+	struct ip_vs_conn *cp = container_of(head, struct ip_vs_conn,
-+					     rcu_head);
++	int ret = NF_STOLEN;
 +
-+	ip_vs_pe_put(cp->pe);
-+	kfree(cp->pe_data);
-+	kmem_cache_free(ip_vs_conn_cachep, cp);
++	skb->ipvs_property = 1;
++	if (likely(!(cp->flags & IP_VS_CONN_F_NFCT)))
++		ip_vs_notrack(skb);
++	else
++		ip_vs_update_conntrack(skb, cp, 1);
++	if (!local) {
++		skb_forward_csum(skb);
++		NF_HOOK(pf, NF_INET_LOCAL_OUT, skb, NULL, skb_dst(skb)->dev,
++			dst_output);
++	} else
++		ret = NF_ACCEPT;
++	return ret;
 +}
 +
- static void ip_vs_conn_expire(unsigned long data)
- {
- 	struct ip_vs_conn *cp = (struct ip_vs_conn *)data;
- 	struct net *net = ip_vs_conn_net(cp);
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
--	cp->timeout = 60*HZ;
--
--	/*
--	 *	hey, I'm using it
--	 */
--	atomic_inc(&cp->refcnt);
--
- 	/*
- 	 *	do I control anybody?
- 	 */
- 	if (atomic_read(&cp->n_control))
- 		goto expire_later;
- 
--	/*
--	 *	unhash it if it is hashed in the conn table
--	 */
--	if (!ip_vs_conn_unhash(cp) && !(cp->flags & IP_VS_CONN_F_ONE_PACKET))
--		goto expire_later;
--
--	/*
--	 *	refcnt==1 implies I'm the only one referrer
--	 */
--	if (likely(atomic_read(&cp->refcnt) == 1)) {
-+	/* Unlink conn if not referenced anymore */
-+	if (likely(ip_vs_conn_unlink(cp))) {
- 		/* delete the timer if it is activated by other users */
- 		del_timer(&cp->timer);
- 
-@@ -810,38 +809,41 @@ static void ip_vs_conn_expire(unsigned long data)
- 				ip_vs_conn_drop_conntrack(cp);
- 		}
- 
--		ip_vs_pe_put(cp->pe);
--		kfree(cp->pe_data);
- 		if (unlikely(cp->app != NULL))
- 			ip_vs_unbind_app(cp);
- 		ip_vs_unbind_dest(cp);
- 		if (cp->flags & IP_VS_CONN_F_NO_CPORT)
- 			atomic_dec(&ip_vs_conn_no_cport_cnt);
-+		call_rcu(&cp->rcu_head, ip_vs_conn_rcu_free);
- 		atomic_dec(&ipvs->conn_count);
--
--		kmem_cache_free(ip_vs_conn_cachep, cp);
- 		return;
- 	}
- 
--	/* hash it back to the table */
--	ip_vs_conn_hash(cp);
--
-   expire_later:
--	IP_VS_DBG(7, "delayed: conn->refcnt-1=%d conn->n_control=%d\n",
--		  atomic_read(&cp->refcnt)-1,
-+	IP_VS_DBG(7, "delayed: conn->refcnt=%d conn->n_control=%d\n",
-+		  atomic_read(&cp->refcnt),
- 		  atomic_read(&cp->n_control));
- 
-+	atomic_inc(&cp->refcnt);
-+	cp->timeout = 60*HZ;
++/* return NF_STOLEN (sent) or NF_ACCEPT if local=1 (not sent) */
++static inline int ip_vs_send_or_cont(int pf, struct sk_buff *skb,
++				     struct ip_vs_conn *cp, int local)
++{
++	int ret = NF_STOLEN;
 +
- 	if (ipvs->sync_state & IP_VS_STATE_MASTER)
- 		ip_vs_sync_conn(net, cp, sysctl_sync_threshold(ipvs));
++	skb->ipvs_property = 1;
++	if (likely(!(cp->flags & IP_VS_CONN_F_NFCT)))
++		ip_vs_notrack(skb);
++	if (!local) {
++		skb_forward_csum(skb);
++		NF_HOOK(pf, NF_INET_LOCAL_OUT, skb, NULL, skb_dst(skb)->dev,
++			dst_output);
++	} else
++		ret = NF_ACCEPT;
++	return ret;
++}
  
- 	ip_vs_conn_put(cp);
+ 
+ /*
+@@ -425,7 +439,7 @@ ip_vs_null_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 		struct ip_vs_protocol *pp, struct ip_vs_iphdr *ipvsh)
+ {
+ 	/* we do not touch skb and do not need pskb ptr */
+-	IP_VS_XMIT(NFPROTO_IPV4, skb, cp, 1);
++	return ip_vs_send_or_cont(NFPROTO_IPV4, skb, cp, 1);
  }
  
+ 
+@@ -476,7 +490,7 @@ ip_vs_bypass_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+ 	skb->local_df = 1;
+ 
+-	IP_VS_XMIT(NFPROTO_IPV4, skb, cp, 0);
++	ip_vs_send_or_cont(NFPROTO_IPV4, skb, cp, 0);
+ 
+ 	LeaveFunction(10);
+ 	return NF_STOLEN;
+@@ -537,7 +551,7 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+ 	skb->local_df = 1;
+ 
+-	IP_VS_XMIT(NFPROTO_IPV6, skb, cp, 0);
++	ip_vs_send_or_cont(NFPROTO_IPV6, skb, cp, 0);
+ 
+ 	LeaveFunction(10);
+ 	return NF_STOLEN;
+@@ -562,7 +576,7 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	struct rtable *rt;		/* Route to the other host */
+ 	int mtu;
+ 	struct iphdr *iph = ip_hdr(skb);
+-	int local;
++	int local, rc;
+ 
+ 	EnterFunction(10);
+ 
+@@ -655,10 +669,10 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+ 	skb->local_df = 1;
+ 
+-	IP_VS_XMIT_NAT(NFPROTO_IPV4, skb, cp, local);
++	rc = ip_vs_nat_send_or_cont(NFPROTO_IPV4, skb, cp, local);
+ 
+ 	LeaveFunction(10);
+-	return NF_STOLEN;
++	return rc;
+ 
+   tx_error_icmp:
+ 	dst_link_failure(skb);
+@@ -678,7 +692,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ {
+ 	struct rt6_info *rt;		/* Route to the other host */
+ 	int mtu;
+-	int local;
++	int local, rc;
+ 
+ 	EnterFunction(10);
+ 
+@@ -771,10 +785,10 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+ 	skb->local_df = 1;
+ 
+-	IP_VS_XMIT_NAT(NFPROTO_IPV6, skb, cp, local);
++	rc = ip_vs_nat_send_or_cont(NFPROTO_IPV6, skb, cp, local);
+ 
+ 	LeaveFunction(10);
+-	return NF_STOLEN;
++	return rc;
+ 
+ tx_error_icmp:
+ 	dst_link_failure(skb);
+@@ -833,7 +847,7 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 		goto tx_error_icmp;
+ 	if (rt->rt_flags & RTCF_LOCAL) {
+ 		ip_rt_put(rt);
+-		IP_VS_XMIT(NFPROTO_IPV4, skb, cp, 1);
++		return ip_vs_send_or_cont(NFPROTO_IPV4, skb, cp, 1);
+ 	}
+ 
+ 	tdev = rt->dst.dev;
+@@ -905,7 +919,7 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+ 	skb->local_df = 1;
+ 
+-	ret = IP_VS_XMIT_TUNNEL(skb, cp);
++	ret = ip_vs_tunnel_xmit_prepare(skb, cp);
+ 	if (ret == NF_ACCEPT)
+ 		ip_local_out(skb);
+ 	else if (ret == NF_DROP)
+@@ -948,7 +962,7 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 		goto tx_error_icmp;
+ 	if (__ip_vs_is_local_route6(rt)) {
+ 		dst_release(&rt->dst);
+-		IP_VS_XMIT(NFPROTO_IPV6, skb, cp, 1);
++		return ip_vs_send_or_cont(NFPROTO_IPV6, skb, cp, 1);
+ 	}
+ 
+ 	tdev = rt->dst.dev;
+@@ -1023,7 +1037,7 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+ 	skb->local_df = 1;
+ 
+-	ret = IP_VS_XMIT_TUNNEL(skb, cp);
++	ret = ip_vs_tunnel_xmit_prepare(skb, cp);
+ 	if (ret == NF_ACCEPT)
+ 		ip6_local_out(skb);
+ 	else if (ret == NF_DROP)
+@@ -1067,7 +1081,7 @@ ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 		goto tx_error_icmp;
+ 	if (rt->rt_flags & RTCF_LOCAL) {
+ 		ip_rt_put(rt);
+-		IP_VS_XMIT(NFPROTO_IPV4, skb, cp, 1);
++		return ip_vs_send_or_cont(NFPROTO_IPV4, skb, cp, 1);
+ 	}
+ 
+ 	/* MTU checking */
+@@ -1097,7 +1111,7 @@ ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+ 	skb->local_df = 1;
+ 
+-	IP_VS_XMIT(NFPROTO_IPV4, skb, cp, 0);
++	ip_vs_send_or_cont(NFPROTO_IPV4, skb, cp, 0);
+ 
+ 	LeaveFunction(10);
+ 	return NF_STOLEN;
+@@ -1126,7 +1140,7 @@ ip_vs_dr_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 		goto tx_error_icmp;
+ 	if (__ip_vs_is_local_route6(rt)) {
+ 		dst_release(&rt->dst);
+-		IP_VS_XMIT(NFPROTO_IPV6, skb, cp, 1);
++		return ip_vs_send_or_cont(NFPROTO_IPV6, skb, cp, 1);
+ 	}
+ 
+ 	/* MTU checking */
+@@ -1162,7 +1176,7 @@ ip_vs_dr_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+ 	skb->local_df = 1;
+ 
+-	IP_VS_XMIT(NFPROTO_IPV6, skb, cp, 0);
++	ip_vs_send_or_cont(NFPROTO_IPV6, skb, cp, 0);
+ 
+ 	LeaveFunction(10);
+ 	return NF_STOLEN;
+@@ -1283,9 +1297,7 @@ ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+ 	skb->local_df = 1;
+ 
+-	IP_VS_XMIT_NAT(NFPROTO_IPV4, skb, cp, local);
 -
-+/* Modify timer, so that it expires as soon as possible.
-+ * Can be called without reference only if under RCU lock.
-+ */
- void ip_vs_conn_expire_now(struct ip_vs_conn *cp)
- {
--	if (del_timer(&cp->timer))
--		mod_timer(&cp->timer, jiffies);
-+	/* Using mod_timer_pending will ensure the timer is not
-+	 * modified after the final del_timer in ip_vs_conn_expire.
-+	 */
-+	if (timer_pending(&cp->timer) &&
-+	    time_after(cp->timer.expires, jiffies))
-+		mod_timer_pending(&cp->timer, jiffies);
- }
+-	rc = NF_STOLEN;
++	rc = ip_vs_nat_send_or_cont(NFPROTO_IPV4, skb, cp, local);
+ 	goto out;
  
+   tx_error_icmp:
+@@ -1404,9 +1416,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+ 	skb->local_df = 1;
  
-@@ -952,14 +954,17 @@ static void *ip_vs_conn_array(struct seq_file *seq, loff_t pos)
- 	struct ip_vs_iter_state *iter = seq->private;
- 
- 	for (idx = 0; idx < ip_vs_conn_tab_size; idx++) {
--		ct_read_lock_bh(idx);
--		hlist_for_each_entry(cp, &ip_vs_conn_tab[idx], c_list) {
-+		rcu_read_lock();
-+		hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[idx], c_list) {
-+			/* __ip_vs_conn_get() is not needed by
-+			 * ip_vs_conn_seq_show and ip_vs_conn_sync_seq_show
-+			 */
- 			if (pos-- == 0) {
- 				iter->l = &ip_vs_conn_tab[idx];
- 				return cp;
- 			}
- 		}
--		ct_read_unlock_bh(idx);
-+		rcu_read_unlock();
- 	}
- 
- 	return NULL;
-@@ -977,6 +982,7 @@ static void *ip_vs_conn_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- {
- 	struct ip_vs_conn *cp = v;
- 	struct ip_vs_iter_state *iter = seq->private;
-+	struct hlist_node *e;
- 	struct hlist_head *l = iter->l;
- 	int idx;
- 
-@@ -985,19 +991,19 @@ static void *ip_vs_conn_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 		return ip_vs_conn_array(seq, 0);
- 
- 	/* more on same hash chain? */
--	if (cp->c_list.next)
--		return hlist_entry(cp->c_list.next, struct ip_vs_conn, c_list);
-+	e = rcu_dereference(hlist_next_rcu(&cp->c_list));
-+	if (e)
-+		return hlist_entry(e, struct ip_vs_conn, c_list);
-+	rcu_read_unlock();
- 
- 	idx = l - ip_vs_conn_tab;
--	ct_read_unlock_bh(idx);
+-	IP_VS_XMIT_NAT(NFPROTO_IPV6, skb, cp, local);
 -
- 	while (++idx < ip_vs_conn_tab_size) {
--		ct_read_lock_bh(idx);
--		hlist_for_each_entry(cp, &ip_vs_conn_tab[idx], c_list) {
-+		rcu_read_lock();
-+		hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[idx], c_list) {
- 			iter->l = &ip_vs_conn_tab[idx];
- 			return cp;
- 		}
--		ct_read_unlock_bh(idx);
-+		rcu_read_unlock();
- 	}
- 	iter->l = NULL;
- 	return NULL;
-@@ -1009,7 +1015,7 @@ static void ip_vs_conn_seq_stop(struct seq_file *seq, void *v)
- 	struct hlist_head *l = iter->l;
+-	rc = NF_STOLEN;
++	rc = ip_vs_nat_send_or_cont(NFPROTO_IPV6, skb, cp, local);
+ 	goto out;
  
- 	if (l)
--		ct_read_unlock_bh(l - ip_vs_conn_tab);
-+		rcu_read_unlock();
- }
- 
- static int ip_vs_conn_seq_show(struct seq_file *seq, void *v)
-@@ -1188,7 +1194,7 @@ static inline int todrop_entry(struct ip_vs_conn *cp)
- void ip_vs_random_dropentry(struct net *net)
- {
- 	int idx;
--	struct ip_vs_conn *cp;
-+	struct ip_vs_conn *cp, *cp_c;
- 
- 	/*
- 	 * Randomly scan 1/32 of the whole table every second
-@@ -1199,9 +1205,9 @@ void ip_vs_random_dropentry(struct net *net)
- 		/*
- 		 *  Lock is actually needed in this loop.
- 		 */
--		ct_write_lock_bh(hash);
-+		rcu_read_lock();
- 
--		hlist_for_each_entry(cp, &ip_vs_conn_tab[hash], c_list) {
-+		hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[hash], c_list) {
- 			if (cp->flags & IP_VS_CONN_F_TEMPLATE)
- 				/* connection template */
- 				continue;
-@@ -1228,12 +1234,15 @@ void ip_vs_random_dropentry(struct net *net)
- 
- 			IP_VS_DBG(4, "del connection\n");
- 			ip_vs_conn_expire_now(cp);
--			if (cp->control) {
-+			cp_c = cp->control;
-+			/* cp->control is valid only with reference to cp */
-+			if (cp_c && __ip_vs_conn_get(cp)) {
- 				IP_VS_DBG(4, "del conn template\n");
--				ip_vs_conn_expire_now(cp->control);
-+				ip_vs_conn_expire_now(cp_c);
-+				__ip_vs_conn_put(cp);
- 			}
- 		}
--		ct_write_unlock_bh(hash);
-+		rcu_read_unlock();
- 	}
- }
- 
-@@ -1244,7 +1253,7 @@ void ip_vs_random_dropentry(struct net *net)
- static void ip_vs_conn_flush(struct net *net)
- {
- 	int idx;
--	struct ip_vs_conn *cp;
-+	struct ip_vs_conn *cp, *cp_c;
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
- flush_again:
-@@ -1252,19 +1261,22 @@ flush_again:
- 		/*
- 		 *  Lock is actually needed in this loop.
- 		 */
--		ct_write_lock_bh(idx);
-+		rcu_read_lock();
- 
--		hlist_for_each_entry(cp, &ip_vs_conn_tab[idx], c_list) {
-+		hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[idx], c_list) {
- 			if (!ip_vs_conn_net_eq(cp, net))
- 				continue;
- 			IP_VS_DBG(4, "del connection\n");
- 			ip_vs_conn_expire_now(cp);
--			if (cp->control) {
-+			cp_c = cp->control;
-+			/* cp->control is valid only with reference to cp */
-+			if (cp_c && __ip_vs_conn_get(cp)) {
- 				IP_VS_DBG(4, "del conn template\n");
--				ip_vs_conn_expire_now(cp->control);
-+				ip_vs_conn_expire_now(cp_c);
-+				__ip_vs_conn_put(cp);
- 			}
- 		}
--		ct_write_unlock_bh(idx);
-+		rcu_read_unlock();
- 	}
- 
- 	/* the counter may be not NULL, because maybe some conn entries
-@@ -1331,7 +1343,7 @@ int __init ip_vs_conn_init(void)
- 		INIT_HLIST_HEAD(&ip_vs_conn_tab[idx]);
- 
- 	for (idx = 0; idx < CT_LOCKARRAY_SIZE; idx++)  {
--		rwlock_init(&__ip_vs_conntbl_lock_array[idx].l);
-+		spin_lock_init(&__ip_vs_conntbl_lock_array[idx].l);
- 	}
- 
- 	/* calculate the random value for connection hash */
-@@ -1342,6 +1354,8 @@ int __init ip_vs_conn_init(void)
- 
- void ip_vs_conn_cleanup(void)
- {
-+	/* Wait all ip_vs_conn_rcu_free() callbacks to complete */
-+	rcu_barrier();
- 	/* Release the empty cache */
- 	kmem_cache_destroy(ip_vs_conn_cachep);
- 	vfree(ip_vs_conn_tab);
+ tx_error_icmp:
 -- 
 1.7.10.4
-
