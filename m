@@ -1,186 +1,121 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 2/7] net: can: mcp251x: use spi_get_drvdata() and
- spi_set_drvdata()
-Date: Sat, 06 Apr 2013 15:35:14 +0900
-Message-ID: <000d01ce3290$e5762e10$b0628a30$%han@samsung.com>
-References: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:60639 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932525Ab3DFGfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 02:35:16 -0400
-Received: from epcpsbgr1.samsung.com
- (u141.gpu120.samsung.co.kr [203.254.230.141])
- by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MKT00GIHMAQRSD0@mailout4.samsung.com> for
- netdev@vger.kernel.org; Sat, 06 Apr 2013 15:35:15 +0900 (KST)
-In-reply-to: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
-Content-language: ko
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 15/51] ipvs: change ip_vs_sched_lock to mutex
+Date: Sat,  6 Apr 2013 14:17:14 +0200
+Message-ID: <1365250670-14993-16-git-send-email-pablo@netfilter.org>
+References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use the wrapper functions for getting and setting the driver data using
-spi_device instead of using dev_{get|set}_drvdata with &spi->dev, so we
-can directly pass a struct spi_device.
+From: Julian Anastasov <ja@ssi.bg>
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+The global list with schedulers ip_vs_schedulers
+is accessed only from user context - configuration and
+scheduler module [un]registration. Use ip_vs_sched_mutex
+instead.
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- drivers/net/can/mcp251x.c |   32 ++++++++++++++++----------------
- 1 files changed, 16 insertions(+), 16 deletions(-)
+ net/netfilter/ipvs/ip_vs_sched.c |   24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
-index 2b620c8..3444e9e 100644
---- a/drivers/net/can/mcp251x.c
-+++ b/drivers/net/can/mcp251x.c
-@@ -269,7 +269,7 @@ struct mcp251x_priv {
- #define MCP251X_IS(_model) \
- static inline int mcp251x_is_##_model(struct spi_device *spi) \
- { \
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev); \
-+	struct mcp251x_priv *priv = spi_get_drvdata(spi); \
- 	return priv->model == CAN_MCP251X_MCP##_model; \
+diff --git a/net/netfilter/ipvs/ip_vs_sched.c b/net/netfilter/ipvs/ip_vs_sched.c
+index d6bf20d..7f11d3d 100644
+--- a/net/netfilter/ipvs/ip_vs_sched.c
++++ b/net/netfilter/ipvs/ip_vs_sched.c
+@@ -35,8 +35,8 @@ EXPORT_SYMBOL(ip_vs_scheduler_err);
+  */
+ static LIST_HEAD(ip_vs_schedulers);
+ 
+-/* lock for service table */
+-static DEFINE_SPINLOCK(ip_vs_sched_lock);
++/* semaphore for schedulers */
++static DEFINE_MUTEX(ip_vs_sched_mutex);
+ 
+ 
+ /*
+@@ -92,7 +92,7 @@ static struct ip_vs_scheduler *ip_vs_sched_getbyname(const char *sched_name)
+ 
+ 	IP_VS_DBG(2, "%s(): sched_name \"%s\"\n", __func__, sched_name);
+ 
+-	spin_lock_bh(&ip_vs_sched_lock);
++	mutex_lock(&ip_vs_sched_mutex);
+ 
+ 	list_for_each_entry(sched, &ip_vs_schedulers, n_list) {
+ 		/*
+@@ -106,14 +106,14 @@ static struct ip_vs_scheduler *ip_vs_sched_getbyname(const char *sched_name)
+ 		}
+ 		if (strcmp(sched_name, sched->name)==0) {
+ 			/* HIT */
+-			spin_unlock_bh(&ip_vs_sched_lock);
++			mutex_unlock(&ip_vs_sched_mutex);
+ 			return sched;
+ 		}
+ 		if (sched->module)
+ 			module_put(sched->module);
+ 	}
+ 
+-	spin_unlock_bh(&ip_vs_sched_lock);
++	mutex_unlock(&ip_vs_sched_mutex);
+ 	return NULL;
  }
  
-@@ -305,7 +305,7 @@ static void mcp251x_clean(struct net_device *net)
-  */
- static int mcp251x_spi_trans(struct spi_device *spi, int len)
- {
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct mcp251x_priv *priv = spi_get_drvdata(spi);
- 	struct spi_transfer t = {
- 		.tx_buf = priv->spi_tx_buf,
- 		.rx_buf = priv->spi_rx_buf,
-@@ -333,7 +333,7 @@ static int mcp251x_spi_trans(struct spi_device *spi, int len)
+@@ -192,10 +192,10 @@ int register_ip_vs_scheduler(struct ip_vs_scheduler *scheduler)
+ 	/* increase the module use count */
+ 	ip_vs_use_count_inc();
  
- static u8 mcp251x_read_reg(struct spi_device *spi, uint8_t reg)
- {
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct mcp251x_priv *priv = spi_get_drvdata(spi);
- 	u8 val = 0;
+-	spin_lock_bh(&ip_vs_sched_lock);
++	mutex_lock(&ip_vs_sched_mutex);
  
- 	priv->spi_tx_buf[0] = INSTRUCTION_READ;
-@@ -348,7 +348,7 @@ static u8 mcp251x_read_reg(struct spi_device *spi, uint8_t reg)
- static void mcp251x_read_2regs(struct spi_device *spi, uint8_t reg,
- 		uint8_t *v1, uint8_t *v2)
- {
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+ 	if (!list_empty(&scheduler->n_list)) {
+-		spin_unlock_bh(&ip_vs_sched_lock);
++		mutex_unlock(&ip_vs_sched_mutex);
+ 		ip_vs_use_count_dec();
+ 		pr_err("%s(): [%s] scheduler already linked\n",
+ 		       __func__, scheduler->name);
+@@ -208,7 +208,7 @@ int register_ip_vs_scheduler(struct ip_vs_scheduler *scheduler)
+ 	 */
+ 	list_for_each_entry(sched, &ip_vs_schedulers, n_list) {
+ 		if (strcmp(scheduler->name, sched->name) == 0) {
+-			spin_unlock_bh(&ip_vs_sched_lock);
++			mutex_unlock(&ip_vs_sched_mutex);
+ 			ip_vs_use_count_dec();
+ 			pr_err("%s(): [%s] scheduler already existed "
+ 			       "in the system\n", __func__, scheduler->name);
+@@ -219,7 +219,7 @@ int register_ip_vs_scheduler(struct ip_vs_scheduler *scheduler)
+ 	 *	Add it into the d-linked scheduler list
+ 	 */
+ 	list_add(&scheduler->n_list, &ip_vs_schedulers);
+-	spin_unlock_bh(&ip_vs_sched_lock);
++	mutex_unlock(&ip_vs_sched_mutex);
  
- 	priv->spi_tx_buf[0] = INSTRUCTION_READ;
- 	priv->spi_tx_buf[1] = reg;
-@@ -361,7 +361,7 @@ static void mcp251x_read_2regs(struct spi_device *spi, uint8_t reg,
+ 	pr_info("[%s] scheduler registered.\n", scheduler->name);
  
- static void mcp251x_write_reg(struct spi_device *spi, u8 reg, uint8_t val)
- {
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+@@ -237,9 +237,9 @@ int unregister_ip_vs_scheduler(struct ip_vs_scheduler *scheduler)
+ 		return -EINVAL;
+ 	}
  
- 	priv->spi_tx_buf[0] = INSTRUCTION_WRITE;
- 	priv->spi_tx_buf[1] = reg;
-@@ -373,7 +373,7 @@ static void mcp251x_write_reg(struct spi_device *spi, u8 reg, uint8_t val)
- static void mcp251x_write_bits(struct spi_device *spi, u8 reg,
- 			       u8 mask, uint8_t val)
- {
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+-	spin_lock_bh(&ip_vs_sched_lock);
++	mutex_lock(&ip_vs_sched_mutex);
+ 	if (list_empty(&scheduler->n_list)) {
+-		spin_unlock_bh(&ip_vs_sched_lock);
++		mutex_unlock(&ip_vs_sched_mutex);
+ 		pr_err("%s(): [%s] scheduler is not in the list. failed\n",
+ 		       __func__, scheduler->name);
+ 		return -EINVAL;
+@@ -249,7 +249,7 @@ int unregister_ip_vs_scheduler(struct ip_vs_scheduler *scheduler)
+ 	 *	Remove it from the d-linked scheduler list
+ 	 */
+ 	list_del(&scheduler->n_list);
+-	spin_unlock_bh(&ip_vs_sched_lock);
++	mutex_unlock(&ip_vs_sched_mutex);
  
- 	priv->spi_tx_buf[0] = INSTRUCTION_BIT_MODIFY;
- 	priv->spi_tx_buf[1] = reg;
-@@ -386,7 +386,7 @@ static void mcp251x_write_bits(struct spi_device *spi, u8 reg,
- static void mcp251x_hw_tx_frame(struct spi_device *spi, u8 *buf,
- 				int len, int tx_buf_idx)
- {
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct mcp251x_priv *priv = spi_get_drvdata(spi);
- 
- 	if (mcp251x_is_2510(spi)) {
- 		int i;
-@@ -403,7 +403,7 @@ static void mcp251x_hw_tx_frame(struct spi_device *spi, u8 *buf,
- static void mcp251x_hw_tx(struct spi_device *spi, struct can_frame *frame,
- 			  int tx_buf_idx)
- {
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct mcp251x_priv *priv = spi_get_drvdata(spi);
- 	u32 sid, eid, exide, rtr;
- 	u8 buf[SPI_TRANSFER_BUF_LEN];
- 
-@@ -434,7 +434,7 @@ static void mcp251x_hw_tx(struct spi_device *spi, struct can_frame *frame,
- static void mcp251x_hw_rx_frame(struct spi_device *spi, u8 *buf,
- 				int buf_idx)
- {
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct mcp251x_priv *priv = spi_get_drvdata(spi);
- 
- 	if (mcp251x_is_2510(spi)) {
- 		int i, len;
-@@ -454,7 +454,7 @@ static void mcp251x_hw_rx_frame(struct spi_device *spi, u8 *buf,
- 
- static void mcp251x_hw_rx(struct spi_device *spi, int buf_idx)
- {
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct mcp251x_priv *priv = spi_get_drvdata(spi);
- 	struct sk_buff *skb;
- 	struct can_frame *frame;
- 	u8 buf[SPI_TRANSFER_BUF_LEN];
-@@ -550,7 +550,7 @@ static int mcp251x_do_set_mode(struct net_device *net, enum can_mode mode)
- 
- static int mcp251x_set_normal_mode(struct spi_device *spi)
- {
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct mcp251x_priv *priv = spi_get_drvdata(spi);
- 	unsigned long timeout;
- 
- 	/* Enable interrupts */
-@@ -620,7 +620,7 @@ static int mcp251x_setup(struct net_device *net, struct mcp251x_priv *priv,
- 
- static int mcp251x_hw_reset(struct spi_device *spi)
- {
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct mcp251x_priv *priv = spi_get_drvdata(spi);
- 	int ret;
- 	unsigned long timeout;
- 
-@@ -1020,7 +1020,7 @@ static int mcp251x_can_probe(struct spi_device *spi)
- 		CAN_CTRLMODE_LOOPBACK | CAN_CTRLMODE_LISTENONLY;
- 	priv->model = spi_get_device_id(spi)->driver_data;
- 	priv->net = net;
--	dev_set_drvdata(&spi->dev, priv);
-+	spi_set_drvdata(spi, priv);
- 
- 	priv->spi = spi;
- 	mutex_init(&priv->mcp_lock);
-@@ -1118,7 +1118,7 @@ error_out:
- static int mcp251x_can_remove(struct spi_device *spi)
- {
- 	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct mcp251x_priv *priv = spi_get_drvdata(spi);
- 	struct net_device *net = priv->net;
- 
- 	unregister_candev(net);
-@@ -1144,7 +1144,7 @@ static int mcp251x_can_suspend(struct device *dev)
- {
- 	struct spi_device *spi = to_spi_device(dev);
- 	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct mcp251x_priv *priv = spi_get_drvdata(spi);
- 	struct net_device *net = priv->net;
- 
- 	priv->force_quit = 1;
-@@ -1176,7 +1176,7 @@ static int mcp251x_can_resume(struct device *dev)
- {
- 	struct spi_device *spi = to_spi_device(dev);
- 	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
--	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
-+	struct mcp251x_priv *priv = spi_get_drvdata(spi);
- 
- 	if (priv->after_suspend & AFTER_SUSPEND_POWER) {
- 		pdata->power_enable(1);
+ 	/* decrease the module use count */
+ 	ip_vs_use_count_dec();
 -- 
-1.7.2.5
+1.7.10.4
+
