@@ -1,78 +1,48 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 47/51] netfilter: remove unneeded variable proc_net_netfilter
-Date: Sat,  6 Apr 2013 14:17:46 +0200
-Message-ID: <1365250670-14993-48-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 37/51] netfilter: fix struct ip6t_frag field description
+Date: Sat,  6 Apr 2013 14:17:36 +0200
+Message-ID: <1365250670-14993-38-git-send-email-pablo@netfilter.org>
 References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:39110 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1163482Ab3DFMS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Apr 2013 08:18:56 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now that this supports net namespace for nflog and nfqueue,
-we can remove the global proc_net_netfilter which has no
-clients anymore.
+=46rom: Michal Kube=C4=8Dek <mkubecek@suse.cz>
 
-Based on patch from Gao feng.
-
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter.h |    5 -----
- net/netfilter/core.c      |   16 ++++------------
- 2 files changed, 4 insertions(+), 17 deletions(-)
+ include/uapi/linux/netfilter_ipv6/ip6t_frag.h |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index ee14284..0060fde 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -289,11 +289,6 @@ nf_nat_decode_session(struct sk_buff *skb, struct flowi *fl, u_int8_t family)
- #endif
- }
- 
--#ifdef CONFIG_PROC_FS
--#include <linux/proc_fs.h>
--extern struct proc_dir_entry *proc_net_netfilter;
--#endif
--
- #else /* !CONFIG_NETFILTER */
- #define NF_HOOK(pf, hook, skb, indev, outdev, okfn) (okfn)(skb)
- #define NF_HOOK_COND(pf, hook, skb, indev, outdev, okfn, cond) (okfn)(skb)
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index b085184..7d97302 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -276,23 +276,15 @@ void (*nf_nat_decode_session_hook)(struct sk_buff *, struct flowi *);
- EXPORT_SYMBOL(nf_nat_decode_session_hook);
- #endif
- 
--#ifdef CONFIG_PROC_FS
--struct proc_dir_entry *proc_net_netfilter;
--EXPORT_SYMBOL(proc_net_netfilter);
--#endif
--
- static int __net_init netfilter_net_init(struct net *net)
- {
- #ifdef CONFIG_PROC_FS
- 	net->nf.proc_netfilter = proc_net_mkdir(net, "netfilter",
- 						net->proc_net);
--	if (net_eq(net, &init_net)) {
--		if (!net->nf.proc_netfilter)
--			return -ENOMEM;
--		else
--			proc_net_netfilter = net->nf.proc_netfilter;
--	} else if (!net->nf.proc_netfilter) {
--		pr_err("cannot create netfilter proc entry");
-+	if (!net->nf.proc_netfilter) {
-+		if (!net_eq(net, &init_net))
-+			pr_err("cannot create netfilter proc entry");
-+
- 		return -ENOMEM;
- 	}
- #endif
--- 
+diff --git a/include/uapi/linux/netfilter_ipv6/ip6t_frag.h b/include/ua=
+pi/linux/netfilter_ipv6/ip6t_frag.h
+index b47f61b..dfd8bc2 100644
+--- a/include/uapi/linux/netfilter_ipv6/ip6t_frag.h
++++ b/include/uapi/linux/netfilter_ipv6/ip6t_frag.h
+@@ -4,9 +4,9 @@
+ #include <linux/types.h>
+=20
+ struct ip6t_frag {
+-	__u32 ids[2];			/* Security Parameter Index */
++	__u32 ids[2];			/* Identification range */
+ 	__u32 hdrlen;			/* Header Length */
+-	__u8  flags;			/*  */
++	__u8  flags;			/* Flags */
+ 	__u8  invflags;			/* Inverse flags */
+ };
+=20
+--=20
 1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
