@@ -1,122 +1,88 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net,2/2] hyperv: Fix RNDIS send_completion code path
-Date: Fri,  5 Apr 2013 14:44:40 -0700
-Message-ID: <1365198280-23270-2-git-send-email-haiyangz@microsoft.com>
-References: <1365198280-23270-1-git-send-email-haiyangz@microsoft.com>
-Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
-	jasowang@redhat.com, linux-kernel@vger.kernel.org,
-	devel@linuxdriverproject.org
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1365198280-23270-1-git-send-email-haiyangz@microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH] bonding: remove sysfs before removing devices
+Date: Sat, 6 Apr 2013 03:49:24 +0200
+Message-ID: <20130406014924.GA8023@redhat.com>
+References: <1365003993-13181-1-git-send-email-vfalico@redhat.com>
+ <515F4CEF.3030207@redhat.com>
+ <20130405232133.GA19437@redhat.com>
+ <515F5E6C.2030009@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	davem@davemloft.net
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:28996 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756458Ab3DFBvD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Apr 2013 21:51:03 -0400
+Content-Disposition: inline
+In-Reply-To: <515F5E6C.2030009@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In some cases, the VM_PKT_COMP message can arrive later than RNDIS completion
-message, which will free the packet memory. This may cause panic due to access
-to freed memory in netvsc_send_completion().
+On Sat, Apr 06, 2013 at 01:29:48AM +0200, Nikolay Aleksandrov wrote:
+>On 04/06/2013 01:21 AM, Veaceslav Falico wrote:
+>> On Sat, Apr 06, 2013 at 12:15:11AM +0200, Nikolay Aleksandrov wrote:
+>>> Hi,
+>>> Sorry for the late reply but I was travelling this week. In my
+>>> opinion this
+>>> fix is wrong because in bond_uninit() (called by rtnl_link_unregister)
+>>> you have:
+>>> list_del(&bond->bond_list);
+>>> which is linked in the bond_net dev_list which is freed by
+>>> unregister_pernet_subsys.
+>>
+>> Yep, you're right, I've hit it recently with the patch applied, and now
+>> working on it. However, I still think that the idea of the patch is
+>> correct
+>> - i.e. to first disable sysfs (especially bonding_masters) and only
+>>  afterwards to start removing everything else. Or, obviously, to finally
+>> add normal locking to sysfs functions.
+>>
+>> Anyway, this corruption is really rare, so I'll wait for your fix next
+>> week.
+>>
+>Well, there's no need for that because you'll have to iterate over all
+>"net"s to do it properly. Since we already have code that does it
+>(unregister_pernet_subsys), my fix is to kill off any "left" bond
+>devices in bond_net_exit() _after_ destroying the bonding_masters
+>sysfs entry for that net. This way we preserve the code structure and avoid
+>duplicating a loop over all nets.
 
-This patch fixes this problem by removing rndis_filter_send_request_completion()
-from the code path. The function was a no-op.
+Yep, that was one approach that I wanted to do, however I didn't like the
+idea to duplicate the device destruction - i.e. the rtnl_link_unregister()
+already does that, and to re-delete them after sysfs gets out of the way
+feeled wrong. However, I've also missed the net->dev_list part, so seems
+like both approaches have drawbacks... Or did I miss something?
 
-Reported-by: Long Li <longli@microsoft.com>
-Tested-by: Long Li <longli@microsoft.com>
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+>This is the fix we discussed a week ago.
 
----
- drivers/net/hyperv/netvsc.c       |   17 ++++++++++++-----
- drivers/net/hyperv/rndis_filter.c |   14 +-------------
- 2 files changed, 13 insertions(+), 18 deletions(-)
+Not with me :). I didn't know of this bug by that time...
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 1cd7748..f5f0f09 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -470,8 +470,10 @@ static void netvsc_send_completion(struct hv_device *device,
- 			packet->trans_id;
- 
- 		/* Notify the layer above us */
--		nvsc_packet->completion.send.send_completion(
--			nvsc_packet->completion.send.send_completion_ctx);
-+		if (nvsc_packet)
-+			nvsc_packet->completion.send.send_completion(
-+				nvsc_packet->completion.send.
-+				send_completion_ctx);
- 
- 		num_outstanding_sends =
- 			atomic_dec_return(&net_device->num_outstanding_sends);
-@@ -498,6 +500,7 @@ int netvsc_send(struct hv_device *device,
- 	int ret = 0;
- 	struct nvsp_message sendMessage;
- 	struct net_device *ndev;
-+	u64 req_id;
- 
- 	net_device = get_outbound_net_device(device);
- 	if (!net_device)
-@@ -518,20 +521,24 @@ int netvsc_send(struct hv_device *device,
- 		0xFFFFFFFF;
- 	sendMessage.msg.v1_msg.send_rndis_pkt.send_buf_section_size = 0;
- 
-+	if (packet->completion.send.send_completion)
-+		req_id = (u64)packet;
-+	else
-+		req_id = 0;
-+
- 	if (packet->page_buf_cnt) {
- 		ret = vmbus_sendpacket_pagebuffer(device->channel,
- 						  packet->page_buf,
- 						  packet->page_buf_cnt,
- 						  &sendMessage,
- 						  sizeof(struct nvsp_message),
--						  (unsigned long)packet);
-+						  req_id);
- 	} else {
- 		ret = vmbus_sendpacket(device->channel, &sendMessage,
- 				sizeof(struct nvsp_message),
--				(unsigned long)packet,
-+				req_id,
- 				VM_PKT_DATA_INBAND,
- 				VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
--
- 	}
- 
- 	if (ret == 0) {
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 2b657d4..0775f0a 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -61,9 +61,6 @@ struct rndis_request {
- 
- static void rndis_filter_send_completion(void *ctx);
- 
--static void rndis_filter_send_request_completion(void *ctx);
--
--
- 
- static struct rndis_device *get_rndis_device(void)
- {
-@@ -241,10 +238,7 @@ static int rndis_filter_send_request(struct rndis_device *dev,
- 			packet->page_buf[0].len;
- 	}
- 
--	packet->completion.send.send_completion_ctx = req;/* packet; */
--	packet->completion.send.send_completion =
--		rndis_filter_send_request_completion;
--	packet->completion.send.send_completion_tid = (unsigned long)dev;
-+	packet->completion.send.send_completion = NULL;
- 
- 	ret = netvsc_send(dev->net_dev->dev, packet);
- 	return ret;
-@@ -999,9 +993,3 @@ static void rndis_filter_send_completion(void *ctx)
- 	/* Pass it back to the original handler */
- 	filter_pkt->completion(filter_pkt->completion_ctx);
- }
--
--
--static void rndis_filter_send_request_completion(void *ctx)
--{
--	/* Noop */
--}
--- 
-1.7.4.1
+>I'd be happy to hear any comments on it before posting :-)
+>
+>Of course stopping the whole bonding sysfs handling is also an alternative.
+
+I think it'd be the best way to do that.
+
+1) We can't remove the net_ns before removing the devices cause they depend
+on it (and I think it's quite a hack anyway now that I'm aware of dev_list).
+2) We can't re-remove devices after sysfs deactivation, it's also a hack,
+cause rtnl does the same thing.
+3) We can't hold rtnl_mutex to do both rtnl and net_ns removal cause we can
+deadlock in sysfs code (when it gets removed).
+4) We can't remove the b_masters before all the logic cause it'll duplicate
+the code for unregister_pernet_operations(), and will also look like a
+hack (with looping through net_ns).
+
+Out of all these, #2 (your option) looks the best - the least intrusive and
+the easiest to read. However, I still think that it's the lesser evil, and
+there must exist a way to do it correctly (like with #3, and avoid the
+deadlock by restart_syscall() technique in bond_store_bonds() - however I
+don't really know if it'll work.).
+
+Anyway, I'd really like your feedback on these thoughts, and if nothing
+better comes up - your patch :).
+
+Thank you!
