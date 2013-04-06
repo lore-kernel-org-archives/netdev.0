@@ -1,281 +1,125 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 27/51] ipvs: convert wrr scheduler to rcu
-Date: Sat,  6 Apr 2013 14:17:26 +0200
-Message-ID: <1365250670-14993-28-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 16/51] ipvs: preparations for using rcu in schedulers
+Date: Sat,  6 Apr 2013 14:17:15 +0200
+Message-ID: <1365250670-14993-17-git-send-email-pablo@netfilter.org>
 References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38975 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:38917 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1163432Ab3DFMSf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Apr 2013 08:18:35 -0400
+	id S1163381Ab3DFMSX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Apr 2013 08:18:23 -0400
 In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Julian Anastasov <ja@ssi.bg>
 
-The schedule method now needs _rcu list-traversal
-primitive for svc->destinations. As the weight for some
-dest can be reduced during dest selection, change the
-algorithm to check weights by using minimum weights in the
-1 .. max_weight-(di-1) range, with the same step (di). By this
-way we ensure that there will be always a weight >= 1 check
-before claiming that all destinations are overloaded.
+Allow schedulers to use rcu_dereference when
+returning destination on lookup. The RCU read-side critical
+section will allow ip_vs_bind_dest to get dest refcnt as
+preparation for the step where destinations will be
+deleted without an IP_VS_WAIT_WHILE guard that holds the
+packet processing during update.
+
+	Add new optional scheduler methods add_dest,
+del_dest and upd_dest. For now the methods are called
+together with update_service but update_service will be
+removed in a following change.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_wrr.c |  167 +++++++++++++++++++++++++---------------
- 1 file changed, 103 insertions(+), 64 deletions(-)
+ include/net/ip_vs.h             |    6 ++++++
+ net/netfilter/ipvs/ip_vs_core.c |    6 ++++++
+ net/netfilter/ipvs/ip_vs_ctl.c  |    8 ++++++++
+ 3 files changed, 20 insertions(+)
 
-diff --git a/net/netfilter/ipvs/ip_vs_wrr.c b/net/netfilter/ipvs/ip_vs_wrr.c
-index 231be7d..98cb05e 100644
---- a/net/netfilter/ipvs/ip_vs_wrr.c
-+++ b/net/netfilter/ipvs/ip_vs_wrr.c
-@@ -29,14 +29,45 @@
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 43886bb..d91385c 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -805,6 +805,12 @@ struct ip_vs_scheduler {
+ 	int (*done_service)(struct ip_vs_service *svc);
+ 	/* scheduler updating service */
+ 	int (*update_service)(struct ip_vs_service *svc);
++	/* dest is linked */
++	int (*add_dest)(struct ip_vs_service *svc, struct ip_vs_dest *dest);
++	/* dest is unlinked */
++	int (*del_dest)(struct ip_vs_service *svc, struct ip_vs_dest *dest);
++	/* dest is updated */
++	int (*upd_dest)(struct ip_vs_service *svc, struct ip_vs_dest *dest);
  
- #include <net/ip_vs.h>
- 
-+/* The WRR algorithm depends on some caclulations:
-+ * - mw: maximum weight
-+ * - di: weight step, greatest common divisor from all weights
-+ * - cw: current required weight
-+ * As result, all weights are in the [di..mw] range with a step=di.
-+ *
-+ * First, we start with cw = mw and select dests with weight >= cw.
-+ * Then cw is reduced with di and all dests are checked again.
-+ * Last pass should be with cw = di. We have mw/di passes in total:
-+ *
-+ * pass 1: cw = max weight
-+ * pass 2: cw = max weight - di
-+ * pass 3: cw = max weight - 2 * di
-+ * ...
-+ * last pass: cw = di
-+ *
-+ * Weights are supposed to be >= di but we run in parallel with
-+ * weight changes, it is possible some dest weight to be reduced
-+ * below di, bad if it is the only available dest.
-+ *
-+ * So, we modify how mw is calculated, now it is reduced with (di - 1),
-+ * so that last cw is 1 to catch such dests with weight below di:
-+ * pass 1: cw = max weight - (di - 1)
-+ * pass 2: cw = max weight - di - (di - 1)
-+ * pass 3: cw = max weight - 2 * di - (di - 1)
-+ * ...
-+ * last pass: cw = 1
-+ *
-+ */
-+
- /*
-  * current destination pointer for weighted round-robin scheduling
-  */
- struct ip_vs_wrr_mark {
--	struct list_head *cl;	/* current list head */
-+	struct ip_vs_dest *cl;	/* current dest or head */
- 	int cw;			/* current weight */
- 	int mw;			/* maximum weight */
- 	int di;			/* decreasing interval */
-+	struct rcu_head		rcu_head;
- };
- 
- 
-@@ -88,10 +119,10 @@ static int ip_vs_wrr_init_svc(struct ip_vs_service *svc)
- 	if (mark == NULL)
- 		return -ENOMEM;
- 
--	mark->cl = &svc->destinations;
--	mark->cw = 0;
--	mark->mw = ip_vs_wrr_max_weight(svc);
-+	mark->cl = list_entry(&svc->destinations, struct ip_vs_dest, n_list);
- 	mark->di = ip_vs_wrr_gcd_weight(svc);
-+	mark->mw = ip_vs_wrr_max_weight(svc) - (mark->di - 1);
-+	mark->cw = mark->mw;
- 	svc->sched_data = mark;
- 
- 	return 0;
-@@ -100,24 +131,31 @@ static int ip_vs_wrr_init_svc(struct ip_vs_service *svc)
- 
- static int ip_vs_wrr_done_svc(struct ip_vs_service *svc)
- {
-+	struct ip_vs_wrr_mark *mark = svc->sched_data;
-+
- 	/*
- 	 *    Release the mark variable
- 	 */
--	kfree(svc->sched_data);
-+	kfree_rcu(mark, rcu_head);
- 
- 	return 0;
- }
- 
- 
--static int ip_vs_wrr_update_svc(struct ip_vs_service *svc)
-+static int ip_vs_wrr_dest_changed(struct ip_vs_service *svc,
-+				  struct ip_vs_dest *dest)
- {
- 	struct ip_vs_wrr_mark *mark = svc->sched_data;
- 
--	mark->cl = &svc->destinations;
--	mark->mw = ip_vs_wrr_max_weight(svc);
-+	write_lock_bh(&svc->sched_lock);
-+	mark->cl = list_entry(&svc->destinations, struct ip_vs_dest, n_list);
- 	mark->di = ip_vs_wrr_gcd_weight(svc);
--	if (mark->cw > mark->mw)
--		mark->cw = 0;
-+	mark->mw = ip_vs_wrr_max_weight(svc) - (mark->di - 1);
-+	if (mark->cw > mark->mw || !mark->cw)
-+		mark->cw = mark->mw;
-+	else if (mark->di > 1)
-+		mark->cw = (mark->cw / mark->di) * mark->di + 1;
-+	write_unlock_bh(&svc->sched_lock);
- 	return 0;
- }
- 
-@@ -128,80 +166,79 @@ static int ip_vs_wrr_update_svc(struct ip_vs_service *svc)
- static struct ip_vs_dest *
- ip_vs_wrr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- {
--	struct ip_vs_dest *dest;
-+	struct ip_vs_dest *dest, *last, *stop = NULL;
- 	struct ip_vs_wrr_mark *mark = svc->sched_data;
--	struct list_head *p;
-+	bool last_pass = false, restarted = false;
- 
- 	IP_VS_DBG(6, "%s(): Scheduling...\n", __func__);
- 
--	/*
--	 * This loop will always terminate, because mark->cw in (0, max_weight]
--	 * and at least one server has its weight equal to max_weight.
--	 */
- 	write_lock(&svc->sched_lock);
--	p = mark->cl;
-+	dest = mark->cl;
-+	/* No available dests? */
-+	if (mark->mw == 0)
-+		goto err_noavail;
-+	last = dest;
-+	/* Stop only after all dests were checked for weight >= 1 (last pass) */
- 	while (1) {
--		if (mark->cl == &svc->destinations) {
--			/* it is at the head of the destination list */
--
--			if (mark->cl == mark->cl->next) {
--				/* no dest entry */
--				ip_vs_scheduler_err(svc,
--					"no destination available: "
--					"no destinations present");
--				dest = NULL;
--				goto out;
--			}
--
--			mark->cl = svc->destinations.next;
--			mark->cw -= mark->di;
--			if (mark->cw <= 0) {
--				mark->cw = mark->mw;
--				/*
--				 * Still zero, which means no available servers.
--				 */
--				if (mark->cw == 0) {
--					mark->cl = &svc->destinations;
--					ip_vs_scheduler_err(svc,
--						"no destination available");
--					dest = NULL;
--					goto out;
--				}
--			}
--		} else
--			mark->cl = mark->cl->next;
--
--		if (mark->cl != &svc->destinations) {
--			/* not at the head of the list */
--			dest = list_entry(mark->cl, struct ip_vs_dest, n_list);
-+		list_for_each_entry_continue_rcu(dest,
-+						 &svc->destinations,
-+						 n_list) {
- 			if (!(dest->flags & IP_VS_DEST_F_OVERLOAD) &&
--			    atomic_read(&dest->weight) >= mark->cw) {
--				/* got it */
--				break;
--			}
-+			    atomic_read(&dest->weight) >= mark->cw)
-+				goto found;
-+			if (dest == stop)
-+				goto err_over;
- 		}
--
--		if (mark->cl == p && mark->cw == mark->di) {
--			/* back to the start, and no dest is found.
--			   It is only possible when all dests are OVERLOADED */
--			dest = NULL;
--			ip_vs_scheduler_err(svc,
--				"no destination available: "
--				"all destinations are overloaded");
--			goto out;
-+		mark->cw -= mark->di;
-+		if (mark->cw <= 0) {
-+			mark->cw = mark->mw;
-+			/* Stop if we tried last pass from first dest:
-+			 * 1. last_pass: we started checks when cw > di but
-+			 *	then all dests were checked for w >= 1
-+			 * 2. last was head: the first and only traversal
-+			 *	was for weight >= 1, for all dests.
-+			 */
-+			if (last_pass ||
-+			    &last->n_list == &svc->destinations)
-+				goto err_over;
-+			restarted = true;
-+		}
-+		last_pass = mark->cw <= mark->di;
-+		if (last_pass && restarted &&
-+		    &last->n_list != &svc->destinations) {
-+			/* First traversal was for w >= 1 but only
-+			 * for dests after 'last', now do the same
-+			 * for all dests up to 'last'.
-+			 */
-+			stop = last;
- 		}
+ 	/* selecting a server from the given service */
+ 	struct ip_vs_dest* (*schedule)(struct ip_vs_service *svc,
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 4fc749c..939ad11 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -301,8 +301,10 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+ 		 * template is not available.
+ 		 * return *ignored=0 i.e. ICMP and NF_DROP
+ 		 */
++		rcu_read_lock();
+ 		dest = svc->scheduler->schedule(svc, skb);
+ 		if (!dest) {
++			rcu_read_unlock();
+ 			IP_VS_DBG(1, "p-schedule: no dest found.\n");
+ 			kfree(param.pe_data);
+ 			*ignored = 0;
+@@ -318,6 +320,7 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+ 		 * when the template expires */
+ 		ct = ip_vs_conn_new(&param, &dest->addr, dport,
+ 				    IP_VS_CONN_F_TEMPLATE, dest, skb->mark);
++		rcu_read_unlock();
+ 		if (ct == NULL) {
+ 			kfree(param.pe_data);
+ 			*ignored = -1;
+@@ -446,8 +449,10 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
+ 		return NULL;
  	}
  
-+found:
- 	IP_VS_DBG_BUF(6, "WRR: server %s:%u "
- 		      "activeconns %d refcnt %d weight %d\n",
- 		      IP_VS_DBG_ADDR(svc->af, &dest->addr), ntohs(dest->port),
- 		      atomic_read(&dest->activeconns),
- 		      atomic_read(&dest->refcnt),
- 		      atomic_read(&dest->weight));
-+	mark->cl = dest;
++	rcu_read_lock();
+ 	dest = svc->scheduler->schedule(svc, skb);
+ 	if (dest == NULL) {
++		rcu_read_unlock();
+ 		IP_VS_DBG(1, "Schedule: no dest found.\n");
+ 		return NULL;
+ 	}
+@@ -468,6 +473,7 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
+ 		cp = ip_vs_conn_new(&p, &dest->addr,
+ 				    dest->port ? dest->port : pptr[1],
+ 				    flags, dest, skb->mark);
++		rcu_read_unlock();
+ 		if (!cp) {
+ 			*ignored = -1;
+ 			return NULL;
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 182d958..d64f800 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -825,6 +825,11 @@ __ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
+ 	if (add) {
+ 		list_add(&dest->n_list, &svc->destinations);
+ 		svc->num_dests++;
++		if (svc->scheduler->add_dest)
++			svc->scheduler->add_dest(svc, dest);
++	} else {
++		if (svc->scheduler->upd_dest)
++			svc->scheduler->upd_dest(svc, dest);
+ 	}
  
-   out:
- 	write_unlock(&svc->sched_lock);
- 	return dest;
+ 	/* call the update_service, because server weight may be changed */
+@@ -1071,6 +1076,9 @@ static void __ip_vs_unlink_dest(struct ip_vs_service *svc,
+ 	list_del(&dest->n_list);
+ 	svc->num_dests--;
+ 
++	if (svcupd && svc->scheduler->del_dest)
++		svc->scheduler->del_dest(svc, dest);
 +
-+err_noavail:
-+	mark->cl = dest;
-+	dest = NULL;
-+	ip_vs_scheduler_err(svc, "no destination available");
-+	goto out;
-+
-+err_over:
-+	mark->cl = dest;
-+	dest = NULL;
-+	ip_vs_scheduler_err(svc, "no destination available: "
-+			    "all destinations are overloaded");
-+	goto out;
- }
- 
- 
-@@ -212,7 +249,9 @@ static struct ip_vs_scheduler ip_vs_wrr_scheduler = {
- 	.n_list =		LIST_HEAD_INIT(ip_vs_wrr_scheduler.n_list),
- 	.init_service =		ip_vs_wrr_init_svc,
- 	.done_service =		ip_vs_wrr_done_svc,
--	.update_service =	ip_vs_wrr_update_svc,
-+	.add_dest =		ip_vs_wrr_dest_changed,
-+	.del_dest =		ip_vs_wrr_dest_changed,
-+	.upd_dest =		ip_vs_wrr_dest_changed,
- 	.schedule =		ip_vs_wrr_schedule,
- };
- 
+ 	/*
+ 	 *  Call the update_service function of its scheduler
+ 	 */
 -- 
 1.7.10.4
