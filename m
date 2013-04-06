@@ -1,233 +1,186 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 01/51] ipvs: avoid routing by TOS for real server
-Date: Sat,  6 Apr 2013 14:17:00 +0200
-Message-ID: <1365250670-14993-2-git-send-email-pablo@netfilter.org>
-References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 2/7] net: can: mcp251x: use spi_get_drvdata() and
+ spi_set_drvdata()
+Date: Sat, 06 Apr 2013 15:35:14 +0900
+Message-ID: <000d01ce3290$e5762e10$b0628a30$%han@samsung.com>
+References: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
+To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38868 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1163340Ab3DFMSH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Apr 2013 08:18:07 -0400
-In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Received: from mailout4.samsung.com ([203.254.224.34]:60639 "EHLO
+	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932525Ab3DFGfQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 02:35:16 -0400
+Received: from epcpsbgr1.samsung.com
+ (u141.gpu120.samsung.co.kr [203.254.230.141])
+ by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MKT00GIHMAQRSD0@mailout4.samsung.com> for
+ netdev@vger.kernel.org; Sat, 06 Apr 2013 15:35:15 +0900 (KST)
+In-reply-to: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+Use the wrapper functions for getting and setting the driver data using
+spi_device instead of using dev_{get|set}_drvdata with &spi->dev, so we
+can directly pass a struct spi_device.
 
-Avoid replacing the cached route for real server
-on every packet with different TOS. I doubt that routing
-by TOS for real server is used at all, so we should be
-better with such optimization.
-
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off by: Hans Schillstrom <hans@schillstrom.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- include/net/ip_vs.h             |    1 -
- net/netfilter/ipvs/ip_vs_xmit.c |   58 +++++++++++++++++----------------------
- 2 files changed, 25 insertions(+), 34 deletions(-)
+ drivers/net/can/mcp251x.c |   32 ++++++++++++++++----------------
+ 1 files changed, 16 insertions(+), 16 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index bee87ba..64db117 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -753,7 +753,6 @@ struct ip_vs_dest {
- 	/* for destination cache */
- 	spinlock_t		dst_lock;	/* lock of dst_cache */
- 	struct dst_entry	*dst_cache;	/* destination cache entry */
--	u32			dst_rtos;	/* RT_TOS(tos) for dst */
- 	u32			dst_cookie;
- 	union nf_inet_addr	dst_saddr;
- 
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index ee6b7a9..4b0bd15 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -57,27 +57,24 @@ enum {
-  *      Destination cache to speed up outgoing route lookup
-  */
- static inline void
--__ip_vs_dst_set(struct ip_vs_dest *dest, u32 rtos, struct dst_entry *dst,
--		u32 dst_cookie)
-+__ip_vs_dst_set(struct ip_vs_dest *dest, struct dst_entry *dst, u32 dst_cookie)
- {
- 	struct dst_entry *old_dst;
- 
- 	old_dst = dest->dst_cache;
- 	dest->dst_cache = dst;
--	dest->dst_rtos = rtos;
- 	dest->dst_cookie = dst_cookie;
- 	dst_release(old_dst);
+diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
+index 2b620c8..3444e9e 100644
+--- a/drivers/net/can/mcp251x.c
++++ b/drivers/net/can/mcp251x.c
+@@ -269,7 +269,7 @@ struct mcp251x_priv {
+ #define MCP251X_IS(_model) \
+ static inline int mcp251x_is_##_model(struct spi_device *spi) \
+ { \
+-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev); \
++	struct mcp251x_priv *priv = spi_get_drvdata(spi); \
+ 	return priv->model == CAN_MCP251X_MCP##_model; \
  }
  
- static inline struct dst_entry *
--__ip_vs_dst_check(struct ip_vs_dest *dest, u32 rtos)
-+__ip_vs_dst_check(struct ip_vs_dest *dest)
+@@ -305,7 +305,7 @@ static void mcp251x_clean(struct net_device *net)
+  */
+ static int mcp251x_spi_trans(struct spi_device *spi, int len)
  {
- 	struct dst_entry *dst = dest->dst_cache;
+-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
++	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+ 	struct spi_transfer t = {
+ 		.tx_buf = priv->spi_tx_buf,
+ 		.rx_buf = priv->spi_rx_buf,
+@@ -333,7 +333,7 @@ static int mcp251x_spi_trans(struct spi_device *spi, int len)
  
- 	if (!dst)
- 		return NULL;
--	if ((dst->obsolete || rtos != dest->dst_rtos) &&
--	    dst->ops->check(dst, dest->dst_cookie) == NULL) {
-+	if (dst->obsolete && dst->ops->check(dst, dest->dst_cookie) == NULL) {
- 		dest->dst_cache = NULL;
- 		dst_release(dst);
- 		return NULL;
-@@ -104,7 +101,7 @@ __mtu_check_toobig_v6(const struct sk_buff *skb, u32 mtu)
- 
- /* Get route to daddr, update *saddr, optionally bind route to saddr */
- static struct rtable *do_output_route4(struct net *net, __be32 daddr,
--				       u32 rtos, int rt_mode, __be32 *saddr)
-+				       int rt_mode, __be32 *saddr)
+ static u8 mcp251x_read_reg(struct spi_device *spi, uint8_t reg)
  {
- 	struct flowi4 fl4;
- 	struct rtable *rt;
-@@ -113,7 +110,6 @@ static struct rtable *do_output_route4(struct net *net, __be32 daddr,
- 	memset(&fl4, 0, sizeof(fl4));
- 	fl4.daddr = daddr;
- 	fl4.saddr = (rt_mode & IP_VS_RT_MODE_CONNECT) ? *saddr : 0;
--	fl4.flowi4_tos = rtos;
- 	fl4.flowi4_flags = (rt_mode & IP_VS_RT_MODE_KNOWN_NH) ?
- 			   FLOWI_FLAG_KNOWN_NH : 0;
+-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
++	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+ 	u8 val = 0;
  
-@@ -124,7 +120,7 @@ retry:
- 		if (PTR_ERR(rt) == -EINVAL && *saddr &&
- 		    rt_mode & IP_VS_RT_MODE_CONNECT && !loop) {
- 			*saddr = 0;
--			flowi4_update_output(&fl4, 0, rtos, daddr, 0);
-+			flowi4_update_output(&fl4, 0, 0, daddr, 0);
- 			goto retry;
- 		}
- 		IP_VS_DBG_RL("ip_route_output error, dest: %pI4\n", &daddr);
-@@ -132,7 +128,7 @@ retry:
- 	} else if (!*saddr && rt_mode & IP_VS_RT_MODE_CONNECT && fl4.saddr) {
- 		ip_rt_put(rt);
- 		*saddr = fl4.saddr;
--		flowi4_update_output(&fl4, 0, rtos, daddr, fl4.saddr);
-+		flowi4_update_output(&fl4, 0, 0, daddr, fl4.saddr);
- 		loop++;
- 		goto retry;
- 	}
-@@ -143,7 +139,7 @@ retry:
- /* Get route to destination or remote server */
- static struct rtable *
- __ip_vs_get_out_rt(struct sk_buff *skb, struct ip_vs_dest *dest,
--		   __be32 daddr, u32 rtos, int rt_mode, __be32 *ret_saddr)
-+		   __be32 daddr, int rt_mode, __be32 *ret_saddr)
+ 	priv->spi_tx_buf[0] = INSTRUCTION_READ;
+@@ -348,7 +348,7 @@ static u8 mcp251x_read_reg(struct spi_device *spi, uint8_t reg)
+ static void mcp251x_read_2regs(struct spi_device *spi, uint8_t reg,
+ 		uint8_t *v1, uint8_t *v2)
  {
- 	struct net *net = dev_net(skb_dst(skb)->dev);
- 	struct rtable *rt;			/* Route to the other host */
-@@ -152,19 +148,18 @@ __ip_vs_get_out_rt(struct sk_buff *skb, struct ip_vs_dest *dest,
+-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
++	struct mcp251x_priv *priv = spi_get_drvdata(spi);
  
- 	if (dest) {
- 		spin_lock(&dest->dst_lock);
--		if (!(rt = (struct rtable *)
--		      __ip_vs_dst_check(dest, rtos))) {
--			rt = do_output_route4(net, dest->addr.ip, rtos,
--					      rt_mode, &dest->dst_saddr.ip);
-+		rt = (struct rtable *) __ip_vs_dst_check(dest);
-+		if (!rt) {
-+			rt = do_output_route4(net, dest->addr.ip, rt_mode,
-+					      &dest->dst_saddr.ip);
- 			if (!rt) {
- 				spin_unlock(&dest->dst_lock);
- 				return NULL;
- 			}
--			__ip_vs_dst_set(dest, rtos, dst_clone(&rt->dst), 0);
--			IP_VS_DBG(10, "new dst %pI4, src %pI4, refcnt=%d, "
--				  "rtos=%X\n",
-+			__ip_vs_dst_set(dest, dst_clone(&rt->dst), 0);
-+			IP_VS_DBG(10, "new dst %pI4, src %pI4, refcnt=%d\n",
- 				  &dest->addr.ip, &dest->dst_saddr.ip,
--				  atomic_read(&rt->dst.__refcnt), rtos);
-+				  atomic_read(&rt->dst.__refcnt));
- 		}
- 		daddr = dest->addr.ip;
- 		if (ret_saddr)
-@@ -177,7 +172,7 @@ __ip_vs_get_out_rt(struct sk_buff *skb, struct ip_vs_dest *dest,
- 		 * for performance reasons because we do not remember saddr
- 		 */
- 		rt_mode &= ~IP_VS_RT_MODE_CONNECT;
--		rt = do_output_route4(net, daddr, rtos, rt_mode, &saddr);
-+		rt = do_output_route4(net, daddr, rt_mode, &saddr);
- 		if (!rt)
- 			return NULL;
- 		if (ret_saddr)
-@@ -307,7 +302,7 @@ __ip_vs_get_out_rt_v6(struct sk_buff *skb, struct ip_vs_dest *dest,
+ 	priv->spi_tx_buf[0] = INSTRUCTION_READ;
+ 	priv->spi_tx_buf[1] = reg;
+@@ -361,7 +361,7 @@ static void mcp251x_read_2regs(struct spi_device *spi, uint8_t reg,
  
- 	if (dest) {
- 		spin_lock(&dest->dst_lock);
--		rt = (struct rt6_info *)__ip_vs_dst_check(dest, 0);
-+		rt = (struct rt6_info *)__ip_vs_dst_check(dest);
- 		if (!rt) {
- 			u32 cookie;
+ static void mcp251x_write_reg(struct spi_device *spi, u8 reg, uint8_t val)
+ {
+-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
++	struct mcp251x_priv *priv = spi_get_drvdata(spi);
  
-@@ -320,7 +315,7 @@ __ip_vs_get_out_rt_v6(struct sk_buff *skb, struct ip_vs_dest *dest,
- 			}
- 			rt = (struct rt6_info *) dst;
- 			cookie = rt->rt6i_node ? rt->rt6i_node->fn_sernum : 0;
--			__ip_vs_dst_set(dest, 0, dst_clone(&rt->dst), cookie);
-+			__ip_vs_dst_set(dest, dst_clone(&rt->dst), cookie);
- 			IP_VS_DBG(10, "new dst %pI6, src %pI6, refcnt=%d\n",
- 				  &dest->addr.in6, &dest->dst_saddr.in6,
- 				  atomic_read(&rt->dst.__refcnt));
-@@ -449,8 +444,9 @@ ip_vs_bypass_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	priv->spi_tx_buf[0] = INSTRUCTION_WRITE;
+ 	priv->spi_tx_buf[1] = reg;
+@@ -373,7 +373,7 @@ static void mcp251x_write_reg(struct spi_device *spi, u8 reg, uint8_t val)
+ static void mcp251x_write_bits(struct spi_device *spi, u8 reg,
+ 			       u8 mask, uint8_t val)
+ {
+-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
++	struct mcp251x_priv *priv = spi_get_drvdata(spi);
  
- 	EnterFunction(10);
+ 	priv->spi_tx_buf[0] = INSTRUCTION_BIT_MODIFY;
+ 	priv->spi_tx_buf[1] = reg;
+@@ -386,7 +386,7 @@ static void mcp251x_write_bits(struct spi_device *spi, u8 reg,
+ static void mcp251x_hw_tx_frame(struct spi_device *spi, u8 *buf,
+ 				int len, int tx_buf_idx)
+ {
+-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
++	struct mcp251x_priv *priv = spi_get_drvdata(spi);
  
--	if (!(rt = __ip_vs_get_out_rt(skb, NULL, iph->daddr, RT_TOS(iph->tos),
--				      IP_VS_RT_MODE_NON_LOCAL, NULL)))
-+	rt = __ip_vs_get_out_rt(skb, NULL, iph->daddr, IP_VS_RT_MODE_NON_LOCAL,
-+				NULL);
-+	if (!rt)
- 		goto tx_error_icmp;
+ 	if (mcp251x_is_2510(spi)) {
+ 		int i;
+@@ -403,7 +403,7 @@ static void mcp251x_hw_tx_frame(struct spi_device *spi, u8 *buf,
+ static void mcp251x_hw_tx(struct spi_device *spi, struct can_frame *frame,
+ 			  int tx_buf_idx)
+ {
+-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
++	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+ 	u32 sid, eid, exide, rtr;
+ 	u8 buf[SPI_TRANSFER_BUF_LEN];
  
- 	/* MTU checking */
-@@ -581,10 +577,9 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	}
+@@ -434,7 +434,7 @@ static void mcp251x_hw_tx(struct spi_device *spi, struct can_frame *frame,
+ static void mcp251x_hw_rx_frame(struct spi_device *spi, u8 *buf,
+ 				int buf_idx)
+ {
+-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
++	struct mcp251x_priv *priv = spi_get_drvdata(spi);
  
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
--				      RT_TOS(iph->tos),
- 				      IP_VS_RT_MODE_LOCAL |
--					IP_VS_RT_MODE_NON_LOCAL |
--					IP_VS_RT_MODE_RDR, NULL)))
-+				      IP_VS_RT_MODE_NON_LOCAL |
-+				      IP_VS_RT_MODE_RDR, NULL)))
- 		goto tx_error_icmp;
- 	local = rt->rt_flags & RTCF_LOCAL;
- 	/*
-@@ -832,10 +827,9 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	EnterFunction(10);
+ 	if (mcp251x_is_2510(spi)) {
+ 		int i, len;
+@@ -454,7 +454,7 @@ static void mcp251x_hw_rx_frame(struct spi_device *spi, u8 *buf,
  
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
--				      RT_TOS(tos), IP_VS_RT_MODE_LOCAL |
--						   IP_VS_RT_MODE_NON_LOCAL |
--						   IP_VS_RT_MODE_CONNECT,
--						   &saddr)))
-+				      IP_VS_RT_MODE_LOCAL |
-+				      IP_VS_RT_MODE_NON_LOCAL |
-+				      IP_VS_RT_MODE_CONNECT, &saddr)))
- 		goto tx_error_icmp;
- 	if (rt->rt_flags & RTCF_LOCAL) {
- 		ip_rt_put(rt);
-@@ -1067,7 +1061,6 @@ ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	EnterFunction(10);
+ static void mcp251x_hw_rx(struct spi_device *spi, int buf_idx)
+ {
+-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
++	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+ 	struct sk_buff *skb;
+ 	struct can_frame *frame;
+ 	u8 buf[SPI_TRANSFER_BUF_LEN];
+@@ -550,7 +550,7 @@ static int mcp251x_do_set_mode(struct net_device *net, enum can_mode mode)
  
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
--				      RT_TOS(iph->tos),
- 				      IP_VS_RT_MODE_LOCAL |
- 				      IP_VS_RT_MODE_NON_LOCAL |
- 				      IP_VS_RT_MODE_KNOWN_NH, NULL)))
-@@ -1223,7 +1216,6 @@ ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 		  IP_VS_RT_MODE_LOCAL | IP_VS_RT_MODE_NON_LOCAL |
- 		  IP_VS_RT_MODE_RDR : IP_VS_RT_MODE_NON_LOCAL;
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
--				      RT_TOS(ip_hdr(skb)->tos),
- 				      rt_mode, NULL)))
- 		goto tx_error_icmp;
- 	local = rt->rt_flags & RTCF_LOCAL;
+ static int mcp251x_set_normal_mode(struct spi_device *spi)
+ {
+-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
++	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+ 	unsigned long timeout;
+ 
+ 	/* Enable interrupts */
+@@ -620,7 +620,7 @@ static int mcp251x_setup(struct net_device *net, struct mcp251x_priv *priv,
+ 
+ static int mcp251x_hw_reset(struct spi_device *spi)
+ {
+-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
++	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+ 	int ret;
+ 	unsigned long timeout;
+ 
+@@ -1020,7 +1020,7 @@ static int mcp251x_can_probe(struct spi_device *spi)
+ 		CAN_CTRLMODE_LOOPBACK | CAN_CTRLMODE_LISTENONLY;
+ 	priv->model = spi_get_device_id(spi)->driver_data;
+ 	priv->net = net;
+-	dev_set_drvdata(&spi->dev, priv);
++	spi_set_drvdata(spi, priv);
+ 
+ 	priv->spi = spi;
+ 	mutex_init(&priv->mcp_lock);
+@@ -1118,7 +1118,7 @@ error_out:
+ static int mcp251x_can_remove(struct spi_device *spi)
+ {
+ 	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
+-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
++	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+ 	struct net_device *net = priv->net;
+ 
+ 	unregister_candev(net);
+@@ -1144,7 +1144,7 @@ static int mcp251x_can_suspend(struct device *dev)
+ {
+ 	struct spi_device *spi = to_spi_device(dev);
+ 	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
+-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
++	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+ 	struct net_device *net = priv->net;
+ 
+ 	priv->force_quit = 1;
+@@ -1176,7 +1176,7 @@ static int mcp251x_can_resume(struct device *dev)
+ {
+ 	struct spi_device *spi = to_spi_device(dev);
+ 	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
+-	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
++	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+ 
+ 	if (priv->after_suspend & AFTER_SUSPEND_POWER) {
+ 		pdata->power_enable(1);
 -- 
-1.7.10.4
+1.7.2.5
