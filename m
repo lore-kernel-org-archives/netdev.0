@@ -1,48 +1,99 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 37/51] netfilter: fix struct ip6t_frag field description
-Date: Sat,  6 Apr 2013 14:17:36 +0200
-Message-ID: <1365250670-14993-38-git-send-email-pablo@netfilter.org>
-References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Jiang Liu <liuj97@gmail.com>
+Subject: [PATCH v4, part3 09/41] mm: use totalram_pages instead of num_physpages at runtime
+Date: Sat,  6 Apr 2013 22:32:08 +0800
+Message-ID: <1365258760-30821-10-git-send-email-jiang.liu@huawei.com>
+References: <1365258760-30821-1-git-send-email-jiang.liu@huawei.com>
+Cc: Jiang Liu <jiang.liu@huawei.com>,
+	David Rientjes <rientjes@google.com>,
+	Wen Congyang <wency@cn.fujitsu.com>,
+	Mel Gorman <mgorman@suse.de>, Minchan Kim <minchan@kernel.org>,
+	KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
+	Michal Hocko <mhocko@suse.cz>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	David Howells <dhowells@redhat.com>,
+	Mark Salter <msalter@redhat.com>,
+	Jianguo Wu <wujianguo@huawei.com>, linux-mm@kvack.org,
+	linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Miklos Szeredi <miklos@szeredi.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	fuse-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <1365258760-30821-1-git-send-email-jiang.liu@huawei.com>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Michal Kube=C4=8Dek <mkubecek@suse.cz>
+The global variable num_physpages is scheduled to be removed, so use
+totalram_pages instead of num_physpages at runtime.
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+Cc: Miklos Szeredi <miklos@szeredi.hu>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: fuse-devel@lists.sourceforge.net
+Cc: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 ---
- include/uapi/linux/netfilter_ipv6/ip6t_frag.h |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ fs/fuse/inode.c          |    2 +-
+ kernel/power/snapshot.c  |    4 ++--
+ net/ipv4/inet_fragment.c |    2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/uapi/linux/netfilter_ipv6/ip6t_frag.h b/include/ua=
-pi/linux/netfilter_ipv6/ip6t_frag.h
-index b47f61b..dfd8bc2 100644
---- a/include/uapi/linux/netfilter_ipv6/ip6t_frag.h
-+++ b/include/uapi/linux/netfilter_ipv6/ip6t_frag.h
-@@ -4,9 +4,9 @@
- #include <linux/types.h>
-=20
- struct ip6t_frag {
--	__u32 ids[2];			/* Security Parameter Index */
-+	__u32 ids[2];			/* Identification range */
- 	__u32 hdrlen;			/* Header Length */
--	__u8  flags;			/*  */
-+	__u8  flags;			/* Flags */
- 	__u8  invflags;			/* Inverse flags */
- };
-=20
---=20
-1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
+index 137185c..0bca95d 100644
+--- a/fs/fuse/inode.c
++++ b/fs/fuse/inode.c
+@@ -782,7 +782,7 @@ static const struct super_operations fuse_super_operations = {
+ static void sanitize_global_limit(unsigned *limit)
+ {
+ 	if (*limit == 0)
+-		*limit = ((num_physpages << PAGE_SHIFT) >> 13) /
++		*limit = ((totalram_pages << PAGE_SHIFT) >> 13) /
+ 			 sizeof(struct fuse_req);
+ 
+ 	if (*limit >= 1 << 16)
+diff --git a/kernel/power/snapshot.c b/kernel/power/snapshot.c
+index 0de2857..8b5d1cd 100644
+--- a/kernel/power/snapshot.c
++++ b/kernel/power/snapshot.c
+@@ -1651,7 +1651,7 @@ unsigned long snapshot_get_image_size(void)
+ static int init_header(struct swsusp_info *info)
+ {
+ 	memset(info, 0, sizeof(struct swsusp_info));
+-	info->num_physpages = num_physpages;
++	info->num_physpages = get_num_physpages();
+ 	info->image_pages = nr_copy_pages;
+ 	info->pages = snapshot_get_image_size();
+ 	info->size = info->pages;
+@@ -1795,7 +1795,7 @@ static int check_header(struct swsusp_info *info)
+ 	char *reason;
+ 
+ 	reason = check_image_kernel(info);
+-	if (!reason && info->num_physpages != num_physpages)
++	if (!reason && info->num_physpages != get_num_physpages())
+ 		reason = "memory size";
+ 	if (reason) {
+ 		printk(KERN_ERR "PM: Image mismatch: %s\n", reason);
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 2bff045..425eb23 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -83,7 +83,7 @@ void inet_frags_init(struct inet_frags *f)
+ 
+ 	rwlock_init(&f->lock);
+ 
+-	f->rnd = (u32) ((num_physpages ^ (num_physpages>>7)) ^
++	f->rnd = (u32) ((totalram_pages ^ (totalram_pages >> 7)) ^
+ 				   (jiffies ^ (jiffies >> 6)));
+ 
+ 	setup_timer(&f->secret_timer, inet_frag_secret_rebuild,
+-- 
+1.7.9.5
