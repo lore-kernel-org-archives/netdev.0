@@ -1,143 +1,42 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 11/51] ipvs: convert locks used in persistence engines
-Date: Sat,  6 Apr 2013 14:17:10 +0200
-Message-ID: <1365250670-14993-12-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 21/51] ipvs: convert lc scheduler to rcu
+Date: Sat,  6 Apr 2013 14:17:20 +0200
+Message-ID: <1365250670-14993-22-git-send-email-pablo@netfilter.org>
 References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:38947 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1163410Ab3DFMSa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Apr 2013 08:18:30 -0400
 In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Julian Anastasov <ja@ssi.bg>
 
-Allow the readers to use RCU lock and for
-PE module registrations use global mutex instead of
-spinlock. All PE modules need to use synchronize_rcu
-in their module exit handler.
+The schedule method now needs _rcu list-traversal
+primitive for svc->destinations.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off by: Hans Schillstrom <hans@schillstrom.com>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_pe.c     |   43 +++++++++++--------------------------
- net/netfilter/ipvs/ip_vs_pe_sip.c |    1 +
- 2 files changed, 14 insertions(+), 30 deletions(-)
+ net/netfilter/ipvs/ip_vs_lc.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_pe.c b/net/netfilter/ipvs/ip_vs_pe.c
-index 5cf859c..5d9774c 100644
---- a/net/netfilter/ipvs/ip_vs_pe.c
-+++ b/net/netfilter/ipvs/ip_vs_pe.c
-@@ -13,8 +13,8 @@
- /* IPVS pe list */
- static LIST_HEAD(ip_vs_pe);
- 
--/* lock for service table */
--static DEFINE_SPINLOCK(ip_vs_pe_lock);
-+/* semaphore for IPVS PEs. */
-+static DEFINE_MUTEX(ip_vs_pe_mutex);
- 
- /* Bind a service with a pe */
- void ip_vs_bind_pe(struct ip_vs_service *svc, struct ip_vs_pe *pe)
-@@ -36,9 +36,8 @@ struct ip_vs_pe *__ip_vs_pe_getbyname(const char *pe_name)
- 	IP_VS_DBG(10, "%s(): pe_name \"%s\"\n", __func__,
- 		  pe_name);
- 
--	spin_lock_bh(&ip_vs_pe_lock);
--
--	list_for_each_entry(pe, &ip_vs_pe, n_list) {
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(pe, &ip_vs_pe, n_list) {
- 		/* Test and get the modules atomically */
- 		if (pe->module &&
- 		    !try_module_get(pe->module)) {
-@@ -47,14 +46,14 @@ struct ip_vs_pe *__ip_vs_pe_getbyname(const char *pe_name)
- 		}
- 		if (strcmp(pe_name, pe->name)==0) {
- 			/* HIT */
--			spin_unlock_bh(&ip_vs_pe_lock);
-+			rcu_read_unlock();
- 			return pe;
- 		}
- 		if (pe->module)
- 			module_put(pe->module);
- 	}
-+	rcu_read_unlock();
- 
--	spin_unlock_bh(&ip_vs_pe_lock);
- 	return NULL;
- }
- 
-@@ -83,22 +82,13 @@ int register_ip_vs_pe(struct ip_vs_pe *pe)
- 	/* increase the module use count */
- 	ip_vs_use_count_inc();
- 
--	spin_lock_bh(&ip_vs_pe_lock);
--
--	if (!list_empty(&pe->n_list)) {
--		spin_unlock_bh(&ip_vs_pe_lock);
--		ip_vs_use_count_dec();
--		pr_err("%s(): [%s] pe already linked\n",
--		       __func__, pe->name);
--		return -EINVAL;
--	}
--
-+	mutex_lock(&ip_vs_pe_mutex);
- 	/* Make sure that the pe with this name doesn't exist
- 	 * in the pe list.
+diff --git a/net/netfilter/ipvs/ip_vs_lc.c b/net/netfilter/ipvs/ip_vs_lc.c
+index f391819..0cabf78 100644
+--- a/net/netfilter/ipvs/ip_vs_lc.c
++++ b/net/netfilter/ipvs/ip_vs_lc.c
+@@ -42,7 +42,7 @@ ip_vs_lc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 	 * served, but no new connection is assigned to the server.
  	 */
- 	list_for_each_entry(tmp, &ip_vs_pe, n_list) {
- 		if (strcmp(tmp->name, pe->name) == 0) {
--			spin_unlock_bh(&ip_vs_pe_lock);
-+			mutex_unlock(&ip_vs_pe_mutex);
- 			ip_vs_use_count_dec();
- 			pr_err("%s(): [%s] pe already existed "
- 			       "in the system\n", __func__, pe->name);
-@@ -106,8 +96,8 @@ int register_ip_vs_pe(struct ip_vs_pe *pe)
- 		}
- 	}
- 	/* Add it into the d-linked pe list */
--	list_add(&pe->n_list, &ip_vs_pe);
--	spin_unlock_bh(&ip_vs_pe_lock);
-+	list_add_rcu(&pe->n_list, &ip_vs_pe);
-+	mutex_unlock(&ip_vs_pe_mutex);
  
- 	pr_info("[%s] pe registered.\n", pe->name);
- 
-@@ -118,17 +108,10 @@ EXPORT_SYMBOL_GPL(register_ip_vs_pe);
- /* Unregister a pe from the pe list */
- int unregister_ip_vs_pe(struct ip_vs_pe *pe)
- {
--	spin_lock_bh(&ip_vs_pe_lock);
--	if (list_empty(&pe->n_list)) {
--		spin_unlock_bh(&ip_vs_pe_lock);
--		pr_err("%s(): [%s] pe is not in the list. failed\n",
--		       __func__, pe->name);
--		return -EINVAL;
--	}
--
-+	mutex_lock(&ip_vs_pe_mutex);
- 	/* Remove it from the d-linked pe list */
--	list_del(&pe->n_list);
--	spin_unlock_bh(&ip_vs_pe_lock);
-+	list_del_rcu(&pe->n_list);
-+	mutex_unlock(&ip_vs_pe_mutex);
- 
- 	/* decrease the module use count */
- 	ip_vs_use_count_dec();
-diff --git a/net/netfilter/ipvs/ip_vs_pe_sip.c b/net/netfilter/ipvs/ip_vs_pe_sip.c
-index 12475ef..00cc024 100644
---- a/net/netfilter/ipvs/ip_vs_pe_sip.c
-+++ b/net/netfilter/ipvs/ip_vs_pe_sip.c
-@@ -172,6 +172,7 @@ static int __init ip_vs_sip_init(void)
- static void __exit ip_vs_sip_cleanup(void)
- {
- 	unregister_ip_vs_pe(&ip_vs_sip_pe);
-+	synchronize_rcu();
- }
- 
- module_init(ip_vs_sip_init);
+-	list_for_each_entry(dest, &svc->destinations, n_list) {
++	list_for_each_entry_rcu(dest, &svc->destinations, n_list) {
+ 		if ((dest->flags & IP_VS_DEST_F_OVERLOAD) ||
+ 		    atomic_read(&dest->weight) == 0)
+ 			continue;
 -- 
 1.7.10.4
-
