@@ -1,335 +1,69 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 30/51] ipvs: convert sched_lock to spin lock
-Date: Sat,  6 Apr 2013 14:17:29 +0200
-Message-ID: <1365250670-14993-31-git-send-email-pablo@netfilter.org>
-References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 6/7] net: wireless: p54spi: use spi_get_drvdata() and
+ spi_set_drvdata()
+Date: Sat, 06 Apr 2013 15:36:47 +0900
+Message-ID: <001101ce3291$1d1846a0$5748d3e0$%han@samsung.com>
+References: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
+To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:39021 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1163443Ab3DFMSl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Apr 2013 08:18:41 -0400
-In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Received: from mailout1.samsung.com ([203.254.224.24]:21852 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754821Ab3DFGgt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 02:36:49 -0400
+Received: from epcpsbgr1.samsung.com
+ (u141.gpu120.samsung.co.kr [203.254.230.141])
+ by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MKT00MHUMD7DE60@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Sat, 06 Apr 2013 15:36:48 +0900 (KST)
+In-reply-to: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+Use the wrapper functions for getting and setting the driver data using
+spi_device instead of using dev_{get|set}_drvdata with &spi->dev, so we
+can directly pass a struct spi_device.
 
-As all read_locks are gone spin lock is preferred.
-
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- include/net/ip_vs.h              |    2 +-
- net/netfilter/ipvs/ip_vs_ctl.c   |    2 +-
- net/netfilter/ipvs/ip_vs_lblc.c  |   18 +++++++++---------
- net/netfilter/ipvs/ip_vs_lblcr.c |   26 +++++++++++++-------------
- net/netfilter/ipvs/ip_vs_rr.c    |   10 +++++-----
- net/netfilter/ipvs/ip_vs_wrr.c   |    8 ++++----
- 6 files changed, 33 insertions(+), 33 deletions(-)
+ drivers/net/wireless/p54/p54spi.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 4990de6..4a7bc63 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -734,7 +734,7 @@ struct ip_vs_service {
- 
- 	/* for scheduling */
- 	struct ip_vs_scheduler	*scheduler;    /* bound scheduler object */
--	rwlock_t		sched_lock;    /* lock sched_data */
-+	spinlock_t		sched_lock;    /* lock sched_data */
- 	void			*sched_data;   /* scheduler application data */
- 
- 	/* alternate persistence engine */
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index d022726..2bfd807 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1219,7 +1219,7 @@ ip_vs_add_service(struct net *net, struct ip_vs_service_user_kern *u,
- 	svc->net = net;
- 
- 	INIT_LIST_HEAD(&svc->destinations);
--	rwlock_init(&svc->sched_lock);
-+	spin_lock_init(&svc->sched_lock);
- 	spin_lock_init(&svc->stats.lock);
- 
- 	/* Bind the scheduler */
-diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
-index c7ff978..ffef8a1 100644
---- a/net/netfilter/ipvs/ip_vs_lblc.c
-+++ b/net/netfilter/ipvs/ip_vs_lblc.c
-@@ -194,7 +194,7 @@ ip_vs_lblc_get(int af, struct ip_vs_lblc_table *tbl,
- 
- /*
-  * Create or update an ip_vs_lblc_entry, which is a mapping of a destination IP
-- * address to a server. Called under write lock.
-+ * address to a server. Called under spin lock.
-  */
- static inline struct ip_vs_lblc_entry *
- ip_vs_lblc_new(struct ip_vs_lblc_table *tbl, const union nf_inet_addr *daddr,
-@@ -242,7 +242,7 @@ static void ip_vs_lblc_flush(struct ip_vs_service *svc)
- 	struct hlist_node *next;
- 	int i;
- 
--	write_lock_bh(&svc->sched_lock);
-+	spin_lock_bh(&svc->sched_lock);
- 	tbl->dead = 1;
- 	for (i=0; i<IP_VS_LBLC_TAB_SIZE; i++) {
- 		hlist_for_each_entry_safe(en, next, &tbl->bucket[i], list) {
-@@ -250,7 +250,7 @@ static void ip_vs_lblc_flush(struct ip_vs_service *svc)
- 			atomic_dec(&tbl->entries);
- 		}
- 	}
--	write_unlock_bh(&svc->sched_lock);
-+	spin_unlock_bh(&svc->sched_lock);
- }
- 
- static int sysctl_lblc_expiration(struct ip_vs_service *svc)
-@@ -274,7 +274,7 @@ static inline void ip_vs_lblc_full_check(struct ip_vs_service *svc)
- 	for (i=0, j=tbl->rover; i<IP_VS_LBLC_TAB_SIZE; i++) {
- 		j = (j + 1) & IP_VS_LBLC_TAB_MASK;
- 
--		write_lock(&svc->sched_lock);
-+		spin_lock(&svc->sched_lock);
- 		hlist_for_each_entry_safe(en, next, &tbl->bucket[j], list) {
- 			if (time_before(now,
- 					en->lastuse +
-@@ -284,7 +284,7 @@ static inline void ip_vs_lblc_full_check(struct ip_vs_service *svc)
- 			ip_vs_lblc_free(en);
- 			atomic_dec(&tbl->entries);
- 		}
--		write_unlock(&svc->sched_lock);
-+		spin_unlock(&svc->sched_lock);
- 	}
- 	tbl->rover = j;
- }
-@@ -330,7 +330,7 @@ static void ip_vs_lblc_check_expire(unsigned long data)
- 	for (i=0, j=tbl->rover; i<IP_VS_LBLC_TAB_SIZE; i++) {
- 		j = (j + 1) & IP_VS_LBLC_TAB_MASK;
- 
--		write_lock(&svc->sched_lock);
-+		spin_lock(&svc->sched_lock);
- 		hlist_for_each_entry_safe(en, next, &tbl->bucket[j], list) {
- 			if (time_before(now, en->lastuse + ENTRY_TIMEOUT))
- 				continue;
-@@ -339,7 +339,7 @@ static void ip_vs_lblc_check_expire(unsigned long data)
- 			atomic_dec(&tbl->entries);
- 			goal--;
- 		}
--		write_unlock(&svc->sched_lock);
-+		spin_unlock(&svc->sched_lock);
- 		if (goal <= 0)
- 			break;
- 	}
-@@ -527,10 +527,10 @@ ip_vs_lblc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- 	}
- 
- 	/* If we fail to create a cache entry, we'll just use the valid dest */
--	write_lock(&svc->sched_lock);
-+	spin_lock(&svc->sched_lock);
- 	if (!tbl->dead)
- 		ip_vs_lblc_new(tbl, &iph.daddr, dest);
--	write_unlock(&svc->sched_lock);
-+	spin_unlock(&svc->sched_lock);
- 
- out:
- 	IP_VS_DBG_BUF(6, "LBLC: destination IP address %s --> server %s:%d\n",
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index 6049b85..cdfe6a9 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -368,7 +368,7 @@ ip_vs_lblcr_get(int af, struct ip_vs_lblcr_table *tbl,
- 
- /*
-  * Create or update an ip_vs_lblcr_entry, which is a mapping of a destination
-- * IP address to a server. Called under write lock.
-+ * IP address to a server. Called under spin lock.
-  */
- static inline struct ip_vs_lblcr_entry *
- ip_vs_lblcr_new(struct ip_vs_lblcr_table *tbl, const union nf_inet_addr *daddr,
-@@ -412,14 +412,14 @@ static void ip_vs_lblcr_flush(struct ip_vs_service *svc)
- 	struct ip_vs_lblcr_entry *en;
- 	struct hlist_node *next;
- 
--	write_lock_bh(&svc->sched_lock);
-+	spin_lock_bh(&svc->sched_lock);
- 	tbl->dead = 1;
- 	for (i=0; i<IP_VS_LBLCR_TAB_SIZE; i++) {
- 		hlist_for_each_entry_safe(en, next, &tbl->bucket[i], list) {
- 			ip_vs_lblcr_free(en);
- 		}
- 	}
--	write_unlock_bh(&svc->sched_lock);
-+	spin_unlock_bh(&svc->sched_lock);
- }
- 
- static int sysctl_lblcr_expiration(struct ip_vs_service *svc)
-@@ -443,7 +443,7 @@ static inline void ip_vs_lblcr_full_check(struct ip_vs_service *svc)
- 	for (i=0, j=tbl->rover; i<IP_VS_LBLCR_TAB_SIZE; i++) {
- 		j = (j + 1) & IP_VS_LBLCR_TAB_MASK;
- 
--		write_lock(&svc->sched_lock);
-+		spin_lock(&svc->sched_lock);
- 		hlist_for_each_entry_safe(en, next, &tbl->bucket[j], list) {
- 			if (time_after(en->lastuse +
- 				       sysctl_lblcr_expiration(svc), now))
-@@ -452,7 +452,7 @@ static inline void ip_vs_lblcr_full_check(struct ip_vs_service *svc)
- 			ip_vs_lblcr_free(en);
- 			atomic_dec(&tbl->entries);
- 		}
--		write_unlock(&svc->sched_lock);
-+		spin_unlock(&svc->sched_lock);
- 	}
- 	tbl->rover = j;
- }
-@@ -498,7 +498,7 @@ static void ip_vs_lblcr_check_expire(unsigned long data)
- 	for (i=0, j=tbl->rover; i<IP_VS_LBLCR_TAB_SIZE; i++) {
- 		j = (j + 1) & IP_VS_LBLCR_TAB_MASK;
- 
--		write_lock(&svc->sched_lock);
-+		spin_lock(&svc->sched_lock);
- 		hlist_for_each_entry_safe(en, next, &tbl->bucket[j], list) {
- 			if (time_before(now, en->lastuse+ENTRY_TIMEOUT))
- 				continue;
-@@ -507,7 +507,7 @@ static void ip_vs_lblcr_check_expire(unsigned long data)
- 			atomic_dec(&tbl->entries);
- 			goal--;
- 		}
--		write_unlock(&svc->sched_lock);
-+		spin_unlock(&svc->sched_lock);
- 		if (goal <= 0)
- 			break;
- 	}
-@@ -678,7 +678,7 @@ ip_vs_lblcr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- 		if (atomic_read(&en->set.size) > 1 &&
- 		    time_after(jiffies, en->set.lastmod +
- 				sysctl_lblcr_expiration(svc))) {
--			write_lock(&svc->sched_lock);
-+			spin_lock(&svc->sched_lock);
- 			if (atomic_read(&en->set.size) > 1) {
- 				struct ip_vs_dest *m;
- 
-@@ -686,7 +686,7 @@ ip_vs_lblcr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- 				if (m)
- 					ip_vs_dest_set_erase(&en->set, m);
- 			}
--			write_unlock(&svc->sched_lock);
-+			spin_unlock(&svc->sched_lock);
- 		}
- 
- 		/* If the destination is not overloaded, use it */
-@@ -701,10 +701,10 @@ ip_vs_lblcr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- 		}
- 
- 		/* Update our cache entry */
--		write_lock(&svc->sched_lock);
-+		spin_lock(&svc->sched_lock);
- 		if (!tbl->dead)
- 			ip_vs_dest_set_insert(&en->set, dest, true);
--		write_unlock(&svc->sched_lock);
-+		spin_unlock(&svc->sched_lock);
- 		goto out;
- 	}
- 
-@@ -716,10 +716,10 @@ ip_vs_lblcr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- 	}
- 
- 	/* If we fail to create a cache entry, we'll just use the valid dest */
--	write_lock(&svc->sched_lock);
-+	spin_lock(&svc->sched_lock);
- 	if (!tbl->dead)
- 		ip_vs_lblcr_new(tbl, &iph.daddr, dest);
--	write_unlock(&svc->sched_lock);
-+	spin_unlock(&svc->sched_lock);
- 
- out:
- 	IP_VS_DBG_BUF(6, "LBLCR: destination IP address %s --> server %s:%d\n",
-diff --git a/net/netfilter/ipvs/ip_vs_rr.c b/net/netfilter/ipvs/ip_vs_rr.c
-index 3942890..aa4601f 100644
---- a/net/netfilter/ipvs/ip_vs_rr.c
-+++ b/net/netfilter/ipvs/ip_vs_rr.c
-@@ -39,14 +39,14 @@ static int ip_vs_rr_del_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest)
+diff --git a/drivers/net/wireless/p54/p54spi.c b/drivers/net/wireless/p54/p54spi.c
+index 4fd49a0..978e7eb 100644
+--- a/drivers/net/wireless/p54/p54spi.c
++++ b/drivers/net/wireless/p54/p54spi.c
+@@ -396,7 +396,7 @@ static int p54spi_rx(struct p54s_priv *priv)
+ static irqreturn_t p54spi_interrupt(int irq, void *config)
  {
- 	struct list_head *p;
+ 	struct spi_device *spi = config;
+-	struct p54s_priv *priv = dev_get_drvdata(&spi->dev);
++	struct p54s_priv *priv = spi_get_drvdata(spi);
  
--	write_lock_bh(&svc->sched_lock);
-+	spin_lock_bh(&svc->sched_lock);
- 	p = (struct list_head *) svc->sched_data;
- 	/* dest is already unlinked, so p->prev is not valid but
- 	 * p->next is valid, use it to reach previous entry.
- 	 */
- 	if (p == &dest->n_list)
- 		svc->sched_data = p->next->prev;
--	write_unlock_bh(&svc->sched_lock);
-+	spin_unlock_bh(&svc->sched_lock);
- 	return 0;
- }
+ 	ieee80211_queue_work(priv->hw, &priv->work);
  
-@@ -63,7 +63,7 @@ ip_vs_rr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+@@ -609,7 +609,7 @@ static int p54spi_probe(struct spi_device *spi)
  
- 	IP_VS_DBG(6, "%s(): Scheduling...\n", __func__);
+ 	priv = hw->priv;
+ 	priv->hw = hw;
+-	dev_set_drvdata(&spi->dev, priv);
++	spi_set_drvdata(spi, priv);
+ 	priv->spi = spi;
  
--	write_lock(&svc->sched_lock);
-+	spin_lock(&svc->sched_lock);
- 	p = (struct list_head *) svc->sched_data;
- 	last = dest = list_entry(p, struct ip_vs_dest, n_list);
+ 	spi->bits_per_word = 16;
+@@ -685,7 +685,7 @@ err_free:
  
-@@ -85,13 +85,13 @@ ip_vs_rr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- 	} while (pass < 2 && p != &svc->destinations);
- 
- stop:
--	write_unlock(&svc->sched_lock);
-+	spin_unlock(&svc->sched_lock);
- 	ip_vs_scheduler_err(svc, "no destination available");
- 	return NULL;
- 
-   out:
- 	svc->sched_data = &dest->n_list;
--	write_unlock(&svc->sched_lock);
-+	spin_unlock(&svc->sched_lock);
- 	IP_VS_DBG_BUF(6, "RR: server %s:%u "
- 		      "activeconns %d refcnt %d weight %d\n",
- 		      IP_VS_DBG_ADDR(svc->af, &dest->addr), ntohs(dest->port),
-diff --git a/net/netfilter/ipvs/ip_vs_wrr.c b/net/netfilter/ipvs/ip_vs_wrr.c
-index a74fd9b..b173ef9 100644
---- a/net/netfilter/ipvs/ip_vs_wrr.c
-+++ b/net/netfilter/ipvs/ip_vs_wrr.c
-@@ -145,7 +145,7 @@ static int ip_vs_wrr_dest_changed(struct ip_vs_service *svc,
+ static int p54spi_remove(struct spi_device *spi)
  {
- 	struct ip_vs_wrr_mark *mark = svc->sched_data;
+-	struct p54s_priv *priv = dev_get_drvdata(&spi->dev);
++	struct p54s_priv *priv = spi_get_drvdata(spi);
  
--	write_lock_bh(&svc->sched_lock);
-+	spin_lock_bh(&svc->sched_lock);
- 	mark->cl = list_entry(&svc->destinations, struct ip_vs_dest, n_list);
- 	mark->di = ip_vs_wrr_gcd_weight(svc);
- 	mark->mw = ip_vs_wrr_max_weight(svc) - (mark->di - 1);
-@@ -153,7 +153,7 @@ static int ip_vs_wrr_dest_changed(struct ip_vs_service *svc,
- 		mark->cw = mark->mw;
- 	else if (mark->di > 1)
- 		mark->cw = (mark->cw / mark->di) * mark->di + 1;
--	write_unlock_bh(&svc->sched_lock);
-+	spin_unlock_bh(&svc->sched_lock);
- 	return 0;
- }
+ 	p54_unregister_common(priv->hw);
  
-@@ -170,7 +170,7 @@ ip_vs_wrr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- 
- 	IP_VS_DBG(6, "%s(): Scheduling...\n", __func__);
- 
--	write_lock(&svc->sched_lock);
-+	spin_lock(&svc->sched_lock);
- 	dest = mark->cl;
- 	/* No available dests? */
- 	if (mark->mw == 0)
-@@ -222,7 +222,7 @@ found:
- 	mark->cl = dest;
- 
-   out:
--	write_unlock(&svc->sched_lock);
-+	spin_unlock(&svc->sched_lock);
- 	return dest;
- 
- err_noavail:
 -- 
-1.7.10.4
+1.7.2.5
