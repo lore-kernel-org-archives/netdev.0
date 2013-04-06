@@ -1,385 +1,197 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 09/51] ipvs: convert app locks
-Date: Sat,  6 Apr 2013 14:17:08 +0200
-Message-ID: <1365250670-14993-10-git-send-email-pablo@netfilter.org>
-References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
 From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 00/51] netfilter updates for net-next
+Date: Sat, 6 Apr 2013 16:14:54 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1304061612270.1627@ja.ssi.bg>
+References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811672-891585646-1365254095=:1627"
+Cc: netfilter-devel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:37522 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422889Ab3DFNOs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Apr 2013 09:14:48 -0400
+In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We use locks like tcp_app_lock, udp_app_lock,
-sctp_app_lock to protect access to the protocol hash tables
-from readers in packet context while the application
-instances (inc) are [un]registered under global mutex.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-As the hash tables are mostly read when conns are
-created and bound to app, use RCU for readers and reclaim
-app instance after grace period.
+---1463811672-891585646-1365254095=:1627
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
-Simplify ip_vs_app_inc_get because we use usecnt
-only for statistics and rely on module refcounting.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off by: Hans Schillstrom <hans@schillstrom.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- include/net/ip_vs.h                   |    4 +---
- net/netfilter/ipvs/ip_vs_app.c        |   27 +++++++++++++++++++--------
- net/netfilter/ipvs/ip_vs_ftp.c        |    2 ++
- net/netfilter/ipvs/ip_vs_proto_sctp.c |   18 ++++++------------
- net/netfilter/ipvs/ip_vs_proto_tcp.c  |   18 ++++++------------
- net/netfilter/ipvs/ip_vs_proto_udp.c  |   19 ++++++-------------
- 6 files changed, 40 insertions(+), 48 deletions(-)
+	Hello,
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index a150ff5..84ca171 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -823,6 +823,7 @@ struct ip_vs_app {
- 	struct ip_vs_app	*app;		/* its real application */
- 	__be16			port;		/* port number in net order */
- 	atomic_t		usecnt;		/* usage counter */
-+	struct rcu_head		rcu_head;
- 
- 	/*
- 	 * output hook: Process packet in inout direction, diff set for TCP.
-@@ -908,7 +909,6 @@ struct netns_ipvs {
- 	#define	TCP_APP_TAB_SIZE	(1 << TCP_APP_TAB_BITS)
- 	#define	TCP_APP_TAB_MASK	(TCP_APP_TAB_SIZE - 1)
- 	struct list_head	tcp_apps[TCP_APP_TAB_SIZE];
--	spinlock_t		tcp_app_lock;
- #endif
- 	/* ip_vs_proto_udp */
- #ifdef CONFIG_IP_VS_PROTO_UDP
-@@ -916,7 +916,6 @@ struct netns_ipvs {
- 	#define	UDP_APP_TAB_SIZE	(1 << UDP_APP_TAB_BITS)
- 	#define	UDP_APP_TAB_MASK	(UDP_APP_TAB_SIZE - 1)
- 	struct list_head	udp_apps[UDP_APP_TAB_SIZE];
--	spinlock_t		udp_app_lock;
- #endif
- 	/* ip_vs_proto_sctp */
- #ifdef CONFIG_IP_VS_PROTO_SCTP
-@@ -925,7 +924,6 @@ struct netns_ipvs {
- 	#define SCTP_APP_TAB_MASK	(SCTP_APP_TAB_SIZE - 1)
- 	/* Hash table for SCTP application incarnations	 */
- 	struct list_head	sctp_apps[SCTP_APP_TAB_SIZE];
--	spinlock_t		sctp_app_lock;
- #endif
- 	/* ip_vs_conn */
- 	atomic_t		conn_count;      /*  connection counter */
-diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
-index 0b779d7..a956030 100644
---- a/net/netfilter/ipvs/ip_vs_app.c
-+++ b/net/netfilter/ipvs/ip_vs_app.c
-@@ -58,6 +58,18 @@ static inline void ip_vs_app_put(struct ip_vs_app *app)
- 	module_put(app->module);
- }
- 
-+static void ip_vs_app_inc_destroy(struct ip_vs_app *inc)
-+{
-+	kfree(inc->timeout_table);
-+	kfree(inc);
-+}
-+
-+static void ip_vs_app_inc_rcu_free(struct rcu_head *head)
-+{
-+	struct ip_vs_app *inc = container_of(head, struct ip_vs_app, rcu_head);
-+
-+	ip_vs_app_inc_destroy(inc);
-+}
- 
- /*
-  *	Allocate/initialize app incarnation and register it in proto apps.
-@@ -106,8 +118,7 @@ ip_vs_app_inc_new(struct net *net, struct ip_vs_app *app, __u16 proto,
- 	return 0;
- 
-   out:
--	kfree(inc->timeout_table);
--	kfree(inc);
-+	ip_vs_app_inc_destroy(inc);
- 	return ret;
- }
- 
-@@ -131,8 +142,7 @@ ip_vs_app_inc_release(struct net *net, struct ip_vs_app *inc)
- 
- 	list_del(&inc->a_list);
- 
--	kfree(inc->timeout_table);
--	kfree(inc);
-+	call_rcu(&inc->rcu_head, ip_vs_app_inc_rcu_free);
- }
- 
- 
-@@ -144,9 +154,9 @@ int ip_vs_app_inc_get(struct ip_vs_app *inc)
- {
- 	int result;
- 
--	atomic_inc(&inc->usecnt);
--	if (unlikely((result = ip_vs_app_get(inc->app)) != 1))
--		atomic_dec(&inc->usecnt);
-+	result = ip_vs_app_get(inc->app);
-+	if (result)
-+		atomic_inc(&inc->usecnt);
- 	return result;
- }
- 
-@@ -156,8 +166,8 @@ int ip_vs_app_inc_get(struct ip_vs_app *inc)
-  */
- void ip_vs_app_inc_put(struct ip_vs_app *inc)
- {
--	ip_vs_app_put(inc->app);
- 	atomic_dec(&inc->usecnt);
-+	ip_vs_app_put(inc->app);
- }
- 
- 
-@@ -218,6 +228,7 @@ out_unlock:
- /*
-  *	ip_vs_app unregistration routine
-  *	We are sure there are no app incarnations attached to services
-+ *	Caller should use synchronize_rcu() or rcu_barrier()
-  */
- void unregister_ip_vs_app(struct net *net, struct ip_vs_app *app)
- {
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index 4f53a5f..7f90825 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -480,6 +480,7 @@ static int __init ip_vs_ftp_init(void)
- 	int rv;
- 
- 	rv = register_pernet_subsys(&ip_vs_ftp_ops);
-+	/* rcu_barrier() is called by netns on error */
- 	return rv;
- }
- 
-@@ -489,6 +490,7 @@ static int __init ip_vs_ftp_init(void)
- static void __exit ip_vs_ftp_exit(void)
- {
- 	unregister_pernet_subsys(&ip_vs_ftp_ops);
-+	/* rcu_barrier() is called by netns */
- }
- 
- 
-diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-index cd1d729..f7190cd 100644
---- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-@@ -1016,30 +1016,25 @@ static int sctp_register_app(struct net *net, struct ip_vs_app *inc)
- 
- 	hash = sctp_app_hashkey(port);
- 
--	spin_lock_bh(&ipvs->sctp_app_lock);
- 	list_for_each_entry(i, &ipvs->sctp_apps[hash], p_list) {
- 		if (i->port == port) {
- 			ret = -EEXIST;
- 			goto out;
- 		}
- 	}
--	list_add(&inc->p_list, &ipvs->sctp_apps[hash]);
-+	list_add_rcu(&inc->p_list, &ipvs->sctp_apps[hash]);
- 	atomic_inc(&pd->appcnt);
- out:
--	spin_unlock_bh(&ipvs->sctp_app_lock);
- 
- 	return ret;
- }
- 
- static void sctp_unregister_app(struct net *net, struct ip_vs_app *inc)
- {
--	struct netns_ipvs *ipvs = net_ipvs(net);
- 	struct ip_vs_proto_data *pd = ip_vs_proto_data_get(net, IPPROTO_SCTP);
- 
--	spin_lock_bh(&ipvs->sctp_app_lock);
- 	atomic_dec(&pd->appcnt);
--	list_del(&inc->p_list);
--	spin_unlock_bh(&ipvs->sctp_app_lock);
-+	list_del_rcu(&inc->p_list);
- }
- 
- static int sctp_app_conn_bind(struct ip_vs_conn *cp)
-@@ -1055,12 +1050,12 @@ static int sctp_app_conn_bind(struct ip_vs_conn *cp)
- 	/* Lookup application incarnations and bind the right one */
- 	hash = sctp_app_hashkey(cp->vport);
- 
--	spin_lock(&ipvs->sctp_app_lock);
--	list_for_each_entry(inc, &ipvs->sctp_apps[hash], p_list) {
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(inc, &ipvs->sctp_apps[hash], p_list) {
- 		if (inc->port == cp->vport) {
- 			if (unlikely(!ip_vs_app_inc_get(inc)))
- 				break;
--			spin_unlock(&ipvs->sctp_app_lock);
-+			rcu_read_unlock();
- 
- 			IP_VS_DBG_BUF(9, "%s: Binding conn %s:%u->"
- 					"%s:%u to app %s on port %u\n",
-@@ -1076,7 +1071,7 @@ static int sctp_app_conn_bind(struct ip_vs_conn *cp)
- 			goto out;
- 		}
- 	}
--	spin_unlock(&ipvs->sctp_app_lock);
-+	rcu_read_unlock();
- out:
- 	return result;
- }
-@@ -1090,7 +1085,6 @@ static int __ip_vs_sctp_init(struct net *net, struct ip_vs_proto_data *pd)
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
- 	ip_vs_init_hash_table(ipvs->sctp_apps, SCTP_APP_TAB_SIZE);
--	spin_lock_init(&ipvs->sctp_app_lock);
- 	pd->timeout_table = ip_vs_create_timeout_table((int *)sctp_timeouts,
- 							sizeof(sctp_timeouts));
- 	if (!pd->timeout_table)
-diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-index 9af653a..0bbc3fe 100644
---- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-@@ -580,18 +580,16 @@ static int tcp_register_app(struct net *net, struct ip_vs_app *inc)
- 
- 	hash = tcp_app_hashkey(port);
- 
--	spin_lock_bh(&ipvs->tcp_app_lock);
- 	list_for_each_entry(i, &ipvs->tcp_apps[hash], p_list) {
- 		if (i->port == port) {
- 			ret = -EEXIST;
- 			goto out;
- 		}
- 	}
--	list_add(&inc->p_list, &ipvs->tcp_apps[hash]);
-+	list_add_rcu(&inc->p_list, &ipvs->tcp_apps[hash]);
- 	atomic_inc(&pd->appcnt);
- 
-   out:
--	spin_unlock_bh(&ipvs->tcp_app_lock);
- 	return ret;
- }
- 
-@@ -599,13 +597,10 @@ static int tcp_register_app(struct net *net, struct ip_vs_app *inc)
- static void
- tcp_unregister_app(struct net *net, struct ip_vs_app *inc)
- {
--	struct netns_ipvs *ipvs = net_ipvs(net);
- 	struct ip_vs_proto_data *pd = ip_vs_proto_data_get(net, IPPROTO_TCP);
- 
--	spin_lock_bh(&ipvs->tcp_app_lock);
- 	atomic_dec(&pd->appcnt);
--	list_del(&inc->p_list);
--	spin_unlock_bh(&ipvs->tcp_app_lock);
-+	list_del_rcu(&inc->p_list);
- }
- 
- 
-@@ -624,12 +619,12 @@ tcp_app_conn_bind(struct ip_vs_conn *cp)
- 	/* Lookup application incarnations and bind the right one */
- 	hash = tcp_app_hashkey(cp->vport);
- 
--	spin_lock(&ipvs->tcp_app_lock);
--	list_for_each_entry(inc, &ipvs->tcp_apps[hash], p_list) {
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(inc, &ipvs->tcp_apps[hash], p_list) {
- 		if (inc->port == cp->vport) {
- 			if (unlikely(!ip_vs_app_inc_get(inc)))
- 				break;
--			spin_unlock(&ipvs->tcp_app_lock);
-+			rcu_read_unlock();
- 
- 			IP_VS_DBG_BUF(9, "%s(): Binding conn %s:%u->"
- 				      "%s:%u to app %s on port %u\n",
-@@ -646,7 +641,7 @@ tcp_app_conn_bind(struct ip_vs_conn *cp)
- 			goto out;
- 		}
- 	}
--	spin_unlock(&ipvs->tcp_app_lock);
-+	rcu_read_unlock();
- 
-   out:
- 	return result;
-@@ -676,7 +671,6 @@ static int __ip_vs_tcp_init(struct net *net, struct ip_vs_proto_data *pd)
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
- 	ip_vs_init_hash_table(ipvs->tcp_apps, TCP_APP_TAB_SIZE);
--	spin_lock_init(&ipvs->tcp_app_lock);
- 	pd->timeout_table = ip_vs_create_timeout_table((int *)tcp_timeouts,
- 							sizeof(tcp_timeouts));
- 	if (!pd->timeout_table)
-diff --git a/net/netfilter/ipvs/ip_vs_proto_udp.c b/net/netfilter/ipvs/ip_vs_proto_udp.c
-index 503a842..1a03e2d 100644
---- a/net/netfilter/ipvs/ip_vs_proto_udp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_udp.c
-@@ -359,19 +359,16 @@ static int udp_register_app(struct net *net, struct ip_vs_app *inc)
- 
- 	hash = udp_app_hashkey(port);
- 
--
--	spin_lock_bh(&ipvs->udp_app_lock);
- 	list_for_each_entry(i, &ipvs->udp_apps[hash], p_list) {
- 		if (i->port == port) {
- 			ret = -EEXIST;
- 			goto out;
- 		}
- 	}
--	list_add(&inc->p_list, &ipvs->udp_apps[hash]);
-+	list_add_rcu(&inc->p_list, &ipvs->udp_apps[hash]);
- 	atomic_inc(&pd->appcnt);
- 
-   out:
--	spin_unlock_bh(&ipvs->udp_app_lock);
- 	return ret;
- }
- 
-@@ -380,12 +377,9 @@ static void
- udp_unregister_app(struct net *net, struct ip_vs_app *inc)
- {
- 	struct ip_vs_proto_data *pd = ip_vs_proto_data_get(net, IPPROTO_UDP);
--	struct netns_ipvs *ipvs = net_ipvs(net);
- 
--	spin_lock_bh(&ipvs->udp_app_lock);
- 	atomic_dec(&pd->appcnt);
--	list_del(&inc->p_list);
--	spin_unlock_bh(&ipvs->udp_app_lock);
-+	list_del_rcu(&inc->p_list);
- }
- 
- 
-@@ -403,12 +397,12 @@ static int udp_app_conn_bind(struct ip_vs_conn *cp)
- 	/* Lookup application incarnations and bind the right one */
- 	hash = udp_app_hashkey(cp->vport);
- 
--	spin_lock(&ipvs->udp_app_lock);
--	list_for_each_entry(inc, &ipvs->udp_apps[hash], p_list) {
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(inc, &ipvs->udp_apps[hash], p_list) {
- 		if (inc->port == cp->vport) {
- 			if (unlikely(!ip_vs_app_inc_get(inc)))
- 				break;
--			spin_unlock(&ipvs->udp_app_lock);
-+			rcu_read_unlock();
- 
- 			IP_VS_DBG_BUF(9, "%s(): Binding conn %s:%u->"
- 				      "%s:%u to app %s on port %u\n",
-@@ -425,7 +419,7 @@ static int udp_app_conn_bind(struct ip_vs_conn *cp)
- 			goto out;
- 		}
- 	}
--	spin_unlock(&ipvs->udp_app_lock);
-+	rcu_read_unlock();
- 
-   out:
- 	return result;
-@@ -467,7 +461,6 @@ static int __udp_init(struct net *net, struct ip_vs_proto_data *pd)
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
- 	ip_vs_init_hash_table(ipvs->udp_apps, UDP_APP_TAB_SIZE);
--	spin_lock_init(&ipvs->udp_app_lock);
- 	pd->timeout_table = ip_vs_create_timeout_table((int *)udp_timeouts,
- 							sizeof(udp_timeouts));
- 	if (!pd->timeout_table)
--- 
-1.7.10.4
+On Sat, 6 Apr 2013, Pablo Neira Ayuso wrote:
 
+> Hi David,
+> 
+> The following patchset contains Netfilter and IPVS updates for
+> your net-next tree, most relevantly they are:
+> 
+> * Add net namespace support to NFLOG, ULOG and ebt_ulog and NFQUEUE.
+>   The LOG and ebt_log target has been also adapted, but they still
+>   depend on the syslog netnamespace that seems to be missing, from
+>   Gao Feng.
+> 
+> * Don't lose indications of congestion in IPv6 fragmentation handling,
+>   from Hannes Frederic Sowa.i
+> 
+> * IPVS conversion to use RCU, including some code consolidation patches
+>   and optimizations, also some from Julian Anastasov.
+> 
+> * cpu fanout support for NFQUEUE, from Holger Eitzenberger.
+> 
+> * Better error reporting to userspace when dropping packets from
+>   all our _*_[xfrm|route]_me_harder functions, from Patrick McHardy.
+> 
+> You can pull these changes from:
+> 
+> git://1984.lsi.us.es/nf-next master
+> 
+> Thanks!
+> 
+> Gao feng (10):
+>   netfilter: use IS_ENABLE to replace if defined in TRACE target
+>   netfilter: make /proc/net/netfilter pernet
+>   netfilter: nf_log: prepare net namespace support for loggers
+>   netfilter: ebt_log: add net namespace support for ebt_log
+>   netfilter: xt_LOG: add net namespace support for xt_LOG
+>   netfilter: ebt_ulog: add net namespace support for ebt_ulog
+>   netfilter: ipt_ULOG: add net namespace support for ipt_ULOG
+>   netfilter: nfnetlink_log: add net namespace support for nfnetlink_log
+>   netfilter: enable per netns support for nf_loggers
+>   netfilter: nfnetlink_queue: add net namespace support for nfnetlink_queue
+> 
+> Hannes Frederic Sowa (1):
+>   netfilter: implement RFC3168 5.3 (ecn protection) for ipv6 fragmentation handling
+> 
+> Julian Anastasov (33):
+
+	Is the "net: add skb_dst_set_noref_force" change
+missing here?
+
+>   ipvs: avoid routing by TOS for real server
+>   ipvs: prefer NETDEV_DOWN event to free cached dsts
+>   ipvs: convert the IP_VS_XMIT macros to functions
+>   ipvs: rename functions related to dst_cache reset
+>   ipvs: no need to reroute anymore on DNAT over loopback
+>   ipvs: do not use skb_share_check
+>   ipvs: consolidate all dst checks on transmit in one place
+>   ipvs: optimize dst usage for real server
+>   ipvs: convert app locks
+>   ipvs: remove rs_lock by using RCU
+>   ipvs: convert locks used in persistence engines
+>   ipvs: convert connection locking
+>   ipvs: reorder keys in connection structure
+>   ipvs: avoid kmem_cache_zalloc in ip_vs_conn_new
+>   ipvs: change ip_vs_sched_lock to mutex
+>   ipvs: preparations for using rcu in schedulers
+>   ipvs: add ip_vs_dest_hold and ip_vs_dest_put
+>   ipvs: convert dh scheduler to rcu
+>   ipvs: convert lblc scheduler to rcu
+>   ipvs: convert lblcr scheduler to rcu
+>   ipvs: convert lc scheduler to rcu
+>   ipvs: convert nq scheduler to rcu
+>   ipvs: convert rr scheduler to rcu
+>   ipvs: convert sed scheduler to rcu
+>   ipvs: convert sh scheduler to rcu
+>   ipvs: convert wlc scheduler to rcu
+>   ipvs: convert wrr scheduler to rcu
+>   ipvs: reorganize dest trash
+>   ipvs: do not expect result from done_service
+>   ipvs: convert sched_lock to spin lock
+>   ipvs: convert dests to rcu
+>   ipvs: convert services to rcu
+>   ipvs: do not disable bh for long time
+> 
+> Michal Kubeček (1):
+>   netfilter: fix struct ip6t_frag field description
+> 
+> Pablo Neira Ayuso (1):
+>   netfilter: remove unneeded variable proc_net_netfilter
+> 
+> Patrick McHardy (3):
+>   netfilter: ipv4: propagate routing errors from ip_route_me_harder()
+>   netfilter: ipv6: propagate routing errors from ip6_route_me_harder()
+>   netfilter: nat: propagate errors from xfrm_me_harder()
+> 
+> holger@eitzenberger.org (2):
+>   netfilter: xt_NFQUEUE: introduce CPU fanout
+>   netfilter: xt_NFQUEUE: coalesce IPv4 and IPv6 hashing
+> 
+>  include/linux/netfilter.h                      |    5 -
+>  include/net/ip_vs.h                            |  130 ++-
+>  include/net/net_namespace.h                    |    2 +
+>  include/net/netfilter/nf_log.h                 |   14 +-
+>  include/net/netns/netfilter.h                  |   18 +
+>  include/uapi/linux/netfilter/xt_NFQUEUE.h      |    9 +
+>  include/uapi/linux/netfilter_ipv6/ip6t_frag.h  |    4 +-
+>  net/bridge/netfilter/ebt_log.c                 |   44 +-
+>  net/bridge/netfilter/ebt_nflog.c               |    5 +-
+>  net/bridge/netfilter/ebt_ulog.c                |  125 ++-
+>  net/ipv4/ip_output.c                           |    3 +-
+>  net/ipv4/netfilter.c                           |    8 +-
+>  net/ipv4/netfilter/ip_tables.c                 |    9 +-
+>  net/ipv4/netfilter/ipt_ULOG.c                  |  129 ++-
+>  net/ipv4/netfilter/iptable_mangle.c            |    9 +-
+>  net/ipv4/netfilter/iptable_nat.c               |   23 +-
+>  net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    8 +-
+>  net/ipv6/netfilter.c                           |    6 +-
+>  net/ipv6/netfilter/ip6_tables.c                |    3 +-
+>  net/ipv6/netfilter/ip6table_mangle.c           |    9 +-
+>  net/ipv6/netfilter/ip6table_nat.c              |   23 +-
+>  net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    7 +-
+>  net/ipv6/netfilter/nf_conntrack_reasm.c        |   22 +-
+>  net/netfilter/core.c                           |   29 +-
+>  net/netfilter/ipvs/ip_vs_app.c                 |   31 +-
+>  net/netfilter/ipvs/ip_vs_conn.c                |  306 +++----
+>  net/netfilter/ipvs/ip_vs_core.c                |   73 +-
+>  net/netfilter/ipvs/ip_vs_ctl.c                 |  641 +++++++--------
+>  net/netfilter/ipvs/ip_vs_dh.c                  |   86 +-
+>  net/netfilter/ipvs/ip_vs_ftp.c                 |    4 +
+>  net/netfilter/ipvs/ip_vs_lblc.c                |  115 +--
+>  net/netfilter/ipvs/ip_vs_lblcr.c               |  190 +++--
+>  net/netfilter/ipvs/ip_vs_lc.c                  |    3 +-
+>  net/netfilter/ipvs/ip_vs_nq.c                  |    3 +-
+>  net/netfilter/ipvs/ip_vs_pe.c                  |   55 +-
+>  net/netfilter/ipvs/ip_vs_pe_sip.c              |    1 +
+>  net/netfilter/ipvs/ip_vs_proto_sctp.c          |   36 +-
+>  net/netfilter/ipvs/ip_vs_proto_tcp.c           |   40 +-
+>  net/netfilter/ipvs/ip_vs_proto_udp.c           |   33 +-
+>  net/netfilter/ipvs/ip_vs_rr.c                  |   64 +-
+>  net/netfilter/ipvs/ip_vs_sched.c               |   63 +-
+>  net/netfilter/ipvs/ip_vs_sed.c                 |    5 +-
+>  net/netfilter/ipvs/ip_vs_sh.c                  |   86 +-
+>  net/netfilter/ipvs/ip_vs_sync.c                |   35 +-
+>  net/netfilter/ipvs/ip_vs_wlc.c                 |    5 +-
+>  net/netfilter/ipvs/ip_vs_wrr.c                 |  176 ++--
+>  net/netfilter/ipvs/ip_vs_xmit.c                | 1050 ++++++++++--------------
+>  net/netfilter/nf_conntrack_helper.c            |    2 +-
+>  net/netfilter/nf_conntrack_proto_dccp.c        |    9 +-
+>  net/netfilter/nf_conntrack_proto_tcp.c         |   18 +-
+>  net/netfilter/nf_conntrack_proto_udp.c         |    6 +-
+>  net/netfilter/nf_conntrack_proto_udplite.c     |    8 +-
+>  net/netfilter/nf_log.c                         |  206 +++--
+>  net/netfilter/nf_nat_core.c                    |    9 +-
+>  net/netfilter/nfnetlink_log.c                  |  182 ++--
+>  net/netfilter/nfnetlink_queue_core.c           |  173 ++--
+>  net/netfilter/xt_LOG.c                         |   52 +-
+>  net/netfilter/xt_NFQUEUE.c                     |   63 +-
+>  net/netfilter/xt_osf.c                         |    6 +-
+>  59 files changed, 2451 insertions(+), 2028 deletions(-)
+>  create mode 100644 include/net/netns/netfilter.h
+> 
+> -- 
+> 1.7.10.4
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
+---1463811672-891585646-1365254095=:1627--
