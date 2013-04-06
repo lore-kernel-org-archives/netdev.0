@@ -1,121 +1,136 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 13/51] ipvs: reorder keys in connection structure
-Date: Sat,  6 Apr 2013 14:17:12 +0200
-Message-ID: <1365250670-14993-14-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 48/51] netfilter: implement RFC3168 5.3 (ecn protection) for ipv6 fragmentation handling
+Date: Sat,  6 Apr 2013 14:17:47 +0200
+Message-ID: <1365250670-14993-49-git-send-email-pablo@netfilter.org>
 References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:39109 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1163481Ab3DFMS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Apr 2013 08:18:56 -0400
 In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-__ip_vs_conn_in_get and ip_vs_conn_out_get are
-hot places. Optimize them, so that ports are matched first.
-By moving net and fwmark below, on 32-bit arch we can fit
-caddr in 32-byte cache line and all addresses in 64-byte
-cache line.
+This change brings netfilter reassembly logic on par with
+reassembly.c. The corresponding change in net-next is
+(eec2e61 ipv6: implement RFC3168 5.3 (ecn protection) for
+ipv6 fragmentation handling)
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off by: Hans Schillstrom <hans@schillstrom.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/ip_vs.h             |   12 ++++++------
- net/netfilter/ipvs/ip_vs_conn.c |   19 ++++++++++---------
- 2 files changed, 16 insertions(+), 15 deletions(-)
+ net/ipv6/netfilter/nf_conntrack_reasm.c |   22 ++++++++++++++++++++--
+ 1 file changed, 20 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 5700b07..929e04c 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -566,20 +566,19 @@ struct ip_vs_conn_param {
-  */
- struct ip_vs_conn {
- 	struct hlist_node	c_list;         /* hashed list heads */
--#ifdef CONFIG_NET_NS
--	struct net              *net;           /* Name space */
--#endif
- 	/* Protocol, addresses and port numbers */
--	u16                     af;             /* address family */
- 	__be16                  cport;
--	__be16                  vport;
- 	__be16                  dport;
--	__u32                   fwmark;         /* Fire wall mark from skb */
-+	__be16                  vport;
-+	u16			af;		/* address family */
- 	union nf_inet_addr      caddr;          /* client address */
- 	union nf_inet_addr      vaddr;          /* virtual address */
- 	union nf_inet_addr      daddr;          /* destination address */
- 	volatile __u32          flags;          /* status flags */
- 	__u16                   protocol;       /* Which protocol (TCP/UDP) */
-+#ifdef CONFIG_NET_NS
-+	struct net              *net;           /* Name space */
-+#endif
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index 6700069..dffdc1a 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -41,6 +41,7 @@
+ #include <net/rawv6.h>
+ #include <net/ndisc.h>
+ #include <net/addrconf.h>
++#include <net/inet_ecn.h>
+ #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
+ #include <linux/sysctl.h>
+ #include <linux/netfilter.h>
+@@ -138,6 +139,11 @@ static void __net_exit nf_ct_frags6_sysctl_unregister(struct net *net)
+ }
+ #endif
  
- 	/* counter and timer */
- 	atomic_t		refcnt;		/* reference count */
-@@ -593,6 +592,7 @@ struct ip_vs_conn {
- 						 * state transition triggerd
- 						 * synchronization
- 						 */
-+	__u32			fwmark;		/* Fire wall mark from skb */
- 	unsigned long		sync_endtime;	/* jiffies + sent_retries */
++static inline u8 ip6_frag_ecn(const struct ipv6hdr *ipv6h)
++{
++	return 1 << (ipv6_get_dsfield(ipv6h) & INET_ECN_MASK);
++}
++
+ static unsigned int nf_hashfn(struct inet_frag_queue *q)
+ {
+ 	const struct frag_queue *nq;
+@@ -166,7 +172,7 @@ static void nf_ct_frag6_expire(unsigned long data)
+ /* Creation primitives. */
+ static inline struct frag_queue *fq_find(struct net *net, __be32 id,
+ 					 u32 user, struct in6_addr *src,
+-					 struct in6_addr *dst)
++					 struct in6_addr *dst, u8 ecn)
+ {
+ 	struct inet_frag_queue *q;
+ 	struct ip6_create_arg arg;
+@@ -176,6 +182,7 @@ static inline struct frag_queue *fq_find(struct net *net, __be32 id,
+ 	arg.user = user;
+ 	arg.src = src;
+ 	arg.dst = dst;
++	arg.ecn = ecn;
  
- 	/* Control members */
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index b0cd2be..416015b 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -265,8 +265,8 @@ __ip_vs_conn_in_get(const struct ip_vs_conn_param *p)
- 	rcu_read_lock();
+ 	read_lock_bh(&nf_frags.lock);
+ 	hash = inet6_hash_frag(id, src, dst, nf_frags.rnd);
+@@ -196,6 +203,7 @@ static int nf_ct_frag6_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 	struct sk_buff *prev, *next;
+ 	unsigned int payload_len;
+ 	int offset, end;
++	u8 ecn;
  
- 	hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[hash], c_list) {
--		if (cp->af == p->af &&
--		    p->cport == cp->cport && p->vport == cp->vport &&
-+		if (p->cport == cp->cport && p->vport == cp->vport &&
-+		    cp->af == p->af &&
- 		    ip_vs_addr_equal(p->af, p->caddr, &cp->caddr) &&
- 		    ip_vs_addr_equal(p->af, p->vaddr, &cp->vaddr) &&
- 		    ((!p->cport) ^ (!(cp->flags & IP_VS_CONN_F_NO_CPORT))) &&
-@@ -350,9 +350,9 @@ struct ip_vs_conn *ip_vs_ct_in_get(const struct ip_vs_conn_param *p)
- 	rcu_read_lock();
+ 	if (fq->q.last_in & INET_FRAG_COMPLETE) {
+ 		pr_debug("Already completed\n");
+@@ -213,6 +221,8 @@ static int nf_ct_frag6_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 		return -1;
+ 	}
  
- 	hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[hash], c_list) {
--		if (!ip_vs_conn_net_eq(cp, p->net))
--			continue;
--		if (p->pe_data && p->pe->ct_match) {
-+		if (unlikely(p->pe_data && p->pe->ct_match)) {
-+			if (!ip_vs_conn_net_eq(cp, p->net))
-+				continue;
- 			if (p->pe == cp->pe && p->pe->ct_match(p, cp)) {
- 				if (__ip_vs_conn_get(cp))
- 					goto out;
-@@ -366,9 +366,10 @@ struct ip_vs_conn *ip_vs_ct_in_get(const struct ip_vs_conn_param *p)
- 		     * p->vaddr is a fwmark */
- 		    ip_vs_addr_equal(p->protocol == IPPROTO_IP ? AF_UNSPEC :
- 				     p->af, p->vaddr, &cp->vaddr) &&
--		    p->cport == cp->cport && p->vport == cp->vport &&
-+		    p->vport == cp->vport && p->cport == cp->cport &&
- 		    cp->flags & IP_VS_CONN_F_TEMPLATE &&
--		    p->protocol == cp->protocol) {
-+		    p->protocol == cp->protocol &&
-+		    ip_vs_conn_net_eq(cp, p->net)) {
- 			if (__ip_vs_conn_get(cp))
- 				goto out;
- 		}
-@@ -404,8 +405,8 @@ struct ip_vs_conn *ip_vs_conn_out_get(const struct ip_vs_conn_param *p)
- 	rcu_read_lock();
++	ecn = ip6_frag_ecn(ipv6_hdr(skb));
++
+ 	if (skb->ip_summed == CHECKSUM_COMPLETE) {
+ 		const unsigned char *nh = skb_network_header(skb);
+ 		skb->csum = csum_sub(skb->csum,
+@@ -317,6 +327,7 @@ found:
+ 	}
+ 	fq->q.stamp = skb->tstamp;
+ 	fq->q.meat += skb->len;
++	fq->ecn |= ecn;
+ 	if (payload_len > fq->q.max_size)
+ 		fq->q.max_size = payload_len;
+ 	add_frag_mem_limit(&fq->q, skb->truesize);
+@@ -352,12 +363,17 @@ nf_ct_frag6_reasm(struct frag_queue *fq, struct net_device *dev)
+ {
+ 	struct sk_buff *fp, *op, *head = fq->q.fragments;
+ 	int    payload_len;
++	u8 ecn;
  
- 	hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[hash], c_list) {
--		if (cp->af == p->af &&
--		    p->vport == cp->cport && p->cport == cp->dport &&
-+		if (p->vport == cp->cport && p->cport == cp->dport &&
-+		    cp->af == p->af &&
- 		    ip_vs_addr_equal(p->af, p->vaddr, &cp->caddr) &&
- 		    ip_vs_addr_equal(p->af, p->caddr, &cp->daddr) &&
- 		    p->protocol == cp->protocol &&
+ 	inet_frag_kill(&fq->q, &nf_frags);
+ 
+ 	WARN_ON(head == NULL);
+ 	WARN_ON(NFCT_FRAG6_CB(head)->offset != 0);
+ 
++	ecn = ip_frag_ecn_table[fq->ecn];
++	if (unlikely(ecn == 0xff))
++		goto out_fail;
++
+ 	/* Unfragmented part is taken from the first segment. */
+ 	payload_len = ((head->data - skb_network_header(head)) -
+ 		       sizeof(struct ipv6hdr) + fq->q.len -
+@@ -428,6 +444,7 @@ nf_ct_frag6_reasm(struct frag_queue *fq, struct net_device *dev)
+ 	head->dev = dev;
+ 	head->tstamp = fq->q.stamp;
+ 	ipv6_hdr(head)->payload_len = htons(payload_len);
++	ipv6_change_dsfield(ipv6_hdr(head), 0xff, ecn);
+ 	IP6CB(head)->frag_max_size = sizeof(struct ipv6hdr) + fq->q.max_size;
+ 
+ 	/* Yes, and fold redundant checksum back. 8) */
+@@ -572,7 +589,8 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user)
+ 	inet_frag_evictor(&net->nf_frag.frags, &nf_frags, false);
+ 	local_bh_enable();
+ 
+-	fq = fq_find(net, fhdr->identification, user, &hdr->saddr, &hdr->daddr);
++	fq = fq_find(net, fhdr->identification, user, &hdr->saddr, &hdr->daddr,
++		     ip6_frag_ecn(hdr));
+ 	if (fq == NULL) {
+ 		pr_debug("Can't find and can't create new queue\n");
+ 		goto ret_orig;
 -- 
 1.7.10.4
-
