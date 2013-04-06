@@ -1,140 +1,60 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 49/51] netfilter: ipv4: propagate routing errors from ip_route_me_harder()
-Date: Sat,  6 Apr 2013 14:17:48 +0200
-Message-ID: <1365250670-14993-50-git-send-email-pablo@netfilter.org>
-References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 4/7] net: ethernet: enc28j60: use spi_get_drvdata() and
+ spi_set_drvdata()
+Date: Sat, 06 Apr 2013 15:36:11 +0900
+Message-ID: <000f01ce3291$076ddbd0$16499370$%han@samsung.com>
+References: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
+To: "'David S. Miller'" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout3.samsung.com ([203.254.224.33]:51210 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754389Ab3DFGgN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 02:36:13 -0400
+Received: from epcpsbgr5.samsung.com
+ (u145.gpu120.samsung.co.kr [203.254.230.145])
+ by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MKT002LOMCB78C0@mailout3.samsung.com> for
+ netdev@vger.kernel.org; Sat, 06 Apr 2013 15:36:12 +0900 (KST)
+In-reply-to: <000c01ce3290$c44c0980$4ce41c80$%han@samsung.com>
+Content-language: ko
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+Use the wrapper functions for getting and setting the driver data using
+spi_device instead of using dev_{get|set}_drvdata with &spi->dev, so we
+can directly pass a struct spi_device.
 
-Propagate routing errors from ip_route_me_harder() when dropping a packet
-using NF_DROP_ERR(). This makes userspace get the proper error instead of
-EPERM for everything.
-
-Example:
-
-# ip r a unreachable default table 100
-# ip ru add fwmark 0x1 lookup 100
-# iptables -t mangle -A OUTPUT -d 8.8.8.8 -j MARK --set-mark 0x1
-
-Current behaviour:
-
-PING 8.8.8.8 (8.8.8.8) 56(84) bytes of data.
-ping: sendmsg: Operation not permitted
-ping: sendmsg: Operation not permitted
-ping: sendmsg: Operation not permitted
-
-New behaviour:
-
-PING 8.8.8.8 (8.8.8.8) 56(84) bytes of data.
-ping: sendmsg: Network is unreachable
-ping: sendmsg: Network is unreachable
-ping: sendmsg: Network is unreachable
-ping: sendmsg: Network is unreachable
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- net/ipv4/netfilter.c                |    8 ++++----
- net/ipv4/netfilter/iptable_mangle.c |    9 ++++++---
- net/ipv4/netfilter/iptable_nat.c    |    6 ++++--
- 3 files changed, 14 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/microchip/enc28j60.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
-index 4c0cf63..8b201e8 100644
---- a/net/ipv4/netfilter.c
-+++ b/net/ipv4/netfilter.c
-@@ -40,14 +40,14 @@ int ip_route_me_harder(struct sk_buff *skb, unsigned int addr_type)
- 	fl4.flowi4_flags = flags;
- 	rt = ip_route_output_key(net, &fl4);
- 	if (IS_ERR(rt))
--		return -1;
-+		return PTR_ERR(rt);
+diff --git a/drivers/net/ethernet/microchip/enc28j60.c b/drivers/net/ethernet/microchip/enc28j60.c
+index 5d98a9f..c7b40aa 100644
+--- a/drivers/net/ethernet/microchip/enc28j60.c
++++ b/drivers/net/ethernet/microchip/enc28j60.c
+@@ -1566,7 +1566,7 @@ static int enc28j60_probe(struct spi_device *spi)
+ 	INIT_WORK(&priv->setrx_work, enc28j60_setrx_work_handler);
+ 	INIT_WORK(&priv->irq_work, enc28j60_irq_work_handler);
+ 	INIT_WORK(&priv->restart_work, enc28j60_restart_work_handler);
+-	dev_set_drvdata(&spi->dev, priv);	/* spi to priv reference */
++	spi_set_drvdata(spi, priv);	/* spi to priv reference */
+ 	SET_NETDEV_DEV(dev, &spi->dev);
  
- 	/* Drop old route. */
- 	skb_dst_drop(skb);
- 	skb_dst_set(skb, &rt->dst);
+ 	if (!enc28j60_chipset_init(dev)) {
+@@ -1618,7 +1618,7 @@ error_alloc:
  
- 	if (skb_dst(skb)->error)
--		return -1;
-+		return skb_dst(skb)->error;
+ static int enc28j60_remove(struct spi_device *spi)
+ {
+-	struct enc28j60_net *priv = dev_get_drvdata(&spi->dev);
++	struct enc28j60_net *priv = spi_get_drvdata(spi);
  
- #ifdef CONFIG_XFRM
- 	if (!(IPCB(skb)->flags & IPSKB_XFRM_TRANSFORMED) &&
-@@ -56,7 +56,7 @@ int ip_route_me_harder(struct sk_buff *skb, unsigned int addr_type)
- 		skb_dst_set(skb, NULL);
- 		dst = xfrm_lookup(net, dst, flowi4_to_flowi(&fl4), skb->sk, 0);
- 		if (IS_ERR(dst))
--			return -1;
-+			return PTR_ERR(dst);;
- 		skb_dst_set(skb, dst);
- 	}
- #endif
-@@ -66,7 +66,7 @@ int ip_route_me_harder(struct sk_buff *skb, unsigned int addr_type)
- 	if (skb_headroom(skb) < hh_len &&
- 	    pskb_expand_head(skb, HH_DATA_ALIGN(hh_len - skb_headroom(skb)),
- 				0, GFP_ATOMIC))
--		return -1;
-+		return -ENOMEM;
- 
- 	return 0;
- }
-diff --git a/net/ipv4/netfilter/iptable_mangle.c b/net/ipv4/netfilter/iptable_mangle.c
-index 85d88f2..cba5658 100644
---- a/net/ipv4/netfilter/iptable_mangle.c
-+++ b/net/ipv4/netfilter/iptable_mangle.c
-@@ -44,6 +44,7 @@ ipt_mangle_out(struct sk_buff *skb, const struct net_device *out)
- 	u_int8_t tos;
- 	__be32 saddr, daddr;
- 	u_int32_t mark;
-+	int err;
- 
- 	/* root is playing with raw sockets. */
- 	if (skb->len < sizeof(struct iphdr) ||
-@@ -66,9 +67,11 @@ ipt_mangle_out(struct sk_buff *skb, const struct net_device *out)
- 		if (iph->saddr != saddr ||
- 		    iph->daddr != daddr ||
- 		    skb->mark != mark ||
--		    iph->tos != tos)
--			if (ip_route_me_harder(skb, RTN_UNSPEC))
--				ret = NF_DROP;
-+		    iph->tos != tos) {
-+			err = ip_route_me_harder(skb, RTN_UNSPEC);
-+			if (err < 0)
-+				ret = NF_DROP_ERR(err);
-+		}
- 	}
- 
- 	return ret;
-diff --git a/net/ipv4/netfilter/iptable_nat.c b/net/ipv4/netfilter/iptable_nat.c
-index eeaff7e..c2937c8 100644
---- a/net/ipv4/netfilter/iptable_nat.c
-+++ b/net/ipv4/netfilter/iptable_nat.c
-@@ -213,6 +213,7 @@ nf_nat_ipv4_local_fn(unsigned int hooknum,
- 	const struct nf_conn *ct;
- 	enum ip_conntrack_info ctinfo;
- 	unsigned int ret;
-+	int err;
- 
- 	/* root is playing with raw sockets. */
- 	if (skb->len < sizeof(struct iphdr) ||
-@@ -226,8 +227,9 @@ nf_nat_ipv4_local_fn(unsigned int hooknum,
- 
- 		if (ct->tuplehash[dir].tuple.dst.u3.ip !=
- 		    ct->tuplehash[!dir].tuple.src.u3.ip) {
--			if (ip_route_me_harder(skb, RTN_UNSPEC))
--				ret = NF_DROP;
-+			err = ip_route_me_harder(skb, RTN_UNSPEC);
-+			if (err < 0)
-+				ret = NF_DROP_ERR(err);
- 		}
- #ifdef CONFIG_XFRM
- 		else if (!(IPCB(skb)->flags & IPSKB_XFRM_TRANSFORMED) &&
+ 	if (netif_msg_drv(priv))
+ 		printk(KERN_DEBUG DRV_NAME ": remove\n");
 -- 
-1.7.10.4
-
+1.7.2.5
