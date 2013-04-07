@@ -1,7 +1,7 @@
 From: Mathias Krause <minipli@googlemail.com>
-Subject: [PATCH 12/16] NFC: llcp: fix info leaks via msg_name in llcp_sock_recvmsg()
-Date: Sun,  7 Apr 2013 13:51:58 +0200
-Message-ID: <1365335522-29931-13-git-send-email-minipli@googlemail.com>
+Subject: [PATCH 11/16] netrom: fix info leak via msg_name in nr_recvmsg()
+Date: Sun,  7 Apr 2013 13:51:57 +0200
+Message-ID: <1365335522-29931-12-git-send-email-minipli@googlemail.com>
 References: <1365335522-29931-1-git-send-email-minipli@googlemail.com>
 Cc: netdev@vger.kernel.org,
 	Allan Stephens <allan.stephens@windriver.com>,
@@ -24,62 +24,44 @@ Cc: netdev@vger.kernel.org,
 	Mathias Krause <minipli@googlemail.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f52.google.com ([209.85.214.52]:59843 "EHLO
-	mail-bk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933504Ab3DGLwj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Apr 2013 07:52:39 -0400
-Received: by mail-bk0-f52.google.com with SMTP id it16so2652488bkc.39
-        for <netdev@vger.kernel.org>; Sun, 07 Apr 2013 04:52:38 -0700 (PDT)
+Received: from mail-bk0-f43.google.com ([209.85.214.43]:40810 "EHLO
+	mail-bk0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933373Ab3DGLwh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Apr 2013 07:52:37 -0400
+Received: by mail-bk0-f43.google.com with SMTP id jm2so2647058bkc.16
+        for <netdev@vger.kernel.org>; Sun, 07 Apr 2013 04:52:36 -0700 (PDT)
 In-Reply-To: <1365335522-29931-1-git-send-email-minipli@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code in llcp_sock_recvmsg() does not initialize all the members of
-struct sockaddr_nfc_llcp when filling the sockaddr info. Nor does it
-initialize the padding bytes of the structure inserted by the compiler
-for alignment.
-
-Also, if the socket is in state LLCP_CLOSED or is shutting down during
-receive the msg_namelen member is not updated to 0 while otherwise
-returning with 0, i.e. "success". The msg_namelen update is also
-missing for stream and seqpacket sockets which don't fill the sockaddr
-info.
+In case msg_name is set the sockaddr info gets filled out, as
+requested, but the code fails to initialize the padding bytes of
+struct sockaddr_ax25 inserted by the compiler for alignment. Also
+the sax25_ndigis member does not get assigned, leaking four more
+bytes.
 
 Both issues lead to the fact that the code will leak uninitialized
 kernel stack bytes in net/socket.c.
 
-Fix the first issue by initializing the memory used for sockaddr info
-with memset(0). Fix the second one by setting msg_namelen to 0 early.
-It will be updated later if we're going to fill the msg_name member.
+Fix both issues by initializing the memory with memset(0).
 
-Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>
-Cc: Aloisio Almeida Jr <aloisio.almeida@openbossa.org>
-Cc: Samuel Ortiz <sameo@linux.intel.com>
+Cc: Ralf Baechle <ralf@linux-mips.org>
 Signed-off-by: Mathias Krause <minipli@googlemail.com>
 ---
- net/nfc/llcp/sock.c |    3 +++
- 1 file changed, 3 insertions(+)
+ net/netrom/af_netrom.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/nfc/llcp/sock.c b/net/nfc/llcp/sock.c
-index 5c7cdf3..4741adc 100644
---- a/net/nfc/llcp/sock.c
-+++ b/net/nfc/llcp/sock.c
-@@ -646,6 +646,8 @@ static int llcp_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
+diff --git a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
+index d1fa1d9..7fcb307 100644
+--- a/net/netrom/af_netrom.c
++++ b/net/netrom/af_netrom.c
+@@ -1173,6 +1173,7 @@ static int nr_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	}
  
- 	pr_debug("%p %zu\n", sk, len);
- 
-+	msg->msg_namelen = 0;
-+
- 	lock_sock(sk);
- 
- 	if (sk->sk_state == LLCP_CLOSED &&
-@@ -691,6 +693,7 @@ static int llcp_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
- 
- 		pr_debug("Datagram socket %d %d\n", ui_cb->dsap, ui_cb->ssap);
- 
-+		memset(sockaddr, 0, sizeof(*sockaddr));
- 		sockaddr->sa_family = AF_NFC;
- 		sockaddr->nfc_protocol = NFC_PROTO_NFC_DEP;
- 		sockaddr->dsap = ui_cb->dsap;
+ 	if (sax != NULL) {
++		memset(sax, 0, sizeof(sax));
+ 		sax->sax25_family = AF_NETROM;
+ 		skb_copy_from_linear_data_offset(skb, 7, sax->sax25_call.ax25_call,
+ 			      AX25_ADDR_LEN);
 -- 
 1.7.10.4
