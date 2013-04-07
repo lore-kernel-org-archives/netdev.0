@@ -1,55 +1,71 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH iproute2 2/2] ip: ipv6: add tokenized interface identifier
- support
-Date: Sun, 07 Apr 2013 13:58:52 +0200
-Message-ID: <51615F7C.2090100@redhat.com>
-References: <1365086258-4512-1-git-send-email-dborkman@redhat.com> <1365086258-4512-3-git-send-email-dborkman@redhat.com> <20130405093914.55c9114c@nehalam.linuxnetplumber.net>
+From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Subject: Re: [PATCH 4/5] tipc: add InfiniBand media type
+Date: Sun, 7 Apr 2013 14:04:30 +0200
+Message-ID: <20130407120430.GA23134@macbook.localnet>
+References: <1364993010-15515-1-git-send-email-kaber@trash.net>
+ <1364993010-15515-5-git-send-email-kaber@trash.net>
+ <51613740.6050501@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7885 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933444Ab3DGL7D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Apr 2013 07:59:03 -0400
-In-Reply-To: <20130405093914.55c9114c@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jon.maloy-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org, allan.stephens-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ying Xue <ying.xue-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <51613740.6050501-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 04/05/2013 06:39 PM, Stephen Hemminger wrote:
-> On Thu,  4 Apr 2013 16:37:38 +0200
-> Daniel Borkmann <dborkman@redhat.com> wrote:
->
->> This is experimental support for tokenized IIDs, that enable
->> administrators to assign well-known host-part addresses to nodes
->> whilst still obtaining global network prefix from Router
->> Advertisements. It is currently in IETF RFC draft status [1].
->>
->> Example commands with iproute2:
->>
->> Setting a device token:
->>    # ip token set ::1a:2b:3c:4d/64 dev eth1
->>
->> Getting a device token:
->>    # ip token get dev eth1
->>    token ::1a:2b:3c:4d dev eth1
->>
->> Listing all tokens:
->>    # ip token list  (or: ip token)
->>    token :: dev eth0
->>    token ::1a:2b:3c:4d dev eth1
->>
->>   [1] http://tools.ietf.org/html/draft-chown-6man-tokenised-ipv6-identifiers-02
->>
->> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
->> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->
-> Deferred.
-> Please resubmit during 3.10 merge window.
+On Sun, Apr 07, 2013 at 05:07:12PM +0800, Ying Xue wrote:
+> 
+> > --- a/net/tipc/core.c
+> > +++ b/net/tipc/core.c
+> > @@ -82,6 +82,7 @@ static void tipc_core_stop_net(void)
+> >  {
+> >  	tipc_net_stop();
+> >  	tipc_eth_media_stop();
+> > +	tipc_ib_media_stop();
+> >  }
+> >  
+> >  /**
+> > @@ -93,8 +94,17 @@ int tipc_core_start_net(unsigned long addr)
+> >  
+> >  	tipc_net_start(addr);
+> >  	res = tipc_eth_media_start();
+> > -	if (res)
+> > -		tipc_core_stop_net();
+> > +	if (res < 0)
+> > +		goto err1;
+> > +	res = tipc_ib_media_start();
+> > +	if (res < 0)
+> > +		goto err2;
+> > +	return res;
+> > +
+> > +err2:
+> > +	tipc_eth_media_stop();
+> 
+> Why do we need to call tipc_eth_media_stop() separately?
+> In any failed case, we will finally invoke tipc_core_stop_net() which
+> already places tipc_eth_media_stop().
 
-Thanks, I'll do.
+Right, that's not necessary, although I think its cleaner to do have error
+handling just be the opposite of initialization, IOW calling tipc_net_stop()
+instead of tipc_core_stop_net().
+
+But I don't care much either way, will fix this up for the next submission,
+thanks.
+
+> 
+> > +err1:
+> > +	tipc_core_stop_net();
+> >  	return res;
+> >  }
+> >  
+> 
+> Regards,
+> Ying
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
