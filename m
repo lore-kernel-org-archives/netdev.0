@@ -1,48 +1,40 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH V1 net-next 3/3] net/mlx4_en: Advertize DCB_CAP_DCBX_HOST
- in getdcbx
-Date: Sun, 07 Apr 2013 19:31:27 +0400
-Message-ID: <5161914F.8020801@cogentembedded.com>
-References: <1365342248-31901-1-git-send-email-ogerlitz@mellanox.com> <1365342248-31901-4-git-send-email-ogerlitz@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/51] netfilter updates for net-next
+Date: Sun, 07 Apr 2013 12:27:28 -0400 (EDT)
+Message-ID: <20130407.122728.797835275855932038.davem@davemloft.net>
+References: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, amirv@mellanox.com,
-	sagig@mellanox.com, john.r.fastabend@intel.com
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:36055 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933930Ab3DGPc2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Apr 2013 11:32:28 -0400
-Received: by mail-la0-f45.google.com with SMTP id fn20so1229984lab.18
-        for <netdev@vger.kernel.org>; Sun, 07 Apr 2013 08:32:27 -0700 (PDT)
-In-Reply-To: <1365342248-31901-4-git-send-email-ogerlitz@mellanox.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56054 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934016Ab3DGQ1c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Apr 2013 12:27:32 -0400
+In-Reply-To: <1365250670-14993-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Sat,  6 Apr 2013 14:16:59 +0200
 
-On 07-04-2013 17:44, Or Gerlitz wrote:
+> You can pull these changes from:
+> 
+> git://1984.lsi.us.es/nf-next master
 
-> When our getdcbx entry is called, DCB_CAP_DCBX_HOST should be advertized too.
+Not a very good pull request, I don't know how you were able to
+successfully create it with all the inaccuracies.
 
-> Cc: John Fastabend <john.r.fastabend@intel.com>
-> Signed-off-by: Sagi Grimberg <sagig@mellanox.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-[...]
+The dst.c change wasn't mentioned.
 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-> index 321553f..9199aed 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-> @@ -186,7 +186,7 @@ static int mlx4_en_dcbnl_ieee_setpfc(struct net_device *dev,
->
->   static u8 mlx4_en_dcbnl_getdcbx(struct net_device *dev)
->   {
-> -	return DCB_CAP_DCBX_VER_IEEE;
-> +	return (DCB_CAP_DCBX_HOST | DCB_CAP_DCBX_VER_IEEE);
+and the last three patches (the error propagation fixes from Patrick)
+weren't even in this tree.
 
-    Nit: parens not needed here.
+I pulled, but I cannot believe that GIT didn't complain about this
+or provide some kind of feedback indicating that what you're asking
+me to pull doesn't match up with what's actually in that tree.
 
-WBR, Sergei
+I mean, if anyone had sent you a pull request like this, you would
+have rejected it.
