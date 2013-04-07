@@ -1,46 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] selftests: net: add PF_PACKET TPACKET
- v1/v2/v3 selftests
-Date: Sun, 07 Apr 2013 17:02:43 -0400 (EDT)
-Message-ID: <20130407.170243.1891515530961395735.davem@davemloft.net>
-References: <1364943651-3346-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH v2 net-next 1/8] r8169: Remove firmware code
+Date: Sun, 07 Apr 2013 16:45:07 -0400 (EDT)
+Message-ID: <20130407.164507.795222306786228518.davem@davemloft.net>
+References: <1364891022-3220-1-git-send-email-hayeswang@realtek.com>
+	<20130404.174717.2232220782916755499.davem@davemloft.net>
+	<20130404234229.GA13629@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58395 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934312Ab3DGVCo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Apr 2013 17:02:44 -0400
-In-Reply-To: <1364943651-3346-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: romieu@fr.zoreil.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130404234229.GA13629@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Wed,  3 Apr 2013 01:00:51 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Fri, 5 Apr 2013 01:42:29 +0200
 
-> This patch adds a simple test case that probes the packet socket's
-> TPACKET_V1, TPACKET_V2 and TPACKET_V3 behavior regarding mmap(2)'ed
-> I/O for a small burst of 100 packets. The test currently runs for ...
+> David Miller <davem@davemloft.net> :
+> [...]
+>> If so, should I just apply this series as-is ?
 > 
->   TPACKET_V1: RX_RING, TX_RING
->   TPACKET_V2: RX_RING, TX_RING
->   TPACKET_V3: RX_RING
+> Yes.
 > 
-> ... and will output on success:
+> - the series is imho -stable unfriendly: whoever wants to figure what
+>   should be fed into a -stable branch will have a hard time. :o/
+> - the driver could had been more careful about firmware version/magic
+>   checks and firmware opcodes recycling. It's a bit late. It won't
+>   necessarily hurt.
+> - there is a whole release cycle ahead to find problems - if any - due
+>   to the hw_start flow change. It seems sane.
+> - the relative amount of binary like cruft is going down.
 > 
->   test: TPACKET_V1 with PACKET_RX_RING .................... 100 pkts (9600 bytes)
->   test: TPACKET_V1 with PACKET_TX_RING .................... 100 pkts (9600 bytes)
->   test: TPACKET_V2 with PACKET_RX_RING .................... 100 pkts (9600 bytes)
->   test: TPACKET_V2 with PACKET_TX_RING .................... 100 pkts (9600 bytes)
->   test: TPACKET_V3 with PACKET_RX_RING .................... 100 pkts (9600 bytes)
->   OK. All tests passed
-> 
-> Reusable parts of psock_fanout.c have been put into a psock_lib.h
-> file for common usage. Test case successfully tested on x86_64.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> I am not overflowed with enthusiasm but the gain should exceed the pain.
 
-Applied, thanks!
+All applied to net-next, thanks!
