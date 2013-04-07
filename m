@@ -1,31 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] decnet: remove duplicated include from dn_table.c
-Date: Sun, 07 Apr 2013 17:12:57 -0400 (EDT)
-Message-ID: <20130407.171257.1372353511804082326.davem@davemloft.net>
-References: <CAPgLHd-7CZLD7qCbR04iWWFRgdvW=aru06MF1JnW58dKvg5NTw@mail.gmail.com>
+From: WebMail =?utf-8?Q?J=C3=A4rjestelm=C3=A4nvalvoja?=
+	<sebastian.jucu@cbg.uvt.ro>
+Subject: =?utf-8?Q?S=C3=A4hk=C3=B6posti?= Alert
+Date: Sun, 07 Apr 2013 23:40:25 +0300 (EEST)
+Message-ID: <b549e0b9-692d-43c6-b746-a37a70fc25c3__10114.5072178499$1365403649$gmane$org@hercules.uvt.ro>
+Reply-To: WebMail =?utf-8?Q?J=C3=A4rjestelm=C3=A4nvalvoja?=
+	  <upgrade@execs.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, shemminger@vyatta.com, sasha.levin@oracle.com,
-	akpm@linux-foundation.org, yongjun_wei@trendmicro.com.cn,
-	linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58542 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934380Ab3DGVM7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Apr 2013 17:12:59 -0400
-In-Reply-To: <CAPgLHd-7CZLD7qCbR04iWWFRgdvW=aru06MF1JnW58dKvg5NTw@mail.gmail.com>
+Received: from mail.uvt.ro ([85.120.204.100]:54242 "EHLO hercules.uvt.ro"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934319Ab3DGUtF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Apr 2013 16:49:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Thu, 4 Apr 2013 09:33:07 +0800
+Postilaatikko on ylitt=C3=A4nyt varastointi rajan 2.GB
+M=C3=A4=C3=A4rittelee yll=C3=A4pito on t=C3=A4ll=C3=A4 hetkell=C3=A4 2.=
+30GB, ei voi l=C3=A4hett=C3=A4=C3=A4 tai vastaanottaa uusia viestej=C3=A4=
+ ennen kuin olet uudelleen Vahvista s=C3=A4hk=C3=B6postiosoite l=C3=A4h=
+ett=C3=A4=C3=A4 tiedon edellytetyt uudelleen vahvistat s=C3=A4hk=C3=B6p=
+ostiosoitteen
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> 
-> Remove duplicated include.
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+E-mail:
+K=C3=A4ytt=C3=A4j=C3=A4tunnus:
+salasana:
+Vahvista salasana:
+jona viimeinen merkint=C3=A4:
 
-Applied.
+E-mail: upgrade@execs.com
+
+System Manager
