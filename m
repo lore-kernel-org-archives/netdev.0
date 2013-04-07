@@ -1,39 +1,48 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: AMD Vi error and lost networking with r8169
-Date: Sun, 7 Apr 2013 23:53:03 +0200
-Message-ID: <20130407215303.GA28778@electric-eye.fr.zoreil.com>
-References: <51616695.7080305@unsolicited.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] tcp: add a global sysctl to control TCP
+ delayed ack
+Date: Sun, 07 Apr 2013 17:09:58 -0400 (EDT)
+Message-ID: <20130407.170958.338519719729552895.davem@davemloft.net>
+References: <1365070560-11544-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: David R <david@unsolicited.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <51616695.7080305@unsolicited.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, rick.jones2@hp.com,
+	shemminger@vyatta.com, tgraf@suug.ch, David.Laight@ACULAB.COM
+To: amwang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58500 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934238Ab3DGVKA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Apr 2013 17:10:00 -0400
+In-Reply-To: <1365070560-11544-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David R <david@unsolicited.net> :
-> I'm been seeing some problems with my new ish AMD motherboard/processor
-> combo and networking (r8169). I see the following page fault :-
+From: Cong Wang <amwang@redhat.com>
+Date: Thu,  4 Apr 2013 18:16:00 +0800
+
+> From: Cong Wang <amwang@redhat.com>
 > 
-> Apr  7 12:25:14 david kernel: [156421.436545] AMD-Vi: Event logged
-> [IO_PAGE_FAULT device=02:00.0 domain=0x0015 address=0x0000000000003000
-> flags=0x0050]
+> Change from RFC:
+> * make the sysctl per netns
+> 
+> According to previous discussion, it seems there is no
+> reasonable heuristics.
+> 
+> Similar to TCP_QUICK_ACK option, but for people who can't
+> modify the source code and still wants to control
+> TCP delayed ACK behavior.
+> 
+> David, do you still have any objection?
+> 
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Rick Jones <rick.jones2@hp.com>
+> Cc: Stephen Hemminger <shemminger@vyatta.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Thomas Graf <tgraf@suug.ch>
+> CC: David Laight <David.Laight@ACULAB.COM>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Can you give the hack below a try ?
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 28fb50a..ed8625d 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4125,6 +4125,8 @@ static void rtl_init_rxcfg(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_23:
- 	case RTL_GIGA_MAC_VER_24:
- 	case RTL_GIGA_MAC_VER_34:
-+	case RTL_GIGA_MAC_VER_35:
-+	case RTL_GIGA_MAC_VER_36:
- 		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST);
- 		break;
- 	default:
+I'm not applying a patch that adds a global parameter for
+an attribute which has per-path scope.
