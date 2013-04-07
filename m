@@ -1,26 +1,90 @@
-From: Sami Farin <hvtaifwkbgefbaei@gmail.com>
-Subject: Re: 3.9.0-rc5-ge24b0bfa: e1000e transmit queue 0 timed out
-Date: Sat, 6 Apr 2013 23:55:12 +0300
-Message-ID: <20130406205512.di535ecsgnpwxtzk@m.safari.iki.fi>
-References: <20130406203948.dv7ef4xrc3ylt24p@m.safari.iki.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Linux Networking Mailing List <netdev@vger.kernel.org>
+From: Jonghwan Choi <jhbird.choi@gmail.com>
+Subject: [PATCH 3.8-stable] r8169: fix auto speed down issue
+Date: Sun,  7 Apr 2013 11:17:50 +0900
+Message-ID: <1365301070-4788-1-git-send-email-jhbird.choi@samsung.com>
+Cc: stable@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jonghwan Choi <jhbird.choi@samsung.com>
+To: Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	hayeswang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw02.mail.saunalahti.fi ([195.197.172.116]:36636 "EHLO
-	gw02.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932476Ab3DFUzU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 16:55:20 -0400
-Received: from safari.iki.fi (85-156-14-129.elisa-mobile.fi [85.156.14.129])
-	by gw02.mail.saunalahti.fi (Postfix) with ESMTP id 8F0231394AB
-	for <netdev@vger.kernel.org>; Sat,  6 Apr 2013 23:55:14 +0300 (EEST)
-Content-Disposition: inline
-In-Reply-To: <20130406203948.dv7ef4xrc3ylt24p@m.safari.iki.fi>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:42150 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161236Ab3DGCTD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 22:19:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-OK, probably harmless warning, coincided with Saunalahti 3G
-connection troubles.. :)
+From: hayeswang <hayeswang@realtek.com>
 
+This patch looks like it should be in the 3.8-stable tree, should we apply
+it?
+
+------------------
+
+From: "hayeswang <hayeswang@realtek.com>"
+
+commit e2409d83434d77874b461b78af6a19cd6e6a1280 upstream
+
+It would cause no link after suspending or shutdowning when the
+nic changes the speed to 10M and connects to a link partner which
+forces the speed to 100M.
+
+Check the link partner ability to determine which speed to set.
+
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Jonghwan Choi <jhbird.choi@samsung.com>
+---
+ drivers/net/ethernet/realtek/r8169.c |   28 +++++++++++++++++++++++++---
+ 1 file changed, 25 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 998974f..2d849da 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -3819,6 +3819,30 @@ static void rtl_init_mdio_ops(struct rtl8169_private *tp)
+ 	}
+ }
+ 
++static void rtl_speed_down(struct rtl8169_private *tp)
++{
++	u32 adv;
++	int lpa;
++
++	rtl_writephy(tp, 0x1f, 0x0000);
++	lpa = rtl_readphy(tp, MII_LPA);
++
++	if (lpa & (LPA_10HALF | LPA_10FULL))
++		adv = ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full;
++	else if (lpa & (LPA_100HALF | LPA_100FULL))
++		adv = ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
++		      ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full;
++	else
++		adv = ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
++		      ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full |
++		      (tp->mii.supports_gmii ?
++		       ADVERTISED_1000baseT_Half |
++		       ADVERTISED_1000baseT_Full : 0);
++
++	rtl8169_set_speed(tp->dev, AUTONEG_ENABLE, SPEED_1000, DUPLEX_FULL,
++			  adv);
++}
++
+ static void rtl_wol_suspend_quirk(struct rtl8169_private *tp)
+ {
+ 	void __iomem *ioaddr = tp->mmio_addr;
+@@ -3849,9 +3873,7 @@ static bool rtl_wol_pll_power_down(struct rtl8169_private *tp)
+ 	if (!(__rtl8169_get_wol(tp) & WAKE_ANY))
+ 		return false;
+ 
+-	rtl_writephy(tp, 0x1f, 0x0000);
+-	rtl_writephy(tp, MII_BMCR, 0x0000);
+-
++	rtl_speed_down(tp);
+ 	rtl_wol_suspend_quirk(tp);
+ 
+ 	return true;
 -- 
-Do what you love because life is too short for anything else.
+1.7.10.4
