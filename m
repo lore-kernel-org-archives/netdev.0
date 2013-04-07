@@ -1,90 +1,45 @@
-From: Jonghwan Choi <jhbird.choi@gmail.com>
-Subject: [PATCH 3.8-stable] r8169: fix auto speed down issue
-Date: Sun,  7 Apr 2013 11:17:50 +0900
-Message-ID: <1365301070-4788-1-git-send-email-jhbird.choi@samsung.com>
-Cc: stable@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jonghwan Choi <jhbird.choi@samsung.com>
-To: Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	hayeswang <hayeswang@realtek.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:42150 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161236Ab3DGCTD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Apr 2013 22:19:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lars-Peter Clausen <lars@metafoo.de>
+Subject: [PATCH 1/2] net: ks8851: Use module_spi_driver
+Date: Sun,  7 Apr 2013 11:33:03 +0200
+Message-ID: <1365327184-22956-1-git-send-email-lars@metafoo.de>
+Cc: Ben Dooks <ben-linux@fluff.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Lars-Peter Clausen <lars@metafoo.de>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: hayeswang <hayeswang@realtek.com>
+By using module_spi_driver we can eliminate a few lines of boilerplate code.
 
-This patch looks like it should be in the 3.8-stable tree, should we apply
-it?
-
-------------------
-
-From: "hayeswang <hayeswang@realtek.com>"
-
-commit e2409d83434d77874b461b78af6a19cd6e6a1280 upstream
-
-It would cause no link after suspending or shutdowning when the
-nic changes the speed to 10M and connects to a link partner which
-forces the speed to 100M.
-
-Check the link partner ability to determine which speed to set.
-
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-Acked-by: Francois Romieu <romieu@fr.zoreil.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Jonghwan Choi <jhbird.choi@samsung.com>
+Signed-off-by: Lars-Peter Clausen <lars@metafoo.de>
 ---
- drivers/net/ethernet/realtek/r8169.c |   28 +++++++++++++++++++++++++---
- 1 file changed, 25 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/micrel/ks8851.c | 14 +-------------
+ 1 file changed, 1 insertion(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 998974f..2d849da 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -3819,6 +3819,30 @@ static void rtl_init_mdio_ops(struct rtl8169_private *tp)
- 	}
- }
- 
-+static void rtl_speed_down(struct rtl8169_private *tp)
-+{
-+	u32 adv;
-+	int lpa;
-+
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+	lpa = rtl_readphy(tp, MII_LPA);
-+
-+	if (lpa & (LPA_10HALF | LPA_10FULL))
-+		adv = ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full;
-+	else if (lpa & (LPA_100HALF | LPA_100FULL))
-+		adv = ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
-+		      ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full;
-+	else
-+		adv = ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
-+		      ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full |
-+		      (tp->mii.supports_gmii ?
-+		       ADVERTISED_1000baseT_Half |
-+		       ADVERTISED_1000baseT_Full : 0);
-+
-+	rtl8169_set_speed(tp->dev, AUTONEG_ENABLE, SPEED_1000, DUPLEX_FULL,
-+			  adv);
-+}
-+
- static void rtl_wol_suspend_quirk(struct rtl8169_private *tp)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
-@@ -3849,9 +3873,7 @@ static bool rtl_wol_pll_power_down(struct rtl8169_private *tp)
- 	if (!(__rtl8169_get_wol(tp) & WAKE_ANY))
- 		return false;
- 
--	rtl_writephy(tp, 0x1f, 0x0000);
--	rtl_writephy(tp, MII_BMCR, 0x0000);
+diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+index 8fb4812..84ca876 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -1538,19 +1538,7 @@ static struct spi_driver ks8851_driver = {
+ 	.suspend = ks8851_suspend,
+ 	.resume = ks8851_resume,
+ };
 -
-+	rtl_speed_down(tp);
- 	rtl_wol_suspend_quirk(tp);
+-static int __init ks8851_init(void)
+-{
+-	return spi_register_driver(&ks8851_driver);
+-}
+-
+-static void __exit ks8851_exit(void)
+-{
+-	spi_unregister_driver(&ks8851_driver);
+-}
+-
+-module_init(ks8851_init);
+-module_exit(ks8851_exit);
++module_spi_driver(ks8851_driver);
  
- 	return true;
+ MODULE_DESCRIPTION("KS8851 Network driver");
+ MODULE_AUTHOR("Ben Dooks <ben@simtec.co.uk>");
 -- 
-1.7.10.4
+1.8.0
