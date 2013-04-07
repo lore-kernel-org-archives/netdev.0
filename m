@@ -1,7 +1,7 @@
 From: Mathias Krause <minipli@googlemail.com>
-Subject: [PATCH 04/16] Bluetooth: RFCOMM - Fix missing msg_namelen update in rfcomm_sock_recvmsg()
-Date: Sun,  7 Apr 2013 13:51:50 +0200
-Message-ID: <1365335522-29931-5-git-send-email-minipli@googlemail.com>
+Subject: [PATCH 07/16] irda: Fix missing msg_namelen update in irda_recvmsg_dgram()
+Date: Sun,  7 Apr 2013 13:51:53 +0200
+Message-ID: <1365335522-29931-8-git-send-email-minipli@googlemail.com>
 References: <1365335522-29931-1-git-send-email-minipli@googlemail.com>
 Cc: netdev@vger.kernel.org,
 	Allan Stephens <allan.stephens@windriver.com>,
@@ -24,42 +24,43 @@ Cc: netdev@vger.kernel.org,
 	Mathias Krause <minipli@googlemail.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f49.google.com ([209.85.214.49]:34389 "EHLO
-	mail-bk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933435Ab3DGLw2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Apr 2013 07:52:28 -0400
-Received: by mail-bk0-f49.google.com with SMTP id w12so2715278bku.36
-        for <netdev@vger.kernel.org>; Sun, 07 Apr 2013 04:52:27 -0700 (PDT)
+Received: from mail-bk0-f44.google.com ([209.85.214.44]:59078 "EHLO
+	mail-bk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933488Ab3DGLwc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Apr 2013 07:52:32 -0400
+Received: by mail-bk0-f44.google.com with SMTP id jk13so2716735bkc.31
+        for <netdev@vger.kernel.org>; Sun, 07 Apr 2013 04:52:31 -0700 (PDT)
 In-Reply-To: <1365335522-29931-1-git-send-email-minipli@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If RFCOMM_DEFER_SETUP is set in the flags, rfcomm_sock_recvmsg() returns
-early with 0 without updating the possibly set msg_namelen member. This,
-in turn, leads to a 128 byte kernel stack leak in net/socket.c.
+The current code does not fill the msg_name member in case it is set.
+It also does not set the msg_namelen member to 0 and therefore makes
+net/socket.c leak the local, uninitialized sockaddr_storage variable
+to userland -- 128 bytes of kernel stack memory.
 
-Fix this by updating msg_namelen in this case. For all other cases it
-will be handled in bt_sock_stream_recvmsg().
+Fix that by simply setting msg_namelen to 0 as obviously nobody cared
+about irda_recvmsg_dgram() not filling the msg_name in case it was
+set.
 
-Cc: Marcel Holtmann <marcel@holtmann.org>
-Cc: Gustavo Padovan <gustavo@padovan.org>
-Cc: Johan Hedberg <johan.hedberg@gmail.com>
+Cc: Samuel Ortiz <samuel@sortiz.org>
 Signed-off-by: Mathias Krause <minipli@googlemail.com>
 ---
- net/bluetooth/rfcomm/sock.c |    1 +
- 1 file changed, 1 insertion(+)
+ net/irda/af_irda.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
-index c23bae8..7c9224b 100644
---- a/net/bluetooth/rfcomm/sock.c
-+++ b/net/bluetooth/rfcomm/sock.c
-@@ -608,6 +608,7 @@ static int rfcomm_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
+diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
+index d28e7f0..e493b33 100644
+--- a/net/irda/af_irda.c
++++ b/net/irda/af_irda.c
+@@ -1386,6 +1386,8 @@ static int irda_recvmsg_dgram(struct kiocb *iocb, struct socket *sock,
  
- 	if (test_and_clear_bit(RFCOMM_DEFER_SETUP, &d->flags)) {
- 		rfcomm_dlc_accept(d);
-+		msg->msg_namelen = 0;
- 		return 0;
- 	}
+ 	IRDA_DEBUG(4, "%s()\n", __func__);
  
++	msg->msg_namelen = 0;
++
+ 	skb = skb_recv_datagram(sk, flags & ~MSG_DONTWAIT,
+ 				flags & MSG_DONTWAIT, &err);
+ 	if (!skb)
 -- 
 1.7.10.4
