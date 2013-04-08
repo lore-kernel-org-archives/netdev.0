@@ -1,43 +1,37 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: v3.8.5: "TCP: snd_cwnd is nul, please report this bug."
-Date: Mon, 08 Apr 2013 17:42:29 +0200
-Message-ID: <87wqsdghay.fsf@nemi.mork.no>
-References: <87zjx9pf13.fsf@nemi.mork.no>
-	<1365431422.3887.10.camel@edumazet-glaptop>
-	<87li8tyrzs.fsf@nemi.mork.no>
-	<1365434301.3887.14.camel@edumazet-glaptop>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [Patch net-next] tcp: add a global sysctl to control TCP delayed
+ ack
+Date: Mon, 08 Apr 2013 09:39:31 -0700
+Message-ID: <5162F2C3.10107@hp.com>
+References: <1365070560-11544-1-git-send-email-amwang@redhat.com> <20130407.170958.338519719729552895.davem@davemloft.net> <1365385541.31063.0.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, shemminger@vyatta.com, tgraf@suug.ch,
+	David.Laight@ACULAB.COM
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:48711 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936454Ab3DHPpN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 11:45:13 -0400
-In-Reply-To: <1365434301.3887.14.camel@edumazet-glaptop> (Eric Dumazet's
-	message of "Mon, 08 Apr 2013 08:18:21 -0700")
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:14261 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934393Ab3DHQjf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 12:39:35 -0400
+In-Reply-To: <1365385541.31063.0.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+On 04/07/2013 06:45 PM, Cong Wang wrote:
+> On Sun, 2013-04-07 at 17:09 -0400, David Miller wrote:
+>>
+>> I'm not applying a patch that adds a global parameter for
+>> an attribute which has per-path scope.
+>
+> Ok, I will make it per-route.
 
-> I believe patch applies (with some fuzz) on Linus tree, and maybe on =
-3.8
-> too.
+Is setting a per-route attribute to cover the backside of an application 
+for which source code is not available in this day and age really all 
+that much easier than hitting that application with an LD_PRELOAD 
+library to make the desired setsockopt() call?
 
-Probably just a minor context issue, but it failed like this on v3.9-rc=
-6
-(as well as 'net' and v3.8.6):
-
-     Applying: v3.8.5: "TCP: snd_cwnd is nul, please report this bug."
-     error: patch failed: net/ipv4/tcp_westwood.c:233
-     error: net/ipv4/tcp_westwood.c: patch does not apply
-
-
-I'll just run todays net-next with this on top.  No problem.
-
-
-
-Bj=C3=B8rn
+rick jones
+having flashbacks to similar conversations in other contexts in the 1990s...
