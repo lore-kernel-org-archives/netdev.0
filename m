@@ -1,49 +1,91 @@
-From: Rayagond K <rayagond@vayavyalabs.com>
-Subject: Re: how to test multipe unicast MAC address
-Date: Mon, 8 Apr 2013 23:43:10 +0530
-Message-ID: <CAJ3bTp4HnmZ9pvzEOUg5VAKiLYGxS+f6eqtb5HdXkmuUYdyZUw@mail.gmail.com>
-References: <CAJ3bTp6xYkKwXNm_YZ9DTy9G8wdKqKEBQOVRjaGkmMURG2MaEA@mail.gmail.com>
-	<1365430604.3887.8.camel@edumazet-glaptop>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [PATCH] rtnetlink: Call nlmsg_parse() with correct header length
+Date: Mon, 8 Apr 2013 18:13:36 +0000
+Message-ID: <CD31A507-C3E1-4499-9F06-2F83B3FBFE61@intel.com>
+References: <e04bc546-fcf6-41d2-a585-5fddff388e06@mary.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:35660 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934959Ab3DHSNM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 14:13:12 -0400
-Received: by mail-we0-f179.google.com with SMTP id p43so4827354wea.10
-        for <netdev@vger.kernel.org>; Mon, 08 Apr 2013 11:13:11 -0700 (PDT)
-In-Reply-To: <1365430604.3887.8.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Benc <jbenc@redhat.com>, Theodore Ts'o <tytso@mit.edu>,
+	"<linux-kernel@vger.kernel.org>" <linux-kernel@vger.kernel.org>
+To: Michael Riesch <michael.riesch@omicron.at>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <e04bc546-fcf6-41d2-a585-5fddff388e06@mary.at.omicron.at>
+Content-Language: en-US
+Content-ID: <2C017A33302C9E4DB393DD3D46112705@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 8, 2013 at 7:46 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2013-04-08 at 12:38 +0530, Rayagond K wrote:
->> Hi All,
->>
->> How to assign multiple unicast MAC address to single interface ?
->> How to test multiple unicast MAC address filtering ?
->>
->> Thanks in advance.
->>
->
-> Standard way would be to use macvlan
->
-> ip link add link eth0 name foo02 addr 44:44:44:44:00:02 type macvlan
-> ip link add link eth0 name foo03 addr 44:44:44:44:00:03 type macvlan
+On Apr 8, 2013, at 8:45 AM, Michael Riesch <michael.riesch@omicron.at> wrote:
 
-I tried this, but this won't update the uc address and in netdev
-struct  and won't call .ndo_set_multicast_list.
+> 
+> Signed-off-by: Michael Riesch <michael.riesch@omicron.at>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> Cc: Jiri Benc <jbenc@redhat.com>
+> Cc: "Theodore Ts'o" <tytso@mit.edu>
+> Cc: linux-kernel@vger.kernel.org
+> ---
+> Habidere,
+> 
+> I encountered a netlink kernel warning when running avahi 0.6.31 on my system
+> with kernel v3.4.35 (it appears several times):
+> 
+> 	netlink: 12 bytes leftover after parsing attributes.
+> 
+> Searching the web showed that commit "115c9b81928360d769a76c632bae62d15206a94a 
+> rtnetlink: Fix problem with buffer allocation" introduced this behaviour[1].
+> 
+> Now I - knowing nothing about netlink whatsoever - assume that the nlmsg_parse
+> function is called with the wrong header length. In user space the request
+> message consists out of the message header (struct nlmsghdr, 16 bytes) and an
+> ifinfomsg (struct ifinfomsg, 16 bytes). After that, request attributes could
+> follow. nlmsg_parse checks for this attributes after a given header length. In
+> rtnl_get_link() this header length is sizeof(struct ifinfomsg), but in
+> rtnl_calcit() as well as in rntl_dump_ifinfo() the header length is
+> sizeof(struct rtgenmsg), which is 1 byte.
+> 
+> With this patch I got rid of these warnings. However, I do not know whether
+> this is the correct solution, so I am looking forward to your comments.
+> Regards, Michael
+> 
+> [1] http://lists.infradead.org/pipermail/libnl/2012-April/000515.html
+> 
+> net/core/rtnetlink.c |    4 ++--
+> 1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 900fc61..ebf6ace 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -1065,7 +1065,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+> 	rcu_read_lock();
+> 	cb->seq = net->dev_base_seq;
+> 
+> -	if (nlmsg_parse(cb->nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
+> +	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
+> 			ifla_policy) >= 0) {
+> 
+> 		if (tb[IFLA_EXT_MASK])
+> @@ -1909,7 +1909,7 @@ static u16 rtnl_calcit(struct sk_buff *skb, struct nlmsghdr *nlh)
+> 	u32 ext_filter_mask = 0;
+> 	u16 min_ifinfo_dump_size = 0;
+> 
+> -	if (nlmsg_parse(nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
+> +	if (nlmsg_parse(nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
+> 			ifla_policy) >= 0) {
+> 		if (tb[IFLA_EXT_MASK])
+> 			ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
+> -- 
+> 1.7.9.5
 
-I am planning to use vlan through vconfig as below,
 
-#vconfig add eth0 100
-#ifconfig eth0.100 10.144.134.1 netmask 255.255.255.0 up
-#ifconfig eth0.100 hw ether 00:55:22:44:f7:80
+I found that fcoemon has also been triggering these messages for some time. I found the same problem and arrived at exactly the same solution. I would have already sent it, but it is still in validation. As far as I am concerned:
 
-This will update uc in netdev and calls .ndo_set_multicast_list.
+Acked-by: Mark Rustad <mark.d.rustad@intel.com>
 
->
->
+-- 
+Mark Rustad, Networking Division, Intel Corporation
