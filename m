@@ -1,35 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rtnetlink: Call nlmsg_parse() with correct header
- length
-Date: Mon, 08 Apr 2013 17:12:54 -0400 (EDT)
-Message-ID: <20130408.171254.1610343775047047438.davem@davemloft.net>
-References: <e04bc546-fcf6-41d2-a585-5fddff388e06@mary.at.omicron.at>
-	<CD31A507-C3E1-4499-9F06-2F83B3FBFE61@intel.com>
+Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK
+ packet
+Date: Mon, 08 Apr 2013 17:14:32 -0400 (EDT)
+Message-ID: <20130408.171432.1360375865194610431.davem@davemloft.net>
+References: <3294227.D2rod7xgQB@sifl>
+	<1365454501.3887.45.camel@edumazet-glaptop>
+	<6182509.cOVcY8B4g7@sifl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: michael.riesch@omicron.at, netdev@vger.kernel.org,
-	gregkh@linuxfoundation.org, jbenc@redhat.com, tytso@mit.edu,
-	linux-kernel@vger.kernel.org
-To: mark.d.rustad@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CD31A507-C3E1-4499-9F06-2F83B3FBFE61@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, mvadkert@redhat.com
+To: pmoore@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53082 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935988Ab3DHVOd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 17:14:33 -0400
+In-Reply-To: <6182509.cOVcY8B4g7@sifl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Date: Mon, 8 Apr 2013 18:13:36 +0000
+From: Paul Moore <pmoore@redhat.com>
+Date: Mon, 08 Apr 2013 17:09:32 -0400
 
-> On Apr 8, 2013, at 8:45 AM, Michael Riesch <michael.riesch@omicron.at> wrote:
+> On Monday, April 08, 2013 01:55:01 PM Eric Dumazet wrote:
+>> At least my patch clearly _shows_ the security requirement, instead of
+>> relying on a side effect of a previous sock_wmalloc()
 > 
->> 
->> Signed-off-by: Michael Riesch <michael.riesch@omicron.at>
- ...
-> I found that fcoemon has also been triggering these messages for
-> some time. I found the same problem and arrived at exactly the same
-> solution. I would have already sent it, but it is still in
-> validation. As far as I am concerned:
-> 
-> Acked-by: Mark Rustad <mark.d.rustad@intel.com>
+> I don't see it as a side effect, and as far as demonstration, I think the 
+> SELinux network access controls in their entirety shows the security 
+> requirement.  If we want to make the security requirements even more explicit 
+> in the networking stack, let's add a security blob to the sk_buff and allow 
+> some proper LSM hooks.
 
-Looks good to me too, applied and queued up for -stable, thanks!
+You don't get it.
+
+Without LSM there is no need to use sock_wmalloc() or to have a socket
+context attacked to the SYN/ACK packet at all.
+
+Therefore, the need should be explicit (Eric's approach), rather than
+implicit (what you seem to be after).
