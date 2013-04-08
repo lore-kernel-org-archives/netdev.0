@@ -1,82 +1,83 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: Re: [PATCH 08/16] iucv: Fix missing msg_namelen update in
- iucv_sock_recvmsg()
-Date: Mon, 08 Apr 2013 13:14:19 +0200
-Message-ID: <1365419659.6093.1.camel@BR9GV9YG.de.ibm.com>
-References: <1365335522-29931-1-git-send-email-minipli@googlemail.com>
-	 <1365335522-29931-9-git-send-email-minipli@googlemail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Allan Stephens <allan.stephens@windriver.com>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Andy King <acking@vmware.com>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Dmitry Torokhov <dtor@vmware.com>,
-	George Zhang <georgezhang@vmware.com>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	Jon Maloy <jon.maloy@ericsson.com>,
-	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	Samuel Ortiz <samuel@sortiz.org>,
-	Sjur Braendeland <sjur.brandeland@stericsson.com>,
-	Ursula Braun <ursula.braun@de.ibm.com>,
-	Brad Spengler <spender@grsecurity.net>
-To: Mathias Krause <minipli@googlemail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next.git 1/5] stmmac: review driver documentation
+Date: Mon,  8 Apr 2013 14:09:59 +0200
+Message-ID: <1365423003-23959-2-git-send-email-peppe.cavallaro@st.com>
+References: <1365423003-23959-1-git-send-email-peppe.cavallaro@st.com>
+Cc: eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	shiraz.hashim@st.com, Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:60621 "EHLO
-	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934522Ab3DHLO3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 07:14:29 -0400
-Received: from /spool/local
-	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Mon, 8 Apr 2013 12:11:37 +0100
-Received: from b06cxnps3074.portsmouth.uk.ibm.com (d06relay09.portsmouth.uk.ibm.com [9.149.109.194])
-	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 741D82190071
-	for <netdev@vger.kernel.org>; Mon,  8 Apr 2013 12:16:28 +0100 (BST)
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by b06cxnps3074.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r38BEDCI30015578
-	for <netdev@vger.kernel.org>; Mon, 8 Apr 2013 11:14:13 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r38BEKLu006095
-	for <netdev@vger.kernel.org>; Mon, 8 Apr 2013 05:14:22 -0600
-In-Reply-To: <1365335522-29931-9-git-send-email-minipli@googlemail.com>
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:46613 "EHLO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S935294Ab3DHMKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 08:10:20 -0400
+In-Reply-To: <1365423003-23959-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-04-07 at 13:51 +0200, Mathias Krause wrote:
-> The current code does not fill the msg_name member in case it is set.
-> It also does not set the msg_namelen member to 0 and therefore makes
-> net/socket.c leak the local, uninitialized sockaddr_storage variable
-> to userland -- 128 bytes of kernel stack memory.
-> 
-> Fix that by simply setting msg_namelen to 0 as obviously nobody cared
-> about iucv_sock_recvmsg() not filling the msg_name in case it was set.
-> 
-> Cc: Ursula Braun <ursula.braun@de.ibm.com>
-> Signed-off-by: Mathias Krause <minipli@googlemail.com>
-> ---
-> Remark: I failed to test that one as I've no access to a S390 system.
-> 
->  net/iucv/af_iucv.c |    2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
-> index a7d11ffe..bf69358 100644
-> --- a/net/iucv/af_iucv.c
-> +++ b/net/iucv/af_iucv.c
-> @@ -1328,6 +1328,8 @@ static int iucv_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
->  	struct sk_buff *skb, *rskb, *cskb;
->  	int err = 0;
-> 
-> +	msg->msg_namelen = 0;
-> +
->  	if ((sk->sk_state == IUCV_DISCONN) &&
->  	    skb_queue_empty(&iucv->backlog_skb_q) &&
->  	    skb_queue_empty(&sk->sk_receive_queue) &&
-Acked-by: Ursula Braun <ursula.braun@de.ibm.com>
+This patch reviews the driver documentation file;
+for example, there were some new fields (in the driver
+module parameter section) and the ptp files were
+not documented.
+
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ Documentation/networking/stmmac.txt |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
+index 8efe0b3..654d2e5 100644
+--- a/Documentation/networking/stmmac.txt
++++ b/Documentation/networking/stmmac.txt
+@@ -1,6 +1,6 @@
+        STMicroelectronics 10/100/1000 Synopsys Ethernet driver
+ 
+-Copyright (C) 2007-2010  STMicroelectronics Ltd
++Copyright (C) 2007-2013  STMicroelectronics Ltd
+ Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ 
+ This is the driver for the MAC 10/100/1000 on-chip Ethernet controllers
+@@ -10,7 +10,7 @@ Currently this network device driver is for all STM embedded MAC/GMAC
+ (i.e. 7xxx/5xxx SoCs), SPEAr (arm), Loongson1B (mips) and XLINX XC2V3000
+ FF1152AMT0221 D1215994A VIRTEX FPGA board.
+ 
+-DWC Ether MAC 10/100/1000 Universal version 3.60a (and older) and DWC Ether
++DWC Ether MAC 10/100/1000 Universal version 3.70a (and older) and DWC Ether
+ MAC 10/100 Universal version 4.0 have been used for developing this driver.
+ 
+ This driver supports both the platform bus and PCI.
+@@ -32,6 +32,8 @@ The kernel configuration option is STMMAC_ETH:
+ 	watchdog: transmit timeout (in milliseconds);
+ 	flow_ctrl: Flow control ability [on/off];
+ 	pause: Flow Control Pause Time;
++	eee_timer: tx EEE timer;
++	chain_mode: select chain mode instead of ring.
+ 
+ 3) Command line options
+ Driver parameters can be also passed in command line by using:
+@@ -164,12 +166,12 @@ Where:
+  o bus_setup: perform HW setup of the bus. For example, on some ST platforms
+ 	     this field is used to configure the AMBA  bridge to generate more
+ 	     efficient STBus traffic.
+- o init/exit: callbacks used for calling a custom initialisation;
++ o init/exit: callbacks used for calling a custom initialization;
+ 	     this is sometime necessary on some platforms (e.g. ST boxes)
+ 	     where the HW needs to have set some PIO lines or system cfg
+ 	     registers.
+  o custom_cfg/custom_data: this is a custom configuration that can be passed
+-			   while initialising the resources.
++			   while initializing the resources.
+  o bsp_priv: another private poiter.
+ 
+ For MDIO bus The we have:
+@@ -273,6 +275,8 @@ reset procedure etc).
+  o norm_desc.c: functions for handling normal descriptors;
+  o chain_mode.c/ring_mode.c:: functions to manage RING/CHAINED modes;
+  o mmc_core.c/mmc.h: Management MAC Counters;
++ o stmmac_hwtstamp.c: HW timestamp support for PTP
++ o stmmac_ptp.c: PTP 1588 clock
+ 
+ 5) Debug Information
+ 
+-- 
+1.7.4.4
