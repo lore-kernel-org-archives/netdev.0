@@ -1,42 +1,53 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK
  packet
-Date: Mon, 08 Apr 2013 17:14:32 -0400 (EDT)
-Message-ID: <20130408.171432.1360375865194610431.davem@davemloft.net>
-References: <3294227.D2rod7xgQB@sifl>
-	<1365454501.3887.45.camel@edumazet-glaptop>
-	<6182509.cOVcY8B4g7@sifl>
+Date: Mon, 08 Apr 2013 17:15:12 -0400 (EDT)
+Message-ID: <20130408.171512.973275376690340387.davem@davemloft.net>
+References: <1725553.maWFXblPLa@sifl>
+	<31036542.d4Dp22e6Ij@sifl>
+	<3505145.vfXt1x4t0P@sifl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, mvadkert@redhat.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	mvadkert@redhat.com, selinux@tycho.nsa.gov,
+	linux-security-module@vger.kernel.org
 To: pmoore@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53082 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935988Ab3DHVOd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 17:14:33 -0400
-In-Reply-To: <6182509.cOVcY8B4g7@sifl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <3505145.vfXt1x4t0P@sifl>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Paul Moore <pmoore@redhat.com>
-Date: Mon, 08 Apr 2013 17:09:32 -0400
+Date: Mon, 08 Apr 2013 17:10:43 -0400
 
-> On Monday, April 08, 2013 01:55:01 PM Eric Dumazet wrote:
->> At least my patch clearly _shows_ the security requirement, instead of
->> relying on a side effect of a previous sock_wmalloc()
+> On Monday, April 08, 2013 02:32:00 PM Paul Moore wrote:
+>> On Monday, April 08, 2013 02:12:01 PM Paul Moore wrote:
+>> > On Monday, April 08, 2013 10:47:47 AM Eric Dumazet wrote:
+>> > > On Mon, 2013-04-08 at 13:40 -0400, Paul Moore wrote:
+>> > > > Sort of a similar problem, but not really the same.  Also, arguably,
+>> > > > there is no real associated sock/socket for a RST so orphaning the
+>> > > > packet makes sense. In the case of a SYNACK we can, and should,
+>> > > > associate the packet with a sock/socket.
+>> > > 
+>> > > What is the intent ?
+>> > 
+>> > We have to do a number of painful things in SELinux because we aren't
+>> > allowed a proper security blob (void *security) in a sk_buff.  One of
+>> > those things ...
+>> 
+>> Actually, I wonder if this problem means it is a good time to revisit the
+>> no- security-blob-in-sk_buff decision?  The management of the blob would be
+>> hidden behind the LSM hooks like everything else and it would have a number
+>> of advantages including making problems like we are seeing here easier to
+>> fix or avoid entirely.  It would also make life much easier for those of
+>> working on LSM stuff and it would pave the way for including network access
+>> controls in the stacked-LSM stuff Casey is kicking around.
 > 
-> I don't see it as a side effect, and as far as demonstration, I think the 
-> SELinux network access controls in their entirety shows the security 
-> requirement.  If we want to make the security requirements even more explicit 
-> in the networking stack, let's add a security blob to the sk_buff and allow 
-> some proper LSM hooks.
+> No comment, or am I just too anxious?
 
-You don't get it.
+There is no way I'm putting LSM overhead into sk_buff, it's already
+too big.
 
-Without LSM there is no need to use sock_wmalloc() or to have a socket
-context attacked to the SYN/ACK packet at all.
-
-Therefore, the need should be explicit (Eric's approach), rather than
-implicit (what you seem to be after).
+I didn't comment because it wasn't worth a comment, but since you're
+pushing me on the issue, I'll make the no explicit.
