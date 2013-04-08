@@ -1,32 +1,37 @@
-From: =?UTF-8?B?VG9yYWxmIEbDtnJzdGVy?= <toralf.foerster@gmx.de>
-Subject: 3.9-rc6 (only) one particular tap device putted into forwarding state
-Date: Mon, 08 Apr 2013 21:03:51 +0200
-Message-ID: <51631497.4070103@gmx.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK
+ packet
+Date: Mon, 08 Apr 2013 15:25:53 -0400 (EDT)
+Message-ID: <20130408.152553.2156347442514600818.davem@davemloft.net>
+References: <20130408154519.18177.57709.stgit@localhost>
+	<20130408.121434.1965501143066047212.davem@davemloft.net>
+	<3541094.5siDbVn1lC@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, mvadkert@redhat.com
+To: pmoore@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51970 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761523Ab3DHTZz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 15:25:55 -0400
+In-Reply-To: <3541094.5siDbVn1lC@sifl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I realized these new syslog messages at a 32 bit stable Gentoo, which h=
-ave
-4 configured TAP devices attached to a bridge :
+From: Paul Moore <pmoore@redhat.com>
+Date: Mon, 08 Apr 2013 13:22:50 -0400
 
-2013-04-08T19:55:20.048+02:00 n22 kernel: br0: port 4(tap3) entered for=
-warding state
-2013-04-08T19:55:20.048+02:00 n22 kernel: br0: port 4(tap3) entered for=
-warding state
-2013-04-08T19:55:20.316+02:00 n22 kernel: br0: port 4(tap3) entered dis=
-abled state
+> Contrary to popular belief, my goal is to not destroy the scalability and/or 
+> performance of our network stack, I just want to make sure we have a quality 
+> network stack that is not only fast and scalable, but also preserves the 
+> security functionality that makes Linux attractive to a number of users.
 
-This happened one time only and only for one device (for tap3, and all =
-4 devices are identical configured)
-for one boot attempt till now - no configuration were changed.
+Get the violin out.
 
+> To that end, we could put a #ifdef in the middle of
+> tcp_make_synack(), but that seems very ugly to me and I think sets a
+> bad precedence for the network stack and kernel as a whole.
 
---=20
-MfG/Sincerely
-Toralf F=C3=B6rster
-pgp finger print: 7B1A 07F4 EC82 0F90 D4C2 8936 872A E508 7DB6 9DA3
+Not an ifdef, a run time state test.
