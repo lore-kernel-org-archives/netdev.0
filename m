@@ -1,7 +1,7 @@
 From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: [PATCH 2/4] Move execute_set_action to lib/odp-util.c
-Date: Mon,  8 Apr 2013 15:43:49 +0900
-Message-ID: <1365403431-18102-3-git-send-email-horms@verge.net.au>
+Subject: [PATCH 4/4] Avoid recirculation id collision
+Date: Mon,  8 Apr 2013 15:43:51 +0900
+Message-ID: <1365403431-18102-5-git-send-email-horms@verge.net.au>
 References: <1365403431-18102-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,232 +22,110 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Move execute_set_action from lib/dpif-netedev.c to lib/odp-util.c
+Avoid recirculation id collision by checking that an id is
+not already associated with a facet.
 
-This is in preparation for using execute_set_action()
-in lib/odp-util.c to handle recirculation/
+Consecutive recirculation ids are used and thus it is possible for
+there to be situations where a very large number of ids have to
+be checked before finding one that is not already associated with a facet.
+
+To mitigate the performance impact of such situations a limit on
+the number of checks is in place and if no unused recirculation id
+can be found then the miss is handled without facets as this can
+be done using a dummy recirculation id.
 
 Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
 
+This patch depends on the patch "Allow recirculation without facets"
+
 ---
-
-packet.c might be a better place for execute_set_action()
-but I'm unsure if accessing struct ovs_key_ethernet would
-lead to a layering violation.
-
-This patch depends on the patch "Add packet recirculation"
 
 v5
-* No change
-
-rfc4
-* make use of skb_mark
-
-rfc2 - rfc3
-* omitted
-
-rfc1
-* Initial post
-
-Conflicts:
-	lib/dpif-netdev.c
+* First post
 ---
- lib/dpif-netdev.c |   76 -----------------------------------------------------
- lib/odp-util.c    |   76 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- lib/odp-util.h    |    3 +++
- 3 files changed, 79 insertions(+), 76 deletions(-)
+ ofproto/ofproto-dpif.c |   55 +++++++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 45 insertions(+), 10 deletions(-)
 
-diff --git a/lib/dpif-netdev.c b/lib/dpif-netdev.c
-index 31255f6..e698e1e 100644
---- a/lib/dpif-netdev.c
-+++ b/lib/dpif-netdev.c
-@@ -1115,15 +1115,6 @@ dpif_netdev_wait(struct dpif *dpif)
- }
+diff --git a/ofproto/ofproto-dpif.c b/ofproto/ofproto-dpif.c
+index 67121f2..e9ab58c 100644
+--- a/ofproto/ofproto-dpif.c
++++ b/ofproto/ofproto-dpif.c
+@@ -3455,24 +3455,51 @@ port_is_lacp_current(const struct ofport *ofport_)
+ #define RECIRCULATION_ID_DUMMY 2
+ #define RECIRCULATION_ID_MIN   RECIRCULATION_ID_DUMMY
  
- static void
--dp_netdev_set_dl(struct ofpbuf *packet, const struct ovs_key_ethernet *eth_key)
--{
--    struct eth_header *eh = packet->l2;
--
--    memcpy(eh->eth_src, eth_key->eth_src, sizeof eh->eth_src);
--    memcpy(eh->eth_dst, eth_key->eth_dst, sizeof eh->eth_dst);
--}
--
--static void
- dp_netdev_output_port(struct dp_netdev *dp, struct ofpbuf *packet,
-                       uint32_t out_port)
++#define RECIRCULATION_ID_MAX_LOOP 1024  /* Arbitrary value to prevent
++                                         * endless loop */
++
+ static uint32_t recirculation_id_hash(uint32_t id)
  {
-@@ -1228,73 +1219,6 @@ dp_netdev_action_userspace(struct dp_netdev *dp,
-     dp_netdev_output_userspace(dp, packet, DPIF_UC_ACTION, key, userdata);
+     return hash_words(&id, 1, 0);
  }
  
--static void
--execute_set_action(struct ofpbuf *packet, const struct nlattr *a,
--                   uint32_t *skb_mark)
--{
--    enum ovs_key_attr type = nl_attr_type(a);
--    const struct ovs_key_ipv4 *ipv4_key;
--    const struct ovs_key_ipv6 *ipv6_key;
--    const struct ovs_key_tcp *tcp_key;
--    const struct ovs_key_udp *udp_key;
--
--    switch (type) {
--    case OVS_KEY_ATTR_PRIORITY:
--    case OVS_KEY_ATTR_TUNNEL:
--        /* not implemented */
--        break;
--
--    case OVS_KEY_ATTR_SKB_MARK:
--        *skb_mark = nl_attr_get_u32(a);
--        break;
--
--    case OVS_KEY_ATTR_ETHERNET:
--        dp_netdev_set_dl(packet,
--                   nl_attr_get_unspec(a, sizeof(struct ovs_key_ethernet)));
--        break;
--
--    case OVS_KEY_ATTR_IPV4:
--        ipv4_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_ipv4));
--        packet_set_ipv4(packet, ipv4_key->ipv4_src, ipv4_key->ipv4_dst,
--                        ipv4_key->ipv4_tos, ipv4_key->ipv4_ttl);
--        break;
--
--    case OVS_KEY_ATTR_IPV6:
--        ipv6_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_ipv6));
--        packet_set_ipv6(packet, ipv6_key->ipv6_proto, ipv6_key->ipv6_src,
--                        ipv6_key->ipv6_dst, ipv6_key->ipv6_tclass,
--                        ipv6_key->ipv6_label, ipv6_key->ipv6_hlimit);
--        break;
--
--    case OVS_KEY_ATTR_TCP:
--        tcp_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_tcp));
--        packet_set_tcp_port(packet, tcp_key->tcp_src, tcp_key->tcp_dst);
--        break;
--
--     case OVS_KEY_ATTR_UDP:
--        udp_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_udp));
--        packet_set_udp_port(packet, udp_key->udp_src, udp_key->udp_dst);
--        break;
--
--     case OVS_KEY_ATTR_MPLS:
--         set_mpls_lse(packet, nl_attr_get_be32(a));
--         break;
--
--     case OVS_KEY_ATTR_UNSPEC:
--     case OVS_KEY_ATTR_ENCAP:
--     case OVS_KEY_ATTR_ETHERTYPE:
--     case OVS_KEY_ATTR_IN_PORT:
--     case OVS_KEY_ATTR_VLAN:
--     case OVS_KEY_ATTR_ICMP:
--     case OVS_KEY_ATTR_ICMPV6:
--     case OVS_KEY_ATTR_ARP:
--     case OVS_KEY_ATTR_ND:
--     case __OVS_KEY_ATTR_MAX:
--     default:
--        NOT_REACHED();
--    }
--}
--
- static bool
- dp_netdev_execute_actions(struct dp_netdev *dp,
-                           struct ofpbuf *packet, struct flow *key,
-diff --git a/lib/odp-util.c b/lib/odp-util.c
-index e18e109..ad5873c 100644
---- a/lib/odp-util.c
-+++ b/lib/odp-util.c
-@@ -2420,3 +2420,79 @@ commit_odp_actions(const struct flow *flow, struct flow *base,
-     commit_set_priority_action(flow, base, odp_actions);
-     commit_set_skb_mark_action(flow, base, odp_actions);
- }
+-/* XXX: This does not prevent id collision */
+-static uint32_t get_recirculation_id(void)
++static uint32_t recirculation_id = RECIRCULATION_ID_MIN;
++static uint32_t validated_recirculation_id = RECIRCULATION_ID_NONE;
 +
-+static void
-+dp_netdev_set_dl(struct ofpbuf *packet, const struct ovs_key_ethernet *eth_key)
-+{
-+    struct eth_header *eh = packet->l2;
++static uint32_t peek_recirculation_id(struct ofproto_dpif *ofproto)
+ {
+-    static uint32_t id = RECIRCULATION_ID_MIN;
++    static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 15);
 +
-+    memcpy(eh->eth_src, eth_key->eth_src, sizeof eh->eth_src);
-+    memcpy(eh->eth_dst, eth_key->eth_dst, sizeof eh->eth_dst);
-+}
-+
-+void
-+execute_set_action(struct ofpbuf *packet, const struct nlattr *a,
-+                   uint32_t *skb_mark)
-+{
-+    enum ovs_key_attr type = nl_attr_type(a);
-+    const struct ovs_key_ipv4 *ipv4_key;
-+    const struct ovs_key_ipv6 *ipv6_key;
-+    const struct ovs_key_tcp *tcp_key;
-+    const struct ovs_key_udp *udp_key;
-+
-+    switch (type) {
-+    case OVS_KEY_ATTR_PRIORITY:
-+    case OVS_KEY_ATTR_TUNNEL:
-+        /* not implemented */
-+        break;
-+
-+    case OVS_KEY_ATTR_SKB_MARK:
-+        *skb_mark = nl_attr_get_u32(a);
-+        break;
-+
-+    case OVS_KEY_ATTR_ETHERNET:
-+        dp_netdev_set_dl(packet,
-+                   nl_attr_get_unspec(a, sizeof(struct ovs_key_ethernet)));
-+        break;
-+
-+    case OVS_KEY_ATTR_IPV4:
-+        ipv4_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_ipv4));
-+        packet_set_ipv4(packet, ipv4_key->ipv4_src, ipv4_key->ipv4_dst,
-+                        ipv4_key->ipv4_tos, ipv4_key->ipv4_ttl);
-+        break;
-+
-+    case OVS_KEY_ATTR_IPV6:
-+        ipv6_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_ipv6));
-+        packet_set_ipv6(packet, ipv6_key->ipv6_proto, ipv6_key->ipv6_src,
-+                        ipv6_key->ipv6_dst, ipv6_key->ipv6_tclass,
-+                        ipv6_key->ipv6_label, ipv6_key->ipv6_hlimit);
-+        break;
-+
-+    case OVS_KEY_ATTR_TCP:
-+        tcp_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_tcp));
-+        packet_set_tcp_port(packet, tcp_key->tcp_src, tcp_key->tcp_dst);
-+        break;
-+
-+     case OVS_KEY_ATTR_UDP:
-+        udp_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_udp));
-+        packet_set_udp_port(packet, udp_key->udp_src, udp_key->udp_dst);
-+        break;
-+
-+     case OVS_KEY_ATTR_MPLS:
-+         set_mpls_lse(packet, nl_attr_get_be32(a));
-+         break;
-+
-+     case OVS_KEY_ATTR_UNSPEC:
-+     case OVS_KEY_ATTR_ENCAP:
-+     case OVS_KEY_ATTR_ETHERTYPE:
-+     case OVS_KEY_ATTR_IN_PORT:
-+     case OVS_KEY_ATTR_VLAN:
-+     case OVS_KEY_ATTR_ICMP:
-+     case OVS_KEY_ATTR_ICMPV6:
-+     case OVS_KEY_ATTR_ARP:
-+     case OVS_KEY_ATTR_ND:
-+     case __OVS_KEY_ATTR_MAX:
-+     default:
-+        NOT_REACHED();
++    int loop = RECIRCULATION_ID_MAX_LOOP;
+ 
+-    if (id < RECIRCULATION_ID_MIN)
+-        id = RECIRCULATION_ID_MIN;
+-    /* Skip IPSEC_MARK bit it is reserved */
+-    if (id & IPSEC_MARK) {
+-        id++;
+-        ovs_assert(!(id & IPSEC_MARK));
++    if (validated_recirculation_id == recirculation_id) {
++        return recirculation_id;
 +    }
-+}
-diff --git a/lib/odp-util.h b/lib/odp-util.h
-index da62aa5..637d6a5 100644
---- a/lib/odp-util.h
-+++ b/lib/odp-util.h
-@@ -159,6 +159,9 @@ void odp_put_tunnel_action(const struct flow_tnl *tunnel,
- void odp_put_skb_mark_action(const uint32_t skb_mark,
-                              struct ofpbuf *odp_actions);
- 
-+void execute_set_action(struct ofpbuf *packet, const struct nlattr *a,
-+                        uint32_t *skb_mark);
 +
- /* Reasons why a subfacet might not be fast-pathable. */
- enum slow_path_reason {
-     /* These reasons are mutually exclusive. */
++    while (loop--) {
++        if (recirculation_id < RECIRCULATION_ID_MIN)
++            recirculation_id = RECIRCULATION_ID_MIN;
++        /* Skip IPSEC_MARK bit it is reserved */
++        if (recirculation_id & IPSEC_MARK) {
++            recirculation_id++;
++            ovs_assert(!(recirculation_id & IPSEC_MARK));
++        }
++        if (!facet_find_by_id(ofproto, recirculation_id)) {
++            validated_recirculation_id = recirculation_id;
++            return recirculation_id;
++        }
++        recirculation_id++;
+     }
+-    return id++;
++
++    VLOG_WARN_RL(&rl, "Failed to allocate recirulation id after %d attempts\n",
++                 RECIRCULATION_ID_MAX_LOOP);
++    return RECIRCULATION_ID_NONE;
++}
++
++static uint32_t get_recirculation_id(void)
++{
++    ovs_assert(recirculation_id == validated_recirculation_id);
++    return recirculation_id++;
+ }
+ 
+ /* Upcall handling. */
+@@ -3690,6 +3717,14 @@ static bool
+ flow_miss_should_make_facet(struct ofproto_dpif *ofproto,
+                             struct flow_miss *miss, uint32_t hash)
+ {
++    /* If the packet is MPLS then recirculation may be used and
++     * this will not be possible with facets if there are no recirculation
++     * ids available */
++    if (eth_type_mpls(miss->flow.dl_type) &&
++        peek_recirculation_id(ofproto) == RECIRCULATION_ID_NONE) {
++        return false;
++    }
++
+     if (!ofproto->governor) {
+         size_t n_subfacets;
+ 
 -- 
 1.7.10.4
