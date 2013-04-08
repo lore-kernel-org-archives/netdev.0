@@ -1,52 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK
- packet
-Date: Mon, 08 Apr 2013 13:55:01 -0700
-Message-ID: <1365454501.3887.45.camel@edumazet-glaptop>
-References: <20130408154519.18177.57709.stgit@localhost>
-	 <1365445303.3887.33.camel@edumazet-glaptop>
-	 <1365445825.3887.35.camel@edumazet-glaptop> <3294227.D2rod7xgQB@sifl>
+From: Kay Sievers <kay@vrfy.org>
+Subject: unix STREAM/SEQPACKET sockets and SO_PASSCRED race
+Date: Mon, 8 Apr 2013 22:55:28 +0200
+Message-ID: <CAPXgP106kvseQ_0ATmY38vPk1Sw+Y6+GBosJUcJ2YjfZKrHfzA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	mvadkert@redhat.com
-To: Paul Moore <pmoore@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:37138 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752181Ab3DHUzE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 16:55:04 -0400
-Received: by mail-pa0-f53.google.com with SMTP id bh4so3424803pad.26
-        for <netdev@vger.kernel.org>; Mon, 08 Apr 2013 13:55:03 -0700 (PDT)
-In-Reply-To: <3294227.D2rod7xgQB@sifl>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:35804 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964854Ab3DHUzu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 16:55:50 -0400
+Received: by mail-wg0-f45.google.com with SMTP id x12so6390997wgg.12
+        for <netdev@vger.kernel.org>; Mon, 08 Apr 2013 13:55:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-04-08 at 16:37 -0400, Paul Moore wrote:
+While checking the issues caused by:
+  "af_unix: dont send SCM_CREDENTIAL when dest socket is NULL"
+  http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=14134f6584212d585b310ce95428014b653dfaf6
 
-> The people who use this functionality almost never use upstream kernels, they 
-> need to protection/certification/warm-fuzzies/etc. that come from a 
-> distribution kernel and a support infrastructure.  I didn't catch it because I 
-> use a slightly different configuration that didn't expose this bug; while I 
-> would like to run a full regression test every release I simply don't have the 
-> time to do that myself.
-> 
-> > This sounds like a very small issue to me, a revert is simply overkill.
-> 
-> It all depends on your use case.  To you, whom I assume doesn't use SELinux, 
-> it is indeed a trivial issue.  To someone who relies on SELinux for its 
-> network access controls this is a pretty significant issue.
-> 
+which was later reverted by:
+  http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=25da0e3e9d3fb2b522bc2a598076735850310eb1
 
-Is the patch I sent addressing the problem or not ?
+Seems, if messages are sent by the client during the window between
+accept() and setsockopt(SO_PASSCRED) on the server, the kernel will
+not attach the credentials to the message.
 
-Note that I do have : CONFIG_SECURITY=y
+The original change opened the race window significantly, but it seems
+the window existed even before the change, it's just hard to hit.
 
-So this patch basically adds the overhead back, and I'll have to use
-real hook later in net-next.
+Is there a way to race-free set up a connection on the server side
+which has scm credentials enabled? If scm credential handling should
+only be needed to be requested on the server side, is there any way to
+do that?
 
-At least my patch clearly _shows_ the security requirement, instead of
-relying on a side effect of a previous sock_wmalloc()
+If not, could we inherit/copy over the PASSCRED bit from the listen
+socket to the connection socket. Servers could set the flag there to
+receive it for the accepted connections?
 
-Again, it would be nice you understand the plan.
+Thanks,
+Kay
