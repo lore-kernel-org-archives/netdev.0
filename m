@@ -1,77 +1,64 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/4] Move execute_set_action to lib/odp-util.c
-Date: Mon, 8 Apr 2013 13:29:52 -0700
-Message-ID: <CAEP_g=_JYu0m4G01osWCaMhu6ESdiryMQYvikfpuNNYj6dNn_A@mail.gmail.com>
-References: <1365403431-18102-1-git-send-email-horms@verge.net.au>
-	<1365403431-18102-3-git-send-email-horms@verge.net.au>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK packet
+Date: Mon, 08 Apr 2013 16:37:22 -0400
+Message-ID: <3294227.D2rod7xgQB@sifl>
+References: <20130408154519.18177.57709.stgit@localhost> <1365445303.3887.33.camel@edumazet-glaptop> <1365445825.3887.35.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
-To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1365403431-18102-3-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7Bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mvadkert@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:27791 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S936032Ab3DHUh0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Apr 2013 16:37:26 -0400
+In-Reply-To: <1365445825.3887.35.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 7, 2013 at 11:43 PM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
-> Move execute_set_action from lib/dpif-netedev.c to lib/odp-util.c
->
-> This is in preparation for using execute_set_action()
-> in lib/odp-util.c to handle recirculation/
->
-> Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
->
-> ---
->
-> packet.c might be a better place for execute_set_action()
-> but I'm unsure if accessing struct ovs_key_ethernet would
-> lead to a layering violation.
+On Monday, April 08, 2013 11:30:25 AM Eric Dumazet wrote:
+> On Mon, 2013-04-08 at 11:21 -0700, Eric Dumazet wrote:
+> > On Mon, 2013-04-08 at 14:12 -0400, Paul Moore wrote:
+> > > It seems a bit fragile to me, perhaps even hacky, but in some ways I
+> > > guess it isn't anymore fragile than relying on skb->sk - as this
+> > > problem demonstrates. My other concern is that adding this hook
+> > > *correctly* is likely to touch a lot of files and may be a bit much so
+> > > late in the 3.9 cycle, Dave, what say you?> 
+> > I don't get it, 90ba9b1986b5ac4b2d18 was in 3.6, why do you care of
+> > 3.9 ?
+> > 
+> > I am preparing a fix right now. Not a revert, thank you.
+> 
+> Is the following patch not good enough ?
 
-I'd be tempted to just put this in it's own file.  As you say, it
-doesn't really fit in either of the two existing ones.
+I think it is somewhat telling that the hook you're proposing doesn't ever 
+make any calls into any of the individual LSMs, it only calls back into the 
+networking stack.  In my mind, this makes it an abuse of the LSM mechanism.
 
-> diff --git a/lib/odp-util.c b/lib/odp-util.c
-> index e18e109..ad5873c 100644
-> --- a/lib/odp-util.c
-> +++ b/lib/odp-util.c
-> @@ -2420,3 +2420,79 @@ commit_odp_actions(const struct flow *flow, struct flow *base,
->      commit_set_priority_action(flow, base, odp_actions);
->      commit_set_skb_mark_action(flow, base, odp_actions);
->  }
-> +
-> +static void
-> +dp_netdev_set_dl(struct ofpbuf *packet, const struct ovs_key_ethernet *eth_key)
+On Monday, April 08, 2013 11:34:11 AM Eric Dumazet wrote:
+> On Mon, 2013-04-08 at 14:26 -0400, Paul Moore wrote:
+> > I guess we'll have to wait and see then; the more I think about the new
+> > hook you proposed the less enthused I am about it.
+> > 
+> > I'm still curious to hear what Dave has to say on this.
+> 
+> 90ba9b1986b5ac4b2 is 10 months old, and nobody complained until today ?
 
-I think this function should be given a more generic name and possibly
-moved to packet.c.
+The people who use this functionality almost never use upstream kernels, they 
+need to protection/certification/warm-fuzzies/etc. that come from a 
+distribution kernel and a support infrastructure.  I didn't catch it because I 
+use a slightly different configuration that didn't expose this bug; while I 
+would like to run a full regression test every release I simply don't have the 
+time to do that myself.
 
-> +void
-> +execute_set_action(struct ofpbuf *packet, const struct nlattr *a,
-> +                   uint32_t *skb_mark)
-> +{
-> +    enum ovs_key_attr type = nl_attr_type(a);
-> +    const struct ovs_key_ipv4 *ipv4_key;
-> +    const struct ovs_key_ipv6 *ipv6_key;
-> +    const struct ovs_key_tcp *tcp_key;
-> +    const struct ovs_key_udp *udp_key;
-> +
-> +    switch (type) {
-> +    case OVS_KEY_ATTR_PRIORITY:
-> +    case OVS_KEY_ATTR_TUNNEL:
-> +        /* not implemented */
-> +        break;
+> This sounds like a very small issue to me, a revert is simply overkill.
 
-Don't we need to carry this information along as well similar to skb->mark?
+It all depends on your use case.  To you, whom I assume doesn't use SELinux, 
+it is indeed a trivial issue.  To someone who relies on SELinux for its 
+network access controls this is a pretty significant issue.
 
-Also, is there a reason to not have the code for push/pop actions here as well?
+-- 
+paul moore
+security and virtualization @ redhat
