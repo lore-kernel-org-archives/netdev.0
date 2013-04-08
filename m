@@ -1,52 +1,129 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/2] sh_eth: add R-Car support for real
-Date: Mon, 08 Apr 2013 17:34:53 +0400
-Message-ID: <5162C77D.4050802@cogentembedded.com>
-References: <201303290051.32106.sergei.shtylyov@cogentembedded.com> <20130408023936.GA1643@verge.net.au>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: sja1000: use cpu endian
+Date: Mon, 08 Apr 2013 15:57:09 +0200
+Message-ID: <5162CCB5.3000605@pengutronix.de>
+References: <1365428932.5760.52.camel@lovely>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	linux-sh@vger.kernel.org, phil.edworthy@renesas.com
-To: Simon Horman <horms@verge.net.au>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="----enig2AUCABWFTIWROVVNMBFVF"
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Bill Pemberton <wfp5p@virginia.edu>,
+	Andreas Larsson <andreas@gaisler.com>,
+	linux-can@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Hans J. Koch" <hjk@hansjkoch.de>, Daniel Mack <daniel@zonque.org>
+To: Christoph Fritz <chf.fritz@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:45437 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935817Ab3DHNf4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 09:35:56 -0400
-Received: by mail-la0-f47.google.com with SMTP id fj20so5342011lab.20
-        for <netdev@vger.kernel.org>; Mon, 08 Apr 2013 06:35:54 -0700 (PDT)
-In-Reply-To: <20130408023936.GA1643@verge.net.au>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:55229 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935482Ab3DHN5Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 09:57:25 -0400
+In-Reply-To: <1365428932.5760.52.camel@lovely>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+------enig2AUCABWFTIWROVVNMBFVF
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: quoted-printable
 
-On 08-04-2013 6:39, Simon Horman wrote:
+On 04/08/2013 03:48 PM, Christoph Fritz wrote:
 
->> Commit d0418bb7123f44b23d69ac349eec7daf9103472f (net: sh_eth: Add eth support
->> for R8A7779 device) was a failed attempt to add support for one of members of
->> the R-Car SoC family.  That's for three reasons: it treated R8A7779 the  same
->> as SH7724 except including quite dirty hack adding ECMR_ELB  bit  to the mask
->> in sh_eth_set_rate() while not removing ECMR_RTM bit (despite it's reserved in
->> R-Car Ether), and it didn't add a new register offset array despite the closest
->> SH_ETH_REG_FAST_SH4 mapping differs by 0x200 to the offsets all the R-Car Ether
->> registers have, and also some of the registers in this old mapping don't exist
->> on R-Car Ether (due to this, SH7724's 'sh_eth_my_cpu_data' structure is not
->> adequeate for R-Car too).  Fix all these shortcomings, restoring the SH7724
->> related section to its pristine state...
+Please add a patch description to the patch, as some subsystem
+maintainers don't take patches without it.
 
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+What about using of_property_read_u32, instead of open coding it?
 
-> Hi Sergei,
+Marc
 
-> thanks for this and sorry for not noticing it earlier.
-> I will try exercising it on the r8a7790 lager.
+> Signed-off-by: Christoph Fritz <chf.fritz@googlemail.com>
+> ---
+>  drivers/net/can/sja1000/sja1000_of_platform.c |   26 ++++++++++++-----=
+-------
+>  1 files changed, 13 insertions(+), 13 deletions(-)
+>=20
+> diff --git a/drivers/net/can/sja1000/sja1000_of_platform.c b/drivers/ne=
+t/can/sja1000/sja1000_of_platform.c
+> index 6433b81..83a13d2 100644
+> --- a/drivers/net/can/sja1000/sja1000_of_platform.c
+> +++ b/drivers/net/can/sja1000/sja1000_of_platform.c
+> @@ -97,7 +97,7 @@ static int sja1000_ofp_probe(struct platform_device *=
+ofdev)
+>  	struct sja1000_priv *priv;
+>  	struct resource res;
+>  	const u32 *prop;
+> -	int err, irq, res_size, prop_size;
+> +	int err, irq, res_size;
+>  	void __iomem *base;
+> =20
+>  	err =3D of_address_to_resource(np, 0, &res);
+> @@ -138,27 +138,27 @@ static int sja1000_ofp_probe(struct platform_devi=
+ce *ofdev)
+>  	priv->read_reg =3D sja1000_ofp_read_reg;
+>  	priv->write_reg =3D sja1000_ofp_write_reg;
+> =20
+> -	prop =3D of_get_property(np, "nxp,external-clock-frequency", &prop_si=
+ze);
+> -	if (prop && (prop_size =3D=3D  sizeof(u32)))
+> -		priv->can.clock.freq =3D *prop / 2;
+> +	prop =3D of_get_property(np, "nxp,external-clock-frequency", NULL);
+> +	if (prop)
+> +		priv->can.clock.freq =3D be32_to_cpup(prop) / 2;
+>  	else
+>  		priv->can.clock.freq =3D SJA1000_OFP_CAN_CLOCK; /* default */
+> =20
+> -	prop =3D of_get_property(np, "nxp,tx-output-mode", &prop_size);
+> -	if (prop && (prop_size =3D=3D sizeof(u32)))
+> -		priv->ocr |=3D *prop & OCR_MODE_MASK;
+> +	prop =3D of_get_property(np, "nxp,tx-output-mode", NULL);
+> +	if (prop)
+> +		priv->ocr |=3D be32_to_cpup(prop) & OCR_MODE_MASK;
+>  	else
+>  		priv->ocr |=3D OCR_MODE_NORMAL; /* default */
+> =20
+> -	prop =3D of_get_property(np, "nxp,tx-output-config", &prop_size);
+> -	if (prop && (prop_size =3D=3D sizeof(u32)))
+> -		priv->ocr |=3D (*prop << OCR_TX_SHIFT) & OCR_TX_MASK;
+> +	prop =3D of_get_property(np, "nxp,tx-output-config", NULL);
+> +	if (prop)
+> +		priv->ocr |=3D (be32_to_cpup(prop) << OCR_TX_SHIFT) & OCR_TX_MASK;
+>  	else
+>  		priv->ocr |=3D OCR_TX0_PULLDOWN; /* default */
+> =20
+> -	prop =3D of_get_property(np, "nxp,clock-out-frequency", &prop_size);
+> -	if (prop && (prop_size =3D=3D sizeof(u32)) && *prop) {
+> -		u32 divider =3D priv->can.clock.freq * 2 / *prop;
+> +	prop =3D of_get_property(np, "nxp,clock-out-frequency", NULL);
+> +	if (prop) {
+> +		u32 divider =3D priv->can.clock.freq * 2 / be32_to_cpup(prop);
+> =20
+>  		if (divider > 1)
+>  			priv->cdr |=3D divider / 2 - 1;
+>=20
 
-> IIRC you previously mentioned that you were doing work on unravelling
-> the #define mess in sh_eth. I am wondering if you have made any progress
-> in that area.
 
-    Not much -- I was swithced to USB work.
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-WBR, Sergei
+
+------enig2AUCABWFTIWROVVNMBFVF
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlFizLkACgkQjTAFq1RaXHPeJgCdHI2fzq6zLHXp7rQr4rxgyMk7
+ypEAoIGTdouXRW14qRFjc1SYmJdd+Y/T
+=nuQM
+-----END PGP SIGNATURE-----
+
+------enig2AUCABWFTIWROVVNMBFVF--
