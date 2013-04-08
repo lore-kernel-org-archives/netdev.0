@@ -1,85 +1,29 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH] net: add checks if dev->netdev_ops is NULL in register_netdevice()
-Date: Mon, 08 Apr 2013 08:49:33 -0700
-Message-ID: <5162E70D.6070400@intel.com>
-References: <51629159.9040000@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net 0/2] net: ipv4: fix couple of addr lifetime related
+ bugs
+Date: Mon, 08 Apr 2013 12:05:30 -0400 (EDT)
+Message-ID: <20130408.120530.642390905837222387.davem@davemloft.net>
+References: <1365154779-4204-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>, Li Zefan <lizefan@huawei.com>,
-	Xinwei Hu <huxinwei@huawei.com>
-To: dingtianhong <dingtianhong@huawei.com>
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:21841 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936409Ab3DHPtg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Apr 2013 11:49:36 -0400
-In-Reply-To: <51629159.9040000@huawei.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49159 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751582Ab3DHQFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 12:05:32 -0400
+In-Reply-To: <1365154779-4204-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/08/2013 02:43 AM, dingtianhong wrote:
-> In some cases netdev->netdev_ops could be NULL in the register_netdevice(),
-> thus a NULL point deference happens and lead to oops:
->
-> [ 8260.836400] BUG: unable to handle kernel NULL pointer dereference at (null)
-> [ 8260.955306] IP: [<ffffffff81388333>] register_netdevice+0x73/0x2d0
-> [ 8261.054888] PGD 2f4dcd067 PUD 2f4de0067 PMD 0
-> [ 8261.134244] Oops: 0000 [#1] SMP
-> [ 8261.198938] CPU 0
-> [ 8262.605182] RIP: 0010:[<ffffffff81388333>]  [<ffffffff81388333>] register_netdevice+0x73/0x2d0
-> [ 8262.741859] RSP: 0018:ffff8802f489f9f8  EFLAGS: 00010246
-> [ 8262.839463] RAX: 0000000000000000 RBX: ffff8802f4e73000 RCX: ffff8802f4e73006
-> [ 8262.959484] RDX: 0000000000000000 RSI: 00000000daa92527 RDI: ffff8802f4e73006
-> [ 8263.079352] RBP: 0000000000000000 R08: 0000000000000000 R09: ffff880327d898c0
-> [ 8263.198987] R10: 00000000000000c1 R11: 0000000000000000 R12: ffffffff81fed080
-> [ 8263.318401] R13: ffffffff81fed080 R14: ffff8802f4e73000 R15: 0000000000000000
-> [ 8263.438014] FS:  00007f01dfa81700(0000) GS:ffff88033f200000(0000) knlGS:0000000000000000
-> [ 8263.569778] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [ 8263.673859] CR2: 0000000000000000 CR3: 000000032893f000 CR4: 00000000000006f0
-> [ 8263.794922] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> [ 8263.915734] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> [ 8264.036251] Process rmcli (pid: 14089, threadinfo ffff8802f489e000, task ffff880324708080)
-> [ 8264.170961] Stack:
-> [ 8264.231328]  ffff88032a3c0000 0000000000000003 0000000000000003 ffff88032a3c0000
-> [ 8264.356967]  0000000000000003 ffffffffa039dbcb 000000003ec216c0 0000000000000246
-> [ 8264.483081]  382e30363238205b 00205d3900000006 ff00305f63696e76 0000000000000003
->
-> We should check the point to avoid the oops.
->
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
->  net/core/dev.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index e7d68ed..596a11e 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5159,7 +5159,7 @@ int register_netdevice(struct net_device *dev)
->  		goto out;
->
->  	/* Init, if this function is available */
-> -	if (dev->netdev_ops->ndo_init) {
-> +	if (dev->netdev_ops && dev->netdev_ops->ndo_init) {
->  		ret = dev->netdev_ops->ndo_init(dev);
->  		if (ret) {
->  			if (ret > 0)
-> -- 1.8.0
->
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri,  5 Apr 2013 11:39:37 +0200
 
-The correct fix for this is to not allow the registration of devices
-with a null netdev_ops pointer.  The subtle approach to resolving this
-is adding a check for the null pointer near the start of the function
-and returning -EVINAL since the dev structure passed was configured
-incorrectly.  The blunt approach is to just add a BUG_ON with a comment
-on the line before it explaining that you should always set the
-netdev_ops pointer before trying to register a netdev.  That way if
-someone else makes the mistake then they will hit the BUG_ON and realize
-what they are doing wrong.
+> Jiri Pirko (2):
+>   net: ipv4: reset check_lifetime_work after changing lifetime
+>   net: ipv4: fix schelude while atomic bug in check_lifetime()
 
-Thanks,
-
-Alex
+Both applied, thanks Jiri.
