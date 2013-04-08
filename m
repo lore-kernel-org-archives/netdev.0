@@ -1,43 +1,41 @@
-From: Tetja Rediske <tetja@tetja.de>
-Subject: Re: PROBLEM: IPv6 TCP-Connections resetting
-Date: Mon, 8 Apr 2013 11:56:51 +0200
-Message-ID: <20130408115651.445341f5@trediske.ws.office.manitu.net>
-References: <20130405174828.310a02c3@trediske.ws.office.manitu.net>
-	<1460015.zN3jPXiAbD@cpaasch-mac>
-	<1365270879.3887.4.camel@edumazet-glaptop>
-	<2517820.omWyusa00U@cpaasch-mac>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net,2/2] hyperv: Fix RNDIS send_completion code path
+Date: Mon, 08 Apr 2013 12:16:20 -0400 (EDT)
+Message-ID: <20130408.121620.1034249208373430154.davem@davemloft.net>
+References: <1365198280-23270-1-git-send-email-haiyangz@microsoft.com>
+ <1365198280-23270-2-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	djduanjiong@gmail.com, netdev@vger.kernel.org,
-	steffen.klassert@secunet.com, Neal Cardwell <ncardwell@google.com>,
-	David Miller <davem@davemloft.net>
-To: christoph.paasch@uclouvain.be
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 159.75.238.89.in-addr.arpa.manitu.net ([89.238.75.159]:58012
-	"EHLO mail.py-ro.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S935361Ab3DHJ44 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 05:56:56 -0400
-In-Reply-To: <2517820.omWyusa00U@cpaasch-mac>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
+To: haiyangz@microsoft.com
+Return-path: <devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1365198280-23270-2-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel/>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: "devel" <devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Fri,  5 Apr 2013 14:44:40 -0700
 
-> I made a setup to trigger the ICMPv6 Redirect.
-> Yes, the bug was added by ec18d9a26 (ipv6: Add redirect support to
-> all protocol icmp error handlers.), but prior to 093d04d4 (ipv6:
-> Change skb->data before using icmpv6_notify() to propagate redirect)
-> the stack did not enter tcp_v6_err upon a redirect message.
+> In some cases, the VM_PKT_COMP message can arrive later than RNDIS completion
+> message, which will free the packet memory. This may cause panic due to access
+> to freed memory in netvsc_send_completion().
 > 
-> This, because inside icmpv6_notify, skb->data did not point to the
-> inner IP header. So, when icmpv6_notify looks up the
-> protocol-handler, it will not match on tcp_v6_err.
+> This patch fixes this problem by removing rndis_filter_send_request_completion()
+> from the code path. The function was a no-op.
+> 
+> Reported-by: Long Li <longli@microsoft.com>
+> Tested-by: Long Li <longli@microsoft.com>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-with the goto line I can't see this behaviour anymore.
-
-Thanks!
-
-Tetja
+Applied.
