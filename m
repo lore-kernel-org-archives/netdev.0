@@ -1,34 +1,46 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH] net: mvmdio: get and enable optional clock
-Date: Mon, 08 Apr 2013 11:32:08 +0200
-Message-ID: <51628E98.2070709@openwrt.org>
-References: <1365332988-9053-1-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/2] crypto: add CMAC support to CryptoAPI
+Date: Mon, 8 Apr 2013 17:33:40 +0800
+Message-ID: <20130408093340.GA18594@gondor.apana.org.au>
+References: <20130408074844.6866.90093.stgit@localhost6.localdomain6>
+ <20130408082416.GW21448@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1365332988-9053-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jussi Kivilinna <jussi.kivilinna@iki.fi>,
+	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	Tom St Denis <tstdenis@elliptictech.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130408082416.GW21448@secunet.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 04/07/13 13:09, Sebastian Hesselbarth a =C3=A9crit :
-> Marvell mdio driver uses internal registers that can be clock gated o=
-n
-> some SoCs. This patch just adds optional clock handling, to allow to =
-pass
-> and enable the corresponding clock.
->
-> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com=
->
+On Mon, Apr 08, 2013 at 10:24:16AM +0200, Steffen Klassert wrote:
+> On Mon, Apr 08, 2013 at 10:48:44AM +0300, Jussi Kivilinna wrote:
+> > Patch adds support for NIST recommended block cipher mode CMAC to CryptoAPI.
+> > 
+> > This work is based on Tom St Denis' earlier patch,
+> >  http://marc.info/?l=linux-crypto-vger&m=135877306305466&w=2
+> > 
+> > Cc: Tom St Denis <tstdenis@elliptictech.com>
+> > Signed-off-by: Jussi Kivilinna <jussi.kivilinna@iki.fi>
+> 
+> This patch does not apply clean to the ipsec-next tree
+> because of some crypto changes I don't have in ipsec-next.
+> The IPsec part should apply to the cryptodev tree,
+> so it's probaply the best if we route this patchset
+> through the cryptodev tree.
+> 
+> Herbert,
+> 
+> are you going to take these patches?
 
-Looks good to me:
+Sure I can do that.
 
-Acked-by: Florian Fainelli <florian@openwrt.org>
---
-=46lorian
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
