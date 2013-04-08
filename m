@@ -1,47 +1,45 @@
-From: Antonio Quartulli <antonio@open-mesh.com>
-Subject: [PATCH 2/3] sk_buff: add bridge_restricted flag
-Date: Mon, 8 Apr 2013 19:41:02 +0200
-Message-ID: <1365442863-32394-3-git-send-email-antonio@open-mesh.com>
-References: <1365442863-32394-1-git-send-email-antonio@open-mesh.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK
+ packet
+Date: Mon, 08 Apr 2013 22:03:33 +0400
+Message-ID: <51630675.8040608@cogentembedded.com>
+References: <20130408154519.18177.57709.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <bridge@lists.linux-foundation.org>, <netdev@vger.kernel.org>,
-	Antonio Quartulli <antonio@open-mesh.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Miroslav Vadkerti <mvadkert@redhat.com>
+To: Paul Moore <pmoore@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ht1.myhostedexchange.com ([69.50.2.37]:60036 "EHLO
-	ht1.hostedexchange.local" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S934566Ab3DHRs1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 13:48:27 -0400
-In-Reply-To: <1365442863-32394-1-git-send-email-antonio@open-mesh.com>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:64261 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762866Ab3DHSEk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 14:04:40 -0400
+Received: by mail-lb0-f171.google.com with SMTP id v10so5973339lbd.2
+        for <netdev@vger.kernel.org>; Mon, 08 Apr 2013 11:04:38 -0700 (PDT)
+In-Reply-To: <20130408154519.18177.57709.stgit@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This new flag tells whether the skb has been originated by
-an interface marked with the IFF_BRIDGE_RESTRICTED flag.
+Hello.
 
-This information can be used to prevent a packet from being
-forwarded to another restricted interface.
+On 04/08/2013 07:45 PM, Paul Moore wrote:
 
-Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
----
- include/linux/skbuff.h | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> Commit 90ba9b1986b5ac4b2d184575847147ea7c4280a2
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index e27d1c7..2054073 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -492,7 +492,8 @@ struct sk_buff {
- 	 * headers if needed
- 	 */
- 	__u8			encapsulation:1;
--	/* 7/9 bit hole (depending on ndisc_nodetype presence) */
-+	__u8			bridge_restricted:1;
-+	/* 9/11 bit hole (depending on ndisc_nodetype presence) */
- 	kmemcheck_bitfield_end(flags2);
- 
- #ifdef CONFIG_NET_DMA
--- 
-1.8.1.5
+    Please also specify that commit's summary line in parens
+(DaveM seems to also require double quotes inside the parens).
+
+> converted
+> tcp_make_synack() to use alloc_skb() directly instead of calling
+> sock_wmalloc(), the goal being the elimination of two atomic
+> operations.  Unfortunately, in doing so the change broke certain
+> SELinux/NetLabel configurations by no longer correctly assigning
+> the sock to the outgoing packet.
+>
+> This patch fixes this regression by doing the skb->sk assignment
+> directly inside tcp_make_synack().
+>
+> Reported-by: Miroslav Vadkerti <mvadkert@redhat.com>
+> Signed-off-by: Paul Moore <pmoore@redhat.com>
+
+WBR, Sergei
