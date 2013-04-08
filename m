@@ -1,33 +1,129 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: Ignoring destination MAC address in incoming packets
-Date: Mon, 08 Apr 2013 09:49:35 +0200
-Message-ID: <m3ppy5mpgw.fsf@intrepid.localdomain>
-References: <m3txnhmrdm.fsf@intrepid.localdomain>
-	<20130408071903.GB5938@ritirata.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: Antonio Quartulli <ordex@autistici.org>
+From: frank.blaschka@de.ibm.com
+Subject: [patch 2/2] qeth: fix qeth_wait_for_threads() deadlock for OSN devices
+Date: Mon, 08 Apr 2013 10:19:27 +0200
+Message-ID: <20130408082003.772850297@de.ibm.com>
+References: <20130408081925.995757091@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Stefan Raspl <raspl@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from inx.pm.waw.pl ([195.116.170.130]:54396 "EHLO inx.pm.waw.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933969Ab3DHHth (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Apr 2013 03:49:37 -0400
-In-Reply-To: <20130408071903.GB5938@ritirata.org> (Antonio Quartulli's message
-	of "Mon, 8 Apr 2013 09:19:03 +0200")
+Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:42484 "EHLO
+	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934845Ab3DHIUJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 04:20:09 -0400
+Received: from /spool/local
+	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
+	Mon, 8 Apr 2013 09:17:19 +0100
+Content-Disposition: inline; filename=602-qeth-thread-deadlock.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Antonio Quartulli <ordex@autistici.org> writes:
+From: Stefan Raspl <raspl@linux.vnet.ibm.com>
 
-> May be a stupid suggestion, but what about setting promisc mode on?
+Any recovery thread will deadlock when calling qeth_wait_for_threads(), most
+notably when triggering a recovery on an OSN device.
+This patch will store the recovery thread's task pointer on recovery
+invocation and check in qeth_wait_for_threads() respectively to avoid
+deadlocks.
 
-I use promiscuous mode, but the packets are still dropped because
-skb->pkt_type = PACKET_OTHERHOST (since the destination MAC address
-doesn't match and is not broadcast/multicast).
+Signed-off-by: Stefan Raspl <raspl@linux.vnet.ibm.com>
+Signed-off-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Reviewed-by: Ursula Braun <ursula.braun@de.ibm.com>
+---
+ drivers/s390/net/qeth_core.h      |    3 +++
+ drivers/s390/net/qeth_core_main.c |   19 +++++++++++++++++++
+ drivers/s390/net/qeth_l2_main.c   |    2 ++
+ drivers/s390/net/qeth_l3_main.c   |    2 ++
+ 4 files changed, 26 insertions(+)
 
-I realize accepting all packets blindly opens a can of worms and this
-must be well thought. Perhaps a user space tool using AF_PACKET is a
-better way?
--- 
-Krzysztof Halasa
+--- a/drivers/s390/net/qeth_core.h
++++ b/drivers/s390/net/qeth_core.h
+@@ -769,6 +769,7 @@ struct qeth_card {
+ 	unsigned long thread_start_mask;
+ 	unsigned long thread_allowed_mask;
+ 	unsigned long thread_running_mask;
++	struct task_struct *recovery_task;
+ 	spinlock_t ip_lock;
+ 	struct list_head ip_list;
+ 	struct list_head *ip_tbd_list;
+@@ -862,6 +863,8 @@ extern struct qeth_card_list_struct qeth
+ extern struct kmem_cache *qeth_core_header_cache;
+ extern struct qeth_dbf_info qeth_dbf[QETH_DBF_INFOS];
+ 
++void qeth_set_recovery_task(struct qeth_card *);
++void qeth_clear_recovery_task(struct qeth_card *);
+ void qeth_set_allowed_threads(struct qeth_card *, unsigned long , int);
+ int qeth_threads_running(struct qeth_card *, unsigned long);
+ int qeth_wait_for_threads(struct qeth_card *, unsigned long);
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -177,6 +177,23 @@ const char *qeth_get_cardname_short(stru
+ 	return "n/a";
+ }
+ 
++void qeth_set_recovery_task(struct qeth_card *card)
++{
++	card->recovery_task = current;
++}
++EXPORT_SYMBOL_GPL(qeth_set_recovery_task);
++
++void qeth_clear_recovery_task(struct qeth_card *card)
++{
++	card->recovery_task = NULL;
++}
++EXPORT_SYMBOL_GPL(qeth_clear_recovery_task);
++
++static bool qeth_is_recovery_task(const struct qeth_card *card)
++{
++	return card->recovery_task == current;
++}
++
+ void qeth_set_allowed_threads(struct qeth_card *card, unsigned long threads,
+ 			 int clear_start_mask)
+ {
+@@ -205,6 +222,8 @@ EXPORT_SYMBOL_GPL(qeth_threads_running);
+ 
+ int qeth_wait_for_threads(struct qeth_card *card, unsigned long threads)
+ {
++	if (qeth_is_recovery_task(card))
++		return 0;
+ 	return wait_event_interruptible(card->wait_q,
+ 			qeth_threads_running(card, threads) == 0);
+ }
+--- a/drivers/s390/net/qeth_l2_main.c
++++ b/drivers/s390/net/qeth_l2_main.c
+@@ -1143,6 +1143,7 @@ static int qeth_l2_recover(void *ptr)
+ 	QETH_CARD_TEXT(card, 2, "recover2");
+ 	dev_warn(&card->gdev->dev,
+ 		"A recovery process has been started for the device\n");
++	qeth_set_recovery_task(card);
+ 	__qeth_l2_set_offline(card->gdev, 1);
+ 	rc = __qeth_l2_set_online(card->gdev, 1);
+ 	if (!rc)
+@@ -1153,6 +1154,7 @@ static int qeth_l2_recover(void *ptr)
+ 		dev_warn(&card->gdev->dev, "The qeth device driver "
+ 				"failed to recover an error on the device\n");
+ 	}
++	qeth_clear_recovery_task(card);
+ 	qeth_clear_thread_start_bit(card, QETH_RECOVER_THREAD);
+ 	qeth_clear_thread_running_bit(card, QETH_RECOVER_THREAD);
+ 	return 0;
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -3515,6 +3515,7 @@ static int qeth_l3_recover(void *ptr)
+ 	QETH_CARD_TEXT(card, 2, "recover2");
+ 	dev_warn(&card->gdev->dev,
+ 		"A recovery process has been started for the device\n");
++	qeth_set_recovery_task(card);
+ 	__qeth_l3_set_offline(card->gdev, 1);
+ 	rc = __qeth_l3_set_online(card->gdev, 1);
+ 	if (!rc)
+@@ -3525,6 +3526,7 @@ static int qeth_l3_recover(void *ptr)
+ 		dev_warn(&card->gdev->dev, "The qeth device driver "
+ 				"failed to recover an error on the device\n");
+ 	}
++	qeth_clear_recovery_task(card);
+ 	qeth_clear_thread_start_bit(card, QETH_RECOVER_THREAD);
+ 	qeth_clear_thread_running_bit(card, QETH_RECOVER_THREAD);
+ 	return 0;
