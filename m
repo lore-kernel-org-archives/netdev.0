@@ -1,158 +1,52 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [Patch net-next v3 3/4] vxlan: add ipv6 support
-Date: Mon, 8 Apr 2013 08:53:12 -0400
-Message-ID: <OF82703BAC.20223779-ON85257B47.0040E058-85257B47.0046C8A6@us.ibm.com>
-References: <1365387536-25217-1-git-send-email-amwang@redhat.com> <1365387536-25217-3-git-send-email-amwang@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/2] sh_eth: add R-Car support for real
+Date: Mon, 08 Apr 2013 17:34:53 +0400
+Message-ID: <5162C77D.4050802@cogentembedded.com>
+References: <201303290051.32106.sergei.shtylyov@cogentembedded.com> <20130408023936.GA1643@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Cong Wang <amwang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
+	linux-sh@vger.kernel.org, phil.edworthy@renesas.com
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:54404 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935703Ab3DHMxn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 08:53:43 -0400
-Received: from /spool/local
-	by e37.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Mon, 8 Apr 2013 06:53:42 -0600
-In-Reply-To: <1365387536-25217-3-git-send-email-amwang@redhat.com>
+Received: from mail-la0-f47.google.com ([209.85.215.47]:45437 "EHLO
+	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935817Ab3DHNf4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 09:35:56 -0400
+Received: by mail-la0-f47.google.com with SMTP id fj20so5342011lab.20
+        for <netdev@vger.kernel.org>; Mon, 08 Apr 2013 06:35:54 -0700 (PDT)
+In-Reply-To: <20130408023936.GA1643@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Cong Wang <amwang@redhat.com>
+Hello.
 
+On 08-04-2013 6:39, Simon Horman wrote:
 
-> +#define sin u.sin.sin_addr.s_addr
-> +#define sin6 u.sin6.sin6_addr
-> +#define family u.sa.sa_family
+>> Commit d0418bb7123f44b23d69ac349eec7daf9103472f (net: sh_eth: Add eth support
+>> for R8A7779 device) was a failed attempt to add support for one of members of
+>> the R-Car SoC family.  That's for three reasons: it treated R8A7779 the  same
+>> as SH7724 except including quite dirty hack adding ECMR_ELB  bit  to the mask
+>> in sh_eth_set_rate() while not removing ECMR_RTM bit (despite it's reserved in
+>> R-Car Ether), and it didn't add a new register offset array despite the closest
+>> SH_ETH_REG_FAST_SH4 mapping differs by 0x200 to the offsets all the R-Car Ether
+>> registers have, and also some of the registers in this old mapping don't exist
+>> on R-Car Ether (due to this, SH7724's 'sh_eth_my_cpu_data' structure is not
+>> adequeate for R-Car too).  Fix all these shortcomings, restoring the SH7724
+>> related section to its pristine state...
 
-        The suggestion here was to make a sockaddr_in and
-then the name "sin" is the commonly used name for
-sockaddr_in's. You're using the name, but for a __be32,
-which is actually more misleading. Similary for "sin6",
-which is not a sockaddr_in6 but rather is an in_addr6.
-        I think these should be at the same level and named
-according to their types.
-        In your response, you said these are shorter. That's
-true, but "a" is shorter still. We're not trying to save text
-bytes here -- it should be easy to read and modify. It doesn't
-need to be unnecessarily wordy, of course, but using
-"x->va_sin.sin_addr" in context conveys meaning (namely, "this
-is the address part of a sockaddr_in"). Naming it "XX_sin" to
-most will mean it is a sockaddr_in, but then "x->va_sin = 
-htonl(INADDR_ANY)"
-is nonsense for a sockaddr_in, and "x->va_sin.sin_family" would be an
-error.
-        And also, these change all occurrences in the file, which is
-why I suggested they be unique field names. This makes a common
-"struct sockaddr_in sin;" declaration a syntax error. I suggested
-naming them "vip_sin" (or better,as above, "va_sin", with the new 
-vxlan_addr
-name) to make them unique field names, for the same reason it would
-be a bad idea to use "#define i u.sin"; because it is likely to
-create a problem maintaining it.
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
->       port_max;
-> @@ -130,6 +146,59 @@ struct vxlan_dev {
->  #define VXLAN_F_L2MISS   0x08
->  #define VXLAN_F_L3MISS   0x10
-> 
-> +static inline
-> +bool vxlan_addr_equal(const struct vxlan_addr *a, const struct 
-vxlan_addr *b)
-> +{
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +   if (a->family != b->family)
-> +      return false;
-> +   if (a->family == AF_INET6)
-> +      return ipv6_addr_equal(&a->sin6, &b->sin6);
-> +   else
-> +#endif
-> +      return a->sin == b->sin;
-> +}
+> Hi Sergei,
 
-        Still think something like
-#define vxlan_addr_equal(a, b)  (memcmp((a),(b),sizeof(*a) == 0)
+> thanks for this and sorry for not noticing it earlier.
+> I will try exercising it on the r8a7790 lager.
 
-is better.
-        With your current definitions, "sin6" is just an in6_addr, but
-you are not checking the sin6_scope_id, which is not correct for IPv6
-link-local addresses. You can rely on "ifindex" in vxlan_rdst for
-fdb entries, but you'd at least need to make sure it is not 0 for LL
-scope, and you still need sin6_scope_id to match for calls in 
-vxlan_snoop()
-and vxlan_group_used(). The same sin6_addr with different sin6_scope_id
-for link-local addrs is not the same address in v6.
-        This is another reason to use memcmp(), and the whole 
-sockaddr_in6,
-not just the sin6_addr part. You need code to require non-zero 
-sin6_scope_id for
-link-local addrs in the netlink part regardless of how you fix the
-comparison here.
+> IIRC you previously mentioned that you were doing work on unravelling
+> the #define mess in sh_eth. I am wondering if you have made any progress
+> in that area.
 
-> +
-> +static inline bool vxlan_addr_any(const struct vxlan_addr *ipa)
-> +{
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +   if (ipa->family == AF_INET6)
-> +      return ipv6_addr_any(&ipa->sin6);
-> +   else
-> +#endif
-> +      return ipa->sin == htonl(INADDR_ANY);
-> +}
+    Not much -- I was swithced to USB work.
 
-        Again, "ipa->sin" looks like a sockaddr_in, which INADDR_ANY is
-not. And bad idea to #define the generic name "sin".
-
-> +
-> +static int vxlan_nla_get_addr(struct vxlan_addr *ip, struct nlattr 
-*nla)
-> +{
-> +   if (nla_len(nla) == sizeof(struct in6_addr)) {
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +      nla_memcpy(&ip->sin6, nla, sizeof(struct in6_addr));
-> +      ip->family = AF_INET6;
-> +      return 0;
-> +#else
-> +      return -EAFNOSUPPORT;
-> +#endif
-> +   } else if (nla_len(nla) == sizeof(__be32)) {
-> +      ip->sin = nla_get_be32(nla);
-> +      ip->family = AF_INET;
-> +      return 0;
-> +   } else {
-> +      return -EAFNOSUPPORT;
-> +   }
-> +}
-
-        You said in your other mail you already had a comment about
-padding here, but it isn't accounting for it. nla_ok() only requires
-nla_len() be >= sizeof(__be32) here.
-
-
->  /* Add/update destinations for multicast */
-> -static int vxlan_fdb_append(struct vxlan_fdb *f,
-> -             __be32 ip, __u32 port, __u32 vni, __u32 ifindex)
-> +static int vxlan_fdb_append(struct vxlan_fdb *f, struct vxlan_addr *ip,
-> +             __u32 port, __u32 vni, __u32 ifindex)
->  {
->     struct vxlan_rdst *rd_prev, *rd;
-> 
->     rd_prev = NULL;
->     for (rd = &f->remote; rd; rd = rd->remote_next) {
-> -      if (rd->remote_ip == ip &&
-> +      if (vxlan_addr_equal(&rd->remote_ip, ip) &&
->            rd->remote_port == port &&
->            rd->remote_vni == vni &&
->            rd->remote_ifindex == ifindex)
-
-This is where I mentioned above you need ifindex !=0 with LL scope,
-or (better), require non-zero sin6_scope_id for LL scope in netlink
-and use whole sockaddr_in6 for comparison.
-
-
-                                                        +-DLS
+WBR, Sergei
