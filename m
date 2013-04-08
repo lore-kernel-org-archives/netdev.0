@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] ieee802154_mlme_ops oops removal and
- cleanup
-Date: Mon, 08 Apr 2013 12:00:48 -0400 (EDT)
-Message-ID: <20130408.120048.1368784240584556424.davem@davemloft.net>
-References: <cover.1365092820.git.werner@almesberger.net>
+Subject: Re: [PATCH 1/2] at86rf230: remove unnecessary / dead code
+Date: Mon, 08 Apr 2013 12:01:02 -0400 (EDT)
+Message-ID: <20130408.120102.1787119888665978532.davem@davemloft.net>
+References: <cover.1365107512.git.sascha@ps.nvbi.de>
+	<cover.1365107512.git.sascha@ps.nvbi.de>
+	<c9c5bee7116dd5847ed9e2ebb8be49fcde0cc052.1365107512.git.sascha@ps.nvbi.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
-To: werner@almesberger.net
+Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com
+To: sascha@ps.nvbi.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49085 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49097 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936632Ab3DHQAu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 12:00:50 -0400
-In-Reply-To: <cover.1365092820.git.werner@almesberger.net>
+	with ESMTP id S936512Ab3DHQBD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 12:01:03 -0400
+In-Reply-To: <c9c5bee7116dd5847ed9e2ebb8be49fcde0cc052.1365107512.git.sascha@ps.nvbi.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Werner Almesberger <werner@almesberger.net>
-Date: Thu, 4 Apr 2013 13:31:46 -0300
+From: Sascha Herrmann <sascha@ps.nvbi.de>
+Date: Thu,  4 Apr 2013 23:02:00 +0200
 
-> This fixes a kernel oops we get when some linux-zigbee user
-> space tools try to invoke unimplemented operations.
+> In at86rf230_probe() lp was first set to dev->priv and a few lines later
+> dev->priv was set to lp again, without changing lp in between. The call
+> to ieee802154_unregister_device() before err_irq: was unreachable.
 > 
-> The second of the two patches checks whether the respective
-> functions are present and returne EOPNOTSUPP if they aren't.
-> It also updates the documentation.
-> 
-> The first one removes the unused get_bsn function, which was
-> a small obstacle for the other patch.
+> Signed-off-by: Sascha Herrmann <sascha@ps.nvbi.de>
 
-Both applied, thanks.
+Applied.
