@@ -1,57 +1,52 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK packet
-Date: Mon, 08 Apr 2013 16:53:57 -0400
-Message-ID: <1798267.sYWPbozUai@sifl>
-References: <1365445303.3887.33.camel@edumazet-glaptop> <3294227.D2rod7xgQB@sifl> <20130408.164439.2282891058177074789.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK
+ packet
+Date: Mon, 08 Apr 2013 13:55:01 -0700
+Message-ID: <1365454501.3887.45.camel@edumazet-glaptop>
+References: <20130408154519.18177.57709.stgit@localhost>
+	 <1365445303.3887.33.camel@edumazet-glaptop>
+	 <1365445825.3887.35.camel@edumazet-glaptop> <3294227.D2rod7xgQB@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, mvadkert@redhat.com
-To: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mvadkert@redhat.com
+To: Paul Moore <pmoore@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2298 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763340Ab3DHUyA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Apr 2013 16:54:00 -0400
-In-Reply-To: <20130408.164439.2282891058177074789.davem@davemloft.net>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:37138 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752181Ab3DHUzE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 16:55:04 -0400
+Received: by mail-pa0-f53.google.com with SMTP id bh4so3424803pad.26
+        for <netdev@vger.kernel.org>; Mon, 08 Apr 2013 13:55:03 -0700 (PDT)
+In-Reply-To: <3294227.D2rod7xgQB@sifl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday, April 08, 2013 04:44:39 PM David Miller wrote:
-> From: Paul Moore <pmoore@redhat.com>
-> Date: Mon, 08 Apr 2013 16:37:22 -0400
+On Mon, 2013-04-08 at 16:37 -0400, Paul Moore wrote:
+
+> The people who use this functionality almost never use upstream kernels, they 
+> need to protection/certification/warm-fuzzies/etc. that come from a 
+> distribution kernel and a support infrastructure.  I didn't catch it because I 
+> use a slightly different configuration that didn't expose this bug; while I 
+> would like to run a full regression test every release I simply don't have the 
+> time to do that myself.
 > 
-> > On Monday, April 08, 2013 11:30:25 AM Eric Dumazet wrote:
-> >> On Mon, 2013-04-08 at 11:21 -0700, Eric Dumazet wrote:
-> >> > On Mon, 2013-04-08 at 14:12 -0400, Paul Moore wrote:
-> >> > > It seems a bit fragile to me, perhaps even hacky, but in some ways I
-> >> > > guess it isn't anymore fragile than relying on skb->sk - as this
-> >> > > problem demonstrates. My other concern is that adding this hook
-> >> > > *correctly* is likely to touch a lot of files and may be a bit much
-> >> > > so late in the 3.9 cycle, Dave, what say you?>
-> >> > 
-> >> > I don't get it, 90ba9b1986b5ac4b2d18 was in 3.6, why do you care of
-> >> > 3.9 ?
-> >> > 
-> >> > I am preparing a fix right now. Not a revert, thank you.
-> >> 
-> >> Is the following patch not good enough ?
-> > 
-> > I think it is somewhat telling that the hook you're proposing doesn't ever
-> > make any calls into any of the individual LSMs, it only calls back into
-> > the networking stack.  In my mind, this makes it an abuse of the LSM
-> > mechanism.
+> > This sounds like a very small issue to me, a revert is simply overkill.
 > 
-> Without LSMs the socket reference is spurious and pointless overhead,
-> therefore the only acceptable fix one which only takes the socket
-> reference when there are LSMs with a need.
+> It all depends on your use case.  To you, whom I assume doesn't use SELinux, 
+> it is indeed a trivial issue.  To someone who relies on SELinux for its 
+> network access controls this is a pretty significant issue.
+> 
 
-Well that's frustrating, but if that is the game so be it.
+Is the patch I sent addressing the problem or not ?
 
-Eric, your patch didn't cross-post to the LSM list, do you want to post it 
-there for review/merging?  I would recommend also adding a pointer to this 
-thread for reference.
+Note that I do have : CONFIG_SECURITY=y
 
--- 
-paul moore
-security and virtualization @ redhat
+So this patch basically adds the overhead back, and I'll have to use
+real hook later in net-next.
+
+At least my patch clearly _shows_ the security requirement, instead of
+relying on a side effect of a previous sock_wmalloc()
+
+Again, it would be nice you understand the plan.
