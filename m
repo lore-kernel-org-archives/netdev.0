@@ -1,71 +1,62 @@
-From: Kishon Vijay Abraham I <kishon@ti.com>
-Subject: Re: [PATCH v5 1/6] drivers: phy: add generic PHY framework
-Date: Mon, 8 Apr 2013 18:51:15 +0530
-Message-ID: <5162C44B.90501@ti.com>
-References: <1364993634-6378-1-git-send-email-kishon@ti.com> <1364993634-6378-2-git-send-email-kishon@ti.com> <515CC123.4060402@wwwdotorg.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/2] sh_eth: add R-Car support for real
+Date: Mon, 08 Apr 2013 17:45:14 +0400
+Message-ID: <5162C9EA.6060005@cogentembedded.com>
+References: <201303290051.32106.sergei.shtylyov@cogentembedded.com> <20130408023936.GA1643@verge.net.au> <20130408090451.GC8917@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <balbi@ti.com>, <gregkh@linuxfoundation.org>, <arnd@arndb.de>,
-	<akpm@linux-foundation.org>, <sylvester.nawrocki@gmail.com>,
-	<rob@landley.net>, <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<cesarb@cesarb.net>, <linux-usb@vger.kernel.org>,
-	<linux-omap@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<tony@atomide.com>, <grant.likely@secretlab.ca>,
-	<rob.herring@calxeda.com>, <b-cousson@ti.com>,
-	<linux@arm.linux.org.uk>, <eballetbo@gmail.com>,
-	<javier@dowhile0.org>, <mchehab@redhat.com>,
-	<santosh.shilimkar@ti.com>, <broonie@opensource.wolfsonmicro.com>,
-	<swarren@nvidia.com>, <linux-doc@vger.kernel.org>,
-	<devicetree-discuss@lists.ozlabs.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Stephen Warren <swarren@wwwdotorg.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <515CC123.4060402@wwwdotorg.org>
-Sender: linux-doc-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
+	linux-sh@vger.kernel.org, phil.edworthy@renesas.com
+To: Simon Horman <horms@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20130408090451.GC8917@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hello.
 
-On Thursday 04 April 2013 05:24 AM, Stephen Warren wrote:
-> On 04/03/2013 06:53 AM, Kishon Vijay Abraham I wrote:
->> The PHY framework provides a set of APIs for the PHY drivers to
->> create/destroy a PHY and APIs for the PHY users to obtain a reference to the
->> PHY with or without using phandle. To obtain a reference to the PHY without
->> using phandle, the platform specfic intialization code (say from board file)
->> should have already called phy_bind with the binding information. The binding
->> information consists of phy's device name, phy user device name and an index.
->> The index is used when the same phy user binds to mulitple phys.
->>
->> PHY drivers should create the PHY by passing phy_descriptor that has
->> describes the PHY (label, type etc..) and ops like init, exit, suspend, resume,
->> power_on, power_off.
->>
->> The documentation for the generic PHY framework is added in
->> Documentation/phy.txt and the documentation for the sysfs entry is added
->> in Documentation/ABI/testing/sysfs-class-phy and the documentation for
->> dt binding is can be found at
->> Documentation/devicetree/bindings/phy/phy-bindings.txt
->
->> diff --git a/include/linux/phy/phy.h b/include/linux/phy/phy.h
->
->> +extern struct phy *devm_phy_create(struct device *dev, const char *label,
->> +	struct device_node *of_node, int type, struct phy_ops *ops,
->> +	void *priv);
->
-> Can't the function get of_node from dev->of_node?
->
-> I wonder if we shouldn't split up the registration a bit though:
->
-> A function which registers a PHY object itself. That's the function above.
->
-> A function which registers a DT-based PHY provider.
->
-> Then, the of_xlate op would be part of the PHY provider, not part of
-> some random PHY that happens to exist on that node. So:
+On 08-04-2013 13:04, Simon Horman wrote:
 
-Yeah. Makes sense to me. By this we can avoid struct phy * to represent 
-two different things (phy provider and phy instance).
+>>> Commit d0418bb7123f44b23d69ac349eec7daf9103472f (net: sh_eth: Add eth support
+>>> for R8A7779 device) was a failed attempt to add support for one of members of
+>>> the R-Car SoC family.  That's for three reasons: it treated R8A7779 the  same
+>>> as SH7724 except including quite dirty hack adding ECMR_ELB  bit  to the mask
+>>> in sh_eth_set_rate() while not removing ECMR_RTM bit (despite it's reserved in
+>>> R-Car Ether), and it didn't add a new register offset array despite the closest
+>>> SH_ETH_REG_FAST_SH4 mapping differs by 0x200 to the offsets all the R-Car Ether
+>>> registers have, and also some of the registers in this old mapping don't exist
+>>> on R-Car Ether (due to this, SH7724's 'sh_eth_my_cpu_data' structure is not
+>>> adequeate for R-Car too).  Fix all these shortcomings, restoring the SH7724
+>>> related section to its pristine state...
 
-Thanks
-Kishon
+>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+>> Hi Sergei,
+
+>> thanks for this and sorry for not noticing it earlier.
+>> I will try exercising it on the r8a7790 lager.
+
+> I am having a little trouble getting bringing up a link on the
+> r8a7790 lager. I wonder if:
+
+> * You know of any sh_eth side changes that need to be made,
+>    other than adding r8a7790 obvious ones relating to adding
+>    ARCH_R8A7790 wherever ARCH_R8A7779 is found.
+
+    Unfortunately, the only datasheet for R8A7790 Ether I have is in Japanese. 
+And I don't have the board info either. :-(
+
+> * You have any sample board code for the marzen/r8a7779 or
+>    bockw/r8a7778 handy.
+
+    On Marzen the driver simply doesn't work right (and I don't even have the 
+datasheet for the Ethernet daughter board that I have, only for some other 
+type of board), on the BOCK-W the driver works but I have only tested it with 
+the version 1 of Morimoto-san's R8A7778/BOCK-W patches (which included pinmux
+support), so this patch doesn't compile anymore with the current 
+renesas.git/next. With BOCK-W you need to set 'no_ether_link' in the platform 
+data since the Ether's LINK signal is connected to PHY's link/activity LED output.
+
+WBR, Sergei
+
