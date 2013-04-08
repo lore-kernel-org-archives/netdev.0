@@ -1,44 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: add checks if dev->netdev_ops is NULL in
- register_netdevice()
-Date: Mon, 08 Apr 2013 08:16:34 -0700
-Message-ID: <1365434194.3887.13.camel@edumazet-glaptop>
-References: <51629159.9040000@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ip_gre: fix a possible crash in
+ parse_gre_header()
+Date: Mon, 08 Apr 2013 12:01:10 -0400 (EDT)
+Message-ID: <20130408.120110.321621015894178290.davem@davemloft.net>
+References: <1365126087.3308.17.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Netdev <netdev@vger.kernel.org>, Li Zefan <lizefan@huawei.com>,
-	Xinwei Hu <huxinwei@huawei.com>
-To: dingtianhong <dingtianhong@huawei.com>
+Cc: netdev@vger.kernel.org, pshelar@nicira.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:58439 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761819Ab3DHPQi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 11:16:38 -0400
-Received: by mail-ob0-f169.google.com with SMTP id wp18so5249444obc.14
-        for <netdev@vger.kernel.org>; Mon, 08 Apr 2013 08:16:38 -0700 (PDT)
-In-Reply-To: <51629159.9040000@huawei.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49103 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936542Ab3DHQBM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 12:01:12 -0400
+In-Reply-To: <1365126087.3308.17.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-04-08 at 17:43 +0800, dingtianhong wrote:
-> In some cases netdev->netdev_ops could be NULL in the register_netdevice(),
-> thus a NULL point deference happens and lead to oops:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 04 Apr 2013 18:41:27 -0700
 
->  	/* Init, if this function is available */
-> -	if (dev->netdev_ops->ndo_init) {
-> +	if (dev->netdev_ops && dev->netdev_ops->ndo_init) {
->  		ret = dev->netdev_ops->ndo_init(dev);
->  		if (ret) {
->  			if (ret > 0)
-> -- 1.8.0
+> From: Eric Dumazet <edumazet@google.com>
 > 
+> pskb_may_pull() can change skb->head, so we must init iph/greh after
+> calling it.
+> 
+> Bug added in commit c54419321455 (GRE: Refactor GRE tunneling code.)
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Seriously ?
-
-This patch is not needed, and not complete anyway.
-
-Fix the driver instead, we don't want this to happen.
+Applied.
