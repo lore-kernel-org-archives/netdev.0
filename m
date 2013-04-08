@@ -1,7 +1,8 @@
 From: Antonio Quartulli <antonio@open-mesh.com>
-Subject: [PATCH 0/3] bridge: implement restricted forwarding policy
-Date: Mon, 8 Apr 2013 19:41:00 +0200
-Message-ID: <1365442863-32394-1-git-send-email-antonio@open-mesh.com>
+Subject: [PATCH 3/3] bridge: implement restricted port forwarding policy
+Date: Mon, 8 Apr 2013 19:41:03 +0200
+Message-ID: <1365442863-32394-4-git-send-email-antonio@open-mesh.com>
+References: <1365442863-32394-1-git-send-email-antonio@open-mesh.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <bridge@lists.linux-foundation.org>, <netdev@vger.kernel.org>,
@@ -9,69 +10,75 @@ Cc: <bridge@lists.linux-foundation.org>, <netdev@vger.kernel.org>,
 To: "David S. Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ht1.myhostedexchange.com ([69.50.2.37]:59732 "EHLO
+Received: from ht1.myhostedexchange.com ([69.50.2.37]:59859 "EHLO
 	ht1.hostedexchange.local" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1763332Ab3DHRsC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 13:48:02 -0400
+	by vger.kernel.org with ESMTP id S1763332Ab3DHRsM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 13:48:12 -0400
+In-Reply-To: <1365442863-32394-1-git-send-email-antonio@open-mesh.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Prevent an skb with the bridge_restricted attribute set from
+being forwarded to devices marked with the
+IFF_BRIDGE_RESTRICTED flag.
 
-with this patchset I would like to introduce a new feature to be added to the
-bridge module that is later going to be one of the building block of a
-distributed technique implemented using batman-adv.
-
-The scenario where we want to play is a Layer2 mesh network handled by
-the batman-adv module. For who may not know how it works, batman-adv creates a
-sort of "extended broadcast domain" shared among nodes that are not directly
-connected to each other.
-This mechanism provides every node the view of the batman-adv network
-as it was a very big Ethernet switch.
-
-
-The goal we want to achieve by adding this feature consists in selecting a
-subset of the interfaces available on all the hosts participating to the mesh
-network and to prevent packets from being forwarded from one of them to another.
-
-Looking again at the "very big switch" abstraction this would allow a mesh
-network administrator to define a sort of "not forwarding policy network wide"
-between some of the big switch's port.
-
-This patchset is introducing the small piece needed by every hosts in the
-network to handle the policy locally. In particular, I'm adding a new flag for
-the net_device->flags member (IFF_BRIDGE_RESTRICTED) and a new attribute to the
-sk_buff structure (bridge_restricted), then the bridge code is modified to
-obey the following rule:
-
-* do not forward any skb with the bridge_restricted attribute set to interfaces
-  marked with the IFF_BRIDGE_RESTRICTED flag.
-
-
-Later, a change to batman-adv will follow which will make it spit out skbs with
-the bridge_restricted member set depending on its distributed logic.
-
-
-I am not entirely sure if I chose the very best place for those flags. If not,
-please advise :)
-
-Thanks a lot.
-
-
-Cheers,
-
-
-Antonio Quartulli (3):
-  if.h: add IFF_BRIDGE_RESTRICTED flag
-  sk_buff: add bridge_restricted flag
-  bridge: implement restricted port forwarding policy
-
- include/linux/skbuff.h  |  3 ++-
- include/uapi/linux/if.h |  1 +
+Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
+---
  net/bridge/br_forward.c | 18 +++++++++++++++++-
  net/bridge/br_input.c   |  6 ++++++
- net/core/dev.c          |  2 +-
- 5 files changed, 27 insertions(+), 3 deletions(-)
+ 2 files changed, 23 insertions(+), 1 deletion(-)
 
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 092b20e..52b9031 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -26,13 +26,29 @@ static int deliver_clone(const struct net_bridge_port *prev,
+ 			 void (*__packet_hook)(const struct net_bridge_port *p,
+ 					       struct sk_buff *skb));
+ 
++/**
++ * should_restrict - check if incoming and outgoing ports are restricted
++ * @skb: the incoming packet
++ * @dev: the outgoing port
++ *
++ * Return true if the skb is coming from a restricted port and out_dev is
++ * restricted too. False otherwise
++ */
++static inline int should_restrict(const struct sk_buff *skb,
++				  const struct net_device *out_dev)
++{
++	return skb->bridge_restricted &&
++	       (out_dev->flags & IFF_BRIDGE_RESTRICTED);
++}
++
+ /* Don't forward packets to originating port or forwarding diasabled */
+ static inline int should_deliver(const struct net_bridge_port *p,
+ 				 const struct sk_buff *skb)
+ {
+ 	return (((p->flags & BR_HAIRPIN_MODE) || skb->dev != p->dev) &&
+ 		br_allowed_egress(p->br, nbp_get_vlan_info(p), skb) &&
+-		p->state == BR_STATE_FORWARDING);
++		p->state == BR_STATE_FORWARDING &&
++		!should_restrict(skb, p->dev));
+ }
+ 
+ static inline unsigned int packet_length(const struct sk_buff *skb)
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 828e2bc..73b4d4d 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -169,6 +169,12 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+ 
+ 	p = br_port_get_rcu(skb->dev);
+ 
++	/* if this skb has been generated by a restricted port, mark it as well
++	 * so that a "remote bridge" does not forward it to another restricted
++	 * device
++	 */
++	skb->bridge_restricted = !!(skb->dev->flags & IFF_BRIDGE_RESTRICTED);
++
+ 	if (unlikely(is_link_local_ether_addr(dest))) {
+ 		/*
+ 		 * See IEEE 802.1D Table 7-10 Reserved addresses
 -- 
 1.8.1.5
