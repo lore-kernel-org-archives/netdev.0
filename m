@@ -1,43 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: be2net: GRO for non-inet protocols
-Date: Mon, 08 Apr 2013 08:51:25 -0700
-Message-ID: <1365436285.3887.16.camel@edumazet-glaptop>
-References: <20130405132007.GF7551@eerihug-hybrid.ki.sw.ericsson.se>
-	 <1365175702.3405.2.camel@edumazet-glaptop>
-	 <1365175872.3405.3.camel@edumazet-glaptop>
-	 <20130408064010.GD8543@eerihug-hybrid.ki.sw.ericsson.se>
-	 <20130408152417.GD19951@eerihug-hybrid.ki.sw.ericsson.se>
+From: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: Active URB submitted twice in pegasus driver
+Date: Mon, 8 Apr 2013 08:49:29 -0700
+Message-ID: <20130408154929.GD6117@xanatos>
+References: <20130325223834.GF6869@xanatos>
+ <alpine.DEB.2.02.1303261655450.3724@fry.nucleusys.com>
+ <20130326170140.GC10317@xanatos>
+ <alpine.DEB.2.02.1303261909260.4226@fry.nucleusys.com>
+ <20130326185218.GD10317@xanatos>
+ <alpine.DEB.2.02.1303262247490.3959@fry>
+ <20130326213757.GA19141@xanatos>
+ <alpine.DEB.2.02.1303262348460.3959@fry>
+ <alpine.DEB.2.02.1304051946020.7054@fry>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com, netdev@vger.kernel.org
-To: Erik Hugne <erik.hugne@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f49.google.com ([209.85.210.49]:58098 "EHLO
-	mail-da0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934521Ab3DHPv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 11:51:29 -0400
-Received: by mail-da0-f49.google.com with SMTP id t11so2626779daj.8
-        for <netdev@vger.kernel.org>; Mon, 08 Apr 2013 08:51:28 -0700 (PDT)
-In-Reply-To: <20130408152417.GD19951@eerihug-hybrid.ki.sw.ericsson.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+To: Petko Manolov <petkan-nPnTwAqkgEqakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.02.1304051946020.7054@fry>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-04-08 at 17:24 +0200, Erik Hugne wrote:
-> On Mon, Apr 08, 2013 at 08:40:10AM +0200, Erik Hugne wrote:
-> > Thanks Eric, it works as expected after applying this.
-> 
-> So, on to the next problem, now i'm getting corrupted packets
-> from the driver instead. Would be great to get some comments
-> from the Emulex guys regarding this.
-> 
-> Attaching a printk trace where i log the mac header and packet data of 
-> all 0x88CA (TIPC) packets in the gro_receive routine that have an 
-> erroneous TIPC header. This happens immediately when i register 
-> myself with the device.
-> 
+On Fri, Apr 05, 2013 at 08:01:03PM +0300, Petko Manolov wrote:
+> On Wed, 27 Mar 2013, Petko Manolov wrote:
+> >On Tue, 26 Mar 2013, Sarah Sharp wrote:
+> The new driver actually compiles and runs fine with Pegasus-II based
+> device.  Please let me know if you run into problems.
 
+I'm away for a week, so I won't be able to test for a while.  I'll let
+you know the results when I get back.
 
-You could check using a GRE tunnel, that the GRO support I added in
-recent kernel is working or not. (including the be2net patch I sent)
+Sarah Sharp
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
