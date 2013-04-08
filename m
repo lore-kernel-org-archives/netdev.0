@@ -1,42 +1,44 @@
-From: Werner Almesberger <werner@almesberger.net>
-Subject: Re: [PATCH 2/2] at86rf230: change irq handling to prevent lockups
- with edge type irq
-Date: Mon, 8 Apr 2013 12:35:21 -0300
-Message-ID: <20130408153521.GH28141@ws>
-References: <cover.1365107512.git.sascha@ps.nvbi.de>
- <57c67195742f5e7482dc57f5a05b6d69156b00d2.1365107512.git.sascha@ps.nvbi.de>
- <20130405035949.GC29789@ws>
- <20130405105158.GD29789@ws>
- <f947aa8f-75bc-4314-bb92-289d9f2bc93d@email.android.com>
- <20130406142035.GG28141@ws>
- <5161DC96.6030905@ps.nvbi.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: add checks if dev->netdev_ops is NULL in
+ register_netdevice()
+Date: Mon, 08 Apr 2013 08:16:34 -0700
+Message-ID: <1365434194.3887.13.camel@edumazet-glaptop>
+References: <51629159.9040000@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
-To: Sascha Herrmann <sascha@ps.nvbi.de>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Netdev <netdev@vger.kernel.org>, Li Zefan <lizefan@huawei.com>,
+	Xinwei Hu <huxinwei@huawei.com>
+To: dingtianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.openmoko.org ([88.198.124.205]:45157 "EHLO
-	mail.openmoko.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936341Ab3DHPge (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 11:36:34 -0400
-Content-Disposition: inline
-In-Reply-To: <5161DC96.6030905@ps.nvbi.de>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:58439 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761819Ab3DHPQi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 11:16:38 -0400
+Received: by mail-ob0-f169.google.com with SMTP id wp18so5249444obc.14
+        for <netdev@vger.kernel.org>; Mon, 08 Apr 2013 08:16:38 -0700 (PDT)
+In-Reply-To: <51629159.9040000@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sascha Herrmann wrote:
-> Maybe one way to eliminate the extra latency of the second register read
-> would be to split the interrupt handling function into a generic part
-> and two different functions to handle the different types of interrupts:
+On Mon, 2013-04-08 at 17:43 +0800, dingtianhong wrote:
+> In some cases netdev->netdev_ops could be NULL in the register_netdevice(),
+> thus a NULL point deference happens and lead to oops:
 
-Yes, if you want to optimize the number of register accesses and
-work queue invocations, splitting the paths that touch interrupts
-seems to be the most straightforward approach.
+>  	/* Init, if this function is available */
+> -	if (dev->netdev_ops->ndo_init) {
+> +	if (dev->netdev_ops && dev->netdev_ops->ndo_init) {
+>  		ret = dev->netdev_ops->ndo_init(dev);
+>  		if (ret) {
+>  			if (ret > 0)
+> -- 1.8.0
+> 
 
-> If you think the solution above would be ok, I could try to send a
-> version which allows the configuration of trigger type and level.
+Seriously ?
 
-Sounds good to me. Pity the irq_get_irq_type() you mentioned
-doesn't exist. That would have made things a bit nicer.
+This patch is not needed, and not complete anyway.
 
-- Werner
+Fix the driver instead, we don't want this to happen.
