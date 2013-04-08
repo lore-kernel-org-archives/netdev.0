@@ -1,46 +1,43 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH 2/2] bonding: fix bonding_masters race condition in bond
- unloading
-Date: Mon, 8 Apr 2013 11:24:44 +0200
-Message-ID: <20130408092444.GB1757@redhat.com>
-References: <1365245678-4455-1-git-send-email-nikolay@redhat.com>
- <1365245678-4455-2-git-send-email-nikolay@redhat.com>
+From: Tetja Rediske <tetja@tetja.de>
+Subject: Re: PROBLEM: IPv6 TCP-Connections resetting
+Date: Mon, 8 Apr 2013 11:56:51 +0200
+Message-ID: <20130408115651.445341f5@trediske.ws.office.manitu.net>
+References: <20130405174828.310a02c3@trediske.ws.office.manitu.net>
+	<1460015.zN3jPXiAbD@cpaasch-mac>
+	<1365270879.3887.4.camel@edumazet-glaptop>
+	<2517820.omWyusa00U@cpaasch-mac>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com,
-	davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	djduanjiong@gmail.com, netdev@vger.kernel.org,
+	steffen.klassert@secunet.com, Neal Cardwell <ncardwell@google.com>,
+	David Miller <davem@davemloft.net>
+To: christoph.paasch@uclouvain.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9164 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934484Ab3DHJZK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Apr 2013 05:25:10 -0400
-Content-Disposition: inline
-In-Reply-To: <1365245678-4455-2-git-send-email-nikolay@redhat.com>
+Received: from 159.75.238.89.in-addr.arpa.manitu.net ([89.238.75.159]:58012
+	"EHLO mail.py-ro.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S935361Ab3DHJ44 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 05:56:56 -0400
+In-Reply-To: <2517820.omWyusa00U@cpaasch-mac>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 06, 2013 at 12:54:38PM +0200, Nikolay Aleksandrov wrote:
->While the bonding module is unloading, it is considered that after
->rtnl_link_unregister all bond devices are destroyed but since no
->synchronization mechanism exists, a new bond device can be created
->via bonding_masters before unregister_pernet_subsys which would
->lead to multiple problems (e.g. NULL pointer dereference, wrong RIP,
->list corruption).
->
->This patch fixes the issue by removing any bond devices left in the
->netns after bonding_masters is removed from sysfs.
->
->Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->---
-> drivers/net/bonding/bond_main.c | 9 +++++++++
-> 1 file changed, 9 insertions(+)
->
+Hi,
 
-Given that this bug is in net tree and we really need a fix to continue
-development, adding a second device removal loop is not a big deal
-actually, and this can be addressed correctly later in net-next. It's a
-really rare bug anyway, and the second loop most of the time would be a
-simple no-op, as Nikolay correctly stated.
+> I made a setup to trigger the ICMPv6 Redirect.
+> Yes, the bug was added by ec18d9a26 (ipv6: Add redirect support to
+> all protocol icmp error handlers.), but prior to 093d04d4 (ipv6:
+> Change skb->data before using icmpv6_notify() to propagate redirect)
+> the stack did not enter tcp_v6_err upon a redirect message.
+> 
+> This, because inside icmpv6_notify, skb->data did not point to the
+> inner IP header. So, when icmpv6_notify looks up the
+> protocol-handler, it will not match on tcp_v6_err.
 
-Acked-by: Veaceslav Falico <vfalico@redhat.com>
+with the goto line I can't see this behaviour anymore.
+
+Thanks!
+
+Tetja
