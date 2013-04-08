@@ -1,99 +1,51 @@
-From: Martin Pitt <martin.pitt-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] mac80211_hwsim: Register and bind to driver
-Date: Mon, 8 Apr 2013 11:06:33 +0200
-Message-ID: <20130408090633.GB2818@piware.de>
+From: Jussi Kivilinna <jussi.kivilinna@iki.fi>
+Subject: Re: [PATCH 1/2] crypto: add CMAC support to CryptoAPI
+Date: Mon, 08 Apr 2013 12:31:24 +0300
+Message-ID: <51628E6C.1050600@iki.fi>
+References: <20130408074844.6866.90093.stgit@localhost6.localdomain6> <20130408082416.GW21448@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	Tom St Denis <tstdenis@elliptictech.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sd-mail-sa-02.sanoma.fi ([158.127.18.162]:37734 "EHLO
+	sd-mail-sa-02.sanoma.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933985Ab3DHJb1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 05:31:27 -0400
+In-Reply-To: <20130408082416.GW21448@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Properly register our mac80211_hwsim_driver, attach it to the platform bus.
-Bind newly created hwsim devices to that driver, so that our wlan devices get
-a proper "driver" sysfs attribute.
+On 08.04.2013 11:24, Steffen Klassert wrote:
+> On Mon, Apr 08, 2013 at 10:48:44AM +0300, Jussi Kivilinna wrote:
+>> Patch adds support for NIST recommended block cipher mode CMAC to CryptoAPI.
+>>
+>> This work is based on Tom St Denis' earlier patch,
+>>  http://marc.info/?l=linux-crypto-vger&m=135877306305466&w=2
+>>
+>> Cc: Tom St Denis <tstdenis@elliptictech.com>
+>> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@iki.fi>
+> 
+> This patch does not apply clean to the ipsec-next tree
+> because of some crypto changes I don't have in ipsec-next.
+> The IPsec part should apply to the cryptodev tree,
+> so it's probaply the best if we route this patchset
+> through the cryptodev tree.
 
-This makes mac80211_hwsim interfaces work with NetworkManager.
+I should have mentioned that the patchset is on top of cryptodev tree and
+previous crypto patches that I send yesterday, likely to cause problems
+atleast at tcrypt.c:
 
-Signed-off-by: Martin Pitt <martin.pitt-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
----
- drivers/net/wireless/mac80211_hwsim.c |   17 ++++++++++++++++-
- 1 files changed, 16 insertions(+), 1 deletions(-)
+http://marc.info/?l=linux-crypto-vger&m=136534223503368&w=2
 
-diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
-index 0064d38..50a8b52 100644
---- a/drivers/net/wireless/mac80211_hwsim.c
-+++ b/drivers/net/wireless/mac80211_hwsim.c
-@@ -25,6 +25,7 @@
- #include <linux/if_arp.h>
- #include <linux/rtnetlink.h>
- #include <linux/etherdevice.h>
-+#include <linux/platform_device.h>
- #include <linux/debugfs.h>
- #include <linux/module.h>
- #include <linux/ktime.h>
-@@ -1675,6 +1676,7 @@ static void mac80211_hwsim_free(void)
- 		debugfs_remove(data->debugfs_ps);
- 		debugfs_remove(data->debugfs);
- 		ieee80211_unregister_hw(data->hw);
-+		device_release_driver(data->dev);
- 		device_unregister(data->dev);
- 		ieee80211_free_hw(data->hw);
- 	}
-@@ -1683,7 +1685,9 @@ static void mac80211_hwsim_free(void)
- 
- 
- static struct device_driver mac80211_hwsim_driver = {
--	.name = "mac80211_hwsim"
-+	.name = "mac80211_hwsim",
-+	.bus = &platform_bus_type,
-+	.owner = THIS_MODULE,
- };
- 
- static const struct net_device_ops hwsim_netdev_ops = {
-@@ -2179,6 +2183,8 @@ static int __init init_mac80211_hwsim(void)
- 	if (IS_ERR(hwsim_class))
- 		return PTR_ERR(hwsim_class);
- 
-+	driver_register(&mac80211_hwsim_driver);
-+
- 	memset(addr, 0, ETH_ALEN);
- 	addr[0] = 0x02;
- 
-@@ -2205,6 +2211,14 @@ static int __init init_mac80211_hwsim(void)
- 			goto failed_drvdata;
- 		}
- 		data->dev->driver = &mac80211_hwsim_driver;
-+		err = device_bind_driver(data->dev);
-+		if (err != 0) {
-+			printk(KERN_DEBUG
-+			       "mac80211_hwsim: device_bind_driver "
-+			       "failed (%d)\n", err);
-+			goto failed_hw;
-+		}
-+
- 		skb_queue_head_init(&data->pending);
- 
- 		SET_IEEE80211_DEV(hw, data->dev);
-@@ -2518,5 +2532,6 @@ static void __exit exit_mac80211_hwsim(void)
- 
- 	mac80211_hwsim_free();
- 	unregister_netdev(hwsim_mon);
-+	driver_unregister(&mac80211_hwsim_driver);
- }
- module_exit(exit_mac80211_hwsim);
--- 
-1.7.2.5
+-Jussi
 
--- 
-Martin Pitt                        | http://www.piware.de
-Ubuntu Developer (www.ubuntu.com)  | Debian Developer  (www.debian.org)
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> Herbert,
+> 
+> are you going to take these patches?
+> 
