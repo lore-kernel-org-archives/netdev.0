@@ -1,55 +1,253 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/16] info leak fixes in recvmsg
-Date: Sun, 07 Apr 2013 16:31:17 -0400 (EDT)
-Message-ID: <20130407.163117.265521959609997339.davem@davemloft.net>
-References: <1365335522-29931-1-git-send-email-minipli@googlemail.com>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: [PATCH 2/4] Move execute_set_action to lib/odp-util.c
+Date: Mon,  8 Apr 2013 15:43:49 +0900
+Message-ID: <1365403431-18102-3-git-send-email-horms@verge.net.au>
+References: <1365403431-18102-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
-	aloisio.almeida@openbossa.org, acking@vmware.com,
-	acme@ghostprotocols.net, dtor@vmware.com, georgezhang@vmware.com,
-	gustavo@padovan.org, johan.hedberg@gmail.com,
-	jon.maloy@ericsson.com, lauro.venancio@openbossa.org,
-	marcel@holtmann.org, ralf@linux-mips.org, sameo@linux.intel.com,
-	samuel@sortiz.org, sjur.brandeland@stericsson.com,
-	ursula.braun@de.ibm.com, spender@grsecurity.net
-To: minipli@googlemail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58101 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933523Ab3DGUbW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Apr 2013 16:31:22 -0400
-In-Reply-To: <1365335522-29931-1-git-send-email-minipli@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1365403431-18102-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Mathias Krause <minipli@googlemail.com>
-Date: Sun,  7 Apr 2013 13:51:46 +0200
+Move execute_set_action from lib/dpif-netedev.c to lib/odp-util.c
 
-> a few more info leak fixes in the recvmsg path. The error pattern here
-> is the protocol specific recvmsg function is missing the msg_namelen
-> assignment -- either completely or in early exit paths that do not
-> result in errors in __sys_recvmsg()/sys_recvfrom() and, in turn, make
-> them call move_addr_to_user(), leaking the then still uninitialized
-> sockaddr_storage stack variable to userland.
-> 
-> My audit was initiated by a rather coarse fix of the leak that can be
-> found in the grsecurity patch, putting a penalty on protocols complying
-> to the rules of recvmsg. So credits for finding the leak in the recvmsg
-> path in __sys_recvmsg() should go to Brad!
-> 
-> The buggy protocols/subsystems are rather obscure anyway. As a missing
-> assignment of msg_namelen coupled with a missing filling of msg_name
-> would only result in garbage -- the leak -- in case userland would care
-> about that information, i.e. would provide a msg_name pointer. But
-> obviously current userland does not.
-> 
-> While auditing the code for the above pattern I found a few more
-> 'uninitialized members' kind of leaks related to the msg_name filling.
-> Those are fixed in this series, too.
-> 
-> I have to admit, I failed to test all of the patches due to missing
-> hardware, e.g. iucv depends on S390 -- hardware I've no access to :/
+This is in preparation for using execute_set_action()
+in lib/odp-util.c to handle recirculation/
 
-All applied and queued up for -stable, thanks!
+Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+
+---
+
+packet.c might be a better place for execute_set_action()
+but I'm unsure if accessing struct ovs_key_ethernet would
+lead to a layering violation.
+
+This patch depends on the patch "Add packet recirculation"
+
+v5
+* No change
+
+rfc4
+* make use of skb_mark
+
+rfc2 - rfc3
+* omitted
+
+rfc1
+* Initial post
+
+Conflicts:
+	lib/dpif-netdev.c
+---
+ lib/dpif-netdev.c |   76 -----------------------------------------------------
+ lib/odp-util.c    |   76 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ lib/odp-util.h    |    3 +++
+ 3 files changed, 79 insertions(+), 76 deletions(-)
+
+diff --git a/lib/dpif-netdev.c b/lib/dpif-netdev.c
+index 31255f6..e698e1e 100644
+--- a/lib/dpif-netdev.c
++++ b/lib/dpif-netdev.c
+@@ -1115,15 +1115,6 @@ dpif_netdev_wait(struct dpif *dpif)
+ }
+ 
+ static void
+-dp_netdev_set_dl(struct ofpbuf *packet, const struct ovs_key_ethernet *eth_key)
+-{
+-    struct eth_header *eh = packet->l2;
+-
+-    memcpy(eh->eth_src, eth_key->eth_src, sizeof eh->eth_src);
+-    memcpy(eh->eth_dst, eth_key->eth_dst, sizeof eh->eth_dst);
+-}
+-
+-static void
+ dp_netdev_output_port(struct dp_netdev *dp, struct ofpbuf *packet,
+                       uint32_t out_port)
+ {
+@@ -1228,73 +1219,6 @@ dp_netdev_action_userspace(struct dp_netdev *dp,
+     dp_netdev_output_userspace(dp, packet, DPIF_UC_ACTION, key, userdata);
+ }
+ 
+-static void
+-execute_set_action(struct ofpbuf *packet, const struct nlattr *a,
+-                   uint32_t *skb_mark)
+-{
+-    enum ovs_key_attr type = nl_attr_type(a);
+-    const struct ovs_key_ipv4 *ipv4_key;
+-    const struct ovs_key_ipv6 *ipv6_key;
+-    const struct ovs_key_tcp *tcp_key;
+-    const struct ovs_key_udp *udp_key;
+-
+-    switch (type) {
+-    case OVS_KEY_ATTR_PRIORITY:
+-    case OVS_KEY_ATTR_TUNNEL:
+-        /* not implemented */
+-        break;
+-
+-    case OVS_KEY_ATTR_SKB_MARK:
+-        *skb_mark = nl_attr_get_u32(a);
+-        break;
+-
+-    case OVS_KEY_ATTR_ETHERNET:
+-        dp_netdev_set_dl(packet,
+-                   nl_attr_get_unspec(a, sizeof(struct ovs_key_ethernet)));
+-        break;
+-
+-    case OVS_KEY_ATTR_IPV4:
+-        ipv4_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_ipv4));
+-        packet_set_ipv4(packet, ipv4_key->ipv4_src, ipv4_key->ipv4_dst,
+-                        ipv4_key->ipv4_tos, ipv4_key->ipv4_ttl);
+-        break;
+-
+-    case OVS_KEY_ATTR_IPV6:
+-        ipv6_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_ipv6));
+-        packet_set_ipv6(packet, ipv6_key->ipv6_proto, ipv6_key->ipv6_src,
+-                        ipv6_key->ipv6_dst, ipv6_key->ipv6_tclass,
+-                        ipv6_key->ipv6_label, ipv6_key->ipv6_hlimit);
+-        break;
+-
+-    case OVS_KEY_ATTR_TCP:
+-        tcp_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_tcp));
+-        packet_set_tcp_port(packet, tcp_key->tcp_src, tcp_key->tcp_dst);
+-        break;
+-
+-     case OVS_KEY_ATTR_UDP:
+-        udp_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_udp));
+-        packet_set_udp_port(packet, udp_key->udp_src, udp_key->udp_dst);
+-        break;
+-
+-     case OVS_KEY_ATTR_MPLS:
+-         set_mpls_lse(packet, nl_attr_get_be32(a));
+-         break;
+-
+-     case OVS_KEY_ATTR_UNSPEC:
+-     case OVS_KEY_ATTR_ENCAP:
+-     case OVS_KEY_ATTR_ETHERTYPE:
+-     case OVS_KEY_ATTR_IN_PORT:
+-     case OVS_KEY_ATTR_VLAN:
+-     case OVS_KEY_ATTR_ICMP:
+-     case OVS_KEY_ATTR_ICMPV6:
+-     case OVS_KEY_ATTR_ARP:
+-     case OVS_KEY_ATTR_ND:
+-     case __OVS_KEY_ATTR_MAX:
+-     default:
+-        NOT_REACHED();
+-    }
+-}
+-
+ static bool
+ dp_netdev_execute_actions(struct dp_netdev *dp,
+                           struct ofpbuf *packet, struct flow *key,
+diff --git a/lib/odp-util.c b/lib/odp-util.c
+index e18e109..ad5873c 100644
+--- a/lib/odp-util.c
++++ b/lib/odp-util.c
+@@ -2420,3 +2420,79 @@ commit_odp_actions(const struct flow *flow, struct flow *base,
+     commit_set_priority_action(flow, base, odp_actions);
+     commit_set_skb_mark_action(flow, base, odp_actions);
+ }
++
++static void
++dp_netdev_set_dl(struct ofpbuf *packet, const struct ovs_key_ethernet *eth_key)
++{
++    struct eth_header *eh = packet->l2;
++
++    memcpy(eh->eth_src, eth_key->eth_src, sizeof eh->eth_src);
++    memcpy(eh->eth_dst, eth_key->eth_dst, sizeof eh->eth_dst);
++}
++
++void
++execute_set_action(struct ofpbuf *packet, const struct nlattr *a,
++                   uint32_t *skb_mark)
++{
++    enum ovs_key_attr type = nl_attr_type(a);
++    const struct ovs_key_ipv4 *ipv4_key;
++    const struct ovs_key_ipv6 *ipv6_key;
++    const struct ovs_key_tcp *tcp_key;
++    const struct ovs_key_udp *udp_key;
++
++    switch (type) {
++    case OVS_KEY_ATTR_PRIORITY:
++    case OVS_KEY_ATTR_TUNNEL:
++        /* not implemented */
++        break;
++
++    case OVS_KEY_ATTR_SKB_MARK:
++        *skb_mark = nl_attr_get_u32(a);
++        break;
++
++    case OVS_KEY_ATTR_ETHERNET:
++        dp_netdev_set_dl(packet,
++                   nl_attr_get_unspec(a, sizeof(struct ovs_key_ethernet)));
++        break;
++
++    case OVS_KEY_ATTR_IPV4:
++        ipv4_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_ipv4));
++        packet_set_ipv4(packet, ipv4_key->ipv4_src, ipv4_key->ipv4_dst,
++                        ipv4_key->ipv4_tos, ipv4_key->ipv4_ttl);
++        break;
++
++    case OVS_KEY_ATTR_IPV6:
++        ipv6_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_ipv6));
++        packet_set_ipv6(packet, ipv6_key->ipv6_proto, ipv6_key->ipv6_src,
++                        ipv6_key->ipv6_dst, ipv6_key->ipv6_tclass,
++                        ipv6_key->ipv6_label, ipv6_key->ipv6_hlimit);
++        break;
++
++    case OVS_KEY_ATTR_TCP:
++        tcp_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_tcp));
++        packet_set_tcp_port(packet, tcp_key->tcp_src, tcp_key->tcp_dst);
++        break;
++
++     case OVS_KEY_ATTR_UDP:
++        udp_key = nl_attr_get_unspec(a, sizeof(struct ovs_key_udp));
++        packet_set_udp_port(packet, udp_key->udp_src, udp_key->udp_dst);
++        break;
++
++     case OVS_KEY_ATTR_MPLS:
++         set_mpls_lse(packet, nl_attr_get_be32(a));
++         break;
++
++     case OVS_KEY_ATTR_UNSPEC:
++     case OVS_KEY_ATTR_ENCAP:
++     case OVS_KEY_ATTR_ETHERTYPE:
++     case OVS_KEY_ATTR_IN_PORT:
++     case OVS_KEY_ATTR_VLAN:
++     case OVS_KEY_ATTR_ICMP:
++     case OVS_KEY_ATTR_ICMPV6:
++     case OVS_KEY_ATTR_ARP:
++     case OVS_KEY_ATTR_ND:
++     case __OVS_KEY_ATTR_MAX:
++     default:
++        NOT_REACHED();
++    }
++}
+diff --git a/lib/odp-util.h b/lib/odp-util.h
+index da62aa5..637d6a5 100644
+--- a/lib/odp-util.h
++++ b/lib/odp-util.h
+@@ -159,6 +159,9 @@ void odp_put_tunnel_action(const struct flow_tnl *tunnel,
+ void odp_put_skb_mark_action(const uint32_t skb_mark,
+                              struct ofpbuf *odp_actions);
+ 
++void execute_set_action(struct ofpbuf *packet, const struct nlattr *a,
++                        uint32_t *skb_mark);
++
+ /* Reasons why a subfacet might not be fast-pathable. */
+ enum slow_path_reason {
+     /* These reasons are mutually exclusive. */
+-- 
+1.7.10.4
