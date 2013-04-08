@@ -1,62 +1,80 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/2] sh_eth: add R-Car support for real
-Date: Mon, 08 Apr 2013 17:45:14 +0400
-Message-ID: <5162C9EA.6060005@cogentembedded.com>
-References: <201303290051.32106.sergei.shtylyov@cogentembedded.com> <20130408023936.GA1643@verge.net.au> <20130408090451.GC8917@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	linux-sh@vger.kernel.org, phil.edworthy@renesas.com
-To: Simon Horman <horms@verge.net.au>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20130408090451.GC8917@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH] Documentation: cgroup: add documentation for net_cls cgroups.
+Date: Mon,  8 Apr 2013 17:04:20 +0300
+Message-ID: <1365429860-3184-1-git-send-email-ramirose@gmail.com>
+Cc: tj@kernel.org, lizefan@huawei.com, netdev@vger.kernel.org,
+	tgraf@suug.ch, Rami Rosen <ramirose@gmail.com>
+To: cgroups@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:46835 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964876Ab3DHOEb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 10:04:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+This patch adds a new file, Documentation/cgroups/net_cls.txt, with info
+about net_cls cgroups, and updates the 00-INDEX accordingly.
 
-On 08-04-2013 13:04, Simon Horman wrote:
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+---
+ Documentation/cgroups/00-INDEX    |  2 ++
+ Documentation/cgroups/net_cls.txt | 34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 36 insertions(+)
+ create mode 100644 Documentation/cgroups/net_cls.txt
 
->>> Commit d0418bb7123f44b23d69ac349eec7daf9103472f (net: sh_eth: Add eth support
->>> for R8A7779 device) was a failed attempt to add support for one of members of
->>> the R-Car SoC family.  That's for three reasons: it treated R8A7779 the  same
->>> as SH7724 except including quite dirty hack adding ECMR_ELB  bit  to the mask
->>> in sh_eth_set_rate() while not removing ECMR_RTM bit (despite it's reserved in
->>> R-Car Ether), and it didn't add a new register offset array despite the closest
->>> SH_ETH_REG_FAST_SH4 mapping differs by 0x200 to the offsets all the R-Car Ether
->>> registers have, and also some of the registers in this old mapping don't exist
->>> on R-Car Ether (due to this, SH7724's 'sh_eth_my_cpu_data' structure is not
->>> adequeate for R-Car too).  Fix all these shortcomings, restoring the SH7724
->>> related section to its pristine state...
-
->>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
->> Hi Sergei,
-
->> thanks for this and sorry for not noticing it earlier.
->> I will try exercising it on the r8a7790 lager.
-
-> I am having a little trouble getting bringing up a link on the
-> r8a7790 lager. I wonder if:
-
-> * You know of any sh_eth side changes that need to be made,
->    other than adding r8a7790 obvious ones relating to adding
->    ARCH_R8A7790 wherever ARCH_R8A7779 is found.
-
-    Unfortunately, the only datasheet for R8A7790 Ether I have is in Japanese. 
-And I don't have the board info either. :-(
-
-> * You have any sample board code for the marzen/r8a7779 or
->    bockw/r8a7778 handy.
-
-    On Marzen the driver simply doesn't work right (and I don't even have the 
-datasheet for the Ethernet daughter board that I have, only for some other 
-type of board), on the BOCK-W the driver works but I have only tested it with 
-the version 1 of Morimoto-san's R8A7778/BOCK-W patches (which included pinmux
-support), so this patch doesn't compile anymore with the current 
-renesas.git/next. With BOCK-W you need to set 'no_ether_link' in the platform 
-data since the Ether's LINK signal is connected to PHY's link/activity LED output.
-
-WBR, Sergei
-
+diff --git a/Documentation/cgroups/00-INDEX b/Documentation/cgroups/00-INDEX
+index f5635a0..bc461b6 100644
+--- a/Documentation/cgroups/00-INDEX
++++ b/Documentation/cgroups/00-INDEX
+@@ -18,6 +18,8 @@ memcg_test.txt
+ 	- Memory Resource Controller; implementation details.
+ memory.txt
+ 	- Memory Resource Controller; design, accounting, interface, testing.
++net_cls.txt
++	- Network classifier cgroups details and usages.
+ net_prio.txt
+ 	- Network priority cgroups details and usages.
+ resource_counter.txt
+diff --git a/Documentation/cgroups/net_cls.txt b/Documentation/cgroups/net_cls.txt
+new file mode 100644
+index 0000000..9face6b
+--- /dev/null
++++ b/Documentation/cgroups/net_cls.txt
+@@ -0,0 +1,34 @@
++Network classifier cgroup
++-------------------------
++
++The Network classifier cgroup provides an interface to
++tag network packets with a class identifier (classid).
++
++The Traffic Controller (tc) can be used to assign
++different priorities to packets from different cgroups.
++
++Creating a net_cls cgroups instance creates a net_cls.classid file.
++This net_cls.classid value is initialized to 0.
++
++You can write hexadecimal values to net_cls.classid; the format for these
++values is 0xAAAABBBB; AAAA is the major handle number and BBBB
++is the minor handle number.
++Reading net_cls.classid yields a decimal result.
++
++Example:
++mkdir /sys/fs/cgroup/net_cls
++mount -t cgroup -onet_cls net_cls /sys/fs/cgroup/net_cls
++mkdir /sys/fs/cgroup/net_cls/0
++echo 0x100001 >  /sys/fs/cgroup/net_cls/0/net_cls.classid
++	- setting a 10:1 handle.
++
++cat /sys/fs/cgroup/net_cls/0/net_cls.classid
++1048577
++
++configuring tc:
++tc qdisc add dev eth0 root handle 10: htb
++
++tc class add dev eth0 parent 10: classid 10:1 htb rate 40mbit
++ - creating traffic class 10:1
++
++tc filter add dev eth0 parent 10: protocol ip prio 10 handle 1: cgroup
+-- 
+1.8.1.4
