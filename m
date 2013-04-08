@@ -1,35 +1,108 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK
- packet
-Date: Mon, 08 Apr 2013 18:08:10 -0400 (EDT)
-Message-ID: <20130408.180810.204547968236959718.davem@davemloft.net>
-References: <2921619.mqaHl5PnPI@sifl>
-	<20130408.173325.1683493727549657170.davem@davemloft.net>
-	<2162769.UZ73yv7g6c@sifl>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] net: ipv6: add tokenized interface identifier support
+Date: Tue, 9 Apr 2013 00:21:54 +0200
+Message-ID: <20130408222154.GA25696@order.stressinduktion.org>
+References: <1365429690-17342-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	mvadkert@redhat.com, selinux@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org
-To: pmoore@redhat.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <2162769.UZ73yv7g6c@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Thomas Graf <tgraf@suug.ch>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:59325 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758971Ab3DHWVz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 18:21:55 -0400
+Content-Disposition: inline
+In-Reply-To: <1365429690-17342-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <pmoore@redhat.com>
-Date: Mon, 08 Apr 2013 18:01:56 -0400
+Sorry, I was a bit busy and just had more time to look at your patch
+again. Perhaps you could look into my comments. (A new patch would be
+needed as it already landed in net-next).
 
-> Okay, if the objection is really just one of structure size and not the hooks, 
-> what if I did the work to consolidate the skb->secmark and skb->sp fields into 
-> a new structure/pointer?  Assuming it wasn't too painful, it would be a net 
-> reduction of four bytes.  If that worked would you have an objection to us 
-> adding a LSM security blob to this new structure?
+On Mon, Apr 08, 2013 at 04:01:30PM +0200, Daniel Borkmann wrote:
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index a33b157..65d8139 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -422,6 +422,7 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
+>  		ipv6_regen_rndid((unsigned long) ndev);
+>  	}
+>  #endif
+> +	memset(ndev->token.s6_addr, 0, sizeof(ndev->token.s6_addr));
 
-'sp' is sepreate from LSM and making it indirect would hurt IPSEC
-performance.
+ndev is allocated with __GFP_ZERO so no need to clear it. Otherwise I would do
 
-Please, really, just drop this.
+ndev->token = in6addr_any;
 
-Thanks.
+to make the check in addrconf_prefix_rcv more clear.
+
+> +static int inet6_set_iftoken(struct inet6_dev *idev, struct in6_addr *token)
+> +{
+> +	struct in6_addr ll_addr;
+> +	struct inet6_ifaddr *ifp;
+> +	struct net_device *dev = idev->dev;
+> +
+> +	if (token == NULL)
+> +		return -EINVAL;
+> +	if (ipv6_addr_any(token))
+> +		return -EINVAL;
+> +	if (dev->flags & (IFF_LOOPBACK | IFF_NOARP))
+> +		return -EINVAL;
+> +	if (idev->dead || !(idev->if_flags & IF_READY))
+> +		return -EINVAL;
+> +	if (!ipv6_accept_ra(idev))
+> +		return -EINVAL;
+> +	if (idev->cnf.rtr_solicits <= 0)
+> +		return -EINVAL;
+
+IF_READY marks an interface which is already up. So we are not allowed to set
+a token on an interface which is down? I would drop this requirement, seems
+like a usability issue. ;)
+
+> +
+> +	write_lock_bh(&idev->lock);
+> +
+> +	BUILD_BUG_ON(sizeof(token->s6_addr) != 16);
+> +	memcpy(idev->token.s6_addr + 8, token->s6_addr + 8, 8);
+> +
+> +	write_unlock_bh(&idev->lock);
+> +
+
+{
+> +	ipv6_get_lladdr(dev, &ll_addr, IFA_F_TENTATIVE | IFA_F_OPTIMISTIC);
+> +	ndisc_send_rs(dev, &ll_addr, &in6addr_linklocal_allrouters);
+> +
+> +	write_lock_bh(&idev->lock);
+> +	idev->if_flags |= IF_RS_SENT;
+}
+
+This should then be only called if IF_READY is set. Otherwise normal ifup
+handling will send out the rs. If one day there is the possibility to add more
+than one token we would actually have to check the minimum solicitation
+intervals. I think this does not matter now.
+
+> +
+> +	/* Well, that's kinda nasty ... */
+> +	list_for_each_entry(ifp, &idev->addr_list, if_list) {
+> +		spin_lock(&ifp->lock);
+> +		if (ipv6_addr_src_scope(&ifp->addr) ==
+> +		    IPV6_ADDR_SCOPE_GLOBAL) {
+> +			ifp->valid_lft = 0;
+> +			ifp->prefered_lft = 0;
+> +		}
+> +		spin_unlock(&ifp->lock);
+> +	}
+
+As I understand this logic it also does deprecate current statically configured ip
+addresses? Perhaps another per-inet6_ifaddr flag to mark the ip address as
+token configured and just clean these address.
+
+The flag would have to be set in addrconf_prefix_rcv if tokens are active.
+
+Thanks, 
+
+  Hannes
