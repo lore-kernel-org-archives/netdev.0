@@ -1,57 +1,91 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next.git 0/5] stmmac code tidy-up (v2)
-Date: Mon,  8 Apr 2013 14:09:58 +0200
-Message-ID: <1365423003-23959-1-git-send-email-peppe.cavallaro@st.com>
-Cc: eric.dumazet@gmail.com, bhutchings@solarflare.com,
-	shiraz.hashim@st.com, Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: Steve French <smfrench@gmail.com>
+Subject: Re: [PATCH 1/2] crypto: add CMAC support to CryptoAPI
+Date: Mon, 8 Apr 2013 08:20:52 -0500
+Message-ID: <CAH2r5mt=M9ZMQCUbMpYfwE6OY5PeEgDbSbh0q-rQ4ucyu6zeug@mail.gmail.com>
+References: <20130408074844.6866.90093.stgit@localhost6.localdomain6>
+	<CADT32eLHBWoRMvnBWbEEEWfpQtsnivYSeSgyG95MhURVEgmgjA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+To: Shirish Pargaonkar <shirishpargaonkar@gmail.com>,
+	jussi.kivilinna@iki.fi,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Network Development <netdev@vger.kernel.org>,
+	Tom St Denis <tstdenis@elliptictech.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:60242 "EHLO
-	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935225Ab3DHMKU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 08:10:20 -0400
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:51526 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935548Ab3DHNUy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 09:20:54 -0400
+Received: by mail-lb0-f172.google.com with SMTP id u10so5705390lbi.3
+        for <netdev@vger.kernel.org>; Mon, 08 Apr 2013 06:20:52 -0700 (PDT)
+In-Reply-To: <CADT32eLHBWoRMvnBWbEEEWfpQtsnivYSeSgyG95MhURVEgmgjA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These patches review and tidy-up the driver to respect the codying-style rules
-where there were some problems.
-Also now kernel-doc passes w/o any warnings.
-These review the stmmac.txt where some new fields have not been
-updated after adding new supports.
-There is a patch to review the private structure trying to reorganize all the fields
-in order to keep adjacent fields for cache effect (this patch is the V2 because
-already discussed in the mailing list). I have seen that there are not
-regressions when test on UP and SMP systems indeed.
-In these patches I have removed two old patches for memory barrier and GRO.
-We discussed about these in the mainling list and these had to be discarded.
+This does look promising - AES_CMAC in the crypto libs would be very
+helpful for SMB3 for cifs.ko (for the common cases when packet signing
+is required, or network file system encryption is turned on for a
+share).  Presumably with Windows 8 and Windows 2012 and some very
+current NAS these are required.  Apparently AES_CMAC also is much
+faster than the algorithms used in previous network file system
+dialect levels as well, so will help performance, not just be more
+secure.
 
-Giuseppe Cavallaro (5):
-  stmmac: review driver documentation
-  stmmac: improve/review and fix kernel-doc
-  stmmac: code tidy-up
-  stmmac: review private structure fields
-  stmmac: prefetch all dma_erx when use extend_desc
+This general crypto patch is much larger than the cifs.ko specific
+patch I had been working on but perhaps it is because of optional
+features.
 
- Documentation/networking/stmmac.txt                |   12 +-
- drivers/net/ethernet/stmicro/stmmac/chain_mode.c   |   12 +-
- drivers/net/ethernet/stmicro/stmmac/common.h       |   89 ++--
- drivers/net/ethernet/stmicro/stmmac/descs.h        |    6 +-
- drivers/net/ethernet/stmicro/stmmac/descs_com.h    |    3 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |   69 ++--
- .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   70 ++--
- .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    |   23 +-
- .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |   28 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c |   26 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |    4 +-
- drivers/net/ethernet/stmicro/stmmac/mmc.h          |    3 +-
- drivers/net/ethernet/stmicro/stmmac/norm_desc.c    |    4 +-
- drivers/net/ethernet/stmicro/stmmac/ring_mode.c    |    2 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   72 ++--
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  462 ++++++++++++--------
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |    2 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |    2 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c   |    8 +-
- 19 files changed, 496 insertions(+), 401 deletions(-)
 
--- 
-1.7.4.4
+> ---------- Forwarded message ----------
+> From: Jussi Kivilinna <jussi.kivilinna@iki.fi>
+> Date: Mon, Apr 8, 2013 at 2:48 AM
+> Subject: [PATCH 1/2] crypto: add CMAC support to CryptoAPI
+> To: linux-crypto@vger.kernel.org
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>, netdev@vger.kernel.org, Tom St Denis <tstdenis@elliptictech.com>, Herbert Xu <herbert@gondor.apana.org.au>, "David S. Miller" <davem@davemloft.net>
+>
+>
+> Patch adds support for NIST recommended block cipher mode CMAC to CryptoAPI.
+>
+> This work is based on Tom St Denis' earlier patch,
+>  http://marc.info/?l=linux-crypto-vger&m=135877306305466&w=2
+>
+> Cc: Tom St Denis <tstdenis@elliptictech.com>
+> Signed-off-by: Jussi Kivilinna <jussi.kivilinna@iki.fi>
+> ---
+>  crypto/Kconfig   |   11 ++
+>  crypto/Makefile  |    1
+>  crypto/cmac.c    |  315 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+>  crypto/tcrypt.c  |   11 ++
+>  crypto/testmgr.c |   18 +++
+>  crypto/testmgr.h |  125 +++++++++++++++++++++
+>  6 files changed, 480 insertions(+), 1 deletion(-)
+>  create mode 100644 crypto/cmac.c
+>
+> diff --git a/crypto/Kconfig b/crypto/Kconfig
+> index 6cc27f1..c1142f3 100644
+> --- a/crypto/Kconfig
+> +++ b/crypto/Kconfig
+> @@ -283,6 +283,17 @@ config CRYPTO_XTS
+>
+>  comment "Hash modes"
+>
+> +config CRYPTO_CMAC
+> +       tristate "CMAC support"
+> +       select CRYPTO_HASH
+> +       select CRYPTO_MANAGER
+> +       help
+> +         Cipher-based Message Authentication Code (CMAC) specified by
+> +         The National Institute of Standards and Technology (NIST).
+> +
+> +         https://tools.ietf.org/html/rfc4493
+> +         http://csrc.nist.gov/publications/nistpubs/800-38B/SP_800-38B.pdf
+>
+
+
+
+--
+Thanks,
+
+Steve
