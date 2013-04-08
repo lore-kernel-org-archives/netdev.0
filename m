@@ -1,129 +1,238 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 2/2] qeth: fix qeth_wait_for_threads() deadlock for OSN devices
-Date: Mon, 08 Apr 2013 10:19:27 +0200
-Message-ID: <20130408082003.772850297@de.ibm.com>
-References: <20130408081925.995757091@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Stefan Raspl <raspl@linux.vnet.ibm.com>
-To: davem@davemloft.net
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 2/2] sh_eth: add R-Car support for real
+Date: Mon, 8 Apr 2013 18:04:51 +0900
+Message-ID: <20130408090451.GC8917@verge.net.au>
+References: <201303290051.32106.sergei.shtylyov@cogentembedded.com>
+ <20130408023936.GA1643@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
+	linux-sh@vger.kernel.org, phil.edworthy@renesas.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:42484 "EHLO
-	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934845Ab3DHIUJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 04:20:09 -0400
-Received: from /spool/local
-	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
-	Mon, 8 Apr 2013 09:17:19 +0100
-Content-Disposition: inline; filename=602-qeth-thread-deadlock.diff
+Received: from kirsty.vergenet.net ([202.4.237.240]:53662 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934522Ab3DHJEz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 05:04:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20130408023936.GA1643@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Raspl <raspl@linux.vnet.ibm.com>
+On Mon, Apr 08, 2013 at 11:39:37AM +0900, Simon Horman wrote:
+> On Fri, Mar 29, 2013 at 12:51:31AM +0300, Sergei Shtylyov wrote:
+> > Commit d0418bb7123f44b23d69ac349eec7daf9103472f (net: sh_eth: Add eth support
+> > for R8A7779 device) was a failed attempt to add support for one of members of
+> > the R-Car SoC family.  That's for three reasons: it treated R8A7779 the  same
+> > as SH7724 except including quite dirty hack adding ECMR_ELB  bit  to the mask
+> > in sh_eth_set_rate() while not removing ECMR_RTM bit (despite it's reserved in
+> > R-Car Ether), and it didn't add a new register offset array despite the closest
+> > SH_ETH_REG_FAST_SH4 mapping differs by 0x200 to the offsets all the R-Car Ether
+> > registers have, and also some of the registers in this old mapping don't exist
+> > on R-Car Ether (due to this, SH7724's 'sh_eth_my_cpu_data' structure is not
+> > adequeate for R-Car too).  Fix all these shortcomings, restoring the SH7724
+> > related section to its pristine state...
+> > 
+> > Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> 
+> Hi Sergei,
+> 
+> thanks for this and sorry for not noticing it earlier.
+> I will try exercising it on the r8a7790 lager.
 
-Any recovery thread will deadlock when calling qeth_wait_for_threads(), most
-notably when triggering a recovery on an OSN device.
-This patch will store the recovery thread's task pointer on recovery
-invocation and check in qeth_wait_for_threads() respectively to avoid
-deadlocks.
+I am having a little trouble getting bringing up a link on the
+r8a7790 lager. I wonder if:
 
-Signed-off-by: Stefan Raspl <raspl@linux.vnet.ibm.com>
-Signed-off-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Reviewed-by: Ursula Braun <ursula.braun@de.ibm.com>
----
- drivers/s390/net/qeth_core.h      |    3 +++
- drivers/s390/net/qeth_core_main.c |   19 +++++++++++++++++++
- drivers/s390/net/qeth_l2_main.c   |    2 ++
- drivers/s390/net/qeth_l3_main.c   |    2 ++
- 4 files changed, 26 insertions(+)
+* You know of any sh_eth side changes that need to be made,
+  other than adding r8a7790 obvious ones relating to adding
+  ARCH_R8A7790 wherever ARCH_R8A7779 is found.
+* You have any sample board code for the marzen/r8a7779 or
+  bockw/r8a7778 handy.
 
---- a/drivers/s390/net/qeth_core.h
-+++ b/drivers/s390/net/qeth_core.h
-@@ -769,6 +769,7 @@ struct qeth_card {
- 	unsigned long thread_start_mask;
- 	unsigned long thread_allowed_mask;
- 	unsigned long thread_running_mask;
-+	struct task_struct *recovery_task;
- 	spinlock_t ip_lock;
- 	struct list_head ip_list;
- 	struct list_head *ip_tbd_list;
-@@ -862,6 +863,8 @@ extern struct qeth_card_list_struct qeth
- extern struct kmem_cache *qeth_core_header_cache;
- extern struct qeth_dbf_info qeth_dbf[QETH_DBF_INFOS];
- 
-+void qeth_set_recovery_task(struct qeth_card *);
-+void qeth_clear_recovery_task(struct qeth_card *);
- void qeth_set_allowed_threads(struct qeth_card *, unsigned long , int);
- int qeth_threads_running(struct qeth_card *, unsigned long);
- int qeth_wait_for_threads(struct qeth_card *, unsigned long);
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -177,6 +177,23 @@ const char *qeth_get_cardname_short(stru
- 	return "n/a";
- }
- 
-+void qeth_set_recovery_task(struct qeth_card *card)
-+{
-+	card->recovery_task = current;
-+}
-+EXPORT_SYMBOL_GPL(qeth_set_recovery_task);
-+
-+void qeth_clear_recovery_task(struct qeth_card *card)
-+{
-+	card->recovery_task = NULL;
-+}
-+EXPORT_SYMBOL_GPL(qeth_clear_recovery_task);
-+
-+static bool qeth_is_recovery_task(const struct qeth_card *card)
-+{
-+	return card->recovery_task == current;
-+}
-+
- void qeth_set_allowed_threads(struct qeth_card *card, unsigned long threads,
- 			 int clear_start_mask)
- {
-@@ -205,6 +222,8 @@ EXPORT_SYMBOL_GPL(qeth_threads_running);
- 
- int qeth_wait_for_threads(struct qeth_card *card, unsigned long threads)
- {
-+	if (qeth_is_recovery_task(card))
-+		return 0;
- 	return wait_event_interruptible(card->wait_q,
- 			qeth_threads_running(card, threads) == 0);
- }
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -1143,6 +1143,7 @@ static int qeth_l2_recover(void *ptr)
- 	QETH_CARD_TEXT(card, 2, "recover2");
- 	dev_warn(&card->gdev->dev,
- 		"A recovery process has been started for the device\n");
-+	qeth_set_recovery_task(card);
- 	__qeth_l2_set_offline(card->gdev, 1);
- 	rc = __qeth_l2_set_online(card->gdev, 1);
- 	if (!rc)
-@@ -1153,6 +1154,7 @@ static int qeth_l2_recover(void *ptr)
- 		dev_warn(&card->gdev->dev, "The qeth device driver "
- 				"failed to recover an error on the device\n");
- 	}
-+	qeth_clear_recovery_task(card);
- 	qeth_clear_thread_start_bit(card, QETH_RECOVER_THREAD);
- 	qeth_clear_thread_running_bit(card, QETH_RECOVER_THREAD);
- 	return 0;
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -3515,6 +3515,7 @@ static int qeth_l3_recover(void *ptr)
- 	QETH_CARD_TEXT(card, 2, "recover2");
- 	dev_warn(&card->gdev->dev,
- 		"A recovery process has been started for the device\n");
-+	qeth_set_recovery_task(card);
- 	__qeth_l3_set_offline(card->gdev, 1);
- 	rc = __qeth_l3_set_online(card->gdev, 1);
- 	if (!rc)
-@@ -3525,6 +3526,7 @@ static int qeth_l3_recover(void *ptr)
- 		dev_warn(&card->gdev->dev, "The qeth device driver "
- 				"failed to recover an error on the device\n");
- 	}
-+	qeth_clear_recovery_task(card);
- 	qeth_clear_thread_start_bit(card, QETH_RECOVER_THREAD);
- 	qeth_clear_thread_running_bit(card, QETH_RECOVER_THREAD);
- 	return 0;
+> 
+> IIRC you previously mentioned that you were doing work on unravelling
+> the #define mess in sh_eth. I am wondering if you have made any progress
+> in that area. In particular, other than sh_eth it looks like
+> the r8a7740 and r8a7790 could use a common .config. So it would
+> be nice if sh_eth could support at least those two in the same build.
+> 
+> > ---
+> > The patch is against the David Miller's 'net-next.git' repo.
+> > 
+> > Support for the other members of R-Car family such as R8A7778 and R8A7790 should
+> > probably be added when they hit mainline (support for the former is already in
+> > the 'next' branch of Simon Horman's 'renesas.git' repo).
+> > 
+> >  drivers/net/ethernet/renesas/sh_eth.c |  107 +++++++++++++++++++++++++++++++---
+> >  include/linux/sh_eth.h                |    1 
+> >  2 files changed, 100 insertions(+), 8 deletions(-)
+> > 
+> > Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+> > ===================================================================
+> > --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
+> > +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+> > @@ -2,7 +2,8 @@
+> >   *  SuperH Ethernet device driver
+> >   *
+> >   *  Copyright (C) 2006-2012 Nobuhiro Iwamatsu
+> > - *  Copyright (C) 2008-2012 Renesas Solutions Corp.
+> > + *  Copyright (C) 2008-2013 Renesas Solutions Corp.
+> > + *  Copyright (C) 2013 Cogent Embedded, Inc.
+> >   *
+> >   *  This program is free software; you can redistribute it and/or modify it
+> >   *  under the terms and conditions of the GNU General Public License,
+> > @@ -147,6 +148,51 @@ static const u16 sh_eth_offset_gigabit[S
+> >  	[FWALCR1]	= 0x00b4,
+> >  };
+> >  
+> > +static const u16 sh_eth_offset_fast_rcar[SH_ETH_MAX_REGISTER_OFFSET] = {
+> > +	[ECMR]		= 0x0300,
+> > +	[RFLR]		= 0x0308,
+> > +	[ECSR]		= 0x0310,
+> > +	[ECSIPR]	= 0x0318,
+> > +	[PIR]		= 0x0320,
+> > +	[PSR]		= 0x0328,
+> > +	[RDMLR]		= 0x0340,
+> > +	[IPGR]		= 0x0350,
+> > +	[APR]		= 0x0354,
+> > +	[MPR]		= 0x0358,
+> > +	[RFCF]		= 0x0360,
+> > +	[TPAUSER]	= 0x0364,
+> > +	[TPAUSECR]	= 0x0368,
+> > +	[MAHR]		= 0x03c0,
+> > +	[MALR]		= 0x03c8,
+> > +	[TROCR]		= 0x03d0,
+> > +	[CDCR]		= 0x03d4,
+> > +	[LCCR]		= 0x03d8,
+> > +	[CNDCR]		= 0x03dc,
+> > +	[CEFCR]		= 0x03e4,
+> > +	[FRECR]		= 0x03e8,
+> > +	[TSFRCR]	= 0x03ec,
+> > +	[TLFRCR]	= 0x03f0,
+> > +	[RFCR]		= 0x03f4,
+> > +	[MAFCR]		= 0x03f8,
+> > +
+> > +	[EDMR]		= 0x0200,
+> > +	[EDTRR]		= 0x0208,
+> > +	[EDRRR]		= 0x0210,
+> > +	[TDLAR]		= 0x0218,
+> > +	[RDLAR]		= 0x0220,
+> > +	[EESR]		= 0x0228,
+> > +	[EESIPR]	= 0x0230,
+> > +	[TRSCER]	= 0x0238,
+> > +	[RMFCR]		= 0x0240,
+> > +	[TFTR]		= 0x0248,
+> > +	[FDR]		= 0x0250,
+> > +	[RMCR]		= 0x0258,
+> > +	[TFUCR]		= 0x0264,
+> > +	[RFOCR]		= 0x0268,
+> > +	[FCFTR]		= 0x0270,
+> > +	[TRIMD]		= 0x027c,
+> > +};
+> > +
+> >  static const u16 sh_eth_offset_fast_sh4[SH_ETH_MAX_REGISTER_OFFSET] = {
+> >  	[ECMR]		= 0x0100,
+> >  	[RFLR]		= 0x0108,
+> > @@ -296,7 +342,7 @@ static void sh_eth_select_mii(struct net
+> >  #endif
+> >  
+> >  /* There is CPU dependent code */
+> > -#if defined(CONFIG_CPU_SUBTYPE_SH7724) || defined(CONFIG_ARCH_R8A7779)
+> > +#if defined(CONFIG_ARCH_R8A7779)
+> >  #define SH_ETH_RESET_DEFAULT	1
+> >  static void sh_eth_set_duplex(struct net_device *ndev)
+> >  {
+> > @@ -311,18 +357,60 @@ static void sh_eth_set_duplex(struct net
+> >  static void sh_eth_set_rate(struct net_device *ndev)
+> >  {
+> >  	struct sh_eth_private *mdp = netdev_priv(ndev);
+> > -	unsigned int bits = ECMR_RTM;
+> >  
+> > -#if defined(CONFIG_ARCH_R8A7779)
+> > -	bits |= ECMR_ELB;
+> > -#endif
+> > +	switch (mdp->speed) {
+> > +	case 10: /* 10BASE */
+> > +		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_ELB, ECMR);
+> > +		break;
+> > +	case 100:/* 100BASE */
+> > +		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_ELB, ECMR);
+> > +		break;
+> > +	default:
+> > +		break;
+> > +	}
+> > +}
+> > +
+> > +/* R8A7779 */
+> > +static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
+> > +	.set_duplex	= sh_eth_set_duplex,
+> > +	.set_rate	= sh_eth_set_rate,
+> > +
+> > +	.ecsr_value	= ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD,
+> > +	.ecsipr_value	= ECSIPR_PSRTOIP | ECSIPR_LCHNGIP | ECSIPR_ICDIP,
+> > +	.eesipr_value	= 0x01ff009f,
+> > +
+> > +	.tx_check	= EESR_FTC | EESR_CND | EESR_DLC | EESR_CD | EESR_RTO,
+> > +	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RDE |
+> > +			  EESR_RFRMER | EESR_TFE | EESR_TDE | EESR_ECI,
+> > +	.tx_error_check	= EESR_TWB | EESR_TABT | EESR_TDE | EESR_TFE,
+> > +
+> > +	.apr		= 1,
+> > +	.mpr		= 1,
+> > +	.tpauser	= 1,
+> > +	.hw_swap	= 1,
+> > +};
+> > +#elif defined(CONFIG_CPU_SUBTYPE_SH7724)
+> > +#define SH_ETH_RESET_DEFAULT	1
+> > +static void sh_eth_set_duplex(struct net_device *ndev)
+> > +{
+> > +	struct sh_eth_private *mdp = netdev_priv(ndev);
+> > +
+> > +	if (mdp->duplex) /* Full */
+> > +		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_DM, ECMR);
+> > +	else		/* Half */
+> > +		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
+> > +}
+> > +
+> > +static void sh_eth_set_rate(struct net_device *ndev)
+> > +{
+> > +	struct sh_eth_private *mdp = netdev_priv(ndev);
+> >  
+> >  	switch (mdp->speed) {
+> >  	case 10: /* 10BASE */
+> > -		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~bits, ECMR);
+> > +		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_RTM, ECMR);
+> >  		break;
+> >  	case 100:/* 100BASE */
+> > -		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | bits, ECMR);
+> > +		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_RTM, ECMR);
+> >  		break;
+> >  	default:
+> >  		break;
+> > @@ -2521,6 +2609,9 @@ static const u16 *sh_eth_get_register_of
+> >  	case SH_ETH_REG_GIGABIT:
+> >  		reg_offset = sh_eth_offset_gigabit;
+> >  		break;
+> > +	case SH_ETH_REG_FAST_RCAR:
+> > +		reg_offset = sh_eth_offset_fast_rcar;
+> > +		break;
+> >  	case SH_ETH_REG_FAST_SH4:
+> >  		reg_offset = sh_eth_offset_fast_sh4;
+> >  		break;
+> > Index: net-next/include/linux/sh_eth.h
+> > ===================================================================
+> > --- net-next.orig/include/linux/sh_eth.h
+> > +++ net-next/include/linux/sh_eth.h
+> > @@ -6,6 +6,7 @@
+> >  enum {EDMAC_LITTLE_ENDIAN, EDMAC_BIG_ENDIAN};
+> >  enum {
+> >  	SH_ETH_REG_GIGABIT,
+> > +	SH_ETH_REG_FAST_RCAR,
+> >  	SH_ETH_REG_FAST_SH4,
+> >  	SH_ETH_REG_FAST_SH3_SH2
+> >  };
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-sh" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > 
