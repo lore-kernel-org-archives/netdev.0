@@ -1,45 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net,1/2] hyperv: Fix a kernel warning from
- netvsc_linkstatus_callback()
-Date: Mon, 08 Apr 2013 12:16:14 -0400 (EDT)
-Message-ID: <20130408.121614.2170605259377916404.davem@davemloft.net>
-References: <1365198280-23270-1-git-send-email-haiyangz@microsoft.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH] Make sure GRED backlog does not get screwed up.
+Date: Mon, 08 Apr 2013 06:26:44 -0400
+Message-ID: <51629B64.2020406@mojatatu.com>
+References: <CAD-Y_xtAvq5+mVe-=VDCDntY-NE2Oq+mhv56g6d8Tb2uiHw6bw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: haiyangz@microsoft.com
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1365198280-23270-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel/>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: "devel" <devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Magnus Gille <mgille@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:49050 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965169Ab3DHK07 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 06:26:59 -0400
+Received: by mail-ie0-f177.google.com with SMTP id tp5so6482401ieb.8
+        for <netdev@vger.kernel.org>; Mon, 08 Apr 2013 03:26:58 -0700 (PDT)
+In-Reply-To: <CAD-Y_xtAvq5+mVe-=VDCDntY-NE2Oq+mhv56g6d8Tb2uiHw6bw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Fri,  5 Apr 2013 14:44:39 -0700
 
-> The warning about local_bh_enable inside IRQ happens when disconnecting a
-> virtual NIC.
-> 
-> The reason for the warning is -- netif_tx_disable() is called when the NIC
-> is disconnected. And it's called within irq context. netif_tx_disable() calls
-> local_bh_enable() which displays warning if in irq.
-> 
-> The fix is to remove the unnecessary netif_tx_disable & wake_queue() in the
-> netvsc_linkstatus_callback().
-> 
-> Reported-by: Richard Genoud <richard.genoud@gmail.com>
-> Tested-by: Long Li <longli@microsoft.com>
-> Tested-by: Richard Genoud <richard.genoud@gmail.com>
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+Hi,
 
-Applied.
+please use my proper address (in the From:) for faster response.
+
+On 13-04-02 02:32 PM, Magnus Gille wrote:
+> First patch, comments, feedback, suggestions are welcome. Before this patch
+> we could end up with a 4GB backlog on certain DPs without any packets. The
+> patch is created against net-next.
+>
+> If a packet is enqueued on a GRED qdisc before the DPs are setup the packet
+> will not be accounted for in the DP backlog queue.
+
+In such a case, the packet will end up in the default queue
+
+>   When the packet later
+> gets
+> dequeued from the DP queue it will subtract the length from the DP backlog
+> but,
+> since the packet was never accounted for we now wrap the backlog around.
+> Fixed
+> this by making sure we never subtract more than what's present in the
+> backlog.
+
+When no DPs set: if the packet was enqueued in a default queue,
+at dequeue it will be pulled from the default queue.
+What am i missing?
+
+cheers,
+jamal
