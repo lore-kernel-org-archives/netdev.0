@@ -1,62 +1,67 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next] ixgbe: Remove unnecessary #ifdef
- CONFIG_DEBUG_FS tests
-Date: Mon, 08 Apr 2013 11:47:36 -0700
-Message-ID: <1365446856.2048.0.camel@jtkirshe-mobl>
-References: <1365384453.8922.20.camel@joe-AO722>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 1/3] if.h: add IFF_BRIDGE_RESTRICTED flag
+Date: Mon, 8 Apr 2013 11:58:48 -0700
+Message-ID: <CAOaVG17nHuoRsf2Kss6LnpgC-Aojcso_zLYyBa18Vn9CGGY+GA@mail.gmail.com>
+References: <1365442863-32394-1-git-send-email-antonio@open-mesh.com>
+	<1365442863-32394-2-git-send-email-antonio@open-mesh.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-1wKvR3kMdNqpigQkadmL"
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:57142 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935047Ab3DHSrv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Apr 2013 14:47:51 -0400
-In-Reply-To: <1365384453.8922.20.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Antonio Quartulli <antonio@open-mesh.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1365442863-32394-2-git-send-email-antonio@open-mesh.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+The standard way to do this is to use netfilter. Considering the
+additional device flags and skb flag changes, I am not sure that your
+method is better.
 
---=-1wKvR3kMdNqpigQkadmL
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Sun, 2013-04-07 at 18:27 -0700, Joe Perches wrote:
-> Add some empty static inlines instead to make
-> the code more readable.
->=20
-> Signed-off-by: Joe Perches <joe@perches.com>
+On Mon, Apr 8, 2013 at 10:41 AM, Antonio Quartulli
+<antonio@open-mesh.com> wrote:
+> This new flag tells whether a network device has to be
+> considered as restricted in the new bridge forwarding logic.
+>
+> Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
 > ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  5 +++++
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 10 ----------
->  2 files changed, 5 insertions(+), 10 deletions(-)=20
-
-Thanks Joe, I have added the patch to my queue.
-
---=-1wKvR3kMdNqpigQkadmL
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
-
-iQIcBAABCgAGBQJRYxDIAAoJEOVv75VaS+3O+CAP/RLSFAcsoh6VRME1TkeSDbYt
-oSfGkjpN6ZpX0joQJT06Yu8H7mVljP+fPW68eMacyXW/gae+eDknKHCtwsRA9agd
-8CRRBnOySsQjdOuCsNceWn5SW+jwWH7iTPg+cRt2Ky3x49nlgspbpfH913o2icFT
-7VMGQsCm/aoQiKiYRUZDK1/IMpHRRlMrQ9qRhC4Vwz0T+K+kiaiLRlxUQHgwsx7S
-hrcJZojVG80GDXYVOgZLtgVm/QoulVxfjvWFMAdNlaU9XmwAcedI+kQv+eROxzo4
-G2shMWRKmmoPPaJ3hokBJgS+1CPbPbfh/8gHeZhKi5/UbiyueSKE5FFCID86m2N2
-p++AnqCjFOACeJfH892LX8HF69xG/WLvQrbDbG6Gp3+E17cYSPofbnIRwrk16ZMx
-FfD+QEHwsL4SyVVeG09ofWH8XKzTVx35ucej/Pzv/jBB7cYPui+CEu8J6MVHuShU
-iVkZhh4CkdrIYDKgXx1loW3HUC89YZ8MOf4Hy7Wxw6JuFrVzPD09y8wOyax6Zt30
-NSaJoGGfFO2ldqlbY92gubbwugLEklmZe/3oO6iFWjXkXSOdhrrqxAnxqEUFJAzr
-aLxEvLJ3XIJufRYzNnGjGk2/yCoJTxzLcpSm21BAvuw9VfdAQzGn2RQr+iLiiDbX
-CdbJ7WVe/0EQ6+/gEIq5
-=mfY+
------END PGP SIGNATURE-----
-
---=-1wKvR3kMdNqpigQkadmL--
+>  include/uapi/linux/if.h | 1 +
+>  net/core/dev.c          | 2 +-
+>  2 files changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/include/uapi/linux/if.h b/include/uapi/linux/if.h
+> index 1ec407b..5c3a9bd 100644
+> --- a/include/uapi/linux/if.h
+> +++ b/include/uapi/linux/if.h
+> @@ -83,6 +83,7 @@
+>  #define IFF_SUPP_NOFCS 0x80000         /* device supports sending custom FCS */
+>  #define IFF_LIVE_ADDR_CHANGE 0x100000  /* device supports hardware address
+>                                          * change when it's running */
+> +#define IFF_BRIDGE_RESTRICTED 0x200000 /* device is bridge-restricted */
+>
+>
+>  #define IF_GET_IFACE   0x0001          /* for querying only */
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 3655ff9..49eafc8 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4627,7 +4627,7 @@ int __dev_change_flags(struct net_device *dev, unsigned int flags)
+>
+>         dev->flags = (flags & (IFF_DEBUG | IFF_NOTRAILERS | IFF_NOARP |
+>                                IFF_DYNAMIC | IFF_MULTICAST | IFF_PORTSEL |
+> -                              IFF_AUTOMEDIA)) |
+> +                              IFF_AUTOMEDIA | IFF_BRIDGE_RESTRICTED)) |
+>                      (dev->flags & (IFF_UP | IFF_VOLATILE | IFF_PROMISC |
+>                                     IFF_ALLMULTI));
+>
+> --
+> 1.8.1.5
+>
