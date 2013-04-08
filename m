@@ -1,47 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] crypto: add CMAC support to CryptoAPI
-Date: Mon, 08 Apr 2013 16:49:20 -0400 (EDT)
-Message-ID: <20130408.164920.1647172260485548864.davem@davemloft.net>
-References: <20130408074844.6866.90093.stgit@localhost6.localdomain6>
-	<20130408082416.GW21448@secunet.com>
-	<20130408093340.GA18594@gondor.apana.org.au>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK packet
+Date: Mon, 08 Apr 2013 16:53:57 -0400
+Message-ID: <1798267.sYWPbozUai@sifl>
+References: <1365445303.3887.33.camel@edumazet-glaptop> <3294227.D2rod7xgQB@sifl> <20130408.164439.2282891058177074789.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, jussi.kivilinna@iki.fi,
-	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	tstdenis@elliptictech.com
-To: herbert@gondor.apana.org.au
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20130408093340.GA18594@gondor.apana.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, mvadkert@redhat.com
+To: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:2298 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763340Ab3DHUyA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Apr 2013 16:54:00 -0400
+In-Reply-To: <20130408.164439.2282891058177074789.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 8 Apr 2013 17:33:40 +0800
-
-> On Mon, Apr 08, 2013 at 10:24:16AM +0200, Steffen Klassert wrote:
->> On Mon, Apr 08, 2013 at 10:48:44AM +0300, Jussi Kivilinna wrote:
->> > Patch adds support for NIST recommended block cipher mode CMAC to CryptoAPI.
->> > 
->> > This work is based on Tom St Denis' earlier patch,
->> >  http://marc.info/?l=linux-crypto-vger&m=135877306305466&w=2
->> > 
->> > Cc: Tom St Denis <tstdenis@elliptictech.com>
->> > Signed-off-by: Jussi Kivilinna <jussi.kivilinna@iki.fi>
->> 
->> This patch does not apply clean to the ipsec-next tree
->> because of some crypto changes I don't have in ipsec-next.
->> The IPsec part should apply to the cryptodev tree,
->> so it's probaply the best if we route this patchset
->> through the cryptodev tree.
->> 
->> Herbert,
->> 
->> are you going to take these patches?
+On Monday, April 08, 2013 04:44:39 PM David Miller wrote:
+> From: Paul Moore <pmoore@redhat.com>
+> Date: Mon, 08 Apr 2013 16:37:22 -0400
 > 
-> Sure I can do that.
+> > On Monday, April 08, 2013 11:30:25 AM Eric Dumazet wrote:
+> >> On Mon, 2013-04-08 at 11:21 -0700, Eric Dumazet wrote:
+> >> > On Mon, 2013-04-08 at 14:12 -0400, Paul Moore wrote:
+> >> > > It seems a bit fragile to me, perhaps even hacky, but in some ways I
+> >> > > guess it isn't anymore fragile than relying on skb->sk - as this
+> >> > > problem demonstrates. My other concern is that adding this hook
+> >> > > *correctly* is likely to touch a lot of files and may be a bit much
+> >> > > so late in the 3.9 cycle, Dave, what say you?>
+> >> > 
+> >> > I don't get it, 90ba9b1986b5ac4b2d18 was in 3.6, why do you care of
+> >> > 3.9 ?
+> >> > 
+> >> > I am preparing a fix right now. Not a revert, thank you.
+> >> 
+> >> Is the following patch not good enough ?
+> > 
+> > I think it is somewhat telling that the hook you're proposing doesn't ever
+> > make any calls into any of the individual LSMs, it only calls back into
+> > the networking stack.  In my mind, this makes it an abuse of the LSM
+> > mechanism.
+> 
+> Without LSMs the socket reference is spurious and pointless overhead,
+> therefore the only acceptable fix one which only takes the socket
+> reference when there are LSMs with a need.
 
-I'm fine with this:
+Well that's frustrating, but if that is the game so be it.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Eric, your patch didn't cross-post to the LSM list, do you want to post it 
+there for review/merging?  I would recommend also adding a pointer to this 
+thread for reference.
+
+-- 
+paul moore
+security and virtualization @ redhat
