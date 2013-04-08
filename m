@@ -1,31 +1,45 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v2] mac80211_hwsim: Register and bind to driver
-Date: Mon, 08 Apr 2013 16:32:49 +0200
-Message-ID: <1365431569.25475.16.camel@jlt4.sipsolutions.net>
-References: <20130408093001.GE2818@piware.de>
+From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Subject: Re: [patch net-next] net: squash ->rx_handler and
+ ->rx_handler_data into single rcu pointer
+Date: Mon, 08 Apr 2013 12:32:40 -0400
+Message-ID: <1365438760.25498.21.camel@gandalf.local.home>
+References: <1364659034-7049-1-git-send-email-jiri@resnulli.us>
+	<f72ccc9e-b09e-4abb-a0ce-a6516138b25c@email.android.com>
+	<20130330193210.GD1544@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Dan Williams <dcbw@redhat.com>
-To: Martin Pitt <martin.pitt@ubuntu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:53052 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936284Ab3DHOc4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 10:32:56 -0400
-In-Reply-To: <20130408093001.GE2818@piware.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, paulmck-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
+	streeter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nicolas.2p.debian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, ivecera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20130330193210.GD1544-RDzucLLXGGI88b5SBfVpbw@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-04-08 at 11:30 +0200, Martin Pitt wrote:
-> Properly register our mac80211_hwsim_driver, attach it to the platform bus.
-> Bind newly created hwsim devices to that driver, so that our wlan devices get
-> a proper "driver" sysfs attribute.
+On Sat, 2013-03-30 at 20:32 +0100, Jiri Pirko wrote:
+
+> >This doesn't solve anything. The CPU can be executing func when you set it to null.  Then you have the same problem.  This patch shows you still don't understand the bug.  
 > 
-> This makes mac80211_hwsim interfaces work with NetworkManager.
+> rx_handler->func is never set to NULL and is valid for all rx_handler (port_priv)
+> lifetime.
+> 
 
-Applied.
+Ah, you're right. I'll look deeper at this patch after reading the
+thread.
 
-johannes
+This is what I get for trying to review a patch reading it on my android
+phone ;-)
+
+-- Steve
