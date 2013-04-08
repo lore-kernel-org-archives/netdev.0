@@ -1,51 +1,76 @@
-From: David Miller <davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK
  packet
-Date: Mon, 08 Apr 2013 17:33:25 -0400 (EDT)
-Message-ID: <20130408.173325.1683493727549657170.davem@davemloft.net>
-References: <3505145.vfXt1x4t0P@sifl>
-	<20130408.171512.973275376690340387.davem@davemloft.net>
-	<2921619.mqaHl5PnPI@sifl>
+Date: Mon, 8 Apr 2013 22:34:36 +0100
+Message-ID: <1365456876.5221.18.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1725553.maWFXblPLa@sifl> <3505145.vfXt1x4t0P@sifl>
+	 <20130408.171512.973275376690340387.davem@davemloft.net>
+	 <2921619.mqaHl5PnPI@sifl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	mvadkert@redhat.com, selinux@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org
-To: pmoore@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53281 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965085Ab3DHVd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 17:33:27 -0400
+Cc: David Miller <davem@davemloft.net>, <eric.dumazet@gmail.com>,
+	<netdev@vger.kernel.org>, <mvadkert@redhat.com>,
+	<selinux@tycho.nsa.gov>, <linux-security-module@vger.kernel.org>
+To: Paul Moore <pmoore@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
 In-Reply-To: <2921619.mqaHl5PnPI@sifl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Moore <pmoore@redhat.com>
-Date: Mon, 08 Apr 2013 17:24:50 -0400
-
+On Mon, 2013-04-08 at 17:24 -0400, Paul Moore wrote:
+> On Monday, April 08, 2013 05:15:12 PM David Miller wrote:
+> > From: Paul Moore <pmoore@redhat.com>
+> > Date: Mon, 08 Apr 2013 17:10:43 -0400
+> > 
+> > > On Monday, April 08, 2013 02:32:00 PM Paul Moore wrote:
+> > >> On Monday, April 08, 2013 02:12:01 PM Paul Moore wrote:
+> > >> > On Monday, April 08, 2013 10:47:47 AM Eric Dumazet wrote:
+> > >> > > On Mon, 2013-04-08 at 13:40 -0400, Paul Moore wrote:
+> > >> > > > Sort of a similar problem, but not really the same.  Also,
+> > >> > > > arguably,
+> > >> > > > there is no real associated sock/socket for a RST so orphaning the
+> > >> > > > packet makes sense. In the case of a SYNACK we can, and should,
+> > >> > > > associate the packet with a sock/socket.
+> > >> > > 
+> > >> > > What is the intent ?
+> > >> > 
+> > >> > We have to do a number of painful things in SELinux because we aren't
+> > >> > allowed a proper security blob (void *security) in a sk_buff.  One of
+> > >> > those things ...
+> > >> 
+> > >> Actually, I wonder if this problem means it is a good time to revisit the
+> > >> no- security-blob-in-sk_buff decision?  The management of the blob would
+> > >> be hidden behind the LSM hooks like everything else and it would have a
+> > >> number of advantages including making problems like we are seeing here
+> > >> easier to fix or avoid entirely.  It would also make life much easier for
+> > >> those of working on LSM stuff and it would pave the way for including
+> > >> network access controls in the stacked-LSM stuff Casey is kicking around.
+> > > 
+> > > No comment, or am I just too anxious?
+> > 
+> > There is no way I'm putting LSM overhead into sk_buff, it's already
+> > too big.
+> 
 > If the void pointer is wrapped by a #ifdef (plenty of precedence for that) and 
 > the management of that pointer is handled by LSM hooks why is it a concern?  I 
 > apologize for pushing on the issue, but I'm having a hard time reconciling the 
 > reason for the "no" with the comments/decisions about the regression fix; at 
 > present there seems to be a level of contradiction between the two.
 
-8 bytes times however many millions of packets per second we can process
-on a big machine, you do the math.
+Most Linux users are running distribution kernels with one or more LSMs
+built-in.  Anything you make dependent on CONFIG_SECURITY or similar
+generic symbol will have a cost for all those users, whether or not they
+actually use the LSM.
 
-It's memory, less cache locality, etc. etc. etc.
+Ben.
 
-It's the most important data structure in the entire networking stack,
-and every single byte matters.
+> > I didn't comment because it wasn't worth a comment, but since you're
+> > pushing me on the issue, I'll make the no explicit.
+> 
 
-I want the overhead to be your problem, so that only users of your
-stuff eat the overhead, rather than everyone.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-And don't even mention ifdefs, that's bogus, because every
-distribution turns every option on, %99.9999999 of users will
-therefore not see the savings.
-
-Really, this is a dead topic, let's move on.
-
-Thanks.
