@@ -1,47 +1,38 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK packet
-Date: Mon, 08 Apr 2013 14:32 -0400
-Message-ID: <31036542.d4Dp22e6Ij@sifl>
-References: <20130408154519.18177.57709.stgit@localhost> <1365443267.3887.28.camel@edumazet-glaptop> <1725553.maWFXblPLa@sifl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK
+ packet
+Date: Mon, 08 Apr 2013 11:34:11 -0700
+Message-ID: <1365446051.3887.37.camel@edumazet-glaptop>
+References: <20130408154519.18177.57709.stgit@localhost>
+	 <1725553.maWFXblPLa@sifl> <1365445303.3887.33.camel@edumazet-glaptop>
+	 <10426929.HS2uObfqRU@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	mvadkert@redhat.com, selinux@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1725553.maWFXblPLa@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mvadkert@redhat.com
+To: Paul Moore <pmoore@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ia0-f176.google.com ([209.85.210.176]:44924 "EHLO
+	mail-ia0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935447Ab3DHSeQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 14:34:16 -0400
+Received: by mail-ia0-f176.google.com with SMTP id i1so5427268iaa.7
+        for <netdev@vger.kernel.org>; Mon, 08 Apr 2013 11:34:15 -0700 (PDT)
+In-Reply-To: <10426929.HS2uObfqRU@sifl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday, April 08, 2013 02:12:01 PM Paul Moore wrote:
-> On Monday, April 08, 2013 10:47:47 AM Eric Dumazet wrote:
-> > On Mon, 2013-04-08 at 13:40 -0400, Paul Moore wrote:
-> > > Sort of a similar problem, but not really the same.  Also, arguably,
-> > > there is no real associated sock/socket for a RST so orphaning the
-> > > packet makes sense. In the case of a SYNACK we can, and should,
-> > > associate the packet with a sock/socket.
-> > 
-> > What is the intent ?
+On Mon, 2013-04-08 at 14:26 -0400, Paul Moore wrote:
+
+> I guess we'll have to wait and see then; the more I think about the new hook 
+> you proposed the less enthused I am about it.
 > 
-> We have to do a number of painful things in SELinux because we aren't
-> allowed a proper security blob (void *security) in a sk_buff.  One of those
-> things ...
+> I'm still curious to hear what Dave has to say on this.
+> 
 
-Actually, I wonder if this problem means it is a good time to revisit the no-
-security-blob-in-sk_buff decision?  The management of the blob would be hidden 
-behind the LSM hooks like everything else and it would have a number of 
-advantages including making problems like we are seeing here easier to fix or 
-avoid entirely.  It would also make life much easier for those of working on 
-LSM stuff and it would pave the way for including network access controls in 
-the stacked-LSM stuff Casey is kicking around.
+90ba9b1986b5ac4b2 is 10 months old, and nobody complained until today ?
 
-I'm aware of all the arguments against, but thought it would be worth bringing 
-it up again, if for no other reason than I haven't heard enough shouting yet 
-today :)
+This sounds like a very small issue to me, a revert is simply overkill. 
 
--- 
-paul moore
-security and virtualization @ redhat
-
+Lets go forward instead of applying blind fixes.
