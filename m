@@ -1,26 +1,35 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] Documentation: cgroup: add documentation for net_cls
- cgroups.
-Date: Mon, 08 Apr 2013 16:58:05 -0400 (EDT)
-Message-ID: <20130408.165805.792914582053339079.davem@davemloft.net>
-References: <1365429860-3184-1-git-send-email-ramirose@gmail.com>
+Subject: Re: [PATCH net-next] net: cdc_ncm: demote "unexpected
+ notification" to debug level
+Date: Mon, 08 Apr 2013 16:58:15 -0400 (EDT)
+Message-ID: <20130408.165815.1732927060725779062.davem@davemloft.net>
+References: <1365445583-15124-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org
-To: ramirose-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1365429860-3184-1-git-send-email-ramirose-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org
+To: bjorn-yOkvZcmFvRU@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1365445583-15124-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Rami Rosen <ramirose-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Mon,  8 Apr 2013 17:04:20 +0300
+=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Date: Mon,  8 Apr 2013 20:26:23 +0200
 
-> This patch adds a new file, Documentation/cgroups/net_cls.txt, with info
-> about net_cls cgroups, and updates the 00-INDEX accordingly.
-> 
-> Signed-off-by: Rami Rosen <ramirose-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Receiving unhandled notifications is most certainly not an error
+> and should not be logged as one.  Knowing that the device sends
+> notifications we don't handle is useful for developers, but there
+> is very little a user can do about this.  The message is therefore
+> just annoying noise to most users with devices sending unhandled
+> notifications like e.g. USB_CDC_NOTIFY_RESPONSE_AVAILABLE
+>=20
+> Cc: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
