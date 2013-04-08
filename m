@@ -1,38 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK
- packet
-Date: Mon, 08 Apr 2013 11:34:11 -0700
-Message-ID: <1365446051.3887.37.camel@edumazet-glaptop>
-References: <20130408154519.18177.57709.stgit@localhost>
-	 <1725553.maWFXblPLa@sifl> <1365445303.3887.33.camel@edumazet-glaptop>
-	 <10426929.HS2uObfqRU@sifl>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] ixgbe: Remove unnecessary #ifdef
+ CONFIG_DEBUG_FS tests
+Date: Mon, 08 Apr 2013 11:47:36 -0700
+Message-ID: <1365446856.2048.0.camel@jtkirshe-mobl>
+References: <1365384453.8922.20.camel@joe-AO722>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	mvadkert@redhat.com
-To: Paul Moore <pmoore@redhat.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-1wKvR3kMdNqpigQkadmL"
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f176.google.com ([209.85.210.176]:44924 "EHLO
-	mail-ia0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935447Ab3DHSeQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 14:34:16 -0400
-Received: by mail-ia0-f176.google.com with SMTP id i1so5427268iaa.7
-        for <netdev@vger.kernel.org>; Mon, 08 Apr 2013 11:34:15 -0700 (PDT)
-In-Reply-To: <10426929.HS2uObfqRU@sifl>
+Received: from mga03.intel.com ([143.182.124.21]:57142 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935047Ab3DHSrv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Apr 2013 14:47:51 -0400
+In-Reply-To: <1365384453.8922.20.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-04-08 at 14:26 -0400, Paul Moore wrote:
 
-> I guess we'll have to wait and see then; the more I think about the new hook 
-> you proposed the less enthused I am about it.
-> 
-> I'm still curious to hear what Dave has to say on this.
-> 
+--=-1wKvR3kMdNqpigQkadmL
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-90ba9b1986b5ac4b2 is 10 months old, and nobody complained until today ?
+On Sun, 2013-04-07 at 18:27 -0700, Joe Perches wrote:
+> Add some empty static inlines instead to make
+> the code more readable.
+>=20
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  5 +++++
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 10 ----------
+>  2 files changed, 5 insertions(+), 10 deletions(-)=20
 
-This sounds like a very small issue to me, a revert is simply overkill. 
+Thanks Joe, I have added the patch to my queue.
 
-Lets go forward instead of applying blind fixes.
+--=-1wKvR3kMdNqpigQkadmL
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
+
+iQIcBAABCgAGBQJRYxDIAAoJEOVv75VaS+3O+CAP/RLSFAcsoh6VRME1TkeSDbYt
+oSfGkjpN6ZpX0joQJT06Yu8H7mVljP+fPW68eMacyXW/gae+eDknKHCtwsRA9agd
+8CRRBnOySsQjdOuCsNceWn5SW+jwWH7iTPg+cRt2Ky3x49nlgspbpfH913o2icFT
+7VMGQsCm/aoQiKiYRUZDK1/IMpHRRlMrQ9qRhC4Vwz0T+K+kiaiLRlxUQHgwsx7S
+hrcJZojVG80GDXYVOgZLtgVm/QoulVxfjvWFMAdNlaU9XmwAcedI+kQv+eROxzo4
+G2shMWRKmmoPPaJ3hokBJgS+1CPbPbfh/8gHeZhKi5/UbiyueSKE5FFCID86m2N2
+p++AnqCjFOACeJfH892LX8HF69xG/WLvQrbDbG6Gp3+E17cYSPofbnIRwrk16ZMx
+FfD+QEHwsL4SyVVeG09ofWH8XKzTVx35ucej/Pzv/jBB7cYPui+CEu8J6MVHuShU
+iVkZhh4CkdrIYDKgXx1loW3HUC89YZ8MOf4Hy7Wxw6JuFrVzPD09y8wOyax6Zt30
+NSaJoGGfFO2ldqlbY92gubbwugLEklmZe/3oO6iFWjXkXSOdhrrqxAnxqEUFJAzr
+aLxEvLJ3XIJufRYzNnGjGk2/yCoJTxzLcpSm21BAvuw9VfdAQzGn2RQr+iLiiDbX
+CdbJ7WVe/0EQ6+/gEIq5
+=mfY+
+-----END PGP SIGNATURE-----
+
+--=-1wKvR3kMdNqpigQkadmL--
