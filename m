@@ -1,186 +1,194 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 1/2] af_iucv: fix recvmsg by replacing skb_pull() function
-Date: Mon, 08 Apr 2013 10:19:26 +0200
-Message-ID: <20130408082003.666955316@de.ibm.com>
-References: <20130408081925.995757091@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Ursula Braun <ursula.braun@de.ibm.com>
-To: davem@davemloft.net
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH 2/2] bonding: fix bonding_masters race condition in bond
+ unloading
+Date: Mon, 8 Apr 2013 10:30:44 +0200
+Message-ID: <20130408083044.GA1757@redhat.com>
+References: <1365245678-4455-1-git-send-email-nikolay@redhat.com>
+ <1365245678-4455-2-git-send-email-nikolay@redhat.com>
+ <20130406135020.GA18246@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com,
+	davem@davemloft.net
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp10.uk.ibm.com ([195.75.94.106]:46522 "EHLO
-	e06smtp10.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934852Ab3DHIUK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 04:20:10 -0400
-Received: from /spool/local
-	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
-	Mon, 8 Apr 2013 09:18:38 +0100
-Content-Disposition: inline; filename=601-af-iucv-skb-pull.diff
+Received: from mx1.redhat.com ([209.132.183.28]:13289 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934056Ab3DHIbM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Apr 2013 04:31:12 -0400
+Content-Disposition: inline
+In-Reply-To: <20130406135020.GA18246@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+On Sat, Apr 06, 2013 at 03:50:20PM +0200, Veaceslav Falico wrote:
+>On Sat, Apr 06, 2013 at 12:54:38PM +0200, Nikolay Aleksandrov wrote:
+>>While the bonding module is unloading, it is considered that after
+>>rtnl_link_unregister all bond devices are destroyed but since no
+>>synchronization mechanism exists, a new bond device can be created
+>>via bonding_masters before unregister_pernet_subsys which would
+>>lead to multiple problems (e.g. NULL pointer dereference, wrong RIP,
+>>list corruption).
+>>
+>>This patch fixes the issue by removing any bond devices left in the
+>>netns after bonding_masters is removed from sysfs.
+>>
+>>Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+>>---
+>>drivers/net/bonding/bond_main.c | 9 +++++++++
+>>1 file changed, 9 insertions(+)
+>>
+>
+>I'm still thinking that's it's not the best way of fixing it
+>(remove_devices(); remove_sysfs(); remove_devices()) - but given that I
+>can't come up with anything better and my first fix didn't actually work -
+>I'm ok with your patch.
 
-When receiving data messages, the "BUG_ON(skb->len < skb->data_len)" in
-the skb_pull() function triggers a kernel panic.
 
-Replace the skb_pull logic by a per skb offset as advised by
-Eric Dumazet.
+I think I've found a proper way to do it. Even with your approach we still
+might end up in some kind of race condition with procfs (check
+bond_net_exit() -> proc removal, it's made without rtnl_lock()). So the
+best way would be to lock both functions (__rtnl_link_unregister() and
+unregister_pernet_subsys()) with rtnl_lock(). It wasn't possible because of
+a possible race with sysfs (we start removing the bonding, lock rtnl(),
+someone accesses sysfs(), and our sysfs removal code blocks because of this
+access - deadlock).
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
-Signed-off-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Reviewed-by: Hendrik Brueckner <brueckner@linux.vnet.ibm.com>
+However, if we use the rtnl_trylock() mechanism, we will be able to let
+sysfs go and finish the removal.
+
+What do you think about this approach? A quick-n-dirty patch is below, I'm
+running rmmod/insmod for an hour already and it seems to work, however
+there still might be bugs, and the patch definitely needs some
+cleaning/comments.
+
+ From 3a7858ec5d8ef3261dd52fcd35048cb737aec780 Mon Sep 17 00:00:00 2001
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Mon, 8 Apr 2013 10:29:46 +0200
+Subject: [PATCH] bonding: properly protect bonding_exit()
+
+We might race with sysfs/procfs on exit, so protect them with rtnl_lock.
+Also, convert all sysfs code to rtnl_trylock()/restart_syscall(), so that
+we don't end up in deadlock.
+
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- include/net/iucv/af_iucv.h |    8 ++++++++
- net/iucv/af_iucv.c         |   34 ++++++++++++++++------------------
- 2 files changed, 24 insertions(+), 18 deletions(-)
+  drivers/net/bonding/bond_main.c  |   13 ++++++-------
+  drivers/net/bonding/bond_sysfs.c |   11 ++++++++---
+  2 files changed, 14 insertions(+), 10 deletions(-)
 
---- a/include/net/iucv/af_iucv.h
-+++ b/include/net/iucv/af_iucv.h
-@@ -130,6 +130,14 @@ struct iucv_sock {
- 					       enum iucv_tx_notify n);
- };
- 
-+struct iucv_skb_cb {
-+	u32	class;		/* target class of message */
-+	u32	tag;		/* tag associated with message */
-+	u32	offset;		/* offset for skb receival */
-+};
-+
-+#define IUCV_SKB_CB(__skb)	((struct iucv_skb_cb *)&((__skb)->cb[0]))
-+
- /* iucv socket options (SOL_IUCV) */
- #define SO_IPRMDATA_MSG	0x0080		/* send/recv IPRM_DATA msgs */
- #define SO_MSGLIMIT	0x1000		/* get/set IUCV MSGLIMIT */
---- a/net/iucv/af_iucv.c
-+++ b/net/iucv/af_iucv.c
-@@ -49,12 +49,6 @@ static const u8 iprm_shutdown[8] =
- 
- #define TRGCLS_SIZE	(sizeof(((struct iucv_message *)0)->class))
- 
--/* macros to set/get socket control buffer at correct offset */
--#define CB_TAG(skb)	((skb)->cb)		/* iucv message tag */
--#define CB_TAG_LEN	(sizeof(((struct iucv_message *) 0)->tag))
--#define CB_TRGCLS(skb)	((skb)->cb + CB_TAG_LEN) /* iucv msg target class */
--#define CB_TRGCLS_LEN	(TRGCLS_SIZE)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 2aac890..6671f89 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4797,22 +4797,17 @@ static struct rtnl_link_ops bond_link_ops __read_mostly = {
+  
+  /* Create a new bond based on the specified name and bonding parameters.
+   * If name is NULL, obtain a suitable "bond%d" name for us.
+- * Caller must NOT hold rtnl_lock; we need to release it here before we
+- * set up our sysfs entries.
+   */
+  int bond_create(struct net *net, const char *name)
+  {
+  	struct net_device *bond_dev;
+  	int res;
+  
+-	rtnl_lock();
 -
- #define __iucv_sock_wait(sk, condition, timeo, ret)			\
- do {									\
- 	DEFINE_WAIT(__wait);						\
-@@ -1141,7 +1135,7 @@ static int iucv_sock_sendmsg(struct kioc
- 
- 	/* increment and save iucv message tag for msg_completion cbk */
- 	txmsg.tag = iucv->send_tag++;
--	memcpy(CB_TAG(skb), &txmsg.tag, CB_TAG_LEN);
-+	IUCV_SKB_CB(skb)->tag = txmsg.tag;
- 
- 	if (iucv->transport == AF_IUCV_TRANS_HIPER) {
- 		atomic_inc(&iucv->msg_sent);
-@@ -1224,7 +1218,7 @@ static int iucv_fragment_skb(struct sock
- 			return -ENOMEM;
- 
- 		/* copy target class to control buffer of new skb */
--		memcpy(CB_TRGCLS(nskb), CB_TRGCLS(skb), CB_TRGCLS_LEN);
-+		IUCV_SKB_CB(nskb)->class = IUCV_SKB_CB(skb)->class;
- 
- 		/* copy data fragment */
- 		memcpy(nskb->data, skb->data + copied, size);
-@@ -1256,7 +1250,7 @@ static void iucv_process_message(struct
- 
- 	/* store msg target class in the second 4 bytes of skb ctrl buffer */
- 	/* Note: the first 4 bytes are reserved for msg tag */
--	memcpy(CB_TRGCLS(skb), &msg->class, CB_TRGCLS_LEN);
-+	IUCV_SKB_CB(skb)->class = msg->class;
- 
- 	/* check for special IPRM messages (e.g. iucv_sock_shutdown) */
- 	if ((msg->flags & IUCV_IPRMDATA) && len > 7) {
-@@ -1292,6 +1286,7 @@ static void iucv_process_message(struct
- 		}
- 	}
- 
-+	IUCV_SKB_CB(skb)->offset = 0;
- 	if (sock_queue_rcv_skb(sk, skb))
- 		skb_queue_head(&iucv_sk(sk)->backlog_skb_q, skb);
- }
-@@ -1327,6 +1322,7 @@ static int iucv_sock_recvmsg(struct kioc
- 	unsigned int copied, rlen;
- 	struct sk_buff *skb, *rskb, *cskb;
- 	int err = 0;
-+	u32 offset;
- 
- 	msg->msg_namelen = 0;
- 
-@@ -1348,13 +1344,14 @@ static int iucv_sock_recvmsg(struct kioc
- 		return err;
- 	}
- 
--	rlen   = skb->len;		/* real length of skb */
-+	offset = IUCV_SKB_CB(skb)->offset;
-+	rlen   = skb->len - offset;		/* real length of skb */
- 	copied = min_t(unsigned int, rlen, len);
- 	if (!rlen)
- 		sk->sk_shutdown = sk->sk_shutdown | RCV_SHUTDOWN;
- 
- 	cskb = skb;
--	if (skb_copy_datagram_iovec(cskb, 0, msg->msg_iov, copied)) {
-+	if (skb_copy_datagram_iovec(cskb, offset, msg->msg_iov, copied)) {
- 		if (!(flags & MSG_PEEK))
- 			skb_queue_head(&sk->sk_receive_queue, skb);
- 		return -EFAULT;
-@@ -1372,7 +1369,8 @@ static int iucv_sock_recvmsg(struct kioc
- 	 * get the trgcls from the control buffer of the skb due to
- 	 * fragmentation of original iucv message. */
- 	err = put_cmsg(msg, SOL_IUCV, SCM_IUCV_TRGCLS,
--			CB_TRGCLS_LEN, CB_TRGCLS(skb));
-+		       sizeof(IUCV_SKB_CB(skb)->class),
-+		       (void *)&IUCV_SKB_CB(skb)->class);
- 	if (err) {
- 		if (!(flags & MSG_PEEK))
- 			skb_queue_head(&sk->sk_receive_queue, skb);
-@@ -1384,9 +1382,8 @@ static int iucv_sock_recvmsg(struct kioc
- 
- 		/* SOCK_STREAM: re-queue skb if it contains unreceived data */
- 		if (sk->sk_type == SOCK_STREAM) {
--			skb_pull(skb, copied);
--			if (skb->len) {
--				skb_queue_head(&sk->sk_receive_queue, skb);
-+			if (copied < rlen) {
-+				IUCV_SKB_CB(skb)->offset = offset + copied;
- 				goto done;
- 			}
- 		}
-@@ -1405,6 +1402,7 @@ static int iucv_sock_recvmsg(struct kioc
- 		spin_lock_bh(&iucv->message_q.lock);
- 		rskb = skb_dequeue(&iucv->backlog_skb_q);
- 		while (rskb) {
-+			IUCV_SKB_CB(rskb)->offset = 0;
- 			if (sock_queue_rcv_skb(sk, rskb)) {
- 				skb_queue_head(&iucv->backlog_skb_q,
- 						rskb);
-@@ -1832,7 +1830,7 @@ static void iucv_callback_txdone(struct
- 		spin_lock_irqsave(&list->lock, flags);
- 
- 		while (list_skb != (struct sk_buff *)list) {
--			if (!memcmp(&msg->tag, CB_TAG(list_skb), CB_TAG_LEN)) {
-+			if (msg->tag != IUCV_SKB_CB(list_skb)->tag) {
- 				this = list_skb;
- 				break;
- 			}
-@@ -2093,6 +2091,7 @@ static int afiucv_hs_callback_rx(struct
- 	skb_pull(skb, sizeof(struct af_iucv_trans_hdr));
- 	skb_reset_transport_header(skb);
- 	skb_reset_network_header(skb);
-+	IUCV_SKB_CB(skb)->offset = 0;
- 	spin_lock(&iucv->message_q.lock);
- 	if (skb_queue_empty(&iucv->backlog_skb_q)) {
- 		if (sock_queue_rcv_skb(sk, skb)) {
-@@ -2197,8 +2196,7 @@ static int afiucv_hs_rcv(struct sk_buff
- 		/* fall through and receive zero length data */
- 	case 0:
- 		/* plain data frame */
--		memcpy(CB_TRGCLS(skb), &trans_hdr->iucv_hdr.class,
--		       CB_TRGCLS_LEN);
-+		IUCV_SKB_CB(skb)->class = trans_hdr->iucv_hdr.class;
- 		err = afiucv_hs_callback_rx(sk, skb);
- 		break;
- 	default:
+  	bond_dev = alloc_netdev_mq(sizeof(struct bonding),
+  				   name ? name : "bond%d",
+  				   bond_setup, tx_queues);
+  	if (!bond_dev) {
+  		pr_err("%s: eek! can't alloc netdev!\n", name);
+-		rtnl_unlock();
+  		return -ENOMEM;
+  	}
+  
+@@ -4823,9 +4818,9 @@ int bond_create(struct net *net, const char *name)
+  
+  	netif_carrier_off(bond_dev);
+  
+-	rtnl_unlock();
+  	if (res < 0)
+  		bond_destructor(bond_dev);
++
+  	return res;
+  }
+  
+@@ -4879,7 +4874,9 @@ static int __init bonding_init(void)
+  	bond_create_debugfs();
+  
+  	for (i = 0; i < max_bonds; i++) {
++		rtnl_lock();
+  		res = bond_create(&init_net, NULL);
++		rtnl_unlock();
+  		if (res)
+  			goto err;
+  	}
+@@ -4901,8 +4898,10 @@ static void __exit bonding_exit(void)
+  
+  	bond_destroy_debugfs();
+  
++	rtnl_lock();
++	__rtnl_link_unregister(&bond_link_ops);
+  	unregister_pernet_subsys(&bond_net_ops);
+-	rtnl_link_unregister(&bond_link_ops);
++	rtnl_unlock();
+  
+  #ifdef CONFIG_NET_POLL_CONTROLLER
+  	/*
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index ea7a388..cd1d60f 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -59,7 +59,8 @@ static ssize_t bonding_show_bonds(struct class *cls,
+  	int res = 0;
+  	struct bonding *bond;
+  
+-	rtnl_lock();
++	if (!rtnl_trylock())
++		return restart_syscall();
+  
+  	list_for_each_entry(bond, &bn->dev_list, bond_list) {
+  		if (res > (PAGE_SIZE - IFNAMSIZ)) {
+@@ -107,6 +108,9 @@ static ssize_t bonding_store_bonds(struct class *cls,
+  	char *ifname;
+  	int rv, res = count;
+  
++	if (!rtnl_trylock())
++		return restart_syscall();
++
+  	sscanf(buffer, "%16s", command); /* IFNAMSIZ*/
+  	ifname = command + 1;
+  	if ((strlen(command) <= 1) ||
+@@ -126,7 +130,6 @@ static ssize_t bonding_store_bonds(struct class *cls,
+  	} else if (command[0] == '-') {
+  		struct net_device *bond_dev;
+  
+-		rtnl_lock();
+  		bond_dev = bond_get_by_name(bn, ifname);
+  		if (bond_dev) {
+  			pr_info("%s is being deleted...\n", ifname);
+@@ -135,10 +138,11 @@ static ssize_t bonding_store_bonds(struct class *cls,
+  			pr_err("unable to delete non-existent %s\n", ifname);
+  			res = -ENODEV;
+  		}
+-		rtnl_unlock();
+  	} else
+  		goto err_no_cmd;
+  
++	rtnl_unlock();
++
+  	/* Always return either count or an error.  If you return 0, you'll
+  	 * get called forever, which is bad.
+  	 */
+@@ -146,6 +150,7 @@ static ssize_t bonding_store_bonds(struct class *cls,
+  
+  err_no_cmd:
+  	pr_err("no command found in bonding_masters. Use +ifname or -ifname.\n");
++	rtnl_unlock();
+  	return -EPERM;
+  }
+  
+-- 
+1.7.1
