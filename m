@@ -1,68 +1,71 @@
-From: Erik Hugne <erik.hugne@ericsson.com>
-Subject: Re: be2net: GRO for non-inet protocols
-Date: Mon, 8 Apr 2013 17:24:17 +0200
-Message-ID: <20130408152417.GD19951@eerihug-hybrid.ki.sw.ericsson.se>
-References: <20130405132007.GF7551@eerihug-hybrid.ki.sw.ericsson.se>
- <1365175702.3405.2.camel@edumazet-glaptop>
- <1365175872.3405.3.camel@edumazet-glaptop>
- <20130408064010.GD8543@eerihug-hybrid.ki.sw.ericsson.se>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: v3.8.5: "TCP: snd_cwnd is nul, please report this bug."
+Date: Mon, 08 Apr 2013 08:18:21 -0700
+Message-ID: <1365434301.3887.14.camel@edumazet-glaptop>
+References: <87zjx9pf13.fsf@nemi.mork.no>
+	 <1365431422.3887.10.camel@edumazet-glaptop> <87li8tyrzs.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.ericsson.se ([193.180.251.45]:48171 "EHLO
-	mailgw1.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936341Ab3DHP3V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 11:29:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20130408064010.GD8543@eerihug-hybrid.ki.sw.ericsson.se>
+Received: from mail-oa0-f50.google.com ([209.85.219.50]:33447 "EHLO
+	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936005Ab3DHPSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 11:18:25 -0400
+Received: by mail-oa0-f50.google.com with SMTP id n1so6360400oag.9
+        for <netdev@vger.kernel.org>; Mon, 08 Apr 2013 08:18:24 -0700 (PDT)
+In-Reply-To: <87li8tyrzs.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 08, 2013 at 08:40:10AM +0200, Erik Hugne wrote:
-> Thanks Eric, it works as expected after applying this.
+On Mon, 2013-04-08 at 17:14 +0200, Bj=C3=B8rn Mork wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
+> > On Mon, 2013-04-08 at 11:06 +0200, Bj=C3=B8rn Mork wrote:
+> >
+> >> Apr  8 10:58:09 nemi kernel: [152701.980799] TCP: snd_cwnd is nul,=
+ please report this bug.
+> >> Apr  8 10:58:33 nemi kernel: [152725.176151] iwlwifi 0000:03:00.0:=
+ fail to flush all tx fifo queues
+> >> Apr  8 10:58:33 nemi kernel: [152725.185713] wlan0: authenticate w=
+ith 00:22:90:f9:23:a0
+> >> Apr  8 10:58:33 nemi kernel: [152725.185738] wlan0: capabilities/r=
+egulatory prevented using AP HT/VHT configuration, downgraded
+> >> Apr  8 10:58:33 nemi kernel: [152725.190150] wlan0: send auth to 0=
+0:22:90:f9:23:a0 (try 1/3)
+> >> Apr  8 10:58:33 nemi kernel: [152725.199812] wlan0: authenticated
+> >> Apr  8 10:58:33 nemi kernel: [152725.200020] iwlwifi 0000:03:00.0 =
+wlan0: disabling HT as WMM/QoS is not supported by the AP
+> >> Apr  8 10:58:33 nemi kernel: [152725.200027] iwlwifi 0000:03:00.0 =
+wlan0: disabling VHT as WMM/QoS is not supported by the AP
+> >> Apr  8 10:58:33 nemi kernel: [152725.204033] wlan0: associate with=
+ 00:22:90:f9:23:a0 (try 1/3)
+> >> Apr  8 10:58:33 nemi kernel: [152725.207317] wlan0: RX AssocResp f=
+rom 00:22:90:f9:23:a0 (capab=3D0x421 status=3D0 aid=3D12)
+> >> Apr  8 10:58:33 nemi kernel: [152725.210745] wlan0: associated
+> >>=20
+> >
+> > Same issue was reported by Dave Jones on iwlwifi few days ago and I=
+ sent
+> > following debugging patch, could you try it ?
+>=20
+> Will do. The patch only applied on top of net-next, so I assume that'=
+s
+> what you want me to test it on?
+>=20
+> I looked through my logs and the 'fail to flush all tx fifo queues'
+> warning from iwlwifi appears very infrequent.  The last time before
+> today was March 18th...  Also accompanied by your warning.  That's th=
+e
+> only two times I've seen that one. And I've been running v3.8-rc7 (wh=
+ere
+> you introduced the warning) or newer since Feb 8th.
+>=20
+> So don't hold your breath.  This may take a few weeks to trigger agai=
+n.
+>=20
 
-So, on to the next problem, now i'm getting corrupted packets
-from the driver instead. Would be great to get some comments
-from the Emulex guys regarding this.
-
-Attaching a printk trace where i log the mac header and packet data of 
-all 0x88CA (TIPC) packets in the gro_receive routine that have an 
-erroneous TIPC header. This happens immediately when i register 
-myself with the device.
-
-
-kernel: [ 3455.608572] tipc: Activated (version 2.0.0)
-kernel: [ 3455.609545] NET: Registered protocol family 30
-kernel: [ 3455.609547] tipc: Started in single node mode
-kernel: [ 3458.837149] tipc: Started in network mode
-kernel: [ 3458.837153] tipc: Own node address <1.1.11>, network identity 4711
-kernel: [ 3458.837244] tipc: Enabled bearer <eth:eth1>, discovery domain <1.1.0>, priority 10
-kernel: [ 3458.837916] tipc: Garbage packet received
-kernel: [ 3458.837919] tipc: packet length=56 data_len=56
-kernel: [ 3458.837925] pmachdr: e4 11 5b db 24 a4 e4 11 5b d7 36 9c 88 ca                                                        ..[.$...[.6...
-kernel: [ 3458.837929] pdata: 10 0b 00 00 00 01 9e dd 00 a0 01 00 10 0b 01 00 10 0a 00 00 00 00 01 77 05 dc 65 74 68 31 00 00  .......................w..eth1..
-kernel: [ 3458.837933] pdata: 00 00 00 00 00 00 00 00 00 00 04 00 00 00 04 00 00 00 50 e5 74 64 5c e6                          ..................P.td\.
-kernel: [ 3458.837942] tipc: Established link <1.1.11:eth1-1.1.10:eth1> on network plane A
-kernel: [ 3458.838225] tipc: Garbage packet received
-kernel: [ 3458.838228] tipc: packet length=56 data_len=56
-kernel: [ 3458.838232] pmachdr: e4 11 5b db 24 a4 e4 11 5b d7 36 9c 88 ca                                                        ..[.$...[.6...
-kernel: [ 3458.838236] pdata: 10 0b 00 00 00 01 9e dd 00 a1 01 00 10 0b 01 00 10 0a 00 00 00 00 00 00 00 00 65 74 68 31 00 00  ..........................eth1..
-kernel: [ 3458.838239] pdata: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00                          ........................
-kernel: [ 3458.838244] tipc: Garbage packet received
-kernel: [ 3458.838246] tipc: packet length=56 data_len=56
-kernel: [ 3458.838249] pmachdr: e4 11 5b db 24 a4 e4 11 5b d7 36 9c 88 ca                                                        ..[.$...[.6...
-kernel: [ 3458.838254] pdata: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 00  ................................
-kernel: [ 3458.838258] pdata: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00                          ........................
-kernel: [ 3458.838262] tipc: Garbage packet received
-kernel: [ 3458.838263] tipc: packet length=60 data_len=60
-kernel: [ 3458.838268] pmachdr: e4 11 5b db 24 a4 e4 11 5b d7 36 9c 88 ca                                                        ..[.$...[.6...
-kernel: [ 3458.838272] pdata: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 72 65 65 64 65 73  ..........................reedes
-kernel: [ 3458.838276] pdata: 6b 74 6f 70 2f 48 61 6c 2f 64 65 76 69 63 65 73 2f 6e 65 74 5f 65 34 5f 31 31 5f 35              ktop/Hal/devices/net_e4_11_5
-kernel: [ 3459.976074] tipc: Garbage packet received
-kernel: [ 3459.976077] tipc: packet length=56 data_len=56
-kernel: [ 3459.976081] pmachdr: e4 11 5b db 24 a4 e4 11 5b d7 36 9c 88 ca                                                        ..[.$...[.6...
-kernel: [ 3459.976085] pdata: 10 0b 00 00 00 03 9e dd 00 a1 01 00 10 0b 01 00 10 0a 00 00 00 00 00 00 00 00 65 74 68 31 00 00  ..........................eth1..
-kernel: [ 3459.976089] pdata: 00 00 00 00 00 00 00 00 00 00 04 00 00 00 04 00 00 00 50 e5 74 64 5c e6                          ..................P.td\.
+I believe patch applies (with some fuzz) on Linus tree, and maybe on 3.=
+8
+too.
