@@ -1,94 +1,118 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 3/3] net: ipv6: only invalidate previously tokenized addresses
-Date: Tue,  9 Apr 2013 15:47:16 +0200
-Message-ID: <1365515236-7154-4-git-send-email-dborkman@redhat.com>
-References: <1365515236-7154-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: davem@davemloft.net
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH 6/7] xen-netback: coalesce slots and fix
+ regressions
+Date: Tue, 9 Apr 2013 14:48:36 +0100
+Message-ID: <20130409134836.GJ16998@zion.uk.xensource.com>
+References: <1365505655-8021-1-git-send-email-wei.liu2@citrix.com>
+ <1365505655-8021-7-git-send-email-wei.liu2@citrix.com>
+ <5164221302000078000CBBF2@nat28.tlf.novell.com>
+ <20130409124845.GG16998@zion.uk.xensource.com>
+ <5164301902000078000CBC46@nat28.tlf.novell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"wdauchy@gmail.com" <wdauchy@gmail.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jan Beulich <JBeulich@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22184 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932799Ab3DINr0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Apr 2013 09:47:26 -0400
-In-Reply-To: <1365515236-7154-1-git-send-email-dborkman@redhat.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:23499 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756358Ab3DINsi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 09:48:38 -0400
+Content-Disposition: inline
+In-Reply-To: <5164301902000078000CBC46@nat28.tlf.novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of invalidating all IPv6 addresses with global scope
-when one decides to use IPv6 tokens, we should only invalidate
-previous tokens and leave the rest intact until they expire
-eventually (or are intact forever). For doing this less greedy
-approach, we're adding a bool at the end of inet6_ifaddr structure
-instead, for two reasons: i) per-inet6_ifaddr flag space is
-already used up, making it wider might not be a good idea,
-since ii) also we do not necessarily need to export this
-information into user space.
+On Tue, Apr 09, 2013 at 02:13:29PM +0100, Jan Beulich wrote:
+> >>> On 09.04.13 at 14:48, Wei Liu <wei.liu2@citrix.com> wrote:
+> > On Tue, Apr 09, 2013 at 01:13:39PM +0100, Jan Beulich wrote:
+> >> >>> On 09.04.13 at 13:07, Wei Liu <wei.liu2@citrix.com> wrote:
+> > [...]
+> >> > +
+> >> > +static struct kernel_param_ops max_skb_slots_param_ops = {
+> >> 
+> >> __moduleparam_const
+> > 
+> > TBH I don't see any driver makes use of this.
+> 
+> Sure, because generally you use the simple module_param() or
+> module_param_named() macros.
+> 
 
-Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- include/net/if_inet6.h |    2 ++
- net/ipv6/addrconf.c    |    7 +++++--
- 2 files changed, 7 insertions(+), 2 deletions(-)
+That means other modules using this need to be fixed too. :-)
 
-diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-index f1063d6..100fb8c 100644
---- a/include/net/if_inet6.h
-+++ b/include/net/if_inet6.h
-@@ -71,6 +71,8 @@ struct inet6_ifaddr {
- 	struct inet6_ifaddr	*ifpub;
- 	int			regen_count;
- #endif
-+	bool			tokenized;
-+
- 	struct rcu_head		rcu;
- };
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 713ebe3..28b61e8 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -878,6 +878,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr, int pfxlen,
- 	ifa->prefix_len = pfxlen;
- 	ifa->flags = flags | IFA_F_TENTATIVE;
- 	ifa->cstamp = ifa->tstamp = jiffies;
-+	ifa->tokenized = false;
- 
- 	ifa->rt = rt;
- 
-@@ -2134,6 +2135,7 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len, bool sllao)
- 		struct inet6_ifaddr *ifp;
- 		struct in6_addr addr;
- 		int create = 0, update_lft = 0;
-+		bool tokenized = false;
- 
- 		if (pinfo->prefix_len == 64) {
- 			memcpy(&addr, &pinfo->prefix, 8);
-@@ -2143,6 +2145,7 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len, bool sllao)
- 				memcpy(addr.s6_addr + 8,
- 				       in6_dev->token.s6_addr + 8, 8);
- 				read_unlock_bh(&in6_dev->lock);
-+				tokenized = true;
- 			} else if (ipv6_generate_eui64(addr.s6_addr + 8, dev) &&
- 				   ipv6_inherit_eui64(addr.s6_addr + 8, in6_dev)) {
- 				in6_dev_put(in6_dev);
-@@ -2185,6 +2188,7 @@ ok:
- 
- 			update_lft = create = 1;
- 			ifp->cstamp = jiffies;
-+			ifp->tokenized = tokenized;
- 			addrconf_dad_start(ifp);
- 		}
- 
-@@ -4339,8 +4343,7 @@ static int inet6_set_iftoken(struct inet6_dev *idev, struct in6_addr *token)
- 	/* Well, that's kinda nasty ... */
- 	list_for_each_entry(ifp, &idev->addr_list, if_list) {
- 		spin_lock(&ifp->lock);
--		if (ipv6_addr_src_scope(&ifp->addr) ==
--		    IPV6_ADDR_SCOPE_GLOBAL) {
-+		if (ifp->tokenized) {
- 			ifp->valid_lft = 0;
- 			ifp->prefered_lft = 0;
- 		}
--- 
-1.7.1
+> > Probably a simple "const" can do?
+> 
+> The purpose of __moduleparam_const is to abstract away the
+> need to not have the const for a very limited set of architectures.
+> Even if Xen currently doesn't support any of those, I would still
+> not want to see architecture incompatibilities introduced if
+> avoidable.
+> 
+
+Sure.
+
+> >> > @@ -251,7 +291,7 @@ static int max_required_rx_slots(struct xenvif *vif)
+> >> >  	int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
+> >> >  
+> >> >  	if (vif->can_sg || vif->gso || vif->gso_prefix)
+> >> > -		max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
+> >> > +		max += XEN_NETIF_NR_SLOTS_MIN + 1; /* extra_info + frags */
+> >> >  
+> >> >  	return max;
+> >> >  }
+> >> > @@ -657,7 +697,7 @@ static void xen_netbk_rx_action(struct xen_netbk *netbk)
+> >> >  		__skb_queue_tail(&rxq, skb);
+> >> >  
+> >> >  		/* Filled the batch queue? */
+> >> > -		if (count + MAX_SKB_FRAGS >= XEN_NETIF_RX_RING_SIZE)
+> >> > +		if (count + XEN_NETIF_NR_SLOTS_MIN >= XEN_NETIF_RX_RING_SIZE)
+> >> >  			break;
+> >> >  	}
+> >> >  
+> >> 
+> >> Are the two changes above really correct? You're having an skb as
+> >> input here, and hence you want to use all the frags, and nothing
+> >> beyond. Another question is whether the frontend can handle
+> >> those, but that aspect isn't affected by the code being modified
+> >> here.
+> >> 
+> > 
+> > This patch tries to remove dependency on MAX_SKB_FRAGS. Writing the
+> > protocol-defined value here is OK IMHO.
+> 
+> I understand the intentions of the patch, but you shouldn't go
+> further with this than you need to. Just think through carefully
+> the cases of MAX_SKB_FRAGS being smaller/bigger than
+> XEN_NETIF_NR_SLOTS_MIN: In the first instance, you needlessly
+> return too big a value when the latter is the bigger one, and in
+> the second instance you bail from the loop early in the same case.
+> 
+> What's worse, in the opposite case I'm having the impression that
+> you would continue the loop when you shouldn't (because there's
+> not enough room left), and I'd suspect problems for the caller of
+> max_required_rx_slots() in that case too.
+> 
+
+The frontend and backend work at the moment is because MAX_SKB_FRAGS only
+went down once. If it goes like 18 -> 17 -> 19 then we are screwed...
+
+For the MAX_SKB_FRAGS < XEN_NETIF_NR_SLOTS_MIN case it is fine, we are
+just reserving more room in the ring.
+
+For the MAX_SKB_FRAGS > XEN_NETIF_NR_SLOTS_MIN case, my thought is that
+is not likely to happen in the near future, we could possibly upstream
+mechinasim to negotiate number of slots before MAX_SKB_FRAGS >
+XEN_NETIF_NR_SLOTS_MIN ever happens.
+
+But yes, let's leave RX path along at the moment, need to investigate
+more on this.
+
+
+Wei.
