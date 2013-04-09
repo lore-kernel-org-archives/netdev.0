@@ -1,32 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH ipsec] xfrm: use the right dev to fill xdst
-Date: Tue, 09 Apr 2013 13:33:29 -0400 (EDT)
-Message-ID: <20130409.133329.293030369317491509.davem@davemloft.net>
-References: <20130409124735.GA21448@secunet.com>
-	<20130409.132138.1712236757714558152.davem@davemloft.net>
-	<CAEnQRZB4ESaVwgiTScQyTp=Yo16aUhuonMJS7KzfNbs3zRoLFA@mail.gmail.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] net: pre-clear the returned sockaddr_storage variable
+Date: Tue, 9 Apr 2013 10:50:24 -0700
+Message-ID: <20130409175024.GA19308@www.outflux.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, nicolas.dichtel@6wind.com,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: daniel.baluta@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36636 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759682Ab3DIRdb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 13:33:31 -0400
-In-Reply-To: <CAEnQRZB4ESaVwgiTScQyTp=Yo16aUhuonMJS7KzfNbs3zRoLFA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Mathias Krause <minipli@googlemail.com>,
+	Brad Spengler <spender@grsecurity.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Baluta <daniel.baluta@gmail.com>
-Date: Tue, 9 Apr 2013 20:31:30 +0300
+To avoid future stack content leaks in the various protocols, pre-clear
+the returned memory.
 
-> As I mentioned earlier in this thread we are using some custom
-> kernel modules that create the interfaces.
-> 
-> It's likely that these interfaces, for memory saving purposes, to
-> skip attaching ipv6 device information.
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Suggested-by: Brad Spengler <spender@grsecurity.net>
+---
+ net/socket.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-So this is not an upstream bug.
+diff --git a/net/socket.c b/net/socket.c
+index 88f759a..4d2af0d 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1838,7 +1838,7 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
+ 	struct socket *sock;
+ 	struct iovec iov;
+ 	struct msghdr msg;
+-	struct sockaddr_storage address;
++	struct sockaddr_storage address = { };
+ 	int err, err2;
+ 	int fput_needed;
+ 
+@@ -2185,7 +2185,7 @@ static int __sys_recvmsg(struct socket *sock, struct msghdr __user *msg,
+ 	int err, total_len, len;
+ 
+ 	/* kernel mode address */
+-	struct sockaddr_storage addr;
++	struct sockaddr_storage addr = { };
+ 
+ 	/* user mode address pointers */
+ 	struct sockaddr __user *uaddr;
+-- 
+1.7.9.5
+
+
+-- 
+Kees Cook
+Chrome OS Security
