@@ -1,63 +1,40 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH 1/2] bonding: fix netdev event NULL pointer dereference
-Date: Tue,  9 Apr 2013 22:17:23 +0200
-Message-ID: <1365538644-1502-1-git-send-email-nikolay@redhat.com>
+Subject: [PATCH 2/2] bonding: IFF_BONDING is not stripped on enslave failure
+Date: Tue,  9 Apr 2013 22:17:24 +0200
+Message-ID: <1365538644-1502-2-git-send-email-nikolay@redhat.com>
+References: <1365538644-1502-1-git-send-email-nikolay@redhat.com>
 Cc: andy@greyhouse.net, fubar@us.ibm.com, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3459 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:28837 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754639Ab3DIUUg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Apr 2013 16:20:36 -0400
+	id S935931Ab3DIUUu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Apr 2013 16:20:50 -0400
+In-Reply-To: <1365538644-1502-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 471cb5a33dcbd7c529684a2ac7ba4451414ee4a7 ("bonding: remove
-usage of dev->master") a bug was introduced which causes a NULL pointer
-dereference. If a bond device is in mode 6 (ALB) and a slave is added
-it will dereference a NULL pointer in bond_slave_netdev_event().
-This is because in bond_enslave we have bond_alb_init_slave() which
-changes the MAC address of the slave and causes a NETDEV_CHANGEADDR.
-Then we have in bond_slave_netdev_event():
-        struct slave *slave = bond_slave_get_rtnl(slave_dev);
-        struct bonding *bond = slave->bond;
-bond_slave_get_rtnl() dereferences slave_dev->rx_handler_data which at
-that time is NULL since netdev_rx_handler_register() is called later.
-
-This is fixed by checking if slave is NULL before dereferencing it.
+While enslaving a new device and after IFF_BONDING flag is set, in case
+of failure it is not stripped from the device's priv_flags while
+cleaning up, which could lead to other problems.
+Cleaning at err_close because the flag is set after dev_open().
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_main.c | 14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+ drivers/net/bonding/bond_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 171b10f..9995ddc 100644
+index 9995ddc..0d9ee48 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -3168,11 +3168,21 @@ static int bond_slave_netdev_event(unsigned long event,
- 				   struct net_device *slave_dev)
- {
- 	struct slave *slave = bond_slave_get_rtnl(slave_dev);
--	struct bonding *bond = slave->bond;
--	struct net_device *bond_dev = slave->bond->dev;
-+	struct bonding *bond;
-+	struct net_device *bond_dev;
- 	u32 old_speed;
- 	u8 old_duplex;
+@@ -1906,6 +1906,7 @@ err_detach:
+ 	write_unlock_bh(&bond->lock);
  
-+	/*
-+	 * A netdev event can be generated while enslaving a device
-+	 * before netdev_rx_handler_register is called in which case
-+	 * slave will be NULL
-+	 */
-+	if (!slave)
-+		return NOTIFY_DONE;
-+	bond_dev = slave->bond->dev;
-+	bond = slave->bond;
-+
- 	switch (event) {
- 	case NETDEV_UNREGISTER:
- 		if (bond->setup_by_slave)
+ err_close:
++	slave_dev->priv_flags &= ~IFF_BONDING;
+ 	dev_close(slave_dev);
+ 
+ err_unset_master:
 -- 
 1.8.1.4
