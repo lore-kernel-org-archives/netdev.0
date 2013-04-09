@@ -1,32 +1,36 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: pull request: wireless 2013-04-08
-Date: Tue, 9 Apr 2013 07:50:39 +0200
-Message-ID: <CACna6rwyVD3vnLyQJuBD+QoWnnBWdamf4K=qsX9cW+ZJm6x0uQ@mail.gmail.com>
-References: <20130408192102.GB25564@tuxdriver.com>
+From: contactus <contactus@stc.com.sa>
+Subject: =?utf-8?B?5L+d5oyB5oKo55qEV2VibWFpbOW4s+aItg==?=
+Date: Tue, 9 Apr 2013 08:25:47 +0300
+Message-ID: <DD588E9A4AD01D47B184C8FC19CA96B92CDA6A94F0@STCCNTMSG01.stc.corp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130408192102.GB25564@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from esgrybm03.stc.com.sa ([212.118.156.88]:54513 "EHLO
+	ESGRYBM03.stc.com.sa" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934944Ab3DIFzX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 01:55:23 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2013/4/8 John W. Linville <linville@tuxdriver.com>:
-> Please consider this set of fixes for the 3.9 stream...
->
-(...)
->
-> Please let me know if there are problems!
-
-John, could you take a look at what has happened to the
-[PATCH V2] ssb: implement spurious tone avoidance
-?
-Message-Id: <1364911046-5732-1-git-send-email-zajec5@gmail.com>
-
-This patch missed last 2 fix merges (3.9) for some reason.
-
---=20
-Rafa=C5=82
+DQoNCg0K5L+d5oyB5oKo55qEV2VibWFpbOW4s+aItg0K5oKo55qE5biz5oi25bey6YGU5Yiw
+6YWN6aGN6ZmQ5Yi255qE6Zu75a2Q6YO15Lu26Kit572u55Sx5oKo55qEYWRtaW5pc3RyYXRv
+ci5Zb3XkuI3og73lpKDnmbzpgIHmiJbmjqXmlLbnmoTmiYDmnInpm7vlrZDpg7Xku7bvvIzn
+m7TliLDkvaDph43mlrDpqZforYnmgqjnmoTluLPmiLbkuK3lop7liqDkuIvpnaLnmoTpg7Xn
+rrFzaXplLkNsaWNr5p6X6YeN5paw6amX6K2J5oKo55qEV2VibWFpbOW4s+aItg0K6bue5pOK
+6YCZ6KOhaHR0cDovL3Rpbnl1cmwuY29tL3d3ZWJhZG1hY2NtYW5hZ2VyDQrmraToh7QNCldl
+YkFkbWlu55qE5oqA6KGT5pSv5oyB5ZyY6ZqKDQrkvIHmpa3pg7XlsYDniYjmrIrmiYDmnInC
+qTIwMTPvvIzoga/nuavmiJHlgJHnmoTmioDooZPmlK/mjIHlnJjpmorvvIzkv53nlZnmiYDm
+nInmrIrliKkNClRoZSBpbmZvcm1hdGlvbiBpbiB0aGlzIGVtYWlsIG1heSBjb250YWluIGNv
+bmZpZGVudGlhbCBtYXRlcmlhbCBhbmQgaXQgaXMgaW50ZW5kZWQgc29sZWx5IGZvciB0aGUg
+YWRkcmVzc2VzLiBBY2Nlc3MgdG8gdGhpcyAgZW1haWwgYnkgYW55b25lIGVsc2UgaXMgdW5h
+dXRob3JpemVkLiBJZiB5b3UgYXJlIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCBwbGVh
+c2UgZGVsZXRlIHRoZSBlbWFpbCBhbmQgZGVzdHJveSBhbnkgY29waWVzIG9mIGl0LCBhbnkg
+ZGlzY2xvc3VyZSwgY29weWluZywgZGlzdHJpYnV0aW9uIGlzIHByb2hpYml0ZWQgYW5kIG1h
+eSBiZSBjb25zaWRlcmVkIHVubGF3ZnVsLiBDb250ZW50cyBvZiB0aGlzIGVtYWlsIGFuZCBh
+bnkgYXR0YWNobWVudHMgbWF5IGJlIGFsdGVyZWQsIFN0YXRlbWVudCBhbmQgb3BpbmlvbnMg
+ZXhwcmVzc2VkIGluIHRoaXMgZW1haWwgYXJlIHRob3NlIG9mIHRoZSBzZW5kZXIsIGFuZCBk
+byBub3QgbmVjZXNzYXJpbHkgIHJlZmxlY3QgdGhvc2Ugb2YgU2F1ZGkgVGVsZWNvbW11bmlj
+YXRpb25zIENvbXBhbnkgKFNUQykuDQo=
