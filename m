@@ -1,59 +1,58 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: gw: use kmem_cache_free() instead of kfree()
-Date: Tue, 09 Apr 2013 10:20:39 +0200
-Message-ID: <5163CF57.1090309@pengutronix.de>
-References: <CAPgLHd9eAfwJMJ9P5RqOKNP5kq87y61V7CTw2J--Ld8uHT0RrQ@mail.gmail.com>
+From: Ed W <lists@wildgooses.com>
+Subject: Modifying the exponential backoff on new connection SYN packets
+Date: Tue, 09 Apr 2013 10:06:17 +0100
+Message-ID: <5163DA09.5070202@wildgooses.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="----enig2DTUXQLJHGOGFSCMDSOHL"
-Cc: socketcan@hartkopp.net, davem@davemloft.net,
-	yongjun_wei@trendmicro.com.cn, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Wei Yongjun <weiyj.lk@gmail.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <CAPgLHd9eAfwJMJ9P5RqOKNP5kq87y61V7CTw2J--Ld8uHT0RrQ@mail.gmail.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Networking Developer Mailing List <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.nippynetworks.com ([91.220.24.129]:34597 "EHLO
+	mail1.nippynetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935178Ab3DIJQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 05:16:15 -0400
+Received: from localhost (mail1.nippynetworks.com [127.0.0.1])
+	by mail1.nippynetworks.com (Postfix) with ESMTP id DDF70340398
+	for <netdev@vger.kernel.org>; Tue,  9 Apr 2013 10:06:17 +0100 (BST)
+Received: from mail1.nippynetworks.com ([127.0.0.1])
+	by localhost (mail1.nippynetworks.com [127.0.0.1]) (amavisd-new, port 10024)
+	with LMTP id arot2ifXvDxO for <netdev@vger.kernel.org>;
+	Tue,  9 Apr 2013 10:06:17 +0100 (BST)
+Received: from eds-macbook-pro.nippynetworks.local (unknown [212.69.38.73])
+	(Authenticated sender: edward@wildgooses.com)
+	by mail1.nippynetworks.com (Postfix) with ESMTPSA id 8B302340373
+	for <netdev@vger.kernel.org>; Tue,  9 Apr 2013 10:06:17 +0100 (BST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
-------enig2DTUXQLJHGOGFSCMDSOHL
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: quoted-printable
+Hi, I have an unusual situation in that I would like to cap the 
+retransmit frequency on the initial SYN packets at some fairly short 
+time interval, eg a max of 2-4 seconds, rather than the usual 
+exponentially increasing interval.  I could use some help figuring out 
+the exact point in the kernel to make such a change please?
 
-On 04/09/2013 08:16 AM, Wei Yongjun wrote:
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->=20
-> memory allocated by kmem_cache_alloc() should be freed using
-> kmem_cache_free(), not kfree().
->=20
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+The situation is that I am building a firewall which will be used with 
+expensive satellite links (think $10-100/MB range). Some of the links 
+are dialup links which take 20-40 seconds to bring up, and then we have 
+PPP drop the link after 10 seconds of inactivity. However, with the 
+default exponential backoff on new connections we are generally 
+retransmitting with a 16sec or 32 sec interval by the time the dialup 
+link is connected, the timout for inactivity kicks in and drops the link 
+before the retransmit...
 
-Thanks for catching this. Applied to can/master.
-I've send a pull request to David, along with Oliver's Acked-by and
-stable on Cc.
+I believe the exponential backoff is intended to prevent amplification 
+attacks? In this particular case we are accounting for traffic per user 
+and the internet costs are extremely substantial, so I think it's not a 
+problem
 
-Thanks,
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Could someone please help figure out the appropriate place to tweak the 
+exponential backoff? Note this is not retransmit of in flight data, just 
+the backoff for the initial syn (which doesn't seem to be configurable 
+in user space?)
 
+Note, we have an application proxy here, but I can't see a sensible way 
+to fake it in user space without a lot of extra coding - any suggestions?
 
-------enig2DTUXQLJHGOGFSCMDSOHL
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Thanks
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlFjz1wACgkQjTAFq1RaXHMgVACfejVeOBXML1XalskjYRwa01f6
-74sAn1Ekat5lHkhlxnzIT8Kc2ArW9l3J
-=JD4g
------END PGP SIGNATURE-----
-
-------enig2DTUXQLJHGOGFSCMDSOHL--
+Ed W
