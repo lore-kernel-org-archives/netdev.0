@@ -1,36 +1,36 @@
-From: contactus <contactus@stc.com.sa>
-Subject: =?utf-8?B?5L+d5oyB5oKo55qEV2VibWFpbOW4s+aItg==?=
-Date: Tue, 9 Apr 2013 08:25:47 +0300
-Message-ID: <DD588E9A4AD01D47B184C8FC19CA96B92CDA6A94F0@STCCNTMSG01.stc.corp>
+From: Li Zefan <lizefan@huawei.com>
+Subject: [PATCH] tcp_memcontrol: remove a redundant statement in tcp_destroy_cgroup()
+Date: Tue, 9 Apr 2013 13:59:28 +0800
+Message-ID: <5163AE40.40304@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from esgrybm03.stc.com.sa ([212.118.156.88]:54513 "EHLO
-	ESGRYBM03.stc.com.sa" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934944Ab3DIFzX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 01:55:23 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="GB2312"
+Content-Transfer-Encoding: 7bit
+Cc: Glauber Costa <glommer@parallels.com>,
+	LKML <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCg0K5L+d5oyB5oKo55qEV2VibWFpbOW4s+aItg0K5oKo55qE5biz5oi25bey6YGU5Yiw
-6YWN6aGN6ZmQ5Yi255qE6Zu75a2Q6YO15Lu26Kit572u55Sx5oKo55qEYWRtaW5pc3RyYXRv
-ci5Zb3XkuI3og73lpKDnmbzpgIHmiJbmjqXmlLbnmoTmiYDmnInpm7vlrZDpg7Xku7bvvIzn
-m7TliLDkvaDph43mlrDpqZforYnmgqjnmoTluLPmiLbkuK3lop7liqDkuIvpnaLnmoTpg7Xn
-rrFzaXplLkNsaWNr5p6X6YeN5paw6amX6K2J5oKo55qEV2VibWFpbOW4s+aItg0K6bue5pOK
-6YCZ6KOhaHR0cDovL3Rpbnl1cmwuY29tL3d3ZWJhZG1hY2NtYW5hZ2VyDQrmraToh7QNCldl
-YkFkbWlu55qE5oqA6KGT5pSv5oyB5ZyY6ZqKDQrkvIHmpa3pg7XlsYDniYjmrIrmiYDmnInC
-qTIwMTPvvIzoga/nuavmiJHlgJHnmoTmioDooZPmlK/mjIHlnJjpmorvvIzkv53nlZnmiYDm
-nInmrIrliKkNClRoZSBpbmZvcm1hdGlvbiBpbiB0aGlzIGVtYWlsIG1heSBjb250YWluIGNv
-bmZpZGVudGlhbCBtYXRlcmlhbCBhbmQgaXQgaXMgaW50ZW5kZWQgc29sZWx5IGZvciB0aGUg
-YWRkcmVzc2VzLiBBY2Nlc3MgdG8gdGhpcyAgZW1haWwgYnkgYW55b25lIGVsc2UgaXMgdW5h
-dXRob3JpemVkLiBJZiB5b3UgYXJlIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCBwbGVh
-c2UgZGVsZXRlIHRoZSBlbWFpbCBhbmQgZGVzdHJveSBhbnkgY29waWVzIG9mIGl0LCBhbnkg
-ZGlzY2xvc3VyZSwgY29weWluZywgZGlzdHJpYnV0aW9uIGlzIHByb2hpYml0ZWQgYW5kIG1h
-eSBiZSBjb25zaWRlcmVkIHVubGF3ZnVsLiBDb250ZW50cyBvZiB0aGlzIGVtYWlsIGFuZCBh
-bnkgYXR0YWNobWVudHMgbWF5IGJlIGFsdGVyZWQsIFN0YXRlbWVudCBhbmQgb3BpbmlvbnMg
-ZXhwcmVzc2VkIGluIHRoaXMgZW1haWwgYXJlIHRob3NlIG9mIHRoZSBzZW5kZXIsIGFuZCBk
-byBub3QgbmVjZXNzYXJpbHkgIHJlZmxlY3QgdGhvc2Ugb2YgU2F1ZGkgVGVsZWNvbW11bmlj
-YXRpb25zIENvbXBhbnkgKFNUQykuDQo=
+We read the value but make no use of it.
+
+Signed-off-by: Li Zefan <lizefan@huawei.com>
+---
+ net/ipv4/tcp_memcontrol.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
+index b6f3583..d52196f 100644
+--- a/net/ipv4/tcp_memcontrol.c
++++ b/net/ipv4/tcp_memcontrol.c
+@@ -72,8 +72,6 @@ void tcp_destroy_cgroup(struct mem_cgroup *memcg)
+ 
+ 	tcp = tcp_from_cgproto(cg_proto);
+ 	percpu_counter_destroy(&tcp->tcp_sockets_allocated);
+-
+-	val = res_counter_read_u64(&tcp->tcp_memory_allocated, RES_LIMIT);
+ }
+ EXPORT_SYMBOL(tcp_destroy_cgroup);
+ 
+-- 
+1.8.0.2
