@@ -1,98 +1,67 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH 6/7] xen-netback: coalesce slots and fix
- regressions
-Date: Tue, 9 Apr 2013 13:48:45 +0100
-Message-ID: <20130409124845.GG16998@zion.uk.xensource.com>
-References: <1365505655-8021-1-git-send-email-wei.liu2@citrix.com>
- <1365505655-8021-7-git-send-email-wei.liu2@citrix.com>
- <5164221302000078000CBBF2@nat28.tlf.novell.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH 1/3] if.h: add IFF_BRIDGE_RESTRICTED flag
+Date: Tue, 09 Apr 2013 08:57:45 -0400
+Message-ID: <51641049.3030100@mojatatu.com>
+References: <1365442863-32394-1-git-send-email-antonio@open-mesh.com> <1365442863-32394-2-git-send-email-antonio@open-mesh.com> <CAOaVG17nHuoRsf2Kss6LnpgC-Aojcso_zLYyBa18Vn9CGGY+GA@mail.gmail.com> <20130409075606.GB3771@open-mesh.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"wdauchy@gmail.com" <wdauchy@gmail.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>
+To: Antonio Quartulli <antonio@open-mesh.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:23803 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759219Ab3DIMsq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Apr 2013 08:48:46 -0400
-Content-Disposition: inline
-In-Reply-To: <5164221302000078000CBBF2@nat28.tlf.novell.com>
+Received: from mail-ia0-f169.google.com ([209.85.210.169]:61620 "EHLO
+	mail-ia0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760149Ab3DIM6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 08:58:05 -0400
+Received: by mail-ia0-f169.google.com with SMTP id y26so2166325iab.0
+        for <netdev@vger.kernel.org>; Tue, 09 Apr 2013 05:58:03 -0700 (PDT)
+In-Reply-To: <20130409075606.GB3771@open-mesh.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 09, 2013 at 01:13:39PM +0100, Jan Beulich wrote:
-> >>> On 09.04.13 at 13:07, Wei Liu <wei.liu2@citrix.com> wrote:
-[...]
-> > +
-> > +static struct kernel_param_ops max_skb_slots_param_ops = {
-> 
-> __moduleparam_const
+Hi,
 
-TBH I don't see any driver makes use of this. Probably a simple "const"
-can do?
+Consider using tc for this.
+You can tag the packet using skb mark on the receiving end point,
+match them on the bridge and execute actions not to forward them.
 
-> 
-> > +	.set = max_skb_slots_set,
-> > +	.get = param_get_ulong,
-> 
-> param_get_uint
-> 
+cheers,
+jamal
 
-Done.
-
-> > @@ -251,7 +291,7 @@ static int max_required_rx_slots(struct xenvif *vif)
-> >  	int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
-> >  
-> >  	if (vif->can_sg || vif->gso || vif->gso_prefix)
-> > -		max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
-> > +		max += XEN_NETIF_NR_SLOTS_MIN + 1; /* extra_info + frags */
-> >  
-> >  	return max;
-> >  }
-> > @@ -657,7 +697,7 @@ static void xen_netbk_rx_action(struct xen_netbk *netbk)
-> >  		__skb_queue_tail(&rxq, skb);
-> >  
-> >  		/* Filled the batch queue? */
-> > -		if (count + MAX_SKB_FRAGS >= XEN_NETIF_RX_RING_SIZE)
-> > +		if (count + XEN_NETIF_NR_SLOTS_MIN >= XEN_NETIF_RX_RING_SIZE)
-> >  			break;
-> >  	}
-> >  
-> 
-> Are the two changes above really correct? You're having an skb as
-> input here, and hence you want to use all the frags, and nothing
-> beyond. Another question is whether the frontend can handle
-> those, but that aspect isn't affected by the code being modified
-> here.
-> 
-
-This patch tries to remove dependency on MAX_SKB_FRAGS. Writing the
-protocol-defined value here is OK IMHO.
-
-[...]
-> >  			return -E2BIG;
-> >  		}
-> >  
-> > -		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + frags),
-> > +		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + slots),
-> >  		       sizeof(*txp));
-> >  		if (txp->size > first->size) {
-> > -			netdev_err(vif->dev, "Frag is bigger than frame.\n");
-> > +			netdev_err(vif->dev, "Packet is bigger than frame.\n");
-> 
-> I don't think "packet" is the right term here.
-> 
-
-Maybe just "Invalid tx request" and dump all information?
-
-
-Wei.
-
-> Jan
+On 13-04-09 03:56 AM, Antonio Quartulli wrote:
+> On Mon, Apr 08, 2013 at 11:58:48 -0700, Stephen Hemminger wrote:
+>> The standard way to do this is to use netfilter. Considering the
+>> additional device flags and skb flag changes, I am not sure that your
+>> method is better.
+>
+> To make it a bit more clear:
+>
+> 1) the skb flag will be used on the "receiving end-point" by batman-adv to mark
+> received packets and so instruct the bridge to do not forward them to restricted
+> interfaces.
+>
+> 2) the IFF_ flag is used by batman-adv on the "sending side" to determine
+> whether a packet has been originated by a restricted interface and so instruct
+> the remote endpoint to mark the skb when received.
+>
+> 3) to make the bridge code general enough, I decided to let it mark packets
+> coming from restricted interfaces as well so that it can also apply the policy
+> at 1) locally, without any further setting. The logic described in 1) is
+> therefore applied by the bridge even for local packets (not passing through
+> batman-adv)
+>
+>
+>
+> Point 3) is the only one where netfilter might help. But using two mechanism to
+> achieve one goal looked not sane to me and therefore I decided to to do it this
+> way. And actually the code allowing point 3 is only:
+>
+> +       skb->bridge_restricted = !!(skb->dev->flags & IFF_BRIDGE_RESTRICTED);
+>
+>
+> I hope this summary did not create further confusion :)
+>
