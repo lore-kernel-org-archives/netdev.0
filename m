@@ -1,42 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: sctp: introduce uapi header for sctp
-Date: Tue, 09 Apr 2013 13:21:56 -0400 (EDT)
-Message-ID: <20130409.132156.1556520014623362577.davem@davemloft.net>
-References: <1365522841-19549-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH] selinux: add a skb_owned_by() hook
+Date: Tue, 09 Apr 2013 13:23:50 -0400 (EDT)
+Message-ID: <20130409.132350.1681660673457923647.davem@davemloft.net>
+References: <1365454501.3887.45.camel@edumazet-glaptop>
+	<6182509.cOVcY8B4g7@sifl>
+	<1365479891.3887.99.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	nhorman@tuxdriver.com, vyasevich@gmail.com
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36468 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933213Ab3DIRV6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 13:21:58 -0400
-In-Reply-To: <1365522841-19549-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pmoore@redhat.com, netdev@vger.kernel.org, mvadkert@redhat.com,
+	linux-security-module@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1365479891.3887.99.camel@edumazet-glaptop>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Tue,  9 Apr 2013 17:54:01 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 08 Apr 2013 20:58:11 -0700
 
-> This patch introduces an UAPI header for the SCTP protocol,
-> so that we can facilitate the maintenance and development of
-> user land applications or libraries, in particular in terms
-> of header synchronization.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> To not break compatibility, some fragments from lksctp-tools'
-> netinet/sctp.h have been carefully included, while taking care
-> that neither kernel nor user land breaks, so both compile fine
-> with this change (for lksctp-tools I tested with the old
-> netinet/sctp.h header and with a newly adapted one that includes
-> the uapi sctp header). lksctp-tools smoke test run through
-> successfully as well in both cases.
+> Commit 90ba9b1986b5ac (tcp: tcp_make_synack() can use alloc_skb())
+> broke certain SELinux/NetLabel configurations by no longer correctly
+> assigning the sock to the outgoing SYNACK packet.
 > 
-> Suggested-by: Neil Horman <nhorman@tuxdriver.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cost of atomic operations on the LISTEN socket is quite big,
+> and we would like it to happen only if really needed.
+> 
+> This patch introduces a new security_ops->skb_owned_by() method,
+> that is a void operation unless selinux is active.
+> 
+> Reported-by: Miroslav Vadkerti <mvadkert@redhat.com>
+> Diagnosed-by: Paul Moore <pmoore@redhat.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-This looks great, applied, thanks Daniel.
+Since this fixes a regression that got added by the networking
+tree, I'll push this to Linus, applied, thanks.
