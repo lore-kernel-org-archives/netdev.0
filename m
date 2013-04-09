@@ -1,35 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK
- packet
-Date: Tue, 09 Apr 2013 08:07:06 -0700
-Message-ID: <1365520026.3887.139.camel@edumazet-glaptop>
-References: <3505145.vfXt1x4t0P@sifl> <2238729.HES6agzVX2@sifl>
-	 <1365517864.3887.137.camel@edumazet-glaptop> <7718638.lBZi8geXkP@sifl>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [Xen-devel] [PATCH 5/6] xen-netback: coalesce slots before
+ copying
+Date: Tue, 9 Apr 2013 16:10:07 +0100
+Message-ID: <1365520207.17014.1.camel@zakaz.uk.xensource.com>
+References: <1364209702-12437-1-git-send-email-wei.liu2@citrix.com>
+	 <1364209702-12437-6-git-send-email-wei.liu2@citrix.com>
+	 <20130325165746.GB25740@phenom.dumpdata.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Casey Schaufler <casey@schaufler-ca.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	mvadkert@redhat.com, selinux@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org
-To: Paul Moore <pmoore@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <7718638.lBZi8geXkP@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.eu.citrix.com ([46.33.159.39]:34521 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760644Ab3DIPKM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 11:10:12 -0400
+In-Reply-To: <20130325165746.GB25740@phenom.dumpdata.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-04-09 at 10:52 -0400, Paul Moore wrote:
-
+On Mon, 2013-03-25 at 16:57 +0000, Konrad Rzeszutek Wilk wrote:
+> On Mon, Mar 25, 2013 at 11:08:21AM +0000, Wei Liu wrote:
+> > This patch tries to coalesce tx requests when constructing grant copy
+> > structures. It enables netback to deal with situation when frontend's
+> > MAX_SKB_FRAGS is larger than backend's MAX_SKB_FRAGS.
+> >
+> > It defines max_skb_slots, which is a estimation of the maximum number of slots
+> > a guest can send, anything bigger than that is considered malicious. Now it is
+> > set to 20, which should be enough to accommodate Linux (16 to 19).
+> >
+> > Also change variable name from "frags" to "slots" in netbk_count_requests.
+> >
 > 
-> Perhaps I'm misunderstanding, but these comments above only apply if we were 
-> to increase the size of the sk_buff struct, yes?  What I proposed, replacing 
-> "secmark" with a blob, does not currently change the size of the sk_buff 
-> struct so the performance and memory usage should remain unchanged as well.
-> 
+> This should probably also CC stable@vger.kernel.org
 
-If blob size is 4 bytes, thats fine.
+DaveM prefers net patches to not do so and he takes care of forwarding
+patches once he is happy (i.e. after they've been in his/Linus' tree for
+a bit).
 
-If not, read again my mail.
-
-
-
+Ian
