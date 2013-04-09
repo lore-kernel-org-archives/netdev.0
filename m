@@ -1,88 +1,162 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 2/4] Move execute_set_action to lib/odp-util.c
-Date: Tue, 9 Apr 2013 12:11:19 +0900
-Message-ID: <20130409031119.GF11444@verge.net.au>
-References: <1365403431-18102-1-git-send-email-horms@verge.net.au>
- <1365403431-18102-3-git-send-email-horms@verge.net.au>
- <CAEP_g=_JYu0m4G01osWCaMhu6ESdiryMQYvikfpuNNYj6dNn_A@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] selinux: add a skb_owned_by() hook
+Date: Mon, 08 Apr 2013 20:58:11 -0700
+Message-ID: <1365479891.3887.99.camel@edumazet-glaptop>
+References: <20130408154519.18177.57709.stgit@localhost>
+	 <3294227.D2rod7xgQB@sifl> <1365454501.3887.45.camel@edumazet-glaptop>
+	 <6182509.cOVcY8B4g7@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
-	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Ben Pfaff <blp@nicira.com>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:38106 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934544Ab3DIDLW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Apr 2013 23:11:22 -0400
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=_JYu0m4G01osWCaMhu6ESdiryMQYvikfpuNNYj6dNn_A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mvadkert@redhat.com, linux-security-module@vger.kernel.org
+To: Paul Moore <pmoore@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <6182509.cOVcY8B4g7@sifl>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 08, 2013 at 01:29:52PM -0700, Jesse Gross wrote:
-> On Sun, Apr 7, 2013 at 11:43 PM, Simon Horman <horms@verge.net.au> wrote:
-> > Move execute_set_action from lib/dpif-netedev.c to lib/odp-util.c
-> >
-> > This is in preparation for using execute_set_action()
-> > in lib/odp-util.c to handle recirculation/
-> >
-> > Signed-off-by: Simon Horman <horms@verge.net.au>
-> >
-> > ---
-> >
-> > packet.c might be a better place for execute_set_action()
-> > but I'm unsure if accessing struct ovs_key_ethernet would
-> > lead to a layering violation.
-> 
-> I'd be tempted to just put this in it's own file.  As you say, it
-> doesn't really fit in either of the two existing ones.
+From: Eric Dumazet <edumazet@google.com>
 
-perhaps execute-action.c ?
+Commit 90ba9b1986b5ac (tcp: tcp_make_synack() can use alloc_skb())
+broke certain SELinux/NetLabel configurations by no longer correctly
+assigning the sock to the outgoing SYNACK packet.
 
-> 
-> > diff --git a/lib/odp-util.c b/lib/odp-util.c
-> > index e18e109..ad5873c 100644
-> > --- a/lib/odp-util.c
-> > +++ b/lib/odp-util.c
-> > @@ -2420,3 +2420,79 @@ commit_odp_actions(const struct flow *flow, struct flow *base,
-> >      commit_set_priority_action(flow, base, odp_actions);
-> >      commit_set_skb_mark_action(flow, base, odp_actions);
-> >  }
-> > +
-> > +static void
-> > +dp_netdev_set_dl(struct ofpbuf *packet, const struct ovs_key_ethernet *eth_key)
-> 
-> I think this function should be given a more generic name and possibly
-> moved to packet.c.
+Cost of atomic operations on the LISTEN socket is quite big,
+and we would like it to happen only if really needed.
 
-Sure, how about eth_set_src_and_dst()
+This patch introduces a new security_ops->skb_owned_by() method,
+that is a void operation unless selinux is active.
 
-> > +void
-> > +execute_set_action(struct ofpbuf *packet, const struct nlattr *a,
-> > +                   uint32_t *skb_mark)
-> > +{
-> > +    enum ovs_key_attr type = nl_attr_type(a);
-> > +    const struct ovs_key_ipv4 *ipv4_key;
-> > +    const struct ovs_key_ipv6 *ipv6_key;
-> > +    const struct ovs_key_tcp *tcp_key;
-> > +    const struct ovs_key_udp *udp_key;
-> > +
-> > +    switch (type) {
-> > +    case OVS_KEY_ATTR_PRIORITY:
-> > +    case OVS_KEY_ATTR_TUNNEL:
-> > +        /* not implemented */
-> > +        break;
-> 
-> Don't we need to carry this information along as well similar to skb->mark?
+Reported-by: Miroslav Vadkerti <mvadkert@redhat.com>
+Diagnosed-by: Paul Moore <pmoore@redhat.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-security-module@vger.kernel.org
+---
+ include/linux/security.h |    8 ++++++++
+ net/ipv4/tcp_output.c    |    1 +
+ security/capability.c    |    6 ++++++
+ security/security.c      |    5 +++++
+ security/selinux/hooks.c |    7 +++++++
+ 5 files changed, 27 insertions(+)
 
-Most likely, sorry for missing that.
+diff --git a/include/linux/security.h b/include/linux/security.h
+index eee7478..6c3a78a 100644
+--- a/include/linux/security.h
++++ b/include/linux/security.h
+@@ -1638,6 +1638,7 @@ struct security_operations {
+ 	int (*tun_dev_attach_queue) (void *security);
+ 	int (*tun_dev_attach) (struct sock *sk, void *security);
+ 	int (*tun_dev_open) (void *security);
++	void (*skb_owned_by) (struct sk_buff *skb, struct sock *sk);
+ #endif	/* CONFIG_SECURITY_NETWORK */
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+@@ -2588,6 +2589,8 @@ int security_tun_dev_attach_queue(void *security);
+ int security_tun_dev_attach(struct sock *sk, void *security);
+ int security_tun_dev_open(void *security);
+ 
++void security_skb_owned_by(struct sk_buff *skb, struct sock *sk);
++
+ #else	/* CONFIG_SECURITY_NETWORK */
+ static inline int security_unix_stream_connect(struct sock *sock,
+ 					       struct sock *other,
+@@ -2779,6 +2782,11 @@ static inline int security_tun_dev_open(void *security)
+ {
+ 	return 0;
+ }
++
++static inline void security_skb_owned_by(struct sk_buff *skb, struct sock *sk)
++{
++}
++
+ #endif	/* CONFIG_SECURITY_NETWORK */
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 5d0b438..b44cf81 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2709,6 +2709,7 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 	skb_reserve(skb, MAX_TCP_HEADER);
+ 
+ 	skb_dst_set(skb, dst);
++	security_skb_owned_by(skb, sk);
+ 
+ 	mss = dst_metric_advmss(dst);
+ 	if (tp->rx_opt.user_mss && tp->rx_opt.user_mss < mss)
+diff --git a/security/capability.c b/security/capability.c
+index 5797750..c36cca6 100644
+--- a/security/capability.c
++++ b/security/capability.c
+@@ -737,6 +737,11 @@ static int cap_tun_dev_open(void *security)
+ {
+ 	return 0;
+ }
++
++static void cap_skb_owned_by(struct sk_buff *skb, struct sock *sk) 
++{
++}
++
+ #endif	/* CONFIG_SECURITY_NETWORK */
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+@@ -1071,6 +1076,7 @@ void __init security_fixup_ops(struct security_operations *ops)
+ 	set_to_cap_if_null(ops, tun_dev_open);
+ 	set_to_cap_if_null(ops, tun_dev_attach_queue);
+ 	set_to_cap_if_null(ops, tun_dev_attach);
++	set_to_cap_if_null(ops, skb_owned_by);
+ #endif	/* CONFIG_SECURITY_NETWORK */
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+ 	set_to_cap_if_null(ops, xfrm_policy_alloc_security);
+diff --git a/security/security.c b/security/security.c
+index 7b88c6a..03f248b 100644
+--- a/security/security.c
++++ b/security/security.c
+@@ -1290,6 +1290,11 @@ int security_tun_dev_open(void *security)
+ }
+ EXPORT_SYMBOL(security_tun_dev_open);
+ 
++void security_skb_owned_by(struct sk_buff *skb, struct sock *sk)
++{
++	security_ops->skb_owned_by(skb, sk);
++}
++
+ #endif	/* CONFIG_SECURITY_NETWORK */
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 2fa28c8..7171a95 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -51,6 +51,7 @@
+ #include <linux/tty.h>
+ #include <net/icmp.h>
+ #include <net/ip.h>		/* for local_port_range[] */
++#include <net/sock.h>
+ #include <net/tcp.h>		/* struct or_callable used in sock_rcv_skb */
+ #include <net/net_namespace.h>
+ #include <net/netlabel.h>
+@@ -4363,6 +4364,11 @@ static void selinux_inet_conn_established(struct sock *sk, struct sk_buff *skb)
+ 	selinux_skb_peerlbl_sid(skb, family, &sksec->peer_sid);
+ }
+ 
++static void selinux_skb_owned_by(struct sk_buff *skb, struct sock *sk)
++{
++	skb_set_owner_w(skb, sk);
++}
++
+ static int selinux_secmark_relabel_packet(u32 sid)
+ {
+ 	const struct task_security_struct *__tsec;
+@@ -5664,6 +5670,7 @@ static struct security_operations selinux_ops = {
+ 	.tun_dev_attach_queue =		selinux_tun_dev_attach_queue,
+ 	.tun_dev_attach =		selinux_tun_dev_attach,
+ 	.tun_dev_open =			selinux_tun_dev_open,
++	.skb_owned_by =			selinux_skb_owned_by,
+ 
+ #ifdef CONFIG_SECURITY_NETWORK_XFRM
+ 	.xfrm_policy_alloc_security =	selinux_xfrm_policy_alloc,
 
-> Also, is there a reason to not have the code for push/pop actions here as well?
 
-Good point.
-
-With that in mind perhaps execute_set_or_mpls_action() would
-be a good name for the function?
