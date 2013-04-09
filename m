@@ -1,67 +1,47 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH 1/3] if.h: add IFF_BRIDGE_RESTRICTED flag
-Date: Tue, 09 Apr 2013 08:57:45 -0400
-Message-ID: <51641049.3030100@mojatatu.com>
-References: <1365442863-32394-1-git-send-email-antonio@open-mesh.com> <1365442863-32394-2-git-send-email-antonio@open-mesh.com> <CAOaVG17nHuoRsf2Kss6LnpgC-Aojcso_zLYyBa18Vn9CGGY+GA@mail.gmail.com> <20130409075606.GB3771@open-mesh.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/2] sh_eth: add R-Car support for real
+Date: Tue, 09 Apr 2013 17:08:46 +0400
+Message-ID: <516412DE.8020007@cogentembedded.com>
+References: <201303290051.32106.sergei.shtylyov@cogentembedded.com> <20130408023936.GA1643@verge.net.au> <20130408090451.GC8917@verge.net.au> <5162C9EA.6060005@cogentembedded.com> <OF927F8D41.407FE3E6-ON80257B47.004FDFDA-80257B47.005090A7@eu.necel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"bridge@lists.linux-foundation.org"
-	<bridge@lists.linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Antonio Quartulli <antonio@open-mesh.com>
+Cc: Simon Horman <horms@verge.net.au>, linux-sh@vger.kernel.org,
+	netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com
+To: phil.edworthy@renesas.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f169.google.com ([209.85.210.169]:61620 "EHLO
-	mail-ia0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760149Ab3DIM6F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 08:58:05 -0400
-Received: by mail-ia0-f169.google.com with SMTP id y26so2166325iab.0
-        for <netdev@vger.kernel.org>; Tue, 09 Apr 2013 05:58:03 -0700 (PDT)
-In-Reply-To: <20130409075606.GB3771@open-mesh.com>
+Received: from mail-la0-f51.google.com ([209.85.215.51]:37151 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933121Ab3DINJs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 09:09:48 -0400
+Received: by mail-la0-f51.google.com with SMTP id fo12so1559227lab.10
+        for <netdev@vger.kernel.org>; Tue, 09 Apr 2013 06:09:47 -0700 (PDT)
+In-Reply-To: <OF927F8D41.407FE3E6-ON80257B47.004FDFDA-80257B47.005090A7@eu.necel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hello.
 
-Consider using tc for this.
-You can tag the packet using skb mark on the receiving end point,
-match them on the bridge and execute actions not to forward them.
+On 08-04-2013 18:40, phil.edworthy@renesas.com wrote:
 
-cheers,
-jamal
+> Thanks for the patch. When I added r8a7779 support, I had a rather poor
+> manual with a lot of information missing. I submitted the patch once I got
+> the driver working on a Marzen board, with an REE Expansion Board.
 
-On 13-04-09 03:56 AM, Antonio Quartulli wrote:
-> On Mon, Apr 08, 2013 at 11:58:48 -0700, Stephen Hemminger wrote:
->> The standard way to do this is to use netfilter. Considering the
->> additional device flags and skb flag changes, I am not sure that your
->> method is better.
->
-> To make it a bit more clear:
->
-> 1) the skb flag will be used on the "receiving end-point" by batman-adv to mark
-> received packets and so instruct the bridge to do not forward them to restricted
-> interfaces.
->
-> 2) the IFF_ flag is used by batman-adv on the "sending side" to determine
-> whether a packet has been originated by a restricted interface and so instruct
-> the remote endpoint to mark the skb when received.
->
-> 3) to make the bridge code general enough, I decided to let it mark packets
-> coming from restricted interfaces as well so that it can also apply the policy
-> at 1) locally, without any further setting. The logic described in 1) is
-> therefore applied by the bridge even for local packets (not passing through
-> batman-adv)
->
->
->
-> Point 3) is the only one where netfilter might help. But using two mechanism to
-> achieve one goal looked not sane to me and therefore I decided to to do it this
-> way. And actually the code allowing point 3 is only:
->
-> +       skb->bridge_restricted = !!(skb->dev->flags & IFF_BRIDGE_RESTRICTED);
->
->
-> I hope this summary did not create further confusion :)
->
+    That must be 3rd type of the expansion board even. I have documentation on 
+some Y-R-CAR-H1-BOARD-EXP board, and I have the R0P7779A00020S board mounted 
+below Marzen. They seem very different as the latter don't have any switches 
+on it.
+
+> One of the main changes you have made is adjusting the offset of the
+> control registers. When I did this work originally, I just assumed that
+> the base address start at 0x1DE00200, i.e. it included the 0x200 offset.
+> This made sense as the registers are then identically positioned to sh4a.
+
+    Yes, but not all SH4 registers exist on R-Car and the Ether base is 
+0xFDE00000 according to the datasheet.
+
+> Regards
+> Phil
+
+WBR, Sergei
