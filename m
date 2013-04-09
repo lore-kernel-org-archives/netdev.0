@@ -1,65 +1,59 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH] can: gw: use kmem_cache_free() instead of kfree()
-Date: Tue,  9 Apr 2013 10:13:35 +0200
-Message-ID: <1365495215-12081-2-git-send-email-mkl@pengutronix.de>
-References: <1365495215-12081-1-git-send-email-mkl@pengutronix.de>
-Cc: linux-can@vger.kernel.org, davem@davemloft.net,
-	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	linux-stable <stable@vger.kernel.org>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:46023 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935028Ab3DIIQ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 04:16:58 -0400
-In-Reply-To: <1365495215-12081-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: [PATCH] can: gw: use kmem_cache_free() instead of kfree()
+Date: Tue, 09 Apr 2013 10:20:39 +0200
+Message-ID: <5163CF57.1090309@pengutronix.de>
+References: <CAPgLHd9eAfwJMJ9P5RqOKNP5kq87y61V7CTw2J--Ld8uHT0RrQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="----enig2DTUXQLJHGOGFSCMDSOHL"
+Cc: socketcan@hartkopp.net, davem@davemloft.net,
+	yongjun_wei@trendmicro.com.cn, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <CAPgLHd9eAfwJMJ9P5RqOKNP5kq87y61V7CTw2J--Ld8uHT0RrQ@mail.gmail.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+------enig2DTUXQLJHGOGFSCMDSOHL
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: quoted-printable
 
-Memory allocated by kmem_cache_alloc() should be freed using
-kmem_cache_free(), not kfree().
+On 04/09/2013 08:16 AM, Wei Yongjun wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+>=20
+> memory allocated by kmem_cache_alloc() should be freed using
+> kmem_cache_free(), not kfree().
+>=20
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Cc: linux-stable <stable@vger.kernel.org> # >= v3.2
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- net/can/gw.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Thanks for catching this. Applied to can/master.
+I've send a pull request to David, along with Oliver's Acked-by and
+stable on Cc.
 
-diff --git a/net/can/gw.c b/net/can/gw.c
-index 2d117dc..117814a 100644
---- a/net/can/gw.c
-+++ b/net/can/gw.c
-@@ -466,7 +466,7 @@ static int cgw_notifier(struct notifier_block *nb,
- 			if (gwj->src.dev == dev || gwj->dst.dev == dev) {
- 				hlist_del(&gwj->list);
- 				cgw_unregister_filter(gwj);
--				kfree(gwj);
-+				kmem_cache_free(cgw_cache, gwj);
- 			}
- 		}
- 	}
-@@ -864,7 +864,7 @@ static void cgw_remove_all_jobs(void)
- 	hlist_for_each_entry_safe(gwj, nx, &cgw_list, list) {
- 		hlist_del(&gwj->list);
- 		cgw_unregister_filter(gwj);
--		kfree(gwj);
-+		kmem_cache_free(cgw_cache, gwj);
- 	}
- }
- 
-@@ -920,7 +920,7 @@ static int cgw_remove_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
- 
- 		hlist_del(&gwj->list);
- 		cgw_unregister_filter(gwj);
--		kfree(gwj);
-+		kmem_cache_free(cgw_cache, gwj);
- 		err = 0;
- 		break;
- 	}
--- 
-1.8.2.rc2
+Thanks,
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+------enig2DTUXQLJHGOGFSCMDSOHL
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlFjz1wACgkQjTAFq1RaXHMgVACfejVeOBXML1XalskjYRwa01f6
+74sAn1Ekat5lHkhlxnzIT8Kc2ArW9l3J
+=JD4g
+-----END PGP SIGNATURE-----
+
+------enig2DTUXQLJHGOGFSCMDSOHL--
