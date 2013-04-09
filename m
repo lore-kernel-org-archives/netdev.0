@@ -1,96 +1,54 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 2/4] xen-netfront: drop skb when skb->len > 65535
-Date: Tue, 9 Apr 2013 15:30:18 +0100
-Message-ID: <1365517818.10725.44.camel@zakaz.uk.xensource.com>
-References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
-	 <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>
-	 <1363606970.30193.22.camel@zakaz.uk.xensource.com>
-	 <1363617642.29093.203.camel@zion.uk.xensource.com>
-	 <1363618459.2963.10.camel@zakaz.uk.xensource.com>
-	 <1363619098.29093.205.camel@zion.uk.xensource.com>
-	 <1363619244.2963.11.camel@zakaz.uk.xensource.com>
-	 <1363728289.31336.7.camel@deadeye.wl.decadent.org.uk>
-	 <1363728480.31336.10.camel@deadeye.wl.decadent.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK
+ packet
+Date: Tue, 09 Apr 2013 07:31:04 -0700
+Message-ID: <1365517864.3887.137.camel@edumazet-glaptop>
+References: <3505145.vfXt1x4t0P@sifl> <28452040.xEi3pLPik0@sifl>
+	 <1365516022.3887.131.camel@edumazet-glaptop> <2238729.HES6agzVX2@sifl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"annie.li@oracle.com" <annie.li@oracle.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:4008 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935076Ab3DIOaW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 10:30:22 -0400
-In-Reply-To: <1363728480.31336.10.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Casey Schaufler <casey@schaufler-ca.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mvadkert@redhat.com, selinux@tycho.nsa.gov,
+	linux-security-module@vger.kernel.org
+To: Paul Moore <pmoore@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <2238729.HES6agzVX2@sifl>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-03-19 at 21:28 +0000, Ben Hutchings wrote:
-> On Tue, 2013-03-19 at 21:24 +0000, Ben Hutchings wrote:
-> > On Mon, 2013-03-18 at 15:07 +0000, Ian Campbell wrote:
-> > > On Mon, 2013-03-18 at 15:04 +0000, Wei Liu wrote:
-> > > > On Mon, 2013-03-18 at 14:54 +0000, Ian Campbell wrote:
-> > > > > On Mon, 2013-03-18 at 14:40 +0000, Wei Liu wrote:
-> > > > > > On Mon, 2013-03-18 at 11:42 +0000, Ian Campbell wrote:
-> > > > > > > On Mon, 2013-03-18 at 10:35 +0000, Wei Liu wrote:
-> > > > > > > > The `size' field of Xen network wire format is uint16_t, anything bigger than
-> > > > > > > > 65535 will cause overflow.
-> > > > > > > > 
-> > > > > > > > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> > > > > > > > ---
-> > > > > > > >  drivers/net/xen-netfront.c |   12 ++++++++++++
-> > > > > > > >  1 file changed, 12 insertions(+)
-> > > > > > > > 
-> > > > > > > > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> > > > > > > > index 5527663..8c3d065 100644
-> > > > > > > > --- a/drivers/net/xen-netfront.c
-> > > > > > > > +++ b/drivers/net/xen-netfront.c
-> > > > > > > > @@ -547,6 +547,18 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> > > > > > > >  	unsigned int len = skb_headlen(skb);
-> > > > > > > >  	unsigned long flags;
-> > > > > > > >  
-> > > > > > > > +	/*
-> > > > > > > > +	 * wire format of xen_netif_tx_request only supports skb->len
-> > > > > > > > +	 * < 64K, because size field in xen_netif_tx_request is
-> > > > > > > > +	 * uint16_t.
-> > > > > > > 
-> > > > > > > Is there some field we can set e.g. in struct ethernet_device which
-> > > > > > > would stop this from happening?
-> > > > > > > 
-> > > > > > 
-> > > > > > struct ethernet_device? I could not find it.
-> > > > > > 
-> > > > > > And for struct net_device,
-> > > > > 
-> > > > > I meant struct net_device.
-> > > > > 
-> > > > > >  there is no field for this AFAICT.
-> > > > > 
-> > > > > Interesting. Are hardware devices expected to cope with arbitrary sized
-> > > > > GSO skbs then I wonder.
-> > > > > 
-> > > > 
-> > > > No idea. But there is a macro called GSO_MAX_SIZE (65536) in struct
-> > > > net_device. :-)
-> > > 
-> > > But aren't we seeing skb's bigger than that?
-> > > 
-> > > Maybe this is just a historical bug in some older guests?
+On Tue, 2013-04-09 at 10:19 -0400, Paul Moore wrote:
+> On Tuesday, April 09, 2013 07:00:22 AM Eric Dumazet wrote:
+> > On Tue, 2013-04-09 at 09:19 -0400, Paul Moore wrote:
+> > > As Casey already mentioned, if this isn't acceptable please help me
+> > > understand why.
 > > 
-> > GSO_MAX_SIZE is the maximum payload length, not the maximum total length
-> > of an skb.
+> > You see something which is not the reality. If you do such analysis,
+> > better do it properly, because any change you are going to submit will
+> > be doubly checked by people who really care.
 > 
-> ...and it's actually just the default value assigned to
-> dev->gso_max_size.  You'll want to change it to your actual maximum
-> (65535 - maximum length of headers) before registering your net devices.
+> I am attempting to do it properly, I simply made a mistake.  Ben also pointed 
+> it out.  As you wrote yesterday, "Lets go forward".
+> 
+> After fixing the BITS_PER_LONG problem I looked at it again and it appears 
+> that by simply replacing the "secmark" field with a blob we retain the size of 
+> the sk_buff as well as the cacheline positions of all the fields, e.g. 
+> dma_cookie no longer moves cachelines.  Thoughts?
 
-Thanks. 
+If you take a look at recent history of changes on sk_buff, you can see
+we added very recently fields for encapsulation support. These were
+absolutely wanted for modern operations at datacenter level.
 
-"maximum length of headers" might be a bit tricky to determine
-generically :-(.
+This effort might still need new room, so I prefer not filling sk_buff
+right now.
 
-Ian.
+Take a look at the cloned sk_buff. We need an extra atomic_t at the end,
+so if make sk_buff bigger than 0xf8 bytes,  fclone_cache will use an
+extra cache line as well. Not a big deal, but RPC workloads like netperf
+-t TCP_RR will probably show a regression.
+
+ls -l /sys/kernel/slab/skbuff_fclone_cache
+
+
+
