@@ -1,47 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 07/11] tg3: Add support for link flap avoidance
-Date: Tue, 09 Apr 2013 17:07:27 -0400 (EDT)
-Message-ID: <20130409.170727.1353692158695327368.davem@davemloft.net>
-References: <1365533291-5672-8-git-send-email-nsujir@broadcom.com>
-	<20130409.151540.1097356797775302170.davem@davemloft.net>
-	<5164811C.2030005@broadcom.com>
+Subject: Re: [PATCH net-next] tg3: Use bool not int
+Date: Tue, 09 Apr 2013 17:08:15 -0400 (EDT)
+Message-ID: <20130409.170815.1687417824367136494.davem@davemloft.net>
+References: <1365533291-5672-1-git-send-email-nsujir@broadcom.com>
+	<1365538694.18072.8.camel@joe-AO722>
+	<1365541211.2200.7.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com
-To: nsujir@broadcom.com
+Cc: joe@perches.com, nsujir@broadcom.com, netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39841 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39854 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936446Ab3DIVHb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 17:07:31 -0400
-In-Reply-To: <5164811C.2030005@broadcom.com>
+	with ESMTP id S936415Ab3DIVIR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 17:08:17 -0400
+In-Reply-To: <1365541211.2200.7.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Date: Tue, 9 Apr 2013 13:59:08 -0700
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Tue, 9 Apr 2013 14:00:11 -0700
 
-> On 04/09/2013 12:15 PM, David Miller wrote:
->> From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
->> Date: Tue, 9 Apr 2013 11:48:07 -0700
->>
->> If we force a PHY reset due to EEE changes, will the ASF traffic
->> disruption warning message be emitted?
+> On Tue, 2013-04-09 at 13:18 -0700, Joe Perches wrote:
+>> Using bool can make code more readable.
+>> 
+>> Convert uses and tests of int to bool.
+>> 
+>> This also makes a comparison of tg3->link_up
+>> (itself bool) a bool comparison instead of int.
+>> 
+>> Reorder stack variable declarations to make
+>> bool fit declaration holes where appropriate.
+>> 
+>> $ size drivers/net/ethernet/broadcom/tg3.o*
+>>    text    data     bss     dec     hex filename
+>>  169958   27249   58896  256103   3e867 drivers/net/ethernet/broadcom/tg3.o.new
+>>  169968   27249   58896  256113   3e871 drivers/net/ethernet/broadcom/tg3.o.old
+>> 
+>> Signed-off-by: Joe Perches <joe@perches.com> 
 > 
-> No, the message is not emitted. There are a couple of reasons for
-> this.
+> Thanks.
 > 
-> 1. The intent of the message is to warn on user initiated operations
-> that cause a link flap.
-> 
-> 2. The link flap due to EEE mismatch and force reset is possible the
-> very first time the system is powered on. It's reasonable to expect
-> the link to be in flux till the driver is in sync.
-> 
-> After the 1st time the EEE mismatch can only happen if the user
-> modfies it via ethtool. tg3 does not yet support the set_eee ethtool
-> handler. When we implement that, we will add the warning there similar
-> to the other ethtool op handlers.
+> Reviewed-by: Michael Chan <mchan@broadcom.com>
 
-Ok, thanks for the explanation.
+Applied.
