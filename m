@@ -1,66 +1,37 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/3 net-next RFC] selftest: add abstractions for net selftests
-Date: Tue, 09 Apr 2013 17:39:21 +0400
-Message-ID: <51641A09.7040108@cogentembedded.com>
-References: <1365503461-26309-1-git-send-email-alex.mihai.c@gmail.com> <1365503461-26309-2-git-send-email-alex.mihai.c@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: be2net: GRO for non-inet protocols
+Date: Tue, 09 Apr 2013 06:44:35 -0700
+Message-ID: <1365515075.3887.122.camel@edumazet-glaptop>
+References: <20130405132007.GF7551@eerihug-hybrid.ki.sw.ericsson.se>
+	 <1365175702.3405.2.camel@edumazet-glaptop>
+	 <1365175872.3405.3.camel@edumazet-glaptop>
+	 <20130408064010.GD8543@eerihug-hybrid.ki.sw.ericsson.se>
+	 <20130408152417.GD19951@eerihug-hybrid.ki.sw.ericsson.se>
+	 <1365436285.3887.16.camel@edumazet-glaptop>
+	 <20130409075532.GA20363@eerihug-hybrid.ki.sw.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, willemb@google.com,
-	dborkman@redhat.com, edumazet@google.com,
-	Daniel Baluta <dbaluta@ixiacom.com>
-To: Alexandru Copot <alex.mihai.c@gmail.com>
+Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
+	ajit.khaparde@emulex.com, netdev@vger.kernel.org
+To: Erik Hugne <erik.hugne@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:42065 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752174Ab3DINkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 09:40:24 -0400
-Received: by mail-lb0-f179.google.com with SMTP id t1so6881099lbd.10
-        for <netdev@vger.kernel.org>; Tue, 09 Apr 2013 06:40:22 -0700 (PDT)
-In-Reply-To: <1365503461-26309-2-git-send-email-alex.mihai.c@gmail.com>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:39594 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752409Ab3DINoj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 09:44:39 -0400
+Received: by mail-pd0-f182.google.com with SMTP id 3so3779477pdj.41
+        for <netdev@vger.kernel.org>; Tue, 09 Apr 2013 06:44:39 -0700 (PDT)
+In-Reply-To: <20130409075532.GA20363@eerihug-hybrid.ki.sw.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Tue, 2013-04-09 at 09:55 +0200, Erik Hugne wrote:
 
-On 09-04-2013 14:30, Alexandru Copot wrote:
+> I haven't found any issues with the GRO support itself. It's only on
+> the system with Emulex NIC's that i have problems.
+> Unfortunately, I'm stuck to kernel 3.0.61 on these machines, newer kernels
+> won't boot due to an unresolved driver issue with the hw raid controller :/
 
-> Signed-of by Alexandru Copot <alex.mihai.c@gmail.com>
-> Cc: Daniel Baluta <dbaluta@ixiacom.com>
-[...]
-
-> diff --git a/tools/testing/selftests/net/selftests.c b/tools/testing/selftests/net/selftests.c
-> new file mode 100644
-> index 0000000..cd6e427
-> --- /dev/null
-> +++ b/tools/testing/selftests/net/selftests.c
-> @@ -0,0 +1,30 @@
-> +#include <stdio.h>
-> +
-> +#include "selftests.h"
-> +
-> +int run_all_tests(struct generic_test *test, void *param)
-> +{
-> +	int i;
-> +	int rc, allrc;
-> +	char *ptr;
-> +
-> +	rc = test->prepare ? test->prepare(param) : 0;
-> +	if (rc)
-> +		return rc;
-> +
-> +	allrc = 0;
-> +	printf("Testing: %s ", test->name);
-> +	ptr = test->testcases;
-> +	for (i = 0; i < test->testcase_count; i++) {
-> +		rc = test->run(ptr);
-> +		allrc |= rc;
-> +
-> +		if (test->abort_on_fail && rc) {
-> +			printf("Testcase %d failed, aborting\n", i);
-> +		}
-
-    Nit: {} not needed here, at least if you folow the Linux coding style (you 
-seem to).
-
-WBR, Sergei
+I suggested you try GRE tunnels on emulex NIC, to make sure the problem
+is not coming from your changes. Nevermind ...
