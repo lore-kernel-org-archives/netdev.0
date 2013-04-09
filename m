@@ -1,44 +1,96 @@
 From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [Xen-devel] [PATCH 1/4] xen-netfront: remove unused variable
- `extra'
-Date: Tue, 9 Apr 2013 15:28:04 +0100
-Message-ID: <1365517684.10725.42.camel@zakaz.uk.xensource.com>
+Subject: Re: [PATCH 2/4] xen-netfront: drop skb when skb->len > 65535
+Date: Tue, 9 Apr 2013 15:30:18 +0100
+Message-ID: <1365517818.10725.44.camel@zakaz.uk.xensource.com>
 References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
-	 <1363602955-24790-2-git-send-email-wei.liu2@citrix.com>
-	 <1363606922.30193.21.camel@zakaz.uk.xensource.com>
-	 <1363608271.29093.196.camel@zion.uk.xensource.com>
-	 <1363608860.30193.39.camel@zakaz.uk.xensource.com>
-	 <5147CFD2.8040803@oracle.com>
-	 <291EDFCB1E9E224A99088639C4762022013F7D2D3543@LONPMAILBOX01.citrite.net>
-	 <1363706805.3088.6.camel@zion.uk.xensource.com>
+	 <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>
+	 <1363606970.30193.22.camel@zakaz.uk.xensource.com>
+	 <1363617642.29093.203.camel@zion.uk.xensource.com>
+	 <1363618459.2963.10.camel@zakaz.uk.xensource.com>
+	 <1363619098.29093.205.camel@zion.uk.xensource.com>
+	 <1363619244.2963.11.camel@zakaz.uk.xensource.com>
+	 <1363728289.31336.7.camel@deadeye.wl.decadent.org.uk>
+	 <1363728480.31336.10.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Paul Durrant <Paul.Durrant@citrix.com>,
-	annie li <annie.li@oracle.com>,
+Cc: Wei Liu <wei.liu2@citrix.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
 	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-To: Wei Liu <wei.liu2@citrix.com>
+	"annie.li@oracle.com" <annie.li@oracle.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:29980 "EHLO
+Received: from smtp.eu.citrix.com ([46.33.159.39]:4008 "EHLO
 	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933797Ab3DIO2I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 10:28:08 -0400
-In-Reply-To: <1363706805.3088.6.camel@zion.uk.xensource.com>
+	with ESMTP id S935076Ab3DIOaW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 10:30:22 -0400
+In-Reply-To: <1363728480.31336.10.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(apologies for the late reply, I've been away)
+On Tue, 2013-03-19 at 21:28 +0000, Ben Hutchings wrote:
+> On Tue, 2013-03-19 at 21:24 +0000, Ben Hutchings wrote:
+> > On Mon, 2013-03-18 at 15:07 +0000, Ian Campbell wrote:
+> > > On Mon, 2013-03-18 at 15:04 +0000, Wei Liu wrote:
+> > > > On Mon, 2013-03-18 at 14:54 +0000, Ian Campbell wrote:
+> > > > > On Mon, 2013-03-18 at 14:40 +0000, Wei Liu wrote:
+> > > > > > On Mon, 2013-03-18 at 11:42 +0000, Ian Campbell wrote:
+> > > > > > > On Mon, 2013-03-18 at 10:35 +0000, Wei Liu wrote:
+> > > > > > > > The `size' field of Xen network wire format is uint16_t, anything bigger than
+> > > > > > > > 65535 will cause overflow.
+> > > > > > > > 
+> > > > > > > > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> > > > > > > > ---
+> > > > > > > >  drivers/net/xen-netfront.c |   12 ++++++++++++
+> > > > > > > >  1 file changed, 12 insertions(+)
+> > > > > > > > 
+> > > > > > > > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> > > > > > > > index 5527663..8c3d065 100644
+> > > > > > > > --- a/drivers/net/xen-netfront.c
+> > > > > > > > +++ b/drivers/net/xen-netfront.c
+> > > > > > > > @@ -547,6 +547,18 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+> > > > > > > >  	unsigned int len = skb_headlen(skb);
+> > > > > > > >  	unsigned long flags;
+> > > > > > > >  
+> > > > > > > > +	/*
+> > > > > > > > +	 * wire format of xen_netif_tx_request only supports skb->len
+> > > > > > > > +	 * < 64K, because size field in xen_netif_tx_request is
+> > > > > > > > +	 * uint16_t.
+> > > > > > > 
+> > > > > > > Is there some field we can set e.g. in struct ethernet_device which
+> > > > > > > would stop this from happening?
+> > > > > > > 
+> > > > > > 
+> > > > > > struct ethernet_device? I could not find it.
+> > > > > > 
+> > > > > > And for struct net_device,
+> > > > > 
+> > > > > I meant struct net_device.
+> > > > > 
+> > > > > >  there is no field for this AFAICT.
+> > > > > 
+> > > > > Interesting. Are hardware devices expected to cope with arbitrary sized
+> > > > > GSO skbs then I wonder.
+> > > > > 
+> > > > 
+> > > > No idea. But there is a macro called GSO_MAX_SIZE (65536) in struct
+> > > > net_device. :-)
+> > > 
+> > > But aren't we seeing skb's bigger than that?
+> > > 
+> > > Maybe this is just a historical bug in some older guests?
+> > 
+> > GSO_MAX_SIZE is the maximum payload length, not the maximum total length
+> > of an skb.
+> 
+> ...and it's actually just the default value assigned to
+> dev->gso_max_size.  You'll want to change it to your actual maximum
+> (65535 - maximum length of headers) before registering your net devices.
 
-On Tue, 2013-03-19 at 15:26 +0000, Wei Liu wrote:
-> I think Ian's (and my) idea of redundant is that this 'extra' variable
-> is never used in the code now and causes confusion. It can be removed
-> now and add back in the future if necessary.
+Thanks. 
 
-Right, the "extra" I was questioning at the top was a local variable in
-the Linux code not the XEN_NETIF_EXTRA_FLAG_MORE thing. Although the
-variable was related to the handling of that flag it currently was
-written and then never read...
+"maximum length of headers" might be a bit tricky to determine
+generically :-(.
 
 Ian.
