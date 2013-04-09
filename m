@@ -1,62 +1,98 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [RFC PATCH ipsec] xfrm: use the right dev to fill xdst
-Date: Tue, 9 Apr 2013 14:47:35 +0200
-Message-ID: <20130409124735.GA21448@secunet.com>
-References: <1365088362-4318-1-git-send-email-nicolas.dichtel@6wind.com>
- <20130405094629.GV21448@secunet.com>
- <CAEnQRZDUjaL56AggThN50sYJpA8diQdQ85D4xCqpwtv8PbR7mg@mail.gmail.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH 6/7] xen-netback: coalesce slots and fix
+ regressions
+Date: Tue, 9 Apr 2013 13:48:45 +0100
+Message-ID: <20130409124845.GG16998@zion.uk.xensource.com>
+References: <1365505655-8021-1-git-send-email-wei.liu2@citrix.com>
+ <1365505655-8021-7-git-send-email-wei.liu2@citrix.com>
+ <5164221302000078000CBBF2@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	herbert@gondor.apana.org.au, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Daniel Baluta <dbaluta@ixiacom.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"wdauchy@gmail.com" <wdauchy@gmail.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jan Beulich <JBeulich@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:53799 "EHLO a.mx.secunet.com"
+Received: from smtp.citrix.com ([66.165.176.89]:23803 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759009Ab3DIMri (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Apr 2013 08:47:38 -0400
+	id S1759219Ab3DIMsq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Apr 2013 08:48:46 -0400
 Content-Disposition: inline
-In-Reply-To: <CAEnQRZDUjaL56AggThN50sYJpA8diQdQ85D4xCqpwtv8PbR7mg@mail.gmail.com>
+In-Reply-To: <5164221302000078000CBBF2@nat28.tlf.novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 05, 2013 at 03:59:59PM +0300, Daniel Baluta wrote:
-> On Fri, Apr 5, 2013 at 12:46 PM, Steffen Klassert
-> <steffen.klassert@secunet.com> wrote:
-> > On Thu, Apr 04, 2013 at 05:12:42PM +0200, Nicolas Dichtel wrote:
-> >> Commit bc8e4b954e46 (xfrm6: ensure to use the same dev when building a bundle)
-> >> broke IPsec for IPv4 over IPv6 tunnels (because dev points to an IPv4 only
-> >> interface, hence in6_dev_get(dev) returns NULL.
-> >
-> > Can you give some informations on how to reproduce this? I'm running
-> > interfamily tunnels on our testing environment and it seems to
-> > work fine.
+On Tue, Apr 09, 2013 at 01:13:39PM +0100, Jan Beulich wrote:
+> >>> On 09.04.13 at 13:07, Wei Liu <wei.liu2@citrix.com> wrote:
+[...]
+> > +
+> > +static struct kernel_param_ops max_skb_slots_param_ops = {
 > 
-> I can hit this in our setup while using some internal custom simulated
-> interfaces.
-> 
-> Anyhow, this should be reproducible with a classic IPv6 IPsec over
-> IPv4 test.  Please make sure
-> that the IPv4 interface doesn't have an IPv6 address set up.
-> 
-> Quoting from commit bc8e4b954e46 (xfrm6: ensure to use the same dev
-> when building a bundle):
-> 
-> -       xdst->u.rt6.rt6i_idev = in6_dev_get(rt->u.dst.dev);
-> +       xdst->u.rt6.rt6i_idev = in6_dev_get(dev);
-> 
-> dev points to IPv4 endpoint and if it doesn't have an IPv6 address
-> associated then
-> in6_dev_get(dev) will return NULL.
+> __moduleparam_const
 
-Hm, inet6_init() registers addrconf_notify() as a netdevice notifier
-function. So addrconf_notify() is called whenever a netdevice is
-registered. When looking at addrconf_notify(), there are only two
-cases when the net_device has no inet6_dev assigned. This is either
-on error, or if the device mtu is smaller than IPV6_MIN_MTU (i.e. 1280).
+TBH I don't see any driver makes use of this. Probably a simple "const"
+can do?
 
-I can reproduce the behaviour you describe if I set the mtu of the
-ipv4 device to a value below IPV6_MIN_MTU, but in no other case.
+> 
+> > +	.set = max_skb_slots_set,
+> > +	.get = param_get_ulong,
+> 
+> param_get_uint
+> 
 
-Is it possible that your ipv4 device has a mtu below IPV6_MIN_MTU?
+Done.
+
+> > @@ -251,7 +291,7 @@ static int max_required_rx_slots(struct xenvif *vif)
+> >  	int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
+> >  
+> >  	if (vif->can_sg || vif->gso || vif->gso_prefix)
+> > -		max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
+> > +		max += XEN_NETIF_NR_SLOTS_MIN + 1; /* extra_info + frags */
+> >  
+> >  	return max;
+> >  }
+> > @@ -657,7 +697,7 @@ static void xen_netbk_rx_action(struct xen_netbk *netbk)
+> >  		__skb_queue_tail(&rxq, skb);
+> >  
+> >  		/* Filled the batch queue? */
+> > -		if (count + MAX_SKB_FRAGS >= XEN_NETIF_RX_RING_SIZE)
+> > +		if (count + XEN_NETIF_NR_SLOTS_MIN >= XEN_NETIF_RX_RING_SIZE)
+> >  			break;
+> >  	}
+> >  
+> 
+> Are the two changes above really correct? You're having an skb as
+> input here, and hence you want to use all the frags, and nothing
+> beyond. Another question is whether the frontend can handle
+> those, but that aspect isn't affected by the code being modified
+> here.
+> 
+
+This patch tries to remove dependency on MAX_SKB_FRAGS. Writing the
+protocol-defined value here is OK IMHO.
+
+[...]
+> >  			return -E2BIG;
+> >  		}
+> >  
+> > -		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + frags),
+> > +		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + slots),
+> >  		       sizeof(*txp));
+> >  		if (txp->size > first->size) {
+> > -			netdev_err(vif->dev, "Frag is bigger than frame.\n");
+> > +			netdev_err(vif->dev, "Packet is bigger than frame.\n");
+> 
+> I don't think "packet" is the right term here.
+> 
+
+Maybe just "Invalid tx request" and dump all information?
+
+
+Wei.
+
+> Jan
