@@ -1,110 +1,67 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/4] xen-netfront: drop skb when skb->len > 65535
-Date: Tue, 9 Apr 2013 15:45:03 +0100
-Message-ID: <1365518703.2623.6.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
-	 <1363602955-24790-3-git-send-email-wei.liu2@citrix.com>
-	 <1363606970.30193.22.camel@zakaz.uk.xensource.com>
-	 <1363617642.29093.203.camel@zion.uk.xensource.com>
-	 <1363618459.2963.10.camel@zakaz.uk.xensource.com>
-	 <1363619098.29093.205.camel@zion.uk.xensource.com>
-	 <1363619244.2963.11.camel@zakaz.uk.xensource.com>
-	 <1363728289.31336.7.camel@deadeye.wl.decadent.org.uk>
-	 <1363728480.31336.10.camel@deadeye.wl.decadent.org.uk>
-	 <1365517818.10725.44.camel@zakaz.uk.xensource.com>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK packet
+Date: Tue, 09 Apr 2013 10:52:17 -0400
+Message-ID: <7718638.lBZi8geXkP@sifl>
+References: <3505145.vfXt1x4t0P@sifl> <2238729.HES6agzVX2@sifl> <1365517864.3887.137.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"annie.li@oracle.com" <annie.li@oracle.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Casey Schaufler <casey@schaufler-ca.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mvadkert@redhat.com, selinux@tycho.nsa.gov,
+	linux-security-module@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:58296 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762176Ab3DIOpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 10:45:07 -0400
-In-Reply-To: <1365517818.10725.44.camel@zakaz.uk.xensource.com>
+Received: from mx1.redhat.com ([209.132.183.28]:43752 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934415Ab3DIOwX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Apr 2013 10:52:23 -0400
+In-Reply-To: <1365517864.3887.137.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-04-09 at 15:30 +0100, Ian Campbell wrote:
-> On Tue, 2013-03-19 at 21:28 +0000, Ben Hutchings wrote:
-> > On Tue, 2013-03-19 at 21:24 +0000, Ben Hutchings wrote:
-> > > On Mon, 2013-03-18 at 15:07 +0000, Ian Campbell wrote:
-> > > > On Mon, 2013-03-18 at 15:04 +0000, Wei Liu wrote:
-> > > > > On Mon, 2013-03-18 at 14:54 +0000, Ian Campbell wrote:
-> > > > > > On Mon, 2013-03-18 at 14:40 +0000, Wei Liu wrote:
-> > > > > > > On Mon, 2013-03-18 at 11:42 +0000, Ian Campbell wrote:
-> > > > > > > > On Mon, 2013-03-18 at 10:35 +0000, Wei Liu wrote:
-> > > > > > > > > The `size' field of Xen network wire format is uint16_t, anything bigger than
-> > > > > > > > > 65535 will cause overflow.
-> > > > > > > > > 
-> > > > > > > > > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> > > > > > > > > ---
-> > > > > > > > >  drivers/net/xen-netfront.c |   12 ++++++++++++
-> > > > > > > > >  1 file changed, 12 insertions(+)
-> > > > > > > > > 
-> > > > > > > > > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> > > > > > > > > index 5527663..8c3d065 100644
-> > > > > > > > > --- a/drivers/net/xen-netfront.c
-> > > > > > > > > +++ b/drivers/net/xen-netfront.c
-> > > > > > > > > @@ -547,6 +547,18 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> > > > > > > > >  	unsigned int len = skb_headlen(skb);
-> > > > > > > > >  	unsigned long flags;
-> > > > > > > > >  
-> > > > > > > > > +	/*
-> > > > > > > > > +	 * wire format of xen_netif_tx_request only supports skb->len
-> > > > > > > > > +	 * < 64K, because size field in xen_netif_tx_request is
-> > > > > > > > > +	 * uint16_t.
-> > > > > > > > 
-> > > > > > > > Is there some field we can set e.g. in struct ethernet_device which
-> > > > > > > > would stop this from happening?
-> > > > > > > > 
-> > > > > > > 
-> > > > > > > struct ethernet_device? I could not find it.
-> > > > > > > 
-> > > > > > > And for struct net_device,
-> > > > > > 
-> > > > > > I meant struct net_device.
-> > > > > > 
-> > > > > > >  there is no field for this AFAICT.
-> > > > > > 
-> > > > > > Interesting. Are hardware devices expected to cope with arbitrary sized
-> > > > > > GSO skbs then I wonder.
-> > > > > > 
-> > > > > 
-> > > > > No idea. But there is a macro called GSO_MAX_SIZE (65536) in struct
-> > > > > net_device. :-)
-> > > > 
-> > > > But aren't we seeing skb's bigger than that?
-> > > > 
-> > > > Maybe this is just a historical bug in some older guests?
+On Tuesday, April 09, 2013 07:31:04 AM Eric Dumazet wrote:
+> On Tue, 2013-04-09 at 10:19 -0400, Paul Moore wrote:
+> > On Tuesday, April 09, 2013 07:00:22 AM Eric Dumazet wrote:
+> > > On Tue, 2013-04-09 at 09:19 -0400, Paul Moore wrote:
+> > > > As Casey already mentioned, if this isn't acceptable please help me
+> > > > understand why.
 > > > 
-> > > GSO_MAX_SIZE is the maximum payload length, not the maximum total length
-> > > of an skb.
+> > > You see something which is not the reality. If you do such analysis,
+> > > better do it properly, because any change you are going to submit will
+> > > be doubly checked by people who really care.
 > > 
-> > ...and it's actually just the default value assigned to
-> > dev->gso_max_size.  You'll want to change it to your actual maximum
-> > (65535 - maximum length of headers) before registering your net devices.
+> > I am attempting to do it properly, I simply made a mistake.  Ben also
+> > pointed it out.  As you wrote yesterday, "Lets go forward".
+> > 
+> > After fixing the BITS_PER_LONG problem I looked at it again and it appears
+> > that by simply replacing the "secmark" field with a blob we retain the
+> > size of the sk_buff as well as the cacheline positions of all the fields,
+> > e.g. dma_cookie no longer moves cachelines.  Thoughts?
 > 
-> Thanks. 
+> If you take a look at recent history of changes on sk_buff, you can see
+> we added very recently fields for encapsulation support. These were
+> absolutely wanted for modern operations at datacenter level.
 > 
-> "maximum length of headers" might be a bit tricky to determine
-> generically :-(.
+> This effort might still need new room, so I prefer not filling sk_buff
+> right now.
 
-Well you don't need to be generic, you need to know the maximum length
-of headers that might appear in a TSO skb.
+Has anyone proposed any additional encapsulation patches which need additional 
+fields in the sk_buff?  Are you aware of any additional encapsulation patches 
+which are in progress?  When would you consider it "safe"?
 
-Ethernet + VLAN tag + IPv6 + TCP + timestamp option = 90 bytes, but I'm
-not sure whether there can be other IP or TCP options in a TSO skb.  I'd
-really like to get the TSO requirements clearly documented somewhere.
+> Take a look at the cloned sk_buff. We need an extra atomic_t at the end,
+> so if make sk_buff bigger than 0xf8 bytes,  fclone_cache will use an
+> extra cache line as well. Not a big deal, but RPC workloads like netperf
+> -t TCP_RR will probably show a regression.
+> 
+> ls -l /sys/kernel/slab/skbuff_fclone_cache
 
-Ben.
+Perhaps I'm misunderstanding, but these comments above only apply if we were 
+to increase the size of the sk_buff struct, yes?  What I proposed, replacing 
+"secmark" with a blob, does not currently change the size of the sk_buff 
+struct so the performance and memory usage should remain unchanged as well.
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+paul moore
+security and virtualization @ redhat
