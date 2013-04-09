@@ -1,57 +1,52 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH 7/7] xen-netback: don't disconnect frontend when seeing
- oversize packet
-Date: Tue, 9 Apr 2013 12:54:19 +0100
-Message-ID: <20130409115419.GE16998@zion.uk.xensource.com>
-References: <1365505655-8021-1-git-send-email-wei.liu2@citrix.com>
- <1365505655-8021-8-git-send-email-wei.liu2@citrix.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B71C5@saturn3.aculab.com>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [PATCH] selinux: add a skb_owned_by() hook
+Date: Tue, 09 Apr 2013 08:06:50 -0400
+Message-ID: <1486478.7dQNuVSTsL@sifl>
+References: <20130408154519.18177.57709.stgit@localhost> <6182509.cOVcY8B4g7@sifl> <1365479891.3887.99.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	"wdauchy@gmail.com" <wdauchy@gmail.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:27343 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935014Ab3DILyZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 07:54:25 -0400
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B71C5@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7Bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mvadkert@redhat.com, linux-security-module@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1365479891.3887.99.camel@edumazet-glaptop>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 09, 2013 at 12:34:42PM +0100, David Laight wrote:
-> > +		if (!drop_err && txp->size > first->size) {
-> > +			if (net_ratelimit())
-> > +				netdev_dbg(vif->dev,
-> > +					   "Packet is bigger than frame.\n");
+On Monday, April 08, 2013 08:58:11 PM Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> It must be worth printing txp->size and first->size here.
-> Similarly for the other errors in the other patches.
+> Commit 90ba9b1986b5ac (tcp: tcp_make_synack() can use alloc_skb())
+> broke certain SELinux/NetLabel configurations by no longer correctly
+> assigning the sock to the outgoing SYNACK packet.
 > 
-
-Sure.
-
-> Probably difficult for some of these errors, but it is
-> sometimes worth saving the last 'bad' item. So that with
-> an appropriate tool (maybe hexdump of /dev/kmem) it is
-> possible to look at the actual contents and thus determine
-> the actual source of the error.
+> Cost of atomic operations on the LISTEN socket is quite big,
+> and we would like it to happen only if really needed.
 > 
-
-I doubt that you can get much information by analysing txp, it is just
-controll structure in ring, not the actual packet content. The packet is
-still in DomU.
-
-
-Wei.
-
-> 	David
+> This patch introduces a new security_ops->skb_owned_by() method,
+> that is a void operation unless selinux is active.
 > 
+> Reported-by: Miroslav Vadkerti <mvadkert@redhat.com>
+> Diagnosed-by: Paul Moore <pmoore@redhat.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: linux-security-module@vger.kernel.org
+> ---
+>  include/linux/security.h |    8 ++++++++
+>  net/ipv4/tcp_output.c    |    1 +
+>  security/capability.c    |    6 ++++++
+>  security/security.c      |    5 +++++
+>  security/selinux/hooks.c |    7 +++++++
+>  5 files changed, 27 insertions(+)
+
+I've already voiced my objections to this approach, but I've just tested it 
+and it does resolve the regression in the network stack.
+
+Tested-by: Paul Moore <pmoore@redhat.com>
+Acked-by: Paul Moore <pmoore@redhat.com>
+
+-- 
+paul moore
+security and virtualization @ redhat
+
