@@ -1,43 +1,40 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 7/7] xen-netback: don't disconnect frontend when seeing oversize packet
-Date: Tue, 9 Apr 2013 12:34:42 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B71C5@saturn3.aculab.com>
-References: <1365505655-8021-1-git-send-email-wei.liu2@citrix.com> <1365505655-8021-8-git-send-email-wei.liu2@citrix.com>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [PATCH] selinux: add a skb_owned_by() hook
+Date: Tue, 09 Apr 2013 07:39:51 -0400
+Message-ID: <3051849.MEUSbRlHa1@sifl>
+References: <6182509.cOVcY8B4g7@sifl> <5163992F.30406@schaufler-ca.com> <20130409.004144.1226810973846202358.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <ian.campbell@citrix.com>, <david.vrabel@citrix.com>,
-	<konrad.wilk@oracle.com>, <annie.li@oracle.com>,
-	<wdauchy@gmail.com>
-To: "Wei Liu" <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
-	<xen-devel@lists.xen.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	mvadkert@redhat.com, linux-security-module@vger.kernel.org
+To: David Miller <davem@davemloft.net>, casey@schaufler-ca.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:36332 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S935371Ab3DILfW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 07:35:22 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 14813-04 for <netdev@vger.kernel.org>;
- Tue,  9 Apr 2013 12:35:17 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1365505655-8021-8-git-send-email-wei.liu2@citrix.com>
+Received: from mx1.redhat.com ([209.132.183.28]:12191 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934576Ab3DILj5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Apr 2013 07:39:57 -0400
+In-Reply-To: <20130409.004144.1226810973846202358.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +		if (!drop_err && txp->size > first->size) {
-> +			if (net_ratelimit())
-> +				netdev_dbg(vif->dev,
-> +					   "Packet is bigger than frame.\n");
+On Tuesday, April 09, 2013 12:41:44 AM David Miller wrote:
+> It makes sure SYN/ACKs have a socket context attached to the
+> packet, which only LSMs actually need.
+> 
+> You participated in the thread where this stuff was discussed and the
+> initial version of this patch was posted, so this patch, or any aspect
+> of it, should not be a mystery.
 
-It must be worth printing txp->size and first->size here.
-Similarly for the other errors in the other patches.
+Casey, and the LSM list as a whole, was not included in the entire thread as 
+when I first posted my original patch I believed the "mergeable" fix was going 
+to be self contained within the network stack.
 
-Probably difficult for some of these errors, but it is
-sometimes worth saving the last 'bad' item. So that with
-an appropriate tool (maybe hexdump of /dev/kmem) it is
-possible to look at the actual contents and thus determine
-the actual source of the error.
+For Casey, and others on the LSM list, here is a pointer to the original 
+thread which started on netdev.  Enjoy.
 
-	David
+ * http://marc.info/?t=136543607500006&r=1&w=2
+
+-- 
+paul moore
+security and virtualization @ redhat
