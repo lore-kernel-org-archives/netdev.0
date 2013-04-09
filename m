@@ -1,77 +1,26 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK packet
-Date: Tue, 09 Apr 2013 09:33:12 -0400
-Message-ID: <2395284.jDbTT1hSWe@sifl>
-References: <3505145.vfXt1x4t0P@sifl> <51636DEB.5000308@schaufler-ca.com> <28452040.xEi3pLPik0@sifl>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 1/2] cls_cgroup: remove task_struct parameter from
+ sock_update_classid()
+Date: Tue, 9 Apr 2013 09:35:14 -0400
+Message-ID: <20130409133514.GA11337@neilslaptop.think-freely.org>
+References: <5163AF37.8010605@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	mvadkert@redhat.com, selinux@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org
-To: Casey Schaufler <casey@schaufler-ca.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <28452040.xEi3pLPik0@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Li Zefan <lizefan@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42655 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935719Ab3DINf3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 09:35:29 -0400
+Content-Disposition: inline
+In-Reply-To: <5163AF37.8010605@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, April 09, 2013 09:19:30 AM Paul Moore wrote:
-> On Monday, April 08, 2013 06:24:59 PM Casey Schaufler wrote:
-> > On 4/8/2013 6:09 PM, Eric Dumazet wrote:
-> > > On Mon, 2013-04-08 at 17:59 -0700, Casey Schaufler wrote:
-> > >> I don't see that with adding 4 bytes. Again, I'm willing to be
-> > >> educated if I'm wrong.
-> > > 
-> > > Feel free to add 4 bytes without having the 'align to 8 bytes' problem
-> > > on 64 bit arches. Show us your patch.
-> > 
-> > Recall that it's replacing an existing 4 byte value with an 8 byte value.
-> > My compiler days were quite short and long ago, but it would seem that
-> > an 8 byte value ought not have an 'align to 8 bytes' problem.
-> > 
-> > Again, I'm willing to be educated.
+On Tue, Apr 09, 2013 at 02:03:35PM +0800, Li Zefan wrote:
+> The callers always pass current to sock_update_classid().
 > 
-> Armed with a cup of coffee I took a look at the sk_buff structure this
-> morning with the pahole tool and using the current sk_buff if we turn on
-> all the #ifdefs here is what I see on x86_64:
-> 
-> struct sk_buff {
-
-...
-
->         /* size: 280, cachelines: 5, members: 62 */
->         /* sum members: 270, holes: 3, sum holes: 10 */
->         /* bit holes: 1, sum bit holes: 6 bits */
->         /* last cacheline: 24 bytes */
-> };
-> 
-> It looks like there some holes we might be able to capitalize on.  If we
-> remove "secmark" (we can handle it inside a security blob) and move
-> "protocol" to after the flags2 bit field we can make an aligned 8 byte hold
-> for a security blob before "destructor".  According to pahole the structure
-> size stays the same and the only field which moves to a different cacheline
-> is "dma_cookie" which moves from cacheline 2 to 3.  Here is the pahole
-> output:
-> 
-> struct sk_buff_test {
-
-...
-
->         /* size: 280, cachelines: 5, members: 62 */
->         /* sum members: 274, holes: 3, sum holes: 6 */
->         /* bit holes: 1, sum bit holes: 6 bits */
->         /* last cacheline: 24 bytes */
-> };
-> 
-> As Casey already mentioned, if this isn't acceptable please help me
-> understand why.
-
-For the sake of completeness I also checked out the changes when compiled for 
-32 bit and it was very much the same; same structure size and in the 32 bit 
-case no field movement from one cacheline to another.
-
--- 
-paul moore
-security and virtualization @ redhat
-
+> Signed-off-by: Li Zefan <lizefan@huawei.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
