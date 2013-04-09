@@ -1,40 +1,44 @@
-From: Erik Hugne <erik.hugne@ericsson.com>
-Subject: Re: be2net: GRO for non-inet protocols
-Date: Tue, 9 Apr 2013 16:22:39 +0200
-Message-ID: <20130409142239.GB27063@eerihug-hybrid.ki.sw.ericsson.se>
-References: <20130405132007.GF7551@eerihug-hybrid.ki.sw.ericsson.se>
- <1365175702.3405.2.camel@edumazet-glaptop>
- <1365175872.3405.3.camel@edumazet-glaptop>
- <20130408064010.GD8543@eerihug-hybrid.ki.sw.ericsson.se>
- <20130408152417.GD19951@eerihug-hybrid.ki.sw.ericsson.se>
- <1365436285.3887.16.camel@edumazet-glaptop>
- <20130409075532.GA20363@eerihug-hybrid.ki.sw.ericsson.se>
- <1365515075.3887.122.camel@edumazet-glaptop>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [Xen-devel] [PATCH 1/4] xen-netfront: remove unused variable
+ `extra'
+Date: Tue, 9 Apr 2013 15:28:04 +0100
+Message-ID: <1365517684.10725.42.camel@zakaz.uk.xensource.com>
+References: <1363602955-24790-1-git-send-email-wei.liu2@citrix.com>
+	 <1363602955-24790-2-git-send-email-wei.liu2@citrix.com>
+	 <1363606922.30193.21.camel@zakaz.uk.xensource.com>
+	 <1363608271.29093.196.camel@zion.uk.xensource.com>
+	 <1363608860.30193.39.camel@zakaz.uk.xensource.com>
+	 <5147CFD2.8040803@oracle.com>
+	 <291EDFCB1E9E224A99088639C4762022013F7D2D3543@LONPMAILBOX01.citrite.net>
+	 <1363706805.3088.6.camel@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Paul Durrant <Paul.Durrant@citrix.com>,
+	annie li <annie.li@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.ericsson.se ([193.180.251.45]:49539 "EHLO
-	mailgw1.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760876Ab3DIO1p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 10:27:45 -0400
-Content-Disposition: inline
-In-Reply-To: <1365515075.3887.122.camel@edumazet-glaptop>
+Received: from smtp.eu.citrix.com ([46.33.159.39]:29980 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933797Ab3DIO2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 10:28:08 -0400
+In-Reply-To: <1363706805.3088.6.camel@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 09, 2013 at 06:44:35AM -0700, Eric Dumazet wrote:
-> I suggested you try GRE tunnels on emulex NIC, to make sure the problem
-> is not coming from your changes. Nevermind ...
->
-I understood that, but since i could not load anything newer than 3.0.61 on them,
-GRO support for GRE tunnels was not included.. but anyway...
-I got hold of a new set of machines that i could load 3.8 and perform the GRE 
-test on, these also use Emulex NIC's.
-What i found was that all packets received on the GRE device are MTU-sized, 
-and are not GRO'd together at all. The same thing happens in a qemu environment, 
-so maybe there's another issue with GRO for GRE..
+(apologies for the late reply, I've been away)
 
-//E
+On Tue, 2013-03-19 at 15:26 +0000, Wei Liu wrote:
+> I think Ian's (and my) idea of redundant is that this 'extra' variable
+> is never used in the code now and causes confusion. It can be removed
+> now and add back in the future if necessary.
+
+Right, the "extra" I was questioning at the top was a local variable in
+the Linux code not the XEN_NETIF_EXTRA_FLAG_MORE thing. Although the
+variable was related to the handling of that flag it currently was
+written and then never read...
+
+Ian.
