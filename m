@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: assign the sock correctly to an outgoing SYNACK
- packet
-Date: Tue, 09 Apr 2013 13:10:24 -0400 (EDT)
-Message-ID: <20130409.131024.1640260166524872292.davem@davemloft.net>
-References: <20130409.125635.1837917915399498838.davem@davemloft.net>
-	<1392983.dvWWkBd8H0@sifl>
-	<20130409.130910.1785959090953646981.davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] follow-up improvements for ipv6 tokens
+Date: Tue, 09 Apr 2013 13:12:57 -0400 (EDT)
+Message-ID: <20130409.131257.186567335586603485.davem@davemloft.net>
+References: <1365515236-7154-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, casey@schaufler-ca.com,
-	netdev@vger.kernel.org, mvadkert@redhat.com, selinux@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org
-To: pmoore@redhat.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20130409.130910.1785959090953646981.davem@davemloft.net>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36317 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762769Ab3DIRM7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 13:12:59 -0400
+In-Reply-To: <1365515236-7154-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Tue,  9 Apr 2013 15:47:13 +0200
 
-And please, until you have a real patch, stop wasting our time.
+> This set implements follow-up suggestions from Hannes for commit
+> f53adae4eae5ad9 (``net: ipv6: add tokenized interface identifier
+> support''). Tested by myself.
+> 
+> Daniel Borkmann (3):
+>   net: ipv6: minor: use in6addr_any in token init
+>   net: ipv6: also allow token to be set when device not ready
+>   net: ipv6: only invalidate previously tokenized addresses
 
-Like Eric, as you can imagine, I have hundreds of other people's patches
-to review and reports to analyze.
-
-You're issue is not so important compared to all of the other ones
-that it should consume such an unbalanced amount of my time, sorry.
+All applied, thanks Daniel.
