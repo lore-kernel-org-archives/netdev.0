@@ -1,40 +1,46 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [PATCH] selinux: add a skb_owned_by() hook
-Date: Mon, 08 Apr 2013 22:14:15 -0700
-Message-ID: <5163A3A7.7060701@schaufler-ca.com>
-References: <6182509.cOVcY8B4g7@sifl> <1365479891.3887.99.camel@edumazet-glaptop> <5163992F.30406@schaufler-ca.com> <20130409.004144.1226810973846202358.davem@davemloft.net>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] net: mvneta: enable features before registering the driver
+Date: Tue, 9 Apr 2013 07:46:00 +0200
+Message-ID: <20130409054600.GA31821@1wt.eu>
+References: <20130406184701.GA16142@1wt.eu> <20130408.121604.421731991206410747.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, pmoore@redhat.com, netdev@vger.kernel.org,
-	mvadkert@redhat.com, linux-security-module@vger.kernel.org,
-	Casey Schaufler <casey@schaufler-ca.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20130409.004144.1226810973846202358.davem@davemloft.net>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:46526 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755205Ab3DIFqL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Apr 2013 01:46:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20130408.121604.421731991206410747.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4/8/2013 9:41 PM, David Miller wrote:
-> It makes sure SYN/ACKs have a socket context attached to the
-> packet, which only LSMs actually need.
->
-> You participated in the thread where this stuff was discussed and the
-> initial version of this patch was posted, so this patch, or any aspect
-> of it, should not be a mystery.
+On Mon, Apr 08, 2013 at 12:16:04PM -0400, David Miller wrote:
+> From: Willy Tarreau <w@1wt.eu>
+> Date: Sat, 6 Apr 2013 20:47:01 +0200
+> 
+> > Hi,
+> > 
+> > I noticed that mvneta's tx-csum/sg were off until disabled then
+> > enabled, which led me to think that something was not made in the
+> > correct sequence. And indeed, setting the dev features _before_
+> > registering the device works much better :-)
+> > 
+> > This patch is for master but may be backported to 3.8-stable as well,
+> > which is where I first experienced the issue.
+> 
+> Please don't post patches like this, you make extra work for the
+> maintainer by having to edit out this commentary.
+> 
+> You put such commentary after the "---" seperator the delineates
+> your commit message in the email body, not before.
 
-I am flattered by your assumption that I can recall
-on a moment's notice every thread I've been involved in since
-1978. A reference to that thread would be mighty helpful.
+Sorry for this David, I'll take care of this next time.
 
-The reality is that someone new to the thread is going to
-have a bunch of trouble figuring out what you're talking
-about. Every patch posting should have sufficient context
-that someone who did not happen to see the background
-threads will understand why it is being proposed.
+> Anyways, applied.
 
-I believe you when you say that I participated in the discussion.
-I'll be dipped in caramel and rolled in nuts if I can find the
-threads. Help me out by providing enough context that I can find
-what I said, what you said, and if I still agree with myself.
+Thank you.
 
+Willy
