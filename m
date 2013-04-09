@@ -1,175 +1,147 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 1/4] Add packet recirculation
-Date: Tue, 9 Apr 2013 16:50:27 +0900
-Message-ID: <20130409075024.GG11444@verge.net.au>
-References: <1365403431-18102-1-git-send-email-horms@verge.net.au>
- <1365403431-18102-2-git-send-email-horms@verge.net.au>
- <CAEP_g=9nj24hZcA-czzuz3xaweATxRxmibuFaqODTSoPmRmHsw@mail.gmail.com>
+From: Antonio Quartulli <antonio@open-mesh.com>
+Subject: Re: [PATCH 1/3] if.h: add IFF_BRIDGE_RESTRICTED flag
+Date: Tue, 9 Apr 2013 09:56:06 +0200
+Message-ID: <20130409075606.GB3771@open-mesh.com>
+References: <1365442863-32394-1-git-send-email-antonio@open-mesh.com>
+ <1365442863-32394-2-git-send-email-antonio@open-mesh.com>
+ <CAOaVG17nHuoRsf2Kss6LnpgC-Aojcso_zLYyBa18Vn9CGGY+GA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
-	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Ben Pfaff <blp@nicira.com>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="v9Ux+11Zm5mwPlX6"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:34392 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935093Ab3DIHua (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 03:50:30 -0400
+Received: from ht1.myhostedexchange.com ([69.50.2.37]:32957 "EHLO
+	ht1.hostedexchange.local" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S934894Ab3DIH5c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 03:57:32 -0400
 Content-Disposition: inline
-In-Reply-To: <CAEP_g=9nj24hZcA-czzuz3xaweATxRxmibuFaqODTSoPmRmHsw@mail.gmail.com>
+In-Reply-To: <CAOaVG17nHuoRsf2Kss6LnpgC-Aojcso_zLYyBa18Vn9CGGY+GA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 08, 2013 at 06:46:29PM -0700, Jesse Gross wrote:
-> On Sun, Apr 7, 2013 at 11:43 PM, Simon Horman <horms@verge.net.au> wrote:
-> > diff --git a/datapath/actions.c b/datapath/actions.c
-> > index e9634fe..7b0f022 100644
-> > --- a/datapath/actions.c
-> > +++ b/datapath/actions.c
-> > @@ -617,6 +617,9 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
-> >                 case OVS_ACTION_ATTR_SAMPLE:
-> >                         err = sample(dp, skb, a);
-> >                         break;
-> > +
-> > +               case OVS_ACTION_ATTR_RECIRCULATE:
-> > +                       return 1;
-> 
-> I think that if we've had a previous output action with the port
-> stored in prev_port then this will cause the packet to not actually be
-> output.
+--v9Ux+11Zm5mwPlX6
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I'm not so sure.
+On Mon, Apr 08, 2013 at 11:58:48 -0700, Stephen Hemminger wrote:
+> The standard way to do this is to use netfilter. Considering the
+> additional device flags and skb flag changes, I am not sure that your
+> method is better.
 
-I see something like this occurring:
+To make it a bit more clear:
 
-1. Iteration of for loop for output action
+1) the skb flag will be used on the "receiving end-point" by batman-adv to =
+mark
+received packets and so instruct the bridge to do not forward them to restr=
+icted
+interfaces.
 
-   switch (nla_type(a)) {
-   case OVS_ACTION_ATTR_OUTPUT:
-	prev_port = nla_get_u32(a);
-	break;
-	...
-   }
+2) the IFF_ flag is used by batman-adv on the "sending side" to determine
+whether a packet has been originated by a restricted interface and so instr=
+uct
+the remote endpoint to mark the skb when received.
 
-2. Iteration of of for loop for next action, lets say its is recirculate
-
-   i. Output packet
-
-   if (prev_port != -1) {
-	do_output(dp, skb_clone(skb, GFP_ATOMIC), prev_port);
-	prev_port = -1;
-   }
-
-   ii. Return due to recirculate
-   switch (nla_type(a)) {
-   ...
-   case OVS_ACTION_ATTR_RECIRCULATE:
-           return 1;
-   }
+3) to make the bridge code general enough, I decided to let it mark packets
+coming from restricted interfaces as well so that it can also apply the pol=
+icy
+at 1) locally, without any further setting. The logic described in 1) is
+therefore applied by the bridge even for local packets (not passing through
+batman-adv)
 
 
-Am I missing something?
 
-> > diff --git a/datapath/datapath.c b/datapath/datapath.c
-> > index e8be795..ab39dd7 100644
-> > --- a/datapath/datapath.c
-> > +++ b/datapath/datapath.c
-> >  void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
-> [...]
-> > +               if (IS_ERR_OR_NULL(skb)) {
-> > +                       break;
-> > +               } else if (unlikely(!limit--)) {
-> 
-> Should this be a predecrement?
+Point 3) is the only one where netfilter might help. But using two mechanis=
+m to
+achieve one goal looked not sane to me and therefore I decided to to do it =
+this
+way. And actually the code allowing point 3 is only:
 
-I will make it so.
++       skb->bridge_restricted =3D !!(skb->dev->flags & IFF_BRIDGE_RESTRICT=
+ED);
 
-> > +                       kfree_skb(skb);
-> 
-> Should we log some kind of rate limited warning here?
 
-Sure.
+I hope this summary did not create further confusion :)
 
-> > +                       return;
-> 
-> In the first case we use break to exit the loop and here we use
-> return.  Both should have the same effect so it might be nice to make
-> them the same.
-> 
-> > @@ -901,6 +913,9 @@ static int validate_and_copy_actions__(const struct nlattr *attr,
-> >                         skip_copy = true;
-> >                         break;
+Thanks,
+
+>=20
+> On Mon, Apr 8, 2013 at 10:41 AM, Antonio Quartulli
+> <antonio@open-mesh.com> wrote:
+> > This new flag tells whether a network device has to be
+> > considered as restricted in the new bridge forwarding logic.
 > >
-> > +               case OVS_ACTION_ATTR_RECIRCULATE:
-> > +                       break;
-> 
-> I think we might want to jump out the loop here to better model how
-> the actions are actually executed.
+> > Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
+> > ---
+> >  include/uapi/linux/if.h | 1 +
+> >  net/core/dev.c          | 2 +-
+> >  2 files changed, 2 insertions(+), 1 deletion(-)
+> >
+> > diff --git a/include/uapi/linux/if.h b/include/uapi/linux/if.h
+> > index 1ec407b..5c3a9bd 100644
+> > --- a/include/uapi/linux/if.h
+> > +++ b/include/uapi/linux/if.h
+> > @@ -83,6 +83,7 @@
+> >  #define IFF_SUPP_NOFCS 0x80000         /* device supports sending cust=
+om FCS */
+> >  #define IFF_LIVE_ADDR_CHANGE 0x100000  /* device supports hardware add=
+ress
+> >                                          * change when it's running */
+> > +#define IFF_BRIDGE_RESTRICTED 0x200000 /* device is bridge-restricted =
+*/
+> >
+> >
+> >  #define IF_GET_IFACE   0x0001          /* for querying only */
+> > diff --git a/net/core/dev.c b/net/core/dev.c
+> > index 3655ff9..49eafc8 100644
+> > --- a/net/core/dev.c
+> > +++ b/net/core/dev.c
+> > @@ -4627,7 +4627,7 @@ int __dev_change_flags(struct net_device *dev, un=
+signed int flags)
+> >
+> >         dev->flags =3D (flags & (IFF_DEBUG | IFF_NOTRAILERS | IFF_NOARP=
+ |
+> >                                IFF_DYNAMIC | IFF_MULTICAST | IFF_PORTSE=
+L |
+> > -                              IFF_AUTOMEDIA)) |
+> > +                              IFF_AUTOMEDIA | IFF_BRIDGE_RESTRICTED)) |
+> >                      (dev->flags & (IFF_UP | IFF_VOLATILE | IFF_PROMISC=
+ |
+> >                                     IFF_ALLMULTI));
+> >
+> > --
+> > 1.8.1.5
+> >
 
-Sure, perhaps something like this?
+--=20
+Antonio Quartulli
 
-diff --git a/datapath/datapath.c b/datapath/datapath.c
-index ab39dd7..721a52c 100644
---- a/datapath/datapath.c
-+++ b/datapath/datapath.c
-@@ -914,7 +914,7 @@ static int validate_and_copy_actions__(const struct nlattr *attr,
- 			break;
- 
- 		case OVS_ACTION_ATTR_RECIRCULATE:
--			break;
-+			goto out;
- 
- 		default:
- 			return -EINVAL;
-@@ -926,6 +926,7 @@ static int validate_and_copy_actions__(const struct nlattr *attr,
- 		}
- 	}
- 
-+out:
- 	if (rem > 0)
- 		return -EINVAL;
- 
+=2E.each of us alone is worth nothing..
+Ernesto "Che" Guevara
 
-> > diff --git a/lib/dpif-netdev.c b/lib/dpif-netdev.c
-> > index e4a2f75..31255f6 100644
-> > --- a/lib/dpif-netdev.c
-> > +++ b/lib/dpif-netdev.c
-> >  dp_netdev_port_input(struct dp_netdev *dp, struct dp_netdev_port *port,
-> >                       struct ofpbuf *packet)
-> [...]
-> > +        } else {
-> > +            dp->n_missed++;
-> > +            dp_netdev_output_userspace(dp, packet, DPIF_UC_MISS, &key, NULL);
-> > +            recirculate = false;
-> > +        }
-> > +    } while (recirculate && limit--);
-> 
-> I have the same question about predecrement here.
+--v9Ux+11Zm5mwPlX6
+Content-Type: application/pgp-signature
 
-I will change this one too.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
 
-> > @@ -1163,6 +1190,7 @@ dp_netdev_sample(struct dp_netdev *dp,
-> >      const struct nlattr *subactions = NULL;
-> >      const struct nlattr *a;
-> >      size_t left;
-> > +    uint32_t skb_mark;
-> 
-> I don't think it's right to have a new (and uninitialized) copy of
-> skb_mark here.  We should have the same one all the way through, like
-> we do in the kernel.
+iQIcBAEBCAAGBQJRY8mWAAoJEADl0hg6qKeOBfsP/Aw0cEjNkAXWCBxDp0aGpl70
+Js9/+KBtmcJHWVqFUZXp46qiGmj2inNPud95Krery3fgGsXEBJYiY6wdmZqOkBM1
+ajcoAPUcUOnmQpIuhLsVxdxywMlblBp0J34oj+RRSoVwR62WC4ZGgsebg0luqB0H
+qKobTss2mwzm7exzCRDXBWrZ3Tc4HxiJLkpC1VJ5Dogq/uEeSK/ke0E0dvALX/X9
+bKvIUB7jPpCNqhk6yoY5Npbhu2uYyN3MQAIY+3BfobgfM6/9KQRR+hB2eLVGtw3B
+7JrZ5YHLiu/MoqJz8Hqj+CumkaB5MVeyM1mA2DRY9zoi3dL4vbFqDWD40GhWyeS3
+61Q4a4LMciuvyE2ZKpyTlDAli8eYHTUNGcHxOlSUkDI8hIEAwqUYi8/MA8LRp1gf
+Af7Ng2Lme6H2Xi7hzM9CsXXcchlMpaynNdcg0iGH8Yz3luUzXMBkfpLHftELP1Bv
+P5j1Qn/S1sFdtnZFPdMkbhIwBpaLYZ2GU4SqM7P8nLt1shG3TQF126iX6BPzyOc/
+M+pRj4OPs5GLOk0OJ7x7ROmf7XH/tl0FkMVkEglMFli4RM+7Oz33WqcxNWdQ+UZc
+D72KSj281vg4dxbdodcNW7HPry6YYMnCy+XlvjsEYDQG0s4IDlGGXKZ4ezEvhgnU
+pw9E3Qix0kbUsgaZXPAH
+=8nXs
+-----END PGP SIGNATURE-----
 
-Sure. I will pass it as an argument to dp_netdev_sample()
-
-> > diff --git a/ofproto/ofproto-dpif.c b/ofproto/ofproto-dpif.c
-> > index 47830c1..5129da1 100644
-> > --- a/ofproto/ofproto-dpif.c
-> > +++ b/ofproto/ofproto-dpif.c
-> 
-> I'm still working on more detailed comments for this.  However, I'm
-> concerned about whether the behavior for revalidation and stats is
-> correct.
-
-I am a little concerned about that too.
-Perhaps Ben could look over it?
+--v9Ux+11Zm5mwPlX6--
