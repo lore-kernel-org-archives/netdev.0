@@ -1,8 +1,8 @@
 From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH net-next 01/11] tg3: Fix flow control settings not
- propagated to hardware
-Date: Tue, 9 Apr 2013 11:48:01 -0700
-Message-ID: <1365533291-5672-2-git-send-email-nsujir@broadcom.com>
+Subject: [PATCH net-next 02/11] tg3: Fix NVRAM size detection for the
+ STM45PE20 pinstrap on 5762 devices
+Date: Tue, 9 Apr 2013 11:48:02 -0700
+Message-ID: <1365533291-5672-3-git-send-email-nsujir@broadcom.com>
 References: <1365533291-5672-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,41 +11,42 @@ Cc: netdev@vger.kernel.org, mchan@broadcom.com,
 	"Nithin Nayak Sujir" <nsujir@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2271 "EHLO mms3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2277 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934841Ab3DISsx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S934538Ab3DISsx (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 9 Apr 2013 14:48:53 -0400
 In-Reply-To: <1365533291-5672-1-git-send-email-nsujir@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In tg3_setup_copper_phy(), if autonegotiation is disabled, we need to
-relink only if the speed or duplex does not match the configured
-setting.  If flow control does not match, a relink is not necessary as
-flow control is not a PHY setting.  Later on, we'll call
-tg3_setup_flow_ctrl() to set up the MAC to the desired flow control
-settings if we're in full duplex mode.
+From: Michael Chan <mchan@broadcom.com>
+
+The STM45PE20 pinstrap on 5762 devices supports multiple sizes. So treat
+it just like the ST45_USPT and the size will be read from 0xf0 via
+tg3_get_nvram_size().
 
 Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index a4416b0..d044adf 100644
+index d044adf..a27310d 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -4587,9 +4587,7 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
- 		} else {
- 			if (!(bmcr & BMCR_ANENABLE) &&
- 			    tp->link_config.speed == current_speed &&
--			    tp->link_config.duplex == current_duplex &&
--			    tp->link_config.flowctrl ==
--			    tp->link_config.active_flowctrl) {
-+			    tp->link_config.duplex == current_duplex) {
- 				current_link_up = 1;
- 			}
+@@ -13986,6 +13986,12 @@ static void tg3_get_5720_nvram_info(struct tg3 *tp)
+ 		case FLASH_5762_EEPROM_LD:
+ 			nvmpinstrp = FLASH_5720_EEPROM_LD;
+ 			break;
++		case FLASH_5720VENDOR_M_ST_M45PE20:
++			/* This pinstrap supports multiple sizes, so force it
++			 * to read the actual size from location 0xf0.
++			 */
++			nvmpinstrp = FLASH_5720VENDOR_ST_45USPT;
++			break;
  		}
+ 	}
+ 
 -- 
 1.8.1.4
