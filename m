@@ -1,53 +1,43 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH 1/3 net-next RFC] selftest: add abstractions for net selftests
-Date: Tue, 09 Apr 2013 13:32:07 +0200
-Message-ID: <5163FC37.4090202@redhat.com>
-References: <1365503461-26309-1-git-send-email-alex.mihai.c@gmail.com> <1365503461-26309-2-git-send-email-alex.mihai.c@gmail.com> <5163F7E1.8040208@redhat.com> <CAHG7+CBWF-gLcNfvnP2NQjkAwgtv+k6=0DndN1Mu2b+1acHj-w@mail.gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 7/7] xen-netback: don't disconnect frontend when seeing oversize packet
+Date: Tue, 9 Apr 2013 12:34:42 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B71C5@saturn3.aculab.com>
+References: <1365505655-8021-1-git-send-email-wei.liu2@citrix.com> <1365505655-8021-8-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, willemb@google.com,
-	edumazet@google.com, Daniel Baluta <dbaluta@ixiacom.com>
-To: Alexandru Copot <alex.mihai.c@gmail.com>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <ian.campbell@citrix.com>, <david.vrabel@citrix.com>,
+	<konrad.wilk@oracle.com>, <annie.li@oracle.com>,
+	<wdauchy@gmail.com>
+To: "Wei Liu" <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
+	<xen-devel@lists.xen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32172 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935236Ab3DILch (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Apr 2013 07:32:37 -0400
-In-Reply-To: <CAHG7+CBWF-gLcNfvnP2NQjkAwgtv+k6=0DndN1Mu2b+1acHj-w@mail.gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:36332 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S935371Ab3DILfW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 07:35:22 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 14813-04 for <netdev@vger.kernel.org>;
+ Tue,  9 Apr 2013 12:35:17 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1365505655-8021-8-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/09/2013 01:24 PM, Alexandru Copot wrote:
-> On Tue, Apr 9, 2013 at 2:13 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> +		if (!drop_err && txp->size > first->size) {
+> +			if (net_ratelimit())
+> +				netdev_dbg(vif->dev,
+> +					   "Packet is bigger than frame.\n");
 
->>> +#define CHECK(cond,fmt,...)                            \
->>> +       do {                                            \
->>> +               if (!(cond)) {                          \
->>> +                       fprintf(stderr, "(%s, %d): " fmt,       \
->>> +                                       __FILE__, __LINE__,
->>> ##__VA_ARGS__); \
->>> +                       perror("");                     \
->>> +                       return 1;                       \
->>> +               }                                       \
->>> +       } while (0)
->>
->>
->> Isn't it a bit error-prone if in the middle of somewhere this check fails
->> and the function suddenly returns 1?
->>
->> What if this is called from a function that was declared as void or to
->> return a pointer to a struct etc.?
->
-> Well, I tought of using this only in your high-level testcase methods
-> (test->run()).
-> It is also easier to see what is actually being tested.
->
-> For anything else the user is free to use any other functions or
-> return conventions
-> as the test requires.
+It must be worth printing txp->size and first->size here.
+Similarly for the other errors in the other patches.
 
-Hm, then, still not convinced about the CHECK macro. In worst case this at
-least needs a comment, so that people will not misuse that, but with your
-two statements above, it seems likely that people could also start using it
-in "any other functions or return conventions as the test requires". ;-)
+Probably difficult for some of these errors, but it is
+sometimes worth saving the last 'bad' item. So that with
+an appropriate tool (maybe hexdump of /dev/kmem) it is
+possible to look at the actual contents and thus determine
+the actual source of the error.
+
+	David
