@@ -1,40 +1,29 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH 2/2] bonding: IFF_BONDING is not stripped on enslave failure
-Date: Tue,  9 Apr 2013 22:17:24 +0200
-Message-ID: <1365538644-1502-2-git-send-email-nikolay@redhat.com>
-References: <1365538644-1502-1-git-send-email-nikolay@redhat.com>
-Cc: andy@greyhouse.net, fubar@us.ibm.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 1/3] net: ipv6: minor: use in6addr_any in token init
+Date: Tue, 9 Apr 2013 22:37:40 +0200
+Message-ID: <20130409203740.GB14572@order.stressinduktion.org>
+References: <1365515236-7154-1-git-send-email-dborkman@redhat.com> <1365515236-7154-2-git-send-email-dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28837 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935931Ab3DIUUu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Apr 2013 16:20:50 -0400
-In-Reply-To: <1365538644-1502-1-git-send-email-nikolay@redhat.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:33414 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935899Ab3DIUhl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Apr 2013 16:37:41 -0400
+Content-Disposition: inline
+In-Reply-To: <1365515236-7154-2-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While enslaving a new device and after IFF_BONDING flag is set, in case
-of failure it is not stripped from the device's priv_flags while
-cleaning up, which could lead to other problems.
-Cleaning at err_close because the flag is set after dev_open().
+On Tue, Apr 09, 2013 at 03:47:14PM +0200, Daniel Borkmann wrote:
+> Since we check for !ipv6_addr_any(&in6_dev->token) in
+> addrconf_prefix_rcv(), make the token initialization on
+> device setup more intuitive by using in6addr_any as an
+> initializer.
+> 
+> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
- drivers/net/bonding/bond_main.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 9995ddc..0d9ee48 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1906,6 +1906,7 @@ err_detach:
- 	write_unlock_bh(&bond->lock);
- 
- err_close:
-+	slave_dev->priv_flags &= ~IFF_BONDING;
- 	dev_close(slave_dev);
- 
- err_unset_master:
--- 
-1.8.1.4
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
