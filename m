@@ -1,46 +1,48 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] net: mvneta: enable features before registering the driver
-Date: Tue, 9 Apr 2013 07:46:00 +0200
-Message-ID: <20130409054600.GA31821@1wt.eu>
-References: <20130406184701.GA16142@1wt.eu> <20130408.121604.421731991206410747.davem@davemloft.net>
+From: Mathias Krause <minipli@googlemail.com>
+Subject: Re: [PATCH -next] netrom: fix invalid use of sizeof in nr_recvmsg()
+Date: Tue, 9 Apr 2013 07:49:00 +0200
+Message-ID: <CA+rthh8DXCULOX7HUt2+mrQCZn3e=WzP7ZPSjY5kNmSWDDd=FA@mail.gmail.com>
+References: <CAPgLHd-yEmt_BJ52uZNsCA_-w85VhnN_HbfjG1QLVvR5kp7Xvw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:46526 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755205Ab3DIFqL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Apr 2013 01:46:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20130408.121604.421731991206410747.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: ralf@linux-mips.org, "David S. Miller" <davem@davemloft.net>,
+	yongjun_wei@trendmicro.com.cn, linux-hams@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <CAPgLHd-yEmt_BJ52uZNsCA_-w85VhnN_HbfjG1QLVvR5kp7Xvw@mail.gmail.com>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 08, 2013 at 12:16:04PM -0400, David Miller wrote:
-> From: Willy Tarreau <w@1wt.eu>
-> Date: Sat, 6 Apr 2013 20:47:01 +0200
-> 
-> > Hi,
-> > 
-> > I noticed that mvneta's tx-csum/sg were off until disabled then
-> > enabled, which led me to think that something was not made in the
-> > correct sequence. And indeed, setting the dev features _before_
-> > registering the device works much better :-)
-> > 
-> > This patch is for master but may be backported to 3.8-stable as well,
-> > which is where I first experienced the issue.
-> 
-> Please don't post patches like this, you make extra work for the
-> maintainer by having to edit out this commentary.
-> 
-> You put such commentary after the "---" seperator the delineates
-> your commit message in the email body, not before.
+On Tue, Apr 9, 2013 at 4:07 AM, Wei Yongjun <weiyj.lk@gmail.com> wrote:
+>
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+>
+> sizeof() when applied to a pointer typed expression gives the size of the
+> pointer, not that of the pointed data.
+> Introduced by commit 3ce5ef(netrom: fix info leak via msg_name in nr_recvmsg)
+>
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> ---
+>  net/netrom/af_netrom.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
+> index 7fcb307..103bd70 100644
+> --- a/net/netrom/af_netrom.c
+> +++ b/net/netrom/af_netrom.c
+> @@ -1173,7 +1173,7 @@ static int nr_recvmsg(struct kiocb *iocb, struct socket *sock,
+>         }
+>
+>         if (sax != NULL) {
+> -               memset(sax, 0, sizeof(sax));
+> +               memset(sax, 0, sizeof(*sax));
+>                 sax->sax25_family = AF_NETROM;
+>                 skb_copy_from_linear_data_offset(skb, 7, sax->sax25_call.ax25_call,
+>                               AX25_ADDR_LEN);
+>
 
-Sorry for this David, I'll take care of this next time.
+Thanks for fixing this nasty little typo! My keyboard must be broken
+as sizeof(*sax) was the intended change in the first place. ;)
 
-> Anyways, applied.
-
-Thank you.
-
-Willy
+Acked-by: Mathias Krause <minipli@googlemail.com>
