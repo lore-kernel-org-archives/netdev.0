@@ -1,72 +1,69 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH 1/4] Add packet recirculation
-Date: Wed, 10 Apr 2013 09:21:23 -0700
-Message-ID: <CAEP_g=8vE9Ykdnro+Puw34ORRnPEMn1LMBxv+f7w_Dp-uty_iw@mail.gmail.com>
-References: <1365403431-18102-1-git-send-email-horms@verge.net.au>
- <1365403431-18102-2-git-send-email-horms@verge.net.au> <CAEP_g=9nj24hZcA-czzuz3xaweATxRxmibuFaqODTSoPmRmHsw@mail.gmail.com>
- <20130409075024.GG11444@verge.net.au> <CAEP_g=-baZGttBowXKGdgKafxp9fkUrQ=44y562ZzfnOL-XaQg@mail.gmail.com>
- <20130410091657.GA27777@verge.net.au>
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Subject: Re: [mac80211-next:wip 107/122]
+ drivers/net/wireless/mac80211_hwsim.c:2198:17: warning: ignoring return
+ value of 'driver_register', declared with attribute warn_unused_result
+Date: Wed, 10 Apr 2013 18:38:59 +0200
+Message-ID: <20130410163859.GA2884@piware.de>
+References: <51658900.3wb5UKoIEe45MUXS%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
-	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Ben Pfaff <blp@nicira.com>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="1yeeQ81UyVL57Vl7"
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Johannes Berg <johannes.berg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:44479 "HELO
-	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S936388Ab3DJQVp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 12:21:45 -0400
-Received: by mail-ie0-f198.google.com with SMTP id 17so3488244iea.5
-        for <netdev@vger.kernel.org>; Wed, 10 Apr 2013 09:21:44 -0700 (PDT)
-In-Reply-To: <20130410091657.GA27777@verge.net.au>
+Received: from www.piware.de ([213.9.93.70]:48584 "EHLO www.piware.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932468Ab3DJQjD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Apr 2013 12:39:03 -0400
+Content-Disposition: inline
+In-Reply-To: <51658900.3wb5UKoIEe45MUXS%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 10, 2013 at 2:16 AM, Simon Horman <horms@verge.net.au> wrote:
-> On Tue, Apr 09, 2013 at 08:44:02AM -0700, Jesse Gross wrote:
->> On Tue, Apr 9, 2013 at 12:50 AM, Simon Horman <horms@verge.net.au> wrote:
->> > On Mon, Apr 08, 2013 at 06:46:29PM -0700, Jesse Gross wrote:
->> >> On Sun, Apr 7, 2013 at 11:43 PM, Simon Horman <horms@verge.net.au> wrote:
->> >> > diff --git a/ofproto/ofproto-dpif.c b/ofproto/ofproto-dpif.c
->> >> > index 47830c1..5129da1 100644
->> >> > --- a/ofproto/ofproto-dpif.c
->> >> > +++ b/ofproto/ofproto-dpif.c
->> >>
->> >> I'm still working on more detailed comments for this.  However, I'm
->> >> concerned about whether the behavior for revalidation and stats is
->> >> correct.
->> >
->> > I am a little concerned about that too.
->> > Perhaps Ben could look over it?
->>
->> To rephrase, there are problems in both of those areas. Validation in
->> particular I don't think handles resubmitted facets and I believe that
->> stats on rules will be the sum of all resubmitted passes.
->
-> Some questions:
-> By resubmitted do you mean recirculated?
 
-Yes.
+--1yeeQ81UyVL57Vl7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> What is the stats behaviour that you would like?
+Hello Johannes,
 
-A given rule should have byte and packet counts equal to the number of
-times it is matched (i.e. the first time) even if we have to decompose
-it into multiple passes internally.
+kbuild test robot [2013-04-10 23:45 +0800]:
+>    drivers/net/wireless/mac80211_hwsim.c: In function 'init_mac80211_hwsi=
+m':
+> >> drivers/net/wireless/mac80211_hwsim.c:2198:17: warning: ignoring retur=
+n value of 'driver_register', declared with attribute warn_unused_result [-=
+Wunused-result]
 
-> With regards to validation, I assume the area of concern
-> is around facet_revalidate(). I will look into that.
+Argh, I wish I could see these warnings with the standard make
+command, sorry about that. Sending a patch for this.
 
-Yes.
+Martin
+--=20
+Martin Pitt                        | http://www.piware.de
+Ubuntu Developer (www.ubuntu.com)  | Debian Developer  (www.debian.org)
 
->> Both of these will likely significantly affect the data structures, so
->> please look into this before we go further.
->
-> Sure. I was not planning to push (much) further until this series
-> is reviewed properly.
+--1yeeQ81UyVL57Vl7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-I'm planning on waiting on further reviews of this file until you've
-had a chance to look into validation and stats since I think that may
-change some of the data structures.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRZZWfAAoJEPmIJawmtHufyGEP/isrUd0oGO1Y2HVr95H4FiZY
+H8aNxdj1wn4f31IjPckzIrNrWc4eHc+lfe+MTsZ6RW3U/2PMuFy7iiHalp69xnvt
+LzVC1sHyu5Nisl/8QG5dZ4WmmYZ2f6qtrdDmLrej7HuMVD2ynkEM76YaHrIPDQDf
+X2BeofoHnT9Y3Kf9cejXST7e4SawSpceAHCElP8fI0zPnN38zS/IVAu9MkL8NU1n
+IngLVlysTm/AiGjohkMIB7OJmvlFrEbZ5j/ku9HwHG1TsI0iFudPiTP1gzgdiehO
+ZsMQGdkseqrzOk18N9MsVZ7pk/qzMSc4upAFFP9Tb3jN3ITNkOzIQCpEM8SmvwEP
+kJCHhkbwj/yTBmBShu6+7itUqajnq+QBeJleGxc4j1+13Hgc67CLqIhivGmKvGfX
+Pnz10W0kwDV1vTe6QaAm+IuSal+uyMnwySMkf0yTyWYQz41bENXXJZT6XozcUPJn
+c6WgY1a6LGiWj7NtNGawfqAxmKshz3IgxP80DhRv/Vc/MYgJLXZdQ6wPzSAIk+P9
+MqkPYrx7008lOATAT5XEZZRr4ZkKG3maB4i2BqOkkV/mzWIJhzaqkUcpcp8iSCNu
+55BobZRnzOzKMGOVAVyPSUtUpSlrbnHUXZi3MNex7jqFVstaIr5iSm8V7vsC4Z7Y
+Sj6wHcoYzNyTW4ubjMTF
+=15i9
+-----END PGP SIGNATURE-----
+
+--1yeeQ81UyVL57Vl7--
