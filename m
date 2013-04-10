@@ -1,37 +1,48 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: Jitter and latency benchmarks with netlink / nl80211
-Date: Wed, 10 Apr 2013 11:05:40 -0700
-Message-ID: <CAB=NE6U_0E+y8jc_0O3+9pmUyLXX9CuSMYMMWk__4Q8-+-AHTg@mail.gmail.com>
-References: <CAB=NE6XH8wGbFhmB54Y0BUB2N-PbzUBvN+arH5F_BAkEa=DjUw@mail.gmail.com>
- <5165A874.50804@candelatech.com>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [PATCH 1/2 v4] usbnet: allow status interrupt URB to always be active
+Date: Wed, 10 Apr 2013 20:10:11 +0200
+Message-ID: <7761183.G42DetJs5Z@linux-5eaq.site>
+References: <20110727141246.GC29616@orbit.nwl.cc> <21345916.cd7DzC6Ttz@linux-5eaq.site> <1365606080.28888.72.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5165A874.50804@candelatech.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Ming Lei <tom.leiming@gmail.com>,
+	Elina Pasheva <epasheva@sierrawireless.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out003.kontent.com ([81.88.40.217]:45662 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935623Ab3DJSJZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 14:09:25 -0400
+In-Reply-To: <1365606080.28888.72.camel@dcbw.foobar.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 10, 2013 at 10:59 AM, Ben Greear <greearb@candelatech.com> wrote:
-> On 04/10/2013 10:55 AM, Luis R. Rodriguez wrote:
->>
->> Curious if anyone has worked on latency and jitter benchmarks in using
->> netlink, specifically with nl80211. Has anyone benchmarked this? Ben,
->> have you? If not for nl80211 perhaps this has been done before for
->> other netlink families?
->
->
-> You mean timing related to netlink configuration/report requests?
+On Wednesday 10 April 2013 10:01:20 Dan Williams wrote:
+> On Wed, 2013-04-10 at 15:58 +0200, Oliver Neukum wrote:
+> > On Wednesday 10 April 2013 08:54:43 Dan Williams wrote:
+> > > > The refcounting is very good. Just don't mess around with "force"
+> > > 
+> > > That's easy to do if the helpers aren't used for suspend/resume, which
+> > > is what I had previously in my v2 patches until Ming suggested that I
+> > > use the helpers there.  I can go back to that approach if you'd like, it
+> > > is a bit less complicated at the expense of sprinkling the interrupt urb
+> > > submit/kill code around more widely.
+> > 
+> > If you introduce a third helper like "forcibly_stop_interrupt" or something,
+> > I'll be perfectly happy. Just don't use flags which completely alter behavior.
+> > 
+> > 	Regards
+> > 		Oliver
+> 
+> Do you mean something more like this?  If so, I'll go ahead and do the
+> formal submission.  Thanks!
 
-Yes.
+That looks good and ready.
 
-> We have lots of ways to measure wifi packet throughput latencies
-> and jitter (to/from userspace and/or to/from pktgen), but it doesn't use
-> netlink....
-
-Not looking for latency / jitter for 802.11, but for the core nl80211 messages.
-
-  Luis
+	Regards
+		Oliver
