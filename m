@@ -1,129 +1,93 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 2/2 v5] sierra_net: keep status interrupt URB active
-Date: Wed, 10 Apr 2013 15:33:58 -0500
-Message-ID: <1365626038.22411.3.camel@dcbw.foobar.com>
-References: <20110727141246.GC29616@orbit.nwl.cc>
-	 <21345916.cd7DzC6Ttz@linux-5eaq.site>
-	 <1365606080.28888.72.camel@dcbw.foobar.com>
-	 <7761183.G42DetJs5Z@linux-5eaq.site>
-	 <1365625850.22411.1.camel@dcbw.foobar.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Rory Filer <rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
-	Phil Sutter <phil-ydcDiazATMQ@public.gmane.org>
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1365625850.22411.1.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v2] net: mv643xx_eth: use managed devm_kzalloc
+Date: Wed, 10 Apr 2013 22:42:07 +0200
+Message-ID: <1365626527-27233-1-git-send-email-sebastian.hesselbarth@gmail.com>
+References: <1365615483-26318-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Florian Fainelli <florian@openwrt.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1365615483-26318-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The driver and firmware sync up through SYNC messages, and the
-firmware's affirmative reply to these SYNC messages appears to be the
-"Reset" indication received via the status interrupt endpoint.  Thus the
-driver needs the status interrupt endpoint always active so that the
-Reset indication can be received even if the netdev is closed, which is
-the case right after device insertion.
+This patch moves shared private data kzalloc to managed devm_kzalloc and
+cleans now unneccessary kfree and error handling.
 
-Signed-off-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 ---
- drivers/net/usb/sierra_net.c | 40 ++++++++++++++++++++++++++++++++--------
- 1 file changed, 32 insertions(+), 8 deletions(-)
+Changes from v1:
+- replaced EADDRNOTAVAIL with ENOMEM on failing ioremap (Reported by
+  Sergei Shtylyov)
 
-diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_net.c
-index 79ab243..d0fa5c18 100644
---- a/drivers/net/usb/sierra_net.c
-+++ b/drivers/net/usb/sierra_net.c
-@@ -427,6 +427,13 @@ static void sierra_net_dosync(struct usbnet *dev)
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: Andrew Lunn <andrew@lunn.ch>
+Cc: Jason Cooper <jason@lakedaemon.net>
+Cc: Florian Fainelli <florian@openwrt.org>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+---
+ drivers/net/ethernet/marvell/mv643xx_eth.c |   17 ++++-------------
+ 1 file changed, 4 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index bbe6104..305038f 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -2547,25 +2547,22 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
+ 	struct mv643xx_eth_shared_private *msp;
+ 	const struct mbus_dram_target_info *dram;
+ 	struct resource *res;
+-	int ret;
  
- 	dev_dbg(&dev->udev->dev, "%s", __func__);
+ 	if (!mv643xx_eth_version_printed++)
+ 		pr_notice("MV-643xx 10/100/1000 ethernet driver version %s\n",
+ 			  mv643xx_eth_driver_version);
  
-+	/* The SIERRA_NET_HIP_MSYNC_ID command appears to request that the
-+	 * firmware restart itself.  After restarting, the modem will respond
-+	 * with the SIERRA_NET_HIP_RESTART_ID indication.  The driver continues
-+	 * sending MSYNC commands every few seconds until it receives the
-+	 * RESTART event from the firmware
-+	 */
-+
- 	/* tell modem we are ready */
- 	status = sierra_net_send_sync(dev);
- 	if (status < 0)
-@@ -705,6 +712,9 @@ static int sierra_net_bind(struct usbnet *dev, struct usb_interface *intf)
- 	/* set context index initially to 0 - prepares tx hdr template */
- 	sierra_net_set_ctx_index(priv, 0);
+-	ret = -EINVAL;
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (res == NULL)
+-		goto out;
++		return -EINVAL;
  
-+	/* prepare sync message template */
-+	memcpy(priv->sync_msg, sync_tmplate, sizeof(priv->sync_msg));
-+
- 	/* decrease the rx_urb_size and max_tx_size to 4k on USB 1.1 */
- 	dev->rx_urb_size  = SIERRA_NET_RX_URB_SIZE;
- 	if (dev->udev->speed != USB_SPEED_HIGH)
-@@ -740,11 +750,6 @@ static int sierra_net_bind(struct usbnet *dev, struct usb_interface *intf)
- 		kfree(priv);
- 		return -ENODEV;
- 	}
--	/* prepare sync message from template */
--	memcpy(priv->sync_msg, sync_tmplate, sizeof(priv->sync_msg));
+-	ret = -ENOMEM;
+-	msp = kzalloc(sizeof(*msp), GFP_KERNEL);
++	msp = devm_kzalloc(&pdev->dev, sizeof(*msp), GFP_KERNEL);
+ 	if (msp == NULL)
+-		goto out;
++		return -ENOMEM;
+ 
+ 	msp->base = ioremap(res->start, resource_size(res));
+ 	if (msp->base == NULL)
+-		goto out_free;
++		return -ENOMEM;
+ 
+ 	msp->clk = devm_clk_get(&pdev->dev, NULL);
+ 	if (!IS_ERR(msp->clk))
+@@ -2585,11 +2582,6 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
+ 	platform_set_drvdata(pdev, msp);
+ 
+ 	return 0;
 -
--	/* initiate the sync sequence */
--	sierra_net_dosync(dev);
+-out_free:
+-	kfree(msp);
+-out:
+-	return ret;
+ }
+ 
+ static int mv643xx_eth_shared_remove(struct platform_device *pdev)
+@@ -2599,7 +2591,6 @@ static int mv643xx_eth_shared_remove(struct platform_device *pdev)
+ 	iounmap(msp->base);
+ 	if (!IS_ERR(msp->clk))
+ 		clk_disable_unprepare(msp->clk);
+-	kfree(msp);
  
  	return 0;
  }
-@@ -767,8 +772,9 @@ static void sierra_net_unbind(struct usbnet *dev, struct usb_interface *intf)
- 		netdev_err(dev->net,
- 			"usb_control_msg failed, status %d\n", status);
- 
--	sierra_net_set_private(dev, NULL);
-+	usbnet_status_stop(dev);
- 
-+	sierra_net_set_private(dev, NULL);
- 	kfree(priv);
- }
- 
-@@ -909,6 +915,24 @@ static const struct driver_info sierra_net_info_direct_ip = {
- 	.tx_fixup = sierra_net_tx_fixup,
- };
- 
-+static int
-+sierra_net_probe(struct usb_interface *udev, const struct usb_device_id *prod)
-+{
-+	int ret;
-+
-+	ret = usbnet_probe(udev, prod);
-+	if (ret == 0) {
-+		struct usbnet *dev = usb_get_intfdata(udev);
-+
-+		ret = usbnet_status_start(dev, GFP_KERNEL);
-+		if (ret == 0) {
-+			/* Interrupt URB now set up; initiate sync sequence */
-+			sierra_net_dosync(dev);
-+		}
-+	}
-+	return ret;
-+}
-+
- #define DIRECT_IP_DEVICE(vend, prod) \
- 	{USB_DEVICE_INTERFACE_NUMBER(vend, prod, 7), \
- 	.driver_info = (unsigned long)&sierra_net_info_direct_ip}, \
-@@ -931,7 +955,7 @@ MODULE_DEVICE_TABLE(usb, products);
- static struct usb_driver sierra_net_driver = {
- 	.name = "sierra_net",
- 	.id_table = products,
--	.probe = usbnet_probe,
-+	.probe = sierra_net_probe,
- 	.disconnect = usbnet_disconnect,
- 	.suspend = usbnet_suspend,
- 	.resume = usbnet_resume,
 -- 
-1.8.1.4
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.10.4
