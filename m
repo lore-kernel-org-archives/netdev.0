@@ -1,68 +1,133 @@
-From: Takashi Yoshii <takashi.yoshii.zj@renesas.com>
-Subject: [PATCH] ipconfig: stop ip-config if disabled method directed
-Date: Wed, 10 Apr 2013 16:23:54 +0900
-Message-ID: <5165138A.7070006@renesas.com>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [PATCH 1/2 v4] usbnet: allow status interrupt URB to always be active
+Date: Wed, 10 Apr 2013 09:23:47 +0200
+Message-ID: <2328167.HJRXSHNhKT@linux-5eaq.site>
+References: <20110727141246.GC29616@orbit.nwl.cc> <1364832288.3059.12.camel@dcbw.foobar.com> <1365548547.23372.2.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Ming Lei <tom.leiming@gmail.com>,
+	Elina Pasheva <epasheva@sierrawireless.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor3.renesas.com ([210.160.252.173]:44207 "EHLO
-	relmlor3.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936388Ab3DJHX5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 03:23:57 -0400
-Received: from relmlir1.idc.renesas.com ([10.200.68.151])
- by relmlor3.idc.renesas.com ( SJSMS)
- with ESMTP id <0ML10049C37VGT80@relmlor3.idc.renesas.com> for
- netdev@vger.kernel.org; Wed, 10 Apr 2013 16:23:55 +0900 (JST)
-Received: from relmlac1.idc.renesas.com ([10.200.69.21])
- by relmlir1.idc.renesas.com (SJSMS)
- with ESMTP id <0ML100A9Q37V5U10@relmlir1.idc.renesas.com> for
- netdev@vger.kernel.org; Wed, 10 Apr 2013 16:23:55 +0900 (JST)
+Received: from smtp-out003.kontent.com ([81.88.40.217]:54555 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964899Ab3DJHYJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 03:24:09 -0400
+In-Reply-To: <1365548547.23372.2.camel@dcbw.foobar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tuesday 09 April 2013 18:02:27 Dan Williams wrote:
+> Some drivers (sierra_net) need the status interrupt URB
+> active even when the device is closed, because they receive
+> custom indications from firmware.  Add functions to refcount
+> the status interrupt URB submit/kill operation so that
+> sub-drivers and the generic driver don't fight over whether
+> the status interrupt URB is active or not.
+> 
+> A sub-driver can call usbnet_status_start() at any time, but
+> the URB is only submitted the first time the function is
+> called.  Likewise, when the sub-driver is done with the URB,
+> it calls usbnet_status_stop() but the URB is only killed when
+> all users have stopped it.  The URB is still killed and
+> re-submitted for suspend/resume, as before, with the same
+> refcount it had at suspend.
+> 
+> Signed-off-by: Dan Williams <dcbw@redhat.com>
+> ---
+>  drivers/net/usb/usbnet.c   | 79 ++++++++++++++++++++++++++++++++++++++++++----
+>  include/linux/usb/usbnet.h |  5 +++
+>  2 files changed, 77 insertions(+), 7 deletions(-)
+> 
+> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+> index 51f3192..e8b363a 100644
+> --- a/drivers/net/usb/usbnet.c
+> +++ b/drivers/net/usb/usbnet.c
+> @@ -42,7 +42,7 @@
+>  #include <linux/workqueue.h>
+>  #include <linux/mii.h>
+>  #include <linux/usb.h>
+> -#include <linux/usb/usbnet.h>
+> +#include "usbnet.h"
+>  #include <linux/slab.h>
+>  #include <linux/kernel.h>
+>  #include <linux/pm_runtime.h>
+> @@ -252,6 +252,70 @@ static int init_status (struct usbnet *dev, struct usb_interface *intf)
+>  	return 0;
+>  }
+>  
+> +/* Submit the interrupt URB if it hasn't been submitted yet */
+> +static int __usbnet_status_start(struct usbnet *dev, gfp_t mem_flags,
+> +					bool force)
+> +{
+> +	int ret = 0;
+> +	bool submit = false;
+> +
+> +	if (!dev->interrupt)
+> +		return 0;
+> +
+> +	mutex_lock(&dev->interrupt_mutex);
+> +
+> +	if (force) {
 
-Looks insignificant, but a misusage of kernel level auto configuration
-results in an invalid ipv4 address set.
-That is a kind of corner case, but I think it is be better sanitizing
- the input a bit more for our simple in_aton().
---
+That design means that interrupt_count isn't accurate if force is used.
+That is extremely ugly.
 
-CONFIG_IP_PNP=y
-CONFIG_IP_PNP_DHCP=n
-Command line: ip=dhcp
-result in false ip address 62.0.0.0 set.
+> +		/* Only submit now if the URB was previously submitted */
+> +		if (dev->interrupt_count)
+> +			submit = true;
+> +	} else if (++dev->interrupt_count == 1)
+> +		submit = true;
+> +
+> +	if (submit)
+> +		ret = usb_submit_urb(dev->interrupt, mem_flags);
+> +
+> +	dev_dbg(&dev->udev->dev, "incremented interrupt URB count to %d\n",
+> +		dev->interrupt_count);
+> +	mutex_unlock(&dev->interrupt_mutex);
+> +	return ret;
+> +}
+> +
+> +int usbnet_status_start(struct usbnet *dev, gfp_t mem_flags)
+> +{
+> +	/* Only drivers that implement a status hook should call this */
+> +	BUG_ON(dev->interrupt == NULL);
+> +
+> +	if (test_bit(EVENT_DEV_ASLEEP, &dev->flags))
+> +		return -EINVAL;
 
-If directed autoconf method is not compiled into the kernel,
-ip-config should be terminated.
+This looks like a race condition.
 
-Signed-off-by: Takashi Yoshii <takashi.yoshii.zj@renesas.com>
----
- net/ipv4/ipconfig.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+> +	return __usbnet_status_start(dev, mem_flags, false);
+> +}
+> +EXPORT_SYMBOL_GPL(usbnet_status_start);
+> +
+> +/* Kill the interrupt URB if all submitters want it killed */
+> +static void __usbnet_status_stop(struct usbnet *dev, bool force)
+> +{
+> +	if (dev->interrupt) {
+> +		mutex_lock(&dev->interrupt_mutex);
+> +		if (!force)
+> +			BUG_ON(dev->interrupt_count == 0);
+> +
+> +		if (force || --dev->interrupt_count == 0)
+> +			usb_kill_urb(dev->interrupt);
 
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index bf6c5cf..6401aac 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -1586,6 +1586,16 @@ static int __init ip_auto_config_setup(char *addrs)
- 	if (ic_proto_name(addrs))
- 		return 1;
- 
-+	/* This mean the kernel is not configured to have the method. */
-+	if (strcmp(addrs, "dhcp") == 0 ||
-+	    strcmp(addrs, "bootp") == 0 ||
-+	    strcmp(addrs, "rarp") == 0 ||
-+	    strcmp(addrs, "both") == 0) {
-+		pr_warn("IP-Config: autoconf [%s] not compiled in\n", addrs);
-+		ic_enable = 0;
-+		return 1;
-+	}
-+
- 	/* If no static IP is given, turn off autoconfig and bail.  */
- 	if (*addrs == 0 ||
- 	    strcmp(addrs, "off") == 0 ||
--- 
-1.8.1.5
+Why so complicated? If it may be on, kill it unconditionally.
+
+> +
+> +		dev_dbg(&dev->udev->dev,
+> +			"decremented interrupt URB count to %d\n",
+> +			dev->interrupt_count);
+> +		mutex_unlock(&dev->interrupt_mutex);
+> +	}
+> +}
+> +
+
+	Regards
+		Oliver
