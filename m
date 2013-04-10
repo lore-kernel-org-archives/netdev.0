@@ -1,157 +1,239 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: Re: [PATCH 1/4] Add packet recirculation
-Date: Wed, 10 Apr 2013 18:16:57 +0900
-Message-ID: <20130410091657.GA27777@verge.net.au>
-References: <1365403431-18102-1-git-send-email-horms@verge.net.au>
-	<1365403431-18102-2-git-send-email-horms@verge.net.au>
-	<CAEP_g=9nj24hZcA-czzuz3xaweATxRxmibuFaqODTSoPmRmHsw@mail.gmail.com>
-	<20130409075024.GG11444@verge.net.au>
-	<CAEP_g=-baZGttBowXKGdgKafxp9fkUrQ=44y562ZzfnOL-XaQg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=-baZGttBowXKGdgKafxp9fkUrQ=44y562ZzfnOL-XaQg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net] e100: Add dma mapping error check
+Date: Wed, 10 Apr 2013 02:19:00 -0700
+Message-ID: <1365585540-8199-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Josh Boyer <jwboyer@redhat.com>,
+	e1000-devel@lists.sourceforge.net,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:46399 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751255Ab3DJJTF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Apr 2013 05:19:05 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 09, 2013 at 08:44:02AM -0700, Jesse Gross wrote:
-> On Tue, Apr 9, 2013 at 12:50 AM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
-> > On Mon, Apr 08, 2013 at 06:46:29PM -0700, Jesse Gross wrote:
-> >> On Sun, Apr 7, 2013 at 11:43 PM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
-> >> > diff --git a/datapath/actions.c b/datapath/actions.c
-> >> > index e9634fe..7b0f022 100644
-> >> > --- a/datapath/actions.c
-> >> > +++ b/datapath/actions.c
-> >> > @@ -617,6 +617,9 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
-> >> >                 case OVS_ACTION_ATTR_SAMPLE:
-> >> >                         err = sample(dp, skb, a);
-> >> >                         break;
-> >> > +
-> >> > +               case OVS_ACTION_ATTR_RECIRCULATE:
-> >> > +                       return 1;
-> >>
-> >> I think that if we've had a previous output action with the port
-> >> stored in prev_port then this will cause the packet to not actually be
-> >> output.
-> >
-> > I'm not so sure.
-> >
-> > I see something like this occurring:
-> >
-> > 1. Iteration of for loop for output action
-> >
-> >    switch (nla_type(a)) {
-> >    case OVS_ACTION_ATTR_OUTPUT:
-> >         prev_port = nla_get_u32(a);
-> >         break;
-> >         ...
-> >    }
-> >
-> > 2. Iteration of of for loop for next action, lets say its is recirculate
-> >
-> >    i. Output packet
-> >
-> >    if (prev_port != -1) {
-> >         do_output(dp, skb_clone(skb, GFP_ATOMIC), prev_port);
-> >         prev_port = -1;
-> >    }
-> >
-> >    ii. Return due to recirculate
-> >    switch (nla_type(a)) {
-> >    ...
-> >    case OVS_ACTION_ATTR_RECIRCULATE:
-> >            return 1;
-> >    }
-> >
-> >
-> > Am I missing something?
-> 
-> Sorry, you're right.
-> 
-> >> > @@ -901,6 +913,9 @@ static int validate_and_copy_actions__(const struct nlattr *attr,
-> >> >                         skip_copy = true;
-> >> >                         break;
-> >> >
-> >> > +               case OVS_ACTION_ATTR_RECIRCULATE:
-> >> > +                       break;
-> >>
-> >> I think we might want to jump out the loop here to better model how
-> >> the actions are actually executed.
-> >
-> > Sure, perhaps something like this?
-> >
-> > diff --git a/datapath/datapath.c b/datapath/datapath.c
-> > index ab39dd7..721a52c 100644
-> > --- a/datapath/datapath.c
-> > +++ b/datapath/datapath.c
-> > @@ -914,7 +914,7 @@ static int validate_and_copy_actions__(const struct nlattr *attr,
-> >                         break;
-> >
-> >                 case OVS_ACTION_ATTR_RECIRCULATE:
-> > -                       break;
-> > +                       goto out;
-> >
-> >                 default:
-> >                         return -EINVAL;
-> > @@ -926,6 +926,7 @@ static int validate_and_copy_actions__(const struct nlattr *attr,
-> >                 }
-> >         }
-> >
-> > +out:
-> >         if (rem > 0)
-> >                 return -EINVAL;
-> 
-> Since this function is now both validating and copying I think this
-> will result in the recirculate action not being copied.
+From: Neil Horman <nhorman@tuxdriver.com>
 
-Thanks, I'll look into that.
+e100 uses pci_map_single, but fails to check for a dma mapping error after its
+use, resulting in a stack trace:
 
-> >> > diff --git a/ofproto/ofproto-dpif.c b/ofproto/ofproto-dpif.c
-> >> > index 47830c1..5129da1 100644
-> >> > --- a/ofproto/ofproto-dpif.c
-> >> > +++ b/ofproto/ofproto-dpif.c
-> >>
-> >> I'm still working on more detailed comments for this.  However, I'm
-> >> concerned about whether the behavior for revalidation and stats is
-> >> correct.
-> >
-> > I am a little concerned about that too.
-> > Perhaps Ben could look over it?
-> 
-> To rephrase, there are problems in both of those areas. Validation in
-> particular I don't think handles resubmitted facets and I believe that
-> stats on rules will be the sum of all resubmitted passes.
+[   46.656594] ------------[ cut here ]------------
+[   46.657004] WARNING: at lib/dma-debug.c:933 check_unmap+0x47b/0x950()
+[   46.657004] Hardware name: To Be Filled By O.E.M.
+[   46.657004] e100 0000:00:0e.0: DMA-API: device driver failed to check map
+error[device address=0x000000007a4540fa] [size=90 bytes] [mapped as single]
+[   46.657004] Modules linked in:
+[   46.657004]  w83627hf hwmon_vid snd_via82xx ppdev snd_ac97_codec ac97_bus
+snd_seq snd_pcm snd_mpu401 snd_mpu401_uart ns558 snd_rawmidi gameport parport_pc
+e100 snd_seq_device parport snd_page_alloc snd_timer snd soundcore skge shpchp
+k8temp mii edac_core i2c_viapro edac_mce_amd nfsd auth_rpcgss nfs_acl lockd
+sunrpc binfmt_misc uinput ata_generic pata_acpi radeon i2c_algo_bit
+drm_kms_helper ttm firewire_ohci drm firewire_core pata_via sata_via i2c_core
+sata_promise crc_itu_t
+[   46.657004] Pid: 792, comm: ip Not tainted 3.8.0-0.rc6.git0.1.fc19.x86_64 #1
+[   46.657004] Call Trace:
+[   46.657004]  <IRQ>  [<ffffffff81065ed0>] warn_slowpath_common+0x70/0xa0
+[   46.657004]  [<ffffffff81065f4c>] warn_slowpath_fmt+0x4c/0x50
+[   46.657004]  [<ffffffff81364cfb>] check_unmap+0x47b/0x950
+[   46.657004]  [<ffffffff8136522f>] debug_dma_unmap_page+0x5f/0x70
+[   46.657004]  [<ffffffffa030f0f0>] ? e100_tx_clean+0x30/0x210 [e100]
+[   46.657004]  [<ffffffffa030f1a8>] e100_tx_clean+0xe8/0x210 [e100]
+[   46.657004]  [<ffffffffa030fc6f>] e100_poll+0x56f/0x6c0 [e100]
+[   46.657004]  [<ffffffff8159dce1>] ? net_rx_action+0xa1/0x370
+[   46.657004]  [<ffffffff8159ddb2>] net_rx_action+0x172/0x370
+[   46.657004]  [<ffffffff810703bf>] __do_softirq+0xef/0x3d0
+[   46.657004]  [<ffffffff816e4ebc>] call_softirq+0x1c/0x30
+[   46.657004]  [<ffffffff8101c485>] do_softirq+0x85/0xc0
+[   46.657004]  [<ffffffff81070885>] irq_exit+0xd5/0xe0
+[   46.657004]  [<ffffffff816e5756>] do_IRQ+0x56/0xc0
+[   46.657004]  [<ffffffff816dacb2>] common_interrupt+0x72/0x72
+[   46.657004]  <EOI>  [<ffffffff816da1eb>] ?
+_raw_spin_unlock_irqrestore+0x3b/0x70
+[   46.657004]  [<ffffffff816d124d>] __slab_free+0x58/0x38b
+[   46.657004]  [<ffffffff81214424>] ? fsnotify_clear_marks_by_inode+0x34/0x120
+[   46.657004]  [<ffffffff811b0417>] ? kmem_cache_free+0x97/0x320
+[   46.657004]  [<ffffffff8157fc14>] ? sock_destroy_inode+0x34/0x40
+[   46.657004]  [<ffffffff8157fc14>] ? sock_destroy_inode+0x34/0x40
+[   46.657004]  [<ffffffff811b0692>] kmem_cache_free+0x312/0x320
+[   46.657004]  [<ffffffff8157fc14>] sock_destroy_inode+0x34/0x40
+[   46.657004]  [<ffffffff811e8c28>] destroy_inode+0x38/0x60
+[   46.657004]  [<ffffffff811e8d5e>] evict+0x10e/0x1a0
+[   46.657004]  [<ffffffff811e9605>] iput+0xf5/0x180
+[   46.657004]  [<ffffffff811e4338>] dput+0x248/0x310
+[   46.657004]  [<ffffffff811ce0e1>] __fput+0x171/0x240
+[   46.657004]  [<ffffffff811ce26e>] ____fput+0xe/0x10
+[   46.657004]  [<ffffffff8108d54c>] task_work_run+0xac/0xe0
+[   46.657004]  [<ffffffff8106c6ed>] do_exit+0x26d/0xc30
+[   46.657004]  [<ffffffff8109eccc>] ? finish_task_switch+0x7c/0x120
+[   46.657004]  [<ffffffff816dad58>] ? retint_swapgs+0x13/0x1b
+[   46.657004]  [<ffffffff8106d139>] do_group_exit+0x49/0xc0
+[   46.657004]  [<ffffffff8106d1c4>] sys_exit_group+0x14/0x20
+[   46.657004]  [<ffffffff816e3b19>] system_call_fastpath+0x16/0x1b
+[   46.657004] ---[ end trace 4468c44e2156e7d1 ]---
+[   46.657004] Mapped at:
+[   46.657004]  [<ffffffff813663d1>] debug_dma_map_page+0x91/0x140
+[   46.657004]  [<ffffffffa030e8eb>] e100_xmit_prepare+0x12b/0x1c0 [e100]
+[   46.657004]  [<ffffffffa030c924>] e100_exec_cb+0x84/0x140 [e100]
+[   46.657004]  [<ffffffffa030e56a>] e100_xmit_frame+0x3a/0x190 [e100]
+[   46.657004]  [<ffffffff8159ee89>] dev_hard_start_xmit+0x259/0x6c0
 
-Some questions:
-By resubmitted do you mean recirculated?
-What is the stats behaviour that you would like?
+Easy fix, modify the cb paramter to e100_exec_cb to return an error, and do the
+dma_mapping_error check in the obvious place
 
-With regards to validation, I assume the area of concern
-is around facet_revalidate(). I will look into that.
+This was reported previously here:
+http://article.gmane.org/gmane.linux.network/257893
 
-> Both of these will likely significantly affect the data structures, so
-> please look into this before we go further.
+But nobody stepped up and fixed it.
 
-Sure. I was not planning to push (much) further until this series
-is reviewed properly.
+CC: Josh Boyer <jwboyer@redhat.com>
+CC: e1000-devel@lists.sourceforge.net
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: Michal Jaegermann <michal@harddata.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e100.c | 36 +++++++++++++++++++++++++-----------
+ 1 file changed, 25 insertions(+), 11 deletions(-)
 
-> In general, I'd also like
-> to see patches that are standalone without needing follow on patches
-> to fix known problems (for example, the recirculation ID patches or
-> MPLS GSO) unless there is a good reason.
-
-Thanks, I understand. I'll try and structure my patches accordingly.
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index ec800b0..d2bea3f 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -870,7 +870,7 @@ err_unlock:
+ }
+ 
+ static int e100_exec_cb(struct nic *nic, struct sk_buff *skb,
+-	void (*cb_prepare)(struct nic *, struct cb *, struct sk_buff *))
++	int (*cb_prepare)(struct nic *, struct cb *, struct sk_buff *))
+ {
+ 	struct cb *cb;
+ 	unsigned long flags;
+@@ -888,10 +888,13 @@ static int e100_exec_cb(struct nic *nic, struct sk_buff *skb,
+ 	nic->cbs_avail--;
+ 	cb->skb = skb;
+ 
++	err = cb_prepare(nic, cb, skb);
++	if (err)
++		goto err_unlock;
++
+ 	if (unlikely(!nic->cbs_avail))
+ 		err = -ENOSPC;
+ 
+-	cb_prepare(nic, cb, skb);
+ 
+ 	/* Order is important otherwise we'll be in a race with h/w:
+ 	 * set S-bit in current first, then clear S-bit in previous. */
+@@ -1091,7 +1094,7 @@ static void e100_get_defaults(struct nic *nic)
+ 	nic->mii.mdio_write = mdio_write;
+ }
+ 
+-static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
++static int e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
+ {
+ 	struct config *config = &cb->u.config;
+ 	u8 *c = (u8 *)config;
+@@ -1181,6 +1184,7 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
+ 	netif_printk(nic, hw, KERN_DEBUG, nic->netdev,
+ 		     "[16-23]=%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n",
+ 		     c[16], c[17], c[18], c[19], c[20], c[21], c[22], c[23]);
++	return 0;
+ }
+ 
+ /*************************************************************************
+@@ -1331,7 +1335,7 @@ static const struct firmware *e100_request_firmware(struct nic *nic)
+ 	return fw;
+ }
+ 
+-static void e100_setup_ucode(struct nic *nic, struct cb *cb,
++static int e100_setup_ucode(struct nic *nic, struct cb *cb,
+ 			     struct sk_buff *skb)
+ {
+ 	const struct firmware *fw = (void *)skb;
+@@ -1358,6 +1362,7 @@ static void e100_setup_ucode(struct nic *nic, struct cb *cb,
+ 	cb->u.ucode[min_size] |= cpu_to_le32((BUNDLESMALL) ? 0xFFFF : 0xFF80);
+ 
+ 	cb->command = cpu_to_le16(cb_ucode | cb_el);
++	return 0;
+ }
+ 
+ static inline int e100_load_ucode_wait(struct nic *nic)
+@@ -1400,18 +1405,20 @@ static inline int e100_load_ucode_wait(struct nic *nic)
+ 	return err;
+ }
+ 
+-static void e100_setup_iaaddr(struct nic *nic, struct cb *cb,
++static int e100_setup_iaaddr(struct nic *nic, struct cb *cb,
+ 	struct sk_buff *skb)
+ {
+ 	cb->command = cpu_to_le16(cb_iaaddr);
+ 	memcpy(cb->u.iaaddr, nic->netdev->dev_addr, ETH_ALEN);
++	return 0;
+ }
+ 
+-static void e100_dump(struct nic *nic, struct cb *cb, struct sk_buff *skb)
++static int e100_dump(struct nic *nic, struct cb *cb, struct sk_buff *skb)
+ {
+ 	cb->command = cpu_to_le16(cb_dump);
+ 	cb->u.dump_buffer_addr = cpu_to_le32(nic->dma_addr +
+ 		offsetof(struct mem, dump_buf));
++	return 0;
+ }
+ 
+ static int e100_phy_check_without_mii(struct nic *nic)
+@@ -1581,7 +1588,7 @@ static int e100_hw_init(struct nic *nic)
+ 	return 0;
+ }
+ 
+-static void e100_multi(struct nic *nic, struct cb *cb, struct sk_buff *skb)
++static int e100_multi(struct nic *nic, struct cb *cb, struct sk_buff *skb)
+ {
+ 	struct net_device *netdev = nic->netdev;
+ 	struct netdev_hw_addr *ha;
+@@ -1596,6 +1603,7 @@ static void e100_multi(struct nic *nic, struct cb *cb, struct sk_buff *skb)
+ 		memcpy(&cb->u.multi.addr[i++ * ETH_ALEN], &ha->addr,
+ 			ETH_ALEN);
+ 	}
++	return 0;
+ }
+ 
+ static void e100_set_multicast_list(struct net_device *netdev)
+@@ -1756,11 +1764,18 @@ static void e100_watchdog(unsigned long data)
+ 		  round_jiffies(jiffies + E100_WATCHDOG_PERIOD));
+ }
+ 
+-static void e100_xmit_prepare(struct nic *nic, struct cb *cb,
++static int e100_xmit_prepare(struct nic *nic, struct cb *cb,
+ 	struct sk_buff *skb)
+ {
++	dma_addr_t dma_addr;
+ 	cb->command = nic->tx_command;
+ 
++	dma_addr = pci_map_single(nic->pdev,
++				  skb->data, skb->len, PCI_DMA_TODEVICE);
++	/* If we can't map the skb, have the upper layer try later */
++	if (pci_dma_mapping_error(nic->pdev, dma_addr))
++		return -ENOMEM;
++
+ 	/*
+ 	 * Use the last 4 bytes of the SKB payload packet as the CRC, used for
+ 	 * testing, ie sending frames with bad CRC.
+@@ -1777,11 +1792,10 @@ static void e100_xmit_prepare(struct nic *nic, struct cb *cb,
+ 	cb->u.tcb.tcb_byte_count = 0;
+ 	cb->u.tcb.threshold = nic->tx_threshold;
+ 	cb->u.tcb.tbd_count = 1;
+-	cb->u.tcb.tbd.buf_addr = cpu_to_le32(pci_map_single(nic->pdev,
+-		skb->data, skb->len, PCI_DMA_TODEVICE));
+-	/* check for mapping failure? */
++	cb->u.tcb.tbd.buf_addr = cpu_to_le32(dma_addr);
+ 	cb->u.tcb.tbd.size = cpu_to_le16(skb->len);
+ 	skb_tx_timestamp(skb);
++	return 0;
+ }
+ 
+ static netdev_tx_t e100_xmit_frame(struct sk_buff *skb,
+-- 
+1.7.11.7
