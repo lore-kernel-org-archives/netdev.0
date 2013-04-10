@@ -1,45 +1,46 @@
-From: David R <david@unsolicited.net>
-Subject: Re: AMD Vi error and lost networking with r8169
-Date: Wed, 10 Apr 2013 20:57:06 +0100
-Message-ID: <5165C412.3010302@unsolicited.net>
-References: <51616695.7080305@unsolicited.net> <20130407215303.GA28778@electric-eye.fr.zoreil.com>
+From: Dmitry Popov <dp@highloadlab.com>
+Subject: [PATCH] tcp: incoming connections might use wrong route under
+ synflood
+Date: Thu, 11 Apr 2013 00:09:09 +0400
+Message-ID: <20130411000909.d90c6df468bf1830174e88e2@highloadlab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130407215303.GA28778@electric-eye.fr.zoreil.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is working fine so far - no further hangs, and networking seems
-much faster into the bargain. Will report back if it happens again.
+There is a bug in cookie_v4_check (net/ipv4/syncookies.c):
+	flowi4_init_output(&fl4, 0, sk->sk_mark, RT_CONN_FLAGS(sk),
+			   RT_SCOPE_UNIVERSE, IPPROTO_TCP,
+			   inet_sk_flowi_flags(sk),
+			   (opt && opt->srr) ? opt->faddr : ireq->rmt_addr,
+			   ireq->loc_addr, th->source, th->dest);
 
-Thanks
-David
+Here we do not respect sk->sk_bound_dev_if, therefore wrong dst_entry may be taken. This dst_entry is used in new socket (get_cookie_sock -> tcp_v4_syn_recv_sock), so its packets may take wrong path. There is no such bug in ipv6 code and non-cookie code (usual case). Bugfix below.
 
-On 07/04/13 22:53, Francois Romieu wrote:
-> David R <david@unsolicited.net> :
->> I'm been seeing some problems with my new ish AMD motherboard/processor
->> combo and networking (r8169). I see the following page fault :-
->>
->> Apr  7 12:25:14 david kernel: [156421.436545] AMD-Vi: Event logged
->> [IO_PAGE_FAULT device=02:00.0 domain=0x0015 address=0x0000000000003000
->> flags=0x0050]
-> Can you give the hack below a try ?
->
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 28fb50a..ed8625d 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -4125,6 +4125,8 @@ static void rtl_init_rxcfg(struct rtl8169_private *tp)
->  	case RTL_GIGA_MAC_VER_23:
->  	case RTL_GIGA_MAC_VER_24:
->  	case RTL_GIGA_MAC_VER_34:
-> +	case RTL_GIGA_MAC_VER_35:
-> +	case RTL_GIGA_MAC_VER_36:
->  		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST);
->  		break;
->  	default:
+Signed-off-by: Dmitry Popov <dp@highloadlab.com>
+---
+ net/ipv4/syncookies.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index ef54377..397e0f6 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -349,8 +349,8 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 	 * hasn't changed since we received the original syn, but I see
+ 	 * no easy way to do this.
+ 	 */
+-	flowi4_init_output(&fl4, 0, sk->sk_mark, RT_CONN_FLAGS(sk),
+-			   RT_SCOPE_UNIVERSE, IPPROTO_TCP,
++	flowi4_init_output(&fl4, sk->sk_bound_dev_if, sk->sk_mark,
++			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE, IPPROTO_TCP,
+ 			   inet_sk_flowi_flags(sk),
+ 			   (opt && opt->srr) ? opt->faddr : ireq->rmt_addr,
+ 			   ireq->loc_addr, th->source, th->dest);
