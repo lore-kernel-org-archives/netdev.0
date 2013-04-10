@@ -1,42 +1,39 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be active
-Date: Wed, 10 Apr 2013 23:35:06 +0200
-Message-ID: <4272156.Maoc6Md9Rk@linux-5eaq.site>
-References: <20110727141246.GC29616@orbit.nwl.cc> <7761183.G42DetJs5Z@linux-5eaq.site> <1365625850.22411.1.camel@dcbw.foobar.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH net-next] bnx2: make cnic_probe static
+Date: Wed, 10 Apr 2013 15:27:32 -0700
+Message-ID: <1365632852.2200.9.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <20130410135340.06f88645@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Ming Lei <tom.leiming@gmail.com>,
-	Elina Pasheva <epasheva@sierrawireless.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain;
+ charset=cp1252
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Stephen Hemminger" <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out002.kontent.com ([81.88.40.216]:40138 "EHLO
-	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934676Ab3DJVeV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 17:34:21 -0400
-In-Reply-To: <1365625850.22411.1.camel@dcbw.foobar.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:2451 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762521Ab3DJW1i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Apr 2013 18:27:38 -0400
+In-Reply-To: <20130410135340.06f88645@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 10 April 2013 15:30:50 Dan Williams wrote:
-> Some drivers (sierra_net) need the status interrupt URB
-> active even when the device is closed, because they receive
-> custom indications from firmware.  Add functions to refcount
-> the status interrupt URB submit/kill operation so that
-> sub-drivers and the generic driver don't fight over whether
-> the status interrupt URB is active or not.
+On Wed, 2013-04-10 at 13:53 -0700, Stephen Hemminger wrote: 
 > 
-> A sub-driver can call usbnet_status_start() at any time, but
-> the URB is only submitted the first time the function is
-> called.  Likewise, when the sub-driver is done with the URB,
-> it calls usbnet_status_stop() but the URB is only killed when
-> all users have stopped it.  The URB is still killed and
-> re-submitted for suspend/resume, as before, with the same
-> refcount it had at suspend.
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
+Acked-by: Michael Chan <mchan@broadcom.com>
+
 > 
-> Signed-off-by: Dan Williams <dcbw@redhat.com>
-Acked-by: Oliver Neukum <oliver@neukum.org>
+> --- a/drivers/net/ethernet/broadcom/bnx2.c	2013-04-10 09:10:46.167617920 -0700
+> +++ b/drivers/net/ethernet/broadcom/bnx2.c	2013-04-10 13:18:43.946608448 -0700
+> @@ -416,7 +416,7 @@ static int bnx2_unregister_cnic(struct n
+>  	return 0;
+>  }
+>  
+> -struct cnic_eth_dev *bnx2_cnic_probe(struct net_device *dev)
+> +static struct cnic_eth_dev *bnx2_cnic_probe(struct net_device *dev)
+>  {
+>  	struct bnx2 *bp = netdev_priv(dev);
+>  	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
+> 
