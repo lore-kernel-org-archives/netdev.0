@@ -1,77 +1,50 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [PATCH] xen-netback: use netdev_alloc_skb_ip_align
-Date: Wed, 10 Apr 2013 09:41:29 -0700
-Message-ID: <20130410094129.7086842d@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH iproute2] vxlan: Allow setting unicast address to the
+ group address
+Date: Wed, 10 Apr 2013 09:46:39 -0700
+Message-ID: <20130410094639.748d022f@nehalam.linuxnetplumber.net>
+References: <87sj2yn4y2.wl%atzm@stratosphere.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Atzm Watanabe <atzm@stratosphere.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:49353 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753100Ab3DJQlv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 12:41:51 -0400
-Received: by mail-pb0-f53.google.com with SMTP id un15so363565pbc.26
-        for <netdev@vger.kernel.org>; Wed, 10 Apr 2013 09:41:50 -0700 (PDT)
+Received: from mail-da0-f45.google.com ([209.85.210.45]:63079 "EHLO
+	mail-da0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936021Ab3DJQrB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 12:47:01 -0400
+Received: by mail-da0-f45.google.com with SMTP id v40so291082dad.18
+        for <netdev@vger.kernel.org>; Wed, 10 Apr 2013 09:47:00 -0700 (PDT)
+In-Reply-To: <87sj2yn4y2.wl%atzm@stratosphere.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 10 Apr 2013 17:52:05 +0900
+Atzm Watanabe <atzm@stratosphere.co.jp> wrote:
 
-
-Begin forwarded message:
-
-Date: Wed, 10 Apr 2013 14:18:16 +0100
-From: Ian Campbell <Ian.Campbell@citrix.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Cc: "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
-Subject: Re: [PATCH] xen-netback: use netdev_alloc_skb_ip_align
-
-
-On Wed, 2013-04-10 at 00:07 +0100, Stephen Hemminger wrote:
-> On Tue, 9 Apr 2013 12:27:31 +0100
-> Ian Campbell <Ian.Campbell@citrix.com> wrote:
+> This patch allows setting unicast address to the VXLAN group address.
+> It allows that VXLAN can be used as peer-to-peer tunnel without
+> multicast.
 > 
-> > (apologies for the late reply, I've been away)
-> > 
-> > On Wed, 2013-03-20 at 19:21 +0000, Stephen Hemminger wrote:
-> > > Use standard helper function to allocate and align received packet.
-> > > Compile tested only
-> > > 
-> > > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> > > 
-> > > 
-> > > --- a/drivers/net/xen-netback/netback.c	2013-03-07 18:12:52.825300956 -0800
-> > > +++ b/drivers/net/xen-netback/netback.c	2013-03-20 12:09:09.052034865 -0700
-> > > @@ -1357,8 +1357,8 @@ static unsigned xen_netbk_tx_build_gops(
-> > >  			    ret < MAX_SKB_FRAGS) ?
-> > >  			PKT_PROT_LEN : txreq.size;
-> > >  
-> > > -		skb = alloc_skb(data_len + NET_SKB_PAD + NET_IP_ALIGN,
-> > > -				GFP_ATOMIC | __GFP_NOWARN);
-> > > +		skb = __netdev_alloc_skb_ip_align(vif->dev, data_len,
-> > > +						  GFP_ATOMIC | __GFP_NOWARN);
-> > 
-> > __netdev_alloc_skb_ip_align accounts for NET_IP_ALIGN but not
-> > NET_SKB_PAD, is this aspect of the change intentional? (I'm not really
-> > sure how much NET_SKB_PAD is worth in practice).
+> Signed-off-by: Atzm Watanabe <atzm@stratosphere.co.jp>
+> ---
+>  ip/iplink_vxlan.c | 3 ---
+>  1 file changed, 3 deletions(-)
 > 
-> __nedev_alloc_skb_ip_align(dev, length, gfp)
->  calls __netdev_alloc_skb(dev, length + NET_IP_ALIGN, gfp)
->    calls __netdev_alloc_skb
-> 
-> which adds padding here:
-> struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
-> 				   unsigned int length, gfp_t gfp_mask)
-> {
-> 	struct sk_buff *skb = NULL;
-> 	unsigned int fragsz = SKB_DATA_ALIGN(length + NET_SKB_PAD) +
-> 			      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+> diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
+> index 1025326..cfe324c 100644
+> --- a/ip/iplink_vxlan.c
+> +++ b/ip/iplink_vxlan.c
+> @@ -66,9 +66,6 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
+>  		} else if (!matches(*argv, "group")) {
+>  			NEXT_ARG();
+>  			gaddr = get_addr32(*argv);
+> -
+> -			if (!IN_MULTICAST(ntohl(gaddr)))
+> -				invarg("invald group address", *argv);
+>  		} else if (!matches(*argv, "local")) {
+>  			NEXT_ARG();
+>  			if (strcmp(*argv, "any"))
 
-Thanks for the explanation.
-
-Acked-by: Ian Campbell <ian.campbell@citix.com>
-
-I see this wasn't CCd to netdev -- do you want to resend or would you
-like me to fwd to DaveM for you?
-
-Ian.
+Could you use another name or argument to express the different intended behavior.
