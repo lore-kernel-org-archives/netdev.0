@@ -1,110 +1,40 @@
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: Re: [PATCH net-next 04/11] tg3: Add a warning during link
- settings change if mgmt enabled
-Date: Wed, 10 Apr 2013 08:06:53 -0700
-Message-ID: <5165800D.7030608@broadcom.com>
-References: <1365533291-5672-1-git-send-email-nsujir@broadcom.com>
- <1365533291-5672-5-git-send-email-nsujir@broadcom.com>
- <1365598609.2581.8.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ptp: dynamic allocation of PHC char devices
+Date: Wed, 10 Apr 2013 13:49:27 -0400 (EDT)
+Message-ID: <20130410.134927.1751916446892581975.davem@davemloft.net>
+References: <4a1dcbcfb28ea2d18b09561a370efe7a4b0a2c5f.1365590805.git.jbenc@redhat.com>
+	<1365615436.2581.15.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8;
- format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, mchan@broadcom.com
-To: "Ben Hutchings" <bhutchings@solarflare.com>
+Cc: jbenc@redhat.com, netdev@vger.kernel.org, richardcochran@gmail.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3079 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752629Ab3DJRjd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Apr 2013 13:39:33 -0400
-In-Reply-To: <1365598609.2581.8.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50170 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933146Ab3DJRt2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 13:49:28 -0400
+In-Reply-To: <1365615436.2581.15.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 10 Apr 2013 18:37:16 +0100
 
+> On Wed, 2013-04-10 at 12:47 +0200, Jiri Benc wrote:
+>> As network adapters supporting PTP are becoming more common, machines with
+>> many NICs suddenly have many PHCs, too. The current limit of eight /dev/ptp*
+>> char devices (and thus, 8 network interfaces with PHC) is insufficient. Let
+>> the ptp driver allocate the char devices dynamically.
+>> 
+>> The character devices are allocated in chunks. idr is used for tracking
+>> minor numbers allocation; the mapping from index to pointer is not used, as
+>> it is not needed for posix clocks.
+> [...]
+> 
+> I don't understand why you want to dynamically allocate chunks of minor
+> numbers, rather than the full range.  Unused minors don't seem to cost
+> anything.
 
-On 4/10/2013 5:56 AM, Ben Hutchings wrote:
-> On Tue, 2013-04-09 at 11:48 -0700, Nithin Nayak Sujir wrote:
->> When the user executes certain ethtool commands such as -s, -A, -G, -L,
->> -r a phy reset or autonegotiate is performed which results in management
->> traffic being interrupted.
->>
->> Add a warning in these cases.
->
-> It seems entirely obvious that PHY reconfiguration will break the link
-> and stop all traffic until the link is re-established; this is nothing
-> specific to this driver.  Is it more disruptive to management traffic on
-> these controllers?  Unless it is, I think this is not a helpful warning.
-
-This goes in conjunction with the Link Flap Avoidance feature introduced 
-in this patchset. For the LFA feature the driver skips the normal phy 
-resets and speed changes to maintain the link. The expectation now is 
-that mgmt traffic is never interrupted even if the interface is brought 
-down or the system rebooted/suspended etc.
-
-Except, in these cases where the user forces a phy change we don't 
-prevent it. We let the user go ahead with the config change but it does 
-flap the link. It's useful to have this event logged to let the user 
-know the flap was intentional.
-
-To simplify the conditional, we don't limit it to only LFA enabled 
-devices since it doesn't hurt to have it.
-
-
->
-> Ben.
->
->> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
->> Signed-off-by: Michael Chan <mchan@broadcom.com>
->> ---
->>   drivers/net/ethernet/broadcom/tg3.c | 14 ++++++++++++++
->>   1 file changed, 14 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
->> index 3f0d43f..a744998 100644
->> --- a/drivers/net/ethernet/broadcom/tg3.c
->> +++ b/drivers/net/ethernet/broadcom/tg3.c
->> @@ -2531,6 +2531,13 @@ static void tg3_carrier_off(struct tg3 *tp)
->>   	tp->link_up = false;
->>   }
->>
->> +static void tg3_warn_mgmt_link_flap(struct tg3 *tp)
->> +{
->> +	if (tg3_flag(tp, ENABLE_ASF))
->> +		netdev_warn(tp->dev,
->> +			    "Management side-band traffic will be interrupted during phy settings change\n");
->> +}
->> +
->>   /* This will reset the tigon3 PHY if there is no valid
->>    * link unless the FORCE argument is non-zero.
->>    */
->> @@ -11565,6 +11572,8 @@ static int tg3_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
->>   		tp->link_config.duplex = cmd->duplex;
->>   	}
->>
->> +	tg3_warn_mgmt_link_flap(tp);
->> +
->>   	if (netif_running(dev))
->>   		tg3_setup_phy(tp, 1);
->>
->> @@ -11643,6 +11652,8 @@ static int tg3_nway_reset(struct net_device *dev)
->>   	if (tp->phy_flags & TG3_PHYFLG_PHY_SERDES)
->>   		return -EINVAL;
->>
->> +	tg3_warn_mgmt_link_flap(tp);
->> +
->>   	if (tg3_flag(tp, USE_PHYLIB)) {
->>   		if (!(tp->phy_flags & TG3_PHYFLG_IS_CONNECTED))
->>   			return -EAGAIN;
->> @@ -11755,6 +11766,9 @@ static int tg3_set_pauseparam(struct net_device *dev, struct ethtool_pauseparam
->>   	struct tg3 *tp = netdev_priv(dev);
->>   	int err = 0;
->>
->> +	if (tp->link_config.autoneg == AUTONEG_ENABLE)
->> +		tg3_warn_mgmt_link_flap(tp);
->> +
->>   	if (tg3_flag(tp, USE_PHYLIB)) {
->>   		u32 newadv;
->>   		struct phy_device *phydev;
->
+Can't multiple (unrelated) devices carve out minor space in the same
+major?  Isn't that why it's designed this way?
