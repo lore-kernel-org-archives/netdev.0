@@ -1,9 +1,9 @@
 From: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Subject: [ 29/29] rt2x00: rt2x00pci_regbusy_read() - only
+Subject: [ 19/19] rt2x00: rt2x00pci_regbusy_read() - only
 	print register access failure once
-Date: Wed, 10 Apr 2013 15:49:47 -0700
-Message-ID: <20130410224807.078197181@linuxfoundation.org>
-References: <20130410224804.061806042@linuxfoundation.org>
+Date: Wed, 10 Apr 2013 15:50:42 -0700
+Message-ID: <20130410225028.798223336@linuxfoundation.org>
+References: <20130410225026.833809117@linuxfoundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,7 +13,7 @@ Cc: users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org,
 	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
-In-Reply-To: <20130410224804.061806042-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20130410225026.833809117-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
 List-Unsubscribe: <http://rt2x00.serialmonkey.com/mailman/options/users_rt2x00.serialmonkey.com>,
 	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://rt2x00.serialmonkey.com/pipermail/users_rt2x00.serialmonkey.com/>
@@ -25,7 +25,7 @@ Errors-To: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
 Sender: "users" <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-3.4-stable review patch.  If anyone has any objections, please let me know.
+3.0-stable review patch.  If anyone has any objections, please let me know.
 
 ------------------
 
