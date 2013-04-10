@@ -1,39 +1,39 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 1/2 v4] usbnet: allow status interrupt URB to always be active
-Date: Wed, 10 Apr 2013 15:58:38 +0200
-Message-ID: <21345916.cd7DzC6Ttz@linux-5eaq.site>
-References: <20110727141246.GC29616@orbit.nwl.cc> <1542762.9EJvNHlBNo@linux-5eaq.site> <1365602083.28888.40.camel@dcbw.foobar.com>
+From: Erik Hugne <erik.hugne@ericsson.com>
+Subject: Re: be2net: GRO for non-inet protocols
+Date: Wed, 10 Apr 2013 15:53:37 +0200
+Message-ID: <20130410135337.GD7147@eerihug-hybrid.ki.sw.ericsson.se>
+References: <20130405132007.GF7551@eerihug-hybrid.ki.sw.ericsson.se>
+ <1365175702.3405.2.camel@edumazet-glaptop>
+ <1365175872.3405.3.camel@edumazet-glaptop>
+ <20130408064010.GD8543@eerihug-hybrid.ki.sw.ericsson.se>
+ <20130408152417.GD19951@eerihug-hybrid.ki.sw.ericsson.se>
+ <ffc6a5aa-11f5-4e25-b6ac-e1596e8d5437@CMEXHTCAS1.ad.emulex.com>
+ <20130409163108.GA6818@eerihug-hybrid.ki.sw.ericsson.se>
+ <9982e479-7a8c-4520-999b-9fb59dc62689@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Rory Filer <rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
-	Phil Sutter <phil-ydcDiazATMQ@public.gmane.org>
-To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1365602083.28888.40.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Perla, Sathya" <Sathya.Perla@Emulex.Com>,
+	"Seetharaman, Subramanian" <subbu.seetharaman@emulex.com>,
+	"Khaparde, Ajit" <Ajit.Khaparde@Emulex.Com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Bandi,Sarveshwar" <Sarveshwar.Bandi@Emulex.Com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw2.ericsson.se ([193.180.251.37]:64904 "EHLO
+	mailgw2.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752443Ab3DJN6o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 09:58:44 -0400
+Content-Disposition: inline
+In-Reply-To: <9982e479-7a8c-4520-999b-9fb59dc62689@CMEXHTCAS2.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 10 April 2013 08:54:43 Dan Williams wrote:
-> > The refcounting is very good. Just don't mess around with "force"
-> 
-> That's easy to do if the helpers aren't used for suspend/resume, which
-> is what I had previously in my v2 patches until Ming suggested that I
-> use the helpers there.  I can go back to that approach if you'd like, it
-> is a bit less complicated at the expense of sprinkling the interrupt urb
-> submit/kill code around more widely.
+On Wed, Apr 10, 2013 at 01:46:53PM +0000, Bandi,Sarveshwar wrote:
+> Can you check if packets are garbled when using netif_receive_skb?
+> Or it happens only when napi_gro_receive is used?
 
-If you introduce a third helper like "forcibly_stop_interrupt" or something,
-I'll be perfectly happy. Just don't use flags which completely alter behavior.
+Yes, all received packets are OK when netif_receive_skb is used.
+It's only when napi_gro_receive is used (from the context of be_rx_compl_process,
+as per Eric's patch) that i get the corrupted packets.
 
-	Regards
-		Oliver
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+//E
