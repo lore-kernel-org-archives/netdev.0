@@ -1,56 +1,77 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] ptp: dynamic allocation of PHC char devices
-Date: Wed, 10 Apr 2013 19:12:39 +0100
-Message-ID: <1365617559.2581.25.camel@bwh-desktop.uk.solarflarecom.com>
-References: <4a1dcbcfb28ea2d18b09561a370efe7a4b0a2c5f.1365590805.git.jbenc@redhat.com>
-	 <1365615436.2581.15.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20130410.134927.1751916446892581975.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: mv643xx_eth: use managed devm_kzalloc
+Date: Wed, 10 Apr 2013 22:41:40 +0400
+Message-ID: <5165B264.6000605@cogentembedded.com>
+References: <1365615483-26318-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <jbenc@redhat.com>, <netdev@vger.kernel.org>,
-	<richardcochran@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:55649 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760271Ab3DJSMn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 14:12:43 -0400
-In-Reply-To: <20130410.134927.1751916446892581975.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1365615483-26318-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-04-10 at 13:49 -0400, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Wed, 10 Apr 2013 18:37:16 +0100
-> 
-> > On Wed, 2013-04-10 at 12:47 +0200, Jiri Benc wrote:
-> >> As network adapters supporting PTP are becoming more common, machines with
-> >> many NICs suddenly have many PHCs, too. The current limit of eight /dev/ptp*
-> >> char devices (and thus, 8 network interfaces with PHC) is insufficient. Let
-> >> the ptp driver allocate the char devices dynamically.
-> >> 
-> >> The character devices are allocated in chunks. idr is used for tracking
-> >> minor numbers allocation; the mapping from index to pointer is not used, as
-> >> it is not needed for posix clocks.
-> > [...]
-> > 
-> > I don't understand why you want to dynamically allocate chunks of minor
-> > numbers, rather than the full range.  Unused minors don't seem to cost
-> > anything.
-> 
-> Can't multiple (unrelated) devices carve out minor space in the same
-> major?  Isn't that why it's designed this way?
+Hello.
 
-Only at a level above the core char device functions, e.g.
-misc_register() for singleton devices.  Unless I'm very much mistaken,
-when you allocate a char device range and specify major=0 you get a
-dynamically allocated and previously unused major, regardless of how
-many minors you asked for.
+On 04/10/2013 09:38 PM, Sebastian Hesselbarth wrote:
 
-Ben.
+> This patch moves shared private data kzalloc to managed devm_kzalloc and
+> cleans now unneccessary kfree and error handling.
+>
+> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+> ---
+> Note that there is also an ioremap call, that could be transferred to
+> devm_ioremap_resource. But as long as mv643xx_eth and mvmdio iomem
+> resources overlap, this will throw -EBUSY.
+>
+> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+> Cc: Andrew Lunn <andrew@lunn.ch>
+> Cc: Jason Cooper <jason@lakedaemon.net>
+> Cc: Florian Fainelli <florian@openwrt.org>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> ---
+>   drivers/net/ethernet/marvell/mv643xx_eth.c |   17 ++++-------------
+>   1 file changed, 4 insertions(+), 13 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+> index bbe6104..955baab 100644
+> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
+> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+> @@ -2547,25 +2547,22 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
+>   	struct mv643xx_eth_shared_private *msp;
+>   	const struct mbus_dram_target_info *dram;
+>   	struct resource *res;
+> -	int ret;
+>   
+>   	if (!mv643xx_eth_version_printed++)
+>   		pr_notice("MV-643xx 10/100/1000 ethernet driver version %s\n",
+>   			  mv643xx_eth_driver_version);
+>   
+> -	ret = -EINVAL;
+>   	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>   	if (res == NULL)
+> -		goto out;
+> +		return -EINVAL;
+>   
+> -	ret = -ENOMEM;
+> -	msp = kzalloc(sizeof(*msp), GFP_KERNEL);
+> +	msp = devm_kzalloc(&pdev->dev, sizeof(*msp), GFP_KERNEL);
+>   	if (msp == NULL)
+> -		goto out;
+> +		return -ENOMEM;
+>   
+>   	msp->base = ioremap(res->start, resource_size(res));
+>   	if (msp->base == NULL)
+> -		goto out_free;
+> +		return -EADDRNOTAVAIL;
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+    -ENOMEM usually.
+
+WBR, Sergei
