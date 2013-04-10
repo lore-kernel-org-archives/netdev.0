@@ -1,39 +1,61 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH net-next] bnx2: make cnic_probe static
-Date: Wed, 10 Apr 2013 15:27:32 -0700
-Message-ID: <1365632852.2200.9.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <20130410135340.06f88645@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Stephen Hemminger" <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2451 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762521Ab3DJW1i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Apr 2013 18:27:38 -0400
-In-Reply-To: <20130410135340.06f88645@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [ 64/64] rt2x00: rt2x00pci_regbusy_read() - only print register access failure once
+Date: Wed, 10 Apr 2013 15:47:01 -0700
+Message-ID: <20130410224348.609013379@linuxfoundation.org>
+References: <20130410224333.114387235@linuxfoundation.org>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	stable@vger.kernel.org, Tim Gardner <tim.gardner@canonical.com>,
+	Ivo van Doorn <IvDoorn@gmail.com>,
+	Gertjan van Wingerde <gwingerde@gmail.com>,
+	Helmut Schaa <helmut.schaa@googlemail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20130410224333.114387235@linuxfoundation.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-04-10 at 13:53 -0700, Stephen Hemminger wrote: 
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+3.8-stable review patch.  If anyone has any objections, please let me know.
 
-Acked-by: Michael Chan <mchan@broadcom.com>
+------------------
 
-> 
-> --- a/drivers/net/ethernet/broadcom/bnx2.c	2013-04-10 09:10:46.167617920 -0700
-> +++ b/drivers/net/ethernet/broadcom/bnx2.c	2013-04-10 13:18:43.946608448 -0700
-> @@ -416,7 +416,7 @@ static int bnx2_unregister_cnic(struct n
->  	return 0;
->  }
->  
-> -struct cnic_eth_dev *bnx2_cnic_probe(struct net_device *dev)
-> +static struct cnic_eth_dev *bnx2_cnic_probe(struct net_device *dev)
->  {
->  	struct bnx2 *bp = netdev_priv(dev);
->  	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
-> 
+From: Tim Gardner <tim.gardner@canonical.com>
+
+commit 83589b30f1e1dc9898986293c9336b8ce1705dec upstream.
+
+BugLink: http://bugs.launchpad.net/bugs/1128840
+
+It appears that when this register read fails it never recovers, so
+I think there is no need to repeat the same error message ad infinitum.
+
+Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+Cc: Ivo van Doorn <IvDoorn@gmail.com>
+Cc: Gertjan van Wingerde <gwingerde@gmail.com>
+Cc: Helmut Schaa <helmut.schaa@googlemail.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: linux-wireless@vger.kernel.org
+Cc: users@rt2x00.serialmonkey.com
+Cc: netdev@vger.kernel.org
+Cc: stable@vger.kernel.org
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+
+---
+ drivers/net/wireless/rt2x00/rt2x00pci.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/drivers/net/wireless/rt2x00/rt2x00pci.c
++++ b/drivers/net/wireless/rt2x00/rt2x00pci.c
+@@ -52,8 +52,8 @@ int rt2x00pci_regbusy_read(struct rt2x00
+ 		udelay(REGISTER_BUSY_DELAY);
+ 	}
+ 
+-	ERROR(rt2x00dev, "Indirect register access failed: "
+-	      "offset=0x%.08x, value=0x%.08x\n", offset, *reg);
++	printk_once(KERN_ERR "%s() Indirect register access failed: "
++	      "offset=0x%.08x, value=0x%.08x\n", __func__, offset, *reg);
+ 	*reg = ~0;
+ 
+ 	return 0;
