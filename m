@@ -1,68 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next 2013-04-10
-Date: Wed, 10 Apr 2013 15:51:31 -0400 (EDT)
-Message-ID: <20130410.155131.1606837345365804721.davem@davemloft.net>
-References: <20130410171825.GB15428@tuxdriver.com>
+From: David R <david@unsolicited.net>
+Subject: Re: AMD Vi error and lost networking with r8169
+Date: Wed, 10 Apr 2013 20:57:06 +0100
+Message-ID: <5165C412.3010302@unsolicited.net>
+References: <51616695.7080305@unsolicited.net> <20130407215303.GA28778@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51756 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763884Ab3DJTvh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 15:51:37 -0400
-In-Reply-To: <20130410171825.GB15428@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130407215303.GA28778@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 10 Apr 2013 13:18:25 -0400
+This is working fine so far - no further hangs, and networking seems
+much faster into the bargain. Will report back if it happens again.
 
-> Please accept this pull request for the 3.10 stream...
-> 
-> Regarding the mac80211 bits, Johannes says:
-> 
-> "Here I have a bunch of minstrel fixes from Felix, per-interface
-> multicast filtering from Alex, set_tim debouncing from Ilan,
-> per-interface debugfs cleanups from Stanislaw, an error return fix from
-> Wei and a number of small improvements and fixes that I made myself."
-> 
-> And for the iwlwifi bits, Johannes says:
-> 
-> "Andrei changed an instance of kmalloc+memdup to kmemdup, Stanislaw
-> removed the now unused 5ghz_disable module parameter. I also have a
-> number of fixes from Ilan, Emmanuel and myself, Emmanuel also continued
-> working on Bluetooth coexistence."
-> 
-> For the sizeable batch of Bluetooth bits, Gustavo says:
-> 
-> "This is our first batch of patches for 3.10. The biggest changes of this pull
-> request are from Johan Hedberg, he implemented a HCI request framework to make
-> life easier when we have to send many HCI commands and a block and wait for
-> all of the to finish, we were able to fix a few issues in stack with the
-> introduction of this framework.
-> 
-> Other than that Dean Jenkins did a good work cleaning the RFCOMM code, the
-> refcnt infrastructure was removed and now we use NULL pointer checks to know
-> when a object was freed or not. That code was buggy and now it looks a way
-> better.
-> 
-> The rest of changes are clean ups, fixes and small improvements all over the
-> Bluetooth subsystem."
-> 
-> Regarding the wl12xx bits, Luca says:
-> 
-> "Some patches intended for 3.10.  Mostly bug fixes and other small
-> improvements."
-> 
-> On top of that, there are updates to brcmfmac, brcmsmac, b43, ssb and
-> bcma, as well as mwifiex, rt2x00, and ath9k and a few others.  The most
-> notable bit is the addition of a new driver in the rtlwifi family.
-> 
-> Please let me know if there are problems!
- ...
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next.git for-davem
+Thanks
+David
 
-Pulled, thanks John.
+On 07/04/13 22:53, Francois Romieu wrote:
+> David R <david@unsolicited.net> :
+>> I'm been seeing some problems with my new ish AMD motherboard/processor
+>> combo and networking (r8169). I see the following page fault :-
+>>
+>> Apr  7 12:25:14 david kernel: [156421.436545] AMD-Vi: Event logged
+>> [IO_PAGE_FAULT device=02:00.0 domain=0x0015 address=0x0000000000003000
+>> flags=0x0050]
+> Can you give the hack below a try ?
+>
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index 28fb50a..ed8625d 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -4125,6 +4125,8 @@ static void rtl_init_rxcfg(struct rtl8169_private *tp)
+>  	case RTL_GIGA_MAC_VER_23:
+>  	case RTL_GIGA_MAC_VER_24:
+>  	case RTL_GIGA_MAC_VER_34:
+> +	case RTL_GIGA_MAC_VER_35:
+> +	case RTL_GIGA_MAC_VER_36:
+>  		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST);
+>  		break;
+>  	default:
