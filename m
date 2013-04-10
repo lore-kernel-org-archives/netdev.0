@@ -1,69 +1,108 @@
-From: Martin Pitt <martin.pitt@ubuntu.com>
-Subject: Re: [mac80211-next:wip 107/122]
- drivers/net/wireless/mac80211_hwsim.c:2198:17: warning: ignoring return
- value of 'driver_register', declared with attribute warn_unused_result
-Date: Wed, 10 Apr 2013 18:38:59 +0200
-Message-ID: <20130410163859.GA2884@piware.de>
-References: <51658900.3wb5UKoIEe45MUXS%fengguang.wu@intel.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH 1/2 v4] usbnet: allow status interrupt URB to always be active
+Date: Wed, 10 Apr 2013 17:21:31 +0200
+Message-ID: <87d2u25s3o.fsf@nemi.mork.no>
+References: <20110727141246.GC29616@orbit.nwl.cc>
+	<1357318096.5370.15.camel@dcbw.foobar.com>
+	<1364488207.1877.20.camel@dcbw.foobar.com>
+	<CACVXFVMBAzTYZKiE_uSTqr_yB4f7c5_PSnK=LBP6=oWdWwYHfg@mail.gmail.com>
+	<1364832288.3059.12.camel@dcbw.foobar.com>
+	<1365548547.23372.2.camel@dcbw.foobar.com>
+	<87li8q5xgi.fsf@nemi.mork.no>
+	<1365604263.28888.56.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="1yeeQ81UyVL57Vl7"
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Johannes Berg <johannes.berg@intel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ming Lei <tom.leiming@gmail.com>,
+	Oliver Neukum <oliver@neukum.org>,
+	Elina Pasheva <epasheva@sierrawireless.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.piware.de ([213.9.93.70]:48584 "EHLO www.piware.de"
+Received: from canardo.mork.no ([148.122.252.1]:52027 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932468Ab3DJQjD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Apr 2013 12:39:03 -0400
-Content-Disposition: inline
-In-Reply-To: <51658900.3wb5UKoIEe45MUXS%fengguang.wu@intel.com>
+	id S932468Ab3DJQjq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 12:39:46 -0400
+In-Reply-To: <1365604263.28888.56.camel@dcbw.foobar.com> (Dan Williams's
+	message of "Wed, 10 Apr 2013 09:31:03 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Dan Williams <dcbw@redhat.com> writes:
+> On Wed, 2013-04-10 at 15:25 +0200, Bj=C3=B8rn Mork wrote:
+>> Dan Williams <dcbw@redhat.com> writes:
+>>=20
+>> > +int usbnet_status_start(struct usbnet *dev, gfp_t mem_flags)
+>> > +{
+>> > +	/* Only drivers that implement a status hook should call this */
+>> > +	BUG_ON(dev->interrupt =3D=3D NULL);
+>> >=20
+>> I still don't think there is any reason to BUG out. See for example
+>> http://article.gmane.org/gmane.linux.kernel/52102
+>>=20
+>> > +static void __usbnet_status_stop(struct usbnet *dev, bool force)
+>> > +{
+>> > +	if (dev->interrupt) {
+>> > +		mutex_lock(&dev->interrupt_mutex);
+>> > +		if (!force)
+>> > +			BUG_ON(dev->interrupt_count =3D=3D 0);
+>>=20
+>> Same here.  You can deal with this just fine.  Warn once, and go on
+>> ignoring the problem.  Why kill the machine because of some minor dr=
+iver
+>> issue?
+>
+> Actually in the stop case, no, we can't deal with it, because then (d=
+ue
+> to the buggy sub-driver) we'd go on to decrement 0 into UINT_MAX.  It
+> really is a bug if, *not* at suspend time, we're told to stop the
+> interrupt URB when it's not yet submitted.=20
 
---1yeeQ81UyVL57Vl7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Sure it is a bug.  All I'm saying is that you can deal with it.  Warn
+about the bug and give up.  Or continue.  But don't roll over and die.
+Let the user unload the buggy driver and email the author instead.
 
-Hello Johannes,
+> I'm happy to add another
+> if() here though, which would end up looking like this:
+>
+> if (dev->interrupt_count && --dev->interrupt_count =3D=3D 0)
+>     usb_kill_urb(dev->interrupt);
+>
+> which seems odd, but fine.
 
-kbuild test robot [2013-04-10 23:45 +0800]:
->    drivers/net/wireless/mac80211_hwsim.c: In function 'init_mac80211_hwsi=
-m':
-> >> drivers/net/wireless/mac80211_hwsim.c:2198:17: warning: ignoring retur=
-n value of 'driver_register', declared with attribute warn_unused_result [-=
-Wunused-result]
+Yes, there are too many decision factors, so it does look odd.  You
+could also decide early that the bogus dev->interrupt_count means that
+nothing needs to be done, because no interrupt URB was subitted.  Like
 
-Argh, I wish I could see these warnings with the standard make
-command, sorry about that. Sending a patch for this.
+static void __usbnet_status_stop(struct usbnet *dev, bool force)
+{
+	if (dev->interrupt) {
+		mutex_lock(&dev->interrupt_mutex);
+                if (!force && dev->interrupt_count =3D=3D 0) {
+                     print loud warning blaming the minidriver author;
+                     goto out;
+                }
+		if (force || --dev->interrupt_count =3D=3D 0)
+			usb_kill_urb(dev->interrupt);
 
-Martin
---=20
-Martin Pitt                        | http://www.piware.de
-Ubuntu Developer (www.ubuntu.com)  | Debian Developer  (www.debian.org)
+		dev_dbg(&dev->udev->dev,
+			"decremented interrupt URB count to %d\n",
+			dev->interrupt_count);
+out:
+		mutex_unlock(&dev->interrupt_mutex);
+	}
+}
 
---1yeeQ81UyVL57Vl7
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+But it is pretty much the same.  "force" makes a mess of it.
 
-iQIcBAEBCAAGBQJRZZWfAAoJEPmIJawmtHufyGEP/isrUd0oGO1Y2HVr95H4FiZY
-H8aNxdj1wn4f31IjPckzIrNrWc4eHc+lfe+MTsZ6RW3U/2PMuFy7iiHalp69xnvt
-LzVC1sHyu5Nisl/8QG5dZ4WmmYZ2f6qtrdDmLrej7HuMVD2ynkEM76YaHrIPDQDf
-X2BeofoHnT9Y3Kf9cejXST7e4SawSpceAHCElP8fI0zPnN38zS/IVAu9MkL8NU1n
-IngLVlysTm/AiGjohkMIB7OJmvlFrEbZ5j/ku9HwHG1TsI0iFudPiTP1gzgdiehO
-ZsMQGdkseqrzOk18N9MsVZ7pk/qzMSc4upAFFP9Tb3jN3ITNkOzIQCpEM8SmvwEP
-kJCHhkbwj/yTBmBShu6+7itUqajnq+QBeJleGxc4j1+13Hgc67CLqIhivGmKvGfX
-Pnz10W0kwDV1vTe6QaAm+IuSal+uyMnwySMkf0yTyWYQz41bENXXJZT6XozcUPJn
-c6WgY1a6LGiWj7NtNGawfqAxmKshz3IgxP80DhRv/Vc/MYgJLXZdQ6wPzSAIk+P9
-MqkPYrx7008lOATAT5XEZZRr4ZkKG3maB4i2BqOkkV/mzWIJhzaqkUcpcp8iSCNu
-55BobZRnzOzKMGOVAVyPSUtUpSlrbnHUXZi3MNex7jqFVstaIr5iSm8V7vsC4Z7Y
-Sj6wHcoYzNyTW4ubjMTF
-=15i9
------END PGP SIGNATURE-----
+In any case, I believe any of those solutions are a lot nicer to any
+unsuspecting user, who may not agree with you that a failing 3G modem i=
+s
+important enough to kill the machine.
 
---1yeeQ81UyVL57Vl7--
+
+Bj=C3=B8rn
