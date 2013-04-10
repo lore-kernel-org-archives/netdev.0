@@ -1,54 +1,41 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH] net: mvmdio: add clocks property to binding documentation
-Date: Wed, 10 Apr 2013 19:36:29 +0200
-Message-ID: <1365615391-26244-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Cc: Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Rob Landley <rob@landley.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <florian@openwrt.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] ptp: dynamic allocation of PHC char devices
+Date: Wed, 10 Apr 2013 18:37:16 +0100
+Message-ID: <1365615436.2581.15.camel@bwh-desktop.uk.solarflarecom.com>
+References: <4a1dcbcfb28ea2d18b09561a370efe7a4b0a2c5f.1365590805.git.jbenc@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+	Richard Cochran <richardcochran@gmail.com>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:41242 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935720Ab3DJRhU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 13:37:20 -0400
+In-Reply-To: <4a1dcbcfb28ea2d18b09561a370efe7a4b0a2c5f.1365590805.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Patch "net: mvmdio: get and enable optional clock" was missing an
-update of the corresponding device tree binding documentation. This
-patch adds the clocks property to mvmdio binding documentation.
+On Wed, 2013-04-10 at 12:47 +0200, Jiri Benc wrote:
+> As network adapters supporting PTP are becoming more common, machines with
+> many NICs suddenly have many PHCs, too. The current limit of eight /dev/ptp*
+> char devices (and thus, 8 network interfaces with PHC) is insufficient. Let
+> the ptp driver allocate the char devices dynamically.
+> 
+> The character devices are allocated in chunks. idr is used for tracking
+> minor numbers allocation; the mapping from index to pointer is not used, as
+> it is not needed for posix clocks.
+[...]
 
-Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
----
-Cc: Grant Likely <grant.likely@secretlab.ca>
-Cc: Rob Herring <rob.herring@calxeda.com>
-Cc: Rob Landley <rob@landley.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Florian Fainelli <florian@openwrt.org>
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: netdev@vger.kernel.org
-Cc: devicetree-discuss@lists.ozlabs.org
-Cc: linux-doc@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
----
- Documentation/devicetree/bindings/net/marvell-orion-mdio.txt |    1 +
- 1 file changed, 1 insertion(+)
+I don't understand why you want to dynamically allocate chunks of minor
+numbers, rather than the full range.  Unused minors don't seem to cost
+anything.
 
-diff --git a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-index 052b5f2..9417e54 100644
---- a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-+++ b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-@@ -11,6 +11,7 @@ Required properties:
- 
- Optional properties:
- - interrupts: interrupt line number for the SMI error/done interrupt
-+- clocks: Phandle to the clock control device and gate bit
- 
- The child nodes of the MDIO driver are the individual PHY devices
- connected to this MDIO bus. They must have a "reg" property given the
+Ben.
+
 -- 
-1.7.10.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
