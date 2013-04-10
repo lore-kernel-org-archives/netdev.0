@@ -1,49 +1,54 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: Re: [PATCH] kernel: audit: beautify code, for extern function,
- better to check its parameters by itself
-Date: Wed, 10 Apr 2013 13:31:03 -0400 (EDT)
-Message-ID: <1216477171.11118824.1365615063121.JavaMail.root@redhat.com>
-References: <5161347B.8090604@asianux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Al Viro <viro@zeniv.linux.org.uk>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Chen Gang <gang.chen@asianux.com>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: [PATCH] net: mvmdio: add clocks property to binding documentation
+Date: Wed, 10 Apr 2013 19:36:29 +0200
+Message-ID: <1365615391-26244-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Cc: Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Rob Landley <rob@landley.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <florian@openwrt.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5161347B.8090604@asianux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------ Original Message -----
-> 
->   __audit_socketcall is an extern function.
->   better to check its parameters by itself.
-> 
->     also can return error code, when fail (find invalid parameters).
->     also use macro instead of real hard code number
->     also give related comments for it.
-> 
-> Signed-off-by: Chen Gang <gang.chen@asianux.com>
-> ---
->  include/linux/audit.h |   12 ++++++++----
->  kernel/auditsc.c      |    9 ++++++---
->  net/socket.c          |    6 ++++--
->  3 files changed, 18 insertions(+), 9 deletions(-)
-> 
-> diff --git a/include/linux/audit.h b/include/linux/audit.h
+Patch "net: mvmdio: get and enable optional clock" was missing an
+update of the corresponding device tree binding documentation. This
+patch adds the clocks property to mvmdio binding documentation.
 
-> @@ -354,7 +358,7 @@ static inline int audit_bprm(struct linux_binprm *bprm)
->  {
->  	return 0;
->  }
-> -static inline void audit_socketcall(int nargs, unsigned long *args)
-> +static inline int audit_socketcall(int nargs, unsigned long *args)
->  { }
->  static inline void audit_fd_pair(int fd1, int fd2)
->  { }
+Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+---
+Cc: Grant Likely <grant.likely@secretlab.ca>
+Cc: Rob Herring <rob.herring@calxeda.com>
+Cc: Rob Landley <rob@landley.net>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Florian Fainelli <florian@openwrt.org>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: netdev@vger.kernel.org
+Cc: devicetree-discuss@lists.ozlabs.org
+Cc: linux-doc@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+---
+ Documentation/devicetree/bindings/net/marvell-orion-mdio.txt |    1 +
+ 1 file changed, 1 insertion(+)
 
-This now returns a value but you forgot to return a value.  Thus this would not even build...   I fixed it up myself.
-
--Eric
+diff --git a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+index 052b5f2..9417e54 100644
+--- a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
++++ b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+@@ -11,6 +11,7 @@ Required properties:
+ 
+ Optional properties:
+ - interrupts: interrupt line number for the SMI error/done interrupt
++- clocks: Phandle to the clock control device and gate bit
+ 
+ The child nodes of the MDIO driver are the individual PHY devices
+ connected to this MDIO bus. They must have a "reg" property given the
+-- 
+1.7.10.4
