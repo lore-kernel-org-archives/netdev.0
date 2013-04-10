@@ -1,39 +1,66 @@
-From: Erik Hugne <erik.hugne@ericsson.com>
-Subject: Re: be2net: GRO for non-inet protocols
-Date: Wed, 10 Apr 2013 15:53:37 +0200
-Message-ID: <20130410135337.GD7147@eerihug-hybrid.ki.sw.ericsson.se>
-References: <20130405132007.GF7551@eerihug-hybrid.ki.sw.ericsson.se>
- <1365175702.3405.2.camel@edumazet-glaptop>
- <1365175872.3405.3.camel@edumazet-glaptop>
- <20130408064010.GD8543@eerihug-hybrid.ki.sw.ericsson.se>
- <20130408152417.GD19951@eerihug-hybrid.ki.sw.ericsson.se>
- <ffc6a5aa-11f5-4e25-b6ac-e1596e8d5437@CMEXHTCAS1.ad.emulex.com>
- <20130409163108.GA6818@eerihug-hybrid.ki.sw.ericsson.se>
- <9982e479-7a8c-4520-999b-9fb59dc62689@CMEXHTCAS2.ad.emulex.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [Patch net-next] vxlan: revert "vxlan: Bypass encapsulation if
+ the destination is local"
+Date: Wed, 10 Apr 2013 18:29:28 +0400
+Message-ID: <51657748.2040600@cogentembedded.com>
+References: <1365501445-9712-1-git-send-email-amwang@redhat.com> <1365530913.29336.50.camel@oc1677441337.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"Perla, Sathya" <Sathya.Perla@Emulex.Com>,
-	"Seetharaman, Subramanian" <subbu.seetharaman@emulex.com>,
-	"Khaparde, Ajit" <Ajit.Khaparde@Emulex.Com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Bandi,Sarveshwar" <Sarveshwar.Bandi@Emulex.Com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Sridhar Samudrala <sri@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw2.ericsson.se ([193.180.251.37]:64904 "EHLO
-	mailgw2.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752443Ab3DJN6o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 09:58:44 -0400
-Content-Disposition: inline
-In-Reply-To: <9982e479-7a8c-4520-999b-9fb59dc62689@CMEXHTCAS2.ad.emulex.com>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:39167 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936832Ab3DJOac (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 10:30:32 -0400
+Received: by mail-lb0-f177.google.com with SMTP id r10so591047lbi.36
+        for <netdev@vger.kernel.org>; Wed, 10 Apr 2013 07:30:29 -0700 (PDT)
+In-Reply-To: <1365530913.29336.50.camel@oc1677441337.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 10, 2013 at 01:46:53PM +0000, Bandi,Sarveshwar wrote:
-> Can you check if packets are garbled when using netif_receive_skb?
-> Or it happens only when napi_gro_receive is used?
+Hello.
 
-Yes, all received packets are OK when netif_receive_skb is used.
-It's only when napi_gro_receive is used (from the context of be_rx_compl_process,
-as per Eric's patch) that i get the corrupted packets.
+On 09-04-2013 22:08, Sridhar Samudrala wrote:
 
-//E
+>> From: Cong Wang <amwang@redhat.com>
+
+>> This reverts commit 9dcc71e1fdbb7aa10d92a3d35e8a201adc84abd0.
+>> It apparently breaks my vxlan tests between different namespaces.
+
+> I haven't tried vxlan with network namespaces.
+> This patch effects the following 2 code paths
+> - when source and destination endpoints are on the same bridge and
+>    route short-circuiting is enabled. I guess you are not hitting
+>    this path as this is possible only if you specify 'rsc' flag when
+>    creating vxlan device.
+> - when source and destination endpoints belonging to different vni's
+>    are on 2 different bridges on the same host. encap bypass is done
+>    in this scenario by checking if rt_flags has RTCF_LOCAL set. I think
+>    you must be hitting this path and the following patch should fix
+>    it by only doing bypass if the source and dest devices belong to
+>    the same net. Can you try it and see if it fixes your tests?
+
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 9a64715..d53d8cb 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -1012,12 +1012,15 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+>   		goto tx_error;
+>   	}
+>
+> -	/* Bypass encapsulation if the destination is local */
+> -	if (rt->rt_flags & RTCF_LOCAL) {
+> +	/* Bypass encapsulation if the destination is local and in the same
+> +	   network namespace.
+> +	 */
+
+    Note that the preferred multi-line comment style in the networking code is:
+
+/* bla
+  * bla
+  */
+
+WBR, Sergei
