@@ -1,63 +1,157 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [BUG] Fatal exception in interrupt - nf_nat_cleanup_conntrack
- during IPv6 tests
-Date: Wed, 10 Apr 2013 11:01:59 +0200
-Message-ID: <20130410090158.GF3013@breakpoint.cc>
-References: <605030311.1990960.1365563720663.JavaMail.root@redhat.com>
- <1089062823.1991307.1365563878922.JavaMail.root@redhat.com>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: Re: [PATCH 1/4] Add packet recirculation
+Date: Wed, 10 Apr 2013 18:16:57 +0900
+Message-ID: <20130410091657.GA27777@verge.net.au>
+References: <1365403431-18102-1-git-send-email-horms@verge.net.au>
+	<1365403431-18102-2-git-send-email-horms@verge.net.au>
+	<CAEP_g=9nj24hZcA-czzuz3xaweATxRxmibuFaqODTSoPmRmHsw@mail.gmail.com>
+	<20130409075024.GG11444@verge.net.au>
+	<CAEP_g=-baZGttBowXKGdgKafxp9fkUrQ=44y562ZzfnOL-XaQg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	netfilter-devel@breakpoint.cc
-To: CAI Qian <caiqian@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1089062823.1991307.1365563878922.JavaMail.root@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <CAEP_g=-baZGttBowXKGdgKafxp9fkUrQ=44y562ZzfnOL-XaQg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-CAI Qian <caiqian@redhat.com> wrote:
-
-[ CC'd nf-devel ]
-
-> Just hit this very often during IPv6 tests in both the latest stable
-> and mainline kernel.
+On Tue, Apr 09, 2013 at 08:44:02AM -0700, Jesse Gross wrote:
+> On Tue, Apr 9, 2013 at 12:50 AM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
+> > On Mon, Apr 08, 2013 at 06:46:29PM -0700, Jesse Gross wrote:
+> >> On Sun, Apr 7, 2013 at 11:43 PM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
+> >> > diff --git a/datapath/actions.c b/datapath/actions.c
+> >> > index e9634fe..7b0f022 100644
+> >> > --- a/datapath/actions.c
+> >> > +++ b/datapath/actions.c
+> >> > @@ -617,6 +617,9 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+> >> >                 case OVS_ACTION_ATTR_SAMPLE:
+> >> >                         err = sample(dp, skb, a);
+> >> >                         break;
+> >> > +
+> >> > +               case OVS_ACTION_ATTR_RECIRCULATE:
+> >> > +                       return 1;
+> >>
+> >> I think that if we've had a previous output action with the port
+> >> stored in prev_port then this will cause the packet to not actually be
+> >> output.
+> >
+> > I'm not so sure.
+> >
+> > I see something like this occurring:
+> >
+> > 1. Iteration of for loop for output action
+> >
+> >    switch (nla_type(a)) {
+> >    case OVS_ACTION_ATTR_OUTPUT:
+> >         prev_port = nla_get_u32(a);
+> >         break;
+> >         ...
+> >    }
+> >
+> > 2. Iteration of of for loop for next action, lets say its is recirculate
+> >
+> >    i. Output packet
+> >
+> >    if (prev_port != -1) {
+> >         do_output(dp, skb_clone(skb, GFP_ATOMIC), prev_port);
+> >         prev_port = -1;
+> >    }
+> >
+> >    ii. Return due to recirculate
+> >    switch (nla_type(a)) {
+> >    ...
+> >    case OVS_ACTION_ATTR_RECIRCULATE:
+> >            return 1;
+> >    }
+> >
+> >
+> > Am I missing something?
 > 
-> [ 3597.206166] Modules linked in:
-[..]
-> nf_nat_ipv4(F-)
-[..]
+> Sorry, you're right.
+> 
+> >> > @@ -901,6 +913,9 @@ static int validate_and_copy_actions__(const struct nlattr *attr,
+> >> >                         skip_copy = true;
+> >> >                         break;
+> >> >
+> >> > +               case OVS_ACTION_ATTR_RECIRCULATE:
+> >> > +                       break;
+> >>
+> >> I think we might want to jump out the loop here to better model how
+> >> the actions are actually executed.
+> >
+> > Sure, perhaps something like this?
+> >
+> > diff --git a/datapath/datapath.c b/datapath/datapath.c
+> > index ab39dd7..721a52c 100644
+> > --- a/datapath/datapath.c
+> > +++ b/datapath/datapath.c
+> > @@ -914,7 +914,7 @@ static int validate_and_copy_actions__(const struct nlattr *attr,
+> >                         break;
+> >
+> >                 case OVS_ACTION_ATTR_RECIRCULATE:
+> > -                       break;
+> > +                       goto out;
+> >
+> >                 default:
+> >                         return -EINVAL;
+> > @@ -926,6 +926,7 @@ static int validate_and_copy_actions__(const struct nlattr *attr,
+> >                 }
+> >         }
+> >
+> > +out:
+> >         if (rem > 0)
+> >                 return -EINVAL;
+> 
+> Since this function is now both validating and copying I think this
+> will result in the recirculate action not being copied.
 
-> [ 3597.804861] RIP: 0010:[<ffffffffa03227f2>]  [<ffffffffa03227f2>] nf_nat_cleanup_conntrack+0x42/0x70 [nf_nat] 
-> [ 3597.855207] RSP: 0018:ffff880202c63d40  EFLAGS: 00010246 
-> [ 3597.881350] RAX: 0000000000000000 RBX: ffff8801ac7bec28 RCX: ffff8801d0eedbe0 
-> [ 3597.917226] RDX: dead000000200200 RSI: 0000000000000011 RDI: ffffffffa03265b8 
-[..]
+Thanks, I'll look into that.
 
-> [ 3598.421036]  <IRQ>  
-> [ 3598.430467]  [<ffffffffa0305bb4>] __nf_ct_ext_destroy+0x44/0x60 [nf_conntrack] 
-> [ 3598.499191]  [<ffffffffa02fd3fe>] nf_conntrack_free+0x2e/0x70 [nf_conntrack] 
-> [ 3598.534121]  [<ffffffffa02febed>] destroy_conntrack+0xbd/0x110 [nf_conntrack] 
-> [ 3598.569981]  [<ffffffff81532187>] nf_conntrack_destroy+0x17/0x20 
-> [ 3598.599579]  [<ffffffffa02fe77c>] death_by_timeout+0xdc/0x1b0 [nf_conntrack]
-[..]
-> [ 3599.241868] Code: 83 ec 08 0f b6 58 11 84 db 74 43 48 01 c3 48 83 7b 20 00 74 39 48 c7 c7 b8 65 32 a0 e8 98 fc 2e e1 48 8b 03 48 8b 53 08 48 85 c0 <48> 89 02 74 04 48 89 50 08 48 ba 00 02 20 00 00 00 ad de 48 c7  
-> [ 3599.337037] RIP  [<ffffffffa03227f2>] nf_nat_cleanup_conntrack+0x42/0x70 [nf_nat] 
+> >> > diff --git a/ofproto/ofproto-dpif.c b/ofproto/ofproto-dpif.c
+> >> > index 47830c1..5129da1 100644
+> >> > --- a/ofproto/ofproto-dpif.c
+> >> > +++ b/ofproto/ofproto-dpif.c
+> >>
+> >> I'm still working on more detailed comments for this.  However, I'm
+> >> concerned about whether the behavior for revalidation and stats is
+> >> correct.
+> >
+> > I am a little concerned about that too.
+> > Perhaps Ben could look over it?
+> 
+> To rephrase, there are problems in both of those areas. Validation in
+> particular I don't think handles resubmitted facets and I believe that
+> stats on rules will be the sum of all resubmitted passes.
 
-Looks like we tried to remove bysource hash twice (rdx is
-LIST_POISON_2).
+Some questions:
+By resubmitted do you mean recirculated?
+What is the stats behaviour that you would like?
 
-I wonder if this would explain it:
+With regards to validation, I assume the area of concern
+is around facet_revalidate(). I will look into that.
 
-static void nf_nat_l4proto_clean(u8 l3proto, u8 l4proto)
-{
-[..]
-      /* Step 1 - remove from bysource hash */
-      clean.hash = true;
-      for_each_net(net)
-                nf_ct_iterate_cleanup(net, nf_nat_proto_clean, &clean);
+> Both of these will likely significantly affect the data structures, so
+> please look into this before we go further.
 
-A nfct->timer fires and a conntrack is free'd before step 2 memsets the
-nat extension.  In that case, we would try to delete nat->bysource
-again?
+Sure. I was not planning to push (much) further until this series
+is reviewed properly.
+
+> In general, I'd also like
+> to see patches that are standalone without needing follow on patches
+> to fix known problems (for example, the recirculation ID patches or
+> MPLS GSO) unless there is a good reason.
+
+Thanks, I understand. I'll try and structure my patches accordingly.
