@@ -1,89 +1,110 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH] net: mv643xx_eth: use managed devm_kzalloc
-Date: Wed, 10 Apr 2013 19:38:03 +0200
-Message-ID: <1365615483-26318-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: Re: [PATCH net-next 04/11] tg3: Add a warning during link
+ settings change if mgmt enabled
+Date: Wed, 10 Apr 2013 08:06:53 -0700
+Message-ID: <5165800D.7030608@broadcom.com>
+References: <1365533291-5672-1-git-send-email-nsujir@broadcom.com>
+ <1365533291-5672-5-git-send-email-nsujir@broadcom.com>
+ <1365598609.2581.8.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=utf-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, mchan@broadcom.com
+To: "Ben Hutchings" <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3079 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752629Ab3DJRjd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Apr 2013 13:39:33 -0400
+In-Reply-To: <1365598609.2581.8.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch moves shared private data kzalloc to managed devm_kzalloc and
-cleans now unneccessary kfree and error handling.
 
-Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
----
-Note that there is also an ioremap call, that could be transferred to
-devm_ioremap_resource. But as long as mv643xx_eth and mvmdio iomem
-resources overlap, this will throw -EBUSY.
 
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>
-Cc: Andrew Lunn <andrew@lunn.ch>
-Cc: Jason Cooper <jason@lakedaemon.net>
-Cc: Florian Fainelli <florian@openwrt.org>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
----
- drivers/net/ethernet/marvell/mv643xx_eth.c |   17 ++++-------------
- 1 file changed, 4 insertions(+), 13 deletions(-)
+On 4/10/2013 5:56 AM, Ben Hutchings wrote:
+> On Tue, 2013-04-09 at 11:48 -0700, Nithin Nayak Sujir wrote:
+>> When the user executes certain ethtool commands such as -s, -A, -G, -L,
+>> -r a phy reset or autonegotiate is performed which results in management
+>> traffic being interrupted.
+>>
+>> Add a warning in these cases.
+>
+> It seems entirely obvious that PHY reconfiguration will break the link
+> and stop all traffic until the link is re-established; this is nothing
+> specific to this driver.  Is it more disruptive to management traffic on
+> these controllers?  Unless it is, I think this is not a helpful warning.
 
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index bbe6104..955baab 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -2547,25 +2547,22 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
- 	struct mv643xx_eth_shared_private *msp;
- 	const struct mbus_dram_target_info *dram;
- 	struct resource *res;
--	int ret;
- 
- 	if (!mv643xx_eth_version_printed++)
- 		pr_notice("MV-643xx 10/100/1000 ethernet driver version %s\n",
- 			  mv643xx_eth_driver_version);
- 
--	ret = -EINVAL;
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (res == NULL)
--		goto out;
-+		return -EINVAL;
- 
--	ret = -ENOMEM;
--	msp = kzalloc(sizeof(*msp), GFP_KERNEL);
-+	msp = devm_kzalloc(&pdev->dev, sizeof(*msp), GFP_KERNEL);
- 	if (msp == NULL)
--		goto out;
-+		return -ENOMEM;
- 
- 	msp->base = ioremap(res->start, resource_size(res));
- 	if (msp->base == NULL)
--		goto out_free;
-+		return -EADDRNOTAVAIL;
- 
- 	msp->clk = devm_clk_get(&pdev->dev, NULL);
- 	if (!IS_ERR(msp->clk))
-@@ -2585,11 +2582,6 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
- 	platform_set_drvdata(pdev, msp);
- 
- 	return 0;
--
--out_free:
--	kfree(msp);
--out:
--	return ret;
- }
- 
- static int mv643xx_eth_shared_remove(struct platform_device *pdev)
-@@ -2599,7 +2591,6 @@ static int mv643xx_eth_shared_remove(struct platform_device *pdev)
- 	iounmap(msp->base);
- 	if (!IS_ERR(msp->clk))
- 		clk_disable_unprepare(msp->clk);
--	kfree(msp);
- 
- 	return 0;
- }
--- 
-1.7.10.4
+This goes in conjunction with the Link Flap Avoidance feature introduced 
+in this patchset. For the LFA feature the driver skips the normal phy 
+resets and speed changes to maintain the link. The expectation now is 
+that mgmt traffic is never interrupted even if the interface is brought 
+down or the system rebooted/suspended etc.
+
+Except, in these cases where the user forces a phy change we don't 
+prevent it. We let the user go ahead with the config change but it does 
+flap the link. It's useful to have this event logged to let the user 
+know the flap was intentional.
+
+To simplify the conditional, we don't limit it to only LFA enabled 
+devices since it doesn't hurt to have it.
+
+
+>
+> Ben.
+>
+>> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+>> Signed-off-by: Michael Chan <mchan@broadcom.com>
+>> ---
+>>   drivers/net/ethernet/broadcom/tg3.c | 14 ++++++++++++++
+>>   1 file changed, 14 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+>> index 3f0d43f..a744998 100644
+>> --- a/drivers/net/ethernet/broadcom/tg3.c
+>> +++ b/drivers/net/ethernet/broadcom/tg3.c
+>> @@ -2531,6 +2531,13 @@ static void tg3_carrier_off(struct tg3 *tp)
+>>   	tp->link_up = false;
+>>   }
+>>
+>> +static void tg3_warn_mgmt_link_flap(struct tg3 *tp)
+>> +{
+>> +	if (tg3_flag(tp, ENABLE_ASF))
+>> +		netdev_warn(tp->dev,
+>> +			    "Management side-band traffic will be interrupted during phy settings change\n");
+>> +}
+>> +
+>>   /* This will reset the tigon3 PHY if there is no valid
+>>    * link unless the FORCE argument is non-zero.
+>>    */
+>> @@ -11565,6 +11572,8 @@ static int tg3_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+>>   		tp->link_config.duplex = cmd->duplex;
+>>   	}
+>>
+>> +	tg3_warn_mgmt_link_flap(tp);
+>> +
+>>   	if (netif_running(dev))
+>>   		tg3_setup_phy(tp, 1);
+>>
+>> @@ -11643,6 +11652,8 @@ static int tg3_nway_reset(struct net_device *dev)
+>>   	if (tp->phy_flags & TG3_PHYFLG_PHY_SERDES)
+>>   		return -EINVAL;
+>>
+>> +	tg3_warn_mgmt_link_flap(tp);
+>> +
+>>   	if (tg3_flag(tp, USE_PHYLIB)) {
+>>   		if (!(tp->phy_flags & TG3_PHYFLG_IS_CONNECTED))
+>>   			return -EAGAIN;
+>> @@ -11755,6 +11766,9 @@ static int tg3_set_pauseparam(struct net_device *dev, struct ethtool_pauseparam
+>>   	struct tg3 *tp = netdev_priv(dev);
+>>   	int err = 0;
+>>
+>> +	if (tp->link_config.autoneg == AUTONEG_ENABLE)
+>> +		tg3_warn_mgmt_link_flap(tp);
+>> +
+>>   	if (tg3_flag(tp, USE_PHYLIB)) {
+>>   		u32 newadv;
+>>   		struct phy_device *phydev;
+>
