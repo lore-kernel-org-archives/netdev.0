@@ -1,49 +1,72 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be active
-Date: Thu, 11 Apr 2013 11:53:16 +0200
-Message-ID: <3010836.mDNO71IiS7@linux-5eaq.site>
-References: <20110727141246.GC29616@orbit.nwl.cc> <2552222.23e5DWG2Z9@linux-5eaq.site> <CACVXFVMxWML6nVNwPLv9RcnVgVNZzUqL8=nf9RaS-KS6Sjqaew@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next PATCH 1/2] virtio-net: initialize vlan_features
+Date: Thu, 11 Apr 2013 12:55:17 +0300
+Message-ID: <20130411095516.GB21362@redhat.com>
+References: <1365672742-42258-1-git-send-email-jasowang@redhat.com>
+ <1365672742-42258-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Dan Williams <dcbw@redhat.com>,
-	Elina Pasheva <epasheva@sierrawireless.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out002.kontent.com ([81.88.40.216]:39889 "EHLO
-	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750961Ab3DKJwb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 05:52:31 -0400
-In-Reply-To: <CACVXFVMxWML6nVNwPLv9RcnVgVNZzUqL8=nf9RaS-KS6Sjqaew@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1365672742-42258-2-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 11 April 2013 16:09:16 Ming Lei wrote:
-> On Thu, Apr 11, 2013 at 2:50 PM, Oliver Neukum <oliver@neukum.org> wrote:
-> > On Thursday 11 April 2013 10:31:31 Ming Lei wrote:
-> >
-> >> 'mem_flags' isn't needed any more since we can apply allocation
-> >> of GFP_NOIO automatically in resume path now, and you can always
-> >> use GFP_KERNEL safely. Considered that it is a API, please don't
-> >> introduce it.
-> >
-> > The automatic system goes a long way, but there are corner cases, for example
-> > work queues, which still need mem_flags.
+On Thu, Apr 11, 2013 at 05:32:21PM +0800, Jason Wang wrote:
+> There's nothing that prevent passing the device features of virtio_net to its
+> vlan device. So this patch simply passes those to vlan device to benefit from
+> advanced features.
 > 
-> Could you explain why work queue need GFP_NOIO?
+> Netperf shows better sending performance for vlan device since TSO can work on
+> vlan now.
+> 
+> before:
+> netperf -H 192.168.5.2
+> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.5.2 ()
+> port 0 AF_INET : demo
+> Recv   Send    Send
+> Socket Socket  Message  Elapsed
+> Size   Size    Size     Time     Throughput
+> bytes  bytes   bytes    secs.    10^6bits/sec
+> 
+>  87380  16384  16384    10.00    4162.35
+> 
+> after:
+> netperf -H 192.168.5.2
+> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.5.2 ()
+> port 0 AF_INET : demo
+> Recv   Send    Send
+> Socket Socket  Message  Elapsed
+> Size   Size    Size     Time     Throughput
+> bytes  bytes   bytes    secs.    10^6bits/sec
+> 
+>  87380  16384  16384    10.00    9365.42
+> 
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: "Michael S. Tsirkin" <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Your fix for the memory allocation depends on it happening in the same
-context. If you execute code on a work queue this happens in the context
-of a kernel thread.
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-> and the use case for
-> usbnet?
-
-Processing your response from a work queue.
-
-	Regards
-		Oliver
+> ---
+>  drivers/net/virtio_net.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index f7d67e8..8fdfde6 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1511,6 +1511,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  		/* (!csum && gso) case will be fixed by register_netdev() */
+>  	}
+>  
+> +	dev->vlan_features = dev->features;
+> +
+>  	/* Configuration may specify what MAC to use.  Otherwise random. */
+>  	if (virtio_config_val_len(vdev, VIRTIO_NET_F_MAC,
+>  				  offsetof(struct virtio_net_config, mac),
+> -- 
+> 1.7.1
