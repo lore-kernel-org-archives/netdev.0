@@ -1,79 +1,48 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH RFC] spinlock: split out debugging check from
- spin_lock_mutex
-Date: Thu, 11 Apr 2013 12:56:30 -0400
-Message-ID: <20130411165630.GD8986@neilslaptop.think-freely.org>
-References: <5166BDAA.3000603@acm.org>
- <1365693486-6315-1-git-send-email-nhorman@tuxdriver.com>
- <1365695821.3887.167.camel@edumazet-glaptop>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH] net: mv643xx_eth: Add GRO support
+Date: Thu, 11 Apr 2013 18:59:11 +0200
+Message-ID: <CABJ1b_QaEJbuBsqx+J1Pkc7o66S_Rboa7Trnko1mXSK6-UZhfg@mail.gmail.com>
+References: <1365684023-9967-1-git-send-email-sebastian.hesselbarth@gmail.com>
+	<20130411131333.GD1910@1wt.eu>
+	<CABJ1b_TQDabT1J7ffo5cb1Th=71bcSduifMJaDpfVRiiHvtWDw@mail.gmail.com>
+	<20130411150326.GA19978@1wt.eu>
+	<CABJ1b_TRxm97DKJLP_h0VwMJvcYmSpjoJvtg1KvBNGah=VzqMQ@mail.gmail.com>
+	<20130411153256.GH1910@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bart Van Assche <bvanassche@acm.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <erdnetdev@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56917 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935226Ab3DKQ4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 12:56:46 -0400
-Content-Disposition: inline
-In-Reply-To: <1365695821.3887.167.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	linux-kernel@vger.kernel.org,
+	Florian Fainelli <florian@openwrt.org>,
+	Soeren Moch <smoch@web.de>, Paul Mackerras <paulus@samba.org>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130411153256.GH1910@1wt.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 11, 2013 at 08:57:01AM -0700, Eric Dumazet wrote:
-> On Thu, 2013-04-11 at 11:18 -0400, Neil Horman wrote:
-> > Bart, this patch should fix your problem.  Could you please test it and confirm?
-> > 
-> > Bart Van Assche recently reported a warning to me:
-> > 
-> > <IRQ>  [<ffffffff8103d79f>] warn_slowpath_common+0x7f/0xc0
-> >  [<ffffffff8103d7fa>] warn_slowpath_null+0x1a/0x20
-> >  [<ffffffff814761dd>] mutex_trylock+0x16d/0x180
-> >  [<ffffffff813968c9>] netpoll_poll_dev+0x49/0xc30
-> >  [<ffffffff8136a2d2>] ? __alloc_skb+0x82/0x2a0
-> >  [<ffffffff81397715>] netpoll_send_skb_on_dev+0x265/0x410
-> >  [<ffffffff81397c5a>] netpoll_send_udp+0x28a/0x3a0
-> >  [<ffffffffa0541843>] ? write_msg+0x53/0x110 [netconsole]
-> >  [<ffffffffa05418bf>] write_msg+0xcf/0x110 [netconsole]
-> >  [<ffffffff8103eba1>] call_console_drivers.constprop.17+0xa1/0x1c0
-> >  [<ffffffff8103fb76>] console_unlock+0x2d6/0x450
-> >  [<ffffffff8104011e>] vprintk_emit+0x1ee/0x510
-> >  [<ffffffff8146f9f6>] printk+0x4d/0x4f
-> >  [<ffffffffa0004f1d>] scsi_print_command+0x7d/0xe0 [scsi_mod]
-> > 
-> > This resulted from my commit ca99ca14c which introduced a mutex_trylock
-> > operation in a path that could execute in interrupt context.  When mutex
-> > debugging is enabled, the above warns the user when we are in fact exectuting in
-> > interrupt context.
-> > 
-> > I think this is a false positive however.  The check is intended to catch users
-> > who might be issuing sleeping calls in irq context, but the use of mutex_trylock
-> > here is guaranteed not to sleep.
-> > 
-> > We could fix this by replacing the DEBUG_LOCK_WARN_ON check in spin_lock_mutex
-> > with a __might_sleep call in the appropriate parent mutex operations, but for
-> > the sake of effiency (which It seems is why the check was put in the spin lock
-> > code only when debug is enabled), lets split the spin_lock_mutex call into two
-> > components, where the outer component does the debug checking.  Then
-> > mutex_trylock can just call the inner part as its callable from irq context
-> > safely.
-> > 
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > Reported-by: Bart Van Assche <bvanassche@acm.org>
-> > CC: Bart Van Assche <bvanassche@acm.org>
-> > CC: David Miller <davem@davemloft.net>
-> > CC: netdev@vger.kernel.org
-> 
-> Please post your patch to lkml ?
-> 
-I will, I just wanted Bart to test it first, and CCed everyone that he sent his
-origional note too.
+On Thu, Apr 11, 2013 at 5:32 PM, Willy Tarreau <w@1wt.eu> wrote:
+> On Thu, Apr 11, 2013 at 05:27:03PM +0200, Sebastian Hesselbarth wrote:
+>> I don't have a strong opinion on whether Soeren's or your proposal should
+>> be submitted. But I insist on having one of them in, as GRO significantly
+>> improves the common use case, is enabled by default, and not as
+>> constrained as LRO.
+>
+> I agree, use yours first, but we should keep an eye on this. Since you have
+> everything to run a test, please try to see if you can get netperf to run
+> over IPv6, I'm sure the NIC doesn't handle it.
 
-Thanks
-Neil
+Willy,
 
-> Thanks !
-> 
-> 
-> 
+out of curiosity I replayed all tests using netperf/netserver with -6 which
+enables ipv6. The overall results remain quite the same here:
+enabling support for GRO gives a huge improvement in achievable
+throughput, and the difference between Soeren's and your patch is
+neglectible.
+
+Sebastian
