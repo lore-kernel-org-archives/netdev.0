@@ -1,63 +1,48 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH 0/5 v2] mv643xx_eth: device tree bindings
-Date: Thu, 11 Apr 2013 19:09:54 +0200
-Message-ID: <CABJ1b_T0uvFgfnXbJH6ut-qj621vX5jhedWdWpHUz1wrs84krg@mail.gmail.com>
-References: <1365071235-11611-1-git-send-email-florian@openwrt.org>
- <20130411165303.GI28693@titan.lakedaemon.net>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] net: mv643xx_eth: Add GRO support
+Date: Thu, 11 Apr 2013 19:13:39 +0200
+Message-ID: <20130411171339.GL1910@1wt.eu>
+References: <1365684023-9967-1-git-send-email-sebastian.hesselbarth@gmail.com> <20130411131333.GD1910@1wt.eu> <CABJ1b_TQDabT1J7ffo5cb1Th=71bcSduifMJaDpfVRiiHvtWDw@mail.gmail.com> <20130411150326.GA19978@1wt.eu> <CABJ1b_TRxm97DKJLP_h0VwMJvcYmSpjoJvtg1KvBNGah=VzqMQ@mail.gmail.com> <20130411153256.GH1910@1wt.eu> <CABJ1b_QaEJbuBsqx+J1Pkc7o66S_Rboa7Trnko1mXSK6-UZhfg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- =?ISO-8859-1?Q?Jean=2DFran=E7ois_Moine?= <moinejf@free.fr>,
- Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
- devicetree-discuss@lists.ozlabs.org, Rob Herring <rob.herring@calxeda.com>,
- "David S. Miller" <davem@davemloft.net>,
- Grant Likely <grant.likely@secretlab.ca>, jogo@openwrt.org,
- linux-arm-kernel@lists.infradead.org, Jamie Lentin <jm@lentin.co.uk>,
- Florian Fainelli <florian@openwrt.org>,
- Lennert Buytenhek <buytenh@wantstofly.org>
-To: Jason Cooper <jason@lakedaemon.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20130411165303.GI28693@titan.lakedaemon.net>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	linux-kernel@vger.kernel.org,
+	Florian Fainelli <florian@openwrt.org>,
+	Soeren Moch <smoch@web.de>, Paul Mackerras <paulus@samba.org>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CABJ1b_QaEJbuBsqx+J1Pkc7o66S_Rboa7Trnko1mXSK6-UZhfg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 11, 2013 at 6:53 PM, Jason Cooper <jason@lakedaemon.net> wrote:
-> On Thu, Apr 04, 2013 at 12:27:10PM +0200, Florian Fainelli wrote:
->> This patch serie implements mv643xx_eth device tree bindings. I opted for
->> the reuse of the bindings already defined in
->> Documentation/devicetree/bindings/marvell.txt so that we do not create
->> any confusion.
->>
->
-> How is the new version of this looking?  Do you think you'll be able to
-> get it up in time for DaveM to take it into v3.10?
->
-> With this and Thomas' pci series, we will have Kirkwood fully converted
-> to devicetree, can begin removing board files, and finally begin
-> migrating everything over to mach-mvebu/.  This will lead to the removal
-> of five directories under arch/arm/ (plat-orion, mach-kirkwood,
-> mach-orion5x, mach-dove, and mach-mv78xx0).
+On Thu, Apr 11, 2013 at 06:59:11PM +0200, Sebastian Hesselbarth wrote:
+> On Thu, Apr 11, 2013 at 5:32 PM, Willy Tarreau <w@1wt.eu> wrote:
+> > On Thu, Apr 11, 2013 at 05:27:03PM +0200, Sebastian Hesselbarth wrote:
+> >> I don't have a strong opinion on whether Soeren's or your proposal should
+> >> be submitted. But I insist on having one of them in, as GRO significantly
+> >> improves the common use case, is enabled by default, and not as
+> >> constrained as LRO.
+> >
+> > I agree, use yours first, but we should keep an eye on this. Since you have
+> > everything to run a test, please try to see if you can get netperf to run
+> > over IPv6, I'm sure the NIC doesn't handle it.
+> 
+> Willy,
+> 
+> out of curiosity I replayed all tests using netperf/netserver with -6 which
+> enables ipv6. The overall results remain quite the same here:
+> enabling support for GRO gives a huge improvement in achievable
+> throughput, and the difference between Soeren's and your patch is
+> neglectible.
 
-Jason,
+Perfect, thank you for testing this !
 
-I sent Florian an update of some of his patches earlier, based on
-cleanup patches I submitted for mv643xx_eth while testing his patch set.
-I think, the patch set will play nicely on ARM but without PPC guys involved
-in testing it, I guess it will break something there.
-
-Florian is reusing the DT bindings from PPC and they are compatible, but
-there parsing is also done within arch/ppc/sysdev/mv64360-dev.c and
-maybe somewhere else. The current DT patches for mv643xx_eth will
-reparse some properties again (and may break eth on ppc platforms
-using mv643xx_eth).
-
-Sebastian
+Best regards,
+Willy
