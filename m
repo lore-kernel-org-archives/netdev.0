@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND] tcp: incoming connections might use wrong route
- under synflood
-Date: Thu, 11 Apr 2013 16:02:31 -0400 (EDT)
-Message-ID: <20130411.160231.1367130064866607872.davem@davemloft.net>
-References: <20130411225507.427b369046e53d03222b8fd3@highloadlab.com>
+Subject: Re: [PATCH] stmmac: prevent interrupt loop with MMC RX IPC Counter
+Date: Thu, 11 Apr 2013 16:03:44 -0400 (EDT)
+Message-ID: <20130411.160344.1137842208699027001.davem@davemloft.net>
+References: <511E51A9.9020908@st.com>
+	<1365580564-9149-1-git-send-email-christian.ruppert@abilis.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: dp@highloadlab.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130411225507.427b369046e53d03222b8fd3@highloadlab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com
+To: christian.ruppert@abilis.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38707 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753487Ab3DKUDr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 16:03:47 -0400
+In-Reply-To: <1365580564-9149-1-git-send-email-christian.ruppert@abilis.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Popov <dp@highloadlab.com>
-Date: Thu, 11 Apr 2013 22:55:07 +0400
+From: Christian Ruppert <christian.ruppert@abilis.com>
+Date: Wed, 10 Apr 2013 09:56:04 +0200
 
-> There is a bug in cookie_v4_check (net/ipv4/syncookies.c):
-> 	flowi4_init_output(&fl4, 0, sk->sk_mark, RT_CONN_FLAGS(sk),
-> 			   RT_SCOPE_UNIVERSE, IPPROTO_TCP,
-> 			   inet_sk_flowi_flags(sk),
-> 			   (opt && opt->srr) ? opt->faddr : ireq->rmt_addr,
-> 			   ireq->loc_addr, th->source, th->dest);
+> If the DesignWare MAC is synthesised with MMC RX IPC Counter, an unmanaged
+> and unacknowledged interrupt is generated after some time of operation.
 > 
-> Here we do not respect sk->sk_bound_dev_if, therefore wrong dst_entry may be
-> taken. This dst_entry is used by new socket (get_cookie_sock -> 
-> tcp_v4_syn_recv_sock), so its packets may take the wrong path.
+> This patch masks the undesired interrupts.
 > 
-> Signed-off-by: Dmitry Popov <dp@highloadlab.com>
+> Signed-off-by: Christian Ruppert <christian.ruppert@abilis.com>
+> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
 Applied.
