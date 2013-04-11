@@ -1,61 +1,63 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be active
-Date: Thu, 11 Apr 2013 16:37:53 +0800
-Message-ID: <CACVXFVMW2Dosr0FAKCvxgUFQKmwbduiC+HqmzS1tsvAHu=G8Kg@mail.gmail.com>
-References: <20110727141246.GC29616@orbit.nwl.cc>
-	<1365625850.22411.1.camel@dcbw.foobar.com>
-	<CACVXFVNKSszw+3VnM3hwepbTHh3gvjC+pG2SL_OsVm+1SqrNzQ@mail.gmail.com>
-	<2552222.23e5DWG2Z9@linux-5eaq.site>
-	<87txndwkx1.fsf@nemi.mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver@neukum.org>, Dan Williams <dcbw@redhat.com>,
-	Elina Pasheva <epasheva@sierrawireless.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f182.google.com ([209.85.220.182]:36963 "EHLO
-	mail-vc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753844Ab3DKIhy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 04:37:54 -0400
-In-Reply-To: <87txndwkx1.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v2] net: mvmdio: add clocks property to binding documentation
+Date: Thu, 11 Apr 2013 11:24:48 +0200
+Message-ID: <1365672288-30932-1-git-send-email-sebastian.hesselbarth@gmail.com>
+References: <1365615391-26244-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Cc: Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Rob Landley <rob@landley.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <florian@openwrt.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1365615391-26244-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 11, 2013 at 4:06 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
-> Oliver Neukum <oliver@neukum.org> writes:
->
-> My immediate thought was that someone also might want to use this new
-> API from atomic context, e.g. calling it directly from an URB callbac=
-k.
+Commit 3d604da1e9547c09c9dcc0ee443c306c9ae1a480
+  ("net: mvmdio: get and enable optional clock")
 
-I am wondering it is a valid use case, and if there is one URB submitte=
-d,
-the interrupt URB for status has been submitted already, hasn't it?
+was missing an update of the corresponding device tree binding
+documentation. This patch adds the clocks property to mvmdio
+binding documentation.
 
-> But that is of course not possible taking a mutex.  Could the lock
-> preventing interrupt_count maybe be a spinlock instead?  Or am I on t=
-he
-> completely wrong track here?
+Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+---
+Changes from v1:
+- name commit and hash in commit message
 
-Also it is a bit odd that the 'start' API is allowed in atomic context,=
- but
-the 'stop' API isn't allowed, and it is very easy to cause unbalanced c=
-ounter.
+Cc: Grant Likely <grant.likely@secretlab.ca>
+Cc: Rob Herring <rob.herring@calxeda.com>
+Cc: Rob Landley <rob@landley.net>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Florian Fainelli <florian@openwrt.org>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: netdev@vger.kernel.org
+Cc: devicetree-discuss@lists.ozlabs.org
+Cc: linux-doc@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+---
+ Documentation/devicetree/bindings/net/marvell-orion-mdio.txt |    1 +
+ 1 file changed, 1 insertion(+)
 
->
-> In any case, I don't see the point unnecessarily limiting the API by
-> dropping the memflags.  What possible problem would that solve?
+diff --git a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+index 052b5f2..9417e54 100644
+--- a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
++++ b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+@@ -11,6 +11,7 @@ Required properties:
+ 
+ Optional properties:
+ - interrupts: interrupt line number for the SMI error/done interrupt
++- clocks: Phandle to the clock control device and gate bit
+ 
+ The child nodes of the MDIO driver are the individual PHY devices
+ connected to this MDIO bus. They must have a "reg" property given the
+-- 
+1.7.10.4
 
-If you think 'start' API should be called in atomic context, the memfla=
-gs
-should be always 'GFP_ATOMIC'. I let Oliver explain why GFP_NOIO
-is needed in other cases.
-
-Thanks
---=20
-Ming Lei
