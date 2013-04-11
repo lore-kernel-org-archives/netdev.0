@@ -1,56 +1,116 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH v2] tcp: Reallocate headroom if it would overflow csum_start
-Date: Thu, 11 Apr 2013 22:57:18 +0200
-Message-ID: <751a8e6e8f026ec11fbfa97347c0db352225f878.1365713735.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
-	bhutchings@solarflare.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:40434 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161040Ab3DKU5X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 16:57:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH repost for-3.9] pci: avoid work_on_cpu for nested SRIOV probes
+Date: Fri, 12 Apr 2013 00:52:45 +0300
+Message-ID: <CAJZOPZJnRF2qw4w0uv1h9wQ7sP3asH-42B+a0mwm+GCHSrm16Q@mail.gmail.com>
+References: <20130411153030.GA22743@redhat.com>
+	<20130411180517.GJ17641@mtj.dyndns.org>
+	<20130411185853.GE23301@redhat.com>
+	<20130411190408.GM17641@mtj.dyndns.org>
+	<20130411191717.GB25515@redhat.com>
+	<20130411192005.GN17641@mtj.dyndns.org>
+	<20130411203053.GC25515@redhat.com>
+	<20130411204104.GC11956@mtj.dyndns.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Ming Lei <ming.lei@canonical.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>,
+	Roland Dreier <roland@kernel.org>,
+	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20130411204104.GC11956@mtj.dyndns.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If a TCP retransmission gets partially ACKed and collapsed multiple
-times it is possible for the headroom to grow beyond 64K which will
-overflow the 16bit skb->csum_start which is based on the start of
-the headroom. It has been observed rarely in the wild with IPoIB due
-to the 64K MTU.
+On Thu, Apr 11, 2013 at 11:41 PM, Tejun Heo <tj@kernel.org> wrote:
+> Hello,
+>
+> On Thu, Apr 11, 2013 at 11:30:53PM +0300, Michael S. Tsirkin wrote:
+>> Okay, so you are saying it's a false-positive?
+>
+> Yeah, I think so.  It didn't actually lock up, right?  It it did,
+> our analysis upto this point is likely to be completely wrong.
+>
+>> Want to send a patch so Or can try it out?
 
-Verify if the acking and collapsing resulted in a headroom exceeding
-what csum_start can cover and reallocate the headroom if so.
 
-A big thank you to Jim Foraker <foraker1@llnl.gov> and the team at
-LLNL for helping out with the investigation and testing.
-
-Reported-by: Jim Foraker <foraker1@llnl.gov>
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
-v2: Also do check for !NET_IP_ALIGN
-
- net/ipv4/tcp_output.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index b44cf81..509912a 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2388,8 +2388,12 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 	 */
- 	TCP_SKB_CB(skb)->when = tcp_time_stamp;
- 
--	/* make sure skb->data is aligned on arches that require it */
--	if (unlikely(NET_IP_ALIGN && ((unsigned long)skb->data & 3))) {
-+	/* make sure skb->data is aligned on arches that require it
-+	 * and check if ack-trimming & collapsing extended the headroom
-+	 * beyond what csum_start can cover.
-+	 */
-+	if (unlikely((NET_IP_ALIGN && ((unsigned long)skb->data & 3)) ||
-+		     skb_headroom(skb) >= 0xFFFF)) {
- 		struct sk_buff *nskb = __pskb_copy(skb, MAX_TCP_HEADER,
- 						   GFP_ATOMIC);
- 		return nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC) :
--- 
-1.7.11.7
+I can test that Sunday
+>
+> Hmmm... something like the following on the workqueue side (completely
+> untested).
+>
+> diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
+> index 8afab27..899d470 100644
+> --- a/include/linux/workqueue.h
+> +++ b/include/linux/workqueue.h
+> @@ -466,14 +466,21 @@ static inline bool __deprecated flush_delayed_work_sync(struct delayed_work *dwo
+>  }
+>
+>  #ifndef CONFIG_SMP
+> -static inline long work_on_cpu(unsigned int cpu, long (*fn)(void *), void *arg)
+> +static inline long work_on_cpu_nested(unsigned int cpu, long (*fn)(void *),
+> +                                     void *arg, int subclass)
+>  {
+>         return fn(arg);
+>  }
+>  #else
+> -long work_on_cpu(unsigned int cpu, long (*fn)(void *), void *arg);
+> +long work_on_cpu_nested(unsigned int cpu, long (*fn)(void *), void *arg,
+> +                       int subclass);
+>  #endif /* CONFIG_SMP */
+>
+> +static inline long work_on_cpu(unsigned int cpu, long (*fn)(void *), void *arg)
+> +{
+> +       return work_on_cpu_nested(cpu, fn, arg, 0);
+> +}
+> +
+>  #ifdef CONFIG_FREEZER
+>  extern void freeze_workqueues_begin(void);
+>  extern bool freeze_workqueues_busy(void);
+> diff --git a/kernel/workqueue.c b/kernel/workqueue.c
+> index 81f2457..c2be670 100644
+> --- a/kernel/workqueue.c
+> +++ b/kernel/workqueue.c
+> @@ -3555,25 +3555,30 @@ static void work_for_cpu_fn(struct work_struct *work)
+>  }
+>
+>  /**
+> - * work_on_cpu - run a function in user context on a particular cpu
+> + * work_on_cpu_nested - run a function in user context on a particular cpu
+>   * @cpu: the cpu to run on
+>   * @fn: the function to run
+>   * @arg: the function arg
+> + * @subclass: lockdep subclass
+>   *
+>   * This will return the value @fn returns.
+>   * It is up to the caller to ensure that the cpu doesn't go offline.
+>   * The caller must not hold any locks which would prevent @fn from completing.
+> + *
+> + * XXX: explain @subclass
+>   */
+> -long work_on_cpu(unsigned int cpu, long (*fn)(void *), void *arg)
+> +long work_on_cpu_nested(unsigned int cpu, long (*fn)(void *), void *arg,
+> +                       int subclass)
+>  {
+>         struct work_for_cpu wfc = { .fn = fn, .arg = arg };
+>
+>         INIT_WORK_ONSTACK(&wfc.work, work_for_cpu_fn);
+> +       lock_set_subclass(&wfc.work.lockdep_map, subclass, _RET_IP_);
+>         schedule_work_on(cpu, &wfc.work);
+>         flush_work(&wfc.work);
+>         return wfc.ret;
+>  }
+> -EXPORT_SYMBOL_GPL(work_on_cpu);
+> +EXPORT_SYMBOL_GPL(work_on_cpu_nested);
+>  #endif /* CONFIG_SMP */
+>
+>  #ifdef CONFIG_FREEZER
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
