@@ -1,47 +1,34 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH repost for-3.9] pci: avoid work_on_cpu for nested SRIOV
- probes
-Date: Thu, 11 Apr 2013 12:04:08 -0700
-Message-ID: <20130411190408.GM17641@mtj.dyndns.org>
-References: <20130411153030.GA22743@redhat.com>
- <20130411180517.GJ17641@mtj.dyndns.org>
- <20130411185853.GE23301@redhat.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 17/26] hostap: Don't use create_proc_read_entry() [RFC]
+Date: Thu, 11 Apr 2013 12:06:33 -0700
+Message-ID: <20130411190633.GB32045@kroah.com>
+References: <20130411132739.32763.82609.stgit@warthog.procyon.org.uk>
+ <20130411132952.32763.3184.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Ming Lei <ming.lei@canonical.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>,
-	Roland Dreier <roland@kernel.org>,
-	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f170.google.com ([209.85.216.170]:38595 "EHLO
-	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750731Ab3DKTEO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 15:04:14 -0400
+Cc: linux-kernel@vger.kernel.org, devel@driverdev.osuosl.org,
+	Jouni Malinen <j@w1.fi>, linux-wireless@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	viro@ZenIV.linux.org.uk, netdev@vger.kernel.org,
+	Johannes Berg <johannes@sipsolutions.net>
+To: David Howells <dhowells@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130411185853.GE23301@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20130411132952.32763.3184.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hey,
-
-On Thu, Apr 11, 2013 at 09:58:54PM +0300, Michael S. Tsirkin wrote:
-> > Hmm... how about adding a work_on_cpu_nested() which takes @subclass
-> > argument?  Wouldn't that be much cleaner?
-> > 
-> > Thanks.
+On Thu, Apr 11, 2013 at 02:29:52PM +0100, David Howells wrote:
+> Don't use create_proc_read_entry() as that is deprecated, but rather use
+> proc_create_data() and seq_file instead.
 > 
-> Is that 3.9 material though?
+> Signed-off-by: David Howells <dhowells@redhat.com>
+> cc: Jouni Malinen <j@w1.fi>
+> cc: John W. Linville <linville@tuxdriver.com>
+> cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> cc: Johannes Berg <johannes@sipsolutions.net>
+> cc: linux-wireless@vger.kernel.org
+> cc: netdev@vger.kernel.org
+> cc: devel@driverdev.osuosl.org
 
-Why wouldn't it be?  It's actually safer as it doesn't change any
-logic.  It's just updating lockdep annotation, which is what's needed
-here anyway.
-
-Thanks.
-
--- 
-tejun
+Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
