@@ -1,56 +1,50 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 3/3] net/mlx4_en: set correct MTU in SRIOV
-Date: Thu, 11 Apr 2013 14:56:42 +0300
-Message-ID: <1365681402-19445-4-git-send-email-amirv@mellanox.com>
-References: <1365681402-19445-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.co.il>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be active
+Date: Thu, 11 Apr 2013 20:11:13 +0800
+Message-ID: <CACVXFVORLr+cRV6uG0-CbYnQ4DKucforyVFcLq+B8Xwz5bVguw@mail.gmail.com>
+References: <20110727141246.GC29616@orbit.nwl.cc>
+	<3010836.mDNO71IiS7@linux-5eaq.site>
+	<CACVXFVNHoBNpyRztp1Bu_41=YnszqQ3jQDw4j87Zd2hZM3r-VA@mail.gmail.com>
+	<28454387.MvMlbQoOly@linux-5eaq.site>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Dan Williams <dcbw@redhat.com>,
+	Elina Pasheva <epasheva@sierrawireless.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:44044 "EHLO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933510Ab3DKMAL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 08:00:11 -0400
-In-Reply-To: <1365681402-19445-1-git-send-email-amirv@mellanox.com>
+Received: from mail-vb0-f48.google.com ([209.85.212.48]:52234 "EHLO
+	mail-vb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754657Ab3DKMLO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 08:11:14 -0400
+In-Reply-To: <28454387.MvMlbQoOly@linux-5eaq.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugenia Emantayev <eugenia@mellanox.co.il>
+On Thu, Apr 11, 2013 at 7:14 PM, Oliver Neukum <oliver@neukum.org> wrote:
+>
+> Sorry, I misunderstood.
 
-When setting MTU in SRIOV mode add ETH, VLAN and FCS header length
-to the maximum MTU obtained from QUERY_DEV_CAP.
+No problem, :-)
 
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/port.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+>
+> Task A                                  Task B                          queue
+>
+> queue work
+>                                                 request a reset
+>                                                                                         allocate memory and block
+>                                                 cancel the work
+>                                                                                         shit happened
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
-index 10c57c8..4b6aad3 100644
---- a/drivers/net/ethernet/mellanox/mlx4/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/port.c
-@@ -32,6 +32,7 @@
- 
- #include <linux/errno.h>
- #include <linux/if_ether.h>
-+#include <linux/if_vlan.h>
- #include <linux/export.h>
- 
- #include <linux/mlx4/cmd.h>
-@@ -517,7 +518,8 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
- 			/* Mtu is configured as the max MTU among all the
- 			 * the functions on the port. */
- 			mtu = be16_to_cpu(gen_context->mtu);
--			mtu = min_t(int, mtu, dev->caps.eth_mtu_cap[port]);
-+			mtu = min_t(int, mtu, dev->caps.eth_mtu_cap[port] +
-+				    ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN);
- 			prev_mtu = slave_st->mtu[port];
- 			slave_st->mtu[port] = mtu;
- 			if (mtu > master->max_mtu[port])
+If I understand the case correctly, the above deadlock can be avoided
+by canceling rx/tx URBs at the end of pre_reset() or usbnet_disconnect(),
+then memory can still be reclaimed in queue context since rx/tx is still
+workable. Right?
+
+
+Thanks,
 -- 
-1.7.8.2
+Ming Lei
