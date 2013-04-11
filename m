@@ -1,105 +1,52 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [net-next PATCH] xen-netback: switch to use
- skb_partial_csum_set()
-Date: Thu, 11 Apr 2013 09:03:40 +0100
-Message-ID: <1365667420.27868.125.camel@zakaz.uk.xensource.com>
-References: <1365662129-38031-1-git-send-email-jasowang@redhat.com>
-	 <1365666364.27868.114.camel@zakaz.uk.xensource.com>
-	 <51666D28.7090500@redhat.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be active
+Date: Thu, 11 Apr 2013 10:06:50 +0200
+Message-ID: <87txndwkx1.fsf@nemi.mork.no>
+References: <20110727141246.GC29616@orbit.nwl.cc>
+	<1365625850.22411.1.camel@dcbw.foobar.com>
+	<CACVXFVNKSszw+3VnM3hwepbTHh3gvjC+pG2SL_OsVm+1SqrNzQ@mail.gmail.com>
+	<2552222.23e5DWG2Z9@linux-5eaq.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51666D28.7090500@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ming Lei <tom.leiming@gmail.com>, Dan Williams <dcbw@redhat.com>,
+	Elina Pasheva <epasheva@sierrawireless.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>
+To: Oliver Neukum <oliver@neukum.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:35699 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754577Ab3DKIHa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 04:07:30 -0400
+In-Reply-To: <2552222.23e5DWG2Z9@linux-5eaq.site> (Oliver Neukum's message of
+	"Thu, 11 Apr 2013 08:50:30 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-04-11 at 08:58 +0100, Jason Wang wrote:
-> On 04/11/2013 03:46 PM, Ian Campbell wrote:
-> > On Thu, 2013-04-11 at 07:35 +0100, Jason Wang wrote:
-> >> Switch to use skb_partial_csum_set() to simplify the codes.
-> > This is incremental on top of your previous patch, right?
-> 
-> It's an independent patch, since the previous patch has been applied.
-> >> Cc: Ian Campbell <ian.campbell@citrix.com>
-> >> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> >> ---
-> >> Note:
-> >> - Compile test only.
-> >> ---
-> >>  drivers/net/xen-netback/netback.c |   22 ++++++++--------------
-> >>  1 files changed, 8 insertions(+), 14 deletions(-)
-> >>
-> >> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> >> index 83905a9..70631f0 100644
-> >> --- a/drivers/net/xen-netback/netback.c
-> >> +++ b/drivers/net/xen-netback/netback.c
-> >> @@ -1156,7 +1156,6 @@ static int netbk_set_skb_gso(struct xenvif *vif,
-> >>  static int checksum_setup(struct xenvif *vif, struct sk_buff *skb)
-> >>  {
-> >>  	struct iphdr *iph;
-> >> -	unsigned char *th;
-> >>  	int err = -EPROTO;
-> >>  	int recalculate_partial_csum = 0;
-> >>  
-> >> @@ -1180,28 +1179,26 @@ static int checksum_setup(struct xenvif *vif, struct sk_buff *skb)
-> >>  		goto out;
-> >>  
-> >>  	iph = (void *)skb->data;
-> >> -	th = skb->data + 4 * iph->ihl;
-> >> -	if (th >= skb_tail_pointer(skb))
-> >> -		goto out;
-> >> -
-> >> -	skb_set_transport_header(skb, 4 * iph->ihl);
-> > Is removing this line really correct?
-> 
-> After commit e5d5deca (net: core: let skb_partial_csum_set() set
-> transport header), this work was done by skb_partial_csum_set().
+Oliver Neukum <oliver@neukum.org> writes:
+> On Thursday 11 April 2013 10:31:31 Ming Lei wrote:
+> =20
+>> 'mem_flags' isn't needed any more since we can apply allocation
+>> of GFP_NOIO automatically in resume path now, and you can always
+>> use GFP_KERNEL safely. Considered that it is a API, please don't
+>> introduce it.
+>
+> The automatic system goes a long way, but there are corner cases, for=
+ example
+> work queues, which still need mem_flags.
 
-Ah, my working tree must be out of date, thanks.
 
-> >
-> >> -	skb->csum_start = th - skb->head;
-> >>  	switch (iph->protocol) {
-> >>  	case IPPROTO_TCP:
-> >> -		skb->csum_offset = offsetof(struct tcphdr, check);
-> >> +		if (!skb_partial_csum_set(skb, 4 * iph->ihl,
-> >> +					  offsetof(struct tcphdr, check)))
-> >> +			goto out;
-> >>  
-> >>  		if (recalculate_partial_csum) {
-> >> -			struct tcphdr *tcph = (struct tcphdr *)th;
-> >> +			struct tcphdr *tcph = tcp_hdr(skb);
-> >>  			tcph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
-> >>  							 skb->len - iph->ihl*4,
-> >>  							 IPPROTO_TCP, 0);
-> >>  		}
-> >>  		break;
-> >>  	case IPPROTO_UDP:
-> >> -		skb->csum_offset = offsetof(struct udphdr, check);
-> >> +		if (!skb_partial_csum_set(skb, 4 * iph->ihl,
-> >> +					  offsetof(struct udphdr, check)))
-> >> +			goto out;
-> >>  
-> >>  		if (recalculate_partial_csum) {
-> >> -			struct udphdr *udph = (struct udphdr *)th;
-> >> +			struct udphdr *udph = udp_hdr(skb);
-> >>  			udph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
-> >>  							 skb->len - iph->ihl*4,
-> >>  							 IPPROTO_UDP, 0);
-> >> @@ -1215,9 +1212,6 @@ static int checksum_setup(struct xenvif *vif, struct sk_buff *skb)
-> >>  		goto out;
-> >>  	}
-> >>  
-> >> -	if ((th + skb->csum_offset + 2) > skb_tail_pointer(skb))
-> >> -		goto out;
-> >> -
-> >>  	err = 0;
-> >>  
-> >>  out:
-> >
-> 
+My immediate thought was that someone also might want to use this new
+API from atomic context, e.g. calling it directly from an URB callback.
+But that is of course not possible taking a mutex.  Could the lock
+preventing interrupt_count maybe be a spinlock instead?  Or am I on the
+completely wrong track here?
+
+In any case, I don't see the point unnecessarily limiting the API by
+dropping the memflags.  What possible problem would that solve?
+
+
+Bj=C3=B8rn
