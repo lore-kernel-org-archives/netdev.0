@@ -1,81 +1,52 @@
-From: Dmitry Popov <dp@highloadlab.com>
-Subject: Re: [PATCH] tcp: incoming connections might use wrong route under
- synflood
-Date: Thu, 11 Apr 2013 11:46:00 +0400
-Message-ID: <20130411114600.14cb8a5d5a5dee9e2f1306b5@highloadlab.com>
-References: <20130411000909.d90c6df468bf1830174e88e2@highloadlab.com>
-	<20130410.232612.1922869742696275542.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 2/2] xfrm_user: constify netlink dispatch table
+Date: Thu, 11 Apr 2013 09:56:09 +0200
+Message-ID: <1365666969-22645-3-git-send-email-steffen.klassert@secunet.com>
+References: <1365666969-22645-1-git-send-email-steffen.klassert@secunet.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:38656 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753997Ab3DKHsu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 03:48:50 -0400
-Received: by mail-lb0-f175.google.com with SMTP id o10so1303082lbi.20
-        for <netdev@vger.kernel.org>; Thu, 11 Apr 2013 00:48:49 -0700 (PDT)
-In-Reply-To: <20130410.232612.1922869742696275542.davem@davemloft.net>
+Received: from a.mx.secunet.com ([195.81.216.161]:56594 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753887Ab3DKH4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Apr 2013 03:56:25 -0400
+In-Reply-To: <1365666969-22645-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a bug in cookie_v4_check (net/ipv4/syncookies.c):
-	flowi4_init_output(&fl4, 0, sk->sk_mark, RT_CONN_FLAGS(sk),
-			   RT_SCOPE_UNIVERSE, IPPROTO_TCP,
-			   inet_sk_flowi_flags(sk),
-			   (opt && opt->srr) ? opt->faddr : ireq->rmt_addr,
-			   ireq->loc_addr, th->source, th->dest);
+From: Mathias Krause <minipli@googlemail.com>
 
-Here we do not respect sk->sk_bound_dev_if, therefore wrong dst_entry may be
-taken. This dst_entry is used by new socket (get_cookie_sock -> 
-tcp_v4_syn_recv_sock), so its packets may take the wrong path.
+There is no need to modify the netlink dispatch table at runtime.
 
-Signed-off-by: Dmitry Popov <dp@highloadlab.com>
+Signed-off-by: Mathias Krause <minipli@googlemail.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv4/syncookies.c | 4 ++--
+ net/xfrm/xfrm_user.c |    4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index ef54377..397e0f6 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -349,8 +349,8 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 	 * hasn't changed since we received the original syn, but I see
- 	 * no easy way to do this.
- 	 */
--	flowi4_init_output(&fl4, 0, sk->sk_mark, RT_CONN_FLAGS(sk),
--			   RT_SCOPE_UNIVERSE, IPPROTO_TCP,
-+	flowi4_init_output(&fl4, sk->sk_bound_dev_if, sk->sk_mark,
-+			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE, IPPROTO_TCP,
- 			   inet_sk_flowi_flags(sk),
- 			   (opt && opt->srr) ? opt->faddr : ireq->rmt_addr,
- 			   ireq->loc_addr, th->source, th->dest);
 
-On Wed, 10 Apr 2013 23:26:12 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Dmitry Popov <dp@highloadlab.com>
-> Date: Thu, 11 Apr 2013 00:09:09 +0400
-> 
-> > There is a bug in cookie_v4_check (net/ipv4/syncookies.c):
-> > 	flowi4_init_output(&fl4, 0, sk->sk_mark, RT_CONN_FLAGS(sk),
-> > 			   RT_SCOPE_UNIVERSE, IPPROTO_TCP,
-> > 			   inet_sk_flowi_flags(sk),
-> > 			   (opt && opt->srr) ? opt->faddr : ireq->rmt_addr,
-> > 			   ireq->loc_addr, th->source, th->dest);
-> > 
-> > Here we do not respect sk->sk_bound_dev_if, therefore wrong dst_entry may be taken. This dst_entry is used in new socket (get_cookie_sock -> tcp_v4_syn_recv_sock), so its packets may take wrong path. There is no such bug in ipv6 code and non-cookie code (usual case). Bugfix below.
-> > 
-> > Signed-off-by: Dmitry Popov <dp@highloadlab.com>
-> 
-> Please format your commit messages properly, by not allowing lines of
-> text longer than 80 columns.
-> 
-> Thank you.
-
-
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 204cba1..aa77874 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2315,7 +2315,7 @@ static const struct nla_policy xfrma_policy[XFRMA_MAX+1] = {
+ 	[XFRMA_SA_EXTRA_FLAGS]	= { .type = NLA_U32 },
+ };
+ 
+-static struct xfrm_link {
++static const struct xfrm_link {
+ 	int (*doit)(struct sk_buff *, struct nlmsghdr *, struct nlattr **);
+ 	int (*dump)(struct sk_buff *, struct netlink_callback *);
+ 	int (*done)(struct netlink_callback *);
+@@ -2349,7 +2349,7 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct nlattr *attrs[XFRMA_MAX+1];
+-	struct xfrm_link *link;
++	const struct xfrm_link *link;
+ 	int type, err;
+ 
+ 	type = nlh->nlmsg_type;
 -- 
-Dmitry Popov <dp@highloadlab.com>
+1.7.9.5
