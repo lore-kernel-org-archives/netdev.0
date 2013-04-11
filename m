@@ -1,32 +1,57 @@
-From: Luis Henriques <luis.henriques@canonical.com>
-Subject: Re: [PATCH 3.8-stable] r8169: fix auto speed down issue
-Date: Thu, 11 Apr 2013 13:34:17 +0100
-Message-ID: <20130411123417.GA13039@hercules>
-References: <1365301070-4788-1-git-send-email-jhbird.choi@samsung.com>
- <D9E739B840C44289BF6CAC95EA18ACC2@realtek.com.tw>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 'Jonghwan Choi' <jhbird.choi@gmail.com>,
-	'nic_swsd' <nic_swsd@realtek.com>, stable@vger.kernel.org,
-	netdev@vger.kernel.org, "'David S. Miller'" <davem@davemloft.net>,
-	'Jonghwan Choi' <jhbird.choi@samsung.com>
-To: hayeswang <hayeswang@realtek.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <D9E739B840C44289BF6CAC95EA18ACC2@realtek.com.tw>
-Sender: stable-owner@vger.kernel.org
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: [PATCH] net: mv643xx_eth: Add GRO support
+Date: Thu, 11 Apr 2013 14:40:23 +0200
+Message-ID: <1365684023-9967-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Cc: Soeren Moch <smoch@web.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Florian Fainelli <florian@openwrt.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 08, 2013 at 05:21:23PM +0800, hayeswang wrote:
-> From: Jonghwan Choi [mailto:jhbird.choi@gmail.com] 
-> [...]
-> > This patch looks like it should be in the 3.8-stable tree, 
-> > should we apply it?
-> 
-> Yes.
+This patch adds GRO support to mv643xx_eth by making it invoke
+napi_gro_receive instead of netif_receive_skb.
 
-I'm queuing this patch for the 3.5 kernel as well.  Thanks.
+Signed-off-by: Soeren Moch <smoch@web.de>
+Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+---
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: Andrew Lunn <andrew@lunn.ch>
+Cc: Jason Cooper <jason@lakedaemon.net>
+Cc: Florian Fainelli <florian@openwrt.org>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Dale Farnsworth <dale@farnsworth.org>
+Cc: netdev@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-kernel@vger.kernel.org
+---
+ drivers/net/ethernet/marvell/mv643xx_eth.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Cheers,
---
-Luis
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 305038f..c850d04 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -604,7 +604,7 @@ static int rxq_process(struct rx_queue *rxq, int budget)
+ 			lro_receive_skb(&rxq->lro_mgr, skb, (void *)cmd_sts);
+ 			lro_flush_needed = 1;
+ 		} else
+-			netif_receive_skb(skb);
++			napi_gro_receive(&mp->napi, skb);
+ 
+ 		continue;
+ 
+-- 
+1.7.10.4
