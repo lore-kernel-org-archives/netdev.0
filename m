@@ -1,67 +1,35 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH] net: mv643xx_eth: remove deprecated inet_lro support
-Date: Thu, 11 Apr 2013 21:52:52 +0200
-Message-ID: <51671494.6000803@gmail.com>
-References: <1365707488-28819-1-git-send-email-sebastian.hesselbarth@gmail.com> <1365709617.3887.185.camel@edumazet-glaptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 00/11] usbnet: usbnet: handle link change
+Date: Thu, 11 Apr 2013 15:58:27 -0400 (EDT)
+Message-ID: <20130411.155827.968210808922643422.davem@davemloft.net>
+References: <1365691240-816-1-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Florian Fainelli <florian@openwrt.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Dale Farnsworth <dale@farnsworth.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Soeren Moch <smoch@web.de>, Willy Tarreau <w@1wt.eu>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1365709617.3887.185.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, oneukum-l3A5Bk7waGM@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1365691240-816-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 04/11/2013 09:46 PM, Eric Dumazet wrote:
-> On Thu, 2013-04-11 at 21:11 +0200, Sebastian Hesselbarth wrote:
->> With recent support for GRO, there is no need to keep both LRO and
->> GRO. This patch therefore removes the deprecated inet_lro support
->> from mv643xx_eth. This is work is based on an experimental patch
->> provided by Eric Dumazet and Willy Tarreau.
->>
->> Signed-off-by: Sebastian Hesselbarth<sebastian.hesselbarth@gmail.com>
->> Based-on-patch-by: Eric Dumazet<eric.dumazet@gmail.com>
->> Based-on-patch-by: Willy Tarreau<w@1wt.eu>
->> ---
->> Note: This patch is based upon recent cleanup patches and GRO support
->> patch for mv643xx_eth.
->>
->> Cc: "David S. Miller"<davem@davemloft.net>
->> Cc: Lennert Buytenhek<buytenh@wantstofly.org>
->> Cc: Andrew Lunn<andrew@lunn.ch>
->> Cc: Jason Cooper<jason@lakedaemon.net>
->> Cc: Florian Fainelli<florian@openwrt.org>
->> Cc: Benjamin Herrenschmidt<benh@kernel.crashing.org>
->> Cc: Paul Mackerras<paulus@samba.org>
->> Cc: Dale Farnsworth<dale@farnsworth.org>
->> Cc: Ben Hutchings<bhutchings@solarflare.com>
->> Cc: Soeren Moch<smoch@web.de>
->> Cc: Eric Dumazet<eric.dumazet@gmail.com>
->> Cc: Willy Tarreau<w@1wt.eu>
->> Cc: netdev@vger.kernel.org
->> Cc: linux-arm-kernel@lists.infradead.org
->> Cc: linuxppc-dev@lists.ozlabs.org
->> Cc: linux-kernel@vger.kernel.org
->> ---
->>   drivers/net/ethernet/marvell/mv643xx_eth.c |   97 +---------------------------
->>   1 file changed, 3 insertions(+), 94 deletions(-)
->
-> Seems fine to me, but you also could remove "select INET_LRO"
-> from drivers/net/ethernet/marvell/Kconfig
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Date: Thu, 11 Apr 2013 22:40:29 +0800
 
-Ok, I will wait for tomorrow to see if there are more objections and
-respin a v2.
+> This patch set introduces usbnet_link_change() API and applies
+> it on all usbnet drivers, then handle the link change centrally
+> to stop bulk transfer when link becomes off and restart bulk
+> transfer when link becomes on.
+> 
+> With the change, ~10% performance boost on bulk transfer
+> of another device on the same bus can be obtained when link
+> is off. Also, stopping bulk transfer when link becomes off
+> may disable asynchonous schedule of host controller, power
+> might be saved probabally.
 
-Sebastian
+Series applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
