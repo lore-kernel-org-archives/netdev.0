@@ -1,95 +1,81 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [net-next PATCH] xen-netback: switch to use
- skb_partial_csum_set()
-Date: Thu, 11 Apr 2013 08:46:04 +0100
-Message-ID: <1365666364.27868.114.camel@zakaz.uk.xensource.com>
-References: <1365662129-38031-1-git-send-email-jasowang@redhat.com>
+From: Dmitry Popov <dp@highloadlab.com>
+Subject: Re: [PATCH] tcp: incoming connections might use wrong route under
+ synflood
+Date: Thu, 11 Apr 2013 11:46:00 +0400
+Message-ID: <20130411114600.14cb8a5d5a5dee9e2f1306b5@highloadlab.com>
+References: <20130411000909.d90c6df468bf1830174e88e2@highloadlab.com>
+	<20130410.232612.1922869742696275542.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1365662129-38031-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:38656 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753997Ab3DKHsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 03:48:50 -0400
+Received: by mail-lb0-f175.google.com with SMTP id o10so1303082lbi.20
+        for <netdev@vger.kernel.org>; Thu, 11 Apr 2013 00:48:49 -0700 (PDT)
+In-Reply-To: <20130410.232612.1922869742696275542.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-04-11 at 07:35 +0100, Jason Wang wrote:
-> Switch to use skb_partial_csum_set() to simplify the codes.
+There is a bug in cookie_v4_check (net/ipv4/syncookies.c):
+	flowi4_init_output(&fl4, 0, sk->sk_mark, RT_CONN_FLAGS(sk),
+			   RT_SCOPE_UNIVERSE, IPPROTO_TCP,
+			   inet_sk_flowi_flags(sk),
+			   (opt && opt->srr) ? opt->faddr : ireq->rmt_addr,
+			   ireq->loc_addr, th->source, th->dest);
 
-This is incremental on top of your previous patch, right?
+Here we do not respect sk->sk_bound_dev_if, therefore wrong dst_entry may be
+taken. This dst_entry is used by new socket (get_cookie_sock -> 
+tcp_v4_syn_recv_sock), so its packets may take the wrong path.
 
+Signed-off-by: Dmitry Popov <dp@highloadlab.com>
+---
+ net/ipv4/syncookies.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index ef54377..397e0f6 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -349,8 +349,8 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 	 * hasn't changed since we received the original syn, but I see
+ 	 * no easy way to do this.
+ 	 */
+-	flowi4_init_output(&fl4, 0, sk->sk_mark, RT_CONN_FLAGS(sk),
+-			   RT_SCOPE_UNIVERSE, IPPROTO_TCP,
++	flowi4_init_output(&fl4, sk->sk_bound_dev_if, sk->sk_mark,
++			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE, IPPROTO_TCP,
+ 			   inet_sk_flowi_flags(sk),
+ 			   (opt && opt->srr) ? opt->faddr : ireq->rmt_addr,
+ 			   ireq->loc_addr, th->source, th->dest);
+
+On Wed, 10 Apr 2013 23:26:12 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Dmitry Popov <dp@highloadlab.com>
+> Date: Thu, 11 Apr 2013 00:09:09 +0400
 > 
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
-> Note:
-> - Compile test only.
-> ---
->  drivers/net/xen-netback/netback.c |   22 ++++++++--------------
->  1 files changed, 8 insertions(+), 14 deletions(-)
+> > There is a bug in cookie_v4_check (net/ipv4/syncookies.c):
+> > 	flowi4_init_output(&fl4, 0, sk->sk_mark, RT_CONN_FLAGS(sk),
+> > 			   RT_SCOPE_UNIVERSE, IPPROTO_TCP,
+> > 			   inet_sk_flowi_flags(sk),
+> > 			   (opt && opt->srr) ? opt->faddr : ireq->rmt_addr,
+> > 			   ireq->loc_addr, th->source, th->dest);
+> > 
+> > Here we do not respect sk->sk_bound_dev_if, therefore wrong dst_entry may be taken. This dst_entry is used in new socket (get_cookie_sock -> tcp_v4_syn_recv_sock), so its packets may take wrong path. There is no such bug in ipv6 code and non-cookie code (usual case). Bugfix below.
+> > 
+> > Signed-off-by: Dmitry Popov <dp@highloadlab.com>
 > 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 83905a9..70631f0 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -1156,7 +1156,6 @@ static int netbk_set_skb_gso(struct xenvif *vif,
->  static int checksum_setup(struct xenvif *vif, struct sk_buff *skb)
->  {
->  	struct iphdr *iph;
-> -	unsigned char *th;
->  	int err = -EPROTO;
->  	int recalculate_partial_csum = 0;
->  
-> @@ -1180,28 +1179,26 @@ static int checksum_setup(struct xenvif *vif, struct sk_buff *skb)
->  		goto out;
->  
->  	iph = (void *)skb->data;
-> -	th = skb->data + 4 * iph->ihl;
-> -	if (th >= skb_tail_pointer(skb))
-> -		goto out;
-> -
-> -	skb_set_transport_header(skb, 4 * iph->ihl);
+> Please format your commit messages properly, by not allowing lines of
+> text longer than 80 columns.
+> 
+> Thank you.
 
-Is removing this line really correct?
 
-> -	skb->csum_start = th - skb->head;
->  	switch (iph->protocol) {
->  	case IPPROTO_TCP:
-> -		skb->csum_offset = offsetof(struct tcphdr, check);
-> +		if (!skb_partial_csum_set(skb, 4 * iph->ihl,
-> +					  offsetof(struct tcphdr, check)))
-> +			goto out;
->  
->  		if (recalculate_partial_csum) {
-> -			struct tcphdr *tcph = (struct tcphdr *)th;
-> +			struct tcphdr *tcph = tcp_hdr(skb);
->  			tcph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
->  							 skb->len - iph->ihl*4,
->  							 IPPROTO_TCP, 0);
->  		}
->  		break;
->  	case IPPROTO_UDP:
-> -		skb->csum_offset = offsetof(struct udphdr, check);
-> +		if (!skb_partial_csum_set(skb, 4 * iph->ihl,
-> +					  offsetof(struct udphdr, check)))
-> +			goto out;
->  
->  		if (recalculate_partial_csum) {
-> -			struct udphdr *udph = (struct udphdr *)th;
-> +			struct udphdr *udph = udp_hdr(skb);
->  			udph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
->  							 skb->len - iph->ihl*4,
->  							 IPPROTO_UDP, 0);
-> @@ -1215,9 +1212,6 @@ static int checksum_setup(struct xenvif *vif, struct sk_buff *skb)
->  		goto out;
->  	}
->  
-> -	if ((th + skb->csum_offset + 2) > skb_tail_pointer(skb))
-> -		goto out;
-> -
->  	err = 0;
->  
->  out:
+-- 
+Dmitry Popov <dp@highloadlab.com>
