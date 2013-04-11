@@ -1,66 +1,118 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be active
-Date: Thu, 11 Apr 2013 18:30:19 +0800
-Message-ID: <CACVXFVO+QZ+mtdOFuNuh+8HQOMcuQrKJRAaW9ohyrMCMeZXsjQ@mail.gmail.com>
-References: <20110727141246.GC29616@orbit.nwl.cc>
-	<1365625850.22411.1.camel@dcbw.foobar.com>
-	<CACVXFVNKSszw+3VnM3hwepbTHh3gvjC+pG2SL_OsVm+1SqrNzQ@mail.gmail.com>
-	<2552222.23e5DWG2Z9@linux-5eaq.site>
-	<87txndwkx1.fsf@nemi.mork.no>
-	<CACVXFVMW2Dosr0FAKCvxgUFQKmwbduiC+HqmzS1tsvAHu=G8Kg@mail.gmail.com>
-	<87ppy1wfhq.fsf@nemi.mork.no>
-	<CACVXFVNn9MQr6JLdin=u642Jb-2ZPfVk8YaBmNdhU0_2e7WJqQ@mail.gmail.com>
-	<87hajdwefp.fsf@nemi.mork.no>
+From: Antonio Quartulli <antonio@open-mesh.com>
+Subject: Re: [PATCH 1/3] if.h: add IFF_BRIDGE_RESTRICTED flag
+Date: Thu, 11 Apr 2013 12:56:28 +0200
+Message-ID: <20130411105628.GA4717@open-mesh.com>
+References: <1365442863-32394-1-git-send-email-antonio@open-mesh.com>
+	<1365442863-32394-2-git-send-email-antonio@open-mesh.com>
+	<CAOaVG17nHuoRsf2Kss6LnpgC-Aojcso_zLYyBa18Vn9CGGY+GA@mail.gmail.com>
+	<20130409075606.GB3771@open-mesh.com>
+	<51641049.3030100@mojatatu.com>
+	<20130409135143.GA5177@open-mesh.com>
+	<5164387D.8080700@mojatatu.com>
+	<20130410165434.GB5177@open-mesh.com>
+	<20130410134609.46bcaeae@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver@neukum.org>, Dan Williams <dcbw@redhat.com>,
-	Elina Pasheva <epasheva@sierrawireless.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f174.google.com ([209.85.128.174]:64070 "EHLO
-	mail-ve0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753402Ab3DKKaU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 06:30:20 -0400
-In-Reply-To: <87hajdwefp.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="6c2NcOVqGQ03X4Wi"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20130410134609.46bcaeae@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 11, 2013 at 6:26 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
-> Ming Lei <tom.leiming@gmail.com> writes:
->
->> On Thu, Apr 11, 2013 at 6:04 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
->>> Ming Lei <tom.leiming@gmail.com> writes:
->>>
->>> Again: What problem are you attempting to solve by removing the
->>> mem_flags from the API?
->>
->> It is not about removing anything, we are discussing one new API
->> (include the parameters) to be introduced.
->
-> Yes.  Sure.  And the original proposal was to add a new API with a
-> mem_flags parameter.  You proposed to add the same API, but without t=
-he
-> mem_flags parameter.  You did not explain why.  I still assumed that =
-you
-> have some reason to propose it.  I assumed that reason must be some
-> problem which would be introduced by having the mem_flags parameter, =
-and
-> which would be solved if we instead drop it.
->
-> It seems that you are either unable or unwilling to explain your
-> reasons, so I'll just go ahead and drop my assumptions.  You never ha=
-d
-> any reason and there never would be any problem.
+--6c2NcOVqGQ03X4Wi
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-OK, I say it again, GFP_KERNEL is enough to cover all cases, and the
-mem_flags parameter is redundant.
+On Wed, Apr 10, 2013 at 01:46:09PM -0700, Stephen Hemminger wrote:
+> On Wed, 10 Apr 2013 18:54:34 +0200
+> Antonio Quartulli <antonio@open-mesh.com> wrote:
+>=20
+> > Hi Jamal, all,
+> >=20
+> > On Tue, Apr 09, 2013 at 08:49:17 -0700, Jamal Hadi Salim wrote:
+> > > On 13-04-09 09:51 AM, Antonio Quartulli wrote:
+> > >=20
+> > > >
+> > > > Does this work at the bridge level? A packet entering a port and go=
+ing out from
+> > > > another one can be affected by tc/mark?
+> > >=20
+> > > Yes of course. And on any construct that looks like a netdev (tunnels=
+ etc).
+> > >=20
+> >=20
+> > Thanks for your hints. After having struggled a bit I found out how to =
+do it
+> > using ebtables and the mark target :)
+> >=20
+> > Thanks a Lot!
+> >=20
+> Come back again, though. The ebtables method offers more flexibility whic=
+h can
+> be a good or bad thing...
 
+I just realised that :)
 
-Thanks,
+By installing ebtables (meaning modules + userspace tool) my iperf test res=
+ult
+drops from 81Mbps to 66Mbps: former without, latter with ebtables module en=
+abled.
+I did this test between two devices connected with Fast Ethernet.
+
+I thought that most of the code is in netfilter, so shared with iptables, h=
+ence
+I expected a reasonable overhead why this is much worse.
+
+Does anybody have a clue about this? I should probably start a new thread o=
+n the
+netfilter mailing list.
+
+However this problem makes ebtables unusable at all.
+
+Suggestions are welcome :)
+
+Cheers,
+
 --=20
-Ming Lei
+Antonio Quartulli
+
+=2E.each of us alone is worth nothing..
+Ernesto "Che" Guevara
+
+--6c2NcOVqGQ03X4Wi
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRZpbcAAoJEADl0hg6qKeOGTAP+wWW91XVRqcnSy1X6Iy/pkFl
+KnR0llga9VwTOKqhAHYz6YDr+cZfL2ajzcxT/Jo1ap+vR5YNPbvQ9i4zOTEdoFAF
+4PF40MPYj1592MI/XlCaF99Zpy3uv8TGxTw9r11oJO2PB7mpOX3+DkJN0l8s2Wqj
+bT0YQ+ZmFTpmzXjOnWtbVkkNQvsIGAMQmnW+dwL1rRIV7lPHojbVIlCrIRFlWhd/
+S2a1zxYGAO2k4QrsQIZV0dP759IDCmQD+WHydlNLPTp85C+f1019W/NR6q0ZRT0g
+WMkHdLBHrJmaShumM7wqL1ruoBEtBvu11qBfHva2yT7shkjOE4Lu8Am2UZHAimwg
+XIAD91CA5i/Y7PftOY3+7rIxULc5NZioFFcMi6ND3EN+2Et1keYKWhEV6b2UYf2A
+cgIfcHR7FWl308NpjZvLwlvYBLKtV4StboVFc2YN7QuzbluqHf9/OvZ1eOIdEdEa
+XLRW6P4fSUd80sHQfkKLSNcI37xZvQoDCH4BCk06CSxCEt2GfpvcLc7z3qmgl7Dh
+sys9TkoeGAYbuwKaBHJB3IkpOsz54fcVRzIlfML3+dmPQ6+GLC/BUUQvCXElTnze
+zpQhTdEM4yaCB2HvOw8FwFcA6m+pl32V83ckwuxADDPtkoEsdbVfDP9MVtryBb6t
+xfB/esGBAZ9BoMymvG2s
+=tmPf
+-----END PGP SIGNATURE-----
+
+--6c2NcOVqGQ03X4Wi--
