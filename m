@@ -1,32 +1,26 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: linville limited availability for merging after tomorrow
-Date: Thu, 11 Apr 2013 11:46:02 -0400
-Message-ID: <20130411154602.GE2160@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 0/2] vlan TSO support for virtio-net
+Date: Thu, 11 Apr 2013 16:22:24 -0400 (EDT)
+Message-ID: <20130411.162224.1462196338243001372.davem@davemloft.net>
+References: <1365672742-42258-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1365672742-42258-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Greetings,
+From: Jason Wang <jasowang@redhat.com>
+Date: Thu, 11 Apr 2013 17:32:20 +0800
 
-This is just a heads-up that I will be doing some traveling (collab
-summit and personal) over the next couple of weeks.  I'm not entirely
-sure what my schedule will be or how much energy (or clear thinking)
-I'll have left for merging. :-)
+> This series simply enable the vlan TSO support for virtio-net by just initialize
+> vlan_features for virtio-net and tun which allows vlan TSO packets to be
+> processed in both TX and RX path for virtio-net.
+> 
+> Netperf shows great improvements on stream tests:
 
-I'll try to get most pending things merged into my trees tomorrow.
-After that, it will be more hit-and-miss -- I'll do what I can when
-I can.  I won't really be back to my regular schedule until May 1...
-
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Both applied to net-next, thanks.
