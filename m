@@ -1,69 +1,68 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next PATCH 2/2] tuntap: initialize vlan_features
-Date: Thu, 11 Apr 2013 12:55:31 +0300
-Message-ID: <20130411095531.GC21362@redhat.com>
-References: <1365672742-42258-1-git-send-email-jasowang@redhat.com>
- <1365672742-42258-3-git-send-email-jasowang@redhat.com>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be active
+Date: Thu, 11 Apr 2013 11:59:30 +0200
+Message-ID: <5814124.riuyD8fLGG@linux-5eaq.site>
+References: <20110727141246.GC29616@orbit.nwl.cc> <87txndwkx1.fsf@nemi.mork.no> <CACVXFVMW2Dosr0FAKCvxgUFQKmwbduiC+HqmzS1tsvAHu=G8Kg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1365672742-42258-3-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	Dan Williams <dcbw@redhat.com>,
+	Elina Pasheva <epasheva@sierrawireless.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>
+To: Ming Lei <tom.leiming@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out002.kontent.com ([81.88.40.216]:40997 "EHLO
+	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753080Ab3DKJ6o convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 05:58:44 -0400
+In-Reply-To: <CACVXFVMW2Dosr0FAKCvxgUFQKmwbduiC+HqmzS1tsvAHu=G8Kg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 11, 2013 at 05:32:22PM +0800, Jason Wang wrote:
-> The vlan_features was zero which prevents vlan GSO packets to be transmitted to
-> userspace. This is suboptimal so enable this by initialize vlan_features for
-> tuntap.
-> 
-> Netperf shows better performance of guest receiving since vlan TSO works for
-> tuntap:
-> 
-> before:
-> netperf -H 192.168.5.4
-> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.5.4 ()
-> port 0 AF_INET : demo
-> Recv   Send    Send
-> Socket Socket  Message  Elapsed
-> Size   Size    Size     Time     Throughput
-> bytes  bytes   bytes    secs.    10^6bits/sec
-> 
->  87380  16384  16384    10.01    2786.67
-> 
-> after:
-> netperf -H 192.168.5.4
-> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.5.4 ()
-> port 0 AF_INET : demo
-> Recv   Send    Send
-> Socket Socket  Message  Elapsed
-> Size   Size    Size     Time     Throughput
-> bytes  bytes   bytes    secs.    10^6bits/sec
-> 
->  87380  16384  16384    10.00    8085.49
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+On Thursday 11 April 2013 16:37:53 Ming Lei wrote:
+> On Thu, Apr 11, 2013 at 4:06 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
+> > Oliver Neukum <oliver@neukum.org> writes:
+> >
+> > My immediate thought was that someone also might want to use this n=
+ew
+> > API from atomic context, e.g. calling it directly from an URB callb=
+ack.
+>=20
+> I am wondering it is a valid use case, and if there is one URB submit=
+ted,
+> the interrupt URB for status has been submitted already, hasn't it?
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+That is the point of this patch. There are multiple reasons to keep
+the status urb submitted. The generic layer has to count them and
+react to the count.
 
-> ---
->  drivers/net/tun.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 29538e6..316c759 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -1656,6 +1656,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
->  		dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST |
->  			TUN_USER_FEATURES;
->  		dev->features = dev->hw_features;
-> +		dev->vlan_features = dev->features;
->  
->  		INIT_LIST_HEAD(&tun->disabled);
->  		err = tun_attach(tun, file);
-> -- 
-> 1.7.1
+> > But that is of course not possible taking a mutex.  Could the lock
+> > preventing interrupt_count maybe be a spinlock instead?  Or am I on=
+ the
+> > completely wrong track here?
+>=20
+> Also it is a bit odd that the 'start' API is allowed in atomic contex=
+t, but
+> the 'stop' API isn't allowed, and it is very easy to cause unbalanced=
+ counter.
+
+It simply is easier to submit an URB in an atomic context than to kill =
+it.
+The code allowing doing it under a spinlock would be complex.
+
+> > In any case, I don't see the point unnecessarily limiting the API b=
+y
+> > dropping the memflags.  What possible problem would that solve?
+>=20
+> If you think 'start' API should be called in atomic context, the memf=
+lags
+
+It may be called. It doesn't have to be. usbnet needs a certain amount
+of genericness in the API. Passing a flag does that and is simple.
+
+	Regards
+		Oliver
