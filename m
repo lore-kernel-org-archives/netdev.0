@@ -1,44 +1,64 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [PATCH RFC] spinlock: split out debugging check from spin_lock_mutex
-Date: Thu, 11 Apr 2013 19:51:20 +0200
-Message-ID: <3142935.JcJEKt2WmH@cpaasch-mac>
-References: <5166BDAA.3000603@acm.org> <2032636.RnfJ0d1BWA@cpaasch-mac> <20130411170404.GE8986@neilslaptop.think-freely.org>
-Reply-To: christoph.paasch@uclouvain.be
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] net: mv643xx_eth: Add GRO support
+Date: Thu, 11 Apr 2013 19:51:47 +0200
+Message-ID: <20130411175147.GN1910@1wt.eu>
+References: <CABJ1b_TQDabT1J7ffo5cb1Th=71bcSduifMJaDpfVRiiHvtWDw@mail.gmail.com>
+ <20130411150326.GA19978@1wt.eu>
+ <CABJ1b_TRxm97DKJLP_h0VwMJvcYmSpjoJvtg1KvBNGah=VzqMQ@mail.gmail.com>
+ <20130411.133119.913809939413807690.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: g@neilslaptop.think-freely.org,
-	Bart Van Assche <bvanassche@acm.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:58737 "EHLO
-	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753620Ab3DKRv1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 13:51:27 -0400
-In-Reply-To: <20130411170404.GE8986@neilslaptop.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, jason@lakedaemon.net, benh@kernel.crashing.org,
+ linux-kernel@vger.kernel.org, smoch@web.de, paulus@samba.org,
+ linux-arm-kernel@lists.infradead.org, dale@farnsworth.org,
+ netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, florian@openwrt.org,
+ buytenh@wantstofly.org, sebastian.hesselbarth@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20130411.133119.913809939413807690.davem@davemloft.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 11 April 2013 13:04:05 Neil Horman wrote:
-> I dont believe the deadlock you describe can happen.  The spin_lock_mutex
-> operation disables irqs on the local cpu with local_irq_save, so we won't
-> loose the cpu while we're holding the spinlock.  Likewise we don't restore
-> the irq flags until after we release said lock.  Once we have the mutex, if
-> we're preempted by another path that goes through the netpoll_poll_dev
-> path, then we hit the trylock api call.  The spinlock is either released or
-> held on another cpu (read: no deadlock), and if the mutex is held, then the
-> trylock simply fails.
+On Thu, Apr 11, 2013 at 01:31:19PM -0400, David Miller wrote:
+> From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+> Date: Thu, 11 Apr 2013 17:27:03 +0200
+> 
+> > On Thu, Apr 11, 2013 at 5:03 PM, Willy Tarreau <w@1wt.eu> wrote:
+> >> On Thu, Apr 11, 2013 at 04:47:49PM +0200, Sebastian Hesselbarth wrote:
+> >>> I tried todays net-next on top of 3.9-rc6 without any gro patch, with
+> >>> the initial
+> >>> patch (Soeren) and your proposed patch (Willy). The results show that
+> >>> both patches
+> >>> allow a significant increase in throughput compared to
+> >>> netif_receive_skb (!gro, !lro)
+> >>> alone. Having gro with lro disabled gives some 2% more throughput
+> >>> compared to lro only.
+> >>
+> >> Indeed this is consistent with my memories, since Eric improved the
+> >> GRO path, it became faster than LRO on this chip.
+> > 
+> > I don't have a strong opinion on whether Soeren's or your proposal should
+> > be submitted. But I insist on having one of them in, as GRO significantly
+> > improves the common use case, is enabled by default, and not as
+> > constrained as LRO.
+> 
+> I think, as per other drivers, LRO should be eliminated completely from
+> all drivers, including this one, and GRO used exclusively instead.
 
-Thanks for explaining this to me. I was looking for a local_bh_disable() - but 
-local_irq_save does the job too.
+Eric provided me with one such experimental patch in the past for this
+driver. It worked for me but we never tried to clean it up to propose
+it for inclusion.
 
+If anyone is interested, I might still have it in experimental shape.
 
-Thanks,
-Christoph
-
--- 
-IP Networking Lab --- http://inl.info.ucl.ac.be
-MultiPath TCP in the Linux Kernel --- http://multipath-tcp.org
-UCLouvain
---
+Willy
