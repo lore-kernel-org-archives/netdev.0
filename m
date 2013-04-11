@@ -1,57 +1,61 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] tcp: Reallocate headroom if it would overflow csum_start
-Date: Thu, 11 Apr 2013 13:19:48 +0200
-Message-ID: <c35c262084e8907098dc2db5ea9690d2119b4916.1365678820.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:59099
-	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750812Ab3DKLTy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 07:19:54 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be active
+Date: Thu, 11 Apr 2013 19:42:53 +0800
+Message-ID: <CACVXFVO13tG606nDHth5rEA9jexj1iFHnry5ktrMpm_aGGTSvw@mail.gmail.com>
+References: <20110727141246.GC29616@orbit.nwl.cc>
+	<1365625850.22411.1.camel@dcbw.foobar.com>
+	<CACVXFVNKSszw+3VnM3hwepbTHh3gvjC+pG2SL_OsVm+1SqrNzQ@mail.gmail.com>
+	<2552222.23e5DWG2Z9@linux-5eaq.site>
+	<87txndwkx1.fsf@nemi.mork.no>
+	<CACVXFVMW2Dosr0FAKCvxgUFQKmwbduiC+HqmzS1tsvAHu=G8Kg@mail.gmail.com>
+	<87ppy1wfhq.fsf@nemi.mork.no>
+	<CACVXFVNn9MQr6JLdin=u642Jb-2ZPfVk8YaBmNdhU0_2e7WJqQ@mail.gmail.com>
+	<87hajdwefp.fsf@nemi.mork.no>
+	<CACVXFVO+QZ+mtdOFuNuh+8HQOMcuQrKJRAaW9ohyrMCMeZXsjQ@mail.gmail.com>
+	<87d2u1wci6.fsf@nemi.mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Rory Filer <rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
+	Phil Sutter <phil-ydcDiazATMQ@public.gmane.org>
+To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87d2u1wci6.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-If a TCP retransmission gets partially ACKed and collapsed multiple
-times it is possible for the headroom to grow beyond 64K which will
-overflow the 16bit skb->csum_start which is based on the start of
-the headroom. It has been observed rarely in the wild with IPoIB due
-to the 64K MTU.
+On Thu, Apr 11, 2013 at 7:08 PM, Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
+>
+> The docs for usb_submit_urb() in drivers/usb/core/urb.c lists some
+> possible mem_flags use cases. Among these are (where (b) and (c) are
+> cases needing GFP_ATOMIC and not applicable here):
+>
+> <quote>
+>  *  (3) If you use a kernel thread with a network driver you must use
+>  *      GFP_NOIO, unless (b) or (c) apply;
+> </quote>
+>
+> Is this example
+>  a) wrong, or
+>  b) not applicable, or
+>  c) to be excluded from the new API?
 
-Verify if the acking and collapsing resulted in a headroom exceeding
-what csum_start can cover and reallocate the headroom if so.
+IMO, it may be a) or b), and we can find many GFP_KERNEL usage
+inside usbnet(kevent(), ...).
 
-LLNL has been running the patch for a while and has not seen the
-problem occur since.
+Also (3) doesn't explain the cause. Oliver, could you give a hit?
 
-A big thank you to Jim Foraker <foraker1@llnl.gov> and the team at
-LLNL for helping out with the investigation and testing.
+Wrt. usbnet, except for in xmit & receive handler, the rule should be
+same with other usb driver.
 
-Reported-by: Jim Foraker <foraker1@llnl.gov>
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
-v2: reallocate headroom instead of preventing further collapsing
-
- net/ipv4/tcp_output.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index b44cf81..bf6ceb7 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2388,8 +2388,11 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 	 */
- 	TCP_SKB_CB(skb)->when = tcp_time_stamp;
- 
--	/* make sure skb->data is aligned on arches that require it */
--	if (unlikely(NET_IP_ALIGN && ((unsigned long)skb->data & 3))) {
-+	/* make sure skb->data is aligned on arches that require it
-+	 * and check if ack-trimming & collapsing extended the headroom
-+	 * beyond what csum_start can cover. */
-+	if (unlikely(NET_IP_ALIGN && ((unsigned long)skb->data & 3) ||
-+		     skb_headroom(skb) >= 0xFFFF)) {
- 		struct sk_buff *nskb = __pskb_copy(skb, MAX_TCP_HEADER,
- 						   GFP_ATOMIC);
- 		return nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC) :
--- 
-1.7.11.7
+Thanks,
+--=20
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
