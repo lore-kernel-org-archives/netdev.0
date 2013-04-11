@@ -1,66 +1,45 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCHv2 1/2] bonding: fix netdev event NULL pointer dereference
-Date: Thu, 11 Apr 2013 15:45:05 +0200
-Message-ID: <1365687905-1053-1-git-send-email-nikolay@redhat.com>
-References: <1365538644-1502-1-git-send-email-nikolay@redhat.com>
-Cc: andy@greyhouse.net, fubar@us.ibm.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Netpoll triggers soft lockup
+Date: Thu, 11 Apr 2013 10:08:10 -0400
+Message-ID: <20130411140809.GC8986@neilslaptop.think-freely.org>
+References: <5166BDAA.3000603@acm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Bart Van Assche <bvanassche@acm.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36791 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751560Ab3DKNuR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Apr 2013 09:50:17 -0400
-In-Reply-To: <1365538644-1502-1-git-send-email-nikolay@redhat.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53935 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752513Ab3DKOIV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 10:08:21 -0400
+Content-Disposition: inline
+In-Reply-To: <5166BDAA.3000603@acm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 471cb5a33dcbd7c529684a2ac7ba4451414ee4a7 ("bonding: remove
-usage of dev->master") a bug was introduced which causes a NULL pointer
-dereference. If a bond device is in mode 6 (ALB) and a slave is added
-it will dereference a NULL pointer in bond_slave_netdev_event().
-This is because in bond_enslave we have bond_alb_init_slave() which
-changes the MAC address of the slave and causes a NETDEV_CHANGEADDR.
-Then we have in bond_slave_netdev_event():
-        struct slave *slave = bond_slave_get_rtnl(slave_dev);
-        struct bonding *bond = slave->bond;
-bond_slave_get_rtnl() dereferences slave_dev->rx_handler_data which at
-that time is NULL since netdev_rx_handler_register() is called later.
+On Thu, Apr 11, 2013 at 03:42:02PM +0200, Bart Van Assche wrote:
+> Hi,
+> 
+> While testing a driver against kernel 3.9-rc6 I ran into a soft
+> lockup triggered by sending lots of kernel messages to a remote
+> system via netconsole. This behavior was probably introduced by
+> commit ca99ca14c ("netpoll: protect napi_poll and poll_controller
+> during dev_[open|close]"). That commit introduced a mutex in
+> netpoll_poll_dev(), which can be called from interrupt context. Is
+> there anyone who can tell me whether this is a bug in commit
+> ca99ca14c or in netconsole ?
+> 
+Thanks for the report Bart, thats interesting.  You're right, the problem was
+introduced by ca99ca14c, but it seems like a false positive to me.  The warning
+is comming from DEBUG_LOCKS_WARN_ON in spin_lock_mutex.  It appears that the
+intent here is to catch users of spin_lock_mutex (which is the mutex api), from
+trying to use mutex locking in interrupt context as that results in a panic.  In
+this case however, we're using the mutex_trylock call, which is guaranteed not
+to sleep (which is the nature of the panic condition).  So we really don't need
+to warn here.  I think the right thing to do in this case is to add a flag to
+spin_lock_mutex that skips the warning if we're doing a trylock operation.  I'll
+work up a patch shortly.
 
-This is fixed by checking if slave is NULL before dereferencing it.
-
-v2: Fix the comment styling
-
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
- drivers/net/bonding/bond_main.c | 13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 171b10f..15c675c 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3168,11 +3168,20 @@ static int bond_slave_netdev_event(unsigned long event,
- 				   struct net_device *slave_dev)
- {
- 	struct slave *slave = bond_slave_get_rtnl(slave_dev);
--	struct bonding *bond = slave->bond;
--	struct net_device *bond_dev = slave->bond->dev;
-+	struct bonding *bond;
-+	struct net_device *bond_dev;
- 	u32 old_speed;
- 	u8 old_duplex;
- 
-+	/* A netdev event can be generated while enslaving a device
-+	 * before netdev_rx_handler_register is called in which case
-+	 * slave will be NULL
-+	 */
-+	if (!slave)
-+		return NOTIFY_DONE;
-+	bond_dev = slave->bond->dev;
-+	bond = slave->bond;
-+
- 	switch (event) {
- 	case NETDEV_UNREGISTER:
- 		if (bond->setup_by_slave)
--- 
-1.8.1.4
+Thanks again!
+Neil
