@@ -1,32 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] stmmac: prevent interrupt loop with MMC RX IPC Counter
-Date: Thu, 11 Apr 2013 16:03:44 -0400 (EDT)
-Message-ID: <20130411.160344.1137842208699027001.davem@davemloft.net>
-References: <511E51A9.9020908@st.com>
-	<1365580564-9149-1-git-send-email-christian.ruppert@abilis.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH 5/7] xen-netfront: reduce gso_max_size to account for
+ ethernet header
+Date: Thu, 11 Apr 2013 21:04:01 +0100
+Message-ID: <20130411200401.GJ5936@zion.uk.xensource.com>
+References: <1365505655-8021-1-git-send-email-wei.liu2@citrix.com>
+ <1365505655-8021-6-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com
-To: christian.ruppert@abilis.com
+Content-Type: text/plain; charset="us-ascii"
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	"wdauchy@gmail.com" <wdauchy@gmail.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38707 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753487Ab3DKUDr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 16:03:47 -0400
-In-Reply-To: <1365580564-9149-1-git-send-email-christian.ruppert@abilis.com>
+Received: from smtp.citrix.com ([66.165.176.89]:26520 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751633Ab3DKUED (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Apr 2013 16:04:03 -0400
+Content-Disposition: inline
+In-Reply-To: <1365505655-8021-6-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christian Ruppert <christian.ruppert@abilis.com>
-Date: Wed, 10 Apr 2013 09:56:04 +0200
-
-> If the DesignWare MAC is synthesised with MMC RX IPC Counter, an unmanaged
-> and unacknowledged interrupt is generated after some time of operation.
+On Tue, Apr 09, 2013 at 12:07:33PM +0100, Wei Liu wrote:
+> The maximum packet including ethernet header that can be handled by netfront /
+> netback wire format is 65535. Reduce gso_max_size accordingly.
 > 
-> This patch masks the undesired interrupts.
+> Drop skb and print warning when skb->len > 65535. This can 1) save the effort
+> to send malformed packet to netback, 2) help spotting misconfiguration of
+> netfront in the future.
 > 
-> Signed-off-by: Christian Ruppert <christian.ruppert@abilis.com>
-> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-Applied.
+Any opinion on how much space should be reserved? From a previous thread
+Ben seemed to suggest 90 (Ethernet + VLAN tag + IPv6 + TCP + timestamp
+option = 90 bytes).
+
+
+Wei.
