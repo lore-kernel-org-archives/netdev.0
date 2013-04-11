@@ -1,53 +1,97 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net-next): ipsec-next 2013-04-11
-Date: Thu, 11 Apr 2013 09:56:07 +0200
-Message-ID: <1365666969-22645-1-git-send-email-steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:56585 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752537Ab3DKH4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Apr 2013 03:56:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next PATCH] xen-netback: switch to use skb_partial_csum_set()
+Date: Thu, 11 Apr 2013 15:58:32 +0800
+Message-ID: <51666D28.7090500@redhat.com>
+References: <1365662129-38031-1-git-send-email-jasowang@redhat.com> <1365666364.27868.114.camel@zakaz.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1365666364.27868.114.camel@zakaz.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-1)  Allow to avoid copying DSCP during encapsulation
-    by setting a SA flag. From Nicolas Dichtel.
+On 04/11/2013 03:46 PM, Ian Campbell wrote:
+> On Thu, 2013-04-11 at 07:35 +0100, Jason Wang wrote:
+>> Switch to use skb_partial_csum_set() to simplify the codes.
+> This is incremental on top of your previous patch, right?
 
-2) Constify the netlink dispatch table, no need to modify it
-   at runtime. From Mathias Krause.
+It's an independent patch, since the previous patch has been applied.
+>> Cc: Ian Campbell <ian.campbell@citrix.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>> Note:
+>> - Compile test only.
+>> ---
+>>  drivers/net/xen-netback/netback.c |   22 ++++++++--------------
+>>  1 files changed, 8 insertions(+), 14 deletions(-)
+>>
+>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+>> index 83905a9..70631f0 100644
+>> --- a/drivers/net/xen-netback/netback.c
+>> +++ b/drivers/net/xen-netback/netback.c
+>> @@ -1156,7 +1156,6 @@ static int netbk_set_skb_gso(struct xenvif *vif,
+>>  static int checksum_setup(struct xenvif *vif, struct sk_buff *skb)
+>>  {
+>>  	struct iphdr *iph;
+>> -	unsigned char *th;
+>>  	int err = -EPROTO;
+>>  	int recalculate_partial_csum = 0;
+>>  
+>> @@ -1180,28 +1179,26 @@ static int checksum_setup(struct xenvif *vif, struct sk_buff *skb)
+>>  		goto out;
+>>  
+>>  	iph = (void *)skb->data;
+>> -	th = skb->data + 4 * iph->ihl;
+>> -	if (th >= skb_tail_pointer(skb))
+>> -		goto out;
+>> -
+>> -	skb_set_transport_header(skb, 4 * iph->ihl);
+> Is removing this line really correct?
 
-Please pull or let me know if there are problems.
-
-Thanks!
-
-The following changes since commit 6fac41157252220678b210fcb13e2c3dad7a912a:
-
-  bnx2x: use the default NAPI weight (2013-03-05 23:40:01 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
-
-for you to fetch changes up to 05600a799f6c67b139f2bc565e358b913b230cf5:
-
-  xfrm_user: constify netlink dispatch table (2013-03-06 07:02:46 +0100)
-
-----------------------------------------------------------------
-Mathias Krause (1):
-      xfrm_user: constify netlink dispatch table
-
-Nicolas Dichtel (1):
-      xfrm: allow to avoid copying DSCP during encapsulation
-
- include/net/xfrm.h           |    1 +
- include/uapi/linux/xfrm.h    |    3 +++
- net/ipv4/ipcomp.c            |    1 +
- net/ipv4/xfrm4_mode_tunnel.c |    8 ++++++--
- net/ipv6/xfrm6_mode_tunnel.c |    7 +++++--
- net/xfrm/xfrm_state.c        |    1 +
- net/xfrm/xfrm_user.c         |   17 +++++++++++++++--
- 7 files changed, 32 insertions(+), 6 deletions(-)
+After commit e5d5deca (net: core: let skb_partial_csum_set() set
+transport header), this work was done by skb_partial_csum_set().
+>
+>> -	skb->csum_start = th - skb->head;
+>>  	switch (iph->protocol) {
+>>  	case IPPROTO_TCP:
+>> -		skb->csum_offset = offsetof(struct tcphdr, check);
+>> +		if (!skb_partial_csum_set(skb, 4 * iph->ihl,
+>> +					  offsetof(struct tcphdr, check)))
+>> +			goto out;
+>>  
+>>  		if (recalculate_partial_csum) {
+>> -			struct tcphdr *tcph = (struct tcphdr *)th;
+>> +			struct tcphdr *tcph = tcp_hdr(skb);
+>>  			tcph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+>>  							 skb->len - iph->ihl*4,
+>>  							 IPPROTO_TCP, 0);
+>>  		}
+>>  		break;
+>>  	case IPPROTO_UDP:
+>> -		skb->csum_offset = offsetof(struct udphdr, check);
+>> +		if (!skb_partial_csum_set(skb, 4 * iph->ihl,
+>> +					  offsetof(struct udphdr, check)))
+>> +			goto out;
+>>  
+>>  		if (recalculate_partial_csum) {
+>> -			struct udphdr *udph = (struct udphdr *)th;
+>> +			struct udphdr *udph = udp_hdr(skb);
+>>  			udph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+>>  							 skb->len - iph->ihl*4,
+>>  							 IPPROTO_UDP, 0);
+>> @@ -1215,9 +1212,6 @@ static int checksum_setup(struct xenvif *vif, struct sk_buff *skb)
+>>  		goto out;
+>>  	}
+>>  
+>> -	if ((th + skb->csum_offset + 2) > skb_tail_pointer(skb))
+>> -		goto out;
+>> -
+>>  	err = 0;
+>>  
+>>  out:
+>
