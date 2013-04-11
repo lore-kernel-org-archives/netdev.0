@@ -1,82 +1,34 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2 net-next] ptp: dynamic allocation of PHC char devices
-Date: Thu, 11 Apr 2013 21:18:32 +0100
-Message-ID: <1365711512.7355.25.camel@bwh-desktop.uk.solarflarecom.com>
-References: <a2c31e85628e006bdd6c621c0b14aeded4b62c66.1365684455.git.jbenc@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: mvmdio: add clocks property to binding
+ documentation
+Date: Thu, 11 Apr 2013 16:19:51 -0400 (EDT)
+Message-ID: <20130411.161951.1231563739864529433.davem@davemloft.net>
+References: <1365615391-26244-1-git-send-email-sebastian.hesselbarth@gmail.com>
+	<1365672288-30932-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	Richard Cochran <richardcochran@gmail.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:28045 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752598Ab3DKUSh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 16:18:37 -0400
-In-Reply-To: <a2c31e85628e006bdd6c621c0b14aeded4b62c66.1365684455.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
+	rob@landley.net, florian@openwrt.org,
+	thomas.petazzoni@free-electrons.com, gregkh@linuxfoundation.org,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: sebastian.hesselbarth@gmail.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1365672288-30932-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-04-11 at 14:48 +0200, Jiri Benc wrote:
-> As network adapters supporting PTP are becoming more common, machines with
-> many NICs suddenly have many PHCs, too. The current limit of eight /dev/ptp*
-> char devices (and thus, 8 network interfaces with PHC) is insufficient. Let
-> the ptp driver allocate the char devices dynamically.
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Date: Thu, 11 Apr 2013 11:24:48 +0200
+
+> Commit 3d604da1e9547c09c9dcc0ee443c306c9ae1a480
+>   ("net: mvmdio: get and enable optional clock")
 > 
-> idr is used for tracking minor numbers allocation; the mapping from index to
-> pointer is not used, as it is not needed for posix clocks.
-
-I think that means we should use IDA instead:
-- Use ida_simple_get() instead of idr_alloc() (and drop the ptp
-argument)
-- Use ida_simple_remove() instead of idr_remove()
-- Use ida_init() and ida_destroy()
-- Don't bother with an external lock for the ida structure (the 'simple'
-functions use a global spinlock, which should be fine for device
-registration)
-
-> Tested with 28 PHCs, removing and re-adding some of them.
+> was missing an update of the corresponding device tree binding
+> documentation. This patch adds the clocks property to mvmdio
+> binding documentation.
 > 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
-> v2: Removed dynamic allocation of chunks of minor numbers, the full minor
->     range is allocated instead.
-> ---
->  drivers/ptp/ptp_clock.c |   60 +++++++++++++++++++++++++++++-----------------
->  1 files changed, 38 insertions(+), 22 deletions(-)
-> 
-> diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
-> index 79f4bce..c8c57bc 100644
-> --- a/drivers/ptp/ptp_clock.c
-> +++ b/drivers/ptp/ptp_clock.c
-[...]
-> @@ -42,7 +41,7 @@
->  static dev_t ptp_devt;
->  static struct class *ptp_class;
->  
-> -static DECLARE_BITMAP(ptp_clocks_map, PTP_MAX_CLOCKS);
-> +static struct idr ptp_clocks_map;
+> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 
-As this is static, you can use DEFINE_IDR()/DEFINE_IDA() here and skip
-calling idr_init()/ida_init().
-
-[...]
-> +       index = idr_alloc(&ptp_clocks_map, ptp, 0, 0, GFP_KERNEL);
-> +       if (index < 0)
-> +               goto no_idr;
-> +       if (index > MINORMASK) {
-> +               idr_remove(&ptp_clocks_map, index);
-> +               index = -EBUSY;
-> +       }
-[...]
-
-You should specify the end value (= MINORMASK + 1) to
-idr_alloc()/ida_simple_get() rather than checking for it afterwards.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Applied.
