@@ -1,70 +1,63 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: [PATCH RFC] spinlock: split out debugging check from
- spin_lock_mutex
-Date: Thu, 11 Apr 2013 08:57:01 -0700
-Message-ID: <1365695821.3887.167.camel@edumazet-glaptop>
-References: <5166BDAA.3000603@acm.org>
-	 <1365693486-6315-1-git-send-email-nhorman@tuxdriver.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] net: mv643xx_eth: Add GRO support
+Date: Thu, 11 Apr 2013 18:02:58 +0200
+Message-ID: <20130411160258.GI1910@1wt.eu>
+References: <1365684023-9967-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <20130411131333.GD1910@1wt.eu>
+ <CABJ1b_TQDabT1J7ffo5cb1Th=71bcSduifMJaDpfVRiiHvtWDw@mail.gmail.com>
+ <20130411150326.GA19978@1wt.eu>
+ <CABJ1b_TRxm97DKJLP_h0VwMJvcYmSpjoJvtg1KvBNGah=VzqMQ@mail.gmail.com>
+ <20130411153256.GH1910@1wt.eu> <1365695675.3887.165.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Bart Van Assche <bvanassche@acm.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:56135 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752491Ab3DKP5G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 11:57:06 -0400
-Received: by mail-pb0-f51.google.com with SMTP id rr4so926490pbb.10
-        for <netdev@vger.kernel.org>; Thu, 11 Apr 2013 08:57:05 -0700 (PDT)
-In-Reply-To: <1365693486-6315-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+ Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+ linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+ Soeren Moch <smoch@web.de>, Paul Mackerras <paulus@samba.org>,
+ linux-arm-kernel@lists.infradead.org, Dale Farnsworth <dale@farnsworth.org>,
+ netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ Florian Fainelli <florian@openwrt.org>,
+ Lennert Buytenhek <buytenh@wantstofly.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1365695675.3887.165.camel@edumazet-glaptop>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-04-11 at 11:18 -0400, Neil Horman wrote:
-> Bart, this patch should fix your problem.  Could you please test it and confirm?
+On Thu, Apr 11, 2013 at 08:54:35AM -0700, Eric Dumazet wrote:
+> On Thu, 2013-04-11 at 17:32 +0200, Willy Tarreau wrote:
+> > On Thu, Apr 11, 2013 at 05:27:03PM +0200, Sebastian Hesselbarth wrote:
+> > > I don't have a strong opinion on whether Soeren's or your proposal should
+> > > be submitted. But I insist on having one of them in, as GRO significantly
+> > > improves the common use case, is enabled by default, and not as
+> > > constrained as LRO.
+> > 
+> > I agree, use yours first, but we should keep an eye on this. Since you have
+> > everything to run a test, please try to see if you can get netperf to run
+> > over IPv6, I'm sure the NIC doesn't handle it.
 > 
-> Bart Van Assche recently reported a warning to me:
+> Willy, testing the checksum in the NIC driver itself prevents the stack
+> doing GRO even if the NIC could not checksum the packet, as in GRE
+> tunneling for example.
 > 
-> <IRQ>  [<ffffffff8103d79f>] warn_slowpath_common+0x7f/0xc0
->  [<ffffffff8103d7fa>] warn_slowpath_null+0x1a/0x20
->  [<ffffffff814761dd>] mutex_trylock+0x16d/0x180
->  [<ffffffff813968c9>] netpoll_poll_dev+0x49/0xc30
->  [<ffffffff8136a2d2>] ? __alloc_skb+0x82/0x2a0
->  [<ffffffff81397715>] netpoll_send_skb_on_dev+0x265/0x410
->  [<ffffffff81397c5a>] netpoll_send_udp+0x28a/0x3a0
->  [<ffffffffa0541843>] ? write_msg+0x53/0x110 [netconsole]
->  [<ffffffffa05418bf>] write_msg+0xcf/0x110 [netconsole]
->  [<ffffffff8103eba1>] call_console_drivers.constprop.17+0xa1/0x1c0
->  [<ffffffff8103fb76>] console_unlock+0x2d6/0x450
->  [<ffffffff8104011e>] vprintk_emit+0x1ee/0x510
->  [<ffffffff8146f9f6>] printk+0x4d/0x4f
->  [<ffffffffa0004f1d>] scsi_print_command+0x7d/0xe0 [scsi_mod]
-> 
-> This resulted from my commit ca99ca14c which introduced a mutex_trylock
-> operation in a path that could execute in interrupt context.  When mutex
-> debugging is enabled, the above warns the user when we are in fact exectuting in
-> interrupt context.
-> 
-> I think this is a false positive however.  The check is intended to catch users
-> who might be issuing sleeping calls in irq context, but the use of mutex_trylock
-> here is guaranteed not to sleep.
-> 
-> We could fix this by replacing the DEBUG_LOCK_WARN_ON check in spin_lock_mutex
-> with a __might_sleep call in the appropriate parent mutex operations, but for
-> the sake of effiency (which It seems is why the check was put in the spin lock
-> code only when debug is enabled), lets split the spin_lock_mutex call into two
-> components, where the outer component does the debug checking.  Then
-> mutex_trylock can just call the inner part as its callable from irq context
-> safely.
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> Reported-by: Bart Van Assche <bvanassche@acm.org>
-> CC: Bart Van Assche <bvanassche@acm.org>
-> CC: David Miller <davem@davemloft.net>
-> CC: netdev@vger.kernel.org
+> So Sebastien patch is better IMHO : Just call the napi gro handler and
+> let core stack handles the details ;)
 
-Please post your patch to lkml ?
+OK, that makes sense indeed, I didn't think about this case. All
+I remember was that the old call achieved a higher packet rate
+than napi_gro_receive, but it was on an older kernel and I can't
+be more specifics after several months :-/
 
-Thanks !
+Cheers,
+Willy
