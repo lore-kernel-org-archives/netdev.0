@@ -1,36 +1,33 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be active
-Date: Thu, 11 Apr 2013 08:50:30 +0200
-Message-ID: <2552222.23e5DWG2Z9@linux-5eaq.site>
-References: <20110727141246.GC29616@orbit.nwl.cc> <1365625850.22411.1.camel@dcbw.foobar.com> <CACVXFVNKSszw+3VnM3hwepbTHh3gvjC+pG2SL_OsVm+1SqrNzQ@mail.gmail.com>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH v2] net: mv643xx_eth: use managed devm_kzalloc
+Date: Thu, 11 Apr 2013 08:53:19 +0200
+Message-ID: <51665DDF.4060205@gmail.com>
+References: <1365615483-26318-1-git-send-email-sebastian.hesselbarth@gmail.com> <1365626527-27233-1-git-send-email-sebastian.hesselbarth@gmail.com> <20130410.233933.2109788843089649198.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Dan Williams <dcbw@redhat.com>,
-	Elina Pasheva <epasheva@sierrawireless.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out003.kontent.com ([81.88.40.217]:60623 "EHLO
-	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753893Ab3DKGtq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 02:49:46 -0400
-In-Reply-To: <CACVXFVNKSszw+3VnM3hwepbTHh3gvjC+pG2SL_OsVm+1SqrNzQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: buytenh@wantstofly.org, andrew@lunn.ch, jason@lakedaemon.net,
+	florian@openwrt.org, sergei.shtylyov@cogentembedded.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130410.233933.2109788843089649198.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 11 April 2013 10:31:31 Ming Lei wrote:
- 
-> 'mem_flags' isn't needed any more since we can apply allocation
-> of GFP_NOIO automatically in resume path now, and you can always
-> use GFP_KERNEL safely. Considered that it is a API, please don't
-> introduce it.
+On 04/11/2013 05:39 AM, David Miller wrote:
+> From: Sebastian Hesselbarth<sebastian.hesselbarth@gmail.com>
+> Date: Wed, 10 Apr 2013 22:42:07 +0200
+>
+>> This patch moves shared private data kzalloc to managed devm_kzalloc and
+>> cleans now unneccessary kfree and error handling.
+>>
+>> Signed-off-by: Sebastian Hesselbarth<sebastian.hesselbarth@gmail.com>
+>
+> This doesn't apply cleanly to the net-next tree.
 
-The automatic system goes a long way, but there are corner cases, for example
-work queues, which still need mem_flags.
+Yeah. I sent two single patches for mv643xx_eth, while they should
+have been sent together in one patch set. I'll prepare a cover letter
+and resend both in one patch set.
 
-	Regards
-		Oliver
+Sebastian
