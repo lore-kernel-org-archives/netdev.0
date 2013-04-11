@@ -1,56 +1,57 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be active
-Date: Thu, 11 Apr 2013 13:14:35 +0200
-Message-ID: <28454387.MvMlbQoOly@linux-5eaq.site>
-References: <20110727141246.GC29616@orbit.nwl.cc> <3010836.mDNO71IiS7@linux-5eaq.site> <CACVXFVNHoBNpyRztp1Bu_41=YnszqQ3jQDw4j87Zd2hZM3r-VA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Dan Williams <dcbw@redhat.com>,
-	Elina Pasheva <epasheva@sierrawireless.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: Ming Lei <tom.leiming@gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] tcp: Reallocate headroom if it would overflow csum_start
+Date: Thu, 11 Apr 2013 13:19:48 +0200
+Message-ID: <c35c262084e8907098dc2db5ea9690d2119b4916.1365678820.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out002.kontent.com ([81.88.40.216]:35853 "EHLO
-	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752127Ab3DKLNu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 07:13:50 -0400
-In-Reply-To: <CACVXFVNHoBNpyRztp1Bu_41=YnszqQ3jQDw4j87Zd2hZM3r-VA@mail.gmail.com>
+Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:59099
+	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750812Ab3DKLTy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 07:19:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 11 April 2013 18:03:09 Ming Lei wrote:
-> On Thu, Apr 11, 2013 at 5:53 PM, Oliver Neukum <oliver@neukum.org> wrote:
-> > On Thursday 11 April 2013 16:09:16 Ming Lei wrote:
-> >>
-> >> Could you explain why work queue need GFP_NOIO?
-> >
-> > Your fix for the memory allocation depends on it happening in the same
-> > context. If you execute code on a work queue this happens in the context
-> > of a kernel thread.
-> 
-> I understand the interface might be called from workqueue, and my question
-> is why GFP_NOIO is needed in the work queue context. Generally speaking,
-> GFP_KERNEL is enough for work queue context.
-> 
-> As we discussed before, GFP_NOIO is required in runtime resume context
-> and reset context, and the two contexts have been addressed automatically.
-> So looks you didn't answer my question, :-)
+If a TCP retransmission gets partially ACKed and collapsed multiple
+times it is possible for the headroom to grow beyond 64K which will
+overflow the 16bit skb->csum_start which is based on the start of
+the headroom. It has been observed rarely in the wild with IPoIB due
+to the 64K MTU.
 
-Sorry, I misunderstood.
+Verify if the acking and collapsing resulted in a headroom exceeding
+what csum_start can cover and reallocate the headroom if so.
 
-Task A					Task B				queue
+LLNL has been running the patch for a while and has not seen the
+problem occur since.
 
-queue work
-						request a reset
-											allocate memory and block
-						cancel the work
-											shit happened
+A big thank you to Jim Foraker <foraker1@llnl.gov> and the team at
+LLNL for helping out with the investigation and testing.
 
-	Regards
-		Oliver
+Reported-by: Jim Foraker <foraker1@llnl.gov>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+v2: reallocate headroom instead of preventing further collapsing
 
-		
+ net/ipv4/tcp_output.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index b44cf81..bf6ceb7 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2388,8 +2388,11 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 	 */
+ 	TCP_SKB_CB(skb)->when = tcp_time_stamp;
+ 
+-	/* make sure skb->data is aligned on arches that require it */
+-	if (unlikely(NET_IP_ALIGN && ((unsigned long)skb->data & 3))) {
++	/* make sure skb->data is aligned on arches that require it
++	 * and check if ack-trimming & collapsing extended the headroom
++	 * beyond what csum_start can cover. */
++	if (unlikely(NET_IP_ALIGN && ((unsigned long)skb->data & 3) ||
++		     skb_headroom(skb) >= 0xFFFF)) {
+ 		struct sk_buff *nskb = __pskb_copy(skb, MAX_TCP_HEADER,
+ 						   GFP_ATOMIC);
+ 		return nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC) :
+-- 
+1.7.11.7
