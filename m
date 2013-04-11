@@ -1,31 +1,46 @@
-From: Bart Van Assche <bvanassche@acm.org>
-Subject: Re: [PATCH RFC] spinlock: split out debugging check from spin_lock_mutex
-Date: Thu, 11 Apr 2013 19:31:07 +0200
-Message-ID: <5166F35B.1040200@acm.org>
-References: <5166BDAA.3000603@acm.org> <1365693486-6315-1-git-send-email-nhorman@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: mv643xx_eth: Add GRO support
+Date: Thu, 11 Apr 2013 13:31:19 -0400 (EDT)
+Message-ID: <20130411.133119.913809939413807690.davem@davemloft.net>
+References: <CABJ1b_TQDabT1J7ffo5cb1Th=71bcSduifMJaDpfVRiiHvtWDw@mail.gmail.com>
+	<20130411150326.GA19978@1wt.eu>
+	<CABJ1b_TRxm97DKJLP_h0VwMJvcYmSpjoJvtg1KvBNGah=VzqMQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from jacques.telenet-ops.be ([195.130.132.50]:46285 "EHLO
-	jacques.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935328Ab3DKRbK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 13:31:10 -0400
-In-Reply-To: <1365693486-6315-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: w@1wt.eu, andrew@lunn.ch, jason@lakedaemon.net,
+	benh@kernel.crashing.org, linux-kernel@vger.kernel.org,
+	florian@openwrt.org, smoch@web.de, paulus@samba.org,
+	buytenh@wantstofly.org, dale@farnsworth.org,
+	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-arm-kernel@lists.infradead.org
+To: sebastian.hesselbarth@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CABJ1b_TRxm97DKJLP_h0VwMJvcYmSpjoJvtg1KvBNGah=VzqMQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/11/13 17:18, Neil Horman wrote:
-> Bart, this patch should fix your problem.  Could you please test it a=
-nd confirm?
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Date: Thu, 11 Apr 2013 17:27:03 +0200
 
-The fails to build on my setup after having applied that patch:
+> On Thu, Apr 11, 2013 at 5:03 PM, Willy Tarreau <w@1wt.eu> wrote:
+>> On Thu, Apr 11, 2013 at 04:47:49PM +0200, Sebastian Hesselbarth wrote:
+>>> I tried todays net-next on top of 3.9-rc6 without any gro patch, with
+>>> the initial
+>>> patch (Soeren) and your proposed patch (Willy). The results show that
+>>> both patches
+>>> allow a significant increase in throughput compared to
+>>> netif_receive_skb (!gro, !lro)
+>>> alone. Having gro with lro disabled gives some 2% more throughput
+>>> compared to lro only.
+>>
+>> Indeed this is consistent with my memories, since Eric improved the
+>> GRO path, it became faster than LRO on this chip.
+> 
+> I don't have a strong opinion on whether Soeren's or your proposal should
+> be submitted. But I insist on having one of them in, as GRO significantly
+> improves the common use case, is enabled by default, and not as
+> constrained as LRO.
 
-kernel/mutex.c: In function =91__mutex_trylock_slowpath=92:
-kernel/mutex.c:446:2: error: implicit declaration of function=20
-=91spin_unlock_mutex_raw=92 [-Werror=3Dimplicit-function-declaration]
-
-Bart.
+I think, as per other drivers, LRO should be eliminated completely from
+all drivers, including this one, and GRO used exclusively instead.
