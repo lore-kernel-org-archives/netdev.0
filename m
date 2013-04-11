@@ -1,31 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net-next): ipsec-next 2013-04-11
-Date: Thu, 11 Apr 2013 16:15:22 -0400 (EDT)
-Message-ID: <20130411.161522.88291238581541801.davem@davemloft.net>
-References: <1365666969-22645-1-git-send-email-steffen.klassert@secunet.com>
+Subject: Re: [PATCH] vhost_net: remove tx polling state
+Date: Thu, 11 Apr 2013 16:16:57 -0400 (EDT)
+Message-ID: <20130411.161657.2074095162745735091.davem@davemloft.net>
+References: <1365663048-38332-1-git-send-email-jasowang@redhat.com>
+	<20130411072430.GC17063@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38814 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750974Ab3DKUP1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 16:15:27 -0400
-In-Reply-To: <1365666969-22645-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130411072430.GC17063@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Thu, 11 Apr 2013 09:56:07 +0200
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 11 Apr 2013 10:24:30 +0300
 
-> 1)  Allow to avoid copying DSCP during encapsulation
->     by setting a SA flag. From Nicolas Dichtel.
+> On Thu, Apr 11, 2013 at 02:50:48PM +0800, Jason Wang wrote:
+>> After commit 2b8b328b61c799957a456a5a8dab8cc7dea68575 (vhost_net: handle polling
+>> errors when setting backend), we in fact track the polling state through
+>> poll->wqh, so there's no need to duplicate the work with an extra
+>> vhost_net_polling_state. So this patch removes this and make the code simpler.
+>> 
+>> This patch also removes the all tx starting/stopping code in tx path according
+>> to Michael's suggestion.
+>> 
+>> Netperf test shows almost the same result in stream test, but gets improvements
+>> on TCP_RR tests (both zerocopy or copy) especially on low load cases.
+>> 
+>> Tested between multiqueue kvm guest and external host with two direct
+>> connected 82599s.
+ ...
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
 > 
-> 2) Constify the netlink dispatch table, no need to modify it
->    at runtime. From Mathias Krause.
+> Less code and better speed, what's not to like.
+> Davem, could you pick this up for 3.10 please?
 > 
-> Please pull or let me know if there are problems.
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-Pulled, thanks a lot Steffen.
+Applied to net-next, thanks everyone.
