@@ -1,33 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 0/2] bonding: NULL pointer dereference and flag strip
- fixes
-Date: Thu, 11 Apr 2013 16:02:43 -0400 (EDT)
-Message-ID: <20130411.160243.351201200467404454.davem@davemloft.net>
-References: <1365707936-5073-1-git-send-email-nikolay@redhat.com>
+Subject: Re: [PATCH RESEND] tcp: incoming connections might use wrong route
+ under synflood
+Date: Thu, 11 Apr 2013 16:02:31 -0400 (EDT)
+Message-ID: <20130411.160231.1367130064866607872.davem@davemloft.net>
+References: <20130411225507.427b369046e53d03222b8fd3@highloadlab.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
-To: nikolay@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38695 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753838Ab3DKUCq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 16:02:46 -0400
-In-Reply-To: <1365707936-5073-1-git-send-email-nikolay@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: dp@highloadlab.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130411225507.427b369046e53d03222b8fd3@highloadlab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Thu, 11 Apr 2013 21:18:54 +0200
+From: Dmitry Popov <dp@highloadlab.com>
+Date: Thu, 11 Apr 2013 22:55:07 +0400
 
->  These 2 patches fix a NULL pointer dereference in the netdev event
->  handling of the bond and flag that wasn't stripped on enslave failure.
+> There is a bug in cookie_v4_check (net/ipv4/syncookies.c):
+> 	flowi4_init_output(&fl4, 0, sk->sk_mark, RT_CONN_FLAGS(sk),
+> 			   RT_SCOPE_UNIVERSE, IPPROTO_TCP,
+> 			   inet_sk_flowi_flags(sk),
+> 			   (opt && opt->srr) ? opt->faddr : ireq->rmt_addr,
+> 			   ireq->loc_addr, th->source, th->dest);
 > 
-> v2: Fix comment style 
+> Here we do not respect sk->sk_bound_dev_if, therefore wrong dst_entry may be
+> taken. This dst_entry is used by new socket (get_cookie_sock -> 
+> tcp_v4_syn_recv_sock), so its packets may take the wrong path.
 > 
-> Nikolay Aleksandrov (2):
->   bonding: fix netdev event NULL pointer dereference
->   bonding: IFF_BONDING is not stripped on enslave failure
+> Signed-off-by: Dmitry Popov <dp@highloadlab.com>
 
-Both applied, thanks.
+Applied.
