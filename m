@@ -1,67 +1,79 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH 0/5 v2] mv643xx_eth: device tree bindings
-Date: Thu, 11 Apr 2013 12:53:03 -0400
-Message-ID: <20130411165303.GI28693@titan.lakedaemon.net>
-References: <1365071235-11611-1-git-send-email-florian@openwrt.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH RFC] spinlock: split out debugging check from
+ spin_lock_mutex
+Date: Thu, 11 Apr 2013 12:56:30 -0400
+Message-ID: <20130411165630.GD8986@neilslaptop.think-freely.org>
+References: <5166BDAA.3000603@acm.org>
+ <1365693486-6315-1-git-send-email-nhorman@tuxdriver.com>
+ <1365695821.3887.167.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, thomas.petazzoni@free-electrons.com,
-	moinejf@free.fr, andrew@lunn.ch, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org, rob.herring@calxeda.com,
-	grant.likely@secretlab.ca, jogo@openwrt.org,
-	buytenh@wantstofly.org, jm@lentin.co.uk,
-	linux-arm-kernel@lists.infradead.org,
-	sebastian.hesselbarth@gmail.com
-To: Florian Fainelli <florian@openwrt.org>
+Cc: Bart Van Assche <bvanassche@acm.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <erdnetdev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:35818 "EHLO
-	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935114Ab3DKQxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 12:53:22 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56917 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935226Ab3DKQ4q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 12:56:46 -0400
 Content-Disposition: inline
-In-Reply-To: <1365071235-11611-1-git-send-email-florian@openwrt.org>
+In-Reply-To: <1365695821.3887.167.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Florian,
-
-On Thu, Apr 04, 2013 at 12:27:10PM +0200, Florian Fainelli wrote:
-> Hi all,
+On Thu, Apr 11, 2013 at 08:57:01AM -0700, Eric Dumazet wrote:
+> On Thu, 2013-04-11 at 11:18 -0400, Neil Horman wrote:
+> > Bart, this patch should fix your problem.  Could you please test it and confirm?
+> > 
+> > Bart Van Assche recently reported a warning to me:
+> > 
+> > <IRQ>  [<ffffffff8103d79f>] warn_slowpath_common+0x7f/0xc0
+> >  [<ffffffff8103d7fa>] warn_slowpath_null+0x1a/0x20
+> >  [<ffffffff814761dd>] mutex_trylock+0x16d/0x180
+> >  [<ffffffff813968c9>] netpoll_poll_dev+0x49/0xc30
+> >  [<ffffffff8136a2d2>] ? __alloc_skb+0x82/0x2a0
+> >  [<ffffffff81397715>] netpoll_send_skb_on_dev+0x265/0x410
+> >  [<ffffffff81397c5a>] netpoll_send_udp+0x28a/0x3a0
+> >  [<ffffffffa0541843>] ? write_msg+0x53/0x110 [netconsole]
+> >  [<ffffffffa05418bf>] write_msg+0xcf/0x110 [netconsole]
+> >  [<ffffffff8103eba1>] call_console_drivers.constprop.17+0xa1/0x1c0
+> >  [<ffffffff8103fb76>] console_unlock+0x2d6/0x450
+> >  [<ffffffff8104011e>] vprintk_emit+0x1ee/0x510
+> >  [<ffffffff8146f9f6>] printk+0x4d/0x4f
+> >  [<ffffffffa0004f1d>] scsi_print_command+0x7d/0xe0 [scsi_mod]
+> > 
+> > This resulted from my commit ca99ca14c which introduced a mutex_trylock
+> > operation in a path that could execute in interrupt context.  When mutex
+> > debugging is enabled, the above warns the user when we are in fact exectuting in
+> > interrupt context.
+> > 
+> > I think this is a false positive however.  The check is intended to catch users
+> > who might be issuing sleeping calls in irq context, but the use of mutex_trylock
+> > here is guaranteed not to sleep.
+> > 
+> > We could fix this by replacing the DEBUG_LOCK_WARN_ON check in spin_lock_mutex
+> > with a __might_sleep call in the appropriate parent mutex operations, but for
+> > the sake of effiency (which It seems is why the check was put in the spin lock
+> > code only when debug is enabled), lets split the spin_lock_mutex call into two
+> > components, where the outer component does the debug checking.  Then
+> > mutex_trylock can just call the inner part as its callable from irq context
+> > safely.
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > Reported-by: Bart Van Assche <bvanassche@acm.org>
+> > CC: Bart Van Assche <bvanassche@acm.org>
+> > CC: David Miller <davem@davemloft.net>
+> > CC: netdev@vger.kernel.org
 > 
-> This patch serie implements mv643xx_eth device tree bindings. I opted for
-> the reuse of the bindings already defined in
-> Documentation/devicetree/bindings/marvell.txt so that we do not create
-> any confusion.
+> Please post your patch to lkml ?
 > 
-> For reference, I have included the mv643xx-eth related nodes in the
-> corresponding Kirkwood, Dove and Orion5x .dtsi files so you can more
-> easily test on your own platforms.
+I will, I just wanted Bart to test it first, and CCed everyone that he sent his
+origional note too.
+
+Thanks
+Neil
+
+> Thanks !
 > 
-> I tested these on a custom 88F6181-based boards.
 > 
-> Florian Fainelli (5):
->   mv643xx_eth: add Device Tree bindings
->   mv643xx_eth: update Device Tree bindings documentation
->   ARM: kirkwood: add device node entries for the gigabit interfaces
->   ARM: orion5x: add gigabit ethernet device tree node
->   ARM: dove: add gigabit device tree nodes to dove.dtsi
 > 
->  Documentation/devicetree/bindings/marvell.txt |   25 +++++-
->  arch/arm/boot/dts/dove.dtsi                   |   25 ++++++
->  arch/arm/boot/dts/kirkwood.dtsi               |   46 ++++++++++
->  arch/arm/boot/dts/orion5x.dtsi                |   23 +++++
->  drivers/net/ethernet/marvell/mv643xx_eth.c    |  120 ++++++++++++++++++++++++-
->  5 files changed, 234 insertions(+), 5 deletions(-)
-
-How is the new version of this looking?  Do you think you'll be able to
-get it up in time for DaveM to take it into v3.10?
-
-With this and Thomas' pci series, we will have Kirkwood fully converted
-to devicetree, can begin removing board files, and finally begin
-migrating everything over to mach-mvebu/.  This will lead to the removal
-of five directories under arch/arm/ (plat-orion, mach-kirkwood,
-mach-orion5x, mach-dove, and mach-mv78xx0).
-
-thx,
-
-Jason.
