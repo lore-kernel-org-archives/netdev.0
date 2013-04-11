@@ -1,224 +1,143 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be
- active
-Date: Thu, 11 Apr 2013 10:28:33 -0500
-Message-ID: <1365694113.22668.4.camel@dcbw.foobar.com>
-References: <20110727141246.GC29616@orbit.nwl.cc>
-	 <21345916.cd7DzC6Ttz@linux-5eaq.site>
-	 <1365606080.28888.72.camel@dcbw.foobar.com>
-	 <7761183.G42DetJs5Z@linux-5eaq.site>
-	 <1365625850.22411.1.camel@dcbw.foobar.com>
-	 <CACVXFVNKSszw+3VnM3hwepbTHh3gvjC+pG2SL_OsVm+1SqrNzQ@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH repost for-3.9] pci: avoid work_on_cpu for nested SRIOV probes
+Date: Thu, 11 Apr 2013 18:30:30 +0300
+Message-ID: <20130411153030.GA22743@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Oliver Neukum <oliver@neukum.org>,
-	Elina Pasheva <epasheva@sierrawireless.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30991 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161598Ab3DKP11 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Apr 2013 11:27:27 -0400
-In-Reply-To: <CACVXFVNKSszw+3VnM3hwepbTHh3gvjC+pG2SL_OsVm+1SqrNzQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ming Lei <ming.lei@canonical.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>,
+	Roland Dreier <roland@kernel.org>,
+	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org,
+	Tejun Heo <tj@kernel.org>
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-04-11 at 10:31 +0800, Ming Lei wrote:
-> On Thu, Apr 11, 2013 at 4:30 AM, Dan Williams <dcbw@redhat.com> wrote:
-> > Some drivers (sierra_net) need the status interrupt URB
-> > active even when the device is closed, because they receive
-> > custom indications from firmware.  Add functions to refcount
-> > the status interrupt URB submit/kill operation so that
-> > sub-drivers and the generic driver don't fight over whether
-> > the status interrupt URB is active or not.
-> >
-> > A sub-driver can call usbnet_status_start() at any time, but
-> > the URB is only submitted the first time the function is
-> > called.  Likewise, when the sub-driver is done with the URB,
-> > it calls usbnet_status_stop() but the URB is only killed when
-> > all users have stopped it.  The URB is still killed and
-> > re-submitted for suspend/resume, as before, with the same
-> > refcount it had at suspend.
-> >
-> > Signed-off-by: Dan Williams <dcbw@redhat.com>
-> > ---
-> >  drivers/net/usb/usbnet.c   | 79 ++++++++++++++++++++++++++++++++++++++++++----
-> >  include/linux/usb/usbnet.h |  5 +++
-> >  2 files changed, 77 insertions(+), 7 deletions(-)
-> >
-> > diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> > index 51f3192..b71ce36 100644
-> > --- a/drivers/net/usb/usbnet.c
-> > +++ b/drivers/net/usb/usbnet.c
-> > @@ -252,6 +252,70 @@ static int init_status (struct usbnet *dev, struct usb_interface *intf)
-> >         return 0;
-> >  }
-> >
-> > +/* Submit the interrupt URB if not previously submitted, increasing refcount */
-> > +int usbnet_status_start(struct usbnet *dev, gfp_t mem_flags)
-> 
-> 'mem_flags' isn't needed any more since we can apply allocation
-> of GFP_NOIO automatically in resume path now, and you can always
-> use GFP_KERNEL safely. Considered that it is a API, please don't
-> introduce it.
-> 
-> After removing it, you can add
-> 
->           Acked-by: Ming Lei <ming.lei@canonical.com>
-> 
-> > +{
-> > +       int ret = 0;
-> > +
-> > +       WARN_ON_ONCE(dev->interrupt == NULL);
-> > +       if (dev->interrupt) {
-> > +               mutex_lock(&dev->interrupt_mutex);
-> > +
-> > +               if (++dev->interrupt_count == 1)
-> > +                       ret = usb_submit_urb(dev->interrupt, mem_flags);
-> > +
-> > +               dev_dbg(&dev->udev->dev, "incremented interrupt URB count to %d\n",
-> > +                       dev->interrupt_count);
-> > +               mutex_unlock(&dev->interrupt_mutex);
-> > +       }
-> > +       return ret;
-> > +}
-> > +EXPORT_SYMBOL_GPL(usbnet_status_start);
-> > +
-> > +/* For resume; submit interrupt URB if previously submitted */
-> > +static int __usbnet_status_start_force(struct usbnet *dev, gfp_t mem_flags)
-> > +{
-> > +       int ret = 0;
-> > +
-> > +       mutex_lock(&dev->interrupt_mutex);
-> > +       if (dev->interrupt_count) {
-> > +               ret = usb_submit_urb(dev->interrupt, mem_flags);
-> > +               dev_dbg(&dev->udev->dev,
-> > +                       "submitted interrupt URB for resume\n");
-> > +       }
-> > +       mutex_unlock(&dev->interrupt_mutex);
-> > +       return ret;
-> > +}
-> > +
-> > +/* Kill the interrupt URB if all submitters want it killed */
-> > +void usbnet_status_stop(struct usbnet *dev)
-> > +{
-> > +       if (dev->interrupt) {
-> > +               mutex_lock(&dev->interrupt_mutex);
-> > +               WARN_ON(dev->interrupt_count == 0);
-> > +
-> > +               if (dev->interrupt_count && --dev->interrupt_count == 0)
-> > +                       usb_kill_urb(dev->interrupt);
-> > +
-> > +               dev_dbg(&dev->udev->dev,
-> > +                       "decremented interrupt URB count to %d\n",
-> > +                       dev->interrupt_count);
-> > +               mutex_unlock(&dev->interrupt_mutex);
-> > +       }
-> > +}
-> > +EXPORT_SYMBOL_GPL(usbnet_status_stop);
-> > +
-> > +/* For suspend; always kill interrupt URB */
-> > +static void __usbnet_status_stop_force(struct usbnet *dev)
-> > +{
-> > +       if (dev->interrupt) {
-> > +               mutex_lock(&dev->interrupt_mutex);
-> > +               usb_kill_urb(dev->interrupt);
-> > +               dev_dbg(&dev->udev->dev, "killed interrupt URB for suspend\n");
-> > +               mutex_unlock(&dev->interrupt_mutex);
-> > +       }
-> > +}
-> 
-> Looks it isn't a good practice to duplicate code in above four functions, but
-> it should be OK to merge first.
+The following lockdep warning is reported to trigger since 3.9-rc1:
 
-Oliver requested this approach.  I'd originally taken your suggestion to
-merge them, but this proved somewhat more complicated and Oliver
-rejected that approach.
+=============================================
+[ INFO: possible recursive locking detected ]
+3.9.0-rc1 #96 Not tainted
+---------------------------------------------
+kworker/0:1/734 is trying to acquire lock:
+ ((&wfc.work)){+.+.+.}, at: [<ffffffff81066cb0>] flush_work+0x0/0x250
 
-Dan
+but task is already holding lock:
+ ((&wfc.work)){+.+.+.}, at: [<ffffffff81064352>]
+process_one_work+0x162/0x4c0
 
-> > +
-> >  /* Passes this packet up the stack, updating its accounting.
-> >   * Some link protocols batch packets, so their rx_fixup paths
-> >   * can return clones as well as just modify the original skb.
-> > @@ -725,7 +789,7 @@ int usbnet_stop (struct net_device *net)
-> >         if (!(info->flags & FLAG_AVOID_UNLINK_URBS))
-> >                 usbnet_terminate_urbs(dev);
-> >
-> > -       usb_kill_urb(dev->interrupt);
-> > +       usbnet_status_stop(dev);
-> >
-> >         usbnet_purge_paused_rxq(dev);
-> >
-> > @@ -787,7 +851,7 @@ int usbnet_open (struct net_device *net)
-> >
-> >         /* start any status interrupt transfer */
-> >         if (dev->interrupt) {
-> > -               retval = usb_submit_urb (dev->interrupt, GFP_KERNEL);
-> > +               retval = usbnet_status_start(dev, GFP_KERNEL);
-> >                 if (retval < 0) {
-> >                         netif_err(dev, ifup, dev->net,
-> >                                   "intr submit %d\n", retval);
-> > @@ -1430,6 +1494,8 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
-> >         dev->delay.data = (unsigned long) dev;
-> >         init_timer (&dev->delay);
-> >         mutex_init (&dev->phy_mutex);
-> > +       mutex_init(&dev->interrupt_mutex);
-> > +       dev->interrupt_count = 0;
-> >
-> >         dev->net = net;
-> >         strcpy (net->name, "usb%d");
-> > @@ -1565,7 +1631,7 @@ int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
-> >                  */
-> >                 netif_device_detach (dev->net);
-> >                 usbnet_terminate_urbs(dev);
-> > -               usb_kill_urb(dev->interrupt);
-> > +               __usbnet_status_stop_force(dev);
-> >
-> >                 /*
-> >                  * reattach so runtime management can use and
-> > @@ -1585,9 +1651,8 @@ int usbnet_resume (struct usb_interface *intf)
-> >         int                     retval;
-> >
-> >         if (!--dev->suspend_count) {
-> > -               /* resume interrupt URBs */
-> > -               if (dev->interrupt && test_bit(EVENT_DEV_OPEN, &dev->flags))
-> > -                       usb_submit_urb(dev->interrupt, GFP_NOIO);
-> > +               /* resume interrupt URB if it was previously submitted */
-> > +               __usbnet_status_start_force(dev, GFP_NOIO);
-> >
-> >                 spin_lock_irq(&dev->txq.lock);
-> >                 while ((res = usb_get_from_anchor(&dev->deferred))) {
-> > diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-> > index 0e5ac93..d71f44c 100644
-> > --- a/include/linux/usb/usbnet.h
-> > +++ b/include/linux/usb/usbnet.h
-> > @@ -56,6 +56,8 @@ struct usbnet {
-> >         struct sk_buff_head     done;
-> >         struct sk_buff_head     rxq_pause;
-> >         struct urb              *interrupt;
-> > +       unsigned                interrupt_count;
-> > +       struct mutex            interrupt_mutex;
-> >         struct usb_anchor       deferred;
-> >         struct tasklet_struct   bh;
-> >
-> > @@ -246,4 +248,7 @@ extern int usbnet_nway_reset(struct net_device *net);
-> >
-> >  extern int usbnet_manage_power(struct usbnet *, int);
-> >
-> > +int usbnet_status_start(struct usbnet *dev, gfp_t mem_flags);
-> > +void usbnet_status_stop(struct usbnet *dev);
-> > +
-> >  #endif /* __LINUX_USB_USBNET_H */
-> > --
-> > 1.8.1.4
-> >
-> >
-> 
-> 
-> Thanks,
+other info that might help us debug this:
+ Possible unsafe locking scenario:
+
+       CPU0
+       ----
+  lock((&wfc.work));
+  lock((&wfc.work));
+
+ *** DEADLOCK ***
+
+ May be due to missing lock nesting notation
+
+3 locks held by kworker/0:1/734:
+ #0:  (events){.+.+.+}, at: [<ffffffff81064352>]
+process_one_work+0x162/0x4c0
+ #1:  ((&wfc.work)){+.+.+.}, at: [<ffffffff81064352>]
+process_one_work+0x162/0x4c0
+ #2:  (&__lockdep_no_validate__){......}, at: [<ffffffff812db225>]
+device_attach+0x25/0xb0
+
+stack backtrace:
+Pid: 734, comm: kworker/0:1 Not tainted 3.9.0-rc1 #96
+Call Trace:
+ [<ffffffff810948ec>] validate_chain+0xdcc/0x11f0
+ [<ffffffff81095150>] __lock_acquire+0x440/0xc70
+ [<ffffffff81095150>] ? __lock_acquire+0x440/0xc70
+ [<ffffffff810959da>] lock_acquire+0x5a/0x70
+ [<ffffffff81066cb0>] ? wq_worker_waking_up+0x60/0x60
+ [<ffffffff81066cf5>] flush_work+0x45/0x250
+ [<ffffffff81066cb0>] ? wq_worker_waking_up+0x60/0x60
+ [<ffffffff810922be>] ? mark_held_locks+0x9e/0x130
+ [<ffffffff81066a96>] ? queue_work_on+0x46/0x90
+ [<ffffffff810925dd>] ? trace_hardirqs_on_caller+0xfd/0x190
+ [<ffffffff8109267d>] ? trace_hardirqs_on+0xd/0x10
+ [<ffffffff81066f74>] work_on_cpu+0x74/0x90
+ [<ffffffff81063820>] ? keventd_up+0x20/0x20
+ [<ffffffff8121fd30>] ? pci_pm_prepare+0x60/0x60
+ [<ffffffff811f9293>] ? cpumask_next_and+0x23/0x40
+ [<ffffffff81220a1a>] pci_device_probe+0xba/0x110
+ [<ffffffff812dadca>] ? driver_sysfs_add+0x7a/0xb0
+ [<ffffffff812daf1f>] driver_probe_device+0x8f/0x230
+ [<ffffffff812db170>] ? __driver_attach+0xb0/0xb0
+ [<ffffffff812db1bb>] __device_attach+0x4b/0x60
+ [<ffffffff812d9314>] bus_for_each_drv+0x64/0x90
+ [<ffffffff812db298>] device_attach+0x98/0xb0
+ [<ffffffff81218474>] pci_bus_add_device+0x24/0x50
+ [<ffffffff81232e80>] virtfn_add+0x240/0x3e0
+ [<ffffffff8146ce3d>] ? _raw_spin_unlock_irqrestore+0x3d/0x80
+ [<ffffffff812333be>] pci_enable_sriov+0x23e/0x500
+ [<ffffffffa011fa1a>] __mlx4_init_one+0x5da/0xce0 [mlx4_core]
+ [<ffffffffa012016d>] mlx4_init_one+0x2d/0x60 [mlx4_core]
+ [<ffffffff8121fd79>] local_pci_probe+0x49/0x80
+ [<ffffffff81063833>] work_for_cpu_fn+0x13/0x20
+ [<ffffffff810643b8>] process_one_work+0x1c8/0x4c0
+ [<ffffffff81064352>] ? process_one_work+0x162/0x4c0
+ [<ffffffff81064cfb>] worker_thread+0x30b/0x430
+ [<ffffffff810649f0>] ? manage_workers+0x340/0x340
+ [<ffffffff8106cea6>] kthread+0xd6/0xe0
+ [<ffffffff8106cdd0>] ? __init_kthread_worker+0x70/0x70
+ [<ffffffff8146daac>] ret_from_fork+0x7c/0xb0
+ [<ffffffff8106cdd0>] ? __init_kthread_worker+0x70/0x70
+
+Reference: http://marc.info/?l=linux-netdev&m=136249690901892&w=2
+
+The issue is that a driver, in it's probe function, calls
+pci_sriov_enable so a PF device probe causes VF probe (AKA nested
+probe).  Each probe in pci_device_probe is (normally) run through
+work_on_cpu (this is to get the right numa node for memory allocated by
+the driver).  In turn work_on_cpu does this internally:
+
+        schedule_work_on(cpu, &wfc.work);
+        flush_work(&wfc.work);
+
+So if you are running probe on CPU1, and cause another
+probe on the same CPU, this will try to flush
+workqueue from inside same workqueue which of course
+deadlocks.
+
+Nested probing might be tricky to get right generally.
+
+But for pci_sriov_enable, the situation is actually very simple: all VFs
+naturally have same affinity as the PF, and cpumask_any_and is actually
+same as cpumask_first_and, so it always gives us the same CPU.
+So let's just detect that, and run the probing for VFs locally without a
+workqueue.
+
+This is hardly elegant, but looks to me like an appropriate quick fix
+for 3.9.
+
+Tested-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+---
+
+Reposting due to missed Cc's. Sorry about the noise.
+
+diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
+index 1fa1e48..6eeb5ec 100644
+--- a/drivers/pci/pci-driver.c
++++ b/drivers/pci/pci-driver.c
+@@ -286,8 +286,8 @@ static int pci_call_probe(struct pci_driver *drv, struct pci_dev *dev,
+ 		int cpu;
+ 
+ 		get_online_cpus();
+ 		cpu = cpumask_any_and(cpumask_of_node(node), cpu_online_mask);
+-		if (cpu < nr_cpu_ids)
++		if (cpu != raw_smp_processor_id() && cpu < nr_cpu_ids)
+ 			error = work_on_cpu(cpu, local_pci_probe, &ddi);
+ 		else
+ 			error = local_pci_probe(&ddi);
