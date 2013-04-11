@@ -1,88 +1,63 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH RFC] spinlock: split out debugging check from
- spin_lock_mutex
-Date: Thu, 11 Apr 2013 13:04:05 -0400
-Message-ID: <20130411170404.GE8986@neilslaptop.think-freely.org>
-References: <5166BDAA.3000603@acm.org>
- <1365693486-6315-1-git-send-email-nhorman@tuxdriver.com>
- <2032636.RnfJ0d1BWA@cpaasch-mac>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH 0/5 v2] mv643xx_eth: device tree bindings
+Date: Thu, 11 Apr 2013 19:09:54 +0200
+Message-ID: <CABJ1b_T0uvFgfnXbJH6ut-qj621vX5jhedWdWpHUz1wrs84krg@mail.gmail.com>
+References: <1365071235-11611-1-git-send-email-florian@openwrt.org>
+ <20130411165303.GI28693@titan.lakedaemon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bart Van Assche <bvanassche@acm.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: g@neilslaptop.think-freely.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57034 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753331Ab3DKREZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 13:04:25 -0400
-Content-Disposition: inline
-In-Reply-To: <2032636.RnfJ0d1BWA@cpaasch-mac>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ =?ISO-8859-1?Q?Jean=2DFran=E7ois_Moine?= <moinejf@free.fr>,
+ Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+ devicetree-discuss@lists.ozlabs.org, Rob Herring <rob.herring@calxeda.com>,
+ "David S. Miller" <davem@davemloft.net>,
+ Grant Likely <grant.likely@secretlab.ca>, jogo@openwrt.org,
+ linux-arm-kernel@lists.infradead.org, Jamie Lentin <jm@lentin.co.uk>,
+ Florian Fainelli <florian@openwrt.org>,
+ Lennert Buytenhek <buytenh@wantstofly.org>
+To: Jason Cooper <jason@lakedaemon.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20130411165303.GI28693@titan.lakedaemon.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 11, 2013 at 05:54:28PM +0200, Christoph Paasch wrote:
-> On Thursday 11 April 2013 11:18:06 Neil Horman wrote:
-> > Bart, this patch should fix your problem.  Could you please test it and
-> > confirm?
-> > 
-> > Bart Van Assche recently reported a warning to me:
-> > 
-> > <IRQ>  [<ffffffff8103d79f>] warn_slowpath_common+0x7f/0xc0
-> >  [<ffffffff8103d7fa>] warn_slowpath_null+0x1a/0x20
-> >  [<ffffffff814761dd>] mutex_trylock+0x16d/0x180
-> >  [<ffffffff813968c9>] netpoll_poll_dev+0x49/0xc30
-> >  [<ffffffff8136a2d2>] ? __alloc_skb+0x82/0x2a0
-> >  [<ffffffff81397715>] netpoll_send_skb_on_dev+0x265/0x410
-> >  [<ffffffff81397c5a>] netpoll_send_udp+0x28a/0x3a0
-> >  [<ffffffffa0541843>] ? write_msg+0x53/0x110 [netconsole]
-> >  [<ffffffffa05418bf>] write_msg+0xcf/0x110 [netconsole]
-> >  [<ffffffff8103eba1>] call_console_drivers.constprop.17+0xa1/0x1c0
-> >  [<ffffffff8103fb76>] console_unlock+0x2d6/0x450
-> >  [<ffffffff8104011e>] vprintk_emit+0x1ee/0x510
-> >  [<ffffffff8146f9f6>] printk+0x4d/0x4f
-> >  [<ffffffffa0004f1d>] scsi_print_command+0x7d/0xe0 [scsi_mod]
-> > 
-> > This resulted from my commit ca99ca14c which introduced a mutex_trylock
-> > operation in a path that could execute in interrupt context.  When mutex
-> > debugging is enabled, the above warns the user when we are in fact
-> > exectuting in interrupt context.
-> > 
-> > I think this is a false positive however.  The check is intended to catch
-> > users who might be issuing sleeping calls in irq context, but the use of
-> > mutex_trylock here is guaranteed not to sleep.
-> 
-> Even if he does not sleep, may we still hit a deadlock like the following:
-> 
-> netpoll_rx_disable() calls mutex_lock(), who ends up in __mutex_lock_common, 
-> calling spin_lock_mutex().
-> 
-> Immediatly after that, on the same CPU, the interrupt comes and 
-> netpoll_poll_dev calls mutex_trylock and ends up also calling 
-> spin_lock_mutex(). Now, it seems to me that we are deadlocked - the interrupt 
-> is spinning on the lock, because netpoll_rx_disable() already took it.
-> 
-> Or maybe I am missing something?
-> 
-I dont believe the deadlock you describe can happen.  The spin_lock_mutex
-operation disables irqs on the local cpu with local_irq_save, so we won't loose
-the cpu while we're holding the spinlock.  Likewise we don't restore the irq
-flags until after we release said lock.  Once we have the mutex, if we're
-preempted by another path that goes through the netpoll_poll_dev path, then we
-hit the trylock api call.  The spinlock is either released or held on another
-cpu (read: no deadlock), and if the mutex is held, then the trylock simply
-fails.
+On Thu, Apr 11, 2013 at 6:53 PM, Jason Cooper <jason@lakedaemon.net> wrote:
+> On Thu, Apr 04, 2013 at 12:27:10PM +0200, Florian Fainelli wrote:
+>> This patch serie implements mv643xx_eth device tree bindings. I opted for
+>> the reuse of the bindings already defined in
+>> Documentation/devicetree/bindings/marvell.txt so that we do not create
+>> any confusion.
+>>
+>
+> How is the new version of this looking?  Do you think you'll be able to
+> get it up in time for DaveM to take it into v3.10?
+>
+> With this and Thomas' pci series, we will have Kirkwood fully converted
+> to devicetree, can begin removing board files, and finally begin
+> migrating everything over to mach-mvebu/.  This will lead to the removal
+> of five directories under arch/arm/ (plat-orion, mach-kirkwood,
+> mach-orion5x, mach-dove, and mach-mv78xx0).
 
-Thanks
-Neil
+Jason,
 
-> 
-> Cheers,
-> Christoph
-> 
-> -- 
-> IP Networking Lab --- http://inl.info.ucl.ac.be
-> MultiPath TCP in the Linux Kernel --- http://multipath-tcp.org
-> UCLouvain
-> --
-> 
+I sent Florian an update of some of his patches earlier, based on
+cleanup patches I submitted for mv643xx_eth while testing his patch set.
+I think, the patch set will play nicely on ARM but without PPC guys involved
+in testing it, I guess it will break something there.
+
+Florian is reusing the DT bindings from PPC and they are compatible, but
+there parsing is also done within arch/ppc/sysdev/mv64360-dev.c and
+maybe somewhere else. The current DT patches for mv643xx_eth will
+reparse some properties again (and may break eth on ppc platforms
+using mv643xx_eth).
+
+Sebastian
