@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 11/11] usbnet: handle link change
-Date: Thu, 11 Apr 2013 15:58:07 -0400 (EDT)
-Message-ID: <20130411.155807.1568843893021966654.davem@davemloft.net>
-References: <1365691240-816-1-git-send-email-ming.lei@canonical.com>
-	<1365691240-816-12-git-send-email-ming.lei@canonical.com>
-	<CACVXFVNtitJfsKMORPyduEztQHiN1cWcVXWep=ScUNLRwv9W=w@mail.gmail.com>
+Subject: Re: [PATCHv2 0/2] bonding: NULL pointer dereference and flag strip
+ fixes
+Date: Thu, 11 Apr 2013 16:02:43 -0400 (EDT)
+Message-ID: <20130411.160243.351201200467404454.davem@davemloft.net>
+References: <1365707936-5073-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, oneukum@suse.de,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: ming.lei@canonical.com
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
+To: nikolay@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38643 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38695 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752710Ab3DKT6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 15:58:10 -0400
-In-Reply-To: <CACVXFVNtitJfsKMORPyduEztQHiN1cWcVXWep=ScUNLRwv9W=w@mail.gmail.com>
+	with ESMTP id S1753838Ab3DKUCq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 16:02:46 -0400
+In-Reply-To: <1365707936-5073-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ming Lei <ming.lei@canonical.com>
-Date: Thu, 11 Apr 2013 22:52:29 +0800
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Date: Thu, 11 Apr 2013 21:18:54 +0200
 
-> On Thu, Apr 11, 2013 at 10:40 PM, Ming Lei <ming.lei@canonical.com> wrote:
->>         dd if=/dev/sda iflag=direct of=/dev/null bs=1M count=500
+>  These 2 patches fix a NULL pointer dereference in the netdev event
+>  handling of the bond and flag that wasn't stripped on enslave failure.
 > 
-> Sorry, the above should be:
+> v2: Fix comment style 
 > 
->         dd if=/dev/sda iflag=direct of=/dev/null bs=1M count=800
+> Nikolay Aleksandrov (2):
+>   bonding: fix netdev event NULL pointer dereference
+>   bonding: IFF_BONDING is not stripped on enslave failure
 
-I'll fix this up when I apply this patch series.
+Both applied, thanks.
