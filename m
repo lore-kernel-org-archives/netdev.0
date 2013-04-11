@@ -1,45 +1,42 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Netpoll triggers soft lockup
-Date: Thu, 11 Apr 2013 10:08:10 -0400
-Message-ID: <20130411140809.GC8986@neilslaptop.think-freely.org>
-References: <5166BDAA.3000603@acm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Bart Van Assche <bvanassche@acm.org>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [net-next PATCH] be2net: remove unused variable 'sge'
+Date: Thu, 11 Apr 2013 16:29:11 +0200
+Message-ID: <1365690551-14843-1-git-send-email-ivecera@redhat.com>
+Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
+	ajit.khaparde@emulex.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53935 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752513Ab3DKOIV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 10:08:21 -0400
-Content-Disposition: inline
-In-Reply-To: <5166BDAA.3000603@acm.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40012 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935155Ab3DKO3P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Apr 2013 10:29:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 11, 2013 at 03:42:02PM +0200, Bart Van Assche wrote:
-> Hi,
-> 
-> While testing a driver against kernel 3.9-rc6 I ran into a soft
-> lockup triggered by sending lots of kernel messages to a remote
-> system via netconsole. This behavior was probably introduced by
-> commit ca99ca14c ("netpoll: protect napi_poll and poll_controller
-> during dev_[open|close]"). That commit introduced a mutex in
-> netpoll_poll_dev(), which can be called from interrupt context. Is
-> there anyone who can tell me whether this is a bug in commit
-> ca99ca14c or in netconsole ?
-> 
-Thanks for the report Bart, thats interesting.  You're right, the problem was
-introduced by ca99ca14c, but it seems like a false positive to me.  The warning
-is comming from DEBUG_LOCKS_WARN_ON in spin_lock_mutex.  It appears that the
-intent here is to catch users of spin_lock_mutex (which is the mutex api), from
-trying to use mutex locking in interrupt context as that results in a panic.  In
-this case however, we're using the mutex_trylock call, which is guaranteed not
-to sleep (which is the nature of the panic condition).  So we really don't need
-to warn here.  I think the right thing to do in this case is to add a flag to
-spin_lock_mutex that skips the warning if we're doing a trylock operation.  I'll
-work up a patch shortly.
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+---
+ drivers/net/ethernet/emulex/benet/be_cmds.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-Thanks again!
-Neil
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index f286ad2..cf9408f 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -2343,7 +2343,6 @@ int be_cmd_get_seeprom_data(struct be_adapter *adapter,
+ {
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_seeprom_read *req;
+-	struct be_sge *sge;
+ 	int status;
+ 
+ 	spin_lock_bh(&adapter->mcc_lock);
+@@ -2354,7 +2353,6 @@ int be_cmd_get_seeprom_data(struct be_adapter *adapter,
+ 		goto err;
+ 	}
+ 	req = nonemb_cmd->va;
+-	sge = nonembedded_sgl(wrb);
+ 
+ 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
+ 			OPCODE_COMMON_SEEPROM_READ, sizeof(*req), wrb,
+-- 
+1.8.1.5
