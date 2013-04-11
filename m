@@ -1,143 +1,126 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH 11/11] usbnet: handle link change
-Date: Thu, 11 Apr 2013 22:40:40 +0800
-Message-ID: <1365691240-816-12-git-send-email-ming.lei@canonical.com>
-References: <1365691240-816-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, Ming Lei <ming.lei@canonical.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:51332 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936195Ab3DKOmE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 10:42:04 -0400
-In-Reply-To: <1365691240-816-1-git-send-email-ming.lei@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH] net: mv643xx_eth: Add GRO support
+Date: Thu, 11 Apr 2013 16:47:49 +0200
+Message-ID: <CABJ1b_TQDabT1J7ffo5cb1Th=71bcSduifMJaDpfVRiiHvtWDw@mail.gmail.com>
+References: <1365684023-9967-1-git-send-email-sebastian.hesselbarth@gmail.com>
+	<20130411131333.GD1910@1wt.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Soeren Moch <smoch@web.de>, Paul Mackerras <paulus@samba.org>,
+	linux-arm-kernel@lists.infradead.org,
+	Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org,
+	Florian Fainelli <florian@openwrt.org>,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130411131333.GD1910@1wt.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The link change is detected via the interrupt pipe, and bulk
-pipes are responsible for transfering packets, so it is reasonable
-to stop bulk transfer after link is reported as off.
+On Thu, Apr 11, 2013 at 3:13 PM, Willy Tarreau <w@1wt.eu> wrote:
+> On Thu, Apr 11, 2013 at 02:40:23PM +0200, Sebastian Hesselbarth wrote:
+>> This patch adds GRO support to mv643xx_eth by making it invoke
+>> napi_gro_receive instead of netif_receive_skb.
+>>
+>> Signed-off-by: Soeren Moch <smoch@web.de>
+>> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+>> ---
+>> Cc: "David S. Miller" <davem@davemloft.net>
+>> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+>> Cc: Andrew Lunn <andrew@lunn.ch>
+>> Cc: Jason Cooper <jason@lakedaemon.net>
+>> Cc: Florian Fainelli <florian@openwrt.org>
+>> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+>> Cc: Paul Mackerras <paulus@samba.org>
+>> Cc: Dale Farnsworth <dale@farnsworth.org>
+>> Cc: netdev@vger.kernel.org
+>> Cc: linux-arm-kernel@lists.infradead.org
+>> Cc: linuxppc-dev@lists.ozlabs.org
+>> Cc: linux-kernel@vger.kernel.org
+>> ---
+>>  drivers/net/ethernet/marvell/mv643xx_eth.c |    2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+>> index 305038f..c850d04 100644
+>> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
+>> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+>> @@ -604,7 +604,7 @@ static int rxq_process(struct rx_queue *rxq, int budget)
+>>                       lro_receive_skb(&rxq->lro_mgr, skb, (void *)cmd_sts);
+>>                       lro_flush_needed = 1;
+>>               } else
+>> -                     netif_receive_skb(skb);
+>> +                     napi_gro_receive(&mp->napi, skb);
+>>
+>>               continue;
+>
+> I remember having experimented with this on 3.6 a few months ago with this
+> driver and finally switching back to something like this instead which
+> showed better performance on my tests :
+>
+>                if (skb->ip_summed == CHECKSUM_UNNECESSARY)
+>                        napi_gro_receive(napi, skb);
+>                else
+>                        netif_receive_skb(skb);
+>
+> Unfortunately I don't have more details as my commit message was rather
+> short due to this resulting from experimentation. Did you verify that
+> you did not lose any performance in various workloads ? I was playing
+> with bridges at this time, it's possible that I got better performance
+> on bridging with netif_receive_skb() than with napi_gro_receive().
 
-Two adavantages may be obtained with stopping bulk transfer
-after link becomes off:
+Hi Willy,
 
-- USB bus bandwidth is saved(USB bus is shared bus except for
-USB3.0), for example, lots of 'IN' token packets and 'NYET'
-handshake packets is transfered on 2.0 bus.
+I did some simple tests on Dove/Cubox with 'netperf -cCD' and
+gso/gro/lro options on
+mv643xx_eth. The tests may not be sufficient, as I am not that into
+net performance
+testing.
 
-- probabaly power might be saved for usb host controller since
-cancelling bulk transfer may disable the asynchronous schedule of
-host controller.
+I tried todays net-next on top of 3.9-rc6 without any gro patch, with
+the initial
+patch (Soeren) and your proposed patch (Willy). The results show that
+both patches
+allow a significant increase in throughput compared to
+netif_receive_skb (!gro, !lro)
+alone. Having gro with lro disabled gives some 2% more throughput
+compared to lro only.
 
-With this patch, when link becomes off, about ~10% performance
-boost can be found on bulk transfer of anther usb device which
-is attached to same bus with the usbnet device, see below
-test on next-20130410:
+Sebastian
 
-- read from usb mass storage(Sandisk Extreme USB 3.0) on pandaboard
-with below command after unplugging ethernet cable:
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
 
-	dd if=/dev/sda iflag=direct of=/dev/null bs=1M count=500
+ 87380  16384  16384    10.02       615.65   19.15    99.90    5.097
+13.293 (3.9-rc6: gso)
+ 87380  16384  16384    10.02       615.82   19.05    99.90    5.067
+13.289 (3.9-rc6: gso, gro)
+ 87380  16384  16384    10.03       747.44   23.17    99.80    5.079
+10.938 (3.9-rc6: gso, lro)
+ 87380  16384  16384    10.02       745.28   22.57    99.80    4.963
+10.970 (3.9.rc6: gso, gro, lro)
 
-- without the patch
-1, 838860800 bytes (839 MB) copied, 36.2216 s, 23.2 MB/s
-2, 838860800 bytes (839 MB) copied, 35.8368 s, 23.4 MB/s
-3, 838860800 bytes (839 MB) copied, 35.823 s, 23.4 MB/s
-4, 838860800 bytes (839 MB) copied, 35.937 s, 23.3 MB/s
-5, 838860800 bytes (839 MB) copied, 35.7365 s, 23.5 MB/s
-average: 23.6MB/s
+ 87380  16384  16384    10.02       600.34   19.10    99.90    5.211
+13.632 (3.9-rc6+soeren: gso)
+ 87380  16384  16384    10.02       764.23   23.42    99.80    5.021
+10.698 (3.9-rc6+soeren: gso, gro)
+ 87380  16384  16384    10.02       749.81   23.13    99.80    5.055
+10.904 (3.9-rc6+soeren: gso, lro)
+ 87380  16384  16384    10.02       745.84   22.34    99.80    4.907
+10.962 (3.9.rc6+soeren: gso, gro, lro)
 
-- with the patch
-1, 838860800 bytes (839 MB) copied, 32.3817 s, 25.9 MB/s
-2, 838860800 bytes (839 MB) copied, 31.7389 s, 26.4 MB/s
-3, 838860800 bytes (839 MB) copied, 32.438 s, 25.9 MB/s
-4, 838860800 bytes (839 MB) copied, 32.5492 s, 25.8 MB/s
-5, 838860800 bytes (839 MB) copied, 31.6178 s, 26.5 MB/s
-average: 26.1MB/s
-
-Signed-off-by: Ming Lei <ming.lei@canonical.com>
----
- drivers/net/usb/usbnet.c   |   30 ++++++++++++++++++++++++++++++
- include/linux/usb/usbnet.h |    1 +
- 2 files changed, 31 insertions(+)
-
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 34e4252..1e5a9b7 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -938,6 +938,27 @@ static const struct ethtool_ops usbnet_ethtool_ops = {
- 
- /*-------------------------------------------------------------------------*/
- 
-+static void __handle_link_change(struct usbnet *dev)
-+{
-+	if (!test_bit(EVENT_DEV_OPEN, &dev->flags))
-+		return;
-+
-+	if (!netif_carrier_ok(dev->net)) {
-+		/* kill URBs for reading packets to save bus bandwidth */
-+		unlink_urbs(dev, &dev->rxq);
-+
-+		/*
-+		 * tx_timeout will unlink URBs for sending packets and
-+		 * tx queue is stopped by netcore after link becomes off
-+		 */
-+	} else {
-+		/* submitting URBs for reading packets */
-+		tasklet_schedule(&dev->bh);
-+	}
-+
-+	clear_bit(EVENT_LINK_CHANGE, &dev->flags);
-+}
-+
- /* work that cannot be done in interrupt context uses keventd.
-  *
-  * NOTE:  with 2.5 we could do more of this using completion callbacks,
-@@ -1035,8 +1056,14 @@ skip_reset:
- 		} else {
- 			usb_autopm_put_interface(dev->intf);
- 		}
-+
-+		/* handle link change from link resetting */
-+		__handle_link_change(dev);
- 	}
- 
-+	if (test_bit (EVENT_LINK_CHANGE, &dev->flags))
-+		__handle_link_change(dev);
-+
- 	if (dev->flags)
- 		netdev_dbg(dev->net, "kevent done, flags = 0x%lx\n", dev->flags);
- }
-@@ -1286,6 +1313,7 @@ static void usbnet_bh (unsigned long param)
- 	// or are we maybe short a few urbs?
- 	} else if (netif_running (dev->net) &&
- 		   netif_device_present (dev->net) &&
-+		   netif_carrier_ok(dev->net) &&
- 		   !timer_pending (&dev->delay) &&
- 		   !test_bit (EVENT_RX_HALT, &dev->flags)) {
- 		int	temp = dev->rxq.qlen;
-@@ -1663,6 +1691,8 @@ void usbnet_link_change(struct usbnet *dev, bool link, bool need_reset)
- 
- 	if (need_reset && link)
- 		usbnet_defer_kevent(dev, EVENT_LINK_RESET);
-+	else
-+		usbnet_defer_kevent(dev, EVENT_LINK_CHANGE);
- }
- EXPORT_SYMBOL(usbnet_link_change);
- 
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index eb021b8..da46327 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -72,6 +72,7 @@ struct usbnet {
- #		define EVENT_DEVICE_REPORT_IDLE	8
- #		define EVENT_NO_RUNTIME_PM	9
- #		define EVENT_RX_KILL	10
-+#		define EVENT_LINK_CHANGE	11
- };
- 
- static inline struct usb_driver *driver_of(struct usb_interface *intf)
--- 
-1.7.9.5
+ 87380  16384  16384    10.02       605.79   18.79    100.00   5.082
+13.523 (3.9-rc6+willy: gso)
+ 87380  16384  16384    10.02       765.64   24.68    99.80    5.281
+10.678 (3.9-rc6+willy: gso, gro)
+ 87380  16384  16384    10.02       750.30   26.02    99.80    5.682
+10.897 (3.9-rc6+willy: gso, lro)
+ 87380  16384  16384    10.03       749.40   21.86    99.80    4.778
+10.910 (3.9.rc6+willy: gso, gro, lro)
