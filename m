@@ -1,26 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/2] vlan TSO support for virtio-net
-Date: Thu, 11 Apr 2013 16:22:24 -0400 (EDT)
-Message-ID: <20130411.162224.1462196338243001372.davem@davemloft.net>
-References: <1365672742-42258-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH] net: mv643xx_eth: Add GRO support
+Date: Thu, 11 Apr 2013 16:22:45 -0400 (EDT)
+Message-ID: <20130411.162245.954727103094202894.davem@davemloft.net>
+References: <1365684023-9967-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jasowang@redhat.com
+Cc: smoch@web.de, buytenh@wantstofly.org, andrew@lunn.ch,
+	jason@lakedaemon.net, florian@openwrt.org,
+	benh@kernel.crashing.org, paulus@samba.org, dale@farnsworth.org,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: sebastian.hesselbarth@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1365672742-42258-1-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1365684023-9967-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Thu, 11 Apr 2013 17:32:20 +0800
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Date: Thu, 11 Apr 2013 14:40:23 +0200
 
-> This series simply enable the vlan TSO support for virtio-net by just initialize
-> vlan_features for virtio-net and tun which allows vlan TSO packets to be
-> processed in both TX and RX path for virtio-net.
+> This patch adds GRO support to mv643xx_eth by making it invoke
+> napi_gro_receive instead of netif_receive_skb.
 > 
-> Netperf shows great improvements on stream tests:
+> Signed-off-by: Soeren Moch <smoch@web.de>
+> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 
-Both applied to net-next, thanks.
+Applied.
