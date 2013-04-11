@@ -1,62 +1,59 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH] kernel: audit: beautify code, for extern function, better
- to check its parameters by itself
-Date: Thu, 11 Apr 2013 09:03:40 +0800
-Message-ID: <51660BEC.1080901@asianux.com>
-References: <5161347B.8090604@asianux.com> <1216477171.11118824.1365615063121.JavaMail.root@redhat.com>
+From: "Meng, Jilin" <Jilin.Meng@emc.com>
+Subject: [PATCH] net: Fix tentative IPv6 address due to DAD looping back
+Date: Thu, 11 Apr 2013 01:31:20 +0000
+Message-ID: <027526AF93736D4380632CD4F3B42B8002FBEF@MX101CL02.corp.emc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Al Viro <viro@zeniv.linux.org.uk>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eric Paris <eparis@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1216477171.11118824.1365615063121.JavaMail.root@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Sun, Yinglin" <yinglin.sun@emc.com>,
+	"Prithviraj, Lakshmanan" <lakshmanan.prithviraj@emc.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Meng, Jilin" <Jilin.Meng@emc.com>
+To: "davem@davemloft.net" <davem@davemloft.net>,
+	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+	"kaber@trash.net" <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hop-nat-141.emc.com ([168.159.213.141]:39665 "EHLO
+	mexforward.lss.emc.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S935224Ab3DKBdk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Apr 2013 21:33:40 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2013=E5=B9=B404=E6=9C=8811=E6=97=A5 01:31, Eric Paris wrote:
-> ----- Original Message -----
->> >=20
->> >   __audit_socketcall is an extern function.
->> >   better to check its parameters by itself.
->> >=20
->> >     also can return error code, when fail (find invalid parameters=
-).
->> >     also use macro instead of real hard code number
->> >     also give related comments for it.
->> >=20
->> > Signed-off-by: Chen Gang <gang.chen@asianux.com>
->> > ---
->> >  include/linux/audit.h |   12 ++++++++----
->> >  kernel/auditsc.c      |    9 ++++++---
->> >  net/socket.c          |    6 ++++--
->> >  3 files changed, 18 insertions(+), 9 deletions(-)
->> >=20
->> > diff --git a/include/linux/audit.h b/include/linux/audit.h
->> > @@ -354,7 +358,7 @@ static inline int audit_bprm(struct linux_binp=
-rm *bprm)
->> >  {
->> >  	return 0;
->> >  }
->> > -static inline void audit_socketcall(int nargs, unsigned long *arg=
-s)
->> > +static inline int audit_socketcall(int nargs, unsigned long *args=
-)
->> >  { }
->> >  static inline void audit_fd_pair(int fd1, int fd2)
->> >  { }
-> This now returns a value but you forgot to return a value.  Thus this=
- would not even build...   I fixed it up myself.
+we should ignore the looped-back IPv6 DAD packet to avoid configuration failure.
+This occurs when a bonding interface with roundrobin mode is being configured an IPv6 address while the switch side isn't configured bonding/channel yet.
 
-  thank you very much.
-
-
-  :-)
-
-
---=20
-Chen Gang
-
-Asianux Corporation
+Signed-off-by: Jilin Meng <jilin.meng@emc.com>
+Signed-off-by: Yinglin Sun <yinglin.sun@emc.com>
+Signed-off-by: Lakshmanan Prithviraj <lakshmanan.prithviraj@emc.com>
+---
+--- linux/net/ipv6/ndisc.c.orig	2013-03-12 17:16:18.000000000 +0800
++++ linux/net/ipv6/ndisc.c	2013-03-21 10:37:06.000000000 +0800
+@@ -757,6 +757,24 @@ static void ndisc_recv_ns(struct sk_buff
+ 
+ 		if (ifp->flags & (IFA_F_TENTATIVE|IFA_F_OPTIMISTIC)) {
+ 			if (dad) {
++				if (dev->type == ARPHRD_ETHER) {
++					const unsigned char *sadr;
++					sadr = skb_mac_header(skb);
++					if (sadr[6] == dev->dev_addr[0] &&
++					    sadr[7] == dev->dev_addr[1] &&
++					    sadr[8] == dev->dev_addr[2] &&
++					    sadr[9] == dev->dev_addr[3] &&
++					    sadr[10] == dev->dev_addr[4] &&
++					    sadr[11] == dev->dev_addr[5]) {
++					/*
++					 * looped-back to us. This occurs when
++					 * a bonding interface with roundrobin
++					 * mode is being configured while the
++					 * switch side isn't configured yet.
++					 */
++						goto out;
++				}
++
+ 				/*
+ 				 * We are colliding with another node
+ 				 * who is doing DAD
