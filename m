@@ -1,63 +1,60 @@
-From: Jussi Kivilinna <jussi.kivilinna@iki.fi>
-Subject: Re: [PATCH 00/11] usbnet: usbnet: handle link change
-Date: Thu, 11 Apr 2013 18:18:09 +0300
-Message-ID: <5166D431.4080400@iki.fi>
+From: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>
+Subject: Re: [PATCH 08/11] usbnet: dm9601: apply usbnet_link_change
+Date: Thu, 11 Apr 2013 17:18:13 +0200
+Message-ID: <87zjx5rt8q.fsf@dell.be.48ers.dk>
 References: <1365691240-816-1-git-send-email-ming.lei@canonical.com>
+	<1365691240-816-9-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sd-mail-sa-02.sanoma.fi ([158.127.18.162]:56013 "EHLO
-	sd-mail-sa-02.sanoma.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752379Ab3DKPSN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 11:18:13 -0400
-In-Reply-To: <1365691240-816-1-git-send-email-ming.lei@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1365691240-816-9-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> (Ming
+	Lei's message of "Thu, 11 Apr 2013 22:40:37 +0800")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 11.04.2013 17:40, Ming Lei wrote:
-> Hi,
-> 
-> This patch set introduces usbnet_link_change() API and applies
-> it on all usbnet drivers, then handle the link change centrally
-> to stop bulk transfer when link becomes off and restart bulk
-> transfer when link becomes on.
+>>>>> "Ming" == Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> writes:
 
-Should 'rndis_wlan' be changed to use this too?
+ Ming> Use usbnet_link_change to handle link change centrally.
 
--Jussi
+Acked-by: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>
 
-> 
-> With the change, ~10% performance boost on bulk transfer
-> of another device on the same bus can be obtained when link
-> is off. Also, stopping bulk transfer when link becomes off
-> may disable asynchonous schedule of host controller, power
-> might be saved probabally.
-> 
->  drivers/net/usb/asix_devices.c |    6 +-----
->  drivers/net/usb/ax88179_178a.c |   12 ++++-------
->  drivers/net/usb/cdc_ether.c    |    5 +----
->  drivers/net/usb/cdc_ncm.c      |    9 +++-----
->  drivers/net/usb/dm9601.c       |    7 +------
->  drivers/net/usb/mcs7830.c      |    6 +-----
->  drivers/net/usb/sierra_net.c   |    3 +--
->  drivers/net/usb/usbnet.c       |   45 +++++++++++++++++++++++++++++++++++++++-
->  include/linux/usb/usbnet.h     |    2 ++
->  9 files changed, 58 insertions(+), 37 deletions(-)
-> 
-> 
-> Thanks,
-> --
-> Ming Lei
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+ Ming> Cc: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>
+ Ming> Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+ Ming> ---
+ Ming>  drivers/net/usb/dm9601.c |    7 +------
+ Ming>  1 file changed, 1 insertion(+), 6 deletions(-)
+
+ Ming> diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
+ Ming> index 174e5ec..2dbb946 100644
+ Ming> --- a/drivers/net/usb/dm9601.c
+ Ming> +++ b/drivers/net/usb/dm9601.c
+ Ming> @@ -524,12 +524,7 @@ static void dm9601_status(struct usbnet *dev, struct urb *urb)
+ 
+ Ming>  	link = !!(buf[0] & 0x40);
+ Ming>  	if (netif_carrier_ok(dev->net) != link) {
+ Ming> -		if (link) {
+ Ming> -			netif_carrier_on(dev->net);
+ Ming> -			usbnet_defer_kevent (dev, EVENT_LINK_RESET);
+ Ming> -		}
+ Ming> -		else
+ Ming> -			netif_carrier_off(dev->net);
+ Ming> +		usbnet_link_change(dev, link, 1);
+ Ming>  		netdev_dbg(dev->net, "Link Status is: %d\n", link);
+ Ming>  	}
+ Ming>  }
+ Ming> -- 
+ Ming> 1.7.9.5
+
+
+
+-- 
+Bye, Peter Korsgaard
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
