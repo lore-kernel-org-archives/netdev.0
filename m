@@ -1,46 +1,67 @@
-From: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
-Subject: [PATCH] net: ethernet: stmicro: stmmac: use devm_ioremap_resource()
-Date: Thu, 11 Apr 2013 22:52:13 +0300
-Message-ID: <1365709933-5796-1-git-send-email-silviupopescu1990@gmail.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	linux-kernel@vger.kernel.org,
-	Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
-To: netdev@vger.kernel.org
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH] net: mv643xx_eth: remove deprecated inet_lro support
+Date: Thu, 11 Apr 2013 21:52:52 +0200
+Message-ID: <51671494.6000803@gmail.com>
+References: <1365707488-28819-1-git-send-email-sebastian.hesselbarth@gmail.com> <1365709617.3887.185.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Florian Fainelli <florian@openwrt.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Dale Farnsworth <dale@farnsworth.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Soeren Moch <smoch@web.de>, Willy Tarreau <w@1wt.eu>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1365709617.3887.185.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Convert  use of devm_request_and_ioremap() to the newly introduced
-devm_ioremap_resource() which provides more consistent error handling.
+On 04/11/2013 09:46 PM, Eric Dumazet wrote:
+> On Thu, 2013-04-11 at 21:11 +0200, Sebastian Hesselbarth wrote:
+>> With recent support for GRO, there is no need to keep both LRO and
+>> GRO. This patch therefore removes the deprecated inet_lro support
+>> from mv643xx_eth. This is work is based on an experimental patch
+>> provided by Eric Dumazet and Willy Tarreau.
+>>
+>> Signed-off-by: Sebastian Hesselbarth<sebastian.hesselbarth@gmail.com>
+>> Based-on-patch-by: Eric Dumazet<eric.dumazet@gmail.com>
+>> Based-on-patch-by: Willy Tarreau<w@1wt.eu>
+>> ---
+>> Note: This patch is based upon recent cleanup patches and GRO support
+>> patch for mv643xx_eth.
+>>
+>> Cc: "David S. Miller"<davem@davemloft.net>
+>> Cc: Lennert Buytenhek<buytenh@wantstofly.org>
+>> Cc: Andrew Lunn<andrew@lunn.ch>
+>> Cc: Jason Cooper<jason@lakedaemon.net>
+>> Cc: Florian Fainelli<florian@openwrt.org>
+>> Cc: Benjamin Herrenschmidt<benh@kernel.crashing.org>
+>> Cc: Paul Mackerras<paulus@samba.org>
+>> Cc: Dale Farnsworth<dale@farnsworth.org>
+>> Cc: Ben Hutchings<bhutchings@solarflare.com>
+>> Cc: Soeren Moch<smoch@web.de>
+>> Cc: Eric Dumazet<eric.dumazet@gmail.com>
+>> Cc: Willy Tarreau<w@1wt.eu>
+>> Cc: netdev@vger.kernel.org
+>> Cc: linux-arm-kernel@lists.infradead.org
+>> Cc: linuxppc-dev@lists.ozlabs.org
+>> Cc: linux-kernel@vger.kernel.org
+>> ---
+>>   drivers/net/ethernet/marvell/mv643xx_eth.c |   97 +---------------------------
+>>   1 file changed, 3 insertions(+), 94 deletions(-)
+>
+> Seems fine to me, but you also could remove "select INET_LRO"
+> from drivers/net/ethernet/marvell/Kconfig
 
-devm_ioremap_resource() provides its own error messages so all explicit
-error messages can be removed from the failure code paths.
+Ok, I will wait for tomorrow to see if there are more objections and
+respin a v2.
 
-This was found with coccinelle.
-
-Signed-off-by: Silviu-Mihai Popescu <silviupopescu1990@gmail.com>
----
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index b43d68b..1d3780f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -88,11 +88,9 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
- 	if (!res)
- 		return -ENODEV;
- 
--	addr = devm_request_and_ioremap(dev, res);
--	if (!addr) {
--		pr_err("%s: ERROR: memory mapping failed", __func__);
--		return -ENOMEM;
--	}
-+	addr = devm_ioremap_resource(dev, res);
-+	if (IS_ERR(addr))
-+		return PTR_ERR(addr);
- 
- 	if (pdev->dev.of_node) {
- 		plat_dat = devm_kzalloc(&pdev->dev,
--- 
-1.7.9.5
+Sebastian
