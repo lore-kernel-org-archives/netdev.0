@@ -1,46 +1,43 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH] net: mv643xx_eth: Add GRO support
-Date: Thu, 11 Apr 2013 17:27:03 +0200
-Message-ID: <CABJ1b_TRxm97DKJLP_h0VwMJvcYmSpjoJvtg1KvBNGah=VzqMQ@mail.gmail.com>
-References: <1365684023-9967-1-git-send-email-sebastian.hesselbarth@gmail.com>
-	<20130411131333.GD1910@1wt.eu>
-	<CABJ1b_TQDabT1J7ffo5cb1Th=71bcSduifMJaDpfVRiiHvtWDw@mail.gmail.com>
-	<20130411150326.GA19978@1wt.eu>
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH 00/11] usbnet: usbnet: handle link change
+Date: Thu, 11 Apr 2013 23:27:18 +0800
+Message-ID: <CACVXFVMDGOuQ0=hWAWGixrSUwHBRE0D3778F0xJWFtQk-8HS9w@mail.gmail.com>
+References: <1365691240-816-1-git-send-email-ming.lei@canonical.com>
+	<5166D431.4080400@iki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	linux-kernel@vger.kernel.org,
-	Florian Fainelli <florian@openwrt.org>,
-	Soeren Moch <smoch@web.de>, Paul Mackerras <paulus@samba.org>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130411150326.GA19978@1wt.eu>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5166D431.4080400-X3B1VOXEql0@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 11, 2013 at 5:03 PM, Willy Tarreau <w@1wt.eu> wrote:
-> On Thu, Apr 11, 2013 at 04:47:49PM +0200, Sebastian Hesselbarth wrote:
->> I tried todays net-next on top of 3.9-rc6 without any gro patch, with
->> the initial
->> patch (Soeren) and your proposed patch (Willy). The results show that
->> both patches
->> allow a significant increase in throughput compared to
->> netif_receive_skb (!gro, !lro)
->> alone. Having gro with lro disabled gives some 2% more throughput
->> compared to lro only.
+On Thu, Apr 11, 2013 at 11:18 PM, Jussi Kivilinna
+<jussi.kivilinna-X3B1VOXEql0@public.gmane.org> wrote:
+> On 11.04.2013 17:40, Ming Lei wrote:
+>> Hi,
+>>
+>> This patch set introduces usbnet_link_change() API and applies
+>> it on all usbnet drivers, then handle the link change centrally
+>> to stop bulk transfer when link becomes off and restart bulk
+>> transfer when link becomes on.
 >
-> Indeed this is consistent with my memories, since Eric improved the
-> GRO path, it became faster than LRO on this chip.
+> Should 'rndis_wlan' be changed to use this too?
 
-I don't have a strong opinion on whether Soeren's or your proposal should
-be submitted. But I insist on having one of them in, as GRO significantly
-improves the common use case, is enabled by default, and not as
-constrained as LRO.
+If link detection of 'rndis_wlan' doesn't depend on
+bulk transfer, it can benefit from the change. Otherwise,
+it needn't the change, but the patch won't have side-effect
+on 'rndis_wlan'.
 
-Sebastian
+
+Thanks,
+--
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
