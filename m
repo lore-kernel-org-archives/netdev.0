@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: incoming connections might use wrong route under
- synflood
-Date: Wed, 10 Apr 2013 23:26:12 -0400 (EDT)
-Message-ID: <20130410.232612.1922869742696275542.davem@davemloft.net>
-References: <20130411000909.d90c6df468bf1830174e88e2@highloadlab.com>
+Subject: Re: [PATCH] net: mvmdio: add clocks property to binding
+ documentation
+Date: Wed, 10 Apr 2013 23:27:30 -0400 (EDT)
+Message-ID: <20130410.232730.1645231962260178304.davem@davemloft.net>
+References: <1365615391-26244-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: dp@highloadlab.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130411000909.d90c6df468bf1830174e88e2@highloadlab.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
+	rob@landley.net, florian@openwrt.org,
+	thomas.petazzoni@free-electrons.com, gregkh@linuxfoundation.org,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: sebastian.hesselbarth@gmail.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1365615391-26244-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dmitry Popov <dp@highloadlab.com>
-Date: Thu, 11 Apr 2013 00:09:09 +0400
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Date: Wed, 10 Apr 2013 19:36:29 +0200
 
-> There is a bug in cookie_v4_check (net/ipv4/syncookies.c):
-> 	flowi4_init_output(&fl4, 0, sk->sk_mark, RT_CONN_FLAGS(sk),
-> 			   RT_SCOPE_UNIVERSE, IPPROTO_TCP,
-> 			   inet_sk_flowi_flags(sk),
-> 			   (opt && opt->srr) ? opt->faddr : ireq->rmt_addr,
-> 			   ireq->loc_addr, th->source, th->dest);
+> Patch "net: mvmdio: get and enable optional clock" was missing an
+> update of the corresponding device tree binding documentation. This
+> patch adds the clocks property to mvmdio binding documentation.
 > 
-> Here we do not respect sk->sk_bound_dev_if, therefore wrong dst_entry may be taken. This dst_entry is used in new socket (get_cookie_sock -> tcp_v4_syn_recv_sock), so its packets may take wrong path. There is no such bug in ipv6 code and non-cookie code (usual case). Bugfix below.
-> 
-> Signed-off-by: Dmitry Popov <dp@highloadlab.com>
+> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 
-Please format your commit messages properly, by not allowing lines of
-text longer than 80 columns.
+Please reference commits by SHA1 ID as well as the commit log
+message header line (the latter of which should be inside
+of parenthesis and double quotes).
 
-Thank you.
+Thanks.
