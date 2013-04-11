@@ -1,35 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: mv643xx_eth: Add GRO support
-Date: Thu, 11 Apr 2013 10:35:25 -0700
-Message-ID: <1365701725.3887.177.camel@edumazet-glaptop>
-References: <CABJ1b_TQDabT1J7ffo5cb1Th=71bcSduifMJaDpfVRiiHvtWDw@mail.gmail.com>
-	 <20130411150326.GA19978@1wt.eu>
-	 <CABJ1b_TRxm97DKJLP_h0VwMJvcYmSpjoJvtg1KvBNGah=VzqMQ@mail.gmail.com>
-	 <20130411.133119.913809939413807690.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH iproute2 v2] vxlan: Allow setting destination to unicast
+ address.
+Date: Thu, 11 Apr 2013 18:48:20 +0100
+Message-ID: <1365702500.7355.0.camel@bwh-desktop.uk.solarflarecom.com>
+References: <87li8pmkvh.wl%atzm@stratosphere.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: sebastian.hesselbarth@gmail.com, w@1wt.eu, andrew@lunn.ch,
-	jason@lakedaemon.net, benh@kernel.crashing.org,
-	linux-kernel@vger.kernel.org, florian@openwrt.org, smoch@web.de,
-	paulus@samba.org, buytenh@wantstofly.org, dale@farnsworth.org,
-	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130411.133119.913809939413807690.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Atzm Watanabe <atzm@stratosphere.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:49026 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934868Ab3DKRs1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 13:48:27 -0400
+In-Reply-To: <87li8pmkvh.wl%atzm@stratosphere.co.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-04-11 at 13:31 -0400, David Miller wrote:
+On Thu, 2013-04-11 at 19:17 +0900, Atzm Watanabe wrote:
+> This patch allows setting VXLAN destination to unicast address.
+> It allows that VXLAN can be used as peer-to-peer tunnel without
+> multicast.
+> 
+> v2: use a new argument "remote" instead of "group" based by
+>     Stephen Hemminger's comments.
+> 
+> Signed-off-by: Atzm Watanabe <atzm@stratosphere.co.jp>
+[...]
+> --- a/ip/iplink_vxlan.c
+> +++ b/ip/iplink_vxlan.c
+> @@ -23,7 +23,8 @@
+>  
+>  static void explain(void)
+>  {
+> -	fprintf(stderr, "Usage: ... vxlan id VNI [ group ADDR ] [ local ADDR ]\n");
+> +	fprintf(stderr, "Usage: ... vxlan id VNI [ group ADDR ] [ remote ADDR ]\n");
+[...]
 
-> I think, as per other drivers, LRO should be eliminated completely from
-> all drivers, including this one, and GRO used exclusively instead.
+Shouldn't that be "[ group|remote ADDR ]", to show that you can specify
+one or the other?
 
-This would be awesome.
+Ben.
 
-AFAIK current LRO users are :
-
-drivers/infiniband/hw/nes/nes_hw.c
-drivers/net/ethernet/marvell/mv643xx_eth.c
-drivers/net/ethernet/pasemi/pasemi_mac.c
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
