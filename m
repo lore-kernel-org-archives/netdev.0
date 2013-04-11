@@ -1,102 +1,50 @@
-From: Christoph Fritz <chf.fritz@googlemail.com>
-Subject: Re: [PATCH v3] can: sja1000: fix endian on arm
-Date: Thu, 11 Apr 2013 21:14:57 +0200
-Message-ID: <1365707697.4136.26.camel@mars>
-References: <1365428932.5760.52.camel@lovely>
-	 <5162CCB5.3000605@pengutronix.de> <1365705884.4136.5.camel@mars>
-	 <51670532.5060101@pengutronix.de>  <1365706413.4136.15.camel@mars>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH repost for-3.9] pci: avoid work_on_cpu for nested SRIOV
+ probes
+Date: Thu, 11 Apr 2013 22:17:17 +0300
+Message-ID: <20130411191717.GB25515@redhat.com>
+References: <20130411153030.GA22743@redhat.com>
+ <20130411180517.GJ17641@mtj.dyndns.org>
+ <20130411185853.GE23301@redhat.com>
+ <20130411190408.GM17641@mtj.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Andreas Larsson <andreas@gaisler.com>,
-	"Hans J. Koch" <hjk@hansjkoch.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Bill Pemberton <wfp5p@virginia.edu>, linux-can@vger.kernel.org,
-	Daniel Mack <daniel@zonque.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1365706413.4136.15.camel@mars>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Ming Lei <ming.lei@canonical.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>,
+	Roland Dreier <roland@kernel.org>,
+	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130411190408.GM17641@mtj.dyndns.org>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To get correct endian on arm cpus while reading device tree properties,
-this patch replaces of_get_property() with of_property_read_u32().
+On Thu, Apr 11, 2013 at 12:04:08PM -0700, Tejun Heo wrote:
+> Hey,
+> 
+> On Thu, Apr 11, 2013 at 09:58:54PM +0300, Michael S. Tsirkin wrote:
+> > > Hmm... how about adding a work_on_cpu_nested() which takes @subclass
+> > > argument?  Wouldn't that be much cleaner?
+> > > 
+> > > Thanks.
+> > 
+> > Is that 3.9 material though?
+> 
+> Why wouldn't it be?  It's actually safer as it doesn't change any
+> logic.  It's just updating lockdep annotation, which is what's needed
+> here anyway.
+> 
+> Thanks.
 
-Signed-off-by: Christoph Fritz <chf.fritz@googlemail.com>
----
- drivers/net/can/sja1000/sja1000_of_platform.c |   31 ++++++++++++-------------
- 1 file changed, 15 insertions(+), 16 deletions(-)
+Hmm no, there's a real deadlock here: you are
+trying to flush from work1 from within work2 running
+on same workqueue. work2 can't event start running.
+The problem is not annotation.
 
-diff --git a/drivers/net/can/sja1000/sja1000_of_platform.c b/drivers/net/can/sja1000/sja1000_of_platform.c
-index 6433b81..f2d2f78 100644
---- a/drivers/net/can/sja1000/sja1000_of_platform.c
-+++ b/drivers/net/can/sja1000/sja1000_of_platform.c
-@@ -96,8 +96,8 @@ static int sja1000_ofp_probe(struct platform_device *ofdev)
- 	struct net_device *dev;
- 	struct sja1000_priv *priv;
- 	struct resource res;
--	const u32 *prop;
--	int err, irq, res_size, prop_size;
-+	u32 prop;
-+	int err, irq, res_size;
- 	void __iomem *base;
- 
- 	err = of_address_to_resource(np, 0, &res);
-@@ -138,27 +138,27 @@ static int sja1000_ofp_probe(struct platform_device *ofdev)
- 	priv->read_reg = sja1000_ofp_read_reg;
- 	priv->write_reg = sja1000_ofp_write_reg;
- 
--	prop = of_get_property(np, "nxp,external-clock-frequency", &prop_size);
--	if (prop && (prop_size ==  sizeof(u32)))
--		priv->can.clock.freq = *prop / 2;
-+	err = of_property_read_u32(np, "nxp,external-clock-frequency", &prop);
-+	if (!err)
-+		priv->can.clock.freq = prop / 2;
- 	else
- 		priv->can.clock.freq = SJA1000_OFP_CAN_CLOCK; /* default */
- 
--	prop = of_get_property(np, "nxp,tx-output-mode", &prop_size);
--	if (prop && (prop_size == sizeof(u32)))
--		priv->ocr |= *prop & OCR_MODE_MASK;
-+	err = of_property_read_u32(np, "nxp,tx-output-mode", &prop);
-+	if (!err)
-+		priv->ocr |= prop & OCR_MODE_MASK;
- 	else
- 		priv->ocr |= OCR_MODE_NORMAL; /* default */
- 
--	prop = of_get_property(np, "nxp,tx-output-config", &prop_size);
--	if (prop && (prop_size == sizeof(u32)))
--		priv->ocr |= (*prop << OCR_TX_SHIFT) & OCR_TX_MASK;
-+	err = of_property_read_u32(np, "nxp,tx-output-config", &prop);
-+	if (!err)
-+		priv->ocr |= (prop << OCR_TX_SHIFT) & OCR_TX_MASK;
- 	else
- 		priv->ocr |= OCR_TX0_PULLDOWN; /* default */
- 
--	prop = of_get_property(np, "nxp,clock-out-frequency", &prop_size);
--	if (prop && (prop_size == sizeof(u32)) && *prop) {
--		u32 divider = priv->can.clock.freq * 2 / *prop;
-+	err = of_property_read_u32(np, "nxp,clock-out-frequency", &prop);
-+	if (!err) {
-+		u32 divider = priv->can.clock.freq * 2 / prop;
- 
- 		if (divider > 1)
- 			priv->cdr |= divider / 2 - 1;
-@@ -168,8 +168,7 @@ static int sja1000_ofp_probe(struct platform_device *ofdev)
- 		priv->cdr |= CDR_CLK_OFF; /* default */
- 	}
- 
--	prop = of_get_property(np, "nxp,no-comparator-bypass", NULL);
--	if (!prop)
-+	if (!of_property_read_bool(np, "nxp,no-comparator-bypass"))
- 		priv->cdr |= CDR_CBP; /* default */
- 
- 	priv->irq_flags = IRQF_SHARED;
--- 
-1.7.10.4
-
-
-
+> -- 
+> tejun
