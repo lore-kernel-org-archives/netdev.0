@@ -1,206 +1,56 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 2/3] net/mlx4_core: Translate guest B0 steering rules to DMFS
-Date: Thu, 11 Apr 2013 14:56:41 +0300
-Message-ID: <1365681402-19445-3-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 3/3] net/mlx4_en: set correct MTU in SRIOV
+Date: Thu, 11 Apr 2013 14:56:42 +0300
+Message-ID: <1365681402-19445-4-git-send-email-amirv@mellanox.com>
 References: <1365681402-19445-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>
+	Eugenia Emantayev <eugenia@mellanox.co.il>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:36351 "EHLO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934132Ab3DKL4z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 07:56:55 -0400
+Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:44044 "EHLO
+	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933510Ab3DKMAL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 08:00:11 -0400
 In-Reply-To: <1365681402-19445-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
+From: Eugenia Emantayev <eugenia@mellanox.co.il>
 
-The different steering modes are global to the device, with DMFS
-being introduced after SRIOV was merged. Hence, SRIOV guests running
-legacy / older Linux kernels or non-Linux drivers may provide
-B0 steering directives when the hypervisor is using DMFS and fail.
+When setting MTU in SRIOV mode add ETH, VLAN and FCS header length
+to the maximum MTU obtained from QUERY_DEV_CAP.
 
-Under B0 only L2 steering rules are allowed, hence B0 is a subset of DMFS.
-Use this fact to enable such legacy guests to run by modifying the SRIOV
-B0 steering wrapper to translate guest B0 directives to DMFS ones when
-the device uses DMFS. The translated B0 rule has to be kept in the
-resource tracker as a B0 object to allow for lookup in case of detach.
-
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   85 +++++++++++++++-----
- 1 files changed, 63 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/port.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 1391b52..f2d6443 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -75,6 +75,7 @@ struct res_gid {
- 	u8			gid[16];
- 	enum mlx4_protocol	prot;
- 	enum mlx4_steer_type	steer;
-+	u64			reg_id;
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 10c57c8..4b6aad3 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -32,6 +32,7 @@
  
- enum res_qp_states {
-@@ -2934,7 +2935,7 @@ static struct res_gid *find_gid(struct mlx4_dev *dev, int slave,
+ #include <linux/errno.h>
+ #include <linux/if_ether.h>
++#include <linux/if_vlan.h>
+ #include <linux/export.h>
  
- static int add_mcg_res(struct mlx4_dev *dev, int slave, struct res_qp *rqp,
- 		       u8 *gid, enum mlx4_protocol prot,
--		       enum mlx4_steer_type steer)
-+		       enum mlx4_steer_type steer, u64 reg_id)
- {
- 	struct res_gid *res;
- 	int err;
-@@ -2951,6 +2952,7 @@ static int add_mcg_res(struct mlx4_dev *dev, int slave, struct res_qp *rqp,
- 		memcpy(res->gid, gid, 16);
- 		res->prot = prot;
- 		res->steer = steer;
-+		res->reg_id = reg_id;
- 		list_add_tail(&res->list, &rqp->mcg_list);
- 		err = 0;
- 	}
-@@ -2961,7 +2963,7 @@ static int add_mcg_res(struct mlx4_dev *dev, int slave, struct res_qp *rqp,
- 
- static int rem_mcg_res(struct mlx4_dev *dev, int slave, struct res_qp *rqp,
- 		       u8 *gid, enum mlx4_protocol prot,
--		       enum mlx4_steer_type steer)
-+		       enum mlx4_steer_type steer, u64 *reg_id)
- {
- 	struct res_gid *res;
- 	int err;
-@@ -2971,6 +2973,7 @@ static int rem_mcg_res(struct mlx4_dev *dev, int slave, struct res_qp *rqp,
- 	if (!res || res->prot != prot || res->steer != steer)
- 		err = -EINVAL;
- 	else {
-+		*reg_id = res->reg_id;
- 		list_del(&res->list);
- 		kfree(res);
- 		err = 0;
-@@ -2980,6 +2983,37 @@ static int rem_mcg_res(struct mlx4_dev *dev, int slave, struct res_qp *rqp,
- 	return err;
- }
- 
-+static int qp_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
-+		     int block_loopback, enum mlx4_protocol prot,
-+		     enum mlx4_steer_type type, u64 *reg_id)
-+{
-+	switch (dev->caps.steering_mode) {
-+	case MLX4_STEERING_MODE_DEVICE_MANAGED:
-+		return mlx4_trans_to_dmfs_attach(dev, qp, gid, gid[5],
-+						block_loopback, prot,
-+						reg_id);
-+	case MLX4_STEERING_MODE_B0:
-+		return mlx4_qp_attach_common(dev, qp, gid,
-+					    block_loopback, prot, type);
-+	default:
-+		return -EINVAL;
-+	}
-+}
-+
-+static int qp_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
-+		     enum mlx4_protocol prot, enum mlx4_steer_type type,
-+		     u64 reg_id)
-+{
-+	switch (dev->caps.steering_mode) {
-+	case MLX4_STEERING_MODE_DEVICE_MANAGED:
-+		return mlx4_flow_detach(dev, reg_id);
-+	case MLX4_STEERING_MODE_B0:
-+		return mlx4_qp_detach_common(dev, qp, gid, prot, type);
-+	default:
-+		return -EINVAL;
-+	}
-+}
-+
- int mlx4_QP_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
- 			       struct mlx4_vhcr *vhcr,
- 			       struct mlx4_cmd_mailbox *inbox,
-@@ -2992,14 +3026,12 @@ int mlx4_QP_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
- 	int err;
- 	int qpn;
- 	struct res_qp *rqp;
-+	u64 reg_id = 0;
- 	int attach = vhcr->op_modifier;
- 	int block_loopback = vhcr->in_modifier >> 31;
- 	u8 steer_type_mask = 2;
- 	enum mlx4_steer_type type = (gid[7] & steer_type_mask) >> 1;
- 
--	if (dev->caps.steering_mode != MLX4_STEERING_MODE_B0)
--		return -EINVAL;
--
- 	qpn = vhcr->in_modifier & 0xffffff;
- 	err = get_res(dev, slave, qpn, RES_QP, &rqp);
- 	if (err)
-@@ -3007,30 +3039,32 @@ int mlx4_QP_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
- 
- 	qp.qpn = qpn;
- 	if (attach) {
--		err = add_mcg_res(dev, slave, rqp, gid, prot, type);
--		if (err)
-+		err = qp_attach(dev, &qp, gid, block_loopback, prot,
-+				type, &reg_id);
-+		if (err) {
-+			pr_err("Fail to attach rule to qp 0x%x\n", qpn);
- 			goto ex_put;
--
--		err = mlx4_qp_attach_common(dev, &qp, gid,
--					    block_loopback, prot, type);
-+		}
-+		err = add_mcg_res(dev, slave, rqp, gid, prot, type, reg_id);
- 		if (err)
--			goto ex_rem;
-+			goto ex_detach;
- 	} else {
--		err = rem_mcg_res(dev, slave, rqp, gid, prot, type);
-+		err = rem_mcg_res(dev, slave, rqp, gid, prot, type, &reg_id);
- 		if (err)
- 			goto ex_put;
--		err = mlx4_qp_detach_common(dev, &qp, gid, prot, type);
--	}
- 
-+		err = qp_detach(dev, &qp, gid, prot, type, reg_id);
-+		if (err)
-+			pr_err("Fail to detach rule from qp 0x%x reg_id = 0x%llx\n",
-+			       qpn, reg_id);
-+	}
- 	put_res(dev, slave, qpn, RES_QP);
--	return 0;
-+	return err;
- 
--ex_rem:
--	/* ignore error return below, already in error */
--	(void) rem_mcg_res(dev, slave, rqp, gid, prot, type);
-+ex_detach:
-+	qp_detach(dev, &qp, gid, prot, type, reg_id);
- ex_put:
- 	put_res(dev, slave, qpn, RES_QP);
--
- 	return err;
- }
- 
-@@ -3266,9 +3300,16 @@ static void detach_qp(struct mlx4_dev *dev, int slave, struct res_qp *rqp)
- 	struct mlx4_qp qp; /* dummy for calling attach/detach */
- 
- 	list_for_each_entry_safe(rgid, tmp, &rqp->mcg_list, list) {
--		qp.qpn = rqp->local_qpn;
--		(void) mlx4_qp_detach_common(dev, &qp, rgid->gid, rgid->prot,
--					     rgid->steer);
-+		switch (dev->caps.steering_mode) {
-+		case MLX4_STEERING_MODE_DEVICE_MANAGED:
-+			mlx4_flow_detach(dev, rgid->reg_id);
-+			break;
-+		case MLX4_STEERING_MODE_B0:
-+			qp.qpn = rqp->local_qpn;
-+			(void) mlx4_qp_detach_common(dev, &qp, rgid->gid,
-+						     rgid->prot, rgid->steer);
-+			break;
-+		}
- 		list_del(&rgid->list);
- 		kfree(rgid);
- 	}
+ #include <linux/mlx4/cmd.h>
+@@ -517,7 +518,8 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 			/* Mtu is configured as the max MTU among all the
+ 			 * the functions on the port. */
+ 			mtu = be16_to_cpu(gen_context->mtu);
+-			mtu = min_t(int, mtu, dev->caps.eth_mtu_cap[port]);
++			mtu = min_t(int, mtu, dev->caps.eth_mtu_cap[port] +
++				    ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN);
+ 			prev_mtu = slave_st->mtu[port];
+ 			slave_st->mtu[port] = mtu;
+ 			if (mtu > master->max_mtu[port])
 -- 
 1.7.8.2
