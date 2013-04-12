@@ -1,39 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] netfilter fixes for net
-Date: Fri, 12 Apr 2013 14:28:17 -0400 (EDT)
-Message-ID: <20130412.142817.1030983883455796787.davem@davemloft.net>
-References: <1365761599-6990-1-git-send-email-pablo@netfilter.org>
+Subject: Re: pull-request: can 2013-04-12
+Date: Fri, 12 Apr 2013 14:30:05 -0400 (EDT)
+Message-ID: <20130412.143005.2249374132456432955.davem@davemloft.net>
+References: <1365765117-28316-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51977 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752859Ab3DLS2T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 14:28:19 -0400
-In-Reply-To: <1365761599-6990-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1365765117-28316-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Fri, 12 Apr 2013 12:13:15 +0200
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Fri, 12 Apr 2013 13:11:55 +0200
 
-> The following patchset contains late netfilter fixes for your net
-> tree, they are:
+> here's another fix for the v3.9 release cycle, if not too late:
 > 
-> * Don't drop segmented TCP packets in the SIP helper, we've got reports
->   from users that this was breaking communications when the SIP phone
->   messages are larger than the MTU, from Patrick McHardy.
-> 
-> * Fix refcount leak in the ipset list set, from Jozsef Kadlecsik.
-> 
-> * On hash set resizing, the nomatch flag was lost, thus entirely inverting
->   the logic of the set matching, from Jozsef Kadlecsik.
-> 
-> * Fix crash on NAT modules removal. Timer expiration may race with the
->   module cleanup exit path while deleting conntracks, from Florian
->   Westphal.
+> Christoph Fritz fixed the device tree property handling on little endian
+> systems in the sja1000 device tree driver. It was Mylene Josserand who noticed
+> that the mcp251x spi CAN driver cannot request its interrupt anymore, as the
+> driver is using a threaded interrupt handler without a primary one and without
+> specifying IRQF_ONESHOT (which is needed since v3.5). A patch by me fixes this
+> problem.
 
-Pulled, thanks Pablo.
+Pulled, thanks Marc.
