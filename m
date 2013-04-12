@@ -1,78 +1,172 @@
-From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Subject: Fw: [Bug 56521] New: No support of Motorola ZN5 USBnet in zaurus
- module
-Date: Fri, 12 Apr 2013 08:32:59 -0700
-Message-ID: <20130412083259.13e7905e@nehalam.linuxnetplumber.net>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH V4 6/7] xen-netback: coalesce slots in TX path and fix
+ regressions
+Date: Fri, 12 Apr 2013 16:35:44 +0100
+Message-ID: <1365780944.15783.97.camel@zakaz.uk.xensource.com>
+References: <1365776646-10796-1-git-send-email-wei.liu2@citrix.com>
+	 <1365776646-10796-7-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"jbeulich@suse.com" <jbeulich@suse.com>,
+	"wdauchy@gmail.com" <wdauchy@gmail.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.eu.citrix.com ([46.33.159.39]:39409 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751746Ab3DLPfs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 11:35:48 -0400
+In-Reply-To: <1365776646-10796-7-git-send-email-wei.liu2@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2013-04-12 at 15:24 +0100, Wei Liu wrote:
+> +/*
+> + * This is the maximum slots a skb can have. If a guest sends a skb
+> + * which exceeds this limit it is considered malicious.
+> + */
+> +#define MAX_SKB_SLOTS_DEFAULT 20
+> +static unsigned int max_skb_slots = MAX_SKB_SLOTS_DEFAULT;
+> +
+> +static int max_skb_slots_set(const char *val, const struct kernel_param *kp)
+> +{
+> +       int ret;
+> +       unsigned int param = 0;
+> +
+> +       ret = kstrtouint(val, 10, &param);
+> +
+> +       if (ret < 0 || param < XEN_NETIF_NR_SLOTS_MIN)
+> +               return -EINVAL;
+> +
+> +       max_skb_slots = param;
+> +
+> +       return 0;
+> +}
+> +
+> +static __moduleparam_const struct kernel_param_ops max_skb_slots_param_ops = {
+> +       .set = max_skb_slots_set,
+> +       .get = param_get_uint,
+> +};
+> +
+> +module_param_cb(max_skb_slots, &max_skb_slots_param_ops,
+> +               &max_skb_slots, 0444);
 
+Is all this infrastructure instead of module_param_int just so we can
+check XEN_NETIF_NR_SLOTS_MIN? I'm inclined to suggest that if an admin
+wants to set a smaller slot limit then they get to keep the pieces.
 
-Begin forwarded message:
+Or if you really want to check it then you could check+log/reject in the
+module init function.
 
-Date: Fri, 12 Apr 2013 07:27:18 -0700
-From: "bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org" <bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org>
-To: "stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org" <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Subject: [Bug 56521] New: No support of Motorola ZN5 USBnet in zaurus module
+> +
+> +typedef unsigned int pending_ring_idx_t;
+> +#define INVALID_PENDING_RING_IDX (~0U)
+> +
+>  struct pending_tx_info {
+> -       struct xen_netif_tx_request req;
+> +       struct xen_netif_tx_request req; /* coalesced tx request  */
+>         struct xenvif *vif;
+> +       pending_ring_idx_t head; /* head != INVALID_PENDING_RING_IDX
+> +                                 * if it is head of one or more tx
+> +                                 * reqs
+> +                                 */
+>  };
+> -typedef unsigned int pending_ring_idx_t;
+> 
+>  struct netbk_rx_meta {
+>         int id;
+> @@ -102,7 +138,11 @@ struct xen_netbk {
+>         atomic_t netfront_count;
+> 
+>         struct pending_tx_info pending_tx_info[MAX_PENDING_REQS];
+> -       struct gnttab_copy tx_copy_ops[MAX_PENDING_REQS];
+> +       /* Coalescing tx requests before copying makes number of grant
+> +        * copy ops greater of equal to number of slots required. In
+                              ^or
 
+> +        * worst case a tx request consumes 2 gnttab_copy.
 
-https://bugzilla.kernel.org/show_bug.cgi?id=56521
+I'm happy with this as an upper bound but can it be made smaller?
 
-           Summary: No support of Motorola ZN5 USBnet in zaurus module
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.7.5
-          Platform: All
-        OS/Version: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: Other
-        AssignedTo: shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-        ReportedBy: a1ba.omarov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-        Regression: No
+For example there are at most MAX_PENDING_REQS on the ring, but we are
+filling MAX_SKB_FRAGS with that data, therefore only MAX_SKB_FRAGS (-1?)
+or those requests can cross a frag boundary and therefore the actual max
+is MAX_PENDING_REQS+MAX_SKB_FRAGS.
 
+Is that logic right? Perhaps need to account for data going into the
+head too with another +N?
 
-Created an attachment (id=98391)
- --> (https://bugzilla.kernel.org/attachment.cgi?id=98391)
-zaurus.patch
+> +        */
+> +       struct gnttab_copy tx_copy_ops[2*MAX_PENDING_REQS];
+> 
+>         u16 pending_ring[MAX_PENDING_REQS];
+> 
+[...]
 
-I've tried to plug my phone via USBnet, but zaurus module is not loaded,
-because kernel can't detect it as zaurus-like device.
+> 
+> -               memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + frags),
+> +               /* Xen network protocol had implicit dependency on
+> +                * MAX_SKB_FRAGS. XEN_NETIF_NR_SLOTS_MIN is set to the
+> +                * historical MAX_SKB_FRAGS value 18 to honor the same
+> +                * behavior as before. Any packet using more than 18
+> +                * slots but less than max_skb_slots slots is dropped
+> +                */
 
-I looked to dmesg and found that:
+It seems a bit odd not to accept such a thing if the local network stack
+can cope with it but I suppose the intention here is to maintain the
+historical status quo to reduce the problem space when we imminently
+implement proper negotiation between front- and backend about the number
+of slots they can handle?
 
-[ 7880.799111] usb 1-1: new high-speed USB device number 5 using ehci_hcd
-[ 7880.957767] usb 1-1: New USB device found, idVendor=22b8, idProduct=6424
-[ 7880.957771] usb 1-1: New USB device strings: Mfr=3, Product=2,
-SerialNumber=0
-[ 7880.957774] usb 1-1: Product: ZN5
-[ 7880.957777] usb 1-1: Manufacturer: Motorola Inc.
-[ 7881.646079] usb 1-1: bad CDC descriptors
-[ 7881.646100] usbcore: registered new interface driver cdc_ether
+> +               if (!drop_err && slots >= XEN_NETIF_NR_SLOTS_MIN) {
+> +                       if (net_ratelimit())
+> +                               netdev_dbg(vif->dev,
+> +                                          "Too many slots (%d), dropping packet\n",
+> +                                          slots);
 
-In source file I don't found my idProduct=6424, but found support of Motorola
-MOTOMAGX Phones with idProduct=6425
+Could log the limits here?
 
-I added in drivers/net/usb/zaurus.c idProduct of my phone and it works
-perfectly and without any errors or warnings. 
+> +                       drop_err = -E2BIG;
+> +               }
+> +
+> +               memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + slots),
 
-Attachment contains patch for zaurus.c. Please, add it to kernel. 
+> @@ -1038,11 +1179,21 @@ static int xen_netbk_tx_check_gop(struct xen_netbk *netbk,
+> 
+>         for (i = start; i < nr_frags; i++) {
+>                 int j, newerr;
+> +               pending_ring_idx_t head;
+> 
+>                 pending_idx = frag_get_pending_idx(&shinfo->frags[i]);
+> +               tx_info = &netbk->pending_tx_info[pending_idx];
+> +               head = tx_info->head;
+> 
+>                 /* Check error status: if okay then remember grant handle. */
+> -               newerr = (++gop)->status;
+> +               do {
+> +                       newerr = (++gop)->status;
+> +                       if (newerr)
+> +                               break;
+> +                       peek = netbk->pending_ring[pending_index(++head)];
+> +               } while (netbk->pending_tx_info[peek].head
+> +                        == INVALID_PENDING_RING_IDX);
 
-P.S. Sorry for my English, I know it bad. =(
+The 80 column limit is a soft one (and I think its greater nowadays
+anyhow) and in cases like this the "cure" is worse than the disease, at
+least in IMHO...
 
--- 
-Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
-------- You are receiving this mail because: -------
-You are the assignee for the bug.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You are using INVALID_PENDING_RING_IDX as an indication of further
+chaining, so the naming is a little counter intuitive. I can't think of
+a name I like (something with "continuation" in it?) but perhaps a
+helper function pending_tx_is_head(netbk, peek) or something would make
+it read more clearly?
+
+> +
+>                 if (likely(!newerr)) {
+>                         /* Had a previous error? Invalidate this fragment. */
+>                         if (unlikely(err))
