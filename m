@@ -1,50 +1,97 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2013-04-12
-Date: Fri, 12 Apr 2013 13:11:55 +0200
-Message-ID: <1365765117-28316-1-git-send-email-mkl@pengutronix.de>
-Cc: linux-can@vger.kernel.org, davem@davemloft.net
+Subject: [PATCH 2/2] can: sja1000: fix handling on dt properties on little endian systems
+Date: Fri, 12 Apr 2013 13:11:57 +0200
+Message-ID: <1365765117-28316-3-git-send-email-mkl@pengutronix.de>
+References: <1365765117-28316-1-git-send-email-mkl@pengutronix.de>
+Cc: linux-can@vger.kernel.org, davem@davemloft.net,
+	Christoph Fritz <chf.fritz@googlemail.com>,
+	linux-stable <stable@vger.kernel.org>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1365765117-28316-1-git-send-email-mkl@pengutronix.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello David,
+From: Christoph Fritz <chf.fritz@googlemail.com>
 
-here's another fix for the v3.9 release cycle, if not too late:
+To get correct endianes on little endian cpus (like arm) while reading device
+tree properties, this patch replaces of_get_property() with
+of_property_read_u32(). While there use of_property_read_bool() for the
+handling of the boolean "nxp,no-comparator-bypass" property.
 
-Christoph Fritz fixed the device tree property handling on little endian
-systems in the sja1000 device tree driver. It was Mylene Josserand who noticed
-that the mcp251x spi CAN driver cannot request its interrupt anymore, as the
-driver is using a threaded interrupt handler without a primary one and without
-specifying IRQF_ONESHOT (which is needed since v3.5). A patch by me fixes this
-problem.
-
-regards,
-Marc
-
+Cc: linux-stable <stable@vger.kernel.org>
+Signed-off-by: Christoph Fritz <chf.fritz@googlemail.com>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
-
-The following changes since commit 50bceae9bd3569d56744882f3012734d48a1d413:
-
-  tcp: Reallocate headroom if it would overflow csum_start (2013-04-11 18:12:41 -0400)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can.git fixes-for-3.9
-
-for you to fetch changes up to 0443de5fbf224abf41f688d8487b0c307dc5a4b4:
-
-  can: sja1000: fix handling on dt properties on little endian systems (2013-04-12 13:03:01 +0200)
-
-----------------------------------------------------------------
-Christoph Fritz (1):
-      can: sja1000: fix handling on dt properties on little endian systems
-
-Marc Kleine-Budde (1):
-      can: mcp251x: add missing IRQF_ONESHOT to request_threaded_irq
-
- drivers/net/can/mcp251x.c                     | 10 +++++++--
  drivers/net/can/sja1000/sja1000_of_platform.c | 31 +++++++++++++--------------
- 2 files changed, 23 insertions(+), 18 deletions(-)
+ 1 file changed, 15 insertions(+), 16 deletions(-)
 
+diff --git a/drivers/net/can/sja1000/sja1000_of_platform.c b/drivers/net/can/sja1000/sja1000_of_platform.c
+index 6433b81..8e0c4a0 100644
+--- a/drivers/net/can/sja1000/sja1000_of_platform.c
++++ b/drivers/net/can/sja1000/sja1000_of_platform.c
+@@ -96,8 +96,8 @@ static int sja1000_ofp_probe(struct platform_device *ofdev)
+ 	struct net_device *dev;
+ 	struct sja1000_priv *priv;
+ 	struct resource res;
+-	const u32 *prop;
+-	int err, irq, res_size, prop_size;
++	u32 prop;
++	int err, irq, res_size;
+ 	void __iomem *base;
+ 
+ 	err = of_address_to_resource(np, 0, &res);
+@@ -138,27 +138,27 @@ static int sja1000_ofp_probe(struct platform_device *ofdev)
+ 	priv->read_reg = sja1000_ofp_read_reg;
+ 	priv->write_reg = sja1000_ofp_write_reg;
+ 
+-	prop = of_get_property(np, "nxp,external-clock-frequency", &prop_size);
+-	if (prop && (prop_size ==  sizeof(u32)))
+-		priv->can.clock.freq = *prop / 2;
++	err = of_property_read_u32(np, "nxp,external-clock-frequency", &prop);
++	if (!err)
++		priv->can.clock.freq = prop / 2;
+ 	else
+ 		priv->can.clock.freq = SJA1000_OFP_CAN_CLOCK; /* default */
+ 
+-	prop = of_get_property(np, "nxp,tx-output-mode", &prop_size);
+-	if (prop && (prop_size == sizeof(u32)))
+-		priv->ocr |= *prop & OCR_MODE_MASK;
++	err = of_property_read_u32(np, "nxp,tx-output-mode", &prop);
++	if (!err)
++		priv->ocr |= prop & OCR_MODE_MASK;
+ 	else
+ 		priv->ocr |= OCR_MODE_NORMAL; /* default */
+ 
+-	prop = of_get_property(np, "nxp,tx-output-config", &prop_size);
+-	if (prop && (prop_size == sizeof(u32)))
+-		priv->ocr |= (*prop << OCR_TX_SHIFT) & OCR_TX_MASK;
++	err = of_property_read_u32(np, "nxp,tx-output-config", &prop);
++	if (!err)
++		priv->ocr |= (prop << OCR_TX_SHIFT) & OCR_TX_MASK;
+ 	else
+ 		priv->ocr |= OCR_TX0_PULLDOWN; /* default */
+ 
+-	prop = of_get_property(np, "nxp,clock-out-frequency", &prop_size);
+-	if (prop && (prop_size == sizeof(u32)) && *prop) {
+-		u32 divider = priv->can.clock.freq * 2 / *prop;
++	err = of_property_read_u32(np, "nxp,clock-out-frequency", &prop);
++	if (!err && prop) {
++		u32 divider = priv->can.clock.freq * 2 / prop;
+ 
+ 		if (divider > 1)
+ 			priv->cdr |= divider / 2 - 1;
+@@ -168,8 +168,7 @@ static int sja1000_ofp_probe(struct platform_device *ofdev)
+ 		priv->cdr |= CDR_CLK_OFF; /* default */
+ 	}
+ 
+-	prop = of_get_property(np, "nxp,no-comparator-bypass", NULL);
+-	if (!prop)
++	if (!of_property_read_bool(np, "nxp,no-comparator-bypass"))
+ 		priv->cdr |= CDR_CBP; /* default */
+ 
+ 	priv->irq_flags = IRQF_SHARED;
+-- 
+1.8.2.rc2
 
