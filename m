@@ -1,50 +1,46 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] net: Fix tentative IPv6 address due to DAD looping back
-Date: Fri, 12 Apr 2013 22:03:53 +0200
-Message-ID: <20130412200353.GA23992@order.stressinduktion.org>
-References: <D6EA916C7149064CB4D5C686612478A3183E2D27D1@MX34A.corp.emc.com> <027526AF93736D4380632CD4F3B42B80030B85@MX101CL02.corp.emc.com> <20130412175141.GA30292@order.stressinduktion.org>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net-next 02/11] ixgbe: Mask off check of frag_off as we only
+ want fragment offset
+Date: Fri, 12 Apr 2013 13:12:31 -0700
+Message-ID: <51686AAF.4090105@intel.com>
+References: <1365765866-15741-1-git-send-email-jeffrey.t.kirsher@intel.com>    <1365765866-15741-3-git-send-email-jeffrey.t.kirsher@intel.com>    <1365773328.4459.19.camel@edumazet-glaptop>   <1365774332.4459.24.camel@edumazet-glaptop> <51683884.2010509@intel.com>  <1365785511.4459.46.camel@edumazet-glaptop> <516850E4.8020504@intel.com> <1365792277.4459.67.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: "Meng, Jilin" <Jilin.Meng@emc.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"Sun, Yinglin" <yinglin.sun@emc.com>,
-	"Prithviraj, Lakshmanan" <lakshmanan.prithviraj@emc.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:40701 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752909Ab3DLUDz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 16:03:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20130412175141.GA30292@order.stressinduktion.org>
+Received: from mga11.intel.com ([192.55.52.93]:43829 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755519Ab3DLUMz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Apr 2013 16:12:55 -0400
+In-Reply-To: <1365792277.4459.67.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 12, 2013 at 07:51:41PM +0200, Hannes Frederic Sowa wrote:
-> On Fri, Apr 12, 2013 at 07:45:54AM +0000, Meng, Jilin wrote:
-> > This version accepted David's comments of coding style, Eric's comments of ether_addr_equal_64bits(), and Hannes' comments of eth_hdr(), etc.
-> > 
-> > we should ignore the looped-back IPv6 DAD packet to avoid configuration failure.
-> > This occurs when a bonding interface with roundrobin mode is being configured an IPv6 address while the switch side isn't configured bonding/channel yet.
-> [...]
-> What do you think if we hook up a function which does reenable ipv6 on
-> an interface as soon as 'disable_ipv6' is switched to '0'? So you could
-> control reacquiring the ipv6 address from userspace without ifup&ifdown
-> and the risk of disturbing ipv4 connections? This seems to be the
-> easiest solution (but have not checked thoroughly).
-> [...]
+On 04/12/2013 11:44 AM, Eric Dumazet wrote:
+> On Fri, 2013-04-12 at 11:22 -0700, Alexander Duyck wrote:
+>>   If it could get broken up somehow so that it, or at
+>> least pieces of it could just be used on linear blocks of data then I
+>> might be more interested in reusing it.
+> But this is not going to happen. Our skb code is able to deal with
+> multiple areas (skb->head and frags). We are not going to duplicate it
+> for linear skbs 'only'
+>
+> Thats your call obviously to maintain your own code, but consider you
+> fix this quite incredible bug only now. (All TCP data segments have the
+> DF flag set, so you were not pulling tcp headers)
 
-I just looked into it and it does already worked as expected. Didn't know why
-I assumed that there was only a disable handler. So you can resolve this issue
-from userspace by a timer or a small program which listens for loopback
-traffic in userspace and do DAD after the loop is resolved. I think this is a
-more sensible solution.
+I think part of the trouble is we are debating reworking the wrong
+function.  We would probably be better off if we could come up with a
+generic way to handle the ixgbe_pull_tail function.  I think the only
+complaint I would have in using the __skb_get_poff in there is the fact
+that it would be copying the header in multiple chunks.  If it worked
+more like GRO where it just used an offset in the first frag instead of
+having to copy the headers separately to read them then I would be 100%
+on board.
 
 Thanks,
 
-  Hannes
+Alex
