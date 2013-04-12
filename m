@@ -1,7 +1,8 @@
 From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-Subject: [PATCH 0/2] net: smsc911x: get IRQ flags from chip if not present in IORESOURCE_IRQ
-Date: Fri, 12 Apr 2013 20:05:41 +0200
-Message-ID: <1365789943-3812-1-git-send-email-javier.martinez@collabora.co.uk>
+Subject: [PATCH 1/2] genirq: add function to get IRQ edge/level flags
+Date: Fri, 12 Apr 2013 20:05:42 +0200
+Message-ID: <1365789943-3812-2-git-send-email-javier.martinez@collabora.co.uk>
+References: <1365789943-3812-1-git-send-email-javier.martinez@collabora.co.uk>
 Cc: David Miller <davem@davemloft.net>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	Ingo Molnar <mingo@kernel.org>,
@@ -10,21 +11,13 @@ Cc: David Miller <davem@davemloft.net>,
 	Grant Likely <grant.likely@secretlab.ca>,
 	Jon Hunter <jon-hunter@ti.com>,
 	devicetree-discuss@lists.ozlabs.org,
-	linux-omap <linux-omap@vger.kernel.org>, netdev@vger.kernel.org
+	linux-omap <linux-omap@vger.kernel.org>, netdev@vger.kernel.org,
+	Javier Martinez Canillas <javier.martinez@collabora.co.uk>
 To: Steve Glendinning <steve.glendinning@shawell.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([93.93.135.160]:43000 "EHLO
-	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752539Ab3DLSGO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 14:06:14 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hello,
-
-This is the second attempt to solve the issue that IRQ flags when
-defined  using Device Trees, are not passed to drivers that try
-to obtain them from a IORESOURCE_IRQ struct resource.
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1365789943-3812-1-git-send-email-javier.martinez@collabora.co.uk>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 According to Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
 the "#interrupt-cells" property of an "interrupt-controller" is used
@@ -54,7 +47,7 @@ setting both cells (e.g:)
         interrupt-parent = <&gpio6>;
         interrupts = <16 8>;
 
-A call to of_irq_to_resource() is made and this function calls to
+A call to of_irq_to_resource() is made and this function calls
 irq_of_parse_and_map_type() to get the virtual IRQ mapped to the real
 index for this interrupt controller. This IRQ number is populated on
 the struct resource:
@@ -77,27 +70,36 @@ resource flags member.
 This means that drivers that want to get the IRQ edge/level flags
 defined in the Device Tree from a struct resource will not be able
 to get it.
-    
+
 Drivers can get the IRQ flags by using irq_get_irq_data(irq) and
 irqd_get_trigger_type(irq_data) but this will unnecessary expose
 irq_data to callers and also is more error prone.
 
-This problem was first discussed here [1] and a first approach to
-solved was discussed here [2]. This was by saving the IRQ edge/level
-flags on the struct resource but the feedback was that IORESOURCE_IRQ
-is not supposed to be used with DT but with architectures supporting ACPI/PnP.
-    
-So, this second patch-set is composed of the following patches:
+So, is better to add an irq_get_trigger_type() function to obtain
+the edge/level flags for an IRQ.
 
-[PATCH 1/2] genirq: add function to get IRQ edge/level flags
-[PATCH 2/2] net: smsc911x: get IRQ flags from chip if not present in IORESOURCE_IRQ
+Signed-off-by: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+---
+ include/linux/irq.h |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-And adds an irq_get_trigger_type() function to obtain the edge/level
-flags for an IRQ and use it as a fallback if a driver does not find
-the flags on an IORESOURCE_IRQ struct resource.
+diff --git a/include/linux/irq.h b/include/linux/irq.h
+index bc4e066..93231cb 100644
+--- a/include/linux/irq.h
++++ b/include/linux/irq.h
+@@ -579,6 +579,12 @@ static inline struct msi_desc *irq_data_get_msi(struct irq_data *d)
+ 	return d->msi_desc;
+ }
+ 
++static inline u32 irq_get_trigger_type(unsigned int irq)
++{
++	struct irq_data *d = irq_get_irq_data(irq);
++	return d ? d->state_use_accessors & IRQD_TRIGGER_MASK : 0;
++}
++
+ int __irq_alloc_descs(int irq, unsigned int from, unsigned int cnt, int node,
+ 		struct module *owner);
+ 
+-- 
+1.7.7.6
 
-Thanks a lot and best regards,
-Javier
-
-[1]: https://patchwork.kernel.org/patch/2194911/
-[2]: http://permalink.gmane.org/gmane.linux.ports.arm.omap/96908
