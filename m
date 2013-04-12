@@ -1,58 +1,85 @@
-From: Mr Dash Four <mr.dash.four@googlemail.com>
-Subject: Re: [PATCH] iproute2: lib/utils.c bug fixes
-Date: Fri, 12 Apr 2013 14:49:17 +0100
-Message-ID: <516810DD.80008@googlemail.com>
-References: <516771D5.3040607@googlemail.com> <20130411200656.42dfb8bb@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: [ 3.5.y.z extended stable ] Patch "rt2x00: rt2x00pci_regbusy_read() - only print register access" has been added to staging queue
+Date: Fri, 12 Apr 2013 14:51:32 +0100
+Message-ID: <1365774692-13156-1-git-send-email-luis.henriques@canonical.com>
+Cc: Ivo van Doorn <IvDoorn@gmail.com>,
+	Gertjan van Wingerde <gwingerde@gmail.com>,
+	Helmut Schaa <helmut.schaa@googlemail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
+	netdev@vger.kernel.org,
+	Luis Henriques <luis.henriques@canonical.com>,
+	kernel-team@lists.ubuntu.com
+To: Tim Gardner <tim.gardner@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f173.google.com ([74.125.82.173]:35899 "EHLO
-	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755074Ab3DLNta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:49:30 -0400
-Received: by mail-we0-f173.google.com with SMTP id t57so2015617wey.4
-        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 06:49:28 -0700 (PDT)
-In-Reply-To: <20130411200656.42dfb8bb@nehalam.linuxnetplumber.net>
+Received: from youngberry.canonical.com ([91.189.89.112]:52498 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753307Ab3DLNvi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:51:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is a note to let you know that I have just added a patch titled
 
+    rt2x00: rt2x00pci_regbusy_read() - only print register access
 
-Stephen Hemminger wrote:
-> On Fri, 12 Apr 2013 03:30:45 +0100
-> Mr Dash Four <mr.dash.four@googlemail.com> wrote:
->
->   
->> This patch fixes the following 3 bugs in get_u32/get_u64 functions:
->>
->>   1. On 32-bit systems, get_u32 could not detect an overflow.
->>      get_u32(&l, "4294967296", 10) always returned 4294967295
->>      (ULONG_MAX on 32-bit systems).
->>
->>   2. get_u64(&ll, "4294967295", 10) was returning an error where
->>      it shouldn't have (4294967295 is perfectly legitimate value for
->>      unsigned long long).
->>
->>   3. get_u64 couldn't detect an overflow errors (arg > ULLONG_MAX)
->>
->> Signed-off-by: Mr Dash Four <mr.dash.four@googlemail.com>
->>     
->
-> I don't demand Developer Certificate of Origin on iproute2 patches.
-> But if you are going to include it then you must use your real name,
-> no pseudonyms. See kernel/Documentation/SubmittingPatches.
->   
-1. You may or may not be aware that this isn't my first-and-only 
-contribution to the 
-Linux/Netfilter/Security/Audit/kernel/any_other_Linux_development_project_you_care_to_mention 
-tree in which I used my name above.
-2. How do you know that Dash Four isn't my name and is a "pseudonym" (do 
-you consider the name "Dotcom" not to be a real name too, simply because 
-in your, quite narrow-minded, understanding of the world this name 
-"looks a bit strange, therefore it must be a pseudonym")?
-3. The above text you were kind enough to point me to, is with regards 
-to kernel submissions. My patch does not alter the kernel tree in any 
-way whatsoever (but even if it has, see 1. above).
+to the linux-3.5.y-queue branch of the 3.5.y.z extended stable tree 
+which can be found at:
+
+ http://kernel.ubuntu.com/git?p=ubuntu/linux.git;a=shortlog;h=refs/heads/linux-3.5.y-queue
+
+If you, or anyone else, feels it should not be added to this tree, please 
+reply to this email.
+
+For more information about the 3.5.y.z tree, see
+https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
+
+Thanks.
+-Luis
+
+------
+
+>From 60436d8318044c7edbf8c86446712b2b1cb835b4 Mon Sep 17 00:00:00 2001
+From: Tim Gardner <tim.gardner@canonical.com>
+Date: Mon, 18 Feb 2013 12:56:28 -0700
+Subject: [PATCH] rt2x00: rt2x00pci_regbusy_read() - only print register access
+ failure once
+
+commit 83589b30f1e1dc9898986293c9336b8ce1705dec upstream.
+
+BugLink: http://bugs.launchpad.net/bugs/1128840
+
+It appears that when this register read fails it never recovers, so
+I think there is no need to repeat the same error message ad infinitum.
+
+Cc: Ivo van Doorn <IvDoorn@gmail.com>
+Cc: Gertjan van Wingerde <gwingerde@gmail.com>
+Cc: Helmut Schaa <helmut.schaa@googlemail.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: linux-wireless@vger.kernel.org
+Cc: users@rt2x00.serialmonkey.com
+Cc: netdev@vger.kernel.org
+Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+Signed-off-by: Luis Henriques <luis.henriques@canonical.com>
+---
+ drivers/net/wireless/rt2x00/rt2x00pci.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/rt2x00/rt2x00pci.c b/drivers/net/wireless/rt2x00/rt2x00pci.c
+index 0a4653a..1ea98a8 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00pci.c
++++ b/drivers/net/wireless/rt2x00/rt2x00pci.c
+@@ -52,8 +52,8 @@ int rt2x00pci_regbusy_read(struct rt2x00_dev *rt2x00dev,
+ 		udelay(REGISTER_BUSY_DELAY);
+ 	}
+
+-	ERROR(rt2x00dev, "Indirect register access failed: "
+-	      "offset=0x%.08x, value=0x%.08x\n", offset, *reg);
++	printk_once(KERN_ERR "%s() Indirect register access failed: "
++	      "offset=0x%.08x, value=0x%.08x\n", __func__, offset, *reg);
+ 	*reg = ~0;
+
+ 	return 0;
+--
+1.8.1.2
