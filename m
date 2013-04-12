@@ -1,26 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] lsm: export the security_skb_owned_by() function
-Date: Fri, 12 Apr 2013 13:39:43 -0400 (EDT)
-Message-ID: <20130412.133943.1398967886487919460.davem@davemloft.net>
-References: <20130412154300.26512.67761.stgit@localhost>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v3 net-next] ptp: dynamic allocation of PHC char devices
+Date: Fri, 12 Apr 2013 19:48:02 +0200
+Message-ID: <20130412174802.GA6902@netboy>
+References: <bb5ff20a9968a810e6f827921e56fc8fc8fededf.1365764133.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org
-To: pmoore@redhat.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20130412154300.26512.67761.stgit@localhost>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f52.google.com ([74.125.83.52]:38870 "EHLO
+	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752934Ab3DLRsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 13:48:13 -0400
+Received: by mail-ee0-f52.google.com with SMTP id d17so1363637eek.39
+        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 10:48:12 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <bb5ff20a9968a810e6f827921e56fc8fc8fededf.1365764133.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <pmoore@redhat.com>
-Date: Fri, 12 Apr 2013 11:43:00 -0400
-
-> Another bit we missed when adding the skb_owned_by() hook.
+On Fri, Apr 12, 2013 at 12:56:15PM +0200, Jiri Benc wrote:
+> As network adapters supporting PTP are becoming more common, machines with
+> many NICs suddenly have many PHCs, too. The current limit of eight /dev/ptp*
+> char devices (and thus, 8 network interfaces with PHC) is insufficient. Let
+> the ptp driver allocate the char devices dynamically.
 > 
-> Signed-off-by: Paul Moore <pmoore@redhat.com>
+> Tested with 28 PHCs, removing and re-adding some of them.
+> 
+> Thanks to Ben Hutchings for advice leading to simpler and cleaner patch.
+> 
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-CONFIG_SECURITY is a bool, as is ipv4, so neither the definition
-nor the call sites can be modular.
-
-Therefore no export is needed.
+Acked-by: Richard Cochran <richardcochran@gmail.com>
