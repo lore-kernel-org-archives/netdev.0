@@ -1,87 +1,62 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/11][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 12 Apr 2013 04:24:15 -0700
-Message-ID: <1365765866-15741-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 04/11] ixgbe: Drop check for PAGE_SIZE from ixgbe_xmit_frame_ring
+Date: Fri, 12 Apr 2013 04:24:19 -0700
+Message-ID: <1365765866-15741-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1365765866-15741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:11922 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:14102 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752851Ab3DLLYd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Apr 2013 07:24:33 -0400
+	id S1754755Ab3DLLYg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Apr 2013 07:24:36 -0400
+In-Reply-To: <1365765866-15741-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe only.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-My previous pull request had a mix of ixgbe and igb patches, and
-while Akeem works on the changes requested on the igb patches, I
-going ahead and re-submitting the originally submitted ixgbe patches
-with several other ixgbe patches.
+The check for PAGE_SIZE is pointless now that the default configuration is to
+allocate 32K for all buffers.  Since the Tx descriptor limit is 16K we can
+just drop the check and always compare the descriptors to the maximum size
+supported.
 
-Alex provides a performance improvement with the enabling the use of
-build_skb for instances where jumbo frames are disabled.  In addition,
-Alex provides a fix where we were incorrectly checking the entire frag_off
-field when we only wanted the fragment offset.  Lastly, he cleans up
-the check for PAGE_SIZE, since the default configuration allocates 32K
-for all buffers.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-Emil provides a change to the calculation of eerd so that it is consistent
-between the read and write functions by using | instead of +.
-
-Jacob adds support for displaying PCIe Gen3 link speed, which was
-previously missing from the ixgbe driver.  He also provides a patch
-to clean up ixgbe_get_bus_info_generic to call some conversion
-functions, which are used also in another patch provided by Jacob.
-Jacob modifies the driver to enable certain devices (which have an
-internal switch) to read from the physical slot rather than reading
-data from the internal switch.  Lastly, Jacob adds a function which
-enables the ixgbe driver to walk up the PCI bus for the device and
-query the PCI config space for the bus width at each point.
-
-
-Don provides a couple of fixes (which are more appropriate for net-next),
-one of which resolves an issue where ixgbe was only turning on the laser
-when the adapter was up which caused issues for those who wanted to
-access the MNG firmware while the port was in a down state.  The other
-fix is for WoL when currently linked at 1G.  Lastly Don bumps the driver
-version keep the in-kernel driver up to date with the current functionality.
-
-The following are changes since commit 6c6779856a294649dbb468ef46e893e80b0d72ad:
-  Revert "netprio_cgroup: make local table static"
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Alexander Duyck (3):
-  ixgbe: Support using build_skb in the case that jumbo frames are
-    disabled
-  ixgbe: Mask off check of frag_off as we only want fragment offset
-  ixgbe: Drop check for PAGE_SIZE from ixgbe_xmit_frame_ring
-
-Don Skidmore (3):
-  ixgbe: fix MNG FW support when adapter not up
-  ixgbe: Fix 1G link WoL
-  ixgbe: bump version number
-
-Emil Tantilov (1):
-  ixgbe: don't do arithmetic operations on bitmasks
-
-Jacob Keller (4):
-  ixgbe: Enable support for recognizing PCI-e Gen3 link speed
-  ixgbe: create conversion functions from link_status to bus/speed
-  ixgbe: enable devices with internal switch to read pci parent
-  ixgbe: walk pci-e bus to find minimum width
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h        |   7 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  |  51 ++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  63 +++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |   2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 289 ++++++++++++++++++++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |  13 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   |   1 +
- 8 files changed, 343 insertions(+), 84 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 096a221..3ae311d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -6522,9 +6522,7 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
+ 	struct ixgbe_tx_buffer *first;
+ 	int tso;
+ 	u32 tx_flags = 0;
+-#if PAGE_SIZE > IXGBE_MAX_DATA_PER_TXD
+ 	unsigned short f;
+-#endif
+ 	u16 count = TXD_USE_COUNT(skb_headlen(skb));
+ 	__be16 protocol = skb->protocol;
+ 	u8 hdr_len = 0;
+@@ -6536,12 +6534,9 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
+ 	 *       + 1 desc for context descriptor,
+ 	 * otherwise try next time
+ 	 */
+-#if PAGE_SIZE > IXGBE_MAX_DATA_PER_TXD
+ 	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
+ 		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
+-#else
+-	count += skb_shinfo(skb)->nr_frags;
+-#endif
++
+ 	if (ixgbe_maybe_stop_tx(tx_ring, count + 3)) {
+ 		tx_ring->tx_stats.tx_busy++;
+ 		return NETDEV_TX_BUSY;
 -- 
 1.7.11.7
