@@ -1,74 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next 02/11] ixgbe: Mask off check of frag_off as we only
- want fragment offset
-Date: Fri, 12 Apr 2013 06:28:48 -0700
-Message-ID: <1365773328.4459.19.camel@edumazet-glaptop>
-References: <1365765866-15741-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1365765866-15741-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH 5/7] xen-netfront: reduce gso_max_size to account for
+ ethernet header
+Date: Fri, 12 Apr 2013 14:29:57 +0100
+Message-ID: <20130412132957.GG11321@zion.uk.xensource.com>
+References: <1365505655-8021-1-git-send-email-wei.liu2@citrix.com>
+ <1365505655-8021-6-git-send-email-wei.liu2@citrix.com>
+ <20130411200401.GJ5936@zion.uk.xensource.com>
+ <1365754684.8126.82.camel@zakaz.uk.xensource.com>
+ <20130412084822.GA11321@zion.uk.xensource.com>
+ <1365757035.15783.4.camel@zakaz.uk.xensource.com>
+ <20130412093433.GD11321@zion.uk.xensource.com>
+ <1365759801.15783.11.camel@zakaz.uk.xensource.com>
+ <1365771499.4459.2.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	"wdauchy@gmail.com" <wdauchy@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:57602 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753798Ab3DLN2u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:28:50 -0400
-Received: by mail-pd0-f179.google.com with SMTP id x11so1410796pdj.38
-        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 06:28:50 -0700 (PDT)
-In-Reply-To: <1365765866-15741-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:62451 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753798Ab3DLN37 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:29:59 -0400
+Content-Disposition: inline
+In-Reply-To: <1365771499.4459.2.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-04-12 at 04:24 -0700, Jeff Kirsher wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Fri, Apr 12, 2013 at 01:58:19PM +0100, Eric Dumazet wrote:
+> On Fri, 2013-04-12 at 10:43 +0100, Ian Campbell wrote:
+> > On Fri, 2013-04-12 at 10:34 +0100, Wei Liu wrote:
 > 
-> We were incorrectly checking the entire frag_off field when we only wanted the
-> fragment offset.  As a result we were not pulling in TCP headers when the DNF
-> flag was set.
+> > > But we don't have handle on this. If I understand correctly the
+> > > discussion in other thread, 90 is empirical value, not something
+> > > documented.
+> > 
+> > My original question was effectively "is anyone else going to be
+> > interested in this empirical value", if so then it seems like it would
+> > be useful to have it centrally defined.
+> > 
 > 
-> To correct that we will now check for frag off using the IP_OFFSET mask.
+> This could be MAX_TCP_HEADER. Probably a bit overestimated but do we
+> care ?
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index 0c51a9f..096a221 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -1347,7 +1347,7 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
->  			return hdr.network - data;
->  
->  		/* record next protocol if header is present */
-> -		if (!hdr.ipv4->frag_off)
-> +		if (!(hdr.ipv4->frag_off & htons(IP_OFFSET)))
->  			nexthdr = hdr.ipv4->protocol;
->  	} else if (protocol == __constant_htons(ETH_P_IPV6)) {
->  		if ((hdr.network - data) > (max_len - sizeof(struct ipv6hdr)))
 
-I wonder if you could use core functions instead of all this...
+I don't think we care. MAX_TCP_HEADER is as good as any. Reserving a few
+more bytes won't hurt. I just want to make sure the value doesn't look
+like something randomly comes up in my mind. :-)
 
-A simple wrapper would be :
+Ian, what do you think?
 
-static noinline unsigned int ixgbe_get_headlen(unsigned char *data,
-						u32 maxlen)
-{
-    struct skb fake;
-    unsigned int res;
 
-    fake->data = data;
-    fake->head = data;
-    fake->data_len = 0;
-    fake->len = maxlen;
-    skb_reset_network_header(&fake);
-    res = __skb_get_poff(&fake);
-    return res ?: maxlen;
-}
-
-(completely untested)
+Wei.
