@@ -1,73 +1,73 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH 4/7] xen-netfront: frags -> slots in log message
-Date: Fri, 12 Apr 2013 15:58:29 +0100
-Message-ID: <20130412145829.GA17602@zion.uk.xensource.com>
-References: <1365505655-8021-1-git-send-email-wei.liu2@citrix.com>
- <1365505655-8021-5-git-send-email-wei.liu2@citrix.com>
- <5164190D.70905@cogentembedded.com>
- <20130409134745.GI16998@zion.uk.xensource.com>
- <51681CC6.7070408@cogentembedded.com>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [PATCH V4 5/7] xen-netfront: reduce gso_max_size to
+ account for max TCP header
+Date: Fri, 12 Apr 2013 16:07:05 +0100
+Message-ID: <51683F3902000078000CCD33@nat28.tlf.novell.com>
+References: <1365776646-10796-1-git-send-email-wei.liu2@citrix.com>
+ <1365776646-10796-6-git-send-email-wei.liu2@citrix.com>
+ <1365777899.15783.77.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: "David Vrabel" <david.vrabel@citrix.com>,
+	"wdauchy@gmail.com" <wdauchy@gmail.com>,
 	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
 	"annie.li@oracle.com" <annie.li@oracle.com>,
-	"wdauchy@gmail.com" <wdauchy@gmail.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Ian Campbell" <Ian.Campbell@citrix.com>,
+	"Wei Liu" <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:32657 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751316Ab3DLO64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 10:58:56 -0400
+Received: from nat28.tlf.novell.com ([130.57.49.28]:44093 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753776Ab3DLPGV convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:5:1>);
+	Fri, 12 Apr 2013 11:06:21 -0400
+In-Reply-To: <1365777899.15783.77.camel@zakaz.uk.xensource.com>
 Content-Disposition: inline
-In-Reply-To: <51681CC6.7070408@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 12, 2013 at 03:40:06PM +0100, Sergei Shtylyov wrote:
-> Hello.
+>>> On 12.04.13 at 16:44, Ian Campbell <Ian.Campbell@citrix.com> wrote:
+> On Fri, 2013-04-12 at 15:24 +0100, Wei Liu wrote:
+>> The maximum packet including header that can be handled by netfront / 
+> netback
+>> wire format is 65535. Reduce gso_max_size accordingly.
+>> 
+>> Drop skb and print warning when skb->len > 65535. This can 1) save the effort
+>> to send malformed packet to netback, 2) help spotting misconfiguration of
+>> netfront in the future.
+>> 
+>> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+>> ---
+>>  drivers/net/xen-netfront.c |   14 +++++++++++++-
+>>  1 file changed, 13 insertions(+), 1 deletion(-)
+>> 
+>> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+>> index 1bb2e20..9c2eca1 100644
+>> --- a/drivers/net/xen-netfront.c
+>> +++ b/drivers/net/xen-netfront.c
+>> @@ -547,6 +547,16 @@ static int xennet_start_xmit(struct sk_buff *skb, 
+> struct net_device *dev)
+>>  	unsigned int len = skb_headlen(skb);
+>>  	unsigned long flags;
+>>  
+>> +	/* If skb->len is too big for wire format, drop skb and alert
+>> +	 * user about misconfiguration.
+>> +	 */
+>> +	if (unlikely(skb->len > (typeof(tx->size))(~0))) {
 > 
-> On 09-04-2013 17:47, Wei Liu wrote:
+> This seems rather a complicated way of saying... er, something!
 > 
-> >>> Also fix a typo in comment.
+> Perhaps we could have a #define in netif.h to compare against?
 > 
-> >>> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> >>> ---
-> >>>    drivers/net/xen-netfront.c |    4 ++--
-> >>>    1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> >>> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> >>> index d9097a7..1bb2e20 100644
-> >>> --- a/drivers/net/xen-netfront.c
-> >>> +++ b/drivers/net/xen-netfront.c
-> >> [...]
-> >>> @@ -771,7 +771,7 @@ next:
-> >>>
-> >>>    	if (unlikely(slots > max)) {
-> >>>    		if (net_ratelimit())
-> >>> -			dev_warn(dev, "Too many frags\n");
-> >>> +			dev_warn(dev, "Too many slots\n");
-> >>
-> >>      Shouldn't you have done this change as a part of patch #2?
-> 
-> > Because patch 2 has been applied to David Miller's tree, this is an
-> > incremental patch on top of that.
-> 
->     Why are you reposting already applied patch over and over again then?
-> 
+> I'm not 100% convinced that the case and the ~ are in the right order to
+> have the behaviour you want unless perhaps sizeof(tx->size) <
+> sizeof(int). In any case it's too obfuscated for me ;-)
 
-Just for completeness. I stated that in email 0.
+Previously this was (u16)~0, which I complained to have no
+correlation to where the restriction actually comes from. Hence
+the request to use typeof() on the very field that doesn't
+permit a larger value.
 
-Some people might be interested in applying the whole series to their
-local tree instead of cherry-picking from DaveM's tree.
-
-
-Wei.
-
-> > Wei.
-> 
-> WBR, Sergei
+Jan
