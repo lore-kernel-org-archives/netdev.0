@@ -1,55 +1,78 @@
-From: Mr Dash Four <mr.dash.four@googlemail.com>
-Subject: Re: [PATCH] iproute2: lib/utils.c bug fixes
-Date: Fri, 12 Apr 2013 16:25:47 +0100
-Message-ID: <5168277B.5000009@googlemail.com>
-References: <516771D5.3040607@googlemail.com>		 <20130411200656.42dfb8bb@nehalam.linuxnetplumber.net>		 <516810DD.80008@googlemail.com>	 <1365776751.4459.30.camel@edumazet-glaptop>	 <51681C49.1080800@googlemail.com> <1365779361.4459.34.camel@edumazet-glaptop>
+From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Subject: Fw: [Bug 56521] New: No support of Motorola ZN5 USBnet in zaurus
+ module
+Date: Fri, 12 Apr 2013 08:32:59 -0700
+Message-ID: <20130412083259.13e7905e@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:50418 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752483Ab3DLP0B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 11:26:01 -0400
-Received: by mail-wi0-f173.google.com with SMTP id m6so702729wiv.6
-        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 08:26:00 -0700 (PDT)
-In-Reply-To: <1365779361.4459.34.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
 
-Eric Dumazet wrote:
-> On Fri, 2013-04-12 at 15:38 +0100, Mr Dash Four wrote:
->
->   
->>> Is "Mr" part of your name ?
->>>   
->>>       
->> It is as far as I am concerned (Mr = Mister, which is indicative of my 
->> gender).
->>
->>     
->
-> We don't care of genders or titles.
->
-> We do believe men and women can equally code and submit patches the
-> same. And of course some human beings are neither man or woman.
->   
-Absolutely, and I haven't disputed that, nor did I state that "only men" 
-or "only women" can submit patches to this list.
+Begin forwarded message:
 
-I am including my title as part of the name (like some others do - like 
-"Dr", "Prof" etc) for the reasons I indicated in my previous reply. 
-Besides, I used the word "indicative" in my response above, so I am not 
-saying with 100% certainty what my gender or sexual belief/orientation 
-is - one way or another.
+Date: Fri, 12 Apr 2013 07:27:18 -0700
+From: "bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org" <bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org>
+To: "stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org" <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Subject: [Bug 56521] New: No support of Motorola ZN5 USBnet in zaurus module
 
-Now that we cleared this little nugget, can we move along please as the 
-netdev forum isn't the appropriate place to discuss genders, name titles 
-or sexual orientation - something I had no intention of doing (apologies 
-to all who had to put up with this little diversion), but I felt I was 
-dragged into this by your good self and Mr Hemminger. Thank you.
+
+https://bugzilla.kernel.org/show_bug.cgi?id=56521
+
+           Summary: No support of Motorola ZN5 USBnet in zaurus module
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.7.5
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+        AssignedTo: shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+        ReportedBy: a1ba.omarov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+        Regression: No
+
+
+Created an attachment (id=98391)
+ --> (https://bugzilla.kernel.org/attachment.cgi?id=98391)
+zaurus.patch
+
+I've tried to plug my phone via USBnet, but zaurus module is not loaded,
+because kernel can't detect it as zaurus-like device.
+
+I looked to dmesg and found that:
+
+[ 7880.799111] usb 1-1: new high-speed USB device number 5 using ehci_hcd
+[ 7880.957767] usb 1-1: New USB device found, idVendor=22b8, idProduct=6424
+[ 7880.957771] usb 1-1: New USB device strings: Mfr=3, Product=2,
+SerialNumber=0
+[ 7880.957774] usb 1-1: Product: ZN5
+[ 7880.957777] usb 1-1: Manufacturer: Motorola Inc.
+[ 7881.646079] usb 1-1: bad CDC descriptors
+[ 7881.646100] usbcore: registered new interface driver cdc_ether
+
+In source file I don't found my idProduct=6424, but found support of Motorola
+MOTOMAGX Phones with idProduct=6425
+
+I added in drivers/net/usb/zaurus.c idProduct of my phone and it works
+perfectly and without any errors or warnings. 
+
+Attachment contains patch for zaurus.c. Please, add it to kernel. 
+
+P.S. Sorry for my English, I know it bad. =(
+
+-- 
+Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
