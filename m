@@ -1,87 +1,63 @@
-From: Eric Paris <eparis@parisplace.org>
-Subject: Re: [PATCH 2/6] audit: replace obsolete NLMSG_* with type safe nlmsg_*
-Date: Fri, 12 Apr 2013 09:35:37 -0400
-Message-ID: <CACLa4pu5OVK64NLe2y+Msd5suSAdVGgfw1A4G5RVwUezm5HHSA@mail.gmail.com>
-References: <1364402946-32715-1-git-send-email-honkiko@gmail.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH 5/7] xen-netfront: reduce gso_max_size to account for
+ ethernet header
+Date: Fri, 12 Apr 2013 14:36:55 +0100
+Message-ID: <1365773815.15783.44.camel@zakaz.uk.xensource.com>
+References: <1365505655-8021-1-git-send-email-wei.liu2@citrix.com>
+	 <1365505655-8021-6-git-send-email-wei.liu2@citrix.com>
+	 <20130411200401.GJ5936@zion.uk.xensource.com>
+	 <1365754684.8126.82.camel@zakaz.uk.xensource.com>
+	 <20130412084822.GA11321@zion.uk.xensource.com>
+	 <1365757035.15783.4.camel@zakaz.uk.xensource.com>
+	 <20130412093433.GD11321@zion.uk.xensource.com>
+	 <1365759801.15783.11.camel@zakaz.uk.xensource.com>
+	 <1365771499.4459.2.camel@edumazet-glaptop>
+	 <20130412132957.GG11321@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	LSM List <linux-security-module@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>
-To: Hong Zhiguo <honkiko@gmail.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1364402946-32715-1-git-send-email-honkiko@gmail.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	"wdauchy@gmail.com" <wdauchy@gmail.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.eu.citrix.com ([46.33.159.39]:34909 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753808Ab3DLNg5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:36:57 -0400
+In-Reply-To: <20130412132957.GG11321@zion.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 27, 2013 at 12:49 PM, Hong Zhiguo <honkiko@gmail.com> wrote:
-> Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
-> ---
->  kernel/audit.c |   10 +++++-----
->  1 file changed, 5 insertions(+), 5 deletions(-)
->
-> diff --git a/kernel/audit.c b/kernel/audit.c
-> index d596e53..4dbb047 100644
-> --- a/kernel/audit.c
-> +++ b/kernel/audit.c
-> @@ -58,7 +58,7 @@
->  #ifdef CONFIG_SECURITY
->  #include <linux/security.h>
->  #endif
-> -#include <linux/netlink.h>
-> +#include <net/netlink.h>
+On Fri, 2013-04-12 at 14:29 +0100, Wei Liu wrote:
+> On Fri, Apr 12, 2013 at 01:58:19PM +0100, Eric Dumazet wrote:
+> > On Fri, 2013-04-12 at 10:43 +0100, Ian Campbell wrote:
+> > > On Fri, 2013-04-12 at 10:34 +0100, Wei Liu wrote:
+> > 
+> > > > But we don't have handle on this. If I understand correctly the
+> > > > discussion in other thread, 90 is empirical value, not something
+> > > > documented.
+> > > 
+> > > My original question was effectively "is anyone else going to be
+> > > interested in this empirical value", if so then it seems like it would
+> > > be useful to have it centrally defined.
+> > > 
+> > 
+> > This could be MAX_TCP_HEADER. Probably a bit overestimated but do we
+> > care ?
+> > 
+> 
+> I don't think we care. MAX_TCP_HEADER is as good as any. Reserving a few
+> more bytes won't hurt. I just want to make sure the value doesn't look
+> like something randomly comes up in my mind. :-)
+> 
+> Ian, what do you think?
 
-This is a duplicate include.  We already included net/netlink.h a
-couple of lines above.  We use netlink_unicast, which comes from
-linux/netlink.h.  I recognize that it comes in from net/netlink.h, but
-I thought it good practice to pull it in ourselves.  Should I send a
-separate patch to revert back to linux/netlink.h or a patch to just
-remove the include altogether?
+It could be up to 256 bytes from the looks of things, depending
+on .config. That's probably ok.
 
--Eric
-
->  #include <linux/freezer.h>
->  #include <linux/tty.h>
->  #include <linux/pid_namespace.h>
-> @@ -910,7 +910,7 @@ static void audit_receive_skb(struct sk_buff *skb)
->  {
->         struct nlmsghdr *nlh;
->         /*
-> -        * len MUST be signed for NLMSG_NEXT to be able to dec it below 0
-> +        * len MUST be signed for nlmsg_next to be able to dec it below 0
->          * if the nlmsg_len was not aligned
->          */
->         int len;
-> @@ -919,13 +919,13 @@ static void audit_receive_skb(struct sk_buff *skb)
->         nlh = nlmsg_hdr(skb);
->         len = skb->len;
->
-> -       while (NLMSG_OK(nlh, len)) {
-> +       while (nlmsg_ok(nlh, len)) {
->                 err = audit_receive_msg(skb, nlh);
->                 /* if err or if this message says it wants a response */
->                 if (err || (nlh->nlmsg_flags & NLM_F_ACK))
->                         netlink_ack(skb, nlh, err);
->
-> -               nlh = NLMSG_NEXT(nlh, len);
-> +               nlh = nlmsg_next(nlh, len);
->         }
->  }
->
-> @@ -1483,7 +1483,7 @@ void audit_log_end(struct audit_buffer *ab)
->                 audit_log_lost("rate limit exceeded");
->         } else {
->                 struct nlmsghdr *nlh = nlmsg_hdr(ab->skb);
-> -               nlh->nlmsg_len = ab->skb->len - NLMSG_SPACE(0);
-> +               nlh->nlmsg_len = ab->skb->len - NLMSG_HDRLEN;
->
->                 if (audit_pid) {
->                         skb_queue_tail(&audit_skb_queue, ab->skb);
-> --
-> 1.7.10.4
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ian.
