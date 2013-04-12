@@ -1,52 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tuntap: fix error return code in tun_set_iff()
-Date: Fri, 12 Apr 2013 06:49:20 -0700
-Message-ID: <1365774560.4459.26.camel@edumazet-glaptop>
-References: <CAPgLHd9WrbgeYH9pw81kQn9sv=On8e399qAOth6MWprF6PS5pg@mail.gmail.com>
+From: Mr Dash Four <mr.dash.four@googlemail.com>
+Subject: Re: [PATCH] iproute2: lib/utils.c bug fixes
+Date: Fri, 12 Apr 2013 14:49:17 +0100
+Message-ID: <516810DD.80008@googlemail.com>
+References: <516771D5.3040607@googlemail.com> <20130411200656.42dfb8bb@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jasowang@redhat.com, mst@redhat.com,
-	edumazet@google.com, nhorman@tuxdriver.com,
-	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: Wei Yongjun <weiyj.lk@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:50510 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755074Ab3DLNtX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:49:23 -0400
-Received: by mail-pa0-f52.google.com with SMTP id fb10so1470210pad.25
-        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 06:49:22 -0700 (PDT)
-In-Reply-To: <CAPgLHd9WrbgeYH9pw81kQn9sv=On8e399qAOth6MWprF6PS5pg@mail.gmail.com>
+Received: from mail-we0-f173.google.com ([74.125.82.173]:35899 "EHLO
+	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755074Ab3DLNta (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:49:30 -0400
+Received: by mail-we0-f173.google.com with SMTP id t57so2015617wey.4
+        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 06:49:28 -0700 (PDT)
+In-Reply-To: <20130411200656.42dfb8bb@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-04-12 at 21:17 +0800, Wei Yongjun wrote:
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> 
-> Fix to return a negative error code from the error handling
-> case instead of 0, as returned elsewhere in this function.
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> ---
->  drivers/net/tun.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index b7c457a..729ed53 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -1594,7 +1594,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
->  
->  		if (tun->flags & TUN_TAP_MQ &&
->  		    (tun->numqueues + tun->numdisabled > 1))
-> -			return err;
-> +			return -EBUSY;
->  	}
->  	else {
->  		char *name;
 
-Bug added in linux-3.8 , commit 4008e97f866db665 
-("tuntap: fix ambigious multiqueue API")
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Stephen Hemminger wrote:
+> On Fri, 12 Apr 2013 03:30:45 +0100
+> Mr Dash Four <mr.dash.four@googlemail.com> wrote:
+>
+>   
+>> This patch fixes the following 3 bugs in get_u32/get_u64 functions:
+>>
+>>   1. On 32-bit systems, get_u32 could not detect an overflow.
+>>      get_u32(&l, "4294967296", 10) always returned 4294967295
+>>      (ULONG_MAX on 32-bit systems).
+>>
+>>   2. get_u64(&ll, "4294967295", 10) was returning an error where
+>>      it shouldn't have (4294967295 is perfectly legitimate value for
+>>      unsigned long long).
+>>
+>>   3. get_u64 couldn't detect an overflow errors (arg > ULLONG_MAX)
+>>
+>> Signed-off-by: Mr Dash Four <mr.dash.four@googlemail.com>
+>>     
+>
+> I don't demand Developer Certificate of Origin on iproute2 patches.
+> But if you are going to include it then you must use your real name,
+> no pseudonyms. See kernel/Documentation/SubmittingPatches.
+>   
+1. You may or may not be aware that this isn't my first-and-only 
+contribution to the 
+Linux/Netfilter/Security/Audit/kernel/any_other_Linux_development_project_you_care_to_mention 
+tree in which I used my name above.
+2. How do you know that Dash Four isn't my name and is a "pseudonym" (do 
+you consider the name "Dotcom" not to be a real name too, simply because 
+in your, quite narrow-minded, understanding of the world this name 
+"looks a bit strange, therefore it must be a pseudonym")?
+3. The above text you were kind enough to point me to, is with regards 
+to kernel submissions. My patch does not alter the kernel tree in any 
+way whatsoever (but even if it has, see 1. above).
