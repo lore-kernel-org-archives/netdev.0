@@ -1,72 +1,64 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 5/7] xen-netfront: reduce gso_max_size to account for
- ethernet header
-Date: Fri, 12 Apr 2013 10:43:21 +0100
-Message-ID: <1365759801.15783.11.camel@zakaz.uk.xensource.com>
-References: <1365505655-8021-1-git-send-email-wei.liu2@citrix.com>
-	 <1365505655-8021-6-git-send-email-wei.liu2@citrix.com>
-	 <20130411200401.GJ5936@zion.uk.xensource.com>
-	 <1365754684.8126.82.camel@zakaz.uk.xensource.com>
-	 <20130412084822.GA11321@zion.uk.xensource.com>
-	 <1365757035.15783.4.camel@zakaz.uk.xensource.com>
-	 <20130412093433.GD11321@zion.uk.xensource.com>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be active
+Date: Fri, 12 Apr 2013 12:02:55 +0200
+Message-ID: <1819986.PZkH8CJNCQ@linux-5eaq.site>
+References: <20110727141246.GC29616@orbit.nwl.cc> <1484183.xQu1D8fy8A@linux-5eaq.site> <CACVXFVNyRYzk1Le+QaJr-nnbDCsGqWtx-VJ5X-K6np1+gLzRpA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	"wdauchy@gmail.com" <wdauchy@gmail.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Dan Williams <dcbw@redhat.com>,
+	Elina Pasheva <epasheva@sierrawireless.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>
+To: Ming Lei <tom.leiming@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:37442 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753376Ab3DLJnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 05:43:24 -0400
-In-Reply-To: <20130412093433.GD11321@zion.uk.xensource.com>
+Received: from smtp-out003.kontent.com ([81.88.40.217]:38561 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751864Ab3DLKCL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 06:02:11 -0400
+In-Reply-To: <CACVXFVNyRYzk1Le+QaJr-nnbDCsGqWtx-VJ5X-K6np1+gLzRpA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-04-12 at 10:34 +0100, Wei Liu wrote:
-> On Fri, Apr 12, 2013 at 09:57:15AM +0100, Ian Campbell wrote:
-> > On Fri, 2013-04-12 at 09:48 +0100, Wei Liu wrote:
-> > > On Fri, Apr 12, 2013 at 09:18:04AM +0100, Ian Campbell wrote:
-> > > > On Thu, 2013-04-11 at 21:04 +0100, Wei Liu wrote:
-> > > > > On Tue, Apr 09, 2013 at 12:07:33PM +0100, Wei Liu wrote:
-> > > > > > The maximum packet including ethernet header that can be handled by netfront /
-> > > > > > netback wire format is 65535. Reduce gso_max_size accordingly.
-> > > > > > 
-> > > > > > Drop skb and print warning when skb->len > 65535. This can 1) save the effort
-> > > > > > to send malformed packet to netback, 2) help spotting misconfiguration of
-> > > > > > netfront in the future.
-> > > > > > 
-> > > > > 
-> > > > > Any opinion on how much space should be reserved? From a previous thread
-> > > > > Ben seemed to suggest 90 (Ethernet + VLAN tag + IPv6 + TCP + timestamp
-> > > > > option = 90 bytes).
-> > > > 
-> > > > I trust Ben and that seems as good as anything to me.
-> > > > 
-> > > > Is this the sort of limit others might be interested in, should we have
-> > > > a global #define?
-> > > > 
-> > > 
-> > > We shall have a global define in this case.
-> > > 
-> > > #define XEN_NETFRONT_MAX_HEADER ? I'm bad at naming things.
-> > 
-> > I meant an include/linux/skbuff.h (or some suitable header) #define
-> > SKB_MAX_FOO type thing...
-> > 
+On Friday 12 April 2013 17:42:46 Ming Lei wrote:
+> On Fri, Apr 12, 2013 at 2:37 PM, Oliver Neukum <oliver@neukum.org> wrote:
+> >> The work will complete when memory is reclaimed, and the rx/tx path is
+> >> still working, so memory reclaim can continue and the deadlock may not
+> >> be caused, may it?
+> >
+> > Only if the memory allocation goes to the same interface. If the blocking interface
+> > is storage, something bad happens (data loss not deadlock)
 > 
-> But we don't have handle on this. If I understand correctly the
-> discussion in other thread, 90 is empirical value, not something
-> documented.
+> OK, got it, it should be both since reset can't move on, so
+> memory reclaim can't complete to satisfy the allocation.
+> 
+> But I am wondering if it is a case which is worth the consideration.
 
-My original question was effectively "is anyone else going to be
-interested in this empirical value", if so then it seems like it would
-be useful to have it centrally defined.
+The remedy is close to trivial, so yes.
 
-Ian.
+> Almost all USB probe() allocate memory with GFP_KERNEL, then
+> the similar scenario(data loss only this time) might happen too. Do we
+> need to fix all USB drivers?
+
+No. We assume that probing happens before the interfaces are used.
+Furthermore, if this turns out to be real, we can reuse your fix for the
+general (w.o. work queue) reset case.
+
+> Wrt. the usbnet_status_start() API, looks no good reason to call
+> it in another queue context, it should be enough to call it in probe() or
+> bind() if init_status() can be put before info->bind() in usbnet_probe().
+
+We are talking about a generic helper. And the fix is really simple.
+We just pass mem_flags and all is well. If the API can be made better
+at next to no cost, we do it.
+
+> Then looks the mem_flags isn't needed in both cases, and we should
+> always take GFP_NOIO inside the API?
+
+We cannot. GFP_ATOMIC may be needed. And no, we atre not going to
+unconditionally use GFP_ATOMIC :-;
+
+	Regards
+		Oliver
