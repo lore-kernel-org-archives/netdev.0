@@ -1,43 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] iproute2: lib/utils.c bug fixes
-Date: Fri, 12 Apr 2013 13:36:44 -0400 (EDT)
-Message-ID: <20130412.133644.1907806435103750855.davem@davemloft.net>
-References: <516771D5.3040607@googlemail.com>
-	<20130411200656.42dfb8bb@nehalam.linuxnetplumber.net>
-	<516810DD.80008@googlemail.com>
+Subject: Re: [PATCH] lsm: export the security_skb_owned_by() function
+Date: Fri, 12 Apr 2013 13:39:43 -0400 (EDT)
+Message-ID: <20130412.133943.1398967886487919460.davem@davemloft.net>
+References: <20130412154300.26512.67761.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: mr.dash.four@googlemail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51340 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751440Ab3DLRgq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 13:36:46 -0400
-In-Reply-To: <516810DD.80008@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org
+To: pmoore@redhat.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20130412154300.26512.67761.stgit@localhost>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Paul Moore <pmoore@redhat.com>
+Date: Fri, 12 Apr 2013 11:43:00 -0400
 
-The self-rightousness with which people operating under pseudonyms or
-names that do not meet the requirements of the developers certificate
-of origin react when they are confronted directly about this issue I
-find truly appalling.
+> Another bit we missed when adding the skb_owned_by() hook.
+> 
+> Signed-off-by: Paul Moore <pmoore@redhat.com>
 
-It's pretty pointless to wet yourself in public over this issue rather
-than just comply with our requirements if you want to submit changes
-that actually get applied.
+CONFIG_SECURITY is a bool, as is ipv4, so neither the definition
+nor the call sites can be modular.
 
-But if you don't want to play along, that's fine, because if the issue
-is important enough there's a thousand or so other developers right
-behind you willing to fix or implement it too.
-
-We have enough developer resources that people behaving in an
-anti-social manner about issues like this simply don't matter.
-
-I know what you're doing, you're just trying to make a point, but at
-the expense of everyone else's time.  That makes you a troll at best,
-and an asshole at worst.
-
-Thanks.
+Therefore no export is needed.
