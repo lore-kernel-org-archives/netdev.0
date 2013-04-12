@@ -1,50 +1,52 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next 02/11] ixgbe: Mask off check of frag_off as we only
- want fragment offset
-Date: Fri, 12 Apr 2013 06:45:32 -0700
-Message-ID: <1365774332.4459.24.camel@edumazet-glaptop>
-References: <1365765866-15741-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1365765866-15741-3-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1365773328.4459.19.camel@edumazet-glaptop>
+Subject: Re: [PATCH] tuntap: fix error return code in tun_set_iff()
+Date: Fri, 12 Apr 2013 06:49:20 -0700
+Message-ID: <1365774560.4459.26.camel@edumazet-glaptop>
+References: <CAPgLHd9WrbgeYH9pw81kQn9sv=On8e399qAOth6MWprF6PS5pg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: davem@davemloft.net, jasowang@redhat.com, mst@redhat.com,
+	edumazet@google.com, nhorman@tuxdriver.com,
+	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:46930 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755118Ab3DLNpf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:45:35 -0400
-Received: by mail-pb0-f53.google.com with SMTP id un15so1426705pbc.12
-        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 06:45:34 -0700 (PDT)
-In-Reply-To: <1365773328.4459.19.camel@edumazet-glaptop>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:50510 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755074Ab3DLNtX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:49:23 -0400
+Received: by mail-pa0-f52.google.com with SMTP id fb10so1470210pad.25
+        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 06:49:22 -0700 (PDT)
+In-Reply-To: <CAPgLHd9WrbgeYH9pw81kQn9sv=On8e399qAOth6MWprF6PS5pg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-04-12 at 06:28 -0700, Eric Dumazet wrote:
-
-> I wonder if you could use core functions instead of all this...
+On Fri, 2013-04-12 at 21:17 +0800, Wei Yongjun wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
-> A simple wrapper would be :
+> Fix to return a negative error code from the error handling
+> case instead of 0, as returned elsewhere in this function.
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> ---
+>  drivers/net/tun.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index b7c457a..729ed53 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1594,7 +1594,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>  
+>  		if (tun->flags & TUN_TAP_MQ &&
+>  		    (tun->numqueues + tun->numdisabled > 1))
+> -			return err;
+> +			return -EBUSY;
+>  	}
+>  	else {
+>  		char *name;
 
-Or more something like :
+Bug added in linux-3.8 , commit 4008e97f866db665 
+("tuntap: fix ambigious multiqueue API")
 
-static noinline unsigned int ixgbe_get_headlen(unsigned char *data,
-                                                u32 maxlen)
-{
-    struct skb fake;
-    unsigned int res;
-
-    if (maxlen < ETH_HLEN)
-	return maxlen;
-
-    fake->data = data + ETH_HLEN;
-    fake->head = data;
-    fake->data_len = 0;
-    fake->len = maxlen - ETH_HLEN;
-    skb_reset_network_header(&fake);
-    res = __skb_get_poff(&fake);
-    return res ? res + ETH_HLEN : maxlen;
-}
+Acked-by: Eric Dumazet <edumazet@google.com>
