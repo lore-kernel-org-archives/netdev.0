@@ -1,36 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2 v2] at86rf230: add irq type configuration option
-Date: Fri, 12 Apr 2013 18:20:53 -0400 (EDT)
-Message-ID: <20130412.182053.1145964817189847292.davem@davemloft.net>
-References: <cover.1365716125.git.sascha@ps.nvbi.de>
-	<cover.1365716125.git.sascha@ps.nvbi.de>
-	<031f12b1d0449ffb6fe43dfd6b136369581cae4c.1365716125.git.sascha@ps.nvbi.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next 01/11] ixgbe: Support using build_skb in the case
+ that jumbo frames are disabled
+Date: Fri, 12 Apr 2013 23:21:59 +0100
+Message-ID: <1365805319.2791.18.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1365765866-15741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1365765866-15741-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com
-To: sascha@ps.nvbi.de
+Cc: <davem@davemloft.net>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	<netdev@vger.kernel.org>, <gospo@redhat.com>, <sassmann@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54623 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752693Ab3DLWU6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 18:20:58 -0400
-In-Reply-To: <031f12b1d0449ffb6fe43dfd6b136369581cae4c.1365716125.git.sascha@ps.nvbi.de>
+Received: from webmail.solarflare.com ([12.187.104.25]:16630 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750974Ab3DLWWD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 18:22:03 -0400
+In-Reply-To: <1365765866-15741-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sascha Herrmann <sascha@ps.nvbi.de>
-Date: Fri, 12 Apr 2013 00:16:13 +0200
+On Fri, 2013-04-12 at 04:24 -0700, Jeff Kirsher wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> This change makes it so that we can enable the use of build_skb for cases
+> where jumbo frames are disabled.  The advantage to this is that we do not have
+> to perform a memcpy to populate the header and as a result we see a
+> significant performance improvement.
 
->  static int at86rf230_hw_init(struct at86rf230_local *lp)
->  {
->  	u8 status;
-> -	int rc;
-> +	int rc, irq_pol;
-> +	struct at86rf230_platform_data *pdata = lp->spi->dev.platform_data;
+I thought about doing this in sfc, but:
 
-Please order local variable declarations from longest line to
-shortest line, not the other way around.
+[...]
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+[...] 
+> +	/* build an skb to go around the page buffer */
+> +	skb = build_skb(page_addr, truesize);
+> +	if (unlikely(!skb)) {
+> +		rx_ring->rx_stats.alloc_rx_buff_failed++;
+> +		return NULL;
+> +	}
+> +
+> +	/* we are reusing so sync this buffer for CPU use */
+> +	dma_sync_single_range_for_cpu(rx_ring->dev,
+> +				      rx_buffer->dma,
+> +				      rx_buffer->page_offset,
+> +				      ixgbe_rx_bufsz(rx_ring),
+> +				      DMA_FROM_DEVICE);
+> +
+> +	/* update pointers within the skb to store the data */
+> +	skb_reserve(skb, NET_IP_ALIGN + NET_SKB_PAD);
+> +	__skb_put(skb, size);
+> +
+> +	if (ixgbe_can_reuse_rx_page(rx_ring, rx_buffer, page, truesize)) {
+> +		/* hand second half of page back to the ring */
+> +		ixgbe_reuse_rx_page(rx_ring, rx_buffer);
+[...]
 
-Thanks.
+Suppose this branch is taken, and then:
+1. skb is forwarded to another device
+2. Packet headers are modified and it's put into a queue
+3. Second packet is received into the other half of this page
+4. Page cannot be reused, so is DMA-unmapped
+5. The DMA mapping was non-coherent, so unmap copies or invalidates
+cache
+
+The headers added in step 2 get trashed in step 5, don't they?
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
