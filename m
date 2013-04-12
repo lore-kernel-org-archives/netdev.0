@@ -1,57 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] sctp: Add buffer utilization fields to
- /proc/net/sctp/assocs
-Date: Fri, 12 Apr 2013 15:09:56 -0400 (EDT)
-Message-ID: <20130412.150956.828923278890458461.davem@davemloft.net>
-References: <1365709796.14620.43.camel@pro6455b.example.com>
+Subject: Re: [PATCH] net/802/mrp: fix possible race condition when calling
+ mrp_pdu_queue()
+Date: Fri, 12 Apr 2013 15:11:25 -0400 (EDT)
+Message-ID: <20130412.151125.1267276967257090325.davem@davemloft.net>
+References: <1365724035-30220-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	nhorman@tuxdriver.com, dborkman@redhat.com
-To: dilip.daya@hp.com
+Cc: netdev@vger.kernel.org, amwang@redhat.com, eric.dumazet@gmail.com
+To: david.ward@ll.mit.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52612 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52648 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752571Ab3DLTJ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 15:09:58 -0400
-In-Reply-To: <1365709796.14620.43.camel@pro6455b.example.com>
+	with ESMTP id S1751998Ab3DLTL0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 15:11:26 -0400
+In-Reply-To: <1365724035-30220-1-git-send-email-david.ward@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dilip Daya <dilip.daya@hp.com>
-Date: Thu, 11 Apr 2013 15:49:56 -0400
+From: David Ward <david.ward@ll.mit.edu>
+Date: Thu, 11 Apr 2013 19:47:15 -0400
 
-> From: Dilip Daya <dilip.daya@hp.com>
+> (Adapted from a very similar change to net/802/garp.c by Cong Wang.)
 > 
-> sctp: Add buffer utilization fields to /proc/net/sctp/assocs
+> mrp_pdu_queue() should ways be called with the applicant spin lock.
+> mrp_uninit_applicant() only holds the rtnl lock which is not enough;
+> a race is possible because mrp_rcv() is called in BH context:
 > 
-> This patch adds the following fields to /proc/net/sctp/assocs output:
+> 	mrp_rcv()
+> 	  |->mrp_pdu_parse_msg()
+> 	    |->mrp_pdu_parse_vecattr()
+> 	      |->mrp_pdu_parse_vecattr_event()
+> 	        |-> mrp_attr_event()
+> 	          |-> mrp_pdu_append_vecattr_event()
+> 	            |-> mrp_pdu_queue()
 > 
-> 	- sk->sk_wmem_alloc    (transmit queue bytes committed)
-> 	- sk->sk_wmem_queued   (persistent queue size)
-> 	- sk->sk_sndbuf        (size of send buffer in bytes)
-> 	- sk->sk_rcvbuf        (size of receive buffer in bytes)
+> Cc: Cong Wang <amwang@redhat.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: David Ward <david.ward@ll.mit.edu>
 
-Please use smaller field names, perhaps "wmema wmemq sndbuf rcvbuf"
-
-> Patch applies to v3.8.6 and v3.9-rc6.
-
-This does not belong in the commit message proper, it belongs in the
-ancillary information you provide after the "---" delimeter.
-
-> v2: Not changing spacing between the fields.
-
-Similarly this supplemental information belongs after "---"
-
-> +		seq_printf(seq, "\t%8lu %5d %5d %4d %4d %4d %8d "
-> +						"%8d %8d %8d %8d",
-
-This is not indented properly, the second line should have the "
-appearing at the first column after the openning parenthesis
-of the seq_printf() call.
-
-The goal is not to exclusively use TAB characters to indent the
-line into outer space, the goal is to use the appropriate of
-TAB, then space, characters as necessary to indent the code to
-the correct column.
+Applied and queued up for -stable, thanks.
