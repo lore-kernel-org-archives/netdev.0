@@ -1,42 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/802/mrp: fix possible race condition when calling
- mrp_pdu_queue()
-Date: Fri, 12 Apr 2013 15:11:25 -0400 (EDT)
-Message-ID: <20130412.151125.1267276967257090325.davem@davemloft.net>
-References: <1365724035-30220-1-git-send-email-david.ward@ll.mit.edu>
+Subject: Re: [PATCH] net: usb: active URB submitted multiple times
+Date: Fri, 12 Apr 2013 15:18:24 -0400 (EDT)
+Message-ID: <20130412.151824.2029469075886743722.davem@davemloft.net>
+References: <20130410.232241.1038793023507666278.davem@davemloft.net>
+	<alpine.DEB.2.02.1304110956110.4237@fry>
+	<alpine.DEB.2.02.1304112156520.4309@fry>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amwang@redhat.com, eric.dumazet@gmail.com
-To: david.ward@ll.mit.edu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52648 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751998Ab3DLTL0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 15:11:26 -0400
-In-Reply-To: <1365724035-30220-1-git-send-email-david.ward@ll.mit.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sarah.a.sharp@linux.intel.com, dcbw@redhat.com
+To: petkan@nucleusys.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1304112156520.4309@fry>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ward <david.ward@ll.mit.edu>
-Date: Thu, 11 Apr 2013 19:47:15 -0400
+From: Petko Manolov <petkan@nucleusys.com>
+Date: Thu, 11 Apr 2013 22:00:59 +0300 (EEST)
 
-> (Adapted from a very similar change to net/802/garp.c by Cong Wang.)
+> From: Petko Manolov <petkan@nucleusys.com>
 > 
-> mrp_pdu_queue() should ways be called with the applicant spin lock.
-> mrp_uninit_applicant() only holds the rtnl lock which is not enough;
-> a race is possible because mrp_rcv() is called in BH context:
+> (For inclusion in 3.10, diff against latest net-next.)
 > 
-> 	mrp_rcv()
-> 	  |->mrp_pdu_parse_msg()
-> 	    |->mrp_pdu_parse_vecattr()
-> 	      |->mrp_pdu_parse_vecattr_event()
-> 	        |-> mrp_attr_event()
-> 	          |-> mrp_pdu_append_vecattr_event()
-> 	            |-> mrp_pdu_queue()
+> Pegasus driver used single callback for sync and async control URBs. 
+> Special flags were employed to distinguish between both, but due to flawed 
+> logic (as Sarah Sharp spotted) it didn't always work.  As a result of this 
+> change [get|set]_registers() are now much simpler.  Async write is also 
+> leaner and does not use single, statically allocated memory for 
+> usb_ctrlrequest, which is another potential race when asynchronously 
+> submitting URBs.
 > 
-> Cc: Cong Wang <amwang@redhat.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: David Ward <david.ward@ll.mit.edu>
+> The socket buffer pool for the receive path is now gone.  It's existence 
+> didn't make much difference (performance-wise) and the code is better off 
+> without the spinlocks protecting it.
+> 
+> Largely duplicated code in routines reading and writing MII registers is 
+> now packed in __mii_op().
+> 
+> Adding URL for the public pegasus git repository.
+> 
+> Signed-off-by: Petko Manolov <petkan@nucleusys.com>
 
-Applied and queued up for -stable, thanks.
+When submitting a new version of a patch, you must list what
+changed from the previous version after the "---" delimiter
+rather than having people try and guess.
+
+> +T:	git git://petkan@git.code.sf.net/p/pegasus2/git
+
+There is no way that specifying your GIT login in this URL
+meant for public use is correct, or is it?
