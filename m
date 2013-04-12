@@ -1,76 +1,36 @@
-From: Tom Parkin <tparkin@katalix.com>
-Subject: Re: [RFC PATCH] udp: don't rereference dst_entry dev pointer on rcv
-Date: Fri, 12 Apr 2013 08:04:34 +0100
-Message-ID: <20130412070434.GA2729@raven>
-References: <1362695800-8633-2-git-send-email-tparkin@katalix.com>
- <1362696444.15793.220.camel@edumazet-glaptop>
- <20130307.181527.390191009324148471.davem@davemloft.net>
- <20130313232743.GA3686@raven>
- <1363223884.29475.0.camel@edumazet-glaptop>
- <20130314144550.GB2512@raven>
- <1363273531.29475.21.camel@edumazet-glaptop>
- <1363274946.29475.24.camel@edumazet-glaptop>
- <1365697961.3887.176.camel@edumazet-glaptop>
- <1365702804.3887.180.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the final tree
+ (net-next tree related)
+Date: Fri, 12 Apr 2013 03:08:07 -0400 (EDT)
+Message-ID: <20130412.030807.2228977831606614404.davem@davemloft.net>
+References: <20130412160018.3d54c801f40fbc13058ded07@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="u3/rZRmxL6MmkK24"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:39011 "EHLO bert.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753329Ab3DLHEh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Apr 2013 03:04:37 -0400
-Content-Disposition: inline
-In-Reply-To: <1365702804.3887.180.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stephen@networkplumber.org
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20130412160018.3d54c801f40fbc13058ded07@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 12 Apr 2013 16:00:18 +1000
 
---u3/rZRmxL6MmkK24
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> After merging the final tree, today's linux-next build (powerpc
+> allyesconfig) failed like this:
+> 
+> net/core/netprio_cgroup.c:250:29: error: static declaration of 'net_prio_subsys' follows non-static declaration
+> include/linux/cgroup_subsys.h:71:1: note: previous declaration of 'net_prio_subsys' was here
+> 
+> Caused by commit 763eff57de89 ("netprio_cgroup: make local table static")
+> from the net-next tree.
+> 
+> I have reverted that commit for today.
 
-On Thu, Apr 11, 2013 at 10:53:24AM -0700, Eric Dumazet wrote:
-> On Thu, 2013-04-11 at 09:32 -0700, Eric Dumazet wrote:
->=20
-> > Short update : I do not understand yet why this patch is not working.
-> >=20
-> > Normally, the reassembled packet should get the dst from the last skb
-> > (the one completing the packet)...
-> >=20
-> > I have to make more experiments.
->=20
-> OK I think I've nailed it, please try following patch (I tried it on
-> net-next, but it should apply on previous kernels)
->=20
-> Thanks !
+I've reverted it from net-next too, thanks Stephen.
 
-Many thanks for this updated patch, Eric.  I will test here as soon as I
-can and report back -- this will likely be some time next week.
+> /me hates macros that construct symbols ...
 
---=20
-Tom Parkin
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
-
---u3/rZRmxL6MmkK24
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJRZ7ICAAoJEJSMBmUKuovQAnQIAKtmm6f/uEIMkpm0JQHQUsgd
-YPh2RMS+MYJz9npN4/B28wEn7DNdl5RDPYTnVuNBQhEbOhqJBeX6BgfeFJ2ZG9eE
-F9q9XHRLOqJPkLjFQ60EYtlKZDZGMop32jqw9HaZncibI7z6QRABetGAk8NQAwTx
-KDra4XIbjlypDPWkVaEDb2YXcbF6cB0Svhpw96jsBFDMIvMpQYmFE2iR8ix1whoT
-XPye2GpjGIVWXWLkaz0XA+LtMQFif5N+mRqzPKJviOuM5xV32CsyKN9UgSOBABvc
-D7rnZiVPYhYrnVEW1UraYZH8HkOca8F4Rw6lf7tM1vdhYaLTMbobtlVRNqZITa8=
-=a7+p
------END PGP SIGNATURE-----
-
---u3/rZRmxL6MmkK24--
+/me hates automatic checkers that don't expand macros :-)
