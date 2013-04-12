@@ -1,46 +1,43 @@
-From: William Dauchy <wdauchy@gmail.com>
-Subject: Re: [PATCH V4 7/7] xen-netback: don't disconnect frontend when seeing
- oversize packet
-Date: Fri, 12 Apr 2013 19:17:38 +0200
-Message-ID: <CAJ75kXb1Pc83sAjqDuzeGiikTcqdqrgPTxTT7kS-agUqoZp7LA@mail.gmail.com>
-References: <1365776646-10796-1-git-send-email-wei.liu2@citrix.com> <1365776646-10796-8-git-send-email-wei.liu2@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] iproute2: lib/utils.c bug fixes
+Date: Fri, 12 Apr 2013 13:36:44 -0400 (EDT)
+Message-ID: <20130412.133644.1907806435103750855.davem@davemloft.net>
+References: <516771D5.3040607@googlemail.com>
+	<20130411200656.42dfb8bb@nehalam.linuxnetplumber.net>
+	<516810DD.80008@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, xen-devel <xen-devel@lists.xen.org>,
-	annie.li@oracle.com,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"jbeulich@suse.com" <jbeulich@suse.com>,
-	Ian Campbell <ian.campbell@citrix.com>, david.vrabel@citrix.com
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: mr.dash.four@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f173.google.com ([209.85.128.173]:62879 "EHLO
-	mail-ve0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753496Ab3DLRSA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 13:18:00 -0400
-Received: by mail-ve0-f173.google.com with SMTP id cy12so2627883veb.18
-        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 10:17:59 -0700 (PDT)
-In-Reply-To: <1365776646-10796-8-git-send-email-wei.liu2@citrix.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51340 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751440Ab3DLRgq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 13:36:46 -0400
+In-Reply-To: <516810DD.80008@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 12, 2013 at 4:24 PM, Wei Liu <wei.liu2@citrix.com> wrote:
-> Some frontend drivers are sending packets > 64 KiB in length. This length
-> overflows the length field in the first slot making the following slots have
-> an invalid length.
->
-> Turn this error back into a non-fatal error by dropping the packet. To avoid
-> having the following slots having fatal errors, consume all slots in the
-> packet.
->
-> This does not reopen the security hole in XSA-39 as if the packet as an
-> invalid number of slots it will still hit fatal error case.
->
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
 
-Maybe this should be tagged for stable? Maybe part of patch 6/7 as
-well. I had to remove the part which was disabling the device because
-of issues encountered in stable tree.
+The self-rightousness with which people operating under pseudonyms or
+names that do not meet the requirements of the developers certificate
+of origin react when they are confronted directly about this issue I
+find truly appalling.
 
---
-William
+It's pretty pointless to wet yourself in public over this issue rather
+than just comply with our requirements if you want to submit changes
+that actually get applied.
+
+But if you don't want to play along, that's fine, because if the issue
+is important enough there's a thousand or so other developers right
+behind you willing to fix or implement it too.
+
+We have enough developer resources that people behaving in an
+anti-social manner about issues like this simply don't matter.
+
+I know what you're doing, you're just trying to make a point, but at
+the expense of everyone else's time.  That makes you a troll at best,
+and an asshole at worst.
+
+Thanks.
