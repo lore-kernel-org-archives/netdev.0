@@ -1,56 +1,74 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH v2 1/1 net] enet: fec: fix fail resume from suspend state
-Date: Fri, 12 Apr 2013 10:23:56 -0300
-Message-ID: <CAOMZO5A9Tc_n8OGgxxw0ZE9xGOPjsYvyqVZtjWwTRn9as3eKCw@mail.gmail.com>
-References: <1364350323-2488-1-git-send-email-Frank.Li@freescale.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next 02/11] ixgbe: Mask off check of frag_off as we only
+ want fragment offset
+Date: Fri, 12 Apr 2013 06:28:48 -0700
+Message-ID: <1365773328.4459.19.camel@edumazet-glaptop>
+References: <1365765866-15741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1365765866-15741-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: shawn.guo@linaro.org, lznuaa@gmail.com,
-	u.kleine-koenig@pengutronix.de, netdev@vger.kernel.org,
-	davem@davemloft.net, linux-arm-kernel@lists.infradead.org
-To: Frank Li <Frank.Li@freescale.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f54.google.com ([209.85.212.54]:42066 "EHLO
-	mail-vb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753830Ab3DLNX5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:23:57 -0400
-Received: by mail-vb0-f54.google.com with SMTP id w16so2128180vbf.13
-        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 06:23:56 -0700 (PDT)
-In-Reply-To: <1364350323-2488-1-git-send-email-Frank.Li@freescale.com>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:57602 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753798Ab3DLN2u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:28:50 -0400
+Received: by mail-pd0-f179.google.com with SMTP id x11so1410796pdj.38
+        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 06:28:50 -0700 (PDT)
+In-Reply-To: <1365765866-15741-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Frank,
+On Fri, 2013-04-12 at 04:24 -0700, Jeff Kirsher wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> We were incorrectly checking the entire frag_off field when we only wanted the
+> fragment offset.  As a result we were not pulling in TCP headers when the DNF
+> flag was set.
+> 
+> To correct that we will now check for frag off using the IP_OFFSET mask.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index 0c51a9f..096a221 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -1347,7 +1347,7 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
+>  			return hdr.network - data;
+>  
+>  		/* record next protocol if header is present */
+> -		if (!hdr.ipv4->frag_off)
+> +		if (!(hdr.ipv4->frag_off & htons(IP_OFFSET)))
+>  			nexthdr = hdr.ipv4->protocol;
+>  	} else if (protocol == __constant_htons(ETH_P_IPV6)) {
+>  		if ((hdr.network - data) > (max_len - sizeof(struct ipv6hdr)))
 
-On Tue, Mar 26, 2013 at 11:12 PM, Frank Li <Frank.Li@freescale.com> wrote:
-> Without this patch
-> 1. boot with nfs (no_console_suspend)
-> 2. echo mem >/sys/power/state
-> 3. wakeup by wakesource
-> 4. print "eth0: tx queue full"
+I wonder if you could use core functions instead of all this...
 
-I still have issues with suspend/resume with your patch applied:
+A simple wrapper would be :
 
-$ echo enabled >
-/sys/devices/80000000.apb/80040000.apbx/80074000.serial/tty/ttyAMA0/power/wakeup
-$ echo mem > /sys/power/state
+static noinline unsigned int ixgbe_get_headlen(unsigned char *data,
+						u32 maxlen)
+{
+    struct skb fake;
+    unsigned int res;
 
-[   31.577857] PM: Syncing filesystems ... done.
-[   31.604332] Freezing user space processes ... (elapsed 0.01 seconds) done.
-[   31.622160] Freezing remaining freezable tasks ... (elapsed 0.01 seconds) do.
-[   31.642018] Suspending console(s) (use no_console_suspend to debug)
-[   31.666914] PM: suspend of devices complete after 12.672 msecs
-[   31.671975] PM: late suspend of devices complete after 5.007 msecs
-[   31.678542] PM: noirq suspend of devices complete after 6.521 msecs
-[   31.682147] PM: noirq resume of devices complete after 3.186 msecs
-[   31.687396] PM: early resume of devices complete after 3.464 msecs
-[   31.759982] PM: resume of devices complete after 2432.562 msecs
+    fake->data = data;
+    fake->head = data;
+    fake->data_len = 0;
+    fake->len = maxlen;
+    skb_reset_network_header(&fake);
+    res = __skb_get_poff(&fake);
+    return res ?: maxlen;
+}
 
-(Then send any char via DUART to wakeup the system)
-
-[   31.802673] Restarting tasks ... done.
-[   33.829493] libphy: 800f0000.etherne:00 - Link is Down
-[   36.859102] FEC: MDIO read timeout
-[   38.889180] FEC: MDIO read timeout
-
-It does not fail 100%: there are times that suspend works just fine.
+(completely untested)
