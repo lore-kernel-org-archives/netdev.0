@@ -1,60 +1,48 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH 5/7] xen-netfront: reduce gso_max_size to account for
- ethernet header
-Date: Fri, 12 Apr 2013 14:29:57 +0100
-Message-ID: <20130412132957.GG11321@zion.uk.xensource.com>
-References: <1365505655-8021-1-git-send-email-wei.liu2@citrix.com>
- <1365505655-8021-6-git-send-email-wei.liu2@citrix.com>
- <20130411200401.GJ5936@zion.uk.xensource.com>
- <1365754684.8126.82.camel@zakaz.uk.xensource.com>
- <20130412084822.GA11321@zion.uk.xensource.com>
- <1365757035.15783.4.camel@zakaz.uk.xensource.com>
- <20130412093433.GD11321@zion.uk.xensource.com>
- <1365759801.15783.11.camel@zakaz.uk.xensource.com>
- <1365771499.4459.2.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next 01/11] ixgbe: Support using build_skb in the case
+ that jumbo frames are disabled
+Date: Fri, 12 Apr 2013 06:31:05 -0700
+Message-ID: <1365773465.4459.21.camel@edumazet-glaptop>
+References: <1365765866-15741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1365765866-15741-2-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1365772204.4459.10.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	"wdauchy@gmail.com" <wdauchy@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:62451 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753798Ab3DLN37 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:29:59 -0400
-Content-Disposition: inline
-In-Reply-To: <1365771499.4459.2.camel@edumazet-glaptop>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:45791 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753077Ab3DLNbH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:31:07 -0400
+Received: by mail-pa0-f45.google.com with SMTP id kl13so1466354pab.18
+        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 06:31:07 -0700 (PDT)
+In-Reply-To: <1365772204.4459.10.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 12, 2013 at 01:58:19PM +0100, Eric Dumazet wrote:
-> On Fri, 2013-04-12 at 10:43 +0100, Ian Campbell wrote:
-> > On Fri, 2013-04-12 at 10:34 +0100, Wei Liu wrote:
+On Fri, 2013-04-12 at 06:10 -0700, Eric Dumazet wrote:
+
+> Strange. I feel you overestimate the final skb->truesize
 > 
-> > > But we don't have handle on this. If I understand correctly the
-> > > discussion in other thread, 90 is empirical value, not something
-> > > documented.
-> > 
-> > My original question was effectively "is anyone else going to be
-> > interested in this empirical value", if so then it seems like it would
-> > be useful to have it centrally defined.
-> > 
-> 
-> This could be MAX_TCP_HEADER. Probably a bit overestimated but do we
-> care ?
+> The name 'truesize' is a bit misleading here, as its the size of
+> skb->head. A better name would have been frag_size, and you should not
+> include in it the struct skb_shared_info overhead because build_skb()
+> does it :
 > 
 
-I don't think we care. MAX_TCP_HEADER is as good as any. Reserving a few
-more bytes won't hurt. I just want to make sure the value doesn't look
-like something randomly comes up in my mind. :-)
+Oh well, build_skb() does :
 
-Ian, what do you think?
+size -= SKB_DATA_ALIGN(sizeof(struct skb_shared_info)); 
 
+so your patch is fine, only the @truesize name is misleading.
 
-Wei.
+> skb->truesize will be set to SKB_TRUESIZE(frag_size)
+> 
+> #define SKB_TRUESIZE(X) ((X) +                                          \
+>                          SKB_DATA_ALIGN(sizeof(struct sk_buff)) +       \
+>                          SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
+> 
+> 
