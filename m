@@ -1,37 +1,50 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH v3 1/1 net-next] net: fec: put tx to napi poll function to
- fix dead lock
-Date: Fri, 12 Apr 2013 10:38:24 -0300
-Message-ID: <CAOMZO5C9ZX_SygEdMdcGXbH8=gLKn0igOMkZ8vGP3HNzD+fvxA@mail.gmail.com>
-References: <1362368065-5809-1-git-send-email-Frank.Li@freescale.com>
-	<20130320114824.GA6088@S2101-09.ap.freescale.net>
-	<CAOMZO5B-ipzyb2uiLW12fFd3PD3JfLS8R0YLM5vtLgFNz8abUw@mail.gmail.com>
-	<20130324143525.GI6281@S2101-09.ap.freescale.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next 02/11] ixgbe: Mask off check of frag_off as we only
+ want fragment offset
+Date: Fri, 12 Apr 2013 06:45:32 -0700
+Message-ID: <1365774332.4459.24.camel@edumazet-glaptop>
+References: <1365765866-15741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1365765866-15741-3-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1365773328.4459.19.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Frank Li <Frank.Li@freescale.com>, B38611@freescale.com,
-	netdev@vger.kernel.org, s.hauer@pengutronix.de, lznuaa@gmail.com,
-	davem@davemloft.net, linux-arm-kernel@lists.infradead.org
-To: Shawn Guo <shawn.guo@linaro.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f52.google.com ([209.85.212.52]:42761 "EHLO
-	mail-vb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753831Ab3DLNiZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:38:25 -0400
-Received: by mail-vb0-f52.google.com with SMTP id w8so2106013vbf.39
-        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 06:38:24 -0700 (PDT)
-In-Reply-To: <20130324143525.GI6281@S2101-09.ap.freescale.net>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:46930 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755118Ab3DLNpf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:45:35 -0400
+Received: by mail-pb0-f53.google.com with SMTP id un15so1426705pbc.12
+        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 06:45:34 -0700 (PDT)
+In-Reply-To: <1365773328.4459.19.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 24, 2013 at 11:35 AM, Shawn Guo <shawn.guo@linaro.org> wrote:
+On Fri, 2013-04-12 at 06:28 -0700, Eric Dumazet wrote:
 
-> Are you sure?  After reverting the patch on next-20130322, I can get
-> imx28 resume back to console as below.
+> I wonder if you could use core functions instead of all this...
+> 
+> A simple wrapper would be :
 
-Yes, please try 20130412, which has Frank's fix applied and try
-suspend/resume sequence several times.
+Or more something like :
 
-Does it work always for you?
+static noinline unsigned int ixgbe_get_headlen(unsigned char *data,
+                                                u32 maxlen)
+{
+    struct skb fake;
+    unsigned int res;
 
-On my mx28evk it usually fails.
+    if (maxlen < ETH_HLEN)
+	return maxlen;
+
+    fake->data = data + ETH_HLEN;
+    fake->head = data;
+    fake->data_len = 0;
+    fake->len = maxlen - ETH_HLEN;
+    skb_reset_network_header(&fake);
+    res = __skb_get_poff(&fake);
+    return res ? res + ETH_HLEN : maxlen;
+}
