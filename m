@@ -1,46 +1,130 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/11] ixgbe: don't do arithmetic operations on bitmasks
-Date: Fri, 12 Apr 2013 04:24:18 -0700
-Message-ID: <1365765866-15741-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/11] ixgbe: create conversion functions from link_status to bus/speed
+Date: Fri, 12 Apr 2013 04:24:21 -0700
+Message-ID: <1365765866-15741-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1365765866-15741-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:11922 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:53060 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752851Ab3DLLYg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Apr 2013 07:24:36 -0400
+	id S1754798Ab3DLLYh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Apr 2013 07:24:37 -0400
 In-Reply-To: <1365765866-15741-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Make the calculation of eerd consistent between the read and write functions
-by using | instead of + for IXGBE_EEPROM_RW_REG_START
+This patch cleans up ixgbe_get_bus_info_generic to call some conversion
+functions, which are used also in a follow on patch that needs to convert
+between the link_status PCIe config values into ixgbe's internal enum
+representations.
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 64 ++++++++++++-------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  2 +
+ 2 files changed, 34 insertions(+), 32 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 99e472e..f8d3dec 100644
+index 3f66abc..9bcdeb8 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -1125,7 +1125,7 @@ s32 ixgbe_read_eerd_buffer_generic(struct ixgbe_hw *hw, u16 offset,
- 	}
+@@ -592,6 +592,36 @@ s32 ixgbe_get_mac_addr_generic(struct ixgbe_hw *hw, u8 *mac_addr)
+ 	return 0;
+ }
  
- 	for (i = 0; i < words; i++) {
--		eerd = ((offset + i) << IXGBE_EEPROM_RW_ADDR_SHIFT) +
-+		eerd = ((offset + i) << IXGBE_EEPROM_RW_ADDR_SHIFT) |
- 		       IXGBE_EEPROM_RW_REG_START;
++enum ixgbe_bus_width ixgbe_convert_bus_width(u16 link_status)
++{
++	switch (link_status & IXGBE_PCI_LINK_WIDTH) {
++	case IXGBE_PCI_LINK_WIDTH_1:
++		return ixgbe_bus_width_pcie_x1;
++	case IXGBE_PCI_LINK_WIDTH_2:
++		return ixgbe_bus_width_pcie_x2;
++	case IXGBE_PCI_LINK_WIDTH_4:
++		return ixgbe_bus_width_pcie_x4;
++	case IXGBE_PCI_LINK_WIDTH_8:
++		return ixgbe_bus_width_pcie_x8;
++	default:
++		return ixgbe_bus_width_unknown;
++	}
++}
++
++enum ixgbe_bus_speed ixgbe_convert_bus_speed(u16 link_status)
++{
++	switch (link_status & IXGBE_PCI_LINK_SPEED) {
++	case IXGBE_PCI_LINK_SPEED_2500:
++		return ixgbe_bus_speed_2500;
++	case IXGBE_PCI_LINK_SPEED_5000:
++		return ixgbe_bus_speed_5000;
++	case IXGBE_PCI_LINK_SPEED_8000:
++		return ixgbe_bus_speed_8000;
++	default:
++		return ixgbe_bus_speed_unknown;
++	}
++}
++
+ /**
+  *  ixgbe_get_bus_info_generic - Generic set PCI bus info
+  *  @hw: pointer to hardware structure
+@@ -610,38 +640,8 @@ s32 ixgbe_get_bus_info_generic(struct ixgbe_hw *hw)
+ 	pci_read_config_word(adapter->pdev, IXGBE_PCI_LINK_STATUS,
+ 	                     &link_status);
  
- 		IXGBE_WRITE_REG(hw, IXGBE_EERD, eerd);
+-	switch (link_status & IXGBE_PCI_LINK_WIDTH) {
+-	case IXGBE_PCI_LINK_WIDTH_1:
+-		hw->bus.width = ixgbe_bus_width_pcie_x1;
+-		break;
+-	case IXGBE_PCI_LINK_WIDTH_2:
+-		hw->bus.width = ixgbe_bus_width_pcie_x2;
+-		break;
+-	case IXGBE_PCI_LINK_WIDTH_4:
+-		hw->bus.width = ixgbe_bus_width_pcie_x4;
+-		break;
+-	case IXGBE_PCI_LINK_WIDTH_8:
+-		hw->bus.width = ixgbe_bus_width_pcie_x8;
+-		break;
+-	default:
+-		hw->bus.width = ixgbe_bus_width_unknown;
+-		break;
+-	}
+-
+-	switch (link_status & IXGBE_PCI_LINK_SPEED) {
+-	case IXGBE_PCI_LINK_SPEED_2500:
+-		hw->bus.speed = ixgbe_bus_speed_2500;
+-		break;
+-	case IXGBE_PCI_LINK_SPEED_5000:
+-		hw->bus.speed = ixgbe_bus_speed_5000;
+-		break;
+-	case IXGBE_PCI_LINK_SPEED_8000:
+-		hw->bus.speed = ixgbe_bus_speed_8000;
+-		break;
+-	default:
+-		hw->bus.speed = ixgbe_bus_speed_unknown;
+-		break;
+-	}
++	hw->bus.width = ixgbe_convert_bus_width(link_status);
++	hw->bus.speed = ixgbe_convert_bus_speed(link_status);
+ 
+ 	mac->ops.set_lan_id(hw);
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index bc3948ea..22eee38 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -40,6 +40,8 @@ s32 ixgbe_clear_hw_cntrs_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_read_pba_string_generic(struct ixgbe_hw *hw, u8 *pba_num,
+                                   u32 pba_num_size);
+ s32 ixgbe_get_mac_addr_generic(struct ixgbe_hw *hw, u8 *mac_addr);
++enum ixgbe_bus_width ixgbe_convert_bus_width(u16 link_status);
++enum ixgbe_bus_speed ixgbe_convert_bus_speed(u16 link_status);
+ s32 ixgbe_get_bus_info_generic(struct ixgbe_hw *hw);
+ void ixgbe_set_lan_id_multi_port_pcie(struct ixgbe_hw *hw);
+ s32 ixgbe_stop_adapter_generic(struct ixgbe_hw *hw);
 -- 
 1.7.11.7
