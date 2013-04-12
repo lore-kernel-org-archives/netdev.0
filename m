@@ -1,30 +1,43 @@
-From: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Subject: Re: Fw: [Bug 56521] New: No support of Motorola ZN5 USBnet in zaurus
- module
-Date: Fri, 12 Apr 2013 08:37:59 -0700
-Message-ID: <20130412153759.GA25603@kroah.com>
-References: <20130412083259.13e7905e@nehalam.linuxnetplumber.net>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH V4 7/7] xen-netback: don't disconnect frontend when
+ seeing oversize packet
+Date: Fri, 12 Apr 2013 16:38:27 +0100
+Message-ID: <1365781107.15783.98.camel@zakaz.uk.xensource.com>
+References: <1365776646-10796-1-git-send-email-wei.liu2@citrix.com>
+	 <1365776646-10796-8-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20130412083259.13e7905e-We1ePj4FEcvRI77zikRAJc56i+j3xesD0e7PPNI6Mm0@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"annie.li@oracle.com" <annie.li@oracle.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"jbeulich@suse.com" <jbeulich@suse.com>,
+	"wdauchy@gmail.com" <wdauchy@gmail.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.eu.citrix.com ([46.33.159.39]:7417 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752591Ab3DLPia (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 11:38:30 -0400
+In-Reply-To: <1365776646-10796-8-git-send-email-wei.liu2@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 12, 2013 at 08:32:59AM -0700, Stephen Hemminger wrote:
-> Created an attachment (id=98391)
->  --> (https://bugzilla.kernel.org/attachment.cgi?id=98391)
-> zaurus.patch
+On Fri, 2013-04-12 at 15:24 +0100, Wei Liu wrote:
+> Some frontend drivers are sending packets > 64 KiB in length. This length
+> overflows the length field in the first slot making the following slots have
+> an invalid length.
+> 
+> Turn this error back into a non-fatal error by dropping the packet. To avoid
+> having the following slots having fatal errors, consume all slots in the
+> packet.
+> 
+> This does not reopen the security hole in XSA-39 as if the packet as an
+> invalid number of slots it will still hit fatal error case.
+> 
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
 
-We need a patch in email form.
-
-thanks,
-
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Ian Campbell <ian.campbell@citrix.com>
