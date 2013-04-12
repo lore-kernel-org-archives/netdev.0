@@ -1,63 +1,37 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 5/7] xen-netfront: reduce gso_max_size to account for
- ethernet header
-Date: Fri, 12 Apr 2013 14:36:55 +0100
-Message-ID: <1365773815.15783.44.camel@zakaz.uk.xensource.com>
-References: <1365505655-8021-1-git-send-email-wei.liu2@citrix.com>
-	 <1365505655-8021-6-git-send-email-wei.liu2@citrix.com>
-	 <20130411200401.GJ5936@zion.uk.xensource.com>
-	 <1365754684.8126.82.camel@zakaz.uk.xensource.com>
-	 <20130412084822.GA11321@zion.uk.xensource.com>
-	 <1365757035.15783.4.camel@zakaz.uk.xensource.com>
-	 <20130412093433.GD11321@zion.uk.xensource.com>
-	 <1365759801.15783.11.camel@zakaz.uk.xensource.com>
-	 <1365771499.4459.2.camel@edumazet-glaptop>
-	 <20130412132957.GG11321@zion.uk.xensource.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH v3 1/1 net-next] net: fec: put tx to napi poll function to
+ fix dead lock
+Date: Fri, 12 Apr 2013 10:38:24 -0300
+Message-ID: <CAOMZO5C9ZX_SygEdMdcGXbH8=gLKn0igOMkZ8vGP3HNzD+fvxA@mail.gmail.com>
+References: <1362368065-5809-1-git-send-email-Frank.Li@freescale.com>
+	<20130320114824.GA6088@S2101-09.ap.freescale.net>
+	<CAOMZO5B-ipzyb2uiLW12fFd3PD3JfLS8R0YLM5vtLgFNz8abUw@mail.gmail.com>
+	<20130324143525.GI6281@S2101-09.ap.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	"wdauchy@gmail.com" <wdauchy@gmail.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Frank Li <Frank.Li@freescale.com>, B38611@freescale.com,
+	netdev@vger.kernel.org, s.hauer@pengutronix.de, lznuaa@gmail.com,
+	davem@davemloft.net, linux-arm-kernel@lists.infradead.org
+To: Shawn Guo <shawn.guo@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:34909 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753808Ab3DLNg5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:36:57 -0400
-In-Reply-To: <20130412132957.GG11321@zion.uk.xensource.com>
+Received: from mail-vb0-f52.google.com ([209.85.212.52]:42761 "EHLO
+	mail-vb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753831Ab3DLNiZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 09:38:25 -0400
+Received: by mail-vb0-f52.google.com with SMTP id w8so2106013vbf.39
+        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 06:38:24 -0700 (PDT)
+In-Reply-To: <20130324143525.GI6281@S2101-09.ap.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-04-12 at 14:29 +0100, Wei Liu wrote:
-> On Fri, Apr 12, 2013 at 01:58:19PM +0100, Eric Dumazet wrote:
-> > On Fri, 2013-04-12 at 10:43 +0100, Ian Campbell wrote:
-> > > On Fri, 2013-04-12 at 10:34 +0100, Wei Liu wrote:
-> > 
-> > > > But we don't have handle on this. If I understand correctly the
-> > > > discussion in other thread, 90 is empirical value, not something
-> > > > documented.
-> > > 
-> > > My original question was effectively "is anyone else going to be
-> > > interested in this empirical value", if so then it seems like it would
-> > > be useful to have it centrally defined.
-> > > 
-> > 
-> > This could be MAX_TCP_HEADER. Probably a bit overestimated but do we
-> > care ?
-> > 
-> 
-> I don't think we care. MAX_TCP_HEADER is as good as any. Reserving a few
-> more bytes won't hurt. I just want to make sure the value doesn't look
-> like something randomly comes up in my mind. :-)
-> 
-> Ian, what do you think?
+On Sun, Mar 24, 2013 at 11:35 AM, Shawn Guo <shawn.guo@linaro.org> wrote:
 
-It could be up to 256 bytes from the looks of things, depending
-on .config. That's probably ok.
+> Are you sure?  After reverting the patch on next-20130322, I can get
+> imx28 resume back to console as below.
 
-Ian.
+Yes, please try 20130412, which has Frank's fix applied and try
+suspend/resume sequence several times.
+
+Does it work always for you?
+
+On my mx28evk it usually fails.
