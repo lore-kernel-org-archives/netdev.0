@@ -1,87 +1,68 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [Patch net-next] vxlan: revert "vxlan: Bypass encapsulation if
- the destination is local"
-Date: Thu, 11 Apr 2013 16:59:59 -0700
-Message-ID: <1365724799.3563.5.camel@sridhar.usor.ibm.com>
-References: <1365501445-9712-1-git-send-email-amwang@redhat.com>
-	 <1365530913.29336.50.camel@oc1677441337.ibm.com>
-	 <1365646215.25993.3.camel@cr0> <516641CF.4020101@us.ibm.com>
-	 <1937058599.2214531.1365659704193.JavaMail.root@redhat.com>
+From: Mr Dash Four <mr.dash.four@googlemail.com>
+Subject: [PATCH] iproute2: lib/utils.c bug fixes
+Date: Fri, 12 Apr 2013 03:30:45 +0100
+Message-ID: <516771D5.3040607@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:60657 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751889Ab3DLAAG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Apr 2013 20:00:06 -0400
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <sri@us.ibm.com>;
-	Thu, 11 Apr 2013 20:00:05 -0400
-Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id C890A38C8047
-	for <netdev@vger.kernel.org>; Thu, 11 Apr 2013 20:00:02 -0400 (EDT)
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r3C002dQ55443644
-	for <netdev@vger.kernel.org>; Thu, 11 Apr 2013 20:00:02 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r3C000tH009914
-	for <netdev@vger.kernel.org>; Thu, 11 Apr 2013 20:00:01 -0400
-In-Reply-To: <1937058599.2214531.1365659704193.JavaMail.root@redhat.com>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:52248 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751026Ab3DLCa5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Apr 2013 22:30:57 -0400
+Received: by mail-wi0-f178.google.com with SMTP id hr17so153057wib.5
+        for <netdev@vger.kernel.org>; Thu, 11 Apr 2013 19:30:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-04-11 at 01:55 -0400, Cong Wang wrote:
-> 
-> ----- Original Message -----
-> > On 4/10/2013 7:10 PM, Cong Wang wrote:
-> > >> - when source and destination endpoints belonging to different vni's
-> > >>    are on 2 different bridges on the same host. encap bypass is done
-> > >>    in this scenario by checking if rt_flags has RTCF_LOCAL set. I think
-> > >>    you must be hitting this path and the following patch should fix
-> > >>    it by only doing bypass if the source and dest devices belong to
-> > >>    the same net. Can you try it and see if it fixes your tests?
-> > > I just tested it, unfortunately it doesn't work, the bug still exists.
-> > >
-> > > If you need any other info, please let me know.
-> > So does it mean that you are hitting the if condition that does encap
-> > bypass
-> > even afterthe net_eq() check? Do the tests pass If you comment out the
-> > 'if' block?
-> 
-> Yes, after adding a printk inside the 'if' block, I got:
-> 
-> [   71.456329] vxlan: dev: vxlan0, dst: 224.8.8.8, dst dev: veth0
-> [   71.596551] vxlan: dev: vxlan0, dst: 224.8.8.8, dst dev: veth1
-> [   72.028574] vxlan: dev: vxlan0, dst: 224.8.8.8, dst dev: veth0
-> [   72.436384] vxlan: dev: vxlan0, dst: 224.8.8.8, dst dev: veth1
-> [   73.028576] vxlan: dev: vxlan0, dst: 224.8.8.8, dst dev: veth0
-> [   73.185134] vxlan: dev: vxlan0, dst: 224.8.8.8, dst dev: veth0
-> [   73.436582] vxlan: dev: vxlan0, dst: 224.8.8.8, dst dev: veth1
-> [   74.184251] vxlan: dev: vxlan0, dst: 224.8.8.8, dst dev: veth0
-> 
-> It seems the dst dev is the dev which vxlan0 setup on, so
-> there is no way to know if the packet is targeted for a different netns
-> on the same host, at least I don't find such RTCF_* flag.
+This patch fixes the following 3 bugs in get_u32/get_u64 functions:
 
-OK. i was able to setup vxlan between 2 net namespaces and reproduce
-the issue.
+  1. On 32-bit systems, get_u32 could not detect an overflow.
+     get_u32(&l, "4294967296", 10) always returned 4294967295
+     (ULONG_MAX on 32-bit systems).
 
-The following patch fixes the issue for me. can you try it out?
+  2. get_u64(&ll, "4294967295", 10) was returning an error where
+     it shouldn't have (4294967295 is perfectly legitimate value for
+     unsigned long long).
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 9a64715..d6509de 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1013,7 +1013,7 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	}
- 
- 	/* Bypass encapsulation if the destination is local */
--	if (rt->rt_flags & RTCF_LOCAL) {
-+	if (rt->dst.dev->flags & IFF_LOOPBACK) {
- 		struct vxlan_dev *dst_vxlan;
- 
- 		ip_rt_put(rt);
+  3. get_u64 couldn't detect an overflow errors (arg > ULLONG_MAX)
+
+Signed-off-by: Mr Dash Four <mr.dash.four@googlemail.com>
+---
+  lib/utils.c |    8 ++++++--
+  1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/lib/utils.c b/lib/utils.c
+index 5bcdbcf..aeee8f1 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -149,10 +149,12 @@ int get_u64(__u64 *val, const char *arg, int base)
+  	unsigned long long res;
+  	char *ptr;
+
++	errno = 0;
++
+  	if (!arg || !*arg)
+  		return -1;
+  	res = strtoull(arg, &ptr, base);
+-	if (!ptr || ptr == arg || *ptr || res == 0xFFFFFFFFULL)
++	if (!ptr || ptr == arg || *ptr || (res == ULLONG_MAX && errno == ERANGE))
+   		return -1;
+   	*val = res;
+   	return 0;
+@@ -163,10 +165,12 @@ int get_u32(__u32 *val, const char *arg, int base)
+  	unsigned long res;
+  	char *ptr;
+
++	errno = 0;
++
+  	if (!arg || !*arg)
+  		return -1;
+  	res = strtoul(arg, &ptr, base);
+-	if (!ptr || ptr == arg || *ptr || res > 0xFFFFFFFFUL)
++	if (!ptr || ptr == arg || *ptr || res > 0xFFFFFFFFUL || errno == ERANGE)
+  		return -1;
+  	*val = res;
+  	return 0;
