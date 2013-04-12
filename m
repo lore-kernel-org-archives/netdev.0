@@ -1,47 +1,44 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 5/7] xen-netfront: reduce gso_max_size to account for
- ethernet header
-Date: Fri, 12 Apr 2013 09:18:04 +0100
-Message-ID: <1365754684.8126.82.camel@zakaz.uk.xensource.com>
-References: <1365505655-8021-1-git-send-email-wei.liu2@citrix.com>
-	 <1365505655-8021-6-git-send-email-wei.liu2@citrix.com>
-	 <20130411200401.GJ5936@zion.uk.xensource.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH] net/802/mrp: fix possible race condition when calling
+ mrp_pdu_queue()
+Date: Fri, 12 Apr 2013 04:18:13 -0400 (EDT)
+Message-ID: <2086091165.2722334.1365754693666.JavaMail.root@redhat.com>
+References: <1365724035-30220-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	"wdauchy@gmail.com" <wdauchy@gmail.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: David Ward <david.ward@ll.mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:32042 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752441Ab3DLISH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 04:18:07 -0400
-In-Reply-To: <20130411200401.GJ5936@zion.uk.xensource.com>
+Received: from mx4-phx2.redhat.com ([209.132.183.25]:49894 "EHLO
+	mx4-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751320Ab3DLISQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 04:18:16 -0400
+In-Reply-To: <1365724035-30220-1-git-send-email-david.ward@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-04-11 at 21:04 +0100, Wei Liu wrote:
-> On Tue, Apr 09, 2013 at 12:07:33PM +0100, Wei Liu wrote:
-> > The maximum packet including ethernet header that can be handled by netfront /
-> > netback wire format is 65535. Reduce gso_max_size accordingly.
-> > 
-> > Drop skb and print warning when skb->len > 65535. This can 1) save the effort
-> > to send malformed packet to netback, 2) help spotting misconfiguration of
-> > netfront in the future.
-> > 
+
+
+----- Original Message -----
+> (Adapted from a very similar change to net/802/garp.c by Cong Wang.)
 > 
-> Any opinion on how much space should be reserved? From a previous thread
-> Ben seemed to suggest 90 (Ethernet + VLAN tag + IPv6 + TCP + timestamp
-> option = 90 bytes).
+> mrp_pdu_queue() should ways be called with the applicant spin lock.
+> mrp_uninit_applicant() only holds the rtnl lock which is not enough;
+> a race is possible because mrp_rcv() is called in BH context:
+> 
+> 	mrp_rcv()
+> 	  |->mrp_pdu_parse_msg()
+> 	    |->mrp_pdu_parse_vecattr()
+> 	      |->mrp_pdu_parse_vecattr_event()
+> 	        |-> mrp_attr_event()
+> 	          |-> mrp_pdu_append_vecattr_event()
+> 	            |-> mrp_pdu_queue()
+> 
+> Cc: Cong Wang <amwang@redhat.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: David Ward <david.ward@ll.mit.edu>
 
-I trust Ben and that seems as good as anything to me.
+Acked-by: Cong Wang <amwang@redhat.com>
 
-Is this the sort of limit others might be interested in, should we have
-a global #define?
-
-Ian.
+Thanks.
