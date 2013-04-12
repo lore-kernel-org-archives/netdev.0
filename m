@@ -1,66 +1,56 @@
-From: Mr Dash Four <mr.dash.four@googlemail.com>
-Subject: Re: [PATCH] iproute2: lib/utils.c bug fixes
-Date: Fri, 12 Apr 2013 19:36:38 +0100
-Message-ID: <51685436.7000407@googlemail.com>
-References: <516771D5.3040607@googlemail.com> <20130411200656.42dfb8bb@nehalam.linuxnetplumber.net> <516810DD.80008@googlemail.com> <20130412.133644.1907806435103750855.davem@davemloft.net> <51684B50.9020509@googlemail.com> <20130412181850.GB30292@order.stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next 02/11] ixgbe: Mask off check of frag_off as we only
+ want fragment offset
+Date: Fri, 12 Apr 2013 11:44:37 -0700
+Message-ID: <1365792277.4459.67.camel@edumazet-glaptop>
+References: <1365765866-15741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	   <1365765866-15741-3-git-send-email-jeffrey.t.kirsher@intel.com>
+	   <1365773328.4459.19.camel@edumazet-glaptop>
+	  <1365774332.4459.24.camel@edumazet-glaptop> <51683884.2010509@intel.com>
+	 <1365785511.4459.46.camel@edumazet-glaptop> <516850E4.8020504@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Mr Dash Four <mr.dash.four@googlemail.com>,
-	David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	netdev@vger.kernel.org
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:56458 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752496Ab3DLSgv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 14:36:51 -0400
-Received: by mail-wi0-f175.google.com with SMTP id c10so1885342wiw.14
-        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 11:36:50 -0700 (PDT)
-In-Reply-To: <20130412181850.GB30292@order.stressinduktion.org>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:39640 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753164Ab3DLSoj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 14:44:39 -0400
+Received: by mail-pb0-f50.google.com with SMTP id jt11so1551876pbb.9
+        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 11:44:38 -0700 (PDT)
+In-Reply-To: <516850E4.8020504@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa wrote:
-> On Fri, Apr 12, 2013 at 06:58:40PM +0100, Mr Dash Four wrote:
->   
->> David Miller wrote:
->>     
->>> The self-rightousness with which people operating under pseudonyms or
->>> names that do not meet the requirements of the developers certificate
->>> of origin react when they are confronted directly about this issue I
->>> find truly appalling.
->>>  
->>>       
->> I assume this was aimed at me, in which case I'll ask again - on what 
->> basis you or Stephen have determined that I do not comply with these 
->> terms (this is a genuine question, not a wind up - just in case you or 
->> anybody else start making assumptions!)?
->>     
->
-> Please don't play a cat and mouse game with the folks around here. Is your
-> submission signed off with your *real* name?
-*Yes* - I thought that was pretty obvious.
+On Fri, 2013-04-12 at 11:22 -0700, Alexander Duyck wrote:
 
-Stephen determined that for whatever reason the name appearing in the 
-Signed-By tag "is a bit strange", so it must either be made up or a 
-pseudonym and I took issue with this.
+> I appreciate the desire to reuse, and what I meant was that since igb
+> and ixgbe both use essentially the same function I could move it to one
+> central location and both of them could use it as well as any other low
+> level drivers that need to just quickly parse the header out of a linear
+> block of data.  I just don't feel __skb_get_poff really does what I am
+> looking for since it assumes it is working with a skb, not just a linear
+> block of data.
 
->  This is a simple requirement for patch submissions.
-Which is fair enough, I suppose.
+Big deal.
 
-> Why do you let the people reviewing and perhaps committing
-> your patch guess? Just clarify it in one sentence.
-I am not sure I understand that question, but my patch submission is 
-simply to correct 3 bugs in the current iproute2 tree - there is no 
-other (ulterior) motive behind it. I am letting people reviewing (or 
-committing) that patch as they are the (current/rightful) maintainers of 
-this project (iproute2). This (the reason for issuing the patch and the 
-subsequent request to review it) was made, I think pretty clear, in the 
-patch submission heading.
+Filling skb->data/head/len/data_len/network_offset and you're done in 3
+cycles or so.
 
-> If it is not your real name it does violate the policy. It is that simple.
->   
-I was perfectly aware of that before making that submission - as I 
-already pointed out in one of my previous posts, this isn't my first 
-submission (in the kernel tree as well as in other open-source projects) 
-and I hope it won't be the last.
+We are constrained by the ~250 cycles the cpu has for free to fetch 2
+cache lines from the received frame.
+
+>   If it could get broken up somehow so that it, or at
+> least pieces of it could just be used on linear blocks of data then I
+> might be more interested in reusing it.
+
+But this is not going to happen. Our skb code is able to deal with
+multiple areas (skb->head and frags). We are not going to duplicate it
+for linear skbs 'only'
+
+Thats your call obviously to maintain your own code, but consider you
+fix this quite incredible bug only now. (All TCP data segments have the
+DF flag set, so you were not pulling tcp headers)
