@@ -1,52 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: usb: active URB submitted multiple times
-Date: Fri, 12 Apr 2013 15:18:24 -0400 (EDT)
-Message-ID: <20130412.151824.2029469075886743722.davem@davemloft.net>
-References: <20130410.232241.1038793023507666278.davem@davemloft.net>
-	<alpine.DEB.2.02.1304110956110.4237@fry>
-	<alpine.DEB.2.02.1304112156520.4309@fry>
+Subject: Re: [Patch net-next] vxlan: revert "vxlan: Bypass encapsulation if
+ the destination is local"
+Date: Fri, 12 Apr 2013 15:19:16 -0400 (EDT)
+Message-ID: <20130412.151916.63924835658790088.davem@davemloft.net>
+References: <516641CF.4020101@us.ibm.com>
+	<1937058599.2214531.1365659704193.JavaMail.root@redhat.com>
+	<1365724799.3563.5.camel@sridhar.usor.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sarah.a.sharp@linux.intel.com, dcbw@redhat.com
-To: petkan@nucleusys.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1304112156520.4309@fry>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: amwang@redhat.com, netdev@vger.kernel.org
+To: sri@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52741 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752571Ab3DLTTS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 15:19:18 -0400
+In-Reply-To: <1365724799.3563.5.camel@sridhar.usor.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Petko Manolov <petkan@nucleusys.com>
-Date: Thu, 11 Apr 2013 22:00:59 +0300 (EEST)
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Thu, 11 Apr 2013 16:59:59 -0700
 
-> From: Petko Manolov <petkan@nucleusys.com>
-> 
-> (For inclusion in 3.10, diff against latest net-next.)
-> 
-> Pegasus driver used single callback for sync and async control URBs. 
-> Special flags were employed to distinguish between both, but due to flawed 
-> logic (as Sarah Sharp spotted) it didn't always work.  As a result of this 
-> change [get|set]_registers() are now much simpler.  Async write is also 
-> leaner and does not use single, statically allocated memory for 
-> usb_ctrlrequest, which is another potential race when asynchronously 
-> submitting URBs.
-> 
-> The socket buffer pool for the receive path is now gone.  It's existence 
-> didn't make much difference (performance-wise) and the code is better off 
-> without the spinlocks protecting it.
-> 
-> Largely duplicated code in routines reading and writing MII registers is 
-> now packed in __mii_op().
-> 
-> Adding URL for the public pegasus git repository.
-> 
-> Signed-off-by: Petko Manolov <petkan@nucleusys.com>
+> @@ -1013,7 +1013,7 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+>  	}
+>  
+>  	/* Bypass encapsulation if the destination is local */
+> -	if (rt->rt_flags & RTCF_LOCAL) {
+> +	if (rt->dst.dev->flags & IFF_LOOPBACK) {
+>  		struct vxlan_dev *dst_vxlan;
 
-When submitting a new version of a patch, you must list what
-changed from the previous version after the "---" delimiter
-rather than having people try and guess.
-
-> +T:	git git://petkan@git.code.sf.net/p/pegasus2/git
-
-There is no way that specifying your GIT login in this URL
-meant for public use is correct, or is it?
+This looks terrible, and ad-hoc.  You need to find a cleaner
+way to express exactly what you're trying to do otherwise I'm
+reverting your change.
