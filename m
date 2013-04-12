@@ -1,39 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: GSO should be TSQ friendly
-Date: Fri, 12 Apr 2013 18:17:49 -0400 (EDT)
-Message-ID: <20130412.181749.137416591880112218.davem@davemloft.net>
-References: <1365802312.4459.82.camel@edumazet-glaptop>
+Subject: Re: [PATCH 1/2 v2] at86rf230: add irq type configuration option
+Date: Fri, 12 Apr 2013 18:20:53 -0400 (EDT)
+Message-ID: <20130412.182053.1145964817189847292.davem@davemloft.net>
+References: <cover.1365716125.git.sascha@ps.nvbi.de>
+	<cover.1365716125.git.sascha@ps.nvbi.de>
+	<031f12b1d0449ffb6fe43dfd6b136369581cae4c.1365716125.git.sascha@ps.nvbi.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, ycheng@google.com,
-	nanditad@google.com, ncardwell@google.com
-To: eric.dumazet@gmail.com
+Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com
+To: sascha@ps.nvbi.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54604 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54623 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753050Ab3DLWRw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 18:17:52 -0400
-In-Reply-To: <1365802312.4459.82.camel@edumazet-glaptop>
+	with ESMTP id S1752693Ab3DLWU6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 18:20:58 -0400
+In-Reply-To: <031f12b1d0449ffb6fe43dfd6b136369581cae4c.1365716125.git.sascha@ps.nvbi.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 12 Apr 2013 14:31:52 -0700
+From: Sascha Herrmann <sascha@ps.nvbi.de>
+Date: Fri, 12 Apr 2013 00:16:13 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> I noticed that TSQ (TCP Small queues) was less effective when TSO is
-> turned off, and GSO is on. If BQL is not enabled, TSQ has then no
-> effect.
-> 
-> It turns out the GSO engine frees the original gso_skb at the time the
-> fragments are generated and queued to the NIC.
-> 
-> We should instead call the tcp_wfree() destructor for the last fragment,
-> to keep the flow control as intended in TSQ. This effectively limits
-> the number of queued packets on qdisc + NIC layers.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>  static int at86rf230_hw_init(struct at86rf230_local *lp)
+>  {
+>  	u8 status;
+> -	int rc;
+> +	int rc, irq_pol;
+> +	struct at86rf230_platform_data *pdata = lp->spi->dev.platform_data;
 
-Looks good to me, applied, thanks!
+Please order local variable declarations from longest line to
+shortest line, not the other way around.
+
+Thanks.
