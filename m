@@ -1,37 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next 02/11] ixgbe: Mask off check of frag_off as we only
- want fragment offset
-Date: Fri, 12 Apr 2013 14:40:14 -0700
-Message-ID: <1365802814.4459.85.camel@edumazet-glaptop>
-References: <1365765866-15741-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	      <1365765866-15741-3-git-send-email-jeffrey.t.kirsher@intel.com>
-	      <1365773328.4459.19.camel@edumazet-glaptop>
-	     <1365774332.4459.24.camel@edumazet-glaptop>
-	 <51683884.2010509@intel.com>    <1365785511.4459.46.camel@edumazet-glaptop>
-	 <516850E4.8020504@intel.com>   <1365792277.4459.67.camel@edumazet-glaptop>
-	 <51686AAF.4090105@intel.com>  <1365798584.4459.70.camel@edumazet-glaptop>
-	 <51687725.5060008@intel.com> <1365801125.4459.73.camel@edumazet-glaptop>
-	 <51687DE2.8000705@intel.com>
+From: Stephen Warren <swarren@wwwdotorg.org>
+Subject: Re: [PATCH 1/2] genirq: add function to get IRQ edge/level flags
+Date: Fri, 12 Apr 2013 15:56:32 -0600
+Message-ID: <51688310.9040008@wwwdotorg.org>
+References: <1365789943-3812-1-git-send-email-javier.martinez@collabora.co.uk> <1365789943-3812-2-git-send-email-javier.martinez@collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f54.google.com ([209.85.210.54]:61421 "EHLO
-	mail-da0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751406Ab3DLVkQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 17:40:16 -0400
-Received: by mail-da0-f54.google.com with SMTP id p1so1298679dad.27
-        for <netdev@vger.kernel.org>; Fri, 12 Apr 2013 14:40:16 -0700 (PDT)
-In-Reply-To: <51687DE2.8000705@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Steve Glendinning <steve.glendinning@shawell.net>,
+	David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@kernel.org>,
+	Rob Herring <robherring2@gmail.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Jon Hunter <jon-hunter@ti.com>,
+	devicetree-discuss@lists.ozlabs.org,
+	linux-omap <linux-omap@vger.kernel.org>, netdev@vger.kernel.org
+To: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1365789943-3812-2-git-send-email-javier.martinez@collabora.co.uk>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-04-12 at 14:34 -0700, Alexander Duyck wrote:
+On 04/12/2013 12:05 PM, Javier Martinez Canillas wrote:
+...
+> So, is better to add an irq_get_trigger_type() function to obtain
+> the edge/level flags for an IRQ.
 
-> As for the patch that started this though we are good right?  No problem
-> with the patch itself, our discussion was over possible future work correct?
+> diff --git a/include/linux/irq.h b/include/linux/irq.h
 
-No problem.
+> +static inline u32 irq_get_trigger_type(unsigned int irq)
+> +{
+> +	struct irq_data *d = irq_get_irq_data(irq);
+> +	return d ? d->state_use_accessors & IRQD_TRIGGER_MASK : 0;
+
+Should the direct access to d->state_use_accessors be replaced with a
+call to irqd_get_trigger_type()? Perhaps since this is inside the IRQ
+code header, there's no need to use the accessor function?
