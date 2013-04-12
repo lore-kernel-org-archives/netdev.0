@@ -1,65 +1,62 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 1/2] can: mcp251x: add missing IRQF_ONESHOT to request_threaded_irq
-Date: Fri, 12 Apr 2013 13:11:56 +0200
-Message-ID: <1365765117-28316-2-git-send-email-mkl@pengutronix.de>
-References: <1365765117-28316-1-git-send-email-mkl@pengutronix.de>
-Cc: linux-can@vger.kernel.org, davem@davemloft.net,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-stable <stable@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:46726 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754411Ab3DLLMT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 07:12:19 -0400
-In-Reply-To: <1365765117-28316-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: [PATCH v4] can: sja1000: fix endian on arm
+Date: Fri, 12 Apr 2013 13:18:59 +0200
+Message-ID: <5167EDA3.9050401@pengutronix.de>
+References: <1365428932.5760.52.camel@lovely>  <5162CCB5.3000605@pengutronix.de> <1365705884.4136.5.camel@mars>  <51670532.5060101@pengutronix.de>  <1365706413.4136.15.camel@mars>  <1365707697.4136.26.camel@mars>  <51670D3E.1020808@pengutronix.de> <1365708777.4136.29.camel@mars>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="----enig2GKHAVENPWTQPDHKKDCBN"
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Andreas Larsson <andreas@gaisler.com>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Bill Pemberton <wfp5p@virginia.edu>, linux-can@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Daniel Mack <daniel@zonque.org>,
+	"Hans J. Koch" <hjk@hansjkoch.de>
+To: Christoph Fritz <chf.fritz@googlemail.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1365708777.4136.29.camel@mars>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since commit:
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+------enig2GKHAVENPWTQPDHKKDCBN
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: quoted-printable
 
-    1c6c695 genirq: Reject bogus threaded irq requests
+On 04/11/2013 09:32 PM, Christoph Fritz wrote:
+> To get correct endian on arm cpus while reading device tree properties,=
 
-threaded irqs must provide a primary handler or set the IRQF_ONESHOT flag.
-Since the mcp251x driver doesn't make use of a primary handler set the
-IRQF_ONESHOT flag.
+> this patch replaces of_get_property() with of_property_read_u32().
+>=20
+> Signed-off-by: Christoph Fritz <chf.fritz@googlemail.com>
 
-Cc: linux-stable <stable@vger.kernel.org> # >= v3.5
-Reported-by: Mylene Josserand <Mylene.Josserand@navocap.com>
-Tested-by: Mylene Josserand <Mylene.Josserand@navocap.com>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/mcp251x.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+I've fixed the potential div-by-zero problem and tweaked the commit
+message a bit. The patch is included in my latest pull request to david.
 
-diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
-index f32b9fc..9aa0c64 100644
---- a/drivers/net/can/mcp251x.c
-+++ b/drivers/net/can/mcp251x.c
-@@ -929,6 +929,7 @@ static int mcp251x_open(struct net_device *net)
- 	struct mcp251x_priv *priv = netdev_priv(net);
- 	struct spi_device *spi = priv->spi;
- 	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
-+	unsigned long flags;
- 	int ret;
- 
- 	ret = open_candev(net);
-@@ -945,9 +946,14 @@ static int mcp251x_open(struct net_device *net)
- 	priv->tx_skb = NULL;
- 	priv->tx_len = 0;
- 
-+	flags = IRQF_ONESHOT;
-+	if (pdata->irq_flags)
-+		flags |= pdata->irq_flags;
-+	else
-+		flags |= IRQF_TRIGGER_FALLING;
-+
- 	ret = request_threaded_irq(spi->irq, NULL, mcp251x_can_ist,
--		  pdata->irq_flags ? pdata->irq_flags : IRQF_TRIGGER_FALLING,
--		  DEVICE_NAME, priv);
-+				   flags, DEVICE_NAME, priv);
- 	if (ret) {
- 		dev_err(&spi->dev, "failed to acquire irq %d\n", spi->irq);
- 		if (pdata->transceiver_enable)
--- 
-1.8.2.rc2
+Thanks,
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+------enig2GKHAVENPWTQPDHKKDCBN
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlFn7aMACgkQjTAFq1RaXHNQUQCfck/P/jUAJfbkBHcDbdhBPjju
+GJYAn11wz3SEolYyiCoQS6YItxrzvUzE
+=Hy0d
+-----END PGP SIGNATURE-----
+
+------enig2GKHAVENPWTQPDHKKDCBN--
