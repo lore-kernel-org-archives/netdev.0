@@ -1,84 +1,37 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH RFC] spinlock: split out debugging check from
- spin_lock_mutex
-Date: Fri, 12 Apr 2013 14:45:42 -0400
-Message-ID: <20130412184542.GB19966@hmsreliant.think-freely.org>
-References: <5166BDAA.3000603@acm.org>
- <1365693486-6315-1-git-send-email-nhorman@tuxdriver.com>
- <5166F35B.1040200@acm.org>
- <20130411191409.GA9790@hmsreliant.think-freely.org>
- <5167A953.1020900@acm.org>
- <20130412113232.GA19966@hmsreliant.think-freely.org>
- <516813A0.1040300@acm.org>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [PATCH] lsm: export the security_skb_owned_by() function
+Date: Fri, 12 Apr 2013 14:51:51 -0400
+Message-ID: <11802724.2ypFIKMpj2@sifl>
+References: <20130412154300.26512.67761.stgit@localhost> <20130412.133943.1398967886487919460.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Ingo Molnar <mingo@redhat.com>
-To: Bart Van Assche <bvanassche@acm.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48035 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753482Ab3DLSpt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Apr 2013 14:45:49 -0400
-Content-Disposition: inline
-In-Reply-To: <516813A0.1040300@acm.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51617 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752491Ab3DLSvy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Apr 2013 14:51:54 -0400
+In-Reply-To: <20130412.133943.1398967886487919460.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 12, 2013 at 04:01:04PM +0200, Bart Van Assche wrote:
-> On 04/12/13 13:32, Neil Horman wrote:
-> > On Fri, Apr 12, 2013 at 08:27:31AM +0200, Bart Van Assche wrote:
-> >> On 04/11/13 21:14, Neil Horman wrote:
-> >>>      This resulted from my commit ca99ca14c which introduced a mutex_trylock
-> >>>      operation in a path that could execute in interrupt context.  When mutex
-> >>>      debugging is enabled, the above warns the user when we are in fact exectuting in
-> >>>      interrupt context.
-> >>>
-> >>>      I think this is a false positive however.  The check is intended to catch users
-> >>>      who might be issuing sleeping calls in irq context, but the use of mutex_trylock
-> >>>      here is guaranteed not to sleep.
-> >>>
-> >>>      We could fix this by replacing the DEBUG_LOCK_WARN_ON check in spin_lock_mutex
-> >>>      with a __might_sleep call in the appropriate parent mutex operations, but for
-> >>>      the sake of effiency (which It seems is why the check was put in the spin lock
-> >>>      code only when debug is enabled), lets split the spin_lock_mutex call into two
-> >>>      components, where the outer component does the debug checking.  Then
-> >>>      mutex_trylock can just call the inner part as its callable from irq context
-> >>>      safely.
-> >>
-> >> Sorry but I'm not yet convinced that it's safe to invoke
-> >> mutex_trylock() from IRQ context. Please have a look at the
-> >> implementation of mutex_set_owner(), which is invoked by
-> >> mutex_trylock(). mutex_set_owner() stores the value of the "current"
-> >> pointer into lock->owner. The value of "current" does not have a
-> >> meaning in IRQ context.
+On Friday, April 12, 2013 01:39:43 PM David Miller wrote:
+> From: Paul Moore <pmoore@redhat.com>
+> Date: Fri, 12 Apr 2013 11:43:00 -0400
+> 
+> > Another bit we missed when adding the skb_owned_by() hook.
 > > 
-> > Thats irrelevant, at least as far as deadlock safety is concerned.  current will
-> > be set to the process that was running when we were interrupted, but it won't
-> > change during the course of the irq handler, which is all that matters.  The
-> > lock->owner field is used for optimistic spinning.  The worst that will happen
-> > is, if CONFIG_MUTEX_SPIN_ON_OWNER is configured, another process may wait on
-> > this mutex, spinning on the wrong task to release it (see mutex_spin_on_owner).
-> > Thats not efficient, but its not deadlock prone, and its not even that
-> > inefficient, when you consider that the critical path in the netpoll code is
-> > relatively short.  And using the trylock here is certainly preferable to the
-> > memory corruption that was possible previously.
+> > Signed-off-by: Paul Moore <pmoore@redhat.com>
 > 
-> I think there is another issue with invoking mutex_trylock() and mutex_unlock()
-> from IRQ context: as far as I can see if CONFIG_DEBUG_MUTEXES is disabled
-> __mutex_unlock_common_slowpath() uses spin_lock() to lock mutex.wait_lock and
-> hence invoking mutex_unlock() from both non-IRQ and IRQ context is not safe.
-> Any thoughts about that ?
+> CONFIG_SECURITY is a bool, as is ipv4, so neither the definition
+> nor the call sites can be modular.
 > 
-Yeah, its ugly, but in this specific case, its ok.  the netpoll code (in
-netpoll_send_skb disables irq on the local cpu before entering the netpoll code
-path any further, so whenver we frob this mutex from the local cpu, we're
-guaranteed not to get pre-empted by an irq.
+> Therefore no export is needed.
 
-> With v2 of your patch and CONFIG_DEBUG_MUTEXES enabled I get the warning below:
-> 
-another instance of the same issue - its because we spin_lock_mutex in
-mutex_unlock, rather than spin_lock_mutex_raw.  Can you fix it up by hand, or
-shall I update the patch?
+Yep, sorry about that.
 
-Neil
+-- 
+paul moore
+security and virtualization @ redhat
