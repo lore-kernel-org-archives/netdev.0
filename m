@@ -1,66 +1,52 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH v2] fec: Fix PHC device log
-Date: Sat, 13 Apr 2013 14:25:36 -0300
-Message-ID: <1365873936-9521-1-git-send-email-festevam@gmail.com>
-Cc: Frank.Li@freescale.com, netdev@vger.kernel.org, joe@perches.com,
-	Fabio Estevam <fabio.estevam@freescale.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next 0/9] qlcnic: Bug fixes and enhancements
+Date: Sat, 13 Apr 2013 13:28:25 -0400
+Message-ID: <1365874114-6759-1-git-send-email-shahed.shaikh@qlogic.com>
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gh0-f174.google.com ([209.85.160.174]:47697 "EHLO
-	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753720Ab3DMRZt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Apr 2013 13:25:49 -0400
-Received: by mail-gh0-f174.google.com with SMTP id g10so268791ghb.33
-        for <netdev@vger.kernel.org>; Sat, 13 Apr 2013 10:25:48 -0700 (PDT)
+Received: from mvnat01.qlogic.com ([198.186.3.73]:55165 "HELO linux-zupk.site"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1750940Ab3DMRwN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Apr 2013 13:52:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-Currently when booting a mx6 device we get the following on boot:
+Please apply to net-next.
 
-registered PHC device on eth%d
+Thanks,
+Shahed
 
-Fix it by printing the network device name only after it gets registered, so
-that the following can be read now:
+Himanshu Madhani (4):
+  qlcnic: Implement GET_LED_STATUS command for 82xx adapter.
+  qlcnic: Add identifying string for 83xx adapter
+  qlcnic: fix beaconing test for 82xx adapter
+  qlcnic: Enable Interrupt Coalescing for 83xx adapter
 
-fec 2188000.ethernet eth0: registered PHC device 0
+Manish Chopra (1):
+  qlcnic: Enhanced channel configuration logs
 
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
-Changes since v1:
-- Use netdev_info
-- Only print the interface name after it gets registered.
+Shahed Shaikh (2):
+  qlcnic: Fix typo in logs
+  qlcnic: Bump up the version to 5.2.41
 
- drivers/net/ethernet/freescale/fec_main.c |    3 +++
- drivers/net/ethernet/freescale/fec_ptp.c  |    2 --
- 2 files changed, 3 insertions(+), 2 deletions(-)
+Sony Chacko (1):
+  qlcnic: Fix recurring firmware dump collection
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 806a56d..e8858a6 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1858,6 +1858,9 @@ fec_probe(struct platform_device *pdev)
- 	if (ret)
- 		goto failed_register;
- 
-+	if (fep->bufdesc_ex && fep->ptp_clock)
-+		netdev_info(ndev, "registered PHC device %d\n", fep->dev_id);
-+
- 	return 0;
- 
- failed_register:
-diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
-index 1f17ca0..e040c8b 100644
---- a/drivers/net/ethernet/freescale/fec_ptp.c
-+++ b/drivers/net/ethernet/freescale/fec_ptp.c
-@@ -379,7 +379,5 @@ void fec_ptp_init(struct net_device *ndev, struct platform_device *pdev)
- 	if (IS_ERR(fep->ptp_clock)) {
- 		fep->ptp_clock = NULL;
- 		pr_err("ptp_clock_register failed\n");
--	} else {
--		pr_info("registered PHC device on %s\n", ndev->name);
- 	}
- }
--- 
-1.7.9.5
+Sritej Velaga (1):
+  qlcnic: fix TSO race condition
+
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |   25 ++++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   24 +++--
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |    3 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c    |    1 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |   72 ++++++++++++---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |   23 +++++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |    1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |    8 ++-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   92 +++++++++++++++++---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c  |   13 +++-
+ 10 files changed, 217 insertions(+), 45 deletions(-)
