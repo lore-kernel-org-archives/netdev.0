@@ -1,30 +1,34 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: tcp_tso_segment() small optimization
-Date: Sat, 13 Apr 2013 06:14:19 -0700
-Message-ID: <1365858859.4459.94.camel@edumazet-glaptop>
+Subject: [PATCH v2 net-next] tcp: tcp_tso_segment() small optimization
+Date: Sat, 13 Apr 2013 06:22:08 -0700
+Message-ID: <1365859328.4459.97.camel@edumazet-glaptop>
+References: <1365858859.4459.94.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f48.google.com ([209.85.210.48]:38501 "EHLO
-	mail-da0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753139Ab3DMNOW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Apr 2013 09:14:22 -0400
-Received: by mail-da0-f48.google.com with SMTP id p8so1480914dan.35
-        for <netdev@vger.kernel.org>; Sat, 13 Apr 2013 06:14:22 -0700 (PDT)
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:40525 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753206Ab3DMNWL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Apr 2013 09:22:11 -0400
+Received: by mail-pd0-f172.google.com with SMTP id 5so1842290pdd.3
+        for <netdev@vger.kernel.org>; Sat, 13 Apr 2013 06:22:11 -0700 (PDT)
+In-Reply-To: <1365858859.4459.94.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-We can more th->check computation out of the loop, as compiler
+We can move th->check computation out of the loop, as compiler
 doesn't know each skb initially share same tcp headers after
 skb_segment()
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
+v2: Typo in change log : more -> move
+
  net/ipv4/tcp.c |    7 +++++--
  1 file changed, 5 insertions(+), 2 deletions(-)
 
