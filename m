@@ -1,71 +1,49 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net-next 3/9] qlcnic: Add identifying string for 83xx adapter
-Date: Sat, 13 Apr 2013 13:28:28 -0400
-Message-ID: <1365874114-6759-4-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next 4/9] qlcnic: fix beaconing test for 82xx adapter
+Date: Sat, 13 Apr 2013 13:28:29 -0400
+Message-ID: <1365874114-6759-5-git-send-email-shahed.shaikh@qlogic.com>
 References: <1365874114-6759-1-git-send-email-shahed.shaikh@qlogic.com>
 Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
 	Himanshu Madhani <himanshu.madhani@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:42936 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:47472 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752764Ab3DMRwb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Apr 2013 13:52:31 -0400
+	id S1751438Ab3DMRwh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Apr 2013 13:52:37 -0400
 In-Reply-To: <1365874114-6759-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-Added description for Hilda 8300 Series of Adapters.
+o Commit 319ecf121e1da3d75dd1bde32fed255532e61797
+  ("qlcnic: 83xx sysfs routines") introduced regression
+  for beaconing test while refactoring 82xx code. This patch is to
+  revert code to fix beaconing test for 82xx adapter.
 
 Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   31 ++++++++++++++++++++++
- 1 files changed, 31 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 0d00b2b..424a5e0 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -156,6 +156,37 @@ static const u32 qlcnic_reg_tbl[] = {
- };
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+index a17671d..6f74dc8 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+@@ -207,10 +207,10 @@ beacon_err:
+ 	}
  
- static const struct qlcnic_board_info qlcnic_boards[] = {
-+	{0x1077, 0x8030, 0x1077, 0x24e,
-+	 "8300 Series Dual Port 10GbE Converged Network Adapter "
-+	 "(TCP/IP Networking)"},
-+	{0x1077, 0x8030, 0x1077, 0x243,
-+	 "8300 Series Single Port 10GbE Converged Network Adapter "
-+	 "(TCP/IP Networking)"},
-+	{0x1077, 0x8030, 0x1077, 0x24a,
-+	 "8300 Series Dual Port 10GbE Converged Network Adapter "
-+	 "(TCP/IP Networking)"},
-+	{0x1077, 0x8030, 0x1077, 0x246,
-+	 "8300 Series Dual Port 10GbE Converged Network Adapter "
-+	 "(TCP/IP Networking)"},
-+	{0x1077, 0x8030, 0x1077, 0x252,
-+	 "8300 Series Dual Port 10GbE Converged Network Adapter "
-+	 "(TCP/IP Networking)"},
-+	{0x1077, 0x8030, 0x1077, 0x26e,
-+	 "8300 Series Dual Port 10GbE Converged Network Adapter "
-+	 "(TCP/IP Networking)"},
-+	{0x1077, 0x8030, 0x1077, 0x260,
-+	 "8300 Series Dual Port 10GbE Converged Network Adapter "
-+	 "(TCP/IP Networking)"},
-+	{0x1077, 0x8030, 0x1077, 0x266,
-+	 "8300 Series Single Port 10GbE Converged Network Adapter "
-+	 "(TCP/IP Networking)"},
-+	{0x1077, 0x8030, 0x1077, 0x269,
-+	 "8300 Series Dual Port 10GbE Converged Network Adapter "
-+	 "(TCP/IP Networking)"},
-+	{0x1077, 0x8030, 0x1077, 0x271,
-+	 "8300 Series Dual Port 10GbE Converged Network Adapter "
-+	 "(TCP/IP Networking)"},
-+	{0x1077, 0x8030, 0x0, 0x0, "8300 Series 1/10GbE Controller"},
- 	{0x1077, 0x8020, 0x1077, 0x203,
- 	 "8200 Series Single Port 10GbE Converged Network Adapter"
- 	 "(TCP/IP Networking)"},
+ 	err = qlcnic_config_led(adapter, b_state, b_rate);
+-	if (!err)
++	if (!err) {
+ 		err = len;
+-	else
+ 		ahw->beacon_state = b_state;
++	}
+ 
+ 	if (test_and_clear_bit(__QLCNIC_DIAG_RES_ALLOC, &adapter->state))
+ 		qlcnic_diag_free_res(adapter->netdev, max_sds_rings);
 -- 
 1.5.6
