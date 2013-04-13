@@ -1,74 +1,66 @@
-From: Christoph Fritz <chf.fritz@googlemail.com>
-Subject: [PATCH] net: smsc911x: adopt pinctrl support
-Date: Sat, 13 Apr 2013 19:22:25 +0200
-Message-ID: <1365873745.3812.37.camel@mars>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Javier Martinez Canillas <martinez.javier@gmail.com>,
-	Sebastien Guiriec <s-guiriec@ti.com>,
-	Daniel Mack <daniel@zonque.org>,
-	"Hans J. Koch" <hjk@hansjkoch.de>, linux-omap@vger.kernel.org
-To: Steve Glendinning <steve.glendinning@shawell.net>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH v2] fec: Fix PHC device log
+Date: Sat, 13 Apr 2013 14:25:36 -0300
+Message-ID: <1365873936-9521-1-git-send-email-festevam@gmail.com>
+Cc: Frank.Li@freescale.com, netdev@vger.kernel.org, joe@perches.com,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gh0-f174.google.com ([209.85.160.174]:47697 "EHLO
+	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753720Ab3DMRZt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Apr 2013 13:25:49 -0400
+Received: by mail-gh0-f174.google.com with SMTP id g10so268791ghb.33
+        for <netdev@vger.kernel.org>; Sat, 13 Apr 2013 10:25:48 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch is derived from 2d4b4520a "i2c: omap: adopt pinctrl support":
-Some GPIO expanders need some early pin control muxing. Due to
-legacy boards sometimes the driver uses subsys_initcall instead of
-module_init. This patch takes advantage of defer probe feature
-and pin control in order to wait until pin control probing before
-GPIO driver probing.
+From: Fabio Estevam <fabio.estevam@freescale.com>
 
-Signed-off-by: Christoph Fritz <chf.fritz@googlemail.com>
+Currently when booting a mx6 device we get the following on boot:
+
+registered PHC device on eth%d
+
+Fix it by printing the network device name only after it gets registered, so
+that the following can be read now:
+
+fec 2188000.ethernet eth0: registered PHC device 0
+
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 ---
- drivers/net/ethernet/smsc/smsc911x.c |   15 +++++++++++++++
- 1 file changed, 15 insertions(+)
+Changes since v1:
+- Use netdev_info
+- Only print the interface name after it gets registered.
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index da5cc9a..3e3547c 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -59,6 +59,7 @@
- #include <linux/of_device.h>
- #include <linux/of_gpio.h>
- #include <linux/of_net.h>
-+#include <linux/pinctrl/consumer.h>
- #include "smsc911x.h"
+ drivers/net/ethernet/freescale/fec_main.c |    3 +++
+ drivers/net/ethernet/freescale/fec_ptp.c  |    2 --
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 806a56d..e8858a6 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1858,6 +1858,9 @@ fec_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto failed_register;
  
- #define SMSC_CHIPNAME		"smsc911x"
-@@ -144,6 +145,8 @@ struct smsc911x_data {
- 
- 	/* regulators */
- 	struct regulator_bulk_data supplies[SMSC911X_NUM_SUPPLIES];
++	if (fep->bufdesc_ex && fep->ptp_clock)
++		netdev_info(ndev, "registered PHC device %d\n", fep->dev_id);
 +
-+	struct pinctrl *pins;
- };
+ 	return 0;
  
- /* Easy access to information */
-@@ -2433,6 +2436,18 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
- 	if (retval < 0)
- 		goto out_disable_resources;
- 
-+	pdata->pins = devm_pinctrl_get_select_default(&pdev->dev);
-+	if (IS_ERR(pdata->pins)) {
-+		if (PTR_ERR(pdata->pins) == -EPROBE_DEFER) {
-+			retval = -EPROBE_DEFER;
-+			goto out_disable_resources;
-+		}
-+
-+		dev_warn(&pdev->dev, "No pins for smsc911x error: %li\n",
-+			 PTR_ERR(pdata->pins));
-+		pdata->pins = NULL;
-+	}
-+
- 	/* configure irq polarity and type before connecting isr */
- 	if (pdata->config.irq_polarity == SMSC911X_IRQ_POLARITY_ACTIVE_HIGH)
- 		intcfg |= INT_CFG_IRQ_POL_;
+ failed_register:
+diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+index 1f17ca0..e040c8b 100644
+--- a/drivers/net/ethernet/freescale/fec_ptp.c
++++ b/drivers/net/ethernet/freescale/fec_ptp.c
+@@ -379,7 +379,5 @@ void fec_ptp_init(struct net_device *ndev, struct platform_device *pdev)
+ 	if (IS_ERR(fep->ptp_clock)) {
+ 		fep->ptp_clock = NULL;
+ 		pr_err("ptp_clock_register failed\n");
+-	} else {
+-		pr_info("registered PHC device on %s\n", ndev->name);
+ 	}
+ }
 -- 
-1.7.10.4
-
-
-
+1.7.9.5
