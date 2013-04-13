@@ -1,115 +1,79 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH] net-packet: tx timestamping on tpacket ring
-Date: Sat, 13 Apr 2013 14:56:52 -0400
-Message-ID: <1365879412-9541-1-git-send-email-willemb@google.com>
-References: <CA+FuTSezggEb7znDYMf8vWU7JmWLP59AVPkaTvNaAwJoNcqk9A@mail.gmail.com>
-Cc: Willem de Bruijn <willemb@google.com>
-To: paul.chavent@onera.fr, richardcochran@gmail.com,
-	edumazet@google.com, daniel.borkmann@tik.ee.ethz.ch,
-	xemul@parallels.com, ebiederm@xmission.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f74.google.com ([209.85.128.74]:60439 "EHLO
-	mail-qe0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753367Ab3DMS4z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Apr 2013 14:56:55 -0400
-Received: by mail-qe0-f74.google.com with SMTP id b10so346354qen.5
-        for <netdev@vger.kernel.org>; Sat, 13 Apr 2013 11:56:54 -0700 (PDT)
-In-Reply-To: <CA+FuTSezggEb7znDYMf8vWU7JmWLP59AVPkaTvNaAwJoNcqk9A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>
+Subject: Re: [PATCH 0/5 v2] mv643xx_eth: device tree bindings
+Date: Sat, 13 Apr 2013 15:00:37 -0400
+Message-ID: <20130413190037.GY28693@titan.lakedaemon.net>
+References: <1365071235-11611-1-git-send-email-florian@openwrt.org>
+ <20130411165303.GI28693@titan.lakedaemon.net>
+ <20130413172126.6cca0809@skate>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: moinejf-GANU6spQydw@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jogo-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ jm-Pj/HzkgeCk7QXOPxS62xeg@public.gmane.org, Florian Fainelli <florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+ buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20130413172126.6cca0809@skate>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-When transmit timestamping is enabled at the socket level, have
-writes to a PACKET_TX_RING record a timestamp for the generated
-skbuffs. Tx timestamps are always looped to the application over
-the socket error queue.
+On Sat, Apr 13, 2013 at 05:21:26PM +0200, Thomas Petazzoni wrote:
+> Dear Jason Cooper,
+> 
+> On Thu, 11 Apr 2013 12:53:03 -0400, Jason Cooper wrote:
+> 
+> > With this and Thomas' pci series, we will have Kirkwood fully
+> > converted to devicetree, can begin removing board files, and finally
+> > begin migrating everything over to mach-mvebu/.  This will lead to
+> > the removal of five directories under arch/arm/ (plat-orion,
+> > mach-kirkwood, mach-orion5x, mach-dove, and mach-mv78xx0).
+> 
+> No, we can't remove mach-orion5x and mach-mv78xx0 for now, they have
+> not been converted at all in terms of gpio/pinmux support. I've started
+> writing some pinmux code for orion5x but it's not ready.
+> 
+> I don't think we should rush in doing this merge into mach-mvebu. I'd
+> prefer to have the following conditions be met before a platform gets
+> merged into mach-mvebu:
+> 
+>  * The mach-<foo> directory no longer depends on anything in
+>    plat-orion. For mach-kirkwood, things are OK (for the DT platforms)
+>    for GPIO, MPP and PCIe, but some work remains for the IRQ controller
+>    driver and the timer driver.
+> 
+>  * All boards have been converted to the Device Tree. For
+>    mach-kirkwood, we're getting closer.
+> 
+> Once a given mach-<foo> platform meets these conditions, it will be a
+> clean platform, and we can merge it into mach-mvebu without any
+> problem.
+> 
+> So let's continue the cleanup work, conversion to DT, usage of drivers
+> in drivers/, improvement of pinmux to support orion5x/mv78xx0, and do
+> the move per-platform, once they are ready.
+> 
+> What do you think?
 
-The patch also loops software timestamps back into the ring.
+I agree completely.  I was simply restating the longview goal of the
+work we are doing (above and beyond adding armadaXP/370).  I probably
+should have given a time reference for "This will lead to..." :)
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/core/skbuff.c      |  2 +-
- net/packet/af_packet.c | 42 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 43 insertions(+), 1 deletion(-)
+Also, I have a feeling that not all legacy boards will get converted
+over.  If there is no interest or no way to test, certains boards may
+get deprecated.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index ba64614..44b9c2a 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3311,7 +3311,7 @@ void skb_tstamp_tx(struct sk_buff *orig_skb,
- 		 * so keep the shared tx_flags and only
- 		 * store software time stamp
- 		 */
--		skb->tstamp = ktime_get_real();
-+		orig_skb->tstamp = skb->tstamp = ktime_get_real();
- 	}
- 
- 	serr = SKB_EXT_ERR(skb);
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 8e4644f..dc5d224 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -341,6 +341,45 @@ static int __packet_get_status(struct packet_sock *po, void *frame)
- 	}
- }
- 
-+static void __packet_set_timestamp(struct packet_sock *po, void *frame,
-+				   ktime_t tstamp)
-+{
-+	struct tpacket_hdr *h1;
-+	struct tpacket2_hdr *h2;
-+	struct timespec ts;
-+
-+	if (!tstamp.tv64 || !sock_flag(&po->sk, SOCK_TIMESTAMPING_SOFTWARE))
-+		return;
-+
-+	ts = ktime_to_timespec(tstamp);
-+
-+	switch (po->tp_version) {
-+	case TPACKET_V1:
-+		h1 = frame;
-+		h1->tp_sec = ts.tv_sec;
-+		h1->tp_usec = ts.tv_nsec / NSEC_PER_USEC;
-+
-+		flush_dcache_page(pgv_to_page(&h1->tp_sec));
-+		flush_dcache_page(pgv_to_page(&h1->tp_usec));
-+		break;
-+	case TPACKET_V2:
-+		h2 = frame;
-+		h2->tp_sec = ts.tv_sec;
-+		h2->tp_nsec = ts.tv_nsec;
-+
-+		flush_dcache_page(pgv_to_page(&h2->tp_sec));
-+		flush_dcache_page(pgv_to_page(&h2->tp_nsec));
-+		break;
-+	case TPACKET_V3:
-+	default:
-+		WARN(1, "TPACKET version not supported.\n");
-+		BUG();
-+	}
-+
-+
-+	smp_wmb();
-+}
-+
- static void *packet_lookup_frame(struct packet_sock *po,
- 		struct packet_ring_buffer *rb,
- 		unsigned int position,
-@@ -1900,6 +1939,7 @@ static void tpacket_destruct_skb(struct sk_buff *skb)
- 		ph = skb_shinfo(skb)->destructor_arg;
- 		BUG_ON(atomic_read(&po->tx_ring.pending) == 0);
- 		atomic_dec(&po->tx_ring.pending);
-+		__packet_set_timestamp(po, ph, skb->tstamp);
- 		__packet_set_status(po, ph, TP_STATUS_AVAILABLE);
- 	}
- 
-@@ -2119,6 +2159,8 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 			}
- 		}
- 
-+		sock_tx_timestamp(&po->sk, &skb_shinfo(skb)->tx_flags);
-+
- 		skb->destructor = tpacket_destruct_skb;
- 		__packet_set_status(po, ph, TP_STATUS_SENDING);
- 		atomic_inc(&po->tx_ring.pending);
--- 
-1.8.1.3
+thx,
+
+Jason.
