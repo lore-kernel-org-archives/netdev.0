@@ -1,108 +1,46 @@
-From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-Subject: [PATCH v2 1/2] genirq: add function to get IRQ edge/level flags
-Date: Sat, 13 Apr 2013 03:21:34 +0200
-Message-ID: <1365816094-31568-1-git-send-email-javier.martinez@collabora.co.uk>
-Cc: David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@kernel.org>,
-	Rob Herring <robherring2@gmail.com>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Jon Hunter <jon-hunter@ti.com>,
-	devicetree-discuss@lists.ozlabs.org,
-	linux-omap <linux-omap@vger.kernel.org>, netdev@vger.kernel.org,
-	Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-To: Steve Glendinning <steve.glendinning@shawell.net>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Bart Van Assche <bvanassche@acm.org>
+Subject: Re: [PATCH RFC] spinlock: split out debugging check from spin_lock_mutex
+Date: Sat, 13 Apr 2013 09:35:07 +0200
+Message-ID: <51690AAB.1030102@acm.org>
+References: <5166BDAA.3000603@acm.org> <1365693486-6315-1-git-send-email-nhorman@tuxdriver.com> <5166F35B.1040200@acm.org> <20130411191409.GA9790@hmsreliant.think-freely.org> <5167A953.1020900@acm.org> <20130412113232.GA19966@hmsreliant.think-freely.org> <516813A0.1040300@acm.org> <20130412184542.GB19966@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ingo Molnar <mingo@redhat.com>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from jacques.telenet-ops.be ([195.130.132.50]:34949 "EHLO
+	jacques.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751478Ab3DMHfL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Apr 2013 03:35:11 -0400
+In-Reply-To: <20130412184542.GB19966@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-According to Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
-the "#interrupt-cells" property of an "interrupt-controller" is used
-to define the number of cells needed to specify a single interrupt.
+On 04/12/13 20:45, Neil Horman wrote:
+> On Fri, Apr 12, 2013 at 04:01:04PM +0200, Bart Van Assche wrote:
+>> On 04/12/13 13:32, Neil Horman wrote:
+>> I think there is another issue with invoking mutex_trylock() and mutex_unlock()
+>> from IRQ context: as far as I can see if CONFIG_DEBUG_MUTEXES is disabled
+>> __mutex_unlock_common_slowpath() uses spin_lock() to lock mutex.wait_lock and
+>> hence invoking mutex_unlock() from both non-IRQ and IRQ context is not safe.
+>> Any thoughts about that ?
+>>
+> Yeah, its ugly, but in this specific case, its ok.  the netpoll code (in
+> netpoll_send_skb disables irq on the local cpu before entering the netpoll code
+> path any further, so whenver we frob this mutex from the local cpu, we're
+> guaranteed not to get pre-empted by an irq.
 
-A commonly used variant is two cell on which #interrupt-cells = <2>
-and the first cell defines the index of the interrupt in the controller
-while the second cell is used to specify any of the following flags:
+As far as I know it is neither allowed nor safe to call 
+netpoll_rx_disable() with IRQs disabled. But that function can lock the 
+dev_lock mutex. What do you think will happen with 
+CONFIG_DEBUG_MUTEXES=n if an interrupt occurs during the 
+mutex_lock(&ni->dev_lock) call, that mutex_lock() call has already 
+locked the mutex-internal spin lock via spin_lock() and mutex_trylock() 
+is invoked from inside the interrupt ? Can that result in anything else 
+than deadlock and "CPU stuck" messages ?
 
-    - bits[3:0] trigger type and level flags
-        1 = low-to-high edge triggered
-        2 = high-to-low edge triggered
-        4 = active high level-sensitive
-        8 = active low level-sensitive
+Thanks,
 
-An example of an interrupt controller which use the two cell format is
-the OMAP GPIO controller that allows GPIO lines to be used as IRQ
-(Documentation/devicetree/bindings/gpio/gpio-omap.txt)
-
-But setting #interrupt-cells = <2> on the OMAP GPIO device node and
-specifying the GPIO-IRQ type and level flags on the second cell does not
-store this value on the populated IORESOURCE_IRQ struct resource.
-
-This is because when using an IRQ from an interrupt controller and
-setting both cells (e.g:)
-
-        interrupt-parent = <&gpio6>;
-        interrupts = <16 8>;
-
-A call to of_irq_to_resource() is made and this function calls
-irq_of_parse_and_map_type() to get the virtual IRQ mapped to the real
-index for this interrupt controller. This IRQ number is populated on
-the struct resource:
-
-int of_irq_to_resource(struct device_node *dev, int index, struct resource *r)
-{
-        int irq = irq_of_parse_and_map(dev, index);
-        ..
-        r->start = r->end = irq;
-}
-
-irq_of_parse_and_map() calls to irq_create_of_mapping() which calls to
-the correct xlate function handler according to "#interrupt-cells"
-(irq_domain_xlate_onecell or irq_domain_xlate_twocell) and to
-irq_set_irq_type() to set the IRQ type.
-
-But the type is never returned so it can't be saved on the IRQ struct
-resource flags member.
-
-This means that drivers that want to get the IRQ edge/level flags
-defined in the Device Tree from a struct resource will not be able
-to get it.
-
-Drivers can get the IRQ flags by using irq_get_irq_data(irq) and
-irqd_get_trigger_type(irq_data) but this will unnecessary expose
-irq_data to callers and also is more error prone.
-
-So, is better to add an irq_get_trigger_type() function to obtain
-the edge/level flags for an IRQ.
-
-Signed-off-by: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
----
-
-Changes since v1:
-  - use irqd_get_trigger_type() instead of a direct access to
-    d->state_use_accessors as suggested by Stephen Warren.
-
- include/linux/irq.h |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
-
-diff --git a/include/linux/irq.h b/include/linux/irq.h
-index bc4e066..0e8e3a6 100644
---- a/include/linux/irq.h
-+++ b/include/linux/irq.h
-@@ -579,6 +579,12 @@ static inline struct msi_desc *irq_data_get_msi(struct irq_data *d)
- 	return d->msi_desc;
- }
- 
-+static inline u32 irq_get_trigger_type(unsigned int irq)
-+{
-+	struct irq_data *d = irq_get_irq_data(irq);
-+	return d ? irqd_get_trigger_type(d) : 0;
-+}
-+
- int __irq_alloc_descs(int irq, unsigned int from, unsigned int cnt, int node,
- 		struct module *owner);
- 
--- 
-1.7.7.6
-
+Bart.
