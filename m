@@ -1,102 +1,102 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [RFC] net : add tx timestamp to packet mmap.
-Date: Sat, 13 Apr 2013 14:33:49 -0400
-Message-ID: <CA+FuTSezggEb7znDYMf8vWU7JmWLP59AVPkaTvNaAwJoNcqk9A@mail.gmail.com>
-References: <1355326165-12277-1-git-send-email-paul.chavent@onera.fr>
- <20121213132916.GB10703@netboy.at.omicron.at> <50C9FEC4.5050804@onera.fr>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 7/9] qlcnic: fix TSO race condition
+Date: Sat, 13 Apr 2013 11:35:16 -0700
+Message-ID: <1365878116.4459.105.camel@edumazet-glaptop>
+References: <1365874114-6759-1-git-send-email-shahed.shaikh@qlogic.com>
+	 <1365874114-6759-8-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	daniel.borkmann@tik.ee.ethz.ch, xemul@parallels.com,
-	ebiederm@xmission.com, netdev@vger.kernel.org
-To: Paul Chavent <Paul.Chavent@onera.fr>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Dept_NX_Linux_NIC_Driver@qlogic.com,
+	Sritej Velaga <sritej.velaga@qlogic.com>
+To: Shahed Shaikh <shahed.shaikh@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:64052 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752592Ab3DMSeV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Apr 2013 14:34:21 -0400
-Received: by mail-ie0-f180.google.com with SMTP id a11so4439173iee.39
-        for <netdev@vger.kernel.org>; Sat, 13 Apr 2013 11:34:21 -0700 (PDT)
-In-Reply-To: <50C9FEC4.5050804@onera.fr>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:39548 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751772Ab3DMSfT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Apr 2013 14:35:19 -0400
+Received: by mail-pb0-f41.google.com with SMTP id mc17so1926491pbc.28
+        for <netdev@vger.kernel.org>; Sat, 13 Apr 2013 11:35:18 -0700 (PDT)
+In-Reply-To: <1365874114-6759-8-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 13, 2012 at 11:13 AM, Paul Chavent <Paul.Chavent@onera.fr> wrote:
-> Hello.
->
->
-> On 12/13/2012 02:29 PM, Richard Cochran wrote:
->>
->> On Wed, Dec 12, 2012 at 04:29:25PM +0100, Paul Chavent wrote:
->>>
->>> This patch allow to generate tx timestamps of packets sent by the packet
->>> mmap interface.
->>>
->>> Actually, you can't get tx timestamps with the sample code below.
->>>
->>> I wonder if my current implementation is good. And if not, how should i
->>> get the timestamps ?
->>
->>
->> In order for time stamps to appear, somebody has to call
->> skb_tx_timestamp() ...
->
-> Yes. "Somebody" means "the hardware driver" after completing xmit. That's
-> true ?
->
->
->>
->>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
->>> index e639645..948748b 100644
->>> --- a/net/packet/af_packet.c
->>> +++ b/net/packet/af_packet.c
->>> @@ -1857,6 +1857,10 @@ static int tpacket_fill_skb(struct packet_sock
->>> *po, struct sk_buff *skb,
->>>         void *data;
->>>         int err;
->>>
->>> +       err = sock_tx_timestamp(&po->sk, &skb_shinfo(skb)->tx_flags);
->
->>
->> and this call is only setting some flags.
->
-> Yes, it only sets some flags. I thought that those flags was required by the
-> skb_tx_timestamp() in order to make the appropriate timestamping (hardware,
-> software, etc).
->
-> So in order to have tx timestamp that work, both calls are needed ?
+On Sat, 2013-04-13 at 13:28 -0400, Shahed Shaikh wrote:
+> From: Sritej Velaga <sritej.velaga@qlogic.com>
+> 
+> When driver receives a packet with gso size > 0 and when TSO is disabled,
+> it should be transmitted as a TSO packet to prevent Tx timeout and subsequent
+> firmware reset.
+> 
+> Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
+> Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+> ---
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    1 +
+>  .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |    2 ++
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |    8 ++++++--
+>  3 files changed, 9 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+> index 7551b18..53c414f 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+> @@ -485,6 +485,7 @@ struct qlcnic_adapter_stats {
+>  	u64  tx_dma_map_error;
+>  	u64  spurious_intr;
+>  	u64  mac_filter_limit_overrun;
+> +	u64  invalid_tso_pkt;
+>  };
+>  
+>  /*
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+> index 7b56a50..48434ee 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+> @@ -53,6 +53,8 @@ static const struct qlcnic_stats qlcnic_gstrings_stats[] = {
+>  				QLC_OFF(stats.mac_filter_limit_overrun)},
+>  	{"spurious intr", QLC_SIZEOF(stats.spurious_intr),
+>  	 QLC_OFF(stats.spurious_intr)},
+> +	{"invalid_tso_pkt", QLC_SIZEOF(stats.invalid_tso_pkt),
+> +			QLC_OFF(stats.invalid_tso_pkt)},
+>  
+>  };
+>  
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+> index a85ca63..cb19e30 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+> @@ -362,8 +362,12 @@ set_flags:
+>  		memcpy(&first_desc->eth_addr, skb->data, ETH_ALEN);
+>  	}
+>  	opcode = TX_ETHER_PKT;
+> -	if ((adapter->netdev->features & (NETIF_F_TSO | NETIF_F_TSO6)) &&
+> -	    skb_shinfo(skb)->gso_size > 0) {
+> +
+> +	if (skb_shinfo(skb)->gso_size > 0) {
+> +		if (!(adapter->netdev->features &
+> +		      (NETIF_F_TSO | NETIF_F_TSO6))) {
+> +			adapter->stats.invalid_tso_pkt++;
+> +		}
+>  		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
+>  		first_desc->mss = cpu_to_le16(skb_shinfo(skb)->gso_size);
+>  		first_desc->total_hdr_length = hdr_len;
 
-Yes.
+This looks like not needed at all.
 
-> Why sock_tx_timestamp is called in packet_fill_skb and packet_sendmsg_spkt
-> and not in tpacket_fill_skb ?
+Take a look at all other network drivers.
 
-Good point. From what I can tell, if you add it, the existing error
-queue mechanism should work fine. At a glance, your code looks fine,
-too, although I haven't tested it.
+Not a single one does the (netdev->features & (NETIF_F_TSO |
+NETIF_F_TSO6)) check in their tx fast path.
 
-> Why i can retrieve timestamps when i add this call ?
+This is done by the core networking stacks.
 
-I actually wondered it if would be possible to return the timestamps
-in the ring itself. It is, but requires two additional changes:
-writing the timestamp to orig_skb->tstamp in skb_tstamp_tx and then
-writing it into the ring in tpacket_destruct_skb. The first change is
-a bit odd, as the orig_skb is usually freed shortly after
-skb_tstamp_tx is called. Still, I verified that it works and the patch
-should also make your errorqueue-based code work, as it inserts the
-sock_tx_timestamp. Will send it for review following this.
+Just remove the check, and do not add an "invalid_tso_pkt", as there is
+nothing invalid here.
 
->>
->> HTH,
->> Richard
->>
-> Thank for your help.
->
-> Paul.
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If a driver advertised NETIF_F_TSO in its hw_features, then it _must_ be
+prepared to send TSO packets, even if the admin plays with "ethtool -k
+tso off".
+
+RTNL is not taken in TX path, so there is always the possibility a
+driver has to transmit a TSO packet right after the change.
