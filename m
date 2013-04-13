@@ -1,92 +1,102 @@
-From: Javier Martinez Canillas <martinez.javier@gmail.com>
-Subject: Re: [PATCH] net: smsc911x: adopt pinctrl support
-Date: Sat, 13 Apr 2013 20:32:45 +0200
-Message-ID: <CAAwP0s2BD_nVXPyTi+EsgnqStdFUbHELJRjU_sP5E_w-XiWnRw@mail.gmail.com>
-References: <1365873745.3812.37.camel@mars>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [RFC] net : add tx timestamp to packet mmap.
+Date: Sat, 13 Apr 2013 14:33:49 -0400
+Message-ID: <CA+FuTSezggEb7znDYMf8vWU7JmWLP59AVPkaTvNaAwJoNcqk9A@mail.gmail.com>
+References: <1355326165-12277-1-git-send-email-paul.chavent@onera.fr>
+ <20121213132916.GB10703@netboy.at.omicron.at> <50C9FEC4.5050804@onera.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Steve Glendinning <steve.glendinning@shawell.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sebastien Guiriec <s-guiriec@ti.com>,
-	Daniel Mack <daniel@zonque.org>,
-	"Hans J. Koch" <hjk@hansjkoch.de>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
-To: Christoph Fritz <chf.fritz@googlemail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	daniel.borkmann@tik.ee.ethz.ch, xemul@parallels.com,
+	ebiederm@xmission.com, netdev@vger.kernel.org
+To: Paul Chavent <Paul.Chavent@onera.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:49398 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753088Ab3DMSdH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Apr 2013 14:33:07 -0400
-In-Reply-To: <1365873745.3812.37.camel@mars>
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:64052 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752592Ab3DMSeV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Apr 2013 14:34:21 -0400
+Received: by mail-ie0-f180.google.com with SMTP id a11so4439173iee.39
+        for <netdev@vger.kernel.org>; Sat, 13 Apr 2013 11:34:21 -0700 (PDT)
+In-Reply-To: <50C9FEC4.5050804@onera.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 13, 2013 at 7:22 PM, Christoph Fritz
-<chf.fritz@googlemail.com> wrote:
-> This patch is derived from 2d4b4520a "i2c: omap: adopt pinctrl support":
-> Some GPIO expanders need some early pin control muxing. Due to
-> legacy boards sometimes the driver uses subsys_initcall instead of
-> module_init. This patch takes advantage of defer probe feature
-> and pin control in order to wait until pin control probing before
-> GPIO driver probing.
+On Thu, Dec 13, 2012 at 11:13 AM, Paul Chavent <Paul.Chavent@onera.fr> wrote:
+> Hello.
 >
-> Signed-off-by: Christoph Fritz <chf.fritz@googlemail.com>
-> ---
->  drivers/net/ethernet/smsc/smsc911x.c |   15 +++++++++++++++
->  1 file changed, 15 insertions(+)
 >
-> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-> index da5cc9a..3e3547c 100644
-> --- a/drivers/net/ethernet/smsc/smsc911x.c
-> +++ b/drivers/net/ethernet/smsc/smsc911x.c
-> @@ -59,6 +59,7 @@
->  #include <linux/of_device.h>
->  #include <linux/of_gpio.h>
->  #include <linux/of_net.h>
-> +#include <linux/pinctrl/consumer.h>
->  #include "smsc911x.h"
+> On 12/13/2012 02:29 PM, Richard Cochran wrote:
+>>
+>> On Wed, Dec 12, 2012 at 04:29:25PM +0100, Paul Chavent wrote:
+>>>
+>>> This patch allow to generate tx timestamps of packets sent by the packet
+>>> mmap interface.
+>>>
+>>> Actually, you can't get tx timestamps with the sample code below.
+>>>
+>>> I wonder if my current implementation is good. And if not, how should i
+>>> get the timestamps ?
+>>
+>>
+>> In order for time stamps to appear, somebody has to call
+>> skb_tx_timestamp() ...
 >
->  #define SMSC_CHIPNAME          "smsc911x"
-> @@ -144,6 +145,8 @@ struct smsc911x_data {
+> Yes. "Somebody" means "the hardware driver" after completing xmit. That's
+> true ?
 >
->         /* regulators */
->         struct regulator_bulk_data supplies[SMSC911X_NUM_SUPPLIES];
-> +
-> +       struct pinctrl *pins;
->  };
 >
->  /* Easy access to information */
-> @@ -2433,6 +2436,18 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
->         if (retval < 0)
->                 goto out_disable_resources;
+>>
+>>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+>>> index e639645..948748b 100644
+>>> --- a/net/packet/af_packet.c
+>>> +++ b/net/packet/af_packet.c
+>>> @@ -1857,6 +1857,10 @@ static int tpacket_fill_skb(struct packet_sock
+>>> *po, struct sk_buff *skb,
+>>>         void *data;
+>>>         int err;
+>>>
+>>> +       err = sock_tx_timestamp(&po->sk, &skb_shinfo(skb)->tx_flags);
 >
-> +       pdata->pins = devm_pinctrl_get_select_default(&pdev->dev);
-> +       if (IS_ERR(pdata->pins)) {
-> +               if (PTR_ERR(pdata->pins) == -EPROBE_DEFER) {
-> +                       retval = -EPROBE_DEFER;
-> +                       goto out_disable_resources;
-> +               }
-> +
-> +               dev_warn(&pdev->dev, "No pins for smsc911x error: %li\n",
-> +                        PTR_ERR(pdata->pins));
-> +               pdata->pins = NULL;
-> +       }
-> +
->         /* configure irq polarity and type before connecting isr */
->         if (pdata->config.irq_polarity == SMSC911X_IRQ_POLARITY_ACTIVE_HIGH)
->                 intcfg |= INT_CFG_IRQ_POL_;
+>>
+>> and this call is only setting some flags.
+>
+> Yes, it only sets some flags. I thought that those flags was required by the
+> skb_tx_timestamp() in order to make the appropriate timestamping (hardware,
+> software, etc).
+>
+> So in order to have tx timestamp that work, both calls are needed ?
+
+Yes.
+
+> Why sock_tx_timestamp is called in packet_fill_skb and packet_sendmsg_spkt
+> and not in tpacket_fill_skb ?
+
+Good point. From what I can tell, if you add it, the existing error
+queue mechanism should work fine. At a glance, your code looks fine,
+too, although I haven't tested it.
+
+> Why i can retrieve timestamps when i add this call ?
+
+I actually wondered it if would be possible to return the timestamps
+in the ring itself. It is, but requires two additional changes:
+writing the timestamp to orig_skb->tstamp in skb_tstamp_tx and then
+writing it into the ring in tpacket_destruct_skb. The first change is
+a bit odd, as the orig_skb is usually freed shortly after
+skb_tstamp_tx is called. Still, I verified that it works and the patch
+should also make your errorqueue-based code work, as it inserts the
+sock_tx_timestamp. Will send it for review following this.
+
+>>
+>> HTH,
+>> Richard
+>>
+> Thank for your help.
+>
+> Paul.
+>
 > --
-> 1.7.10.4
->
->
->
-
-Hi Christoph,
-
-This is handled from the device core after from v3.9.
-
-Please take a loot at this:
-http://marc.info/?l=linux-kernel&m=135887740715083&w=2
-
-Best regards,
-Javier
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
