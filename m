@@ -1,83 +1,114 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] net-packet: tx timestamping on tpacket ring
-Date: Sun, 14 Apr 2013 12:52:16 +0200
-Message-ID: <516A8A60.5020003@redhat.com>
-References: <CA+FuTSezggEb7znDYMf8vWU7JmWLP59AVPkaTvNaAwJoNcqk9A@mail.gmail.com> <1365879412-9541-1-git-send-email-willemb@google.com> <5169D9C8.8010504@redhat.com> <CA+FuTSe1KCPPW=FBXZoTNmri9oPHicuoFeEMKws09PwbyRe-2A@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next 1/9] qlcnic: Implement GET_LED_STATUS command
+ for 82xx adapter.
+Date: Sun, 14 Apr 2013 12:55:14 +0200
+Message-ID: <20130414105514.GA30385@electric-eye.fr.zoreil.com>
+References: <1365874114-6759-1-git-send-email-shahed.shaikh@qlogic.com>
+ <1365874114-6759-2-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Paul Chavent <paul.chavent@onera.fr>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	daniel.borkmann@tik.ee.ethz.ch, xemul@parallels.com,
-	ebiederm@xmission.com, netdev@vger.kernel.org
-To: Willem de Bruijn <willemb@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Dept_NX_Linux_NIC_Driver@qlogic.com,
+	Himanshu Madhani <himanshu.madhani@qlogic.com>
+To: Shahed Shaikh <shahed.shaikh@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4141 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751362Ab3DNKxW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Apr 2013 06:53:22 -0400
-In-Reply-To: <CA+FuTSe1KCPPW=FBXZoTNmri9oPHicuoFeEMKws09PwbyRe-2A@mail.gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:44066 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751564Ab3DNKzX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 06:55:23 -0400
+Content-Disposition: inline
+In-Reply-To: <1365874114-6759-2-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/14/2013 02:00 AM, Willem de Bruijn wrote:
-> On Sat, Apr 13, 2013 at 6:18 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
->> On 04/13/2013 08:56 PM, Willem de Bruijn wrote:
->>>
->>> When transmit timestamping is enabled at the socket level, have
->>> writes to a PACKET_TX_RING record a timestamp for the generated
->>> skbuffs. Tx timestamps are always looped to the application over
->>> the socket error queue.
->>
->>
->> Nitpick: if so, then this should go to net-next (subject line).
->
-> Thanks.
->>
->>> The patch also loops software timestamps back into the ring.
+Shahed Shaikh <shahed.shaikh@qlogic.com> :
+[...]
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+> index 253b3ac..3784bef 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+> @@ -1462,6 +1462,29 @@ int qlcnic_82xx_config_led(struct qlcnic_adapter *adapter, u32 state, u32 rate)
+>  	return rv;
+>  }
+>  
+> +int qlcnic_get_beacon_state(struct qlcnic_adapter *adapter, u8 *h_state)
+> +{
+> +	int err = 0;
+> +	struct qlcnic_cmd_args cmd;
 
-Also v2 should probably contain a ``Reported-by''.
+The scope of this variable could have been narrowed.
 
->>> Signed-off-by: Willem de Bruijn <willemb@google.com>
->>> ---
->>>    net/core/skbuff.c      |  2 +-
->>>    net/packet/af_packet.c | 42 ++++++++++++++++++++++++++++++++++++++++++
->>>    2 files changed, 43 insertions(+), 1 deletion(-)
->>
->> [...]
->>
->>> +static void __packet_set_timestamp(struct packet_sock *po, void *frame,
->>> +                                  ktime_t tstamp)
->>> +{
->>> +       struct tpacket_hdr *h1;
->>> +       struct tpacket2_hdr *h2;
->>> +       struct timespec ts;
->>> +
->>> +       if (!tstamp.tv64 || !sock_flag(&po->sk,
->>> SOCK_TIMESTAMPING_SOFTWARE))
->>> +               return;
+> +
+> +	if (adapter->ahw->capabilities2 & QLCNIC_FW_CAPABILITY_2_BEACON) {
+> +		err = qlcnic_alloc_mbx_args(&cmd, adapter,
+> +					    QLCNIC_CMD_GET_LED_STATUS);
+> +		if (err)
+> +			goto error;
+> +
+> +		err = qlcnic_issue_cmd(adapter, &cmd);
+> +		if (err)
+> +			err = -EIO;
 
-While going a bit more through the code, I'm wondering .. if we want to support
-TX timestamps, could we also support SW _and_ HW timestamps e.g. similar as in
-sock_recv_timestamp()? I'm asking, because we already allow setting the flags
-for it via sock_tx_timestamp(). This might be good, if possible.
+qlcnic_issue_cmd should return a proper error code so that there is no
+reason to smash it.
 
-Paul, since you've reported / requested this, your use case would be to fill
-the ring, trigger a sendto() and then loop through all the frames to check the
-tx timestamps for your custom protocol mockup, then fill the returned frames
-again, etc.?
+> +		else
+> +			*h_state = cmd.rsp.arg[1];
+> +
+> +		qlcnic_free_mbx_args(&cmd);
+> +	}
+> +error:
+> +	return err;
+> +}
 
->>> +       ts = ktime_to_timespec(tstamp);
->>> +
->>> +       switch (po->tp_version) {
->>> +       case TPACKET_V1:
->>> +               h1 = frame;
->>> +               h1->tp_sec = ts.tv_sec;
->>> +               h1->tp_usec = ts.tv_nsec / NSEC_PER_USEC;
->>> +
->>> +               flush_dcache_page(pgv_to_page(&h1->tp_sec));
->>> +               flush_dcache_page(pgv_to_page(&h1->tp_usec));
->>
->>
->> Hmm, not sure, but could we also flush the dcache only once?
+Normal path going through an "error" label... :o/
+
+Please compare with:
+
+int qlcnic_get_beacon_state(struct qlcnic_adapter *adapter, u8 *h_state)
+{
+	struct qlcnic_cmd_args cmd;
+	int rc;
+
+	if (!(adapter->ahw->capabilities2 & QLCNIC_FW_CAPABILITY_2_BEACON))
+		return 0;
+
+	rc = qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_GET_LED_STATUS);
+	if (!rc) {
+		rc = qlcnic_issue_cmd(adapter, &cmd);
+		if (!rc)
+			*h_state = cmd.rsp.arg[1];
+
+		qlcnic_free_mbx_args(&cmd);
+	}
+
+	return rc;
+}
+	
+[...]
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+> index c77675d..a17671d 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+[...]
+> @@ -174,6 +175,14 @@ beacon_err:
+>  	if (err)
+>  		return err;
+>  
+> +	err = qlcnic_get_beacon_state(adapter, &h_beacon_state);
+> +	if (err != -EIO) {
+> +		if (h_beacon_state == QLCNIC_BEACON_DISABLE)
+> +			adapter->ahw->beacon_state = 0;
+> +		else
+> +			adapter->ahw->beacon_state = 2;
+
+Nit: what about a ternary ?
+
+		adapter->ahw->beacon_state =
+			(h_beacon_state == QLCNIC_BEACON_DISABLE) ? 0 : 2;
+
+You should consider reworking qlcnic_store_beacon. It's in a sad state
+(multiple return points and locks as well as a big inline reset path).
+
+-- 
+Ueimor
