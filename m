@@ -1,61 +1,35 @@
-From: =?UTF-8?q?Beno=C3=AEt=20Bourbi=C3=A9?= <benoit.bourbie@gmail.com>
-Subject: [PATCH] net : fix typo
-Date: Sun, 14 Apr 2013 14:33:13 -0500
-Message-ID: <1365967993-3945-2-git-send-email-benoit.bourbie@gmail.com>
-References: <1365967993-3945-1-git-send-email-benoit.bourbie@gmail.com>
+From: Dash Four <mr.dash.four@googlemail.com>
+Subject: Re: [PATCH v2] iproute2: lib/utils.c bug fixes
+Date: Sun, 14 Apr 2013 20:34:22 +0100
+Message-ID: <516B04BE.6030302@googlemail.com>
+References: <516AB8EE.5090901@googlemail.com> <20130414100000.3b73fa36@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: =?UTF-8?q?Beno=C3=AEt=20Bourbi=C3=A9?= <benoit.bourbie@gmail.com>,
-	netdev@vger.kernel.org, wimax@linuxwimax.org
-To: inaky.perez-gonzalez@intel.com
-Return-path: <wimax-bounces@linuxwimax.org>
-In-Reply-To: <1365967993-3945-1-git-send-email-benoit.bourbie@gmail.com>
-List-Unsubscribe: <http://lists.linuxwimax.org/options/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxwimax.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://lists.linuxwimax.org/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:40372 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753106Ab3DNTe2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 15:34:28 -0400
+Received: by mail-wi0-f174.google.com with SMTP id hj8so937872wib.1
+        for <netdev@vger.kernel.org>; Sun, 14 Apr 2013 12:34:27 -0700 (PDT)
+In-Reply-To: <20130414100000.3b73fa36@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rml4ZWQgc29tZSBncmFtbWFyIG1pc3Rha2VzLgoKClNpZ25lZC1vZmYtYnk6IEJlbm/DrnQgQm91
-cmJpw6kgPGJlbm9pdC5ib3VyYmllQGdtYWlsLmNvbT4KLS0tCiBpbmNsdWRlL25ldC93aW1heC5o
-IHwgOCArKysrLS0tLQogMSBmaWxlIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKSwgNCBkZWxldGlv
-bnMoLSkKCmRpZmYgLS1naXQgYS9pbmNsdWRlL25ldC93aW1heC5oIGIvaW5jbHVkZS9uZXQvd2lt
-YXguaAppbmRleCBiYmI3NGY5Li40NTg4NDA3IDEwMDY0NAotLS0gYS9pbmNsdWRlL25ldC93aW1h
-eC5oCisrKyBiL2luY2x1ZGUvbmV0L3dpbWF4LmgKQEAgLTEwMyw3ICsxMDMsNyBAQAogICogb3Zl
-ciBtdWx0aWNhc3QgZ3JvdXBzLiBUaGlzIGFsbG93cyB0byBoYXZlIG11bHRpcGxlIGFwcGxpY2F0
-aW9ucwogICogbW9uaXRvcmluZyB0aGVtLgogICoKLSAqIEVhY2ggY29tbWFuZC9zaWduYWwgZ2V0
-cyBhc3NpZ25lZCBpdCdzIG93biBhdHRyaWJ1dGUgcG9saWN5LiBUaGlzCisgKiBFYWNoIGNvbW1h
-bmQvc2lnbmFsIGdldHMgYXNzaWduZWQgaXRzIG93biBhdHRyaWJ1dGUgcG9saWN5LiBUaGlzCiAg
-KiB3YXkgdGhlIHZhbGlkYXRvciB3aWxsIHZlcmlmeSB0aGF0IGFsbCB0aGUgYXR0cmlidXRlcyBp
-biB0aGVyZSBhcmUKICAqIG9ubHkgdGhlIG9uZXMgdGhhdCBzaG91bGQgYmUgZm9yIGVhY2ggY29t
-bWFuZC9zaWduYWwuIFRoaW5nIG9mIGFuCiAgKiBhdHRyaWJ1dGUgbWFwcGluZyB0byBhIHR5cGUr
-YXJndW1lbnRuYW1lIGZvciBlYWNoIGNvbW1hbmQvc2lnbmFsLgpAQCAtMTIzLDcgKzEyMyw3IEBA
-CiAgKgogICogSWYgbmV0d29yayBpbnRlcmZhY2UgWCBpcyBhIFdpTUFYIGRldmljZSwgdGhlcmUg
-d2lsbCBiZSBhIEdlbmVyaWMKICAqIE5ldGxpbmsgZmFtaWx5IG5hbWVkICJXaU1BWCBYIiBhbmQg
-dGhlIGRldmljZSB3aWxsIHByZXNlbnQgYQotICogIndpbWF4IiBkaXJlY3RvcnkgaW4gaXQncyBu
-ZXR3b3JrIHN5c2ZzIGRpcmVjdG9yeQorICogIndpbWF4IiBkaXJlY3RvcnkgaW4gaXRzIG5ldHdv
-cmsgc3lzZnMgZGlyZWN0b3J5CiAgKiAoL3N5cy9jbGFzcy9uZXQvREVWSUNFL3dpbWF4KSBbdXNl
-ZCBieSBIQUxdLgogICoKICAqIFRoZSBpbmV4aXN0ZW5jZSBvZiBhbnkgb2YgdGhlc2UgbWVhbnMg
-dGhlIGRldmljZSBkb2VzIG5vdCBzdXBwb3J0CkBAIC0yMjgsNyArMjI4LDcgQEAKICAqIFdpTUFY
-IHN0YWNrLgogICoKICAqIFdoZW4gaW5pdGlhbGl6aW5nIHRoZSBoYXJkd2FyZSAoX3Byb2JlKSwg
-YWZ0ZXIgY2FsbGluZwotICogd2ltYXhfZGV2X2FkZCgpLCBxdWVyeSB0aGUgZGV2aWNlIGZvciBp
-dCdzIFJGIEtpbGwgc3dpdGNoZXMgc3RhdHVzCisgKiB3aW1heF9kZXZfYWRkKCksIHF1ZXJ5IHRo
-ZSBkZXZpY2UgZm9yIGl0cyBSRiBLaWxsIHN3aXRjaGVzIHN0YXR1cwogICogYW5kIGZlZWQgaXQg
-YmFjayB0byB0aGUgV2lNQVggc3RhY2sgdXNpbmcKICAqIHdpbWF4X3JlcG9ydF9yZmtpbGxfe2h3
-LHN3fSgpLiBJZiBhbnkgc3dpdGNoIGlzIG1pc3NpbmcsIGFsd2F5cwogICogcmVwb3J0IGl0IGFz
-IE9OLgpAQCAtMzA2LDcgKzMwNiw3IEBAIHN0cnVjdCB3aW1heF9kZXY7CiAgKiAgICAgRFJJVkVS
-TkFNRS1CVVNOQU1FOkJVU0lEIChkZXYtPmJ1cy0+bmFtZSwgZGV2LT5idXNfaWQpLgogICoKICAq
-IEBpZF90YWJsZV9ub2RlOiBbcHJpdmF0ZV0gbGluayB0byB0aGUgbGlzdCBvZiB3aW1heCBkZXZp
-Y2VzIGtlcHQgYnkKLSAqICAgICBpZC10YWJsZS5jLiBQcm90ZWN0ZWQgYnkgaXQncyBvd24gc3Bp
-bmxvY2suCisgKiAgICAgaWQtdGFibGUuYy4gUHJvdGVjdGVkIGJ5IGl0cyBvd24gc3BpbmxvY2su
-CiAgKgogICogQG11dGV4OiBbcHJpdmF0ZV0gU2VyaWFsaXplcyBhbGwgY29uY3VycmVudCBhY2Nl
-c3MgYW5kIGV4ZWN1dGlvbiBvZgogICogICAgIG9wZXJhdGlvbnMuCi0tIAoxLjguMi40NzAuZzIx
-Y2NlYmUuZGlydHkKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fCndpbWF4IG1haWxpbmcgbGlzdAp3aW1heEBsaW51eHdpbWF4Lm9yZwpodHRwOi8vbGlzdHMu
-bGludXh3aW1heC5vcmcvbGlzdGluZm8vd2ltYXg=
+
+> Thanks for your patch. there were lots of related over/underflow errors in
+> this code which have existed for a long time. I took your patch as motivation
+> and did multiple fixes to add error checking for all the cases present.
+>   
+That's good. Do you have the git url (or any other repository I could 
+fetch these from) so that I could apply these changes on our machines 
+here? I checked on 
+http://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git but 
+it looks as though the last commit was done 41 hours ago.
+
+> Thank you.
+>   
+Pleasure!
