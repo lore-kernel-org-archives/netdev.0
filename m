@@ -1,81 +1,42 @@
-From: Mark Jackson <mpfj-list@mimc.co.uk>
-Subject: Re: [PATCH 3/3] driver: net: ethernet: cpsw: dual emac interface
- implementation
-Date: Sun, 14 Apr 2013 20:20:15 +0100
-Message-ID: <516B016F.3020308@mimc.co.uk>
-References: <1360612340-9266-1-git-send-email-mugunthanvnm@ti.com> <1360612340-9266-4-git-send-email-mugunthanvnm@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] iproute2: lib/utils.c bug fixes
+Date: Sun, 14 Apr 2013 15:22:41 -0400 (EDT)
+Message-ID: <20130414.152241.2174877623839388661.davem@davemloft.net>
+References: <516AB8EE.5090901@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1360612340-9266-4-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+To: mr.dash.four@googlemail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48376 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753474Ab3DNTWn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 15:22:43 -0400
+In-Reply-To: <516AB8EE.5090901@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/02/13 19:52, Mugunthan V N wrote:
-> The CPSW switch can act as Dual EMAC by segregating the switch ports
-> using VLAN and port VLAN as per the TRM description in
-> 14.3.2.10.2 Dual Mac Mode
->
-> Following CPSW components will be common for both the interfaces.
-> * Interrupt source is common for both eth interfaces
-> * Interrupt pacing is common for both interfaces
-> * Hardware statistics is common for all the ports
-> * CPDMA is common for both eth interface
-> * CPTS is common for both the interface and it should not be enabled on
->    both the interface as timestamping information doesn't contain port
->    information.
->
-> Constrains
-> * Reserved VID of One port should not be used in other interface which will
->    enable switching functionality
-> * Same VID must not be used in both the interface which will enable switching
->    functionality
->
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-> ---
->   Documentation/devicetree/bindings/net/cpsw.txt |    2 +
->   drivers/net/ethernet/ti/cpsw.c                 |  335 ++++++++++++++++++++----
->   include/linux/platform_data/cpsw.h             |    3 +
->   3 files changed, 288 insertions(+), 52 deletions(-)
->
-> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-> index 6ddd028..ecfdf75 100644
-> --- a/Documentation/devicetree/bindings/net/cpsw.txt
-> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
-> @@ -24,6 +24,8 @@ Required properties:
->   Optional properties:
->   - ti,hwmods		: Must be "cpgmac0"
->   - no_bd_ram		: Must be 0 or 1
-> +- dual_emac		: Specifies Switch to act as Dual EMAC
-> +- dual_emac_res_vlan	: Specifies VID to be used to segregate the ports
->
->   Note: "ti,hwmods" field is used to fetch the base address and irq
->   resources from TI, omap hwmod data base during device registration.
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index 4b964bb..4ceed6e 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
+From: Dash Four <mr.dash.four@googlemail.com>
+Date: Sun, 14 Apr 2013 15:10:54 +0100
 
-<snip>
+> This patch fixes the following 3 bugs in get_u32/get_u64 functions:
+> 
+>  1. On 32-bit systems, get_u32 could not detect an overflow.
+>     get_u32(&l, "4294967296", 10) always returned 4294967295
+>     (ULONG_MAX on 32-bit systems).
+> 
+>  2. get_u64(&ll, "4294967295", 10) was returning an error where
+>     it shouldn't have (4294967295 is perfectly legitimate value for
+>     unsigned long long).
+> 
+>  3. get_u64 couldn't detect an overflow errors (arg > ULLONG_MAX)
+> 
+> Changelog:
+> 
+> v2 - Dropped name title from Developer Certificate of Origin
+> 
+> Signed-off-by: Dash Four <mr.dash.four@googlemail.com>
 
-> @@ -1237,6 +1372,18 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
->   		if (mac_addr)
->   			memcpy(slave_data->mac_addr, mac_addr, ETH_ALEN);
->
-> +		if (data->dual_emac) {
-> +			if (of_property_read_u32(node, "dual_emac_res_vlan",
-> +						 &prop)) {
-
-Shouldn't this be:-
-
-	if (of_property_read_u32(slave_node, "dual_emac_res_vlan",
-                                  ^^^^^^^^^^
-
-... so we pick each VLAN id from the individual slaves ?
-
-Regards
-Mark J.
+Stephen already reimplmeneted your fixes in a slightly different
+way.
