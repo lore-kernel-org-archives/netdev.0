@@ -1,51 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2] iproute2: lib/utils.c bug fixes
-Date: Sun, 14 Apr 2013 10:00:00 -0700
-Message-ID: <20130414100000.3b73fa36@nehalam.linuxnetplumber.net>
-References: <516AB8EE.5090901@googlemail.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: RE: [PATCH net-next 7/9] qlcnic: fix TSO race condition
+Date: Sun, 14 Apr 2013 17:55:45 +0000
+Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A44C0F6@avmb2.qlogic.org>
+References: <1365874114-6759-1-git-send-email-shahed.shaikh@qlogic.com>
+	 <1365874114-6759-8-git-send-email-shahed.shaikh@qlogic.com>
+ <1365878116.4459.105.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dash Four <mr.dash.four@googlemail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dept-NX Linux NIC Driver
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Sritej Velaga <sritej.velaga@qlogic.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:40539 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752117Ab3DNRA1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 13:00:27 -0400
-Received: by mail-pd0-f176.google.com with SMTP id r11so2111568pdi.35
-        for <netdev@vger.kernel.org>; Sun, 14 Apr 2013 10:00:26 -0700 (PDT)
-In-Reply-To: <516AB8EE.5090901@googlemail.com>
+Received: from am1ehsobe004.messaging.microsoft.com ([213.199.154.207]:51229
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752234Ab3DNRzx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 13:55:53 -0400
+In-Reply-To: <1365878116.4459.105.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 14 Apr 2013 15:10:54 +0100
-Dash Four <mr.dash.four@googlemail.com> wrote:
-
-> This patch fixes the following 3 bugs in get_u32/get_u64 functions:
-> 
->   1. On 32-bit systems, get_u32 could not detect an overflow.
->      get_u32(&l, "4294967296", 10) always returned 4294967295
->      (ULONG_MAX on 32-bit systems).
-> 
->   2. get_u64(&ll, "4294967295", 10) was returning an error where
->      it shouldn't have (4294967295 is perfectly legitimate value for
->      unsigned long long).
-> 
->   3. get_u64 couldn't detect an overflow errors (arg > ULLONG_MAX)
-> 
-> Changelog:
-> 
-> v2 - Dropped name title from Developer Certificate of Origin
-> 
-> Signed-off-by: Dash Four <mr.dash.four@googlemail.com>
-> ---
->   lib/utils.c |    8 ++++++--
->   1 file changed, 6 insertions(+), 2 deletions(-)
-> 
-
-Thanks for your patch. there were lots of related over/underflow errors in
-this code which have existed for a long time. I took your patch as motivation
-and did multiple fixes to add error checking for all the cases present.
-
-Thank you.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBTdW5kYXksIEFwcmlsIDE0LCAyMDEz
+IDEyOjA1IEFNDQo+IFRvOiBTaGFoZWQgU2hhaWtoDQo+IENjOiBEYXZpZCBNaWxsZXI7IG5ldGRl
+djsgRGVwdC1OWCBMaW51eCBOSUMgRHJpdmVyOyBTcml0ZWogVmVsYWdhDQo+IFN1YmplY3Q6IFJl
+OiBbUEFUQ0ggbmV0LW5leHQgNy85XSBxbGNuaWM6IGZpeCBUU08gcmFjZSBjb25kaXRpb24NCj4N
+Cj4NCj4gVGhpcyBsb29rcyBsaWtlIG5vdCBuZWVkZWQgYXQgYWxsLg0KPg0KPiBUYWtlIGEgbG9v
+ayBhdCBhbGwgb3RoZXIgbmV0d29yayBkcml2ZXJzLg0KPg0KPiBOb3QgYSBzaW5nbGUgb25lIGRv
+ZXMgdGhlIChuZXRkZXYtPmZlYXR1cmVzICYgKE5FVElGX0ZfVFNPIHwNCj4gTkVUSUZfRl9UU082
+KSkgY2hlY2sgaW4gdGhlaXIgdHggZmFzdCBwYXRoLg0KPg0KPiBUaGlzIGlzIGRvbmUgYnkgdGhl
+IGNvcmUgbmV0d29ya2luZyBzdGFja3MuDQo+DQo+IEp1c3QgcmVtb3ZlIHRoZSBjaGVjaywgYW5k
+IGRvIG5vdCBhZGQgYW4gImludmFsaWRfdHNvX3BrdCIsIGFzIHRoZXJlIGlzDQo+IG5vdGhpbmcg
+aW52YWxpZCBoZXJlLg0KPg0KPiBJZiBhIGRyaXZlciBhZHZlcnRpc2VkIE5FVElGX0ZfVFNPIGlu
+IGl0cyBod19mZWF0dXJlcywgdGhlbiBpdCBfbXVzdF8gYmUNCj4gcHJlcGFyZWQgdG8gc2VuZCBU
+U08gcGFja2V0cywgZXZlbiBpZiB0aGUgYWRtaW4gcGxheXMgd2l0aCAiZXRodG9vbCAtayB0c28N
+Cj4gb2ZmIi4NCj4NCj4gUlROTCBpcyBub3QgdGFrZW4gaW4gVFggcGF0aCwgc28gdGhlcmUgaXMg
+YWx3YXlzIHRoZSBwb3NzaWJpbGl0eSBhIGRyaXZlciBoYXMgdG8NCj4gdHJhbnNtaXQgYSBUU08g
+cGFja2V0IHJpZ2h0IGFmdGVyIHRoZSBjaGFuZ2UuDQo+DQoNClRoYW5rcyBFcmljIC4gV2Ugd2ls
+bCBsb29rIGludG8geW91ciBmZWVkYmFjay4NCg0KLVNoYWhlZA0KDQoNCl9fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fDQoNClRoaXMgbWVzc2FnZSBhbmQgYW55IGF0dGFjaGVkIGRvY3Vt
+ZW50cyBjb250YWluIGluZm9ybWF0aW9uIGZyb20gUUxvZ2ljIENvcnBvcmF0aW9uIG9yIGl0cyB3
+aG9sbHktb3duZWQgc3Vic2lkaWFyaWVzIHRoYXQgbWF5IGJlIGNvbmZpZGVudGlhbC4gSWYgeW91
+IGFyZSBub3QgdGhlIGludGVuZGVkIHJlY2lwaWVudCwgeW91IG1heSBub3QgcmVhZCwgY29weSwg
+ZGlzdHJpYnV0ZSwgb3IgdXNlIHRoaXMgaW5mb3JtYXRpb24uIElmIHlvdSBoYXZlIHJlY2VpdmVk
+IHRoaXMgdHJhbnNtaXNzaW9uIGluIGVycm9yLCBwbGVhc2Ugbm90aWZ5IHRoZSBzZW5kZXIgaW1t
+ZWRpYXRlbHkgYnkgcmVwbHkgZS1tYWlsIGFuZCB0aGVuIGRlbGV0ZSB0aGlzIG1lc3NhZ2UuDQo=
