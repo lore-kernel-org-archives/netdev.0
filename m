@@ -1,45 +1,46 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] net-packet: tx timestamping on tpacket ring
-Date: Sun, 14 Apr 2013 15:07:26 +0200
-Message-ID: <20130414130726.GB2871@netboy>
-References: <CA+FuTSezggEb7znDYMf8vWU7JmWLP59AVPkaTvNaAwJoNcqk9A@mail.gmail.com>
- <1365879412-9541-1-git-send-email-willemb@google.com>
- <5169D9C8.8010504@redhat.com>
- <CA+FuTSe1KCPPW=FBXZoTNmri9oPHicuoFeEMKws09PwbyRe-2A@mail.gmail.com>
- <516A8A60.5020003@redhat.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH repost for-3.9] pci: avoid work_on_cpu for nested SRIOV
+ probes
+Date: Sun, 14 Apr 2013 06:43:39 -0700
+Message-ID: <20130414134339.GA3050@htj.dyndns.org>
+References: <20130411153030.GA22743@redhat.com>
+ <20130411180517.GJ17641@mtj.dyndns.org>
+ <20130411185853.GE23301@redhat.com>
+ <20130411190408.GM17641@mtj.dyndns.org>
+ <20130411191717.GB25515@redhat.com>
+ <20130411192005.GN17641@mtj.dyndns.org>
+ <20130411203053.GC25515@redhat.com>
+ <20130411204104.GC11956@mtj.dyndns.org>
+ <516AA80F.7040505@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Willem de Bruijn <willemb@google.com>,
-	Paul Chavent <paul.chavent@onera.fr>,
-	Eric Dumazet <edumazet@google.com>,
-	daniel.borkmann@tik.ee.ethz.ch, xemul@parallels.com,
-	ebiederm@xmission.com, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f177.google.com ([209.85.215.177]:55800 "EHLO
-	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751869Ab3DNNHk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 09:07:40 -0400
-Received: by mail-ea0-f177.google.com with SMTP id q14so1789355eaj.8
-        for <netdev@vger.kernel.org>; Sun, 14 Apr 2013 06:07:39 -0700 (PDT)
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Ming Lei <ming.lei@canonical.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>,
+	Roland Dreier <roland@kernel.org>,
+	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <516A8A60.5020003@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <516AA80F.7040505@mellanox.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 14, 2013 at 12:52:16PM +0200, Daniel Borkmann wrote:
-> 
-> While going a bit more through the code, I'm wondering .. if we want to support
-> TX timestamps, could we also support SW _and_ HW timestamps e.g. similar as in
-> sock_recv_timestamp()? I'm asking, because we already allow setting the flags
-> for it via sock_tx_timestamp(). This might be good, if possible.
+On Sun, Apr 14, 2013 at 03:58:55PM +0300, Or Gerlitz wrote:
+> So the patch eliminated the lockdep warning for mlx4 nested probing
+> sequence, but introduced lockdep warning for
+> 00:13.0 PIC: Intel Corporation 7500/5520/5500/X58 I/O Hub I/OxAPIC
+> Interrupt Controller (rev 22)
 
-And while you are at it, you could also fix the receive code.
+Oops, the patch in itself doesn't really change anything.  The caller
+should use a different subclass for the nested invocation, just like
+spin_lock_nested() and friends.  Sorry about not being clear.
+Michael, can you please help?
 
-As it stand now, it is fairly useless, since there is no way for user
-space to tell which kind of time stamp has been reported. In fact, the
-code will silently intermingle hardware and software time stamps. That
-is surely a mean trick to play on the users.
+Thanks.
 
-Thanks,
-Richard
+-- 
+tejun
