@@ -1,71 +1,34 @@
-From: roopa@cumulusnetworks.com
-Subject: [PATCH v2 net-next] bridge: Add fdb dst check during fdb update
-Date: Sun, 14 Apr 2013 12:43:13 -0700
-Message-ID: <1365968593-28725-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: nolan@cumulusnetworks.com, shm@cumulusnetworks.com,
-	wkok@cumulusnetworks.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: tcp_memcontrol: minor: remove unused
+ variable
+Date: Sun, 14 Apr 2013 15:43:32 -0400 (EDT)
+Message-ID: <20130414.154332.129643215230923982.davem@davemloft.net>
+References: <cover.1365963999.git.dborkman@redhat.com>
+	<dfb368afc3840edaf20d8d96be44c58e0f0bbd87.1365963999.git.dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:59011 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753697Ab3DNTnQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 15:43:16 -0400
-To: davem@davemloft.net, stephen@networkplumber.org,
-	netdev@vger.kernel.org
-To: roopa@cumulusnetworks.com
+Received: from shards.monkeyblade.net ([149.20.54.216]:48537 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753697Ab3DNTne (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 15:43:34 -0400
+In-Reply-To: <dfb368afc3840edaf20d8d96be44c58e0f0bbd87.1365963999.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roopa <roopa@cumulusnetworks.com>
-
-Current bridge fdb update code does not seem to update the port
-during fdb update. This patch adds a check for fdb dst (port)
-change during fdb update. Also rearranges the call to
-fdb_notify to send only one notification for create and update.
-
-Changelog:
-v2 - Change notify flag to bool
-
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/bridge/br_fdb.c |   11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
-
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index c581f12..7a7d920 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -615,6 +615,7 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
- 	struct net_bridge *br = source->br;
- 	struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
- 	struct net_bridge_fdb_entry *fdb;
-+	bool notify = false;
- 
- 	fdb = fdb_find(head, addr, vid);
- 	if (fdb == NULL) {
-@@ -624,7 +625,7 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
- 		fdb = fdb_create(head, source, addr, vid);
- 		if (!fdb)
- 			return -ENOMEM;
--		fdb_notify(br, fdb, RTM_NEWNEIGH);
-+		notify = true;
- 	} else {
- 		if (flags & NLM_F_EXCL)
- 			return -EEXIST;
-@@ -638,7 +639,15 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
- 			fdb->is_static = 1;
- 		} else
- 			fdb->is_local = fdb->is_static = 0;
-+		notify = true;
-+	}
-+
-+	if (fdb->dst != source) {
-+		fdb->dst = source;
-+		notify = true;
-+	}
- 
-+	if (notify) {
- 		fdb->updated = fdb->used = jiffies;
- 		fdb_notify(br, fdb, RTM_NEWNEIGH);
- 	}
--- 
-1.7.10.4
+RnJvbTogRGFuaWVsIEJvcmttYW5uIDxkYm9ya21hbkByZWRoYXQuY29tPg0KRGF0ZTogU3VuLCAx
+NCBBcHIgMjAxMyAyMDoyOToxMiArMDIwMA0KDQo+IENvbW1pdCAxMGI5NmY3MzA2ZTUgKGBgdGNw
+X21lbWNvbnRyb2w6IHJlbW92ZSBhIHJlZHVuZGFudCBzdGF0ZW1lbnQNCj4gaW4gdGNwX2Rlc3Ry
+b3lfY2dyb3VwKCknJykgc2F5cyBgYFdlIHJlYWQgdGhlIHZhbHVlIGJ1dCBtYWtlIG5vIHVzZQ0K
+PiBvZiBpdC4nJywgYnV0IGZvcmdvdCB0byByZW1vdmUgdGhlIHZhcmlhYmxlIGRlY2xhcmF0aW9u
+IGFzIHdlbGwuIFRoaXMNCj4gd2FzIGEgZm9sbG93LXVwIGNvbW1pdCBvZiAzZjEzNDYxOTMgKGBg
+bWVtY2c6IGRlY3JlbWVudCBzdGF0aWMga2V5cw0KPiBhdCByZWFsIGRlc3Ryb3kgdGltZScnKSB0
+aGF0IHJlbW92ZWQgdGhlIHJlYWQgb2YgdmFyaWFibGUgJ3ZhbCcuDQo+IA0KPiBUaGlzIGZpeGVz
+IHRoZXJlZm9yZToNCj4gDQo+ICAgQ0MgICAgICBuZXQvaXB2NC90Y3BfbWVtY29udHJvbC5vDQo+
+IG5ldC9pcHY0L3RjcF9tZW1jb250cm9sLmM6IEluIGZ1bmN0aW9uIKF0Y3BfZGVzdHJveV9jZ3Jv
+dXCiOg0KPiBuZXQvaXB2NC90Y3BfbWVtY29udHJvbC5jOjY3OjY6IHdhcm5pbmc6IHVudXNlZCB2
+YXJpYWJsZSChdmFsoiBbLVd1bnVzZWQtdmFyaWFibGVdDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBE
+YW5pZWwgQm9ya21hbm4gPGRib3JrbWFuQHJlZGhhdC5jb20+DQoNCkFwcGxpZWQuDQo=
