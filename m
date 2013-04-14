@@ -1,35 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxlan: don't bypass encapsulation for multi-
- and broadcasts
-Date: Sun, 14 Apr 2013 15:39:50 -0400 (EDT)
-Message-ID: <20130414.153950.1876060927096209566.davem@davemloft.net>
-References: <1365931311-26285-1-git-send-email-mike.rapoport@ravellosystems.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: mike.rapoport@ravellosystems.com
+From: roopa@cumulusnetworks.com
+Subject: [PATCH v2 net-next] bridge: Add fdb dst check during fdb update
+Date: Sun, 14 Apr 2013 12:43:13 -0700
+Message-ID: <1365968593-28725-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: nolan@cumulusnetworks.com, shm@cumulusnetworks.com,
+	wkok@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48518 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753461Ab3DNTjv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 15:39:51 -0400
-In-Reply-To: <1365931311-26285-1-git-send-email-mike.rapoport@ravellosystems.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:59011 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753697Ab3DNTnQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 15:43:16 -0400
+To: davem@davemloft.net, stephen@networkplumber.org,
+	netdev@vger.kernel.org
+To: roopa@cumulusnetworks.com
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Date: Sun, 14 Apr 2013 12:21:51 +0300
+From: roopa <roopa@cumulusnetworks.com>
 
-> The multicast and broadcast packets may have RTCF_LOCAL set in rt_flags
-> and therefore will be sent out bypassing encapsulation. This breaks
-> delivery of packets sent to the vxlan multicast group.
-> Disabling encapsulation bypass for multicasts and broadcasts fixes the
-> issue.
-> 
-> Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Current bridge fdb update code does not seem to update the port
+during fdb update. This patch adds a check for fdb dst (port)
+change during fdb update. Also rearranges the call to
+fdb_notify to send only one notification for create and update.
 
-This still won't handle the case of encapsulations occuring in different
-namespaces or virtual machines.
+Changelog:
+v2 - Change notify flag to bool
 
-I really want this fixed correctly.
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ net/bridge/br_fdb.c |   11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index c581f12..7a7d920 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -615,6 +615,7 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
+ 	struct net_bridge *br = source->br;
+ 	struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
+ 	struct net_bridge_fdb_entry *fdb;
++	bool notify = false;
+ 
+ 	fdb = fdb_find(head, addr, vid);
+ 	if (fdb == NULL) {
+@@ -624,7 +625,7 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
+ 		fdb = fdb_create(head, source, addr, vid);
+ 		if (!fdb)
+ 			return -ENOMEM;
+-		fdb_notify(br, fdb, RTM_NEWNEIGH);
++		notify = true;
+ 	} else {
+ 		if (flags & NLM_F_EXCL)
+ 			return -EEXIST;
+@@ -638,7 +639,15 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
+ 			fdb->is_static = 1;
+ 		} else
+ 			fdb->is_local = fdb->is_static = 0;
++		notify = true;
++	}
++
++	if (fdb->dst != source) {
++		fdb->dst = source;
++		notify = true;
++	}
+ 
++	if (notify) {
+ 		fdb->updated = fdb->used = jiffies;
+ 		fdb_notify(br, fdb, RTM_NEWNEIGH);
+ 	}
+-- 
+1.7.10.4
