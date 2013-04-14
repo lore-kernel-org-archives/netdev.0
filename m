@@ -1,42 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] iproute2: lib/utils.c bug fixes
-Date: Sun, 14 Apr 2013 15:22:41 -0400 (EDT)
-Message-ID: <20130414.152241.2174877623839388661.davem@davemloft.net>
-References: <516AB8EE.5090901@googlemail.com>
+Subject: Re: [Patch net-next] ipv6: statically link
+ register_inet6addr_notifier()
+Date: Sun, 14 Apr 2013 15:24:33 -0400 (EDT)
+Message-ID: <20130414.152433.1785408480242968385.davem@davemloft.net>
+References: <1365952723-23295-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: mr.dash.four@googlemail.com
+Cc: netdev@vger.kernel.org, tomas.melin@iki.fi, yoshfuji@linux-ipv6.org
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48376 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48398 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753474Ab3DNTWn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 15:22:43 -0400
-In-Reply-To: <516AB8EE.5090901@googlemail.com>
+	with ESMTP id S1753474Ab3DNTYf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 15:24:35 -0400
+In-Reply-To: <1365952723-23295-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dash Four <mr.dash.four@googlemail.com>
-Date: Sun, 14 Apr 2013 15:10:54 +0100
+From: Cong Wang <amwang@redhat.com>
+Date: Sun, 14 Apr 2013 23:18:43 +0800
 
-> This patch fixes the following 3 bugs in get_u32/get_u64 functions:
+> From: Cong Wang <amwang@redhat.com>
 > 
->  1. On 32-bit systems, get_u32 could not detect an overflow.
->     get_u32(&l, "4294967296", 10) always returned 4294967295
->     (ULONG_MAX on 32-bit systems).
+> Tomas reported the following build error:
 > 
->  2. get_u64(&ll, "4294967295", 10) was returning an error where
->     it shouldn't have (4294967295 is perfectly legitimate value for
->     unsigned long long).
+> net/built-in.o: In function `ieee80211_unregister_hw':
+> (.text+0x10f0e1): undefined reference to `unregister_inet6addr_notifier'
+> net/built-in.o: In function `ieee80211_register_hw':
+> (.text+0x10f610): undefined reference to `register_inet6addr_notifier'
+> make: *** [vmlinux] Error 1
 > 
->  3. get_u64 couldn't detect an overflow errors (arg > ULLONG_MAX)
+> when built IPv6 as a module.
 > 
-> Changelog:
+> So we have to statically link these symbols.
 > 
-> v2 - Dropped name title from Developer Certificate of Origin
-> 
-> Signed-off-by: Dash Four <mr.dash.four@googlemail.com>
+> Reported-by: Tomas Melin <tomas.melin@iki.fi>
+> Cc: Tomas Melin <tomas.melin@iki.fi>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: YOSHIFUJI Hidaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Stephen already reimplmeneted your fixes in a slightly different
-way.
+This bug exists in 'net' so that's where I'm applying this.
