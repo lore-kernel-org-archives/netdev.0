@@ -1,28 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V5 0/7] Bundle fixes for Xen netfront /netback
-Date: Mon, 15 Apr 2013 13:38:34 -0400 (EDT)
-Message-ID: <20130415.133834.1625146337496299490.davem@davemloft.net>
-References: <1366045581-31349-1-git-send-email-wei.liu2@citrix.com>
+From: Sridhar Samudrala <samudrala.sridhar@gmail.com>
+Subject: Re: [PATCH net-next] vxlan: don't bypass encapsulation for multi-
+ and broadcasts
+Date: Mon, 15 Apr 2013 10:39:25 -0700
+Message-ID: <516C3B4D.9020906@gmail.com>
+References: <1365931311-26285-1-git-send-email-mike.rapoport@ravellosystems.com> <kkhbiq$5bu$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	annie.li@oracle.com, konrad.wilk@oracle.com, jbeulich@suse.com,
-	ian.campbell@citrix.com, wdauchy@gmail.com, david.vrabel@citrix.com
-To: wei.liu2@citrix.com
+Cc: netdev@vger.kernel.org, "davem@davemloft.net" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34227 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756348Ab3DORih (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 13:38:37 -0400
-In-Reply-To: <1366045581-31349-1-git-send-email-wei.liu2@citrix.com>
+Received: from mail-qe0-f42.google.com ([209.85.128.42]:42047 "EHLO
+	mail-qe0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932679Ab3DORj3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 13:39:29 -0400
+Received: by mail-qe0-f42.google.com with SMTP id cz11so2877434qeb.29
+        for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 10:39:27 -0700 (PDT)
+In-Reply-To: <kkhbiq$5bu$1@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Liu <wei.liu2@citrix.com>
-Date: Mon, 15 Apr 2013 18:06:14 +0100
+On 4/15/2013 9:58 AM, Cong Wang wrote:
+> On Sun, 14 Apr 2013 at 09:21 GMT, Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
+>> The multicast and broadcast packets may have RTCF_LOCAL set in rt_flags
+>> and therefore will be sent out bypassing encapsulation. This breaks
+>> delivery of packets sent to the vxlan multicast group.
+>> Disabling encapsulation bypass for multicasts and broadcasts fixes the
+>> issue.
+>>
+>> Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
+> This fixes the regression I reported.
+>
+> Tested-by: Cong Wang <xiyou.wangcong@gmail.com>
+>
+>
+Acked-by: Sridhar Samudrala <sri@us.ibm.com>
+Tested-by: Sridhar Samudrala <sri@us.ibm.com>
 
-> 1-3 have been applied to DaveM's tree. Repost them for the people who don't
-> want to cherry-pick.
-
-Please stop reposting these already applied patches, thank you.
+Thanks
+Sridhar
