@@ -1,53 +1,51 @@
-From: Wilco Baan Hofman <wilco@baanhofman.nl>
-Subject: ECMP ipv6 vs ipv4
-Date: Mon, 15 Apr 2013 09:58:48 +0200
-Message-ID: <1366012728.4975.13.camel@localhost>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: [PATCH] net/macb: fix error return code in macb_probe()
+Date: Mon, 15 Apr 2013 10:04:33 +0200
+Message-ID: <1366013073-22934-1-git-send-email-nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 37-251-2-65.FTTH.ispfabriek.nl ([37.251.2.65]:59974 "EHLO
-	mail.baanhofman.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753930Ab3DOH7E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 03:59:04 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by mail.baanhofman.nl (Postfix) with ESMTP id A2379788C3
-	for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 09:59:01 +0200 (CEST)
-Received: from mail.baanhofman.nl ([127.0.0.1])
-	by localhost (blackhole.synnack.net [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id XSujWQlgUACa for <netdev@vger.kernel.org>;
-	Mon, 15 Apr 2013 09:58:50 +0200 (CEST)
-Received: from [IPv6:2001:7b8:2ff:1d9::2] (cl-474.ede-01.nl.sixxs.net [IPv6:2001:7b8:2ff:1d9::2])
-	by mail.baanhofman.nl (Postfix) with ESMTPSA id D9C14788B4
-	for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 09:58:49 +0200 (CEST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>,
+	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	<yongjun_wei@trendmicro.com.cn>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Fix to return a negative error code from the error handling
+case instead of 0, as returned elsewhere in this function.
+
+Original-idea-by: <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
 Hi,
 
-I'm working on a patch to implement 'nexthop weight' for multipath ipv6.
-However, the ECMPv6 implementation has a few flaws that are quite
-annoying.
+This fix was written originally for at91_ether.c and I found it interesting
+to adapt it to macb.
+Thanks to Wei Yongjun for finding it.
 
-One of the flaws is that the netlink nexthop API is asymmetrical, you
-can add nexthops through the netlink API, but when the result is
-requested it is completely different, resulting in bird6 removing the
-route as it does not match the initial route set.
+Best regards,
 
-Another one of the flaws is that if I add nexthop weight or algorithm
-(weighted hash or weighted random) I need to add this to the main rt
-node, this seems like an inefficient memory structure, as this needs to
-be added to all the siblings as well.
+ drivers/net/ethernet/cadence/macb.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-I propose that we have a nexthop structure to an exclusive route,
-similar what we have for IPv4, where we store the gateway, device and
-weight for all nexthops and the algorithm in the route. This would make
-the netlink API symmetrical again and fixes the n*n inefficiencies when
-adding routes (all siblings need to know about all siblings).
-
-What are your thoughts on this?
-
-Regards,
-
-Wilco Baan Hofman
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 7fd0e3e..6be513d 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -1602,9 +1602,9 @@ static int __init macb_probe(struct platform_device *pdev)
+ 		goto err_out_free_irq;
+ 	}
+ 
+-	if (macb_mii_init(bp) != 0) {
++	err = macb_mii_init(bp);
++	if (err)
+ 		goto err_out_unregister_netdev;
+-	}
+ 
+ 	platform_set_drvdata(pdev, dev);
+ 
+-- 
+1.8.0
