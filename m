@@ -1,47 +1,43 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 2/2] team: Use new sync_multiple api to sync devices adressess.
-Date: Mon, 15 Apr 2013 15:49:33 -0400
-Message-ID: <516C59CD.3050509@redhat.com>
-References: <1366052997-12435-1-git-send-email-vyasevic@redhat.com> <1366052997-12435-3-git-send-email-vyasevic@redhat.com> <20130415.154539.1016433031972939376.davem@davemloft.net>
-Reply-To: vyasevic@redhat.com
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 0/2 v3] changed irq handling for
+	at86rf230
+Date: Mon, 15 Apr 2013 15:49:31 -0400 (EDT)
+Message-ID: <20130415.154931.1534207963525784709.davem@davemloft.net>
+References: <cover.1366012862.git.sascha@ps.nvbi.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42486 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934335Ab3DOTtg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Apr 2013 15:49:36 -0400
-In-Reply-To: <20130415.154539.1016433031972939376.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: sascha-2k69yqSu1NaELgA04lAiVw@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <cover.1366012862.git.sascha-2k69yqSu1NaELgA04lAiVw@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 04/15/2013 03:45 PM, David Miller wrote:
-> From: Vlad Yasevich <vyasevic@redhat.com>
-> Date: Mon, 15 Apr 2013 15:09:57 -0400
->
->> Team drivers attempts to sync addresses to each of of the port
->                                                    ^^^^^
->
-> Maybe you meant only one "of" here.
->
->> devices; however, the current api doesn't do anything for anything
->> after the first device.  Switch to using the new api that will
->> actually sync the addresses to all ports.
->
-> "anything for anything" sounds awkward, perhaps "anything for devices
-> on the list after the first device" or something like that.
->
+From: Sascha Herrmann <sascha-2k69yqSu1NaELgA04lAiVw@public.gmane.org>
+Date: Mon, 15 Apr 2013 10:33:27 +0200
 
-yes will fix.
+> Changes to last version: Reordered local variable declarations.
+> 
+> The first patch add the option to configure the irq type of the
+> plattform and the device. The second patch changes the irq handling
+> when edge type interrupts are configured.
+> 
+> Without irq configuration of the irq type, the driver will remain
+> backward compatible.
 
--vlad
+I'd like to see some reviews of this patch series, thanks.
 
-> Thanks.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+------------------------------------------------------------------------------
+Precog is a next-generation analytics platform capable of advanced
+analytics on semi-structured data. The platform includes APIs for building
+apps and a phenomenal toolset for data science. Developers can use
+our toolset for easy data analysis & visualization. Get a free account!
+http://www2.precog.com/precogplatform/slashdotnewsletter
