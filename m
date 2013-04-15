@@ -1,67 +1,40 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH V4 7/7] xen-netback: don't disconnect frontend when
- seeing oversize packet
-Date: Mon, 15 Apr 2013 15:53:20 +0100
-Message-ID: <20130415145320.GE17602@zion.uk.xensource.com>
-References: <1365776646-10796-1-git-send-email-wei.liu2@citrix.com>
- <1365776646-10796-8-git-send-email-wei.liu2@citrix.com>
- <CAJ75kXb1Pc83sAjqDuzeGiikTcqdqrgPTxTT7kS-agUqoZp7LA@mail.gmail.com>
- <1366016605.4963.6.camel@zakaz.uk.xensource.com>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: [PATCH net-next] packet: move hw/sw timestamp extraction into
+ a small helper
+Date: Mon, 15 Apr 2013 16:28:38 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1304151626550.27514@ask.diku.dk>
+References: <cover.1366022623.git.dborkman@redhat.com>
+ <45719bcd37c3f11eea24c2a72c09abd9907a5072.1366022623.git.dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: William Dauchy <wdauchy@gmail.com>, Wei Liu <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel <xen-devel@lists.xen.org>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"jbeulich@suse.com" <jbeulich@suse.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Willem de Bruijn <willemb@google.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:61263 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752983Ab3DOOxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 10:53:22 -0400
-Content-Disposition: inline
-In-Reply-To: <1366016605.4963.6.camel@zakaz.uk.xensource.com>
+Received: from mgw2.diku.dk ([130.225.96.92]:35900 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751022Ab3DOPA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Apr 2013 11:00:26 -0400
+In-Reply-To: <45719bcd37c3f11eea24c2a72c09abd9907a5072.1366022623.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 15, 2013 at 10:03:25AM +0100, Ian Campbell wrote:
-> On Fri, 2013-04-12 at 18:17 +0100, William Dauchy wrote:
-> > On Fri, Apr 12, 2013 at 4:24 PM, Wei Liu <wei.liu2@citrix.com> wrote:
-> > > Some frontend drivers are sending packets > 64 KiB in length. This length
-> > > overflows the length field in the first slot making the following slots have
-> > > an invalid length.
-> > >
-> > > Turn this error back into a non-fatal error by dropping the packet. To avoid
-> > > having the following slots having fatal errors, consume all slots in the
-> > > packet.
-> > >
-> > > This does not reopen the security hole in XSA-39 as if the packet as an
-> > > invalid number of slots it will still hit fatal error case.
-> > >
-> > > Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-> > > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> > 
-> > Maybe this should be tagged for stable? Maybe part of patch 6/7 as
-> > well. I had to remove the part which was disabling the device because
-> > of issues encountered in stable tree.
-> 
-> AFAICT the majority of this series (as well as perhaps some of Wei's
-> earlier fixes) should be candidates for any stable tree which received
-> the XSA-39 security fixes. Wei -- could you enumerate which patches are
-> required to fixup the XSA-39 regressions?
-> 
+On Mon, 15 Apr 2013, Daniel Borkmann wrote:
 
-Are mechinical fixes such as removing redudent variables / changing log
-messages candidates for stable? 1-4 are such kind of fixes.
+> This patch introduces a small helper function, that is used by AF_PACKET.
+> Based on the flags that are passed, it extracts the packet timestamp in
+> the receive path. This is merely a refactoring to remove some duplicate
+> code in tpacket_rcv(), make it more readable, and to enable others to use
+> this function as well.
+>
+> Cc: Willem de Bruijn <willemb@google.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+> include/linux/skbuff.h | 20 ++++++++++++++++++++
+> net/packet/af_packet.c | 38 ++++----------------------------------
+> 2 files changed, 24 insertions(+), 34 deletions(-)
 
-5-7 are the real meat. If 1-4 are not taken to stable, they will need
-small adjustment to apply, which is just trivial.
+Nice consolidation, good work Daniel :-)
 
-
-Wei.
-
-> Ian.
-> 
+Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
