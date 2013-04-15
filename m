@@ -1,53 +1,79 @@
-From: Paul Chavent <Paul.Chavent@onera.fr>
-Subject: Re: [PATCH] net-packet: tx timestamping on tpacket ring
-Date: Mon, 15 Apr 2013 17:41:38 +0200
-Message-ID: <516C1FB2.50900@onera.fr>
-References: <CA+FuTSezggEb7znDYMf8vWU7JmWLP59AVPkaTvNaAwJoNcqk9A@mail.gmail.com> <1365879412-9541-1-git-send-email-willemb@google.com> <5169D9C8.8010504@redhat.com> <CA+FuTSe1KCPPW=FBXZoTNmri9oPHicuoFeEMKws09PwbyRe-2A@mail.gmail.com> <516A8A60.5020003@redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: ECMP ipv6 vs ipv4
+Date: Mon, 15 Apr 2013 17:51:46 +0200
+Message-ID: <516C2212.4030502@6wind.com>
+References: <1366012728.4975.13.camel@localhost>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	daniel.borkmann@tik.ee.ethz.ch, xemul@parallels.com,
-	ebiederm@xmission.com, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Wilco Baan Hofman <wilco@baanhofman.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from briaree.onecert.fr ([134.212.190.4]:42921 "EHLO
-	briaree.onecert.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751768Ab3DOPqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 11:46:08 -0400
-In-Reply-To: <516A8A60.5020003@redhat.com>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:35037 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752403Ab3DOPvu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 11:51:50 -0400
+Received: by mail-wi0-f176.google.com with SMTP id hm14so1714048wib.3
+        for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 08:51:49 -0700 (PDT)
+In-Reply-To: <1366012728.4975.13.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le 15/04/2013 09:58, Wilco Baan Hofman a =C3=A9crit :
+> Hi,
+>
+> I'm working on a patch to implement 'nexthop weight' for multipath ip=
+v6.
+> However, the ECMPv6 implementation has a few flaws that are quite
+> annoying.
+>
+> One of the flaws is that the netlink nexthop API is asymmetrical, you
+> can add nexthops through the netlink API, but when the result is
+> requested it is completely different, resulting in bird6 removing the
+> route as it does not match the initial route set.
+In fact, there is two ways to add ECMP routes:
+$ ip -6 route add 3ffe:304:124:2306::/64 \
+	nexthop via fe80::230:1bff:feb4:e05c dev eth0 \
+	nexthop via fe80::230:1bff:feb4:dd4f dev eth0
+or
+$ ip -6 route add 3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:dd4f d=
+ev
+eth0
+$ ip -6 route append 3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:e05=
+c dev
+eth0
 
+Note that the second way matchs what is returned by the kernel (ie one =
+entry per=20
+nexthop).
 
-On 04/14/2013 12:52 PM, Daniel Borkmann wrote:
-> Paul, since you've reported / requested this, your use case would be to
-> fill
-> the ring, trigger a sendto() and then loop through all the frames to
-> check the
-> tx timestamps for your custom protocol mockup, then fill the returned
-> frames
-> again, etc.?
+>
+> Another one of the flaws is that if I add nexthop weight or algorithm
+> (weighted hash or weighted random) I need to add this to the main rt
+> node, this seems like an inefficient memory structure, as this needs =
+to
+> be added to all the siblings as well.
+Nexthop weight (rtnh->rtnh_hops) is not implemented.
 
-I've run a test that create (and setup) a tx ring buffer with 8 frames, 
-then fill the frames payload, then call sendto.
-I've checked the timestamp by two means :
-  - check the timestamp in the tx ring after the status became 
-TP_STATUS_AVAILABLE again,
-  - by issuing 8 recvmsg on the ERRQUEUE.
-Both timestamp are coherents and increment themselves.
-
-The tests has been done with a UML kernel, and with software timestamps.
-
- From my point of view, it seems usable.
-
-However, I've found one strange behavior. I must call recvmsg as many 
-times as i have submitted a frame, or not at all. If i only pop the 
-ERRQUEUE for one or two message for instance, the next call to sentdo 
-fails with "No message of desired type" (errno 42).
-
-
-Paul.
+>
+> I propose that we have a nexthop structure to an exclusive route,
+> similar what we have for IPv4, where we store the gateway, device and
+> weight for all nexthops and the algorithm in the route. This would ma=
+ke
+> the netlink API symmetrical again and fixes the n*n inefficiencies wh=
+en
+> adding routes (all siblings need to know about all siblings).
+>
+> What are your thoughts on this?
+>
+> Regards,
+>
+> Wilco Baan Hofman
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
