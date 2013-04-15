@@ -1,63 +1,87 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH] net-packet: tx timestamping on tpacket ring
-Date: Mon, 15 Apr 2013 12:37:52 -0400
-Message-ID: <CA+FuTSdgg9A8PRF4GaVSBTJ4db_i2mRQD6kWe3xXM86Y5op0Uw@mail.gmail.com>
-References: <CA+FuTSezggEb7znDYMf8vWU7JmWLP59AVPkaTvNaAwJoNcqk9A@mail.gmail.com>
- <1365879412-9541-1-git-send-email-willemb@google.com> <516BACC2.7060400@onera.fr>
+From: Wilco Baan Hofman <wilco@baanhofman.nl>
+Subject: Re: ECMP ipv6 vs ipv4
+Date: Mon, 15 Apr 2013 18:53:36 +0200
+Message-ID: <1366044816.4975.27.camel@localhost>
+References: <1366012728.4975.13.camel@localhost>
+	 <516C2212.4030502@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	daniel.borkmann@tik.ee.ethz.ch, xemul@parallels.com,
-	ebiederm@xmission.com, netdev@vger.kernel.org
-To: Paul Chavent <Paul.Chavent@onera.fr>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:61684 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751361Ab3DOQiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 12:38:24 -0400
-Received: by mail-ie0-f176.google.com with SMTP id x14so1757326ief.35
-        for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 09:38:23 -0700 (PDT)
-In-Reply-To: <516BACC2.7060400@onera.fr>
+Received: from 37-251-2-65.FTTH.ispfabriek.nl ([37.251.2.65]:32834 "EHLO
+	mail.baanhofman.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753113Ab3DOQxt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 12:53:49 -0400
+In-Reply-To: <516C2212.4030502@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 15, 2013 at 3:31 AM, Paul Chavent <Paul.Chavent@onera.fr> wrote:
-> Hi.
->
->
-> On 04/13/2013 08:56 PM, Willem de Bruijn wrote:
->>
->> [...]
->>
->> --- a/net/core/skbuff.c
->> +++ b/net/core/skbuff.c
->> @@ -3311,7 +3311,7 @@ void skb_tstamp_tx(struct sk_buff *orig_skb,
->>                  * so keep the shared tx_flags and only
->>                  * store software time stamp
->>                  */
->> -               skb->tstamp = ktime_get_real();
->> +               orig_skb->tstamp = skb->tstamp = ktime_get_real();
->>         }
->
->
-> You said that "the orig_skb is usually freed shortly after
-> skb_tstamp_tx is called".
->
-> So i suppose that if you had coded it, that's because this orig_skb is the
-> one that is given to the skb destructor. So when you call
-> __packet_set_timestamp, in tpacket_destruct_skb, you get this timestamp ? Am
-> i right ?
->
->
-> Why we couldn't call
-> *skb_hwtstamps(orig_skb) = *skb_hwtstamps(skb) = *hwtstamps;
-> in order to get the hardware timestamping too ?
+On Mon, 2013-04-15 at 17:51 +0200, Nicolas Dichtel wrote:
+> Le 15/04/2013 09:58, Wilco Baan Hofman a =C3=A9crit :
+> > Hi,
+> >
+> > I'm working on a patch to implement 'nexthop weight' for multipath =
+ipv6.
+> > However, the ECMPv6 implementation has a few flaws that are quite
+> > annoying.
+> >
+> > One of the flaws is that the netlink nexthop API is asymmetrical, y=
+ou
+> > can add nexthops through the netlink API, but when the result is
+> > requested it is completely different, resulting in bird6 removing t=
+he
+> > route as it does not match the initial route set.
+> In fact, there is two ways to add ECMP routes:
+> $ ip -6 route add 3ffe:304:124:2306::/64 \
+> 	nexthop via fe80::230:1bff:feb4:e05c dev eth0 \
+> 	nexthop via fe80::230:1bff:feb4:dd4f dev eth0
+> or
+> $ ip -6 route add 3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:dd4f=
+ dev
+> eth0
+> $ ip -6 route append 3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:e=
+05c dev
+> eth0
 
-Probably. That would also answer Daniel's question to the same
-functionality. I'm a bit less familiar with the hardware path, so will
-read up before just submitting it.
+> Note that the second way matchs what is returned by the kernel (ie on=
+e entry per=20
+> nexthop).
 
-> Thank for your help.
->
-> Paul.
+Sure, but how do we add nexthop weights and algorithm selection (hash,
+random) to this API? I personally prefer to have the routing behaviour
+of ipv4 and ipv6 to be as similar as possible, as the basics are the
+same anyway.
+
+> >
+> > Another one of the flaws is that if I add nexthop weight or algorit=
+hm
+> > (weighted hash or weighted random) I need to add this to the main r=
+t
+> > node, this seems like an inefficient memory structure, as this need=
+s to
+> > be added to all the siblings as well.
+> Nexthop weight (rtnh->rtnh_hops) is not implemented.
+
+Yes it is... in my tree, but I want to extend it to also include suppor=
+t
+for algorithm for hash based, etc.. and to keep it as close to the
+existing APIs as possible I think the nexthop structure makes the most
+sense for this.
+
+> >
+> > I propose that we have a nexthop structure to an exclusive route,
+> > similar what we have for IPv4, where we store the gateway, device a=
+nd
+> > weight for all nexthops and the algorithm in the route. This would =
+make
+> > the netlink API symmetrical again and fixes the n*n inefficiencies =
+when
+> > adding routes (all siblings need to know about all siblings).
+> >
+> > What are your thoughts on this?
+> >
+This stands :)
+
+-- Wilco
