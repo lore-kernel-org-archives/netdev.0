@@ -1,46 +1,43 @@
-From: BARCLAYS LOANS PLC <marina.montuori@ing.unibs.it>
-Subject: =?utf-8?Q?l=C3=A5n?=
-Date: Mon, 15 Apr 2013 11:10:18 +0200 (CEST)
-Message-ID: <906496072.1280.1366017018325.JavaMail.root@store.ing.unibs.it>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net-packet: tx timestamping on tpacket ring
+Date: Mon, 15 Apr 2013 10:45:55 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B71D1@saturn3.aculab.com>
+References: <CA+FuTSezggEb7znDYMf8vWU7JmWLP59AVPkaTvNaAwJoNcqk9A@mail.gmail.com> <1365879412-9541-1-git-send-email-willemb@google.com> <5169D9C8.8010504@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <paul.chavent@onera.fr>, <richardcochran@gmail.com>,
+	<edumazet@google.com>, <daniel.borkmann@tik.ee.ethz.ch>,
+	<xemul@parallels.com>, <ebiederm@xmission.com>,
+	<netdev@vger.kernel.org>
+To: "Daniel Borkmann" <dborkman@redhat.com>,
+	"Willem de Bruijn" <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zMX1.ing.unibs.it ([192.167.20.248]:39643 "HELO
-	zmx1.ing.unibs.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S934577Ab3DOJfN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 05:35:13 -0400
+Received: from mx0.aculab.com ([213.249.233.131]:48166 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753092Ab3DOJq7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 05:46:59 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 25290-09 for <netdev@vger.kernel.org>;
+ Mon, 15 Apr 2013 10:46:55 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <5169D9C8.8010504@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-BARCLAYS LOANS PLC.
-1 Churchill Place
-=46REEPOST LON13542
-London E14 5HP
+> > +	case TPACKET_V1:
+> > +		h1 = frame;
+> > +		h1->tp_sec = ts.tv_sec;
+> > +		h1->tp_usec = ts.tv_nsec / NSEC_PER_USEC;
+> > +
+> > +		flush_dcache_page(pgv_to_page(&h1->tp_sec));
+> > +		flush_dcache_page(pgv_to_page(&h1->tp_usec));
+> 
+> Hmm, not sure, but could we also flush the dcache only once?
 
-Kj=C3=A6re herr / fru!
+If it isn't a silly question, why is the dcache being flushed
+here at all?
 
-dette er David Harkens fra BARCLAYS LOANS PLC Selskap, basert i Storbri=
-tannia. Vi er her for =C3=A5 l=C3=B8se dine =C3=B8konomiske problemer s=
-om: Har uventede kostnader p=C3=A5dratt? Personlige l=C3=A5n? Bill=C3=A5=
-n? Oppussing? Er det p=C3=A5 tide =C3=A5 dra p=C3=A5 ferie du alltid ha=
-r dr=C3=B8mt om? Om du trenger =C3=A5 finansiere dine dr=C3=B8mmer, der=
-etter dele din visjon BARCLAYS LOANS PLC. Vi er stolte av v=C3=A5re pro=
-fesjonelle, =C3=A6rlig og p=C3=A5litelig service, med rask cash.Our m=C3=
-=A5l er =C3=A5 overg=C3=A5 kundenes forventninger i hver vei, kan vi ti=
-lby l=C3=A5n til lav rente p=C3=A5 2%.
-
-Kontakt oss dersom du er interessert i v=C3=A5re tjenester via e-post: =
-barclays_loans@wss-id.org.
-
-=46ullt navn:
-L=C3=A5nebel=C3=B8p:
-Varighet:
-land:
-
-Vi venter din raske til denne posten for =C3=A5 aktivere oss fortsette.
-
-Takk skal du ha
-David Harkens.
-Informativa sulla privacy: http://help.ing.unibs.it/privacy.php
+	David
