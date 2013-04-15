@@ -1,31 +1,61 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH] inet: fix enforcing of fragment queue hash list
- depth
-Date: Mon, 15 Apr 2013 19:16:26 +0200
-Message-ID: <1366046186.11284.70.camel@localhost>
-References: <20130415142454.14020.18322.stgit@dragon>
-	 <20130415152637.GA29378@order.stressinduktion.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 56641] New: Kernel looses networking connectivity
+Date: Mon, 15 Apr 2013 10:22:19 -0700
+Message-ID: <20130415102219.2e5542f7@samsung-9>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:65050 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751410Ab3DORQb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Apr 2013 13:16:31 -0400
-In-Reply-To: <20130415152637.GA29378@order.stressinduktion.org>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:54226 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756068Ab3DORWa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 13:22:30 -0400
+Received: by mail-pd0-f176.google.com with SMTP id r11so2594636pdi.7
+        for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 10:22:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-04-15 at 17:26 +0200, Hannes Frederic Sowa wrote:
 
-> I will have to play with this patch a bit. Perhaps I have some more insights
-> after that. :)
 
-I would actually like to do/finish up this patch my self, as I have
-several patches in this code area.  But I would value your input :-)
+Begin forwarded message:
 
---Jesper
+Date: Mon, 15 Apr 2013 10:17:27 -0700
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 56641] New: Kernel looses networking connectivity
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=56641
+
+           Summary: Kernel looses networking connectivity
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.7 to 3.8
+          Platform: All
+        OS/Version: Linux
+              Tree: Fedora
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: g0tt@rocketmail.com
+        Regression: Yes
+
+
+In my home network I have a Belkin router with an older DD-WRT firmware.
+Everything was running fine with Windows 7 and Ubuntu 12.04.
+Trouble startet with the new OpenSuse (12.3?) with kernel 3.7 on my desktop
+machine. Wired networking would just stop working.
+Same problem on my netbook with Ubuntu 13.04 and wireless networking, with
+12.04 and kernel 3.5 things are much better, with 3.2 it was perfect.
+I tried installing Fedora and Arch on my desktop, but the problem persists with
+kernel 3.8. My wild guess is that newer kernels networking code rubs my Belkin
+router the wrong way, but I don't know what kernel settings I need to change.
+Thanks in advance.
+
+-- 
+Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
