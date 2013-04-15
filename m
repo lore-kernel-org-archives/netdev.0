@@ -1,32 +1,26 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: [PATCH] net: usb: active URB submitted multiple times
-Date: Mon, 15 Apr 2013 10:26:48 +0300 (EEST)
-Message-ID: <alpine.DEB.2.02.1304151017230.3010@bender.nucleusys.com>
-References: <20130410.232241.1038793023507666278.davem@davemloft.net> <alpine.DEB.2.02.1304110956110.4237@fry> <alpine.DEB.2.02.1304112156520.4309@fry> <20130412.151824.2029469075886743722.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: IPsec maintenance for the next weeks
+Date: Mon, 15 Apr 2013 09:30:15 +0200
+Message-ID: <20130415073014.GI21448@secunet.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sarah.a.sharp@linux.intel.com, dcbw@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130412.151824.2029469075886743722.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:35199 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753633Ab3DOHaS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Apr 2013 03:30:18 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 12 Apr 2013, David Miller wrote:
+David,
 
-> When submitting a new version of a patch, you must list what changed 
-> from the previous version after the "---" delimiter rather than having 
-> people try and guess.
+I will be off, probaply without email access for five weeks starting on friday.
+Could you please take IPsec patches directly into net/net-next during that time?
 
-Got it.  However, i've already spammed you, Sarah and two major mailing 
-lists so i assume people are a bit tired of my clumsy attempts.  Shall i 
-start a new mail thread with what i hope is going to be the final patch, 
-or continue this one, messy as it is?
+The ipsec/ipsec-next trees are curently empty and I don't plan to add patches
+before my absence. I'll continue to run the ipsec trees as soon as I'm back.
 
->> +T:	git git://petkan@git.code.sf.net/p/pegasus2/git
->
-> There is no way that specifying your GIT login in this URL meant for 
-> public use is correct, or is it?
-
-Oops, good catch.  A left over from the SSH URL.
+Thanks!
