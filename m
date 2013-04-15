@@ -1,176 +1,64 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] packet: move hw/sw timestamp extraction into
- a small helper
-Date: Mon, 15 Apr 2013 19:02:03 +0200
-Message-ID: <516C328B.6050408@redhat.com>
-References: <cover.1366022623.git.dborkman@redhat.com> <45719bcd37c3f11eea24c2a72c09abd9907a5072.1366022623.git.dborkman@redhat.com> <CA+FuTSeuUVPuf1paZgXQRr6W5YRJaPfWN57BsHtc2tG8qoS4iQ@mail.gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH 3/3] driver: net: ethernet: cpsw: dual emac interface
+ implementation
+Date: Mon, 15 Apr 2013 22:34:00 +0530
+Message-ID: <516C3300.10005@ti.com>
+References: <1360612340-9266-1-git-send-email-mugunthanvnm@ti.com> <1360612340-9266-4-git-send-email-mugunthanvnm@ti.com> <516B016F.3020308@mimc.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28951 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933813Ab3DORCJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Apr 2013 13:02:09 -0400
-In-Reply-To: <CA+FuTSeuUVPuf1paZgXQRr6W5YRJaPfWN57BsHtc2tG8qoS4iQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>
+To: Mark Jackson <mpfj-list@mimc.co.uk>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <516B016F.3020308@mimc.co.uk>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/15/2013 06:12 PM, Willem de Bruijn wrote:
-> On Mon, Apr 15, 2013 at 7:41 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
->> This patch introduces a small helper function, that is used by AF_PACKET.
->> Based on the flags that are passed, it extracts the packet timestamp in
->> the receive path. This is merely a refactoring to remove some duplicate
->> code in tpacket_rcv(), make it more readable, and to enable others to use
->> this function as well.
->
-> Good idea. I noticed that while browsing the code over the weekend, too.
->
-> One question I have is whether the code warrants adding a static
-> inline to skbuff.h. Regular socket paths do not use the test, as they
-> return all timestamps together.
-
-(See below.)
-
->> Cc: Willem de Bruijn <willemb@google.com>
->> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+On 4/15/2013 12:50 AM, Mark Jackson wrote:
+> On 11/02/13 19:52, Mugunthan V N wrote:
+>> The CPSW switch can act as Dual EMAC by segregating the switch ports
+>> using VLAN and port VLAN as per the TRM description in
+>> 14.3.2.10.2 Dual Mac Mode
+>>
+>> Following CPSW components will be common for both the interfaces.
+>> * Interrupt source is common for both eth interfaces
+>> * Interrupt pacing is common for both interfaces
+>> * Hardware statistics is common for all the ports
+>> * CPDMA is common for both eth interface
+>> * CPTS is common for both the interface and it should not be enabled on
+>>    both the interface as timestamping information doesn't contain port
+>>    information.
+>>
+>> Constrains
+>> * Reserved VID of One port should not be used in other interface 
+>> which will
+>>    enable switching functionality
+>> * Same VID must not be used in both the interface which will enable 
+>> switching
+>>    functionality
+>>
+>> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 >> ---
->>   include/linux/skbuff.h | 20 ++++++++++++++++++++
->>   net/packet/af_packet.c | 38 ++++----------------------------------
->>   2 files changed, 24 insertions(+), 34 deletions(-)
->>
->> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
->> index e27d1c7..d0d436f 100644
->> --- a/include/linux/skbuff.h
->> +++ b/include/linux/skbuff.h
->> @@ -33,6 +33,7 @@
->>   #include <linux/dma-mapping.h>
->>   #include <linux/netdev_features.h>
->>   #include <net/flow_keys.h>
->> +#include <linux/net_tstamp.h>
->>
->>   /* Don't change this without changing skb_csum_unnecessary! */
->>   #define CHECKSUM_NONE 0
->> @@ -739,6 +740,25 @@ static inline struct skb_shared_hwtstamps *skb_hwtstamps(struct sk_buff *skb)
->>          return &skb_shinfo(skb)->hwtstamps;
->>   }
->>
->> +static inline struct timespec skb_get_tstamp(struct sk_buff *skb,
->> +                                            unsigned int flags)
->> +{
->> +       struct skb_shared_hwtstamps *ts = skb_hwtstamps(skb);
->> +
->> +       if ((flags & SOF_TIMESTAMPING_SYS_HARDWARE) && ts->syststamp.tv64)
 >
-> Also, packet sockets use the flags these SOF_... constants passed from
-> userspace directly, but regular socket paths convert this into socket
-> flags SOCK_..., so this code is more packet socket specific than it
-> seems. See __sock_recv_timestamp. I'd keep the function in
-> net/packet/af_packet.c solely for this reason, or add a comment.
+>> @@ -1237,6 +1372,18 @@ static int cpsw_probe_dt(struct 
+>> cpsw_platform_data *data,
+>>           if (mac_addr)
+>>               memcpy(slave_data->mac_addr, mac_addr, ETH_ALEN);
+>>
+>> +        if (data->dual_emac) {
+>> +            if (of_property_read_u32(node, "dual_emac_res_vlan",
+>> +                         &prop)) {
+>
+> Shouldn't this be:-
+>
+>     if (of_property_read_u32(slave_node, "dual_emac_res_vlan",
+>                                  ^^^^^^^^^^
+>
+> ... so we pick each VLAN id from the individual slaves ?
 
-Hm, right. I do not really see a reason why we need to maintain this twice
-(introduced by 614f60fa9 ``packet_mmap: expose hw packet timestamps to network
-packet capture utilities'').
+Good catch, will send a fixup patch for this.
 
-This could also have been implemented actually with normal SOCK_ flags, i.e.
-since we use sock_tx_timestamp() which uses SOCK_ flags. I will respin and try
-to address that.
-
->> +               return ktime_to_timespec(ts->syststamp);
->> +       else if ((flags & SOF_TIMESTAMPING_RAW_HARDWARE) && ts->hwtstamp.tv64)
->> +               return ktime_to_timespec(ts->hwtstamp);
->> +       else if (skb->tstamp.tv64)
->> +               return ktime_to_timespec(skb->tstamp);
->> +       else {
->> +               struct timespec tc;
->> +
->> +               getnstimeofday(&tc);
->> +               return tc;
->> +       }
->> +}
->> +
->>   /**
->>    *     skb_queue_empty - check if a queue is empty
->>    *     @list: queue head
->> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
->> index 77d71f8..2a2a62e 100644
->> --- a/net/packet/af_packet.c
->> +++ b/net/packet/af_packet.c
->> @@ -1681,9 +1681,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
->>          unsigned long status = TP_STATUS_USER;
->>          unsigned short macoff, netoff, hdrlen;
->>          struct sk_buff *copy_skb = NULL;
->> -       struct timeval tv;
->>          struct timespec ts;
->> -       struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
->>
->>          if (skb->pkt_type == PACKET_LOOPBACK)
->>                  goto drop;
->> @@ -1767,24 +1765,16 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
->>
->>          skb_copy_bits(skb, 0, h.raw + macoff, snaplen);
->>
->> +       ts = skb_get_tstamp(skb, po->tp_tstamp);
->> +
->>          switch (po->tp_version) {
->>          case TPACKET_V1:
->>                  h.h1->tp_len = skb->len;
->>                  h.h1->tp_snaplen = snaplen;
->>                  h.h1->tp_mac = macoff;
->>                  h.h1->tp_net = netoff;
->> -               if ((po->tp_tstamp & SOF_TIMESTAMPING_SYS_HARDWARE)
->> -                               && shhwtstamps->syststamp.tv64)
->> -                       tv = ktime_to_timeval(shhwtstamps->syststamp);
->> -               else if ((po->tp_tstamp & SOF_TIMESTAMPING_RAW_HARDWARE)
->> -                               && shhwtstamps->hwtstamp.tv64)
->> -                       tv = ktime_to_timeval(shhwtstamps->hwtstamp);
->> -               else if (skb->tstamp.tv64)
->> -                       tv = ktime_to_timeval(skb->tstamp);
->> -               else
->> -                       do_gettimeofday(&tv);
->> -               h.h1->tp_sec = tv.tv_sec;
->> -               h.h1->tp_usec = tv.tv_usec;
->> +               h.h1->tp_sec = ts.tv_sec;
->> +               h.h1->tp_usec = ts.tv_nsec / NSEC_PER_USEC;
->>                  hdrlen = sizeof(*h.h1);
->>                  break;
->>          case TPACKET_V2:
->> @@ -1792,16 +1782,6 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
->>                  h.h2->tp_snaplen = snaplen;
->>                  h.h2->tp_mac = macoff;
->>                  h.h2->tp_net = netoff;
->> -               if ((po->tp_tstamp & SOF_TIMESTAMPING_SYS_HARDWARE)
->> -                               && shhwtstamps->syststamp.tv64)
->> -                       ts = ktime_to_timespec(shhwtstamps->syststamp);
->> -               else if ((po->tp_tstamp & SOF_TIMESTAMPING_RAW_HARDWARE)
->> -                               && shhwtstamps->hwtstamp.tv64)
->> -                       ts = ktime_to_timespec(shhwtstamps->hwtstamp);
->> -               else if (skb->tstamp.tv64)
->> -                       ts = ktime_to_timespec(skb->tstamp);
->> -               else
->> -                       getnstimeofday(&ts);
->>                  h.h2->tp_sec = ts.tv_sec;
->>                  h.h2->tp_nsec = ts.tv_nsec;
->>                  if (vlan_tx_tag_present(skb)) {
->> @@ -1822,16 +1802,6 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
->>                  h.h3->tp_snaplen = snaplen;
->>                  h.h3->tp_mac = macoff;
->>                  h.h3->tp_net = netoff;
->> -               if ((po->tp_tstamp & SOF_TIMESTAMPING_SYS_HARDWARE)
->> -                               && shhwtstamps->syststamp.tv64)
->> -                       ts = ktime_to_timespec(shhwtstamps->syststamp);
->> -               else if ((po->tp_tstamp & SOF_TIMESTAMPING_RAW_HARDWARE)
->> -                               && shhwtstamps->hwtstamp.tv64)
->> -                       ts = ktime_to_timespec(shhwtstamps->hwtstamp);
->> -               else if (skb->tstamp.tv64)
->> -                       ts = ktime_to_timespec(skb->tstamp);
->> -               else
->> -                       getnstimeofday(&ts);
->>                  h.h3->tp_sec  = ts.tv_sec;
->>                  h.h3->tp_nsec = ts.tv_nsec;
->>                  hdrlen = sizeof(*h.h3);
->> --
->> 1.7.11.7
->>
+Regards
+Mugunthan V N
