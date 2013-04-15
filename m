@@ -1,61 +1,104 @@
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: Re: [PATCH net-next] vxlan: don't bypass encapsulation for multi- and broadcasts
-Date: Mon, 15 Apr 2013 09:23:59 +0300
-Message-ID: <CAF1J0HNT0W2HcopQrRarrGBcryjH-wVX55sm7V+L-evi64xGww@mail.gmail.com>
-References: <1365931311-26285-1-git-send-email-mike.rapoport@ravellosystems.com>
-	<20130414.153950.1876060927096209566.davem@davemloft.net>
-	<CAF1J0HMoSY4b4RWDPW3yRmXovBcot_1UMo4QJkbg43KJxTWPkg@mail.gmail.com>
-	<20130415.014530.1175856229390286987.davem@davemloft.net>
+From: Willy Tarreau <w@1wt.eu>
+Subject: net: mvneta: fix improper tx queue usage in mvneta_tx()
+Date: Mon, 15 Apr 2013 08:35:37 +0200
+Message-ID: <20130415063537.GA26507@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog107.obsmtp.com ([74.125.245.82]:35101 "HELO
-	na3sys010aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751523Ab3DOGYC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 02:24:02 -0400
-Received: by mail-ob0-f197.google.com with SMTP id ef5so26972201obb.4
-        for <netdev@vger.kernel.org>; Sun, 14 Apr 2013 23:24:00 -0700 (PDT)
-In-Reply-To: <20130415.014530.1175856229390286987.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+ Maen Suleiman <maen@marvell.com>, netdev@vger.kernel.org,
+ Gregory CLEMENT <gregory.clement@free-electrons.com>,
+ Lior Amsalem <alior@marvell.com>, Ben Hutchings <bhutchings@solarflare.com>,
+ Dmitri Epshtein <dima@marvell.com>, linux-arm-kernel@lists.infradead.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 15, 2013 at 8:45 AM, David Miller <davem@davemloft.net> wrote:
-> From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-> Date: Mon, 15 Apr 2013 08:31:15 +0300
->
->> On Sun, Apr 14, 2013 at 10:39 PM, David Miller <davem@davemloft.net> wrote:
->>> From: Mike Rapoport <mike.rapoport@ravellosystems.com>
->>> Date: Sun, 14 Apr 2013 12:21:51 +0300
->>>
->>>> The multicast and broadcast packets may have RTCF_LOCAL set in rt_flags
->>>> and therefore will be sent out bypassing encapsulation. This breaks
->>>> delivery of packets sent to the vxlan multicast group.
->>>> Disabling encapsulation bypass for multicasts and broadcasts fixes the
->>>> issue.
->>>>
->>>> Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
->>>
->>> This still won't handle the case of encapsulations occuring in different
->>> namespaces or virtual machines.
->>>
->>> I really want this fixed correctly.
->>
->> I'm sorry, but I don't quite follow you. The patch does not aim to
->> reduce the amount of encapsulation. On the contrary, it prevents some
->> packets from being encapsulated when they should not be...
->
-> I'm saying you need to make sure the bypass is avoided in these
-> situations as well.
+>From 4f2069c92a27790e6071dc2a80f92c166e0b0ca4 Mon Sep 17 00:00:00 2001
+From: Willy Tarreau <w@1wt.eu>
+Date: Thu, 11 Apr 2013 23:00:37 +0200
+Subject: net: mvneta: fix improper tx queue usage in mvneta_tx()
 
-Ok, I see, thanks.
+mvneta_tx() was using a static tx queue number causing crashes as
+soon as a little bit of traffic was sent via the interface, because
+it is normally expected that the same queue should be used as in
+dev_queue_xmit().
 
-> There is an ongoing discussion about this on the list between Cong
-> Wang and the author of the bypass changes.
+As suggested by Ben Hutchings, let's use skb_get_queue_mapping() to
+get the proper Tx queue number, and use alloc_etherdev_mqs() instead
+of alloc_etherdev_mq() to create the queues.
 
-Yes, I'm following that discussion.
+Both my Mirabox and my OpenBlocks AX3 used to crash without this patch
+and don't anymore with it. The issue appeared in 3.8 but became more
+visible after the fix allowing GSO to be enabled.
 
+Original work was done by Dmitri Epshtein and Thomas Petazzoni. I
+just adapted it to take care of Ben's comments.
+
+Signed-off-by: Willy Tarreau <w@1wt.eu>
+Cc: Dmitri Epshtein <dima@marvell.com>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 1e628ce..a47a097 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -374,7 +374,6 @@ static int rxq_number = 8;
+ static int txq_number = 8;
+ 
+ static int rxq_def;
+-static int txq_def;
+ 
+ #define MVNETA_DRIVER_NAME "mvneta"
+ #define MVNETA_DRIVER_VERSION "1.0"
+@@ -1475,7 +1474,8 @@ error:
+ static int mvneta_tx(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct mvneta_port *pp = netdev_priv(dev);
+-	struct mvneta_tx_queue *txq = &pp->txqs[txq_def];
++	u16 txq_id = skb_get_queue_mapping(skb);
++	struct mvneta_tx_queue *txq = &pp->txqs[txq_id];
+ 	struct mvneta_tx_desc *tx_desc;
+ 	struct netdev_queue *nq;
+ 	int frags = 0;
+@@ -1485,7 +1485,7 @@ static int mvneta_tx(struct sk_buff *skb, struct net_device *dev)
+ 		goto out;
+ 
+ 	frags = skb_shinfo(skb)->nr_frags + 1;
+-	nq    = netdev_get_tx_queue(dev, txq_def);
++	nq    = netdev_get_tx_queue(dev, txq_id);
+ 
+ 	/* Get a descriptor for the first part of the packet */
+ 	tx_desc = mvneta_txq_next_desc_get(txq);
+@@ -2689,7 +2689,7 @@ static int mvneta_probe(struct platform_device *pdev)
+ 		return -EINVAL;
+ 	}
+ 
+-	dev = alloc_etherdev_mq(sizeof(struct mvneta_port), 8);
++	dev = alloc_etherdev_mqs(sizeof(struct mvneta_port), txq_number, rxq_number);
+ 	if (!dev)
+ 		return -ENOMEM;
+ 
+@@ -2844,4 +2844,3 @@ module_param(rxq_number, int, S_IRUGO);
+ module_param(txq_number, int, S_IRUGO);
+ 
+ module_param(rxq_def, int, S_IRUGO);
+-module_param(txq_def, int, S_IRUGO);
 -- 
-Sincerely yours,
-Mike.
+1.7.12.2.21.g234cd45.dirty
