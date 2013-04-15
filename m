@@ -1,43 +1,45 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 0/2 v3] changed irq handling for
-	at86rf230
-Date: Mon, 15 Apr 2013 15:49:31 -0400 (EDT)
-Message-ID: <20130415.154931.1534207963525784709.davem@davemloft.net>
-References: <cover.1366012862.git.sascha@ps.nvbi.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: sascha-2k69yqSu1NaELgA04lAiVw@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <cover.1366012862.git.sascha-2k69yqSu1NaELgA04lAiVw@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCHv2 0/2] Add suppport for sync of hw addresses to multiple devices.
+Date: Mon, 15 Apr 2013 15:54:24 -0400
+Message-ID: <1366055666-12916-1-git-send-email-vyasevic@redhat.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:61274 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754115Ab3DOTy2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Apr 2013 15:54:28 -0400
+Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r3FJsR8Z014624
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 15:54:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sascha Herrmann <sascha-2k69yqSu1NaELgA04lAiVw@public.gmane.org>
-Date: Mon, 15 Apr 2013 10:33:27 +0200
+Current dev_[uc|mc]_addr_sync() API currently correctly syncs the
+addresses to the first device.  Any subsequent calls to sync will
+not do anything since the synched variable will be set.  This
+variable is used as an optimization to skip over addresses that have
+been synched.
 
-> Changes to last version: Reordered local variable declarations.
-> 
-> The first patch add the option to configure the irq type of the
-> plattform and the device. The second patch changes the irq handling
-> when edge type interrupts are configured.
-> 
-> Without irq configuration of the irq type, the driver will remain
-> backward compatible.
+There are some devices (ex: team) that attempt to do the above.  There
+is other work in progress that needs to above to work corretly.
 
-I'd like to see some reviews of this patch series, thanks.
+The short series introduces dev_[uc|mc]_addr_synch_multiple() that
+allows multiple calls to sync to multiple different devices.  Original
+API is left alone and still has the limitation.
 
-------------------------------------------------------------------------------
-Precog is a next-generation analytics platform capable of advanced
-analytics on semi-structured data. The platform includes APIs for building
-apps and a phenomenal toolset for data science. Developers can use
-our toolset for easy data analysis & visualization. Get a free account!
-http://www2.precog.com/precogplatform/slashdotnewsletter
+Changes since v1:
+  - Commit abstract corrections.
+
+Vlad Yasevich (2):
+  net: add dev_uc_sync_multiple() and dev_mc_sync_multiple() api
+  team:  Use new sync_multiple api to sync devices adressess.
+
+ drivers/net/team/team.c   |    4 +-
+ include/linux/netdevice.h |    3 +
+ net/core/dev_addr_lists.c |  210 ++++++++++++++++++++++++++++++++++++---------
+ 3 files changed, 173 insertions(+), 44 deletions(-)
+
+-- 
+1.7.7.6
