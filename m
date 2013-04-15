@@ -1,61 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 56641] New: Kernel looses networking connectivity
-Date: Mon, 15 Apr 2013 10:22:19 -0700
-Message-ID: <20130415102219.2e5542f7@samsung-9>
+From: Mark Jackson <mpfj-list@mimc.co.uk>
+Subject: Re: [PATCH 0/3] Dual EMAC mode implementation of CPSW
+Date: Mon, 15 Apr 2013 18:28:25 +0100
+Message-ID: <516C38B9.50904@mimc.co.uk>
+References: <1360612340-9266-1-git-send-email-mugunthanvnm@ti.com> <516B0098.4040809@mimc.co.uk> <516C33D2.4050105@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:54226 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756068Ab3DORWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 13:22:30 -0400
-Received: by mail-pd0-f176.google.com with SMTP id r11so2594636pdi.7
-        for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 10:22:29 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <516C33D2.4050105@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 15/04/13 18:07, Mugunthan V N wrote:
+> On 4/15/2013 12:46 AM, Mark Jackson wrote:
 
+<snip>
 
-Begin forwarded message:
+>>
+>> Notice that at the end, the nfs link appears to come back "ok", but
+>> the "ps" command never completes.
+>>
+>> Any ideas of what's going on ?
+>
+> I have tried ping on both the interface fine. Will verify with ps again
+> later in this week.
+> Can you provide below details details
+> - Are you using EVMsk or custom build EVM?
 
-Date: Mon, 15 Apr 2013 10:17:27 -0700
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 56641] New: Kernel looses networking connectivity
+This is a custom board (based on the BeagleBone design) with dual 
+Ethernet, NAND, NOR and FRAM.
 
+The dual emac thing is (one of) the last things to get signed off, so 
+I'm willing to assist in tracking this down.
 
-https://bugzilla.kernel.org/show_bug.cgi?id=56641
-
-           Summary: Kernel looses networking connectivity
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.7 to 3.8
-          Platform: All
-        OS/Version: Linux
-              Tree: Fedora
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: Other
-        AssignedTo: shemminger@linux-foundation.org
-        ReportedBy: g0tt@rocketmail.com
-        Regression: Yes
-
-
-In my home network I have a Belkin router with an older DD-WRT firmware.
-Everything was running fine with Windows 7 and Ubuntu 12.04.
-Trouble startet with the new OpenSuse (12.3?) with kernel 3.7 on my desktop
-machine. Wired networking would just stop working.
-Same problem on my netbook with Ubuntu 13.04 and wireless networking, with
-12.04 and kernel 3.5 things are much better, with 3.2 it was perfect.
-I tried installing Fedora and Arch on my desktop, but the problem persists with
-kernel 3.8. My wild guess is that newer kernels networking code rubs my Belkin
-router the wrong way, but I don't know what kernel settings I need to change.
-Thanks in advance.
-
--- 
-Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
-------- You are receiving this mail because: -------
-You are the assignee for the bug.
+Regards
+Mark J.
