@@ -1,54 +1,46 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: No longer able to add iptunnel interface to bridge?
-Date: Mon, 15 Apr 2013 11:12:13 -0700
-Message-ID: <20130415111213.62c4d117@samsung-9>
-References: <Pine.LNX.4.61.1304151757340.20041@envy.nxs.se>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Build error v3.9-rc when CONFIG_IPV6 configured as module
+Date: Mon, 15 Apr 2013 20:12:28 +0200
+Message-ID: <1366049548.8361.35.camel@jlt4.sipsolutions.net>
+References: <1366016535.8361.2.camel@jlt4.sipsolutions.net>
+	 <1366016677.8361.3.camel@jlt4.sipsolutions.net>
+	 <1366016729.8361.4.camel@jlt4.sipsolutions.net>
+	 <20130415.133059.752889111702097790.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Tomas Agartz <tlund@nxs.se>
+Cc: tomas.melin@iki.fi, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f51.google.com ([209.85.210.51]:52766 "EHLO
-	mail-da0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754456Ab3DOSMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 14:12:20 -0400
-Received: by mail-da0-f51.google.com with SMTP id g27so2179733dan.10
-        for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 11:12:20 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.61.1304151757340.20041@envy.nxs.se>
+Received: from he.sipsolutions.net ([78.46.109.217]:50330 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755092Ab3DOSMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 14:12:37 -0400
+In-Reply-To: <20130415.133059.752889111702097790.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 15 Apr 2013 18:14:32 +0200 (CEST)
-Tomas Agartz <tlund@nxs.se> wrote:
+On Mon, 2013-04-15 at 13:30 -0400, David Miller wrote:
+> From: Johannes Berg <johannes@sipsolutions.net>
+> Date: Mon, 15 Apr 2013 11:05:29 +0200
+> 
+> > On Mon, 2013-04-15 at 11:04 +0200, Johannes Berg wrote:
+> > 
+> >> > Oops, I didn't realize that IPv6 could even (still) be built as a
+> >> > module. I'll add this to mac80211's Kconfig:
+> >> >    depends on IPV6 || !IPV6
+> >> > to fix this.
+> >> 
+> >> Hm, actually, that's not sufficient since there are no no-op versions of
+> >> these functions when IPv6 isn't built ... needs a bit more.
+> > 
+> > Oh, never mind, I already handle that case ... Should check the code
+> > before :)
+> 
+> Johannes, we already fixed this, see 'net'.  Don't add more hacks to
+> mac80211.
 
-> After rebooting my router/firewall (Debian Wheezy with debian 3.2.41-2 
-> kernel), I am no longer able to add an iptunnel to a bridge interface.
-> 
-> The iptunnel is configured like this:
-> 
-> iptunnel add TUNNEL mode ipip remote x.x.x.x local y.y.y.y ttl 32
-> ifconfig TUNNEL z.z.z.z netmask 255.255.255.254 up
-> 
-> and this is what strace shows when I try to do "brctl addif test TUNNEL":
-> 
-> ioctl(3, SIOCBRADDIF, 0x7fffafba64c0)   = -1 EINVAL (Invalid argument)
-> ioctl(3, SIOCDEVPRIVATE, 0x7fffafba64c0) = -1 EINVAL (Invalid argument)
-> 
-> I have no idea if I might have changed something in userspace by misstake, 
-> or if there has been a change in the kernel since last reboot. The same 
-> machine has a different bridge with an L2TPv3 tunnel added, this works 
-> fine.
-> 
-> I understand that the info here is not much to go on, but I am unsure what 
-> else to attach. Plese ask for further info and I shall provide it!
-> 
-> Best regards,
-> Tomas
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Alright, thanks! Sorry for the noise, I wasn't aware of the other patch
+until Tomas pointed it out.
 
-You created a network level (L3) tunnel, which starts with IP header.
-Bridging requires an Ethernet like (L2) tunnel, where packets start with Ethernet header.
+johannes
