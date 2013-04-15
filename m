@@ -1,89 +1,55 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 0/5 v2] mv643xx_eth: device tree bindings
-Date: Mon, 15 Apr 2013 04:07:14 +0100
-Message-ID: <1365995234.3566.17.camel@deadeye.wl.decadent.org.uk>
-References: <1365071235-11611-1-git-send-email-florian@openwrt.org>
-	 <20130411165303.GI28693@titan.lakedaemon.net>
-	 <20130413172126.6cca0809@skate>
-	 <20130413190037.GY28693@titan.lakedaemon.net>
+From: Sridhar Samudrala <samudrala.sridhar@gmail.com>
+Subject: Re: [Patch net-next] vxlan: revert "vxlan: Bypass encapsulation if
+ the destination is local"
+Date: Sun, 14 Apr 2013 21:20:40 -0700
+Message-ID: <516B8018.80308@gmail.com>
+References: <516641CF.4020101@us.ibm.com>  <1937058599.2214531.1365659704193.JavaMail.root@redhat.com>  <1365724799.3563.5.camel@sridhar.usor.ibm.com>  <20130412.151916.63924835658790088.davem@davemloft.net>  <516893BD.20303@us.ibm.com> <1365993080.5074.5.camel@cr0>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-6NDU4xR1TkIWMLJgzvxg"
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Florian Fainelli <florian@openwrt.org>, davem@davemloft.net,
-	moinejf@free.fr, andrew@lunn.ch, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org, rob.herring@calxeda.com,
-	grant.likely@secretlab.ca, jogo@openwrt.org,
-	buytenh@wantstofly.org, jm@lentin.co.uk,
-	linux-arm-kernel@lists.infradead.org,
-	sebastian.hesselbarth@gmail.com
-To: Jason Cooper <jason@lakedaemon.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mike.rapoport@ravellosystems.com
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:47501 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934105Ab3DODHc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 23:07:32 -0400
-In-Reply-To: <20130413190037.GY28693@titan.lakedaemon.net>
+Received: from mail-qc0-f182.google.com ([209.85.216.182]:45399 "EHLO
+	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751264Ab3DOEUp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 00:20:45 -0400
+Received: by mail-qc0-f182.google.com with SMTP id k19so2008108qcs.13
+        for <netdev@vger.kernel.org>; Sun, 14 Apr 2013 21:20:44 -0700 (PDT)
+In-Reply-To: <1365993080.5074.5.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 4/14/2013 7:31 PM, Cong Wang wrote:
+> On Fri, 2013-04-12 at 16:07 -0700, Sridhar Samudrala wrote:
+>> To address this behavior seen with veth, i had to change the if
+>> condition to
+>> check for rt->dst.dev->flags rather than rt->rt_flags.
+> There is no specific IFF_ flag for veth, nor I think introducing one is
+> a correct fix.
+>
+> I think we can just revert it for now, since it is not very easy to fix.
+> You can, of course, send a bug-free version later. This regression
+> blocks my VXLAN IPv6 support patches, by the way.
+>
+>
+I am not suggesting adding a new IFF_ flag for veth. I was referring to the
+IFF_LOOPBACKflag and it should work fine for your setup.
 
---=-6NDU4xR1TkIWMLJgzvxg
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+However, i think Mike Rapaport't patch that adds a check to test for 
+multicast/
+broadcast routeisa better fix. Did you try that patch?
+I tried it in my setup using both vxlan/DOVE configuration between VMs 
+in the
+same networknamespace on 2 different bridges as well as the veth 
+configuration
+between 2 network namespsaces.
 
-On Sat, 2013-04-13 at 15:00 -0400, Jason Cooper wrote:
-> On Sat, Apr 13, 2013 at 05:21:26PM +0200, Thomas Petazzoni wrote:
-> > Dear Jason Cooper,
-> >=20
-> > On Thu, 11 Apr 2013 12:53:03 -0400, Jason Cooper wrote:
-> >=20
-> > > With this and Thomas' pci series, we will have Kirkwood fully
-> > > converted to devicetree, can begin removing board files, and finally
-> > > begin migrating everything over to mach-mvebu/.  This will lead to
-> > > the removal of five directories under arch/arm/ (plat-orion,
-> > > mach-kirkwood, mach-orion5x, mach-dove, and mach-mv78xx0).
-> >=20
-> > No, we can't remove mach-orion5x and mach-mv78xx0 for now, they have
-> > not been converted at all in terms of gpio/pinmux support. I've started
-> > writing some pinmux code for orion5x but it's not ready.
-[...]
-> Also, I have a feeling that not all legacy boards will get converted
-> over.  If there is no interest or no way to test, certains boards may
-> get deprecated.
+Could you try his patch in your configuration. I think it will work and 
+if so
+we should go withthat patch.
 
-Debian supports many Kirkwood and Orion 5x systems.  A call for testing
-on the debian-arm@lists.debian.org list might be worthwhile.
-
-I would be very glad to see kirkwood, orion5x and mv78xx0 merged - we
-build natively and this takes about 8 hours for each configuration.
-
-Ben.
-
---=20
-Ben Hutchings
-The first rule of tautology club is the first rule of tautology club.
-
---=-6NDU4xR1TkIWMLJgzvxg
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIVAwUAUWtu4ue/yOyVhhEJAQoDvw/+IGtHDqlsc21Jwrd/xDsIMew/Ie13LdLl
-+9ZxrigtCBJW4yqbouqcC2lq+WEVW8kjA0mj+oKnl/WJ5umckx63fThH6EcapFLb
-VurNa9OCZOu7ODXoVa+BfN82NcMPdokP6rLGAOYzeoxXMu0VVKObjNx+neA2preW
-PSoO5fffNMQ6ImfRuI26+ju6/R62Xuwa9G3366q2aALqzF/dTnxK9vHwbbMbCnQA
-sptDrVnpdYXgL2LNj6M9GZ0aBtP+pnOMnFR92EAQ2t/87BEv8Aydx/K+DEumpbE0
-CWJpf1qrz4Z18vbZYxGaRNcxEx6LqIbqeLmRnEbLdI9uOEQ4AJQ2S2R1N9uWVzO5
-IpSwcjoRqYrF00n/pLCtwNTfTSWyNgHILWwPlkoQGjA6jb9LNmrT5XGZqaMqItHU
-SdVV/M5pTJ2/Rvv9s2PTgPS7CaYYiQSTfcdftj9vCBAviBXxEFCe0QtBkDTKLC8W
-bs8wATqPF3dRPxIYm0qPs9LO6wns7nhJq0dRMcQD5jB7eiFYJxcONQ9squvCwRjR
-G5K3EmHexJaCE5x0usKrdn95HSbKC/1ZQt7hsa4SZROlCjiNqiokg4GEFhGLz5Oj
-LYFuSc/mN8v6so0amKFueXiGvm2fvJ7FtI56MOMm2S3LuT4yEUW14dLjo835QT0y
-CfBHqd+sN44=
-=kgFk
------END PGP SIGNATURE-----
-
---=-6NDU4xR1TkIWMLJgzvxg--
+Thanks
+Sridhar
