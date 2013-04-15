@@ -1,45 +1,405 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCHv2 0/2] Add suppport for sync of hw addresses to multiple devices.
-Date: Mon, 15 Apr 2013 15:54:24 -0400
-Message-ID: <1366055666-12916-1-git-send-email-vyasevic@redhat.com>
-Cc: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCHv2 1/2] net: add dev_uc_sync_multiple() and dev_mc_sync_multiple() api
+Date: Mon, 15 Apr 2013 15:54:25 -0400
+Message-ID: <1366055666-12916-2-git-send-email-vyasevic@redhat.com>
+References: <1366055666-12916-1-git-send-email-vyasevic@redhat.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>, Jiri Pirko <jiri@resnulli.us>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61274 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51582 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754115Ab3DOTy2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Apr 2013 15:54:28 -0400
-Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r3FJsR8Z014624
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 15:54:27 -0400
+	id S1755139Ab3DOTy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Apr 2013 15:54:29 -0400
+In-Reply-To: <1366055666-12916-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current dev_[uc|mc]_addr_sync() API currently correctly syncs the
-addresses to the first device.  Any subsequent calls to sync will
-not do anything since the synched variable will be set.  This
-variable is used as an optimization to skip over addresses that have
-been synched.
+The current implementation of dev_uc_sync/unsync() assumes that there is
+a strict 1-to-1 relationship between the source and destination of the sync.
+In other words, once an address has been synced to a destination device, it
+will not be synced to any other device through the sync API.
+However, there are some virtual devices that aggreate a number of lower
+devices and need to sync addresses to all of them.  The current
+API falls short there.
 
-There are some devices (ex: team) that attempt to do the above.  There
-is other work in progress that needs to above to work corretly.
+This patch introduces a new dev_uc_sync_multiple() api that can be called
+in the above circumstances and allows sync to work for every invocation.
 
-The short series introduces dev_[uc|mc]_addr_synch_multiple() that
-allows multiple calls to sync to multiple different devices.  Original
-API is left alone and still has the limitation.
-
-Changes since v1:
-  - Commit abstract corrections.
-
-Vlad Yasevich (2):
-  net: add dev_uc_sync_multiple() and dev_mc_sync_multiple() api
-  team:  Use new sync_multiple api to sync devices adressess.
-
- drivers/net/team/team.c   |    4 +-
+CC: Jiri Pirko <jiri@resnulli.us>
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
  include/linux/netdevice.h |    3 +
  net/core/dev_addr_lists.c |  210 ++++++++++++++++++++++++++++++++++++---------
- 3 files changed, 173 insertions(+), 44 deletions(-)
+ 2 files changed, 171 insertions(+), 42 deletions(-)
 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 6151e90..4c5d42a 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -211,6 +211,7 @@ struct netdev_hw_addr {
+ #define NETDEV_HW_ADDR_T_UNICAST	4
+ #define NETDEV_HW_ADDR_T_MULTICAST	5
+ 	bool			global_use;
++	int			sync_cnt;
+ 	int			refcount;
+ 	int			synced;
+ 	struct rcu_head		rcu_head;
+@@ -2621,6 +2622,7 @@ extern int dev_uc_add(struct net_device *dev, const unsigned char *addr);
+ extern int dev_uc_add_excl(struct net_device *dev, const unsigned char *addr);
+ extern int dev_uc_del(struct net_device *dev, const unsigned char *addr);
+ extern int dev_uc_sync(struct net_device *to, struct net_device *from);
++extern int dev_uc_sync_multiple(struct net_device *to, struct net_device *from);
+ extern void dev_uc_unsync(struct net_device *to, struct net_device *from);
+ extern void dev_uc_flush(struct net_device *dev);
+ extern void dev_uc_init(struct net_device *dev);
+@@ -2632,6 +2634,7 @@ extern int dev_mc_add_excl(struct net_device *dev, const unsigned char *addr);
+ extern int dev_mc_del(struct net_device *dev, const unsigned char *addr);
+ extern int dev_mc_del_global(struct net_device *dev, const unsigned char *addr);
+ extern int dev_mc_sync(struct net_device *to, struct net_device *from);
++extern int dev_mc_sync_multiple(struct net_device *to, struct net_device *from);
+ extern void dev_mc_unsync(struct net_device *to, struct net_device *from);
+ extern void dev_mc_flush(struct net_device *dev);
+ extern void dev_mc_init(struct net_device *dev);
+diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
+index abdc9e6..c013f38 100644
+--- a/net/core/dev_addr_lists.c
++++ b/net/core/dev_addr_lists.c
+@@ -22,7 +22,8 @@
+ 
+ static int __hw_addr_create_ex(struct netdev_hw_addr_list *list,
+ 			       const unsigned char *addr, int addr_len,
+-			       unsigned char addr_type, bool global)
++			       unsigned char addr_type, bool global,
++			       bool sync)
+ {
+ 	struct netdev_hw_addr *ha;
+ 	int alloc_size;
+@@ -37,7 +38,7 @@ static int __hw_addr_create_ex(struct netdev_hw_addr_list *list,
+ 	ha->type = addr_type;
+ 	ha->refcount = 1;
+ 	ha->global_use = global;
+-	ha->synced = 0;
++	ha->synced = sync;
+ 	list_add_tail_rcu(&ha->list, &list->list);
+ 	list->count++;
+ 
+@@ -46,7 +47,7 @@ static int __hw_addr_create_ex(struct netdev_hw_addr_list *list,
+ 
+ static int __hw_addr_add_ex(struct netdev_hw_addr_list *list,
+ 			    const unsigned char *addr, int addr_len,
+-			    unsigned char addr_type, bool global)
++			    unsigned char addr_type, bool global, bool sync)
+ {
+ 	struct netdev_hw_addr *ha;
+ 
+@@ -63,43 +64,62 @@ static int __hw_addr_add_ex(struct netdev_hw_addr_list *list,
+ 				else
+ 					ha->global_use = true;
+ 			}
++			if (sync) {
++				if (ha->synced)
++					return 0;
++				else
++					ha->synced = true;
++			}
+ 			ha->refcount++;
+ 			return 0;
+ 		}
+ 	}
+ 
+-	return __hw_addr_create_ex(list, addr, addr_len, addr_type, global);
++	return __hw_addr_create_ex(list, addr, addr_len, addr_type, global,
++				   sync);
+ }
+ 
+ static int __hw_addr_add(struct netdev_hw_addr_list *list,
+ 			 const unsigned char *addr, int addr_len,
+ 			 unsigned char addr_type)
+ {
+-	return __hw_addr_add_ex(list, addr, addr_len, addr_type, false);
++	return __hw_addr_add_ex(list, addr, addr_len, addr_type, false, false);
++}
++
++static int __hw_addr_del_entry(struct netdev_hw_addr_list *list,
++			       struct netdev_hw_addr *ha, bool global,
++			       bool sync)
++{
++	if (global && !ha->global_use)
++		return -ENOENT;
++
++	if (sync && !ha->synced)
++		return -ENOENT;
++
++	if (global)
++		ha->global_use = false;
++
++	if (sync)
++		ha->synced = false;
++
++	if (--ha->refcount)
++		return 0;
++	list_del_rcu(&ha->list);
++	kfree_rcu(ha, rcu_head);
++	list->count--;
++	return 0;
+ }
+ 
+ static int __hw_addr_del_ex(struct netdev_hw_addr_list *list,
+ 			    const unsigned char *addr, int addr_len,
+-			    unsigned char addr_type, bool global)
++			    unsigned char addr_type, bool global, bool sync)
+ {
+ 	struct netdev_hw_addr *ha;
+ 
+ 	list_for_each_entry(ha, &list->list, list) {
+ 		if (!memcmp(ha->addr, addr, addr_len) &&
+-		    (ha->type == addr_type || !addr_type)) {
+-			if (global) {
+-				if (!ha->global_use)
+-					break;
+-				else
+-					ha->global_use = false;
+-			}
+-			if (--ha->refcount)
+-				return 0;
+-			list_del_rcu(&ha->list);
+-			kfree_rcu(ha, rcu_head);
+-			list->count--;
+-			return 0;
+-		}
++		    (ha->type == addr_type || !addr_type))
++			return __hw_addr_del_entry(list, ha, global, sync);
+ 	}
+ 	return -ENOENT;
+ }
+@@ -108,7 +128,57 @@ static int __hw_addr_del(struct netdev_hw_addr_list *list,
+ 			 const unsigned char *addr, int addr_len,
+ 			 unsigned char addr_type)
+ {
+-	return __hw_addr_del_ex(list, addr, addr_len, addr_type, false);
++	return __hw_addr_del_ex(list, addr, addr_len, addr_type, false, false);
++}
++
++static int __hw_addr_sync_one(struct netdev_hw_addr_list *to_list,
++			       struct netdev_hw_addr *ha,
++			       int addr_len)
++{
++	int err;
++
++	err = __hw_addr_add_ex(to_list, ha->addr, addr_len, ha->type,
++			       false, true);
++	if (err)
++		return err;
++	ha->sync_cnt++;
++	ha->refcount++;
++
++	return 0;
++}
++
++static void __hw_addr_unsync_one(struct netdev_hw_addr_list *to_list,
++				 struct netdev_hw_addr_list *from_list,
++				 struct netdev_hw_addr *ha,
++				 int addr_len)
++{
++	int err;
++
++	err = __hw_addr_del_ex(to_list, ha->addr, addr_len, ha->type,
++			       false, true);
++	if (err)
++		return;
++	ha->sync_cnt--;
++	__hw_addr_del_entry(from_list, ha, false, true);
++}
++
++static int __hw_addr_sync_multiple(struct netdev_hw_addr_list *to_list,
++				   struct netdev_hw_addr_list *from_list,
++				   int addr_len)
++{
++	int err = 0;
++	struct netdev_hw_addr *ha, *tmp;
++
++	list_for_each_entry_safe(ha, tmp, &from_list->list, list) {
++		if (ha->sync_cnt == ha->refcount) {
++			__hw_addr_unsync_one(to_list, from_list, ha, addr_len);
++		} else {
++			err = __hw_addr_sync_one(to_list, ha, addr_len);
++			if (err)
++				break;
++		}
++	}
++	return err;
+ }
+ 
+ int __hw_addr_add_multiple(struct netdev_hw_addr_list *to_list,
+@@ -152,6 +222,11 @@ void __hw_addr_del_multiple(struct netdev_hw_addr_list *to_list,
+ }
+ EXPORT_SYMBOL(__hw_addr_del_multiple);
+ 
++/* This function only works where there is a strict 1-1 relationship
++ * between source and destionation of they synch. If you ever need to
++ * sync addresses to more then 1 destination, you need to use
++ * __hw_addr_sync_multiple().
++ */
+ int __hw_addr_sync(struct netdev_hw_addr_list *to_list,
+ 		   struct netdev_hw_addr_list *from_list,
+ 		   int addr_len)
+@@ -160,17 +235,12 @@ int __hw_addr_sync(struct netdev_hw_addr_list *to_list,
+ 	struct netdev_hw_addr *ha, *tmp;
+ 
+ 	list_for_each_entry_safe(ha, tmp, &from_list->list, list) {
+-		if (!ha->synced) {
+-			err = __hw_addr_add(to_list, ha->addr,
+-					    addr_len, ha->type);
++		if (!ha->sync_cnt) {
++			err = __hw_addr_sync_one(to_list, ha, addr_len);
+ 			if (err)
+ 				break;
+-			ha->synced++;
+-			ha->refcount++;
+-		} else if (ha->refcount == 1) {
+-			__hw_addr_del(to_list, ha->addr, addr_len, ha->type);
+-			__hw_addr_del(from_list, ha->addr, addr_len, ha->type);
+-		}
++		} else if (ha->refcount == 1)
++			__hw_addr_unsync_one(to_list, from_list, ha, addr_len);
+ 	}
+ 	return err;
+ }
+@@ -183,13 +253,8 @@ void __hw_addr_unsync(struct netdev_hw_addr_list *to_list,
+ 	struct netdev_hw_addr *ha, *tmp;
+ 
+ 	list_for_each_entry_safe(ha, tmp, &from_list->list, list) {
+-		if (ha->synced) {
+-			__hw_addr_del(to_list, ha->addr,
+-				      addr_len, ha->type);
+-			ha->synced--;
+-			__hw_addr_del(from_list, ha->addr,
+-				      addr_len, ha->type);
+-		}
++		if (ha->sync_cnt)
++			__hw_addr_unsync_one(to_list, from_list, ha, addr_len);
+ 	}
+ }
+ EXPORT_SYMBOL(__hw_addr_unsync);
+@@ -406,7 +471,7 @@ int dev_uc_add_excl(struct net_device *dev, const unsigned char *addr)
+ 		}
+ 	}
+ 	err = __hw_addr_create_ex(&dev->uc, addr, dev->addr_len,
+-				  NETDEV_HW_ADDR_T_UNICAST, true);
++				  NETDEV_HW_ADDR_T_UNICAST, true, false);
+ 	if (!err)
+ 		__dev_set_rx_mode(dev);
+ out:
+@@ -469,7 +534,8 @@ EXPORT_SYMBOL(dev_uc_del);
+  *	locked by netif_addr_lock_bh.
+  *
+  *	This function is intended to be called from the dev->set_rx_mode
+- *	function of layered software devices.
++ *	function of layered software devices.  This function assumes that
++ *	addresses will only ever be synced to the @to devices and no other.
+  */
+ int dev_uc_sync(struct net_device *to, struct net_device *from)
+ {
+@@ -488,6 +554,36 @@ int dev_uc_sync(struct net_device *to, struct net_device *from)
+ EXPORT_SYMBOL(dev_uc_sync);
+ 
+ /**
++ *	dev_uc_sync_multiple - Synchronize device's unicast list to another
++ *	device, but allow for multiple calls to sync to multiple devices.
++ *	@to: destination device
++ *	@from: source device
++ *
++ *	Add newly added addresses to the destination device and release
++ *	addresses that have been deleted from the source. The source device
++ *	must be locked by netif_addr_lock_bh.
++ *
++ *	This function is intended to be called from the dev->set_rx_mode
++ *	function of layered software devices.  It allows for a single source
++ *	device to be synced to multiple destination devices.
++ */
++int dev_uc_sync_multiple(struct net_device *to, struct net_device *from)
++{
++	int err = 0;
++
++	if (to->addr_len != from->addr_len)
++		return -EINVAL;
++
++	netif_addr_lock_nested(to);
++	err = __hw_addr_sync_multiple(&to->uc, &from->uc, to->addr_len);
++	if (!err)
++		__dev_set_rx_mode(to);
++	netif_addr_unlock(to);
++	return err;
++}
++EXPORT_SYMBOL(dev_uc_sync_multiple);
++
++/**
+  *	dev_uc_unsync - Remove synchronized addresses from the destination device
+  *	@to: destination device
+  *	@from: source device
+@@ -559,7 +655,7 @@ int dev_mc_add_excl(struct net_device *dev, const unsigned char *addr)
+ 		}
+ 	}
+ 	err = __hw_addr_create_ex(&dev->mc, addr, dev->addr_len,
+-				  NETDEV_HW_ADDR_T_MULTICAST, true);
++				  NETDEV_HW_ADDR_T_MULTICAST, true, false);
+ 	if (!err)
+ 		__dev_set_rx_mode(dev);
+ out:
+@@ -575,7 +671,7 @@ static int __dev_mc_add(struct net_device *dev, const unsigned char *addr,
+ 
+ 	netif_addr_lock_bh(dev);
+ 	err = __hw_addr_add_ex(&dev->mc, addr, dev->addr_len,
+-			       NETDEV_HW_ADDR_T_MULTICAST, global);
++			       NETDEV_HW_ADDR_T_MULTICAST, global, false);
+ 	if (!err)
+ 		__dev_set_rx_mode(dev);
+ 	netif_addr_unlock_bh(dev);
+@@ -615,7 +711,7 @@ static int __dev_mc_del(struct net_device *dev, const unsigned char *addr,
+ 
+ 	netif_addr_lock_bh(dev);
+ 	err = __hw_addr_del_ex(&dev->mc, addr, dev->addr_len,
+-			       NETDEV_HW_ADDR_T_MULTICAST, global);
++			       NETDEV_HW_ADDR_T_MULTICAST, global, false);
+ 	if (!err)
+ 		__dev_set_rx_mode(dev);
+ 	netif_addr_unlock_bh(dev);
+@@ -679,6 +775,36 @@ int dev_mc_sync(struct net_device *to, struct net_device *from)
+ EXPORT_SYMBOL(dev_mc_sync);
+ 
+ /**
++ *	dev_mc_sync_multiple - Synchronize device's unicast list to another
++ *	device, but allow for multiple calls to sync to multiple devices.
++ *	@to: destination device
++ *	@from: source device
++ *
++ *	Add newly added addresses to the destination device and release
++ *	addresses that have no users left. The source device must be
++ *	locked by netif_addr_lock_bh.
++ *
++ *	This function is intended to be called from the ndo_set_rx_mode
++ *	function of layered software devices.  It allows for a single
++ *	source device to be synced to multiple destination devices.
++ */
++int dev_mc_sync_multiple(struct net_device *to, struct net_device *from)
++{
++	int err = 0;
++
++	if (to->addr_len != from->addr_len)
++		return -EINVAL;
++
++	netif_addr_lock_nested(to);
++	err = __hw_addr_sync(&to->mc, &from->mc, to->addr_len);
++	if (!err)
++		__dev_set_rx_mode(to);
++	netif_addr_unlock(to);
++	return err;
++}
++EXPORT_SYMBOL(dev_mc_sync_multiple);
++
++/**
+  *	dev_mc_unsync - Remove synchronized addresses from the destination device
+  *	@to: destination device
+  *	@from: source device
 -- 
 1.7.7.6
