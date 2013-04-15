@@ -1,88 +1,176 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH] net-packet: tx timestamping on tpacket ring
-Date: Mon, 15 Apr 2013 12:59:26 -0400
-Message-ID: <CA+FuTSdGdhgpRARbv9zFnDESzCQBzT=DS-WgGZRWBLBvhN_sNg@mail.gmail.com>
-References: <CA+FuTSezggEb7znDYMf8vWU7JmWLP59AVPkaTvNaAwJoNcqk9A@mail.gmail.com>
- <1365879412-9541-1-git-send-email-willemb@google.com> <5169D9C8.8010504@redhat.com>
- <CA+FuTSe1KCPPW=FBXZoTNmri9oPHicuoFeEMKws09PwbyRe-2A@mail.gmail.com>
- <516A8A60.5020003@redhat.com> <20130414130726.GB2871@netboy> <516BAE3A.5020508@onera.fr>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] packet: move hw/sw timestamp extraction into
+ a small helper
+Date: Mon, 15 Apr 2013 19:02:03 +0200
+Message-ID: <516C328B.6050408@redhat.com>
+References: <cover.1366022623.git.dborkman@redhat.com> <45719bcd37c3f11eea24c2a72c09abd9907a5072.1366022623.git.dborkman@redhat.com> <CA+FuTSeuUVPuf1paZgXQRr6W5YRJaPfWN57BsHtc2tG8qoS4iQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	daniel.borkmann@tik.ee.ethz.ch, xemul@parallels.com,
-	ebiederm@xmission.com, netdev@vger.kernel.org
-To: Paul Chavent <Paul.Chavent@onera.fr>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f177.google.com ([209.85.210.177]:39162 "EHLO
-	mail-ia0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752249Ab3DOQ74 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 12:59:56 -0400
-Received: by mail-ia0-f177.google.com with SMTP id w33so4575374iag.36
-        for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 09:59:56 -0700 (PDT)
-In-Reply-To: <516BAE3A.5020508@onera.fr>
+Received: from mx1.redhat.com ([209.132.183.28]:28951 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933813Ab3DORCJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Apr 2013 13:02:09 -0400
+In-Reply-To: <CA+FuTSeuUVPuf1paZgXQRr6W5YRJaPfWN57BsHtc2tG8qoS4iQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 15, 2013 at 3:37 AM, Paul Chavent <Paul.Chavent@onera.fr> wrote:
+On 04/15/2013 06:12 PM, Willem de Bruijn wrote:
+> On Mon, Apr 15, 2013 at 7:41 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>> This patch introduces a small helper function, that is used by AF_PACKET.
+>> Based on the flags that are passed, it extracts the packet timestamp in
+>> the receive path. This is merely a refactoring to remove some duplicate
+>> code in tpacket_rcv(), make it more readable, and to enable others to use
+>> this function as well.
 >
+> Good idea. I noticed that while browsing the code over the weekend, too.
 >
-> On 04/14/2013 03:07 PM, Richard Cochran wrote:
->>
->> On Sun, Apr 14, 2013 at 12:52:16PM +0200, Daniel Borkmann wrote:
->>>
->>>
->>> While going a bit more through the code, I'm wondering .. if we want to
->>> support
->>> TX timestamps, could we also support SW _and_ HW timestamps e.g. similar
->>> as in
->>> sock_recv_timestamp()? I'm asking, because we already allow setting the
->>> flags
->>> for it via sock_tx_timestamp(). This might be good, if possible.
->>
->>
->> And while you are at it, you could also fix the receive code.
->>
->> As it stand now, it is fairly useless, since there is no way for user
->> space to tell which kind of time stamp has been reported. In fact, the
->> code will silently intermingle hardware and software time stamps. That
->> is surely a mean trick to play on the users.
+> One question I have is whether the code warrants adding a static
+> inline to skbuff.h. Regular socket paths do not use the test, as they
+> return all timestamps together.
 
-Interesting issue, but I'll leave that for a separate fix.
+(See below.)
+
+>> Cc: Willem de Bruijn <willemb@google.com>
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> ---
+>>   include/linux/skbuff.h | 20 ++++++++++++++++++++
+>>   net/packet/af_packet.c | 38 ++++----------------------------------
+>>   2 files changed, 24 insertions(+), 34 deletions(-)
+>>
+>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+>> index e27d1c7..d0d436f 100644
+>> --- a/include/linux/skbuff.h
+>> +++ b/include/linux/skbuff.h
+>> @@ -33,6 +33,7 @@
+>>   #include <linux/dma-mapping.h>
+>>   #include <linux/netdev_features.h>
+>>   #include <net/flow_keys.h>
+>> +#include <linux/net_tstamp.h>
+>>
+>>   /* Don't change this without changing skb_csum_unnecessary! */
+>>   #define CHECKSUM_NONE 0
+>> @@ -739,6 +740,25 @@ static inline struct skb_shared_hwtstamps *skb_hwtstamps(struct sk_buff *skb)
+>>          return &skb_shinfo(skb)->hwtstamps;
+>>   }
+>>
+>> +static inline struct timespec skb_get_tstamp(struct sk_buff *skb,
+>> +                                            unsigned int flags)
+>> +{
+>> +       struct skb_shared_hwtstamps *ts = skb_hwtstamps(skb);
+>> +
+>> +       if ((flags & SOF_TIMESTAMPING_SYS_HARDWARE) && ts->syststamp.tv64)
 >
-> Isn't it the one that the user ask with setsockopt(fd, SOL_PACKET,
-> PACKET_TIMESTAMP, &timestamping, sizeof(timestamping)) ?
+> Also, packet sockets use the flags these SOF_... constants passed from
+> userspace directly, but regular socket paths convert this into socket
+> flags SOCK_..., so this code is more packet socket specific than it
+> seems. See __sock_recv_timestamp. I'd keep the function in
+> net/packet/af_packet.c solely for this reason, or add a comment.
 
-This option toggles whether, if an skbuff has a timestamp, it should
-be written to the rx ring metadata. skbuffs can have multiple
-timestamps, so it also determines which one is selected.
+Hm, right. I do not really see a reason why we need to maintain this twice
+(introduced by 614f60fa9 ``packet_mmap: expose hw packet timestamps to network
+packet capture utilities'').
 
-If I understand correctly, the problem that Richard refers to is that
-when one socket requests rx timestamping, all rx skbuffs have to be
-timestamped as it is not known early in the datapath to which socket
-they will be enqueued. As a result, the timestamps in skbuffs depend
-on the preferences of other active sockets. Correct me if I'm wrong.
+This could also have been implemented actually with normal SOCK_ flags, i.e.
+since we use sock_tx_timestamp() which uses SOCK_ flags. I will respin and try
+to address that.
 
-If so, it may even vary during the lifetime of a packet socket, so a
-getsockopt wouldn't help, either. Perhaps nothing short of a new field
-in the frame header structure will. In which case it makes more sense
-to support sending each type of timestamp independently, just like the
-socker error queue mechanism. Adding yet another header format,
-though?
-
-> However, i wonder why you added an other sockopt that do the same thing as
-> SOL_SOCKET/SO_TIMESTAMPING sockopt ?
-
-Back to the patch. I'll revise with
-
-- a small patch for the errqueue mechanism
-  - add hw timestamp pass-through in skb_tstamp_tx, if correct
-  - move sock_tx_timestamp where cache is warm
-  - update it to use only a single conditional in the common case: no
-flags enabled
-
-- a follow-up for the ring
-  - single flush_dcache_page, which is safe for current header layouts
-on 32bit+ platforms
-    (it is also a noop on many of these)
+>> +               return ktime_to_timespec(ts->syststamp);
+>> +       else if ((flags & SOF_TIMESTAMPING_RAW_HARDWARE) && ts->hwtstamp.tv64)
+>> +               return ktime_to_timespec(ts->hwtstamp);
+>> +       else if (skb->tstamp.tv64)
+>> +               return ktime_to_timespec(skb->tstamp);
+>> +       else {
+>> +               struct timespec tc;
+>> +
+>> +               getnstimeofday(&tc);
+>> +               return tc;
+>> +       }
+>> +}
+>> +
+>>   /**
+>>    *     skb_queue_empty - check if a queue is empty
+>>    *     @list: queue head
+>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+>> index 77d71f8..2a2a62e 100644
+>> --- a/net/packet/af_packet.c
+>> +++ b/net/packet/af_packet.c
+>> @@ -1681,9 +1681,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+>>          unsigned long status = TP_STATUS_USER;
+>>          unsigned short macoff, netoff, hdrlen;
+>>          struct sk_buff *copy_skb = NULL;
+>> -       struct timeval tv;
+>>          struct timespec ts;
+>> -       struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
+>>
+>>          if (skb->pkt_type == PACKET_LOOPBACK)
+>>                  goto drop;
+>> @@ -1767,24 +1765,16 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+>>
+>>          skb_copy_bits(skb, 0, h.raw + macoff, snaplen);
+>>
+>> +       ts = skb_get_tstamp(skb, po->tp_tstamp);
+>> +
+>>          switch (po->tp_version) {
+>>          case TPACKET_V1:
+>>                  h.h1->tp_len = skb->len;
+>>                  h.h1->tp_snaplen = snaplen;
+>>                  h.h1->tp_mac = macoff;
+>>                  h.h1->tp_net = netoff;
+>> -               if ((po->tp_tstamp & SOF_TIMESTAMPING_SYS_HARDWARE)
+>> -                               && shhwtstamps->syststamp.tv64)
+>> -                       tv = ktime_to_timeval(shhwtstamps->syststamp);
+>> -               else if ((po->tp_tstamp & SOF_TIMESTAMPING_RAW_HARDWARE)
+>> -                               && shhwtstamps->hwtstamp.tv64)
+>> -                       tv = ktime_to_timeval(shhwtstamps->hwtstamp);
+>> -               else if (skb->tstamp.tv64)
+>> -                       tv = ktime_to_timeval(skb->tstamp);
+>> -               else
+>> -                       do_gettimeofday(&tv);
+>> -               h.h1->tp_sec = tv.tv_sec;
+>> -               h.h1->tp_usec = tv.tv_usec;
+>> +               h.h1->tp_sec = ts.tv_sec;
+>> +               h.h1->tp_usec = ts.tv_nsec / NSEC_PER_USEC;
+>>                  hdrlen = sizeof(*h.h1);
+>>                  break;
+>>          case TPACKET_V2:
+>> @@ -1792,16 +1782,6 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+>>                  h.h2->tp_snaplen = snaplen;
+>>                  h.h2->tp_mac = macoff;
+>>                  h.h2->tp_net = netoff;
+>> -               if ((po->tp_tstamp & SOF_TIMESTAMPING_SYS_HARDWARE)
+>> -                               && shhwtstamps->syststamp.tv64)
+>> -                       ts = ktime_to_timespec(shhwtstamps->syststamp);
+>> -               else if ((po->tp_tstamp & SOF_TIMESTAMPING_RAW_HARDWARE)
+>> -                               && shhwtstamps->hwtstamp.tv64)
+>> -                       ts = ktime_to_timespec(shhwtstamps->hwtstamp);
+>> -               else if (skb->tstamp.tv64)
+>> -                       ts = ktime_to_timespec(skb->tstamp);
+>> -               else
+>> -                       getnstimeofday(&ts);
+>>                  h.h2->tp_sec = ts.tv_sec;
+>>                  h.h2->tp_nsec = ts.tv_nsec;
+>>                  if (vlan_tx_tag_present(skb)) {
+>> @@ -1822,16 +1802,6 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+>>                  h.h3->tp_snaplen = snaplen;
+>>                  h.h3->tp_mac = macoff;
+>>                  h.h3->tp_net = netoff;
+>> -               if ((po->tp_tstamp & SOF_TIMESTAMPING_SYS_HARDWARE)
+>> -                               && shhwtstamps->syststamp.tv64)
+>> -                       ts = ktime_to_timespec(shhwtstamps->syststamp);
+>> -               else if ((po->tp_tstamp & SOF_TIMESTAMPING_RAW_HARDWARE)
+>> -                               && shhwtstamps->hwtstamp.tv64)
+>> -                       ts = ktime_to_timespec(shhwtstamps->hwtstamp);
+>> -               else if (skb->tstamp.tv64)
+>> -                       ts = ktime_to_timespec(skb->tstamp);
+>> -               else
+>> -                       getnstimeofday(&ts);
+>>                  h.h3->tp_sec  = ts.tv_sec;
+>>                  h.h3->tp_nsec = ts.tv_nsec;
+>>                  hdrlen = sizeof(*h.h3);
+>> --
+>> 1.7.11.7
+>>
