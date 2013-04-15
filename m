@@ -1,45 +1,73 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH 0/3] Dual EMAC mode implementation of CPSW
-Date: Mon, 15 Apr 2013 23:04:05 +0530
-Message-ID: <516C3A0D.70903@ti.com>
-References: <1360612340-9266-1-git-send-email-mugunthanvnm@ti.com> <516B0098.4040809@mimc.co.uk> <516C33D2.4050105@ti.com> <516C38B9.50904@mimc.co.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V4 7/7] xen-netback: don't disconnect frontend when
+ seeing oversize packet
+Date: Mon, 15 Apr 2013 13:36:51 -0400 (EDT)
+Message-ID: <20130415.133651.1119146088951084967.davem@davemloft.net>
+References: <20130415145320.GE17602@zion.uk.xensource.com>
+	<1366039489.8399.83.camel@zakaz.uk.xensource.com>
+	<20130415153038.GI17602@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>
-To: Mark Jackson <mpfj-list@mimc.co.uk>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <516C38B9.50904@mimc.co.uk>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Ian.Campbell@citrix.com, wdauchy@gmail.com, netdev@vger.kernel.org,
+	xen-devel@lists.xen.org, annie.li@oracle.com,
+	konrad.wilk@oracle.com, jbeulich@suse.com, david.vrabel@citrix.com
+To: wei.liu2@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34192 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756335Ab3DORgy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 13:36:54 -0400
+In-Reply-To: <20130415153038.GI17602@zion.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4/15/2013 10:58 PM, Mark Jackson wrote:
-> On 15/04/13 18:07, Mugunthan V N wrote:
->> On 4/15/2013 12:46 AM, Mark Jackson wrote:
->
-> <snip>
->
->>>
->>> Notice that at the end, the nfs link appears to come back "ok", but
->>> the "ps" command never completes.
->>>
->>> Any ideas of what's going on ?
->>
->> I have tried ping on both the interface fine. Will verify with ps again
->> later in this week.
->> Can you provide below details details
->> - Are you using EVMsk or custom build EVM?
->
-> This is a custom board (based on the BeagleBone design) with dual 
-> Ethernet, NAND, NOR and FRAM.
->
-> The dual emac thing is (one of) the last things to get signed off, so 
-> I'm willing to assist in tracking this down.
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Mon, 15 Apr 2013 16:30:38 +0100
 
-After testing the scenario i may be able to send you an update later in 
-this week.
+> On Mon, Apr 15, 2013 at 04:24:49PM +0100, Ian Campbell wrote:
+>> On Mon, 2013-04-15 at 15:53 +0100, Wei Liu wrote:
+>> > On Mon, Apr 15, 2013 at 10:03:25AM +0100, Ian Campbell wrote:
+>> > > On Fri, 2013-04-12 at 18:17 +0100, William Dauchy wrote:
+>> > > > On Fri, Apr 12, 2013 at 4:24 PM, Wei Liu <wei.liu2@citrix.com> wrote:
+>> > > > > Some frontend drivers are sending packets > 64 KiB in length. This length
+>> > > > > overflows the length field in the first slot making the following slots have
+>> > > > > an invalid length.
+>> > > > >
+>> > > > > Turn this error back into a non-fatal error by dropping the packet. To avoid
+>> > > > > having the following slots having fatal errors, consume all slots in the
+>> > > > > packet.
+>> > > > >
+>> > > > > This does not reopen the security hole in XSA-39 as if the packet as an
+>> > > > > invalid number of slots it will still hit fatal error case.
+>> > > > >
+>> > > > > Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+>> > > > > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+>> > > > 
+>> > > > Maybe this should be tagged for stable? Maybe part of patch 6/7 as
+>> > > > well. I had to remove the part which was disabling the device because
+>> > > > of issues encountered in stable tree.
+>> > > 
+>> > > AFAICT the majority of this series (as well as perhaps some of Wei's
+>> > > earlier fixes) should be candidates for any stable tree which received
+>> > > the XSA-39 security fixes. Wei -- could you enumerate which patches are
+>> > > required to fixup the XSA-39 regressions?
+>> > > 
+>> > 
+>> > Are mechinical fixes such as removing redudent variables / changing log
+>> > messages candidates for stable? 1-4 are such kind of fixes.
+>> 
+>> #4 looks like meat to me too?
+>> 
+> 
+> Not really. DaveM applied first 3 and later I discoverd there was a log
+> message which should have been changed in 2. So I wrote a incremental
+> patch on top of 2 to fix that.
 
-Regards
-Mugunthan V N
+Please don't do this, it is so confusing.
+
+When I've applied some of your patches, don't repost them, only post the
+new patches which are not yet in my tree.
+
+All development and patches occurs relative to my tree, so by reposting
+patches already applied you make for confusion and more work on my part.
