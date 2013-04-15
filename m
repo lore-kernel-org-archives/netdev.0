@@ -1,110 +1,49 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH v3] vxlan: Allow setting destination to unicast address.
-Date: Mon, 15 Apr 2013 16:53:35 -0400
-Message-ID: <OF3CF233D4.68C04252-ON85257B4E.006F940A-85257B4E.0072C761@us.ibm.com>
-References: <87hajcm7ym.wl%atzm@stratosphere.co.jp>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next 1/4] bnx2x: refactor nvram read procedure
+Date: Tue, 16 Apr 2013 01:31:51 +0200
+Message-ID: <20130415233151.GA30171@electric-eye.fr.zoreil.com>
+References: <1365843411-27103-1-git-send-email-dmitry@broadcom.com>
+ <1365843411-27103-2-git-send-email-dmitry@broadcom.com>
+ <20130413110916.GA20436@electric-eye.fr.zoreil.com>
+ <504C9EFCA2D0054393414C9CB605C37F20C03E5D@SJEXCHMB06.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: Atzm Watanabe <atzm@stratosphere.co.jp>
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Dmitry Kravkov <dmitry@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:45602 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754935Ab3DOUyi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 16:54:38 -0400
-Received: from /spool/local
-	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Mon, 15 Apr 2013 14:54:38 -0600
-In-Reply-To: <87hajcm7ym.wl%atzm@stratosphere.co.jp>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:47828 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934113Ab3DOXcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 19:32:00 -0400
+Content-Disposition: inline
+In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F20C03E5D@SJEXCHMB06.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev-owner@vger.kernel.org wrote on 04/12/2013 05:09:05 AM:
+Dmitry Kravkov <dmitry@broadcom.com> :
+[...]
+> > You memcpy a u32 to an array of bytes instead of copying it byte after
+> > byte with proper shift operators and now you are paving the way for more
+> > endianess headaches. I'd rather avoid the memcpy when readying data for
+> > ethtool in the first place.
+> In case of _be data I don't see any issue with copying _be32 it into byte array.
 
-> From: Atzm Watanabe <atzm@stratosphere.co.jp>
+The modified code (bnx2x_nvram_read) will not be copying __be32 but u32.
+It issmuggling _be data behind neutral u32 and using casting when the
+kernel has provided cpu_to_{le / be} helpers for years. Think of type
+checking as kind of messed up as soon as u32 *ret_val contains a _le or
+_be data depending on the value of bool to_be.
 
-> Signed-off-by: Atzm Watanabe <atzm@stratosphere.co.jp>
-> ---
->  drivers/net/vxlan.c          | 45 +++++++++++++++++++++++++++++++++
-> +----------
->  include/uapi/linux/if_link.h |  1 +
->  2 files changed, 36 insertions(+), 10 deletions(-)
-> 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 9a64715..e468d5a 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -106,7 +106,7 @@ struct vxlan_dev {
->     struct hlist_node hlist;
->     struct net_device *dev;
->     __u32        vni;      /* virtual network id */
-> -   __be32             gaddr;   /* multicast group */
-> +   __be32             daddr;   /* destination address */
->     __be32        saddr;   /* source address */
->     unsigned int      link;      /* link to multicast over */
->     __u16        port_min;   /* source port range */
+I don't want to worry about the endianness of a u32. If it's a u32 (u16,
+s32, whatever), I only want to think of bytes in it through '>>' or '<<'
+operators. No need to remember the semantic of the last bnx2x_nvram_read_dword
+parameter, if it's internal, external, nor assume that the lower layers
+enforce some ability to memcpy it blindly. So I'd just favor using cpu order
+as soon and as much as possible.
 
-        This is effectively a default forwarding destination when
-there is no matching fdb entry. As such, I think a fully general
-patch would convert this to a "vxlan_rdst" and thereby allow alternate
-port, vni, specific outgoing interface and multiple remote destinations
-for copies, as via the fdb. And, in the future, support for this being
-an IPv6 destination, as well. I think the name here, "daddr", ought to
-reflect some of this too -- maybe "default_dst" or some such?
+Of course it's your driver, whence your maintenance choices.
 
-
-> @@ -1322,6 +1322,7 @@ static const struct nla_policy vxlan_policy
-> [IFLA_VXLAN_MAX + 1] = {
->     [IFLA_VXLAN_RSC]   = { .type = NLA_U8 },
->     [IFLA_VXLAN_L2MISS]   = { .type = NLA_U8 },
->     [IFLA_VXLAN_L3MISS]   = { .type = NLA_U8 },
-> +   [IFLA_VXLAN_REMOTE]   = { .len = FIELD_SIZEOF(struct iphdr, daddr) 
-},
->  };
-> 
->  static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
-
-I like the name change from "GROUP". "REMOTE" is ok, but might consider
-"IFLA_VXLAN_DEFAULT_DST" or some such.
-
-> @@ -1347,6 +1348,9 @@ static int vxlan_validate(struct nlattr *tb[],
-> struct nlattr *data[])
->           return -ERANGE;
->     }
-> 
-> +   if (data[IFLA_VXLAN_GROUP] && data[IFLA_VXLAN_REMOTE])
-> +      return -EINVAL;
-> +
->     if (data[IFLA_VXLAN_GROUP]) {
->        __be32 gaddr = nla_get_be32(data[IFLA_VXLAN_GROUP]);
->        if (!IN_MULTICAST(ntohl(gaddr))) {
-> @@ -1355,6 +1359,14 @@ static int vxlan_validate(struct nlattr *tb
-> [], struct nlattr *data[])
->        }
->     }
-> 
-> +   if (data[IFLA_VXLAN_REMOTE]) {
-> +      __be32 daddr = nla_get_be32(data[IFLA_VXLAN_REMOTE]);
-> +      if (IN_MULTICAST(ntohl(daddr))) {
-> +         pr_debug("remote address is not IPv4 unicast\n");
-> +         return -EADDRNOTAVAIL;
-> +      }
-> +   }
-> +
->     if (data[IFLA_VXLAN_PORT_RANGE]) {
->        const struct ifla_vxlan_port_range *p
->           = nla_data(data[IFLA_VXLAN_PORT_RANGE]);
-
-If this is turned into a vxlan_rdst, it should check for other
-attributes to fill that-- PORT, VNI, IFINDEX-- with approprate
-default values if not present.
-
-Overall, this patch looks ok to me as far as it goes, but I think
-it'd be more useful if it were more generic; that is, if it supported
-everything an fdb can.
-
-                                                        +-DLS
+-- 
+Ueimor
