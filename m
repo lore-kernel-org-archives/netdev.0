@@ -1,65 +1,53 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH V4 7/7] xen-netback: don't disconnect frontend when
- seeing oversize packet
-Date: Mon, 15 Apr 2013 16:39:13 +0100
-Message-ID: <20130415153913.GJ17602@zion.uk.xensource.com>
-References: <1365776646-10796-1-git-send-email-wei.liu2@citrix.com>
- <1365776646-10796-8-git-send-email-wei.liu2@citrix.com>
- <CAJ75kXb1Pc83sAjqDuzeGiikTcqdqrgPTxTT7kS-agUqoZp7LA@mail.gmail.com>
- <1366016605.4963.6.camel@zakaz.uk.xensource.com>
- <20130415145320.GE17602@zion.uk.xensource.com>
- <1366039489.8399.83.camel@zakaz.uk.xensource.com>
- <20130415153038.GI17602@zion.uk.xensource.com>
- <1366040104.8399.85.camel@zakaz.uk.xensource.com>
+From: Paul Chavent <Paul.Chavent@onera.fr>
+Subject: Re: [PATCH] net-packet: tx timestamping on tpacket ring
+Date: Mon, 15 Apr 2013 17:41:38 +0200
+Message-ID: <516C1FB2.50900@onera.fr>
+References: <CA+FuTSezggEb7znDYMf8vWU7JmWLP59AVPkaTvNaAwJoNcqk9A@mail.gmail.com> <1365879412-9541-1-git-send-email-willemb@google.com> <5169D9C8.8010504@redhat.com> <CA+FuTSe1KCPPW=FBXZoTNmri9oPHicuoFeEMKws09PwbyRe-2A@mail.gmail.com> <516A8A60.5020003@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, William Dauchy <wdauchy@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel <xen-devel@lists.xen.org>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"jbeulich@suse.com" <jbeulich@suse.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	daniel.borkmann@tik.ee.ethz.ch, xemul@parallels.com,
+	ebiederm@xmission.com, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:28283 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933252Ab3DOPjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 11:39:15 -0400
-Content-Disposition: inline
-In-Reply-To: <1366040104.8399.85.camel@zakaz.uk.xensource.com>
+Received: from briaree.onecert.fr ([134.212.190.4]:42921 "EHLO
+	briaree.onecert.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751768Ab3DOPqI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 11:46:08 -0400
+In-Reply-To: <516A8A60.5020003@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 15, 2013 at 04:35:04PM +0100, Ian Campbell wrote:
-> 
-> > > > Are mechinical fixes such as removing redudent variables / changing log
-> > > > messages candidates for stable? 1-4 are such kind of fixes.
-> > > 
-> > > #4 looks like meat to me too?
-> > > 
-> > 
-> > Not really. DaveM applied first 3 and later I discoverd there was a log
-> > message which should have been changed in 2. So I wrote a incremental
-> > patch on top of 2 to fix that.
-> 
-> Oops, I think I read "V4 7/7" as 4/7...
-> 
-> > 
-> > > My personal opinion is that it is better where possible to take
-> > > relatively simple and/or obvious precursors (renaming and such fit this
-> > > IMHO) than to risk making a mistake in the backport.
-> > > 
-> > 
-> > OK, then the whole series is candidate for stable.
-> 
-> Once things go in can you enumerate the actual commit numbers please?
-> 
-
-Sure.
 
 
-Wei.
+On 04/14/2013 12:52 PM, Daniel Borkmann wrote:
+> Paul, since you've reported / requested this, your use case would be to
+> fill
+> the ring, trigger a sendto() and then loop through all the frames to
+> check the
+> tx timestamps for your custom protocol mockup, then fill the returned
+> frames
+> again, etc.?
 
-> Ian.
-> 
+I've run a test that create (and setup) a tx ring buffer with 8 frames, 
+then fill the frames payload, then call sendto.
+I've checked the timestamp by two means :
+  - check the timestamp in the tx ring after the status became 
+TP_STATUS_AVAILABLE again,
+  - by issuing 8 recvmsg on the ERRQUEUE.
+Both timestamp are coherents and increment themselves.
+
+The tests has been done with a UML kernel, and with software timestamps.
+
+ From my point of view, it seems usable.
+
+However, I've found one strange behavior. I must call recvmsg as many 
+times as i have submitted a frame, or not at all. If i only pop the 
+ERRQUEUE for one or two message for instance, the next call to sentdo 
+fails with "No message of desired type" (errno 42).
+
+
+Paul.
