@@ -1,41 +1,72 @@
-From: Tomas Agartz <tlund@nxs.se>
-Subject: No longer able to add iptunnel interface to bridge?
-Date: Mon, 15 Apr 2013 18:14:32 +0200 (CEST)
-Message-ID: <Pine.LNX.4.61.1304151757340.20041@envy.nxs.se>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH] inet: fix enforcing of fragment queue hash list
+ depth
+Date: Mon, 15 Apr 2013 09:23:50 -0700
+Message-ID: <1366043030.4459.109.camel@edumazet-glaptop>
+References: <20130415142454.14020.18322.stgit@dragon>
+	 <20130415152637.GA29378@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from envy.nxs.se ([212.247.200.182]:41787 "EHLO envy.nxs.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754583Ab3DOQOh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Apr 2013 12:14:37 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by envy.nxs.se (Postfix) with ESMTP id DCC0D2BEBD
-	for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 18:14:32 +0200 (CEST)
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:36146 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753463Ab3DOQXx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 12:23:53 -0400
+Received: by mail-pa0-f43.google.com with SMTP id hz11so2655546pad.30
+        for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 09:23:53 -0700 (PDT)
+In-Reply-To: <20130415152637.GA29378@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After rebooting my router/firewall (Debian Wheezy with debian 3.2.41-2 
-kernel), I am no longer able to add an iptunnel to a bridge interface.
+On Mon, 2013-04-15 at 17:26 +0200, Hannes Frederic Sowa wrote:
+> Hi Jesper!
+> 
+> On Mon, Apr 15, 2013 at 04:25:10PM +0200, Jesper Dangaard Brouer wrote:
+> > I have found an issues with commit:
+> > 
+> >  commit 5a3da1fe9561828d0ca7eca664b16ec2b9bf0055
+> >  Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> >  Date:   Fri Mar 15 11:32:30 2013 +0000
+> > 
+> >     inet: limit length of fragment queue hash table bucket lists
+> > 
+> > There is a connection between the fixed 128 hash depth limit and the
+> > frag mem limit/thresh settings, which limits how high the thresh can
+> > be set.
+> > 
+> > The 128 elems hash depth limit, results in bad behaviour if mem limit
+> > thresh holds are increased, via /proc/sys/net ::
+> > 
+> >  /proc/sys/net/ipv4/ipfrag_high_thresh
+> >  /proc/sys/net/ipv4/ipfrag_low_thresh
+> > 
+> > If we increase the thresh, to something allowing 128 elements in each
+> > bucket, which is not that high given the hash array size of 64
+> > (64*128=8192), e.g.
+> >   big MTU frags (2944(truesize)+208(ipq))*8192(max elems)=25755648
+> >   small frags   ( 896(truesize)+208(ipq))*8192(max elems)=9043968
+> 
+> I thought it was pretty high already. While creating this patch I also
+> had a patch which did calculate the chain limit while updating the sysctl
+> high_thresh knob (perhaps this could be of use):
+> 
+> http://patchwork.ozlabs.org/patch/227136/
+> 
+> Perhaps we should reconsider the formula I choose to calculate this limit.
+> But because we would actually have 128 iterations in the hash bucket I
+> am more in favor of resizing (or even come up with a way to dynamically
+> resize) the hash table. On a smaller sized machine I can actually create
+> severe latency because of the list iteration even with the 128 list length
+> limit in place.
 
-The iptunnel is configured like this:
+Allowing thousand of fragments and keeping a 64 slot hash table is not
+going to work.
 
-iptunnel add TUNNEL mode ipip remote x.x.x.x local y.y.y.y ttl 32
-ifconfig TUNNEL z.z.z.z netmask 255.255.255.254 up
+depths of 128 are just insane.
 
-and this is what strace shows when I try to do "brctl addif test TUNNEL":
-
-ioctl(3, SIOCBRADDIF, 0x7fffafba64c0)   = -1 EINVAL (Invalid argument)
-ioctl(3, SIOCDEVPRIVATE, 0x7fffafba64c0) = -1 EINVAL (Invalid argument)
-
-I have no idea if I might have changed something in userspace by misstake, 
-or if there has been a change in the kernel since last reboot. The same 
-machine has a different bridge with an L2TPv3 tunnel added, this works 
-fine.
-
-I understand that the info here is not much to go on, but I am unsure what 
-else to attach. Plese ask for further info and I shall provide it!
-
-Best regards,
-Tomas
+Really Jesper, you'll need to make the hash table dynamic, if you really
+care.
