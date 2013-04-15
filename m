@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][nex-next] sis900: check for DMA map errors
-Date: Mon, 15 Apr 2013 14:13:57 -0400 (EDT)
-Message-ID: <20130415.141357.2008676366895676344.davem@davemloft.net>
-References: <1366009889-2068-1-git-send-email-kda@linux-powerpc.org>
+Subject: Re: [PATCH net-next 1/2] net: sctp: remove sctp_ep_common struct
+ member 'malloced'
+Date: Mon, 15 Apr 2013 14:14:05 -0400 (EDT)
+Message-ID: <20130415.141405.2008713283094215984.davem@davemloft.net>
+References: <1366032438-4412-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kda@linux-powerpc.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34783 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34788 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755092Ab3DOSN7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 14:13:59 -0400
-In-Reply-To: <1366009889-2068-1-git-send-email-kda@linux-powerpc.org>
+	with ESMTP id S1755828Ab3DOSOI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 14:14:08 -0400
+In-Reply-To: <1366032438-4412-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Date: Mon, 15 Apr 2013 11:11:29 +0400
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Mon, 15 Apr 2013 15:27:17 +0200
 
-> The first backtrace appears on tx path with DMA mapping operations debug
-> enabled.
- ...
-> Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
+> There is actually no need to keep this member in the structure, because
+> after init it's always 1 anyway, thus always kfree called. This seems to
+> be an ancient leftover from the very initial implementation from 2.5
+> times. Only in case the initialization of an association fails, we leave
+> base.malloced as 0, but we nevertheless kfree it in the error path in
+> sctp_association_new().
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
 Applied.
