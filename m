@@ -1,64 +1,65 @@
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: Re: [PATCH net-next] vxlan: don't bypass encapsulation for multi- and broadcasts
-Date: Mon, 15 Apr 2013 16:32:57 +0300
-Message-ID: <CAF1J0HMVpB+xe1yDAYpY10MsJFZomzEs_dKc+Z6zb2deQ7WgWg@mail.gmail.com>
-References: <1365931311-26285-1-git-send-email-mike.rapoport@ravellosystems.com>
-	<20130414.153950.1876060927096209566.davem@davemloft.net>
-	<CAF1J0HMoSY4b4RWDPW3yRmXovBcot_1UMo4QJkbg43KJxTWPkg@mail.gmail.com>
-	<20130415.014530.1175856229390286987.davem@davemloft.net>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH 0/5 v2] mv643xx_eth: device tree bindings
+Date: Mon, 15 Apr 2013 09:43:25 -0400
+Message-ID: <20130415134325.GB28693@titan.lakedaemon.net>
+References: <1365071235-11611-1-git-send-email-florian@openwrt.org>
+ <20130411165303.GI28693@titan.lakedaemon.net>
+ <20130413172126.6cca0809@skate>
+ <20130413190037.GY28693@titan.lakedaemon.net>
+ <1365995234.3566.17.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <florian@openwrt.org>, davem@davemloft.net,
+	moinejf@free.fr, andrew@lunn.ch, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org, rob.herring@calxeda.com,
+	grant.likely@secretlab.ca, jogo@openwrt.org,
+	buytenh@wantstofly.org, jm@lentin.co.uk,
+	linux-arm-kernel@lists.infradead.org,
+	sebastian.hesselbarth@gmail.com
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog109.obsmtp.com ([74.125.245.86]:45953 "HELO
-	na3sys010aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751091Ab3DONc6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 09:32:58 -0400
-Received: by mail-ia0-f200.google.com with SMTP id b35so7012738iac.3
-        for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 06:32:57 -0700 (PDT)
-In-Reply-To: <20130415.014530.1175856229390286987.davem@davemloft.net>
+Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:62649 "EHLO
+	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751016Ab3DONoF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 09:44:05 -0400
+Content-Disposition: inline
+In-Reply-To: <1365995234.3566.17.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 15, 2013 at 8:45 AM, David Miller <davem@davemloft.net> wrote:
-> From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-> Date: Mon, 15 Apr 2013 08:31:15 +0300
->
->> On Sun, Apr 14, 2013 at 10:39 PM, David Miller <davem@davemloft.net> wrote:
->>> From: Mike Rapoport <mike.rapoport@ravellosystems.com>
->>> Date: Sun, 14 Apr 2013 12:21:51 +0300
->>>
->>>> The multicast and broadcast packets may have RTCF_LOCAL set in rt_flags
->>>> and therefore will be sent out bypassing encapsulation. This breaks
->>>> delivery of packets sent to the vxlan multicast group.
->>>> Disabling encapsulation bypass for multicasts and broadcasts fixes the
->>>> issue.
->>>>
->>>> Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
->>>
->>> This still won't handle the case of encapsulations occuring in different
->>> namespaces or virtual machines.
->>>
->>> I really want this fixed correctly.
->>
->> I'm sorry, but I don't quite follow you. The patch does not aim to
->> reduce the amount of encapsulation. On the contrary, it prevents some
->> packets from being encapsulated when they should not be...
->
-> I'm saying you need to make sure the bypass is avoided in these
-> situations as well.
+On Mon, Apr 15, 2013 at 04:07:14AM +0100, Ben Hutchings wrote:
+> On Sat, 2013-04-13 at 15:00 -0400, Jason Cooper wrote:
+> > On Sat, Apr 13, 2013 at 05:21:26PM +0200, Thomas Petazzoni wrote:
+> > > Dear Jason Cooper,
+> > > 
+> > > On Thu, 11 Apr 2013 12:53:03 -0400, Jason Cooper wrote:
+> > > 
+> > > > With this and Thomas' pci series, we will have Kirkwood fully
+> > > > converted to devicetree, can begin removing board files, and finally
+> > > > begin migrating everything over to mach-mvebu/.  This will lead to
+> > > > the removal of five directories under arch/arm/ (plat-orion,
+> > > > mach-kirkwood, mach-orion5x, mach-dove, and mach-mv78xx0).
+> > > 
+> > > No, we can't remove mach-orion5x and mach-mv78xx0 for now, they have
+> > > not been converted at all in terms of gpio/pinmux support. I've started
+> > > writing some pinmux code for orion5x but it's not ready.
+> [...]
+> > Also, I have a feeling that not all legacy boards will get converted
+> > over.  If there is no interest or no way to test, certains boards may
+> > get deprecated.
+> 
+> Debian supports many Kirkwood and Orion 5x systems.  A call for testing
+> on the debian-arm@lists.debian.org list might be worthwhile.
 
-I've tried the cases with different namespaces and virtual machines.
-Both worked for me.
-Maybe I'm missing something, but I could not identify a case where
-encapsulation occurs when it should not.
+definitely.
 
-> There is an ongoing discussion about this on the list between Cong
-> Wang and the author of the bypass changes.
+> I would be very glad to see kirkwood, orion5x and mv78xx0 merged - we
+> build natively and this takes about 8 hours for each configuration.
 
-And it seems that for Sridhar Samudrala it worked as well :)
+That's the plan, build an armv5 kernel, and dtb's for all the boards.
+Then, an armv7 kernel for the armadaXP/370 boards, etc.
 
--- 
-Sincerely yours,
-Mike.
+thx,
+
+Jason.
