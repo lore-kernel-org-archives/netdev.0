@@ -1,51 +1,32 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH] net/macb: fix error return code in macb_probe()
-Date: Mon, 15 Apr 2013 10:04:33 +0200
-Message-ID: <1366013073-22934-1-git-send-email-nicolas.ferre@atmel.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] esp4: fix error return code in esp_output()
+Date: Mon, 15 Apr 2013 10:06:55 +0200
+Message-ID: <20130415080655.GJ21448@secunet.com>
+References: <CAPgLHd9zivXBfC5DvuKwr+C3vX+-kJjqSrLRRyAvk=nmBvGaaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>,
-	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	<yongjun_wei@trendmicro.com.cn>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:35999 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932513Ab3DOIG6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Apr 2013 04:06:58 -0400
+Content-Disposition: inline
+In-Reply-To: <CAPgLHd9zivXBfC5DvuKwr+C3vX+-kJjqSrLRRyAvk=nmBvGaaQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix to return a negative error code from the error handling
-case instead of 0, as returned elsewhere in this function.
+On Sun, Apr 14, 2013 at 09:49:03AM +0800, Wei Yongjun wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> Fix to return a negative error code from the error handling
+> case instead of 0, as returned elsewhere in this function.
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Original-idea-by: <yongjun_wei@trendmicro.com.cn>
-Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
----
-Hi,
+Thanks for catching this!
 
-This fix was written originally for at91_ether.c and I found it interesting
-to adapt it to macb.
-Thanks to Wei Yongjun for finding it.
-
-Best regards,
-
- drivers/net/ethernet/cadence/macb.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 7fd0e3e..6be513d 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1602,9 +1602,9 @@ static int __init macb_probe(struct platform_device *pdev)
- 		goto err_out_free_irq;
- 	}
- 
--	if (macb_mii_init(bp) != 0) {
-+	err = macb_mii_init(bp);
-+	if (err)
- 		goto err_out_unregister_netdev;
--	}
- 
- 	platform_set_drvdata(pdev, dev);
- 
--- 
-1.8.0
+Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
