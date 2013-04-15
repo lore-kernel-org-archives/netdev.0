@@ -1,75 +1,101 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH V4 7/7] xen-netback: don't disconnect frontend when
- seeing oversize packet
-Date: Mon, 15 Apr 2013 16:24:49 +0100
-Message-ID: <1366039489.8399.83.camel@zakaz.uk.xensource.com>
-References: <1365776646-10796-1-git-send-email-wei.liu2@citrix.com>
-	 <1365776646-10796-8-git-send-email-wei.liu2@citrix.com>
-	 <CAJ75kXb1Pc83sAjqDuzeGiikTcqdqrgPTxTT7kS-agUqoZp7LA@mail.gmail.com>
-	 <1366016605.4963.6.camel@zakaz.uk.xensource.com>
-	 <20130415145320.GE17602@zion.uk.xensource.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC PATCH] inet: fix enforcing of fragment queue hash list depth
+Date: Mon, 15 Apr 2013 17:26:37 +0200
+Message-ID: <20130415152637.GA29378@order.stressinduktion.org>
+References: <20130415142454.14020.18322.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: William Dauchy <wdauchy@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel <xen-devel@lists.xen.org>,
-	"annie.li@oracle.com" <annie.li@oracle.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"jbeulich@suse.com" <jbeulich@suse.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:26345 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751543Ab3DOPYv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 11:24:51 -0400
-In-Reply-To: <20130415145320.GE17602@zion.uk.xensource.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:44399 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754871Ab3DOP0j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 11:26:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20130415142454.14020.18322.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-04-15 at 15:53 +0100, Wei Liu wrote:
-> On Mon, Apr 15, 2013 at 10:03:25AM +0100, Ian Campbell wrote:
-> > On Fri, 2013-04-12 at 18:17 +0100, William Dauchy wrote:
-> > > On Fri, Apr 12, 2013 at 4:24 PM, Wei Liu <wei.liu2@citrix.com> wrote:
-> > > > Some frontend drivers are sending packets > 64 KiB in length. This length
-> > > > overflows the length field in the first slot making the following slots have
-> > > > an invalid length.
-> > > >
-> > > > Turn this error back into a non-fatal error by dropping the packet. To avoid
-> > > > having the following slots having fatal errors, consume all slots in the
-> > > > packet.
-> > > >
-> > > > This does not reopen the security hole in XSA-39 as if the packet as an
-> > > > invalid number of slots it will still hit fatal error case.
-> > > >
-> > > > Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-> > > > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> > > 
-> > > Maybe this should be tagged for stable? Maybe part of patch 6/7 as
-> > > well. I had to remove the part which was disabling the device because
-> > > of issues encountered in stable tree.
-> > 
-> > AFAICT the majority of this series (as well as perhaps some of Wei's
-> > earlier fixes) should be candidates for any stable tree which received
-> > the XSA-39 security fixes. Wei -- could you enumerate which patches are
-> > required to fixup the XSA-39 regressions?
-> > 
-> 
-> Are mechinical fixes such as removing redudent variables / changing log
-> messages candidates for stable? 1-4 are such kind of fixes.
+Hi Jesper!
 
-#4 looks like meat to me too?
+On Mon, Apr 15, 2013 at 04:25:10PM +0200, Jesper Dangaard Brouer wrote:
+> I have found an issues with commit:
+> 
+>  commit 5a3da1fe9561828d0ca7eca664b16ec2b9bf0055
+>  Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>  Date:   Fri Mar 15 11:32:30 2013 +0000
+> 
+>     inet: limit length of fragment queue hash table bucket lists
+> 
+> There is a connection between the fixed 128 hash depth limit and the
+> frag mem limit/thresh settings, which limits how high the thresh can
+> be set.
+> 
+> The 128 elems hash depth limit, results in bad behaviour if mem limit
+> thresh holds are increased, via /proc/sys/net ::
+> 
+>  /proc/sys/net/ipv4/ipfrag_high_thresh
+>  /proc/sys/net/ipv4/ipfrag_low_thresh
+> 
+> If we increase the thresh, to something allowing 128 elements in each
+> bucket, which is not that high given the hash array size of 64
+> (64*128=8192), e.g.
+>   big MTU frags (2944(truesize)+208(ipq))*8192(max elems)=25755648
+>   small frags   ( 896(truesize)+208(ipq))*8192(max elems)=9043968
 
-My personal opinion is that it is better where possible to take
-relatively simple and/or obvious precursors (renaming and such fit this
-IMHO) than to risk making a mistake in the backport.
+I thought it was pretty high already. While creating this patch I also
+had a patch which did calculate the chain limit while updating the sysctl
+high_thresh knob (perhaps this could be of use):
 
-> 5-7 are the real meat. If 1-4 are not taken to stable, they will need
-> small adjustment to apply, which is just trivial.
+http://patchwork.ozlabs.org/patch/227136/
+
+Perhaps we should reconsider the formula I choose to calculate this limit.
+But because we would actually have 128 iterations in the hash bucket I
+am more in favor of resizing (or even come up with a way to dynamically
+resize) the hash table. On a smaller sized machine I can actually create
+severe latency because of the list iteration even with the 128 list length
+limit in place.
+
+> The problem with commit 5a3da1fe (inet: limit length of fragment queue
+> hash table bucket lists) is that, once we hit the limit, the we *keep*
+> the existing frag queues, not allowing new frag queues to be created.
+> Thus, an attacker can effectivly block handling of fragments for 60
+> sec (as each frag queue have a timeout of 60 sec).
 > 
+> Even without increasing the limit, as Hannes showed, an attacker on
+> IPv6 can "attack" a specific hash bucket, and via that change, can
+> block/drop new fragments also (trying to) utilize this bucket.
 > 
-> Wei.
+> Summary:
+>  With the default mem limit/thresh settings, this is not general
+> problem, but adjusting the thresh limits result in some-what
+> unexpected behavior.
 > 
-> > Ian.
-> > 
+> Proposed solution:
+>  IMHO instead of keeping existing frag queues, we should kill one of
+> the frag queues in the hash instead.
+
+I thought that if we actually reach this limit the machine would be in
+some kind DoS situation and there won't be a good solution to identify
+harmless fragments from non-harmless fragments. So I settled with the
+simple drop and did not try to come up with a load balancing or rehashing
+method.
+
+My first try to solve this problem actually was converting the hash chains
+from hlists to lists (so doubling the size of the hash table by two) to be
+able to drop the last element per bucket.
+
+> Implementation complications:
+>  Killing of frag queues while only holding the hash bucket lock, and
+> not the frag queue lock, complicates the implementation, as we race
+> and can end up (trying to) remove the hash element twice (resulting in
+> an oops).
+
+I will have to play with this patch a bit. Perhaps I have some more insights
+after that. :)
+
+Thanks for looking into it,
+
+  Hannes
