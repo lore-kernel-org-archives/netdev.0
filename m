@@ -1,104 +1,61 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: net: mvneta: fix improper tx queue usage in mvneta_tx()
-Date: Mon, 15 Apr 2013 08:35:37 +0200
-Message-ID: <20130415063537.GA26507@1wt.eu>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [PATCH net-next 1/4] bnx2x: refactor nvram read procedure
+Date: Mon, 15 Apr 2013 07:14:26 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F20C03E5D@SJEXCHMB06.corp.ad.broadcom.com>
+References: <1365843411-27103-1-git-send-email-dmitry@broadcom.com>
+ <1365843411-27103-2-git-send-email-dmitry@broadcom.com>
+ <20130413110916.GA20436@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
- Maen Suleiman <maen@marvell.com>, netdev@vger.kernel.org,
- Gregory CLEMENT <gregory.clement@free-electrons.com>,
- Lior Amsalem <alior@marvell.com>, Ben Hutchings <bhutchings@solarflare.com>,
- Dmitri Epshtein <dima@marvell.com>, linux-arm-kernel@lists.infradead.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Francois Romieu" <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:1594 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932124Ab3DOHOf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 03:14:35 -0400
+In-Reply-To: <20130413110916.GA20436@electric-eye.fr.zoreil.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->From 4f2069c92a27790e6071dc2a80f92c166e0b0ca4 Mon Sep 17 00:00:00 2001
-From: Willy Tarreau <w@1wt.eu>
-Date: Thu, 11 Apr 2013 23:00:37 +0200
-Subject: net: mvneta: fix improper tx queue usage in mvneta_tx()
-
-mvneta_tx() was using a static tx queue number causing crashes as
-soon as a little bit of traffic was sent via the interface, because
-it is normally expected that the same queue should be used as in
-dev_queue_xmit().
-
-As suggested by Ben Hutchings, let's use skb_get_queue_mapping() to
-get the proper Tx queue number, and use alloc_etherdev_mqs() instead
-of alloc_etherdev_mq() to create the queues.
-
-Both my Mirabox and my OpenBlocks AX3 used to crash without this patch
-and don't anymore with it. The issue appeared in 3.8 but became more
-visible after the fix allowing GSO to be enabled.
-
-Original work was done by Dmitri Epshtein and Thomas Petazzoni. I
-just adapted it to take care of Ben's comments.
-
-Signed-off-by: Willy Tarreau <w@1wt.eu>
-Cc: Dmitri Epshtein <dima@marvell.com>
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 1e628ce..a47a097 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -374,7 +374,6 @@ static int rxq_number = 8;
- static int txq_number = 8;
+> -----Original Message-----
+> From: Francois Romieu [mailto:romieu@fr.zoreil.com]
+> Sent: Saturday, April 13, 2013 2:09 PM
+> To: Dmitry Kravkov
+> Cc: davem@davemloft.net; netdev@vger.kernel.org; Eilon Greenstein
+> Subject: Re: [PATCH net-next 1/4] bnx2x: refactor nvram read procedure
+> 
+> Dmitry Kravkov <dmitry@broadcom.com> :
+> > introduce a parameter to allow nvram read to return
+> > data in BE or cpu order.
+> [...]
+> > @@ -1295,10 +1296,14 @@ static int bnx2x_nvram_read_dword(struct bnx2x *bp, u32 offset, __be32 *ret_val,
+> >  		if (val & MCPR_NVM_COMMAND_DONE) {
+> >  			val = REG_RD(bp, MCP_REG_MCPR_NVM_READ);
+> >  			/* we read nvram data in cpu order
+> > -			 * but ethtool sees it as an array of bytes
+> > +			 * but ethtool uses it as an array of bytes
+> >  			 * converting to big-endian will do the work
+> > +			 * if requested.
+> 
+> You memcpy a u32 to an array of bytes instead of copying it byte after
+> byte with proper shift operators and now you are paving the way for more
+> endianess headaches. I'd rather avoid the memcpy when readying data for
+> ethtool in the first place.
+In case of _be data I don't see any issue with copying _be32 it into byte array.
+When internal driver function (not exposed to external usage) requests data in CPU order - it meant to bring u32 data ( or array of u32) and memcpy dword by dword also should be harmless.
  
- static int rxq_def;
--static int txq_def;
+> Nit: the true/false method parameter style in middle layers is mildly
+> readable when compared to usual _{be/le} kernel style (you should be
+> able to avoid both almost completely anyway :o) ).
+Boolean parameter used to share pre- and post-configuring nvram for read operation.
+_be/le is less suitable here, since the usage is BE or cpu order.
+I was thinking about separating stream read and u32 read to separate callbacks, but this will add another level and this is less preferable than true/false param.
  
- #define MVNETA_DRIVER_NAME "mvneta"
- #define MVNETA_DRIVER_VERSION "1.0"
-@@ -1475,7 +1474,8 @@ error:
- static int mvneta_tx(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct mvneta_port *pp = netdev_priv(dev);
--	struct mvneta_tx_queue *txq = &pp->txqs[txq_def];
-+	u16 txq_id = skb_get_queue_mapping(skb);
-+	struct mvneta_tx_queue *txq = &pp->txqs[txq_id];
- 	struct mvneta_tx_desc *tx_desc;
- 	struct netdev_queue *nq;
- 	int frags = 0;
-@@ -1485,7 +1485,7 @@ static int mvneta_tx(struct sk_buff *skb, struct net_device *dev)
- 		goto out;
- 
- 	frags = skb_shinfo(skb)->nr_frags + 1;
--	nq    = netdev_get_tx_queue(dev, txq_def);
-+	nq    = netdev_get_tx_queue(dev, txq_id);
- 
- 	/* Get a descriptor for the first part of the packet */
- 	tx_desc = mvneta_txq_next_desc_get(txq);
-@@ -2689,7 +2689,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 		return -EINVAL;
- 	}
- 
--	dev = alloc_etherdev_mq(sizeof(struct mvneta_port), 8);
-+	dev = alloc_etherdev_mqs(sizeof(struct mvneta_port), txq_number, rxq_number);
- 	if (!dev)
- 		return -ENOMEM;
- 
-@@ -2844,4 +2844,3 @@ module_param(rxq_number, int, S_IRUGO);
- module_param(txq_number, int, S_IRUGO);
- 
- module_param(rxq_def, int, S_IRUGO);
--module_param(txq_def, int, S_IRUGO);
--- 
-1.7.12.2.21.g234cd45.dirty
+> --
+> Ueimor
