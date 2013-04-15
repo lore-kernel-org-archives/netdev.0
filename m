@@ -1,181 +1,171 @@
 From: Sascha Herrmann <sascha@ps.nvbi.de>
-Subject: [PATCH 1/2 v3] at86rf230: add irq type configuration option
-Date: Mon, 15 Apr 2013 10:33:28 +0200
-Message-ID: <8335c25043f88325bda8325fa34a070245fedcf0.1366012862.git.sascha@ps.nvbi.de>
+Subject: [PATCH 2/2 v3] at86rf230: change irq handling to prevent lockups with edge type irq
+Date: Mon, 15 Apr 2013 10:33:29 +0200
+Message-ID: <a9815d3882fd9574776de66a4e08451f9fabc184.1366012862.git.sascha@ps.nvbi.de>
 References: <cover.1366012862.git.sascha@ps.nvbi.de>
 Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
 	Sascha Herrmann <sascha@ps.nvbi.de>
 To: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.10]:50315 "EHLO
+Received: from moutng.kundenserver.de ([212.227.17.10]:49294 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933813Ab3DOIeC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 04:34:02 -0400
+	with ESMTP id S933045Ab3DOIeB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 04:34:01 -0400
 In-Reply-To: <cover.1366012862.git.sascha@ps.nvbi.de>
 In-Reply-To: <cover.1366012862.git.sascha@ps.nvbi.de>
 References: <cover.1366012862.git.sascha@ps.nvbi.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add option to at86rf230 platform data to configure the type of the
-interrupt used by the driver. The irq polarity of the device will
-be configured accordingly.
+Implemented separate irq handling for edge and level type interrupt
+configuration. For edge type interrupts calls to disable_irq_nosync()
+and enable_irq() are removed. The at86rf230 resets the irq line only
+after the irq status register is read. Disabling the irq can lock the
+driver in situations where a irq is set by the radio while the driver
+is still reading the frame buffer.
+
+With irq_type configuration set to 0 the original behavior is
+preserverd.
+
+Additional the irq filter register is set to filter out all unused
+interrupts and the irq status register is read in the probe
+function to clear the irq line.
 
 Signed-off-by: Sascha Herrmann <sascha@ps.nvbi.de>
+
+Conflicts:
+	drivers/net/ieee802154/at86rf230.c
 ---
- drivers/net/ieee802154/at86rf230.c |   47 ++++++++++++++++++++++++------------
- include/linux/spi/at86rf230.h      |   14 +++++++++++
- 2 files changed, 45 insertions(+), 16 deletions(-)
+ drivers/net/ieee802154/at86rf230.c |   53 ++++++++++++++++++++++++++----------
+ 1 file changed, 38 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index fc315dd..cf09888 100644
+index cf09888..6f10b49 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -219,6 +219,9 @@ struct at86rf230_local {
- #define IRQ_PLL_UNL	(1 << 1)
- #define IRQ_PLL_LOCK	(1 << 0)
+@@ -51,7 +51,7 @@ struct at86rf230_local {
+ 	struct ieee802154_dev *dev;
  
-+#define IRQ_ACTIVE_HIGH	0
-+#define IRQ_ACTIVE_LOW	1
+ 	spinlock_t lock;
+-	bool irq_disabled;
++	bool irq_busy;
+ 	bool is_tx;
+ };
+ 
+@@ -547,7 +547,7 @@ at86rf230_xmit(struct ieee802154_dev *dev, struct sk_buff *skb)
+ 	unsigned long flags;
+ 
+ 	spin_lock(&lp->lock);
+-	if  (lp->irq_disabled) {
++	if  (lp->irq_busy) {
+ 		spin_unlock(&lp->lock);
+ 		return -EBUSY;
+ 	}
+@@ -708,8 +708,16 @@ static void at86rf230_irqwork(struct work_struct *work)
+ 	}
+ 
+ 	spin_lock_irqsave(&lp->lock, flags);
+-	lp->irq_disabled = 0;
++	lp->irq_busy = 0;
+ 	spin_unlock_irqrestore(&lp->lock, flags);
++}
 +
- #define STATE_P_ON		0x00	/* BUSY */
- #define STATE_BUSY_RX		0x01
- #define STATE_BUSY_TX		0x02
-@@ -726,11 +729,16 @@ static irqreturn_t at86rf230_isr(int irq, void *data)
++static void at86rf230_irqwork_level(struct work_struct *work)
++{
++	struct at86rf230_local *lp =
++		container_of(work, struct at86rf230_local, irqwork);
++
++	at86rf230_irqwork(work);
+ 
+ 	enable_irq(lp->spi->irq);
+ }
+@@ -718,10 +726,8 @@ static irqreturn_t at86rf230_isr(int irq, void *data)
+ {
+ 	struct at86rf230_local *lp = data;
+ 
+-	disable_irq_nosync(irq);
+-
+ 	spin_lock(&lp->lock);
+-	lp->irq_disabled = 1;
++	lp->irq_busy = 1;
+ 	spin_unlock(&lp->lock);
+ 
+ 	schedule_work(&lp->irqwork);
+@@ -729,6 +735,13 @@ static irqreturn_t at86rf230_isr(int irq, void *data)
  	return IRQ_HANDLED;
  }
  
-+static int at86rf230_irq_polarity(struct at86rf230_local *lp, int pol)
++static irqreturn_t at86rf230_isr_level(int irq, void *data)
 +{
-+	return at86rf230_write_subreg(lp, SR_IRQ_POLARITY, pol);
++	disable_irq_nosync(irq);
++
++	return at86rf230_isr(irq, data);
 +}
- 
- static int at86rf230_hw_init(struct at86rf230_local *lp)
++
+ static int at86rf230_irq_polarity(struct at86rf230_local *lp, int pol)
  {
-+	struct at86rf230_platform_data *pdata = lp->spi->dev.platform_data;
-+	int rc, irq_pol;
- 	u8 status;
--	int rc;
- 
- 	rc = at86rf230_read_subreg(lp, SR_TRX_STATUS, &status);
+ 	return at86rf230_write_subreg(lp, SR_IRQ_POLARITY, pol);
+@@ -766,12 +779,7 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
  	if (rc)
-@@ -748,6 +756,16 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
- 		dev_info(&lp->spi->dev, "Status: %02x\n", status);
- 	}
+ 		return rc;
  
-+	/* configure irq polarity, defaults to high active */
-+	if (pdata->irq_type & (IRQF_TRIGGER_FALLING | IRQF_TRIGGER_LOW))
-+		irq_pol = IRQ_ACTIVE_LOW;
-+	else
-+		irq_pol = IRQ_ACTIVE_HIGH;
-+
-+	rc = at86rf230_irq_polarity(lp, irq_pol);
-+	if (rc)
-+		return rc;
-+
- 	rc = at86rf230_write_subreg(lp, SR_IRQ_MASK, 0xff); /* IRQ_TRX_UR |
- 							     * IRQ_CCA_ED |
- 							     * IRQ_TRX_END |
-@@ -798,37 +816,36 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
- 	return 0;
- }
+-	rc = at86rf230_write_subreg(lp, SR_IRQ_MASK, 0xff); /* IRQ_TRX_UR |
+-							     * IRQ_CCA_ED |
+-							     * IRQ_TRX_END |
+-							     * IRQ_PLL_UNL |
+-							     * IRQ_PLL_LOCK
+-							     */
++	rc = at86rf230_write_subreg(lp, SR_IRQ_MASK, IRQ_TRX_END);
+ 	if (rc)
+ 		return rc;
  
--static int at86rf230_fill_data(struct spi_device *spi)
-+static void at86rf230_fill_data(struct spi_device *spi)
- {
- 	struct at86rf230_local *lp = spi_get_drvdata(spi);
- 	struct at86rf230_platform_data *pdata = spi->dev.platform_data;
- 
--	if (!pdata) {
--		dev_err(&spi->dev, "no platform_data\n");
--		return -EINVAL;
--	}
--
- 	lp->rstn = pdata->rstn;
- 	lp->slp_tr = pdata->slp_tr;
- 	lp->dig2 = pdata->dig2;
--
--	return 0;
- }
- 
- static int at86rf230_probe(struct spi_device *spi)
- {
-+	struct at86rf230_platform_data *pdata;
+@@ -831,7 +839,9 @@ static int at86rf230_probe(struct spi_device *spi)
+ 	struct at86rf230_platform_data *pdata;
  	struct ieee802154_dev *dev;
  	struct at86rf230_local *lp;
- 	u8 man_id_0, man_id_1;
--	int rc;
-+	int rc, supported = 0;
+-	u8 man_id_0, man_id_1;
++	u8 man_id_0, man_id_1, status;
++	irq_handler_t irq_handler;
++	work_func_t irq_worker;
+ 	int rc, supported = 0;
  	const char *chip;
--	int supported = 0;
  
- 	if (!spi->irq) {
- 		dev_err(&spi->dev, "no IRQ specified\n");
- 		return -EINVAL;
- 	}
+@@ -861,8 +871,16 @@ static int at86rf230_probe(struct spi_device *spi)
+ 	dev->phy->channels_supported[0] = 0x7FFF800;
+ 	dev->flags = IEEE802154_HW_OMIT_CKSUM;
  
-+	pdata = spi->dev.platform_data;
-+	if (!pdata) {
-+		dev_err(&spi->dev, "no platform_data\n");
-+		return -EINVAL;
++	if (pdata->irq_type & (IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING)) {
++		irq_worker = at86rf230_irqwork;
++		irq_handler = at86rf230_isr;
++	} else {
++		irq_worker = at86rf230_irqwork_level;
++		irq_handler = at86rf230_isr_level;
 +	}
 +
- 	dev = ieee802154_alloc_device(sizeof(*lp), &at86rf230_ops);
- 	if (!dev)
- 		return -ENOMEM;
-@@ -851,9 +868,7 @@ static int at86rf230_probe(struct spi_device *spi)
+ 	mutex_init(&lp->bmux);
+-	INIT_WORK(&lp->irqwork, at86rf230_irqwork);
++	INIT_WORK(&lp->irqwork, irq_worker);
+ 	spin_lock_init(&lp->lock);
+ 	init_completion(&lp->tx_complete);
  
- 	spi_set_drvdata(spi, lp);
- 
--	rc = at86rf230_fill_data(spi);
--	if (rc)
--		goto err_fill;
-+	at86rf230_fill_data(spi);
- 
- 	rc = gpio_request(lp->rstn, "rstn");
- 	if (rc)
-@@ -928,7 +943,8 @@ static int at86rf230_probe(struct spi_device *spi)
+@@ -943,12 +961,17 @@ static int at86rf230_probe(struct spi_device *spi)
  	if (rc)
  		goto err_gpio_dir;
  
--	rc = request_irq(spi->irq, at86rf230_isr, IRQF_SHARED,
-+	rc = request_irq(spi->irq, at86rf230_isr,
-+			 IRQF_SHARED | pdata->irq_type,
+-	rc = request_irq(spi->irq, at86rf230_isr,
++	rc = request_irq(spi->irq, irq_handler,
+ 			 IRQF_SHARED | pdata->irq_type,
  			 dev_name(&spi->dev), lp);
  	if (rc)
  		goto err_gpio_dir;
-@@ -948,7 +964,6 @@ err_gpio_dir:
- err_slp_tr:
- 	gpio_free(lp->rstn);
- err_rstn:
--err_fill:
- 	spi_set_drvdata(spi, NULL);
- 	mutex_destroy(&lp->bmux);
- 	ieee802154_free_device(lp->dev);
-diff --git a/include/linux/spi/at86rf230.h b/include/linux/spi/at86rf230.h
-index b2b1afb..aa327a8 100644
---- a/include/linux/spi/at86rf230.h
-+++ b/include/linux/spi/at86rf230.h
-@@ -26,6 +26,20 @@ struct at86rf230_platform_data {
- 	int rstn;
- 	int slp_tr;
- 	int dig2;
-+
-+	/* Setting the irq_type will configure the driver to request
-+	 * the platform irq trigger type according to the given value
-+	 * and configure the interrupt polarity of the device to the
-+	 * corresponding polarity.
-+	 *
-+	 * Allowed values are: IRQF_TRIGGER_RISING, IRQF_TRIGGER_FALLING,
-+	 *                     IRQF_TRIGGER_HIGH and IRQF_TRIGGER_LOW
-+	 *
-+	 * Setting it to 0, the driver does not touch the trigger type
-+	 * configuration of the interrupt and sets the interrupt polarity
-+	 * of the device to high active (the default value).
-+	 */
-+	int irq_type;
- };
  
- #endif
++	/* Read irq status register to reset irq line */
++	rc = at86rf230_read_subreg(lp, RG_IRQ_STATUS, 0xff, 0, &status);
++	if (rc)
++		goto err_irq;
++
+ 	rc = ieee802154_register_device(lp->dev);
+ 	if (rc)
+ 		goto err_irq;
 -- 
 1.7.10.4
