@@ -1,40 +1,26 @@
-From: Mark Jackson <mpfj-list@mimc.co.uk>
-Subject: Re: [PATCH 0/3] Dual EMAC mode implementation of CPSW
-Date: Mon, 15 Apr 2013 18:28:25 +0100
-Message-ID: <516C38B9.50904@mimc.co.uk>
-References: <1360612340-9266-1-git-send-email-mugunthanvnm@ti.com> <516B0098.4040809@mimc.co.uk> <516C33D2.4050105@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: IPsec maintenance for the next weeks
+Date: Mon, 15 Apr 2013 13:30:04 -0400 (EDT)
+Message-ID: <20130415.133004.1376243735425296752.davem@davemloft.net>
+References: <20130415073014.GI21448@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <516C33D2.4050105@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34125 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753643Ab3DORaG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 13:30:06 -0400
+In-Reply-To: <20130415073014.GI21448@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15/04/13 18:07, Mugunthan V N wrote:
-> On 4/15/2013 12:46 AM, Mark Jackson wrote:
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Mon, 15 Apr 2013 09:30:15 +0200
 
-<snip>
+> I will be off, probaply without email access for five weeks starting on friday.
+> Could you please take IPsec patches directly into net/net-next during that time?
 
->>
->> Notice that at the end, the nfs link appears to come back "ok", but
->> the "ps" command never completes.
->>
->> Any ideas of what's going on ?
->
-> I have tried ping on both the interface fine. Will verify with ps again
-> later in this week.
-> Can you provide below details details
-> - Are you using EVMsk or custom build EVM?
-
-This is a custom board (based on the BeagleBone design) with dual 
-Ethernet, NAND, NOR and FRAM.
-
-The dual emac thing is (one of) the last things to get signed off, so 
-I'm willing to assist in tracking this down.
-
-Regards
-Mark J.
+Ok, will do.
