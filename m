@@ -1,65 +1,117 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: net: mvneta: fix improper tx queue usage in mvneta_tx()
-Date: Mon, 15 Apr 2013 14:05:48 +0200
-Message-ID: <20130415120548.GD27217@1wt.eu>
-References: <20130415063537.GA26507@1wt.eu>
- <516BE98D.2040706@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
- netdev@vger.kernel.org, Dmitri Epshtein <dima@marvell.com>,
- Maen Suleiman <maen@marvell.com>, Lior Amsalem <alior@marvell.com>,
- Ben Hutchings <bhutchings@solarflare.com>,
- "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <516BE98D.2040706@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 1/2] net: sctp: remove sctp_ep_common struct member 'malloced'
+Date: Mon, 15 Apr 2013 15:27:17 +0200
+Message-ID: <1366032438-4412-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:31538 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750827Ab3DON1W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Apr 2013 09:27:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 15, 2013 at 01:50:37PM +0200, Gregory CLEMENT wrote:
-> Hi Willy
-> 
-> On 04/15/2013 08:35 AM, Willy Tarreau wrote:
-> > From 4f2069c92a27790e6071dc2a80f92c166e0b0ca4 Mon Sep 17 00:00:00 2001
-> > From: Willy Tarreau <w@1wt.eu>
-> > Date: Thu, 11 Apr 2013 23:00:37 +0200
-> > Subject: net: mvneta: fix improper tx queue usage in mvneta_tx()
-> > 
-> > mvneta_tx() was using a static tx queue number causing crashes as
-> > soon as a little bit of traffic was sent via the interface, because
-> > it is normally expected that the same queue should be used as in
-> > dev_queue_xmit().
-> > 
-> > As suggested by Ben Hutchings, let's use skb_get_queue_mapping() to
-> > get the proper Tx queue number, and use alloc_etherdev_mqs() instead
-> > of alloc_etherdev_mq() to create the queues.
-> > 
-> > Both my Mirabox and my OpenBlocks AX3 used to crash without this patch
-> > and don't anymore with it. The issue appeared in 3.8 but became more
-> > visible after the fix allowing GSO to be enabled.
-> > 
-> > Original work was done by Dmitri Epshtein and Thomas Petazzoni. I
-> > just adapted it to take care of Ben's comments.
-> 
-> Thanks for this work. I have tested on a DB-MV784MP-GP board in SMP
-> with 4 CPUs. Without this patch a "iperf -P 4" lead to a kernel crash
-> in 80% of the case and to a hang in the remaining cases. Now after
-> a dozen of tests on this board, I didn't see any crash or hang.
-> You can add my
-> Tested-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+There is actually no need to keep this member in the structure, because
+after init it's always 1 anyway, thus always kfree called. This seems to
+be an ancient leftover from the very initial implementation from 2.5
+times. Only in case the initialization of an association fails, we leave
+base.malloced as 0, but we nevertheless kfree it in the error path in
+sctp_association_new().
 
-Thanks for testing Gregory !
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ Likely, there are also other such candidates in SCTP. Will have a look
+ for some follow-ups.
 
-Willy
+ include/net/sctp/structs.h |  2 --
+ net/sctp/associola.c       |  8 ++------
+ net/sctp/endpointola.c     | 10 +++-------
+ 3 files changed, 5 insertions(+), 15 deletions(-)
+
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 0e0f9d2..3e80eed 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -1174,11 +1174,9 @@ struct sctp_ep_common {
+ 	/* Some fields to help us manage this object.
+ 	 *   refcnt   - Reference count access to this object.
+ 	 *   dead     - Do not attempt to use this object.
+-	 *   malloced - Do we need to kfree this object?
+ 	 */
+ 	atomic_t    refcnt;
+ 	char	    dead;
+-	char	    malloced;
+ 
+ 	/* What socket does this endpoint belong to?  */
+ 	struct sock *sk;
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index d2709e2..b893aa6 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -105,7 +105,6 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
+ 	/* Initialize the object handling fields.  */
+ 	atomic_set(&asoc->base.refcnt, 1);
+ 	asoc->base.dead = 0;
+-	asoc->base.malloced = 0;
+ 
+ 	/* Initialize the bind addr area.  */
+ 	sctp_bind_addr_init(&asoc->base.bind_addr, ep->base.bind_addr.port);
+@@ -371,7 +370,6 @@ struct sctp_association *sctp_association_new(const struct sctp_endpoint *ep,
+ 	if (!sctp_association_init(asoc, ep, sk, scope, gfp))
+ 		goto fail_init;
+ 
+-	asoc->base.malloced = 1;
+ 	SCTP_DBG_OBJCNT_INC(assoc);
+ 	SCTP_DEBUG_PRINTK("Created asoc %p\n", asoc);
+ 
+@@ -484,10 +482,8 @@ static void sctp_association_destroy(struct sctp_association *asoc)
+ 
+ 	WARN_ON(atomic_read(&asoc->rmem_alloc));
+ 
+-	if (asoc->base.malloced) {
+-		kfree(asoc);
+-		SCTP_DBG_OBJCNT_DEC(assoc);
+-	}
++	kfree(asoc);
++	SCTP_DBG_OBJCNT_DEC(assoc);
+ }
+ 
+ /* Change the primary destination address for the peer. */
+diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+index 12ed45d..46bbfc2 100644
+--- a/net/sctp/endpointola.c
++++ b/net/sctp/endpointola.c
+@@ -122,7 +122,6 @@ static struct sctp_endpoint *sctp_endpoint_init(struct sctp_endpoint *ep,
+ 	/* Initialize the basic object fields. */
+ 	atomic_set(&ep->base.refcnt, 1);
+ 	ep->base.dead = 0;
+-	ep->base.malloced = 1;
+ 
+ 	/* Create an input queue.  */
+ 	sctp_inq_init(&ep->base.inqueue);
+@@ -198,7 +197,7 @@ struct sctp_endpoint *sctp_endpoint_new(struct sock *sk, gfp_t gfp)
+ 		goto fail;
+ 	if (!sctp_endpoint_init(ep, sk, gfp))
+ 		goto fail_init;
+-	ep->base.malloced = 1;
++
+ 	SCTP_DBG_OBJCNT_INC(ep);
+ 	return ep;
+ 
+@@ -279,11 +278,8 @@ static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
+ 	if (ep->base.sk)
+ 		sock_put(ep->base.sk);
+ 
+-	/* Finally, free up our memory. */
+-	if (ep->base.malloced) {
+-		kfree(ep);
+-		SCTP_DBG_OBJCNT_DEC(ep);
+-	}
++	kfree(ep);
++	SCTP_DBG_OBJCNT_DEC(ep);
+ }
+ 
+ /* Hold a reference to an endpoint. */
+-- 
+1.7.11.7
