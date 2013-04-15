@@ -1,96 +1,79 @@
-From: =?UTF-8?B?QmVub8OudCBCb3VyYmnDqQ==?= <benoit.bourbie@gmail.com>
-Subject: Re: [PATCH] net : fix typo
-Date: Sun, 14 Apr 2013 16:13:11 -0500
-Message-ID: <CANJSc_uioN_XkccUa+dp3-iYuMO3rP7J3Qa63wqDATNVetvHOA@mail.gmail.com>
-References: <1365967993-3945-1-git-send-email-benoit.bourbie@gmail.com>
-	<1365967993-3945-2-git-send-email-benoit.bourbie@gmail.com>
-	<20130414.153832.226522425220409258.davem@davemloft.net>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [stable] net: sctp: sctp_auth_key_put: use kzfree instead of kfree
+Date: Mon, 15 Apr 2013 01:03:00 +0100
+Message-ID: <1365984180.2783.86.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4937821280337995928=="
-Cc: netdev@vger.kernel.org, wimax@linuxwimax.org,
-	inaky.perez-gonzalez@intel.com
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-gaC1GhMe3xdbDlLjVdd+"
+Cc: netdev <netdev@vger.kernel.org>, stable@vger.kernel.org,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Brad Spengler <spender@grsecurity.net>
 To: David Miller <davem@davemloft.net>
-Return-path: <wimax-bounces@linuxwimax.org>
-In-Reply-To: <20130414.153832.226522425220409258.davem@davemloft.net>
-List-Unsubscribe: <http://lists.linuxwimax.org/options/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxwimax.org/pipermail/wimax>
-List-Post: <mailto:wimax@linuxwimax.org>
-List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
-List-Subscribe: <http://lists.linuxwimax.org/listinfo/wimax>,
-	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
-Sender: wimax-bounces@linuxwimax.org
-Errors-To: wimax-bounces@linuxwimax.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46399 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752130Ab3DOADM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 20:03:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---===============4937821280337995928==
-Content-Type: multipart/alternative; boundary=047d7b6787cec3b62904da589bbb
 
---047d7b6787cec3b62904da589bbb
-Content-Type: text/plain; charset=UTF-8
+--=-gaC1GhMe3xdbDlLjVdd+
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-I didn't send 2 patches, I sent the same patch twice by mistake.
-There's no difference between the 2 submissions.
+You sent these fixes for potential key material leaks to stable:
 
+commit 6ba542a291a5e558603ac51cda9bded347ce7627
+Author: Daniel Borkmann <dborkman@redhat.com>
+Date:   Fri Feb 8 03:04:34 2013 +0000
 
+    net: sctp: sctp_setsockopt_auth_key: use kzfree instead of kfree
 
-On Sun, Apr 14, 2013 at 2:38 PM, David Miller <davem@davemloft.net> wrote:
+commit b5c37fe6e24eec194bb29d22fdd55d73bcc709bf
+Author: Daniel Borkmann <dborkman@redhat.com>
+Date:   Fri Feb 8 03:04:35 2013 +0000
 
-> From: Beno=C3=AEt Bourbi=C3=A9 <benoit.bourbie@gmail.com>
-> Date: Sun, 14 Apr 2013 14:33:13 -0500
->
-> > Fixed some grammar mistakes.
-> >
-> >
-> > Signed-off-by: Beno=C3=AEt Bourbi=C3=A9 <benoit.bourbie@gmail.com>
->
-> Please don't post a patch multiple times without explaining
-> what is different between the two submissions.
->
-> I'm ignoring both of your patches.
->
+    net: sctp: sctp_endpoint_free: zero out secret key data
 
---047d7b6787cec3b62904da589bbb
-Content-Type: text/html; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Brad Spengler pointed out there was one missing, which seems to be this
+one:
 
-<div dir=3D"ltr">I didn&#39;t send 2 patches, I sent the same patch twice b=
-y mistake.=C2=A0<div>There&#39;s no difference between the 2 submissions.</=
-div><div style><br></div><div style><br></div><div class=3D"gmail_extra"><b=
-r><div class=3D"gmail_quote">
+commit 586c31f3bf04c290dc0a0de7fc91d20aa9a5ee53
+Author: Daniel Borkmann <dborkman@redhat.com>
+Date:   Thu Feb 7 00:55:37 2013 +0000
 
-On Sun, Apr 14, 2013 at 2:38 PM, David Miller <span dir=3D"ltr">&lt;<a href=
-=3D"mailto:davem@davemloft.net" target=3D"_blank">davem@davemloft.net</a>&g=
-t;</span> wrote:<br><blockquote class=3D"gmail_quote" style=3D"margin:0 0 0=
- .8ex;border-left:1px #ccc solid;padding-left:1ex">
+    net: sctp: sctp_auth_key_put: use kzfree instead of kfree
 
-From: Beno=C3=AEt Bourbi=C3=A9 &lt;<a href=3D"mailto:benoit.bourbie@gmail.c=
-om">benoit.bourbie@gmail.com</a>&gt;<br>
-Date: Sun, 14 Apr 2013 14:33:13 -0500<br>
-<div class=3D"im"><br>
-&gt; Fixed some grammar mistakes.<br>
-&gt;<br>
-&gt;<br>
-&gt; Signed-off-by: Beno=C3=AEt Bourbi=C3=A9 &lt;<a href=3D"mailto:benoit.b=
-ourbie@gmail.com">benoit.bourbie@gmail.com</a>&gt;<br>
-<br>
-</div>Please don&#39;t post a patch multiple times without explaining<br>
-what is different between the two submissions.<br>
-<br>
-I&#39;m ignoring both of your patches.<br>
-</blockquote></div><br></div></div>
+I assume that was an accidental omission, in which case please include
+it the next batch.
 
---047d7b6787cec3b62904da589bbb--
+Ben.
 
---===============4937821280337995928==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+--=20
+Ben Hutchings
+The first rule of tautology club is the first rule of tautology club.
 
-_______________________________________________
-wimax mailing list
-wimax@linuxwimax.org
-http://lists.linuxwimax.org/listinfo/wimax
---===============4937821280337995928==--
+--=-gaC1GhMe3xdbDlLjVdd+
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAUWtDtOe/yOyVhhEJAQq+5xAAhzX2Sc/gTQUCssD257veCv3WAFYyki4S
+yLmh6xZHZV/5QlB02e7zZ9asoGkh1O/+Slt3te9THGD3ZiBghh1KPue17w25Nezl
+3eZNC5Z3Gv1SMghSum2GgT40ChvI9TxdlLGiY9z2BmEuodXsAscvVcwXM612A0O8
+O97grIVHXEbRaiZ86wjw2Kp/YWYngnrdsp4R3LsY4hAU5epmE1HF1RE/8QQCG9H/
+r7xl7IvBvvNVlSEnnR3UmBPBHLzXLuHE16NnFwJRmzI0Or0N5XYqDfSUMxeZgpye
+TClWzdW5mVYLF9+QEYEanHDJ347FHdjzS7cadv/phQ2SCl/M+nSaVpPruUkEkRAj
+sB8MGqkFyFT/QSSI9PMQG4ouZg4wvyIpcbBMRkBsodNpqou8MuIcvXBGJ/E9vDxt
+Te9DmFvv/9jVcGDkAzPEDBuJziuVepKfaKD23NnJ5li1ff+CfNvVixvbeCB82zzz
+naoKV9/vxsdNNEAhe2wWhAQsWZNbfQvmtAKFt4trHofP7Hmvpxo+JZzXXnQ8M1ln
+G4nEA0VIGLuMf2FuIYSZQ2yLHCHaqjDBlO9XvfXWDXFUpdYq+clUwGUXCG0Ytwd1
+K3cxNw51FXliHh/Wl4M6XM1qI/kgq6vymj4l+wunl+Oy9JtTjzPHlfDqiIZXdunN
+CUQTFDmsJz4=
+=itod
+-----END PGP SIGNATURE-----
+
+--=-gaC1GhMe3xdbDlLjVdd+--
