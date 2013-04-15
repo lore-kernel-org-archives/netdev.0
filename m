@@ -1,47 +1,53 @@
-From: Paul Chavent <Paul.Chavent@onera.fr>
-Subject: Re: [PATCH] net-packet: tx timestamping on tpacket ring
-Date: Mon, 15 Apr 2013 09:37:30 +0200
-Message-ID: <516BAE3A.5020508@onera.fr>
-References: <CA+FuTSezggEb7znDYMf8vWU7JmWLP59AVPkaTvNaAwJoNcqk9A@mail.gmail.com> <1365879412-9541-1-git-send-email-willemb@google.com> <5169D9C8.8010504@redhat.com> <CA+FuTSe1KCPPW=FBXZoTNmri9oPHicuoFeEMKws09PwbyRe-2A@mail.gmail.com> <516A8A60.5020003@redhat.com> <20130414130726.GB2871@netboy>
+From: Wilco Baan Hofman <wilco@baanhofman.nl>
+Subject: ECMP ipv6 vs ipv4
+Date: Mon, 15 Apr 2013 09:58:48 +0200
+Message-ID: <1366012728.4975.13.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	daniel.borkmann@tik.ee.ethz.ch, xemul@parallels.com,
-	ebiederm@xmission.com, netdev@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from briaree.onecert.fr ([134.212.190.4]:32969 "EHLO
-	briaree.onecert.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751541Ab3DOHly (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 03:41:54 -0400
-In-Reply-To: <20130414130726.GB2871@netboy>
+Received: from 37-251-2-65.FTTH.ispfabriek.nl ([37.251.2.65]:59974 "EHLO
+	mail.baanhofman.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753930Ab3DOH7E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 03:59:04 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by mail.baanhofman.nl (Postfix) with ESMTP id A2379788C3
+	for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 09:59:01 +0200 (CEST)
+Received: from mail.baanhofman.nl ([127.0.0.1])
+	by localhost (blackhole.synnack.net [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id XSujWQlgUACa for <netdev@vger.kernel.org>;
+	Mon, 15 Apr 2013 09:58:50 +0200 (CEST)
+Received: from [IPv6:2001:7b8:2ff:1d9::2] (cl-474.ede-01.nl.sixxs.net [IPv6:2001:7b8:2ff:1d9::2])
+	by mail.baanhofman.nl (Postfix) with ESMTPSA id D9C14788B4
+	for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 09:58:49 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
+I'm working on a patch to implement 'nexthop weight' for multipath ipv6.
+However, the ECMPv6 implementation has a few flaws that are quite
+annoying.
 
-On 04/14/2013 03:07 PM, Richard Cochran wrote:
-> On Sun, Apr 14, 2013 at 12:52:16PM +0200, Daniel Borkmann wrote:
->>
->> While going a bit more through the code, I'm wondering .. if we want to support
->> TX timestamps, could we also support SW _and_ HW timestamps e.g. similar as in
->> sock_recv_timestamp()? I'm asking, because we already allow setting the flags
->> for it via sock_tx_timestamp(). This might be good, if possible.
->
-> And while you are at it, you could also fix the receive code.
->
-> As it stand now, it is fairly useless, since there is no way for user
-> space to tell which kind of time stamp has been reported. In fact, the
-> code will silently intermingle hardware and software time stamps. That
-> is surely a mean trick to play on the users.
+One of the flaws is that the netlink nexthop API is asymmetrical, you
+can add nexthops through the netlink API, but when the result is
+requested it is completely different, resulting in bird6 removing the
+route as it does not match the initial route set.
 
-Isn't it the one that the user ask with setsockopt(fd, SOL_PACKET, 
-PACKET_TIMESTAMP, &timestamping, sizeof(timestamping)) ?
+Another one of the flaws is that if I add nexthop weight or algorithm
+(weighted hash or weighted random) I need to add this to the main rt
+node, this seems like an inefficient memory structure, as this needs to
+be added to all the siblings as well.
 
-However, i wonder why you added an other sockopt that do the same thing 
-as SOL_SOCKET/SO_TIMESTAMPING sockopt ?
+I propose that we have a nexthop structure to an exclusive route,
+similar what we have for IPv4, where we store the gateway, device and
+weight for all nexthops and the algorithm in the route. This would make
+the netlink API symmetrical again and fixes the n*n inefficiencies when
+adding routes (all siblings need to know about all siblings).
 
-Paul.
+What are your thoughts on this?
+
+Regards,
+
+Wilco Baan Hofman
