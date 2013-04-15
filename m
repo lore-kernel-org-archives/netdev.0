@@ -1,44 +1,37 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCHv2 2/2] team:  Use new sync_multiple api to sync devices adressess.
-Date: Mon, 15 Apr 2013 15:54:26 -0400
-Message-ID: <1366055666-12916-3-git-send-email-vyasevic@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 0/2] Add suppport for sync of hw addresses to
+ multiple devices.
+Date: Mon, 15 Apr 2013 16:12:48 -0400 (EDT)
+Message-ID: <20130415.161248.1709223661580314155.davem@davemloft.net>
 References: <1366055666-12916-1-git-send-email-vyasevic@redhat.com>
-Cc: Vlad Yasevich <vyasevic@redhat.com>, Jiri Pirko <jiri@resnulli.us>
-To: netdev@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59472 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935018Ab3DOTyb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Apr 2013 15:54:31 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:36010 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753095Ab3DOUMv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 16:12:51 -0400
 In-Reply-To: <1366055666-12916-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Team drivers attempts to sync addresses to each of the port
-devices; however, the current api doesn't really perform the sync
-for any device after the first one.  Switch to using the new api
-that will actually sync the addresses to all ports.
+From: Vlad Yasevich <vyasevic@redhat.com>
+Date: Mon, 15 Apr 2013 15:54:24 -0400
 
-CC: Jiri Pirko <jiri@resnulli.us>
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- drivers/net/team/team.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+> Current dev_[uc|mc]_addr_sync() API currently correctly syncs the
+> addresses to the first device.  Any subsequent calls to sync will
+> not do anything since the synched variable will be set.  This
+> variable is used as an optimization to skip over addresses that have
+> been synched.
+> 
+> There are some devices (ex: team) that attempt to do the above.  There
+> is other work in progress that needs to above to work corretly.
+> 
+> The short series introduces dev_[uc|mc]_addr_synch_multiple() that
+> allows multiple calls to sync to multiple different devices.  Original
+> API is left alone and still has the limitation.
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index bf34192..33d89f8 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1491,8 +1491,8 @@ static void team_set_rx_mode(struct net_device *dev)
- 
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(port, &team->port_list, list) {
--		dev_uc_sync(port->dev, dev);
--		dev_mc_sync(port->dev, dev);
-+		dev_uc_sync_multiple(port->dev, dev);
-+		dev_mc_sync_multiple(port->dev, dev);
- 	}
- 	rcu_read_unlock();
- }
--- 
-1.7.7.6
+Looks good, applied to net-next, thanks!
