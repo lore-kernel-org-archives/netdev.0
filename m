@@ -1,93 +1,90 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net: sctp: minor: make sctp_ep_common's
- member 'dead' a bool
-Date: Mon, 15 Apr 2013 10:05:21 -0400
-Message-ID: <516C0921.1060703@gmail.com>
-References: <1366032438-4412-1-git-send-email-dborkman@redhat.com> <1366032438-4412-2-git-send-email-dborkman@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH RFC] spinlock: split out debugging check from
+ spin_lock_mutex
+Date: Mon, 15 Apr 2013 10:16:10 -0400
+Message-ID: <20130415141610.GA3505@hmsreliant.think-freely.org>
+References: <5166BDAA.3000603@acm.org>
+ <1365693486-6315-1-git-send-email-nhorman@tuxdriver.com>
+ <5166F35B.1040200@acm.org>
+ <20130411191409.GA9790@hmsreliant.think-freely.org>
+ <5167A953.1020900@acm.org>
+ <20130412113232.GA19966@hmsreliant.think-freely.org>
+ <516813A0.1040300@acm.org>
+ <20130412184542.GB19966@hmsreliant.think-freely.org>
+ <51690AAB.1030102@acm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ingo Molnar <mingo@redhat.com>
+To: Bart Van Assche <bvanassche@acm.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f44.google.com ([209.85.216.44]:54367 "EHLO
-	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751327Ab3DOOFZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 10:05:25 -0400
-In-Reply-To: <1366032438-4412-2-git-send-email-dborkman@redhat.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:45707 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752365Ab3DOOQW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 10:16:22 -0400
+Content-Disposition: inline
+In-Reply-To: <51690AAB.1030102@acm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/15/2013 09:27 AM, Daniel Borkmann wrote:
-> Since dead only holds two states (0,1), make it a bool instead
-> of a 'char', which is more appropriate for its purpose.
->
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+On Sat, Apr 13, 2013 at 09:35:07AM +0200, Bart Van Assche wrote:
+> On 04/12/13 20:45, Neil Horman wrote:
+> >On Fri, Apr 12, 2013 at 04:01:04PM +0200, Bart Van Assche wrote:
+> >>On 04/12/13 13:32, Neil Horman wrote:
+> >>I think there is another issue with invoking mutex_trylock() and mutex_unlock()
+> >>from IRQ context: as far as I can see if CONFIG_DEBUG_MUTEXES is disabled
+> >>__mutex_unlock_common_slowpath() uses spin_lock() to lock mutex.wait_lock and
+> >>hence invoking mutex_unlock() from both non-IRQ and IRQ context is not safe.
+> >>Any thoughts about that ?
+> >>
+> >Yeah, its ugly, but in this specific case, its ok.  the netpoll code (in
+> >netpoll_send_skb disables irq on the local cpu before entering the netpoll code
+> >path any further, so whenver we frob this mutex from the local cpu, we're
+> >guaranteed not to get pre-empted by an irq.
+> 
+> As far as I know it is neither allowed nor safe to call
+> netpoll_rx_disable() with IRQs disabled. But that function can lock
+> the dev_lock mutex. What do you think will happen with
+> CONFIG_DEBUG_MUTEXES=n if an interrupt occurs during the
+> mutex_lock(&ni->dev_lock) call, that mutex_lock() call has already
+> locked the mutex-internal spin lock via spin_lock() and
+> mutex_trylock() is invoked from inside the interrupt ? Can that
+> result in anything else than deadlock and "CPU stuck" messages ?
+> 
+> Thanks,
+> 
+> Bart.
+> 
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-> ---
->   include/net/sctp/structs.h | 2 +-
->   net/sctp/associola.c       | 4 ++--
->   net/sctp/endpointola.c     | 4 ++--
->   3 files changed, 5 insertions(+), 5 deletions(-)
->
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 3e80eed..e12aa77 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -1176,7 +1176,7 @@ struct sctp_ep_common {
->   	 *   dead     - Do not attempt to use this object.
->   	 */
->   	atomic_t    refcnt;
-> -	char	    dead;
-> +	bool	    dead;
->
->   	/* What socket does this endpoint belong to?  */
->   	struct sock *sk;
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index b893aa6..423549a 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -104,7 +104,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
->
->   	/* Initialize the object handling fields.  */
->   	atomic_set(&asoc->base.refcnt, 1);
-> -	asoc->base.dead = 0;
-> +	asoc->base.dead = false;
->
->   	/* Initialize the bind addr area.  */
->   	sctp_bind_addr_init(&asoc->base.bind_addr, ep->base.bind_addr.port);
-> @@ -407,7 +407,7 @@ void sctp_association_free(struct sctp_association *asoc)
->   	/* Mark as dead, so other users can know this structure is
->   	 * going away.
->   	 */
-> -	asoc->base.dead = 1;
-> +	asoc->base.dead = true;
->
->   	/* Dispose of any data lying around in the outqueue. */
->   	sctp_outq_free(&asoc->outqueue);
-> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-> index 46bbfc2..5fbd7bc 100644
-> --- a/net/sctp/endpointola.c
-> +++ b/net/sctp/endpointola.c
-> @@ -121,7 +121,7 @@ static struct sctp_endpoint *sctp_endpoint_init(struct sctp_endpoint *ep,
->
->   	/* Initialize the basic object fields. */
->   	atomic_set(&ep->base.refcnt, 1);
-> -	ep->base.dead = 0;
-> +	ep->base.dead = false;
->
->   	/* Create an input queue.  */
->   	sctp_inq_init(&ep->base.inqueue);
-> @@ -233,7 +233,7 @@ void sctp_endpoint_add_asoc(struct sctp_endpoint *ep,
->    */
->   void sctp_endpoint_free(struct sctp_endpoint *ep)
->   {
-> -	ep->base.dead = 1;
-> +	ep->base.dead = true;
->
->   	ep->base.sk->sk_state = SCTP_SS_CLOSED;
->
->
+So I've been doing some reading over the weekend, and as a result I've been
+developing some concerns about how mutex_trylock works.  I'm still convinced its
+safe to use with the changes we're discussing here, but all the documentation
+regarding mutex_trylock seems to say it simply shouldn't be used in interrupt
+context (though it never goes into detail as to why).  As near as I can tell,
+its because the spin locks that mutexes use are locked without disabling
+interrupts (the implication being that, as we see in the patch we're looking at
+here), you're safe if you disable irqs independently).  Ironically, Ingo patched
+the mutex debug variants back in 2006 in commit
+1fb00c6cbd8356f43b46322742f3c01c2a1f02da to disable irqs to work around a bug,
+the result being that the debug variant gives you a WARNING about using
+mutex_trylock in interrupts, when its actually safe, while the non-debug variant
+provides no warning, but is actually prone to deadlock.
+
+There are a few other use cases in the kernel in which mutex_trylock may be used
+in an interrupt context (crash_kexec being the most notable, as its used for the
+same purposes that we're using it in netpoll, and where I got the inspiration
+for my previous netpoll changes.
+
+The more I look at this, the more I'm starting to think that, in addition to the
+debug changes I've got proposed here, we should additionally convert the
+non-debug spin_lock_mutex variants to disable irqs while manipulating the
+mutexes.  That would make mutex_trylock safe, and give us a nice mechanism to
+create exclusion between sleepable paths that should not run atomically and
+interrupt context paths.
+
+Ingo, can you comment on these thoughts above please.  I'd like to get your
+opinion on this prior to spinning up a new patch if I could please.
+
+Thanks!
+Neil
