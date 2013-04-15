@@ -1,203 +1,166 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be
- active
-Date: Mon, 15 Apr 2013 10:59:20 -0500
-Message-ID: <1366041560.5649.0.camel@dcbw.foobar.com>
-References: <20110727141246.GC29616@orbit.nwl.cc>
-	 <21345916.cd7DzC6Ttz@linux-5eaq.site>
-	 <1365606080.28888.72.camel@dcbw.foobar.com>
-	 <7761183.G42DetJs5Z@linux-5eaq.site>
-	 <1365625850.22411.1.camel@dcbw.foobar.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next] packet: move hw/sw timestamp extraction into a
+ small helper
+Date: Mon, 15 Apr 2013 12:12:31 -0400
+Message-ID: <CA+FuTSeuUVPuf1paZgXQRr6W5YRJaPfWN57BsHtc2tG8qoS4iQ@mail.gmail.com>
+References: <cover.1366022623.git.dborkman@redhat.com> <45719bcd37c3f11eea24c2a72c09abd9907a5072.1366022623.git.dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ming Lei <tom.leiming@gmail.com>,
-	Elina Pasheva <epasheva@sierrawireless.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: Oliver Neukum <oliver@neukum.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51957 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751304Ab3DOP6D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Apr 2013 11:58:03 -0400
-In-Reply-To: <1365625850.22411.1.camel@dcbw.foobar.com>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:63204 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754115Ab3DOQNG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 12:13:06 -0400
+Received: by mail-ie0-f175.google.com with SMTP id c12so6064051ieb.34
+        for <netdev@vger.kernel.org>; Mon, 15 Apr 2013 09:13:01 -0700 (PDT)
+In-Reply-To: <45719bcd37c3f11eea24c2a72c09abd9907a5072.1366022623.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-04-10 at 15:30 -0500, Dan Williams wrote:
-> Some drivers (sierra_net) need the status interrupt URB
-> active even when the device is closed, because they receive
-> custom indications from firmware.  Add functions to refcount
-> the status interrupt URB submit/kill operation so that
-> sub-drivers and the generic driver don't fight over whether
-> the status interrupt URB is active or not.
-> 
-> A sub-driver can call usbnet_status_start() at any time, but
-> the URB is only submitted the first time the function is
-> called.  Likewise, when the sub-driver is done with the URB,
-> it calls usbnet_status_stop() but the URB is only killed when
-> all users have stopped it.  The URB is still killed and
-> re-submitted for suspend/resume, as before, with the same
-> refcount it had at suspend.
-> 
-> Signed-off-by: Dan Williams <dcbw@redhat.com>
+On Mon, Apr 15, 2013 at 7:41 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> This patch introduces a small helper function, that is used by AF_PACKET.
+> Based on the flags that are passed, it extracts the packet timestamp in
+> the receive path. This is merely a refactoring to remove some duplicate
+> code in tpacket_rcv(), make it more readable, and to enable others to use
+> this function as well.
 
-So, what was the general consensus on this one?  I know Oliver signed
-off on it, but the discussion about memflags seemed to die out without a
-specific conclusion.  davem might be looking for that conclusion before
-moving forward with the series :)
+Good idea. I noticed that while browsing the code over the weekend, too.
 
-Dan
+One question I have is whether the code warrants adding a static
+inline to skbuff.h. Regular socket paths do not use the test, as they
+return all timestamps together.
 
+> Cc: Willem de Bruijn <willemb@google.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 > ---
->  drivers/net/usb/usbnet.c   | 79 ++++++++++++++++++++++++++++++++++++++++++----
->  include/linux/usb/usbnet.h |  5 +++
->  2 files changed, 77 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> index 51f3192..b71ce36 100644
-> --- a/drivers/net/usb/usbnet.c
-> +++ b/drivers/net/usb/usbnet.c
-> @@ -252,6 +252,70 @@ static int init_status (struct usbnet *dev, struct usb_interface *intf)
->  	return 0;
+>  include/linux/skbuff.h | 20 ++++++++++++++++++++
+>  net/packet/af_packet.c | 38 ++++----------------------------------
+>  2 files changed, 24 insertions(+), 34 deletions(-)
+>
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index e27d1c7..d0d436f 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -33,6 +33,7 @@
+>  #include <linux/dma-mapping.h>
+>  #include <linux/netdev_features.h>
+>  #include <net/flow_keys.h>
+> +#include <linux/net_tstamp.h>
+>
+>  /* Don't change this without changing skb_csum_unnecessary! */
+>  #define CHECKSUM_NONE 0
+> @@ -739,6 +740,25 @@ static inline struct skb_shared_hwtstamps *skb_hwtstamps(struct sk_buff *skb)
+>         return &skb_shinfo(skb)->hwtstamps;
 >  }
->  
-> +/* Submit the interrupt URB if not previously submitted, increasing refcount */
-> +int usbnet_status_start(struct usbnet *dev, gfp_t mem_flags)
+>
+> +static inline struct timespec skb_get_tstamp(struct sk_buff *skb,
+> +                                            unsigned int flags)
 > +{
-> +	int ret = 0;
+> +       struct skb_shared_hwtstamps *ts = skb_hwtstamps(skb);
 > +
-> +	WARN_ON_ONCE(dev->interrupt == NULL);
-> +	if (dev->interrupt) {
-> +		mutex_lock(&dev->interrupt_mutex);
+> +       if ((flags & SOF_TIMESTAMPING_SYS_HARDWARE) && ts->syststamp.tv64)
+
+Also, packet sockets use the flags these SOF_... constants passed from
+userspace directly, but regular socket paths convert this into socket
+flags SOCK_..., so this code is more packet socket specific than it
+seems. See __sock_recv_timestamp. I'd keep the function in
+net/packet/af_packet.c solely for this reason, or add a comment.
+
+> +               return ktime_to_timespec(ts->syststamp);
+> +       else if ((flags & SOF_TIMESTAMPING_RAW_HARDWARE) && ts->hwtstamp.tv64)
+> +               return ktime_to_timespec(ts->hwtstamp);
+> +       else if (skb->tstamp.tv64)
+> +               return ktime_to_timespec(skb->tstamp);
+> +       else {
+> +               struct timespec tc;
 > +
-> +		if (++dev->interrupt_count == 1)
-> +			ret = usb_submit_urb(dev->interrupt, mem_flags);
-> +
-> +		dev_dbg(&dev->udev->dev, "incremented interrupt URB count to %d\n",
-> +			dev->interrupt_count);
-> +		mutex_unlock(&dev->interrupt_mutex);
-> +	}
-> +	return ret;
-> +}
-> +EXPORT_SYMBOL_GPL(usbnet_status_start);
-> +
-> +/* For resume; submit interrupt URB if previously submitted */
-> +static int __usbnet_status_start_force(struct usbnet *dev, gfp_t mem_flags)
-> +{
-> +	int ret = 0;
-> +
-> +	mutex_lock(&dev->interrupt_mutex);
-> +	if (dev->interrupt_count) {
-> +		ret = usb_submit_urb(dev->interrupt, mem_flags);
-> +		dev_dbg(&dev->udev->dev,
-> +			"submitted interrupt URB for resume\n");
-> +	}
-> +	mutex_unlock(&dev->interrupt_mutex);
-> +	return ret;
+> +               getnstimeofday(&tc);
+> +               return tc;
+> +       }
 > +}
 > +
-> +/* Kill the interrupt URB if all submitters want it killed */
-> +void usbnet_status_stop(struct usbnet *dev)
-> +{
-> +	if (dev->interrupt) {
-> +		mutex_lock(&dev->interrupt_mutex);
-> +		WARN_ON(dev->interrupt_count == 0);
+>  /**
+>   *     skb_queue_empty - check if a queue is empty
+>   *     @list: queue head
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index 77d71f8..2a2a62e 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -1681,9 +1681,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+>         unsigned long status = TP_STATUS_USER;
+>         unsigned short macoff, netoff, hdrlen;
+>         struct sk_buff *copy_skb = NULL;
+> -       struct timeval tv;
+>         struct timespec ts;
+> -       struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
+>
+>         if (skb->pkt_type == PACKET_LOOPBACK)
+>                 goto drop;
+> @@ -1767,24 +1765,16 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+>
+>         skb_copy_bits(skb, 0, h.raw + macoff, snaplen);
+>
+> +       ts = skb_get_tstamp(skb, po->tp_tstamp);
 > +
-> +		if (dev->interrupt_count && --dev->interrupt_count == 0)
-> +			usb_kill_urb(dev->interrupt);
-> +
-> +		dev_dbg(&dev->udev->dev,
-> +			"decremented interrupt URB count to %d\n",
-> +			dev->interrupt_count);
-> +		mutex_unlock(&dev->interrupt_mutex);
-> +	}
-> +}
-> +EXPORT_SYMBOL_GPL(usbnet_status_stop);
-> +
-> +/* For suspend; always kill interrupt URB */
-> +static void __usbnet_status_stop_force(struct usbnet *dev)
-> +{
-> +	if (dev->interrupt) {
-> +		mutex_lock(&dev->interrupt_mutex);
-> +		usb_kill_urb(dev->interrupt);
-> +		dev_dbg(&dev->udev->dev, "killed interrupt URB for suspend\n");
-> +		mutex_unlock(&dev->interrupt_mutex);
-> +	}
-> +}
-> +
->  /* Passes this packet up the stack, updating its accounting.
->   * Some link protocols batch packets, so their rx_fixup paths
->   * can return clones as well as just modify the original skb.
-> @@ -725,7 +789,7 @@ int usbnet_stop (struct net_device *net)
->  	if (!(info->flags & FLAG_AVOID_UNLINK_URBS))
->  		usbnet_terminate_urbs(dev);
->  
-> -	usb_kill_urb(dev->interrupt);
-> +	usbnet_status_stop(dev);
->  
->  	usbnet_purge_paused_rxq(dev);
->  
-> @@ -787,7 +851,7 @@ int usbnet_open (struct net_device *net)
->  
->  	/* start any status interrupt transfer */
->  	if (dev->interrupt) {
-> -		retval = usb_submit_urb (dev->interrupt, GFP_KERNEL);
-> +		retval = usbnet_status_start(dev, GFP_KERNEL);
->  		if (retval < 0) {
->  			netif_err(dev, ifup, dev->net,
->  				  "intr submit %d\n", retval);
-> @@ -1430,6 +1494,8 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
->  	dev->delay.data = (unsigned long) dev;
->  	init_timer (&dev->delay);
->  	mutex_init (&dev->phy_mutex);
-> +	mutex_init(&dev->interrupt_mutex);
-> +	dev->interrupt_count = 0;
->  
->  	dev->net = net;
->  	strcpy (net->name, "usb%d");
-> @@ -1565,7 +1631,7 @@ int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
->  		 */
->  		netif_device_detach (dev->net);
->  		usbnet_terminate_urbs(dev);
-> -		usb_kill_urb(dev->interrupt);
-> +		__usbnet_status_stop_force(dev);
->  
->  		/*
->  		 * reattach so runtime management can use and
-> @@ -1585,9 +1651,8 @@ int usbnet_resume (struct usb_interface *intf)
->  	int                     retval;
->  
->  	if (!--dev->suspend_count) {
-> -		/* resume interrupt URBs */
-> -		if (dev->interrupt && test_bit(EVENT_DEV_OPEN, &dev->flags))
-> -			usb_submit_urb(dev->interrupt, GFP_NOIO);
-> +		/* resume interrupt URB if it was previously submitted */
-> +		__usbnet_status_start_force(dev, GFP_NOIO);
->  
->  		spin_lock_irq(&dev->txq.lock);
->  		while ((res = usb_get_from_anchor(&dev->deferred))) {
-> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-> index 0e5ac93..d71f44c 100644
-> --- a/include/linux/usb/usbnet.h
-> +++ b/include/linux/usb/usbnet.h
-> @@ -56,6 +56,8 @@ struct usbnet {
->  	struct sk_buff_head	done;
->  	struct sk_buff_head	rxq_pause;
->  	struct urb		*interrupt;
-> +	unsigned		interrupt_count;
-> +	struct mutex            interrupt_mutex;
->  	struct usb_anchor	deferred;
->  	struct tasklet_struct	bh;
->  
-> @@ -246,4 +248,7 @@ extern int usbnet_nway_reset(struct net_device *net);
->  
->  extern int usbnet_manage_power(struct usbnet *, int);
->  
-> +int usbnet_status_start(struct usbnet *dev, gfp_t mem_flags);
-> +void usbnet_status_stop(struct usbnet *dev);
-> +
->  #endif /* __LINUX_USB_USBNET_H */
+>         switch (po->tp_version) {
+>         case TPACKET_V1:
+>                 h.h1->tp_len = skb->len;
+>                 h.h1->tp_snaplen = snaplen;
+>                 h.h1->tp_mac = macoff;
+>                 h.h1->tp_net = netoff;
+> -               if ((po->tp_tstamp & SOF_TIMESTAMPING_SYS_HARDWARE)
+> -                               && shhwtstamps->syststamp.tv64)
+> -                       tv = ktime_to_timeval(shhwtstamps->syststamp);
+> -               else if ((po->tp_tstamp & SOF_TIMESTAMPING_RAW_HARDWARE)
+> -                               && shhwtstamps->hwtstamp.tv64)
+> -                       tv = ktime_to_timeval(shhwtstamps->hwtstamp);
+> -               else if (skb->tstamp.tv64)
+> -                       tv = ktime_to_timeval(skb->tstamp);
+> -               else
+> -                       do_gettimeofday(&tv);
+> -               h.h1->tp_sec = tv.tv_sec;
+> -               h.h1->tp_usec = tv.tv_usec;
+> +               h.h1->tp_sec = ts.tv_sec;
+> +               h.h1->tp_usec = ts.tv_nsec / NSEC_PER_USEC;
+>                 hdrlen = sizeof(*h.h1);
+>                 break;
+>         case TPACKET_V2:
+> @@ -1792,16 +1782,6 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+>                 h.h2->tp_snaplen = snaplen;
+>                 h.h2->tp_mac = macoff;
+>                 h.h2->tp_net = netoff;
+> -               if ((po->tp_tstamp & SOF_TIMESTAMPING_SYS_HARDWARE)
+> -                               && shhwtstamps->syststamp.tv64)
+> -                       ts = ktime_to_timespec(shhwtstamps->syststamp);
+> -               else if ((po->tp_tstamp & SOF_TIMESTAMPING_RAW_HARDWARE)
+> -                               && shhwtstamps->hwtstamp.tv64)
+> -                       ts = ktime_to_timespec(shhwtstamps->hwtstamp);
+> -               else if (skb->tstamp.tv64)
+> -                       ts = ktime_to_timespec(skb->tstamp);
+> -               else
+> -                       getnstimeofday(&ts);
+>                 h.h2->tp_sec = ts.tv_sec;
+>                 h.h2->tp_nsec = ts.tv_nsec;
+>                 if (vlan_tx_tag_present(skb)) {
+> @@ -1822,16 +1802,6 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+>                 h.h3->tp_snaplen = snaplen;
+>                 h.h3->tp_mac = macoff;
+>                 h.h3->tp_net = netoff;
+> -               if ((po->tp_tstamp & SOF_TIMESTAMPING_SYS_HARDWARE)
+> -                               && shhwtstamps->syststamp.tv64)
+> -                       ts = ktime_to_timespec(shhwtstamps->syststamp);
+> -               else if ((po->tp_tstamp & SOF_TIMESTAMPING_RAW_HARDWARE)
+> -                               && shhwtstamps->hwtstamp.tv64)
+> -                       ts = ktime_to_timespec(shhwtstamps->hwtstamp);
+> -               else if (skb->tstamp.tv64)
+> -                       ts = ktime_to_timespec(skb->tstamp);
+> -               else
+> -                       getnstimeofday(&ts);
+>                 h.h3->tp_sec  = ts.tv_sec;
+>                 h.h3->tp_nsec = ts.tv_nsec;
+>                 hdrlen = sizeof(*h.h3);
+> --
+> 1.7.11.7
+>
