@@ -1,147 +1,46 @@
-From: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
-Subject: [PATCH] networking: enhance NAPI tracing
-Date: Mon, 15 Apr 2013 12:16:24 +0300
-Message-ID: <1820981.mWzDT3QAhR@lx-vladimir>
+From: BARCLAYS LOANS PLC <marina.montuori@ing.unibs.it>
+Subject: =?utf-8?Q?l=C3=A5n?=
+Date: Mon, 15 Apr 2013 11:10:18 +0200 (CEST)
+Message-ID: <906496072.1280.1366017018325.JavaMail.root@store.ing.unibs.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabertooth01.qualcomm.com ([65.197.215.72]:55910 "EHLO
-	sabertooth01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934370Ab3DOJQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 05:16:28 -0400
+Received: from zMX1.ing.unibs.it ([192.167.20.248]:39643 "HELO
+	zmx1.ing.unibs.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S934577Ab3DOJfN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 05:35:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+BARCLAYS LOANS PLC.
+1 Churchill Place
+=46REEPOST LON13542
+London E14 5HP
 
-I faced with lack of tracing when debugging NAPI,
-patch below adds missing bits.
+Kj=C3=A6re herr / fru!
 
-There are warnings from checkpatch, because of commonly used style
-for the traces.
+dette er David Harkens fra BARCLAYS LOANS PLC Selskap, basert i Storbri=
+tannia. Vi er her for =C3=A5 l=C3=B8se dine =C3=B8konomiske problemer s=
+om: Har uventede kostnader p=C3=A5dratt? Personlige l=C3=A5n? Bill=C3=A5=
+n? Oppussing? Er det p=C3=A5 tide =C3=A5 dra p=C3=A5 ferie du alltid ha=
+r dr=C3=B8mt om? Om du trenger =C3=A5 finansiere dine dr=C3=B8mmer, der=
+etter dele din visjon BARCLAYS LOANS PLC. Vi er stolte av v=C3=A5re pro=
+fesjonelle, =C3=A6rlig og p=C3=A5litelig service, med rask cash.Our m=C3=
+=A5l er =C3=A5 overg=C3=A5 kundenes forventninger i hver vei, kan vi ti=
+lby l=C3=A5n til lav rente p=C3=A5 2%.
 
+Kontakt oss dersom du er interessert i v=C3=A5re tjenester via e-post: =
+barclays_loans@wss-id.org.
 
+=46ullt navn:
+L=C3=A5nebel=C3=B8p:
+Varighet:
+land:
 
->From 12f3171f1346a2b89121f941208111711fab1097 Mon Sep 17 00:00:00 2001
-From: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
-Date: Mon, 15 Apr 2013 12:00:08 +0300
-Subject: [PATCH] networking: enhance NAPI tracing
+Vi venter din raske til denne posten for =C3=A5 aktivere oss fortsette.
 
-NAPI cycle includes napi_schedule(), poll() and napi_complete() functions.
-
-Add trace for napi_schedule()/napi_complete() - for internal functions with '__',
-when actual actions performed.
-
-For poll(), add printing of 'weight' and 'work'
-
-Signed-off-by: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
----
- include/trace/events/napi.h |   39 +++++++++++++++++++++++++++++++++++++--
- net/core/dev.c              |    4 +++-
- net/core/netpoll.c          |    2 +-
- 3 files changed, 41 insertions(+), 4 deletions(-)
-
-diff --git a/include/trace/events/napi.h b/include/trace/events/napi.h
-index 8fe1e93..26fdb75 100644
---- a/include/trace/events/napi.h
-+++ b/include/trace/events/napi.h
-@@ -12,6 +12,31 @@
- 
- TRACE_EVENT(napi_poll,
- 
-+	TP_PROTO(struct napi_struct *napi, int weight, int work),
-+
-+	TP_ARGS(napi, weight, work),
-+
-+	TP_STRUCT__entry(
-+		__field(	struct napi_struct *,	napi)
-+		__string(	dev_name, napi->dev ? napi->dev->name : NO_DEV)
-+		__field(	int,	weight)
-+		__field(	int,	work)
-+	),
-+
-+	TP_fast_assign(
-+		__entry->napi = napi;
-+		__assign_str(dev_name, napi->dev ? napi->dev->name : NO_DEV);
-+		__entry->weight = weight;
-+		__entry->work = work;
-+	),
-+
-+	TP_printk("napi poll on napi struct %p for device %s"
-+		  " weight %d work %d",
-+		__entry->napi, __get_str(dev_name), __entry->weight,
-+		__entry->work)
-+);
-+
-+DECLARE_EVENT_CLASS(napi_state,
- 	TP_PROTO(struct napi_struct *napi),
- 
- 	TP_ARGS(napi),
-@@ -26,8 +51,18 @@ TRACE_EVENT(napi_poll,
- 		__assign_str(dev_name, napi->dev ? napi->dev->name : NO_DEV);
- 	),
- 
--	TP_printk("napi poll on napi struct %p for device %s",
--		__entry->napi, __get_str(dev_name))
-+	TP_printk("napi struct %p for device %s",
-+		  __entry->napi, __get_str(dev_name))
-+);
-+
-+DEFINE_EVENT(napi_state, napi_schedule,
-+	TP_PROTO(struct napi_struct *napi),
-+	TP_ARGS(napi)
-+);
-+
-+DEFINE_EVENT(napi_state, napi_complete,
-+	TP_PROTO(struct napi_struct *napi),
-+	TP_ARGS(napi)
- );
- 
- #undef NO_DEV
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e7d68ed..2537253 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4023,6 +4023,7 @@ void __napi_schedule(struct napi_struct *n)
- 	local_irq_save(flags);
- 	____napi_schedule(&__get_cpu_var(softnet_data), n);
- 	local_irq_restore(flags);
-+	trace_napi_schedule(n);
- }
- EXPORT_SYMBOL(__napi_schedule);
- 
-@@ -4034,6 +4035,7 @@ void __napi_complete(struct napi_struct *n)
- 	list_del(&n->poll_list);
- 	smp_mb__before_clear_bit();
- 	clear_bit(NAPI_STATE_SCHED, &n->state);
-+	trace_napi_complete(n);
- }
- EXPORT_SYMBOL(__napi_complete);
- 
-@@ -4134,7 +4136,7 @@ static void net_rx_action(struct softirq_action *h)
- 		work = 0;
- 		if (test_bit(NAPI_STATE_SCHED, &n->state)) {
- 			work = n->poll(n, weight);
--			trace_napi_poll(n);
-+			trace_napi_poll(n, weight, work);
- 		}
- 
- 		WARN_ON_ONCE(work > weight);
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index fa32899..75f8c32 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -160,7 +160,7 @@ static int poll_one_napi(struct netpoll_info *npinfo,
- 	set_bit(NAPI_STATE_NPSVC, &napi->state);
- 
- 	work = napi->poll(napi, budget);
--	trace_napi_poll(napi);
-+	trace_napi_poll(napi, budget, work);
- 
- 	clear_bit(NAPI_STATE_NPSVC, &napi->state);
- 	atomic_dec(&trapped);
--- 
-1.7.10.4
+Takk skal du ha
+David Harkens.
+Informativa sulla privacy: http://help.ing.unibs.it/privacy.php
