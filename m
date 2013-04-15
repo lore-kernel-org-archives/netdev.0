@@ -1,153 +1,59 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: Re: [PATCH v6] net: sh_eth: Add support of device tree probe
-Date: Mon, 15 Apr 2013 11:17:36 +0900
-Message-ID: <516B6340.9090604@renesas.com>
-References: <1363675196-8940-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
- <51486699.6000908@cogentembedded.com> <514AB0CB.2030808@renesas.com>
- <516B0C59.3050207@cogentembedded.com>
+From: Dan Siemon <dan@coverfire.com>
+Subject: Looking for article review volunteer
+Date: Sun, 14 Apr 2013 21:49:57 -0400
+Message-ID: <1365990597.4377.8.camel@ganymede.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	magnus.damm@gmail.com, kda@linux-powerpc.org,
-	horms+renesas@verge.net.au, mark.rutland@arm.com,
-	grant.likely@secretlab.ca
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: multipart/signed; micalg="pgp-sha256";
+	protocol="application/pgp-signature"; boundary="=-YQnWP5WEk/G+zxVmIdBo"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor1.renesas.com ([210.160.252.171]:57498 "EHLO
-	relmlor1.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754680Ab3DOCRk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 22:17:40 -0400
-Received: from relmlir4.idc.renesas.com ([10.200.68.154])
- by relmlor1.idc.renesas.com ( SJSMS)
- with ESMTP id <0ML900IQCYDEIIB0@relmlor1.idc.renesas.com> for
- netdev@vger.kernel.org; Mon, 15 Apr 2013 11:17:38 +0900 (JST)
-Received: from relmlac2.idc.renesas.com ([10.200.69.22])
- by relmlir4.idc.renesas.com ( SJSMS)
- with ESMTP id <0ML900986YDDBK90@relmlir4.idc.renesas.com> for
- netdev@vger.kernel.org; Mon, 15 Apr 2013 11:17:38 +0900 (JST)
-In-reply-to: <516B0C59.3050207@cogentembedded.com>
+Received: from alpha.coverfire.com ([69.41.199.58]:58952 "EHLO
+	alpha.coverfire.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754008Ab3DOCbc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Apr 2013 22:31:32 -0400
+Received: from [192.168.88.98] (ganymede.home [69.41.199.68])
+	(authenticated bits=0)
+	by alpha.coverfire.com (8.14.6/8.14.6) with ESMTP id r3F1oCnm007961
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-CAMELLIA256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Sun, 14 Apr 2013 21:50:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-(2013/04/15 5:06), Sergei Shtylyov wrote:
-> Hello.
->
-> On 21-03-2013 11:03, Nobuhiro Iwamatsu wrote:
->
-> Sorry, I have noticed your reply only last Friday. I probably should do something with my mail filters, so that they leave the personal mail in my inbox and not toss it to the list folders where I may ignore it...
->
->>>> This adds support of device tree probe for Renesas sh-ether driver.
->
->>>> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
->
->>>> V6: - Add renesas,sh-eth-gigabit, renesas,sh-eth-sh4 and
->>>> renesas,sh-eth-sh3-sh2 to compatible string.
->>>> - Remove sh-eth,register-type. This is supplemented by the
->>>> compatible string.
->>>> - Use the of_property_read_bool instead of of_find_property.
->>>> - Add sanity chheck for of_property_read_u32.
->>>> - Update document.
->>>> V5: - Rewrite sh_eth_parse_dt().
->>>> Remove of_device_is_available() and CONFIG_OF from support OF
->>>> checking function and re-add empty sh_eth_parse_dt().
->>>> - Add CONFIG_PM to definition of dev_pm_ops.
->>>> - Add CONFIG_OF to definition of of_device_id.
->>>> V4: - Remove empty sh_eth_parse_dt().
->>>> V3: - Remove empty sh_eth_parse_dt().
->>>> V3: - Removed sentnece of "needs-init" from document.
->>>> V2: - Removed ether_setup().
->>>> - Fixed typo from "sh-etn" to "sh-eth".
->>>> - Removed "needs-init" and sh-eth,endian from definition of DT.
->>>> - Changed "sh-eth,edmac-endian" instead of "sh-eth,edmac-big-endain"
->>>> in definition of DT.
->>>> ---
-> [...]
->
->>>> @@ -2391,12 +2451,33 @@ static int sh_eth_drv_probe(struct platform_device
->>>> *pdev)
->>>> goto out_release;
->>>> }
->>>>
->>>> + if (np) {
->>>> + pd = sh_eth_parse_dt(&pdev->dev, ndev, np);
->>>> + if (pdev->dev.platform_data && pd) {
->>>> + struct sh_eth_plat_data *tmp =
->>>> + pdev->dev.platform_data;
->>>> + pd->set_mdio_gate = tmp->set_mdio_gate;
->>>> + pd->needs_init = tmp->needs_init;
->
->>> OK, so we can't fully convert this driver to the device tree due to
->>> procedural platform data.
->
->> > I then would advice just using OF_DEV_AUXDATA() in the platform data
->
-> /sdata/code/.
->
->> instead of trying to convert the driver to device tree.
->
-> Convert the platfrom data, I meant. But I already wrote about that I think.
->
->> Yes, I knew about this.
->
-> But still attempted to document and use the data-only device tree properties (which was pointless in the light of procediral platfrom data)?
->
+--=-YQnWP5WEk/G+zxVmIdBo
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Yes, I added this information to next patch.
+I've written an article which tries to explain where packets are queued
+in the Linux network stack and how to configure the related features.
+Before this is published I'd like to have someone who's an expert in
+this space review it for technical accuracy.
 
->>>> +
->>>> +#ifdef CONFIG_OF
->>>> +static const struct of_device_id sh_eth_match[] = {
->>>> + { .compatible = "renesas,sh-eth-gigabit", },
->>>> + { .compatible = "renesas,sh-eth-sh4", },
->>>> + { .compatible = "renesas,sh-eth-sh3-sh2", },
->
->>> Biut this is not really enough: the driver supports much more variations of
->>> the SH and ARM SoCs
->>> all of which have difference not only in register layout but also in the
->>> registers bits or even
->>> presence of the whole register blocks. All this IMO should be reflected in
->>> the different values
->>> of the compatible "property". BTW, it seems another register layout and
->>> instance needs to be added
->>> for the R-Car SoCs (instead of the current ugly hack).
->
-> I've already added it now, it's in the 'net-next' tree.
->
+If you are interested please respond off list.
 
-Yes, I know. Thank you for this work.
+Thanks.
 
->> I see.
->> Latest source code was defined compatible as renesas,sh-eth-gigabit,
->> sh-eth-sh4 and sh-eth-sh3-sh2. I will change ito renesas,<CPU>-sh-eth.
->
-> Yes, this is the step in the right direction. Though I'd drop the '-sh' infix -- the driver is usable not only on SH platforms.
->
+--=-YQnWP5WEk/G+zxVmIdBo
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-OK, I will drop "-sh" from SH platform too.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
 
->> And I think that we should define the sh7757-sh-eth-gitabit and
->> sh7757-sh-eth-fast for this. Becauase sh7757 is special device.
->> There is a device that supports only devices that support fast
->> ether and gigabit ether on single CPU.
->
-> Yes, I saw that.
->
->> Therefore, the compatible property of this device becomes <CPU>-sh-eth
->> or <CPU>-sh-eth-<ETHER TYPE>.
->
->> How about this?
->
-> Sounds better. I think however that the conversion of this driver to device tree shouldn't be done without getting rid of the current #ifdef mess in it (which is still on my agenda). I think that the 'register_type' field should move from the platform data to the 'struct sh_eth_cpu_data' in the process.
->
+iQIcBAABCAAGBQJRa1zFAAoJEJKXGLoTP2w+y4AQAJBlRVNYuxFNz5sWSDOws8Za
+VNCUic7+IKQ73UOsLNZXXQ2PDQNBdRgNPiwcWLi1QzvJRTOyVqkmObMYJ8CFaEdv
+yiM8q3ddIdA54ytQMDt5B6MzVhyC2Y2+LEfEwIW1MdHCMLJqrhTJy76Mv7QzLD+D
+rDf8ONZfMDNHRiJkyo+9kD4tsycvj6afVwCE2Di3Q5+GoZiMbJB0Ia9lteImE3vs
+2LgapPJAhQSsW6L5ll+/ji5WDz0qEQ0rabS65yBHxle2b0LVfeEsJk8xOAcHulIS
+hHQTrf22c3dPCeiDfLp+EiZHkVcd5Uy7hjLr9fRDXZHRuTHo3vmQxsYyhjoj4bpr
+vHily93OrR2AssDPkBrN9fCcodS5v5Zp0hCkJoyZhDF3/dUTVkePylbnZfD9k/ow
+IZSA/eSKX/5UHIdM9En9NJlzzn85r6m6bAOAovbmnaz0NYFs+CWwSgkjMJEWx96a
+ANBcjCtr4rRIQyUyQPV6kLGb5TUZv9JJepFNLCuS0ctvr92CeMgYax6JrnU2s6ND
+CMa/Qtv5AmYn7o89oQDXKNl5yZQJATB6OP6idIYBPxx6VQnDoxSKAmb5oRcgSeZH
+v1laUej9W6rNdKh6JHv2gD6wQsybAsQe9wx/6MvbmRJ9KRmyG5Ko8Uxu1E4RC8vV
+VNYy+TXwEh5yWM8jkcEe
+=PXBI
+-----END PGP SIGNATURE-----
 
-I see. this problem will fix next step, I think.
-
-> WBR, Sergei
->
->
-
-Best regards,
-   Nobuhiro
+--=-YQnWP5WEk/G+zxVmIdBo--
