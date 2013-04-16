@@ -1,44 +1,62 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: How to file a bug against iproute2?
-Date: Tue, 16 Apr 2013 20:32:39 +0100
-Message-ID: <1366140759.2645.26.camel@bwh-desktop.uk.solarflarecom.com>
-References: <CAAc8SH5MjWdcFbkmV5uJgUv7nr_PN8n99azV4ZKxL3EKJ9Vthg@mail.gmail.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net] hyperv: Fix a compiler warning in netvsc_send()
+Date: Tue, 16 Apr 2013 19:34:52 +0000
+Message-ID: <57e8f99081a94575a57cae5e93705c22@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1366139031-12518-1-git-send-email-haiyangz@microsoft.com>
+ <20130416.151141.1928940532005718606.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Alex Stahl <testcore@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:28354 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935427Ab3DPTco (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 15:32:44 -0400
-In-Reply-To: <CAAc8SH5MjWdcFbkmV5uJgUv7nr_PN8n99azV4ZKxL3EKJ9Vthg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20130416.151141.1928940532005718606.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel/>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: "devel" <devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-04-16 at 12:05 -0700, Alex Stahl wrote:
-> Hi Folks - Apologies in advance if this is the wrong forum for this...
-> I'd like to file a bug against iproute2 related to a permissions
-> issue, but can't find the bug tracker.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net] 
+> Sent: Tuesday, April 16, 2013 3:12 PM
+> To: Haiyang Zhang
+> Cc: netdev@vger.kernel.org; KY Srinivasan; olaf@aepfle.de; jasowang@redhat.com; linux-kernel@vger.kernel.org; devel@linuxdriverproject.org
+> Subject: Re: [PATCH net] hyperv: Fix a compiler warning in netvsc_send()
+>
+> From: Haiyang Zhang <haiyangz@microsoft.com>
+> Date: Tue, 16 Apr 2013 12:03:51 -0700
+>
+> > Fixed: warning: cast from pointer to integer of different size
+> > 
+> > Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+>
+> If you're coding pointers into request IDs you better make that explicit and add lots of comments explaining 
+> why that's OK and why it's going to work  fine in these circumstances.
 
-This list is the bug tracker.
+> I'm not applying this patch, it just makes a bad situation even worse.  Either your request IDs are 64-bit or they are not, it can't be both.
 
-[...]
-> According to the arch wiki, if I'm in the 'network' group I should be
-> able to manipulate interfaces:
-> 
-> https://wiki.archlinux.org/index.php/Groups#Group_list
-[...]
+The Hyper-V hosts always use 64 bit request id. The guests can have 32 or 64 bit pointers which equal to
+the ulong type size. So we cast it to ulong type. And, assigning 32bit integer to 64 bit variable works fine.
 
-That's talking about what groups should be used for access control by
-daemons and in the filesystem.  As far as the kernel is concerned,
-network configuration depends on the CAP_NET_ADMIN capability, not group
-membership.
+Actually, before the recent patch (f1ea3cd7011), the packet pointer was casted to ulong. And this patch
+restore the same type casting as the old code.
 
-Ben.
+The VMBus returns the same id in the completion packet. But the value has no effect on the host side.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Does these comments sound good?
+
+Thanks,
+- Haiyang
