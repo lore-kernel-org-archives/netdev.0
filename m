@@ -1,36 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] udp: don't rereference dst_entry dev pointer on rcv
-Date: Tue, 16 Apr 2013 15:56:29 -0700
-Message-ID: <1366152989.3205.12.camel@edumazet-glaptop>
-References: <1362695800-8633-2-git-send-email-tparkin@katalix.com>
-	 <1362696444.15793.220.camel@edumazet-glaptop>
-	 <20130307.181527.390191009324148471.davem@davemloft.net>
-	 <20130313232743.GA3686@raven> <1363223884.29475.0.camel@edumazet-glaptop>
-	 <20130314144550.GB2512@raven> <1363273531.29475.21.camel@edumazet-glaptop>
-	 <1363274946.29475.24.camel@edumazet-glaptop>
-	 <1365697961.3887.176.camel@edumazet-glaptop>
-	 <1365702804.3887.180.camel@edumazet-glaptop> <20130416202022.GB2545@raven>
+From: Tomas Agartz <tlund@nxs.se>
+Subject: Re: No longer able to add iptunnel interface to bridge?
+Date: Wed, 17 Apr 2013 01:22:13 +0200 (CEST)
+Message-ID: <Pine.LNX.4.61.1304170119280.20041@envy.nxs.se>
+References: <Pine.LNX.4.61.1304151757340.20041@envy.nxs.se>
+ <20130415111213.62c4d117@samsung-9>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Tom Parkin <tparkin@katalix.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:42713 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965533Ab3DPW4b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 18:56:31 -0400
-Received: by mail-pd0-f180.google.com with SMTP id q11so534289pdj.11
-        for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 15:56:31 -0700 (PDT)
-In-Reply-To: <20130416202022.GB2545@raven>
+Received: from envy.nxs.se ([212.247.200.182]:53323 "EHLO envy.nxs.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965610Ab3DPXWR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Apr 2013 19:22:17 -0400
+In-Reply-To: <20130415111213.62c4d117@samsung-9>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-04-16 at 21:20 +0100, Tom Parkin wrote:
+On Mon, 15 Apr 2013, Stephen Hemminger wrote:
 
-> Thanks Eric, I've tested this patch here and it looks good.  Usually I
-> see an oops within 30 mins or so with my workload, but with this
-> change I've run for over two hours with no issues.
-> 
+> On Mon, 15 Apr 2013 18:14:32 +0200 (CEST)
+> Tomas Agartz <tlund@nxs.se> wrote:
+>
+>> After rebooting my router/firewall (Debian Wheezy with debian 3.2.41-2 
+>> kernel), I am no longer able to add an iptunnel to a bridge interface.
+>
+>
+> You created a network level (L3) tunnel, which starts with IP header. 
+> Bridging requires an Ethernet like (L2) tunnel, where packets start with 
+> Ethernet header.
 
-Thanks Tom, I submitted the official patch.
+Yeah, looking further into this, i figured out a different (unrelated) 
+problem that was the real root cause. The fact that the tunnel was never 
+added to the bridge (and it has never been) was not related.
+
+Sorry for bothering you guys :)
