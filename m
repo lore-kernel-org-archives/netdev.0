@@ -1,53 +1,107 @@
-From: Devendra Naga <devendra.aaru@gmail.com>
-Subject: [PATCH net-next] tlan: cancel work at remove path
-Date: Tue, 16 Apr 2013 17:00:38 +0530
-Message-ID: <1366111838-29841-1-git-send-email-devendra.aaru@gmail.com>
-Cc: Devendra Naga <devendra.aaru@gmail.com>, Sriram <srk@ti.com>,
-	Cyril Chemparathy <cyril@ti.com>,
-	Vinay Hegde <vinay.hegde@ti.com>
-To: Samuel Chessman <chessman@tux.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Dilip Daya <dilip.daya@hp.com>
+Subject: [PATCH v4] sctp: Add buffer utilization fields to
+ /proc/net/sctp/assocs
+Date: Tue, 16 Apr 2013 07:39:07 -0400
+Message-ID: <1366112347.7478.10.camel@pro6455b.example.com>
+Reply-To: dilip.daya@hp.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@tuxdriver.com, dborkman@redhat.com
+To: Linux Netdev List <netdev@vger.kernel.org>,
+	linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:46267 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754463Ab3DPLaw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 07:30:52 -0400
-Received: by mail-pd0-f174.google.com with SMTP id p12so244137pdj.19
-        for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 04:30:51 -0700 (PDT)
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:10635 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754395Ab3DPLjM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 07:39:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-the work has been scheduled from interrupt, and not been
-cancelled when the driver is unloaded, which doesn't remove
-the work item from the global workqueue. call the
-cancel_work_sync when the driver is removed (rmmod'ed).
+From: Dilip Daya <dilip.daya@hp.com>
 
-Cc: Sriram <srk@ti.com>
-Cc: Cyril Chemparathy <cyril@ti.com>
-Cc: Vinay Hegde <vinay.hegde@ti.com>
-Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
+sctp: Add buffer utilization fields to /proc/net/sctp/assocs
+
+This patch adds the following fields to /proc/net/sctp/assocs output:
+
+	- sk->sk_wmem_alloc as "wmema"	(transmit queue bytes committed)
+	- sk->sk_wmem_queued as "wmemq"	(persistent queue size)
+	- sk->sk_sndbuf as "sndbuf"	(size of send buffer in bytes)
+	- sk->sk_rcvbuf as "rcvbuf"	(size of receive buffer in bytes)
+
+When small DATA chunks containing 136 bytes data are sent the TX_QUEUE
+(assoc->sndbuf_used) reaches a maximum of 40.9% of sk_sndbuf value when
+peer.rwnd = 0. This was diagnosed from sk_wmem_alloc value reaching maximum
+value of sk_sndbuf.
+
+TX_QUEUE (assoc->sndbuf_used), sk_wmem_alloc and sk_wmem_queued values are
+incremented in sctp_set_owner_w() for outgoing data chunks. Having access to
+the above values in /proc/net/sctp/assocs will provide a better understanding
+of SCTP buffer management.
+
+With patch applied, example output when peer.rwnd = 0
+
+where:
+    ASSOC ffff880132298000 is sender
+          ffff880125343000 is receiver
+
+ ASSOC           SOCK            STY SST ST  HBKT ASSOC-ID TX_QUEUE RX_QUEUE \
+ffff880132298000 ffff880124a0a0c0 2   1   3  29325    1      214656        0 \
+ffff880125343000 ffff8801237d7700 2   1   3  36210    2           0   524520 \
+
+UID   INODE LPORT  RPORT LADDRS <-> RADDRS       HBINT   INS  OUTS \
+  0   25108 3455   3456  *10.4.8.3 <-> *10.5.8.3  7500     2     2 \
+  0   27819 3456   3455  *10.5.8.3 <-> *10.4.8.3  7500     2     2 \
+
+MAXRT T1X T2X RTXC   wmema   wmemq  sndbuf  rcvbuf
+    4   0   0   72  525633  440320  524288  524288
+    4   0   0    0       1       0  524288  524288
+
+Signed-off-by: Dilip Daya <dilip.daya@hp.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 ---
+v4: Fixed build errors.
+v3: Fixed fields names, indentation and ancillary information.
+v2: Not changing spacing between the fields.
 
-Hi,
-	This is only compile tested and not tested
-	on the the NIC which i dont have.
+Patch applied cleanly to v3.8.7 and v3.9-rc7. Tested build,
+install and final output from /proc/net/sctp/assocs.
 
-thanks
+ net/sctp/proc.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
 
- drivers/net/ethernet/ti/tlan.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
-index bdda36f..60c400f 100644
---- a/drivers/net/ethernet/ti/tlan.c
-+++ b/drivers/net/ethernet/ti/tlan.c
-@@ -320,6 +320,7 @@ static void tlan_remove_one(struct pci_dev *pdev)
- 	free_netdev(dev);
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index ab3bba8..4e45ee3 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -295,7 +295,8 @@ static void * sctp_assocs_seq_start(struct seq_file *seq, loff_t *pos)
+ 		seq_printf(seq, " ASSOC     SOCK   STY SST ST HBKT "
+ 				"ASSOC-ID TX_QUEUE RX_QUEUE UID INODE LPORT "
+ 				"RPORT LADDRS <-> RADDRS "
+-				"HBINT INS OUTS MAXRT T1X T2X RTXC\n");
++				"HBINT INS OUTS MAXRT T1X T2X RTXC "
++				"wmema wmemq sndbuf rcvbuf\n");
  
- 	pci_set_drvdata(pdev, NULL);
-+	cancel_work_sync(&priv->tlan_tqueue);
+ 	return (void *)pos;
  }
- 
- static void tlan_start(struct net_device *dev)
+@@ -349,11 +350,16 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
+ 		sctp_seq_dump_local_addrs(seq, epb);
+ 		seq_printf(seq, "<-> ");
+ 		sctp_seq_dump_remote_addrs(seq, assoc);
+-		seq_printf(seq, "\t%8lu %5d %5d %4d %4d %4d %8d ",
++		seq_printf(seq, "\t%8lu %5d %5d %4d %4d %4d %8d "
++			   "%8d %8d %8d %8d",
+ 			assoc->hbinterval, assoc->c.sinit_max_instreams,
+ 			assoc->c.sinit_num_ostreams, assoc->max_retrans,
+ 			assoc->init_retries, assoc->shutdown_retries,
+-			assoc->rtx_data_chunks);
++			assoc->rtx_data_chunks,
++			atomic_read(&sk->sk_wmem_alloc),
++			sk->sk_wmem_queued,
++			sk->sk_sndbuf,
++			sk->sk_rcvbuf);
+ 		seq_printf(seq, "\n");
+ 	}
+ 	read_unlock(&head->lock);
 -- 
-1.8.1.4
+1.5.6.5
