@@ -1,65 +1,139 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 02/10] openvswitch: Use nla_memcpy() to
-	memcpy() data from attributes
-Date: Tue, 16 Apr 2013 14:00:11 -0700
-Message-ID: <1366146019-9015-3-git-send-email-jesse@nicira.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: [PATCH net-next 10/10] openvswitch: Use generic struct pcpu_tstats.
+Date: Tue, 16 Apr 2013 14:00:19 -0700
+Message-ID: <1366146019-9015-11-git-send-email-jesse@nicira.com>
 References: <1366146019-9015-1-git-send-email-jesse@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1366146019-9015-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog138.obsmtp.com ([74.125.149.19]:35730 "HELO
+	na3sys009aog138.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S965307Ab3DPVA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 17:00:27 -0400
+Received: by mail-da0-f71.google.com with SMTP id f4so682692dal.10
+        for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 14:00:26 -0700 (PDT)
+In-Reply-To: <1366146019-9015-1-git-send-email-jesse@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+From: Pravin B Shelar <pshelar@nicira.com>
 
-Less error prone as it takes into account the length of both the
-destination buffer and the source attribute and documents when
-data is copied from an attribute.
+Rather than defining ovs specific stats struct (vport_percpu_stats),
+we can use existing pcpu_tstats to achieve exactly same functionality.
 
-Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Jesse Gross <jesse@nicira.com>
 ---
- net/openvswitch/datapath.c |    2 +-
- net/openvswitch/flow.c     |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/openvswitch/vport.c |   22 +++++++++++-----------
+ net/openvswitch/vport.h |   11 ++---------
+ 2 files changed, 13 insertions(+), 20 deletions(-)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 5b58d16..bca63c8 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -672,7 +672,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
- 		goto err;
- 	skb_reserve(packet, NET_IP_ALIGN);
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index c90d856..7206231 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -128,7 +128,7 @@ struct vport *ovs_vport_alloc(int priv_size, const struct vport_ops *ops,
+ 	vport->ops = ops;
+ 	INIT_HLIST_NODE(&vport->dp_hash_node);
  
--	memcpy(__skb_put(packet, len), nla_data(a[OVS_PACKET_ATTR_PACKET]), len);
-+	nla_memcpy(__skb_put(packet, len), a[OVS_PACKET_ATTR_PACKET], len);
- 
- 	skb_reset_mac_header(packet);
- 	eth = eth_hdr(packet);
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 3324868..cf9328b 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -211,7 +211,7 @@ struct sw_flow_actions *ovs_flow_actions_alloc(const struct nlattr *actions)
+-	vport->percpu_stats = alloc_percpu(struct vport_percpu_stats);
++	vport->percpu_stats = alloc_percpu(struct pcpu_tstats);
+ 	if (!vport->percpu_stats) {
+ 		kfree(vport);
  		return ERR_PTR(-ENOMEM);
+@@ -260,16 +260,16 @@ void ovs_vport_get_stats(struct vport *vport, struct ovs_vport_stats *stats)
+ 	spin_unlock_bh(&vport->stats_lock);
  
- 	sfa->actions_len = actions_len;
--	memcpy(sfa->actions, nla_data(actions), actions_len);
-+	nla_memcpy(sfa->actions, actions, actions_len);
- 	return sfa;
+ 	for_each_possible_cpu(i) {
+-		const struct vport_percpu_stats *percpu_stats;
+-		struct vport_percpu_stats local_stats;
++		const struct pcpu_tstats *percpu_stats;
++		struct pcpu_tstats local_stats;
+ 		unsigned int start;
+ 
+ 		percpu_stats = per_cpu_ptr(vport->percpu_stats, i);
+ 
+ 		do {
+-			start = u64_stats_fetch_begin_bh(&percpu_stats->sync);
++			start = u64_stats_fetch_begin_bh(&percpu_stats->syncp);
+ 			local_stats = *percpu_stats;
+-		} while (u64_stats_fetch_retry_bh(&percpu_stats->sync, start));
++		} while (u64_stats_fetch_retry_bh(&percpu_stats->syncp, start));
+ 
+ 		stats->rx_bytes		+= local_stats.rx_bytes;
+ 		stats->rx_packets	+= local_stats.rx_packets;
+@@ -327,13 +327,13 @@ int ovs_vport_get_options(const struct vport *vport, struct sk_buff *skb)
+  */
+ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
+ {
+-	struct vport_percpu_stats *stats;
++	struct pcpu_tstats *stats;
+ 
+ 	stats = this_cpu_ptr(vport->percpu_stats);
+-	u64_stats_update_begin(&stats->sync);
++	u64_stats_update_begin(&stats->syncp);
+ 	stats->rx_packets++;
+ 	stats->rx_bytes += skb->len;
+-	u64_stats_update_end(&stats->sync);
++	u64_stats_update_end(&stats->syncp);
+ 
+ 	ovs_dp_process_received_packet(vport, skb);
  }
+@@ -352,14 +352,14 @@ int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
+ 	int sent = vport->ops->send(vport, skb);
  
+ 	if (likely(sent)) {
+-		struct vport_percpu_stats *stats;
++		struct pcpu_tstats *stats;
+ 
+ 		stats = this_cpu_ptr(vport->percpu_stats);
+ 
+-		u64_stats_update_begin(&stats->sync);
++		u64_stats_update_begin(&stats->syncp);
+ 		stats->tx_packets++;
+ 		stats->tx_bytes += sent;
+-		u64_stats_update_end(&stats->sync);
++		u64_stats_update_end(&stats->syncp);
+ 	}
+ 	return sent;
+ }
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index 7282b84..7ba08c3 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -19,6 +19,7 @@
+ #ifndef VPORT_H
+ #define VPORT_H 1
+ 
++#include <linux/if_tunnel.h>
+ #include <linux/list.h>
+ #include <linux/netlink.h>
+ #include <linux/openvswitch.h>
+@@ -50,14 +51,6 @@ int ovs_vport_send(struct vport *, struct sk_buff *);
+ 
+ /* The following definitions are for implementers of vport devices: */
+ 
+-struct vport_percpu_stats {
+-	u64 rx_bytes;
+-	u64 rx_packets;
+-	u64 tx_bytes;
+-	u64 tx_packets;
+-	struct u64_stats_sync sync;
+-};
+-
+ struct vport_err_stats {
+ 	u64 rx_dropped;
+ 	u64 rx_errors;
+@@ -89,7 +82,7 @@ struct vport {
+ 	struct hlist_node dp_hash_node;
+ 	const struct vport_ops *ops;
+ 
+-	struct vport_percpu_stats __percpu *percpu_stats;
++	struct pcpu_tstats __percpu *percpu_stats;
+ 
+ 	spinlock_t stats_lock;
+ 	struct vport_err_stats err_stats;
 -- 
 1.7.10.4
