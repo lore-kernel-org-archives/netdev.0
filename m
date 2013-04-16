@@ -1,1202 +1,952 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH net-next 09/10] openvswitch: Simplify datapath locking.
-Date: Tue, 16 Apr 2013 14:00:18 -0700
-Message-ID: <1366146019-9015-10-git-send-email-jesse@nicira.com>
+Subject: [PATCH net-next 06/10] openvswitch: Expose <linux/openvswitch.h> to userspace
+Date: Tue, 16 Apr 2013 14:00:15 -0700
+Message-ID: <1366146019-9015-7-git-send-email-jesse@nicira.com>
 References: <1366146019-9015-1-git-send-email-jesse@nicira.com>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Jesse Gross <jesse@nicira.com>
+	Thomas Graf <tgraf@suug.ch>, Jesse Gross <jesse@nicira.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:58587 "HELO
-	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S965290Ab3DPVAb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 17:00:31 -0400
-Received: by mail-pb0-f69.google.com with SMTP id jt11so728964pbb.4
-        for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 14:00:25 -0700 (PDT)
+Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:36429 "HELO
+	na3sys009aog127.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S965275Ab3DPVAV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 17:00:21 -0400
+Received: by mail-pa0-f72.google.com with SMTP id bi5so793564pad.11
+        for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 14:00:21 -0700 (PDT)
 In-Reply-To: <1366146019-9015-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
+From: Thomas Graf <tgraf@suug.ch>
 
-Currently OVS uses combination of genl and rtnl lock to protect
-datapath state.  This was done due to networking stack locking.
-But this has complicated locking and there are few lock ordering
-issues with new tunneling protocols.
-Following patch simplifies locking by introducing new ovs mutex
-and now this lock is used to protect entire ovs state.
+It contains the public netlink interface bits required by userspace to
+make use of the interface.
 
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 Signed-off-by: Jesse Gross <jesse@nicira.com>
 ---
- net/openvswitch/datapath.c           |  274 +++++++++++++++++++++-------------
- net/openvswitch/datapath.h           |   69 ++++++---
- net/openvswitch/dp_notify.c          |   82 ++++++----
- net/openvswitch/vport-internal_dev.c |    6 +
- net/openvswitch/vport-netdev.c       |    8 +-
- net/openvswitch/vport.c              |   22 ++-
- net/openvswitch/vport.h              |    4 +-
- 7 files changed, 298 insertions(+), 167 deletions(-)
+ include/linux/openvswitch.h      |  433 +-----------------------------------
+ include/uapi/linux/Kbuild        |    1 +
+ include/uapi/linux/openvswitch.h |  456 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 458 insertions(+), 432 deletions(-)
+ create mode 100644 include/uapi/linux/openvswitch.h
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index d406503..b7d0b7c 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -44,6 +44,7 @@
- #include <linux/netfilter_ipv4.h>
- #include <linux/inetdevice.h>
- #include <linux/list.h>
-+#include <linux/lockdep.h>
- #include <linux/openvswitch.h>
- #include <linux/rculist.h>
- #include <linux/dmi.h>
-@@ -56,21 +57,13 @@
- #include "flow.h"
- #include "vport-internal_dev.h"
+diff --git a/include/linux/openvswitch.h b/include/linux/openvswitch.h
+index 8b9d721..e6b240b 100644
+--- a/include/linux/openvswitch.h
++++ b/include/linux/openvswitch.h
+@@ -19,437 +19,6 @@
+ #ifndef _LINUX_OPENVSWITCH_H
+ #define _LINUX_OPENVSWITCH_H 1
  
+-#include <linux/types.h>
+-#include <linux/if_ether.h>
+-
 -/**
-- * struct ovs_net - Per net-namespace data for ovs.
-- * @dps: List of datapaths to enable dumping them all out.
-- * Protected by genl_mutex.
+- * struct ovs_header - header for OVS Generic Netlink messages.
+- * @dp_ifindex: ifindex of local port for datapath (0 to make a request not
+- * specific to a datapath).
+- *
+- * Attributes following the header are specific to a particular OVS Generic
+- * Netlink family, but all of the OVS families use this header.
 - */
--struct ovs_net {
--	struct list_head dps;
+-
+-struct ovs_header {
+-	int dp_ifindex;
 -};
 -
--static int ovs_net_id __read_mostly;
- 
- #define REHASH_FLOW_INTERVAL (10 * 60 * HZ)
- static void rehash_flow_table(struct work_struct *work);
- static DECLARE_DELAYED_WORK(rehash_flow_wq, rehash_flow_table);
- 
-+int ovs_net_id __read_mostly;
-+
- static void ovs_notify(struct sk_buff *skb, struct genl_info *info,
- 		       struct genl_multicast_group *grp)
- {
-@@ -81,20 +74,42 @@ static void ovs_notify(struct sk_buff *skb, struct genl_info *info,
- /**
-  * DOC: Locking:
-  *
-- * Writes to device state (add/remove datapath, port, set operations on vports,
-- * etc.) are protected by RTNL.
+-/* Datapaths. */
+-
+-#define OVS_DATAPATH_FAMILY  "ovs_datapath"
+-#define OVS_DATAPATH_MCGROUP "ovs_datapath"
+-#define OVS_DATAPATH_VERSION 0x1
+-
+-enum ovs_datapath_cmd {
+-	OVS_DP_CMD_UNSPEC,
+-	OVS_DP_CMD_NEW,
+-	OVS_DP_CMD_DEL,
+-	OVS_DP_CMD_GET,
+-	OVS_DP_CMD_SET
+-};
+-
+-/**
+- * enum ovs_datapath_attr - attributes for %OVS_DP_* commands.
+- * @OVS_DP_ATTR_NAME: Name of the network device that serves as the "local
+- * port".  This is the name of the network device whose dp_ifindex is given in
+- * the &struct ovs_header.  Always present in notifications.  Required in
+- * %OVS_DP_NEW requests.  May be used as an alternative to specifying
+- * dp_ifindex in other requests (with a dp_ifindex of 0).
+- * @OVS_DP_ATTR_UPCALL_PID: The Netlink socket in userspace that is initially
+- * set on the datapath port (for OVS_ACTION_ATTR_MISS).  Only valid on
+- * %OVS_DP_CMD_NEW requests. A value of zero indicates that upcalls should
+- * not be sent.
+- * @OVS_DP_ATTR_STATS: Statistics about packets that have passed through the
+- * datapath.  Always present in notifications.
 - *
-- * Writes to other state (flow table modifications, set miscellaneous datapath
-- * parameters, etc.) are protected by genl_mutex.  The RTNL lock nests inside
-- * genl_mutex.
-+ * All writes e.g. Writes to device state (add/remove datapath, port, set
-+ * operations on vports, etc.), Writes to other state (flow table
-+ * modifications, set miscellaneous datapath parameters, etc.) are protected
-+ * by ovs_lock.
-  *
-  * Reads are protected by RCU.
-  *
-  * There are a few special cases (mostly stats) that have their own
-  * synchronization but they nest under all of above and don't interact with
-  * each other.
+- * These attributes follow the &struct ovs_header within the Generic Netlink
+- * payload for %OVS_DP_* commands.
+- */
+-enum ovs_datapath_attr {
+-	OVS_DP_ATTR_UNSPEC,
+-	OVS_DP_ATTR_NAME,       /* name of dp_ifindex netdev */
+-	OVS_DP_ATTR_UPCALL_PID, /* Netlink PID to receive upcalls */
+-	OVS_DP_ATTR_STATS,      /* struct ovs_dp_stats */
+-	__OVS_DP_ATTR_MAX
+-};
+-
+-#define OVS_DP_ATTR_MAX (__OVS_DP_ATTR_MAX - 1)
+-
+-struct ovs_dp_stats {
+-	__u64 n_hit;             /* Number of flow table matches. */
+-	__u64 n_missed;          /* Number of flow table misses. */
+-	__u64 n_lost;            /* Number of misses not sent to userspace. */
+-	__u64 n_flows;           /* Number of flows present */
+-};
+-
+-struct ovs_vport_stats {
+-	__u64   rx_packets;		/* total packets received       */
+-	__u64   tx_packets;		/* total packets transmitted    */
+-	__u64   rx_bytes;		/* total bytes received         */
+-	__u64   tx_bytes;		/* total bytes transmitted      */
+-	__u64   rx_errors;		/* bad packets received         */
+-	__u64   tx_errors;		/* packet transmit problems     */
+-	__u64   rx_dropped;		/* no space in linux buffers    */
+-	__u64   tx_dropped;		/* no space available in linux  */
+-};
+-
+-/* Fixed logical ports. */
+-#define OVSP_LOCAL      ((__u32)0)
+-
+-/* Packet transfer. */
+-
+-#define OVS_PACKET_FAMILY "ovs_packet"
+-#define OVS_PACKET_VERSION 0x1
+-
+-enum ovs_packet_cmd {
+-	OVS_PACKET_CMD_UNSPEC,
+-
+-	/* Kernel-to-user notifications. */
+-	OVS_PACKET_CMD_MISS,    /* Flow table miss. */
+-	OVS_PACKET_CMD_ACTION,  /* OVS_ACTION_ATTR_USERSPACE action. */
+-
+-	/* Userspace commands. */
+-	OVS_PACKET_CMD_EXECUTE  /* Apply actions to a packet. */
+-};
+-
+-/**
+- * enum ovs_packet_attr - attributes for %OVS_PACKET_* commands.
+- * @OVS_PACKET_ATTR_PACKET: Present for all notifications.  Contains the entire
+- * packet as received, from the start of the Ethernet header onward.  For
+- * %OVS_PACKET_CMD_ACTION, %OVS_PACKET_ATTR_PACKET reflects changes made by
+- * actions preceding %OVS_ACTION_ATTR_USERSPACE, but %OVS_PACKET_ATTR_KEY is
+- * the flow key extracted from the packet as originally received.
+- * @OVS_PACKET_ATTR_KEY: Present for all notifications.  Contains the flow key
+- * extracted from the packet as nested %OVS_KEY_ATTR_* attributes.  This allows
+- * userspace to adapt its flow setup strategy by comparing its notion of the
+- * flow key against the kernel's.
+- * @OVS_PACKET_ATTR_ACTIONS: Contains actions for the packet.  Used
+- * for %OVS_PACKET_CMD_EXECUTE.  It has nested %OVS_ACTION_ATTR_* attributes.
+- * @OVS_PACKET_ATTR_USERDATA: Present for an %OVS_PACKET_CMD_ACTION
+- * notification if the %OVS_ACTION_ATTR_USERSPACE action specified an
+- * %OVS_USERSPACE_ATTR_USERDATA attribute, with the same length and content
+- * specified there.
+- *
+- * These attributes follow the &struct ovs_header within the Generic Netlink
+- * payload for %OVS_PACKET_* commands.
+- */
+-enum ovs_packet_attr {
+-	OVS_PACKET_ATTR_UNSPEC,
+-	OVS_PACKET_ATTR_PACKET,      /* Packet data. */
+-	OVS_PACKET_ATTR_KEY,         /* Nested OVS_KEY_ATTR_* attributes. */
+-	OVS_PACKET_ATTR_ACTIONS,     /* Nested OVS_ACTION_ATTR_* attributes. */
+-	OVS_PACKET_ATTR_USERDATA,    /* OVS_ACTION_ATTR_USERSPACE arg. */
+-	__OVS_PACKET_ATTR_MAX
+-};
+-
+-#define OVS_PACKET_ATTR_MAX (__OVS_PACKET_ATTR_MAX - 1)
+-
+-/* Virtual ports. */
+-
+-#define OVS_VPORT_FAMILY  "ovs_vport"
+-#define OVS_VPORT_MCGROUP "ovs_vport"
+-#define OVS_VPORT_VERSION 0x1
+-
+-enum ovs_vport_cmd {
+-	OVS_VPORT_CMD_UNSPEC,
+-	OVS_VPORT_CMD_NEW,
+-	OVS_VPORT_CMD_DEL,
+-	OVS_VPORT_CMD_GET,
+-	OVS_VPORT_CMD_SET
+-};
+-
+-enum ovs_vport_type {
+-	OVS_VPORT_TYPE_UNSPEC,
+-	OVS_VPORT_TYPE_NETDEV,   /* network device */
+-	OVS_VPORT_TYPE_INTERNAL, /* network device implemented by datapath */
+-	__OVS_VPORT_TYPE_MAX
+-};
+-
+-#define OVS_VPORT_TYPE_MAX (__OVS_VPORT_TYPE_MAX - 1)
+-
+-/**
+- * enum ovs_vport_attr - attributes for %OVS_VPORT_* commands.
+- * @OVS_VPORT_ATTR_PORT_NO: 32-bit port number within datapath.
+- * @OVS_VPORT_ATTR_TYPE: 32-bit %OVS_VPORT_TYPE_* constant describing the type
+- * of vport.
+- * @OVS_VPORT_ATTR_NAME: Name of vport.  For a vport based on a network device
+- * this is the name of the network device.  Maximum length %IFNAMSIZ-1 bytes
+- * plus a null terminator.
+- * @OVS_VPORT_ATTR_OPTIONS: Vport-specific configuration information.
+- * @OVS_VPORT_ATTR_UPCALL_PID: The Netlink socket in userspace that
+- * OVS_PACKET_CMD_MISS upcalls will be directed to for packets received on
+- * this port.  A value of zero indicates that upcalls should not be sent.
+- * @OVS_VPORT_ATTR_STATS: A &struct ovs_vport_stats giving statistics for
+- * packets sent or received through the vport.
+- *
+- * These attributes follow the &struct ovs_header within the Generic Netlink
+- * payload for %OVS_VPORT_* commands.
+- *
+- * For %OVS_VPORT_CMD_NEW requests, the %OVS_VPORT_ATTR_TYPE and
+- * %OVS_VPORT_ATTR_NAME attributes are required.  %OVS_VPORT_ATTR_PORT_NO is
+- * optional; if not specified a free port number is automatically selected.
+- * Whether %OVS_VPORT_ATTR_OPTIONS is required or optional depends on the type
+- * of vport.
+- * and other attributes are ignored.
+- *
+- * For other requests, if %OVS_VPORT_ATTR_NAME is specified then it is used to
+- * look up the vport to operate on; otherwise dp_idx from the &struct
+- * ovs_header plus %OVS_VPORT_ATTR_PORT_NO determine the vport.
+- */
+-enum ovs_vport_attr {
+-	OVS_VPORT_ATTR_UNSPEC,
+-	OVS_VPORT_ATTR_PORT_NO,	/* u32 port number within datapath */
+-	OVS_VPORT_ATTR_TYPE,	/* u32 OVS_VPORT_TYPE_* constant. */
+-	OVS_VPORT_ATTR_NAME,	/* string name, up to IFNAMSIZ bytes long */
+-	OVS_VPORT_ATTR_OPTIONS, /* nested attributes, varies by vport type */
+-	OVS_VPORT_ATTR_UPCALL_PID, /* u32 Netlink PID to receive upcalls */
+-	OVS_VPORT_ATTR_STATS,	/* struct ovs_vport_stats */
+-	__OVS_VPORT_ATTR_MAX
+-};
+-
+-#define OVS_VPORT_ATTR_MAX (__OVS_VPORT_ATTR_MAX - 1)
+-
+-/* Flows. */
+-
+-#define OVS_FLOW_FAMILY  "ovs_flow"
+-#define OVS_FLOW_MCGROUP "ovs_flow"
+-#define OVS_FLOW_VERSION 0x1
+-
+-enum ovs_flow_cmd {
+-	OVS_FLOW_CMD_UNSPEC,
+-	OVS_FLOW_CMD_NEW,
+-	OVS_FLOW_CMD_DEL,
+-	OVS_FLOW_CMD_GET,
+-	OVS_FLOW_CMD_SET
+-};
+-
+-struct ovs_flow_stats {
+-	__u64 n_packets;         /* Number of matched packets. */
+-	__u64 n_bytes;           /* Number of matched bytes. */
+-};
+-
+-enum ovs_key_attr {
+-	OVS_KEY_ATTR_UNSPEC,
+-	OVS_KEY_ATTR_ENCAP,	/* Nested set of encapsulated attributes. */
+-	OVS_KEY_ATTR_PRIORITY,  /* u32 skb->priority */
+-	OVS_KEY_ATTR_IN_PORT,   /* u32 OVS dp port number */
+-	OVS_KEY_ATTR_ETHERNET,  /* struct ovs_key_ethernet */
+-	OVS_KEY_ATTR_VLAN,	/* be16 VLAN TCI */
+-	OVS_KEY_ATTR_ETHERTYPE,	/* be16 Ethernet type */
+-	OVS_KEY_ATTR_IPV4,      /* struct ovs_key_ipv4 */
+-	OVS_KEY_ATTR_IPV6,      /* struct ovs_key_ipv6 */
+-	OVS_KEY_ATTR_TCP,       /* struct ovs_key_tcp */
+-	OVS_KEY_ATTR_UDP,       /* struct ovs_key_udp */
+-	OVS_KEY_ATTR_ICMP,      /* struct ovs_key_icmp */
+-	OVS_KEY_ATTR_ICMPV6,    /* struct ovs_key_icmpv6 */
+-	OVS_KEY_ATTR_ARP,       /* struct ovs_key_arp */
+-	OVS_KEY_ATTR_ND,        /* struct ovs_key_nd */
+-	OVS_KEY_ATTR_SKB_MARK,  /* u32 skb mark */
+-	__OVS_KEY_ATTR_MAX
+-};
+-
+-#define OVS_KEY_ATTR_MAX (__OVS_KEY_ATTR_MAX - 1)
+-
+-/**
+- * enum ovs_frag_type - IPv4 and IPv6 fragment type
+- * @OVS_FRAG_TYPE_NONE: Packet is not a fragment.
+- * @OVS_FRAG_TYPE_FIRST: Packet is a fragment with offset 0.
+- * @OVS_FRAG_TYPE_LATER: Packet is a fragment with nonzero offset.
+- *
+- * Used as the @ipv4_frag in &struct ovs_key_ipv4 and as @ipv6_frag &struct
+- * ovs_key_ipv6.
+- */
+-enum ovs_frag_type {
+-	OVS_FRAG_TYPE_NONE,
+-	OVS_FRAG_TYPE_FIRST,
+-	OVS_FRAG_TYPE_LATER,
+-	__OVS_FRAG_TYPE_MAX
+-};
+-
+-#define OVS_FRAG_TYPE_MAX (__OVS_FRAG_TYPE_MAX - 1)
+-
+-struct ovs_key_ethernet {
+-	__u8	 eth_src[ETH_ALEN];
+-	__u8	 eth_dst[ETH_ALEN];
+-};
+-
+-struct ovs_key_ipv4 {
+-	__be32 ipv4_src;
+-	__be32 ipv4_dst;
+-	__u8   ipv4_proto;
+-	__u8   ipv4_tos;
+-	__u8   ipv4_ttl;
+-	__u8   ipv4_frag;	/* One of OVS_FRAG_TYPE_*. */
+-};
+-
+-struct ovs_key_ipv6 {
+-	__be32 ipv6_src[4];
+-	__be32 ipv6_dst[4];
+-	__be32 ipv6_label;	/* 20-bits in least-significant bits. */
+-	__u8   ipv6_proto;
+-	__u8   ipv6_tclass;
+-	__u8   ipv6_hlimit;
+-	__u8   ipv6_frag;	/* One of OVS_FRAG_TYPE_*. */
+-};
+-
+-struct ovs_key_tcp {
+-	__be16 tcp_src;
+-	__be16 tcp_dst;
+-};
+-
+-struct ovs_key_udp {
+-	__be16 udp_src;
+-	__be16 udp_dst;
+-};
+-
+-struct ovs_key_icmp {
+-	__u8 icmp_type;
+-	__u8 icmp_code;
+-};
+-
+-struct ovs_key_icmpv6 {
+-	__u8 icmpv6_type;
+-	__u8 icmpv6_code;
+-};
+-
+-struct ovs_key_arp {
+-	__be32 arp_sip;
+-	__be32 arp_tip;
+-	__be16 arp_op;
+-	__u8   arp_sha[ETH_ALEN];
+-	__u8   arp_tha[ETH_ALEN];
+-};
+-
+-struct ovs_key_nd {
+-	__u32 nd_target[4];
+-	__u8  nd_sll[ETH_ALEN];
+-	__u8  nd_tll[ETH_ALEN];
+-};
+-
+-/**
+- * enum ovs_flow_attr - attributes for %OVS_FLOW_* commands.
+- * @OVS_FLOW_ATTR_KEY: Nested %OVS_KEY_ATTR_* attributes specifying the flow
+- * key.  Always present in notifications.  Required for all requests (except
+- * dumps).
+- * @OVS_FLOW_ATTR_ACTIONS: Nested %OVS_ACTION_ATTR_* attributes specifying
+- * the actions to take for packets that match the key.  Always present in
+- * notifications.  Required for %OVS_FLOW_CMD_NEW requests, optional for
+- * %OVS_FLOW_CMD_SET requests.
+- * @OVS_FLOW_ATTR_STATS: &struct ovs_flow_stats giving statistics for this
+- * flow.  Present in notifications if the stats would be nonzero.  Ignored in
+- * requests.
+- * @OVS_FLOW_ATTR_TCP_FLAGS: An 8-bit value giving the OR'd value of all of the
+- * TCP flags seen on packets in this flow.  Only present in notifications for
+- * TCP flows, and only if it would be nonzero.  Ignored in requests.
+- * @OVS_FLOW_ATTR_USED: A 64-bit integer giving the time, in milliseconds on
+- * the system monotonic clock, at which a packet was last processed for this
+- * flow.  Only present in notifications if a packet has been processed for this
+- * flow.  Ignored in requests.
+- * @OVS_FLOW_ATTR_CLEAR: If present in a %OVS_FLOW_CMD_SET request, clears the
+- * last-used time, accumulated TCP flags, and statistics for this flow.
+- * Otherwise ignored in requests.  Never present in notifications.
+- *
+- * These attributes follow the &struct ovs_header within the Generic Netlink
+- * payload for %OVS_FLOW_* commands.
+- */
+-enum ovs_flow_attr {
+-	OVS_FLOW_ATTR_UNSPEC,
+-	OVS_FLOW_ATTR_KEY,       /* Sequence of OVS_KEY_ATTR_* attributes. */
+-	OVS_FLOW_ATTR_ACTIONS,   /* Nested OVS_ACTION_ATTR_* attributes. */
+-	OVS_FLOW_ATTR_STATS,     /* struct ovs_flow_stats. */
+-	OVS_FLOW_ATTR_TCP_FLAGS, /* 8-bit OR'd TCP flags. */
+-	OVS_FLOW_ATTR_USED,      /* u64 msecs last used in monotonic time. */
+-	OVS_FLOW_ATTR_CLEAR,     /* Flag to clear stats, tcp_flags, used. */
+-	__OVS_FLOW_ATTR_MAX
+-};
+-
+-#define OVS_FLOW_ATTR_MAX (__OVS_FLOW_ATTR_MAX - 1)
+-
+-/**
+- * enum ovs_sample_attr - Attributes for %OVS_ACTION_ATTR_SAMPLE action.
+- * @OVS_SAMPLE_ATTR_PROBABILITY: 32-bit fraction of packets to sample with
+- * @OVS_ACTION_ATTR_SAMPLE.  A value of 0 samples no packets, a value of
+- * %UINT32_MAX samples all packets and intermediate values sample intermediate
+- * fractions of packets.
+- * @OVS_SAMPLE_ATTR_ACTIONS: Set of actions to execute in sampling event.
+- * Actions are passed as nested attributes.
+- *
+- * Executes the specified actions with the given probability on a per-packet
+- * basis.
+- */
+-enum ovs_sample_attr {
+-	OVS_SAMPLE_ATTR_UNSPEC,
+-	OVS_SAMPLE_ATTR_PROBABILITY, /* u32 number */
+-	OVS_SAMPLE_ATTR_ACTIONS,     /* Nested OVS_ACTION_ATTR_* attributes. */
+-	__OVS_SAMPLE_ATTR_MAX,
+-};
+-
+-#define OVS_SAMPLE_ATTR_MAX (__OVS_SAMPLE_ATTR_MAX - 1)
+-
+-/**
+- * enum ovs_userspace_attr - Attributes for %OVS_ACTION_ATTR_USERSPACE action.
+- * @OVS_USERSPACE_ATTR_PID: u32 Netlink PID to which the %OVS_PACKET_CMD_ACTION
+- * message should be sent.  Required.
+- * @OVS_USERSPACE_ATTR_USERDATA: If present, its variable-length argument is
+- * copied to the %OVS_PACKET_CMD_ACTION message as %OVS_PACKET_ATTR_USERDATA.
+- */
+-enum ovs_userspace_attr {
+-	OVS_USERSPACE_ATTR_UNSPEC,
+-	OVS_USERSPACE_ATTR_PID,	      /* u32 Netlink PID to receive upcalls. */
+-	OVS_USERSPACE_ATTR_USERDATA,  /* Optional user-specified cookie. */
+-	__OVS_USERSPACE_ATTR_MAX
+-};
+-
+-#define OVS_USERSPACE_ATTR_MAX (__OVS_USERSPACE_ATTR_MAX - 1)
+-
+-/**
+- * struct ovs_action_push_vlan - %OVS_ACTION_ATTR_PUSH_VLAN action argument.
+- * @vlan_tpid: Tag protocol identifier (TPID) to push.
+- * @vlan_tci: Tag control identifier (TCI) to push.  The CFI bit must be set
+- * (but it will not be set in the 802.1Q header that is pushed).
+- *
+- * The @vlan_tpid value is typically %ETH_P_8021Q.  The only acceptable TPID
+- * values are those that the kernel module also parses as 802.1Q headers, to
+- * prevent %OVS_ACTION_ATTR_PUSH_VLAN followed by %OVS_ACTION_ATTR_POP_VLAN
+- * from having surprising results.
+- */
+-struct ovs_action_push_vlan {
+-	__be16 vlan_tpid;	/* 802.1Q TPID. */
+-	__be16 vlan_tci;	/* 802.1Q TCI (VLAN ID and priority). */
+-};
+-
+-/**
+- * enum ovs_action_attr - Action types.
+- *
+- * @OVS_ACTION_ATTR_OUTPUT: Output packet to port.
+- * @OVS_ACTION_ATTR_USERSPACE: Send packet to userspace according to nested
+- * %OVS_USERSPACE_ATTR_* attributes.
+- * @OVS_ACTION_ATTR_SET: Replaces the contents of an existing header.  The
+- * single nested %OVS_KEY_ATTR_* attribute specifies a header to modify and its
+- * value.
+- * @OVS_ACTION_ATTR_PUSH_VLAN: Push a new outermost 802.1Q header onto the
+- * packet.
+- * @OVS_ACTION_ATTR_POP_VLAN: Pop the outermost 802.1Q header off the packet.
+- * @OVS_ACTION_ATTR_SAMPLE: Probabilitically executes actions, as specified in
+- * the nested %OVS_SAMPLE_ATTR_* attributes.
+- *
+- * Only a single header can be set with a single %OVS_ACTION_ATTR_SET.  Not all
+- * fields within a header are modifiable, e.g. the IPv4 protocol and fragment
+- * type may not be changed.
+- */
+-
+-enum ovs_action_attr {
+-	OVS_ACTION_ATTR_UNSPEC,
+-	OVS_ACTION_ATTR_OUTPUT,	      /* u32 port number. */
+-	OVS_ACTION_ATTR_USERSPACE,    /* Nested OVS_USERSPACE_ATTR_*. */
+-	OVS_ACTION_ATTR_SET,          /* One nested OVS_KEY_ATTR_*. */
+-	OVS_ACTION_ATTR_PUSH_VLAN,    /* struct ovs_action_push_vlan. */
+-	OVS_ACTION_ATTR_POP_VLAN,     /* No argument. */
+-	OVS_ACTION_ATTR_SAMPLE,       /* Nested OVS_SAMPLE_ATTR_*. */
+-	__OVS_ACTION_ATTR_MAX
+-};
+-
+-#define OVS_ACTION_ATTR_MAX (__OVS_ACTION_ATTR_MAX - 1)
++#include <uapi/linux/openvswitch.h>
+ 
+ #endif /* _LINUX_OPENVSWITCH_H */
+diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
+index 5c8a1d2..d8fbc6a 100644
+--- a/include/uapi/linux/Kbuild
++++ b/include/uapi/linux/Kbuild
+@@ -285,6 +285,7 @@ header-y += nvram.h
+ header-y += omap3isp.h
+ header-y += omapfb.h
+ header-y += oom.h
++header-y += openvswitch.h
+ header-y += packet_diag.h
+ header-y += param.h
+ header-y += parport.h
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+new file mode 100644
+index 0000000..405918d
+--- /dev/null
++++ b/include/uapi/linux/openvswitch.h
+@@ -0,0 +1,456 @@
++
++/*
++ * Copyright (c) 2007-2011 Nicira Networks.
 + *
-+ * The RTNL lock nests inside ovs_mutex.
-  */
- 
-+static DEFINE_MUTEX(ovs_mutex);
-+
-+void ovs_lock(void)
-+{
-+	mutex_lock(&ovs_mutex);
-+}
-+
-+void ovs_unlock(void)
-+{
-+	mutex_unlock(&ovs_mutex);
-+}
-+
-+#ifdef CONFIG_LOCKDEP
-+int lockdep_ovsl_is_held(void)
-+{
-+	if (debug_locks)
-+		return lockdep_is_held(&ovs_mutex);
-+	else
-+		return 1;
-+}
-+#endif
-+
- static struct vport *new_vport(const struct vport_parms *);
- static int queue_gso_packets(struct net *, int dp_ifindex, struct sk_buff *,
- 			     const struct dp_upcall_info *);
-@@ -102,7 +117,7 @@ static int queue_userspace_packet(struct net *, int dp_ifindex,
- 				  struct sk_buff *,
- 				  const struct dp_upcall_info *);
- 
--/* Must be called with rcu_read_lock, genl_mutex, or RTNL lock. */
-+/* Must be called with rcu_read_lock or ovs_mutex. */
- static struct datapath *get_dp(struct net *net, int dp_ifindex)
- {
- 	struct datapath *dp = NULL;
-@@ -120,10 +135,10 @@ static struct datapath *get_dp(struct net *net, int dp_ifindex)
- 	return dp;
- }
- 
--/* Must be called with rcu_read_lock or RTNL lock. */
-+/* Must be called with rcu_read_lock or ovs_mutex. */
- const char *ovs_dp_name(const struct datapath *dp)
- {
--	struct vport *vport = ovs_vport_rtnl_rcu(dp, OVSP_LOCAL);
-+	struct vport *vport = ovs_vport_ovsl_rcu(dp, OVSP_LOCAL);
- 	return vport->ops->get_name(vport);
- }
- 
-@@ -175,7 +190,7 @@ struct vport *ovs_lookup_vport(const struct datapath *dp, u16 port_no)
- 	return NULL;
- }
- 
--/* Called with RTNL lock and genl_lock. */
-+/* Called with ovs_mutex. */
- static struct vport *new_vport(const struct vport_parms *parms)
- {
- 	struct vport *vport;
-@@ -187,14 +202,12 @@ static struct vport *new_vport(const struct vport_parms *parms)
- 
- 		hlist_add_head_rcu(&vport->dp_hash_node, head);
- 	}
--
- 	return vport;
- }
- 
--/* Called with RTNL lock. */
- void ovs_dp_detach_port(struct vport *p)
- {
--	ASSERT_RTNL();
-+	ASSERT_OVSL();
- 
- 	/* First drop references to device. */
- 	hlist_del_rcu(&p->dp_hash_node);
-@@ -432,13 +445,13 @@ out:
- 	return err;
- }
- 
--/* Called with genl_mutex. */
-+/* Called with ovs_mutex. */
- static int flush_flows(struct datapath *dp)
- {
- 	struct flow_table *old_table;
- 	struct flow_table *new_table;
- 
--	old_table = genl_dereference(dp->table);
-+	old_table = ovsl_dereference(dp->table);
- 	new_table = ovs_flow_tbl_alloc(TBL_MIN_BUCKETS);
- 	if (!new_table)
- 		return -ENOMEM;
-@@ -788,7 +801,7 @@ static struct genl_ops dp_packet_genl_ops[] = {
- static void get_dp_stats(struct datapath *dp, struct ovs_dp_stats *stats)
- {
- 	int i;
--	struct flow_table *table = genl_dereference(dp->table);
-+	struct flow_table *table = ovsl_dereference(dp->table);
- 
- 	stats->n_flows = ovs_flow_tbl_count(table);
- 
-@@ -840,7 +853,7 @@ static size_t ovs_flow_cmd_msg_size(const struct sw_flow_actions *acts)
- 		+ nla_total_size(acts->actions_len); /* OVS_FLOW_ATTR_ACTIONS */
- }
- 
--/* Called with genl_lock. */
-+/* Called with ovs_mutex. */
- static int ovs_flow_cmd_fill_info(struct sw_flow *flow, struct datapath *dp,
- 				  struct sk_buff *skb, u32 portid,
- 				  u32 seq, u32 flags, u8 cmd)
-@@ -854,8 +867,7 @@ static int ovs_flow_cmd_fill_info(struct sw_flow *flow, struct datapath *dp,
- 	u8 tcp_flags;
- 	int err;
- 
--	sf_acts = rcu_dereference_protected(flow->sf_acts,
--					    lockdep_genl_is_held());
-+	sf_acts = ovsl_dereference(flow->sf_acts);
- 
- 	ovs_header = genlmsg_put(skb, portid, seq, &dp_flow_genl_family, flags, cmd);
- 	if (!ovs_header)
-@@ -919,8 +931,7 @@ static struct sk_buff *ovs_flow_cmd_alloc_info(struct sw_flow *flow)
- {
- 	const struct sw_flow_actions *sf_acts;
- 
--	sf_acts = rcu_dereference_protected(flow->sf_acts,
--					    lockdep_genl_is_held());
-+	sf_acts = ovsl_dereference(flow->sf_acts);
- 
- 	return genlmsg_new(ovs_flow_cmd_msg_size(sf_acts), GFP_KERNEL);
- }
-@@ -971,12 +982,13 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 		goto error;
- 	}
- 
-+	ovs_lock();
- 	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
- 	error = -ENODEV;
- 	if (!dp)
--		goto error;
-+		goto err_unlock_ovs;
- 
--	table = genl_dereference(dp->table);
-+	table = ovsl_dereference(dp->table);
- 	flow = ovs_flow_tbl_lookup(table, &key, key_len);
- 	if (!flow) {
- 		struct sw_flow_actions *acts;
-@@ -984,7 +996,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 		/* Bail out if we're not allowed to create a new flow. */
- 		error = -ENOENT;
- 		if (info->genlhdr->cmd == OVS_FLOW_CMD_SET)
--			goto error;
-+			goto err_unlock_ovs;
- 
- 		/* Expand table, if necessary, to make room. */
- 		if (ovs_flow_tbl_need_to_expand(table)) {
-@@ -994,7 +1006,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 			if (!IS_ERR(new_table)) {
- 				rcu_assign_pointer(dp->table, new_table);
- 				ovs_flow_tbl_deferred_destroy(table);
--				table = genl_dereference(dp->table);
-+				table = ovsl_dereference(dp->table);
- 			}
- 		}
- 
-@@ -1002,7 +1014,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 		flow = ovs_flow_alloc();
- 		if (IS_ERR(flow)) {
- 			error = PTR_ERR(flow);
--			goto error;
-+			goto err_unlock_ovs;
- 		}
- 		flow->key = key;
- 		clear_stats(flow);
-@@ -1035,11 +1047,10 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 		error = -EEXIST;
- 		if (info->genlhdr->cmd == OVS_FLOW_CMD_NEW &&
- 		    info->nlhdr->nlmsg_flags & (NLM_F_CREATE | NLM_F_EXCL))
--			goto error;
-+			goto err_unlock_ovs;
- 
- 		/* Update actions. */
--		old_acts = rcu_dereference_protected(flow->sf_acts,
--						     lockdep_genl_is_held());
-+		old_acts = ovsl_dereference(flow->sf_acts);
- 		acts_attrs = a[OVS_FLOW_ATTR_ACTIONS];
- 		if (acts_attrs &&
- 		   (old_acts->actions_len != nla_len(acts_attrs) ||
-@@ -1050,7 +1061,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 			new_acts = ovs_flow_actions_alloc(acts_attrs);
- 			error = PTR_ERR(new_acts);
- 			if (IS_ERR(new_acts))
--				goto error;
-+				goto err_unlock_ovs;
- 
- 			rcu_assign_pointer(flow->sf_acts, new_acts);
- 			ovs_flow_deferred_free_acts(old_acts);
-@@ -1066,6 +1077,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 			spin_unlock_bh(&flow->lock);
- 		}
- 	}
-+	ovs_unlock();
- 
- 	if (!IS_ERR(reply))
- 		ovs_notify(reply, info, &ovs_dp_flow_multicast_group);
-@@ -1076,6 +1088,8 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 
- error_free_flow:
- 	ovs_flow_free(flow);
-+err_unlock_ovs:
-+	ovs_unlock();
- error:
- 	return error;
- }
-@@ -1098,21 +1112,32 @@ static int ovs_flow_cmd_get(struct sk_buff *skb, struct genl_info *info)
- 	if (err)
- 		return err;
- 
-+	ovs_lock();
- 	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
--	if (!dp)
--		return -ENODEV;
-+	if (!dp) {
-+		err = -ENODEV;
-+		goto unlock;
-+	}
- 
--	table = genl_dereference(dp->table);
-+	table = ovsl_dereference(dp->table);
- 	flow = ovs_flow_tbl_lookup(table, &key, key_len);
--	if (!flow)
--		return -ENOENT;
-+	if (!flow) {
-+		err = -ENOENT;
-+		goto unlock;
-+	}
- 
- 	reply = ovs_flow_cmd_build_info(flow, dp, info->snd_portid,
- 					info->snd_seq, OVS_FLOW_CMD_NEW);
--	if (IS_ERR(reply))
--		return PTR_ERR(reply);
-+	if (IS_ERR(reply)) {
-+		err = PTR_ERR(reply);
-+		goto unlock;
-+	}
- 
-+	ovs_unlock();
- 	return genlmsg_reply(reply, info);
-+unlock:
-+	ovs_unlock();
-+	return err;
- }
- 
- static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
-@@ -1127,25 +1152,33 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	int err;
- 	int key_len;
- 
-+	ovs_lock();
- 	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
--	if (!dp)
--		return -ENODEV;
--
--	if (!a[OVS_FLOW_ATTR_KEY])
--		return flush_flows(dp);
-+	if (!dp) {
-+		err = -ENODEV;
-+		goto unlock;
-+	}
- 
-+	if (!a[OVS_FLOW_ATTR_KEY]) {
-+		err = flush_flows(dp);
-+		goto unlock;
-+	}
- 	err = ovs_flow_from_nlattrs(&key, &key_len, a[OVS_FLOW_ATTR_KEY]);
- 	if (err)
--		return err;
-+		goto unlock;
- 
--	table = genl_dereference(dp->table);
-+	table = ovsl_dereference(dp->table);
- 	flow = ovs_flow_tbl_lookup(table, &key, key_len);
--	if (!flow)
--		return -ENOENT;
-+	if (!flow) {
-+		err = -ENOENT;
-+		goto unlock;
-+	}
- 
- 	reply = ovs_flow_cmd_alloc_info(flow);
--	if (!reply)
--		return -ENOMEM;
-+	if (!reply) {
-+		err = -ENOMEM;
-+		goto unlock;
-+	}
- 
- 	ovs_flow_tbl_remove(table, flow);
- 
-@@ -1154,9 +1187,13 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	BUG_ON(err < 0);
- 
- 	ovs_flow_deferred_free(flow);
-+	ovs_unlock();
- 
- 	ovs_notify(reply, info, &ovs_dp_flow_multicast_group);
- 	return 0;
-+unlock:
-+	ovs_unlock();
-+	return err;
- }
- 
- static int ovs_flow_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
-@@ -1165,11 +1202,14 @@ static int ovs_flow_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct datapath *dp;
- 	struct flow_table *table;
- 
-+	ovs_lock();
- 	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
--	if (!dp)
-+	if (!dp) {
-+		ovs_unlock();
- 		return -ENODEV;
-+	}
- 
--	table = genl_dereference(dp->table);
-+	table = ovsl_dereference(dp->table);
- 
- 	for (;;) {
- 		struct sw_flow *flow;
-@@ -1190,6 +1230,7 @@ static int ovs_flow_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 		cb->args[0] = bucket;
- 		cb->args[1] = obj;
- 	}
-+	ovs_unlock();
- 	return skb->len;
- }
- 
-@@ -1295,7 +1336,7 @@ static struct sk_buff *ovs_dp_cmd_build_info(struct datapath *dp, u32 portid,
- 	return skb;
- }
- 
--/* Called with genl_mutex and optionally with RTNL lock also. */
-+/* Called with ovs_mutex. */
- static struct datapath *lookup_datapath(struct net *net,
- 					struct ovs_header *ovs_header,
- 					struct nlattr *a[OVS_DP_ATTR_MAX + 1])
-@@ -1329,12 +1370,12 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 	if (!a[OVS_DP_ATTR_NAME] || !a[OVS_DP_ATTR_UPCALL_PID])
- 		goto err;
- 
--	rtnl_lock();
-+	ovs_lock();
- 
- 	err = -ENOMEM;
- 	dp = kzalloc(sizeof(*dp), GFP_KERNEL);
- 	if (dp == NULL)
--		goto err_unlock_rtnl;
-+		goto err_unlock_ovs;
- 
- 	ovs_dp_set_net(dp, hold_net(sock_net(skb->sk)));
- 
-@@ -1385,35 +1426,34 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 
- 	ovs_net = net_generic(ovs_dp_get_net(dp), ovs_net_id);
- 	list_add_tail(&dp->list_node, &ovs_net->dps);
--	rtnl_unlock();
-+
-+	ovs_unlock();
- 
- 	ovs_notify(reply, info, &ovs_dp_datapath_multicast_group);
- 	return 0;
- 
- err_destroy_local_port:
--	ovs_dp_detach_port(ovs_vport_rtnl(dp, OVSP_LOCAL));
-+	ovs_dp_detach_port(ovs_vport_ovsl(dp, OVSP_LOCAL));
- err_destroy_ports_array:
- 	kfree(dp->ports);
- err_destroy_percpu:
- 	free_percpu(dp->stats_percpu);
- err_destroy_table:
--	ovs_flow_tbl_destroy(genl_dereference(dp->table));
-+	ovs_flow_tbl_destroy(ovsl_dereference(dp->table));
- err_free_dp:
- 	release_net(ovs_dp_get_net(dp));
- 	kfree(dp);
--err_unlock_rtnl:
--	rtnl_unlock();
-+err_unlock_ovs:
-+	ovs_unlock();
- err:
- 	return err;
- }
- 
--/* Called with genl_mutex. */
-+/* Called with ovs_mutex. */
- static void __dp_destroy(struct datapath *dp)
- {
- 	int i;
- 
--	rtnl_lock();
--
- 	for (i = 0; i < DP_VPORT_HASH_BUCKETS; i++) {
- 		struct vport *vport;
- 		struct hlist_node *n;
-@@ -1424,14 +1464,11 @@ static void __dp_destroy(struct datapath *dp)
- 	}
- 
- 	list_del(&dp->list_node);
--	ovs_dp_detach_port(ovs_vport_rtnl(dp, OVSP_LOCAL));
- 
--	/* rtnl_unlock() will wait until all the references to devices that
--	 * are pending unregistration have been dropped.  We do it here to
--	 * ensure that any internal devices (which contain DP pointers) are
--	 * fully destroyed before freeing the datapath.
-+	/* OVSP_LOCAL is datapath internal port. We need to make sure that
-+	 * all port in datapath are destroyed first before freeing datapath.
- 	 */
--	rtnl_unlock();
-+	ovs_dp_detach_port(ovs_vport_ovsl(dp, OVSP_LOCAL));
- 
- 	call_rcu(&dp->rcu, destroy_dp_rcu);
- }
-@@ -1442,22 +1479,27 @@ static int ovs_dp_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	struct datapath *dp;
- 	int err;
- 
-+	ovs_lock();
- 	dp = lookup_datapath(sock_net(skb->sk), info->userhdr, info->attrs);
- 	err = PTR_ERR(dp);
- 	if (IS_ERR(dp))
--		return err;
-+		goto unlock;
- 
- 	reply = ovs_dp_cmd_build_info(dp, info->snd_portid,
- 				      info->snd_seq, OVS_DP_CMD_DEL);
- 	err = PTR_ERR(reply);
- 	if (IS_ERR(reply))
--		return err;
-+		goto unlock;
- 
- 	__dp_destroy(dp);
-+	ovs_unlock();
- 
- 	ovs_notify(reply, info, &ovs_dp_datapath_multicast_group);
- 
- 	return 0;
-+unlock:
-+	ovs_unlock();
-+	return err;
- }
- 
- static int ovs_dp_cmd_set(struct sk_buff *skb, struct genl_info *info)
-@@ -1466,9 +1508,11 @@ static int ovs_dp_cmd_set(struct sk_buff *skb, struct genl_info *info)
- 	struct datapath *dp;
- 	int err;
- 
-+	ovs_lock();
- 	dp = lookup_datapath(sock_net(skb->sk), info->userhdr, info->attrs);
-+	err = PTR_ERR(dp);
- 	if (IS_ERR(dp))
--		return PTR_ERR(dp);
-+		goto unlock;
- 
- 	reply = ovs_dp_cmd_build_info(dp, info->snd_portid,
- 				      info->snd_seq, OVS_DP_CMD_NEW);
-@@ -1476,29 +1520,45 @@ static int ovs_dp_cmd_set(struct sk_buff *skb, struct genl_info *info)
- 		err = PTR_ERR(reply);
- 		netlink_set_err(sock_net(skb->sk)->genl_sock, 0,
- 				ovs_dp_datapath_multicast_group.id, err);
--		return 0;
-+		err = 0;
-+		goto unlock;
- 	}
- 
-+	ovs_unlock();
- 	ovs_notify(reply, info, &ovs_dp_datapath_multicast_group);
- 
- 	return 0;
-+unlock:
-+	ovs_unlock();
-+	return err;
- }
- 
- static int ovs_dp_cmd_get(struct sk_buff *skb, struct genl_info *info)
- {
- 	struct sk_buff *reply;
- 	struct datapath *dp;
-+	int err;
- 
-+	ovs_lock();
- 	dp = lookup_datapath(sock_net(skb->sk), info->userhdr, info->attrs);
--	if (IS_ERR(dp))
--		return PTR_ERR(dp);
-+	if (IS_ERR(dp)) {
-+		err = PTR_ERR(dp);
-+		goto unlock;
-+	}
- 
- 	reply = ovs_dp_cmd_build_info(dp, info->snd_portid,
- 				      info->snd_seq, OVS_DP_CMD_NEW);
--	if (IS_ERR(reply))
--		return PTR_ERR(reply);
-+	if (IS_ERR(reply)) {
-+		err = PTR_ERR(reply);
-+		goto unlock;
-+	}
- 
-+	ovs_unlock();
- 	return genlmsg_reply(reply, info);
-+
-+unlock:
-+	ovs_unlock();
-+	return err;
- }
- 
- static int ovs_dp_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
-@@ -1508,6 +1568,7 @@ static int ovs_dp_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	int skip = cb->args[0];
- 	int i = 0;
- 
-+	ovs_lock();
- 	list_for_each_entry(dp, &ovs_net->dps, list_node) {
- 		if (i >= skip &&
- 		    ovs_dp_cmd_fill_info(dp, skb, NETLINK_CB(cb->skb).portid,
-@@ -1516,6 +1577,7 @@ static int ovs_dp_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 			break;
- 		i++;
- 	}
-+	ovs_unlock();
- 
- 	cb->args[0] = i;
- 
-@@ -1568,7 +1630,7 @@ struct genl_multicast_group ovs_dp_vport_multicast_group = {
- 	.name = OVS_VPORT_MCGROUP
- };
- 
--/* Called with RTNL lock or RCU read lock. */
-+/* Called with ovs_mutex or RCU read lock. */
- static int ovs_vport_cmd_fill_info(struct vport *vport, struct sk_buff *skb,
- 				   u32 portid, u32 seq, u32 flags, u8 cmd)
- {
-@@ -1607,7 +1669,7 @@ error:
- 	return err;
- }
- 
--/* Called with RTNL lock or RCU read lock. */
-+/* Called with ovs_mutex or RCU read lock. */
- struct sk_buff *ovs_vport_cmd_build_info(struct vport *vport, u32 portid,
- 					 u32 seq, u8 cmd)
- {
-@@ -1626,7 +1688,7 @@ struct sk_buff *ovs_vport_cmd_build_info(struct vport *vport, u32 portid,
- 	return skb;
- }
- 
--/* Called with RTNL lock or RCU read lock. */
-+/* Called with ovs_mutex or RCU read lock. */
- static struct vport *lookup_vport(struct net *net,
- 				  struct ovs_header *ovs_header,
- 				  struct nlattr *a[OVS_VPORT_ATTR_MAX + 1])
-@@ -1652,7 +1714,7 @@ static struct vport *lookup_vport(struct net *net,
- 		if (!dp)
- 			return ERR_PTR(-ENODEV);
- 
--		vport = ovs_vport_rtnl_rcu(dp, port_no);
-+		vport = ovs_vport_ovsl_rcu(dp, port_no);
- 		if (!vport)
- 			return ERR_PTR(-ENODEV);
- 		return vport;
-@@ -1676,7 +1738,7 @@ static int ovs_vport_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 	    !a[OVS_VPORT_ATTR_UPCALL_PID])
- 		goto exit;
- 
--	rtnl_lock();
-+	ovs_lock();
- 	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
- 	err = -ENODEV;
- 	if (!dp)
-@@ -1689,7 +1751,7 @@ static int ovs_vport_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 		if (port_no >= DP_MAX_PORTS)
- 			goto exit_unlock;
- 
--		vport = ovs_vport_rtnl_rcu(dp, port_no);
-+		vport = ovs_vport_ovsl(dp, port_no);
- 		err = -EBUSY;
- 		if (vport)
- 			goto exit_unlock;
-@@ -1699,7 +1761,7 @@ static int ovs_vport_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 				err = -EFBIG;
- 				goto exit_unlock;
- 			}
--			vport = ovs_vport_rtnl(dp, port_no);
-+			vport = ovs_vport_ovsl(dp, port_no);
- 			if (!vport)
- 				break;
- 		}
-@@ -1729,7 +1791,7 @@ static int ovs_vport_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 	ovs_notify(reply, info, &ovs_dp_vport_multicast_group);
- 
- exit_unlock:
--	rtnl_unlock();
-+	ovs_unlock();
- exit:
- 	return err;
- }
-@@ -1741,7 +1803,7 @@ static int ovs_vport_cmd_set(struct sk_buff *skb, struct genl_info *info)
- 	struct vport *vport;
- 	int err;
- 
--	rtnl_lock();
-+	ovs_lock();
- 	vport = lookup_vport(sock_net(skb->sk), info->userhdr, a);
- 	err = PTR_ERR(vport);
- 	if (IS_ERR(vport))
-@@ -1767,10 +1829,12 @@ static int ovs_vport_cmd_set(struct sk_buff *skb, struct genl_info *info)
- 		goto exit_unlock;
- 	}
- 
-+	ovs_unlock();
- 	ovs_notify(reply, info, &ovs_dp_vport_multicast_group);
-+	return 0;
- 
- exit_unlock:
--	rtnl_unlock();
-+	ovs_unlock();
- 	return err;
- }
- 
-@@ -1781,7 +1845,7 @@ static int ovs_vport_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	struct vport *vport;
- 	int err;
- 
--	rtnl_lock();
-+	ovs_lock();
- 	vport = lookup_vport(sock_net(skb->sk), info->userhdr, a);
- 	err = PTR_ERR(vport);
- 	if (IS_ERR(vport))
-@@ -1804,7 +1868,7 @@ static int ovs_vport_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	ovs_notify(reply, info, &ovs_dp_vport_multicast_group);
- 
- exit_unlock:
--	rtnl_unlock();
-+	ovs_unlock();
- 	return err;
- }
- 
-@@ -1964,13 +2028,13 @@ static void rehash_flow_table(struct work_struct *work)
- 	struct datapath *dp;
- 	struct net *net;
- 
--	genl_lock();
-+	ovs_lock();
- 	rtnl_lock();
- 	for_each_net(net) {
- 		struct ovs_net *ovs_net = net_generic(net, ovs_net_id);
- 
- 		list_for_each_entry(dp, &ovs_net->dps, list_node) {
--			struct flow_table *old_table = genl_dereference(dp->table);
-+			struct flow_table *old_table = ovsl_dereference(dp->table);
- 			struct flow_table *new_table;
- 
- 			new_table = ovs_flow_tbl_rehash(old_table);
-@@ -1981,8 +2045,7 @@ static void rehash_flow_table(struct work_struct *work)
- 		}
- 	}
- 	rtnl_unlock();
--	genl_unlock();
--
-+	ovs_unlock();
- 	schedule_delayed_work(&rehash_flow_wq, REHASH_FLOW_INTERVAL);
- }
- 
-@@ -1991,18 +2054,21 @@ static int __net_init ovs_init_net(struct net *net)
- 	struct ovs_net *ovs_net = net_generic(net, ovs_net_id);
- 
- 	INIT_LIST_HEAD(&ovs_net->dps);
-+	INIT_WORK(&ovs_net->dp_notify_work, ovs_dp_notify_wq);
- 	return 0;
- }
- 
- static void __net_exit ovs_exit_net(struct net *net)
- {
--	struct ovs_net *ovs_net = net_generic(net, ovs_net_id);
- 	struct datapath *dp, *dp_next;
-+	struct ovs_net *ovs_net = net_generic(net, ovs_net_id);
- 
--	genl_lock();
-+	ovs_lock();
- 	list_for_each_entry_safe(dp, dp_next, &ovs_net->dps, list_node)
- 		__dp_destroy(dp);
--	genl_unlock();
-+	ovs_unlock();
-+
-+	cancel_work_sync(&ovs_net->dp_notify_work);
- }
- 
- static struct pernet_operations ovs_net_ops = {
-diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
-index 655beb1..16b8406 100644
---- a/net/openvswitch/datapath.h
-+++ b/net/openvswitch/datapath.h
-@@ -57,9 +57,9 @@ struct dp_stats_percpu {
-  * struct datapath - datapath for flow-based packet switching
-  * @rcu: RCU callback head for deferred destruction.
-  * @list_node: Element in global 'dps' list.
-- * @table: Current flow table.  Protected by genl_lock and RCU.
-+ * @table: Current flow table.  Protected by ovs_mutex and RCU.
-  * @ports: Hash table for ports.  %OVSP_LOCAL port always exists.  Protected by
-- * RTNL and RCU.
-+ * ovs_mutex and RCU.
-  * @stats_percpu: Per-CPU datapath statistics.
-  * @net: Reference to net namespace.
-  *
-@@ -85,26 +85,6 @@ struct datapath {
- #endif
- };
- 
--struct vport *ovs_lookup_vport(const struct datapath *dp, u16 port_no);
--
--static inline struct vport *ovs_vport_rcu(const struct datapath *dp, int port_no)
--{
--	WARN_ON_ONCE(!rcu_read_lock_held());
--	return ovs_lookup_vport(dp, port_no);
--}
--
--static inline struct vport *ovs_vport_rtnl_rcu(const struct datapath *dp, int port_no)
--{
--	WARN_ON_ONCE(!rcu_read_lock_held() && !rtnl_is_locked());
--	return ovs_lookup_vport(dp, port_no);
--}
--
--static inline struct vport *ovs_vport_rtnl(const struct datapath *dp, int port_no)
--{
--	ASSERT_RTNL();
--	return ovs_lookup_vport(dp, port_no);
--}
--
- /**
-  * struct ovs_skb_cb - OVS data in skb CB
-  * @flow: The flow associated with this packet.  May be %NULL if no flow.
-@@ -131,6 +111,30 @@ struct dp_upcall_info {
- 	u32 portid;
- };
- 
-+/**
-+ * struct ovs_net - Per net-namespace data for ovs.
-+ * @dps: List of datapaths to enable dumping them all out.
-+ * Protected by genl_mutex.
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA
 + */
-+struct ovs_net {
-+	struct list_head dps;
-+	struct work_struct dp_notify_work;
++
++#ifndef _UAPI__LINUX_OPENVSWITCH_H
++#define _UAPI__LINUX_OPENVSWITCH_H 1
++
++#include <linux/types.h>
++#include <linux/if_ether.h>
++
++/**
++ * struct ovs_header - header for OVS Generic Netlink messages.
++ * @dp_ifindex: ifindex of local port for datapath (0 to make a request not
++ * specific to a datapath).
++ *
++ * Attributes following the header are specific to a particular OVS Generic
++ * Netlink family, but all of the OVS families use this header.
++ */
++
++struct ovs_header {
++	int dp_ifindex;
 +};
 +
-+extern int ovs_net_id;
-+void ovs_lock(void);
-+void ovs_unlock(void);
++/* Datapaths. */
 +
-+#ifdef CONFIG_LOCKDEP
-+int lockdep_ovsl_is_held(void);
-+#else
-+#define lockdep_ovsl_is_held()	1
-+#endif
++#define OVS_DATAPATH_FAMILY  "ovs_datapath"
++#define OVS_DATAPATH_MCGROUP "ovs_datapath"
++#define OVS_DATAPATH_VERSION 0x1
 +
-+#define ASSERT_OVSL()		WARN_ON(unlikely(!lockdep_ovsl_is_held()))
-+#define ovsl_dereference(p)					\
-+	rcu_dereference_protected(p, lockdep_ovsl_is_held())
++enum ovs_datapath_cmd {
++	OVS_DP_CMD_UNSPEC,
++	OVS_DP_CMD_NEW,
++	OVS_DP_CMD_DEL,
++	OVS_DP_CMD_GET,
++	OVS_DP_CMD_SET
++};
 +
- static inline struct net *ovs_dp_get_net(struct datapath *dp)
- {
- 	return read_pnet(&dp->net);
-@@ -141,6 +145,26 @@ static inline void ovs_dp_set_net(struct datapath *dp, struct net *net)
- 	write_pnet(&dp->net, net);
- }
- 
-+struct vport *ovs_lookup_vport(const struct datapath *dp, u16 port_no);
++/**
++ * enum ovs_datapath_attr - attributes for %OVS_DP_* commands.
++ * @OVS_DP_ATTR_NAME: Name of the network device that serves as the "local
++ * port".  This is the name of the network device whose dp_ifindex is given in
++ * the &struct ovs_header.  Always present in notifications.  Required in
++ * %OVS_DP_NEW requests.  May be used as an alternative to specifying
++ * dp_ifindex in other requests (with a dp_ifindex of 0).
++ * @OVS_DP_ATTR_UPCALL_PID: The Netlink socket in userspace that is initially
++ * set on the datapath port (for OVS_ACTION_ATTR_MISS).  Only valid on
++ * %OVS_DP_CMD_NEW requests. A value of zero indicates that upcalls should
++ * not be sent.
++ * @OVS_DP_ATTR_STATS: Statistics about packets that have passed through the
++ * datapath.  Always present in notifications.
++ *
++ * These attributes follow the &struct ovs_header within the Generic Netlink
++ * payload for %OVS_DP_* commands.
++ */
++enum ovs_datapath_attr {
++	OVS_DP_ATTR_UNSPEC,
++	OVS_DP_ATTR_NAME,       /* name of dp_ifindex netdev */
++	OVS_DP_ATTR_UPCALL_PID, /* Netlink PID to receive upcalls */
++	OVS_DP_ATTR_STATS,      /* struct ovs_dp_stats */
++	__OVS_DP_ATTR_MAX
++};
 +
-+static inline struct vport *ovs_vport_rcu(const struct datapath *dp, int port_no)
-+{
-+	WARN_ON_ONCE(!rcu_read_lock_held());
-+	return ovs_lookup_vport(dp, port_no);
-+}
++#define OVS_DP_ATTR_MAX (__OVS_DP_ATTR_MAX - 1)
 +
-+static inline struct vport *ovs_vport_ovsl_rcu(const struct datapath *dp, int port_no)
-+{
-+	WARN_ON_ONCE(!rcu_read_lock_held() && !lockdep_ovsl_is_held());
-+	return ovs_lookup_vport(dp, port_no);
-+}
++struct ovs_dp_stats {
++	__u64 n_hit;             /* Number of flow table matches. */
++	__u64 n_missed;          /* Number of flow table misses. */
++	__u64 n_lost;            /* Number of misses not sent to userspace. */
++	__u64 n_flows;           /* Number of flows present */
++};
 +
-+static inline struct vport *ovs_vport_ovsl(const struct datapath *dp, int port_no)
-+{
-+	ASSERT_OVSL();
-+	return ovs_lookup_vport(dp, port_no);
-+}
++struct ovs_vport_stats {
++	__u64   rx_packets;		/* total packets received       */
++	__u64   tx_packets;		/* total packets transmitted    */
++	__u64   rx_bytes;		/* total bytes received         */
++	__u64   tx_bytes;		/* total bytes transmitted      */
++	__u64   rx_errors;		/* bad packets received         */
++	__u64   tx_errors;		/* packet transmit problems     */
++	__u64   rx_dropped;		/* no space in linux buffers    */
++	__u64   tx_dropped;		/* no space available in linux  */
++};
 +
- extern struct notifier_block ovs_dp_device_notifier;
- extern struct genl_multicast_group ovs_dp_vport_multicast_group;
- 
-@@ -154,4 +178,5 @@ struct sk_buff *ovs_vport_cmd_build_info(struct vport *, u32 pid, u32 seq,
- 					 u8 cmd);
- 
- int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb);
-+void ovs_dp_notify_wq(struct work_struct *work);
- #endif /* datapath.h */
-diff --git a/net/openvswitch/dp_notify.c b/net/openvswitch/dp_notify.c
-index 5558350..ef4feec 100644
---- a/net/openvswitch/dp_notify.c
-+++ b/net/openvswitch/dp_notify.c
-@@ -18,46 +18,78 @@
- 
- #include <linux/netdevice.h>
- #include <net/genetlink.h>
-+#include <net/netns/generic.h>
- 
- #include "datapath.h"
- #include "vport-internal_dev.h"
- #include "vport-netdev.h"
- 
-+static void dp_detach_port_notify(struct vport *vport)
-+{
-+	struct sk_buff *notify;
-+	struct datapath *dp;
++/* Fixed logical ports. */
++#define OVSP_LOCAL      ((__u32)0)
 +
-+	dp = vport->dp;
-+	notify = ovs_vport_cmd_build_info(vport, 0, 0,
-+					  OVS_VPORT_CMD_DEL);
-+	ovs_dp_detach_port(vport);
-+	if (IS_ERR(notify)) {
-+		netlink_set_err(ovs_dp_get_net(dp)->genl_sock, 0,
-+				ovs_dp_vport_multicast_group.id,
-+				PTR_ERR(notify));
-+		return;
-+	}
++/* Packet transfer. */
 +
-+	genlmsg_multicast_netns(ovs_dp_get_net(dp), notify, 0,
-+				ovs_dp_vport_multicast_group.id,
-+				GFP_KERNEL);
-+}
++#define OVS_PACKET_FAMILY "ovs_packet"
++#define OVS_PACKET_VERSION 0x1
 +
-+void ovs_dp_notify_wq(struct work_struct *work)
-+{
-+	struct ovs_net *ovs_net = container_of(work, struct ovs_net, dp_notify_work);
-+	struct datapath *dp;
++enum ovs_packet_cmd {
++	OVS_PACKET_CMD_UNSPEC,
 +
-+	ovs_lock();
-+	list_for_each_entry(dp, &ovs_net->dps, list_node) {
-+		int i;
++	/* Kernel-to-user notifications. */
++	OVS_PACKET_CMD_MISS,    /* Flow table miss. */
++	OVS_PACKET_CMD_ACTION,  /* OVS_ACTION_ATTR_USERSPACE action. */
 +
-+		for (i = 0; i < DP_VPORT_HASH_BUCKETS; i++) {
-+			struct vport *vport;
-+			struct hlist_node *n;
++	/* Userspace commands. */
++	OVS_PACKET_CMD_EXECUTE  /* Apply actions to a packet. */
++};
 +
-+			hlist_for_each_entry_safe(vport, n, &dp->ports[i], dp_hash_node) {
-+				struct netdev_vport *netdev_vport;
++/**
++ * enum ovs_packet_attr - attributes for %OVS_PACKET_* commands.
++ * @OVS_PACKET_ATTR_PACKET: Present for all notifications.  Contains the entire
++ * packet as received, from the start of the Ethernet header onward.  For
++ * %OVS_PACKET_CMD_ACTION, %OVS_PACKET_ATTR_PACKET reflects changes made by
++ * actions preceding %OVS_ACTION_ATTR_USERSPACE, but %OVS_PACKET_ATTR_KEY is
++ * the flow key extracted from the packet as originally received.
++ * @OVS_PACKET_ATTR_KEY: Present for all notifications.  Contains the flow key
++ * extracted from the packet as nested %OVS_KEY_ATTR_* attributes.  This allows
++ * userspace to adapt its flow setup strategy by comparing its notion of the
++ * flow key against the kernel's.
++ * @OVS_PACKET_ATTR_ACTIONS: Contains actions for the packet.  Used
++ * for %OVS_PACKET_CMD_EXECUTE.  It has nested %OVS_ACTION_ATTR_* attributes.
++ * @OVS_PACKET_ATTR_USERDATA: Present for an %OVS_PACKET_CMD_ACTION
++ * notification if the %OVS_ACTION_ATTR_USERSPACE action specified an
++ * %OVS_USERSPACE_ATTR_USERDATA attribute, with the same length and content
++ * specified there.
++ *
++ * These attributes follow the &struct ovs_header within the Generic Netlink
++ * payload for %OVS_PACKET_* commands.
++ */
++enum ovs_packet_attr {
++	OVS_PACKET_ATTR_UNSPEC,
++	OVS_PACKET_ATTR_PACKET,      /* Packet data. */
++	OVS_PACKET_ATTR_KEY,         /* Nested OVS_KEY_ATTR_* attributes. */
++	OVS_PACKET_ATTR_ACTIONS,     /* Nested OVS_ACTION_ATTR_* attributes. */
++	OVS_PACKET_ATTR_USERDATA,    /* OVS_ACTION_ATTR_USERSPACE arg. */
++	__OVS_PACKET_ATTR_MAX
++};
 +
-+				if (vport->ops->type != OVS_VPORT_TYPE_NETDEV)
-+					continue;
++#define OVS_PACKET_ATTR_MAX (__OVS_PACKET_ATTR_MAX - 1)
 +
-+				netdev_vport = netdev_vport_priv(vport);
-+				if (netdev_vport->dev->reg_state == NETREG_UNREGISTERED ||
-+				    netdev_vport->dev->reg_state == NETREG_UNREGISTERING)
-+					dp_detach_port_notify(vport);
-+			}
-+		}
-+	}
-+	ovs_unlock();
-+}
++/* Virtual ports. */
 +
- static int dp_device_event(struct notifier_block *unused, unsigned long event,
- 			   void *ptr)
- {
-+	struct ovs_net *ovs_net;
- 	struct net_device *dev = ptr;
--	struct vport *vport;
-+	struct vport *vport = NULL;
- 
--	if (ovs_is_internal_dev(dev))
--		vport = ovs_internal_dev_get_vport(dev);
--	else
-+	if (!ovs_is_internal_dev(dev))
- 		vport = ovs_netdev_get_vport(dev);
- 
- 	if (!vport)
- 		return NOTIFY_DONE;
- 
--	switch (event) {
--	case NETDEV_UNREGISTER:
--		if (!ovs_is_internal_dev(dev)) {
--			struct sk_buff *notify;
--			struct datapath *dp = vport->dp;
--
--			notify = ovs_vport_cmd_build_info(vport, 0, 0,
--							  OVS_VPORT_CMD_DEL);
--			ovs_dp_detach_port(vport);
--			if (IS_ERR(notify)) {
--				netlink_set_err(ovs_dp_get_net(dp)->genl_sock, 0,
--						ovs_dp_vport_multicast_group.id,
--						PTR_ERR(notify));
--				break;
--			}
--
--			genlmsg_multicast_netns(ovs_dp_get_net(dp), notify, 0,
--						ovs_dp_vport_multicast_group.id,
--						GFP_KERNEL);
--		}
--		break;
-+	if (event == NETDEV_UNREGISTER) {
-+		ovs_net = net_generic(dev_net(dev), ovs_net_id);
-+		queue_work(system_wq, &ovs_net->dp_notify_work);
- 	}
- 
- 	return NOTIFY_DONE;
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 40f8a24..9604760 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -173,16 +173,19 @@ static struct vport *internal_dev_create(const struct vport_parms *parms)
- 	if (vport->port_no == OVSP_LOCAL)
- 		netdev_vport->dev->features |= NETIF_F_NETNS_LOCAL;
- 
-+	rtnl_lock();
- 	err = register_netdevice(netdev_vport->dev);
- 	if (err)
- 		goto error_free_netdev;
- 
- 	dev_set_promiscuity(netdev_vport->dev, 1);
-+	rtnl_unlock();
- 	netif_start_queue(netdev_vport->dev);
- 
- 	return vport;
- 
- error_free_netdev:
-+	rtnl_unlock();
- 	free_netdev(netdev_vport->dev);
- error_free_vport:
- 	ovs_vport_free(vport);
-@@ -195,10 +198,13 @@ static void internal_dev_destroy(struct vport *vport)
- 	struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
- 
- 	netif_stop_queue(netdev_vport->dev);
-+	rtnl_lock();
- 	dev_set_promiscuity(netdev_vport->dev, -1);
- 
- 	/* unregister_netdevice() waits for an RCU grace period. */
- 	unregister_netdevice(netdev_vport->dev);
++#define OVS_VPORT_FAMILY  "ovs_vport"
++#define OVS_VPORT_MCGROUP "ovs_vport"
++#define OVS_VPORT_VERSION 0x1
 +
-+	rtnl_unlock();
- }
- 
- static int internal_dev_recv(struct vport *vport, struct sk_buff *skb)
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index 2130d61..40a89ae 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -100,16 +100,20 @@ static struct vport *netdev_create(const struct vport_parms *parms)
- 		goto error_put;
- 	}
- 
-+	rtnl_lock();
- 	err = netdev_rx_handler_register(netdev_vport->dev, netdev_frame_hook,
- 					 vport);
- 	if (err)
--		goto error_put;
-+		goto error_unlock;
- 
- 	dev_set_promiscuity(netdev_vport->dev, 1);
- 	netdev_vport->dev->priv_flags |= IFF_OVS_DATAPATH;
-+	rtnl_unlock();
- 
- 	return vport;
- 
-+error_unlock:
-+	rtnl_unlock();
- error_put:
- 	dev_put(netdev_vport->dev);
- error_free_vport:
-@@ -131,9 +135,11 @@ static void netdev_destroy(struct vport *vport)
- {
- 	struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
- 
-+	rtnl_lock();
- 	netdev_vport->dev->priv_flags &= ~IFF_OVS_DATAPATH;
- 	netdev_rx_handler_unregister(netdev_vport->dev);
- 	dev_set_promiscuity(netdev_vport->dev, -1);
-+	rtnl_unlock();
- 
- 	call_rcu(&netdev_vport->rcu, free_port_rcu);
- }
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index 71a2de8..c90d856 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -40,7 +40,7 @@ static const struct vport_ops *vport_ops_list[] = {
- 	&ovs_internal_vport_ops,
- };
- 
--/* Protected by RCU read lock for reading, RTNL lock for writing. */
-+/* Protected by RCU read lock for reading, ovs_mutex for writing. */
- static struct hlist_head *dev_table;
- #define VPORT_HASH_BUCKETS 1024
- 
-@@ -80,7 +80,7 @@ static struct hlist_head *hash_bucket(struct net *net, const char *name)
-  *
-  * @name: name of port to find
-  *
-- * Must be called with RTNL or RCU read lock.
-+ * Must be called with ovs or RCU read lock.
-  */
- struct vport *ovs_vport_locate(struct net *net, const char *name)
- {
-@@ -161,7 +161,7 @@ void ovs_vport_free(struct vport *vport)
-  * @parms: Information about new vport.
-  *
-  * Creates a new vport with the specified configuration (which is dependent on
-- * device type).  RTNL lock must be held.
-+ * device type).  ovs_mutex must be held.
-  */
- struct vport *ovs_vport_add(const struct vport_parms *parms)
- {
-@@ -169,8 +169,6 @@ struct vport *ovs_vport_add(const struct vport_parms *parms)
- 	int err = 0;
- 	int i;
- 
--	ASSERT_RTNL();
--
- 	for (i = 0; i < ARRAY_SIZE(vport_ops_list); i++) {
- 		if (vport_ops_list[i]->type == parms->type) {
- 			struct hlist_head *bucket;
-@@ -201,12 +199,10 @@ out:
-  * @port: New configuration.
-  *
-  * Modifies an existing device with the specified configuration (which is
-- * dependent on device type).  RTNL lock must be held.
-+ * dependent on device type).  ovs_mutex must be held.
-  */
- int ovs_vport_set_options(struct vport *vport, struct nlattr *options)
- {
--	ASSERT_RTNL();
--
- 	if (!vport->ops->set_options)
- 		return -EOPNOTSUPP;
- 	return vport->ops->set_options(vport, options);
-@@ -218,11 +214,11 @@ int ovs_vport_set_options(struct vport *vport, struct nlattr *options)
-  * @vport: vport to delete.
-  *
-  * Detaches @vport from its datapath and destroys it.  It is possible to fail
-- * for reasons such as lack of memory.  RTNL lock must be held.
-+ * for reasons such as lack of memory.  ovs_mutex must be held.
-  */
- void ovs_vport_del(struct vport *vport)
- {
--	ASSERT_RTNL();
-+	ASSERT_OVSL();
- 
- 	hlist_del_rcu(&vport->hash_node);
- 
-@@ -237,7 +233,7 @@ void ovs_vport_del(struct vport *vport)
-  *
-  * Retrieves transmit, receive, and error stats for the given device.
-  *
-- * Must be called with RTNL lock or rcu_read_lock.
-+ * Must be called with ovs_mutex or rcu_read_lock.
-  */
- void ovs_vport_get_stats(struct vport *vport, struct ovs_vport_stats *stats)
- {
-@@ -296,7 +292,7 @@ void ovs_vport_get_stats(struct vport *vport, struct ovs_vport_stats *stats)
-  * negative error code if a real error occurred.  If an error occurs, @skb is
-  * left unmodified.
-  *
-- * Must be called with RTNL lock or rcu_read_lock.
-+ * Must be called with ovs_mutex or rcu_read_lock.
-  */
- int ovs_vport_get_options(const struct vport *vport, struct sk_buff *skb)
- {
-@@ -348,7 +344,7 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
-  * @vport: vport on which to send the packet
-  * @skb: skb to send
-  *
-- * Sends the given packet and returns the length of data sent.  Either RTNL
-+ * Sends the given packet and returns the length of data sent.  Either ovs
-  * lock or rcu_read_lock must be held.
-  */
- int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index aee7d43..7282b84 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -138,14 +138,14 @@ struct vport_parms {
- struct vport_ops {
- 	enum ovs_vport_type type;
- 
--	/* Called with RTNL lock. */
-+	/* Called with ovs_mutex. */
- 	struct vport *(*create)(const struct vport_parms *);
- 	void (*destroy)(struct vport *);
- 
- 	int (*set_options)(struct vport *, struct nlattr *);
- 	int (*get_options)(const struct vport *, struct sk_buff *);
- 
--	/* Called with rcu_read_lock or RTNL lock. */
-+	/* Called with rcu_read_lock or ovs_mutex. */
- 	const char *(*get_name)(const struct vport *);
- 	void (*get_config)(const struct vport *, void *);
- 	int (*get_ifindex)(const struct vport *);
++enum ovs_vport_cmd {
++	OVS_VPORT_CMD_UNSPEC,
++	OVS_VPORT_CMD_NEW,
++	OVS_VPORT_CMD_DEL,
++	OVS_VPORT_CMD_GET,
++	OVS_VPORT_CMD_SET
++};
++
++enum ovs_vport_type {
++	OVS_VPORT_TYPE_UNSPEC,
++	OVS_VPORT_TYPE_NETDEV,   /* network device */
++	OVS_VPORT_TYPE_INTERNAL, /* network device implemented by datapath */
++	__OVS_VPORT_TYPE_MAX
++};
++
++#define OVS_VPORT_TYPE_MAX (__OVS_VPORT_TYPE_MAX - 1)
++
++/**
++ * enum ovs_vport_attr - attributes for %OVS_VPORT_* commands.
++ * @OVS_VPORT_ATTR_PORT_NO: 32-bit port number within datapath.
++ * @OVS_VPORT_ATTR_TYPE: 32-bit %OVS_VPORT_TYPE_* constant describing the type
++ * of vport.
++ * @OVS_VPORT_ATTR_NAME: Name of vport.  For a vport based on a network device
++ * this is the name of the network device.  Maximum length %IFNAMSIZ-1 bytes
++ * plus a null terminator.
++ * @OVS_VPORT_ATTR_OPTIONS: Vport-specific configuration information.
++ * @OVS_VPORT_ATTR_UPCALL_PID: The Netlink socket in userspace that
++ * OVS_PACKET_CMD_MISS upcalls will be directed to for packets received on
++ * this port.  A value of zero indicates that upcalls should not be sent.
++ * @OVS_VPORT_ATTR_STATS: A &struct ovs_vport_stats giving statistics for
++ * packets sent or received through the vport.
++ *
++ * These attributes follow the &struct ovs_header within the Generic Netlink
++ * payload for %OVS_VPORT_* commands.
++ *
++ * For %OVS_VPORT_CMD_NEW requests, the %OVS_VPORT_ATTR_TYPE and
++ * %OVS_VPORT_ATTR_NAME attributes are required.  %OVS_VPORT_ATTR_PORT_NO is
++ * optional; if not specified a free port number is automatically selected.
++ * Whether %OVS_VPORT_ATTR_OPTIONS is required or optional depends on the type
++ * of vport.
++ * and other attributes are ignored.
++ *
++ * For other requests, if %OVS_VPORT_ATTR_NAME is specified then it is used to
++ * look up the vport to operate on; otherwise dp_idx from the &struct
++ * ovs_header plus %OVS_VPORT_ATTR_PORT_NO determine the vport.
++ */
++enum ovs_vport_attr {
++	OVS_VPORT_ATTR_UNSPEC,
++	OVS_VPORT_ATTR_PORT_NO,	/* u32 port number within datapath */
++	OVS_VPORT_ATTR_TYPE,	/* u32 OVS_VPORT_TYPE_* constant. */
++	OVS_VPORT_ATTR_NAME,	/* string name, up to IFNAMSIZ bytes long */
++	OVS_VPORT_ATTR_OPTIONS, /* nested attributes, varies by vport type */
++	OVS_VPORT_ATTR_UPCALL_PID, /* u32 Netlink PID to receive upcalls */
++	OVS_VPORT_ATTR_STATS,	/* struct ovs_vport_stats */
++	__OVS_VPORT_ATTR_MAX
++};
++
++#define OVS_VPORT_ATTR_MAX (__OVS_VPORT_ATTR_MAX - 1)
++
++/* Flows. */
++
++#define OVS_FLOW_FAMILY  "ovs_flow"
++#define OVS_FLOW_MCGROUP "ovs_flow"
++#define OVS_FLOW_VERSION 0x1
++
++enum ovs_flow_cmd {
++	OVS_FLOW_CMD_UNSPEC,
++	OVS_FLOW_CMD_NEW,
++	OVS_FLOW_CMD_DEL,
++	OVS_FLOW_CMD_GET,
++	OVS_FLOW_CMD_SET
++};
++
++struct ovs_flow_stats {
++	__u64 n_packets;         /* Number of matched packets. */
++	__u64 n_bytes;           /* Number of matched bytes. */
++};
++
++enum ovs_key_attr {
++	OVS_KEY_ATTR_UNSPEC,
++	OVS_KEY_ATTR_ENCAP,	/* Nested set of encapsulated attributes. */
++	OVS_KEY_ATTR_PRIORITY,  /* u32 skb->priority */
++	OVS_KEY_ATTR_IN_PORT,   /* u32 OVS dp port number */
++	OVS_KEY_ATTR_ETHERNET,  /* struct ovs_key_ethernet */
++	OVS_KEY_ATTR_VLAN,	/* be16 VLAN TCI */
++	OVS_KEY_ATTR_ETHERTYPE,	/* be16 Ethernet type */
++	OVS_KEY_ATTR_IPV4,      /* struct ovs_key_ipv4 */
++	OVS_KEY_ATTR_IPV6,      /* struct ovs_key_ipv6 */
++	OVS_KEY_ATTR_TCP,       /* struct ovs_key_tcp */
++	OVS_KEY_ATTR_UDP,       /* struct ovs_key_udp */
++	OVS_KEY_ATTR_ICMP,      /* struct ovs_key_icmp */
++	OVS_KEY_ATTR_ICMPV6,    /* struct ovs_key_icmpv6 */
++	OVS_KEY_ATTR_ARP,       /* struct ovs_key_arp */
++	OVS_KEY_ATTR_ND,        /* struct ovs_key_nd */
++	OVS_KEY_ATTR_SKB_MARK,  /* u32 skb mark */
++	__OVS_KEY_ATTR_MAX
++};
++
++#define OVS_KEY_ATTR_MAX (__OVS_KEY_ATTR_MAX - 1)
++
++/**
++ * enum ovs_frag_type - IPv4 and IPv6 fragment type
++ * @OVS_FRAG_TYPE_NONE: Packet is not a fragment.
++ * @OVS_FRAG_TYPE_FIRST: Packet is a fragment with offset 0.
++ * @OVS_FRAG_TYPE_LATER: Packet is a fragment with nonzero offset.
++ *
++ * Used as the @ipv4_frag in &struct ovs_key_ipv4 and as @ipv6_frag &struct
++ * ovs_key_ipv6.
++ */
++enum ovs_frag_type {
++	OVS_FRAG_TYPE_NONE,
++	OVS_FRAG_TYPE_FIRST,
++	OVS_FRAG_TYPE_LATER,
++	__OVS_FRAG_TYPE_MAX
++};
++
++#define OVS_FRAG_TYPE_MAX (__OVS_FRAG_TYPE_MAX - 1)
++
++struct ovs_key_ethernet {
++	__u8	 eth_src[ETH_ALEN];
++	__u8	 eth_dst[ETH_ALEN];
++};
++
++struct ovs_key_ipv4 {
++	__be32 ipv4_src;
++	__be32 ipv4_dst;
++	__u8   ipv4_proto;
++	__u8   ipv4_tos;
++	__u8   ipv4_ttl;
++	__u8   ipv4_frag;	/* One of OVS_FRAG_TYPE_*. */
++};
++
++struct ovs_key_ipv6 {
++	__be32 ipv6_src[4];
++	__be32 ipv6_dst[4];
++	__be32 ipv6_label;	/* 20-bits in least-significant bits. */
++	__u8   ipv6_proto;
++	__u8   ipv6_tclass;
++	__u8   ipv6_hlimit;
++	__u8   ipv6_frag;	/* One of OVS_FRAG_TYPE_*. */
++};
++
++struct ovs_key_tcp {
++	__be16 tcp_src;
++	__be16 tcp_dst;
++};
++
++struct ovs_key_udp {
++	__be16 udp_src;
++	__be16 udp_dst;
++};
++
++struct ovs_key_icmp {
++	__u8 icmp_type;
++	__u8 icmp_code;
++};
++
++struct ovs_key_icmpv6 {
++	__u8 icmpv6_type;
++	__u8 icmpv6_code;
++};
++
++struct ovs_key_arp {
++	__be32 arp_sip;
++	__be32 arp_tip;
++	__be16 arp_op;
++	__u8   arp_sha[ETH_ALEN];
++	__u8   arp_tha[ETH_ALEN];
++};
++
++struct ovs_key_nd {
++	__u32 nd_target[4];
++	__u8  nd_sll[ETH_ALEN];
++	__u8  nd_tll[ETH_ALEN];
++};
++
++/**
++ * enum ovs_flow_attr - attributes for %OVS_FLOW_* commands.
++ * @OVS_FLOW_ATTR_KEY: Nested %OVS_KEY_ATTR_* attributes specifying the flow
++ * key.  Always present in notifications.  Required for all requests (except
++ * dumps).
++ * @OVS_FLOW_ATTR_ACTIONS: Nested %OVS_ACTION_ATTR_* attributes specifying
++ * the actions to take for packets that match the key.  Always present in
++ * notifications.  Required for %OVS_FLOW_CMD_NEW requests, optional for
++ * %OVS_FLOW_CMD_SET requests.
++ * @OVS_FLOW_ATTR_STATS: &struct ovs_flow_stats giving statistics for this
++ * flow.  Present in notifications if the stats would be nonzero.  Ignored in
++ * requests.
++ * @OVS_FLOW_ATTR_TCP_FLAGS: An 8-bit value giving the OR'd value of all of the
++ * TCP flags seen on packets in this flow.  Only present in notifications for
++ * TCP flows, and only if it would be nonzero.  Ignored in requests.
++ * @OVS_FLOW_ATTR_USED: A 64-bit integer giving the time, in milliseconds on
++ * the system monotonic clock, at which a packet was last processed for this
++ * flow.  Only present in notifications if a packet has been processed for this
++ * flow.  Ignored in requests.
++ * @OVS_FLOW_ATTR_CLEAR: If present in a %OVS_FLOW_CMD_SET request, clears the
++ * last-used time, accumulated TCP flags, and statistics for this flow.
++ * Otherwise ignored in requests.  Never present in notifications.
++ *
++ * These attributes follow the &struct ovs_header within the Generic Netlink
++ * payload for %OVS_FLOW_* commands.
++ */
++enum ovs_flow_attr {
++	OVS_FLOW_ATTR_UNSPEC,
++	OVS_FLOW_ATTR_KEY,       /* Sequence of OVS_KEY_ATTR_* attributes. */
++	OVS_FLOW_ATTR_ACTIONS,   /* Nested OVS_ACTION_ATTR_* attributes. */
++	OVS_FLOW_ATTR_STATS,     /* struct ovs_flow_stats. */
++	OVS_FLOW_ATTR_TCP_FLAGS, /* 8-bit OR'd TCP flags. */
++	OVS_FLOW_ATTR_USED,      /* u64 msecs last used in monotonic time. */
++	OVS_FLOW_ATTR_CLEAR,     /* Flag to clear stats, tcp_flags, used. */
++	__OVS_FLOW_ATTR_MAX
++};
++
++#define OVS_FLOW_ATTR_MAX (__OVS_FLOW_ATTR_MAX - 1)
++
++/**
++ * enum ovs_sample_attr - Attributes for %OVS_ACTION_ATTR_SAMPLE action.
++ * @OVS_SAMPLE_ATTR_PROBABILITY: 32-bit fraction of packets to sample with
++ * @OVS_ACTION_ATTR_SAMPLE.  A value of 0 samples no packets, a value of
++ * %UINT32_MAX samples all packets and intermediate values sample intermediate
++ * fractions of packets.
++ * @OVS_SAMPLE_ATTR_ACTIONS: Set of actions to execute in sampling event.
++ * Actions are passed as nested attributes.
++ *
++ * Executes the specified actions with the given probability on a per-packet
++ * basis.
++ */
++enum ovs_sample_attr {
++	OVS_SAMPLE_ATTR_UNSPEC,
++	OVS_SAMPLE_ATTR_PROBABILITY, /* u32 number */
++	OVS_SAMPLE_ATTR_ACTIONS,     /* Nested OVS_ACTION_ATTR_* attributes. */
++	__OVS_SAMPLE_ATTR_MAX,
++};
++
++#define OVS_SAMPLE_ATTR_MAX (__OVS_SAMPLE_ATTR_MAX - 1)
++
++/**
++ * enum ovs_userspace_attr - Attributes for %OVS_ACTION_ATTR_USERSPACE action.
++ * @OVS_USERSPACE_ATTR_PID: u32 Netlink PID to which the %OVS_PACKET_CMD_ACTION
++ * message should be sent.  Required.
++ * @OVS_USERSPACE_ATTR_USERDATA: If present, its variable-length argument is
++ * copied to the %OVS_PACKET_CMD_ACTION message as %OVS_PACKET_ATTR_USERDATA.
++ */
++enum ovs_userspace_attr {
++	OVS_USERSPACE_ATTR_UNSPEC,
++	OVS_USERSPACE_ATTR_PID,	      /* u32 Netlink PID to receive upcalls. */
++	OVS_USERSPACE_ATTR_USERDATA,  /* Optional user-specified cookie. */
++	__OVS_USERSPACE_ATTR_MAX
++};
++
++#define OVS_USERSPACE_ATTR_MAX (__OVS_USERSPACE_ATTR_MAX - 1)
++
++/**
++ * struct ovs_action_push_vlan - %OVS_ACTION_ATTR_PUSH_VLAN action argument.
++ * @vlan_tpid: Tag protocol identifier (TPID) to push.
++ * @vlan_tci: Tag control identifier (TCI) to push.  The CFI bit must be set
++ * (but it will not be set in the 802.1Q header that is pushed).
++ *
++ * The @vlan_tpid value is typically %ETH_P_8021Q.  The only acceptable TPID
++ * values are those that the kernel module also parses as 802.1Q headers, to
++ * prevent %OVS_ACTION_ATTR_PUSH_VLAN followed by %OVS_ACTION_ATTR_POP_VLAN
++ * from having surprising results.
++ */
++struct ovs_action_push_vlan {
++	__be16 vlan_tpid;	/* 802.1Q TPID. */
++	__be16 vlan_tci;	/* 802.1Q TCI (VLAN ID and priority). */
++};
++
++/**
++ * enum ovs_action_attr - Action types.
++ *
++ * @OVS_ACTION_ATTR_OUTPUT: Output packet to port.
++ * @OVS_ACTION_ATTR_USERSPACE: Send packet to userspace according to nested
++ * %OVS_USERSPACE_ATTR_* attributes.
++ * @OVS_ACTION_ATTR_SET: Replaces the contents of an existing header.  The
++ * single nested %OVS_KEY_ATTR_* attribute specifies a header to modify and its
++ * value.
++ * @OVS_ACTION_ATTR_PUSH_VLAN: Push a new outermost 802.1Q header onto the
++ * packet.
++ * @OVS_ACTION_ATTR_POP_VLAN: Pop the outermost 802.1Q header off the packet.
++ * @OVS_ACTION_ATTR_SAMPLE: Probabilitically executes actions, as specified in
++ * the nested %OVS_SAMPLE_ATTR_* attributes.
++ *
++ * Only a single header can be set with a single %OVS_ACTION_ATTR_SET.  Not all
++ * fields within a header are modifiable, e.g. the IPv4 protocol and fragment
++ * type may not be changed.
++ */
++
++enum ovs_action_attr {
++	OVS_ACTION_ATTR_UNSPEC,
++	OVS_ACTION_ATTR_OUTPUT,	      /* u32 port number. */
++	OVS_ACTION_ATTR_USERSPACE,    /* Nested OVS_USERSPACE_ATTR_*. */
++	OVS_ACTION_ATTR_SET,          /* One nested OVS_KEY_ATTR_*. */
++	OVS_ACTION_ATTR_PUSH_VLAN,    /* struct ovs_action_push_vlan. */
++	OVS_ACTION_ATTR_POP_VLAN,     /* No argument. */
++	OVS_ACTION_ATTR_SAMPLE,       /* Nested OVS_SAMPLE_ATTR_*. */
++	__OVS_ACTION_ATTR_MAX
++};
++
++#define OVS_ACTION_ATTR_MAX (__OVS_ACTION_ATTR_MAX - 1)
++
++#endif /* _LINUX_OPENVSWITCH_H */
 -- 
 1.7.10.4
