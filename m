@@ -1,140 +1,53 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 2/2] packet: move hw/sw timestamp extraction into a small helper
-Date: Tue, 16 Apr 2013 13:29:11 +0200
-Message-ID: <1366111751-14886-2-git-send-email-dborkman@redhat.com>
-References: <1366111751-14886-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, willemb@google.com, hawk@diku.dk
-To: davem@davemloft.net
+From: Devendra Naga <devendra.aaru@gmail.com>
+Subject: [PATCH net-next] tlan: cancel work at remove path
+Date: Tue, 16 Apr 2013 17:00:38 +0530
+Message-ID: <1366111838-29841-1-git-send-email-devendra.aaru@gmail.com>
+Cc: Devendra Naga <devendra.aaru@gmail.com>, Sriram <srk@ti.com>,
+	Cyril Chemparathy <cyril@ti.com>,
+	Vinay Hegde <vinay.hegde@ti.com>
+To: Samuel Chessman <chessman@tux.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44393 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754226Ab3DPL3U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Apr 2013 07:29:20 -0400
-In-Reply-To: <1366111751-14886-1-git-send-email-dborkman@redhat.com>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:46267 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754463Ab3DPLaw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 07:30:52 -0400
+Received: by mail-pd0-f174.google.com with SMTP id p12so244137pdj.19
+        for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 04:30:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduces a small, internal helper function, that is used by
-PF_PACKET. Based on the flags that are passed, it extracts the packet
-timestamp in the receive path. This is merely a refactoring to remove
-some duplicate code in tpacket_rcv(), to make it more readable, and to
-enable others to use this function in PF_PACKET as well, e.g. for TX.
+the work has been scheduled from interrupt, and not been
+cancelled when the driver is unloaded, which doesn't remove
+the work item from the global workqueue. call the
+cancel_work_sync when the driver is removed (rmmod'ed).
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Sriram <srk@ti.com>
+Cc: Cyril Chemparathy <cyril@ti.com>
+Cc: Vinay Hegde <vinay.hegde@ti.com>
+Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
 ---
- v1->v2:
-   - To not break user space, I decided for now to not get rid of tp_tstamp
-   - After some more thinking about it, I'm now with Willem to not make it
-     too generic, thus having it stay in af_packet.c
-   - Use ktime_to_timespec_cond() from patch 1 to make it more similar to
-     __sock_recv_timestamp()
 
- net/packet/af_packet.c | 57 ++++++++++++++++++++------------------------------
- 1 file changed, 23 insertions(+), 34 deletions(-)
+Hi,
+	This is only compile tested and not tested
+	on the the NIC which i dont have.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 77d71f8..e381adf 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1663,6 +1663,26 @@ drop:
- 	return 0;
+thanks
+
+ drivers/net/ethernet/ti/tlan.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
+index bdda36f..60c400f 100644
+--- a/drivers/net/ethernet/ti/tlan.c
++++ b/drivers/net/ethernet/ti/tlan.c
+@@ -320,6 +320,7 @@ static void tlan_remove_one(struct pci_dev *pdev)
+ 	free_netdev(dev);
+ 
+ 	pci_set_drvdata(pdev, NULL);
++	cancel_work_sync(&priv->tlan_tqueue);
  }
  
-+static void tpacket_get_timestamp(struct sk_buff *skb, struct timespec *ts,
-+				  unsigned int flags)
-+{
-+	struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
-+
-+	if (shhwtstamps) {
-+		if ((flags & SOF_TIMESTAMPING_SYS_HARDWARE) &&
-+		    ktime_to_timespec_cond(shhwtstamps->syststamp, ts))
-+			return;
-+		if ((flags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
-+		    ktime_to_timespec_cond(shhwtstamps->hwtstamp, ts))
-+			return;
-+	}
-+
-+	if (ktime_to_timespec_cond(skb->tstamp, ts))
-+		return;
-+
-+	getnstimeofday(ts);
-+}
-+
- static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 		       struct packet_type *pt, struct net_device *orig_dev)
- {
-@@ -1681,9 +1701,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 	unsigned long status = TP_STATUS_USER;
- 	unsigned short macoff, netoff, hdrlen;
- 	struct sk_buff *copy_skb = NULL;
--	struct timeval tv;
- 	struct timespec ts;
--	struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
- 
- 	if (skb->pkt_type == PACKET_LOOPBACK)
- 		goto drop;
-@@ -1766,6 +1784,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 	spin_unlock(&sk->sk_receive_queue.lock);
- 
- 	skb_copy_bits(skb, 0, h.raw + macoff, snaplen);
-+	tpacket_get_timestamp(skb, &ts, po->tp_tstamp);
- 
- 	switch (po->tp_version) {
- 	case TPACKET_V1:
-@@ -1773,18 +1792,8 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 		h.h1->tp_snaplen = snaplen;
- 		h.h1->tp_mac = macoff;
- 		h.h1->tp_net = netoff;
--		if ((po->tp_tstamp & SOF_TIMESTAMPING_SYS_HARDWARE)
--				&& shhwtstamps->syststamp.tv64)
--			tv = ktime_to_timeval(shhwtstamps->syststamp);
--		else if ((po->tp_tstamp & SOF_TIMESTAMPING_RAW_HARDWARE)
--				&& shhwtstamps->hwtstamp.tv64)
--			tv = ktime_to_timeval(shhwtstamps->hwtstamp);
--		else if (skb->tstamp.tv64)
--			tv = ktime_to_timeval(skb->tstamp);
--		else
--			do_gettimeofday(&tv);
--		h.h1->tp_sec = tv.tv_sec;
--		h.h1->tp_usec = tv.tv_usec;
-+		h.h1->tp_sec = ts.tv_sec;
-+		h.h1->tp_usec = ts.tv_nsec / NSEC_PER_USEC;
- 		hdrlen = sizeof(*h.h1);
- 		break;
- 	case TPACKET_V2:
-@@ -1792,16 +1801,6 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 		h.h2->tp_snaplen = snaplen;
- 		h.h2->tp_mac = macoff;
- 		h.h2->tp_net = netoff;
--		if ((po->tp_tstamp & SOF_TIMESTAMPING_SYS_HARDWARE)
--				&& shhwtstamps->syststamp.tv64)
--			ts = ktime_to_timespec(shhwtstamps->syststamp);
--		else if ((po->tp_tstamp & SOF_TIMESTAMPING_RAW_HARDWARE)
--				&& shhwtstamps->hwtstamp.tv64)
--			ts = ktime_to_timespec(shhwtstamps->hwtstamp);
--		else if (skb->tstamp.tv64)
--			ts = ktime_to_timespec(skb->tstamp);
--		else
--			getnstimeofday(&ts);
- 		h.h2->tp_sec = ts.tv_sec;
- 		h.h2->tp_nsec = ts.tv_nsec;
- 		if (vlan_tx_tag_present(skb)) {
-@@ -1822,16 +1821,6 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 		h.h3->tp_snaplen = snaplen;
- 		h.h3->tp_mac = macoff;
- 		h.h3->tp_net = netoff;
--		if ((po->tp_tstamp & SOF_TIMESTAMPING_SYS_HARDWARE)
--				&& shhwtstamps->syststamp.tv64)
--			ts = ktime_to_timespec(shhwtstamps->syststamp);
--		else if ((po->tp_tstamp & SOF_TIMESTAMPING_RAW_HARDWARE)
--				&& shhwtstamps->hwtstamp.tv64)
--			ts = ktime_to_timespec(shhwtstamps->hwtstamp);
--		else if (skb->tstamp.tv64)
--			ts = ktime_to_timespec(skb->tstamp);
--		else
--			getnstimeofday(&ts);
- 		h.h3->tp_sec  = ts.tv_sec;
- 		h.h3->tp_nsec = ts.tv_nsec;
- 		hdrlen = sizeof(*h.h3);
+ static void tlan_start(struct net_device *dev)
 -- 
-1.7.11.7
+1.8.1.4
