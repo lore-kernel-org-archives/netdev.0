@@ -1,49 +1,90 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next 1/4] bnx2x: refactor nvram read procedure
-Date: Tue, 16 Apr 2013 01:31:51 +0200
-Message-ID: <20130415233151.GA30171@electric-eye.fr.zoreil.com>
-References: <1365843411-27103-1-git-send-email-dmitry@broadcom.com>
- <1365843411-27103-2-git-send-email-dmitry@broadcom.com>
- <20130413110916.GA20436@electric-eye.fr.zoreil.com>
- <504C9EFCA2D0054393414C9CB605C37F20C03E5D@SJEXCHMB06.corp.ad.broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bonding driver has bad load balancing for forwarded traffic,
+ 3.7+
+Date: Mon, 15 Apr 2013 17:37:59 -0700
+Message-ID: <1366072679.4459.113.camel@edumazet-glaptop>
+References: <516C075E.30105@telenet.dn.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Dmitry Kravkov <dmitry@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:47828 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934113Ab3DOXcA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 19:32:00 -0400
-Content-Disposition: inline
-In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F20C03E5D@SJEXCHMB06.corp.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: "Vitaly V. Bursov" <vitalyb@telenet.dn.ua>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <516C075E.30105@telenet.dn.ua>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dmitry Kravkov <dmitry@broadcom.com> :
-[...]
-> > You memcpy a u32 to an array of bytes instead of copying it byte after
-> > byte with proper shift operators and now you are paving the way for more
-> > endianess headaches. I'd rather avoid the memcpy when readying data for
-> > ethtool in the first place.
-> In case of _be data I don't see any issue with copying _be32 it into byte array.
+On Mon, 2013-04-15 at 16:57 +0300, Vitaly V. Bursov wrote:
+> Hello,
+> 
+> I have a bonding device (mode=802.3ad xmit_hash_policy=layer2+3 miimon=300) and
+> for kernels <3.7 forwarded IPv4 traffic distributed fine across multiple physical
+> links. Ethernet cards are Intel 82576 with igb driver (various versions).
+> 
+> 3.7 and 3.8 kernels tend to fully utilize only one link and leave the others almost idling.
+> 
+> Replacing bond_xmit_hash_policy_* functions with older ones (3.6 kernel) looks like
+> resolves the issue (but I haven't tested it thoroughly).
+> 
+> So, I added
+>          printk(KERN_INFO "hash_policy: protocol = %d, skb_network_header_len = %d, %d %d\n",
+>              skb->protocol, skb_network_header_len(skb),
+>              skb_headlen(skb), skb_network_offset(skb));
+> to bond_xmit_hash_policy_l23() of bond_main.c
+> 
+> and got this:
+> [   65.280831] hash_policy: protocol = 8, skb_network_header_len = 0, 74 14
+> [   65.280835] hash_policy: protocol = 8, skb_network_header_len = 0, 74 14
+> [   65.280839] hash_policy: protocol = 8, skb_network_header_len = 0, 74 14
+> [   65.280843] hash_policy: protocol = 8, skb_network_header_len = 0, 74 14
+> [   65.280847] hash_policy: protocol = 8, skb_network_header_len = 0, 74 14
+> [   65.280851] hash_policy: protocol = 8, skb_network_header_len = 0, 74 14
+> 
+> It's clear that the new check condition (skb_network_header_len(skb) >= sizeof(*iph))
+> fails here and hash policy fallbacks to l2 balancing.
+> 
+> I have no idea how to fix this besides removing this check completely, any
+> help would be appreciated.
+> 
 
-The modified code (bnx2x_nvram_read) will not be copying __be32 but u32.
-It issmuggling _be data behind neutral u32 and using casting when the
-kernel has provided cpu_to_{le / be} helpers for years. Think of type
-checking as kind of messed up as soon as u32 *ret_val contains a _le or
-_be data depending on the value of bool to_be.
+Thanks for your report.
 
-I don't want to worry about the endianness of a u32. If it's a u32 (u16,
-s32, whatever), I only want to think of bytes in it through '>>' or '<<'
-operators. No need to remember the semantic of the last bnx2x_nvram_read_dword
-parameter, if it's internal, external, nor assume that the lower layers
-enforce some ability to memcpy it blindly. So I'd just favor using cpu order
-as soon and as much as possible.
+CC netdev
 
-Of course it's your driver, whence your maintenance choices.
+I guess that for forwarding setup, we don't set skb->transport_header
 
--- 
-Ueimor
+Please try following fix :
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 07401a3..356d2f9 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3286,20 +3286,22 @@ static int bond_xmit_hash_policy_l2(struct sk_buff *skb, int count)
+  */
+ static int bond_xmit_hash_policy_l23(struct sk_buff *skb, int count)
+ {
+-	struct ethhdr *data = (struct ethhdr *)skb->data;
+-	struct iphdr *iph;
+-	struct ipv6hdr *ipv6h;
++	const struct ethhdr *data;
++	const struct iphdr *iph;
++	const struct ipv6hdr *ipv6h;
+ 	u32 v6hash;
+-	__be32 *s, *d;
++	const __be32 *s, *d;
+ 
+ 	if (skb->protocol == htons(ETH_P_IP) &&
+-	    skb_network_header_len(skb) >= sizeof(*iph)) {
++	    pskb_network_may_pull(skb, sizeof(*iph))) {
+ 		iph = ip_hdr(skb);
++		data = (struct ethhdr *)skb->data;
+ 		return ((ntohl(iph->saddr ^ iph->daddr) & 0xffff) ^
+ 			(data->h_dest[5] ^ data->h_source[5])) % count;
+ 	} else if (skb->protocol == htons(ETH_P_IPV6) &&
+-		   skb_network_header_len(skb) >= sizeof(*ipv6h)) {
++		   pskb_network_may_pull(skb, sizeof(*ipv6h))) {
+ 		ipv6h = ipv6_hdr(skb);
++		data = (struct ethhdr *)skb->data;
+ 		s = &ipv6h->saddr.s6_addr32[0];
+ 		d = &ipv6h->daddr.s6_addr32[0];
+ 		v6hash = (s[1] ^ d[1]) ^ (s[2] ^ d[2]) ^ (s[3] ^ d[3]);
