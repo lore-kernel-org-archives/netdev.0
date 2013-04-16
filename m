@@ -1,19 +1,21 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: [PATCH 1/1] net: fec: Enable imx6 enet checksum acceleration.
-Date: Tue, 16 Apr 2013 11:25:27 +0100
-Message-ID: <1366107927-3642-1-git-send-email-jim_baxter@mentor.com>
+From: y@relay1.mentorg.com
+Subject: [PATCH net-next 1/1] net: fec: Enable imx6 enet checksum acceleration.
+Date: Tue, 16 Apr 2013 11:34:13 +0100
+Message-ID: <9117.5791844309$1366108470@news.gmane.org>
 References: <y>
 Cc: Frank Li <Frank.Li@freescale.com>,
 	Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:57167 "EHLO
+Received: from relay1.mentorg.com ([192.94.38.131]:57767 "EHLO
 	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935647Ab3DPKZg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 06:25:36 -0400
+	with ESMTP id S1752768Ab3DPKeV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 06:34:21 -0400
 In-Reply-To: <y>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+From: Jim Baxter <jim_baxter@mentor.com>
 
 Enables hardware generatation of IP header and
 protocol specific checksums for transmitted
