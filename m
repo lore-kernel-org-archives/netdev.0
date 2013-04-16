@@ -1,64 +1,44 @@
-From: Fabio Estevam <fabio.estevam@freescale.com>
-Subject: [PATCH 2/5] atl1: Remove unneeded PM_OPS definitions
-Date: Tue, 16 Apr 2013 16:28:28 -0300
-Message-ID: <1366140511-3836-2-git-send-email-fabio.estevam@freescale.com>
-References: <1366140511-3836-1-git-send-email-fabio.estevam@freescale.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: How to file a bug against iproute2?
+Date: Tue, 16 Apr 2013 20:32:39 +0100
+Message-ID: <1366140759.2645.26.camel@bwh-desktop.uk.solarflarecom.com>
+References: <CAAc8SH5MjWdcFbkmV5uJgUv7nr_PN8n99azV4ZKxL3EKJ9Vthg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <joe@perches.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Jay Cliburn <jcliburn@gmail.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Alex Stahl <testcore@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db8lp0184.outbound.messaging.microsoft.com ([213.199.154.184]:22657
-	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753687Ab3DPT36 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 15:29:58 -0400
-In-Reply-To: <1366140511-3836-1-git-send-email-fabio.estevam@freescale.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:28354 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935427Ab3DPTco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 15:32:44 -0400
+In-Reply-To: <CAAc8SH5MjWdcFbkmV5uJgUv7nr_PN8n99azV4ZKxL3EKJ9Vthg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SIMPLE_DEV_PM_OPS macro can handle !CONFIG_PM_SLEEP case nicely, so there is no
-need to define PM_OPS for both CONFIG_PM_SLEEP and !CONFIG_PM_SLEEP cases.
+On Tue, 2013-04-16 at 12:05 -0700, Alex Stahl wrote:
+> Hi Folks - Apologies in advance if this is the wrong forum for this...
+> I'd like to file a bug against iproute2 related to a permissions
+> issue, but can't find the bug tracker.
 
-Remove the unneeded definitions.
+This list is the bug tracker.
 
-Cc: Jay Cliburn <jcliburn@gmail.com>
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
- drivers/net/ethernet/atheros/atlx/atl1.c |   11 ++---------
- 1 file changed, 2 insertions(+), 9 deletions(-)
+[...]
+> According to the arch wiki, if I'm in the 'network' group I should be
+> able to manipulate interfaces:
+> 
+> https://wiki.archlinux.org/index.php/Groups#Group_list
+[...]
 
-diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
-index 9948fee..9843c70 100644
---- a/drivers/net/ethernet/atheros/atlx/atl1.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl1.c
-@@ -2876,16 +2876,9 @@ static int atl1_resume(struct device *dev)
- 
- 	return 0;
- }
-+#endif
- 
- static SIMPLE_DEV_PM_OPS(atl1_pm_ops, atl1_suspend, atl1_resume);
--#define ATL1_PM_OPS	(&atl1_pm_ops)
--
--#else
--
--static int atl1_suspend(struct device *dev) { return 0; }
--
--#define ATL1_PM_OPS	NULL
--#endif
- 
- static void atl1_shutdown(struct pci_dev *pdev)
- {
-@@ -3147,7 +3140,7 @@ static struct pci_driver atl1_driver = {
- 	.probe = atl1_probe,
- 	.remove = atl1_remove,
- 	.shutdown = atl1_shutdown,
--	.driver.pm = ATL1_PM_OPS,
-+	.driver.pm = &atl1_pm_ops,
- };
- 
- /**
+That's talking about what groups should be used for access control by
+daemons and in the filesystem.  As far as the kernel is concerned,
+network configuration depends on the CAP_NET_ADMIN capability, not group
+membership.
+
+Ben.
+
 -- 
-1.7.9.5
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
