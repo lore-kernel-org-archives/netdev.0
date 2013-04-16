@@ -1,71 +1,47 @@
-From: Fabio Estevam <fabio.estevam@freescale.com>
-Subject: [PATCH] fec: Use SIMPLE_DEV_PM_OPS
-Date: Tue, 16 Apr 2013 10:58:51 -0300
-Message-ID: <1366120731-31427-1-git-send-email-fabio.estevam@freescale.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH v4] vxlan: Allow setting destination to unicast address.
+Date: Tue, 16 Apr 2013 09:56:15 -0400
+Message-ID: <OF88AC4A33.EEA9E994-ON85257B4F.004C7B68-85257B4F.004C901F@us.ibm.com>
+References: <877gk2r64z.wl%atzm@stratosphere.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Mike Rapoport <mike.rapoport@ravellosystems.com>,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: Atzm Watanabe <atzm@stratosphere.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:3806
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935122Ab3DPN7I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 09:59:08 -0400
+Received: from e33.co.us.ibm.com ([32.97.110.151]:53479 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935487Ab3DPOBn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 10:01:43 -0400
+Received: from /spool/local
+	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Tue, 16 Apr 2013 08:01:41 -0600
+In-Reply-To: <877gk2r64z.wl%atzm@stratosphere.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using SIMPLE_DEV_PM_OPS can make the code smaller and simpler.
+netdev-owner@vger.kernel.org wrote on 04/16/2013 08:50:52 AM:
 
-Also change CONFIG_PM to CONFIG_PM_SLEEP.
+> From: Atzm Watanabe <atzm@stratosphere.co.jp>
 
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c |   20 +++++++-------------
- 1 file changed, 7 insertions(+), 13 deletions(-)
+> This patch allows setting VXLAN destination to unicast address.
+> It allows that VXLAN can be used as peer-to-peer tunnel without
+> multicast.
+> 
+> v4: generalize struct vxlan_dev, "gaddr" is replaced with vxlan_rdst.
+>     "GROUP" attribute is replaced with "REMOTE".
+>     they are based by David Stevens's comments.
+> 
+> v3: move a new attribute REMOTE into the last of an enum list
+>     based by Stephen Hemminger's comments.
+> 
+> v2: use a new attribute REMOTE instead of GROUP based by
+>     Cong Wang's comments.
+> 
+> Signed-off-by: Atzm Watanabe <atzm@stratosphere.co.jp>
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 806a56d..2e8bb58 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1911,7 +1911,7 @@ fec_drv_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
--#ifdef CONFIG_PM
-+#ifdef CONFIG_PM_SLEEP
- static int
- fec_suspend(struct device *dev)
- {
-@@ -1946,23 +1946,17 @@ fec_resume(struct device *dev)
- 	return 0;
- }
- 
--static const struct dev_pm_ops fec_pm_ops = {
--	.suspend	= fec_suspend,
--	.resume		= fec_resume,
--	.freeze		= fec_suspend,
--	.thaw		= fec_resume,
--	.poweroff	= fec_suspend,
--	.restore	= fec_resume,
--};
--#endif
-+static SIMPLE_DEV_PM_OPS(fec_pm_ops, fec_suspend, fec_resume);
-+#define FEC_PM_OPS (&fec_pm_ops)
-+#else
-+#define FEC_PM_OPS NULL
-+#endif /* CONFIG_PM_SLEEP */
- 
- static struct platform_driver fec_driver = {
- 	.driver	= {
- 		.name	= DRIVER_NAME,
- 		.owner	= THIS_MODULE,
--#ifdef CONFIG_PM
--		.pm	= &fec_pm_ops,
--#endif
-+		.pm	= FEC_PM_OPS,
- 		.of_match_table = fec_dt_ids,
- 	},
- 	.id_table = fec_devtype,
--- 
-1.7.9.5
+Acked-by: David L Stevens <dlstevens@us.ibm.com>
