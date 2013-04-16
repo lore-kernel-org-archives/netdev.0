@@ -1,38 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atl1: Protect atl1_suspend with CONFIG_PM_SLEEP
-Date: Tue, 16 Apr 2013 17:47:27 -0400 (EDT)
-Message-ID: <20130416.174727.1740704241508622375.davem@davemloft.net>
-References: <1366148100-5617-1-git-send-email-festevam@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@perches.com,
-	fabio.estevam@freescale.com
-To: festevam@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51148 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965387Ab3DPVr3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 17:47:29 -0400
-In-Reply-To: <1366148100-5617-1-git-send-email-festevam@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net] hyperv: Fix a compiler warning in netvsc_send()
+Date: Tue, 16 Apr 2013 15:25:50 -0700
+Message-ID: <1366151150-14859-1-git-send-email-haiyangz@microsoft.com>
+Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
+	jasowang@redhat.com, linux-kernel@vger.kernel.org,
+	devel@linuxdriverproject.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Tue, 16 Apr 2013 18:35:00 -0300
+Fixed: warning: cast from pointer to integer of different size
 
-> From: Fabio Estevam <fabio.estevam@freescale.com>
-> 
-> commit 7b7a2bbb690 (atl1: Remove unneeded PM_OPS definitions) removed the 
-> definition of atl1_suspend for the !CONFIG_PM_SLEEP case.
-> 
-> So only call atl1_suspend() when CONFIG_PM_SLEEP is defined and fix the 
-> following build error from randconfig:
-> 
-> drivers/net/ethernet/atheros/atlx/atl1.c: In function 'atl1_shutdown':
-> drivers/net/ethernet/atheros/atlx/atl1.c:2888:2: error: implicit declaration of function 'atl1_suspend' [-Werror=implicit-function-declaration]
-> 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+The Hyper-V hosts always use 64 bit request id. The guests can have 32 or 64
+bit pointers which equal to the ulong type size. So we cast it to ulong type.
+And, assigning 32bit integer to 64 bit variable works fine.
 
-Applied, thanks.
+The VMBus returns the same id in the completion packet. But the value has no
+effect on the host side.
+
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index f5f0f09..2b04804 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -522,7 +522,7 @@ int netvsc_send(struct hv_device *device,
+ 	sendMessage.msg.v1_msg.send_rndis_pkt.send_buf_section_size = 0;
+ 
+ 	if (packet->completion.send.send_completion)
+-		req_id = (u64)packet;
++		req_id = (ulong)packet;
+ 	else
+ 		req_id = 0;
+ 
+-- 
+1.7.4.1
