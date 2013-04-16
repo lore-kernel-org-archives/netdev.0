@@ -1,48 +1,53 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH v3] vxlan: Allow setting destination to unicast address.
-Date: Tue, 16 Apr 2013 09:04:22 -0400
-Message-ID: <OFFC1F809A.A46D5693-ON85257B4F.0045C6CF-85257B4F.0047D03F@us.ibm.com>
-References: <87hajcm7ym.wl%atzm@stratosphere.co.jp>	<OF3CF233D4.68C04252-ON85257B4E.006F940A-85257B4E.0072C761@us.ibm.com> <CAF1J0HNo=8CE0mMbWGrS4xqeivaZ8WTMwb=R92UP2rtH_ngLEQ@mail.gmail.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH for 3.9] net: fec: fix regression in link change accounting
+Date: Tue, 16 Apr 2013 10:40:39 -0300
+Message-ID: <CAOMZO5DSPqfjRNsoot3Bo8ZJzTJfbkSZbMPkLjK9tqbqCYeQ2A@mail.gmail.com>
+References: <1366108962-8607-1-git-send-email-l.stach@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Atzm Watanabe <atzm@stratosphere.co.jp>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Shawn Guo <shawn.guo@linaro.org>
+To: Lucas Stach <l.stach@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:35355 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932863Ab3DPNJN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 09:09:13 -0400
-Received: from /spool/local
-	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Tue, 16 Apr 2013 07:09:12 -0600
-In-Reply-To: <CAF1J0HNo=8CE0mMbWGrS4xqeivaZ8WTMwb=R92UP2rtH_ngLEQ@mail.gmail.com>
+Received: from mail-vb0-f50.google.com ([209.85.212.50]:49891 "EHLO
+	mail-vb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932450Ab3DPNkk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 09:40:40 -0400
+Received: by mail-vb0-f50.google.com with SMTP id w15so367576vbb.37
+        for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 06:40:39 -0700 (PDT)
+In-Reply-To: <1366108962-8607-1-git-send-email-l.stach@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev-owner@vger.kernel.org wrote on 04/16/2013 02:46:36 AM:
+Hi Lucas,
 
-> From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+On Tue, Apr 16, 2013 at 7:42 AM, Lucas Stach <l.stach@pengutronix.de> wrote:
+> A link-down isn't properly saved in the FEC state, so we wouldn't restart the
+> FEC after a repeated link-up.
+>
+> Regression was introduced with commit
+> d97e7497 "net: fec: restart the FEC when PHY speed changes"
+>
+> Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+> ---
+>  drivers/net/ethernet/freescale/fec.c |    1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+> index f292c3a..73195f6 100644
+> --- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -1002,6 +1002,7 @@ static void fec_enet_adjust_link(struct net_device *ndev)
+>         } else {
+>                 if (fep->link) {
+>                         fec_stop(ndev);
+> +                       fep->link = phy_dev->link;
+>                         status_change = 1;
+>                 }
+>         }
 
-> I've just sent an rfc patch that is slightly more generic version of
-> Atzm Watanabe work (1). It makes the "default destination" a list of
-> destinations rather than a single entry.
-> If the approach seems Ok, I can extend it to do "everything an fdb can".
+I applied this into linux-next (the file is renamed to fec_main.c
+there) and this fixes the suspend/resume issue I was seeing.
 
-I'd like to see those combined, with the "group" references changed to
-"remote_default", "default_dst" or something along those lines to
-indicate it is a default fdb entry.
-
-When a new list element is a multicast address, also join the group
-for receive side.
-
-Also allow PORT, VNI and IFINDEX attributes, and require nonzero,
-valid IFINDEX for multicast destinations.
-
-So, yes, I think your patch is a step in the right direction.
-
-                                                +-DLS
+Tested-by: Fabio Estevam <fabio.estevam@freescale.com>
