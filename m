@@ -1,142 +1,63 @@
 From: Paul Moore <pmoore@redhat.com>
-Subject: [RFC PATCH 1/3] skb: wrap skb_shared_info->destructor_arg access
- with set and get functions
-Date: Tue, 16 Apr 2013 16:39:11 -0400
-Message-ID: <20130416203911.10474.86849.stgit@localhost>
-References: <20130416202437.10474.45713.stgit@localhost>
+Subject: [RFC PATCH 0/3] Shrink sk_buff and add a security blob
+Date: Tue, 16 Apr 2013 16:39:02 -0400
+Message-ID: <20130416202437.10474.45713.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
 	selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47485 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:21014 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965164Ab3DPUjO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Apr 2013 16:39:14 -0400
-In-Reply-To: <20130416202437.10474.45713.stgit@localhost>
+	id S965238Ab3DPUjH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Apr 2013 16:39:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Abstract away direct access to the "destructor_arg" field in the
-skb_shared_info struct via skb_destructor_arg_{set,get}() which is
-defined as a static inline in include/linux/skbuff.h.
+This patchset is a follow-up to the recent discussion around sk_buff
+size and the desire to add a LSM security blob to the sk_buff.  The
+patches proposed here do indeed shrink the size of the sk_buff from
+256 bytes down to 248 bytes on my x86_64 system while adding a LSM
+security blob, but there is a tradeoff in that the patches overload
+the skb_shared_info->destructor_arg field (more info/detail in the
+description of patch 3/3).  The overloading only takes place for LSMs
+which make use of the blob, all other cases behave as they currently
+do.  I wouldn't say this solution is perfect, but it does both shrink
+the sk_buff and add a security blob through what I believe to be the
+least invasive approach.
 
-Signed-off-by: Paul Moore <pmoore@redhat.com>
+I'm posting this to restart the discussion around these changes now
+that we have a set of patches to discuss, critique, etc.  Hopefully
+we can find some middle ground that gets everyone enough of what they
+want, if not all.
+
+The standard disclaimers apply.  This is a RFC patch; it builds,
+boots, and passes the basic unit tests I've thrown at it, but I can't
+say I've tested it throughly.  This includes building the kernel with
+all the different, relevant CONFIG options.  YMMV.
+
 ---
- drivers/net/macvtap.c  |    2 +-
- drivers/net/tun.c      |    2 +-
- include/linux/skbuff.h |   19 +++++++++++++++++++
- net/core/skbuff.c      |    6 +++---
- net/packet/af_packet.c |    4 ++--
- 5 files changed, 26 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index a449439..8179df0 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -729,7 +729,7 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 	vlan = rcu_dereference_bh(q->vlan);
- 	/* copy skb_ubuf_info for callback when skb has no error */
- 	if (zerocopy) {
--		skb_shinfo(skb)->destructor_arg = m->msg_control;
-+		skb_destructor_arg_set(skb, m->msg_control);
- 		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
- 		skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
- 	}
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index b7c457a..3cea09d 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1199,7 +1199,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 
- 	/* copy skb_ubuf_info for callback when skb has no error */
- 	if (zerocopy) {
--		skb_shinfo(skb)->destructor_arg = msg_control;
-+		skb_destructor_arg_set(skb, msg_control);
- 		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
- 		skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
- 	}
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index b8292d8..0998af3 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -696,6 +696,25 @@ static inline unsigned int skb_end_offset(const struct sk_buff *skb)
- /* Internal */
- #define skb_shinfo(SKB)	((struct skb_shared_info *)(skb_end_pointer(SKB)))
- 
-+/**
-+ *	skb_destructor_arg_set - set the packet's destructor argument
-+ *	@skb: packet
-+ *	@ptr: pointer to the destructor argument
-+ */
-+static inline void skb_destructor_arg_set(struct sk_buff *skb, void *ptr)
-+{
-+	skb_shinfo(skb)->destructor_arg = ptr;
-+}
-+
-+/**
-+ *	skb_destructor_arg_get - return the packet's destructor argument
-+ *	@skb: packet
-+ */
-+static inline void *skb_destructor_arg_get(const struct sk_buff *skb)
-+{
-+	return skb_shinfo(skb)->destructor_arg;
-+}
-+
- static inline struct skb_shared_hwtstamps *skb_hwtstamps(struct sk_buff *skb)
- {
- 	return &skb_shinfo(skb)->hwtstamps;
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 33245ef..e4fa549 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -506,7 +506,7 @@ static void skb_release_data(struct sk_buff *skb)
- 		if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
- 			struct ubuf_info *uarg;
- 
--			uarg = skb_shinfo(skb)->destructor_arg;
-+			uarg = skb_destructor_arg_get(skb);
- 			if (uarg->callback)
- 				uarg->callback(uarg, true);
- 		}
-@@ -635,7 +635,7 @@ void skb_tx_error(struct sk_buff *skb)
- 	if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
- 		struct ubuf_info *uarg;
- 
--		uarg = skb_shinfo(skb)->destructor_arg;
-+		uarg = skb_destructor_arg_get(skb);
- 		if (uarg->callback)
- 			uarg->callback(uarg, false);
- 		skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
-@@ -782,7 +782,7 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
- 	int i;
- 	int num_frags = skb_shinfo(skb)->nr_frags;
- 	struct page *page, *head = NULL;
--	struct ubuf_info *uarg = skb_shinfo(skb)->destructor_arg;
-+	struct ubuf_info *uarg = skb_destructor_arg_get(skb);
- 
- 	for (i = 0; i < num_frags; i++) {
- 		u8 *vaddr;
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 1d6793d..32f186b 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1833,7 +1833,7 @@ static void tpacket_destruct_skb(struct sk_buff *skb)
- 	void *ph;
- 
- 	if (likely(po->tx_ring.pg_vec)) {
--		ph = skb_shinfo(skb)->destructor_arg;
-+		ph = skb_destructor_arg_get(skb);
- 		BUG_ON(atomic_read(&po->tx_ring.pending) == 0);
- 		atomic_dec(&po->tx_ring.pending);
- 		__packet_set_status(po, ph, TP_STATUS_AVAILABLE);
-@@ -1863,7 +1863,7 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 	skb->dev = dev;
- 	skb->priority = po->sk.sk_priority;
- 	skb->mark = po->sk.sk_mark;
--	skb_shinfo(skb)->destructor_arg = ph.raw;
-+	skb_destructor_arg_set(skb, ph.raw);
- 
- 	switch (po->tp_version) {
- 	case TPACKET_V2:
+Paul Moore (3):
+      skb: wrap skb_shared_info->destructor_arg access with set and get functions
+      net: wrap skb->secmark access with set and get functions
+      net: move sk_buff->secmark into a security blob in skb_shared_info
+
+
+ drivers/net/macvtap.c             |    2 -
+ drivers/net/tun.c                 |    2 -
+ include/linux/security.h          |   91 ++++++++++++++++++++++++++-
+ include/linux/skbuff.h            |   73 ++++++++++++++-------
+ net/core/skbuff.c                 |   28 +++++++-
+ net/ipv4/ip_output.c              |    2 -
+ net/ipv6/ip6_output.c             |    2 -
+ net/netfilter/xt_AUDIT.c          |    8 +-
+ net/netfilter/xt_CONNSECMARK.c    |   10 ++-
+ net/netfilter/xt_SECMARK.c        |    2 -
+ net/packet/af_packet.c            |    4 +
+ security/capability.c             |   38 +++++++++++
+ security/security.c               |   63 +++++++++++++++++++
+ security/selinux/hooks.c          |  126 +++++++++++++++++++++++++++++++++----
+ security/selinux/include/objsec.h |    6 ++
+ 15 files changed, 397 insertions(+), 60 deletions(-)
