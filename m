@@ -1,107 +1,115 @@
-From: Dilip Daya <dilip.daya@hp.com>
-Subject: [PATCH v4] sctp: Add buffer utilization fields to
- /proc/net/sctp/assocs
-Date: Tue, 16 Apr 2013 07:39:07 -0400
-Message-ID: <1366112347.7478.10.camel@pro6455b.example.com>
-Reply-To: dilip.daya@hp.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, dborkman@redhat.com
-To: Linux Netdev List <netdev@vger.kernel.org>,
-	linux-sctp@vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] packet: minor: add generic tpacket_uhdr to access packet headers
+Date: Tue, 16 Apr 2013 13:57:46 +0200
+Message-ID: <1366113466-17071-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:10635 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754395Ab3DPLjM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 07:39:12 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:23546 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752346Ab3DPL5t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Apr 2013 07:57:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dilip Daya <dilip.daya@hp.com>
+There is no need to add a dozen unions each time at the start
+of the function. So, do this once and use it instead. Thus, we
+can remove some duplicate code and make it more readable.
 
-sctp: Add buffer utilization fields to /proc/net/sctp/assocs
-
-This patch adds the following fields to /proc/net/sctp/assocs output:
-
-	- sk->sk_wmem_alloc as "wmema"	(transmit queue bytes committed)
-	- sk->sk_wmem_queued as "wmemq"	(persistent queue size)
-	- sk->sk_sndbuf as "sndbuf"	(size of send buffer in bytes)
-	- sk->sk_rcvbuf as "rcvbuf"	(size of receive buffer in bytes)
-
-When small DATA chunks containing 136 bytes data are sent the TX_QUEUE
-(assoc->sndbuf_used) reaches a maximum of 40.9% of sk_sndbuf value when
-peer.rwnd = 0. This was diagnosed from sk_wmem_alloc value reaching maximum
-value of sk_sndbuf.
-
-TX_QUEUE (assoc->sndbuf_used), sk_wmem_alloc and sk_wmem_queued values are
-incremented in sctp_set_owner_w() for outgoing data chunks. Having access to
-the above values in /proc/net/sctp/assocs will provide a better understanding
-of SCTP buffer management.
-
-With patch applied, example output when peer.rwnd = 0
-
-where:
-    ASSOC ffff880132298000 is sender
-          ffff880125343000 is receiver
-
- ASSOC           SOCK            STY SST ST  HBKT ASSOC-ID TX_QUEUE RX_QUEUE \
-ffff880132298000 ffff880124a0a0c0 2   1   3  29325    1      214656        0 \
-ffff880125343000 ffff8801237d7700 2   1   3  36210    2           0   524520 \
-
-UID   INODE LPORT  RPORT LADDRS <-> RADDRS       HBINT   INS  OUTS \
-  0   25108 3455   3456  *10.4.8.3 <-> *10.5.8.3  7500     2     2 \
-  0   27819 3456   3455  *10.5.8.3 <-> *10.4.8.3  7500     2     2 \
-
-MAXRT T1X T2X RTXC   wmema   wmemq  sndbuf  rcvbuf
-    4   0   0   72  525633  440320  524288  524288
-    4   0   0    0       1       0  524288  524288
-
-Signed-off-by: Dilip Daya <dilip.daya@hp.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
-v4: Fixed build errors.
-v3: Fixed fields names, indentation and ancillary information.
-v2: Not changing spacing between the fields.
+ Note: this applies without conflicts on top of my previous set sent today
 
-Patch applied cleanly to v3.8.7 and v3.9-rc7. Tested build,
-install and final output from /proc/net/sctp/assocs.
+ net/packet/af_packet.c | 39 ++++++++++++---------------------------
+ 1 file changed, 12 insertions(+), 27 deletions(-)
 
- net/sctp/proc.c |   12 +++++++++---
- 1 files changed, 9 insertions(+), 3 deletions(-)
-
-diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-index ab3bba8..4e45ee3 100644
---- a/net/sctp/proc.c
-+++ b/net/sctp/proc.c
-@@ -295,7 +295,8 @@ static void * sctp_assocs_seq_start(struct seq_file *seq, loff_t *pos)
- 		seq_printf(seq, " ASSOC     SOCK   STY SST ST HBKT "
- 				"ASSOC-ID TX_QUEUE RX_QUEUE UID INODE LPORT "
- 				"RPORT LADDRS <-> RADDRS "
--				"HBINT INS OUTS MAXRT T1X T2X RTXC\n");
-+				"HBINT INS OUTS MAXRT T1X T2X RTXC "
-+				"wmema wmemq sndbuf rcvbuf\n");
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 77d71f8..e566b79 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -158,10 +158,16 @@ struct packet_mreq_max {
+ 	unsigned char	mr_address[MAX_ADDR_LEN];
+ };
  
- 	return (void *)pos;
- }
-@@ -349,11 +350,16 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
- 		sctp_seq_dump_local_addrs(seq, epb);
- 		seq_printf(seq, "<-> ");
- 		sctp_seq_dump_remote_addrs(seq, assoc);
--		seq_printf(seq, "\t%8lu %5d %5d %4d %4d %4d %8d ",
-+		seq_printf(seq, "\t%8lu %5d %5d %4d %4d %4d %8d "
-+			   "%8d %8d %8d %8d",
- 			assoc->hbinterval, assoc->c.sinit_max_instreams,
- 			assoc->c.sinit_num_ostreams, assoc->max_retrans,
- 			assoc->init_retries, assoc->shutdown_retries,
--			assoc->rtx_data_chunks);
-+			assoc->rtx_data_chunks,
-+			atomic_read(&sk->sk_wmem_alloc),
-+			sk->sk_wmem_queued,
-+			sk->sk_sndbuf,
-+			sk->sk_rcvbuf);
- 		seq_printf(seq, "\n");
- 	}
- 	read_unlock(&head->lock);
++union tpacket_uhdr {
++	struct tpacket_hdr  *h1;
++	struct tpacket2_hdr *h2;
++	struct tpacket3_hdr *h3;
++	void *raw;
++};
++
+ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
+ 		int closing, int tx_ring);
+ 
+-
+ #define V3_ALIGNMENT	(8)
+ 
+ #define BLK_HDR_LEN	(ALIGN(sizeof(struct tpacket_block_desc), V3_ALIGNMENT))
+@@ -290,11 +296,7 @@ static inline __pure struct page *pgv_to_page(void *addr)
+ 
+ static void __packet_set_status(struct packet_sock *po, void *frame, int status)
+ {
+-	union {
+-		struct tpacket_hdr *h1;
+-		struct tpacket2_hdr *h2;
+-		void *raw;
+-	} h;
++	union tpacket_uhdr h;
+ 
+ 	h.raw = frame;
+ 	switch (po->tp_version) {
+@@ -317,11 +319,7 @@ static void __packet_set_status(struct packet_sock *po, void *frame, int status)
+ 
+ static int __packet_get_status(struct packet_sock *po, void *frame)
+ {
+-	union {
+-		struct tpacket_hdr *h1;
+-		struct tpacket2_hdr *h2;
+-		void *raw;
+-	} h;
++	union tpacket_uhdr h;
+ 
+ 	smp_rmb();
+ 
+@@ -347,11 +345,7 @@ static void *packet_lookup_frame(struct packet_sock *po,
+ 		int status)
+ {
+ 	unsigned int pg_vec_pos, frame_offset;
+-	union {
+-		struct tpacket_hdr *h1;
+-		struct tpacket2_hdr *h2;
+-		void *raw;
+-	} h;
++	union tpacket_uhdr h;
+ 
+ 	pg_vec_pos = position / rb->frames_per_block;
+ 	frame_offset = position % rb->frames_per_block;
+@@ -1669,12 +1663,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	struct sock *sk;
+ 	struct packet_sock *po;
+ 	struct sockaddr_ll *sll;
+-	union {
+-		struct tpacket_hdr *h1;
+-		struct tpacket2_hdr *h2;
+-		struct tpacket3_hdr *h3;
+-		void *raw;
+-	} h;
++	union tpacket_uhdr h;
+ 	u8 *skb_head = skb->data;
+ 	int skb_len = skb->len;
+ 	unsigned int snaplen, res;
+@@ -1909,11 +1898,7 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 		void *frame, struct net_device *dev, int size_max,
+ 		__be16 proto, unsigned char *addr, int hlen)
+ {
+-	union {
+-		struct tpacket_hdr *h1;
+-		struct tpacket2_hdr *h2;
+-		void *raw;
+-	} ph;
++	union tpacket_uhdr ph;
+ 	int to_write, offset, len, tp_len, nr_frags, len_max;
+ 	struct socket *sock = po->sk.sk_socket;
+ 	struct page *page;
 -- 
-1.5.6.5
+1.7.11.7
