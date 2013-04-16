@@ -1,122 +1,50 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2] bond: add support to read speed and duplex via
- ethtool
-Date: Tue, 16 Apr 2013 22:32:35 +0100
-Message-ID: <1366147955.2645.35.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1362595173-11442-1-git-send-email-andy@greyhouse.net>
-	 <1366146607-12343-1-git-send-email-andy@greyhouse.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Andy Gospodarek <andy@greyhouse.net>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH] atl1: Protect atl1_suspend with CONFIG_PM_SLEEP
+Date: Tue, 16 Apr 2013 18:35:00 -0300
+Message-ID: <1366148100-5617-1-git-send-email-festevam@gmail.com>
+Cc: netdev@vger.kernel.org, joe@perches.com,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56583 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965337Ab3DPVcj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 17:32:39 -0400
-In-Reply-To: <1366146607-12343-1-git-send-email-andy@greyhouse.net>
+Received: from mail-oa0-f49.google.com ([209.85.219.49]:47854 "EHLO
+	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965262Ab3DPVfd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 17:35:33 -0400
+Received: by mail-oa0-f49.google.com with SMTP id j6so996874oag.36
+        for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 14:35:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-04-16 at 17:10 -0400, Andy Gospodarek wrote:
-> This patch adds support for the get_settings ethtool op to the bonding
-> driver.  This was motivated by users who wanted to get the speed of the
-> bond and compare that against throughput to understand utilization.
-> The behavior before this patch was added was problematic when computing
-> line utilization after trying to get link-speed and throughput via SNMP.
-> 
-> Output from ethtool looks like this for a round-robin bond:
-> 
-> Settings for bond0:
-> 	Supported ports: [ ]
-> 	Supported link modes:   Not reported
-> 	Supported pause frame use: No
-> 	Supports auto-negotiation: No
-> 	Advertised link modes:  Not reported
-> 	Advertised pause frame use: No
-> 	Advertised auto-negotiation: No
-> 	Speed: 11000Mb/s
-> 	Duplex: Full
-> 	Port: Other
-> 	PHYAD: 0
-> 	Transceiver: internal
-> 	Auto-negotiation: off
-> 	MDI-X: Unknown
-> 	Link detected: yes
-> 
-> I tested this and verified it works as expected.  A test was also done
-> on a version backported to an older kernel and it worked well there.
-> 
-> v2: switch to using ethtool_cmd_speed_set to set speed, added check to
-> SLAVE_IS_OK for each slave in bond, dropped mode-specific calculations
-> as they were not needed, and set port type to 'Other.'
-> 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> ---
->  drivers/net/bonding/bond_main.c | 34 ++++++++++++++++++++++++++++++++++
->  1 file changed, 34 insertions(+)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 07401a3..da2dd38 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -4222,6 +4222,39 @@ void bond_set_mode_ops(struct bonding *bond, int mode)
->  	}
->  }
->  
-> +static int bond_ethtool_get_settings(struct net_device *bond_dev,
-> +				     struct ethtool_cmd *ecmd)
-> +{
-> +	struct bonding *bond = netdev_priv(bond_dev);
-> +	struct slave *slave;
-> +	int i;
-> +	unsigned long speed = 0;
-> +
-> +	ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
+From: Fabio Estevam <fabio.estevam@freescale.com>
 
-This is a dead write, as speed is unconditionally set again below.
-Otherwise, I think the implementation is fine.
+commit 7b7a2bbb690 (atl1: Remove unneeded PM_OPS definitions) removed the 
+definition of atl1_suspend for the !CONFIG_PM_SLEEP case.
 
-Ben.
+So only call atl1_suspend() when CONFIG_PM_SLEEP is defined and fix the 
+following build error from randconfig:
 
-> +	ecmd->duplex = DUPLEX_UNKNOWN;
-> +	ecmd->port = PORT_OTHER;
-> +
-> +	/* Since SLAVE_IS_OK returns false for all inactive or down slaves, we
-> +	 * do not need to check mode.  Though link speed might not represent
-> +	 * the true receive or transmit bandwidth (not all modes are symmetric)
-> +	 * this is an accurate maximum.
-> +	 */
-> +	read_lock(&bond->lock);
-> +	bond_for_each_slave(bond, slave, i) {
-> +		if (SLAVE_IS_OK(slave)) {
-> +			if (slave->speed != SPEED_UNKNOWN) {
-> +				speed += slave->speed;
-> +			}
-> +			if (ecmd->duplex == DUPLEX_UNKNOWN &&
-> +			    slave->duplex != DUPLEX_UNKNOWN)
-> +				ecmd->duplex = slave->duplex;
-> +		}
-> +	}
-> +	ethtool_cmd_speed_set(ecmd, speed);
-> +	read_unlock(&bond->lock);
-> +	return 0;
-> +}
-> +
->  static void bond_ethtool_get_drvinfo(struct net_device *bond_dev,
->  				     struct ethtool_drvinfo *drvinfo)
->  {
-> @@ -4233,6 +4266,7 @@ static void bond_ethtool_get_drvinfo(struct net_device *bond_dev,
->  
->  static const struct ethtool_ops bond_ethtool_ops = {
->  	.get_drvinfo		= bond_ethtool_get_drvinfo,
-> +	.get_settings		= bond_ethtool_get_settings,
->  	.get_link		= ethtool_op_get_link,
->  };
->  
+drivers/net/ethernet/atheros/atlx/atl1.c: In function 'atl1_shutdown':
+drivers/net/ethernet/atheros/atlx/atl1.c:2888:2: error: implicit declaration of function 'atl1_suspend' [-Werror=implicit-function-declaration]
 
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+---
+ drivers/net/ethernet/atheros/atlx/atl1.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
+index 9843c70..8338013 100644
+--- a/drivers/net/ethernet/atheros/atlx/atl1.c
++++ b/drivers/net/ethernet/atheros/atlx/atl1.c
+@@ -2885,7 +2885,9 @@ static void atl1_shutdown(struct pci_dev *pdev)
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct atl1_adapter *adapter = netdev_priv(netdev);
+ 
++#ifdef CONFIG_PM_SLEEP
+ 	atl1_suspend(&pdev->dev);
++#endif
+ 	pci_wake_from_d3(pdev, adapter->wol);
+ 	pci_set_power_state(pdev, PCI_D3hot);
+ }
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.9.5
