@@ -1,34 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Bonding driver has bad load balancing for forwarded traffic,
- 3.7+
-Date: Tue, 16 Apr 2013 16:39:27 -0400 (EDT)
-Message-ID: <20130416.163927.398727240912142920.davem@davemloft.net>
-References: <516D1374.1070500@telenet.dn.ua>
-	<1366120293.4459.133.camel@edumazet-glaptop>
-	<1366122317.4459.135.camel@edumazet-glaptop>
+Subject: Re: [PATCH v4] vxlan: Allow setting destination to unicast address.
+Date: Tue, 16 Apr 2013 16:39:34 -0400 (EDT)
+Message-ID: <20130416.163934.1716734316538374556.davem@davemloft.net>
+References: <877gk2r64z.wl%atzm@stratosphere.co.jp>
+	<OF88AC4A33.EEA9E994-ON85257B4F.004C7B68-85257B4F.004C901F@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vitalyb@telenet.dn.ua, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, fubar@us.ibm.com, linux@8192.net
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1366122317.4459.135.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: atzm@stratosphere.co.jp, mike.rapoport@ravellosystems.com,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	stephen@networkplumber.org, xiyou.wangcong@gmail.com
+To: dlstevens@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49782 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965164Ab3DPUjg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 16:39:36 -0400
+In-Reply-To: <OF88AC4A33.EEA9E994-ON85257B4F.004C7B68-85257B4F.004C901F@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 16 Apr 2013 07:25:17 -0700
+From: David Stevens <dlstevens@us.ibm.com>
+Date: Tue, 16 Apr 2013 09:56:15 -0400
 
-> On Tue, 2013-04-16 at 06:51 -0700, Eric Dumazet wrote:
+> netdev-owner@vger.kernel.org wrote on 04/16/2013 08:50:52 AM:
 > 
->> Perfect, thanks a lot for all this !
->> 
->> Tested-by: Vitaly V. Bursov <vitalyb@telenet.dn.ua>
->> 
->> 
+>> From: Atzm Watanabe <atzm@stratosphere.co.jp>
 > 
-> By the way, we probably should use skb_flow_dissect() to get proper
-> hashing for tunnels users.
+>> This patch allows setting VXLAN destination to unicast address.
+>> It allows that VXLAN can be used as peer-to-peer tunnel without
+>> multicast.
+>> 
+>> v4: generalize struct vxlan_dev, "gaddr" is replaced with vxlan_rdst.
+>>     "GROUP" attribute is replaced with "REMOTE".
+>>     they are based by David Stevens's comments.
+>> 
+>> v3: move a new attribute REMOTE into the last of an enum list
+>>     based by Stephen Hemminger's comments.
+>> 
+>> v2: use a new attribute REMOTE instead of GROUP based by
+>>     Cong Wang's comments.
+>> 
+>> Signed-off-by: Atzm Watanabe <atzm@stratosphere.co.jp>
+> 
+> Acked-by: David L Stevens <dlstevens@us.ibm.com>
 
-Agreed but that's net-next material.
+Applied.
