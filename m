@@ -1,53 +1,64 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH for 3.9] net: fec: fix regression in link change accounting
-Date: Tue, 16 Apr 2013 10:40:39 -0300
-Message-ID: <CAOMZO5DSPqfjRNsoot3Bo8ZJzTJfbkSZbMPkLjK9tqbqCYeQ2A@mail.gmail.com>
-References: <1366108962-8607-1-git-send-email-l.stach@pengutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2 1/1] net: fec: Enable imx6 enet checksum
+ acceleration.
+Date: Tue, 16 Apr 2013 06:50:31 -0700
+Message-ID: <1366120231.4459.132.camel@edumazet-glaptop>
+References: <y> <1366108587-3866-1-git-send-email-jim_baxter@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
 	Frank Li <Frank.Li@freescale.com>,
-	Shawn Guo <shawn.guo@linaro.org>
-To: Lucas Stach <l.stach@pengutronix.de>
+	Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org
+To: Jim Baxter <jim_baxter@mentor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f50.google.com ([209.85.212.50]:49891 "EHLO
-	mail-vb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932450Ab3DPNkk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 09:40:40 -0400
-Received: by mail-vb0-f50.google.com with SMTP id w15so367576vbb.37
-        for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 06:40:39 -0700 (PDT)
-In-Reply-To: <1366108962-8607-1-git-send-email-l.stach@pengutronix.de>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:59596 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755318Ab3DPNue (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 09:50:34 -0400
+Received: by mail-pb0-f44.google.com with SMTP id wz12so307459pbc.17
+        for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 06:50:33 -0700 (PDT)
+In-Reply-To: <1366108587-3866-1-git-send-email-jim_baxter@mentor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Lucas,
+On Tue, 2013-04-16 at 11:36 +0100, Jim Baxter wrote:
 
-On Tue, Apr 16, 2013 at 7:42 AM, Lucas Stach <l.stach@pengutronix.de> wrote:
-> A link-down isn't properly saved in the FEC state, so we wouldn't restart the
-> FEC after a repeated link-up.
->
-> Regression was introduced with commit
-> d97e7497 "net: fec: restart the FEC when PHY speed changes"
->
-> Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
-> ---
->  drivers/net/ethernet/freescale/fec.c |    1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-> index f292c3a..73195f6 100644
-> --- a/drivers/net/ethernet/freescale/fec.c
-> +++ b/drivers/net/ethernet/freescale/fec.c
-> @@ -1002,6 +1002,7 @@ static void fec_enet_adjust_link(struct net_device *ndev)
->         } else {
->                 if (fep->link) {
->                         fec_stop(ndev);
-> +                       fep->link = phy_dev->link;
->                         status_change = 1;
->                 }
->         }
+> +	ndev->features |= NETIF_F_GRO;
+>  	napi_enable(&fep->napi);
+>  
+>  	/* I should reset the ring buffers here, but I don't yet know
+> @@ -1618,6 +1707,44 @@ static void fec_poll_controller(struct net_device *dev)
+>  }
+>  #endif
 
-I applied this into linux-next (the file is renamed to fec_main.c
-there) and this fixes the suspend/resume issue I was seeing.
+> +
+>  static const struct net_device_ops fec_netdev_ops = {
+>  	.ndo_open		= fec_enet_open,
+>  	.ndo_stop		= fec_enet_close,
+> @@ -1631,6 +1758,8 @@ static const struct net_device_ops fec_netdev_ops = {
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>  	.ndo_poll_controller	= fec_poll_controller,
+>  #endif
+> +	.ndo_fix_features	= fec_fix_features,
+> +	.ndo_set_features	= fec_set_features,
+>  };
+>  
+>   /*
+> @@ -1672,6 +1801,11 @@ static int fec_enet_init(struct net_device *ndev)
+>  	writel(FEC_RX_DISABLED_IMASK, fep->hwp + FEC_IMASK);
+>  	netif_napi_add(ndev, &fep->napi, fec_enet_rx_napi, FEC_NAPI_WEIGHT);
+>  
+> +	/* enable hw accelerator */
+> +	ndev->features |= (NETIF_F_HW_CSUM | NETIF_F_GRO);
+> +	ndev->hw_features |= (NETIF_F_HW_CSUM | NETIF_F_GRO);
+> +	fep->csum_flags |= FLAG_RX_CSUM_ENABLED;
+> +
+>  	fec_restart(ndev, 0);
+>  
+>  	return 0;
 
-Tested-by: Fabio Estevam <fabio.estevam@freescale.com>
+Unless I am missing something, NETIF_F_GRO doesn't need to be set by a
+driver.
+
+Documentation/networking/netdev-features.txt lines 129-130
