@@ -1,47 +1,45 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH v4] vxlan: Allow setting destination to unicast address.
-Date: Tue, 16 Apr 2013 09:56:15 -0400
-Message-ID: <OF88AC4A33.EEA9E994-ON85257B4F.004C7B68-85257B4F.004C901F@us.ibm.com>
-References: <877gk2r64z.wl%atzm@stratosphere.co.jp>
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: Re: [PATCH net-next v2 1/1] net: fec: Enable imx6 enet checksum acceleration.
+Date: Tue, 16 Apr 2013 14:09:25 +0000 (UTC)
+Message-ID: <loom.20130416T160452-895@post.gmane.org>
+References: <y> <1366108587-3866-1-git-send-email-jim_baxter@mentor.com> <20130416.083503.643566585360141810.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Mike Rapoport <mike.rapoport@ravellosystems.com>,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: Atzm Watanabe <atzm@stratosphere.co.jp>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:53479 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935487Ab3DPOBn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 10:01:43 -0400
-Received: from /spool/local
-	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Tue, 16 Apr 2013 08:01:41 -0600
-In-Reply-To: <877gk2r64z.wl%atzm@stratosphere.co.jp>
+Received: from plane.gmane.org ([80.91.229.3]:37040 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933365Ab3DPOJq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Apr 2013 10:09:46 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1US6Zk-0004XN-Uf
+	for netdev@vger.kernel.org; Tue, 16 Apr 2013 16:09:37 +0200
+Received: from jimbax.plus.com ([81.174.248.107])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 16:09:36 +0200
+Received: from jim_baxter by jimbax.plus.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 16:09:36 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev-owner@vger.kernel.org wrote on 04/16/2013 08:50:52 AM:
+David Miller <davem <at> davemloft.net> writes:
 
-> From: Atzm Watanabe <atzm@stratosphere.co.jp>
+> 
+> 
+> When you post multiple versions of a patch, always say what is different
+> between the versions.
+> 
 
-> This patch allows setting VXLAN destination to unicast address.
-> It allows that VXLAN can be used as peer-to-peer tunnel without
-> multicast.
-> 
-> v4: generalize struct vxlan_dev, "gaddr" is replaced with vxlan_rdst.
->     "GROUP" attribute is replaced with "REMOTE".
->     they are based by David Stevens's comments.
-> 
-> v3: move a new attribute REMOTE into the last of an enum list
->     based by Stephen Hemminger's comments.
-> 
-> v2: use a new attribute REMOTE instead of GROUP based by
->     Cong Wang's comments.
-> 
-> Signed-off-by: Atzm Watanabe <atzm@stratosphere.co.jp>
 
-Acked-by: David L Stevens <dlstevens@us.ibm.com>
+Sorry, I was trying to differentiate between my first two messed up posts and 
+the correct patch post. I first forgot to mark it net-net and then I managed 
+to send it from y@relay1.mentorg.com.
+
+Is there a better way to correct incorrect patch headers?
+
+Thank you,
+Jim
