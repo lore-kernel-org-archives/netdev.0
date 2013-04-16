@@ -1,67 +1,61 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 7/9] net: sctp: sctp_bind_addr: remove dead code
-Date: Tue, 16 Apr 2013 23:07:16 +0200
-Message-ID: <1366146438-8815-8-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next 8/9] net: sctp: sctp_ulpq: remove 'malloced' struct member
+Date: Tue, 16 Apr 2013 23:07:17 +0200
+Message-ID: <1366146438-8815-9-git-send-email-dborkman@redhat.com>
 References: <1366146438-8815-1-git-send-email-dborkman@redhat.com>
 Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1966 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:30470 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965376Ab3DPVHk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Apr 2013 17:07:40 -0400
+	id S965376Ab3DPVHm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Apr 2013 17:07:42 -0400
 In-Reply-To: <1366146438-8815-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sctp_bind_addr structure has a 'malloced' member that is
-always set to 0, thus in sctp_bind_addr_free() the kfree()
-part can never be called. This part is embedded into
-sctp_ep_common anyway and never alloced.
+The structure sctp_ulpq is embedded into sctp_association and never
+separately allocated, also ulpq->malloced is always 0, so that
+kfree() is never called. Therefore, remove this code.
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- include/net/sctp/structs.h | 2 --
- net/sctp/bind_addr.c       | 7 -------
- 2 files changed, 9 deletions(-)
+ include/net/sctp/ulpqueue.h | 1 -
+ net/sctp/ulpqueue.c         | 3 ---
+ 2 files changed, 4 deletions(-)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 945e952..b4e9894 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1088,8 +1088,6 @@ struct sctp_bind_addr {
- 	 *	peer(s) in INIT and INIT ACK chunks.
- 	 */
- 	struct list_head address_list;
--
--	int malloced;	     /* Are we kfree()able?  */
- };
+diff --git a/include/net/sctp/ulpqueue.h b/include/net/sctp/ulpqueue.h
+index ff1b8ba7..00e50ba 100644
+--- a/include/net/sctp/ulpqueue.h
++++ b/include/net/sctp/ulpqueue.h
+@@ -49,7 +49,6 @@
  
- void sctp_bind_addr_init(struct sctp_bind_addr *, __u16 port);
-diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
-index d886b3b..41145fe 100644
---- a/net/sctp/bind_addr.c
-+++ b/net/sctp/bind_addr.c
-@@ -131,8 +131,6 @@ int sctp_bind_addr_dup(struct sctp_bind_addr *dest,
-  */
- void sctp_bind_addr_init(struct sctp_bind_addr *bp, __u16 port)
- {
--	bp->malloced = 0;
--
- 	INIT_LIST_HEAD(&bp->address_list);
- 	bp->port = port;
+ /* A structure to carry information to the ULP (e.g. Sockets API) */
+ struct sctp_ulpq {
+-	char malloced;
+ 	char pd_mode;
+ 	struct sctp_association *asoc;
+ 	struct sk_buff_head reasm;
+diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
+index 0fd5b3d..04e3d47 100644
+--- a/net/sctp/ulpqueue.c
++++ b/net/sctp/ulpqueue.c
+@@ -68,7 +68,6 @@ struct sctp_ulpq *sctp_ulpq_init(struct sctp_ulpq *ulpq,
+ 	skb_queue_head_init(&ulpq->reasm);
+ 	skb_queue_head_init(&ulpq->lobby);
+ 	ulpq->pd_mode  = 0;
+-	ulpq->malloced = 0;
+ 
+ 	return ulpq;
  }
-@@ -155,11 +153,6 @@ void sctp_bind_addr_free(struct sctp_bind_addr *bp)
+@@ -96,8 +95,6 @@ void sctp_ulpq_flush(struct sctp_ulpq *ulpq)
+ void sctp_ulpq_free(struct sctp_ulpq *ulpq)
  {
- 	/* Empty the bind address list. */
- 	sctp_bind_addr_clean(bp);
--
--	if (bp->malloced) {
--		kfree(bp);
--		SCTP_DBG_OBJCNT_DEC(bind_addr);
--	}
+ 	sctp_ulpq_flush(ulpq);
+-	if (ulpq->malloced)
+-		kfree(ulpq);
  }
  
- /* Add an address to the bind address list in the SCTP_bind_addr structure. */
+ /* Process an incoming DATA chunk.  */
 -- 
 1.7.11.7
