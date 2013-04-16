@@ -1,29 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net,stable-3.8] net: cdc_mbim: remove bogus sizeof()
-Date: Tue, 16 Apr 2013 16:42:05 -0400 (EDT)
-Message-ID: <20130416.164205.1278259494886221635.davem@davemloft.net>
-References: <1366107427-18380-1-git-send-email-bjorn@mork.no>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] neighbour: Convert NEIGH_PRINTK to neigh_dbg
+Date: Tue, 16 Apr 2013 16:42:15 -0400 (EDT)
+Message-ID: <20130416.164215.1481542365151784733.davem@davemloft.net>
+References: <6d196be46acd99bd65d0f0d5abb842b8b0bf0d04.1366074978.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gpsuarez2512-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: bjorn-yOkvZcmFvRU@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1366107427-18380-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6d196be46acd99bd65d0f0d5abb842b8b0bf0d04.1366074978.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Date: Tue, 16 Apr 2013 12:17:07 +0200
+From: Joe Perches <joe@perches.com>
+Date: Mon, 15 Apr 2013 18:17:19 -0700
 
-> The intention was to test against the constant, not the size of
-> the constant.
->=20
-> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+> Update debugging messages to a more current style.
+> 
+> Emit these debugging messages at KERN_DEBUG instead
+> of KERN_DEFAULT.
+> 
+> Add and use neigh_dbg(level, fmt, ...) macro
+> Add dynamic_debug capability via pr_debug
+> Convert embedded function names to "%s: ", __func__
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
