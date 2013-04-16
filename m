@@ -1,43 +1,49 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net] hyperv: Fix a compiler warning in netvsc_send()
-Date: Tue, 16 Apr 2013 15:25:50 -0700
-Message-ID: <1366151150-14859-1-git-send-email-haiyangz@microsoft.com>
-Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
-	jasowang@redhat.com, linux-kernel@vger.kernel.org,
-	devel@linuxdriverproject.org
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: Re: [PATCH 1/1] net: fec: Enable imx6 enet checksum acceleration.
+Date: Tue, 16 Apr 2013 23:14:46 +0100
+Message-ID: <516DCD56.4090508@mentor.com>
+References: <1366107927-3642-1-git-send-email-jim_baxter@mentor.com> <CAOMZO5AJt1aLMheqsR_BEpHeGzOTOgrMdjAQFbAY7RmSdOfPoA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Fugang Duan <B38611@freescale.com>, <netdev@vger.kernel.org>
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay1.mentorg.com ([192.94.38.131]:35403 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965429Ab3DPWOu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 18:14:50 -0400
+In-Reply-To: <CAOMZO5AJt1aLMheqsR_BEpHeGzOTOgrMdjAQFbAY7RmSdOfPoA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fixed: warning: cast from pointer to integer of different size
+On 16/04/13 16:36, Fabio Estevam wrote:
+> On Tue, Apr 16, 2013 at 7:25 AM, Jim Baxter <jim_baxter@mentor.com> wrote:
+>> Enables hardware generatation of IP header and
+> 
+> generation
+> 
+> 
+>> +/* FEC receive accleration */
+> 
+> acceleration
+> 
+> ...
+> 
+>>  static netdev_tx_t
+>>  fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>>  {
+>> @@ -277,6 +333,9 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>>         bufaddr = skb->data;
+>>         bdp->cbd_datlen = skb->len;
+>>
+>> +       /* HW accleration for ICMP TCP UDP checksum */
+> 
+> acceleration
+> 
 
-The Hyper-V hosts always use 64 bit request id. The guests can have 32 or 64
-bit pointers which equal to the ulong type size. So we cast it to ulong type.
-And, assigning 32bit integer to 64 bit variable works fine.
+Thank you, I will correct those.
 
-The VMBus returns the same id in the completion packet. But the value has no
-effect on the host side.
-
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/netvsc.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index f5f0f09..2b04804 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -522,7 +522,7 @@ int netvsc_send(struct hv_device *device,
- 	sendMessage.msg.v1_msg.send_rndis_pkt.send_buf_section_size = 0;
- 
- 	if (packet->completion.send.send_completion)
--		req_id = (u64)packet;
-+		req_id = (ulong)packet;
- 	else
- 		req_id = 0;
- 
--- 
-1.7.4.1
+Jim
