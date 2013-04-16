@@ -1,90 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bonding driver has bad load balancing for forwarded traffic,
- 3.7+
-Date: Mon, 15 Apr 2013 17:37:59 -0700
-Message-ID: <1366072679.4459.113.camel@edumazet-glaptop>
-References: <516C075E.30105@telenet.dn.ua>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be active
+Date: Tue, 16 Apr 2013 09:15:45 +0800
+Message-ID: <CACVXFVOpd6LLjYcz5smx5NktS=+jN74uePSPq7DAeUfpmNYm4w@mail.gmail.com>
+References: <20110727141246.GC29616@orbit.nwl.cc>
+	<21345916.cd7DzC6Ttz@linux-5eaq.site>
+	<1365606080.28888.72.camel@dcbw.foobar.com>
+	<7761183.G42DetJs5Z@linux-5eaq.site>
+	<1365625850.22411.1.camel@dcbw.foobar.com>
+	<1366041560.5649.0.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: "Vitaly V. Bursov" <vitalyb@telenet.dn.ua>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <516C075E.30105@telenet.dn.ua>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Oliver Neukum <oliver@neukum.org>,
+	Elina Pasheva <epasheva@sierrawireless.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve0-f179.google.com ([209.85.128.179]:54954 "EHLO
+	mail-ve0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934863Ab3DPBPr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Apr 2013 21:15:47 -0400
+In-Reply-To: <1366041560.5649.0.camel@dcbw.foobar.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-04-15 at 16:57 +0300, Vitaly V. Bursov wrote:
-> Hello,
-> 
-> I have a bonding device (mode=802.3ad xmit_hash_policy=layer2+3 miimon=300) and
-> for kernels <3.7 forwarded IPv4 traffic distributed fine across multiple physical
-> links. Ethernet cards are Intel 82576 with igb driver (various versions).
-> 
-> 3.7 and 3.8 kernels tend to fully utilize only one link and leave the others almost idling.
-> 
-> Replacing bond_xmit_hash_policy_* functions with older ones (3.6 kernel) looks like
-> resolves the issue (but I haven't tested it thoroughly).
-> 
-> So, I added
->          printk(KERN_INFO "hash_policy: protocol = %d, skb_network_header_len = %d, %d %d\n",
->              skb->protocol, skb_network_header_len(skb),
->              skb_headlen(skb), skb_network_offset(skb));
-> to bond_xmit_hash_policy_l23() of bond_main.c
-> 
-> and got this:
-> [   65.280831] hash_policy: protocol = 8, skb_network_header_len = 0, 74 14
-> [   65.280835] hash_policy: protocol = 8, skb_network_header_len = 0, 74 14
-> [   65.280839] hash_policy: protocol = 8, skb_network_header_len = 0, 74 14
-> [   65.280843] hash_policy: protocol = 8, skb_network_header_len = 0, 74 14
-> [   65.280847] hash_policy: protocol = 8, skb_network_header_len = 0, 74 14
-> [   65.280851] hash_policy: protocol = 8, skb_network_header_len = 0, 74 14
-> 
-> It's clear that the new check condition (skb_network_header_len(skb) >= sizeof(*iph))
-> fails here and hash policy fallbacks to l2 balancing.
-> 
-> I have no idea how to fix this besides removing this check completely, any
-> help would be appreciated.
-> 
+On Mon, Apr 15, 2013 at 11:59 PM, Dan Williams <dcbw@redhat.com> wrote:
+>
+> So, what was the general consensus on this one?  I know Oliver signed
+> off on it, but the discussion about memflags seemed to die out without a
+> specific conclusion.  davem might be looking for that conclusion before
+> moving forward with the series :)
 
-Thanks for your report.
+Suggest to remove the memflags parameter, because:
 
-CC netdev
+- the probable issue addressed by introducing memflags is a general issue
+of all USB drivers, also very corener one, not a specific one on usbnet, and
+the issue only exists on devices with at least one mass storage interface and
+another non-mass-storage interface, and it is not considered by other USB
+drivers now.
 
-I guess that for forwarding setup, we don't set skb->transport_header
+- usbnet_status_start() is called from either probe() or work queue scheduled
+from probe(), if we want to address the probable issue, the memflags should
+always be GFP_NOIO under the two situations, __or__ GFP_KERNEL if we
+choose to ignore the very corner case like other USB drivers.  So hardcoded
+GFP_NOIO or GFP_KERNEL should be accepted.
 
-Please try following fix :
+Oliver, do you have objections on not adding the memflags parameter now?
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 07401a3..356d2f9 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3286,20 +3286,22 @@ static int bond_xmit_hash_policy_l2(struct sk_buff *skb, int count)
-  */
- static int bond_xmit_hash_policy_l23(struct sk_buff *skb, int count)
- {
--	struct ethhdr *data = (struct ethhdr *)skb->data;
--	struct iphdr *iph;
--	struct ipv6hdr *ipv6h;
-+	const struct ethhdr *data;
-+	const struct iphdr *iph;
-+	const struct ipv6hdr *ipv6h;
- 	u32 v6hash;
--	__be32 *s, *d;
-+	const __be32 *s, *d;
- 
- 	if (skb->protocol == htons(ETH_P_IP) &&
--	    skb_network_header_len(skb) >= sizeof(*iph)) {
-+	    pskb_network_may_pull(skb, sizeof(*iph))) {
- 		iph = ip_hdr(skb);
-+		data = (struct ethhdr *)skb->data;
- 		return ((ntohl(iph->saddr ^ iph->daddr) & 0xffff) ^
- 			(data->h_dest[5] ^ data->h_source[5])) % count;
- 	} else if (skb->protocol == htons(ETH_P_IPV6) &&
--		   skb_network_header_len(skb) >= sizeof(*ipv6h)) {
-+		   pskb_network_may_pull(skb, sizeof(*ipv6h))) {
- 		ipv6h = ipv6_hdr(skb);
-+		data = (struct ethhdr *)skb->data;
- 		s = &ipv6h->saddr.s6_addr32[0];
- 		d = &ipv6h->daddr.s6_addr32[0];
- 		v6hash = (s[1] ^ d[1]) ^ (s[2] ^ d[2]) ^ (s[3] ^ d[3]);
+Williams, looks there is another problem in your patch, sorry for not
+finding it previously.  usb_autopm_get_interface() need to be called before
+submitting URB inside usbnet_status_start(), and usb_autopm_put_interface()
+need to be called after killing URB inside usbnet_status_stop(). Otherwise
+your patch doesn't work as you expected under runtime PM situation.
+
+
+Thanks,
+-- 
+Ming Lei
