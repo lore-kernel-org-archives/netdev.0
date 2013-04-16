@@ -1,55 +1,113 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 6/9] net: sctp: sctp_transport: remove unused variable
-Date: Tue, 16 Apr 2013 23:07:15 +0200
-Message-ID: <1366146438-8815-7-git-send-email-dborkman@redhat.com>
-References: <1366146438-8815-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: davem@davemloft.net
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH v2] bond: add support to read speed and duplex via ethtool
+Date: Tue, 16 Apr 2013 17:10:07 -0400
+Message-ID: <1366146607-12343-1-git-send-email-andy@greyhouse.net>
+References: <1362595173-11442-1-git-send-email-andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29668 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:28456 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965377Ab3DPVHh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Apr 2013 17:07:37 -0400
-In-Reply-To: <1366146438-8815-1-git-send-email-dborkman@redhat.com>
+	id S965224Ab3DPVQ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Apr 2013 17:16:58 -0400
+Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r3GLGvi0028809
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 17:16:57 -0400
+Received: from gospo.rdu.redhat.com (gospo.rdu.redhat.com [10.13.136.34])
+	by int-mx12.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id r3GLGv6c010264
+	for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 17:16:57 -0400
+In-Reply-To: <1362595173-11442-1-git-send-email-andy@greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sctp_transport's member 'malloced' is set to 1, never evaluated
-and the structure is kfreed anyway. So just remove it.
+This patch adds support for the get_settings ethtool op to the bonding
+driver.  This was motivated by users who wanted to get the speed of the
+bond and compare that against throughput to understand utilization.
+The behavior before this patch was added was problematic when computing
+line utilization after trying to get link-speed and throughput via SNMP.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Output from ethtool looks like this for a round-robin bond:
+
+Settings for bond0:
+	Supported ports: [ ]
+	Supported link modes:   Not reported
+	Supported pause frame use: No
+	Supports auto-negotiation: No
+	Advertised link modes:  Not reported
+	Advertised pause frame use: No
+	Advertised auto-negotiation: No
+	Speed: 11000Mb/s
+	Duplex: Full
+	Port: Other
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: off
+	MDI-X: Unknown
+	Link detected: yes
+
+I tested this and verified it works as expected.  A test was also done
+on a version backported to an older kernel and it worked well there.
+
+v2: switch to using ethtool_cmd_speed_set to set speed, added check to
+SLAVE_IS_OK for each slave in bond, dropped mode-specific calculations
+as they were not needed, and set port type to 'Other.'
+
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 ---
- include/net/sctp/structs.h | 5 +----
- net/sctp/transport.c       | 1 -
- 2 files changed, 1 insertion(+), 5 deletions(-)
+ drivers/net/bonding/bond_main.c | 34 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 3de5985..945e952 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -779,10 +779,7 @@ struct sctp_transport {
- 		hb_sent:1,
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 07401a3..da2dd38 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4222,6 +4222,39 @@ void bond_set_mode_ops(struct bonding *bond, int mode)
+ 	}
+ }
  
- 		/* Is the Path MTU update pending on this tranport */
--		pmtu_pending:1,
--
--		/* Is this structure kfree()able? */
--		malloced:1;
-+		pmtu_pending:1;
++static int bond_ethtool_get_settings(struct net_device *bond_dev,
++				     struct ethtool_cmd *ecmd)
++{
++	struct bonding *bond = netdev_priv(bond_dev);
++	struct slave *slave;
++	int i;
++	unsigned long speed = 0;
++
++	ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
++	ecmd->duplex = DUPLEX_UNKNOWN;
++	ecmd->port = PORT_OTHER;
++
++	/* Since SLAVE_IS_OK returns false for all inactive or down slaves, we
++	 * do not need to check mode.  Though link speed might not represent
++	 * the true receive or transmit bandwidth (not all modes are symmetric)
++	 * this is an accurate maximum.
++	 */
++	read_lock(&bond->lock);
++	bond_for_each_slave(bond, slave, i) {
++		if (SLAVE_IS_OK(slave)) {
++			if (slave->speed != SPEED_UNKNOWN) {
++				speed += slave->speed;
++			}
++			if (ecmd->duplex == DUPLEX_UNKNOWN &&
++			    slave->duplex != DUPLEX_UNKNOWN)
++				ecmd->duplex = slave->duplex;
++		}
++	}
++	ethtool_cmd_speed_set(ecmd, speed);
++	read_unlock(&bond->lock);
++	return 0;
++}
++
+ static void bond_ethtool_get_drvinfo(struct net_device *bond_dev,
+ 				     struct ethtool_drvinfo *drvinfo)
+ {
+@@ -4233,6 +4266,7 @@ static void bond_ethtool_get_drvinfo(struct net_device *bond_dev,
  
- 	/* Has this transport moved the ctsn since we last sacked */
- 	__u32 sack_generation;
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index fafd2a4..098f1d5f 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -123,7 +123,6 @@ struct sctp_transport *sctp_transport_new(struct net *net,
- 	if (!sctp_transport_init(net, transport, addr, gfp))
- 		goto fail_init;
+ static const struct ethtool_ops bond_ethtool_ops = {
+ 	.get_drvinfo		= bond_ethtool_get_drvinfo,
++	.get_settings		= bond_ethtool_get_settings,
+ 	.get_link		= ethtool_op_get_link,
+ };
  
--	transport->malloced = 1;
- 	SCTP_DBG_OBJCNT_INC(transport);
- 
- 	return transport;
 -- 
-1.7.11.7
+1.8.1.4
