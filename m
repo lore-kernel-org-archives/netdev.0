@@ -1,113 +1,40 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH v2] bond: add support to read speed and duplex via ethtool
-Date: Tue, 16 Apr 2013 17:10:07 -0400
-Message-ID: <1366146607-12343-1-git-send-email-andy@greyhouse.net>
-References: <1362595173-11442-1-git-send-email-andy@greyhouse.net>
-To: netdev@vger.kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] fec: Use SIMPLE_DEV_PM_OPS
+Date: Tue, 16 Apr 2013 23:25:31 +0200
+Message-ID: <20130416212531.GA19634@electric-eye.fr.zoreil.com>
+References: <1366120731-31427-1-git-send-email-fabio.estevam@freescale.com>
+ <516D60E0.6000107@cogentembedded.com>
+ <CAOMZO5CGn=aetDoo-oc3Ub3ZL=8RKsPzH6jkXvifykSnWrV_Rg@mail.gmail.com>
+ <516D8649.4030604@cogentembedded.com>
+ <1366134545.28609.1.camel@joe-AO722>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Fabio Estevam <festevam@gmail.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28456 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965224Ab3DPVQ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Apr 2013 17:16:58 -0400
-Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r3GLGvi0028809
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 17:16:57 -0400
-Received: from gospo.rdu.redhat.com (gospo.rdu.redhat.com [10.13.136.34])
-	by int-mx12.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id r3GLGv6c010264
-	for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 17:16:57 -0400
-In-Reply-To: <1362595173-11442-1-git-send-email-andy@greyhouse.net>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:50335 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965262Ab3DPVZv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 17:25:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1366134545.28609.1.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for the get_settings ethtool op to the bonding
-driver.  This was motivated by users who wanted to get the speed of the
-bond and compare that against throughput to understand utilization.
-The behavior before this patch was added was problematic when computing
-line utilization after trying to get link-speed and throughput via SNMP.
+Joe Perches <joe@perches.com> :
+> On Tue, 2013-04-16 at 21:11 +0400, Sergei Shtylyov wrote:
+> > On 16-04-2013 19:22, Fabio Estevam wrote:
+> > >>> +static SIMPLE_DEV_PM_OPS(fec_pm_ops, fec_suspend, fec_resume);
+> > >>> +#define FEC_PM_OPS (&fec_pm_ops)
+> > >>     Nit: parens are useless here.
+> 
+> Is this macro indirection even useful?
 
-Output from ethtool looks like this for a round-robin bond:
+When CONFIG_PM_SLEEP is not set, it saves a few bytes setting the pm
+reference to NULL instead of referencing a zero filled struct.
 
-Settings for bond0:
-	Supported ports: [ ]
-	Supported link modes:   Not reported
-	Supported pause frame use: No
-	Supports auto-negotiation: No
-	Advertised link modes:  Not reported
-	Advertised pause frame use: No
-	Advertised auto-negotiation: No
-	Speed: 11000Mb/s
-	Duplex: Full
-	Port: Other
-	PHYAD: 0
-	Transceiver: internal
-	Auto-negotiation: off
-	MDI-X: Unknown
-	Link detected: yes
-
-I tested this and verified it works as expected.  A test was also done
-on a version backported to an older kernel and it worked well there.
-
-v2: switch to using ethtool_cmd_speed_set to set speed, added check to
-SLAVE_IS_OK for each slave in bond, dropped mode-specific calculations
-as they were not needed, and set port type to 'Other.'
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
----
- drivers/net/bonding/bond_main.c | 34 ++++++++++++++++++++++++++++++++++
- 1 file changed, 34 insertions(+)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 07401a3..da2dd38 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4222,6 +4222,39 @@ void bond_set_mode_ops(struct bonding *bond, int mode)
- 	}
- }
- 
-+static int bond_ethtool_get_settings(struct net_device *bond_dev,
-+				     struct ethtool_cmd *ecmd)
-+{
-+	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave;
-+	int i;
-+	unsigned long speed = 0;
-+
-+	ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
-+	ecmd->duplex = DUPLEX_UNKNOWN;
-+	ecmd->port = PORT_OTHER;
-+
-+	/* Since SLAVE_IS_OK returns false for all inactive or down slaves, we
-+	 * do not need to check mode.  Though link speed might not represent
-+	 * the true receive or transmit bandwidth (not all modes are symmetric)
-+	 * this is an accurate maximum.
-+	 */
-+	read_lock(&bond->lock);
-+	bond_for_each_slave(bond, slave, i) {
-+		if (SLAVE_IS_OK(slave)) {
-+			if (slave->speed != SPEED_UNKNOWN) {
-+				speed += slave->speed;
-+			}
-+			if (ecmd->duplex == DUPLEX_UNKNOWN &&
-+			    slave->duplex != DUPLEX_UNKNOWN)
-+				ecmd->duplex = slave->duplex;
-+		}
-+	}
-+	ethtool_cmd_speed_set(ecmd, speed);
-+	read_unlock(&bond->lock);
-+	return 0;
-+}
-+
- static void bond_ethtool_get_drvinfo(struct net_device *bond_dev,
- 				     struct ethtool_drvinfo *drvinfo)
- {
-@@ -4233,6 +4266,7 @@ static void bond_ethtool_get_drvinfo(struct net_device *bond_dev,
- 
- static const struct ethtool_ops bond_ethtool_ops = {
- 	.get_drvinfo		= bond_ethtool_get_drvinfo,
-+	.get_settings		= bond_ethtool_get_settings,
- 	.get_link		= ethtool_op_get_link,
- };
- 
 -- 
-1.8.1.4
+Ueimor
