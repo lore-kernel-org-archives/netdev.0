@@ -1,184 +1,225 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH v6 0/4] Add packet recirculation
-Date: Tue, 16 Apr 2013 17:14:06 +0900
-Message-ID: <1366100051-14772-1-git-send-email-horms@verge.net.au>
-Cc: Ravi K <rkerur@gmail.com>, Isaku Yamahata <yamahata@valinux.co.jp>,
-	Jesse Gross <jesse@nicira.com>, Ben Pfaff <blp@nicira.com>
-To: dev@openvswitch.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:49569 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752365Ab3DPIOR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 04:14:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: [PATCH 4/5] Add set tunnel support to execute_set_action
+Date: Tue, 16 Apr 2013 17:14:10 +0900
+Message-ID: <1366100051-14772-5-git-send-email-horms@verge.net.au>
+References: <1366100051-14772-1-git-send-email-horms@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1366100051-14772-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Recirculation is a technique to allow a frame to re-enter
-frame processing. This is intended to be used after actions
-have been applied to the frame with modify the frame in
-some way that makes it possible for richer processing to occur.
+Add set tunnel support to execute_set_action.
+This also adds support for the user-space datapath
+to honour such actions if they occur before recirculation,
+which will be added by a subsequent patch.
 
-An example is and indeed targeted use case is MPLS. If an MPLS frame has an
-mpls_pop action applied with the IPv4 ethernet type then it becomes
-possible to decode the IPv4 portion of the frame. This may be used to
-construct a facet that modifies the IPv4 portion of the frame. This is not
-possible prior to the mpls_pop action as the contents of the frame after
-the MPLS stack is not known to be IPv4.
+This is in preparation for using execute_set_action()
+to handle recirculation.
 
+Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+---
+ lib/dpif-netdev.c     |   15 ++++++++++-----
+ lib/execute-actions.c |   25 +++++++++++++++++++------
+ lib/execute-actions.h |    1 +
+ lib/odp-util.c        |    2 +-
+ lib/odp-util.h        |    3 +++
+ 5 files changed, 34 insertions(+), 12 deletions(-)
 
-Status:
-
-I have dropped the RFC prefix from this series as I now believe
-it is feature-complete. Any and all review is greatly appreciated.
-
-Design:
-
-* New recirculation action.
-
-  ovs-vswitchd adds a recirculation action to the end of a list of
-  datapath actions for a flow when the actions are truncated because
-  insufficient flow match information is available to add the next
-  OpenFlow action.  The recirculation action is preceded by an action
-  to set the skb_mark to an id which can be used to scope a facet lookup
-  of a recirculated packet.
-
-  e.g.  pop_mpls(0x0800),dec_ttl becomes pop_mpls(0x800),set(skb_mark(id)),recirculate
-
-* Datapath behaviour
-
-  Then the datapath encounters a recirculate action it:
-  + Recalculates the flow key based on the packet
-    which will typically have been modified by previous actions
-  + As the recirculate action is preceded by a set(skb_mark(id)) action,
-    the new match key will now include skb_mark=id.
-  + Performs a lookup using the new match key
-  + Processes the packet if a facet matches the key or;
-  + Makes an upcall if necessary
-
-* No facet behaviour
-
-  + Loop:
-    1) translate actions
-    2) If there is a recirculate action, execute packet
-       and go back to 1) for remaining actions.
-
-
-Base/Pre-requisites:
-
-This patch depends on "[PATCH v2.24] datapath: Add basic MPLS support to kernel".
-There are currently no other patches in the recirculation series.
-
-
-Availability:
-
-For reference this patch is available in git at:
-git://github.com/horms/openvswitch.git devel/mpls-recirculate.v6
-
-
-Change Log:
-
-v6
-* Rearange patches so as only to add self-contained working chages
-* Create execute_actions() in lib/execute-actions.c
-  - This moves makes much more action execution code than before
-    from the user-spcace datapath into common library code.
-* Add set skb_priority support to execute_set_action()
-* Add set tunnel support to execute_set_action()
-* Support revalidation of facets for recirculated packets
-* Address other elements Jesse's review, as noted in
-  per-patch changelogs
-
-
-v5
-* Correct declaration of facet_find_by_id to match definition:
-  ovs_be32 -> uint32_t.
-* Enhancements to recirculation id code:
-  - Allow efficient lookup of facets by their recirculation id
-  - Add RECIRCULATION_ID_DUMMY which may be used in cases
-    where no facet it used. It is an arbitrary valid id.
-  - Also add recirculated element to action_xlate_ctx()
-    to use to detect if a recirculation action was added during
-    translation. The previous scheme of checking if recirculation_id
-    was not RECIRCULATION_ID_NONE is broken for cases where
-    the context is initialised with a recirculation_id other than
-    RECIRCULATION_ID_NONE. E.g. when RECIRCULATION_ID_DUMMY is used.
-  - Avoid id collision
-
-rfc4:
-* Allow recirculation without facets in ovs-vswitchd
-  - Handle flow miss without facet
-  - Packet out
-* Minor enhancement to recirculation id management: Add RECIRCULATE_ID_NONE
-  to use instead of using 0 directly.
-* Correct calculation of facet->recirculation_ofpacts and
-  facet->recirculation_ofpacts_len in subfacet_make_actions()
-  in the case of more than one level of recirculation.
-
-rfc3
-* Use IS_ERR_OR_NULL()
-* Handle facet consistency checking by constructing a chain of facets
-  from the given facet, to its recirculation parent and then its parent
-  until the topmost facet.  If there is no recirculation  the chain will
-  be of length one. If there is one recirculation action then the chain
-  will be of length two. And so on.
-
-  The topmost facet in the chain can is used to lookup the rule to be
-  verified. The chain is then walked from top to bottom, translating
-  actions up to the end or the first recirculation action that is
-  encountered, whichever comes first. As the code walks down the chain
-  it updates the actions that are executed to start of the actions to
-  be executed to be just after the end of the actions executed in the
-  previous facet in the chain. This is similar to the way that facets
-  are created when a recirculation action is encountered.
-
-rfc2
-* As suggested by Jesse Gross
-  - Update for changes to ovs_dp_process_received_packet()
-    to no longer check if OVS_CB(skb)->flow is pre-initialised.
-  - Do not add spurious printk debugging to ovs_execute_actions()
-  - Do not add spurious debugging messages to commit_set_nw_action()
-  - Correct typo in comment above commit_odp_actions().
-  - Do not execute recirculation in ovs-vswitchd, rather allow
-    the datapath to make an upcall when a recirculation action
-    is encountered on execute.
-    + This implicitly breaks support for recirculation without facets,
-      so for now force all misses of MPLS frames to be handled with
-      a facet; and treat handling of recirculation for packet_out as
-      a todo item.
-  - Use skb_mark for recirculation_id in match. This avoids
-    both expanding the match and including a recirculation_id parameter
-    with the recirculation action: set_skb_mark should be used before
-    the recirculation action.
-  - Tidy up ownership of skb in ovs_execute_actions
-
-rfc1
-* Initial post
-
-
-Patch List and Diffstat:
-
-Simon Horman (5):
-  Add execute_actions
-  Add set skb_mark support to execute_set_action
-  Add set skb_priority support to execute_set_action
-  Add set tunnel support to execute_set_action
-  Add packet recirculation
-
- datapath/actions.c          |    9 +-
- datapath/datapath.c         |  105 ++++---
- datapath/datapath.h         |    2 +-
- include/linux/openvswitch.h |    4 +
- lib/automake.mk             |    2 +
- lib/dpif-netdev.c           |  249 +++++-----------
- lib/execute-actions.c       |  225 +++++++++++++++
- lib/execute-actions.h       |   34 +++
- lib/flow.h                  |    4 +
- lib/odp-util.c              |   17 +-
- lib/odp-util.h              |    4 +
- ofproto/ofproto-dpif.c      |  675 ++++++++++++++++++++++++++++++++++++++-----
- 12 files changed, 1032 insertions(+), 298 deletions(-)
- create mode 100644 lib/execute-actions.c
- create mode 100644 lib/execute-actions.h
-
+diff --git a/lib/dpif-netdev.c b/lib/dpif-netdev.c
+index d505b10..0acecdb 100644
+--- a/lib/dpif-netdev.c
++++ b/lib/dpif-netdev.c
+@@ -158,7 +158,8 @@ static void dp_netdev_execute_actions(struct dp_netdev *,
+                                       const struct nlattr *actions,
+                                       size_t actions_len,
+                                       uint32_t *skb_priority,
+-                                      uint32_t *skb_mark);
++                                      uint32_t *skb_mark,
++                                      struct flow_tnl *tun_key);
+ 
+ static struct dpif_netdev *
+ dpif_netdev_cast(const struct dpif *dpif)
+@@ -945,10 +946,12 @@ dpif_netdev_execute(struct dpif *dpif, const struct dpif_execute *execute)
+     if (!error) {
+         uint32_t skb_priority = 0;
+         uint32_t skb_mark = 0;
++        struct flow_tnl tun_key;
+ 
++        memset(&tun_key, 0, sizeof tun_key);
+         dp_netdev_execute_actions(dp, &copy, &key,
+                                   execute->actions, execute->actions_len,
+-                                  &skb_priority, &skb_mark);
++                                  &skb_priority, &skb_mark, &tun_key);
+     }
+ 
+     ofpbuf_uninit(&copy);
+@@ -1039,6 +1042,7 @@ dp_netdev_port_input(struct dp_netdev *dp, struct dp_netdev_port *port,
+     struct flow key;
+     uint32_t skb_priority = 0;
+     uint32_t skb_mark = 0;
++    struct flow_tnl tun_key;
+ 
+     if (packet->size < ETH_HEADER_LEN) {
+         return;
+@@ -1046,10 +1050,11 @@ dp_netdev_port_input(struct dp_netdev *dp, struct dp_netdev_port *port,
+     flow_extract(packet, 0, 0, NULL, port->port_no, &key);
+     flow = dp_netdev_lookup_flow(dp, &key);
+     if (flow) {
++        memset(&tun_key, 0, sizeof tun_key);
+         dp_netdev_flow_used(flow, packet);
+         dp_netdev_execute_actions(dp, packet, &key,
+                                   flow->actions, flow->actions_len,
+-                                  &skb_priority, &skb_mark);
++                                  &skb_priority, &skb_mark, &tun_key);
+         dp->n_hit++;
+     } else {
+         dp->n_missed++;
+@@ -1171,10 +1176,10 @@ dp_netdev_execute_actions(struct dp_netdev *dp,
+                           struct ofpbuf *packet, struct flow *key,
+                           const struct nlattr *actions,
+                           size_t actions_len, uint32_t *skb_priority,
+-                          uint32_t *skb_mark)
++                          uint32_t *skb_mark, struct flow_tnl *tun_key)
+ {
+     execute_actions(dp, packet, key, actions, actions_len, skb_priority,
+-                    skb_mark, dp_netdev_output_port,
++                    skb_mark, tun_key, dp_netdev_output_port,
+                     dp_netdev_action_userspace);
+ }
+ 
+diff --git a/lib/execute-actions.c b/lib/execute-actions.c
+index 7f8f468..ca9c3ca 100644
+--- a/lib/execute-actions.c
++++ b/lib/execute-actions.c
+@@ -22,6 +22,7 @@
+ 
+ #include "execute-actions.h"
+ #include "netlink.h"
++#include "odp-util.h"
+ #include "packets.h"
+ #include "util.h"
+ 
+@@ -36,8 +37,18 @@ eth_set_src_and_dst(struct ofpbuf *packet,
+ }
+ 
+ static void
++set_tunnel_action(const struct nlattr *a, struct flow_tnl *tun_key)
++{
++    enum odp_key_fitness fitness = tun_key_from_attr(a, tun_key);
++
++    memset(&tun_key, 0, sizeof tun_key);
++    ovs_assert(fitness != ODP_FIT_ERROR);
++}
++
++static void
+ execute_set_action(struct ofpbuf *packet, const struct nlattr *a,
+-                   uint32_t *skb_priority, uint32_t *skb_mark)
++                   uint32_t *skb_priority, uint32_t *skb_mark,
++                   struct flow_tnl *tun_key)
+ {
+     enum ovs_key_attr type = nl_attr_type(a);
+     const struct ovs_key_ipv4 *ipv4_key;
+@@ -47,7 +58,7 @@ execute_set_action(struct ofpbuf *packet, const struct nlattr *a,
+ 
+     switch (type) {
+     case OVS_KEY_ATTR_TUNNEL:
+-        /* not implemented */
++        set_tunnel_action(a, tun_key);
+         break;
+ 
+     case OVS_KEY_ATTR_PRIORITY:
+@@ -108,7 +119,7 @@ execute_set_action(struct ofpbuf *packet, const struct nlattr *a,
+ static void
+ execute_sample(void *dp, struct ofpbuf *packet, struct flow *key,
+                const struct nlattr *action, uint32_t *skb_priority,
+-               uint32_t *skb_mark,
++               uint32_t *skb_mark, struct flow_tnl *tun_key,
+                void (*output)(void *dp, struct ofpbuf *packet,
+                               uint32_t out_port),
+                void (*userspace)(void *dp, struct ofpbuf *packet,
+@@ -141,13 +152,14 @@ execute_sample(void *dp, struct ofpbuf *packet, struct flow *key,
+ 
+     execute_actions(dp, packet, key, nl_attr_get(subactions),
+                     nl_attr_get_size(subactions), skb_priority, skb_mark,
+-                    output, userspace);
++                    tun_key, output, userspace);
+ }
+ 
+ void
+ execute_actions(void *dp, struct ofpbuf *packet, struct flow *key,
+                 const struct nlattr *actions, size_t actions_len,
+                 uint32_t *skb_priority, uint32_t *skb_mark,
++                struct flow_tnl *tun_key,
+                 void (*output)(void *dp, struct ofpbuf *packet,
+                                uint32_t out_port),
+                 void (*userspace)(void *dp, struct ofpbuf *packet,
+@@ -191,11 +203,12 @@ execute_actions(void *dp, struct ofpbuf *packet, struct flow *key,
+             break;
+ 
+         case OVS_ACTION_ATTR_SET:
+-            execute_set_action(packet, nl_attr_get(a), skb_priority, skb_mark);
++            execute_set_action(packet, nl_attr_get(a), skb_priority, skb_mark,
++                               tun_key);
+             break;
+ 
+         case OVS_ACTION_ATTR_SAMPLE:
+-            execute_sample(dp, packet, key, a, skb_priority, skb_mark,
++            execute_sample(dp, packet, key, a, skb_priority, skb_mark, tun_key,
+                            output, userspace);
+             break;
+ 
+diff --git a/lib/execute-actions.h b/lib/execute-actions.h
+index 2dd4741..2c36f27 100644
+--- a/lib/execute-actions.h
++++ b/lib/execute-actions.h
+@@ -26,6 +26,7 @@ void
+ execute_actions(void *dp, struct ofpbuf *packet, struct flow *key,
+                 const struct nlattr *actions, size_t actions_len,
+                 uint32_t *skb_priority, uint32_t *skb_mark,
++                struct flow_tnl *tun_key,
+                 void (*output)(void *dp, struct ofpbuf *packet,
+                                uint32_t out_port),
+                 void (*userspace)(void *dp, struct ofpbuf *packet,
+diff --git a/lib/odp-util.c b/lib/odp-util.c
+index 3206dc9..acecb78 100644
+--- a/lib/odp-util.c
++++ b/lib/odp-util.c
+@@ -737,7 +737,7 @@ tunnel_key_attr_len(int type)
+     return -1;
+ }
+ 
+-static enum odp_key_fitness
++enum odp_key_fitness
+ tun_key_from_attr(const struct nlattr *attr, struct flow_tnl *tun)
+ {
+     unsigned int left;
+diff --git a/lib/odp-util.h b/lib/odp-util.h
+index ad0fb30..df38ec0 100644
+--- a/lib/odp-util.h
++++ b/lib/odp-util.h
+@@ -87,6 +87,9 @@ struct odputil_keybuf {
+     uint32_t keybuf[DIV_ROUND_UP(ODPUTIL_FLOW_KEY_BYTES, 4)];
+ };
+ 
++enum odp_key_fitness
++tun_key_from_attr(const struct nlattr *attr, struct flow_tnl *tun);
++
+ void odp_flow_key_format(const struct nlattr *, size_t, struct ds *);
+ int odp_flow_key_from_string(const char *s, const struct simap *port_names,
+                              struct ofpbuf *);
 -- 
 1.7.10.4
