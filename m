@@ -1,33 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bonding driver has bad load balancing for forwarded traffic,
- 3.7+
-Date: Tue, 16 Apr 2013 06:51:33 -0700
-Message-ID: <1366120293.4459.133.camel@edumazet-glaptop>
-References: <516C075E.30105@telenet.dn.ua>
-	  <1366072679.4459.113.camel@edumazet-glaptop>
-	 <1366081404.4459.127.camel@edumazet-glaptop>
-	 <516D1374.1070500@telenet.dn.ua>
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Subject: [PATCH] fec: Use SIMPLE_DEV_PM_OPS
+Date: Tue, 16 Apr 2013 10:58:51 -0300
+Message-ID: <1366120731-31427-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	John Eaglesham <linux@8192.net>
-To: "Vitaly V. Bursov" <vitalyb@telenet.dn.ua>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <516D1374.1070500@telenet.dn.ua>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:3806
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S935122Ab3DPN7I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 09:59:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-04-16 at 12:01 +0300, Vitaly V. Bursov wrote:
+Using SIMPLE_DEV_PM_OPS can make the code smaller and simpler.
 
-> Testing under real load for almost 2 hours now, works as expected.
-> xmit_hash_policy=layer3+4
-> 
-> I made a few simple test with layer2+3 policy too, looks OK.
-> 
-> Thanks!
+Also change CONFIG_PM to CONFIG_PM_SLEEP.
 
-Perfect, thanks a lot for all this !
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c |   20 +++++++-------------
+ 1 file changed, 7 insertions(+), 13 deletions(-)
 
-Tested-by: Vitaly V. Bursov <vitalyb@telenet.dn.ua>
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 806a56d..2e8bb58 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1911,7 +1911,7 @@ fec_drv_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-#ifdef CONFIG_PM
++#ifdef CONFIG_PM_SLEEP
+ static int
+ fec_suspend(struct device *dev)
+ {
+@@ -1946,23 +1946,17 @@ fec_resume(struct device *dev)
+ 	return 0;
+ }
+ 
+-static const struct dev_pm_ops fec_pm_ops = {
+-	.suspend	= fec_suspend,
+-	.resume		= fec_resume,
+-	.freeze		= fec_suspend,
+-	.thaw		= fec_resume,
+-	.poweroff	= fec_suspend,
+-	.restore	= fec_resume,
+-};
+-#endif
++static SIMPLE_DEV_PM_OPS(fec_pm_ops, fec_suspend, fec_resume);
++#define FEC_PM_OPS (&fec_pm_ops)
++#else
++#define FEC_PM_OPS NULL
++#endif /* CONFIG_PM_SLEEP */
+ 
+ static struct platform_driver fec_driver = {
+ 	.driver	= {
+ 		.name	= DRIVER_NAME,
+ 		.owner	= THIS_MODULE,
+-#ifdef CONFIG_PM
+-		.pm	= &fec_pm_ops,
+-#endif
++		.pm	= FEC_PM_OPS,
+ 		.of_match_table = fec_dt_ids,
+ 	},
+ 	.id_table = fec_devtype,
+-- 
+1.7.9.5
