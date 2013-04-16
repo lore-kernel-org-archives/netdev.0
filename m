@@ -1,77 +1,54 @@
-From: Tom Parkin <tparkin@katalix.com>
-Subject: Re: [RFC PATCH] udp: don't rereference dst_entry dev pointer on rcv
-Date: Tue, 16 Apr 2013 21:20:22 +0100
-Message-ID: <20130416202022.GB2545@raven>
-References: <1362695800-8633-2-git-send-email-tparkin@katalix.com>
- <1362696444.15793.220.camel@edumazet-glaptop>
- <20130307.181527.390191009324148471.davem@davemloft.net>
- <20130313232743.GA3686@raven>
- <1363223884.29475.0.camel@edumazet-glaptop>
- <20130314144550.GB2512@raven>
- <1363273531.29475.21.camel@edumazet-glaptop>
- <1363274946.29475.24.camel@edumazet-glaptop>
- <1365697961.3887.176.camel@edumazet-glaptop>
- <1365702804.3887.180.camel@edumazet-glaptop>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net] hyperv: Fix a compiler warning in netvsc_send()
+Date: Tue, 16 Apr 2013 20:18:05 +0000
+Message-ID: <b5d9b49f46ab434eb38a24e34f0b984b@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1366139031-12518-1-git-send-email-haiyangz@microsoft.com>
+ <20130416.151141.1928940532005718606.davem@davemloft.net>
+ <57e8f99081a94575a57cae5e93705c22@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20130416.154912.896506198616355113.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Fba/0zbH8Xs+Fj9o"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:39186 "EHLO bert.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965099Ab3DPUUZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Apr 2013 16:20:25 -0400
-Content-Disposition: inline
-In-Reply-To: <1365702804.3887.180.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20130416.154912.896506198616355113.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel/>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: "devel" <devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net] 
+> Sent: Tuesday, April 16, 2013 3:49 PM
+> To: Haiyang Zhang
+> Cc: netdev@vger.kernel.org; KY Srinivasan; olaf@aepfle.de; jasowang@redhat.com; linux-kernel@vger.kernel.org; devel@linuxdriverproject.org
+> Subject: Re: [PATCH net] hyperv: Fix a compiler warning in netvsc_send()
+>
+> From: Haiyang Zhang <haiyangz@microsoft.com>
+> Date: Tue, 16 Apr 2013 19:34:52 +0000
+>
+> > The Hyper-V hosts always use 64 bit request id. The guests can have
+> > 32 or 64 bit pointers which equal to the ulong type size. So we cast 
+> > it to ulong type. And, assigning 32bit integer to 64 bit variable 
+> > works fine.
+>
+> It works fine, but it's unclean.
+>
+> Keep the req_id type as "u64", because that's what it is, a 64-bit request ID.
 
---Fba/0zbH8Xs+Fj9o
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I will make this update and submit a new patch, with the added comments.
 
-On Thu, Apr 11, 2013 at 10:53:24AM -0700, Eric Dumazet wrote:
-> On Thu, 2013-04-11 at 09:32 -0700, Eric Dumazet wrote:
->=20
-> > Short update : I do not understand yet why this patch is not working.
-> >=20
-> > Normally, the reassembled packet should get the dst from the last skb
-> > (the one completing the packet)...
-> >=20
-> > I have to make more experiments.
->=20
-> OK I think I've nailed it, please try following patch (I tried it on
-> net-next, but it should apply on previous kernels)
->=20
-> Thanks !
-
-Thanks Eric, I've tested this patch here and it looks good.  Usually I
-see an oops within 30 mins or so with my workload, but with this
-change I've run for over two hours with no issues.
-
---=20
-Tom Parkin
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
-
---Fba/0zbH8Xs+Fj9o
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJRbbKGAAoJEJSMBmUKuovQB9EH/i5+HBY0Lcxd0jiUydtQFdbA
-XoLU0jj4pyKUTWmEhWBUCxh97RZUHwNaPbx7zJbrGWYrzhNTQHODd7PkkB9jRGSx
-D6JcUdvxI4+qQkMOuxuLLKJZmP9SgiXTFTQeHswnXunxJESCxhXwFo1hP4feGKP8
-PnPMFgWNVzuptsXr69wj/VFE5ePhzgqIRDG3Iao/n6ECr/EO3/A6l1Alq5tHIdTp
-T8c34h5RcOqZLXIMRHI60u3qAh7Q1EFmQCO2tyADRQmnyQy3PcjugaAvHvCvsBao
-MDYSwy/80Dc43lstox3ac7AyqV3/jrCy8ebb3Rn+PL7U6zfh9GWGXve5/yqrY10=
-=nBxN
------END PGP SIGNATURE-----
-
---Fba/0zbH8Xs+Fj9o--
+Thanks,
+- Haiyang
