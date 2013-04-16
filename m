@@ -1,23 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2013-04-16
-Date: Tue, 16 Apr 2013 16:41:39 -0400 (EDT)
-Message-ID: <20130416.164139.1373996274070546898.davem@davemloft.net>
-References: <516D2D2E.2050509@pengutronix.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net,stable-3.8] net: cdc_mbim: remove bogus sizeof()
+Date: Tue, 16 Apr 2013 16:42:05 -0400 (EDT)
+Message-ID: <20130416.164205.1278259494886221635.davem@davemloft.net>
+References: <1366107427-18380-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <516D2D2E.2050509@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	gpsuarez2512-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: bjorn-yOkvZcmFvRU@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1366107427-18380-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Tue, 16 Apr 2013 12:51:26 +0200
+=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Date: Tue, 16 Apr 2013 12:17:07 +0200
 
-> this is a pull-request for net-next/master. It consists of a patch by
-> Oliver Hartkopp. In this patch he cleans up the sja1000 header file by
-> using a common prefix for all sja1000 defines.
+> The intention was to test against the constant, not the size of
+> the constant.
+>=20
+> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 
-Pulled, thanks.
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
