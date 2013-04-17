@@ -1,54 +1,46 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 9/9] net: sctp: sctp_ulpq: do not use char as a struct member
-Date: Wed, 17 Apr 2013 17:28:47 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B71E5@saturn3.aculab.com>
-References: <1366146438-8815-1-git-send-email-dborkman@redhat.com> <1366146438-8815-10-git-send-email-dborkman@redhat.com> <20130417154552.GJ5149@hmsreliant.think-freely.org>
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Subject: Re: [Patch net-next v4 3/5] vxlan: add ipv6 support
+Date: Wed, 17 Apr 2013 19:34:51 +0300
+Message-ID: <CAF1J0HN3v7dFX_37ju6=j3nFq7UvOssKZ=NpHctdJy1nPAGfSw@mail.gmail.com>
+References: <1366175423-27310-1-git-send-email-amwang@redhat.com>
+	<1366175423-27310-4-git-send-email-amwang@redhat.com>
+	<CAF1J0HOYVCe-0MVE6-mxyjEOaEAWNR16Wpv7+CF6rxbEgBQ3GA@mail.gmail.com>
+	<1366192640.700.3.camel@cr0>
+	<CAF1J0HNu9i_N2AtxvKL=edsVbZpZCsJL0mh2HEfF2G28CYcHYA@mail.gmail.com>
+	<1366204692.700.8.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-sctp@vger.kernel.org>
-To: "Neil Horman" <nhorman@tuxdriver.com>,
-	"Daniel Borkmann" <dborkman@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:57962 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752314Ab3DQQbV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 12:31:21 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 28009-09 for <netdev@vger.kernel.org>;
- Wed, 17 Apr 2013 17:31:19 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <20130417154552.GJ5149@hmsreliant.think-freely.org>
+Received: from na3sys010aog104.obsmtp.com ([74.125.245.76]:37009 "HELO
+	na3sys010aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751160Ab3DQQex (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 12:34:53 -0400
+Received: by mail-oa0-f71.google.com with SMTP id o17so10636860oag.2
+        for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 09:34:51 -0700 (PDT)
+In-Reply-To: <1366204692.700.8.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >  /* A structure to carry information to the ULP (e.g. Sockets API) */
-> >  struct sctp_ulpq {
-> > -	char pd_mode;
-> >  	struct sctp_association *asoc;
-> >  	struct sk_buff_head reasm;
-> >  	struct sk_buff_head lobby;
-> > +	__u8 pd_mode:1;
-> >  };
-> >
-> 
-> Can you move the char (or __u8 if you prefer) to right after the reasm meber?  I
-> think theres a hole there that you can fill in
+On Wed, Apr 17, 2013 at 4:18 PM, Cong Wang <amwang@redhat.com> wrote:
+> On Wed, 2013-04-17 at 13:36 +0300, Mike Rapoport wrote:
+>> Well, I think that the address comparison helpers,
+>> vxlan_nla_{get,put}_addr, vxlan_newlink and vxlan_fill_info can be
+>> left with run-time checks only. Maybe some other places as well.
+>> Removing the ifdefs will increase compile time for kernels configured
+>> with IPV6=n, and may have certain run-time performance impact for such
+>> kernels. On the other hand, less ifdefs means better readability :).
+>
+> In theory, yes; in this case, I don't think having these ifdefs harms
+> the readability.
+>
 
-If there is a hole after 'reasm' there will also be one after 'lobby'.
-In any case it can't be worse than the 7 byte pad after pd_mode
-in the existing file.
+IMHO, the less ifdefs the better, but I can live with them as well :)
 
-In the other structure there is a uint32 preceding the three
-flag bytes - so unless some other stuff is moved making them
-bitfields won't change any sizes at all.
 
-FWIW we do use SCTP (for M3UA).
-The code has to be an order of magnitude slower than TCP!
-Never mind the difficulty in generating long ethernet frames
-(since the data flow means you have to disable nagle).
-
-	David.
+-- 
+Sincerely yours,
+Mike.
