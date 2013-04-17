@@ -1,47 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/5] tipc: add TIPC over Infiniband support
-Date: Wed, 17 Apr 2013 14:19:06 -0400 (EDT)
-Message-ID: <20130417.141906.1942482291109662532.davem@davemloft.net>
-References: <1366215509-18500-1-git-send-email-kaber@trash.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2 5/7] qlcnic: fix TSO race condition
+Date: Wed, 17 Apr 2013 11:36:25 -0700
+Message-ID: <1366223785.3205.30.camel@edumazet-glaptop>
+References: <1366218359-17701-1-git-send-email-shahed.shaikh@qlogic.com>
+	 <1366218359-17701-6-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, allan.stephens@windriver.com,
-	netdev@vger.kernel.org, roland@kernel.org, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, linux-rdma@vger.kernel.org
-To: kaber@trash.net
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Dept_NX_Linux_NIC_Driver@qlogic.com,
+	Sritej Velaga <sritej.velaga@qlogic.com>
+To: Shahed Shaikh <shahed.shaikh@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36199 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966081Ab3DQSTI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 14:19:08 -0400
-In-Reply-To: <1366215509-18500-1-git-send-email-kaber@trash.net>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:51132 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966121Ab3DQSg2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 14:36:28 -0400
+Received: by mail-pd0-f175.google.com with SMTP id g10so1004095pdj.6
+        for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 11:36:27 -0700 (PDT)
+In-Reply-To: <1366218359-17701-6-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 17 Apr 2013 18:18:24 +0200
+On Wed, 2013-04-17 at 13:05 -0400, Shahed Shaikh wrote:
+> From: Sritej Velaga <sritej.velaga@qlogic.com>
+> 
+> When driver receives a packet with gso size > 0 and when TSO is disabled,
+> it should be transmitted as a TSO packet to prevent Tx timeout and subsequent
+> firmware reset.
+> 
+> Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
+> Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+> ---
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+> index a85ca63..910346d 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+> @@ -362,8 +362,7 @@ set_flags:
+>  		memcpy(&first_desc->eth_addr, skb->data, ETH_ALEN);
+>  	}
+>  	opcode = TX_ETHER_PKT;
+> -	if ((adapter->netdev->features & (NETIF_F_TSO | NETIF_F_TSO6)) &&
+> -	    skb_shinfo(skb)->gso_size > 0) {
+> +	if (skb_is_gso(skb)) {
+>  		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
+>  		first_desc->mss = cpu_to_le16(skb_shinfo(skb)->gso_size);
+>  		first_desc->total_hdr_length = hdr_len;
 
-> The following patchset adds support for running TIPC over InfiniBand.
-> The patchset consists of three parts (+ a minor fix for the ethernet media
-> type):
-> 
-> - Preparation: removal of an the unused str2addr callback and move of the
->   bcast_addr from struct tipc_media to struct tipc_bearer. This is necessary
->   because InfiniBand doesn't have a fixed broadcast address like ethernet,
->   so it needs to be initialized with the device's broadcast address when
->   the bearer is enabled
-> 
-> - Introduction of a TIPC InfiniBand media type. A new media type is needed
->   to deal with the different address sizes
-> 
-> - Support for ETH_P_TIPC in IPoIB
-> 
-> Since the last posting I've addressed all feedback I received and rebased
-> to the current net-next tree.
-> 
-> I consider these patches ready for merging. Since they mainly affect TIPC
-> code, I'd propose to have them either go through the TIPC tree or through
-> Dave directly (not sure how TIPC patches are managed).
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-All applied to net-next, thanks!
+But its a real bug fix, targeted for net tree I presume.
