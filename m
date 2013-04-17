@@ -1,93 +1,45 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] [IrDA]: small read past the end of array in debug code
-Date: Wed, 17 Apr 2013 10:10:38 +0300
-Message-ID: <20130417071038.GA7923@elgon.mountain>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: Re: [PATCH] net/cpsw: don't disable_irqs() after an interrupt has
+ been received.
+Date: Wed, 17 Apr 2013 09:44:44 +0200
+Message-ID: <516E52EC.60901@linutronix.de>
+References: <1366136460-30732-1-git-send-email-bigeasy@linutronix.de> <516E3EED.4000200@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Samuel Ortiz <samuel@sortiz.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:40460 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965736Ab3DQHLH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 03:11:07 -0400
-Content-Disposition: inline
+Received: from www.linutronix.de ([62.245.132.108]:37781 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965776Ab3DQHor (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 03:44:47 -0400
+In-Reply-To: <516E3EED.4000200@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The "reason" can come from skb->data[] and it hasn't been capped so it
-can be from 0-255 instead of just 0-6.  For example in irlmp_state_dtr()
-the code does:
+On 04/17/2013 08:19 AM, Mugunthan V N wrote:
+> When using cpsw_intr_disable, it actually only disables future interrupts
+> from CPSW ip. But the current interrupt generated to interrupt controller
+> will be still pending and will not allow ARM to do any thing till either
+> interrups is disabled or acked, thus CPU will be in CPSW ISR continuously
+> and system will hang. This patch is applicable only when kernel is always
+> built with RT enabled which is not the current case in Vanilla kernel
 
-	reason = skb->data[3];
-	...
-	irlmp_disconnect_indication(self, reason, skb);
+I am not talking about RT, just threaded interrupts but yes I saw the
+problem first with RT.
 
-Also LMREASON has a couple other values which don't have entries in the
-irlmp_reasons[] array.  And 0xff is a valid reason as well which means
-"unknown".
+> I have tested this patch and it hangs the CPU after net open (CPSW init).
 
-So far as I can see we don't actually care about "reason" except for in
-the debug code.
+If I remove additionally the napi_schedule() piece then the network is
+dead (as expected) and the system continues to work (and I receive
+interrupts) and the ISR for cpsw is not executed again. What hardware /
+CPU do you have?
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> Regards
+> Mugunthan V N
 
-diff --git a/include/net/irda/irlmp.h b/include/net/irda/irlmp.h
-index f741091..f132924 100644
---- a/include/net/irda/irlmp.h
-+++ b/include/net/irda/irlmp.h
-@@ -256,7 +256,8 @@ static inline __u32 irlmp_get_daddr(const struct lsap_cb *self)
- 	return (self && self->lap) ? self->lap->daddr : 0;
- }
- 
--extern const char *irlmp_reasons[];
-+const char *irlmp_reason_str(LM_REASON reason);
-+
- extern int sysctl_discovery_timeout;
- extern int sysctl_discovery_slots;
- extern int sysctl_discovery;
-diff --git a/net/irda/irlmp.c b/net/irda/irlmp.c
-index 6115a44..1064621 100644
---- a/net/irda/irlmp.c
-+++ b/net/irda/irlmp.c
-@@ -66,8 +66,15 @@ const char *irlmp_reasons[] = {
- 	"LM_LAP_RESET",
- 	"LM_INIT_DISCONNECT",
- 	"ERROR, NOT USED",
-+	"UNKNOWN",
- };
- 
-+const char *irlmp_reason_str(LM_REASON reason)
-+{
-+	reason = min_t(size_t, reason, ARRAY_SIZE(irlmp_reasons) - 1);
-+	return irlmp_reasons[reason];
-+}
-+
- /*
-  * Function irlmp_init (void)
-  *
-@@ -747,7 +754,8 @@ void irlmp_disconnect_indication(struct lsap_cb *self, LM_REASON reason,
- {
- 	struct lsap_cb *lsap;
- 
--	IRDA_DEBUG(1, "%s(), reason=%s\n", __func__, irlmp_reasons[reason]);
-+	IRDA_DEBUG(1, "%s(), reason=%s [%d]\n", __func__,
-+		   irlmp_reason_str(reason), reason);
- 	IRDA_ASSERT(self != NULL, return;);
- 	IRDA_ASSERT(self->magic == LMP_LSAP_MAGIC, return;);
- 
-diff --git a/net/irda/iriap.c b/net/irda/iriap.c
-index 29340a9..e1b37f5 100644
---- a/net/irda/iriap.c
-+++ b/net/irda/iriap.c
-@@ -303,7 +303,8 @@ static void iriap_disconnect_indication(void *instance, void *sap,
- {
- 	struct iriap_cb *self;
- 
--	IRDA_DEBUG(4, "%s(), reason=%s\n", __func__, irlmp_reasons[reason]);
-+	IRDA_DEBUG(4, "%s(), reason=%s [%d]\n", __func__,
-+		   irlmp_reason_str(reason), reason);
- 
- 	self = instance;
- 
+Sebastian
