@@ -1,295 +1,41 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net-next v2 6/7] qlcnic: Fix endian data type.
-Date: Wed, 17 Apr 2013 13:05:58 -0400
-Message-ID: <1366218359-17701-7-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next v2 7/7] qlcnic: Update version to 5.2.41
+Date: Wed, 17 Apr 2013 13:05:59 -0400
+Message-ID: <1366218359-17701-8-git-send-email-shahed.shaikh@qlogic.com>
 References: <1366218359-17701-1-git-send-email-shahed.shaikh@qlogic.com>
 Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:27166 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:54436 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752272Ab3DQRbG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Apr 2013 13:31:06 -0400
+	id S1752272Ab3DQRbL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Apr 2013 13:31:11 -0400
 In-Reply-To: <1366218359-17701-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-o 82xx adapter requires VLAN id in little endian.
-  Fix it at correct place, use cpu_to_le16 for 82xx
-  adapter.
-
-Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |   13 ++++++-------
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |    6 +++---
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    4 ++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |    4 ++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |    4 ++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |   20 ++++++++------------
- .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |    4 ++--
- 7 files changed, 25 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 696d196..8bcc543 100644
+index 8bcc543..22f3418 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -947,7 +947,7 @@ struct qlcnic_ipaddr {
- struct qlcnic_filter {
- 	struct hlist_node fnode;
- 	u8 faddr[ETH_ALEN];
--	__le16 vlan_id;
-+	u16 vlan_id;
- 	unsigned long ftime;
- };
+@@ -38,8 +38,8 @@
  
-@@ -1533,8 +1533,7 @@ int qlcnic_init_pci_info(struct qlcnic_adapter *);
- int qlcnic_set_default_offload_settings(struct qlcnic_adapter *);
- int qlcnic_reset_npar_config(struct qlcnic_adapter *);
- int qlcnic_set_eswitch_port_config(struct qlcnic_adapter *);
--void qlcnic_add_lb_filter(struct qlcnic_adapter *, struct sk_buff *, int,
--			  __le16);
-+void qlcnic_add_lb_filter(struct qlcnic_adapter *, struct sk_buff *, int, u16);
- int qlcnic_83xx_configure_opmode(struct qlcnic_adapter *adapter);
- int qlcnic_read_mac_addr(struct qlcnic_adapter *);
- int qlcnic_setup_netdev(struct qlcnic_adapter *, struct net_device *, int);
-@@ -1604,7 +1603,7 @@ struct qlcnic_hardware_ops {
- 	int (*get_nic_info) (struct qlcnic_adapter *, struct qlcnic_info *, u8);
- 	int (*get_pci_info) (struct qlcnic_adapter *, struct qlcnic_pci_info *);
- 	int (*set_nic_info) (struct qlcnic_adapter *, struct qlcnic_info *);
--	int (*change_macvlan) (struct qlcnic_adapter *, u8*, __le16, u8);
-+	int (*change_macvlan) (struct qlcnic_adapter *, u8*, u16, u8);
- 	void (*napi_enable) (struct qlcnic_adapter *);
- 	void (*napi_disable) (struct qlcnic_adapter *);
- 	void (*config_intr_coal) (struct qlcnic_adapter *);
-@@ -1613,7 +1612,7 @@ struct qlcnic_hardware_ops {
- 	int (*config_loopback) (struct qlcnic_adapter *, u8);
- 	int (*clear_loopback) (struct qlcnic_adapter *, u8);
- 	int (*config_promisc_mode) (struct qlcnic_adapter *, u32);
--	void (*change_l2_filter) (struct qlcnic_adapter *, u64 *, __le16);
-+	void (*change_l2_filter) (struct qlcnic_adapter *, u64 *, u16);
- 	int (*get_board_info) (struct qlcnic_adapter *);
- };
- 
-@@ -1755,7 +1754,7 @@ static inline int qlcnic_set_nic_info(struct qlcnic_adapter *adapter,
- }
- 
- static inline int qlcnic_sre_macaddr_change(struct qlcnic_adapter *adapter,
--					    u8 *addr, __le16 id, u8 cmd)
-+					    u8 *addr, u16 id, u8 cmd)
- {
- 	return adapter->ahw->hw_ops->change_macvlan(adapter, addr, id, cmd);
- }
-@@ -1814,7 +1813,7 @@ static inline int qlcnic_nic_set_promisc(struct qlcnic_adapter *adapter,
- }
- 
- static inline void qlcnic_change_filter(struct qlcnic_adapter *adapter,
--					u64 *addr, __le16 id)
-+					u64 *addr, u16 id)
- {
- 	adapter->ahw->hw_ops->change_l2_filter(adapter, addr, id);
- }
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 7d0ebae..277fea1 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -1790,7 +1790,7 @@ static void qlcnic_83xx_set_interface_id_macaddr(struct qlcnic_adapter *adapter,
- }
- 
- int qlcnic_83xx_sre_macaddr_change(struct qlcnic_adapter *adapter, u8 *addr,
--				   __le16 vlan_id, u8 op)
-+				   u16 vlan_id, u8 op)
- {
- 	int err;
- 	u32 *buf, temp = 0;
-@@ -1807,7 +1807,7 @@ int qlcnic_83xx_sre_macaddr_change(struct qlcnic_adapter *adapter, u8 *addr,
- 	cmd.req.arg[1] = op | (1 << 8);
- 	qlcnic_83xx_set_interface_id_macaddr(adapter, &temp);
- 	cmd.req.arg[1] |= temp;
--	mv.vlan = le16_to_cpu(vlan_id);
-+	mv.vlan = vlan_id;
- 	mv.mac_addr0 = addr[0];
- 	mv.mac_addr1 = addr[1];
- 	mv.mac_addr2 = addr[2];
-@@ -1826,7 +1826,7 @@ int qlcnic_83xx_sre_macaddr_change(struct qlcnic_adapter *adapter, u8 *addr,
- }
- 
- void qlcnic_83xx_change_l2_filter(struct qlcnic_adapter *adapter, u64 *addr,
--				  __le16 vlan_id)
-+				  u16 vlan_id)
- {
- 	u8 mac[ETH_ALEN];
- 	memcpy(&mac, addr, ETH_ALEN);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index 32ed4b4..7e201cd 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -501,7 +501,7 @@ int qlcnic_83xx_clear_lb_mode(struct qlcnic_adapter *, u8);
- int qlcnic_83xx_config_hw_lro(struct qlcnic_adapter *, int);
- int qlcnic_83xx_config_rss(struct qlcnic_adapter *, int);
- int qlcnic_83xx_config_intr_coalesce(struct qlcnic_adapter *);
--void qlcnic_83xx_change_l2_filter(struct qlcnic_adapter *, u64 *, __le16);
-+void qlcnic_83xx_change_l2_filter(struct qlcnic_adapter *, u64 *, u16);
- int qlcnic_83xx_get_pci_info(struct qlcnic_adapter *, struct qlcnic_pci_info *);
- int qlcnic_83xx_set_nic_info(struct qlcnic_adapter *, struct qlcnic_info *);
- void qlcnic_83xx_register_nic_idc_func(struct qlcnic_adapter *, int);
-@@ -523,7 +523,7 @@ int qlcnic_83xx_get_nic_info(struct qlcnic_adapter *, struct qlcnic_info *, u8);
- int qlcnic_83xx_setup_link_event(struct qlcnic_adapter *, int);
- void qlcnic_83xx_process_rcv_ring_diag(struct qlcnic_host_sds_ring *);
- int qlcnic_83xx_config_intrpt(struct qlcnic_adapter *, bool);
--int qlcnic_83xx_sre_macaddr_change(struct qlcnic_adapter *, u8 *, __le16, u8);
-+int qlcnic_83xx_sre_macaddr_change(struct qlcnic_adapter *, u8 *, u16, u8);
- int qlcnic_83xx_get_mac_address(struct qlcnic_adapter *, u8 *);
- void qlcnic_83xx_configure_mac(struct qlcnic_adapter *, u8 *, u8,
- 			       struct qlcnic_cmd_args *);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-index 253b3ac..c3cbfae 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-@@ -423,7 +423,7 @@ qlcnic_send_cmd_descs(struct qlcnic_adapter *adapter,
- }
- 
- int qlcnic_82xx_sre_macaddr_change(struct qlcnic_adapter *adapter, u8 *addr,
--				   __le16 vlan_id, u8 op)
-+				   u16 vlan_id, u8 op)
- {
- 	struct qlcnic_nic_req req;
- 	struct qlcnic_mac_req *mac_req;
-@@ -441,7 +441,7 @@ int qlcnic_82xx_sre_macaddr_change(struct qlcnic_adapter *adapter, u8 *addr,
- 	memcpy(mac_req->mac_addr, addr, 6);
- 
- 	vlan_req = (struct qlcnic_vlan_req *)&req.words[1];
--	vlan_req->vlan_id = vlan_id;
-+	vlan_req->vlan_id = cpu_to_le16(vlan_id);
- 
- 	return qlcnic_send_cmd_descs(adapter, (struct cmd_desc_type0 *)&req, 1);
- }
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-index e862a77..95b1b57 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-@@ -159,7 +159,7 @@ int qlcnic_82xx_nic_set_promisc(struct qlcnic_adapter *adapter, u32);
- int qlcnic_82xx_napi_add(struct qlcnic_adapter *adapter,
- 			 struct net_device *netdev);
- void qlcnic_82xx_change_filter(struct qlcnic_adapter *adapter,
--			       u64 *uaddr, __le16 vlan_id);
-+			       u64 *uaddr, u16 vlan_id);
- void qlcnic_82xx_config_intr_coalesce(struct qlcnic_adapter *adapter);
- int qlcnic_82xx_config_rss(struct qlcnic_adapter *adapter, int);
- void qlcnic_82xx_config_ipaddr(struct qlcnic_adapter *adapter,
-@@ -181,7 +181,7 @@ int qlcnic_82xx_fw_cmd_create_tx_ctx(struct qlcnic_adapter *,
- void qlcnic_82xx_fw_cmd_del_rx_ctx(struct qlcnic_adapter *);
- void qlcnic_82xx_fw_cmd_del_tx_ctx(struct qlcnic_adapter *,
- 				   struct qlcnic_host_tx_ring *);
--int qlcnic_82xx_sre_macaddr_change(struct qlcnic_adapter *, u8 *, __le16, u8);
-+int qlcnic_82xx_sre_macaddr_change(struct qlcnic_adapter *, u8 *, u16, u8);
- int qlcnic_82xx_get_mac_address(struct qlcnic_adapter *, u8*);
- int qlcnic_82xx_get_nic_info(struct qlcnic_adapter *, struct qlcnic_info *, u8);
- int qlcnic_82xx_set_nic_info(struct qlcnic_adapter *, struct qlcnic_info *);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-index 910346d..791e1a2 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -162,7 +162,7 @@ static inline int qlcnic_82xx_is_lb_pkt(u64 sts_data)
- }
- 
- void qlcnic_add_lb_filter(struct qlcnic_adapter *adapter, struct sk_buff *skb,
--			  int loopback_pkt, __le16 vlan_id)
-+			  int loopback_pkt, u16 vlan_id)
- {
- 	struct ethhdr *phdr = (struct ethhdr *)(skb->data);
- 	struct qlcnic_filter *fil, *tmp_fil;
-@@ -240,7 +240,7 @@ void qlcnic_add_lb_filter(struct qlcnic_adapter *adapter, struct sk_buff *skb,
- }
- 
- void qlcnic_82xx_change_filter(struct qlcnic_adapter *adapter, u64 *uaddr,
--			       __le16 vlan_id)
-+			       u16 vlan_id)
- {
- 	struct cmd_desc_type0 *hwdesc;
- 	struct qlcnic_nic_req *req;
-@@ -265,7 +265,7 @@ void qlcnic_82xx_change_filter(struct qlcnic_adapter *adapter, u64 *uaddr,
- 	memcpy(mac_req->mac_addr, &uaddr, ETH_ALEN);
- 
- 	vlan_req = (struct qlcnic_vlan_req *)&req->words[1];
--	vlan_req->vlan_id = vlan_id;
-+	vlan_req->vlan_id = cpu_to_le16(vlan_id);
- 
- 	tx_ring->producer = get_next_index(producer, tx_ring->num_desc);
- 	smp_mb();
-@@ -281,7 +281,7 @@ static void qlcnic_send_filter(struct qlcnic_adapter *adapter,
- 	struct net_device *netdev = adapter->netdev;
- 	struct ethhdr *phdr = (struct ethhdr *)(skb->data);
- 	u64 src_addr = 0;
--	__le16 vlan_id = 0;
-+	u16 vlan_id = 0;
- 	u8 hindex;
- 
- 	if (ether_addr_equal(phdr->h_source, adapter->mac_addr))
-@@ -1028,8 +1028,7 @@ qlcnic_process_rcv(struct qlcnic_adapter *adapter,
- 	    (adapter->flags & QLCNIC_ESWITCH_ENABLED)) {
- 		t_vid = 0;
- 		is_lb_pkt = qlcnic_82xx_is_lb_pkt(sts_data0);
--		qlcnic_add_lb_filter(adapter, skb, is_lb_pkt,
--				     cpu_to_le16(t_vid));
-+		qlcnic_add_lb_filter(adapter, skb, is_lb_pkt, t_vid);
- 	}
- 
- 	if (length > rds_ring->skb_size)
-@@ -1106,8 +1105,7 @@ qlcnic_process_lro(struct qlcnic_adapter *adapter,
- 	    (adapter->flags & QLCNIC_ESWITCH_ENABLED)) {
- 		t_vid = 0;
- 		is_lb_pkt = qlcnic_82xx_is_lb_pkt(sts_data0);
--		qlcnic_add_lb_filter(adapter, skb, is_lb_pkt,
--				     cpu_to_le16(t_vid));
-+		qlcnic_add_lb_filter(adapter, skb, is_lb_pkt, t_vid);
- 	}
- 
- 	if (timestamp)
-@@ -1499,8 +1497,7 @@ qlcnic_83xx_process_rcv(struct qlcnic_adapter *adapter,
- 	    (adapter->flags & QLCNIC_ESWITCH_ENABLED)) {
- 		t_vid = 0;
- 		is_lb_pkt = qlcnic_83xx_is_lb_pkt(sts_data[1], 0);
--		qlcnic_add_lb_filter(adapter, skb, is_lb_pkt,
--				     cpu_to_le16(t_vid));
-+		qlcnic_add_lb_filter(adapter, skb, is_lb_pkt, t_vid);
- 	}
- 
- 	if (length > rds_ring->skb_size)
-@@ -1569,8 +1566,7 @@ qlcnic_83xx_process_lro(struct qlcnic_adapter *adapter,
- 	    (adapter->flags & QLCNIC_ESWITCH_ENABLED)) {
- 		t_vid = 0;
- 		is_lb_pkt = qlcnic_83xx_is_lb_pkt(sts_data[1], 1);
--		qlcnic_add_lb_filter(adapter, skb, is_lb_pkt,
--				     cpu_to_le16(t_vid));
-+		qlcnic_add_lb_filter(adapter, skb, is_lb_pkt, t_vid);
- 	}
- 	if (qlcnic_83xx_is_tstamp(sts_data[1]))
- 		data_offset = l4_hdr_offset + QLCNIC_TCP_TS_HDR_SIZE;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-index bed5056..3a86e16 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-@@ -548,7 +548,7 @@ err_out:
- 
- static int qlcnic_sriov_cfg_vf_def_mac(struct qlcnic_adapter *adapter,
- 				       struct qlcnic_vport *vp,
--				       u16 func, __le16 vlan, u8 op)
-+				       u16 func, u16 vlan, u8 op)
- {
- 	struct qlcnic_cmd_args cmd;
- 	struct qlcnic_macvlan_mbx mv;
-@@ -574,7 +574,7 @@ static int qlcnic_sriov_cfg_vf_def_mac(struct qlcnic_adapter *adapter,
- 	cmd.req.arg[1] |= ((vpid & 0xffff) << 16) | BIT_31;
- 
- 	addr = vp->mac;
--	mv.vlan = le16_to_cpu(vlan);
-+	mv.vlan = vlan;
- 	mv.mac_addr0 = addr[0];
- 	mv.mac_addr1 = addr[1];
- 	mv.mac_addr2 = addr[2];
+ #define _QLCNIC_LINUX_MAJOR 5
+ #define _QLCNIC_LINUX_MINOR 2
+-#define _QLCNIC_LINUX_SUBVERSION 40
+-#define QLCNIC_LINUX_VERSIONID  "5.2.40"
++#define _QLCNIC_LINUX_SUBVERSION 41
++#define QLCNIC_LINUX_VERSIONID  "5.2.41"
+ #define QLCNIC_DRV_IDC_VER  0x01
+ #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
+ 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
 -- 
 1.5.6
