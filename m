@@ -1,37 +1,111 @@
-From: Tomas Agartz <tlund@nxs.se>
-Subject: Re: No longer able to add iptunnel interface to bridge?
-Date: Wed, 17 Apr 2013 01:22:13 +0200 (CEST)
-Message-ID: <Pine.LNX.4.61.1304170119280.20041@envy.nxs.se>
-References: <Pine.LNX.4.61.1304151757340.20041@envy.nxs.se>
- <20130415111213.62c4d117@samsung-9>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH v3 net-next] bond: add support to read speed and duplex via ethtool
+Date: Tue, 16 Apr 2013 20:46:00 -0400
+Message-ID: <1366159560-14671-1-git-send-email-andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from envy.nxs.se ([212.247.200.182]:53323 "EHLO envy.nxs.se"
+Received: from mx1.redhat.com ([209.132.183.28]:10165 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965610Ab3DPXWR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Apr 2013 19:22:17 -0400
-In-Reply-To: <20130415111213.62c4d117@samsung-9>
+	id S1755871Ab3DQAww (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Apr 2013 20:52:52 -0400
+Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r3H0qqOQ023726
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 20:52:52 -0400
+Received: from gospo.rdu.redhat.com (gospo.rdu.redhat.com [10.13.136.34])
+	by int-mx01.intmail.prod.int.phx2.redhat.com (8.13.8/8.13.8) with ESMTP id r3H0qp4p009112
+	for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 20:52:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 15 Apr 2013, Stephen Hemminger wrote:
+This patch adds support for the get_settings ethtool op to the bonding
+driver.  This was motivated by users who wanted to get the speed of the
+bond and compare that against throughput to understand utilization.
+The behavior before this patch was added was problematic when computing
+line utilization after trying to get link-speed and throughput via SNMP.
 
-> On Mon, 15 Apr 2013 18:14:32 +0200 (CEST)
-> Tomas Agartz <tlund@nxs.se> wrote:
->
->> After rebooting my router/firewall (Debian Wheezy with debian 3.2.41-2 
->> kernel), I am no longer able to add an iptunnel to a bridge interface.
->
->
-> You created a network level (L3) tunnel, which starts with IP header. 
-> Bridging requires an Ethernet like (L2) tunnel, where packets start with 
-> Ethernet header.
+Output from ethtool looks like this for a round-robin bond:
 
-Yeah, looking further into this, i figured out a different (unrelated) 
-problem that was the real root cause. The fact that the tunnel was never 
-added to the bridge (and it has never been) was not related.
+Settings for bond0:
+	Supported ports: [ ]
+	Supported link modes:   Not reported
+	Supported pause frame use: No
+	Supports auto-negotiation: No
+	Advertised link modes:  Not reported
+	Advertised pause frame use: No
+	Advertised auto-negotiation: No
+	Speed: 11000Mb/s
+	Duplex: Full
+	Port: Other
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: off
+	MDI-X: Unknown
+	Link detected: yes
 
-Sorry for bothering you guys :)
+I tested this and verified it works as expected.  A test was also done
+on a version backported to an older kernel and it worked well there.
+
+v2: Switch to using ethtool_cmd_speed_set to set speed, added check to
+SLAVE_IS_OK for each slave in bond, dropped mode-specific calculations
+as they were not needed, and set port type to 'Other.'
+
+v3: Fix useless assignment and checkpatch warning.
+
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+---
+ drivers/net/bonding/bond_main.c | 32 ++++++++++++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 07401a3..b49ad07 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4222,6 +4222,37 @@ void bond_set_mode_ops(struct bonding *bond, int mode)
+ 	}
+ }
+ 
++static int bond_ethtool_get_settings(struct net_device *bond_dev,
++				     struct ethtool_cmd *ecmd)
++{
++	struct bonding *bond = netdev_priv(bond_dev);
++	struct slave *slave;
++	int i;
++	unsigned long speed = 0;
++
++	ecmd->duplex = DUPLEX_UNKNOWN;
++	ecmd->port = PORT_OTHER;
++
++	/* Since SLAVE_IS_OK returns false for all inactive or down slaves, we
++	 * do not need to check mode.  Though link speed might not represent
++	 * the true receive or transmit bandwidth (not all modes are symmetric)
++	 * this is an accurate maximum.
++	 */
++	read_lock(&bond->lock);
++	bond_for_each_slave(bond, slave, i) {
++		if (SLAVE_IS_OK(slave)) {
++			if (slave->speed != SPEED_UNKNOWN)
++				speed += slave->speed;
++			if (ecmd->duplex == DUPLEX_UNKNOWN &&
++			    slave->duplex != DUPLEX_UNKNOWN)
++				ecmd->duplex = slave->duplex;
++		}
++	}
++	ethtool_cmd_speed_set(ecmd, speed ? : SPEED_UNKNOWN);
++	read_unlock(&bond->lock);
++	return 0;
++}
++
+ static void bond_ethtool_get_drvinfo(struct net_device *bond_dev,
+ 				     struct ethtool_drvinfo *drvinfo)
+ {
+@@ -4233,6 +4264,7 @@ static void bond_ethtool_get_drvinfo(struct net_device *bond_dev,
+ 
+ static const struct ethtool_ops bond_ethtool_ops = {
+ 	.get_drvinfo		= bond_ethtool_get_drvinfo,
++	.get_settings		= bond_ethtool_get_settings,
+ 	.get_link		= ethtool_op_get_link,
+ };
+ 
+-- 
+1.8.1.4
