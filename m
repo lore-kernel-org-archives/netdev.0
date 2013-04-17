@@ -1,54 +1,104 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: Re: [PATCH] net/cpsw: don't disable_irqs() after an interrupt has
- been received.
-Date: Wed, 17 Apr 2013 11:02:48 +0200
-Message-ID: <516E6538.8060804@linutronix.de>
-References: <1366136460-30732-1-git-send-email-bigeasy@linutronix.de> <516E3EED.4000200@ti.com> <516E52EC.60901@linutronix.de> <516E6165.8050908@ti.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: ECMP ipv6 vs ipv4
+Date: Wed, 17 Apr 2013 11:03:21 +0200
+Message-ID: <516E6559.4070903@6wind.com>
+References: <1366012728.4975.13.camel@localhost>  <516C2212.4030502@6wind.com> <1366044816.4975.27.camel@localhost>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Mugunthan V N <mugunthanvnm@ti.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Wilco Baan Hofman <wilco@baanhofman.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:38051 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753611Ab3DQJCu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 05:02:50 -0400
-In-Reply-To: <516E6165.8050908@ti.com>
+Received: from mail-ee0-f41.google.com ([74.125.83.41]:49712 "EHLO
+	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753611Ab3DQJDW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 05:03:22 -0400
+Received: by mail-ee0-f41.google.com with SMTP id c1so645491eek.0
+        for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 02:03:21 -0700 (PDT)
+In-Reply-To: <1366044816.4975.27.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/17/2013 10:46 AM, Mugunthan V N wrote:
-> On 4/17/2013 1:14 PM, Sebastian Andrzej Siewior wrote:
->>> I have tested this patch and it hangs the CPU after net open (CPSW
->>> init).
->> If I remove additionally the napi_schedule() piece then the network is
->> dead (as expected) and the system continues to work (and I receive
->> interrupts) and the ISR for cpsw is not executed again. What hardware /
->> CPU do you have?
->>
-> I am testing on Beagle Bone black.
+Le 15/04/2013 18:53, Wilco Baan Hofman a =C3=A9crit :
+> On Mon, 2013-04-15 at 17:51 +0200, Nicolas Dichtel wrote:
+>> Le 15/04/2013 09:58, Wilco Baan Hofman a =C3=A9crit :
+>>> Hi,
+>>>
+>>> I'm working on a patch to implement 'nexthop weight' for multipath =
+ipv6.
+>>> However, the ECMPv6 implementation has a few flaws that are quite
+>>> annoying.
+>>>
+>>> One of the flaws is that the netlink nexthop API is asymmetrical, y=
+ou
+>>> can add nexthops through the netlink API, but when the result is
+>>> requested it is completely different, resulting in bird6 removing t=
+he
+>>> route as it does not match the initial route set.
+>> In fact, there is two ways to add ECMP routes:
+>> $ ip -6 route add 3ffe:304:124:2306::/64 \
+>> 	nexthop via fe80::230:1bff:feb4:e05c dev eth0 \
+>> 	nexthop via fe80::230:1bff:feb4:dd4f dev eth0
+>> or
+>> $ ip -6 route add 3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:dd4=
+f dev
+>> eth0
+>> $ ip -6 route append 3ffe:304:124:2306::/64 via fe80::230:1bff:feb4:=
+e05c dev
+>> eth0
+>
+>> Note that the second way matchs what is returned by the kernel (ie o=
+ne entry per
+>> nexthop).
+>
+> Sure, but how do we add nexthop weights and algorithm selection (hash=
+,
+> random) to this API? I personally prefer to have the routing behaviou=
+r
+> of ipv4 and ipv6 to be as similar as possible, as the basics are the
+> same anyway.
+You can use something like this:
 
-I have here vanila v3.8.4 + cpsw patches which were in net-next. As for
-the hardware:
+$ ip -6 route add 3ffe:304:124:2306::/64 dev eth0 nexthop via=20
+fe80::230:1bff:feb4:dd4f weight 1
+$ ip -6 route append 3ffe:304:124:2306::/64 dev eth0 nexthop via=20
+fe80::230:1bff:feb4:e05c weight 2
 
-[    0.000000] Machine: Generic AM33XX (Flattened Device Tree), model:
-TI AM335x BeagleBone
-[    0.000000] AM335X ES1.0 (neon )
+>
+>>>
+>>> Another one of the flaws is that if I add nexthop weight or algorit=
+hm
+>>> (weighted hash or weighted random) I need to add this to the main r=
+t
+>>> node, this seems like an inefficient memory structure, as this need=
+s to
+>>> be added to all the siblings as well.
+>> Nexthop weight (rtnh->rtnh_hops) is not implemented.
+>
+> Yes it is... in my tree, but I want to extend it to also include supp=
+ort
+> for algorithm for hash based, etc.. and to keep it as close to the
+> existing APIs as possible I think the nexthop structure makes the mos=
+t
+> sense for this.
+>
+>>>
+>>> I propose that we have a nexthop structure to an exclusive route,
+>>> similar what we have for IPv4, where we store the gateway, device a=
+nd
+>>> weight for all nexthops and the algorithm in the route. This would =
+make
+>>> the netlink API symmetrical again and fixes the n*n inefficiencies =
+when
+>>> adding routes (all siblings need to know about all siblings).
+>>>
+>>> What are your thoughts on this?
+The pro of the current implementation is that you can add or delete a n=
+exthop=20
+withtout removing the whole route. You don't need to list again all nex=
+thops=20
+each time you want to modify one.
 
-model name      : ARMv7 Processor rev 2 (v7l)
-CPU implementer : 0x41
-CPU architecture: 7
-CPU variant     : 0x3
-CPU part        : 0xc08
-CPU revision    : 2
-
-If we do have the same hardware and source why do I have different
-behavior? Can you send me your .config off-list?
-
-> Regards
-> Mugunthan V N
-
-Sebastian
+Nicolas
