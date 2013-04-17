@@ -1,136 +1,51 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: Re: [PATCH v6] net: sh_eth: Add support of device tree probe
-Date: Wed, 17 Apr 2013 16:54:02 +0900
-Message-ID: <516E551A.1030804@renesas.com>
-References: <1363675196-8940-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
- <51486699.6000908@cogentembedded.com> <514AB0CB.2030808@renesas.com>
- <516B0C59.3050207@cogentembedded.com> <516B6340.9090604@renesas.com>
- <516C4C70.7050802@cogentembedded.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net-next] net: cdc_ether: silence sparse __CHECK_ENDIAN__ warning
+Date: Wed, 17 Apr 2013 10:12:13 +0200
+Message-ID: <1366186333-5378-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	magnus.damm@gmail.com, kda@linux-powerpc.org,
-	horms+renesas@verge.net.au, mark.rutland@arm.com,
-	grant.likely@secretlab.ca
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+	Ming Lei <ming.lei@canonical.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor4.renesas.com ([210.160.252.174]:43640 "EHLO
-	relmlor4.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965738Ab3DQHyG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 03:54:06 -0400
-Received: from relmlir3.idc.renesas.com ([10.200.68.153])
- by relmlor4.idc.renesas.com ( SJSMS)
- with ESMTP id <0MLE009TG3A4OGB0@relmlor4.idc.renesas.com> for
- netdev@vger.kernel.org; Wed, 17 Apr 2013 16:54:04 +0900 (JST)
-Received: from relmlac4.idc.renesas.com ([10.200.69.24])
- by relmlir3.idc.renesas.com ( SJSMS)
- with ESMTP id <0MLE00G0L3A4MC60@relmlir3.idc.renesas.com> for
- netdev@vger.kernel.org; Wed, 17 Apr 2013 16:54:04 +0900 (JST)
-In-reply-to: <516C4C70.7050802@cogentembedded.com>
+Received: from canardo.mork.no ([148.122.252.1]:43586 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965860Ab3DQIMh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Apr 2013 04:12:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Remove warning introduced by commit 418fc57 ("usbnet: cdc-ether: apply
+usbnet_link_change"):
 
-(2013/04/16 3:52), Sergei Shtylyov wrote:
-> Hello.
->
-> On 15-04-2013 6:17, Nobuhiro Iwamatsu wrote:
->
->>>>>> This adds support of device tree probe for Renesas sh-ether driver.
->
->>>>>> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
->
->>>>>> V6: - Add renesas,sh-eth-gigabit, renesas,sh-eth-sh4 and
->>>>>> renesas,sh-eth-sh3-sh2 to compatible string.
->>>>>> - Remove sh-eth,register-type. This is supplemented by the
->>>>>> compatible string.
->>>>>> - Use the of_property_read_bool instead of of_find_property.
->>>>>> - Add sanity chheck for of_property_read_u32.
->>>>>> - Update document.
->>>>>> V5: - Rewrite sh_eth_parse_dt().
->>>>>> Remove of_device_is_available() and CONFIG_OF from support OF
->>>>>> checking function and re-add empty sh_eth_parse_dt().
->>>>>> - Add CONFIG_PM to definition of dev_pm_ops.
->>>>>> - Add CONFIG_OF to definition of of_device_id.
->>>>>> V4: - Remove empty sh_eth_parse_dt().
->>>>>> V3: - Remove empty sh_eth_parse_dt().
->>>>>> V3: - Removed sentnece of "needs-init" from document.
->>>>>> V2: - Removed ether_setup().
->>>>>> - Fixed typo from "sh-etn" to "sh-eth".
->>>>>> - Removed "needs-init" and sh-eth,endian from definition of DT.
->>>>>> - Changed "sh-eth,edmac-endian" instead of "sh-eth,edmac-big-endain"
->>>>>> in definition of DT.
->>>>>> ---
->>> [...]
->
->>>>>> @@ -2391,12 +2451,33 @@ static int sh_eth_drv_probe(struct platform_device
->>>>>> *pdev)
->>>>>> goto out_release;
->>>>>> }
->>>>>>
->>>>>> + if (np) {
->>>>>> + pd = sh_eth_parse_dt(&pdev->dev, ndev, np);
->>>>>> + if (pdev->dev.platform_data && pd) {
->>>>>> + struct sh_eth_plat_data *tmp =
->>>>>> + pdev->dev.platform_data;
->>>>>> + pd->set_mdio_gate = tmp->set_mdio_gate;
->>>>>> + pd->needs_init = tmp->needs_init;
->
->>>>> OK, so we can't fully convert this driver to the device tree due to
->>>>> procedural platform data.
->
->>>> > I then would advice just using OF_DEV_AUXDATA() in the platform data
->
->>> /sdata/code/.
->
->>>> instead of trying to convert the driver to device tree.
->
->>> Convert the platfrom data, I meant. But I already wrote about that I think.
->
->>>> Yes, I knew about this.
->
->>> But still attempted to document and use the data-only device tree properties
->>> (which was pointless in the light of procediral platfrom data)?
->
->> Yes, I added this information to next patch.
->
-> WHich information, I didn't understand?
+   CHECK   .../drivers/net/usb/cdc_ether.c
+ .../drivers/net/usb/cdc_ether.c:409:46: warning: incorrect type in arg=
+ument 2 (different base types)
+ .../drivers/net/usb/cdc_ether.c:409:46:    expected bool [unsigned] [u=
+sertype] <noident>
+ .../drivers/net/usb/cdc_ether.c:409:46:    got restricted __le16 [user=
+type] wValue
 
-sorry, I was not understand your mail by mistake.
-You believe that without OF_DEV_AUXDATA, that it should be fully migrated to the DT from platformdata. right?
+Cc: Ming Lei <ming.lei@canonical.com>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+ drivers/net/usb/cdc_ether.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
->
->>>>>> +
->>>>>> +#ifdef CONFIG_OF
->>>>>> +static const struct of_device_id sh_eth_match[] = {
->>>>>> + { .compatible = "renesas,sh-eth-gigabit", },
->>>>>> + { .compatible = "renesas,sh-eth-sh4", },
->>>>>> + { .compatible = "renesas,sh-eth-sh3-sh2", },
->
->>>> Therefore, the compatible property of this device becomes <CPU>-sh-eth
->>>> or <CPU>-sh-eth-<ETHER TYPE>.
->
->>>> How about this?
->
->>> Sounds better. I think however that the conversion of this driver to device
->>> tree shouldn't be done without getting rid of the current #ifdef mess in it
->>> (which is still on my agenda). I think that the 'register_type' field should
->>> move from the platform data to the 'struct sh_eth_cpu_data' in the process.
->
->> I see. this problem will fix next step, I think.
->
-> No, not at all. If we don't get rid of the #ifdef mess, adding device tree support will have to add even more of it.
->
-
-But sh-eth was used by SH and sh-mobile.
-I think we can migrate to DT.
-However, I think it is not possible to remove idfef completely immediately.
-
->> Best regards,
->> Nobuhiro
->
-> WBR, Sergei
->
->
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index e965806..4ff71d6 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -406,7 +406,7 @@ void usbnet_cdc_status(struct usbnet *dev, struct u=
+rb *urb)
+ 	case USB_CDC_NOTIFY_NETWORK_CONNECTION:
+ 		netif_dbg(dev, timer, dev->net, "CDC: carrier %s\n",
+ 			  event->wValue ? "on" : "off");
+-		usbnet_link_change(dev, event->wValue, 0);
++		usbnet_link_change(dev, !!event->wValue, 0);
+ 		break;
+ 	case USB_CDC_NOTIFY_SPEED_CHANGE:	/* tx/rx rates */
+ 		netif_dbg(dev, timer, dev->net, "CDC: speed change (len %d)\n",
+--=20
+1.7.10.4
