@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/9] Minor SCTP cleanups all over the place
-Date: Wed, 17 Apr 2013 14:13:21 -0400 (EDT)
-Message-ID: <20130417.141321.1161500597576212704.davem@davemloft.net>
-References: <1366146438-8815-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH net-next] net: cdc_ether: silence sparse
+ __CHECK_ENDIAN__ warning
+Date: Wed, 17 Apr 2013 14:15:55 -0400 (EDT)
+Message-ID: <20130417.141555.291218128238374912.davem@davemloft.net>
+References: <1366186333-5378-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: dborkman@redhat.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, ming.lei@canonical.com
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36093 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36147 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964924Ab3DQSNX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 14:13:23 -0400
-In-Reply-To: <1366146438-8815-1-git-send-email-dborkman@redhat.com>
+	with ESMTP id S966324Ab3DQSP4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 14:15:56 -0400
+In-Reply-To: <1366186333-5378-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Tue, 16 Apr 2013 23:07:09 +0200
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Wed, 17 Apr 2013 10:12:13 +0200
 
-> That's a batch of cleanups for the SCTP protocol. Probably all
-> deadly boring and trivial patches, but it always bugs me. :-) I
-> guess this is still from the very SCTP beginning in Linux. Well,
-> at least we can now remove 41 lines of code in total. lksctp-tools
-> test suite run through without problems.
-> 
-> Daniel Borkmann (9):
->   net: sctp: sctp_ssnmap: remove 'malloced' element from struct
->   net: sctp: sctp_inq: remove dead code
->   net: sctp: sctp_outq: remove 'malloced' from its struct
->   net: sctp: sctp_outq: consolidate chars into bitfield
->   net: sctp: outqueue: simplify sctp_outq_uncork function
->   net: sctp: sctp_transport: remove unused variable
->   net: sctp: sctp_bind_addr: remove dead code
->   net: sctp: sctp_ulpq: remove 'malloced' struct member
->   net: sctp: sctp_ulpq: do not use char as a struct member
+> Remove warning introduced by commit 418fc57 ("usbnet: cdc-ether: appl=
+y
+> usbnet_link_change"):
+>=20
+>    CHECK   .../drivers/net/usb/cdc_ether.c
+>  .../drivers/net/usb/cdc_ether.c:409:46: warning: incorrect type in a=
+rgument 2 (different base types)
+>  .../drivers/net/usb/cdc_ether.c:409:46:    expected bool [unsigned] =
+[usertype] <noident>
+>  .../drivers/net/usb/cdc_ether.c:409:46:    got restricted __le16 [us=
+ertype] wValue
+>=20
+> Cc: Ming Lei <ming.lei@canonical.com>
+> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
 
-All applied except for #4 and #9, thanks.
+Applied.
