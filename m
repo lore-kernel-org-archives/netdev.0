@@ -1,47 +1,56 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 1/1] qlcnic: fix beaconing test for 82xx adapter
-Date: Wed, 17 Apr 2013 00:11:10 -0400
-Message-ID: <1366171870-15793-1-git-send-email-shahed.shaikh@qlogic.com>
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
-To: davem@davemloft.net
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next v4 0/5] vxlan: add ipv6 support
+Date: Wed, 17 Apr 2013 13:10:17 +0800
+Message-ID: <1366175423-27310-1-git-send-email-amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:21554 "HELO linux-zupk.site"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754187Ab3DQEfB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Apr 2013 00:35:01 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:55798 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752204Ab3DQFKd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Apr 2013 01:10:33 -0400
+Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r3H5AWja015879
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 01:10:33 -0400
+Received: from cr0.sunraytvi.com (vpn1-115-1.nay.redhat.com [10.66.115.1])
+	by int-mx12.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id r3H5ARnZ025015
+	for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 01:10:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+From: Cong Wang <amwang@redhat.com>
 
-o Commit 319ecf121e1da3d75dd1bde32fed255532e61797
-  ("qlcnic: 83xx sysfs routines") introduced regression
-  for beaconing test while refactoring 82xx code. This patch is to
-  revert code to fix beaconing test for 82xx adapter.
+v4: rename ->sin to ->va_sin
+    rename ->sin6 to ->va_sin6
+    rename ->family to ->va_sa
+    support ll addr
+    fix more ugly #ifdef
+    rebased on the latest net-next
 
-Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+v3: fix many coding style issues
+    fix some ugly #ifdef
+    rename vxlan_ip to vxlan_addr
+    rename ->proto to ->family
+    rename ->ip4/->ip6 to ->sin/->sin6
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-index 987fb6f..5ef328a 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-@@ -200,10 +200,10 @@ beacon_err:
- 	}
- 
- 	err = qlcnic_config_led(adapter, b_state, b_rate);
--	if (!err)
-+	if (!err) {
- 		err = len;
--	else
- 		ahw->beacon_state = b_state;
-+	}
- 
- 	if (test_and_clear_bit(__QLCNIC_DIAG_RES_ALLOC, &adapter->state))
- 		qlcnic_diag_free_res(adapter->netdev, max_sds_rings);
+v2: fix some compile error when !CONFIG_IPV6
+    improve some code based on Stephen's comments
+    use sockaddr suggested by David
+
+
+Cong Wang (5):
+  vxlan: defer vxlan init as late as possible
+  ipv6: export ipv6_sock_mc_join and ipv6_sock_mc_drop
+  vxlan: add ipv6 support
+  vxlan: add scope_id support for ll addr
+  ipv6: Add generic UDP Tunnel segmentation
+
+ drivers/net/vxlan.c          |  656 +++++++++++++++++++++++++++++++++---------
+ include/uapi/linux/if_link.h |    2 +
+ net/ipv6/ip6_offload.c       |    4 +-
+ net/ipv6/mcast.c             |    2 +
+ net/ipv6/udp_offload.c       |  155 +++++++---
+ 5 files changed, 633 insertions(+), 186 deletions(-)
+
 -- 
-1.5.6
+1.7.7.6
