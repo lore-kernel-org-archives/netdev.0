@@ -1,45 +1,73 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH] net/cpsw: don't disable_irqs() after an interrupt has
- been received.
-Date: Wed, 17 Apr 2013 17:14:04 +0530
-Message-ID: <516E8B04.3090102@ti.com>
+From: Dean Jenkins <Dean_Jenkins@mentor.com>
+Subject: D-Link DUB E100 C1 not working when pinged by "ping 172.17.0.1 -c
+ 1 -s 1965"
+Date: Wed, 17 Apr 2013 12:55:37 +0100
+Message-ID: <516E8DB9.9060805@mentor.com>
 References: <1366136460-30732-1-git-send-email-bigeasy@linutronix.de> <516E3EED.4000200@ti.com> <516E52EC.60901@linutronix.de> <516E6165.8050908@ti.com> <516E6538.8060804@linutronix.de> <516E7492.9090608@ti.com> <516E7E26.10603@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	<netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Lucas Stach <dev@lynxeye.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:41836 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966070Ab3DQLoU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Apr 2013 07:44:20 -0400
+Received: from relay1.mentorg.com ([192.94.38.131]:53794 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966064Ab3DQL4r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 07:56:47 -0400
 In-Reply-To: <516E7E26.10603@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/17/2013 4:19 PM, Sebastian Andrzej Siewior wrote:
-> On 04/17/2013 12:08 PM, Mugunthan V N wrote:
->> Mine shows [    0.000000] AM335X ES2.0 (neon )
->>
->> In Beagle bone (silicon revision 1.0) there is a bug in CPSW irq in
->> Silicon, please refer
->> http://www.ti.com/lit/er/sprz360e/sprz360e.pdf  Advisory 1.0.9
->>
->> Beagle bone black has Silicon revision 2.0 where the bug is fixed and
->> you are able
->> to test it properly and it hangs in my bone black as the IRQ is properly
->> connected
->> to A8
-> Okay. This would explain things. So let me try it again without
-> breaking the new one. If you disable_irq() there is no need to mask the
-> source in chip, right?
->
-Yes, May be we can try. If the performance is more then we can think of 
-removing
-disabling interrupt in CPSW and use only disable ARM irq.
+Hi,
 
-Regards
-Mugunthan V N
+I think the drivers/net/usb/asix.c drivers is broken for the C1 hardware 
+of the D-Link DUB E100 USB Ethernet Adapter.
+
+I setup my ARM target board with D-Link DUB E100 C1 USB Ethernet Adapter 
+by using
+ifconfig eth0 172.17.0.1
+
+On a Linux PC directly connected via an Ethernet cable to the target I do
+ping 172.17.0.1 -c 1 -s 1965
+
+but no response is received by the PC.
+
+The ARM target generates errors such as:
+[  202.519377] asix 1-2:1.0: eth0: asix_rx_fixup() Bad Header Length
+[  202.525593] asix 1-2:1.0: eth0: asix_rx_fixup() Bad RX Length 1925
+
+Note that this following ping works OK by shortening the length by 1:
+ping 172.17.0.1 -c 1 -s 1964
+
+Note that this ping test causes IP fragmentation to be used.
+
+I am using a modified 2.6.34.13 kernel with back-ported changes for the 
+ASIX driver.
+
+I note that Linux 3.9-rc7 has an additional change to asix_rx_fixup() 
+that looks helpful. I backported that commit 
+8b5b6f5413e97c3e8bafcdd67553d508f4f698cd to the ARM now
+ping 172.17.0.1 -c 1 -s 1965
+
+gives the following run-time kernel errors on the ARM target and the 
+ping does not work
+[ 1193.872116] asix 1-2:1.0: eth0: asix_rx_fixup() Bad Header Length 
+0xffff2f13, offset 6
+
+It is possible that my back-porting is wrong or I have commits missing.
+
+As the ping test is simple, please can anyone with a D-Link DUB E100 C1 
+USB Ethernet Adapter run my ping test on any platform to see whether any 
+Linux version has a working ASIX driver for this C1 hardware.
+
+I note that the ASIX driver split into multiple files in Linux 3.6 which 
+complicates back-porting.
+
+Thanks for any observations of a working ASIX driver for this C1 
+hardware variant using my ping test.
+
+Regards,
+Dean Jenkins
+Mentor Graphics
