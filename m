@@ -1,49 +1,39 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: GroupOrderList does not work for windows8?
-Date: Wed, 17 Apr 2013 10:24:07 -0400
-Message-ID: <516EB087.9020703@oracle.com>
-References: <516EB051.3000405@oracle.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: oops in udpv6_sendmsg
+Date: Wed, 17 Apr 2013 07:27:36 -0700
+Message-ID: <1366208856.3205.23.camel@edumazet-glaptop>
+References: <20130329184006.GA23893@redhat.com>
+	 <1364582958.5113.49.camel@edumazet-glaptop>
+	 <1364865839.5113.165.camel@edumazet-glaptop>
+	 <20130417010213.GA9027@redhat.com>
+	 <1366164132.3205.21.camel@edumazet-glaptop>
+	 <20130417141138.GA17648@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:34562 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966465Ab3DQOYL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 10:24:11 -0400
-Received: from acsinet22.oracle.com (acsinet22.oracle.com [141.146.126.238])
-	by userp1040.oracle.com (Sentrion-MTA-4.3.1/Sentrion-MTA-4.3.1) with ESMTP id r3HEO9IX000421
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 14:24:10 GMT
-Received: from aserz7022.oracle.com (aserz7022.oracle.com [141.146.126.231])
-	by acsinet22.oracle.com (8.14.4+Sun/8.14.4) with ESMTP id r3HEO9lO004335
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 14:24:09 GMT
-Received: from abhmt112.oracle.com (abhmt112.oracle.com [141.146.116.64])
-	by aserz7022.oracle.com (8.14.4+Sun/8.14.4) with ESMTP id r3HEO9wa004329
-	for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 14:24:09 GMT
-In-Reply-To: <516EB051.3000405@oracle.com>
+Received: from mail-da0-f49.google.com ([209.85.210.49]:36756 "EHLO
+	mail-da0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966441Ab3DQO1j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 10:27:39 -0400
+Received: by mail-da0-f49.google.com with SMTP id t11so804879daj.8
+        for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 07:27:39 -0700 (PDT)
+In-Reply-To: <20130417141138.GA17648@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry, I sent the wrong mail list, please ignore this.
+On Wed, 2013-04-17 at 10:11 -0400, Dave Jones wrote:
+> On Tue, Apr 16, 2013 at 07:02:12PM -0700, Eric Dumazet wrote:
 
-Thanks
-Annie
-On 2013-4-17 10:23, annie li wrote:
-> Hi
->
-> I need to boot my bus driver before pci dirver, and I put my driver 
-> tag in front of pci tag in Boot Bus Extender key of GroupOrderList, 
-> just like suggested in http://support.microsoft.com/kb/115486.
->
-> This way works well for window2012, but it never works for windows8. 
-> It seems windows8 does not care about any change I did in 
-> GroupOrderList. I enabled Verbose boot and the log shows pci is loaded 
-> before my bus driver even though I put the tag of my bus driver in 
-> front of tag of pci in GroupOrderList. Is it a known issue in 
-> windows8? Anyone hit similar issue? Thanks.
->
-> Thanks
-> Annie
+> good news is that with some changes, I was able to make current
+> trinity reproduce this in seconds rather than hours..
+> 
+> ./trinity -q -l off -n -c sendmsg -c connect 
+> 
+> on current tree seems to reliably trigger it for me.
+
+Good new indeed, I got a crash in 2 seconds
+
+(have to reproduce it because I lost the console output)
