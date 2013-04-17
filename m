@@ -1,53 +1,47 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH V6] Bundle fixes for Xen netfront / netback
-Date: Wed, 17 Apr 2013 19:17:40 +0100
-Message-ID: <20130417181740.GF5815@zion.uk.xensource.com>
-References: <1366220523-14579-1-git-send-email-wei.liu2@citrix.com>
- <20130417.140900.40803700259873477.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/5] tipc: add TIPC over Infiniband support
+Date: Wed, 17 Apr 2013 14:19:06 -0400 (EDT)
+Message-ID: <20130417.141906.1942482291109662532.davem@davemloft.net>
+References: <1366215509-18500-1-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"wdauchy@gmail.com" <wdauchy@gmail.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, allan.stephens@windriver.com,
+	netdev@vger.kernel.org, roland@kernel.org, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, linux-rdma@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:48839 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965837Ab3DQSRl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 14:17:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20130417.140900.40803700259873477.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36199 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966081Ab3DQSTI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 14:19:08 -0400
+In-Reply-To: <1366215509-18500-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 17, 2013 at 07:09:00PM +0100, David Miller wrote:
-> From: Wei Liu <wei.liu2@citrix.com>
-> Date: Wed, 17 Apr 2013 18:41:59 +0100
-> 
-> > Final round of this series. All acked and ready to go in.
-> 
-> Does not apply to net-next.
-> 
-> [davem@drr net-next]$ git am --signoff bundle-4170-xen.mbox 
-> Applying: xen-netfront: frags -> slots in log message
-> Applying: xen-netfront: reduce gso_max_size to account for max TCP header
-> Applying: xen-netback: coalesce slots in TX path and fix regressions
-> error: patch failed: drivers/net/xen-netback/netback.c:1548
-> error: drivers/net/xen-netback/netback.c: patch does not apply
-> Patch failed at 0003 xen-netback: coalesce slots in TX path and fix regressions
-> The copy of the patch that failed is found in:
->    /home/davem/src/GIT/net-next/.git/rebase-apply/patch
-> When you have resolved this problem run "git am --resolved".
-> If you would prefer to skip this patch, instead run "git am --skip".
-> To restore the original branch and stop patching run "git am --abort".
-> 
-> Please stop wasting my time.
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 17 Apr 2013 18:18:24 +0200
 
-Sorry Dave, I didn't mean to waste your time. I will rebase my patches
-and post the really final series.
+> The following patchset adds support for running TIPC over InfiniBand.
+> The patchset consists of three parts (+ a minor fix for the ethernet media
+> type):
+> 
+> - Preparation: removal of an the unused str2addr callback and move of the
+>   bcast_addr from struct tipc_media to struct tipc_bearer. This is necessary
+>   because InfiniBand doesn't have a fixed broadcast address like ethernet,
+>   so it needs to be initialized with the device's broadcast address when
+>   the bearer is enabled
+> 
+> - Introduction of a TIPC InfiniBand media type. A new media type is needed
+>   to deal with the different address sizes
+> 
+> - Support for ETH_P_TIPC in IPoIB
+> 
+> Since the last posting I've addressed all feedback I received and rebased
+> to the current net-next tree.
+> 
+> I consider these patches ready for merging. Since they mainly affect TIPC
+> code, I'd propose to have them either go through the TIPC tree or through
+> Dave directly (not sure how TIPC patches are managed).
 
-
-Wei.
+All applied to net-next, thanks!
