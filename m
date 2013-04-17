@@ -1,106 +1,139 @@
-From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be active
-Date: Wed, 17 Apr 2013 09:56:33 +0800
-Message-ID: <CACVXFVMN4N2EJ0RSzcr8TuUM0ABcJzFSOotaib4Rb-1AJTLHiQ@mail.gmail.com>
-References: <20110727141246.GC29616@orbit.nwl.cc>
-	<1366041560.5649.0.camel@dcbw.foobar.com>
-	<CACVXFVOpd6LLjYcz5smx5NktS=+jN74uePSPq7DAeUfpmNYm4w@mail.gmail.com>
-	<1637650.tuYfvStuVJ@linux-5eaq.site>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: oops in udpv6_sendmsg
+Date: Tue, 16 Apr 2013 19:02:12 -0700
+Message-ID: <1366164132.3205.21.camel@edumazet-glaptop>
+References: <20130329184006.GA23893@redhat.com>
+	 <1364582958.5113.49.camel@edumazet-glaptop>
+	 <1364865839.5113.165.camel@edumazet-glaptop>
+	 <20130417010213.GA9027@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Rory Filer <rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
-	Phil Sutter <phil-ydcDiazATMQ@public.gmane.org>
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1637650.tuYfvStuVJ-7ztolUikljGernLeA6q8OA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f45.google.com ([209.85.210.45]:39677 "EHLO
+	mail-da0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936095Ab3DQCCQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Apr 2013 22:02:16 -0400
+Received: by mail-da0-f45.google.com with SMTP id v40so523543dad.32
+        for <netdev@vger.kernel.org>; Tue, 16 Apr 2013 19:02:15 -0700 (PDT)
+In-Reply-To: <20130417010213.GA9027@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 16, 2013 at 3:57 PM, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> wrote:
-> On Tuesday 16 April 2013 09:15:45 Ming Lei wrote:
->> On Mon, Apr 15, 2013 at 11:59 PM, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
->> >
->> > So, what was the general consensus on this one?  I know Oliver signed
->> > off on it, but the discussion about memflags seemed to die out without a
->> > specific conclusion.  davem might be looking for that conclusion before
->> > moving forward with the series :)
->>
->> Suggest to remove the memflags parameter, because:
->>
->> - the probable issue addressed by introducing memflags is a general issue
->> of all USB drivers, also very corener one, not a specific one on usbnet, and
->> the issue only exists on devices with at least one mass storage interface and
->> another non-mass-storage interface, and it is not considered by other USB
->> drivers now.
->
-> Generally, saying that somebody else has a problem is not an argument
-> as long as the fix is very simple. Of course it is a corner case, but why
-> fail to solve it as long as the cost is extremely low?
+On Tue, 2013-04-16 at 21:02 -0400, Dave Jones wrote:
+> On Mon, Apr 01, 2013 at 06:23:59PM -0700, Eric Dumazet wrote:
+>  > On Fri, 2013-03-29 at 11:49 -0700, Eric Dumazet wrote:
+>  > > On Fri, 2013-03-29 at 14:40 -0400, Dave Jones wrote:
+>  > > > Just hit this on Linus' current tree.
+>  > > > 
+>  > > > BUG: unable to handle kernel NULL pointer dereference at 0000000000000031
+>  > > > IP: [<ffffffff8166ca6b>] udpv6_sendmsg+0x34b/0xa90
+>  > > > 
+>  > > > Looks like the last line of an inlined __ip6_dst_store() call. So line 1243 of net/ipv6/udp.c
+>  > > > 
+>  > > > 	Dave
+>  > > 
+>  > > Yes, I had the same problem on my lab machine yesterday and was working
+>  > > on it (Using a linux-3.3.8 code base)
+>  > > 
+>  > > In my case, the invalid rt6i_node value was 0x66b579de
+>  > 
+>  > I am mystified by this problem, I could not reproduce it...
+> 
+> Still chasing this. It mutated a little..
+> 
+> general protection fault: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+> Modules linked in: dlci fuse vmw_vsock_vmci_transport vmw_vmci vsock tun rfcomm cmtp kernelcapi bnep hidp l2tp_ppp l2tp_netlink l2tp_core scsi_transport_iscsi ipt_ULOG can_bcm nfc rds can_raw irda rose caif_socket atm llc2 can caif x25 ipx nfnetlink p8023 p8022 netrom appletalk phonet af_key af_rxrpc af_802154 pppoe crc_ccitt decnet psnap ax25 pppox llc ppp_generic slhc dccp_ipv6 dccp_ipv4 dccp sctp libcrc32c lockd sunrpc ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 xt_conntrack nf_conntrack ip6table_filter ip6_tables snd_hda_codec_realtek kvm_amd snd_hda_intel raid0 kvm snd_hda_codec snd_pcm btusb bluetooth microcode serio_raw edac_core pcspkr snd_page_alloc snd_timer snd rfkill soundcore r8169 mii radeon backlight drm_kms_helper ttm
+> CPU 0 
+> Pid: 483153, comm: trinity-child0 Not tainted 3.9.0-rc7+ #24 Gigabyte Technology Co., Ltd. GA-MA78GM-S2H/GA-MA78GM-S2H
+> RIP: 0010:[<ffffffff8164d45f>]  [<ffffffff8164d45f>] ip6_append_data+0x4ff/0xeb0
+> RSP: 0018:ffff88010cc1b9b8  EFLAGS: 00010286
+> RAX: 7ae9fffffff2b8ff RBX: 0000000000000000 RCX: ffff88010cc1ba28
+> RDX: 00000000000000d0 RSI: 0000000000000048 RDI: ffff88010238f000
+> RBP: ffff88010cc1ba60 R08: 0000000000000030 R09: 0000000000000008
+> R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000008
+> R13: 0000000000000008 R14: ffff88010238f000 R15: 0000000000000008
+> FS:  00007fc506daa740(0000) GS:ffff88012a600000(0000) knlGS:0000000000000000
+> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> CR2: 00007fc505adc000 CR3: 0000000104a3f000 CR4: 00000000000007f0
+> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> Process trinity-child0 (pid: 483153, threadinfo ffff88010cc1a000, task ffff88010479a490)
+> Stack:
+>  0000000000000002 0000000000000000 000000200479a490 0000003000000010
+>  ffff880100000000 ffff88010238f2a0 0000002800000008 ffffffff00000000
+>  ffff88010cc1bdb0 ffffffff815c90e0 ffff880100000008 000000000000fff0
+> Call Trace:
+>  [<ffffffff815c90e0>] ? ip_reply_glue_bits+0x60/0x60
+>  [<ffffffff8166cfa8>] udpv6_sendmsg+0x278/0xa90
+>  [<ffffffff8100a144>] ? native_sched_clock+0x24/0x80
+>  [<ffffffff810b3358>] ? trace_hardirqs_off_caller+0x28/0xc0
+>  [<ffffffff8160798c>] inet_sendmsg+0x10c/0x220
+>  [<ffffffff81607885>] ? inet_sendmsg+0x5/0x220
+>  [<ffffffff81567d67>] sock_sendmsg+0xb7/0xe0
+>  [<ffffffff8100a144>] ? native_sched_clock+0x24/0x80
+>  [<ffffffff810b3472>] ? get_lock_stats+0x22/0x70
+>  [<ffffffff810b3b9e>] ? put_lock_stats.isra.27+0xe/0x40
+>  [<ffffffff810b419c>] ? lock_release_holdtime.part.28+0x9c/0x150
+>  [<ffffffff815784b6>] ? verify_iovec+0x56/0xd0
+>  [<ffffffff81568a7e>] __sys_sendmsg+0x3ae/0x3c0
+>  [<ffffffff8100a144>] ? native_sched_clock+0x24/0x80
+>  [<ffffffff810b3472>] ? get_lock_stats+0x22/0x70
+>  [<ffffffff810b3b9e>] ? put_lock_stats.isra.27+0xe/0x40
+>  [<ffffffff810b41e5>] ? lock_release_holdtime.part.28+0xe5/0x150
+>  [<ffffffff8100a144>] ? native_sched_clock+0x24/0x80
+>  [<ffffffff810b3358>] ? trace_hardirqs_off_caller+0x28/0xc0
+>  [<ffffffff8156abb9>] sys_sendmsg+0x49/0x90
+>  [<ffffffff816cdfc2>] system_call_fastpath+0x16/0x1b
+> Code: 89 83 d4 00 00 00 c7 45 c8 f2 ff ff ff 48 8b 45 28 45 29 be 7c 05 00 00 48 8b 80 48 01 00 00 48 85 c0 74 0c 48 8b 80 18 03 00 00 <65> 48 ff 40 70 49 8b 46 30 48 8b 80 b0 01 00 00 65 48 ff 40 70 
+> RIP  [<ffffffff8164d45f>] ip6_append_data+0x4ff/0xeb0
+>  RSP <ffff88010cc1b9b8>
+> ---[ end trace ad33312480976359 ]---
+> 
+> Disassembly looks like..
+> 
+>     1924:       89 83 d4 00 00 00       mov    %eax,0xd4(%rbx)
+>         }
+> 
+>         return 0;
+> 
+> error_efault:
+>         err = -EFAULT;
+>     192a:       c7 45 c8 f2 ff ff ff    movl   $0xfffffff2,-0x38(%rbp)
+> error:
+>         cork->length -= length;
+>         IP6_INC_STATS(sock_net(sk), rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
+>     1931:       48 8b 45 28             mov    0x28(%rbp),%rax
+>         return 0;
+> 
+> error_efault:
+>         err = -EFAULT;
+> error:
+>         cork->length -= length;
+>     1935:       45 29 be 7c 05 00 00    sub    %r15d,0x57c(%r14)
+>         IP6_INC_STATS(sock_net(sk), rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
+>     193c:       48 8b 80 48 01 00 00    mov    0x148(%rax),%rax
+>     1943:       48 85 c0                test   %rax,%rax
+>     1946:       74 0c                   je     1954 <ip6_append_data+0x504>
+>     1948:       48 8b 80 18 03 00 00    mov    0x318(%rax),%rax
+> ->    194f:       65 48 ff 40 70          incq   %gs:0x70(%rax)
+>     1954:       49 8b 46 30             mov    0x30(%r14),%rax
+>     1958:       48 8b 80 b0 01 00 00    mov    0x1b0(%rax),%rax
+>     195f:       65 48 ff 40 70          incq   %gs:0x70(%rax)
+>         return err;
+> 
+> 
+> 
+> rax is all kinds of crazy. 7ae9fffffff2b8ff doesn't look anything like an address.
 
-The cost isn't low because users have to decide(learn) when to use GFP_NOIO
-and when to use GFP_KERNEL, and GFP_NOIO isn't easy to use,
-especially in the corner case which isn't easy to understand too. I bet few of
-guys can think of the case and the usage if they don't recall previous threads.
+rt->rt6i_idev contains garbage. It looks like a dst refcount issue.
 
-If you want to avoid the corner case, just hardcode GFP_NOIO in the API. As
-we see, both current usage of the API may have the corner case.
+Wow, it seems ip6_append_data() calls sock_alloc_send_skb() and can
+release socket lock while waiting for buffer space.
 
->
->> - usbnet_status_start() is called from either probe() or work queue scheduled
->> from probe(), if we want to address the probable issue, the memflags should
->
-> No, we export this symbol. So we keep it generic if that is possible at low cost.
-> We cannot assume that the conditions it would be called in now, remain so.
-> Of course we don't add stuff needlessly, but here the fix is trivial.
+This completely defeats corking, as another thread can mess with
+cork->dst at the same time.
 
-Why we can't assume the conditions?  The API is introduced just for solving
-one specific problem of sierra net, and shouldn't apply to general situations
-and its usage is __not__ encouraged since it introduces extra power
-consumption. If you have other use cases which need the API, please post
-them out for discussion.
-
-In fact, it is sort of a workaround for sierra device only, so we don't
-need to make it general in the extreme, IMO.
-
-The fix isn't trivial since GFP_NOIO isn't trivial and the corner case
-isn't easy
-to understand, as I said above.
-
->
->> always be GFP_NOIO under the two situations, __or__ GFP_KERNEL if we
->> choose to ignore the very corner case like other USB drivers.  So hardcoded
->> GFP_NOIO or GFP_KERNEL should be accepted.
->>
->> Oliver, do you have objections on not adding the memflags parameter now?
->
-> Yes, it is a change of almost no gain and a known problem.
-> It should be added with mem_flags.
->> Williams, looks there is another problem in your patch, sorry for not
->> finding it previously.  usb_autopm_get_interface() need to be called before
->> submitting URB inside usbnet_status_start(), and usb_autopm_put_interface()
->> need to be called after killing URB inside usbnet_status_stop(). Otherwise
->> your patch doesn't work as you expected under runtime PM situation.
->
-> Again, no. This is a generic API. It may be called for devices which need
-> their status polled forever and we cannot block them from sleeping.
-> If a driver wants to block suspend while a status URB is on, it should
-> call the autopm method. This is the way we do it while the connection
-> is up.
-
-The API can't be called in atomic context at all since mutex is to be held.
-
-Also I am wondering there is valid use case for such usage, if you have,
-please post them out.
-
-
-Thanks,
--- 
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+We need to hold dst before sleeping in sock_alloc_send_skb()
