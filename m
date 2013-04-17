@@ -1,20 +1,35 @@
-From: "Donaghy, Aileen" <Aileen.Donaghy@health.wa.gov.au>
-Subject: I am Mrs. Margarita Yakov
-Date: Thu, 18 Apr 2013 06:17:31 +0800
-Message-ID: <1626DF030FA4C14EB38C3A3E68DCA84B1531CE@wsfm410mx.hdwa.health.wa.gov.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 08/14] netlink: implement memory mapped sendmsg()
+Date: Wed, 17 Apr 2013 23:57:43 +0100
+Message-ID: <1366239463.2752.3.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1366217229-22705-1-git-send-email-kaber@trash.net>
+	 <1366217229-22705-9-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wsfm102ims.hdwa.health.wa.gov.au ([165.118.222.132]:3581 "EHLO
-	WSFM102IMS.hdwa.health.wa.gov.au" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S966927Ab3DQWqs convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Apr 2013 18:46:48 -0400
-Content-class: urn:content-classes:message
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netfilter-devel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1366217229-22705-9-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, 2013-04-17 at 18:47 +0200, Patrick McHardy wrote:
+> Add support for mmap'ed sendmsg() to netlink. Since the kernel validates
+> received messages before processing them, the code makes sure userspace
+> can't modify the message contents after invoking sendmsg(). To do that
+> only a single mapping of the TX ring is allowed to exist and the socket
+> must not be shared. If either of these two conditions does not hold, it
+> falls back to copying.
+[...]
 
-I am Mrs. Margarita Yakov and i have picked your email for inheritance. rather than allow my late husband greedy relatives to use my husband's hard earned money in ungodly way kindly reach out to my lawyer email address mroland2@rogers.com He will give you directives on how the money should be willed to you.
+Is this resistant against copy_to_process()?
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
