@@ -1,93 +1,35 @@
-From: Wilco Baan Hofman <wilco@baanhofman.nl>
-Subject: Re: ECMP ipv6 vs ipv4
-Date: Wed, 17 Apr 2013 15:16:18 +0200
-Message-ID: <1366204578.31353.88.camel@localhost>
-References: <1366012728.4975.13.camel@localhost>
-	  <516C2212.4030502@6wind.com> <1366044816.4975.27.camel@localhost>
-	 <516E6559.4070903@6wind.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v4 3/5] vxlan: add ipv6 support
+Date: Wed, 17 Apr 2013 21:18:12 +0800
+Message-ID: <1366204692.700.8.camel@cr0>
+References: <1366175423-27310-1-git-send-email-amwang@redhat.com>
+	 <1366175423-27310-4-git-send-email-amwang@redhat.com>
+	 <CAF1J0HOYVCe-0MVE6-mxyjEOaEAWNR16Wpv7+CF6rxbEgBQ3GA@mail.gmail.com>
+	 <1366192640.700.3.camel@cr0>
+	 <CAF1J0HNu9i_N2AtxvKL=edsVbZpZCsJL0mh2HEfF2G28CYcHYA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: nicolas.dichtel@6wind.com
+Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Mike Rapoport <mike.rapoport@ravellosystems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 37-251-2-65.FTTH.ispfabriek.nl ([37.251.2.65]:36861 "EHLO
-	mail.baanhofman.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965643Ab3DQNQh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 09:16:37 -0400
-In-Reply-To: <516E6559.4070903@6wind.com>
+Received: from mx1.redhat.com ([209.132.183.28]:29166 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965955Ab3DQNS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Apr 2013 09:18:56 -0400
+In-Reply-To: <CAF1J0HNu9i_N2AtxvKL=edsVbZpZCsJL0mh2HEfF2G28CYcHYA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-04-17 at 11:03 +0200, Nicolas Dichtel wrote:
+On Wed, 2013-04-17 at 13:36 +0300, Mike Rapoport wrote:
+> Well, I think that the address comparison helpers,
+> vxlan_nla_{get,put}_addr, vxlan_newlink and vxlan_fill_info can be
+> left with run-time checks only. Maybe some other places as well.
+> Removing the ifdefs will increase compile time for kernels configured
+> with IPV6=n, and may have certain run-time performance impact for such
+> kernels. On the other hand, less ifdefs means better readability :).
 
-> > Sure, but how do we add nexthop weights and algorithm selection (hash,
-> > random) to this API? I personally prefer to have the routing behaviour
-> > of ipv4 and ipv6 to be as similar as possible, as the basics are the
-> > same anyway.
-> You can use something like this:
-> 
-> $ ip -6 route add 3ffe:304:124:2306::/64 dev eth0 nexthop via 
-> fe80::230:1bff:feb4:dd4f weight 1
-> $ ip -6 route append 3ffe:304:124:2306::/64 dev eth0 nexthop via 
-> fe80::230:1bff:feb4:e05c weight 2
-> 
-> >
-> >>>
-> >>> Another one of the flaws is that if I add nexthop weight or algorithm
-> >>> (weighted hash or weighted random) I need to add this to the main rt
-> >>> node, this seems like an inefficient memory structure, as this needs to
-> >>> be added to all the siblings as well.
-> >> Nexthop weight (rtnh->rtnh_hops) is not implemented.
-> >
-> > Yes it is... in my tree, but I want to extend it to also include support
-> > for algorithm for hash based, etc.. and to keep it as close to the
-> > existing APIs as possible I think the nexthop structure makes the most
-> > sense for this.
-> >
-> >>>
-> >>> I propose that we have a nexthop structure to an exclusive route,
-> >>> similar what we have for IPv4, where we store the gateway, device and
-> >>> weight for all nexthops and the algorithm in the route. This would make
-> >>> the netlink API symmetrical again and fixes the n*n inefficiencies when
-> >>> adding routes (all siblings need to know about all siblings).
-> >>>
-> >>> What are your thoughts on this?
-> The pro of the current implementation is that you can add or delete a nexthop 
-> withtout removing the whole route. You don't need to list again all nexthops 
-> each time you want to modify one.
-
-That would also be possible using ip -6 route change, it'll be more
-efficient for insertions and more consistent with the IPv4
-implementation. Remember that most code is in fact shared between IPv4
-and IPv6 implementations for routing protocol suites.
-
-For bird it would be much more convenient to have the same API work for
-both as the code is shared (with minor differences). 
-
-The memory structure like below would make sense and you can expand it
-as well:
-
-struct ip6_nexthop {
-	int               flags; /* algorithm per packet or hash, etc */
-	struct list_head  *hops; /* nh_via */
-};
-struct ip6_nh {
-	int              ifindex;
-	struct in6_addr  rt6i_gateway;
-	char             weight;
-	int              flags; /* pervasive, onlink */
-};
-
-I'm not sure how to make this map correctly to the append API.. I think
-we need to make sure that all APIs either are consistent and symmetrical
-or don't work from day 1.
-
-I am willing to implement this, including algorithm support using the
-netlink nexthop API, like the IPv4 implementation.. or change the IPv4
-implementation, but either way I feel they need to be consistent.
-
-
-Regards,
-
-Wilco
+In theory, yes; in this case, I don't think having these ifdefs harms
+the readability.
