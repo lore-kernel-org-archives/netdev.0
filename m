@@ -1,106 +1,370 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 11/14] netlink: add RX/TX-ring support to netlink diag
-Date: Wed, 17 Apr 2013 18:47:06 +0200
-Message-ID: <1366217229-22705-12-git-send-email-kaber@trash.net>
+Subject: [PATCH 12/14] netlink: add documentation for memory mapped I/O
+Date: Wed, 17 Apr 2013 18:47:07 +0200
+Message-ID: <1366217229-22705-13-git-send-email-kaber@trash.net>
 References: <1366217229-22705-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60964 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:60968 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936249Ab3DQQrd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 12:47:33 -0400
+	with ESMTP id S936268Ab3DQQre (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 12:47:34 -0400
 In-Reply-To: <1366217229-22705-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Based on AF_PACKET.
-
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/uapi/linux/netlink_diag.h | 10 ++++++++++
- net/netlink/diag.c                | 32 ++++++++++++++++++++++++++++++++
- 2 files changed, 42 insertions(+)
+ Documentation/networking/netlink_mmap.txt | 340 ++++++++++++++++++++++++++++++
+ 1 file changed, 340 insertions(+)
+ create mode 100644 Documentation/networking/netlink_mmap.txt
 
-diff --git a/include/uapi/linux/netlink_diag.h b/include/uapi/linux/netlink_diag.h
-index 88009a3..4e31db4 100644
---- a/include/uapi/linux/netlink_diag.h
-+++ b/include/uapi/linux/netlink_diag.h
-@@ -25,9 +25,18 @@ struct netlink_diag_msg {
- 	__u32	ndiag_cookie[2];
- };
- 
-+struct netlink_diag_ring {
-+	__u32	ndr_block_size;
-+	__u32	ndr_block_nr;
-+	__u32	ndr_frame_size;
-+	__u32	ndr_frame_nr;
+diff --git a/Documentation/networking/netlink_mmap.txt b/Documentation/networking/netlink_mmap.txt
+new file mode 100644
+index 0000000..7de8d48
+--- /dev/null
++++ b/Documentation/networking/netlink_mmap.txt
+@@ -0,0 +1,340 @@
++This file documents how to use memory mapped I/O with netlink.
++
++Author: Patrick McHardy <kaber@trash.net>
++
++Overview
++--------
++
++Memory mapped netlink I/O can be used to increase throughput and decrease
++overhead of unicast receive and transmit operations. Some netlink subsystems
++require high throughput, these are mainly the netfilter subsystems
++nfnetlink_queue and nfnetlink_log, but it can also help speed up large
++dump operations of f.i. the routing database.
++
++Memory mapped netlink I/O used two circular ring buffers for RX and TX which
++are mapped into the processes address space.
++
++The RX ring is used by the kernel to directly construct netlink messages into
++user-space memory without copying them as done with regular socket I/O,
++additionally as long as the ring contains messages no recvmsg() or poll()
++syscalls have to be issued by user-space to get more message.
++
++The TX ring is used to process messages directly from user-space memory, the
++kernel processes all messages contained in the ring using a single sendmsg()
++call.
++
++Usage overview
++--------------
++
++In order to use memory mapped netlink I/O, user-space needs three main changes:
++
++- ring setup
++- conversion of the RX path to get messages from the ring instead of recvmsg()
++- conversion of the TX path to construct messages into the ring
++
++Ring setup is done using setsockopt() to provide the ring parameters to the
++kernel, then a call to mmap() to map the ring into the processes address space:
++
++- setsockopt(fd, SOL_NETLINK, NETLINK_RX_RING, &params, sizeof(params));
++- setsockopt(fd, SOL_NETLINK, NETLINK_TX_RING, &params, sizeof(params));
++- ring = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)
++
++Usage of either ring is optional, but even if only the RX ring is used the
++mapping still needs to be writable in order to update the frame status after
++processing.
++
++Conversion of the reception path involves calling poll() on the file
++descriptor, once the socket is readable the frames from the ring are
++processsed in order until no more messages are available, as indicated by
++a status word in the frame header.
++
++On kernel side, in order to make use of memory mapped I/O on receive, the
++originating netlink subsystem needs to support memory mapped I/O, otherwise
++it will use an allocated socket buffer as usual and the contents will be
++ copied to the ring on transmission, nullifying most of the performance gains.
++Dumps of kernel databases automatically support memory mapped I/O.
++
++Conversion of the transmit path involves changing message contruction to
++use memory from the TX ring instead of (usually) a buffer declared on the
++stack and setting up the frame header approriately. Optionally poll() can
++be used to wait for free frames in the TX ring.
++
++Structured and definitions for using memory mapped I/O are contained in
++<linux/netlink.h>.
++
++RX and TX rings
++----------------
++
++Each ring contains a number of continous memory blocks, containing frames of
++fixed size dependant on the parameters used for ring setup.
++
++Ring:	[ block 0 ]
++		[ frame 0 ]
++		[ frame 1 ]
++	[ block 1 ]
++		[ frame 2 ]
++		[ frame 3 ]
++	...
++	[ block n ]
++		[ frame 2 * n ]
++		[ frame 2 * n + 1 ]
++
++The blocks are only visible to the kernel, from the point of view of user-space
++the ring just contains the frames in a continous memory zone.
++
++The ring parameters used for setting up the ring are defined as follows:
++
++struct nl_mmap_req {
++	unsigned int	nm_block_size;
++	unsigned int	nm_block_nr;
++	unsigned int	nm_frame_size;
++	unsigned int	nm_frame_nr;
 +};
 +
- enum {
- 	NETLINK_DIAG_MEMINFO,
- 	NETLINK_DIAG_GROUPS,
-+	NETLINK_DIAG_RX_RING,
-+	NETLINK_DIAG_TX_RING,
- 
- 	__NETLINK_DIAG_MAX,
- };
-@@ -38,5 +47,6 @@ enum {
- 
- #define NDIAG_SHOW_MEMINFO	0x00000001 /* show memory info of a socket */
- #define NDIAG_SHOW_GROUPS	0x00000002 /* show groups of a netlink socket */
-+#define NDIAG_SHOW_RING_CFG	0x00000004 /* show ring configuration */
- 
- #endif
-diff --git a/net/netlink/diag.c b/net/netlink/diag.c
-index 5ffb1d1..4e4aa47 100644
---- a/net/netlink/diag.c
-+++ b/net/netlink/diag.c
-@@ -7,6 +7,34 @@
- 
- #include "af_netlink.h"
- 
-+static int sk_diag_put_ring(struct netlink_ring *ring, int nl_type,
-+			    struct sk_buff *nlskb)
-+{
-+	struct netlink_diag_ring ndr;
++Frames are grouped into blocks, where each block is a continous region of memory
++and holds nm_block_size / nm_frame_size frames. The total number of frames in
++the ring is nm_frame_nr. The following invariants hold:
 +
-+	ndr.ndr_block_size = ring->pg_vec_pages << PAGE_SHIFT;
-+	ndr.ndr_block_nr   = ring->pg_vec_len;
-+	ndr.ndr_frame_size = ring->frame_size;
-+	ndr.ndr_frame_nr   = ring->frame_max + 1;
++- frames_per_block = nm_block_size / nm_frame_size
 +
-+	return nla_put(nlskb, nl_type, sizeof(ndr), &ndr);
-+}
++- nm_frame_nr = frames_per_block * nm_block_nr
 +
-+static int sk_diag_put_rings_cfg(struct sock *sk, struct sk_buff *nlskb)
-+{
-+	struct netlink_sock *nlk = nlk_sk(sk);
-+	int ret;
++Some parameters are constrained, specifically:
 +
-+	mutex_lock(&nlk->pg_vec_lock);
-+	ret = sk_diag_put_ring(&nlk->rx_ring, NETLINK_DIAG_RX_RING, nlskb);
-+	if (!ret)
-+		ret = sk_diag_put_ring(&nlk->tx_ring, NETLINK_DIAG_TX_RING,
-+				       nlskb);
-+	mutex_unlock(&nlk->pg_vec_lock);
++- nm_block_size must be a multiple of the architectures memory page size.
++  The getpagesize() function can be used to get the page size.
 +
-+	return ret;
-+}
++- nm_frame_size must be equal or larger to NL_MMAP_HDRLEN, IOW a frame must be
++  able to hold at least the frame header
 +
- static int sk_diag_dump_groups(struct sock *sk, struct sk_buff *nlskb)
- {
- 	struct netlink_sock *nlk = nlk_sk(sk);
-@@ -51,6 +79,10 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
- 	    sock_diag_put_meminfo(sk, skb, NETLINK_DIAG_MEMINFO))
- 		goto out_nlmsg_trim;
- 
-+	if ((req->ndiag_show & NDIAG_SHOW_RING_CFG) &&
-+	    sk_diag_put_rings_cfg(sk, skb))
-+		goto out_nlmsg_trim;
++- nm_frame_size must be smaller or equal to nm_block_size
 +
- 	return nlmsg_end(skb, nlh);
- 
- out_nlmsg_trim:
++- nm_frame_size must be a multiple of NL_MMAP_MSG_ALIGNMENT
++
++- nm_frame_nr must equal the actual number of frames as specified above.
++
++When the kernel can't allocate phsyically continous memory for a ring block,
++it will fall back to use physically discontinous memory. This might affect
++performance negatively, in order to avoid this the nm_frame_size parameter
++should be chosen to be as small as possible for the required frame size and
++the number of blocks should be increased instead.
++
++Ring frames
++------------
++
++Each frames contain a frame header, consisting of a synchronization word and some
++meta-data, and the message itself.
++
++Frame:	[ header message ]
++
++The frame header is defined as follows:
++
++struct nl_mmap_hdr {
++	unsigned int	nm_status;
++	unsigned int	nm_len;
++	__u32		nm_group;
++	/* credentials */
++	__u32		nm_pid;
++	__u32		nm_uid;
++	__u32		nm_gid;
++};
++
++- nm_status is used for synchronizing processing between the kernel and user-
++  space and specifies ownership of the frame as well as the operation to perform
++
++- nm_len contains the length of the message contained in the data area
++
++- nm_group specified the destination multicast group of message
++
++- nm_pid, nm_uid and nm_gid contain the netlink pid, UID and GID of the sending
++  process. These values correspond to the data available using SOCK_PASSCRED in
++  the SCM_CREDENTIALS cmsg.
++
++The possible values in the status word are:
++
++- NL_MMAP_STATUS_UNUSED:
++	RX ring:	frame belongs to the kernel and contains no message
++			for user-space. Approriate action is to invoke poll()
++			to wait for new messages.
++
++	TX ring:	frame belongs to user-space and can be used for
++			message construction.
++
++- NL_MMAP_STATUS_RESERVED:
++	RX ring only:	frame is currently used by the kernel for message
++			construction and contains no valid message yet.
++			Appropriate action is to invoke poll() to wait for
++			new messages.
++
++- NL_MMAP_STATUS_VALID:
++	RX ring:	frame contains a valid message. Approriate action is
++			to process the message and release the frame back to
++			the kernel by setting the status to
++			NL_MMAP_STATUS_UNUSED or queue the frame by setting the
++			status to NL_MMAP_STATUS_SKIP.
++
++	TX ring:	the frame contains a valid message from user-space to
++			be processed by the kernel. After completing processing
++			the kernel will release the frame back to user-space by
++			setting the status to NL_MMAP_STATUS_UNUSED.
++
++- NL_MMAP_STATUS_COPY:
++	RX ring only:	a message is ready to be processed but could not be
++			stored in the ring, either because it exceeded the
++			frame size or because the originating subsystem does
++			not support memory mapped I/O. Appropriate action is
++			to invoke recvmsg() to receive the message and release
++			the frame back to the kernel by setting the status to
++			NL_MMAP_STATUS_UNUSED.
++
++- NL_MMAP_STATUS_SKIP:
++	RX ring only:	user-space queued the message for later processing, but
++			processed some messages following it in the ring. The
++			kernel should skip this frame when looking for unused
++			frames.
++
++The data area of a frame begins at a offset of NL_MMAP_HDRLEN relative to the
++frame header.
++
++TX limitations
++--------------
++
++Kernel processing usually involves validation of the message received by
++user-space, then processing its contents. The kernel must assure that
++userspace is not able to modify the message contents after they have been
++validated. In order to do so, the message is copied from the ring frame
++to an allocated buffer if either of these conditions is false:
++
++- only a single mapping of the ring exists
++- the file descriptor is not shared between processes
++
++This means that for threaded programs, the kernel will fall back to copying.
++
++Example
++-------
++
++Ring setup:
++
++	unsigned int block_size = 16 * getpagesize();
++	struct nl_mmap_req req = {
++		.nm_block_size		= block_size,
++		.nm_block_nr		= 64,
++		.nm_frame_size		= 16384,
++		.nm_frame_nr		= 64 * block_size / 16384,
++	};
++	unsigned int ring_size;
++	void *rx_ring, *tx_ring;
++
++	/* Configure ring parameters */
++	if (setsockopt(fd, NETLINK_RX_RING, &req, sizeof(req)) < 0)
++		exit(1);
++	if (setsockopt(fd, NETLINK_TX_RING, &req, sizeof(req)) < 0)
++		exit(1)
++
++	/* Calculate size of each invididual ring */
++	ring_size = req.nm_block_nr * req.nm_block_size;
++
++	/* Map RX/TX rings. The TX ring is located after the RX ring */
++	rx_ring = mmap(NULL, 2 * ring_size, PROT_READ | PROT_WRITE,
++		       MAP_SHARED, fd, 0);
++	if ((long)rx_ring == -1L)
++		exit(1);
++	tx_ring = rx_ring + ring_size:
++
++Message reception:
++
++This example assumes some ring parameters of the ring setup are available.
++
++	unsigned int frame_offset = 0;
++	struct nl_mmap_hdr *hdr;
++	struct nlmsghdr *nlh;
++	unsigned char buf[16384];
++	ssize_t len;
++
++	while (1) {
++		struct pollfd pfds[1];
++
++		pfds[0].fd	= fd;
++		pfds[0].events	= POLLIN | POLLERR;
++		pfds[0].revents	= 0;
++
++		if (poll(pfds, 1, -1) < 0 && errno != -EINTR)
++			exit(1);
++
++		/* Check for errors. Error handling omitted */
++		if (pfds[0].revents & POLLERR)
++			<handle error>
++
++		/* If no new messages, poll again */
++		if (!(pfds[0].revents & POLLIN))
++			continue;
++
++		/* Process all frames */
++		while (1) {
++			/* Get next frame header */
++			hdr = rx_ring + frame_offset;
++
++			if (hdr->nm_status == NL_MMAP_STATUS_VALID)
++				/* Regular memory mapped frame */
++				nlh = (void *hdr) + NL_MMAP_HDRLEN;
++				len = hdr->nm_len;
++
++				/* Release empty message immediately. May happen
++				 * on error during message construction.
++				 */
++				if (len == 0)
++					goto release;
++			} else if (hdr->nm_status == NL_MMAP_STATUS_COPY) {
++				/* Frame queued to socket receive queue */
++				len = recv(fd, buf, sizeof(buf), MSG_DONTWAIT);
++				if (len <= 0)
++					break;
++				nlh = buf;
++			} else
++				/* No more messages to process, continue polling */
++				break;
++
++			process_msg(nlh);
++release:
++			/* Release frame back to the kernel */
++			hdr->nm_status = NL_MMAP_STATUS_UNUSED;
++
++			/* Advance frame offset to next frame */
++			frame_offset = (frame_offset + frame_size) % ring_size;
++		}
++	}
++
++Message transmission:
++
++This example assumes some ring parameters of the ring setup are available.
++A single message is constructed and transmitted, to send multiple messages
++at once they would be constructed in consecutive frames before a final call
++to sendto().
++
++	unsigned int frame_offset = 0;
++	struct nl_mmap_hdr *hdr;
++	struct nlmsghdr *nlh;
++	struct sockaddr_nl addr = {
++		.nl_family	= AF_NETLINK,
++	};
++
++	hdr = tx_ring + frame_offset;
++	if (hdr->nm_status != NL_MMAP_STATUS_UNUSED)
++		/* No frame available. Use poll() to avoid. */
++		exit(1);
++
++	nlh = (void *)hdr + NL_MMAP_HDRLEN;
++
++	/* Build message */
++	build_message(nlh);
++
++	/* Fill frame header: length and status need to be set */
++	hdr->nm_len	= nlh->nlmsg_len;
++	hdr->nm_status	= NL_MMAP_STATUS_VALID;
++
++	if (sendto(fd, NULL, 0, 0, &addr, sizeof(addr)) < 0)
++		exit(1);
++
++	/* Advance frame offset to next frame */
++	frame_offset = (frame_offset + frame_size) % ring_size;
++
 -- 
 1.8.1.4
