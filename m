@@ -1,80 +1,69 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 7/9] net: sctp: sctp_bind_addr: remove dead code
-Date: Wed, 17 Apr 2013 11:35:26 -0400
-Message-ID: <20130417153526.GH5149@hmsreliant.think-freely.org>
-References: <1366146438-8815-1-git-send-email-dborkman@redhat.com>
- <1366146438-8815-8-git-send-email-dborkman@redhat.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next 4/9] net: sctp: sctp_outq: consolidate chars
+ into bitfield
+Date: Wed, 17 Apr 2013 11:35:49 -0400
+Message-ID: <516EC155.5060202@gmail.com>
+References: <1366146438-8815-1-git-send-email-dborkman@redhat.com> <1366146438-8815-5-git-send-email-dborkman@redhat.com> <AE90C24D6B3A694183C094C60CF0A2F6026B71DC@saturn3.aculab.com> <516E6ABD.2040904@redhat.com> <20130417152757.GD5149@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53494 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966772Ab3DQPfc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 11:35:32 -0400
-Content-Disposition: inline
-In-Reply-To: <1366146438-8815-8-git-send-email-dborkman@redhat.com>
+Received: from mail-qc0-f182.google.com ([209.85.216.182]:56679 "EHLO
+	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966772Ab3DQPfx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 11:35:53 -0400
+In-Reply-To: <20130417152757.GD5149@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 16, 2013 at 11:07:16PM +0200, Daniel Borkmann wrote:
-> The sctp_bind_addr structure has a 'malloced' member that is
-> always set to 0, thus in sctp_bind_addr_free() the kfree()
-> part can never be called. This part is embedded into
-> sctp_ep_common anyway and never alloced.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  include/net/sctp/structs.h | 2 --
->  net/sctp/bind_addr.c       | 7 -------
->  2 files changed, 9 deletions(-)
-> 
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 945e952..b4e9894 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -1088,8 +1088,6 @@ struct sctp_bind_addr {
->  	 *	peer(s) in INIT and INIT ACK chunks.
->  	 */
->  	struct list_head address_list;
-> -
-> -	int malloced;	     /* Are we kfree()able?  */
->  };
->  
->  void sctp_bind_addr_init(struct sctp_bind_addr *, __u16 port);
-> diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
-> index d886b3b..41145fe 100644
-> --- a/net/sctp/bind_addr.c
-> +++ b/net/sctp/bind_addr.c
-> @@ -131,8 +131,6 @@ int sctp_bind_addr_dup(struct sctp_bind_addr *dest,
->   */
->  void sctp_bind_addr_init(struct sctp_bind_addr *bp, __u16 port)
->  {
-> -	bp->malloced = 0;
-> -
->  	INIT_LIST_HEAD(&bp->address_list);
->  	bp->port = port;
->  }
-> @@ -155,11 +153,6 @@ void sctp_bind_addr_free(struct sctp_bind_addr *bp)
->  {
->  	/* Empty the bind address list. */
->  	sctp_bind_addr_clean(bp);
-> -
-> -	if (bp->malloced) {
-> -		kfree(bp);
-> -		SCTP_DBG_OBJCNT_DEC(bind_addr);
-> -	}
->  }
->  
->  /* Add an address to the bind address list in the SCTP_bind_addr structure. */
-> -- 
-> 1.7.11.7
-> 
+On 04/17/2013 11:27 AM, Neil Horman wrote:
+> On Wed, Apr 17, 2013 at 11:26:21AM +0200, Daniel Borkmann wrote:
+>> On 04/17/2013 10:43 AM, David Laight wrote:
+>>>>   	__u32 outstanding_bytes;
+>>>>
+>>>> -	/* Are we doing fast-rtx on this queue */
+>>>> -	char fast_rtx;
+>>>> -
+>>>> -	/* Corked? */
+>>>> -	char cork;
+>>>> -
+>>>> -	/* Is this structure empty?  */
+>>>> -	char empty;
+>>>> +	__u8 fast_rtx:1,	/* Are we doing fast-rtx on this queue */
+>>>> +	     cork:1,		/* Corked? */
+>>>> +	     empty:1;		/* Is this structure empty?  */
+>>>>   };
+>>>
+>>> Use of bitfields just makes the code slower.
+>>> The only real excuse for using them is to reduce the size
+>>> of a structure that is allocated a lot.
+>>
+>> sctp_outq is _embedded_ into an sctp_association structure, which
+>> has [size: 2280, cachelines: 36, members: 76]! A next step would be
+>> to try to reorder its elements carefully and see if we can reduce
+>> the size by filling some holes.
+> Unrelated note: How did you get pahole to give you that information?  For some
+> reason pahole can never glean any useful information about struct
+> sctp_association for me, despite having dwarf info embedded into the cu.
+>
+
+pahole -C sctp_association <sctp object file>  works for me.
+
+-vlad
+
+> Neil
+>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
 > --
 > To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+>
