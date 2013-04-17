@@ -1,47 +1,46 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 00/14]: netlink: memory mapped I/O
-Date: Wed, 17 Apr 2013 21:40:46 +0200
-Message-ID: <20130417194046.GF1408@breakpoint.cc>
-References: <1366217229-22705-1-git-send-email-kaber@trash.net>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH V6] Bundle fixes for Xen netfront / netback
+Date: Wed, 17 Apr 2013 20:43:17 +0100
+Message-ID: <20130417194317.GG5815@zion.uk.xensource.com>
+References: <1366220523-14579-1-git-send-email-wei.liu2@citrix.com>
+ <20130417193119.GA22059@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"wdauchy@gmail.com" <wdauchy@gmail.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:48229 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755645Ab3DQTky (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 15:40:54 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:46018 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758488Ab3DQTnS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 15:43:18 -0400
 Content-Disposition: inline
-In-Reply-To: <1366217229-22705-1-git-send-email-kaber@trash.net>
+In-Reply-To: <20130417193119.GA22059@phenom.dumpdata.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy <kaber@trash.net> wrote:
-> The following patches contain an implementation of memory mapped I/O for
-> netlink. The implementation is modelled after AF_PACKET memory mapped I/O
-> with a few differences:
+On Wed, Apr 17, 2013 at 08:31:19PM +0100, Konrad Rzeszutek Wilk wrote:
+> On Wed, Apr 17, 2013 at 06:41:59PM +0100, Wei Liu wrote:
+> > Final round of this series. All acked and ready to go in.
+> 
+> Should you put CC: stable@vger.kernel.org on some of them?
 
-[..]
+I don't think so: Ian Campbell told me that DaveM would like the patches
+to go through his tree.
 
-> Following are some numbers collected by Florian Westphal based on a
-> slightly older version, which included an experimental patch for the
-> nfnetlink_queue ordering issue.
+Wei.
 
-I'd like to see a comparision with Eric Dumazets nfnetlink_queue zerocopy
-patch [ ae08ce0021087a5d812d2714fb2a326ef9f8c450, netfilter:
-nfnetlink_queue: zero copy support ].
-
-The nice thing about that patch is its transparency to userspace, and
-the avoidance of the 'nfnetlink_queue packet reordering' issue.
-
-Sorry :)
-
-Another issue with mmap is the need to preallocate the ring frame size.
-After the gso avoidance change [ no skb_gso_segment calls anymore ],
-we will need to be able to queue GSO/GRO skbs, which makes it necessary to
-cope with 64k payload in the mmap case...
-
-Cheers,
-Florian
+> > 
+> > 
+> > Wei.
+> > 
+> > 
+> > _______________________________________________
+> > Xen-devel mailing list
+> > Xen-devel@lists.xen.org
+> > http://lists.xen.org/xen-devel
+> > 
