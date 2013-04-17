@@ -1,73 +1,36 @@
-From: Dean Jenkins <Dean_Jenkins@mentor.com>
-Subject: D-Link DUB E100 C1 not working when pinged by "ping 172.17.0.1 -c
- 1 -s 1965"
-Date: Wed, 17 Apr 2013 12:55:37 +0100
-Message-ID: <516E8DB9.9060805@mentor.com>
-References: <1366136460-30732-1-git-send-email-bigeasy@linutronix.de> <516E3EED.4000200@ti.com> <516E52EC.60901@linutronix.de> <516E6165.8050908@ti.com> <516E6538.8060804@linutronix.de> <516E7492.9090608@ti.com> <516E7E26.10603@linutronix.de>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] ipvs: fix sparse warnings reported by kbuild test robot
+Date: Wed, 17 Apr 2013 14:07:12 +0200
+Message-ID: <20130417120712.GA4177@localhost>
+References: <1366165082-11156-1-git-send-email-horms@verge.net.au>
+ <1366165082-11156-2-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Lucas Stach <dev@lynxeye.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:53794 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966064Ab3DQL4r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 07:56:47 -0400
-In-Reply-To: <516E7E26.10603@linutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1366165082-11156-2-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hi,
 
-I think the drivers/net/usb/asix.c drivers is broken for the C1 hardware 
-of the D-Link DUB E100 USB Ethernet Adapter.
+On Wed, Apr 17, 2013 at 11:18:02AM +0900, Simon Horman wrote:
+> From: Julian Anastasov <ja@ssi.bg>
+> 
+> Some are from recent commits. Add comments
+> that we provide both netmask and prefix len in svc
+> netmask.
 
-I setup my ARM target board with D-Link DUB E100 C1 USB Ethernet Adapter 
-by using
-ifconfig eth0 172.17.0.1
+OK, all these changes have in common that they are mostly fixing
+sparse warnings, but these need to be split into several patches
+including a description of what that is fixing.
 
-On a Linux PC directly connected via an Ethernet cable to the target I do
-ping 172.17.0.1 -c 1 -s 1965
+I want these fixes in my tree, but this has to be done in a better
+way
 
-but no response is received by the PC.
-
-The ARM target generates errors such as:
-[  202.519377] asix 1-2:1.0: eth0: asix_rx_fixup() Bad Header Length
-[  202.525593] asix 1-2:1.0: eth0: asix_rx_fixup() Bad RX Length 1925
-
-Note that this following ping works OK by shortening the length by 1:
-ping 172.17.0.1 -c 1 -s 1964
-
-Note that this ping test causes IP fragmentation to be used.
-
-I am using a modified 2.6.34.13 kernel with back-ported changes for the 
-ASIX driver.
-
-I note that Linux 3.9-rc7 has an additional change to asix_rx_fixup() 
-that looks helpful. I backported that commit 
-8b5b6f5413e97c3e8bafcdd67553d508f4f698cd to the ARM now
-ping 172.17.0.1 -c 1 -s 1965
-
-gives the following run-time kernel errors on the ARM target and the 
-ping does not work
-[ 1193.872116] asix 1-2:1.0: eth0: asix_rx_fixup() Bad Header Length 
-0xffff2f13, offset 6
-
-It is possible that my back-porting is wrong or I have commits missing.
-
-As the ping test is simple, please can anyone with a D-Link DUB E100 C1 
-USB Ethernet Adapter run my ping test on any platform to see whether any 
-Linux version has a working ASIX driver for this C1 hardware.
-
-I note that the ASIX driver split into multiple files in Linux 3.6 which 
-complicates back-porting.
-
-Thanks for any observations of a working ASIX driver for this C1 
-hardware variant using my ping test.
-
-Regards,
-Dean Jenkins
-Mentor Graphics
+Please, resubmit.
