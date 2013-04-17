@@ -1,60 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 5/5] IPoIB: add support for TIPC protocol
-Date: Wed, 17 Apr 2013 18:18:29 +0200
-Message-ID: <1366215509-18500-6-git-send-email-kaber@trash.net>
-References: <1366215509-18500-1-git-send-email-kaber@trash.net>
-Cc: davem@davemloft.net, allan.stephens@windriver.com,
-	netdev@vger.kernel.org, roland@kernel.org, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, linux-rdma@vger.kernel.org
-To: jon.maloy@ericsson.com
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 9/9] net: sctp: sctp_ulpq: do not use char as a struct member
+Date: Wed, 17 Apr 2013 17:28:47 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B71E5@saturn3.aculab.com>
+References: <1366146438-8815-1-git-send-email-dborkman@redhat.com> <1366146438-8815-10-git-send-email-dborkman@redhat.com> <20130417154552.GJ5149@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-sctp@vger.kernel.org>
+To: "Neil Horman" <nhorman@tuxdriver.com>,
+	"Daniel Borkmann" <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60755 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755612Ab3DQQTD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 12:19:03 -0400
-In-Reply-To: <1366215509-18500-1-git-send-email-kaber@trash.net>
+Received: from mx0.aculab.com ([213.249.233.131]:57962 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752314Ab3DQQbV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 12:31:21 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 28009-09 for <netdev@vger.kernel.org>;
+ Wed, 17 Apr 2013 17:31:19 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20130417154552.GJ5149@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support TIPC in the IPoIB driver. Since IPoIB now keeps track of its own
-neighbour entries and doesn't require the packet to have a dst_entry
-anymore, the only necessary changes are to:
+> >  /* A structure to carry information to the ULP (e.g. Sockets API) */
+> >  struct sctp_ulpq {
+> > -	char pd_mode;
+> >  	struct sctp_association *asoc;
+> >  	struct sk_buff_head reasm;
+> >  	struct sk_buff_head lobby;
+> > +	__u8 pd_mode:1;
+> >  };
+> >
+> 
+> Can you move the char (or __u8 if you prefer) to right after the reasm meber?  I
+> think theres a hole there that you can fill in
 
-- not drop multicast TIPC packets because of the unknown ethernet type
-- handle unicast TIPC packets similar to IPv4/IPv6 unicast packets
+If there is a hole after 'reasm' there will also be one after 'lobby'.
+In any case it can't be worse than the 7 byte pad after pd_mode
+in the existing file.
 
-in ipoib_start_xmit().
+In the other structure there is a uint32 preceding the three
+flag bytes - so unless some other stuff is moved making them
+bitfields won't change any sizes at all.
 
-An alternative would be to remove all ethertype limitations since they're
-not necessary anymore, all TIPC needs to know about is ARP and RARP since
-it wants to always perform "path find", even if a path is already known.
+FWIW we do use SCTP (for M3UA).
+The code has to be an order of magnitude slower than TCP!
+Never mind the difficulty in generating long ethernet frames
+(since the data flow means you have to disable nagle).
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
- drivers/infiniband/ulp/ipoib/ipoib_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-index 8534afd..554b906 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-@@ -730,7 +730,8 @@ static int ipoib_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		if ((header->proto != htons(ETH_P_IP)) &&
- 		    (header->proto != htons(ETH_P_IPV6)) &&
- 		    (header->proto != htons(ETH_P_ARP)) &&
--		    (header->proto != htons(ETH_P_RARP))) {
-+		    (header->proto != htons(ETH_P_RARP)) &&
-+		    (header->proto != htons(ETH_P_TIPC))) {
- 			/* ethertype not supported by IPoIB */
- 			++dev->stats.tx_dropped;
- 			dev_kfree_skb_any(skb);
-@@ -751,6 +752,7 @@ static int ipoib_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	switch (header->proto) {
- 	case htons(ETH_P_IP):
- 	case htons(ETH_P_IPV6):
-+	case htons(ETH_P_TIPC):
- 		neigh = ipoib_neigh_get(dev, cb->hwaddr);
- 		if (unlikely(!neigh)) {
- 			neigh_add_path(skb, cb->hwaddr, dev);
--- 
-1.8.1.4
+	David.
