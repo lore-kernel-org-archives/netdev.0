@@ -1,86 +1,97 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 05/14] netlink: add netlink_skb_set_owner_r()
-Date: Wed, 17 Apr 2013 18:47:00 +0200
-Message-ID: <1366217229-22705-6-git-send-email-kaber@trash.net>
+Subject: [PATCH 03/14] net: add function to allocate sk_buff head without data area
+Date: Wed, 17 Apr 2013 18:46:58 +0200
+Message-ID: <1366217229-22705-4-git-send-email-kaber@trash.net>
 References: <1366217229-22705-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from stinky.trash.net ([213.144.137.162]:60952 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936093Ab3DQQr0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 12:47:26 -0400
+	with ESMTP id S935968Ab3DQQrY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 12:47:24 -0400
 In-Reply-To: <1366217229-22705-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For mmap'ed I/O a netlink specific skb destructor needs to be invoked
-after the final kfree_skb() to clean up state. This doesn't work currently
-since the skb's ownership is transfered to the receiving socket using
-skb_set_owner_r(), which orphans the skb, thereby invoking the destructor
-prematurely.
+Add a function to allocate a sk_buff head without any data. This will
+be used by memory mapped netlink to attach data from the mmaped area
+to the skb.
 
-Since netlink doesn't account skbs to the originating socket, there's no
-need to orphan the skb. Add a netlink specific skb_set_owner_r() variant
-that does not orphan the skb and use a netlink specific destructor to
-call sock_rfree().
+Additionally change skb_release_all() to check whether the skb has a
+data area to allow the skb destructor to clear the data pointer in case
+only a head has been allocated.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netlink/af_netlink.c | 20 +++++++++++++++++---
- 1 file changed, 17 insertions(+), 3 deletions(-)
+ include/linux/skbuff.h |  6 ++++++
+ net/core/skbuff.c      | 30 +++++++++++++++++++++++++++++-
+ 2 files changed, 35 insertions(+), 1 deletion(-)
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 26779c2..58b9025 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -119,6 +119,20 @@ static void netlink_consume_callback(struct netlink_callback *cb)
- 	kfree(cb);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index e27d1c7..4f95130 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -649,6 +649,12 @@ static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
+ 	return __alloc_skb(size, priority, SKB_ALLOC_FCLONE, NUMA_NO_NODE);
  }
  
-+static void netlink_skb_destructor(struct sk_buff *skb)
++extern struct sk_buff *__alloc_skb_head(gfp_t priority, int node);
++static inline struct sk_buff *alloc_skb_head(gfp_t priority)
 +{
-+	sock_rfree(skb);
++	return __alloc_skb_head(priority, -1);
 +}
 +
-+static void netlink_skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
+ extern struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src);
+ extern int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask);
+ extern struct sk_buff *skb_clone(struct sk_buff *skb,
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index ba64614..3bd61c4 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -179,6 +179,33 @@ out:
+  *
+  */
+ 
++struct sk_buff *__alloc_skb_head(gfp_t gfp_mask, int node)
 +{
-+	WARN_ON(skb->sk != NULL);
-+	skb->sk = sk;
-+	skb->destructor = netlink_skb_destructor;
-+	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
-+	sk_mem_charge(sk, skb->truesize);
++	struct sk_buff *skb;
++
++	/* Get the HEAD */
++	skb = kmem_cache_alloc_node(skbuff_head_cache,
++				    gfp_mask & ~__GFP_DMA, node);
++	if (!skb)
++		goto out;
++
++	/*
++	 * Only clear those fields we need to clear, not those that we will
++	 * actually initialise below. Hence, don't put any more fields after
++	 * the tail pointer in struct sk_buff!
++	 */
++	memset(skb, 0, offsetof(struct sk_buff, tail));
++	skb->data = NULL;
++	skb->truesize = sizeof(struct sk_buff);
++	atomic_set(&skb->users, 1);
++
++#ifdef NET_SKBUFF_DATA_USES_OFFSET
++	skb->mac_header = ~0U;
++#endif
++out:
++	return skb;
 +}
 +
- static void netlink_sock_destruct(struct sock *sk)
+ /**
+  *	__alloc_skb	-	allocate a network buffer
+  *	@size: size to allocate
+@@ -584,7 +611,8 @@ static void skb_release_head_state(struct sk_buff *skb)
+ static void skb_release_all(struct sk_buff *skb)
  {
- 	struct netlink_sock *nlk = nlk_sk(sk);
-@@ -820,7 +834,7 @@ int netlink_attachskb(struct sock *sk, struct sk_buff *skb,
- 		}
- 		return 1;
- 	}
--	skb_set_owner_r(skb, sk);
-+	netlink_skb_set_owner_r(skb, sk);
- 	return 0;
+ 	skb_release_head_state(skb);
+-	skb_release_data(skb);
++	if (likely(skb->data))
++		skb_release_data(skb);
  }
  
-@@ -890,7 +904,7 @@ static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb,
- 	ret = -ECONNREFUSED;
- 	if (nlk->netlink_rcv != NULL) {
- 		ret = skb->len;
--		skb_set_owner_r(skb, sk);
-+		netlink_skb_set_owner_r(skb, sk);
- 		NETLINK_CB(skb).sk = ssk;
- 		nlk->netlink_rcv(skb);
- 		consume_skb(skb);
-@@ -962,7 +976,7 @@ static int netlink_broadcast_deliver(struct sock *sk, struct sk_buff *skb)
- 
- 	if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf &&
- 	    !test_bit(NETLINK_CONGESTED, &nlk->state)) {
--		skb_set_owner_r(skb, sk);
-+		netlink_skb_set_owner_r(skb, sk);
- 		__netlink_sendskb(sk, skb);
- 		return atomic_read(&sk->sk_rmem_alloc) > (sk->sk_rcvbuf >> 1);
- 	}
+ /**
 -- 
 1.8.1.4
