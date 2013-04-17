@@ -1,75 +1,58 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 8/9] net: sctp: sctp_ulpq: remove 'malloced'
- struct member
-Date: Wed, 17 Apr 2013 11:46:21 -0400
-Message-ID: <20130417154621.GK5149@hmsreliant.think-freely.org>
-References: <1366146438-8815-1-git-send-email-dborkman@redhat.com>
- <1366146438-8815-9-git-send-email-dborkman@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: oops in udpv6_sendmsg
+Date: Wed, 17 Apr 2013 09:05:51 -0700
+Message-ID: <1366214751.3205.29.camel@edumazet-glaptop>
+References: <20130329184006.GA23893@redhat.com>
+	 <1364582958.5113.49.camel@edumazet-glaptop>
+	 <1364865839.5113.165.camel@edumazet-glaptop>
+	 <20130417010213.GA9027@redhat.com>
+	 <1366164132.3205.21.camel@edumazet-glaptop>
+	 <20130417141138.GA17648@redhat.com>
+	 <1366208856.3205.23.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53887 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966789Ab3DQPq1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 11:46:27 -0400
-Content-Disposition: inline
-In-Reply-To: <1366146438-8815-9-git-send-email-dborkman@redhat.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:64979 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965236Ab3DQQFy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 12:05:54 -0400
+Received: by mail-pa0-f49.google.com with SMTP id kp14so990167pab.8
+        for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 09:05:54 -0700 (PDT)
+In-Reply-To: <1366208856.3205.23.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 16, 2013 at 11:07:17PM +0200, Daniel Borkmann wrote:
-> The structure sctp_ulpq is embedded into sctp_association and never
-> separately allocated, also ulpq->malloced is always 0, so that
-> kfree() is never called. Therefore, remove this code.
+On Wed, 2013-04-17 at 07:27 -0700, Eric Dumazet wrote:
+> On Wed, 2013-04-17 at 10:11 -0400, Dave Jones wrote:
+> > On Tue, Apr 16, 2013 at 07:02:12PM -0700, Eric Dumazet wrote:
 > 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  include/net/sctp/ulpqueue.h | 1 -
->  net/sctp/ulpqueue.c         | 3 ---
->  2 files changed, 4 deletions(-)
+> > good news is that with some changes, I was able to make current
+> > trinity reproduce this in seconds rather than hours..
+> > 
+> > ./trinity -q -l off -n -c sendmsg -c connect 
+> > 
+> > on current tree seems to reliably trigger it for me.
 > 
-> diff --git a/include/net/sctp/ulpqueue.h b/include/net/sctp/ulpqueue.h
-> index ff1b8ba7..00e50ba 100644
-> --- a/include/net/sctp/ulpqueue.h
-> +++ b/include/net/sctp/ulpqueue.h
-> @@ -49,7 +49,6 @@
->  
->  /* A structure to carry information to the ULP (e.g. Sockets API) */
->  struct sctp_ulpq {
-> -	char malloced;
->  	char pd_mode;
->  	struct sctp_association *asoc;
->  	struct sk_buff_head reasm;
-> diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
-> index 0fd5b3d..04e3d47 100644
-> --- a/net/sctp/ulpqueue.c
-> +++ b/net/sctp/ulpqueue.c
-> @@ -68,7 +68,6 @@ struct sctp_ulpq *sctp_ulpq_init(struct sctp_ulpq *ulpq,
->  	skb_queue_head_init(&ulpq->reasm);
->  	skb_queue_head_init(&ulpq->lobby);
->  	ulpq->pd_mode  = 0;
-> -	ulpq->malloced = 0;
->  
->  	return ulpq;
->  }
-> @@ -96,8 +95,6 @@ void sctp_ulpq_flush(struct sctp_ulpq *ulpq)
->  void sctp_ulpq_free(struct sctp_ulpq *ulpq)
->  {
->  	sctp_ulpq_flush(ulpq);
-> -	if (ulpq->malloced)
-> -		kfree(ulpq);
->  }
->  
->  /* Process an incoming DATA chunk.  */
-> -- 
-> 1.7.11.7
+> Good new indeed, I got a crash in 2 seconds
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> (have to reproduce it because I lost the console output)
 > 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+
+Hmm, sk_dst_get() assumes dst are always freed after RCU grace period,
+but it seems not the case with IPv6.
+
+We should atomically set dst->__refcnt to -1 before RCU grace period and
+final destruction, then sk_dst_get should do something like :
+
+rcu_read_lock();
+dst = rcu_dereference(sk->sk_dst_cache); 
+if (dst && !atomic_add_unless(&dst->__refcnt, 1, -1))
+	dst = NULL;
+rcu_read_unlock();
+
+Ie we should not increment dst->__refcnt if the dst is in dismantle
+phase.
