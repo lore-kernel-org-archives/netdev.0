@@ -1,28 +1,21 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/7] Bug fixes and enhancements
-Date: Wed, 17 Apr 2013 13:32:29 -0400 (EDT)
-Message-ID: <20130417.133229.76435199451203456.davem@davemloft.net>
-References: <1366218359-17701-1-git-send-email-shahed.shaikh@qlogic.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH V6] Bundle fixes for Xen netfront / netback
+Date: Wed, 17 Apr 2013 18:41:59 +0100
+Message-ID: <1366220523-14579-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: shahed.shaikh@qlogic.com
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <ian.campbell@citrix.com>,
+	<wdauchy@gmail.com>, <konrad.wilk@oracle.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35423 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752272Ab3DQRca (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 13:32:30 -0400
-In-Reply-To: <1366218359-17701-1-git-send-email-shahed.shaikh@qlogic.com>
+Received: from smtp.citrix.com ([66.165.176.89]:31831 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935968Ab3DQRmT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Apr 2013 13:42:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Final round of this series. All acked and ready to go in.
 
-If they are genuine bug fixes they should be targetted at 'net'
-not 'net-next'.
 
-If there is a reason why that shouldn't be the case you must
-explain this explicitly.
-
-I've tossed this entire series, you guys should know better by
-now, seriously.
+Wei.
