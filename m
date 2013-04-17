@@ -1,63 +1,58 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] net-packet: tx timestamping on tpacket ring
-Date: Wed, 17 Apr 2013 12:22:18 +0200
-Message-ID: <20130417102218.GA13873@netboy>
-References: <CA+FuTSezggEb7znDYMf8vWU7JmWLP59AVPkaTvNaAwJoNcqk9A@mail.gmail.com>
- <1365879412-9541-1-git-send-email-willemb@google.com>
- <5169D9C8.8010504@redhat.com>
- <CA+FuTSe1KCPPW=FBXZoTNmri9oPHicuoFeEMKws09PwbyRe-2A@mail.gmail.com>
- <516A8A60.5020003@redhat.com>
- <20130414130726.GB2871@netboy>
- <516BAE3A.5020508@onera.fr>
- <CA+FuTSdGdhgpRARbv9zFnDESzCQBzT=DS-WgGZRWBLBvhN_sNg@mail.gmail.com>
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Subject: Re: [Patch net-next v4 3/5] vxlan: add ipv6 support
+Date: Wed, 17 Apr 2013 13:36:48 +0300
+Message-ID: <CAF1J0HNu9i_N2AtxvKL=edsVbZpZCsJL0mh2HEfF2G28CYcHYA@mail.gmail.com>
+References: <1366175423-27310-1-git-send-email-amwang@redhat.com>
+	<1366175423-27310-4-git-send-email-amwang@redhat.com>
+	<CAF1J0HOYVCe-0MVE6-mxyjEOaEAWNR16Wpv7+CF6rxbEgBQ3GA@mail.gmail.com>
+	<1366192640.700.3.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Chavent <Paul.Chavent@onera.fr>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	daniel.borkmann@tik.ee.ethz.ch, xemul@parallels.com,
-	ebiederm@xmission.com, netdev@vger.kernel.org
-To: Willem de Bruijn <willemb@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f177.google.com ([209.85.215.177]:55178 "EHLO
-	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758242Ab3DQKWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 06:22:30 -0400
-Received: by mail-ea0-f177.google.com with SMTP id q14so643580eaj.8
-        for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 03:22:29 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CA+FuTSdGdhgpRARbv9zFnDESzCQBzT=DS-WgGZRWBLBvhN_sNg@mail.gmail.com>
+Received: from na3sys010aog108.obsmtp.com ([74.125.245.84]:55312 "HELO
+	na3sys010aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751327Ab3DQKgu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 06:36:50 -0400
+Received: by mail-oa0-f72.google.com with SMTP id j6so9432531oag.11
+        for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 03:36:49 -0700 (PDT)
+In-Reply-To: <1366192640.700.3.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 15, 2013 at 12:59:26PM -0400, Willem de Bruijn wrote:
-> 
-> If I understand correctly, the problem that Richard refers to is that
-> when one socket requests rx timestamping, all rx skbuffs have to be
-> timestamped as it is not known early in the datapath to which socket
-> they will be enqueued. As a result, the timestamps in skbuffs depend
-> on the preferences of other active sockets. Correct me if I'm wrong.
+On Wed, Apr 17, 2013 at 12:57 PM, Cong Wang <amwang@redhat.com> wrote:
+> On Wed, 2013-04-17 at 11:15 +0300, Mike Rapoport wrote:
+>> On Wed, Apr 17, 2013 at 01:10:20PM +0800, Cong Wang wrote:
+>> >  #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+>> > @@ -42,6 +41,11 @@
+>> >  #include <net/inet_ecn.h>
+>> >  #include <net/net_namespace.h>
+>> >  #include <net/netns/generic.h>
+>> > +#if IS_ENABLED(CONFIG_IPV6)
+>>
+>> It seems to me that some of the #ifdefs may be removed, especially on
+>> the rtnetlink path.
+>
+> Which one? If you mean the one above, I know it can be removed, but it
+> can save some compile time if we have it.
 
-No, that is not it.
+Well, I think that the address comparison helpers,
+vxlan_nla_{get,put}_addr, vxlan_newlink and vxlan_fill_info can be
+left with run-time checks only. Maybe some other places as well.
+Removing the ifdefs will increase compile time for kernels configured
+with IPV6=n, and may have certain run-time performance impact for such
+kernels. On the other hand, less ifdefs means better readability :).
+And, AFAIK, most distros have IPV6 in their kernels anyway...
 
-Hardware time stamping needs to be globally enabled at the driver
-level using the SIOCSHWTSTAMP [1] ioctl. The hardware has various
-different abilities, usually one of:
+>> > +#include <net/addrconf.h>
+>> > +#include <net/ip6_route.h>
+>> > +#include <net/ip6_tunnel.h>
+>> > +#endif
+>> >
 
-- no time stamping
-- some subset of PTP packets
-- all packets
-
-So depending on the mode, not all packets will receive a time
-stamp. In addition, some of the hardware can only time stamp one
-packet at a time. Furthermore, time stamps can get dropped in high
-traffic situations.
-
-The code in af_packet.c unconditionally delivers some sort of time
-stamp, with an inexplicable fall back to gettimeofday. Thus, the user
-space has no way of knowing what is being reported in the time stamp.
-
-Thanks,
-Richard
-
-1. See Documentation/networking/timestamping.txt
+-- 
+Sincerely yours,
+Mike.
