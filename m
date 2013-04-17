@@ -1,41 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V6] Bundle fixes for Xen netfront / netback
-Date: Wed, 17 Apr 2013 14:09:00 -0400 (EDT)
-Message-ID: <20130417.140900.40803700259873477.davem@davemloft.net>
-References: <1366220523-14579-1-git-send-email-wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next 0/9] Minor SCTP cleanups all over the place
+Date: Wed, 17 Apr 2013 14:13:21 -0400 (EDT)
+Message-ID: <20130417.141321.1161500597576212704.davem@davemloft.net>
+References: <1366146438-8815-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	ian.campbell@citrix.com, wdauchy@gmail.com, konrad.wilk@oracle.com
-To: wei.liu2@citrix.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36038 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36093 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964924Ab3DQSJF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 14:09:05 -0400
-In-Reply-To: <1366220523-14579-1-git-send-email-wei.liu2@citrix.com>
+	with ESMTP id S964924Ab3DQSNX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 14:13:23 -0400
+In-Reply-To: <1366146438-8815-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Liu <wei.liu2@citrix.com>
-Date: Wed, 17 Apr 2013 18:41:59 +0100
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Tue, 16 Apr 2013 23:07:09 +0200
 
-> Final round of this series. All acked and ready to go in.
+> That's a batch of cleanups for the SCTP protocol. Probably all
+> deadly boring and trivial patches, but it always bugs me. :-) I
+> guess this is still from the very SCTP beginning in Linux. Well,
+> at least we can now remove 41 lines of code in total. lksctp-tools
+> test suite run through without problems.
+> 
+> Daniel Borkmann (9):
+>   net: sctp: sctp_ssnmap: remove 'malloced' element from struct
+>   net: sctp: sctp_inq: remove dead code
+>   net: sctp: sctp_outq: remove 'malloced' from its struct
+>   net: sctp: sctp_outq: consolidate chars into bitfield
+>   net: sctp: outqueue: simplify sctp_outq_uncork function
+>   net: sctp: sctp_transport: remove unused variable
+>   net: sctp: sctp_bind_addr: remove dead code
+>   net: sctp: sctp_ulpq: remove 'malloced' struct member
+>   net: sctp: sctp_ulpq: do not use char as a struct member
 
-Does not apply to net-next.
-
-[davem@drr net-next]$ git am --signoff bundle-4170-xen.mbox 
-Applying: xen-netfront: frags -> slots in log message
-Applying: xen-netfront: reduce gso_max_size to account for max TCP header
-Applying: xen-netback: coalesce slots in TX path and fix regressions
-error: patch failed: drivers/net/xen-netback/netback.c:1548
-error: drivers/net/xen-netback/netback.c: patch does not apply
-Patch failed at 0003 xen-netback: coalesce slots in TX path and fix regressions
-The copy of the patch that failed is found in:
-   /home/davem/src/GIT/net-next/.git/rebase-apply/patch
-When you have resolved this problem run "git am --resolved".
-If you would prefer to skip this patch, instead run "git am --skip".
-To restore the original branch and stop patching run "git am --abort".
-
-Please stop wasting my time.
+All applied except for #4 and #9, thanks.
