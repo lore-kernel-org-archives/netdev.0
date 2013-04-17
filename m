@@ -1,206 +1,117 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Wed, 17 Apr 2013 01:42:06 -0400 (EDT)
-Message-ID: <20130417.014206.1953893579087210587.davem@davemloft.net>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH] net/cpsw: don't disable_irqs() after an interrupt has
+ been received.
+Date: Wed, 17 Apr 2013 11:49:25 +0530
+Message-ID: <516E3EED.4000200@ti.com>
+References: <1366136460-30732-1-git-send-email-bigeasy@linutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	<netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55848 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754635Ab3DQFm0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 01:42:26 -0400
+Received: from devils.ext.ti.com ([198.47.26.153]:40722 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754342Ab3DQGTw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 02:19:52 -0400
+In-Reply-To: <1366136460-30732-1-git-send-email-bigeasy@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 4/16/2013 11:51 PM, Sebastian Andrzej Siewior wrote:
+> This driver has usually four interrupts registered with the same ISR.
+> The ISR masks the interrupt source in DMA engine and CPSW, disables the
+> interrupt and schedules NAPI. After the NAPI routine completes, the
+> source is activated and interrupts are re-enabled.
+> With threaded-interrupts enabled, the enable/disable might go wrong.
+> After the RX interrupt arrived, the core marks the interrupt pending. If
+> the TX interrupt arrives before the RX started, then both lines are
+> marked pending and both disable the interrupt which then is disabled
+> twice. In NAPI complete the interrupt is enabled only once which means
+> the four interrupts are still masked and the device plays dead.
+>
+> While playing with this on my beagle bone I didn't understand why
+> the interrupts are deactivated in the first place. According to my
+> testing, after calling cpsw_intr_disable() the interrupt is not active
+> anymore. I haven't seen the ISR being invoked again until after
+> cpsw_poll() enabled them (except for a different interrupt number).
+> Therefore I remove this.
+>
+> In my testing I didn't notice anything unusual except one thing: I start
+> a wget of a 126MiB file (which is sttored on MMC) from the beagle bone.
+> On the first invocation I receive almost steady 5MiB/sec. In the
+> following invocations of wget I see the performance floating between
+> 1MiB/sec and 4MiB/sec. It usually ends with overall around 2MiB/sec.
+> I couldn't notice nothing wrong. The only difference compared to the
+> first invocation is (most likely) that the file is now served from
+> memory and not read from MMC which should perform better but not worse.
+> After executing "while ((1)); do /bin/true; done" on the beagle bone
+> while the file was downloaded, I noticed that the speed rose to 9MiB/sec
+> - 10/MiB/sec. Now this looks like power/idle optimization on the beagle
+> bone side.
+>
+> Cc: Thomas Gleixner <tglx@linutronix.de>
+> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+> ---
+>   drivers/net/ethernet/ti/cpsw.c |   16 ----------------
+>   1 file changed, 16 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index e2ba702..acb229c 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -133,19 +133,6 @@ do {								\
+>   #define CPSW_CMINTMAX_INTVL	(1000 / CPSW_CMINTMIN_CNT)
+>   #define CPSW_CMINTMIN_INTVL	((1000 / CPSW_CMINTMAX_CNT) + 1)
+>   
+> -#define cpsw_enable_irq(priv)	\
+> -	do {			\
+> -		u32 i;		\
+> -		for (i = 0; i < priv->num_irqs; i++) \
+> -			enable_irq(priv->irqs_table[i]); \
+> -	} while (0);
+> -#define cpsw_disable_irq(priv)	\
+> -	do {			\
+> -		u32 i;		\
+> -		for (i = 0; i < priv->num_irqs; i++) \
+> -			disable_irq_nosync(priv->irqs_table[i]); \
+> -	} while (0);
+> -
+>   #define cpsw_slave_index(priv)				\
+>   		((priv->data.dual_emac) ? priv->emac_port :	\
+>   		priv->data.active_slave)
+> @@ -513,13 +500,11 @@ static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
+>   
+>   	if (likely(netif_running(priv->ndev))) {
+>   		cpsw_intr_disable(priv);
+> -		cpsw_disable_irq(priv);
+>   		napi_schedule(&priv->napi);
+>   	} else {
+>   		priv = cpsw_get_slave_priv(priv, 1);
+>   		if (likely(priv) && likely(netif_running(priv->ndev))) {
+>   			cpsw_intr_disable(priv);
+> -			cpsw_disable_irq(priv);
+>   			napi_schedule(&priv->napi);
+>   		}
+>   	}
+> @@ -540,7 +525,6 @@ static int cpsw_poll(struct napi_struct *napi, int budget)
+>   		napi_complete(napi);
+>   		cpsw_intr_enable(priv);
+>   		cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
+> -		cpsw_enable_irq(priv);
+>   	}
+>   
+>   	if (num_rx || num_tx)
+When using cpsw_intr_disable, it actually only disables future interrupts
+from CPSW ip. But the current interrupt generated to interrupt controller
+will be still pending and will not allow ARM to do any thing till either
+interrups is disabled or acked, thus CPU will be in CPSW ISR continuously
+and system will hang. This patch is applicable only when kernel is always
+built with RT enabled which is not the current case in Vanilla kernel
 
-1) Fix erroneous netfilter drop of SIP packets generated by some Cisco
-   phones, from Patrick McHardy.
+I have tested this patch and it hangs the CPU after net open (CPSW init).
 
-2) Fix netfilter IPSET refcounting in list_set_add(), from Jozsef
-   Kadlecsik.
-
-3) Fix TCP syncookies route lookup key, we don't use the same values
-   we would use for the usual SYN receive processing, from Dmitry
-   Popov.
-
-4) Fix NULL deref in bond_slave_netdev_event(), from Nikolay
-   Aleksandrov.
-
-5) When bonding enslave fails, we can forget to clear the IFF_BONDING
-   bit, fix also from Nikolay Aleksandrov.
-
-6) skb->csum_start is 16-bits, which is almost always just fine.
-   But if we reallocate the headroom of an SKB this can push the
-   skb->csum_start value outside of it's valid range.  This can
-   easily happen when collapsing multiple SKBs from the retransmit
-   queue together.
-
-   Fix from Thomas Graf.
-
-7) Fix NULL deref in be2net driver due to missing check of
-   __vlan_put_tag() return value, from Ivan Vecera.
-
-8) tun_set_iff() returns zero instead of error code on failure,
-   fix from Wei Yongjun.
-
-9) Like GARP, 802 MRP needs to hold the app->lock when adding MAD
-   events and queueing PDUs.  Fix from David Ward.
-
-10) Build fix, MVMDIO needs PHYLIB, from Thomas Petazzoni..
-
-11) Fix mac80211 static with ipv6 modular build, from Cong Wang.
-
-12) If userland specifies a path cost explicitly, do not override
-    it when the carrier state changes.  From Stephen Hemminger.
-
-13) mvnets calculates the TX queue to use incorrectly resulting in
-    garbage pointer derefs and crashes, fix from Willy Tarreau.
-
-14) cdc_mbim does erroneous sizeof(ETH_HLEN).  Fix from Bjorn Mork.
-
-15) IP fragmentation can leak a refcount-less route out from an
-    RCU protected section.  This results in crashes and all sorts
-    of hard to diagnose behavior.  Fix from Eric Dumazet.
-
-Please pull, thanks a lot!
-
-The following changes since commit fe2971a01762963c62e9872bfcf063254634=
-2c0f:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2013-0=
-4-10 14:15:27 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net master
-
-for you to fetch changes up to 361cd29cf9363505c2a35bbf9a034a22feebfb07=
-:
-
-  qlcnic: fix beaconing test for 82xx adapter (2013-04-17 01:15:29 -040=
-0)
-
-----------------------------------------------------------------
-Bj=F8rn Mork (1):
-      net: cdc_mbim: remove bogus sizeof()
-
-Christian Ruppert (1):
-      stmmac: prevent interrupt loop with MMC RX IPC Counter
-
-Christoph Fritz (1):
-      can: sja1000: fix handling on dt properties on little endian syst=
-ems
-
-Cong Wang (1):
-      ipv6: statically link register_inet6addr_notifier()
-
-David S. Miller (2):
-      Merge branch 'master' of git://git.kernel.org/.../pablo/nf into n=
-etfilter
-      Merge branch 'fixes-for-3.9' of git://gitorious.org/linux-can/lin=
-ux-can
-
-David Ward (1):
-      net/802/mrp: fix possible race condition when calling mrp_pdu_que=
-ue()
-
-Dmitry Popov (1):
-      tcp: incoming connections might use wrong route under synflood
-
-Eric Dumazet (1):
-      net: drop dst before queueing fragments
-
-=46lorian Westphal (1):
-      netfilter: nf_nat: fix race when unloading protocol modules
-
-Himanshu Madhani (1):
-      qlcnic: fix beaconing test for 82xx adapter
-
-Ivan Vecera (1):
-      be2net: take care of __vlan_put_tag return value
-
-Jozsef Kadlecsik (2):
-      netfilter: ipset: list:set: fix reference counter update
-      netfilter: ipset: hash:*net*: nomatch flag not excluded on set re=
-size
-
-Lucas Stach (1):
-      net: fec: fix regression in link change accounting
-
-Marc Kleine-Budde (1):
-      can: mcp251x: add missing IRQF_ONESHOT to request_threaded_irq
-
-Mugunthan V N (1):
-      drivers: net: ethernet: cpsw: get slave VLAN id from slave node i=
-nstead of cpsw node
-
-Patrick McHardy (1):
-      netfilter: nf_ct_sip: don't drop packets with offsets pointing ou=
-tside the packet
-
-Thomas Graf (1):
-      tcp: Reallocate headroom if it would overflow csum_start
-
-Thomas Petazzoni (1):
-      net: mvmdio: add select PHYLIB
-
-Wei Yongjun (2):
-      tuntap: fix error return code in tun_set_iff()
-      esp4: fix error return code in esp_output()
-
-Willy Tarreau (1):
-      net: mvneta: fix improper tx queue usage in mvneta_tx()
-
-nikolay@redhat.com (2):
-      bonding: fix netdev event NULL pointer dereference
-      bonding: IFF_BONDING is not stripped on enslave failure
-
-stephen hemminger (1):
-      bridge: make user modified path cost sticky
-
- drivers/net/bonding/bond_main.c                   | 14 ++++++++++++--
- drivers/net/can/mcp251x.c                         | 10 ++++++++--
- drivers/net/can/sja1000/sja1000_of_platform.c     | 31 +++++++++++++++=
-----------------
- drivers/net/ethernet/emulex/benet/be_main.c       |  5 +++--
- drivers/net/ethernet/freescale/fec.c              |  1 +
- drivers/net/ethernet/marvell/Kconfig              |  2 +-
- drivers/net/ethernet/marvell/mvneta.c             |  9 ++++-----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c |  4 ++--
- drivers/net/ethernet/stmicro/stmmac/mmc_core.c    |  1 +
- drivers/net/ethernet/ti/cpsw.c                    |  2 +-
- drivers/net/tun.c                                 |  2 +-
- drivers/net/usb/cdc_mbim.c                        |  2 +-
- include/linux/netfilter/ipset/ip_set_ahash.h      | 30 +++++++++++++++=
-++++++++-------
- include/net/addrconf.h                            |  1 +
- net/802/mrp.c                                     |  4 ++++
- net/bridge/br_if.c                                |  3 ++-
- net/bridge/br_private.h                           |  1 +
- net/bridge/br_stp_if.c                            |  1 +
- net/ipv4/esp4.c                                   |  6 +++---
- net/ipv4/ip_fragment.c                            | 14 ++++++++++----
- net/ipv4/syncookies.c                             |  4 ++--
- net/ipv4/tcp_output.c                             |  8 ++++++--
- net/ipv6/addrconf.c                               | 24 +++------------=
----------
- net/ipv6/addrconf_core.c                          | 19 +++++++++++++++=
-++++
- net/ipv6/reassembly.c                             | 12 ++++++++++--
- net/netfilter/ipset/ip_set_hash_ipportnet.c       | 18 +++++++++++++++=
-+++
- net/netfilter/ipset/ip_set_hash_net.c             | 22 +++++++++++++++=
-+++++--
- net/netfilter/ipset/ip_set_hash_netiface.c        | 22 +++++++++++++++=
-+++++--
- net/netfilter/ipset/ip_set_hash_netport.c         | 18 +++++++++++++++=
-+++
- net/netfilter/ipset/ip_set_list_set.c             | 10 +++++++---
- net/netfilter/nf_conntrack_sip.c                  |  6 ++----
- net/netfilter/nf_nat_core.c                       | 40 +++++++--------=
--------------------------
- 32 files changed, 227 insertions(+), 119 deletions(-)
+Regards
+Mugunthan V N
