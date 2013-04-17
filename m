@@ -1,108 +1,106 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 14/14] nfnetlink: add support for memory mapped netlink
-Date: Wed, 17 Apr 2013 18:47:09 +0200
-Message-ID: <1366217229-22705-15-git-send-email-kaber@trash.net>
+Subject: [PATCH 11/14] netlink: add RX/TX-ring support to netlink diag
+Date: Wed, 17 Apr 2013 18:47:06 +0200
+Message-ID: <1366217229-22705-12-git-send-email-kaber@trash.net>
 References: <1366217229-22705-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:60964 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936249Ab3DQQrd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 12:47:33 -0400
 In-Reply-To: <1366217229-22705-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Based on AF_PACKET.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/netfilter/nfnetlink.h  |  2 ++
- net/netfilter/nfnetlink.c            |  7 +++++++
- net/netfilter/nfnetlink_log.c        | 10 ++++++----
- net/netfilter/nfnetlink_queue_core.c |  3 ++-
- 4 files changed, 17 insertions(+), 5 deletions(-)
+ include/uapi/linux/netlink_diag.h | 10 ++++++++++
+ net/netlink/diag.c                | 32 ++++++++++++++++++++++++++++++++
+ 2 files changed, 42 insertions(+)
 
-diff --git a/include/linux/netfilter/nfnetlink.h b/include/linux/netfilter/nfnetlink.h
-index 60b1641..cadb740 100644
---- a/include/linux/netfilter/nfnetlink.h
-+++ b/include/linux/netfilter/nfnetlink.h
-@@ -29,6 +29,8 @@ extern int nfnetlink_subsys_register(const struct nfnetlink_subsystem *n);
- extern int nfnetlink_subsys_unregister(const struct nfnetlink_subsystem *n);
+diff --git a/include/uapi/linux/netlink_diag.h b/include/uapi/linux/netlink_diag.h
+index 88009a3..4e31db4 100644
+--- a/include/uapi/linux/netlink_diag.h
++++ b/include/uapi/linux/netlink_diag.h
+@@ -25,9 +25,18 @@ struct netlink_diag_msg {
+ 	__u32	ndiag_cookie[2];
+ };
  
- extern int nfnetlink_has_listeners(struct net *net, unsigned int group);
-+extern struct sk_buff *nfnetlink_alloc_skb(struct net *net, unsigned int size,
-+					   u32 dst_portid, gfp_t gfp_mask);
- extern int nfnetlink_send(struct sk_buff *skb, struct net *net, u32 portid,
- 			  unsigned int group, int echo, gfp_t flags);
- extern int nfnetlink_set_err(struct net *net, u32 portid, u32 group, int error);
-diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
-index 1640bd7..572d87d 100644
---- a/net/netfilter/nfnetlink.c
-+++ b/net/netfilter/nfnetlink.c
-@@ -112,6 +112,13 @@ int nfnetlink_has_listeners(struct net *net, unsigned int group)
- }
- EXPORT_SYMBOL_GPL(nfnetlink_has_listeners);
- 
-+struct sk_buff *nfnetlink_alloc_skb(struct net *net, unsigned int size,
-+				    u32 dst_portid, gfp_t gfp_mask)
-+{
-+	return netlink_alloc_skb(net->nfnl, size, dst_portid, gfp_mask);
-+}
-+EXPORT_SYMBOL_GPL(nfnetlink_alloc_skb);
++struct netlink_diag_ring {
++	__u32	ndr_block_size;
++	__u32	ndr_block_nr;
++	__u32	ndr_frame_size;
++	__u32	ndr_frame_nr;
++};
 +
- int nfnetlink_send(struct sk_buff *skb, struct net *net, u32 portid,
- 		   unsigned int group, int echo, gfp_t flags)
+ enum {
+ 	NETLINK_DIAG_MEMINFO,
+ 	NETLINK_DIAG_GROUPS,
++	NETLINK_DIAG_RX_RING,
++	NETLINK_DIAG_TX_RING,
+ 
+ 	__NETLINK_DIAG_MAX,
+ };
+@@ -38,5 +47,6 @@ enum {
+ 
+ #define NDIAG_SHOW_MEMINFO	0x00000001 /* show memory info of a socket */
+ #define NDIAG_SHOW_GROUPS	0x00000002 /* show groups of a netlink socket */
++#define NDIAG_SHOW_RING_CFG	0x00000004 /* show ring configuration */
+ 
+ #endif
+diff --git a/net/netlink/diag.c b/net/netlink/diag.c
+index 5ffb1d1..4e4aa47 100644
+--- a/net/netlink/diag.c
++++ b/net/netlink/diag.c
+@@ -7,6 +7,34 @@
+ 
+ #include "af_netlink.h"
+ 
++static int sk_diag_put_ring(struct netlink_ring *ring, int nl_type,
++			    struct sk_buff *nlskb)
++{
++	struct netlink_diag_ring ndr;
++
++	ndr.ndr_block_size = ring->pg_vec_pages << PAGE_SHIFT;
++	ndr.ndr_block_nr   = ring->pg_vec_len;
++	ndr.ndr_frame_size = ring->frame_size;
++	ndr.ndr_frame_nr   = ring->frame_max + 1;
++
++	return nla_put(nlskb, nl_type, sizeof(ndr), &ndr);
++}
++
++static int sk_diag_put_rings_cfg(struct sock *sk, struct sk_buff *nlskb)
++{
++	struct netlink_sock *nlk = nlk_sk(sk);
++	int ret;
++
++	mutex_lock(&nlk->pg_vec_lock);
++	ret = sk_diag_put_ring(&nlk->rx_ring, NETLINK_DIAG_RX_RING, nlskb);
++	if (!ret)
++		ret = sk_diag_put_ring(&nlk->tx_ring, NETLINK_DIAG_TX_RING,
++				       nlskb);
++	mutex_unlock(&nlk->pg_vec_lock);
++
++	return ret;
++}
++
+ static int sk_diag_dump_groups(struct sock *sk, struct sk_buff *nlskb)
  {
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 50aaf71..d4199eb 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -318,7 +318,7 @@ nfulnl_set_flags(struct nfulnl_instance *inst, u_int16_t flags)
- }
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+@@ -51,6 +79,10 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+ 	    sock_diag_put_meminfo(sk, skb, NETLINK_DIAG_MEMINFO))
+ 		goto out_nlmsg_trim;
  
- static struct sk_buff *
--nfulnl_alloc_skb(unsigned int inst_size, unsigned int pkt_size)
-+nfulnl_alloc_skb(u32 peer_portid, unsigned int inst_size, unsigned int pkt_size)
- {
- 	struct sk_buff *skb;
- 	unsigned int n;
-@@ -327,13 +327,14 @@ nfulnl_alloc_skb(unsigned int inst_size, unsigned int pkt_size)
- 	 * message.  WARNING: has to be <= 128k due to slab restrictions */
++	if ((req->ndiag_show & NDIAG_SHOW_RING_CFG) &&
++	    sk_diag_put_rings_cfg(sk, skb))
++		goto out_nlmsg_trim;
++
+ 	return nlmsg_end(skb, nlh);
  
- 	n = max(inst_size, pkt_size);
--	skb = alloc_skb(n, GFP_ATOMIC);
-+	skb = nfnetlink_alloc_skb(&init_net, n, peer_portid, GFP_ATOMIC);
- 	if (!skb) {
- 		if (n > pkt_size) {
- 			/* try to allocate only as much as we need for current
- 			 * packet */
- 
--			skb = alloc_skb(pkt_size, GFP_ATOMIC);
-+			skb = nfnetlink_alloc_skb(&init_net, pkt_size,
-+						  peer_portid, GFP_ATOMIC);
- 			if (!skb)
- 				pr_err("nfnetlink_log: can't even alloc %u bytes\n",
- 				       pkt_size);
-@@ -696,7 +697,8 @@ nfulnl_log_packet(u_int8_t pf,
- 	}
- 
- 	if (!inst->skb) {
--		inst->skb = nfulnl_alloc_skb(inst->nlbufsiz, size);
-+		inst->skb = nfulnl_alloc_skb(inst->peer_portid, inst->nlbufsiz,
-+					     size);
- 		if (!inst->skb)
- 			goto alloc_failure;
- 	}
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index 5e280b3..ef3cdb4 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -339,7 +339,8 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
- 	if (queue->flags & NFQA_CFG_F_CONNTRACK)
- 		ct = nfqnl_ct_get(entskb, &size, &ctinfo);
- 
--	skb = alloc_skb(size, GFP_ATOMIC);
-+	skb = nfnetlink_alloc_skb(&init_net, size, queue->peer_portid,
-+				  GFP_ATOMIC);
- 	if (!skb)
- 		return NULL;
- 
+ out_nlmsg_trim:
 -- 
 1.8.1.4
-
