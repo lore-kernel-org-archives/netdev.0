@@ -1,261 +1,48 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH] batman-adv: make is_my_mac() check for the current mesh only
-Date: Wed, 17 Apr 2013 23:03:16 +0200
-Message-ID: <1366232596-23172-2-git-send-email-ordex@autistici.org>
-References: <1366232596-23172-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <ordex@autistici.org>,
-	Marek Lindner <lindner_marek@yahoo.de>
-To: davem@davemloft.net
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: Re: [PATCH] net/cpsw: don't disable_irqs() after an interrupt has
+ been received.
+Date: Wed, 17 Apr 2013 23:12:54 +0200
+Message-ID: <516F1056.6020108@linutronix.de>
+References: <1366136460-30732-1-git-send-email-bigeasy@linutronix.de> <516E3EED.4000200@ti.com> <516E52EC.60901@linutronix.de> <516E6165.8050908@ti.com> <516E6538.8060804@linutronix.de> <516E7492.9090608@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from contumacia.investici.org ([178.255.144.35]:22481 "EHLO
-	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755771Ab3DQVFT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 17:05:19 -0400
-In-Reply-To: <1366232596-23172-1-git-send-email-ordex@autistici.org>
+Received: from www.linutronix.de ([62.245.132.108]:41113 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965409Ab3DQVNA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 17:13:00 -0400
+In-Reply-To: <516E7492.9090608@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On a multi-mesh node (a node running more than one batman-adv
-virtual interface) batadv_is_my_mac() has to check MAC
-addresses of hard interfaces belonging to the current mesh
-only.
+On 04/17/2013 12:08 PM, Mugunthan V N wrote:
+> Mine shows [    0.000000] AM335X ES2.0 (neon )
+> 
+> In Beagle bone (silicon revision 1.0) there is a bug in CPSW irq in
+> Silicon, please refer
+> http://www.ti.com/lit/er/sprz360e/sprz360e.pdf  Advisory 1.0.9
+> 
+> Beagle bone black has Silicon revision 2.0 where the bug is fixed and
+> you are able
+> to test it properly and it hangs in my bone black as the IRQ is properly
+> connected
+> to A8
 
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
----
- net/batman-adv/main.c              |  5 ++++-
- net/batman-adv/main.h              |  2 +-
- net/batman-adv/routing.c           | 38 ++++++++++++++++++++------------------
- net/batman-adv/translation-table.c |  2 +-
- net/batman-adv/vis.c               |  4 ++--
- 5 files changed, 28 insertions(+), 23 deletions(-)
+Are you there is not something else going on? According to the TRM
+14.3.1.3.1 + .14.3.1.3.2 the interrupts are properly disabled. So
+according to the TRM, the interrupts should not be disabled and not
+appear anymore.
+Advisory 1.0.9 says that only TXPEND[0] and RXPEND[0] are connected to
+the INTC rather than TXPEND[0-7] (+RXPEND) and therefore only channel 0
+can be used. That means I have still no idea why the interrupt is not
+cleared on your ES2.0.
 
-diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index 0488d70..fa563e4 100644
---- a/net/batman-adv/main.c
-+++ b/net/batman-adv/main.c
-@@ -169,7 +169,7 @@ void batadv_mesh_free(struct net_device *soft_iface)
- 	atomic_set(&bat_priv->mesh_state, BATADV_MESH_INACTIVE);
- }
- 
--int batadv_is_my_mac(const uint8_t *addr)
-+int batadv_is_my_mac(struct batadv_priv *bat_priv, const uint8_t *addr)
- {
- 	const struct batadv_hard_iface *hard_iface;
- 
-@@ -178,6 +178,9 @@ int batadv_is_my_mac(const uint8_t *addr)
- 		if (hard_iface->if_status != BATADV_IF_ACTIVE)
- 			continue;
- 
-+		if (hard_iface->soft_iface != bat_priv->soft_iface)
-+			continue;
-+
- 		if (batadv_compare_eth(hard_iface->net_dev->dev_addr, addr)) {
- 			rcu_read_unlock();
- 			return 1;
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index ced08b9..d40910d 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -162,7 +162,7 @@ extern struct workqueue_struct *batadv_event_workqueue;
- 
- int batadv_mesh_init(struct net_device *soft_iface);
- void batadv_mesh_free(struct net_device *soft_iface);
--int batadv_is_my_mac(const uint8_t *addr);
-+int batadv_is_my_mac(struct batadv_priv *bat_priv, const uint8_t *addr);
- struct batadv_hard_iface *
- batadv_seq_print_text_primary_if_get(struct seq_file *seq);
- int batadv_batman_skb_recv(struct sk_buff *skb, struct net_device *dev,
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 5ee21ce..319f290 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -402,7 +402,7 @@ int batadv_recv_icmp_packet(struct sk_buff *skb,
- 		goto out;
- 
- 	/* not for me */
--	if (!batadv_is_my_mac(ethhdr->h_dest))
-+	if (!batadv_is_my_mac(bat_priv, ethhdr->h_dest))
- 		goto out;
- 
- 	icmp_packet = (struct batadv_icmp_packet_rr *)skb->data;
-@@ -416,7 +416,7 @@ int batadv_recv_icmp_packet(struct sk_buff *skb,
- 	}
- 
- 	/* packet for me */
--	if (batadv_is_my_mac(icmp_packet->dst))
-+	if (batadv_is_my_mac(bat_priv, icmp_packet->dst))
- 		return batadv_recv_my_icmp_packet(bat_priv, skb, hdr_size);
- 
- 	/* TTL exceeded */
-@@ -548,7 +548,8 @@ batadv_find_ifalter_router(struct batadv_orig_node *primary_orig,
- 	return router;
- }
- 
--static int batadv_check_unicast_packet(struct sk_buff *skb, int hdr_size)
-+static int batadv_check_unicast_packet(struct batadv_priv *bat_priv,
-+				       struct sk_buff *skb, int hdr_size)
- {
- 	struct ethhdr *ethhdr;
- 
-@@ -567,7 +568,7 @@ static int batadv_check_unicast_packet(struct sk_buff *skb, int hdr_size)
- 		return -1;
- 
- 	/* not for me */
--	if (!batadv_is_my_mac(ethhdr->h_dest))
-+	if (!batadv_is_my_mac(bat_priv, ethhdr->h_dest))
- 		return -1;
- 
- 	return 0;
-@@ -582,7 +583,7 @@ int batadv_recv_tt_query(struct sk_buff *skb, struct batadv_hard_iface *recv_if)
- 	char tt_flag;
- 	size_t packet_size;
- 
--	if (batadv_check_unicast_packet(skb, hdr_size) < 0)
-+	if (batadv_check_unicast_packet(bat_priv, skb, hdr_size) < 0)
- 		return NET_RX_DROP;
- 
- 	/* I could need to modify it */
-@@ -614,7 +615,7 @@ int batadv_recv_tt_query(struct sk_buff *skb, struct batadv_hard_iface *recv_if)
- 	case BATADV_TT_RESPONSE:
- 		batadv_inc_counter(bat_priv, BATADV_CNT_TT_RESPONSE_RX);
- 
--		if (batadv_is_my_mac(tt_query->dst)) {
-+		if (batadv_is_my_mac(bat_priv, tt_query->dst)) {
- 			/* packet needs to be linearized to access the TT
- 			 * changes
- 			 */
-@@ -657,14 +658,15 @@ int batadv_recv_roam_adv(struct sk_buff *skb, struct batadv_hard_iface *recv_if)
- 	struct batadv_roam_adv_packet *roam_adv_packet;
- 	struct batadv_orig_node *orig_node;
- 
--	if (batadv_check_unicast_packet(skb, sizeof(*roam_adv_packet)) < 0)
-+	if (batadv_check_unicast_packet(bat_priv, skb,
-+					sizeof(*roam_adv_packet)) < 0)
- 		goto out;
- 
- 	batadv_inc_counter(bat_priv, BATADV_CNT_TT_ROAM_ADV_RX);
- 
- 	roam_adv_packet = (struct batadv_roam_adv_packet *)skb->data;
- 
--	if (!batadv_is_my_mac(roam_adv_packet->dst))
-+	if (!batadv_is_my_mac(bat_priv, roam_adv_packet->dst))
- 		return batadv_route_unicast_packet(skb, recv_if);
- 
- 	/* check if it is a backbone gateway. we don't accept
-@@ -967,7 +969,7 @@ static int batadv_check_unicast_ttvn(struct batadv_priv *bat_priv,
- 	 * last time) the packet had an updated information or not
- 	 */
- 	curr_ttvn = (uint8_t)atomic_read(&bat_priv->tt.vn);
--	if (!batadv_is_my_mac(unicast_packet->dest)) {
-+	if (!batadv_is_my_mac(bat_priv, unicast_packet->dest)) {
- 		orig_node = batadv_orig_hash_find(bat_priv,
- 						  unicast_packet->dest);
- 		/* if it is not possible to find the orig_node representing the
-@@ -1044,14 +1046,14 @@ int batadv_recv_unicast_packet(struct sk_buff *skb,
- 	if (is4addr)
- 		hdr_size = sizeof(*unicast_4addr_packet);
- 
--	if (batadv_check_unicast_packet(skb, hdr_size) < 0)
-+	if (batadv_check_unicast_packet(bat_priv, skb, hdr_size) < 0)
- 		return NET_RX_DROP;
- 
- 	if (!batadv_check_unicast_ttvn(bat_priv, skb))
- 		return NET_RX_DROP;
- 
- 	/* packet for me */
--	if (batadv_is_my_mac(unicast_packet->dest)) {
-+	if (batadv_is_my_mac(bat_priv, unicast_packet->dest)) {
- 		if (is4addr) {
- 			batadv_dat_inc_counter(bat_priv,
- 					       unicast_4addr_packet->subtype);
-@@ -1088,7 +1090,7 @@ int batadv_recv_ucast_frag_packet(struct sk_buff *skb,
- 	struct sk_buff *new_skb = NULL;
- 	int ret;
- 
--	if (batadv_check_unicast_packet(skb, hdr_size) < 0)
-+	if (batadv_check_unicast_packet(bat_priv, skb, hdr_size) < 0)
- 		return NET_RX_DROP;
- 
- 	if (!batadv_check_unicast_ttvn(bat_priv, skb))
-@@ -1097,7 +1099,7 @@ int batadv_recv_ucast_frag_packet(struct sk_buff *skb,
- 	unicast_packet = (struct batadv_unicast_frag_packet *)skb->data;
- 
- 	/* packet for me */
--	if (batadv_is_my_mac(unicast_packet->dest)) {
-+	if (batadv_is_my_mac(bat_priv, unicast_packet->dest)) {
- 		ret = batadv_frag_reassemble_skb(skb, bat_priv, &new_skb);
- 
- 		if (ret == NET_RX_DROP)
-@@ -1151,13 +1153,13 @@ int batadv_recv_bcast_packet(struct sk_buff *skb,
- 		goto out;
- 
- 	/* ignore broadcasts sent by myself */
--	if (batadv_is_my_mac(ethhdr->h_source))
-+	if (batadv_is_my_mac(bat_priv, ethhdr->h_source))
- 		goto out;
- 
- 	bcast_packet = (struct batadv_bcast_packet *)skb->data;
- 
- 	/* ignore broadcasts originated by myself */
--	if (batadv_is_my_mac(bcast_packet->orig))
-+	if (batadv_is_my_mac(bat_priv, bcast_packet->orig))
- 		goto out;
- 
- 	if (bcast_packet->header.ttl < 2)
-@@ -1243,14 +1245,14 @@ int batadv_recv_vis_packet(struct sk_buff *skb,
- 	ethhdr = (struct ethhdr *)skb_mac_header(skb);
- 
- 	/* not for me */
--	if (!batadv_is_my_mac(ethhdr->h_dest))
-+	if (!batadv_is_my_mac(bat_priv, ethhdr->h_dest))
- 		return NET_RX_DROP;
- 
- 	/* ignore own packets */
--	if (batadv_is_my_mac(vis_packet->vis_orig))
-+	if (batadv_is_my_mac(bat_priv, vis_packet->vis_orig))
- 		return NET_RX_DROP;
- 
--	if (batadv_is_my_mac(vis_packet->sender_orig))
-+	if (batadv_is_my_mac(bat_priv, vis_packet->sender_orig))
- 		return NET_RX_DROP;
- 
- 	switch (vis_packet->vis_type) {
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 98a66a0..7abee19 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -1953,7 +1953,7 @@ out:
- bool batadv_send_tt_response(struct batadv_priv *bat_priv,
- 			     struct batadv_tt_query_packet *tt_request)
- {
--	if (batadv_is_my_mac(tt_request->dst)) {
-+	if (batadv_is_my_mac(bat_priv, tt_request->dst)) {
- 		/* don't answer backbone gws! */
- 		if (batadv_bla_is_backbone_gw_orig(bat_priv, tt_request->src))
- 			return true;
-diff --git a/net/batman-adv/vis.c b/net/batman-adv/vis.c
-index c053244..6a1e646 100644
---- a/net/batman-adv/vis.c
-+++ b/net/batman-adv/vis.c
-@@ -477,7 +477,7 @@ void batadv_receive_client_update_packet(struct batadv_priv *bat_priv,
- 
- 	/* Are we the target for this VIS packet? */
- 	if (vis_server == BATADV_VIS_TYPE_SERVER_SYNC	&&
--	    batadv_is_my_mac(vis_packet->target_orig))
-+	    batadv_is_my_mac(bat_priv, vis_packet->target_orig))
- 		are_target = 1;
- 
- 	spin_lock_bh(&bat_priv->vis.hash_lock);
-@@ -496,7 +496,7 @@ void batadv_receive_client_update_packet(struct batadv_priv *bat_priv,
- 		batadv_send_list_add(bat_priv, info);
- 
- 		/* ... we're not the recipient (and thus need to forward). */
--	} else if (!batadv_is_my_mac(packet->target_orig)) {
-+	} else if (!batadv_is_my_mac(bat_priv, packet->target_orig)) {
- 		batadv_send_list_add(bat_priv, info);
- 	}
- 
--- 
-1.8.1.5
+> Regards
+> Mugunthan V N
+
+Sebastian
