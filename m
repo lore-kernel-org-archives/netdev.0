@@ -1,44 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT net] Open vSwitch
-Date: Wed, 17 Apr 2013 22:37:41 -0400 (EDT)
-Message-ID: <20130417.223741.1218143575817775286.davem@davemloft.net>
-References: <1366143449-8605-1-git-send-email-jesse@nicira.com>
-	<20130416.165302.1176077619833617294.davem@davemloft.net>
-	<CAEP_g=9+YqhrpyCMn=b583iT6Kt+ZTWfRVJd0Kdb4bzjqcPkPQ@mail.gmail.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] pkt_sched: fix error return code in fw_change_attrs()
+Date: Thu, 18 Apr 2013 10:37:59 +0800
+Message-ID: <CAPgLHd95QQdDTck-LdeR=XxZSyobo6fvP45hQvy_z9OiX0op7w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: jesse@nicira.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: jhs@mojatatu.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44528 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964940Ab3DRChw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 22:37:52 -0400
-In-Reply-To: <CAEP_g=9+YqhrpyCMn=b583iT6Kt+ZTWfRVJd0Kdb4bzjqcPkPQ@mail.gmail.com>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:61564 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964940Ab3DRCiA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 22:38:00 -0400
+Received: by mail-wi0-f176.google.com with SMTP id hj19so585627wib.15
+        for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 19:37:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Wed, 17 Apr 2013 19:31:41 -0700
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-> On Tue, Apr 16, 2013 at 1:53 PM, David Miller <davem@davemloft.net> wrote:
->> From: Jesse Gross <jesse@nicira.com>
->> Date: Tue, 16 Apr 2013 13:17:27 -0700
->>
->>> Two small bug fixes for net/3.9 including the issue previously
->>> discussed where allocation of netlink notifications can fail after
->>> changes have been committed.
->>
->> Looks good, pulled, thanks!
-> 
-> Sorry, but can you check whether this was pulled correctly? I'm not
-> seeing it in your net tree.
+Fix to return -EINVAL when tb[TCA_FW_MASK] is set and head->mask != 0xFFFFFFFF
+instead of 0 (ifdef CONFIG_NET_CLS_IND and tb[TCA_FW_INDEV]), as done elsewhere
+in this function.
 
-I don't see it either.
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ net/sched/cls_fw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-It might be sitting locally on a computer I'm not physically in front
-of right now, I'll check when I next go there (either tonight or
-tomorrow).
-
-Sorry!
+diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+index 1135d82..9b97172 100644
+--- a/net/sched/cls_fw.c
++++ b/net/sched/cls_fw.c
+@@ -204,7 +204,6 @@ fw_change_attrs(struct net *net, struct tcf_proto *tp, struct fw_filter *f,
+ 	if (err < 0)
+ 		return err;
+ 
+-	err = -EINVAL;
+ 	if (tb[TCA_FW_CLASSID]) {
+ 		f->res.classid = nla_get_u32(tb[TCA_FW_CLASSID]);
+ 		tcf_bind_filter(tp, &f->res, base);
+@@ -218,6 +217,7 @@ fw_change_attrs(struct net *net, struct tcf_proto *tp, struct fw_filter *f,
+ 	}
+ #endif /* CONFIG_NET_CLS_IND */
+ 
++	err = -EINVAL;
+ 	if (tb[TCA_FW_MASK]) {
+ 		mask = nla_get_u32(tb[TCA_FW_MASK]);
+ 		if (mask != head->mask)
