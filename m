@@ -1,18 +1,18 @@
 From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: [PATCH v2 3/8] net: sh-eth: Remove duplicate sh_eth_set_duplex()
-Date: Thu, 18 Apr 2013 19:11:04 +0900
-Message-ID: <1366279869-23387-3-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Subject: [PATCH v2 5/8] net: sh-eth: Add CONFIG_PM to definition of dev_pm_ops
+Date: Thu, 18 Apr 2013 19:11:06 +0900
+Message-ID: <1366279869-23387-5-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
 References: <1366279869-23387-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
 Cc: yoshihiro.shimoda.uh@renesas.com,
 	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:51516 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967676Ab3DRKL0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 06:11:26 -0400
-Received: by mail-pa0-f47.google.com with SMTP id bj3so1495304pad.20
-        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 03:11:25 -0700 (PDT)
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:64598 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967682Ab3DRKLb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 06:11:31 -0400
+Received: by mail-pa0-f53.google.com with SMTP id bh4so1480805pad.40
+        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 03:11:31 -0700 (PDT)
 In-Reply-To: <1366279869-23387-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,148 +21,44 @@ Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 ---
  v2: no change.
 
- drivers/net/ethernet/renesas/sh_eth.c |   65 ++++++---------------------------
- 1 file changed, 12 insertions(+), 53 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c |    9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 313d6ef..5c4e82c 100644
+index 7de0b0e..af8c225 100644
 --- a/drivers/net/ethernet/renesas/sh_eth.c
 +++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -341,9 +341,11 @@ static void sh_eth_select_mii(struct net_device *ndev)
+@@ -2772,6 +2772,7 @@ static int sh_eth_drv_remove(struct platform_device *pdev)
+ 	return 0;
  }
- #endif
  
--/* There is CPU dependent code */
--#if defined(CONFIG_ARCH_R8A7779)
--#define SH_ETH_RESET_DEFAULT	1
-+#if defined(CONFIG_CPU_SUBTYPE_SH7619) || \
-+	defined(CONFIG_CPU_SUBTYPE_SH7710) || \
-+	defined(CONFIG_CPU_SUBTYPE_SH7712)
-+#  define sh_eth_set_duplex NULL
-+#else
- static void sh_eth_set_duplex(struct net_device *ndev)
++#ifdef CONFIG_PM
+ static int sh_eth_runtime_nop(struct device *dev)
  {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -353,7 +355,11 @@ static void sh_eth_set_duplex(struct net_device *ndev)
- 	else		/* Half */
- 		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
+ 	/*
+@@ -2785,17 +2786,21 @@ static int sh_eth_runtime_nop(struct device *dev)
+ 	return 0;
  }
+ 
+-static struct dev_pm_ops sh_eth_dev_pm_ops = {
++static const struct dev_pm_ops sh_eth_dev_pm_ops = {
+ 	.runtime_suspend = sh_eth_runtime_nop,
+ 	.runtime_resume = sh_eth_runtime_nop,
+ };
++#define SH_ETH_PM_OPS &sh_eth_dev_pm_ops
++#else
++#define SH_ETH_PM_OPS NULL
 +#endif
  
-+/* There is CPU dependent code */
-+#if defined(CONFIG_ARCH_R8A7779)
-+#define SH_ETH_RESET_DEFAULT	1
- static void sh_eth_set_rate(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -391,15 +397,6 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
+ static struct platform_driver sh_eth_driver = {
+ 	.probe = sh_eth_drv_probe,
+ 	.remove = sh_eth_drv_remove,
+ 	.driver = {
+ 		   .name = CARDNAME,
+-		   .pm = &sh_eth_dev_pm_ops,
++		   .pm = SH_ETH_PM_OPS,
+ 	},
  };
- #elif defined(CONFIG_CPU_SUBTYPE_SH7724)
- #define SH_ETH_RESET_DEFAULT	1
--static void sh_eth_set_duplex(struct net_device *ndev)
--{
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--
--	if (mdp->duplex) /* Full */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_DM, ECMR);
--	else		/* Half */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
--}
  
- static void sh_eth_set_rate(struct net_device *ndev)
- {
-@@ -443,16 +440,6 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- #define SH_ETH_HAS_TSU	1
- static int sh_eth_check_reset(struct net_device *ndev);
- 
--static void sh_eth_set_duplex(struct net_device *ndev)
--{
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--
--	if (mdp->duplex) /* Full */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_DM, ECMR);
--	else		/* Half */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
--}
--
- static void sh_eth_set_rate(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -552,16 +539,6 @@ out:
- 	return ret;
- }
- 
--static void sh_eth_set_duplex_giga(struct net_device *ndev)
--{
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--
--	if (mdp->duplex) /* Full */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_DM, ECMR);
--	else		/* Half */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
--}
--
- static void sh_eth_set_rate_giga(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -584,7 +561,7 @@ static void sh_eth_set_rate_giga(struct net_device *ndev)
- /* SH7757(GETHERC) */
- static struct sh_eth_cpu_data sh_eth_my_cpu_data_giga = {
- 	.chip_reset	= sh_eth_chip_reset_giga,
--	.set_duplex	= sh_eth_set_duplex_giga,
-+	.set_duplex	= sh_eth_set_duplex,
- 	.set_rate	= sh_eth_set_rate_giga,
- 
- 	.ecsr_value	= ECSR_ICD | ECSR_MPD,
-@@ -635,16 +612,6 @@ static void sh_eth_chip_reset(struct net_device *ndev)
- 	mdelay(1);
- }
- 
--static void sh_eth_set_duplex(struct net_device *ndev)
--{
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--
--	if (mdp->duplex) /* Full */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_DM, ECMR);
--	else		/* Half */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
--}
--
- static void sh_eth_set_rate(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -774,16 +741,6 @@ out:
- 	return ret;
- }
- 
--static void sh_eth_set_duplex(struct net_device *ndev)
--{
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--
--	if (mdp->duplex) /* Full */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_DM, ECMR);
--	else		/* Half */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
--}
--
- static void sh_eth_set_rate(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -834,6 +791,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- #elif defined(CONFIG_CPU_SUBTYPE_SH7619)
- #define SH_ETH_RESET_DEFAULT	1
- static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
-+	.set_duplex = sh_eth_set_duplex,
- 	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
- 
- 	.apr		= 1,
-@@ -845,6 +803,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- #define SH_ETH_RESET_DEFAULT	1
- #define SH_ETH_HAS_TSU	1
- static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
-+	.set_duplex = sh_eth_set_duplex,
- 	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
- 	.tsu		= 1,
- 	.tsu_multi_reg	= 1,
 -- 
 1.7.10.4
