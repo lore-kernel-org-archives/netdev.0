@@ -1,64 +1,97 @@
 From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: [PATCH v2 5/8] net: sh-eth: Add CONFIG_PM to definition of dev_pm_ops
-Date: Thu, 18 Apr 2013 19:11:06 +0900
-Message-ID: <1366279869-23387-5-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Subject: [PATCH v2 6/8] net: sh-eth: Add irq configureation flags in sh_eth_cpu_data
+Date: Thu, 18 Apr 2013 19:11:07 +0900
+Message-ID: <1366279869-23387-6-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
 References: <1366279869-23387-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
 Cc: yoshihiro.shimoda.uh@renesas.com,
 	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:64598 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967682Ab3DRKLb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 06:11:31 -0400
-Received: by mail-pa0-f53.google.com with SMTP id bh4so1480805pad.40
-        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 03:11:31 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:40216 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967682Ab3DRKLe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 06:11:34 -0400
+Received: by mail-pa0-f52.google.com with SMTP id fb10so1491174pad.39
+        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 03:11:33 -0700 (PDT)
 In-Reply-To: <1366279869-23387-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+sh-eth is supporting some SH and shmobile CPU. CPU with two or more networked
+devices is in these, these specify IRQF_SHARED as IRQ configureation flags.
+This changes to set IRQ configureation flags using in sh_eth_cpu_data.
 
 Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 ---
  v2: no change.
 
- drivers/net/ethernet/renesas/sh_eth.c |    9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c |   12 ++++--------
+ drivers/net/ethernet/renesas/sh_eth.h |    2 ++
+ 2 files changed, 6 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 7de0b0e..af8c225 100644
+index af8c225..a4e337f 100644
 --- a/drivers/net/ethernet/renesas/sh_eth.c
 +++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2772,6 +2772,7 @@ static int sh_eth_drv_remove(struct platform_device *pdev)
- 	return 0;
- }
+@@ -468,6 +468,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
+ 			  EESR_RFRMER | EESR_TFE | EESR_TDE | EESR_ECI,
+ 	.tx_error_check	= EESR_TWB | EESR_TABT | EESR_TDE | EESR_TFE,
  
-+#ifdef CONFIG_PM
- static int sh_eth_runtime_nop(struct device *dev)
- {
- 	/*
-@@ -2785,17 +2786,21 @@ static int sh_eth_runtime_nop(struct device *dev)
- 	return 0;
- }
++	.irq_flags	= IRQF_SHARED,
+ 	.apr		= 1,
+ 	.mpr		= 1,
+ 	.tpauser	= 1,
+@@ -576,6 +577,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data_giga = {
+ 	.fdr_value	= 0x0000072f,
+ 	.rmcr_value	= 0x00000001,
  
--static struct dev_pm_ops sh_eth_dev_pm_ops = {
-+static const struct dev_pm_ops sh_eth_dev_pm_ops = {
- 	.runtime_suspend = sh_eth_runtime_nop,
- 	.runtime_resume = sh_eth_runtime_nop,
++	.irq_flags	= IRQF_SHARED,
+ 	.apr		= 1,
+ 	.mpr		= 1,
+ 	.tpauser	= 1,
+@@ -658,6 +660,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
+ 	.hw_crc     = 1,
+ 	.select_mii = 1,
+ #else
++	.irq_flags	= IRQF_SHARED,
+ 	.tsu_multi_reg	= 1,
+ #endif
  };
-+#define SH_ETH_PM_OPS &sh_eth_dev_pm_ops
-+#else
-+#define SH_ETH_PM_OPS NULL
-+#endif
+@@ -1920,14 +1923,7 @@ static int sh_eth_open(struct net_device *ndev)
+ 	pm_runtime_get_sync(&mdp->pdev->dev);
  
- static struct platform_driver sh_eth_driver = {
- 	.probe = sh_eth_drv_probe,
- 	.remove = sh_eth_drv_remove,
- 	.driver = {
- 		   .name = CARDNAME,
--		   .pm = &sh_eth_dev_pm_ops,
-+		   .pm = SH_ETH_PM_OPS,
- 	},
- };
+ 	ret = request_irq(ndev->irq, sh_eth_interrupt,
+-#if defined(CONFIG_CPU_SUBTYPE_SH7763) || \
+-	defined(CONFIG_CPU_SUBTYPE_SH7764) || \
+-	defined(CONFIG_CPU_SUBTYPE_SH7757)
+-				IRQF_SHARED,
+-#else
+-				0,
+-#endif
+-				ndev->name, ndev);
++				mdp->cd->irq_flags, ndev->name, ndev);
+ 	if (ret) {
+ 		dev_err(&ndev->dev, "Can not assign IRQ number\n");
+ 		return ret;
+diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
+index f86ea96..0772ec1 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.h
++++ b/drivers/net/ethernet/renesas/sh_eth.h
+@@ -463,6 +463,7 @@ struct sh_eth_cpu_data {
+ 	unsigned long tx_error_check;
  
+ 	/* hardware features */
++	unsigned long irq_flags; /* IRQ configuration flags */
+ 	unsigned no_psr:1;		/* EtherC DO NOT have PSR */
+ 	unsigned apr:1;			/* EtherC have APR */
+ 	unsigned mpr:1;			/* EtherC have MPR */
+@@ -508,6 +509,7 @@ struct sh_eth_private {
+ 	int duplex;
+ 	int port;		/* for TSU */
+ 	int vlan_num_ids;	/* for VLAN tag filter */
++	unsigned long irq_flags; /* IRQ configuration flags */
+ 
+ 	unsigned no_ether_link:1;
+ 	unsigned ether_link_active_low:1;
 -- 
 1.7.10.4
