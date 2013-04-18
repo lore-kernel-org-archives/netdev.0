@@ -1,56 +1,37 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCHv3 3/5] bonding: primary_slave & curr_active_slave are
- not cleaned on enslave failure
-Date: Thu, 18 Apr 2013 19:39:53 +0200
-Message-ID: <51702FE9.3050506@redhat.com>
-References: <1366306418-3661-1-git-send-email-nikolay@redhat.com> <1366306418-3661-4-git-send-email-nikolay@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next] tcp: introduce TCPSpuriousRtxHostQueues SNMP
+ counter
+Date: Thu, 18 Apr 2013 10:45:10 -0700
+Message-ID: <20130418104510.3624457a@nehalam.linuxnetplumber.net>
+References: <1366303971.3205.62.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: andy@greyhouse.net, fubar@us.ibm.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19971 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936461Ab3DRRkc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 13:40:32 -0400
-In-Reply-To: <1366306418-3661-4-git-send-email-nikolay@redhat.com>
+Received: from mail-da0-f41.google.com ([209.85.210.41]:44780 "EHLO
+	mail-da0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753647Ab3DRRpl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 13:45:41 -0400
+Received: by mail-da0-f41.google.com with SMTP id p8so1374683dan.14
+        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 10:45:41 -0700 (PDT)
+In-Reply-To: <1366303971.3205.62.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18/04/13 19:33, Nikolay Aleksandrov wrote:
-> On enslave failure primary_slave can point to new_slave which is to be
-> freed, and the same applies to curr_active_slave. So check if this is
-> the case and clean up properly after err_detach because that's the first
-> error code path after they're set.
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
-> ---
->  drivers/net/bonding/bond_main.c | 10 ++++++++++
->  1 file changed, 10 insertions(+)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 2e7fce0..c56e132 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1909,7 +1909,17 @@ err_detach:
->  	bond_del_vlans_from_slave(bond, slave_dev);
->  	write_lock_bh(&bond->lock);
->  	bond_detach_slave(bond, new_slave);
-> +	if (bond->primary_slave == new_slave)
-> +		bond->primary_slave = NULL;
->  	write_unlock_bh(&bond->lock);
-> +	if (bond->curr_active_slave == new_slave) {
-> +		read_lock(&bond->lock);
-> +		write_lock_bh(&bond->curr_slave_lock);
-> +		bond_change_active_slave(bond, NULL);
-> +		bond_select_active_slave(bond);
-> +		write_unlock_bh(&bond->curr_slave_lock);
-> +		read_unlock(&bond->lock);
-> +	}
->  
->  err_close:
->  	slave_dev->priv_flags &= ~IFF_BONDING;
+On Thu, 18 Apr 2013 09:52:51 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-I've had too much coffee today, this should've been
-v2 although there aren't any changes :-)
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Host queues (Qdisc + NIC) can hold packets so long that TCP can
+> eventually retransmit a packet before the first transmit even left
+> the host.
+
+I though you were use fq_codel ;-) and that wouldn't happen.
