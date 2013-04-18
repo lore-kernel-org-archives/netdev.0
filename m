@@ -1,45 +1,98 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH 1/5] bonding: mc addresses don't get deleted on enslave
- failure
-Date: Thu, 18 Apr 2013 19:15:07 +0200
-Message-ID: <51702A1B.5080402@redhat.com>
-References: <1366295697-31037-1-git-send-email-nikolay@redhat.com> <1366295697-31037-2-git-send-email-nikolay@redhat.com> <14509.1366304280@death.nxdomain>
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: Re: [PATCH net-next v3 1/1] net: fec: Enable imx6 enet checksum acceleration.
+Date: Thu, 18 Apr 2013 18:21:30 +0100
+Message-ID: <51702B9A.8070000@mentor.com>
+References: <Jim Baxter <jim_baxter@mentor.com>    <1366229278-7528-1-git-send-email-jim_baxter@mentor.com>   <1366234670.3205.38.camel@edumazet-glaptop> <516FEBD3.8000803@mentor.com>  <1366301796.2735.18.camel@bwh-desktop.uk.solarflarecom.com>  <5170288B.4080008@mentor.com> <1366305170.2735.40.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, davem@davemloft.net
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Fugang Duan <B38611@freescale.com>, <netdev@vger.kernel.org>,
+	Fabio Estevam <festevam@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62547 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967395Ab3DRRQk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 13:16:40 -0400
-In-Reply-To: <14509.1366304280@death.nxdomain>
+Received: from relay1.mentorg.com ([192.94.38.131]:48697 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753847Ab3DRRVl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 13:21:41 -0400
+In-Reply-To: <1366305170.2735.40.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18/04/13 18:58, Jay Vosburgh wrote:
-> Nikolay Aleksandrov <nikolay@redhat.com> wrote:
-> 
->> Add dev_mc_del after err_detach as that's the first error path
->> after they're added. The main issue is the mc addresses' refcount
->> which only gets bumped up.
+On 18/04/13 18:12, Ben Hutchings wrote:
+> On Thu, 2013-04-18 at 18:08 +0100, Jim Baxter wrote:
+>> On 18/04/13 17:16, Ben Hutchings wrote:
+>>> On Thu, 2013-04-18 at 13:49 +0100, Jim Baxter wrote:
+>>>> On 17/04/13 22:37, Eric Dumazet wrote:
+>>>>> On Wed, 2013-04-17 at 21:07 +0100, Jim Baxter wrote:
+>>>>>
+>>>>>> +			skb_set_transport_header(skb,
+>>>>>> +					ETH_HLEN + ip_hdrlen(skb));
+>>>>>> +			udp_hdr(skb)->check = 0;
+>>>>>> +			break;
+>>>>>> +		case IPPROTO_TCP:
+>>>>>> +			hdr_len = (ETH_HLEN +
+>>>>>> +					(ip_hdr(skb)->ihl << 2) +
+>>>>>> +					sizeof(struct tcphdr));
+>>>>>> +			if (skb->len < hdr_len)
+>>>>>> +				return;
+>>>>>> +			skb_cow_head(skb, hdr_len);
+>>>>>
+>>>>> same here
+>>>> Do I need to call skb_cow_head here, I am not changing the size of the
+>>>> header?
+>>> [...]
+>>>
+>>> The length passed to skb_cow_head() may be significant when the skb has
+>>> paged fragments.  Since you aren't (yet) implementing scatter-gather,
+>>> that won't happen.  And the headers shouldn't be in paged fragments
+>>> anyway.  I think you can safely use skb_cow_head(skb, 0).
+>>>
+>>> But you don't actually need to check protocol numbers at all, as the
+>>> kernel already specifies where the checksum should be.
+>>>
+>>> So I think this function should look like:
+>>> {
+>>> 	if (skb->ip_summed != CHECKSUM_PARTIAL)
+>>> 		return 0;
+>>>
+>>> 	if (unlikely(skb_cow_head(skb, 0)))
+>>> 		return -1;
+>>>
+>>> 	*(__sum16 *)(skb->head + skb->csum_start + skb->csum_offset) = 0;
+>>> 	return 0;
+>>> }
+>>>
+>>> The caller needs to check for the failure, and free the skb
+>>> (kfree_skb()) rather than transmitting it.
+>>>
+>>> Ben.
+>>>
 >>
->> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+>> Which checksum does skb->csum (skb->csum_start + skb->csum_offset)
+>> relate to?
 > 
-> 	All 5 of these patches look good to me.  The only minor nits are
-> that the above description says "dev_mc_del," but the actual function
-> call added is bond_mc_list_flush (which in turn does call dev_mc_dev),
-> and that this patch (#1) modifies the lacpdu_multicast variable
-> initialization, which isn't really necessary for the bug fix.
+> TCP or UDP.
 > 
-> 	-J
+>> The network card can generate IP header and protocol (UDP/TCP/ICMP)
+>> checksums as long as the checksums are zeroed?
 > 
+> You don't need to offload the IPv4 header checksum.  TX checksum offload
+> will not be requested for ICMP.
+
+So the kernel only offloads TCP and UDP checksum's. All other transport
+protocols (ICMP, ICMPIPV6 etc.) will be done by the kernel.
+
+> 
+> Ben.
 > 
 
-Yes, that all is because initially I wrote it directly with dev_mc_del
-where I needed the variable and then I changed it to use
-bond_mc_list_flush. I'll re-post v2 with updated log message and
-without that initialization, sorry about this.
+Thanks, though I saw you replied to my question before I could send it.
 
-Nik
+It sounds like there is no reason wasting CPU cycles clearing the IP
+header checksum, so I can keep the code efficient.
+
+Jim
