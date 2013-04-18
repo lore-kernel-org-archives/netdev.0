@@ -1,45 +1,45 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCHv2 1/5] bonding: mc addresses don't get deleted on enslave failure
-Date: Thu, 18 Apr 2013 19:33:34 +0200
-Message-ID: <1366306418-3661-2-git-send-email-nikolay@redhat.com>
-References: <1366306418-3661-1-git-send-email-nikolay@redhat.com>
+Subject: [PATCHv2 0/5] bonding: enslave and locking bug fixes
+Date: Thu, 18 Apr 2013 19:33:33 +0200
+Message-ID: <1366306418-3661-1-git-send-email-nikolay@redhat.com>
 Cc: andy@greyhouse.net, fubar@us.ibm.com, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62589 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:45189 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967289Ab3DRRgm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 13:36:42 -0400
-In-Reply-To: <1366306418-3661-1-git-send-email-nikolay@redhat.com>
+	id S966799Ab3DRRgz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 13:36:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add bond_mc_list_flush() after err_detach as that's the first error path
-after the addresses are added. The main issue is the mc addresses' refcount
-which only gets bumped up.
+Hi,
+This patch-set fixes mainly bugs on enslave failure and one occasion
+of a needed locking. The patches are:
 
-v2: update log message and don't move code unnecessarily
+	1. On enslave failure mc addresses are not flushed from the slave
+	2. On enslave failure vlans are not cleaned up from the slave
+	3. On enslave failure the bond's primary and curr_active_slave
+	   are not cleaned up (which might result in use of freed memory)
+	4. On enslave failure netpoll is not disabled which might result in
+	   a memory leak
+	5. In bond_mc_swap() the bond's mc addr list is walked without
+	   netif_addr_lock, since it can be called without rtnl, add it
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
- drivers/net/bonding/bond_main.c | 5 +++++
- 1 file changed, 5 insertions(+)
+v2: patch 01 - fix log message and remove unnecessary code move
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index a61a760..6fe1544 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1901,6 +1901,11 @@ err_dest_symlinks:
- 	bond_destroy_slave_symlinks(bond_dev, slave_dev);
- 
- err_detach:
-+	if (!USES_PRIMARY(bond->params.mode)) {
-+		netif_addr_lock_bh(bond_dev);
-+		bond_mc_list_flush(bond_dev, slave_dev);
-+		netif_addr_unlock_bh(bond_dev);
-+	}
- 	write_lock_bh(&bond->lock);
- 	bond_detach_slave(bond, new_slave);
- 	write_unlock_bh(&bond->lock);
+Best regards,
+ Nik
+
+Nikolay Aleksandrov (5):
+  bonding: mc addresses don't get deleted on enslave failure
+  bonding: vlans don't get deleted on enslave failure
+  bonding: primary_slave & curr_active_slave are not cleaned on enslave
+    failure
+  bonding: disable netpoll on enslave failure
+  bonding: in bond_mc_swap() bond's mc addr list is walked without lock
+
+ drivers/net/bonding/bond_main.c | 27 +++++++++++++++++++++++----
+ 1 file changed, 23 insertions(+), 4 deletions(-)
+
 -- 
 1.8.1.4
