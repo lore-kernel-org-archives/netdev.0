@@ -1,406 +1,155 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [RFC net-next PATCH 3/3] net: remove fragmentation LRU list system
-Date: Thu, 18 Apr 2013 23:39:01 +0200
-Message-ID: <20130418213805.14296.21621.stgit@dragon>
-References: <20130418213637.14296.43143.stgit@dragon>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: [PATCHv2 for-3.9] pci: avoid work_on_cpu for nested SRIOV probes
+Date: Thu, 18 Apr 2013 15:40:01 -0600
+Message-ID: <CAErSpo65Q0+UT3sS6LcyXohkCMfjweoS_j+okiYq4bdjFKjdHw@mail.gmail.com>
+References: <51360D7C.3060209@mellanox.com> <20130418200855.GA24086@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3300 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752689Ab3DRVga (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 17:36:30 -0400
-In-Reply-To: <20130418213637.14296.43143.stgit@dragon>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Ming Lei <ming.lei@canonical.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>,
+	Roland Dreier <roland@kernel.org>,
+	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Tejun Heo <tj@kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20130418200855.GA24086@redhat.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-WORK-IN-PROGRESS
+On Thu, Apr 18, 2013 at 2:08 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> The following lockdep report triggers since 3.9-rc1:
+>
+> =============================================
+> [ INFO: possible recursive locking detected ]
+> 3.9.0-rc1 #96 Not tainted
+> ---------------------------------------------
+> kworker/0:1/734 is trying to acquire lock:
+>  ((&wfc.work)){+.+.+.}, at: [<ffffffff81066cb0>] flush_work+0x0/0x250
+>
+> but task is already holding lock:
+>  ((&wfc.work)){+.+.+.}, at: [<ffffffff81064352>]
+> process_one_work+0x162/0x4c0
+>
+> other info that might help us debug this:
+>  Possible unsafe locking scenario:
+>
+>        CPU0
+>        ----
+>   lock((&wfc.work));
+>   lock((&wfc.work));
+>
+>  *** DEADLOCK ***
+>
+>  May be due to missing lock nesting notation
+>
+> 3 locks held by kworker/0:1/734:
+>  #0:  (events){.+.+.+}, at: [<ffffffff81064352>]
+> process_one_work+0x162/0x4c0
+>  #1:  ((&wfc.work)){+.+.+.}, at: [<ffffffff81064352>]
+> process_one_work+0x162/0x4c0
+>  #2:  (&__lockdep_no_validate__){......}, at: [<ffffffff812db225>]
+> device_attach+0x25/0xb0
+>
+> stack backtrace:
+> Pid: 734, comm: kworker/0:1 Not tainted 3.9.0-rc1 #96
+> Call Trace:
+>  [<ffffffff810948ec>] validate_chain+0xdcc/0x11f0
+>  [<ffffffff81095150>] __lock_acquire+0x440/0xc70
+>  [<ffffffff81095150>] ? __lock_acquire+0x440/0xc70
+>  [<ffffffff810959da>] lock_acquire+0x5a/0x70
+>  [<ffffffff81066cb0>] ? wq_worker_waking_up+0x60/0x60
+>  [<ffffffff81066cf5>] flush_work+0x45/0x250
+>  [<ffffffff81066cb0>] ? wq_worker_waking_up+0x60/0x60
+>  [<ffffffff810922be>] ? mark_held_locks+0x9e/0x130
+>  [<ffffffff81066a96>] ? queue_work_on+0x46/0x90
+>  [<ffffffff810925dd>] ? trace_hardirqs_on_caller+0xfd/0x190
+>  [<ffffffff8109267d>] ? trace_hardirqs_on+0xd/0x10
+>  [<ffffffff81066f74>] work_on_cpu+0x74/0x90
+>  [<ffffffff81063820>] ? keventd_up+0x20/0x20
+>  [<ffffffff8121fd30>] ? pci_pm_prepare+0x60/0x60
+>  [<ffffffff811f9293>] ? cpumask_next_and+0x23/0x40
+>  [<ffffffff81220a1a>] pci_device_probe+0xba/0x110
+>  [<ffffffff812dadca>] ? driver_sysfs_add+0x7a/0xb0
+>  [<ffffffff812daf1f>] driver_probe_device+0x8f/0x230
+>  [<ffffffff812db170>] ? __driver_attach+0xb0/0xb0
+>  [<ffffffff812db1bb>] __device_attach+0x4b/0x60
+>  [<ffffffff812d9314>] bus_for_each_drv+0x64/0x90
+>  [<ffffffff812db298>] device_attach+0x98/0xb0
+>  [<ffffffff81218474>] pci_bus_add_device+0x24/0x50
+>  [<ffffffff81232e80>] virtfn_add+0x240/0x3e0
+>  [<ffffffff8146ce3d>] ? _raw_spin_unlock_irqrestore+0x3d/0x80
+>  [<ffffffff812333be>] pci_enable_sriov+0x23e/0x500
+>  [<ffffffffa011fa1a>] __mlx4_init_one+0x5da/0xce0 [mlx4_core]
+>  [<ffffffffa012016d>] mlx4_init_one+0x2d/0x60 [mlx4_core]
+>  [<ffffffff8121fd79>] local_pci_probe+0x49/0x80
+>  [<ffffffff81063833>] work_for_cpu_fn+0x13/0x20
+>  [<ffffffff810643b8>] process_one_work+0x1c8/0x4c0
+>  [<ffffffff81064352>] ? process_one_work+0x162/0x4c0
+>  [<ffffffff81064cfb>] worker_thread+0x30b/0x430
+>  [<ffffffff810649f0>] ? manage_workers+0x340/0x340
+>  [<ffffffff8106cea6>] kthread+0xd6/0xe0
+>  [<ffffffff8106cdd0>] ? __init_kthread_worker+0x70/0x70
+>  [<ffffffff8146daac>] ret_from_fork+0x7c/0xb0
+>  [<ffffffff8106cdd0>] ? __init_kthread_worker+0x70/0x70
+>
+> The issue is that a driver, in it's probe function, calls
+> pci_sriov_enable so a PF device probe causes VF probe (AKA nested
+> probe).  Each probe in pci_device_probe which is (normally) run through
+> work_on_cpu (this is to get the right numa node for memory allocated by
+> the driver).  In turn work_on_cpu does this internally:
+>
+>         schedule_work_on(cpu, &wfc.work);
+>         flush_work(&wfc.work);
+>
+> So if you are running probe on CPU1, and cause another
+> probe on the same CPU, this will try to flush
+> workqueue from inside same workqueue which causes
+> a lockep warning.
+>
+> Nested probing might be tricky to get right generally.
+>
+> But for pci_sriov_enable, the situation is actually very simple: all VFs
+> naturally have same affinity as the PF, and cpumask_any_and is actually
+> same as cpumask_first_and, so it always gives us the same CPU.
+> So let's just detect that, and run the probing for VFs locally without a
+> workqueue.
+>
+> This is hardly elegant, but looks to me like an appropriate quick fix
+> for 3.9.
+>
+> Tested-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Acked-by: Tejun Heo <tj@kernel.org>
 
-I have a bug in inet_frag_cleanup_netns(), which clean/deletes fragments
-when a network namespace is taken down.
+Thanks, Michael.  I put this in my for-linus branch:
 
-TODO:
-- netns mem limits and hash cleaning have conflicts
-- Howto can we re-add the IPSTATS_MIB_REASMFAILS stats?
-- Remove nf->low_thresh
-- Doc new max_hash_depth
+http://git.kernel.org/cgit/linux/kernel/git/helgaas/pci.git/log/?h=for-linus
 
-NOT-signed-off
----
+I'll send a pull request to Linus today.
 
- include/net/inet_frag.h                 |   36 ++++++------
- include/net/ipv6.h                      |    2 -
- net/ipv4/inet_fragment.c                |   96 +++++++++++++++++--------------
- net/ipv4/ip_fragment.c                  |   19 +-----
- net/ipv6/netfilter/nf_conntrack_reasm.c |    5 --
- net/ipv6/reassembly.c                   |    8 ---
- 6 files changed, 75 insertions(+), 91 deletions(-)
+Bjorn
 
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index b2cd72a..276900b 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -4,9 +4,7 @@
- #include <linux/percpu_counter.h>
- 
- struct netns_frags {
--	int			nqueues;
--	struct list_head	lru_list;
--	spinlock_t		lru_lock;
-+	struct percpu_counter   nqueues;
- 
- 	/* The percpu_counter "mem" need to be cacheline aligned.
- 	 *  mem.count must not share cacheline with other writers
-@@ -133,28 +131,30 @@ static inline int sum_frag_mem_limit(struct netns_frags *nf)
- 	return res;
- }
- 
--static inline void inet_frag_lru_move(struct inet_frag_queue *q)
-+static inline void dec_frag_nqueues(struct inet_frag_queue *q)
- {
--	spin_lock(&q->net->lru_lock);
--	list_move_tail(&q->lru_list, &q->net->lru_list);
--	spin_unlock(&q->net->lru_lock);
-+	percpu_counter_dec(&q->net->nqueues);
- }
- 
--static inline void inet_frag_lru_del(struct inet_frag_queue *q)
-+static inline void inc_frag_nqueues(struct inet_frag_queue *q)
- {
--	spin_lock(&q->net->lru_lock);
--	list_del(&q->lru_list);
--	q->net->nqueues--;
--	spin_unlock(&q->net->lru_lock);
-+	percpu_counter_inc(&q->net->nqueues);
- }
- 
--static inline void inet_frag_lru_add(struct netns_frags *nf,
--				     struct inet_frag_queue *q)
-+static inline void init_frag_nqueues(struct netns_frags *nf)
- {
--	spin_lock(&nf->lru_lock);
--	list_add_tail(&q->lru_list, &nf->lru_list);
--	q->net->nqueues++;
--	spin_unlock(&nf->lru_lock);
-+	percpu_counter_init(&nf->nqueues, 0);
-+}
-+
-+static inline int sum_frag_nqueues(struct netns_frags *nf)
-+{
-+	int res;
-+
-+	local_bh_disable();
-+	res = percpu_counter_sum_positive(&nf->nqueues);
-+	local_bh_enable();
-+
-+	return res;
- }
- 
- /* RFC 3168 support :
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 0810aa5..c35873c 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -286,7 +286,7 @@ static inline bool ipv6_accept_ra(struct inet6_dev *idev)
- #if IS_ENABLED(CONFIG_IPV6)
- static inline int ip6_frag_nqueues(struct net *net)
- {
--	return net->ipv6.frags.nqueues;
-+	return sum_frag_nqueues(&net->ipv6.frags);
- }
- 
- static inline int ip6_frag_mem(struct net *net)
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index fd9fe5c..8cb46fa 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -105,10 +105,8 @@ EXPORT_SYMBOL(inet_frags_init);
- 
- void inet_frags_init_net(struct netns_frags *nf)
- {
--	nf->nqueues = 0;
-+	init_frag_nqueues(nf);
- 	init_frag_mem_limit(nf);
--	INIT_LIST_HEAD(&nf->lru_list);
--	spin_lock_init(&nf->lru_lock);
- }
- EXPORT_SYMBOL(inet_frags_init_net);
- 
-@@ -118,18 +116,6 @@ void inet_frags_fini(struct inet_frags *f)
- }
- EXPORT_SYMBOL(inet_frags_fini);
- 
--void inet_frags_exit_net(struct netns_frags *nf, struct inet_frags *f)
--{
--	nf->low_thresh = 0;
--
--	local_bh_disable();
--	inet_frag_evictor(nf, f, true);
--	local_bh_enable();
--
--	percpu_counter_destroy(&nf->mem);
--}
--EXPORT_SYMBOL(inet_frags_exit_net);
--
- static inline void fq_unlink_hash(struct inet_frag_queue *fq,
- 				  struct inet_frags *f)
- {
-@@ -160,7 +146,7 @@ void __inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f,
- 	if (!(fq->last_in & INET_FRAG_COMPLETE)) {
- 		if (unlink_hash)
- 			fq_unlink_hash(fq, f);
--		inet_frag_lru_del(fq);
-+		dec_frag_nqueues(fq);
- 		atomic_dec(&fq->refcnt);
- 		fq->last_in |= INET_FRAG_COMPLETE;
- 	}
-@@ -212,46 +198,60 @@ void inet_frag_destroy(struct inet_frag_queue *q, struct inet_frags *f,
- }
- EXPORT_SYMBOL(inet_frag_destroy);
- 
--int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force)
-+int inet_frag_cleanup_netns(struct netns_frags *nf, struct inet_frags *f)
- {
-+	struct hlist_head kill_list;
- 	struct inet_frag_queue *q;
--	int work, evicted = 0;
-+	struct hlist_node *n;
-+	int i, evicted = 0;
- 
--	if (!force) {
--		if (frag_mem_limit(nf) <= nf->high_thresh)
--			return 0;
--	}
-+	/* Move inet_frag_queue's from hash table to the kill_list */
-+	read_lock(&f->lock);
-+	for (i = 0; i < INETFRAGS_HASHSZ; i++) {
-+		struct inet_frag_bucket *hb;
- 
--	work = frag_mem_limit(nf) - nf->low_thresh;
--	while (work > 0) {
--		spin_lock(&nf->lru_lock);
-+		hb = &f->hash[i];
-+		spin_lock(&hb->chain_lock);
-+		hlist_for_each_entry_safe(q, n, &hb->chain, list) {
- 
--		if (list_empty(&nf->lru_list)) {
--			spin_unlock(&nf->lru_lock);
--			break;
-+			if (q->net == nf) { /* Only for specific netns */
-+				atomic_inc(&q->refcnt);
-+				hlist_del(&q->list);
-+				hlist_add_head(&q->list, &kill_list);
-+			}
- 		}
-+		spin_unlock(&hb->chain_lock);
-+	}
-+	read_unlock(&f->lock);
- 
--		q = list_first_entry(&nf->lru_list,
--				struct inet_frag_queue, lru_list);
--		atomic_inc(&q->refcnt);
--		/* Remove q from list to avoid several CPUs grabbing it */
--		list_del_init(&q->lru_list);
--
--		spin_unlock(&nf->lru_lock);
--
-+	/* Kill off the inet_frag_queue's */
-+	hlist_for_each_entry_safe(q, n, &kill_list, list) {
- 		spin_lock(&q->lock);
- 		if (!(q->last_in & INET_FRAG_COMPLETE))
- 			inet_frag_kill(q, f);
- 		spin_unlock(&q->lock);
- 
- 		if (atomic_dec_and_test(&q->refcnt))
--			inet_frag_destroy(q, f, &work);
-+			inet_frag_destroy(q, f, NULL);
-+
- 		evicted++;
- 	}
- 
- 	return evicted;
- }
--EXPORT_SYMBOL(inet_frag_evictor);
-+
-+void inet_frags_exit_net(struct netns_frags *nf, struct inet_frags *f)
-+{
-+	nf->low_thresh = 0;
-+
-+	local_bh_disable();
-+	//BROKEN: inet_frag_cleanup_netns(nf, f);
-+	local_bh_enable();
-+
-+	percpu_counter_destroy(&nf->nqueues);
-+	percpu_counter_destroy(&nf->mem);
-+}
-+EXPORT_SYMBOL(inet_frags_exit_net);
- 
- static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
- 		struct inet_frag_queue *qp_in, struct inet_frags *f,
-@@ -295,7 +295,7 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
- 
- 	atomic_inc(&qp->refcnt);
- 	hlist_add_head(&qp->list, &hb->chain);
--	inet_frag_lru_add(nf, qp);
-+	inc_frag_nqueues(qp);
- 	spin_unlock(&hb->chain_lock);
- 	read_unlock(&f->lock);
- 	return qp;
-@@ -356,9 +356,19 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
- 		q_evict = q; /* candidate for eviction */
- 	}
- 	/* Not found situation */
--	if (depth > f->max_hash_depth) {
--		atomic_inc(&q_evict->refcnt);
--		hlist_del_init(&q_evict->list);
-+	if ((depth > f->max_hash_depth)
-+	    || (frag_mem_limit(nf) > nf->high_thresh)) {
-+
-+		/* This is in principal wrong, notice
-+		 * frag_mem_limit(nf) is per netns, and we might
-+		 * delete q_evict belonging to another netns, which is
-+		 * not going to lower the frag_mem_limit(nf) for this
-+		 * netns. What to do?
-+		 */
-+		if (q_evict) {
-+			atomic_inc(&q_evict->refcnt);
-+			hlist_del_init(&q_evict->list);
-+		}
- 	} else
- 		q_evict = NULL;
- 	spin_unlock(&hb->chain_lock);
-@@ -374,7 +384,7 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
- 			inet_frag_destroy(q_evict, f, NULL);
- 
- 		LIMIT_NETDEBUG(KERN_WARNING "%s(): Fragment hash bucket"
--			       " list length grew over limit (len %d),"
-+			       " grew over lenght or mem limit (len %d),"
- 			       " Dropping another fragment.\n",
- 			       __func__, depth);
- 	}
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 4e8489b..193e360 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -18,6 +18,7 @@
-  *		John McDonald	:	0 length frag bug.
-  *		Alexey Kuznetsov:	SMP races, threading, cleanup.
-  *		Patrick McHardy :	LRU queue of frag heads for evictor.
-+ *		Jesper D Brouer :	Removed LRU queue for evictor.
-  */
- 
- #define pr_fmt(fmt) "IPv4: " fmt
-@@ -88,7 +89,7 @@ static struct inet_frags ip4_frags;
- 
- int ip_frag_nqueues(struct net *net)
- {
--	return net->ipv4.frags.nqueues;
-+	return sum_frag_nqueues(&net->ipv4.frags);
- }
- 
- int ip_frag_mem(struct net *net)
-@@ -176,18 +177,6 @@ static void ipq_kill(struct ipq *ipq)
- 	inet_frag_kill(&ipq->q, &ip4_frags);
- }
- 
--/* Memory limiting on fragments.  Evictor trashes the oldest
-- * fragment queue until we are back under the threshold.
-- */
--static void ip_evictor(struct net *net)
--{
--	int evicted;
--
--	evicted = inet_frag_evictor(&net->ipv4.frags, &ip4_frags, false);
--	if (evicted)
--		IP_ADD_STATS_BH(net, IPSTATS_MIB_REASMFAILS, evicted);
--}
--
- /*
-  * Oops, a fragment queue timed out.  Kill it and send an ICMP reply.
-  */
-@@ -495,7 +484,6 @@ found:
- 	    qp->q.meat == qp->q.len)
- 		return ip_frag_reasm(qp, prev, dev);
- 
--	inet_frag_lru_move(&qp->q);
- 	return -EINPROGRESS;
- 
- err:
-@@ -645,9 +633,6 @@ int ip_defrag(struct sk_buff *skb, u32 user)
- 	net = skb->dev ? dev_net(skb->dev) : dev_net(skb_dst(skb)->dev);
- 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMREQDS);
- 
--	/* Start by cleaning up the memory. */
--	ip_evictor(net);
--
- 	/* Lookup (or create) queue header */
- 	if ((qp = ip_find(net, ip_hdr(skb), user)) != NULL) {
- 		int ret;
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 3713764..c865d3c 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -338,7 +338,6 @@ found:
- 		fq->q.last_in |= INET_FRAG_FIRST_IN;
- 	}
- 
--	inet_frag_lru_move(&fq->q);
- 	return 0;
- 
- discard_fq:
-@@ -583,10 +582,6 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user)
- 	hdr = ipv6_hdr(clone);
- 	fhdr = (struct frag_hdr *)skb_transport_header(clone);
- 
--	local_bh_disable();
--	inet_frag_evictor(&net->nf_frag.frags, &nf_frags, false);
--	local_bh_enable();
--
- 	fq = fq_find(net, fhdr->identification, user, &hdr->saddr, &hdr->daddr,
- 		     ip6_frag_ecn(hdr));
- 	if (fq == NULL) {
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 45de5eb..ab1c843 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -25,6 +25,7 @@
-  *	David Stevens and
-  *	YOSHIFUJI,H. @USAGI	Always remove fragment header to
-  *				calculate ICV correctly.
-+ *	Jesper Dangaard Brouer	Removed LRU queue for evictor.
-  */
- 
- #define pr_fmt(fmt) "IPv6: " fmt
-@@ -343,7 +344,6 @@ found:
- 	    fq->q.meat == fq->q.len)
- 		return ip6_frag_reasm(fq, prev, dev);
- 
--	inet_frag_lru_move(&fq->q);
- 	return -1;
- 
- discard_fq:
-@@ -512,7 +512,6 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
- 	struct frag_queue *fq;
- 	const struct ipv6hdr *hdr = ipv6_hdr(skb);
- 	struct net *net = dev_net(skb_dst(skb)->dev);
--	int evicted;
- 
- 	IP6_INC_STATS_BH(net, ip6_dst_idev(skb_dst(skb)), IPSTATS_MIB_REASMREQDS);
- 
-@@ -537,11 +536,6 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
- 		return 1;
- 	}
- 
--	evicted = inet_frag_evictor(&net->ipv6.frags, &ip6_frags, false);
--	if (evicted)
--		IP6_ADD_STATS_BH(net, ip6_dst_idev(skb_dst(skb)),
--				 IPSTATS_MIB_REASMFAILS, evicted);
--
- 	fq = fq_find(net, fhdr->identification, &hdr->saddr, &hdr->daddr,
- 		     ip6_frag_ecn(hdr));
- 	if (fq != NULL) {
+> ---
+>
+> Changes from v1:
+>     - clarified commit log and added Ack by Tejun Heo
+>       patch is unchanged.
+>
+> diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
+> index 1fa1e48..6eeb5ec 100644
+> --- a/drivers/pci/pci-driver.c
+> +++ b/drivers/pci/pci-driver.c
+> @@ -286,8 +286,8 @@ static int pci_call_probe(struct pci_driver *drv, struct pci_dev *dev,
+>                 int cpu;
+>
+>                 get_online_cpus();
+>                 cpu = cpumask_any_and(cpumask_of_node(node), cpu_online_mask);
+> -               if (cpu < nr_cpu_ids)
+> +               if (cpu != raw_smp_processor_id() && cpu < nr_cpu_ids)
+>                         error = work_on_cpu(cpu, local_pci_probe, &ddi);
+>                 else
+>                         error = local_pci_probe(&ddi);
