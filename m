@@ -1,45 +1,51 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCHv2 0/5] bonding: enslave and locking bug fixes
-Date: Thu, 18 Apr 2013 19:33:33 +0200
-Message-ID: <1366306418-3661-1-git-send-email-nikolay@redhat.com>
+Subject: [PATCHv2 5/5] bonding: in bond_mc_swap() bond's mc addr list is walked without lock
+Date: Thu, 18 Apr 2013 19:33:38 +0200
+Message-ID: <1366306418-3661-6-git-send-email-nikolay@redhat.com>
+References: <1366306418-3661-1-git-send-email-nikolay@redhat.com>
 Cc: andy@greyhouse.net, fubar@us.ibm.com, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45189 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33956 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966799Ab3DRRgz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 13:36:55 -0400
+	id S966799Ab3DRRhV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 13:37:21 -0400
+In-Reply-To: <1366306418-3661-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-This patch-set fixes mainly bugs on enslave failure and one occasion
-of a needed locking. The patches are:
+Use netif_addr_lock_bh() to acquire the appropriate lock before walking.
 
-	1. On enslave failure mc addresses are not flushed from the slave
-	2. On enslave failure vlans are not cleaned up from the slave
-	3. On enslave failure the bond's primary and curr_active_slave
-	   are not cleaned up (which might result in use of freed memory)
-	4. On enslave failure netpoll is not disabled which might result in
-	   a memory leak
-	5. In bond_mc_swap() the bond's mc addr list is walked without
-	   netif_addr_lock, since it can be called without rtnl, add it
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+ drivers/net/bonding/bond_main.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-v2: patch 01 - fix log message and remove unnecessary code move
-
-Best regards,
- Nik
-
-Nikolay Aleksandrov (5):
-  bonding: mc addresses don't get deleted on enslave failure
-  bonding: vlans don't get deleted on enslave failure
-  bonding: primary_slave & curr_active_slave are not cleaned on enslave
-    failure
-  bonding: disable netpoll on enslave failure
-  bonding: in bond_mc_swap() bond's mc addr list is walked without lock
-
- drivers/net/bonding/bond_main.c | 27 +++++++++++++++++++++++----
- 1 file changed, 23 insertions(+), 4 deletions(-)
-
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 1f3b1cc..5a2b5f1 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -846,8 +846,10 @@ static void bond_mc_swap(struct bonding *bond, struct slave *new_active,
+ 		if (bond->dev->flags & IFF_ALLMULTI)
+ 			dev_set_allmulti(old_active->dev, -1);
+ 
++		netif_addr_lock_bh(bond->dev);
+ 		netdev_for_each_mc_addr(ha, bond->dev)
+ 			dev_mc_del(old_active->dev, ha->addr);
++		netif_addr_unlock_bh(bond->dev);
+ 	}
+ 
+ 	if (new_active) {
+@@ -858,8 +860,10 @@ static void bond_mc_swap(struct bonding *bond, struct slave *new_active,
+ 		if (bond->dev->flags & IFF_ALLMULTI)
+ 			dev_set_allmulti(new_active->dev, 1);
+ 
++		netif_addr_lock_bh(bond->dev);
+ 		netdev_for_each_mc_addr(ha, bond->dev)
+ 			dev_mc_add(new_active->dev, ha->addr);
++		netif_addr_unlock_bh(bond->dev);
+ 	}
+ }
+ 
 -- 
 1.8.1.4
