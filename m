@@ -1,33 +1,58 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next 2/2] openvswitch: Use lockless genl.
-Date: Thu, 18 Apr 2013 14:07:39 -0700
-Message-ID: <CALnjE+rJ73hA3g6A1BVFbvgGzbYvLtYJpSWZLHr5hkjzKZEF_g@mail.gmail.com>
-References: <1366303924-30701-1-git-send-email-pshelar@nicira.com>
-	<CAEP_g=_17-e-up39hV9GFsLtYdeVLHqLKCkAc44bzGTaOt5jUA@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH repost for-3.9] pci: avoid work_on_cpu for nested SRIOV
+ probes
+Date: Thu, 18 Apr 2013 23:11:25 +0300
+Message-ID: <20130418201125.GA24094@redhat.com>
+References: <20130411192005.GN17641@mtj.dyndns.org>
+ <20130411203053.GC25515@redhat.com>
+ <20130411204104.GC11956@mtj.dyndns.org>
+ <516AA80F.7040505@mellanox.com>
+ <20130414134339.GA3050@htj.dyndns.org>
+ <20130418083347.GA16526@redhat.com>
+ <517007F0.4060000@mellanox.com>
+ <20130418135458.GC20862@redhat.com>
+ <20130418181930.GF9897@mtj.dyndns.org>
+ <CAErSpo71mvwwW2LheUcZ3giXke_qNWP_NeV=2Fhy147Z=pYOZQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj@kernel.org>, Or Gerlitz <ogerlitz@mellanox.com>,
+	Ming Lei <ming.lei@canonical.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>,
+	Roland Dreier <roland@kernel.org>,
+	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Bjorn Helgaas <bhelgaas@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:44158 "HELO
-	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751823Ab3DRVIF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 17:08:05 -0400
-Received: by mail-gg0-f197.google.com with SMTP id k5so4744183ggn.8
-        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 14:07:39 -0700 (PDT)
-In-Reply-To: <CAEP_g=_17-e-up39hV9GFsLtYdeVLHqLKCkAc44bzGTaOt5jUA@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:43166 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751823Ab3DRVKY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 17:10:24 -0400
+Content-Disposition: inline
+In-Reply-To: <CAErSpo71mvwwW2LheUcZ3giXke_qNWP_NeV=2Fhy147Z=pYOZQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 18, 2013 at 11:31 AM, Jesse Gross <jesse@nicira.com> wrote:
-> On Thu, Apr 18, 2013 at 9:52 AM, Pravin B Shelar <pshelar@nicira.com> wrote:
->> Following patch uses of lockless genl callbacks for ovs.
->>
->> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->
-> I think this is clearly the right thing to do (assuming that the genl
-> part passes review from other people). However, can you expand the
-> commit message for this patch a little bit to describe why it is safe
-> and some of the benefits?
-ok, I will send updated patch.
+On Thu, Apr 18, 2013 at 12:25:59PM -0600, Bjorn Helgaas wrote:
+> On Thu, Apr 18, 2013 at 12:19 PM, Tejun Heo <tj@kernel.org> wrote:
+> > On Thu, Apr 18, 2013 at 04:54:58PM +0300, Michael S. Tsirkin wrote:
+> >> Tejun, what do you say my patch is used for 3.9,
+> >> and we can revisit for 3.10.
+> >> The release is almost here.
+> >> If yes please send your Ack.
+> >
+> > Yeap, let's do that.
+> >
+> > Acked-by: Tejun Heo <tj@kernel.org>
+> 
+> Michael, can you post a new version with Tejun's ack?  IIRC, this was
+> in drivers/pci, but I haven't been following this and am not sure
+> exactly what you want applied.  Thanks.
+> 
+> Bjorn
+
+Done. Subject is:
+[PATCHv2 for-3.9] pci: avoid work_on_cpu for nested SRIOV
+it's the same patch with Tejun's ack and a minor
+correction in the commit message.
