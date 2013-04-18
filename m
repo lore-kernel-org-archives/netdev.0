@@ -1,40 +1,29 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH] pkt_sched: fix error return code in fw_change_attrs()
-Date: Thu, 18 Apr 2013 09:23:30 -0400
-Message-ID: <516FF3D2.7070402@mojatatu.com>
-References: <CAPgLHd-cDj8j3tKofRMwJ8GE39LkO8ZvtTJ34aSFDSHO+7GjnA@mail.gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v4 4/5] vxlan: add scope_id support for ll addr
+Date: Thu, 18 Apr 2013 21:36:45 +0800
+Message-ID: <1366292205.2726.0.camel@cr0>
+References: <1366175423-27310-1-git-send-email-amwang@redhat.com>
+	 <1366175423-27310-5-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org
-To: Wei Yongjun <weiyj.lk@gmail.com>
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f178.google.com ([209.85.210.178]:63518 "EHLO
-	mail-ia0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755489Ab3DRNXk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 09:23:40 -0400
-Received: by mail-ia0-f178.google.com with SMTP id w21so2412714iac.23
-        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 06:23:39 -0700 (PDT)
-In-Reply-To: <CAPgLHd-cDj8j3tKofRMwJ8GE39LkO8ZvtTJ34aSFDSHO+7GjnA@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:3078 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934912Ab3DRNhx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 09:37:53 -0400
+In-Reply-To: <1366175423-27310-5-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-04-17 10:49 PM, Wei Yongjun wrote:
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->
-> Fix to return -EINVAL when tb[TCA_FW_MASK] is set and head->mask != 0xFFFFFFFF
-> instead of 0 (ifdef CONFIG_NET_CLS_IND and tb[TCA_FW_INDEV]), as done elsewhere
-> in this function.
->
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Wed, 2013-04-17 at 13:10 +0800, Cong Wang wrote:
+> From: Cong Wang <amwang@redhat.com>
+> 
+> As David suggested, we should support ll addr, which requires
+> scope id.
 
-
-Makes sense.  I think i would have said something like:
-"dont use the err code from tcf_change_indev() in case it succeeds to 
-report TCA_FW_MASK errors"
-
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-cheers,
-jamal
+David, any comments on this patch? I am not sure it is correct.
