@@ -1,21 +1,19 @@
-From: Greg Ungerer <gregungerer00@gmail.com>
+From: Greg Ungerer <gerg@uclinux.org>
 Subject: Re: [PATCH] fec: Remove unneeded asm header files
-Date: Thu, 18 Apr 2013 21:56:43 +1000
-Message-ID: <516FDF7B.10808@gmail.com>
+Date: Thu, 18 Apr 2013 22:00:26 +1000
+Message-ID: <516FE05A.2030604@uclinux.org>
 References: <1366251498-11677-1-git-send-email-festevam@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, gerg@uclinux.org, netdev@vger.kernel.org,
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	Fabio Estevam <fabio.estevam@freescale.com>
 To: Fabio Estevam <festevam@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:61890 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754953Ab3DRL4t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 07:56:49 -0400
-Received: by mail-pa0-f53.google.com with SMTP id bh4so1547442pad.12
-        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 04:56:49 -0700 (PDT)
+Received: from outbound-mail02.westnet.com.au ([203.10.1.243]:30924 "EHLO
+	outbound-mail02.westnet.com.au" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755023Ab3DRMAd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 08:00:33 -0400
 In-Reply-To: <1366251498-11677-1-git-send-email-festevam@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -38,8 +36,8 @@ On 18/04/13 12:18, Fabio Estevam wrote:
 > 
 >  drivers/net/ethernet/freescale/fec_main.c |    7 -------
 
-fec_main.c?  It doesn't exist in 3.9-rc7.
-Comments and tests below based on fec.c in 3.9-rc7.
+fec_main.c?  That doesn't exist in linux-3.9-rc7.
+Comments and tests below based on fec.c in linux-3.9-rc7.
 
 
 >  1 file changed, 7 deletions(-)
@@ -54,8 +52,8 @@ Comments and tests below based on fec.c in 3.9-rc7.
 >  
 > -#include <asm/cacheflush.h>
 
-There is a very bogus looking call to flush_cache_all() conditional on
-CONFIG_M532x, and I suspect this won't compile if you take this out.
+There is a rather bogus looking call to flush_cache_all() conditional
+on CONFIG_M532x, and I suspect removing this include will break that.
 
 
 > -
@@ -64,8 +62,8 @@ CONFIG_M532x, and I suspect this won't compile if you take this out.
 > -#include <asm/mcfsim.h>
 > -#endif
 
-No problem with this part. I tested on a couple of ColdFire targets with
-this and they still compile ok.
+No problem with this part. I compiled for a couple of ColdFire targets
+and this is ok.
 
 Regards
 Greg
