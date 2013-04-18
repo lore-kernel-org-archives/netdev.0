@@ -1,9 +1,8 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH 3/5] net/cpsw: don't rely on netif_running() to check
- which device is active
-Date: Thu, 18 Apr 2013 17:20:34 +0530
-Message-ID: <516FDE0A.70504@ti.com>
-References: <1366235536-15744-1-git-send-email-bigeasy@linutronix.de> <1366235536-15744-4-git-send-email-bigeasy@linutronix.de>
+Subject: Re: [PATCH 5/5] net/cpsw: redo rx skb allocation in rx path
+Date: Thu, 18 Apr 2013 17:20:56 +0530
+Message-ID: <516FDE20.2050605@ti.com>
+References: <1366235536-15744-1-git-send-email-bigeasy@linutronix.de> <1366235536-15744-6-git-send-email-bigeasy@linutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -11,96 +10,128 @@ Cc: <netdev@vger.kernel.org>, <tglx@linutronix.de>,
 	"David S. Miller" <davem@davemloft.net>
 To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:60175 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753903Ab3DRLuu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 07:50:50 -0400
-In-Reply-To: <1366235536-15744-4-git-send-email-bigeasy@linutronix.de>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:45314 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752792Ab3DRLvE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 07:51:04 -0400
+In-Reply-To: <1366235536-15744-6-git-send-email-bigeasy@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 4/18/2013 3:22 AM, Sebastian Andrzej Siewior wrote:
-> netif_running() reports false before even the ->ndo_stop() callback is
-> called. That means if one executes "ifconfig down" and the system
-> receives an interrupt before the interrupt source has been disabled we
-> hang for always for two reasons:
-> - we never disable the interrupt source because devices claim to be
->    already inactive (or non-present)
-> - since the ISR always reports IRQ_HANDLED the line is never deactivated
->    because it looks like the ISR feels respsonsible.
->
-> This patch introduces now the ->active field which is set/cleared in
-> ndo_open / ndo_stop.
+> In case that we run into OOM during the allocation of the new rx-skb we
+> don't get one and we have one skb less than we used to have. If this
+> continues to happen then we end up with no rx-skbs at all.
+> This patch changes the following:
+> - if we fail to allocate the new skb, then we treat the currently
+>    completed skb as the new one and so drop the currently received data.
+> - instead of testing multiple times if the device is gone we rely one
+>    the status field which is set to -ENOSYS in case the channel is going
+>    down and incomplete requests are purged.
+>    cpdma_chan_stop() removes most of the packages with -ENOSYS. The
+>    currently active packet which is removed has the "tear down" bit set.
+>    So if that bit is set, we send ENOSYS as well otherwise we pass the
+>    status bits which are required to figure out which of the two possible
+>    just finished.
 >
 > Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 > ---
->   drivers/net/ethernet/ti/cpsw.c |   26 +++++++++++++++++---------
->   1 file changed, 17 insertions(+), 9 deletions(-)
+>   drivers/net/ethernet/ti/cpsw.c          |   33 ++++++++++++-------------------
+>   drivers/net/ethernet/ti/davinci_cpdma.c |    7 ++++++-
+>   2 files changed, 19 insertions(+), 21 deletions(-)
 >
 > diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index 3b22a36..c32780d 100644
+> index 559b020..f684e9b 100644
 > --- a/drivers/net/ethernet/ti/cpsw.c
 > +++ b/drivers/net/ethernet/ti/cpsw.c
-> @@ -341,6 +341,7 @@ struct cpsw_priv {
->   	int				host_port;
->   	struct clk			*clk;
->   	u8				mac_addr[ETH_ALEN];
-> +	u8				active;
-Frame work is providing this feature then why you need to have additional
-book keeping in device private?
->   	struct cpsw_slave		*slaves;
->   	struct cpdma_ctlr		*dma;
->   	struct cpdma_chan		*txch, *rxch;
-> @@ -511,19 +512,24 @@ static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
+> @@ -469,43 +469,36 @@ void cpsw_tx_handler(void *token, int len, int status)
+>   void cpsw_rx_handler(void *token, int len, int status)
 >   {
->   	struct cpsw_priv *priv = dev_id;
+>   	struct sk_buff		*skb = token;
+> +	struct sk_buff		*new_skb;
+>   	struct net_device	*ndev = skb->dev;
+>   	struct cpsw_priv	*priv = netdev_priv(ndev);
+>   	int			ret = 0;
 >   
-> -	if (likely(netif_running(priv->ndev))) {
-> +	if (priv->active) {
->   		cpsw_intr_disable(priv);
->   		cpsw_disable_irq(priv);
->   		napi_schedule(&priv->napi);
-> -	} else {
-> -		priv = cpsw_get_slave_priv(priv, 1);
-> -		if (likely(priv) && likely(netif_running(priv->ndev))) {
-> -			cpsw_intr_disable(priv);
-> -			cpsw_disable_irq(priv);
-> -			napi_schedule(&priv->napi);
-> -		}
-> +		return IRQ_HANDLED;
-> +	}
-> +
-> +	priv = cpsw_get_slave_priv(priv, 1);
-> +	if (!priv)
-> +		return IRQ_NONE;
-> +
-> +	if (priv->active) {
-> +		cpsw_intr_disable(priv);
-> +		cpsw_disable_irq(priv);
-> +		napi_schedule(&priv->napi);
-> +		return IRQ_HANDLED;
+>   	cpsw_dual_emac_src_port_detect(status, priv, ndev, skb);
+>   
+> -	/* free and bail if we are shutting down */
+> -	if (unlikely(!netif_running(ndev)) ||
+> -			unlikely(!netif_carrier_ok(ndev))) {
+> +	if (unlikely(status < 0)) {
+> +		/* the interface is going down, skbs are purged */
+>   		dev_kfree_skb_any(skb);
+>   		return;
 >   	}
-> -	return IRQ_HANDLED;
-> +	return IRQ_NONE;
+> -	if (likely(status >= 0)) {
+> +
+> +	new_skb = netdev_alloc_skb_ip_align(ndev, priv->rx_packet_max);
+> +	if (new_skb) {
+>   		skb_put(skb, len);
+>   		cpts_rx_timestamp(priv->cpts, skb);
+>   		skb->protocol = eth_type_trans(skb, ndev);
+>   		netif_receive_skb(skb);
+>   		priv->stats.rx_bytes += len;
+>   		priv->stats.rx_packets++;
+> -		skb = NULL;
+> -	}
+> -
+> -	if (unlikely(!netif_running(ndev))) {
+> -		if (skb)
+> -			dev_kfree_skb_any(skb);
+> -		return;
+> +	} else {
+> +		priv->stats.rx_dropped++;
+> +		new_skb = skb;
+Why you want to drop a successfully received packet as you memory alloc 
+failed?
+Let the stack get it processed and there after you can continue with one 
+less
+rx skb
+>   	}
+>   
+> -	if (likely(!skb)) {
+> -		skb = netdev_alloc_skb_ip_align(ndev, priv->rx_packet_max);
+> -		if (WARN_ON(!skb))
+> -			return;
+> -
+> -		ret = cpdma_chan_submit(priv->rxch, skb, skb->data,
+> -					skb_tailroom(skb), 0);
+> -	}
+> -	WARN_ON(ret < 0);
+> +	ret = cpdma_chan_submit(priv->rxch, new_skb, new_skb->data,
+> +			skb_tailroom(new_skb), 0);
+> +	if (WARN_ON(ret < 0))
+> +		dev_kfree_skb_any(new_skb);
 >   }
 >   
->   static int cpsw_poll(struct napi_struct *napi, int budget)
-> @@ -937,6 +943,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
->   		cpsw_set_coalesce(ndev, &coal);
+>   static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
+> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+> index 3cc20e7..6b0a89f 100644
+> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
+> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+> @@ -776,6 +776,7 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
+>   	struct cpdma_ctlr		*ctlr = chan->ctlr;
+>   	struct cpdma_desc __iomem	*desc;
+>   	int				status, outlen;
+> +	int				cb_status = 0;
+>   	struct cpdma_desc_pool		*pool = ctlr->pool;
+>   	dma_addr_t			desc_dma;
+>   	unsigned long			flags;
+> @@ -811,8 +812,12 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
 >   	}
 >   
-> +	priv->active = 1;
->   	cpdma_ctlr_start(priv->dma);
->   	cpsw_intr_enable(priv);
->   	napi_enable(&priv->napi);
-> @@ -980,6 +987,7 @@ static int cpsw_ndo_stop(struct net_device *ndev)
->   	pm_runtime_put_sync(&priv->pdev->dev);
->   	if (priv->data.dual_emac)
->   		priv->slaves[priv->emac_port].open_stat = false;
-> +	priv->active = 0;
->   	return 0;
->   }
+>   	spin_unlock_irqrestore(&chan->lock, flags);
+> +	if (unlikely(status & CPDMA_DESC_TD_COMPLETE))
+> +		cb_status = -ENOSYS;
+> +	else
+> +		cb_status = status;
 >   
+> -	__cpdma_chan_free(chan, desc, outlen, status);
+> +	__cpdma_chan_free(chan, desc, outlen, cb_status);
+>   	return status;
+>   
+>   unlock_ret:
 
 Regards
 Mugunthan V N
