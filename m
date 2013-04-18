@@ -1,46 +1,40 @@
-From: Fabio Estevam <fabio.estevam@freescale.com>
-Subject: [PATCH v2] fec: Remove unneeded asm header files
-Date: Thu, 18 Apr 2013 09:54:39 -0300
-Message-ID: <1366289682-3889-1-git-send-email-fabio.estevam@freescale.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH] pkt_sched: fix error return code in fw_change_attrs()
+Date: Thu, 18 Apr 2013 09:23:30 -0400
+Message-ID: <516FF3D2.7070402@mojatatu.com>
+References: <CAPgLHd-cDj8j3tKofRMwJ8GE39LkO8ZvtTJ34aSFDSHO+7GjnA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <gerg@uclinux.org>, <netdev@vger.kernel.org>,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db8lp0184.outbound.messaging.microsoft.com ([213.199.154.184]:54656
-	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755066Ab3DRMy4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 08:54:56 -0400
+Received: from mail-ia0-f178.google.com ([209.85.210.178]:63518 "EHLO
+	mail-ia0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755489Ab3DRNXk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 09:23:40 -0400
+Received: by mail-ia0-f178.google.com with SMTP id w21so2412714iac.23
+        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 06:23:39 -0700 (PDT)
+In-Reply-To: <CAPgLHd-cDj8j3tKofRMwJ8GE39LkO8ZvtTJ34aSFDSHO+7GjnA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is nothing in the driver that requires <asm/coldfire.h> and
-<asm/mcfsim.h>.
+On 13-04-17 10:49 PM, Wei Yongjun wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+>
+> Fix to return -EINVAL when tb[TCA_FW_MASK] is set and head->mask != 0xFFFFFFFF
+> instead of 0 (ifdef CONFIG_NET_CLS_IND and tb[TCA_FW_INDEV]), as done elsewhere
+> in this function.
+>
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
-Changes since v1:
-- Keep <asm/cacheflush.h> CONFIG_M532x needs it.
 
- drivers/net/ethernet/freescale/fec_main.c |    5 -----
- 1 file changed, 5 deletions(-)
+Makes sense.  I think i would have said something like:
+"dont use the err code from tcf_change_indev() in case it succeeds to 
+report TCA_FW_MASK errors"
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 719177b..94a4d83 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -52,11 +52,6 @@
- 
- #include <asm/cacheflush.h>
- 
--#ifndef CONFIG_ARM
--#include <asm/coldfire.h>
--#include <asm/mcfsim.h>
--#endif
--
- #include "fec.h"
- 
- #if defined(CONFIG_ARM)
--- 
-1.7.9.5
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+cheers,
+jamal
