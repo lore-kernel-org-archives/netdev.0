@@ -1,9 +1,9 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH 2/5] net/cpsw: don't continue if we miss to allocate rx
- skbs
-Date: Thu, 18 Apr 2013 17:20:06 +0530
-Message-ID: <516FDDEE.6030906@ti.com>
-References: <1366235536-15744-1-git-send-email-bigeasy@linutronix.de> <1366235536-15744-3-git-send-email-bigeasy@linutronix.de>
+Subject: Re: [PATCH 3/5] net/cpsw: don't rely on netif_running() to check
+ which device is active
+Date: Thu, 18 Apr 2013 17:20:34 +0530
+Message-ID: <516FDE0A.70504@ti.com>
+References: <1366235536-15744-1-git-send-email-bigeasy@linutronix.de> <1366235536-15744-4-git-send-email-bigeasy@linutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -11,70 +11,96 @@ Cc: <netdev@vger.kernel.org>, <tglx@linutronix.de>,
 	"David S. Miller" <davem@davemloft.net>
 To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:33811 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967170Ab3DRLuO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 07:50:14 -0400
-In-Reply-To: <1366235536-15744-3-git-send-email-bigeasy@linutronix.de>
+Received: from devils.ext.ti.com ([198.47.26.153]:60175 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753903Ab3DRLuu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 07:50:50 -0400
+In-Reply-To: <1366235536-15744-4-git-send-email-bigeasy@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 4/18/2013 3:22 AM, Sebastian Andrzej Siewior wrote:
-> if during "ifconfig up" we run out of mem we continue regardless how
-> many skbs we got. In worst case we have zero RX skbs and can't ever
-> receive further packets since the RX skbs are never reallocated. If
-> cpdma_chan_submit() fails we even leak the skb.
-> This patch changes the behavior here:
-> If we fail to allocate an skb during bring up we don't continue and
-> report that error. Same goes for errors from cpdma_chan_submit().
-> While here I changed to __netdev_alloc_skb_ip_align() so GFP_KERNEL can
-> be used.
+> netif_running() reports false before even the ->ndo_stop() callback is
+> called. That means if one executes "ifconfig down" and the system
+> receives an interrupt before the interrupt source has been disabled we
+> hang for always for two reasons:
+> - we never disable the interrupt source because devices claim to be
+>    already inactive (or non-present)
+> - since the ISR always reports IRQ_HANDLED the line is never deactivated
+>    because it looks like the ISR feels respsonsible.
+>
+> This patch introduces now the ->active field which is set/cleared in
+> ndo_open / ndo_stop.
 >
 > Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 > ---
->   drivers/net/ethernet/ti/cpsw.c |   16 +++++++++++-----
->   1 file changed, 11 insertions(+), 5 deletions(-)
+>   drivers/net/ethernet/ti/cpsw.c |   26 +++++++++++++++++---------
+>   1 file changed, 17 insertions(+), 9 deletions(-)
 >
 > diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index e2ba702..3b22a36 100644
+> index 3b22a36..c32780d 100644
 > --- a/drivers/net/ethernet/ti/cpsw.c
 > +++ b/drivers/net/ethernet/ti/cpsw.c
-> @@ -912,14 +912,16 @@ static int cpsw_ndo_open(struct net_device *ndev)
->   			struct sk_buff *skb;
+> @@ -341,6 +341,7 @@ struct cpsw_priv {
+>   	int				host_port;
+>   	struct clk			*clk;
+>   	u8				mac_addr[ETH_ALEN];
+> +	u8				active;
+Frame work is providing this feature then why you need to have additional
+book keeping in device private?
+>   	struct cpsw_slave		*slaves;
+>   	struct cpdma_ctlr		*dma;
+>   	struct cpdma_chan		*txch, *rxch;
+> @@ -511,19 +512,24 @@ static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
+>   {
+>   	struct cpsw_priv *priv = dev_id;
 >   
->   			ret = -ENOMEM;
-> -			skb = netdev_alloc_skb_ip_align(priv->ndev,
-> -							priv->rx_packet_max);
-> +			skb = __netdev_alloc_skb_ip_align(priv->ndev,
-> +					priv->rx_packet_max, GFP_KERNEL);
->   			if (!skb)
-> -				break;
-> +				goto err_cleanup;
->   			ret = cpdma_chan_submit(priv->rxch, skb, skb->data,
->   					skb_tailroom(skb), 0, GFP_KERNEL);
-> -			if (WARN_ON(ret < 0))
-> -				break;
-> +			if (ret < 0) {
-> +				kfree_skb(skb);
-> +				goto err_cleanup;
-Why you need to close the device even you have some skb allocated and
-submitted successfully. Can allow the device to continue with lower
-performance
-> +			}
->   		}
->   		/* continue even if we didn't manage to submit all
->   		 * receive descs
-> @@ -944,6 +946,10 @@ static int cpsw_ndo_open(struct net_device *ndev)
->   	if (priv->data.dual_emac)
->   		priv->slaves[priv->emac_port].open_stat = true;
->   	return 0;
+> -	if (likely(netif_running(priv->ndev))) {
+> +	if (priv->active) {
+>   		cpsw_intr_disable(priv);
+>   		cpsw_disable_irq(priv);
+>   		napi_schedule(&priv->napi);
+> -	} else {
+> -		priv = cpsw_get_slave_priv(priv, 1);
+> -		if (likely(priv) && likely(netif_running(priv->ndev))) {
+> -			cpsw_intr_disable(priv);
+> -			cpsw_disable_irq(priv);
+> -			napi_schedule(&priv->napi);
+> -		}
+> +		return IRQ_HANDLED;
+> +	}
 > +
-> +err_cleanup:
-> +	cpdma_ctlr_stop(priv->dma);
-> +	return ret;
+> +	priv = cpsw_get_slave_priv(priv, 1);
+> +	if (!priv)
+> +		return IRQ_NONE;
+> +
+> +	if (priv->active) {
+> +		cpsw_intr_disable(priv);
+> +		cpsw_disable_irq(priv);
+> +		napi_schedule(&priv->napi);
+> +		return IRQ_HANDLED;
+>   	}
+> -	return IRQ_HANDLED;
+> +	return IRQ_NONE;
 >   }
-only cpdma is halted and allocated skb are released, need to have other
-calls like pm_runtime_put_sync, close host and slave ports
+>   
+>   static int cpsw_poll(struct napi_struct *napi, int budget)
+> @@ -937,6 +943,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
+>   		cpsw_set_coalesce(ndev, &coal);
+>   	}
+>   
+> +	priv->active = 1;
+>   	cpdma_ctlr_start(priv->dma);
+>   	cpsw_intr_enable(priv);
+>   	napi_enable(&priv->napi);
+> @@ -980,6 +987,7 @@ static int cpsw_ndo_stop(struct net_device *ndev)
+>   	pm_runtime_put_sync(&priv->pdev->dev);
+>   	if (priv->data.dual_emac)
+>   		priv->slaves[priv->emac_port].open_stat = false;
+> +	priv->active = 0;
+>   	return 0;
+>   }
+>   
 
 Regards
 Mugunthan V N
