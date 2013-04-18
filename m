@@ -1,72 +1,56 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/15] igb: Pull adapter out of main path in igb_xmit_frame_ring
-Date: Thu, 18 Apr 2013 16:30:16 -0700
-Message-ID: <1366327822-10741-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/15] igb: Implement support to power sfp cage and turn on I2C
+Date: Thu, 18 Apr 2013 16:30:13 -0700
+Message-ID: <1366327822-10741-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1366327822-10741-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	=?UTF-8?q?Aur=C3=A9lien=20Guillaume?= <footplus@gmail.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:5839 "EHLO mga14.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:61465 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936688Ab3DRXau (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S936695Ab3DRXau (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 18 Apr 2013 19:30:50 -0400
 In-Reply-To: <1366327822-10741-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+=46rom: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
 
-We only need the adapter pointer in the case of ptp.  As such we can pull the
-adapter out of the main path and place it inside the if statement to avoid
-the temptation of accessing the adapter pointer in the fast path.
+Based on original patch from Aur=C3=A9lien Guillaume <footplus@gmail.co=
+m>
+This patch adds support to turn on I2C, with sfp cage powered.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+CC: Aur=C3=A9lien Guillaume <footplus@gmail.com>
+Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 20 +++++++++++---------
- 1 file changed, 11 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_82575.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 2f3dab0..d27eb4e 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -4593,7 +4593,6 @@ static inline int igb_maybe_stop_tx(struct igb_ring *tx_ring, const u16 size)
- netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 				struct igb_ring *tx_ring)
- {
--	struct igb_adapter *adapter = netdev_priv(tx_ring->netdev);
- 	struct igb_tx_buffer *first;
- 	int tso;
- 	u32 tx_flags = 0;
-@@ -4628,15 +4627,18 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 
- 	skb_tx_timestamp(skb);
- 
--	if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
--		     !(adapter->ptp_tx_skb))) {
--		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
--		tx_flags |= IGB_TX_FLAGS_TSTAMP;
-+	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
-+		struct igb_adapter *adapter = netdev_priv(tx_ring->netdev);
- 
--		adapter->ptp_tx_skb = skb_get(skb);
--		adapter->ptp_tx_start = jiffies;
--		if (adapter->hw.mac.type == e1000_82576)
--			schedule_work(&adapter->ptp_tx_work);
-+		if (!(adapter->ptp_tx_skb)) {
-+			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
-+			tx_flags |= IGB_TX_FLAGS_TSTAMP;
-+
-+			adapter->ptp_tx_skb = skb_get(skb);
-+			adapter->ptp_tx_start = jiffies;
-+			if (adapter->hw.mac.type == e1000_82576)
-+				schedule_work(&adapter->ptp_tx_work);
-+		}
- 	}
- 
- 	if (vlan_tx_tag_present(skb)) {
--- 
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net=
+/ethernet/intel/igb/e1000_82575.c
+index 12b1d84..856364a 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -1420,9 +1420,10 @@ static s32 igb_setup_serdes_link_82575(struct e1=
+000_hw *hw)
+ 	 */
+ 	wr32(E1000_SCTL, E1000_SCTL_DISABLE_SERDES_LOOPBACK);
+=20
+-	/* power on the sfp cage if present */
++	/* power on the sfp cage if present and turn on I2C */
+ 	ctrl_ext =3D rd32(E1000_CTRL_EXT);
+ 	ctrl_ext &=3D ~E1000_CTRL_EXT_SDP3_DATA;
++	ctrl_ext |=3D E1000_CTRL_I2C_ENA;
+ 	wr32(E1000_CTRL_EXT, ctrl_ext);
+=20
+ 	ctrl_reg =3D rd32(E1000_CTRL);
+--=20
 1.7.11.7
