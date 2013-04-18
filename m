@@ -1,113 +1,78 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: Re: [PATCH net-next v3 1/1] net: fec: Enable imx6 enet checksum acceleration.
-Date: Thu, 18 Apr 2013 22:27:22 +0100
-Message-ID: <5170653A.2000601@mentor.com>
-References: <Jim Baxter <jim_baxter@mentor.com>    <1366229278-7528-1-git-send-email-jim_baxter@mentor.com>   <1366234670.3205.38.camel@edumazet-glaptop> <516FEBD3.8000803@mentor.com>  <1366301796.2735.18.camel@bwh-desktop.uk.solarflarecom.com>  <5170288B.4080008@mentor.com> <1366305170.2735.40.camel@bwh-desktop.uk.solarflarecom.com> <51702B9A.8070000@mentor.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	Fugang Duan <B38611@freescale.com>, <netdev@vger.kernel.org>,
-	Fabio Estevam <festevam@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next v2 2/2] openvswitch: Use lockless genl.
+Date: Thu, 18 Apr 2013 14:30:53 -0700
+Message-ID: <1366320653-16941-1-git-send-email-pshelar@nicira.com>
+Cc: dev@openvswitch.org, jesse@nicira.com,
+	Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:40292 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752782Ab3DRV1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 17:27:34 -0400
-In-Reply-To: <51702B9A.8070000@mentor.com>
+Received: from na3sys009aog130.obsmtp.com ([74.125.149.143]:34339 "HELO
+	na3sys009aog130.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751781Ab3DRVa5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 17:30:57 -0400
+Received: by mail-ob0-f199.google.com with SMTP id va7so17593507obc.6
+        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 14:30:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18/04/13 18:21, Jim Baxter wrote:
-> On 18/04/13 18:12, Ben Hutchings wrote:
->> On Thu, 2013-04-18 at 18:08 +0100, Jim Baxter wrote:
->>> On 18/04/13 17:16, Ben Hutchings wrote:
->>>> On Thu, 2013-04-18 at 13:49 +0100, Jim Baxter wrote:
->>>>> On 17/04/13 22:37, Eric Dumazet wrote:
->>>>>> On Wed, 2013-04-17 at 21:07 +0100, Jim Baxter wrote:
->>>>>>
->>>>>>> +			skb_set_transport_header(skb,
->>>>>>> +					ETH_HLEN + ip_hdrlen(skb));
->>>>>>> +			udp_hdr(skb)->check = 0;
->>>>>>> +			break;
->>>>>>> +		case IPPROTO_TCP:
->>>>>>> +			hdr_len = (ETH_HLEN +
->>>>>>> +					(ip_hdr(skb)->ihl << 2) +
->>>>>>> +					sizeof(struct tcphdr));
->>>>>>> +			if (skb->len < hdr_len)
->>>>>>> +				return;
->>>>>>> +			skb_cow_head(skb, hdr_len);
->>>>>>
->>>>>> same here
->>>>> Do I need to call skb_cow_head here, I am not changing the size of the
->>>>> header?
->>>> [...]
->>>>
->>>> The length passed to skb_cow_head() may be significant when the skb has
->>>> paged fragments.  Since you aren't (yet) implementing scatter-gather,
->>>> that won't happen.  And the headers shouldn't be in paged fragments
->>>> anyway.  I think you can safely use skb_cow_head(skb, 0).
->>>>
->>>> But you don't actually need to check protocol numbers at all, as the
->>>> kernel already specifies where the checksum should be.
->>>>
->>>> So I think this function should look like:
->>>> {
->>>> 	if (skb->ip_summed != CHECKSUM_PARTIAL)
->>>> 		return 0;
->>>>
->>>> 	if (unlikely(skb_cow_head(skb, 0)))
->>>> 		return -1;
->>>>
->>>> 	*(__sum16 *)(skb->head + skb->csum_start + skb->csum_offset) = 0;
->>>> 	return 0;
->>>> }
->>>>
->>>> The caller needs to check for the failure, and free the skb
->>>> (kfree_skb()) rather than transmitting it.
->>>>
->>>> Ben.
->>>>
->>>
->>> Which checksum does skb->csum (skb->csum_start + skb->csum_offset)
->>> relate to?
->>
->> TCP or UDP.
->>
->>> The network card can generate IP header and protocol (UDP/TCP/ICMP)
->>> checksums as long as the checksums are zeroed?
->>
->> You don't need to offload the IPv4 header checksum.  TX checksum offload
->> will not be requested for ICMP.
-> 
-> So the kernel only offloads TCP and UDP checksum's. All other transport
-> protocols (ICMP, ICMPIPV6 etc.) will be done by the kernel.
-> 
->>
->> Ben.
->>
-> 
-> Thanks, though I saw you replied to my question before I could send it.
-> 
-> It sounds like there is no reason wasting CPU cycles clearing the IP
-> header checksum, so I can keep the code efficient.
-> 
-> Jim
-> 
+OVS locking was recently changed to have private OVS lock which
+simplified overall locking.  Therefore there is no need to have
+another global genl lock to protect OVS data structures.  Following
+patch uses of lockless genl family for OVS.  This also allows
+more granual OVS locking using ovs_mutex for protecting OVS data
+structures, which gives more concurrencey.  E.g multiple genl
+operations OVS_PACKET_CMD_EXECUTE can run in parallel, etc.
 
-Does anybody know if the kernel uses checksum offloading for IPV6, if I
-enable the feature NETIF_F_HW_CSUM, I only receive CHECKSUM_NONE when
-the protocol is 0x86DD?
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+Updated commit msg according comment From Jesse.
+---
+ net/openvswitch/datapath.c |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
 
-I realise there is no IP header checksum, but I thought the protocols
-still use a checksum.
-
-I am using iperf with the -V option in UDP mode, which offloads for IPV4.
-
-
-Thank you,
-Jim
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index b7d0b7c..b2c966e 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -270,7 +270,8 @@ static struct genl_family dp_packet_genl_family = {
+ 	.name = OVS_PACKET_FAMILY,
+ 	.version = OVS_PACKET_VERSION,
+ 	.maxattr = OVS_PACKET_ATTR_MAX,
+-	.netnsok = true
++	.netnsok = true,
++	.lockless = true,
+ };
+ 
+ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
+@@ -836,7 +837,8 @@ static struct genl_family dp_flow_genl_family = {
+ 	.name = OVS_FLOW_FAMILY,
+ 	.version = OVS_FLOW_VERSION,
+ 	.maxattr = OVS_FLOW_ATTR_MAX,
+-	.netnsok = true
++	.netnsok = true,
++	.lockless = true,
+ };
+ 
+ static struct genl_multicast_group ovs_dp_flow_multicast_group = {
+@@ -1269,7 +1271,8 @@ static struct genl_family dp_datapath_genl_family = {
+ 	.name = OVS_DATAPATH_FAMILY,
+ 	.version = OVS_DATAPATH_VERSION,
+ 	.maxattr = OVS_DP_ATTR_MAX,
+-	.netnsok = true
++	.netnsok = true,
++	.lockless = true,
+ };
+ 
+ static struct genl_multicast_group ovs_dp_datapath_multicast_group = {
+@@ -1623,7 +1626,8 @@ static struct genl_family dp_vport_genl_family = {
+ 	.name = OVS_VPORT_FAMILY,
+ 	.version = OVS_VPORT_VERSION,
+ 	.maxattr = OVS_VPORT_ATTR_MAX,
+-	.netnsok = true
++	.netnsok = true,
++	.lockless = true,
+ };
+ 
+ struct genl_multicast_group ovs_dp_vport_multicast_group = {
+-- 
+1.7.1
