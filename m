@@ -1,63 +1,42 @@
-From: Luis Henriques <luis.henriques@canonical.com>
-Subject: [PATCH 37/72] rt2x00: rt2x00pci_regbusy_read() - only print register access failure once
-Date: Thu, 18 Apr 2013 10:16:22 +0100
-Message-ID: <1366276617-3553-38-git-send-email-luis.henriques@canonical.com>
-References: <1366276617-3553-1-git-send-email-luis.henriques@canonical.com>
-Cc: Ivo van Doorn <IvDoorn@gmail.com>,
-	Gertjan van Wingerde <gwingerde@gmail.com>,
-	Helmut Schaa <helmut.schaa@googlemail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
-	netdev@vger.kernel.org, Tim Gardner <tim.gardner@canonical.com>,
-	Luis Henriques <luis.henriques@canonical.com>
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	kernel-team@lists.ubuntu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1366276617-3553-1-git-send-email-luis.henriques@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sven Eckelmann <sven@open-mesh.com>
+Subject: [PATCH] bridge: Add missing include for in6_addr
+Date: Thu, 18 Apr 2013 11:17:38 +0200
+Message-ID: <1366276658-11938-1-git-send-email-sven@open-mesh.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <stephen@networkplumber.org>, <netdev@vger.kernel.org>,
+	Sven Eckelmann <sven@open-mesh.com>
+To: <bridge@lists.linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ht2.myhostedexchange.com ([69.50.2.38]:17639 "EHLO
+	ht1.hostedexchange.local" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S965787Ab3DRJXC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 05:23:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-3.5.7.11 -stable review patch.  If anyone has any objections, please let me know.
+ee07c6e7a6f8a25c18f0a6b18152fbd7499245f6 ("bridge: export multicast database
+via netlink") added "struct br_mdb_entry" which includes an element using the
+type "struct in6_addr". The file linux/if_bridge.h is part of the uapi and not
+defining this type in this file or its includes causes build failures in
+userspace applications.
 
-------------------
-
-From: Tim Gardner <tim.gardner@canonical.com>
-
-commit 83589b30f1e1dc9898986293c9336b8ce1705dec upstream.
-
-BugLink: http://bugs.launchpad.net/bugs/1128840
-
-It appears that when this register read fails it never recovers, so
-I think there is no need to repeat the same error message ad infinitum.
-
-Cc: Ivo van Doorn <IvDoorn@gmail.com>
-Cc: Gertjan van Wingerde <gwingerde@gmail.com>
-Cc: Helmut Schaa <helmut.schaa@googlemail.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>
-Cc: linux-wireless@vger.kernel.org
-Cc: users@rt2x00.serialmonkey.com
-Cc: netdev@vger.kernel.org
-Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
-Signed-off-by: Luis Henriques <luis.henriques@canonical.com>
+Signed-off-by: Sven Eckelmann <sven@open-mesh.com>
 ---
- drivers/net/wireless/rt2x00/rt2x00pci.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ include/uapi/linux/if_bridge.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/wireless/rt2x00/rt2x00pci.c b/drivers/net/wireless/rt2x00/rt2x00pci.c
-index 0a4653a..1ea98a8 100644
---- a/drivers/net/wireless/rt2x00/rt2x00pci.c
-+++ b/drivers/net/wireless/rt2x00/rt2x00pci.c
-@@ -52,8 +52,8 @@ int rt2x00pci_regbusy_read(struct rt2x00_dev *rt2x00dev,
- 		udelay(REGISTER_BUSY_DELAY);
- 	}
+diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
+index 2d70d79..8e3f287 100644
+--- a/include/uapi/linux/if_bridge.h
++++ b/include/uapi/linux/if_bridge.h
+@@ -14,6 +14,7 @@
+ #define _UAPI_LINUX_IF_BRIDGE_H
  
--	ERROR(rt2x00dev, "Indirect register access failed: "
--	      "offset=0x%.08x, value=0x%.08x\n", offset, *reg);
-+	printk_once(KERN_ERR "%s() Indirect register access failed: "
-+	      "offset=0x%.08x, value=0x%.08x\n", __func__, offset, *reg);
- 	*reg = ~0;
+ #include <linux/types.h>
++#include <linux/in6.h>
  
- 	return 0;
+ #define SYSFS_BRIDGE_ATTR	"bridge"
+ #define SYSFS_BRIDGE_FDB	"brforward"
 -- 
-1.8.1.2
+1.8.2.1
