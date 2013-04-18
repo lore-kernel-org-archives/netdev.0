@@ -1,7 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 0/3] net: frag code fixes and RFC for LRU removal
-Date: Thu, 18 Apr 2013 23:37:10 +0200
-Message-ID: <20130418213637.14296.43143.stgit@dragon>
+Subject: [net-next PATCH 1/3] net: fix race bug in fragmentation create code
+Date: Thu, 18 Apr 2013 23:37:27 +0200
+Message-ID: <20130418213715.14296.43912.stgit@dragon>
+References: <20130418213637.14296.43143.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,74 +11,42 @@ To: Eric Dumazet <eric.dumazet@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19602 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:24692 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751781Ab3DRVem (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 17:34:42 -0400
+	id S1751823Ab3DRVe5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 17:34:57 -0400
+In-Reply-To: <20130418213637.14296.43143.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset is mostly fixes I discovered while working on removing
-the LRU system, which is almost done (included as a RFC patch-03), but
-I wanted to push these patches for review first.
+During creation of a new inet_frag_queue, the lru_list pointer is
+updated after releasing the hash bucket lock, which can lead to a
+race condition (and panic), if the inet_frag_queue is deleted
+(very quickly) before the lru_list is valid.
 
-Patch-01: net: fix race bug in fragmentation create code
-- Is a race fix that is only visible with patch-02 in place.
+This race condition is should not be able to occur with current
+LRU based evictor.  For the planned direct hash based
+evictor/clean strategy, this race condition is more likely to
+occur.
 
-Patch-02: net: fix enforcing of fragment queue hash list depth
-- Fixes unfortunately effect of Hannes hash depth limit, but is also
-  part of the direct hash cleaning strategy, which is needed before we
-  can remove the LRU list cleaning system
-
-Patch-03: net: remove fragmentation LRU list system
-- This patch is BROKEN do not apply, RFC only.
-  I have a bug in inet_frag_cleanup_netns().
-
-Patchset based on top of net-next commit 953c96e0d8 (v3.9-rc5-1145-g953c96e).
-
-Same test setup:
- Two 10G interfaces, on seperate NUMA nodes, are under-test, and uses
- Ethernet flow-control.  A third interface is used for generating the
- DoS attack (with trafgen).
-
-Test types summary (netperf UDP_STREAM):
- Test-20G64K     == 2x10G with 65K fragments
- Test-20G3F      == 2x10G with 3x fragments (3*1472 bytes)
- Test-20G64K+DoS == Same as 20G64K with frag DoS
- Test-20G3F+DoS  == Same as 20G3F  with frag DoS
- Test-20G64K+MQ  == Same as 20G64K with Multi-Queue frag DoS
- Test-20G3F+MQ   == Same as 20G3F  with Multi-Queue frag DoS
-
-Performance table summary (in Mbit/s):
-
- Test-type:  20G64K    20G3F    20G64K+DoS  20G3F+DoS  20G64K+MQ 20G3F+MQ
- ----------  -------   -------  ----------  ---------  --------  -------
- net-next:   17417.4   11376.5   3853.43     6170.56     174.8    402.9
- patch-01:   17337.1   11541.4   3803.89     6041.52     171.6    416.1
- patch-02:   16674.7   11113.8   3806.43     7892.50     405.5    759.3
-(below, work-in-progress removing LRU system, hash clean only)
- patch-03:   19108.1   13369.2   9923.58    10235.10    1547.2   1795.5
-
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
 
-Jesper Dangaard Brouer (3):
-      net: remove fragmentation LRU list system
-      net: fix enforcing of fragment queue hash list depth
-      net: fix race bug in fragmentation create code
+ net/ipv4/inet_fragment.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-
- include/net/inet_frag.h                 |   45 ++++-----
- include/net/ipv6.h                      |    2 
- net/ipv4/inet_fragment.c                |  150 +++++++++++++++++++------------
- net/ipv4/ip_fragment.c                  |   32 ++-----
- net/ipv6/netfilter/nf_conntrack_reasm.c |   10 --
- net/ipv6/reassembly.c                   |   23 +++--
- 6 files changed, 138 insertions(+), 124 deletions(-)
-
-
---
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index e97d66a..beec05b 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -283,9 +283,9 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+ 
+ 	atomic_inc(&qp->refcnt);
+ 	hlist_add_head(&qp->list, &hb->chain);
++	inet_frag_lru_add(nf, qp);
+ 	spin_unlock(&hb->chain_lock);
+ 	read_unlock(&f->lock);
+-	inet_frag_lru_add(nf, qp);
+ 	return qp;
+ }
+ 
