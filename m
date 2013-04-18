@@ -1,37 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pkt_sched: fix error return code in fw_change_attrs()
-Date: Wed, 17 Apr 2013 22:50:31 -0400 (EDT)
-Message-ID: <20130417.225031.547079824926433081.davem@davemloft.net>
+From: "yongjun_wei@trendmicro.com.cn" <yongjun_wei@trendmicro.com.cn>
+Subject: RE: [PATCH] pkt_sched: fix error return code in fw_change_attrs()
+Date: Thu, 18 Apr 2013 02:56:41 +0000
+Message-ID: <A360F954C61C69449463B0606663711259EE5448@CDCEXMBX01.tw.trendnet.org>
 References: <CAPgLHd-cDj8j3tKofRMwJ8GE39LkO8ZvtTJ34aSFDSHO+7GjnA@mail.gmail.com>
+ <20130417.225031.547079824926433081.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+Content-Type: text/plain;
+	charset="gb2312"
+Content-Transfer-Encoding: base64
+Cc: "jhs@mojatatu.com" <jhs@mojatatu.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"weiyj.lk@gmail.com" <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44631 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965024Ab3DRCud (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 22:50:33 -0400
-In-Reply-To: <CAPgLHd-cDj8j3tKofRMwJ8GE39LkO8ZvtTJ34aSFDSHO+7GjnA@mail.gmail.com>
+Received: from sjdciscan02.udc.trendmicro.com ([66.180.82.18]:34732 "EHLO
+	sjdciscan02.udc.trendmicro.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965228Ab3DRDRL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 23:17:11 -0400
+In-Reply-To: <20130417.225031.547079824926433081.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Thu, 18 Apr 2013 10:49:10 +0800
-
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> 
-> Fix to return -EINVAL when tb[TCA_FW_MASK] is set and head->mask != 0xFFFFFFFF
-> instead of 0 (ifdef CONFIG_NET_CLS_IND and tb[TCA_FW_INDEV]), as done elsewhere
-> in this function.
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-
-You posted this patch twice.
-
-What is the different between this version and the previous one
-posted?
-
-You must always mention this when you post a patch multiple times.
+U29ycnkgRGF2aWQsDQoNCkl0IHNlZW1zIHRoYXQgdGhlIE1BSUwgc2VydmVyIHNlbmQgdGhpcyBk
+dXAgbWFpbCwgSSBhbSBub3Qga25vdyB3aGF0IGhhcHBlbmVkDQpub3cuIEkgc2VlIG9uZSBtYWls
+IEkgc2VuZCB0aGlzIG1vcm5pbmcgaGFkIGJlZW4gZHVwIG1hbnkgdGltZXMuDQoNClJlZ2FyZHMs
+DQpZb25nanVuIFdlaQ0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogRGF2aWQg
+TWlsbGVyIFttYWlsdG86ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldF0gDQpTZW50OiAyMDEzxOo01MIxOMjV
+IDEwOjUxDQpUbzogd2VpeWoubGtAZ21haWwuY29tDQpDYzogamhzQG1vamF0YXR1LmNvbTsgWW9u
+Z2p1biBXZWkgKFJELUNOKTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KU3ViamVjdDogUmU6IFtQ
+QVRDSF0gcGt0X3NjaGVkOiBmaXggZXJyb3IgcmV0dXJuIGNvZGUgaW4gZndfY2hhbmdlX2F0dHJz
+KCkNCg0KRnJvbTogV2VpIFlvbmdqdW4gPHdlaXlqLmxrQGdtYWlsLmNvbT4NCkRhdGU6IFRodSwg
+MTggQXByIDIwMTMgMTA6NDk6MTAgKzA4MDANCg0KPiBGcm9tOiBXZWkgWW9uZ2p1biA8eW9uZ2p1
+bl93ZWlAdHJlbmRtaWNyby5jb20uY24+DQo+IA0KPiBGaXggdG8gcmV0dXJuIC1FSU5WQUwgd2hl
+biB0YltUQ0FfRldfTUFTS10gaXMgc2V0IGFuZCBoZWFkLT5tYXNrICE9IA0KPiAweEZGRkZGRkZG
+IGluc3RlYWQgb2YgMCAoaWZkZWYgQ09ORklHX05FVF9DTFNfSU5EIGFuZCANCj4gdGJbVENBX0ZX
+X0lOREVWXSksIGFzIGRvbmUgZWxzZXdoZXJlIGluIHRoaXMgZnVuY3Rpb24uDQo+IA0KPiBTaWdu
+ZWQtb2ZmLWJ5OiBXZWkgWW9uZ2p1biA8eW9uZ2p1bl93ZWlAdHJlbmRtaWNyby5jb20uY24+DQoN
+CllvdSBwb3N0ZWQgdGhpcyBwYXRjaCB0d2ljZS4NCg0KV2hhdCBpcyB0aGUgZGlmZmVyZW50IGJl
+dHdlZW4gdGhpcyB2ZXJzaW9uIGFuZCB0aGUgcHJldmlvdXMgb25lIHBvc3RlZD8NCg0KWW91IG11
+c3QgYWx3YXlzIG1lbnRpb24gdGhpcyB3aGVuIHlvdSBwb3N0IGEgcGF0Y2ggbXVsdGlwbGUgdGlt
+ZXMuDQoNCjx0YWJsZSBjbGFzcz0iVE1fRU1BSUxfTk9USUNFIj48dHI+PHRkPjxwcmU+DQpUUkVO
+RCBNSUNSTyBFTUFJTCBOT1RJQ0UNClRoZSBpbmZvcm1hdGlvbiBjb250YWluZWQgaW4gdGhpcyBl
+bWFpbCBhbmQgYW55IGF0dGFjaG1lbnRzIGlzIGNvbmZpZGVudGlhbCANCmFuZCBtYXkgYmUgc3Vi
+amVjdCB0byBjb3B5cmlnaHQgb3Igb3RoZXIgaW50ZWxsZWN0dWFsIHByb3BlcnR5IHByb3RlY3Rp
+b24uIA0KSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVkIHJlY2lwaWVudCwgeW91IGFyZSBub3Qg
+YXV0aG9yaXplZCB0byB1c2Ugb3IgDQpkaXNjbG9zZSB0aGlzIGluZm9ybWF0aW9uLCBhbmQgd2Ug
+cmVxdWVzdCB0aGF0IHlvdSBub3RpZnkgdXMgYnkgcmVwbHkgbWFpbCBvcg0KdGVsZXBob25lIGFu
+ZCBkZWxldGUgdGhlIG9yaWdpbmFsIG1lc3NhZ2UgZnJvbSB5b3VyIG1haWwgc3lzdGVtLg0KPC9w
+cmU+PC90ZD48L3RyPjwvdGFibGU+
