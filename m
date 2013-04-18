@@ -1,166 +1,73 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: [PATCH 3/8] net: sh-eth: Remove duplicate sh_eth_set_duplex()
-Date: Thu, 18 Apr 2013 16:01:45 +0900
-Message-ID: <1366268510-8121-3-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-References: <1366268510-8121-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-Cc: yoshihiro.shimoda.uh@renesas.com,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-To: netdev@vger.kernel.org
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [Xen-devel] [PATCH V6] Bundle fixes for Xen netfront / netback
+Date: Thu, 18 Apr 2013 08:02:06 +0100
+Message-ID: <1366268526.16851.45.camel@dagon.hellion.org.uk>
+References: <1366220523-14579-1-git-send-email-wei.liu2@citrix.com>
+	 <20130417193119.GA22059@phenom.dumpdata.com>
+	 <20130417194317.GG5815@zion.uk.xensource.com>
+	 <20130417.172120.668924175922610397.davem@davemloft.net>
+	 <20130418012041.GH5815@zion.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"wdauchy@gmail.com" <wdauchy@gmail.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:62752 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752566Ab3DRHCG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 03:02:06 -0400
-Received: by mail-pa0-f42.google.com with SMTP id kq13so1388202pab.15
-        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 00:02:06 -0700 (PDT)
-In-Reply-To: <1366268510-8121-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Received: from smtp.eu.citrix.com ([46.33.159.39]:62202 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754744Ab3DRHCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 03:02:09 -0400
+In-Reply-To: <20130418012041.GH5815@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
----
- drivers/net/ethernet/renesas/sh_eth.c |   65 ++++++---------------------------
- 1 file changed, 12 insertions(+), 53 deletions(-)
+On Thu, 2013-04-18 at 02:20 +0100, Wei Liu wrote:
+> On Wed, Apr 17, 2013 at 10:21:20PM +0100, David Miller wrote:
+> > From: Wei Liu <wei.liu2@citrix.com>
+> > Date: Wed, 17 Apr 2013 20:43:17 +0100
+> > 
+> > > On Wed, Apr 17, 2013 at 08:31:19PM +0100, Konrad Rzeszutek Wilk wrote:
+> > >> On Wed, Apr 17, 2013 at 06:41:59PM +0100, Wei Liu wrote:
+> > >> > Final round of this series. All acked and ready to go in.
+> > >> 
+> > >> Should you put CC: stable@vger.kernel.org on some of them?
+> > > 
+> > > I don't think so: Ian Campbell told me that DaveM would like the patches
+> > > to go through his tree.
+> > 
+> > That's rather irrelevant.
+> 
+> Sorry I'm still learning the process of doing netdev. If you can
+> straighten it out for me that would be very helpful.
+> 
+> The handle I have is:
+> http://marc.info/?l=xen-devel&m=136552034026257&w=2
+> 
+> QUOTE
+> "> This should probably also CC stable@vger.kernel.org
+> 
+> DaveM prefers net patches to not do so and he takes care of forwarding
+> patches once he is happy (i.e. after they've been in his/Linus' tree for
+> a bit)."
+> /QUOTE
+> 
+> But it seems that Ian got you wrong.
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 313d6ef..5c4e82c 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -341,9 +341,11 @@ static void sh_eth_select_mii(struct net_device *ndev)
- }
- #endif
- 
--/* There is CPU dependent code */
--#if defined(CONFIG_ARCH_R8A7779)
--#define SH_ETH_RESET_DEFAULT	1
-+#if defined(CONFIG_CPU_SUBTYPE_SH7619) || \
-+	defined(CONFIG_CPU_SUBTYPE_SH7710) || \
-+	defined(CONFIG_CPU_SUBTYPE_SH7712)
-+#  define sh_eth_set_duplex NULL
-+#else
- static void sh_eth_set_duplex(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -353,7 +355,11 @@ static void sh_eth_set_duplex(struct net_device *ndev)
- 	else		/* Half */
- 		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
- }
-+#endif
- 
-+/* There is CPU dependent code */
-+#if defined(CONFIG_ARCH_R8A7779)
-+#define SH_ETH_RESET_DEFAULT	1
- static void sh_eth_set_rate(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -391,15 +397,6 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- };
- #elif defined(CONFIG_CPU_SUBTYPE_SH7724)
- #define SH_ETH_RESET_DEFAULT	1
--static void sh_eth_set_duplex(struct net_device *ndev)
--{
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--
--	if (mdp->duplex) /* Full */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_DM, ECMR);
--	else		/* Half */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
--}
- 
- static void sh_eth_set_rate(struct net_device *ndev)
- {
-@@ -443,16 +440,6 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- #define SH_ETH_HAS_TSU	1
- static int sh_eth_check_reset(struct net_device *ndev);
- 
--static void sh_eth_set_duplex(struct net_device *ndev)
--{
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--
--	if (mdp->duplex) /* Full */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_DM, ECMR);
--	else		/* Half */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
--}
--
- static void sh_eth_set_rate(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -552,16 +539,6 @@ out:
- 	return ret;
- }
- 
--static void sh_eth_set_duplex_giga(struct net_device *ndev)
--{
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--
--	if (mdp->duplex) /* Full */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_DM, ECMR);
--	else		/* Half */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
--}
--
- static void sh_eth_set_rate_giga(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -584,7 +561,7 @@ static void sh_eth_set_rate_giga(struct net_device *ndev)
- /* SH7757(GETHERC) */
- static struct sh_eth_cpu_data sh_eth_my_cpu_data_giga = {
- 	.chip_reset	= sh_eth_chip_reset_giga,
--	.set_duplex	= sh_eth_set_duplex_giga,
-+	.set_duplex	= sh_eth_set_duplex,
- 	.set_rate	= sh_eth_set_rate_giga,
- 
- 	.ecsr_value	= ECSR_ICD | ECSR_MPD,
-@@ -635,16 +612,6 @@ static void sh_eth_chip_reset(struct net_device *ndev)
- 	mdelay(1);
- }
- 
--static void sh_eth_set_duplex(struct net_device *ndev)
--{
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--
--	if (mdp->duplex) /* Full */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_DM, ECMR);
--	else		/* Half */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
--}
--
- static void sh_eth_set_rate(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -774,16 +741,6 @@ out:
- 	return ret;
- }
- 
--static void sh_eth_set_duplex(struct net_device *ndev)
--{
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--
--	if (mdp->duplex) /* Full */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_DM, ECMR);
--	else		/* Half */
--		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
--}
--
- static void sh_eth_set_rate(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -834,6 +791,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- #elif defined(CONFIG_CPU_SUBTYPE_SH7619)
- #define SH_ETH_RESET_DEFAULT	1
- static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
-+	.set_duplex = sh_eth_set_duplex,
- 	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
- 
- 	.apr		= 1,
-@@ -845,6 +803,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- #define SH_ETH_RESET_DEFAULT	1
- #define SH_ETH_HAS_TSU	1
- static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
-+	.set_duplex = sh_eth_set_duplex,
- 	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
- 	.tsu		= 1,
- 	.tsu_multi_reg	= 1,
--- 
-1.7.10.4
+I based my comment on
+http://marc.info/?l=linux-netdev&m=136029787424755&w=2 but its possible
+something got lost in translation (in particular the "ask me to queue it
+up to my -stable todo pile instead" bit").
+
+> So this patch series is considered both for net-next and stable because
+> it is basement for our future development and we would also like it to
+> get backported to stable.
+
+Nevermind future development, we want it in stable because it fixes
+regressions in the previous XSA-39/CVE-2013-0216+CVE-2013-0217 fixes
+which went into stable.
+
+Ian.
