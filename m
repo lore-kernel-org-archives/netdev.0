@@ -1,8 +1,7 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 2/3] net: fix enforcing of fragment queue hash list
-	depth
-Date: Thu, 18 Apr 2013 23:38:00 +0200
-Message-ID: <20130418213732.14296.36026.stgit@dragon>
+Subject: [RFC net-next PATCH 3/3] net: remove fragmentation LRU list system
+Date: Thu, 18 Apr 2013 23:39:01 +0200
+Message-ID: <20130418213805.14296.21621.stgit@dragon>
 References: <20130418213637.14296.43143.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,332 +11,396 @@ To: Eric Dumazet <eric.dumazet@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14162 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:3300 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752782Ab3DRVfa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 17:35:30 -0400
+	id S1752689Ab3DRVga (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 17:36:30 -0400
 In-Reply-To: <20130418213637.14296.43143.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have found an issues with commit:
+WORK-IN-PROGRESS
 
- commit 5a3da1fe9561828d0ca7eca664b16ec2b9bf0055
- Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
- Date:   Fri Mar 15 11:32:30 2013 +0000
+I have a bug in inet_frag_cleanup_netns(), which clean/deletes fragments
+when a network namespace is taken down.
 
-    inet: limit length of fragment queue hash table bucket lists
+TODO:
+- netns mem limits and hash cleaning have conflicts
+- Howto can we re-add the IPSTATS_MIB_REASMFAILS stats?
+- Remove nf->low_thresh
+- Doc new max_hash_depth
 
-There is a connection between the fixed 128 hash depth limit and the
-frag mem limit/thresh settings, which limits how high the thresh can
-be set.
-
-The 128 elems hash depth limit, results in bad behaviour if mem limit
-thresh holds are increased, via /proc/sys/net ::
-
- /proc/sys/net/ipv4/ipfrag_high_thresh
- /proc/sys/net/ipv4/ipfrag_low_thresh
-
-If we increase the thresh, to something allowing 128 elements in each
-bucket, which is not that high given the hash array size of 64
-(64*128=8192), e.g.
-  big MTU frags (2944(truesize)+208(ipq))*8192(max elems)=25755648
-  small frags   ( 896(truesize)+208(ipq))*8192(max elems)=9043968
-
-The problem with commit 5a3da1fe (inet: limit length of fragment queue
-hash table bucket lists) is that, once we hit the limit, the we *keep*
-the existing frag queues, not allowing new frag queues to be created.
-Thus, an attacker can effectivly block handling of fragments for 30
-sec (as each frag queue have a timeout of 30 sec).
-
-Even without increasing the limit, as Hannes showed, an attacker on
-IPv6 can "attack" a specific hash bucket, and via that change, can
-block/drop new fragments also (trying to) utilize this bucket.
-
-Summary:
- With the default mem limit/thresh settings, this is not general
-problem, but adjusting the thresh limits result in some-what
-unexpected behavior.
-
-Proposed solution:
- IMHO instead of keeping existing frag queues, we should kill one of
-the frag queues in the hash instead.
-
-Implementation complications:
- Killing of frag queues while only holding the hash bucket lock, and
-not the frag queue lock, complicates the implementation, as we race
-and can end up (trying to) remove the hash element twice (resulting in
-an oops). This have been addressed by using hlist_del_init() and a
-hlist_unhashed() check in fq_unlink_hash().
-
-Extra:
-* Added new sysctl "max_hash_depth" option, to allow users to adjust the hash
-  depth along with adjusting the thresh limits.
-* Change max hash depth to 32, thus limit handling to approx 2048 frag queues.
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+NOT-signed-off
 ---
 
- include/net/inet_frag.h                 |    9 +---
- net/ipv4/inet_fragment.c                |   64 ++++++++++++++++++++-----------
- net/ipv4/ip_fragment.c                  |   13 +++++-
- net/ipv6/netfilter/nf_conntrack_reasm.c |    5 +-
- net/ipv6/reassembly.c                   |   15 ++++++-
- 5 files changed, 68 insertions(+), 38 deletions(-)
+ include/net/inet_frag.h                 |   36 ++++++------
+ include/net/ipv6.h                      |    2 -
+ net/ipv4/inet_fragment.c                |   96 +++++++++++++++++--------------
+ net/ipv4/ip_fragment.c                  |   19 +-----
+ net/ipv6/netfilter/nf_conntrack_reasm.c |    5 --
+ net/ipv6/reassembly.c                   |    8 ---
+ 6 files changed, 75 insertions(+), 91 deletions(-)
 
 diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 6f41b45..b2cd72a 100644
+index b2cd72a..276900b 100644
 --- a/include/net/inet_frag.h
 +++ b/include/net/inet_frag.h
-@@ -42,13 +42,7 @@ struct inet_frag_queue {
- };
+@@ -4,9 +4,7 @@
+ #include <linux/percpu_counter.h>
  
- #define INETFRAGS_HASHSZ		64
--
--/* averaged:
-- * max_depth = default ipfrag_high_thresh / INETFRAGS_HASHSZ /
-- *	       rounded up (SKB_TRUELEN(0) + sizeof(struct ipq or
-- *	       struct frag_queue))
-- */
--#define INETFRAGS_MAXDEPTH		128
-+#define INETFRAGS_MAX_HASH_DEPTH	32
+ struct netns_frags {
+-	int			nqueues;
+-	struct list_head	lru_list;
+-	spinlock_t		lru_lock;
++	struct percpu_counter   nqueues;
  
- struct inet_frag_bucket {
- 	struct hlist_head	chain;
-@@ -65,6 +59,7 @@ struct inet_frags {
- 	int			secret_interval;
- 	struct timer_list	secret_timer;
- 	u32			rnd;
-+	u32			max_hash_depth;
- 	int			qsize;
+ 	/* The percpu_counter "mem" need to be cacheline aligned.
+ 	 *  mem.count must not share cacheline with other writers
+@@ -133,28 +131,30 @@ static inline int sum_frag_mem_limit(struct netns_frags *nf)
+ 	return res;
+ }
  
- 	unsigned int		(*hashfn)(struct inet_frag_queue *);
+-static inline void inet_frag_lru_move(struct inet_frag_queue *q)
++static inline void dec_frag_nqueues(struct inet_frag_queue *q)
+ {
+-	spin_lock(&q->net->lru_lock);
+-	list_move_tail(&q->lru_list, &q->net->lru_list);
+-	spin_unlock(&q->net->lru_lock);
++	percpu_counter_dec(&q->net->nqueues);
+ }
+ 
+-static inline void inet_frag_lru_del(struct inet_frag_queue *q)
++static inline void inc_frag_nqueues(struct inet_frag_queue *q)
+ {
+-	spin_lock(&q->net->lru_lock);
+-	list_del(&q->lru_list);
+-	q->net->nqueues--;
+-	spin_unlock(&q->net->lru_lock);
++	percpu_counter_inc(&q->net->nqueues);
+ }
+ 
+-static inline void inet_frag_lru_add(struct netns_frags *nf,
+-				     struct inet_frag_queue *q)
++static inline void init_frag_nqueues(struct netns_frags *nf)
+ {
+-	spin_lock(&nf->lru_lock);
+-	list_add_tail(&q->lru_list, &nf->lru_list);
+-	q->net->nqueues++;
+-	spin_unlock(&nf->lru_lock);
++	percpu_counter_init(&nf->nqueues, 0);
++}
++
++static inline int sum_frag_nqueues(struct netns_frags *nf)
++{
++	int res;
++
++	local_bh_disable();
++	res = percpu_counter_sum_positive(&nf->nqueues);
++	local_bh_enable();
++
++	return res;
+ }
+ 
+ /* RFC 3168 support :
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 0810aa5..c35873c 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -286,7 +286,7 @@ static inline bool ipv6_accept_ra(struct inet6_dev *idev)
+ #if IS_ENABLED(CONFIG_IPV6)
+ static inline int ip6_frag_nqueues(struct net *net)
+ {
+-	return net->ipv6.frags.nqueues;
++	return sum_frag_nqueues(&net->ipv6.frags);
+ }
+ 
+ static inline int ip6_frag_mem(struct net *net)
 diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index beec05b..fd9fe5c 100644
+index fd9fe5c..8cb46fa 100644
 --- a/net/ipv4/inet_fragment.c
 +++ b/net/ipv4/inet_fragment.c
-@@ -130,7 +130,8 @@ void inet_frags_exit_net(struct netns_frags *nf, struct inet_frags *f)
- }
- EXPORT_SYMBOL(inet_frags_exit_net);
+@@ -105,10 +105,8 @@ EXPORT_SYMBOL(inet_frags_init);
  
--static inline void fq_unlink(struct inet_frag_queue *fq, struct inet_frags *f)
-+static inline void fq_unlink_hash(struct inet_frag_queue *fq,
-+				  struct inet_frags *f)
+ void inet_frags_init_net(struct netns_frags *nf)
  {
- 	struct inet_frag_bucket *hb;
- 	unsigned int hash;
-@@ -140,24 +141,35 @@ static inline void fq_unlink(struct inet_frag_queue *fq, struct inet_frags *f)
- 	hb = &f->hash[hash];
- 
- 	spin_lock(&hb->chain_lock);
--	hlist_del(&fq->list);
-+	/* Handle race-condition between direct hash tables cleaning
-+	 * in inet_frag_find() and users of inet_frag_kill()
-+	 */
-+	if (!hlist_unhashed(&fq->list))
-+		hlist_del(&fq->list);
- 	spin_unlock(&hb->chain_lock);
- 
- 	read_unlock(&f->lock);
--	inet_frag_lru_del(fq);
+-	nf->nqueues = 0;
++	init_frag_nqueues(nf);
+ 	init_frag_mem_limit(nf);
+-	INIT_LIST_HEAD(&nf->lru_list);
+-	spin_lock_init(&nf->lru_lock);
  }
+ EXPORT_SYMBOL(inet_frags_init_net);
  
--void inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f)
-+void __inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f,
-+		      bool unlink_hash)
+@@ -118,18 +116,6 @@ void inet_frags_fini(struct inet_frags *f)
+ }
+ EXPORT_SYMBOL(inet_frags_fini);
+ 
+-void inet_frags_exit_net(struct netns_frags *nf, struct inet_frags *f)
+-{
+-	nf->low_thresh = 0;
+-
+-	local_bh_disable();
+-	inet_frag_evictor(nf, f, true);
+-	local_bh_enable();
+-
+-	percpu_counter_destroy(&nf->mem);
+-}
+-EXPORT_SYMBOL(inet_frags_exit_net);
+-
+ static inline void fq_unlink_hash(struct inet_frag_queue *fq,
+ 				  struct inet_frags *f)
  {
- 	if (del_timer(&fq->timer))
- 		atomic_dec(&fq->refcnt);
- 
+@@ -160,7 +146,7 @@ void __inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f,
  	if (!(fq->last_in & INET_FRAG_COMPLETE)) {
--		fq_unlink(fq, f);
-+		if (unlink_hash)
-+			fq_unlink_hash(fq, f);
-+		inet_frag_lru_del(fq);
+ 		if (unlink_hash)
+ 			fq_unlink_hash(fq, f);
+-		inet_frag_lru_del(fq);
++		dec_frag_nqueues(fq);
  		atomic_dec(&fq->refcnt);
  		fq->last_in |= INET_FRAG_COMPLETE;
  	}
+@@ -212,46 +198,60 @@ void inet_frag_destroy(struct inet_frag_queue *q, struct inet_frags *f,
  }
-+
-+void inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f)
-+{
-+	__inet_frag_kill(fq, f, true);
-+}
- EXPORT_SYMBOL(inet_frag_kill);
+ EXPORT_SYMBOL(inet_frag_destroy);
  
- static inline void frag_kfree_skb(struct netns_frags *nf, struct inet_frags *f,
-@@ -326,13 +338,14 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
- 	__releases(&f->lock)
+-int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force)
++int inet_frag_cleanup_netns(struct netns_frags *nf, struct inet_frags *f)
  {
- 	struct inet_frag_bucket *hb;
--	struct inet_frag_queue *q;
-+	struct inet_frag_queue *q, *q_evict = NULL;
++	struct hlist_head kill_list;
+ 	struct inet_frag_queue *q;
+-	int work, evicted = 0;
 +	struct hlist_node *n;
- 	int depth = 0;
++	int i, evicted = 0;
  
- 	hb = &f->hash[hash];
+-	if (!force) {
+-		if (frag_mem_limit(nf) <= nf->high_thresh)
+-			return 0;
+-	}
++	/* Move inet_frag_queue's from hash table to the kill_list */
++	read_lock(&f->lock);
++	for (i = 0; i < INETFRAGS_HASHSZ; i++) {
++		struct inet_frag_bucket *hb;
  
- 	spin_lock(&hb->chain_lock);
--	hlist_for_each_entry(q, &hb->chain, list) {
-+	hlist_for_each_entry_safe(q, n, &hb->chain, list) {
- 		if (q->net == nf && f->match(q, key)) {
- 			atomic_inc(&q->refcnt);
- 			spin_unlock(&hb->chain_lock);
-@@ -340,25 +353,32 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
- 			return q;
+-	work = frag_mem_limit(nf) - nf->low_thresh;
+-	while (work > 0) {
+-		spin_lock(&nf->lru_lock);
++		hb = &f->hash[i];
++		spin_lock(&hb->chain_lock);
++		hlist_for_each_entry_safe(q, n, &hb->chain, list) {
+ 
+-		if (list_empty(&nf->lru_list)) {
+-			spin_unlock(&nf->lru_lock);
+-			break;
++			if (q->net == nf) { /* Only for specific netns */
++				atomic_inc(&q->refcnt);
++				hlist_del(&q->list);
++				hlist_add_head(&q->list, &kill_list);
++			}
  		}
- 		depth++;
-+		q_evict = q; /* candidate for eviction */
++		spin_unlock(&hb->chain_lock);
++	}
++	read_unlock(&f->lock);
+ 
+-		q = list_first_entry(&nf->lru_list,
+-				struct inet_frag_queue, lru_list);
+-		atomic_inc(&q->refcnt);
+-		/* Remove q from list to avoid several CPUs grabbing it */
+-		list_del_init(&q->lru_list);
+-
+-		spin_unlock(&nf->lru_lock);
+-
++	/* Kill off the inet_frag_queue's */
++	hlist_for_each_entry_safe(q, n, &kill_list, list) {
+ 		spin_lock(&q->lock);
+ 		if (!(q->last_in & INET_FRAG_COMPLETE))
+ 			inet_frag_kill(q, f);
+ 		spin_unlock(&q->lock);
+ 
+ 		if (atomic_dec_and_test(&q->refcnt))
+-			inet_frag_destroy(q, f, &work);
++			inet_frag_destroy(q, f, NULL);
++
+ 		evicted++;
  	}
-+	/* Not found situation */
-+	if (depth > f->max_hash_depth) {
-+		atomic_inc(&q_evict->refcnt);
-+		hlist_del_init(&q_evict->list);
-+	} else
-+		q_evict = NULL;
+ 
+ 	return evicted;
+ }
+-EXPORT_SYMBOL(inet_frag_evictor);
++
++void inet_frags_exit_net(struct netns_frags *nf, struct inet_frags *f)
++{
++	nf->low_thresh = 0;
++
++	local_bh_disable();
++	//BROKEN: inet_frag_cleanup_netns(nf, f);
++	local_bh_enable();
++
++	percpu_counter_destroy(&nf->nqueues);
++	percpu_counter_destroy(&nf->mem);
++}
++EXPORT_SYMBOL(inet_frags_exit_net);
+ 
+ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+ 		struct inet_frag_queue *qp_in, struct inet_frags *f,
+@@ -295,7 +295,7 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+ 
+ 	atomic_inc(&qp->refcnt);
+ 	hlist_add_head(&qp->list, &hb->chain);
+-	inet_frag_lru_add(nf, qp);
++	inc_frag_nqueues(qp);
  	spin_unlock(&hb->chain_lock);
  	read_unlock(&f->lock);
- 
--	if (depth <= INETFRAGS_MAXDEPTH)
--		return inet_frag_create(nf, f, key);
--	else
--		return ERR_PTR(-ENOBUFS);
--}
--EXPORT_SYMBOL(inet_frag_find);
-+	if (q_evict) {
-+		spin_lock(&q_evict->lock);
-+		if (!(q_evict->last_in & INET_FRAG_COMPLETE))
-+			__inet_frag_kill(q_evict, f, false);
-+		spin_unlock(&q_evict->lock);
- 
--void inet_frag_maybe_warn_overflow(struct inet_frag_queue *q,
--				   const char *prefix)
--{
--	static const char msg[] = "inet_frag_find: Fragment hash bucket"
--		" list length grew over limit " __stringify(INETFRAGS_MAXDEPTH)
--		". Dropping fragment.\n";
-+		if (atomic_dec_and_test(&q_evict->refcnt))
-+			inet_frag_destroy(q_evict, f, NULL);
- 
--	if (PTR_ERR(q) == -ENOBUFS)
--		LIMIT_NETDEBUG(KERN_WARNING "%s%s", prefix, msg);
-+		LIMIT_NETDEBUG(KERN_WARNING "%s(): Fragment hash bucket"
-+			       " list length grew over limit (len %d),"
-+			       " Dropping another fragment.\n",
-+			       __func__, depth);
-+	}
+ 	return qp;
+@@ -356,9 +356,19 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
+ 		q_evict = q; /* candidate for eviction */
+ 	}
+ 	/* Not found situation */
+-	if (depth > f->max_hash_depth) {
+-		atomic_inc(&q_evict->refcnt);
+-		hlist_del_init(&q_evict->list);
++	if ((depth > f->max_hash_depth)
++	    || (frag_mem_limit(nf) > nf->high_thresh)) {
 +
-+	return inet_frag_create(nf, f, key);
- }
--EXPORT_SYMBOL(inet_frag_maybe_warn_overflow);
-+EXPORT_SYMBOL(inet_frag_find);
++		/* This is in principal wrong, notice
++		 * frag_mem_limit(nf) is per netns, and we might
++		 * delete q_evict belonging to another netns, which is
++		 * not going to lower the frag_mem_limit(nf) for this
++		 * netns. What to do?
++		 */
++		if (q_evict) {
++			atomic_inc(&q_evict->refcnt);
++			hlist_del_init(&q_evict->list);
++		}
+ 	} else
+ 		q_evict = NULL;
+ 	spin_unlock(&hb->chain_lock);
+@@ -374,7 +384,7 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
+ 			inet_frag_destroy(q_evict, f, NULL);
+ 
+ 		LIMIT_NETDEBUG(KERN_WARNING "%s(): Fragment hash bucket"
+-			       " list length grew over limit (len %d),"
++			       " grew over lenght or mem limit (len %d),"
+ 			       " Dropping another fragment.\n",
+ 			       __func__, depth);
+ 	}
 diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 9385206..4e8489b 100644
+index 4e8489b..193e360 100644
 --- a/net/ipv4/ip_fragment.c
 +++ b/net/ipv4/ip_fragment.c
-@@ -263,10 +263,8 @@ static inline struct ipq *ip_find(struct net *net, struct iphdr *iph, u32 user)
- 	hash = ipqhashfn(iph->id, iph->saddr, iph->daddr, iph->protocol);
+@@ -18,6 +18,7 @@
+  *		John McDonald	:	0 length frag bug.
+  *		Alexey Kuznetsov:	SMP races, threading, cleanup.
+  *		Patrick McHardy :	LRU queue of frag heads for evictor.
++ *		Jesper D Brouer :	Removed LRU queue for evictor.
+  */
  
- 	q = inet_frag_find(&net->ipv4.frags, &ip4_frags, &arg, hash);
--	if (IS_ERR_OR_NULL(q)) {
--		inet_frag_maybe_warn_overflow(q, pr_fmt());
-+	if (q == NULL)
- 		return NULL;
--	}
- 	return container_of(q, struct ipq, q);
+ #define pr_fmt(fmt) "IPv4: " fmt
+@@ -88,7 +89,7 @@ static struct inet_frags ip4_frags;
+ 
+ int ip_frag_nqueues(struct net *net)
+ {
+-	return net->ipv4.frags.nqueues;
++	return sum_frag_nqueues(&net->ipv4.frags);
  }
  
-@@ -748,6 +746,14 @@ static struct ctl_table ip4_frags_ctl_table[] = {
- 		.proc_handler	= proc_dointvec_minmax,
- 		.extra1		= &zero
- 	},
-+	{
-+		.procname	= "ipfrag_max_hash_depth",
-+		.data		= &ip4_frags.max_hash_depth,
-+		.maxlen		= sizeof(u32),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero
-+	},
- 	{ }
- };
- 
-@@ -866,5 +872,6 @@ void __init ipfrag_init(void)
- 	ip4_frags.match = ip4_frag_match;
- 	ip4_frags.frag_expire = ip_expire;
- 	ip4_frags.secret_interval = 10 * 60 * HZ;
-+	ip4_frags.max_hash_depth = INETFRAGS_MAX_HASH_DEPTH;
- 	inet_frags_init(&ip4_frags);
+ int ip_frag_mem(struct net *net)
+@@ -176,18 +177,6 @@ static void ipq_kill(struct ipq *ipq)
+ 	inet_frag_kill(&ipq->q, &ip4_frags);
  }
+ 
+-/* Memory limiting on fragments.  Evictor trashes the oldest
+- * fragment queue until we are back under the threshold.
+- */
+-static void ip_evictor(struct net *net)
+-{
+-	int evicted;
+-
+-	evicted = inet_frag_evictor(&net->ipv4.frags, &ip4_frags, false);
+-	if (evicted)
+-		IP_ADD_STATS_BH(net, IPSTATS_MIB_REASMFAILS, evicted);
+-}
+-
+ /*
+  * Oops, a fragment queue timed out.  Kill it and send an ICMP reply.
+  */
+@@ -495,7 +484,6 @@ found:
+ 	    qp->q.meat == qp->q.len)
+ 		return ip_frag_reasm(qp, prev, dev);
+ 
+-	inet_frag_lru_move(&qp->q);
+ 	return -EINPROGRESS;
+ 
+ err:
+@@ -645,9 +633,6 @@ int ip_defrag(struct sk_buff *skb, u32 user)
+ 	net = skb->dev ? dev_net(skb->dev) : dev_net(skb_dst(skb)->dev);
+ 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMREQDS);
+ 
+-	/* Start by cleaning up the memory. */
+-	ip_evictor(net);
+-
+ 	/* Lookup (or create) queue header */
+ 	if ((qp = ip_find(net, ip_hdr(skb), user)) != NULL) {
+ 		int ret;
 diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index dffdc1a..3713764 100644
+index 3713764..c865d3c 100644
 --- a/net/ipv6/netfilter/nf_conntrack_reasm.c
 +++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -189,10 +189,8 @@ static inline struct frag_queue *fq_find(struct net *net, __be32 id,
+@@ -338,7 +338,6 @@ found:
+ 		fq->q.last_in |= INET_FRAG_FIRST_IN;
+ 	}
  
- 	q = inet_frag_find(&net->nf_frag.frags, &nf_frags, &arg, hash);
- 	local_bh_enable();
--	if (IS_ERR_OR_NULL(q)) {
--		inet_frag_maybe_warn_overflow(q, pr_fmt());
-+	if (q == NULL)
- 		return NULL;
--	}
- 	return container_of(q, struct frag_queue, q);
- }
+-	inet_frag_lru_move(&fq->q);
+ 	return 0;
  
-@@ -681,6 +679,7 @@ int nf_ct_frag6_init(void)
- 	nf_frags.match = ip6_frag_match;
- 	nf_frags.frag_expire = nf_ct_frag6_expire;
- 	nf_frags.secret_interval = 10 * 60 * HZ;
-+	nf_frags.max_hash_depth = INETFRAGS_MAX_HASH_DEPTH;
- 	inet_frags_init(&nf_frags);
+ discard_fq:
+@@ -583,10 +582,6 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user)
+ 	hdr = ipv6_hdr(clone);
+ 	fhdr = (struct frag_hdr *)skb_transport_header(clone);
  
- 	ret = register_pernet_subsys(&nf_ct_net_ops);
+-	local_bh_disable();
+-	inet_frag_evictor(&net->nf_frag.frags, &nf_frags, false);
+-	local_bh_enable();
+-
+ 	fq = fq_find(net, fhdr->identification, user, &hdr->saddr, &hdr->daddr,
+ 		     ip6_frag_ecn(hdr));
+ 	if (fq == NULL) {
 diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index e6e44ce..45de5eb 100644
+index 45de5eb..ab1c843 100644
 --- a/net/ipv6/reassembly.c
 +++ b/net/ipv6/reassembly.c
-@@ -196,10 +196,8 @@ fq_find(struct net *net, __be32 id, const struct in6_addr *src,
- 	hash = inet6_hash_frag(id, src, dst, ip6_frags.rnd);
+@@ -25,6 +25,7 @@
+  *	David Stevens and
+  *	YOSHIFUJI,H. @USAGI	Always remove fragment header to
+  *				calculate ICV correctly.
++ *	Jesper Dangaard Brouer	Removed LRU queue for evictor.
+  */
  
- 	q = inet_frag_find(&net->ipv6.frags, &ip6_frags, &arg, hash);
--	if (IS_ERR_OR_NULL(q)) {
--		inet_frag_maybe_warn_overflow(q, pr_fmt());
-+	if (q == NULL)
- 		return NULL;
--	}
- 	return container_of(q, struct frag_queue, q);
- }
+ #define pr_fmt(fmt) "IPv6: " fmt
+@@ -343,7 +344,6 @@ found:
+ 	    fq->q.meat == fq->q.len)
+ 		return ip6_frag_reasm(fq, prev, dev);
  
-@@ -600,6 +598,8 @@ static struct ctl_table ip6_frags_ns_ctl_table[] = {
- 	{ }
- };
+-	inet_frag_lru_move(&fq->q);
+ 	return -1;
  
-+static int zero;
-+
- static struct ctl_table ip6_frags_ctl_table[] = {
- 	{
- 		.procname	= "ip6frag_secret_interval",
-@@ -608,6 +608,14 @@ static struct ctl_table ip6_frags_ctl_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
-+	{
-+		.procname	= "ip6frag_max_hash_depth",
-+		.data		= &ip6_frags.max_hash_depth,
-+		.maxlen		= sizeof(u32),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero
-+	},
- 	{ }
- };
+ discard_fq:
+@@ -512,7 +512,6 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
+ 	struct frag_queue *fq;
+ 	const struct ipv6hdr *hdr = ipv6_hdr(skb);
+ 	struct net *net = dev_net(skb_dst(skb)->dev);
+-	int evicted;
  
-@@ -734,6 +742,7 @@ int __init ipv6_frag_init(void)
- 	ip6_frags.match = ip6_frag_match;
- 	ip6_frags.frag_expire = ip6_frag_expire;
- 	ip6_frags.secret_interval = 10 * 60 * HZ;
-+	ip6_frags.max_hash_depth = INETFRAGS_MAX_HASH_DEPTH;
- 	inet_frags_init(&ip6_frags);
- out:
- 	return ret;
+ 	IP6_INC_STATS_BH(net, ip6_dst_idev(skb_dst(skb)), IPSTATS_MIB_REASMREQDS);
+ 
+@@ -537,11 +536,6 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
+ 		return 1;
+ 	}
+ 
+-	evicted = inet_frag_evictor(&net->ipv6.frags, &ip6_frags, false);
+-	if (evicted)
+-		IP6_ADD_STATS_BH(net, ip6_dst_idev(skb_dst(skb)),
+-				 IPSTATS_MIB_REASMFAILS, evicted);
+-
+ 	fq = fq_find(net, fhdr->identification, &hdr->saddr, &hdr->daddr,
+ 		     ip6_frag_ecn(hdr));
+ 	if (fq != NULL) {
