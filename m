@@ -1,63 +1,66 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 00/14]: netlink: memory mapped I/O
-Date: Thu, 18 Apr 2013 13:11:02 +0200
-Message-ID: <20130418111102.GB26734@macbook.localnet>
-References: <1366217229-22705-1-git-send-email-kaber@trash.net>
- <20130417194046.GF1408@breakpoint.cc>
- <20130418102738.GA25166@macbook.localnet>
- <20130418110105.GH1408@breakpoint.cc>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH net-next v3 1/1] net: fec: Enable imx6 enet checksum acceleration.
+Date: Thu, 18 Apr 2013 08:31:52 -0300
+Message-ID: <CAOMZO5CwRqXwau65FV-HjrVWpco_ijn5Rgo8Xv8u9+N8yb3Mbg@mail.gmail.com>
+References: <jim_baxter@mentor.com>
+	<1366229278-7528-1-git-send-email-jim_baxter@mentor.com>
+	<20130417224526.GA15093@electric-eye.fr.zoreil.com>
+	<516FC886.7040303@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130418110105.GH1408@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org
+To: Jim Baxter <jim_baxter@mentor.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f179.google.com ([209.85.220.179]:35862 "EHLO
+	mail-vc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936036Ab3DRLbx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 07:31:53 -0400
+Received: by mail-vc0-f179.google.com with SMTP id hz11so2318390vcb.38
+        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 04:31:53 -0700 (PDT)
+In-Reply-To: <516FC886.7040303@mentor.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 18, 2013 at 01:01:05PM +0200, Florian Westphal wrote:
-> Patrick McHardy <kaber@trash.net> wrote:
-> > So I think while the nfnetlink_queue zero copy patches are a great idea,
-> > there are still enough unhandled use cases for memory mapped netlink.
-> >
-> > > Another issue with mmap is the need to preallocate the ring frame size.
-> > > After the gso avoidance change [ no skb_gso_segment calls anymore ],
-> > > we will need to be able to queue GSO/GRO skbs, which makes it necessary to
-> > > cope with 64k payload in the mmap case...
-> > 
-> > Hmm that might actually also be a problem in the zcopy case for userspace since
-> > the netlink recv buffer sizes are in many cases not that large.
-> 
-> I am not sure I am following here.  Can you elaborate?
-> Maybe I was a bit too vague, so let me try to clarify.
-> 
-> The GSO segmentation avoidance patch requires userspace support, including large
-> recv buffer size (i.e., 64k + a few byte netlink overhead).
-> 
-> It will be off by default, userspace needs to enable it when it binds
-> the nfqueue.
+On Thu, Apr 18, 2013 at 7:18 AM, Jim Baxter <jim_baxter@mentor.com> wrote:
+> Thank you for you comments, I will fix the issues.
+> One question below:
+>
+> On 17/04/13 23:45, Francois Romieu wrote:
+>>> +static int fec_set_features(struct net_device *netdev,
+>>> +    netdev_features_t features)
+>>> +{
+>>> +    struct fec_enet_private *fep = netdev_priv(netdev);
+>>> +    netdev_features_t changed = features ^ netdev->features;
+>>> +    bool restart_required = false;
+>>> +
+>>> +    netdev->features = features;
+>>> +
+>>> +    /* Receive checksum has been changed */
+>>> +    if (changed & NETIF_F_RXCSUM) {
+>>> +            restart_required = true;
+>>> +            if (features & NETIF_F_RXCSUM)
+>>> +                    fep->csum_flags |= FLAG_RX_CSUM_ENABLED;
+>>> +            else
+>>> +                    fep->csum_flags &= ~FLAG_RX_CSUM_ENABLED;
+>>
+>> ---(snip)----8<------------------------------------------------
+>>
+>>> +    }
+>>> +
+>>> +    /* Restart the network interface */
+>>> +    if (true == restart_required) {
+>>
+>> ---(snip)--------------------------------------->8-------------
+>>
+>> Then remove the "restart_required" variable ?
+>>
+> What you mean by remove the "restart_required" variable, I only want a
+> restart in certain situations? Am I misunderstanding you comment?
 
-I see, that makes sense.
+I think he meant to use:
 
-> What I was pointing out is that for mmap'd netlink you usually need
-> to allocate enough slots so the ring can handle e.g. 1024 packets.
-> 
-> For the 64k packet case, that would be >64 MB mmap-ring.
-> 
-> I'm not saying its a problem, just wanted to point it out.
-> 
-> [ 64k is probably rare enough to have mmap-users fallback to recv,
->   and your patches already support this ].
-
-Yes, thats true. An alternative would be to have the ring frames dynamically
-sized. The downside is that it increases overhead on the kernel side for
-socket congestion control, currently its very easy to check whether the ring
-is half empty, with dynamically sized frames we'd need to iterate through
-the ring.
-
-A further alternative would be to seperate the control and data areas, so
-we'd have four rings, RX-control, RX-data, TX-control and TX-data. That would
-avoid that problem, but it would only be partially dynamic since the number
-of control frames would be constant.
+  /* Restart the network interface */
+  if (restart_required) {
