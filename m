@@ -1,47 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: introduce TCPSpuriousRtxHostQueues SNMP
- counter
-Date: Thu, 18 Apr 2013 14:57:45 -0400 (EDT)
-Message-ID: <20130418.145745.1194444222242790469.davem@davemloft.net>
-References: <1366303971.3205.62.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ycheng@google.com, ncardwell@google.com,
-	therbert@google.com, willemb@google.com
-To: eric.dumazet@gmail.com
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCHv2 0/5] bonding: enslave and locking bug fixes
+Date: Thu, 18 Apr 2013 11:58:06 -0700
+Message-ID: <15895.1366311486@death.nxdomain>
+References: <1366306418-3661-1-git-send-email-nikolay@redhat.com>
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, davem@davemloft.net
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55474 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751705Ab3DRS5r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 14:57:47 -0400
-In-Reply-To: <1366303971.3205.62.camel@edumazet-glaptop>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:35505 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750958Ab3DRS6k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 14:58:40 -0400
+Received: from /spool/local
+	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Thu, 18 Apr 2013 14:58:38 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 034676E805D
+	for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 14:58:32 -0400 (EDT)
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r3IIwT3k292814
+	for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 14:58:29 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r3IIw708011009
+	for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 15:58:08 -0300
+In-reply-to: <1366306418-3661-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 18 Apr 2013 09:52:51 -0700
+Nikolay Aleksandrov <nikolay@redhat.com> wrote:
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Host queues (Qdisc + NIC) can hold packets so long that TCP can
-> eventually retransmit a packet before the first transmit even left
-> the host.
-> 
-> Its not clear right now if we could avoid this in the first place :
-> 
-> - We could arm RTO timer not at the time we enqueue packets, but
->   at the time we TX complete them (tcp_wfree())
-> 
-> - Cancel the sending of the new copy of the packet if prior one
->   is still in queue.
-> 
-> This patch adds instrumentation so that we can at least see how
-> often this problem happens.
-> 
-> TCPSpuriousRtxHostQueues SNMP counter is incremented every time
-> we detect the fast clone is not yet freed in tcp_transmit_skb()
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>Hi,
+>This patch-set fixes mainly bugs on enslave failure and one occasion
+>of a needed locking. The patches are:
+>
+>	1. On enslave failure mc addresses are not flushed from the slave
+>	2. On enslave failure vlans are not cleaned up from the slave
+>	3. On enslave failure the bond's primary and curr_active_slave
+>	   are not cleaned up (which might result in use of freed memory)
+>	4. On enslave failure netpoll is not disabled which might result in
+>	   a memory leak
+>	5. In bond_mc_swap() the bond's mc addr list is walked without
+>	   netif_addr_lock, since it can be called without rtnl, add it
+>
+>v2: patch 01 - fix log message and remove unnecessary code move
 
-Applied, thanks.
+	All look good to me.
+
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+
+	-J
+
+>Best regards,
+> Nik
+>
+>Nikolay Aleksandrov (5):
+>  bonding: mc addresses don't get deleted on enslave failure
+>  bonding: vlans don't get deleted on enslave failure
+>  bonding: primary_slave & curr_active_slave are not cleaned on enslave
+>    failure
+>  bonding: disable netpoll on enslave failure
+>  bonding: in bond_mc_swap() bond's mc addr list is walked without lock
+>
+> drivers/net/bonding/bond_main.c | 27 +++++++++++++++++++++++----
+> 1 file changed, 23 insertions(+), 4 deletions(-)
+>
+>-- 
+>1.8.1.4
+>
