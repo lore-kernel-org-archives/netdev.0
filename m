@@ -1,46 +1,45 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH repost for-3.9] pci: avoid work_on_cpu for nested SRIOV
- probes
-Date: Thu, 18 Apr 2013 11:19:30 -0700
-Message-ID: <20130418181930.GF9897@mtj.dyndns.org>
-References: <20130411190408.GM17641@mtj.dyndns.org>
- <20130411191717.GB25515@redhat.com>
- <20130411192005.GN17641@mtj.dyndns.org>
- <20130411203053.GC25515@redhat.com>
- <20130411204104.GC11956@mtj.dyndns.org>
- <516AA80F.7040505@mellanox.com>
- <20130414134339.GA3050@htj.dyndns.org>
- <20130418083347.GA16526@redhat.com>
- <517007F0.4060000@mellanox.com>
- <20130418135458.GC20862@redhat.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH net-next] tcp: introduce TCPSpuriousRtxHostQueues SNMP
+ counter
+Date: Thu, 18 Apr 2013 20:19:50 +0200
+Message-ID: <20130418181949.GA10776@virgo.local>
+References: <1366303971.3205.62.camel@edumazet-glaptop>
+ <20130418104510.3624457a@nehalam.linuxnetplumber.net>
+ <1366308381.3205.66.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Ming Lei <ming.lei@canonical.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
 	David Miller <davem@davemloft.net>,
-	Roland Dreier <roland@kernel.org>,
-	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:53747 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932077Ab3DRSTx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 14:19:53 -0400
 Content-Disposition: inline
-In-Reply-To: <20130418135458.GC20862@redhat.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1366308381.3205.66.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 18, 2013 at 04:54:58PM +0300, Michael S. Tsirkin wrote:
-> Tejun, what do you say my patch is used for 3.9,
-> and we can revisit for 3.10.
-> The release is almost here.
-> If yes please send your Ack.
+* Eric Dumazet | 2013-04-18 11:06:21 [-0700]:
 
-Yeap, let's do that.
+>On Thu, 2013-04-18 at 10:45 -0700, Stephen Hemminger wrote:
+>> On Thu, 18 Apr 2013 09:52:51 -0700
+>> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> 
+>> > From: Eric Dumazet <edumazet@google.com>
+>> > 
+>> > Host queues (Qdisc + NIC) can hold packets so long that TCP can
+>> > eventually retransmit a packet before the first transmit even left
+>> > the host.
 
-Acked-by: Tejun Heo <tj@kernel.org>
+Just out of curiosity: do you see effects of commit 9ad7c049 (initRTO from
+3secs to 1sec) and a long standing queue? (with no path metric, rtt in
+particular)
 
-Thanks.
-
--- 
-tejun
+Hagen
