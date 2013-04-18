@@ -1,106 +1,148 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH repost for-3.9] pci: avoid work_on_cpu for nested SRIOV
- probes
-Date: Thu, 18 Apr 2013 11:33:47 +0300
-Message-ID: <20130418083347.GA16526@redhat.com>
-References: <20130411153030.GA22743@redhat.com>
- <20130411180517.GJ17641@mtj.dyndns.org>
- <20130411185853.GE23301@redhat.com>
- <20130411190408.GM17641@mtj.dyndns.org>
- <20130411191717.GB25515@redhat.com>
- <20130411192005.GN17641@mtj.dyndns.org>
- <20130411203053.GC25515@redhat.com>
- <20130411204104.GC11956@mtj.dyndns.org>
- <516AA80F.7040505@mellanox.com>
- <20130414134339.GA3050@htj.dyndns.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Ming Lei <ming.lei@canonical.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>,
-	Roland Dreier <roland@kernel.org>,
-	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH] bridge: fix IP DNAT handling when packet is sent back via same bport
+Date: Thu, 18 Apr 2013 11:37:13 +0200
+Message-ID: <1366277833-1405-1-git-send-email-fw@strlen.de>
+Cc: netfilter-devel@vger.kernel.org, Florian Westphal <fw@strlen.de>,
+	Bart De Schuymer <bdschuym@pandora.be>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11474 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967288Ab3DRJcq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 05:32:46 -0400
-Content-Disposition: inline
-In-Reply-To: <20130414134339.GA3050@htj.dyndns.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:50768 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S967443Ab3DRJfM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 05:35:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 14, 2013 at 06:43:39AM -0700, Tejun Heo wrote:
-> On Sun, Apr 14, 2013 at 03:58:55PM +0300, Or Gerlitz wrote:
-> > So the patch eliminated the lockdep warning for mlx4 nested probing
-> > sequence, but introduced lockdep warning for
-> > 00:13.0 PIC: Intel Corporation 7500/5520/5500/X58 I/O Hub I/OxAPIC
-> > Interrupt Controller (rev 22)
-> 
-> Oops, the patch in itself doesn't really change anything.  The caller
-> should use a different subclass for the nested invocation, just like
-> spin_lock_nested() and friends.  Sorry about not being clear.
-> Michael, can you please help?
-> 
-> Thanks.
-> 
-> -- 
-> tejun
+commit e179e6322ac334e21a3c6d669d95bc967e5d0a80
+(netfilter: bridge-netfilter: Fix MAC header handling with IP DNAT)
+breaks DNAT when the destination address sits on the same bridgeport
+the packet originally arrived on.  Example:
 
-So like this on top. Tejun, you didn't add your S.O.B and patch
-description, if this helps as we expect they will be needed.
+( Network1 ) -- [ eth1-Bridge-eth0 ] -- ( Network2 )
 
----->
+Lets assume bridge has ip 192.168.10.8, and following netfilter rules
+are active:
 
-pci: use work_on_cpu_nested for nested SRIOV
+-A PREROUTING  -s 192.168.10.1 -d 192.168.10.8 -p tcp --dport 21 -j DNAT --to-destination 192.168.10.1
+-A POSTROUTING -s 192.168.10.1 -d 192.168.10.1 -p tcp --dport 21 -j SNAT --to-source 192.168.10.8
 
-Snce 3.9-rc1 mlx driver started triggering a lockdep warning.
+With kernels before 2.6.35, this makes host 192.168.10.1 connecting to
+the bridge on port 21 connect-to-self.
 
-The issue is that a driver, in it's probe function, calls
-pci_sriov_enable so a PF device probe causes VF probe (AKA nested
-probe).  Each probe in pci_device_probe which is (normally) run through
-work_on_cpu (this is to get the right numa node for memory allocated by
-the driver).  In turn work_on_cpu does this internally:
+>From 2.6.35 onwards this no longer works since the natted packet travels
+through the bridge forward logic, where should_deliver() refuses to send
+the packet because the destination bridge port is the same as the
+originating port.
 
-        schedule_work_on(cpu, &wfc.work);
-        flush_work(&wfc.work);
+Enabling hairpin mode on eth1 makes it work, but still causes
+problems because the original client finds its own mac address as the
+packets source (it used to be the bridge MAC).
 
-So if you are running probe on CPU1, and cause another
-probe on the same CPU, this will try to flush
-workqueue from inside same workqueue which triggers
-a lockdep warning.
+This patch tries to fix this in the following manner:
+- tag all skbs with dnat-applied with BRDIGED_DNAT flag
+- modify bridge fwd logic to detect "same-bridgeport-and-dnat'd"
+  condition, permit this, and flag skb accordingly
+- in bridge postrouting, replace source mac with bridge mac addess
+  if skb is such a dnat-to-same-port.
 
-Nested probing might be tricky to get right generally.
-
-But for pci_sriov_enable, the situation is actually very simple:
-VFs almost never use the same driver as the PF so the warning
-is bogus there.
-
-This is hardly elegant as it might shut up some real warnings if a buggy
-driver actually probes itself in a nested way, but looks to me like an
-appropriate quick fix for 3.9.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
+Cc: Bart De Schuymer <bdschuym@pandora.be>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
-diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
-index 1fa1e48..9c836ef 100644
---- a/drivers/pci/pci-driver.c
-+++ b/drivers/pci/pci-driver.c
-@@ -286,9 +286,9 @@ static int pci_call_probe(struct pci_driver *drv, struct pci_dev *dev,
- 		int cpu;
+ Bart,
+
+ it would be great if you could look into this, as I am not very familiar
+ with net/bridge/.
+
+ Especially,
+ 1) is it safe to set BRNF_BRIDGED_DNAT unconditionally in br_nf_pre_routing_finish_bridge() ?
+ 2) is it ok to memcpy to eth_hdr() in br_nf_post_routing() [ considering there might be encap headers
+    that were removed? ]
+
+ include/linux/netfilter_bridge.h |    2 ++
+ net/bridge/br_forward.c          |   16 +++++++++++++++-
+ net/bridge/br_netfilter.c        |   13 +++++++++++--
+ 3 files changed, 28 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
+index dfb4d9e..eacd206 100644
+--- a/include/linux/netfilter_bridge.h
++++ b/include/linux/netfilter_bridge.h
+@@ -23,6 +23,8 @@ enum nf_br_hook_priorities {
+ #define BRNF_NF_BRIDGE_PREROUTING	0x08
+ #define BRNF_8021Q			0x10
+ #define BRNF_PPPoE			0x20
++/* DNAT'd packet is to be sent back on same bridge port: */
++#define BRNF_BRIDGED_DNAT_DODGY		0x40
  
- 		get_online_cpus();
--		cpu = cpumask_any_and(cpumask_of_node(node), cpu_online_mask);
--		if (cpu < nr_cpu_ids)
--			error = work_on_cpu(cpu, local_pci_probe, &ddi);
-+		cpu = cpumask_first_and(cpumask_of_node(node), cpu_online_mask);
-+		if (cpu != raw_smp_processor_id() && cpu < nr_cpu_ids)
-+			error = work_on_cpu_nested(cpu, local_pci_probe, &ddi);
+ /* Only used in br_forward.c */
+ extern int nf_bridge_copy_header(struct sk_buff *skb);
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 092b20e..a0d3c56 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -116,10 +116,24 @@ void br_deliver(const struct net_bridge_port *to, struct sk_buff *skb)
+ 	kfree_skb(skb);
+ }
+ 
++static int forward_should_deliver(const struct net_bridge_port *to,
++				  struct sk_buff *skb)
++{
++#ifdef CONFIG_BRIDGE_NETFILTER
++	if (skb->dev == to->dev &&
++	    skb->nf_bridge && (skb->nf_bridge->mask & BRNF_BRIDGED_DNAT)) {
++		skb->nf_bridge->mask |= BRNF_BRIDGED_DNAT_DODGY;
++		return to->state == BR_STATE_FORWARDING &&
++			br_allowed_egress(to->br, nbp_get_vlan_info(to), skb);
++	}
++#endif
++	return should_deliver(to, skb);
++}
++
+ /* called with rcu_read_lock */
+ void br_forward(const struct net_bridge_port *to, struct sk_buff *skb, struct sk_buff *skb0)
+ {
+-	if (should_deliver(to, skb)) {
++	if (forward_should_deliver(to, skb)) {
+ 		if (skb0)
+ 			deliver_clone(to, skb, __br_forward);
  		else
- 			error = local_pci_probe(&ddi);
- 		put_online_cpus();
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index fe43bc7..4830c4c 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -389,6 +389,10 @@ static int br_nf_pre_routing_finish_bridge(struct sk_buff *skb)
+ 	if (neigh) {
+ 		int ret;
+ 
++		/* tell br_dev_xmit to continue with forwarding, make
++		 * fwd path handle inport == outport case
++		 */
++		nf_bridge->mask |= BRNF_BRIDGED_DNAT;
+ 		if (neigh->hh.hh_len) {
+ 			neigh_hh_bridge(&neigh->hh, skb);
+ 			skb->dev = nf_bridge->physindev;
+@@ -402,8 +406,6 @@ static int br_nf_pre_routing_finish_bridge(struct sk_buff *skb)
+ 							 -(ETH_HLEN-ETH_ALEN),
+ 							 skb->nf_bridge->data,
+ 							 ETH_HLEN-ETH_ALEN);
+-			/* tell br_dev_xmit to continue with forwarding */
+-			nf_bridge->mask |= BRNF_BRIDGED_DNAT;
+ 			ret = neigh->output(neigh, skb);
+ 		}
+ 		neigh_release(neigh);
+@@ -906,6 +908,13 @@ static unsigned int br_nf_post_routing(unsigned int hook, struct sk_buff *skb,
+ 		nf_bridge->mask |= BRNF_PKT_TYPE;
+ 	}
+ 
++	/* special case: packet is sent on same bridge port it arrived on
++	 * due to DNAT; need to substitute original source mac with bridge mac
++	 * so further packets are also sent to the bridge.
++	 */
++	if (nf_bridge->mask & BRNF_BRIDGED_DNAT_DODGY)
++		memcpy(eth_hdr(skb)->h_source, realoutdev->dev_addr, ETH_ALEN);
++
+ 	nf_bridge_pull_encap_header(skb);
+ 	nf_bridge_save_header(skb);
+ 	if (pf == NFPROTO_IPV4)
+-- 
+1.7.8.6
