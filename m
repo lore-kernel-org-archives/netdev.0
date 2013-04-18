@@ -1,53 +1,33 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH] fec: Remove unneeded asm header files
-Date: Wed, 17 Apr 2013 23:18:17 -0300
-Message-ID: <1366251498-11677-1-git-send-email-festevam@gmail.com>
-Cc: gerg@uclinux.org, netdev@vger.kernel.org,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: davem@davemloft.net
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [GIT net] Open vSwitch
+Date: Wed, 17 Apr 2013 19:31:41 -0700
+Message-ID: <CAEP_g=9+YqhrpyCMn=b583iT6Kt+ZTWfRVJd0Kdb4bzjqcPkPQ@mail.gmail.com>
+References: <1366143449-8605-1-git-send-email-jesse@nicira.com> <20130416.165302.1176077619833617294.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f52.google.com ([209.85.213.52]:59328 "EHLO
-	mail-yh0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964828Ab3DRCTH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 22:19:07 -0400
-Received: by mail-yh0-f52.google.com with SMTP id q3so382596yhf.11
-        for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 19:19:06 -0700 (PDT)
+Received: from na3sys009aog104.obsmtp.com ([74.125.149.73]:56455 "HELO
+	na3sys009aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S964932Ab3DRCcD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 22:32:03 -0400
+Received: by mail-ob0-f197.google.com with SMTP id eh20so5326729obb.0
+        for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 19:32:01 -0700 (PDT)
+In-Reply-To: <20130416.165302.1176077619833617294.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
+On Tue, Apr 16, 2013 at 1:53 PM, David Miller <davem@davemloft.net> wrote:
+> From: Jesse Gross <jesse@nicira.com>
+> Date: Tue, 16 Apr 2013 13:17:27 -0700
+>
+>> Two small bug fixes for net/3.9 including the issue previously
+>> discussed where allocation of netlink notifications can fail after
+>> changes have been committed.
+>
+> Looks good, pulled, thanks!
 
-There is nothing in the driver that requires asm header files.
-
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
-Greg,
-
-I built this for ARM and x86 (tweaking Kconfig), but I don't have a m68k 
-toolchain installed here to test it.
-
-Please build it for m68k if you have a chance. Thanks
-
- drivers/net/ethernet/freescale/fec_main.c |    7 -------
- 1 file changed, 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 719177b..22c0feb 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -50,13 +50,6 @@
- #include <linux/pinctrl/consumer.h>
- #include <linux/regulator/consumer.h>
- 
--#include <asm/cacheflush.h>
--
--#ifndef CONFIG_ARM
--#include <asm/coldfire.h>
--#include <asm/mcfsim.h>
--#endif
--
- #include "fec.h"
- 
- #if defined(CONFIG_ARM)
--- 
-1.7.9.5
+Sorry, but can you check whether this was pulled correctly? I'm not
+seeing it in your net tree.
