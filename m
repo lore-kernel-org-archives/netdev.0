@@ -1,48 +1,43 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 7/8] net: sh-eth: Remove ifdef for sh_eth_select_mii
-Date: Thu, 18 Apr 2013 18:36:45 +0400
-Message-ID: <517004FD.9060906@cogentembedded.com>
-References: <1366279869-23387-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com> <1366279869-23387-7-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshihiro.shimoda.uh@renesas.com
-To: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH 0/5] bonding: enslave and locking bug fixes
+Date: Thu, 18 Apr 2013 16:34:52 +0200
+Message-ID: <1366295697-31037-1-git-send-email-nikolay@redhat.com>
+Cc: andy@greyhouse.net, fubar@us.ibm.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:43078 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965340Ab3DROhz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 10:37:55 -0400
-Received: by mail-lb0-f177.google.com with SMTP id r10so2724783lbi.22
-        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 07:37:54 -0700 (PDT)
-In-Reply-To: <1366279869-23387-7-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Received: from mx1.redhat.com ([209.132.183.28]:31936 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966598Ab3DROh6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 10:37:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi,
+This patch-set fixes mainly bugs on enslave failure and one occasion
+of a needed locking. The patches are:
 
-On 18-04-2013 14:11, Nobuhiro Iwamatsu wrote:
+	1. On enslave failure mc addresses are not flushed from the slave
+	2. On enslave failure vlans are not cleaned up from the slave
+	3. On enslave failure the bond's primary and curr_active_slave
+	   are not cleaned up (which might result in use of freed memory)
+	4. On enslave failure netpoll is not disabled which might result in
+	   a memory leak
+	5. In bond_mc_swap() the bond's mc addr list is walked without
+	   netif_addr_lock, since it can be called without rtnl, add it
 
-> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Best regards,
+ Nik
 
-    That's what I was going to do first.
+Nikolay Aleksandrov (5):
+  bonding: mc addresses don't get deleted on enslave failure
+  bonding: vlans don't get deleted on enslave failure
+  bonding: primary_slave & curr_active_slave are not cleaned on enslave
+    failure
+  bonding: disable netpoll on enslave failure
+  bonding: in bond_mc_swap() bond's mc addr list is walked without lock
 
->   drivers/net/ethernet/renesas/sh_eth.c |    4 ----
->   1 file changed, 4 deletions(-)
+ drivers/net/bonding/bond_main.c | 27 +++++++++++++++++++++++----
+ 1 file changed, 23 insertions(+), 4 deletions(-)
 
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index a4e337f..eb428d4 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -313,9 +313,6 @@ static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
->   	[TSU_ADRL31]	= 0x01fc,
->   };
->
-> -#if defined(CONFIG_CPU_SUBTYPE_SH7734) || \
-> -	defined(CONFIG_CPU_SUBTYPE_SH7763) || \
-> -	defined(CONFIG_ARCH_R8A7740)
->   static void sh_eth_select_mii(struct net_device *ndev)
-
-    Don't you want to annotate the function with __maybe_unused?
-
-WBR, Sergei
+-- 
+1.8.1.4
