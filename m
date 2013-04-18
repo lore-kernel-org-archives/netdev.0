@@ -1,62 +1,130 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/9] ixgbe: Drop check for PAGE_SIZE from ixgbe_xmit_frame_ring
-Date: Wed, 17 Apr 2013 23:33:55 -0700
-Message-ID: <1366266841-12466-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/9] ixgbe: create conversion functions from link_status to bus/speed
+Date: Wed, 17 Apr 2013 23:33:57 -0700
+Message-ID: <1366266841-12466-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1366266841-12466-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:18006 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754315Ab3DRGeG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 02:34:06 -0400
+	id S1752421Ab3DRGeH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 02:34:07 -0400
 In-Reply-To: <1366266841-12466-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-The check for PAGE_SIZE is pointless now that the default configuration is to
-allocate 32K for all buffers.  Since the Tx descriptor limit is 16K we can
-just drop the check and always compare the descriptors to the maximum size
-supported.
+This patch cleans up ixgbe_get_bus_info_generic to call some conversion
+functions, which are used also in a follow on patch that needs to convert
+between the link_status PCIe config values into ixgbe's internal enum
+representations.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 64 ++++++++++++-------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  2 +
+ 2 files changed, 34 insertions(+), 32 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index d473a7c..0e7f0dd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -6425,9 +6425,7 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 	struct ixgbe_tx_buffer *first;
- 	int tso;
- 	u32 tx_flags = 0;
--#if PAGE_SIZE > IXGBE_MAX_DATA_PER_TXD
- 	unsigned short f;
--#endif
- 	u16 count = TXD_USE_COUNT(skb_headlen(skb));
- 	__be16 protocol = skb->protocol;
- 	u8 hdr_len = 0;
-@@ -6439,12 +6437,9 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 	 *       + 1 desc for context descriptor,
- 	 * otherwise try next time
- 	 */
--#if PAGE_SIZE > IXGBE_MAX_DATA_PER_TXD
- 	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
- 		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
--#else
--	count += skb_shinfo(skb)->nr_frags;
--#endif
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 3f66abc..9bcdeb8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -592,6 +592,36 @@ s32 ixgbe_get_mac_addr_generic(struct ixgbe_hw *hw, u8 *mac_addr)
+ 	return 0;
+ }
+ 
++enum ixgbe_bus_width ixgbe_convert_bus_width(u16 link_status)
++{
++	switch (link_status & IXGBE_PCI_LINK_WIDTH) {
++	case IXGBE_PCI_LINK_WIDTH_1:
++		return ixgbe_bus_width_pcie_x1;
++	case IXGBE_PCI_LINK_WIDTH_2:
++		return ixgbe_bus_width_pcie_x2;
++	case IXGBE_PCI_LINK_WIDTH_4:
++		return ixgbe_bus_width_pcie_x4;
++	case IXGBE_PCI_LINK_WIDTH_8:
++		return ixgbe_bus_width_pcie_x8;
++	default:
++		return ixgbe_bus_width_unknown;
++	}
++}
 +
- 	if (ixgbe_maybe_stop_tx(tx_ring, count + 3)) {
- 		tx_ring->tx_stats.tx_busy++;
- 		return NETDEV_TX_BUSY;
++enum ixgbe_bus_speed ixgbe_convert_bus_speed(u16 link_status)
++{
++	switch (link_status & IXGBE_PCI_LINK_SPEED) {
++	case IXGBE_PCI_LINK_SPEED_2500:
++		return ixgbe_bus_speed_2500;
++	case IXGBE_PCI_LINK_SPEED_5000:
++		return ixgbe_bus_speed_5000;
++	case IXGBE_PCI_LINK_SPEED_8000:
++		return ixgbe_bus_speed_8000;
++	default:
++		return ixgbe_bus_speed_unknown;
++	}
++}
++
+ /**
+  *  ixgbe_get_bus_info_generic - Generic set PCI bus info
+  *  @hw: pointer to hardware structure
+@@ -610,38 +640,8 @@ s32 ixgbe_get_bus_info_generic(struct ixgbe_hw *hw)
+ 	pci_read_config_word(adapter->pdev, IXGBE_PCI_LINK_STATUS,
+ 	                     &link_status);
+ 
+-	switch (link_status & IXGBE_PCI_LINK_WIDTH) {
+-	case IXGBE_PCI_LINK_WIDTH_1:
+-		hw->bus.width = ixgbe_bus_width_pcie_x1;
+-		break;
+-	case IXGBE_PCI_LINK_WIDTH_2:
+-		hw->bus.width = ixgbe_bus_width_pcie_x2;
+-		break;
+-	case IXGBE_PCI_LINK_WIDTH_4:
+-		hw->bus.width = ixgbe_bus_width_pcie_x4;
+-		break;
+-	case IXGBE_PCI_LINK_WIDTH_8:
+-		hw->bus.width = ixgbe_bus_width_pcie_x8;
+-		break;
+-	default:
+-		hw->bus.width = ixgbe_bus_width_unknown;
+-		break;
+-	}
+-
+-	switch (link_status & IXGBE_PCI_LINK_SPEED) {
+-	case IXGBE_PCI_LINK_SPEED_2500:
+-		hw->bus.speed = ixgbe_bus_speed_2500;
+-		break;
+-	case IXGBE_PCI_LINK_SPEED_5000:
+-		hw->bus.speed = ixgbe_bus_speed_5000;
+-		break;
+-	case IXGBE_PCI_LINK_SPEED_8000:
+-		hw->bus.speed = ixgbe_bus_speed_8000;
+-		break;
+-	default:
+-		hw->bus.speed = ixgbe_bus_speed_unknown;
+-		break;
+-	}
++	hw->bus.width = ixgbe_convert_bus_width(link_status);
++	hw->bus.speed = ixgbe_convert_bus_speed(link_status);
+ 
+ 	mac->ops.set_lan_id(hw);
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index bc3948ea..22eee38 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -40,6 +40,8 @@ s32 ixgbe_clear_hw_cntrs_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_read_pba_string_generic(struct ixgbe_hw *hw, u8 *pba_num,
+                                   u32 pba_num_size);
+ s32 ixgbe_get_mac_addr_generic(struct ixgbe_hw *hw, u8 *mac_addr);
++enum ixgbe_bus_width ixgbe_convert_bus_width(u16 link_status);
++enum ixgbe_bus_speed ixgbe_convert_bus_speed(u16 link_status);
+ s32 ixgbe_get_bus_info_generic(struct ixgbe_hw *hw);
+ void ixgbe_set_lan_id_multi_port_pcie(struct ixgbe_hw *hw);
+ s32 ixgbe_stop_adapter_generic(struct ixgbe_hw *hw);
 -- 
 1.7.11.7
