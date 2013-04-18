@@ -1,43 +1,58 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH v2 net-next 4/4] bnx2x: update version to 1.78.17-0
-Date: Thu, 18 Apr 2013 13:27:10 +0300
-Message-ID: <1366280830-26034-5-git-send-email-dmitry@broadcom.com>
-References: <1366280830-26034-1-git-send-email-dmitry@broadcom.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 00/14]: netlink: memory mapped I/O
+Date: Thu, 18 Apr 2013 12:27:39 +0200
+Message-ID: <20130418102738.GA25166@macbook.localnet>
+References: <1366217229-22705-1-git-send-email-kaber@trash.net>
+ <20130417194046.GF1408@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2122 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965638Ab3DRK2U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 06:28:20 -0400
-In-Reply-To: <1366280830-26034-1-git-send-email-dmitry@broadcom.com>
+Received: from stinky.trash.net ([213.144.137.162]:35369 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030393Ab3DRK1p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 06:27:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20130417194046.GF1408@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+On Wed, Apr 17, 2013 at 09:40:46PM +0200, Florian Westphal wrote:
+> Patrick McHardy <kaber@trash.net> wrote:
+> > The following patches contain an implementation of memory mapped I/O for
+> > netlink. The implementation is modelled after AF_PACKET memory mapped I/O
+> > with a few differences:
+> 
+> [..]
+> 
+> > Following are some numbers collected by Florian Westphal based on a
+> > slightly older version, which included an experimental patch for the
+> > nfnetlink_queue ordering issue.
+> 
+> I'd like to see a comparision with Eric Dumazets nfnetlink_queue zerocopy
+> patch [ ae08ce0021087a5d812d2714fb2a326ef9f8c450, netfilter:
+> nfnetlink_queue: zero copy support ].
+> 
+> The nice thing about that patch is its transparency to userspace, and
+> the avoidance of the 'nfnetlink_queue packet reordering' issue.
+> 
+> Sorry :)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 87629fd..3dba2a7 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -26,8 +26,8 @@
-  * (you will need to reboot afterwards) */
- /* #define BNX2X_STOP_ON_ERROR */
+No need to be sorry :) The use cases only partially overlap, the zero copy
+(actually single copy, just like mmaped netlink) requires drivers to generate
+fragmented skbs, while the mmaped netlink code works in all cases. It also
+supports TX and, in case of nfnetlink_queue, modification of the packets.
+And it works for all netlink subsystems and is not specific to nfnetlink_queue.
+
+So I think while the nfnetlink_queue zero copy patches are a great idea,
+there are still enough unhandled use cases for memory mapped netlink.
  
--#define DRV_MODULE_VERSION      "1.78.02-0"
--#define DRV_MODULE_RELDATE      "2013/01/14"
-+#define DRV_MODULE_VERSION      "1.78.17-0"
-+#define DRV_MODULE_RELDATE      "2013/04/11"
- #define BNX2X_BC_VER            0x040200
- 
- #if defined(CONFIG_DCB)
--- 
-1.8.1.4
+> Another issue with mmap is the need to preallocate the ring frame size.
+> After the gso avoidance change [ no skb_gso_segment calls anymore ],
+> we will need to be able to queue GSO/GRO skbs, which makes it necessary to
+> cope with 64k payload in the mmap case...
+
+Hmm that might actually also be a problem in the zcopy case for userspace since
+the netlink recv buffer sizes are in many cases not that large.
