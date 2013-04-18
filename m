@@ -1,18 +1,18 @@
 From: Wei Yongjun <weiyj.lk@gmail.com>
 Subject: [PATCH] pkt_sched: fix error return code in fw_change_attrs()
-Date: Thu, 18 Apr 2013 10:37:59 +0800
-Message-ID: <CAPgLHd95QQdDTck-LdeR=XxZSyobo6fvP45hQvy_z9OiX0op7w@mail.gmail.com>
+Date: Thu, 18 Apr 2013 10:49:10 +0800
+Message-ID: <CAPgLHd-cDj8j3tKofRMwJ8GE39LkO8ZvtTJ34aSFDSHO+7GjnA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
 To: jhs@mojatatu.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:61564 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964940Ab3DRCiA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 22:38:00 -0400
-Received: by mail-wi0-f176.google.com with SMTP id hj19so585627wib.15
-        for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 19:37:59 -0700 (PDT)
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:57291 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965101Ab3DRCtL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 22:49:11 -0400
+Received: by mail-wi0-f179.google.com with SMTP id l13so1740055wie.6
+        for <netdev@vger.kernel.org>; Wed, 17 Apr 2013 19:49:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
