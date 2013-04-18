@@ -1,50 +1,39 @@
 From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: [PATCH 1/8] net: sh-eth: Remove ifdef from definition of bit of EDSR and GECMR
-Date: Thu, 18 Apr 2013 16:01:43 +0900
-Message-ID: <1366268510-8121-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Subject: [PATCH 2/8] net: sh-eth: Set EDSR_ENALL instead of 0x03 is set to EDSR
+Date: Thu, 18 Apr 2013 16:01:44 +0900
+Message-ID: <1366268510-8121-2-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+References: <1366268510-8121-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
 Cc: yoshihiro.shimoda.uh@renesas.com,
 	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:44278 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965991Ab3DRHB7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 03:01:59 -0400
-Received: by mail-pd0-f170.google.com with SMTP id 10so1337162pdi.1
-        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 00:01:58 -0700 (PDT)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:42191 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965991Ab3DRHCD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 03:02:03 -0400
+Received: by mail-pa0-f41.google.com with SMTP id kx1so1391217pab.0
+        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 00:02:03 -0700 (PDT)
+In-Reply-To: <1366268510-8121-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 ---
- drivers/net/ethernet/renesas/sh_eth.h |    7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index 6f9a997..f86ea96 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -166,19 +166,16 @@ enum {
- /*
-  * Register's bits
-  */
--#if defined(CONFIG_CPU_SUBTYPE_SH7734) || defined(CONFIG_CPU_SUBTYPE_SH7763) ||\
--    defined(CONFIG_ARCH_R8A7740)
--/* EDSR */
-+/* EDSR : sh7734, sh7764, sh7757 and r8a7740 only */
- enum EDSR_BIT {
- 	EDSR_ENT = 0x01, EDSR_ENR = 0x02,
- };
- #define EDSR_ENALL (EDSR_ENT|EDSR_ENR)
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index d9458ae..313d6ef 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -523,7 +523,7 @@ static int sh_eth_reset(struct net_device *ndev)
+ 	int ret = 0;
  
--/* GECMR */
-+/* GECMR : sh7734, sh7764 and r8a7740 only */
- enum GECMR_BIT {
- 	GECMR_10 = 0x0, GECMR_100 = 0x04, GECMR_1000 = 0x01,
- };
--#endif
+ 	if (sh_eth_is_gether(mdp)) {
+-		sh_eth_write(ndev, 0x03, EDSR);
++		sh_eth_write(ndev, EDSR_ENALL, EDSR);
+ 		sh_eth_write(ndev, sh_eth_read(ndev, EDMR) | EDMR_SRST_GETHER,
+ 				EDMR);
  
- /* EDMR */
- enum DMAC_M_BIT {
 -- 
 1.7.10.4
