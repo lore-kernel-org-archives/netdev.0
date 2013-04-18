@@ -1,199 +1,80 @@
-From: Bart De Schuymer <bdschuym@pandora.be>
-Subject: Re: [PATCH] bridge: fix IP DNAT handling when packet is sent back
- via same bport
-Date: Thu, 18 Apr 2013 22:07:03 +0200
-Message-ID: <51705267.3070909@pandora.be>
-References: <1366277833-1405-1-git-send-email-fw@strlen.de>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH net-next] tcp: introduce TCPSpuriousRtxHostQueues SNMP
+ counter
+Date: Thu, 18 Apr 2013 22:26:55 +0200
+Message-ID: <20130418202655.GD16841@virgo.local>
+References: <1366303971.3205.62.camel@edumazet-glaptop>
+ <20130418104510.3624457a@nehalam.linuxnetplumber.net>
+ <1366308381.3205.66.camel@edumazet-glaptop>
+ <20130418181949.GA10776@virgo.local>
+ <1366313378.3205.75.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1366277833-1405-1-git-send-email-fw@strlen.de>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:54174 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S936377Ab3DRU1D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 16:27:03 -0400
+Content-Disposition: inline
+In-Reply-To: <1366313378.3205.75.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Op 18/04/2013 11:37, Florian Westphal schreef:
-> commit e179e6322ac334e21a3c6d669d95bc967e5d0a80
-> (netfilter: bridge-netfilter: Fix MAC header handling with IP DNAT)
-> breaks DNAT when the destination address sits on the same bridgeport
-> the packet originally arrived on.  Example:
+* Eric Dumazet | 2013-04-18 12:29:38 [-0700]:
+
+>I have no particular data for the initRTO change.
 >
-> ( Network1 ) -- [ eth1-Bridge-eth0 ] -- ( Network2 )
+>Interesting thing is that we send a SYN-ACK for every SYN we receive.
+>So if a client sends 4 SYN, we'll going to send 4 SYN-ACK, regardless of
+>the time of last sent SYN-ACK...
+
+I see, one question: should that not be addressed on the sender side? Trace
+smells like a datacenter setup with a low RTT and a small init RTO where the
+last-time-syn-ack-timestamp guard makes sense. Hopefully Yuchung's patch keep
+networks with low bandwidth of a few kbits and a rtt > 1 seconds in mind.
+
+>Here is an interesting study case.
 >
-> Lets assume bridge has ip 192.168.10.8, and following netfilter rules
-> are active:
+>12:02:43.484175 IP 7.7.7.83.49489 > 7.7.7.84.51407: Flags [S], seq 3414870221, win 14600, options [mss 1460,sackOK,TS val 4294775698 ecr 0,nop,wscale 6], length 0
+>12:02:43.484201 IP 7.7.7.84.51407 > 7.7.7.83.49489: Flags [S.], seq 3173332093, ack 3414870222, win 14480, options [mss 1460,sackOK,TS val 14218683 ecr 4294775698,no
+>p,wscale 6], length 0
+>12:02:44.884382 IP 7.7.7.84.51407 > 7.7.7.83.49489: Flags [S.], seq 3173332093, ack 3414870222, win 14480, options [mss 1460,sackOK,TS val 14220084 ecr 4294775698,no
+>p,wscale 6], length 0
+>12:02:45.470224 IP 7.7.7.83.49489 > 7.7.7.84.51407: Flags [S], seq 3414870221, win 14600, options [mss 1460,sackOK,TS val 4294776700 ecr 0,nop,wscale 6], length 0
+>12:02:45.470252 IP 7.7.7.84.51407 > 7.7.7.83.49489: Flags [S.], seq 3173332093, ack 3414870222, win 14480, options [mss 1460,sackOK,TS val 14220669 ecr 4294775698,no
+>p,wscale 6], length 0
+>12:02:46.762462 IP 7.7.7.83.49489 > 7.7.7.84.51407: Flags [.], ack 1, win 229, options [nop,nop,TS val 4294777094 ecr 14218683], length 0
+>12:02:46.762989 IP 7.7.7.83.49489 > 7.7.7.84.51407: Flags [.], seq 1:1449, ack 1, win 229, options [nop,nop,TS val 4294777094 ecr 14218683], length 1448
+>12:02:46.763019 IP 7.7.7.84.51407 > 7.7.7.83.49489: Flags [.], ack 1449, win 272, options [nop,nop,TS val 14221962 ecr 4294777094], length 0
+>12:02:46.775104 IP 7.7.7.83.49489 > 7.7.7.84.51407: Flags [.], seq 1449:2897, ack 1, win 229, options [nop,nop,TS val 4294777094 ecr 14218683], length 1448
+>12:02:46.775138 IP 7.7.7.84.51407 > 7.7.7.83.49489: Flags [.], ack 2897, win 317, options [nop,nop,TS val 14221974 ecr 4294777094], length 0
+>12:02:46.787215 IP 7.7.7.83.49489 > 7.7.7.84.51407: Flags [.], seq 2897:4345, ack 1, win 229, options [nop,nop,TS val 4294777094 ecr 14218683], length 1448
+>12:02:46.787244 IP 7.7.7.84.51407 > 7.7.7.83.49489: Flags [.], ack 4345, win 362, options [nop,nop,TS val 14221986 ecr 4294777094], length 0
+>12:02:46.799326 IP 7.7.7.83.49489 > 7.7.7.84.51407: Flags [.], seq 4345:5793, ack 1, win 229, options [nop,nop,TS val 4294777094 ecr 14218683], length 1448
+>12:02:46.799357 IP 7.7.7.84.51407 > 7.7.7.83.49489: Flags [.], ack 5793, win 408, options [nop,nop,TS val 14221998 ecr 4294777094], length 0
+>12:02:46.811438 IP 7.7.7.83.49489 > 7.7.7.84.51407: Flags [.], seq 5793:7241, ack 1, win 229, options [nop,nop,TS val 4294777094 ecr 14218683], length 1448
+>12:02:46.811465 IP 7.7.7.84.51407 > 7.7.7.83.49489: Flags [.], ack 7241, win 453, options [nop,nop,TS val 14222010 ecr 4294777094], length 0
+>12:02:46.823549 IP 7.7.7.83.49489 > 7.7.7.84.51407: Flags [P.], seq 7241:8689, ack 1, win 229, options [nop,nop,TS val 4294777094 ecr 14218683], length 1448
+>12:02:46.823575 IP 7.7.7.84.51407 > 7.7.7.83.49489: Flags [.], ack 8689, win 498, options [nop,nop,TS val 14222023 ecr 4294777094], length 0
+>12:02:46.835662 IP 7.7.7.83.49489 > 7.7.7.84.51407: Flags [.], seq 8689:10137, ack 1, win 229, options [nop,nop,TS val 4294777094 ecr 14218683], length 1448
+>12:02:46.835694 IP 7.7.7.84.51407 > 7.7.7.83.49489: Flags [.], ack 10137, win 543, options [nop,nop,TS val 14222035 ecr 4294777094], length 0
+>12:02:46.847775 IP 7.7.7.83.49489 > 7.7.7.84.51407: Flags [.], seq 10137:11585, ack 1, win 229, options [nop,nop,TS val 4294777094 ecr 14218683], length 1448
+>12:02:46.847801 IP 7.7.7.84.51407 > 7.7.7.83.49489: Flags [.], ack 11585, win 589, options [nop,nop,TS val 14222047 ecr 4294777094], length 0
+>12:02:46.859889 IP 7.7.7.83.49489 > 7.7.7.84.51407: Flags [.], seq 11585:13033, ack 1, win 229, options [nop,nop,TS val 4294777094 ecr 14218683], length 1448
+>12:02:46.859916 IP 7.7.7.84.51407 > 7.7.7.83.49489: Flags [.], ack 13033, win 634, options [nop,nop,TS val 14222059 ecr 4294777094], length 0
+>12:02:46.871998 IP 7.7.7.83.49489 > 7.7.7.84.51407: Flags [.], seq 13033:14481, ack 1, win 229, options [nop,nop,TS val 4294777094 ecr 14218683], length 1448
+>12:02:46.872025 IP 7.7.7.84.51407 > 7.7.7.83.49489: Flags [.], ack 14481, win 660, options [nop,nop,TS val 14222071 ecr 4294777094], length 0
+>12:02:49.362204 IP 7.7.7.83.49489 > 7.7.7.84.51407: Flags [.], ack 1, win 229, options [nop,nop,TS val 4294778499 ecr 14218683], length 0
+>12:02:50.415265 IP 7.7.7.83.49489 > 7.7.7.84.51407: Flags [.], ack 1, win 229, options [nop,nop,TS val 4294779084 ecr 14218683], length 0
 >
-> -A PREROUTING  -s 192.168.10.1 -d 192.168.10.8 -p tcp --dport 21 -j DNAT --to-destination 192.168.10.1
-> -A POSTROUTING -s 192.168.10.1 -d 192.168.10.1 -p tcp --dport 21 -j SNAT --to-source 192.168.10.8
-
-> With kernels before 2.6.35, this makes host 192.168.10.1 connecting to
-> the bridge on port 21 connect-to-self.
-
-I don't get why you didn't need the hairpin mode back then.
-
->>From 2.6.35 onwards this no longer works since the natted packet travels
-> through the bridge forward logic, where should_deliver() refuses to send
-> the packet because the destination bridge port is the same as the
-> originating port.
->
-> Enabling hairpin mode on eth1 makes it work, but still causes
-> problems because the original client finds its own mac address as the
-> packets source (it used to be the bridge MAC).
->
-> This patch tries to fix this in the following manner:
-> - tag all skbs with dnat-applied with BRDIGED_DNAT flag
-> - modify bridge fwd logic to detect "same-bridgeport-and-dnat'd"
->    condition, permit this, and flag skb accordingly
-> - in bridge postrouting, replace source mac with bridge mac addess
->    if skb is such a dnat-to-same-port.
-
-In my opinion this is just a special kind of MAC SNAT and you can 
-already achieve this with hairpin mode, ebtables and iptables now:
-1. make sure to mark the packets with iptables before you perform the DNAT
-2. in ebtables POSTROUTING, SNAT those marked packets with the MAC 
-address of the bridge.
-3. enable hairpin mode
-Even if it turns out not yet to be fully possible with the current 
-kernel, I think such a feature should be implemented as an ebtables 
-target instead of increasing the complexity of the generic code.
-
-Your patch also introduces potential unexpected behavior in different 
-scenarios. Consider the following rule:
--A PREROUTING -s 192.168.10.1 -d 192.168.10.8 -p tcp --dport 21 -j DNAT 
---to-destination 192.168.10.2
-Note that the DNAT is to a different IP address. Suppose 192.168.10.2 is 
-on a different machine located on the same side of the bridge. Your 
-patch would change the MAC source address here too without any need.
-
-
-Below are some comments on the patch itself.
-
-cheers,
-Bart
-
-> Cc: Bart De Schuymer <bdschuym@pandora.be>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->   Bart,
->
->   it would be great if you could look into this, as I am not very familiar
->   with net/bridge/.
->
->   Especially,
->   1) is it safe to set BRNF_BRIDGED_DNAT unconditionally in br_nf_pre_routing_finish_bridge() ?
->   2) is it ok to memcpy to eth_hdr() in br_nf_post_routing() [ considering there might be encap headers
->      that were removed? ]
->
->   include/linux/netfilter_bridge.h |    2 ++
->   net/bridge/br_forward.c          |   16 +++++++++++++++-
->   net/bridge/br_netfilter.c        |   13 +++++++++++--
->   3 files changed, 28 insertions(+), 3 deletions(-)
->
-> diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
-> index dfb4d9e..eacd206 100644
-> --- a/include/linux/netfilter_bridge.h
-> +++ b/include/linux/netfilter_bridge.h
-> @@ -23,6 +23,8 @@ enum nf_br_hook_priorities {
->   #define BRNF_NF_BRIDGE_PREROUTING	0x08
->   #define BRNF_8021Q			0x10
->   #define BRNF_PPPoE			0x20
-> +/* DNAT'd packet is to be sent back on same bridge port: */
-> +#define BRNF_BRIDGED_DNAT_DODGY		0x40
-
-Obviously, a more descriptive name would be nice :)
-
->   /* Only used in br_forward.c */
->   extern int nf_bridge_copy_header(struct sk_buff *skb);
-> diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-> index 092b20e..a0d3c56 100644
-> --- a/net/bridge/br_forward.c
-> +++ b/net/bridge/br_forward.c
-> @@ -116,10 +116,24 @@ void br_deliver(const struct net_bridge_port *to, struct sk_buff *skb)
->   	kfree_skb(skb);
->   }
->
-> +static int forward_should_deliver(const struct net_bridge_port *to,
-> +				  struct sk_buff *skb)
-> +{
-> +#ifdef CONFIG_BRIDGE_NETFILTER
-> +	if (skb->dev == to->dev &&
-> +	    skb->nf_bridge && (skb->nf_bridge->mask & BRNF_BRIDGED_DNAT)) {
-> +		skb->nf_bridge->mask |= BRNF_BRIDGED_DNAT_DODGY;
-
-You should unset the BRNF_BRIDGED_DNAT mask here (no longer needed and 
-might confuse other code yet to be executed):
-skb->nf_bridge->mask ^= BRNF_BRIDGED_DNAT;
-
-> +		return to->state == BR_STATE_FORWARDING &&
-> +			br_allowed_egress(to->br, nbp_get_vlan_info(to), skb);
-
-I don't like this change. It's basically a hack to prevent having to 
-enable the hairpin mode. In my opinion you should just return 
-should_deliver() instead.
-
-> +	}
-> +#endif
-> +	return should_deliver(to, skb);
-> +}
-> +
->   /* called with rcu_read_lock */
->   void br_forward(const struct net_bridge_port *to, struct sk_buff *skb, struct sk_buff *skb0)
->   {
-> -	if (should_deliver(to, skb)) {
-> +	if (forward_should_deliver(to, skb)) {
-
-Putting the new code in should_deliver() would have prevented you from 
-having to come up with a new and not very descriptive function name.
-
->   		if (skb0)
->   			deliver_clone(to, skb, __br_forward);
->   		else
-> diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-> index fe43bc7..4830c4c 100644
-> --- a/net/bridge/br_netfilter.c
-> +++ b/net/bridge/br_netfilter.c
-> @@ -389,6 +389,10 @@ static int br_nf_pre_routing_finish_bridge(struct sk_buff *skb)
->   	if (neigh) {
->   		int ret;
->
-> +		/* tell br_dev_xmit to continue with forwarding, make
-> +		 * fwd path handle inport == outport case
-> +		 */
-> +		nf_bridge->mask |= BRNF_BRIDGED_DNAT;
-
-I think you'll be ok here, as long as you unset the mask later (as 
-mentioned above).
-
->   		if (neigh->hh.hh_len) {
->   			neigh_hh_bridge(&neigh->hh, skb);
->   			skb->dev = nf_bridge->physindev;
-> @@ -402,8 +406,6 @@ static int br_nf_pre_routing_finish_bridge(struct sk_buff *skb)
->   							 -(ETH_HLEN-ETH_ALEN),
->   							 skb->nf_bridge->data,
->   							 ETH_HLEN-ETH_ALEN);
-> -			/* tell br_dev_xmit to continue with forwarding */
-> -			nf_bridge->mask |= BRNF_BRIDGED_DNAT;
->   			ret = neigh->output(neigh, skb);
->   		}
->   		neigh_release(neigh);
-> @@ -906,6 +908,13 @@ static unsigned int br_nf_post_routing(unsigned int hook, struct sk_buff *skb,
->   		nf_bridge->mask |= BRNF_PKT_TYPE;
->   	}
->
-> +	/* special case: packet is sent on same bridge port it arrived on
-> +	 * due to DNAT; need to substitute original source mac with bridge mac
-> +	 * so further packets are also sent to the bridge.
-> +	 */
-> +	if (nf_bridge->mask & BRNF_BRIDGED_DNAT_DODGY)
-> +		memcpy(eth_hdr(skb)->h_source, realoutdev->dev_addr, ETH_ALEN);
-
-I think you're safe here from encapsulating headers since eth_hdr gives 
-you a pointer to the Ethernet header.
-
->   	nf_bridge_pull_encap_header(skb);
->   	nf_bridge_save_header(skb);
->   	if (pf == NFPROTO_IPV4)
->
-
+>We can see the last two packets in this trace being flagged as
+>TCPSYNChallenge/TCPChallengeACK, because we react to the two extra
+>SYN-ACK we receive, after queueing the first 10 packets of data.
