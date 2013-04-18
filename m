@@ -1,35 +1,72 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 08/14] netlink: implement memory mapped sendmsg()
-Date: Wed, 17 Apr 2013 23:57:43 +0100
-Message-ID: <1366239463.2752.3.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1366217229-22705-1-git-send-email-kaber@trash.net>
-	 <1366217229-22705-9-git-send-email-kaber@trash.net>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH V6] Bundle fixes for Xen netfront / netback
+Date: Thu, 18 Apr 2013 02:20:41 +0100
+Message-ID: <20130418012041.GH5815@zion.uk.xensource.com>
+References: <1366220523-14579-1-git-send-email-wei.liu2@citrix.com>
+ <20130417193119.GA22059@phenom.dumpdata.com>
+ <20130417194317.GG5815@zion.uk.xensource.com>
+ <20130417.172120.668924175922610397.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netfilter-devel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1366217229-22705-9-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"wdauchy@gmail.com" <wdauchy@gmail.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:55823 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935603Ab3DRBUm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Apr 2013 21:20:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20130417.172120.668924175922610397.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-04-17 at 18:47 +0200, Patrick McHardy wrote:
-> Add support for mmap'ed sendmsg() to netlink. Since the kernel validates
-> received messages before processing them, the code makes sure userspace
-> can't modify the message contents after invoking sendmsg(). To do that
-> only a single mapping of the TX ring is allowed to exist and the socket
-> must not be shared. If either of these two conditions does not hold, it
-> falls back to copying.
-[...]
+On Wed, Apr 17, 2013 at 10:21:20PM +0100, David Miller wrote:
+> From: Wei Liu <wei.liu2@citrix.com>
+> Date: Wed, 17 Apr 2013 20:43:17 +0100
+> 
+> > On Wed, Apr 17, 2013 at 08:31:19PM +0100, Konrad Rzeszutek Wilk wrote:
+> >> On Wed, Apr 17, 2013 at 06:41:59PM +0100, Wei Liu wrote:
+> >> > Final round of this series. All acked and ready to go in.
+> >> 
+> >> Should you put CC: stable@vger.kernel.org on some of them?
+> > 
+> > I don't think so: Ian Campbell told me that DaveM would like the patches
+> > to go through his tree.
+> 
+> That's rather irrelevant.
 
-Is this resistant against copy_to_process()?
+Sorry I'm still learning the process of doing netdev. If you can
+straighten it out for me that would be very helpful.
 
-Ben.
+The handle I have is:
+http://marc.info/?l=xen-devel&m=136552034026257&w=2
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+QUOTE
+"> This should probably also CC stable@vger.kernel.org
 
+DaveM prefers net patches to not do so and he takes care of forwarding
+patches once he is happy (i.e. after they've been in his/Linus' tree for
+a bit)."
+/QUOTE
+
+But it seems that Ian got you wrong. Or I misunderstood him.
+
+So this patch series is considered both for net-next and stable because
+it is basement for our future development and we would also like it to
+get backported to stable. What should I do with it? Should I rebase it
+against net-next or net? Or should I send out two series against
+different branches?
+
+Furthur question, now that I know there is actually two branches for
+network related development, should I explicitly point out which branch
+my series is against in the future?
+
+Thank you for your time. :-)
+
+
+Wei.
