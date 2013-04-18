@@ -1,80 +1,103 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 6/8] net: sh-eth: Add irq configureation flags in sh_eth_cpu_data
-Date: Thu, 18 Apr 2013 18:57:27 +0400
-Message-ID: <517009D7.7080700@cogentembedded.com>
-References: <1366279869-23387-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com> <1366279869-23387-6-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 5/5] net/cpsw: redo rx skb allocation in rx path
+Date: Thu, 18 Apr 2013 07:59:52 -0700
+Message-ID: <1366297192.3205.51.camel@edumazet-glaptop>
+References: <1366235536-15744-1-git-send-email-bigeasy@linutronix.de>
+	 <1366235536-15744-6-git-send-email-bigeasy@linutronix.de>
+	 <516FDE20.2050605@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshihiro.shimoda.uh@renesas.com
-To: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	netdev@vger.kernel.org, tglx@linutronix.de,
+	"David S. Miller" <davem@davemloft.net>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:44227 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966221Ab3DRO6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 10:58:37 -0400
-Received: by mail-lb0-f180.google.com with SMTP id t11so2780517lbi.39
-        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 07:58:35 -0700 (PDT)
-In-Reply-To: <1366279869-23387-6-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:60233 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966492Ab3DRO7y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 10:59:54 -0400
+Received: by mail-pd0-f173.google.com with SMTP id v14so1605603pde.32
+        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 07:59:54 -0700 (PDT)
+In-Reply-To: <516FDE20.2050605@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Thu, 2013-04-18 at 17:20 +0530, Mugunthan V N wrote:
+> On 4/18/2013 3:22 AM, Sebastian Andrzej Siewior wrote:
+> > In case that we run into OOM during the allocation of the new rx-skb we
+> > don't get one and we have one skb less than we used to have. If this
+> > continues to happen then we end up with no rx-skbs at all.
+> > This patch changes the following:
+> > - if we fail to allocate the new skb, then we treat the currently
+> >    completed skb as the new one and so drop the currently received data.
+> > - instead of testing multiple times if the device is gone we rely one
+> >    the status field which is set to -ENOSYS in case the channel is going
+> >    down and incomplete requests are purged.
+> >    cpdma_chan_stop() removes most of the packages with -ENOSYS. The
+> >    currently active packet which is removed has the "tear down" bit set.
+> >    So if that bit is set, we send ENOSYS as well otherwise we pass the
+> >    status bits which are required to figure out which of the two possible
+> >    just finished.
+> >
+> > Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+> > ---
+> >   drivers/net/ethernet/ti/cpsw.c          |   33 ++++++++++++-------------------
+> >   drivers/net/ethernet/ti/davinci_cpdma.c |    7 ++++++-
+> >   2 files changed, 19 insertions(+), 21 deletions(-)
+> >
+> > diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> > index 559b020..f684e9b 100644
+> > --- a/drivers/net/ethernet/ti/cpsw.c
+> > +++ b/drivers/net/ethernet/ti/cpsw.c
+> > @@ -469,43 +469,36 @@ void cpsw_tx_handler(void *token, int len, int status)
+> >   void cpsw_rx_handler(void *token, int len, int status)
+> >   {
+> >   	struct sk_buff		*skb = token;
+> > +	struct sk_buff		*new_skb;
+> >   	struct net_device	*ndev = skb->dev;
+> >   	struct cpsw_priv	*priv = netdev_priv(ndev);
+> >   	int			ret = 0;
+> >   
+> >   	cpsw_dual_emac_src_port_detect(status, priv, ndev, skb);
+> >   
+> > -	/* free and bail if we are shutting down */
+> > -	if (unlikely(!netif_running(ndev)) ||
+> > -			unlikely(!netif_carrier_ok(ndev))) {
+> > +	if (unlikely(status < 0)) {
+> > +		/* the interface is going down, skbs are purged */
+> >   		dev_kfree_skb_any(skb);
+> >   		return;
+> >   	}
+> > -	if (likely(status >= 0)) {
+> > +
+> > +	new_skb = netdev_alloc_skb_ip_align(ndev, priv->rx_packet_max);
+> > +	if (new_skb) {
+> >   		skb_put(skb, len);
+> >   		cpts_rx_timestamp(priv->cpts, skb);
+> >   		skb->protocol = eth_type_trans(skb, ndev);
+> >   		netif_receive_skb(skb);
+> >   		priv->stats.rx_bytes += len;
+> >   		priv->stats.rx_packets++;
+> > -		skb = NULL;
+> > -	}
+> > -
+> > -	if (unlikely(!netif_running(ndev))) {
+> > -		if (skb)
+> > -			dev_kfree_skb_any(skb);
+> > -		return;
+> > +	} else {
+> > +		priv->stats.rx_dropped++;
+> > +		new_skb = skb;
+> Why you want to drop a successfully received packet as you memory alloc 
+> failed?
+> Let the stack get it processed and there after you can continue with one 
+> less
+> rx skb
 
-On 18-04-2013 14:11, Nobuhiro Iwamatsu wrote:
+Have you read the changelog at all ?
 
-> sh-eth is supporting some SH and shmobile CPU. CPU with two or more networked
-> devices is in these, these specify IRQF_SHARED as IRQ configureation flags.
-> This changes to set IRQ configureation flags using in sh_eth_cpu_data.
+This patch sounds quite correct to me.
 
-> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-[...]
-
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index af8c225..a4e337f 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-[...]
-> @@ -1920,14 +1923,7 @@ static int sh_eth_open(struct net_device *ndev)
->   	pm_runtime_get_sync(&mdp->pdev->dev);
->
->   	ret = request_irq(ndev->irq, sh_eth_interrupt,
-> -#if defined(CONFIG_CPU_SUBTYPE_SH7763) || \
-> -	defined(CONFIG_CPU_SUBTYPE_SH7764) || \
-> -	defined(CONFIG_CPU_SUBTYPE_SH7757)
-> -				IRQF_SHARED,
-> -#else
-> -				0,
-> -#endif
-
-    Isn't it simpler to always pass IRQF_SHARED?
-
-> -				ndev->name, ndev);
-> +				mdp->cd->irq_flags, ndev->name, ndev);
->   	if (ret) {
->   		dev_err(&ndev->dev, "Can not assign IRQ number\n");
->   		return ret;
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-> index f86ea96..0772ec1 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.h
-> +++ b/drivers/net/ethernet/renesas/sh_eth.h
-> @@ -463,6 +463,7 @@ struct sh_eth_cpu_data {
->   	unsigned long tx_error_check;
->
->   	/* hardware features */
-> +	unsigned long irq_flags; /* IRQ configuration flags */
-
-    Comment should have been indented with tabs like the others.
-
->   	unsigned no_psr:1;		/* EtherC DO NOT have PSR */
->   	unsigned apr:1;			/* EtherC have APR */
->   	unsigned mpr:1;			/* EtherC have MPR */
-> @@ -508,6 +509,7 @@ struct sh_eth_private {
->   	int duplex;
->   	int port;		/* for TSU */
->   	int vlan_num_ids;	/* for VLAN tag filter */
-> +	unsigned long irq_flags; /* IRQ configuration flags */
-
-    You don't seem to use this...
-
-WBR, Sergei
+If you cannot allocate a new skb, then drop the incoming frame, instead
+of dealing with strange allocation retries later.
