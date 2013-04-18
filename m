@@ -1,63 +1,57 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net,stable 3/3] net: qmi_wwan: prevent duplicate mac address on link (firmware bug workaround)
-Date: Fri, 19 Apr 2013 00:57:11 +0200
-Message-ID: <1366325831-13727-4-git-send-email-bjorn@mork.no>
-References: <1366325831-13727-1-git-send-email-bjorn@mork.no>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net,stable 0/3] qmi_wwan: working around 3 serious firmware bugs
+Date: Fri, 19 Apr 2013 00:57:08 +0200
+Message-ID: <1366325831-13727-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1366325831-13727-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-usb@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:40241 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754984Ab3DRW5i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 18:57:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We normally trust and use the CDC functional descriptors provided by a
-number of devices.  But some of these will erroneously list the address
-reserved for the device end of the link.  Attempting to use this on
-both the device and host side will naturally not work.
+This series adds workarounds for 3 different firmware bugs, each
+preventing the affected devices from working at all. I therefore
+humbly request that these fixes go to stable-3.8 (if still
+maintained) and 3.9 (either via net if still possible, or via
+stable if not).
 
-Work around this bug by ignoring the functional descriptor and assign a
-random address instead in this case.
+All 3 workarounds are applied to all devices supported by the driver.
+Adding quirks for specific devices was considered as an alternative,
+but was rejected because we have too little information about the
+exact distribution of the buggy firmwares. All we know is that the
+same bug shows up in devices from at least 3 different, and presumably
+independent, vendors.
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
----
- drivers/net/usb/qmi_wwan.c |    9 +++++++++
- 1 file changed, 9 insertions(+)
+The workarounds have instead been designed to automatically apply
+when necessary, and to have as little impact as possible on unaffected
+devices.  The series has been tested on a number of devices both with
+and without these bugs.
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index cff0bbd..2a3579f 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -53,6 +53,9 @@ struct qmi_wwan_state {
- 	struct usb_interface *data;
- };
-=20
-+/* default ethernet address used by the modem */
-+static const u8 default_modem_addr[ETH_ALEN] =3D {0x02, 0x50, 0xf3};
-+
- /* Make up an ethernet header if the packet doesn't have one.
-  *
-  * A firmware bug common among several devices cause them to send raw
-@@ -317,6 +320,12 @@ next_desc:
- 		usb_driver_release_interface(driver, info->data);
- 	}
-=20
-+	/* Never use the same address on both ends of the link, even
-+	 * if the buggy firmware told us to.
-+	 */
-+	if (!compare_ether_addr(dev->net->dev_addr, default_modem_addr))
-+		eth_hw_addr_random(dev->net);
-+
- 	/* make MAC addr easily distinguishable from an IP header */
- 	if (possibly_iphdr(dev->net->dev_addr)) {
- 		dev->net->dev_addr[0] |=3D 0x02;	/* set local assignment bit */
+The series should apply cleanly to net/master, net-next/master and
+stable/linux-3.8.y
+
+
+Thanks,
+Bj=C3=B8rn
+
+
+Bj=C3=B8rn Mork (3):
+  net: qmi_wwan: fixup missing ethernet header (firmware bug
+    workaround)
+  net: qmi_wwan: fixup destination address (firmware bug workaround)
+  net: qmi_wwan: prevent duplicate mac address on link (firmware bug
+    workaround)
+
+ drivers/net/usb/qmi_wwan.c |  104 ++++++++++++++++++++++++++++++++++++=
+++++++++
+ 1 file changed, 104 insertions(+)
+
 --=20
 1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
