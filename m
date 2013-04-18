@@ -1,165 +1,133 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [PATCHv2 for-3.9] pci: avoid work_on_cpu for nested SRIOV probes
-Date: Thu, 18 Apr 2013 15:57:36 -0600
-Message-ID: <CAErSpo7jf-ytJPhuphzLFH80c9YMM6UzxWAVEnD-25nQgXmARQ@mail.gmail.com>
-References: <51360D7C.3060209@mellanox.com> <20130418200855.GA24086@redhat.com>
- <CAErSpo65Q0+UT3sS6LcyXohkCMfjweoS_j+okiYq4bdjFKjdHw@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next v3 1/1] net: fec: Enable imx6 enet checksum
+ acceleration.
+Date: Thu, 18 Apr 2013 23:03:00 +0100
+Message-ID: <1366322580.2735.48.camel@bwh-desktop.uk.solarflarecom.com>
+References: <Jim Baxter <jim_baxter@mentor.com>
+	    <1366229278-7528-1-git-send-email-jim_baxter@mentor.com>
+	   <1366234670.3205.38.camel@edumazet-glaptop> <516FEBD3.8000803@mentor.com>
+	  <1366301796.2735.18.camel@bwh-desktop.uk.solarflarecom.com>
+	  <5170288B.4080008@mentor.com>
+	 <1366305170.2735.40.camel@bwh-desktop.uk.solarflarecom.com>
+	 <51702B9A.8070000@mentor.com> <5170653A.2000601@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Ming Lei <ming.lei@canonical.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>,
-	Roland Dreier <roland@kernel.org>,
-	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Tejun Heo <tj@kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <CAErSpo65Q0+UT3sS6LcyXohkCMfjweoS_j+okiYq4bdjFKjdHw@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Fugang Duan <B38611@freescale.com>, <netdev@vger.kernel.org>,
+	Fabio Estevam <festevam@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: Jim Baxter <jim_baxter@mentor.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:51200 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936487Ab3DRWDG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 18:03:06 -0400
+In-Reply-To: <5170653A.2000601@mentor.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 18, 2013 at 3:40 PM, Bjorn Helgaas <bhelgaas@google.com> wrote:
-> On Thu, Apr 18, 2013 at 2:08 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
->> The following lockdep report triggers since 3.9-rc1:
->>
->> =============================================
->> [ INFO: possible recursive locking detected ]
->> 3.9.0-rc1 #96 Not tainted
->> ---------------------------------------------
->> kworker/0:1/734 is trying to acquire lock:
->>  ((&wfc.work)){+.+.+.}, at: [<ffffffff81066cb0>] flush_work+0x0/0x250
->>
->> but task is already holding lock:
->>  ((&wfc.work)){+.+.+.}, at: [<ffffffff81064352>]
->> process_one_work+0x162/0x4c0
->>
->> other info that might help us debug this:
->>  Possible unsafe locking scenario:
->>
->>        CPU0
->>        ----
->>   lock((&wfc.work));
->>   lock((&wfc.work));
->>
->>  *** DEADLOCK ***
->>
->>  May be due to missing lock nesting notation
->>
->> 3 locks held by kworker/0:1/734:
->>  #0:  (events){.+.+.+}, at: [<ffffffff81064352>]
->> process_one_work+0x162/0x4c0
->>  #1:  ((&wfc.work)){+.+.+.}, at: [<ffffffff81064352>]
->> process_one_work+0x162/0x4c0
->>  #2:  (&__lockdep_no_validate__){......}, at: [<ffffffff812db225>]
->> device_attach+0x25/0xb0
->>
->> stack backtrace:
->> Pid: 734, comm: kworker/0:1 Not tainted 3.9.0-rc1 #96
->> Call Trace:
->>  [<ffffffff810948ec>] validate_chain+0xdcc/0x11f0
->>  [<ffffffff81095150>] __lock_acquire+0x440/0xc70
->>  [<ffffffff81095150>] ? __lock_acquire+0x440/0xc70
->>  [<ffffffff810959da>] lock_acquire+0x5a/0x70
->>  [<ffffffff81066cb0>] ? wq_worker_waking_up+0x60/0x60
->>  [<ffffffff81066cf5>] flush_work+0x45/0x250
->>  [<ffffffff81066cb0>] ? wq_worker_waking_up+0x60/0x60
->>  [<ffffffff810922be>] ? mark_held_locks+0x9e/0x130
->>  [<ffffffff81066a96>] ? queue_work_on+0x46/0x90
->>  [<ffffffff810925dd>] ? trace_hardirqs_on_caller+0xfd/0x190
->>  [<ffffffff8109267d>] ? trace_hardirqs_on+0xd/0x10
->>  [<ffffffff81066f74>] work_on_cpu+0x74/0x90
->>  [<ffffffff81063820>] ? keventd_up+0x20/0x20
->>  [<ffffffff8121fd30>] ? pci_pm_prepare+0x60/0x60
->>  [<ffffffff811f9293>] ? cpumask_next_and+0x23/0x40
->>  [<ffffffff81220a1a>] pci_device_probe+0xba/0x110
->>  [<ffffffff812dadca>] ? driver_sysfs_add+0x7a/0xb0
->>  [<ffffffff812daf1f>] driver_probe_device+0x8f/0x230
->>  [<ffffffff812db170>] ? __driver_attach+0xb0/0xb0
->>  [<ffffffff812db1bb>] __device_attach+0x4b/0x60
->>  [<ffffffff812d9314>] bus_for_each_drv+0x64/0x90
->>  [<ffffffff812db298>] device_attach+0x98/0xb0
->>  [<ffffffff81218474>] pci_bus_add_device+0x24/0x50
->>  [<ffffffff81232e80>] virtfn_add+0x240/0x3e0
->>  [<ffffffff8146ce3d>] ? _raw_spin_unlock_irqrestore+0x3d/0x80
->>  [<ffffffff812333be>] pci_enable_sriov+0x23e/0x500
->>  [<ffffffffa011fa1a>] __mlx4_init_one+0x5da/0xce0 [mlx4_core]
->>  [<ffffffffa012016d>] mlx4_init_one+0x2d/0x60 [mlx4_core]
->>  [<ffffffff8121fd79>] local_pci_probe+0x49/0x80
->>  [<ffffffff81063833>] work_for_cpu_fn+0x13/0x20
->>  [<ffffffff810643b8>] process_one_work+0x1c8/0x4c0
->>  [<ffffffff81064352>] ? process_one_work+0x162/0x4c0
->>  [<ffffffff81064cfb>] worker_thread+0x30b/0x430
->>  [<ffffffff810649f0>] ? manage_workers+0x340/0x340
->>  [<ffffffff8106cea6>] kthread+0xd6/0xe0
->>  [<ffffffff8106cdd0>] ? __init_kthread_worker+0x70/0x70
->>  [<ffffffff8146daac>] ret_from_fork+0x7c/0xb0
->>  [<ffffffff8106cdd0>] ? __init_kthread_worker+0x70/0x70
->>
->> The issue is that a driver, in it's probe function, calls
->> pci_sriov_enable so a PF device probe causes VF probe (AKA nested
->> probe).  Each probe in pci_device_probe which is (normally) run through
->> work_on_cpu (this is to get the right numa node for memory allocated by
->> the driver).  In turn work_on_cpu does this internally:
->>
->>         schedule_work_on(cpu, &wfc.work);
->>         flush_work(&wfc.work);
->>
->> So if you are running probe on CPU1, and cause another
->> probe on the same CPU, this will try to flush
->> workqueue from inside same workqueue which causes
->> a lockep warning.
->>
->> Nested probing might be tricky to get right generally.
->>
->> But for pci_sriov_enable, the situation is actually very simple: all VFs
->> naturally have same affinity as the PF, and cpumask_any_and is actually
->> same as cpumask_first_and, so it always gives us the same CPU.
->> So let's just detect that, and run the probing for VFs locally without a
->> workqueue.
->>
->> This is hardly elegant, but looks to me like an appropriate quick fix
->> for 3.9.
->>
->> Tested-by: Or Gerlitz <ogerlitz@mellanox.com>
->> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->> Acked-by: Tejun Heo <tj@kernel.org>
->
-> Thanks, Michael.  I put this in my for-linus branch:
->
-> http://git.kernel.org/cgit/linux/kernel/git/helgaas/pci.git/log/?h=for-linus
->
-> I'll send a pull request to Linus today.
+On Thu, 2013-04-18 at 22:27 +0100, Jim Baxter wrote:
+> On 18/04/13 18:21, Jim Baxter wrote:
+> > On 18/04/13 18:12, Ben Hutchings wrote:
+> >> On Thu, 2013-04-18 at 18:08 +0100, Jim Baxter wrote:
+> >>> On 18/04/13 17:16, Ben Hutchings wrote:
+> >>>> On Thu, 2013-04-18 at 13:49 +0100, Jim Baxter wrote:
+> >>>>> On 17/04/13 22:37, Eric Dumazet wrote:
+> >>>>>> On Wed, 2013-04-17 at 21:07 +0100, Jim Baxter wrote:
+> >>>>>>
+> >>>>>>> +			skb_set_transport_header(skb,
+> >>>>>>> +					ETH_HLEN + ip_hdrlen(skb));
+> >>>>>>> +			udp_hdr(skb)->check = 0;
+> >>>>>>> +			break;
+> >>>>>>> +		case IPPROTO_TCP:
+> >>>>>>> +			hdr_len = (ETH_HLEN +
+> >>>>>>> +					(ip_hdr(skb)->ihl << 2) +
+> >>>>>>> +					sizeof(struct tcphdr));
+> >>>>>>> +			if (skb->len < hdr_len)
+> >>>>>>> +				return;
+> >>>>>>> +			skb_cow_head(skb, hdr_len);
+> >>>>>>
+> >>>>>> same here
+> >>>>> Do I need to call skb_cow_head here, I am not changing the size of the
+> >>>>> header?
+> >>>> [...]
+> >>>>
+> >>>> The length passed to skb_cow_head() may be significant when the skb has
+> >>>> paged fragments.  Since you aren't (yet) implementing scatter-gather,
+> >>>> that won't happen.  And the headers shouldn't be in paged fragments
+> >>>> anyway.  I think you can safely use skb_cow_head(skb, 0).
+> >>>>
+> >>>> But you don't actually need to check protocol numbers at all, as the
+> >>>> kernel already specifies where the checksum should be.
+> >>>>
+> >>>> So I think this function should look like:
+> >>>> {
+> >>>> 	if (skb->ip_summed != CHECKSUM_PARTIAL)
+> >>>> 		return 0;
+> >>>>
+> >>>> 	if (unlikely(skb_cow_head(skb, 0)))
+> >>>> 		return -1;
+> >>>>
+> >>>> 	*(__sum16 *)(skb->head + skb->csum_start + skb->csum_offset) = 0;
+> >>>> 	return 0;
+> >>>> }
+> >>>>
+> >>>> The caller needs to check for the failure, and free the skb
+> >>>> (kfree_skb()) rather than transmitting it.
+> >>>>
+> >>>> Ben.
+> >>>>
+> >>>
+> >>> Which checksum does skb->csum (skb->csum_start + skb->csum_offset)
+> >>> relate to?
+> >>
+> >> TCP or UDP.
+> >>
+> >>> The network card can generate IP header and protocol (UDP/TCP/ICMP)
+> >>> checksums as long as the checksums are zeroed?
+> >>
+> >> You don't need to offload the IPv4 header checksum.  TX checksum offload
+> >> will not be requested for ICMP.
+> > 
+> > So the kernel only offloads TCP and UDP checksum's. All other transport
+> > protocols (ICMP, ICMPIPV6 etc.) will be done by the kernel.
+> > 
+> >>
+> >> Ben.
+> >>
+> > 
+> > Thanks, though I saw you replied to my question before I could send it.
+> > 
+> > It sounds like there is no reason wasting CPU cycles clearing the IP
+> > header checksum, so I can keep the code efficient.
+> > 
+> > Jim
+> > 
+> 
+> Does anybody know if the kernel uses checksum offloading for IPV6, if I
+> enable the feature NETIF_F_HW_CSUM, I only receive CHECKSUM_NONE when
+> the protocol is 0x86DD?
 
-Actually, let me make sure I understand this correctly:  This patch
-fixes the lockdep warning, but it does not fix an actual deadlock or
-make any functional change.  Is that right?
+NETIF_F_HW_CSUM means you can generate TCP-style checksums from an
+arbitrary starting offset.  You would then use skb->csum_start and
+skb->csum_offset to construct the TX descriptor(s).
 
-If that's true, how much pain would it cause to just hold this for
-v3.9.1?  I'm nervous about doing a warning fix when we're only a day
-or two before releasing v3.9.
+If the hardware generates checksums for specific protocols based on
+parsing the packet contents, you should set NETIF_F_IP_CSUM (TCP and UDP
+on IPv4) and/or NETIF_F_IPV6_CSUM (TCP and UDP on IPv6).  It appears
+from your original patch that the hardware behaves like this.
 
-Bjorn
+Ben.
 
->> ---
->>
->> Changes from v1:
->>     - clarified commit log and added Ack by Tejun Heo
->>       patch is unchanged.
->>
->> diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
->> index 1fa1e48..6eeb5ec 100644
->> --- a/drivers/pci/pci-driver.c
->> +++ b/drivers/pci/pci-driver.c
->> @@ -286,8 +286,8 @@ static int pci_call_probe(struct pci_driver *drv, struct pci_dev *dev,
->>                 int cpu;
->>
->>                 get_online_cpus();
->>                 cpu = cpumask_any_and(cpumask_of_node(node), cpu_online_mask);
->> -               if (cpu < nr_cpu_ids)
->> +               if (cpu != raw_smp_processor_id() && cpu < nr_cpu_ids)
->>                         error = work_on_cpu(cpu, local_pci_probe, &ddi);
->>                 else
->>                         error = local_pci_probe(&ddi);
+> I realise there is no IP header checksum, but I thought the protocols
+> still use a checksum.
+> 
+> I am using iperf with the -V option in UDP mode, which offloads for IPV4.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
