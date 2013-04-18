@@ -1,37 +1,38 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] tcp: introduce TCPSpuriousRtxHostQueues SNMP
- counter
-Date: Thu, 18 Apr 2013 10:45:10 -0700
-Message-ID: <20130418104510.3624457a@nehalam.linuxnetplumber.net>
-References: <1366303971.3205.62.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bridge: Add missing include for in6_addr
+Date: Thu, 18 Apr 2013 13:51:32 -0400 (EDT)
+Message-ID: <20130418.135132.1342139552386927867.davem@davemloft.net>
+References: <1366276658-11938-1-git-send-email-sven@open-mesh.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Willem de Bruijn <willemb@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f41.google.com ([209.85.210.41]:44780 "EHLO
-	mail-da0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753647Ab3DRRpl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 13:45:41 -0400
-Received: by mail-da0-f41.google.com with SMTP id p8so1374683dan.14
-        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 10:45:41 -0700 (PDT)
-In-Reply-To: <1366303971.3205.62.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: sven@open-mesh.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1366276658-11938-1-git-send-email-sven@open-mesh.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Apr 2013 09:52:51 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+From: Sven Eckelmann <sven@open-mesh.com>
+Date: Thu, 18 Apr 2013 11:17:38 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> ee07c6e7a6f8a25c18f0a6b18152fbd7499245f6 ("bridge: export multicast database
+> via netlink") added "struct br_mdb_entry" which includes an element using the
+> type "struct in6_addr". The file linux/if_bridge.h is part of the uapi and not
+> defining this type in this file or its includes causes build failures in
+> userspace applications.
 > 
-> Host queues (Qdisc + NIC) can hold packets so long that TCP can
-> eventually retransmit a packet before the first transmit even left
-> the host.
+> Signed-off-by: Sven Eckelmann <sven@open-mesh.com>
 
-I though you were use fq_codel ;-) and that wouldn't happen.
+This will conflict with the in6_addr defined by the libc headers, we're
+screwed either way here, so we might as well require userspace to include
+the libc header that defines this type.
