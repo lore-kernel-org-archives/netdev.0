@@ -1,70 +1,60 @@
-From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-Subject: Strange IPSec / ICMPv6 redirect behavior
-Date: Fri, 19 Apr 2013 00:03:22 +0200
-Message-ID: <51706DAA.7050401@enst-bretagne.fr>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] build: resolve compile error due to missing include
+Date: Thu, 18 Apr 2013 15:09:09 -0700
+Message-ID: <20130418150909.253b812d@nehalam.linuxnetplumber.net>
+References: <1366181614-19837-1-git-send-email-jengelh@inai.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@inai.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fourcot.fr ([217.70.191.14]:57812 "EHLO olfflo.fourcot.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752689Ab3DRWI1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 18:08:27 -0400
-Received: from gingembre.fourcot.fr (unknown [95.91.99.240])
-	(Authenticated sender: gingembre)
-	by olfflo.fourcot.fr (Postfix) with ESMTPSA id 068BE2DFF0
-	for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 00:03:23 +0200 (CEST)
-Received: from [127.0.0.1] (localhost [127.0.0.1])
-	by gingembre.fourcot.fr (Postfix) with ESMTP id 859D0401F6
-	for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 00:03:22 +0200 (CEST)
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:62220 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936638Ab3DRWJk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 18:09:40 -0400
+Received: by mail-pd0-f179.google.com with SMTP id x11so1822483pdj.10
+        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 15:09:40 -0700 (PDT)
+In-Reply-To: <1366181614-19837-1-git-send-email-jengelh@inai.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, 17 Apr 2013 08:53:34 +0200
+Jan Engelhardt <jengelh@inai.de> wrote:
 
-I have this kind of configuration on my network:
+> I get a compilation error with linux-glibc-devel-2.6.32 (SLES 11 SP2):
+> 
+> ipnetns.c: In function 'netns_exec':
+> ipnetns.c:156: error: 'MS_SLAVE' undeclared (first use in this function)
+> ipnetns.c:156: error: (Each undeclared identifier is reported only once
+> ipnetns.c:156: error: for each function it appears in.)
+> ipnetns.c:156: error: 'MS_REC' undeclared (first use in this function)
+> ipnetns.c: In function 'netns_add':
+> ipnetns.c:372: error: 'MS_SHARED' undeclared (first use in this function)
+> ipnetns.c:372: error: 'MS_REC' undeclared (first use in this function)
+> make[1]: *** [ipnetns.o] Error 1
+> 
+> This patch fixes that.
+> ---
+>  ip/ipnetns.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+> index b047b97..48b1ad5 100644
+> --- a/ip/ipnetns.c
+> +++ b/ip/ipnetns.c
+> @@ -14,6 +14,7 @@
+>  #include <errno.h>
+>  #include <unistd.h>
+>  #include <ctype.h>
+> +#include <linux/fs.h>
+>  
+>  #include "utils.h"
+>  #include "ip_common.h"
 
-----------                     -----------------
-|        |=======  IPv6  ======|               |
-| Client |                     |               |
-|  A::1  |                     |               |
-----------                     |               |
-                                | IPSec Gateway |
------------------              |               |
-|  IPv4 Gateway |=IPv6 in IPv4=|               |
-|  to Internet  |              |               |
------------------              -----------------
-     ||
-     ||IPv6 in IPv4
-     ||
------------
-| Client  |
-|  B::2   |
------------
+Including linux/fs.h is the wrong answer and there is no guarantee that the
+installed kernel headers are up to date on the build machine either.
+The flags are supposed to be in <sys/mount.h>
+to work around the missing values, some manual ifdef's were added yesterday.
 
-The IPSec gateway has only one network card, i.e. unencrypted packet 
-from the client come in eth0 and go out encrypted from eth0.
-
-This work, but I get ICMP redirect like without IPSec encryption. A 
-simplified tcpdump output give this:
-
-IP6 A::1 > B::2: ICMP6, echo request
-IP6 fe80::3 > A::1: ICMP6, redirect, B::2 to B::2
-IP A.B.C.D > E.F.G.H: ESP(spi=0x3be56104,seq=0xa494)
-IP E.F.G.H > A.B.C.D: ESP(spi=0xce300198,seq=0x1958b)
-IP6 B::2 > A::1: ICMP6, echo reply
-
-
-Of course, the redirect is invalid, since the remote address is not 
-directly reachable. The kernel of the client complains with 
-"rt6_redirect: source isn't a valid nexthop for redirect target".
-
-I can disable acceptance of ICMP redirect on the client, but it does not 
-look like a good solution (ICMP redirect still flood the network). Any 
-idea to solve this?
-
-Regards,
-
--- 
-Florent Fourcot.
+Rejected.
