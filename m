@@ -1,223 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/2] igb: Revert support for build_skb in igb
-Date: Wed, 17 Apr 2013 23:41:04 -0700
-Message-ID: <1366267264-18355-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Subject: [net 2/2] ixgbe: Fix a bug in setting VF VLAN via PF
+Date: Wed, 17 Apr 2013 23:41:35 -0700
+Message-ID: <1366267295-18420-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:22077 "EHLO mga09.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:38039 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752421Ab3DRGlY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 02:41:24 -0400
+	id S1752421Ab3DRGlm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 02:41:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-This patch actually reverts:
-igb: Support using build_skb in the case that jumbo frames are disabled
+The PF driver does not check if the administrator has already set a VF
+VLAN via the PF driver before setting the new VLAN.  This results in
+the following scenario:
 
-The reason for reverting this patch is that it can lead to data corruption.
-The following flow was pointed out by Ben Hutchings:
+A) Administrator sets VF <n> to VLAN 100
+B) Administrator sets VF <x> to VLAN 100
+C) Administrator sets VF <n> to VLAN 200
+D) The VF <n> driver continues to be able to receive traffic on VLAN
+   100 because the VLVFB pool enable bit for that VF was left set
+   instead of being cleared as it should be.
 
-1. skb is forwarded to another device
-2. Packet headers are modified and it's put into a queue
-3. Second packet is received into the other half of this page
-4. Page cannot be reused, so is DMA-unmapped
-5. The DMA mapping was non-coherent, so unmap copies or invalidates
-cache
+This fix ensures that the old VLAN filter for VF <n> is first removed
+and the pool bit enable for VF <n> is cleared so that it no longer
+receives traffic on VLAN 100.
 
-The headers added in step 2 get trashed in step 5.
-
-Reported-by: Ben Hutchings <bhutchings@solarflare.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      |   8 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 110 ++----------------------------
- 2 files changed, 4 insertions(+), 114 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 2515140..ab577a7 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -284,18 +284,10 @@ struct igb_q_vector {
- enum e1000_ring_flags_t {
- 	IGB_RING_FLAG_RX_SCTP_CSUM,
- 	IGB_RING_FLAG_RX_LB_VLAN_BSWAP,
--	IGB_RING_FLAG_RX_BUILD_SKB_ENABLED,
- 	IGB_RING_FLAG_TX_CTX_IDX,
- 	IGB_RING_FLAG_TX_DETECT_HANG
- };
- 
--#define ring_uses_build_skb(ring) \
--	test_bit(IGB_RING_FLAG_RX_BUILD_SKB_ENABLED, &(ring)->flags)
--#define set_ring_build_skb_enabled(ring) \
--	set_bit(IGB_RING_FLAG_RX_BUILD_SKB_ENABLED, &(ring)->flags)
--#define clear_ring_build_skb_enabled(ring) \
--	clear_bit(IGB_RING_FLAG_RX_BUILD_SKB_ENABLED, &(ring)->flags)
--
- #define IGB_TXD_DCMD (E1000_ADVTXD_DCMD_EOP | E1000_ADVTXD_DCMD_RS)
- 
- #define IGB_RX_DESC(R, i)	    \
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 8496adf..64f7529 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3350,20 +3350,6 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
- 	wr32(E1000_RXDCTL(reg_idx), rxdctl);
- }
- 
--static void igb_set_rx_buffer_len(struct igb_adapter *adapter,
--				  struct igb_ring *rx_ring)
--{
--#define IGB_MAX_BUILD_SKB_SIZE \
--	(SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) - \
--	 (NET_SKB_PAD + NET_IP_ALIGN + IGB_TS_HDR_LEN))
--
--	/* set build_skb flag */
--	if (adapter->max_frame_size <= IGB_MAX_BUILD_SKB_SIZE)
--		set_ring_build_skb_enabled(rx_ring);
--	else
--		clear_ring_build_skb_enabled(rx_ring);
--}
--
- /**
-  * igb_configure_rx - Configure receive Unit after Reset
-  * @adapter: board private structure
-@@ -3383,11 +3369,8 @@ static void igb_configure_rx(struct igb_adapter *adapter)
- 
- 	/* Setup the HW Rx Head and Tail Descriptor Pointers and
- 	 * the Base and Length of the Rx Descriptor Ring */
--	for (i = 0; i < adapter->num_rx_queues; i++) {
--		struct igb_ring *rx_ring = adapter->rx_ring[i];
--		igb_set_rx_buffer_len(adapter, rx_ring);
--		igb_configure_rx_ring(adapter, rx_ring);
--	}
-+	for (i = 0; i < adapter->num_rx_queues; i++)
-+		igb_configure_rx_ring(adapter, adapter->rx_ring[i]);
- }
- 
- /**
-@@ -6203,78 +6186,6 @@ static bool igb_add_rx_frag(struct igb_ring *rx_ring,
- 	return igb_can_reuse_rx_page(rx_buffer, page, truesize);
- }
- 
--static struct sk_buff *igb_build_rx_buffer(struct igb_ring *rx_ring,
--					   union e1000_adv_rx_desc *rx_desc)
--{
--	struct igb_rx_buffer *rx_buffer;
--	struct sk_buff *skb;
--	struct page *page;
--	void *page_addr;
--	unsigned int size = le16_to_cpu(rx_desc->wb.upper.length);
--#if (PAGE_SIZE < 8192)
--	unsigned int truesize = IGB_RX_BUFSZ;
--#else
--	unsigned int truesize = SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) +
--				SKB_DATA_ALIGN(NET_SKB_PAD +
--					       NET_IP_ALIGN +
--					       size);
--#endif
--
--	/* If we spanned a buffer we have a huge mess so test for it */
--	BUG_ON(unlikely(!igb_test_staterr(rx_desc, E1000_RXD_STAT_EOP)));
--
--	rx_buffer = &rx_ring->rx_buffer_info[rx_ring->next_to_clean];
--	page = rx_buffer->page;
--	prefetchw(page);
--
--	page_addr = page_address(page) + rx_buffer->page_offset;
--
--	/* prefetch first cache line of first page */
--	prefetch(page_addr + NET_SKB_PAD + NET_IP_ALIGN);
--#if L1_CACHE_BYTES < 128
--	prefetch(page_addr + L1_CACHE_BYTES + NET_SKB_PAD + NET_IP_ALIGN);
--#endif
--
--	/* build an skb to around the page buffer */
--	skb = build_skb(page_addr, truesize);
--	if (unlikely(!skb)) {
--		rx_ring->rx_stats.alloc_failed++;
--		return NULL;
--	}
--
--	/* we are reusing so sync this buffer for CPU use */
--	dma_sync_single_range_for_cpu(rx_ring->dev,
--				      rx_buffer->dma,
--				      rx_buffer->page_offset,
--				      IGB_RX_BUFSZ,
--				      DMA_FROM_DEVICE);
--
--	/* update pointers within the skb to store the data */
--	skb_reserve(skb, NET_IP_ALIGN + NET_SKB_PAD);
--	__skb_put(skb, size);
--
--	/* pull timestamp out of packet data */
--	if (igb_test_staterr(rx_desc, E1000_RXDADV_STAT_TSIP)) {
--		igb_ptp_rx_pktstamp(rx_ring->q_vector, skb->data, skb);
--		__skb_pull(skb, IGB_TS_HDR_LEN);
--	}
--
--	if (igb_can_reuse_rx_page(rx_buffer, page, truesize)) {
--		/* hand second half of page back to the ring */
--		igb_reuse_rx_page(rx_ring, rx_buffer);
--	} else {
--		/* we are not reusing the buffer so unmap it */
--		dma_unmap_page(rx_ring->dev, rx_buffer->dma,
--			       PAGE_SIZE, DMA_FROM_DEVICE);
--	}
--
--	/* clear contents of buffer_info */
--	rx_buffer->dma = 0;
--	rx_buffer->page = NULL;
--
--	return skb;
--}
--
- static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
- 					   union e1000_adv_rx_desc *rx_desc,
- 					   struct sk_buff *skb)
-@@ -6690,10 +6601,7 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)
- 		rmb();
- 
- 		/* retrieve a buffer from the ring */
--		if (ring_uses_build_skb(rx_ring))
--			skb = igb_build_rx_buffer(rx_ring, rx_desc);
--		else
--			skb = igb_fetch_rx_buffer(rx_ring, rx_desc, skb);
-+		skb = igb_fetch_rx_buffer(rx_ring, rx_desc, skb);
- 
- 		/* exit if we failed to retrieve a buffer */
- 		if (!skb)
-@@ -6780,14 +6688,6 @@ static bool igb_alloc_mapped_page(struct igb_ring *rx_ring,
- 	return true;
- }
- 
--static inline unsigned int igb_rx_offset(struct igb_ring *rx_ring)
--{
--	if (ring_uses_build_skb(rx_ring))
--		return NET_SKB_PAD + NET_IP_ALIGN;
--	else
--		return 0;
--}
--
- /**
-  * igb_alloc_rx_buffers - Replace used receive buffers; packet split
-  * @adapter: address of board private structure
-@@ -6814,9 +6714,7 @@ void igb_alloc_rx_buffers(struct igb_ring *rx_ring, u16 cleaned_count)
- 		 * Refresh the desc even if buffer_addrs didn't change
- 		 * because each write-back erases this info.
- 		 */
--		rx_desc->read.pkt_addr = cpu_to_le64(bi->dma +
--						     bi->page_offset +
--						     igb_rx_offset(rx_ring));
-+		rx_desc->read.pkt_addr = cpu_to_le64(bi->dma + bi->page_offset);
- 
- 		rx_desc++;
- 		bi++;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index d44b4d2..97e3366 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -1049,6 +1049,12 @@ int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan, u8 qos)
+ 	if ((vf >= adapter->num_vfs) || (vlan > 4095) || (qos > 7))
+ 		return -EINVAL;
+ 	if (vlan || qos) {
++		if (adapter->vfinfo[vf].pf_vlan)
++			err = ixgbe_set_vf_vlan(adapter, false,
++						adapter->vfinfo[vf].pf_vlan,
++						vf);
++		if (err)
++			goto out;
+ 		err = ixgbe_set_vf_vlan(adapter, true, vlan, vf);
+ 		if (err)
+ 			goto out;
 -- 
 1.7.11.7
