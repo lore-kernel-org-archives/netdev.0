@@ -1,49 +1,137 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH repost for-3.9] pci: avoid work_on_cpu for nested SRIOV
- probes
-Date: Thu, 18 Apr 2013 23:03:06 +0300
-Message-ID: <20130418200306.GA22435@redhat.com>
-References: <20130411191717.GB25515@redhat.com>
- <20130411192005.GN17641@mtj.dyndns.org>
- <20130411203053.GC25515@redhat.com>
- <20130411204104.GC11956@mtj.dyndns.org>
- <516AA80F.7040505@mellanox.com>
- <20130414134339.GA3050@htj.dyndns.org>
- <20130418083347.GA16526@redhat.com>
- <517007F0.4060000@mellanox.com>
- <20130418135458.GC20862@redhat.com>
- <CAJZOPZLuT7jcUJi_EEQ1_fgVCuFHk1Xzbb6kQtPSS4LfL=ArVg@mail.gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] bridge: fix IP DNAT handling when packet is sent back
+ via same bport
+Date: Thu, 18 Apr 2013 23:02:20 +0200
+Message-ID: <20130418210220.GI1408@breakpoint.cc>
+References: <1366277833-1405-1-git-send-email-fw@strlen.de>
+ <51705267.3070909@pandora.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Or Gerlitz <ogerlitz@mellanox.com>, Tejun Heo <tj@kernel.org>,
-	Ming Lei <ming.lei@canonical.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>,
-	Roland Dreier <roland@kernel.org>,
-	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Bart De Schuymer <bdschuym@pandora.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:54243 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751823Ab3DRVCY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 17:02:24 -0400
 Content-Disposition: inline
-In-Reply-To: <CAJZOPZLuT7jcUJi_EEQ1_fgVCuFHk1Xzbb6kQtPSS4LfL=ArVg@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <51705267.3070909@pandora.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 18, 2013 at 09:41:31PM +0300, Or Gerlitz wrote:
-> On Thu, Apr 18, 2013 at 4:54 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> [...]
-> > Tejun, what do you say my patch is used for 3.9, and we can revisit for 3.10.
-> > The release is almost here. If yes please send your Ack.
+Bart De Schuymer <bdschuym@pandora.be> wrote:
+> Op 18/04/2013 11:37, Florian Westphal schreef:
+> >commit e179e6322ac334e21a3c6d669d95bc967e5d0a80
+> >(netfilter: bridge-netfilter: Fix MAC header handling with IP DNAT)
+> >breaks DNAT when the destination address sits on the same bridgeport
+> >the packet originally arrived on.  Example:
+> >
+> >( Network1 ) -- [ eth1-Bridge-eth0 ] -- ( Network2 )
+> >
+> >Lets assume bridge has ip 192.168.10.8, and following netfilter rules
+> >are active:
+> >
+> >-A PREROUTING  -s 192.168.10.1 -d 192.168.10.8 -p tcp --dport 21 -j DNAT --to-destination 192.168.10.1
+> >-A POSTROUTING -s 192.168.10.1 -d 192.168.10.1 -p tcp --dport 21 -j SNAT --to-source 192.168.10.8
 > 
-> Michael,
+> >With kernels before 2.6.35, this makes host 192.168.10.1 connecting to
+> >the bridge on port 21 connect-to-self.
 > 
-> I assume you mean pull to 3.9 both Tejun's and your patch, correct? I
-> wasn't sure what does this really buys us... we got read from the
-> false-positive lockdep warning which takes place during nested probe
-> and got another lockdep warning during the probe of Interrupt
-> controller
-> 
-> Or.
+> I don't get why you didn't need the hairpin mode back then.
 
-No I mean my original patch.
+because afaics before packets were just sent from the bridge, i.e. no
+forward path and no should_deliver() check.
+
+[..]
+
+> In my opinion this is just a special kind of MAC SNAT and you can
+> already achieve this with hairpin mode, ebtables and iptables now:
+>
+> 1. make sure to mark the packets with iptables before you perform the DNAT
+> 2. in ebtables POSTROUTING, SNAT those marked packets with the MAC
+> address of the bridge.
+> 3. enable hairpin mode
+> Even if it turns out not yet to be fully possible with the current
+> kernel, I think such a feature should be implemented as an ebtables
+> target instead of increasing the complexity of the generic code.
+
+Well, I am all for doing this with existing tools, problem is
+userspace didn't change but newer kernels don't work as they used to.
+
+If consensus is 'too bad, fix configuration' I can accept that.
+The fact that noone seems to have reported this until now
+pretty much proves that virtually noone has such configurations.
+
+> Your patch also introduces potential unexpected behavior in
+> different scenarios. Consider the following rule:
+> -A PREROUTING -s 192.168.10.1 -d 192.168.10.8 -p tcp --dport 21 -j
+> DNAT --to-destination 192.168.10.2
+> Note that the DNAT is to a different IP address. Suppose
+> 192.168.10.2 is on a different machine located on the same side of
+> the bridge. Your patch would change the MAC source address here too
+> without any need.
+
+Not sure if this is even possible, as 10.1 would discard the syn/ack
+from 10.2 (expects reply from 10.8 address).
+
+But I think understand what you're saying.
+
+> >diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
+> >index dfb4d9e..eacd206 100644
+> >--- a/include/linux/netfilter_bridge.h
+> >+++ b/include/linux/netfilter_bridge.h
+> >@@ -23,6 +23,8 @@ enum nf_br_hook_priorities {
+> >  #define BRNF_NF_BRIDGE_PREROUTING	0x08
+> >  #define BRNF_8021Q			0x10
+> >  #define BRNF_PPPoE			0x20
+> >+/* DNAT'd packet is to be sent back on same bridge port: */
+> >+#define BRNF_BRIDGED_DNAT_DODGY		0x40
+> 
+> Obviously, a more descriptive name would be nice :)
+
+I failed to come up with something that isn't more explicit ;)
+But I'll try.
+
+> >+static int forward_should_deliver(const struct net_bridge_port *to,
+> >+				  struct sk_buff *skb)
+> >+{
+> >+#ifdef CONFIG_BRIDGE_NETFILTER
+> >+	if (skb->dev == to->dev &&
+> >+	    skb->nf_bridge && (skb->nf_bridge->mask & BRNF_BRIDGED_DNAT)) {
+> >+		skb->nf_bridge->mask |= BRNF_BRIDGED_DNAT_DODGY;
+> 
+> You should unset the BRNF_BRIDGED_DNAT mask here (no longer needed
+> and might confuse other code yet to be executed):
+> skb->nf_bridge->mask ^= BRNF_BRIDGED_DNAT;
+
+Sounds reasonable.
+
+> >+		return to->state == BR_STATE_FORWARDING &&
+> >+			br_allowed_egress(to->br, nbp_get_vlan_info(to), skb);
+> 
+> I don't like this change. It's basically a hack to prevent having to
+> enable the hairpin mode.
+
+Yes. It wasn't necessary before.  If the consensus is that it should be
+used in this case, I am ok with that.
+
+> Putting the new code in should_deliver() would have prevented you
+> from having to come up with a new and not very descriptive function
+> name.
+
+I wanted to make sure that this extra DNAT crud is not e.g. called in
+the multi/broadcast flood case, but only for plain br_forward().
+
+> >+		/* tell br_dev_xmit to continue with forwarding, make
+> >+		 * fwd path handle inport == outport case
+> >+		 */
+> >+		nf_bridge->mask |= BRNF_BRIDGED_DNAT;
+> 
+> I think you'll be ok here, as long as you unset the mask later (as
+> mentioned above).
+
+Noted, thanks for reviewing.
+
+Regards,
+Florian
