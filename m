@@ -1,47 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fec: Remove unneeded asm header files
-Date: Thu, 18 Apr 2013 13:57:01 -0400 (EDT)
-Message-ID: <20130418.135701.1058528754335411103.davem@davemloft.net>
-References: <1366251498-11677-1-git-send-email-festevam@gmail.com>
-	<516FDF7B.10808@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: introduce TCPSpuriousRtxHostQueues SNMP
+ counter
+Date: Thu, 18 Apr 2013 11:06:21 -0700
+Message-ID: <1366308381.3205.66.camel@edumazet-glaptop>
+References: <1366303971.3205.62.camel@edumazet-glaptop>
+	 <20130418104510.3624457a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: festevam@gmail.com, gerg@uclinux.org, netdev@vger.kernel.org,
-	fabio.estevam@freescale.com
-To: gregungerer00@gmail.com
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Willem de Bruijn <willemb@google.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54720 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752317Ab3DRR5E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 13:57:04 -0400
-In-Reply-To: <516FDF7B.10808@gmail.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:45114 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751156Ab3DRSGY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 14:06:24 -0400
+Received: by mail-pa0-f43.google.com with SMTP id hz11so1773767pad.30
+        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 11:06:23 -0700 (PDT)
+In-Reply-To: <20130418104510.3624457a@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Ungerer <gregungerer00@gmail.com>
-Date: Thu, 18 Apr 2013 21:56:43 +1000
-
-> Hi Fabio,
+On Thu, 2013-04-18 at 10:45 -0700, Stephen Hemminger wrote:
+> On Thu, 18 Apr 2013 09:52:51 -0700
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
 > 
-> On 18/04/13 12:18, Fabio Estevam wrote:
->> From: Fabio Estevam <fabio.estevam@freescale.com>
->> 
->> There is nothing in the driver that requires asm header files.
->> 
->> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
->> ---
->> Greg,
->> 
->> I built this for ARM and x86 (tweaking Kconfig), but I don't have a m68k 
->> toolchain installed here to test it.
->> 
->> Please build it for m68k if you have a chance. Thanks
->> 
->>  drivers/net/ethernet/freescale/fec_main.c |    7 -------
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Host queues (Qdisc + NIC) can hold packets so long that TCP can
+> > eventually retransmit a packet before the first transmit even left
+> > the host.
 > 
-> fec_main.c?  It doesn't exist in 3.9-rc7.
-> Comments and tests below based on fec.c in 3.9-rc7.
+> I though you were use fq_codel ;-) and that wouldn't happen.
 
-That's where the driver is in net-next, which cleanups such as this
-should be targetted.
+Remind that fq_codel drops packets at dequeue time only ;)
+
+So TCP stack could retransmit while prior packet is still in fq_codel
+queue.
