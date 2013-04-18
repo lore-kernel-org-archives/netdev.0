@@ -1,112 +1,87 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v6] net: sh_eth: Add support of device tree probe
-Date: Thu, 18 Apr 2013 18:04:27 +0400
-Message-ID: <516FFD6B.8020901@cogentembedded.com>
-References: <1363675196-8940-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com> <51486699.6000908@cogentembedded.com> <514AB0CB.2030808@renesas.com> <516B0C59.3050207@cogentembedded.com> <516B6340.9090604@renesas.com> <516C4C70.7050802@cogentembedded.com> <516E551A.1030804@renesas.com>
+Subject: Re: [PATCH 3/8] net: sh-eth: Remove duplicate sh_eth_set_duplex()
+Date: Thu, 18 Apr 2013 18:12:35 +0400
+Message-ID: <516FFF53.6010701@cogentembedded.com>
+References: <1366268510-8121-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com> <1366268510-8121-3-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	magnus.damm@gmail.com, kda@linux-powerpc.org,
-	horms+renesas@verge.net.au, mark.rutland@arm.com,
-	grant.likely@secretlab.ca
+Cc: netdev@vger.kernel.org, yoshihiro.shimoda.uh@renesas.com
 To: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f48.google.com ([209.85.215.48]:48703 "EHLO
-	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964949Ab3DROFh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 10:05:37 -0400
-Received: by mail-la0-f48.google.com with SMTP id fq13so1464568lab.7
-        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 07:05:35 -0700 (PDT)
-In-Reply-To: <516E551A.1030804@renesas.com>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:47896 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965122Ab3DRONp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 10:13:45 -0400
+Received: by mail-la0-f42.google.com with SMTP id fn20so2599488lab.15
+        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 07:13:44 -0700 (PDT)
+In-Reply-To: <1366268510-8121-3-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 17-04-2013 11:54, Nobuhiro Iwamatsu wrote:
+On 18-04-2013 11:01, Nobuhiro Iwamatsu wrote:
 
->>>>>>> This adds support of device tree probe for Renesas sh-ether driver.
+> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 
->>>>>>> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+    Step in the right direction.
 
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index 313d6ef..5c4e82c 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -341,9 +341,11 @@ static void sh_eth_select_mii(struct net_device *ndev)
+>   }
+>   #endif
+>
+> -/* There is CPU dependent code */
+> -#if defined(CONFIG_ARCH_R8A7779)
+> -#define SH_ETH_RESET_DEFAULT	1
+> +#if defined(CONFIG_CPU_SUBTYPE_SH7619) || \
+> +	defined(CONFIG_CPU_SUBTYPE_SH7710) || \
+> +	defined(CONFIG_CPU_SUBTYPE_SH7712)
+> +#  define sh_eth_set_duplex NULL
+
+    I don't think this is neeeded at all.
+
+> +#else
+>   static void sh_eth_set_duplex(struct net_device *ndev)
+>   {
+>   	struct sh_eth_private *mdp = netdev_priv(ndev);
+> @@ -353,7 +355,11 @@ static void sh_eth_set_duplex(struct net_device *ndev)
+>   	else		/* Half */
+>   		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
+>   }
+> +#endif
+>
+> +/* There is CPU dependent code */
+> +#if defined(CONFIG_ARCH_R8A7779)
+> +#define SH_ETH_RESET_DEFAULT	1
+>   static void sh_eth_set_rate(struct net_device *ndev)
+>   {
+>   	struct sh_eth_private *mdp = netdev_priv(ndev);
 [...]
+> @@ -834,6 +791,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
+>   #elif defined(CONFIG_CPU_SUBTYPE_SH7619)
+>   #define SH_ETH_RESET_DEFAULT	1
+>   static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
+> +	.set_duplex = sh_eth_set_duplex,
 
->>>>>>> @@ -2391,12 +2451,33 @@ static int sh_eth_drv_probe(struct platform_device
->>>>>>> *pdev)
->>>>>>> goto out_release;
->>>>>>> }
->>>>>>>
->>>>>>> + if (np) {
->>>>>>> + pd = sh_eth_parse_dt(&pdev->dev, ndev, np);
->>>>>>> + if (pdev->dev.platform_data && pd) {
->>>>>>> + struct sh_eth_plat_data *tmp =
->>>>>>> + pdev->dev.platform_data;
->>>>>>> + pd->set_mdio_gate = tmp->set_mdio_gate;
->>>>>>> + pd->needs_init = tmp->needs_init;
+    Please, align = like in other initializers.
+    Wait, is this change legitimate at all? You mean NULL will be set here?
+But why bother doing this, when 0s will be set to all fields without
+explicit initializer?
 
->>>>>> OK, so we can't fully convert this driver to the device tree due to
->>>>>> procedural platform data.
+>   	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
+>
+>   	.apr		= 1,
+> @@ -845,6 +803,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
+>   #define SH_ETH_RESET_DEFAULT	1
+>   #define SH_ETH_HAS_TSU	1
+>   static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
+> +	.set_duplex = sh_eth_set_duplex,
 
->>>>> > I then would advice just using OF_DEV_AUXDATA() in the platform data
-
->>>> /sdata/code/.
-
->>>>> instead of trying to convert the driver to device tree.
-
->>>> Convert the platfrom data, I meant. But I already wrote about that I think.
-
->>>>> Yes, I knew about this.
-
->>>> But still attempted to document and use the data-only device tree properties
->>>> (which was pointless in the light of procediral platfrom data)?
-
->>> Yes, I added this information to next patch.
-
->> WHich information, I didn't understand?
-
-> sorry, I was not understand your mail by mistake.
-> You believe that without OF_DEV_AUXDATA, that it should be fully migrated to
-> the DT from platformdata. right?
-
-    No, the contrary. OF_DEV_AUXDATA should be used and platfrom data 
-therefore *not* be convereted to DT propertiies.
-
->>>>>>> +
->>>>>>> +#ifdef CONFIG_OF
->>>>>>> +static const struct of_device_id sh_eth_match[] = {
->>>>>>> + { .compatible = "renesas,sh-eth-gigabit", },
->>>>>>> + { .compatible = "renesas,sh-eth-sh4", },
->>>>>>> + { .compatible = "renesas,sh-eth-sh3-sh2", },
-
->>>>> Therefore, the compatible property of this device becomes <CPU>-sh-eth
->>>>> or <CPU>-sh-eth-<ETHER TYPE>.
-
->>>>> How about this?
-
->>>> Sounds better. I think however that the conversion of this driver to device
->>>> tree shouldn't be done without getting rid of the current #ifdef mess in it
->>>> (which is still on my agenda). I think that the 'register_type' field should
->>>> move from the platform data to the 'struct sh_eth_cpu_data' in the process.
-
->>> I see. this problem will fix next step, I think.
-
->> No, not at all. If we don't get rid of the #ifdef mess, adding device tree
->> support will have to add even more of it.
-
-> But sh-eth was used by SH and sh-mobile.
-
-    So what?
-
-> I think we can migrate to DT.
-
-    I don't think we should do it before removing the #ifdef's.
-
-> However, I think it is not possible to remove idfef completely immediately.
-
-    Immediately or not quite so, it was the task I was given.
-
->>> Best regards,
->>> Nobuhiro
+    Same coments here.
 
 WBR, Sergei
