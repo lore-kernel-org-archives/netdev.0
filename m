@@ -1,58 +1,76 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH repost for-3.9] pci: avoid work_on_cpu for nested SRIOV
- probes
-Date: Thu, 18 Apr 2013 23:11:25 +0300
-Message-ID: <20130418201125.GA24094@redhat.com>
-References: <20130411192005.GN17641@mtj.dyndns.org>
- <20130411203053.GC25515@redhat.com>
- <20130411204104.GC11956@mtj.dyndns.org>
- <516AA80F.7040505@mellanox.com>
- <20130414134339.GA3050@htj.dyndns.org>
- <20130418083347.GA16526@redhat.com>
- <517007F0.4060000@mellanox.com>
- <20130418135458.GC20862@redhat.com>
- <20130418181930.GF9897@mtj.dyndns.org>
- <CAErSpo71mvwwW2LheUcZ3giXke_qNWP_NeV=2Fhy147Z=pYOZQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <tj@kernel.org>, Or Gerlitz <ogerlitz@mellanox.com>,
-	Ming Lei <ming.lei@canonical.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>,
-	Roland Dreier <roland@kernel.org>,
-	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: Bjorn Helgaas <bhelgaas@google.com>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next 2/2] openvswitch: Use lockless genl.
+Date: Thu, 18 Apr 2013 14:16:52 -0700
+Message-ID: <1366319812-16625-1-git-send-email-pshelar@nicira.com>
+Cc: dev@openvswitch.org, jesse@nicira.com,
+	Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43166 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751823Ab3DRVKY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 17:10:24 -0400
-Content-Disposition: inline
-In-Reply-To: <CAErSpo71mvwwW2LheUcZ3giXke_qNWP_NeV=2Fhy147Z=pYOZQ@mail.gmail.com>
+Received: from na3sys009aog136.obsmtp.com ([74.125.149.85]:40352 "HELO
+	na3sys009aog136.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751781Ab3DRVRL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 17:17:11 -0400
+Received: by mail-ie0-f199.google.com with SMTP id x14so18958269ief.2
+        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 14:16:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 18, 2013 at 12:25:59PM -0600, Bjorn Helgaas wrote:
-> On Thu, Apr 18, 2013 at 12:19 PM, Tejun Heo <tj@kernel.org> wrote:
-> > On Thu, Apr 18, 2013 at 04:54:58PM +0300, Michael S. Tsirkin wrote:
-> >> Tejun, what do you say my patch is used for 3.9,
-> >> and we can revisit for 3.10.
-> >> The release is almost here.
-> >> If yes please send your Ack.
-> >
-> > Yeap, let's do that.
-> >
-> > Acked-by: Tejun Heo <tj@kernel.org>
-> 
-> Michael, can you post a new version with Tejun's ack?  IIRC, this was
-> in drivers/pci, but I haven't been following this and am not sure
-> exactly what you want applied.  Thanks.
-> 
-> Bjorn
+OVS locking was recently changed to have private OVS lock which
+simplified overall locking.  Therefore there is no need to have
+another global genl lock to protect OVS data structures.  Following
+patch uses of lockless genl family for OVS.  This also allows
+more granual OVS locking using ovs_mutex for protecting OVS data
+structures, which gives more consurrencey.  E.g multiple genl
+operations OVS_PACKET_CMD_EXECUTE can run in parallel, etc.
 
-Done. Subject is:
-[PATCHv2 for-3.9] pci: avoid work_on_cpu for nested SRIOV
-it's the same patch with Tejun's ack and a minor
-correction in the commit message.
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+ net/openvswitch/datapath.c |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index b7d0b7c..b2c966e 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -270,7 +270,8 @@ static struct genl_family dp_packet_genl_family = {
+ 	.name = OVS_PACKET_FAMILY,
+ 	.version = OVS_PACKET_VERSION,
+ 	.maxattr = OVS_PACKET_ATTR_MAX,
+-	.netnsok = true
++	.netnsok = true,
++	.lockless = true,
+ };
+ 
+ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
+@@ -836,7 +837,8 @@ static struct genl_family dp_flow_genl_family = {
+ 	.name = OVS_FLOW_FAMILY,
+ 	.version = OVS_FLOW_VERSION,
+ 	.maxattr = OVS_FLOW_ATTR_MAX,
+-	.netnsok = true
++	.netnsok = true,
++	.lockless = true,
+ };
+ 
+ static struct genl_multicast_group ovs_dp_flow_multicast_group = {
+@@ -1269,7 +1271,8 @@ static struct genl_family dp_datapath_genl_family = {
+ 	.name = OVS_DATAPATH_FAMILY,
+ 	.version = OVS_DATAPATH_VERSION,
+ 	.maxattr = OVS_DP_ATTR_MAX,
+-	.netnsok = true
++	.netnsok = true,
++	.lockless = true,
+ };
+ 
+ static struct genl_multicast_group ovs_dp_datapath_multicast_group = {
+@@ -1623,7 +1626,8 @@ static struct genl_family dp_vport_genl_family = {
+ 	.name = OVS_VPORT_FAMILY,
+ 	.version = OVS_VPORT_VERSION,
+ 	.maxattr = OVS_VPORT_ATTR_MAX,
+-	.netnsok = true
++	.netnsok = true,
++	.lockless = true,
+ };
+ 
+ struct genl_multicast_group ovs_dp_vport_multicast_group = {
+-- 
+1.7.1
