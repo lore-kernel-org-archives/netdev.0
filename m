@@ -1,115 +1,118 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v2 net-next 1/4] bnx2x: refactor nvram read procedure
-Date: Fri, 19 Apr 2013 01:14:38 +0200
-Message-ID: <20130418231438.GA10380@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH v2 net-next 2/4] bnx2x: add additional regions for CRC
+ memory test
+Date: Fri, 19 Apr 2013 01:15:15 +0200
+Message-ID: <20130418231515.GB10380@electric-eye.fr.zoreil.com>
 References: <1366280830-26034-1-git-send-email-dmitry@broadcom.com>
- <1366280830-26034-2-git-send-email-dmitry@broadcom.com>
+ <1366280830-26034-3-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	Eilon Greenstein <eilong@broadcom.com>
 To: Dmitry Kravkov <dmitry@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:56775 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:56781 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753871Ab3DRXOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 19:14:46 -0400
+	with ESMTP id S1753496Ab3DRXPV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 19:15:21 -0400
 Content-Disposition: inline
-In-Reply-To: <1366280830-26034-2-git-send-email-dmitry@broadcom.com>
+In-Reply-To: <1366280830-26034-3-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Dmitry Kravkov <dmitry@broadcom.com> :
-> introduce a procedure to read in u32 granularity.
-> 
-> CC: Francois Romieu <romieu@fr.zoreil.com>
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> ---
->  .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    | 54 +++++++++++++---------
->  1 file changed, 31 insertions(+), 23 deletions(-)
-> 
+[...]
 > diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> index 129d6b2..e7e0ac1 100644
+> index e7e0ac1..65ac870 100644
 > --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
 > +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> @@ -1364,11 +1364,25 @@ static int bnx2x_nvram_read(struct bnx2x *bp, u32 offset, u8 *ret_buf,
+> @@ -2593,14 +2593,138 @@ static int bnx2x_test_ext_loopback(struct bnx2x *bp)
 >  	return rc;
 >  }
 >  
-> +static int bnx2x_nvram_read32(struct bnx2x *bp, u32 offset, u32 *buf,
-> +			      int buf_size)
-> +{
-> +	int i, rc = bnx2x_nvram_read(bp, offset, (u8 *)buf, buf_size);
-> +	__be32 *be = (__be32 *)buf;
+> +struct code_entry {
+> +	u32 sram_start_addr;
+> +	u32 code_attribute;
+> +#define CODE_IMAGE_TYPE_MASK			0xf0800003
+> +#define CODE_IMAGE_VNTAG_PROFILES_DATA		0xd0000003
+> +#define CODE_IMAGE_LENGTH_MASK			0x007ffffc
+> +#define CODE_IMAGE_TYPE_EXTENDED_DIR		0xe0000000
+> +	u32 nvm_start_addr;
+> +};
 > +
-> +	if (rc)
-> +		return rc;
+> +#define CODE_ENTRY_MAX			16
+> +#define CODE_ENTRY_EXTENDED_DIR_IDX	15
+> +#define MAX_IMAGES_IN_EXTENDED_DIR	64
+> +
+>  #define CRC32_RESIDUAL			0xdebb20e3
+> +#define CRC_BUFF_SIZE			256
+> +
+> +static int bnx2x_nvram_crc(struct bnx2x *bp,
+> +			   int offset,
+> +			   int size,
+> +			   u8 *buff)
 
-Nit: one of those may be a tad more idiomatic. Not sure.
+static int bnx2x_nvram_crc(struct bnx2x *bp, int offset, int size, u8 *buff)
 
-	__be32 *be = (__be32 *)buf;
-	int i, rc;
+> +{
+> +	u32 crc = ~0;
+> +	int done = 0;
+> +
+> +	DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
+> +	   "NVRAM CRC from 0x%08x to 0x%08x\n", offset, offset + size);
+> +
+> +	while (done < size) {
+> +		int count = min_t(int, size - done, CRC_BUFF_SIZE);
+> +
+> +		if (bnx2x_nvram_read(bp, offset + done, buff, count))
+> +			return -EIO;
 
-	rc = bnx2x_nvram_read(bp, offset, (u8 *)buf, buf_size);
-	if (rc)
-		...
-or:
-	int rc;
+You may propagate the status code from bnx2x_nvram_read.
 
-	rc = bnx2x_nvram_read(bp, offset, (u8 *)buf, buf_size);
-	if (!rc) {
-		__be32 *be = (__be32 *)buf;
+> +		crc = crc32_le(crc, buff, count);
+> +		done += count;
+> +	}
+> +
+> +	if (crc != CRC32_RESIDUAL)
+> +		return -EINVAL;
+> +
+> +	return 0;
 
-		while ((buf_size -= 4) >= 0)
-			*buf++ = be32_to_cpu(*be++);
-	}
+A ternary operator could be used. Your choice of style.
 
-[...]
-> @@ -1383,9 +1397,7 @@ static int bnx2x_get_eeprom(struct net_device *dev,
->  
->  	/* parameters already validated in ethtool_get_eeprom */
->  
-> -	rc = bnx2x_nvram_read(bp, eeprom->offset, eebuf, eeprom->len);
-> -
-> -	return rc;
-> +	return bnx2x_nvram_read(bp, eeprom->offset, eebuf, eeprom->len);
->  }
+> +}
+> +
+> +static int bnx2x_test_nvram_dir(struct bnx2x *bp,
+> +				struct code_entry *entry,
+> +				u8 *buff)
+> +{
+> +	size_t size = entry->code_attribute & CODE_IMAGE_LENGTH_MASK;
+> +	u32 type = entry->code_attribute & CODE_IMAGE_TYPE_MASK;
+> +	int rc = 0;
 
-Nit--: it's a bit off-topic.
+Useless init.
 
-[...]
-> @@ -1573,16 +1584,16 @@ static int bnx2x_nvram_write1(struct bnx2x *bp, u32 offset, u8 *data_buf,
->  
->  	cmd_flags = (MCPR_NVM_COMMAND_FIRST | MCPR_NVM_COMMAND_LAST);
->  	align_offset = (offset & ~0x03);
-> -	rc = bnx2x_nvram_read_dword(bp, align_offset, &val, cmd_flags);
-> +	rc = bnx2x_nvram_read_dword(bp, align_offset, &val_be, cmd_flags);
->  
-> -	if (rc == 0) {
-> -		val &= ~(0xff << BYTE_OFFSET(offset));
-> -		val |= (*data_buf << BYTE_OFFSET(offset));
-> +	/* nvram data is returned as an array of bytes
-> +	 * convert it back to cpu order
-> +	 */
-> +	val = be32_to_cpu(val_be);
+> +
+> +	/* Zero-length images and AFEX profiles do not have CRC */
+> +	if (size == 0 || type == CODE_IMAGE_VNTAG_PROFILES_DATA)
+> +		return 0;
+> +
+> +	rc = bnx2x_nvram_crc(bp, entry->nvm_start_addr, size, buff);
+> +	if (rc == -EIO)
+> +		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
+> +		   "Unable to read image %x\n", type);
+> +	else if (rc)
+> +		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
+> +		   "image %x has wrong crc value\n", type);
 
-(1)
+It's a bit ugly.
 
->  
-> -		/* nvram data is returned as an array of bytes
-> -		 * convert it back to cpu order
-> -		 */
-> -		val = be32_to_cpu(val);
-> +	if (rc == 0) {
-> +		val &= ~le32_to_cpu(0xff << BYTE_OFFSET(offset));
-> +		val |= le32_to_cpu(*data_buf << BYTE_OFFSET(offset));
+bnx2x_nvram_crc perfectly knowns if a read failure or a crc problem
+happened. It can print messages and you won't need to analyze the 
+failure status. You may still print some different message in its
+callers (here and bnx2x_test_nvram_tbl).
 
-(2)
-
-Either be32_to_cpu or le32_to_cpu above isn't a nop but the commit
-message only talks of refactoring. It imho lacks a statement about
-a fix.
+I must stop here, sorry.
 
 -- 
 Ueimor
