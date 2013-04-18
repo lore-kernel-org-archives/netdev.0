@@ -1,35 +1,55 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 08/14] netlink: implement memory mapped sendmsg()
-Date: Thu, 18 Apr 2013 12:31:25 +0200
-Message-ID: <20130418103125.GB25166@macbook.localnet>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 00/14]: netlink: memory mapped I/O
+Date: Thu, 18 Apr 2013 13:01:05 +0200
+Message-ID: <20130418110105.GH1408@breakpoint.cc>
 References: <1366217229-22705-1-git-send-email-kaber@trash.net>
- <1366217229-22705-9-git-send-email-kaber@trash.net>
- <1366239463.2752.3.camel@bwh-desktop.uk.solarflarecom.com>
+ <20130417194046.GF1408@breakpoint.cc>
+ <20130418102738.GA25166@macbook.localnet>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Florian Westphal <fw@strlen.de>, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35400 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966004Ab3DRKb2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 06:31:28 -0400
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:51357 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965199Ab3DRLBI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 07:01:08 -0400
 Content-Disposition: inline
-In-Reply-To: <1366239463.2752.3.camel@bwh-desktop.uk.solarflarecom.com>
+In-Reply-To: <20130418102738.GA25166@macbook.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 17, 2013 at 11:57:43PM +0100, Ben Hutchings wrote:
-> On Wed, 2013-04-17 at 18:47 +0200, Patrick McHardy wrote:
-> > Add support for mmap'ed sendmsg() to netlink. Since the kernel validates
-> > received messages before processing them, the code makes sure userspace
-> > can't modify the message contents after invoking sendmsg(). To do that
-> > only a single mapping of the TX ring is allowed to exist and the socket
-> > must not be shared. If either of these two conditions does not hold, it
-> > falls back to copying.
-> [...]
+Patrick McHardy <kaber@trash.net> wrote:
+> So I think while the nfnetlink_queue zero copy patches are a great idea,
+> there are still enough unhandled use cases for memory mapped netlink.
+>
+> > Another issue with mmap is the need to preallocate the ring frame size.
+> > After the gso avoidance change [ no skb_gso_segment calls anymore ],
+> > we will need to be able to queue GSO/GRO skbs, which makes it necessary to
+> > cope with 64k payload in the mmap case...
 > 
-> Is this resistant against copy_to_process()?
+> Hmm that might actually also be a problem in the zcopy case for userspace since
+> the netlink recv buffer sizes are in many cases not that large.
 
-I don't know, there's no copy_to_process() function is the tree I'm using.
+I am not sure I am following here.  Can you elaborate?
+Maybe I was a bit too vague, so let me try to clarify.
+
+The GSO segmentation avoidance patch requires userspace support, including large
+recv buffer size (i.e., 64k + a few byte netlink overhead).
+
+It will be off by default, userspace needs to enable it when it binds
+the nfqueue.
+
+What I was pointing out is that for mmap'd netlink you usually need
+to allocate enough slots so the ring can handle e.g. 1024 packets.
+
+For the 64k packet case, that would be >64 MB mmap-ring.
+
+I'm not saying its a problem, just wanted to point it out.
+
+[ 64k is probably rare enough to have mmap-users fallback to recv,
+  and your patches already support this ].
+
+Cheers,
+Florian
