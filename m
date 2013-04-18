@@ -1,269 +1,117 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/15] igb: Enable EEE LP advertisement
-Date: Thu, 18 Apr 2013 16:30:20 -0700
-Message-ID: <1366327822-10741-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/15] igb: add support for spoofchk config
+Date: Thu, 18 Apr 2013 16:30:21 -0700
+Message-ID: <1366327822-10741-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1366327822-10741-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
+Cc: Lior Levy <lior.levy@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:62080 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:33249 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936683Ab3DRXbQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S936735Ab3DRXbQ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 18 Apr 2013 19:31:16 -0400
 In-Reply-To: <1366327822-10741-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Vick <matthew.vick@intel.com>
+From: Lior Levy <lior.levy@intel.com>
 
-On EEE-capable devices, query the PHY to determine what the link partner is
-advertising.
+Add support for spoofchk configuration per VF via iproute2 tool.
 
-Signed-off-by: Matthew Vick <matthew.vick@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Lior Levy <lior.levy@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.c   | 35 ++++++++++++++
- drivers/net/ethernet/intel/igb/e1000_82575.h   |  1 +
- drivers/net/ethernet/intel/igb/e1000_defines.h |  4 ++
- drivers/net/ethernet/intel/igb/e1000_i210.c    | 65 ++++++++++++++++++++++++++
- drivers/net/ethernet/intel/igb/e1000_i210.h    |  4 ++
- drivers/net/ethernet/intel/igb/e1000_regs.h    |  4 ++
- drivers/net/ethernet/intel/igb/igb_ethtool.c   | 30 +++++++++++-
- 7 files changed, 142 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/igb/igb.h      |  1 +
+ drivers/net/ethernet/intel/igb/igb_main.c | 34 +++++++++++++++++++++++++++++++
+ 2 files changed, 35 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index 9d83058..8ff938d 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -2285,6 +2285,41 @@ out:
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index cef8ec1..d47ac2a 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -103,6 +103,7 @@ struct vf_data_storage {
+ 	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
+ 	u16 pf_qos;
+ 	u16 tx_rate;
++	bool spoofchk_enabled;
+ };
+ 
+ #define IGB_VF_FLAG_CTS            0x00000001 /* VF is clear to send data */
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index c54ba42..666f87c 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -169,6 +169,8 @@ static int igb_ndo_set_vf_mac(struct net_device *netdev, int vf, u8 *mac);
+ static int igb_ndo_set_vf_vlan(struct net_device *netdev,
+ 			       int vf, u16 vlan, u8 qos);
+ static int igb_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate);
++static int igb_ndo_set_vf_spoofchk(struct net_device *netdev, int vf,
++				   bool setting);
+ static int igb_ndo_get_vf_config(struct net_device *netdev, int vf,
+ 				 struct ifla_vf_info *ivi);
+ static void igb_check_vf_rate_limit(struct igb_adapter *);
+@@ -1896,6 +1898,7 @@ static const struct net_device_ops igb_netdev_ops = {
+ 	.ndo_set_vf_mac		= igb_ndo_set_vf_mac,
+ 	.ndo_set_vf_vlan	= igb_ndo_set_vf_vlan,
+ 	.ndo_set_vf_tx_rate	= igb_ndo_set_vf_bw,
++	.ndo_set_vf_spoofchk	= igb_ndo_set_vf_spoofchk,
+ 	.ndo_get_vf_config	= igb_ndo_get_vf_config,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= igb_netpoll,
+@@ -5230,6 +5233,9 @@ static int igb_vf_configure(struct igb_adapter *adapter, int vf)
+ 	eth_zero_addr(mac_addr);
+ 	igb_set_vf_mac(adapter, vf, mac_addr);
+ 
++	/* By default spoof check is enabled for all VFs */
++	adapter->vf_data[vf].spoofchk_enabled = true;
++
+ 	return 0;
  }
  
- /**
-+ *  __igb_access_emi_reg - Read/write EMI register
-+ *  @hw: pointer to the HW structure
-+ *  @addr: EMI address to program
-+ *  @data: pointer to value to read/write from/to the EMI address
-+ *  @read: boolean flag to indicate read or write
-+ **/
-+static s32 __igb_access_emi_reg(struct e1000_hw *hw, u16 address,
-+				  u16 *data, bool read)
-+{
-+	s32 ret_val = E1000_SUCCESS;
-+
-+	ret_val = hw->phy.ops.write_reg(hw, E1000_EMIADD, address);
-+	if (ret_val)
-+		return ret_val;
-+
-+	if (read)
-+		ret_val = hw->phy.ops.read_reg(hw, E1000_EMIDATA, data);
-+	else
-+		ret_val = hw->phy.ops.write_reg(hw, E1000_EMIDATA, *data);
-+
-+	return ret_val;
-+}
-+
-+/**
-+ *  igb_read_emi_reg - Read Extended Management Interface register
-+ *  @hw: pointer to the HW structure
-+ *  @addr: EMI address to program
-+ *  @data: value to be read from the EMI address
-+ **/
-+s32 igb_read_emi_reg(struct e1000_hw *hw, u16 addr, u16 *data)
-+{
-+	return __igb_access_emi_reg(hw, addr, data, true);
-+}
-+
-+/**
-  *  igb_set_eee_i350 - Enable/disable EEE support
-  *  @hw: pointer to the HW structure
-  *
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.h b/drivers/net/ethernet/intel/igb/e1000_82575.h
-index 73ab41f..0d318ac 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.h
-@@ -263,6 +263,7 @@ void igb_vmdq_set_anti_spoofing_pf(struct e1000_hw *, bool, int);
- void igb_vmdq_set_loopback_pf(struct e1000_hw *, bool);
- void igb_vmdq_set_replication_pf(struct e1000_hw *, bool);
- u16 igb_rxpbs_adjust_82580(u32 data);
-+s32 igb_read_emi_reg(struct e1000_hw *, u16 addr, u16 *data);
- s32 igb_set_eee_i350(struct e1000_hw *);
- s32 igb_init_thermal_sensor_thresh_generic(struct e1000_hw *);
- s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw);
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index 66a1df9..f3d87d7 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -885,6 +885,10 @@
- #define E1000_EEER_LPI_FC            0x00040000  /* EEE Enable on FC */
- #define E1000_EEE_SU_LPI_CLK_STP     0X00800000  /* EEE LPI Clock Stop */
- #define E1000_EEER_EEE_NEG           0x20000000  /* EEE capability nego */
-+#define E1000_EEE_LP_ADV_ADDR_I350   0x040F      /* EEE LP Advertisement */
-+#define E1000_EEE_LP_ADV_DEV_I210    7           /* EEE LP Adv Device */
-+#define E1000_EEE_LP_ADV_ADDR_I210   61          /* EEE LP Adv Register */
-+#define E1000_MMDAC_FUNC_DATA        0x4000      /* Data, no post increment */
- 
- /* SerDes Control */
- #define E1000_GEN_CTL_READY             0x80000000
-diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.c b/drivers/net/ethernet/intel/igb/e1000_i210.c
-index 7df442a..9764cd3 100644
---- a/drivers/net/ethernet/intel/igb/e1000_i210.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_i210.c
-@@ -708,3 +708,68 @@ s32 igb_valid_led_default_i210(struct e1000_hw *hw, u16 *data)
- out:
- 	return ret_val;
+@@ -7592,6 +7598,33 @@ static int igb_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate)
+ 	return 0;
  }
-+
-+/**
-+ *  __igb_access_xmdio_reg - Read/write XMDIO register
-+ *  @hw: pointer to the HW structure
-+ *  @address: XMDIO address to program
-+ *  @dev_addr: device address to program
-+ *  @data: pointer to value to read/write from/to the XMDIO address
-+ *  @read: boolean flag to indicate read or write
-+ **/
-+static s32 __igb_access_xmdio_reg(struct e1000_hw *hw, u16 address,
-+				  u8 dev_addr, u16 *data, bool read)
+ 
++static int igb_ndo_set_vf_spoofchk(struct net_device *netdev, int vf,
++				   bool setting)
 +{
-+	s32 ret_val = E1000_SUCCESS;
++	struct igb_adapter *adapter = netdev_priv(netdev);
++	struct e1000_hw *hw = &adapter->hw;
++	u32 reg_val, reg_offset;
 +
-+	ret_val = hw->phy.ops.write_reg(hw, E1000_MMDAC, dev_addr);
-+	if (ret_val)
-+		return ret_val;
++	if (!adapter->vfs_allocated_count)
++		return -EOPNOTSUPP;
 +
-+	ret_val = hw->phy.ops.write_reg(hw, E1000_MMDAAD, address);
-+	if (ret_val)
-+		return ret_val;
++	if (vf >= adapter->vfs_allocated_count)
++		return -EINVAL;
 +
-+	ret_val = hw->phy.ops.write_reg(hw, E1000_MMDAC, E1000_MMDAC_FUNC_DATA |
-+							 dev_addr);
-+	if (ret_val)
-+		return ret_val;
-+
-+	if (read)
-+		ret_val = hw->phy.ops.read_reg(hw, E1000_MMDAAD, data);
++	reg_offset = (hw->mac.type == e1000_82576) ? E1000_DTXSWC : E1000_TXSWC;
++	reg_val = rd32(reg_offset);
++	if (setting)
++		reg_val |= ((1 << vf) |
++			    (1 << (vf + E1000_DTXSWC_VLAN_SPOOF_SHIFT)));
 +	else
-+		ret_val = hw->phy.ops.write_reg(hw, E1000_MMDAAD, *data);
-+	if (ret_val)
-+		return ret_val;
++		reg_val &= ~((1 << vf) |
++			     (1 << (vf + E1000_DTXSWC_VLAN_SPOOF_SHIFT)));
++	wr32(reg_offset, reg_val);
 +
-+	/* Recalibrate the device back to 0 */
-+	ret_val = hw->phy.ops.write_reg(hw, E1000_MMDAC, 0);
-+	if (ret_val)
-+		return ret_val;
-+
-+	return ret_val;
++	adapter->vf_data[vf].spoofchk_enabled = setting;
++	return E1000_SUCCESS;
 +}
 +
-+/**
-+ *  igb_read_xmdio_reg - Read XMDIO register
-+ *  @hw: pointer to the HW structure
-+ *  @addr: XMDIO address to program
-+ *  @dev_addr: device address to program
-+ *  @data: value to be read from the EMI address
-+ **/
-+s32 igb_read_xmdio_reg(struct e1000_hw *hw, u16 addr, u8 dev_addr, u16 *data)
-+{
-+	return __igb_access_xmdio_reg(hw, addr, dev_addr, data, true);
-+}
-+
-+/**
-+ *  igb_write_xmdio_reg - Write XMDIO register
-+ *  @hw: pointer to the HW structure
-+ *  @addr: XMDIO address to program
-+ *  @dev_addr: device address to program
-+ *  @data: value to be written to the XMDIO address
-+ **/
-+s32 igb_write_xmdio_reg(struct e1000_hw *hw, u16 addr, u8 dev_addr, u16 data)
-+{
-+	return __igb_access_xmdio_reg(hw, addr, dev_addr, &data, false);
-+}
-diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.h b/drivers/net/ethernet/intel/igb/e1000_i210.h
-index e4e1a73..bfc08e0 100644
---- a/drivers/net/ethernet/intel/igb/e1000_i210.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_i210.h
-@@ -45,6 +45,10 @@ extern s32 igb_read_nvm_i211(struct e1000_hw *hw, u16 offset, u16 words,
- 			       u16 *data);
- extern s32 igb_read_invm_version(struct e1000_hw *hw,
- 				 struct e1000_fw_version *invm_ver);
-+extern s32 igb_read_xmdio_reg(struct e1000_hw *hw, u16 addr, u8 dev_addr,
-+			      u16 *data);
-+extern s32 igb_write_xmdio_reg(struct e1000_hw *hw, u16 addr, u8 dev_addr,
-+			       u16 data);
- 
- #define E1000_STM_OPCODE		0xDB00
- #define E1000_EEPROM_FLASH_SIZE_WORD	0x11
-diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
-index 971b638..bdfc040 100644
---- a/drivers/net/ethernet/intel/igb/e1000_regs.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
-@@ -365,6 +365,10 @@
- #define E1000_IPCNFG	0x0E38 /* Internal PHY Configuration */
- #define E1000_EEER	0x0E30 /* Energy Efficient Ethernet */
- #define E1000_EEE_SU	0X0E34 /* EEE Setup */
-+#define E1000_EMIADD	0x10   /* Extended Memory Indirect Address */
-+#define E1000_EMIDATA	0x11   /* Extended Memory Indirect Data */
-+#define E1000_MMDAC	13     /* MMD Access Control */
-+#define E1000_MMDAAD	14     /* MMD Access Address/Data */
- 
- /* Thermal Sensor Register */
- #define E1000_THSTAT	0x08110 /* Thermal Sensor Status */
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 08195bd..8412f97 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -38,6 +38,7 @@
- #include <linux/slab.h>
- #include <linux/pm_runtime.h>
- #include <linux/highmem.h>
-+#include <linux/mdio.h>
- 
- #include "igb.h"
- 
-@@ -2533,7 +2534,8 @@ static int igb_get_eee(struct net_device *netdev, struct ethtool_eee *edata)
+ static int igb_ndo_get_vf_config(struct net_device *netdev,
+ 				 int vf, struct ifla_vf_info *ivi)
  {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
--	u32 ipcnfg, eeer;
-+	u32 ipcnfg, eeer, ret_val;
-+	u16 phy_data;
- 
- 	if ((hw->mac.type < e1000_i350) ||
- 	    (hw->phy.media_type != e1000_media_type_copper))
-@@ -2552,6 +2554,32 @@ static int igb_get_eee(struct net_device *netdev, struct ethtool_eee *edata)
- 	if (ipcnfg & E1000_IPCNFG_EEE_100M_AN)
- 		edata->advertised |= ADVERTISED_100baseT_Full;
- 
-+	/* EEE Link Partner Advertised */
-+	switch (hw->mac.type) {
-+	case e1000_i350:
-+		ret_val = igb_read_emi_reg(hw, E1000_EEE_LP_ADV_ADDR_I350,
-+					   &phy_data);
-+		if (ret_val)
-+			return -ENODATA;
-+
-+		edata->lp_advertised = mmd_eee_adv_to_ethtool_adv_t(phy_data);
-+
-+		break;
-+	case e1000_i210:
-+	case e1000_i211:
-+		ret_val = igb_read_xmdio_reg(hw, E1000_EEE_LP_ADV_ADDR_I210,
-+					     E1000_EEE_LP_ADV_DEV_I210,
-+					     &phy_data);
-+		if (ret_val)
-+			return -ENODATA;
-+
-+		edata->lp_advertised = mmd_eee_adv_to_ethtool_adv_t(phy_data);
-+
-+		break;
-+	default:
-+		break;
-+	}
-+
- 	if (eeer & E1000_EEER_EEE_NEG)
- 		edata->eee_active = true;
+@@ -7603,6 +7636,7 @@ static int igb_ndo_get_vf_config(struct net_device *netdev,
+ 	ivi->tx_rate = adapter->vf_data[vf].tx_rate;
+ 	ivi->vlan = adapter->vf_data[vf].pf_vlan;
+ 	ivi->qos = adapter->vf_data[vf].pf_qos;
++	ivi->spoofchk = adapter->vf_data[vf].spoofchk_enabled;
+ 	return 0;
+ }
  
 -- 
 1.7.11.7
