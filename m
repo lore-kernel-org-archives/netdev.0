@@ -1,57 +1,166 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/15] ixgbe: Add support for WoL on 82599 SFP+ LOM
-Date: Thu, 18 Apr 2013 16:30:09 -0700
-Message-ID: <1366327822-10741-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 04/15] igb: Support for 100base-fx SFP
+Date: Thu, 18 Apr 2013 16:30:11 -0700
+Message-ID: <1366327822-10741-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1366327822-10741-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Dan Carpenter <dan.carpenter@oracle.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:59537 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:61465 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936672Ab3DRXas (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 19:30:48 -0400
+	id S936608Ab3DRXat (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 19:30:49 -0400
 In-Reply-To: <1366327822-10741-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
 
-This patch adds software support for WoL for the 82599 SFP+ LOM device,
-(ID 0x8976)
+This patch adds support for 100base-fx SFP and report proper link speed/duplex
+via Ethtool.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+v2: fix smatch warnings
+
+CC: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h | 1 +
- 2 files changed, 2 insertions(+)
+ drivers/net/ethernet/intel/igb/e1000_hw.h    |  3 +-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 48 ++++++++++++++++++++--------
+ drivers/net/ethernet/intel/igb/igb_main.c    | 18 ++++++++---
+ 3 files changed, 50 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 48f3fd5..aa5d7d0 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7206,6 +7206,7 @@ int ixgbe_wol_supported(struct ixgbe_adapter *adapter, u16 device_id,
- 		case IXGBE_SUBDEV_ID_82599_SFP:
- 		case IXGBE_SUBDEV_ID_82599_RNDC:
- 		case IXGBE_SUBDEV_ID_82599_ECNA_DP:
-+		case IXGBE_SUBDEV_ID_82599_LOM_SFP:
- 			is_wol_supported = 1;
- 			break;
- 		}
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 155a793..402f1a2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -57,6 +57,7 @@
- #define IXGBE_SUBDEV_ID_82599_RNDC       0x1F72
- #define IXGBE_SUBDEV_ID_82599_560FLR     0x17D0
- #define IXGBE_SUBDEV_ID_82599_ECNA_DP    0x0470
-+#define IXGBE_SUBDEV_ID_82599_LOM_SFP    0x8976
- #define IXGBE_DEV_ID_82599_SFP_EM        0x1507
- #define IXGBE_DEV_ID_82599_SFP_SF2       0x154D
- #define IXGBE_DEV_ID_82599EN_SFP         0x1557
+diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
+index 0d5cf9c..f8cd124 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_hw.h
++++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
+@@ -98,7 +98,8 @@ enum e1000_mac_type {
+ enum e1000_media_type {
+ 	e1000_media_type_unknown = 0,
+ 	e1000_media_type_copper = 1,
+-	e1000_media_type_internal_serdes = 2,
++	e1000_media_type_fiber = 2,
++	e1000_media_type_internal_serdes = 3,
+ 	e1000_num_media_types
+ };
+ 
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index a3830a8..8499c48 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -178,27 +178,33 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 
+ 		ecmd->port = PORT_TP;
+ 		ecmd->phy_address = hw->phy.addr;
++		ecmd->transceiver = XCVR_INTERNAL;
+ 	} else {
+ 		ecmd->supported   = (SUPPORTED_1000baseT_Full |
++				     SUPPORTED_100baseT_Full |
++				     SUPPORTED_Autoneg |
+ 				     SUPPORTED_FIBRE |
+-				     SUPPORTED_Autoneg);
++				     SUPPORTED_Pause);
+ 
+-		ecmd->advertising = (ADVERTISED_1000baseT_Full |
+-				     ADVERTISED_FIBRE |
+-				     ADVERTISED_Autoneg |
+-				     ADVERTISED_Pause);
++		ecmd->advertising = ADVERTISED_FIBRE;
++
++		if (adapter->link_speed == SPEED_100)
++			ecmd->advertising = ADVERTISED_100baseT_Full;
++		else if (adapter->link_speed == SPEED_1000)
++			ecmd->advertising = ADVERTISED_1000baseT_Full;
++
++		if (hw->mac.autoneg == 1)
++			ecmd->advertising |= ADVERTISED_Autoneg;
+ 
+ 		ecmd->port = PORT_FIBRE;
++		ecmd->transceiver = XCVR_EXTERNAL;
+ 	}
+ 
+-	ecmd->transceiver = XCVR_INTERNAL;
+-
+ 	status = rd32(E1000_STATUS);
+ 
+ 	if (status & E1000_STATUS_LU) {
+ 
+-		if ((status & E1000_STATUS_SPEED_1000) ||
+-		    hw->phy.media_type != e1000_media_type_copper)
++		if (status & E1000_STATUS_SPEED_1000)
+ 			ethtool_cmd_speed_set(ecmd, SPEED_1000);
+ 		else if (status & E1000_STATUS_SPEED_100)
+ 			ethtool_cmd_speed_set(ecmd, SPEED_100);
+@@ -215,7 +221,11 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 		ecmd->duplex = -1;
+ 	}
+ 
+-	ecmd->autoneg = hw->mac.autoneg ? AUTONEG_ENABLE : AUTONEG_DISABLE;
++	if ((hw->phy.media_type == e1000_media_type_fiber) ||
++	    hw->mac.autoneg)
++		ecmd->autoneg = AUTONEG_ENABLE;
++	else
++		ecmd->autoneg = AUTONEG_DISABLE;
+ 
+ 	/* MDI-X => 2; MDI =>1; Invalid =>0 */
+ 	if (hw->phy.media_type == e1000_media_type_copper)
+@@ -266,9 +276,21 @@ static int igb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 
+ 	if (ecmd->autoneg == AUTONEG_ENABLE) {
+ 		hw->mac.autoneg = 1;
+-		hw->phy.autoneg_advertised = ecmd->advertising |
+-					     ADVERTISED_TP |
+-					     ADVERTISED_Autoneg;
++		if (hw->phy.media_type == e1000_media_type_fiber) {
++			hw->phy.autoneg_advertised = ecmd->advertising |
++						     ADVERTISED_FIBRE |
++						     ADVERTISED_Autoneg;
++			if (adapter->link_speed == SPEED_1000)
++				hw->phy.autoneg_advertised =
++					ADVERTISED_1000baseT_Full;
++			else if (adapter->link_speed == SPEED_100)
++				hw->phy.autoneg_advertised =
++					ADVERTISED_100baseT_Full;
++		} else {
++			hw->phy.autoneg_advertised = ecmd->advertising |
++						     ADVERTISED_TP |
++						     ADVERTISED_Autoneg;
++		}
+ 		ecmd->advertising = hw->phy.autoneg_advertised;
+ 		if (adapter->fc_autoneg)
+ 			hw->fc.requested_mode = e1000_fc_default;
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 8496adf..0a465ae 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -7008,11 +7008,19 @@ int igb_set_spd_dplx(struct igb_adapter *adapter, u32 spd, u8 dplx)
+ 	if ((spd & 1) || (dplx & ~1))
+ 		goto err_inval;
+ 
+-	/* Fiber NIC's only allow 1000 Gbps Full duplex */
+-	if ((adapter->hw.phy.media_type == e1000_media_type_internal_serdes) &&
+-	    spd != SPEED_1000 &&
+-	    dplx != DUPLEX_FULL)
+-		goto err_inval;
++	/* Fiber NIC's only allow 1000 gbps Full duplex
++	 * and 100Mbps Full duplex for 100baseFx sfp
++	 */
++	if (adapter->hw.phy.media_type == e1000_media_type_internal_serdes) {
++		switch (spd + dplx) {
++		case SPEED_10 + DUPLEX_HALF:
++		case SPEED_10 + DUPLEX_FULL:
++		case SPEED_100 + DUPLEX_HALF:
++			goto err_inval;
++		default:
++			break;
++		}
++	}
+ 
+ 	switch (spd + dplx) {
+ 	case SPEED_10 + DUPLEX_HALF:
 -- 
 1.7.11.7
