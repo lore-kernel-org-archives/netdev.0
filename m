@@ -1,137 +1,150 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] bridge: fix IP DNAT handling when packet is sent back
- via same bport
-Date: Thu, 18 Apr 2013 23:02:20 +0200
-Message-ID: <20130418210220.GI1408@breakpoint.cc>
-References: <1366277833-1405-1-git-send-email-fw@strlen.de>
- <51705267.3070909@pandora.be>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCHv2 for-3.9] pci: avoid work_on_cpu for nested SRIOV probes
+Date: Thu, 18 Apr 2013 23:08:55 +0300
+Message-ID: <20130418200855.GA24086@redhat.com>
+References: <51360D7C.3060209@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Bart De Schuymer <bdschuym@pandora.be>
+Cc: Ming Lei <ming.lei@canonical.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>,
+	Roland Dreier <roland@kernel.org>,
+	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Tejun Heo <tj@kernel.org>, Bjorn Helgaas <bhelgaas@google.com>,
+	linux-pci@vger.kernel.org
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:54243 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751823Ab3DRVCY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 17:02:24 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:48902 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751823Ab3DRVHx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 17:07:53 -0400
 Content-Disposition: inline
-In-Reply-To: <51705267.3070909@pandora.be>
+In-Reply-To: <51360D7C.3060209@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bart De Schuymer <bdschuym@pandora.be> wrote:
-> Op 18/04/2013 11:37, Florian Westphal schreef:
-> >commit e179e6322ac334e21a3c6d669d95bc967e5d0a80
-> >(netfilter: bridge-netfilter: Fix MAC header handling with IP DNAT)
-> >breaks DNAT when the destination address sits on the same bridgeport
-> >the packet originally arrived on.  Example:
-> >
-> >( Network1 ) -- [ eth1-Bridge-eth0 ] -- ( Network2 )
-> >
-> >Lets assume bridge has ip 192.168.10.8, and following netfilter rules
-> >are active:
-> >
-> >-A PREROUTING  -s 192.168.10.1 -d 192.168.10.8 -p tcp --dport 21 -j DNAT --to-destination 192.168.10.1
-> >-A POSTROUTING -s 192.168.10.1 -d 192.168.10.1 -p tcp --dport 21 -j SNAT --to-source 192.168.10.8
-> 
-> >With kernels before 2.6.35, this makes host 192.168.10.1 connecting to
-> >the bridge on port 21 connect-to-self.
-> 
-> I don't get why you didn't need the hairpin mode back then.
+The following lockdep report triggers since 3.9-rc1:
 
-because afaics before packets were just sent from the bridge, i.e. no
-forward path and no should_deliver() check.
+=============================================
+[ INFO: possible recursive locking detected ]
+3.9.0-rc1 #96 Not tainted
+---------------------------------------------
+kworker/0:1/734 is trying to acquire lock:
+ ((&wfc.work)){+.+.+.}, at: [<ffffffff81066cb0>] flush_work+0x0/0x250
 
-[..]
+but task is already holding lock:
+ ((&wfc.work)){+.+.+.}, at: [<ffffffff81064352>]
+process_one_work+0x162/0x4c0
 
-> In my opinion this is just a special kind of MAC SNAT and you can
-> already achieve this with hairpin mode, ebtables and iptables now:
->
-> 1. make sure to mark the packets with iptables before you perform the DNAT
-> 2. in ebtables POSTROUTING, SNAT those marked packets with the MAC
-> address of the bridge.
-> 3. enable hairpin mode
-> Even if it turns out not yet to be fully possible with the current
-> kernel, I think such a feature should be implemented as an ebtables
-> target instead of increasing the complexity of the generic code.
+other info that might help us debug this:
+ Possible unsafe locking scenario:
 
-Well, I am all for doing this with existing tools, problem is
-userspace didn't change but newer kernels don't work as they used to.
+       CPU0
+       ----
+  lock((&wfc.work));
+  lock((&wfc.work));
 
-If consensus is 'too bad, fix configuration' I can accept that.
-The fact that noone seems to have reported this until now
-pretty much proves that virtually noone has such configurations.
+ *** DEADLOCK ***
 
-> Your patch also introduces potential unexpected behavior in
-> different scenarios. Consider the following rule:
-> -A PREROUTING -s 192.168.10.1 -d 192.168.10.8 -p tcp --dport 21 -j
-> DNAT --to-destination 192.168.10.2
-> Note that the DNAT is to a different IP address. Suppose
-> 192.168.10.2 is on a different machine located on the same side of
-> the bridge. Your patch would change the MAC source address here too
-> without any need.
+ May be due to missing lock nesting notation
 
-Not sure if this is even possible, as 10.1 would discard the syn/ack
-from 10.2 (expects reply from 10.8 address).
+3 locks held by kworker/0:1/734:
+ #0:  (events){.+.+.+}, at: [<ffffffff81064352>]
+process_one_work+0x162/0x4c0
+ #1:  ((&wfc.work)){+.+.+.}, at: [<ffffffff81064352>]
+process_one_work+0x162/0x4c0
+ #2:  (&__lockdep_no_validate__){......}, at: [<ffffffff812db225>]
+device_attach+0x25/0xb0
 
-But I think understand what you're saying.
+stack backtrace:
+Pid: 734, comm: kworker/0:1 Not tainted 3.9.0-rc1 #96
+Call Trace:
+ [<ffffffff810948ec>] validate_chain+0xdcc/0x11f0
+ [<ffffffff81095150>] __lock_acquire+0x440/0xc70
+ [<ffffffff81095150>] ? __lock_acquire+0x440/0xc70
+ [<ffffffff810959da>] lock_acquire+0x5a/0x70
+ [<ffffffff81066cb0>] ? wq_worker_waking_up+0x60/0x60
+ [<ffffffff81066cf5>] flush_work+0x45/0x250
+ [<ffffffff81066cb0>] ? wq_worker_waking_up+0x60/0x60
+ [<ffffffff810922be>] ? mark_held_locks+0x9e/0x130
+ [<ffffffff81066a96>] ? queue_work_on+0x46/0x90
+ [<ffffffff810925dd>] ? trace_hardirqs_on_caller+0xfd/0x190
+ [<ffffffff8109267d>] ? trace_hardirqs_on+0xd/0x10
+ [<ffffffff81066f74>] work_on_cpu+0x74/0x90
+ [<ffffffff81063820>] ? keventd_up+0x20/0x20
+ [<ffffffff8121fd30>] ? pci_pm_prepare+0x60/0x60
+ [<ffffffff811f9293>] ? cpumask_next_and+0x23/0x40
+ [<ffffffff81220a1a>] pci_device_probe+0xba/0x110
+ [<ffffffff812dadca>] ? driver_sysfs_add+0x7a/0xb0
+ [<ffffffff812daf1f>] driver_probe_device+0x8f/0x230
+ [<ffffffff812db170>] ? __driver_attach+0xb0/0xb0
+ [<ffffffff812db1bb>] __device_attach+0x4b/0x60
+ [<ffffffff812d9314>] bus_for_each_drv+0x64/0x90
+ [<ffffffff812db298>] device_attach+0x98/0xb0
+ [<ffffffff81218474>] pci_bus_add_device+0x24/0x50
+ [<ffffffff81232e80>] virtfn_add+0x240/0x3e0
+ [<ffffffff8146ce3d>] ? _raw_spin_unlock_irqrestore+0x3d/0x80
+ [<ffffffff812333be>] pci_enable_sriov+0x23e/0x500
+ [<ffffffffa011fa1a>] __mlx4_init_one+0x5da/0xce0 [mlx4_core]
+ [<ffffffffa012016d>] mlx4_init_one+0x2d/0x60 [mlx4_core]
+ [<ffffffff8121fd79>] local_pci_probe+0x49/0x80
+ [<ffffffff81063833>] work_for_cpu_fn+0x13/0x20
+ [<ffffffff810643b8>] process_one_work+0x1c8/0x4c0
+ [<ffffffff81064352>] ? process_one_work+0x162/0x4c0
+ [<ffffffff81064cfb>] worker_thread+0x30b/0x430
+ [<ffffffff810649f0>] ? manage_workers+0x340/0x340
+ [<ffffffff8106cea6>] kthread+0xd6/0xe0
+ [<ffffffff8106cdd0>] ? __init_kthread_worker+0x70/0x70
+ [<ffffffff8146daac>] ret_from_fork+0x7c/0xb0
+ [<ffffffff8106cdd0>] ? __init_kthread_worker+0x70/0x70
 
-> >diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
-> >index dfb4d9e..eacd206 100644
-> >--- a/include/linux/netfilter_bridge.h
-> >+++ b/include/linux/netfilter_bridge.h
-> >@@ -23,6 +23,8 @@ enum nf_br_hook_priorities {
-> >  #define BRNF_NF_BRIDGE_PREROUTING	0x08
-> >  #define BRNF_8021Q			0x10
-> >  #define BRNF_PPPoE			0x20
-> >+/* DNAT'd packet is to be sent back on same bridge port: */
-> >+#define BRNF_BRIDGED_DNAT_DODGY		0x40
-> 
-> Obviously, a more descriptive name would be nice :)
+The issue is that a driver, in it's probe function, calls
+pci_sriov_enable so a PF device probe causes VF probe (AKA nested
+probe).  Each probe in pci_device_probe which is (normally) run through
+work_on_cpu (this is to get the right numa node for memory allocated by
+the driver).  In turn work_on_cpu does this internally:
 
-I failed to come up with something that isn't more explicit ;)
-But I'll try.
+        schedule_work_on(cpu, &wfc.work);
+        flush_work(&wfc.work);
 
-> >+static int forward_should_deliver(const struct net_bridge_port *to,
-> >+				  struct sk_buff *skb)
-> >+{
-> >+#ifdef CONFIG_BRIDGE_NETFILTER
-> >+	if (skb->dev == to->dev &&
-> >+	    skb->nf_bridge && (skb->nf_bridge->mask & BRNF_BRIDGED_DNAT)) {
-> >+		skb->nf_bridge->mask |= BRNF_BRIDGED_DNAT_DODGY;
-> 
-> You should unset the BRNF_BRIDGED_DNAT mask here (no longer needed
-> and might confuse other code yet to be executed):
-> skb->nf_bridge->mask ^= BRNF_BRIDGED_DNAT;
+So if you are running probe on CPU1, and cause another
+probe on the same CPU, this will try to flush
+workqueue from inside same workqueue which causes
+a lockep warning.
 
-Sounds reasonable.
+Nested probing might be tricky to get right generally.
 
-> >+		return to->state == BR_STATE_FORWARDING &&
-> >+			br_allowed_egress(to->br, nbp_get_vlan_info(to), skb);
-> 
-> I don't like this change. It's basically a hack to prevent having to
-> enable the hairpin mode.
+But for pci_sriov_enable, the situation is actually very simple: all VFs
+naturally have same affinity as the PF, and cpumask_any_and is actually
+same as cpumask_first_and, so it always gives us the same CPU.
+So let's just detect that, and run the probing for VFs locally without a
+workqueue.
 
-Yes. It wasn't necessary before.  If the consensus is that it should be
-used in this case, I am ok with that.
+This is hardly elegant, but looks to me like an appropriate quick fix
+for 3.9.
 
-> Putting the new code in should_deliver() would have prevented you
-> from having to come up with a new and not very descriptive function
-> name.
+Tested-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Acked-by: Tejun Heo <tj@kernel.org>
 
-I wanted to make sure that this extra DNAT crud is not e.g. called in
-the multi/broadcast flood case, but only for plain br_forward().
+---
 
-> >+		/* tell br_dev_xmit to continue with forwarding, make
-> >+		 * fwd path handle inport == outport case
-> >+		 */
-> >+		nf_bridge->mask |= BRNF_BRIDGED_DNAT;
-> 
-> I think you'll be ok here, as long as you unset the mask later (as
-> mentioned above).
+Changes from v1:
+    - clarified commit log and added Ack by Tejun Heo
+      patch is unchanged.
 
-Noted, thanks for reviewing.
-
-Regards,
-Florian
+diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
+index 1fa1e48..6eeb5ec 100644
+--- a/drivers/pci/pci-driver.c
++++ b/drivers/pci/pci-driver.c
+@@ -286,8 +286,8 @@ static int pci_call_probe(struct pci_driver *drv, struct pci_dev *dev,
+ 		int cpu;
+ 
+ 		get_online_cpus();
+ 		cpu = cpumask_any_and(cpumask_of_node(node), cpu_online_mask);
+-		if (cpu < nr_cpu_ids)
++		if (cpu != raw_smp_processor_id() && cpu < nr_cpu_ids)
+ 			error = work_on_cpu(cpu, local_pci_probe, &ddi);
+ 		else
+ 			error = local_pci_probe(&ddi);
