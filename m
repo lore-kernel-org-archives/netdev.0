@@ -1,51 +1,61 @@
-From: "yongjun_wei@trendmicro.com.cn" <yongjun_wei@trendmicro.com.cn>
-Subject: RE: [PATCH] pkt_sched: fix error return code in fw_change_attrs()
-Date: Thu, 18 Apr 2013 02:56:41 +0000
-Message-ID: <A360F954C61C69449463B0606663711259EE5448@CDCEXMBX01.tw.trendnet.org>
-References: <CAPgLHd-cDj8j3tKofRMwJ8GE39LkO8ZvtTJ34aSFDSHO+7GjnA@mail.gmail.com>
- <20130417.225031.547079824926433081.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the infiniband
+ tree
+Date: Thu, 18 Apr 2013 13:18:43 +1000
+Message-ID: <20130418131843.bfeb6b1ad5fba1b0f706076e@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: base64
-Cc: "jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"weiyj.lk@gmail.com" <weiyj.lk@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sjdciscan02.udc.trendmicro.com ([66.180.82.18]:34732 "EHLO
-	sjdciscan02.udc.trendmicro.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965228Ab3DRDRL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Apr 2013 23:17:11 -0400
-In-Reply-To: <20130417.225031.547079824926433081.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__18_Apr_2013_13_18_43_+1000_KNU/WCBiq_VN2ZdP"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	Roland Dreier <roland@kernel.org>, linux-rdma@vger.kernel.org,
+	Vipul Pandya <vipul@chelsio.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-U29ycnkgRGF2aWQsDQoNCkl0IHNlZW1zIHRoYXQgdGhlIE1BSUwgc2VydmVyIHNlbmQgdGhpcyBk
-dXAgbWFpbCwgSSBhbSBub3Qga25vdyB3aGF0IGhhcHBlbmVkDQpub3cuIEkgc2VlIG9uZSBtYWls
-IEkgc2VuZCB0aGlzIG1vcm5pbmcgaGFkIGJlZW4gZHVwIG1hbnkgdGltZXMuDQoNClJlZ2FyZHMs
-DQpZb25nanVuIFdlaQ0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogRGF2aWQg
-TWlsbGVyIFttYWlsdG86ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldF0gDQpTZW50OiAyMDEzxOo01MIxOMjV
-IDEwOjUxDQpUbzogd2VpeWoubGtAZ21haWwuY29tDQpDYzogamhzQG1vamF0YXR1LmNvbTsgWW9u
-Z2p1biBXZWkgKFJELUNOKTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KU3ViamVjdDogUmU6IFtQ
-QVRDSF0gcGt0X3NjaGVkOiBmaXggZXJyb3IgcmV0dXJuIGNvZGUgaW4gZndfY2hhbmdlX2F0dHJz
-KCkNCg0KRnJvbTogV2VpIFlvbmdqdW4gPHdlaXlqLmxrQGdtYWlsLmNvbT4NCkRhdGU6IFRodSwg
-MTggQXByIDIwMTMgMTA6NDk6MTAgKzA4MDANCg0KPiBGcm9tOiBXZWkgWW9uZ2p1biA8eW9uZ2p1
-bl93ZWlAdHJlbmRtaWNyby5jb20uY24+DQo+IA0KPiBGaXggdG8gcmV0dXJuIC1FSU5WQUwgd2hl
-biB0YltUQ0FfRldfTUFTS10gaXMgc2V0IGFuZCBoZWFkLT5tYXNrICE9IA0KPiAweEZGRkZGRkZG
-IGluc3RlYWQgb2YgMCAoaWZkZWYgQ09ORklHX05FVF9DTFNfSU5EIGFuZCANCj4gdGJbVENBX0ZX
-X0lOREVWXSksIGFzIGRvbmUgZWxzZXdoZXJlIGluIHRoaXMgZnVuY3Rpb24uDQo+IA0KPiBTaWdu
-ZWQtb2ZmLWJ5OiBXZWkgWW9uZ2p1biA8eW9uZ2p1bl93ZWlAdHJlbmRtaWNyby5jb20uY24+DQoN
-CllvdSBwb3N0ZWQgdGhpcyBwYXRjaCB0d2ljZS4NCg0KV2hhdCBpcyB0aGUgZGlmZmVyZW50IGJl
-dHdlZW4gdGhpcyB2ZXJzaW9uIGFuZCB0aGUgcHJldmlvdXMgb25lIHBvc3RlZD8NCg0KWW91IG11
-c3QgYWx3YXlzIG1lbnRpb24gdGhpcyB3aGVuIHlvdSBwb3N0IGEgcGF0Y2ggbXVsdGlwbGUgdGlt
-ZXMuDQoNCjx0YWJsZSBjbGFzcz0iVE1fRU1BSUxfTk9USUNFIj48dHI+PHRkPjxwcmU+DQpUUkVO
-RCBNSUNSTyBFTUFJTCBOT1RJQ0UNClRoZSBpbmZvcm1hdGlvbiBjb250YWluZWQgaW4gdGhpcyBl
-bWFpbCBhbmQgYW55IGF0dGFjaG1lbnRzIGlzIGNvbmZpZGVudGlhbCANCmFuZCBtYXkgYmUgc3Vi
-amVjdCB0byBjb3B5cmlnaHQgb3Igb3RoZXIgaW50ZWxsZWN0dWFsIHByb3BlcnR5IHByb3RlY3Rp
-b24uIA0KSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVkIHJlY2lwaWVudCwgeW91IGFyZSBub3Qg
-YXV0aG9yaXplZCB0byB1c2Ugb3IgDQpkaXNjbG9zZSB0aGlzIGluZm9ybWF0aW9uLCBhbmQgd2Ug
-cmVxdWVzdCB0aGF0IHlvdSBub3RpZnkgdXMgYnkgcmVwbHkgbWFpbCBvcg0KdGVsZXBob25lIGFu
-ZCBkZWxldGUgdGhlIG9yaWdpbmFsIG1lc3NhZ2UgZnJvbSB5b3VyIG1haWwgc3lzdGVtLg0KPC9w
-cmU+PC90ZD48L3RyPjwvdGFibGU+
+--Signature=_Thu__18_Apr_2013_13_18_43_+1000_KNU/WCBiq_VN2ZdP
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi all,
+
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/infiniband/hw/cxgb4/qp.c between commit 5b0c275926b8
+("RDMA/cxgb4: Fix SQ allocation when on-chip SQ is disabled") from the
+infiniband tree and commit 9919d5bd01b9 ("RDMA/cxgb4: Fix onchip queue
+support for T5") from the net-next tree.
+
+I think that they are 2 different fixes for the same problem, so I just
+used the net-next version and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Thu__18_Apr_2013_13_18_43_+1000_KNU/WCBiq_VN2ZdP
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRb2YTAAoJEECxmPOUX5FEFpcP/jxk88uFsqeNw4wl1AXsa0ql
+B/bW1x/ehp6kumkS1/1YYl8SoACtTr8FnBKJVv3hWKGQ7ZD8iQzqV1kcTnw32M5y
+7gfgalnf+P3Pj156sI9onURhUUglq0u8+aN6skysnB9W4ucvCFq32bpYGn2jA89w
+tVSZZTJS9O7XAMBuKpizEar+nk+gA++T3FKpynFoaZeizyoT6YKaMAuiXxMoGP3O
+0odvLdUFmIalkcn15wkIIinrtgK0nkXy1QBeipxVtBusuuJhxp9fiI+cuXw6whCm
+VWyfN72bh8PT2nri+xjNJI4TO+K4OZKjDN2MVXsRwVApNz/j0ML6TOSTWWemLscR
+mBh2i4XXkhgY2PKHYioeubuCGbI6MAFXky9QQulOIV4GdZqeK16FwxOBYJsxxqc5
+8+23I0V2OHloFe1ss3+gkBz1Niyb83EDRk1+wLGyydvotwpMj0s6P91rfKXO5s8p
+q9AJM7XuNWn8SCsBjr280yfQeyoKoGsG9Be6y6grEZraasBCrVi4tqoKdi/U6SCM
+Rxg5y1sKI2RgIpXlHNKsGzmXpA+tyte0HotPnVMvK/j54PXT7cRpTAo9Xy1o5X8r
+GVMBSq9aw3Mgb0oBDoPufLPwsOmb8dwa2qpGgjpDpYoEx/OWRfZkcQX0ykwt+Ta3
+fgO9YHHVfE9V8LwZP/IN
+=qH0d
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__18_Apr_2013_13_18_43_+1000_KNU/WCBiq_VN2ZdP--
