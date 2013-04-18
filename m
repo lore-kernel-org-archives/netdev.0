@@ -1,160 +1,43 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH v2 net-next 1/4] bnx2x: refactor nvram read procedure
-Date: Thu, 18 Apr 2013 13:27:07 +0300
-Message-ID: <1366280830-26034-2-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH v2 net-next 4/4] bnx2x: update version to 1.78.17-0
+Date: Thu, 18 Apr 2013 13:27:10 +0300
+Message-ID: <1366280830-26034-5-git-send-email-dmitry@broadcom.com>
 References: <1366280830-26034-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Francois Romieu" <romieu@fr.zoreil.com>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms1.broadcom.com ([216.31.210.17]:2122 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965828Ab3DRK1v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Apr 2013 06:27:51 -0400
+	id S965638Ab3DRK2U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 06:28:20 -0400
 In-Reply-To: <1366280830-26034-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-introduce a procedure to read in u32 granularity.
-
-CC: Francois Romieu <romieu@fr.zoreil.com>
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    | 54 +++++++++++++---------
- 1 file changed, 31 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index 129d6b2..e7e0ac1 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -1364,11 +1364,25 @@ static int bnx2x_nvram_read(struct bnx2x *bp, u32 offset, u8 *ret_buf,
- 	return rc;
- }
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 87629fd..3dba2a7 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -26,8 +26,8 @@
+  * (you will need to reboot afterwards) */
+ /* #define BNX2X_STOP_ON_ERROR */
  
-+static int bnx2x_nvram_read32(struct bnx2x *bp, u32 offset, u32 *buf,
-+			      int buf_size)
-+{
-+	int i, rc = bnx2x_nvram_read(bp, offset, (u8 *)buf, buf_size);
-+	__be32 *be = (__be32 *)buf;
-+
-+	if (rc)
-+		return rc;
-+
-+	for (i = 0; i < buf_size; i += 4)
-+		*buf++ = be32_to_cpu(*be++);
-+
-+	return 0;
-+}
-+
- static int bnx2x_get_eeprom(struct net_device *dev,
- 			    struct ethtool_eeprom *eeprom, u8 *eebuf)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
--	int rc;
+-#define DRV_MODULE_VERSION      "1.78.02-0"
+-#define DRV_MODULE_RELDATE      "2013/01/14"
++#define DRV_MODULE_VERSION      "1.78.17-0"
++#define DRV_MODULE_RELDATE      "2013/04/11"
+ #define BNX2X_BC_VER            0x040200
  
- 	if (!netif_running(dev)) {
- 		DP(BNX2X_MSG_ETHTOOL  | BNX2X_MSG_NVM,
-@@ -1383,9 +1397,7 @@ static int bnx2x_get_eeprom(struct net_device *dev,
- 
- 	/* parameters already validated in ethtool_get_eeprom */
- 
--	rc = bnx2x_nvram_read(bp, eeprom->offset, eebuf, eeprom->len);
--
--	return rc;
-+	return bnx2x_nvram_read(bp, eeprom->offset, eebuf, eeprom->len);
- }
- 
- static int bnx2x_get_module_eeprom(struct net_device *dev,
-@@ -1552,9 +1564,8 @@ static int bnx2x_nvram_write1(struct bnx2x *bp, u32 offset, u8 *data_buf,
- 			      int buf_size)
- {
- 	int rc;
--	u32 cmd_flags;
--	u32 align_offset;
--	__be32 val;
-+	u32 cmd_flags, align_offset, val;
-+	__be32 val_be;
- 
- 	if (offset + buf_size > bp->common.flash_size) {
- 		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
-@@ -1573,16 +1584,16 @@ static int bnx2x_nvram_write1(struct bnx2x *bp, u32 offset, u8 *data_buf,
- 
- 	cmd_flags = (MCPR_NVM_COMMAND_FIRST | MCPR_NVM_COMMAND_LAST);
- 	align_offset = (offset & ~0x03);
--	rc = bnx2x_nvram_read_dword(bp, align_offset, &val, cmd_flags);
-+	rc = bnx2x_nvram_read_dword(bp, align_offset, &val_be, cmd_flags);
- 
--	if (rc == 0) {
--		val &= ~(0xff << BYTE_OFFSET(offset));
--		val |= (*data_buf << BYTE_OFFSET(offset));
-+	/* nvram data is returned as an array of bytes
-+	 * convert it back to cpu order
-+	 */
-+	val = be32_to_cpu(val_be);
- 
--		/* nvram data is returned as an array of bytes
--		 * convert it back to cpu order
--		 */
--		val = be32_to_cpu(val);
-+	if (rc == 0) {
-+		val &= ~le32_to_cpu(0xff << BYTE_OFFSET(offset));
-+		val |= le32_to_cpu(*data_buf << BYTE_OFFSET(offset));
- 
- 		rc = bnx2x_nvram_write_dword(bp, align_offset, val,
- 					     cmd_flags);
-@@ -2598,8 +2609,7 @@ static int bnx2x_test_nvram(struct bnx2x *bp)
- 		{ 0x708,  0x70 }, /* manuf_key_info */
- 		{     0,     0 }
- 	};
--	__be32 *buf;
--	u8 *data;
-+	u8 *buf;
- 	int i, rc;
- 	u32 magic, crc;
- 
-@@ -2612,26 +2622,24 @@ static int bnx2x_test_nvram(struct bnx2x *bp)
- 		rc = -ENOMEM;
- 		goto test_nvram_exit;
- 	}
--	data = (u8 *)buf;
- 
--	rc = bnx2x_nvram_read(bp, 0, data, 4);
-+	rc = bnx2x_nvram_read32(bp, 0, &magic, sizeof(magic));
- 	if (rc) {
- 		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
- 		   "magic value read (rc %d)\n", rc);
- 		goto test_nvram_exit;
- 	}
- 
--	magic = be32_to_cpu(buf[0]);
- 	if (magic != 0x669955aa) {
- 		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
- 		   "wrong magic value (0x%08x)\n", magic);
--		rc = -ENODEV;
-+		rc = -EINVAL;
- 		goto test_nvram_exit;
- 	}
- 
- 	for (i = 0; nvram_tbl[i].size; i++) {
- 
--		rc = bnx2x_nvram_read(bp, nvram_tbl[i].offset, data,
-+		rc = bnx2x_nvram_read(bp, nvram_tbl[i].offset, buf,
- 				      nvram_tbl[i].size);
- 		if (rc) {
- 			DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
-@@ -2639,7 +2647,7 @@ static int bnx2x_test_nvram(struct bnx2x *bp)
- 			goto test_nvram_exit;
- 		}
- 
--		crc = ether_crc_le(nvram_tbl[i].size, data);
-+		crc = ether_crc_le(nvram_tbl[i].size, buf);
- 		if (crc != CRC32_RESIDUAL) {
- 			DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
- 			   "nvram_tbl[%d] wrong crc value (0x%08x)\n", i, crc);
+ #if defined(CONFIG_DCB)
 -- 
 1.8.1.4
