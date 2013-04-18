@@ -1,34 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] bnx2x: Bug fixes patch series
-Date: Thu, 18 Apr 2013 15:04:12 -0400 (EDT)
-Message-ID: <20130418.150412.1489636099120010588.davem@davemloft.net>
-References: <1366274946-11625-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: Bonding driver has bad load balancing for forwarded traffic,
+ 3.7+
+Date: Thu, 18 Apr 2013 15:09:10 -0400 (EDT)
+Message-ID: <20130418.150910.1780951630545456624.davem@davemloft.net>
+References: <516C075E.30105@telenet.dn.ua>
+	<1366072679.4459.113.camel@edumazet-glaptop>
+	<1366081404.4459.127.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com, ariele@broadcom.com
-To: yuvalmin@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55583 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753969Ab3DRTEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 15:04:16 -0400
-In-Reply-To: <1366274946-11625-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: vitalyb@telenet.dn.ua, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, fubar@us.ibm.com, linux@8192.net
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1366081404.4459.127.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Thu, 18 Apr 2013 11:49:04 +0300
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 15 Apr 2013 20:03:24 -0700
 
-> Hi Dave,
+> [PATCH] bonding: fix l23 and l34 load balancing in forwarding path
 > 
-> This patch contain fixes in two areas -
+> Since commit 6b923cb7188d46 (bonding: support for IPv6 transmit hashing)
+> bonding doesn't properly hash traffic in forwarding setups.
 > 
->   1. Preventing UNDI FW from illegally accessing memory when it shouldn't.
+> Vitaly V. Bursov diagnosed that skb_network_header_len() returned 0 in
+> this case.
 > 
->   2. Fix interrupt coalescing initialization and configuration when working
->      with multiple CoS.
+> More generally, the transport header might not be in the skb head.
 > 
-> Please consider applying these patches to `net'.
+> Use pskb_may_pull() & skb_header_pointer() to get it right, and use
+> proto_ports_offset() in bond_xmit_hash_policy_l34() to get support for
+> more protocols than TCP and UDP.
+> 
+> Reported-by: Vitaly V. Bursov <vitalyb@telenet.dn.ua>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Both applied, thanks.
+Applied and queued up for -stable, but:
+
+> +						sizeof(_l4), &_l4);						
+                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+That's some rather amazing trailing whitespace.  Are you trying to break
+free of earth's atmosphere? :-)
