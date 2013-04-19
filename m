@@ -1,104 +1,301 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [net-next PATCH 2/3] net: fix enforcing of fragment queue hash list depth
-Date: Fri, 19 Apr 2013 17:06:04 +0200
-Message-ID: <20130419150604.GG27889@order.stressinduktion.org>
-References: <20130418213637.14296.43143.stgit@dragon> <20130418213732.14296.36026.stgit@dragon> <1366366287.3205.98.camel@edumazet-glaptop> <1366373950.26911.134.camel@localhost> <20130419124528.GF27889@order.stressinduktion.org> <1366381742.26911.166.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: [PATCH net-next v4 1/1] net: fec: Enable imx6 enet checksum acceleration.
+Date: Fri, 19 Apr 2013 16:10:15 +0100
+Message-ID: <1366384215-21441-1-git-send-email-jim_baxter@mentor.com>
+References: <Jim Baxter <jim_baxter@mentor.com>
+Cc: Fabio Estevam <fabio.estevam@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:52495 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030601Ab3DSPGF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 11:06:05 -0400
-Content-Disposition: inline
-In-Reply-To: <1366381742.26911.166.camel@localhost>
+Received: from relay1.mentorg.com ([192.94.38.131]:33767 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030512Ab3DSPK3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 11:10:29 -0400
+In-Reply-To: <Jim Baxter <jim_baxter@mentor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 19, 2013 at 04:29:02PM +0200, Jesper Dangaard Brouer wrote:
-> I'm using trafgen (part of netsniff-ng git download from
-> https://github.com/borkmann/netsniff-ng).
-> 
-> Simple DoS test setup read (scroll down):
->  http://thread.gmane.org/gmane.linux.network/257155
-> 
-> As mentioned last time:
->  http://article.gmane.org/gmane.linux.network/263644
-> 
-> I have extended the DoS generator. quote:
->  'I have changed the frag DoS generator script to be more
-> efficient/deadly.  Before it would only hit one RX queue, now its
-> sending packets causing multi-queue RX, due to "better" RX hashing.'
-> 
-> I have placed the new "multi-queue" trafgen script/input here:
-> http://people.netfilter.org/hawk/frag_work/trafgen/frag_packet05_small_frag_multi_queue.txf
-> 
-> Perhaps you can tell me, if my trafgen traffic is getting hashed badly?
+Enables hardware generation of IP header and
+protocol specific checksums for transmitted
+packets.
 
-Thanks!
+Enabled hardware discarding of received packets with
+invalid IP header or protocol specific checksums.
 
-IPv4 traffic does not have this problem, as all the information to identify
-the packet are directly used as input to jhash_3words (the problem is, that
-IPv6 addresses are xored first and then fed into the jhash). So with this
-setup you would flood the hash uniformly distributed.
+The feature is enabled by default but can be
+enabled/disabled by ethtool.
 
-(Btw. I made a tool to generate fragments with colliding hashes:
-https://gist.github.com/hannes/5116331).
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
+---
 
-> > I agree that we have to do something to mitigate this. I would also
-> > drop the sysctl, I do think the kernel should have to take care of that.
-> > 
-> > Perhaps a way to solve this problem more easily would be to switch back to
-> > use a jenkins hash for all inputs of the hash function and not deal with this
-> > kind of unfairness regarding the possiblity to fill up one of the buckets.
-> > 
-> > Perhaps the performance improvements by Jesper (per bucket locking) could make
-> > up the more expensive hashing. :)
-> 
-> Well, I don't know.  But we do need some solution, to the current code.
+- Added IPV6 support.
+- Simplified checksum function to remove unnecessary IP header checksum
+generation and only update the protocol checksum in
+skb->csum_start + skb->csum_offset.
+- fec_enet_clear_csum() now returns error value which is checked by
+fec_enet_start_xmit() which returns NETDEV_TX_BUSY.
+- Simplified fec_set_features() by removing unrequired variables.
 
-You do have fancy 10GigE gear? :)
-Could you profile a kernel with 279e9f2 ("ipv6: optimize inet6_hash_frag()")
-reverted? This would only effect IPv6 traffic, so you would have to write
-an IPv6 txf file. If the numbers show that the effect is not too high we could
-actually stop worry about per-hash bucket hash utilization in general (still,
-a limit per hash chain would be reasonable, but a global element limit should
-catch first).
 
-This would give us the possibility to evict fragments from the fragmentation
-cache as soon as new fragments come in without caring about which hash bucket
-the fragment does actually belong, too. This would solve one of your problems
-of the RFC patch.
+ drivers/net/ethernet/freescale/fec.h      |   10 ++-
+ drivers/net/ethernet/freescale/fec_main.c |  106 ++++++++++++++++++++++++++++-
+ 2 files changed, 112 insertions(+), 4 deletions(-)
 
-Btw, where is the txf file format actually documented?
-
-> > 
-> > > -void inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f)
-> > > +void __inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f,
-> > > +		      bool unlink_hash)
-> > 
-> > This function could be static.
-> 
-> (Sorry to be dumb) could you explain the benefit of doing so?
-
-The function's namespace will be limited to the current file and won't
-be exported for linking by other files. It also does give a good hint
-for developers that the function is not used externally.
-
-> > > +static int zero;
-> > > +
-> > 
-> > Could be const.
-> 
-> Could you also explain the benefit of doing so for a variable?
-
-Precaution that it won't be changed by any statement in the file (does not add
-overhead but throws compiler errors if someone accidentally changes the
-value out of mistake, compile-time).
-
-Thanks,
-
-  Hannes
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index eb43729..d44f65b 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -52,6 +52,7 @@
+ #define FEC_R_FIFO_RSEM		0x194 /* Receive FIFO section empty threshold */
+ #define FEC_R_FIFO_RAEM		0x198 /* Receive FIFO almost empty threshold */
+ #define FEC_R_FIFO_RAFL		0x19c /* Receive FIFO almost full threshold */
++#define FEC_RACC		0x1C4 /* Receive Accelerator function */
+ #define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
+ #define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
+ 
+@@ -164,9 +165,11 @@ struct bufdesc_ex {
+ #define BD_ENET_TX_CSL          ((ushort)0x0001)
+ #define BD_ENET_TX_STATS        ((ushort)0x03ff)        /* All status bits */
+ 
+-/*enhanced buffer desciptor control/status used by Ethernet transmit*/
++/*enhanced buffer descriptor control/status used by Ethernet transmit*/
+ #define BD_ENET_TX_INT          0x40000000
+ #define BD_ENET_TX_TS           0x20000000
++#define BD_ENET_TX_PINS         0x10000000
++#define BD_ENET_TX_IINS         0x08000000
+ 
+ 
+ /* This device has up to three irqs on some platforms */
+@@ -190,6 +193,10 @@ struct bufdesc_ex {
+ 
+ #define BD_ENET_RX_INT          0x00800000
+ #define BD_ENET_RX_PTP          ((ushort)0x0400)
++#define BD_ENET_RX_ICE		0x00000020
++#define BD_ENET_RX_PCR		0x00000010
++#define FLAG_RX_CSUM_ENABLED	(BD_ENET_RX_ICE | BD_ENET_RX_PCR)
++#define FLAG_RX_CSUM_ERROR	(BD_ENET_RX_ICE | BD_ENET_RX_PCR)
+ 
+ /* The FEC buffer descriptors track the ring buffers.  The rx_bd_base and
+  * tx_bd_base always point to the base of the buffer descriptors.  The
+@@ -247,6 +254,7 @@ struct fec_enet_private {
+ 	int	pause_flag;
+ 
+ 	struct	napi_struct napi;
++	int	csum_flags;
+ 
+ 	struct ptp_clock *ptp_clock;
+ 	struct ptp_clock_info ptp_caps;
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index d7657a4..d6694fc 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -34,6 +34,12 @@
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/skbuff.h>
++#include <linux/in.h>
++#include <linux/ip.h>
++#include <net/ip.h>
++#include <linux/tcp.h>
++#include <linux/udp.h>
++#include <linux/icmp.h>
+ #include <linux/spinlock.h>
+ #include <linux/workqueue.h>
+ #include <linux/bitops.h>
+@@ -181,6 +187,11 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+ #define PKT_MINBUF_SIZE		64
+ #define PKT_MAXBLR_SIZE		1520
+ 
++/* FEC receive acceleration */
++#define FEC_RACC_IPDIS		(1 << 1)
++#define FEC_RACC_PRODIS		(1 << 2)
++#define FEC_RACC_OPTIONS	(FEC_RACC_IPDIS | FEC_RACC_PRODIS)
++
+ /*
+  * The 5270/5271/5280/5282/532x RX control register also contains maximum frame
+  * size bits. Other FEC hardware does not, so we need to take that into
+@@ -241,6 +252,21 @@ static void *swap_buffer(void *bufaddr, int len)
+ 	return bufaddr;
+ }
+ 
++static int
++fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
++{
++	/* Only run for packets requiring a checksum. */
++	if (skb->ip_summed != CHECKSUM_PARTIAL)
++		return 0;
++
++	if (unlikely(skb_cow_head(skb, 0)))
++		return -1;
++
++	*(__sum16 *)(skb->head + skb->csum_start + skb->csum_offset) = 0;
++
++	return 0;
++}
++
+ static netdev_tx_t
+ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ {
+@@ -253,7 +279,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	unsigned int index;
+ 
+ 	if (!fep->link) {
+-		/* Link is down or autonegotiation is in progress. */
++		/* Link is down or auto-negotiation is in progress. */
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+@@ -270,6 +296,10 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
++	/* HW acceleration for ICMP TCP UDP checksum */
++	if (fec_enet_clear_csum(skb, ndev))
++		return NETDEV_TX_BUSY;
++
+ 	/* Clear all of the status flags */
+ 	status &= ~BD_ENET_TX_STATS;
+ 
+@@ -326,8 +356,14 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 			ebdp->cbd_esc = (BD_ENET_TX_TS | BD_ENET_TX_INT);
+ 			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+ 		} else {
+-
+ 			ebdp->cbd_esc = BD_ENET_TX_INT;
++
++			/* Enable protocol checksum flags
++			 * We do not bother with the IP Checksum bits as they
++			 * are done by the kernel
++			 */
++			if (skb->ip_summed == CHECKSUM_PARTIAL)
++				ebdp->cbd_esc |= BD_ENET_TX_PINS;
+ 		}
+ 	}
+ 	/* If this was the last BD in the ring, start at the beginning again. */
+@@ -407,6 +443,7 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	const struct platform_device_id *id_entry =
+ 				platform_get_device_id(fep->pdev);
+ 	int i;
++	u32 val;
+ 	u32 temp_mac[2];
+ 	u32 rcntl = OPT_FRAME_SIZE | 0x04;
+ 	u32 ecntl = 0x2; /* ETHEREN */
+@@ -473,6 +510,14 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	/* Set MII speed */
+ 	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+ 
++	/* set RX checksum */
++	val = readl(fep->hwp + FEC_RACC);
++	if (fep->csum_flags & FLAG_RX_CSUM_ENABLED)
++		val |= FEC_RACC_OPTIONS;
++	else
++		val &= ~FEC_RACC_OPTIONS;
++	writel(val, fep->hwp + FEC_RACC);
++
+ 	/*
+ 	 * The phy interface and speed need to get configured
+ 	 * differently on enet-mac.
+@@ -530,7 +575,7 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	     fep->phy_dev && fep->phy_dev->pause)) {
+ 		rcntl |= FEC_ENET_FCE;
+ 
+-		/* set FIFO thresh hold parameter to reduce overrun */
++		/* set FIFO threshold parameter to reduce overrun */
+ 		writel(FEC_ENET_RSEM_V, fep->hwp + FEC_R_FIFO_RSEM);
+ 		writel(FEC_ENET_RSFL_V, fep->hwp + FEC_R_FIFO_RSFL);
+ 		writel(FEC_ENET_RAEM_V, fep->hwp + FEC_R_FIFO_RAEM);
+@@ -818,6 +863,18 @@ fec_enet_rx(struct net_device *ndev, int budget)
+ 				spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+ 			}
+ 
++			if (fep->bufdesc_ex &&
++				(fep->csum_flags & FLAG_RX_CSUM_ENABLED)) {
++				struct bufdesc_ex *ebdp =
++					(struct bufdesc_ex *)bdp;
++				if (!(ebdp->cbd_esc & FLAG_RX_CSUM_ERROR)) {
++					/* don't check it */
++					skb->ip_summed = CHECKSUM_UNNECESSARY;
++				} else {
++					skb_checksum_none_assert(skb);
++				}
++			}
++
+ 			if (!skb_defer_rx_timestamp(skb))
+ 				napi_gro_receive(&fep->napi, skb);
+ 		}
+@@ -1439,6 +1496,14 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
+ 		if (fep->bufdesc_ex) {
+ 			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
+ 			ebdp->cbd_esc = BD_ENET_TX_INT;
++
++			/* Enable protocol checksum flags
++			 * We do not bother with the IP Checksum bits as they
++			 * are done by the kernel
++			 */
++			if (ndev->features &
++					(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM))
++				ebdp->cbd_esc |= BD_ENET_TX_PINS;
+ 		}
+ 
+ 		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
+@@ -1618,6 +1683,33 @@ static void fec_poll_controller(struct net_device *dev)
+ }
+ #endif
+ 
++static int fec_set_features(struct net_device *netdev,
++	netdev_features_t features)
++{
++	struct fec_enet_private *fep = netdev_priv(netdev);
++	netdev_features_t changed = features ^ netdev->features;
++
++	netdev->features = features;
++
++	/* Receive checksum has been changed */
++	if (changed & NETIF_F_RXCSUM) {
++		if (features & NETIF_F_RXCSUM)
++			fep->csum_flags |= FLAG_RX_CSUM_ENABLED;
++		else
++			fep->csum_flags &= ~FLAG_RX_CSUM_ENABLED;
++
++		if (netif_running(netdev)) {
++			fec_stop(netdev);
++			fec_restart(netdev, fep->phy_dev->duplex);
++			netif_wake_queue(netdev);
++		} else {
++			fec_restart(netdev, fep->phy_dev->duplex);
++		}
++	}
++
++	return 0;
++}
++
+ static const struct net_device_ops fec_netdev_ops = {
+ 	.ndo_open		= fec_enet_open,
+ 	.ndo_stop		= fec_enet_close,
+@@ -1631,6 +1723,7 @@ static const struct net_device_ops fec_netdev_ops = {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= fec_poll_controller,
+ #endif
++	.ndo_set_features	= fec_set_features,
+ };
+ 
+  /*
+@@ -1672,6 +1765,13 @@ static int fec_enet_init(struct net_device *ndev)
+ 	writel(FEC_RX_DISABLED_IMASK, fep->hwp + FEC_IMASK);
+ 	netif_napi_add(ndev, &fep->napi, fec_enet_rx_napi, FEC_NAPI_WEIGHT);
+ 
++	/* enable hw accelerator */
++	ndev->features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM
++			| NETIF_F_RXCSUM);
++	ndev->hw_features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM
++			| NETIF_F_RXCSUM);
++	fep->csum_flags |= FLAG_RX_CSUM_ENABLED;
++
+ 	fec_restart(ndev, 0);
+ 
+ 	return 0;
+-- 
+1.7.10.4
