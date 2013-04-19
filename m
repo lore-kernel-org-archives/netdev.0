@@ -1,102 +1,52 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [Patch net-next v4 4/5] vxlan: add scope_id support for ll addr
-Date: Fri, 19 Apr 2013 07:14:21 -0400
-Message-ID: <OFA1761298.DF396ECD-ON85257B52.003AE2CA-85257B52.003DBDAB@us.ibm.com>
-References: <1366175423-27310-1-git-send-email-amwang@redhat.com> <1366175423-27310-5-git-send-email-amwang@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [net-next PATCH 2/3] net: fix enforcing of fragment queue hash
+ list depth
+Date: Fri, 19 Apr 2013 04:14:50 -0700
+Message-ID: <1366370090.3205.109.camel@edumazet-glaptop>
+References: <20130418213637.14296.43143.stgit@dragon>
+	 <20130418213732.14296.36026.stgit@dragon>
+	 <1366366287.3205.98.camel@edumazet-glaptop>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B71EB@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Cong Wang <amwang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:34287 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757087Ab3DSLOb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 07:14:31 -0400
-Received: from /spool/local
-	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Fri, 19 Apr 2013 05:14:30 -0600
-Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 037C73E40039
-	for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 05:14:13 -0600 (MDT)
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r3JBEPew095954
-	for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 05:14:25 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r3JBEONG013210
-	for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 05:14:25 -0600
-In-Reply-To: <1366175423-27310-5-git-send-email-amwang@redhat.com>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:60000 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967926Ab3DSLOx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 07:14:53 -0400
+Received: by mail-pb0-f54.google.com with SMTP id xa7so64251pbc.41
+        for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 04:14:53 -0700 (PDT)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B71EB@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <amwang@redhat.com> wrote on 04/17/2013 01:10:21 AM:
- 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 43ed40f..531c5e2 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -92,9 +92,10 @@ struct vxlan_addr {
->        struct sockaddr_in6   sin6;
->        struct sockaddr      sa;
->     } u;
-> -#define va_sin  u.sin.sin_addr.s_addr
-> -#define va_sin6 u.sin6.sin6_addr
-> -#define va_sa   u.sa.sa_family
-> +#define va_sin      u.sin.sin_addr.s_addr
-> +#define va_sin6      u.sin6.sin6_addr
-> +#define va_scope_id   u.sin6.sin6_scope_id
-> +#define va_sa      u.sa.sa_family
->  };
+On Fri, 2013-04-19 at 11:41 +0100, David Laight wrote:
+> > The 64 slots hash table was chosen years ago, when machines had 3 order
+> > of magnitude less ram than today.
+> > 
+> > Before hash resizing, I would just bump hash size to something more
+> > reasonable like 1024.
+> 
+> While that is true of many systems, there are embedded systems
+> with much less ram than the typical x86 desktop or server.
+> 
+> There seem to be quite a lot of large hash tables appearing
+> that on many small systems will never contain a significant
+> number of entries and just waste precious memory.
 
-        As I commented before, you're obscuring the types here,
-which makes it less readable. "va_sin6" ought to be a sockaddr_in6,
-not a sin6_addr, and the scope id ought to then be 
-"va_sin6.sin6_scope_id",
-without any other #define necessary for it.
+Embedded systems run linux since ages, and their memory also increased
+by 2 order of magnitude since 1995.
 
+If they run linux-3.10, using 4096 bytes of 8192 bytes for the hash
+table is fine.
 
+We are not going to add yet another ifdef, for such a small amount of
+ram.
 
-> @@ -1708,6 +1712,17 @@ static int vxlan_newlink(struct net *net, 
-> struct net_device *dev,
->        /* update header length based on lower device */
->        dev->hard_header_len = lowerdev->hard_header_len +
->                     VXLAN_HEADROOM;
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +      dst->remote_ip.va_scope_id = ipv6_iface_scope_id
-> (&dst->remote_ip.va_sin6,
-> +                         dst->remote_ifindex);
-> +      if (ipv6_addr_type(&dst->remote_ip.va_sin6) & 
-IPV6_ADDR_LINKLOCAL) {
-> +         struct vxlan_net *vn = net_generic(net, vxlan_net_id);
-> +         struct sock *sk = vn->sock->sk;
-> +
-> +                        sk->sk_bound_dev_if = 
-dst->remote_ip.va_scope_id;
-> +      }
-> +#endif
-> +
->     }
-
-        The socket is not used for transmits, which is where the 
-sin6_scope_id is
-relevant-- we need this in vxlan_xmit_one() for the route lookup. It also
-permanently binds to an interface, which I believe prevents VXLAN traffic 
-from
-other interfaces on receive, and this socket is an INADDR_ANY-bound socket 
-for
-all VXLAN devices on the host.
-        So, we shouldn't be doing anything with sk_bound_dev_if, but LL 
-addrs need
-to use the the sin6_scope_id in the route lookup for transmissions. It 
-should
-be saved in remote_ifindex per destination and stored in flowi6_oif for 
-route
-lookup, as the v4 code does now for fdb entries, and LL v6 destinations 
-for fdb
-entries ought to be done the same way.
-
-        So, no, I don't think this patch is correct or complete.
-
- +-DLS
+The code that we will add to do the resize will be larger than this.
