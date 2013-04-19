@@ -1,274 +1,125 @@
 From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: [PATCH net-next 6/8] qlcnic: Fix loopback test for SR-IOV PF.
-Date: Fri, 19 Apr 2013 13:01:13 -0400
-Message-ID: <1366390875-24570-7-git-send-email-rajesh.borundia@qlogic.com>
+Subject: [PATCH net-next 7/8] qlcnic: Support polling for mailbox events.
+Date: Fri, 19 Apr 2013 13:01:14 -0400
+Message-ID: <1366390875-24570-8-git-send-email-rajesh.borundia@qlogic.com>
 References: <1366390875-24570-1-git-send-email-rajesh.borundia@qlogic.com>
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Manish Chopra <manish.chopra@qlogic.com>
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:48334 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:12944 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752568Ab3DSRZG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752575Ab3DSRZG (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 19 Apr 2013 13:25:06 -0400
 In-Reply-To: <1366390875-24570-1-git-send-email-rajesh.borundia@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o Do not disable mailbox interrupts while running
-  loopback test through SR-IOV PF.
+o When mailbox interrupt is disabled PF should be
+  able to process request from VF. Enable polling
+  for such cases.
 
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    1 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   56 +++++++++++++++-----
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    2 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |   34 ++++++++++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    5 ++-
- .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |    2 +-
- 6 files changed, 78 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    2 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   29 ++++++++++++++++++++
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    2 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    5 +++-
+ 4 files changed, 37 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 7dc7e02..fef2f4b 100644
+index fef2f4b..86eaa68 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1868,6 +1868,7 @@ static inline void qlcnic_enable_int(struct qlcnic_host_sds_ring *sds_ring)
- 		writel(0xfbff, adapter->tgt_mask_reg);
- }
+@@ -919,6 +919,7 @@ struct qlcnic_ipaddr {
+ #define __QLCNIC_ELB_INPROGRESS		8
+ #define __QLCNIC_SRIOV_ENABLE		10
+ #define __QLCNIC_SRIOV_CAPABLE		11
++#define __QLCNIC_MBX_POLL_ENABLE	12
  
-+extern const struct ethtool_ops qlcnic_sriov_vf_ethtool_ops;
- extern const struct ethtool_ops qlcnic_ethtool_ops;
- extern const struct ethtool_ops qlcnic_ethtool_failed_ops;
+ #define QLCNIC_INTERRUPT_TEST		1
+ #define QLCNIC_LOOPBACK_TEST		2
+@@ -1012,6 +1013,7 @@ struct qlcnic_adapter {
+ 	struct workqueue_struct *qlcnic_wq;
+ 	struct delayed_work fw_work;
+ 	struct delayed_work idc_aen_work;
++	struct delayed_work mbx_poll_work;
  
+ 	struct qlcnic_filter_hash fhash;
+ 	struct qlcnic_filter_hash rx_fhash;
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 3a4b572..f1d06d2 100644
+index f1d06d2..32a95c1 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -402,7 +402,8 @@ static void qlcnic_83xx_poll_process_aen(struct qlcnic_adapter *adapter)
- 
- 	event = readl(QLCNIC_MBX_FW(adapter->ahw, 0));
- 	if (event &  QLCNIC_MBX_ASYNC_EVENT)
--		qlcnic_83xx_process_aen(adapter);
-+		__qlcnic_83xx_process_aen(adapter);
-+
- out:
- 	qlcnic_83xx_enable_legacy_msix_mbx_intr(adapter);
- 	spin_unlock_irqrestore(&adapter->ahw->mbx_lock, flags);
-@@ -758,7 +759,7 @@ poll:
- 		/* Get the FW response data */
- 		fw_data = readl(QLCNIC_MBX_FW(ahw, 0));
- 		if (fw_data &  QLCNIC_MBX_ASYNC_EVENT) {
--			qlcnic_83xx_process_aen(adapter);
-+			__qlcnic_83xx_process_aen(adapter);
- 			mbx_val = QLCRDX(ahw, QLCNIC_HOST_MBX_CTRL);
- 			if (mbx_val)
- 				goto poll;
-@@ -862,7 +863,7 @@ static void qlcnic_83xx_handle_idc_comp_aen(struct qlcnic_adapter *adapter,
- 	return;
+@@ -926,6 +926,35 @@ static void qlcnic_83xx_process_aen(struct qlcnic_adapter *adapter)
+ 	spin_unlock_irqrestore(&ahw->mbx_lock, flags);
  }
  
--void qlcnic_83xx_process_aen(struct qlcnic_adapter *adapter)
-+void __qlcnic_83xx_process_aen(struct qlcnic_adapter *adapter)
- {
- 	u32 event[QLC_83XX_MBX_AEN_CNT];
- 	int i;
-@@ -907,6 +908,24 @@ void qlcnic_83xx_process_aen(struct qlcnic_adapter *adapter)
- 	QLCWRX(ahw, QLCNIC_FW_MBX_CTRL, QLCNIC_CLR_OWNER);
- }
- 
-+static void qlcnic_83xx_process_aen(struct qlcnic_adapter *adapter)
++static void qlcnic_83xx_mbx_poll_work(struct work_struct *work)
 +{
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	u32 resp, event;
-+	unsigned long flags;
++	struct qlcnic_adapter *adapter;
 +
-+	spin_lock_irqsave(&ahw->mbx_lock, flags);
++	adapter = container_of(work, struct qlcnic_adapter, mbx_poll_work.work);
 +
-+	resp = QLCRDX(ahw, QLCNIC_FW_MBX_CTRL);
-+	if (resp & QLCNIC_SET_OWNER) {
-+		event = readl(QLCNIC_MBX_FW(ahw, 0));
-+		if (event &  QLCNIC_MBX_ASYNC_EVENT)
-+			__qlcnic_83xx_process_aen(adapter);
-+	}
++	if (!test_bit(__QLCNIC_MBX_POLL_ENABLE, &adapter->state))
++		return;
 +
-+	spin_unlock_irqrestore(&ahw->mbx_lock, flags);
++	qlcnic_83xx_process_aen(adapter);
++	queue_delayed_work(adapter->qlcnic_wq, &adapter->mbx_poll_work,
++			   (HZ / 10));
++}
++
++void qlcnic_83xx_enable_mbx_poll(struct qlcnic_adapter *adapter)
++{
++	if (test_and_set_bit(__QLCNIC_MBX_POLL_ENABLE, &adapter->state))
++		return;
++
++	INIT_DELAYED_WORK(&adapter->mbx_poll_work, qlcnic_83xx_mbx_poll_work);
++}
++
++void qlcnic_83xx_disable_mbx_poll(struct qlcnic_adapter *adapter)
++{
++	if (!test_and_clear_bit(__QLCNIC_MBX_POLL_ENABLE, &adapter->state))
++		return;
++	cancel_delayed_work_sync(&adapter->mbx_poll_work);
 +}
 +
  static int qlcnic_83xx_add_rings(struct qlcnic_adapter *adapter)
  {
  	int index, i, err, sds_mbx_size;
-@@ -1274,7 +1293,8 @@ static int qlcnic_83xx_diag_alloc_res(struct net_device *netdev, int test)
- 
- 	if (adapter->ahw->diag_test == QLCNIC_LOOPBACK_TEST) {
- 		/* disable and free mailbox interrupt */
--		qlcnic_83xx_free_mbx_intr(adapter);
-+		if (!(adapter->flags & QLCNIC_MSIX_ENABLED))
-+			qlcnic_83xx_free_mbx_intr(adapter);
- 		adapter->ahw->loopback_state = 0;
- 		adapter->ahw->hw_ops->setup_link_event(adapter, 1);
- 	}
-@@ -1302,12 +1322,14 @@ static void qlcnic_83xx_diag_free_res(struct net_device *netdev,
- 	qlcnic_detach(adapter);
- 
- 	if (adapter->ahw->diag_test == QLCNIC_LOOPBACK_TEST) {
--		err = qlcnic_83xx_setup_mbx_intr(adapter);
--		if (err) {
--			dev_err(&adapter->pdev->dev,
--				"%s: failed to setup mbx interrupt\n",
--				__func__);
--			goto out;
-+		if (!(adapter->flags & QLCNIC_MSIX_ENABLED)) {
-+			err = qlcnic_83xx_setup_mbx_intr(adapter);
-+			if (err) {
-+				dev_err(&adapter->pdev->dev,
-+					"%s: failed to setup mbx interrupt\n",
-+					__func__);
-+				goto out;
-+			}
- 		}
- 	}
- 	adapter->ahw->diag_test = 0;
-@@ -1556,7 +1578,9 @@ int qlcnic_83xx_loopback_test(struct net_device *netdev, u8 mode)
- 	/* Poll for link up event before running traffic */
- 	do {
- 		msleep(500);
--		qlcnic_83xx_process_aen(adapter);
-+		if (!(adapter->flags & QLCNIC_MSIX_ENABLED))
-+			qlcnic_83xx_process_aen(adapter);
-+
- 		if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP) {
- 			dev_info(&adapter->pdev->dev,
- 				 "Firmware didn't sent link up event to loopback request\n");
-@@ -1610,7 +1634,9 @@ int qlcnic_83xx_set_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
- 	/* Wait for Link and IDC Completion AEN */
- 	do {
- 		msleep(300);
--		qlcnic_83xx_process_aen(adapter);
-+		if (!(adapter->flags & QLCNIC_MSIX_ENABLED))
-+			qlcnic_83xx_process_aen(adapter);
-+
- 		if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP) {
- 			dev_err(&adapter->pdev->dev,
- 				"FW did not generate IDC completion AEN\n");
-@@ -1650,7 +1676,9 @@ int qlcnic_83xx_clear_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
- 	/* Wait for Link and IDC Completion AEN */
- 	do {
- 		msleep(300);
--		qlcnic_83xx_process_aen(adapter);
-+		if (!(adapter->flags & QLCNIC_MSIX_ENABLED))
-+			qlcnic_83xx_process_aen(adapter);
-+
- 		if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP) {
- 			dev_err(&adapter->pdev->dev,
- 				"Firmware didn't sent IDC completion AEN\n");
-@@ -1924,7 +1952,7 @@ irqreturn_t qlcnic_83xx_handle_aen(int irq, void *data)
- 
- 	event = readl(QLCNIC_MBX_FW(adapter->ahw, 0));
- 	if (event &  QLCNIC_MBX_ASYNC_EVENT)
--		qlcnic_83xx_process_aen(adapter);
-+		__qlcnic_83xx_process_aen(adapter);
- out:
- 	mask = QLCRDX(adapter->ahw, QLCNIC_DEF_INT_MASK);
- 	writel(0, adapter->ahw->pci_base0 + mask);
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index 96f8344..73070bc 100644
+index 73070bc..4be411c 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -558,7 +558,7 @@ void qlcnic_83xx_disable_intr(struct qlcnic_adapter *,
- 			     struct qlcnic_host_sds_ring *);
- void qlcnic_83xx_check_vf(struct qlcnic_adapter *,
- 			  const struct pci_device_id *);
--void qlcnic_83xx_process_aen(struct qlcnic_adapter *);
-+void __qlcnic_83xx_process_aen(struct qlcnic_adapter *);
- int qlcnic_83xx_get_port_config(struct qlcnic_adapter *);
- int qlcnic_83xx_set_port_config(struct qlcnic_adapter *);
- int qlcnic_enable_eswitch(struct qlcnic_adapter *, u8, u8);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index f4f279d..9f7aade 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -859,9 +859,11 @@ clear_diag_irq:
- 	return ret;
- }
- 
--#define QLCNIC_ILB_PKT_SIZE 64
--#define QLCNIC_NUM_ILB_PKT	16
--#define QLCNIC_ILB_MAX_RCV_LOOP 10
-+#define QLCNIC_ILB_PKT_SIZE		64
-+#define QLCNIC_NUM_ILB_PKT		16
-+#define QLCNIC_ILB_MAX_RCV_LOOP		10
-+#define QLCNIC_LB_PKT_POLL_DELAY_MSEC	1
-+#define QLCNIC_LB_PKT_POLL_COUNT	20
- 
- static void qlcnic_create_loopback_buff(unsigned char *data, u8 mac[])
- {
-@@ -898,9 +900,9 @@ int qlcnic_do_lb_test(struct qlcnic_adapter *adapter, u8 mode)
- 		loop = 0;
- 
- 		do {
--			msleep(1);
-+			msleep(QLCNIC_LB_PKT_POLL_DELAY_MSEC);
- 			qlcnic_process_rcv_ring_diag(sds_ring);
--			if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP)
-+			if (loop++ > QLCNIC_LB_PKT_POLL_COUNT)
- 				break;
- 		} while (!adapter->ahw->diag_cnt);
- 
-@@ -1539,3 +1541,25 @@ const struct ethtool_ops qlcnic_ethtool_ops = {
- 	.get_dump_data = qlcnic_get_dump_data,
- 	.set_dump = qlcnic_set_dump,
- };
-+
-+const struct ethtool_ops qlcnic_sriov_vf_ethtool_ops = {
-+	.get_settings		= qlcnic_get_settings,
-+	.get_drvinfo		= qlcnic_get_drvinfo,
-+	.get_regs_len		= qlcnic_get_regs_len,
-+	.get_regs		= qlcnic_get_regs,
-+	.get_link		= ethtool_op_get_link,
-+	.get_eeprom_len		= qlcnic_get_eeprom_len,
-+	.get_eeprom		= qlcnic_get_eeprom,
-+	.get_ringparam		= qlcnic_get_ringparam,
-+	.set_ringparam		= qlcnic_set_ringparam,
-+	.get_channels		= qlcnic_get_channels,
-+	.get_pauseparam		= qlcnic_get_pauseparam,
-+	.get_wol		= qlcnic_get_wol,
-+	.get_strings		= qlcnic_get_strings,
-+	.get_ethtool_stats	= qlcnic_get_ethtool_stats,
-+	.get_sset_count		= qlcnic_get_sset_count,
-+	.get_coalesce		= qlcnic_get_intr_coalesce,
-+	.set_coalesce		= qlcnic_set_intr_coalesce,
-+	.set_msglevel		= qlcnic_set_msglevel,
-+	.get_msglevel		= qlcnic_get_msglevel,
-+};
+@@ -621,4 +621,6 @@ int qlcnic_83xx_enable_flash_write(struct qlcnic_adapter *);
+ int qlcnic_83xx_disable_flash_write(struct qlcnic_adapter *);
+ u32 qlcnic_83xx_mac_rcode(struct qlcnic_adapter *);
+ u32 qlcnic_83xx_mbx_poll(struct qlcnic_adapter *);
++void qlcnic_83xx_enable_mbx_poll(struct qlcnic_adapter *);
++void qlcnic_83xx_disable_mbx_poll(struct qlcnic_adapter *);
+ #endif
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index b34488c..9b76881 100644
+index 9b76881..f869bab 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -1743,7 +1743,10 @@ qlcnic_setup_netdev(struct qlcnic_adapter *adapter, struct net_device *netdev,
+@@ -3306,8 +3306,10 @@ int qlcnic_set_max_rss(struct qlcnic_adapter *adapter, u8 data, size_t len)
  
- 	qlcnic_change_mtu(netdev, netdev->mtu);
+ 	qlcnic_detach(adapter);
  
--	SET_ETHTOOL_OPS(netdev, &qlcnic_ethtool_ops);
-+	if (qlcnic_sriov_vf_check(adapter))
-+		SET_ETHTOOL_OPS(netdev, &qlcnic_sriov_vf_ethtool_ops);
-+	else
-+		SET_ETHTOOL_OPS(netdev, &qlcnic_ethtool_ops);
+-	if (qlcnic_83xx_check(adapter))
++	if (qlcnic_83xx_check(adapter)) {
+ 		qlcnic_83xx_free_mbx_intr(adapter);
++		qlcnic_83xx_enable_mbx_poll(adapter);
++	}
  
- 	netdev->features |= (NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
- 			     NETIF_F_IPV6_CSUM | NETIF_F_GRO |
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-index d5b626d..44d547d 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-@@ -335,7 +335,7 @@ poll:
- 		/* Get the FW response data */
- 		fw_data = readl(QLCNIC_MBX_FW(ahw, 0));
- 		if (fw_data &  QLCNIC_MBX_ASYNC_EVENT) {
--			qlcnic_83xx_process_aen(adapter);
-+			__qlcnic_83xx_process_aen(adapter);
- 			mbx_val = QLCRDX(ahw, QLCNIC_HOST_MBX_CTRL);
- 			if (mbx_val)
- 				goto poll;
+ 	qlcnic_teardown_intr(adapter);
+ 	err = qlcnic_setup_intr(adapter, data);
+@@ -3321,6 +3323,7 @@ int qlcnic_set_max_rss(struct qlcnic_adapter *adapter, u8 data, size_t len)
+ 		/* register for NIC IDC AEN Events */
+ 		qlcnic_83xx_register_nic_idc_func(adapter, 1);
+ 		err = qlcnic_83xx_setup_mbx_intr(adapter);
++		qlcnic_83xx_disable_mbx_poll(adapter);
+ 		if (err) {
+ 			dev_err(&adapter->pdev->dev,
+ 				"failed to setup mbx interrupt\n");
 -- 
 1.6.3.3
