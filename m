@@ -1,72 +1,78 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: net/macb: clear tx/rx completion flags in ISR
-Date: Fri, 19 Apr 2013 09:48:43 +0200
-Message-ID: <5170F6DB.6030500@atmel.com>
-References: <5170D276.6070208@yahoo.es> <20130419073058.GA660@pengutronix.de>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: rtl8168e-vl dropping tftp ack
+Date: Fri, 19 Apr 2013 15:49:55 +0800
+Message-ID: <55FF74168B2A4152AD875C000535466F@realtek.com.tw>
+References: <516EB23B.3080504@canonical.com> <20130417213251.GA13790@electric-eye.fr.zoreil.com> <516FC218.3060002@canonical.com> <20130418215501.GB8944@electric-eye.fr.zoreil.com> <DFF62ECF5DF14C65A71A35581D58FFA9@realtek.com.tw> <20130419061425.GA14843@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Ludovic Desroches <ludovic.desroches@atmel.com>
-To: Steffen Trumtrar <s.trumtrar@pengutronix.de>,
-	Hein Tibosch <hein_tibosch@yahoo.es>, <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
+Cc: 'Stefan Bader' <stefan.bader@canonical.com>,
+	<netdev@vger.kernel.org>, 'nic_swsd' <nic_swsd@realtek.com>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.242]:59163 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756896Ab3DSHsu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 03:48:50 -0400
-In-Reply-To: <20130419073058.GA660@pengutronix.de>
+Received: from rtits2.realtek.com ([60.250.210.242]:50758 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756991Ab3DSHuG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 03:50:06 -0400
+In-Reply-To: <20130419061425.GA14843@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/19/2013 09:30 AM, Steffen Trumtrar :
-> Hi Hein,
-> 
-> On Fri, Apr 19, 2013 at 01:13:26PM +0800, Hein Tibosch wrote:
->> Hi Steffen,
->>
->>> At least in the cadence IP core on the Xilinx Zynq SoC the TCOMP/RCOMP flags
->>> are not auto-cleaned. As these flags are evaluated, they need to be cleaned.
->>
->> This patch does not work for at least the AVR32 platform. Both RCOMP/RCOMP
->> are cleared by *reading* the ISR and writing them would be fatal.
->>
-> 
-> :-(
-> 
->> Could you tell me the version of the macb of Xilinx Zynq?
->>
->>     u32 version = (macb_readl(bp, MID) & ((1 << MACB_REV_SIZE) - 1))
->>             | MACB_GREGS_VERSION;
->>
->> On an AP7000 it reads as 0x0000010D
->>
-> 
-> This gives me 0x00000119. The TRM says it is version r1p23.
-> 
->> I am thinking of making a patch like:
->>
->>     if (bp->version >= xxx)
->>         macb_writel(bp, ISR, MACB_BIT(TCOMP));
->>
->>     if (bp->version >= xxx)
->>         macb_writel(bp, ISR, MACB_BIT(RCOMP));
->>
->> which would make it work on both platforms.
+Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Friday, April 19, 2013 2:14 PM
+> To: Hayeswang
+> Cc: 'Stefan Bader'; netdev@vger.kernel.org; nic_swsd
+> Subject: Re: rtl8168e-vl dropping tftp ack
+[...]
+> Tentative rationale: the first missing packet (112 at 
+> 88.147981) is a 60
+> bytes one whose tail does not contain zeroes only. Previous 60 bytes
+> packets would exhibit no change of content if they were they 
+> generously cut or paded with zeroes.
 
-Well, keep in mind that it is the hot path: It can harm the performance
-if too much tests are performed...
+It still has problem no matter the paded value is zeros or not, because the
+length of the IP header would be modified by hw when using hw checksum.
 
-> The documentation I have is a little bit confusing in that regard.
-> The cadence datasheet says, this register is R/W, the Xilinx datasheet says,
-> it is "normaly RO", but the programming guide explicitely mentions clearing
-> the bit by writing to it.
-> It seems, that something like your patch is inevitable.
+[...]
+> 
+> I don't get it: arp aside, the normal trace in the capture 
+> file exhibits no
+> sub-60 bytes packet. Could you reformulate ?
+> 
 
-I also had bad feedbacks concerning this patch. Maybe we should take
-more time to validate this change: event it is in net-next, maybe we
-should revert it for the moment...
+In brief, when the packet < 60, that is skb->len < 60, the hw should pad the
+packet to 60 bytes automatically. However, in my memory, the rtl8168e-vl
+wouldn't do this, and the packet wouldn't be sent. Therefore, the patch would be
+similar with the followings.
 
-Best regards,
--- 
-Nicolas Ferre
+--- r8169.c.org 2013-04-19 22:35:40.785759473 +0800
++++ r8169.c     2013-04-19 22:38:24.227189535 +0800
+@@ -5760,12 +5760,29 @@ static inline void rtl8169_tso_csum(stru
+        } else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+                const struct iphdr *ip = ip_hdr(skb);
+
++               if (unlikely(skb->len < ETH_ZLEN &&
++                   (tp->mac_version == RTL_GIGA_MAC_VER_34))) {
++                       if (skb_padto(skb, ETH_ZLEN))
++                               return false;
++                       skb_checksum_help(skb);
++                       skb_put(skb, ETH_ZLEN - skb->len);
++                       return true;
++               }
++
+                if (ip->protocol == IPPROTO_TCP)
+                        opts[offset] |= info->checksum.tcp;
+                else if (ip->protocol == IPPROTO_UDP)
+                        opts[offset] |= info->checksum.udp;
+                else
+                        WARN_ON_ONCE(1);
++       } else {
++               if (unlikely(skb->len < ETH_ZLEN &&
++                   (tp->mac_version == RTL_GIGA_MAC_VER_34))) {
++                       if (skb_padto(skb, ETH_ZLEN))
++                               return false;
++                       skb_put(skb, ETH_ZLEN - skb->len);
++                       return true;
++               }
+        }
+ }
