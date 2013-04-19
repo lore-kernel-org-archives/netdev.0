@@ -1,70 +1,54 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] e1000e: fix mismatch in mutex lock-unlock in
-	e1000_reset_hw_82571()
-Date: Thu, 18 Apr 2013 22:15:18 -0700
-Message-ID: <1366348518-5594-1-git-send-email-khoroshilov@ispras.ru>
+From: Hein Tibosch <hein_tibosch@yahoo.es>
+Subject: Re: net/macb: clear tx/rx completion flags in ISR
+Date: Fri, 19 Apr 2013 13:13:26 +0800
+Message-ID: <5170D276.6070208@yahoo.es>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: ldv-project@linuxtesting.org, e1000-devel@lists.sourceforge.net,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Alexey Khoroshilov <khoroshilov@ispras.ru>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Ludovic Desroches <ludovic.desroches@atmel.com>
+To: Steffen Trumtrar <s.trumtrar@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bosmailout10.eigbox.net ([66.96.186.10]:53983 "EHLO
+	bosmailout10.eigbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754575Ab3DSF6C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 01:58:02 -0400
+Received: from bosmailscan12.eigbox.net ([10.20.15.12])
+	by bosmailout10.eigbox.net with esmtp (Exim)
+	id 1UT3ho-0006WY-Uk
+	for netdev@vger.kernel.org; Fri, 19 Apr 2013 01:17:52 -0400
+Received: from bosmailscan24.eigbox.net ([10.20.15.24])
+	by bosmailscan12.eigbox.net with esmtp (Exim)
+	id 1UT3ho-0005Cp-Qy
+	for netdev@vger.kernel.org; Fri, 19 Apr 2013 01:17:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If e1000_get_hw_semaphore_82574() succeed, it acquires swflag_mutex,
-otherwise it does not. But the returned value of
-e1000_get_hw_semaphore_82574() is ignored, so unlocking of swflag_mutex
-happens anyway.
+Hi Steffen,
 
-The patch fixes the issue by breaking reset if MIC ownership is not acquired.
+> At least in the cadence IP core on the Xilinx Zynq SoC the TCOMP/RCOMP flags
+> are not auto-cleaned. As these flags are evaluated, they need to be cleaned.
 
-Found by Linux Driver Verification project (linuxtesting.org).
+This patch does not work for at least the AVR32 platform. Both RCOMP/RCOMP
+are cleared by *reading* the ISR and writing them would be fatal.
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/ethernet/intel/e1000e/82571.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+Could you tell me the version of the macb of Xilinx Zynq?
 
-diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index 2faffbd..a6bd80e 100644
---- a/drivers/net/ethernet/intel/e1000e/82571.c
-+++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -1003,8 +1003,10 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
- 	default:
- 		break;
- 	}
--	if (ret_val)
-+	if (ret_val) {
- 		e_dbg("Cannot acquire MDIO ownership\n");
-+		return ret_val;
-+	}
- 
- 	ctrl = er32(CTRL);
- 
--- 
-1.7.9.5
+    u32 version = (macb_readl(bp, MID) & ((1 << MACB_REV_SIZE) - 1))
+            | MACB_GREGS_VERSION;
+
+On an AP7000 it reads as 0x0000010D
+
+I am thinking of making a patch like:
+
+    if (bp->version >= xxx)
+        macb_writel(bp, ISR, MACB_BIT(TCOMP));
+
+    if (bp->version >= xxx)
+        macb_writel(bp, ISR, MACB_BIT(RCOMP));
+
+which would make it work on both platforms.
 
 
-------------------------------------------------------------------------------
-Precog is a next-generation analytics platform capable of advanced
-analytics on semi-structured data. The platform includes APIs for building
-apps and a phenomenal toolset for data science. Developers can use
-our toolset for easy data analysis & visualization. Get a free account!
-http://www2.precog.com/precogplatform/slashdotnewsletter
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Hein
