@@ -1,56 +1,35 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC 1/2] netmap: infrastructure (in staging)
-Date: Fri, 19 Apr 2013 13:49:25 -0700
-Message-ID: <20130419134925.4981bdfc@nehalam.linuxnetplumber.net>
-References: <20130419.155859.1092595631804890737.davem@davemloft.net>
-	<20130419131632.31fce894@nehalam.linuxnetplumber.net>
-	<1366403483.16391.59.camel@edumazet-glaptop>
-	<20130419.163831.1434224426107133131.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] hyperv: Fix a compiler warning in netvsc_send()
+Date: Fri, 19 Apr 2013 16:50:06 -0400 (EDT)
+Message-ID: <20130419.165006.1200833792933507239.davem@davemloft.net>
+References: <1366151150-14859-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, gregkh@linuxfoundation.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:63275 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754374Ab3DSUt5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 16:49:57 -0400
-Received: by mail-pd0-f169.google.com with SMTP id 14so603615pdc.14
-        for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 13:49:57 -0700 (PDT)
-In-Reply-To: <20130419.163831.1434224426107133131.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
+	jasowang@redhat.com, linux-kernel@vger.kernel.org,
+	devel@linuxdriverproject.org
+To: haiyangz@microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1366151150-14859-1-git-send-email-haiyangz@microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 19 Apr 2013 16:38:31 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Tue, 16 Apr 2013 15:25:50 -0700
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 19 Apr 2013 13:31:23 -0700
+> Fixed: warning: cast from pointer to integer of different size
 > 
-> > On Fri, 2013-04-19 at 13:16 -0700, Stephen Hemminger wrote:
-> > 
-> >> I can not get line rate output with pktgen on existing kernels today.
-> > 
-> > I have no trouble saturating at line rate with pktgen, and using
-> > multiqueue NIC.
+> The Hyper-V hosts always use 64 bit request id. The guests can have 32 or 64
+> bit pointers which equal to the ulong type size. So we cast it to ulong type.
+> And, assigning 32bit integer to 64 bit variable works fine.
 > 
-> +1
+> The VMBus returns the same id in the completion packet. But the value has no
+> effect on the host side.
 > 
-> > I really hope we do not use pktgen as an argument for having netmap in
-> > the kernel.
-> 
-> Me too.
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-I get 7Mpps (single queue) with ixgbe and pktgen.
-Easily hit 14.8 Mpps (single queue) with netmap.
-
-The real problem is that DPDK and netmap can do multiple packets per request
-to driver. Right now their is one PCI bus transaction per packet with current
-driver model.
-
-But, I am not convinced that netmap is the right solution either, this is purely
-an RFC to get some attention on doing better at small packet performance.
-If you look at netmap right now, it has really ugly BSD wrapper code
-and does lots of assumptions and bypassing of network stack; ie. fugly.
+Such build warning fixes are not appropriate for 'net' at this time, and
+this patch does not apply to 'net-next', so I'm dropping this entirely.
