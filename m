@@ -1,301 +1,147 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: [PATCH net-next v4 1/1] net: fec: Enable imx6 enet checksum acceleration.
-Date: Fri, 19 Apr 2013 16:10:15 +0100
-Message-ID: <1366384215-21441-1-git-send-email-jim_baxter@mentor.com>
-References: <Jim Baxter <jim_baxter@mentor.com>
-Cc: Fabio Estevam <fabio.estevam@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>,
-	Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tcp: call tcp_replace_ts_recent() from tcp_ack()
+Date: Fri, 19 Apr 2013 08:13:10 -0700
+Message-ID: <1366384390.16391.17.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:33767 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030512Ab3DSPK3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 11:10:29 -0400
-In-Reply-To: <Jim Baxter <jim_baxter@mentor.com>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:61945 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030732Ab3DSPNN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 11:13:13 -0400
+Received: by mail-pb0-f51.google.com with SMTP id rr4so76590pbb.24
+        for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 08:13:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enables hardware generation of IP header and
-protocol specific checksums for transmitted
-packets.
+From: Eric Dumazet <edumazet@google.com>
 
-Enabled hardware discarding of received packets with
-invalid IP header or protocol specific checksums.
+commit bd090dfc634d (tcp: tcp_replace_ts_recent() should not be called
+from tcp_validate_incoming()) introduced a TS ecr bug in slow path
+processing.
 
-The feature is enabled by default but can be
-enabled/disabled by ethtool.
+1 A > B P. 1:10001(10000) ack 1 <nop,nop,TS val 1001 ecr 200>
+2 B < A . 1:1(0) ack 1 win 257 <sack 9001:10001,TS val 300 ecr 1001>
+3 A > B . 1:1001(1000) ack 1 win 227 <nop,nop,TS val 1002 ecr 200>
+4 A > B . 1001:2001(1000) ack 1 win 227 <nop,nop,TS val 1002 ecr 200>
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
-Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
+(ecr 200 should be ecr 300 in packets 3 & 4)
+
+Problem is tcp_ack() can trigger send of new packets (retransmits),
+reflecting the prior TSval, instead of the TSval contained in the
+currently processed incoming packet.
+
+Fix this by calling tcp_replace_ts_recent() from tcp_ack() after the
+checks, but before the actions.
+
+Reported-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
 ---
+Google-Bug-Id: 8660415
 
-- Added IPV6 support.
-- Simplified checksum function to remove unnecessary IP header checksum
-generation and only update the protocol checksum in
-skb->csum_start + skb->csum_offset.
-- fec_enet_clear_csum() now returns error value which is checked by
-fec_enet_start_xmit() which returns NETDEV_TX_BUSY.
-- Simplified fec_set_features() by removing unrequired variables.
+ net/ipv4/tcp_input.c |   56 +++++++++++++++++++++--------------------
+ 1 file changed, 29 insertions(+), 27 deletions(-)
 
-
- drivers/net/ethernet/freescale/fec.h      |   10 ++-
- drivers/net/ethernet/freescale/fec_main.c |  106 ++++++++++++++++++++++++++++-
- 2 files changed, 112 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index eb43729..d44f65b 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -52,6 +52,7 @@
- #define FEC_R_FIFO_RSEM		0x194 /* Receive FIFO section empty threshold */
- #define FEC_R_FIFO_RAEM		0x198 /* Receive FIFO almost empty threshold */
- #define FEC_R_FIFO_RAFL		0x19c /* Receive FIFO almost full threshold */
-+#define FEC_RACC		0x1C4 /* Receive Accelerator function */
- #define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
- #define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 3bd55ba..7e9d37d 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -113,6 +113,7 @@ int sysctl_tcp_early_retrans __read_mostly = 2;
+ #define FLAG_DSACKING_ACK	0x800 /* SACK blocks contained D-SACK info */
+ #define FLAG_NONHEAD_RETRANS_ACKED	0x1000 /* Non-head rexmitted data was ACKed */
+ #define FLAG_SACK_RENEGING	0x2000 /* snd_una advanced to a sacked seq */
++#define FLAG_UPDATE_TS_RECENT	0x4000 /* tcp_replace_ts_recent() */
  
-@@ -164,9 +165,11 @@ struct bufdesc_ex {
- #define BD_ENET_TX_CSL          ((ushort)0x0001)
- #define BD_ENET_TX_STATS        ((ushort)0x03ff)        /* All status bits */
- 
--/*enhanced buffer desciptor control/status used by Ethernet transmit*/
-+/*enhanced buffer descriptor control/status used by Ethernet transmit*/
- #define BD_ENET_TX_INT          0x40000000
- #define BD_ENET_TX_TS           0x20000000
-+#define BD_ENET_TX_PINS         0x10000000
-+#define BD_ENET_TX_IINS         0x08000000
- 
- 
- /* This device has up to three irqs on some platforms */
-@@ -190,6 +193,10 @@ struct bufdesc_ex {
- 
- #define BD_ENET_RX_INT          0x00800000
- #define BD_ENET_RX_PTP          ((ushort)0x0400)
-+#define BD_ENET_RX_ICE		0x00000020
-+#define BD_ENET_RX_PCR		0x00000010
-+#define FLAG_RX_CSUM_ENABLED	(BD_ENET_RX_ICE | BD_ENET_RX_PCR)
-+#define FLAG_RX_CSUM_ERROR	(BD_ENET_RX_ICE | BD_ENET_RX_PCR)
- 
- /* The FEC buffer descriptors track the ring buffers.  The rx_bd_base and
-  * tx_bd_base always point to the base of the buffer descriptors.  The
-@@ -247,6 +254,7 @@ struct fec_enet_private {
- 	int	pause_flag;
- 
- 	struct	napi_struct napi;
-+	int	csum_flags;
- 
- 	struct ptp_clock *ptp_clock;
- 	struct ptp_clock_info ptp_caps;
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index d7657a4..d6694fc 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -34,6 +34,12 @@
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/skbuff.h>
-+#include <linux/in.h>
-+#include <linux/ip.h>
-+#include <net/ip.h>
-+#include <linux/tcp.h>
-+#include <linux/udp.h>
-+#include <linux/icmp.h>
- #include <linux/spinlock.h>
- #include <linux/workqueue.h>
- #include <linux/bitops.h>
-@@ -181,6 +187,11 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
- #define PKT_MINBUF_SIZE		64
- #define PKT_MAXBLR_SIZE		1520
- 
-+/* FEC receive acceleration */
-+#define FEC_RACC_IPDIS		(1 << 1)
-+#define FEC_RACC_PRODIS		(1 << 2)
-+#define FEC_RACC_OPTIONS	(FEC_RACC_IPDIS | FEC_RACC_PRODIS)
-+
- /*
-  * The 5270/5271/5280/5282/532x RX control register also contains maximum frame
-  * size bits. Other FEC hardware does not, so we need to take that into
-@@ -241,6 +252,21 @@ static void *swap_buffer(void *bufaddr, int len)
- 	return bufaddr;
+ #define FLAG_ACKED		(FLAG_DATA_ACKED|FLAG_SYN_ACKED)
+ #define FLAG_NOT_DUP		(FLAG_DATA|FLAG_WIN_UPDATE|FLAG_ACKED)
+@@ -3564,6 +3565,27 @@ static void tcp_send_challenge_ack(struct sock *sk)
+ 	}
  }
  
-+static int
-+fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
++static void tcp_store_ts_recent(struct tcp_sock *tp)
 +{
-+	/* Only run for packets requiring a checksum. */
-+	if (skb->ip_summed != CHECKSUM_PARTIAL)
-+		return 0;
-+
-+	if (unlikely(skb_cow_head(skb, 0)))
-+		return -1;
-+
-+	*(__sum16 *)(skb->head + skb->csum_start + skb->csum_offset) = 0;
-+
-+	return 0;
++	tp->rx_opt.ts_recent = tp->rx_opt.rcv_tsval;
++	tp->rx_opt.ts_recent_stamp = get_seconds();
 +}
 +
- static netdev_tx_t
- fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- {
-@@ -253,7 +279,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	unsigned int index;
- 
- 	if (!fep->link) {
--		/* Link is down or autonegotiation is in progress. */
-+		/* Link is down or auto-negotiation is in progress. */
- 		return NETDEV_TX_BUSY;
- 	}
- 
-@@ -270,6 +296,10 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		return NETDEV_TX_BUSY;
- 	}
- 
-+	/* HW acceleration for ICMP TCP UDP checksum */
-+	if (fec_enet_clear_csum(skb, ndev))
-+		return NETDEV_TX_BUSY;
-+
- 	/* Clear all of the status flags */
- 	status &= ~BD_ENET_TX_STATS;
- 
-@@ -326,8 +356,14 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 			ebdp->cbd_esc = (BD_ENET_TX_TS | BD_ENET_TX_INT);
- 			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
- 		} else {
--
- 			ebdp->cbd_esc = BD_ENET_TX_INT;
-+
-+			/* Enable protocol checksum flags
-+			 * We do not bother with the IP Checksum bits as they
-+			 * are done by the kernel
-+			 */
-+			if (skb->ip_summed == CHECKSUM_PARTIAL)
-+				ebdp->cbd_esc |= BD_ENET_TX_PINS;
- 		}
- 	}
- 	/* If this was the last BD in the ring, start at the beginning again. */
-@@ -407,6 +443,7 @@ fec_restart(struct net_device *ndev, int duplex)
- 	const struct platform_device_id *id_entry =
- 				platform_get_device_id(fep->pdev);
- 	int i;
-+	u32 val;
- 	u32 temp_mac[2];
- 	u32 rcntl = OPT_FRAME_SIZE | 0x04;
- 	u32 ecntl = 0x2; /* ETHEREN */
-@@ -473,6 +510,14 @@ fec_restart(struct net_device *ndev, int duplex)
- 	/* Set MII speed */
- 	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
- 
-+	/* set RX checksum */
-+	val = readl(fep->hwp + FEC_RACC);
-+	if (fep->csum_flags & FLAG_RX_CSUM_ENABLED)
-+		val |= FEC_RACC_OPTIONS;
-+	else
-+		val &= ~FEC_RACC_OPTIONS;
-+	writel(val, fep->hwp + FEC_RACC);
-+
- 	/*
- 	 * The phy interface and speed need to get configured
- 	 * differently on enet-mac.
-@@ -530,7 +575,7 @@ fec_restart(struct net_device *ndev, int duplex)
- 	     fep->phy_dev && fep->phy_dev->pause)) {
- 		rcntl |= FEC_ENET_FCE;
- 
--		/* set FIFO thresh hold parameter to reduce overrun */
-+		/* set FIFO threshold parameter to reduce overrun */
- 		writel(FEC_ENET_RSEM_V, fep->hwp + FEC_R_FIFO_RSEM);
- 		writel(FEC_ENET_RSFL_V, fep->hwp + FEC_R_FIFO_RSFL);
- 		writel(FEC_ENET_RAEM_V, fep->hwp + FEC_R_FIFO_RAEM);
-@@ -818,6 +863,18 @@ fec_enet_rx(struct net_device *ndev, int budget)
- 				spin_unlock_irqrestore(&fep->tmreg_lock, flags);
- 			}
- 
-+			if (fep->bufdesc_ex &&
-+				(fep->csum_flags & FLAG_RX_CSUM_ENABLED)) {
-+				struct bufdesc_ex *ebdp =
-+					(struct bufdesc_ex *)bdp;
-+				if (!(ebdp->cbd_esc & FLAG_RX_CSUM_ERROR)) {
-+					/* don't check it */
-+					skb->ip_summed = CHECKSUM_UNNECESSARY;
-+				} else {
-+					skb_checksum_none_assert(skb);
-+				}
-+			}
-+
- 			if (!skb_defer_rx_timestamp(skb))
- 				napi_gro_receive(&fep->napi, skb);
- 		}
-@@ -1439,6 +1496,14 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
- 		if (fep->bufdesc_ex) {
- 			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
- 			ebdp->cbd_esc = BD_ENET_TX_INT;
-+
-+			/* Enable protocol checksum flags
-+			 * We do not bother with the IP Checksum bits as they
-+			 * are done by the kernel
-+			 */
-+			if (ndev->features &
-+					(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM))
-+				ebdp->cbd_esc |= BD_ENET_TX_PINS;
- 		}
- 
- 		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-@@ -1618,6 +1683,33 @@ static void fec_poll_controller(struct net_device *dev)
- }
- #endif
- 
-+static int fec_set_features(struct net_device *netdev,
-+	netdev_features_t features)
++static void tcp_replace_ts_recent(struct tcp_sock *tp, u32 seq)
 +{
-+	struct fec_enet_private *fep = netdev_priv(netdev);
-+	netdev_features_t changed = features ^ netdev->features;
++	if (tp->rx_opt.saw_tstamp && !after(seq, tp->rcv_wup)) {
++		/* PAWS bug workaround wrt. ACK frames, the PAWS discard
++		 * extra check below makes sure this can only happen
++		 * for pure ACK frames.  -DaveM
++		 *
++		 * Not only, also it occurs for expired timestamps.
++		 */
 +
-+	netdev->features = features;
-+
-+	/* Receive checksum has been changed */
-+	if (changed & NETIF_F_RXCSUM) {
-+		if (features & NETIF_F_RXCSUM)
-+			fep->csum_flags |= FLAG_RX_CSUM_ENABLED;
-+		else
-+			fep->csum_flags &= ~FLAG_RX_CSUM_ENABLED;
-+
-+		if (netif_running(netdev)) {
-+			fec_stop(netdev);
-+			fec_restart(netdev, fep->phy_dev->duplex);
-+			netif_wake_queue(netdev);
-+		} else {
-+			fec_restart(netdev, fep->phy_dev->duplex);
-+		}
++		if (tcp_paws_check(&tp->rx_opt, 0))
++			tcp_store_ts_recent(tp);
 +	}
-+
-+	return 0;
 +}
 +
- static const struct net_device_ops fec_netdev_ops = {
- 	.ndo_open		= fec_enet_open,
- 	.ndo_stop		= fec_enet_close,
-@@ -1631,6 +1723,7 @@ static const struct net_device_ops fec_netdev_ops = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= fec_poll_controller,
- #endif
-+	.ndo_set_features	= fec_set_features,
- };
+ /* This routine deals with incoming acks, but not outgoing ones. */
+ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ {
+@@ -3607,6 +3629,12 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	prior_fackets = tp->fackets_out;
+ 	prior_in_flight = tcp_packets_in_flight(tp);
  
-  /*
-@@ -1672,6 +1765,13 @@ static int fec_enet_init(struct net_device *ndev)
- 	writel(FEC_RX_DISABLED_IMASK, fep->hwp + FEC_IMASK);
- 	netif_napi_add(ndev, &fep->napi, fec_enet_rx_napi, FEC_NAPI_WEIGHT);
- 
-+	/* enable hw accelerator */
-+	ndev->features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM
-+			| NETIF_F_RXCSUM);
-+	ndev->hw_features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM
-+			| NETIF_F_RXCSUM);
-+	fep->csum_flags |= FLAG_RX_CSUM_ENABLED;
++	/* ts_recent update must be made after we are sure that the packet
++	 * is in window.
++	 */
++	if (flag & FLAG_UPDATE_TS_RECENT)
++		tcp_replace_ts_recent(tp, TCP_SKB_CB(skb)->seq);
 +
- 	fec_restart(ndev, 0);
+ 	if (!(flag & FLAG_SLOWPATH) && after(ack, prior_snd_una)) {
+ 		/* Window is constant, pure forward advance.
+ 		 * No more checks are required.
+@@ -3927,27 +3955,6 @@ const u8 *tcp_parse_md5sig_option(const struct tcphdr *th)
+ EXPORT_SYMBOL(tcp_parse_md5sig_option);
+ #endif
  
- 	return 0;
--- 
-1.7.10.4
+-static inline void tcp_store_ts_recent(struct tcp_sock *tp)
+-{
+-	tp->rx_opt.ts_recent = tp->rx_opt.rcv_tsval;
+-	tp->rx_opt.ts_recent_stamp = get_seconds();
+-}
+-
+-static inline void tcp_replace_ts_recent(struct tcp_sock *tp, u32 seq)
+-{
+-	if (tp->rx_opt.saw_tstamp && !after(seq, tp->rcv_wup)) {
+-		/* PAWS bug workaround wrt. ACK frames, the PAWS discard
+-		 * extra check below makes sure this can only happen
+-		 * for pure ACK frames.  -DaveM
+-		 *
+-		 * Not only, also it occurs for expired timestamps.
+-		 */
+-
+-		if (tcp_paws_check(&tp->rx_opt, 0))
+-			tcp_store_ts_recent(tp);
+-	}
+-}
+-
+ /* Sorry, PAWS as specified is broken wrt. pure-ACKs -DaveM
+  *
+  * It is not fatal. If this ACK does _not_ change critical state (seqs, window)
+@@ -5543,14 +5550,9 @@ slow_path:
+ 		return 0;
+ 
+ step5:
+-	if (tcp_ack(sk, skb, FLAG_SLOWPATH) < 0)
++	if (tcp_ack(sk, skb, FLAG_SLOWPATH | FLAG_UPDATE_TS_RECENT) < 0)
+ 		goto discard;
+ 
+-	/* ts_recent update must be made after we are sure that the packet
+-	 * is in window.
+-	 */
+-	tcp_replace_ts_recent(tp, TCP_SKB_CB(skb)->seq);
+-
+ 	tcp_rcv_rtt_measure_ts(sk, skb);
+ 
+ 	/* Process urgent data. */
