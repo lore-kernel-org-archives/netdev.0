@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] hyperv: Fix a compiler warning in netvsc_send()
-Date: Fri, 19 Apr 2013 16:50:06 -0400 (EDT)
-Message-ID: <20130419.165006.1200833792933507239.davem@davemloft.net>
-References: <1366151150-14859-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH net-next 1/2] net: socket: move ktime2ts to ktime
+ header api
+Date: Fri, 19 Apr 2013 16:50:39 -0400 (EDT)
+Message-ID: <20130419.165039.358502902228449717.davem@davemloft.net>
+References: <1366111751-14886-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
-	jasowang@redhat.com, linux-kernel@vger.kernel.org,
-	devel@linuxdriverproject.org
-To: haiyangz@microsoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1366151150-14859-1-git-send-email-haiyangz@microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, willemb@google.com, hawk@diku.dk
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47828 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932333Ab3DSUun (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 16:50:43 -0400
+In-Reply-To: <1366111751-14886-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Tue, 16 Apr 2013 15:25:50 -0700
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Tue, 16 Apr 2013 13:29:10 +0200
 
-> Fixed: warning: cast from pointer to integer of different size
+> Currently, ktime2ts is a small helper function that is only used in
+> net/socket.c. Move this helper into the ktime API as a small inline
+> function, so that i) it's maintained together with ktime routines,
+> and ii) also other files can make use of it. The function is named
+> ktime_to_timespec_cond() and placed into the generic part of ktime,
+> since we internally make use of ktime_to_timespec(). ktime_to_timespec()
+> itself does not check the ktime variable for zero, hence, we name
+> this function ktime_to_timespec_cond() for only a conditional
+> conversion, and adapt its users to it.
 > 
-> The Hyper-V hosts always use 64 bit request id. The guests can have 32 or 64
-> bit pointers which equal to the ulong type size. So we cast it to ulong type.
-> And, assigning 32bit integer to 64 bit variable works fine.
-> 
-> The VMBus returns the same id in the completion packet. But the value has no
-> effect on the host side.
-> 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Such build warning fixes are not appropriate for 'net' at this time, and
-this patch does not apply to 'net-next', so I'm dropping this entirely.
+Applied.
