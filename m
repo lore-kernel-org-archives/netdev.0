@@ -1,132 +1,81 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: [PATCH v2 net-next 2/4] bnx2x: add additional regions for
- CRC memory test
-Date: Fri, 19 Apr 2013 21:44:46 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F20C0A5E3@SJEXCHMB06.corp.ad.broadcom.com>
-References: <1366280830-26034-1-git-send-email-dmitry@broadcom.com>
- <1366280830-26034-3-git-send-email-dmitry@broadcom.com>
- <20130418231515.GB10380@electric-eye.fr.zoreil.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH v2 net-next 0/6] Allow bridge to function in
+ non-promisc mode
+Date: Fri, 19 Apr 2013 17:48:02 -0400
+Message-ID: <5171BB92.2050003@redhat.com>
+References: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
+	<20130419135800.221bea5a@nehalam.linuxnetplumber.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Francois Romieu" <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2533 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933393Ab3DSVpE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 17:45:04 -0400
-In-Reply-To: <20130418231515.GB10380@electric-eye.fr.zoreil.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org, mst@redhat.com
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130419135800.221bea5a@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Francois Romieu [mailto:romieu@fr.zoreil.com]
-> Sent: Friday, April 19, 2013 2:15 AM
-> To: Dmitry Kravkov
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; Eilon Greenstein
-> Subject: Re: [PATCH v2 net-next 2/4] bnx2x: add additional regions for CRC memory test
-> 
-> Dmitry Kravkov <dmitry@broadcom.com> :
-> [...]
-> > diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> > index e7e0ac1..65ac870 100644
-> > --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> > +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> > @@ -2593,14 +2593,138 @@ static int bnx2x_test_ext_loopback(struct bnx2x *bp)
-> >  	return rc;
-> >  }
-> >
-> > +struct code_entry {
-> > +	u32 sram_start_addr;
-> > +	u32 code_attribute;
-> > +#define CODE_IMAGE_TYPE_MASK			0xf0800003
-> > +#define CODE_IMAGE_VNTAG_PROFILES_DATA		0xd0000003
-> > +#define CODE_IMAGE_LENGTH_MASK			0x007ffffc
-> > +#define CODE_IMAGE_TYPE_EXTENDED_DIR		0xe0000000
-> > +	u32 nvm_start_addr;
-> > +};
-> > +
-> > +#define CODE_ENTRY_MAX			16
-> > +#define CODE_ENTRY_EXTENDED_DIR_IDX	15
-> > +#define MAX_IMAGES_IN_EXTENDED_DIR	64
-> > +
-> >  #define CRC32_RESIDUAL			0xdebb20e3
-> > +#define CRC_BUFF_SIZE			256
-> > +
-> > +static int bnx2x_nvram_crc(struct bnx2x *bp,
-> > +			   int offset,
-> > +			   int size,
-> > +			   u8 *buff)
-> 
-> static int bnx2x_nvram_crc(struct bnx2x *bp, int offset, int size, u8 *buff)
-> 
-> > +{
-> > +	u32 crc = ~0;
-> > +	int done = 0;
-> > +
-> > +	DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
-> > +	   "NVRAM CRC from 0x%08x to 0x%08x\n", offset, offset + size);
-> > +
-> > +	while (done < size) {
-> > +		int count = min_t(int, size - done, CRC_BUFF_SIZE);
-> > +
-> > +		if (bnx2x_nvram_read(bp, offset + done, buff, count))
-> > +			return -EIO;
-> 
-> You may propagate the status code from bnx2x_nvram_read.
-> 
-> > +		crc = crc32_le(crc, buff, count);
-> > +		done += count;
-> > +	}
-> > +
-> > +	if (crc != CRC32_RESIDUAL)
-> > +		return -EINVAL;
-> > +
-> > +	return 0;
-> 
-> A ternary operator could be used. Your choice of style.
-> 
-> > +}
-> > +
-> > +static int bnx2x_test_nvram_dir(struct bnx2x *bp,
-> > +				struct code_entry *entry,
-> > +				u8 *buff)
-> > +{
-> > +	size_t size = entry->code_attribute & CODE_IMAGE_LENGTH_MASK;
-> > +	u32 type = entry->code_attribute & CODE_IMAGE_TYPE_MASK;
-> > +	int rc = 0;
-> 
-> Useless init.
-To be fixed
+On 04/19/2013 04:58 PM, Stephen Hemminger wrote:
+> On Fri, 19 Apr 2013 16:52:44 -0400
+> Vlad Yasevich <vyasevic@redhat.com> wrote:
+>
+>> This series is an almost complete rework of the prior attempt
+>> to make the bridge function in non-promisc mode.  In this series
+>> the "promiscuity" of an interface is dynamically determined and
+>> the interface may transition from/to promiscuous mode based on
+>> bridge configuration.
+>>
+>> The series keeps an idea of an "uplink" port.  That is still user
+>> designated.
+>> The series also adds a concept of "dynamic" bridge port.  This is
+>> the default state of the port and means that the user has not
+>> specified any static FDBs for that port.
+>> Once a user has added a static FDB entry to port and also specified
+>> an "uplink" flag for that FDB, the mac address from that FDB is
+>> added to the bridge hw address list and synched down to uplinks.
+>> "Uplinks" are always considered dynamic ports even if a static entry
+>> has been added for them.
+>> Promiscuity is determined by the number of dynamic ports.  If there
+>> are no dynamic ports (i.e all ports have static FDBs set), then we
+>> know all the neighbors and can switch promisc off on all of the ports.
+>> If we have only 1 dynamic port and its an uplink, we can synch all
+>> static hw addresses to this port and mark it non-promisc.
+>> If we have more then 1 dynamic port, then all ports have to be
+>> promiscuouse.
+>> This is the algorith that Michael Tsirkin proposed earlier.
+>>
+>
+> It seems that this bridge with uplink port is just a flavor of macvlan.
+> The only argument you made for not using macvlan is that user scripts
+> are expecting bridge API for setup.  Which sounds a lot like the original
+> OVS fake-bridge which was dropped when merged upstream.
+>
+>
 
-> > +
-> > +	/* Zero-length images and AFEX profiles do not have CRC */
-> > +	if (size == 0 || type == CODE_IMAGE_VNTAG_PROFILES_DATA)
-> > +		return 0;
-> > +
-> > +	rc = bnx2x_nvram_crc(bp, entry->nvm_start_addr, size, buff);
-> > +	if (rc == -EIO)
-> > +		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
-> > +		   "Unable to read image %x\n", type);
-> > +	else if (rc)
-> > +		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
-> > +		   "image %x has wrong crc value\n", type);
-> 
-> It's a bit ugly.
-> 
-> bnx2x_nvram_crc perfectly knowns if a read failure or a crc problem
-> happened. It can print messages and you won't need to analyze the
-> failure status. You may still print some different message in its
-> callers (here and bnx2x_test_nvram_tbl).
-I will fix to common mesaage for type only 
-> 
-> I must stop here, sorry.
-Thank you!!
+No, macvlans have limitations that are not trivial to solve.  It isn't a 
+user script issue.   I am not familiar with OVS fake-bridge, but from 
+what little I've found about it seems tied to handling for specific 
+vlans.  I don't see how these two things are similar.
 
-> --
-> Ueimor
+A bridge with just an Uplink defined and no other config, is still
+just a bridge and doesn't do anything special at all.
+Once a user adds a static FDB for say a VM that's connected to the
+bridge, that's when the new code tries to do something.  It will
+add the mac of the VM to the bridge, synch it to the uplink and see
+if it can turn off promisc on the uplink.  If it can, great!  We win
+in that we now have to look at a lot less traffic.  If not, then there 
+is no gain and no loss.
+
+I can see how you could think that it is macvlan-like, but it's still
+a bridge.
+
+-vlad
