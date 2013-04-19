@@ -1,38 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH] net: Add .gitignore to networking selftests directory.
-Date: Fri, 19 Apr 2013 16:36:30 -0400 (EDT)
-Message-ID: <20130419.163630.1326166655377956879.davem@davemloft.net>
+Subject: Re: [RFC 1/2] netmap: infrastructure (in staging)
+Date: Fri, 19 Apr 2013 16:37:21 -0400 (EDT)
+Message-ID: <20130419.163721.2073959342480360942.davem@davemloft.net>
+References: <20130419194537.GA1633@kroah.com>
+	<20130419.155859.1092595631804890737.davem@davemloft.net>
+	<20130419131632.31fce894@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47616 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47622 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753777Ab3DSUgd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 16:36:33 -0400
-Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
-	(Authenticated sender: davem-davemloft)
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 6FC7E581285
-	for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 13:36:33 -0700 (PDT)
+	with ESMTP id S1753804Ab3DSUhW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 16:37:22 -0400
+In-Reply-To: <20130419131632.31fce894@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri, 19 Apr 2013 13:16:32 -0700
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- tools/testing/selftests/net/.gitignore | 3 +++
- 1 file changed, 3 insertions(+)
- create mode 100644 tools/testing/selftests/net/.gitignore
+> I can not get line rate output with pktgen on existing kernels today.
 
-diff --git a/tools/testing/selftests/net/.gitignore b/tools/testing/selftests/net/.gitignore
-new file mode 100644
-index 0000000..0032662
---- /dev/null
-+++ b/tools/testing/selftests/net/.gitignore
-@@ -0,0 +1,3 @@
-+socket
-+psock_fanout
-+psock_tpacket
--- 
-1.7.11.7
+Something is incredibly wrong if this is the case.
