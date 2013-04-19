@@ -1,125 +1,598 @@
 From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: [PATCH net-next 7/8] qlcnic: Support polling for mailbox events.
-Date: Fri, 19 Apr 2013 13:01:14 -0400
-Message-ID: <1366390875-24570-8-git-send-email-rajesh.borundia@qlogic.com>
+Subject: [PATCH net-next 2/8] qlcnic: VF FLR implementation.
+Date: Fri, 19 Apr 2013 13:01:09 -0400
+Message-ID: <1366390875-24570-3-git-send-email-rajesh.borundia@qlogic.com>
 References: <1366390875-24570-1-git-send-email-rajesh.borundia@qlogic.com>
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
+	Manish Chopra <manish.chopra@qlogic.com>,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:12944 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:40568 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752575Ab3DSRZG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Apr 2013 13:25:06 -0400
+	id S1751211Ab3DSRZB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Apr 2013 13:25:01 -0400
 In-Reply-To: <1366390875-24570-1-git-send-email-rajesh.borundia@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o When mailbox interrupt is disabled PF should be
-  able to process request from VF. Enable polling
-  for such cases.
+o FLR from Hypervisor - When hypervisor issues a VF FLR request,
+  adapter notifies the parent PF driver of the FLR request for PF
+  driver to perform any cleanup on behalf of that VF.
+o FLR from VF Driver - VF driver may initiate a VF FLR request,
+  if VF state needs to be cleaned up before a re-initialization.
+  VF re-initialization during kdump is an example.
+o PF driver cleans up all resources allocated on behalf of a  VF,
+  on VF FLR notifications from the adapter or from the VF driver.
 
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    2 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   29 ++++++++++++++++++++
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    2 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    5 +++-
- 4 files changed, 37 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |   18 ++
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |   90 ++++++++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |  229 ++++++++++++++++++--
+ 4 files changed, 320 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index fef2f4b..86eaa68 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -919,6 +919,7 @@ struct qlcnic_ipaddr {
- #define __QLCNIC_ELB_INPROGRESS		8
- #define __QLCNIC_SRIOV_ENABLE		10
- #define __QLCNIC_SRIOV_CAPABLE		11
-+#define __QLCNIC_MBX_POLL_ENABLE	12
- 
- #define QLCNIC_INTERRUPT_TEST		1
- #define QLCNIC_LOOPBACK_TEST		2
-@@ -1012,6 +1013,7 @@ struct qlcnic_adapter {
- 	struct workqueue_struct *qlcnic_wq;
- 	struct delayed_work fw_work;
- 	struct delayed_work idc_aen_work;
-+	struct delayed_work mbx_poll_work;
- 
- 	struct qlcnic_filter_hash fhash;
- 	struct qlcnic_filter_hash rx_fhash;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index f1d06d2..32a95c1 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -926,6 +926,35 @@ static void qlcnic_83xx_process_aen(struct qlcnic_adapter *adapter)
- 	spin_unlock_irqrestore(&ahw->mbx_lock, flags);
- }
- 
-+static void qlcnic_83xx_mbx_poll_work(struct work_struct *work)
-+{
-+	struct qlcnic_adapter *adapter;
-+
-+	adapter = container_of(work, struct qlcnic_adapter, mbx_poll_work.work);
-+
-+	if (!test_bit(__QLCNIC_MBX_POLL_ENABLE, &adapter->state))
-+		return;
-+
-+	qlcnic_83xx_process_aen(adapter);
-+	queue_delayed_work(adapter->qlcnic_wq, &adapter->mbx_poll_work,
-+			   (HZ / 10));
-+}
-+
-+void qlcnic_83xx_enable_mbx_poll(struct qlcnic_adapter *adapter)
-+{
-+	if (test_and_set_bit(__QLCNIC_MBX_POLL_ENABLE, &adapter->state))
-+		return;
-+
-+	INIT_DELAYED_WORK(&adapter->mbx_poll_work, qlcnic_83xx_mbx_poll_work);
-+}
-+
-+void qlcnic_83xx_disable_mbx_poll(struct qlcnic_adapter *adapter)
-+{
-+	if (!test_and_clear_bit(__QLCNIC_MBX_POLL_ENABLE, &adapter->state))
-+		return;
-+	cancel_delayed_work_sync(&adapter->mbx_poll_work);
-+}
-+
- static int qlcnic_83xx_add_rings(struct qlcnic_adapter *adapter)
- {
- 	int index, i, err, sds_mbx_size;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index 73070bc..4be411c 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -621,4 +621,6 @@ int qlcnic_83xx_enable_flash_write(struct qlcnic_adapter *);
- int qlcnic_83xx_disable_flash_write(struct qlcnic_adapter *);
- u32 qlcnic_83xx_mac_rcode(struct qlcnic_adapter *);
- u32 qlcnic_83xx_mbx_poll(struct qlcnic_adapter *);
-+void qlcnic_83xx_enable_mbx_poll(struct qlcnic_adapter *);
-+void qlcnic_83xx_disable_mbx_poll(struct qlcnic_adapter *);
- #endif
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 9b76881..f869bab 100644
+index 0d00b2b..101e607 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -3306,8 +3306,10 @@ int qlcnic_set_max_rss(struct qlcnic_adapter *adapter, u8 data, size_t len)
+@@ -2112,6 +2112,7 @@ static int __qlcnic_shutdown(struct pci_dev *pdev)
+ 	if (netif_running(netdev))
+ 		qlcnic_down(adapter, netdev);
  
- 	qlcnic_detach(adapter);
++	qlcnic_sriov_cleanup(adapter);
+ 	if (qlcnic_82xx_check(adapter))
+ 		qlcnic_clr_all_drv_state(adapter, 0);
  
--	if (qlcnic_83xx_check(adapter))
-+	if (qlcnic_83xx_check(adapter)) {
- 		qlcnic_83xx_free_mbx_intr(adapter);
-+		qlcnic_83xx_enable_mbx_poll(adapter);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
+index b476eba..7fda5d4 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
+@@ -91,6 +91,8 @@ enum qlcnic_vf_state {
+ 	QLC_BC_VF_RECV,
+ 	QLC_BC_VF_CHANNEL,
+ 	QLC_BC_VF_STATE,
++	QLC_BC_VF_FLR,
++	QLC_BC_VF_SOFT_FLR,
+ };
+ 
+ struct qlcnic_resources {
+@@ -124,9 +126,11 @@ struct qlcnic_vf_info {
+ 	unsigned long			state;
+ 	struct completion		ch_free_cmpl;
+ 	struct work_struct		trans_work;
++	struct work_struct		flr_work;
+ 	/* It synchronizes commands sent from VF */
+ 	struct mutex			send_cmd_lock;
+ 	struct qlcnic_bc_trans		*send_cmd;
++	struct qlcnic_bc_trans		*flr_trans;
+ 	struct qlcnic_trans_list	rcv_act;
+ 	struct qlcnic_trans_list	rcv_pend;
+ 	struct qlcnic_adapter		*adapter;
+@@ -143,6 +147,7 @@ struct qlcnic_back_channel {
+ 	u16			trans_counter;
+ 	struct workqueue_struct *bc_trans_wq;
+ 	struct workqueue_struct *bc_async_wq;
++	struct workqueue_struct *bc_flr_wq;
+ 	struct list_head	async_list;
+ };
+ 
+@@ -165,6 +170,9 @@ int qlcnic_sriov_channel_cfg_cmd(struct qlcnic_adapter *, u8);
+ void qlcnic_sriov_handle_bc_event(struct qlcnic_adapter *, u32);
+ int qlcnic_sriov_cfg_bc_intr(struct qlcnic_adapter *, u8);
+ void qlcnic_sriov_cleanup_async_list(struct qlcnic_back_channel *);
++void qlcnic_sriov_cleanup_list(struct qlcnic_trans_list *);
++int __qlcnic_sriov_add_act_list(struct qlcnic_sriov *, struct qlcnic_vf_info *,
++				struct qlcnic_bc_trans *);
+ 
+ static inline bool qlcnic_sriov_enable_check(struct qlcnic_adapter *adapter)
+ {
+@@ -185,6 +193,10 @@ void qlcnic_pf_set_interface_id_del_tx_ctx(struct qlcnic_adapter *, u32 *);
+ void qlcnic_pf_set_interface_id_promisc(struct qlcnic_adapter *, u32 *);
+ void qlcnic_pf_set_interface_id_ipaddr(struct qlcnic_adapter *, u32 *);
+ void qlcnic_pf_set_interface_id_macaddr(struct qlcnic_adapter *, u32 *);
++void qlcnic_sriov_pf_handle_flr(struct qlcnic_sriov *, struct qlcnic_vf_info *);
++bool qlcnic_sriov_soft_flr_check(struct qlcnic_adapter *,
++				 struct qlcnic_bc_trans *,
++				 struct qlcnic_vf_info *);
+ #else
+ static inline void qlcnic_sriov_pf_disable(struct qlcnic_adapter *adapter) {}
+ static inline void qlcnic_sriov_pf_cleanup(struct qlcnic_adapter *adapter) {}
+@@ -209,6 +221,12 @@ qlcnic_pf_set_interface_id_macaddr(struct qlcnic_adapter *adapter, u32 *int_id)
+ static inline void
+ qlcnic_pf_set_interface_id_promisc(struct qlcnic_adapter *adapter, u32 *int_id)
+ {}
++static inline void qlcnic_sriov_pf_handle_flr(struct qlcnic_sriov *sriov,
++					      struct qlcnic_vf_info *vf) {}
++static inline bool qlcnic_sriov_soft_flr_check(struct qlcnic_adapter *adapter,
++					       struct qlcnic_bc_trans *trans,
++					       struct qlcnic_vf_info *vf)
++{ return false; }
+ #endif
+ 
+ #endif
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
+index 14e9ebd..2346b16 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
+@@ -18,12 +18,14 @@
+ 
+ #define QLC_BC_MSG		0
+ #define QLC_BC_CFREE		1
++#define QLC_BC_FLR		2
+ #define QLC_BC_HDR_SZ		16
+ #define QLC_BC_PAYLOAD_SZ	(1024 - QLC_BC_HDR_SZ)
+ 
+ #define QLC_DEFAULT_RCV_DESCRIPTORS_SRIOV_VF		2048
+ #define QLC_DEFAULT_JUMBO_RCV_DESCRIPTORS_SRIOV_VF	512
+ 
++static void qlcnic_sriov_cleanup_transaction(struct qlcnic_bc_trans *);
+ static int qlcnic_sriov_vf_mbx_op(struct qlcnic_adapter *,
+ 				  struct qlcnic_cmd_args *);
+ 
+@@ -84,6 +86,11 @@ static inline bool qlcnic_sriov_channel_free_check(u32 val)
+ 	return (val & (1 << QLC_BC_CFREE)) ? true : false;
+ }
+ 
++static inline bool qlcnic_sriov_flr_check(u32 val)
++{
++	return (val & (1 << QLC_BC_FLR)) ? true : false;
++}
++
+ static inline u8 qlcnic_sriov_target_func_id(u32 val)
+ {
+ 	return (val >> 4) & 0xff;
+@@ -192,10 +199,33 @@ qlcnic_free_sriov:
+ 	return err;
+ }
+ 
++void qlcnic_sriov_cleanup_list(struct qlcnic_trans_list *t_list)
++{
++	struct qlcnic_bc_trans *trans;
++	struct qlcnic_cmd_args cmd;
++	unsigned long flags;
++
++	spin_lock_irqsave(&t_list->lock, flags);
++
++	while (!list_empty(&t_list->wait_list)) {
++		trans = list_first_entry(&t_list->wait_list,
++					 struct qlcnic_bc_trans, list);
++		list_del(&trans->list);
++		t_list->count--;
++		cmd.req.arg = (u32 *)trans->req_pay;
++		cmd.rsp.arg = (u32 *)trans->rsp_pay;
++		qlcnic_free_mbx_args(&cmd);
++		qlcnic_sriov_cleanup_transaction(trans);
 +	}
++
++	spin_unlock_irqrestore(&t_list->lock, flags);
++}
++
+ void __qlcnic_sriov_cleanup(struct qlcnic_adapter *adapter)
+ {
+ 	struct qlcnic_sriov *sriov = adapter->ahw->sriov;
+ 	struct qlcnic_back_channel *bc = &sriov->bc;
++	struct qlcnic_vf_info *vf;
+ 	int i;
  
- 	qlcnic_teardown_intr(adapter);
- 	err = qlcnic_setup_intr(adapter, data);
-@@ -3321,6 +3323,7 @@ int qlcnic_set_max_rss(struct qlcnic_adapter *adapter, u8 data, size_t len)
- 		/* register for NIC IDC AEN Events */
- 		qlcnic_83xx_register_nic_idc_func(adapter, 1);
- 		err = qlcnic_83xx_setup_mbx_intr(adapter);
-+		qlcnic_83xx_disable_mbx_poll(adapter);
- 		if (err) {
- 			dev_err(&adapter->pdev->dev,
- 				"failed to setup mbx interrupt\n");
+ 	if (!qlcnic_sriov_enable_check(adapter))
+@@ -203,6 +233,14 @@ void __qlcnic_sriov_cleanup(struct qlcnic_adapter *adapter)
+ 
+ 	qlcnic_sriov_cleanup_async_list(bc);
+ 	destroy_workqueue(bc->bc_async_wq);
++
++	for (i = 0; i < sriov->num_vfs; i++) {
++		vf = &sriov->vf_info[i];
++		qlcnic_sriov_cleanup_list(&vf->rcv_pend);
++		cancel_work_sync(&vf->trans_work);
++		qlcnic_sriov_cleanup_list(&vf->rcv_act);
++	}
++
+ 	destroy_workqueue(bc->bc_trans_wq);
+ 
+ 	for (i = 0; i < sriov->num_vfs; i++)
+@@ -651,6 +689,9 @@ static void qlcnic_sriov_schedule_bc_cmd(struct qlcnic_sriov *sriov,
+ 					 struct qlcnic_vf_info *vf,
+ 					 work_func_t func)
+ {
++	if (test_bit(QLC_BC_VF_FLR, &vf->state))
++		return;
++
+ 	INIT_WORK(&vf->trans_work, func);
+ 	queue_work(sriov->bc.bc_trans_wq, &vf->trans_work);
+ }
+@@ -768,10 +809,13 @@ static int qlcnic_sriov_issue_bc_post(struct qlcnic_bc_trans *trans, u8 type)
+ static int __qlcnic_sriov_send_bc_msg(struct qlcnic_bc_trans *trans,
+ 				      struct qlcnic_vf_info *vf, u8 type)
+ {
+-	int err;
+ 	bool flag = true;
++	int err = -EIO;
+ 
+ 	while (flag) {
++		if (test_bit(QLC_BC_VF_FLR, &vf->state))
++			trans->trans_state = QLC_ABORT;
++
+ 		switch (trans->trans_state) {
+ 		case QLC_INIT:
+ 			trans->trans_state = QLC_WAIT_FOR_CHANNEL_FREE;
+@@ -853,6 +897,9 @@ static void qlcnic_sriov_process_bc_cmd(struct work_struct *work)
+ 	struct qlcnic_cmd_args cmd;
+ 	u8 req;
+ 
++	if (test_bit(QLC_BC_VF_FLR, &vf->state))
++		return;
++
+ 	trans = list_first_entry(&vf->rcv_act.wait_list,
+ 				 struct qlcnic_bc_trans, list);
+ 	adapter = vf->adapter;
+@@ -906,18 +953,30 @@ clear_send:
+ 	clear_bit(QLC_BC_VF_SEND, &vf->state);
+ }
+ 
+-static int qlcnic_sriov_add_act_list(struct qlcnic_sriov *sriov,
+-				     struct qlcnic_vf_info *vf,
+-				     struct qlcnic_bc_trans *trans)
++int __qlcnic_sriov_add_act_list(struct qlcnic_sriov *sriov,
++				struct qlcnic_vf_info *vf,
++				struct qlcnic_bc_trans *trans)
+ {
+ 	struct qlcnic_trans_list *t_list = &vf->rcv_act;
+ 
+-	spin_lock(&t_list->lock);
+ 	t_list->count++;
+ 	list_add_tail(&trans->list, &t_list->wait_list);
+ 	if (t_list->count == 1)
+ 		qlcnic_sriov_schedule_bc_cmd(sriov, vf,
+ 					     qlcnic_sriov_process_bc_cmd);
++	return 0;
++}
++
++static int qlcnic_sriov_add_act_list(struct qlcnic_sriov *sriov,
++				     struct qlcnic_vf_info *vf,
++				     struct qlcnic_bc_trans *trans)
++{
++	struct qlcnic_trans_list *t_list = &vf->rcv_act;
++
++	spin_lock(&t_list->lock);
++
++	__qlcnic_sriov_add_act_list(sriov, vf, trans);
++
+ 	spin_unlock(&t_list->lock);
+ 	return 0;
+ }
+@@ -1019,6 +1078,10 @@ static void qlcnic_sriov_handle_bc_cmd(struct qlcnic_sriov *sriov,
+ 	trans->vf = vf;
+ 	trans->trans_id = hdr->seq_id;
+ 	trans->curr_req_frag++;
++
++	if (qlcnic_sriov_soft_flr_check(adapter, trans, vf))
++		return;
++
+ 	if (trans->curr_req_frag == trans->req_hdr->num_frags) {
+ 		if (qlcnic_sriov_add_act_list(sriov, vf, trans)) {
+ 			qlcnic_free_mbx_args(&cmd);
+@@ -1053,6 +1116,18 @@ static void qlcnic_sriov_handle_msg_event(struct qlcnic_sriov *sriov,
+ 	}
+ }
+ 
++static void qlcnic_sriov_handle_flr_event(struct qlcnic_sriov *sriov,
++					  struct qlcnic_vf_info *vf)
++{
++	struct qlcnic_adapter *adapter = vf->adapter;
++
++	if (qlcnic_sriov_pf_check(adapter))
++		qlcnic_sriov_pf_handle_flr(sriov, vf);
++	else
++		dev_err(&adapter->pdev->dev,
++			"Invalid event to VF. VF should not get FLR event\n");
++}
++
+ void qlcnic_sriov_handle_bc_event(struct qlcnic_adapter *adapter, u32 event)
+ {
+ 	struct qlcnic_vf_info *vf;
+@@ -1073,6 +1148,11 @@ void qlcnic_sriov_handle_bc_event(struct qlcnic_adapter *adapter, u32 event)
+ 	if (qlcnic_sriov_channel_free_check(event))
+ 		complete(&vf->ch_free_cmpl);
+ 
++	if (qlcnic_sriov_flr_check(event)) {
++		qlcnic_sriov_handle_flr_event(sriov, vf);
++		return;
++	}
++
+ 	if (qlcnic_sriov_bc_msg_check(event))
+ 		qlcnic_sriov_handle_msg_event(sriov, vf);
+ }
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+index 3a86e16..50cdd51 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+@@ -303,6 +303,33 @@ static int qlcnic_sriov_pf_cfg_eswitch(struct qlcnic_adapter *adapter,
+ 	return err;
+ }
+ 
++static void qlcnic_sriov_pf_del_flr_queue(struct qlcnic_adapter *adapter)
++{
++	struct qlcnic_sriov *sriov = adapter->ahw->sriov;
++	struct qlcnic_back_channel *bc = &sriov->bc;
++	int i;
++
++	for (i = 0; i < sriov->num_vfs; i++)
++		cancel_work_sync(&sriov->vf_info[i].flr_work);
++
++	destroy_workqueue(bc->bc_flr_wq);
++}
++
++static int qlcnic_sriov_pf_create_flr_queue(struct qlcnic_adapter *adapter)
++{
++	struct qlcnic_back_channel *bc = &adapter->ahw->sriov->bc;
++	struct workqueue_struct *wq;
++
++	wq = create_singlethread_workqueue("qlcnic-flr");
++	if (wq == NULL) {
++		dev_err(&adapter->pdev->dev, "Cannot create FLR workqueue\n");
++		return -ENOMEM;
++	}
++
++	bc->bc_flr_wq =  wq;
++	return 0;
++}
++
+ void qlcnic_sriov_pf_cleanup(struct qlcnic_adapter *adapter)
+ {
+ 	u8 func = adapter->ahw->pci_func;
+@@ -310,6 +337,7 @@ void qlcnic_sriov_pf_cleanup(struct qlcnic_adapter *adapter)
+ 	if (!qlcnic_sriov_enable_check(adapter))
+ 		return;
+ 
++	qlcnic_sriov_pf_del_flr_queue(adapter);
+ 	qlcnic_sriov_cfg_bc_intr(adapter, 0);
+ 	qlcnic_sriov_pf_config_vport(adapter, 0, func);
+ 	qlcnic_sriov_pf_cfg_eswitch(adapter, func, 0);
+@@ -367,7 +395,7 @@ static int qlcnic_sriov_pf_init(struct qlcnic_adapter *adapter)
+ 
+ 	err = qlcnic_sriov_pf_cfg_eswitch(adapter, func, 1);
+ 	if (err)
+-		goto clear_sriov_enable;
++		return err;
+ 
+ 	err = qlcnic_sriov_pf_config_vport(adapter, 1, func);
+ 	if (err)
+@@ -402,10 +430,6 @@ delete_vport:
+ disable_eswitch:
+ 	qlcnic_sriov_pf_cfg_eswitch(adapter, func, 0);
+ 
+-clear_sriov_enable:
+-	__qlcnic_sriov_cleanup(adapter);
+-	adapter->ahw->op_mode = QLCNIC_MGMT_FUNC;
+-	clear_bit(__QLCNIC_SRIOV_ENABLE, &adapter->state);
+ 	return err;
+ }
+ 
+@@ -431,17 +455,31 @@ static int __qlcnic_pci_sriov_enable(struct qlcnic_adapter *adapter,
+ 	set_bit(__QLCNIC_SRIOV_ENABLE, &adapter->state);
+ 	adapter->ahw->op_mode = QLCNIC_SRIOV_PF_FUNC;
+ 
+-	if (qlcnic_sriov_init(adapter, num_vfs)) {
+-		clear_bit(__QLCNIC_SRIOV_ENABLE, &adapter->state);
+-		adapter->ahw->op_mode = QLCNIC_MGMT_FUNC;
+-		return -EIO;
+-	}
++	err = qlcnic_sriov_init(adapter, num_vfs);
++	if (err)
++		goto clear_op_mode;
+ 
+-	if (qlcnic_sriov_pf_init(adapter))
+-		return -EIO;
++	err = qlcnic_sriov_pf_create_flr_queue(adapter);
++	if (err)
++		goto sriov_cleanup;
++
++	err = qlcnic_sriov_pf_init(adapter);
++	if (err)
++		goto del_flr_queue;
+ 
+ 	err = qlcnic_sriov_pf_enable(adapter, num_vfs);
+ 	return err;
++
++del_flr_queue:
++	qlcnic_sriov_pf_del_flr_queue(adapter);
++
++sriov_cleanup:
++	__qlcnic_sriov_cleanup(adapter);
++
++clear_op_mode:
++	clear_bit(__QLCNIC_SRIOV_ENABLE, &adapter->state);
++	adapter->ahw->op_mode = QLCNIC_MGMT_FUNC;
++	return err;
+ }
+ 
+ static int qlcnic_pci_sriov_enable(struct qlcnic_adapter *adapter, int num_vfs)
+@@ -463,12 +501,15 @@ static int qlcnic_pci_sriov_enable(struct qlcnic_adapter *adapter, int num_vfs)
+ 		netdev_info(netdev, "Failed to enable SR-IOV on port %d\n",
+ 			    adapter->portnum);
+ 
++		err = -EIO;
+ 		if (qlcnic_83xx_configure_opmode(adapter))
+ 			goto error;
+ 	} else {
+-		netdev_info(adapter->netdev,
++		netdev_info(netdev,
+ 			    "SR-IOV is enabled successfully on port %d\n",
+ 			    adapter->portnum);
++		/* Return number of vfs enabled */
++		err = num_vfs;
+ 	}
+ 	if (netif_running(netdev))
+ 		__qlcnic_up(adapter, netdev);
+@@ -1173,3 +1214,165 @@ void qlcnic_pf_set_interface_id_macaddr(struct qlcnic_adapter *adapter,
+ 						adapter->ahw->pci_func);
+ 	*int_id |= (vpid << 16) | BIT_31;
+ }
++
++static void qlcnic_sriov_del_rx_ctx(struct qlcnic_adapter *adapter,
++				    struct qlcnic_vf_info *vf)
++{
++	struct qlcnic_cmd_args cmd;
++	int vpid;
++
++	if (!vf->rx_ctx_id)
++		return;
++
++	if (qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_DESTROY_RX_CTX))
++		return;
++
++	vpid = qlcnic_sriov_pf_get_vport_handle(adapter, vf->pci_func);
++	if (vpid >= 0) {
++		cmd.req.arg[1] = vf->rx_ctx_id | (vpid & 0xffff) << 16;
++		if (qlcnic_issue_cmd(adapter, &cmd))
++			dev_err(&adapter->pdev->dev,
++				"Failed to delete Tx ctx in firmware for func 0x%x\n",
++				vf->pci_func);
++		else
++			vf->rx_ctx_id = 0;
++	}
++
++	qlcnic_free_mbx_args(&cmd);
++}
++
++static void qlcnic_sriov_del_tx_ctx(struct qlcnic_adapter *adapter,
++				    struct qlcnic_vf_info *vf)
++{
++	struct qlcnic_cmd_args cmd;
++	int vpid;
++
++	if (!vf->tx_ctx_id)
++		return;
++
++	if (qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_DESTROY_TX_CTX))
++		return;
++
++	vpid = qlcnic_sriov_pf_get_vport_handle(adapter, vf->pci_func);
++	if (vpid >= 0) {
++		cmd.req.arg[1] |= vf->tx_ctx_id | (vpid & 0xffff) << 16;
++		if (qlcnic_issue_cmd(adapter, &cmd))
++			dev_err(&adapter->pdev->dev,
++				"Failed to delete Tx ctx in firmware for func 0x%x\n",
++				vf->pci_func);
++		else
++			vf->tx_ctx_id = 0;
++	}
++
++	qlcnic_free_mbx_args(&cmd);
++}
++
++static int qlcnic_sriov_add_act_list_irqsave(struct qlcnic_sriov *sriov,
++					     struct qlcnic_vf_info *vf,
++					     struct qlcnic_bc_trans *trans)
++{
++	struct qlcnic_trans_list *t_list = &vf->rcv_act;
++	unsigned long flag;
++
++	spin_lock_irqsave(&t_list->lock, flag);
++
++	__qlcnic_sriov_add_act_list(sriov, vf, trans);
++
++	spin_unlock_irqrestore(&t_list->lock, flag);
++	return 0;
++}
++
++static void __qlcnic_sriov_process_flr(struct qlcnic_vf_info *vf)
++{
++	struct qlcnic_adapter *adapter = vf->adapter;
++
++	qlcnic_sriov_cleanup_list(&vf->rcv_pend);
++	cancel_work_sync(&vf->trans_work);
++	qlcnic_sriov_cleanup_list(&vf->rcv_act);
++
++	if (test_bit(QLC_BC_VF_SOFT_FLR, &vf->state)) {
++		qlcnic_sriov_del_tx_ctx(adapter, vf);
++		qlcnic_sriov_del_rx_ctx(adapter, vf);
++	}
++
++	qlcnic_sriov_pf_config_vport(adapter, 0, vf->pci_func);
++
++	clear_bit(QLC_BC_VF_FLR, &vf->state);
++	if (test_bit(QLC_BC_VF_SOFT_FLR, &vf->state)) {
++		qlcnic_sriov_add_act_list_irqsave(adapter->ahw->sriov, vf,
++						  vf->flr_trans);
++		clear_bit(QLC_BC_VF_SOFT_FLR, &vf->state);
++		vf->flr_trans = NULL;
++	}
++}
++
++static void qlcnic_sriov_pf_process_flr(struct work_struct *work)
++{
++	struct qlcnic_vf_info *vf;
++
++	vf = container_of(work, struct qlcnic_vf_info, flr_work);
++	__qlcnic_sriov_process_flr(vf);
++	return;
++}
++
++static void qlcnic_sriov_schedule_flr(struct qlcnic_sriov *sriov,
++				      struct qlcnic_vf_info *vf,
++				      work_func_t func)
++{
++	if (test_bit(__QLCNIC_RESETTING, &vf->adapter->state))
++		return;
++
++	INIT_WORK(&vf->flr_work, func);
++	queue_work(sriov->bc.bc_flr_wq, &vf->flr_work);
++}
++
++static void qlcnic_sriov_handle_soft_flr(struct qlcnic_adapter *adapter,
++					 struct qlcnic_bc_trans *trans,
++					 struct qlcnic_vf_info *vf)
++{
++	struct qlcnic_sriov *sriov = adapter->ahw->sriov;
++
++	set_bit(QLC_BC_VF_FLR, &vf->state);
++	clear_bit(QLC_BC_VF_STATE, &vf->state);
++	set_bit(QLC_BC_VF_SOFT_FLR, &vf->state);
++	vf->flr_trans = trans;
++	qlcnic_sriov_schedule_flr(sriov, vf, qlcnic_sriov_pf_process_flr);
++	netdev_info(adapter->netdev, "Software FLR for PCI func %d\n",
++		    vf->pci_func);
++}
++
++bool qlcnic_sriov_soft_flr_check(struct qlcnic_adapter *adapter,
++				 struct qlcnic_bc_trans *trans,
++				 struct qlcnic_vf_info *vf)
++{
++	struct qlcnic_bc_hdr *hdr = trans->req_hdr;
++
++	if ((hdr->cmd_op == QLCNIC_BC_CMD_CHANNEL_INIT) &&
++	    (hdr->op_type == QLC_BC_CMD) &&
++	     test_bit(QLC_BC_VF_STATE, &vf->state)) {
++		qlcnic_sriov_handle_soft_flr(adapter, trans, vf);
++		return true;
++	}
++
++	return false;
++}
++
++void qlcnic_sriov_pf_handle_flr(struct qlcnic_sriov *sriov,
++				struct qlcnic_vf_info *vf)
++{
++	struct net_device *dev = vf->adapter->netdev;
++
++	if (!test_and_clear_bit(QLC_BC_VF_STATE, &vf->state)) {
++		clear_bit(QLC_BC_VF_FLR, &vf->state);
++		return;
++	}
++
++	if (test_and_set_bit(QLC_BC_VF_FLR, &vf->state)) {
++		netdev_info(dev, "FLR for PCI func %d in progress\n",
++			    vf->pci_func);
++		return;
++	}
++
++	qlcnic_sriov_schedule_flr(sriov, vf, qlcnic_sriov_pf_process_flr);
++	netdev_info(dev, "FLR received for PCI func %d\n", vf->pci_func);
++}
 -- 
 1.6.3.3
