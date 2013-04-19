@@ -1,335 +1,204 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: remove one indentation level in
- tcp_rcv_state_process()
-Date: Thu, 18 Apr 2013 20:16:07 -0700
-Message-ID: <1366341367.3205.85.camel@edumazet-glaptop>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Fri, 19 Apr 2013 13:21:27 +1000
+Message-ID: <20130419132127.05ea53adec329ca794d62be7@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f44.google.com ([209.85.210.44]:62895 "EHLO
-	mail-da0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967861Ab3DSDQL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 23:16:11 -0400
-Received: by mail-da0-f44.google.com with SMTP id z20so1711860dae.17
-        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 20:16:10 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__19_Apr_2013_13_21_27_+1000_dvd23tER/adnHB1W"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Martin =?UTF-8?B?SHVuZGViw7hsbA==?= <martin@hundeboll.net>,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Antonio Quartulli <ordex@autistici.org>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+--Signature=_Fri__19_Apr_2013_13_21_27_+1000_dvd23tER/adnHB1W
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Remove one level of indentation 'introduced' in commit
-c3ae62af8e75 (tcp: should drop incoming frames without ACK flag set)
+Hi all,
 
-@acceptable variable is a boolean.
+After merging the net-next tree, today's linux-next build (x86_64
+allmodconfig) failed like this:
 
-This patch is a pure cleanup.
+net/batman-adv/network-coding.c: In function 'batadv_nc_skb_store_sniffed_u=
+nicast':
+net/batman-adv/network-coding.c:1487:2: warning: passing argument 1 of 'bat=
+adv_is_my_mac' from incompatible pointer type [enabled by default]
+net/batman-adv/main.h:168:5: note: expected 'struct batadv_priv *' but argu=
+ment is of type 'unsigned char *'
+net/batman-adv/network-coding.c:1487:2: error: too few arguments to functio=
+n 'batadv_is_my_mac'
+net/batman-adv/main.h:168:5: note: declared here
+net/batman-adv/network-coding.c: In function 'batadv_nc_skb_decode_packet':
+net/batman-adv/network-coding.c:1540:2: warning: passing argument 1 of 'bat=
+adv_is_my_mac' from incompatible pointer type [enabled by default]
+net/batman-adv/main.h:168:5: note: expected 'struct batadv_priv *' but argu=
+ment is of type 'uint8_t *'
+net/batman-adv/network-coding.c:1540:2: error: too few arguments to functio=
+n 'batadv_is_my_mac'
+net/batman-adv/main.h:168:5: note: declared here
+net/batman-adv/network-coding.c: In function 'batadv_nc_find_decoding_packe=
+t':
+net/batman-adv/network-coding.c:1611:2: warning: passing argument 1 of 'bat=
+adv_is_my_mac' from incompatible pointer type [enabled by default]
+net/batman-adv/main.h:168:5: note: expected 'struct batadv_priv *' but argu=
+ment is of type 'uint8_t *'
+net/batman-adv/network-coding.c:1611:2: error: too few arguments to functio=
+n 'batadv_is_my_mac'
+net/batman-adv/main.h:168:5: note: declared here
+net/batman-adv/network-coding.c: In function 'batadv_nc_recv_coded_packet':
+net/batman-adv/network-coding.c:1678:2: warning: passing argument 1 of 'bat=
+adv_is_my_mac' from incompatible pointer type [enabled by default]
+net/batman-adv/main.h:168:5: note: expected 'struct batadv_priv *' but argu=
+ment is of type 'unsigned char *'
+net/batman-adv/network-coding.c:1678:2: error: too few arguments to functio=
+n 'batadv_is_my_mac'
+net/batman-adv/main.h:168:5: note: declared here
+net/batman-adv/network-coding.c:1679:6: warning: passing argument 1 of 'bat=
+adv_is_my_mac' from incompatible pointer type [enabled by default]
+net/batman-adv/main.h:168:5: note: expected 'struct batadv_priv *' but argu=
+ment is of type 'uint8_t *'
+net/batman-adv/network-coding.c:1679:6: error: too few arguments to functio=
+n 'batadv_is_my_mac'
+net/batman-adv/main.h:168:5: note: declared here
+net/batman-adv/network-coding.c:1683:2: warning: passing argument 1 of 'bat=
+adv_is_my_mac' from incompatible pointer type [enabled by default]
+net/batman-adv/main.h:168:5: note: expected 'struct batadv_priv *' but argu=
+ment is of type 'uint8_t *'
+net/batman-adv/network-coding.c:1683:2: error: too few arguments to functio=
+n 'batadv_is_my_mac'
+net/batman-adv/main.h:168:5: note: declared here
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
+Caused by commits 612d2b4fe0a1 ("batman-adv: network coding - save
+overheard and tx packets for decoding") and 2df5278b0267 ("batman-adv:
+network coding - receive coded packets and decode them") from the
+net-next tree interacting with commit fe8a93b95145 ("batman-adv: make
+is_my_mac() check for the current mesh only") from the net tree.
+
+I added the following merge fix patch and can carry it as necessary:
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 19 Apr 2013 13:13:25 +1000
+Subject: [PATCH] batman-adv: merge fix for batadv_is_my_mac() API change
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 ---
- net/ipv4/tcp_input.c |  267 ++++++++++++++++++++---------------------
- 1 file changed, 132 insertions(+), 135 deletions(-)
+ net/batman-adv/network-coding.c | 17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 6d9ca35..08f58c1 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5595,6 +5595,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct request_sock *req;
- 	int queued = 0;
-+	bool acceptable;
- 
- 	tp->rx_opt.saw_tstamp = 0;
- 
-@@ -5665,156 +5666,152 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 		return 0;
- 
- 	/* step 5: check the ACK field */
--	if (true) {
--		int acceptable = tcp_ack(sk, skb, FLAG_SLOWPATH) > 0;
--
--		switch (sk->sk_state) {
--		case TCP_SYN_RECV:
--			if (acceptable) {
--				/* Once we leave TCP_SYN_RECV, we no longer
--				 * need req so release it.
--				 */
--				if (req) {
--					tcp_synack_rtt_meas(sk, req);
--					tp->total_retrans = req->num_retrans;
--
--					reqsk_fastopen_remove(sk, req, false);
--				} else {
--					/* Make sure socket is routed, for
--					 * correct metrics.
--					 */
--					icsk->icsk_af_ops->rebuild_header(sk);
--					tcp_init_congestion_control(sk);
-+	acceptable = tcp_ack(sk, skb, FLAG_SLOWPATH) > 0;
- 
--					tcp_mtup_init(sk);
--					tcp_init_buffer_space(sk);
--					tp->copied_seq = tp->rcv_nxt;
--				}
--				smp_mb();
--				tcp_set_state(sk, TCP_ESTABLISHED);
--				sk->sk_state_change(sk);
-+	switch (sk->sk_state) {
-+	case TCP_SYN_RECV:
-+		if (acceptable) {
-+			/* Once we leave TCP_SYN_RECV, we no longer
-+			 * need req so release it.
-+			 */
-+			if (req) {
-+				tcp_synack_rtt_meas(sk, req);
-+				tp->total_retrans = req->num_retrans;
- 
--				/* Note, that this wakeup is only for marginal
--				 * crossed SYN case. Passively open sockets
--				 * are not waked up, because sk->sk_sleep ==
--				 * NULL and sk->sk_socket == NULL.
-+				reqsk_fastopen_remove(sk, req, false);
-+			} else {
-+				/* Make sure socket is routed, for
-+				 * correct metrics.
- 				 */
--				if (sk->sk_socket)
--					sk_wake_async(sk,
--						      SOCK_WAKE_IO, POLL_OUT);
--
--				tp->snd_una = TCP_SKB_CB(skb)->ack_seq;
--				tp->snd_wnd = ntohs(th->window) <<
--					      tp->rx_opt.snd_wscale;
--				tcp_init_wl(tp, TCP_SKB_CB(skb)->seq);
--
--				if (tp->rx_opt.tstamp_ok)
--					tp->advmss -= TCPOLEN_TSTAMP_ALIGNED;
--
--				if (req) {
--					/* Re-arm the timer because data may
--					 * have been sent out. This is similar
--					 * to the regular data transmission case
--					 * when new data has just been ack'ed.
--					 *
--					 * (TFO) - we could try to be more
--					 * aggressive and retranmitting any data
--					 * sooner based on when they were sent
--					 * out.
--					 */
--					tcp_rearm_rto(sk);
--				} else
--					tcp_init_metrics(sk);
-+				icsk->icsk_af_ops->rebuild_header(sk);
-+				tcp_init_congestion_control(sk);
- 
--				/* Prevent spurious tcp_cwnd_restart() on
--				 * first data packet.
-+				tcp_mtup_init(sk);
-+				tcp_init_buffer_space(sk);
-+				tp->copied_seq = tp->rcv_nxt;
-+			}
-+			smp_mb();
-+			tcp_set_state(sk, TCP_ESTABLISHED);
-+			sk->sk_state_change(sk);
-+
-+			/* Note, that this wakeup is only for marginal
-+			 * crossed SYN case. Passively open sockets
-+			 * are not waked up, because sk->sk_sleep ==
-+			 * NULL and sk->sk_socket == NULL.
-+			 */
-+			if (sk->sk_socket)
-+				sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
-+
-+			tp->snd_una = TCP_SKB_CB(skb)->ack_seq;
-+			tp->snd_wnd = ntohs(th->window) <<
-+				      tp->rx_opt.snd_wscale;
-+			tcp_init_wl(tp, TCP_SKB_CB(skb)->seq);
-+
-+			if (tp->rx_opt.tstamp_ok)
-+				tp->advmss -= TCPOLEN_TSTAMP_ALIGNED;
-+
-+			if (req) {
-+				/* Re-arm the timer because data may
-+				 * have been sent out. This is similar
-+				 * to the regular data transmission case
-+				 * when new data has just been ack'ed.
-+				 *
-+				 * (TFO) - we could try to be more
-+				 * aggressive and retranmitting any data
-+				 * sooner based on when they were sent out.
- 				 */
--				tp->lsndtime = tcp_time_stamp;
-+				tcp_rearm_rto(sk);
-+			} else
-+				tcp_init_metrics(sk);
- 
--				tcp_initialize_rcv_mss(sk);
--				tcp_fast_path_on(tp);
--			} else {
--				return 1;
--			}
--			break;
-+			/* Prevent spurious tcp_cwnd_restart() on
-+			 * first data packet.
-+			 */
-+			tp->lsndtime = tcp_time_stamp;
- 
--		case TCP_FIN_WAIT1:
--			/* If we enter the TCP_FIN_WAIT1 state and we are a
--			 * Fast Open socket and this is the first acceptable
--			 * ACK we have received, this would have acknowledged
--			 * our SYNACK so stop the SYNACK timer.
-+			tcp_initialize_rcv_mss(sk);
-+			tcp_fast_path_on(tp);
-+		} else {
-+			return 1;
-+		}
-+		break;
-+
-+	case TCP_FIN_WAIT1:
-+		/* If we enter the TCP_FIN_WAIT1 state and we are a
-+		 * Fast Open socket and this is the first acceptable
-+		 * ACK we have received, this would have acknowledged
-+		 * our SYNACK so stop the SYNACK timer.
-+		 */
-+		if (req != NULL) {
-+			/* Return RST if ack_seq is invalid.
-+			 * Note that RFC793 only says to generate a
-+			 * DUPACK for it but for TCP Fast Open it seems
-+			 * better to treat this case like TCP_SYN_RECV
-+			 * above.
- 			 */
--			if (req != NULL) {
--				/* Return RST if ack_seq is invalid.
--				 * Note that RFC793 only says to generate a
--				 * DUPACK for it but for TCP Fast Open it seems
--				 * better to treat this case like TCP_SYN_RECV
--				 * above.
--				 */
--				if (!acceptable)
-+			if (!acceptable)
-+				return 1;
-+			/* We no longer need the request sock. */
-+			reqsk_fastopen_remove(sk, req, false);
-+			tcp_rearm_rto(sk);
-+		}
-+		if (tp->snd_una == tp->write_seq) {
-+			struct dst_entry *dst;
-+
-+			tcp_set_state(sk, TCP_FIN_WAIT2);
-+			sk->sk_shutdown |= SEND_SHUTDOWN;
-+
-+			dst = __sk_dst_get(sk);
-+			if (dst)
-+				dst_confirm(dst);
-+
-+			if (!sock_flag(sk, SOCK_DEAD))
-+				/* Wake up lingering close() */
-+				sk->sk_state_change(sk);
-+			else {
-+				int tmo;
-+
-+				if (tp->linger2 < 0 ||
-+				    (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq &&
-+				     after(TCP_SKB_CB(skb)->end_seq - th->fin, tp->rcv_nxt))) {
-+					tcp_done(sk);
-+					NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPABORTONDATA);
- 					return 1;
--				/* We no longer need the request sock. */
--				reqsk_fastopen_remove(sk, req, false);
--				tcp_rearm_rto(sk);
--			}
--			if (tp->snd_una == tp->write_seq) {
--				struct dst_entry *dst;
--
--				tcp_set_state(sk, TCP_FIN_WAIT2);
--				sk->sk_shutdown |= SEND_SHUTDOWN;
--
--				dst = __sk_dst_get(sk);
--				if (dst)
--					dst_confirm(dst);
--
--				if (!sock_flag(sk, SOCK_DEAD))
--					/* Wake up lingering close() */
--					sk->sk_state_change(sk);
--				else {
--					int tmo;
--
--					if (tp->linger2 < 0 ||
--					    (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq &&
--					     after(TCP_SKB_CB(skb)->end_seq - th->fin, tp->rcv_nxt))) {
--						tcp_done(sk);
--						NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPABORTONDATA);
--						return 1;
--					}
-+				}
- 
--					tmo = tcp_fin_time(sk);
--					if (tmo > TCP_TIMEWAIT_LEN) {
--						inet_csk_reset_keepalive_timer(sk, tmo - TCP_TIMEWAIT_LEN);
--					} else if (th->fin || sock_owned_by_user(sk)) {
--						/* Bad case. We could lose such FIN otherwise.
--						 * It is not a big problem, but it looks confusing
--						 * and not so rare event. We still can lose it now,
--						 * if it spins in bh_lock_sock(), but it is really
--						 * marginal case.
--						 */
--						inet_csk_reset_keepalive_timer(sk, tmo);
--					} else {
--						tcp_time_wait(sk, TCP_FIN_WAIT2, tmo);
--						goto discard;
--					}
-+				tmo = tcp_fin_time(sk);
-+				if (tmo > TCP_TIMEWAIT_LEN) {
-+					inet_csk_reset_keepalive_timer(sk, tmo - TCP_TIMEWAIT_LEN);
-+				} else if (th->fin || sock_owned_by_user(sk)) {
-+					/* Bad case. We could lose such FIN otherwise.
-+					 * It is not a big problem, but it looks confusing
-+					 * and not so rare event. We still can lose it now,
-+					 * if it spins in bh_lock_sock(), but it is really
-+					 * marginal case.
-+					 */
-+					inet_csk_reset_keepalive_timer(sk, tmo);
-+				} else {
-+					tcp_time_wait(sk, TCP_FIN_WAIT2, tmo);
-+					goto discard;
- 				}
- 			}
--			break;
-+		}
-+		break;
- 
--		case TCP_CLOSING:
--			if (tp->snd_una == tp->write_seq) {
--				tcp_time_wait(sk, TCP_TIME_WAIT, 0);
--				goto discard;
--			}
--			break;
-+	case TCP_CLOSING:
-+		if (tp->snd_una == tp->write_seq) {
-+			tcp_time_wait(sk, TCP_TIME_WAIT, 0);
-+			goto discard;
-+		}
-+		break;
- 
--		case TCP_LAST_ACK:
--			if (tp->snd_una == tp->write_seq) {
--				tcp_update_metrics(sk);
--				tcp_done(sk);
--				goto discard;
--			}
--			break;
-+	case TCP_LAST_ACK:
-+		if (tp->snd_una == tp->write_seq) {
-+			tcp_update_metrics(sk);
-+			tcp_done(sk);
-+			goto discard;
- 		}
-+		break;
- 	}
- 
- 	/* ts_recent update must be made after we are sure that the packet
+diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-codin=
+g.c
+index 6b9a544..382db5e 100644
+--- a/net/batman-adv/network-coding.c
++++ b/net/batman-adv/network-coding.c
+@@ -1484,7 +1484,7 @@ void batadv_nc_skb_store_sniffed_unicast(struct batad=
+v_priv *bat_priv,
+ {
+ 	struct ethhdr *ethhdr =3D (struct ethhdr *)skb_mac_header(skb);
+=20
+-	if (batadv_is_my_mac(ethhdr->h_dest))
++	if (batadv_is_my_mac(bat_priv, ethhdr->h_dest))
+ 		return;
+=20
+ 	/* Set data pointer to MAC header to mimic packets from our tx path */
+@@ -1496,6 +1496,7 @@ void batadv_nc_skb_store_sniffed_unicast(struct batad=
+v_priv *bat_priv,
+ /**
+  * batadv_nc_skb_decode_packet - decode given skb using the decode data st=
+ored
+  *  in nc_packet
++ * @bat_priv: the bat priv with all the soft interface information
+  * @skb: unicast skb to decode
+  * @nc_packet: decode data needed to decode the skb
+  *
+@@ -1503,7 +1504,7 @@ void batadv_nc_skb_store_sniffed_unicast(struct batad=
+v_priv *bat_priv,
+  * in case of an error.
+  */
+ static struct batadv_unicast_packet *
+-batadv_nc_skb_decode_packet(struct sk_buff *skb,
++batadv_nc_skb_decode_packet(struct batadv_priv *bat_priv, struct sk_buff *=
+skb,
+ 			    struct batadv_nc_packet *nc_packet)
+ {
+ 	const int h_size =3D sizeof(struct batadv_unicast_packet);
+@@ -1537,7 +1538,7 @@ batadv_nc_skb_decode_packet(struct sk_buff *skb,
+ 	/* Select the correct unicast header information based on the location
+ 	 * of our mac address in the coded_packet header
+ 	 */
+-	if (batadv_is_my_mac(coded_packet_tmp.second_dest)) {
++	if (batadv_is_my_mac(bat_priv, coded_packet_tmp.second_dest)) {
+ 		/* If we are the second destination the packet was overheard,
+ 		 * so the Ethernet address must be copied to h_dest and
+ 		 * pkt_type changed from PACKET_OTHERHOST to PACKET_HOST
+@@ -1608,7 +1609,7 @@ batadv_nc_find_decoding_packet(struct batadv_priv *ba=
+t_priv,
+=20
+ 	/* Select the correct packet id based on the location of our mac-addr */
+ 	dest =3D ethhdr->h_source;
+-	if (!batadv_is_my_mac(coded->second_dest)) {
++	if (!batadv_is_my_mac(bat_priv, coded->second_dest)) {
+ 		source =3D coded->second_source;
+ 		packet_id =3D coded->second_crc;
+ 	} else {
+@@ -1675,12 +1676,12 @@ static int batadv_nc_recv_coded_packet(struct sk_bu=
+ff *skb,
+ 	ethhdr =3D (struct ethhdr *)skb_mac_header(skb);
+=20
+ 	/* Verify frame is destined for us */
+-	if (!batadv_is_my_mac(ethhdr->h_dest) &&
+-	    !batadv_is_my_mac(coded_packet->second_dest))
++	if (!batadv_is_my_mac(bat_priv, ethhdr->h_dest) &&
++	    !batadv_is_my_mac(bat_priv, coded_packet->second_dest))
+ 		return NET_RX_DROP;
+=20
+ 	/* Update stat counter */
+-	if (batadv_is_my_mac(coded_packet->second_dest))
++	if (batadv_is_my_mac(bat_priv, coded_packet->second_dest))
+ 		batadv_inc_counter(bat_priv, BATADV_CNT_NC_SNIFFED);
+=20
+ 	nc_packet =3D batadv_nc_find_decoding_packet(bat_priv, ethhdr,
+@@ -1698,7 +1699,7 @@ static int batadv_nc_recv_coded_packet(struct sk_buff=
+ *skb,
+ 		goto free_nc_packet;
+=20
+ 	/* Decode the packet */
+-	unicast_packet =3D batadv_nc_skb_decode_packet(skb, nc_packet);
++	unicast_packet =3D batadv_nc_skb_decode_packet(bat_priv, skb, nc_packet);
+ 	if (!unicast_packet) {
+ 		batadv_inc_counter(bat_priv, BATADV_CNT_NC_DECODE_FAILED);
+ 		goto free_nc_packet;
+--=20
+1.8.1
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Fri__19_Apr_2013_13_21_27_+1000_dvd23tER/adnHB1W
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRcLg3AAoJEECxmPOUX5FE9b4QAJ6ygjIGSpyNfMyEVpVirJEC
+81TcDOI7aj91vCJznj3LClFo9+LsJcPyNzL58ZqG8N8cv/x6rQgGcWZb9pFVAYO1
+qeHcVM90c3UWSMP5CTdphwJgh5EePGCzu7CqBcbcXJsRT/HC9WsrejoTIUpVU2Lw
+ecokYEEiSgZrfIPmsIqrncK/+veBzxvnJnifooFLIUaNcQg/elIyeTxokUKPDLiG
+11/lfDQN6HhcYe9BW/bWWBkey6xON2L3FNhM02/nIfs9mSDlBl+LcUUFXZ1mzfa1
+LOdDQQNeWRp1N8DiEIEiDKKAm8D3oR6mGifGzyaSCW40WBle9VPTsWTmbs9PIct+
+46/gxjkkSEwPK2KWU03pkD7G3GVO3mexBIZIQ4u2L0ccN2jbpJqWaiKpWpnthkHU
+D0fiakgzMwIXhOrL/ZVYFggdMLvepcP2USLd9LiE6EzctNDH8vpdaTrlwxNyLt8t
+RLEdiWBoUBzy/P6hIadHqtgJV/3P0BywyhSl3sil9KoXHr/OOv8VZbr1KYdIRWLk
+vX48SKFentiCY7pzGnidbK/7UMNJXayeLIii9fKlR00gHXgRLlB32zOm/nqAWrhY
+RaqvqmtfZUPWk2pOcPdj+EqD3eJL15/3z5VzwLQUazL+BShhurCJ2MwhXLKp3St+
+BS3OGT/attBRaoLha4SZ
+=bmzk
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__19_Apr_2013_13_21_27_+1000_dvd23tER/adnHB1W--
