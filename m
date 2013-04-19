@@ -1,37 +1,42 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH 0/3] URGENT for 3.9: net: fec: revert NAPI introduction
-Date: Fri, 19 Apr 2013 15:22:38 -0300
-Message-ID: <CAOMZO5A_NdKJk7a7svTdB2-FzijwBoawfiM+TC8kuBmL06UsBQ@mail.gmail.com>
-References: <1366382164-10968-1-git-send-email-l.stach@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: remove one indentation level in
+ tcp_rcv_state_process()
+Date: Fri, 19 Apr 2013 14:22:53 -0400 (EDT)
+Message-ID: <20130419.142253.2089468808729160282.davem@davemloft.net>
+References: <1366341367.3205.85.camel@edumazet-glaptop>
+	<1366391088.16391.27.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	Shawn Guo <shawn.guo@linaro.org>
-To: Lucas Stach <l.stach@pengutronix.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ycheng@google.com, ncardwell@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f52.google.com ([209.85.212.52]:46359 "EHLO
-	mail-vb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752945Ab3DSSWj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 14:22:39 -0400
-Received: by mail-vb0-f52.google.com with SMTP id w8so3983614vbf.11
-        for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 11:22:39 -0700 (PDT)
-In-Reply-To: <1366382164-10968-1-git-send-email-l.stach@pengutronix.de>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45190 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753151Ab3DSSWz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 14:22:55 -0400
+In-Reply-To: <1366391088.16391.27.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Lucas,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 19 Apr 2013 10:04:48 -0700
 
-On Fri, Apr 19, 2013 at 11:36 AM, Lucas Stach <l.stach@pengutronix.de> wrote:
-> Those patches introduce instability to the point of kernel OOPSes with
-> NULL-ptr dereferences.
->
-> The patches drop locks from the code without justifying why this would
-> be safe at all. In fact it isn't safe as now the controller restart can
-> happily free the RX and TX ring buffers while the NAPI poll function is
-> still accessing them. So with a heavily loaded but slightly instable
-> link we regularly end up with OOPSes because link change restarts
-> the FEC and bombs away buffers still in use.
+> On Thu, 2013-04-18 at 20:16 -0700, Eric Dumazet wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>> 
+>> Remove one level of indentation 'introduced' in commit
+>> c3ae62af8e75 (tcp: should drop incoming frames without ACK flag set)
+>> 
+>> @acceptable variable is a boolean.
+>> 
+>> This patch is a pure cleanup.
+>> 
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> Cc: Yuchung Cheng <ycheng@google.com>
+>> ---
+> 
+> Please drop this patch, I'll respin it later, when the "call
+> tcp_replace_ts_recent() from tcp_ack()" issues are sorted out.
 
-Can you please let us know how to reproduce the oopses? Which SoC did
-you use in your tests?
+Done.
