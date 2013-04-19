@@ -1,54 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] GRE: Use IS_ERR_OR_NULL in gre_gso_segment
-Date: Fri, 19 Apr 2013 03:24:33 -0700
-Message-ID: <1366367073.3205.105.camel@edumazet-glaptop>
-References: <1366354120-11230-1-git-send-email-horms@verge.net.au>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH 5/5] net/cpsw: redo rx skb allocation in rx path
+Date: Fri, 19 Apr 2013 15:58:30 +0530
+Message-ID: <51711C4E.5020704@ti.com>
+References: <1366235536-15744-1-git-send-email-bigeasy@linutronix.de> <1366235536-15744-6-git-send-email-bigeasy@linutronix.de> <516FDE20.2050605@ti.com> <516FE36B.9050801@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dmitry Kozlov <xeb@mail.ru>
-To: Simon Horman <horms@verge.net.au>
+Cc: <netdev@vger.kernel.org>, <tglx@linutronix.de>,
+	"David S. Miller" <davem@davemloft.net>
+To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:36889 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756955Ab3DSKYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 06:24:36 -0400
-Received: by mail-pd0-f182.google.com with SMTP id 3so2157550pdj.13
-        for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 03:24:35 -0700 (PDT)
-In-Reply-To: <1366354120-11230-1-git-send-email-horms@verge.net.au>
+Received: from bear.ext.ti.com ([192.94.94.41]:47125 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757219Ab3DSK2r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Apr 2013 06:28:47 -0400
+In-Reply-To: <516FE36B.9050801@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-04-19 at 15:48 +0900, Simon Horman wrote:
-> Signed-off-by: Simon Horman <horms@verge.net.au>
-> ---
->  net/ipv4/gre.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
-> index d2d5a99..0ae998b 100644
-> --- a/net/ipv4/gre.c
-> +++ b/net/ipv4/gre.c
-> @@ -168,7 +168,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
->  	/* segment inner packet. */
->  	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
->  	segs = skb_mac_gso_segment(skb, enc_features);
-> -	if (!segs || IS_ERR(segs))
-> +	if (IS_ERR_OR_NULL(segs))
->  		goto out;
->  
->  	skb = segs;
+On 4/18/2013 5:43 PM, Sebastian Andrzej Siewior wrote:
+> On 04/18/2013 01:50 PM, Mugunthan V N wrote:
+>>> diff --git a/drivers/net/ethernet/ti/cpsw.c
+>>> b/drivers/net/ethernet/ti/cpsw.c
+>>> index 559b020..f684e9b 100644
+>>> --- a/drivers/net/ethernet/ti/cpsw.c
+>>> +++ b/drivers/net/ethernet/ti/cpsw.c
+>>> @@ -469,43 +469,36 @@ void cpsw_tx_handler(void *token, int len, int
+> <snip>
+>>> -    if (unlikely(!netif_running(ndev))) {
+>>> -        if (skb)
+>>> -            dev_kfree_skb_any(skb);
+>>> -        return;
+>>> +    } else {
+>>> +        priv->stats.rx_dropped++;
+>>> +        new_skb = skb;
+>> Why you want to drop a successfully received packet as you memory alloc
+>> failed?
+>> Let the stack get it processed and there after you can continue with one
+>> less
+>> rx skb
+> Because, as I wrote, if this continues you end up without rx skbs.
+> However, if you if you are under memory pressure it is possible that
+> other callers in the stack have the same problem.
+>
+I had gone through some other drivers and found that this patch is valid 
+so add
 
-Hi Simon
+Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-AFAIK I would change things so that NULL is not a possible value.
-
-I don't really like IS_ERR_OR_NULL() because it hides some lazyness of
-ours, and is more expensive (2 tests)
-
-If we return NULL for an error, why not instead return -Esomething,
-since caller is OK to get -ENOMEM,-Exxxxx,... ?
-
-Anyway I presume this is a net-next patch ?
-
-Thanks
+Regards
+Mugunthan V N
