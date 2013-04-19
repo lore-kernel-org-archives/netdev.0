@@ -1,51 +1,73 @@
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC/RFT PATCH 2/2] rtk_btusb: A new driver for the Bluetooth
- portion of the Realtek RTL8723AE chip
-Date: Fri, 19 Apr 2013 10:23:09 +0300
-Message-ID: <20130419072309.GB3214@x220>
-References: <1365469068-4548-1-git-send-email-Larry.Finger@lwfinger.net>
- <1365469068-4548-3-git-send-email-Larry.Finger@lwfinger.net>
- <20130418222221.GA15279@joana>
- <51709E57.7020402@lwfinger.net>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: [PATCH 0/2] Small Modifications to GSO to allow
+	segmentation of MPLS
+Date: Fri, 19 Apr 2013 16:29:53 +0900
+Message-ID: <1366356595-3405-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	champion_chen-kXabqFNEczNtrwSWzY7KCg@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <51709E57.7020402-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Joseph Gasparakis <joseph.gasparakis-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Larry,
+This series consists of two small (at least in terms of numbers of lines
+of code changes) that allow support of GSO of non-MPLS GSO skbs that
+are changed into MPLS GSO skbs via Open vSwtich and its push MPLS action.
 
-On Thu, Apr 18, 2013, Larry Finger wrote:
-> On 04/18/2013 05:22 PM, Gustavo Padovan wrote:
-> >We recently added a setup callback to btusb to run device specific
-> >initialization, take a look in bluetooth-next to check how that can help you
-> >avoid duplicate a lot of code.
-> 
-> Thanks for the tip. I knew something was in the planning stage.
-> 
-> Is there any documentation on using the new facility?
+A description of each of the two changes is provided in the changelog
+of the two patches that comprise this series.
 
-Not really, but you can take a look at the "Bluetooth: Add support for
-Intel Bluetooth device [[8087:07dc]" patch that's currently going
-through some feedback rounds on linux-bluetooth. It's one of the first
-users of this new API.
+GSO of MPLS skbs may be achieved by (Open vSwtich) setting the following:
 
-Basically what you have is the new setup() callback for HCI drivers and
-then a new __hci_cmd_sync() function that can be used from within the
-setup() callback to synchronously send whatever HCI commands you need to
-send before proceeding with the normal HCI init sequence within the HCI
-core.
+1. skb's mac_header should point to the beginning of the L2 header
+   (no surprise!)
+2. skb's mac_len should be the length of the L2 header plus
+   the length of the MPLS stack. In other words, the MPLS stack
+   is considered to be part of the l2 header.
+3. skb's natwork_header should be set to just after the end of
+   the MPLS stack. Or in other words the begining of the L3 header.
+   This is consistent with 2.
+4. skb's protocol should be left as the skb's original (non-MPLS) protocol.
+   This is used by GSO to determine which callback to use to segment
+   the (MPLS encapsulated) skb data.
+5. The protocol in the skb's mac header should be set to the new
+   (MPLS) protocol. This is what will appear on the wire.
+6. skb's encapsulation_features should be set.
+   This is introduced and explained in more detail in the first patch of the
+   series.
 
-To my understanding Marcel has planned to move the vendor specific btusb
-routines into their own files in the long run (I believe he's used a
-term "mini driver" for this) but for now the changes are expected to go
-to the main btusb.c file.
+I will post a patch, "[PATCH v3.25] datapath: Add basic MPLS support to
+kernel" which adds MPLS support to the kernel datapath of Open vSwtich.
+That patch sets the above requirements and was used to exercise the MPLS
+GSO code. The datapath patch is against the Open vSwtich tree but it is
+intended that it be added to the Open vSwtich code present in the mainline
+Linux kernel at some point.
 
-Johan
+Simon Horman (2):
+  net: More fine-grained support for encapsulated GSO features
+  net: Loosen constraints for recalculating checksum in skb_segment()
+
+ include/linux/skbuff.h |    9 ++++++++-
+ net/core/dev.c         |    2 +-
+ net/core/skbuff.c      |    4 +++-
+ net/ipv4/gre.c         |    1 +
+ net/ipv4/ipip.c        |    1 +
+ 5 files changed, 14 insertions(+), 3 deletions(-)
+
+-- 
+1.7.10.4
