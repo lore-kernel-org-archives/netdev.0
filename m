@@ -1,45 +1,32 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH v2 net-next 2/6] bridge: make flags sysfs
- interface a little bit more extensible
-Date: Fri, 19 Apr 2013 17:35:26 -0400
-Message-ID: <5171B89E.4050800@redhat.com>
-References: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
-	<1366404770-28523-3-git-send-email-vyasevic@redhat.com>
-	<20130419135441.2dc84327@nehalam.linuxnetplumber.net>
-Reply-To: vyasevic@redhat.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pkt_sched: fix error return code in fw_change_attrs()
+Date: Fri, 19 Apr 2013 17:35:26 -0400 (EDT)
+Message-ID: <20130419.173526.829927804716362622.davem@davemloft.net>
+References: <CAPgLHd-cDj8j3tKofRMwJ8GE39LkO8ZvtTJ34aSFDSHO+7GjnA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org, mst@redhat.com
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130419135441.2dc84327@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: jhs@mojatatu.com, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48575 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933914Ab3DSVf3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 17:35:29 -0400
+In-Reply-To: <CAPgLHd-cDj8j3tKofRMwJ8GE39LkO8ZvtTJ34aSFDSHO+7GjnA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/19/2013 04:54 PM, Stephen Hemminger wrote:
-> On Fri, 19 Apr 2013 16:52:46 -0400
-> Vlad Yasevich <vyasevic@redhat.com> wrote:
->
->>
->> +static ssize_t show_flag(struct net_bridge_port *p, char *buf,
->> +			  unsigned long mask)
->> +{
->> +	return sprintf(buf, "%d\n", !!(p->flags & mask));
->> +}
->
-> Flags are bit, show in hex please.
->
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Thu, 18 Apr 2013 10:49:10 +0800
 
-I did not change the output format.  In fact, on second look
-I can pull this change out as it isn't needed.
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> Fix to return -EINVAL when tb[TCA_FW_MASK] is set and head->mask != 0xFFFFFFFF
+> instead of 0 (ifdef CONFIG_NET_CLS_IND and tb[TCA_FW_INDEV]), as done elsewhere
+> in this function.
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
--vlad
+Applied.
