@@ -1,44 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] [IrDA]: small read past the end of array in debug code
-Date: Fri, 19 Apr 2013 17:33:29 -0400 (EDT)
-Message-ID: <20130419.173329.1993060022855519678.davem@davemloft.net>
-References: <20130417071038.GA7923@elgon.mountain>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH v2 net-next 2/6] bridge: make flags sysfs interface a
+ little bit more extensible
+Date: Fri, 19 Apr 2013 17:33:34 -0400
+Message-ID: <5171B82E.4090707@redhat.com>
+References: <1366404770-28523-1-git-send-email-vyasevic@redhat.com> <1366404770-28523-3-git-send-email-vyasevic@redhat.com> <20130419135533.34e5e7f5@nehalam.linuxnetplumber.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	mst@redhat.com
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48536 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933525Ab3DSVdb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 17:33:31 -0400
-In-Reply-To: <20130417071038.GA7923@elgon.mountain>
+Received: from mx1.redhat.com ([209.132.183.28]:47330 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933525Ab3DSVdk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Apr 2013 17:33:40 -0400
+In-Reply-To: <20130419135533.34e5e7f5@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Wed, 17 Apr 2013 10:10:38 +0300
+On 04/19/2013 04:55 PM, Stephen Hemminger wrote:
+> On Fri, 19 Apr 2013 16:52:46 -0400
+> Vlad Yasevich <vyasevic@redhat.com> wrote:
+>
+>> +
+>> +static int store_flag(struct net_bridge_port *p, unsigned long v,
+>> +		     unsigned long mask)
+>> +{
+>> +	unsigned long flags = p->flags;
+>> +
+>> +	if (v)
+>> +		flags |= mask;
+>> +	else
+>> +		flags &= ~mask;
+>> +
+>> +	if (flags != p->flags) {
+>> +		p->flags = flags;
+>> +		br_ifinfo_notify(RTM_NEWLINK, p);
+>> +	}
+>> +	return 0;
+>> +}
+>
+> I don't want to allow arbitrary flag stores (and shows).
+> It exposes kernel bits to user space and creates an unintended ABI.
+>
 
-> The "reason" can come from skb->data[] and it hasn't been capped so it
-> can be from 0-255 instead of just 0-6.  For example in irlmp_state_dtr()
-> the code does:
-> 
-> 	reason = skb->data[3];
-> 	...
-> 	irlmp_disconnect_indication(self, reason, skb);
-> 
-> Also LMREASON has a couple other values which don't have entries in the
-> irlmp_reasons[] array.  And 0xff is a valid reason as well which means
-> "unknown".
-> 
-> So far as I can see we don't actually care about "reason" except for in
-> the debug code.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Stephen
 
-Applied but please put the subsystem prefix outside of [] which get
-stripped by git am and other tools.  I fixed it up to be "irda: ".
+This is really no different then what you currently have.  It simply
+removed code duplication and allows for slight sensibility.
 
-Thanks.
+Right now, the above function is essentially defined for every flag
+attributed that you define with BRPORT_ATTR_FLAG().  You essentially 
+have store_<flag>_name() function for every flag that replicates the 
+above code.
+
+This patch removes this duplication by having each store_<flag>_name()
+function call into this new static store_flag() function with the
+mask that is coded and expanded at compile time.
+
+So there is no new ABI, there is no arbitrary flag stores, but there is
+smaller code and there is ability to extend the flag store behavior to
+possibly do something else it if is needed.
+
+-vlad
