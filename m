@@ -1,70 +1,94 @@
-From: Steffen Trumtrar <s.trumtrar@pengutronix.de>
-Subject: Re: net/macb: clear tx/rx completion flags in ISR
-Date: Fri, 19 Apr 2013 09:30:58 +0200
-Message-ID: <20130419073058.GA660@pengutronix.de>
-References: <5170D276.6070208@yahoo.es>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: Re: linux-next: build failure after merge of the
+	net-next tree
+Date: Fri, 19 Apr 2013 09:34:09 +0200
+Message-ID: <20130419073409.GH20819@ritirata.org>
+References: <20130419132127.05ea53adec329ca794d62be7@canb.auug.org.au>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Ludovic Desroches <ludovic.desroches@atmel.com>
-To: Hein Tibosch <hein_tibosch@yahoo.es>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:49772 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754241Ab3DSHbD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 03:31:03 -0400
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature"; boundary="nYySOmuH/HDX6pKp"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Martin =?utf-8?Q?Hundeb=C3=B8ll?= <martin-SHBFXCSm21MJGwgDXS7ZQA@public.gmane.org>,
+ Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <5170D276.6070208@yahoo.es>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20130419132127.05ea53adec329ca794d62be7-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Hi Hein,
 
-On Fri, Apr 19, 2013 at 01:13:26PM +0800, Hein Tibosch wrote:
-> Hi Steffen,
-> 
-> > At least in the cadence IP core on the Xilinx Zynq SoC the TCOMP/RCOMP flags
-> > are not auto-cleaned. As these flags are evaluated, they need to be cleaned.
-> 
-> This patch does not work for at least the AVR32 platform. Both RCOMP/RCOMP
-> are cleared by *reading* the ISR and writing them would be fatal.
-> 
+--nYySOmuH/HDX6pKp
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-:-(
+Hi Stephen,
 
-> Could you tell me the version of the macb of Xilinx Zynq?
-> 
->     u32 version = (macb_readl(bp, MID) & ((1 << MACB_REV_SIZE) - 1))
->             | MACB_GREGS_VERSION;
-> 
-> On an AP7000 it reads as 0x0000010D
-> 
+On Fri, Apr 19, 2013 at 01:21:27PM +1000, Stephen Rothwell wrote:
+>=20
+> Caused by commits 612d2b4fe0a1 ("batman-adv: network coding - save
+> overheard and tx packets for decoding") and 2df5278b0267 ("batman-adv:
+> network coding - receive coded packets and decode them") from the
+> net-next tree interacting with commit fe8a93b95145 ("batman-adv: make
+> is_my_mac() check for the current mesh only") from the net tree.
+>=20
+> I added the following merge fix patch and can carry it as necessary:
 
-This gives me 0x00000119. The TRM says it is version r1p23.
 
-> I am thinking of making a patch like:
-> 
->     if (bp->version >= xxx)
->         macb_writel(bp, ISR, MACB_BIT(TCOMP));
-> 
->     if (bp->version >= xxx)
->         macb_writel(bp, ISR, MACB_BIT(RCOMP));
-> 
-> which would make it work on both platforms.
-> 
+thank you very much for taking care of this.
+However, as I wrote to David in the pull request which generated this noise
+(http://patchwork.ozlabs.org/patch/237363/), I am now going to send a second
+pull request which fixes this problem properly and adds the related kernel =
+doc.
 
-The documentation I have is a little bit confusing in that regard.
-The cadence datasheet says, this register is R/W, the Xilinx datasheet says,
-it is "normaly RO", but the programming guide explicitely mentions clearing
-the bit by writing to it.
-It seems, that something like your patch is inevitable.
+Your patch looks good, but I'd prefer to send my already prepared pull requ=
+est.
 
-Regards,
-Steffen
+Is it ok with you?
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+Cheers,
+
+
+
+
+--=20
+Antonio Quartulli
+
+=2E.each of us alone is worth nothing..
+Ernesto "Che" Guevara
+
+--nYySOmuH/HDX6pKp
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRcPNxAAoJEADl0hg6qKeOimIP/1OQBmOUOAtmC2ysu94YCdNk
+pBuo+0D7b7UtbdsIfYVQoj3EienZBWKB7DTPbWW3dV91/zWt7jG3YJuseVFqSDzs
+XYehdFZ1xXkz1VBSj/EBmQcNeyEHRQm2UDYcYvkQxaGIH6lOQ1ChFusyBD+UMQ8q
+Ke4N/fsAHbnsHdhv/qrtxg7qom7ZUxiKvXfyzeW/6l5Lc5x6dtYhU7/8mP/wzaKx
+iiastd8h5NHhnxGrBQl26SzKiyryS9xInINQWU+ZBeNddnqGo5AHjuACxbpt5z1A
+jn8eyGTzL5GyG+ylBKwMoCJPmuzvQ5b6CUIKrY5iFY2iz4h96Ja7srQIdBjeHNYH
+o99KAQrFF7pNN9FF0nFMnz3ngA7rh8cHYndgVBANZWyQl0mWCMmbIfnR2w2YSfQG
+tGI1I1WujcHs670DQZsIMadg8EWCIASQNfu17efH2QogHqikjjw3MPKeiTkr+JZM
+kwYSHvntfK0aY6AkLzUsUlWWMC57EVdHoSgr/RWoRtc6TNcV8C+z4rqfiHdycA27
+5G38FdED2KBILvbUSfneE8Za4XSc9gDCVq0D2d3rzhnGDyrvJ6B5q0C7+DH8FTI5
+GCJBfzbcOmn/zyw+UHfHQiV/ucF2Msd8/uWVuDjKeHKbm5emHKVeDGns7iAgYe3x
+GSRNU2fPoGviSa9pUts7
+=GfXY
+-----END PGP SIGNATURE-----
+
+--nYySOmuH/HDX6pKp--
