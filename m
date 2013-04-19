@@ -1,87 +1,89 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [net-next PATCH 2/3] net: fix enforcing of fragment queue hash list depth
-Date: Fri, 19 Apr 2013 14:45:28 +0200
-Message-ID: <20130419124528.GF27889@order.stressinduktion.org>
-References: <20130418213637.14296.43143.stgit@dragon> <20130418213732.14296.36026.stgit@dragon> <1366366287.3205.98.camel@edumazet-glaptop> <1366373950.26911.134.camel@localhost>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH RFC] spinlock: split out debugging check from
+ spin_lock_mutex
+Date: Fri, 19 Apr 2013 08:52:44 -0400
+Message-ID: <20130419125244.GB19017@hmsreliant.think-freely.org>
+References: <5166BDAA.3000603@acm.org>
+ <1365693486-6315-1-git-send-email-nhorman@tuxdriver.com>
+ <5166F35B.1040200@acm.org>
+ <20130411191409.GA9790@hmsreliant.think-freely.org>
+ <5167A953.1020900@acm.org>
+ <20130412113232.GA19966@hmsreliant.think-freely.org>
+ <516813A0.1040300@acm.org>
+ <20130419083802.GA27023@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Bart Van Assche <bvanassche@acm.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ingo Molnar <mingo@redhat.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Ingo Molnar <mingo@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:52255 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S968316Ab3DSMp3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 08:45:29 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57596 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S968346Ab3DSMw6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 08:52:58 -0400
 Content-Disposition: inline
-In-Reply-To: <1366373950.26911.134.camel@localhost>
+In-Reply-To: <20130419083802.GA27023@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 19, 2013 at 02:19:10PM +0200, Jesper Dangaard Brouer wrote:
-> I beg to differ.
+On Fri, Apr 19, 2013 at 10:38:02AM +0200, Ingo Molnar wrote:
 > 
-> First if all, I also though keeping fragments were the right choice, BUT
-> then I realized that we cannot tell god-from-bad frags apart, and an
-> attacker will obviously generate more fragments than the real traffic,
-> thus we end up keeping the attackers fragment for 30 sec. Because the
-> attacker will never "finish/complete" his fragment queues.
-> Thus, the real "help" for a DoS attack is to keep fragments.
->
-> Second, I have clearly shown, with my performance tests, that frags will
-> complete under DoS.
-
-How did you simulate the DoS? Did you try to fill up specific buckets or did
-you try to fill up the whole fragment cache?
-
-> > I am not sure its worth adding extra complexity.
+> * Bart Van Assche <bvanassche@acm.org> wrote:
 > 
-> It's not that complex, and we simply need it, else an attacker can DoS
-> us very easily by sending a burst every 30 sec.  We do need this change,
-> else we must revert Hannes patch, and find a complete other approach of
-> removing the LRU list system.
+> > WARNING: at kernel/mutex.c:313 __mutex_unlock_slowpath+0x157/0x160()
+> > Pid: 181, comm: kworker/0:1H Tainted: G           O 3.9.0-rc6-debug+ #1
+> > Call Trace:
+> > <IRQ>  [<ffffffff8103c3ef>] warn_slowpath_common+0x7f/0xc0
+> > [<ffffffff8103c44a>] warn_slowpath_null+0x1a/0x20
+> > [<ffffffff81432047>] __mutex_unlock_slowpath+0x157/0x160
+> > [<ffffffff8143205e>] mutex_unlock+0xe/0x10
+> > [<ffffffff8136d031>] netpoll_poll_dev+0x111/0x9a0
+> > [<ffffffff81345f32>] ? __alloc_skb+0x82/0x2a0
+> > [<ffffffff8136dac5>] netpoll_send_skb_on_dev+0x205/0x3b0
+> > [<ffffffff8136e00a>] netpoll_send_udp+0x28a/0x3a0
+> > [<ffffffffa0524843>] ? write_msg+0x53/0x110 [netconsole]
+> > [<ffffffffa05248bf>] write_msg+0xcf/0x110 [netconsole]
+> > [<ffffffff8103d7f1>] call_console_drivers.constprop.16+0xa1/0x120
+> > [<ffffffff8103e848>] console_unlock+0x3f8/0x450
+> > [<ffffffff8103ecce>] vprintk_emit+0x1ee/0x510
+> > [<ffffffff812d1f2c>] dev_vprintk_emit+0x5c/0x70
+> > [<ffffffff810ff047>] ? mempool_free_slab+0x17/0x20
+> 
+> I *really* think that using a mutex from a low level debug interface like netpoll 
+> is a mistake. We want such interfaces to be as atomic and as self-contained as 
+> possible: using spinlocks, which could possibly be converted to raw spinlocks, 
+> etc.
+> 
+> mutexes should be used when there's an expectation of possibly long blocking time. 
+> That's not really the case for netpoll, we either are able to generate the skb 
+> right then and send it off, or we are in trouble, right?
+> 
+> Thanks,
+> 
+> 	Ingo
+> 
 
-I agree that we have to do something to mitigate this. I would also
-drop the sysctl, I do think the kernel should have to take care of that.
 
-Perhaps a way to solve this problem more easily would be to switch back to
-use a jenkins hash for all inputs of the hash function and not deal with this
-kind of unfairness regarding the possiblity to fill up one of the buckets.
+Well, this is a very seldom used path.  The idea behind the use of a mutex was
+simply to allow the close/open paths to sleep during those periods when they
+occured in parallel with a netpoll operation. The only reason spinlocks weren't
+used was because we're not supposed to enter the drivers ndo_open/close paths in
+atomic context, as subsequents sleeps are possible.  Thats why the
+netpoll_poll_napi path had a mutex_trylock operation.  As it turns out though,
+thats unsafe for this use case because the mutex implementation uses a spin_lock
+without disabling interrupts (leading to the possibility of deadlocks), which in
+turn led to our discussion of weather or not converting the mutex internal
+implementation to use spin_lock_irqsave, as that would make mutex_trylock safe
+to use in irq/softirq context.
 
-Perhaps the performance improvements by Jesper (per bucket locking) could make
-up the more expensive hashing. :)
+Its all a bit moot at this point though, as I've come up with an alternate
+solution that I think satifies our needs just as well.  Using a wait_queue_head,
+with some atomic flags, we can block dev_open and close while netpoll is
+executing, and retain the ability to wake those processes up safely from irq
+context.  Please take a look at my new patch and let me know what you think.
 
-Just some minor things I found while looking at the patch:
-
-> -
-> -/* averaged:
-> - * max_depth = default ipfrag_high_thresh / INETFRAGS_HASHSZ /
-> - *	       rounded up (SKB_TRUELEN(0) + sizeof(struct ipq or
-> - *	       struct frag_queue))
-> - */
-> -#define INETFRAGS_MAXDEPTH		128
-> +#define INETFRAGS_MAX_HASH_DEPTH	32
-
-Perhaps a comment could be added, that this is only a default value for the
-max hash depth.
- 
- 
-> -void inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f)
-> +void __inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f,
-> +		      bool unlink_hash)
-
-This function could be static.
-
-> -	hlist_for_each_entry(q, &hb->chain, list) {
-> +	hlist_for_each_entry_safe(q, n, &hb->chain, list) {
-
-Minor, but I think _safe is not needed here.
-
-> +static int zero;
-> +
-
-Could be const.
-
-Thanks,
-
-  Hannes
+Thanks!
+Neil
