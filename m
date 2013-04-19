@@ -1,129 +1,56 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/5] netfilter: ipv6: propagate routing errors from ip6_route_me_harder()
-Date: Fri, 19 Apr 2013 03:23:54 +0200
-Message-ID: <1366334638-5113-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/5] netfilter: xt_rpfilter: depend on raw or mangle table
+Date: Fri, 19 Apr 2013 03:23:57 +0200
+Message-ID: <1366334638-5113-6-git-send-email-pablo@netfilter.org>
 References: <1366334638-5113-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:57218 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S967757Ab3DSBYW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 21:24:22 -0400
 In-Reply-To: <1366334638-5113-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+From: Florian Westphal <fw@strlen.de>
 
-Propagate routing errors from ip_route_me_harder() when dropping a packet
-using NF_DROP_ERR(). This makes userspace get the proper error instead of
-EPERM for everything.
+rpfilter is only valid in raw/mangle PREROUTING, i.e.
+RPFILTER=y|m is useless without raw or mangle table support.
 
-# ip -6 r a unreachable default table 100
-# ip -6 ru add fwmark 0x1 lookup 100
-# ip6tables -t mangle -A OUTPUT -d 2001:4860:4860::8888 -j MARK --set-mark 0x1
-
-Old behaviour:
-
-PING 2001:4860:4860::8888(2001:4860:4860::8888) 56 data bytes
-ping: sendmsg: Operation not permitted
-ping: sendmsg: Operation not permitted
-ping: sendmsg: Operation not permitted
-
-New behaviour:
-
-PING 2001:4860:4860::8888(2001:4860:4860::8888) 56 data bytes
-ping: sendmsg: Network is unreachable
-ping: sendmsg: Network is unreachable
-ping: sendmsg: Network is unreachable
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv6/netfilter.c                 |    6 +++---
- net/ipv6/netfilter/ip6table_mangle.c |    9 ++++++---
- net/ipv6/netfilter/ip6table_nat.c    |    6 ++++--
- 3 files changed, 13 insertions(+), 8 deletions(-)
+ net/ipv4/netfilter/Kconfig |    2 +-
+ net/ipv6/netfilter/Kconfig |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
-index 429089c..fc5fbd7 100644
---- a/net/ipv6/netfilter.c
-+++ b/net/ipv6/netfilter.c
-@@ -29,7 +29,7 @@ int ip6_route_me_harder(struct sk_buff *skb)
- 		IP6_INC_STATS(net, ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
- 		LIMIT_NETDEBUG(KERN_DEBUG "ip6_route_me_harder: No more route.\n");
- 		dst_release(dst);
--		return -EINVAL;
-+		return dst->error;
- 	}
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+index 0d755c5..e7916c1 100644
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -71,7 +71,7 @@ config IP_NF_MATCH_ECN
  
- 	/* Drop old route. */
-@@ -43,7 +43,7 @@ int ip6_route_me_harder(struct sk_buff *skb)
- 		skb_dst_set(skb, NULL);
- 		dst = xfrm_lookup(net, dst, flowi6_to_flowi(&fl6), skb->sk, 0);
- 		if (IS_ERR(dst))
--			return -1;
-+			return PTR_ERR(dst);
- 		skb_dst_set(skb, dst);
- 	}
- #endif
-@@ -53,7 +53,7 @@ int ip6_route_me_harder(struct sk_buff *skb)
- 	if (skb_headroom(skb) < hh_len &&
- 	    pskb_expand_head(skb, HH_DATA_ALIGN(hh_len - skb_headroom(skb)),
- 			     0, GFP_ATOMIC))
--		return -1;
-+		return -ENOMEM;
+ config IP_NF_MATCH_RPFILTER
+ 	tristate '"rpfilter" reverse path filter match support'
+-	depends on NETFILTER_ADVANCED
++	depends on NETFILTER_ADVANCED && (IP_NF_MANGLE || IP_NF_RAW)
+ 	---help---
+ 	  This option allows you to match packets whose replies would
+ 	  go out via the interface the packet came in.
+diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
+index c72532a..4433ab40 100644
+--- a/net/ipv6/netfilter/Kconfig
++++ b/net/ipv6/netfilter/Kconfig
+@@ -105,7 +105,7 @@ config IP6_NF_MATCH_MH
  
- 	return 0;
- }
-diff --git a/net/ipv6/netfilter/ip6table_mangle.c b/net/ipv6/netfilter/ip6table_mangle.c
-index 6134a1e..e075399 100644
---- a/net/ipv6/netfilter/ip6table_mangle.c
-+++ b/net/ipv6/netfilter/ip6table_mangle.c
-@@ -38,7 +38,7 @@ ip6t_mangle_out(struct sk_buff *skb, const struct net_device *out)
- 	struct in6_addr saddr, daddr;
- 	u_int8_t hop_limit;
- 	u_int32_t flowlabel, mark;
--
-+	int err;
- #if 0
- 	/* root is playing with raw sockets. */
- 	if (skb->len < sizeof(struct iphdr) ||
-@@ -65,8 +65,11 @@ ip6t_mangle_out(struct sk_buff *skb, const struct net_device *out)
- 	     !ipv6_addr_equal(&ipv6_hdr(skb)->daddr, &daddr) ||
- 	     skb->mark != mark ||
- 	     ipv6_hdr(skb)->hop_limit != hop_limit ||
--	     flowlabel != *((u_int32_t *)ipv6_hdr(skb))))
--		return ip6_route_me_harder(skb) == 0 ? ret : NF_DROP;
-+	     flowlabel != *((u_int32_t *)ipv6_hdr(skb)))) {
-+		err = ip6_route_me_harder(skb);
-+		if (err < 0)
-+			ret = NF_DROP_ERR(err);
-+	}
- 
- 	return ret;
- }
-diff --git a/net/ipv6/netfilter/ip6table_nat.c b/net/ipv6/netfilter/ip6table_nat.c
-index e0e788d..97e2edd 100644
---- a/net/ipv6/netfilter/ip6table_nat.c
-+++ b/net/ipv6/netfilter/ip6table_nat.c
-@@ -215,6 +215,7 @@ nf_nat_ipv6_local_fn(unsigned int hooknum,
- 	const struct nf_conn *ct;
- 	enum ip_conntrack_info ctinfo;
- 	unsigned int ret;
-+	int err;
- 
- 	/* root is playing with raw sockets. */
- 	if (skb->len < sizeof(struct ipv6hdr))
-@@ -227,8 +228,9 @@ nf_nat_ipv6_local_fn(unsigned int hooknum,
- 
- 		if (!nf_inet_addr_cmp(&ct->tuplehash[dir].tuple.dst.u3,
- 				      &ct->tuplehash[!dir].tuple.src.u3)) {
--			if (ip6_route_me_harder(skb))
--				ret = NF_DROP;
-+			err = ip6_route_me_harder(skb);
-+			if (err < 0)
-+				ret = NF_DROP_ERR(err);
- 		}
- #ifdef CONFIG_XFRM
- 		else if (!(IP6CB(skb)->flags & IP6SKB_XFRM_TRANSFORMED) &&
+ config IP6_NF_MATCH_RPFILTER
+ 	tristate '"rpfilter" reverse path filter match support'
+-	depends on NETFILTER_ADVANCED
++	depends on NETFILTER_ADVANCED && (IP6_NF_MANGLE || IP6_NF_RAW)
+ 	---help---
+ 	  This option allows you to match packets whose replies would
+ 	  go out via the interface the packet came in.
 -- 
 1.7.10.4
-
