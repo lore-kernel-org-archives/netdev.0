@@ -1,73 +1,72 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: [PATCH 0/2] Small Modifications to GSO to allow
-	segmentation of MPLS
-Date: Fri, 19 Apr 2013 16:29:53 +0900
-Message-ID: <1366356595-3405-1-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Joseph Gasparakis <joseph.gasparakis-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH 2/2] net: Loosen constraints for recalculating checksum in skb_segment()
+Date: Fri, 19 Apr 2013 16:29:55 +0900
+Message-ID: <1366356595-3405-3-git-send-email-horms@verge.net.au>
+References: <1366356595-3405-1-git-send-email-horms@verge.net.au>
+Cc: Jesse Gross <jesse@nicira.com>, jarno.rajahalme@nsn.com,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+	Simon Horman <horms@verge.net.au>
+To: dev@openvswitch.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:53596 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757271Ab3DSHaN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 03:30:13 -0400
+In-Reply-To: <1366356595-3405-1-git-send-email-horms@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This series consists of two small (at least in terms of numbers of lines
-of code changes) that allow support of GSO of non-MPLS GSO skbs that
-are changed into MPLS GSO skbs via Open vSwtich and its push MPLS action.
+In the case where a non-MPLS GSO skb becomes an MPLS GSO skb, via
+Open vSwitch's push MPLS action it is desirable to provide segmentation
+in software. In this case the original protocol of the skb may have allowed
+its checksumming to be offloaded but this may no longer be supported now
+the skb is MPLS. Actually it seems to me that this is the likely case.
 
-A description of each of the two changes is provided in the changelog
-of the two patches that comprise this series.
+In order to allow the checksum to be updated in this case loosen
+the rules for recalculating the checksum on in skb_segment().
 
-GSO of MPLS skbs may be achieved by (Open vSwtich) setting the following:
+N.B.: I must confess that I am a little unsure of the details of
+the implementation of skb_checksum(). But I have observed that this
+is necessary as skb_checksum() hits the following:
 
-1. skb's mac_header should point to the beginning of the L2 header
-   (no surprise!)
-2. skb's mac_len should be the length of the L2 header plus
-   the length of the MPLS stack. In other words, the MPLS stack
-   is considered to be part of the l2 header.
-3. skb's natwork_header should be set to just after the end of
-   the MPLS stack. Or in other words the begining of the L3 header.
-   This is consistent with 2.
-4. skb's protocol should be left as the skb's original (non-MPLS) protocol.
-   This is used by GSO to determine which callback to use to segment
-   the (MPLS encapsulated) skb data.
-5. The protocol in the skb's mac header should be set to the new
-   (MPLS) protocol. This is what will appear on the wire.
-6. skb's encapsulation_features should be set.
-   This is introduced and explained in more detail in the first patch of the
-   series.
+		if (!hsize && i >= nfrags) {
+			...
+			fskb = fskb->next;
+			...
+		}
+		...
+		if (fskb != skb_shinfo(skb)->frag_list)
+			...
 
-I will post a patch, "[PATCH v3.25] datapath: Add basic MPLS support to
-kernel" which adds MPLS support to the kernel datapath of Open vSwtich.
-That patch sets the above requirements and was used to exercise the MPLS
-GSO code. The datapath patch is against the Open vSwtich tree but it is
-intended that it be added to the Open vSwtich code present in the mainline
-Linux kernel at some point.
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/core/skbuff.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Simon Horman (2):
-  net: More fine-grained support for encapsulated GSO features
-  net: Loosen constraints for recalculating checksum in skb_segment()
-
- include/linux/skbuff.h |    9 ++++++++-
- net/core/dev.c         |    2 +-
- net/core/skbuff.c      |    4 +++-
- net/ipv4/gre.c         |    1 +
- net/ipv4/ipip.c        |    1 +
- 5 files changed, 14 insertions(+), 3 deletions(-)
-
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 7504371..e3bb024 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2825,7 +2825,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 						 doffset + tnl_hlen);
+ 
+ 		if (fskb != skb_shinfo(skb)->frag_list)
+-			continue;
++			goto csum;
+ 
+ 		if (!sg) {
+ 			nskb->ip_summed = CHECKSUM_NONE;
+@@ -2889,6 +2889,7 @@ skip_fraglist:
+ 		nskb->len += nskb->data_len;
+ 		nskb->truesize += nskb->data_len;
+ 
++csum:
+ 		if (!csum) {
+ 			nskb->csum = skb_checksum(nskb, doffset,
+ 						  nskb->len - doffset, 0);
 -- 
 1.7.10.4
