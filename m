@@ -1,68 +1,40 @@
-From: Gertjan van Wingerde <gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH wireless-next V2] rt2x00: Use more
- current logging styles, shrink object size
-Date: Fri, 19 Apr 2013 20:29:56 +0200
-Message-ID: <51718D24.3020902@gmail.com>
-References: <1366360406.3901.10.camel@joe-AO722>
-	<CAL1gcdOMtbzxCVLNvDK_CD-M+_SdAeL3Sja9khO9+G2bNOCz1g@mail.gmail.com>
-	<1366365149.3901.15.camel@joe-AO722>
-	<1366385620.3901.28.camel@joe-AO722>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] net: ax88796: avoid 64 bit arithmetic
+Date: Fri, 19 Apr 2013 20:46:09 +0200
+Message-ID: <201304192046.09566.arnd@arndb.de>
+References: <201304191506.21220.arnd@arndb.de> <20130419.133603.1487086024178553164.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	rt2x00 Users List <users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
-In-Reply-To: <1366385620.3901.28.camel@joe-AO722>
-List-Unsubscribe: <http://rt2x00.serialmonkey.com/mailman/options/users_rt2x00.serialmonkey.com>,
-	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://rt2x00.serialmonkey.com/pipermail/users_rt2x00.serialmonkey.com/>
-List-Post: <mailto:users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
-List-Help: <mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=help>
-List-Subscribe: <http://rt2x00.serialmonkey.com/mailman/listinfo/users_rt2x00.serialmonkey.com>,
-	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=subscribe>
-Errors-To: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
-Sender: "users" <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ben@fluff.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.8]:61247 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753212Ab3DSSqZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 14:46:25 -0400
+In-Reply-To: <20130419.133603.1487086024178553164.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/19/13 17:33, Joe Perches wrote:
-> Reduce object space ~2% using more current logging styles.
+On Friday 19 April 2013, David Miller wrote:
+> From: Arnd Bergmann <arnd@arndb.de>
+> Date: Fri, 19 Apr 2013 15:06:21 +0200
 > 
-> Neaten and simplify logging macros.
-> Use wiphy_<level> where appropriate.
-> Coalesce formats.
+> > When building ax88796 on an ARM platform with 64-bit resource_size_t,
+> > we currently get
+> > 
+> > drivers/net/ethernet/8390/ax88796.c:875: undefined reference to `__aeabi_uldivmod'
+> > 
+> > because we do a division on the length of the MMIO resource.
+> > Since we know that this resource is very short, using an
+> > "unsigned long" instead of "resource_size_t" is entirely
+> > sufficient, and avoids this link-time error.
 > 
-> Convert ERROR/WARNING/INFO macros to rt2x00_<level>
-> Convert EEPROM to rt2x00_eeprom_dbg
-> Convert PROBE_ERROR to rt2x00_probe_err
-> Convert DEBUG to rt2x00_dbg
-> Convert EEPROM to rt2x00_eeprom_dbg
-> 
-> $ size drivers/net/wireless/rt2x00/built-in.o*
->    text	   data	    bss	    dec	    hex	filename
->  245639	  71696	  69584	 386919	  5e767	drivers/net/wireless/rt2x00/built-in.o.new
->  240609	  70096	  68944	 379649	  5cb01	drivers/net/wireless/rt2x00/built-in.o.new.nodyndbg
->  240609	  70096	  68944	 379649	  5cb01	drivers/net/wireless/rt2x00/built-in.o.new.no_rt2x00_debug
->  249198	  70096	  70352	 389646	  5f20e	drivers/net/wireless/rt2x00/built-in.o.old
->  249198	  70096	  70352	 389646	  5f20e	drivers/net/wireless/rt2x00/built-in.o.old.nodyndbg
->  244222	  70096	  69712	 384030	  5dc1e	drivers/net/wireless/rt2x00/built-in.o.old.no_rt2x00_debug
-> 
-> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+> Please provide a proper signoff with your patches, thanks.
 
-Acked-by: Gertjan van Wingerde <gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sorry about this, I have no idea how this slipped through. I'll
+send a new version right away.
 
-> ---
-> V2 differences:
-> 
-> Correct copy/paste error in rt2x00_info/warn macros
-> Reorder macro definitions
-> Use embedded prefix in rt2x00_eeprom_dbg
-> 
-> Object size increased from v1 ~100 bytes x86/32.
-> Object size may be slightly smaller this way for x86/64
-> 
->
----
-Gertjan
+	Arnd
