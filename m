@@ -1,33 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] packet: move hw/sw timestamp extraction
- into a small helper
-Date: Fri, 19 Apr 2013 16:50:47 -0400 (EDT)
-Message-ID: <20130419.165047.1719206786638234482.davem@davemloft.net>
-References: <1366111751-14886-1-git-send-email-dborkman@redhat.com>
-	<1366111751-14886-2-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH v2 net-next] bridge: Add fdb dst check during fdb update
+Date: Fri, 19 Apr 2013 16:51:24 -0400 (EDT)
+Message-ID: <20130419.165124.1032752136933355380.davem@davemloft.net>
+References: <1365968593-28725-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemb@google.com, hawk@diku.dk
-To: dborkman@redhat.com
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	nolan@cumulusnetworks.com, shm@cumulusnetworks.com,
+	wkok@cumulusnetworks.com
+To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47839 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47860 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932333Ab3DSUut (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 16:50:49 -0400
-In-Reply-To: <1366111751-14886-2-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1754071Ab3DSUv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 16:51:26 -0400
+In-Reply-To: <1365968593-28725-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Tue, 16 Apr 2013 13:29:11 +0200
+From: roopa@cumulusnetworks.com
+Date: Sun, 14 Apr 2013 12:43:13 -0700
 
-> This patch introduces a small, internal helper function, that is used by
-> PF_PACKET. Based on the flags that are passed, it extracts the packet
-> timestamp in the receive path. This is merely a refactoring to remove
-> some duplicate code in tpacket_rcv(), to make it more readable, and to
-> enable others to use this function in PF_PACKET as well, e.g. for TX.
+> From: roopa <roopa@cumulusnetworks.com>
 > 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Current bridge fdb update code does not seem to update the port
+> during fdb update. This patch adds a check for fdb dst (port)
+> change during fdb update. Also rearranges the call to
+> fdb_notify to send only one notification for create and update.
+> 
+> Changelog:
+> v2 - Change notify flag to bool
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Applied.
+This needs review and is just rotting in my patchwork backlog.
+
+Please someone with bridge knowledge take a look at this patch.
+
+Thanks.
