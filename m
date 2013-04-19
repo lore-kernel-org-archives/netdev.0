@@ -1,36 +1,31 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next v2 2/2] openvswitch: Use lockless genl.
-Date: Thu, 18 Apr 2013 17:25:31 -0700
-Message-ID: <CAEP_g=9=yVdYfE2oT5ngTuE9xKD8VBMqoB1cctyg+m6=snb5gg@mail.gmail.com>
-References: <1366320653-16941-1-git-send-email-pshelar@nicira.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [net-next PATCH 2/3] net: fix enforcing of fragment queue hash list depth
+Date: Fri, 19 Apr 2013 02:52:17 +0200
+Message-ID: <20130419005217.GD27889@order.stressinduktion.org>
+References: <20130418213637.14296.43143.stgit@dragon> <20130418213732.14296.36026.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Pravin B Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:40144 "HELO
-	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S967537Ab3DSAZw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 20:25:52 -0400
-Received: by mail-ob0-f198.google.com with SMTP id ta14so18274544obb.9
-        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 17:25:51 -0700 (PDT)
-In-Reply-To: <1366320653-16941-1-git-send-email-pshelar@nicira.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:51431 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967655Ab3DSAwS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 20:52:18 -0400
+Content-Disposition: inline
+In-Reply-To: <20130418213732.14296.36026.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 18, 2013 at 2:30 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
-> OVS locking was recently changed to have private OVS lock which
-> simplified overall locking.  Therefore there is no need to have
-> another global genl lock to protect OVS data structures.  Following
-> patch uses of lockless genl family for OVS.  This also allows
-> more granual OVS locking using ovs_mutex for protecting OVS data
-> structures, which gives more concurrencey.  E.g multiple genl
-> operations OVS_PACKET_CMD_EXECUTE can run in parallel, etc.
->
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-> ---
-> Updated commit msg according comment From Jesse.
+On Thu, Apr 18, 2013 at 11:38:00PM +0200, Jesper Dangaard Brouer wrote:
+> -	if (PTR_ERR(q) == -ENOBUFS)
+> -		LIMIT_NETDEBUG(KERN_WARNING "%s%s", prefix, msg);
+> +		LIMIT_NETDEBUG(KERN_WARNING "%s(): Fragment hash bucket"
+> +			       " list length grew over limit (len %d),"
+> +			       " Dropping another fragment.\n",
+> +			       __func__, depth);
+> +	}
 
-Once the genl parts have been reviewed:
-Acked-by: Jesse Gross <jesse@nicira.com>
+Simple nice-to-have thingie: Do you see a simple possibility to add the
+user (e.g.  ipv6/ipv6-netfilter/ipv4) to the warning?
