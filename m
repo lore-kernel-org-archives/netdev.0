@@ -1,72 +1,134 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 2/2] net: Loosen constraints for recalculating checksum in skb_segment()
-Date: Fri, 19 Apr 2013 16:29:55 +0900
-Message-ID: <1366356595-3405-3-git-send-email-horms@verge.net.au>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: [PATCH 1/2] net: More fine-grained support for
+	encapsulated GSO features
+Date: Fri, 19 Apr 2013 16:29:54 +0900
+Message-ID: <1366356595-3405-2-git-send-email-horms@verge.net.au>
 References: <1366356595-3405-1-git-send-email-horms@verge.net.au>
-Cc: Jesse Gross <jesse@nicira.com>, jarno.rajahalme@nsn.com,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
-	Simon Horman <horms@verge.net.au>
-To: dev@openvswitch.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:53596 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757271Ab3DSHaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 03:30:13 -0400
-In-Reply-To: <1366356595-3405-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Joseph Gasparakis <joseph.gasparakis-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1366356595-3405-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-In the case where a non-MPLS GSO skb becomes an MPLS GSO skb, via
-Open vSwitch's push MPLS action it is desirable to provide segmentation
-in software. In this case the original protocol of the skb may have allowed
-its checksumming to be offloaded but this may no longer be supported now
-the skb is MPLS. Actually it seems to me that this is the likely case.
+"net: Add support for hardware-offloaded encapsulation" introduced
+the encapsulation field of struct skb, which when set provides hints
+that GSO should handle an skb that encapsulates a packet.
 
-In order to allow the checksum to be updated in this case loosen
-the rules for recalculating the checksum on in skb_segment().
+This patch adds an encapsulation_features field which provides
+a hint to dev dev_hard_start_xmit() that harware-offload encapsulation
+features should be used. Previously this hint was provided by the
+encapsulation field.
 
-N.B.: I must confess that I am a little unsure of the details of
-the implementation of skb_checksum(). But I have observed that this
-is necessary as skb_checksum() hits the following:
+The other uses of the encapsulation field are left unchanged.
 
-		if (!hsize && i >= nfrags) {
-			...
-			fskb = fskb->next;
-			...
-		}
-		...
-		if (fskb != skb_shinfo(skb)->frag_list)
-			...
+The two in-tree locations that set the encapsulation have been updated to
+also set encapsulation_field.
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
+The motivation for this is to provide support segmentation of GSO MPLS skbs.
+This may be necessary when a non-MPLS GSO skb is turned into an MPLS GSO
+skb by Open vSwtich and its MPLS push action.
+
+In this case it  harware-offload encapsulation features should be used,
+actually to be more exact software segmentation should be selected, but
+other hints provided by the encapsulation field are not applicable.
+
+Cc: Joseph Gasparakis <joseph.gasparakis-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
 ---
- net/core/skbuff.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ include/linux/skbuff.h |    9 ++++++++-
+ net/core/dev.c         |    2 +-
+ net/core/skbuff.c      |    1 +
+ net/ipv4/gre.c         |    1 +
+ net/ipv4/ipip.c        |    1 +
+ 5 files changed, 12 insertions(+), 2 deletions(-)
 
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index e27d1c7..42e61c1 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -492,7 +492,14 @@ struct sk_buff {
+ 	 * headers if needed
+ 	 */
+ 	__u8			encapsulation:1;
+-	/* 7/9 bit hole (depending on ndisc_nodetype presence) */
++	/* Encapsulation protocol and NIC drivers should use
++	 * this flag to indicate to each other if the skb contains
++	 * encapsulated packet and GSO should use encapsulation features
++	 * instead of standard features for the netdev. This is typically
++	 * a subset of cases where skb->encapsulation is set.
++	 */
++	__u8			encapsulation_features:1;
++	/* 6/8 bit hole (depending on ndisc_nodetype presence) */
+ 	kmemcheck_bitfield_end(flags2);
+ 
+ #ifdef CONFIG_NET_DMA
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 3655ff9..ca81ac8 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2494,7 +2494,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		 * hardware encapsulation features instead of standard
+ 		 * features for the netdev
+ 		 */
+-		if (skb->encapsulation)
++		if (skb->encapsulation_features)
+ 			features &= dev->hw_enc_features;
+ 
+ 		if (netif_needs_gso(skb, features)) {
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 7504371..e3bb024 100644
+index ba64614..7504371 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -2825,7 +2825,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
- 						 doffset + tnl_hlen);
+@@ -680,6 +680,7 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ 	new->l4_rxhash		= old->l4_rxhash;
+ 	new->no_fcs		= old->no_fcs;
+ 	new->encapsulation	= old->encapsulation;
++	new->encapsulation_features = old->encapsulation_features;
+ #ifdef CONFIG_XFRM
+ 	new->sp			= secpath_get(old->sp);
+ #endif
+diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
+index 0ae998b..8420f29 100644
+--- a/net/ipv4/gre.c
++++ b/net/ipv4/gre.c
+@@ -157,6 +157,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
+ 	}
  
- 		if (fskb != skb_shinfo(skb)->frag_list)
--			continue;
-+			goto csum;
+ 	skb->encapsulation = 0;
++	skb->encapsulation_features = 0;
  
- 		if (!sg) {
- 			nskb->ip_summed = CHECKSUM_NONE;
-@@ -2889,6 +2889,7 @@ skip_fraglist:
- 		nskb->len += nskb->data_len;
- 		nskb->truesize += nskb->data_len;
+ 	if (unlikely(!pskb_may_pull(skb, ghl)))
+ 		goto out;
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 77bfcce..a6db3c0 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -220,6 +220,7 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (likely(!skb->encapsulation)) {
+ 		skb_reset_inner_headers(skb);
+ 		skb->encapsulation = 1;
++		skb->encapsulation_features = 1;
+ 	}
  
-+csum:
- 		if (!csum) {
- 			nskb->csum = skb_checksum(nskb, doffset,
- 						  nskb->len - doffset, 0);
+ 	ip_tunnel_xmit(skb, dev, tiph);
 -- 
 1.7.10.4
