@@ -1,33 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ax88796: avoid 64 bit arithmetic
-Date: Fri, 19 Apr 2013 13:36:03 -0400 (EDT)
-Message-ID: <20130419.133603.1487086024178553164.davem@davemloft.net>
-References: <201304191506.21220.arnd@arndb.de>
+Subject: Re: [PATCH 0/3] URGENT for 3.9: net: fec: revert NAPI introduction
+Date: Fri, 19 Apr 2013 13:38:25 -0400 (EDT)
+Message-ID: <20130419.133825.1727571575417364801.davem@davemloft.net>
+References: <1366382164-10968-1-git-send-email-l.stach@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ben@fluff.org
-To: arnd@arndb.de
+Cc: netdev@vger.kernel.org, Frank.Li@freescale.com,
+	shawn.guo@linaro.org, festevam@gmail.com
+To: l.stach@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44172 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44247 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751368Ab3DSRgH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 13:36:07 -0400
-In-Reply-To: <201304191506.21220.arnd@arndb.de>
+	with ESMTP id S1751583Ab3DSRi2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 13:38:28 -0400
+In-Reply-To: <1366382164-10968-1-git-send-email-l.stach@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 19 Apr 2013 15:06:21 +0200
+From: Lucas Stach <l.stach@pengutronix.de>
+Date: Fri, 19 Apr 2013 16:36:01 +0200
 
-> When building ax88796 on an ARM platform with 64-bit resource_size_t,
-> we currently get
-> 
-> drivers/net/ethernet/8390/ax88796.c:875: undefined reference to `__aeabi_uldivmod'
-> 
-> because we do a division on the length of the MMIO resource.
-> Since we know that this resource is very short, using an
-> "unsigned long" instead of "resource_size_t" is entirely
-> sufficient, and avoids this link-time error.
+> As it's way too late in the cycle to try and fix this up just revert the
+> relevant patches for now.
 
-Please provide a proper signoff with your patches, thanks.
+I disagree, fix this properly, the revert is more intrusive.
