@@ -1,43 +1,70 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: rtl8168e-vl dropping tftp ack
-Date: Fri, 19 Apr 2013 11:27:11 +0800
-Message-ID: <DFF62ECF5DF14C65A71A35581D58FFA9@realtek.com.tw>
-References: <516EB23B.3080504@canonical.com> <20130417213251.GA13790@electric-eye.fr.zoreil.com> <516FC218.3060002@canonical.com> <20130418215501.GB8944@electric-eye.fr.zoreil.com>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] e1000e: fix mismatch in mutex lock-unlock in
+	e1000_reset_hw_82571()
+Date: Thu, 18 Apr 2013 22:15:18 -0700
+Message-ID: <1366348518-5594-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, 'nic_swsd' <nic_swsd@realtek.com>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>,
-	'Stefan Bader' <stefan.bader@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:44743 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967885Ab3DSD1N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 23:27:13 -0400
-In-Reply-To: <20130418215501.GB8944@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ldv-project@linuxtesting.org, e1000-devel@lists.sourceforge.net,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Alexey Khoroshilov <khoroshilov@ispras.ru>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> Sent: Friday, April 19, 2013 5:55 AM
-> To: Stefan Bader
-> Cc: netdev@vger.kernel.org; nic_swsd
-> Subject: Re: rtl8168e-vl dropping tftp ack
-> 
-[...]
-> +		if (unlikely(skb->len < ETH_ZLEN &&
-> +		    (tp->mac_version == RTL_GIGA_MAC_VER_34))) {
-> +			if (skb_padto(skb, ETH_ZLEN))
-> +				return false;
-> +			skb_checksum_help(skb);
-> +			skb_put(skb, ETH_ZLEN - skb->len);
-> +			return true;
-> +		}
-> +
+If e1000_get_hw_semaphore_82574() succeed, it acquires swflag_mutex,
+otherwise it does not. But the returned value of
+e1000_get_hw_semaphore_82574() is ignored, so unlocking of swflag_mutex
+happens anyway.
 
-I don't think the hw checksum is enabled, because there are many successful
-small packets before the failure. However, I also want to know if any skb->len <
-60 occurs, so I think the checking should be included by the other case.
+The patch fixes the issue by breaking reset if MIC ownership is not acquired.
+
+Found by Linux Driver Verification project (linuxtesting.org).
+
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/ethernet/intel/e1000e/82571.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
+index 2faffbd..a6bd80e 100644
+--- a/drivers/net/ethernet/intel/e1000e/82571.c
++++ b/drivers/net/ethernet/intel/e1000e/82571.c
+@@ -1003,8 +1003,10 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
+ 	default:
+ 		break;
+ 	}
+-	if (ret_val)
++	if (ret_val) {
+ 		e_dbg("Cannot acquire MDIO ownership\n");
++		return ret_val;
++	}
  
-Best Regards,
-Hayes
+ 	ctrl = er32(CTRL);
+ 
+-- 
+1.7.9.5
+
+
+------------------------------------------------------------------------------
+Precog is a next-generation analytics platform capable of advanced
+analytics on semi-structured data. The platform includes APIs for building
+apps and a phenomenal toolset for data science. Developers can use
+our toolset for easy data analysis & visualization. Get a free account!
+http://www2.precog.com/precogplatform/slashdotnewsletter
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
