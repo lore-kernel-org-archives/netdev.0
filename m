@@ -1,44 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: remove a stale comment for dl_next
-Date: Fri, 19 Apr 2013 14:29:25 -0700
-Message-ID: <1366406965.16391.64.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] [IrDA]: small read past the end of array in debug code
+Date: Fri, 19 Apr 2013 17:33:29 -0400 (EDT)
+Message-ID: <20130419.173329.1993060022855519678.davem@davemloft.net>
+References: <20130417071038.GA7923@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:47479 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932576Ab3DSV32 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 17:29:28 -0400
-Received: by mail-pa0-f52.google.com with SMTP id fb10so2476112pad.39
-        for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 14:29:27 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:48536 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933525Ab3DSVdb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 17:33:31 -0400
+In-Reply-To: <20130417071038.GA7923@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 17 Apr 2013 10:10:38 +0300
 
-dl_next member in struct request_sock doesn't need to be first.
+> The "reason" can come from skb->data[] and it hasn't been capped so it
+> can be from 0-255 instead of just 0-6.  For example in irlmp_state_dtr()
+> the code does:
+> 
+> 	reason = skb->data[3];
+> 	...
+> 	irlmp_disconnect_indication(self, reason, skb);
+> 
+> Also LMREASON has a couple other values which don't have entries in the
+> irlmp_reasons[] array.  And 0xff is a valid reason as well which means
+> "unknown".
+> 
+> So far as I can see we don't actually care about "reason" except for in
+> the debug code.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-We expect to insert a "struct common_sock" or a subset of it,
-so this claim had to be verified.
+Applied but please put the subsystem prefix outside of [] which get
+stripped by git am and other tools.  I fixed it up to be "irda: ".
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/net/request_sock.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/net/request_sock.h b/include/net/request_sock.h
-index 9069e65..59795e4 100644
---- a/include/net/request_sock.h
-+++ b/include/net/request_sock.h
-@@ -48,7 +48,7 @@ extern int inet_rtx_syn_ack(struct sock *parent, struct request_sock *req);
- /* struct request_sock - mini sock to represent a connection request
-  */
- struct request_sock {
--	struct request_sock		*dl_next; /* Must be first member! */
-+	struct request_sock		*dl_next;
- 	u16				mss;
- 	u8				num_retrans; /* number of retransmits */
- 	u8				cookie_ts:1; /* syncookie: encode tcpopts in timestamp */
+Thanks.
