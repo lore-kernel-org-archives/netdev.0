@@ -1,64 +1,68 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH 1/3] net: fix race bug in fragmentation create
- code
-Date: Fri, 19 Apr 2013 10:09:24 +0200
-Message-ID: <1366358964.26911.82.camel@localhost>
-References: <20130418213637.14296.43143.stgit@dragon>
-	 <20130418213715.14296.43912.stgit@dragon>
-	 <20130419010006.GE27889@order.stressinduktion.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Fri, 19 Apr 2013 18:13:34 +1000
+Message-ID: <20130419181334.3e042702caa9c2ad9171b4c2@canb.auug.org.au>
+References: <20130419132127.05ea53adec329ca794d62be7@canb.auug.org.au>
+	<20130419073409.GH20819@ritirata.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44470 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756896Ab3DSIJd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Apr 2013 04:09:33 -0400
-In-Reply-To: <20130419010006.GE27889@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__19_Apr_2013_18_13_34_+1000_e2CbsKAP_mvcYz.V"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Martin =?UTF-8?B?SHVuZGViw7hsbA==?= <martin@hundeboll.net>,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	b.a.t.m.a.n@lists.open-mesh.org
+To: Antonio Quartulli <ordex@autistici.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20130419073409.GH20819@ritirata.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-04-19 at 03:00 +0200, Hannes Frederic Sowa wrote:
-> On Thu, Apr 18, 2013 at 11:37:27PM +0200, Jesper Dangaard Brouer wrote:
-> > During creation of a new inet_frag_queue, the lru_list pointer is
-> > updated after releasing the hash bucket lock, which can lead to a
-> > race condition (and panic), if the inet_frag_queue is deleted
-> > (very quickly) before the lru_list is valid.
-> > 
-> > This race condition is should not be able to occur with current
-> > LRU based evictor.  For the planned direct hash based
-> > evictor/clean strategy, this race condition is more likely to
-> > occur.
-> > 
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> > ---
-> > 
-> >  net/ipv4/inet_fragment.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-> > index e97d66a..beec05b 100644
-> > --- a/net/ipv4/inet_fragment.c
-> > +++ b/net/ipv4/inet_fragment.c
-> > @@ -283,9 +283,9 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
-> >  
-> >  	atomic_inc(&qp->refcnt);
-> >  	hlist_add_head(&qp->list, &hb->chain);
-> > +	inet_frag_lru_add(nf, qp);
-> >  	spin_unlock(&hb->chain_lock);
-> >  	read_unlock(&f->lock);
-> > -	inet_frag_lru_add(nf, qp);
-> >  	return qp;
-> >  }
-> 
-> If I checked correctly, the current code does not have the race
-> condition? I think this change is ok but maybe we can defer it until
-> the direct hash cleanup patches land?
+--Signature=_Fri__19_Apr_2013_18_13_34_+1000_e2CbsKAP_mvcYz.V
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Lets hear what others think of collapsing it into the next patch?
-(I don't have a problem with doing so)
+Hi Antonio,
 
---Jesper
+On Fri, 19 Apr 2013 09:34:09 +0200 Antonio Quartulli <ordex@autistici.org> =
+wrote:
+>
+> Your patch looks good, but I'd prefer to send my already prepared pull re=
+quest.
+>=20
+> Is it ok with you?
+
+Its entirely up to Dave how/if he fixes this up.  He could just leave it
+to Linus, though he would usually pull the net tree into the net-next
+tree after Linus merges the net tree - in which case, this should be
+fixed in that merge.
+
+i.e. ask Dave :-)
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Fri__19_Apr_2013_18_13_34_+1000_e2CbsKAP_mvcYz.V
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRcPyuAAoJEECxmPOUX5FEXtQQAKhPfqx7n2tBZ/1BM2g3rXRZ
+ltM4N9ueIWnvzLnfOwdoBEsWmgZ1RjhTx7/kxEla02hUw69VrHtpmo5aYZmu2vcl
+bx9jiOzPk3FEGSmbsQyV6gnRBuyA6KwwpkUNF7VApdUzaTnd+qBAT0cRf1T/l5PN
+Nn6VjxVg4fnfqsy1FhOhPuTV8xE7t/sVRpY46jLSQdMGpNWQo7ro/bbwchdEFFgI
+E1Iqf+BKBTBd77ckW4Wr8kGOdBLawBMcuR9sMQPpxWhfkxYGD84bZPQ7npqxk6j4
+h03svuHcYl6OkJorjtc4e8j7MiH6wLMukjOlgGoEuRO4lHjqUHq6cHRQvFZwNZ16
+VkZzejJ5itg9v1C+mIykk9F6igncBm7T7GSzz3MvADhrjvRZuFkGw0PCXTGU0Bpe
+iyYUA5LapCtTcc8vvIULyDvAIaPrNP/hPoG3d3JhFAbTkom5xQjNQDlyb4BQmVtT
+6NxEu7HKGR6nbwypWcgjV0mjDq+prgHsGXWV20gQPlh9BOQ0RZOTscIIDL2Pq6mw
+RZQnbKOVVleFe4RV0yztjaynS1atH2GkVSZnNIvug1+MSMBqGqZzNpwT2HkZrWLm
+tef+yqe3fcU9WG9jhdyH4otdDuTnvUxy3mOXjHIbZzz3+P83s841YVIW+b/O7tzv
+R+nAToOPGvv+ifMyREuB
+=lkP4
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__19_Apr_2013_18_13_34_+1000_e2CbsKAP_mvcYz.V--
