@@ -1,39 +1,35 @@
-From: Lucas Stach <l.stach@pengutronix.de>
-Subject: [PATCH 1/3] Revert "net: fec: fix missing napi_disable call"
-Date: Fri, 19 Apr 2013 16:36:02 +0200
-Message-ID: <1366382164-10968-2-git-send-email-l.stach@pengutronix.de>
-References: <1366382164-10968-1-git-send-email-l.stach@pengutronix.de>
-Cc: David Miller <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	Fabio Estevam <festevam@gmail.com>,
-	Lucas Stach <l.stach@pengutronix.de>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH 2/3] net: fix enforcing of fragment queue hash
+ list depth
+Date: Fri, 19 Apr 2013 07:42:48 -0700
+Message-ID: <1366382568.16391.0.camel@edumazet-glaptop>
+References: <20130418213637.14296.43143.stgit@dragon>
+	 <20130418213732.14296.36026.stgit@dragon>
+	 <1366366287.3205.98.camel@edumazet-glaptop>
+	 <1366373950.26911.134.camel@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:60797 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030604Ab3DSOhJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 10:37:09 -0400
-In-Reply-To: <1366382164-10968-1-git-send-email-l.stach@pengutronix.de>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:33987 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030720Ab3DSOmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 10:42:52 -0400
+Received: by mail-pa0-f50.google.com with SMTP id bg2so2288216pad.23
+        for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 07:42:51 -0700 (PDT)
+In-Reply-To: <1366373950.26911.134.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 3f104c38259dcb3e5443c246f0805bc04d887cc3.
----
- drivers/net/ethernet/freescale/fec.c | 1 -
- 1 file changed, 1 deletion(-)
+On Fri, 2013-04-19 at 14:19 +0200, Jesper Dangaard Brouer wrote:
+> On Fri, 2013-04-19 at 03:11 -0700, Eric Dumazet wrote:
 
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index a23f298..5721ca1 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -1513,7 +1513,6 @@ fec_enet_close(struct net_device *ndev)
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 
- 	/* Don't know what to do yet. */
--	napi_disable(&fep->napi);
- 	fep->opened = 0;
- 	netif_stop_queue(ndev);
- 	fec_stop(ndev);
--- 
-1.8.2.rc2
+> > This strategy wont really help DDOS attacks. No frag will ever complete.
+> 
+> I beg to differ.
+
+We already had a discussion on this topic.
