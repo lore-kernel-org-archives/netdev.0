@@ -1,45 +1,49 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/2] netfilter fixes for net
-Date: Fri, 19 Apr 2013 03:16:00 +0200
-Message-ID: <1366334162-4958-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/2] netfilter: ipset: bitmap:ip,mac: fix listing with timeout
+Date: Fri, 19 Apr 2013 03:16:01 +0200
+Message-ID: <1366334162-4958-2-git-send-email-pablo@netfilter.org>
+References: <1366334162-4958-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:56900 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S967630Ab3DSBQM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 21:16:12 -0400
+In-Reply-To: <1366334162-4958-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-If time allows, please consider pulling the following patchset contains two
-late Netfilter fixes, they are:
+The type when timeout support was enabled, could not list all elements,
+just the first ones which could fit into one netlink message: it just
+did not continue listing after the first message.
 
-* Skip broadcast/multicast locally generated traffic in the rpfilter,
-  (closes netfilter bugzilla #814), from Florian Westphal.
-
-* Fix missing elements in the listing of ipset bitmap ip,mac set
-  type with timeout support enabled, from Jozsef Kadlecsik.
-
-The following changes since commit c2d421e171868586939c328dfb91bab840fe4c49:
-
-  netfilter: nf_nat: fix race when unloading protocol modules (2013-04-12 11:46:31 +0200)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to f83a7ea2075ca896f2dbf07672bac9cf3682ff74:
-
-  netfilter: xt_rpfilter: skip locally generated broadcast/multicast, too (2013-04-19 00:11:59 +0200)
-
-----------------------------------------------------------------
-Florian Westphal (1):
-      netfilter: xt_rpfilter: skip locally generated broadcast/multicast, too
-
-Jozsef Kadlecsik (1):
-      netfilter: ipset: bitmap:ip,mac: fix listing with timeout
-
- net/ipv4/netfilter/ipt_rpfilter.c         |    8 +++++++-
- net/ipv6/netfilter/ip6t_rpfilter.c        |    8 +++++++-
+Reported-by: Yoann JUET <yoann.juet@univ-nantes.fr>
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Tested-by: Yoann JUET <yoann.juet@univ-nantes.fr>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
  net/netfilter/ipset/ip_set_bitmap_ipmac.c |    6 +++++-
- 3 files changed, 19 insertions(+), 3 deletions(-)
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
+diff --git a/net/netfilter/ipset/ip_set_bitmap_ipmac.c b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+index 0f92dc2..d7df6ac 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_ipmac.c
++++ b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+@@ -339,7 +339,11 @@ bitmap_ipmac_tlist(const struct ip_set *set,
+ nla_put_failure:
+ 	nla_nest_cancel(skb, nested);
+ 	ipset_nest_end(skb, atd);
+-	return -EMSGSIZE;
++	if (unlikely(id == first)) {
++		cb->args[2] = 0;
++		return -EMSGSIZE;
++	}
++	return 0;
+ }
+ 
+ static int
+-- 
+1.7.10.4
