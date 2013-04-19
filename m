@@ -1,85 +1,57 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH] rps: selective flow shedding during softnet overflow
-Date: Fri, 19 Apr 2013 16:11:46 -0400
-Message-ID: <CA+FuTSfrox_gYhzhu8RyWbEiK9rnqSsQkbHpyxKyKT3T=_D16g@mail.gmail.com>
-References: <1366393612-16885-1-git-send-email-willemb@google.com> <20130419120303.222927c9@nehalam.linuxnetplumber.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 0/6] net: vlan: add support for 802.1ad
+Date: Fri, 19 Apr 2013 21:12:25 +0100
+Message-ID: <1366402345.2716.17.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1366373072-19621-1-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f178.google.com ([209.85.210.178]:33336 "EHLO
-	mail-ia0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932936Ab3DSUMQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 16:12:16 -0400
-Received: by mail-ia0-f178.google.com with SMTP id j38so444082iad.23
-        for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 13:12:16 -0700 (PDT)
-In-Reply-To: <20130419120303.222927c9@nehalam.linuxnetplumber.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:48369 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932936Ab3DSUM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 16:12:29 -0400
+In-Reply-To: <1366373072-19621-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 19, 2013 at 3:03 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Fri, 19 Apr 2013 13:46:52 -0400
-> Willem de Bruijn <willemb@google.com> wrote:
->
->> A cpu executing the network receive path sheds packets when its input
->> queue grows to netdev_max_backlog. A single high rate flow (such as a
->> spoofed source DoS) can exceed a single cpu processing rate and will
->> degrade throughput of other flows hashed onto the same cpu.
->>
->> This patch adds a more fine grained hashtable. If the netdev backlog
->> is above a threshold, IRQ cpus track the ratio of total traffic of
->> each flow (using 1024 buckets, configurable). The ratio is measured
->> by counting the number of packets per flow over the last 256 packets
->> from the source cpu. Any flow that occupies a large fraction of this
->> (set at 50%) will see packet drop while above the threshold.
->>
->> Tested:
->> Setup is a muli-threaded UDP echo server with network rx IRQ on cpu0,
->> kernel receive (RPS) on cpu0 and application threads on cpus 2--7
->> each handling 20k req/s. Throughput halves when hit with a 400 kpps
->> antagonist storm. With this patch applied, antagonist overload is
->> dropped and the server processes its complete load.
->>
->> The patch is effective when kernel receive processing is the
->> bottleneck. The above RPS scenario is a extreme, but the same is
->> reached with RFS and sufficient kernel processing (iptables, packet
->> socket tap, ..).
->>
->> Signed-off-by: Willem de Bruijn <willemb@google.com>
->
-> The netdev_backlog only applies for RPS and non-NAPI devices.
-> So this won't help if receive packet steering is not enabled.
-> Seems like a deficiency in the receive steering design rather
-> than the netdev_backlog.
+On Fri, 2013-04-19 at 14:04 +0200, Patrick McHardy wrote:
+> The following patches add support for 802.1ad (provider tagging) to the
+> VLAN driver. The patchset consists of the following parts:
+> 
+> - renaming of the NET_F_HW_VLAN feature flags to indicate that they only
+>   operate on CTAGs
+> 
+> - preparation for 802.1ad VLAN filtering offload by adding a proto argument
+>   to the rx_{add,kill}_vid net_device_ops callbacks
+> 
+> - preparation of the VLAN code to support multiple protocols by making the
+>   protocol used for tagging a property of the VLAN device and converting
+>   the device lookup functions accordingly
+> 
+> - second step of preparation of the VLAN code by making the packet tagging
+>   functions take a protocol argument
+> 
+> - introducation of 802.1ad support in the VLAN code, consisting mainly of
+>   checking for ETH_P_8021AD in a couple of places and testing the netdevice
+>   offload feature checks to take the protocol into account
+> 
+> - announcement of STAG offloading capabilities in a couple of drivers for
+>   virtual network devices
+> 
+> The patchset is based on net-next.git and has been tested with single and
+> double tagging with and without HW acceleration (for CTAGs).
+> 
+> If there are no objections, please apply. Thanks!
 
-The patch specifically intends to address a consequence of
-perfect flow-hashing: that unbalanced input translates into cpu
-load imbalance. It is less relevant to servers that do not use
-flow hashing to spread traffic (i.e., no rps/rfs).
+Any plans to allow offloading insertion/extraction of STAG and CTAG on
+the same packet?
 
-In normal server workloads, hashing works well, but it makes
-machine state subject to external influence. In particular, to
-local resource exhaustion (partial DoS). This patch hardens
-against these extreme input patterns that should not occur in
-normal workloads. The netdev backlog is the clearest indicator of
-unsustainable load due to imbalance.
+Ben.
 
-> Can't you do this with existing ingress stuff?
-> The trend seems to be put in more fixed infrastructure to deal with
-> performance and server problems rather than building general purpose
-> solutions.
-
-This isn't necessarily mutually exclusive with iptables/policing/..
-mechanisms to filter out bad flows, of course. The earlier in the
-pipeline packets are dropped, the fewer cycles are spent, so this
-is another layer of (early) defense.
-
-For instance, I recently sent a patch to handle load imbalance in
-packet sockets. Those socket queues fill up if the application
-threads are the bottleneck instead of the kernel receive path, so
-this rps fix would not be relevant.
-
->
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
