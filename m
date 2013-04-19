@@ -1,86 +1,56 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next v4 1/1] net: fec: Enable imx6 enet checksum
- acceleration.
-Date: Fri, 19 Apr 2013 17:20:17 +0100
-Message-ID: <1366388417.2716.6.camel@bwh-desktop.uk.solarflarecom.com>
-References: <Jim Baxter <jim_baxter@mentor.com>
-	  <1366384215-21441-1-git-send-email-jim_baxter@mentor.com>
-	 <1366385681.2716.1.camel@bwh-desktop.uk.solarflarecom.com>
-	 <51716DE5.1070605@mentor.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH] tcp: call tcp_replace_ts_recent() from tcp_ack()
+Date: Fri, 19 Apr 2013 12:33:41 -0400
+Message-ID: <CADVnQymOBoJ9687qn9-fQCXdMcuaP23-bP-Y1ZS0aoYqCdaFVg@mail.gmail.com>
+References: <1366384390.16391.17.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>,
-	Fugang Duan <B38611@freescale.com>, <netdev@vger.kernel.org>
-To: Jim Baxter <jim_baxter@mentor.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:36662 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967726Ab3DSQUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 12:20:21 -0400
-In-Reply-To: <51716DE5.1070605@mentor.com>
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:41147 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758401Ab3DSQdm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 12:33:42 -0400
+Received: by mail-ee0-f53.google.com with SMTP id d17so1163601eek.26
+        for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 09:33:41 -0700 (PDT)
+In-Reply-To: <1366384390.16391.17.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-04-19 at 17:16 +0100, Jim Baxter wrote:
-> On 19/04/13 16:34, Ben Hutchings wrote:
-> > On Fri, 2013-04-19 at 16:10 +0100, Jim Baxter wrote:
-> >> Enables hardware generation of IP header and
-> >> protocol specific checksums for transmitted
-> >> packets.
-> >>
-> >> Enabled hardware discarding of received packets with
-> >> invalid IP header or protocol specific checksums.
-> >>
-> >> The feature is enabled by default but can be
-> >> enabled/disabled by ethtool.
-> >>
-> >> Signed-off-by: Fugang Duan <B38611@freescale.com>
-> >> Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
-> >> ---
-> >>
-> >> - Added IPV6 support.
-> > [...]
-> >> @@ -1439,6 +1496,14 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
-> >>  		if (fep->bufdesc_ex) {
-> >>  			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
-> >>  			ebdp->cbd_esc = BD_ENET_TX_INT;
-> >> +
-> >> +			/* Enable protocol checksum flags
-> >> +			 * We do not bother with the IP Checksum bits as they
-> >> +			 * are done by the kernel
-> >> +			 */
-> >> +			if (ndev->features &
-> >> +					(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM))
-> >> +				ebdp->cbd_esc |= BD_ENET_TX_PINS;
-> >>  		}
-> >>  
-> >>  		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
-> > [...]
-> > 
-> > This condition needs to be based on skb->ip_summed.
-> > 
-> > Ben.
-> > 
-> 
-> 
-> These buffers are setup when the network driver is opened
-> (fec_enet_open), with the same settings as the transmit buffers.
-> 
-> Thinking about it, they should probably not be set here and only set
-> during the fec_enet_start_xmit() function.
+On Fri, Apr 19, 2013 at 11:13 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> commit bd090dfc634d (tcp: tcp_replace_ts_recent() should not be called
+> from tcp_validate_incoming()) introduced a TS ecr bug in slow path
+> processing.
+>
+> 1 A > B P. 1:10001(10000) ack 1 <nop,nop,TS val 1001 ecr 200>
+> 2 B < A . 1:1(0) ack 1 win 257 <sack 9001:10001,TS val 300 ecr 1001>
+> 3 A > B . 1:1001(1000) ack 1 win 227 <nop,nop,TS val 1002 ecr 200>
+> 4 A > B . 1001:2001(1000) ack 1 win 227 <nop,nop,TS val 1002 ecr 200>
+>
+> (ecr 200 should be ecr 300 in packets 3 & 4)
+>
+> Problem is tcp_ack() can trigger send of new packets (retransmits),
+> reflecting the prior TSval, instead of the TSval contained in the
+> currently processed incoming packet.
+>
+> Fix this by calling tcp_replace_ts_recent() from tcp_ack() after the
+> checks, but before the actions.
+>
+> Reported-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
 
-Right.  Even when TX checksum offload is enabled, the kernel might not
-want you to offload TX checksums for every packet.  For example, if your
-interface is part of a bridge, packets should be forwarded even if they
-have a bad layer-4 checksum on RX, and the checksum must not be
-'corrected' on TX.
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-Ben.
+This patch looks good. But AFAICT the other call site for
+tcp_replace_ts_recent() has the same bug, which can be fixed in the
+same way: tcp_rcv_state_process() seems to fall through the big switch
+statement down to its call to tcp_replace_ts_recent() even in some
+cases where tcp_ack() already decided the ACK was unacceptable.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+neal
