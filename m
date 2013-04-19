@@ -1,87 +1,99 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/2] netfilter: xt_rpfilter: skip locally generated broadcast/multicast, too
-Date: Fri, 19 Apr 2013 03:16:02 +0200
-Message-ID: <1366334162-4958-3-git-send-email-pablo@netfilter.org>
-References: <1366334162-4958-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 0/5] Netfilter updates for net-next
+Date: Fri, 19 Apr 2013 03:23:52 +0200
+Message-ID: <1366334638-5113-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1366334162-4958-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:57200 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S967524Ab3DSBYJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Apr 2013 21:24:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+Hi David,
 
-Alex Efros reported rpfilter module doesn't match following packets:
-IN=br.qemu SRC=192.168.2.1 DST=192.168.2.255 [ .. ]
-(netfilter bugzilla #814).
+The following patchset contains a small batch of Netfilter
+updates for your net-next tree, they are:
 
-Problem is that network stack arranges for the locally generated broadcasts
-to appear on the interface they were sent out, so the IFF_LOOPBACK check
-doesn't trigger.
+* Three patches that provide more accurate error reporting to
+  user-space, instead of -EPERM, in IPv4/IPv6 netfilter re-routing
+  code and NAT, from Patrick McHardy.
 
-As -m rpfilter is restricted to PREROUTING, we can check for existing
-rtable instead, it catches locally-generated broad/multicast case, too.
+* Update copyright statements in Netfilter filters of
+  Patrick McHardy, from himself.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/ipv4/netfilter/ipt_rpfilter.c  |    8 +++++++-
- net/ipv6/netfilter/ip6t_rpfilter.c |    8 +++++++-
- 2 files changed, 14 insertions(+), 2 deletions(-)
+* Add Kconfig dependency on the raw/mangle tables to the
+  rpfilter, from Florian Westphal.
 
-diff --git a/net/ipv4/netfilter/ipt_rpfilter.c b/net/ipv4/netfilter/ipt_rpfilter.c
-index c301300..c49dcd0 100644
---- a/net/ipv4/netfilter/ipt_rpfilter.c
-+++ b/net/ipv4/netfilter/ipt_rpfilter.c
-@@ -66,6 +66,12 @@ static bool rpfilter_lookup_reverse(struct flowi4 *fl4,
- 	return dev_match;
- }
- 
-+static bool rpfilter_is_local(const struct sk_buff *skb)
-+{
-+	const struct rtable *rt = skb_rtable(skb);
-+	return rt && (rt->rt_flags & RTCF_LOCAL);
-+}
-+
- static bool rpfilter_mt(const struct sk_buff *skb, struct xt_action_param *par)
- {
- 	const struct xt_rpfilter_info *info;
-@@ -76,7 +82,7 @@ static bool rpfilter_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 	info = par->matchinfo;
- 	invert = info->flags & XT_RPFILTER_INVERT;
- 
--	if (par->in->flags & IFF_LOOPBACK)
-+	if (rpfilter_is_local(skb))
- 		return true ^ invert;
- 
- 	iph = ip_hdr(skb);
-diff --git a/net/ipv6/netfilter/ip6t_rpfilter.c b/net/ipv6/netfilter/ip6t_rpfilter.c
-index 5060d54..e0983f3 100644
---- a/net/ipv6/netfilter/ip6t_rpfilter.c
-+++ b/net/ipv6/netfilter/ip6t_rpfilter.c
-@@ -71,6 +71,12 @@ static bool rpfilter_lookup_reverse6(const struct sk_buff *skb,
- 	return ret;
- }
- 
-+static bool rpfilter_is_local(const struct sk_buff *skb)
-+{
-+	const struct rt6_info *rt = (const void *) skb_dst(skb);
-+	return rt && (rt->rt6i_flags & RTF_LOCAL);
-+}
-+
- static bool rpfilter_mt(const struct sk_buff *skb, struct xt_action_param *par)
- {
- 	const struct xt_rpfilter_info *info = par->matchinfo;
-@@ -78,7 +84,7 @@ static bool rpfilter_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 	struct ipv6hdr *iph;
- 	bool invert = info->flags & XT_RPFILTER_INVERT;
- 
--	if (par->in->flags & IFF_LOOPBACK)
-+	if (rpfilter_is_local(skb))
- 		return true ^ invert;
- 
- 	iph = ipv6_hdr(skb);
--- 
-1.7.10.4
+The following changes since commit 6b0ee8c036ecb3ac92e18e6ca0dca7bff88beaf0:
 
+  scm: Stop passing struct cred (2013-04-07 18:58:55 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+for you to fetch changes up to d37d696804a83479f240b397670a07ccb53a7417:
+
+  netfilter: xt_rpfilter: depend on raw or mangle table (2013-04-19 00:22:55 +0200)
+
+----------------------------------------------------------------
+Florian Westphal (1):
+      netfilter: xt_rpfilter: depend on raw or mangle table
+
+Patrick McHardy (4):
+      netfilter: ipv4: propagate routing errors from ip_route_me_harder()
+      netfilter: ipv6: propagate routing errors from ip6_route_me_harder()
+      netfilter: nat: propagate errors from xfrm_me_harder()
+      netfilter: add my copyright statements
+
+ net/ipv4/netfilter.c                               |   15 ++++++++-----
+ net/ipv4/netfilter/Kconfig                         |    2 +-
+ net/ipv4/netfilter/arp_tables.c                    |    1 +
+ net/ipv4/netfilter/ip_tables.c                     |    1 +
+ net/ipv4/netfilter/ipt_ULOG.c                      |    1 +
+ net/ipv4/netfilter/iptable_mangle.c                |    9 +++++---
+ net/ipv4/netfilter/iptable_nat.c                   |   23 +++++++++++++-------
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c     |    1 +
+ .../netfilter/nf_conntrack_l3proto_ipv4_compat.c   |    1 +
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c       |    1 +
+ net/ipv4/netfilter/nf_nat_h323.c                   |    1 +
+ net/ipv4/netfilter/nf_nat_pptp.c                   |    2 ++
+ net/ipv4/netfilter/nf_nat_proto_gre.c              |    2 ++
+ net/ipv4/netfilter/nf_nat_snmp_basic.c             |    2 ++
+ net/ipv6/netfilter.c                               |   12 +++++++---
+ net/ipv6/netfilter/Kconfig                         |    2 +-
+ net/ipv6/netfilter/ip6_tables.c                    |    1 +
+ net/ipv6/netfilter/ip6t_REJECT.c                   |    2 ++
+ net/ipv6/netfilter/ip6table_mangle.c               |    9 +++++---
+ net/ipv6/netfilter/ip6table_nat.c                  |   23 +++++++++++++-------
+ net/netfilter/core.c                               |    1 +
+ net/netfilter/nf_conntrack_amanda.c                |    1 +
+ net/netfilter/nf_conntrack_core.c                  |    1 +
+ net/netfilter/nf_conntrack_ecache.c                |    8 ++++---
+ net/netfilter/nf_conntrack_expect.c                |    1 +
+ net/netfilter/nf_conntrack_ftp.c                   |    1 +
+ net/netfilter/nf_conntrack_h323_main.c             |    1 +
+ net/netfilter/nf_conntrack_helper.c                |    1 +
+ net/netfilter/nf_conntrack_irc.c                   |    1 +
+ net/netfilter/nf_conntrack_pptp.c                  |    2 ++
+ net/netfilter/nf_conntrack_proto.c                 |    1 +
+ net/netfilter/nf_conntrack_proto_gre.c             |    1 +
+ net/netfilter/nf_conntrack_proto_sctp.c            |    3 +++
+ net/netfilter/nf_conntrack_proto_tcp.c             |    2 ++
+ net/netfilter/nf_conntrack_proto_udp.c             |    1 +
+ net/netfilter/nf_conntrack_standalone.c            |    1 +
+ net/netfilter/nf_conntrack_tftp.c                  |    2 +-
+ net/netfilter/nf_nat_amanda.c                      |    1 +
+ net/netfilter/nf_nat_core.c                        |    9 ++++----
+ net/netfilter/nf_nat_helper.c                      |    1 +
+ net/netfilter/nf_queue.c                           |    5 +++++
+ net/netfilter/nfnetlink_log.c                      |    1 +
+ net/netfilter/x_tables.c                           |    1 +
+ net/netfilter/xt_TCPMSS.c                          |    1 +
+ net/netfilter/xt_conntrack.c                       |    1 +
+ net/netfilter/xt_hashlimit.c                       |    1 +
+ net/netfilter/xt_limit.c                           |    1 +
+ 47 files changed, 122 insertions(+), 40 deletions(-)
