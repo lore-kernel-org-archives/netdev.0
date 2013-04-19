@@ -1,54 +1,37 @@
-From: Hein Tibosch <hein_tibosch@yahoo.es>
-Subject: Re: net/macb: clear tx/rx completion flags in ISR
-Date: Fri, 19 Apr 2013 13:13:26 +0800
-Message-ID: <5170D276.6070208@yahoo.es>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Ludovic Desroches <ludovic.desroches@atmel.com>
-To: Steffen Trumtrar <s.trumtrar@pengutronix.de>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: [PATCH net 0/3] qlge: Bug fixes
+Date: Fri, 19 Apr 2013 01:49:51 -0400
+Message-ID: <1366350594-21973-1-git-send-email-jitendra.kalsaria@qlogic.com>
+Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com,
+	Dept_NX_Linux_NIC_Driver@qlogic.com,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bosmailout10.eigbox.net ([66.96.186.10]:53983 "EHLO
-	bosmailout10.eigbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754575Ab3DSF6C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 01:58:02 -0400
-Received: from bosmailscan12.eigbox.net ([10.20.15.12])
-	by bosmailout10.eigbox.net with esmtp (Exim)
-	id 1UT3ho-0006WY-Uk
-	for netdev@vger.kernel.org; Fri, 19 Apr 2013 01:17:52 -0400
-Received: from bosmailscan24.eigbox.net ([10.20.15.24])
-	by bosmailscan12.eigbox.net with esmtp (Exim)
-	id 1UT3ho-0005Cp-Qy
-	for netdev@vger.kernel.org; Fri, 19 Apr 2013 01:17:52 -0400
+Received: from mvnat01.qlogic.com ([198.186.3.73]:20013 "HELO linux-zupk.site"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1754039Ab3DSGNo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Apr 2013 02:13:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Steffen,
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-> At least in the cadence IP core on the Xilinx Zynq SoC the TCOMP/RCOMP flags
-> are not auto-cleaned. As these flags are evaluated, they need to be cleaned.
+Please apply to net
 
-This patch does not work for at least the AVR32 platform. Both RCOMP/RCOMP
-are cleared by *reading* the ISR and writing them would be fatal.
+Thanks,
+   Jiten
 
-Could you tell me the version of the macb of Xilinx Zynq?
+Jitendra Kalsaria (2):
+  qlge: Fix ethtool autoneg advertising.
+  qlge: Update version to 1.00.00.32.
 
-    u32 version = (macb_readl(bp, MID) & ((1 << MACB_REV_SIZE) - 1))
-            | MACB_GREGS_VERSION;
+Sritej Velaga (1):
+  qlge: Fix receive path to drop error frames
 
-On an AP7000 it reads as 0x0000010D
+ drivers/net/ethernet/qlogic/qlge/qlge.h         |    2 +-
+ drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c |    2 +-
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c    |   36 ++++++++++++++++++----
+ 3 files changed, 31 insertions(+), 9 deletions(-)
 
-I am thinking of making a patch like:
-
-    if (bp->version >= xxx)
-        macb_writel(bp, ISR, MACB_BIT(TCOMP));
-
-    if (bp->version >= xxx)
-        macb_writel(bp, ISR, MACB_BIT(RCOMP));
-
-which would make it work on both platforms.
-
-
-Hein
+-- 
+1.7.6.rc1.1.g2c162b
