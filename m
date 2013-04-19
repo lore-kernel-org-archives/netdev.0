@@ -1,54 +1,70 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 1/2] packet: reorder a member in packet_ring_buffer
-Date: Fri, 19 Apr 2013 18:12:28 +0200
-Message-ID: <1366387949-9161-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: Re: [PATCH net-next v4 1/1] net: fec: Enable imx6 enet checksum acceleration.
+Date: Fri, 19 Apr 2013 17:16:37 +0100
+Message-ID: <51716DE5.1070605@mentor.com>
+References: <Jim Baxter <jim_baxter@mentor.com>  <1366384215-21441-1-git-send-email-jim_baxter@mentor.com> <1366385681.2716.1.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	Fugang Duan <B38611@freescale.com>, <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56512 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757385Ab3DSQMc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Apr 2013 12:12:32 -0400
+Received: from relay1.mentorg.com ([192.94.38.131]:41632 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756221Ab3DSQQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 12:16:41 -0400
+In-Reply-To: <1366385681.2716.1.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There's a 4 byte hole in packet_ring_buffer structure before
-prb_bdqc, that can be filled with 'pending' member, thus we can
-reduce the overall structure size from 224 bytes to 216 bytes.
-This also has the side-effect, that in struct packet_sock 2*4 byte
-holes after the embedded packet_ring_buffer members are removed,
-and overall, packet_sock can be reduced by 1 cacheline:
+On 19/04/13 16:34, Ben Hutchings wrote:
+> On Fri, 2013-04-19 at 16:10 +0100, Jim Baxter wrote:
+>> Enables hardware generation of IP header and
+>> protocol specific checksums for transmitted
+>> packets.
+>>
+>> Enabled hardware discarding of received packets with
+>> invalid IP header or protocol specific checksums.
+>>
+>> The feature is enabled by default but can be
+>> enabled/disabled by ethtool.
+>>
+>> Signed-off-by: Fugang Duan <B38611@freescale.com>
+>> Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
+>> ---
+>>
+>> - Added IPV6 support.
+> [...]
+>> @@ -1439,6 +1496,14 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
+>>  		if (fep->bufdesc_ex) {
+>>  			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
+>>  			ebdp->cbd_esc = BD_ENET_TX_INT;
+>> +
+>> +			/* Enable protocol checksum flags
+>> +			 * We do not bother with the IP Checksum bits as they
+>> +			 * are done by the kernel
+>> +			 */
+>> +			if (ndev->features &
+>> +					(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM))
+>> +				ebdp->cbd_esc |= BD_ENET_TX_PINS;
+>>  		}
+>>  
+>>  		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
+> [...]
+> 
+> This condition needs to be based on skb->ip_summed.
+> 
+> Ben.
+> 
 
-Before: size: 1344, cachelines: 21, members: 24
-After:  size: 1280, cachelines: 20, members: 24
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/packet/internal.h | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+These buffers are setup when the network driver is opened
+(fec_enet_open), with the same settings as the transmit buffers.
 
-diff --git a/net/packet/internal.h b/net/packet/internal.h
-index e891f02..650751b 100644
---- a/net/packet/internal.h
-+++ b/net/packet/internal.h
-@@ -54,6 +54,7 @@ struct pgv {
- 
- struct packet_ring_buffer {
- 	struct pgv		*pg_vec;
-+
- 	unsigned int		head;
- 	unsigned int		frames_per_block;
- 	unsigned int		frame_size;
-@@ -63,8 +64,9 @@ struct packet_ring_buffer {
- 	unsigned int		pg_vec_pages;
- 	unsigned int		pg_vec_len;
- 
--	struct tpacket_kbdq_core	prb_bdqc;
- 	atomic_t		pending;
-+
-+	struct tpacket_kbdq_core	prb_bdqc;
- };
- 
- extern struct mutex fanout_mutex;
--- 
-1.7.11.7
+Thinking about it, they should probably not be set here and only set
+during the fec_enet_start_xmit() function.
+
+Jim
