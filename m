@@ -1,56 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] GRE: Use IS_ERR_OR_NULL in gre_gso_segment
-Date: Fri, 19 Apr 2013 14:28:52 -0400 (EDT)
-Message-ID: <20130419.142852.1914290650706288260.davem@davemloft.net>
-References: <1366354120-11230-1-git-send-email-horms@verge.net.au>
-	<1366367073.3205.105.camel@edumazet-glaptop>
+From: Gertjan van Wingerde <gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH wireless-next V2] rt2x00: Use more
+ current logging styles, shrink object size
+Date: Fri, 19 Apr 2013 20:29:56 +0200
+Message-ID: <51718D24.3020902@gmail.com>
+References: <1366360406.3901.10.camel@joe-AO722>
+	<CAL1gcdOMtbzxCVLNvDK_CD-M+_SdAeL3Sja9khO9+G2bNOCz1g@mail.gmail.com>
+	<1366365149.3901.15.camel@joe-AO722>
+	<1366385620.3901.28.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, netdev@vger.kernel.org, xeb@mail.ru
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45312 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752972Ab3DSS2y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 14:28:54 -0400
-In-Reply-To: <1366367073.3205.105.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	rt2x00 Users List <users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
+In-Reply-To: <1366385620.3901.28.camel@joe-AO722>
+List-Unsubscribe: <http://rt2x00.serialmonkey.com/mailman/options/users_rt2x00.serialmonkey.com>,
+	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://rt2x00.serialmonkey.com/pipermail/users_rt2x00.serialmonkey.com/>
+List-Post: <mailto:users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
+List-Help: <mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=help>
+List-Subscribe: <http://rt2x00.serialmonkey.com/mailman/listinfo/users_rt2x00.serialmonkey.com>,
+	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=subscribe>
+Errors-To: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
+Sender: "users" <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 19 Apr 2013 03:24:33 -0700
+On 04/19/13 17:33, Joe Perches wrote:
+> Reduce object space ~2% using more current logging styles.
+> 
+> Neaten and simplify logging macros.
+> Use wiphy_<level> where appropriate.
+> Coalesce formats.
+> 
+> Convert ERROR/WARNING/INFO macros to rt2x00_<level>
+> Convert EEPROM to rt2x00_eeprom_dbg
+> Convert PROBE_ERROR to rt2x00_probe_err
+> Convert DEBUG to rt2x00_dbg
+> Convert EEPROM to rt2x00_eeprom_dbg
+> 
+> $ size drivers/net/wireless/rt2x00/built-in.o*
+>    text	   data	    bss	    dec	    hex	filename
+>  245639	  71696	  69584	 386919	  5e767	drivers/net/wireless/rt2x00/built-in.o.new
+>  240609	  70096	  68944	 379649	  5cb01	drivers/net/wireless/rt2x00/built-in.o.new.nodyndbg
+>  240609	  70096	  68944	 379649	  5cb01	drivers/net/wireless/rt2x00/built-in.o.new.no_rt2x00_debug
+>  249198	  70096	  70352	 389646	  5f20e	drivers/net/wireless/rt2x00/built-in.o.old
+>  249198	  70096	  70352	 389646	  5f20e	drivers/net/wireless/rt2x00/built-in.o.old.nodyndbg
+>  244222	  70096	  69712	 384030	  5dc1e	drivers/net/wireless/rt2x00/built-in.o.old.no_rt2x00_debug
+> 
+> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
-> On Fri, 2013-04-19 at 15:48 +0900, Simon Horman wrote:
->> Signed-off-by: Simon Horman <horms@verge.net.au>
->> ---
->>  net/ipv4/gre.c |    2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->> 
->> diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
->> index d2d5a99..0ae998b 100644
->> --- a/net/ipv4/gre.c
->> +++ b/net/ipv4/gre.c
->> @@ -168,7 +168,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
->>  	/* segment inner packet. */
->>  	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
->>  	segs = skb_mac_gso_segment(skb, enc_features);
->> -	if (!segs || IS_ERR(segs))
->> +	if (IS_ERR_OR_NULL(segs))
->>  		goto out;
->>  
->>  	skb = segs;
-> 
-> Hi Simon
-> 
-> AFAIK I would change things so that NULL is not a possible value.
-> 
-> I don't really like IS_ERR_OR_NULL() because it hides some lazyness of
-> ours, and is more expensive (2 tests)
-> 
-> If we return NULL for an error, why not instead return -Esomething,
-> since caller is OK to get -ENOMEM,-Exxxxx,... ?
+Acked-by: Gertjan van Wingerde <gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Sometimes IS_ERR_OR_NULL is appropriate, but not here, since the caller
-can more easily just provide good error codes all the time instead of
-sometimes returning nULL.
+> ---
+> V2 differences:
+> 
+> Correct copy/paste error in rt2x00_info/warn macros
+> Reorder macro definitions
+> Use embedded prefix in rt2x00_eeprom_dbg
+> 
+> Object size increased from v1 ~100 bytes x86/32.
+> Object size may be slightly smaller this way for x86/64
+> 
+>
+---
+Gertjan
