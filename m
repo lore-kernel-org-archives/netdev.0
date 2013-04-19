@@ -1,93 +1,178 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v2 net-next 1/6] bridge: Allow an ability to designate an uplink port
-Date: Fri, 19 Apr 2013 16:52:45 -0400
-Message-ID: <1366404770-28523-2-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v2 net-next 4/6] bridge: Allow user to program hw addresses to uplink devices.
+Date: Fri, 19 Apr 2013 16:52:48 -0400
+Message-ID: <1366404770-28523-5-git-send-email-vyasevic@redhat.com>
 References: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
 Cc: bridge@lists.linux-foundation.org, mst@redhat.com,
 	Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17510 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:63491 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754462Ab3DSUwy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Apr 2013 16:52:54 -0400
+	id S1754462Ab3DSUw5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Apr 2013 16:52:57 -0400
 In-Reply-To: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Set a flag on the port that designates it as an uplink.
+Add support to bridge fdb handling to program hw addresses to the
+bridge master device which will sync them to uplink devices.
+The use sets a new flag in the ndmsg structure to say that
+a given address should be added to or removed from uplinks.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- include/uapi/linux/if_link.h |    1 +
- net/bridge/br_netlink.c      |    2 ++
- net/bridge/br_private.h      |    1 +
- net/bridge/br_sysfs_if.c     |    2 ++
- 4 files changed, 6 insertions(+), 0 deletions(-)
+ include/uapi/linux/neighbour.h |    6 ++--
+ net/bridge/br_fdb.c            |   50 ++++++++++++++++++++++++++++------------
+ net/core/rtnetlink.c           |    4 +-
+ 3 files changed, 40 insertions(+), 20 deletions(-)
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index e316354..0c5c76e 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -221,6 +221,7 @@ enum {
- 	IFLA_BRPORT_GUARD,	/* bpdu guard              */
- 	IFLA_BRPORT_PROTECT,	/* root port protection    */
- 	IFLA_BRPORT_FAST_LEAVE,	/* multicast fast leave    */
-+	IFLA_BRPORT_UPLINK,	/* uplink port */
- 	__IFLA_BRPORT_MAX
- };
- #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 8e3abf5..1767d15 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -281,6 +281,7 @@ static const struct nla_policy ifla_brport_policy[IFLA_BRPORT_MAX + 1] = {
- 	[IFLA_BRPORT_MODE]	= { .type = NLA_U8 },
- 	[IFLA_BRPORT_GUARD]	= { .type = NLA_U8 },
- 	[IFLA_BRPORT_PROTECT]	= { .type = NLA_U8 },
-+	[IFLA_BRPORT_UPLINK]	= { .type = NLA_U8 },
- };
+diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
+index f175212..fd1587d 100644
+--- a/include/uapi/linux/neighbour.h
++++ b/include/uapi/linux/neighbour.h
+@@ -34,11 +34,11 @@ enum {
+  */
  
- /* Change the state of the port and notify spanning tree */
-@@ -328,6 +329,7 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
- 	br_set_port_flag(p, tb, IFLA_BRPORT_GUARD, BR_BPDU_GUARD);
- 	br_set_port_flag(p, tb, IFLA_BRPORT_FAST_LEAVE, BR_MULTICAST_FAST_LEAVE);
- 	br_set_port_flag(p, tb, IFLA_BRPORT_PROTECT, BR_ROOT_BLOCK);
-+	br_set_port_flag(p, tb, IFLA_BRPORT_UPLINK, BR_UPLINK);
+ #define NTF_USE		0x01
+-#define NTF_PROXY	0x08	/* == ATF_PUBL */
+-#define NTF_ROUTER	0x80
+-
+ #define NTF_SELF	0x02
+ #define NTF_MASTER	0x04
++#define NTF_PROXY	0x08	/* == ATF_PUBL */
++#define NTF_UPLINK	0x10
++#define NTF_ROUTER	0x80
  
- 	if (tb[IFLA_BRPORT_COST]) {
- 		err = br_stp_set_path_cost(p, nla_get_u32(tb[IFLA_BRPORT_COST]));
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 3cbf5be..c90ec57 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -156,6 +156,7 @@ struct net_bridge_port
- #define BR_BPDU_GUARD           0x00000002
- #define BR_ROOT_BLOCK		0x00000004
- #define BR_MULTICAST_FAST_LEAVE	0x00000008
-+#define BR_UPLINK		0x00000010
+ /*
+  *	Neighbor Cache Entry States.
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index c581f12..5585e00 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -671,7 +671,7 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 	       const unsigned char *addr, u16 nlh_flags)
+ {
+ 	struct net_bridge_port *p;
+-	int err = 0;
++	int err = -EINVAL;
+ 	struct net_port_vlans *pv;
+ 	unsigned short vid = VLAN_N_VID;
  
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- 	u32				multicast_startup_queries_sent;
-diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-index a1ef1b6..1f28cd4 100644
---- a/net/bridge/br_sysfs_if.c
-+++ b/net/bridge/br_sysfs_if.c
-@@ -158,6 +158,7 @@ static BRPORT_ATTR(flush, S_IWUSR, NULL, store_flush);
- BRPORT_ATTR_FLAG(hairpin_mode, BR_HAIRPIN_MODE);
- BRPORT_ATTR_FLAG(bpdu_guard, BR_BPDU_GUARD);
- BRPORT_ATTR_FLAG(root_block, BR_ROOT_BLOCK);
-+BRPORT_ATTR_FLAG(uplink, BR_UPLINK);
+@@ -680,6 +680,16 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 		return -EINVAL;
+ 	}
  
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- static ssize_t show_multicast_router(struct net_bridge_port *p, char *buf)
-@@ -195,6 +196,7 @@ static const struct brport_attribute *brport_attrs[] = {
- 	&brport_attr_hairpin_mode,
- 	&brport_attr_bpdu_guard,
- 	&brport_attr_root_block,
-+	&brport_attr_uplink,
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- 	&brport_attr_multicast_router,
- 	&brport_attr_multicast_fast_leave,
++	p = br_port_get_rtnl(dev);
++	if (p == NULL) {
++		pr_info("bridge: RTM_NEWNEIGH %s not a bridge port\n",
++			dev->name);
++		return -EINVAL;
++	}
++
++	if (is_multicast_ether_addr(addr))
++		goto uplink;
++
+ 	if (tb[NDA_VLAN]) {
+ 		if (nla_len(tb[NDA_VLAN]) != sizeof(unsigned short)) {
+ 			pr_info("bridge: RTM_NEWNEIGH with invalid vlan\n");
+@@ -695,13 +705,6 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 		}
+ 	}
+ 
+-	p = br_port_get_rtnl(dev);
+-	if (p == NULL) {
+-		pr_info("bridge: RTM_NEWNEIGH %s not a bridge port\n",
+-			dev->name);
+-		return -EINVAL;
+-	}
+-
+ 	pv = nbp_get_vlan_info(p);
+ 	if (vid != VLAN_N_VID) {
+ 		if (!pv || !test_bit(vid, pv->vlan_bitmap)) {
+@@ -729,6 +732,13 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 		}
+ 	}
+ 
++uplink:
++	/* Check to see if  the user requested this address be added to
++	 * uplink
++	 */
++	if (ndm->ndm_flags & NTF_UPLINK)
++		err = ndo_dflt_fdb_add(ndm, tb, p->br->dev, addr, nlh_flags);
++
+ out:
+ 	return err;
+ }
+@@ -765,10 +775,20 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ 		  const unsigned char *addr)
+ {
+ 	struct net_bridge_port *p;
+-	int err;
++	int err = -EINVAL;
+ 	struct net_port_vlans *pv;
+ 	unsigned short vid = VLAN_N_VID;
+ 
++	p = br_port_get_rtnl(dev);
++	if (p == NULL) {
++		pr_info("bridge: RTM_DELNEIGH %s not a bridge port\n",
++			dev->name);
++		return -EINVAL;
++	}
++
++	if (is_multicast_ether_addr(addr))
++		goto uplink;
++
+ 	if (tb[NDA_VLAN]) {
+ 		if (nla_len(tb[NDA_VLAN]) != sizeof(unsigned short)) {
+ 			pr_info("bridge: RTM_NEWNEIGH with invalid vlan\n");
+@@ -783,12 +803,6 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ 			return -EINVAL;
+ 		}
+ 	}
+-	p = br_port_get_rtnl(dev);
+-	if (p == NULL) {
+-		pr_info("bridge: RTM_DELNEIGH %s not a bridge port\n",
+-			dev->name);
+-		return -EINVAL;
+-	}
+ 
+ 	pv = nbp_get_vlan_info(p);
+ 	if (vid != VLAN_N_VID) {
+@@ -814,6 +828,12 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ 			err &= __br_fdb_delete(p, addr, vid);
+ 		}
+ 	}
++uplink:
++	/* Check to see if  the user requested this address be removed
++	 * from uplink
++	 */
++	if (ndm->ndm_flags & NTF_UPLINK)
++		err = ndo_dflt_fdb_del(ndm, tb, p->br->dev, addr);
+ out:
+ 	return err;
+ }
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 589d0ab..1d3c223 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2042,7 +2042,7 @@ int ndo_dflt_fdb_add(struct ndmsg *ndm,
+ 	/* If aging addresses are supported device will need to
+ 	 * implement its own handler for this.
+ 	 */
+-	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
++	if (ndm->ndm_state && !(ndm->ndm_state & (NUD_PERMANENT | NUD_NOARP))) {
+ 		pr_info("%s: FDB only supports static addresses\n", dev->name);
+ 		return err;
+ 	}
+@@ -2142,7 +2142,7 @@ int ndo_dflt_fdb_del(struct ndmsg *ndm,
+ 	/* If aging addresses are supported device will need to
+ 	 * implement its own handler for this.
+ 	 */
+-	if (ndm->ndm_state & NUD_PERMANENT) {
++	if (ndm->ndm_state & (NUD_PERMANENT | NUD_NOARP)) {
+ 		pr_info("%s: FDB only supports static addresses\n", dev->name);
+ 		return -EINVAL;
+ 	}
 -- 
 1.7.7.6
