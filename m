@@ -1,55 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 19 Apr 2013 14:19:45 -0400 (EDT)
-Message-ID: <20130419.141945.1365252776506198187.davem@davemloft.net>
-References: <1366327822-10741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next v2 05/15] igb: Support to read and export
+ SFF-8472/8079 data
+Date: Fri, 19 Apr 2013 14:20:00 -0400 (EDT)
+Message-ID: <20130419.142000.553422110375189224.davem@davemloft.net>
+References: <1366327822-10741-6-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1366328268.2248.60.camel@jtkirshe-mobl>
+	<1366328515.2248.61.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bhutchings@solarflare.com, akeem.g.abodunrin@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	footplus@gmail.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45125 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45137 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753135Ab3DSSTs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 14:19:48 -0400
-In-Reply-To: <1366327822-10741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1752972Ab3DSSUE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 14:20:04 -0400
+In-Reply-To: <1366328515.2248.61.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 18 Apr 2013 16:30:07 -0700
+=46rom: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 18 Apr 2013 16:41:55 -0700
 
-> This series contains updates to ixgbe and igb.
-> 
-> The ixgbe changes contains 2 patches from the community, one which is a
-> fix from akepner to fix a issue where netif_running() in shutdown was
-> not done under rtnl_lock.  The other community fix from Joe Perches
-> cleans up #ifdef CONFIG_DEBUG_FS which is no longer necessary.  The
-> last ixgbe patch, from Jacob Keller, adds support for WoL on 82559
-> SFP+ LOM.
-> 
-> The remaining patches are against igb, 10 of which were previously
-> submitted in a pull request where changes were requested.
-> 
-> The following igb patches:
->  igb: Support for 100base-fx SFP
->  igb: Support to read and export SFF-8472/8079 data
-> are v2 based on feedback from Dan Carpenter and Ben Hutchings in
-> the previous pull request.
-> 
-> The largest set of changes are in my patch to cleanup code comments
-> and whitespace to align the igb driver with the networking style of
-> code comments.  While cleaning up the code comments, fixed several
-> other whitespace/checkpatch.pl code formatting issues.
-> 
-> Other notable igb patches are EEE capable devices query the PHY to
-> determine what the link partner is advertising, added support for
-> i354 devices and added support for spoofchk config.
-> 
-> The following are changes since commit c1cb0d3b569b1d21ada8666efb42dfd437617a09:
->   Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+> On Thu, 2013-04-18 at 16:37 -0700, Jeff Kirsher wrote:
+>> On Thu, 2013-04-18 at 16:30 -0700, Jeff Kirsher wrote:
+>> > From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
+>> >=20
+>> > This patch adds support to read and export SFF-8472/8079 (SFP data=
+)
+>> > over i2c, through Ethtool.
+>> >=20
+>> > v2: Changed implementation to accommodate any offset within SFF
+>> module
+>> >     length boundary.
+>> >=20
+>> > Reported-by: Aur=E9lien Guillaume <footplus@gmail.com>
+>> > CC: Aur=E9lien Guillaume <footplus@gmail.com>
+>> > CC: Ben Hutchings <bhuntchings@solarflare.com>
+>>=20
+>> Looks like Akeem made a typo in your email Ben.
+>=20
+> I have fixed up your email in the patch that resides in my net-next
+> tree.
 
-Pulled, thanks a lot Jeff.
+Thanks for fixing this up.
