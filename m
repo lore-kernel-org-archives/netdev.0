@@ -1,57 +1,57 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 0/6] net: vlan: add support for 802.1ad
-Date: Fri, 19 Apr 2013 21:12:25 +0100
-Message-ID: <1366402345.2716.17.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1366373072-19621-1-git-send-email-kaber@trash.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC 1/2] netmap: infrastructure (in staging)
+Date: Fri, 19 Apr 2013 13:16:32 -0700
+Message-ID: <20130419131632.31fce894@nehalam.linuxnetplumber.net>
+References: <20130419120651.4e646976@nehalam.linuxnetplumber.net>
+	<20130419194537.GA1633@kroah.com>
+	<20130419.155859.1092595631804890737.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:48369 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932936Ab3DSUM3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 16:12:29 -0400
-In-Reply-To: <1366373072-19621-1-git-send-email-kaber@trash.net>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:54118 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753135Ab3DSURE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 16:17:04 -0400
+Received: by mail-pd0-f171.google.com with SMTP id t12so288656pdi.2
+        for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 13:17:03 -0700 (PDT)
+In-Reply-To: <20130419.155859.1092595631804890737.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-04-19 at 14:04 +0200, Patrick McHardy wrote:
-> The following patches add support for 802.1ad (provider tagging) to the
-> VLAN driver. The patchset consists of the following parts:
-> 
-> - renaming of the NET_F_HW_VLAN feature flags to indicate that they only
->   operate on CTAGs
-> 
-> - preparation for 802.1ad VLAN filtering offload by adding a proto argument
->   to the rx_{add,kill}_vid net_device_ops callbacks
-> 
-> - preparation of the VLAN code to support multiple protocols by making the
->   protocol used for tagging a property of the VLAN device and converting
->   the device lookup functions accordingly
-> 
-> - second step of preparation of the VLAN code by making the packet tagging
->   functions take a protocol argument
-> 
-> - introducation of 802.1ad support in the VLAN code, consisting mainly of
->   checking for ETH_P_8021AD in a couple of places and testing the netdevice
->   offload feature checks to take the protocol into account
-> 
-> - announcement of STAG offloading capabilities in a couple of drivers for
->   virtual network devices
-> 
-> The patchset is based on net-next.git and has been tested with single and
-> double tagging with and without HW acceleration (for CTAGs).
-> 
-> If there are no objections, please apply. Thanks!
+On Fri, 19 Apr 2013 15:58:59 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-Any plans to allow offloading insertion/extraction of STAG and CTAG on
-the same packet?
+> From: Greg KH <gregkh@linuxfoundation.org>
+> Date: Fri, 19 Apr 2013 12:45:37 -0700
+> 
+> > On Fri, Apr 19, 2013 at 12:06:51PM -0700, Stephen Hemminger wrote:
+> >> Netmap is a framework for packet generation and capture from user
+> >> space. It allows for efficient packet handling (up to line rate on
+> >> 10Gb) with minimum system load.  For more info see:
+> >> 	http://info.iet.unipi.it/~luigi/netmap/
+> 
+> So are you saying that people can't get line rate today?
+> 
+> Even the the suricata folks are doing deep packet inspection at line
+> rate using AF_PACKET fanouts just fine.  That means they aren't just
+> grabbing packets, they are actually processing them and making
+> stateful decisions based upon the packet's contents.
+> 
+> That means that capture is cheap enough already that they have all
+> the compute left over that they need.
+> 
+> The existing mechanisms also have the huge advantage that they are
+> already implemented, require zero driver specific changes, and are
+> already starting to be deployed to end users.
+> 
+> Given that and how incredibly gross this code is right now, the only
+> reaction I can have is "meh".
+> 
+> If you are going to propose something, please show a real and genuine
+> need.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I can not get line rate output with pktgen on existing kernels today.
+I can get line rate easily with netmap.
