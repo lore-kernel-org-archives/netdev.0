@@ -1,38 +1,351 @@
 From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: [PATCH net-next 8/8] qlcnic: Update version to 5.2.41
-Date: Fri, 19 Apr 2013 13:01:15 -0400
-Message-ID: <1366390875-24570-9-git-send-email-rajesh.borundia@qlogic.com>
+Subject: [PATCH net-next 4/8] qlcnic: Support MAC address, Tx rate config.
+Date: Fri, 19 Apr 2013 13:01:11 -0400
+Message-ID: <1366390875-24570-5-git-send-email-rajesh.borundia@qlogic.com>
 References: <1366390875-24570-1-git-send-email-rajesh.borundia@qlogic.com>
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
+	Manish Chopra <manish.chopra@qlogic.com>,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:34515 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:42945 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752590Ab3DSRZG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Apr 2013 13:25:06 -0400
+	id S1752149Ab3DSRZE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Apr 2013 13:25:04 -0400
 In-Reply-To: <1366390875-24570-1-git-send-email-rajesh.borundia@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+o Add support for MAC address and Tx rate configuration
+  per VF via iproute2 tool.
+o Tx rate change is allowed while the guest is running
+  and the VF driver is loaded.
+o MAC address change is allowed only when VF driver
+  is not loaded.
+
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    5 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |    8 ++
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |   72 +++++++++++
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |  131 +++++++++++++++++++-
+ 4 files changed, 213 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 86eaa68..8d02dd7 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -38,8 +38,8 @@
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 101e607..2acc8e6 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -341,6 +341,11 @@ static const struct net_device_ops qlcnic_netdev_ops = {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller = qlcnic_poll_controller,
+ #endif
++#ifdef CONFIG_QLCNIC_SRIOV
++	.ndo_set_vf_mac		= qlcnic_sriov_set_vf_mac,
++	.ndo_set_vf_tx_rate	= qlcnic_sriov_set_vf_tx_rate,
++	.ndo_get_vf_config	= qlcnic_sriov_get_vf_config,
++#endif
+ };
  
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 2
--#define _QLCNIC_LINUX_SUBVERSION 40
--#define QLCNIC_LINUX_VERSIONID  "5.2.40"
-+#define _QLCNIC_LINUX_SUBVERSION 41
-+#define QLCNIC_LINUX_VERSIONID  "5.2.41"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
+ static const struct net_device_ops qlcnic_netdev_failed_ops = {
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
+index 72db8b1..5f73d42 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
+@@ -116,6 +116,8 @@ struct qlcnic_resources {
+ 
+ struct qlcnic_vport {
+ 	u16			handle;
++	u16			max_tx_bw;
++	u16			min_tx_bw;
+ 	u8			mac[6];
+ };
+ 
+@@ -173,6 +175,8 @@ void qlcnic_sriov_cleanup_async_list(struct qlcnic_back_channel *);
+ void qlcnic_sriov_cleanup_list(struct qlcnic_trans_list *);
+ int __qlcnic_sriov_add_act_list(struct qlcnic_sriov *, struct qlcnic_vf_info *,
+ 				struct qlcnic_bc_trans *);
++int qlcnic_sriov_get_vf_vport_info(struct qlcnic_adapter *,
++				   struct qlcnic_info *, u16);
+ 
+ static inline bool qlcnic_sriov_enable_check(struct qlcnic_adapter *adapter)
+ {
+@@ -199,6 +203,10 @@ bool qlcnic_sriov_soft_flr_check(struct qlcnic_adapter *,
+ 				 struct qlcnic_vf_info *);
+ void qlcnic_sriov_pf_reset(struct qlcnic_adapter *);
+ int qlcnic_sriov_pf_reinit(struct qlcnic_adapter *);
++int qlcnic_sriov_set_vf_mac(struct net_device *, int, u8 *);
++int qlcnic_sriov_set_vf_tx_rate(struct net_device *, int, int);
++int qlcnic_sriov_get_vf_config(struct net_device *, int ,
++			       struct ifla_vf_info *);
+ #else
+ static inline void qlcnic_sriov_pf_disable(struct qlcnic_adapter *adapter) {}
+ static inline void qlcnic_sriov_pf_cleanup(struct qlcnic_adapter *adapter) {}
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
+index 305c7cd..b00cba9 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
+@@ -181,6 +181,7 @@ int qlcnic_sriov_init(struct qlcnic_adapter *adapter, int num_vfs)
+ 				goto qlcnic_destroy_async_wq;
+ 			}
+ 			sriov->vf_info[i].vp = vp;
++			vp->max_tx_bw = MAX_BW;
+ 			random_ether_addr(vp->mac);
+ 			dev_info(&adapter->pdev->dev,
+ 				 "MAC Address %pM is configured for VF %d\n",
+@@ -378,12 +379,83 @@ static void qlcnic_sriov_vf_cfg_buff_desc(struct qlcnic_adapter *adapter)
+ 	adapter->max_rds_rings = MAX_RDS_RINGS;
+ }
+ 
++int qlcnic_sriov_get_vf_vport_info(struct qlcnic_adapter *adapter,
++				   struct qlcnic_info *npar_info, u16 vport_id)
++{
++	struct device *dev = &adapter->pdev->dev;
++	struct qlcnic_cmd_args cmd;
++	int err;
++	u32 status;
++
++	err = qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_GET_NIC_INFO);
++	if (err)
++		return err;
++
++	cmd.req.arg[1] = vport_id << 16 | 0x1;
++	err = qlcnic_issue_cmd(adapter, &cmd);
++	if (err) {
++		dev_err(&adapter->pdev->dev,
++			"Failed to get vport info, err=%d\n", err);
++		qlcnic_free_mbx_args(&cmd);
++		return err;
++	}
++
++	status = cmd.rsp.arg[2] & 0xffff;
++	if (status & BIT_0)
++		npar_info->min_tx_bw = MSW(cmd.rsp.arg[2]);
++	if (status & BIT_1)
++		npar_info->max_tx_bw = LSW(cmd.rsp.arg[3]);
++	if (status & BIT_2)
++		npar_info->max_tx_ques = MSW(cmd.rsp.arg[3]);
++	if (status & BIT_3)
++		npar_info->max_tx_mac_filters = LSW(cmd.rsp.arg[4]);
++	if (status & BIT_4)
++		npar_info->max_rx_mcast_mac_filters = MSW(cmd.rsp.arg[4]);
++	if (status & BIT_5)
++		npar_info->max_rx_ucast_mac_filters = LSW(cmd.rsp.arg[5]);
++	if (status & BIT_6)
++		npar_info->max_rx_ip_addr = MSW(cmd.rsp.arg[5]);
++	if (status & BIT_7)
++		npar_info->max_rx_lro_flow = LSW(cmd.rsp.arg[6]);
++	if (status & BIT_8)
++		npar_info->max_rx_status_rings = MSW(cmd.rsp.arg[6]);
++	if (status & BIT_9)
++		npar_info->max_rx_buf_rings = LSW(cmd.rsp.arg[7]);
++
++	npar_info->max_rx_ques = MSW(cmd.rsp.arg[7]);
++	npar_info->max_tx_vlan_keys = LSW(cmd.rsp.arg[8]);
++	npar_info->max_local_ipv6_addrs = MSW(cmd.rsp.arg[8]);
++	npar_info->max_remote_ipv6_addrs = LSW(cmd.rsp.arg[9]);
++
++	dev_info(dev, "\n\tmin_tx_bw: %d, max_tx_bw: %d max_tx_ques: %d,\n"
++		 "\tmax_tx_mac_filters: %d max_rx_mcast_mac_filters: %d,\n"
++		 "\tmax_rx_ucast_mac_filters: 0x%x, max_rx_ip_addr: %d,\n"
++		 "\tmax_rx_lro_flow: %d max_rx_status_rings: %d,\n"
++		 "\tmax_rx_buf_rings: %d, max_rx_ques: %d, max_tx_vlan_keys %d\n"
++		 "\tlocal_ipv6_addr: %d, remote_ipv6_addr: %d\n",
++		 npar_info->min_tx_bw, npar_info->max_tx_bw,
++		 npar_info->max_tx_ques, npar_info->max_tx_mac_filters,
++		 npar_info->max_rx_mcast_mac_filters,
++		 npar_info->max_rx_ucast_mac_filters, npar_info->max_rx_ip_addr,
++		 npar_info->max_rx_lro_flow, npar_info->max_rx_status_rings,
++		 npar_info->max_rx_buf_rings, npar_info->max_rx_ques,
++		 npar_info->max_tx_vlan_keys, npar_info->max_local_ipv6_addrs,
++		 npar_info->max_remote_ipv6_addrs);
++
++	qlcnic_free_mbx_args(&cmd);
++	return err;
++}
++
+ static int qlcnic_sriov_vf_init_driver(struct qlcnic_adapter *adapter)
+ {
+ 	struct qlcnic_info nic_info;
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
+ 	int err;
+ 
++	err = qlcnic_sriov_get_vf_vport_info(adapter, &nic_info, 0);
++	if (err)
++		return err;
++
+ 	err = qlcnic_get_nic_info(adapter, &nic_info, ahw->pci_func);
+ 	if (err)
+ 		return -EIO;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+index a013529..59d385b 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+@@ -10,6 +10,8 @@
+ #include <linux/types.h>
+ 
+ #define QLCNIC_SRIOV_VF_MAX_MAC 1
++#define QLC_VF_MIN_TX_RATE	100
++#define QLC_VF_MAX_TX_RATE	9999
+ 
+ static int qlcnic_sriov_pf_get_vport_handle(struct qlcnic_adapter *, u8);
+ 
+@@ -62,8 +64,9 @@ static int qlcnic_sriov_pf_cal_res_limit(struct qlcnic_adapter *adapter,
+ {
+ 	struct qlcnic_sriov *sriov = adapter->ahw->sriov;
+ 	struct qlcnic_resources *res = &sriov->ff_max;
+-	int ret = -EIO, vpid;
+ 	u32 temp, num_vf_macs, num_vfs, max;
++	int ret = -EIO, vpid, id;
++	struct qlcnic_vport *vp;
+ 
+ 	vpid = qlcnic_sriov_pf_get_vport_handle(adapter, func);
+ 	if (vpid < 0)
+@@ -72,8 +75,6 @@ static int qlcnic_sriov_pf_cal_res_limit(struct qlcnic_adapter *adapter,
+ 	num_vfs = sriov->num_vfs;
+ 	max = num_vfs + 1;
+ 	info->bit_offsets = 0xffff;
+-	info->min_tx_bw = 0;
+-	info->max_tx_bw = MAX_BW;
+ 	info->max_tx_ques = res->num_tx_queues / max;
+ 	info->max_rx_mcast_mac_filters = res->num_rx_mcast_mac_filters;
+ 	num_vf_macs = QLCNIC_SRIOV_VF_MAX_MAC;
+@@ -83,7 +84,15 @@ static int qlcnic_sriov_pf_cal_res_limit(struct qlcnic_adapter *adapter,
+ 		info->max_rx_ucast_mac_filters = temp;
+ 		temp = res->num_tx_mac_filters - (num_vfs * num_vf_macs);
+ 		info->max_tx_mac_filters = temp;
++		info->min_tx_bw = 0;
++		info->max_tx_bw = MAX_BW;
+ 	} else {
++		id = qlcnic_sriov_func_to_index(adapter, func);
++		if (id < 0)
++			return id;
++		vp = sriov->vf_info[id].vp;
++		info->min_tx_bw = vp->min_tx_bw;
++		info->max_tx_bw = vp->max_tx_bw;
+ 		info->max_rx_ucast_mac_filters = num_vf_macs;
+ 		info->max_tx_mac_filters = num_vf_macs;
+ 	}
+@@ -1416,3 +1425,119 @@ int qlcnic_sriov_pf_reinit(struct qlcnic_adapter *adapter)
+ 		 __func__, ahw->op_mode);
+ 	return err;
+ }
++
++int qlcnic_sriov_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
++{
++	struct qlcnic_adapter *adapter = netdev_priv(netdev);
++	struct qlcnic_sriov *sriov = adapter->ahw->sriov;
++	int i, num_vfs = sriov->num_vfs;
++	struct qlcnic_vf_info *vf_info;
++	u8 *curr_mac;
++
++	if (!qlcnic_sriov_pf_check(adapter))
++		return -EOPNOTSUPP;
++
++	if (!is_valid_ether_addr(mac) || vf >= num_vfs)
++		return -EINVAL;
++
++	if (!compare_ether_addr(adapter->mac_addr, mac)) {
++		netdev_err(netdev, "MAC address is already in use by the PF\n");
++		return -EINVAL;
++	}
++
++	for (i = 0; i < num_vfs; i++) {
++		vf_info = &sriov->vf_info[i];
++		if (!compare_ether_addr(vf_info->vp->mac, mac)) {
++			netdev_err(netdev,
++				   "MAC address is already in use by VF %d\n",
++				   i);
++			return -EINVAL;
++		}
++	}
++
++	vf_info = &sriov->vf_info[vf];
++	curr_mac = vf_info->vp->mac;
++
++	if (test_bit(QLC_BC_VF_STATE, &vf_info->state)) {
++		netdev_err(netdev,
++			   "MAC address change failed for VF %d, as VF driver is loaded. Please unload VF driver and retry the operation\n",
++			   vf);
++		return -EOPNOTSUPP;
++	}
++
++	memcpy(curr_mac, mac, netdev->addr_len);
++	netdev_info(netdev, "MAC Address %pM  is configured for VF %d\n",
++		    mac, vf);
++	return 0;
++}
++
++int qlcnic_sriov_set_vf_tx_rate(struct net_device *netdev, int vf, int tx_rate)
++{
++	struct qlcnic_adapter *adapter = netdev_priv(netdev);
++	struct qlcnic_sriov *sriov = adapter->ahw->sriov;
++	struct qlcnic_vf_info *vf_info;
++	struct qlcnic_info nic_info;
++	struct qlcnic_vport *vp;
++	u16 vpid;
++
++	if (!qlcnic_sriov_pf_check(adapter))
++		return -EOPNOTSUPP;
++
++	if (vf >= sriov->num_vfs)
++		return -EINVAL;
++
++	if (tx_rate >= 10000 || tx_rate < 100) {
++		netdev_err(netdev,
++			   "Invalid Tx rate, allowed range is [%d - %d]",
++			   QLC_VF_MIN_TX_RATE, QLC_VF_MAX_TX_RATE);
++		return -EINVAL;
++	}
++
++	if (tx_rate == 0)
++		tx_rate = 10000;
++
++	vf_info = &sriov->vf_info[vf];
++	vp = vf_info->vp;
++	vpid = vp->handle;
++
++	if (test_bit(QLC_BC_VF_STATE, &vf_info->state)) {
++		if (qlcnic_sriov_get_vf_vport_info(adapter, &nic_info, vpid))
++			return -EIO;
++
++		nic_info.max_tx_bw = tx_rate / 100;
++		nic_info.bit_offsets = BIT_0;
++
++		if (qlcnic_sriov_pf_set_vport_info(adapter, &nic_info, vpid))
++			return -EIO;
++	}
++
++	vp->max_tx_bw = tx_rate / 100;
++	netdev_info(netdev,
++		    "Setting Tx rate %d (Mbps), %d %% of PF bandwidth, for VF %d\n",
++		    tx_rate, vp->max_tx_bw, vf);
++	return 0;
++}
++
++int qlcnic_sriov_get_vf_config(struct net_device *netdev,
++			       int vf, struct ifla_vf_info *ivi)
++{
++	struct qlcnic_adapter *adapter = netdev_priv(netdev);
++	struct qlcnic_sriov *sriov = adapter->ahw->sriov;
++	struct qlcnic_vport *vp;
++
++	if (!qlcnic_sriov_pf_check(adapter))
++		return -EOPNOTSUPP;
++
++	if (vf >= sriov->num_vfs)
++		return -EINVAL;
++
++	vp = sriov->vf_info[vf].vp;
++	memcpy(&ivi->mac, vp->mac, ETH_ALEN);
++	if (vp->max_tx_bw == MAX_BW)
++		ivi->tx_rate = 0;
++	else
++		ivi->tx_rate = vp->max_tx_bw * 100;
++
++	ivi->vf = vf;
++	return 0;
++}
 -- 
 1.6.3.3
