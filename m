@@ -1,8 +1,9 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH 5/5] net/cpsw: redo rx skb allocation in rx path
-Date: Fri, 19 Apr 2013 15:58:30 +0530
-Message-ID: <51711C4E.5020704@ti.com>
-References: <1366235536-15744-1-git-send-email-bigeasy@linutronix.de> <1366235536-15744-6-git-send-email-bigeasy@linutronix.de> <516FDE20.2050605@ti.com> <516FE36B.9050801@linutronix.de>
+Subject: Re: [PATCH 3/5] net/cpsw: don't rely on netif_running() to check
+ which device is active
+Date: Fri, 19 Apr 2013 16:05:55 +0530
+Message-ID: <51711E0B.4000306@ti.com>
+References: <1366235536-15744-1-git-send-email-bigeasy@linutronix.de> <1366235536-15744-4-git-send-email-bigeasy@linutronix.de> <516FDE0A.70504@ti.com> <516FE2AD.2040403@linutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,43 +11,33 @@ Cc: <netdev@vger.kernel.org>, <tglx@linutronix.de>,
 	"David S. Miller" <davem@davemloft.net>
 To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:47125 "EHLO bear.ext.ti.com"
+Received: from comal.ext.ti.com ([198.47.26.152]:42202 "EHLO comal.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757219Ab3DSK2r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Apr 2013 06:28:47 -0400
-In-Reply-To: <516FE36B.9050801@linutronix.de>
+	id S1756967Ab3DSKgL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Apr 2013 06:36:11 -0400
+In-Reply-To: <516FE2AD.2040403@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/18/2013 5:43 PM, Sebastian Andrzej Siewior wrote:
+On 4/18/2013 5:40 PM, Sebastian Andrzej Siewior wrote:
 > On 04/18/2013 01:50 PM, Mugunthan V N wrote:
+>
 >>> diff --git a/drivers/net/ethernet/ti/cpsw.c
 >>> b/drivers/net/ethernet/ti/cpsw.c
->>> index 559b020..f684e9b 100644
+>>> index 3b22a36..c32780d 100644
 >>> --- a/drivers/net/ethernet/ti/cpsw.c
 >>> +++ b/drivers/net/ethernet/ti/cpsw.c
->>> @@ -469,43 +469,36 @@ void cpsw_tx_handler(void *token, int len, int
-> <snip>
->>> -    if (unlikely(!netif_running(ndev))) {
->>> -        if (skb)
->>> -            dev_kfree_skb_any(skb);
->>> -        return;
->>> +    } else {
->>> +        priv->stats.rx_dropped++;
->>> +        new_skb = skb;
->> Why you want to drop a successfully received packet as you memory alloc
->> failed?
->> Let the stack get it processed and there after you can continue with one
->> less
->> rx skb
-> Because, as I wrote, if this continues you end up without rx skbs.
-> However, if you if you are under memory pressure it is possible that
-> other callers in the stack have the same problem.
+>>> @@ -341,6 +341,7 @@ struct cpsw_priv {
+>>>        int                host_port;
+>>>        struct clk            *clk;
+>>>        u8                mac_addr[ETH_ALEN];
+>>> +    u8                active;
+>> Frame work is providing this feature then why you need to have additional
+>> book keeping in device private?
+> Which function? I more than happy to use it.
 >
-I had gone through some other drivers and found that this patch is valid 
-so add
-
-Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
+The same netif_running(). But why you are telling not to rely on this API?
+device state is updated immediately after successful ndo_open.
 
 Regards
 Mugunthan V N
