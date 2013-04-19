@@ -1,124 +1,335 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Fri, 19 Apr 2013 12:53:04 +1000
-Message-ID: <20130419125304.9980f9b037abf00bef7b6f8c@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: remove one indentation level in
+ tcp_rcv_state_process()
+Date: Thu, 18 Apr 2013 20:16:07 -0700
+Message-ID: <1366341367.3205.85.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__19_Apr_2013_12_53_04_+1000_pinOPf3L1G/h48ph"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Antonio Quartulli <ordex@autistici.org>,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Martin =?UTF-8?B?SHVuZGViw7hsbA==?= <martin@hundeboll.net>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f44.google.com ([209.85.210.44]:62895 "EHLO
+	mail-da0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967861Ab3DSDQL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Apr 2013 23:16:11 -0400
+Received: by mail-da0-f44.google.com with SMTP id z20so1711860dae.17
+        for <netdev@vger.kernel.org>; Thu, 18 Apr 2013 20:16:10 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__19_Apr_2013_12_53_04_+1000_pinOPf3L1G/h48ph
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: Eric Dumazet <edumazet@google.com>
 
-Hi all,
+Remove one level of indentation 'introduced' in commit
+c3ae62af8e75 (tcp: should drop incoming frames without ACK flag set)
 
-Today's linux-next merge of the net-next tree got a conflict in
-net/batman-adv/routing.c between commit fe8a93b95145 ("batman-adv: make
-is_my_mac() check for the current mesh only") from the net tree and
-commits f86ce0ad107b ("batman-adv: Return reason for failure in
-batadv_check_unicast_packet()") and 612d2b4fe0a1 ("batman-adv: network
-coding - save overheard and tx packets for decoding") from the net-next
-tree.
+@acceptable variable is a boolean.
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+This patch is a pure cleanup.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_input.c |  267 ++++++++++++++++++++---------------------
+ 1 file changed, 132 insertions(+), 135 deletions(-)
 
-diff --cc net/batman-adv/routing.c
-index 319f290,8f88967..0000000
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@@ -548,8 -549,17 +549,19 @@@ batadv_find_ifalter_router(struct batad
-  	return router;
-  }
- =20
-+ /**
-+  * batadv_check_unicast_packet - Check for malformed unicast packets
-++ * @batpriv: some description ...
-+  * @skb: packet to check
-+  * @hdr_size: size of header to pull
-+  *
-+  * Check for short header and bad addresses in given packet. Returns nega=
-tive
-+  * value when check fails and 0 otherwise. The negative value depends on =
-the
-+  * reason: -ENODATA for bad header, -EBADR for broadcast destination or s=
-ource,
-+  * and -EREMOTE for non-local (other host) destination.
-+  */
- -static int batadv_check_unicast_packet(struct sk_buff *skb, int hdr_size)
- +static int batadv_check_unicast_packet(struct batadv_priv *bat_priv,
- +				       struct sk_buff *skb, int hdr_size)
-  {
-  	struct ethhdr *ethhdr;
- =20
-@@@ -565,11 -575,11 +577,11 @@@
- =20
-  	/* packet with broadcast sender address */
-  	if (is_broadcast_ether_addr(ethhdr->h_source))
-- 		return -1;
-+ 		return -EBADR;
- =20
-  	/* not for me */
- -	if (!batadv_is_my_mac(ethhdr->h_dest))
- +	if (!batadv_is_my_mac(bat_priv, ethhdr->h_dest))
-- 		return -1;
-+ 		return -EREMOTE;
- =20
-  	return 0;
-  }
-@@@ -1046,7 -1058,16 +1061,16 @@@ int batadv_recv_unicast_packet(struct s
-  	if (is4addr)
-  		hdr_size =3D sizeof(*unicast_4addr_packet);
- =20
-- 	if (batadv_check_unicast_packet(bat_priv, skb, hdr_size) < 0)
-+ 	/* function returns -EREMOTE for promiscuous packets */
- -	check =3D batadv_check_unicast_packet(skb, hdr_size);
-++	check =3D batadv_check_unicast_packet(bat_priv, skb, hdr_size);
-+=20
-+ 	/* Even though the packet is not for us, we might save it to use for
-+ 	 * decoding a later received coded packet
-+ 	 */
-+ 	if (check =3D=3D -EREMOTE)
-+ 		batadv_nc_skb_store_sniffed_unicast(bat_priv, skb);
-+=20
-+ 	if (check < 0)
-  		return NET_RX_DROP;
- =20
-  	if (!batadv_check_unicast_ttvn(bat_priv, skb))
-
---Signature=_Fri__19_Apr_2013_12_53_04_+1000_pinOPf3L1G/h48ph
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBCAAGBQJRcLGQAAoJEECxmPOUX5FEW/MP/2MTNpJyYB09OH+f1KMI4Vra
-R1LtHLig3DFwCeAff9FMIt659C7XJIQLTERXO4SL6YLz742uJMU9D6edBl1H2acJ
-zcz24mMgjIAqAWN8VxndCzGxA6GAmXU2l/b7kYUyGWjFVq3TAnM7MrgxM7uMzipU
-uV3vd6dJlvbdST83Tj0NuzdvNBwVo2luVSdtnj3UW6x8w9TOUMD3HN+k0mD3l5iE
-fvipSzsJ/WjTiISAiixoA6cOMx2RF3NsBtO985LDbZMXAnMknECkYHnZYSwbIck7
-WOrJ3AU4M+Z1YOLCWHdTLfJLU4kW4gLvcboogq6FwRFGQVjOvkrsYlhY5lVI8tKm
-5TNYNu4FTXRfvu35CZvJVcn/vd8wGkQvJDZTEsTryYyoXz7MHgCqIX9NZJAxPgj2
-n/VXnlzzoKVqGhigPziddSzHQai8zL3OwOaNd7vLN0wt9ZQNYJRUpiYQZEbFHBOe
-wzYnnJhwT0Nz5pK6vGrpSnH9PyP9+nxZjdrKVnhO0g4q4VUAMxjinjjIxYnjPrce
-QDyowgum5nPEqtQRFEb1A35lYO0DHECOeWcIuadPQDU6obh3/2xwwC6eL477levQ
-rX0EOB+5Yv8BYylHiD8xvZVradu3R9JAuwq9ctJ47sDxWJrZ1g7zGbb5yvnrN0Pc
-Z5X4UMmPAOjwNJtzPE42
-=k11x
------END PGP SIGNATURE-----
-
---Signature=_Fri__19_Apr_2013_12_53_04_+1000_pinOPf3L1G/h48ph--
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 6d9ca35..08f58c1 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5595,6 +5595,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct request_sock *req;
+ 	int queued = 0;
++	bool acceptable;
+ 
+ 	tp->rx_opt.saw_tstamp = 0;
+ 
+@@ -5665,156 +5666,152 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 		return 0;
+ 
+ 	/* step 5: check the ACK field */
+-	if (true) {
+-		int acceptable = tcp_ack(sk, skb, FLAG_SLOWPATH) > 0;
+-
+-		switch (sk->sk_state) {
+-		case TCP_SYN_RECV:
+-			if (acceptable) {
+-				/* Once we leave TCP_SYN_RECV, we no longer
+-				 * need req so release it.
+-				 */
+-				if (req) {
+-					tcp_synack_rtt_meas(sk, req);
+-					tp->total_retrans = req->num_retrans;
+-
+-					reqsk_fastopen_remove(sk, req, false);
+-				} else {
+-					/* Make sure socket is routed, for
+-					 * correct metrics.
+-					 */
+-					icsk->icsk_af_ops->rebuild_header(sk);
+-					tcp_init_congestion_control(sk);
++	acceptable = tcp_ack(sk, skb, FLAG_SLOWPATH) > 0;
+ 
+-					tcp_mtup_init(sk);
+-					tcp_init_buffer_space(sk);
+-					tp->copied_seq = tp->rcv_nxt;
+-				}
+-				smp_mb();
+-				tcp_set_state(sk, TCP_ESTABLISHED);
+-				sk->sk_state_change(sk);
++	switch (sk->sk_state) {
++	case TCP_SYN_RECV:
++		if (acceptable) {
++			/* Once we leave TCP_SYN_RECV, we no longer
++			 * need req so release it.
++			 */
++			if (req) {
++				tcp_synack_rtt_meas(sk, req);
++				tp->total_retrans = req->num_retrans;
+ 
+-				/* Note, that this wakeup is only for marginal
+-				 * crossed SYN case. Passively open sockets
+-				 * are not waked up, because sk->sk_sleep ==
+-				 * NULL and sk->sk_socket == NULL.
++				reqsk_fastopen_remove(sk, req, false);
++			} else {
++				/* Make sure socket is routed, for
++				 * correct metrics.
+ 				 */
+-				if (sk->sk_socket)
+-					sk_wake_async(sk,
+-						      SOCK_WAKE_IO, POLL_OUT);
+-
+-				tp->snd_una = TCP_SKB_CB(skb)->ack_seq;
+-				tp->snd_wnd = ntohs(th->window) <<
+-					      tp->rx_opt.snd_wscale;
+-				tcp_init_wl(tp, TCP_SKB_CB(skb)->seq);
+-
+-				if (tp->rx_opt.tstamp_ok)
+-					tp->advmss -= TCPOLEN_TSTAMP_ALIGNED;
+-
+-				if (req) {
+-					/* Re-arm the timer because data may
+-					 * have been sent out. This is similar
+-					 * to the regular data transmission case
+-					 * when new data has just been ack'ed.
+-					 *
+-					 * (TFO) - we could try to be more
+-					 * aggressive and retranmitting any data
+-					 * sooner based on when they were sent
+-					 * out.
+-					 */
+-					tcp_rearm_rto(sk);
+-				} else
+-					tcp_init_metrics(sk);
++				icsk->icsk_af_ops->rebuild_header(sk);
++				tcp_init_congestion_control(sk);
+ 
+-				/* Prevent spurious tcp_cwnd_restart() on
+-				 * first data packet.
++				tcp_mtup_init(sk);
++				tcp_init_buffer_space(sk);
++				tp->copied_seq = tp->rcv_nxt;
++			}
++			smp_mb();
++			tcp_set_state(sk, TCP_ESTABLISHED);
++			sk->sk_state_change(sk);
++
++			/* Note, that this wakeup is only for marginal
++			 * crossed SYN case. Passively open sockets
++			 * are not waked up, because sk->sk_sleep ==
++			 * NULL and sk->sk_socket == NULL.
++			 */
++			if (sk->sk_socket)
++				sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
++
++			tp->snd_una = TCP_SKB_CB(skb)->ack_seq;
++			tp->snd_wnd = ntohs(th->window) <<
++				      tp->rx_opt.snd_wscale;
++			tcp_init_wl(tp, TCP_SKB_CB(skb)->seq);
++
++			if (tp->rx_opt.tstamp_ok)
++				tp->advmss -= TCPOLEN_TSTAMP_ALIGNED;
++
++			if (req) {
++				/* Re-arm the timer because data may
++				 * have been sent out. This is similar
++				 * to the regular data transmission case
++				 * when new data has just been ack'ed.
++				 *
++				 * (TFO) - we could try to be more
++				 * aggressive and retranmitting any data
++				 * sooner based on when they were sent out.
+ 				 */
+-				tp->lsndtime = tcp_time_stamp;
++				tcp_rearm_rto(sk);
++			} else
++				tcp_init_metrics(sk);
+ 
+-				tcp_initialize_rcv_mss(sk);
+-				tcp_fast_path_on(tp);
+-			} else {
+-				return 1;
+-			}
+-			break;
++			/* Prevent spurious tcp_cwnd_restart() on
++			 * first data packet.
++			 */
++			tp->lsndtime = tcp_time_stamp;
+ 
+-		case TCP_FIN_WAIT1:
+-			/* If we enter the TCP_FIN_WAIT1 state and we are a
+-			 * Fast Open socket and this is the first acceptable
+-			 * ACK we have received, this would have acknowledged
+-			 * our SYNACK so stop the SYNACK timer.
++			tcp_initialize_rcv_mss(sk);
++			tcp_fast_path_on(tp);
++		} else {
++			return 1;
++		}
++		break;
++
++	case TCP_FIN_WAIT1:
++		/* If we enter the TCP_FIN_WAIT1 state and we are a
++		 * Fast Open socket and this is the first acceptable
++		 * ACK we have received, this would have acknowledged
++		 * our SYNACK so stop the SYNACK timer.
++		 */
++		if (req != NULL) {
++			/* Return RST if ack_seq is invalid.
++			 * Note that RFC793 only says to generate a
++			 * DUPACK for it but for TCP Fast Open it seems
++			 * better to treat this case like TCP_SYN_RECV
++			 * above.
+ 			 */
+-			if (req != NULL) {
+-				/* Return RST if ack_seq is invalid.
+-				 * Note that RFC793 only says to generate a
+-				 * DUPACK for it but for TCP Fast Open it seems
+-				 * better to treat this case like TCP_SYN_RECV
+-				 * above.
+-				 */
+-				if (!acceptable)
++			if (!acceptable)
++				return 1;
++			/* We no longer need the request sock. */
++			reqsk_fastopen_remove(sk, req, false);
++			tcp_rearm_rto(sk);
++		}
++		if (tp->snd_una == tp->write_seq) {
++			struct dst_entry *dst;
++
++			tcp_set_state(sk, TCP_FIN_WAIT2);
++			sk->sk_shutdown |= SEND_SHUTDOWN;
++
++			dst = __sk_dst_get(sk);
++			if (dst)
++				dst_confirm(dst);
++
++			if (!sock_flag(sk, SOCK_DEAD))
++				/* Wake up lingering close() */
++				sk->sk_state_change(sk);
++			else {
++				int tmo;
++
++				if (tp->linger2 < 0 ||
++				    (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq &&
++				     after(TCP_SKB_CB(skb)->end_seq - th->fin, tp->rcv_nxt))) {
++					tcp_done(sk);
++					NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPABORTONDATA);
+ 					return 1;
+-				/* We no longer need the request sock. */
+-				reqsk_fastopen_remove(sk, req, false);
+-				tcp_rearm_rto(sk);
+-			}
+-			if (tp->snd_una == tp->write_seq) {
+-				struct dst_entry *dst;
+-
+-				tcp_set_state(sk, TCP_FIN_WAIT2);
+-				sk->sk_shutdown |= SEND_SHUTDOWN;
+-
+-				dst = __sk_dst_get(sk);
+-				if (dst)
+-					dst_confirm(dst);
+-
+-				if (!sock_flag(sk, SOCK_DEAD))
+-					/* Wake up lingering close() */
+-					sk->sk_state_change(sk);
+-				else {
+-					int tmo;
+-
+-					if (tp->linger2 < 0 ||
+-					    (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq &&
+-					     after(TCP_SKB_CB(skb)->end_seq - th->fin, tp->rcv_nxt))) {
+-						tcp_done(sk);
+-						NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPABORTONDATA);
+-						return 1;
+-					}
++				}
+ 
+-					tmo = tcp_fin_time(sk);
+-					if (tmo > TCP_TIMEWAIT_LEN) {
+-						inet_csk_reset_keepalive_timer(sk, tmo - TCP_TIMEWAIT_LEN);
+-					} else if (th->fin || sock_owned_by_user(sk)) {
+-						/* Bad case. We could lose such FIN otherwise.
+-						 * It is not a big problem, but it looks confusing
+-						 * and not so rare event. We still can lose it now,
+-						 * if it spins in bh_lock_sock(), but it is really
+-						 * marginal case.
+-						 */
+-						inet_csk_reset_keepalive_timer(sk, tmo);
+-					} else {
+-						tcp_time_wait(sk, TCP_FIN_WAIT2, tmo);
+-						goto discard;
+-					}
++				tmo = tcp_fin_time(sk);
++				if (tmo > TCP_TIMEWAIT_LEN) {
++					inet_csk_reset_keepalive_timer(sk, tmo - TCP_TIMEWAIT_LEN);
++				} else if (th->fin || sock_owned_by_user(sk)) {
++					/* Bad case. We could lose such FIN otherwise.
++					 * It is not a big problem, but it looks confusing
++					 * and not so rare event. We still can lose it now,
++					 * if it spins in bh_lock_sock(), but it is really
++					 * marginal case.
++					 */
++					inet_csk_reset_keepalive_timer(sk, tmo);
++				} else {
++					tcp_time_wait(sk, TCP_FIN_WAIT2, tmo);
++					goto discard;
+ 				}
+ 			}
+-			break;
++		}
++		break;
+ 
+-		case TCP_CLOSING:
+-			if (tp->snd_una == tp->write_seq) {
+-				tcp_time_wait(sk, TCP_TIME_WAIT, 0);
+-				goto discard;
+-			}
+-			break;
++	case TCP_CLOSING:
++		if (tp->snd_una == tp->write_seq) {
++			tcp_time_wait(sk, TCP_TIME_WAIT, 0);
++			goto discard;
++		}
++		break;
+ 
+-		case TCP_LAST_ACK:
+-			if (tp->snd_una == tp->write_seq) {
+-				tcp_update_metrics(sk);
+-				tcp_done(sk);
+-				goto discard;
+-			}
+-			break;
++	case TCP_LAST_ACK:
++		if (tp->snd_una == tp->write_seq) {
++			tcp_update_metrics(sk);
++			tcp_done(sk);
++			goto discard;
+ 		}
++		break;
+ 	}
+ 
+ 	/* ts_recent update must be made after we are sure that the packet
