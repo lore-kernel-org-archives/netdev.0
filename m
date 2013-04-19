@@ -1,45 +1,66 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [net-next PATCH 2/3] net: fix enforcing of fragment queue hash list depth
-Date: Fri, 19 Apr 2013 21:44:24 +0200
-Message-ID: <20130419194424.GI27889@order.stressinduktion.org>
-References: <20130418213637.14296.43143.stgit@dragon> <20130418213732.14296.36026.stgit@dragon> <1366366287.3205.98.camel@edumazet-glaptop> <1366373950.26911.134.camel@localhost> <20130419124528.GF27889@order.stressinduktion.org> <1366381742.26911.166.camel@localhost>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [RFC 1/2] netmap: infrastructure (in staging)
+Date: Fri, 19 Apr 2013 12:45:37 -0700
+Message-ID: <20130419194537.GA1633@kroah.com>
+References: <20130419120651.4e646976@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:52982 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753711Ab3DSToZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 15:44:25 -0400
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:61475 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753519Ab3DSTpk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 15:45:40 -0400
+Received: by mail-pd0-f181.google.com with SMTP id y10so2384205pdj.26
+        for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 12:45:39 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1366381742.26911.166.camel@localhost>
+In-Reply-To: <20130419120651.4e646976@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 19, 2013 at 04:29:02PM +0200, Jesper Dangaard Brouer wrote:
-> Well, I don't know.  But we do need some solution, to the current code.
+On Fri, Apr 19, 2013 at 12:06:51PM -0700, Stephen Hemminger wrote:
+> Netmap is a framework for packet generation and capture from user
+> space. It allows for efficient packet handling (up to line rate on
+> 10Gb) with minimum system load.  For more info see:
+> 	http://info.iet.unipi.it/~luigi/netmap/
+> 
+> This version is based on the latest version from Luigi Rizzo. It has
+> been modified to live to work with current net-next kernel. It still
+> has all the BSD ugliness, and that is why it needs to spend some time
+> in the staging penalty box.
+> 
+> It builds and loads, but definitely needs more work.
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumger.org>
+> 
+> ---
+> Patch is against net-next
+> 
+>  drivers/staging/Kconfig              |    2 
+>  drivers/staging/Makefile             |    1 
+>  drivers/staging/netmap/Kconfig       |   16 
+>  drivers/staging/netmap/Makefile      |    2 
+>  drivers/staging/netmap/README        |  127 +
+>  drivers/staging/netmap/TODO          |   16 
+>  drivers/staging/netmap/netmap.c      | 2514 +++++++++++++++++++++++++++++++++++
+>  drivers/staging/netmap/netmap_mem2.c |  974 +++++++++++++
+>  include/netmap/bsd_glue.h            |  263 +++
+>  include/netmap/netmap_kern.h         |  474 ++++++
+>  include/uapi/Kbuild                  |    1 
+>  include/uapi/linux/if.h              |    1 
+>  include/uapi/netmap/Kbuild           |    3 
+>  include/uapi/netmap/netmap.h         |  289 ++++
+>  include/uapi/netmap/netmap_user.h    |   95 +
+>  15 files changed, 4778 insertions(+)
 
-In <http://article.gmane.org/gmane.linux.network/261361> I said that we could
-actually have a list lengt of about 370. At this time this number was stable,
-perhaps you could verify?
+I have no objection for this to go into staging.  If you want it to go
+through the net-next tree, feel free to add my ack:
 
-I tried to flood the cache with very minimal packets so this was actually
-the hint that I should have resized the hash back then. With the current
-fragmentation cache design we could reach optimal behaviour as soon
-as the memory limits kicks in and lru eviction starts before we limit the
-fragments queues in the hash chains. The only way to achieve this is to
-increase the hash table slots and lower the maximum length limit. I would
-propose a limit of about 25-32 and as Eric said, a hash size of 1024. We could
-test if we are limited of accepting new fragments by memory limit (which would
-be fine because lru eviction kicks in) or by chain length (we could recheck
-the numbers then).
+Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
-So the chain limit would only kick in if someone tries to exploit the fragment
-cache by using the method I demonstrated before (which was the reason I
-introduced this limit).
+Otherwise, I'll be glad to take it through the staging-next tree.
 
-Thanks,
+thanks,
 
-  Hannes
+greg k-h
