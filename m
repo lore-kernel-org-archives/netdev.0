@@ -1,20 +1,45 @@
-From: Gillian & Adrian Bayford <silifkemyo@mersin.edu.tr>
-Subject: DONATION  FROM Gillian &Adrian Bayford
-Date: Sat, 20 Apr 2013 19:42:28 +0300 (EEST)
-Message-ID: <337572413.14777.1366476148021.JavaMail.root@mail.mersin.edu.tr>
-Reply-To: Gillian & Adrian Bayford <agbayford@wss-id.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv2 for-3.9] pci: avoid work_on_cpu for nested SRIOV probes
+Date: Sat, 20 Apr 2013 22:05:04 +0300
+Message-ID: <20130420190504.GB853@redhat.com>
+References: <51360D7C.3060209@mellanox.com>
+ <20130418200855.GA24086@redhat.com>
+ <CAErSpo65Q0+UT3sS6LcyXohkCMfjweoS_j+okiYq4bdjFKjdHw@mail.gmail.com>
+ <CAErSpo7jf-ytJPhuphzLFH80c9YMM6UzxWAVEnD-25nQgXmARQ@mail.gmail.com>
+ <CAOS58YO+uV5KkS=sTP9Y3BPPh1nVnQ06yRyNU8GvEbym7R+X+Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from antispam.mersin.edu.tr ([193.255.128.16]:52258 "EHLO
-	antispam.mersin.edu.tr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755478Ab3DTQ4w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Apr 2013 12:56:52 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Bjorn Helgaas <bhelgaas@google.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Ming Lei <ming.lei@canonical.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>,
+	Roland Dreier <roland@kernel.org>,
+	netdev <netdev@vger.kernel.org>, Yan Burman <yanb@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAOS58YO+uV5KkS=sTP9Y3BPPh1nVnQ06yRyNU8GvEbym7R+X+Q@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Apr 18, 2013 at 08:04:47PM -0700, Tejun Heo wrote:
+> So, the thing is there is no actual deadlock. If you're okay with releasing w/
+> spurious lockdep warning, leaving things alone should be fine. An issue with
+> mst's patch is that it actually changes the behavior to avoid a spurious
+> warning.
 
-This is a personal mail directed to you. My wife and I won 148.6m in theEuro Millions jackpot in August 2012 and have voluntarily decided todonate $1,000,000..00 USD to you as part of our own charity project toimprove the life of 10 lucky individuals all over the world.If you havereceived this email please do not delete it and it is not by mistakebecause you are one of the lucky recipients, get back to us with yourdetails so that we can forward it to the payout bank who will transferyour own part of the donation to you.You can verify this by visiting the web pages below.http://www.guardian.co.uk/uk/2012/aug/14/british-euromillions-jackpot-winners-revealedhttp://www.bbc.co.uk/news/uk-england-19254228For the purpose of confidentiality and to claim your prize, reply viathis email:agbayford@ws
- s-id.orgYours Sincerely,Gillian &amp; Adrian Bayford
+Yes but in fact, isn't it cleaner to avoid work_on if we are going to run
+on the local CPU, anyway?
+
+> An alternative course would be leaving it alone now and remove the
+> spurious warning during the coming devel cycle and mark it w/ -stable.
+> 
+> Thanks.
+
+Okay. Could you send tested a version of work_on_nested?
+
+> --
+> tejun
