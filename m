@@ -1,60 +1,93 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/14] igb: Remove id's that will not be productized for Linux.
-Date: Sat, 20 Apr 2013 02:49:12 -0700
-Message-ID: <1366451353-24714-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/14] igb: Use pci_vfs_assigned instead of igb_vfs_are_assigned
+Date: Sat, 20 Apr 2013 02:49:08 -0700
+Message-ID: <1366451353-24714-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1366451353-24714-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:1830 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:10590 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754822Ab3DTJtY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Apr 2013 05:49:24 -0400
+	id S1754734Ab3DTJtW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Apr 2013 05:49:22 -0400
 In-Reply-To: <1366451353-24714-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch removes id defines from the hardware files that will not be
-productized for Linux.  These id's were not implemented for support in the
-base driver itself, they were just available defines.
+This change makes it so that the igb driver uses the generic helper
+pci_vfs_assigned instead of the igb specific function igb_vfs_are_assigned.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.c | 2 --
- drivers/net/ethernet/intel/igb/e1000_hw.h    | 2 --
- 2 files changed, 4 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 36 +------------------------------
+ 1 file changed, 1 insertion(+), 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index d3d72e0..ff6a17c 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -443,8 +443,6 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
- 		mac->type = e1000_i350;
- 		break;
- 	case E1000_DEV_ID_I210_COPPER:
--	case E1000_DEV_ID_I210_COPPER_OEM1:
--	case E1000_DEV_ID_I210_COPPER_IT:
- 	case E1000_DEV_ID_I210_FIBER:
- 	case E1000_DEV_ID_I210_SERDES:
- 	case E1000_DEV_ID_I210_SGMII:
-diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
-index f1dbab9..488abb2 100644
---- a/drivers/net/ethernet/intel/igb/e1000_hw.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
-@@ -64,8 +64,6 @@ struct e1000_hw;
- #define E1000_DEV_ID_I350_SERDES		0x1523
- #define E1000_DEV_ID_I350_SGMII			0x1524
- #define E1000_DEV_ID_I210_COPPER		0x1533
--#define E1000_DEV_ID_I210_COPPER_OEM1		0x1534
--#define E1000_DEV_ID_I210_COPPER_IT		0x1535
- #define E1000_DEV_ID_I210_FIBER			0x1536
- #define E1000_DEV_ID_I210_SERDES		0x1537
- #define E1000_DEV_ID_I210_SGMII			0x1538
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 9bf08b9..388d36f 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -180,7 +180,6 @@ static void igb_check_vf_rate_limit(struct igb_adapter *);
+ 
+ #ifdef CONFIG_PCI_IOV
+ static int igb_vf_configure(struct igb_adapter *adapter, int vf);
+-static bool igb_vfs_are_assigned(struct igb_adapter *adapter);
+ #endif
+ 
+ #ifdef CONFIG_PM
+@@ -2402,7 +2401,7 @@ static int  igb_disable_sriov(struct pci_dev *pdev)
+ 	/* reclaim resources allocated to VFs */
+ 	if (adapter->vf_data) {
+ 		/* disable iov and allow time for transactions to clear */
+-		if (igb_vfs_are_assigned(adapter)) {
++		if (pci_vfs_assigned(pdev)) {
+ 			dev_warn(&pdev->dev,
+ 				 "Cannot deallocate SR-IOV virtual functions while they are assigned - VFs will not be deallocated\n");
+ 			return -EPERM;
+@@ -5259,39 +5258,6 @@ static int igb_vf_configure(struct igb_adapter *adapter, int vf)
+ 	return 0;
+ }
+ 
+-static bool igb_vfs_are_assigned(struct igb_adapter *adapter)
+-{
+-	struct pci_dev *pdev = adapter->pdev;
+-	struct pci_dev *vfdev;
+-	int dev_id;
+-
+-	switch (adapter->hw.mac.type) {
+-	case e1000_82576:
+-		dev_id = IGB_82576_VF_DEV_ID;
+-		break;
+-	case e1000_i350:
+-		dev_id = IGB_I350_VF_DEV_ID;
+-		break;
+-	default:
+-		return false;
+-	}
+-
+-	/* loop through all the VFs to see if we own any that are assigned */
+-	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, NULL);
+-	while (vfdev) {
+-		/* if we don't own it we don't care */
+-		if (vfdev->is_virtfn && vfdev->physfn == pdev) {
+-			/* if it is assigned we cannot release it */
+-			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
+-				return true;
+-		}
+-
+-		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, vfdev);
+-	}
+-
+-	return false;
+-}
+-
+ #endif
+ static void igb_ping_all_vfs(struct igb_adapter *adapter)
+ {
 -- 
 1.7.11.7
