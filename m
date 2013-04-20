@@ -1,55 +1,37 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch] [IrDA]: small read past the end of array in debug code
-Date: Sat, 20 Apr 2013 23:39:16 +0300
-Message-ID: <20130420203916.GA8936@mwanda>
-References: <20130417071038.GA7923@elgon.mountain>
- <20130419.173329.1993060022855519678.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net: fix incorrect credentials passing
+Date: Sat, 20 Apr 2013 16:58:15 -0400 (EDT)
+Message-ID: <20130420.165815.1541030044930091056.davem@davemloft.net>
+References: <alpine.LFD.2.03.1304191826080.2455@gmail.com>
+	<20130419.215856.1499421731544629706.davem@davemloft.net>
+	<87ip3h4gn5.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	serge@hallyn.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:32958 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755026Ab3DTUkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Apr 2013 16:40:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20130419.173329.1993060022855519678.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35105 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755340Ab3DTU6T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Apr 2013 16:58:19 -0400
+In-Reply-To: <87ip3h4gn5.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 19, 2013 at 05:33:29PM -0400, David Miller wrote:
-> From: Dan Carpenter <dan.carpenter@oracle.com>
-> Date: Wed, 17 Apr 2013 10:10:38 +0300
-> 
-> > The "reason" can come from skb->data[] and it hasn't been capped so it
-> > can be from 0-255 instead of just 0-6.  For example in irlmp_state_dtr()
-> > the code does:
-> > 
-> > 	reason = skb->data[3];
-> > 	...
-> > 	irlmp_disconnect_indication(self, reason, skb);
-> > 
-> > Also LMREASON has a couple other values which don't have entries in the
-> > irlmp_reasons[] array.  And 0xff is a valid reason as well which means
-> > "unknown".
-> > 
-> > So far as I can see we don't actually care about "reason" except for in
-> > the debug code.
-> > 
-> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> Applied but please put the subsystem prefix outside of [] which get
-> stripped by git am and other tools.  I fixed it up to be "irda: ".
-> 
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Sat, 20 Apr 2013 03:53:50 -0700
 
-Sorry about that.  I won't do it again.
+> I have followed this only briefly and looked at this only quickly but I
+> David I read the git history the same way you do.  I introduced a
+> behavior change when the cred_to_ucred helper was introduced into
+> scm_set_cred().  Linus's patch restores the original behavior.
+> 
+> So.
+> 
+> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-It's weird because the prefix was cut and pasted from an earlier
-commit.  Also [media] and [SCSI] use square brackets in their
-subsystems.  I tried some experiments with "git am" and you're right
-that "git am" always strips out the square bracket stuff.  Odd.
+Thanks for reviewing Eric.
 
-regards,
-dan carpenter
+Applied and queued up for -stable, thanks everyone.
