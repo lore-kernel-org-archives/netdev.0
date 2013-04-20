@@ -1,61 +1,79 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH net,stable 0/3] qmi_wwan: working around 3 serious
- firmware bugs
-Date: Fri, 19 Apr 2013 18:15:46 -0500
-Message-ID: <1366413346.21942.1.camel@dcbw.foobar.com>
-References: <1366325831-13727-1-git-send-email-bjorn@mork.no>
-	 <20130419.175156.87420722153479024.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] bonding: change xmit hash functions to use
+ skb_flow_dissect
+Date: Fri, 19 Apr 2013 17:57:15 -0700
+Message-ID: <1366419435.16391.70.camel@edumazet-glaptop>
+References: <1366412545-10829-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bjorn@mork.no, netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	davem@davemloft.net
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11654 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964871Ab3DSXN6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Apr 2013 19:13:58 -0400
-In-Reply-To: <20130419.175156.87420722153479024.davem@davemloft.net>
+Received: from mail-da0-f51.google.com ([209.85.210.51]:34808 "EHLO
+	mail-da0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965276Ab3DTA5S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 20:57:18 -0400
+Received: by mail-da0-f51.google.com with SMTP id g27so12687dan.10
+        for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 17:57:17 -0700 (PDT)
+In-Reply-To: <1366412545-10829-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-04-19 at 17:51 -0400, David Miller wrote:
-> From: Bj=C3=B8rn Mork <bjorn@mork.no>
-> Date: Fri, 19 Apr 2013 00:57:08 +0200
->=20
-> > This series adds workarounds for 3 different firmware bugs, each
-> > preventing the affected devices from working at all. I therefore
-> > humbly request that these fixes go to stable-3.8 (if still
-> > maintained) and 3.9 (either via net if still possible, or via
-> > stable if not).
-> >=20
-> > All 3 workarounds are applied to all devices supported by the drive=
-r.
-> > Adding quirks for specific devices was considered as an alternative=
-,
-> > but was rejected because we have too little information about the
-> > exact distribution of the buggy firmwares. All we know is that the
-> > same bug shows up in devices from at least 3 different, and presuma=
-bly
-> > independent, vendors.
-> >=20
-> > The workarounds have instead been designed to automatically apply
-> > when necessary, and to have as little impact as possible on unaffec=
-ted
-> > devices.  The series has been tested on a number of devices both wi=
-th
-> > and without these bugs.
-> >=20
-> > The series should apply cleanly to net/master, net-next/master and
-> > stable/linux-3.8.y
->=20
-> Series applied and queued up for -stable, thanks!
+On Sat, 2013-04-20 at 01:02 +0200, Nikolay Aleksandrov wrote:
+> As Eric suggested earlier, bonding hash functions can make good use of
+> skb_flow_dissect. The old use cases should have the same results, but
+> there should be good improvement for tunnel users mostly over IPv4.
+> I've kept the IPv6 address hashing algorithm and thus if a tunnel is
+> used over IPv6 then the addresses will be the same but there still can be
+> improvement because the ports from skb_flow_dissect will be mixed in.
+> This also fixes a problem with protocol == ETH_P_8021Q load balancing.
 
-You're fast :)  But in any case:
+Are you sure ? we don't look at skb->vlan_tci
 
-Tested-by: Dan Williams <dcbw@redhat.com>
+> In case of non-dissectable packet, the algorithms fall back to L2
+> hashing.
+> 
+> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 114 ++++++++++++++++++----------------------
+>  1 file changed, 50 insertions(+), 64 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 5e22126..722d8c1 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -77,6 +77,7 @@
+>  #include <net/net_namespace.h>
+>  #include <net/netns/generic.h>
+>  #include <net/pkt_sched.h>
+> +#include <net/flow_keys.h>
+>  #include "bonding.h"
+>  #include "bond_3ad.h"
+>  #include "bond_alb.h"
+> @@ -3271,94 +3272,79 @@ static struct notifier_block bond_netdev_notifier = {
+>  
 
-Tested on Gobi 1K (known not to exhibit the raw-ip bug), Novatel E362,
-and Pantech UML290.
+> +
+> +	layer4_xor = ntohs(flow.port16[0] ^ flow.port16[1]);
+> +
+> +	if (skb->protocol == htons(ETH_P_IPV6))
+> +		return (layer4_xor ^ bond_ipv6_hash(skb)) % count;
+> +	else
+> +		return (layer4_xor ^ bond_ipv4_hash(&flow)) % count;
+>  }
+>  
 
-Dan
+Not sure its worth doing this test, as IPv6 addresses are mixed already.
+
+So just
+
+hash = (__force u32)flow.ports ^
+       (__force u32)keys.dst ^
+       (__force u32)keys.src;
+
+hash ^= (hash >> 16);
+hash ^= (hash >> 8);
+
+return hash % count;
