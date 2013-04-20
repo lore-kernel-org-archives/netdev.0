@@ -1,93 +1,253 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next] bonding: change xmit hash functions to use skb_flow_dissect
-Date: Sat, 20 Apr 2013 08:12:30 +0200
-Message-ID: <517231CE.5030809@redhat.com>
-References: <1366412545-10829-1-git-send-email-nikolay@redhat.com> <1366419435.16391.70.camel@edumazet-glaptop>
+From: "Rajahalme, Jarno (NSN - FI/Espoo)" <jarno.rajahalme-OYasijW0DpE@public.gmane.org>
+Subject: Re: [PATCH] datapath: Add basic MPLS support to kernel
+Date: Sat, 20 Apr 2013 06:25:03 +0000
+Message-ID: <A0E5584A-E05C-4FFF-9CF7-5B78A68FE921@nsn.com>
+References: <1366357310-7816-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16975 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751802Ab3DTGMm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Apr 2013 02:12:42 -0400
-In-Reply-To: <1366419435.16391.70.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "<dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	"<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
+To: ext Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1366357310-7816-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Content-Language: en-US
+Content-ID: <CB97996D35DF2B4AA17C61AF68C7EDA9-z7JfP6tgrtWhxUC7wdWhuQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 20/04/13 02:57, Eric Dumazet wrote:
-> On Sat, 2013-04-20 at 01:02 +0200, Nikolay Aleksandrov wrote:
->> As Eric suggested earlier, bonding hash functions can make good use of
->> skb_flow_dissect. The old use cases should have the same results, but
->> there should be good improvement for tunnel users mostly over IPv4.
->> I've kept the IPv6 address hashing algorithm and thus if a tunnel is
->> used over IPv6 then the addresses will be the same but there still can be
->> improvement because the ports from skb_flow_dissect will be mixed in.
->> This also fixes a problem with protocol == ETH_P_8021Q load balancing.
-> 
-> Are you sure ? we don't look at skb->vlan_tci
-We don't need to look at vlan_tci, the problem was that when we had a
-packet with skb->protocol == htons(ETH_P_8021Q) before we wouldn't use
-the network headers inside and always fall back to L2 hash which in most
-cases is weaker.
-When using skb_flow_dissect we avoid that because of the header extraction.
-> 
->> In case of non-dissectable packet, the algorithms fall back to L2
->> hashing.
->>
->> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->> ---
->>  drivers/net/bonding/bond_main.c | 114 ++++++++++++++++++----------------------
->>  1 file changed, 50 insertions(+), 64 deletions(-)
->>
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index 5e22126..722d8c1 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -77,6 +77,7 @@
->>  #include <net/net_namespace.h>
->>  #include <net/netns/generic.h>
->>  #include <net/pkt_sched.h>
->> +#include <net/flow_keys.h>
->>  #include "bonding.h"
->>  #include "bond_3ad.h"
->>  #include "bond_alb.h"
->> @@ -3271,94 +3272,79 @@ static struct notifier_block bond_netdev_notifier = {
->>  
-> 
->> +
->> +	layer4_xor = ntohs(flow.port16[0] ^ flow.port16[1]);
->> +
->> +	if (skb->protocol == htons(ETH_P_IPV6))
->> +		return (layer4_xor ^ bond_ipv6_hash(skb)) % count;
->> +	else
->> +		return (layer4_xor ^ bond_ipv4_hash(&flow)) % count;
->>  }
->>  
-> 
-> Not sure its worth doing this test, as IPv6 addresses are mixed already.
-> 
-> So just
-> 
-> hash = (__force u32)flow.ports ^
->        (__force u32)keys.dst ^
->        (__force u32)keys.src;
-> 
-> hash ^= (hash >> 16);
-> hash ^= (hash >> 8);
-> 
-> return hash % count;
-> 
-Hm, I actually wanted to keep the old hash because it mixes
-different parts of the address so to produce the same results as the
-original version.
-I think that ipv6_addr_hash mixes the whole IPv6 address, as the old
-bond version mixes only bits 32-128.
-I'd be happy to update it to this version if the bonding maintainers
-agree to it, then we'll be able to remove some ugliness :-)
 
-Thanks for the review,
- Nik
+On Apr 19, 2013, at 10:41 , ext Simon Horman wrote:
+
+> diff --git a/datapath/actions.c b/datapath/actions.c
+> index 0dac658..2c923be 100644
+> --- a/datapath/actions.c
+> +++ b/datapath/actions.c
+> @@ -38,6 +38,7 @@
+> #include "vport.h"
+> 
+> static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+> +			      unsigned *mpls_stack_depth,
+> 			      const struct nlattr *attr, int len, bool keep_skb);
+> 
+> static int make_writable(struct sk_buff *skb, int write_len)
+> @@ -48,6 +49,89 @@ static int make_writable(struct sk_buff *skb, int write_len)
+> 	return pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+> }
+> 
+> +static void set_ethertype(struct sk_buff *skb, const __be16 ethertype)
+> +{
+> +	struct ethhdr *hdr = (struct ethhdr *)skb_mac_header(skb);
+> +	if (hdr->h_proto == ethertype)
+> +		return;
+> +	hdr->h_proto = ethertype;
+
+Will this work properly if the skb has VLAN headers? I recall there was an earlier version that used the l2_size (now mac_len) to locate the actual "h_proto" to update?
+
+> +	if (get_ip_summed(skb) == OVS_CSUM_COMPLETE) {
+> +		__be16 diff[] = { ~hdr->h_proto, ethertype };
+> +		skb->csum = ~csum_partial((char *)diff, sizeof(diff),
+> +					  ~skb->csum);
+> +	}
+> +}
+> +
+> +static int push_mpls(struct sk_buff *skb, const struct ovs_action_push_mpls *mpls)
+> +{
+> +	__be32 *new_mpls_lse;
+> +	int err;
+> +
+> +	err = make_writable(skb, skb->mac_len + MPLS_HLEN);
+> +	if (unlikely(err))
+> +		return err;
+> +
+> +	skb_push(skb, MPLS_HLEN);
+> +	memmove(skb_mac_header(skb) - MPLS_HLEN, skb_mac_header(skb),
+> +		skb->mac_len);
+> +	skb_reset_mac_header(skb);
+> +	skb_set_network_header(skb, skb->mac_len);
+> +
+> +	new_mpls_lse = (__be32 *)skb_network_header(skb);
+> +	*new_mpls_lse = mpls->mpls_lse;
+> +
+> +	if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
+> +		skb->csum = csum_add(skb->csum, csum_partial(new_mpls_lse,
+> +							     MPLS_HLEN, 0));
+> +
+> +	set_ethertype(skb, mpls->mpls_ethertype);
+> +	return 0;
+> +}
+> +
+> +static int pop_mpls(struct sk_buff *skb, const __be16 *ethertype)
+> +{
+> +	int err;
+> +
+> +	err = make_writable(skb, skb->mac_len + MPLS_HLEN);
+> +	if (unlikely(err))
+> +		return err;
+> +
+> +	if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
+> +		skb->csum = csum_sub(skb->csum,
+> +				     csum_partial(skb_network_header(skb),
+> +						  MPLS_HLEN, 0));
+> +
+> +	memmove(skb_mac_header(skb) + MPLS_HLEN, skb_mac_header(skb),
+> +		skb->mac_len);
+> +
+> +	skb_pull(skb, MPLS_HLEN);
+> +	skb_reset_mac_header(skb);
+> +	skb_set_network_header(skb, skb->mac_len);
+> +
+> +	set_ethertype(skb, *ethertype);
+> +	return 0;
+> +}
+> +
+> +static int set_mpls(struct sk_buff *skb, const __be32 *mpls_lse)
+> +{
+> +	__be32 *stack = (__be32 *)skb_network_header(skb);
+> +	int err;
+> +
+> +	err = make_writable(skb, skb->mac_len + MPLS_HLEN);
+> +	if (unlikely(err))
+> +		return err;
+> +
+> +	if (get_ip_summed(skb) == OVS_CSUM_COMPLETE) {
+> +		__be32 diff[] = { ~(*stack), *mpls_lse };
+> +		skb->csum = ~csum_partial((char *)diff, sizeof(diff),
+> +					  ~skb->csum);
+> +	}
+> +
+> +	*stack = *mpls_lse;
+> +
+> +	return 0;
+> +}
+> +
+> /* remove VLAN header from packet and update csum accordingly. */
+> static int __pop_vlan_tci(struct sk_buff *skb, __be16 *current_tci)
+> {
+> @@ -115,6 +199,9 @@ static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vla
+> 		if (!__vlan_put_tag(skb, current_tag))
+> 			return -ENOMEM;
+> 
+> +		/* update mac_len for MPLS functions */
+> +		skb_reset_mac_len(skb);
+> +
+> 		if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
+> 			skb->csum = csum_add(skb->csum, csum_partial(skb->data
+> 					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
+> @@ -352,13 +439,26 @@ static int set_tcp(struct sk_buff *skb, const struct ovs_key_tcp *tcp_port_key)
+> 	return 0;
+> }
+> 
+> -static int do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
+> +static int do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
+> +		     unsigned mpls_stack_depth)
+> {
+> 	struct vport *vport;
+> 
+> 	if (unlikely(!skb))
+> 		return -ENOMEM;
+> 
+> +	/* The mpls_stack_depth is only non zero if a non-MPLS packet is
+> +	 * turned into an MPLS packet via an MPLS push action. In this case
+> +	 * the skb may be GSO so update skb->mac_len and skb's
+> +	 * network_header to correspond to the bottom of the MPLS label
+> +	 * stack rather than the end of the original L2 data which is now
+> +	 * the top of the MPLS label stack.  */
+
+It is not clear to me that "bottom of the MPLS label stack" necessarily refers to the start of L3 header, "Bottom of stack" having a special meaning with MPLS.
+It might be clearer to state that "during action execution network_header, and mac_len, correspondingly, have tracked the end of the L2 frame (including any VLAN headers), but proper skb output processing (e.g., GSO) requires the network_header (and mac_len) to track the start of the L3 header instead. These differ in the presence of MPLS headers."
+
+> +	if (mpls_stack_depth) {
+> +		skb->mac_len += MPLS_HLEN * mpls_stack_depth;
+> +		skb_set_network_header(skb, skb->mac_len);
+> +		skb_set_encapsulation_features(skb);
+> +	}
+> +
+> 	vport = ovs_vport_rcu(dp, out_port);
+> 	if (unlikely(!vport)) {
+> 		kfree_skb(skb);
+> @@ -398,7 +498,7 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+> }
+> 
+> static int sample(struct datapath *dp, struct sk_buff *skb,
+> -		  const struct nlattr *attr)
+> +		  unsigned *mpls_stack_depth, const struct nlattr *attr)
+> {
+> 	const struct nlattr *acts_list = NULL;
+> 	const struct nlattr *a;
+> @@ -418,8 +518,9 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
+> 		}
+> 	}
+> 
+> -	return do_execute_actions(dp, skb, nla_data(acts_list),
+> -				  nla_len(acts_list), true);
+> +	return do_execute_actions(dp, skb, mpls_stack_depth,
+> +				  nla_data(acts_list), nla_len(acts_list),
+> +				  true);
+> }
+> 
+> static int execute_set_action(struct sk_buff *skb,
+> @@ -459,13 +560,23 @@ static int execute_set_action(struct sk_buff *skb,
+> 	case OVS_KEY_ATTR_UDP:
+> 		err = set_udp(skb, nla_data(nested_attr));
+> 		break;
+> +
+> +	case OVS_KEY_ATTR_MPLS:
+> +		err = set_mpls(skb, nla_data(nested_attr));
+> +		break;
+> 	}
+> 
+> 	return err;
+> }
+> 
+> -/* Execute a list of actions against 'skb'. */
+> +/* Execute a list of actions against 'skb'.
+> + *
+> + * The stack depth is only tracked in the case of a non-MPLS packet
+> + * that becomes MPLS via an MPLS push action. The stack depth
+> + * is passed to do_output() in order to allow it to prepare the
+> + * skb for possible GSO segmentation. */
+> static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+> +			unsigned *mpls_stack_depth,
+> 			const struct nlattr *attr, int len, bool keep_skb)
+> {
+> 	/* Every output action needs a separate clone of 'skb', but the common
+> @@ -481,7 +592,8 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+> 		int err = 0;
+> 
+> 		if (prev_port != -1) {
+> -			do_output(dp, skb_clone(skb, GFP_ATOMIC), prev_port);
+> +			do_output(dp, skb_clone(skb, GFP_ATOMIC),
+> +				  prev_port, *mpls_stack_depth);
+> 			prev_port = -1;
+> 		}
+> 
+> @@ -494,6 +606,18 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+> 			output_userspace(dp, skb, a);
+> 			break;
+> 
+> +		case OVS_ACTION_ATTR_PUSH_MPLS:
+> +			err = push_mpls(skb, nla_data(a));
+> +			if (!eth_p_mpls(skb->protocol))
+> +				(*mpls_stack_depth)++;
+> +			break;
+> +
+> +		case OVS_ACTION_ATTR_POP_MPLS:
+> +			err = pop_mpls(skb, nla_data(a));
+> +			if (!eth_p_mpls(skb->protocol))
+> +				(*mpls_stack_depth)--;
+> +			break;
+> +
+
+In both cases the stack is changed whenever err == 0, but it is not immediately clear to me whether the '!eth_p_mpls(skb->protocol)' is true if and only if the label stack has changed.
+
+  Jarno
