@@ -1,33 +1,93 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH nf-next 0/2] ipvs: minor clean ups flagged by sparse
-Date: Sat, 20 Apr 2013 12:19:36 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1304201218001.1593@ja.ssi.bg>
-References: <1366336315-25823-1-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1366336315-25823-1-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates
+Date: Sat, 20 Apr 2013 02:48:59 -0700
+Message-ID: <1366451353-24714-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:14906 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753127Ab3DTJtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Apr 2013 05:49:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This series contains updates to ixgbe, igb and pci.
 
-	Hello,
+The ixgbe changes contains a fix to a possible divide by zero by bailing
+out of the ixgbe_update_itr() function if the last interrupt timeslice is
+zero.  In addition, support is added for the new OCP x520 adapter as well
+as LX support for 82599 devices.  Jacob provides a patch to change
+variable wol_supported to wol_enabled to better reflect what the code
+is actually doing (i.e. checking if WoL is enabled).
 
-On Fri, 19 Apr 2013, Simon Horman wrote:
+Alex adds SRIOV helper function to pci that will determine if a PF
+has any VFs that are currently assigned to a guest.
 
-> Hi,
-> 
-> this short series cleans up two minor problems flagged by sparse,
-> in both cases shadowed variables.
-> 
-> [PATCH 1/2] ipvs: Avoid shadowing net variable in ip_vs_leave()
-> [PATCH 2/2] ipvs: Use min3() in ip_vs_dbg_callid()
+The remaining 8 patches are against igb and contain the following changes:
+* implement SERDES loopback configuration for i210 devices by unsetting
+  sigdetect bit, so as to fix Ethtool loopback test failure
+* add support for the SMBI semaphore for I210/I211 devices
+* implement the new generic pci_vfs_assigned helper function (Alex's PCI
+  helper function)
+* display warning when link speed is downgraded due to Smartspeed
+* ensure that VLAN hardware filtering remains enabled when the device is
+  in promiscuous mode and VT mode simultaneously
+* cleanup dead code in igb
+* bump the driver version
 
-	Both look good to me. In case you wait for ack,
+The following are changes since commit 95a06161e6b903ad5b96285cb57c8df3b7c8ad34:
+  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Acked-by: Julian Anastasov <ja@ssi.bg>
+Akeem G. Abodunrin (1):
+  igb: SERDES loopback sigdetect bit on i210 devices
 
+Alexander Duyck (2):
+  pci: Add SRIOV helper function to determine if VFs are assigned to
+    guest
+  igb: Use pci_vfs_assigned instead of igb_vfs_are_assigned
+
+Carolyn Wyborny (2):
+  igb: Remove id's that will not be productized for Linux.
+  igb: Bump version of driver
+
+Don Skidmore (3):
+  ixgbe: fix possible divide by zero in ixgbe_update_itr
+  ixgbe: add driver support for x520 OCP adapter.
+  ixgbe: add SFP+ LX module support
+
+Emil Tantilov (1):
+  ixgbe: add WOL support for new subdevice ID
+
+Greg Rose (1):
+  igb: Retain HW VLAN filtering while in promiscuous + VT mode
+
+Jacob Keller (1):
+  ixgbe: rename wol_supported to more fitting wol_enabled
+
+Koki Sanagi (1):
+  igb: display a warning message when SmartSpeed works
+
+Matthew Vick (2):
+  igb: Add SMBI semaphore to I210/I211
+  igb: Remove dead code path
+
+ drivers/net/ethernet/intel/igb/e1000_82575.c     |   9 +-
+ drivers/net/ethernet/intel/igb/e1000_hw.h        |   3 +-
+ drivers/net/ethernet/intel/igb/e1000_i210.c      |  65 ++++++++-----
+ drivers/net/ethernet/intel/igb/igb_ethtool.c     |   9 +-
+ drivers/net/ethernet/intel/igb/igb_main.c        | 117 +++++++++++++++--------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |   4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  10 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  16 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |  21 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |   6 +-
+ drivers/pci/iov.c                                |  41 ++++++++
+ include/linux/pci.h                              |   5 +
+ 12 files changed, 212 insertions(+), 94 deletions(-)
+
+-- 
+1.7.11.7
