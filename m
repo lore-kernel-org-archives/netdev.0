@@ -1,93 +1,64 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates
-Date: Sat, 20 Apr 2013 02:48:59 -0700
-Message-ID: <1366451353-24714-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 02/14] ixgbe: add driver support for x520 OCP adapter.
+Date: Sat, 20 Apr 2013 02:49:01 -0700
+Message-ID: <1366451353-24714-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1366451353-24714-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:14906 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:11476 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753127Ab3DTJtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Apr 2013 05:49:16 -0400
+	id S1753666Ab3DTJtR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Apr 2013 05:49:17 -0400
+In-Reply-To: <1366451353-24714-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe, igb and pci.
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-The ixgbe changes contains a fix to a possible divide by zero by bailing
-out of the ixgbe_update_itr() function if the last interrupt timeslice is
-zero.  In addition, support is added for the new OCP x520 adapter as well
-as LX support for 82599 devices.  Jacob provides a patch to change
-variable wol_supported to wol_enabled to better reflect what the code
-is actually doing (i.e. checking if WoL is enabled).
+This patch adds support for the new OCP x520 adapter.  This support
+includes WoL.
 
-Alex adds SRIOV helper function to pci that will determine if a PF
-has any VFs that are currently assigned to a guest.
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 8 ++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h | 1 +
+ 2 files changed, 9 insertions(+)
 
-The remaining 8 patches are against igb and contain the following changes:
-* implement SERDES loopback configuration for i210 devices by unsetting
-  sigdetect bit, so as to fix Ethtool loopback test failure
-* add support for the SMBI semaphore for I210/I211 devices
-* implement the new generic pci_vfs_assigned helper function (Alex's PCI
-  helper function)
-* display warning when link speed is downgraded due to Smartspeed
-* ensure that VLAN hardware filtering remains enabled when the device is
-  in promiscuous mode and VT mode simultaneously
-* cleanup dead code in igb
-* bump the driver version
-
-The following are changes since commit 95a06161e6b903ad5b96285cb57c8df3b7c8ad34:
-  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Akeem G. Abodunrin (1):
-  igb: SERDES loopback sigdetect bit on i210 devices
-
-Alexander Duyck (2):
-  pci: Add SRIOV helper function to determine if VFs are assigned to
-    guest
-  igb: Use pci_vfs_assigned instead of igb_vfs_are_assigned
-
-Carolyn Wyborny (2):
-  igb: Remove id's that will not be productized for Linux.
-  igb: Bump version of driver
-
-Don Skidmore (3):
-  ixgbe: fix possible divide by zero in ixgbe_update_itr
-  ixgbe: add driver support for x520 OCP adapter.
-  ixgbe: add SFP+ LX module support
-
-Emil Tantilov (1):
-  ixgbe: add WOL support for new subdevice ID
-
-Greg Rose (1):
-  igb: Retain HW VLAN filtering while in promiscuous + VT mode
-
-Jacob Keller (1):
-  ixgbe: rename wol_supported to more fitting wol_enabled
-
-Koki Sanagi (1):
-  igb: display a warning message when SmartSpeed works
-
-Matthew Vick (2):
-  igb: Add SMBI semaphore to I210/I211
-  igb: Remove dead code path
-
- drivers/net/ethernet/intel/igb/e1000_82575.c     |   9 +-
- drivers/net/ethernet/intel/igb/e1000_hw.h        |   3 +-
- drivers/net/ethernet/intel/igb/e1000_i210.c      |  65 ++++++++-----
- drivers/net/ethernet/intel/igb/igb_ethtool.c     |   9 +-
- drivers/net/ethernet/intel/igb/igb_main.c        | 117 +++++++++++++++--------
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |   4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  10 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  16 +++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |  21 +++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |   6 +-
- drivers/pci/iov.c                                |  41 ++++++++
- include/linux/pci.h                              |   5 +
- 12 files changed, 212 insertions(+), 94 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 9afc959..783efbb 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7216,6 +7216,14 @@ int ixgbe_wol_supported(struct ixgbe_adapter *adapter, u16 device_id,
+ 			break;
+ 		}
+ 		break;
++	case IXGBE_DEV_ID_82599EN_SFP:
++		/* Only this subdevice supports WOL */
++		switch (subdevice_id) {
++		case IXGBE_SUBDEV_ID_82599EN_SFP_OCP1:
++			is_wol_supported = 1;
++			break;
++		}
++		break;
+ 	case IXGBE_DEV_ID_82599_COMBO_BACKPLANE:
+ 		/* All except this subdevice support WOL */
+ 		if (subdevice_id != IXGBE_SUBDEV_ID_82599_KX4_KR_MEZZ)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 402f1a2..2661dcf 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -61,6 +61,7 @@
+ #define IXGBE_DEV_ID_82599_SFP_EM        0x1507
+ #define IXGBE_DEV_ID_82599_SFP_SF2       0x154D
+ #define IXGBE_DEV_ID_82599EN_SFP         0x1557
++#define IXGBE_SUBDEV_ID_82599EN_SFP_OCP1 0x0001
+ #define IXGBE_DEV_ID_82599_XAUI_LOM      0x10FC
+ #define IXGBE_DEV_ID_82599_COMBO_BACKPLANE 0x10F8
+ #define IXGBE_SUBDEV_ID_82599_KX4_KR_MEZZ  0x000C
 -- 
 1.7.11.7
