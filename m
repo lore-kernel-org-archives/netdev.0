@@ -1,109 +1,129 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/14] pci: Add SRIOV helper function to determine if VFs are assigned to guest
-Date: Sat, 20 Apr 2013 02:49:07 -0700
-Message-ID: <1366451353-24714-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/14] igb: Retain HW VLAN filtering while in promiscuous + VT mode
+Date: Sat, 20 Apr 2013 02:49:10 -0700
+Message-ID: <1366451353-24714-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1366451353-24714-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:49450 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:14316 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754715Ab3DTJtV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Apr 2013 05:49:21 -0400
+	id S1754813Ab3DTJtX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Apr 2013 05:49:23 -0400
 In-Reply-To: <1366451353-24714-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-This function is meant to add a helper function that will determine if a PF
-has any VFs that are currently assigned to a guest.  We currently have been
-implementing this function per driver, and going forward I would like to avoid
-that by making this function generic and using this helper.
+When using the new bridge FDB interface to allow SR-IOV virtual function
+network devices to communicate with SW bridged network devices the
+physical function is placed into promiscuous mode and hardware VLAN
+filtering is disabled.  This defeats the ability to use VLAN tagging
+to isolate user networks.  When the device is in promiscuous mode and
+VT mode simultaneously ensure that VLAN hardware filtering remains
+enabled.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/pci/iov.c   | 41 +++++++++++++++++++++++++++++++++++++++++
- include/linux/pci.h |  5 +++++
- 2 files changed, 46 insertions(+)
+ drivers/net/ethernet/intel/igb/igb_main.c | 69 ++++++++++++++++++++++++++++++-
+ 1 file changed, 68 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
-index ee599f2..fd99720 100644
---- a/drivers/pci/iov.c
-+++ b/drivers/pci/iov.c
-@@ -729,6 +729,47 @@ int pci_num_vf(struct pci_dev *dev)
- EXPORT_SYMBOL_GPL(pci_num_vf);
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index b90a062..7eb648b 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -3753,6 +3753,10 @@ static void igb_set_rx_mode(struct net_device *netdev)
+ 	rctl &= ~(E1000_RCTL_UPE | E1000_RCTL_MPE | E1000_RCTL_VFE);
  
- /**
-+ * pci_vfs_assigned - returns number of VFs are assigned to a guest
-+ * @dev: the PCI device
-+ *
-+ * Returns number of VFs belonging to this device that are assigned to a guest.
-+ * If device is not a physical function returns -ENODEV.
-+ */
-+int pci_vfs_assigned(struct pci_dev *dev)
+ 	if (netdev->flags & IFF_PROMISC) {
++		u32 mrqc = rd32(E1000_MRQC);
++		/* retain VLAN HW filtering if in VT mode */
++		if (mrqc & E1000_MRQC_ENABLE_VMDQ)
++			rctl |= E1000_RCTL_VFE;
+ 		rctl |= (E1000_RCTL_UPE | E1000_RCTL_MPE);
+ 		vmolr |= (E1000_VMOLR_ROPE | E1000_VMOLR_MPME);
+ 	} else {
+@@ -5537,12 +5541,75 @@ out:
+ 	return err;
+ }
+ 
++static int igb_find_vlvf_entry(struct igb_adapter *adapter, int vid)
 +{
-+	struct pci_dev *vfdev;
-+	unsigned int vfs_assigned = 0;
-+	unsigned short dev_id;
++	struct e1000_hw *hw = &adapter->hw;
++	int i;
++	u32 reg;
 +
-+	/* only search if we are a PF */
-+	if (!dev->is_physfn)
-+		return -ENODEV;
-+
-+	/*
-+	 * determine the device ID for the VFs, the vendor ID will be the
-+	 * same as the PF so there is no need to check for that one
-+	 */
-+	pci_read_config_word(dev, dev->sriov->pos + PCI_SRIOV_VF_DID, &dev_id);
-+
-+	/* loop through all the VFs to see if we own any that are assigned */
-+	vfdev = pci_get_device(dev->vendor, dev_id, NULL);
-+	while (vfdev) {
-+		/*
-+		 * It is considered assigned if it is a virtual function with
-+		 * our dev as the physical function and the assigned bit is set
-+		 */
-+		if (vfdev->is_virtfn && (vfdev->physfn == dev) &&
-+		    (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED))
-+			vfs_assigned++;
-+
-+		vfdev = pci_get_device(dev->vendor, dev_id, vfdev);
++	/* Find the vlan filter for this id */
++	for (i = 0; i < E1000_VLVF_ARRAY_SIZE; i++) {
++		reg = rd32(E1000_VLVF(i));
++		if ((reg & E1000_VLVF_VLANID_ENABLE) &&
++		    vid == (reg & E1000_VLVF_VLANID_MASK))
++			break;
 +	}
 +
-+	return vfs_assigned;
-+}
-+EXPORT_SYMBOL_GPL(pci_vfs_assigned);
++	if (i >= E1000_VLVF_ARRAY_SIZE)
++		i = -1;
 +
-+/**
-  * pci_sriov_set_totalvfs -- reduce the TotalVFs available
-  * @dev: the PCI PF device
-  * @numvfs: number that should be used for TotalVFs supported
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 2461033a..03b4d3c 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -1643,6 +1643,7 @@ extern int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn);
- extern void pci_disable_sriov(struct pci_dev *dev);
- extern irqreturn_t pci_sriov_migration(struct pci_dev *dev);
- extern int pci_num_vf(struct pci_dev *dev);
-+extern int pci_vfs_assigned(struct pci_dev *dev);
- extern int pci_sriov_set_totalvfs(struct pci_dev *dev, u16 numvfs);
- extern int pci_sriov_get_totalvfs(struct pci_dev *dev);
- #else
-@@ -1661,6 +1662,10 @@ static inline int pci_num_vf(struct pci_dev *dev)
- {
- 	return 0;
- }
-+static inline int pci_vfs_assigned(struct pci_dev *dev)
-+{
-+	return 0;
++	return i;
 +}
- static inline int pci_sriov_set_totalvfs(struct pci_dev *dev, u16 numvfs)
++
+ static int igb_set_vf_vlan(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
  {
- 	return 0;
++	struct e1000_hw *hw = &adapter->hw;
+ 	int add = (msgbuf[0] & E1000_VT_MSGINFO_MASK) >> E1000_VT_MSGINFO_SHIFT;
+ 	int vid = (msgbuf[1] & E1000_VLVF_VLANID_MASK);
++	int err = 0;
+ 
+-	return igb_vlvf_set(adapter, vid, add, vf);
++	/* If in promiscuous mode we need to make sure the PF also has
++	 * the VLAN filter set.
++	 */
++	if (add && (adapter->netdev->flags & IFF_PROMISC))
++		err = igb_vlvf_set(adapter, vid, add,
++				   adapter->vfs_allocated_count);
++	if (err)
++		goto out;
++
++	err = igb_vlvf_set(adapter, vid, add, vf);
++
++	if (err)
++		goto out;
++
++	/* Go through all the checks to see if the VLAN filter should
++	 * be wiped completely.
++	 */
++	if (!add && (adapter->netdev->flags & IFF_PROMISC)) {
++		u32 vlvf, bits;
++
++		int regndx = igb_find_vlvf_entry(adapter, vid);
++		if (regndx < 0)
++			goto out;
++		/* See if any other pools are set for this VLAN filter
++		 * entry other than the PF.
++		 */
++		vlvf = bits = rd32(E1000_VLVF(regndx));
++		bits &= 1 << (E1000_VLVF_POOLSEL_SHIFT +
++			      adapter->vfs_allocated_count);
++		/* If the filter was removed then ensure PF pool bit
++		 * is cleared if the PF only added itself to the pool
++		 * because the PF is in promiscuous mode.
++		 */
++		if ((vlvf & VLAN_VID_MASK) == vid &&
++		    !test_bit(vid, adapter->active_vlans) &&
++		    !bits)
++			igb_vlvf_set(adapter, vid, add,
++				     adapter->vfs_allocated_count);
++	}
++
++out:
++	return err;
+ }
+ 
+ static inline void igb_vf_reset(struct igb_adapter *adapter, u32 vf)
 -- 
 1.7.11.7
