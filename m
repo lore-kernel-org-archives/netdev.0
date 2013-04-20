@@ -1,129 +1,68 @@
-From: Frank Li <lznuaa@gmail.com>
-Subject: Re: [PATCH 0/3] URGENT for 3.9: net: fec: revert NAPI introduction
-Date: Sat, 20 Apr 2013 20:35:44 +0800
-Message-ID: <CAHrpEqQyG68v4VMDNEwcobhHqkuP_ORH9KA3OZD=2xAoJCMNOQ@mail.gmail.com>
-References: <1366382164-10968-1-git-send-email-l.stach@pengutronix.de>
-	<CAOMZO5D5+bZ9NvF7HvVsne1ktZDDYPqZgomHkSaydrn2UEvBcQ@mail.gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [patch] ipvs: off by one in set_sctp_state()
+Date: Sat, 20 Apr 2013 15:25:21 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1304201504510.1593@ja.ssi.bg>
+References: <20130420112455.GA30198@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Lucas Stach <l.stach@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	Shawn Guo <shawn.guo@linaro.org>
-To: Fabio Estevam <festevam@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f175.google.com ([74.125.82.175]:62934 "EHLO
-	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932084Ab3DTMfq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Apr 2013 08:35:46 -0400
-Received: by mail-we0-f175.google.com with SMTP id t11so4596049wey.20
-        for <netdev@vger.kernel.org>; Sat, 20 Apr 2013 05:35:44 -0700 (PDT)
-In-Reply-To: <CAOMZO5D5+bZ9NvF7HvVsne1ktZDDYPqZgomHkSaydrn2UEvBcQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20130420112455.GA30198@elgon.mountain>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2013/4/20 Fabio Estevam <festevam@gmail.com>
->
-> Lucas,
->
-> On Fri, Apr 19, 2013 at 11:36 AM, Lucas Stach <l.stach@pengutronix.de> wrote:
-> > Those patches introduce instability to the point of kernel OOPSes with
-> > NULL-ptr dereferences.
-> >
-> > The patches drop locks from the code without justifying why this would
-> > be safe at all. In fact it isn't safe as now the controller restart can
-> > happily free the RX and TX ring buffers while the NAPI poll function is
-> > still accessing them. So with a heavily loaded but slightly instable
 
-I think a possible solution is disable NAPI in restart function.
-So only one thread can reset BD queue.
+	Hello,
 
-BD queue is nolock design.
+On Sat, 20 Apr 2013, Dan Carpenter wrote:
 
-Can you provide test case?
+> The sctp_events[] come from sch->type in set_sctp_state().  They are
+> between 0-255 so that means we need 256 elements in the array.
+> 
+> I believe that because of how the code is aligned there is normally a
+> hole after sctp_events[] so this patch doesn't actually change anything.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+> This is static checker stuff.  I'm not very familiar with this code.
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+> index 6e14a7b..8646488 100644
+> --- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
+> +++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+> @@ -208,7 +208,7 @@ enum ipvs_sctp_event_t {
+>  	IP_VS_SCTP_EVE_LAST
+>  };
+>  
+> -static enum ipvs_sctp_event_t sctp_events[255] = {
+> +static enum ipvs_sctp_event_t sctp_events[256] = {
+>  	IP_VS_SCTP_EVE_DATA_CLI,
+>  	IP_VS_SCTP_EVE_INIT_CLI,
+>  	IP_VS_SCTP_EVE_INIT_ACK_CLI,
 
-> > link we regularly end up with OOPSes because link change restarts
-> > the FEC and bombs away buffers still in use.
-> >
-> > Also the NAPI enabled interrupt handler ACKs the INT and only later
-> > masks it, this way introducing a window where new interrupts could sneak
-> > in while we are already in polling mode.
-> >
-> > As it's way too late in the cycle to try and fix this up just revert the
-> > relevant patches for now.
->
-> What about restoring the spinlocks and masking the int first?
->
-> --- a/drivers/net/ethernet/freescale/fec.c
-> +++ b/drivers/net/ethernet/freescale/fec.c
-> @@ -247,12 +247,14 @@ fec_enet_start_xmit(struct sk_buff *skb, struct
-> net_device *ndev)
->         void *bufaddr;
->         unsigned short  status;
->         unsigned int index;
-> +       unsigned long flags;
->
->         if (!fep->link) {
->                 /* Link is down or autonegotiation is in progress. */
->                 return NETDEV_TX_BUSY;
->         }
->
-> +       spin_lock_irqsave(&fep->hw_lock, flags);
->         /* Fill in a Tx ring entry */
->         bdp = fep->cur_tx;
->
-> @@ -263,6 +265,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct
-> net_device *ndev)
->                  * This should not happen, since ndev->tbusy should be set.
->                  */
->                 printk("%s: tx queue full!.\n", ndev->name);
-> +               spin_unlock_irqrestore(&fep->hw_lock, flags);
->                 return NETDEV_TX_BUSY;
->         }
->
-> @@ -342,6 +345,8 @@ fec_enet_start_xmit(struct sk_buff *skb, struct
-> net_device *ndev)
->
->         skb_tx_timestamp(skb);
->
-> +       spin_unlock_irqrestore(&fep->hw_lock, flags);
-> +
->         return NETDEV_TX_OK;
->  }
->
-> @@ -612,6 +617,7 @@ fec_enet_tx(struct net_device *ndev)
->         int     index = 0;
->
->         fep = netdev_priv(ndev);
-> +       spin_lock(&fep->hw_lock);
->         bdp = fep->dirty_tx;
->
->         /* get next bdp of dirty_tx */
-> @@ -699,6 +705,7 @@ fec_enet_tx(struct net_device *ndev)
->                                 netif_wake_queue(ndev);
->                 }
->         }
-> +       spin_unlock(&fep->hw_lock);
->         return;
->  }
->
-> @@ -892,12 +899,12 @@ static int fec_enet_rx_napi(struct napi_struct
-> *napi, int budget)
->         int pkts = fec_enet_rx(ndev, budget);
->         struct fec_enet_private *fep = netdev_priv(ndev);
->
-> -       fec_enet_tx(ndev);
-> -
->         if (pkts < budget) {
->                 napi_complete(napi);
->                 writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
->         }
-> +
-> +       fec_enet_tx(ndev);
->         return pkts;
->  }
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	There are more confusing (still, non-fatal)
+problems in this IPVS-SCTP support, eg.
+
+        if (direction == IP_VS_DIR_OUTPUT)
+-               event++;
++               event *= 2;
+
+	I guess we are running with wrong timeouts.
+
+	Also, I'm not sure we support properly the
+one-way states as done for TCP (IP_VS_DIR_INPUT_ONLY).
+May be this code deserves more serious review, for example,
+net/netfilter/nf_conntrack_proto_sctp.c looks as good
+source for comparison.
+
+	Anyways, this change looks correct to me,
+
+Acked-by: Julian Anastasov <ja@ssi.bg>
+
