@@ -1,79 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] bonding: change xmit hash functions to use
- skb_flow_dissect
-Date: Fri, 19 Apr 2013 17:57:15 -0700
-Message-ID: <1366419435.16391.70.camel@edumazet-glaptop>
-References: <1366412545-10829-1-git-send-email-nikolay@redhat.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: net: fix incorrect credentials passing
+Date: Fri, 19 Apr 2013 18:32:32 -0700 (PDT)
+Message-ID: <alpine.LFD.2.03.1304191826080.2455@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, "Serge E. Hallyn" <serge@hallyn.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f51.google.com ([209.85.210.51]:34808 "EHLO
-	mail-da0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965276Ab3DTA5S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 20:57:18 -0400
-Received: by mail-da0-f51.google.com with SMTP id g27so12687dan.10
-        for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 17:57:17 -0700 (PDT)
-In-Reply-To: <1366412545-10829-1-git-send-email-nikolay@redhat.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:42108 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965367Ab3DTBcl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Apr 2013 21:32:41 -0400
+Received: by mail-pa0-f50.google.com with SMTP id bg2so2544167pad.9
+        for <netdev@vger.kernel.org>; Fri, 19 Apr 2013 18:32:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-04-20 at 01:02 +0200, Nikolay Aleksandrov wrote:
-> As Eric suggested earlier, bonding hash functions can make good use of
-> skb_flow_dissect. The old use cases should have the same results, but
-> there should be good improvement for tunnel users mostly over IPv4.
-> I've kept the IPv6 address hashing algorithm and thus if a tunnel is
-> used over IPv6 then the addresses will be the same but there still can be
-> improvement because the ports from skb_flow_dissect will be mixed in.
-> This also fixes a problem with protocol == ETH_P_8021Q load balancing.
 
-Are you sure ? we don't look at skb->vlan_tci
+Commit 257b5358b32f ("scm: Capture the full credentials of the scm 
+sender") changed the credentials passing code to pass in the effective 
+uid/gid instead of the real uid/gid.
 
-> In case of non-dissectable packet, the algorithms fall back to L2
-> hashing.
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
-> ---
->  drivers/net/bonding/bond_main.c | 114 ++++++++++++++++++----------------------
->  1 file changed, 50 insertions(+), 64 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 5e22126..722d8c1 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -77,6 +77,7 @@
->  #include <net/net_namespace.h>
->  #include <net/netns/generic.h>
->  #include <net/pkt_sched.h>
-> +#include <net/flow_keys.h>
->  #include "bonding.h"
->  #include "bond_3ad.h"
->  #include "bond_alb.h"
-> @@ -3271,94 +3272,79 @@ static struct notifier_block bond_netdev_notifier = {
->  
+Obviously this doesn't matter most of the time (since normally they are 
+the same), but it results in differences for suid binaries when the wrong 
+uid/gid ends up being used.
 
-> +
-> +	layer4_xor = ntohs(flow.port16[0] ^ flow.port16[1]);
-> +
-> +	if (skb->protocol == htons(ETH_P_IPV6))
-> +		return (layer4_xor ^ bond_ipv6_hash(skb)) % count;
-> +	else
-> +		return (layer4_xor ^ bond_ipv4_hash(&flow)) % count;
->  }
->  
+This just undoes that (presumably unintentional) part of the commit.
 
-Not sure its worth doing this test, as IPv6 addresses are mixed already.
+Reported-by: Andy Lutomirski <luto@amacapital.net>
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+Cc: Serge E. Hallyn <serge@hallyn.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: stable@vger.kernel.org
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
 
-So just
+ include/net/scm.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-hash = (__force u32)flow.ports ^
-       (__force u32)keys.dst ^
-       (__force u32)keys.src;
-
-hash ^= (hash >> 16);
-hash ^= (hash >> 8);
-
-return hash % count;
+diff --git a/include/net/scm.h b/include/net/scm.h
+index 975cca01048b..b11708105681 100644
+--- a/include/net/scm.h
++++ b/include/net/scm.h
+@@ -56,8 +56,8 @@ static __inline__ void scm_set_cred(struct scm_cookie *scm,
+ 	scm->pid  = get_pid(pid);
+ 	scm->cred = cred ? get_cred(cred) : NULL;
+ 	scm->creds.pid = pid_vnr(pid);
+-	scm->creds.uid = cred ? cred->euid : INVALID_UID;
+-	scm->creds.gid = cred ? cred->egid : INVALID_GID;
++	scm->creds.uid = cred ? cred->uid : INVALID_UID;
++	scm->creds.gid = cred ? cred->gid : INVALID_GID;
+ }
+ 
+ static __inline__ void scm_destroy_cred(struct scm_cookie *scm)
