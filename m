@@ -1,129 +1,180 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/14] igb: Retain HW VLAN filtering while in promiscuous + VT mode
-Date: Sat, 20 Apr 2013 02:49:10 -0700
-Message-ID: <1366451353-24714-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/14] igb: Add SMBI semaphore to I210/I211
+Date: Sat, 20 Apr 2013 02:49:06 -0700
+Message-ID: <1366451353-24714-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1366451353-24714-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:14316 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:49450 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754813Ab3DTJtX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Apr 2013 05:49:23 -0400
+	id S1754686Ab3DTJtV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Apr 2013 05:49:21 -0400
 In-Reply-To: <1366451353-24714-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Matthew Vick <matthew.vick@intel.com>
 
-When using the new bridge FDB interface to allow SR-IOV virtual function
-network devices to communicate with SW bridged network devices the
-physical function is placed into promiscuous mode and hardware VLAN
-filtering is disabled.  This defeats the ability to use VLAN tagging
-to isolate user networks.  When the device is in promiscuous mode and
-VT mode simultaneously ensure that VLAN hardware filtering remains
-enabled.
+It was previously thought that, since I210/I211 are single port devices,
+they did not need the SMBI semaphore. This is not the case. Add support for
+the SMBI semaphore.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Matthew Vick <matthew.vick@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 69 ++++++++++++++++++++++++++++++-
- 1 file changed, 68 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/igb/e1000_82575.c |  3 ++
+ drivers/net/ethernet/intel/igb/e1000_hw.h    |  1 +
+ drivers/net/ethernet/intel/igb/e1000_i210.c  | 65 +++++++++++++++++-----------
+ 3 files changed, 43 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index b90a062..7eb648b 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3753,6 +3753,10 @@ static void igb_set_rx_mode(struct net_device *netdev)
- 	rctl &= ~(E1000_RCTL_UPE | E1000_RCTL_MPE | E1000_RCTL_VFE);
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index c9bba39d5..6cb0ca2 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -389,6 +389,9 @@ static s32 igb_init_mac_params_82575(struct e1000_hw *hw)
+ 		dev_spec->eee_disable = false;
+ 	else
+ 		dev_spec->eee_disable = true;
++	/* Allow a single clear of the SW semaphore on I210 and newer */
++	if (mac->type >= e1000_i210)
++		dev_spec->clear_semaphore_once = true;
+ 	/* physical interface link setup */
+ 	mac->ops.setup_physical_interface =
+ 		(hw->phy.media_type == e1000_media_type_copper)
+diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
+index 1138cca..f1dbab9 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_hw.h
++++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
+@@ -529,6 +529,7 @@ struct e1000_dev_spec_82575 {
+ 	bool sgmii_active;
+ 	bool global_device_reset;
+ 	bool eee_disable;
++	bool clear_semaphore_once;
+ };
  
- 	if (netdev->flags & IFF_PROMISC) {
-+		u32 mrqc = rd32(E1000_MRQC);
-+		/* retain VLAN HW filtering if in VT mode */
-+		if (mrqc & E1000_MRQC_ENABLE_VMDQ)
-+			rctl |= E1000_RCTL_VFE;
- 		rctl |= (E1000_RCTL_UPE | E1000_RCTL_MPE);
- 		vmolr |= (E1000_VMOLR_ROPE | E1000_VMOLR_MPME);
- 	} else {
-@@ -5537,12 +5541,75 @@ out:
- 	return err;
- }
- 
-+static int igb_find_vlvf_entry(struct igb_adapter *adapter, int vid)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	int i;
-+	u32 reg;
-+
-+	/* Find the vlan filter for this id */
-+	for (i = 0; i < E1000_VLVF_ARRAY_SIZE; i++) {
-+		reg = rd32(E1000_VLVF(i));
-+		if ((reg & E1000_VLVF_VLANID_ENABLE) &&
-+		    vid == (reg & E1000_VLVF_VLANID_MASK))
-+			break;
-+	}
-+
-+	if (i >= E1000_VLVF_ARRAY_SIZE)
-+		i = -1;
-+
-+	return i;
-+}
-+
- static int igb_set_vf_vlan(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
+ struct e1000_hw {
+diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.c b/drivers/net/ethernet/intel/igb/e1000_i210.c
+index 9764cd3..ddb3cf5 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_i210.c
++++ b/drivers/net/ethernet/intel/igb/e1000_i210.c
+@@ -44,10 +44,42 @@
+ static s32 igb_get_hw_semaphore_i210(struct e1000_hw *hw)
  {
-+	struct e1000_hw *hw = &adapter->hw;
- 	int add = (msgbuf[0] & E1000_VT_MSGINFO_MASK) >> E1000_VT_MSGINFO_SHIFT;
- 	int vid = (msgbuf[1] & E1000_VLVF_VLANID_MASK);
-+	int err = 0;
+ 	u32 swsm;
+-	s32 ret_val = E1000_SUCCESS;
+ 	s32 timeout = hw->nvm.word_size + 1;
+ 	s32 i = 0;
  
--	return igb_vlvf_set(adapter, vid, add, vf);
-+	/* If in promiscuous mode we need to make sure the PF also has
-+	 * the VLAN filter set.
-+	 */
-+	if (add && (adapter->netdev->flags & IFF_PROMISC))
-+		err = igb_vlvf_set(adapter, vid, add,
-+				   adapter->vfs_allocated_count);
-+	if (err)
-+		goto out;
++	/* Get the SW semaphore */
++	while (i < timeout) {
++		swsm = rd32(E1000_SWSM);
++		if (!(swsm & E1000_SWSM_SMBI))
++			break;
 +
-+	err = igb_vlvf_set(adapter, vid, add, vf);
-+
-+	if (err)
-+		goto out;
-+
-+	/* Go through all the checks to see if the VLAN filter should
-+	 * be wiped completely.
-+	 */
-+	if (!add && (adapter->netdev->flags & IFF_PROMISC)) {
-+		u32 vlvf, bits;
-+
-+		int regndx = igb_find_vlvf_entry(adapter, vid);
-+		if (regndx < 0)
-+			goto out;
-+		/* See if any other pools are set for this VLAN filter
-+		 * entry other than the PF.
-+		 */
-+		vlvf = bits = rd32(E1000_VLVF(regndx));
-+		bits &= 1 << (E1000_VLVF_POOLSEL_SHIFT +
-+			      adapter->vfs_allocated_count);
-+		/* If the filter was removed then ensure PF pool bit
-+		 * is cleared if the PF only added itself to the pool
-+		 * because the PF is in promiscuous mode.
-+		 */
-+		if ((vlvf & VLAN_VID_MASK) == vid &&
-+		    !test_bit(vid, adapter->active_vlans) &&
-+		    !bits)
-+			igb_vlvf_set(adapter, vid, add,
-+				     adapter->vfs_allocated_count);
++		udelay(50);
++		i++;
 +	}
 +
-+out:
-+	return err;
++	if (i == timeout) {
++		/* In rare circumstances, the SW semaphore may already be held
++		 * unintentionally. Clear the semaphore once before giving up.
++		 */
++		if (hw->dev_spec._82575.clear_semaphore_once) {
++			hw->dev_spec._82575.clear_semaphore_once = false;
++			igb_put_hw_semaphore(hw);
++			for (i = 0; i < timeout; i++) {
++				swsm = rd32(E1000_SWSM);
++				if (!(swsm & E1000_SWSM_SMBI))
++					break;
++
++				udelay(50);
++			}
++		}
++
++		/* If we do not have the semaphore here, we have to give up. */
++		if (i == timeout) {
++			hw_dbg("Driver can't access device - SMBI bit is set.\n");
++			return -E1000_ERR_NVM;
++		}
++	}
++
+ 	/* Get the FW semaphore. */
+ 	for (i = 0; i < timeout; i++) {
+ 		swsm = rd32(E1000_SWSM);
+@@ -64,12 +96,10 @@ static s32 igb_get_hw_semaphore_i210(struct e1000_hw *hw)
+ 		/* Release semaphores */
+ 		igb_put_hw_semaphore(hw);
+ 		hw_dbg("Driver can't access the NVM\n");
+-		ret_val = -E1000_ERR_NVM;
+-		goto out;
++		return -E1000_ERR_NVM;
+ 	}
+ 
+-out:
+-	return ret_val;
++	return E1000_SUCCESS;
  }
  
- static inline void igb_vf_reset(struct igb_adapter *adapter, u32 vf)
+ /**
+@@ -99,23 +129,6 @@ void igb_release_nvm_i210(struct e1000_hw *hw)
+ }
+ 
+ /**
+- *  igb_put_hw_semaphore_i210 - Release hardware semaphore
+- *  @hw: pointer to the HW structure
+- *
+- *  Release hardware semaphore used to access the PHY or NVM
+- **/
+-static void igb_put_hw_semaphore_i210(struct e1000_hw *hw)
+-{
+-	u32 swsm;
+-
+-	swsm = rd32(E1000_SWSM);
+-
+-	swsm &= ~E1000_SWSM_SWESMBI;
+-
+-	wr32(E1000_SWSM, swsm);
+-}
+-
+-/**
+  *  igb_acquire_swfw_sync_i210 - Acquire SW/FW semaphore
+  *  @hw: pointer to the HW structure
+  *  @mask: specifies which semaphore to acquire
+@@ -138,11 +151,11 @@ s32 igb_acquire_swfw_sync_i210(struct e1000_hw *hw, u16 mask)
+ 		}
+ 
+ 		swfw_sync = rd32(E1000_SW_FW_SYNC);
+-		if (!(swfw_sync & fwmask))
++		if (!(swfw_sync & (fwmask | swmask)))
+ 			break;
+ 
+ 		/* Firmware currently using resource (fwmask) */
+-		igb_put_hw_semaphore_i210(hw);
++		igb_put_hw_semaphore(hw);
+ 		mdelay(5);
+ 		i++;
+ 	}
+@@ -156,7 +169,7 @@ s32 igb_acquire_swfw_sync_i210(struct e1000_hw *hw, u16 mask)
+ 	swfw_sync |= swmask;
+ 	wr32(E1000_SW_FW_SYNC, swfw_sync);
+ 
+-	igb_put_hw_semaphore_i210(hw);
++	igb_put_hw_semaphore(hw);
+ out:
+ 	return ret_val;
+ }
+@@ -180,7 +193,7 @@ void igb_release_swfw_sync_i210(struct e1000_hw *hw, u16 mask)
+ 	swfw_sync &= ~mask;
+ 	wr32(E1000_SW_FW_SYNC, swfw_sync);
+ 
+-	igb_put_hw_semaphore_i210(hw);
++	igb_put_hw_semaphore(hw);
+ }
+ 
+ /**
 -- 
 1.7.11.7
