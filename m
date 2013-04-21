@@ -1,55 +1,55 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: A regression introduced by 802.1ad support patches
-Date: Sun, 21 Apr 2013 17:49:17 +0800
-Message-ID: <1366537757.23100.11.camel@cr0>
-References: <1366530184.23100.6.camel@cr0>
-	 <20130421093436.GA26775@macbook.localnet>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH] net: vlan: fix dummy function signatures for CONFIG_VLAN=n
+Date: Sun, 21 Apr 2013 11:51:41 +0200
+Message-ID: <1366537901-559-1-git-send-email-kaber@trash.net>
+Cc: netdev@vger.kernel.org
+To: davem@davemlofft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20877 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752988Ab3DUJt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Apr 2013 05:49:27 -0400
-In-Reply-To: <20130421093436.GA26775@macbook.localnet>
+Received: from stinky.trash.net ([213.144.137.162]:49945 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752952Ab3DUJwm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Apr 2013 05:52:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-04-21 at 11:34 +0200, Patrick McHardy wrote:
-> commit 77734833d78bcf0a3f58cde8b5b2424e8fc8b7e6
-> Author: Patrick McHardy <kaber@trash.net>
-> Date:   Sun Apr 21 11:34:12 2013 +0200
-> 
->     net: vlan: fix memory leak in vlan_info_rcu_free()
->     
->     The following leak is reported by kmemleak:
->     
->     [   86.812073] kmemleak: Found object by alias at
-> 0xffff88006ecc76f0
->     [   86.816019] Pid: 739, comm: kworker/u:1 Not tainted 3.9.0-rc5+
-> #842
->     [   86.816019] Call Trace:
->     [   86.816019]  <IRQ>  [<ffffffff81151c58>] find_and_get_object
-> +0x8c/0xdf
->     [   86.816019]  [<ffffffff8190e90d>] ? vlan_info_rcu_free
-> +0x33/0x49
->     [   86.816019]  [<ffffffff81151cbe>] delete_object_full+0x13/0x2f
->     [   86.816019]  [<ffffffff8194bbb6>] kmemleak_free+0x26/0x45
->     [   86.816019]  [<ffffffff8113e8c7>] slab_free_hook+0x1e/0x7b
->     [   86.816019]  [<ffffffff81141c05>] kfree+0xce/0x14b
->     [   86.816019]  [<ffffffff8190e90d>] vlan_info_rcu_free+0x33/0x49
->     [   86.816019]  [<ffffffff810d0b0b>] rcu_do_batch+0x261/0x4e7
->     
->     The reason is that in vlan_info_rcu_free() we don't take the VLAN
-> protocol
->     into account when iterating over the vlan_devices_array.
->     
->     Reported-by: Cong Wang <amwang@redhat.com>
->     Signed-off-by: Patrick McHardy <kaber@trash.net> 
+Fix up some function signatures for CONFIG_VLAN=n that were missed during
+the 802.1ad support patches.
 
-Yes, indeed.
+Found by the kbuild robot.
 
-Tested-by: Cong Wang <amwang@redhat.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ include/linux/if_vlan.h | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index a78f939..52bd03b 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -104,7 +104,8 @@ extern void vlan_vids_del_by_dev(struct net_device *dev,
+ extern bool vlan_uses_dev(const struct net_device *dev);
+ #else
+ static inline struct net_device *
+-__vlan_find_dev_deep(struct net_device *real_dev, u16 vlan_id)
++__vlan_find_dev_deep(struct net_device *real_dev,
++		     __be16 vlan_proto, u16 vlan_id)
+ {
+ 	return NULL;
+ }
+@@ -131,12 +132,12 @@ static inline struct sk_buff *vlan_untag(struct sk_buff *skb)
+ 	return skb;
+ }
+ 
+-static inline int vlan_vid_add(struct net_device *dev, unsigned short vid)
++static inline int vlan_vid_add(struct net_device *dev, __be16 proto, u16 vid)
+ {
+ 	return 0;
+ }
+ 
+-static inline void vlan_vid_del(struct net_device *dev, unsigned short vid)
++static inline void vlan_vid_del(struct net_device *dev, __be16 proto, u16 vid)
+ {
+ }
+ 
+-- 
+1.8.1.4
