@@ -1,31 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] qeth: fix VLAN related compilation errors
-Date: Sun, 21 Apr 2013 15:58:44 -0400 (EDT)
-Message-ID: <20130421.155844.1335490646824126162.davem@davemloft.net>
-References: <1366538974-4589-1-git-send-email-kaber@trash.net>
-	<1366538974-4589-3-git-send-email-kaber@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/3] net: fix netdev features shift for features bit > 31
+Date: Sun, 21 Apr 2013 22:43:19 +0200
+Message-ID: <f7afa813-42a7-4c3f-9059-52afaac4088b@email.android.com>
+References: <1366538974-4589-1-git-send-email-kaber@trash.net> <1366538974-4589-2-git-send-email-kaber@trash.net> <20130421.155056.1845781789394372451.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org, amwang@redhat.com
-To: kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50191 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754226Ab3DUT6q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Apr 2013 15:58:46 -0400
-In-Reply-To: <1366538974-4589-3-git-send-email-kaber@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:50685 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751521Ab3DUU7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Apr 2013 16:59:24 -0400
+In-Reply-To: <20130421.155056.1845781789394372451.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Sun, 21 Apr 2013 12:09:34 +0200
 
->    drivers/s390/net/qeth_l3_main.c: In function 'qeth_l3_add_vlan_mc':
->>> drivers/s390/net/qeth_l3_main.c:1662:3: error: too few arguments to function '__vlan_find_dev_deep'
->    include/linux/if_vlan.h:88:27: note: declared here
- ...
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Applied.
+David Miller <davem@davemloft.net> schrieb:
+
+>From: Patrick McHardy <kaber@trash.net>
+>Date: Sun, 21 Apr 2013 12:09:33 +0200
+>
+>>    drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c: In function
+>'qlcnic_set_netdev_features':
+>>>> drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c:967:7: warning:
+>large integer implicitly truncated to unsigned type [-Woverflow]
+>> 
+>> This should be fixed by explicitly using 1ULL for the shifted value.
+>> 
+>> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+>> Signed-off-by: Patrick McHardy <kaber@trash.net>
+>
+>The limitation is in the variable being assigned to, not the value
+>itself.
+>
+>The "1" is already cast to a netdev_features_t by the macro
+>definition.
+
+Right, I thought the warning was caused by the shift not being able to represent the result. I'll fix it up properly later.
