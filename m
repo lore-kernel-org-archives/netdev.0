@@ -1,250 +1,188 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Sat, 20 Apr 2013 21:16:31 -0400 (EDT)
-Message-ID: <20130420.211631.2225441203953104357.davem@davemloft.net>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next v2] packet: tx timestamping on tpacket ring
+Date: Sat, 20 Apr 2013 22:30:13 -0400
+Message-ID: <CA+FuTSckxSB-rDFVJbbWdxX=5HfNoD4vwkeHy71Ab2cam8wpGQ@mail.gmail.com>
+References: <CA+FuTSdGdhgpRARbv9zFnDESzCQBzT=DS-WgGZRWBLBvhN_sNg@mail.gmail.com>
+ <1366408317-16432-1-git-send-email-willemb@google.com> <51728B32.4040200@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Paul Chavent <paul.chavent@onera.fr>,
+	Richard Cochran <richardcochran@gmail.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37424 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750874Ab3DUBQd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Apr 2013 21:16:33 -0400
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:64896 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751392Ab3DUCao (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Apr 2013 22:30:44 -0400
+Received: by mail-ie0-f171.google.com with SMTP id e11so6034659iej.30
+        for <netdev@vger.kernel.org>; Sat, 20 Apr 2013 19:30:44 -0700 (PDT)
+In-Reply-To: <51728B32.4040200@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Apr 20, 2013 at 8:33 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> On 04/19/2013 11:51 PM, Willem de Bruijn wrote:
+>>
+>> v1->v2:
+>> - move sock_tx_timestamp near other sk reads (warm cacheline)
+>> - remove duplicate flush_dcache_page
+>> - enable hardware timestamps reporting using the error queue (not ring)
+>> - use new ktime_to_timespec_cond API
+>
+>
+> Nitpick: probably this should rather go below the "---" line, so that this
+> will not show up in the commit message.
+>
+>
+>> When transmit timestamping is enabled at the socket level, record a
+>> timestamp on packets written to a PACKET_TX_RING. Tx timestamps are
+>> always looped to the application over the socket error queue. Software
+>> timestamps are also written back into the packet frame header in the
+>> packet ring.
+>>
+>> Reported-by: Paul Chavent <paul.chavent@onera.fr>
+>> Signed-off-by: Willem de Bruijn <willemb@google.com>
+>> ---
+>>   net/core/skbuff.c      | 12 ++++++------
+>>   net/packet/af_packet.c | 33 +++++++++++++++++++++++++++++++++
+>>   2 files changed, 39 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> index 898cf5c..af9185d 100644
+>> --- a/net/core/skbuff.c
+>> +++ b/net/core/skbuff.c
+>> @@ -3327,12 +3327,8 @@ void skb_tstamp_tx(struct sk_buff *orig_skb,
+>>         if (!sk)
+>>                 return;
+>>
+>> -       skb = skb_clone(orig_skb, GFP_ATOMIC);
+>> -       if (!skb)
+>> -               return;
+>> -
+>>         if (hwtstamps) {
+>> -               *skb_hwtstamps(skb) =
+>> +               *skb_hwtstamps(orig_skb) =
+>>                         *hwtstamps;
+>>         } else {
+>>                 /*
+>> @@ -3340,9 +3336,13 @@ void skb_tstamp_tx(struct sk_buff *orig_skb,
+>>                  * so keep the shared tx_flags and only
+>>                  * store software time stamp
+>>                  */
+>> -               skb->tstamp = ktime_get_real();
+>> +               orig_skb->tstamp = ktime_get_real();
+>>         }
+>>
+>> +       skb = skb_clone(orig_skb, GFP_ATOMIC);
+>> +       if (!skb)
+>> +               return;
+>> +
+>>         serr = SKB_EXT_ERR(skb);
+>>         memset(serr, 0, sizeof(*serr));
+>>         serr->ee.ee_errno = ENOMSG;
+>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+>> index 7e387ff..ec8ea27 100644
+>> --- a/net/packet/af_packet.c
+>> +++ b/net/packet/af_packet.c
+>> @@ -339,6 +339,37 @@ static int __packet_get_status(struct packet_sock
+>> *po, void *frame)
+>>         }
+>>   }
+>>
+>> +static void __packet_set_timestamp(struct packet_sock *po, void *frame,
+>> +                                  ktime_t tstamp)
+>> +{
+>> +       union tpacket_uhdr h;
+>> +       struct timespec ts;
+>> +
+>> +       if (!ktime_to_timespec_cond(tstamp, &ts) ||
+>> +           !sock_flag(&po->sk, SOCK_TIMESTAMPING_SOFTWARE))
+>> +               return;
+>
+>
+> If we currently have the po->tp_tstamp member that was introduced for the
+> RX_RING
+> part only, using it if possible for the TX_RING part as well would be good,
+> at
+> least cleaner.
 
-1) ax88796 does 64-bit divides which causes link errors on ARM, fix
-   from Arnd Bergmann.
+Then the caller has to set both the SOL_SOCKET and SOL_PACKET
+options. I'm not convinced that that is an improvement over using generic
+socket tx timestamping option as is. How would you use it specifically?
+To determine whether or not to write the values into the ring, or more
+extensively?
 
-2) Once an improper offload setting is detected on an SKB we don't
-   rate limit the log message so we can very easily live lock.  From
-   Ben Greear.
+> Also the documentation [1] should receive a status update on
+> this
+> feature, otherwise only Paul will use this feature and nobody else.
 
-3) Openvswitch cannot report vport configuration changes reliably
-   because it didn't preallocate the netlink notification message
-   before changing state.  From Jesse Gross.
+Okay. I'll update the documentation. Speaking of which, it would be
+great if someone could proofread the packet socket manpage update
+patch (http://patchwork.ozlabs.org/patch/228709/)
 
-4) The effective UID/GID SCM credentials fix, from Linus.
+> Not an expert in timestamping, but why can't we also allow hw timestamps but
+> have
+> to use sw only?
 
-5) When a user explicitly asks for wireless authentication, cfg80211
-   isn't told about the AP detachment leaving inconsistent state.  Fix
-   from Johannes Berg.
+To avoid getting into the same situation on tx that Richard pointed out
+about rx: the ring can only communicate one timestamp and cannot
+communicate which one it is. Better to be consistent in that case, I
+think. I'm open to discussing this, though.
 
-6) Fix self-MAC checks in batman-adv on multi-mesh nodes, from Antonio
-   Quartulli.
-
-7) Revert build_skb() change sin IGB driver, can result in memory
-   corruption.  From Alexander Duyck.
-
-8) Fix setting VLANs on virtual functions in IXGBE, from Greg Rose.
-
-9) Fix TSO races in qlcnic driver, from Sritej Velaga.
-
-10) In bnx2x the kernel driver and UNDI firmware can try to program
-    the chip at the same time, resulting in corruption.  Add proper
-    synchronization.  From Dmitry Kravkov.
-
-11) Fix corruption of status block in firmware ram in bxn2x, from
-    Ariel Elior.
-
-12) Fix load balancing hash regression of bonding driver in forwarding
-    configurations, from Eric Dumazet.
-
-13) Fix TS ECR regression in TCP by calling tcp_replace_ts_recent() in
-    all the right spots, from Eric Dumazet.
-
-14) Fix several bonding bugs having to do with address manintainence,
-    including not removing address when configuration operations encoun=
-ter
-    errors, missed locking on the address lists, missing refcounting on
-    VLAN objects, etc.  All from Nikolay Aleksandrov.
-
-15) Add workarounds for firmware bugs in LTE qmi_wwan devices, wherein
-    the devices fail to add a proper ethernet header while on LTE
-    networks but otherwise properly do so on 2G and 3G ones.  From
-    Bj=A9=AArn Mork.
-
-Please pull, thanks a lot!
-
-The following changes since commit 96d8683483b7eb194609edd1afe9143a0467=
-b7d3:
-
-  Merge branch 'for-linus' of git://git.kernel.org/pub/scm/linux/kernel=
-/git/sage/ceph-client (2013-04-17 12:52:02 -0700)
-
-are available in the git repository at:
-
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-
-for you to fetch changes up to 83f1b4ba917db5dc5a061a44b3403ddb6e783494=
-:
-
-  net: fix incorrect credentials passing (2013-04-20 16:56:42 -0400)
-
-----------------------------------------------------------------
-Alexander Duyck (1):
-      igb: Revert support for build_skb in igb
-
-Antonio Quartulli (1):
-      batman-adv: make is_my_mac() check for the current mesh only
-
-Arend van Spriel (2):
-      brcmfmac: remove advertising P2P device support
-      brcmsmac: request firmware in .start() callback
-
-Ariel Elior (1):
-      bnx2x: Fix status blocks configuration
-
-Arnd Bergmann (1):
-      net: ax88796: avoid 64 bit arithmetic
-
-Ben Greear (1):
-      net: rate-limit warn-bad-offload splats.
-
-Bj=A9=AArn Mork (3):
-      net: qmi_wwan: fixup missing ethernet header (firmware bug workar=
-ound)
-      net: qmi_wwan: fixup destination address (firmware bug workaround=
-)
-      net: qmi_wwan: prevent duplicate mac address on link (firmware bu=
-g workaround)
-
-Dan Carpenter (1):
-      irda: small read past the end of array in debug code
-
-David S. Miller (7):
-      Merge branch 'fixes' of git://git.kernel.org/.../jesse/openvswitc=
-h
-      Merge tag 'batman-adv-fix-for-davem' of git://git.open-mesh.org/l=
-inux-merge
-      Merge branch 'qlogic'
-      Merge branch 'for-davem' of git://git.kernel.org/.../linville/wir=
-eless
-      Merge branch 'master' of git://git.kernel.org/.../pablo/nf
-      Merge branch 'bonding'
-      Merge branch 'qmi_wwan'
-
-Dmitry Kravkov (1):
-      bnx2x: Prevent UNDI FW illegal host access
-
-Eric Dumazet (2):
-      bonding: fix l23 and l34 load balancing in forwarding path
-      tcp: call tcp_replace_ts_recent() from tcp_ack()
-
-=46elix Fietkau (2):
-      ath9k_htc: accept 1.x firmware newer than 1.3
-      ath9k_hw: change AR9580 initvals to fix a stability issue
-
-=46lorian Westphal (1):
-      netfilter: xt_rpfilter: skip locally generated broadcast/multicas=
-t, too
-
-Greg Rose (1):
-      ixgbe: Fix a bug in setting VF VLAN via PF
-
-Hong Zhiguo (1):
-      openvswitch: correct an invalid BUG_ON
-
-Jesse Gross (1):
-      openvswitch: Preallocate reply skb in ovs_vport_cmd_set().
-
-Jitendra Kalsaria (3):
-      qlcnic: Stop traffic before performing loopback test
-      qlge: Fix ethtool autoneg advertising.
-      qlge: Update version to 1.00.00.32.
-
-Johannes Berg (2):
-      mac80211: fix LED in idle handling
-      mac80211: fix cfg80211 interaction on auth/assoc request
-
-John W. Linville (3):
-      Merge branch 'for-john' of git://git.kernel.org/.../jberg/mac8021=
-1
-      Merge branch 'for-john' of git://x-git.kernel.org/.../jberg/mac80=
-211
-      Merge branch 'master' of git://git.kernel.org/.../linville/wirele=
-ss into for-davem
-
-Jozsef Kadlecsik (1):
-      netfilter: ipset: bitmap:ip,mac: fix listing with timeout
-
-Linus Torvalds (1):
-      net: fix incorrect credentials passing
-
-Rafa=A9=A9 Mi=A9=A9ecki (1):
-      ssb: implement spurious tone avoidance
-
-Shahed Shaikh (1):
-      qlcnic: Fix typo in logs
-
-Sritej Velaga (2):
-      qlcnic: fix TSO race condition
-      qlge: Fix receive path to drop error frames
-
-Wei Yongjun (1):
-      pkt_sched: fix error return code in fw_change_attrs()
-
-Zefir Kurtisi (1):
-      ath9k: fix DFS detector called in softirq context
-
-nikolay@redhat.com (5):
-      bonding: mc addresses don't get deleted on enslave failure
-      bonding: vlans don't get deleted on enslave failure
-      bonding: primary_slave & curr_active_slave are not cleaned on ens=
-lave failure
-      bonding: disable netpoll on enslave failure
-      bonding: in bond_mc_swap() bond's mc addr list is walked without =
-lock
-
- drivers/net/bonding/bond_main.c                       |  76 ++++++++++=
-+------
- drivers/net/ethernet/8390/ax88796.c                   |   2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c       |   7 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c      |   4 +
- drivers/net/ethernet/intel/igb/igb.h                  |   8 --
- drivers/net/ethernet/intel/igb/igb_main.c             | 110 +---------=
----------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c        |   6 ++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c   |  15 ++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c        |   3 +-
- drivers/net/ethernet/qlogic/qlge/qlge.h               |   2 +-
- drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c       |   2 +-
- drivers/net/ethernet/qlogic/qlge/qlge_main.c          |  36 ++++++--
- drivers/net/usb/qmi_wwan.c                            | 104 ++++++++++=
-+++++++++++++
- drivers/net/wireless/ath/ath9k/ar9580_1p0_initvals.h  |   2 +-
- drivers/net/wireless/ath/ath9k/dfs_pattern_detector.c |   4 +-
- drivers/net/wireless/ath/ath9k/dfs_pri_detector.c     |   4 +-
- drivers/net/wireless/ath/ath9k/htc_drv_init.c         |   2 +-
- drivers/net/wireless/b43/phy_n.c                      |   3 +-
- drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c |   7 +-
- drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c | 264 ++++++++++=
-+++++++++++++++++++------------------------------
- drivers/ssb/driver_chipcommon_pmu.c                   |  29 +++++++
- include/linux/ssb/ssb_driver_chipcommon.h             |   2 +
- include/net/irda/irlmp.h                              |   3 +-
- include/net/scm.h                                     |   4 +-
- net/batman-adv/main.c                                 |   5 +-
- net/batman-adv/main.h                                 |   2 +-
- net/batman-adv/routing.c                              |  38 +++++----
- net/batman-adv/translation-table.c                    |   2 +-
- net/batman-adv/vis.c                                  |   4 +-
- net/core/dev.c                                        |   3 +
- net/ipv4/netfilter/ipt_rpfilter.c                     |   8 +-
- net/ipv4/tcp_input.c                                  |  64 +++++++---=
------
- net/ipv6/netfilter/ip6t_rpfilter.c                    |   8 +-
- net/irda/iriap.c                                      |   3 +-
- net/irda/irlmp.c                                      |  10 ++-
- net/mac80211/iface.c                                  |  27 ++++--
- net/mac80211/mlme.c                                   |  24 +++++-
- net/netfilter/ipset/ip_set_bitmap_ipmac.c             |   6 +-
- net/openvswitch/datapath.c                            |  30 ++++---
- net/openvswitch/flow.c                                |   2 +-
- net/sched/cls_fw.c                                    |   2 +-
- 41 files changed, 544 insertions(+), 393 deletions(-)
+> Would it be possible to reuse the tpacket_get_timestamp()
+> function
+> that got recently introduced for this (while keeping sock_tx_timestamp()
+> below on
+> TX path)?
+>
+> Thanks.
+>
+>  [1] Documentation/networking/packet_mmap.txt
+>
+>
+>> +       h.raw = frame;
+>> +       switch (po->tp_version) {
+>> +       case TPACKET_V1:
+>> +               h.h1->tp_sec = ts.tv_sec;
+>> +               h.h1->tp_usec = ts.tv_nsec / NSEC_PER_USEC;
+>> +               break;
+>> +       case TPACKET_V2:
+>> +               h.h2->tp_sec = ts.tv_sec;
+>> +               h.h2->tp_nsec = ts.tv_nsec;
+>> +               break;
+>> +       case TPACKET_V3:
+>> +       default:
+>> +               WARN(1, "TPACKET version not supported.\n");
+>> +               BUG();
+>> +       }
+>> +
+>> +       /* one flush is safe, as both fields always lie on the same
+>> cacheline */
+>> +       flush_dcache_page(pgv_to_page(&h.h1->tp_sec));
+>> +       smp_wmb();
+>> +}
+>> +
+>>   static void *packet_lookup_frame(struct packet_sock *po,
+>>                 struct packet_ring_buffer *rb,
+>>                 unsigned int position,
+>> @@ -1877,6 +1908,7 @@ static void tpacket_destruct_skb(struct sk_buff
+>> *skb)
+>>                 ph = skb_shinfo(skb)->destructor_arg;
+>>                 BUG_ON(atomic_read(&po->tx_ring.pending) == 0);
+>>                 atomic_dec(&po->tx_ring.pending);
+>> +               __packet_set_timestamp(po, ph, skb->tstamp);
+>>                 __packet_set_status(po, ph, TP_STATUS_AVAILABLE);
+>>         }
+>>
+>> @@ -1900,6 +1932,7 @@ static int tpacket_fill_skb(struct packet_sock *po,
+>> struct sk_buff *skb,
+>>         skb->dev = dev;
+>>         skb->priority = po->sk.sk_priority;
+>>         skb->mark = po->sk.sk_mark;
+>> +       sock_tx_timestamp(&po->sk, &skb_shinfo(skb)->tx_flags);
+>>         skb_shinfo(skb)->destructor_arg = ph.raw;
+>>
+>>         switch (po->tp_version) {
+>>
+>
