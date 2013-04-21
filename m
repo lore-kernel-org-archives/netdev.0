@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: vlan: fix dummy function signatures for
- CONFIG_VLAN=n
-Date: Sun, 21 Apr 2013 15:57:19 -0400 (EDT)
-Message-ID: <20130421.155719.1845805379958137056.davem@davemloft.net>
-References: <1366537901-559-1-git-send-email-kaber@trash.net>
+Subject: Re: [PATCH 1/3] net: vlan: fix up vlan_proto_idx() for CONFIG_BUG=n
+Date: Sun, 21 Apr 2013 15:58:32 -0400 (EDT)
+Message-ID: <20130421.155832.1786074011866971971.davem@davemloft.net>
+References: <1366538974-4589-1-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemlofft.net, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, amwang@redhat.com
 To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50149 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50181 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754223Ab3DUT5U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Apr 2013 15:57:20 -0400
-In-Reply-To: <1366537901-559-1-git-send-email-kaber@trash.net>
+	with ESMTP id S1754287Ab3DUT6e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Apr 2013 15:58:34 -0400
+In-Reply-To: <1366538974-4589-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Patrick McHardy <kaber@trash.net>
-Date: Sun, 21 Apr 2013 11:51:41 +0200
+Date: Sun, 21 Apr 2013 12:09:32 +0200
 
-> Fix up some function signatures for CONFIG_VLAN=n that were missed during
-> the 802.1ad support patches.
+> Add missing return statement for CONFIG_BUG=n.
 > 
-> Found by the kbuild robot.
-> 
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
 > Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 Applied.
