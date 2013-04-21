@@ -1,109 +1,91 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH 26/28] proc: Supply a function to remove a proc entry by PDE [RFC]
-Date: Mon, 22 Apr 2013 00:01:56 +0200
-Message-ID: <13676870.MCxoVzgcmR@vostro.rjw.lan>
-References: <20130416182550.27773.89310.stgit@warthog.procyon.org.uk> <20130416182734.27773.47452.stgit@warthog.procyon.org.uk>
+From: annie li <annie.li@oracle.com>
+Subject: Re: [PATCH V5 6/7] xen-netback: coalesce slots in TX path and fix
+ regressions
+Date: Sun, 21 Apr 2013 18:06:10 -0400
+Message-ID: <517462D2.8040209@oracle.com>
+References: <1366045581-31349-1-git-send-email-wei.liu2@citrix.com> <1366045581-31349-7-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-kernel@vger.kernel.org, alsa-devel@alsa-project.org,
-	linux-pci@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linux-acpi@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	viro@zeniv.linux.org.uk, netdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org,
-	openipmi-developer@lists.sourceforge.net
-To: David Howells <dhowells@redhat.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20130416182734.27773.47452.stgit@warthog.procyon.org.uk>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Tuesday, April 16, 2013 07:27:34 PM David Howells wrote:
-> Supply a function (proc_remove()) to remove a proc entry (and any subtree
-> rooted there) by proc_dir_entry pointer rather than by name and (optionally)
-> root dir entry pointer.  This allows us to eliminate all remaining pde->name
-> accesses outside of procfs.
-> 
-> Signed-off-by: David Howells <dhowells@redhat.com>
-> cc: linux-acpi@vger.kernel.org
-> cc: openipmi-developer@lists.sourceforge.net
-> cc: devicetree-discuss@lists.ozlabs.org
-> cc: linux-pci@vger.kernel.org
-> cc: netdev@vger.kernel.org
-> cc: netfilter-devel@vger.kernel.org
-> cc: alsa-devel@alsa-project.org
-
-The ACPI changes look good to me.
-
-Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-
-> ---
-> 
->  drivers/acpi/sbs.c                  |   21 ++++-----------------
->  drivers/char/ipmi/ipmi_msghandler.c |    2 +-
->  drivers/misc/sgi-gru/gruprocfs.c    |    2 +-
->  drivers/of/base.c                   |   11 +----------
->  drivers/pci/proc.c                  |   12 +++---------
->  fs/proc/generic.c                   |    7 +++++++
->  fs/proc/vmcore.c                    |    2 +-
->  include/linux/proc_fs.h             |    2 ++
->  kernel/irq/proc.c                   |    6 +-----
->  net/8021q/vlanproc.c                |    9 ++-------
->  net/core/pktgen.c                   |    6 ++----
->  net/ipv4/netfilter/ipt_CLUSTERIP.c  |    4 ++--
->  net/ipv6/proc.c                     |    3 +--
->  net/netfilter/xt_hashlimit.c        |    4 ++--
->  sound/core/info.c                   |   19 +++++--------------
->  15 files changed, 35 insertions(+), 75 deletions(-)
-> 
-> diff --git a/drivers/acpi/sbs.c b/drivers/acpi/sbs.c
-> index a296e08..b6241ee 100644
-> --- a/drivers/acpi/sbs.c
-> +++ b/drivers/acpi/sbs.c
-> @@ -521,19 +521,6 @@ acpi_sbs_add_fs(struct proc_dir_entry **dir,
->  	return 0;
->  }
->  
-> -static void
-> -acpi_sbs_remove_fs(struct proc_dir_entry **dir,
-> -			   struct proc_dir_entry *parent_dir)
-> -{
-> -	if (*dir) {
-> -		remove_proc_entry(ACPI_SBS_FILE_INFO, *dir);
-> -		remove_proc_entry(ACPI_SBS_FILE_STATE, *dir);
-> -		remove_proc_entry(ACPI_SBS_FILE_ALARM, *dir);
-> -		remove_proc_entry((*dir)->name, parent_dir);
-> -		*dir = NULL;
-> -	}
-> -}
-> -
->  /* Smart Battery Interface */
->  static struct proc_dir_entry *acpi_battery_dir = NULL;
->  
-> @@ -836,8 +823,8 @@ static void acpi_battery_remove(struct acpi_sbs *sbs, int id)
->  		power_supply_unregister(&battery->bat);
->  	}
->  #ifdef CONFIG_ACPI_PROCFS_POWER
-> -	if (battery->proc_entry)
-> -		acpi_sbs_remove_fs(&battery->proc_entry, acpi_battery_dir);
-> +	proc_remove(battery->proc_entry);
-> +	battery->proc_entry = NULL;
->  #endif
->  }
->  
-> @@ -873,8 +860,8 @@ static void acpi_charger_remove(struct acpi_sbs *sbs)
->  	if (sbs->charger.dev)
->  		power_supply_unregister(&sbs->charger);
->  #ifdef CONFIG_ACPI_PROCFS_POWER
-> -	if (sbs->charger_entry)
-> -		acpi_sbs_remove_fs(&sbs->charger_entry, acpi_ac_dir);
-> +	proc_remove(sbs->charger_entry);
-> +	sbs->charger_entry = NULL;
->  #endif
->  }
->  
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
+	konrad.wilk@oracle.com, jbeulich@suse.com, ian.campbell@citrix.com,
+	wdauchy@gmail.com, david.vrabel@citrix.com
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:44160 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752331Ab3DUWGb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Apr 2013 18:06:31 -0400
+In-Reply-To: <1366045581-31349-7-git-send-email-wei.liu2@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
--- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+On 2013-4-15 13:06, Wei Liu wrote:
+>   
+>   static int netbk_count_requests(struct xenvif *vif,
+>   				struct xen_netif_tx_request *first,
+> +				RING_IDX first_idx,
+>   				struct xen_netif_tx_request *txp,
+>   				int work_to_do)
+>   {
+>   	RING_IDX cons = vif->tx.req_cons;
+> -	int frags = 0;
+> +	int slots = 0;
+> +	int drop_err = 0;
+>   
+>   	if (!(first->flags & XEN_NETTXF_more_data))
+>   		return 0;
+>   
+>   	do {
+> -		if (frags >= work_to_do) {
+> -			netdev_err(vif->dev, "Need more frags\n");
+> +		if (slots >= work_to_do) {
+> +			netdev_err(vif->dev,
+> +				   "Asked for %d slots but exceeds this limit\n",
+> +				   work_to_do);
+>   			netbk_fatal_tx_err(vif);
+>   			return -ENODATA;
+>   		}
+>   
+> -		if (unlikely(frags >= MAX_SKB_FRAGS)) {
+> -			netdev_err(vif->dev, "Too many frags\n");
+> +		/* This guest is really using too many slots and
+> +		 * considered malicious.
+> +		 */
+> +		if (unlikely(slots >= max_skb_slots)) {
+> +			netdev_err(vif->dev,
+> +				   "Malicious frontend using %d slots, threshold %u\n",
+> +				   slots, max_skb_slots);
+>   			netbk_fatal_tx_err(vif);
+>   			return -E2BIG;
+
+It is possible that vif is freed when packet size is less than 64K here 
+but slots required >= max_skb_slots. Alough max_skb_slots can be 
+configured, this kind of packets would be dropped in following if 
+(!drop_err && slots >= XEN_NETIF_NR_SLOTS_MIN).
+
+>   		}
+>   
+> -		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + frags),
+> +		/* Xen network protocol had implicit dependency on
+> +		 * MAX_SKB_FRAGS. XEN_NETIF_NR_SLOTS_MIN is set to the
+> +		 * historical MAX_SKB_FRAGS value 18 to honor the same
+> +		 * behavior as before. Any packet using more than 18
+> +		 * slots but less than max_skb_slots slots is dropped
+> +		 */
+> +		if (!drop_err && slots >= XEN_NETIF_NR_SLOTS_MIN) {
+> +			if (net_ratelimit())
+> +				netdev_dbg(vif->dev,
+> +					   "Too many slots (%d) exceeding limit (%d), dropping packet\n",
+> +					   slots, XEN_NETIF_NR_SLOTS_MIN);
+> +			drop_err = -E2BIG;
+
+It is possible to drop packets like above(size < 64K && slot >= 
+XEN_NETIF_NR_SLOTS_MIN). I do not know how frequently this kind of 
+packets appear, maybe some SKBs with compound page(size < 64K && slot >= 
+XEN_NETIF_NR_SLOTS_MIN) are dropped here?
+
+
+Thanks
+Annie
