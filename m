@@ -1,46 +1,50 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: Re: [PATCH 3/5 v2] net/cpsw: don't rely only on netif_running() to
- check which device is active
-Date: Mon, 22 Apr 2013 12:19:37 +0200
-Message-ID: <51750EB9.6090009@linutronix.de>
-References: <1366235536-15744-1-git-send-email-bigeasy@linutronix.de> <1366235536-15744-4-git-send-email-bigeasy@linutronix.de> <516FDE0A.70504@ti.com> <516FE2AD.2040403@linutronix.de> <51711E0B.4000306@ti.com> <20130422083048.GA8162@linutronix.de> <5174FF93.8070408@ti.com> <51750334.8050807@linutronix.de> <51750587.5020801@ti.com> <517507A6.2090609@linutronix.de> <51750D1B.4060600@ti.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [PATCH] Net: rxrpc: signed and unsigned issue, need type cast for
+ n_elem.
+Date: Mon, 22 Apr 2013 18:24:00 +0800
+Message-ID: <51750FC0.8000603@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tglx@linutronix.de,
-	"David S. Miller" <davem@davemloft.net>
-To: Mugunthan V N <mugunthanvnm@ti.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"dhowells@redhat.com" <dhowells@redhat.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Serge Hallyn <serge.hallyn@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:57128 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752401Ab3DVKTj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 06:19:39 -0400
-In-Reply-To: <51750D1B.4060600@ti.com>
+Received: from intranet.asianux.com ([58.214.24.6]:33271 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754354Ab3DVKYp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 06:24:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/22/2013 12:12 PM, Mugunthan V N wrote:
-> 
-> Yes, when interrupt is disabled in hardware then interrupt must be
-> disabled.
-> In my initial days i have verified it, CPSW doesn't allow any new
-> interrupts to
-> propagate  to arm if CPSW interrupt is disabled which is correct. CPSW irq
-> signal is not directly connected to irq controller, it is connected via
-> edge to
-> level conversion so it is a kind of latched interrupt and so the
-> interrupt has
-> to be disabled in interrupt controller to disable the interrupt, else
-> arm get
-> blocked in CPSW ISR.
-> 
-> This behavior is not only in AM335x CPSW, it is as is from its previous
-> versions in TI814x and TI8107.
 
-And I don't see this on ES1.0 because they forgot to add the
-edge-to-level converter?
+  n_elem is unsigned int which never < 0.
+  but it seems, we realy need check it whether < 0.
+  so need a type cast for it.
 
-> Regards
-> Mugunthan V N
+  find it by EXTRA_CFLAGS=-W
 
-Sebastian
+
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+---
+ net/rxrpc/ar-key.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/rxrpc/ar-key.c b/net/rxrpc/ar-key.c
+index 7633a75..ba0b722 100644
+--- a/net/rxrpc/ar-key.c
++++ b/net/rxrpc/ar-key.c
+@@ -346,7 +346,7 @@ static int rxrpc_krb5_decode_tagged_array(struct krb5_tagged_data **_td,
+ 
+ 	n_elem = ntohl(*xdr++);
+ 	toklen -= 4;
+-	if (n_elem < 0 || n_elem > max_n_elem)
++	if ((int)n_elem < 0 || n_elem > max_n_elem)
+ 		return -EINVAL;
+ 	*_n_elem = n_elem;
+ 	if (n_elem > 0) {
+-- 
+1.7.7.6
