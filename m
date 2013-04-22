@@ -1,71 +1,46 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH v3 net-next 2/6] bnx2x: fix byte-by-byte nvram write for
- BE machines
-Date: Mon, 22 Apr 2013 13:15:04 +0300
-Message-ID: <1366625708-5678-3-git-send-email-dmitry@broadcom.com>
-References: <1366625708-5678-1-git-send-email-dmitry@broadcom.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [PATCH] Net-next: ipv4: type issue, remove erroneous semicolon
+Date: Mon, 22 Apr 2013 18:17:21 +0800
+Message-ID: <51750E31.2010906@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: romueu@fz.zoreil.com, "Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Francious Romieu" <romieu@fz.zoreil.com>
-To: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: pshelar@nicira.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4548 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752574Ab3DVKP0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Apr 2013 06:15:26 -0400
-In-Reply-To: <1366625708-5678-1-git-send-email-dmitry@broadcom.com>
+Received: from intranet.asianux.com ([58.214.24.6]:37232 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751119Ab3DVKSH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 06:18:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CC: Francious Romieu <romieu@fz.zoreil.com>
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
-Looks like no one used this inefficient byte-update method.
-In order to avoid painfull merging this is a part of net-next series.
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 15 +++++++--------
- 1 file changed, 7 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index 79e5196..ec07b2b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -1569,9 +1569,8 @@ static int bnx2x_nvram_write1(struct bnx2x *bp, u32 offset, u8 *data_buf,
- 			      int buf_size)
- {
- 	int rc;
--	u32 cmd_flags;
--	u32 align_offset;
--	__be32 val;
-+	u32 cmd_flags, align_offset, val;
-+	__be32 val_be;
+  need remove erroneous semicolon.
+
+  the related commit number: c54419321455631079c7d6e60bc732dd0c5914c5
+
+  Find it by EXTRA_CFLAGS=-W
+
+
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+---
+ net/ipv4/ip_gre.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 987a4e5..c625e4d 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -444,7 +444,7 @@ static netdev_tx_t ipgre_xmit(struct sk_buff *skb,
+ 	if (dev->header_ops) {
+ 		/* Need space for new headers */
+ 		if (skb_cow_head(skb, dev->needed_headroom -
+-				      (tunnel->hlen + sizeof(struct iphdr))));
++				      (tunnel->hlen + sizeof(struct iphdr))))
+ 			goto free_skb;
  
- 	if (offset + buf_size > bp->common.flash_size) {
- 		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
-@@ -1590,16 +1589,16 @@ static int bnx2x_nvram_write1(struct bnx2x *bp, u32 offset, u8 *data_buf,
- 
- 	cmd_flags = (MCPR_NVM_COMMAND_FIRST | MCPR_NVM_COMMAND_LAST);
- 	align_offset = (offset & ~0x03);
--	rc = bnx2x_nvram_read_dword(bp, align_offset, &val, cmd_flags);
-+	rc = bnx2x_nvram_read_dword(bp, align_offset, &val_be, cmd_flags);
- 
- 	if (rc == 0) {
--		val &= ~(0xff << BYTE_OFFSET(offset));
--		val |= (*data_buf << BYTE_OFFSET(offset));
--
- 		/* nvram data is returned as an array of bytes
- 		 * convert it back to cpu order
- 		 */
--		val = be32_to_cpu(val);
-+		val = be32_to_cpu(val_be);
-+
-+		val &= ~le32_to_cpu(0xff << BYTE_OFFSET(offset));
-+		val |= le32_to_cpu(*data_buf << BYTE_OFFSET(offset));
- 
- 		rc = bnx2x_nvram_write_dword(bp, align_offset, val,
- 					     cmd_flags);
+ 		tnl_params = (const struct iphdr *)skb->data;
 -- 
-1.8.1.4
+1.7.7.6
