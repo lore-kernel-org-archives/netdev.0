@@ -1,125 +1,66 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH 2/3] net: fix enforcing of fragment queue hash
- list depth
-Date: Mon, 22 Apr 2013 19:49:12 +0200
-Message-ID: <1366652952.26911.334.camel@localhost>
-References: <20130418213637.14296.43143.stgit@dragon>
-	 <20130418213732.14296.36026.stgit@dragon>
-	 <1366366287.3205.98.camel@edumazet-glaptop>
-	 <1366373950.26911.134.camel@localhost>
-	 <20130419124528.GF27889@order.stressinduktion.org>
-	 <1366381742.26911.166.camel@localhost>
-	 <20130419194424.GI27889@order.stressinduktion.org>
-	 <1366621834.26911.271.camel@localhost>
-	 <20130422145431.GA26838@order.stressinduktion.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net] e1000e: fix numeric overflow in phc settime method.
+Date: Mon, 22 Apr 2013 10:53:22 -0700
+Message-ID: <1366653202.2037.2.camel@jtkirshe-mobl>
+References: <1455e8dd5f574fef93377b61cea8b494102091ef.1366638698.git.richardcochran@gmail.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-WdUmUz+iNeCf7iIvBzfv"
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Jeroen Van den Keybus <jeroen.vandenkeybus@triphase.com>,
+	bruce.w.allan@intel.com, e1000-devel@lists.sourceforge.net
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28731 "EHLO mx1.redhat.com"
+Received: from mga03.intel.com ([143.182.124.21]:20279 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753536Ab3DVRtT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Apr 2013 13:49:19 -0400
-In-Reply-To: <20130422145431.GA26838@order.stressinduktion.org>
+	id S1754109Ab3DVRxY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Apr 2013 13:53:24 -0400
+In-Reply-To: <1455e8dd5f574fef93377b61cea8b494102091ef.1366638698.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-04-22 at 16:54 +0200, Hannes Frederic Sowa wrote:
-> On Mon, Apr 22, 2013 at 11:10:34AM +0200, Jesper Dangaard Brouer wrote:
-> > (To avoid pissing people off) I acknowledge that we should change the
-> > hash size, as its ridiculously small with 64 entries.
-> > 
-> > But your mem limit assumption and hash depth limit assumptions are
-> > broken, because the mem limit is per netns (network namespace).
-> > Thus, starting more netns instances will break these assumptions.
-> 
-> Oh, I see. :/
-> 
-> At first I thought we should make the fragment hash per namespace too,
-> to provide better isolation in case of lxc. But then each chrome tab
-> would allocate its own fragment cache, too. Hmm... but people using
-> namespaces have plenty much memory, don't they? We could also provide
-> an inet_fragment namespace. ;)
 
-I'm wondering if we could do the opposite, move the mem limit and LRU
-list "out-of" the netns?
-Either way, this would make the relationship of the mem limit and hash
-size more sane.
+--=-WdUmUz+iNeCf7iIvBzfv
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
+On Mon, 2013-04-22 at 15:53 +0200, Richard Cochran wrote:
+>=20
+> The PTP Hardware Clock settime function in the e1000e driver
+> computes nanoseconds from a struct timespec. The code converts the
+> seconds field .tv_sec by multiplying it with NSEC_PER_SEC. However,
+> both operands are of type long, resulting in an unintended overflow.
+> The patch fixes the issue by using the helper function from time.h.
+>=20
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+> ---
+>  drivers/net/ethernet/intel/e1000e/ptp.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)=20
 
+Thanks Richard, I will add this to my queue.
 
-> > The dangerous part of your change (commit 5a3da1fe) is that you keep the
-> > existing frag queues (and don't allow new frag queues to be created).
-> > The attackers fragments will never finish (timeout 30 sec), while valid
-> > fragments will complete and "exit" the queue, thus the end result is
-> > hash bucket is filled with attackers invalid/incomplete fragments.
-> 
-> I would not mind if your change gets accepted (I have not completyl
-> reviewed it yet), but I have my doubts if it is an advantage to the
-> current solution.
-> 
-> First off, I think an attacker can keep the fragment cache pretty much
-> filled up with little cost. The current implementation has the grace
-> period where no new fragments will be accepted after the DoS, this is
-> solved by your patch. But the change makes it easier for an attacker to
-> evict "valid" fragments from the cache in the first 30 seconds of the
-> DoS, too.
+--=-WdUmUz+iNeCf7iIvBzfv
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-The "grace period" is quite harmful (where no new fragments will be
-accepted).  Just creating 3 netns (3x 4MB mem limit) we can make all
-queues reach 128 entries, resulting in a "grace period" of 30 sec where
-no frags are possible. (min frag size is 1108 bytes with my trafgen
-script).
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
 
+iQIcBAABCgAGBQJRdXkSAAoJEOVv75VaS+3OXMYQAI682+5AXRY5vWMtHGKUqorZ
+xLFMYEl4XKDs76vlM5y/jfBkg3YeVqXcln5JTCcZJHxj6MjdgB6qn76PPNprvoVB
+iDdHgvuIw8c4ua15PYhBTttBBEIBU2kDU1L/I7PaFUr1QufmxMM8qDf7LqDbZpBY
+l6E6hk/CEkwsNsBIpZK1y7gblyuVUkmMf052FWPs+MIZ9OKezoe8zCYK+CHE1/Oq
+EqKqA7JuJ0ZuwK2QbH/ykt5ubrYkYPryrwYfpWGoNXQLOvKWtfEXIcn5ElzfAG8M
+XYf6gIyixqcJ8cV+WmhWwGAkVfJ+mv/n56msH022UPt09V61vlMPXLxaJZVFLHYC
+WuEP2jJEjNYcYIFii61Uwq4JoR52ibHzTN0TZU4b1jx4SWpPCv1J1mFFbknaN6yc
+tLWPXzI6ZvxsOa8SKe24iQNeZ2ILjxuKW2OGXjPdiKk8Rg6Evxb6up2HFnlJxwYb
+Hf3cme4yyh7PKI1ZjKhmt855U8zK7rC0CVV/92hPQ5SZeWdinXYh9d8uKVuLV5os
+9EpHjtVBx090U+72NMngf5NEo8mVp7cj+PNULkH9Wb/vVpsnlLhCwBO4i/KcgzSR
+YP5HfjZtTZdIGvNxY/1wgvGNWJkHp3ilRtfOij1F5lbW7zIU2P6Ig79kO5xxIHN+
+nrn7vl9P07xjDcPzz18a
+=Pn9J
+-----END PGP SIGNATURE-----
 
-> I am not sure whether the current fragmentation handling or your solution
-> does perform better in real world (or if it actually matters).
-> 
-> Nonetheless it does add a bit more complexity and a new sysctl which does
-> expose something the kernel should know how to do better.
-
-Well, actually I don't like exposing the max_hash_depth sysctl, it was a
-wrong idea/move.
-
-I like Eric's idea of resizing the hash based on the max thresh,
-unfortunately this does not make sense when the max thresh is per netns
-and the hash table is global.
-
-I'm also thinking, it is really worth the complexity of having a depth
-limit on this hash table?  Is it that important.  The mem limit should
-at some point kick in and save the day anyhow (before, without per hash
-bucket locking it might make sense).
-
-
-
-> > Besides, after we have implemented per hash bucket locking (in my change
-> > commit 19952cc4 "net: frag queue per hash bucket locking").
-> > Then, I don't think it is a big problem that a single hash bucket is
-> > being "attacked".
-> 
-> I don't know, I wouldn't say so. The contention point is now the per
-> hash bucket lock but it should show the same symptoms as before.
-> 
-> In my opinion we should start resizing the hash table irrespective of
-> the namespace limits (one needs CAP_NET_ADMIN to connect a netns to
-> the outside world, I think) and try to move forward with Patch 3. This
-> patch 2 would then only be a dependency and would introduce the eviction
-> strategy you need for patch 3. But the focus should be on the removal of the
-> lru cleanup. What do you think?
-
-I agree, increasing the hash tables size makes sense, as its
-ridiculously small with 64 entries.
-
-Yes, removal of the (per netns) "global" LRU list should be the real
-focus.  This was just a dependency for introducing the eviction strategy
-I needed for patch 3.
-
-But the eviction strategy in patch-3, is actually also "broken" because
-the mem limit is per netns and we do eviction based on the netns shared
-hash table... thinking of going back to my original idea of simply doing
-LRU lists per CPU.
-
---Jesper
+--=-WdUmUz+iNeCf7iIvBzfv--
