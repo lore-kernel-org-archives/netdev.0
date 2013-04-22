@@ -1,49 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2] rps: selective flow shedding during softnet
- overflow
-Date: Mon, 22 Apr 2013 15:30:08 -0700
-Message-ID: <1366669808.16391.90.camel@edumazet-glaptop>
-References: <CA+FuTSfyo5YdtLpyXPawYoppM7zj5cp1_k1hD7+qWL6DUpNd4Q@mail.gmail.com>
-	 <1366663561-12305-1-git-send-email-willemb@google.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v2 1/2] genl: Allow concurrent genl
+	callbacks.
+Date: Mon, 22 Apr 2013 18:55:21 -0400 (EDT)
+Message-ID: <20130422.185521.711925108684466632.davem@davemloft.net>
+References: <1366320646-16903-1-git-send-email-pshelar@nicira.com>
+	<20130422.161812.1075030033926378895.davem@davemloft.net>
+	<CALnjE+pwo5_j8ChPEHGXWT2kc1U3mVE99xc=XDtp6XtPOytKGA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	stephen@networkplumber.org
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:45987 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753317Ab3DVWaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 18:30:11 -0400
-Received: by mail-ie0-f175.google.com with SMTP id a11so6495576iee.34
-        for <netdev@vger.kernel.org>; Mon, 22 Apr 2013 15:30:10 -0700 (PDT)
-In-Reply-To: <1366663561-12305-1-git-send-email-willemb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CALnjE+pwo5_j8ChPEHGXWT2kc1U3mVE99xc=XDtp6XtPOytKGA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-04-22 at 16:46 -0400, Willem de Bruijn wrote:
+From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Date: Mon, 22 Apr 2013 13:41:41 -0700
 
-> +		len = sizeof(*cur) + netdev_flow_limit_table_len;
-[1]
-> +		mutex_lock(&flow_limit_update_mutex);
-[2]
-> +		for_each_possible_cpu(i) {
-> +			sd = &per_cpu(softnet_data, i);
-> +			cur = rcu_dereference_protected(sd->flow_limit,
-> +				      lockdep_is_held(flow_limit_update_mutex));
-> +			if (cur && !cpumask_test_cpu(i, mask)) {
-> +				RCU_INIT_POINTER(sd->flow_limit, NULL);
-> +				synchronize_rcu();
-> +				kfree(cur);
-> +			} else if (!cur && cpumask_test_cpu(i, mask)) {
-> +				cur = kzalloc(len, GFP_KERNEL);
-> +				cur->num_buckets = netdev_flow_limit_table_len;
-[3]
+> Therefore scatchpad in SKB is protected and parallel netlink dump operations
+> can go only on different netlink sockets.
 
-Its a bit tricky, but the value of netdev_flow_limit_table_len could
-change between [1] and [3]
+What about configuration changes running in parallel with the dump?
 
-So you should read its value once, or protect the whole thing using
-mutex_lock(&flow_limit_update_mutex) in sysctl code ( and move [1] after
-[2])
+You must synchronize with those too, otherwise protecting the
+intra-dump state is meaningless since the underlying objects
+can change underneath the dump.
