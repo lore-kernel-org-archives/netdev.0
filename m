@@ -1,20 +1,20 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
 Subject: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Mon, 22 Apr 2013 13:03:24 +1000
-Message-ID: <20130422130324.43b4521c6b4719ed7a96ef00@canb.auug.org.au>
+Date: Mon, 22 Apr 2013 13:09:39 +1000
+Message-ID: <20130422130939.9162d4f519402dcfc4cdbe0c@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pgp-signature";
  micalg="PGP-SHA256";
- boundary="Signature=_Mon__22_Apr_2013_13_03_24_+1000_BvZUk3/OpZbV/PBH"
+ boundary="Signature=_Mon__22_Apr_2013_13_09_39_+1000_haU4jeNQ36pD63Ll"
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Nandita Dukkipati <nanditad@google.com>
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-next-owner@vger.kernel.org>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Mon__22_Apr_2013_13_03_24_+1000_BvZUk3/OpZbV/PBH
+--Signature=_Mon__22_Apr_2013_13_09_39_+1000_haU4jeNQ36pD63Ll
 Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
@@ -22,120 +22,78 @@ Content-Transfer-Encoding: quoted-printable
 Hi all,
 
 Today's linux-next merge of the net-next tree got a conflict in
-net/ipv4/tcp_input.c between commit 12fb3dd9dc3c ("tcp: call
-tcp_replace_ts_recent() from tcp_ack()") from Linus' tree and commit
-9b717a8d2450 ("tcp: TLP loss detection") from the net-next tree.
+include/net/scm.h between commit 83f1b4ba917d ("net: fix incorrect
+credentials passing") from Linus' tree and commit 6b0ee8c036ec ("scm:
+Stop passing struct cred") from the net-next tree.
 
 I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+is required).  I also applied the following merge fix patch (I am not
+sure if this is correct, but it seems to be consistent):
 
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 22 Apr 2013 13:06:10 +1000
+Subject: [PATCH] net: af_unix fix for incorrect credentials passing
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ net/unix/af_unix.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 5ca1631..9efe011 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1414,7 +1414,7 @@ static void maybe_add_creds(struct sk_buff *skb, cons=
+t struct socket *sock,
+ 	    !other->sk_socket ||
+ 	    test_bit(SOCK_PASSCRED, &other->sk_socket->flags)) {
+ 		UNIXCB(skb).pid  =3D get_pid(task_tgid(current));
+-		current_euid_egid(&UNIXCB(skb).uid, &UNIXCB(skb).gid);
++		current_uid_gid(&UNIXCB(skb).uid, &UNIXCB(skb).gid);
+ 	}
+ }
+=20
 --=20
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 
-diff --cc net/ipv4/tcp_input.c
-index 13b9c08,6d9ca35..0000000
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@@ -108,12 -107,10 +107,11 @@@ int sysctl_tcp_early_retrans __read_mos
-  #define FLAG_DATA_SACKED	0x20 /* New SACK.				*/
-  #define FLAG_ECE		0x40 /* ECE in this ACK				*/
-  #define FLAG_SLOWPATH		0x100 /* Do not skip RFC checks for window update.=
-*/
-- #define FLAG_ONLY_ORIG_SACKED	0x200 /* SACKs only non-rexmit sent before =
-RTO */
-+ #define FLAG_ORIG_SACK_ACKED	0x200 /* Never retransmitted data are (s)ack=
-ed	*/
-  #define FLAG_SND_UNA_ADVANCED	0x400 /* Snd_una was changed (!=3D FLAG_DAT=
-A_ACKED) */
-  #define FLAG_DSACKING_ACK	0x800 /* SACK blocks contained D-SACK info */
-- #define FLAG_NONHEAD_RETRANS_ACKED	0x1000 /* Non-head rexmitted data was =
-ACKed */
-  #define FLAG_SACK_RENEGING	0x2000 /* snd_una advanced to a sacked seq */
- +#define FLAG_UPDATE_TS_RECENT	0x4000 /* tcp_replace_ts_recent() */
- =20
-  #define FLAG_ACKED		(FLAG_DATA_ACKED|FLAG_SYN_ACKED)
-  #define FLAG_NOT_DUP		(FLAG_DATA|FLAG_WIN_UPDATE|FLAG_ACKED)
-@@@ -3565,27 -3265,38 +3266,59 @@@ static void tcp_send_challenge_ack(stru
-  	}
-  }
- =20
- +static void tcp_store_ts_recent(struct tcp_sock *tp)
- +{
- +	tp->rx_opt.ts_recent =3D tp->rx_opt.rcv_tsval;
- +	tp->rx_opt.ts_recent_stamp =3D get_seconds();
- +}
- +
- +static void tcp_replace_ts_recent(struct tcp_sock *tp, u32 seq)
- +{
- +	if (tp->rx_opt.saw_tstamp && !after(seq, tp->rcv_wup)) {
- +		/* PAWS bug workaround wrt. ACK frames, the PAWS discard
- +		 * extra check below makes sure this can only happen
- +		 * for pure ACK frames.  -DaveM
- +		 *
- +		 * Not only, also it occurs for expired timestamps.
- +		 */
- +
- +		if (tcp_paws_check(&tp->rx_opt, 0))
- +			tcp_store_ts_recent(tp);
- +	}
- +}
- +
-+ /* This routine deals with acks during a TLP episode.
-+  * Ref: loss detection algorithm in draft-dukkipati-tcpm-tcp-loss-probe.
-+  */
-+ static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)
-+ {
-+ 	struct tcp_sock *tp =3D tcp_sk(sk);
-+ 	bool is_tlp_dupack =3D (ack =3D=3D tp->tlp_high_seq) &&
-+ 			     !(flag & (FLAG_SND_UNA_ADVANCED |
-+ 				       FLAG_NOT_DUP | FLAG_DATA_SACKED));
-+=20
-+ 	/* Mark the end of TLP episode on receiving TLP dupack or when
-+ 	 * ack is after tlp_high_seq.
-+ 	 */
-+ 	if (is_tlp_dupack) {
-+ 		tp->tlp_high_seq =3D 0;
-+ 		return;
-+ 	}
-+=20
-+ 	if (after(ack, tp->tlp_high_seq)) {
-+ 		tp->tlp_high_seq =3D 0;
-+ 		/* Don't reduce cwnd if DSACK arrives for TLP retrans. */
-+ 		if (!(flag & FLAG_DSACKING_ACK)) {
-+ 			tcp_init_cwnd_reduction(sk, true);
-+ 			tcp_set_ca_state(sk, TCP_CA_CWR);
-+ 			tcp_end_cwnd_reduction(sk);
-+ 			tcp_set_ca_state(sk, TCP_CA_Open);
-+ 			NET_INC_STATS_BH(sock_net(sk),
-+ 					 LINUX_MIB_TCPLOSSPROBERECOVERY);
-+ 		}
-+ 	}
-+ }
-+=20
-  /* This routine deals with incoming acks, but not outgoing ones. */
-  static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+diff --cc include/net/scm.h
+index b117081,5a4c6a9..0000000
+--- a/include/net/scm.h
++++ b/include/net/scm.h
+@@@ -81,8 -75,10 +75,10 @@@ static __inline__ int scm_send(struct s
+  			       struct scm_cookie *scm, bool forcecreds)
   {
+  	memset(scm, 0, sizeof(*scm));
++ 	scm->creds.uid =3D INVALID_UID;
++ 	scm->creds.gid =3D INVALID_GID;
+  	if (forcecreds)
+- 		scm_set_cred(scm, task_tgid(current), current_cred());
+ -		scm_set_cred(scm, task_tgid(current), current_euid(), current_egid());
+++		scm_set_cred(scm, task_tgid(current), current_uid(), current_gid());
+  	unix_get_peersec_dgram(sock, scm);
+  	if (msg->msg_controllen <=3D 0)
+  		return 0;
 
---Signature=_Mon__22_Apr_2013_13_03_24_+1000_BvZUk3/OpZbV/PBH
+--Signature=_Mon__22_Apr_2013_13_09_39_+1000_haU4jeNQ36pD63Ll
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAEBCAAGBQJRdKh8AAoJEECxmPOUX5FEWdMP/jAG4uoLfXBannwYXMTLWtCq
-Bk0E2TbPoco+gJZDe89Zvo2v5qyh9H+XbMSC8vLILYudNHfzhMBEsVBoX3mrLrL1
-j9jsh8kBNReReU0+d2Dthe/tQ/C7c91jGAx/zv8VNg1ALzxYzbOmPPHCo1jcwkaL
-J8dwu0Yf1FlSgA4qRHhycgD0AJoiUbm0n2MlbQCYYY0hbwF47mnSU07obWZ9m2oy
-M/qVbzNdKUF3W5pGyPIXznono4J+h5NI2um4BPDvqm4M+eqrQtCZdudxR0EBcyTU
-uRG9U/Ea/rXhe7485B/+DmYCaaITZKNHwkx5ApVGqF9dskfTRGoD25hWKXvx91pL
-42Id0jN1w1A3uu2cFGJiOfnvj8RIQz7Y2vmTKwgbixcvASwlbe/UwwgPGv4b0GTs
-NsaerwisxQwJbDxvZzI0GBNY+zU8DcMgJOJkigU5b22zMwv1FFwYHVG2GVQshnAI
-xg3eiQXOrN2xDuOAYJnpUY07SQfIUrEsTDqVqH6+mpMw13UQYqgpuP0wwp6i0f7m
-K3tb+Cns53/bDnbXG0vUZWJmVBKXr+o73YrUxFmEmb69r4qg4m5eg6Cum9LbqicY
-2vcMAOuOW9adiQVpRuHsi0CloAJnWuTRGyPWU1k/U0luOaYspgdQXOrJ5AlgN6SV
-gupQHS7z8qBDSOrwwzP6
-=JLzS
+iQIcBAEBCAAGBQJRdKnzAAoJEECxmPOUX5FEy+wP/2ZZsx/cbErMLaulHyCCBNMz
+ScX+KUXgezIVPblY0ysyUvYC5JIag2+72FWGfn3Yx1PpS8UxaImLq6wNTGsXN/wC
+TBxw7uFxcBlMrfSpkZImsCbvj92epfQztFAYNks3xax3UMOqIrdbTd/TI/0Fvvd4
+Ee09qUvf49wPnmtg+gPgZX4mVP5tpjUL0SDPXHG2QReC8Fm+GsYArE47elALkZVP
+0JzZ8WgWbFP52cl58BEp9vV2oKwcKI5qMTLfPIU3XrIuUkivi9UUadHDybimZ0Cf
+9GHtQote5rT/DG295pC3I+q+vwPOrYtV4/3Y9ZY9VpI6zNfpZzVDIz87fkuFAKJ6
+QoEpBLXbPBdmZ6ncw6uemoyBGOyPCjDQITxu1OW1/kWJym9jtrSrIt6/C14GCMIG
+ltWflWFdOb970ovHkbTROwJn971sEvxE/Jx4MHg833mhjrZhr3vjXSGrPdlRq6Jb
+XXZxjtBcpp0Uk7PdsTW2kG6HXpE7rf40LPhptAgoLP4NG47vq0YOJpWK/XLRbMXt
+b2fI+6/n5dz9lUT+xN/HyEBIoJFkIv8DAijDSpSSLyfciVibKuCeQiZfzyYaOVRl
+T+/pb/YeNV/iV8cf4jrdHzmFrxe+PiLaXbpq1EBcQMDlHQYRq1WeOL5N7Z3iRNLo
+YDofsj0J+yPtXgvBnZWW
+=yt+e
 -----END PGP SIGNATURE-----
 
---Signature=_Mon__22_Apr_2013_13_03_24_+1000_BvZUk3/OpZbV/PBH--
+--Signature=_Mon__22_Apr_2013_13_09_39_+1000_haU4jeNQ36pD63Ll--
