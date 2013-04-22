@@ -1,51 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 1/2] genl: Allow concurrent genl callbacks.
-Date: Mon, 22 Apr 2013 16:18:12 -0400 (EDT)
-Message-ID: <20130422.161812.1075030033926378895.davem@davemloft.net>
-References: <1366320646-16903-1-git-send-email-pshelar@nicira.com>
+Subject: you must fix this
+Date: Mon, 22 Apr 2013 16:23:01 -0400 (EDT)
+Message-ID: <20130422.162301.2219305973270706624.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, jesse@nicira.com
+Cc: netdev@vger.kernel.org
 To: pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37900 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37938 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754895Ab3DVUSO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 16:18:14 -0400
-In-Reply-To: <1366320646-16903-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S1755089Ab3DVUXE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 16:23:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Thu, 18 Apr 2013 14:30:46 -0700
 
-> All genl callbacks are serialized by genl-mutex. This can become
-> bottleneck in multi threaded case.
-> Following patch adds an parameter to genl_family so that a
-> particular family can get concurrent netlink callback without
-> genl_lock held.
-> New rw-sem is used to protect genl callback from genl family unregister.
-> in case of lockless genl-family read-lock is taken for callbacks and
-> write lock is taken for register or unregistration for any family.
-> In case of locked genl family semaphore and gel-mutex is locked for
-> any openration.
-> 
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+You CANNOT call into functional ipv6 functions from unrelated
+kernel modules:
 
-I don't think you can do this.
+net/built-in.o: In function `ip_tunnel_xmit':
+/home/davem/src/GIT/net-next/net/ipv4/ip_tunnel.c:619: undefined reference to `icmpv6_send'
 
-Dumps happen in several passes, and the dumps keep track of where
-we are in the dump by using a scratchpad in the SKB.  That means
-we have state that must stay sane across several dump invocations.
+There is no way I can allow this, it requires a call into IPV6 proper
+to a function that cannot be added to one of the source files we
+force building statically into the kernel such as addrconf_core.c
 
-This means we have to keep out set operations while the dump is
-happening.
+Right now things are completely broken with IPV6=y and everything
+else modular, and that is not acceptable.
 
-That means we have to hold a mutex over all configurations changes.
+DO NOT fix this by adding Kconfig dependencies, and DO NOT fix this
+by mucking with ugly ifdefs the ip_tunnel.c
 
-I do not like this change, and don't intend to apply it nor the
-openvswitch stuff.
-
-If you don't like my position, get one of the netlink experts to
-chime in since none of them have reviewed this stuff yet.
+You have to remove this need to call into a stateful portion of
+the IPV6 code, portions which cannot be moved into simply helper
+functions which get statically linked into the kernel.
