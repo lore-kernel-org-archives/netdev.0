@@ -1,45 +1,34 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 0/5] of_platform_driver and OF_DEVICE removal
-Date: Mon, 22 Apr 2013 09:03:54 +0200
-Message-ID: <201304220903.54788.arnd@arndb.de>
-References: <1366596798-9457-1-git-send-email-robherring2@gmail.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: Re: [PATCH 2/5] net/cpsw: don't continue if we miss to allocate rx
+ skbs
+Date: Mon, 22 Apr 2013 10:05:31 +0200
+Message-ID: <5174EF4B.7090800@linutronix.de>
+References: <1366235536-15744-1-git-send-email-bigeasy@linutronix.de> <1366235536-15744-3-git-send-email-bigeasy@linutronix.de> <516FDDEE.6030906@ti.com> <516FE26C.5040601@linutronix.de> <51711F0A.50204@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Alexander Shishkin <alexander.shishkin@linux.intel.com>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	"Hoang-Nam Nguyen" <hnguyen@de.ibm.com>,
-	linuxppc-dev@lists.ozlabs.org, linux-rdma@vger.kernel.org,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Paul Mackerras <paulus@samba.org>,
-	Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-To: Rob Herring <robherring2@gmail.com>
+Cc: netdev@vger.kernel.org, tglx@linutronix.de,
+	"David S. Miller" <davem@davemloft.net>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:60311 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752739Ab3DVHES (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 03:04:18 -0400
-In-Reply-To: <1366596798-9457-1-git-send-email-robherring2@gmail.com>
+Received: from www.linutronix.de ([62.245.132.108]:56474 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754365Ab3DVIFe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 04:05:34 -0400
+In-Reply-To: <51711F0A.50204@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 22 April 2013, Rob Herring wrote:
-> From: Rob Herring <rob.herring@calxeda.com>
-> 
-> This series is a relatively straight-forward removal of the last remaining
-> user of of_platform_driver (ibmebus) and removal of CONFIG_OF_DEVICE which
-> is always enabled when CONFIG_OF is enabled.
-> 
-> Compile tested on powerpc and sparc.
-> 
+On 04/19/2013 12:40 PM, Mugunthan V N wrote:
+> But i am seeing most of the drivers allowing to open the device with lesser
+> rx skb count? But i don't know where this has been changed recently, may
+> be some other network experts can comment on this.
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+If you configure a special value in your device tree you should obey
+it or else you won't the same result.
+
+> 
+> Regards
+> Mugunthan V N
+
+Sebastian
