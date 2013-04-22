@@ -1,73 +1,96 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net-next V7 4/4] xen-netback: don't disconnect frontend when seeing oversize packet
-Date: Mon, 22 Apr 2013 13:20:43 +0100
-Message-ID: <1366633243-17775-5-git-send-email-wei.liu2@citrix.com>
+Subject: [PATCH net-next V7 2/4] xen-netfront: reduce gso_max_size to account for max TCP header
+Date: Mon, 22 Apr 2013 13:20:41 +0100
+Message-ID: <1366633243-17775-3-git-send-email-wei.liu2@citrix.com>
 References: <1366633243-17775-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
-	<ian.campbell@citrix.com>, Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
+	<ian.campbell@citrix.com>, Wei Liu <wei.liu2@citrix.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp02.citrix.com ([66.165.176.63]:5311 "EHLO SMTP02.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753099Ab3DVMVH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Apr 2013 08:21:07 -0400
+	id S1753127Ab3DVMVD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Apr 2013 08:21:03 -0400
 In-Reply-To: <1366633243-17775-1-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some frontend drivers are sending packets > 64 KiB in length. This length
-overflows the length field in the first slot making the following slots have
-an invalid length.
+The maximum packet including header that can be handled by netfront / netback
+wire format is 65535. Reduce gso_max_size accordingly.
 
-Turn this error back into a non-fatal error by dropping the packet. To avoid
-having the following slots having fatal errors, consume all slots in the
-packet.
+Drop skb and print warning when skb->len > 65535. This can 1) save the effort
+to send malformed packet to netback, 2) help spotting misconfiguration of
+netfront in the future.
 
-This does not reopen the security hole in XSA-39 as if the packet as an
-invalid number of slots it will still hit fatal error case.
-
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
 Signed-off-by: Wei Liu <wei.liu2@citrix.com>
 Acked-by: Ian Campbell <ian.campbell@citrix.com>
 ---
- drivers/net/xen-netback/netback.c |   22 ++++++++++++++++------
- 1 file changed, 16 insertions(+), 6 deletions(-)
+ drivers/net/xen-netfront.c       |   17 +++++++++++++++--
+ include/xen/interface/io/netif.h |    1 +
+ 2 files changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index d9292c5..a2865f1 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -975,12 +975,22 @@ static int netbk_count_requests(struct xenvif *vif,
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 1bb2e20..1db10141 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -36,7 +36,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/ethtool.h>
+ #include <linux/if_ether.h>
+-#include <linux/tcp.h>
++#include <net/tcp.h>
+ #include <linux/udp.h>
+ #include <linux/moduleparam.h>
+ #include <linux/mm.h>
+@@ -547,6 +547,16 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	unsigned int len = skb_headlen(skb);
+ 	unsigned long flags;
  
- 		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + slots),
- 		       sizeof(*txp));
--		if (txp->size > first->size) {
--			netdev_err(vif->dev,
--				   "Invalid tx request, slot size %u > remaining size %u\n",
--				   txp->size, first->size);
--			netbk_fatal_tx_err(vif);
--			return -EIO;
++	/* If skb->len is too big for wire format, drop skb and alert
++	 * user about misconfiguration.
++	 */
++	if (unlikely(skb->len > XEN_NETIF_MAX_TX_SIZE)) {
++		net_alert_ratelimited(
++			"xennet: skb->len = %u, too big for wire format\n",
++			skb->len);
++		goto drop;
++	}
 +
-+		/* If the guest submitted a frame >= 64 KiB then
-+		 * first->size overflowed and following slots will
-+		 * appear to be larger than the frame.
-+		 *
-+		 * This cannot be fatal error as there are buggy
-+		 * frontends that do this.
-+		 *
-+		 * Consume all slots and drop the packet.
-+		 */
-+		if (!drop_err && txp->size > first->size) {
-+			if (net_ratelimit())
-+				netdev_dbg(vif->dev,
-+					   "Invalid tx request, slot size %u > remaining size %u\n",
-+					   txp->size, first->size);
-+			drop_err = -EIO;
- 		}
+ 	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
+ 		xennet_count_skb_frag_slots(skb);
+ 	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
+@@ -1058,7 +1068,8 @@ err:
  
- 		first->size -= txp->size;
+ static int xennet_change_mtu(struct net_device *dev, int mtu)
+ {
+-	int max = xennet_can_sg(dev) ? 65535 - ETH_HLEN : ETH_DATA_LEN;
++	int max = xennet_can_sg(dev) ?
++		XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER : ETH_DATA_LEN;
+ 
+ 	if (mtu > max)
+ 		return -EINVAL;
+@@ -1362,6 +1373,8 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
+ 	SET_ETHTOOL_OPS(netdev, &xennet_ethtool_ops);
+ 	SET_NETDEV_DEV(netdev, &dev->dev);
+ 
++	netif_set_gso_max_size(netdev, XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER);
++
+ 	np->netdev = netdev;
+ 
+ 	netif_carrier_off(netdev);
+diff --git a/include/xen/interface/io/netif.h b/include/xen/interface/io/netif.h
+index 9dfc120..58fadca 100644
+--- a/include/xen/interface/io/netif.h
++++ b/include/xen/interface/io/netif.h
+@@ -47,6 +47,7 @@
+ #define _XEN_NETTXF_extra_info		(3)
+ #define  XEN_NETTXF_extra_info		(1U<<_XEN_NETTXF_extra_info)
+ 
++#define XEN_NETIF_MAX_TX_SIZE 0xFFFF
+ struct xen_netif_tx_request {
+     grant_ref_t gref;      /* Reference to buffer page */
+     uint16_t offset;       /* Offset within buffer page */
 -- 
 1.7.10.4
