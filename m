@@ -1,64 +1,105 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH 3/5 v2] net/cpsw: don't rely only on netif_running() to
- check which device is active
-Date: Mon, 22 Apr 2013 15:42:43 +0530
-Message-ID: <51750D1B.4060600@ti.com>
-References: <1366235536-15744-1-git-send-email-bigeasy@linutronix.de> <1366235536-15744-4-git-send-email-bigeasy@linutronix.de> <516FDE0A.70504@ti.com> <516FE2AD.2040403@linutronix.de> <51711E0B.4000306@ti.com> <20130422083048.GA8162@linutronix.de> <5174FF93.8070408@ti.com> <51750334.8050807@linutronix.de> <51750587.5020801@ti.com> <517507A6.2090609@linutronix.de>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH v3 net-next 1/6] bnx2x: refactor nvram read procedure
+Date: Mon, 22 Apr 2013 13:15:03 +0300
+Message-ID: <1366625708-5678-2-git-send-email-dmitry@broadcom.com>
+References: <1366625708-5678-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <tglx@linutronix.de>,
-	"David S. Miller" <davem@davemloft.net>
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Cc: romueu@fz.zoreil.com, "Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Francious Romieu" <romieu@fz.zoreil.com>
+To: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:36139 "EHLO bear.ext.ti.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4196 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751119Ab3DVKNd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Apr 2013 06:13:33 -0400
-In-Reply-To: <517507A6.2090609@linutronix.de>
+	id S1752818Ab3DVKP0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Apr 2013 06:15:26 -0400
+In-Reply-To: <1366625708-5678-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/22/2013 3:19 PM, Sebastian Andrzej Siewior wrote:
-> On 04/22/2013 11:40 AM, Mugunthan V N wrote:
->> Yes, when interrupt is disabled in hardware then interrupt must be
->> disabled in
-> here is a word missing and I can't figure it out.
->
->> my initial days i have verified it, CPSW doesn't allow any new
->> interrupts to
->> propagate  to arm if CPSW interrupt is disabled but there is an issue.
-> Not completed i.e. outstanding I think.
->
->> CPSW irq
->> signal is not directly connected to irq controller, it is connected via
->> edge to
->> level conversion so if one interrupt reaches arm, irq controller has to be
->> disabled else arm get blocked in CPSW ISR.
-> Okay. Is there an errata document describing this behavior? If the CPSW
-> interrupt source is disabled, the CPSW should keep quiet. This is also
-> what the manual says. If cpsw does not allow new interrupts to
-> propagate to ARM's INTC then there is something wrong. It looks like
-> the source is not disabled in CPSW properly. This works on ES1.0.
->
-> Lets get back to this ofter this series of five is merged.
->
-Sorry there was a formatting issue...
+introduce a procedure to read in u32 granularity.
 
-Yes, when interrupt is disabled in hardware then interrupt must be disabled.
-In my initial days i have verified it, CPSW doesn't allow any new 
-interrupts to
-propagate  to arm if CPSW interrupt is disabled which is correct. CPSW irq
-signal is not directly connected to irq controller, it is connected via 
-edge to
-level conversion so it is a kind of latched interrupt and so the 
-interrupt has
-to be disabled in interrupt controller to disable the interrupt, else 
-arm get
-blocked in CPSW ISR.
+CC: Francious Romieu <romieu@fz.zoreil.com>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    | 28 ++++++++++++++++------
+ 1 file changed, 21 insertions(+), 7 deletions(-)
 
-This behavior is not only in AM335x CPSW, it is as is from its previous
-versions in TI814x and TI8107.
-
-Regards
-Mugunthan V N
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index 129d6b2..79e5196 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -1364,6 +1364,23 @@ static int bnx2x_nvram_read(struct bnx2x *bp, u32 offset, u8 *ret_buf,
+ 	return rc;
+ }
+ 
++static int bnx2x_nvram_read32(struct bnx2x *bp, u32 offset, u32 *buf,
++			      int buf_size)
++{
++	int rc;
++
++	rc = bnx2x_nvram_read(bp, offset, (u8 *)buf, buf_size);
++
++	if (!rc) {
++		__be32 *be = (__be32 *)buf;
++
++		while ((buf_size -= 4) >= 0)
++			*buf++ = be32_to_cpu(*be++);
++	}
++
++	return rc;
++}
++
+ static int bnx2x_get_eeprom(struct net_device *dev,
+ 			    struct ethtool_eeprom *eeprom, u8 *eebuf)
+ {
+@@ -2598,8 +2615,7 @@ static int bnx2x_test_nvram(struct bnx2x *bp)
+ 		{ 0x708,  0x70 }, /* manuf_key_info */
+ 		{     0,     0 }
+ 	};
+-	__be32 *buf;
+-	u8 *data;
++	u8 *buf;
+ 	int i, rc;
+ 	u32 magic, crc;
+ 
+@@ -2612,16 +2628,14 @@ static int bnx2x_test_nvram(struct bnx2x *bp)
+ 		rc = -ENOMEM;
+ 		goto test_nvram_exit;
+ 	}
+-	data = (u8 *)buf;
+ 
+-	rc = bnx2x_nvram_read(bp, 0, data, 4);
++	rc = bnx2x_nvram_read32(bp, 0, &magic, sizeof(magic));
+ 	if (rc) {
+ 		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
+ 		   "magic value read (rc %d)\n", rc);
+ 		goto test_nvram_exit;
+ 	}
+ 
+-	magic = be32_to_cpu(buf[0]);
+ 	if (magic != 0x669955aa) {
+ 		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
+ 		   "wrong magic value (0x%08x)\n", magic);
+@@ -2631,7 +2645,7 @@ static int bnx2x_test_nvram(struct bnx2x *bp)
+ 
+ 	for (i = 0; nvram_tbl[i].size; i++) {
+ 
+-		rc = bnx2x_nvram_read(bp, nvram_tbl[i].offset, data,
++		rc = bnx2x_nvram_read(bp, nvram_tbl[i].offset, buf,
+ 				      nvram_tbl[i].size);
+ 		if (rc) {
+ 			DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
+@@ -2639,7 +2653,7 @@ static int bnx2x_test_nvram(struct bnx2x *bp)
+ 			goto test_nvram_exit;
+ 		}
+ 
+-		crc = ether_crc_le(nvram_tbl[i].size, data);
++		crc = ether_crc_le(nvram_tbl[i].size, buf);
+ 		if (crc != CRC32_RESIDUAL) {
+ 			DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
+ 			   "nvram_tbl[%d] wrong crc value (0x%08x)\n", i, crc);
+-- 
+1.8.1.4
