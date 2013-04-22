@@ -1,59 +1,76 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [patch] ipvs: off by one in set_sctp_state()
-Date: Mon, 22 Apr 2013 09:03:28 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1304220843560.1626@ja.ssi.bg>
-References: <20130420112455.GA30198@elgon.mountain> <alpine.LFD.2.00.1304201504510.1593@ja.ssi.bg> <20130422041151.GM15680@verge.net.au>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [PATCH] Net: mac802154: comparing issue by type cast, finding by
+ EXTRA_CFLAGS=-W
+Date: Mon, 22 Apr 2013 14:41:11 +0800
+Message-ID: <5174DB87.3010908@asianux.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20130422041151.GM15680@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	linux-zigbee-devel@lists.sourceforge.net,
+	netdev <netdev@vger.kernel.org>
+To: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from intranet.asianux.com ([58.214.24.6]:50418 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753212Ab3DVGl4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 02:41:56 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-	Hello,
+  need change ~(u8)0 to 0xff,
+  or in mac802154_wpan_xmit(), "u8 chan" will never == MAC802154_CHAN_NONE
 
-On Mon, 22 Apr 2013, Simon Horman wrote:
+  find it by "make EXTRA_CFLAGS=-W"
+    net/mac802154/wpan.c:325:2: warning: comparison is always false
+    due to limited range of data type [-Wtype-limits]
 
-> > 	There are more confusing (still, non-fatal)
-> > problems in this IPVS-SCTP support, eg.
-> > 
-> >         if (direction == IP_VS_DIR_OUTPUT)
-> > -               event++;
-> > +               event *= 2;
-> > 
-> > 	I guess we are running with wrong timeouts.
-> 
-> IMHO there seem to be many problems with SCTP, but it is good to
-> fix the ones we find as we find them.
+  related unit test:
+    cc -Wall -O2 -o test test.c
+    ./test
+    will output 'different'
 
-	At the time I found it (during IPVS optimizations
-development), it didn't looked fatal, I preferred to
-allocate more time for SCTP for debugging.
+    (after use '0xff' instead of '~(u8)0', it will output 'equal')
 
-> Would you like to make a patch for the above change or should I?
+-----------------------test code begin--------------------------------
 
-	May be the code is correct, my mistake. I was
-confused from the order in sctp_events[] but ipvs_sctp_event_t
-allocates values for _SER states.
+#include <stdio.h>
 
-> > 	Also, I'm not sure we support properly the
-> > one-way states as done for TCP (IP_VS_DIR_INPUT_ONLY).
-> > May be this code deserves more serious review, for example,
-> > net/netfilter/nf_conntrack_proto_sctp.c looks as good
-> > source for comparison.
-> 
-> I believe it does need a more serious review.
+typedef unsigned char u8;
 
-Regards
+int main()
+{
+	u8 uc = 0xff;
 
---
-Julian Anastasov <ja@ssi.bg>
+	if (uc == ~(u8)0)
+		printf("\nequal\n");
+	else
+		printf("\ndifferent\n");
+
+	return 0;
+}
+
+-----------------------test code end----------------------------------
+
+
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+---
+ net/mac802154/mac802154.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
+index 5c9e021..c59309f 100644
+--- a/net/mac802154/mac802154.h
++++ b/net/mac802154/mac802154.h
+@@ -88,7 +88,7 @@ struct mac802154_sub_if_data {
+ 
+ #define mac802154_to_priv(_hw)	container_of(_hw, struct mac802154_priv, hw)
+ 
+-#define MAC802154_CHAN_NONE		(~(u8)0) /* No channel is assigned */
++#define MAC802154_CHAN_NONE		(0xff) /* No channel is assigned */
+ 
+ extern struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced;
+ extern struct ieee802154_mlme_ops mac802154_mlme_wpan;
+-- 
+1.7.7.6
