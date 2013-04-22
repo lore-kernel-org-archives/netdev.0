@@ -1,111 +1,83 @@
-From: Lucas Stach <l.stach@pengutronix.de>
-Subject: Re: [PATCH 0/3] URGENT for 3.9: net: fec: revert NAPI introduction
-Date: Mon, 22 Apr 2013 10:56:38 +0200
-Message-ID: <1366620998.4141.28.camel@weser.hi.pengutronix.de>
-References: <1366382164-10968-1-git-send-email-l.stach@pengutronix.de>
-	 <CAOMZO5D5+bZ9NvF7HvVsne1ktZDDYPqZgomHkSaydrn2UEvBcQ@mail.gmail.com>
-	 <CAHrpEqQyG68v4VMDNEwcobhHqkuP_ORH9KA3OZD=2xAoJCMNOQ@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH 2/3] net: fix enforcing of fragment queue hash
+ list depth
+Date: Mon, 22 Apr 2013 11:10:34 +0200
+Message-ID: <1366621834.26911.271.camel@localhost>
+References: <20130418213637.14296.43143.stgit@dragon>
+	 <20130418213732.14296.36026.stgit@dragon>
+	 <1366366287.3205.98.camel@edumazet-glaptop>
+	 <1366373950.26911.134.camel@localhost>
+	 <20130419124528.GF27889@order.stressinduktion.org>
+	 <1366381742.26911.166.camel@localhost>
+	 <20130419194424.GI27889@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Fabio Estevam <festevam@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	Shawn Guo <shawn.guo@linaro.org>
-To: Frank Li <lznuaa@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:58191 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753129Ab3DVI5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 04:57:42 -0400
-In-Reply-To: <CAHrpEqQyG68v4VMDNEwcobhHqkuP_ORH9KA3OZD=2xAoJCMNOQ@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:8643 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753838Ab3DVJKk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Apr 2013 05:10:40 -0400
+In-Reply-To: <20130419194424.GI27889@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
-
-Am Samstag, den 20.04.2013, 20:35 +0800 schrieb Frank Li:
-> 2013/4/20 Fabio Estevam <festevam@gmail.com>
-> >
-> > Lucas,
-> >
-> > On Fri, Apr 19, 2013 at 11:36 AM, Lucas Stach <l.stach@pengutronix.de> wrote:
-> > > Those patches introduce instability to the point of kernel OOPSes with
-> > > NULL-ptr dereferences.
-> > >
-> > > The patches drop locks from the code without justifying why this would
-> > > be safe at all. In fact it isn't safe as now the controller restart can
-> > > happily free the RX and TX ring buffers while the NAPI poll function is
-> > > still accessing them. So with a heavily loaded but slightly instable
+On Fri, 2013-04-19 at 21:44 +0200, Hannes Frederic Sowa wrote:
+> On Fri, Apr 19, 2013 at 04:29:02PM +0200, Jesper Dangaard Brouer wrote:
+> > Well, I don't know.  But we do need some solution, to the current code.
 > 
-> I think a possible solution is disable NAPI in restart function.
-> So only one thread can reset BD queue.
+> In <http://article.gmane.org/gmane.linux.network/261361> I said that we could
+> actually have a list lengt of about 370. At this time this number was stable,
+> perhaps you could verify?
 > 
-> BD queue is nolock design.
+> I tried to flood the cache with very minimal packets so this was actually
+> the hint that I should have resized the hash back then. With the current
+> fragmentation cache design we could reach optimal behaviour as soon
+> as the memory limits kicks in and lru eviction starts before we limit the
+> fragments queues in the hash chains. The only way to achieve this is to
+> increase the hash table slots and lower the maximum length limit. I would
+> propose a limit of about 25-32 and as Eric said, a hash size of 1024. We could
+> test if we are limited of accepting new fragments by memory limit (which would
+> be fine because lru eviction kicks in) or by chain length (we could recheck
+> the numbers then).
 > 
-It doesn't matter at all that the hardware BD queue is designed to be
-operated lockless, you still have to synchronize the driver functions to
-each other and explicit locks are a far better way to achieve this than
-some implicit tunneling through a single thread or other such things.
+> So the chain limit would only kick in if someone tries to exploit the fragment
+> cache by using the method I demonstrated before (which was the reason I
+> introduced this limit).
 
-Let us please try and concentrate on making things safe and easy to
-understand and not introduce possibilities for breakage in the future,
-when the next change goes into the driver.
+(To avoid pissing people off) I acknowledge that we should change the
+hash size, as its ridiculously small with 64 entries.
 
-> Can you provide test case?
-> 
-The test case is already described in my original mail: heavily loaded
-link, so NAPI has to do some spinning in the receive function while
-having the link flapping.
+But your mem limit assumption and hash depth limit assumptions are
+broken, because the mem limit is per netns (network namespace).
+Thus, starting more netns instances will break these assumptions.
 
-> > > link we regularly end up with OOPSes because link change restarts
-> > > the FEC and bombs away buffers still in use.
-> > >
-> > > Also the NAPI enabled interrupt handler ACKs the INT and only later
-> > > masks it, this way introducing a window where new interrupts could sneak
-> > > in while we are already in polling mode.
-> > >
-> > > As it's way too late in the cycle to try and fix this up just revert the
-> > > relevant patches for now.
-> >
-> > What about restoring the spinlocks and masking the int first?
-> >
-While reintroducing the spinlocks might fix the problem (I'll retest
-that today) we are now holding a big lock for extended periods of time,
-so while we are spinning in the receive poll function we are not able to
-enqueue new TX buffers. This is also a problem with the original
-patches, as they are mashing together the TX and RX interrupts.
+The dangerous part of your change (commit 5a3da1fe) is that you keep the
+existing frag queues (and don't allow new frag queues to be created).
+The attackers fragments will never finish (timeout 30 sec), while valid
+fragments will complete and "exit" the queue, thus the end result is
+hash bucket is filled with attackers invalid/incomplete fragments.
 
-Dave, even if the reverts are intrusive I'm still not convinced that we
-should try and fix this up in the short period of time we have left
-until the 3.9 final release.
 
-To fix all this properly we would have to fix at least the following
-things:
-1. Split up the spinlock into two independent locks for RX and TX.
-Interrupt handlers should only take their respective lock, things like
-the FEC restart, who want to mess with both queues have to take both
-locks.
-2. Move locking to the right places, there is zero reason why the
-adjust_link PHY callback has to take the locks, but rather FEC restart
-should take them.
-3. Introduce separate NAPI contexts for RX and TX, to get around one of
-them blocking the other.
+Besides, after we have implemented per hash bucket locking (in my change
+commit 19952cc4 "net: frag queue per hash bucket locking").
+Then, I don't think it is a big problem that a single hash bucket is
+being "attacked".
 
-I doubt this will be less intrusive than reverting the offending patches
-for now and taking a new stab at NAPI support in the next cycle.
+IMHO we should just revert the change (commit 5a3da1fe), and increase
+the hash size and fix the hashing for IPv6.
 
-Also I suspect the patch "net: fec: put tx to napi poll function to fix
-dead lock" to introduce a more subtle problem in the ring buffer
-accounting (why does this patch even change the way ring buffers are
-tracked?) which triggers on rarer occasions, but I have to test if this
-is still there with the lock added back.
 
-Regards,
-Lucas
+And then I'll find another method for fixing the global LRU list
+scalability problem (than the "direct-hash-cleaning" method).
+
+
 -- 
-Pengutronix e.K.                           | Lucas Stach                 |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-5076 |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
