@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V2 3/5] net/mlx4_en: Add HW timestamping (TS) support
-Date: Mon, 22 Apr 2013 14:56:05 +0300
-Message-ID: <1366631767-16493-4-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V2 2/5] net/mlx4_core: Read HCA frequency and map internal clock
+Date: Mon, 22 Apr 2013 14:56:04 +0300
+Message-ID: <1366631767-16493-3-git-send-email-amirv@mellanox.com>
 References: <1366631767-16493-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -9,773 +9,224 @@ Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
 	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:44667 "EHLO
-	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752222Ab3DVMCB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 08:02:01 -0400
+Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:58909 "EHLO
+	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752099Ab3DVMQh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 08:16:37 -0400
 In-Reply-To: <1366631767-16493-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch allows to enable/disable HW timestamping for incoming and/or
-outgoing packets. It adds and initializes all structs and callbacks
-needed by kernel TS API.
-To enable/disable HW timestamping appropriate ioctl should be used.
-Currently HWTSTAMP_FILTER_ALL/NONE and HWTSAMP_TX_ON/OFF only are
-supported.
-When enabling TS on receive flow - VLAN stripping will be disabled.
-Also were made all relevant changes in RX/TX flows to consider TS request
-and plant HW timestamps into relevant structures.
-mlx4_ib was fixed to compile with new mlx4_cq_alloc() signature.
+From: Eugenia Emantayev <eugenia@mellanox.com>
+
+Read HCA frequency, read PCI clock bar and offset, map internal clock to
+PCI bar.
 
 Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/infiniband/hw/mlx4/cq.c                   |    2 +-
- drivers/net/ethernet/mellanox/mlx4/Makefile       |    2 +-
- drivers/net/ethernet/mellanox/mlx4/cq.c           |   10 +-
- drivers/net/ethernet/mellanox/mlx4/en_clock.c     |  129 +++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_cq.c        |   10 ++-
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c   |   30 +++++
- drivers/net/ethernet/mellanox/mlx4/en_main.c      |    5 +
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   75 ++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_resources.c |    3 +
- drivers/net/ethernet/mellanox/mlx4/en_rx.c        |   29 ++++-
- drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   29 ++++-
- drivers/net/ethernet/mellanox/mlx4/main.c         |   22 ++++
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |   21 +++-
- include/linux/mlx4/cq.h                           |   16 +++
- include/linux/mlx4/device.h                       |    6 +-
- 15 files changed, 372 insertions(+), 17 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx4/en_clock.c
+ drivers/net/ethernet/mellanox/mlx4/fw.c   |   11 ++++++
+ drivers/net/ethernet/mellanox/mlx4/fw.h   |    1 +
+ drivers/net/ethernet/mellanox/mlx4/main.c |   57 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h |    6 +++-
+ include/linux/mlx4/device.h               |    1 +
+ 5 files changed, 75 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/infiniband/hw/mlx4/cq.c b/drivers/infiniband/hw/mlx4/cq.c
-index ae67df3..73b3a71 100644
---- a/drivers/infiniband/hw/mlx4/cq.c
-+++ b/drivers/infiniband/hw/mlx4/cq.c
-@@ -228,7 +228,7 @@ struct ib_cq *mlx4_ib_create_cq(struct ib_device *ibdev, int entries, int vector
- 		vector = dev->eq_table[vector % ibdev->num_comp_vectors];
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 8f394be..c16a59e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -1013,6 +1013,9 @@ int mlx4_QUERY_FW(struct mlx4_dev *dev)
+ #define QUERY_FW_COMM_BASE_OFFSET      0x40
+ #define QUERY_FW_COMM_BAR_OFFSET       0x48
  
- 	err = mlx4_cq_alloc(dev->dev, entries, &cq->buf.mtt, uar,
--			    cq->db.dma, &cq->mcq, vector, 0);
-+			    cq->db.dma, &cq->mcq, vector, 0, 0);
- 	if (err)
- 		goto err_dbmap;
++#define QUERY_FW_CLOCK_OFFSET	       0x50
++#define QUERY_FW_CLOCK_BAR	       0x58
++
+ 	mailbox = mlx4_alloc_cmd_mailbox(dev);
+ 	if (IS_ERR(mailbox))
+ 		return PTR_ERR(mailbox);
+@@ -1087,6 +1090,12 @@ int mlx4_QUERY_FW(struct mlx4_dev *dev)
+ 		 fw->comm_bar, fw->comm_base);
+ 	mlx4_dbg(dev, "FW size %d KB\n", fw->fw_pages >> 2);
  
-diff --git a/drivers/net/ethernet/mellanox/mlx4/Makefile b/drivers/net/ethernet/mellanox/mlx4/Makefile
-index 293127d..3e9c70f 100644
---- a/drivers/net/ethernet/mellanox/mlx4/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx4/Makefile
-@@ -6,5 +6,5 @@ mlx4_core-y :=	alloc.o catas.o cmd.o cq.o eq.o fw.o icm.o intf.o main.o mcg.o \
- obj-$(CONFIG_MLX4_EN)               += mlx4_en.o
++	MLX4_GET(fw->clock_offset, outbox, QUERY_FW_CLOCK_OFFSET);
++	MLX4_GET(fw->clock_bar,    outbox, QUERY_FW_CLOCK_BAR);
++	fw->clock_bar = (fw->clock_bar >> 6) * 2;
++	mlx4_dbg(dev, "Internal clock bar:%d offset:0x%llx\n",
++		 fw->clock_bar, fw->clock_offset);
++
+ 	/*
+ 	 * Round up number of system pages needed in case
+ 	 * MLX4_ICM_PAGE_SIZE < PAGE_SIZE.
+@@ -1374,6 +1383,7 @@ int mlx4_QUERY_HCA(struct mlx4_dev *dev,
+ 	u8 byte_field;
  
- mlx4_en-y := 	en_main.o en_tx.o en_rx.o en_ethtool.o en_port.o en_cq.o \
--		en_resources.o en_netdev.o en_selftest.o
-+		en_resources.o en_netdev.o en_selftest.o en_clock.o
- mlx4_en-$(CONFIG_MLX4_EN_DCB) += en_dcb_nl.o
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cq.c b/drivers/net/ethernet/mellanox/mlx4/cq.c
-index 0706623..004e423 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cq.c
-@@ -240,9 +240,10 @@ static void mlx4_cq_free_icm(struct mlx4_dev *dev, int cqn)
- 		__mlx4_cq_free_icm(dev, cqn);
- }
+ #define QUERY_HCA_GLOBAL_CAPS_OFFSET	0x04
++#define QUERY_HCA_CORE_CLOCK_OFFSET	0x0c
  
--int mlx4_cq_alloc(struct mlx4_dev *dev, int nent, struct mlx4_mtt *mtt,
--		  struct mlx4_uar *uar, u64 db_rec, struct mlx4_cq *cq,
--		  unsigned vector, int collapsed)
-+int mlx4_cq_alloc(struct mlx4_dev *dev, int nent,
-+		  struct mlx4_mtt *mtt, struct mlx4_uar *uar, u64 db_rec,
-+		  struct mlx4_cq *cq, unsigned vector, int collapsed,
-+		  int timestamp_en)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct mlx4_cq_table *cq_table = &priv->cq_table;
-@@ -276,6 +277,9 @@ int mlx4_cq_alloc(struct mlx4_dev *dev, int nent, struct mlx4_mtt *mtt,
- 	memset(cq_context, 0, sizeof *cq_context);
+ 	mailbox = mlx4_alloc_cmd_mailbox(dev);
+ 	if (IS_ERR(mailbox))
+@@ -1388,6 +1398,7 @@ int mlx4_QUERY_HCA(struct mlx4_dev *dev,
+ 		goto out;
  
- 	cq_context->flags	    = cpu_to_be32(!!collapsed << 18);
-+	if (timestamp_en)
-+		cq_context->flags  |= cpu_to_be32(1 << 19);
-+
- 	cq_context->logsize_usrpage = cpu_to_be32((ilog2(nent) << 24) | uar->index);
- 	cq_context->comp_eqn	    = priv->eq_table.eq[vector].eqn;
- 	cq_context->log_page_size   = mtt->page_shift - MLX4_ICM_PAGE_SHIFT;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-new file mode 100644
-index 0000000..6d8227d
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-@@ -0,0 +1,129 @@
-+/*
-+ * Copyright (c) 2012 Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+
-+#include <linux/mlx4/device.h>
-+
-+#include "mlx4_en.h"
-+
-+#define CORE_CLOCK_MASK 0xffffffffffffULL
-+
-+int mlx4_en_timestamp_config(struct net_device *dev, int tx_type, int rx_filter)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int port_up = 0;
-+	int err = 0;
-+
-+	mutex_lock(&mdev->state_lock);
-+	if (priv->port_up) {
-+		port_up = 1;
-+		mlx4_en_stop_port(dev, 1);
-+	}
-+
-+	mlx4_en_free_resources(priv);
-+
-+	en_warn(priv, "Changing Time Stamp configuration\n");
-+
-+	priv->hwtstamp_config.tx_type = tx_type;
-+	priv->hwtstamp_config.rx_filter = rx_filter;
-+
-+	if (rx_filter != HWTSTAMP_FILTER_NONE)
-+		dev->features &= ~NETIF_F_HW_VLAN_CTAG_RX;
-+	else
-+		dev->features |= NETIF_F_HW_VLAN_CTAG_RX;
-+
-+	err = mlx4_en_alloc_resources(priv);
-+	if (err) {
-+		en_err(priv, "Failed reallocating port resources\n");
-+		goto out;
-+	}
-+	if (port_up) {
-+		err = mlx4_en_start_port(dev);
-+		if (err)
-+			en_err(priv, "Failed starting port\n");
-+	}
-+
-+out:
-+	mutex_unlock(&mdev->state_lock);
-+	netdev_features_change(dev);
-+	return err;
-+}
-+
-+/* mlx4_en_read_clock - read raw cycle counter (to be used by time counter)
-+ */
-+static cycle_t mlx4_en_read_clock(const struct cyclecounter *tc)
-+{
-+	struct mlx4_en_dev *mdev =
-+		container_of(tc, struct mlx4_en_dev, cycles);
-+	struct mlx4_dev *dev = mdev->dev;
-+
-+	return mlx4_read_clock(dev) & CORE_CLOCK_MASK;
-+}
-+
-+u64 mlx4_en_get_cqe_ts(struct mlx4_cqe *cqe)
-+{
-+	u64 hi, lo;
-+	struct mlx4_ts_cqe *ts_cqe = (struct mlx4_ts_cqe *)cqe;
-+
-+	lo = (u64)be16_to_cpu(ts_cqe->timestamp_lo);
-+	hi = ((u64)be32_to_cpu(ts_cqe->timestamp_hi) + !lo) << 16;
-+
-+	return hi | lo;
-+}
-+
-+void mlx4_en_fill_hwtstamps(struct mlx4_en_dev *mdev,
-+			    struct skb_shared_hwtstamps *hwts,
-+			    u64 timestamp)
-+{
-+	u64 nsec;
-+
-+	nsec = timecounter_cyc2time(&mdev->clock, timestamp);
-+
-+	memset(hwts, 0, sizeof(struct skb_shared_hwtstamps));
-+	hwts->hwtstamp = ns_to_ktime(nsec);
-+}
-+
-+void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
-+{
-+	struct mlx4_dev *dev = mdev->dev;
-+
-+	memset(&mdev->cycles, 0, sizeof(mdev->cycles));
-+	mdev->cycles.read = mlx4_en_read_clock;
-+	mdev->cycles.mask = CLOCKSOURCE_MASK(48);
-+	mdev->cycles.mult =
-+		clocksource_khz2mult(dev->caps.hca_core_clock * 1000, 29);
-+	mdev->cycles.shift = 29;
-+
-+	timecounter_init(&mdev->clock, &mdev->cycles,
-+			 ktime_to_ns(ktime_get_real()));
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-index b8d0854..1e6c594 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-@@ -77,6 +77,7 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	int err = 0;
- 	char name[25];
-+	int timestamp_en = 0;
- 	struct cpu_rmap *rmap =
- #ifdef CONFIG_RFS_ACCEL
- 		priv->dev->rx_cpu_rmap;
-@@ -123,8 +124,13 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
- 	if (!cq->is_tx)
- 		cq->size = priv->rx_ring[cq->ring].actual_size;
+ 	MLX4_GET(param->global_caps, outbox, QUERY_HCA_GLOBAL_CAPS_OFFSET);
++	MLX4_GET(param->hca_core_clock, outbox, QUERY_HCA_CORE_CLOCK_OFFSET);
  
--	err = mlx4_cq_alloc(mdev->dev, cq->size, &cq->wqres.mtt, &mdev->priv_uar,
--			    cq->wqres.db.dma, &cq->mcq, cq->vector, 0);
-+	if ((cq->is_tx && priv->hwtstamp_config.tx_type) ||
-+	    (!cq->is_tx && priv->hwtstamp_config.rx_filter))
-+		timestamp_en = 1;
-+
-+	err = mlx4_cq_alloc(mdev->dev, cq->size, &cq->wqres.mtt,
-+			    &mdev->priv_uar, cq->wqres.db.dma, &cq->mcq,
-+			    cq->vector, 0, timestamp_en);
- 	if (err)
- 		return err;
+ 	/* QPC/EEC/CQC/EQC/RDMARC attributes */
  
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 00f25b5..bcf4d11 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -1147,6 +1147,35 @@ out:
- 	return err;
- }
- 
-+static int mlx4_en_get_ts_info(struct net_device *dev,
-+			       struct ethtool_ts_info *info)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int ret;
-+
-+	ret = ethtool_op_get_ts_info(dev, info);
-+	if (ret)
-+		return ret;
-+
-+	if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS) {
-+		info->so_timestamping |=
-+			SOF_TIMESTAMPING_TX_HARDWARE |
-+			SOF_TIMESTAMPING_RX_HARDWARE |
-+			SOF_TIMESTAMPING_RAW_HARDWARE;
-+
-+		info->tx_types =
-+			(1 << HWTSTAMP_TX_OFF) |
-+			(1 << HWTSTAMP_TX_ON);
-+
-+		info->rx_filters =
-+			(1 << HWTSTAMP_FILTER_NONE) |
-+			(1 << HWTSTAMP_FILTER_ALL);
-+	}
-+
-+	return ret;
-+}
-+
- const struct ethtool_ops mlx4_en_ethtool_ops = {
- 	.get_drvinfo = mlx4_en_get_drvinfo,
- 	.get_settings = mlx4_en_get_settings,
-@@ -1173,6 +1202,7 @@ const struct ethtool_ops mlx4_en_ethtool_ops = {
- 	.set_rxfh_indir = mlx4_en_set_rxfh_indir,
- 	.get_channels = mlx4_en_get_channels,
- 	.set_channels = mlx4_en_set_channels,
-+	.get_ts_info = mlx4_en_get_ts_info,
- };
- 
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-index fc27800..a5c9df07 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-@@ -300,6 +300,11 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
- 		if (mlx4_en_init_netdev(mdev, i, &mdev->profile.prof[i]))
- 			mdev->pndev[i] = NULL;
- 	}
-+
-+	/* Initialize time stamp mechanism */
-+	if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS)
-+		mlx4_en_init_timestamp(mdev);
-+
- 	return mdev;
- 
- err_mr:
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index e7e2784..4cb9f32 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1916,6 +1916,75 @@ static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
- 	return 0;
- }
- 
-+static int mlx4_en_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	struct hwtstamp_config config;
-+
-+	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
-+		return -EFAULT;
-+
-+	/* reserved for future extensions */
-+	if (config.flags)
-+		return -EINVAL;
-+
-+	/* device doesn't support time stamping */
-+	if (!(mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS))
-+		return -EINVAL;
-+
-+	/* TX HW timestamp */
-+	switch (config.tx_type) {
-+	case HWTSTAMP_TX_OFF:
-+	case HWTSTAMP_TX_ON:
-+		break;
-+	default:
-+		return -ERANGE;
-+	}
-+
-+	/* RX HW timestamp */
-+	switch (config.rx_filter) {
-+	case HWTSTAMP_FILTER_NONE:
-+		break;
-+	case HWTSTAMP_FILTER_ALL:
-+	case HWTSTAMP_FILTER_SOME:
-+	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
-+		config.rx_filter = HWTSTAMP_FILTER_ALL;
-+		break;
-+	default:
-+		return -ERANGE;
-+	}
-+
-+	if (mlx4_en_timestamp_config(dev, config.tx_type, config.rx_filter)) {
-+		config.tx_type = HWTSTAMP_TX_OFF;
-+		config.rx_filter = HWTSTAMP_FILTER_NONE;
-+	}
-+
-+	return copy_to_user(ifr->ifr_data, &config,
-+			    sizeof(config)) ? -EFAULT : 0;
-+}
-+
-+static int mlx4_en_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-+{
-+	switch (cmd) {
-+	case SIOCSHWTSTAMP:
-+		return mlx4_en_hwtstamp_ioctl(dev, ifr);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
- static int mlx4_en_set_features(struct net_device *netdev,
- 		netdev_features_t features)
- {
-@@ -1943,6 +2012,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_set_mac_address	= mlx4_en_set_mac,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_change_mtu		= mlx4_en_change_mtu,
-+	.ndo_do_ioctl		= mlx4_en_ioctl,
- 	.ndo_tx_timeout		= mlx4_en_tx_timeout,
- 	.ndo_vlan_rx_add_vid	= mlx4_en_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= mlx4_en_vlan_rx_kill_vid,
-@@ -2054,6 +2124,11 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	spin_lock_init(&priv->filters_lock);
- #endif
- 
-+	/* Initialize time stamping config */
-+	priv->hwtstamp_config.flags = 0;
-+	priv->hwtstamp_config.tx_type = HWTSTAMP_TX_OFF;
-+	priv->hwtstamp_config.rx_filter = HWTSTAMP_FILTER_NONE;
-+
- 	/* Allocate page for receive rings */
- 	err = mlx4_alloc_hwq_res(mdev->dev, &priv->res,
- 				MLX4_EN_PAGE_SIZE, MLX4_EN_PAGE_SIZE);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_resources.c b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-index 10c24c7..91f2b2c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-@@ -42,6 +42,7 @@ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
- 			     int user_prio, struct mlx4_qp_context *context)
- {
- 	struct mlx4_en_dev *mdev = priv->mdev;
-+	struct net_device *dev = priv->dev;
- 
- 	memset(context, 0, sizeof *context);
- 	context->flags = cpu_to_be32(7 << 16 | rss << MLX4_RSS_QPC_FLAG_OFFSET);
-@@ -65,6 +66,8 @@ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
- 	context->cqn_send = cpu_to_be32(cqn);
- 	context->cqn_recv = cpu_to_be32(cqn);
- 	context->db_rec_addr = cpu_to_be64(priv->res.db.dma << 2);
-+	if (!(dev->features & NETIF_F_HW_VLAN_CTAG_RX))
-+		context->param3 |= cpu_to_be32(1 << 30);
- }
- 
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 4006f88..02aee1e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -320,6 +320,8 @@ int mlx4_en_create_rx_ring(struct mlx4_en_priv *priv,
- 	}
- 	ring->buf = ring->wqres.buf.direct.buf;
- 
-+	ring->hwtstamp_rx_filter = priv->hwtstamp_config.rx_filter;
-+
- 	return 0;
- 
- err_hwq:
-@@ -554,6 +556,7 @@ static void mlx4_en_refill_rx_buffers(struct mlx4_en_priv *priv,
- int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int budget)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_cqe *cqe;
- 	struct mlx4_en_rx_ring *ring = &priv->rx_ring[cq->ring];
- 	struct mlx4_en_rx_alloc *frags;
-@@ -565,6 +568,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 	int polled = 0;
- 	int ip_summed;
- 	int factor = priv->cqe_factor;
-+	u64 timestamp;
- 
- 	if (!priv->port_up)
- 		return 0;
-@@ -669,8 +673,9 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 					gro_skb->data_len = length;
- 					gro_skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
--					if (cqe->vlan_my_qpn &
--					    cpu_to_be32(MLX4_CQE_VLAN_PRESENT_MASK)) {
-+					if ((cqe->vlan_my_qpn &
-+					    cpu_to_be32(MLX4_CQE_VLAN_PRESENT_MASK)) &&
-+					    (dev->features & NETIF_F_HW_VLAN_CTAG_RX)) {
- 						u16 vid = be16_to_cpu(cqe->sl_vid);
- 
- 						__vlan_hwaccel_put_tag(gro_skb, htons(ETH_P_8021Q), vid);
-@@ -680,8 +685,15 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 						gro_skb->rxhash = be32_to_cpu(cqe->immed_rss_invalid);
- 
- 					skb_record_rx_queue(gro_skb, cq->ring);
--					napi_gro_frags(&cq->napi);
- 
-+					if (ring->hwtstamp_rx_filter == HWTSTAMP_FILTER_ALL) {
-+						timestamp = mlx4_en_get_cqe_ts(cqe);
-+						mlx4_en_fill_hwtstamps(mdev,
-+								       skb_hwtstamps(gro_skb),
-+								       timestamp);
-+					}
-+
-+					napi_gro_frags(&cq->napi);
- 					goto next;
- 				}
- 
-@@ -714,10 +726,17 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		if (dev->features & NETIF_F_RXHASH)
- 			skb->rxhash = be32_to_cpu(cqe->immed_rss_invalid);
- 
--		if (be32_to_cpu(cqe->vlan_my_qpn) &
--		    MLX4_CQE_VLAN_PRESENT_MASK)
-+		if ((be32_to_cpu(cqe->vlan_my_qpn) &
-+		    MLX4_CQE_VLAN_PRESENT_MASK) &&
-+		    (dev->features & NETIF_F_HW_VLAN_CTAG_RX))
- 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), be16_to_cpu(cqe->sl_vid));
- 
-+		if (ring->hwtstamp_rx_filter == HWTSTAMP_FILTER_ALL) {
-+			timestamp = mlx4_en_get_cqe_ts(cqe);
-+			mlx4_en_fill_hwtstamps(mdev, skb_hwtstamps(skb),
-+					       timestamp);
-+		}
-+
- 		/* Push it up the stack */
- 		netif_receive_skb(skb);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 49308cc..b0a2d2b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -118,6 +118,8 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 	} else
- 		ring->bf_enabled = true;
- 
-+	ring->hwtstamp_tx_type = priv->hwtstamp_config.tx_type;
-+
- 	return 0;
- 
- err_map:
-@@ -192,8 +194,9 @@ void mlx4_en_deactivate_tx_ring(struct mlx4_en_priv *priv,
- 
- static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
- 				struct mlx4_en_tx_ring *ring,
--				int index, u8 owner)
-+				int index, u8 owner, u64 timestamp)
- {
-+	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_en_tx_info *tx_info = &ring->tx_info[index];
- 	struct mlx4_en_tx_desc *tx_desc = ring->buf + index * TXBB_SIZE;
- 	struct mlx4_wqe_data_seg *data = (void *) tx_desc + tx_info->data_offset;
-@@ -204,6 +207,12 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
- 	int i;
- 	__be32 *ptr = (__be32 *)tx_desc;
- 	__be32 stamp = cpu_to_be32(STAMP_VAL | (!!owner << STAMP_SHIFT));
-+	struct skb_shared_hwtstamps hwts;
-+
-+	if (timestamp) {
-+		mlx4_en_fill_hwtstamps(mdev, &hwts, timestamp);
-+		skb_tstamp_tx(skb, &hwts);
-+	}
- 
- 	/* Optimize the common case when there are no wraparounds */
- 	if (likely((void *) tx_desc + tx_info->nr_txbb * TXBB_SIZE <= end)) {
-@@ -289,7 +298,7 @@ int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
- 	while (ring->cons != ring->prod) {
- 		ring->last_nr_txbb = mlx4_en_free_tx_desc(priv, ring,
- 						ring->cons & ring->size_mask,
--						!!(ring->cons & ring->size));
-+						!!(ring->cons & ring->size), 0);
- 		ring->cons += ring->last_nr_txbb;
- 		cnt++;
- 	}
-@@ -318,6 +327,7 @@ static void mlx4_en_process_tx_cq(struct net_device *dev, struct mlx4_en_cq *cq)
- 	u32 packets = 0;
- 	u32 bytes = 0;
- 	int factor = priv->cqe_factor;
-+	u64 timestamp = 0;
- 
- 	if (!priv->port_up)
- 		return;
-@@ -341,11 +351,14 @@ static void mlx4_en_process_tx_cq(struct net_device *dev, struct mlx4_en_cq *cq)
- 		do {
- 			txbbs_skipped += ring->last_nr_txbb;
- 			ring_index = (ring_index + ring->last_nr_txbb) & size_mask;
-+			if (ring->tx_info[ring_index].ts_requested)
-+				timestamp = mlx4_en_get_cqe_ts(cqe);
-+
- 			/* free next descriptor */
- 			ring->last_nr_txbb = mlx4_en_free_tx_desc(
- 					priv, ring, ring_index,
- 					!!((ring->cons + txbbs_skipped) &
--							ring->size));
-+					ring->size), timestamp);
- 			packets++;
- 			bytes += ring->tx_info[ring_index].nr_bytes;
- 		} while (ring_index != new_index);
-@@ -629,6 +642,16 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 	tx_info->skb = skb;
- 	tx_info->nr_txbb = nr_txbb;
- 
-+	/*
-+	 * For timestamping add flag to skb_shinfo and
-+	 * set flag for further reference
-+	 */
-+	if (ring->hwtstamp_tx_type == HWTSTAMP_TX_ON &&
-+	    skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) {
-+		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
-+		tx_info->ts_requested = 1;
-+	}
-+
- 	/* Prepare ctrl segement apart opcode+ownership, which depends on
- 	 * whether LSO is used */
- 	tx_desc->ctrl.vlan_tag = cpu_to_be16(vlan_tag);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
+index 151c2bb..3332463 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.h
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.h
+@@ -162,6 +162,7 @@ struct mlx4_init_hca_param {
+ 	u64 global_caps;
+ 	u16 log_mc_entry_sz;
+ 	u16 log_mc_hash_sz;
++	u16 hca_core_clock;
+ 	u8  log_num_qps;
+ 	u8  log_num_srqs;
+ 	u8  log_num_cqs;
 diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index e81840f..0d32a82 100644
+index 16abde2..e81840f 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/main.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -1228,6 +1228,28 @@ static void unmap_bf_area(struct mlx4_dev *dev)
+@@ -513,6 +513,8 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
+ 
+ 	mlx4_log_num_mgm_entry_size = hca_param.log_mc_entry_sz;
+ 
++	dev->caps.hca_core_clock = hca_param.hca_core_clock;
++
+ 	memset(&dev_cap, 0, sizeof(dev_cap));
+ 	dev->caps.max_qp_dest_rdma = 1 << hca_param.log_rd_per_qp;
+ 	err = mlx4_dev_cap(dev, &dev_cap);
+@@ -1226,8 +1228,31 @@ static void unmap_bf_area(struct mlx4_dev *dev)
  		io_mapping_free(mlx4_priv(dev)->bf_mapping);
  }
  
-+cycle_t mlx4_read_clock(struct mlx4_dev *dev)
++static int map_internal_clock(struct mlx4_dev *dev)
 +{
-+	u32 clockhi, clocklo, clockhi1;
-+	cycle_t cycles;
-+	int i;
 +	struct mlx4_priv *priv = mlx4_priv(dev);
 +
-+	for (i = 0; i < 10; i++) {
-+		clockhi = swab32(readl(priv->clock_mapping));
-+		clocklo = swab32(readl(priv->clock_mapping + 4));
-+		clockhi1 = swab32(readl(priv->clock_mapping));
-+		if (clockhi == clockhi1)
-+			break;
-+	}
++	priv->clock_mapping =
++		ioremap(pci_resource_start(dev->pdev, priv->fw.clock_bar) +
++			priv->fw.clock_offset, MLX4_CLOCK_SIZE);
 +
-+	cycles = (u64) clockhi << 32 | (u64) clocklo;
++	if (!priv->clock_mapping)
++		return -ENOMEM;
 +
-+	return cycles;
++	return 0;
 +}
-+EXPORT_SYMBOL_GPL(mlx4_read_clock);
 +
++static void unmap_internal_clock(struct mlx4_dev *dev)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
 +
- static int map_internal_clock(struct mlx4_dev *dev)
++	if (priv->clock_mapping)
++		iounmap(priv->clock_mapping);
++}
++
+ static void mlx4_close_hca(struct mlx4_dev *dev)
  {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index d4cb5d3..85b0754 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -40,6 +40,7 @@
- #include <linux/mutex.h>
- #include <linux/netdevice.h>
- #include <linux/if_vlan.h>
-+#include <linux/net_tstamp.h>
- #ifdef CONFIG_MLX4_EN_DCB
- #include <linux/dcbnl.h>
- #endif
-@@ -207,6 +208,7 @@ struct mlx4_en_tx_info {
- 	u8 linear;
- 	u8 data_offset;
- 	u8 inl;
-+	u8 ts_requested;
- };
- 
- 
-@@ -262,6 +264,7 @@ struct mlx4_en_tx_ring {
- 	struct mlx4_bf bf;
- 	bool bf_enabled;
- 	struct netdev_queue *tx_queue;
-+	int hwtstamp_tx_type;
- };
- 
- struct mlx4_en_rx_desc {
-@@ -288,6 +291,7 @@ struct mlx4_en_rx_ring {
- 	unsigned long packets;
- 	unsigned long csum_ok;
- 	unsigned long csum_none;
-+	int hwtstamp_rx_filter;
- };
- 
- struct mlx4_en_cq {
-@@ -348,6 +352,9 @@ struct mlx4_en_dev {
- 	u32                     priv_pdn;
- 	spinlock_t              uar_lock;
- 	u8			mac_removed[MLX4_MAX_PORTS + 1];
-+	struct cyclecounter	cycles;
-+	struct timecounter	clock;
-+	unsigned long		last_overflow_check;
- };
- 
- 
-@@ -525,6 +532,7 @@ struct mlx4_en_priv {
- 	struct device *ddev;
- 	int base_tx_qpn;
- 	struct hlist_head mac_hash[MLX4_EN_MAC_HASH_SIZE];
-+	struct hwtstamp_config hwtstamp_config;
- 
- #ifdef CONFIG_MLX4_EN_DCB
- 	struct ieee_ets ets;
-@@ -639,7 +647,18 @@ void mlx4_en_ex_selftest(struct net_device *dev, u32 *flags, u64 *buf);
- u64 mlx4_en_mac_to_u64(u8 *addr);
- 
- /*
-- * Globals
-+ * Functions for time stamping
-+ */
-+u64 mlx4_en_get_cqe_ts(struct mlx4_cqe *cqe);
-+void mlx4_en_fill_hwtstamps(struct mlx4_en_dev *mdev,
-+			    struct skb_shared_hwtstamps *hwts,
-+			    u64 timestamp);
-+void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev);
-+int mlx4_en_timestamp_config(struct net_device *dev,
-+			     int tx_type,
-+			     int rx_filter);
++	unmap_internal_clock(dev);
+ 	unmap_bf_area(dev);
+ 	if (mlx4_is_slave(dev))
+ 		mlx4_slave_exit(dev);
+@@ -1445,6 +1470,37 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
+ 			mlx4_err(dev, "INIT_HCA command failed, aborting.\n");
+ 			goto err_free_icm;
+ 		}
++		/*
++		 * If TS is supported by FW
++		 * read HCA frequency by QUERY_HCA command
++		 */
++		if (dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS) {
++			memset(&init_hca, 0, sizeof(init_hca));
++			err = mlx4_QUERY_HCA(dev, &init_hca);
++			if (err) {
++				mlx4_err(dev, "QUERY_HCA command failed, disable timestamp.\n");
++				dev->caps.flags2 &= ~MLX4_DEV_CAP_FLAG2_TS;
++			} else {
++				dev->caps.hca_core_clock =
++					init_hca.hca_core_clock;
++			}
 +
-+/* Globals
-  */
- extern const struct ethtool_ops mlx4_en_ethtool_ops;
++			/* In case we got HCA frequency 0 - disable timestamping
++			 * to avoid dividing by zero
++			 */
++			if (!dev->caps.hca_core_clock) {
++				dev->caps.flags2 &= ~MLX4_DEV_CAP_FLAG2_TS;
++				mlx4_err(dev,
++					 "HCA frequency is 0. Timestamping is not supported.");
++			} else if (map_internal_clock(dev)) {
++				/*
++				 * Map internal clock,
++				 * in case of failure disable timestamping
++				 */
++				dev->caps.flags2 &= ~MLX4_DEV_CAP_FLAG2_TS;
++				mlx4_err(dev, "Failed to map internal clock. Timestamping is not supported.\n");
++			}
++		}
+ 	} else {
+ 		err = mlx4_init_slave(dev);
+ 		if (err) {
+@@ -1478,6 +1534,7 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
+ 	return 0;
  
-diff --git a/include/linux/mlx4/cq.h b/include/linux/mlx4/cq.h
-index 6f65b2c..98fa492 100644
---- a/include/linux/mlx4/cq.h
-+++ b/include/linux/mlx4/cq.h
-@@ -64,6 +64,22 @@ struct mlx4_err_cqe {
- 	u8			owner_sr_opcode;
+ unmap_bf:
++	unmap_internal_clock(dev);
+ 	unmap_bf_area(dev);
+ 
+ err_close:
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index 252f4ba..0567f01 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -87,7 +87,8 @@ enum {
+ 	MLX4_HCR_SIZE		= 0x0001c,
+ 	MLX4_CLR_INT_SIZE	= 0x00008,
+ 	MLX4_SLAVE_COMM_BASE	= 0x0,
+-	MLX4_COMM_PAGESIZE	= 0x1000
++	MLX4_COMM_PAGESIZE	= 0x1000,
++	MLX4_CLOCK_SIZE		= 0x00008
  };
  
-+struct mlx4_ts_cqe {
-+	__be32			vlan_my_qpn;
-+	__be32			immed_rss_invalid;
-+	__be32			g_mlpath_rqpn;
-+	__be32			timestamp_hi;
-+	__be16			status;
-+	u8			ipv6_ext_mask;
-+	u8			badfcs_enc;
-+	__be32			byte_cnt;
-+	__be16			wqe_index;
-+	__be16			checksum;
-+	u8			reserved;
-+	__be16			timestamp_lo;
-+	u8			owner_sr_opcode;
-+} __packed;
-+
  enum {
- 	MLX4_CQE_VLAN_PRESENT_MASK	= 1 << 29,
- 	MLX4_CQE_QPN_MASK		= 0xffffff,
+@@ -403,6 +404,7 @@ struct mlx4_fw {
+ 	u64			clr_int_base;
+ 	u64			catas_offset;
+ 	u64			comm_base;
++	u64			clock_offset;
+ 	struct mlx4_icm	       *fw_icm;
+ 	struct mlx4_icm	       *aux_icm;
+ 	u32			catas_size;
+@@ -410,6 +412,7 @@ struct mlx4_fw {
+ 	u8			clr_int_bar;
+ 	u8			catas_bar;
+ 	u8			comm_bar;
++	u8			clock_bar;
+ };
+ 
+ struct mlx4_comm {
+@@ -826,6 +829,7 @@ struct mlx4_priv {
+ 	struct list_head	bf_list;
+ 	struct mutex		bf_mutex;
+ 	struct io_mapping	*bf_mapping;
++	void __iomem            *clock_mapping;
+ 	int			reserved_mtts;
+ 	int			fs_hash_mode;
+ 	u8 virt2phys_pkey[MLX4_MFUNC_MAX][MLX4_MAX_PORTS][MLX4_MAX_PORT_PKEYS];
 diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index e088290..2fbc146 100644
+index 86ae260..e088290 100644
 --- a/include/linux/mlx4/device.h
 +++ b/include/linux/mlx4/device.h
-@@ -40,6 +40,8 @@
+@@ -445,6 +445,7 @@ struct mlx4_caps {
+ 	u8			eqe_factor;
+ 	u32			userspace_caps; /* userspace must be aware of these */
+ 	u32			function_caps;  /* VFs must be aware of these */
++	u16			hca_core_clock;
+ };
  
- #include <linux/atomic.h>
- 
-+#include <linux/clocksource.h>
-+
- #define MAX_MSIX_P_PORT		17
- #define MAX_MSIX		64
- #define MSIX_LEGACY_SZ		4
-@@ -840,7 +842,7 @@ void mlx4_free_hwq_res(struct mlx4_dev *mdev, struct mlx4_hwq_resources *wqres,
- 
- int mlx4_cq_alloc(struct mlx4_dev *dev, int nent, struct mlx4_mtt *mtt,
- 		  struct mlx4_uar *uar, u64 db_rec, struct mlx4_cq *cq,
--		  unsigned vector, int collapsed);
-+		  unsigned vector, int collapsed, int timestamp_en);
- void mlx4_cq_free(struct mlx4_dev *dev, struct mlx4_cq *cq);
- 
- int mlx4_qp_reserve_range(struct mlx4_dev *dev, int cnt, int align, int *base);
-@@ -1031,4 +1033,6 @@ int set_and_calc_slave_port_state(struct mlx4_dev *dev, int slave, u8 port, int
- void mlx4_put_slave_node_guid(struct mlx4_dev *dev, int slave, __be64 guid);
- __be64 mlx4_get_slave_node_guid(struct mlx4_dev *dev, int slave);
- 
-+cycle_t mlx4_read_clock(struct mlx4_dev *dev);
-+
- #endif /* MLX4_DEVICE_H */
+ struct mlx4_buf_list {
 -- 
 1.7.8.2
