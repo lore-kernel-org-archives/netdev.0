@@ -1,54 +1,53 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next] net: avoid inet dependency on aes crypto
-Date: Mon, 22 Apr 2013 15:30:03 +0200
-Message-ID: <1366637403-11212-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [PATCH v3 net-next 0/6] bnx2x: refactor nvram related code
+ and update version
+Date: Mon, 22 Apr 2013 13:35:50 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F20C0B581@SJEXCHMB06.corp.ad.broadcom.com>
+References: <1366625708-5678-1-git-send-email-dmitry@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: "Dmitry Kravkov" <dmitry@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34522 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752846Ab3DVN2B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 09:28:01 -0400
+Received: from mms2.broadcom.com ([216.31.210.18]:4583 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753455Ab3DVNgD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 09:36:03 -0400
+In-Reply-To: <1366625708-5678-1-git-send-email-dmitry@broadcom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 798b2cbf9227b1bd7d37ae9af4d9c750e6f4de9c
-(net: Add INET dependency on aes crypto for the sake of TCP fastopen.)
-results in aes-asm module no longer being loaded when AES cipher is
-requested, due to CRYPTO_AES=y.
+The series includes checkpatch warnings In [4/6]
+I will provide V4 very soon
 
-However, there is no link-time dependency on aes. Drop dep and instead
-set "default m" for aes crypto if inet is enabled.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- crypto/Kconfig |    1 +
- net/Kconfig    |    1 -
- 2 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/crypto/Kconfig b/crypto/Kconfig
-index 05c0ce5..151b3e0 100644
---- a/crypto/Kconfig
-+++ b/crypto/Kconfig
-@@ -584,6 +584,7 @@ comment "Ciphers"
- 
- config CRYPTO_AES
- 	tristate "AES cipher algorithms"
-+	default m if INET
- 	select CRYPTO_ALGAPI
- 	help
- 	  AES cipher algorithms (FIPS-197). AES uses the Rijndael
-diff --git a/net/Kconfig b/net/Kconfig
-index 1a22216..a1d2cab 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -62,7 +62,6 @@ source "net/iucv/Kconfig"
- config INET
- 	bool "TCP/IP networking"
- 	select CRYPTO
--	select CRYPTO_AES
- 	---help---
- 	  These are the protocols used on the Internet and on most local
- 	  Ethernets. It is highly recommended to say Y here (this will enlarge
--- 
-1.7.8.6
+> -----Original Message-----
+> From: Dmitry Kravkov [mailto:dmitry@broadcom.com]
+> Sent: Monday, April 22, 2013 1:15 PM
+> To: davem@davemloft.net; netdev@vger.kernel.org; Eilon Greenstein
+> Cc: romueu@fz.zoreil.com; Dmitry Kravkov
+> Subject: [PATCH v3 net-next 0/6] bnx2x: refactor nvram related code and update version
+> 
+> Hi Dave,
+> 
+> Please cosider appliyng the series to net-next.
+> 
+> Changes for v2->v3:
+> 1/4 	* was separated into 3 patches [1-3/6] pointed out by Francois Romieu
+> 	* some cosmetics and beautifications was applied.
+> 	* bnx2x_nvram_read32 rearranged according to Francois Romieu's comments
+> 
+> 2/4	* move to be 4/6
+> 	* some code were extracted into fuctions in order to stop processing
+>           once error was detected.
+> 	* removed inaccurate decoding of errors - left only error messages
+>           according to Francois Romieu's comments
+> 	* removed useless init according to Francois Romieu's comment
+> 
+> Thanks
+> Dmitry
+> 
