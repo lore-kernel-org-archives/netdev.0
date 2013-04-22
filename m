@@ -1,46 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Net-next: ipv4: type issue, remove erroneous semicolon
-Date: Mon, 22 Apr 2013 15:44:23 -0400 (EDT)
-Message-ID: <20130422.154423.1695741341535269869.davem@davemloft.net>
-References: <51750E31.2010906@asianux.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH -next] net: avoid inet dependency on aes crypto
+Date: Mon, 22 Apr 2013 20:50:10 +0100
+Message-ID: <1366660210.4016.11.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1366637403-11212-1-git-send-email-fw@strlen.de>
+	 <20130422.152531.1248159074404804010.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
-To: gang.chen@asianux.com
+Cc: <fw@strlen.de>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37292 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754862Ab3DVToZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 15:44:25 -0400
-In-Reply-To: <51750E31.2010906@asianux.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:8924 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754814Ab3DVTuO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 15:50:14 -0400
+In-Reply-To: <20130422.152531.1248159074404804010.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chen Gang <gang.chen@asianux.com>
-Date: Mon, 22 Apr 2013 18:17:21 +0800
-
->   need remove erroneous semicolon.
+On Mon, 2013-04-22 at 15:25 -0400, David Miller wrote:
+> From: Florian Westphal <fw@strlen.de>
+> Date: Mon, 22 Apr 2013 15:30:03 +0200
 > 
->   the related commit number: c54419321455631079c7d6e60bc732dd0c5914c5
+> > commit 798b2cbf9227b1bd7d37ae9af4d9c750e6f4de9c
+> > (net: Add INET dependency on aes crypto for the sake of TCP fastopen.)
+> > results in aes-asm module no longer being loaded when AES cipher is
+> > requested, due to CRYPTO_AES=y.
+> > 
+> > However, there is no link-time dependency on aes. Drop dep and instead
+> > set "default m" for aes crypto if inet is enabled.
+> > 
+> > Signed-off-by: Florian Westphal <fw@strlen.de>
 > 
->   Find it by EXTRA_CFLAGS=-W
+> This is terrible on so many levels.
 > 
-> 
-> Signed-off-by: Chen Gang <gang.chen@asianux.com>
+> If the assembler versions of the AES module can't be loaded properly
+> when AES is built statically into the kernel, don't work around it,
+> fix it instead.
 
-First, what is a "type issue", you aren't changing any variable
-or declaration types in this change.
+On x86 the appropriate optimised aes implementation should still be
+loaded based on an 'x86cpu' alias.  I don't know whether it will end up
+being used.
 
-Second, your formatting of your commit messages is terrible.
+It doesn't look like anything similar has been done for other
+architectures yet, but that is probably the way to go.
 
-Do not indent the description with two spaces, just keep them at the
-leftmost column.  Where did you learn to indent things like that, who
-else does that?  If you've never seen it before, don't invent things.
+Ben.
 
-It is very irritating when we see people write commit messages with
-their own style rather than mimicking what other successful
-contributors are doing.
-
-Thanks.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
