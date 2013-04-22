@@ -1,64 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch] [IrDA]: small read past the end of array in debug code
-Date: Mon, 22 Apr 2013 19:02:15 +0100
-Message-ID: <1366653735.4016.2.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20130417071038.GA7923@elgon.mountain>
-	 <20130419.173329.1993060022855519678.davem@davemloft.net>
-	 <20130420203916.GA8936@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <samuel@sortiz.org>,
-	<netdev@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH] bonding: fix locking in enslave failure path
+Date: Mon, 22 Apr 2013 20:12:22 +0200
+Message-ID: <1366654342-2715-1-git-send-email-nikolay@redhat.com>
+Cc: andy@greyhouse.net, fubar@us.ibm.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:59883 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753536Ab3DVSCX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 14:02:23 -0400
-In-Reply-To: <20130420203916.GA8936@mwanda>
+Received: from mx1.redhat.com ([209.132.183.28]:9319 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754136Ab3DVSP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Apr 2013 14:15:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-04-20 at 23:39 +0300, Dan Carpenter wrote:
-> On Fri, Apr 19, 2013 at 05:33:29PM -0400, David Miller wrote:
-> > From: Dan Carpenter <dan.carpenter@oracle.com>
-> > Date: Wed, 17 Apr 2013 10:10:38 +0300
-> > 
-> > > The "reason" can come from skb->data[] and it hasn't been capped so it
-> > > can be from 0-255 instead of just 0-6.  For example in irlmp_state_dtr()
-> > > the code does:
-> > > 
-> > > 	reason = skb->data[3];
-> > > 	...
-> > > 	irlmp_disconnect_indication(self, reason, skb);
-> > > 
-> > > Also LMREASON has a couple other values which don't have entries in the
-> > > irlmp_reasons[] array.  And 0xff is a valid reason as well which means
-> > > "unknown".
-> > > 
-> > > So far as I can see we don't actually care about "reason" except for in
-> > > the debug code.
-> > > 
-> > > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> > 
-> > Applied but please put the subsystem prefix outside of [] which get
-> > stripped by git am and other tools.  I fixed it up to be "irda: ".
-> > 
-> 
-> Sorry about that.  I won't do it again.
-> 
-> It's weird because the prefix was cut and pasted from an earlier
-> commit.  Also [media] and [SCSI] use square brackets in their
-> subsystems.  I tried some experiments with "git am" and you're right
-> that "git am" always strips out the square bracket stuff.  Odd.
+In commit 3c5913b53fefc9d9e15a2d0f93042766658d9f3f ("bonding:
+primary_slave & curr_active_slave are not cleaned on enslave failure")
+I didn't account for the use of curr_active_slave without curr_slave_lock
+and since there are such users, we should hold bond->lock for writing while
+setting it to NULL (in the NULL case we don't need the curr_slave_lock).
+Keeping the bond lock as to avoid the extra release/acquire cycle.
 
-The -k option suppresses this behaviour, but then it will also keep
-[PATCH].  It's a shame there's no option to strip just \[PATCH[^]]*\]
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+ drivers/net/bonding/bond_main.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-Ben.
-
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index dbbea0e..7db40de1 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1915,14 +1915,16 @@ err_detach:
+ 	bond_detach_slave(bond, new_slave);
+ 	if (bond->primary_slave == new_slave)
+ 		bond->primary_slave = NULL;
+-	write_unlock_bh(&bond->lock);
+ 	if (bond->curr_active_slave == new_slave) {
++		bond_change_active_slave(bond, NULL);
++		write_unlock_bh(&bond->lock);
+ 		read_lock(&bond->lock);
+ 		write_lock_bh(&bond->curr_slave_lock);
+-		bond_change_active_slave(bond, NULL);
+ 		bond_select_active_slave(bond);
+ 		write_unlock_bh(&bond->curr_slave_lock);
+ 		read_unlock(&bond->lock);
++	} else {
++		write_unlock_bh(&bond->lock);
+ 	}
+ 	slave_disable_netpoll(new_slave);
+ 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.1.4
