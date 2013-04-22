@@ -1,197 +1,79 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 3/5] be2net: Avoid flashing BE3 UFI on BE3-R chip.
-Date: Mon, 22 Apr 2013 14:58:16 +0530
-Message-ID: <1366622898-1416-4-git-send-email-sathya.perla@emulex.com>
-References: <1366622898-1416-1-git-send-email-sathya.perla@emulex.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH V5 6/7] xen-netback: coalesce slots in TX path and fix
+ regressions
+Date: Mon, 22 Apr 2013 10:28:25 +0100
+Message-ID: <20130422092825.GN5815@zion.uk.xensource.com>
+References: <1366045581-31349-1-git-send-email-wei.liu2@citrix.com>
+ <1366045581-31349-7-git-send-email-wei.liu2@citrix.com>
+ <517462D2.8040209@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"jbeulich@suse.com" <jbeulich@suse.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"wdauchy@gmail.com" <wdauchy@gmail.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: annie li <annie.li@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:2835 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755715Ab3DVJZp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 05:25:45 -0400
-In-Reply-To: <1366622898-1416-1-git-send-email-sathya.perla@emulex.com>
+Received: from smtp.citrix.com ([66.165.176.89]:46162 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751909Ab3DVJ2n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Apr 2013 05:28:43 -0400
+Content-Disposition: inline
+In-Reply-To: <517462D2.8040209@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasundhara Volam <vasundhara.volam@emulex.com>
+On Sun, Apr 21, 2013 at 11:06:10PM +0100, annie li wrote:
+[...]
+> > -		if (unlikely(frags >= MAX_SKB_FRAGS)) {
+> > -			netdev_err(vif->dev, "Too many frags\n");
+> > +		/* This guest is really using too many slots and
+> > +		 * considered malicious.
+> > +		 */
+> > +		if (unlikely(slots >= max_skb_slots)) {
+> > +			netdev_err(vif->dev,
+> > +				   "Malicious frontend using %d slots, threshold %u\n",
+> > +				   slots, max_skb_slots);
+> >   			netbk_fatal_tx_err(vif);
+> >   			return -E2BIG;
+> 
+> It is possible that vif is freed when packet size is less than 64K here 
+> but slots required >= max_skb_slots. Alough max_skb_slots can be 
+> configured, this kind of packets would be dropped in following if 
+> (!drop_err && slots >= XEN_NETIF_NR_SLOTS_MIN).
+> 
 
-Avoid flashing BE3 UFI on BE3-R chip by verifying asic_revision
-number of the chip.
+Yes, because slots required >= max_skb_slots is considered malicious
+behavior. The size of the packet doesn't matter here.
 
-Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h      |    1 +
- drivers/net/ethernet/emulex/benet/be_cmds.c |    3 +-
- drivers/net/ethernet/emulex/benet/be_cmds.h |    4 +-
- drivers/net/ethernet/emulex/benet/be_hw.h   |    3 +-
- drivers/net/ethernet/emulex/benet/be_main.c |   42 +++++++++++++++++++-------
- 5 files changed, 37 insertions(+), 16 deletions(-)
+> >   		}
+> >   
+> > -		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + frags),
+> > +		/* Xen network protocol had implicit dependency on
+> > +		 * MAX_SKB_FRAGS. XEN_NETIF_NR_SLOTS_MIN is set to the
+> > +		 * historical MAX_SKB_FRAGS value 18 to honor the same
+> > +		 * behavior as before. Any packet using more than 18
+> > +		 * slots but less than max_skb_slots slots is dropped
+> > +		 */
+> > +		if (!drop_err && slots >= XEN_NETIF_NR_SLOTS_MIN) {
+> > +			if (net_ratelimit())
+> > +				netdev_dbg(vif->dev,
+> > +					   "Too many slots (%d) exceeding limit (%d), dropping packet\n",
+> > +					   slots, XEN_NETIF_NR_SLOTS_MIN);
+> > +			drop_err = -E2BIG;
+> 
+> It is possible to drop packets like above(size < 64K && slot >= 
+> XEN_NETIF_NR_SLOTS_MIN). I do not know how frequently this kind of 
+> packets appear, maybe some SKBs with compound page(size < 64K && slot >= 
+> XEN_NETIF_NR_SLOTS_MIN) are dropped here?
+> 
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 8802268..e2d5ced 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -435,6 +435,7 @@ struct be_adapter {
- 	u8 wol_cap;
- 	bool wol;
- 	u32 uc_macs;		/* Count of secondary UC MAC programmed */
-+	u16 asic_rev;
- 	u32 msg_enable;
- 	int be_get_temp_freq;
- 	u16 max_mcast_mac;
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index a20b31d..d60be68 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -1834,7 +1834,7 @@ err:
- 
- /* Uses mbox */
- int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num,
--		u32 *mode, u32 *caps)
-+			u32 *mode, u32 *caps, u16 *asic_rev)
- {
- 	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_query_fw_cfg *req;
-@@ -1855,6 +1855,7 @@ int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num,
- 		*port_num = le32_to_cpu(resp->phys_port);
- 		*mode = le32_to_cpu(resp->function_mode);
- 		*caps = le32_to_cpu(resp->function_caps);
-+		*asic_rev = le32_to_cpu(resp->asic_revision) & 0xFF;
- 	}
- 
- 	mutex_unlock(&adapter->mbox_lock);
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index ba41f83..e959785 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1848,8 +1848,8 @@ extern int be_cmd_set_flow_control(struct be_adapter *adapter,
- 			u32 tx_fc, u32 rx_fc);
- extern int be_cmd_get_flow_control(struct be_adapter *adapter,
- 			u32 *tx_fc, u32 *rx_fc);
--extern int be_cmd_query_fw_cfg(struct be_adapter *adapter,
--			u32 *port_num, u32 *function_mode, u32 *function_caps);
-+extern int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num,
-+			u32 *function_mode, u32 *function_caps, u16 *asic_rev);
- extern int be_cmd_reset_function(struct be_adapter *adapter);
- extern int be_cmd_rss_config(struct be_adapter *adapter, u8 *rsstable,
- 			u16 table_size);
-diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
-index b305f8d..3c1099b 100644
---- a/drivers/net/ethernet/emulex/benet/be_hw.h
-+++ b/drivers/net/ethernet/emulex/benet/be_hw.h
-@@ -499,7 +499,8 @@ struct flash_file_hdr_g3 {
- 	u32 antidote;
- 	u32 num_imgs;
- 	u8 build[24];
--	u8 rsvd[32];
-+	u8 asic_type_rev;
-+	u8 rsvd[31];
- };
- 
- struct flash_section_hdr {
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index ffd20db..b5252d0 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2959,7 +2959,8 @@ static int be_get_config(struct be_adapter *adapter)
- 
- 	status = be_cmd_query_fw_cfg(adapter, &adapter->port_num,
- 				     &adapter->function_mode,
--				     &adapter->function_caps);
-+				     &adapter->function_caps,
-+				     &adapter->asic_rev);
- 	if (status)
- 		goto err;
- 
-@@ -3220,7 +3221,7 @@ static int be_flash(struct be_adapter *adapter, const u8 *img,
- 	return 0;
- }
- 
--/* For BE2 and BE3 */
-+/* For BE2, BE3 and BE3-R */
- static int be_flash_BEx(struct be_adapter *adapter,
- 			 const struct firmware *fw,
- 			 struct be_dma_mem *flash_cmd,
-@@ -3533,18 +3534,22 @@ lancer_fw_exit:
- 
- #define UFI_TYPE2		2
- #define UFI_TYPE3		3
-+#define UFI_TYPE3R		10
- #define UFI_TYPE4		4
- static int be_get_ufi_type(struct be_adapter *adapter,
--			   struct flash_file_hdr_g2 *fhdr)
-+			   struct flash_file_hdr_g3 *fhdr)
- {
- 	if (fhdr == NULL)
- 		goto be_get_ufi_exit;
- 
- 	if (skyhawk_chip(adapter) && fhdr->build[0] == '4')
- 		return UFI_TYPE4;
--	else if (BE3_chip(adapter) && fhdr->build[0] == '3')
--		return UFI_TYPE3;
--	else if (BE2_chip(adapter) && fhdr->build[0] == '2')
-+	else if (BE3_chip(adapter) && fhdr->build[0] == '3') {
-+		if (fhdr->asic_type_rev == 0x10)
-+			return UFI_TYPE3R;
-+		else
-+			return UFI_TYPE3;
-+	} else if (BE2_chip(adapter) && fhdr->build[0] == '2')
- 		return UFI_TYPE2;
- 
- be_get_ufi_exit:
-@@ -3555,7 +3560,6 @@ be_get_ufi_exit:
- 
- static int be_fw_download(struct be_adapter *adapter, const struct firmware* fw)
- {
--	struct flash_file_hdr_g2 *fhdr;
- 	struct flash_file_hdr_g3 *fhdr3;
- 	struct image_hdr *img_hdr_ptr = NULL;
- 	struct be_dma_mem flash_cmd;
-@@ -3571,23 +3575,37 @@ static int be_fw_download(struct be_adapter *adapter, const struct firmware* fw)
- 	}
- 
- 	p = fw->data;
--	fhdr = (struct flash_file_hdr_g2 *)p;
-+	fhdr3 = (struct flash_file_hdr_g3 *)p;
- 
--	ufi_type = be_get_ufi_type(adapter, fhdr);
-+	ufi_type = be_get_ufi_type(adapter, fhdr3);
- 
--	fhdr3 = (struct flash_file_hdr_g3 *)fw->data;
- 	num_imgs = le32_to_cpu(fhdr3->num_imgs);
- 	for (i = 0; i < num_imgs; i++) {
- 		img_hdr_ptr = (struct image_hdr *)(fw->data +
- 				(sizeof(struct flash_file_hdr_g3) +
- 				 i * sizeof(struct image_hdr)));
- 		if (le32_to_cpu(img_hdr_ptr->imageid) == 1) {
--			if (ufi_type == UFI_TYPE4)
-+			switch (ufi_type) {
-+			case UFI_TYPE4:
- 				status = be_flash_skyhawk(adapter, fw,
- 							&flash_cmd, num_imgs);
--			else if (ufi_type == UFI_TYPE3)
-+				break;
-+			case UFI_TYPE3R:
- 				status = be_flash_BEx(adapter, fw, &flash_cmd,
- 						      num_imgs);
-+				break;
-+			case UFI_TYPE3:
-+				/* Do not flash this ufi on BE3-R cards */
-+				if (adapter->asic_rev < 0x10)
-+					status = be_flash_BEx(adapter, fw,
-+							      &flash_cmd,
-+							      num_imgs);
-+				else {
-+					status = -1;
-+					dev_err(&adapter->pdev->dev,
-+						"Can't load BE3 UFI on BE3R\n");
-+				}
-+			}
- 		}
- 	}
- 
--- 
-1.7.1
+I don't know either, but this is the default behavior of netback so here
+we retain the same behavior here to avoid further regression.
+
+
+Wei.
