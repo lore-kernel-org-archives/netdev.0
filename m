@@ -1,40 +1,77 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] Net-next: ipv4: type issue, remove erroneous semicolon
-Date: Mon, 22 Apr 2013 18:32:20 +0400
-Message-ID: <517549F4.7030806@cogentembedded.com>
-References: <51750E31.2010906@asianux.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [net-next PATCH 2/3] net: fix enforcing of fragment queue hash list depth
+Date: Mon, 22 Apr 2013 16:54:31 +0200
+Message-ID: <20130422145431.GA26838@order.stressinduktion.org>
+References: <20130418213637.14296.43143.stgit@dragon> <20130418213732.14296.36026.stgit@dragon> <1366366287.3205.98.camel@edumazet-glaptop> <1366373950.26911.134.camel@localhost> <20130419124528.GF27889@order.stressinduktion.org> <1366381742.26911.166.camel@localhost> <20130419194424.GI27889@order.stressinduktion.org> <1366621834.26911.271.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Chen Gang <gang.chen@asianux.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:48177 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752031Ab3DVOde (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 10:33:34 -0400
-Received: by mail-la0-f46.google.com with SMTP id ep20so1668702lab.19
-        for <netdev@vger.kernel.org>; Mon, 22 Apr 2013 07:33:32 -0700 (PDT)
-In-Reply-To: <51750E31.2010906@asianux.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:56865 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751896Ab3DVOyd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 10:54:33 -0400
+Content-Disposition: inline
+In-Reply-To: <1366621834.26911.271.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Mon, Apr 22, 2013 at 11:10:34AM +0200, Jesper Dangaard Brouer wrote:
+> (To avoid pissing people off) I acknowledge that we should change the
+> hash size, as its ridiculously small with 64 entries.
+> 
+> But your mem limit assumption and hash depth limit assumptions are
+> broken, because the mem limit is per netns (network namespace).
+> Thus, starting more netns instances will break these assumptions.
 
-On 22-04-2013 14:17, Chen Gang wrote:
+Oh, I see. :/
 
->    need remove erroneous semicolon.
+At first I thought we should make the fragment hash per namespace too,
+to provide better isolation in case of lxc. But then each chrome tab
+would allocate its own fragment cache, too. Hmm... but people using
+namespaces have plenty much memory, don't they? We could also provide
+an inet_fragment namespace. ;)
 
->    the related commit number: c54419321455631079c7d6e60bc732dd0c5914c5
+> The dangerous part of your change (commit 5a3da1fe) is that you keep the
+> existing frag queues (and don't allow new frag queues to be created).
+> The attackers fragments will never finish (timeout 30 sec), while valid
+> fragments will complete and "exit" the queue, thus the end result is
+> hash bucket is filled with attackers invalid/incomplete fragments.
 
-    You also need to specify that commit's summary line in parens.
+I would not mind if your change gets accepted (I have not completyl
+reviewed it yet), but I have my doubts if it is an advantage to the
+current solution.
 
->    Find it by EXTRA_CFLAGS=-W
+First off, I think an attacker can keep the fragment cache pretty much
+filled up with little cost. The current implementation has the grace
+period where no new fragments will be accepted after the DoS, this is
+solved by your patch. But the change makes it easier for an attacker to
+evict "valid" fragments from the cache in the first 30 seconds of the
+DoS, too.
 
+I am not sure whether the current fragmentation handling or your solution
+does perform better in real world (or if it actually matters).
 
-> Signed-off-by: Chen Gang <gang.chen@asianux.com>
+Nonetheless it does add a bit more complexity and a new sysctl which does
+expose something the kernel should know how to do better.
 
-WBR, Sergei
+> Besides, after we have implemented per hash bucket locking (in my change
+> commit 19952cc4 "net: frag queue per hash bucket locking").
+> Then, I don't think it is a big problem that a single hash bucket is
+> being "attacked".
+
+I don't know, I wouldn't say so. The contention point is now the per
+hash bucket lock but it should show the same symptoms as before.
+
+In my opinion we should start resizing the hash table irrespective of
+the namespace limits (one needs CAP_NET_ADMIN to connect a netns to
+the outside world, I think) and try to move forward with Patch 3. This
+patch 2 would then only be a dependency and would introduce the eviction
+strategy you need for patch 3. But the focus should be on the removal of the
+lru cleanup. What do you think?
+
+Thanks,
+
+  Hannes
