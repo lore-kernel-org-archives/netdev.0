@@ -1,203 +1,167 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net] bnx2x: Prevent NULL pointer dereference in kdump
-Date: Mon, 22 Apr 2013 15:53:03 +0300
-Message-ID: <1366635183-9541-1-git-send-email-yuvalmin@broadcom.com>
+From: "Rajahalme, Jarno (NSN - FI/Espoo)" <jarno.rajahalme-OYasijW0DpE@public.gmane.org>
+Subject: Re: [PATCH v2.26] datapath: Add basic MPLS support to
+	kernel
+Date: Mon, 22 Apr 2013 13:55:43 +0000
+Message-ID: <EA113734-1070-43F9-B932-C8AD83CAAFA2@nsn.com>
+References: <1366596740-18246-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Yuval Mintz" <yuvalmin@broadcom.com>,
-	"Ariel Elior" <ariele@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3655 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751738Ab3DVNyj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Apr 2013 09:54:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "<dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
+To: ext Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1366596740-18246-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Content-Language: en-US
+Content-ID: <2E4313722239B44B934177889999EFEB-z7JfP6tgrtWhxUC7wdWhuQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-In scenarios in which a previous driver was removed without proper cleanup
-(e.g., kdump), it is possible for the chip to generate an interrupt without
-any apparent reason once interrupts are requested.
+On Apr 22, 2013, at 5:12 , ext Simon Horman wrote:
 
-Due to an erroneous initialization of resources, some of the bnx2x structs
-which are required for interrupt handling are initialized only after an
-interface's interrupt is requested from the OS.
+> diff --git a/datapath/actions.c b/datapath/actions.c
+...
+> +static int push_mpls(struct sk_buff *skb,
+> +		     const struct ovs_action_push_mpls *mpls,
+> +		     unsigned *mpls_stack_depth)
+> +{
+> +	__be32 *new_mpls_lse;
+> +	int err;
+> +
+> +	err = make_writable(skb, skb->mac_len + MPLS_HLEN);
+> +	if (unlikely(err))
+> +		return err;
+> +
+> +	skb_push(skb, MPLS_HLEN);
+> +	memmove(skb_mac_header(skb) - MPLS_HLEN, skb_mac_header(skb),
+> +		skb->mac_len);
+> +	skb_reset_mac_header(skb);
+> +	skb_set_network_header(skb, skb->mac_len);
+> +
+> +	new_mpls_lse = (__be32 *)skb_network_header(skb);
+> +	*new_mpls_lse = mpls->mpls_lse;
+> +
 
-As a result, once such a spurious interrupt occurs, it will cause a NULL
-pointer dereference - the driver will access those structs in its interrupt
-handling routine.
+Note: Now the skb_network_header points to the MPLS header. But see below...
 
-This patch change the interrupt request scheme so that bnx2x would only
-request interrupts from the kernel after it has finished initializing
-all the inner structs required for interrupt handling.
+> +	if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
+> +		skb->csum = csum_add(skb->csum, csum_partial(new_mpls_lse,
+> +							     MPLS_HLEN, 0));
+> +
+> +	set_ethertype(skb, mpls->mpls_ethertype);
+> +	if (!eth_p_mpls(skb->protocol))
+> +		(*mpls_stack_depth)++;
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
-Hi Dave,
+Here mpls_stack_depth is increased only conditionally. What would be the case where mpls_stack_depth would remain unchanged here? And how does that relate to what follows below...
 
-This patch follows the previously rejected `bnx2x: handle spurious interrupts'.
+> +	return 0;
+> +}
+> +
+> +static int pop_mpls(struct sk_buff *skb, const __be16 *ethertype,
+> +		    unsigned *mpls_stack_depth)
+> +{
+> +	int err;
+> +
+> +	err = make_writable(skb, skb->mac_len + MPLS_HLEN);
+> +	if (unlikely(err))
+> +		return err;
+> +
+> +	if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
+> +		skb->csum = csum_sub(skb->csum,
+> +				     csum_partial(skb_network_header(skb),
+> +						  MPLS_HLEN, 0));
+> +
+> +	memmove(skb_mac_header(skb) + MPLS_HLEN, skb_mac_header(skb),
+> +		skb->mac_len);
+> +
+> +	skb_pull(skb, MPLS_HLEN);
+> +	skb_reset_mac_header(skb);
+> +	skb_set_network_header(skb, skb->mac_len);
+> +
+> +	set_ethertype(skb, *ethertype);
+> +	if (!eth_p_mpls(skb->protocol))
+> +		(*mpls_stack_depth)--;
 
-After verifying that by re-arranging the order by which interrupts' resource
-were allocated and requested, we could no longer re-produce the Spurious
-interrupt issue, we've dropped the spurious flag.
+Ditto?
 
-Please consider applying this patch to `net'.
+> +	return 0;
+> +}
+> +
+> +static int set_mpls(struct sk_buff *skb, const __be32 *mpls_lse)
+> +{
+> +	__be32 *stack = (__be32 *)skb_network_header(skb);
+> +	int err;
+> +
+> +	err = make_writable(skb, skb->mac_len + MPLS_HLEN);
+> +	if (unlikely(err))
+> +		return err;
+> +
+> +	if (get_ip_summed(skb) == OVS_CSUM_COMPLETE) {
+> +		__be32 diff[] = { ~(*stack), *mpls_lse };
+> +		skb->csum = ~csum_partial((char *)diff, sizeof(diff),
+> +					  ~skb->csum);
+> +	}
+> +
+> +	*stack = *mpls_lse;
+> +
+> +	return 0;
+> +}
+> +
+> /* remove VLAN header from packet and update csum accordingly. */
+> static int __pop_vlan_tci(struct sk_buff *skb, __be16 *current_tci)
+> {
+> @@ -115,6 +210,9 @@ static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vla
+> 		if (!__vlan_put_tag(skb, current_tag))
+> 			return -ENOMEM;
+> 
+> +		/* update mac_len for MPLS functions */
+> +		skb_reset_mac_len(skb);
+> +
+> 		if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
+> 			skb->csum = csum_add(skb->csum, csum_partial(skb->data
+> 					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
+> @@ -352,13 +450,31 @@ static int set_tcp(struct sk_buff *skb, const struct ovs_key_tcp *tcp_port_key)
+> 	return 0;
+> }
+> 
+> -static int do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
+> +static int do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
+> +		     unsigned mpls_stack_depth)
+> {
+> 	struct vport *vport;
+> 
+> 	if (unlikely(!skb))
+> 		return -ENOMEM;
+> 
+> +	/* During action execution the network_header, and mac_len,
+> +	 * correspondingly, have tracked the end of the L2 frame (including
+> +	 * any VLAN headers), but proper skb output processing of GSO skbs
+> +	 * requires the network_header (and mac_len) to track the start of
+> +	 * the L3 header instead. These differ in the presence of MPLS
+> +	 * headers.
+> +	 *
+> +	 * mpls_stack_depth is only non-zero if a non-MPLS skb is turned
+> +	 * into an MPLS skb via an MPLS push action. This is the only case
+> +	 * where an MPLS skb may be a GSO skb.
+> +	 */
+> +	if (mpls_stack_depth) {
+> +		skb->mac_len += MPLS_HLEN * mpls_stack_depth;
+> +		skb_set_network_header(skb, skb->mac_len);
+> +		skb_set_encapsulation_features(skb);
+> +	}
+> +
 
-Thanks,
-Yuval Mintz
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  | 11 +++++---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  | 19 +++++++++++---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 32 ++++++++++++------------
- 3 files changed, 39 insertions(+), 23 deletions(-)
+Here the skb_network_header is changed to point to the L3 header. Is it significant that in some cases (?) mpls_stack_depth may remain at zero, even when a MPLS header was in fact added? (See above).
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 57619dd..51a6030 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -1037,6 +1037,7 @@ static irqreturn_t bnx2x_msix_fp_int(int irq, void *fp_cookie)
- 	DP(NETIF_MSG_INTR,
- 	   "got an MSI-X interrupt on IDX:SB [fp %d fw_sd %d igusb %d]\n",
- 	   fp->index, fp->fw_sb_id, fp->igu_sb_id);
-+
- 	bnx2x_ack_sb(bp, fp->igu_sb_id, USTORM_ID, 0, IGU_INT_DISABLE, 0);
- 
- #ifdef BNX2X_STOP_ON_ERROR
-@@ -1718,7 +1719,7 @@ static int bnx2x_req_irq(struct bnx2x *bp)
- 	return request_irq(irq, bnx2x_interrupt, flags, bp->dev->name, bp->dev);
- }
- 
--static int bnx2x_setup_irqs(struct bnx2x *bp)
-+int bnx2x_setup_irqs(struct bnx2x *bp)
- {
- 	int rc = 0;
- 	if (bp->flags & USING_MSIX_FLAG &&
-@@ -2574,6 +2575,8 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- 		}
- 	}
- 
-+	bnx2x_pre_irq_nic_init(bp);
-+
- 	/* Connect to IRQs */
- 	rc = bnx2x_setup_irqs(bp);
- 	if (rc) {
-@@ -2583,11 +2586,11 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- 		LOAD_ERROR_EXIT(bp, load_error2);
- 	}
- 
--	/* Setup NIC internals and enable interrupts */
--	bnx2x_nic_init(bp, load_code);
--
- 	/* Init per-function objects */
- 	if (IS_PF(bp)) {
-+		/* Setup NIC internals and enable interrupts */
-+		bnx2x_post_irq_nic_init(bp, load_code);
-+
- 		bnx2x_init_bp_objs(bp);
- 		bnx2x_iov_nic_init(bp);
- 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index aee7671..c3a65d0 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -295,16 +295,29 @@ void bnx2x_int_disable_sync(struct bnx2x *bp, int disable_hw);
- void bnx2x_nic_init_cnic(struct bnx2x *bp);
- 
- /**
-- * bnx2x_nic_init - init driver internals.
-+ * bnx2x_preirq_nic_init - init driver internals.
-  *
-  * @bp:		driver handle
-  *
-  * Initializes:
-- *  - rings
-+ *  - fastpath object
-+ *  - fastpath rings
-+ *  etc.
-+ */
-+void bnx2x_pre_irq_nic_init(struct bnx2x *bp);
-+
-+/**
-+ * bnx2x_postirq_nic_init - init driver internals.
-+ *
-+ * @bp:		driver handle
-+ * @load_code:	COMMON, PORT or FUNCTION
-+ *
-+ * Initializes:
-  *  - status blocks
-+ *  - slowpath rings
-  *  - etc.
-  */
--void bnx2x_nic_init(struct bnx2x *bp, u32 load_code);
-+void bnx2x_post_irq_nic_init(struct bnx2x *bp, u32 load_code);
- /**
-  * bnx2x_alloc_mem_cnic - allocate driver's memory for cnic.
-  *
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index c50696b..a8f1ee3 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -6018,10 +6018,11 @@ void bnx2x_nic_init_cnic(struct bnx2x *bp)
- 	mmiowb();
- }
- 
--void bnx2x_nic_init(struct bnx2x *bp, u32 load_code)
-+void bnx2x_pre_irq_nic_init(struct bnx2x *bp)
- {
- 	int i;
- 
-+	/* Setup NIC internals and enable interrupts */
- 	for_each_eth_queue(bp, i)
- 		bnx2x_init_eth_fp(bp, i);
- 
-@@ -6030,17 +6031,21 @@ void bnx2x_nic_init(struct bnx2x *bp, u32 load_code)
- 	bnx2x_init_rx_rings(bp);
- 	bnx2x_init_tx_rings(bp);
- 
--	if (IS_VF(bp))
--		return;
-+	if (IS_PF(bp)) {
-+		/* Initialize MOD_ABS interrupts */
-+		bnx2x_init_mod_abs_int(bp, &bp->link_vars, bp->common.chip_id,
-+				       bp->common.shmem_base,
-+				       bp->common.shmem2_base, BP_PORT(bp));
- 
--	/* Initialize MOD_ABS interrupts */
--	bnx2x_init_mod_abs_int(bp, &bp->link_vars, bp->common.chip_id,
--			       bp->common.shmem_base, bp->common.shmem2_base,
--			       BP_PORT(bp));
-+		/* initialize the default status block and sp ring */
-+		bnx2x_init_def_sb(bp);
-+		bnx2x_update_dsb_idx(bp);
-+		bnx2x_init_sp_ring(bp);
-+	}
-+}
- 
--	bnx2x_init_def_sb(bp);
--	bnx2x_update_dsb_idx(bp);
--	bnx2x_init_sp_ring(bp);
-+void bnx2x_post_irq_nic_init(struct bnx2x *bp, u32 load_code)
-+{
- 	bnx2x_init_eq_ring(bp);
- 	bnx2x_init_internal(bp, load_code);
- 	bnx2x_pf_init(bp);
-@@ -6058,12 +6063,7 @@ void bnx2x_nic_init(struct bnx2x *bp, u32 load_code)
- 				   AEU_INPUTS_ATTN_BITS_SPIO5);
- }
- 
--/* end of nic init */
--
--/*
-- * gzip service functions
-- */
--
-+/* gzip service functions */
- static int bnx2x_gunzip_init(struct bnx2x *bp)
- {
- 	bp->gunzip_buf = dma_alloc_coherent(&bp->pdev->dev, FW_BUF_SIZE,
--- 
-1.8.1.227.g44fe835
+> 	vport = ovs_vport_rcu(dp, out_port);
+> 	if (unlikely(!vport)) {
+> 		kfree_skb(skb);
