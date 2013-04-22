@@ -1,27 +1,61 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH 12/14] netlink: add documentation for memory mapped I/O
-Date: Mon, 22 Apr 2013 11:28:08 -0700
-Message-ID: <m2r4i2whc7.fsf@firstfloor.org>
-References: <1366217229-22705-1-git-send-email-kaber@trash.net>
-	<1366217229-22705-13-git-send-email-kaber@trash.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next V2 5/5] net/mlx4_en: Add a service task
+Date: Mon, 22 Apr 2013 12:01:10 -0700
+Message-ID: <1366657270.16391.87.camel@edumazet-glaptop>
+References: <1366631767-16493-1-git-send-email-amirv@mellanox.com>
+	 <1366631767-16493-6-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-man@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Richard Cochran <richardcochran@gmail.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:9968 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754542Ab3DVS2N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Apr 2013 14:28:13 -0400
-In-Reply-To: <1366217229-22705-13-git-send-email-kaber@trash.net> (Patrick
-	McHardy's message of "Wed, 17 Apr 2013 18:47:07 +0200")
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:59672 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755004Ab3DVTBN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 15:01:13 -0400
+Received: by mail-pd0-f180.google.com with SMTP id q11so3780660pdj.39
+        for <netdev@vger.kernel.org>; Mon, 22 Apr 2013 12:01:12 -0700 (PDT)
+In-Reply-To: <1366631767-16493-6-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy <kaber@trash.net> writes:
+On Mon, 2013-04-22 at 14:56 +0300, Amir Vadai wrote:
+> Add a service task to run tasks that needed to be executed periodically.
+> Currently the only task is a watchdog to catch NIC clock overflow, to make
+> timestamping accurate.
+> Will move the statistics task into this framework in a later patch.
+> 
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/en_clock.c  |   20 ++++++++++++++++++++
+>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   24 ++++++++++++++++++++++++
+>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    4 ++++
+>  3 files changed, 48 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+> index 6d8227d..c1982a4 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+> @@ -126,4 +126,24 @@ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
+>  
+>  	timecounter_init(&mdev->clock, &mdev->cycles,
+>  			 ktime_to_ns(ktime_get_real()));
+> +
+> +	/* Calculate period in seconds to call the overflow watchdog. Doing
+> +	 * that, by dividing the maximal cycles value in nano-seconds, convert
+> +	 * it to seconds, and divide by 2 - to make sure counter is checked at
+> +	 * least once every wrap around.
+> +	 */
+> +	mdev->overflow_period =
+> +		cyclecounter_cyc2ns(&mdev->cycles,
+> +				    mdev->cycles.mask) / 1000000 / 2;
+> +}
+> +
 
-Could you extend the netlink manpage too please? 
+So this 1000000 looks like NSEC_PER_SEC/HZ ?
 
--- 
-ak@linux.intel.com -- Speaking for myself only
+What if HZ=100 ?
