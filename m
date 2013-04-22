@@ -1,48 +1,56 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: you must fix this
-Date: Mon, 22 Apr 2013 14:30:26 -0700
-Message-ID: <CALnjE+r2DojykXaYC13MUJ9YxeiJwC0OnfS6rtPJU4uLwbO5nw@mail.gmail.com>
-References: <20130422.162301.2219305973270706624.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net] sfc: Fix naming of MTD partitions for FPGA bitfiles
+Date: Mon, 22 Apr 2013 22:40:07 +0100
+Message-ID: <1366666807.4016.18.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:46300 "HELO
-	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752630Ab3DVVa1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 17:30:27 -0400
-Received: by mail-qc0-f199.google.com with SMTP id p7so10727387qcq.2
-        for <netdev@vger.kernel.org>; Mon, 22 Apr 2013 14:30:26 -0700 (PDT)
-In-Reply-To: <20130422.162301.2219305973270706624.davem@davemloft.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:35401 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751628Ab3DVVkL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 17:40:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 22, 2013 at 1:23 PM, David Miller <davem@davemloft.net> wrote:
->
-> You CANNOT call into functional ipv6 functions from unrelated
-> kernel modules:
->
-> net/built-in.o: In function `ip_tunnel_xmit':
-> /home/davem/src/GIT/net-next/net/ipv4/ip_tunnel.c:619: undefined reference to `icmpv6_send'
->
-This code is moved from ip_gre module to ip_tunnel in the restructuring
-patch. So this dependency is carried from ip_gre module to ip_tunnel module.
+efx_mcdi_get_board_cfg() uses a buffer for the firmware response that
+is only large enough to hold subtypes for the originally defined set
+of NVRAM partitions.  Longer responses are truncated, and we may read
+off the end of the buffer when copying out subtypes for additional
+partitions.  In particular, this can result in the MTD partition for
+an FPGA bitfile being named e.g. 'eth5 sfc_fpga:00' when it should be
+'eth5 sfc_fpga:01'.  This means the firmware update tool (sfupdate)
+can't tell which bitfile should be written to the partition.
 
-> There is no way I can allow this, it requires a call into IPV6 proper
-> to a function that cannot be added to one of the source files we
-> force building statically into the kernel such as addrconf_core.c
->
-> Right now things are completely broken with IPV6=y and everything
-> else modular, and that is not acceptable.
->
-> DO NOT fix this by adding Kconfig dependencies, and DO NOT fix this
-> by mucking with ugly ifdefs the ip_tunnel.c
->
-> You have to remove this need to call into a stateful portion of
-> the IPV6 code, portions which cannot be moved into simply helper
-> functions which get statically linked into the kernel.
+Correct the response buffer size.
 
-ok. I will send fix for ip_tunnel.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+This fix is required for full support of boards with PTP hardware
+clocks.  Please apply to net and queue it up for stable (only needed for
+3.8.y and/or 3.9.y, depending on when this gets to Linus).
 
-Thanks.
+Ben.
+
+ drivers/net/ethernet/sfc/mcdi.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index 0095ce9..97dd8f18 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -667,7 +667,7 @@ fail:
+ int efx_mcdi_get_board_cfg(struct efx_nic *efx, u8 *mac_address,
+ 			   u16 *fw_subtype_list, u32 *capabilities)
+ {
+-	uint8_t outbuf[MC_CMD_GET_BOARD_CFG_OUT_LENMIN];
++	uint8_t outbuf[MC_CMD_GET_BOARD_CFG_OUT_LENMAX];
+ 	size_t outlen, offset, i;
+ 	int port_num = efx_port_num(efx);
+ 	int rc;
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
