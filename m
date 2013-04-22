@@ -1,56 +1,73 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: [PATCH 0/5] of_platform_driver and OF_DEVICE removal
-Date: Sun, 21 Apr 2013 21:13:13 -0500
-Message-ID: <1366596798-9457-1-git-send-email-robherring2@gmail.com>
-Cc: Grant Likely <grant.likely@linaro.org>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Alexander Shishkin <alexander.shishkin@linux.intel.com>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
-	linuxppc-dev@lists.ozlabs.org, linux-rdma@vger.kernel.org,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Paul Mackerras <paulus@samba.org>,
-	Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-To: linux-kernel@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] GRE: Use IS_ERR_OR_NULL in gre_gso_segment
+Date: Mon, 22 Apr 2013 11:13:41 +0900
+Message-ID: <20130422021341.GG15680@verge.net.au>
+References: <1366367073.3205.105.camel@edumazet-glaptop>
+ <20130419.142852.1914290650706288260.davem@davemloft.net>
+ <20130422013557.GF15680@verge.net.au>
+ <20130421.214433.1585372696150221161.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, xeb@mail.ru
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:41026 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754422Ab3DVCNs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Apr 2013 22:13:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20130421.214433.1585372696150221161.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rob Herring <rob.herring@calxeda.com>
+On Sun, Apr 21, 2013 at 09:44:33PM -0400, David Miller wrote:
+> From: Simon Horman <horms@verge.net.au>
+> Date: Mon, 22 Apr 2013 10:35:57 +0900
+> 
+> > On Fri, Apr 19, 2013 at 02:28:52PM -0400, David Miller wrote:
+> >> From: Eric Dumazet <eric.dumazet@gmail.com>
+> >> Date: Fri, 19 Apr 2013 03:24:33 -0700
+> >> 
+> >> > On Fri, 2013-04-19 at 15:48 +0900, Simon Horman wrote:
+> >> >> Signed-off-by: Simon Horman <horms@verge.net.au>
+> >> >> ---
+> >> >>  net/ipv4/gre.c |    2 +-
+> >> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+> >> >> 
+> >> >> diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
+> >> >> index d2d5a99..0ae998b 100644
+> >> >> --- a/net/ipv4/gre.c
+> >> >> +++ b/net/ipv4/gre.c
+> >> >> @@ -168,7 +168,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
+> >> >>  	/* segment inner packet. */
+> >> >>  	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
+> >> >>  	segs = skb_mac_gso_segment(skb, enc_features);
+> >> >> -	if (!segs || IS_ERR(segs))
+> >> >> +	if (IS_ERR_OR_NULL(segs))
+> >> >>  		goto out;
+> >> >>  
+> >> >>  	skb = segs;
+> >> > 
+> >> > Hi Simon
+> >> > 
+> >> > AFAIK I would change things so that NULL is not a possible value.
+> >> > 
+> >> > I don't really like IS_ERR_OR_NULL() because it hides some lazyness of
+> >> > ours, and is more expensive (2 tests)
+> >> > 
+> >> > If we return NULL for an error, why not instead return -Esomething,
+> >> > since caller is OK to get -ENOMEM,-Exxxxx,... ?
+> >> 
+> >> Sometimes IS_ERR_OR_NULL is appropriate, but not here, since the caller
+> >> can more easily just provide good error codes all the time instead of
+> >> sometimes returning nULL.
+> > 
+> > I am confused.
+> > 
+> > I'm not sure that my change actually alters the logic at all.
+> > Is the suggestion that the logic should be changed somehow?
+> 
+> We're saying change skb_mac_gso_segment() to never return NULL, and
+> always an error encoded pointer, rather than change the callers.
 
-This series is a relatively straight-forward removal of the last remaining
-user of of_platform_driver (ibmebus) and removal of CONFIG_OF_DEVICE which
-is always enabled when CONFIG_OF is enabled.
-
-Compile tested on powerpc and sparc.
-
-Rob
-
-Rob Herring (5):
-  ibmebus: convert of_platform_driver to platform_driver
-  driver core: move to_platform_driver to platform_device.h
-  of: remove of_platform_driver
-  usb: chipidea: depend on CONFIG_OF instead of CONFIG_OF_DEVICE
-  of: remove CONFIG_OF_DEVICE
-
- arch/powerpc/include/asm/ibmebus.h        |    4 ++--
- arch/powerpc/kernel/ibmebus.c             |   22 ++++++++++-----------
- drivers/base/platform.c                   |    3 ---
- drivers/infiniband/hw/ehca/ehca_main.c    |    5 ++---
- drivers/net/ethernet/ibm/ehea/ehea_main.c |    8 +++-----
- drivers/of/Kconfig                        |    3 ---
- drivers/of/Makefile                       |    3 +--
- drivers/usb/chipidea/Makefile             |    2 +-
- include/linux/of_device.h                 |    6 +++---
- include/linux/of_platform.h               |   30 +----------------------------
- include/linux/platform_device.h           |    3 +++
- 11 files changed, 26 insertions(+), 63 deletions(-)
-
--- 
-1.7.10.4
+Thanks, I understand now.
