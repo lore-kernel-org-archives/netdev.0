@@ -1,69 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] GRE: Use IS_ERR_OR_NULL in gre_gso_segment
-Date: Sun, 21 Apr 2013 21:44:33 -0400 (EDT)
-Message-ID: <20130421.214433.1585372696150221161.davem@davemloft.net>
-References: <1366367073.3205.105.camel@edumazet-glaptop>
-	<20130419.142852.1914290650706288260.davem@davemloft.net>
-	<20130422013557.GF15680@verge.net.au>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: net: drop dst before queueing fragments
+Date: Mon, 22 Apr 2013 03:09:32 +0100
+Message-ID: <1366596572.3408.138.camel@deadeye.wl.decadent.org.uk>
+References: <20130418212842.GA18291@grsecurity.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, xeb@mail.ru
-To: horms@verge.net.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53441 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753095Ab3DVBog (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Apr 2013 21:44:36 -0400
-In-Reply-To: <20130422013557.GF15680@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-tNc9Q2lCNpMD/98CTZvG"
+Cc: Brad Spengler <spender@grsecurity.net>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>, stable@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20130418212842.GA18291@grsecurity.net>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Horman <horms@verge.net.au>
-Date: Mon, 22 Apr 2013 10:35:57 +0900
 
-> On Fri, Apr 19, 2013 at 02:28:52PM -0400, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Fri, 19 Apr 2013 03:24:33 -0700
->> 
->> > On Fri, 2013-04-19 at 15:48 +0900, Simon Horman wrote:
->> >> Signed-off-by: Simon Horman <horms@verge.net.au>
->> >> ---
->> >>  net/ipv4/gre.c |    2 +-
->> >>  1 file changed, 1 insertion(+), 1 deletion(-)
->> >> 
->> >> diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
->> >> index d2d5a99..0ae998b 100644
->> >> --- a/net/ipv4/gre.c
->> >> +++ b/net/ipv4/gre.c
->> >> @@ -168,7 +168,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
->> >>  	/* segment inner packet. */
->> >>  	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
->> >>  	segs = skb_mac_gso_segment(skb, enc_features);
->> >> -	if (!segs || IS_ERR(segs))
->> >> +	if (IS_ERR_OR_NULL(segs))
->> >>  		goto out;
->> >>  
->> >>  	skb = segs;
->> > 
->> > Hi Simon
->> > 
->> > AFAIK I would change things so that NULL is not a possible value.
->> > 
->> > I don't really like IS_ERR_OR_NULL() because it hides some lazyness of
->> > ours, and is more expensive (2 tests)
->> > 
->> > If we return NULL for an error, why not instead return -Esomething,
->> > since caller is OK to get -ENOMEM,-Exxxxx,... ?
->> 
->> Sometimes IS_ERR_OR_NULL is appropriate, but not here, since the caller
->> can more easily just provide good error codes all the time instead of
->> sometimes returning nULL.
-> 
-> I am confused.
-> 
-> I'm not sure that my change actually alters the logic at all.
-> Is the suggestion that the logic should be changed somehow?
+--=-tNc9Q2lCNpMD/98CTZvG
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-We're saying change skb_mac_gso_segment() to never return NULL, and
-always an error encoded pointer, rather than change the callers.
+On Thu, 2013-04-18 at 17:28 -0400, Brad Spengler wrote:
+> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=
+=3D97599dc792b45b1669c3cdb9a4b365aad0232f65
+>=20
+> Commit introducing error was from 2010, initial fix from 2011
+>=20
+> Fix does not apply cleanly against 3.8 even
+
+David, please add this to your stable queue.
+
+Ben.
+
+--=20
+Ben Hutchings
+Klipstein's 4th Law of Prototyping and Production:
+                                    A fail-safe circuit will destroy others=
+.
+
+--=-tNc9Q2lCNpMD/98CTZvG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAUXSb3Oe/yOyVhhEJAQreOg//d5tJN0DYfUS7KZpzShYkAkbKl7Sg8FfP
+H1KWboKzG22agUZtNk0bwLWqs8zmzuK9zq139hagW/lBU6vijnKagSmBDPXU3jmC
+t1kTeCl/q1DTxCX/o5IkvVOXJin9oOx+IPhg5kjeCnHzyi/XT2Mgx3jllpx9OGDH
+GakcGelW+Ym3GfQtilvSPGylI2q8E0IvLzcRPm5cm5HEBqu6FcGfGuY3dxF7EIpR
++uIdvnU5Wrb47hGucEj/VIzFox7fgNDbJoDVId0ZkkYpn241Efsy6UKEgzvfNUuB
+Zt9MdQXhs/QgOGm49ZctcyLaCF5Tmjhp2n2vek0QtdRaaYEzQVx5VMEEOaY/djl6
+ayjRYnNtBQ8koshrYbr9ansXkYwNUEAhvNVvPY4L+/H8n02EfuPdPtvALnNkF+Qz
+VzstXR/cfT/cTFgi3VAXsNpVDB907Z9mU72w75M0UfspK+b4Ssct9oznJbSRHc6j
+dRXjJj58WASUMIJQDOAY0/yYS3zRbpnDT+u0QDdoTEDv5p32wcg/lbFax1M+sQsi
+7FSDva3an8qQKIp0p3dORvvFMpQqfin9+yeHn4QR7RDK4e6kgdSBHaXYrVPvp4FH
+6viZ2PzQ8GWyzkhpJabzKeG0dhGVyjVd0iGciQjOm9svzsOBvdM6te/1jaL6+fmy
+j4zMBrbpZIg=
+=QUUO
+-----END PGP SIGNATURE-----
+
+--=-tNc9Q2lCNpMD/98CTZvG--
