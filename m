@@ -1,32 +1,255 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 0/5] be2net patch-set
-Date: Mon, 22 Apr 2013 14:58:13 +0530
-Message-ID: <1366622898-1416-1-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 1/5] be2net: Use TXQ_CREATE_V2 cmd
+Date: Mon, 22 Apr 2013 14:58:14 +0530
+Message-ID: <1366622898-1416-2-git-send-email-sathya.perla@emulex.com>
+References: <1366622898-1416-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:12512 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755052Ab3DVJZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 05:25:28 -0400
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:2834 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755636Ab3DVJZa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 05:25:30 -0400
+In-Reply-To: <1366622898-1416-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pls apply.
+From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
-Craig Hada (1):
-  be2net: enable IOMMU pass through for be2net
+Skyhawk-R and BE3-R (SuperNIC profile) require V2 version
+of TXQ_CREATE cmd to be used.
 
-Vasundhara Volam (4):
-  be2net: Use TXQ_CREATE_V2 cmd
-  be2net: Don't log "Out of MCCQ wrbs" error
-  be2net: Avoid flashing BE3 UFI on BE3-R chip.
-  be2net: Use GET_PROFILE_CONFIG V1 cmd for BE3-R
+Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h      |    1 +
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   34 +++++++++++---------
+ drivers/net/ethernet/emulex/benet/be_cmds.h |   45 +++++++-------------------
+ drivers/net/ethernet/emulex/benet/be_hw.h   |    4 ++
+ drivers/net/ethernet/emulex/benet/be_main.c |   11 +++---
+ 5 files changed, 41 insertions(+), 54 deletions(-)
 
- drivers/net/ethernet/emulex/benet/be.h      |    2 +
- drivers/net/ethernet/emulex/benet/be_cmds.c |  136 +++++++++++++++++++--------
- drivers/net/ethernet/emulex/benet/be_cmds.h |   63 +++++--------
- drivers/net/ethernet/emulex/benet/be_hw.h   |    7 +-
- drivers/net/ethernet/emulex/benet/be_main.c |   68 ++++++++++----
- 5 files changed, 177 insertions(+), 99 deletions(-)
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 2e2700e..8802268 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -214,6 +214,7 @@ struct be_tx_stats {
+ };
+ 
+ struct be_tx_obj {
++	u32 db_offset;
+ 	struct be_queue_info q;
+ 	struct be_queue_info cq;
+ 	/* Remember the skbs that were transmitted */
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index cf9408f..5d96f77 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -1095,15 +1095,14 @@ int be_cmd_mccq_create(struct be_adapter *adapter,
+ 	return status;
+ }
+ 
+-int be_cmd_txq_create(struct be_adapter *adapter,
+-			struct be_queue_info *txq,
+-			struct be_queue_info *cq)
++int be_cmd_txq_create(struct be_adapter *adapter, struct be_tx_obj *txo)
+ {
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_eth_tx_create *req;
++	struct be_queue_info *txq = &txo->q;
++	struct be_queue_info *cq = &txo->cq;
+ 	struct be_dma_mem *q_mem = &txq->dma_mem;
+-	void *ctxt;
+-	int status;
++	int status, ver = 0;
+ 
+ 	spin_lock_bh(&adapter->mcc_lock);
+ 
+@@ -1114,34 +1113,37 @@ int be_cmd_txq_create(struct be_adapter *adapter,
+ 	}
+ 
+ 	req = embedded_payload(wrb);
+-	ctxt = &req->context;
+ 
+ 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_ETH,
+ 		OPCODE_ETH_TX_CREATE, sizeof(*req), wrb, NULL);
+ 
+ 	if (lancer_chip(adapter)) {
+ 		req->hdr.version = 1;
+-		AMAP_SET_BITS(struct amap_tx_context, if_id, ctxt,
+-					adapter->if_handle);
++		req->if_id = cpu_to_le16(adapter->if_handle);
++	} else if (BEx_chip(adapter)) {
++		if (adapter->function_caps & BE_FUNCTION_CAPS_SUPER_NIC)
++			req->hdr.version = 2;
++	} else { /* For SH */
++		req->hdr.version = 2;
+ 	}
+ 
+ 	req->num_pages = PAGES_4K_SPANNED(q_mem->va, q_mem->size);
+ 	req->ulp_num = BE_ULP1_NUM;
+ 	req->type = BE_ETH_TX_RING_TYPE_STANDARD;
+-
+-	AMAP_SET_BITS(struct amap_tx_context, tx_ring_size, ctxt,
+-		be_encoded_q_len(txq->len));
+-	AMAP_SET_BITS(struct amap_tx_context, ctx_valid, ctxt, 1);
+-	AMAP_SET_BITS(struct amap_tx_context, cq_id_send, ctxt, cq->id);
+-
+-	be_dws_cpu_to_le(ctxt, sizeof(req->context));
+-
++	req->cq_id = cpu_to_le16(cq->id);
++	req->queue_size = be_encoded_q_len(txq->len);
+ 	be_cmd_page_addrs_prepare(req->pages, ARRAY_SIZE(req->pages), q_mem);
+ 
++	ver = req->hdr.version;
++
+ 	status = be_mcc_notify_wait(adapter);
+ 	if (!status) {
+ 		struct be_cmd_resp_eth_tx_create *resp = embedded_payload(wrb);
+ 		txq->id = le16_to_cpu(resp->cid);
++		if (ver == 2)
++			txo->db_offset = le32_to_cpu(resp->db_offset);
++		else
++			txo->db_offset = DB_TXULP1_OFFSET;
+ 		txq->created = true;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index f2af855..ba41f83 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -474,46 +474,27 @@ struct be_cmd_resp_mcc_create {
+ #define BE_ETH_TX_RING_TYPE_STANDARD    	2
+ #define BE_ULP1_NUM				1
+ 
+-/* Pseudo amap definition in which each bit of the actual structure is defined
+- * as a byte: used to calculate offset/shift/mask of each field */
+-struct amap_tx_context {
+-	u8 if_id[16];		/* dword 0 */
+-	u8 tx_ring_size[4];	/* dword 0 */
+-	u8 rsvd1[26];		/* dword 0 */
+-	u8 pci_func_id[8];	/* dword 1 */
+-	u8 rsvd2[9];		/* dword 1 */
+-	u8 ctx_valid;		/* dword 1 */
+-	u8 cq_id_send[16];	/* dword 2 */
+-	u8 rsvd3[16];		/* dword 2 */
+-	u8 rsvd4[32];		/* dword 3 */
+-	u8 rsvd5[32];		/* dword 4 */
+-	u8 rsvd6[32];		/* dword 5 */
+-	u8 rsvd7[32];		/* dword 6 */
+-	u8 rsvd8[32];		/* dword 7 */
+-	u8 rsvd9[32];		/* dword 8 */
+-	u8 rsvd10[32];		/* dword 9 */
+-	u8 rsvd11[32];		/* dword 10 */
+-	u8 rsvd12[32];		/* dword 11 */
+-	u8 rsvd13[32];		/* dword 12 */
+-	u8 rsvd14[32];		/* dword 13 */
+-	u8 rsvd15[32];		/* dword 14 */
+-	u8 rsvd16[32];		/* dword 15 */
+-} __packed;
+-
+ struct be_cmd_req_eth_tx_create {
+ 	struct be_cmd_req_hdr hdr;
+ 	u8 num_pages;
+ 	u8 ulp_num;
+-	u8 type;
+-	u8 bound_port;
+-	u8 context[sizeof(struct amap_tx_context) / 8];
++	u16 type;
++	u16 if_id;
++	u8 queue_size;
++	u8 rsvd0;
++	u32 rsvd1;
++	u16 cq_id;
++	u16 rsvd2;
++	u32 rsvd3[13];
+ 	struct phys_addr pages[8];
+ } __packed;
+ 
+ struct be_cmd_resp_eth_tx_create {
+ 	struct be_cmd_resp_hdr hdr;
+ 	u16 cid;
+-	u16 rsvd0;
++	u16 rid;
++	u32 db_offset;
++	u32 rsvd0[4];
+ } __packed;
+ 
+ /******************** Create RxQ ***************************/
+@@ -1067,7 +1048,6 @@ struct be_cmd_resp_modify_eq_delay {
+ } __packed;
+ 
+ /******************** Get FW Config *******************/
+-#define BE_FUNCTION_CAPS_RSS			0x2
+ /* The HW can come up in either of the following multi-channel modes
+  * based on the skew/IPL.
+  */
+@@ -1841,8 +1821,7 @@ extern int be_cmd_mccq_create(struct be_adapter *adapter,
+ 			struct be_queue_info *mccq,
+ 			struct be_queue_info *cq);
+ extern int be_cmd_txq_create(struct be_adapter *adapter,
+-			struct be_queue_info *txq,
+-			struct be_queue_info *cq);
++			struct be_tx_obj *txo);
+ extern int be_cmd_rxq_create(struct be_adapter *adapter,
+ 			struct be_queue_info *rxq, u16 cq_id,
+ 			u16 frag_size, u32 if_id, u32 rss, u8 *rss_id);
+diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
+index 89e6d8c..b305f8d 100644
+--- a/drivers/net/ethernet/emulex/benet/be_hw.h
++++ b/drivers/net/ethernet/emulex/benet/be_hw.h
+@@ -72,6 +72,10 @@
+  */
+ #define MEMBAR_CTRL_INT_CTRL_HOSTINTR_MASK	(1 << 29) /* bit 29 */
+ 
++/********* PCI Function Capability *********/
++#define BE_FUNCTION_CAPS_RSS			0x2
++#define BE_FUNCTION_CAPS_SUPER_NIC		0x40
++
+ /********* Power management (WOL) **********/
+ #define PCICFG_PM_CONTROL_OFFSET		0x44
+ #define PCICFG_PM_CONTROL_MASK			0x108	/* bits 3 & 8 */
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 536afa2..ffd20db 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -197,14 +197,15 @@ static void be_rxq_notify(struct be_adapter *adapter, u16 qid, u16 posted)
+ 	iowrite32(val, adapter->db + DB_RQ_OFFSET);
+ }
+ 
+-static void be_txq_notify(struct be_adapter *adapter, u16 qid, u16 posted)
++static void be_txq_notify(struct be_adapter *adapter, struct be_tx_obj *txo,
++			  u16 posted)
+ {
+ 	u32 val = 0;
+-	val |= qid & DB_TXULP_RING_ID_MASK;
++	val |= txo->q.id & DB_TXULP_RING_ID_MASK;
+ 	val |= (posted & DB_TXULP_NUM_POSTED_MASK) << DB_TXULP_NUM_POSTED_SHIFT;
+ 
+ 	wmb();
+-	iowrite32(val, adapter->db + DB_TXULP1_OFFSET);
++	iowrite32(val, adapter->db + txo->db_offset);
+ }
+ 
+ static void be_eq_notify(struct be_adapter *adapter, u16 qid,
+@@ -833,7 +834,7 @@ static netdev_tx_t be_xmit(struct sk_buff *skb,
+ 			stopped = true;
+ 		}
+ 
+-		be_txq_notify(adapter, txq->id, wrb_cnt);
++		be_txq_notify(adapter, txo, wrb_cnt);
+ 
+ 		be_tx_stats_update(txo, wrb_cnt, copied, gso_segs, stopped);
+ 	} else {
+@@ -1969,7 +1970,7 @@ static int be_tx_qs_create(struct be_adapter *adapter)
+ 		if (status)
+ 			return status;
+ 
+-		status = be_cmd_txq_create(adapter, &txo->q, &txo->cq);
++		status = be_cmd_txq_create(adapter, txo);
+ 		if (status)
+ 			return status;
+ 	}
+-- 
+1.7.1
