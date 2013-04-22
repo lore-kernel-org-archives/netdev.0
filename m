@@ -1,99 +1,38 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: tg3: possible irq lock inversion dependency detected
-Date: Mon, 22 Apr 2013 11:30:11 +0200 (CEST)
-Message-ID: <alpine.LFD.2.02.1304221128400.21884@ionos>
-References: <20130419190150.GA15355@linux.vnet.ibm.com> <517199A9.7060003@gmail.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: Re: [PATCH 3/5 v2] net/cpsw: don't rely only on netif_running() to
+ check which device is active
+Date: Mon, 22 Apr 2013 11:30:28 +0200
+Message-ID: <51750334.8050807@linutronix.de>
+References: <1366235536-15744-1-git-send-email-bigeasy@linutronix.de> <1366235536-15744-4-git-send-email-bigeasy@linutronix.de> <516FDE0A.70504@ti.com> <516FE2AD.2040403@linutronix.de> <51711E0B.4000306@ti.com> <20130422083048.GA8162@linutronix.de> <5174FF93.8070408@ti.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	linux-kernel@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: Rob Herring <robherring2@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <517199A9.7060003@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tglx@linutronix.de,
+	"David S. Miller" <davem@davemloft.net>
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.linutronix.de ([62.245.132.108]:56793 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755400Ab3DVJab (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 05:30:31 -0400
+In-Reply-To: <5174FF93.8070408@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 19 Apr 2013, Rob Herring wrote:
-> On 04/19/2013 02:01 PM, Nishanth Aravamudan wrote:
-> > Running 3.9-rc7-ish, tripped the following (also being seen in FC19
-> > alpha) on ppc64:
-> > 
-> > [  117.026196] =========================================================
-> > [  117.026216] [ INFO: possible irq lock inversion dependency detected ]
-> > [  117.026238] 3.9.0-rc7+ #8 Not tainted
-> > [  117.026251] ---------------------------------------------------------
-> > [  117.026271] swapper/7/0 just changed the state of lock:
-> > [  117.026286]  (&(&tp->lock)->rlock){+.-...}, at: [<c00000000064effc>] .tg3_timer+0x9c/0x10f0
-> > [  117.026334] but this lock took another, SOFTIRQ-unsafe lock in the past:
-> > [  117.026353]  (devtree_lock){+.+...}
+On 04/22/2013 11:14 AM, Mugunthan V N wrote:
+>> How about this?
+> If this is the case, then other Ethernet drivers will also have the same
+> scenario,
+> if it can be fixed in a generic way then i will be good.
 
-Hmm. Looks like a few of the devtree functions do not disable
-interrupts. Does the patch below fix the issue?
+Other ethernet drivers know if their device generated an interrupt,
+stop the source and schedule napi. But here it could be either the
+device or the slave device, right?
+After writing this, a better idea idea just bumped into my head.
 
-Thanks,
+btw: Any update on http://www.spinics.net/lists/netdev/msg233296.html?
 
-	tglx
+> Regards
+> Mugunthan V N
 
-diff --git a/drivers/of/base.c b/drivers/of/base.c
-index 321d3ef..a218b4c 100644
---- a/drivers/of/base.c
-+++ b/drivers/of/base.c
-@@ -192,14 +192,15 @@ EXPORT_SYMBOL(of_find_property);
- struct device_node *of_find_all_nodes(struct device_node *prev)
- {
- 	struct device_node *np;
-+	unsigned long flags;
- 
--	raw_spin_lock(&devtree_lock);
-+	raw_spin_lock_irqsave(&devtree_lock, flags);
- 	np = prev ? prev->allnext : of_allnodes;
- 	for (; np != NULL; np = np->allnext)
- 		if (of_node_get(np))
- 			break;
- 	of_node_put(prev);
--	raw_spin_unlock(&devtree_lock);
-+	raw_spin_unlock_irqrestore(&devtree_lock, flags);
- 	return np;
- }
- EXPORT_SYMBOL(of_find_all_nodes);
-@@ -420,8 +421,9 @@ struct device_node *of_get_next_available_child(const struct device_node *node,
- 	struct device_node *prev)
- {
- 	struct device_node *next;
-+	unsigned long flags;
- 
--	raw_spin_lock(&devtree_lock);
-+	raw_spin_lock_irqsave(&devtree_lock, flags);
- 	next = prev ? prev->sibling : node->child;
- 	for (; next; next = next->sibling) {
- 		if (!__of_device_is_available(next))
-@@ -430,7 +432,7 @@ struct device_node *of_get_next_available_child(const struct device_node *node,
- 			break;
- 	}
- 	of_node_put(prev);
--	raw_spin_unlock(&devtree_lock);
-+	raw_spin_unlock_irqrestore(&devtree_lock, flags);
- 	return next;
- }
- EXPORT_SYMBOL(of_get_next_available_child);
-@@ -734,13 +736,14 @@ EXPORT_SYMBOL_GPL(of_modalias_node);
- struct device_node *of_find_node_by_phandle(phandle handle)
- {
- 	struct device_node *np;
-+	unsigned long flags;
- 
--	raw_spin_lock(&devtree_lock);
-+	raw_spin_lock_irqsave(&devtree_lock, flags);
- 	for (np = of_allnodes; np; np = np->allnext)
- 		if (np->phandle == handle)
- 			break;
- 	of_node_get(np);
--	raw_spin_unlock(&devtree_lock);
-+	raw_spin_unlock_irqrestore(&devtree_lock, flags);
- 	return np;
- }
- EXPORT_SYMBOL(of_find_node_by_phandle);
+Sebastian
