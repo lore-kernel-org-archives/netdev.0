@@ -1,80 +1,79 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 2/3] qeth: remove unused variable
-Date: Mon, 22 Apr 2013 13:12:28 +0200
-Message-ID: <20130422111238.384255732@de.ibm.com>
-References: <20130422111226.882214164@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Stefan Raspl <raspl@linux.vnet.ibm.com>
-To: davem@davemloft.net
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next V2 1/5] net/mlx4_core: Add timestamping device capability
+Date: Mon, 22 Apr 2013 14:56:03 +0300
+Message-ID: <1366631767-16493-2-git-send-email-amirv@mellanox.com>
+References: <1366631767-16493-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:47812 "EHLO
-	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751570Ab3DVLMo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 07:12:44 -0400
-Received: from /spool/local
-	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
-	Mon, 22 Apr 2013 12:09:36 +0100
-Content-Disposition: inline; filename=601-qeth-unused-variable.diff
+Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:41699 "EHLO
+	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752052Ab3DVMCA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 08:02:00 -0400
+In-Reply-To: <1366631767-16493-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Raspl <raspl@linux.vnet.ibm.com>
+From: Eugenia Emantayev <eugenia@mellanox.com>
 
-remove unused variable
+Add new device capability for timestamping support and query FW to retrieve it.
 
-Signed-off-by: Stefan Raspl <raspl@linux.vnet.ibm.com>
-Signed-off-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/s390/net/qeth_core.h      |    2 +-
- drivers/s390/net/qeth_core_main.c |    2 +-
- drivers/s390/net/qeth_l2_main.c   |    3 +--
- drivers/s390/net/qeth_l3_main.c   |    3 +--
- 4 files changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/fw.c |    7 ++++++-
+ include/linux/mlx4/device.h             |    3 ++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
 
---- a/drivers/s390/net/qeth_core.h
-+++ b/drivers/s390/net/qeth_core.h
-@@ -915,7 +915,7 @@ int qeth_send_control_data(struct qeth_c
- 	int (*reply_cb)(struct qeth_card *, struct qeth_reply*, unsigned long),
- 	void *reply_param);
- int qeth_get_priority_queue(struct qeth_card *, struct sk_buff *, int, int);
--int qeth_get_elements_no(struct qeth_card *, void *, struct sk_buff *, int);
-+int qeth_get_elements_no(struct qeth_card *, struct sk_buff *, int);
- int qeth_get_elements_for_frags(struct sk_buff *);
- int qeth_do_send_packet_fast(struct qeth_card *, struct qeth_qdio_out_q *,
- 			struct sk_buff *, struct qeth_hdr *, int, int, int);
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -3698,7 +3698,7 @@ int qeth_get_elements_for_frags(struct s
- }
- EXPORT_SYMBOL_GPL(qeth_get_elements_for_frags);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index ab470d9..8f394be 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -130,7 +130,8 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
+ 		[1] = "RSS Toeplitz Hash Function support",
+ 		[2] = "RSS XOR Hash Function support",
+ 		[3] = "Device manage flow steering support",
+-		[4] = "Automatic mac reassignment support"
++		[4] = "Automatic mac reassignment support",
++		[5] = "Time stamping support"
+ 	};
+ 	int i;
  
--int qeth_get_elements_no(struct qeth_card *card, void *hdr,
-+int qeth_get_elements_no(struct qeth_card *card,
- 		     struct sk_buff *skb, int elems)
- {
- 	int dlen = skb->len - skb->data_len;
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -773,8 +773,7 @@ static int qeth_l2_hard_start_xmit(struc
- 		}
- 	}
+@@ -444,6 +445,7 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ #define QUERY_DEV_CAP_MAX_MSG_SZ_OFFSET		0x38
+ #define QUERY_DEV_CAP_MAX_GID_OFFSET		0x3b
+ #define QUERY_DEV_CAP_RATE_SUPPORT_OFFSET	0x3c
++#define QUERY_DEV_CAP_CQ_TS_SUPPORT_OFFSET	0x3e
+ #define QUERY_DEV_CAP_MAX_PKEY_OFFSET		0x3f
+ #define QUERY_DEV_CAP_EXT_FLAGS_OFFSET		0x40
+ #define QUERY_DEV_CAP_FLAGS_OFFSET		0x44
+@@ -560,6 +562,9 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 	dev_cap->fs_max_num_qp_per_entry = field;
+ 	MLX4_GET(stat_rate, outbox, QUERY_DEV_CAP_RATE_SUPPORT_OFFSET);
+ 	dev_cap->stat_rate_support = stat_rate;
++	MLX4_GET(field, outbox, QUERY_DEV_CAP_CQ_TS_SUPPORT_OFFSET);
++	if (field & 0x80)
++		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_TS;
+ 	MLX4_GET(ext_flags, outbox, QUERY_DEV_CAP_EXT_FLAGS_OFFSET);
+ 	MLX4_GET(flags, outbox, QUERY_DEV_CAP_FLAGS_OFFSET);
+ 	dev_cap->flags = flags | (u64)ext_flags << 32;
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 1bc5a75..86ae260 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -152,7 +152,8 @@ enum {
+ 	MLX4_DEV_CAP_FLAG2_RSS_TOP		= 1LL <<  1,
+ 	MLX4_DEV_CAP_FLAG2_RSS_XOR		= 1LL <<  2,
+ 	MLX4_DEV_CAP_FLAG2_FS_EN		= 1LL <<  3,
+-	MLX4_DEV_CAP_FLAGS2_REASSIGN_MAC_EN	= 1LL <<  4
++	MLX4_DEV_CAP_FLAGS2_REASSIGN_MAC_EN	= 1LL <<  4,
++	MLX4_DEV_CAP_FLAG2_TS			= 1LL <<  5
+ };
  
--	elements = qeth_get_elements_no(card, (void *)hdr, new_skb,
--						elements_needed);
-+	elements = qeth_get_elements_no(card, new_skb, elements_needed);
- 	if (!elements) {
- 		if (data_offset >= 0)
- 			kmem_cache_free(qeth_core_header_cache, hdr);
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -3037,8 +3037,7 @@ static int qeth_l3_hard_start_xmit(struc
- 			qeth_l3_hdr_csum(card, hdr, new_skb);
- 	}
- 
--	elems = qeth_get_elements_no(card, (void *)hdr, new_skb,
--						 elements_needed);
-+	elems = qeth_get_elements_no(card, new_skb, elements_needed);
- 	if (!elems) {
- 		if (data_offset >= 0)
- 			kmem_cache_free(qeth_core_header_cache, hdr);
+ enum {
+-- 
+1.7.8.2
