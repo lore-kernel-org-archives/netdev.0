@@ -1,50 +1,31 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: [PATCH] Net: rxrpc: signed and unsigned issue, need type cast for
- n_elem.
-Date: Mon, 22 Apr 2013 18:24:00 +0800
-Message-ID: <51750FC0.8000603@asianux.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next v2] packet: tx timestamping on tpacket ring
+Date: Mon, 22 Apr 2013 12:25:28 +0200
+Message-ID: <51751018.2010305@redhat.com>
+References: <CA+FuTSdGdhgpRARbv9zFnDESzCQBzT=DS-WgGZRWBLBvhN_sNg@mail.gmail.com> <1366408317-16432-1-git-send-email-willemb@google.com> <51728B32.4040200@redhat.com> <CA+FuTSckxSB-rDFVJbbWdxX=5HfNoD4vwkeHy71Ab2cam8wpGQ@mail.gmail.com> <5173BB0F.90900@redhat.com> <CA+FuTSc9ikN6gOsnKjM4Gv-2M+W-_jwijW4Wy=_RLLuRxoJw9A@mail.gmail.com> <5174F29C.2030806@onera.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"dhowells@redhat.com" <dhowells@redhat.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Serge Hallyn <serge.hallyn@canonical.com>
+Cc: Willem de Bruijn <willemb@google.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Richard Cochran <richardcochran@gmail.com>
+To: Paul Chavent <Paul.Chavent@onera.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:33271 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754354Ab3DVKYp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 06:24:45 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:12615 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754370Ab3DVKZy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Apr 2013 06:25:54 -0400
+In-Reply-To: <5174F29C.2030806@onera.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 04/22/2013 10:19 AM, Paul Chavent wrote:
+> On 04/21/2013 06:42 PM, Willem de Bruijn wrote:
+>> Tx has the advantage that time sources can be chosen
+>> per socket independent of all other sockets
+>
+> Sorry if my question is trivial.
+> I understand that when we require rx timestamping, we need to ask to the device to timestamp all incoming packets since we don't know the path of the packet in advance.
+> For tx timestamping, you seems to say that the request to timestamp the packet is contained in the skbuff and is done on a per packet basis ?
 
-  n_elem is unsigned int which never < 0.
-  but it seems, we realy need check it whether < 0.
-  so need a type cast for it.
-
-  find it by EXTRA_CFLAGS=-W
-
-
-Signed-off-by: Chen Gang <gang.chen@asianux.com>
----
- net/rxrpc/ar-key.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/rxrpc/ar-key.c b/net/rxrpc/ar-key.c
-index 7633a75..ba0b722 100644
---- a/net/rxrpc/ar-key.c
-+++ b/net/rxrpc/ar-key.c
-@@ -346,7 +346,7 @@ static int rxrpc_krb5_decode_tagged_array(struct krb5_tagged_data **_td,
- 
- 	n_elem = ntohl(*xdr++);
- 	toklen -= 4;
--	if (n_elem < 0 || n_elem > max_n_elem)
-+	if ((int)n_elem < 0 || n_elem > max_n_elem)
- 		return -EINVAL;
- 	*_n_elem = n_elem;
- 	if (n_elem > 0) {
--- 
-1.7.7.6
+It's all in: Documentation/networking/timestamping.txt
