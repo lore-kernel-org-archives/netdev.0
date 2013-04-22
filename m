@@ -1,57 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] net: Fix vlan bitmask changes in EHEA driver.
-Date: Mon, 22 Apr 2013 19:35:26 -0400 (EDT)
-Message-ID: <20130422.193526.963629892294191139.davem@davemloft.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next v2 1/2] genl: Allow concurrent genl callbacks.
+Date: Mon, 22 Apr 2013 16:49:05 -0700
+Message-ID: <CALnjE+pg1ecFjisxnHyrMsBCyZ6daF=wCH+FxEc8XtCqAwyo6g@mail.gmail.com>
+References: <1366320646-16903-1-git-send-email-pshelar@nicira.com>
+	<20130422.161812.1075030033926378895.davem@davemloft.net>
+	<CALnjE+pwo5_j8ChPEHGXWT2kc1U3mVE99xc=XDtp6XtPOytKGA@mail.gmail.com>
+	<20130422.185521.711925108684466632.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, kaber@trash.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, jesse@nicira.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40016 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753810Ab3DVXf1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 19:35:27 -0400
+Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:40694 "HELO
+	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751474Ab3DVXtH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 19:49:07 -0400
+Received: by mail-qc0-f199.google.com with SMTP id p7so56352qcq.6
+        for <netdev@vger.kernel.org>; Mon, 22 Apr 2013 16:49:06 -0700 (PDT)
+In-Reply-To: <20130422.185521.711925108684466632.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Apr 22, 2013 at 3:55 PM, David Miller <davem@davemloft.net> wrote:
+> From: Pravin Shelar <pshelar@nicira.com>
+> Date: Mon, 22 Apr 2013 13:41:41 -0700
+>
+>> Therefore scatchpad in SKB is protected and parallel netlink dump operations
+>> can go only on different netlink sockets.
+>
+> What about configuration changes running in parallel with the dump?
+>
+> You must synchronize with those too, otherwise protecting the
+> intra-dump state is meaningless since the underlying objects
+> can change underneath the dump.
 
-This driver uses the crummy "| foo" style, putting the
-logical operation at the beginning of lines.  Then
-when the VLAN tag flag bits got changed the operator
-ended up at both the end and the beginning of some lines.
+That is synchronized using rw-sem.
+This is how locking looks like:
 
-Fix the build error by having it uniformly use the operator
-at the end of the line.
-
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+genl_dump() (if lockless = true)
+  SEM_READ_LOCK()
+  Per_sock_mutex()
+  -->netlink_dump()
+  Per_sock_unmutex()
+  SEM_READ_UNLOCK()
 ---
- drivers/net/ethernet/ibm/ehea/ehea_main.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-index 1901ceb..90ea0b1 100644
---- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
-+++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-@@ -3021,12 +3021,12 @@ static struct ehea_port *ehea_setup_single_port(struct ehea_adapter *adapter,
- 	dev->netdev_ops = &ehea_netdev_ops;
- 	ehea_set_ethtool_ops(dev);
- 
--	dev->hw_features = NETIF_F_SG | NETIF_F_TSO
--		      | NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_CTAG_TX;
--	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_TSO
--		      | NETIF_F_HIGHDMA | NETIF_F_IP_CSUM |
--		      | NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX |
--		      | NETIF_F_HW_VLAN_CTAG_FILTER | NETIF_F_RXCSUM;
-+	dev->hw_features = NETIF_F_SG | NETIF_F_TSO |
-+		      NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_CTAG_TX;
-+	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_TSO |
-+		      NETIF_F_HIGHDMA | NETIF_F_IP_CSUM |
-+		      NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX |
-+		      NETIF_F_HW_VLAN_CTAG_FILTER | NETIF_F_RXCSUM;
- 	dev->vlan_features = NETIF_F_SG | NETIF_F_TSO | NETIF_F_HIGHDMA |
- 			NETIF_F_IP_CSUM;
- 	dev->watchdog_timeo = EHEA_WATCH_DOG_TIMEOUT;
--- 
-1.7.11.7
+genl_conf_changes:
+  SEM_WRITE_LOCK()
+  GENL_LOCK()
+     conf_changes()
+  GENL_UNLOCK()
+  SEM_WRITE_UNLOCK()
+---
+
+Now I think I shld call this parallel operations rather than lockless
+operations, since I do take read lock for entire genl-ops
+.
+Let me send updated patch.
