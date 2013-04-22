@@ -1,90 +1,59 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH v3 net-next] bridge: Add fdb dst check during fdb update
-Date: Mon, 22 Apr 2013 15:56:49 -0700
-Message-ID: <20130422155649.2e4aebcf@nehalam.linuxnetplumber.net>
-References: <1365968593-28725-1-git-send-email-roopa@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] net: Fix some __vlan_hwaccel_put_tag() callers.
+Date: Mon, 22 Apr 2013 19:25:07 -0400 (EDT)
+Message-ID: <20130422.192507.622812516214918827.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	nolan@cumulusnetworks.com, shm@cumulusnetworks.com,
-	wkok@cumulusnetworks.com
-To: roopa@cumulusnetworks.com
+Cc: sfr@canb.auug.org.au, kaber@trash.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:55363 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752708Ab3DVW4z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 18:56:55 -0400
-Received: by mail-pd0-f173.google.com with SMTP id v10so260pde.18
-        for <netdev@vger.kernel.org>; Mon, 22 Apr 2013 15:56:54 -0700 (PDT)
-In-Reply-To: <1365968593-28725-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39918 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752967Ab3DVXZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 19:25:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch fixes a real oversight in the forwarding database management stuff.
 
-A couple of minor tweaks.
- 1. Always update used value but don't change 'updated' value unless changed.
- 2. Rename notify flag to modified
- 3. Add some whitespace.
+Several call sites were missed when the protocol argument was added to
+__vlan_hwaccel_put_tag() in commit
+86a9bad3ab6b6f858fd4443b48738cabbb6d094c ("net: vlan: add protocol
+argument to packet tagging functions").
 
-
-From: roopa <roopa@cumulusnetworks.com>
-
-Current bridge fdb update code does not seem to update the port
-during fdb update. This patch adds a check for fdb dst (port)
-change during fdb update. Also rearranges the call to
-fdb_notify to send only one notification for create and update.
-
-Changelog:
-v2 - Change notify flag to bool
-
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/bridge/br_fdb.c |   11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/gianfar.c  | 2 +-
+ drivers/net/ethernet/ibm/ehea/ehea_main.c | 3 ++-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
---- a/net/bridge/br_fdb.c	2013-03-28 14:26:20.746064670 -0700
-+++ b/net/bridge/br_fdb.c	2013-04-22 15:52:24.183494631 -0700
-@@ -615,6 +615,7 @@ static int fdb_add_entry(struct net_brid
- 	struct net_bridge *br = source->br;
- 	struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
- 	struct net_bridge_fdb_entry *fdb;
-+	bool modified = false;
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 5155544..2375a01 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -2731,7 +2731,7 @@ static void gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
+ 	 */
+ 	if (dev->features & NETIF_F_HW_VLAN_CTAG_RX &&
+ 	    fcb->flags & RXFCB_VLN)
+-		__vlan_hwaccel_put_tag(skb, fcb->vlctl);
++		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), fcb->vlctl);
  
- 	fdb = fdb_find(head, addr, vid);
- 	if (fdb == NULL) {
-@@ -624,10 +625,16 @@ static int fdb_add_entry(struct net_brid
- 		fdb = fdb_create(head, source, addr, vid);
- 		if (!fdb)
- 			return -ENOMEM;
--		fdb_notify(br, fdb, RTM_NEWNEIGH);
-+
-+		modified = true;
- 	} else {
- 		if (flags & NLM_F_EXCL)
- 			return -EEXIST;
-+
-+		if (fdb->dst != source) {
-+			fdb->dst = source;
-+			modified = true;
-+		}
- 	}
+ 	/* Send the packet up the stack */
+ 	napi_gro_receive(napi, skb);
+diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+index d1812aa..1901ceb 100644
+--- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
++++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+@@ -725,7 +725,8 @@ static int ehea_proc_rwqes(struct net_device *dev,
+ 			processed_bytes += skb->len;
  
- 	if (fdb_to_nud(fdb) != state) {
-@@ -639,7 +646,12 @@ static int fdb_add_entry(struct net_brid
- 		} else
- 			fdb->is_local = fdb->is_static = 0;
+ 			if (cqe->status & EHEA_CQE_VLAN_TAG_XTRACT)
+-				__vlan_hwaccel_put_tag(skb, cqe->vlan_tag);
++				__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
++						       cqe->vlan_tag);
  
--		fdb->updated = fdb->used = jiffies;
-+		modified = true;
-+	}
-+
-+	fdb->used = jiffies;
-+	if (modified) {
-+		fdb->updated = jiffies;
- 		fdb_notify(br, fdb, RTM_NEWNEIGH);
- 	}
- 
+ 			napi_gro_receive(&pr->napi, skb);
+ 		} else {
+-- 
+1.7.11.7
