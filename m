@@ -1,78 +1,83 @@
-From: Mark Jackson <mpfj-list@newflow.co.uk>
-Subject: Re: [PATCH 0/3] Dual EMAC mode implementation of CPSW
-Date: Mon, 22 Apr 2013 15:07:35 +0100
-Message-ID: <51754427.7000908@newflow.co.uk>
-References: <1360612340-9266-1-git-send-email-mugunthanvnm@ti.com> <516B0098.4040809@mimc.co.uk> <516C33D2.4050105@ti.com> <516C38B9.50904@mimc.co.uk> <516C3A0D.70903@ti.com> <517018E6.6080108@newflow.co.uk>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] Net: mac802154: comparing issue by type cast, finding
+ by EXTRA_CFLAGS=-W
+Date: Mon, 22 Apr 2013 18:09:09 +0400
+Message-ID: <51754485.6040708@cogentembedded.com>
+References: <5174DB87.3010908@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	David Miller <davem@davemloft.net>,
+	linux-zigbee-devel@lists.sourceforge.net,
+	netdev <netdev@vger.kernel.org>
+To: Chen Gang <gang.chen@asianux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mercuryimc.plus.com ([80.229.200.144]:44965 "EHLO
-	centos1.newflow.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751827Ab3DVOHk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 10:07:40 -0400
-In-Reply-To: <517018E6.6080108@newflow.co.uk>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:65252 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753126Ab3DVOKX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 10:10:23 -0400
+Received: by mail-la0-f53.google.com with SMTP id eg20so1624068lab.40
+        for <netdev@vger.kernel.org>; Mon, 22 Apr 2013 07:10:21 -0700 (PDT)
+In-Reply-To: <5174DB87.3010908@asianux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18/04/13 17:01, Mark Jackson wrote:
-> On 15/04/13 18:34, Mugunthan V N wrote:
->> On 4/15/2013 10:58 PM, Mark Jackson wrote:
->>> On 15/04/13 18:07, Mugunthan V N wrote:
->>>> On 4/15/2013 12:46 AM, Mark Jackson wrote:
->>>
->>> <snip>
->>>
->>>>>
->>>>> Notice that at the end, the nfs link appears to come back "ok", but
->>>>> the "ps" command never completes.
->>>>>
->>>>> Any ideas of what's going on ?
->>>>
->>>> I have tried ping on both the interface fine. Will verify with ps again
->>>> later in this week.
->>>> Can you provide below details details
->>>> - Are you using EVMsk or custom build EVM?
->>>
->>> This is a custom board (based on the BeagleBone design) with dual
->>> Ethernet, NAND, NOR and FRAM.
->>>
->>> The dual emac thing is (one of) the last things to get signed off, so
->>> I'm willing to assist in tracking this down.
->>
->> After testing the scenario i may be able to send you an update later in
->> this week.
-> 
-> I have made some progress ... I realised I was missing a (clearly rather
-> important !!) item in my .config file, namely CONFIG_TI_DAVINCI_EMAC.
-> 
-> I am now able to ping from our board to other systems on the network
-> (again, I've only tested eth0 at the moment).
-> 
-> However, I am unable to ping everything I should be able to !!
+Hello.
 
-<snip>
+On 22-04-2013 10:41, Chen Gang wrote:
 
-> When the pings fail, I am unable to see *any* activity on the network
-> (using wireshark).
-> 
-> Is there anything else I should try ?
+>    need change ~(u8)0 to 0xff,
+>    or in mac802154_wpan_xmit(), "u8 chan" will never == MAC802154_CHAN_NONE
 
-Mugunthan
+>    find it by "make EXTRA_CFLAGS=-W"
+>      net/mac802154/wpan.c:325:2: warning: comparison is always false
+>      due to limited range of data type [-Wtype-limits]
 
-Can you confirm that I'm actually trying to achieve the right thing ?
+>    related unit test:
+>      cc -Wall -O2 -o test test.c
+>      ./test
+>      will output 'different'
 
-I have all along assumed that Dual EMAC mode would simply provide the
-kernel will a pair of independent Ethernet ports.
+>      (after use '0xff' instead of '~(u8)0', it will output 'equal')
 
-All I am trying to do is to get both Ethernet ports working so I can
-have one port on (say) 10.0.x.x and the other on (say) 10.1.x.x
+> -----------------------test code begin--------------------------------
 
-But there is all this reference to VLANs(in the source code and the TRM)
-... I have not setup any VLANs.  Do I need to ?  If so, how ?
+> #include <stdio.h>
+>
+> typedef unsigned char u8;
+>
+> int main()
+> {
+> 	u8 uc = 0xff;
+>
+> 	if (uc == ~(u8)0)
+> 		printf("\nequal\n");
+> 	else
+> 		printf("\ndifferent\n");
+>
+> 	return 0;
+> }
 
-Cheers
-Mark J.
+> -----------------------test code end----------------------------------
+
+
+> Signed-off-by: Chen Gang <gang.chen@asianux.com>
+> ---
+>   net/mac802154/mac802154.h |    2 +-
+>   1 files changed, 1 insertions(+), 1 deletions(-)
+
+> diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
+> index 5c9e021..c59309f 100644
+> --- a/net/mac802154/mac802154.h
+> +++ b/net/mac802154/mac802154.h
+> @@ -88,7 +88,7 @@ struct mac802154_sub_if_data {
+>
+>   #define mac802154_to_priv(_hw)	container_of(_hw, struct mac802154_priv, hw)
+>
+> -#define MAC802154_CHAN_NONE		(~(u8)0) /* No channel is assigned */
+> +#define MAC802154_CHAN_NONE		(0xff) /* No channel is assigned */
+
+    () not needed now.
+
+WBR, Sergei
