@@ -1,27 +1,73 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net-next V7 0/4] Bundle fixes for Xen netfront / netback
-Date: Mon, 22 Apr 2013 13:20:39 +0100
-Message-ID: <1366633243-17775-1-git-send-email-wei.liu2@citrix.com>
+Subject: [PATCH net-next V7 4/4] xen-netback: don't disconnect frontend when seeing oversize packet
+Date: Mon, 22 Apr 2013 13:20:43 +0100
+Message-ID: <1366633243-17775-5-git-send-email-wei.liu2@citrix.com>
+References: <1366633243-17775-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
-	<ian.campbell@citrix.com>
+	<ian.campbell@citrix.com>, Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp02.citrix.com ([66.165.176.63]:5311 "EHLO SMTP02.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753099Ab3DVMVB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Apr 2013 08:21:01 -0400
+	id S1753099Ab3DVMVH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Apr 2013 08:21:07 -0400
+In-Reply-To: <1366633243-17775-1-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave
+Some frontend drivers are sending packets > 64 KiB in length. This length
+overflows the length field in the first slot making the following slots have
+an invalid length.
 
-This series is now rebased onto net-next.
+Turn this error back into a non-fatal error by dropping the packet. To avoid
+having the following slots having fatal errors, consume all slots in the
+packet.
 
-We would also like to ask you to queue it for stable-ish tree. I can do the
-backport if necessary.
+This does not reopen the security hole in XSA-39 as if the packet as an
+invalid number of slots it will still hit fatal error case.
 
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Acked-by: Ian Campbell <ian.campbell@citrix.com>
+---
+ drivers/net/xen-netback/netback.c |   22 ++++++++++++++++------
+ 1 file changed, 16 insertions(+), 6 deletions(-)
 
-Thanks
-Wei.
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index d9292c5..a2865f1 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -975,12 +975,22 @@ static int netbk_count_requests(struct xenvif *vif,
+ 
+ 		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + slots),
+ 		       sizeof(*txp));
+-		if (txp->size > first->size) {
+-			netdev_err(vif->dev,
+-				   "Invalid tx request, slot size %u > remaining size %u\n",
+-				   txp->size, first->size);
+-			netbk_fatal_tx_err(vif);
+-			return -EIO;
++
++		/* If the guest submitted a frame >= 64 KiB then
++		 * first->size overflowed and following slots will
++		 * appear to be larger than the frame.
++		 *
++		 * This cannot be fatal error as there are buggy
++		 * frontends that do this.
++		 *
++		 * Consume all slots and drop the packet.
++		 */
++		if (!drop_err && txp->size > first->size) {
++			if (net_ratelimit())
++				netdev_dbg(vif->dev,
++					   "Invalid tx request, slot size %u > remaining size %u\n",
++					   txp->size, first->size);
++			drop_err = -EIO;
+ 		}
+ 
+ 		first->size -= txp->size;
+-- 
+1.7.10.4
