@@ -1,42 +1,299 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH v3 net-next 6/6] bnx2x: update version to 1.78.17-0
-Date: Mon, 22 Apr 2013 13:15:08 +0300
-Message-ID: <1366625708-5678-7-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH v3 net-next 4/6] bnx2x: add additional regions for CRC
+ memory test
+Date: Mon, 22 Apr 2013 13:15:06 +0300
+Message-ID: <1366625708-5678-5-git-send-email-dmitry@broadcom.com>
 References: <1366625708-5678-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: romueu@fz.zoreil.com, "Dmitry Kravkov" <dmitry@broadcom.com>
+Cc: romueu@fz.zoreil.com, "Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Francious Romieu" <romieu@fz.zoreil.com>
 To: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4548 "EHLO mms3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4547 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752913Ab3DVKPa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752818Ab3DVKPa (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 22 Apr 2013 06:15:30 -0400
 In-Reply-To: <1366625708-5678-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+a. Common tree of `dir` structures.
+b. Multi-port devices structures.
+
+CC: Francious Romieu <romieu@fz.zoreil.com>
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |   7 +-
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    | 200 ++++++++++++++++++---
+ 2 files changed, 184 insertions(+), 23 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 87629fd..3dba2a7 100644
+index c630342..87629fd 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -26,8 +26,8 @@
-  * (you will need to reboot afterwards) */
- /* #define BNX2X_STOP_ON_ERROR */
+@@ -850,6 +850,9 @@ struct bnx2x_common {
+ #define CHIP_IS_57840_VF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57840_VF)
+ #define CHIP_IS_E1H(bp)			(CHIP_IS_57711(bp) || \
+ 					 CHIP_IS_57711E(bp))
++#define CHIP_IS_57811xx(bp)		(CHIP_IS_57811(bp) || \
++					 CHIP_IS_57811_MF(bp) || \
++					 CHIP_IS_57811_VF(bp))
+ #define CHIP_IS_E2(bp)			(CHIP_IS_57712(bp) || \
+ 					 CHIP_IS_57712_MF(bp) || \
+ 					 CHIP_IS_57712_VF(bp))
+@@ -859,9 +862,7 @@ struct bnx2x_common {
+ 					 CHIP_IS_57810(bp) || \
+ 					 CHIP_IS_57810_MF(bp) || \
+ 					 CHIP_IS_57810_VF(bp) || \
+-					 CHIP_IS_57811(bp) || \
+-					 CHIP_IS_57811_MF(bp) || \
+-					 CHIP_IS_57811_VF(bp) || \
++					 CHIP_IS_57811xx(bp) || \
+ 					 CHIP_IS_57840(bp) || \
+ 					 CHIP_IS_57840_MF(bp) || \
+ 					 CHIP_IS_57840_VF(bp))
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index f4ed10a..14900ee 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -2595,14 +2595,167 @@ static int bnx2x_test_ext_loopback(struct bnx2x *bp)
+ 	return rc;
+ }
  
--#define DRV_MODULE_VERSION      "1.78.02-0"
--#define DRV_MODULE_RELDATE      "2013/01/14"
-+#define DRV_MODULE_VERSION      "1.78.17-0"
-+#define DRV_MODULE_RELDATE      "2013/04/11"
- #define BNX2X_BC_VER            0x040200
++struct code_entry {
++	u32 sram_start_addr;
++	u32 code_attribute;
++#define CODE_IMAGE_TYPE_MASK			0xf0800003
++#define CODE_IMAGE_VNTAG_PROFILES_DATA		0xd0000003
++#define CODE_IMAGE_LENGTH_MASK			0x007ffffc
++#define CODE_IMAGE_TYPE_EXTENDED_DIR		0xe0000000
++	u32 nvm_start_addr;
++};
++
++#define CODE_ENTRY_MAX			16
++#define CODE_ENTRY_EXTENDED_DIR_IDX	15
++#define MAX_IMAGES_IN_EXTENDED_DIR	64
++#define NVRAM_DIR_OFFSET		0x14
++
++#define EXTENDED_DIR_EXISTS(code)					  \
++	((code & CODE_IMAGE_TYPE_MASK) == CODE_IMAGE_TYPE_EXTENDED_DIR && \
++	 (code & CODE_IMAGE_LENGTH_MASK) != 0)
++
+ #define CRC32_RESIDUAL			0xdebb20e3
++#define CRC_BUFF_SIZE			256
++
++static int bnx2x_nvram_crc(struct bnx2x *bp,
++			   int offset,
++			   int size,
++			   u8 *buff)
++{
++	u32 crc = ~0;
++	int rc = 0, done = 0;
++
++	DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
++	   "NVRAM CRC from 0x%08x to 0x%08x\n", offset, offset + size);
++
++	while (done < size) {
++
++		int count = min_t(int, size - done, CRC_BUFF_SIZE);
++
++		rc = bnx2x_nvram_read(bp, offset + done, buff, count);
++
++		if (rc)
++			return rc;
++
++		crc = crc32_le(crc, buff, count);
++		done += count;
++	}
++
++	if (crc != CRC32_RESIDUAL)
++		rc = -EINVAL;
++
++	return rc;
++}
++
++static int bnx2x_test_nvram_dir(struct bnx2x *bp,
++				struct code_entry *entry,
++				u8 *buff)
++{
++	size_t size = entry->code_attribute & CODE_IMAGE_LENGTH_MASK;
++	u32 type = entry->code_attribute & CODE_IMAGE_TYPE_MASK;
++	int rc;
++
++	/* Zero-length images and AFEX profiles do not have CRC */
++	if (size == 0 || type == CODE_IMAGE_VNTAG_PROFILES_DATA)
++		return 0;
++
++	rc = bnx2x_nvram_crc(bp, entry->nvm_start_addr, size, buff);
++	if (rc)
++		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
++		   "image %x has failed crc test (rc %d)\n", type, rc);
++
++	return rc;
++}
++
++static int bnx2x_test_dir_entry(struct bnx2x *bp, u32 addr, u8 *buff)
++{
++	int rc;
++	struct code_entry entry;
++
++	rc = bnx2x_nvram_read32(bp, addr, (u32 *)&entry, sizeof(entry));
++	if (rc)
++		return rc;
++
++	return bnx2x_test_nvram_dir(bp, &entry, buff);
++}
++
++static int bnx2x_test_nvram_ext_dirs(struct bnx2x *bp, u8 *buff)
++{
++	u32 rc, cnt, dir_offset = NVRAM_DIR_OFFSET;
++	struct code_entry entry;
++	int i;
++
++	rc = bnx2x_nvram_read32(bp,
++				dir_offset +
++				sizeof(entry) * CODE_ENTRY_EXTENDED_DIR_IDX,
++				(u32 *)&entry, sizeof(entry));
++	if (rc)
++		return rc;
++
++	if (!EXTENDED_DIR_EXISTS(entry.code_attribute))
++		return 0;
++
++	rc = bnx2x_nvram_read32(bp, entry.nvm_start_addr,
++				&cnt, sizeof(u32));
++	if (rc)
++		return rc;
++
++	dir_offset = entry.nvm_start_addr + 8;
++
++	for (i = 0; i < cnt && i < MAX_IMAGES_IN_EXTENDED_DIR; i++) {
++		rc = bnx2x_test_dir_entry(bp, dir_offset +
++					      sizeof(struct code_entry) * i,
++					  buff);
++		if (rc)
++			return rc;
++	}
++
++	return 0;
++}
++
++static int bnx2x_test_nvram_dirs(struct bnx2x *bp, u8 *buff)
++{
++	u32 rc, dir_offset = NVRAM_DIR_OFFSET;
++	int i;
++
++	DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM, "NVRAM DIRS CRC test-set\n");
++
++	for (i = 0; i < CODE_ENTRY_EXTENDED_DIR_IDX; i++) {
++
++		rc = bnx2x_test_dir_entry(bp, dir_offset + sizeof(struct code_entry) * i, buff);
++		if (rc)
++			return rc;
++	}
++
++	return bnx2x_test_nvram_ext_dirs(bp, buff);
++}
++
++struct crc_pair {
++	int offset;
++	int size;
++};
++
++static int bnx2x_test_nvram_tbl(struct bnx2x *bp,
++				const struct crc_pair *nvram_tbl, u8 *buf)
++{
++	int i;
++
++	for (i = 0; nvram_tbl[i].size; i++) {
++		int rc = bnx2x_nvram_crc(bp, nvram_tbl[i].offset,
++					 nvram_tbl[i].size, buf);
++		if (rc) {
++			DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
++			   "nvram_tbl[%d] has failed crc test (rc %d)\n", i, rc);
++			return rc;
++		}
++	}
++
++	return 0;
++}
  
- #if defined(CONFIG_DCB)
+ static int bnx2x_test_nvram(struct bnx2x *bp)
+ {
+-	static const struct {
+-		int offset;
+-		int size;
+-	} nvram_tbl[] = {
++	const struct crc_pair nvram_tbl[] = {
+ 		{     0,  0x14 }, /* bootstrap */
+ 		{  0x14,  0xec }, /* dir */
+ 		{ 0x100, 0x350 }, /* manuf_info */
+@@ -2611,14 +2764,20 @@ static int bnx2x_test_nvram(struct bnx2x *bp)
+ 		{ 0x708,  0x70 }, /* manuf_key_info */
+ 		{     0,     0 }
+ 	};
++	const struct crc_pair nvram_tbl2[] = {
++		{ 0x7e8, 0x350 }, /* manuf_info2 */
++		{ 0xb38,  0xf0 }, /* feature_info */
++		{     0,     0 }
++	};
++
+ 	u8 *buf;
+-	int i, rc;
+-	u32 magic, crc;
++	int rc;
++	u32 magic;
+ 
+ 	if (BP_NOMCP(bp))
+ 		return 0;
+ 
+-	buf = kmalloc(0x350, GFP_KERNEL);
++	buf = kmalloc(CRC_BUFF_SIZE, GFP_KERNEL);
+ 	if (!buf) {
+ 		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM, "kmalloc failed\n");
+ 		rc = -ENOMEM;
+@@ -2639,25 +2798,26 @@ static int bnx2x_test_nvram(struct bnx2x *bp)
+ 		goto test_nvram_exit;
+ 	}
+ 
+-	for (i = 0; nvram_tbl[i].size; i++) {
++	DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM, "Port 0 CRC test-set\n");
++	rc = bnx2x_test_nvram_tbl(bp, nvram_tbl, buf);
++	if (rc)
++		goto test_nvram_exit;
+ 
+-		rc = bnx2x_nvram_read(bp, nvram_tbl[i].offset, buf,
+-				      nvram_tbl[i].size);
+-		if (rc) {
+-			DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
+-			   "nvram_tbl[%d] read data (rc %d)\n", i, rc);
+-			goto test_nvram_exit;
+-		}
++	if (!CHIP_IS_E1x(bp) && !CHIP_IS_57811xx(bp)) {
++		u32 hide = SHMEM_RD(bp, dev_info.shared_hw_config.config2) &
++			   SHARED_HW_CFG_HIDE_PORT1;
+ 
+-		crc = ether_crc_le(nvram_tbl[i].size, buf);
+-		if (crc != CRC32_RESIDUAL) {
++		if (!hide) {
+ 			DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
+-			   "nvram_tbl[%d] wrong crc value (0x%08x)\n", i, crc);
+-			rc = -ENODEV;
+-			goto test_nvram_exit;
++			   "Port 1 CRC test-set\n");
++			rc = bnx2x_test_nvram_tbl(bp, nvram_tbl2, buf);
++			if (rc)
++				goto test_nvram_exit;
+ 		}
+ 	}
+ 
++	rc = bnx2x_test_nvram_dirs(bp, buf);
++
+ test_nvram_exit:
+ 	kfree(buf);
+ 	return rc;
 -- 
 1.8.1.4
