@@ -1,40 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next] net: fix address check in rtnl_fdb_del
-Date: Tue, 23 Apr 2013 18:30:37 -0400 (EDT)
-Message-ID: <20130423.183037.831300005006610868.davem@davemloft.net>
-References: <1366751123-10143-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH net-next v4] rps: selective flow shedding during
+ softnet overflow
+Date: Tue, 23 Apr 2013 18:33:14 -0400 (EDT)
+Message-ID: <20130423.183314.1228017537381500979.davem@davemloft.net>
+References: <CA+FuTSfPjrzVqKj-jrzivM_mBP47Dtkuj2P+bJ3VwWTscoT=yA@mail.gmail.com>
+	<1366749094-5982-1-git-send-email-willemb@google.com>
+	<20130423142333.15479dfa@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dlstevens@us.ibm.com
-To: vyasevic@redhat.com
+Cc: willemb@google.com, eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57339 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57367 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755712Ab3DWWaj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 18:30:39 -0400
-In-Reply-To: <1366751123-10143-1-git-send-email-vyasevic@redhat.com>
+	with ESMTP id S1755793Ab3DWWdQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 18:33:16 -0400
+In-Reply-To: <20130423142333.15479dfa@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Tue, 23 Apr 2013 17:05:23 -0400
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 23 Apr 2013 14:23:33 -0700
 
-> Commit 6681712d67eef14c4ce793561c3231659153a320
-> 	vxlan: generalize forwarding tables
-> 
-> relaxed the address checks in rtnl_fdb_del() to use is_zero_ether_addr().
-> This allows users to add multicast addresses using the fdb API.  However,
-> the check in rtnl_fdb_del() still uses a more strict
-> is_valid_ether_addr() which rejects multicast addresses.  Thus it
-> is possible to add an fdb that can not be later removed.
-> Relax the check in rtnl_fdb_del() as well.
-> 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> What about just having a smarter ingress qdisc?
 
-I don't think you were able to actually test this patch in the
-amount of time between when the bug in your initial version was
-shown to you and when you posted this new version.
+Ingress qdiscs go through a single lock, and that is not likely to
+change any time soon, nor do I find it reasonable to be required to
+use ingress qdiscs to handle this problem.
 
-If you indeed didn't test this patch, I really don't think that's
-acceptable, to be honest with you.
+I find Willem's changes extremely reasonable, and a good improvement
+we should integrate now rather than pretending ingress qdiscs are an
+acceptable alternative.  They aren't.
