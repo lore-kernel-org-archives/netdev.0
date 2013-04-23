@@ -1,39 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the final tree
- (net-next tree related)
-Date: Tue, 23 Apr 2013 13:10:05 -0400 (EDT)
-Message-ID: <20130423.131005.417093102271757523.davem@davemloft.net>
-References: <20130423174618.59095bd1cf999c61332d4805@canb.auug.org.au>
+Subject: Re: [PATCH net-next 1/4] MAINTAINERS: Change Maintainer for CAIF
+Date: Tue, 23 Apr 2013 13:26:08 -0400 (EDT)
+Message-ID: <20130423.132608.1751759417577111837.davem@davemloft.net>
+References: <1366711023-2977-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kaber@trash.net
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20130423174618.59095bd1cf999c61332d4805@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linus.walleij@linaro.org, sjur@brendeland.net,
+	netdev@vger.kernel.org, dmitry.tarnyagin@stericsson.com,
+	dmitry.tarnyagin@lockless.no
+To: sjur.brandeland@stericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53194 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756756Ab3DWR0L convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 13:26:11 -0400
+In-Reply-To: <1366711023-2977-1-git-send-email-sjur.brandeland@stericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Tue, 23 Apr 2013 17:46:18 +1000
+=46rom: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
+Date: Tue, 23 Apr 2013 11:57:00 +0200
 
-> After merging the final tree, today's linux-next build (powerpc
-> allyesconfig) failed like this:
-> 
-> net/netlink/af_netlink.c: In function 'netlink_frame_flush_dcache':
-> net/netlink/af_netlink.c:384:40: error: 'NL_MMAP_MSG_HDRLEN' undeclared (first use in this function)
-> 
-> Caused by commit 9652e931e73b ("netlink: add mmap'ed netlink helper
-> functions").  This needed to be build tested on an architecture that has
-> ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE set to 1 (like Sparc :-)).
+> Dmitry Tarnyagin will take over as maintainer for CAIF.
+>=20
+> Cc: Dmitry Tarnyagin <dmitry.tarnyagin@stericsson.com>
+> Cc: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
+> Signed-off-by: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
 
-Sorry, my Sparcs are busy debugging other things at the moment :-)
-> 
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Tue, 23 Apr 2013 17:40:35 +1000
-> Subject: [PATCH] netlink: fix typo in net/netlink/af_netlink.c
-> 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-
-Applied, thanks!
+Applied.
