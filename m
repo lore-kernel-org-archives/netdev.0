@@ -1,39 +1,39 @@
-From: David Miller <davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
 Subject: Re: [Patch net-next] ipv6: separate out procfs code from mcast.c
-Date: Tue, 23 Apr 2013 03:11:35 -0400 (EDT)
-Message-ID: <20130423.031135.166163672665280174.davem@davemloft.net>
+Date: Tue, 23 Apr 2013 15:15:02 +0800
+Message-ID: <1366701302.21136.19.camel@cr0>
 References: <1366700820-26052-1-git-send-email-amwang@redhat.com>
+	 <20130423.031135.166163672665280174.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: amwang@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45144 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755332Ab3DWHLi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 03:11:38 -0400
-In-Reply-To: <1366700820-26052-1-git-send-email-amwang@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59332 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754872Ab3DWHPU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Apr 2013 03:15:20 -0400
+In-Reply-To: <20130423.031135.166163672665280174.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Tue, 23 Apr 2013 15:07:00 +0800
-
+On Tue, 2013-04-23 at 03:11 -0400, David Miller wrote:
 > From: Cong Wang <amwang@redhat.com>
+> Date: Tue, 23 Apr 2013 15:07:00 +0800
 > 
-> They well deserve a separated unit.
+> > From: Cong Wang <amwang@redhat.com>
+> > 
+> > They well deserve a separated unit.
+> > 
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org> 
+> > Signed-off-by: Cong Wang <amwang@redhat.com>
 > 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org> 
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+> Cong, I'm not even reading these patches.
+> 
+> You're on this idea that you can just keep the sysfs and procfs bits
+> of ipv6 modular, and make the rest of ipv6 statically linked into the
+> kernel.
 
-Cong, I'm not even reading these patches.
-
-You're on this idea that you can just keep the sysfs and procfs bits
-of ipv6 modular, and make the rest of ipv6 statically linked into the
-kernel.
-
-I'm not going to facilitate nor take this seriously.
-
-Sorry.
+I am trying that only for mcast.c, not for the whole IPv6.
