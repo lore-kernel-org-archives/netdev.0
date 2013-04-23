@@ -1,44 +1,124 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCHv2 net-next] net: fix address check in rtnl_fdb_del
-Date: Tue, 23 Apr 2013 17:05:23 -0400
-Message-ID: <1366751123-10143-1-git-send-email-vyasevic@redhat.com>
-Cc: dlstevens@us.ibm.com, Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28840 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755394Ab3DWVFu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Apr 2013 17:05:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Don Dutile <ddutile@redhat.com>
+Subject: Re: [net-next 08/14] pci: Add SRIOV helper function to determine
+ if VFs are assigned to guest
+Date: Tue, 23 Apr 2013 17:16:43 -0400
+Message-ID: <5176FA3B.8040003@redhat.com>
+References: <1366451353-24714-1-git-send-email-jeffrey.t.kirsher@intel.com> <1366451353-24714-9-git-send-email-jeffrey.t.kirsher@intel.com> <1366515088.2209.15.camel@jtkirshe-mobl> <CAErSpo4D4rn4G56+YT4Ja-S4cjnJ6svBaH3v+_n=cmS5CooC+g@mail.gmail.com> <5175B0A9.7070100@intel.com> <20130423125101.00005bb7@unknown>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, gospo@redhat.com,
+	sassmann@redhat.com,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Chris Wright <chrisw@redhat.com>
+To: Greg Rose <gregory.v.rose@intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20130423125101.00005bb7@unknown>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 6681712d67eef14c4ce793561c3231659153a320
-	vxlan: generalize forwarding tables
+On 04/23/2013 03:51 PM, Greg Rose wrote:
+> On Mon, 22 Apr 2013 14:50:33 -0700
+> Alexander Duyck<alexander.h.duyck@intel.com>  wrote:
+>
+>> On 04/22/2013 01:09 PM, Bjorn Helgaas wrote:
+>>> On Sat, Apr 20, 2013 at 9:31 PM, Jeff Kirsher
+>>> <jeffrey.t.kirsher@intel.com>  wrote:
+>>>> On Sat, 2013-04-20 at 02:49 -0700, Jeff Kirsher wrote:
+>>>>> From: Alexander Duyck<alexander.h.duyck@intel.com>
+>>>>>
+>>>>> This function is meant to add a helper function that will
+>>>>> determine if a PF has any VFs that are currently assigned to a
+>>>>> guest.  We currently have been implementing this function per
+>>>>> driver, and going forward I would like to avoid that by making
+>>>>> this function generic and using this helper.
+>>>>>
+>>>>> Signed-off-by: Alexander Duyck<alexander.h.duyck@intel.com>
+>>>>> Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
+>>>> Adding linux-pci mailing list and Bjorn to the CC.
+>>>>
+>>>> Bjorn- David Miller needs a signoff by PCI maintainer.
+>>>>
+>>>>> ---
+>>>>>   drivers/pci/iov.c   | 41
+>>>>> +++++++++++++++++++++++++++++++++++++++++ include/linux/pci.h |
+>>>>> 5 +++++ 2 files changed, 46 insertions(+)
+>>>>>
+>>>>> diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
+>>>>> index ee599f2..fd99720 100644
+>>>>> --- a/drivers/pci/iov.c
+>>>>> +++ b/drivers/pci/iov.c
+>>>>> @@ -729,6 +729,47 @@ int pci_num_vf(struct pci_dev *dev)
+>>>>>   EXPORT_SYMBOL_GPL(pci_num_vf);
+>>>>>
+>>>>>   /**
+>>>>> + * pci_vfs_assigned - returns number of VFs are assigned to a
+>>>>> guest
+>>>>> + * @dev: the PCI device
+>>>>> + *
+>>>>> + * Returns number of VFs belonging to this device that are
+>>>>> assigned to a guest.
+>>>>> + * If device is not a physical function returns -ENODEV.
+>>>>> + */
+>>>>> +int pci_vfs_assigned(struct pci_dev *dev)
+>>> I guess the idea here is to replace be_find_vfs(),
+>>> igb_vfs_are_assigned(), ixgbe_vfs_are_assigned(), etc.  It does seem
+>>> good to reduce duplicated code.
+>>
+>> The general idea was just to remove duplicate code.  As is we have a
+>> couple more drivers on the way that would end up needing a similar
+>> function.
+>>
+>>> I'm trying to figure out why this is safe -- there's no explicit
+>>> synchronization between the iteration through PCI devices looking
+>>> for matching VFs and the device assignment/deassignment paths that
+>>> set or clear PCI_DEV_FLAGS_ASSIGNED, so on the face of it, it looks
+>>> like things could change between calling pci_vfs_assigned() and
+>>> using the result to make a decision.
+>>>
+>>> Most of the calls would be in .remove() functions, so maybe there's
+>>> some sort of synchronization in that path that  makes this safe.
+>>>
+>>> Bjorn
+>>
+>> I'm assuming this will be used in regions that are somehow protected
+>> since the main spots where this might be called would be probe,
+>> remove, or when updating the number of VFs.  From what I can tell in
+>> the Xen case there is a driver stub that is loaded that sets the flag
+>> so that is covered by probe/remove.  I don't know about the KVM case.
+>
+> KVM should be fine.  Setting/clearing the flag occurs while a device is
+> being assigned to or removed from a VM - presumably device assignment
+> is already safe against race conditions.  I'd find it hard to believe
+> that it's not.  Code is in ../virt/assigned_dev.c and ../virt/iommu.c.
+>
+> - Greg
+>
+Added Chris to this thread since he has history here...
 
-relaxed the address checks in rtnl_fdb_del() to use is_zero_ether_addr().
-This allows users to add multicast addresses using the fdb API.  However,
-the check in rtnl_fdb_del() still uses a more strict
-is_valid_ether_addr() which rejects multicast addresses.  Thus it
-is possible to add an fdb that can not be later removed.
-Relax the check in rtnl_fdb_del() as well.
+Q: Why not link-list the VF pci-dev's off the PF's pci-dev when they are created?
+    (yes, voices in my head have asked me this question in the past! ;-) )
+    -- that way, finding them is easy, and locked down when doing a get on the PF pci-dev.
+    a backptr of the VF's pci-dev to it's PF pci-dev would be handy too!
+    --> it'd also simplify that rmmod PF driver while VF drivers loaded (& assigned)
+        case as well.
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- net/core/rtnetlink.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 18af08a..2c54cc1 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2192,7 +2192,7 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	}
- 
- 	addr = nla_data(tb[NDA_LLADDR]);
--	if (!is_valid_ether_addr(addr)) {
-+	if (is_zero_ether_addr(addr)) {
- 		pr_info("PF_BRIDGE: RTM_DELNEIGH with invalid ether address\n");
- 		return -EINVAL;
- 	}
--- 
-1.8.1.4
+>>
+>> Thanks,
+>>
+>> Alex
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-pci" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
