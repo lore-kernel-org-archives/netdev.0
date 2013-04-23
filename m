@@ -1,33 +1,82 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next] ipv6: separate out procfs code from mcast.c
-Date: Tue, 23 Apr 2013 15:41:33 +0800
-Message-ID: <1366702893.21136.28.camel@cr0>
-References: <1366701302.21136.19.camel@cr0>
-	 <20130423.031805.544535198246859192.davem@davemloft.net>
-	 <1366702220.21136.23.camel@cr0>
-	 <20130423.033620.1101068519499870853.davem@davemloft.net>
+From: "Rajahalme, Jarno (NSN - FI/Espoo)" <jarno.rajahalme-OYasijW0DpE@public.gmane.org>
+Subject: Re: [PATCH v2.26] datapath: Add basic MPLS support to
+	kernel
+Date: Tue, 23 Apr 2013 07:41:37 +0000
+Message-ID: <D94DF465-965B-4462-952C-D3A5793DD2B1@nsn.com>
+References: <1366596740-18246-1-git-send-email-horms@verge.net.au>
+	<EA113734-1070-43F9-B932-C8AD83CAAFA2@nsn.com>
+	<20130423015149.GI12017@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39216 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755267Ab3DWHlr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Apr 2013 03:41:47 -0400
-In-Reply-To: <20130423.033620.1101068519499870853.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "<dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
+To: ext Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20130423015149.GI12017-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Content-Language: en-US
+Content-ID: <D11AEAA2850D594C842A28D2E3A834C9-z7JfP6tgrtWhxUC7wdWhuQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-04-23 at 03:36 -0400, David Miller wrote:
-> From: Cong Wang <amwang@redhat.com>
-> Date: Tue, 23 Apr 2013 15:30:20 +0800
-> 
-> > This is hard to do, as in the email I replied to Stephen. So I
-> > prefer to just add a Kconfig dependency, at least for now.
-> 
-> A Kconfig hack is exactly what I've told you is an unacceptable
-> solution.
 
-Please enlighten me for a third solution. :)
+On Apr 23, 2013, at 4:51 , ext Simon Horman wrote:
+
+> On Mon, Apr 22, 2013 at 01:55:43PM +0000, Rajahalme, Jarno (NSN - FI/Espoo) wrote:
+>> 
+>> Here the skb_network_header is changed to point to the L3 header. Is it
+>> significant that in some cases (?) mpls_stack_depth may remain at zero,
+>> even when a MPLS header was in fact added? (See above).
+> 
+> With the current code I believe there are the following cases:
+> 
+> Input: non-MPLS skb: Output: network header and mac_len correspond to the
+>                     beginning of the L3 headers
+> Input: MPLS:         Output: network header and mac_len correspond to the
+>                     end of the L2 headers.
+> 
+> In the case of MPLS output the end of the L2 headers and the beginning
+> of the L3 headers will differ.
+> 
+> 
+> As far as I know the network header and mac_len only need to correspond to
+> the beginning of the L3 header if GSO segmentation will occur (actually,
+> some proposed changes to the network stack are required, see "[PATCH 0/2]
+> Small Modifications to GSO to allow segmentation of MPLS").  That only
+> occurs if the skb is GSO. Which in turn can only occur if the recieved
+> packet is non-MPLS. This is because the linux kernel doesn't support
+> MPLS offloads on receive (or anywhere else for that matter).
+> 
+> In the case that we have a non-MPLS skb the stack depth starts at zero and
+> is tracked. This is used to update the network header and mac_len.
+> Otherwise the stack depth is unknown and the network header and mac_len are
+> left as-is, corresponding to the end of the L2 headers.
+> 
+> Actually, it is possible to tighten up the if clause to be the following,
+> as it is only necessary to update the network header and mac_len for GSO skbs.
+> 
+> 	if (mpls_stack_depth && skb_is_gso(skb)) {
+> 		...
+> 	}
+> 
+> It is possible for us to find and track the MPLS stack depth for all cases
+> and to update the network header and mac_len. However I don't think that
+> there is any run-time benefit and it seems expensive to find out what the
+> original stack depth was - I believe it would require parsing the MPLS
+> entire stack for each packet.
+> 
+
+Thanks for explaining this.
+
+I think it would be better to keep updating the the network_header and mac_len for the Non-MPLS input packets regardless of the GSO status of the skb. It would be more consistent and less surprising.
+
+  Jarno
