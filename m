@@ -1,79 +1,35 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] tuntap: fix error return code in tun_set_iff()
-Date: Tue, 23 Apr 2013 14:19:59 +0800
-Message-ID: <5176280F.1060400@redhat.com>
-References: <CAPgLHd9WrbgeYH9pw81kQn9sv=On8e399qAOth6MWprF6PS5pg@mail.gmail.com> <CAPshTCgApCEsrQ6uFfmyzvNvQNO8-MZ4zJaiMn3pPF+EV7+zJg@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] appletalk: info leak in ->getname()
+Date: Tue, 23 Apr 2013 09:22:15 +0300
+Message-ID: <20130423062215.GA15893@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyj.lk@gmail.com>,
-	David Miller <davem@davemloft.net>, mst@redhat.com,
-	Eric Dumazet <edumazet@google.com>, nhorman@tuxdriver.com,
-	yongjun_wei@trendmicro.com.cn,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jerry Chu <hkchu@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21936 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755230Ab3DWGUb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Apr 2013 02:20:31 -0400
-In-Reply-To: <CAPshTCgApCEsrQ6uFfmyzvNvQNO8-MZ4zJaiMn3pPF+EV7+zJg@mail.gmail.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:28848 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754570Ab3DWGWR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 02:22:17 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/23/2013 01:37 PM, Jerry Chu wrote:
-> On Fri, Apr 12, 2013 at 6:17 AM, Wei Yongjun <weiyj.lk@gmail.com> wrote:
->> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->>
->> Fix to return a negative error code from the error handling
->> case instead of 0, as returned elsewhere in this function.
->>
->> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->> ---
->>  drivers/net/tun.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> index b7c457a..729ed53 100644
->> --- a/drivers/net/tun.c
->> +++ b/drivers/net/tun.c
->> @@ -1594,7 +1594,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
->>
->>                 if (tun->flags & TUN_TAP_MQ &&
->>                     (tun->numqueues + tun->numdisabled > 1))
->> -                       return err;
->> +                       return -EBUSY;
-> I don't understand - yes it was a brainless bug to return err without
-> setting it!
+There is a one byte hole between ->sat_port and ->sat_addr.
 
-err was in fact set by tun_attach, so it was always zero here. The code
-works by chance w/o this patch :)
-> But won't the fix pretty much disable multi-q because only the the creation of
-> the 1st queue will succeed? I thought the intent of "tuntap: fix ambigious
-> multiqueue API" was to "Only allow TUNSETIFF to create queues.".
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Yes this patch will break the creation of more than 1 queues.
->
-> The code is very confusing. (Or am I the one who is confused? Sigh.)
-
--EBUSY is wrong here, we need return 0 for succeed here. The logic is,
-if we have more than 1 queues attached, no need to re-initialize the net
-device again. Will send patch to correct this.
-
-Thanks.
-
->
-> Jerry
->
->>         }
->>         else {
->>                 char *name;
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index 4a141e3..ef12839 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -1253,7 +1253,7 @@ static int atalk_getname(struct socket *sock, struct sockaddr *uaddr,
+ 			goto out;
+ 
+ 	*uaddr_len = sizeof(struct sockaddr_at);
+-	memset(&sat.sat_zero, 0, sizeof(sat.sat_zero));
++	memset(&sat, 0, sizeof(sat));
+ 
+ 	if (peer) {
+ 		err = -ENOTCONN;
