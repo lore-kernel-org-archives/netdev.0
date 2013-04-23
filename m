@@ -1,45 +1,55 @@
-From: Masatake YAMATO <yamato@redhat.com>
-Subject: Re: [PATCH 1/2] genetlink: trigger BUG_ON if a group name is too
- long
-Date: Tue, 23 Apr 2013 18:27:38 +0900 (JST)
-Message-ID: <20130423.182738.1215875866444074225.yamato@redhat.com>
-References: <1363693648-10015-1-git-send-email-yamato@redhat.com>
-	<1363693648-10015-2-git-send-email-yamato@redhat.com>
-	<20130320.120705.58997943737455552.davem@davemloft.net>
+From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: [PATCH net-next 1/4] MAINTAINERS: Change Maintainer for CAIF
+Date: Tue, 23 Apr 2013 11:57:00 +0200
+Message-ID: <1366711023-2977-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linus Walleij <linus.walleij@linaro.org>, sjur@brendeland.net,
+	netdev@vger.kernel.org,
+	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>,
+	Dmitry Tarnyagin <dmitry.tarnyagin@stericsson.com>,
+	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24449 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756110Ab3DWJ1n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Apr 2013 05:27:43 -0400
-In-Reply-To: <20130320.120705.58997943737455552.davem@davemloft.net>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:55767 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754985Ab3DWJ51 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 05:57:27 -0400
+Received: by mail-la0-f50.google.com with SMTP id fs13so137587lab.37
+        for <netdev@vger.kernel.org>; Tue, 23 Apr 2013 02:57:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] genetlink: trigger BUG_ON if a group name is too long
-Date: Wed, 20 Mar 2013 12:07:05 -0400 (EDT)
-> From: Masatake YAMATO <yamato@redhat.com>
-> Date: Tue, 19 Mar 2013 20:47:27 +0900
-> 
->> Trigger BUG_ON if a group name is longer than GENL_NAMSIZ.
->> 
->> Signed-off-by: Masatake YAMATO <yamato@redhat.com>
-> 
-> Applied, thanks.
-> 
-> Although I'm disappointed that the compiler doesn't say anything about
-> this in the assignment.
-> 
-> We're assigning "char[16] = STRING" and it doesn't say anything if the
-> final NULL char doesn't fit into the array.
+Dmitry Tarnyagin will take over as maintainer for CAIF.
 
-Now sparse with -Winit-cstring option can detect this kind assignment.
+Cc: Dmitry Tarnyagin <dmitry.tarnyagin@stericsson.com>
+Cc: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
+Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+---
 
-https://git.kernel.org/cgit/devel/sparse/chrisl/sparse.git/commit/?id=c3430e57bc57ff40d5ce95ef2d26b8d70346f58f
+By end of April I will no longer work for ST-Ericsson.
+Dmitry will take over my responsibilities as CAIF Maintainer.
+Thanks for the ride,
 
-Masatake YAMATO
+Cheers,
+Sjur
+
+ MAINTAINERS |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index c39bdc3..891bd57 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1886,7 +1886,7 @@ F:	Documentation/video4linux/cafe_ccic
+ F:	drivers/media/platform/marvell-ccic/
+=20
+ CAIF NETWORK LAYER
+-M:	Sjur Braendeland <sjur.brandeland@stericsson.com>
++M:	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
+ L:	netdev@vger.kernel.org
+ S:	Supported
+ F:	Documentation/networking/caif/
+--=20
+1.7.5.4
