@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next 2/2] batman-adv: fix global protection fault
- during soft_iface destruction
-Date: Mon, 22 Apr 2013 20:41:13 -0400 (EDT)
-Message-ID: <20130422.204113.1112043388924796755.davem@davemloft.net>
-References: <1366362292-22961-1-git-send-email-ordex@autistici.org>
-	<1366362292-22961-3-git-send-email-ordex@autistici.org>
+Subject: Re: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Mon, 22 Apr 2013 20:41:34 -0400 (EDT)
+Message-ID: <20130422.204134.24585943335801567.davem@davemloft.net>
+References: <20130422124334.92adfce6bdbcba7b08fe83a2@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
-	lindner_marek@yahoo.de
-To: ordex@autistici.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40676 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752184Ab3DWAlO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 20:41:14 -0400
-In-Reply-To: <1366362292-22961-3-git-send-email-ordex@autistici.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ivecera@redhat.com, kaber@trash.net
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20130422124334.92adfce6bdbcba7b08fe83a2@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <ordex@autistici.org>
-Date: Fri, 19 Apr 2013 11:04:52 +0200
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 22 Apr 2013 12:43:34 +1000
 
-> batadv_mesh_free() schedules some RCU callbacks which need the bat_priv struct
-> to do their jobs, while free_netdev(), which is called immediately after, is
-> destroying the private data.
+> Today's linux-next merge of the net-next tree got a conflict in
+> drivers/net/ethernet/emulex/benet/be_main.c between commit f11a869d4e38
+> ("be2net: take care of __vlan_put_tag return value") from Linus' tree and
+> commit 86a9bad3ab6b ("net: vlan: add protocol argument to packet tagging
+> functions") from the net-next tree.
 > 
-> Put an rcu_barrier() in the middle so that free_netdev() is invoked only after
-> all the callbacks returned.
-> 
-> This bug has been introduced by ab8f433dd39be94e8617cff2dfe9f7eca162eb15
-> ("batman-adv: Move deinitialization of soft-interface to destructor")
-> 
-> Signed-off-by: Antonio Quartulli <ordex@autistici.org>
-> Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
 
-Applied.
+I took care of this during the net --> net-next merge, thanks!
