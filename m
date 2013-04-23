@@ -1,9 +1,9 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next 2/5] packet: enable hardware tx timestamping on
- tpacket ring
-Date: Tue, 23 Apr 2013 08:13:30 -0400
-Message-ID: <CA+FuTSdUNu9suZz24GSzaeu70ioEhcCdXfDMc-z+_B0+_KgBqQ@mail.gmail.com>
-References: <1366713572-11978-1-git-send-email-dborkman@redhat.com> <1366713572-11978-3-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH net-next 4/5] packet: if hw/sw ts enabled in rx/tx ring,
+ report which ts we got
+Date: Tue, 23 Apr 2013 08:18:14 -0400
+Message-ID: <CA+FuTSc=MEz83xxRm8ZFjjHLKQ=jCb6n4MbZwhjR3LWiz-KamA@mail.gmail.com>
+References: <1366713572-11978-1-git-send-email-dborkman@redhat.com> <1366713572-11978-5-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
@@ -11,115 +11,159 @@ Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	Richard Cochran <richardcochran@gmail.com>
 To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:36029 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755730Ab3DWMOC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 08:14:02 -0400
-Received: by mail-ie0-f171.google.com with SMTP id e11so567404iej.30
-        for <netdev@vger.kernel.org>; Tue, 23 Apr 2013 05:14:01 -0700 (PDT)
-In-Reply-To: <1366713572-11978-3-git-send-email-dborkman@redhat.com>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:45271 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754772Ab3DWMSp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 08:18:45 -0400
+Received: by mail-ie0-f177.google.com with SMTP id 9so553690iec.8
+        for <netdev@vger.kernel.org>; Tue, 23 Apr 2013 05:18:44 -0700 (PDT)
+In-Reply-To: <1366713572-11978-5-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Tue, Apr 23, 2013 at 6:39 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> Currently, we only have software timestamping for the TX ring buffer
-> path, but this limitation stems rather from the implementation. By
-> just reusing tpacket_get_timestamp(), we can also allow hardware
-> timestamping just as in the RX path.
+> Currently, there is no way to find out which timestamp is reported in
+> tpacket{,2,3}_hdr's tp_sec, tp_{n,u}sec members. It can be one of
+> SOF_TIMESTAMPING_SYS_HARDWARE, SOF_TIMESTAMPING_RAW_HARDWARE,
+> SOF_TIMESTAMPING_SOFTWARE, or a fallback variant late call from the
+> PF_PACKET code in software.
 >
+> Therefore, report in the tp_status member of the ring buffer which
+> timestamp has been reported for RX and TX path. This should not break
+> anything for the following reasons: i) in RX ring path, the user needs
+> to test for tp_status & TP_STATUS_USER, and later for other flags as
+> well such as TP_STATUS_VLAN_VALID et al, so adding other flags will
+> do no harm; ii) in TX ring path, time stamps with PACKET_TIMESTAMP
+> socketoption are not available resp. had no effect except that the
+> application setting this is buggy. Next to TP_STATUS_AVAILABLE, the
+> user also should check for other flags such as TP_STATUS_WRONG_FORMAT
+> to reclaim frames to the application. Thus, in case TX ts are turned
+> off (default case), nothing happens to the application logic, and in
+> case we want to use this new feature, we now can also check which of
+> the ts source is reported in the status field as provided in the docs.
+>
+> Reported-by: Richard Cochran <richardcochran@gmail.com>
 > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Acked-by: Willem de Bruijn <willemb@google.com>
 > ---
->  net/packet/af_packet.c | 50 +++++++++++++++++++++++++-------------------------
->  1 file changed, 25 insertions(+), 25 deletions(-)
+>  include/uapi/linux/if_packet.h |  5 +++++
+>  net/packet/af_packet.c         | 36 +++++++++++++++++++++++-------------
+>  2 files changed, 28 insertions(+), 13 deletions(-)
+>
+> diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
+> index 4dfc234..b950c02 100644
+> --- a/include/uapi/linux/if_packet.h
+> +++ b/include/uapi/linux/if_packet.h
+> @@ -100,6 +100,11 @@ struct tpacket_auxdata {
+>  #define TP_STATUS_SENDING      (1 << 1)
+>  #define TP_STATUS_WRONG_FORMAT (1 << 2)
+>
+> +/* Rx and Tx ring - header status */
+> +#define TP_STATUS_TS_SOFTWARE          (1 << 29)
+> +#define TP_STATUS_TS_SYS_HARDWARE      (1 << 30)
+> +#define TP_STATUS_TS_RAW_HARDWARE      (1 << 31)
+> +
+>  /* Rx ring - feature request bits */
+>  #define TP_FT_REQ_FILL_RXHASH  0x1
 >
 > diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 1f792ab..e7892a4 100644
+> index e7892a4..dd5cd49 100644
 > --- a/net/packet/af_packet.c
 > +++ b/net/packet/af_packet.c
-> @@ -339,14 +339,33 @@ static int __packet_get_status(struct packet_sock *po, void *frame)
+> @@ -339,34 +339,35 @@ static int __packet_get_status(struct packet_sock *po, void *frame)
 >         }
 >  }
 >
-> +static bool tpacket_get_timestamp(struct sk_buff *skb, struct timespec *ts,
-> +                                 unsigned int flags)
-> +{
-> +       struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
-> +
-> +       if (shhwtstamps) {
-> +               if ((flags & SOF_TIMESTAMPING_SYS_HARDWARE) &&
-> +                   ktime_to_timespec_cond(shhwtstamps->syststamp, ts))
-> +                       return true;
-> +               if ((flags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
-> +                   ktime_to_timespec_cond(shhwtstamps->hwtstamp, ts))
-> +                       return true;
-> +       }
-> +
-> +       if (ktime_to_timespec_cond(skb->tstamp, ts))
-> +               return true;
-> +
-> +       return false;
-> +}
-> +
->  static void __packet_set_timestamp(struct packet_sock *po, void *frame,
-> -                                  ktime_t tstamp)
-> +                                  struct sk_buff *skb)
+> -static bool tpacket_get_timestamp(struct sk_buff *skb, struct timespec *ts,
+> -                                 unsigned int flags)
+> +static __u32 tpacket_get_timestamp(struct sk_buff *skb, struct timespec *ts,
+> +                                  unsigned int flags)
+>  {
+>         struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
+>
+>         if (shhwtstamps) {
+>                 if ((flags & SOF_TIMESTAMPING_SYS_HARDWARE) &&
+>                     ktime_to_timespec_cond(shhwtstamps->syststamp, ts))
+> -                       return true;
+> +                       return TP_STATUS_TS_SYS_HARDWARE;
+>                 if ((flags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
+>                     ktime_to_timespec_cond(shhwtstamps->hwtstamp, ts))
+> -                       return true;
+> +                       return TP_STATUS_TS_RAW_HARDWARE;
+>         }
+>
+>         if (ktime_to_timespec_cond(skb->tstamp, ts))
+> -               return true;
+> +               return TP_STATUS_TS_SOFTWARE;
+>
+> -       return false;
+> +       return 0;
+>  }
+>
+> -static void __packet_set_timestamp(struct packet_sock *po, void *frame,
+> -                                  struct sk_buff *skb)
+> +static __u32 __packet_set_timestamp(struct packet_sock *po, void *frame,
+> +                                   struct sk_buff *skb)
 >  {
 >         union tpacket_uhdr h;
 >         struct timespec ts;
+> +       __u32 ts_status;
 >
-> -       if (!ktime_to_timespec_cond(tstamp, &ts) ||
-> -           !sock_flag(&po->sk, SOCK_TIMESTAMPING_SOFTWARE))
-> +       if (!tpacket_get_timestamp(skb, &ts, po->tp_tstamp))
->                 return;
+> -       if (!tpacket_get_timestamp(skb, &ts, po->tp_tstamp))
+> -               return;
+> +       if (!(ts_status = tpacket_get_timestamp(skb, &ts, po->tp_tstamp)))
+> +               return 0;
 >
 >         h.raw = frame;
-> @@ -1688,26 +1707,6 @@ drop:
->         return 0;
+>         switch (po->tp_version) {
+> @@ -387,6 +388,8 @@ static void __packet_set_timestamp(struct packet_sock *po, void *frame,
+>         /* one flush is safe, as both fields always lie on the same cacheline */
+>         flush_dcache_page(pgv_to_page(&h.h1->tp_sec));
+>         smp_wmb();
+> +
+> +       return ts_status;
 >  }
 >
-> -static void tpacket_get_timestamp(struct sk_buff *skb, struct timespec *ts,
-> -                                 unsigned int flags)
-> -{
-> -       struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
-> -
-> -       if (shhwtstamps) {
-> -               if ((flags & SOF_TIMESTAMPING_SYS_HARDWARE) &&
-> -                   ktime_to_timespec_cond(shhwtstamps->syststamp, ts))
-> -                       return;
-> -               if ((flags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
-> -                   ktime_to_timespec_cond(shhwtstamps->hwtstamp, ts))
-> -                       return;
-> -       }
-> -
-> -       if (ktime_to_timespec_cond(skb->tstamp, ts))
-> -               return;
-> -
-> -       getnstimeofday(ts);
-> -}
-> -
->  static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
->                        struct packet_type *pt, struct net_device *orig_dev)
->  {
-> @@ -1804,7 +1803,8 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+>  static void *packet_lookup_frame(struct packet_sock *po,
+> @@ -1721,6 +1724,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+>         unsigned short macoff, netoff, hdrlen;
+>         struct sk_buff *copy_skb = NULL;
+>         struct timespec ts;
+> +       __u32 ts_status;
+>
+>         if (skb->pkt_type == PACKET_LOOPBACK)
+>                 goto drop;
+> @@ -1803,9 +1807,12 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
 >         spin_unlock(&sk->sk_receive_queue.lock);
 >
 >         skb_copy_bits(skb, 0, h.raw + macoff, snaplen);
-> -       tpacket_get_timestamp(skb, &ts, po->tp_tstamp);
-> +       if (!tpacket_get_timestamp(skb, &ts, po->tp_tstamp))
-> +               getnstimeofday(&ts);
+> -       if (!tpacket_get_timestamp(skb, &ts, po->tp_tstamp))
+> +
+> +       if (!(ts_status = tpacket_get_timestamp(skb, &ts, po->tp_tstamp)))
+>                 getnstimeofday(&ts);
 >
+> +       status |= ts_status;
+> +
 >         switch (po->tp_version) {
 >         case TPACKET_V1:
-> @@ -1908,7 +1908,7 @@ static void tpacket_destruct_skb(struct sk_buff *skb)
+>                 h.h1->tp_len = skb->len;
+> @@ -1905,11 +1912,14 @@ static void tpacket_destruct_skb(struct sk_buff *skb)
+>         void *ph;
+>
+>         if (likely(po->tx_ring.pg_vec)) {
+> +               __u32 ts;
+> +
 >                 ph = skb_shinfo(skb)->destructor_arg;
 >                 BUG_ON(atomic_read(&po->tx_ring.pending) == 0);
 >                 atomic_dec(&po->tx_ring.pending);
-> -               __packet_set_timestamp(po, ph, skb->tstamp);
-> +               __packet_set_timestamp(po, ph, skb);
->                 __packet_set_status(po, ph, TP_STATUS_AVAILABLE);
+> -               __packet_set_timestamp(po, ph, skb);
+> -               __packet_set_status(po, ph, TP_STATUS_AVAILABLE);
+> +
+> +               ts = __packet_set_timestamp(po, ph, skb);
+> +               __packet_set_status(po, ph, TP_STATUS_AVAILABLE | ts);
 >         }
 >
+>         sock_wfree(skb);
 > --
 > 1.7.11.7
 >
