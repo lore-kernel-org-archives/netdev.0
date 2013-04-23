@@ -1,35 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: socket file descriptor a/m/c-timestamps broken in <= 3.8.8?
-Date: Mon, 22 Apr 2013 17:37:36 -0700
-Message-ID: <1366677456.16391.101.camel@edumazet-glaptop>
-References: <5175CA2F.2030206@felixbecker.name>
-	 <20130423003015.GA26858@dcvr.yhbt.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 22 Apr 2013 20:38:46 -0400 (EDT)
+Message-ID: <20130422.203846.798313857495836249.davem@davemloft.net>
+References: <20130419125304.9980f9b037abf00bef7b6f8c@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Felix Becker <mail@felixbecker.name>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Eric Wong <normalperson@yhbt.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130423003015.GA26858@dcvr.yhbt.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ordex@autistici.org,
+	lindner_marek@yahoo.de, martin@hundeboll.net
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20130419125304.9980f9b037abf00bef7b6f8c@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-04-23 at 00:30 +0000, Eric Wong wrote:
-> Cc:-ing netdev (no comments of my own)
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 19 Apr 2013 12:53:04 +1000
+
+> Today's linux-next merge of the net-next tree got a conflict in
+> net/batman-adv/routing.c between commit fe8a93b95145 ("batman-adv: make
+> is_my_mac() check for the current mesh only") from the net tree and
+> commits f86ce0ad107b ("batman-adv: Return reason for failure in
+> batadv_check_unicast_packet()") and 612d2b4fe0a1 ("batman-adv: network
+> coding - save overheard and tx packets for decoding") from the net-next
+> tree.
 > 
-> Felix Becker <mail@felixbecker.name> wrote:
-> > Hi,
-> > 
-> > I tried to figure out how old my TCP connections are and took a look
-> > at /proc/<pid>/fd/<socketfdnum> using 'ls -la' / 'stat'.
-> > 
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
 
-Thanks, but its not a network issue, /proc/pid/fd are part of another
-subsystem.
+I've merged net into net-next and added all the necessary fixups
+in the merge commit.
 
-In particular, a/m/c timestamps are volatile (not meaningfull), as you
-can make them disappear by 
-"echo 3 >/proc/sys/vm/drop_caches"
-
-Next time you use "ls /proc/pid/fd/..." timestamps are created.
+Thanks!
