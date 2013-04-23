@@ -1,54 +1,69 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH RFC] spinlock: split out debugging check from
- spin_lock_mutex
-Date: Tue, 23 Apr 2013 09:44:43 -0400
-Message-ID: <20130423134443.GB5564@hmsreliant.think-freely.org>
-References: <20130412184542.GB19966@hmsreliant.think-freely.org>
- <51690AAB.1030102@acm.org>
- <20130415141610.GA3505@hmsreliant.think-freely.org>
- <CAO+b5-oBfH3M0dnrQSs-p1BF_5hKy2tsU-dD=EP9+S=iqPs5ew@mail.gmail.com>
- <20130416172454.GC9241@hmsreliant.think-freely.org>
- <20130418192912.GB29130@hmsreliant.think-freely.org>
- <20130422201246.GA20687@hmsreliant.think-freely.org>
- <CAO+b5-r5jVJNZWuREUH5MQ3baeSPR8fVV1p9pMnukmiZd9nRhg@mail.gmail.com>
- <20130423132345.GA5564@hmsreliant.think-freely.org>
- <CAO+b5-rQPyO9QE9v+oQTeo+G-ftcsehSB5=63AZ13QW4EJ1X0Q@mail.gmail.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next V2 5/5] net/mlx4_en: Add a service task
+Date: Tue, 23 Apr 2013 16:56:43 +0300
+Message-ID: <5176931B.1010903@mellanox.com>
+References: <1366631767-16493-1-git-send-email-amirv@mellanox.com>  <1366631767-16493-6-git-send-email-amirv@mellanox.com> <1366657270.16391.87.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Ingo Molnar <mingo@redhat.com>
-To: Bart Van Assche <bart.vanassche@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50431 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751312Ab3DWNou (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 09:44:50 -0400
-Content-Disposition: inline
-In-Reply-To: <CAO+b5-rQPyO9QE9v+oQTeo+G-ftcsehSB5=63AZ13QW4EJ1X0Q@mail.gmail.com>
+Received: from eu1sys200aog125.obsmtp.com ([207.126.144.159]:60746 "EHLO
+	eu1sys200aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753062Ab3DWN4v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 09:56:51 -0400
+In-Reply-To: <1366657270.16391.87.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 23, 2013 at 06:38:19AM -0700, Bart Van Assche wrote:
-> On Tue, Apr 23, 2013 at 6:23 AM, Neil Horman <nhorman@tuxdriver.com> wrote:
+On 22/04/2013 22:01, Eric Dumazet wrote:
+> On Mon, 2013-04-22 at 14:56 +0300, Amir Vadai wrote:
+>> Add a service task to run tasks that needed to be executed periodically.
+>> Currently the only task is a watchdog to catch NIC clock overflow, to make
+>> timestamping accurate.
+>> Will move the statistics task into this framework in a later patch.
+>>
+>> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+>> ---
+>>  drivers/net/ethernet/mellanox/mlx4/en_clock.c  |   20 ++++++++++++++++++++
+>>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   24 ++++++++++++++++++++++++
+>>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    4 ++++
+>>  3 files changed, 48 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+>> index 6d8227d..c1982a4 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+>> @@ -126,4 +126,24 @@ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
+>>  
+>>  	timecounter_init(&mdev->clock, &mdev->cycles,
+>>  			 ktime_to_ns(ktime_get_real()));
+>> +
+>> +	/* Calculate period in seconds to call the overflow watchdog. Doing
+>> +	 * that, by dividing the maximal cycles value in nano-seconds, convert
+>> +	 * it to seconds, and divide by 2 - to make sure counter is checked at
+>> +	 * least once every wrap around.
+>> +	 */
+>> +	mdev->overflow_period =
+>> +		cyclecounter_cyc2ns(&mdev->cycles,
+>> +				    mdev->cycles.mask) / 1000000 / 2;
+>> +}
+>> +
 > 
-> > Copy that.  I can propose this change based on my own testing, or wait for
-> > you
-> > to get back.  Do you have a preference?
-> >
+> So this 1000000 looks like NSEC_PER_SEC/HZ ?
+No. It is just a typo - used 10^6 instead of 10^9 for nano's.
+But it is a good idea to have the HZ multiplied in the initialization of
+overflow_period - will fix the calculation and change overflow_period
+units to be jiffies, and not seconds.
 > 
-> It will take until next week before I can run more tests. It depends on
-> whether a fix can wait that long ?
+> What if HZ=100 ?
 > 
-> Bart.
-Dave, how do you feel about it?  I'm comfortable with the wait queue change I've
-proposed, but I've not received any reports of actual netpoll deadlocks (i.e.
-the mutex solution is reporting a warning, but no actual problems).  So I think
-its safe to wait a bit longer, unless you just want this squared away now.
+> 
+> 
 
-FWIw, I think theres still some discussion to be had about the possibility of
-converting mutexes to use spin_lock_irqsave internally, thereby making
-mutex_trylock irq safe, but I think we can deal with that independently of this
-issue.
-
-Regards
-Neil
+Thanks,
+Amir
