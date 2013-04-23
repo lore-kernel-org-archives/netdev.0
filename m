@@ -1,32 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] spinlock: split out debugging check from
- spin_lock_mutex
-Date: Tue, 23 Apr 2013 13:33:15 -0400 (EDT)
-Message-ID: <20130423.133315.1278191592594257624.davem@davemloft.net>
-References: <20130423132345.GA5564@hmsreliant.think-freely.org>
-	<CAO+b5-rQPyO9QE9v+oQTeo+G-ftcsehSB5=63AZ13QW4EJ1X0Q@mail.gmail.com>
-	<20130423134443.GB5564@hmsreliant.think-freely.org>
+Subject: Re: Unsigned widening casts of binary "not" operations..
+Date: Tue, 23 Apr 2013 13:37:32 -0400 (EDT)
+Message-ID: <20130423.133732.2222922370397287096.davem@davemloft.net>
+References: <CA+55aFwogFL=nm=YHwARcz9OTRBdWEDPG0xcqM-H3k-VZTOZPQ@mail.gmail.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B71F2@saturn3.aculab.com>
+	<CA+55aFxvpcF7+dyy5d3+JP4Wfv90zPsRVtEhNG9Pky5gWTm_Pg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bart.vanassche@gmail.com, netdev@vger.kernel.org, mingo@redhat.com
-To: nhorman@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53404 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756769Ab3DWRdR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 13:33:17 -0400
-In-Reply-To: <20130423134443.GB5564@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David.Laight@aculab.com, mingo@kernel.org, hpa@zytor.com,
+	tglx@linutronix.de, tytso@mit.edu, linux-kernel@vger.kernel.org,
+	x86@kernel.org, netdev@vger.kernel.org, linux-ext4@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFxvpcF7+dyy5d3+JP4Wfv90zPsRVtEhNG9Pky5gWTm_Pg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Tue, 23 Apr 2013 09:44:43 -0400
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Tue, 23 Apr 2013 08:42:49 -0700
 
-> Dave, how do you feel about it?  I'm comfortable with the wait queue change I've
-> proposed, but I've not received any reports of actual netpoll deadlocks (i.e.
-> the mutex solution is reporting a warning, but no actual problems).  So I think
-> its safe to wait a bit longer, unless you just want this squared away now.
+> An explicit cast fixes it, and shows that you were aware of the issue:
+> 
+>    foo &= ~(foo_t)bar;
+> 
+> and gcc will generate the right logic. Of course, casts then have
+> their own problems, which your thing avoids (as would just having a
+> "andn" operation in C)
 
-If it's just a warning and people aren't actually hitting the
-potential deadlock, it can wait.
+I just want to mention that this is dangerous in different ways, we
+just recently got a patch in the networking that removed such a cast.
+The problem is when the cast narrows, f.e.:
+
+	~(u8)0
+
+doesn't do what you think it does.  That doesn't evaluate to 0xff.
+
+You all are very bright and probably know this already.
+
+So,if it widens, which is the situation we're talking about, you're
+good.  But until I saw the above u8 thing I never suspected that
+narrowing in this kind of expression was dangerous.
