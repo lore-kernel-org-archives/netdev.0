@@ -1,62 +1,81 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH firmware 1/2] rtl_nic: Add firmware rtl8168g-3
-Date: Tue, 23 Apr 2013 20:37:47 +0800
-Message-ID: <1366720668-4850-1-git-send-email-hayeswang@realtek.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 0/5] PF_PACKET timestamping updates
+Date: Tue, 23 Apr 2013 14:53:03 +0200
+Message-ID: <5176842F.7040703@redhat.com>
+References: <1366713572-11978-1-git-send-email-dborkman@redhat.com> <CA+FuTSdKPJ0wQUoAKGAh4t=cKs=GQx0tymd8a93GwFGjdB6oAg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <romieu@fr.zoreil.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <dwmw2@infradead.org>, <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Paul Chavent <Paul.Chavent@onera.fr>,
+	Richard Cochran <richardcochran@gmail.com>
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:4029 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755991Ab3DWMx1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Apr 2013 08:53:27 -0400
+In-Reply-To: <CA+FuTSdKPJ0wQUoAKGAh4t=cKs=GQx0tymd8a93GwFGjdB6oAg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46ile: rtl_nic/rtl8168g-3.fw
-Version: 0.0.1
+On 04/23/2013 02:33 PM, Willem de Bruijn wrote:
+> On Tue, Apr 23, 2013 at 6:39 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>> This is a joint effort with Willem to bring optional i) tx hw/sw
+>> timestamping into PF_PACKET, that was reported by Paul Chavent,
+>> and ii) to expose the type of timestamp to the user, which is in
+>> the current situation not possible to distinguish with the RX_RING
+>> and TX_RING API (but distinguishable through the normal timestamping
+>> API), reported by Richard Cochran.
+>
+> Does this solve the issue you raised, Richard? The patch does not
+> change which timestamp is written, so the ring will still fall back on
+> software if a hardware timestamp is unavailable. It now reports this
+> to the application in tp_status, however, so that it can act
+> accordingly (worst case: ignore the timestamp).
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- WHENCE                |   5 ++++-
- rtl_nic/rtl8168g-3.fw | Bin 0 -> 832 bytes
- 2 files changed, 4 insertions(+), 1 deletion(-)
- create mode 100644 rtl_nic/rtl8168g-3.fw
+Well, for the {RX,TX}_RING there is really no other way except the really
+really ugly possibility to introduce yet another tpacket header with 3
+time-stamp fields (sw, sys, raw). I really do not like that. :-)
 
-diff --git a/WHENCE b/WHENCE
-index 013f810..54f6388 100644
---- a/WHENCE
-+++ b/WHENCE
-@@ -1875,8 +1875,11 @@ Version: 0.0.3
- File: rtl_nic/rtl8168g-2.fw
- Version: 0.0.1
-=20
-+File: rtl_nic/rtl8168g-3.fw
-+Version: 0.0.1
-+
- Licence:
-- * Copyright =C2=A9 2011, Realtek Semiconductor Corporation
-+ * Copyright =C2=A9 2011-2013, Realtek Semiconductor Corporation
-  *
-  * Permission is hereby granted for the distribution of this firmware
-  * data in hexadecimal or equivalent format, provided this copyright
-diff --git a/rtl_nic/rtl8168g-3.fw b/rtl_nic/rtl8168g-3.fw
-new file mode 100644
-index 0000000000000000000000000000000000000000..0c97d7ea1437ba515c1dbda=
-be8aa285e79585786
-GIT binary patch
-literal 832
-zcmYk(!AcuZ6b9fwaZ*7`oFrF-f;bOQ<D^r9W))Bhg)T~$ZqlHoS+pvWWsqx0KoCKE
-z04sFkBM5G0Ep4Hc(rq80MX|9<r~kbtM@(`#neUuAbM74g*zUettkoCa&L^$78dqyk
-z{B+?-vQSHybDx)7=3DUiR9dQnf}q_x%Vu60`5?f0#<&Gk1?ZK;vOjU>Urb9|Vbvp~qN
-z|E1PnV=3DD*za?}K(Ch{liz#&kGmnY`zv)zitn6cHfip{}TXA%D&=3D8Y|%Fh?_t!DC~`
-z@2%jIu{o}t$k<1tx(AHel(E4m=3D0_2Xz0ml+A^W;#0Mc7#p22N~2$)IlX5w>oKbJli
-zrl0+O46<8SYtj|pr-an+x8(2bTi+MiN2zhCF*y>SFOTxDOt8mS_I$lp_A~v}+&;o=3D
-zU+%wBYtR~EmudxCLF}K}25m#^w_1nR5&NUoqxHnD)rPd8*idai8;H5H3ElgG0Z!?s
-z;!|p~v{|u|+70bStfJPYwZ*2@j%Y_>MYVtyh&@!hH}|C4D(hCI&dvBuXV2t}zv%Tb
-e>yD-FyIPS}6#JoeLAwz9sn)0U#hU)T1OEYQX1@Ud
+At least here, if you have traffic from different devices, you either get
+what you want (e.g. hw ts), or you'll get a fallback sw ts. That is also
+the case in the current code without this patchset. At least this set would
+solve this issue of telling the user what ts source he sees.
 
-literal 0
-HcmV?d00001
+> Unless packet-level timestamping is explicitly enabled, nothing
+> changes. The feature is new on tx, so there are no tx legacy concerns
+> for tp_status. On rx, without timestamping, tp_status bit is similarly
+> unaltered. Only applications that have receive timestamping enabled on
+> rx will see a different tp_status field. This would break applications
+> that test (tp_status == TP_STATUS_USER) as opposed to (tp_status &
+> TP_STATUS_USER). That behavior is incorrect. I'm just not sure whether
+> it exists.
 
---=20
-1.8.1.4
+Right, this would actually be broken, since tp_status == TP_STATUS_USER
+would filter out packets where also other bits are set as given in
+include/uapi/linux/if_packet.h +88 . Neither kernel checks with == nor,
+libpcap (just checked their code). E.g. libpcap checks if
+h.h{1,2}->tp_status != 0, then it must be TP_STATUS_USER, else
+TP_STATUS_KERNEL in pcap-linux.c +3757.
+
+>> This set is based on top of
+>> ``packet: account statistics only in tpacket_stats_u''. Related
+>> discussion can be found in: http://patchwork.ozlabs.org/patch/238125/
+>>
+>> Daniel Borkmann (4):
+>>    packet: enable hardware tx timestamping on tpacket ring
+>>    packet: minor: convert status bits into shifting format
+>>    packet: if hw/sw ts enabled in rx/tx ring, report which ts we got
+>>    packet: doc: update timestamping part
+>
+> Thanks for looking into this, Daniel!
+>
+>> Willem de Bruijn (1):
+>>    packet: tx timestamping on tpacket ring
+>>
+>>   Documentation/networking/packet_mmap.txt | 41 ++++++++++++---
+>>   include/uapi/linux/if_packet.h           | 27 ++++++----
+>>   net/core/skbuff.c                        | 12 ++---
+>>   net/packet/af_packet.c                   | 87 ++++++++++++++++++++++++--------
+>>   4 files changed, 122 insertions(+), 45 deletions(-)
