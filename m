@@ -1,129 +1,92 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: [PATCH 5/5] net/cpsw: redo rx skb allocation in rx path
-Date: Tue, 23 Apr 2013 19:31:39 +0200
-Message-ID: <1366738299-21285-6-git-send-email-bigeasy@linutronix.de>
+Subject: [PATCH 3/5] net/cpsw: don't rely only on netif_running() to check which device is active
+Date: Tue, 23 Apr 2013 19:31:37 +0200
+Message-ID: <1366738299-21285-4-git-send-email-bigeasy@linutronix.de>
 References: <1366738299-21285-1-git-send-email-bigeasy@linutronix.de>
 Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	tglx@linutronix.de,
 	Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:36084 "EHLO
+Received: from www.linutronix.de ([62.245.132.108]:36072 "EHLO
 	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756725Ab3DWRby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 13:31:54 -0400
+	with ESMTP id S1756725Ab3DWRbx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 13:31:53 -0400
 In-Reply-To: <1366738299-21285-1-git-send-email-bigeasy@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case that we run into OOM during the allocation of the new rx-skb we
-don't get one and we have one skb less than we used to have. If this
-continues to happen then we end up with no rx-skbs at all.
-This patch changes the following:
-- if we fail to allocate the new skb, then we treat the currently
-  completed skb as the new one and so drop the currently received data.
-- instead of testing multiple times if the device is gone we rely one
-  the status field which is set to -ENOSYS in case the channel is going
-  down and incomplete requests are purged.
-  cpdma_chan_stop() removes most of the packages with -ENOSYS. The
-  currently active packet which is removed has the "tear down" bit set.
-  So if that bit is set, we send ENOSYS as well otherwise we pass the
-  status bits which are required to figure out which of the two possible
-  just finished.
+netif_running() reports false before the ->ndo_stop() callback is
+called. That means if one executes "ifconfig down" and the system
+receives an interrupt before the interrupt source has been disabled we
+hang for always for two reasons:
+- we never disable the interrupt source because devices claim to be
+  already inactive and don't feel responsible.
+- since the ISR always reports IRQ_HANDLED the line is never deactivated
+  because it looks like the ISR feels responsible.
 
-Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
+This patch changes the logic in the ISR a little:
+- If none of the status registers reports an active source (RX or TX,
+  misc is ignored because it is not actived) we leave with IRQ_NONE.
+- the interrupt is deactivated
+- The first active network device is taken and napi is scheduled. If
+  none are active (a small race window between ndo_down() and the
+  interrupt the) then we leave and should not come back because the
+  source is off.
+  There is no need to schedule the second NAPI because both share the
+  same dma queue.
+
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- drivers/net/ethernet/ti/cpsw.c          |   33 ++++++++++++-------------------
- drivers/net/ethernet/ti/davinci_cpdma.c |    7 ++++++-
- 2 files changed, 19 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c |   33 ++++++++++++++++++++++-----------
+ 1 file changed, 22 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 82c4574..1fc89a5 100644
+index 29700fb..13d4ed8 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -468,43 +468,36 @@ void cpsw_tx_handler(void *token, int len, int status)
- void cpsw_rx_handler(void *token, int len, int status)
+@@ -510,20 +510,31 @@ void cpsw_rx_handler(void *token, int len, int status)
+ static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
  {
- 	struct sk_buff		*skb = token;
-+	struct sk_buff		*new_skb;
- 	struct net_device	*ndev = skb->dev;
- 	struct cpsw_priv	*priv = netdev_priv(ndev);
- 	int			ret = 0;
+ 	struct cpsw_priv *priv = dev_id;
++	u32 rx, tx, rx_thresh;
  
- 	cpsw_dual_emac_src_port_detect(status, priv, ndev, skb);
- 
--	/* free and bail if we are shutting down */
--	if (unlikely(!netif_running(ndev)) ||
--			unlikely(!netif_carrier_ok(ndev))) {
-+	if (unlikely(status < 0)) {
-+		/* the interface is going down, skbs are purged */
- 		dev_kfree_skb_any(skb);
- 		return;
- 	}
--	if (likely(status >= 0)) {
+-	if (likely(netif_running(priv->ndev))) {
+-		cpsw_intr_disable(priv);
+-		cpsw_disable_irq(priv);
++	rx_thresh = __raw_readl(&priv->wr_regs->rx_thresh_stat);
++	rx = __raw_readl(&priv->wr_regs->rx_stat);
++	tx = __raw_readl(&priv->wr_regs->tx_stat);
++	if (!rx_thresh && !rx && !tx)
++		return IRQ_NONE;
 +
-+	new_skb = netdev_alloc_skb_ip_align(ndev, priv->rx_packet_max);
-+	if (new_skb) {
- 		skb_put(skb, len);
- 		cpts_rx_timestamp(priv->cpts, skb);
- 		skb->protocol = eth_type_trans(skb, ndev);
- 		netif_receive_skb(skb);
- 		priv->stats.rx_bytes += len;
- 		priv->stats.rx_packets++;
--		skb = NULL;
--	}
--
--	if (unlikely(!netif_running(ndev))) {
--		if (skb)
--			dev_kfree_skb_any(skb);
--		return;
-+	} else {
-+		priv->stats.rx_dropped++;
-+		new_skb = skb;
++	cpsw_intr_disable(priv);
++	cpsw_disable_irq(priv);
++
++	if (netif_running(priv->ndev)) {
+ 		napi_schedule(&priv->napi);
+-	} else {
+-		priv = cpsw_get_slave_priv(priv, 1);
+-		if (likely(priv) && likely(netif_running(priv->ndev))) {
+-			cpsw_intr_disable(priv);
+-			cpsw_disable_irq(priv);
+-			napi_schedule(&priv->napi);
+-		}
++		return IRQ_HANDLED;
++	}
++
++	priv = cpsw_get_slave_priv(priv, 1);
++	if (!priv)
++		return IRQ_NONE;
++
++	if (netif_running(priv->ndev)) {
++		napi_schedule(&priv->napi);
++		return IRQ_HANDLED;
  	}
- 
--	if (likely(!skb)) {
--		skb = netdev_alloc_skb_ip_align(ndev, priv->rx_packet_max);
--		if (WARN_ON(!skb))
--			return;
--
--		ret = cpdma_chan_submit(priv->rxch, skb, skb->data,
--					skb_tailroom(skb), 0);
--	}
--	WARN_ON(ret < 0);
-+	ret = cpdma_chan_submit(priv->rxch, new_skb, new_skb->data,
-+			skb_tailroom(new_skb), 0);
-+	if (WARN_ON(ret < 0))
-+		dev_kfree_skb_any(new_skb);
+-	return IRQ_HANDLED;
++	return IRQ_NONE;
  }
  
- static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index 3cc20e7..6b0a89f 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -776,6 +776,7 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
- 	struct cpdma_ctlr		*ctlr = chan->ctlr;
- 	struct cpdma_desc __iomem	*desc;
- 	int				status, outlen;
-+	int				cb_status = 0;
- 	struct cpdma_desc_pool		*pool = ctlr->pool;
- 	dma_addr_t			desc_dma;
- 	unsigned long			flags;
-@@ -811,8 +812,12 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
- 	}
- 
- 	spin_unlock_irqrestore(&chan->lock, flags);
-+	if (unlikely(status & CPDMA_DESC_TD_COMPLETE))
-+		cb_status = -ENOSYS;
-+	else
-+		cb_status = status;
- 
--	__cpdma_chan_free(chan, desc, outlen, status);
-+	__cpdma_chan_free(chan, desc, outlen, cb_status);
- 	return status;
- 
- unlock_ret:
+ static int cpsw_poll(struct napi_struct *napi, int budget)
 -- 
 1.7.10.4
