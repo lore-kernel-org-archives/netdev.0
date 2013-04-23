@@ -1,36 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Mon, 22 Apr 2013 20:42:02 -0400 (EDT)
-Message-ID: <20130422.204202.847934226356654222.davem@davemloft.net>
-References: <20130422130939.9162d4f519402dcfc4cdbe0c@canb.auug.org.au>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH] Net: mac802154: comparing issue by type cast, finding
+ by EXTRA_CFLAGS=-W
+Date: Tue, 23 Apr 2013 09:11:24 +0800
+Message-ID: <5175DFBC.7040000@asianux.com>
+References: <5174DB87.3010908@asianux.com> <51754485.6040708@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
-	ebiederm@xmission.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130422130939.9162d4f519402dcfc4cdbe0c@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	David Miller <davem@davemloft.net>,
+	linux-zigbee-devel@lists.sourceforge.net,
+	netdev <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from intranet.asianux.com ([58.214.24.6]:40114 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752967Ab3DWBML (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 21:12:11 -0400
+In-Reply-To: <51754485.6040708@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 22 Apr 2013 13:09:39 +1000
+On 2013=E5=B9=B404=E6=9C=8822=E6=97=A5 22:09, Sergei Shtylyov wrote:
+>=20
+>> Signed-off-by: Chen Gang <gang.chen@asianux.com>
+>> ---
+>>   net/mac802154/mac802154.h |    2 +-
+>>   1 files changed, 1 insertions(+), 1 deletions(-)
+>=20
+>> diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
+>> index 5c9e021..c59309f 100644
+>> --- a/net/mac802154/mac802154.h
+>> +++ b/net/mac802154/mac802154.h
+>> @@ -88,7 +88,7 @@ struct mac802154_sub_if_data {
+>>
+>>   #define mac802154_to_priv(_hw)    container_of(_hw, struct
+>> mac802154_priv, hw)
+>>
+>> -#define MAC802154_CHAN_NONE        (~(u8)0) /* No channel is assign=
+ed */
+>> +#define MAC802154_CHAN_NONE        (0xff) /* No channel is assigned=
+ */
+>=20
+>    () not needed now.
+>=20
+> WBR, Sergei
+>=20
+>=20
 
-> Today's linux-next merge of the net-next tree got a conflict in
-> include/net/scm.h between commit 83f1b4ba917d ("net: fix incorrect
-> credentials passing") from Linus' tree and commit 6b0ee8c036ec ("scm:
-> Stop passing struct cred") from the net-next tree.
-> 
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).  I also applied the following merge fix patch (I am not
-> sure if this is correct, but it seems to be consistent):
-> 
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Mon, 22 Apr 2013 13:06:10 +1000
-> Subject: [PATCH] net: af_unix fix for incorrect credentials passing
-> 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+  ok, thanks.  I will send patch v2
 
-I took care of this during the net --> net-next merge, thanks!
+--=20
+Chen Gang
+
+Asianux Corporation
