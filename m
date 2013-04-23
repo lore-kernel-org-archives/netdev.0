@@ -1,83 +1,58 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: Unsigned widening casts of binary "not" operations..
-Date: Tue, 23 Apr 2013 11:21:14 -0700
-Message-ID: <CA+55aFz1mGf+XXQmXr+8GA2cEBRABzG1PSvPgLCJ-18hzViqZg@mail.gmail.com>
-References: <CA+55aFxvpcF7+dyy5d3+JP4Wfv90zPsRVtEhNG9Pky5gWTm_Pg@mail.gmail.com>
-	<20130423.133732.2222922370397287096.davem@davemloft.net>
-	<CA+55aFzVcptyMSDpFzE_-npbs-ycS+9z_nknoZm1+bQws1pWnA@mail.gmail.com>
-	<20130423.135657.824070337983596004.davem@davemloft.net>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH 11/14] netlink: add RX/TX-ring support to netlink diag
+Date: Tue, 23 Apr 2013 20:28:35 +0200
+Message-ID: <3020335.4HTe7KSVvr@cpaasch-mac>
+References: <1366217229-22705-1-git-send-email-kaber@trash.net> <1366217229-22705-12-git-send-email-kaber@trash.net>
+Reply-To: christoph.paasch@uclouvain.be
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>,
-	Ingo Molnar <mingo@kernel.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"the arch/x86 maintainers" <x86@kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-ext4@vger.kernel.org" <linux-ext4@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130423.135657.824070337983596004.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f169.google.com ([74.125.82.169]:47627 "EHLO
+	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756910Ab3DWS2k convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 14:28:40 -0400
+In-Reply-To: <1366217229-22705-12-git-send-email-kaber@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 23, 2013 at 10:56 AM, David Miller <davem@davemloft.net> wrote:
->
-> If you're not bored, and could add a check for that kind of narrowing
-> situation, I'd really appreciate it.
+Hello,
 
-It's pretty non-trivial.
+On Wednesday 17 April 2013 18:47:06 Patrick McHardy wrote:
+> +       mutex_lock(&nlk->pg_vec_lock);
+> +       ret =3D sk_diag_put_ring(&nlk->rx_ring, NETLINK_DIAG_RX_RING,=
+ nlskb);
+> +       if (!ret)
+> +               ret =3D sk_diag_put_ring(&nlk->tx_ring, NETLINK_DIAG_=
+TX_RING,
+> +                                      nlskb);
+> +       mutex_unlock(&nlk->pg_vec_lock);
 
-For example, this is perfectly normal C:
+this produces a build-error, if CONFIG_NETLINK_MMAP=3Dn:
 
-   char a,b;
-   ...
-   a &= ~b;
+/home/cpaasch/builder/net-next/net/netlink/diag.c: In function=20
+=E2=80=98sk_diag_put_rings_cfg=E2=80=99:
+/home/cpaasch/builder/net-next/net/netlink/diag.c:28: error: =E2=80=98s=
+truct=20
+netlink_sock=E2=80=99 has no member named =E2=80=98pg_vec_lock=E2=80=99
+/home/cpaasch/builder/net-next/net/netlink/diag.c:29: error: =E2=80=98s=
+truct=20
+netlink_sock=E2=80=99 has no member named =E2=80=98rx_ring=E2=80=99
 
-and the arithmetic is technically done in "int" (because C really
-never does any arithmetic in a narrower type). So the value of 'b'
-will be widened to int before doing the binary not, and then the
-binary 'and' will be done in 'int', and then in the end it will be
-cast down to 'char' again and written back to 'a'.
 
-And none of that matters. All the normal integer operations (both
-arithmetic and logical) are "stable" in the smaller size. The upper
-bits can be basically random uninteresting crap (ie do zero or sign
-extension depending on the smaller type), but they don't matter
-because they go away in the end. In fact, the compiler will usually
-then end up doing the actual arithmetic/logical op in the narrower
-type, even though *conceptually* there were lots of casts going on
-back and forth.
+Should the #ifdef CONFIG_NETLINK_MMAP in struct netlink_sock be removed=
+?
 
-The point being that at the actual time of the widening, it's hard to
-say whether "~(u8)0" is problematic or not - it will depend on how it
-ends up being used. At a much later point, sparse will have optimized
-away the casts and will indeed linearize it to a simple 8-bit
-operation, but by then sparse will *also* have simplified away the
-obviously constant arithmetic, so by the time the casts back and forth
-are gone, so is the logical "not", and all you have left of the
-"~(u8)0" is either a 8-bit value (255) or an "int" (-1) depending on
-how it was used.
 
-Put another way: it's not possible to say that "~(u8)0" is wrong early
-on (because it may be part of something that ends up only doing byte
-arithmetic) and it is *also* not possible to say that it's invalid
-much later on, because by then we will have munged it into something
-totally different.
+Cheers,
+Christoph
 
-I'm not saying it's impossible to do. You could certainly do it with
-sparse, but it would involve a fair amount of effort. You'd have to
-add a whole new separate phase of "type narrowing": sparse *does* do
-that as part of the simplification, but right now it's done while it
-does all the *other* simplification too, so ..
 
-Now, if you only wanted the warning when there is an *explicit* cast,
-that would be different. It would be easy enough to find the pattern
-where we do a "~" op on an explicit cast to something smaller than
-"int" (which means that there would be an implicit cast after the
-explicit one). But quite frankly, you could likely do that almost
-equally well with just a judicious use of "grep".
-
-                      Linus
+--=20
+IP Networking Lab --- http://inl.info.ucl.ac.be
+MultiPath TCP in the Linux Kernel --- http://multipath-tcp.org
+UCLouvain
+--
