@@ -1,79 +1,54 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: [PATCH v2] Net: mac802154: comparision issue of type cast, finding
- by EXTRA_CFLAGS=-W
-Date: Tue, 23 Apr 2013 10:54:47 +0800
-Message-ID: <5175F7F7.7000703@asianux.com>
-References: <5174DB87.3010908@asianux.com> <51754485.6040708@cogentembedded.com> <5175DFBC.7040000@asianux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	David Miller <davem@davemloft.net>,
-	linux-zigbee-devel@lists.sourceforge.net,
-	netdev <netdev@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:12009 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753530Ab3DWCze (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 22:55:34 -0400
-In-Reply-To: <5175DFBC.7040000@asianux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH nf-next 1/9] ipvs: properly dereference dest_dst in ip_vs_forget_dev
+Date: Tue, 23 Apr 2013 12:03:52 +0900
+Message-ID: <1366686240-23493-2-git-send-email-horms@verge.net.au>
+References: <1366686240-23493-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Dan Carpenter <dan.carpenter@oracle.com>,
+	Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1366686240-23493-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Julian Anastasov <ja@ssi.bg>
 
-need change ~(u8)0 to 0xff, or in mac802154_wpan_xmit(), "u8 chan"
-will never == MAC802154_CHAN_NONE.
+Use rcu_dereference_protected to resolve
+sparse warning, found by kbuild test robot:
 
-the related warning:
-  net/mac802154/wpan.c:325:2: warning: comparison is always false
-  due to limited range of data type [-Wtype-limits]
+net/netfilter/ipvs/ip_vs_ctl.c:1464:35: warning: dereference of
+noderef expression
 
-related unit test:
-  cc -Wall -O2 -o test test.c
-  ./test
-  will output 'different'
+Problem from commit 026ace060dfe29
+("ipvs: optimize dst usage for real server")
 
-  (after use '0xff' instead of '~(u8)0', it will output 'equal')
-
------------------------test code begin--------------------------------
-
-#include <stdio.h>
-
-typedef unsigned char u8;
-
-int main()
-{
-	u8 uc = 0xff;
-
-	if (uc == ~(u8)0)
-		printf("\nequal\n");
-	else
-		printf("\ndifferent\n");
-
-	return 0;
-}
-
------------------------test code end----------------------------------
-
-
-Signed-off-by: Chen Gang <gang.chen@asianux.com>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/mac802154/mac802154.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/netfilter/ipvs/ip_vs_ctl.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-index 5c9e021..d48422e 100644
---- a/net/mac802154/mac802154.h
-+++ b/net/mac802154/mac802154.h
-@@ -88,7 +88,7 @@ struct mac802154_sub_if_data {
- 
- #define mac802154_to_priv(_hw)	container_of(_hw, struct mac802154_priv, hw)
- 
--#define MAC802154_CHAN_NONE		(~(u8)0) /* No channel is assigned */
-+#define MAC802154_CHAN_NONE		0xff /* No channel is assigned */
- 
- extern struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced;
- extern struct ieee802154_mlme_ops mac802154_mlme_wpan;
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 9e4074c..5a65444 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1460,8 +1460,11 @@ void ip_vs_service_net_cleanup(struct net *net)
+ static inline void
+ ip_vs_forget_dev(struct ip_vs_dest *dest, struct net_device *dev)
+ {
++	struct ip_vs_dest_dst *dest_dst;
++
+ 	spin_lock_bh(&dest->dst_lock);
+-	if (dest->dest_dst && dest->dest_dst->dst_cache->dev == dev) {
++	dest_dst = rcu_dereference_protected(dest->dest_dst, 1);
++	if (dest_dst && dest_dst->dst_cache->dev == dev) {
+ 		IP_VS_DBG_BUF(3, "Reset dev:%s dest %s:%u ,dest->refcnt=%d\n",
+ 			      dev->name,
+ 			      IP_VS_DBG_ADDR(dest->af, &dest->addr),
 -- 
-1.7.7.6
+1.8.2.1
+
