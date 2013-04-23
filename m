@@ -1,29 +1,28 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next v4] rps: selective flow shedding during softnet
  overflow
-Date: Tue, 23 Apr 2013 14:23:33 -0700
-Message-ID: <20130423142333.15479dfa@nehalam.linuxnetplumber.net>
+Date: Tue, 23 Apr 2013 14:34:09 -0700
+Message-ID: <1366752849.8964.11.camel@edumazet-glaptop>
 References: <CA+FuTSfPjrzVqKj-jrzivM_mBP47Dtkuj2P+bJ3VwWTscoT=yA@mail.gmail.com>
-	<1366749094-5982-1-git-send-email-willemb@google.com>
+	 <1366749094-5982-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	stephen@networkplumber.org
 To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:33936 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752802Ab3DWVXi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 17:23:38 -0400
-Received: by mail-pd0-f175.google.com with SMTP id g10so687758pdj.20
-        for <netdev@vger.kernel.org>; Tue, 23 Apr 2013 14:23:38 -0700 (PDT)
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:42444 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753246Ab3DWVeM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 17:34:12 -0400
+Received: by mail-pa0-f47.google.com with SMTP id bj1so743168pad.6
+        for <netdev@vger.kernel.org>; Tue, 23 Apr 2013 14:34:11 -0700 (PDT)
 In-Reply-To: <1366749094-5982-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 Apr 2013 16:31:34 -0400
-Willem de Bruijn <willemb@google.com> wrote:
-
+On Tue, 2013-04-23 at 16:31 -0400, Willem de Bruijn wrote:
 > A cpu executing the network receive path sheds packets when its input
 > queue grows to netdev_max_backlog. A single high rate flow (such as a
 > spoofed source DoS) can exceed a single cpu processing rate and will
@@ -49,5 +48,7 @@ Willem de Bruijn <willemb@google.com> wrote:
 > socket tap, ..).
 > 
 > Signed-off-by: Willem de Bruijn <willemb@google.com>
+> 
+> ---
 
-What about just having a smarter ingress qdisc?
+Acked-by: Eric Dumazet <edumazet@google.com>
