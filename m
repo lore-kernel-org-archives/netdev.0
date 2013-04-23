@@ -1,57 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Net-next: ipv4: typo issue, remove erroneous
- semicolon
-Date: Tue, 23 Apr 2013 01:16:04 -0400 (EDT)
-Message-ID: <20130423.011604.1061769362231812796.davem@davemloft.net>
-References: <517549F4.7030806@cogentembedded.com>
-	<5175DFF9.4040000@asianux.com>
-	<5175F5C3.8060503@asianux.com>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH] tuntap: fix error return code in tun_set_iff()
+Date: Mon, 22 Apr 2013 22:37:49 -0700
+Message-ID: <CAPshTCgApCEsrQ6uFfmyzvNvQNO8-MZ4zJaiMn3pPF+EV7+zJg@mail.gmail.com>
+References: <CAPgLHd9WrbgeYH9pw81kQn9sv=On8e399qAOth6MWprF6PS5pg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, pshelar@nicira.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org
-To: gang.chen@asianux.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>, mst@redhat.com,
+	Eric Dumazet <edumazet@google.com>, nhorman@tuxdriver.com,
+	yongjun_wei@trendmicro.com.cn,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Wei Yongjun <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43904 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754830Ab3DWFQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 01:16:09 -0400
-In-Reply-To: <5175F5C3.8060503@asianux.com>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:58318 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754655Ab3DWFhv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 01:37:51 -0400
+Received: by mail-lb0-f175.google.com with SMTP id o10so288084lbi.6
+        for <netdev@vger.kernel.org>; Mon, 22 Apr 2013 22:37:49 -0700 (PDT)
+In-Reply-To: <CAPgLHd9WrbgeYH9pw81kQn9sv=On8e399qAOth6MWprF6PS5pg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chen Gang <gang.chen@asianux.com>
-Date: Tue, 23 Apr 2013 10:45:23 +0800
+On Fri, Apr 12, 2013 at 6:17 AM, Wei Yongjun <weiyj.lk@gmail.com> wrote:
+>
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+>
+> Fix to return a negative error code from the error handling
+> case instead of 0, as returned elsewhere in this function.
+>
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> ---
+>  drivers/net/tun.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index b7c457a..729ed53 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1594,7 +1594,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>
+>                 if (tun->flags & TUN_TAP_MQ &&
+>                     (tun->numqueues + tun->numdisabled > 1))
+> -                       return err;
+> +                       return -EBUSY;
 
-> need remove erroneous semicolon, which is found by EXTRA_CFLAGS=-W.
-> the related commit number: c54419321455631079c7d6e60bc732dd0c5914c5
-> (by Pravin B Shelar <pshelar@nicira.com>  Mon Mar 25 14:49:35 2013)
-> 
-> Signed-off-by: Chen Gang <gang.chen@asianux.com>
+I don't understand - yes it was a brainless bug to return err without
+setting it!
+But won't the fix pretty much disable multi-q because only the the creation of
+the 1st queue will succeed? I thought the intent of "tuntap: fix ambigious
+multiqueue API" was to "Only allow TUNSETIFF to create queues.".
 
-Do not put the destination GIT tree outside of the "[]" brackets.  Put
-it inside the "[]" brackets, so it doesn't show up in the final commit
-message.
+The code is very confusing. (Or am I the one who is confused? Sigh.)
 
-Also, do not capitalize it, just "net-next" is fine.
+Jerry
 
-Putting "(by Pravin B Shelar <pshelar@nicira.com>  Mon Mar 25 14:49:35 2013)"
-is not what we asked for, we asked for the commit message header line
-which for this commit would be ("GRE: Refactor GRE tunneling code.")
-
-I want to know by what example you are doing these things?  Follow
-the model of other successful patch submitters, such as Eric Dumazet,
-Ben Hutchings, Thomas Graf, Simon Horman, etc. just to name a few.
-
-Do exactly what they do, because I never have to tell those people how
-to properly format their commit messages, header lines, and the patch
-itself.
-
-In your commit message body, properly capitalize your sentences.
-
-This feedback applies to all of the patches you have submitted.  I'm
-sorry I have to pick you apart so much, but if you're going to
-contribute regularly you have to get this right, I can't be constantly
-fixing up by hand every patch you submit.
+>         }
+>         else {
+>                 char *name;
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
