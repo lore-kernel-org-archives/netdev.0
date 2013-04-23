@@ -1,62 +1,37 @@
-From: Matthew Whitehead <tedheadster@gmail.com>
-Subject: [PATCH] 3c509.c: call SET_NETDEV_DEV for all device types (ISA/ISAPnP/EISA)
-Date: Tue, 23 Apr 2013 13:49:39 -0400
-Message-ID: <CAP8WD_ZJo_RaShD-V5fn4OUySt8_RCdjyZvVpijhhQEZQZHkbQ@mail.gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH RFC] spinlock: split out debugging check from
+ spin_lock_mutex
+Date: Tue, 23 Apr 2013 13:50:16 -0400
+Message-ID: <20130423175016.GC5564@hmsreliant.think-freely.org>
+References: <20130423132345.GA5564@hmsreliant.think-freely.org>
+ <CAO+b5-rQPyO9QE9v+oQTeo+G-ftcsehSB5=63AZ13QW4EJ1X0Q@mail.gmail.com>
+ <20130423134443.GB5564@hmsreliant.think-freely.org>
+ <20130423.133315.1278191592594257624.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: bart.vanassche@gmail.com, netdev@vger.kernel.org, mingo@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f53.google.com ([74.125.82.53]:48920 "EHLO
-	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756419Ab3DWRtk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 13:49:40 -0400
-Received: by mail-wg0-f53.google.com with SMTP id z11so433363wgg.20
-        for <netdev@vger.kernel.org>; Tue, 23 Apr 2013 10:49:39 -0700 (PDT)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55370 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756419Ab3DWRu1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 13:50:27 -0400
+Content-Disposition: inline
+In-Reply-To: <20130423.133315.1278191592594257624.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The venerable 3c509 driver only sets its device parent in one case,
-the ISAPnP one.
-It does this with the SET_NETDEV_DEV function. It should register with
-the device
-hierarchy in two additional cases: standard (non-PnP) ISA and EISA.
-
-- Currently they appear here:
-/sys/devices/virtual/net/eth0 (standard ISA)
-/sys/devices/virtual/net/eth1 (EISA)
-
-- Rather, they should instead be here:
-/sys/devices/isa/3c509.0/net/eth0 (standard ISA)
-/sys/devices/pci0000:00/0000:00:07.0/00:04/net/eth1 (EISA)
-
-Tested on ISA and EISA boards.
-
-Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
----
- drivers/net/ethernet/3com/3c509.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/3com/3c509.c
-b/drivers/net/ethernet/3com/3c509.c
-index f36ff99..adb4bf5 100644
---- a/drivers/net/ethernet/3com/3c509.c
-+++ b/drivers/net/ethernet/3com/3c509.c
-@@ -306,6 +306,7 @@ static int el3_isa_match(struct device *pdev,
-unsigned int ndev)
-        if (!dev)
-                return -ENOMEM;
-
-+       SET_NETDEV_DEV(dev, pdev);
-        netdev_boot_setup_check(dev);
-
-        if (!request_region(ioaddr, EL3_IO_EXTENT, "3c509-isa")) {
-@@ -595,6 +596,7 @@ static int __init el3_eisa_probe (struct device *device)
-                return -ENOMEM;
-        }
-
-+       SET_NETDEV_DEV(dev, device);
-        netdev_boot_setup_check(dev);
-
-        el3_dev_fill(dev, phys_addr, ioaddr, irq, if_port, EL3_EISA);
---
-1.7.2.5
+On Tue, Apr 23, 2013 at 01:33:15PM -0400, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Tue, 23 Apr 2013 09:44:43 -0400
+> 
+> > Dave, how do you feel about it?  I'm comfortable with the wait queue change I've
+> > proposed, but I've not received any reports of actual netpoll deadlocks (i.e.
+> > the mutex solution is reporting a warning, but no actual problems).  So I think
+> > its safe to wait a bit longer, unless you just want this squared away now.
+> 
+> If it's just a warning and people aren't actually hitting the
+> potential deadlock, it can wait.
+> 
+Copy that. Bart, I'll wait till you get back then.
+Neil
