@@ -1,8 +1,9 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next 5/5] packet: doc: update timestamping part
-Date: Tue, 23 Apr 2013 08:20:19 -0400
-Message-ID: <CA+FuTSdoExuure7a2XPnVwP0VZS-YOrVjVEUWxe02_SeYZPi2Q@mail.gmail.com>
-References: <1366713572-11978-1-git-send-email-dborkman@redhat.com> <1366713572-11978-6-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH net-next 3/5] packet: minor: convert status bits into
+ shifting format
+Date: Tue, 23 Apr 2013 08:22:07 -0400
+Message-ID: <CA+FuTSfKaeqGCefRRfZp2fCJnr2ca4Y1sFXVNpB02g3fw3TtVA@mail.gmail.com>
+References: <1366713572-11978-1-git-send-email-dborkman@redhat.com> <1366713572-11978-4-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
@@ -10,84 +11,67 @@ Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	Richard Cochran <richardcochran@gmail.com>
 To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f171.google.com ([209.85.210.171]:60287 "EHLO
-	mail-ia0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754597Ab3DWMUw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 08:20:52 -0400
-Received: by mail-ia0-f171.google.com with SMTP id r13so337429iar.30
-        for <netdev@vger.kernel.org>; Tue, 23 Apr 2013 05:20:51 -0700 (PDT)
-In-Reply-To: <1366713572-11978-6-git-send-email-dborkman@redhat.com>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:52294 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755000Ab3DWMWh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 08:22:37 -0400
+Received: by mail-ie0-f178.google.com with SMTP id aq17so587954iec.9
+        for <netdev@vger.kernel.org>; Tue, 23 Apr 2013 05:22:37 -0700 (PDT)
+In-Reply-To: <1366713572-11978-4-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Tue, Apr 23, 2013 at 6:39 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> Bring the timestamping section in sync with the implementation.
+> This makes it more readable and clearer what bits are still free to
+> use. The compiler reduces this to a constant for us anyway.
 >
 > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Acked-by: Willem de Bruijn <willemb@google.com>
 > ---
->  Documentation/networking/packet_mmap.txt | 41 +++++++++++++++++++++++++++-----
->  1 file changed, 35 insertions(+), 6 deletions(-)
+>  This is just to bring the status bits' format in line with the
+>  next patch.
+
+This change is not strictly necessary on its own, but it does make
+it easier to verify the high bits used in the next patch.
+
+>  include/uapi/linux/if_packet.h | 22 +++++++++++-----------
+>  1 file changed, 11 insertions(+), 11 deletions(-)
 >
-> diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
-> index 65efb85..23dd80e 100644
-> --- a/Documentation/networking/packet_mmap.txt
-> +++ b/Documentation/networking/packet_mmap.txt
-> @@ -1016,10 +1016,11 @@ retry_block:
->  -------------------------------------------------------------------------------
+> diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
+> index 8136658..4dfc234 100644
+> --- a/include/uapi/linux/if_packet.h
+> +++ b/include/uapi/linux/if_packet.h
+> @@ -86,19 +86,19 @@ struct tpacket_auxdata {
+>  };
 >
->  The PACKET_TIMESTAMP setting determines the source of the timestamp in
-> -the packet meta information.  If your NIC is capable of timestamping
-> -packets in hardware, you can request those hardware timestamps to used.
-> -Note: you may need to enable the generation of hardware timestamps with
-> -SIOCSHWTSTAMP.
-> +the packet meta information for mmap(2)ed RX_RING and TX_RINGs.  If your
-> +NIC is capable of timestamping packets in hardware, you can request those
-> +hardware timestamps to be used. Note: you may need to enable the generation
-> +of hardware timestamps with SIOCSHWTSTAMP (see related information from
-> +Documentation/networking/timestamping.txt).
+>  /* Rx ring - header status */
+> -#define TP_STATUS_KERNEL       0x0
+> -#define TP_STATUS_USER         0x1
+> -#define TP_STATUS_COPY         0x2
+> -#define TP_STATUS_LOSING       0x4
+> -#define TP_STATUS_CSUMNOTREADY 0x8
+> -#define TP_STATUS_VLAN_VALID   0x10 /* auxdata has valid tp_vlan_tci */
+> -#define TP_STATUS_BLK_TMO      0x20
+> +#define TP_STATUS_KERNEL             0
+> +#define TP_STATUS_USER         (1 << 0)
+> +#define TP_STATUS_COPY         (1 << 1)
+> +#define TP_STATUS_LOSING       (1 << 2)
+> +#define TP_STATUS_CSUMNOTREADY (1 << 3)
+> +#define TP_STATUS_VLAN_VALID   (1 << 4) /* auxdata has valid tp_vlan_tci */
+> +#define TP_STATUS_BLK_TMO      (1 << 5)
 >
->  PACKET_TIMESTAMP accepts the same integer bit field as
->  SO_TIMESTAMPING.  However, only the SOF_TIMESTAMPING_SYS_HARDWARE
-> @@ -1031,8 +1032,36 @@ SOF_TIMESTAMPING_RAW_HARDWARE if both bits are set.
->      req |= SOF_TIMESTAMPING_SYS_HARDWARE;
->      setsockopt(fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req))
+>  /* Tx ring - header status */
+> -#define TP_STATUS_AVAILABLE    0x0
+> -#define TP_STATUS_SEND_REQUEST 0x1
+> -#define TP_STATUS_SENDING      0x2
+> -#define TP_STATUS_WRONG_FORMAT 0x4
+> +#define TP_STATUS_AVAILABLE          0
+> +#define TP_STATUS_SEND_REQUEST (1 << 0)
+> +#define TP_STATUS_SENDING      (1 << 1)
+> +#define TP_STATUS_WRONG_FORMAT (1 << 2)
 >
-> -If PACKET_TIMESTAMP is not set, a software timestamp generated inside
-> -the networking stack is used (the behavior before this setting was added).
-> +For the mmap(2)ed ring buffers, such timestamps are stored in the
-> +tpacket{,2,3}_hdr structure's tp_sec and tp_{n,u}sec members. To determine
-> +what kind of timestamp has been reported, the tp_status field is binary |'ed
-> +with the following possible bits ...
-> +
-> +    TP_STATUS_TS_SYS_HARDWARE
-> +    TP_STATUS_TS_RAW_HARDWARE
-> +    TP_STATUS_TS_SOFTWARE
-> +
-> +... that are equivalent to its SOF_TIMESTAMPING_* counterparts. For the
-> +RX_RING, if none of those 3 are set (i.e. PACKET_TIMESTAMP is not set),
-> +then this means that a software fallback was invoked *within* PF_PACKET's
-> +processing code (less precise).
-> +
-> +Getting timestamps for the TX_RING works as follows: i) fill the ring frames,
-> +ii) call sendto() e.g. in blocking mode, iii) wait for status of relevant
-> +frames to be updated resp. the frame handed over to the application, iv) walk
-> +through the frames to pick up the individual hw/sw timestamps.
-> +
-> +Only (!) if transmit timestamping is enabled, then these bits are combined
-> +with binary | with TP_STATUS_AVAILABLE, so you must check for that in your
-> +application (e.g. !(tp_status & (TP_STATUS_SEND_REQUEST | TP_STATUS_SENDING))
-> +in a first step to see if the frame belongs to the application, and then
-> +one can extract the type of timestamp in a second step from tp_status)!
-> +
-> +If you don't care about them, thus having it disabled, checking for
-> +TP_STATUS_AVAILABLE resp. TP_STATUS_WRONG_FORMAT is sufficient. If in the
-> +TX_RING part only TP_STATUS_AVAILABLE is set, then the tp_sec and tp_{n,u}sec
-> +members do not contain a valid value. For TX_RINGs, by default no timestamp
-> +is generated!
->
->  See include/linux/net_tstamp.h and Documentation/networking/timestamping
->  for more information on hardware timestamps.
+>  /* Rx ring - feature request bits */
+>  #define TP_FT_REQ_FILL_RXHASH  0x1
 > --
 > 1.7.11.7
 >
