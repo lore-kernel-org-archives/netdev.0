@@ -1,42 +1,110 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [PATCH 11/14] netlink: add RX/TX-ring support to netlink diag
-Date: Tue, 23 Apr 2013 21:43:12 +0200
-Message-ID: <1552844.mLkv3ugxeL@cpaasch-mac>
-References: <1366217229-22705-1-git-send-email-kaber@trash.net> <3020335.4HTe7KSVvr@cpaasch-mac> <20130423.152339.1457379838723241885.davem@davemloft.net>
-Reply-To: christoph.paasch@uclouvain.be
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: [net-next 08/14] pci: Add SRIOV helper function to determine if
+ VFs are assigned to guest
+Date: Tue, 23 Apr 2013 12:51:01 -0700
+Message-ID: <20130423125101.00005bb7@unknown>
+References: <1366451353-24714-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1366451353-24714-9-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1366515088.2209.15.camel@jtkirshe-mobl>
+	<CAErSpo4D4rn4G56+YT4Ja-S4cjnJ6svBaH3v+_n=cmS5CooC+g@mail.gmail.com>
+	<5175B0A9.7070100@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: kaber@trash.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20130423.152339.1457379838723241885.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: Bjorn Helgaas <bhelgaas@google.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, <gospo@redhat.com>,
+	<sassmann@redhat.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <5175B0A9.7070100@intel.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 23 April 2013 15:23:39 David Miller wrote:
-> > On Wednesday 17 April 2013 18:47:06 Patrick McHardy wrote:
-> >> +       mutex_lock(&nlk->pg_vec_lock);
-> >> +       ret = sk_diag_put_ring(&nlk->rx_ring, NETLINK_DIAG_RX_RING,
-> >> nlskb);
-> >> +       if (!ret)
-> >> +               ret = sk_diag_put_ring(&nlk->tx_ring,
-> >> NETLINK_DIAG_TX_RING,
-> >> +                                      nlskb);
-> >> +       mutex_unlock(&nlk->pg_vec_lock);
-> >
-> > 
-> >
-> > this produces a build-error, if CONFIG_NETLINK_MMAP=n:
-> See:
+On Mon, 22 Apr 2013 14:50:33 -0700
+Alexander Duyck <alexander.h.duyck@intel.com> wrote:
+
+> On 04/22/2013 01:09 PM, Bjorn Helgaas wrote:
+> > On Sat, Apr 20, 2013 at 9:31 PM, Jeff Kirsher
+> > <jeffrey.t.kirsher@intel.com> wrote:
+> >> On Sat, 2013-04-20 at 02:49 -0700, Jeff Kirsher wrote:
+> >>> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> >>>
+> >>> This function is meant to add a helper function that will
+> >>> determine if a PF has any VFs that are currently assigned to a
+> >>> guest.  We currently have been implementing this function per
+> >>> driver, and going forward I would like to avoid that by making
+> >>> this function generic and using this helper.
+> >>>
+> >>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> >>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> >> Adding linux-pci mailing list and Bjorn to the CC.
+> >>
+> >> Bjorn- David Miller needs a signoff by PCI maintainer.
+> >>
+> >>> ---
+> >>>  drivers/pci/iov.c   | 41
+> >>> +++++++++++++++++++++++++++++++++++++++++ include/linux/pci.h |
+> >>> 5 +++++ 2 files changed, 46 insertions(+)
+> >>>
+> >>> diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
+> >>> index ee599f2..fd99720 100644
+> >>> --- a/drivers/pci/iov.c
+> >>> +++ b/drivers/pci/iov.c
+> >>> @@ -729,6 +729,47 @@ int pci_num_vf(struct pci_dev *dev)
+> >>>  EXPORT_SYMBOL_GPL(pci_num_vf);
+> >>>
+> >>>  /**
+> >>> + * pci_vfs_assigned - returns number of VFs are assigned to a
+> >>> guest
+> >>> + * @dev: the PCI device
+> >>> + *
+> >>> + * Returns number of VFs belonging to this device that are
+> >>> assigned to a guest.
+> >>> + * If device is not a physical function returns -ENODEV.
+> >>> + */
+> >>> +int pci_vfs_assigned(struct pci_dev *dev)
+> > I guess the idea here is to replace be_find_vfs(),
+> > igb_vfs_are_assigned(), ixgbe_vfs_are_assigned(), etc.  It does seem
+> > good to reduce duplicated code.
 > 
->         http://marc.info/?l=linux-netdev&m=136674481328037&w=2
+> The general idea was just to remove duplicate code.  As is we have a
+> couple more drivers on the way that would end up needing a similar
+> function.
+> 
+> > I'm trying to figure out why this is safe -- there's no explicit
+> > synchronization between the iteration through PCI devices looking
+> > for matching VFs and the device assignment/deassignment paths that
+> > set or clear PCI_DEV_FLAGS_ASSIGNED, so on the face of it, it looks
+> > like things could change between calling pci_vfs_assigned() and
+> > using the result to make a decision.
+> >
+> > Most of the calls would be in .remove() functions, so maybe there's
+> > some sort of synchronization in that path that  makes this safe.
+> >
+> > Bjorn
+> 
+> I'm assuming this will be used in regions that are somehow protected
+> since the main spots where this might be called would be probe,
+> remove, or when updating the number of VFs.  From what I can tell in
+> the Xen case there is a driver stub that is loaded that sets the flag
+> so that is covered by probe/remove.  I don't know about the KVM case.
 
-Ok, I see. He was slightly quicker than me :)
+KVM should be fine.  Setting/clearing the flag occurs while a device is
+being assigned to or removed from a VM - presumably device assignment
+is already safe against race conditions.  I'd find it hard to believe
+that it's not.  Code is in ../virt/assigned_dev.c and ../virt/iommu.c.
 
--- 
-IP Networking Lab --- http://inl.info.ucl.ac.be
-MultiPath TCP in the Linux Kernel --- http://multipath-tcp.org
-UCLouvain
---
+- Greg
+
+> 
+> Thanks,
+> 
+> Alex
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
