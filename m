@@ -1,130 +1,32 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: [PATCH 4/5] net/davinci_cpdma: remove unused argument in cpdma_chan_submit()
-Date: Tue, 23 Apr 2013 19:31:38 +0200
-Message-ID: <1366738299-21285-5-git-send-email-bigeasy@linutronix.de>
-References: <1366738299-21285-1-git-send-email-bigeasy@linutronix.de>
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	tglx@linutronix.de,
-	Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-To: Mugunthan V N <mugunthanvnm@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC] spinlock: split out debugging check from
+ spin_lock_mutex
+Date: Tue, 23 Apr 2013 13:33:15 -0400 (EDT)
+Message-ID: <20130423.133315.1278191592594257624.davem@davemloft.net>
+References: <20130423132345.GA5564@hmsreliant.think-freely.org>
+	<CAO+b5-rQPyO9QE9v+oQTeo+G-ftcsehSB5=63AZ13QW4EJ1X0Q@mail.gmail.com>
+	<20130423134443.GB5564@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bart.vanassche@gmail.com, netdev@vger.kernel.org, mingo@redhat.com
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:36077 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756769Ab3DWRby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 13:31:54 -0400
-In-Reply-To: <1366738299-21285-1-git-send-email-bigeasy@linutronix.de>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53404 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756769Ab3DWRdR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 13:33:17 -0400
+In-Reply-To: <20130423134443.GB5564@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The gfp_mask argument is not used in cpdma_chan_submit() and always set
-to GFP_KERNEL even in atomic sections. This patch drops it since it is
-unused.
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Tue, 23 Apr 2013 09:44:43 -0400
 
-Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
----
- drivers/net/ethernet/ti/cpsw.c          |   10 +++++-----
- drivers/net/ethernet/ti/davinci_cpdma.c |    2 +-
- drivers/net/ethernet/ti/davinci_cpdma.h |    2 +-
- drivers/net/ethernet/ti/davinci_emac.c  |    6 +++---
- 4 files changed, 10 insertions(+), 10 deletions(-)
+> Dave, how do you feel about it?  I'm comfortable with the wait queue change I've
+> proposed, but I've not received any reports of actual netpoll deadlocks (i.e.
+> the mutex solution is reporting a warning, but no actual problems).  So I think
+> its safe to wait a bit longer, unless you just want this squared away now.
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 13d4ed8..82c4574 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -502,7 +502,7 @@ void cpsw_rx_handler(void *token, int len, int status)
- 			return;
- 
- 		ret = cpdma_chan_submit(priv->rxch, skb, skb->data,
--					skb_tailroom(skb), 0, GFP_KERNEL);
-+					skb_tailroom(skb), 0);
- 	}
- 	WARN_ON(ret < 0);
- }
-@@ -747,14 +747,14 @@ static inline int cpsw_tx_packet_submit(struct net_device *ndev,
- {
- 	if (!priv->data.dual_emac)
- 		return cpdma_chan_submit(priv->txch, skb, skb->data,
--				  skb->len, 0, GFP_KERNEL);
-+				  skb->len, 0);
- 
- 	if (ndev == cpsw_get_slave_ndev(priv, 0))
- 		return cpdma_chan_submit(priv->txch, skb, skb->data,
--				  skb->len, 1, GFP_KERNEL);
-+				  skb->len, 1);
- 	else
- 		return cpdma_chan_submit(priv->txch, skb, skb->data,
--				  skb->len, 2, GFP_KERNEL);
-+				  skb->len, 2);
- }
- 
- static inline void cpsw_add_dual_emac_def_ale_entries(
-@@ -937,7 +937,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 			if (!skb)
- 				goto err_cleanup;
- 			ret = cpdma_chan_submit(priv->rxch, skb, skb->data,
--					skb_tailroom(skb), 0, GFP_KERNEL);
-+					skb_tailroom(skb), 0);
- 			if (ret < 0) {
- 				kfree_skb(skb);
- 				goto err_cleanup;
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index 3e34187..3cc20e7 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -676,7 +676,7 @@ static void __cpdma_chan_submit(struct cpdma_chan *chan,
- }
- 
- int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
--		      int len, int directed, gfp_t gfp_mask)
-+		      int len, int directed)
- {
- 	struct cpdma_ctlr		*ctlr = chan->ctlr;
- 	struct cpdma_desc __iomem	*desc;
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.h b/drivers/net/ethernet/ti/davinci_cpdma.h
-index d9bcc60..86dee48 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.h
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.h
-@@ -89,7 +89,7 @@ int cpdma_chan_dump(struct cpdma_chan *chan);
- int cpdma_chan_get_stats(struct cpdma_chan *chan,
- 			 struct cpdma_chan_stats *stats);
- int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
--		      int len, int directed, gfp_t gfp_mask);
-+		      int len, int directed);
- int cpdma_chan_process(struct cpdma_chan *chan, int quota);
- 
- int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable);
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 1fd7260..f1daa4d 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -1037,7 +1037,7 @@ static void emac_rx_handler(void *token, int len, int status)
- 
- recycle:
- 	ret = cpdma_chan_submit(priv->rxchan, skb, skb->data,
--			skb_tailroom(skb), 0, GFP_KERNEL);
-+			skb_tailroom(skb), 0);
- 
- 	WARN_ON(ret == -ENOMEM);
- 	if (unlikely(ret < 0))
-@@ -1092,7 +1092,7 @@ static int emac_dev_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	skb_tx_timestamp(skb);
- 
- 	ret_code = cpdma_chan_submit(priv->txchan, skb, skb->data, skb->len,
--				     0, GFP_KERNEL);
-+				     0);
- 	if (unlikely(ret_code != 0)) {
- 		if (netif_msg_tx_err(priv) && net_ratelimit())
- 			dev_err(emac_dev, "DaVinci EMAC: desc submit failed");
-@@ -1558,7 +1558,7 @@ static int emac_dev_open(struct net_device *ndev)
- 			break;
- 
- 		ret = cpdma_chan_submit(priv->rxchan, skb, skb->data,
--					skb_tailroom(skb), 0, GFP_KERNEL);
-+					skb_tailroom(skb), 0);
- 		if (WARN_ON(ret < 0))
- 			break;
- 	}
--- 
-1.7.10.4
+If it's just a warning and people aren't actually hitting the
+potential deadlock, it can wait.
