@@ -1,54 +1,83 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v5 0/5] vxlan: add ipv6 support
-Date: Tue, 23 Apr 2013 14:27:35 +0800
-Message-ID: <1366698455.21136.11.camel@cr0>
-References: <1366554192-27887-1-git-send-email-amwang@redhat.com>
-	 <20130422.160834.1941810644323096368.davem@davemloft.net>
-	 <1366687841.21136.6.camel@cr0>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH v2] Net-next: ipv4: typo issue, remove erroneous semicolon
+Date: Tue, 23 Apr 2013 14:35:07 +0800
+Message-ID: <51762B9B.2070008@asianux.com>
+References: <517549F4.7030806@cogentembedded.com> <5175DFF9.4040000@asianux.com> <5175F5C3.8060503@asianux.com> <20130423.011604.1061769362231812796.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sergei.shtylyov@cogentembedded.com, pshelar@nicira.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27192 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754857Ab3DWG1q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Apr 2013 02:27:46 -0400
-In-Reply-To: <1366687841.21136.6.camel@cr0>
+Received: from intranet.asianux.com ([58.214.24.6]:29630 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754933Ab3DWGfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 02:35:54 -0400
+In-Reply-To: <20130423.011604.1061769362231812796.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-04-23 at 11:30 +0800, Cong Wang wrote:
-> On Mon, 2013-04-22 at 16:08 -0400, David Miller wrote:
-> > 
-> > Please do not fix this by adding Kconfig dependencies, you have to
-> > find another way.  In bonding and bridging, we've made it such that
-> > you can configure them in any combination whatsoever with ipv6 and
-> > everything works properly.  Most of them time this can be accomplished
-> > by moving things into the explicit "obj-y" objects in
-> > net/ipv6/Makefile
-> 
-> One quick solution is just linking mcast.o statically, because it is not
-> easy to separate core functions from mcast.c like addrconf_core.c.
-> 
-> > 
-> > If you are adding stateful dependencies upon ipv6 (you want to inspect
-> > the ipv6 routes or something like that), I'm sorry but I really don't
-> > want any hard dependies on ipv6's internal state, we can't export that
-> > properly.
-> 
-> I don't think we need that.
-> 
+On 2013=E5=B9=B404=E6=9C=8823=E6=97=A5 13:16, David Miller wrote:
+> From: Chen Gang <gang.chen@asianux.com>
+> Date: Tue, 23 Apr 2013 10:45:23 +0800
+>=20
+>> > need remove erroneous semicolon, which is found by EXTRA_CFLAGS=3D=
+-W.
+>> > the related commit number: c54419321455631079c7d6e60bc732dd0c5914c=
+5
+>> > (by Pravin B Shelar <pshelar@nicira.com>  Mon Mar 25 14:49:35 2013=
+)
+>> >=20
+>> > Signed-off-by: Chen Gang <gang.chen@asianux.com>
+> Do not put the destination GIT tree outside of the "[]" brackets.  Pu=
+t
+> it inside the "[]" brackets, so it doesn't show up in the final commi=
+t
+> message.
+>=20
+  ok, thanks.
 
-After several tries, I think it is not easy to do at all, it relies on
-some icmp functions at least, which are still compiled as a module. So,
-I can't think out any easier solution than simply adding Kconfig
-dependency.
+> Also, do not capitalize it, just "net-next" is fine.
+>=20
+  ok, thanks.
 
-Or maybe I should raise the question again: should we forbid compiling
-IPv6 as a module from now on? At least some popular distributions
-already use CONFIG_IPV6=y. The only IPv6 things we really need to
-compile as a module is probably just procfs/sysfs stuffs.
+> Putting "(by Pravin B Shelar <pshelar@nicira.com>  Mon Mar 25 14:49:3=
+5 2013)"
+> is not what we asked for, we asked for the commit message header line
+> which for this commit would be ("GRE: Refactor GRE tunneling code.")
+>=20
+  ok, thanks.
 
-Thanks.
+> I want to know by what example you are doing these things?  Follow
+> the model of other successful patch submitters, such as Eric Dumazet,
+> Ben Hutchings, Thomas Graf, Simon Horman, etc. just to name a few.
+>=20
+> Do exactly what they do, because I never have to tell those people ho=
+w
+> to properly format their commit messages, header lines, and the patch
+> itself.
+>=20
+  ok, thanks.
+
+> In your commit message body, properly capitalize your sentences.
+>=20
+  ok, thanks.
+
+> This feedback applies to all of the patches you have submitted.  I'm
+> sorry I have to pick you apart so much, but if you're going to
+> contribute regularly you have to get this right, I can't be constantl=
+y
+> fixing up by hand every patch you submit.
+>=20
+>=20
+  ok, thanks.
+
+  need I send patch v3 ?
+
+
+--=20
+Chen Gang
+
+Asianux Corporation
