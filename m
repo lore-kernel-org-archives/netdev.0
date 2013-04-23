@@ -1,44 +1,95 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v5 0/5] vxlan: add ipv6 support
-Date: Tue, 23 Apr 2013 14:59:01 +0800
-Message-ID: <1366700341.21136.17.camel@cr0>
-References: <1366554192-27887-1-git-send-email-amwang@redhat.com>
-	 <20130422.160834.1941810644323096368.davem@davemloft.net>
-	 <1366687841.21136.6.camel@cr0> <1366698455.21136.11.camel@cr0>
-	 <20130422235109.296696a4@nehalam.linuxnetplumber.net>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH] tuntap: fix error return code in tun_set_iff()
+Date: Mon, 22 Apr 2013 23:59:57 -0700
+Message-ID: <CAPshTCiLUbZvv3RrwU5GB5L+CW92XoxGGLYRmffHbnG7jWUfzg@mail.gmail.com>
+References: <CAPgLHd9WrbgeYH9pw81kQn9sv=On8e399qAOth6MWprF6PS5pg@mail.gmail.com>
+	<CAPshTCgApCEsrQ6uFfmyzvNvQNO8-MZ4zJaiMn3pPF+EV7+zJg@mail.gmail.com>
+	<5176280F.1060400@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Wei Yongjun <weiyj.lk@gmail.com>,
+	David Miller <davem@davemloft.net>, mst@redhat.com,
+	Eric Dumazet <edumazet@google.com>, nhorman@tuxdriver.com,
+	yongjun_wei@trendmicro.com.cn,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16424 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755225Ab3DWG70 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Apr 2013 02:59:26 -0400
-In-Reply-To: <20130422235109.296696a4@nehalam.linuxnetplumber.net>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:61444 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753372Ab3DWG77 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 02:59:59 -0400
+Received: by mail-la0-f46.google.com with SMTP id ep20so245191lab.19
+        for <netdev@vger.kernel.org>; Mon, 22 Apr 2013 23:59:58 -0700 (PDT)
+In-Reply-To: <5176280F.1060400@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-04-22 at 23:51 -0700, Stephen Hemminger wrote:
-> On Tue, 23 Apr 2013 14:27:35 +0800
-> Cong Wang <amwang@redhat.com> wrote:
-> 
-> > After several tries, I think it is not easy to do at all, it relies on
-> > some icmp functions at least, which are still compiled as a module. So,
-> > I can't think out any easier solution than simply adding Kconfig
-> > dependency.
-> 
-> Why is IPv6 support depending on ICMP functions? Everything doesn't
-> have to be hyper optimized, at least not initially.
+On Mon, Apr 22, 2013 at 11:19 PM, Jason Wang <jasowang@redhat.com> wrote:
+>
+> On 04/23/2013 01:37 PM, Jerry Chu wrote:
+> > On Fri, Apr 12, 2013 at 6:17 AM, Wei Yongjun <weiyj.lk@gmail.com> wrote:
+> >> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> >>
+> >> Fix to return a negative error code from the error handling
+> >> case instead of 0, as returned elsewhere in this function.
+> >>
+> >> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> >> ---
+> >>  drivers/net/tun.c | 2 +-
+> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+> >>
+> >> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> >> index b7c457a..729ed53 100644
+> >> --- a/drivers/net/tun.c
+> >> +++ b/drivers/net/tun.c
+> >> @@ -1594,7 +1594,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+> >>
+> >>                 if (tun->flags & TUN_TAP_MQ &&
+> >>                     (tun->numqueues + tun->numdisabled > 1))
+> >> -                       return err;
+> >> +                       return -EBUSY;
+> > I don't understand - yes it was a brainless bug to return err without
+> > setting it!
+>
+> err was in fact set by tun_attach, so it was always zero here. The code
+> works by chance w/o this patch :)
 
-VXLAN relies on IPv6 multicast which is on top of ICMPv6. At very least
-igmp6_send() calls icmpv6_flow_init() and icmp6_dst_alloc() in the code.
+What if tun_attach() returns something > 0?
 
-Bridge multicast snooping only parses some multicast packets, which
-seems much easier than maintaining multicast group ownership.
+> > But won't the fix pretty much disable multi-q because only the the creation of
+> > the 1st queue will succeed? I thought the intent of "tuntap: fix ambigious
+> > multiqueue API" was to "Only allow TUNSETIFF to create queues.".
+>
+> Yes this patch will break the creation of more than 1 queues.
+> >
+> > The code is very confusing. (Or am I the one who is confused? Sigh.)
+>
+> -EBUSY is wrong here, we need return 0 for succeed here. The logic is,
+> if we have more than 1 queues attached, no need to re-initialize the net
+> device again. Will send patch to correct this.
 
-Yeah, I definitely agree on that we can fix this later, if David has no
-objections.
+A comment there will be useful!
 
-Thanks.
+Thanks,
+
+Jerry
+
+>
+> Thanks.
+>
+> >
+> > Jerry
+> >
+> >>         }
+> >>         else {
+> >>                 char *name;
+> >>
+> >> --
+> >> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >> the body of a message to majordomo@vger.kernel.org
+> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
