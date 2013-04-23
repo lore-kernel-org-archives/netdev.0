@@ -1,40 +1,62 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 0/5] sock_diag: monitor packet sockets
-Date: Tue, 23 Apr 2013 16:27:52 +0200
-Message-ID: <1366727277-19522-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net
+Subject: [PATCH net-next 2/5] packet_diag: disclose meminfo values
+Date: Tue, 23 Apr 2013 16:27:54 +0200
+Message-ID: <1366727277-19522-3-git-send-email-nicolas.dichtel@6wind.com>
+References: <1366727277-19522-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:52751 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:52753 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755937Ab3DWO3E (ORCPT
+	with ESMTP id S1755938Ab3DWO3E (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 10:29:04 -0400
+In-Reply-To: <1366727277-19522-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The goal of this patchset is to be able to monitor packet sockets.
-The two first patches add new attributes for packet_diag subsystem, so that all
-information exported via the /proc/net/packet are also exported via netlink.
-The third patch allows the user to get details about filter attached to a packet
-socket.
-Then, the two last one enable sockets monitoring. A netlink message is sent each
-time a packet socket is created, deleted or when the filter information are
-updated.
+sk_rmem_alloc is disclosed via /proc/net/packet but not via netlink messages.
+The goal is to have the same level of information.
 
-As usual, the patch against iproute2 will be sent once the patches are included and
-net-next merged. I can send it on demand.
-With this serie, the tools ss can monitor packet sockets activity.
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/uapi/linux/packet_diag.h | 2 ++
+ net/packet/diag.c                | 4 ++++
+ 2 files changed, 6 insertions(+)
 
- include/linux/sock_diag.h        |  4 +++
- include/uapi/linux/packet_diag.h |  5 +++
- include/uapi/linux/sock_diag.h   | 13 +++++++-
- net/core/filter.c                |  3 ++
- net/core/sock_diag.c             | 68 ++++++++++++++++++++++++++++++++++++++++
- net/packet/af_packet.c           |  4 +++
- net/packet/diag.c                | 49 +++++++++++++++++++++++++----
- 7 files changed, 139 insertions(+), 7 deletions(-)
-
-Comments are welcome.
-
-Regards,
-Nicolas
+diff --git a/include/uapi/linux/packet_diag.h b/include/uapi/linux/packet_diag.h
+index 84f83a4..c0802c1 100644
+--- a/include/uapi/linux/packet_diag.h
++++ b/include/uapi/linux/packet_diag.h
+@@ -16,6 +16,7 @@ struct packet_diag_req {
+ #define PACKET_SHOW_MCLIST	0x00000002 /* A set of packet_diag_mclist-s */
+ #define PACKET_SHOW_RING_CFG	0x00000004 /* Rings configuration parameters */
+ #define PACKET_SHOW_FANOUT	0x00000008
++#define PACKET_SHOW_MEMINFO	0x00000010
+ 
+ struct packet_diag_msg {
+ 	__u8	pdiag_family;
+@@ -33,6 +34,7 @@ enum {
+ 	PACKET_DIAG_TX_RING,
+ 	PACKET_DIAG_FANOUT,
+ 	PACKET_DIAG_UID,
++	PACKET_DIAG_MEMINFO,
+ 
+ 	__PACKET_DIAG_MAX,
+ };
+diff --git a/net/packet/diag.c b/net/packet/diag.c
+index 04c8219..822fe9b 100644
+--- a/net/packet/diag.c
++++ b/net/packet/diag.c
+@@ -166,6 +166,10 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+ 			pdiag_put_fanout(po, skb))
+ 		goto out_nlmsg_trim;
+ 
++	if ((req->pdiag_show & PACKET_SHOW_MEMINFO) &&
++	    sock_diag_put_meminfo(sk, skb, PACKET_DIAG_MEMINFO))
++		goto out_nlmsg_trim;
++
+ 	return nlmsg_end(skb, nlh);
+ 
+ out_nlmsg_trim:
+-- 
+1.8.2.1
