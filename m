@@ -1,65 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: Tree for Apr 23 (netlink)
-Date: Tue, 23 Apr 2013 15:19:49 -0400 (EDT)
-Message-ID: <20130423.151949.1174398672200053405.davem@davemloft.net>
-References: <20130423180028.e08f92e6cc72105f67b77491@canb.auug.org.au>
-	<5176CD22.6070906@infradead.org>
+Subject: Re: [PATCH 11/14] netlink: add RX/TX-ring support to netlink diag
+Date: Tue, 23 Apr 2013 15:23:39 -0400 (EDT)
+Message-ID: <20130423.152339.1457379838723241885.davem@davemloft.net>
+References: <1366217229-22705-1-git-send-email-kaber@trash.net>
+	<1366217229-22705-12-git-send-email-kaber@trash.net>
+	<3020335.4HTe7KSVvr@cpaasch-mac>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: rdunlap@infradead.org
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <5176CD22.6070906@infradead.org>
-Sender: linux-next-owner@vger.kernel.org
+Cc: kaber@trash.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: christoph.paasch@uclouvain.be
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <3020335.4HTe7KSVvr@cpaasch-mac>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Tue, 23 Apr 2013 11:04:18 -0700
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Date: Tue, 23 Apr 2013 20:28:35 +0200
 
-> On 04/23/13 01:00, Stephen Rothwell wrote:
->> Hi all,
->> 
->> Changes since 20130422:
->> 
->> The net-next tree lost its build failure but gained another for which I
->> applied a patch.
->> 
+> Hello,
 > 
+> On Wednesday 17 April 2013 18:47:06 Patrick McHardy wrote:
+>> +       mutex_lock(&nlk->pg_vec_lock);
+>> +       ret = sk_diag_put_ring(&nlk->rx_ring, NETLINK_DIAG_RX_RING, nlskb);
+>> +       if (!ret)
+>> +               ret = sk_diag_put_ring(&nlk->tx_ring, NETLINK_DIAG_TX_RING,
+>> +                                      nlskb);
+>> +       mutex_unlock(&nlk->pg_vec_lock);
 > 
-> when CONFIG_NETLINK_MMAP is not enabled:
-> 
-> net/netlink/diag.c: In function 'sk_diag_put_rings_cfg':
-> net/netlink/diag.c:28:17: error: 'struct netlink_sock' has no member named 'pg_vec_lock'
-> net/netlink/diag.c:29:29: error: 'struct netlink_sock' has no member named 'rx_ring'
-> net/netlink/diag.c:31:30: error: 'struct netlink_sock' has no member named 'tx_ring'
-> net/netlink/diag.c:33:19: error: 'struct netlink_sock' has no member named 'pg_vec_lock'
+> this produces a build-error, if CONFIG_NETLINK_MMAP=n:
 
-Thanks Randy, I'm testing out the following fix:
+See:
 
-diff --git a/net/netlink/diag.c b/net/netlink/diag.c
-index 4e4aa47..1af2962 100644
---- a/net/netlink/diag.c
-+++ b/net/netlink/diag.c
-@@ -7,6 +7,7 @@
- 
- #include "af_netlink.h"
- 
-+#ifdef CONFIG_NETLINK_MMAP
- static int sk_diag_put_ring(struct netlink_ring *ring, int nl_type,
- 			    struct sk_buff *nlskb)
- {
-@@ -34,6 +35,12 @@ static int sk_diag_put_rings_cfg(struct sock *sk, struct sk_buff *nlskb)
- 
- 	return ret;
- }
-+#else
-+static int sk_diag_put_rings_cfg(struct sock *sk, struct sk_buff *nlskb)
-+{
-+	return 0;
-+}
-+#endif
- 
- static int sk_diag_dump_groups(struct sock *sk, struct sk_buff *nlskb)
- {
+	http://marc.info/?l=linux-netdev&m=136674481328037&w=2
