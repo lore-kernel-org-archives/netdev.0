@@ -1,82 +1,93 @@
-From: "Rajahalme, Jarno (NSN - FI/Espoo)" <jarno.rajahalme-OYasijW0DpE@public.gmane.org>
-Subject: Re: [PATCH v2.26] datapath: Add basic MPLS support to
-	kernel
-Date: Tue, 23 Apr 2013 07:41:37 +0000
-Message-ID: <D94DF465-965B-4462-952C-D3A5793DD2B1@nsn.com>
-References: <1366596740-18246-1-git-send-email-horms@verge.net.au>
-	<EA113734-1070-43F9-B932-C8AD83CAAFA2@nsn.com>
-	<20130423015149.GI12017@verge.net.au>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the final tree (net-next
+ tree related)
+Date: Tue, 23 Apr 2013 17:46:18 +1000
+Message-ID: <20130423174618.59095bd1cf999c61332d4805@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "<dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
-To: ext Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20130423015149.GI12017-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Content-Language: en-US
-Content-ID: <D11AEAA2850D594C842A28D2E3A834C9-z7JfP6tgrtWhxUC7wdWhuQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__23_Apr_2013_17_46_18_+1000_05e+C9Y1BSG8sqy7"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from haggis.pcug.org.au ([203.10.76.10]:59511 "EHLO
+	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754482Ab3DWHqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 03:46:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+--Signature=_Tue__23_Apr_2013_17_46_18_+1000_05e+C9Y1BSG8sqy7
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On Apr 23, 2013, at 4:51 , ext Simon Horman wrote:
+Hi all,
 
-> On Mon, Apr 22, 2013 at 01:55:43PM +0000, Rajahalme, Jarno (NSN - FI/Espoo) wrote:
->> 
->> Here the skb_network_header is changed to point to the L3 header. Is it
->> significant that in some cases (?) mpls_stack_depth may remain at zero,
->> even when a MPLS header was in fact added? (See above).
-> 
-> With the current code I believe there are the following cases:
-> 
-> Input: non-MPLS skb: Output: network header and mac_len correspond to the
->                     beginning of the L3 headers
-> Input: MPLS:         Output: network header and mac_len correspond to the
->                     end of the L2 headers.
-> 
-> In the case of MPLS output the end of the L2 headers and the beginning
-> of the L3 headers will differ.
-> 
-> 
-> As far as I know the network header and mac_len only need to correspond to
-> the beginning of the L3 header if GSO segmentation will occur (actually,
-> some proposed changes to the network stack are required, see "[PATCH 0/2]
-> Small Modifications to GSO to allow segmentation of MPLS").  That only
-> occurs if the skb is GSO. Which in turn can only occur if the recieved
-> packet is non-MPLS. This is because the linux kernel doesn't support
-> MPLS offloads on receive (or anywhere else for that matter).
-> 
-> In the case that we have a non-MPLS skb the stack depth starts at zero and
-> is tracked. This is used to update the network header and mac_len.
-> Otherwise the stack depth is unknown and the network header and mac_len are
-> left as-is, corresponding to the end of the L2 headers.
-> 
-> Actually, it is possible to tighten up the if clause to be the following,
-> as it is only necessary to update the network header and mac_len for GSO skbs.
-> 
-> 	if (mpls_stack_depth && skb_is_gso(skb)) {
-> 		...
-> 	}
-> 
-> It is possible for us to find and track the MPLS stack depth for all cases
-> and to update the network header and mac_len. However I don't think that
-> there is any run-time benefit and it seems expensive to find out what the
-> original stack depth was - I believe it would require parsing the MPLS
-> entire stack for each packet.
-> 
+After merging the final tree, today's linux-next build (powerpc
+allyesconfig) failed like this:
 
-Thanks for explaining this.
+net/netlink/af_netlink.c: In function 'netlink_frame_flush_dcache':
+net/netlink/af_netlink.c:384:40: error: 'NL_MMAP_MSG_HDRLEN' undeclared (fi=
+rst use in this function)
 
-I think it would be better to keep updating the the network_header and mac_len for the Non-MPLS input packets regardless of the GSO status of the skb. It would be more consistent and less surprising.
+Caused by commit 9652e931e73b ("netlink: add mmap'ed netlink helper
+functions").  This needed to be build tested on an architecture that has
+ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE set to 1 (like Sparc :-)).
 
-  Jarno
+I added the following patch for today:
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 23 Apr 2013 17:40:35 +1000
+Subject: [PATCH] netlink: fix typo in net/netlink/af_netlink.c
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ net/netlink/af_netlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 2a3e9ba..da5601d 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -381,7 +381,7 @@ static void netlink_frame_flush_dcache(const struct nl_=
+mmap_hdr *hdr)
+=20
+ 	/* First page is flushed through netlink_{get,set}_status */
+ 	p_start =3D pgvec_to_page(hdr + PAGE_SIZE);
+-	p_end   =3D pgvec_to_page((void *)hdr + NL_MMAP_MSG_HDRLEN + hdr->nm_len =
+- 1);
++	p_end   =3D pgvec_to_page((void *)hdr + NL_MMAP_HDRLEN + hdr->nm_len - 1);
+ 	while (p_start <=3D p_end) {
+ 		flush_dcache_page(p_start);
+ 		p_start++;
+--=20
+1.8.1
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Tue__23_Apr_2013_17_46_18_+1000_05e+C9Y1BSG8sqy7
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRdjxKAAoJEECxmPOUX5FElJYP/2R8Ywv6kZrjU46NYhpA35ES
+j67owH0er21qTh0EHaokq1Zn90NT0AsMetUzH0xNi1kR1inZNA2QM5/5ZYGbdYG/
+hWu5ZQAkO+7R6za9jRk08h/Wgt21nnryvcylRxikTeGVBLT5q06MzLwHt+j0T1aW
+ZxdstV1e7YD0o71MLZAuo/hKdiMjGSwG4dPwytmvd5oJCaycJWpT9SzoXPDBGaW2
+N8zcrsOgNx4sO9zmy8kgoZxexhhAzuFRM5VhCCUMOOdm6oFPLAWikptMX6TmotRJ
+07eC4CC81udtwYtOag665swCEp7icVGe/yDCQZxOXr3Eq/TeSPMiyv+CwGwhvqYq
+b9LSTYfXwnpaYonQ45JdPkVs/ZB+IpkAq6dt+4N9/chxggT+9x6Di4XWzjC7XOhU
+w/gD/OdktHYdyMPPoA93lPlz1e9HLBpNbGFZV/AXu3JeGUjDXzBnyr1cWMQJ/Js4
+MDsOf4V7LdTNcw9yzkuNSp1Os474bOEeBbra5PTCjmBNHwdGAAc8uR/655HAwuGT
+RwrIXPO2pqjB7HyOSW375q0yaxfgy/AVfk94PTre5OaXnm7XdTPlyAkSGqVLbmb2
+F/oSSJePYGl8JoiGOWpOAu+cUkgwMtNrYm4eTp+lgRm47AeV3UHe3L8+VVaQdcMW
+CCOQNi+rox3NgwoCARYj
+=HVca
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__23_Apr_2013_17_46_18_+1000_05e+C9Y1BSG8sqy7--
