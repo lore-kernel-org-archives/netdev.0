@@ -1,47 +1,79 @@
 From: Chen Gang <gang.chen@asianux.com>
-Subject: [PATCH v2] Net-next: ipv4: typo issue, remove erroneous semicolon
-Date: Tue, 23 Apr 2013 10:45:23 +0800
-Message-ID: <5175F5C3.8060503@asianux.com>
-References: <51750E31.2010906@asianux.com> <517549F4.7030806@cogentembedded.com> <5175DFF9.4040000@asianux.com>
+Subject: [PATCH v2] Net: mac802154: comparision issue of type cast, finding
+ by EXTRA_CFLAGS=-W
+Date: Tue, 23 Apr 2013 10:54:47 +0800
+Message-ID: <5175F7F7.7000703@asianux.com>
+References: <5174DB87.3010908@asianux.com> <51754485.6040708@cogentembedded.com> <5175DFBC.7040000@asianux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
 	David Miller <davem@davemloft.net>,
+	linux-zigbee-devel@lists.sourceforge.net,
 	netdev <netdev@vger.kernel.org>
 To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:47660 "EHLO
+Received: from intranet.asianux.com ([58.214.24.6]:12009 "EHLO
 	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754040Ab3DWCqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 22:46:10 -0400
-In-Reply-To: <5175DFF9.4040000@asianux.com>
+	with ESMTP id S1753530Ab3DWCze (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 22:55:34 -0400
+In-Reply-To: <5175DFBC.7040000@asianux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-need remove erroneous semicolon, which is found by EXTRA_CFLAGS=-W.
-the related commit number: c54419321455631079c7d6e60bc732dd0c5914c5
-(by Pravin B Shelar <pshelar@nicira.com>  Mon Mar 25 14:49:35 2013)
+need change ~(u8)0 to 0xff, or in mac802154_wpan_xmit(), "u8 chan"
+will never == MAC802154_CHAN_NONE.
+
+the related warning:
+  net/mac802154/wpan.c:325:2: warning: comparison is always false
+  due to limited range of data type [-Wtype-limits]
+
+related unit test:
+  cc -Wall -O2 -o test test.c
+  ./test
+  will output 'different'
+
+  (after use '0xff' instead of '~(u8)0', it will output 'equal')
+
+-----------------------test code begin--------------------------------
+
+#include <stdio.h>
+
+typedef unsigned char u8;
+
+int main()
+{
+	u8 uc = 0xff;
+
+	if (uc == ~(u8)0)
+		printf("\nequal\n");
+	else
+		printf("\ndifferent\n");
+
+	return 0;
+}
+
+-----------------------test code end----------------------------------
+
 
 Signed-off-by: Chen Gang <gang.chen@asianux.com>
 ---
- net/ipv4/ip_gre.c |    2 +-
+ net/mac802154/mac802154.h |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 987a4e5..c625e4d 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -444,7 +444,7 @@ static netdev_tx_t ipgre_xmit(struct sk_buff *skb,
- 	if (dev->header_ops) {
- 		/* Need space for new headers */
- 		if (skb_cow_head(skb, dev->needed_headroom -
--				      (tunnel->hlen + sizeof(struct iphdr))));
-+				      (tunnel->hlen + sizeof(struct iphdr))))
- 			goto free_skb;
+diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
+index 5c9e021..d48422e 100644
+--- a/net/mac802154/mac802154.h
++++ b/net/mac802154/mac802154.h
+@@ -88,7 +88,7 @@ struct mac802154_sub_if_data {
  
- 		tnl_params = (const struct iphdr *)skb->data;
+ #define mac802154_to_priv(_hw)	container_of(_hw, struct mac802154_priv, hw)
+ 
+-#define MAC802154_CHAN_NONE		(~(u8)0) /* No channel is assigned */
++#define MAC802154_CHAN_NONE		0xff /* No channel is assigned */
+ 
+ extern struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced;
+ extern struct ieee802154_mlme_ops mac802154_mlme_wpan;
 -- 
 1.7.7.6
