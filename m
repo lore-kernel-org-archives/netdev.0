@@ -1,41 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v4] rps: selective flow shedding during softnet
- overflow
-Date: Tue, 23 Apr 2013 16:26:31 -0700
-Message-ID: <1366759591.8964.42.camel@edumazet-glaptop>
-References: <1366749094-5982-1-git-send-email-willemb@google.com>
-	 <20130423.184140.2020239496583590253.davem@davemloft.net>
-	 <1366758683.8964.37.camel@edumazet-glaptop>
-	 <20130423.191540.217250507483659201.davem@davemloft.net>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next 2/2] net: Loosen constraints for recalculating
+ checksum in skb_segment()
+Date: Tue, 23 Apr 2013 16:43:58 -0700
+Message-ID: <CAEP_g=_nTah2xN2KHxBPtYQyFUWH+8frybGt1Zv=0Q9ButZH5w@mail.gmail.com>
+References: <1366683556-4956-1-git-send-email-horms@verge.net.au> <1366683556-4956-3-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: willemb@google.com, netdev@vger.kernel.org,
-	stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:61490 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752911Ab3DWX0e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 19:26:34 -0400
-Received: by mail-pb0-f43.google.com with SMTP id md4so281231pbc.2
-        for <netdev@vger.kernel.org>; Tue, 23 Apr 2013 16:26:33 -0700 (PDT)
-In-Reply-To: <20130423.191540.217250507483659201.davem@davemloft.net>
+Received: from na3sys009aog115.obsmtp.com ([74.125.149.238]:58160 "HELO
+	na3sys009aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755970Ab3DWXoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 19:44:19 -0400
+Received: by mail-ob0-f198.google.com with SMTP id tb18so6600420obb.1
+        for <netdev@vger.kernel.org>; Tue, 23 Apr 2013 16:44:19 -0700 (PDT)
+In-Reply-To: <1366683556-4956-3-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-04-23 at 19:15 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 23 Apr 2013 16:11:23 -0700
-> 
-> > I guess we should at least not include this code on !SMP builds
-> 
-> I think CONFIG_RPS already an appropriate guard for something like
-> this.  And it depends upon SMP et al.
+On Mon, Apr 22, 2013 at 7:19 PM, Simon Horman <horms@verge.net.au> wrote:
+> In the case where a non-MPLS GSO skb becomes an MPLS GSO skb, via
+> Open vSwitch's push MPLS action it is desirable to provide segmentation
+> in software. In this case the original protocol of the skb may have allowed
+> its checksumming to be offloaded but this may no longer be supported now
+> the skb is MPLS. Actually it seems to me that this is the likely case.
+>
+> In order to allow the checksum to be updated in this case loosen
+> the rules for recalculating the checksum on in skb_segment().
+>
+> N.B.: I must confess that I am a little unsure of the details of
+> the implementation of skb_checksum(). But I have observed that this
+> is necessary as skb_checksum() hits the following:
+>
+>                 if (!hsize && i >= nfrags) {
+>                         ...
+>                         fskb = fskb->next;
+>                         ...
+>                 }
+>                 ...
+>                 if (fskb != skb_shinfo(skb)->frag_list)
+>                         ...
+>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Yes, something like :
-
-config NET_FLOW_LIMIT
-	bool "Flow shedding under load"
-	depends on RPS
-	default y
+I'm surprised at the need for changes here since neither vlans nor
+tunneling protocols needed something similar. Do you know what is
+special about MPLS that is triggering this?
