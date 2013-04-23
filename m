@@ -1,81 +1,83 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next 0/5] PF_PACKET timestamping updates
-Date: Tue, 23 Apr 2013 14:53:03 +0200
-Message-ID: <5176842F.7040703@redhat.com>
-References: <1366713572-11978-1-git-send-email-dborkman@redhat.com> <CA+FuTSdKPJ0wQUoAKGAh4t=cKs=GQx0tymd8a93GwFGjdB6oAg@mail.gmail.com>
+From: Theodore Ts'o <tytso@mit.edu>
+Subject: Re: Unsigned widening casts of binary "not" operations..
+Date: Tue, 23 Apr 2013 09:00:42 -0400
+Message-ID: <20130423130041.GB31170@thunk.org>
+References: <CA+55aFwpLu0qNms=hkQr43yqD0K9DgESNm91OEWKT1ZuT8MU6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Paul Chavent <Paul.Chavent@onera.fr>,
-	Richard Cochran <richardcochran@gmail.com>
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4029 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755991Ab3DWMx1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Apr 2013 08:53:27 -0400
-In-Reply-To: <CA+FuTSdKPJ0wQUoAKGAh4t=cKs=GQx0tymd8a93GwFGjdB6oAg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	the arch/x86 maintainers <x86@kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-ext4@vger.kernel.org" <linux-ext4@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-ext4-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+55aFwpLu0qNms=hkQr43yqD0K9DgESNm91OEWKT1ZuT8MU6Q@mail.gmail.com>
+Sender: linux-ext4-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/23/2013 02:33 PM, Willem de Bruijn wrote:
-> On Tue, Apr 23, 2013 at 6:39 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
->> This is a joint effort with Willem to bring optional i) tx hw/sw
->> timestamping into PF_PACKET, that was reported by Paul Chavent,
->> and ii) to expose the type of timestamp to the user, which is in
->> the current situation not possible to distinguish with the RX_RING
->> and TX_RING API (but distinguishable through the normal timestamping
->> API), reported by Richard Cochran.
->
-> Does this solve the issue you raised, Richard? The patch does not
-> change which timestamp is written, so the ring will still fall back on
-> software if a hardware timestamp is unavailable. It now reports this
-> to the application in tp_status, however, so that it can act
-> accordingly (worst case: ignore the timestamp).
+On Mon, Apr 22, 2013 at 05:15:19PM -0700, Linus Torvalds wrote:
+> Here's a ext4 code snippet that looks like an actual bug (but seems to only
+> hit read-ahead):
+> 
+>     ext4_fsblk_t b, block;
+> 
+>     b = block & ~(EXT4_SB(sb)->s_inode_readahead_blks-1);
+> 
+> where "b" actually ends up having the upper bits cleared, because the
+> s_inode_readahead_blks thing is an unsigned int, so you're masking off not
+> just the low bits, but the high bits too. Ted? Of course, it's just
+> read-ahead, so it probably doesn't matter, but.
 
-Well, for the {RX,TX}_RING there is really no other way except the really
-really ugly possibility to introduce yet another tpacket header with 3
-time-stamp fields (sw, sys, raw). I really do not like that. :-)
+Yep, it's a bug alright.  Thanks for catching it!
 
-At least here, if you have traffic from different devices, you either get
-what you want (e.g. hw ts), or you'll get a fallback sw ts. That is also
-the case in the current code without this patchset. At least this set would
-solve this issue of telling the user what ts source he sees.
+     	    		  	     	      - Ted
 
-> Unless packet-level timestamping is explicitly enabled, nothing
-> changes. The feature is new on tx, so there are no tx legacy concerns
-> for tp_status. On rx, without timestamping, tp_status bit is similarly
-> unaltered. Only applications that have receive timestamping enabled on
-> rx will see a different tp_status field. This would break applications
-> that test (tp_status == TP_STATUS_USER) as opposed to (tp_status &
-> TP_STATUS_USER). That behavior is incorrect. I'm just not sure whether
-> it exists.
 
-Right, this would actually be broken, since tp_status == TP_STATUS_USER
-would filter out packets where also other bits are set as given in
-include/uapi/linux/if_packet.h +88 . Neither kernel checks with == nor,
-libpcap (just checked their code). E.g. libpcap checks if
-h.h{1,2}->tp_status != 0, then it must be TP_STATUS_USER, else
-TP_STATUS_KERNEL in pcap-linux.c +3757.
+>From 0d606e2c9fccdd4e67febf1e2da500e1bfe9e045 Mon Sep 17 00:00:00 2001
+From: Theodore Ts'o <tytso@mit.edu>
+Date: Tue, 23 Apr 2013 08:59:35 -0400
+Subject: [PATCH] ext4: fix type-widening bug in inode table readahead code
 
->> This set is based on top of
->> ``packet: account statistics only in tpacket_stats_u''. Related
->> discussion can be found in: http://patchwork.ozlabs.org/patch/238125/
->>
->> Daniel Borkmann (4):
->>    packet: enable hardware tx timestamping on tpacket ring
->>    packet: minor: convert status bits into shifting format
->>    packet: if hw/sw ts enabled in rx/tx ring, report which ts we got
->>    packet: doc: update timestamping part
->
-> Thanks for looking into this, Daniel!
->
->> Willem de Bruijn (1):
->>    packet: tx timestamping on tpacket ring
->>
->>   Documentation/networking/packet_mmap.txt | 41 ++++++++++++---
->>   include/uapi/linux/if_packet.h           | 27 ++++++----
->>   net/core/skbuff.c                        | 12 ++---
->>   net/packet/af_packet.c                   | 87 ++++++++++++++++++++++++--------
->>   4 files changed, 122 insertions(+), 45 deletions(-)
+Due to a missing cast, the high 32-bits of a 64-bit block number used
+when calculating the readahead block for inode tables can get lost.
+This means we can end up fetching the wrong blocks for readahead for
+file systems > 16TB.
+
+Linus found this when experimenting with an enhacement to the sparse
+static code checker which checks for missing widening casts before
+binary "not" operators.
+
+Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: "Theodore Ts'o" <tytso@mit.edu>
+---
+ fs/ext4/inode.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
+index d7518e2..793d44b 100644
+--- a/fs/ext4/inode.c
++++ b/fs/ext4/inode.c
+@@ -4011,13 +4011,14 @@ make_io:
+ 		if (EXT4_SB(sb)->s_inode_readahead_blks) {
+ 			ext4_fsblk_t b, end, table;
+ 			unsigned num;
++			__u32 ra_blks = EXT4_SB(sb)->s_inode_readahead_blks;
+ 
+ 			table = ext4_inode_table(sb, gdp);
+ 			/* s_inode_readahead_blks is always a power of 2 */
+-			b = block & ~(EXT4_SB(sb)->s_inode_readahead_blks-1);
++			b = block & ~((ext4_fsblk_t) ra_blks - 1);
+ 			if (table > b)
+ 				b = table;
+-			end = b + EXT4_SB(sb)->s_inode_readahead_blks;
++			end = b + ra_blks;
+ 			num = EXT4_INODES_PER_GROUP(sb);
+ 			if (ext4_has_group_desc_csum(sb))
+ 				num -= ext4_itable_unused_count(sb, gdp);
+-- 
+1.7.12.rc0.22.gcdd159b
+
