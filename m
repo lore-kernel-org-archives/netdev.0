@@ -1,8 +1,9 @@
 From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: [PATCH net-next 0/2] Small Modifications to GSO to allow
-	segmentation of MPLS (repost)
-Date: Tue, 23 Apr 2013 11:19:14 +0900
-Message-ID: <1366683556-4956-1-git-send-email-horms@verge.net.au>
+Subject: [PATCH net-next 2/2] net: Loosen constraints for
+	recalculating checksum in skb_segment()
+Date: Tue, 23 Apr 2013 11:19:16 +0900
+Message-ID: <1366683556-4956-3-git-send-email-horms@verge.net.au>
+References: <1366683556-4956-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -14,6 +15,7 @@ Cc: Alexander Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
 To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
 	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1366683556-4956-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
 	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -25,52 +27,53 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-[ Reposting with net-next in subject prefix,
-  sorry for forgetting that the first time around ]
+In the case where a non-MPLS GSO skb becomes an MPLS GSO skb, via
+Open vSwitch's push MPLS action it is desirable to provide segmentation
+in software. In this case the original protocol of the skb may have allowed
+its checksumming to be offloaded but this may no longer be supported now
+the skb is MPLS. Actually it seems to me that this is the likely case.
 
-This series consists of two small (at least in terms of numbers of lines
-of code changes) that allow support of GSO of non-MPLS GSO skbs that
-are changed into MPLS GSO skbs via Open vSwtich and its push MPLS action.
+In order to allow the checksum to be updated in this case loosen
+the rules for recalculating the checksum on in skb_segment().
 
-A description of each of the two changes is provided in the changelog
-of the two patches that comprise this series.
+N.B.: I must confess that I am a little unsure of the details of
+the implementation of skb_checksum(). But I have observed that this
+is necessary as skb_checksum() hits the following:
 
-GSO of MPLS skbs may be achieved by (Open vSwtich) setting the following:
+		if (!hsize && i >= nfrags) {
+			...
+			fskb = fskb->next;
+			...
+		}
+		...
+		if (fskb != skb_shinfo(skb)->frag_list)
+			...
 
-1. skb's mac_header should point to the beginning of the L2 header
-   (no surprise!)
-2. skb's mac_len should be the length of the L2 header plus
-   the length of the MPLS stack. In other words, the MPLS stack
-   is considered to be part of the l2 header.
-3. skb's natwork_header should be set to just after the end of
-   the MPLS stack. Or in other words the begining of the L3 header.
-   This is consistent with 2.
-4. skb's protocol should be left as the skb's original (non-MPLS) protocol.
-   This is used by GSO to determine which callback to use to segment
-   the (MPLS encapsulated) skb data.
-5. The protocol in the skb's mac header should be set to the new
-   (MPLS) protocol. This is what will appear on the wire.
-6. skb's encapsulation_features should be set.
-   This is introduced and explained in more detail in the first patch of the
-   series.
+Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+---
+ net/core/skbuff.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-I have posted a patch, "[PATCH v2.26] datapath: Add basic MPLS support to
-kernel" which adds MPLS support to the kernel datapath of Open vSwtich.
-That patch sets the above requirements and was used to exercise the MPLS
-GSO code. The datapath patch is against the Open vSwtich tree but it is
-intended that it be added to the Open vSwtich code present in the mainline
-Linux kernel at some point.
-
-Simon Horman (2):
-  net: More fine-grained support for encapsulated GSO features
-  net: Loosen constraints for recalculating checksum in skb_segment()
-
- include/linux/skbuff.h | 9 ++++++++-
- net/core/dev.c         | 2 +-
- net/core/skbuff.c      | 4 +++-
- net/ipv4/gre.c         | 1 +
- net/ipv4/ipip.c        | 1 +
- 5 files changed, 14 insertions(+), 3 deletions(-)
-
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f23d136..81c9856 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2854,7 +2854,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 						 doffset + tnl_hlen);
+ 
+ 		if (fskb != skb_shinfo(skb)->frag_list)
+-			continue;
++			goto csum;
+ 
+ 		if (!sg) {
+ 			nskb->ip_summed = CHECKSUM_NONE;
+@@ -2918,6 +2918,7 @@ skip_fraglist:
+ 		nskb->len += nskb->data_len;
+ 		nskb->truesize += nskb->data_len;
+ 
++csum:
+ 		if (!csum) {
+ 			nskb->csum = skb_checksum(nskb, doffset,
+ 						  nskb->len - doffset, 0);
 -- 
 1.8.2.1
