@@ -1,60 +1,69 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [Patch net-next] ipv6: separate out procfs code from mcast.c
-Date: Tue, 23 Apr 2013 14:33:57 +0200
-Message-ID: <87d2tlv32i.fsf@nemi.mork.no>
-References: <1366701302.21136.19.camel@cr0>
-	<20130423.031805.544535198246859192.davem@davemloft.net>
-	<1366702220.21136.23.camel@cr0>
-	<20130423.033620.1101068519499870853.davem@davemloft.net>
-	<1366702893.21136.28.camel@cr0>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next 0/5] PF_PACKET timestamping updates
+Date: Tue, 23 Apr 2013 08:33:50 -0400
+Message-ID: <CA+FuTSdKPJ0wQUoAKGAh4t=cKs=GQx0tymd8a93GwFGjdB6oAg@mail.gmail.com>
+References: <1366713572-11978-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: Cong Wang <amwang@redhat.com>
+	Paul Chavent <Paul.Chavent@onera.fr>,
+	Richard Cochran <richardcochran@gmail.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:59468 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755000Ab3DWMeP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 08:34:15 -0400
-In-Reply-To: <1366702893.21136.28.camel@cr0> (Cong Wang's message of "Tue, 23
-	Apr 2013 15:41:33 +0800")
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:49565 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755000Ab3DWMeV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 08:34:21 -0400
+Received: by mail-ie0-f175.google.com with SMTP id a11so576687iee.6
+        for <netdev@vger.kernel.org>; Tue, 23 Apr 2013 05:34:21 -0700 (PDT)
+In-Reply-To: <1366713572-11978-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <amwang@redhat.com> writes:
+On Tue, Apr 23, 2013 at 6:39 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> This is a joint effort with Willem to bring optional i) tx hw/sw
+> timestamping into PF_PACKET, that was reported by Paul Chavent,
+> and ii) to expose the type of timestamp to the user, which is in
+> the current situation not possible to distinguish with the RX_RING
+> and TX_RING API (but distinguishable through the normal timestamping
+> API), reported by Richard Cochran.
 
-> On Tue, 2013-04-23 at 03:36 -0400, David Miller wrote:
->> From: Cong Wang <amwang@redhat.com>
->> Date: Tue, 23 Apr 2013 15:30:20 +0800
->>=20
->> > This is hard to do, as in the email I replied to Stephen. So I
->> > prefer to just add a Kconfig dependency, at least for now.
->>=20
->> A Kconfig hack is exactly what I've told you is an unacceptable
->> solution.
+Does this solve the issue you raised, Richard? The patch does not
+change which timestamp is written, so the ring will still fall back on
+software if a hardware timestamp is unavailable. It now reports this
+to the application in tp_status, however, so that it can act
+accordingly (worst case: ignore the timestamp).
+
+Unless packet-level timestamping is explicitly enabled, nothing
+changes. The feature is new on tx, so there are no tx legacy concerns
+for tp_status. On rx, without timestamping, tp_status bit is similarly
+unaltered. Only applications that have receive timestamping enabled on
+rx will see a different tp_status field. This would break applications
+that test (tp_status == TP_STATUS_USER) as opposed to (tp_status &
+TP_STATUS_USER). That behavior is incorrect. I'm just not sure whether
+it exists.
+
+> This set is based on top of
+> ``packet: account statistics only in tpacket_stats_u''. Related
+> discussion can be found in: http://patchwork.ozlabs.org/patch/238125/
 >
-> Please enlighten me for a third solution. :)
+> Daniel Borkmann (4):
+>   packet: enable hardware tx timestamping on tpacket ring
+>   packet: minor: convert status bits into shifting format
+>   packet: if hw/sw ts enabled in rx/tx ring, report which ts we got
+>   packet: doc: update timestamping part
 
-This is an completely untested idea....
+Thanks for looking into this, Daniel!
 
-I note that vxlan_init_net requires a successful sock_create_kern().
-That implies a request_module("net-pf-...") followed by try_module_get.
-
-So if the sock_create_kern(PF_INET6, ..) succeeds then you *know* you
-have IPv6. If it fails with -EAFNOSUPPORT, then you could fall back to
-sock_create_kern(PF_INET, ..) and set a flag indicating that runtime
-IPv6 support is disabled.  Then use this flag to allow/deny configuring
-any IPv6 destinations.
-
-You may also have to protect the IPv6 modular symbols you use with
-symbol_request() or similar to prevent vxlan from depending on IPv6.  I
-dunno...
-
-If nothing else, I believe this is a crazy enough hack that David may
-want to reconsider one of your other two solutions :)
-
-
-
-Bj=C3=B8rn
+> Willem de Bruijn (1):
+>   packet: tx timestamping on tpacket ring
+>
+>  Documentation/networking/packet_mmap.txt | 41 ++++++++++++---
+>  include/uapi/linux/if_packet.h           | 27 ++++++----
+>  net/core/skbuff.c                        | 12 ++---
+>  net/packet/af_packet.c                   | 87 ++++++++++++++++++++++++--------
+>  4 files changed, 122 insertions(+), 45 deletions(-)
+>
+> --
+> 1.7.11.7
+>
