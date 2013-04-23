@@ -1,90 +1,75 @@
 From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH] Net: rxrpc: signed and unsigned issue, need type cast
- for n_elem.
-Date: Tue, 23 Apr 2013 09:24:48 +0800
-Message-ID: <5175E2E0.1030901@asianux.com>
-References: <51750FC0.8000603@asianux.com> <1366659281.4016.7.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [PATCH] Net-next: ipv4: type issue, remove erroneous semicolon
+Date: Tue, 23 Apr 2013 09:46:13 +0800
+Message-ID: <5175E7E5.8020600@asianux.com>
+References: <51750E31.2010906@asianux.com> <20130422.154423.1695741341535269869.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"dhowells@redhat.com" <dhowells@redhat.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Serge Hallyn <serge.hallyn@canonical.com>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: pshelar@nicira.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:36307 "EHLO
+Received: from intranet.asianux.com ([58.214.24.6]:19480 "EHLO
 	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753913Ab3DWBZh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 21:25:37 -0400
-In-Reply-To: <1366659281.4016.7.camel@bwh-desktop.uk.solarflarecom.com>
+	with ESMTP id S1753479Ab3DWBrA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 21:47:00 -0400
+In-Reply-To: <20130422.154423.1695741341535269869.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013=E5=B9=B404=E6=9C=8823=E6=97=A5 03:34, Ben Hutchings wrote:
-> On Mon, 2013-04-22 at 18:24 +0800, Chen Gang wrote:
->> n_elem is unsigned int which never < 0.
->>   but it seems, we realy need check it whether < 0.
->>   so need a type cast for it.
+On 2013=E5=B9=B404=E6=9C=8823=E6=97=A5 03:44, David Miller wrote:
+> From: Chen Gang <gang.chen@asianux.com>
+> Date: Mon, 22 Apr 2013 18:17:21 +0800
+>=20
+>>   need remove erroneous semicolon.
 >>
->>   find it by EXTRA_CFLAGS=3D-W
+>>   the related commit number: c54419321455631079c7d6e60bc732dd0c5914c=
+5
+>>
+>>   Find it by EXTRA_CFLAGS=3D-W
 >>
 >>
 >> Signed-off-by: Chen Gang <gang.chen@asianux.com>
->> ---
->>  net/rxrpc/ar-key.c |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/net/rxrpc/ar-key.c b/net/rxrpc/ar-key.c
->> index 7633a75..ba0b722 100644
->> --- a/net/rxrpc/ar-key.c
->> +++ b/net/rxrpc/ar-key.c
->> @@ -346,7 +346,7 @@ static int rxrpc_krb5_decode_tagged_array(struct=
- krb5_tagged_data **_td,
->> =20
->>  	n_elem =3D ntohl(*xdr++);
->>  	toklen -=3D 4;
->> -	if (n_elem < 0 || n_elem > max_n_elem)
->> +	if ((int)n_elem < 0 || n_elem > max_n_elem)
 >=20
-> (int)n_elem < 0 is equivalent to n_elem >=3D 0x80000000, and if that =
-is
-> true then n_elem > max_n_elem (because max_n_elem <=3D 0xff).
+> First, what is a "type issue", you aren't changing any variable
+> or declaration types in this change.
 >=20
 
-  ok, thanks, my subject and the comments are incorrect.
+  sorry for my poor English, maybe 'type issue' need change to 'typo
+issue' ?
 
-  but I still prefer to improve the original code like below.
-    (also need change the subject and the comments)
 
-----------------------diff begin---------------------------------------=
----------
-
-diff --git a/net/rxrpc/ar-key.c b/net/rxrpc/ar-key.c
-index 7633a75..cde682f 100644
---- a/net/rxrpc/ar-key.c
-+++ b/net/rxrpc/ar-key.c
-@@ -346,7 +346,7 @@ static int rxrpc_krb5_decode_tagged_array(struct kr=
-b5_tagged_data **_td,
-=20
- 	n_elem =3D ntohl(*xdr++);
- 	toklen -=3D 4;
--	if (n_elem < 0 || n_elem > max_n_elem)
-+	if (n_elem > max_n_elem)
- 		return -EINVAL;
- 	*_n_elem =3D n_elem;
- 	if (n_elem > 0) {
-
-----------------------diff end-----------------------------------------=
----------
-
-> Ben.
+> Second, your formatting of your commit messages is terrible.
 >=20
->>  		return -EINVAL;
->>  	*_n_elem =3D n_elem;
->>  	if (n_elem > 0) {
+> Do not indent the description with two spaces, just keep them at the
+> leftmost column.  Where did you learn to indent things like that, who
+> else does that?  If you've never seen it before, don't invent things.
+>=20
+
+  ok, excuse me, what I have done is only to try to make my expression
+is as clearer as I can. my English is not quite well, I am afraid to le=
+t
+other members can not understand or misunderstand what I write.
+
+  but since you dislike it, I will not send messages like that to you.
+
+> It is very irritating when we see people write commit messages with
+> their own style rather than mimicking what other successful
+> contributors are doing.
+>=20
+
+  sorry, I am not quite understand what your meaning. I guess your
+meaning is: "you are very angry to see a member write message with his
+own style. if a member is a successful contributor, he never writes
+message with his own style, he only follow the public standard style".
+
+  is what I guess correct ?
+
+  thanks.
+
+> Thanks.
+>=20
 >=20
 
 
