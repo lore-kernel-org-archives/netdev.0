@@ -1,54 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] ipv6: separate out procfs code from mcast.c
-Date: Tue, 23 Apr 2013 03:18:05 -0400 (EDT)
-Message-ID: <20130423.031805.544535198246859192.davem@davemloft.net>
-References: <1366700820-26052-1-git-send-email-amwang@redhat.com>
-	<20130423.031135.166163672665280174.davem@davemloft.net>
-	<1366701302.21136.19.camel@cr0>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH net] tuntap: correct the return value in tun_set_iff()
+Date: Tue, 23 Apr 2013 00:23:08 -0700
+Message-ID: <CAPshTCi0=pyw-s+9EQOtv7TKr13bL+Obv5QBMNB+RHEWE_FVEg@mail.gmail.com>
+References: <1366699239-6866-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: amwang@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45193 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755304Ab3DWHSH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 03:18:07 -0400
-In-Reply-To: <1366701302.21136.19.camel@cr0>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, Wei Yongjun <weiyj.lk@gmail.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1366699239-6866-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
-Date: Tue, 23 Apr 2013 15:15:02 +0800
+On Mon, Apr 22, 2013 at 11:40 PM, Jason Wang <jasowang@redhat.com> wrote:
+> commit (3be8fbab tuntap: fix error return code in tun_set_iff()) breaks the
+> creation of multiqueue tuntap since it forbids to create more than one queues
+> for a multiqueue tuntap device. We need return 0 instead -EBUSY here since we
+> don't want to re-initialize the device when one or more queues has been already
+> attached. Add a comment and correct the return value to zero.
+>
+> Reported-by: Jerry Chu <hkchu@google.com>
+> Cc: Jerry Chu <hkchu@google.com>
+> Cc: Wei Yongjun <weiyj.lk@gmail.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/net/tun.c |    5 ++++-
+>  1 files changed, 4 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 729ed53..3a8977e 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1594,7 +1594,10 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>
+>                 if (tun->flags & TUN_TAP_MQ &&
+>                     (tun->numqueues + tun->numdisabled > 1))
+> -                       return -EBUSY;
+> +                       /* One or more queue has already been attached, no need
+> +                        * to initialize the device again.
+> +                        */
+> +                       return 0;
+>         }
+>         else {
+>                 char *name;
+> --
+> 1.7.1
+>
 
-> On Tue, 2013-04-23 at 03:11 -0400, David Miller wrote:
->> From: Cong Wang <amwang@redhat.com>
->> Date: Tue, 23 Apr 2013 15:07:00 +0800
->> 
->> > From: Cong Wang <amwang@redhat.com>
->> > 
->> > They well deserve a separated unit.
->> > 
->> > Cc: "David S. Miller" <davem@davemloft.net>
->> > Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org> 
->> > Signed-off-by: Cong Wang <amwang@redhat.com>
->> 
->> Cong, I'm not even reading these patches.
->> 
->> You're on this idea that you can just keep the sysfs and procfs bits
->> of ipv6 modular, and make the rest of ipv6 statically linked into the
->> kernel.
-> 
-> I am trying that only for mcast.c, not for the whole IPv6.
-
-The multicast stuff does route lookups, how are you going to
-accomplish this?
-
-Besides you should move the statically-needed code into a new
-file (mcast_core.c or something like that, following the existing
-model and conventions for doing this) rather than the other way
-around.
-
-And that patch should be posted in a series with the user that
-needs this (your vxlan ipv6 patches), not by itself.
+Acked-by:  Jerry Chu <hkchu@google.com>
