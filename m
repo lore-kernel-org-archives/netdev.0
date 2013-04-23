@@ -1,43 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: fix address check in rtnl_fdb_del
-Date: Tue, 23 Apr 2013 18:29:22 -0400 (EDT)
-Message-ID: <20130423.182922.1691641134127453781.davem@davemloft.net>
-References: <1366749559-9868-1-git-send-email-vyasevic@redhat.com>
-	<1366750075.4016.34.camel@bwh-desktop.uk.solarflarecom.com>
-	<5176F76E.6070406@redhat.com>
+Subject: Re: [PATCHv2 net-next] net: fix address check in rtnl_fdb_del
+Date: Tue, 23 Apr 2013 18:30:37 -0400 (EDT)
+Message-ID: <20130423.183037.831300005006610868.davem@davemloft.net>
+References: <1366751123-10143-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	dlstevens@us.ibm.com
+Cc: netdev@vger.kernel.org, dlstevens@us.ibm.com
 To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57320 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57339 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753368Ab3DWW30 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 18:29:26 -0400
-In-Reply-To: <5176F76E.6070406@redhat.com>
+	with ESMTP id S1755712Ab3DWWaj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 18:30:39 -0400
+In-Reply-To: <1366751123-10143-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Tue, 23 Apr 2013 17:04:46 -0400
+Date: Tue, 23 Apr 2013 17:05:23 -0400
 
-> On 04/23/2013 04:47 PM, Ben Hutchings wrote:
->> On Tue, 2013-04-23 at 16:39 -0400, Vlad Yasevich wrote:
->>> @@ -2192,7 +2192,7 @@ static int rtnl_fdb_del(struct sk_buff *skb,
->>> struct nlmsghdr *nlh)
->>>   	}
->>>
->>>   	addr = nla_data(tb[NDA_LLADDR]);
->>> -	if (!is_valid_ether_addr(addr)) {
->>> +	if (!is_zero_ether_addr(addr)) {
->>
->> This is the opposite of what you want.
+> Commit 6681712d67eef14c4ce793561c3231659153a320
+> 	vxlan: generalize forwarding tables
 > 
-> of course you are right....  totally forgot the '!'...
+> relaxed the address checks in rtnl_fdb_del() to use is_zero_ether_addr().
+> This allows users to add multicast addresses using the fdb API.  However,
+> the check in rtnl_fdb_del() still uses a more strict
+> is_valid_ether_addr() which rejects multicast addresses.  Thus it
+> is possible to add an fdb that can not be later removed.
+> Relax the check in rtnl_fdb_del() as well.
+> 
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 
-Please test your patches.
+I don't think you were able to actually test this patch in the
+amount of time between when the bug in your initial version was
+shown to you and when you posted this new version.
 
-If this patch is so unimportant that you don't feel inclined to test
-it, it's probably not important enough for me to apply either.
+If you indeed didn't test this patch, I really don't think that's
+acceptable, to be honest with you.
