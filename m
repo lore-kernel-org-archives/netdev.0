@@ -1,68 +1,47 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch] ipvs: off by one in set_sctp_state()
-Date: Tue, 23 Apr 2013 11:22:43 +0900
-Message-ID: <20130423022243.GQ12017@verge.net.au>
-References: <20130420112455.GA30198@elgon.mountain>
- <alpine.LFD.2.00.1304201504510.1593@ja.ssi.bg>
- <20130422041151.GM15680@verge.net.au>
- <alpine.LFD.2.00.1304220843560.1626@ja.ssi.bg>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [PATCH v2] Net-next: ipv4: typo issue, remove erroneous semicolon
+Date: Tue, 23 Apr 2013 10:45:23 +0800
+Message-ID: <5175F5C3.8060503@asianux.com>
+References: <51750E31.2010906@asianux.com> <517549F4.7030806@cogentembedded.com> <5175DFF9.4040000@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1304220843560.1626@ja.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: pshelar@nicira.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from intranet.asianux.com ([58.214.24.6]:47660 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754040Ab3DWCqK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Apr 2013 22:46:10 -0400
+In-Reply-To: <5175DFF9.4040000@asianux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 22, 2013 at 09:03:28AM +0300, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Mon, 22 Apr 2013, Simon Horman wrote:
-> 
-> > > 	There are more confusing (still, non-fatal)
-> > > problems in this IPVS-SCTP support, eg.
-> > > 
-> > >         if (direction == IP_VS_DIR_OUTPUT)
-> > > -               event++;
-> > > +               event *= 2;
-> > > 
-> > > 	I guess we are running with wrong timeouts.
-> > 
-> > IMHO there seem to be many problems with SCTP, but it is good to
-> > fix the ones we find as we find them.
-> 
-> 	At the time I found it (during IPVS optimizations
-> development), it didn't looked fatal, I preferred to
-> allocate more time for SCTP for debugging.
-> 
-> > Would you like to make a patch for the above change or should I?
-> 
-> 	May be the code is correct, my mistake. I was
-> confused from the order in sctp_events[] but ipvs_sctp_event_t
-> allocates values for _SER states.
 
-Thanks, it sounds like we should study things more carefully
-before making any changes.
+need remove erroneous semicolon, which is found by EXTRA_CFLAGS=-W.
+the related commit number: c54419321455631079c7d6e60bc732dd0c5914c5
+(by Pravin B Shelar <pshelar@nicira.com>  Mon Mar 25 14:49:35 2013)
 
-> > > 	Also, I'm not sure we support properly the
-> > > one-way states as done for TCP (IP_VS_DIR_INPUT_ONLY).
-> > > May be this code deserves more serious review, for example,
-> > > net/netfilter/nf_conntrack_proto_sctp.c looks as good
-> > > source for comparison.
-> > 
-> > I believe it does need a more serious review.
-> 
-> Regards
-> 
-> --
-> Julian Anastasov <ja@ssi.bg>
-> 
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+---
+ net/ipv4/ip_gre.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 987a4e5..c625e4d 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -444,7 +444,7 @@ static netdev_tx_t ipgre_xmit(struct sk_buff *skb,
+ 	if (dev->header_ops) {
+ 		/* Need space for new headers */
+ 		if (skb_cow_head(skb, dev->needed_headroom -
+-				      (tunnel->hlen + sizeof(struct iphdr))));
++				      (tunnel->hlen + sizeof(struct iphdr))))
+ 			goto free_skb;
+ 
+ 		tnl_params = (const struct iphdr *)skb->data;
+-- 
+1.7.7.6
