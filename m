@@ -1,120 +1,274 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next v2 3/5] sock_diag: allow to dump bpf filters
-Date: Wed, 24 Apr 2013 17:52:34 +0200
-Message-ID: <1366818756-4234-4-git-send-email-nicolas.dichtel@6wind.com>
-References: <51779426.7020800@6wind.com>
- <1366818756-4234-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-	davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: getting VF link info seems to be broken in 3.9-rc8
+Date: Wed, 24 Apr 2013 09:01:33 -0700
+Message-ID: <20130424090133.00005ca6@unknown>
+References: <5177D946.9080704@mellanox.com>
+	<20130424083825.00004f94@unknown>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	Rony Efraim <ronye@mellanox.com>, <Sibai.li@intel.com>
+To: Greg Rose <gregory.v.rose@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:54885 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757386Ab3DXPxQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 11:53:16 -0400
-In-Reply-To: <1366818756-4234-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mga09.intel.com ([134.134.136.24]:37746 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755073Ab3DXQB6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 12:01:58 -0400
+In-Reply-To: <20130424083825.00004f94@unknown>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows to dump BPF filters attached to a socket with
-SO_ATTACH_FILTER. In other words, users allowing to open netlink sockets can
-see filters set on a socket (when the diag module of the socket family is
-loaded).
+On Wed, 24 Apr 2013 08:38:25 -0700
+Greg Rose <gregory.v.rose@intel.com> wrote:
 
-For now, only AF_PACKET sockets use this feature.
+> On Wed, 24 Apr 2013 16:08:22 +0300
+> Or Gerlitz <ogerlitz@mellanox.com> wrote:
+>=20
+> > [re-posting as of non text only content in the 1st post - sorry for
+> > the spam] Rony Efraim <ronye@mellanox.com>observed a regression in
+> > 3.9-rc8 with respect to getting VFs link info from user space. Usin=
+g
+> > latest iproute2 we can easily get the VF info on 3.8.8 but not on
+> > the net git which is now aligned on 3.9-rc8, will try to bisect it
+> > later today/tomorrow, but for the sake of maybe someone has an
+> > insight of the bug, reporting it now...
+> >=20
+> > You can see below that for eth10 and eth11 which are ixgbe PFs, the
+> > VF info is reported on 3.8.8 but not on 3.9-rc8, we see the same
+> > problem with patches to mlx4 which implement ndo_get_vf_info which
+> > gives some evidence that the problem isn't in the ixgbe driver, but
+> > rather somewhere else, maybe the networking core, from quick lookin=
+g
+> > on net/core/rtnetlink.c I don't see there a smoking gun, anyway
+>=20
+> I'll forward this to our validation engineers and see if they're
+> seeing the problem too.
+>=20
+> - Greg
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/linux/sock_diag.h        |  2 ++
- include/uapi/linux/packet_diag.h |  2 ++
- net/core/sock_diag.c             | 27 +++++++++++++++++++++++++++
- net/packet/diag.c                |  4 ++++
- 4 files changed, 35 insertions(+)
+=46rom our validation engineer Sibai Li (added to response):
 
-diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
-index e8d702e..3957c14 100644
---- a/include/linux/sock_diag.h
-+++ b/include/linux/sock_diag.h
-@@ -22,5 +22,7 @@ int sock_diag_check_cookie(void *sk, __u32 *cookie);
- void sock_diag_save_cookie(void *sk, __u32 *cookie);
- 
- int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attr);
-+int sock_diag_put_filterinfo(struct sock *sk, struct sk_buff *skb,
-+			     int attrtype);
- 
- #endif
-diff --git a/include/uapi/linux/packet_diag.h b/include/uapi/linux/packet_diag.h
-index c0802c1..b2cc0cd 100644
---- a/include/uapi/linux/packet_diag.h
-+++ b/include/uapi/linux/packet_diag.h
-@@ -17,6 +17,7 @@ struct packet_diag_req {
- #define PACKET_SHOW_RING_CFG	0x00000004 /* Rings configuration parameters */
- #define PACKET_SHOW_FANOUT	0x00000008
- #define PACKET_SHOW_MEMINFO	0x00000010
-+#define PACKET_SHOW_FILTER	0x00000020
- 
- struct packet_diag_msg {
- 	__u8	pdiag_family;
-@@ -35,6 +36,7 @@ enum {
- 	PACKET_DIAG_FANOUT,
- 	PACKET_DIAG_UID,
- 	PACKET_DIAG_MEMINFO,
-+	PACKET_DIAG_FILTER,
- 
- 	__PACKET_DIAG_MAX,
- };
-diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
-index a29e90c..51e75f4 100644
---- a/net/core/sock_diag.c
-+++ b/net/core/sock_diag.c
-@@ -49,6 +49,33 @@ int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attrtype)
- }
- EXPORT_SYMBOL_GPL(sock_diag_put_meminfo);
- 
-+int sock_diag_put_filterinfo(struct sock *sk, struct sk_buff *skb, int attrtype)
-+{
-+	struct nlattr *attr;
-+	struct sk_filter *filter;
-+	unsigned int len;
-+	int err = 0;
-+
-+	rcu_read_lock();
-+
-+	filter = rcu_dereference(sk->sk_filter);
-+	len = filter ? filter->len * sizeof(struct sock_filter) : 0;
-+
-+	attr = nla_reserve(skb, attrtype, len);
-+	if (attr == NULL) {
-+		err = -EMSGSIZE;
-+		goto out;
-+	}
-+
-+	if (filter)
-+		memcpy(nla_data(attr), filter->insns, len);
-+
-+out:
-+	rcu_read_unlock();
-+	return err;
-+}
-+EXPORT_SYMBOL(sock_diag_put_filterinfo);
-+
- void sock_diag_register_inet_compat(int (*fn)(struct sk_buff *skb, struct nlmsghdr *nlh))
- {
- 	mutex_lock(&sock_diag_table_mutex);
-diff --git a/net/packet/diag.c b/net/packet/diag.c
-index 822fe9b..ec8b6e8 100644
---- a/net/packet/diag.c
-+++ b/net/packet/diag.c
-@@ -170,6 +170,10 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
- 	    sock_diag_put_meminfo(sk, skb, PACKET_DIAG_MEMINFO))
- 		goto out_nlmsg_trim;
- 
-+	if ((req->pdiag_show & PACKET_SHOW_FILTER) &&
-+	    sock_diag_put_filterinfo(sk, skb, PACKET_DIAG_FILTER))
-+		goto out_nlmsg_trim;
-+
- 	return nlmsg_end(skb, nlh);
- 
- out_nlmsg_trim:
--- 
-1.8.2.1
+I tested 3.9.0-rc8, I have no problem to list vf info. But I didn=E2=80=
+=99t run
+in FPP mode. But I don't think it's a matter. From the info he gave
+here, I didn=E2=80=99t see he loaded the vf driver when he ran in kerne=
+l
+3.9.0-rc8, but he did load the driver in 3.8.8.
+
+---------
+
+I'd add that having the VF driver loaded shouldn't make any difference.
+
+- Greg
+
+>=20
+> >=20
+> > net.git]# git log --oneline v3.8..v3.9-rc8 net/core/rtnetlink.c
+> > 88c5b5c rtnetlink: Call nlmsg_parse() with correct header length
+> > fcca143 rtnetlink: fix error return code in rtnl_link_fill()
+> > a5b8db9 rtnetlink: Mask the rta_type when range checking
+> > 84d73cd rtnl: fix info leak on RTM_GETLINK request for VF devices
+> > b67bfe0 hlist: drop the node parameter from iterators
+> > 1690be6 bridge: Add vlan support to static neighbors
+> > 6cbdcee bridge: Dump vlan information from a bridge port
+> > 407af32 bridge: Add netlink interface to configure vlans on bridge
+> > ports c5c3510 netns: fdb: allow unprivileged users to add/del fdb
+> > entries 2afb9b5 ethtool: set addr_assign_type to NET_ADDR_SET when
+> > addr is passed on create
+> > 471cb5a bonding: remove usage of dev->master
+> > 898e506 rtnetlink: remove usage of dev->master
+> > e7c3273 rtnl: use dev_set_mac_address() instead of plain ndo_
+> > 9a57247 rtnl: expose carrier value with possibility to set it
+> >=20
+> >=20
+> > Or.
+> >=20
+> > --> using 3.8.8
+> >=20
+> > # lspci | grep Eth
+> > 01:00.0 Ethernet controller: Intel Corporation 82576 Gigabit
+> > Network Connection (rev 01)
+> > 01:00.1 Ethernet controller: Intel Corporation 82576 Gigabit
+> > Network Connection (rev 01)
+> > 05:00.0 Ethernet controller: Intel Corporation 82599EB 10-Gigabit=20
+> > SFI/SFP+ Network Connection (rev 01)
+> > 05:00.1 Ethernet controller: Intel Corporation 82599EB 10-Gigabit=20
+> > SFI/SFP+ Network Connection (rev 01)
+> > 05:10.0 Ethernet controller: Intel Corporation 82599 Ethernet
+> > Controller Virtual Function (rev 01)
+> > 05:10.1 Ethernet controller: Intel Corporation 82599 Ethernet
+> > Controller Virtual Function (rev 01)
+> >=20
+> > # cd /sys/class/net/
+> > # ls -l
+> > lrwxrwxrwx 1 root root 0 Apr 24 12:17 br0
+> > -> ../../devices/virtual/net/br0 lrwxrwxrwx 1 root root 0 Apr 24
+> > 12:17 eth0
+> > -> ../../devices/pci0000:00/0000:00:01.0/0000:01:00.0/net/eth0
+> > lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth1
+> > -> ../../devices/pci0000:00/0000:00:01.0/0000:01:00.1/net/eth1
+> > lrwxrwxrwx 1 root root 0 Apr 24 12:18 eth10
+> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:00.1/net/eth10
+> > lrwxrwxrwx 1 root root 0 Apr 24 12:18 eth11
+> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:00.0/net/eth11
+> > lrwxrwxrwx 1 root root 0 Apr 24 12:18 eth16
+> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.0/net/eth16
+> > lrwxrwxrwx 1 root root 0 Apr 24 12:18 eth17
+> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.0/net/eth17
+> > lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth18
+> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.1/net/eth18
+> > lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth19
+> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.1/net/eth19
+> > lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth20
+> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:10.1/net/eth20
+> > lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth22
+> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:10.0/net/eth22
+> > lrwxrwxrwx 1 root root 0 Apr 24 12:17 lo
+> > -> ../../devices/virtual/net/lo
+> >=20
+> >=20
+> >=20
+> > # modprobe -r ixgbevf
+> > # ip link set dev eth10 vf 0 mac 00:10:00:10:00:10
+> > # ip link set dev eth11 vf 0 mac 00:11:00:11:00:11
+> > # modprobe ixgbevf
+> > # ip link show
+> > 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+> > mode DEFAULT
+> >      link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+> > 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq master
+> > br0 state UP mode DEFAULT qlen 1000
+> >      link/ether 00:25:90:36:9c:ec brd ff:ff:ff:ff:ff:ff
+> > 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=20
+> > DEFAULT qlen 1000
+> >      link/ether 00:25:90:36:9c:ed brd ff:ff:ff:ff:ff:ff
+> > 4: eth16: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
+=20
+> > DEFAULT qlen 1000
+> >      link/ether 00:02:c9:e6:01:11 brd ff:ff:ff:ff:ff:ff
+> > 5: eth17: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
+=20
+> > DEFAULT qlen 1000
+> >      link/ether 00:02:c9:e6:01:12 brd ff:ff:ff:ff:ff:ff
+> > 6: eth18: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
+=20
+> > DEFAULT qlen 1000
+> >      link/ether 00:02:c9:e6:02:11 brd ff:ff:ff:ff:ff:ff
+> > 7: eth19: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
+=20
+> > DEFAULT qlen 1000
+> >      link/ether 00:02:c9:e6:02:12 brd ff:ff:ff:ff:ff:ff
+> > 8: eth11: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq
+> > state DOWN mode DEFAULT qlen 1000
+> >      link/ether 00:1b:21:55:1d:00 brd ff:ff:ff:ff:ff:ff
+> >      vf 0 MAC 00:11:00:11:00:11, spoof checking on
+> > 9: eth10: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state
+> > UP mode DORMANT qlen 1000
+> >      link/ether 00:1b:21:55:1d:01 brd ff:ff:ff:ff:ff:ff
+> >      vf 0 MAC 00:10:00:10:00:10, spoof checking on
+> > 12: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
+> > state UP mode DEFAULT
+> >      link/ether 00:25:90:36:9c:ec brd ff:ff:ff:ff:ff:ff
+> > 23: eth22: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+> > mode DEFAULT qlen 1000
+> >      link/ether 00:11:00:11:00:11 brd ff:ff:ff:ff:ff:ff
+> > 24: eth20: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+> > mode DEFAULT qlen 1000
+> >      link/ether 00:10:00:10:00:10 brd ff:ff:ff:ff:ff:ff
+> >=20
+> >=20
+> > --> using 3.9-rc8
+> >=20
+> > # lspci | grep Eth
+> > 01:00.0 Ethernet controller: Intel Corporation 82576 Gigabit
+> > Network Connection (rev 01)
+> > 01:00.1 Ethernet controller: Intel Corporation 82576 Gigabit
+> > Network Connection (rev 01)
+> > 05:00.0 Ethernet controller: Intel Corporation 82599EB 10-Gigabit=20
+> > SFI/SFP+ Network Connection (rev 01)
+> > 05:00.1 Ethernet controller: Intel Corporation 82599EB 10-Gigabit=20
+> > SFI/SFP+ Network Connection (rev 01)
+> > 05:10.0 Ethernet controller: Intel Corporation 82599 Ethernet
+> > Controller Virtual Function (rev 01)
+> > 05:10.1 Ethernet controller: Intel Corporation 82599 Ethernet
+> > Controller Virtual Function (rev 01)
+> >=20
+> > # cd /sys/class/net/
+> > # ls -l
+> > lrwxrwxrwx 1 root root 0 Apr 24 11:48 br0
+> > -> ../../devices/virtual/net/br0 lrwxrwxrwx 1 root root 0 Apr 24
+> > 11:48 eth0
+> > -> ../../devices/pci0000:00/0000:00:01.0/0000:01:00.0/net/eth0
+> > lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth1
+> > -> ../../devices/pci0000:00/0000:00:01.0/0000:01:00.1/net/eth1
+> > lrwxrwxrwx 1 root root 0 Apr 24 11:49 eth10
+> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:00.1/net/eth10
+> > lrwxrwxrwx 1 root root 0 Apr 24 11:49 eth11
+> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:00.0/net/eth11
+> > lrwxrwxrwx 1 root root 0 Apr 24 11:49 eth16
+> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.0/net/eth16
+> > lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth17
+> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.0/net/eth17
+> > lrwxrwxrwx 1 root root 0 Apr 24 11:49 eth18
+> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.1/net/eth18
+> > lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth19
+> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.1/net/eth19
+> > lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth20
+> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:10.1/net/eth20
+> > lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth22
+> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:10.0/net/eth22
+> > lrwxrwxrwx 1 root root 0 Apr 24 11:47 lo
+> > -> ../../devices/virtual/net/lo
+> >=20
+> > # ip  link show <--- no sign for VFs
+> > 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+> > mode DEFAULT
+> >      link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+> > 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq master
+> > br0 state UP mode DEFAULT qlen 1000
+> >      link/ether 00:25:90:36:9c:ec brd ff:ff:ff:ff:ff:ff
+> > 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=20
+> > DEFAULT qlen 1000
+> >      link/ether 00:25:90:36:9c:ed brd ff:ff:ff:ff:ff:ff
+> > 4: eth11: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
+=20
+> > DEFAULT qlen 1000
+> >      link/ether 00:1b:21:55:1d:00 brd ff:ff:ff:ff:ff:ff
+> > 5: eth10: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
+=20
+> > DEFAULT qlen 1000
+> >      link/ether 00:1b:21:55:1d:01 brd ff:ff:ff:ff:ff:ff
+> > 6: eth16: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
+=20
+> > DEFAULT qlen 1000
+> >      link/ether 00:02:c9:e6:01:11 brd ff:ff:ff:ff:ff:ff
+> > 7: eth17: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
+=20
+> > DEFAULT qlen 1000
+> >      link/ether 00:02:c9:e6:01:12 brd ff:ff:ff:ff:ff:ff
+> > 8: eth18: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
+=20
+> > DEFAULT qlen 1000
+> >      link/ether 00:02:c9:e6:02:11 brd ff:ff:ff:ff:ff:ff
+> > 9: eth19: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
+=20
+> > DEFAULT qlen 1000
+> >      link/ether 00:02:c9:e6:02:12 brd ff:ff:ff:ff:ff:ff
+> > 10: eth22: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+> > mode DEFAULT qlen 1000
+> >      link/ether 3e:9c:76:28:d9:da brd ff:ff:ff:ff:ff:ff
+> > 11: eth20: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+> > mode DEFAULT qlen 1000
+> >      link/ether ea:f6:42:a7:d9:40 brd ff:ff:ff:ff:ff:ff
+> > 12: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
+> > state UP mode DEFAULT
+> >      link/ether 00:25:90:36:9c:ec brd ff:ff:ff:ff:ff:ff
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
