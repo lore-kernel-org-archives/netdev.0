@@ -1,45 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2 3/5] sock_diag: allow to dump bpf filters
-Date: Wed, 24 Apr 2013 09:22:45 -0700
-Message-ID: <1366820565.8964.78.camel@edumazet-glaptop>
-References: <51779426.7020800@6wind.com>
-	 <1366818756-4234-1-git-send-email-nicolas.dichtel@6wind.com>
-	 <1366818756-4234-4-git-send-email-nicolas.dichtel@6wind.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: getting VF link info seems to be broken in 3.9-rc8
+Date: Wed, 24 Apr 2013 19:34:44 +0300
+Message-ID: <517809A4.3070001@mellanox.com>
+References: <5177D946.9080704@mellanox.com> <20130424083825.00004f94@unknown> <20130424090133.00005ca6@unknown> <A3A921390EAE4044940E99EBF13D97322426359F@FMSMSX104.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	davem@davemloft.net
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	netdev <netdev@vger.kernel.org>, Rony Efraim <ronye@mellanox.com>
+To: "Li, Sibai" <sibai.li@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:35046 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755689Ab3DXQWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 12:22:48 -0400
-Received: by mail-pd0-f176.google.com with SMTP id r11so1229204pdi.7
-        for <netdev@vger.kernel.org>; Wed, 24 Apr 2013 09:22:47 -0700 (PDT)
-In-Reply-To: <1366818756-4234-4-git-send-email-nicolas.dichtel@6wind.com>
+Received: from eu1sys200aog121.obsmtp.com ([207.126.144.151]:43334 "EHLO
+	eu1sys200aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756128Ab3DXQew (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 12:34:52 -0400
+In-Reply-To: <A3A921390EAE4044940E99EBF13D97322426359F@FMSMSX104.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-04-24 at 17:52 +0200, Nicolas Dichtel wrote:
-> This patch allows to dump BPF filters attached to a socket with
-> SO_ATTACH_FILTER. In other words, users allowing to open netlink sockets can
-> see filters set on a socket (when the diag module of the socket family is
-> loaded).
+On 24/04/2013 19:08, Li, Sibai wrote:
+> The vfs are listed, eth22/eth20. Just the mac address is different. Reload the  vf driver to see if it corrects the thing.
 
-To my knowledge, opening netlink sockets is not restricted.
+Sure, the VF are listed as NICs of their own, what's isn't listed is the 
+VF info from the PF NIC link info, e.g here's the casewhere its working, 
+on kernel 3.8.8-- my problem isn't the MAC misalignment
 
-I do not want user lambda being able to see my BPF filters.
-
-I am root, and was assuming user lambda could not spy on me.
-
-$ cat /proc/net/packet 
-sk       RefCnt Type Proto  Iface R Rmem   User   Inode
-0000000000000000 3      10   0003   3     1 0      0      1089989
-0000000000000000 3      10   0003   2     1 0      0      1050535
-0000000000000000 3      2    888e   3     1 0      0      1041970
-
-
-With this information, it seems safe enough, but the whole BPF could
-give interesting ideas to user lambda.
+8: eth11: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state 
+DOWN mode DEFAULT qlen 1000
+     link/ether 00:1b:21:55:1d:00 brd ff:ff:ff:ff:ff:ff
+     vf 0 MAC 00:11:00:11:00:11, spoof checking on
+9: eth10: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP 
+mode DORMANT qlen 1000
+     link/ether 00:1b:21:55:1d:01 brd ff:ff:ff:ff:ff:ff
+     vf 0 MAC 00:10:00:10:00:10, spoof checking on
