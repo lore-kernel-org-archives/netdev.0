@@ -1,110 +1,104 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: gre: Support GRE over IPv6
-Date: Wed, 24 Apr 2013 14:23:37 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1304241417570.21513@ayla.of.borg>
-References: <20121002205219.7C3BD340556@ra.kernel.org>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 1/2 v5] usbnet: allow status interrupt URB to always be
+ active
+Date: Wed, 24 Apr 2013 07:31:25 -0500
+Message-ID: <1366806685.4265.3.camel@dcbw.foobar.com>
+References: <20110727141246.GC29616@orbit.nwl.cc>
+	 <5581442.KzM2iaDSQ0@linux-5eaq.site>
+	 <CACVXFVP=DrbPinLt_rxYETmRYONt-MOsmhAv_O8EcrnpbVohMA@mail.gmail.com>
+	 <1436202.ggQbKKzqIM@linux-5eaq.site>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>
-To: Dmitry Kozlov <xeb@mail.ru>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121002205219.7C3BD340556@ra.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ming Lei <tom.leiming@gmail.com>,
+	Elina Pasheva <epasheva@sierrawireless.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>,
+	Alan Stern <stern@rowland.harvard.edu>
+To: Oliver Neukum <oliver@neukum.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:17561 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753266Ab3DXM3v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Apr 2013 08:29:51 -0400
+In-Reply-To: <1436202.ggQbKKzqIM@linux-5eaq.site>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2 Oct 2012, Linux Kernel Mailing List wrote:
-> Gitweb:     http://git.kernel.org/linus/;a=3Dcommit;h=3Dc12b395a46646=
-bab69089ce7016ac78177f6001f
-> Commit:     c12b395a46646bab69089ce7016ac78177f6001f
-> Parent:     b7bc2a5b5bd99b216c3e5fe68c7f45c684ab5745
-> Author:     xeb@mail.ru <xeb@mail.ru>
-> AuthorDate: Fri Aug 10 00:51:50 2012 +0000
-> Committer:  David S. Miller <davem@davemloft.net>
-> CommitDate: Tue Aug 14 14:28:32 2012 -0700
->=20
->     gre: Support GRE over IPv6
->    =20
->     GRE over IPv6 implementation.
->    =20
->     Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
+On Fri, 2013-04-19 at 10:25 +0200, Oliver Neukum wrote:
+> On Thursday 18 April 2013 11:51:25 Ming Lei wrote:
+> > On Wed, Apr 17, 2013 at 2:55 PM, Oliver Neukum <oliver@neukum.org> wrote:
+> >
+> > > If we have a function for starting a status URB we want to use it whenever
+> > > it applies, that is also when we need to poll status for internal reason while
+> > > an interface is up.
+> > 
+> > For other non-sierra usbnet devices, when an interface is up, the status URB
+> > is scheduled in open() and needn't the API.
+> 
+> But that is the very point. This API is used from _within_ open.
+> We cannot make every open() use GFP_NOIO
+> 
+> > > You don't need to understand it any more than you need to understand
+> > > the rule for usb_submit_urb(). The rules are the very same. There is no
+> > > special effort here.
+> > 
+> > No, there isn't one rule for the corner case here, and the corner case should
+> > have existed in probe() or cancel queue with reset of all USB drivers, instead
+> > of usbnet only.
+> 
+> The same rule applies to usb_submit_urb(), too.
+>  
+> > Also the rule 3 is a bit obscure, maybe not correct, at least there are much
+> > GFP_KERNEL usages in kthread of usbnet. I am wondering if there are
+> > other usbnet specific memflags rules except for 1 & 6.
+> > 
+> > Strictly speaking, the rule 5 isn't correct, since it might trigger the corner
+> > case you mentioned, right?
+> > 
+> > I think we need to review the memflags part of usb_submit_urb() doc now.
+> 
+> Yes.
+> 
+> > +int usbnet_status_start(struct usbnet *dev, gfp_t mem_flags)
+> > +{
+> > +       int ret = 0;
+> > +
+> > +       WARN_ON_ONCE(dev->interrupt == NULL);
+> > +       if (dev->interrupt) {
+> > +               mutex_lock(&dev->interrupt_mutex);
+> > 
+> > ....
+> > 
+> > +}
+> > 
+> > Obviously, the API can't be called in atomic context, and putting runtime PM
+> > inside is reasonable and correct.
+> 
+> Yes, but how is it relevant. What allows us to conclude that a driver does not want
+> runtime PM while a status URB is running?
+> 
+> > > I meant block suspend in the sense of disallowing it. Which is very problematic.
+> > > The CDC protocols generally support remote wakeup for status information,
+> > > so we need to be able to sleep while status is running to accomodate devices
+> > > which are intended to be always online.
+> > 
+> > At least now, for non-sierra drivers, it needn't the API to schedule status URB
+> > which will be started in normal open() path, so won't power on device runtime
+> > unnecessarily. That is what I say the API shouldn't be for a general usage, :-)
+> 
+> But many drivers, e.g. cdc-ether, cdc-ncm and cdc-mbim want to be able
+> to runtime suspend while the device is open.
 
-> --- /dev/null
-> +++ b/net/ipv6/ip6_gre.c
+So how do we go forward from here...  I'm happy to update the patchset
+with anything needed to get davem to apply it.  Have we decided to keep
+the memflags for now, and thus should I just resubmit with a summary of
+the discussion under the ---?
 
-> +static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
-> +			 struct net_device *dev,
-> +			 __u8 dsfield,
-> +			 struct flowi6 *fl6,
-> +			 int encap_limit,
-> +			 __u32 *pmtu)
-> +{
-> +	struct net *net =3D dev_net(dev);
-> +	struct ip6_tnl *tunnel =3D netdev_priv(dev);
-> +	struct net_device *tdev;    /* Device to other host */
-> +	struct ipv6hdr  *ipv6h;     /* Our new IP header */
-> +	unsigned int max_headroom;  /* The extra header space needed */
+If for whatever reason we do find out the memflags aren't really needed,
+they can always be removed later since this isn't userspace API.  But I
+think they're useful at this point.
 
-max_headroom is not initialized
-
-> +	mtu =3D dst_mtu(dst) - sizeof(*ipv6h);
-> +	if (encap_limit >=3D 0) {
-> +		max_headroom +=3D 8;
-
-Hence gcc (4.1.2) rightfully complains:
-
-net/ipv6/ip6_gre.c: In function =E2=80=98ip6gre_xmit2=E2=80=99:
-net/ipv6/ip6_gre.c:713: warning: =E2=80=98max_headroom=E2=80=99 is used=
- uninitialized in this function
-
-However, initializing max_headroom to zero at the top, or replacing the=
- line
-above by "max_headroom =3D 8" doesn't seem to be the right fix...
-
-> +		mtu -=3D 8;
-> +	}
-> +	if (mtu < IPV6_MIN_MTU)
-> +		mtu =3D IPV6_MIN_MTU;
-> +	if (skb_dst(skb))
-> +		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
-> +	if (skb->len > mtu) {
-> +		*pmtu =3D mtu;
-> +		err =3D -EMSGSIZE;
-> +		goto tx_err_dst_release;
-> +	}
-> +
-> +	if (tunnel->err_count > 0) {
-> +		if (time_before(jiffies,
-> +				tunnel->err_time + IP6TUNNEL_ERR_TIMEO)) {
-> +			tunnel->err_count--;
-> +
-> +			dst_link_failure(skb);
-> +		} else
-> +			tunnel->err_count =3D 0;
-> +	}
-> +
-> +	max_headroom =3D LL_RESERVED_SPACE(tdev) + gre_hlen + dst->header_l=
-en;
-
-=2E.. as max_headroom is overwritten here anyway?
-
-So something is really wrong here. What is the right fix?
-
-This issue is present in current mainline as of v3.7.
-
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
-
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-							    -- Linus Torvalds
+Dan
