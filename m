@@ -1,31 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] netlink: compiling issue, need a dummy
- function sk_diag_put_rings_cfg when CONFIG_NETLINK_MMAP disabled
-Date: Wed, 24 Apr 2013 04:11:53 -0400 (EDT)
-Message-ID: <20130424.041153.1240956751124977482.davem@davemloft.net>
-References: <51779347.2000808@asianux.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next 5/5] sock_diag: notify when filter change
+Date: Wed, 24 Apr 2013 10:13:26 +0200
+Message-ID: <51779426.7020800@6wind.com>
+References: <1366727277-19522-1-git-send-email-nicolas.dichtel@6wind.com> <1366727277-19522-6-git-send-email-nicolas.dichtel@6wind.com> <kl83nr$8t3$1@ger.gmane.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, xemul@parallels.com, avagin@openvz.org,
-	netdev@vger.kernel.org
-To: gang.chen@asianux.com
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35020 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756156Ab3DXIL5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 04:11:57 -0400
-In-Reply-To: <51779347.2000808@asianux.com>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:36899 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757446Ab3DXINa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 04:13:30 -0400
+Received: by mail-wi0-f181.google.com with SMTP id c10so1795736wiw.14
+        for <netdev@vger.kernel.org>; Wed, 24 Apr 2013 01:13:29 -0700 (PDT)
+In-Reply-To: <kl83nr$8t3$1@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-aFrom: Chen Gang <gang.chen@asianux.com>
-Date: Wed, 24 Apr 2013 16:09:43 +0800
+Le 24/04/2013 10:05, Cong Wang a =E9crit :
+> On Tue, 23 Apr 2013 at 14:27 GMT, Nicolas Dichtel <nicolas.dichtel@6w=
+ind.com> wrote:
+>> @@ -773,6 +775,7 @@ int sk_detach_filter(struct sock *sk)
+>>   		RCU_INIT_POINTER(sk->sk_filter, NULL);
+>>   		sk_filter_uncharge(sk, filter);
+>>   		ret =3D 0;
+>> +		sock_diag_notify(sk, 1);
+>
+> Should be sock_diag_notify(sk, 0)?
+No, the filter is removed but the socket is still alive.
+0 means that the socket is destroyed.
 
-> 
-> When disable CONFIG_NETLINK_MMAP, need a dummy function for 
-> sk_diag_put_rings_cfg, or will cause compiling issue.
-> 
-> Signed-off-by: Chen Gang <gang.chen@asianux.com>
-
-This was fixed more than 12 hours ago.
+>
+> BTW, use 'true' and 'false' instead of '1' and '0'.
+Will do.
