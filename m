@@ -1,170 +1,119 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH V3 2/3] ARM: net: bpf_jit: make code generation less dependent
- on struct sk_filter.
-Date: Wed, 24 Apr 2013 19:41:34 +0200
-Message-ID: <5178194E.5000403@redhat.com>
-References: <1366824429-26652-1-git-send-email-nschichan@freebox.fr> <1366824429-26652-3-git-send-email-nschichan@freebox.fr>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2.26] datapath: Add basic MPLS support to kernel
+Date: Wed, 24 Apr 2013 10:51:37 -0700
+Message-ID: <CAEP_g=8DkttniMXMP4N691CbGKo-ACqNsOJ+RwOAA8F101h9Uw@mail.gmail.com>
+References: <1366596740-18246-1-git-send-email-horms@verge.net.au>
+ <EA113734-1070-43F9-B932-C8AD83CAAFA2@nsn.com> <20130423015149.GI12017@verge.net.au>
+ <D94DF465-965B-4462-952C-D3A5793DD2B1@nsn.com> <20130423075819.GB25776@verge.net.au>
+ <CAEP_g=-0ztV2QqEOA9bbSsD3eM8BQNE3607rc8G73Sw4+t5NkA@mail.gmail.com> <20130424091236.GA22998@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Will Drewry <wad@chromium.org>,
-	Mircea Gherzan <mgherzan@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Russell King <linux@arm.linux.org.uk>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>,
-	netdev@vger.kernel.org
-To: Nicolas Schichan <nschichan@freebox.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1366824429-26652-3-git-send-email-nschichan@freebox.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "Rajahalme, Jarno (NSN - FI/Espoo)" <jarno.rajahalme@nsn.com>,
+	"<dev@openvswitch.org>" <dev@openvswitch.org>,
+	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+	Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Ben Pfaff <blp@nicira.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog121.obsmtp.com ([74.125.149.145]:41778 "HELO
+	na3sys009aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757003Ab3DXRwD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 13:52:03 -0400
+Received: by mail-ob0-f198.google.com with SMTP id tb18so11167100obb.5
+        for <netdev@vger.kernel.org>; Wed, 24 Apr 2013 10:51:58 -0700 (PDT)
+In-Reply-To: <20130424091236.GA22998@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/24/2013 07:27 PM, Nicolas Schichan wrote:
-> This is in preparation of bpf_jit support for seccomp filters.
+On Wed, Apr 24, 2013 at 2:12 AM, Simon Horman <horms@verge.net.au> wrote:
+> On Tue, Apr 23, 2013 at 06:47:36PM -0700, Jesse Gross wrote:
+>> On Tue, Apr 23, 2013 at 12:58 AM, Simon Horman <horms@verge.net.au> wrote:
+>> > On Tue, Apr 23, 2013 at 07:41:37AM +0000, Rajahalme, Jarno (NSN - FI/Espoo) wrote:
+>> >>
+>> >> On Apr 23, 2013, at 4:51 , ext Simon Horman wrote:
+>> >>
+>> >> > On Mon, Apr 22, 2013 at 01:55:43PM +0000, Rajahalme, Jarno (NSN - FI/Espoo) wrote:
+>> >> >>
+>> >> >> Here the skb_network_header is changed to point to the L3 header. Is it
+>> >> >> significant that in some cases (?) mpls_stack_depth may remain at zero,
+>> >> >> even when a MPLS header was in fact added? (See above).
+>> >> >
+>> >> > With the current code I believe there are the following cases:
+>> >> >
+>> >> > Input: non-MPLS skb: Output: network header and mac_len correspond to the
+>> >> >                     beginning of the L3 headers
+>> >> > Input: MPLS:         Output: network header and mac_len correspond to the
+>> >> >                     end of the L2 headers.
+>> >> >
+>> >> > In the case of MPLS output the end of the L2 headers and the beginning
+>> >> > of the L3 headers will differ.
+>> >> >
+>> >> >
+>> >> > As far as I know the network header and mac_len only need to correspond to
+>> >> > the beginning of the L3 header if GSO segmentation will occur (actually,
+>> >> > some proposed changes to the network stack are required, see "[PATCH 0/2]
+>> >> > Small Modifications to GSO to allow segmentation of MPLS").  That only
+>> >> > occurs if the skb is GSO. Which in turn can only occur if the recieved
+>> >> > packet is non-MPLS. This is because the linux kernel doesn't support
+>> >> > MPLS offloads on receive (or anywhere else for that matter).
+>> >> >
+>> >> > In the case that we have a non-MPLS skb the stack depth starts at zero and
+>> >> > is tracked. This is used to update the network header and mac_len.
+>> >> > Otherwise the stack depth is unknown and the network header and mac_len are
+>> >> > left as-is, corresponding to the end of the L2 headers.
+>> >> >
+>> >> > Actually, it is possible to tighten up the if clause to be the following,
+>> >> > as it is only necessary to update the network header and mac_len for GSO skbs.
+>> >> >
+>> >> >     if (mpls_stack_depth && skb_is_gso(skb)) {
+>> >> >             ...
+>> >> >     }
+>> >> >
+>> >> > It is possible for us to find and track the MPLS stack depth for all cases
+>> >> > and to update the network header and mac_len. However I don't think that
+>> >> > there is any run-time benefit and it seems expensive to find out what the
+>> >> > original stack depth was - I believe it would require parsing the MPLS
+>> >> > entire stack for each packet.
+>> >> >
+>> >>
+>> >> Thanks for explaining this.
+>> >>
+>> >> I think it would be better to keep updating the the network_header and mac_len for the Non-MPLS input packets regardless of the GSO status of the skb. It would be more consistent and less surprising.
+>> >
+>> > I agree entirely that it would be more consistent and less surprising.
+>> > But I'm not sure if the cost is worth it.
+>> >
+>> > Jesse, do you have an opinion on this?
+>>
+>> In general, I would tend to agree with Jarno that keeping this
+>> consistent would be significantly easier to understand. I think the
+>> cost is probably not particularly high.
+>
+> I think it would be become high for large MPLS stack depths.
+> But I'm happy to wear that if you are.
 
-Please also CC the netdev list for BPF related patches.
+I guess, although in practice having more than 2 or 3 MPLS labels
+would be extremely rare so I'm not sure that it's worth optimizing at
+this point.
 
-Just to give you a heads-up, this might likely lead to a merge
-conflict with the net-next tree (commit 79617801ea0c0e66, "filter:
-bpf_jit_comp: refactor and unify BPF JIT image dump output").
+>> However, I also think that having different meanings for the layer
+>> pointers inside and outside of OVS is not particularly ideal since it
+>> makes the overall system harder to understand. Using network header
+>> for the start of the MPLS stack might not be great since it means that
+>> we couldn't really take advantage of any actual hardware offloading in
+>> the future. Maybe we could use mac_len for that purpose and that would
+>> keep things more consistent?
+>
+> To clarify, your suggestion is:
+>
+> mac_len: corresponds to the top of the MPLS stack
+> network_header: corresponds to the bottom of the MPLS stack
+>
+> If so, yes I think that could work and I will see about making it so.
 
-> Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
-> ---
->   arch/arm/net/bpf_jit_32.c |   46 ++++++++++++++++++++++++++++-----------------
->   1 file changed, 29 insertions(+), 17 deletions(-)
->
-> diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
-> index a0bd8a7..bb66a2b 100644
-> --- a/arch/arm/net/bpf_jit_32.c
-> +++ b/arch/arm/net/bpf_jit_32.c
-> @@ -55,7 +55,8 @@
->   #define FLAG_NEED_X_RESET	(1 << 0)
->
->   struct jit_ctx {
-> -	const struct sk_filter *skf;
-> +	unsigned short prog_len;
-> +	struct sock_filter *prog_insns;
->   	unsigned idx;
->   	unsigned prologue_bytes;
->   	int ret0_fp_idx;
-> @@ -131,8 +132,8 @@ static u16 saved_regs(struct jit_ctx *ctx)
->   {
->   	u16 ret = 0;
->
-> -	if ((ctx->skf->len > 1) ||
-> -	    (ctx->skf->insns[0].code == BPF_S_RET_A))
-> +	if ((ctx->prog_len > 1) ||
-> +	    (ctx->prog_insns[0].code == BPF_S_RET_A))
->   		ret |= 1 << r_A;
->
->   #ifdef CONFIG_FRAME_POINTER
-> @@ -181,7 +182,7 @@ static inline bool is_load_to_a(u16 inst)
->   static void build_prologue(struct jit_ctx *ctx)
->   {
->   	u16 reg_set = saved_regs(ctx);
-> -	u16 first_inst = ctx->skf->insns[0].code;
-> +	u16 first_inst = ctx->prog_insns[0].code;
->   	u16 off;
->
->   #ifdef CONFIG_FRAME_POINTER
-> @@ -279,7 +280,7 @@ static u16 imm_offset(u32 k, struct jit_ctx *ctx)
->   		ctx->imms[i] = k;
->
->   	/* constants go just after the epilogue */
-> -	offset =  ctx->offsets[ctx->skf->len];
-> +	offset =  ctx->offsets[ctx->prog_len];
->   	offset += ctx->prologue_bytes;
->   	offset += ctx->epilogue_bytes;
->   	offset += i * 4;
-> @@ -419,7 +420,7 @@ static inline void emit_err_ret(u8 cond, struct jit_ctx *ctx)
->   		emit(ARM_MOV_R(ARM_R0, ARM_R0), ctx);
->   	} else {
->   		_emit(cond, ARM_MOV_I(ARM_R0, 0), ctx);
-> -		_emit(cond, ARM_B(b_imm(ctx->skf->len, ctx)), ctx);
-> +		_emit(cond, ARM_B(b_imm(ctx->prog_len, ctx)), ctx);
->   	}
->   }
->
-> @@ -469,14 +470,13 @@ static inline void update_on_xread(struct jit_ctx *ctx)
->   static int build_body(struct jit_ctx *ctx)
->   {
->   	void *load_func[] = {jit_get_skb_b, jit_get_skb_h, jit_get_skb_w};
-> -	const struct sk_filter *prog = ctx->skf;
->   	const struct sock_filter *inst;
->   	unsigned i, load_order, off, condt;
->   	int imm12;
->   	u32 k;
->
-> -	for (i = 0; i < prog->len; i++) {
-> -		inst = &(prog->insns[i]);
-> +	for (i = 0; i < ctx->prog_len; i++) {
-> +		inst = &(ctx->prog_insns[i]);
->   		/* K as an immediate value operand */
->   		k = inst->k;
->
-> @@ -769,8 +769,8 @@ cmp_x:
->   				ctx->ret0_fp_idx = i;
->   			emit_mov_i(ARM_R0, k, ctx);
->   b_epilogue:
-> -			if (i != ctx->skf->len - 1)
-> -				emit(ARM_B(b_imm(prog->len, ctx)), ctx);
-> +			if (i != ctx->prog_len - 1)
-> +				emit(ARM_B(b_imm(ctx->prog_len, ctx)), ctx);
->   			break;
->   		case BPF_S_MISC_TAX:
->   			/* X = A */
-> @@ -858,7 +858,7 @@ b_epilogue:
->   }
->
->
-> -void bpf_jit_compile(struct sk_filter *fp)
-> +static void __bpf_jit_compile(struct jit_ctx *out_ctx)
->   {
->   	struct jit_ctx ctx;
->   	unsigned tmp_idx;
-> @@ -867,11 +867,10 @@ void bpf_jit_compile(struct sk_filter *fp)
->   	if (!bpf_jit_enable)
->   		return;
->
-> -	memset(&ctx, 0, sizeof(ctx));
-> -	ctx.skf		= fp;
-> +	ctx = *out_ctx;
->   	ctx.ret0_fp_idx = -1;
->
-> -	ctx.offsets = kzalloc(4 * (ctx.skf->len + 1), GFP_KERNEL);
-> +	ctx.offsets = kzalloc(4 * (ctx.prog_len + 1), GFP_KERNEL);
->   	if (ctx.offsets == NULL)
->   		return;
->
-> @@ -921,13 +920,26 @@ void bpf_jit_compile(struct sk_filter *fp)
->   		print_hex_dump(KERN_INFO, "BPF JIT code: ",
->   			       DUMP_PREFIX_ADDRESS, 16, 4, ctx.target,
->   			       alloc_size, false);
-> -
-> -	fp->bpf_func = (void *)ctx.target;
->   out:
->   	kfree(ctx.offsets);
-> +
-> +	*out_ctx = ctx;
->   	return;
->   }
->
-> +void bpf_jit_compile(struct sk_filter *fp)
-> +{
-> +	struct jit_ctx ctx;
-> +
-> +	memset(&ctx, 0, sizeof(ctx));
-> +	ctx.prog_len = fp->len;
-> +	ctx.prog_insns = fp->insns;
-> +
-> +	__bpf_jit_compile(&ctx);
-> +	if (ctx.target)
-> +		fp->bpf_func = (void *)ctx.target;
-> +}
-> +
->   static void bpf_jit_free_worker(struct work_struct *work)
->   {
->   	module_free(NULL, work);
->
+Yes, that's what I was thinking. (Although to be more precise,
+network_header would point to the start of the L3 header, as it does
+currently. In practice, that's the same as the bottom of the MPLS
+stack in the vast majority of situations and in all cases that OVS
+supports.)
