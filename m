@@ -1,16 +1,16 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 5/6] net/mlx4: Add VF MAC spoof checking support
-Date: Wed, 24 Apr 2013 19:41:13 +0300
-Message-ID: <1366821674-17902-6-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 2/6] net/mlx4: Add structures to keep VF Ethernet ports information
+Date: Wed, 24 Apr 2013 19:41:10 +0300
+Message-ID: <1366821674-17902-3-git-send-email-ogerlitz@mellanox.com>
 References: <1366821674-17902-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, amirv@mellanox.com,
 	Rony Efraim <ronye@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:54054 "EHLO
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:39931 "EHLO
 	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757096Ab3DXQlW (ORCPT
+	by vger.kernel.org with ESMTP id S1755970Ab3DXQlW (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 12:41:22 -0400
 In-Reply-To: <1366821674-17902-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,179 +18,164 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Rony Efraim <ronye@mellanox.com>
 
-Add ndo_set_vf_spoofchk support
+This patch add struct mlx4_vport_state where all the parameters related
+to management of VFs port (virtual ports of the NIC eswitch) are kept.
+
+The driver keeps an administrative and operational copy of the settings.
+The current administrative copy becomes operational on the event of probing
+a VF either on a VM or on the host.
 
 Signed-off-by: Rony Efraim <ronye@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |   41 ++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |    9 ++++
- drivers/net/ethernet/mellanox/mlx4/fw.c            |    5 ++-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    8 ++++
- include/linux/mlx4/cmd.h                           |    1 +
- include/linux/mlx4/device.h                        |    3 +-
- 6 files changed, 65 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/cmd.c  |   32 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/fw.c   |    4 +++
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h |   26 +++++++++++++++++++++++
+ 3 files changed, 62 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index e394180..993b51d 100644
+index 05267d7..0a301e1 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -1514,6 +1514,21 @@ static int mlx4_master_activate_admin_state(struct mlx4_priv *priv, int slave)
- 				 (int)(vp_oper->state.default_vlan),
- 				 vp_oper->vlan_idx, slave, port);
- 		}
-+		if (vp_admin->spoofchk) {
-+			vp_oper->mac_idx = __mlx4_register_mac(&priv->dev,
-+							       port,
-+							       vp_admin->mac);
-+			if (0 > vp_oper->mac_idx) {
-+				err = vp_oper->mac_idx;
-+				vp_oper->mac_idx = NO_INDX;
-+				mlx4_warn((&priv->dev),
-+					  "No mac resorces slave %d, port %d\n",
-+					  slave, port);
-+				return err;
-+			}
-+			mlx4_dbg((&(priv->dev)), "alloc mac %llx idx  %d slave %d port %d\n",
-+				 vp_oper->state.mac, vp_oper->mac_idx, slave, port);
-+		}
- 	}
- 	return 0;
+@@ -1490,6 +1490,16 @@ out:
+ 	return ret;
  }
-@@ -1530,6 +1545,10 @@ static void mlx4_master_deactivate_admin_state(struct mlx4_priv *priv, int slave
- 					       port, vp_oper->vlan_idx);
- 			vp_oper->vlan_idx = NO_INDX;
- 		}
-+		if (NO_INDX != vp_oper->mac_idx) {
-+			__mlx4_unregister_mac(&priv->dev, port, vp_oper->mac_idx);
-+			vp_oper->mac_idx = NO_INDX;
-+		}
- 	}
- 	return;
- }
-@@ -2085,6 +2104,28 @@ int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac)
- }
- EXPORT_SYMBOL_GPL(mlx4_set_vf_mac);
  
-+int mlx4_set_vf_spoofchk(struct mlx4_dev *dev, int port, int vf, bool setting)
++static int mlx4_master_activate_admin_state(struct mlx4_priv *priv, int slave)
 +{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_vport_state *s_info;
-+	int slave;
-+
-+	if ((!mlx4_is_master(dev)) ||
-+	    !(dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_FSM))
-+		return -EPROTONOSUPPORT;
-+
-+	slave = mlx4_get_slave_indx(dev, vf);
-+	if (slave < 0)
-+		return -EINVAL;
-+
-+	s_info = &priv->mfunc.master.vf_admin[slave].vport[port];
-+	s_info->spoofchk = setting;
-+
++	int port;
++	for (port = 1; port <= MLX4_MAX_PORTS; port++) {
++		priv->mfunc.master.vf_oper[slave].vport[port].state =
++				priv->mfunc.master.vf_admin[slave].vport[port];
++	}
 +	return 0;
 +}
-+EXPORT_SYMBOL_GPL(mlx4_set_vf_spoofchk);
 +
-+
- int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos)
+ static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
+ 			       u16 param, u8 toggle)
  {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index b00c118..9db9925 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1953,6 +1953,14 @@ static int mlx4_en_set_vf_vlan(struct net_device *dev, int vf, u16 vlan, u8 qos)
- 	return mlx4_set_vf_vlan(mdev->dev, en_priv->port, vf, vlan, qos);
- }
+@@ -1556,6 +1566,7 @@ static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
+ 		if (slave_state[slave].last_cmd != MLX4_COMM_CMD_VHCR2)
+ 			goto reset_slave;
+ 		slave_state[slave].vhcr_dma |= param;
++		mlx4_master_activate_admin_state(priv, slave);
+ 		slave_state[slave].active = true;
+ 		mlx4_dispatch_event(dev, MLX4_DEV_EVENT_SLAVE_INIT, slave);
+ 		break;
+@@ -1732,6 +1743,18 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
+ 		if (!priv->mfunc.master.slave_state)
+ 			goto err_comm;
  
-+static int mlx4_en_set_vf_spoofchk(struct net_device *dev, int vf, bool setting)
-+{
-+	struct mlx4_en_priv *en_priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = en_priv->mdev;
++		priv->mfunc.master.vf_admin =
++			kzalloc(dev->num_slaves *
++				sizeof(struct mlx4_vf_admin_state), GFP_KERNEL);
++		if (!priv->mfunc.master.vf_admin)
++			goto err_comm_admin;
 +
-+	return mlx4_set_vf_spoofchk(mdev->dev, en_priv->port, vf, setting);
-+}
++		priv->mfunc.master.vf_oper =
++			kzalloc(dev->num_slaves *
++				sizeof(struct mlx4_vf_oper_state), GFP_KERNEL);
++		if (!priv->mfunc.master.vf_oper)
++			goto err_comm_oper;
 +
+ 		for (i = 0; i < dev->num_slaves; ++i) {
+ 			s_state = &priv->mfunc.master.slave_state[i];
+ 			s_state->last_cmd = MLX4_COMM_CMD_RESET;
+@@ -1752,6 +1775,9 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
+ 					goto err_slaves;
+ 				}
+ 				INIT_LIST_HEAD(&s_state->mcast_filters[port]);
++				priv->mfunc.master.vf_admin[i].vport[port].default_vlan = MLX4_VGT;
++				priv->mfunc.master.vf_oper[i].vport[port].vlan_idx = NO_INDX;
++				priv->mfunc.master.vf_oper[i].vport[port].mac_idx = NO_INDX;
+ 			}
+ 			spin_lock_init(&s_state->lock);
+ 		}
+@@ -1800,6 +1826,10 @@ err_slaves:
+ 		for (port = 1; port <= MLX4_MAX_PORTS; port++)
+ 			kfree(priv->mfunc.master.slave_state[i].vlan_filter[port]);
+ 	}
++	kfree(priv->mfunc.master.vf_oper);
++err_comm_oper:
++	kfree(priv->mfunc.master.vf_admin);
++err_comm_admin:
+ 	kfree(priv->mfunc.master.slave_state);
+ err_comm:
+ 	iounmap(priv->mfunc.comm);
+@@ -1874,6 +1904,8 @@ void mlx4_multi_func_cleanup(struct mlx4_dev *dev)
+ 				kfree(priv->mfunc.master.slave_state[i].vlan_filter[port]);
+ 		}
+ 		kfree(priv->mfunc.master.slave_state);
++		kfree(priv->mfunc.master.vf_admin);
++		kfree(priv->mfunc.master.vf_oper);
+ 	}
  
- static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_open		= mlx4_en_open,
-@@ -1992,6 +2000,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
- 	.ndo_vlan_rx_kill_vid	= mlx4_en_vlan_rx_kill_vid,
- 	.ndo_set_vf_mac		= mlx4_en_set_vf_mac,
- 	.ndo_set_vf_vlan	= mlx4_en_set_vf_vlan,
-+	.ndo_set_vf_spoofchk	= mlx4_en_set_vf_spoofchk,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= mlx4_en_netpoll,
- #endif
+ 	iounmap(priv->mfunc.comm);
 diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 1a9abf0..a237584 100644
+index ab470d9..6e761d0 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/fw.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -131,7 +131,8 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
- 		[2] = "RSS XOR Hash Function support",
- 		[3] = "Device manage flow steering support",
- 		[4] = "Automatic mac reassignment support",
--		[5] = "VST (control vlan insertion/stripping) support"
-+		[5] = "VST (control vlan insertion/stripping) support",
-+		[6] = "FSM (MAC unti-spoofing) support"
- 	};
- 	int i;
+@@ -806,6 +806,7 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
+ 			    struct mlx4_cmd_mailbox *outbox,
+ 			    struct mlx4_cmd_info *cmd)
+ {
++	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	u64 def_mac;
+ 	u8 port_type;
+ 	u16 short_field;
+@@ -823,6 +824,9 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
+ 		/* set slave default_mac address */
+ 		MLX4_GET(def_mac, outbox->buf, QUERY_PORT_MAC_OFFSET);
+ 		def_mac += slave << 8;
++		/* if config MAC in DB use it */
++		if (priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier].state.mac)
++			def_mac = priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier].state.mac;
+ 		MLX4_PUT(outbox->buf, def_mac, QUERY_PORT_MAC_OFFSET);
  
-@@ -655,6 +656,8 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 	MLX4_GET(field32, outbox, QUERY_DEV_CAP_EXT_2_FLAGS_OFFSET);
- 	if (field32 & (1 << 26))
- 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_VLAN_CONTROL;
-+	if (field32 & (1 << 20))
-+		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_FSM;
- 
- 	if (dev->flags & MLX4_FLAG_OLD_PORT_CMDS) {
- 		for (i = 1; i <= dev_cap->num_ports; ++i) {
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 5083d4b..e12e0d2 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -383,6 +383,14 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
- 			 vp_oper->vlan_idx, (int)(qpc->pri_path.feup),
- 			 (int)(qpc->pri_path.fl));
- 	}
-+	if (vp_oper->state.spoofchk) {
-+		qpc->pri_path.feup |= 1 << 5; /* set fsm bit */;
-+		qpc->pri_path.grh_mylmc = (0x80 & qpc->pri_path.grh_mylmc) + vp_oper->mac_idx;
-+		mlx4_dbg(dev, "spoof qp %d  port %d feup  0x%x, myLmc 0x%x mindx %d\n",
-+			 be32_to_cpu(qpc->local_qpn) & 0xffffff, port,
-+			 (int)qpc->pri_path.feup, (int)qpc->pri_path.grh_mylmc,
-+			 vp_oper->mac_idx);
-+	}
- 	return 0;
- }
- 
-diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
-index 7daead7..95c3223 100644
---- a/include/linux/mlx4/cmd.h
-+++ b/include/linux/mlx4/cmd.h
-@@ -234,6 +234,7 @@ void mlx4_free_cmd_mailbox(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbo
- u32 mlx4_comm_get_version(void);
- int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac);
- int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos);
-+int mlx4_set_vf_spoofchk(struct mlx4_dev *dev, int port, int vf, bool setting);
- 
- 
- #define MLX4_COMM_GET_IF_REV(cmd_chan_ver) (u8)((cmd_chan_ver) >> 8)
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 2c4bc75..af5554d 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -153,7 +153,8 @@ enum {
- 	MLX4_DEV_CAP_FLAG2_RSS_XOR		= 1LL <<  2,
- 	MLX4_DEV_CAP_FLAG2_FS_EN		= 1LL <<  3,
- 	MLX4_DEV_CAP_FLAGS2_REASSIGN_MAC_EN	= 1LL <<  4,
--	MLX4_DEV_CAP_FLAG2_VLAN_CONTROL		= 1LL <<  5
-+	MLX4_DEV_CAP_FLAG2_VLAN_CONTROL		= 1LL <<  5,
-+	MLX4_DEV_CAP_FLAG2_FSM			= 1LL <<  6,
+ 		/* get port type - currently only eth is enabled */
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index 252f4ba..284f4c1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -470,6 +470,30 @@ struct mlx4_slave_state {
+ 	enum slave_port_state port_state[MLX4_MAX_PORTS + 1];
  };
  
- enum {
++#define MLX4_VGT 4095
++#define NO_INDX  (-1)
++
++struct mlx4_vport_state {
++	u64 mac;
++	u16 default_vlan;
++	u8  default_qos;
++	u32 tx_rate;
++	bool spoofchk;
++};
++
++struct mlx4_vf_admin_state {
++	struct mlx4_vport_state vport[MLX4_MAX_PORTS + 1];
++};
++
++struct mlx4_vport_oper_state {
++	struct mlx4_vport_state state;
++	int mac_idx;
++	int vlan_idx;
++};
++struct mlx4_vf_oper_state {
++	struct mlx4_vport_oper_state vport[MLX4_MAX_PORTS + 1];
++};
++
+ struct slave_list {
+ 	struct mutex mutex;
+ 	struct list_head res_list[MLX4_NUM_OF_RESOURCE_TYPE];
+@@ -500,6 +524,8 @@ struct mlx4_master_qp0_state {
+ 
+ struct mlx4_mfunc_master_ctx {
+ 	struct mlx4_slave_state *slave_state;
++	struct mlx4_vf_admin_state *vf_admin;
++	struct mlx4_vf_oper_state *vf_oper;
+ 	struct mlx4_master_qp0_state qp0_state[MLX4_MAX_PORTS + 1];
+ 	int			init_port_ref[MLX4_MAX_PORTS + 1];
+ 	u16			max_mtu[MLX4_MAX_PORTS + 1];
 -- 
 1.7.1
