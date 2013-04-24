@@ -1,63 +1,55 @@
-From: Frederic Weisbecker <fweisbec@gmail.com>
-Subject: Re: [PATCH] x86: make DR*_RESERVED unsigned long
-Date: Thu, 25 Apr 2013 00:48:57 +0200
-Message-ID: <CAFTL4hzmW43o8dxW0_E7F00a+PT+T4=F4h=gdCxHvcZhMiH3-w@mail.gmail.com>
-References: <CA+55aFwpLu0qNms=hkQr43yqD0K9DgESNm91OEWKT1ZuT8MU6Q@mail.gmail.com>
-	<20130424072630.GB1780@gmail.com>
-	<20130424170702.GA1867@redhat.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: [PATCH net-next 0/7] qlcnic: Driver updates
+Date: Wed, 24 Apr 2013 18:42:38 -0400
+Message-ID: <1366843365-2787-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Cyrill Gorcunov <gorcunov@gmail.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"the arch/x86 maintainers" <x86@kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-ext4@vger.kernel.org" <linux-ext4@vger.kernel.org>
-To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <linux-ext4-owner@vger.kernel.org>
-In-Reply-To: <20130424170702.GA1867@redhat.com>
-Sender: linux-ext4-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <sony.chacko@qlogic.com>,
+	<shahed.shaikh@qlogic.com>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from va3ehsobe003.messaging.microsoft.com ([216.32.180.13]:15248
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757971Ab3DXXGz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 19:06:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2013/4/24 Oleg Nesterov <oleg@redhat.com>:
-> DR6_RESERVED and DR_CONTROL_RESERVED are used to clear the set
-> bits in the "unsigned long" data, make them long to ensure that
-> "&~" doesn't clear the upper bits.
->
-> do_debug() and ptrace_write_dr7() which use DR*_RESERVED look
-> safe, but probably it makes sense to cleanup anyway.
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-Agreed. The code looks safe, but the pattern is error prone. I'm all
-for that cleanup.
-Just something below:
+This set of patches has following updates:
+* Enhanced channel configuration logs by adding logs for various cases.
+* Take EPORT out of reset before disabling pause frame generation in the
+  adapter.
+* Add eSwitch statistics support in ethtool stats.
+* Enable interrupt coalescing for 83xx adapter.
+* Rename IRQ description.
+* Added PCI_VENDOR_ID_QLOGIC, PCI_DEVICE_ID_QLOGIC_834X and PCI_DEVICE_ID_QLOGIC_824X
+  for the patch "qlcnic: Add identifying string for 83xx adapter" as per Francois comment.  
 
->
-> Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
-> Signed-off-by: Oleg Nesterov <oleg@redhat.com>
-> ---
->  arch/x86/include/uapi/asm/debugreg.h |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/arch/x86/include/uapi/asm/debugreg.h b/arch/x86/include/uapi/asm/debugreg.h
-> index 3c0874d..75d07dd 100644
-> --- a/arch/x86/include/uapi/asm/debugreg.h
-> +++ b/arch/x86/include/uapi/asm/debugreg.h
-> @@ -15,7 +15,7 @@
->     are either reserved or not of interest to us. */
->
->  /* Define reserved bits in DR6 which are always set to 1 */
-> -#define DR6_RESERVED   (0xFFFF0FF0)
-> +#define DR6_RESERVED   (0xFFFF0FF0ul)
+Please apply to net-next.
 
-You told in an earlier email that intel manual says upper 32 bits of
-dr6 are reserved.
-In this case don't we need to expand the mask in 64 bits like is done
-for DR_CONTROL_RESERVED?
+Thanks,
+    Jiten
 
-Thanks.
+Himanshu Madhani (3):
+  qlcnic: Enable Interrupt Coalescing for 83xx adapter
+  qlcnic: Rename the IRQ description.
+  qlcnic: Add identifying string for 83xx adapter
+
+Manish Chopra (2):
+  qlcnic: Enhance channel configuration logs
+  qlcnic: Take EPORT out of reset sequence before disabling PAUSE
+
+Shahed Shaikh (2):
+  qlcnic: Add eSwitch statistics support
+  qlcnic: Update version to 5.2.42
+
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |   22 ++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   19 ++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    2 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   25 +++
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |   77 +++++++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  193 ++++++++++++++++----
+ 6 files changed, 277 insertions(+), 61 deletions(-)
