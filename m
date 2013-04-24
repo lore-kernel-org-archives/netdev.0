@@ -1,48 +1,41 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Question on the use of ETH_P_CONTROL
-Date: Wed, 24 Apr 2013 11:17:50 -0700
-Message-ID: <517821CE.207@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] netlink: fix compilation after memory
+ mapped patches
+Date: Wed, 24 Apr 2013 14:27:22 -0400 (EDT)
+Message-ID: <20130424.142722.647145900485285061.davem@davemloft.net>
+References: <877gjtuqy2.fsf@xmission.com>
+	<1366792583-10534-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org, kaber@trash.net,
+	bhutchings@solarflare.com
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:54580 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756857Ab3DXSSz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Apr 2013 14:18:55 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:41613 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756591Ab3DXS10 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 14:27:26 -0400
+In-Reply-To: <1366792583-10534-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have a wired Ethernet driver that will need to support a user space
-application with UIO access and a network device.  The network device
-will need a way to send raw frames with some descriptor data to and from
-the user space application.  The frames are not meant to be routed and
-are not meant for this host, only for the user space application.  After
-doing some digging I came across the definition for ETH_P_CONTROL, which
-seems to be a good solution for my current issue.
-
-My thought is to do something like this for Rx control frames:
-	eth_type_trans(skb);
-	skb->protocol = htons(ETH_P_CONTROL);
-	skb->mac_header -= sizeof(struct desc_hdr);
-	desc_hdr = (struct desc_hdr *)skb_mac_header(skb);
-	desc_hdr->val = val;
-
-For frames received from the user space application I would essentially
-just leave the descriptor header on and notify the hardware that it is
-present for any frames received that have ETH_P_CONTROL as their protocol.
-
-Then all that is left is for the user space to allocate a raw packet
-socket and bind it to our interface specifying the control protocol so
-that it can send and receive just the control frames.
-
-I'm looking for any thoughts, issues, or concerns with this approach.
-
-Thanks,
-
-Alex
+RnJvbTogTmljb2xhcyBEaWNodGVsIDxuaWNvbGFzLmRpY2h0ZWxANndpbmQuY29tPg0KRGF0ZTog
+V2VkLCAyNCBBcHIgMjAxMyAxMDozNjoyMyArMDIwMA0KDQo+IERlcGVuZGluZyBvZiB0aGUga2Vy
+bmVsIGNvbmZpZ3VyYXRpb24gKENPTkZJR19VSURHSURfU1RSSUNUX1RZUEVfQ0hFQ0tTKSwgd2Ug
+Y2FuDQo+IGdldCB0aGUgZm9sbG93aW5nIGVycm9yczoNCj4gDQo+IG5ldC9uZXRsaW5rL2FmX25l
+dGxpbmsuYzogSW4gZnVuY3Rpb24goW5ldGxpbmtfcXVldWVfbW1hcGVkX3NrYqI6DQo+IG5ldC9u
+ZXRsaW5rL2FmX25ldGxpbmsuYzo2NjM6MTQ6IGVycm9yOiBpbmNvbXBhdGlibGUgdHlwZXMgd2hl
+biBhc3NpZ25pbmcgdG8gdHlwZSChX191MzKiIGZyb20gdHlwZSCha3VpZF90og0KPiBuZXQvbmV0
+bGluay9hZl9uZXRsaW5rLmM6NjY0OjE0OiBlcnJvcjogaW5jb21wYXRpYmxlIHR5cGVzIHdoZW4g
+YXNzaWduaW5nIHRvIHR5cGUgoV9fdTMyoiBmcm9tIHR5cGUgoWtnaWRfdKINCj4gbmV0L25ldGxp
+bmsvYWZfbmV0bGluay5jOiBJbiBmdW5jdGlvbiChbmV0bGlua19yaW5nX3NldF9jb3BpZWSiOg0K
+PiBuZXQvbmV0bGluay9hZl9uZXRsaW5rLmM6NjkzOjE0OiBlcnJvcjogaW5jb21wYXRpYmxlIHR5
+cGVzIHdoZW4gYXNzaWduaW5nIHRvIHR5cGUgoV9fdTMyoiBmcm9tIHR5cGUgoWt1aWRfdKINCj4g
+bmV0L25ldGxpbmsvYWZfbmV0bGluay5jOjY5NDoxNDogZXJyb3I6IGluY29tcGF0aWJsZSB0eXBl
+cyB3aGVuIGFzc2lnbmluZyB0byB0eXBlIKFfX3UzMqIgZnJvbSB0eXBlIKFrZ2lkX3SiDQo+IA0K
+PiBXZSBtdXN0IHVzZSB0aGUgaGVscGVycyB0byBnZXQgdGhlIHVpZCBhbmQgZ2lkLCBhbmQgYWxz
+byB0YWtlIGNhcmUgb2YgdXNlcl9ucy4NCj4gDQo+IEZpeCBzdWdnZXN0ZWQgYnkgRXJpYyBXLiBC
+aWVkZXJtYW4gPGViaWVkZXJtQHhtaXNzaW9uLmNvbT4uDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBO
+aWNvbGFzIERpY2h0ZWwgPG5pY29sYXMuZGljaHRlbEA2d2luZC5jb20+DQoNCkFwcGxpZWQsIHRo
+YW5rcyENCg==
