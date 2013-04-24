@@ -1,77 +1,118 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 1/6] net/mlx4: Add reference counting to MAC registeration
-Date: Wed, 24 Apr 2013 19:41:09 +0300
-Message-ID: <1366821674-17902-2-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 6/6] net/mlx4: Add support to get VF config
+Date: Wed, 24 Apr 2013 19:41:14 +0300
+Message-ID: <1366821674-17902-7-git-send-email-ogerlitz@mellanox.com>
 References: <1366821674-17902-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, amirv@mellanox.com,
 	Rony Efraim <ronye@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:43434 "EHLO
-	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755858Ab3DXQlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 12:41:22 -0400
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:44263 "EHLO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757100Ab3DXQlX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 12:41:23 -0400
 In-Reply-To: <1366821674-17902-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Rony Efraim <ronye@mellanox.com>
 
-Add reference counting to the driver MAC registeration code. This would
-be needed for cases where a mac is registered from more than once, e.g
-when both the host and the VM driver register the same mac, the host
-for mac spoof protection purposes and the VM for its regular needs.
+Support getting VF config.
 
 Signed-off-by: Rony Efraim <ronye@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/port.c |   15 ++++++++++-----
- 1 files changed, 10 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/cmd.c       |   32 ++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    8 ++++++
+ include/linux/mlx4/cmd.h                       |    2 +
+ 3 files changed, 42 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
-index 4b6aad3..d3408ad 100644
---- a/drivers/net/ethernet/mellanox/mlx4/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/port.c
-@@ -141,8 +141,9 @@ int __mlx4_register_mac(struct mlx4_dev *dev, u8 port, u64 mac)
- 		}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index 993b51d..5c6bfd6 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -2153,3 +2153,35 @@ int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos)
+ }
+ EXPORT_SYMBOL_GPL(mlx4_set_vf_vlan);
  
- 		if (mac == (MLX4_MAC_MASK & be64_to_cpu(table->entries[i]))) {
--			/* MAC already registered, Must not have duplicates */
--			err = -EEXIST;
-+			/* MAC already registered, increment ref count */
-+			err = i;
-+			++table->refs[i];
- 			goto out;
- 		}
- 	}
-@@ -165,7 +166,7 @@ int __mlx4_register_mac(struct mlx4_dev *dev, u8 port, u64 mac)
- 		table->entries[free] = 0;
- 		goto out;
- 	}
--
-+	table->refs[free] = 1;
- 	err = free;
- 	++table->total;
- out:
-@@ -206,12 +207,16 @@ void __mlx4_unregister_mac(struct mlx4_dev *dev, u8 port, u64 mac)
- 	struct mlx4_mac_table *table = &info->mac_table;
- 	int index;
++int mlx4_get_vf_config(struct mlx4_dev *dev, int port, int vf, struct ifla_vf_info *ivf)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_vport_state *s_info;
++	int slave;
++
++	if (!mlx4_is_master(dev))
++		return -EPROTONOSUPPORT;
++
++	slave = mlx4_get_slave_indx(dev, vf);
++	if (slave < 0)
++		return -EINVAL;
++
++	s_info = &priv->mfunc.master.vf_admin[slave].vport[port];
++	ivf->vf = vf;
++
++	/* need to convert it to a func */
++	ivf->mac[0] = ((s_info->mac >> (5*8)) & 0xff);
++	ivf->mac[1] = ((s_info->mac >> (4*8)) & 0xff);
++	ivf->mac[2] = ((s_info->mac >> (3*8)) & 0xff);
++	ivf->mac[3] = ((s_info->mac >> (2*8)) & 0xff);
++	ivf->mac[4] = ((s_info->mac >> (1*8)) & 0xff);
++	ivf->mac[5] = ((s_info->mac)  & 0xff);
++
++	ivf->vlan	= s_info->default_vlan;
++	ivf->qos	= s_info->default_qos;
++	ivf->tx_rate	= s_info->tx_rate;
++	ivf->spoofchk	= s_info->spoofchk;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(mlx4_get_vf_config);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 9db9925..cf77737 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1961,6 +1961,13 @@ static int mlx4_en_set_vf_spoofchk(struct net_device *dev, int vf, bool setting)
+ 	return mlx4_set_vf_spoofchk(mdev->dev, en_priv->port, vf, setting);
+ }
  
--	index = find_index(dev, table, mac);
--
- 	mutex_lock(&table->mutex);
-+	index = find_index(dev, table, mac);
++static int mlx4_en_get_vf_config(struct net_device *dev, int vf, struct ifla_vf_info *ivf)
++{
++	struct mlx4_en_priv *en_priv = netdev_priv(dev);
++	struct mlx4_en_dev *mdev = en_priv->mdev;
++
++	return mlx4_get_vf_config(mdev->dev, en_priv->port, vf, ivf);
++}
  
- 	if (validate_index(dev, table, index))
- 		goto out;
-+	if (--table->refs[index]) {
-+		mlx4_dbg(dev, "Have more references for index %d,"
-+			 "no need to modify mac table\n", index);
-+		goto out;
-+	}
+ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_open		= mlx4_en_open,
+@@ -2001,6 +2008,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
+ 	.ndo_set_vf_mac		= mlx4_en_set_vf_mac,
+ 	.ndo_set_vf_vlan	= mlx4_en_set_vf_vlan,
+ 	.ndo_set_vf_spoofchk	= mlx4_en_set_vf_spoofchk,
++	.ndo_get_vf_config	= mlx4_en_get_vf_config,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= mlx4_en_netpoll,
+ #endif
+diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
+index 95c3223..adf6e06 100644
+--- a/include/linux/mlx4/cmd.h
++++ b/include/linux/mlx4/cmd.h
+@@ -34,6 +34,7 @@
+ #define MLX4_CMD_H
  
- 	table->entries[index] = 0;
- 	mlx4_set_port_mac_table(dev, port, table->entries);
+ #include <linux/dma-mapping.h>
++#include <linux/if_link.h>
+ 
+ enum {
+ 	/* initialization and general commands */
+@@ -235,6 +236,7 @@ u32 mlx4_comm_get_version(void);
+ int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac);
+ int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos);
+ int mlx4_set_vf_spoofchk(struct mlx4_dev *dev, int port, int vf, bool setting);
++int mlx4_get_vf_config(struct mlx4_dev *dev, int port, int vf, struct ifla_vf_info *ivf);
+ 
+ 
+ #define MLX4_COMM_GET_IF_REV(cmd_chan_ver) (u8)((cmd_chan_ver) >> 8)
 -- 
 1.7.1
