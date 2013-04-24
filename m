@@ -1,56 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v4] rps: selective flow shedding during softnet
- overflow
-Date: Tue, 23 Apr 2013 19:11:52 -0700
-Message-ID: <1366769512.8964.60.camel@edumazet-glaptop>
-References: <CA+FuTSfPjrzVqKj-jrzivM_mBP47Dtkuj2P+bJ3VwWTscoT=yA@mail.gmail.com>
-	 <1366749094-5982-1-git-send-email-willemb@google.com>
-	   <20130423142333.15479dfa@nehalam.linuxnetplumber.net>
-	   <1366753063.8964.14.camel@edumazet-glaptop>
-	   <20130423145222.5b696d0c@nehalam.linuxnetplumber.net>
-	  <1366762196.8964.46.camel@edumazet-glaptop>
-	 <517734A2.9060609@mojatatu.com> <1366767151.8964.56.camel@edumazet-glaptop>
-	 <51773905.9030005@mojatatu.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next] ipv6: separate out procfs code from mcast.c
+Date: Wed, 24 Apr 2013 11:29:41 +0800
+Message-ID: <1366774181.3849.6.camel@cr0>
+References: <1366701302.21136.19.camel@cr0>
+	 <20130423.031805.544535198246859192.davem@davemloft.net>
+	 <1366702220.21136.23.camel@cr0>
+	 <20130423.033620.1101068519499870853.davem@davemloft.net>
+	 <1366702893.21136.28.camel@cr0> <87d2tlv32i.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Willem de Bruijn <willemb@google.com>,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f52.google.com ([209.85.210.52]:56078 "EHLO
-	mail-da0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755457Ab3DXCLz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Apr 2013 22:11:55 -0400
-Received: by mail-da0-f52.google.com with SMTP id j17so631174dan.39
-        for <netdev@vger.kernel.org>; Tue, 23 Apr 2013 19:11:54 -0700 (PDT)
-In-Reply-To: <51773905.9030005@mojatatu.com>
+Received: from mx1.redhat.com ([209.132.183.28]:11326 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757473Ab3DXD36 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Apr 2013 23:29:58 -0400
+In-Reply-To: <87d2tlv32i.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-04-23 at 21:44 -0400, Jamal Hadi Salim wrote:
+On Tue, 2013-04-23 at 14:33 +0200, Bj=C3=B8rn Mork wrote:
+> Cong Wang <amwang@redhat.com> writes:
+>=20
+> > On Tue, 2013-04-23 at 03:36 -0400, David Miller wrote:
+> >> From: Cong Wang <amwang@redhat.com>
+> >> Date: Tue, 23 Apr 2013 15:30:20 +0800
+> >>=20
+> >> > This is hard to do, as in the email I replied to Stephen. So I
+> >> > prefer to just add a Kconfig dependency, at least for now.
+> >>=20
+> >> A Kconfig hack is exactly what I've told you is an unacceptable
+> >> solution.
+> >
+> > Please enlighten me for a third solution. :)
+>=20
+> This is an completely untested idea....
+>=20
+> I note that vxlan_init_net requires a successful sock_create_kern().
+> That implies a request_module("net-pf-...") followed by try_module_ge=
+t.
+>=20
+> So if the sock_create_kern(PF_INET6, ..) succeeds then you *know* you
+> have IPv6. If it fails with -EAFNOSUPPORT, then you could fall back t=
+o
+> sock_create_kern(PF_INET, ..) and set a flag indicating that runtime
+> IPv6 support is disabled.  Then use this flag to allow/deny configuri=
+ng
+> any IPv6 destinations.
 
-> 
-> BTW, looking at __skb_get_rxhash(), if i had a driver that sets either
-> skb->rxhash (picks it off the dma descriptor), could i not use that 
-> instead of computing the hash? something like attached patch.
-> 
+Excellent point! You are certainly right. I will give it a try.
 
-The caller does this already ;)
+>=20
+> You may also have to protect the IPv6 modular symbols you use with
+> symbol_request() or similar to prevent vxlan from depending on IPv6. =
+ I
+> dunno...
+>=20
 
-static inline __u32 skb_get_rxhash(struct sk_buff *skb)
-{
-        if (!skb->l4_rxhash)
-                __skb_get_rxhash(skb);
-
-        return skb->rxhash;
-}
-
-Rationale being : if l4 rxhash was already provided, use it.
-
-AFAIK, only bnx2x provides this.
-
-For other cases, we prefer trying a software rxhash, as it gives us more
-capabilities than the standard Toepliz hash (Not l4 for UDP flows for
-example)
+This sounds a bit crazy.
