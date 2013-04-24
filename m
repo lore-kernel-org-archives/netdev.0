@@ -1,60 +1,43 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] tuntap: correct the return value in tun_set_iff()
-Date: Wed, 24 Apr 2013 11:16:56 +0300
-Message-ID: <20130424081656.GA11150@redhat.com>
-References: <1366699239-6866-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jerry Chu <hkchu@google.com>,
-	Wei Yongjun <weiyj.lk@gmail.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Jason Wang <jasowang@redhat.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] VSOCK: Drop bogus __init annotation from vsock_init_tables()
+Date: Wed, 24 Apr 2013 11:40:55 +0200
+Message-ID: <1366796455-2520-1-git-send-email-geert@linux-m68k.org>
+Cc: linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Andy King <acking@vmware.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1366699239-6866-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 23, 2013 at 02:40:39PM +0800, Jason Wang wrote:
-> commit (3be8fbab tuntap: fix error return code in tun_set_iff()) breaks the
-> creation of multiqueue tuntap since it forbids to create more than one queues
-> for a multiqueue tuntap device. We need return 0 instead -EBUSY here since we
-> don't want to re-initialize the device when one or more queues has been already
-> attached. Add a comment and correct the return value to zero.
-> 
-> Reported-by: Jerry Chu <hkchu@google.com>
-> Cc: Jerry Chu <hkchu@google.com>
-> Cc: Wei Yongjun <weiyj.lk@gmail.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+If gcc (e.g. 4.1.2) decides not to inline vsock_init_tables(), this will
+cause a section mismatch:
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+WARNING: net/vmw_vsock/vsock.o(.text+0x1bc): Section mismatch in reference from the function __vsock_core_init() to the function .init.text:vsock_init_tables()
+The function __vsock_core_init() references
+the function __init vsock_init_tables().
+This is often because __vsock_core_init lacks a __init
+annotation or the annotation of vsock_init_tables is wrong.
 
-> ---
->  drivers/net/tun.c |    5 ++++-
->  1 files changed, 4 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 729ed53..3a8977e 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -1594,7 +1594,10 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
->  
->  		if (tun->flags & TUN_TAP_MQ &&
->  		    (tun->numqueues + tun->numdisabled > 1))
-> -			return -EBUSY;
-> +			/* One or more queue has already been attached, no need
-> +			 * to initialize the device again.
-> +			 */
-> +			return 0;
->  	}
->  	else {
->  		char *name;
-> -- 
-> 1.7.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This may cause crashes if VSOCKETS=y and VMWARE_VMCI_VSOCKETS=m.
+
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ net/vmw_vsock/af_vsock.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index 7f93e2a..2e330e8 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -165,7 +165,7 @@ static struct list_head vsock_bind_table[VSOCK_HASH_SIZE + 1];
+ static struct list_head vsock_connected_table[VSOCK_HASH_SIZE];
+ static DEFINE_SPINLOCK(vsock_table_lock);
+ 
+-static __init void vsock_init_tables(void)
++static void vsock_init_tables(void)
+ {
+ 	int i;
+ 
+-- 
+1.7.0.4
