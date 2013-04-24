@@ -1,38 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] qlcnic: Driver updates
-Date: Wed, 24 Apr 2013 19:36:42 -0400 (EDT)
-Message-ID: <20130424.193642.2229455137240542878.davem@davemloft.net>
-References: <1366843365-2787-1-git-send-email-jitendra.kalsaria@qlogic.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf-next v2] IPVS fixes for v3.10
+Date: Thu, 25 Apr 2013 01:42:06 +0200
+Message-ID: <20130424234206.GA6447@localhost>
+References: <1366686240-23493-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
-	shahed.shaikh@qlogic.com, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: jitendra.kalsaria@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44940 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758537Ab3DXXgq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 19:36:46 -0400
-In-Reply-To: <1366843365-2787-1-git-send-email-jitendra.kalsaria@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Dan Carpenter <dan.carpenter@oracle.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1366686240-23493-1-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Date: Wed, 24 Apr 2013 18:42:38 -0400
-
-> From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+On Tue, Apr 23, 2013 at 12:03:51PM +0900, Simon Horman wrote:
+> Hi Pablo,
 > 
-> This set of patches has following updates:
-> * Enhanced channel configuration logs by adding logs for various cases.
-> * Take EPORT out of reset before disabling pause frame generation in the
->   adapter.
-> * Add eSwitch statistics support in ethtool stats.
-> * Enable interrupt coalescing for 83xx adapter.
-> * Rename IRQ description.
-> * Added PCI_VENDOR_ID_QLOGIC, PCI_DEVICE_ID_QLOGIC_834X and PCI_DEVICE_ID_QLOGIC_824X
->   for the patch "qlcnic: Add identifying string for 83xx adapter" as per Francois comment.  
+> this is a revision of a previous pull request.
+> The previous pull request contained one fix-all patch.
+> As per your request it has been split into a number of separate patches.
+> This request also includes several new patches that fix
+> yet more problems flagged by static analysis.
 > 
-> Please apply to net-next.
+> Separately, I have also posted the following SCTP patch
+> "[PATCH] sctp: Correct type and usage of sctp_end_cksum()"
+> 
+> With this series and the above patch applied I
+> believe that IPVS is now sparse-clean.
+> 
+> Much thanks to Julian Anastasov for his patience, and
+> Dan Carpenter and Hans Schillstrom for their help.
 
-Series applied, thanks.
+Pulled, thanks Simon!
