@@ -1,37 +1,77 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: getting VF link info seems to be broken in 3.9-rc8
-Date: Wed, 24 Apr 2013 19:34:44 +0300
-Message-ID: <517809A4.3070001@mellanox.com>
-References: <5177D946.9080704@mellanox.com> <20130424083825.00004f94@unknown> <20130424090133.00005ca6@unknown> <A3A921390EAE4044940E99EBF13D97322426359F@FMSMSX104.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	netdev <netdev@vger.kernel.org>, Rony Efraim <ronye@mellanox.com>
-To: "Li, Sibai" <sibai.li@intel.com>
+Subject: [PATCH net-next 1/6] net/mlx4: Add reference counting to MAC registeration
+Date: Wed, 24 Apr 2013 19:41:09 +0300
+Message-ID: <1366821674-17902-2-git-send-email-ogerlitz@mellanox.com>
+References: <1366821674-17902-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com,
+	Rony Efraim <ronye@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog121.obsmtp.com ([207.126.144.151]:43334 "EHLO
-	eu1sys200aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756128Ab3DXQew (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 12:34:52 -0400
-In-Reply-To: <A3A921390EAE4044940E99EBF13D97322426359F@FMSMSX104.amr.corp.intel.com>
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:43434 "EHLO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755858Ab3DXQlW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 12:41:22 -0400
+In-Reply-To: <1366821674-17902-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 24/04/2013 19:08, Li, Sibai wrote:
-> The vfs are listed, eth22/eth20. Just the mac address is different. Reload the  vf driver to see if it corrects the thing.
+From: Rony Efraim <ronye@mellanox.com>
 
-Sure, the VF are listed as NICs of their own, what's isn't listed is the 
-VF info from the PF NIC link info, e.g here's the casewhere its working, 
-on kernel 3.8.8-- my problem isn't the MAC misalignment
+Add reference counting to the driver MAC registeration code. This would
+be needed for cases where a mac is registered from more than once, e.g
+when both the host and the VM driver register the same mac, the host
+for mac spoof protection purposes and the VM for its regular needs.
 
-8: eth11: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state 
-DOWN mode DEFAULT qlen 1000
-     link/ether 00:1b:21:55:1d:00 brd ff:ff:ff:ff:ff:ff
-     vf 0 MAC 00:11:00:11:00:11, spoof checking on
-9: eth10: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP 
-mode DORMANT qlen 1000
-     link/ether 00:1b:21:55:1d:01 brd ff:ff:ff:ff:ff:ff
-     vf 0 MAC 00:10:00:10:00:10, spoof checking on
+Signed-off-by: Rony Efraim <ronye@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/port.c |   15 ++++++++++-----
+ 1 files changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 4b6aad3..d3408ad 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -141,8 +141,9 @@ int __mlx4_register_mac(struct mlx4_dev *dev, u8 port, u64 mac)
+ 		}
+ 
+ 		if (mac == (MLX4_MAC_MASK & be64_to_cpu(table->entries[i]))) {
+-			/* MAC already registered, Must not have duplicates */
+-			err = -EEXIST;
++			/* MAC already registered, increment ref count */
++			err = i;
++			++table->refs[i];
+ 			goto out;
+ 		}
+ 	}
+@@ -165,7 +166,7 @@ int __mlx4_register_mac(struct mlx4_dev *dev, u8 port, u64 mac)
+ 		table->entries[free] = 0;
+ 		goto out;
+ 	}
+-
++	table->refs[free] = 1;
+ 	err = free;
+ 	++table->total;
+ out:
+@@ -206,12 +207,16 @@ void __mlx4_unregister_mac(struct mlx4_dev *dev, u8 port, u64 mac)
+ 	struct mlx4_mac_table *table = &info->mac_table;
+ 	int index;
+ 
+-	index = find_index(dev, table, mac);
+-
+ 	mutex_lock(&table->mutex);
++	index = find_index(dev, table, mac);
+ 
+ 	if (validate_index(dev, table, index))
+ 		goto out;
++	if (--table->refs[index]) {
++		mlx4_dbg(dev, "Have more references for index %d,"
++			 "no need to modify mac table\n", index);
++		goto out;
++	}
+ 
+ 	table->entries[index] = 0;
+ 	mlx4_set_port_mac_table(dev, port, table->entries);
+-- 
+1.7.1
