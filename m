@@ -1,7 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 2/4] net: increase frag hash size
-Date: Wed, 24 Apr 2013 17:48:31 +0200
-Message-ID: <20130424154822.16883.93014.stgit@dragon>
+Subject: [net-next PATCH 3/4] net: avoid false perf interpretations in frag
+	code
+Date: Wed, 24 Apr 2013 17:48:43 +0200
+Message-ID: <20130424154836.16883.79599.stgit@dragon>
 References: <20130424154624.16883.40974.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,39 +12,63 @@ Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
 To: "David S. Miller" <davem@davemloft.net>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21350 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:17994 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756641Ab3DXPsf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Apr 2013 11:48:35 -0400
+	id S1756641Ab3DXPsr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Apr 2013 11:48:47 -0400
 In-Reply-To: <20130424154624.16883.40974.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Increase fragmentation hash bucket size to 1024 from old 64 elems.
+The compiler make us misinterpret performance issues in the frag code,
+because its auto inlining functions.  Lets instead do explicit
+inlining to make this situation obvious to the programmer.
 
-After we increased the frag mem limits (in commit v3.8-rc3-503-gc2a9366)
-the hash size of 64 elements is simply too small.  Also considering
-the mem limit is per netns and the hash table is shared for all netns.
+The function inet_frag_find() get the perf blame, because auto
+inlining of the functions inet_frag_create(), inet_frag_alloc() and
+inet_frag_intern().
 
-For the embedded people, note that this increase will change the hash
-table/array from using approx 1 Kbytes to 16 Kbytes.
+My solution is to explicit inline inet_frag_alloc() and
+inet_frag_intern(), but explicitly "noinline" inet_frag_create(),
+in-order to make it explicit to the performance engineer, that
+creation phase is a bottleneck. Then, when reading the code the
+programmer should notice the inline, and see the bottleneck is really
+located in inet_frag_intern().
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
 
- include/net/inet_frag.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/ipv4/inet_fragment.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index eb1d6ee..4e15856 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -41,7 +41,7 @@ struct inet_frag_queue {
- 	struct netns_frags	*net;
- };
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index cabe3d7..db30a01 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -240,7 +240,7 @@ int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force)
+ }
+ EXPORT_SYMBOL(inet_frag_evictor);
  
--#define INETFRAGS_HASHSZ		64
-+#define INETFRAGS_HASHSZ	1024
+-static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
++static inline struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+ 		struct inet_frag_queue *qp_in, struct inet_frags *f,
+ 		void *arg)
+ {
+@@ -288,7 +288,7 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+ 	return qp;
+ }
  
- struct inet_frag_bucket {
- 	struct hlist_head	chain;
+-static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
++static inline struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
+ 		struct inet_frags *f, void *arg)
+ {
+ 	struct inet_frag_queue *q;
+@@ -308,7 +308,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
+ 	return q;
+ }
+ 
+-static struct inet_frag_queue *inet_frag_create(struct netns_frags *nf,
++static noinline struct inet_frag_queue *inet_frag_create(struct netns_frags *nf,
+ 		struct inet_frags *f, void *arg)
+ {
+ 	struct inet_frag_queue *q;
