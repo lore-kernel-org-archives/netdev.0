@@ -1,52 +1,44 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 5/5] bnx2x: Allow recovery from second slot
- reset
-Date: Wed, 24 Apr 2013 14:45:02 +0300
-Message-ID: <1366803902-17870-6-git-send-email-yuvalmin@broadcom.com>
-References: <1366803902-17870-1-git-send-email-yuvalmin@broadcom.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] isdn/sc: Fix incorrect module_param_array types
+Date: Wed, 24 Apr 2013 14:46:37 +0200
+Message-ID: <1366807597-24314-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: ariele@broadcom.com, eilong@broadcom.com,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1044 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751838Ab3DXMqj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Apr 2013 08:46:39 -0400
-In-Reply-To: <1366803902-17870-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Karsten Keil <isdn@linux-pingi.de>,
+	Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-As part of PCIe Advanced Error Reporting flow, if a fatal PCI error occurs,
-the AER driver will cause bnx2x's PCI-core to reset. The driver's PCI error
-handlers will in turn restore the PCI configuration space values by calling
-`pci_restore_state'.
+drivers/isdn/sc/init.c: In function =E2=80=98__check_irq=E2=80=99:
+drivers/isdn/sc/init.c:36: warning: return from incompatible pointer ty=
+pe
+drivers/isdn/sc/init.c: In function =E2=80=98__check_ram=E2=80=99:
+drivers/isdn/sc/init.c:37: warning: return from incompatible pointer ty=
+pe
 
-However, as bnx2x does not save the PCI configuration after restoration,
-An additional fatal PCI error will leave the function in an unstable state
-until reboot, as the registers in the PCI configuration space will contain
-reset values.
-
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/isdn/sc/init.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 4019465..927f83a 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12813,6 +12813,7 @@ static pci_ers_result_t bnx2x_io_slot_reset(struct pci_dev *pdev)
- 
- 	pci_set_master(pdev);
- 	pci_restore_state(pdev);
-+	pci_save_state(pdev);
- 
- 	if (netif_running(dev))
- 		bnx2x_set_power_state(bp, PCI_D0);
--- 
-1.8.1.227.g44fe835
+diff --git a/drivers/isdn/sc/init.c b/drivers/isdn/sc/init.c
+index 6b580b2..ca997bd 100644
+--- a/drivers/isdn/sc/init.c
++++ b/drivers/isdn/sc/init.c
+@@ -33,8 +33,8 @@ static unsigned long ram[] =3D {0, 0, 0, 0};
+ static bool do_reset =3D 0;
+=20
+ module_param_array(io, int, NULL, 0);
+-module_param_array(irq, int, NULL, 0);
+-module_param_array(ram, int, NULL, 0);
++module_param_array(irq, byte, NULL, 0);
++module_param_array(ram, long, NULL, 0);
+ module_param(do_reset, bool, 0);
+=20
+ static int identify_board(unsigned long, unsigned int);
+--=20
+1.7.0.4
