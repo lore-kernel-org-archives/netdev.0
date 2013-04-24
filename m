@@ -1,274 +1,148 @@
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
 Subject: Re: getting VF link info seems to be broken in 3.9-rc8
-Date: Wed, 24 Apr 2013 09:01:33 -0700
-Message-ID: <20130424090133.00005ca6@unknown>
-References: <5177D946.9080704@mellanox.com>
-	<20130424083825.00004f94@unknown>
+Date: Wed, 24 Apr 2013 19:07:54 +0300
+Message-ID: <5178035A.5090306@mellanox.com>
+References: <5177D946.9080704@mellanox.com> <20130424083825.00004f94@unknown> <20130424090133.00005ca6@unknown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
+Cc: David Miller <davem@davemloft.net>,
 	Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev <netdev@vger.kernel.org>,
 	Rony Efraim <ronye@mellanox.com>, <Sibai.li@intel.com>
 To: Greg Rose <gregory.v.rose@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:37746 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755073Ab3DXQB6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 12:01:58 -0400
-In-Reply-To: <20130424083825.00004f94@unknown>
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:49991 "EHLO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756200Ab3DXQIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 12:08:02 -0400
+In-Reply-To: <20130424090133.00005ca6@unknown>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 24 Apr 2013 08:38:25 -0700
-Greg Rose <gregory.v.rose@intel.com> wrote:
-
-> On Wed, 24 Apr 2013 16:08:22 +0300
-> Or Gerlitz <ogerlitz@mellanox.com> wrote:
->=20
-> > [re-posting as of non text only content in the 1st post - sorry for
-> > the spam] Rony Efraim <ronye@mellanox.com>observed a regression in
-> > 3.9-rc8 with respect to getting VFs link info from user space. Usin=
-g
-> > latest iproute2 we can easily get the VF info on 3.8.8 but not on
-> > the net git which is now aligned on 3.9-rc8, will try to bisect it
-> > later today/tomorrow, but for the sake of maybe someone has an
-> > insight of the bug, reporting it now...
-> >=20
-> > You can see below that for eth10 and eth11 which are ixgbe PFs, the
-> > VF info is reported on 3.8.8 but not on 3.9-rc8, we see the same
-> > problem with patches to mlx4 which implement ndo_get_vf_info which
-> > gives some evidence that the problem isn't in the ixgbe driver, but
-> > rather somewhere else, maybe the networking core, from quick lookin=
-g
-> > on net/core/rtnetlink.c I don't see there a smoking gun, anyway
->=20
-> I'll forward this to our validation engineers and see if they're
-> seeing the problem too.
->=20
-> - Greg
-
-=46rom our validation engineer Sibai Li (added to response):
-
-I tested 3.9.0-rc8, I have no problem to list vf info. But I didn=E2=80=
+On 24/04/2013 19:01, Greg Rose wrote:
+>  From our validation engineer Sibai Li (added to response):
+>
+> I tested 3.9.0-rc8, I have no problem to list vf info. But I didn=E2=80=
 =99t run
-in FPP mode. But I don't think it's a matter. From the info he gave
-here, I didn=E2=80=99t see he loaded the vf driver when he ran in kerne=
-l
-3.9.0-rc8, but he did load the driver in 3.8.8.
+> in FPP mode. But I don't think it's a matter. From the info he gave
+> here, I didn=E2=80=99t see he loaded the vf driver when he ran in ker=
+nel
+> 3.9.0-rc8, but he did load the driver in 3.8.8.
+>
+> ---------
+>
+> I'd add that having the VF driver loaded shouldn't make any differenc=
+e.
 
----------
+I have tested again (this  time the server is booted on net-next which=20
+is 3.9-rc8+) and the VF driver IS loaded, but stillno sign for the VF i=
+n=20
+the ip link show output
 
-I'd add that having the VF driver loaded shouldn't make any difference.
+# lspci | grep Eth
+01:00.0 Ethernet controller: Intel Corporation 82576 Gigabit Network=20
+Connection (rev 01)
+01:00.1 Ethernet controller: Intel Corporation 82576 Gigabit Network=20
+Connection (rev 01)
+05:00.0 Ethernet controller: Intel Corporation 82599EB 10-Gigabit=20
+SFI/SFP+ Network Connection (rev 01)
+05:00.1 Ethernet controller: Intel Corporation 82599EB 10-Gigabit=20
+SFI/SFP+ Network Connection (rev 01)
+05:10.0 Ethernet controller: Intel Corporation 82599 Ethernet Controlle=
+r=20
+Virtual Function (rev 01)
+05:10.1 Ethernet controller: Intel Corporation 82599 Ethernet Controlle=
+r=20
+Virtual Function (rev 01)
 
-- Greg
+# lsmod | grep ixgbe
+ixgbevf                34062  0
+ixgbe                 150783  0
+hwmon                   1839  1 ixgbe
+mdio                    4263  1 ixgbe
+ptp                     8400  2 ixgbe,igb
+dca                     6822  3 ixgbe,igb,ioatdma
 
->=20
-> >=20
-> > net.git]# git log --oneline v3.8..v3.9-rc8 net/core/rtnetlink.c
-> > 88c5b5c rtnetlink: Call nlmsg_parse() with correct header length
-> > fcca143 rtnetlink: fix error return code in rtnl_link_fill()
-> > a5b8db9 rtnetlink: Mask the rta_type when range checking
-> > 84d73cd rtnl: fix info leak on RTM_GETLINK request for VF devices
-> > b67bfe0 hlist: drop the node parameter from iterators
-> > 1690be6 bridge: Add vlan support to static neighbors
-> > 6cbdcee bridge: Dump vlan information from a bridge port
-> > 407af32 bridge: Add netlink interface to configure vlans on bridge
-> > ports c5c3510 netns: fdb: allow unprivileged users to add/del fdb
-> > entries 2afb9b5 ethtool: set addr_assign_type to NET_ADDR_SET when
-> > addr is passed on create
-> > 471cb5a bonding: remove usage of dev->master
-> > 898e506 rtnetlink: remove usage of dev->master
-> > e7c3273 rtnl: use dev_set_mac_address() instead of plain ndo_
-> > 9a57247 rtnl: expose carrier value with possibility to set it
-> >=20
-> >=20
-> > Or.
-> >=20
-> > --> using 3.8.8
-> >=20
-> > # lspci | grep Eth
-> > 01:00.0 Ethernet controller: Intel Corporation 82576 Gigabit
-> > Network Connection (rev 01)
-> > 01:00.1 Ethernet controller: Intel Corporation 82576 Gigabit
-> > Network Connection (rev 01)
-> > 05:00.0 Ethernet controller: Intel Corporation 82599EB 10-Gigabit=20
-> > SFI/SFP+ Network Connection (rev 01)
-> > 05:00.1 Ethernet controller: Intel Corporation 82599EB 10-Gigabit=20
-> > SFI/SFP+ Network Connection (rev 01)
-> > 05:10.0 Ethernet controller: Intel Corporation 82599 Ethernet
-> > Controller Virtual Function (rev 01)
-> > 05:10.1 Ethernet controller: Intel Corporation 82599 Ethernet
-> > Controller Virtual Function (rev 01)
-> >=20
-> > # cd /sys/class/net/
-> > # ls -l
-> > lrwxrwxrwx 1 root root 0 Apr 24 12:17 br0
-> > -> ../../devices/virtual/net/br0 lrwxrwxrwx 1 root root 0 Apr 24
-> > 12:17 eth0
-> > -> ../../devices/pci0000:00/0000:00:01.0/0000:01:00.0/net/eth0
-> > lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth1
-> > -> ../../devices/pci0000:00/0000:00:01.0/0000:01:00.1/net/eth1
-> > lrwxrwxrwx 1 root root 0 Apr 24 12:18 eth10
-> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:00.1/net/eth10
-> > lrwxrwxrwx 1 root root 0 Apr 24 12:18 eth11
-> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:00.0/net/eth11
-> > lrwxrwxrwx 1 root root 0 Apr 24 12:18 eth16
-> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.0/net/eth16
-> > lrwxrwxrwx 1 root root 0 Apr 24 12:18 eth17
-> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.0/net/eth17
-> > lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth18
-> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.1/net/eth18
-> > lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth19
-> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.1/net/eth19
-> > lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth20
-> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:10.1/net/eth20
-> > lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth22
-> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:10.0/net/eth22
-> > lrwxrwxrwx 1 root root 0 Apr 24 12:17 lo
-> > -> ../../devices/virtual/net/lo
-> >=20
-> >=20
-> >=20
-> > # modprobe -r ixgbevf
-> > # ip link set dev eth10 vf 0 mac 00:10:00:10:00:10
-> > # ip link set dev eth11 vf 0 mac 00:11:00:11:00:11
-> > # modprobe ixgbevf
-> > # ip link show
-> > 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
-> > mode DEFAULT
-> >      link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-> > 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq master
-> > br0 state UP mode DEFAULT qlen 1000
-> >      link/ether 00:25:90:36:9c:ec brd ff:ff:ff:ff:ff:ff
-> > 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=20
-> > DEFAULT qlen 1000
-> >      link/ether 00:25:90:36:9c:ed brd ff:ff:ff:ff:ff:ff
-> > 4: eth16: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
+# /mnt/upstream/tools/iproute2/ip/ip link show
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mod=
+e=20
+DEFAULT
+     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq master br0=
 =20
-> > DEFAULT qlen 1000
-> >      link/ether 00:02:c9:e6:01:11 brd ff:ff:ff:ff:ff:ff
-> > 5: eth17: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
+state UP mode DEFAULT qlen 1000
+     link/ether 00:25:90:36:9c:ec brd ff:ff:ff:ff:ff:ff
+3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=20
+DEFAULT qlen 1000
+     link/ether 00:25:90:36:9c:ed brd ff:ff:ff:ff:ff:ff
+10: eth11: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=20
+DEFAULT qlen 1000
+     link/ether 00:1b:21:55:1d:00 brd ff:ff:ff:ff:ff:ff
+11: eth10: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=20
+DEFAULT qlen 1000
+     link/ether 00:1b:21:55:1d:01 brd ff:ff:ff:ff:ff:ff
+12: eth22: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=20
+DEFAULT qlen 1000
+     link/ether 3a:20:bd:09:ce:9d brd ff:ff:ff:ff:ff:ff
+13: eth20: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=20
+DEFAULT qlen 1000
+     link/ether 52:42:81:a7:6e:da brd ff:ff:ff:ff:ff:ff
+14: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state=
 =20
-> > DEFAULT qlen 1000
-> >      link/ether 00:02:c9:e6:01:12 brd ff:ff:ff:ff:ff:ff
-> > 6: eth18: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
-=20
-> > DEFAULT qlen 1000
-> >      link/ether 00:02:c9:e6:02:11 brd ff:ff:ff:ff:ff:ff
-> > 7: eth19: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
-=20
-> > DEFAULT qlen 1000
-> >      link/ether 00:02:c9:e6:02:12 brd ff:ff:ff:ff:ff:ff
-> > 8: eth11: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq
-> > state DOWN mode DEFAULT qlen 1000
-> >      link/ether 00:1b:21:55:1d:00 brd ff:ff:ff:ff:ff:ff
-> >      vf 0 MAC 00:11:00:11:00:11, spoof checking on
-> > 9: eth10: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state
-> > UP mode DORMANT qlen 1000
-> >      link/ether 00:1b:21:55:1d:01 brd ff:ff:ff:ff:ff:ff
-> >      vf 0 MAC 00:10:00:10:00:10, spoof checking on
-> > 12: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
-> > state UP mode DEFAULT
-> >      link/ether 00:25:90:36:9c:ec brd ff:ff:ff:ff:ff:ff
-> > 23: eth22: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
-> > mode DEFAULT qlen 1000
-> >      link/ether 00:11:00:11:00:11 brd ff:ff:ff:ff:ff:ff
-> > 24: eth20: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
-> > mode DEFAULT qlen 1000
-> >      link/ether 00:10:00:10:00:10 brd ff:ff:ff:ff:ff:ff
-> >=20
-> >=20
-> > --> using 3.9-rc8
-> >=20
-> > # lspci | grep Eth
-> > 01:00.0 Ethernet controller: Intel Corporation 82576 Gigabit
-> > Network Connection (rev 01)
-> > 01:00.1 Ethernet controller: Intel Corporation 82576 Gigabit
-> > Network Connection (rev 01)
-> > 05:00.0 Ethernet controller: Intel Corporation 82599EB 10-Gigabit=20
-> > SFI/SFP+ Network Connection (rev 01)
-> > 05:00.1 Ethernet controller: Intel Corporation 82599EB 10-Gigabit=20
-> > SFI/SFP+ Network Connection (rev 01)
-> > 05:10.0 Ethernet controller: Intel Corporation 82599 Ethernet
-> > Controller Virtual Function (rev 01)
-> > 05:10.1 Ethernet controller: Intel Corporation 82599 Ethernet
-> > Controller Virtual Function (rev 01)
-> >=20
-> > # cd /sys/class/net/
-> > # ls -l
-> > lrwxrwxrwx 1 root root 0 Apr 24 11:48 br0
-> > -> ../../devices/virtual/net/br0 lrwxrwxrwx 1 root root 0 Apr 24
-> > 11:48 eth0
-> > -> ../../devices/pci0000:00/0000:00:01.0/0000:01:00.0/net/eth0
-> > lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth1
-> > -> ../../devices/pci0000:00/0000:00:01.0/0000:01:00.1/net/eth1
-> > lrwxrwxrwx 1 root root 0 Apr 24 11:49 eth10
-> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:00.1/net/eth10
-> > lrwxrwxrwx 1 root root 0 Apr 24 11:49 eth11
-> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:00.0/net/eth11
-> > lrwxrwxrwx 1 root root 0 Apr 24 11:49 eth16
-> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.0/net/eth16
-> > lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth17
-> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.0/net/eth17
-> > lrwxrwxrwx 1 root root 0 Apr 24 11:49 eth18
-> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.1/net/eth18
-> > lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth19
-> > -> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.1/net/eth19
-> > lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth20
-> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:10.1/net/eth20
-> > lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth22
-> > -> ../../devices/pci0000:00/0000:00:09.0/0000:05:10.0/net/eth22
-> > lrwxrwxrwx 1 root root 0 Apr 24 11:47 lo
-> > -> ../../devices/virtual/net/lo
-> >=20
-> > # ip  link show <--- no sign for VFs
-> > 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
-> > mode DEFAULT
-> >      link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-> > 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq master
-> > br0 state UP mode DEFAULT qlen 1000
-> >      link/ether 00:25:90:36:9c:ec brd ff:ff:ff:ff:ff:ff
-> > 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=20
-> > DEFAULT qlen 1000
-> >      link/ether 00:25:90:36:9c:ed brd ff:ff:ff:ff:ff:ff
-> > 4: eth11: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
-=20
-> > DEFAULT qlen 1000
-> >      link/ether 00:1b:21:55:1d:00 brd ff:ff:ff:ff:ff:ff
-> > 5: eth10: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
-=20
-> > DEFAULT qlen 1000
-> >      link/ether 00:1b:21:55:1d:01 brd ff:ff:ff:ff:ff:ff
-> > 6: eth16: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
-=20
-> > DEFAULT qlen 1000
-> >      link/ether 00:02:c9:e6:01:11 brd ff:ff:ff:ff:ff:ff
-> > 7: eth17: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
-=20
-> > DEFAULT qlen 1000
-> >      link/ether 00:02:c9:e6:01:12 brd ff:ff:ff:ff:ff:ff
-> > 8: eth18: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
-=20
-> > DEFAULT qlen 1000
-> >      link/ether 00:02:c9:e6:02:11 brd ff:ff:ff:ff:ff:ff
-> > 9: eth19: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=
-=20
-> > DEFAULT qlen 1000
-> >      link/ether 00:02:c9:e6:02:12 brd ff:ff:ff:ff:ff:ff
-> > 10: eth22: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
-> > mode DEFAULT qlen 1000
-> >      link/ether 3e:9c:76:28:d9:da brd ff:ff:ff:ff:ff:ff
-> > 11: eth20: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
-> > mode DEFAULT qlen 1000
-> >      link/ether ea:f6:42:a7:d9:40 brd ff:ff:ff:ff:ff:ff
-> > 12: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
-> > state UP mode DEFAULT
-> >      link/ether 00:25:90:36:9c:ec brd ff:ff:ff:ff:ff:ff
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+UP mode DEFAULT
+     link/ether 00:25:90:36:9c:ec brd ff:ff:ff:ff:ff:ff
+17: eth16: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state=20
+DOWN mode DEFAULT qlen 1000
+     link/ether 00:02:c9:e6:01:11 brd ff:ff:ff:ff:ff:ff
+18: eth17: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state=20
+DOWN mode DEFAULT qlen 1000
+     link/ether 00:02:c9:e6:01:12 brd ff:ff:ff:ff:ff:ff
+19: eth18: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=20
+DEFAULT qlen 1000
+     link/ether 00:02:c9:e6:02:11 brd ff:ff:ff:ff:ff:ff
+20: eth19: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=20
+DEFAULT qlen 1000
+     link/ether 00:02:c9:e6:02:12 brd ff:ff:ff:ff:ff:ff
+21: eth28: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=20
+DEFAULT qlen 1000
+     link/ether 00:02:c9:e6:03:11 brd ff:ff:ff:ff:ff:ff
+22: eth27: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode=20
+DEFAULT qlen 1000
+     link/ether 00:02:c9:e6:03:12 brd ff:ff:ff:ff:ff:ff
+
+# pwd
+
+/sys/class/net
+
+# ls -l
+total 0
+lrwxrwxrwx 1 root root 0 Apr 24 18:44 br0 -> ../../devices/virtual/net/=
+br0
+lrwxrwxrwx 1 root root 0 Apr 24 18:44 eth0 ->=20
+=2E./../devices/pci0000:00/0000:00:01.0/0000:01:00.0/net/eth0
+lrwxrwxrwx 1 root root 0 Apr 24 18:44 eth1 ->=20
+=2E./../devices/pci0000:00/0000:00:01.0/0000:01:00.1/net/eth1
+lrwxrwxrwx 1 root root 0 Apr 24 18:45 eth10 ->=20
+=2E./../devices/pci0000:00/0000:00:09.0/0000:05:00.1/net/eth10
+lrwxrwxrwx 1 root root 0 Apr 24 18:45 eth11 ->=20
+=2E./../devices/pci0000:00/0000:00:09.0/0000:05:00.0/net/eth11
+lrwxrwxrwx 1 root root 0 Apr 24 18:51 eth16 ->=20
+=2E./../devices/pci0000:00/0000:00:07.0/0000:04:00.0/net/eth16
+lrwxrwxrwx 1 root root 0 Apr 24 18:51 eth17 ->=20
+=2E./../devices/pci0000:00/0000:00:07.0/0000:04:00.0/net/eth17
+lrwxrwxrwx 1 root root 0 Apr 24 18:51 eth18 ->=20
+=2E./../devices/pci0000:00/0000:00:07.0/0000:04:00.1/net/eth18
+lrwxrwxrwx 1 root root 0 Apr 24 18:51 eth19 ->=20
+=2E./../devices/pci0000:00/0000:00:07.0/0000:04:00.1/net/eth19
+lrwxrwxrwx 1 root root 0 Apr 24 18:44 eth20 ->=20
+=2E./../devices/pci0000:00/0000:00:09.0/0000:05:10.1/net/eth20
+lrwxrwxrwx 1 root root 0 Apr 24 18:44 eth22 ->=20
+=2E./../devices/pci0000:00/0000:00:09.0/0000:05:10.0/net/eth22
+lrwxrwxrwx 1 root root 0 Apr 24 18:51 eth27 ->=20
+=2E./../devices/pci0000:00/0000:00:07.0/0000:04:00.2/net/eth27
+lrwxrwxrwx 1 root root 0 Apr 24 18:51 eth28 ->=20
+=2E./../devices/pci0000:00/0000:00:07.0/0000:04:00.2/net/eth28
+lrwxrwxrwx 1 root root 0 Apr 24 18:44 lo -> ../../devices/virtual/net/l=
+o
