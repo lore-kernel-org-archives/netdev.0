@@ -1,7 +1,7 @@
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [PATCH net-next 5/7] qlcnic: Rename the IRQ description.
-Date: Wed, 24 Apr 2013 18:42:43 -0400
-Message-ID: <1366843365-2787-6-git-send-email-jitendra.kalsaria@qlogic.com>
+Subject: [PATCH net-next 6/7] qlcnic: Add identifying string for 83xx adapter
+Date: Wed, 24 Apr 2013 18:42:44 -0400
+Message-ID: <1366843365-2787-7-git-send-email-jitendra.kalsaria@qlogic.com>
 References: <1366843365-2787-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,109 +10,161 @@ Cc: <netdev@vger.kernel.org>, <sony.chacko@qlogic.com>,
 	Himanshu Madhani <himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:45498 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932204Ab3DXXHM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 19:07:12 -0400
+Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:48138
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932204Ab3DXXHR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 19:07:17 -0400
 In-Reply-To: <1366843365-2787-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-Here's what modified vectors will look like
-in the /proc/interrupts
-
-        MSIx             	INTx
------------------------------------------
-83xx    qlcnic[MB]
-	qlcnic-ethX[Rx0]
-	qlcnic-ethX[Rx1]
-	..
-	qlcnic-ethX[RxN]
-	qlcnic-ethx[Tx0]        qlcnic[MB+Tx0+Rx0]
-
-82xx    qlcnic-ethX[Rx0]
-	qlcnic-ethX[Rx1]
-	..
-	qlcnic-ethX[Tx0+RxN]    qlcnic-ethX[Tx0+Rx0]
+o Added identifying strings for 8300 Series of adapters.
+o updated PCI_VENDOR_ID_QLOGIC and PCI_DEVICE_ID_824X for 8200
+  Series adapter.
 
 Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      |    4 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   23 +++++++++++++++------
- 2 files changed, 18 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |  125 ++++++++++++++++++----
+ 1 files changed, 106 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 767c683..b2206db 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -519,13 +519,13 @@ struct qlcnic_host_sds_ring {
- 	int irq;
- 
- 	dma_addr_t phys_addr;
--	char name[IFNAMSIZ+4];
-+	char name[IFNAMSIZ + 12];
- } ____cacheline_internodealigned_in_smp;
- 
- struct qlcnic_host_tx_ring {
- 	int irq;
- 	void __iomem *crb_intr_mask;
--	char name[IFNAMSIZ+4];
-+	char name[IFNAMSIZ + 12];
- 	u16 ctx_id;
- 	u32 producer;
- 	u32 sw_consumer;
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 4e0bcb1..1310b7b 100644
+index 1310b7b..264d5a4 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -1287,7 +1287,7 @@ qlcnic_request_irq(struct qlcnic_adapter *adapter)
- 	irq_handler_t handler;
- 	struct qlcnic_host_sds_ring *sds_ring;
- 	struct qlcnic_host_tx_ring *tx_ring;
--	int err, ring;
-+	int err, ring, num_sds_rings;
+@@ -156,25 +156,112 @@ static const u32 qlcnic_reg_tbl[] = {
+ };
  
- 	unsigned long flags = 0;
- 	struct net_device *netdev = adapter->netdev;
-@@ -1318,10 +1318,20 @@ qlcnic_request_irq(struct qlcnic_adapter *adapter)
- 		if (qlcnic_82xx_check(adapter) ||
- 		    (qlcnic_83xx_check(adapter) &&
- 		     (adapter->flags & QLCNIC_MSIX_ENABLED))) {
--			for (ring = 0; ring < adapter->max_sds_rings; ring++) {
-+			num_sds_rings = adapter->max_sds_rings;
-+			for (ring = 0; ring < num_sds_rings; ring++) {
- 				sds_ring = &recv_ctx->sds_rings[ring];
--				snprintf(sds_ring->name, sizeof(int) + IFNAMSIZ,
--					 "%s[%d]", netdev->name, ring);
-+				if (qlcnic_82xx_check(adapter) &&
-+				    (ring == (num_sds_rings - 1)))
-+					snprintf(sds_ring->name,
-+						 sizeof(sds_ring->name),
-+						 "qlcnic-%s[Tx0+Rx%d]",
-+						 netdev->name, ring);
-+				else
-+					snprintf(sds_ring->name,
-+						 sizeof(sds_ring->name),
-+						 "qlcnic-%s[Rx%d]",
-+						 netdev->name, ring);
- 				err = request_irq(sds_ring->irq, handler, flags,
- 						  sds_ring->name, sds_ring);
- 				if (err)
-@@ -1335,9 +1345,8 @@ qlcnic_request_irq(struct qlcnic_adapter *adapter)
- 			for (ring = 0; ring < adapter->max_drv_tx_rings;
- 			     ring++) {
- 				tx_ring = &adapter->tx_ring[ring];
--				snprintf(tx_ring->name, sizeof(int) + IFNAMSIZ,
--					 "%s[%d]", netdev->name,
--					 adapter->max_sds_rings + ring);
-+				snprintf(tx_ring->name, sizeof(tx_ring->name),
-+					 "qlcnic-%s[Tx%d]", netdev->name, ring);
- 				err = request_irq(tx_ring->irq, handler, flags,
- 						  tx_ring->name, tx_ring);
- 				if (err)
+ static const struct qlcnic_board_info qlcnic_boards[] = {
+-	{0x1077, 0x8020, 0x1077, 0x203,
+-	 "8200 Series Single Port 10GbE Converged Network Adapter"
+-	 "(TCP/IP Networking)"},
+-	{0x1077, 0x8020, 0x1077, 0x207,
+-	 "8200 Series Dual Port 10GbE Converged Network Adapter"
+-	 "(TCP/IP Networking)"},
+-	{0x1077, 0x8020, 0x1077, 0x20b,
+-	 "3200 Series Dual Port 10Gb Intelligent Ethernet Adapter"},
+-	{0x1077, 0x8020, 0x1077, 0x20c,
+-	 "3200 Series Quad Port 1Gb Intelligent Ethernet Adapter"},
+-	{0x1077, 0x8020, 0x1077, 0x20f,
+-	 "3200 Series Single Port 10Gb Intelligent Ethernet Adapter"},
+-	{0x1077, 0x8020, 0x103c, 0x3733,
+-	 "NC523SFP 10Gb 2-port Server Adapter"},
+-	{0x1077, 0x8020, 0x103c, 0x3346,
+-	 "CN1000Q Dual Port Converged Network Adapter"},
+-	{0x1077, 0x8020, 0x1077, 0x210,
+-	 "QME8242-k 10GbE Dual Port Mezzanine Card"},
+-	{0x1077, 0x8020, 0x0, 0x0, "cLOM8214 1/10GbE Controller"},
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE834X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x24e,
++	  "8300 Series Dual Port 10GbE Converged Network Adapter "
++	  "(TCP/IP Networking)" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE834X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x243,
++	  "8300 Series Single Port 10GbE Converged Network Adapter "
++	  "(TCP/IP Networking)" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE834X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x24a,
++	  "8300 Series Dual Port 10GbE Converged Network Adapter "
++	  "(TCP/IP Networking)" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE834X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x246,
++	  "8300 Series Dual Port 10GbE Converged Network Adapter "
++	  "(TCP/IP Networking)" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE834X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x252,
++	  "8300 Series Dual Port 10GbE Converged Network Adapter "
++	  "(TCP/IP Networking)" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE834X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x26e,
++	  "8300 Series Dual Port 10GbE Converged Network Adapter "
++	  "(TCP/IP Networking)" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE834X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x260,
++	  "8300 Series Dual Port 10GbE Converged Network Adapter "
++	  "(TCP/IP Networking)" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE834X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x266,
++	  "8300 Series Single Port 10GbE Converged Network Adapter "
++	  "(TCP/IP Networking)" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE834X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x269,
++	  "8300 Series Dual Port 10GbE Converged Network Adapter "
++	  "(TCP/IP Networking)" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE834X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x271,
++	  "8300 Series Dual Port 10GbE Converged Network Adapter "
++	  "(TCP/IP Networking)" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE834X,
++	  0x0, 0x0, "8300 Series 1/10GbE Controller" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE824X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x203,
++	  "8200 Series Single Port 10GbE Converged Network Adapter"
++	  "(TCP/IP Networking)" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE824X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x207,
++	  "8200 Series Dual Port 10GbE Converged Network Adapter"
++	  "(TCP/IP Networking)" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE824X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x20b,
++	  "3200 Series Dual Port 10Gb Intelligent Ethernet Adapter" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE824X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x20c,
++	  "3200 Series Quad Port 1Gb Intelligent Ethernet Adapter" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE824X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x20f,
++	  "3200 Series Single Port 10Gb Intelligent Ethernet Adapter" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE824X,
++	  0x103c, 0x3733,
++	  "NC523SFP 10Gb 2-port Server Adapter" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE824X,
++	  0x103c, 0x3346,
++	  "CN1000Q Dual Port Converged Network Adapter" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE824X,
++	  PCI_VENDOR_ID_QLOGIC,
++	  0x210,
++	  "QME8242-k 10GbE Dual Port Mezzanine Card" },
++	{ PCI_VENDOR_ID_QLOGIC,
++	  PCI_DEVICE_ID_QLOGIC_QLE824X,
++	  0x0, 0x0, "cLOM8214 1/10GbE Controller" },
+ };
+ 
+ #define NUM_SUPPORTED_BOARDS ARRAY_SIZE(qlcnic_boards)
 -- 
 1.7.6.rc1.1.g2c162b
