@@ -1,79 +1,41 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH] mac80211_hwsim: correctly register the platform driver
-Date: Wed, 24 Apr 2013 00:40:05 -0400
-Message-ID: <1366778405-7584-1-git-send-email-sasha.levin@oracle.com>
-Cc: martin.pitt@ubuntu.com, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dcbw@redhat.com,
-	Sasha Levin <sasha.levin@oracle.com>
-To: johannes@sipsolutions.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next] ipv6: separate out procfs code from mcast.c
+Date: Wed, 24 Apr 2013 13:26:24 +0800
+Message-ID: <1366781184.3849.10.camel@cr0>
+References: <1366701302.21136.19.camel@cr0>
+		<20130423.031805.544535198246859192.davem@davemloft.net>
+	 <1366702220.21136.23.camel@cr0>
+		<20130423.033620.1101068519499870853.davem@davemloft.net>
+	 <1366702893.21136.28.camel@cr0> <87d2tlv32i.fsf@nemi.mork.no>
+	 <OF8FAF5C90.C6D83D68-ON85257B56.005F1762-85257B56.005FCD21@us.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: David Stevens <dlstevens@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40560 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752161Ab3DXF1U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Apr 2013 01:27:20 -0400
+In-Reply-To: <OF8FAF5C90.C6D83D68-ON85257B56.005F1762-85257B56.005FCD21@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Not registering a platform_driver would make us access garbage
-when the platform callbacks under driver_register() kicks in.
+On Tue, 2013-04-23 at 13:26 -0400, David Stevens wrote:
+> BTW, another thing I thought of after I sent my patch comments -- you
+> also need to consider the state of net.ipv6.bindv6only. When v6 is
+> enabled, you use one socket for v4 and v6, but if bindv6only=1, you
+> actually need a separate socket for v4 receives. If you want to support
+> both v4 and v6 with bindv6only=1, you need two sockets. Or even if you
+> want to support v4-only VXLAN and the sysadmin has set bindv6only=1.
+> 
 
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
----
- drivers/net/wireless/mac80211_hwsim.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+Good point!
 
-diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
-index b878a32..cb34c78 100644
---- a/drivers/net/wireless/mac80211_hwsim.c
-+++ b/drivers/net/wireless/mac80211_hwsim.c
-@@ -1723,11 +1723,11 @@ static void mac80211_hwsim_free(void)
- 	class_destroy(hwsim_class);
- }
- 
--
--static struct device_driver mac80211_hwsim_driver = {
--	.name = "mac80211_hwsim",
--	.bus = &platform_bus_type,
--	.owner = THIS_MODULE,
-+static struct platform_driver mac80211_hwsim_driver = {
-+	.driver = {
-+		.name = "mac80211_hwsim",
-+		.owner = THIS_MODULE,
-+	},
- };
- 
- static const struct net_device_ops hwsim_netdev_ops = {
-@@ -2219,7 +2219,7 @@ static int __init init_mac80211_hwsim(void)
- 	spin_lock_init(&hwsim_radio_lock);
- 	INIT_LIST_HEAD(&hwsim_radios);
- 
--	err = driver_register(&mac80211_hwsim_driver);
-+	err = platform_driver_register(&mac80211_hwsim_driver);
- 	if (err)
- 		return err;
- 
-@@ -2254,7 +2254,7 @@ static int __init init_mac80211_hwsim(void)
- 			err = -ENOMEM;
- 			goto failed_drvdata;
- 		}
--		data->dev->driver = &mac80211_hwsim_driver;
-+		data->dev->driver = &mac80211_hwsim_driver.driver;
- 		err = device_bind_driver(data->dev);
- 		if (err != 0) {
- 			printk(KERN_DEBUG
-@@ -2564,7 +2564,7 @@ failed_drvdata:
- failed:
- 	mac80211_hwsim_free();
- failed_unregister_driver:
--	driver_unregister(&mac80211_hwsim_driver);
-+	platform_driver_unregister(&mac80211_hwsim_driver);
- 	return err;
- }
- module_init(init_mac80211_hwsim);
-@@ -2577,6 +2577,6 @@ static void __exit exit_mac80211_hwsim(void)
- 
- 	mac80211_hwsim_free();
- 	unregister_netdev(hwsim_mon);
--	driver_unregister(&mac80211_hwsim_driver);
-+	platform_driver_unregister(&mac80211_hwsim_driver);
- }
- module_exit(exit_mac80211_hwsim);
--- 
-1.8.2.1
+Actually the initial version of my patch did use two sockets for v4 and
+v6. I am adding this to my TODO list.
+
+Thanks!
