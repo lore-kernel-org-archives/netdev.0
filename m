@@ -1,85 +1,47 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next v2 1/5] packet_diag: disclose uid value
-Date: Wed, 24 Apr 2013 17:52:32 +0200
-Message-ID: <1366818756-4234-2-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v2 0/5] sock_diag: monitor packet sockets
+Date: Wed, 24 Apr 2013 17:52:31 +0200
+Message-ID: <1366818756-4234-1-git-send-email-nicolas.dichtel@6wind.com>
 References: <51779426.7020800@6wind.com>
- <1366818756-4234-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-	davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+	davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:54882 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:54883 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757387Ab3DXPxQ (ORCPT
+	with ESMTP id S1757382Ab3DXPxQ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 11:53:16 -0400
-In-Reply-To: <1366818756-4234-1-git-send-email-nicolas.dichtel@6wind.com>
+In-Reply-To: <51779426.7020800@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This value is disclosed via /proc/net/packet but not via netlink messages.
-The goal is to have the same level of information.
+The goal of this patchset is to be able to monitor packet sockets.
+The two first patches add new attributes for packet_diag subsystem, so that all
+information exported via the /proc/net/packet are also exported via netlink.
+The third patch allows the user to get details about filter attached to a packet
+socket.
+Then, the two last one enable sockets monitoring. A netlink message is sent each
+time a packet socket is created, deleted or when the filter information are
+updated.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/uapi/linux/packet_diag.h |  1 +
- net/packet/diag.c                | 19 ++++++++++++++-----
- 2 files changed, 15 insertions(+), 5 deletions(-)
+As usual, the patch against iproute2 will be sent once the patches are included
+and net-next merged. I can send it on demand.
+With this serie, the tools ss can monitor packet sockets activity.
 
-diff --git a/include/uapi/linux/packet_diag.h b/include/uapi/linux/packet_diag.h
-index afafd70..84f83a4 100644
---- a/include/uapi/linux/packet_diag.h
-+++ b/include/uapi/linux/packet_diag.h
-@@ -32,6 +32,7 @@ enum {
- 	PACKET_DIAG_RX_RING,
- 	PACKET_DIAG_TX_RING,
- 	PACKET_DIAG_FANOUT,
-+	PACKET_DIAG_UID,
- 
- 	__PACKET_DIAG_MAX,
- };
-diff --git a/net/packet/diag.c b/net/packet/diag.c
-index d3fcd1e..04c8219 100644
---- a/net/packet/diag.c
-+++ b/net/packet/diag.c
-@@ -125,8 +125,10 @@ static int pdiag_put_fanout(struct packet_sock *po, struct sk_buff *nlskb)
- 	return ret;
- }
- 
--static int sk_diag_fill(struct sock *sk, struct sk_buff *skb, struct packet_diag_req *req,
--		u32 portid, u32 seq, u32 flags, int sk_ino)
-+static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
-+			struct packet_diag_req *req,
-+			struct user_namespace *user_ns,
-+			u32 portid, u32 seq, u32 flags, int sk_ino)
- {
- 	struct nlmsghdr *nlh;
- 	struct packet_diag_msg *rp;
-@@ -147,6 +149,11 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb, struct packet_diag
- 			pdiag_put_info(po, skb))
- 		goto out_nlmsg_trim;
- 
-+	if ((req->pdiag_show & PACKET_SHOW_INFO) &&
-+	    nla_put_u32(skb, PACKET_DIAG_UID,
-+			from_kuid_munged(user_ns, sock_i_uid(sk))))
-+		goto out_nlmsg_trim;
-+
- 	if ((req->pdiag_show & PACKET_SHOW_MCLIST) &&
- 			pdiag_put_mclist(po, skb))
- 		goto out_nlmsg_trim;
-@@ -183,9 +190,11 @@ static int packet_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 		if (num < s_num)
- 			goto next;
- 
--		if (sk_diag_fill(sk, skb, req, NETLINK_CB(cb->skb).portid,
--					cb->nlh->nlmsg_seq, NLM_F_MULTI,
--					sock_i_ino(sk)) < 0)
-+		if (sk_diag_fill(sk, skb, req,
-+				 sk_user_ns(NETLINK_CB(cb->skb).sk),
-+				 NETLINK_CB(cb->skb).portid,
-+				 cb->nlh->nlmsg_seq, NLM_F_MULTI,
-+				 sock_i_ino(sk)) < 0)
- 			goto done;
- next:
- 		num++;
--- 
-1.8.2.1
+v2: add sock_diag_notify_del() to avoid confusion of the meaning of the second
+    arg of __sock_diag_notify()
+    enhance commitlog of patch 3/5
+
+ include/linux/sock_diag.h        |  6 ++++
+ include/uapi/linux/packet_diag.h |  5 +++
+ include/uapi/linux/sock_diag.h   | 13 +++++++-
+ net/core/filter.c                |  3 ++
+ net/core/sock_diag.c             | 68 ++++++++++++++++++++++++++++++++++++++++
+ net/packet/af_packet.c           |  4 +++
+ net/packet/diag.c                | 49 +++++++++++++++++++++++++----
+ 7 files changed, 141 insertions(+), 7 deletions(-)
+
+Comments are welcome.
+
+Regards,
+Nicolas
