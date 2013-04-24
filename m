@@ -1,61 +1,39 @@
-From: Cyrill Gorcunov <gorcunov@openvz.org>
-Subject: Re: Unsigned widening casts of binary "not" operations..
-Date: Wed, 24 Apr 2013 11:47:35 +0400
-Message-ID: <20130424074735.GB1751@moon>
-References: <CA+55aFwpLu0qNms=hkQr43yqD0K9DgESNm91OEWKT1ZuT8MU6Q@mail.gmail.com>
- <20130424072630.GB1780@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next 5/5] sock_diag: notify when filter change
+Date: Wed, 24 Apr 2013 08:05:15 +0000 (UTC)
+Message-ID: <kl83nr$8t3$1@ger.gmane.org>
+References: <1366727277-19522-1-git-send-email-nicolas.dichtel@6wind.com>
+ <1366727277-19522-6-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	the arch/x86 maintainers <x86@kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-ext4@vger.kernel.org" <linux-ext4@vger.kernel.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Lin Ming <ming.m.lin@intel.com>
-To: Ingo Molnar <mingo@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130424072630.GB1780@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:40230 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756813Ab3DXIFi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Apr 2013 04:05:38 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UUuhm-0006EU-Ti
+	for netdev@vger.kernel.org; Wed, 24 Apr 2013 10:05:30 +0200
+Received: from 60.160.82.239 ([60.160.82.239])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 24 Apr 2013 10:05:30 +0200
+Received: from xiyou.wangcong by 60.160.82.239 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 24 Apr 2013 10:05:30 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 24, 2013 at 09:26:30AM +0200, Ingo Molnar wrote:
-> 
-> * Linus Torvalds <torvalds@linux-foundation.org> wrote:
-> 
-> > And there's quite a lot of them. Even in my (fairly small) config I use on
-> > my desktop. And the first warnings I see are in x86 code:
-> > 
-> >     arch/x86/kernel/traps.c:405:16: warning: implicit unsigned widening
-> > cast of a '~' expression
-> >     arch/x86/kernel/cpu/perf_event_p4.c:912:15: warning: implicit unsigned
-> > widening cast of a '~' expression
-> 
-> Hm, the perf_event_p4.c code is indeed confused.
-> 
-> I think the bug is real but probably benign in effect: we allow narrower 
-> values into the MSR register than probably intended. Only a couple of low 
-> bits are reserved AFAICS.
-> 
-> Here's an (untested!) patch that tries to untangle it all: it just moves 
-> to clean 64-bit types everywhere - these MSRs are 64-bit wide regardless 
-> of whether we run on 32-bit or not.
-> 
-> Would be nice if someone with a working P4 could test it - Cyrill? [It 
-> should also be double checked whether the high words are really not 
-> reserved and can be written to ...]
+On Tue, 23 Apr 2013 at 14:27 GMT, Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+> @@ -773,6 +775,7 @@ int sk_detach_filter(struct sock *sk)
+>  		RCU_INIT_POINTER(sk->sk_filter, NULL);
+>  		sk_filter_uncharge(sk, filter);
+>  		ret = 0;
+> +		sock_diag_notify(sk, 1);
 
-Hi Ingo! Ufortunately I don't have access to real p4 hardware,
-thus I'm CC'ing Ming who has been helping a lot in testing
-this code pieces.
+Should be sock_diag_notify(sk, 0)?
 
-Still the patch itself is perfectly fine to me
-
-Reviewed-by: Cyrill Gorcunov <gorcunov@openvz.org>
+BTW, use 'true' and 'false' instead of '1' and '0'.
