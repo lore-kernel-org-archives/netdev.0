@@ -1,40 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 08/14] pci: Add SRIOV helper function to determine
- if VFs are assigned to guest
-Date: Wed, 24 Apr 2013 16:18:25 -0400 (EDT)
-Message-ID: <20130424.161825.1007847105309092978.davem@davemloft.net>
-References: <5175B0A9.7070100@intel.com>
-	<20130423125101.00005bb7@unknown>
-	<CAErSpo58vRW+QoHMTzo4vNi4n8Z2RhG43rBesTUJS-4HRwfd1w@mail.gmail.com>
+Subject: Re: [PATCH net-next 0/6] net/mlx4: Add support to SRIOV VF
+ management ndo calls
+Date: Wed, 24 Apr 2013 16:30:49 -0400 (EDT)
+Message-ID: <20130424.163049.2212021825718596200.davem@davemloft.net>
+References: <1366821674-17902-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregory.v.rose@intel.com, alexander.h.duyck@intel.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, linux-pci@vger.kernel.org
-To: bhelgaas@google.com
+Cc: netdev@vger.kernel.org, amirv@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42995 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43091 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756997Ab3DXUS3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 16:18:29 -0400
-In-Reply-To: <CAErSpo58vRW+QoHMTzo4vNi4n8Z2RhG43rBesTUJS-4HRwfd1w@mail.gmail.com>
+	with ESMTP id S1757600Ab3DXUaw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 16:30:52 -0400
+In-Reply-To: <1366821674-17902-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Wed, 24 Apr 2013 14:10:38 -0600
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Wed, 24 Apr 2013 19:41:08 +0300
 
-> But this is no worse in either respect than the code it replaces, and
-> it's certainly better to have it all in one place, so:
+> This series adds support for the SRIOV ndo_set_vf callbacks to the mlx4 driver.
 > 
-> Acked-by: Bjorn Helgaas <bhelgaas@google.com>
+> Series done against the net-next tree as of commit 0c501345c "batman-adv: fix 
+> global protection fault during soft_iface destruction".
 > 
-> If you have a chance, you could remove the "extern" from the
-> declaration in include/linux/pci.h.  There's a mix there right now,
-> and I have a patch in the queue that removes them all.
+> We have successfully tested the series on net-next, except for getting
+> the VF link info issue I have reported earlier today on netdev, we 
+> see the problem for both ixgbe and mlx4 VFs. Just to make sure get 
+> VF config is working OK with patch #6 - we have run it over 3.8.8 too.
 
-Jeff please respin your pull request with Bjorn's ACK as well as
-the "extern" removal he's asking for.
-
-Thanks.
+Series applied, thanks.
