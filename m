@@ -1,88 +1,110 @@
 From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] ath6kl: Unify sg_sz and buf_sz in ath6kl_sdio_alloc_prep_scat_req()
-Date: Wed, 24 Apr 2013 14:02:34 +0200
-Message-ID: <1366804954-20491-1-git-send-email-geert@linux-m68k.org>
+Subject: Re: gre: Support GRE over IPv6
+Date: Wed, 24 Apr 2013 14:23:37 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.1304241417570.21513@ayla.of.borg>
+References: <20121002205219.7C3BD340556@ra.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: TEXT/PLAIN; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Kalle Valo <kvalo@qca.qualcomm.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from jacques.telenet-ops.be ([195.130.132.50]:51739 "EHLO
-	jacques.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932275Ab3DXMCm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 08:02:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Development <linux-kernel@vger.kernel.org>
+To: Dmitry Kozlov <xeb@mail.ru>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121002205219.7C3BD340556@ra.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-sg_sz and buf_sz are initialized and used in a mutual exclusive way.
-However, some versions of gcc are not smart enough to see this:
+On Tue, 2 Oct 2012, Linux Kernel Mailing List wrote:
+> Gitweb:     http://git.kernel.org/linus/;a=3Dcommit;h=3Dc12b395a46646=
+bab69089ce7016ac78177f6001f
+> Commit:     c12b395a46646bab69089ce7016ac78177f6001f
+> Parent:     b7bc2a5b5bd99b216c3e5fe68c7f45c684ab5745
+> Author:     xeb@mail.ru <xeb@mail.ru>
+> AuthorDate: Fri Aug 10 00:51:50 2012 +0000
+> Committer:  David S. Miller <davem@davemloft.net>
+> CommitDate: Tue Aug 14 14:28:32 2012 -0700
+>=20
+>     gre: Support GRE over IPv6
+>    =20
+>     GRE over IPv6 implementation.
+>    =20
+>     Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
 
-drivers/net/wireless/ath/ath6kl/sdio.c: In function =E2=80=98ath6kl_sdi=
-o_alloc_prep_scat_req=E2=80=99:
-drivers/net/wireless/ath/ath6kl/sdio.c:338: warning: =E2=80=98sg_sz=E2=80=
-=99 may be used uninitialized in this function
+> --- /dev/null
+> +++ b/net/ipv6/ip6_gre.c
 
-Unify the sg_sz and buf_sz variables into a single size variable to kil=
-l
-the compiler warning.
+> +static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+> +			 struct net_device *dev,
+> +			 __u8 dsfield,
+> +			 struct flowi6 *fl6,
+> +			 int encap_limit,
+> +			 __u32 *pmtu)
+> +{
+> +	struct net *net =3D dev_net(dev);
+> +	struct ip6_tnl *tunnel =3D netdev_priv(dev);
+> +	struct net_device *tdev;    /* Device to other host */
+> +	struct ipv6hdr  *ipv6h;     /* Our new IP header */
+> +	unsigned int max_headroom;  /* The extra header space needed */
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- drivers/net/wireless/ath/ath6kl/sdio.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+max_headroom is not initialized
 
-diff --git a/drivers/net/wireless/ath/ath6kl/sdio.c b/drivers/net/wirel=
-ess/ath/ath6kl/sdio.c
-index d111980..7638135 100644
---- a/drivers/net/wireless/ath/ath6kl/sdio.c
-+++ b/drivers/net/wireless/ath/ath6kl/sdio.c
-@@ -335,17 +335,17 @@ static int ath6kl_sdio_alloc_prep_scat_req(struct=
- ath6kl_sdio *ar_sdio,
- {
- 	struct hif_scatter_req *s_req;
- 	struct bus_request *bus_req;
--	int i, scat_req_sz, scat_list_sz, sg_sz, buf_sz;
-+	int i, scat_req_sz, scat_list_sz, size;
- 	u8 *virt_buf;
-=20
- 	scat_list_sz =3D (n_scat_entry - 1) * sizeof(struct hif_scatter_item)=
-;
- 	scat_req_sz =3D sizeof(*s_req) + scat_list_sz;
-=20
- 	if (!virt_scat)
--		sg_sz =3D sizeof(struct scatterlist) * n_scat_entry;
-+		size =3D sizeof(struct scatterlist) * n_scat_entry;
- 	else
--		buf_sz =3D  2 * L1_CACHE_BYTES +
--			  ATH6KL_MAX_TRANSFER_SIZE_PER_SCATTER;
-+		size =3D  2 * L1_CACHE_BYTES +
-+			ATH6KL_MAX_TRANSFER_SIZE_PER_SCATTER;
-=20
- 	for (i =3D 0; i < n_scat_req; i++) {
- 		/* allocate the scatter request */
-@@ -354,7 +354,7 @@ static int ath6kl_sdio_alloc_prep_scat_req(struct a=
-th6kl_sdio *ar_sdio,
- 			return -ENOMEM;
-=20
- 		if (virt_scat) {
--			virt_buf =3D kzalloc(buf_sz, GFP_KERNEL);
-+			virt_buf =3D kzalloc(size, GFP_KERNEL);
- 			if (!virt_buf) {
- 				kfree(s_req);
- 				return -ENOMEM;
-@@ -364,7 +364,7 @@ static int ath6kl_sdio_alloc_prep_scat_req(struct a=
-th6kl_sdio *ar_sdio,
- 				(u8 *)L1_CACHE_ALIGN((unsigned long)virt_buf);
- 		} else {
- 			/* allocate sglist */
--			s_req->sgentries =3D kzalloc(sg_sz, GFP_KERNEL);
-+			s_req->sgentries =3D kzalloc(size, GFP_KERNEL);
-=20
- 			if (!s_req->sgentries) {
- 				kfree(s_req);
---=20
-1.7.0.4
+> +	mtu =3D dst_mtu(dst) - sizeof(*ipv6h);
+> +	if (encap_limit >=3D 0) {
+> +		max_headroom +=3D 8;
+
+Hence gcc (4.1.2) rightfully complains:
+
+net/ipv6/ip6_gre.c: In function =E2=80=98ip6gre_xmit2=E2=80=99:
+net/ipv6/ip6_gre.c:713: warning: =E2=80=98max_headroom=E2=80=99 is used=
+ uninitialized in this function
+
+However, initializing max_headroom to zero at the top, or replacing the=
+ line
+above by "max_headroom =3D 8" doesn't seem to be the right fix...
+
+> +		mtu -=3D 8;
+> +	}
+> +	if (mtu < IPV6_MIN_MTU)
+> +		mtu =3D IPV6_MIN_MTU;
+> +	if (skb_dst(skb))
+> +		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
+> +	if (skb->len > mtu) {
+> +		*pmtu =3D mtu;
+> +		err =3D -EMSGSIZE;
+> +		goto tx_err_dst_release;
+> +	}
+> +
+> +	if (tunnel->err_count > 0) {
+> +		if (time_before(jiffies,
+> +				tunnel->err_time + IP6TUNNEL_ERR_TIMEO)) {
+> +			tunnel->err_count--;
+> +
+> +			dst_link_failure(skb);
+> +		} else
+> +			tunnel->err_count =3D 0;
+> +	}
+> +
+> +	max_headroom =3D LL_RESERVED_SPACE(tdev) + gre_hlen + dst->header_l=
+en;
+
+=2E.. as max_headroom is overwritten here anyway?
+
+So something is really wrong here. What is the right fix?
+
+This issue is present in current mainline as of v3.7.
+
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
+
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+							    -- Linus Torvalds
