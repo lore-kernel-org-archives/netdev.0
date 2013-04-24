@@ -1,60 +1,112 @@
-From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
-Subject: Re: [net-next PATCH 0/3] Adding phy register fixup in DT
-Date: Wed, 24 Apr 2013 14:12:30 +0530
-Message-ID: <51779AF6.8060808@ti.com>
-References: <1366654838-26479-1-git-send-email-mugunthanvnm@ti.com>
- <20130423080257.GQ32299@pengutronix.de>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: Re: [PATCH v2.26] datapath: Add basic MPLS support to
+	kernel
+Date: Wed, 24 Apr 2013 18:12:36 +0900
+Message-ID: <20130424091236.GA22998@verge.net.au>
+References: <1366596740-18246-1-git-send-email-horms@verge.net.au>
+	<EA113734-1070-43F9-B932-C8AD83CAAFA2@nsn.com>
+	<20130423015149.GI12017@verge.net.au>
+	<D94DF465-965B-4462-952C-D3A5793DD2B1@nsn.com>
+	<20130423075819.GB25776@verge.net.au>
+	<CAEP_g=-0ztV2QqEOA9bbSsD3eM8BQNE3607rc8G73Sw4+t5NkA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <20130423080257.GQ32299-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Cc: "<dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=-0ztV2QqEOA9bbSsD3eM8BQNE3607rc8G73Sw4+t5NkA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 4/23/2013 1:32 PM, Sascha Hauer wrote:
-> On Mon, Apr 22, 2013 at 11:50:35PM +0530, Mugunthan V N wrote:
->> In earlier days phy fixup was added to phy frame work in board files.
->> As there won't be any board files here after the same has to be done in DT
->> This patch series adds the following features
->> * support for adding phy resigter fixup via DT
->> * adds phy id for EVMsk n DTS file
->> * adds phy fixup for AM335x EVM and EVMsk
->>
->> Mugunthan V N (3):
->>    drivers: of: add phy fixup support in DT
->>    ARM: dts: AM33XX: Add CPSW phy_id device tree data to am335x-evmsk
->>    ARM: dts: AM33XX: add phy fixup for evm and evmsk boards
-> I generally do not offend to phy fixups from the devicetree. I see
-> though that becomes more and more common that we have to configure
-> the tx delays in phys.
->
-> The current way seems to be to hardcode register values for each board
-> which seems not very flexible and forces us to read phy datasheets
-> each time for a new board.
->
-> Wouldn't it make more sense to configure the actual delays (in ns) and
-> let the phy drivers figure out how to turn this into register values?
->
-> Not that I volunteer to write such things... :-/
->
-There is no calculation done for enabling RGMII Tx internal delay. Its all
-pre-calculated in Hardware (Either in Phy or EMAC)
-In this patch as CPSW IP in AM335x doesn't support internal delay inside
-SoC, so enabling the same in Phy and it is just a bit set in the phy debug
-registers
+On Tue, Apr 23, 2013 at 06:47:36PM -0700, Jesse Gross wrote:
+> On Tue, Apr 23, 2013 at 12:58 AM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
+> > On Tue, Apr 23, 2013 at 07:41:37AM +0000, Rajahalme, Jarno (NSN - FI/Espoo) wrote:
+> >>
+> >> On Apr 23, 2013, at 4:51 , ext Simon Horman wrote:
+> >>
+> >> > On Mon, Apr 22, 2013 at 01:55:43PM +0000, Rajahalme, Jarno (NSN - FI/Espoo) wrote:
+> >> >>
+> >> >> Here the skb_network_header is changed to point to the L3 header. Is it
+> >> >> significant that in some cases (?) mpls_stack_depth may remain at zero,
+> >> >> even when a MPLS header was in fact added? (See above).
+> >> >
+> >> > With the current code I believe there are the following cases:
+> >> >
+> >> > Input: non-MPLS skb: Output: network header and mac_len correspond to the
+> >> >                     beginning of the L3 headers
+> >> > Input: MPLS:         Output: network header and mac_len correspond to the
+> >> >                     end of the L2 headers.
+> >> >
+> >> > In the case of MPLS output the end of the L2 headers and the beginning
+> >> > of the L3 headers will differ.
+> >> >
+> >> >
+> >> > As far as I know the network header and mac_len only need to correspond to
+> >> > the beginning of the L3 header if GSO segmentation will occur (actually,
+> >> > some proposed changes to the network stack are required, see "[PATCH 0/2]
+> >> > Small Modifications to GSO to allow segmentation of MPLS").  That only
+> >> > occurs if the skb is GSO. Which in turn can only occur if the recieved
+> >> > packet is non-MPLS. This is because the linux kernel doesn't support
+> >> > MPLS offloads on receive (or anywhere else for that matter).
+> >> >
+> >> > In the case that we have a non-MPLS skb the stack depth starts at zero and
+> >> > is tracked. This is used to update the network header and mac_len.
+> >> > Otherwise the stack depth is unknown and the network header and mac_len are
+> >> > left as-is, corresponding to the end of the L2 headers.
+> >> >
+> >> > Actually, it is possible to tighten up the if clause to be the following,
+> >> > as it is only necessary to update the network header and mac_len for GSO skbs.
+> >> >
+> >> >     if (mpls_stack_depth && skb_is_gso(skb)) {
+> >> >             ...
+> >> >     }
+> >> >
+> >> > It is possible for us to find and track the MPLS stack depth for all cases
+> >> > and to update the network header and mac_len. However I don't think that
+> >> > there is any run-time benefit and it seems expensive to find out what the
+> >> > original stack depth was - I believe it would require parsing the MPLS
+> >> > entire stack for each packet.
+> >> >
+> >>
+> >> Thanks for explaining this.
+> >>
+> >> I think it would be better to keep updating the the network_header and mac_len for the Non-MPLS input packets regardless of the GSO status of the skb. It would be more consistent and less surprising.
+> >
+> > I agree entirely that it would be more consistent and less surprising.
+> > But I'm not sure if the cost is worth it.
+> >
+> > Jesse, do you have an opinion on this?
+> 
+> In general, I would tend to agree with Jarno that keeping this
+> consistent would be significantly easier to understand. I think the
+> cost is probably not particularly high.
 
-Regards
-Mugunthan V N
+I think it would be become high for large MPLS stack depths.
+But I'm happy to wear that if you are.
+
+> However, I also think that having different meanings for the layer
+> pointers inside and outside of OVS is not particularly ideal since it
+> makes the overall system harder to understand. Using network header
+> for the start of the MPLS stack might not be great since it means that
+> we couldn't really take advantage of any actual hardware offloading in
+> the future. Maybe we could use mac_len for that purpose and that would
+> keep things more consistent?
+
+To clarify, your suggestion is:
+
+mac_len: corresponds to the top of the MPLS stack
+network_header: corresponds to the bottom of the MPLS stack
+
+If so, yes I think that could work and I will see about making it so.
