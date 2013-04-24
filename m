@@ -1,79 +1,35 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: Unsigned widening casts of binary "not" operations..
-Date: Wed, 24 Apr 2013 14:36:15 +0200
-Message-ID: <CAMuHMdXzNMt63pOa3136Fmrs2tPQzh5SGe2YfCn+yGtzOyMqoQ@mail.gmail.com>
-References: <CA+55aFwogFL=nm=YHwARcz9OTRBdWEDPG0xcqM-H3k-VZTOZPQ@mail.gmail.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B71F2@saturn3.aculab.com>
-	<CA+55aFxvpcF7+dyy5d3+JP4Wfv90zPsRVtEhNG9Pky5gWTm_Pg@mail.gmail.com>
-	<20130423.133732.2222922370397287096.davem@davemloft.net>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [PATCH net-next 0/5] bnx2x: Enhancements patch series
+Date: Wed, 24 Apr 2013 14:44:57 +0300
+Message-ID: <1366803902-17870-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	David.Laight@aculab.com, Ingo Molnar <mingo@kernel.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"the arch/x86 maintainers" <x86@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-ext4@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130423.133732.2222922370397287096.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: ariele@broadcom.com, eilong@broadcom.com
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3478 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751178Ab3DXMqW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Apr 2013 08:46:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 23, 2013 at 7:37 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Linus Torvalds <torvalds@linux-foundation.org>
-> Date: Tue, 23 Apr 2013 08:42:49 -0700
->
->> An explicit cast fixes it, and shows that you were aware of the issu=
-e:
->>
->>    foo &=3D ~(foo_t)bar;
->>
->> and gcc will generate the right logic. Of course, casts then have
->> their own problems, which your thing avoids (as would just having a
->> "andn" operation in C)
->
-> I just want to mention that this is dangerous in different ways, we
-> just recently got a patch in the networking that removed such a cast.
-> The problem is when the cast narrows, f.e.:
->
->         ~(u8)0
->
-> doesn't do what you think it does.  That doesn't evaluate to 0xff.
+Hi Dave,
 
-This is the definition of MAC802154_CHAN_NONE?
+This patch series contains several enhancements, as well as small fixes:
 
-We _should_ have noticed this earlier, as old gcc (e.g. 4.1.2) emits a
-warning when comparing it to a u8:
+  - Patch [1/5] - Prevent a theoretical problem in our GRO implementation.
 
-net/mac802154/monitor.c: In function =E2=80=98mac802154_monitor_xmit=E2=
-=80=99:
-net/mac802154/monitor.c:49: warning: comparison is always false due to
-limited range of data type
-net/mac802154/wpan.c: In function =E2=80=98mac802154_wpan_xmit=E2=80=99=
-:
-net/mac802154/wpan.c:323: warning: comparison is always false due to
-limited range of data type
+  - Patch [2/5] - Support Rx/Tx pause control configuration in autoneg.
 
-Interestingly, none of this is seen in the build logs of the linux-next=
- build
-service, which uses gcc 4.2.3, 4.2.4, 4.5.1, and 4.6...
+  - Patch [3/5] - Enhance support for VF's MAC setting and removal.
 
-Gr{oetje,eeting}s,
+  - Patch [4/5] - Fix a small memory leak between bnx2x and cnic.
 
-                        Geert
+  - Patch [5/5] - Allow bnx2x to recover after a second slot reset.
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
+Please consider applying these patches to `net-next'.
 
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-                                -- Linus Torvalds
+Thanks,
+Yuval Mintz
