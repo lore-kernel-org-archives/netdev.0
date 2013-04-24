@@ -1,181 +1,48 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 2/6] net/mlx4: Add structures to keep VF Ethernet ports information
-Date: Wed, 24 Apr 2013 19:41:10 +0300
-Message-ID: <1366821674-17902-3-git-send-email-ogerlitz@mellanox.com>
-References: <1366821674-17902-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, amirv@mellanox.com,
-	Rony Efraim <ronye@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
+From: "Li, Sibai" <sibai.li@intel.com>
+Subject: RE: getting VF link info seems to be broken in 3.9-rc8
+Date: Wed, 24 Apr 2013 16:44:13 +0000
+Message-ID: <A3A921390EAE4044940E99EBF13D973224263635@FMSMSX104.amr.corp.intel.com>
+References: <5177D946.9080704@mellanox.com>
+ <20130424083825.00004f94@unknown> <20130424090133.00005ca6@unknown>
+ <A3A921390EAE4044940E99EBF13D97322426359F@FMSMSX104.amr.corp.intel.com>
+ <517809A4.3070001@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	netdev <netdev@vger.kernel.org>, Rony Efraim <ronye@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:39931 "EHLO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755970Ab3DXQlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 12:41:22 -0400
-In-Reply-To: <1366821674-17902-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mga14.intel.com ([143.182.124.37]:35448 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753407Ab3DXQoR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Apr 2013 12:44:17 -0400
+In-Reply-To: <517809A4.3070001@mellanox.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rony Efraim <ronye@mellanox.com>
-
-This patch add struct mlx4_vport_state where all the parameters related
-to management of VFs port (virtual ports of the NIC eswitch) are kept.
-
-The driver keeps an administrative and operational copy of the settings.
-The current administrative copy becomes operational on the event of probing
-a VF either on a VM or on the host.
-
-Signed-off-by: Rony Efraim <ronye@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/cmd.c  |   32 +++++++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/fw.c   |    4 +++
- drivers/net/ethernet/mellanox/mlx4/mlx4.h |   26 +++++++++++++++++++++++
- 3 files changed, 62 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 05267d7..0a301e1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -1490,6 +1490,16 @@ out:
- 	return ret;
- }
- 
-+static int mlx4_master_activate_admin_state(struct mlx4_priv *priv, int slave)
-+{
-+	int port;
-+	for (port = 1; port <= MLX4_MAX_PORTS; port++) {
-+		priv->mfunc.master.vf_oper[slave].vport[port].state =
-+				priv->mfunc.master.vf_admin[slave].vport[port];
-+	}
-+	return 0;
-+}
-+
- static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
- 			       u16 param, u8 toggle)
- {
-@@ -1556,6 +1566,7 @@ static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
- 		if (slave_state[slave].last_cmd != MLX4_COMM_CMD_VHCR2)
- 			goto reset_slave;
- 		slave_state[slave].vhcr_dma |= param;
-+		mlx4_master_activate_admin_state(priv, slave);
- 		slave_state[slave].active = true;
- 		mlx4_dispatch_event(dev, MLX4_DEV_EVENT_SLAVE_INIT, slave);
- 		break;
-@@ -1732,6 +1743,18 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
- 		if (!priv->mfunc.master.slave_state)
- 			goto err_comm;
- 
-+		priv->mfunc.master.vf_admin =
-+			kzalloc(dev->num_slaves *
-+				sizeof(struct mlx4_vf_admin_state), GFP_KERNEL);
-+		if (!priv->mfunc.master.vf_admin)
-+			goto err_comm_admin;
-+
-+		priv->mfunc.master.vf_oper =
-+			kzalloc(dev->num_slaves *
-+				sizeof(struct mlx4_vf_oper_state), GFP_KERNEL);
-+		if (!priv->mfunc.master.vf_oper)
-+			goto err_comm_oper;
-+
- 		for (i = 0; i < dev->num_slaves; ++i) {
- 			s_state = &priv->mfunc.master.slave_state[i];
- 			s_state->last_cmd = MLX4_COMM_CMD_RESET;
-@@ -1752,6 +1775,9 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
- 					goto err_slaves;
- 				}
- 				INIT_LIST_HEAD(&s_state->mcast_filters[port]);
-+				priv->mfunc.master.vf_admin[i].vport[port].default_vlan = MLX4_VGT;
-+				priv->mfunc.master.vf_oper[i].vport[port].vlan_idx = NO_INDX;
-+				priv->mfunc.master.vf_oper[i].vport[port].mac_idx = NO_INDX;
- 			}
- 			spin_lock_init(&s_state->lock);
- 		}
-@@ -1800,6 +1826,10 @@ err_slaves:
- 		for (port = 1; port <= MLX4_MAX_PORTS; port++)
- 			kfree(priv->mfunc.master.slave_state[i].vlan_filter[port]);
- 	}
-+	kfree(priv->mfunc.master.vf_oper);
-+err_comm_oper:
-+	kfree(priv->mfunc.master.vf_admin);
-+err_comm_admin:
- 	kfree(priv->mfunc.master.slave_state);
- err_comm:
- 	iounmap(priv->mfunc.comm);
-@@ -1874,6 +1904,8 @@ void mlx4_multi_func_cleanup(struct mlx4_dev *dev)
- 				kfree(priv->mfunc.master.slave_state[i].vlan_filter[port]);
- 		}
- 		kfree(priv->mfunc.master.slave_state);
-+		kfree(priv->mfunc.master.vf_admin);
-+		kfree(priv->mfunc.master.vf_oper);
- 	}
- 
- 	iounmap(priv->mfunc.comm);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index ab470d9..6e761d0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -806,6 +806,7 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
- 			    struct mlx4_cmd_mailbox *outbox,
- 			    struct mlx4_cmd_info *cmd)
- {
-+	struct mlx4_priv *priv = mlx4_priv(dev);
- 	u64 def_mac;
- 	u8 port_type;
- 	u16 short_field;
-@@ -823,6 +824,9 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
- 		/* set slave default_mac address */
- 		MLX4_GET(def_mac, outbox->buf, QUERY_PORT_MAC_OFFSET);
- 		def_mac += slave << 8;
-+		/* if config MAC in DB use it */
-+		if (priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier].state.mac)
-+			def_mac = priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier].state.mac;
- 		MLX4_PUT(outbox->buf, def_mac, QUERY_PORT_MAC_OFFSET);
- 
- 		/* get port type - currently only eth is enabled */
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 252f4ba..284f4c1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -470,6 +470,30 @@ struct mlx4_slave_state {
- 	enum slave_port_state port_state[MLX4_MAX_PORTS + 1];
- };
- 
-+#define MLX4_VGT 4095
-+#define NO_INDX  (-1)
-+
-+struct mlx4_vport_state {
-+	u64 mac;
-+	u16 default_vlan;
-+	u8  default_qos;
-+	u32 tx_rate;
-+	bool spoofchk;
-+};
-+
-+struct mlx4_vf_admin_state {
-+	struct mlx4_vport_state vport[MLX4_MAX_PORTS + 1];
-+};
-+
-+struct mlx4_vport_oper_state {
-+	struct mlx4_vport_state state;
-+	int mac_idx;
-+	int vlan_idx;
-+};
-+struct mlx4_vf_oper_state {
-+	struct mlx4_vport_oper_state vport[MLX4_MAX_PORTS + 1];
-+};
-+
- struct slave_list {
- 	struct mutex mutex;
- 	struct list_head res_list[MLX4_NUM_OF_RESOURCE_TYPE];
-@@ -500,6 +524,8 @@ struct mlx4_master_qp0_state {
- 
- struct mlx4_mfunc_master_ctx {
- 	struct mlx4_slave_state *slave_state;
-+	struct mlx4_vf_admin_state *vf_admin;
-+	struct mlx4_vf_oper_state *vf_oper;
- 	struct mlx4_master_qp0_state qp0_state[MLX4_MAX_PORTS + 1];
- 	int			init_port_ref[MLX4_MAX_PORTS + 1];
- 	u16			max_mtu[MLX4_MAX_PORTS + 1];
--- 
-1.7.1
+VGhpcyBtZWFucyB0aGF0IHRoZSBWRiBkcml2ZXIgaXMgbG9hZGVkIGJlZm9yZSB0aGUgUEYgaXMg
+bG9hZGVkLiBEaWQgeW91IHJlbG9hZCB0aGUgVkYgYWZ0ZXIgdGhlIFBGIGlzIGxvYWRlZD8NCj4g
+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT3IgR2VybGl0eiBbbWFpbHRvOm9n
+ZXJsaXR6QG1lbGxhbm94LmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBBcHJpbCAyNCwgMjAxMyA5
+OjM1IEFNDQo+IFRvOiBMaSwgU2liYWkNCj4gQ2M6IFJvc2UsIEdyZWdvcnkgVjsgRGF2aWQgTWls
+bGVyOyBEdXljaywgQWxleGFuZGVyIEg7IG5ldGRldjsgUm9ueSBFZnJhaW0NCj4gU3ViamVjdDog
+UmU6IGdldHRpbmcgVkYgbGluayBpbmZvIHNlZW1zIHRvIGJlIGJyb2tlbiBpbiAzLjktcmM4DQo+
+IA0KPiBPbiAyNC8wNC8yMDEzIDE5OjA4LCBMaSwgU2liYWkgd3JvdGU6DQo+ID4gVGhlIHZmcyBh
+cmUgbGlzdGVkLCBldGgyMi9ldGgyMC4gSnVzdCB0aGUgbWFjIGFkZHJlc3MgaXMgZGlmZmVyZW50
+LiBSZWxvYWQgdGhlDQo+IHZmIGRyaXZlciB0byBzZWUgaWYgaXQgY29ycmVjdHMgdGhlIHRoaW5n
+Lg0KPiANCj4gU3VyZSwgdGhlIFZGIGFyZSBsaXN0ZWQgYXMgTklDcyBvZiB0aGVpciBvd24sIHdo
+YXQncyBpc24ndCBsaXN0ZWQgaXMgdGhlIFZGIGluZm8gZnJvbQ0KPiB0aGUgUEYgTklDIGxpbmsg
+aW5mbywgZS5nIGhlcmUncyB0aGUgY2FzZXdoZXJlIGl0cyB3b3JraW5nLCBvbiBrZXJuZWwgMy44
+LjgtLSBteQ0KPiBwcm9ibGVtIGlzbid0IHRoZSBNQUMgbWlzYWxpZ25tZW50DQo+IA0KPiA4OiBl
+dGgxMTogPE5PLUNBUlJJRVIsQlJPQURDQVNULE1VTFRJQ0FTVCxVUD4gbXR1IDE1MDAgcWRpc2Mg
+bXEgc3RhdGUNCj4gRE9XTiBtb2RlIERFRkFVTFQgcWxlbiAxMDAwDQo+ICAgICAgbGluay9ldGhl
+ciAwMDoxYjoyMTo1NToxZDowMCBicmQgZmY6ZmY6ZmY6ZmY6ZmY6ZmYNCj4gICAgICB2ZiAwIE1B
+QyAwMDoxMTowMDoxMTowMDoxMSwgc3Bvb2YgY2hlY2tpbmcgb24NCj4gOTogZXRoMTA6IDxCUk9B
+RENBU1QsTVVMVElDQVNULFVQLExPV0VSX1VQPiBtdHUgMTUwMCBxZGlzYyBtcSBzdGF0ZQ0KPiBV
+UCBtb2RlIERPUk1BTlQgcWxlbiAxMDAwDQo+ICAgICAgbGluay9ldGhlciAwMDoxYjoyMTo1NTox
+ZDowMSBicmQgZmY6ZmY6ZmY6ZmY6ZmY6ZmYNCj4gICAgICB2ZiAwIE1BQyAwMDoxMDowMDoxMDow
+MDoxMCwgc3Bvb2YgY2hlY2tpbmcgb24NCg==
