@@ -1,42 +1,122 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] bnx2x: Enhancements patch series
-Date: Wed, 24 Apr 2013 16:35:29 -0400 (EDT)
-Message-ID: <20130424.163529.326546938987869912.davem@davemloft.net>
-References: <1366803902-17870-1-git-send-email-yuvalmin@broadcom.com>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: [net-next 08/14] pci: Add SRIOV helper function to determine if
+ VFs are assigned to guest
+Date: Wed, 24 Apr 2013 14:35:04 -0700
+Message-ID: <20130424143504.00007cd3@unknown>
+References: <1366451353-24714-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1366451353-24714-9-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1366515088.2209.15.camel@jtkirshe-mobl>
+	<CAErSpo4D4rn4G56+YT4Ja-S4cjnJ6svBaH3v+_n=cmS5CooC+g@mail.gmail.com>
+	<5175B0A9.7070100@intel.com>
+	<20130423125101.00005bb7@unknown>
+	<CAErSpo58vRW+QoHMTzo4vNi4n8Z2RhG43rBesTUJS-4HRwfd1w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariele@broadcom.com, eilong@broadcom.com
-To: yuvalmin@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43129 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757960Ab3DXUfc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 16:35:32 -0400
-In-Reply-To: <1366803902-17870-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, <gospo@redhat.com>,
+	<sassmann@redhat.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <CAErSpo58vRW+QoHMTzo4vNi4n8Z2RhG43rBesTUJS-4HRwfd1w@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Wed, 24 Apr 2013 14:44:57 +0300
+On Wed, 24 Apr 2013 14:10:38 -0600
+Bjorn Helgaas <bhelgaas@google.com> wrote:
 
-> This patch series contains several enhancements, as well as small fixes:
+> On Tue, Apr 23, 2013 at 1:51 PM, Greg Rose <gregory.v.rose@intel.com>
+> wrote:
+> > On Mon, 22 Apr 2013 14:50:33 -0700
+> > Alexander Duyck <alexander.h.duyck@intel.com> wrote:
+> >
+> >> On 04/22/2013 01:09 PM, Bjorn Helgaas wrote:
+> >> > On Sat, Apr 20, 2013 at 9:31 PM, Jeff Kirsher
+> >> > <jeffrey.t.kirsher@intel.com> wrote:
+> >> >> On Sat, 2013-04-20 at 02:49 -0700, Jeff Kirsher wrote:
+> >> >>> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> >> >>>
+> >> >>> This function is meant to add a helper function that will
+> >> >>> determine if a PF has any VFs that are currently assigned to a
+> >> >>> guest.  We currently have been implementing this function per
+> >> >>> driver, and going forward I would like to avoid that by making
+> >> >>> this function generic and using this helper.
+> >> >>>
+> >> >>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> >> >>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> >> >> Adding linux-pci mailing list and Bjorn to the CC.
+> >> >>
+> >> >> Bjorn- David Miller needs a signoff by PCI maintainer.
+> >> >>
+> >> >>> ---
+> >> >>>  drivers/pci/iov.c   | 41
+> >> >>> +++++++++++++++++++++++++++++++++++++++++ include/linux/pci.h |
+> >> >>> 5 +++++ 2 files changed, 46 insertions(+)
+> >> >>>
+> >> >>> diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
+> >> >>> index ee599f2..fd99720 100644
+> >> >>> --- a/drivers/pci/iov.c
+> >> >>> +++ b/drivers/pci/iov.c
+> >> >>> @@ -729,6 +729,47 @@ int pci_num_vf(struct pci_dev *dev)
+> >> >>>  EXPORT_SYMBOL_GPL(pci_num_vf);
+> >> >>>
+> >> >>>  /**
+> >> >>> + * pci_vfs_assigned - returns number of VFs are assigned to a
+> >> >>> guest
+> >> >>> + * @dev: the PCI device
+> >> >>> + *
+> >> >>> + * Returns number of VFs belonging to this device that are
+> >> >>> assigned to a guest.
+> >> >>> + * If device is not a physical function returns -ENODEV.
+> >> >>> + */
+> >> >>> +int pci_vfs_assigned(struct pci_dev *dev)
+> >> > I guess the idea here is to replace be_find_vfs(),
+> >> > igb_vfs_are_assigned(), ixgbe_vfs_are_assigned(), etc.  It does
+> >> > seem good to reduce duplicated code.
+> >>
+> >> The general idea was just to remove duplicate code.  As is we have
+> >> a couple more drivers on the way that would end up needing a
+> >> similar function.
+> >>
+> >> > I'm trying to figure out why this is safe -- there's no explicit
+> >> > synchronization between the iteration through PCI devices looking
+> >> > for matching VFs and the device assignment/deassignment paths
+> >> > that set or clear PCI_DEV_FLAGS_ASSIGNED, so on the face of it,
+> >> > it looks like things could change between calling
+> >> > pci_vfs_assigned() and using the result to make a decision.
+> >> >
+> >> > Most of the calls would be in .remove() functions, so maybe
+> >> > there's some sort of synchronization in that path that  makes
+> >> > this safe.
+> >> >
+> >> > Bjorn
+> >>
+> >> I'm assuming this will be used in regions that are somehow
+> >> protected since the main spots where this might be called would be
+> >> probe, remove, or when updating the number of VFs.  From what I
+> >> can tell in the Xen case there is a driver stub that is loaded
+> >> that sets the flag so that is covered by probe/remove.  I don't
+> >> know about the KVM case.
+> >
+> > KVM should be fine.  Setting/clearing the flag occurs while a
+> > device is being assigned to or removed from a VM - presumably
+> > device assignment is already safe against race conditions.  I'd
+> > find it hard to believe that it's not.  Code is
+> > in ../virt/assigned_dev.c and ../virt/iommu.c.
 > 
->   - Patch [1/5] - Prevent a theoretical problem in our GRO implementation.
-> 
->   - Patch [2/5] - Support Rx/Tx pause control configuration in autoneg.
-> 
->   - Patch [3/5] - Enhance support for VF's MAC setting and removal.
-> 
->   - Patch [4/5] - Fix a small memory leak between bnx2x and cnic.
-> 
->   - Patch [5/5] - Allow bnx2x to recover after a second slot reset.
-> 
-> Please consider applying these patches to `net-next'.
+> That's not a very convincing argument :)
 
-Applied, but please give a more detailed and verbose top-level description
-of what is happening in the series in your "0/N" emails.
+It's been a long time since I worked on that code.  Sorry, it's the
+best I've got, my memory gets real hazy on code that I haven't touched
+in a year or two.  But then that's part of my argument - if it were
+subject to race conditions it seems like someone would have run into it
+in the last couple of years.
 
-You're just regurgitating the git shortlog output, anybody can see that
-in the repo itself.  The idea of the "0/N" message body is to explain the
-series from a high level.
+But my apologies for the less than convincing argument!
+
+:)
+
+- Greg
