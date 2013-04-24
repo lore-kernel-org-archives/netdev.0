@@ -1,65 +1,67 @@
-From: "Li, Sibai" <sibai.li@intel.com>
-Subject: RE: getting VF link info seems to be broken in 3.9-rc8
-Date: Wed, 24 Apr 2013 16:56:36 +0000
-Message-ID: <A3A921390EAE4044940E99EBF13D97322426365E@FMSMSX104.amr.corp.intel.com>
-References: <5177D946.9080704@mellanox.com>
- <20130424083825.00004f94@unknown> <20130424090133.00005ca6@unknown>
- <A3A921390EAE4044940E99EBF13D97322426359F@FMSMSX104.amr.corp.intel.com>
- <517809A4.3070001@mellanox.com>
- <A3A921390EAE4044940E99EBF13D973224263635@FMSMSX104.amr.corp.intel.com>
- <C5551D9AAB213A418B7FD5E4A6F30A07676767C3@ORSMSX108.amr.corp.intel.com>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: [PATCH] x86: make DR*_RESERVED unsigned long
+Date: Wed, 24 Apr 2013 19:07:02 +0200
+Message-ID: <20130424170702.GA1867@redhat.com>
+References: <CA+55aFwpLu0qNms=hkQr43yqD0K9DgESNm91OEWKT1ZuT8MU6Q@mail.gmail.com> <20130424072630.GB1780@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	netdev <netdev@vger.kernel.org>, Rony Efraim <ronye@mellanox.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Cyrill Gorcunov <gorcunov@gmail.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	the arch/x86 maintainers <x86@kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-ext4@vger.kernel.org" <linux-ext4@vger.kernel.org>,
+	Fr??d??ric Weisbecker <fweisbec@gmail.com>
+To: Ingo Molnar <mingo@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:49776 "EHLO mga14.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:12452 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756393Ab3DXQ4j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Apr 2013 12:56:39 -0400
-In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A07676767C3@ORSMSX108.amr.corp.intel.com>
-Content-Language: en-US
+	id S1755073Ab3DXRKb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Apr 2013 13:10:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20130424072630.GB1780@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T2sgSSBzZWUgd2hhdCB5b3Ugc2V3IG5vdywgUlRORVRMSU5LIG1pZ2h0IGJlIGJyb2tlbi4NCg0K
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IFJvc2UsIEdyZWdvcnkgVg0K
-PiBTZW50OiBXZWRuZXNkYXksIEFwcmlsIDI0LCAyMDEzIDk6NDkgQU0NCj4gVG86IExpLCBTaWJh
-aTsgT3IgR2VybGl0eg0KPiBDYzogRGF2aWQgTWlsbGVyOyBEdXljaywgQWxleGFuZGVyIEg7IG5l
-dGRldjsgUm9ueSBFZnJhaW0NCj4gU3ViamVjdDogUkU6IGdldHRpbmcgVkYgbGluayBpbmZvIHNl
-ZW1zIHRvIGJlIGJyb2tlbiBpbiAzLjktcmM4DQo+IA0KPiANCj4gDQo+ID4gLS0tLS1PcmlnaW5h
-bCBNZXNzYWdlLS0tLS0NCj4gPiBGcm9tOiBMaSwgU2liYWkNCj4gPiBTZW50OiBXZWRuZXNkYXks
-IEFwcmlsIDI0LCAyMDEzIDk6NDQgQU0NCj4gPiBUbzogT3IgR2VybGl0eg0KPiA+IENjOiBSb3Nl
-LCBHcmVnb3J5IFY7IERhdmlkIE1pbGxlcjsgRHV5Y2ssIEFsZXhhbmRlciBIOyBuZXRkZXY7IFJv
-bnkNCj4gPiBFZnJhaW0NCj4gPiBTdWJqZWN0OiBSRTogZ2V0dGluZyBWRiBsaW5rIGluZm8gc2Vl
-bXMgdG8gYmUgYnJva2VuIGluIDMuOS1yYzgNCj4gPg0KPiA+IFRoaXMgbWVhbnMgdGhhdCB0aGUg
-VkYgZHJpdmVyIGlzIGxvYWRlZCBiZWZvcmUgdGhlIFBGIGlzIGxvYWRlZC4gRGlkDQo+ID4geW91
-IHJlbG9hZCB0aGUgVkYgYWZ0ZXIgdGhlIFBGIGlzIGxvYWRlZD8NCj4gDQo+IFNpYmFpLA0KPiAN
-Cj4gSXQgc2hvdWxkIG5vdCBtYXR0ZXIgd2hldGhlciB0aGUgVkYgZHJpdmVyIGlzIGxvYWRlZCBv
-ciBub3Qgd2hlbiBsaXN0aW5nIHRoZSBWRnMNCj4gdXNpbmcgImlwIGxpbmsgc2hvdyIuDQo+IA0K
-PiAtIEdyZWcNCj4gDQo+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+ID4gRnJv
-bTogT3IgR2VybGl0eiBbbWFpbHRvOm9nZXJsaXR6QG1lbGxhbm94LmNvbV0NCj4gPiA+IFNlbnQ6
-IFdlZG5lc2RheSwgQXByaWwgMjQsIDIwMTMgOTozNSBBTQ0KPiA+ID4gVG86IExpLCBTaWJhaQ0K
-PiA+ID4gQ2M6IFJvc2UsIEdyZWdvcnkgVjsgRGF2aWQgTWlsbGVyOyBEdXljaywgQWxleGFuZGVy
-IEg7IG5ldGRldjsgUm9ueQ0KPiA+ID4gRWZyYWltDQo+ID4gPiBTdWJqZWN0OiBSZTogZ2V0dGlu
-ZyBWRiBsaW5rIGluZm8gc2VlbXMgdG8gYmUgYnJva2VuIGluIDMuOS1yYzgNCj4gPiA+DQo+ID4g
-PiBPbiAyNC8wNC8yMDEzIDE5OjA4LCBMaSwgU2liYWkgd3JvdGU6DQo+ID4gPiA+IFRoZSB2ZnMg
-YXJlIGxpc3RlZCwgZXRoMjIvZXRoMjAuIEp1c3QgdGhlIG1hYyBhZGRyZXNzIGlzIGRpZmZlcmVu
-dC4NCj4gPiA+ID4gUmVsb2FkIHRoZQ0KPiA+ID4gdmYgZHJpdmVyIHRvIHNlZSBpZiBpdCBjb3Jy
-ZWN0cyB0aGUgdGhpbmcuDQo+ID4gPg0KPiA+ID4gU3VyZSwgdGhlIFZGIGFyZSBsaXN0ZWQgYXMg
-TklDcyBvZiB0aGVpciBvd24sIHdoYXQncyBpc24ndCBsaXN0ZWQgaXMNCj4gPiA+IHRoZSBWRiBp
-bmZvIGZyb20gdGhlIFBGIE5JQyBsaW5rIGluZm8sIGUuZyBoZXJlJ3MgdGhlIGNhc2V3aGVyZSBp
-dHMNCj4gPiA+IHdvcmtpbmcsIG9uIGtlcm5lbCAzLjguOC0tIG15IHByb2JsZW0gaXNuJ3QgdGhl
-IE1BQyBtaXNhbGlnbm1lbnQNCj4gPiA+DQo+ID4gPiA4OiBldGgxMTogPE5PLUNBUlJJRVIsQlJP
-QURDQVNULE1VTFRJQ0FTVCxVUD4gbXR1IDE1MDAgcWRpc2MgbXENCj4gPiA+IHN0YXRlIERPV04g
-bW9kZSBERUZBVUxUIHFsZW4gMTAwMA0KPiA+ID4gICAgICBsaW5rL2V0aGVyIDAwOjFiOjIxOjU1
-OjFkOjAwIGJyZCBmZjpmZjpmZjpmZjpmZjpmZg0KPiA+ID4gICAgICB2ZiAwIE1BQyAwMDoxMTow
-MDoxMTowMDoxMSwgc3Bvb2YgY2hlY2tpbmcgb24NCj4gPiA+IDk6IGV0aDEwOiA8QlJPQURDQVNU
-LE1VTFRJQ0FTVCxVUCxMT1dFUl9VUD4gbXR1IDE1MDAgcWRpc2MgbXENCj4gc3RhdGUNCj4gPiA+
-IFVQIG1vZGUgRE9STUFOVCBxbGVuIDEwMDANCj4gPiA+ICAgICAgbGluay9ldGhlciAwMDoxYjoy
-MTo1NToxZDowMSBicmQgZmY6ZmY6ZmY6ZmY6ZmY6ZmYNCj4gPiA+ICAgICAgdmYgMCBNQUMgMDA6
-MTA6MDA6MTA6MDA6MTAsIHNwb29mIGNoZWNraW5nIG9uDQo=
+DR6_RESERVED and DR_CONTROL_RESERVED are used to clear the set
+bits in the "unsigned long" data, make them long to ensure that
+"&~" doesn't clear the upper bits.
+
+do_debug() and ptrace_write_dr7() which use DR*_RESERVED look
+safe, but probably it makes sense to cleanup anyway.
+
+Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Oleg Nesterov <oleg@redhat.com>
+---
+ arch/x86/include/uapi/asm/debugreg.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/include/uapi/asm/debugreg.h b/arch/x86/include/uapi/asm/debugreg.h
+index 3c0874d..75d07dd 100644
+--- a/arch/x86/include/uapi/asm/debugreg.h
++++ b/arch/x86/include/uapi/asm/debugreg.h
+@@ -15,7 +15,7 @@
+    are either reserved or not of interest to us. */
+ 
+ /* Define reserved bits in DR6 which are always set to 1 */
+-#define DR6_RESERVED	(0xFFFF0FF0)
++#define DR6_RESERVED	(0xFFFF0FF0ul)
+ 
+ #define DR_TRAP0	(0x1)		/* db0 */
+ #define DR_TRAP1	(0x2)		/* db1 */
+@@ -65,7 +65,7 @@
+    gdt or the ldt if we want to.  I am not sure why this is an advantage */
+ 
+ #ifdef __i386__
+-#define DR_CONTROL_RESERVED (0xFC00) /* Reserved by Intel */
++#define DR_CONTROL_RESERVED (0xFC00ul) /* Reserved by Intel */
+ #else
+ #define DR_CONTROL_RESERVED (0xFFFFFFFF0000FC00UL) /* Reserved */
+ #endif
+-- 
+1.5.5.1
