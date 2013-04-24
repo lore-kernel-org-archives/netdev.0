@@ -1,40 +1,45 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [net-next PATCH 0/4] net: frag patchset for fixing LRU scalabilityissue
-Date: Wed, 24 Apr 2013 17:21:31 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B71F9@saturn3.aculab.com>
-References: <20130424154624.16883.40974.stgit@dragon>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2 3/5] sock_diag: allow to dump bpf filters
+Date: Wed, 24 Apr 2013 09:22:45 -0700
+Message-ID: <1366820565.8964.78.camel@edumazet-glaptop>
+References: <51779426.7020800@6wind.com>
+	 <1366818756-4234-1-git-send-email-nicolas.dichtel@6wind.com>
+	 <1366818756-4234-4-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>, "Eric Dumazet" <eric.dumazet@gmail.com>
-To: "Jesper Dangaard Brouer" <brouer@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Hannes Frederic Sowa" <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	davem@davemloft.net
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:40793 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1755689Ab3DXQWh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Apr 2013 12:22:37 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 01337-03 for <netdev@vger.kernel.org>;
- Wed, 24 Apr 2013 17:22:33 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <20130424154624.16883.40974.stgit@dragon>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:35046 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755689Ab3DXQWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 12:22:48 -0400
+Received: by mail-pd0-f176.google.com with SMTP id r11so1229204pdi.7
+        for <netdev@vger.kernel.org>; Wed, 24 Apr 2013 09:22:47 -0700 (PDT)
+In-Reply-To: <1366818756-4234-4-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBJIGhhdmUgZHJvcHBlZCB0aGUgaWRlYSBvZiBkb2luZyAiZGlyZWN0IGhhc2ggY2xlYW5pbmci
-LiAgSW5zdGVhZCBJDQo+IGhhdmUgc2ltcGx5IGNob29zZW4gdG8gc29sdmUgdGhlIGdsb2JhbCBM
-UlUgbGlzdCBwcm9ibGVtLCBieSBtYWtpbmcNCj4gdGhlIExSVSBsaXN0IGJlIHBlciBDUFUuDQoN
-CkhvdyBjYW4gYSBwZXItY3B1IExSVSBsaXN0IHdvcms/DQpJIHNlZSB0d28gaW1tZWRpYXRlIHBy
-b2JsZW1zOg0KLSBFbnN1cmluZyB0aGUgbm9ybWFsICdhbGxvY2F0ZScgYW5kICdmcmVlJyBhcmUg
-YWx3YXlzIGRvbmUNCiAgb24gdGhlIHNhbWUgY3B1IChmcmVlIHdpbGwgbmVlZCB0byByZW1vdmUg
-aXRlbXMgZnJvbSBhbnkNCiAgTFJVIGxpc3QpLg0KLSBFbnN1cmluZyB0aGF0IHRoZXJlIGFsbCB0
-aGUgaXRlbXMgYXJlbid0IG9uIHRoZSBMUlUgbGlzdHMNCiAgb2Ygb3RoZXIgY3B1cyAtIG1lYW5p
-bmcgb25lIGNhbid0IGJlIGFsbG9jYXRlZC4NCg0KVGhlIG9ubHkgd2F5IHRoaXMgY291bGQgd29y
-ayBpcyBpZiB0aGUgYWxsb2NhdGlvbiBsaW1pdA0KaXMgYWxzbyBwZXItY3B1IGFuZCB5b3UgY2Fu
-IGd1YXJhbnRlZSB0aGF0IHRoZSBhbGxvYyBhbmQNCmZyZWUgZm9yIGFueSBnaXZlbiBpdGVtIHdp
-bGwgYWx3YXlzIGhhcHBlbiBvbiB0aGUgc2FtZSBjcHUuDQoNCihhbGxvYyBhcyBpbiAnYWRkIHRv
-IExSVSBsaXN0LCBmcmVlIGFzIGluICdyZW1vdmUgZnJvbSBMUlUgbGlzdCkuDQoNCglEYXZpZA0K
+On Wed, 2013-04-24 at 17:52 +0200, Nicolas Dichtel wrote:
+> This patch allows to dump BPF filters attached to a socket with
+> SO_ATTACH_FILTER. In other words, users allowing to open netlink sockets can
+> see filters set on a socket (when the diag module of the socket family is
+> loaded).
+
+To my knowledge, opening netlink sockets is not restricted.
+
+I do not want user lambda being able to see my BPF filters.
+
+I am root, and was assuming user lambda could not spy on me.
+
+$ cat /proc/net/packet 
+sk       RefCnt Type Proto  Iface R Rmem   User   Inode
+0000000000000000 3      10   0003   3     1 0      0      1089989
+0000000000000000 3      10   0003   2     1 0      0      1050535
+0000000000000000 3      2    888e   3     1 0      0      1041970
+
+
+With this information, it seems safe enough, but the whole BPF could
+give interesting ideas to user lambda.
