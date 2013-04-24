@@ -1,29 +1,40 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] mac80211_hwsim: correctly register the platform driver
-Date: Wed, 24 Apr 2013 12:56:41 +0200
-Message-ID: <1366801001.11111.8.camel@jlt4.sipsolutions.net>
-References: <1366778405-7584-1-git-send-email-sasha.levin@oracle.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Some questions regarding dev branches and workflow
+Date: Wed, 24 Apr 2013 11:58:27 +0100
+Message-ID: <20130424105827.GF7466@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: martin.pitt-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1366778405-7584-1-git-send-email-sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:58469 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932107Ab3DXK63 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Apr 2013 06:58:29 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-04-24 at 00:40 -0400, Sasha Levin wrote:
-> Not registering a platform_driver would make us access garbage
-> when the platform callbacks under driver_register() kicks in.
+Hi Dave
 
-Applied, thanks.
+I have some questions regarding your two branches and workflow.
 
-johannes
+What release is the current 'net-next' targeting? 3.10 or 3.11?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If I understand correctly, the patches in 'net-next' will eventually go
+into 'net', right?
+
+>From your last email, you said the only way for patches to make way to
+-stable is to post them against 'net' branch. I can post patches for
+fixing Xen XSA-39 regression again 'net'. However as some changes for
+netback went in, you might have trouble flipping 'net-next' to 'net'
+because of conflicts. So if 'net-next' will become 'net' within a
+reasonable amount of time, we can wait until it happens.
+
+I certainly don't want to generate any extra workload for you, that's
+why I ask these questions.
+
+
+Thanks
+Wei.
