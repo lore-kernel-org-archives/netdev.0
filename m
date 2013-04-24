@@ -1,39 +1,59 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next 5/5] sock_diag: notify when filter change
-Date: Wed, 24 Apr 2013 08:05:15 +0000 (UTC)
-Message-ID: <kl83nr$8t3$1@ger.gmane.org>
-References: <1366727277-19522-1-git-send-email-nicolas.dichtel@6wind.com>
- <1366727277-19522-6-git-send-email-nicolas.dichtel@6wind.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [PATCH net-next] netlink: compiling issue, need a dummy function
+ sk_diag_put_rings_cfg when CONFIG_NETLINK_MMAP disabled
+Date: Wed, 24 Apr 2013 16:09:43 +0800
+Message-ID: <51779347.2000808@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, kaber@trash.net,
+	xemul@parallels.com, avagin@openvz.org,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:40230 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756813Ab3DXIFi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Apr 2013 04:05:38 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UUuhm-0006EU-Ti
-	for netdev@vger.kernel.org; Wed, 24 Apr 2013 10:05:30 +0200
-Received: from 60.160.82.239 ([60.160.82.239])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 24 Apr 2013 10:05:30 +0200
-Received: from xiyou.wangcong by 60.160.82.239 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 24 Apr 2013 10:05:30 +0200
+Received: from intranet.asianux.com ([58.214.24.6]:25991 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757849Ab3DXIKa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 04:10:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 Apr 2013 at 14:27 GMT, Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
-> @@ -773,6 +775,7 @@ int sk_detach_filter(struct sock *sk)
->  		RCU_INIT_POINTER(sk->sk_filter, NULL);
->  		sk_filter_uncharge(sk, filter);
->  		ret = 0;
-> +		sock_diag_notify(sk, 1);
 
-Should be sock_diag_notify(sk, 0)?
+When disable CONFIG_NETLINK_MMAP, need a dummy function for 
+sk_diag_put_rings_cfg, or will cause compiling issue.
 
-BTW, use 'true' and 'false' instead of '1' and '0'.
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+---
+ net/netlink/diag.c |   11 +++++++++++
+ 1 files changed, 11 insertions(+), 0 deletions(-)
+
+diff --git a/net/netlink/diag.c b/net/netlink/diag.c
+index 4e4aa47..d0ab090 100644
+--- a/net/netlink/diag.c
++++ b/net/netlink/diag.c
+@@ -7,6 +7,8 @@
+ 
+ #include "af_netlink.h"
+ 
++#ifdef CONFIG_NETLINK_MMAP
++
+ static int sk_diag_put_ring(struct netlink_ring *ring, int nl_type,
+ 			    struct sk_buff *nlskb)
+ {
+@@ -35,6 +37,15 @@ static int sk_diag_put_rings_cfg(struct sock *sk, struct sk_buff *nlskb)
+ 	return ret;
+ }
+ 
++#else /* !CONFIG_NETLINK_MMAP */
++
++static int sk_diag_put_rings_cfg(struct sock *sk, struct sk_buff *nlskb)
++{
++	return 0;
++}
++
++#endif /* CONFIG_NETLINK_MMAP */
++
+ static int sk_diag_dump_groups(struct sock *sk, struct sk_buff *nlskb)
+ {
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+-- 
+1.7.7.6
