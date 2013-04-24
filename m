@@ -1,25 +1,57 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: getting VF link info seems to be broken in 3.9-rc8
-Date: Wed, 24 Apr 2013 19:45:34 +0300
-Message-ID: <51780C2E.9090201@mellanox.com>
-References: <5177D946.9080704@mellanox.com> <20130424083825.00004f94@unknown> <20130424090133.00005ca6@unknown> <A3A921390EAE4044940E99EBF13D97322426359F@FMSMSX104.amr.corp.intel.com> <517809A4.3070001@mellanox.com> <A3A921390EAE4044940E99EBF13D973224263635@FMSMSX104.amr.corp.intel.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: getting VF link info seems to be broken in 3.9-rc8
+Date: Wed, 24 Apr 2013 16:48:57 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A07676767C3@ORSMSX108.amr.corp.intel.com>
+References: <5177D946.9080704@mellanox.com>
+ <20130424083825.00004f94@unknown> <20130424090133.00005ca6@unknown>
+ <A3A921390EAE4044940E99EBF13D97322426359F@FMSMSX104.amr.corp.intel.com>
+ <517809A4.3070001@mellanox.com>
+ <A3A921390EAE4044940E99EBF13D973224263635@FMSMSX104.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
 	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
 	netdev <netdev@vger.kernel.org>, Rony Efraim <ronye@mellanox.com>
-To: "Li, Sibai" <sibai.li@intel.com>
+To: "Li, Sibai" <sibai.li@intel.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog125.obsmtp.com ([207.126.144.159]:52033 "EHLO
-	eu1sys200aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754934Ab3DXQpx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 12:45:53 -0400
+Received: from mga09.intel.com ([134.134.136.24]:22527 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756156Ab3DXQvF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Apr 2013 12:51:05 -0400
 In-Reply-To: <A3A921390EAE4044940E99EBF13D973224263635@FMSMSX104.amr.corp.intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 24/04/2013 19:44, Li, Sibai wrote:
-> This means that the VF driver is loaded before the PF is loaded. Did you reload the VF after the PF is loaded?
-I have reloaded the VF driver now and it didn't make any difference
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogTGksIFNpYmFpDQo+IFNl
+bnQ6IFdlZG5lc2RheSwgQXByaWwgMjQsIDIwMTMgOTo0NCBBTQ0KPiBUbzogT3IgR2VybGl0eg0K
+PiBDYzogUm9zZSwgR3JlZ29yeSBWOyBEYXZpZCBNaWxsZXI7IER1eWNrLCBBbGV4YW5kZXIgSDsg
+bmV0ZGV2OyBSb255IEVmcmFpbQ0KPiBTdWJqZWN0OiBSRTogZ2V0dGluZyBWRiBsaW5rIGluZm8g
+c2VlbXMgdG8gYmUgYnJva2VuIGluIDMuOS1yYzgNCj4gDQo+IFRoaXMgbWVhbnMgdGhhdCB0aGUg
+VkYgZHJpdmVyIGlzIGxvYWRlZCBiZWZvcmUgdGhlIFBGIGlzIGxvYWRlZC4gRGlkIHlvdQ0KPiBy
+ZWxvYWQgdGhlIFZGIGFmdGVyIHRoZSBQRiBpcyBsb2FkZWQ/DQoNClNpYmFpLA0KDQpJdCBzaG91
+bGQgbm90IG1hdHRlciB3aGV0aGVyIHRoZSBWRiBkcml2ZXIgaXMgbG9hZGVkIG9yIG5vdCB3aGVu
+IGxpc3RpbmcgdGhlIFZGcyB1c2luZyAiaXAgbGluayBzaG93Ii4NCg0KLSBHcmVnDQoNCj4gPiAt
+LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+IEZyb206IE9yIEdlcmxpdHogW21haWx0bzpv
+Z2VybGl0ekBtZWxsYW5veC5jb21dDQo+ID4gU2VudDogV2VkbmVzZGF5LCBBcHJpbCAyNCwgMjAx
+MyA5OjM1IEFNDQo+ID4gVG86IExpLCBTaWJhaQ0KPiA+IENjOiBSb3NlLCBHcmVnb3J5IFY7IERh
+dmlkIE1pbGxlcjsgRHV5Y2ssIEFsZXhhbmRlciBIOyBuZXRkZXY7IFJvbnkNCj4gPiBFZnJhaW0N
+Cj4gPiBTdWJqZWN0OiBSZTogZ2V0dGluZyBWRiBsaW5rIGluZm8gc2VlbXMgdG8gYmUgYnJva2Vu
+IGluIDMuOS1yYzgNCj4gPg0KPiA+IE9uIDI0LzA0LzIwMTMgMTk6MDgsIExpLCBTaWJhaSB3cm90
+ZToNCj4gPiA+IFRoZSB2ZnMgYXJlIGxpc3RlZCwgZXRoMjIvZXRoMjAuIEp1c3QgdGhlIG1hYyBh
+ZGRyZXNzIGlzIGRpZmZlcmVudC4NCj4gPiA+IFJlbG9hZCB0aGUNCj4gPiB2ZiBkcml2ZXIgdG8g
+c2VlIGlmIGl0IGNvcnJlY3RzIHRoZSB0aGluZy4NCj4gPg0KPiA+IFN1cmUsIHRoZSBWRiBhcmUg
+bGlzdGVkIGFzIE5JQ3Mgb2YgdGhlaXIgb3duLCB3aGF0J3MgaXNuJ3QgbGlzdGVkIGlzDQo+ID4g
+dGhlIFZGIGluZm8gZnJvbSB0aGUgUEYgTklDIGxpbmsgaW5mbywgZS5nIGhlcmUncyB0aGUgY2Fz
+ZXdoZXJlIGl0cw0KPiA+IHdvcmtpbmcsIG9uIGtlcm5lbCAzLjguOC0tIG15IHByb2JsZW0gaXNu
+J3QgdGhlIE1BQyBtaXNhbGlnbm1lbnQNCj4gPg0KPiA+IDg6IGV0aDExOiA8Tk8tQ0FSUklFUixC
+Uk9BRENBU1QsTVVMVElDQVNULFVQPiBtdHUgMTUwMCBxZGlzYyBtcSBzdGF0ZQ0KPiA+IERPV04g
+bW9kZSBERUZBVUxUIHFsZW4gMTAwMA0KPiA+ICAgICAgbGluay9ldGhlciAwMDoxYjoyMTo1NTox
+ZDowMCBicmQgZmY6ZmY6ZmY6ZmY6ZmY6ZmYNCj4gPiAgICAgIHZmIDAgTUFDIDAwOjExOjAwOjEx
+OjAwOjExLCBzcG9vZiBjaGVja2luZyBvbg0KPiA+IDk6IGV0aDEwOiA8QlJPQURDQVNULE1VTFRJ
+Q0FTVCxVUCxMT1dFUl9VUD4gbXR1IDE1MDAgcWRpc2MgbXEgc3RhdGUgVVANCj4gPiBtb2RlIERP
+Uk1BTlQgcWxlbiAxMDAwDQo+ID4gICAgICBsaW5rL2V0aGVyIDAwOjFiOjIxOjU1OjFkOjAxIGJy
+ZCBmZjpmZjpmZjpmZjpmZjpmZg0KPiA+ICAgICAgdmYgMCBNQUMgMDA6MTA6MDA6MTA6MDA6MTAs
+IHNwb29mIGNoZWNraW5nIG9uDQo=
