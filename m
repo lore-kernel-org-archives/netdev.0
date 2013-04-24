@@ -1,119 +1,51 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2.26] datapath: Add basic MPLS support to kernel
-Date: Wed, 24 Apr 2013 10:51:37 -0700
-Message-ID: <CAEP_g=8DkttniMXMP4N691CbGKo-ACqNsOJ+RwOAA8F101h9Uw@mail.gmail.com>
-References: <1366596740-18246-1-git-send-email-horms@verge.net.au>
- <EA113734-1070-43F9-B932-C8AD83CAAFA2@nsn.com> <20130423015149.GI12017@verge.net.au>
- <D94DF465-965B-4462-952C-D3A5793DD2B1@nsn.com> <20130423075819.GB25776@verge.net.au>
- <CAEP_g=-0ztV2QqEOA9bbSsD3eM8BQNE3607rc8G73Sw4+t5NkA@mail.gmail.com> <20130424091236.GA22998@verge.net.au>
+From: Thadeu Lima de Souza Cascardo <cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: Re: linux-next: manual merge of the net-next tree with the
+ infiniband tree
+Date: Wed, 24 Apr 2013 14:53:04 -0300
+Message-ID: <20130424175304.GA701@oc0268524204.ibm.com>
+References: <20130418131843.bfeb6b1ad5fba1b0f706076e@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Rajahalme, Jarno (NSN - FI/Espoo)" <jarno.rajahalme@nsn.com>,
-	"<dev@openvswitch.org>" <dev@openvswitch.org>,
-	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-	Ravi K <rkerur@gmail.com>,
-	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Ben Pfaff <blp@nicira.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog121.obsmtp.com ([74.125.149.145]:41778 "HELO
-	na3sys009aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1757003Ab3DXRwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 13:52:03 -0400
-Received: by mail-ob0-f198.google.com with SMTP id tb18so11167100obb.5
-        for <netdev@vger.kernel.org>; Wed, 24 Apr 2013 10:51:58 -0700 (PDT)
-In-Reply-To: <20130424091236.GA22998@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20130418131843.bfeb6b1ad5fba1b0f706076e-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 24, 2013 at 2:12 AM, Simon Horman <horms@verge.net.au> wrote:
-> On Tue, Apr 23, 2013 at 06:47:36PM -0700, Jesse Gross wrote:
->> On Tue, Apr 23, 2013 at 12:58 AM, Simon Horman <horms@verge.net.au> wrote:
->> > On Tue, Apr 23, 2013 at 07:41:37AM +0000, Rajahalme, Jarno (NSN - FI/Espoo) wrote:
->> >>
->> >> On Apr 23, 2013, at 4:51 , ext Simon Horman wrote:
->> >>
->> >> > On Mon, Apr 22, 2013 at 01:55:43PM +0000, Rajahalme, Jarno (NSN - FI/Espoo) wrote:
->> >> >>
->> >> >> Here the skb_network_header is changed to point to the L3 header. Is it
->> >> >> significant that in some cases (?) mpls_stack_depth may remain at zero,
->> >> >> even when a MPLS header was in fact added? (See above).
->> >> >
->> >> > With the current code I believe there are the following cases:
->> >> >
->> >> > Input: non-MPLS skb: Output: network header and mac_len correspond to the
->> >> >                     beginning of the L3 headers
->> >> > Input: MPLS:         Output: network header and mac_len correspond to the
->> >> >                     end of the L2 headers.
->> >> >
->> >> > In the case of MPLS output the end of the L2 headers and the beginning
->> >> > of the L3 headers will differ.
->> >> >
->> >> >
->> >> > As far as I know the network header and mac_len only need to correspond to
->> >> > the beginning of the L3 header if GSO segmentation will occur (actually,
->> >> > some proposed changes to the network stack are required, see "[PATCH 0/2]
->> >> > Small Modifications to GSO to allow segmentation of MPLS").  That only
->> >> > occurs if the skb is GSO. Which in turn can only occur if the recieved
->> >> > packet is non-MPLS. This is because the linux kernel doesn't support
->> >> > MPLS offloads on receive (or anywhere else for that matter).
->> >> >
->> >> > In the case that we have a non-MPLS skb the stack depth starts at zero and
->> >> > is tracked. This is used to update the network header and mac_len.
->> >> > Otherwise the stack depth is unknown and the network header and mac_len are
->> >> > left as-is, corresponding to the end of the L2 headers.
->> >> >
->> >> > Actually, it is possible to tighten up the if clause to be the following,
->> >> > as it is only necessary to update the network header and mac_len for GSO skbs.
->> >> >
->> >> >     if (mpls_stack_depth && skb_is_gso(skb)) {
->> >> >             ...
->> >> >     }
->> >> >
->> >> > It is possible for us to find and track the MPLS stack depth for all cases
->> >> > and to update the network header and mac_len. However I don't think that
->> >> > there is any run-time benefit and it seems expensive to find out what the
->> >> > original stack depth was - I believe it would require parsing the MPLS
->> >> > entire stack for each packet.
->> >> >
->> >>
->> >> Thanks for explaining this.
->> >>
->> >> I think it would be better to keep updating the the network_header and mac_len for the Non-MPLS input packets regardless of the GSO status of the skb. It would be more consistent and less surprising.
->> >
->> > I agree entirely that it would be more consistent and less surprising.
->> > But I'm not sure if the cost is worth it.
->> >
->> > Jesse, do you have an opinion on this?
->>
->> In general, I would tend to agree with Jarno that keeping this
->> consistent would be significantly easier to understand. I think the
->> cost is probably not particularly high.
->
-> I think it would be become high for large MPLS stack depths.
-> But I'm happy to wear that if you are.
+On Thu, Apr 18, 2013 at 01:18:43PM +1000, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Today's linux-next merge of the net-next tree got a conflict in
+> drivers/infiniband/hw/cxgb4/qp.c between commit 5b0c275926b8
+> ("RDMA/cxgb4: Fix SQ allocation when on-chip SQ is disabled") from the
+> infiniband tree and commit 9919d5bd01b9 ("RDMA/cxgb4: Fix onchip queue
+> support for T5") from the net-next tree.
+> 
+> I think that they are 2 different fixes for the same problem, so I just
+> used the net-next version and can carry the fix as necessary (no action
+> is required).
+> 
+> -- 
+> Cheers,
+> Stephen Rothwell                    sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
 
-I guess, although in practice having more than 2 or 3 MPLS labels
-would be extremely rare so I'm not sure that it's worth optimizing at
-this point.
 
->> However, I also think that having different meanings for the layer
->> pointers inside and outside of OVS is not particularly ideal since it
->> makes the overall system harder to understand. Using network header
->> for the start of the MPLS stack might not be great since it means that
->> we couldn't really take advantage of any actual hardware offloading in
->> the future. Maybe we could use mac_len for that purpose and that would
->> keep things more consistent?
->
-> To clarify, your suggestion is:
->
-> mac_len: corresponds to the top of the MPLS stack
-> network_header: corresponds to the bottom of the MPLS stack
->
-> If so, yes I think that could work and I will see about making it so.
+Commit 5b0c275926b8 also keeps the intention of the original patch which
+broke it, which was to return an error code, in case the allocation fails.
+Commit 9919d5bd01b9 fix will return 0 in case the allocation fails.
 
-Yes, that's what I was thinking. (Although to be more precise,
-network_header would point to the start of the L3 header, as it does
-currently. In practice, that's the same as the bottom of the MPLS
-stack in the vast majority of situations and in all cases that OVS
-supports.)
+We should keep the other fix or fix the code again to return the proper
+error code.
+
+Regards.
+Cascardo.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
