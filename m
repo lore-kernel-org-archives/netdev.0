@@ -1,84 +1,71 @@
-From: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
-Subject: 3.9.0-rc8-00005-g824282c: [24988.276086] unregister_netdevice: waiting for tap0 to become free. Usage count = 1
-Date: Thu, 25 Apr 2013 08:22:38 +0200
-Message-ID: <201304250822.38944.a.miskiewicz@gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH 1/4] net/ti: add MODULE_DEVICE_TABLE + MODULE_LICENSE
+Date: Thu, 25 Apr 2013 11:59:34 +0530
+Message-ID: <5178CD4E.9010401@ti.com>
+References: <1366829305-9752-1-git-send-email-bigeasy@linutronix.de> <1366829305-9752-2-git-send-email-bigeasy@linutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <tglx@linutronix.de>, <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f173.google.com ([209.85.215.173]:33830 "EHLO
-	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750758Ab3DYGWm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 02:22:42 -0400
-Received: by mail-ea0-f173.google.com with SMTP id m14so1037381eaj.4
-        for <netdev@vger.kernel.org>; Wed, 24 Apr 2013 23:22:41 -0700 (PDT)
-Received: from t400.localnet ([91.234.176.244])
-        by mx.google.com with ESMTPSA id cd3sm8436958eeb.6.2013.04.24.23.22.39
-        for <netdev@vger.kernel.org>
-        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
-        Wed, 24 Apr 2013 23:22:40 -0700 (PDT)
+Received: from comal.ext.ti.com ([198.47.26.152]:47045 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750929Ab3DYGaP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Apr 2013 02:30:15 -0400
+In-Reply-To: <1366829305-9752-2-git-send-email-bigeasy@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 4/25/2013 12:18 AM, Sebastian Andrzej Siewior wrote:
+> If compiled as modules each one of these modules is missing something.
+> With this patch the modules are loaded on demand and don't taint the
+> kernel due to license issues.
+>
+> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+> ---
+>   drivers/net/ethernet/ti/cpsw.c          |    1 +
+>   drivers/net/ethernet/ti/davinci_cpdma.c |    2 ++
+>   drivers/net/ethernet/ti/davinci_mdio.c  |    1 +
+>   3 files changed, 4 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index 81cec00..f91c8ab 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -1974,6 +1974,7 @@ static const struct of_device_id cpsw_of_mtable[] = {
+>   	{ .compatible = "ti,cpsw", },
+>   	{ /* sentinel */ },
+>   };
+> +MODULE_DEVICE_TABLE(of, cpsw_of_mtable);
+>   
+>   static struct platform_driver cpsw_driver = {
+>   	.driver = {
+> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+> index 6b0a89f..49dfd59 100644
+> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
+> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+> @@ -1040,3 +1040,5 @@ int cpdma_control_set(struct cpdma_ctlr *ctlr, int control, int value)
+>   	return ret;
+>   }
+>   EXPORT_SYMBOL_GPL(cpdma_control_set);
+> +
+> +MODULE_LICENSE("GPL");
+> diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+> index d04a622..12aec17 100644
+> --- a/drivers/net/ethernet/ti/davinci_mdio.c
+> +++ b/drivers/net/ethernet/ti/davinci_mdio.c
+> @@ -485,6 +485,7 @@ static const struct of_device_id davinci_mdio_of_mtable[] = {
+>   	{ .compatible = "ti,davinci_mdio", },
+>   	{ /* sentinel */ },
+>   };
+> +MODULE_DEVICE_TABLE(of, davinci_mdio_of_mtable);
+>   
+>   static struct platform_driver davinci_mdio_driver = {
+>   	.driver = {
 
-suspend & resume from ram on 3.9.0-rc8-00005-g824282c
-causes problem below. 3.8.x line doesn't have this problem.
+Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-[23429.361300] Freezing user space processes ...=20
-[23449.380695] Freezing of tasks failed after 20.01 seconds (1 tasks re=
-fusing to freeze, wq_busy=3D0):
-[23449.385438] openvpn         D 0000000000000001     0  4668      1 0x=
-00000006
-[23449.390225]  ffff88022a1f3b08 0000000000000046 ffff88022a1696c0 ffff=
-88022a1f3fd8
-[23449.395020]  0000000000012780 ffff88022a1f3fd8 ffffffff81611410 ffff=
-88022a1696c0
-[23449.399833]  00000000000000ce ffffffffa06e0978 0000000000000080 ffff=
-880229b9c000
-[23449.404619] Call Trace:
-[23449.409356]  [<ffffffff81328e8d>] ? pneigh_queue_purge+0x2a/0x34
-[23449.414163]  [<ffffffff8132b1da>] ? neigh_ifdown+0xc0/0xd1
-[23449.418942]  [<ffffffff8103e90a>] ? lock_timer_base.isra.38+0x26/0x4=
-a
-[23449.423720]  [<ffffffff8103e97e>] ? try_to_del_timer_sync+0x50/0x5c
-[23449.428484]  [<ffffffff813bff33>] schedule+0x60/0x62
-[23449.433166]  [<ffffffff813be466>] schedule_timeout+0x1aa/0x1fd
-[23449.437847]  [<ffffffff8103dfa1>] ? call_timer_fn+0x15f/0x15f
-[23449.442555]  [<ffffffff813be4d2>] schedule_timeout_uninterruptible+0=
-x19/0x1b
-[23449.447244]  [<ffffffff8103ef24>] msleep+0x16/0x1d
-[23449.451900]  [<ffffffff81324b6e>] netdev_run_todo+0x175/0x245
-[23449.456498]  [<ffffffff8132e848>] rtnl_unlock+0x9/0xb
-[23449.461131]  [<ffffffffa05dccd5>] tun_chr_close+0x2d/0x47 [tun]
-[23449.465699]  [<ffffffff81109fe0>] __fput+0xf0/0x1e1
-[23449.470227]  [<ffffffff8110a0da>] ____fput+0x9/0xb
-[23449.474736]  [<ffffffff8104b6fb>] task_work_run+0x79/0x92
-[23449.479169]  [<ffffffff81036088>] do_exit+0x3b8/0x8ee
-[23449.483631]  [<ffffffff810406fc>] ? __dequeue_signal+0x16/0x114
-[23449.488130]  [<ffffffff8103673a>] do_group_exit+0x6a/0x9d
-[23449.492662]  [<ffffffff81042c7a>] get_signal_to_deliver+0x50f/0x554
-[23449.497178]  [<ffffffff810020de>] do_signal+0x48/0x49f
-[23449.501721]  [<ffffffff8107afe9>] ? sys_futex+0x11a/0x14d
-[23449.506319]  [<ffffffff81002565>] do_notify_resume+0x30/0x6d
-[23449.510881]  [<ffffffff813c1d5a>] int_signal+0x12/0x17
-
-[23449.517219] Restarting tasks ... done.
-
-and that ends up with:
-[23527.916091] unregister_netdevice: waiting for tap0 to become free. U=
-sage count =3D 1
-[23537.956095] unregister_netdevice: waiting for tap0 to become free. U=
-sage count =3D 1
-[23548.196057] unregister_netdevice: waiting for tap0 to become free. U=
-sage count =3D 1
-[23558.440052] unregister_netdevice: waiting for tap0 to become free. U=
-sage count =3D 1
-[23568.684099] unregister_netdevice: waiting for tap0 to become free. U=
-sage count =3D 1
-
-complete dmesg: http://pastebin.com/5Eq8dz8T
-
---=20
-Arkadiusz Mi=C5=9Bkiewicz, arekm / maven.pl [domain blocked by vger and=
- still no clue why]
+Regards
+Mugunthan V N
