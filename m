@@ -1,7 +1,7 @@
 From: Alexandru Copot <alex.mihai.c@gmail.com>
-Subject: [PATCH 2/3 RFC v2] selftests/net: update socket test to use new testing framework
-Date: Thu, 25 Apr 2013 14:04:59 +0300
-Message-ID: <1366887900-24769-3-git-send-email-alex.mihai.c@gmail.com>
+Subject: [PATCH 3/3 RFC v2] selftests/net: add socket options test with IPv6 testcases
+Date: Thu, 25 Apr 2013 14:05:00 +0300
+Message-ID: <1366887900-24769-4-git-send-email-alex.mihai.c@gmail.com>
 References: <1366887900-24769-1-git-send-email-alex.mihai.c@gmail.com>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
 	davem@davemloft.net, willemb@google.com, dborkman@redhat.com,
@@ -9,209 +9,250 @@ Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
 	edumazet@google.com, Alexandru Copot <alex.mihai.c@gmail.com>,
 	Daniel Baluta <dbaluta@ixiacom.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f45.google.com ([209.85.214.45]:46364 "EHLO
-	mail-bk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932104Ab3DYLFg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 07:05:36 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1366887900-24769-1-git-send-email-alex.mihai.c@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Only a part of the boolean socket options for IPv6 are tested.
 
 Signed-of-by Alexandru Copot <alex.mihai.c@gmail.com>
 Cc: Daniel Baluta <dbaluta@ixiacom.com>
 ---
- tools/testing/selftests/net/Makefile |  14 +++--
- tools/testing/selftests/net/socket.c | 108 +++++++++++++++++++++++++----------
- 2 files changed, 88 insertions(+), 34 deletions(-)
+ tools/testing/selftests/net/Makefile         |   3 +-
+ tools/testing/selftests/net/run_netsocktests |  10 ++
+ tools/testing/selftests/net/sockopt.c        | 185 +++++++++++++++++++++++++++
+ 3 files changed, 197 insertions(+), 1 deletion(-)
+ create mode 100644 tools/testing/selftests/net/sockopt.c
 
 diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
-index 750512b..7984f80 100644
+index 7984f80..087e9a0 100644
 --- a/tools/testing/selftests/net/Makefile
 +++ b/tools/testing/selftests/net/Makefile
-@@ -3,17 +3,23 @@
- CC = $(CROSS_COMPILE)gcc
- CFLAGS = -Wall -O2 -g
+@@ -5,13 +5,14 @@ CFLAGS = -Wall -O2 -g
  
--CFLAGS += -I../../../../usr/include/
-+CFLAGS += -I../../../../usr/include/ -I../lib
+ CFLAGS += -I../../../../usr/include/ -I../lib
  
- NET_PROGS = socket psock_fanout psock_tpacket
+-NET_PROGS = socket psock_fanout psock_tpacket
++NET_PROGS = socket sockopt psock_fanout psock_tpacket
  
-+LIB = ../lib/selftests.a
-+
+ LIB = ../lib/selftests.a
+ 
  all: $(NET_PROGS)
--%: %.c
--	$(CC) $(CFLAGS) -o $@ $^
-+
-+socket: socket.o $(LIB)
-+
-+%.o: %.c
-+	$(CC) $(CFLAGS) -c -o $@ $^
-+
  
- run_tests: all
- 	@/bin/sh ./run_netsocktests || echo "sockettests: [FAIL]"
- 	@/bin/sh ./run_afpackettests || echo "afpackettests: [FAIL]"
+ socket: socket.o $(LIB)
++sockopt: sockopt.o $(LIB)
  
- clean:
--	$(RM) $(NET_PROGS)
-+	$(RM) $(NET_PROGS) *.o
-diff --git a/tools/testing/selftests/net/socket.c b/tools/testing/selftests/net/socket.c
-index 0f227f2..198a57b 100644
---- a/tools/testing/selftests/net/socket.c
-+++ b/tools/testing/selftests/net/socket.c
-@@ -6,6 +6,8 @@
- #include <sys/socket.h>
- #include <netinet/in.h>
+ %.o: %.c
+ 	$(CC) $(CFLAGS) -c -o $@ $^
+diff --git a/tools/testing/selftests/net/run_netsocktests b/tools/testing/selftests/net/run_netsocktests
+index c09a682..9f21498 100644
+--- a/tools/testing/selftests/net/run_netsocktests
++++ b/tools/testing/selftests/net/run_netsocktests
+@@ -10,3 +10,13 @@ else
+ 	echo "[PASS]"
+ fi
  
++echo "--------------------"
++echo "running setsockopt test"
++echo "--------------------"
++./sockopt
++if [ $? -ne 0 ]; then
++	echo "[FAIL]"
++else
++	echo "[PASS]"
++fi
++
+diff --git a/tools/testing/selftests/net/sockopt.c b/tools/testing/selftests/net/sockopt.c
+new file mode 100644
+index 0000000..56311bc
+--- /dev/null
++++ b/tools/testing/selftests/net/sockopt.c
+@@ -0,0 +1,185 @@
++#include <stdio.h>
++#include <errno.h>
++#include <unistd.h>
++#include <string.h>
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <linux/ipv6.h>
++#include <linux/in.h>
++
 +#include "selftests.h"
 +
- struct socket_testcase {
- 	int	domain;
- 	int	type;
-@@ -22,7 +24,7 @@ struct socket_testcase {
- 	int	nosupport_ok;
- };
- 
--static struct socket_testcase tests[] = {
-+static struct socket_testcase tests_inet[] = {
- 	{ AF_MAX,  0,           0,           -EAFNOSUPPORT,    0 },
- 	{ AF_INET, SOCK_STREAM, IPPROTO_TCP, 0,                1  },
- 	{ AF_INET, SOCK_DGRAM,  IPPROTO_TCP, -EPROTONOSUPPORT, 1  },
-@@ -30,58 +32,104 @@ static struct socket_testcase tests[] = {
- 	{ AF_INET, SOCK_STREAM, IPPROTO_UDP, -EPROTONOSUPPORT, 1  },
- };
- 
-+static struct socket_testcase tests_inet6[] = {
-+	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP, 0,                1  },
-+	{ AF_INET6, SOCK_DGRAM,  IPPROTO_TCP, -EPROTONOSUPPORT, 1  },
-+	{ AF_INET6, SOCK_DGRAM,  IPPROTO_UDP, 0,                1  },
-+	{ AF_INET6, SOCK_STREAM, IPPROTO_UDP, -EPROTONOSUPPORT, 1  },
++struct sockopt_testcase {
++	/* socket */
++	int	domain;
++	int	type;
++	int	protocol;
++
++	/* option */
++	int	level;
++	int	optname;
++	void	*value;
++	socklen_t size;
++
++	#define TYPE_INT   1
++	#define TYPE_DATA  2
++	int data_type;
++	/* 0    = valid file descriptor
++	 * -foo = error foo
++	 */
++	int	expect_set;
++	int	expect_get;
++
++	/* If non-zero, accept EAFNOSUPPORT to handle the case
++	 * of the protocol not being configured into the kernel.
++	 */
++	int	nosupport_ok;
 +};
 +
-+static struct socket_testcase tests_unix[] = {
-+	{ AF_UNIX, SOCK_STREAM,    0,           0,                1  },
-+	{ AF_UNIX, SOCK_DGRAM,     0,           0,                1  },
-+	{ AF_UNIX, SOCK_SEQPACKET, 0,           0,                1  },
-+	{ AF_UNIX, SOCK_STREAM,    PF_UNIX,     0,                1  },
-+	{ AF_UNIX, SOCK_DGRAM,     PF_UNIX,     0,                1  },
-+	{ AF_UNIX, SOCK_SEQPACKET, PF_UNIX,     0,                1  },
-+	{ AF_UNIX, SOCK_STREAM,    IPPROTO_TCP, -EPROTONOSUPPORT, 1  },
-+	{ AF_UNIX, SOCK_STREAM,    IPPROTO_UDP, -EPROTONOSUPPORT, 1  },
-+	{ AF_UNIX, SOCK_DCCP,      0,           -ESOCKTNOSUPPORT, 1  },
++static struct sockopt_testcase tests_inet6[] = {
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_V6ONLY,                  (void*)1, sizeof(int),  TYPE_INT, 0,  0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_V6ONLY,                  (void*)0, sizeof(int),  TYPE_INT, 0,  0,  0},
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVPKTINFO,             (void*)1, sizeof(int),  TYPE_INT, 0,  0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVPKTINFO,             (void*)0, sizeof(int),  TYPE_INT, 0,  0,  0},
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_2292PKTINFO,             (void*)1, sizeof(int),  TYPE_INT, 0,  0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_2292PKTINFO,             (void*)0, sizeof(int),  TYPE_INT, 0,  0,  0},
++	
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVHOPLIMIT,            (void*)1, sizeof(int),  TYPE_INT, 0,  0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVHOPLIMIT,            (void*)0, sizeof(int),  TYPE_INT, 0,  0,  0},
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_2292HOPLIMIT,            (void*)1, sizeof(int),  TYPE_INT, 0,  0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_2292HOPLIMIT,            (void*)0, sizeof(int),  TYPE_INT, 0,  0,  0},
++
++ 	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVRTHDR,               (void*)1, sizeof(int),  TYPE_INT, 0,  0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVRTHDR,               (void*)0, sizeof(int),  TYPE_INT, 0,  0,  0},
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_2292RTHDR,               (void*)1, sizeof(int),  TYPE_INT, 0,  0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_2292RTHDR,               (void*)0, sizeof(int),  TYPE_INT, 0,  0,  0},
++	
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVHOPOPTS,             (void*)1, sizeof(int),  TYPE_INT, 0,  0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVHOPOPTS,             (void*)0, sizeof(int),  TYPE_INT, 0,  0,  0},
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_2292HOPOPTS,             (void*)1, sizeof(int),  TYPE_INT, 0,  0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_2292HOPOPTS,             (void*)0, sizeof(int),  TYPE_INT, 0,  0,  0},
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVDSTOPTS,             (void*)1, sizeof(int),  TYPE_INT, 0,  0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVDSTOPTS,             (void*)0, sizeof(int),  TYPE_INT, 0,  0,  0},
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_2292DSTOPTS,             (void*)1, sizeof(int),  TYPE_INT, 0,  0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_2292DSTOPTS,             (void*)0, sizeof(int),  TYPE_INT, 0,  0,  0},
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_TCLASS,                  (void*)1, sizeof(int),  TYPE_INT, 0,  0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_TCLASS,                  (void*)0, sizeof(int),  TYPE_INT, 0,  0,  0},
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVTCLASS,              (void*)1, sizeof(int),  TYPE_INT, 0,  0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVTCLASS,              (void*)0, sizeof(int),  TYPE_INT, 0,  0,  0},
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_FLOWINFO,                (void*)1, sizeof(int),  TYPE_INT, 0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_FLOWINFO,                (void*)0, sizeof(int),  TYPE_INT, 0,  0},
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVPATHMTU,             (void*)1, sizeof(int),  TYPE_INT, 0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVPATHMTU,             (void*)0, sizeof(int),  TYPE_INT, 0,  0},
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVORIGDSTADDR,         (void*)1, sizeof(int),  TYPE_INT, 0,  0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_RECVORIGDSTADDR,         (void*)0, sizeof(int),  TYPE_INT, 0,  0},
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_MTU,                     (void*)512,          sizeof(int),  TYPE_INT, -EINVAL, -ENOTCONN, 0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_MTU,                     (void*)IPV6_MIN_MTU, sizeof(int),  TYPE_INT,       0, -ENOTCONN, 0},
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_DONTFRAG,                (void*)1,            sizeof(int),  TYPE_INT,       0,         0, 0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_DONTFRAG,                (void*)0,            sizeof(int),  TYPE_INT,       0,         0, 0},
++
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_MTU_DISCOVER,             (void*)IP_PMTUDISC_DONT, sizeof(int),  TYPE_INT,       0,     0, 0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_MTU_DISCOVER,             (void*)IP_PMTUDISC_WANT, sizeof(int),  TYPE_INT,       0,     0, 0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_MTU_DISCOVER,             (void*)IP_PMTUDISC_DO,   sizeof(int),  TYPE_INT,       0,     0, 0},
++	{ AF_INET6, SOCK_STREAM, IPPROTO_TCP,   IPPROTO_IPV6, IPV6_MTU_DISCOVER,             (void*)IP_PMTUDISC_PROBE,sizeof(int),  TYPE_INT,       0,     0, 0},
++
 +};
 +
- #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
- #define ERR_STRING_SZ	64
- 
--static int run_tests(void)
++#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
++#define ERR_STRING_SZ	64
++
 +static test_result_t my_run_testcase(void *arg)
- {
-+	struct socket_testcase *s = (struct socket_testcase*)arg;
-+	int fd;
- 	char err_string1[ERR_STRING_SZ];
- 	char err_string2[ERR_STRING_SZ];
--	int i, err;
--
--	err = 0;
--	for (i = 0; i < ARRAY_SIZE(tests); i++) {
--		struct socket_testcase *s = &tests[i];
--		int fd;
++{
++	struct sockopt_testcase *s = (struct sockopt_testcase*)arg;
++	int fd, rc, val;
++	void *optdata;
++	socklen_t readsize;
 +	test_result_t ret;
- 
--		fd = socket(s->domain, s->type, s->protocol);
--		if (fd < 0) {
--			if (s->nosupport_ok &&
--			    errno == EAFNOSUPPORT)
--				continue;
-+	ret = TEST_PASS;
++
++	ret = 0;
 +	fd = socket(s->domain, s->type, s->protocol);
-+	if (fd < 0) {
-+		pass_if(s->nosupport_ok && errno == EAFNOSUPPORT, out, ret);
- 
--			if (s->expect < 0 &&
--			    errno == -s->expect)
--				continue;
-+		pass_if(s->expect < 0 && errno == -s->expect, out, ret);
- 
--			strerror_r(-s->expect, err_string1, ERR_STRING_SZ);
--			strerror_r(errno, err_string2, ERR_STRING_SZ);
-+		strerror_r(-s->expect, err_string1, ERR_STRING_SZ);
-+		strerror_r(errno, err_string2, ERR_STRING_SZ);
- 
--			fprintf(stderr, "socket(%d, %d, %d) expected "
-+		fprintf(stderr, "socket(%d, %d, %d) expected "
- 				"err (%s) got (%s)\n",
- 				s->domain, s->type, s->protocol,
- 				err_string1, err_string2);
- 
--			err = -1;
--			break;
--		} else {
--			close(fd);
-+		return TEST_FAIL;
++	abort(fd > 0);
++
++	if (s->data_type == TYPE_INT) {
++		val = (long)s->value;
++		optdata = &val;
 +	} else {
-+		close(fd);
- 
--			if (s->expect < 0) {
--				strerror_r(errno, err_string1, ERR_STRING_SZ);
-+		if (s->expect < 0) {
-+			strerror_r(errno, err_string1, ERR_STRING_SZ);
- 
--				fprintf(stderr, "socket(%d, %d, %d) expected "
-+			fprintf(stderr, "socket(%d, %d, %d) expected "
- 					"success got err (%s)\n",
- 					s->domain, s->type, s->protocol,
- 					err_string1);
- 
--				err = -1;
--				break;
--			}
-+			return TEST_FAIL;
- 		}
- 	}
-+out:
++		optdata = s->value;
++	}
++
++	rc = setsockopt(fd, s->level, s->optname, optdata, s->size);
++	check(rc == 0 || errno == -s->expect_set, clean_socket, ret,
++	      "setsockopt option %d", s->optname);
++
++	if (s->data_type == TYPE_INT) {
++		optdata = &val;
++		val = -1;
++	} else {
++		optdata = malloc(s->size);
++		abort(optdata != NULL);
++	}
++
++	readsize = s->size;
++	rc = getsockopt(fd, s->level, s->optname, optdata, &readsize);
++	check(rc == 0 || errno == -s->expect_get, clean_data, ret,
++	      "getsockopt option %d", s->optname);
++	abort(readsize == s->size);
++
++	if (!rc) {
++		if (s->data_type == TYPE_INT) {
++			check(val == (long)s->value, clean_socket, ret,
++			      "option %d: Read value different from written value\n", s->optname);
++		} else {
++			check(!memcmp(optdata, s->value, s->size), clean_data, ret,
++			      "option %d: Read value different from written value\n", s->optname);
++		}
++	}
++
++clean_data:
++	if (s->data_type != TYPE_INT)
++		free(optdata);
++clean_socket:
++	abort(close(fd) == 0);
++
 +	return ret;
 +}
- 
--	return err;
++
 +static int run_tests(void)
 +{
 +	int rc;
 +	struct generic_test test1 = {
-+		.name = "socket AF_INET",
-+		.prepare = NULL,
-+		.run = my_run_testcase,
-+		.testcases = tests_inet,
-+		.testcase_size = sizeof(struct socket_testcase),
-+		.testcase_count = ARRAY_SIZE(tests_inet),
-+	};
-+	struct generic_test test2 = {
-+		.name = "socket AF_INET6",
++		.name = "sockopt AF_INET6",
 +		.prepare = NULL,
 +		.run = my_run_testcase,
 +		.testcases = tests_inet6,
-+		.testcase_size = sizeof(struct socket_testcase),
++		.testcase_size = sizeof(struct sockopt_testcase),
 +		.testcase_count = ARRAY_SIZE(tests_inet6),
-+	};
-+	struct generic_test test3 = {
-+		.name = "socket AF_UNIX",
-+		.prepare = NULL,
-+		.run = my_run_testcase,
-+		.testcases = tests_unix,
-+		.testcase_size = sizeof(struct socket_testcase),
-+		.testcase_count = ARRAY_SIZE(tests_unix),
++		.abort_on_fail = 1,
 +	};
 +
 +	rc = 0;
 +	rc |= run_all_tests(&test1, NULL);
-+	rc |= run_all_tests(&test2, NULL);
-+	rc |= run_all_tests(&test3, NULL);
 +
 +	return rc;
- }
- 
- int main(void)
++}
++
++int main(void)
++{
++	int err = run_tests();
++
++	return err;
++}
 -- 
 1.8.2.1
