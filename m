@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 3/5] sock_diag: allow to dump bpf filters
-Date: Thu, 25 Apr 2013 05:00:08 -0400 (EDT)
-Message-ID: <20130425.050008.2129680886418162075.davem@davemloft.net>
-References: <1366818756-4234-4-git-send-email-nicolas.dichtel@6wind.com>
-	<1366820565.8964.78.camel@edumazet-glaptop>
-	<5178EB2C.6070709@6wind.com>
+Subject: Re: [PATCH v3] net: mac802154: comparision issue of type cast,
+ finding by EXTRA_CFLAGS=-W
+Date: Thu, 25 Apr 2013 05:01:10 -0400 (EDT)
+Message-ID: <20130425.050110.1637872699710810114.davem@davemloft.net>
+References: <51766F74.2090007@asianux.com>
+	<20130425.041044.768895561908042668.davem@davemloft.net>
+	<5178ECA2.6020402@asianux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com
-To: nicolas.dichtel@6wind.com
+Cc: sergei.shtylyov@cogentembedded.com,
+	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: gang.chen@asianux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50362 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50380 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751332Ab3DYJAK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 05:00:10 -0400
-In-Reply-To: <5178EB2C.6070709@6wind.com>
+	with ESMTP id S1751962Ab3DYJBM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 05:01:12 -0400
+In-Reply-To: <5178ECA2.6020402@asianux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Thu, 25 Apr 2013 10:37:00 +0200
+From: Chen Gang <gang.chen@asianux.com>
+Date: Thu, 25 Apr 2013 16:43:14 +0800
 
-> Maybe I'm wrong, but I was thinking that this module is used for debug
-> purpose.
+> (the change is for net/mac802154/mac802154.h, and exist in v3.9-rc8)
 
-No, it's a normal tool.
+It exist, but your patch doesn't apply cleanly there, it only applies
+cleanly to the -next tree, because other changes have happend to that
+file in -next.
