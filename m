@@ -1,42 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v3 3/4] sock_diag: do not disclose sock ptr to
- all users
-Date: Thu, 25 Apr 2013 08:36:17 -0700
-Message-ID: <1366904177.8964.155.camel@edumazet-glaptop>
-References: <20130425.050008.2129680886418162075.davem@davemloft.net>
-	 <1366896111-4436-1-git-send-email-nicolas.dichtel@6wind.com>
-	 <1366896111-4436-4-git-send-email-nicolas.dichtel@6wind.com>
-	 <1366903930.8964.154.camel@edumazet-glaptop>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2 net-next 0/6] Allow bridge to function in
+ non-promisc mode
+Date: Thu, 25 Apr 2013 08:56:56 -0700
+Message-ID: <20130425085656.4500d5c4@nehalam.linuxnetplumber.net>
+References: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-	netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:37391 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758205Ab3DYPgT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 11:36:19 -0400
-Received: by mail-pa0-f51.google.com with SMTP id jh10so1941264pab.10
-        for <netdev@vger.kernel.org>; Thu, 25 Apr 2013 08:36:18 -0700 (PDT)
-In-Reply-To: <1366903930.8964.154.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org, mst@redhat.com
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-04-25 at 08:32 -0700, Eric Dumazet wrote:
+On Fri, 19 Apr 2013 16:52:44 -0400
+Vlad Yasevich <vyasevic@redhat.com> wrote:
 
-> Nack. This was already discussed in the past.
+> This series is an almost complete rework of the prior attempt
+> to make the bridge function in non-promisc mode.  In this series
+> the "promiscuity" of an interface is dynamically determined and
+> the interface may transition from/to promiscuous mode based on
+> bridge configuration.
 > 
-> Some people don't want to dump whole table, but use cookie to dump a
-> particular socket.
+> The series keeps an idea of an "uplink" port.  That is still user
+> designated.
+> The series also adds a concept of "dynamic" bridge port.  This is
+> the default state of the port and means that the user has not
+> specified any static FDBs for that port.
+> Once a user has added a static FDB entry to port and also specified
+> an "uplink" flag for that FDB, the mac address from that FDB is
+> added to the bridge hw address list and synched down to uplinks.
+> "Uplinks" are always considered dynamic ports even if a static entry
+> has been added for them.
+> Promiscuity is determined by the number of dynamic ports.  If there
+> are no dynamic ports (i.e all ports have static FDBs set), then we
+> know all the neighbors and can switch promisc off on all of the ports.
+> If we have only 1 dynamic port and its an uplink, we can synch all
+> static hw addresses to this port and mark it non-promisc.
+> If we have more then 1 dynamic port, then all ports have to be
+> promiscuouse.
+> This is the algorith that Michael Tsirkin proposed earlier.
 
-For more details :
+Instead of a uplink port, maybe this idea would work better in combination
+with another patch I have been working on.
 
-git grep -n sock_diag_check_cookie
-include/linux/sock_diag.h:21:int sock_diag_check_cookie(void *sk, __u32 *cookie);
-net/core/sock_diag.c:16:int sock_diag_check_cookie(void *sk, __u32 *cookie)
-net/core/sock_diag.c:26:EXPORT_SYMBOL_GPL(sock_diag_check_cookie);
-net/ipv4/inet_diag.c:312:       err = sock_diag_check_cookie(sk, req->id.idiag_cookie);
-net/ipv4/udp_diag.c:62: err = sock_diag_check_cookie(sk, req->id.idiag_cookie);
-net/unix/diag.c:259:    err = sock_diag_check_cookie(sk, req->udiag_cookie);
+In many bridged environments, ports have only one possible MAC address
+on the other side. My patch provides a flag to mark those ports as bound
+with only one peer MAC address.  This allows those ports to be skipped on
+flooding, and for security only packets with that source address would
+be allowed.
+
+After that change, your promicious code could just use that flag:
+i.e: 
+   uplink ports = total ports - bound ports
+   if (uplink ports == 1)
+       enter non-promicious mode
