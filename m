@@ -1,41 +1,52 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH v3] net: mac802154: comparision issue of type cast, finding
- by EXTRA_CFLAGS=-W
-Date: Thu, 25 Apr 2013 17:09:02 +0800
-Message-ID: <5178F2AE.8020904@asianux.com>
-References: <51766F74.2090007@asianux.com> <20130425.041044.768895561908042668.davem@davemloft.net> <5178ECA2.6020402@asianux.com> <20130425.050110.1637872699710810114.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] GRE: Use IS_ERR_OR_NULL in gre_gso_segment
+Date: Thu, 25 Apr 2013 17:11:51 +0800
+Message-ID: <20130425091151.GA27681@gondor.apana.org.au>
+References: <20130423075042.GA25776@verge.net.au>
+ <CAEP_g=93aAXPk+A2u7LzAzEk6Fr33y7HiEMmXBCEkD8+B90kZQ@mail.gmail.com>
+ <20130425084617.GA27463@gondor.apana.org.au>
+ <20130425.050157.1080837692941670798.davem@davemloft.net>
+ <20130425090346.GA27618@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sergei.shtylyov@cogentembedded.com,
-	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jesse@nicira.com, horms@verge.net.au, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, xeb@mail.ru
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:43977 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755263Ab3DYJJt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 05:09:49 -0400
-In-Reply-To: <20130425.050110.1637872699710810114.davem@davemloft.net>
+Received: from ringil.hengli.com.au ([178.18.16.133]:35294 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754140Ab3DYJMC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 05:12:02 -0400
+Content-Disposition: inline
+In-Reply-To: <20130425090346.GA27618@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013=E5=B9=B404=E6=9C=8825=E6=97=A5 17:01, David Miller wrote:
-> From: Chen Gang <gang.chen@asianux.com>
-> Date: Thu, 25 Apr 2013 16:43:14 +0800
->=20
->> > (the change is for net/mac802154/mac802154.h, and exist in v3.9-rc=
-8)
-> It exist, but your patch doesn't apply cleanly there, it only applies
-> cleanly to the -next tree, because other changes have happend to that
-> file in -next.
->=20
->=20
+On Thu, Apr 25, 2013 at 05:03:46PM +0800, Herbert Xu wrote:
+> On Thu, Apr 25, 2013 at 05:01:57AM -0400, David Miller wrote:
+> > From: Herbert Xu <herbert@gondor.apana.org.au>
+> > Date: Thu, 25 Apr 2013 16:46:17 +0800
+> > 
+> > > Perhaps add an wrapper for the IS_ERR_OR_NULL with a descriptive
+> > > name?
+> > 
+> > Or pick an error code for the case covered by NULL.
+> 
+> Picking an error code may create a maintainence problem down the
+> track because the same error code could be reused by something
+> deeper down in the GSO stack.
 
-OK, thanks. I will send patch v4 (still use the current subject and
-comments)
+In any case, returning an error in this case makes little sense
+because when we return NULL it is precisely because the packet is
+well-formed and ready for direct processing by the hardware which
+will perform GSO instead of us.
 
---=20
-Chen Gang
+The reason this dichotomy exists is because we've reused the
+normal software GSO path to do header verification for hardware
+GSO.
 
-Asianux Corporation
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
