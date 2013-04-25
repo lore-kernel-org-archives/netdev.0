@@ -1,50 +1,88 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net-next 0/6] net/mlx4: Add support to SRIOV VF management
- ndo calls
-Date: Thu, 25 Apr 2013 11:11:33 +0300
-Message-ID: <5178E535.10804@mellanox.com>
-References: <1366821674-17902-1-git-send-email-ogerlitz@mellanox.com> <20130424.163049.2212021825718596200.davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH ipvs-next] ipvs: Remove
+ rcu_read_unlock();rcu_read_lock();
+Date: Thu, 25 Apr 2013 11:15:25 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1304251038541.1752@ja.ssi.bg>
+References: <1366852353-32561-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:44606 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754098Ab3DYILi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 04:11:38 -0400
-In-Reply-To: <20130424.163049.2212021825718596200.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1366852353-32561-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 24/04/2013 23:30, David Miller wrote:
-> From: Or Gerlitz <ogerlitz@mellanox.com>
-> Date: Wed, 24 Apr 2013 19:41:08 +0300
->
->> This series adds support for the SRIOV ndo_set_vf callbacks to the mlx4 driver.
->>
->> Series done against the net-next tree as of commit 0c501345c "batman-adv: fix
->> global protection fault during soft_iface destruction".
->>
->> We have successfully tested the series on net-next, except for getting
->> the VF link info issue I have reported earlier today on netdev, we
->> see the problem for both ixgbe and mlx4 VFs. Just to make sure get
->> VF config is working OK with patch #6 - we have run it over 3.8.8 too.
-> Series applied, thanks.
 
-Hi Dave, Looking on your patchwork archive, I see indeed that the series 
-was accepted, e.g
+	Hello,
 
-patch 1/6 http://patchwork.ozlabs.org/patch/239279/
-patch 2/6 http://patchwork.ozlabs.org/patch/239274/
-patch 3/6 http://patchwork.ozlabs.org/patch/239277/
-patch 4/6 http://patchwork.ozlabs.org/patch/239276/
-patch 5/6 http://patchwork.ozlabs.org/patch/239278/
-patch 6/6 http://patchwork.ozlabs.org/patch/239275/
+On Thu, 25 Apr 2013, Simon Horman wrote:
 
-but for some reason the patches don't appear on your kernel.org net-next 
-tree, anything went wrong here?
+> It is unclear to me that there is any utility in the following:
+> 
+> 	 rcu_read_unlock();
+> 	 rcu_read_lock();
 
-Or.
+	I thought it is a good idea for fixed hash table
+of IP_VS_TAB_BITS=20. May be if guarded by
+
+	if (!((++idx) & 4095))
+
+to reduce its rate to 256 (with idx++ removed from the for loop) ?
+
+	Netfilter has no such logic for nf_conntrack because
+it has limit of 16384 rows. Not sure how fatal is to try 1048576
+empty rows under RCU lock for such rare operations as
+connection listing. OTOH, ip_vs_conn_array() needs to
+seek at some initial position, so it can skip many
+entries if reading table with many conns, for example,
+1048576 rows * 16 conns per row, we will need to
+touch 16777216 conns under lock. Not sure what is the
+best practice for such cases.
+
+> So this patch removes the two instances of the above from ip_vs_conn.c.
+> 
+> This was introduced in 7cf2eb7bccbe0d7a8ab1d1382c4faa2b3abf817f ("ipvs: fix
+> sparse warnings for ip_vs_conn listing") as part of cleaning up warnings
+> flagged by sparse.
+> 
+> Compile and sparse tested only.
+> 
+> Cc: Julian Anastasov <ja@ssi.bg>
+> Reported-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> ---
+>  net/netfilter/ipvs/ip_vs_conn.c | 4 ----
+>  1 file changed, 4 deletions(-)
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+> index a083bda..458dc68 100644
+> --- a/net/netfilter/ipvs/ip_vs_conn.c
+> +++ b/net/netfilter/ipvs/ip_vs_conn.c
+> @@ -975,8 +975,6 @@ static void *ip_vs_conn_array(struct seq_file *seq, loff_t pos)
+>  				return cp;
+>  			}
+>  		}
+> -		rcu_read_unlock();
+> -		rcu_read_lock();
+>  	}
+>  
+>  	return NULL;
+> @@ -1015,8 +1013,6 @@ static void *ip_vs_conn_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+>  			iter->l = &ip_vs_conn_tab[idx];
+>  			return cp;
+>  		}
+> -		rcu_read_unlock();
+> -		rcu_read_lock();
+>  	}
+>  	iter->l = NULL;
+>  	return NULL;
+> -- 
+> 1.8.2.1
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
