@@ -1,42 +1,122 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 10/10] netfilter: nf_nat: missing condition in nf_xfrm_me_harder()
-Date: Thu, 25 Apr 2013 02:22:21 +0200
-Message-ID: <1366849341-10466-11-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 09/10] ipvs: Use network byte order for sync message size
+Date: Thu, 25 Apr 2013 02:22:20 +0200
+Message-ID: <1366849341-10466-10-git-send-email-pablo@netfilter.org>
 References: <1366849341-10466-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41146 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:41143 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932299Ab3DYAWl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Apr 2013 20:22:41 -0400
+	id S932274Ab3DYAWk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Apr 2013 20:22:40 -0400
 In-Reply-To: <1366849341-10466-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
+From: Simon Horman <horms@verge.net.au>
 
-This if statement was accidentally dropped in (aaa795a netfilter:
-nat: propagate errors from xfrm_me_harder()) so now it returns
-unconditionally.
+struct ip_vs_sync_mesg and ip_vs_sync_mesg_v0 are both sent across the wire
+and used internally to store IPVS synchronisation messages.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Up until now the scheme used has been to convert the size field
+to network byte order before sending a message on the wire and
+convert it to host byte order when sending a message.
+
+This patch changes that scheme to always treat the field
+as being network byte order. This seems appropriate as
+the structure is sent across the wire. And by consistently
+treating the field has network byte order it is now possible
+to take advantage of sparse to flag any future miss-use.
+
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Acked-by: Hans Schillstrom <hans@schillstrom.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/nf_nat_core.c |    1 +
- 1 file changed, 1 insertion(+)
+ net/netfilter/ipvs/ip_vs_sync.c |   21 ++++++++-------------
+ 1 file changed, 8 insertions(+), 13 deletions(-)
 
-diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-index 346f871..cf1c731 100644
---- a/net/netfilter/nf_nat_core.c
-+++ b/net/netfilter/nf_nat_core.c
-@@ -90,6 +90,7 @@ int nf_xfrm_me_harder(struct sk_buff *skb, unsigned int family)
- 	int err;
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index 8e57077..f6046d9 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -246,7 +246,7 @@ struct ip_vs_sync_thread_data {
+ struct ip_vs_sync_mesg_v0 {
+ 	__u8                    nr_conns;
+ 	__u8                    syncid;
+-	__u16                   size;
++	__be16                  size;
  
- 	err = xfrm_decode_session(skb, &fl, family);
-+	if (err < 0)
- 		return err;
+ 	/* ip_vs_sync_conn entries start here */
+ };
+@@ -255,7 +255,7 @@ struct ip_vs_sync_mesg_v0 {
+ struct ip_vs_sync_mesg {
+ 	__u8			reserved;	/* must be zero */
+ 	__u8			syncid;
+-	__u16			size;
++	__be16			size;
+ 	__u8			nr_conns;
+ 	__s8			version;	/* SYNC_PROTO_VER  */
+ 	__u16			spare;
+@@ -335,7 +335,7 @@ ip_vs_sync_buff_create(struct netns_ipvs *ipvs)
+ 	sb->mesg->reserved = 0;  /* old nr_conns i.e. must be zero now */
+ 	sb->mesg->version = SYNC_PROTO_VER;
+ 	sb->mesg->syncid = ipvs->master_syncid;
+-	sb->mesg->size = sizeof(struct ip_vs_sync_mesg);
++	sb->mesg->size = htons(sizeof(struct ip_vs_sync_mesg));
+ 	sb->mesg->nr_conns = 0;
+ 	sb->mesg->spare = 0;
+ 	sb->head = (unsigned char *)sb->mesg + sizeof(struct ip_vs_sync_mesg);
+@@ -418,7 +418,7 @@ ip_vs_sync_buff_create_v0(struct netns_ipvs *ipvs)
+ 	mesg = (struct ip_vs_sync_mesg_v0 *)sb->mesg;
+ 	mesg->nr_conns = 0;
+ 	mesg->syncid = ipvs->master_syncid;
+-	mesg->size = sizeof(struct ip_vs_sync_mesg_v0);
++	mesg->size = htons(sizeof(struct ip_vs_sync_mesg_v0));
+ 	sb->head = (unsigned char *)mesg + sizeof(struct ip_vs_sync_mesg_v0);
+ 	sb->end = (unsigned char *)mesg + ipvs->send_mesg_maxlen;
+ 	sb->firstuse = jiffies;
+@@ -582,7 +582,7 @@ static void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp,
+ 	}
  
- 	dst = skb_dst(skb);
+ 	m->nr_conns++;
+-	m->size += len;
++	m->size = htons(ntohs(m->size) + len);
+ 	buff->head += len;
+ 
+ 	/* check if there is a space for next one */
+@@ -693,7 +693,7 @@ sloop:
+ 
+ 	p = buff->head;
+ 	buff->head += pad + len;
+-	m->size += pad + len;
++	m->size = htons(ntohs(m->size) + pad + len);
+ 	/* Add ev. padding from prev. sync_conn */
+ 	while (pad--)
+ 		*(p++) = 0;
+@@ -1175,10 +1175,8 @@ static void ip_vs_process_message(struct net *net, __u8 *buffer,
+ 		IP_VS_DBG(2, "BACKUP, message header too short\n");
+ 		return;
+ 	}
+-	/* Convert size back to host byte order */
+-	m2->size = ntohs(m2->size);
+ 
+-	if (buflen != m2->size) {
++	if (buflen != ntohs(m2->size)) {
+ 		IP_VS_DBG(2, "BACKUP, bogus message size\n");
+ 		return;
+ 	}
+@@ -1544,10 +1542,7 @@ ip_vs_send_sync_msg(struct socket *sock, struct ip_vs_sync_mesg *msg)
+ 	int msize;
+ 	int ret;
+ 
+-	msize = msg->size;
+-
+-	/* Put size in network byte order */
+-	msg->size = htons(msg->size);
++	msize = ntohs(msg->size);
+ 
+ 	ret = ip_vs_send_async(sock, (char *)msg, msize);
+ 	if (ret >= 0 || ret == -EAGAIN)
 -- 
 1.7.10.4
