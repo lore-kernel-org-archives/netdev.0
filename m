@@ -1,33 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 2/2] openvswitch: Use parallel_ops genl.
-Date: Thu, 25 Apr 2013 01:43:34 -0400 (EDT)
-Message-ID: <20130425.014334.2026442177034590153.davem@davemloft.net>
-References: <1366739328-18224-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH] 3c509.c: call SET_NETDEV_DEV for all device types
+ (ISA/ISAPnP/EISA)
+Date: Thu, 25 Apr 2013 01:45:06 -0400 (EDT)
+Message-ID: <20130425.014506.1913208306260076817.davem@davemloft.net>
+References: <CAP8WD_ZJo_RaShD-V5fn4OUySt8_RCdjyZvVpijhhQEZQZHkbQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, jesse@nicira.com
-To: pshelar@nicira.com
+Cc: netdev@vger.kernel.org
+To: tedheadster@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48350 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48360 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213Ab3DYFnf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 01:43:35 -0400
-In-Reply-To: <1366739328-18224-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S1751308Ab3DYFpH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 01:45:07 -0400
+In-Reply-To: <CAP8WD_ZJo_RaShD-V5fn4OUySt8_RCdjyZvVpijhhQEZQZHkbQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Tue, 23 Apr 2013 10:48:48 -0700
+From: Matthew Whitehead <tedheadster@gmail.com>
+Date: Tue, 23 Apr 2013 13:49:39 -0400
 
-> OVS locking was recently changed to have private OVS lock which
-> simplified overall locking.  Therefore there is no need to have
-> another global genl lock to protect OVS data structures.  Following
-> patch uses of parallel_ops genl family for OVS.  This also allows
-> more granual OVS locking using ovs_mutex for protecting OVS data
-> structures, which gives more concurrencey.  E.g multiple genl
-> operations OVS_PACKET_CMD_EXECUTE can run in parallel, etc.
-> 
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> Tested on ISA and EISA boards.
 
-Applied.
+You didn't actually test "this" patch.
+
+> @@ -306,6 +306,7 @@ static int el3_isa_match(struct device *pdev,
+> unsigned int ndev)
+
+Because it was corrupted by your email client, long lines were
+chopped up, etc.
+
+Please fix this, send a test patch to yourself, and do not resubmit
+this patch here until you are able to successfully apply the patch
+you receive in those test emails.
+
+Thanks.
