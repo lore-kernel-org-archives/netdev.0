@@ -1,52 +1,79 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] GRE: Use IS_ERR_OR_NULL in gre_gso_segment
-Date: Thu, 25 Apr 2013 17:11:51 +0800
-Message-ID: <20130425091151.GA27681@gondor.apana.org.au>
-References: <20130423075042.GA25776@verge.net.au>
- <CAEP_g=93aAXPk+A2u7LzAzEk6Fr33y7HiEMmXBCEkD8+B90kZQ@mail.gmail.com>
- <20130425084617.GA27463@gondor.apana.org.au>
- <20130425.050157.1080837692941670798.davem@davemloft.net>
- <20130425090346.GA27618@gondor.apana.org.au>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH v4] net: mac802154: comparision issue of type cast, finding
+ by EXTRA_CFLAGS=-W
+Date: Thu, 25 Apr 2013 17:40:29 +0800
+Message-ID: <5178FA0D.8060009@asianux.com>
+References: <5175DFBC.7040000@asianux.com> <5175F7F7.7000703@asianux.com> <51766F74.2090007@asianux.com> <20130425.041044.768895561908042668.davem@davemloft.net> <5178ECA2.6020402@asianux.com> <5178F120.5030500@acn-group.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jesse@nicira.com, horms@verge.net.au, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, xeb@mail.ru
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Christophe Aeschlimann <c.aeschlimann@acn-group.ch>,
+	sergei.shtylyov@cogentembedded.com,
+	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:35294 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754140Ab3DYJMC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 05:12:02 -0400
-Content-Disposition: inline
-In-Reply-To: <20130425090346.GA27618@gondor.apana.org.au>
+Received: from intranet.asianux.com ([58.214.24.6]:32745 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756919Ab3DYJlR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 05:41:17 -0400
+In-Reply-To: <5178F120.5030500@acn-group.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 25, 2013 at 05:03:46PM +0800, Herbert Xu wrote:
-> On Thu, Apr 25, 2013 at 05:01:57AM -0400, David Miller wrote:
-> > From: Herbert Xu <herbert@gondor.apana.org.au>
-> > Date: Thu, 25 Apr 2013 16:46:17 +0800
-> > 
-> > > Perhaps add an wrapper for the IS_ERR_OR_NULL with a descriptive
-> > > name?
-> > 
-> > Or pick an error code for the case covered by NULL.
-> 
-> Picking an error code may create a maintainence problem down the
-> track because the same error code could be reused by something
-> deeper down in the GSO stack.
 
-In any case, returning an error in this case makes little sense
-because when we return NULL it is precisely because the packet is
-well-formed and ready for direct processing by the hardware which
-will perform GSO instead of us.
+Need change ~(u8)0 to 0xff, or in mac802154_wpan_xmit(), "u8 chan"
+will never == MAC802154_CHAN_NONE.
 
-The reason this dichotomy exists is because we've reused the
-normal software GSO path to do header verification for hardware
-GSO.
+The related warning:
+  net/mac802154/wpan.c:325:2: warning: comparison is always false
+  due to limited range of data type [-Wtype-limits]
 
-Cheers,
+The related unit test:
+  cc -Wall -O2 -o test test.c
+  ./test
+  will output 'different'
+
+  (after use '0xff' instead of '~(u8)0', it will output 'equal')
+
+-----------------------test code begin--------------------------------
+
+#include <stdio.h>
+
+typedef unsigned char u8;
+
+int main()
+{
+	u8 uc = 0xff;
+
+	if (uc == ~(u8)0)
+		printf("\nequal\n");
+	else
+		printf("\ndifferent\n");
+
+	return 0;
+}
+
+-----------------------test code end----------------------------------
+
+
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+---
+ net/mac802154/mac802154.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
+index a4dcaf1..703c121 100644
+--- a/net/mac802154/mac802154.h
++++ b/net/mac802154/mac802154.h
+@@ -90,7 +90,7 @@ struct mac802154_sub_if_data {
+ 
+ #define MAC802154_MAX_XMIT_ATTEMPTS	3
+ 
+-#define MAC802154_CHAN_NONE		(~(u8)0) /* No channel is assigned */
++#define MAC802154_CHAN_NONE		0xff /* No channel is assigned */
+ 
+ extern struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced;
+ extern struct ieee802154_mlme_ops mac802154_mlme_wpan;
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.11.7
