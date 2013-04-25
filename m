@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 3c509.c: call SET_NETDEV_DEV for all device types
- (ISA/ISAPnP/EISA)
-Date: Thu, 25 Apr 2013 01:45:06 -0400 (EDT)
-Message-ID: <20130425.014506.1913208306260076817.davem@davemloft.net>
-References: <CAP8WD_ZJo_RaShD-V5fn4OUySt8_RCdjyZvVpijhhQEZQZHkbQ@mail.gmail.com>
+Subject: Re: [PATCH net] gianfar: do not advertise any alarm capability.
+Date: Thu, 25 Apr 2013 01:46:23 -0400 (EDT)
+Message-ID: <20130425.014623.160664215002631231.davem@davemloft.net>
+References: <16ea6333aec82761aa7e2207b53cfbad85e9245b.1366695641.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tedheadster@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48360 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751308Ab3DYFpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 01:45:07 -0400
-In-Reply-To: <CAP8WD_ZJo_RaShD-V5fn4OUySt8_RCdjyZvVpijhhQEZQZHkbQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org
+To: richardcochran@gmail.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <16ea6333aec82761aa7e2207b53cfbad85e9245b.1366695641.git.richardcochran@gmail.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Matthew Whitehead <tedheadster@gmail.com>
-Date: Tue, 23 Apr 2013 13:49:39 -0400
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Tue, 23 Apr 2013 07:42:16 +0200
 
-> Tested on ISA and EISA boards.
+> An early draft of the PHC patch series included an alarm in the
+> gianfar driver. During the review process, the alarm code was dropped,
+> but the capability removal was overlooked. This patch fixes the issue
+> by advertising zero alarms.
+> 
+> This patch should be applied to every 3.x stable kernel.
+> 
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+> Reported-by: Chris LaRocque <clarocq@gmail.com>
+> Cc: <stable@vger.kernel.org>
 
-You didn't actually test "this" patch.
-
-> @@ -306,6 +306,7 @@ static int el3_isa_match(struct device *pdev,
-> unsigned int ndev)
-
-Because it was corrupted by your email client, long lines were
-chopped up, etc.
-
-Please fix this, send a test patch to yourself, and do not resubmit
-this patch here until you are able to successfully apply the patch
-you receive in those test emails.
-
-Thanks.
+Applied.
