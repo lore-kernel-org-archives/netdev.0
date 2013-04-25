@@ -1,181 +1,223 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V1 net-next 4/8] net/mlx4: Add structures to keep VF Ethernet ports information
-Date: Thu, 25 Apr 2013 18:22:26 +0300
-Message-ID: <1366903350-9096-5-git-send-email-ogerlitz@mellanox.com>
-References: <1366903350-9096-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, amirv@mellanox.com,
-	Rony Efraim <ronye@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
+From: Rob Herring <robherring2@gmail.com>
+Subject: Re: [PATCH 1/5] ibmebus: convert of_platform_driver to platform_driver
+Date: Thu, 25 Apr 2013 10:23:38 -0500
+Message-ID: <CAL_JsqKDF=hPEM0Jz-zZSXBCXBZ=gBjLWL6QDvq+nFWkqY3DMw@mail.gmail.com>
+References: <1366596798-9457-1-git-send-email-robherring2@gmail.com>
+	<1366596798-9457-2-git-send-email-robherring2@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Grant Likely <grant.likely@linaro.org>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Paul Mackerras <paulus@samba.org>,
+	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	linuxppc-dev@lists.ozlabs.org, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:39237 "EHLO
-	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758458Ab3DYPWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 11:22:40 -0400
-In-Reply-To: <1366903350-9096-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-qa0-f51.google.com ([209.85.216.51]:55616 "EHLO
+	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932583Ab3DYPXj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 11:23:39 -0400
+In-Reply-To: <1366596798-9457-2-git-send-email-robherring2@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rony Efraim <ronye@mellanox.com>
+On Sun, Apr 21, 2013 at 9:13 PM, Rob Herring <robherring2@gmail.com> wrote:
+> From: Rob Herring <rob.herring@calxeda.com>
+>
+> ibmebus is the last remaining user of of_platform_driver and the
+> conversion to a regular platform driver is trivial.
+>
+> Signed-off-by: Rob Herring <rob.herring@calxeda.com>
+> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Cc: Paul Mackerras <paulus@samba.org>
+> Cc: Hoang-Nam Nguyen <hnguyen@de.ibm.com>
+> Cc: Christoph Raisch <raisch@de.ibm.com>
+> Cc: Roland Dreier <roland@kernel.org>
+> Cc: Sean Hefty <sean.hefty@intel.com>
+> Cc: Hal Rosenstock <hal.rosenstock@gmail.com>
+> Cc: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+> Cc: Grant Likely <grant.likely@linaro.org>
+> Cc: linuxppc-dev@lists.ozlabs.org
+> Cc: linux-rdma@vger.kernel.org
+> Cc: netdev@vger.kernel.org
 
-This patch add struct mlx4_vport_state where all the parameters related
-to management of VFs port (virtual ports of the NIC eswitch) are kept.
+Ben, Can I have your Ack for this? The change is straightforward and
+neither of the 2 drivers used the id parameter that is removed.
 
-The driver keeps an administrative and operational copy of the settings.
-The current administrative copy becomes operational on the event of probing
-a VF either on a VM or on the host.
+Rob
 
-Signed-off-by: Rony Efraim <ronye@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/cmd.c  |   32 +++++++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/fw.c   |    4 +++
- drivers/net/ethernet/mellanox/mlx4/mlx4.h |   26 +++++++++++++++++++++++
- 3 files changed, 62 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 05267d7..0a301e1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -1490,6 +1490,16 @@ out:
- 	return ret;
- }
- 
-+static int mlx4_master_activate_admin_state(struct mlx4_priv *priv, int slave)
-+{
-+	int port;
-+	for (port = 1; port <= MLX4_MAX_PORTS; port++) {
-+		priv->mfunc.master.vf_oper[slave].vport[port].state =
-+				priv->mfunc.master.vf_admin[slave].vport[port];
-+	}
-+	return 0;
-+}
-+
- static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
- 			       u16 param, u8 toggle)
- {
-@@ -1556,6 +1566,7 @@ static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
- 		if (slave_state[slave].last_cmd != MLX4_COMM_CMD_VHCR2)
- 			goto reset_slave;
- 		slave_state[slave].vhcr_dma |= param;
-+		mlx4_master_activate_admin_state(priv, slave);
- 		slave_state[slave].active = true;
- 		mlx4_dispatch_event(dev, MLX4_DEV_EVENT_SLAVE_INIT, slave);
- 		break;
-@@ -1732,6 +1743,18 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
- 		if (!priv->mfunc.master.slave_state)
- 			goto err_comm;
- 
-+		priv->mfunc.master.vf_admin =
-+			kzalloc(dev->num_slaves *
-+				sizeof(struct mlx4_vf_admin_state), GFP_KERNEL);
-+		if (!priv->mfunc.master.vf_admin)
-+			goto err_comm_admin;
-+
-+		priv->mfunc.master.vf_oper =
-+			kzalloc(dev->num_slaves *
-+				sizeof(struct mlx4_vf_oper_state), GFP_KERNEL);
-+		if (!priv->mfunc.master.vf_oper)
-+			goto err_comm_oper;
-+
- 		for (i = 0; i < dev->num_slaves; ++i) {
- 			s_state = &priv->mfunc.master.slave_state[i];
- 			s_state->last_cmd = MLX4_COMM_CMD_RESET;
-@@ -1752,6 +1775,9 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
- 					goto err_slaves;
- 				}
- 				INIT_LIST_HEAD(&s_state->mcast_filters[port]);
-+				priv->mfunc.master.vf_admin[i].vport[port].default_vlan = MLX4_VGT;
-+				priv->mfunc.master.vf_oper[i].vport[port].vlan_idx = NO_INDX;
-+				priv->mfunc.master.vf_oper[i].vport[port].mac_idx = NO_INDX;
- 			}
- 			spin_lock_init(&s_state->lock);
- 		}
-@@ -1800,6 +1826,10 @@ err_slaves:
- 		for (port = 1; port <= MLX4_MAX_PORTS; port++)
- 			kfree(priv->mfunc.master.slave_state[i].vlan_filter[port]);
- 	}
-+	kfree(priv->mfunc.master.vf_oper);
-+err_comm_oper:
-+	kfree(priv->mfunc.master.vf_admin);
-+err_comm_admin:
- 	kfree(priv->mfunc.master.slave_state);
- err_comm:
- 	iounmap(priv->mfunc.comm);
-@@ -1874,6 +1904,8 @@ void mlx4_multi_func_cleanup(struct mlx4_dev *dev)
- 				kfree(priv->mfunc.master.slave_state[i].vlan_filter[port]);
- 		}
- 		kfree(priv->mfunc.master.slave_state);
-+		kfree(priv->mfunc.master.vf_admin);
-+		kfree(priv->mfunc.master.vf_oper);
- 	}
- 
- 	iounmap(priv->mfunc.comm);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 1f6c3e9..70d44ad 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -816,6 +816,7 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
- 			    struct mlx4_cmd_mailbox *outbox,
- 			    struct mlx4_cmd_info *cmd)
- {
-+	struct mlx4_priv *priv = mlx4_priv(dev);
- 	u64 def_mac;
- 	u8 port_type;
- 	u16 short_field;
-@@ -833,6 +834,9 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
- 		/* set slave default_mac address */
- 		MLX4_GET(def_mac, outbox->buf, QUERY_PORT_MAC_OFFSET);
- 		def_mac += slave << 8;
-+		/* if config MAC in DB use it */
-+		if (priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier].state.mac)
-+			def_mac = priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier].state.mac;
- 		MLX4_PUT(outbox->buf, def_mac, QUERY_PORT_MAC_OFFSET);
- 
- 		/* get port type - currently only eth is enabled */
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 0567f01..7e1d100 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -473,6 +473,30 @@ struct mlx4_slave_state {
- 	enum slave_port_state port_state[MLX4_MAX_PORTS + 1];
- };
- 
-+#define MLX4_VGT 4095
-+#define NO_INDX  (-1)
-+
-+struct mlx4_vport_state {
-+	u64 mac;
-+	u16 default_vlan;
-+	u8  default_qos;
-+	u32 tx_rate;
-+	bool spoofchk;
-+};
-+
-+struct mlx4_vf_admin_state {
-+	struct mlx4_vport_state vport[MLX4_MAX_PORTS + 1];
-+};
-+
-+struct mlx4_vport_oper_state {
-+	struct mlx4_vport_state state;
-+	int mac_idx;
-+	int vlan_idx;
-+};
-+struct mlx4_vf_oper_state {
-+	struct mlx4_vport_oper_state vport[MLX4_MAX_PORTS + 1];
-+};
-+
- struct slave_list {
- 	struct mutex mutex;
- 	struct list_head res_list[MLX4_NUM_OF_RESOURCE_TYPE];
-@@ -503,6 +527,8 @@ struct mlx4_master_qp0_state {
- 
- struct mlx4_mfunc_master_ctx {
- 	struct mlx4_slave_state *slave_state;
-+	struct mlx4_vf_admin_state *vf_admin;
-+	struct mlx4_vf_oper_state *vf_oper;
- 	struct mlx4_master_qp0_state qp0_state[MLX4_MAX_PORTS + 1];
- 	int			init_port_ref[MLX4_MAX_PORTS + 1];
- 	u16			max_mtu[MLX4_MAX_PORTS + 1];
--- 
-1.7.1
+> ---
+>  arch/powerpc/include/asm/ibmebus.h        |    4 ++--
+>  arch/powerpc/kernel/ibmebus.c             |   22 ++++++++++------------
+>  drivers/infiniband/hw/ehca/ehca_main.c    |    5 ++---
+>  drivers/net/ethernet/ibm/ehea/ehea_main.c |    8 +++-----
+>  4 files changed, 17 insertions(+), 22 deletions(-)
+>
+> diff --git a/arch/powerpc/include/asm/ibmebus.h b/arch/powerpc/include/asm/ibmebus.h
+> index 1a9d9ae..088f95b 100644
+> --- a/arch/powerpc/include/asm/ibmebus.h
+> +++ b/arch/powerpc/include/asm/ibmebus.h
+> @@ -48,8 +48,8 @@
+>
+>  extern struct bus_type ibmebus_bus_type;
+>
+> -int ibmebus_register_driver(struct of_platform_driver *drv);
+> -void ibmebus_unregister_driver(struct of_platform_driver *drv);
+> +int ibmebus_register_driver(struct platform_driver *drv);
+> +void ibmebus_unregister_driver(struct platform_driver *drv);
+>
+>  int ibmebus_request_irq(u32 ist, irq_handler_t handler,
+>                         unsigned long irq_flags, const char *devname,
+> diff --git a/arch/powerpc/kernel/ibmebus.c b/arch/powerpc/kernel/ibmebus.c
+> index 8220baa..16a7c23 100644
+> --- a/arch/powerpc/kernel/ibmebus.c
+> +++ b/arch/powerpc/kernel/ibmebus.c
+> @@ -205,7 +205,7 @@ static int ibmebus_create_devices(const struct of_device_id *matches)
+>         return ret;
+>  }
+>
+> -int ibmebus_register_driver(struct of_platform_driver *drv)
+> +int ibmebus_register_driver(struct platform_driver *drv)
+>  {
+>         /* If the driver uses devices that ibmebus doesn't know, add them */
+>         ibmebus_create_devices(drv->driver.of_match_table);
+> @@ -215,7 +215,7 @@ int ibmebus_register_driver(struct of_platform_driver *drv)
+>  }
+>  EXPORT_SYMBOL(ibmebus_register_driver);
+>
+> -void ibmebus_unregister_driver(struct of_platform_driver *drv)
+> +void ibmebus_unregister_driver(struct platform_driver *drv)
+>  {
+>         driver_unregister(&drv->driver);
+>  }
+> @@ -338,11 +338,10 @@ static int ibmebus_bus_bus_match(struct device *dev, struct device_driver *drv)
+>  static int ibmebus_bus_device_probe(struct device *dev)
+>  {
+>         int error = -ENODEV;
+> -       struct of_platform_driver *drv;
+> +       struct platform_driver *drv;
+>         struct platform_device *of_dev;
+> -       const struct of_device_id *match;
+>
+> -       drv = to_of_platform_driver(dev->driver);
+> +       drv = to_platform_driver(dev->driver);
+>         of_dev = to_platform_device(dev);
+>
+>         if (!drv->probe)
+> @@ -350,9 +349,8 @@ static int ibmebus_bus_device_probe(struct device *dev)
+>
+>         of_dev_get(of_dev);
+>
+> -       match = of_match_device(drv->driver.of_match_table, dev);
+> -       if (match)
+> -               error = drv->probe(of_dev, match);
+> +       if (of_driver_match_device(dev, dev->driver))
+> +               error = drv->probe(of_dev);
+>         if (error)
+>                 of_dev_put(of_dev);
+>
+> @@ -362,7 +360,7 @@ static int ibmebus_bus_device_probe(struct device *dev)
+>  static int ibmebus_bus_device_remove(struct device *dev)
+>  {
+>         struct platform_device *of_dev = to_platform_device(dev);
+> -       struct of_platform_driver *drv = to_of_platform_driver(dev->driver);
+> +       struct platform_driver *drv = to_platform_driver(dev->driver);
+>
+>         if (dev->driver && drv->remove)
+>                 drv->remove(of_dev);
+> @@ -372,7 +370,7 @@ static int ibmebus_bus_device_remove(struct device *dev)
+>  static void ibmebus_bus_device_shutdown(struct device *dev)
+>  {
+>         struct platform_device *of_dev = to_platform_device(dev);
+> -       struct of_platform_driver *drv = to_of_platform_driver(dev->driver);
+> +       struct platform_driver *drv = to_platform_driver(dev->driver);
+>
+>         if (dev->driver && drv->shutdown)
+>                 drv->shutdown(of_dev);
+> @@ -419,7 +417,7 @@ struct device_attribute ibmebus_bus_device_attrs[] = {
+>  static int ibmebus_bus_legacy_suspend(struct device *dev, pm_message_t mesg)
+>  {
+>         struct platform_device *of_dev = to_platform_device(dev);
+> -       struct of_platform_driver *drv = to_of_platform_driver(dev->driver);
+> +       struct platform_driver *drv = to_platform_driver(dev->driver);
+>         int ret = 0;
+>
+>         if (dev->driver && drv->suspend)
+> @@ -430,7 +428,7 @@ static int ibmebus_bus_legacy_suspend(struct device *dev, pm_message_t mesg)
+>  static int ibmebus_bus_legacy_resume(struct device *dev)
+>  {
+>         struct platform_device *of_dev = to_platform_device(dev);
+> -       struct of_platform_driver *drv = to_of_platform_driver(dev->driver);
+> +       struct platform_driver *drv = to_platform_driver(dev->driver);
+>         int ret = 0;
+>
+>         if (dev->driver && drv->resume)
+> diff --git a/drivers/infiniband/hw/ehca/ehca_main.c b/drivers/infiniband/hw/ehca/ehca_main.c
+> index f8a6291..982e3ef 100644
+> --- a/drivers/infiniband/hw/ehca/ehca_main.c
+> +++ b/drivers/infiniband/hw/ehca/ehca_main.c
+> @@ -713,8 +713,7 @@ static struct attribute_group ehca_dev_attr_grp = {
+>         .attrs = ehca_dev_attrs
+>  };
+>
+> -static int ehca_probe(struct platform_device *dev,
+> -                     const struct of_device_id *id)
+> +static int ehca_probe(struct platform_device *dev)
+>  {
+>         struct ehca_shca *shca;
+>         const u64 *handle;
+> @@ -937,7 +936,7 @@ static struct of_device_id ehca_device_table[] =
+>  };
+>  MODULE_DEVICE_TABLE(of, ehca_device_table);
+>
+> -static struct of_platform_driver ehca_driver = {
+> +static struct platform_driver ehca_driver = {
+>         .probe       = ehca_probe,
+>         .remove      = ehca_remove,
+>         .driver = {
+> diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> index 328f47c..c6ecf70 100644
+> --- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> +++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> @@ -98,8 +98,7 @@ static struct ehea_fw_handle_array ehea_fw_handles;
+>  static struct ehea_bcmc_reg_array ehea_bcmc_regs;
+>
+>
+> -static int ehea_probe_adapter(struct platform_device *dev,
+> -                             const struct of_device_id *id);
+> +static int ehea_probe_adapter(struct platform_device *dev);
+>
+>  static int ehea_remove(struct platform_device *dev);
+>
+> @@ -112,7 +111,7 @@ static struct of_device_id ehea_device_table[] = {
+>  };
+>  MODULE_DEVICE_TABLE(of, ehea_device_table);
+>
+> -static struct of_platform_driver ehea_driver = {
+> +static struct platform_driver ehea_driver = {
+>         .driver = {
+>                 .name = "ehea",
+>                 .owner = THIS_MODULE,
+> @@ -3255,8 +3254,7 @@ static void ehea_remove_device_sysfs(struct platform_device *dev)
+>         device_remove_file(&dev->dev, &dev_attr_remove_port);
+>  }
+>
+> -static int ehea_probe_adapter(struct platform_device *dev,
+> -                             const struct of_device_id *id)
+> +static int ehea_probe_adapter(struct platform_device *dev)
+>  {
+>         struct ehea_adapter *adapter;
+>         const u64 *adapter_handle;
+> --
+> 1.7.10.4
+>
