@@ -1,93 +1,180 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/14] igb: Use pci_vfs_assigned instead of igb_vfs_are_assigned
-Date: Wed, 24 Apr 2013 21:08:42 -0700
-Message-ID: <1366862927-1855-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/14] igb: Add SMBI semaphore to I210/I211
+Date: Wed, 24 Apr 2013 21:08:40 -0700
+Message-ID: <1366862927-1855-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1366862927-1855-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:33226 "EHLO mga14.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:15281 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751332Ab3DYEJG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Apr 2013 00:09:06 -0400
+	id S1751354Ab3DYEJJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Apr 2013 00:09:09 -0400
 In-Reply-To: <1366862927-1855-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Matthew Vick <matthew.vick@intel.com>
 
-This change makes it so that the igb driver uses the generic helper
-pci_vfs_assigned instead of the igb specific function igb_vfs_are_assigned.
+It was previously thought that, since I210/I211 are single port devices,
+they did not need the SMBI semaphore. This is not the case. Add support for
+the SMBI semaphore.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Matthew Vick <matthew.vick@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 36 +------------------------------
- 1 file changed, 1 insertion(+), 35 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_82575.c |  3 ++
+ drivers/net/ethernet/intel/igb/e1000_hw.h    |  1 +
+ drivers/net/ethernet/intel/igb/e1000_i210.c  | 65 +++++++++++++++++-----------
+ 3 files changed, 43 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index dcaa354..b94a3c5 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -180,7 +180,6 @@ static void igb_check_vf_rate_limit(struct igb_adapter *);
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index c9bba39d5..6cb0ca2 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -389,6 +389,9 @@ static s32 igb_init_mac_params_82575(struct e1000_hw *hw)
+ 		dev_spec->eee_disable = false;
+ 	else
+ 		dev_spec->eee_disable = true;
++	/* Allow a single clear of the SW semaphore on I210 and newer */
++	if (mac->type >= e1000_i210)
++		dev_spec->clear_semaphore_once = true;
+ 	/* physical interface link setup */
+ 	mac->ops.setup_physical_interface =
+ 		(hw->phy.media_type == e1000_media_type_copper)
+diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
+index 1138cca..f1dbab9 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_hw.h
++++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
+@@ -529,6 +529,7 @@ struct e1000_dev_spec_82575 {
+ 	bool sgmii_active;
+ 	bool global_device_reset;
+ 	bool eee_disable;
++	bool clear_semaphore_once;
+ };
  
- #ifdef CONFIG_PCI_IOV
- static int igb_vf_configure(struct igb_adapter *adapter, int vf);
--static bool igb_vfs_are_assigned(struct igb_adapter *adapter);
- #endif
+ struct e1000_hw {
+diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.c b/drivers/net/ethernet/intel/igb/e1000_i210.c
+index 9764cd3..ddb3cf5 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_i210.c
++++ b/drivers/net/ethernet/intel/igb/e1000_i210.c
+@@ -44,10 +44,42 @@
+ static s32 igb_get_hw_semaphore_i210(struct e1000_hw *hw)
+ {
+ 	u32 swsm;
+-	s32 ret_val = E1000_SUCCESS;
+ 	s32 timeout = hw->nvm.word_size + 1;
+ 	s32 i = 0;
  
- #ifdef CONFIG_PM
-@@ -2402,7 +2401,7 @@ static int  igb_disable_sriov(struct pci_dev *pdev)
- 	/* reclaim resources allocated to VFs */
- 	if (adapter->vf_data) {
- 		/* disable iov and allow time for transactions to clear */
--		if (igb_vfs_are_assigned(adapter)) {
-+		if (pci_vfs_assigned(pdev)) {
- 			dev_warn(&pdev->dev,
- 				 "Cannot deallocate SR-IOV virtual functions while they are assigned - VFs will not be deallocated\n");
- 			return -EPERM;
-@@ -5242,39 +5241,6 @@ static int igb_vf_configure(struct igb_adapter *adapter, int vf)
- 	return 0;
++	/* Get the SW semaphore */
++	while (i < timeout) {
++		swsm = rd32(E1000_SWSM);
++		if (!(swsm & E1000_SWSM_SMBI))
++			break;
++
++		udelay(50);
++		i++;
++	}
++
++	if (i == timeout) {
++		/* In rare circumstances, the SW semaphore may already be held
++		 * unintentionally. Clear the semaphore once before giving up.
++		 */
++		if (hw->dev_spec._82575.clear_semaphore_once) {
++			hw->dev_spec._82575.clear_semaphore_once = false;
++			igb_put_hw_semaphore(hw);
++			for (i = 0; i < timeout; i++) {
++				swsm = rd32(E1000_SWSM);
++				if (!(swsm & E1000_SWSM_SMBI))
++					break;
++
++				udelay(50);
++			}
++		}
++
++		/* If we do not have the semaphore here, we have to give up. */
++		if (i == timeout) {
++			hw_dbg("Driver can't access device - SMBI bit is set.\n");
++			return -E1000_ERR_NVM;
++		}
++	}
++
+ 	/* Get the FW semaphore. */
+ 	for (i = 0; i < timeout; i++) {
+ 		swsm = rd32(E1000_SWSM);
+@@ -64,12 +96,10 @@ static s32 igb_get_hw_semaphore_i210(struct e1000_hw *hw)
+ 		/* Release semaphores */
+ 		igb_put_hw_semaphore(hw);
+ 		hw_dbg("Driver can't access the NVM\n");
+-		ret_val = -E1000_ERR_NVM;
+-		goto out;
++		return -E1000_ERR_NVM;
+ 	}
+ 
+-out:
+-	return ret_val;
++	return E1000_SUCCESS;
  }
  
--static bool igb_vfs_are_assigned(struct igb_adapter *adapter)
+ /**
+@@ -99,23 +129,6 @@ void igb_release_nvm_i210(struct e1000_hw *hw)
+ }
+ 
+ /**
+- *  igb_put_hw_semaphore_i210 - Release hardware semaphore
+- *  @hw: pointer to the HW structure
+- *
+- *  Release hardware semaphore used to access the PHY or NVM
+- **/
+-static void igb_put_hw_semaphore_i210(struct e1000_hw *hw)
 -{
--	struct pci_dev *pdev = adapter->pdev;
--	struct pci_dev *vfdev;
--	int dev_id;
+-	u32 swsm;
 -
--	switch (adapter->hw.mac.type) {
--	case e1000_82576:
--		dev_id = IGB_82576_VF_DEV_ID;
--		break;
--	case e1000_i350:
--		dev_id = IGB_I350_VF_DEV_ID;
--		break;
--	default:
--		return false;
--	}
+-	swsm = rd32(E1000_SWSM);
 -
--	/* loop through all the VFs to see if we own any that are assigned */
--	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, NULL);
--	while (vfdev) {
--		/* if we don't own it we don't care */
--		if (vfdev->is_virtfn && vfdev->physfn == pdev) {
--			/* if it is assigned we cannot release it */
--			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
--				return true;
--		}
+-	swsm &= ~E1000_SWSM_SWESMBI;
 -
--		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, vfdev);
--	}
--
--	return false;
+-	wr32(E1000_SWSM, swsm);
 -}
 -
- #endif
- static void igb_ping_all_vfs(struct igb_adapter *adapter)
- {
+-/**
+  *  igb_acquire_swfw_sync_i210 - Acquire SW/FW semaphore
+  *  @hw: pointer to the HW structure
+  *  @mask: specifies which semaphore to acquire
+@@ -138,11 +151,11 @@ s32 igb_acquire_swfw_sync_i210(struct e1000_hw *hw, u16 mask)
+ 		}
+ 
+ 		swfw_sync = rd32(E1000_SW_FW_SYNC);
+-		if (!(swfw_sync & fwmask))
++		if (!(swfw_sync & (fwmask | swmask)))
+ 			break;
+ 
+ 		/* Firmware currently using resource (fwmask) */
+-		igb_put_hw_semaphore_i210(hw);
++		igb_put_hw_semaphore(hw);
+ 		mdelay(5);
+ 		i++;
+ 	}
+@@ -156,7 +169,7 @@ s32 igb_acquire_swfw_sync_i210(struct e1000_hw *hw, u16 mask)
+ 	swfw_sync |= swmask;
+ 	wr32(E1000_SW_FW_SYNC, swfw_sync);
+ 
+-	igb_put_hw_semaphore_i210(hw);
++	igb_put_hw_semaphore(hw);
+ out:
+ 	return ret_val;
+ }
+@@ -180,7 +193,7 @@ void igb_release_swfw_sync_i210(struct e1000_hw *hw, u16 mask)
+ 	swfw_sync &= ~mask;
+ 	wr32(E1000_SW_FW_SYNC, swfw_sync);
+ 
+-	igb_put_hw_semaphore_i210(hw);
++	igb_put_hw_semaphore(hw);
+ }
+ 
+ /**
 -- 
 1.7.11.7
