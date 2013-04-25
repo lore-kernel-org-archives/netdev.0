@@ -1,67 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: getting VF link info seems to be broken in 3.9-rc8
-Date: Thu, 25 Apr 2013 16:25:10 -0400 (EDT)
-Message-ID: <20130425.162510.310560314302575352.davem@davemloft.net>
-References: <517975F0.60003@intel.com>
-	<20130425.152431.1753713368050789406.davem@davemloft.net>
-	<51799008.60507@intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mitch.a.williams@intel.com, ogerlitz@mellanox.com,
-	gregory.v.rose@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, ronye@mellanox.com, shemminger@vyatta.com
-To: alexander.h.duyck@intel.com
+From: Matthew Whitehead <tedheadster@gmail.com>
+Subject: [PATCH] 3c509.c: call SET_NETDEV_DEV for all device types (ISA/ISAPnP/EISA)
+Date: Thu, 25 Apr 2013 16:29:03 -0400
+Message-ID: <1366921743-6440-1-git-send-email-tedheadster@gmail.com>
+Cc: Matthew Whitehead <tedheadster@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58347 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932087Ab3DYUZO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 16:25:14 -0400
-In-Reply-To: <51799008.60507@intel.com>
+Received: from mail-qe0-f42.google.com ([209.85.128.42]:54269 "EHLO
+	mail-qe0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933037Ab3DYU3J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 16:29:09 -0400
+Received: by mail-qe0-f42.google.com with SMTP id 1so23724qee.29
+        for <netdev@vger.kernel.org>; Thu, 25 Apr 2013 13:29:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Thu, 25 Apr 2013 13:20:24 -0700
+From: Matthew Whitehead <tedheadster@gmail.com>
 
-> On 04/25/2013 12:24 PM, David Miller wrote:
->> From: Alexander Duyck <alexander.h.duyck@intel.com>
->> Date: Thu, 25 Apr 2013 11:29:04 -0700
->>
->> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
->> index b65441d..23854b5 100644
->> --- a/net/core/rtnetlink.c
->> +++ b/net/core/rtnetlink.c
->> @@ -1072,7 +1072,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
->>  	rcu_read_lock();
->>  	cb->seq = net->dev_base_seq;
->>  
->> -	if (nlmsg_parse(cb->nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
->> +	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
->>  			ifla_policy) >= 0) {
->>  
->>  		if (tb[IFLA_EXT_MASK])
->> @@ -1922,7 +1922,7 @@ static u16 rtnl_calcit(struct sk_buff *skb, struct nlmsghdr *nlh)
->>  	u32 ext_filter_mask = 0;
->>  	u16 min_ifinfo_dump_size = 0;
->>  
->> -	if (nlmsg_parse(nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
->> +	if (nlmsg_parse(nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
->>  			ifla_policy) >= 0) {
->>  		if (tb[IFLA_EXT_MASK])
->>  			ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
-> 
-> I thought that as well.  I tried reverting it and the issue is still there.
-> 
-> However, I do think this may be part of the issue since I added a printk
-> to dump nlmsg_attrlen before going into the nlmsg_parse and with
-> ifinfomsg the attrlen is -12, with rtgenmsg it is 0.
+The venerable 3c509 driver only sets its device parent in one case, the ISAPnP one.
+It does this with the SET_NETDEV_DEV function. It should register with the device
+hierarchy in two additional cases: standard (non-PnP) ISA and EISA.
 
-I wonder if we are seeing two ways tools are making these calls, some are
-passing rtgenmsg and some are passing ifinfomsg.  The latter, I am mostly
-convinced, is what we must see here from properly written applications.
+- Currently they appear here:
+/sys/devices/virtual/net/eth0 (standard ISA)
+/sys/devices/virtual/net/eth1 (EISA)
 
-That would be really unfortunate, but seeing a nlmsg_attrlen() of -12 would
-seem to confirm that a rtgenmsg was used.
+- Rather, they should instead be here:
+/sys/devices/isa/3c509.0/net/eth0 (standard ISA)
+/sys/devices/pci0000:00/0000:00:07.0/00:04/net/eth1 (EISA)
 
-I guess you're using iproute2?
+Tested on ISA and EISA boards.
+---
+ drivers/net/ethernet/3com/3c509.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/3com/3c509.c b/drivers/net/ethernet/3com/3c509.c
+index f36ff99..adb4bf5 100644
+--- a/drivers/net/ethernet/3com/3c509.c
++++ b/drivers/net/ethernet/3com/3c509.c
+@@ -306,6 +306,7 @@ static int el3_isa_match(struct device *pdev, unsigned int ndev)
+ 	if (!dev)
+ 		return -ENOMEM;
+ 
++	SET_NETDEV_DEV(dev, pdev);
+ 	netdev_boot_setup_check(dev);
+ 
+ 	if (!request_region(ioaddr, EL3_IO_EXTENT, "3c509-isa")) {
+@@ -595,6 +596,7 @@ static int __init el3_eisa_probe (struct device *device)
+ 		return -ENOMEM;
+ 	}
+ 
++	SET_NETDEV_DEV(dev, device);
+ 	netdev_boot_setup_check(dev);
+ 
+ 	el3_dev_fill(dev, phys_addr, ioaddr, irq, if_port, EL3_EISA);
+-- 
+1.7.2.5
