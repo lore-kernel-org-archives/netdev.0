@@ -1,45 +1,45 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH net-next v3] net: ipv4: typo issue, remove erroneous semicolon
-Date: Thu, 25 Apr 2013 09:20:26 +0800
-Message-ID: <517884DA.9020305@asianux.com>
-References: <517549F4.7030806@cogentembedded.com> <5175DFF9.4040000@asianux.com> <5175F5C3.8060503@asianux.com> <20130423.011604.1061769362231812796.davem@davemloft.net> <51762E16.703@asianux.com> <CALnjE+oXUz8rOHuX1rqw5t3yGUsGfaO3QyoHFpmq75bwqLeJcQ@mail.gmail.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [PATCH] x86: make DR*_RESERVED unsigned long
+Date: Wed, 24 Apr 2013 18:20:33 -0700
+Message-ID: <517884E1.5060404@zytor.com>
+References: <CA+55aFwpLu0qNms=hkQr43yqD0K9DgESNm91OEWKT1ZuT8MU6Q@mail.gmail.com> <20130424072630.GB1780@gmail.com> <20130424170702.GA1867@redhat.com> <CAFTL4hzmW43o8dxW0_E7F00a+PT+T4=F4h=gdCxHvcZhMiH3-w@mail.gmail.com> <5178657E.9020905@zytor.com> <CAFTL4hyCQ1DGg5JOmWgvZoC9kcrV6TmodCw=TCFcr+QXMwv9yQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	sergei.shtylyov@cogentembedded.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:24598 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758669Ab3DYBVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 21:21:14 -0400
-In-Reply-To: <CALnjE+oXUz8rOHuX1rqw5t3yGUsGfaO3QyoHFpmq75bwqLeJcQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Oleg Nesterov <oleg@redhat.com>, Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Cyrill Gorcunov <gorcunov@gmail.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	the arch/x86 maintainers <x86@kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-ext4@vger.kernel.org" <linux-ext4@vger.kernel.org>
+To: Frederic Weisbecker <fweisbec@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFTL4hyCQ1DGg5JOmWgvZoC9kcrV6TmodCw=TCFcr+QXMwv9yQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2013=E5=B9=B404=E6=9C=8825=E6=97=A5 02:09, Pravin Shelar wrote:
-> On Mon, Apr 22, 2013 at 11:45 PM, Chen Gang <gang.chen@asianux.com> w=
-rote:
->> >
->> > Need remove erroneous semicolon, which is found by EXTRA_CFLAGS=3D=
--W,
->> > the related commit number: c54419321455631079c7d6e60bc732dd0c5914c=
-5
->> > ("GRE: Refactor GRE tunneling code")
->> >
->> >
->> > Signed-off-by: Chen Gang <gang.chen@asianux.com>
-> Thanks for fixing it.
->=20
-> Acked-by: Pravin B Shelar <pshelar@nicira.com>
->=20
+On 04/24/2013 04:31 PM, Frederic Weisbecker wrote:
+>>
+>> Now, DR6 is a bit special in that a bunch of the reserved bits are
+>> hardwired to 1, not 0; I don't know offhand if that is true for bits
+>> [63:32].
+> 
+> Hmm, good point, could it be a problem given that we clear the
+> reserved dr6 bits on do_trap() and write that 'cleaned up" value back
+> to "tsk->thread.debugreg6"? Probably not if those hardwired reserved
+> bits are set to "1" on dr6 physical write whether those bits are
+> cleared or not in their storage in thread struct before resuming the
+> task?
+> 
 
-Thanks, too.
+OK, the SDM states that DR6[63:32] are reserved and must be written as
+zero (not one).
 
---=20
-Chen Gang
+So the quiescent 64-bit value of DR6 is 0x0000_0000_FFFF_0FF0.
 
-Asianux Corporation
+	-hpa
