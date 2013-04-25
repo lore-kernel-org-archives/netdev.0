@@ -1,104 +1,101 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: getting VF link info seems to be broken in 3.9-rc8
-Date: Thu, 25 Apr 2013 14:10:14 -0700
-Message-ID: <51799BB6.5010807@intel.com>
-References: <20130425.162510.310560314302575352.davem@davemloft.net> <517993B6.8040105@intel.com> <20130425134513.12720d31@nehalam.linuxnetplumber.net> <20130425.164911.746187123714054816.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2 net-next 0/6] Allow bridge to function in
+ non-promisc mode
+Date: Fri, 26 Apr 2013 00:13:58 +0300
+Message-ID: <20130425211358.GE2908@redhat.com>
+References: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
+	<20130425085656.4500d5c4@nehalam.linuxnetplumber.net>
+	<20130425164527.GA2908@redhat.com>
+	<20130425103557.1e42ad04@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, mitch.a.williams@intel.com,
-	ogerlitz@mellanox.com, gregory.v.rose@intel.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	ronye@mellanox.com, shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:13363 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754080Ab3DYVKr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Apr 2013 17:10:47 -0400
-In-Reply-To: <20130425.164911.746187123714054816.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20130425103557.1e42ad04@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 04/25/2013 01:49 PM, David Miller wrote:
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Thu, 25 Apr 2013 13:45:13 -0700
->
->> On Thu, 25 Apr 2013 13:36:06 -0700
->> Alexander Duyck <alexander.h.duyck@intel.com> wrote:
->>
->>> On 04/25/2013 01:25 PM, David Miller wrote:
->>>> From: Alexander Duyck <alexander.h.duyck@intel.com>
->>>> Date: Thu, 25 Apr 2013 13:20:24 -0700
->>>>
->>>>> On 04/25/2013 12:24 PM, David Miller wrote:
->>>>>> From: Alexander Duyck <alexander.h.duyck@intel.com>
->>>>>> Date: Thu, 25 Apr 2013 11:29:04 -0700
->>>>>>
->>>>>> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
->>>>>> index b65441d..23854b5 100644
->>>>>> --- a/net/core/rtnetlink.c
->>>>>> +++ b/net/core/rtnetlink.c
->>>>>> @@ -1072,7 +1072,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
->>>>>>  	rcu_read_lock();
->>>>>>  	cb->seq = net->dev_base_seq;
->>>>>>  
->>>>>> -	if (nlmsg_parse(cb->nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
->>>>>> +	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
->>>>>>  			ifla_policy) >= 0) {
->>>>>>  
->>>>>>  		if (tb[IFLA_EXT_MASK])
->>>>>> @@ -1922,7 +1922,7 @@ static u16 rtnl_calcit(struct sk_buff *skb, struct nlmsghdr *nlh)
->>>>>>  	u32 ext_filter_mask = 0;
->>>>>>  	u16 min_ifinfo_dump_size = 0;
->>>>>>  
->>>>>> -	if (nlmsg_parse(nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
->>>>>> +	if (nlmsg_parse(nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
->>>>>>  			ifla_policy) >= 0) {
->>>>>>  		if (tb[IFLA_EXT_MASK])
->>>>>>  			ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
->>>>> I thought that as well.  I tried reverting it and the issue is still there.
->>>>>
->>>>> However, I do think this may be part of the issue since I added a printk
->>>>> to dump nlmsg_attrlen before going into the nlmsg_parse and with
->>>>> ifinfomsg the attrlen is -12, with rtgenmsg it is 0.
->>>> I wonder if we are seeing two ways tools are making these calls, some are
->>>> passing rtgenmsg and some are passing ifinfomsg.  The latter, I am mostly
->>>> convinced, is what we must see here from properly written applications.
->>>>
->>>> That would be really unfortunate, but seeing a nlmsg_attrlen() of -12 would
->>>> seem to confirm that a rtgenmsg was used.
->>>>
->>>> I guess you're using iproute2?
->>> Yes.  All I am doing is ip link show and previously this would display
->>> VF info as well as PF.  Now the VF info is not there.
->>>
->>> From what I can tell the problem call is rtnl_wilddump_req_filter since
->>> it is only passing a rtgenmsg and asking us to dump the link with the
->>> RTEXT_FILTER_VF filter mask.
->> It looks like a bug in the initial code for filter. in this case, it calls:
->>   ip_list_flush_or_save
->>      rtnl_wilddump_req_filter
->>        which sends 'struct rtgenmsg' 
->>
->> This was probably a mistake in the original flags addition, not sure if we can
->> fix it now that ABI is set. Probably have to revert the kernel change.
-> But we know there are tools, just as widely deployed, passing in ifinfomsg.
-> That's what trigged inclusion of the patch above in the first place.
->
-> Let's just declare this an iproute2 bug, fix iproute2 to pass
-> ifinfomsg too, and keep an eye out for when other folks run into this
-> problem.
+On Thu, Apr 25, 2013 at 10:35:57AM -0700, Stephen Hemminger wrote:
+> On Thu, 25 Apr 2013 19:45:27 +0300
+> "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> 
+> > On Thu, Apr 25, 2013 at 08:56:56AM -0700, Stephen Hemminger wrote:
+> > > On Fri, 19 Apr 2013 16:52:44 -0400
+> > > Vlad Yasevich <vyasevic@redhat.com> wrote:
+> > > 
+> > > > This series is an almost complete rework of the prior attempt
+> > > > to make the bridge function in non-promisc mode.  In this series
+> > > > the "promiscuity" of an interface is dynamically determined and
+> > > > the interface may transition from/to promiscuous mode based on
+> > > > bridge configuration.
+> > > > 
+> > > > The series keeps an idea of an "uplink" port.  That is still user
+> > > > designated.
+> > > > The series also adds a concept of "dynamic" bridge port.  This is
+> > > > the default state of the port and means that the user has not
+> > > > specified any static FDBs for that port.
+> > > > Once a user has added a static FDB entry to port and also specified
+> > > > an "uplink" flag for that FDB, the mac address from that FDB is
+> > > > added to the bridge hw address list and synched down to uplinks.
+> > > > "Uplinks" are always considered dynamic ports even if a static entry
+> > > > has been added for them.
+> > > > Promiscuity is determined by the number of dynamic ports.  If there
+> > > > are no dynamic ports (i.e all ports have static FDBs set), then we
+> > > > know all the neighbors and can switch promisc off on all of the ports.
+> > > > If we have only 1 dynamic port and its an uplink, we can synch all
+> > > > static hw addresses to this port and mark it non-promisc.
+> > > > If we have more then 1 dynamic port, then all ports have to be
+> > > > promiscuouse.
+> > > > This is the algorith that Michael Tsirkin proposed earlier.
+> > > 
+> > > Instead of a uplink port, maybe this idea would work better in combination
+> > > with another patch I have been working on.
+> > > 
+> > > In many bridged environments, ports have only one possible MAC address
+> > > on the other side. My patch provides a flag to mark those ports as bound
+> > > with only one peer MAC address.  This allows those ports to be skipped on
+> > > flooding, and for security only packets with that source address would
+> > > be allowed.
+> > > 
+> > > After that change, your promicious code could just use that flag:
+> > > i.e: 
+> > >    uplink ports = total ports - bound ports
+> > >    if (uplink ports == 1)
+> > >        enter non-promicious mode
+> > 
+> > Almost except sometimes (with some guests)
+> > X mac addresses are needed, not just one.
+> > 
+> > How about a generalization:
+> > 	- a flag to disable learning per port (only use static entries)
+> > 	- a flag to disable flood per port
+> > Both sees to exist on openbsd, they are useful by themselves.
+> > 
+> > Now Vlad's patch can work if both learning and flood are
+> > disabled for all ports except maybe one.
+> > 
+> > 
+> 
+> Ok, then maybe allow multiple bound MAC address's per guest.
 
-With the earlier patch reverted and the latest version iproute the
-problem is resolved.  I'm suspecting the other issue may have been a
-64/32 bit alignment issue since it seems like that was addressed
-recently.  Odds are the message format for updated iproute will be
-incompatible with legacy API anyway.
+That's exactly what static fdb entries do, right?
 
-I will undo the revert and try tweaking the iproute2 call so that it
-makes use of the ifinfomsg.  If that works okay I can send a patch.
+> And more flags seems like a good and easy solution to per-port
+> control. If you have tested code, please submit it.
 
-Thanks,
+Need to put out some other fires, will do afterwards
+if Vlad doesn't beat me to it.
 
-Alex
+-- 
+MST
