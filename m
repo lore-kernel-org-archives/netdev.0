@@ -1,49 +1,52 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: RE: [net-next PATCH 0/4] net: frag patchset for fixing LRU
- scalabilityissue
-Date: Thu, 25 Apr 2013 13:39:55 +0200
-Message-ID: <1366889995.26911.555.camel@localhost>
-References: <20130424154624.16883.40974.stgit@dragon>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B71F9@saturn3.aculab.com>
+From: Lucas Stach <l.stach@pengutronix.de>
+Subject: Re: [PATCH 0/3] URGENT for 3.9: net: fec: revert NAPI introduction
+Date: Thu, 25 Apr 2013 14:44:14 +0200
+Message-ID: <1366893854.4139.17.camel@weser.hi.pengutronix.de>
+References: <1366382164-10968-1-git-send-email-l.stach@pengutronix.de>
+	 <20130419.133825.1727571575417364801.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Cc: netdev@vger.kernel.org, Frank.Li@freescale.com,
+	shawn.guo@linaro.org, festevam@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39823 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756471Ab3DYMmx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Apr 2013 08:42:53 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B71F9@saturn3.aculab.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:48048 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756759Ab3DYMpX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 08:45:23 -0400
+In-Reply-To: <20130419.133825.1727571575417364801.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-04-24 at 17:21 +0100, David Laight wrote:
-> > I have dropped the idea of doing "direct hash cleaning".  Instead I
-> > have simply choosen to solve the global LRU list problem, by making
-> > the LRU list be per CPU.
-> 
-> How can a per-cpu LRU list work?
-> I see two immediate problems:
-> - Ensuring the normal 'allocate' and 'free' are always done
->   on the same cpu (free will need to remove items from any
->   LRU list).
-> - Ensuring that there all the items aren't on the LRU lists
->   of other cpus - meaning one can't be allocated.
-> 
-> The only way this could work is if the allocation limit
-> is also per-cpu and you can guarantee that the alloc and
-> free for any given item will always happen on the same cpu.
-> 
-> (alloc as in 'add to LRU list, free as in 'remove from LRU list).
+Hi David,
 
-Please read patch-04.
+Am Freitag, den 19.04.2013, 13:38 -0400 schrieb David Miller:
+> From: Lucas Stach <l.stach@pengutronix.de>
+> Date: Fri, 19 Apr 2013 16:36:01 +0200
+> 
+> > As it's way too late in the cycle to try and fix this up just revert the
+> > relevant patches for now.
+> 
+> I disagree, fix this properly, the revert is more intrusive.
 
-I've added "cpu_alloc" to record the CPU were the first fragment got
-allocated.  After which all frags gets accounted to that CPU,
-add/remove/timeout etc.
+In the last days I've tried to fix the failures I'm seeing with adding
+back the locks and disabling NAPI while restarting the controller. Both
+approaches are neither minimally intrusive, nor do they fix all the
+failures. I suspect there is a subtler error in some of the changed ring
+buffer handling code also, but I wasn't able to track this down further
+to a specific single-line change.
 
---Jesper
+The only way to reliably fix all the failures I'm seeing is really
+reverting the changes, as done with this series. So David please
+consider taking the reverts, even while they are a bit intrusive, they
+are the only way to get a 3.9 release out of the door with a working FEC
+driver.
+
+Regards,
+Lucas
+-- 
+Pengutronix e.K.                           | Lucas Stach                 |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-5076 |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
