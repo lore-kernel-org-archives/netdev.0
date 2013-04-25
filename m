@@ -1,68 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] net/mlx4: Add support to SRIOV VF
- management ndo calls
-Date: Thu, 25 Apr 2013 04:33:11 -0400 (EDT)
-Message-ID: <20130425.043311.783987350023639431.davem@davemloft.net>
-References: <1366821674-17902-1-git-send-email-ogerlitz@mellanox.com>
-	<20130424.163049.2212021825718596200.davem@davemloft.net>
-	<5178E535.10804@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com, ronye@mellanox.com
-To: ogerlitz@mellanox.com
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: [PATCH iproute2] iplink: add batadv interface type
+Date: Thu, 25 Apr 2013 10:33:19 +0200
+Message-ID: <1366878799-20237-1-git-send-email-ordex@autistici.org>
+Cc: netdev@vger.kernel.org, Antonio Quartulli <ordex@autistici.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50075 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754098Ab3DYIdN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 04:33:13 -0400
-In-Reply-To: <5178E535.10804@mellanox.com>
+Received: from latitanza.investici.org ([82.94.249.234]:29941 "EHLO
+	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754098Ab3DYIe4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 04:34:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu, 25 Apr 2013 11:11:33 +0300
+batadv is another virtual interface type that can be created
+via ip link. Add its name to the help screen.
 
-> On 24/04/2013 23:30, David Miller wrote:
->> From: Or Gerlitz <ogerlitz@mellanox.com>
->> Date: Wed, 24 Apr 2013 19:41:08 +0300
->>
->>> This series adds support for the SRIOV ndo_set_vf callbacks to the
->>> mlx4 driver.
->>>
->>> Series done against the net-next tree as of commit 0c501345c
->>> "batman-adv: fix
->>> global protection fault during soft_iface destruction".
->>>
->>> We have successfully tested the series on net-next, except for getting
->>> the VF link info issue I have reported earlier today on netdev, we
->>> see the problem for both ixgbe and mlx4 VFs. Just to make sure get
->>> VF config is working OK with patch #6 - we have run it over 3.8.8 too.
->> Series applied, thanks.
-> 
-> Hi Dave, Looking on your patchwork archive, I see indeed that the
-> series was accepted, e.g
-> 
-> patch 1/6 http://patchwork.ozlabs.org/patch/239279/
-> patch 2/6 http://patchwork.ozlabs.org/patch/239274/
-> patch 3/6 http://patchwork.ozlabs.org/patch/239277/
-> patch 4/6 http://patchwork.ozlabs.org/patch/239276/
-> patch 5/6 http://patchwork.ozlabs.org/patch/239278/
-> patch 6/6 http://patchwork.ozlabs.org/patch/239275/
-> 
-> but for some reason the patches don't appear on your kernel.org
-> net-next tree, anything went wrong here?
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+---
+ ip/iplink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Actually, the series didn't apply, I have no idea why I said that I
-applied it.
-
-It conflicts with other changes already in net-next, namely the
-NETIF_F_* vlan hw capability flag renaming done by Patrick McHardy.
-
-Also, in patch #4:
-
-/home/davem/src/GIT/net-next/.git/rebase-apply/patch:125: new blank line at EOF.
-
-do not add files that end in an empty line.
-
-Please fix this all up and resubmit, thanks.
+diff --git a/ip/iplink.c b/ip/iplink.c
+index dc98019..2301cbc 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -84,7 +84,7 @@ void iplink_usage(void)
+ 	if (iplink_have_newlink()) {
+ 		fprintf(stderr, "\n");
+ 		fprintf(stderr, "TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | can |\n");
+-		fprintf(stderr, "          bridge | ipoib | ip6tnl | ipip | sit | vxlan }\n");
++		fprintf(stderr, "          bridge | ipoib | ip6tnl | ipip | sit | vxlan | batadv }\n");
+ 	}
+ 	exit(-1);
+ }
+-- 
+1.8.1.5
