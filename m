@@ -1,61 +1,63 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Patch net-next v2] bridge: do not expire mdb entry as long as
- bridge still uses it
-Date: Thu, 25 Apr 2013 16:37:04 +0800
-Message-ID: <20130425083704.GA27420@gondor.apana.org.au>
-References: <1366878083-22797-1-git-send-email-amwang@redhat.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH v3] net: mac802154: comparision issue of type cast, finding
+ by EXTRA_CFLAGS=-W
+Date: Thu, 25 Apr 2013 16:43:14 +0800
+Message-ID: <5178ECA2.6020402@asianux.com>
+References: <5175DFBC.7040000@asianux.com> <5175F7F7.7000703@asianux.com> <51766F74.2090007@asianux.com> <20130425.041044.768895561908042668.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Adam Baker <linux@baker-net.org.uk>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sergei.shtylyov@cogentembedded.com,
+	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:46281 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756122Ab3DYIhL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 04:37:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1366878083-22797-1-git-send-email-amwang@redhat.com>
+Received: from intranet.asianux.com ([58.214.24.6]:37483 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755892Ab3DYIoD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 04:44:03 -0400
+In-Reply-To: <20130425.041044.768895561908042668.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 25, 2013 at 04:21:23PM +0800, Cong Wang wrote:
-> This bug can be observed in virt environment, when a KVM guest
-> communicates with the host via multicast. After some time (should
-> be 260 sec, I didn't measure), the multicast traffic suddenly
-> terminates.
-> 
-> This is due to the mdb entry for bridge itself expires automatically,
-> it should not expire as long as the bridge still generates multicast
-> traffic. It should expire when the bridge leaves the multicast group,
-> OR when there is no multicast traffic on this bridge.
-> 
-> I fix this by adding another bool which is set when there is
-> multicast traffic goes to the bridge, cleared in the expire timer and
-> when IGMP leave is received. I ran omping for 15 minutes, everything
-> looks good now.
-> 
-> This might not be the best fix, but might be the simplest fix.
-> 
-> (Adam, this problem is probably different with your problem,
-> at least this problem can _not_ be workarounded by setting
-> querier to 1.)
+On 2013=E5=B9=B404=E6=9C=8825=E6=97=A5 16:10, David Miller wrote:
+> From: Chen Gang <gang.chen@asianux.com>
+> Date: Tue, 23 Apr 2013 19:24:36 +0800
+>=20
+>> >=20
+>> > Need change ~(u8)0 to 0xff, or in mac802154_wpan_xmit(), "u8 chan"
+>> > will never =3D=3D MAC802154_CHAN_NONE.
+>> >=20
+>> > The related warning:
+>> >   net/mac802154/wpan.c:325:2: warning: comparison is always false
+>> >   due to limited range of data type [-Wtype-limits]
+>> >=20
+>> > The related unit test:
+>> >   cc -Wall -O2 -o test test.c
+>> >   ./test
+>> >   will output 'different'
+>> >=20
+>> >   (after use '0xff' instead of '~(u8)0', it will output 'equal')
+>  ...
+>> > Signed-off-by: Chen Gang <gang.chen@asianux.com>
+> This change belong in the 'net' tree, but your patch won't apply
+> cleanly there as this part of the header file looks slightly
+> different there.
+>=20
+> Please respin your patch against 'net' and resubmit, thank you.
+>=20
 
-Sorry, your patch still makes no sense to me.  All you're doing
-is extending the bridge interface's subscription status every
-time a multicast packet for that group is sent to to the bridge.
+Excuse me, my English is not quite well, I guess your meaning is: send
+patch v4, and change the subject to "[PATCH v4] mac802154: comparision
+issue of type cast, finding by EXTRA_CFLAGS=3D-W".
 
-We should only be extending the status if we get a group report.
+Is it correct ?
 
-As you're saying the bridge interface's subscription is expiring
-incorrectly, the question is why aren't we receiving those group
-reports from ourselves, which should be sent out periodically if
-we were subscribed to the group?
+(the change is for net/mac802154/mac802154.h, and exist in v3.9-rc8)
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks.
+
+--=20
+Chen Gang
+
+Asianux Corporation
