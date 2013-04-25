@@ -1,37 +1,43 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v2] bridge: do not expire mdb entry as long as
- bridge still uses it
-Date: Thu, 25 Apr 2013 18:07:01 +0800
-Message-ID: <1366884421.11488.4.camel@cr0>
-References: <1366878083-22797-1-git-send-email-amwang@redhat.com>
-	 <20130425083704.GA27420@gondor.apana.org.au>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH 2/4] net: increase frag hash size
+Date: Thu, 25 Apr 2013 12:13:15 +0200
+Message-ID: <1366884795.26911.510.camel@localhost>
+References: <20130424154624.16883.40974.stgit@dragon>
+	 <20130424154822.16883.93014.stgit@dragon>
+	 <51785827.1000007@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Adam Baker <linux@baker-net.org.uk>
-To: Herbert Xu <herbert@gondor.hengli.com.au>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43980 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:15087 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756207Ab3DYKHZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Apr 2013 06:07:25 -0400
-In-Reply-To: <20130425083704.GA27420@gondor.apana.org.au>
+	id S1757309Ab3DYKNZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Apr 2013 06:13:25 -0400
+In-Reply-To: <51785827.1000007@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-04-25 at 16:37 +0800, Herbert Xu wrote:
+On Thu, 2013-04-25 at 02:09 +0400, Sergei Shtylyov wrote:
+> On 24-04-2013 19:48, Jesper Dangaard Brouer wrote:
 > 
-> As you're saying the bridge interface's subscription is expiring
-> incorrectly, the question is why aren't we receiving those group
-> reports from ourselves, which should be sent out periodically if
-> we were subscribed to the group?
+> > Increase fragmentation hash bucket size to 1024 from old 64 elems.
+> 
+> > After we increased the frag mem limits (in commit v3.8-rc3-503-gc2a9366)
+> 
+>     This is not a commit ID, commit ID is SHA1 key alone. And you should also 
+> specify that commit's summary line with it, in parens.
 
-I thought IGMP report is optional as long as the multicast traffic is
-still running. If it is mandatory, I don't see any IGMP report sending
-out from guest, so the bug is in IPv4 multicast code rather than bridge
-code.
+Did you know that you can use the string "v3.8-rc3-503-gc2a9366" like:
+ git show v3.8-rc3-503-gc2a9366
+That's why I like this kind of commit ID better, as it also tell the
+reader what approx version this patch were in.
 
-But this can't explain why guests can communicate with each other. :)
+But you are right about the title in parentheses...
+
+Dave, do you want me to resubmit this, with nitpicked commit message?
+
+--JEsper
