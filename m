@@ -1,52 +1,50 @@
-From: Lucas Stach <l.stach@pengutronix.de>
-Subject: Re: [PATCH 0/3] URGENT for 3.9: net: fec: revert NAPI introduction
-Date: Thu, 25 Apr 2013 14:44:14 +0200
-Message-ID: <1366893854.4139.17.camel@weser.hi.pengutronix.de>
-References: <1366382164-10968-1-git-send-email-l.stach@pengutronix.de>
-	 <20130419.133825.1727571575417364801.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/4] net/cpsw: make sure modules remove does not leak
+ any ressources
+Date: Thu, 25 Apr 2013 16:47:13 +0400
+Message-ID: <517925D1.2030509@cogentembedded.com>
+References: <1366829305-9752-1-git-send-email-bigeasy@linutronix.de> <1366829305-9752-3-git-send-email-bigeasy@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Frank.Li@freescale.com,
-	shawn.guo@linaro.org, festevam@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: Mugunthan V N <mugunthanvnm@ti.com>, tglx@linutronix.de,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:48048 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756759Ab3DYMpX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 08:45:23 -0400
-In-Reply-To: <20130419.133825.1727571575417364801.davem@davemloft.net>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:33062 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755651Ab3DYMs2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 08:48:28 -0400
+Received: by mail-la0-f49.google.com with SMTP id fp13so320524lab.22
+        for <netdev@vger.kernel.org>; Thu, 25 Apr 2013 05:48:27 -0700 (PDT)
+In-Reply-To: <1366829305-9752-3-git-send-email-bigeasy@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Hello.
 
-Am Freitag, den 19.04.2013, 13:38 -0400 schrieb David Miller:
-> From: Lucas Stach <l.stach@pengutronix.de>
-> Date: Fri, 19 Apr 2013 16:36:01 +0200
-> 
-> > As it's way too late in the cycle to try and fix this up just revert the
-> > relevant patches for now.
-> 
-> I disagree, fix this properly, the revert is more intrusive.
+On 24-04-2013 22:48, Sebastian Andrzej Siewior wrote:
 
-In the last days I've tried to fix the failures I'm seeing with adding
-back the locks and disabling NAPI while restarting the controller. Both
-approaches are neither minimally intrusive, nor do they fix all the
-failures. I suspect there is a subtler error in some of the changed ring
-buffer handling code also, but I wasn't able to track this down further
-to a specific single-line change.
+> This driver does not clean up properly after leaving. Here is a list:
+> - Use unregister_netdev(). free_netdev() is good but not enough
+> - Use the above also on the other ndev in case of dual mac
+> - Free data.slave_data. The name of the strucre makes it look like
 
-The only way to reliably fix all the failures I'm seeing is really
-reverting the changes, as done with this series. So David please
-consider taking the reverts, even while they are a bit intrusive, they
-are the only way to get a 3.9 release out of the door with a working FEC
-driver.
+    s/strucre/structure/
 
-Regards,
-Lucas
--- 
-Pengutronix e.K.                           | Lucas Stach                 |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-5076 |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+>    it is platform_data but it is not. It is just a trick!
+> - Free all irqs. Again: freeing one irq is good start, but freeing all
+>    of them is better.
+
+> With this rmmod & modprobe of cpsw seems to work. The remaining issue
+> is:
+> |WARNING: at fs/sysfs/dir.c:536 sysfs_add_one+0x9c/0xd4()
+> |sysfs: cannot create duplicate filename '/devices/ocp.2/4a100000.ethernet/4a101000.mdio'
+> |WARNING: at lib/kobject.c:196 kobject_add_internal+0x1a4/0x1c8()
+
+> comming from of_platform_populate() and I am not sure that this belongs
+> here.
+
+> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+
+WBR, Sergei
