@@ -1,58 +1,57 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH ipvs-next] ipvs: Remove
- rcu_read_unlock();rcu_read_lock();
-Date: Thu, 25 Apr 2013 22:46:55 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1304252224250.1948@ja.ssi.bg>
-References: <1366852353-32561-1-git-send-email-horms@verge.net.au>  <alpine.LFD.2.00.1304251038541.1752@ja.ssi.bg>  <1366880726.2628.177.camel@hawk.mlab.se>  <20130425133639.GC10898@verge.net.au> <1366898643.8964.139.camel@edumazet-glaptop>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH V2] net: increase frag hash size
+Date: Thu, 25 Apr 2013 21:52:25 +0200
+Message-ID: <20130425194850.25609.46664.stgit@dragon>
+References: <20130424154822.16883.93014.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Horman <horms@verge.net.au>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	sergei.shtylyov@cogentembedded.com
+To: "David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:41216 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932250Ab3DYTpo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Apr 2013 15:45:44 -0400
-In-Reply-To: <1366898643.8964.139.camel@edumazet-glaptop>
+Received: from mx1.redhat.com ([209.132.183.28]:28597 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759025Ab3DYTwS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Apr 2013 15:52:18 -0400
+In-Reply-To: <20130424154822.16883.93014.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Increase fragmentation hash bucket size to 1024 from old 64 elems.
 
-	Hello,
+After we increased the frag mem limits commit c2a93660 (net: increase
+fragment memory usage limits) the hash size of 64 elements is simply
+too small.  Also considering the mem limit is per netns and the hash
+table is shared for all netns.
 
-On Thu, 25 Apr 2013, Eric Dumazet wrote:
+For the embedded people, note that this increase will change the hash
+table/array from using approx 1 Kbytes to 16 Kbytes.
 
-> On Thu, 2013-04-25 at 22:36 +0900, Simon Horman wrote:
-> 
-> > Ok, leaving it seems reasonable.
-> > Pablo, do you have any objections?
-> 
-> I have objections.
-> 
-> I would _add_ a cond_resched() there to explicitly do what we want
-> 
-> Maybe a macro/inline doing this already exists.
-> 
-> static void inline cond_resched_rcu_lock(void)
-> {
-> 	if (need_resched()) {
-> 		rcu_read_unlock();
-> 		cond_resched();
-> 		rcu_read_lock();
-> 	}
-> }
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-	Thanks, looks like a good idea to me, I guess
-its place is include/linux/sched.h. Simon, can you prepare
-2 patches instead, one for cond_resched_rcu_lock and second
-for ipvs?
+---
+V2:
+ - Fix commit message, correct formatted commit IDs
+ - Added prevous acked-by to (hopfully) easy DaveM's work
 
-Regards
+ include/net/inet_frag.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index eb1d6ee..4e15856 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -41,7 +41,7 @@ struct inet_frag_queue {
+ 	struct netns_frags	*net;
+ };
+ 
+-#define INETFRAGS_HASHSZ		64
++#define INETFRAGS_HASHSZ	1024
+ 
+ struct inet_frag_bucket {
+ 	struct hlist_head	chain;
