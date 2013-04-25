@@ -1,119 +1,330 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V1 net-next 8/8] net/mlx4: Add support to get VF config
-Date: Thu, 25 Apr 2013 18:22:30 +0300
-Message-ID: <1366903350-9096-9-git-send-email-ogerlitz@mellanox.com>
-References: <1366903350-9096-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, amirv@mellanox.com,
-	Rony Efraim <ronye@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:42462 "EHLO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758475Ab3DYPWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 11:22:40 -0400
-In-Reply-To: <1366903350-9096-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vasant Hegde <hegdevasant-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH 04/28] proc: Supply PDE attribute setting accessor functions
+ [RFC]
+Date: Thu, 25 Apr 2013 20:52:36 +0530
+Message-ID: <51794A3C.3040406@linux.vnet.ibm.com>
+References: <20130416182550.27773.89310.stgit@warthog.procyon.org.uk> <20130416182606.27773.55054.stgit@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org,
+	linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130416182606.27773.55054.stgit-S6HVgzuS8uM4Awkfq6JHfwNdhmdF6hFW@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Rony Efraim <ronye@mellanox.com>
+On 04/16/2013 11:56 PM, David Howells wrote:
+> Supply accessor functions to set attributes in proc_dir_entry structs.
+>
+> The following are supplied: proc_set_size() and proc_set_user().
+>
+> Signed-off-by: David Howells<dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> cc: linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+> cc: linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> cc: linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> cc: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> cc: alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org
+> ---
+>
+>   arch/powerpc/kernel/proc_powerpc.c        |    2 +-
+>   arch/powerpc/platforms/pseries/reconfig.c |    2 +-
 
-Support getting VF config.
+arch/powerpc side changes looks good.
 
-Signed-off-by: Rony Efraim <ronye@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/cmd.c       |   33 ++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    8 ++++++
- include/linux/mlx4/cmd.h                       |    2 +
- 3 files changed, 43 insertions(+), 0 deletions(-)
+-Vasant
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index eda347e..1df56cc 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -2151,3 +2151,36 @@ int mlx4_set_vf_spoofchk(struct mlx4_dev *dev, int port, int vf, bool setting)
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(mlx4_set_vf_spoofchk);
-+
-+int mlx4_get_vf_config(struct mlx4_dev *dev, int port, int vf, struct ifla_vf_info *ivf)
-+{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_vport_state *s_info;
-+	int slave;
-+
-+	if (!mlx4_is_master(dev))
-+		return -EPROTONOSUPPORT;
-+
-+	slave = mlx4_get_slave_indx(dev, vf);
-+	if (slave < 0)
-+		return -EINVAL;
-+
-+	s_info = &priv->mfunc.master.vf_admin[slave].vport[port];
-+	ivf->vf = vf;
-+
-+	/* need to convert it to a func */
-+	ivf->mac[0] = ((s_info->mac >> (5*8)) & 0xff);
-+	ivf->mac[1] = ((s_info->mac >> (4*8)) & 0xff);
-+	ivf->mac[2] = ((s_info->mac >> (3*8)) & 0xff);
-+	ivf->mac[3] = ((s_info->mac >> (2*8)) & 0xff);
-+	ivf->mac[4] = ((s_info->mac >> (1*8)) & 0xff);
-+	ivf->mac[5] = ((s_info->mac)  & 0xff);
-+
-+	ivf->vlan	= s_info->default_vlan;
-+	ivf->qos	= s_info->default_qos;
-+	ivf->tx_rate	= s_info->tx_rate;
-+	ivf->spoofchk	= s_info->spoofchk;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(mlx4_get_vf_config);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 8d197b4..a69a908 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2052,6 +2052,13 @@ static int mlx4_en_set_vf_spoofchk(struct net_device *dev, int vf, bool setting)
- 	return mlx4_set_vf_spoofchk(mdev->dev, en_priv->port, vf, setting);
- }
- 
-+static int mlx4_en_get_vf_config(struct net_device *dev, int vf, struct ifla_vf_info *ivf)
-+{
-+	struct mlx4_en_priv *en_priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = en_priv->mdev;
-+
-+	return mlx4_get_vf_config(mdev->dev, en_priv->port, vf, ivf);
-+}
- 
- static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_open		= mlx4_en_open,
-@@ -2093,6 +2100,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
- 	.ndo_set_vf_mac		= mlx4_en_set_vf_mac,
- 	.ndo_set_vf_vlan	= mlx4_en_set_vf_vlan,
- 	.ndo_set_vf_spoofchk	= mlx4_en_set_vf_spoofchk,
-+	.ndo_get_vf_config	= mlx4_en_get_vf_config,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= mlx4_en_netpoll,
- #endif
-diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
-index 95c3223..adf6e06 100644
---- a/include/linux/mlx4/cmd.h
-+++ b/include/linux/mlx4/cmd.h
-@@ -34,6 +34,7 @@
- #define MLX4_CMD_H
- 
- #include <linux/dma-mapping.h>
-+#include <linux/if_link.h>
- 
- enum {
- 	/* initialization and general commands */
-@@ -235,6 +236,7 @@ u32 mlx4_comm_get_version(void);
- int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac);
- int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos);
- int mlx4_set_vf_spoofchk(struct mlx4_dev *dev, int port, int vf, bool setting);
-+int mlx4_get_vf_config(struct mlx4_dev *dev, int port, int vf, struct ifla_vf_info *ivf);
- 
- 
- #define MLX4_COMM_GET_IF_REV(cmd_chan_ver) (u8)((cmd_chan_ver) >> 8)
--- 
-1.7.1
+>   drivers/media/pci/ttpci/av7110_ir.c       |    2 +-
+>   drivers/net/irda/vlsi_ir.c                |    2 +-
+>   drivers/net/wireless/airo.c               |   34 +++++++++--------------------
+>   drivers/pci/proc.c                        |    2 +-
+>   fs/proc/generic.c                         |   13 +++++++++++
+>   include/linux/proc_fs.h                   |    5 ++++
+>   kernel/configs.c                          |    2 +-
+>   kernel/profile.c                          |    2 +-
+>   net/netfilter/xt_recent.c                 |    3 +--
+>   sound/core/info.c                         |    2 +-
+>   12 files changed, 38 insertions(+), 33 deletions(-)
+>
+> diff --git a/arch/powerpc/kernel/proc_powerpc.c b/arch/powerpc/kernel/proc_powerpc.c
+> index 41d8ee9..feb8580 100644
+> --- a/arch/powerpc/kernel/proc_powerpc.c
+> +++ b/arch/powerpc/kernel/proc_powerpc.c
+> @@ -83,7 +83,7 @@ static int __init proc_ppc64_init(void)
+>   			&page_map_fops, vdso_data);
+>   	if (!pde)
+>   		return 1;
+> -	pde->size = PAGE_SIZE;
+> +	proc_set_size(pde, PAGE_SIZE);
+>
+>   	return 0;
+>   }
+> diff --git a/arch/powerpc/platforms/pseries/reconfig.c b/arch/powerpc/platforms/pseries/reconfig.c
+> index d6491bd..f93cdf5 100644
+> --- a/arch/powerpc/platforms/pseries/reconfig.c
+> +++ b/arch/powerpc/platforms/pseries/reconfig.c
+> @@ -452,7 +452,7 @@ static int proc_ppc64_create_ofdt(void)
+>
+>   	ent = proc_create("powerpc/ofdt", S_IWUSR, NULL,&ofdt_fops);
+>   	if (ent)
+> -		ent->size = 0;
+> +		proc_set_size(ent, 0);
+>
+>   	return 0;
+>   }
+> diff --git a/drivers/media/pci/ttpci/av7110_ir.c b/drivers/media/pci/ttpci/av7110_ir.c
+> index eb82286..0e763a7 100644
+> --- a/drivers/media/pci/ttpci/av7110_ir.c
+> +++ b/drivers/media/pci/ttpci/av7110_ir.c
+> @@ -375,7 +375,7 @@ int av7110_ir_init(struct av7110 *av7110)
+>   	if (av_cnt == 1) {
+>   		e = proc_create("av7110_ir", S_IWUSR, NULL,&av7110_ir_proc_fops);
+>   		if (e)
+> -			e->size = 4 + 256 * sizeof(u16);
+> +			proc_set_size(e, 4 + 256 * sizeof(u16));
+>   	}
+>
+>   	tasklet_init(&av7110->ir.ir_tasklet, av7110_emit_key, (unsigned long)&av7110->ir);
+> diff --git a/drivers/net/irda/vlsi_ir.c b/drivers/net/irda/vlsi_ir.c
+> index e22cd4e..5f47584 100644
+> --- a/drivers/net/irda/vlsi_ir.c
+> +++ b/drivers/net/irda/vlsi_ir.c
+> @@ -1678,7 +1678,7 @@ vlsi_irda_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+>   			IRDA_WARNING("%s: failed to create proc entry\n",
+>   				     __func__);
+>   		} else {
+> -			ent->size = 0;
+> +			proc_set_size(ent, 0);
+>   		}
+>   		idev->proc_entry = ent;
+>   	}
+> diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
+> index 66e398d..21d0233 100644
+> --- a/drivers/net/wireless/airo.c
+> +++ b/drivers/net/wireless/airo.c
+> @@ -4507,73 +4507,63 @@ static int setup_proc_entry( struct net_device *dev,
+>   					    airo_entry);
+>   	if (!apriv->proc_entry)
+>   		goto fail;
+> -	apriv->proc_entry->uid = proc_kuid;
+> -	apriv->proc_entry->gid = proc_kgid;
+> +	proc_set_user(apriv->proc_entry, proc_kuid, proc_kgid);
+>
+>   	/* Setup the StatsDelta */
+>   	entry = proc_create_data("StatsDelta", S_IRUGO&  proc_perm,
+>   				 apriv->proc_entry,&proc_statsdelta_ops, dev);
+>   	if (!entry)
+>   		goto fail_stats_delta;
+> -	entry->uid = proc_kuid;
+> -	entry->gid = proc_kgid;
+> +	proc_set_user(entry, proc_kuid, proc_kgid);
+>
+>   	/* Setup the Stats */
+>   	entry = proc_create_data("Stats", S_IRUGO&  proc_perm,
+>   				 apriv->proc_entry,&proc_stats_ops, dev);
+>   	if (!entry)
+>   		goto fail_stats;
+> -	entry->uid = proc_kuid;
+> -	entry->gid = proc_kgid;
+> +	proc_set_user(entry, proc_kuid, proc_kgid);
+>
+>   	/* Setup the Status */
+>   	entry = proc_create_data("Status", S_IRUGO&  proc_perm,
+>   				 apriv->proc_entry,&proc_status_ops, dev);
+>   	if (!entry)
+>   		goto fail_status;
+> -	entry->uid = proc_kuid;
+> -	entry->gid = proc_kgid;
+> +	proc_set_user(entry, proc_kuid, proc_kgid);
+>
+>   	/* Setup the Config */
+>   	entry = proc_create_data("Config", proc_perm,
+>   				 apriv->proc_entry,&proc_config_ops, dev);
+>   	if (!entry)
+>   		goto fail_config;
+> -	entry->uid = proc_kuid;
+> -	entry->gid = proc_kgid;
+> +	proc_set_user(entry, proc_kuid, proc_kgid);
+>
+>   	/* Setup the SSID */
+>   	entry = proc_create_data("SSID", proc_perm,
+>   				 apriv->proc_entry,&proc_SSID_ops, dev);
+>   	if (!entry)
+>   		goto fail_ssid;
+> -	entry->uid = proc_kuid;
+> -	entry->gid = proc_kgid;
+> +	proc_set_user(entry, proc_kuid, proc_kgid);
+>
+>   	/* Setup the APList */
+>   	entry = proc_create_data("APList", proc_perm,
+>   				 apriv->proc_entry,&proc_APList_ops, dev);
+>   	if (!entry)
+>   		goto fail_aplist;
+> -	entry->uid = proc_kuid;
+> -	entry->gid = proc_kgid;
+> +	proc_set_user(entry, proc_kuid, proc_kgid);
+>
+>   	/* Setup the BSSList */
+>   	entry = proc_create_data("BSSList", proc_perm,
+>   				 apriv->proc_entry,&proc_BSSList_ops, dev);
+>   	if (!entry)
+>   		goto fail_bsslist;
+> -	entry->uid = proc_kuid;
+> -	entry->gid = proc_kgid;
+> +	proc_set_user(entry, proc_kuid, proc_kgid);
+>
+>   	/* Setup the WepKey */
+>   	entry = proc_create_data("WepKey", proc_perm,
+>   				 apriv->proc_entry,&proc_wepkey_ops, dev);
+>   	if (!entry)
+>   		goto fail_wepkey;
+> -	entry->uid = proc_kuid;
+> -	entry->gid = proc_kgid;
+> -
+> +	proc_set_user(entry, proc_kuid, proc_kgid);
+>   	return 0;
+>
+>   fail_wepkey:
+> @@ -5695,10 +5685,8 @@ static int __init airo_init_module( void )
+>
+>   	airo_entry = proc_mkdir_mode("driver/aironet", airo_perm, NULL);
+>
+> -	if (airo_entry) {
+> -		airo_entry->uid = proc_kuid;
+> -		airo_entry->gid = proc_kgid;
+> -	}
+> +	if (airo_entry)
+> +		proc_set_user(airo_entry, proc_kuid, proc_kgid);
+>
+>   	for (i = 0; i<  4&&  io[i]&&  irq[i]; i++) {
+>   		airo_print_info("", "Trying to configure ISA adapter at irq=%d "
+> diff --git a/drivers/pci/proc.c b/drivers/pci/proc.c
+> index 12e4fb5..7cde7c1 100644
+> --- a/drivers/pci/proc.c
+> +++ b/drivers/pci/proc.c
+> @@ -419,7 +419,7 @@ int pci_proc_attach_device(struct pci_dev *dev)
+>   			&proc_bus_pci_operations, dev);
+>   	if (!e)
+>   		return -ENOMEM;
+> -	e->size = dev->cfg_size;
+> +	proc_set_size(e, dev->cfg_size);
+>   	dev->procent = e;
+>
+>   	return 0;
+> diff --git a/fs/proc/generic.c b/fs/proc/generic.c
+> index 1c07cad..5f6f6c3 100644
+> --- a/fs/proc/generic.c
+> +++ b/fs/proc/generic.c
+> @@ -498,6 +498,19 @@ out:
+>   	return NULL;
+>   }
+>   EXPORT_SYMBOL(proc_create_data);
+> +
+> +void proc_set_size(struct proc_dir_entry *de, loff_t size)
+> +{
+> +	de->size = size;
+> +}
+> +EXPORT_SYMBOL(proc_set_size);
+> +
+> +void proc_set_user(struct proc_dir_entry *de, kuid_t uid, kgid_t gid)
+> +{
+> +	de->uid = uid;
+> +	de->gid = gid;
+> +}
+> +EXPORT_SYMBOL(proc_set_user);
+>
+>   static void free_proc_entry(struct proc_dir_entry *de)
+>   {
+> diff --git a/include/linux/proc_fs.h b/include/linux/proc_fs.h
+> index 805edac..28a4d7e 100644
+> --- a/include/linux/proc_fs.h
+> +++ b/include/linux/proc_fs.h
+> @@ -130,6 +130,9 @@ static inline struct proc_dir_entry *proc_create(const char *name, umode_t mode,
+>   extern struct proc_dir_entry *proc_net_mkdir(struct net *net, const char *name,
+>   	struct proc_dir_entry *parent);
+>
+> +extern void proc_set_size(struct proc_dir_entry *, loff_t);
+> +extern void proc_set_user(struct proc_dir_entry *, kuid_t, kgid_t);
+> +
+>   extern struct file *proc_ns_fget(int fd);
+>   extern bool proc_ns_inode(struct inode *inode);
+>
+> @@ -158,6 +161,8 @@ static inline struct proc_dir_entry *proc_mkdir(const char *name,
+>   	struct proc_dir_entry *parent) {return NULL;}
+>   static inline struct proc_dir_entry *proc_mkdir_mode(const char *name,
+>   	umode_t mode, struct proc_dir_entry *parent) { return NULL; }
+> +static inline void proc_set_size(struct proc_dir_entry *de, loff_t size) {}
+> +static inline void proc_set_user(struct proc_dir_entry *de, kuid_t uid, kgid_t gid) {}
+>
+>   struct tty_driver;
+>   static inline void proc_tty_register_driver(struct tty_driver *driver) {};
+> diff --git a/kernel/configs.c b/kernel/configs.c
+> index 42e8fa0..c18b1f1 100644
+> --- a/kernel/configs.c
+> +++ b/kernel/configs.c
+> @@ -79,7 +79,7 @@ static int __init ikconfig_init(void)
+>   	if (!entry)
+>   		return -ENOMEM;
+>
+> -	entry->size = kernel_config_data_size;
+> +	proc_set_size(entry, kernel_config_data_size);
+>
+>   	return 0;
+>   }
+> diff --git a/kernel/profile.c b/kernel/profile.c
+> index 524ce5e..0bf4007 100644
+> --- a/kernel/profile.c
+> +++ b/kernel/profile.c
+> @@ -600,7 +600,7 @@ int __ref create_proc_profile(void) /* false positive from hotcpu_notifier */
+>   			    NULL,&proc_profile_operations);
+>   	if (!entry)
+>   		return 0;
+> -	entry->size = (1+prof_len) * sizeof(atomic_t);
+> +	proc_set_size(entry, (1 + prof_len) * sizeof(atomic_t));
+>   	hotcpu_notifier(profile_cpu_callback, 0);
+>   	return 0;
+>   }
+> diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
+> index 3db2d38..1e657cf 100644
+> --- a/net/netfilter/xt_recent.c
+> +++ b/net/netfilter/xt_recent.c
+> @@ -401,8 +401,7 @@ static int recent_mt_check(const struct xt_mtchk_param *par,
+>   		ret = -ENOMEM;
+>   		goto out;
+>   	}
+> -	pde->uid = uid;
+> -	pde->gid = gid;
+> +	proc_set_user(pde, uid, gid);
+>   #endif
+>   	spin_lock_bh(&recent_lock);
+>   	list_add_tail(&t->list,&recent_net->tables);
+> diff --git a/sound/core/info.c b/sound/core/info.c
+> index 3aa8864..c7f41c3 100644
+> --- a/sound/core/info.c
+> +++ b/sound/core/info.c
+> @@ -970,7 +970,7 @@ int snd_info_register(struct snd_info_entry * entry)
+>   			mutex_unlock(&info_mutex);
+>   			return -ENOMEM;
+>   		}
+> -		p->size = entry->size;
+> +		proc_set_size(p, entry->size);
+>   	}
+>   	entry->p = p;
+>   	if (entry->parent)
+>
+> _______________________________________________
+> Linuxppc-dev mailing list
+> Linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+> https://lists.ozlabs.org/listinfo/linuxppc-dev
+>
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
