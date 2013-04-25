@@ -1,119 +1,90 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 00/21] more arm build fixes
-Date: Thu, 25 Apr 2013 19:28:43 +0200
-Message-ID: <1366910944-3033663-1-git-send-email-arnd@arndb.de>
-Cc: linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	David Airlie <airlied@linux.ie>, Felipe Balbi <balbi@ti.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Inki Dae <inki.dae@samsung.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Joerg Roedel <joro@8bytes.org>,
-	Nicolas Pitre <nico@linaro.org>,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
-	Rob Herring <robherring2@gmail.com>,
-	Russell King <rmk+kernel@arm.linux.org.uk>,
-	Simon Horman <horms+renesas@verge.net.au>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Viresh Kumar <viresh.kumar@linaro.org>,
-	Will Deacon <will.deacon@arm.com>, alsa-devel@alsa-project.org,
-	dri-devel@lists.freedesktop.org,
-	linux-atm-general@lists.sourceforge.net,
-	linux-scsi@vger.kernel.org, linux-usb@
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2 net-next 0/6] Allow bridge to function in
+ non-promisc mode
+Date: Thu, 25 Apr 2013 10:35:57 -0700
+Message-ID: <20130425103557.1e42ad04@nehalam.linuxnetplumber.net>
+References: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
+	<20130425085656.4500d5c4@nehalam.linuxnetplumber.net>
+	<20130425164527.GA2908@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130425164527.GA2908@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi subsystem maintainers,
+On Thu, 25 Apr 2013 19:45:27 +0300
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-Here is another set of patches that resulted from build testing on
-linux-next. Please apply directly into your trees if you agree,
-or let me know if I made a mistake.
+> On Thu, Apr 25, 2013 at 08:56:56AM -0700, Stephen Hemminger wrote:
+> > On Fri, 19 Apr 2013 16:52:44 -0400
+> > Vlad Yasevich <vyasevic@redhat.com> wrote:
+> > 
+> > > This series is an almost complete rework of the prior attempt
+> > > to make the bridge function in non-promisc mode.  In this series
+> > > the "promiscuity" of an interface is dynamically determined and
+> > > the interface may transition from/to promiscuous mode based on
+> > > bridge configuration.
+> > > 
+> > > The series keeps an idea of an "uplink" port.  That is still user
+> > > designated.
+> > > The series also adds a concept of "dynamic" bridge port.  This is
+> > > the default state of the port and means that the user has not
+> > > specified any static FDBs for that port.
+> > > Once a user has added a static FDB entry to port and also specified
+> > > an "uplink" flag for that FDB, the mac address from that FDB is
+> > > added to the bridge hw address list and synched down to uplinks.
+> > > "Uplinks" are always considered dynamic ports even if a static entry
+> > > has been added for them.
+> > > Promiscuity is determined by the number of dynamic ports.  If there
+> > > are no dynamic ports (i.e all ports have static FDBs set), then we
+> > > know all the neighbors and can switch promisc off on all of the ports.
+> > > If we have only 1 dynamic port and its an uplink, we can synch all
+> > > static hw addresses to this port and mark it non-promisc.
+> > > If we have more then 1 dynamic port, then all ports have to be
+> > > promiscuouse.
+> > > This is the algorith that Michael Tsirkin proposed earlier.
+> > 
+> > Instead of a uplink port, maybe this idea would work better in combination
+> > with another patch I have been working on.
+> > 
+> > In many bridged environments, ports have only one possible MAC address
+> > on the other side. My patch provides a flag to mark those ports as bound
+> > with only one peer MAC address.  This allows those ports to be skipped on
+> > flooding, and for security only packets with that source address would
+> > be allowed.
+> > 
+> > After that change, your promicious code could just use that flag:
+> > i.e: 
+> >    uplink ports = total ports - bound ports
+> >    if (uplink ports == 1)
+> >        enter non-promicious mode
+> 
+> Almost except sometimes (with some guests)
+> X mac addresses are needed, not just one.
+> 
+> How about a generalization:
+> 	- a flag to disable learning per port (only use static entries)
+> 	- a flag to disable flood per port
+> Both sees to exist on openbsd, they are useful by themselves.
+> 
+> Now Vlad's patch can work if both learning and flood are
+> disabled for all ports except maybe one.
+> 
+> 
 
-I can take whatever remains through the arm-soc tree if you prefer
-that or I don't hear back.
-
-	Arnd
-
-
-Arnd Bergmann (21):
-  ARM: topology: export cpu_topology
-  ARM: default machine descriptor for multiplatform
-  ARM: shmobile: don't call irqchip_init unconditionally
-  ARM: orion5x: include linux/cpu.h
-  atm: he: use mdelay instead of large udelay constants
-  ALSA: ali5451: use mdelay instead of large udelay constants
-  oss/dmabuf: use dma_map_single
-  drm/nouveau: use mdelay instead of large udelay constants
-  drm: export drm_vm_open_locked
-  [SCSI] nsp32: use mdelay instead of large udelay constants
-  irqdomain: export irq_domain_add_simple
-  irqchip: s3c24xx: add missing __init annotations
-  iommu: tegra: print dma_addr_t using %lld
-  cpufreq: pxa2xx: initialize variables
-  thermal: cooling: avoid uninitialied used gcc warning
-  OF: remove #ifdef from linux/of_platform.h
-  X.509: do not emit any informational output
-  USB: ehci-msm: USB_MSM_OTG needs USB_PHY
-  USB: lpc32xx: ISP1301 needs USB_PHY
-  USB: OMAP: ISP1301 needs USB_PHY
-  USB: OHCI: avoid conflicting platform drivers
-
- arch/arm/Kconfig                                   |   1 -
- arch/arm/configs/lpc32xx_defconfig                 |   1 +
- arch/arm/configs/msm_defconfig                     |   1 +
- arch/arm/configs/omap1_defconfig                   |   1 +
- arch/arm/kernel/devtree.c                          |   7 ++
- arch/arm/kernel/setup.c                            |  11 +-
- arch/arm/kernel/topology.c                         |   1 +
- arch/arm/mach-orion5x/common.c                     |   1 +
- arch/arm/mach-shmobile/intc-r8a7740.c              |  13 +-
- drivers/atm/he.c                                   |   2 +-
- drivers/cpufreq/pxa2xx-cpufreq.c                   |   5 +-
- drivers/gpu/drm/drm_vm.c                           |   1 +
- drivers/gpu/drm/nouveau/core/engine/disp/dacnv50.c |   3 +-
- drivers/iommu/tegra-gart.c                         |   3 +-
- drivers/iommu/tegra-smmu.c                         |   2 +-
- drivers/irqchip/irq-s3c24xx.c                      |   4 +-
- drivers/scsi/nsp32.c                               |   2 +-
- drivers/thermal/cpu_cooling.c                      |  17 +--
- drivers/usb/gadget/Kconfig                         |   2 +
- drivers/usb/host/Kconfig                           |   1 +
- drivers/usb/host/ohci-hcd.c                        | 136 ++++++++++++++++++---
- drivers/usb/phy/Makefile                           |   2 +-
- include/linux/of_platform.h                        |  13 +-
- kernel/irq/irqdomain.c                             |   1 +
- lib/build_OID_registry                             |   2 -
- sound/oss/dmabuf.c                                 |   3 +-
- sound/pci/ali5451/ali5451.c                        |   8 +-
- 27 files changed, 187 insertions(+), 57 deletions(-)
-
--- 
-1.8.1.2
-
-Cc: "James E.J. Bottomley" <JBottomley@parallels.com>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: David Airlie <airlied@linux.ie>
-Cc: Felipe Balbi <balbi@ti.com>
-Cc: Grant Likely <grant.likely@linaro.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Inki Dae <inki.dae@samsung.com>
-Cc: Jason Cooper <jason@lakedaemon.net>
-Cc: Joerg Roedel <joro@8bytes.org>
-Cc: Nicolas Pitre <nico@linaro.org>
-Cc: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-Cc: Rob Herring <robherring2@gmail.com>
-Cc: Russell King <rmk+kernel@arm.linux.org.uk>
-Cc: Simon Horman <horms+renesas@verge.net.au>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Viresh Kumar <viresh.kumar@linaro.org>
-Cc: Will Deacon <will.deacon@arm.com>
-Cc: alsa-devel@alsa-project.org
-Cc: dri-devel@lists.freedesktop.org
-Cc: linux-atm-general@lists.sourceforge.net
-Cc: linux-scsi@vger.kernel.org
-Cc: linux-usb@vger.kernel.org
-Cc: netdev@vger.kernel.org
+Ok, then maybe allow multiple bound MAC address's per guest.
+And more flags seems like a good and easy solution to per-port
+control. If you have tested code, please submit it.
