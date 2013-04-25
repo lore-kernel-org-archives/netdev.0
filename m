@@ -1,49 +1,52 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH-NEXT] rtlwifi: rtl8192cu: Fix false loss of AP indication
-Date: Thu, 25 Apr 2013 09:50:28 -0500
-Message-ID: <1366901428-21307-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:46102 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932559Ab3DYOuo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 10:50:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH] x86: make DR*_RESERVED unsigned long
+Date: Thu, 25 Apr 2013 16:48:18 +0200
+Message-ID: <20130425144818.GA25921@redhat.com>
+References: <CA+55aFwpLu0qNms=hkQr43yqD0K9DgESNm91OEWKT1ZuT8MU6Q@mail.gmail.com> <20130424072630.GB1780@gmail.com> <20130424170702.GA1867@redhat.com> <5178282D.9030902@zytor.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Cyrill Gorcunov <gorcunov@gmail.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	the arch/x86 maintainers <x86@kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-ext4@vger.kernel.org" <linux-ext4@vger.kernel.org>,
+	Fr??d??ric Weisbecker <fweisbec@gmail.com>
+To: "H. Peter Anvin" <hpa@zytor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5178282D.9030902@zytor.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A major change in the rtlwifi family recently added code to detect when
-there is loss of AP signals. One critical statement needed for the USB
-driver was missed.
+On 04/24, H. Peter Anvin wrote:
+>
+> On 04/24/2013 10:07 AM, Oleg Nesterov wrote:
+> > DR6_RESERVED and DR_CONTROL_RESERVED are used to clear the set
+> > bits in the "unsigned long" data, make them long to ensure that
+> > "&~" doesn't clear the upper bits.
+> >
+> > do_debug() and ptrace_write_dr7() which use DR*_RESERVED look
+> > safe, but probably it makes sense to cleanup anyway.
+> >
+> > Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+> > Signed-off-by: Oleg Nesterov <oleg@redhat.com>
+>
+> Can you please put in the description if this is a manifest or
+> non-manifest bug and, if manifest, what the issues are?  It greatly
+> affects what we otherwise have to do to address the bug.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
----
+Sorry if it was not clear, I tried to explain in the changelog that
+this is only cleanup. Yes, dr6 should have all zeroes in 32-64 so
+the usage of DR6_RESERVED is safe.
 
-John,
+> Also, the -UL suffix is usually capitalized in our codebase.
 
-Sorry to be so late, but this problem was just discovered.
+OK, iiuc otherwise you agree with this change. I'll send v2.
 
-Larry
----
-
- drivers/net/wireless/rtlwifi/usb.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/wireless/rtlwifi/usb.c b/drivers/net/wireless/rtlwifi/usb.c
-index 83915dc..76732b0 100644
---- a/drivers/net/wireless/rtlwifi/usb.c
-+++ b/drivers/net/wireless/rtlwifi/usb.c
-@@ -521,6 +521,9 @@ static void _rtl_usb_rx_process_noagg(struct ieee80211_hw *hw,
- 				rtlpriv->link_info.num_rx_inperiod++;
- 		}
- 
-+		/* static bcn for roaming */
-+		rtl_beacon_statistic(hw, skb);
-+
- 		if (likely(rtl_action_proc(hw, skb, false)))
- 			ieee80211_rx(hw, skb);
- 		else
--- 
-1.8.1.4
+Oleg.
