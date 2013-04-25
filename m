@@ -1,53 +1,136 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: [PATCH v5] net: mac802154: comparision issue of type cast, finding
- by EXTRA_CFLAGS=-W
-Date: Thu, 25 Apr 2013 18:49:55 +0800
-Message-ID: <51790A53.8040107@asianux.com>
-References: <5175DFBC.7040000@asianux.com> <5175F7F7.7000703@asianux.com> <51766F74.2090007@asianux.com> <20130425.041044.768895561908042668.davem@davemloft.net> <5178ECA2.6020402@asianux.com> <5178F120.5030500@acn-group.ch> <5178FA0D.8060009@asianux.com> <5178FE6A.3050108@redhat.com>
+From: <sarveshwar.bandi@emulex.com>
+Subject: [PATCH net 1/2] be2net: Fixed memory leak
+Date: Thu, 25 Apr 2013 16:26:55 +0530
+Message-ID: <f26077ac-01c8-44c4-b863-ffcdd5feedda@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Christophe Aeschlimann <c.aeschlimann@acn-group.ch>,
-	sergei.shtylyov@cogentembedded.com,
-	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Suresh Reddy <suresh.reddy@emulex.com>,
+	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:6961 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754630Ab3DYKum (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 06:50:42 -0400
-In-Reply-To: <5178FE6A.3050108@redhat.com>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:33214 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754630Ab3DYKzH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 06:55:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Suresh Reddy <suresh.reddy@emulex.com>
 
-Change MAC802154_CHAN_NONE from ~(u8)0 to 0xff, or the comparison in
-mac802154_wpan_xmit() for ``chan == MAC802154_CHAN_NONE'' will not
-succeed.
-
-This bug can be boiled down to ``u8 foo = 0xff; if (foo == ~(u8)0)
-[...] else [...]'' where the condition will always take the else
-branch. 
-
-Signed-off-by: Chen Gang <gang.chen@asianux.com>
+Signed-off-by: Suresh Reddy <suresh.reddy@emulex.com>
+Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 ---
- net/mac802154/mac802154.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   38 ++++++++++++++++-----------
+ 1 file changed, 22 insertions(+), 16 deletions(-)
 
-diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-index a4dcaf1..703c121 100644
---- a/net/mac802154/mac802154.h
-+++ b/net/mac802154/mac802154.h
-@@ -90,7 +90,7 @@ struct mac802154_sub_if_data {
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index ce5af9b..24c80d1 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -2493,6 +2493,9 @@ int be_cmd_get_cntl_attributes(struct be_adapter *adapter)
+ 	struct mgmt_controller_attrib *attribs;
+ 	struct be_dma_mem attribs_cmd;
  
- #define MAC802154_MAX_XMIT_ATTEMPTS	3
++	if (mutex_lock_interruptible(&adapter->mbox_lock))
++		return -1;
++
+ 	memset(&attribs_cmd, 0, sizeof(struct be_dma_mem));
+ 	attribs_cmd.size = sizeof(struct be_cmd_resp_cntl_attribs);
+ 	attribs_cmd.va = pci_alloc_consistent(adapter->pdev, attribs_cmd.size,
+@@ -2500,12 +2503,10 @@ int be_cmd_get_cntl_attributes(struct be_adapter *adapter)
+ 	if (!attribs_cmd.va) {
+ 		dev_err(&adapter->pdev->dev,
+ 				"Memory allocation failure\n");
+-		return -ENOMEM;
++		status = -ENOMEM;
++		goto err;
+ 	}
  
--#define MAC802154_CHAN_NONE		(~(u8)0) /* No channel is assigned */
-+#define MAC802154_CHAN_NONE		0xff /* No channel is assigned */
+-	if (mutex_lock_interruptible(&adapter->mbox_lock))
+-		return -1;
+-
+ 	wrb = wrb_from_mbox(adapter);
+ 	if (!wrb) {
+ 		status = -EBUSY;
+@@ -2525,8 +2526,9 @@ int be_cmd_get_cntl_attributes(struct be_adapter *adapter)
  
- extern struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced;
- extern struct ieee802154_mlme_ops mac802154_mlme_wpan;
+ err:
+ 	mutex_unlock(&adapter->mbox_lock);
+-	pci_free_consistent(adapter->pdev, attribs_cmd.size, attribs_cmd.va,
+-					attribs_cmd.dma);
++	if (attribs_cmd.va)
++		pci_free_consistent(adapter->pdev, attribs_cmd.size,
++				    attribs_cmd.va, attribs_cmd.dma);
+ 	return status;
+ }
+ 
+@@ -2826,6 +2828,9 @@ int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter)
+ 			    CMD_SUBSYSTEM_ETH))
+ 		return -EPERM;
+ 
++	if (mutex_lock_interruptible(&adapter->mbox_lock))
++		return -1;
++
+ 	memset(&cmd, 0, sizeof(struct be_dma_mem));
+ 	cmd.size = sizeof(struct be_cmd_resp_acpi_wol_magic_config_v1);
+ 	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size,
+@@ -2833,12 +2838,10 @@ int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter)
+ 	if (!cmd.va) {
+ 		dev_err(&adapter->pdev->dev,
+ 				"Memory allocation failure\n");
+-		return -ENOMEM;
++		status = -ENOMEM;
++		goto err;
+ 	}
+ 
+-	if (mutex_lock_interruptible(&adapter->mbox_lock))
+-		return -1;
+-
+ 	wrb = wrb_from_mbox(adapter);
+ 	if (!wrb) {
+ 		status = -EBUSY;
+@@ -2869,7 +2872,8 @@ int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter)
+ 	}
+ err:
+ 	mutex_unlock(&adapter->mbox_lock);
+-	pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
++	if (cmd.va)
++		pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
+ 	return status;
+ 
+ }
+@@ -3001,16 +3005,18 @@ int be_cmd_get_func_config(struct be_adapter *adapter)
+ 	int status;
+ 	struct be_dma_mem cmd;
+ 
++	if (mutex_lock_interruptible(&adapter->mbox_lock))
++		return -1;
++
+ 	memset(&cmd, 0, sizeof(struct be_dma_mem));
+ 	cmd.size = sizeof(struct be_cmd_resp_get_func_config);
+ 	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size,
+ 				      &cmd.dma);
+ 	if (!cmd.va) {
+ 		dev_err(&adapter->pdev->dev, "Memory alloc failure\n");
+-		return -ENOMEM;
++		status = -ENOMEM;
++		goto err;
+ 	}
+-	if (mutex_lock_interruptible(&adapter->mbox_lock))
+-		return -1;
+ 
+ 	wrb = wrb_from_mbox(adapter);
+ 	if (!wrb) {
+@@ -3050,8 +3056,8 @@ int be_cmd_get_func_config(struct be_adapter *adapter)
+ 	}
+ err:
+ 	mutex_unlock(&adapter->mbox_lock);
+-	pci_free_consistent(adapter->pdev, cmd.size,
+-			    cmd.va, cmd.dma);
++	if (cmd.va)
++		pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
+ 	return status;
+ }
+ 
 -- 
-1.7.11.7
+1.7.9.5
