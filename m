@@ -1,82 +1,51 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [IPROUTE PATCH] iproute2: act_ipt fix xtables breakage on older
- versions.
-Date: Thu, 25 Apr 2013 15:07:16 -0700
-Message-ID: <20130425220716.6520.94862.stgit@ahduyck-cp1.jf.intel.com>
+Subject: [IPROUTE PATCH] libnetlink: Use ifinfomsg instead of rtgenmsg in
+ rtnl_wilddump_req_filter
+Date: Thu, 25 Apr 2013 15:07:10 -0700
+Message-ID: <20130425220710.6520.32515.stgit@ahduyck-cp1.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Hasan Chowdhury <shemonc@gmail.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	jeffrey.t.kirsher@intel.com
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:27082 "EHLO mga03.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:19958 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932608Ab3DYWJc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Apr 2013 18:09:32 -0400
+	id S932608Ab3DYWJZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Apr 2013 18:09:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In trying to build on a RHEL6.3 I ran into several build issues that are
-addressed in this patch.
+This change corrects a kernel incompatibility that was resulting in the
+ext_filter_mask not being correctly discovered by the kernel as it is buried
+somewhere in the ifinfomsg.
 
-The first is that xtables_options_xfrm only has 3 options.  It appears this is
-how this code was originally.  As such for the case where the version is less
-than 6 I am assuming it would be correct to maintain the original setup that
-only had 3 parameters being passed instead of 4.
-
-I also ran into an issue with the define for __ALIGN_KERNEL not being present.
-I believe this may be due to the fact that __ALIGN_KERNEL was moved into a
-separate header from ALIGN after the uapi changes.  In order to just cover all
-of the bases I have moved the main definition for the macros into
-__ALIGN_KERNEL_MASK and __ALIGN_KERNEL and if ALIGN is also needed then it is
-just a direct redefine to __ALIGN_KERNEL.
-
-Cc: Hasan Chowdhury <shemonc@gmail.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Reported-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- tc/m_xt.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+ lib/libnetlink.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/tc/m_xt.c b/tc/m_xt.c
-index 3edf520..e918670 100644
---- a/tc/m_xt.c
-+++ b/tc/m_xt.c
-@@ -38,9 +38,13 @@
- #       define XT_LIB_DIR "/lib/xtables"
- #endif
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index 04201cd..b17e1aa 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -99,7 +99,7 @@ int rtnl_wilddump_req_filter(struct rtnl_handle *rth, int family, int type,
+ {
+ 	struct {
+ 		struct nlmsghdr nlh;
+-		struct rtgenmsg g;
++		struct ifinfomsg ifm;
+ 		/* attribute has to be NLMSG aligned */
+ 		struct rtattr ext_req __attribute__ ((aligned(NLMSG_ALIGNTO)));
+ 		__u32 ext_filter_mask;
+@@ -111,7 +111,7 @@ int rtnl_wilddump_req_filter(struct rtnl_handle *rth, int family, int type,
+ 	req.nlh.nlmsg_flags = NLM_F_DUMP|NLM_F_REQUEST;
+ 	req.nlh.nlmsg_pid = 0;
+ 	req.nlh.nlmsg_seq = rth->dump = ++rth->seq;
+-	req.g.rtgen_family = family;
++	req.ifm.ifi_family = family;
  
-+#ifndef __ALIGN_KERNEL
-+#define __ALIGN_KERNEL(x, a)		__ALIGN_KERNEL_MASK(x, (typeof(x))(a) - 1)
-+#define __ALIGN_KERNEL_MASK(x, mask)	(((x) + (mask)) & ~(mask))
-+#endif
-+
- #ifndef ALIGN
--#define ALIGN(x,a)		__ALIGN_MASK(x,(typeof(x))(a)-1)
--#define __ALIGN_MASK(x,mask)	(((x)+(mask))&~(mask))
-+#define ALIGN(x,a)	__ALIGN_KERNEL((x), (a))
- #endif
- 
- static const char *tname = "mangle";
-@@ -166,8 +170,7 @@ static int parse_ipt(struct action_util *a,int *argc_p,
- 						    m->x6_options,
- 						    &m->option_offset);
- #else
--			opts = xtables_merge_options(tcipt_globals.orig_opts,
--						     tcipt_globals.opts,
-+			opts = xtables_merge_options(tcipt_globals.opts,
- 						     m->extra_opts,
- 						     &m->option_offset);
- #endif
-@@ -335,8 +338,7 @@ print_ipt(struct action_util *au,FILE * f, struct rtattr *arg)
- 					    m->x6_options,
- 					    &m->option_offset);
- #else
--		opts = xtables_merge_options(tcipt_globals.orig_opts,
--					     tcipt_globals.opts,
-+		opts = xtables_merge_options(tcipt_globals.opts,
- 					     m->extra_opts,
- 					     &m->option_offset);
- #endif
+ 	req.ext_req.rta_type = IFLA_EXT_MASK;
+ 	req.ext_req.rta_len = RTA_LENGTH(sizeof(__u32));
