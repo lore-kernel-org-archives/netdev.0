@@ -1,34 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] caif: spi: missing platform_driver_unregister() on
- error in cfspi_init_module()
-Date: Thu, 25 Apr 2013 03:52:18 -0400 (EDT)
-Message-ID: <20130425.035218.1019119315985432675.davem@davemloft.net>
-References: <CAPgLHd8BY8bbBS39Y5HP=qMo7p3OGGcQ9LD8ptiXvwees2QjzQ@mail.gmail.com>
+Subject: Re: [net-next PATCH 1/3] drivers: of: add phy fixup support in DT
+Date: Thu, 25 Apr 2013 03:56:49 -0400 (EDT)
+Message-ID: <20130425.035649.1109561373283256109.davem@davemloft.net>
+References: <1366654838-26479-1-git-send-email-mugunthanvnm@ti.com>
+	<1366654838-26479-2-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dmitry.tarnyagin@lockless.no, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	linux-omap@vger.kernel.org
+To: mugunthanvnm@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49610 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49651 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755416Ab3DYHwU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 03:52:20 -0400
-In-Reply-To: <CAPgLHd8BY8bbBS39Y5HP=qMo7p3OGGcQ9LD8ptiXvwees2QjzQ@mail.gmail.com>
+	with ESMTP id S1755342Ab3DYH4v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 03:56:51 -0400
+In-Reply-To: <1366654838-26479-2-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Thu, 25 Apr 2013 15:15:23 +0800
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Date: Mon, 22 Apr 2013 23:50:36 +0530
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> In earlier case phy fixup are added in board file as this is no more the case
+> so adding support for phy register fixup in Device Tree
 > 
-> Add the missing platform_driver_unregister() before return
-> from cfspi_init_module() in the error handling case.
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-Applied, thanks.
+When people put a series of undocumented PHY register writes using
+constants, we tell them it's firmware.
 
-The label was even already there to accomodate this.:-)
+If these PHY registers are actually documented in the driver, write a
+function in that driver which does the programming sequence, then add
+a property that the driver looks for in order to determine whether to
+call that sequence or not.
+
+I don't want people putting random PHY raw programming sequences and
+other crap like that into the OF device nodes.  It's extremely
+inelegant and inviting abuse.
