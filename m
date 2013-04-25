@@ -1,29 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] GRE: Use IS_ERR_OR_NULL in gre_gso_segment
-Date: Thu, 25 Apr 2013 05:01:57 -0400 (EDT)
-Message-ID: <20130425.050157.1080837692941670798.davem@davemloft.net>
-References: <20130423075042.GA25776@verge.net.au>
-	<CAEP_g=93aAXPk+A2u7LzAzEk6Fr33y7HiEMmXBCEkD8+B90kZQ@mail.gmail.com>
-	<20130425084617.GA27463@gondor.apana.org.au>
+From: Christophe Aeschlimann <c.aeschlimann-5/WUhD8XThOVQ4qyx6sgCw@public.gmane.org>
+Subject: Re: [PATCH v3] net: mac802154: comparision
+ issue of type cast, finding by EXTRA_CFLAGS=-W
+Date: Thu, 25 Apr 2013 11:02:24 +0200
+Message-ID: <5178F120.5030500@acn-group.ch>
+References: <5175DFBC.7040000@asianux.com> <5175F7F7.7000703@asianux.com>
+	<51766F74.2090007@asianux.com>
+	<20130425.041044.768895561908042668.davem@davemloft.net>
+	<5178ECA2.6020402@asianux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jesse@nicira.com, horms@verge.net.au, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, xeb@mail.ru
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50391 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754700Ab3DYJB7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 05:01:59 -0400
-In-Reply-To: <20130425084617.GA27463@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <5178ECA2.6020402-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 25 Apr 2013 16:46:17 +0800
-
-> Perhaps add an wrapper for the IS_ERR_OR_NULL with a descriptive
-> name?
-
-Or pick an error code for the case covered by NULL.
+SGkgQ2hlbiwKCkxlIDI1LjA0LjIwMTMgMTA6NDMsIENoZW4gR2FuZyBhIMOpY3JpdCA6Cj4gT24g
+MjAxM+W5tDA05pyIMjXml6UgMTY6MTAsIERhdmlkIE1pbGxlciB3cm90ZToKPj4KPj4gUGxlYXNl
+IHJlc3BpbiB5b3VyIHBhdGNoIGFnYWluc3QgJ25ldCcgYW5kIHJlc3VibWl0LCB0aGFuayB5b3Uu
+Cj4+Cj4gCj4gRXhjdXNlIG1lLCBteSBFbmdsaXNoIGlzIG5vdCBxdWl0ZSB3ZWxsLCBJIGd1ZXNz
+IHlvdXIgbWVhbmluZyBpczogc2VuZAo+IHBhdGNoIHY0LCBhbmQgY2hhbmdlIHRoZSBzdWJqZWN0
+IHRvICJbUEFUQ0ggdjRdIG1hYzgwMjE1NDogY29tcGFyaXNpb24KPiBpc3N1ZSBvZiB0eXBlIGNh
+c3QsIGZpbmRpbmcgYnkgRVhUUkFfQ0ZMQUdTPS1XIi4KPiAKPiBJcyBpdCBjb3JyZWN0ID8KPiAK
+PiAodGhlIGNoYW5nZSBpcyBmb3IgbmV0L21hYzgwMjE1NC9tYWM4MDIxNTQuaCwgYW5kIGV4aXN0
+IGluIHYzLjktcmM4KQo+IAo+IFRoYW5rcy4KCkhlIG1lYW5zIHlvdSBzaG91bGQgY2xvbmUgOgoK
+Z2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9saW51eC9rZXJuZWwvZ2l0L2RhdmVtL25ldC5n
+aXQKCkFuZCBhcHBseSB5b3VyIGNoYW5nZSB0byB0aGF0IHRyZWUgYW5kIHJlLXN1Ym1pdC4gKG1h
+YzgwMjE1NC5oIGlzCnNsaWdodGx5IGRpZmZlcmVudCBpbiB0aGF0IHRyZWUpLgoKQmVzdCByZWdh
+cmRzLAoKLS0gCkNocmlzdG9waGUgQWVzY2hsaW1hbm4KCkVtYmVkZGVkIFNvZnR3YXJlIEVuZ2lu
+ZWVyICYgSVQgTWFuYWdlcgpBQ04gQWR2YW5jZWQgQ29tbXVuaWNhdGlvbnMgTmV0d29ya3MgUy5B
+LgoyMDAwIC0gTmV1Y2jDonRlbCwgU3dpdHplcmxhbmQKVGVsLiArNDEgMzIgNzI0IDc0IDMxCgot
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0KVHJ5IE5ldyBSZWxpYyBOb3cgJiBXZSdsbCBTZW5kIFlvdSB0
+aGlzIENvb2wgU2hpcnQKTmV3IFJlbGljIGlzIHRoZSBvbmx5IFNhYVMtYmFzZWQgYXBwbGljYXRp
+b24gcGVyZm9ybWFuY2UgbW9uaXRvcmluZyBzZXJ2aWNlIAp0aGF0IGRlbGl2ZXJzIHBvd2VyZnVs
+IGZ1bGwgc3RhY2sgYW5hbHl0aWNzLiBPcHRpbWl6ZSBhbmQgbW9uaXRvciB5b3VyCmJyb3dzZXIs
+IGFwcCwgJiBzZXJ2ZXJzIHdpdGgganVzdCBhIGZldyBsaW5lcyBvZiBjb2RlLiBUcnkgTmV3IFJl
+bGljCmFuZCBnZXQgdGhpcyBhd2Vzb21lIE5lcmQgTGlmZSBzaGlydCEgaHR0cDovL3Auc2YubmV0
+L3NmdS9uZXdyZWxpY19kMmRfYXByCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fCkxpbnV4LXppZ2JlZS1kZXZlbCBtYWlsaW5nIGxpc3QKTGludXgtemlnYmVl
+LWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5l
+dC9saXN0cy9saXN0aW5mby9saW51eC16aWdiZWUtZGV2ZWwK
