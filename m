@@ -1,104 +1,64 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] sctp: Correct type and usage of sctp_end_cksum()
-Date: Thu, 25 Apr 2013 22:12:14 +0900
-Message-ID: <20130425131214.GA5727@verge.net.au>
-References: <1366336498-25917-1-git-send-email-horms@verge.net.au>
- <20130419131043.GC19017@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Neil Horman <nhorman@tuxdriver.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v3 2/4] packet_diag: disclose meminfo values
+Date: Thu, 25 Apr 2013 15:21:49 +0200
+Message-ID: <1366896111-4436-3-git-send-email-nicolas.dichtel@6wind.com>
+References: <20130425.050008.2129680886418162075.davem@davemloft.net>
+ <1366896111-4436-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:39338 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757936Ab3DYNMR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 09:12:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20130419131043.GC19017@hmsreliant.think-freely.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56286 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756811Ab3DYNV7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 09:21:59 -0400
+In-Reply-To: <1366896111-4436-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 19, 2013 at 09:10:43AM -0400, Neil Horman wrote:
-> On Fri, Apr 19, 2013 at 10:54:58AM +0900, Simon Horman wrote:
-> > Change the type of the crc32 parameter of sctp_end_cksum()
-> > from __be32 to __u32 to reflect that fact that it is passed
-> > to cpu_to_le32().
-> > 
-> > There are five in-tree users of sctp_end_cksum().
-> > The following four had warnings flagged by sparse which are
-> > no longer present with this change.
-> > 
-> > net/netfilter/ipvs/ip_vs_proto_sctp.c:sctp_nat_csum()
-> > net/netfilter/ipvs/ip_vs_proto_sctp.c:sctp_csum_check()
-> > net/sctp/input.c:sctp_rcv_checksum()
-> > net/sctp/output.c:sctp_packet_transmit()
-> > 
-> > The fifth user is net/netfilter/nf_nat_proto_sctp.c:sctp_manip_pkt().
-> > It has been updated to pass a __u32 instead of a __be32,
-> > the value in question was already calculated in cpu byte-order.
-> > 
-> > net/netfilter/nf_nat_proto_sctp.c:sctp_manip_pkt() has also
-> > been updated to assign the return value of sctp_end_cksum()
-> > directly to a variable of type __le32, matching the
-> > type of the return value. Previously the return value
-> > was assigned to a variable of type __be32 and then that variable
-> > was finally assigned to another variable of type __le32.
-> > 
-> > Problems flagged by sparse.
-> > Compile and sparse tested only.
-> > 
-> > Signed-off-by: Simon Horman <horms@verge.net.au>
-> > ---
-> >  include/net/sctp/checksum.h       |    2 +-
-> >  net/netfilter/nf_nat_proto_sctp.c |    5 ++---
-> >  2 files changed, 3 insertions(+), 4 deletions(-)
-> > 
-> > diff --git a/include/net/sctp/checksum.h b/include/net/sctp/checksum.h
-> > index befc8d2..5a2110d 100644
-> > --- a/include/net/sctp/checksum.h
-> > +++ b/include/net/sctp/checksum.h
-> > @@ -77,7 +77,7 @@ static inline __u32 sctp_update_cksum(__u8 *buffer, __u16 length, __u32 crc32)
-> >  	return sctp_crc32c(crc32, buffer, length);
-> >  }
-> >  
-> > -static inline __le32 sctp_end_cksum(__be32 crc32)
-> > +static inline __le32 sctp_end_cksum(__u32 crc32)
-> >  {
-> >  	return cpu_to_le32(~crc32);
-> >  }
-> > diff --git a/net/netfilter/nf_nat_proto_sctp.c b/net/netfilter/nf_nat_proto_sctp.c
-> > index e64faa5..396e55d 100644
-> > --- a/net/netfilter/nf_nat_proto_sctp.c
-> > +++ b/net/netfilter/nf_nat_proto_sctp.c
-> > @@ -36,7 +36,7 @@ sctp_manip_pkt(struct sk_buff *skb,
-> >  {
-> >  	struct sk_buff *frag;
-> >  	sctp_sctphdr_t *hdr;
-> > -	__be32 crc32;
-> > +	__u32 crc32;
-> >  
-> >  	if (!skb_make_writable(skb, hdroff + sizeof(*hdr)))
-> >  		return false;
-> > @@ -55,8 +55,7 @@ sctp_manip_pkt(struct sk_buff *skb,
-> >  	skb_walk_frags(skb, frag)
-> >  		crc32 = sctp_update_cksum((u8 *)frag->data, skb_headlen(frag),
-> >  					  crc32);
-> > -	crc32 = sctp_end_cksum(crc32);
-> > -	hdr->checksum = crc32;
-> > +	hdr->checksum = sctp_end_cksum(crc32);
-> >  
-> >  	return true;
-> >  }
-> > -- 
-> > 1.7.10.4
-> > 
-> > 
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
+sk_rmem_alloc is disclosed via /proc/net/packet but not via netlink messages.
+The goal is to have the same level of information.
 
-Pablo, are you interested in taking this through nf-next?
-Or is it more appropriate for net-next. Or should I split
-it into two patches on a per-file basis, yielding one patch for each tree?
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/uapi/linux/packet_diag.h | 2 ++
+ net/packet/diag.c                | 4 ++++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/include/uapi/linux/packet_diag.h b/include/uapi/linux/packet_diag.h
+index 84f83a4..c0802c1 100644
+--- a/include/uapi/linux/packet_diag.h
++++ b/include/uapi/linux/packet_diag.h
+@@ -16,6 +16,7 @@ struct packet_diag_req {
+ #define PACKET_SHOW_MCLIST	0x00000002 /* A set of packet_diag_mclist-s */
+ #define PACKET_SHOW_RING_CFG	0x00000004 /* Rings configuration parameters */
+ #define PACKET_SHOW_FANOUT	0x00000008
++#define PACKET_SHOW_MEMINFO	0x00000010
+ 
+ struct packet_diag_msg {
+ 	__u8	pdiag_family;
+@@ -33,6 +34,7 @@ enum {
+ 	PACKET_DIAG_TX_RING,
+ 	PACKET_DIAG_FANOUT,
+ 	PACKET_DIAG_UID,
++	PACKET_DIAG_MEMINFO,
+ 
+ 	__PACKET_DIAG_MAX,
+ };
+diff --git a/net/packet/diag.c b/net/packet/diag.c
+index 04c8219..822fe9b 100644
+--- a/net/packet/diag.c
++++ b/net/packet/diag.c
+@@ -166,6 +166,10 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+ 			pdiag_put_fanout(po, skb))
+ 		goto out_nlmsg_trim;
+ 
++	if ((req->pdiag_show & PACKET_SHOW_MEMINFO) &&
++	    sock_diag_put_meminfo(sk, skb, PACKET_DIAG_MEMINFO))
++		goto out_nlmsg_trim;
++
+ 	return nlmsg_end(skb, nlh);
+ 
+ out_nlmsg_trim:
+-- 
+1.8.2.1
