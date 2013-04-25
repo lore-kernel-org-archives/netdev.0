@@ -1,48 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/14] igb: Remove dead code path
-Date: Wed, 24 Apr 2013 21:08:45 -0700
-Message-ID: <1366862927-1855-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/14] igb: Bump version of driver
+Date: Wed, 24 Apr 2013 21:08:47 -0700
+Message-ID: <1366862927-1855-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1366862927-1855-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:15281 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751442Ab3DYEJM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Apr 2013 00:09:12 -0400
+	id S1751354Ab3DYEJP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Apr 2013 00:09:15 -0400
 In-Reply-To: <1366862927-1855-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Vick <matthew.vick@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-The 82575 manual initialization scripts are not supported on 82580 and
-above. Rather than call the function to immediately return, clarify the
-code by removing this pointless function call.
-
-Signed-off-by: Matthew Vick <matthew.vick@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.c | 4 ----
- 1 file changed, 4 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index 6cb0ca2..d3d72e0 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -2052,10 +2052,6 @@ static s32 igb_reset_hw_82580(struct e1000_hw *hw)
- 		hw_dbg("Auto Read Done did not complete\n");
- 	}
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 59a28fe..64cbe0d 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -60,9 +60,9 @@
+ #include <linux/i2c.h>
+ #include "igb.h"
  
--	/* If EEPROM is not present, run manual init scripts */
--	if ((rd32(E1000_EECD) & E1000_EECD_PRES) == 0)
--		igb_reset_init_script_82575(hw);
--
- 	/* clear global device reset status bit */
- 	wr32(E1000_STATUS, E1000_STAT_DEV_RST_SET);
- 
+-#define MAJ 4
+-#define MIN 1
+-#define BUILD 2
++#define MAJ 5
++#define MIN 0
++#define BUILD 3
+ #define DRV_VERSION __stringify(MAJ) "." __stringify(MIN) "." \
+ __stringify(BUILD) "-k"
+ char igb_driver_name[] = "igb";
 -- 
 1.7.11.7
