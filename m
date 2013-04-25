@@ -1,52 +1,41 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] selftests: psock_tpacket: fix status check
-Date: Thu, 25 Apr 2013 11:08:00 +0200
-Message-ID: <1366880880-3207-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH v3] net: mac802154: comparision issue of type cast, finding
+ by EXTRA_CFLAGS=-W
+Date: Thu, 25 Apr 2013 17:09:02 +0800
+Message-ID: <5178F2AE.8020904@asianux.com>
+References: <51766F74.2090007@asianux.com> <20130425.041044.768895561908042668.davem@davemloft.net> <5178ECA2.6020402@asianux.com> <20130425.050110.1637872699710810114.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sergei.shtylyov@cogentembedded.com,
+	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52269 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752938Ab3DYJID (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Apr 2013 05:08:03 -0400
+Received: from intranet.asianux.com ([58.214.24.6]:43977 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755263Ab3DYJJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 05:09:49 -0400
+In-Reply-To: <20130425.050110.1637872699710810114.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Testing like this for TP_STATUS_AVAILABLE clearly is a stupid bug
-since it always returns true. Fix this by only checking for flags
-where the kernel owns the packet and negate this result, since we
-also could run into the non-zero status TP_STATUS_WRONG_FORMAT
-and need to reclaim frames.
+On 2013=E5=B9=B404=E6=9C=8825=E6=97=A5 17:01, David Miller wrote:
+> From: Chen Gang <gang.chen@asianux.com>
+> Date: Thu, 25 Apr 2013 16:43:14 +0800
+>=20
+>> > (the change is for net/mac802154/mac802154.h, and exist in v3.9-rc=
+8)
+> It exist, but your patch doesn't apply cleanly there, it only applies
+> cleanly to the -next tree, because other changes have happend to that
+> file in -next.
+>=20
+>=20
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- This is only for net-next, since net does not contain networking
- selftests yet.
+OK, thanks. I will send patch v4 (still use the current subject and
+comments)
 
- tools/testing/selftests/net/psock_tpacket.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+--=20
+Chen Gang
 
-diff --git a/tools/testing/selftests/net/psock_tpacket.c b/tools/testing/selftests/net/psock_tpacket.c
-index a8d7ffa..c41b586 100644
---- a/tools/testing/selftests/net/psock_tpacket.c
-+++ b/tools/testing/selftests/net/psock_tpacket.c
-@@ -300,7 +300,7 @@ static void walk_v1_v2_rx(int sock, struct ring *ring)
- 
- static inline int __v1_tx_kernel_ready(struct tpacket_hdr *hdr)
- {
--	return ((hdr->tp_status & TP_STATUS_AVAILABLE) == TP_STATUS_AVAILABLE);
-+	return !(hdr->tp_status & (TP_STATUS_SEND_REQUEST | TP_STATUS_SENDING));
- }
- 
- static inline void __v1_tx_user_ready(struct tpacket_hdr *hdr)
-@@ -311,7 +311,7 @@ static inline void __v1_tx_user_ready(struct tpacket_hdr *hdr)
- 
- static inline int __v2_tx_kernel_ready(struct tpacket2_hdr *hdr)
- {
--	return ((hdr->tp_status & TP_STATUS_AVAILABLE) == TP_STATUS_AVAILABLE);
-+	return !(hdr->tp_status & (TP_STATUS_SEND_REQUEST | TP_STATUS_SENDING));
- }
- 
- static inline void __v2_tx_user_ready(struct tpacket2_hdr *hdr)
--- 
-1.7.11.7
+Asianux Corporation
