@@ -1,51 +1,52 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [IPROUTE PATCH] libnetlink: Use ifinfomsg instead of rtgenmsg in
- rtnl_wilddump_req_filter
-Date: Thu, 25 Apr 2013 15:07:10 -0700
-Message-ID: <20130425220710.6520.32515.stgit@ahduyck-cp1.jf.intel.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] 3c509.c: call SET_NETDEV_DEV for all device types (ISA/ISAPnP/EISA)
+Date: Fri, 26 Apr 2013 02:10:26 +0400
+Message-ID: <5179A9D2.7080508@cogentembedded.com>
+References: <1366921743-6440-1-git-send-email-tedheadster@gmail.com> <51799A39.6070002@cogentembedded.com> <51799EFF.10003@cogentembedded.com> <20130425143038.5adb5078e7e6a69a10c43e69@linux-foundation.org> <5179A215.9070101@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	jeffrey.t.kirsher@intel.com
-To: shemminger@vyatta.com
+Cc: Matthew Whitehead <tedheadster@gmail.com>, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:19958 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932608Ab3DYWJZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Apr 2013 18:09:25 -0400
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:56768 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932999Ab3DYWLo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 18:11:44 -0400
+Received: by mail-lb0-f172.google.com with SMTP id d10so362759lbj.31
+        for <netdev@vger.kernel.org>; Thu, 25 Apr 2013 15:11:42 -0700 (PDT)
+In-Reply-To: <5179A215.9070101@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change corrects a kernel incompatibility that was resulting in the
-ext_filter_mask not being correctly discovered by the kernel as it is buried
-somewhere in the ifinfomsg.
+Hello.
 
-Reported-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
- lib/libnetlink.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+On 26-04-2013 1:37, Sergei Shtylyov wrote:
 
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index 04201cd..b17e1aa 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -99,7 +99,7 @@ int rtnl_wilddump_req_filter(struct rtnl_handle *rth, int family, int type,
- {
- 	struct {
- 		struct nlmsghdr nlh;
--		struct rtgenmsg g;
-+		struct ifinfomsg ifm;
- 		/* attribute has to be NLMSG aligned */
- 		struct rtattr ext_req __attribute__ ((aligned(NLMSG_ALIGNTO)));
- 		__u32 ext_filter_mask;
-@@ -111,7 +111,7 @@ int rtnl_wilddump_req_filter(struct rtnl_handle *rth, int family, int type,
- 	req.nlh.nlmsg_flags = NLM_F_DUMP|NLM_F_REQUEST;
- 	req.nlh.nlmsg_pid = 0;
- 	req.nlh.nlmsg_seq = rth->dump = ++rth->seq;
--	req.g.rtgen_family = family;
-+	req.ifm.ifi_family = family;
- 
- 	req.ext_req.rta_type = IFLA_EXT_MASK;
- 	req.ext_req.rta_len = RTA_LENGTH(sizeof(__u32));
+>>>>      BTW, it seems that after almost 7 years I seem to have found a tester
+>>>> for
+>>>> my patch which lingered all this time in the Andrew Morton's tree! You've
+>>>> said
+>>>> you have EISA boards, how about testing my patch? Now if I could find Andrew
+>>>> Morton's tree... Andrew?
+
+>>>      Found it at last at ozlabs.org but it turned out that Andrew has dropped
+>>> the patch without notifying me. :-(
+
+>> nah, you were asleep ;)
+
+>    Nope, I was actively protesting, although I don't have my messages now,
+> have only found yours.
+
+>> Message-Id: <200906101955.n5AJtMg7008475@imap1.linux-foundation.org>
+>> Subject: [obsolete] 3x59x-fix-pci-resource-management.patch removed from -mm
+>> tree
+>> To: sshtylyov@ru.mvista.com, mm-commits@vger.kernel.org
+>> From: akpm@linux-foundation.org
+>> Date:   Wed, 10 Jun 2009 12:55:21 -0700
+
+    In fact, you've readded the patch top you tree the next day. Then the 
+discussion continued in August 2009 until DaveM told you to repost this once 
+it had at least CardBus testing...
+
+WBR, Sergei
