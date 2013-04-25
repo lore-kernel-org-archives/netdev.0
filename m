@@ -1,90 +1,76 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 net-next 0/6] Allow bridge to function in
- non-promisc mode
-Date: Thu, 25 Apr 2013 10:35:57 -0700
-Message-ID: <20130425103557.1e42ad04@nehalam.linuxnetplumber.net>
-References: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
-	<20130425085656.4500d5c4@nehalam.linuxnetplumber.net>
-	<20130425164527.GA2908@redhat.com>
+From: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH 1/5] ibmebus: convert of_platform_driver to
+ platform_driver
+Date: Fri, 26 Apr 2013 03:35:30 +1000
+Message-ID: <1366911329.2869.31.camel@pasglop>
+References: <1366596798-9457-1-git-send-email-robherring2@gmail.com>
+	 <1366596798-9457-2-git-send-email-robherring2@gmail.com>
+	 <CAL_JsqKDF=hPEM0Jz-zZSXBCXBZ=gBjLWL6QDvq+nFWkqY3DMw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130425164527.GA2908@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org"
+	<devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Thadeu Lima de Souza Cascardo <cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL_JsqKDF=hPEM0Jz-zZSXBCXBZ=gBjLWL6QDvq+nFWkqY3DMw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 25 Apr 2013 19:45:27 +0300
-"Michael S. Tsirkin" <mst@redhat.com> wrote:
+On Thu, 2013-04-25 at 10:23 -0500, Rob Herring wrote:
+> Ben, Can I have your Ack for this? The change is straightforward and
+> neither of the 2 drivers used the id parameter that is removed.
 
-> On Thu, Apr 25, 2013 at 08:56:56AM -0700, Stephen Hemminger wrote:
-> > On Fri, 19 Apr 2013 16:52:44 -0400
-> > Vlad Yasevich <vyasevic@redhat.com> wrote:
-> > 
-> > > This series is an almost complete rework of the prior attempt
-> > > to make the bridge function in non-promisc mode.  In this series
-> > > the "promiscuity" of an interface is dynamically determined and
-> > > the interface may transition from/to promiscuous mode based on
-> > > bridge configuration.
-> > > 
-> > > The series keeps an idea of an "uplink" port.  That is still user
-> > > designated.
-> > > The series also adds a concept of "dynamic" bridge port.  This is
-> > > the default state of the port and means that the user has not
-> > > specified any static FDBs for that port.
-> > > Once a user has added a static FDB entry to port and also specified
-> > > an "uplink" flag for that FDB, the mac address from that FDB is
-> > > added to the bridge hw address list and synched down to uplinks.
-> > > "Uplinks" are always considered dynamic ports even if a static entry
-> > > has been added for them.
-> > > Promiscuity is determined by the number of dynamic ports.  If there
-> > > are no dynamic ports (i.e all ports have static FDBs set), then we
-> > > know all the neighbors and can switch promisc off on all of the ports.
-> > > If we have only 1 dynamic port and its an uplink, we can synch all
-> > > static hw addresses to this port and mark it non-promisc.
-> > > If we have more then 1 dynamic port, then all ports have to be
-> > > promiscuouse.
-> > > This is the algorith that Michael Tsirkin proposed earlier.
-> > 
-> > Instead of a uplink port, maybe this idea would work better in combination
-> > with another patch I have been working on.
-> > 
-> > In many bridged environments, ports have only one possible MAC address
-> > on the other side. My patch provides a flag to mark those ports as bound
-> > with only one peer MAC address.  This allows those ports to be skipped on
-> > flooding, and for security only packets with that source address would
-> > be allowed.
-> > 
-> > After that change, your promicious code could just use that flag:
-> > i.e: 
-> >    uplink ports = total ports - bound ports
-> >    if (uplink ports == 1)
-> >        enter non-promicious mode
-> 
-> Almost except sometimes (with some guests)
-> X mac addresses are needed, not just one.
-> 
-> How about a generalization:
-> 	- a flag to disable learning per port (only use static entries)
-> 	- a flag to disable flood per port
-> Both sees to exist on openbsd, they are useful by themselves.
-> 
-> Now Vlad's patch can work if both learning and flood are
-> disabled for all ports except maybe one.
-> 
-> 
+Didn't you get my mail about a compile failure caused by this patch ?
 
-Ok, then maybe allow multiple bound MAC address's per guest.
-And more flags seems like a good and easy solution to per-port
-control. If you have tested code, please submit it.
+Or did you send an update that I missed ?
+
+(Copy of the original email below)
+
+Cheers,
+Ben.
+
+----
+
+On Sun, 2013-04-21 at 21:13 -0500, Rob Herring wrote:
+> From: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
+> 
+> ibmebus is the last remaining user of of_platform_driver and the
+> conversion to a regular platform driver is trivial.
+
+A quick build test leads to:
+
+/home/benh/linux-powerpc-test/arch/powerpc/kernel/ibmebus.c: In function 'ibmebus_bus_device_probe':
+/home/benh/linux-powerpc-test/arch/powerpc/kernel/ibmebus.c:344:2: error: implicit declaration of function 'to_platform_driver' [-Werror=implicit-function-declaration]
+/home/benh/linux-powerpc-test/arch/powerpc/kernel/ibmebus.c:344:6: error: assignment makes pointer from integer without a cast [-Werror]
+/home/benh/linux-powerpc-test/arch/powerpc/kernel/ibmebus.c: In function 'ibmebus_bus_device_remove':
+/home/benh/linux-powerpc-test/arch/powerpc/kernel/ibmebus.c:363:32: error: initialization makes pointer from integer without a cast [-Werror]
+/home/benh/linux-powerpc-test/arch/powerpc/kernel/ibmebus.c: In function 'ibmebus_bus_device_shutdown':
+/home/benh/linux-powerpc-test/arch/powerpc/kernel/ibmebus.c:373:32: error: initialization makes pointer from integer without a cast [-Werror]
+/home/benh/linux-powerpc-test/arch/powerpc/kernel/ibmebus.c: In function 'ibmebus_bus_legacy_suspend':
+/home/benh/linux-powerpc-test/arch/powerpc/kernel/ibmebus.c:420:32: error: initialization makes pointer from integer without a cast [-Werror]
+/home/benh/linux-powerpc-test/arch/powerpc/kernel/ibmebus.c: In function 'ibmebus_bus_legacy_resume':
+/home/benh/linux-powerpc-test/arch/powerpc/kernel/ibmebus.c:431:32: error: initialization makes pointer from integer without a cast [-Werror]
+cc1: all warnings being treated as errors
+make[2]: *** [arch/powerpc/kernel/ibmebus.o] Error 1
+make[2]: *** Waiting for unfinished jobs....
+
+Haven't had a chance to look too closely today -EJETLAG :-)
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
