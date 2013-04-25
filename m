@@ -1,71 +1,52 @@
-From: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH 1/5] ibmebus: convert of_platform_driver to
- platform_driver
-Date: Fri, 26 Apr 2013 06:12:21 +1000
-Message-ID: <1366920741.2869.32.camel@pasglop>
-References: <1366596798-9457-1-git-send-email-robherring2@gmail.com>
-	 <1366596798-9457-2-git-send-email-robherring2@gmail.com>
-	 <CAL_JsqKDF=hPEM0Jz-zZSXBCXBZ=gBjLWL6QDvq+nFWkqY3DMw@mail.gmail.com>
-	 <1366911329.2869.31.camel@pasglop> <517980B0.3000401@gmail.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next v2] ipv6: Kill ipv6 dependency of icmpv6_send().
+Date: Thu, 25 Apr 2013 13:13:54 -0700
+Message-ID: <CALnjE+pR_z9E3Qz_C9xZiLh7f2Genc8rvZCWRUDvP-0TSkxX7w@mail.gmail.com>
+References: <1366915075-1538-1-git-send-email-pshelar@nicira.com>
+	<1366916924.8964.177.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org"
-	<devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Thadeu Lima de Souza Cascardo <cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <517980B0.3000401-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog138.obsmtp.com ([74.125.149.19]:34861 "HELO
+	na3sys009aog138.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932882Ab3DYUN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 16:13:58 -0400
+Received: by mail-ve0-f199.google.com with SMTP id m1so2849768ves.6
+        for <netdev@vger.kernel.org>; Thu, 25 Apr 2013 13:13:54 -0700 (PDT)
+In-Reply-To: <1366916924.8964.177.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-04-25 at 14:14 -0500, Rob Herring wrote:
-> On 04/25/2013 12:35 PM, Benjamin Herrenschmidt wrote:
-> > On Thu, 2013-04-25 at 10:23 -0500, Rob Herring wrote:
-> >> Ben, Can I have your Ack for this? The change is straightforward and
-> >> neither of the 2 drivers used the id parameter that is removed.
-> > 
-> > Didn't you get my mail about a compile failure caused by this patch ?
-> 
-> No, and I can't find any evidence of a mail in my inbox or in the list
-> archives.
-
-Odd...
-
-> > 
- .../...
-
-> You need patch 2 of this series to fix this:
-> 
-> driver core: move to_platform_driver to platform_device.h
-> 
-> which as Arnd pointed out needs to come first. I've fixed that in my
-> tree, but I don't think it warrants another post.
-
-Can I pull you tree from somewhere to test ?
-
-Cheers,
-Ben.
-
-> Rob
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Thu, Apr 25, 2013 at 12:08 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2013-04-25 at 11:37 -0700, Pravin B Shelar wrote:
+>
+>> +int inet6_register_icmp_sender(ip6_icmp_send_t *fn)
+>> +{
+>> +     return (cmpxchg(&ip6_icmp_send, NULL, fn) == NULL) ? 0 : -EBUSY;
+>> +}
+>> +EXPORT_SYMBOL(inet6_register_icmp_sender);
+>> +
+>> +int inet6_unregister_icmp_sender(ip6_icmp_send_t *fn)
+>> +{
+>> +     int ret;
+>> +
+>> +     ret = (cmpxchg(&ip6_icmp_send, fn, NULL) == fn) ? 0 : -EINVAL;
+>> +
+>> +     synchronize_net();
+>> +
+>> +     return ret;
+>> +}
+>> +EXPORT_SYMBOL(inet6_unregister_icmp_sender);
+>
+> Good idea, but I bet you didn't run sparse on this code...
+>
+> CONFIG_SPARSE_RCU_POINTER=y
+>
+> make C=2 net/ipv6/ip6_icmp.o
+>
+> you probably need to cast to (ip6_icmp_send_t *)
+>
+right, Let me send fix for it.
+>
