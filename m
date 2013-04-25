@@ -1,35 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next] net: fix address check in rtnl_fdb_del
-Date: Thu, 25 Apr 2013 04:17:51 -0400 (EDT)
-Message-ID: <20130425.041751.1238975265643296947.davem@davemloft.net>
-References: <1366751123-10143-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH net-next v5] rps: selective flow shedding during
+ softnet overflow
+Date: Thu, 25 Apr 2013 04:20:07 -0400 (EDT)
+Message-ID: <20130425.042007.1583080085524610665.davem@davemloft.net>
+References: <1366762196.8964.46.camel@edumazet-glaptop>
+	<1366763847-9279-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dlstevens@us.ibm.com
-To: vyasevic@redhat.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	stephen@networkplumber.org
+To: willemb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49922 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49957 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756155Ab3DYIRx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 04:17:53 -0400
-In-Reply-To: <1366751123-10143-1-git-send-email-vyasevic@redhat.com>
+	with ESMTP id S1756155Ab3DYIUJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 04:20:09 -0400
+In-Reply-To: <1366763847-9279-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Tue, 23 Apr 2013 17:05:23 -0400
-
-> Commit 6681712d67eef14c4ce793561c3231659153a320
-> 	vxlan: generalize forwarding tables
-> 
-> relaxed the address checks in rtnl_fdb_del() to use is_zero_ether_addr().
-> This allows users to add multicast addresses using the fdb API.  However,
-> the check in rtnl_fdb_del() still uses a more strict
-> is_valid_ether_addr() which rejects multicast addresses.  Thus it
-> is possible to add an fdb that can not be later removed.
-> Relax the check in rtnl_fdb_del() as well.
-> 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-
-Applied.
+RnJvbTogV2lsbGVtIGRlIEJydWlqbiA8d2lsbGVtYkBnb29nbGUuY29tPg0KRGF0ZTogVHVlLCAy
+MyBBcHIgMjAxMyAyMDozNzoyNyAtMDQwMA0KDQo+IEEgY3B1IGV4ZWN1dGluZyB0aGUgbmV0d29y
+ayByZWNlaXZlIHBhdGggc2hlZHMgcGFja2V0cyB3aGVuIGl0cyBpbnB1dA0KPiBxdWV1ZSBncm93
+cyB0byBuZXRkZXZfbWF4X2JhY2tsb2cuIEEgc2luZ2xlIGhpZ2ggcmF0ZSBmbG93IChzdWNoIGFz
+IGENCj4gc3Bvb2ZlZCBzb3VyY2UgRG9TKSBjYW4gZXhjZWVkIGEgc2luZ2xlIGNwdSBwcm9jZXNz
+aW5nIHJhdGUgYW5kIHdpbGwNCj4gZGVncmFkZSB0aHJvdWdocHV0IG9mIG90aGVyIGZsb3dzIGhh
+c2hlZCBvbnRvIHRoZSBzYW1lIGNwdS4NCj4gDQo+IFRoaXMgcGF0Y2ggYWRkcyBhIG1vcmUgZmlu
+ZSBncmFpbmVkIGhhc2h0YWJsZS4gSWYgdGhlIG5ldGRldiBiYWNrbG9nDQo+IGlzIGFib3ZlIGEg
+dGhyZXNob2xkLCBJUlEgY3B1cyB0cmFjayB0aGUgcmF0aW8gb2YgdG90YWwgdHJhZmZpYyBvZg0K
+PiBlYWNoIGZsb3cgKHVzaW5nIDQwOTYgYnVja2V0cywgY29uZmlndXJhYmxlKS4gVGhlIHJhdGlv
+IGlzIG1lYXN1cmVkDQo+IGJ5IGNvdW50aW5nIHRoZSBudW1iZXIgb2YgcGFja2V0cyBwZXIgZmxv
+dyBvdmVyIHRoZSBsYXN0IDI1NiBwYWNrZXRzDQo+IGZyb20gdGhlIHNvdXJjZSBjcHUuIEFueSBm
+bG93IHRoYXQgb2NjdXBpZXMgYSBsYXJnZSBmcmFjdGlvbiBvZiB0aGlzDQo+IChzZXQgYXQgNTAl
+KSB3aWxsIHNlZSBwYWNrZXQgZHJvcCB3aGlsZSBhYm92ZSB0aGUgdGhyZXNob2xkLg0KPiANCj4g
+VGVzdGVkOg0KPiBTZXR1cCBpcyBhIG11bGktdGhyZWFkZWQgVURQIGVjaG8gc2VydmVyIHdpdGgg
+bmV0d29yayByeCBJUlEgb24gY3B1MCwNCj4ga2VybmVsIHJlY2VpdmUgKFJQUykgb24gY3B1MCBh
+bmQgYXBwbGljYXRpb24gdGhyZWFkcyBvbiBjcHVzIDItLTcNCj4gZWFjaCBoYW5kbGluZyAyMGsg
+cmVxL3MuIFRocm91Z2hwdXQgaGFsdmVzIHdoZW4gaGl0IHdpdGggYSA0MDAga3Bwcw0KPiBhbnRh
+Z29uaXN0IHN0b3JtLiBXaXRoIHRoaXMgcGF0Y2ggYXBwbGllZCwgYW50YWdvbmlzdCBvdmVybG9h
+ZCBpcw0KPiBkcm9wcGVkIGFuZCB0aGUgc2VydmVyIHByb2Nlc3NlcyBpdHMgY29tcGxldGUgbG9h
+ZC4NCj4gDQo+IFRoZSBwYXRjaCBpcyBlZmZlY3RpdmUgd2hlbiBrZXJuZWwgcmVjZWl2ZSBwcm9j
+ZXNzaW5nIGlzIHRoZQ0KPiBib3R0bGVuZWNrLiBUaGUgYWJvdmUgUlBTIHNjZW5hcmlvIGlzIGEg
+ZXh0cmVtZSwgYnV0IHRoZSBzYW1lIGlzDQo+IHJlYWNoZWQgd2l0aCBSRlMgYW5kIHN1ZmZpY2ll
+bnQga2VybmVsIHByb2Nlc3NpbmcgKGlwdGFibGVzLCBwYWNrZXQNCj4gc29ja2V0IHRhcCwgLi4p
+Lg0KPiANCj4gU2lnbmVkLW9mZi1ieTogV2lsbGVtIGRlIEJydWlqbiA8d2lsbGVtYkBnb29nbGUu
+Y29tPg0KDQpUaGlzIGRvZXMndCBjb21waWxlOg0KDQpuZXQvY29yZS9zeXNjdGxfbmV0X2NvcmUu
+YzogSW4gZnVuY3Rpb24goWZsb3dfbGltaXRfY3B1X3N5c2N0bKI6DQpuZXQvY29yZS9zeXNjdGxf
+bmV0X2NvcmUuYzoxMTQ6MTA6IGVycm9yOiBpbnZhbGlkIHR5cGUgYXJndW1lbnQgb2YgoS0+oiAo
+aGF2ZSChc3RydWN0IG11dGV4oikNCg0KQWxzbywgcGxlYXNlIGNoYW5nZSB0aGUgS2NvbmZpZyBl
+bnRyeSB0byBiZToNCg0KY29uZmlnIE5FVF9GTE9XX0xJTUlUDQoJYm9vbGVhbg0KCWRlcGVuZHMg
+b24gUlBTDQoJZGVmYXVsdCB5DQoNCg0KbGlrZSBSUFMgZXQgYWwuIGFyZS4NCg0KVGhhbmtzLg0K
