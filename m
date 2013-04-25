@@ -1,42 +1,48 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [net-next PATCH 1/4] Revert "inet: limit length of fragment queue hash table bucket lists"
-Date: Thu, 25 Apr 2013 14:58:54 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7202@saturn3.aculab.com>
-References: <20130424154624.16883.40974.stgit@dragon> <20130424154800.16883.4797.stgit@dragon> <1366848030.8964.98.camel@edumazet-glaptop> <1366895438.26911.572.camel@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH ipvs-next] ipvs: Remove
+ rcu_read_unlock();rcu_read_lock();
+Date: Thu, 25 Apr 2013 07:04:03 -0700
+Message-ID: <1366898643.8964.139.camel@edumazet-glaptop>
+References: <1366852353-32561-1-git-send-email-horms@verge.net.au>
+	 <alpine.LFD.2.00.1304251038541.1752@ja.ssi.bg>
+	 <1366880726.2628.177.camel@hawk.mlab.se>
+	 <20130425133639.GC10898@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Hannes Frederic Sowa" <hannes@stressinduktion.org>,
-	<netdev@vger.kernel.org>
-To: "Jesper Dangaard Brouer" <brouer@redhat.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:38975 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1758691Ab3DYOA3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Apr 2013 10:00:29 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 24269-06 for <netdev@vger.kernel.org>;
- Thu, 25 Apr 2013 15:00:26 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1366895438.26911.572.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hans Schillstrom <hans@schillstrom.com>,
+	Julian Anastasov <ja@ssi.bg>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20130425133639.GC10898@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiBUaGUgcmVhc29uIHRoaXMgaXMgaW5ldml0YWJsZSwgaXMgdGhlIGF0dGFja2VycyBpbnZhbGlk
-IGZyYWdtZW50cyB3aWxsDQo+IG5ldmVyIGZpbmlzaCAodGltZW91dCAzMCBzZWMpLCB3aGlsZSB2
-YWxpZCBmcmFnbWVudHMgd2lsbCBjb21wbGV0ZSBhbmQNCj4gImV4aXQiIHRoZSBxdWV1ZSwgdGh1
-cyB0aGUgZW5kIHJlc3VsdCBpcyBoYXNoIGJ1Y2tldCBpcyBmaWxsZWQgd2l0aA0KPiBhdHRhY2tl
-cnMgaW52YWxpZC9pbmNvbXBsZXRlIGZyYWdtZW50cy4gIElNSE8gdGhpcyBpcyBhIHZlcnkgZGFu
-Z2Vyb3VzDQo+ICJmZWF0dXJlIiB0byBzdXBwb3J0Lg0KDQpJZiB5b3UgYXJlIGJlaW5nIGF0dGFj
-a2VkLCB0aGUgaGFzaCBidWNrZXRzIHdpbGwgaW1tZWRpYXRlbHkNCmJlIGZpbGxlZCB3aXRoIGlu
-dmFsaWQgcGFja2V0cywgbm8gdmFsaWQgcGFja2V0cyB3aWxsIGVudGVyLg0KSWYgeW91IGRlbGV0
-ZSBvbGQgZW50cmllcyB0byBhZGQgbmV3IG9uZXMgdGhlbiBhbnkgdmFsaWQNCnBhY2tldCB3aWxs
-IHNvb24gYmUgZmx1c2hlZCBvdXQgYnkgaW52YWxpZCBvbmVzLg0KVGhlIG9ubHkgdGltZSB5b3Un
-bGwgbWFuYWdlIHRvIGFzc2VtYmxlIGFueXRoaW5nIGlzIGlmDQp0aGUgdmFsaWQgZnJhZ21lbnRz
-IGFycml2ZSAnYmFjayB0byBiYWNrJy4NCg0KVGhlIG9ubHkgaG9wZSBpcyB0byBwYXJ0LWRlY29k
-ZSBpbml0aWFsIGZyYWdtZW50cyBhbmQgZGVjaWRlDQp3aGV0aGVyIHRoZXkgYXJlIHZhbGlkLg0K
-DQoJRGF2aWQNCg0KDQo=
+On Thu, 2013-04-25 at 22:36 +0900, Simon Horman wrote:
+
+> Ok, leaving it seems reasonable.
+> Pablo, do you have any objections?
+
+I have objections.
+
+I would _add_ a cond_resched() there to explicitly do what we want
+
+Maybe a macro/inline doing this already exists.
+
+static void inline cond_resched_rcu_lock(void)
+{
+	if (need_resched()) {
+		rcu_read_unlock();
+		cond_resched();
+		rcu_read_lock();
+	}
+}
+
+
+
+
+
