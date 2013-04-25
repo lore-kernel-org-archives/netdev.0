@@ -1,52 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 00/14][pull request] Intel Wired LAN Driver
- Updates
-Date: Thu, 25 Apr 2013 01:08:31 -0400 (EDT)
-Message-ID: <20130425.010831.648226192644075247.davem@davemloft.net>
-References: <1366862927-1855-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next v2 3/5] sock_diag: allow to dump bpf filters
+Date: Thu, 25 Apr 2013 01:16:36 -0400 (EDT)
+Message-ID: <20130425.011636.238533615622671655.davem@davemloft.net>
+References: <1366818756-4234-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1366818756-4234-4-git-send-email-nicolas.dichtel@6wind.com>
+	<1366820565.8964.78.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47891 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47947 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751246Ab3DYFId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 01:08:33 -0400
-In-Reply-To: <1366862927-1855-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1750763Ab3DYFQi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 01:16:38 -0400
+In-Reply-To: <1366820565.8964.78.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 24 Apr 2013 21:08:33 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 24 Apr 2013 09:22:45 -0700
 
-> This series contains updates to ixgbe, igb and pci.
+> On Wed, 2013-04-24 at 17:52 +0200, Nicolas Dichtel wrote:
+>> This patch allows to dump BPF filters attached to a socket with
+>> SO_ATTACH_FILTER. In other words, users allowing to open netlink sockets can
+>> see filters set on a socket (when the diag module of the socket family is
+>> loaded).
 > 
-> The ixgbe changes contains a fix to a possible divide by zero by bailing
-> out of the ixgbe_update_itr() function if the last interrupt timeslice is
-> zero.  In addition, support is added for the new OCP x520 adapter as well
-> as LX support for 82599 devices.  Jacob provides a patch to change
-> variable wol_supported to wol_enabled to better reflect what the code
-> is actually doing (i.e. checking if WoL is enabled).
+> To my knowledge, opening netlink sockets is not restricted.
 > 
-> Alex adds SRIOV helper function to pci that will determine if a PF
-> has any VFs that are currently assigned to a guest.
-> 
-> The remaining 8 patches are against igb and contain the following changes:
-> * implement SERDES loopback configuration for i210 devices by unsetting
->   sigdetect bit, so as to fix Ethtool loopback test failure
-> * add support for the SMBI semaphore for I210/I211 devices
-> * implement the new generic pci_vfs_assigned helper function (Alex's PCI
->   helper function)
-> * display warning when link speed is downgraded due to Smartspeed
-> * ensure that VLAN hardware filtering remains enabled when the device is
->   in promiscuous mode and VT mode simultaneously
-> * cleanup dead code in igb
-> * bump the driver version
-> 
-> v2: updated the PCI patch to add SRIOV helper function to remove extern
->     from the declaration of pci_vfs_assigned in pci.h and return 0 if
->     SR-IOV is disabled which is inline with other PCI SR-IOV functions
+> I do not want user lambda being able to see my BPF filters.
 
-Pulled, thanks for getting the PCI review resolved.
+I agree, this change is not reasonable.  And therefore the notifiers
+added in the subsequent patches of this series are not appropriate
+either.
