@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 08/14] pci: Add SRIOV helper function to determine if VFs are assigned to guest
-Date: Wed, 24 Apr 2013 21:08:41 -0700
-Message-ID: <1366862927-1855-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/14] igb: Use pci_vfs_assigned instead of igb_vfs_are_assigned
+Date: Wed, 24 Apr 2013 21:08:42 -0700
+Message-ID: <1366862927-1855-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1366862927-1855-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -10,104 +10,84 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:33226 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751020Ab3DYEJF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Apr 2013 00:09:05 -0400
+	id S1751332Ab3DYEJG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Apr 2013 00:09:06 -0400
 In-Reply-To: <1366862927-1855-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This function is meant to add a helper function that will determine if a PF
-has any VFs that are currently assigned to a guest.  We currently have been
-implementing this function per driver, and going forward I would like to avoid
-that by making this function generic and using this helper.
-
-v2: Removed extern from declaration of pci_vfs_assigned in pci.h and return
-    0 if SR-IOV is disabled which is inline with other PCI SRIOV functions.
+This change makes it so that the igb driver uses the generic helper
+pci_vfs_assigned instead of the igb specific function igb_vfs_are_assigned.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Acked-by: Bjorn Helgaas <bhelgaas@google.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/pci/iov.c   | 41 +++++++++++++++++++++++++++++++++++++++++
- include/linux/pci.h |  5 +++++
- 2 files changed, 46 insertions(+)
+ drivers/net/ethernet/intel/igb/igb_main.c | 36 +------------------------------
+ 1 file changed, 1 insertion(+), 35 deletions(-)
 
-diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
-index ee599f2..c93071d 100644
---- a/drivers/pci/iov.c
-+++ b/drivers/pci/iov.c
-@@ -729,6 +729,47 @@ int pci_num_vf(struct pci_dev *dev)
- EXPORT_SYMBOL_GPL(pci_num_vf);
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index dcaa354..b94a3c5 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -180,7 +180,6 @@ static void igb_check_vf_rate_limit(struct igb_adapter *);
  
- /**
-+ * pci_vfs_assigned - returns number of VFs are assigned to a guest
-+ * @dev: the PCI device
-+ *
-+ * Returns number of VFs belonging to this device that are assigned to a guest.
-+ * If device is not a physical function returns -ENODEV.
-+ */
-+int pci_vfs_assigned(struct pci_dev *dev)
-+{
-+	struct pci_dev *vfdev;
-+	unsigned int vfs_assigned = 0;
-+	unsigned short dev_id;
-+
-+	/* only search if we are a PF */
-+	if (!dev->is_physfn)
-+		return 0;
-+
-+	/*
-+	 * determine the device ID for the VFs, the vendor ID will be the
-+	 * same as the PF so there is no need to check for that one
-+	 */
-+	pci_read_config_word(dev, dev->sriov->pos + PCI_SRIOV_VF_DID, &dev_id);
-+
-+	/* loop through all the VFs to see if we own any that are assigned */
-+	vfdev = pci_get_device(dev->vendor, dev_id, NULL);
-+	while (vfdev) {
-+		/*
-+		 * It is considered assigned if it is a virtual function with
-+		 * our dev as the physical function and the assigned bit is set
-+		 */
-+		if (vfdev->is_virtfn && (vfdev->physfn == dev) &&
-+		    (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED))
-+			vfs_assigned++;
-+
-+		vfdev = pci_get_device(dev->vendor, dev_id, vfdev);
-+	}
-+
-+	return vfs_assigned;
-+}
-+EXPORT_SYMBOL_GPL(pci_vfs_assigned);
-+
-+/**
-  * pci_sriov_set_totalvfs -- reduce the TotalVFs available
-  * @dev: the PCI PF device
-  * @numvfs: number that should be used for TotalVFs supported
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 710067f..43e45ac 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -1644,6 +1644,7 @@ extern int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn);
- extern void pci_disable_sriov(struct pci_dev *dev);
- extern irqreturn_t pci_sriov_migration(struct pci_dev *dev);
- extern int pci_num_vf(struct pci_dev *dev);
-+int pci_vfs_assigned(struct pci_dev *dev);
- extern int pci_sriov_set_totalvfs(struct pci_dev *dev, u16 numvfs);
- extern int pci_sriov_get_totalvfs(struct pci_dev *dev);
- #else
-@@ -1662,6 +1663,10 @@ static inline int pci_num_vf(struct pci_dev *dev)
- {
+ #ifdef CONFIG_PCI_IOV
+ static int igb_vf_configure(struct igb_adapter *adapter, int vf);
+-static bool igb_vfs_are_assigned(struct igb_adapter *adapter);
+ #endif
+ 
+ #ifdef CONFIG_PM
+@@ -2402,7 +2401,7 @@ static int  igb_disable_sriov(struct pci_dev *pdev)
+ 	/* reclaim resources allocated to VFs */
+ 	if (adapter->vf_data) {
+ 		/* disable iov and allow time for transactions to clear */
+-		if (igb_vfs_are_assigned(adapter)) {
++		if (pci_vfs_assigned(pdev)) {
+ 			dev_warn(&pdev->dev,
+ 				 "Cannot deallocate SR-IOV virtual functions while they are assigned - VFs will not be deallocated\n");
+ 			return -EPERM;
+@@ -5242,39 +5241,6 @@ static int igb_vf_configure(struct igb_adapter *adapter, int vf)
  	return 0;
  }
-+static inline int pci_vfs_assigned(struct pci_dev *dev)
-+{
-+	return 0;
-+}
- static inline int pci_sriov_set_totalvfs(struct pci_dev *dev, u16 numvfs)
+ 
+-static bool igb_vfs_are_assigned(struct igb_adapter *adapter)
+-{
+-	struct pci_dev *pdev = adapter->pdev;
+-	struct pci_dev *vfdev;
+-	int dev_id;
+-
+-	switch (adapter->hw.mac.type) {
+-	case e1000_82576:
+-		dev_id = IGB_82576_VF_DEV_ID;
+-		break;
+-	case e1000_i350:
+-		dev_id = IGB_I350_VF_DEV_ID;
+-		break;
+-	default:
+-		return false;
+-	}
+-
+-	/* loop through all the VFs to see if we own any that are assigned */
+-	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, NULL);
+-	while (vfdev) {
+-		/* if we don't own it we don't care */
+-		if (vfdev->is_virtfn && vfdev->physfn == pdev) {
+-			/* if it is assigned we cannot release it */
+-			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
+-				return true;
+-		}
+-
+-		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, vfdev);
+-	}
+-
+-	return false;
+-}
+-
+ #endif
+ static void igb_ping_all_vfs(struct igb_adapter *adapter)
  {
- 	return 0;
 -- 
 1.7.11.7
