@@ -1,76 +1,99 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [Patch net-next v2] bridge: do not expire mdb entry as long as
- bridge still uses it
-Date: Thu, 25 Apr 2013 16:30:37 +0400
-Message-ID: <517921ED.6090701@cogentembedded.com>
-References: <1366878083-22797-1-git-send-email-amwang@redhat.com>
+From: Lucas Stach <l.stach@pengutronix.de>
+Subject: Re: [PATCH 0/3] URGENT for 3.9: net: fec: revert NAPI introduction
+Date: Thu, 25 Apr 2013 14:31:25 +0200
+Message-ID: <1366893085.4139.6.camel@weser.hi.pengutronix.de>
+References: <1366382164-10968-1-git-send-email-l.stach@pengutronix.de>
+	 <CAOMZO5D5+bZ9NvF7HvVsne1ktZDDYPqZgomHkSaydrn2UEvBcQ@mail.gmail.com>
+	 <CAHrpEqQyG68v4VMDNEwcobhHqkuP_ORH9KA3OZD=2xAoJCMNOQ@mail.gmail.com>
+	 <1366620998.4141.28.camel@weser.hi.pengutronix.de>
+	 <CAHrpEqQzpLCVqyuMgD=W6ObK1Za-AcmDV7Ejxzw9xKFH57J99A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Adam Baker <linux@baker-net.org.uk>
-To: Cong Wang <amwang@redhat.com>
+Cc: Fabio Estevam <festevam@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Shawn Guo <shawn.guo@linaro.org>
+To: Frank Li <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:49645 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752370Ab3DYMbx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 08:31:53 -0400
-Received: by mail-la0-f53.google.com with SMTP id eg20so2550357lab.40
-        for <netdev@vger.kernel.org>; Thu, 25 Apr 2013 05:31:52 -0700 (PDT)
-In-Reply-To: <1366878083-22797-1-git-send-email-amwang@redhat.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:39742 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752370Ab3DYMcd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 08:32:33 -0400
+In-Reply-To: <CAHrpEqQzpLCVqyuMgD=W6ObK1Za-AcmDV7Ejxzw9xKFH57J99A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Am Montag, den 22.04.2013, 17:17 +0800 schrieb Frank Li:
+> 2013/4/22 Lucas Stach <l.stach@pengutronix.de>:
+> > Hi all,
+> >
+> > Am Samstag, den 20.04.2013, 20:35 +0800 schrieb Frank Li:
+> >> 2013/4/20 Fabio Estevam <festevam@gmail.com>
+> >> >
+> >> > Lucas,
+> >> >
+> >> > On Fri, Apr 19, 2013 at 11:36 AM, Lucas Stach <l.stach@pengutronix.de> wrote:
+> >> > > Those patches introduce instability to the point of kernel OOPSes with
+> >> > > NULL-ptr dereferences.
+> >> > >
+> >> > > The patches drop locks from the code without justifying why this would
+> >> > > be safe at all. In fact it isn't safe as now the controller restart can
+> >> > > happily free the RX and TX ring buffers while the NAPI poll function is
+> >> > > still accessing them. So with a heavily loaded but slightly instable
+> >>
+> >> I think a possible solution is disable NAPI in restart function.
+> >> So only one thread can reset BD queue.
+> >>
+> >> BD queue is nolock design.
+> >>
+> > It doesn't matter at all that the hardware BD queue is designed to be
+> > operated lockless, you still have to synchronize the driver functions to
+> > each other and explicit locks are a far better way to achieve this than
+> > some implicit tunneling through a single thread or other such things.
+> 
+> Not hardware BD queue.
+> I redesign software BD queue as lockless queue.
+> 
+> After put actual queue process work to NAPI,  interrupt handle will
+> not interrupt xmit and NAPI function again.
+> 
+> There are just one entry xmit to push new data to bd queue.
+> One entry fec_enet_tx to pull old data from bd queue.
+> 
+>                        HARD_TX_LOCK(dev, txq, cpu);
+> 
+>                         if (!netif_xmit_stopped(txq)) {
+>                                 __this_cpu_inc(xmit_recursion);
+>                                 rc = dev_hard_start_xmit(skb, dev, txq);
+>                                 __this_cpu_dec(xmit_recursion);
+>                                 if (dev_xmit_complete(rc)) {
+>                                         HARD_TX_UNLOCK(dev, txq);
+>                                         goto out;
+>                                 }
+>                         }
+>                         HARD_TX_UNLOCK(dev, txq);
+> 
+> Restart function will only called at suspend/resume, init, and speed change.
+> So risk should not in heave loading.
+> 
+> The other reason of remove lock is that fix deadlock detected by kernel.
 
-On 25-04-2013 12:21, Cong Wang wrote:
+While I agree that lockless queues and NAPI disable while doing FEC
+restart is the way to go for further development, I tried to implement
+that yesterday and it needs some bigger changes to the driver to split
+things up properly, otherwise we need a lot of ad-hoc hackery to check
+if NAPI is enabled, which seems really error prone. 
 
-> This bug can be observed in virt environment, when a KVM guest
-> communicates with the host via multicast. After some time (should
-> be 260 sec, I didn't measure), the multicast traffic suddenly
-> terminates.
+think such a change in the driver is not acceptable in the current state
+of the cycle. I for one will not submit this change, as I'm not sure at
+all that it won't regress in other situations.
 
-> This is due to the mdb entry for bridge itself expires automatically,
-> it should not expire as long as the bridge still generates multicast
-> traffic. It should expire when the bridge leaves the multicast group,
-> OR when there is no multicast traffic on this bridge.
-
-> I fix this by adding another bool which is set when there is
-> multicast traffic goes to the bridge, cleared in the expire timer and
-> when IGMP leave is received. I ran omping for 15 minutes, everything
-> looks good now.
-
-> This might not be the best fix, but might be the simplest fix.
-
-> (Adam, this problem is probably different with your problem,
-> at least this problem can _not_ be workarounded by setting
-> querier to 1.)
-
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Adam Baker <linux@baker-net.org.uk>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> ---
-> v2: rename ->busy to ->for_br
-
-> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-> index 828e2bc..4f0e50f 100644
-> --- a/net/bridge/br_input.c
-> +++ b/net/bridge/br_input.c
-> @@ -99,9 +99,12 @@ int br_handle_frame_finish(struct sk_buff *skb)
->   	else if (is_multicast_ether_addr(dest)) {
->   		mdst = br_mdb_get(br, skb, vid);
->   		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
-> -			if ((mdst && mdst->mglist) ||
-> -			    br_multicast_is_router(br))
-> +			bool to_br = mdst && mdst->mglist;
-
-    Emoty line after declaration wouldn't hurt.
-
-> +			if (to_br || br_multicast_is_router(br))
->   				skb2 = skb;
-
-WBR, Sergei
+Regards,
+Lucas
+-- 
+Pengutronix e.K.                           | Lucas Stach                 |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-5076 |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
