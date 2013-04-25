@@ -1,38 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 3/5] sock_diag: allow to dump bpf filters
-Date: Thu, 25 Apr 2013 01:16:36 -0400 (EDT)
-Message-ID: <20130425.011636.238533615622671655.davem@davemloft.net>
-References: <1366818756-4234-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1366818756-4234-4-git-send-email-nicolas.dichtel@6wind.com>
-	<1366820565.8964.78.camel@edumazet-glaptop>
+Subject: Re: [PATCH] net: usb: active URB submitted multiple times
+Date: Thu, 25 Apr 2013 01:27:46 -0400 (EDT)
+Message-ID: <20130425.012746.827018439951615849.davem@davemloft.net>
+References: <20130412.151824.2029469075886743722.davem@davemloft.net>
+	<alpine.DEB.2.02.1304151017230.3010@bender.nucleusys.com>
+	<alpine.DEB.2.02.1304191115230.4161@fry.nucleusys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: petkan@nucleusys.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47947 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48087 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750763Ab3DYFQi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 01:16:38 -0400
-In-Reply-To: <1366820565.8964.78.camel@edumazet-glaptop>
+	with ESMTP id S1750983Ab3DYF1s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 01:27:48 -0400
+In-Reply-To: <alpine.DEB.2.02.1304191115230.4161@fry.nucleusys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 24 Apr 2013 09:22:45 -0700
+From: Petko Manolov <petkan@nucleusys.com>
+Date: Fri, 19 Apr 2013 11:21:49 +0300 (EEST)
 
-> On Wed, 2013-04-24 at 17:52 +0200, Nicolas Dichtel wrote:
->> This patch allows to dump BPF filters attached to a socket with
->> SO_ATTACH_FILTER. In other words, users allowing to open netlink sockets can
->> see filters set on a socket (when the diag module of the socket family is
->> loaded).
+> From: Petko Manolov <petkan@nucleusys.com>
 > 
-> To my knowledge, opening netlink sockets is not restricted.
+> (For inclusion in 3.10, diff against latest net-next.)
 > 
-> I do not want user lambda being able to see my BPF filters.
+> Pegasus driver used single callback for sync and async control URBs. 
+> Special flags were employed to distinguish between both, but due to flawed 
+> logic (as Sarah Sharp spotted) it didn't always work.  As a result of this 
+> change [get|set]_registers() are now much simpler.  Async write is also 
+> leaner and does not use single, statically allocated memory for 
+> usb_ctrlrequest, which is another potential race when asynchronously 
+> submitting URBs.
+> 
+> The socket buffer pool for the receive path is now gone.  It's existence 
+> didn't make much difference (performance-wise) and the code is better off 
+> without the spinlocks protecting it.
+> 
+> Largely duplicated code in routines reading and writing MII registers is 
+> now packed in __mii_op().
+> 
+> Adding URL for the public pegasus git repository.
+> 
+> Signed-off-by: Petko Manolov <petkan@nucleusys.com>
 
-I agree, this change is not reasonable.  And therefore the notifiers
-added in the subsequent patches of this series are not appropriate
-either.
+Three completely unrelated changes combined into one patch, split this
+up properly into three distinct changes, and resubmit them as a series
+with a "[PATCH 0/N]" initial posting.
