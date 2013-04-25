@@ -1,66 +1,54 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 net-next 0/6] Allow bridge to function in
- non-promisc mode
-Date: Thu, 25 Apr 2013 08:56:56 -0700
-Message-ID: <20130425085656.4500d5c4@nehalam.linuxnetplumber.net>
-References: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next PATCH 1/3] drivers: of: add phy fixup support in DT
+Date: Thu, 25 Apr 2013 17:09:25 +0100
+Message-ID: <1366906165.2594.5.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1366654838-26479-1-git-send-email-mugunthanvnm@ti.com>
+	 <1366654838-26479-2-git-send-email-mugunthanvnm@ti.com>
+	 <20130425.035649.1109561373283256109.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org, mst@redhat.com
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: <mugunthanvnm@ti.com>, <netdev@vger.kernel.org>,
+	<devicetree-discuss@lists.ozlabs.org>, <linux-omap@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:52940 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756860Ab3DYQJ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 12:09:29 -0400
+In-Reply-To: <20130425.035649.1109561373283256109.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 19 Apr 2013 16:52:44 -0400
-Vlad Yasevich <vyasevic@redhat.com> wrote:
-
-> This series is an almost complete rework of the prior attempt
-> to make the bridge function in non-promisc mode.  In this series
-> the "promiscuity" of an interface is dynamically determined and
-> the interface may transition from/to promiscuous mode based on
-> bridge configuration.
+On Thu, 2013-04-25 at 03:56 -0400, David Miller wrote:
+> From: Mugunthan V N <mugunthanvnm@ti.com>
+> Date: Mon, 22 Apr 2013 23:50:36 +0530
 > 
-> The series keeps an idea of an "uplink" port.  That is still user
-> designated.
-> The series also adds a concept of "dynamic" bridge port.  This is
-> the default state of the port and means that the user has not
-> specified any static FDBs for that port.
-> Once a user has added a static FDB entry to port and also specified
-> an "uplink" flag for that FDB, the mac address from that FDB is
-> added to the bridge hw address list and synched down to uplinks.
-> "Uplinks" are always considered dynamic ports even if a static entry
-> has been added for them.
-> Promiscuity is determined by the number of dynamic ports.  If there
-> are no dynamic ports (i.e all ports have static FDBs set), then we
-> know all the neighbors and can switch promisc off on all of the ports.
-> If we have only 1 dynamic port and its an uplink, we can synch all
-> static hw addresses to this port and mark it non-promisc.
-> If we have more then 1 dynamic port, then all ports have to be
-> promiscuouse.
-> This is the algorith that Michael Tsirkin proposed earlier.
+> > In earlier case phy fixup are added in board file as this is no more the case
+> > so adding support for phy register fixup in Device Tree
+> > 
+> > Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> 
+> When people put a series of undocumented PHY register writes using
+> constants, we tell them it's firmware.
+> 
+> If these PHY registers are actually documented in the driver, write a
+> function in that driver which does the programming sequence, then add
+> a property that the driver looks for in order to determine whether to
+> call that sequence or not.
+> 
+> I don't want people putting random PHY raw programming sequences and
+> other crap like that into the OF device nodes.  It's extremely
+> inelegant and inviting abuse.
 
-Instead of a uplink port, maybe this idea would work better in combination
-with another patch I have been working on.
+I don't think booleans will be enough in general; a PHY may well require
+link tuning for a specific board.  But the set of register addresses to
+program is likely to be known in advance and then only the values would
+belong in DT.
 
-In many bridged environments, ports have only one possible MAC address
-on the other side. My patch provides a flag to mark those ports as bound
-with only one peer MAC address.  This allows those ports to be skipped on
-flooding, and for security only packets with that source address would
-be allowed.
+Ben.
 
-After that change, your promicious code could just use that flag:
-i.e: 
-   uplink ports = total ports - bound ports
-   if (uplink ports == 1)
-       enter non-promicious mode
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
