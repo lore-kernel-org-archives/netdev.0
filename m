@@ -1,42 +1,97 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [net-next PATCH 2/4] net: increase frag hash size
-Date: Thu, 25 Apr 2013 05:26:26 +0200
-Message-ID: <20130425032626.GA21406@order.stressinduktion.org>
-References: <20130424154624.16883.40974.stgit@dragon> <20130424154822.16883.93014.stgit@dragon>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/14][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 24 Apr 2013 21:08:33 -0700
+Message-ID: <1366862927-1855-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:33835 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932118Ab3DYD01 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 23:26:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20130424154822.16883.93014.stgit@dragon>
+Received: from mga03.intel.com ([143.182.124.21]:15281 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1749667Ab3DYEIw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Apr 2013 00:08:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 24, 2013 at 05:48:31PM +0200, Jesper Dangaard Brouer wrote:
-> Increase fragmentation hash bucket size to 1024 from old 64 elems.
-> 
-> After we increased the frag mem limits (in commit v3.8-rc3-503-gc2a9366)
-> the hash size of 64 elements is simply too small.  Also considering
-> the mem limit is per netns and the hash table is shared for all netns.
-> 
-> For the embedded people, note that this increase will change the hash
-> table/array from using approx 1 Kbytes to 16 Kbytes.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+This series contains updates to ixgbe, igb and pci.
 
-If this change goes in and patch 1 does not get applied I do think we
-can even lower the INETFRAGS_MAXDEPTH a bit (altough I don't see a need
-for that because of stability issues)? It would just decrease latency
-a bit in case someone attacks the hash buckets directly.
+The ixgbe changes contains a fix to a possible divide by zero by bailing
+out of the ixgbe_update_itr() function if the last interrupt timeslice is
+zero.  In addition, support is added for the new OCP x520 adapter as well
+as LX support for 82599 devices.  Jacob provides a patch to change
+variable wol_supported to wol_enabled to better reflect what the code
+is actually doing (i.e. checking if WoL is enabled).
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Alex adds SRIOV helper function to pci that will determine if a PF
+has any VFs that are currently assigned to a guest.
 
-Thanks,
+The remaining 8 patches are against igb and contain the following changes:
+* implement SERDES loopback configuration for i210 devices by unsetting
+  sigdetect bit, so as to fix Ethtool loopback test failure
+* add support for the SMBI semaphore for I210/I211 devices
+* implement the new generic pci_vfs_assigned helper function (Alex's PCI
+  helper function)
+* display warning when link speed is downgraded due to Smartspeed
+* ensure that VLAN hardware filtering remains enabled when the device is
+  in promiscuous mode and VT mode simultaneously
+* cleanup dead code in igb
+* bump the driver version
 
-  Hannes
+v2: updated the PCI patch to add SRIOV helper function to remove extern
+    from the declaration of pci_vfs_assigned in pci.h and return 0 if
+    SR-IOV is disabled which is inline with other PCI SR-IOV functions
+
+The following are changes since commit 01f27fc085574b301248d4da241e9d5ebd61e5c9:
+  Merge branch 'bnx2x'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Akeem G. Abodunrin (1):
+  igb: SERDES loopback sigdetect bit on i210 devices
+
+Alexander Duyck (2):
+  pci: Add SRIOV helper function to determine if VFs are assigned to
+    guest
+  igb: Use pci_vfs_assigned instead of igb_vfs_are_assigned
+
+Carolyn Wyborny (2):
+  igb: Remove id's that will not be productized for Linux.
+  igb: Bump version of driver
+
+Don Skidmore (3):
+  ixgbe: fix possible divide by zero in ixgbe_update_itr
+  ixgbe: add driver support for x520 OCP adapter.
+  ixgbe: add SFP+ LX module support
+
+Emil Tantilov (1):
+  ixgbe: add WOL support for new subdevice ID
+
+Greg Rose (1):
+  igb: Retain HW VLAN filtering while in promiscuous + VT mode
+
+Jacob Keller (1):
+  ixgbe: rename wol_supported to more fitting wol_enabled
+
+Koki Sanagi (1):
+  igb: display a warning message when SmartSpeed works
+
+Matthew Vick (2):
+  igb: Add SMBI semaphore to I210/I211
+  igb: Remove dead code path
+
+ drivers/net/ethernet/intel/igb/e1000_82575.c     |   9 +-
+ drivers/net/ethernet/intel/igb/e1000_hw.h        |   3 +-
+ drivers/net/ethernet/intel/igb/e1000_i210.c      |  65 ++++++++-----
+ drivers/net/ethernet/intel/igb/igb_ethtool.c     |   9 +-
+ drivers/net/ethernet/intel/igb/igb_main.c        | 117 +++++++++++++++--------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |   4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  10 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  16 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |  21 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |   6 +-
+ drivers/pci/iov.c                                |  41 ++++++++
+ include/linux/pci.h                              |   5 +
+ 12 files changed, 212 insertions(+), 94 deletions(-)
+
+-- 
+1.7.11.7
