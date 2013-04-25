@@ -1,104 +1,63 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/10] ipvs: fix sparse warnings for ip_vs_conn listing
-Date: Thu, 25 Apr 2013 02:22:13 +0200
-Message-ID: <1366849341-10466-3-git-send-email-pablo@netfilter.org>
-References: <1366849341-10466-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH 4/4] net: frag LRU list per CPU
+Date: Wed, 24 Apr 2013 17:25:57 -0700
+Message-ID: <1366849557.8964.110.camel@edumazet-glaptop>
+References: <20130424154624.16883.40974.stgit@dragon>
+	 <20130424154848.16883.65833.stgit@dragon>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41108 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758629Ab3DYAWc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Apr 2013 20:22:32 -0400
-In-Reply-To: <1366849341-10466-1-git-send-email-pablo@netfilter.org>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:43148 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758491Ab3DYAZ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Apr 2013 20:25:59 -0400
+Received: by mail-pd0-f182.google.com with SMTP id 3so1454223pdj.13
+        for <netdev@vger.kernel.org>; Wed, 24 Apr 2013 17:25:59 -0700 (PDT)
+In-Reply-To: <20130424154848.16883.65833.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+On Wed, 2013-04-24 at 17:48 +0200, Jesper Dangaard Brouer wrote:
+> The global LRU list is the major bottleneck in fragmentation handling
+> (after the recent frag optimization).
+> 
+> Simply change to use a LRU list per CPU, instead of a single shared
+> LRU list.  This was the simples approach of removing the LRU list, I
+> could come up with.  The previous "direct hash cleaning" approach was
+> getting too complicated, and interacted badly with netns.
+> 
+> The /proc/sys/net/ipv4/ipfrag_*_thresh values are now per CPU limits,
+> and have been reduced to 2 Mbytes (from 4 MB).
+> 
+> Performance compared to net-next (953c96e):
+> 
+> Test-type:  20G64K    20G3F    20G64K+DoS  20G3F+DoS  20G64K+MQ 20G3F+MQ
+> ----------  -------   -------  ----------  ---------  --------  -------
+> (953c96e)
+>  net-next:  17417.4   11376.5   3853.43     6170.56     174.8    402.9
+> LRU-pr-CPU: 19047.0   13503.9  10314.10    12363.20    1528.7   2064.9
 
-kbuild test robot reports for sparse warnings
-in commit 088339a57d6042 ("ipvs: convert connection locking"):
+Having per cpu memory limit is going to be a nightmare for machines with
+64+ cpus
 
-net/netfilter/ipvs/ip_vs_conn.c:962:13: warning: context imbalance
-	in 'ip_vs_conn_array' - wrong count at exit
-include/linux/rcupdate.h:326:30: warning: context imbalance in
-	'ip_vs_conn_seq_next' - unexpected unlock
-include/linux/rcupdate.h:326:30: warning: context imbalance in
-	'ip_vs_conn_seq_stop' - unexpected unlock
+Most machines use a single cpu to receive network packets. In some
+situations, every network interrupt is balanced onto all cpus. fragments
+for the same reassembled packet can be serviced on different cpus.
 
-Fix it by running ip_vs_conn_array under RCU lock
-to avoid conditional locking and by adding proper RCU
-annotations.
+So your results are good because your irq affinities were properly
+tuned.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_conn.c |   14 ++++++--------
- 1 file changed, 6 insertions(+), 8 deletions(-)
+Why don't you remove the lru instead ?
 
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index de64758..a083bda 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -966,7 +966,6 @@ static void *ip_vs_conn_array(struct seq_file *seq, loff_t pos)
- 	struct ip_vs_iter_state *iter = seq->private;
- 
- 	for (idx = 0; idx < ip_vs_conn_tab_size; idx++) {
--		rcu_read_lock();
- 		hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[idx], c_list) {
- 			/* __ip_vs_conn_get() is not needed by
- 			 * ip_vs_conn_seq_show and ip_vs_conn_sync_seq_show
-@@ -977,16 +976,19 @@ static void *ip_vs_conn_array(struct seq_file *seq, loff_t pos)
- 			}
- 		}
- 		rcu_read_unlock();
-+		rcu_read_lock();
- 	}
- 
- 	return NULL;
- }
- 
- static void *ip_vs_conn_seq_start(struct seq_file *seq, loff_t *pos)
-+	__acquires(RCU)
- {
- 	struct ip_vs_iter_state *iter = seq->private;
- 
- 	iter->l = NULL;
-+	rcu_read_lock();
- 	return *pos ? ip_vs_conn_array(seq, *pos - 1) :SEQ_START_TOKEN;
- }
- 
-@@ -1006,28 +1008,24 @@ static void *ip_vs_conn_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 	e = rcu_dereference(hlist_next_rcu(&cp->c_list));
- 	if (e)
- 		return hlist_entry(e, struct ip_vs_conn, c_list);
--	rcu_read_unlock();
- 
- 	idx = l - ip_vs_conn_tab;
- 	while (++idx < ip_vs_conn_tab_size) {
--		rcu_read_lock();
- 		hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[idx], c_list) {
- 			iter->l = &ip_vs_conn_tab[idx];
- 			return cp;
- 		}
- 		rcu_read_unlock();
-+		rcu_read_lock();
- 	}
- 	iter->l = NULL;
- 	return NULL;
- }
- 
- static void ip_vs_conn_seq_stop(struct seq_file *seq, void *v)
-+	__releases(RCU)
- {
--	struct ip_vs_iter_state *iter = seq->private;
--	struct hlist_head *l = iter->l;
--
--	if (l)
--		rcu_read_unlock();
-+	rcu_read_unlock();
- }
- 
- static int ip_vs_conn_seq_show(struct seq_file *seq, void *v)
--- 
-1.7.10.4
+Clearly, removing the oldest frag was an implementation choice.
+
+We know that a slow sender has no chance to complete a packet if the
+attacker can create new fragments fast enough : frag_evictor() will keep
+the attacker fragments in memory and throw away good fragments.
+
+I wish we could make all this code simpler instead of more complex.
