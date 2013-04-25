@@ -1,91 +1,74 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v4] net: mac802154: comparision issue of type cast, finding
- by EXTRA_CFLAGS=-W
-Date: Thu, 25 Apr 2013 11:59:06 +0200
-Message-ID: <5178FE6A.3050108@redhat.com>
-References: <5175DFBC.7040000@asianux.com> <5175F7F7.7000703@asianux.com> <51766F74.2090007@asianux.com> <20130425.041044.768895561908042668.davem@davemloft.net> <5178ECA2.6020402@asianux.com> <5178F120.5030500@acn-group.ch> <5178FA0D.8060009@asianux.com>
+From: "Rajahalme, Jarno (NSN - FI/Espoo)" <jarno.rajahalme@nsn.com>
+Subject: Re: [PATCH] datapath: Add basic MPLS support to kernel
+Date: Thu, 25 Apr 2013 10:02:49 +0000
+Message-ID: <A52D2BF3-6A9D-42B5-B52F-0F9FC7A50D61@nsn.com>
+References: <1366876738-29688-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Christophe Aeschlimann <c.aeschlimann@acn-group.ch>,
-	sergei.shtylyov@cogentembedded.com,
-	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Chen Gang <gang.chen@asianux.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "<dev@openvswitch.org>" <dev@openvswitch.org>,
+	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+	Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Jesse Gross <jesse@nicira.com>, Ben Pfaff <blp@nicira.com>
+To: ext Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47777 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755522Ab3DYJ7Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Apr 2013 05:59:25 -0400
-In-Reply-To: <5178FA0D.8060009@asianux.com>
+Received: from demumfd002.nsn-inter.net ([93.183.12.31]:14329 "EHLO
+	demumfd002.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757243Ab3DYKDO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 06:03:14 -0400
+In-Reply-To: <1366876738-29688-1-git-send-email-horms@verge.net.au>
+Content-Language: en-US
+Content-ID: <65E388ABD4C9CC4FA20DB315E98CD11E@internal.nsn.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/25/2013 11:40 AM, Chen Gang wrote:
-> Need change ~(u8)0 to 0xff, or in mac802154_wpan_xmit(), "u8 chan"
-> will never == MAC802154_CHAN_NONE.
->
-> The related warning:
->    net/mac802154/wpan.c:325:2: warning: comparison is always false
->    due to limited range of data type [-Wtype-limits]
 
-Hm, do you really need to include this huge pile of code below into the
-commit message?
+On Apr 25, 2013, at 10:58 , ext Simon Horman wrote:
 
-Couldn't you make the commit message simpler resp. more compact, e.g.:
+> @@ -648,6 +650,7 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key,
+> 		return -ENOMEM;
+> 
+> 	skb_reset_network_header(skb);
+> +	skb_reset_mac_len(skb);
+> 	__skb_push(skb, skb->data - skb_mac_header(skb));
+> 
+> 	/* Network layer. */
+> @@ -730,6 +733,30 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key,
+> 			memcpy(key->ipv4.arp.tha, arp->ar_tha, ETH_ALEN);
+> 			key_len = SW_FLOW_KEY_OFFSET(ipv4.arp);
+> 		}
+> +	} else if (eth_p_mpls(key->eth.type)) {
+> +		size_t stack_len = MPLS_HLEN;
+> +
+> +		while (1) {
+> +			__be32 lse;
+> +
+> +			error = check_header(skb, stack_len);
 
-Change MAC802154_CHAN_NONE from ~(u8)0 to 0xff, otherwise the comparison
-in mac802154_wpan_xmit() for ``chan == MAC802154_CHAN_NONE'' will not succeed.
-This bug can be boiled down to ``u8 foo = 0xff; if (foo == ~(u8)0) [...]
-else [...]'' where the condition will always take the else branch.
+skb->data has been pushed to the mac_header prior to this, so this would not test availability of the MPLS data. 
+Maybe the following would work:
 
-.... something like that maybe?
+			error = check_header(skb, skb->mac_len + stack_len);
 
-> The related unit test:
->    cc -Wall -O2 -o test test.c
->    ./test
->    will output 'different'
->
->    (after use '0xff' instead of '~(u8)0', it will output 'equal')
->
-> -----------------------test code begin--------------------------------
->
-> #include <stdio.h>
->
-> typedef unsigned char u8;
->
-> int main()
-> {
-> 	u8 uc = 0xff;
->
-> 	if (uc == ~(u8)0)
-> 		printf("\nequal\n");
-> 	else
-> 		printf("\ndifferent\n");
->
-> 	return 0;
-> }
->
-> -----------------------test code end----------------------------------
->
->
-> Signed-off-by: Chen Gang <gang.chen@asianux.com>
-> ---
->   net/mac802154/mac802154.h | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-> index a4dcaf1..703c121 100644
-> --- a/net/mac802154/mac802154.h
-> +++ b/net/mac802154/mac802154.h
-> @@ -90,7 +90,7 @@ struct mac802154_sub_if_data {
->
->   #define MAC802154_MAX_XMIT_ATTEMPTS	3
->
-> -#define MAC802154_CHAN_NONE		(~(u8)0) /* No channel is assigned */
-> +#define MAC802154_CHAN_NONE		0xff /* No channel is assigned */
->
->   extern struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced;
->   extern struct ieee802154_mlme_ops mac802154_mlme_wpan;
->
+> +			if (unlikely(error))
+> +				goto out;
+> +
+> +			memcpy(&lse, skb_network_header(skb), MPLS_HLEN);
+> +
+> +			if (stack_len == MPLS_HLEN) {
+> +				key_len = SW_FLOW_KEY_OFFSET(mpls.top_lse);
+> +				memcpy(&key->mpls.top_lse, &lse, MPLS_HLEN);
+> +			}
+> +
+> +			/* Advance network_header to bottom of MPLS label
+> +			 * stack. mac_len corresponds to the top of the stack.
+> +			 */
+> +			skb_set_network_header(skb, skb->mac_len + stack_len);
+> +			if (lse & htonl(MPLS_BOS_MASK))
+> +				break;
+> +		}
+
+I don't see anything advancing the stack_len, so the loop would not end for deeper stacks?
+
+  Jarno
