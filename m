@@ -1,53 +1,118 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5] rps: selective flow shedding during
- softnet overflow
-Date: Thu, 25 Apr 2013 04:20:07 -0400 (EDT)
-Message-ID: <20130425.042007.1583080085524610665.davem@davemloft.net>
-References: <1366762196.8964.46.camel@edumazet-glaptop>
-	<1366763847-9279-1-git-send-email-willemb@google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	stephen@networkplumber.org
-To: willemb@google.com
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next v2] bridge: do not expire mdb entry as long as bridge still uses it
+Date: Thu, 25 Apr 2013 16:21:23 +0800
+Message-ID: <1366878083-22797-1-git-send-email-amwang@redhat.com>
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49957 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756155Ab3DYIUJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 04:20:09 -0400
-In-Reply-To: <1366763847-9279-1-git-send-email-willemb@google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:42244 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756045Ab3DYIVx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Apr 2013 04:21:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogV2lsbGVtIGRlIEJydWlqbiA8d2lsbGVtYkBnb29nbGUuY29tPg0KRGF0ZTogVHVlLCAy
-MyBBcHIgMjAxMyAyMDozNzoyNyAtMDQwMA0KDQo+IEEgY3B1IGV4ZWN1dGluZyB0aGUgbmV0d29y
-ayByZWNlaXZlIHBhdGggc2hlZHMgcGFja2V0cyB3aGVuIGl0cyBpbnB1dA0KPiBxdWV1ZSBncm93
-cyB0byBuZXRkZXZfbWF4X2JhY2tsb2cuIEEgc2luZ2xlIGhpZ2ggcmF0ZSBmbG93IChzdWNoIGFz
-IGENCj4gc3Bvb2ZlZCBzb3VyY2UgRG9TKSBjYW4gZXhjZWVkIGEgc2luZ2xlIGNwdSBwcm9jZXNz
-aW5nIHJhdGUgYW5kIHdpbGwNCj4gZGVncmFkZSB0aHJvdWdocHV0IG9mIG90aGVyIGZsb3dzIGhh
-c2hlZCBvbnRvIHRoZSBzYW1lIGNwdS4NCj4gDQo+IFRoaXMgcGF0Y2ggYWRkcyBhIG1vcmUgZmlu
-ZSBncmFpbmVkIGhhc2h0YWJsZS4gSWYgdGhlIG5ldGRldiBiYWNrbG9nDQo+IGlzIGFib3ZlIGEg
-dGhyZXNob2xkLCBJUlEgY3B1cyB0cmFjayB0aGUgcmF0aW8gb2YgdG90YWwgdHJhZmZpYyBvZg0K
-PiBlYWNoIGZsb3cgKHVzaW5nIDQwOTYgYnVja2V0cywgY29uZmlndXJhYmxlKS4gVGhlIHJhdGlv
-IGlzIG1lYXN1cmVkDQo+IGJ5IGNvdW50aW5nIHRoZSBudW1iZXIgb2YgcGFja2V0cyBwZXIgZmxv
-dyBvdmVyIHRoZSBsYXN0IDI1NiBwYWNrZXRzDQo+IGZyb20gdGhlIHNvdXJjZSBjcHUuIEFueSBm
-bG93IHRoYXQgb2NjdXBpZXMgYSBsYXJnZSBmcmFjdGlvbiBvZiB0aGlzDQo+IChzZXQgYXQgNTAl
-KSB3aWxsIHNlZSBwYWNrZXQgZHJvcCB3aGlsZSBhYm92ZSB0aGUgdGhyZXNob2xkLg0KPiANCj4g
-VGVzdGVkOg0KPiBTZXR1cCBpcyBhIG11bGktdGhyZWFkZWQgVURQIGVjaG8gc2VydmVyIHdpdGgg
-bmV0d29yayByeCBJUlEgb24gY3B1MCwNCj4ga2VybmVsIHJlY2VpdmUgKFJQUykgb24gY3B1MCBh
-bmQgYXBwbGljYXRpb24gdGhyZWFkcyBvbiBjcHVzIDItLTcNCj4gZWFjaCBoYW5kbGluZyAyMGsg
-cmVxL3MuIFRocm91Z2hwdXQgaGFsdmVzIHdoZW4gaGl0IHdpdGggYSA0MDAga3Bwcw0KPiBhbnRh
-Z29uaXN0IHN0b3JtLiBXaXRoIHRoaXMgcGF0Y2ggYXBwbGllZCwgYW50YWdvbmlzdCBvdmVybG9h
-ZCBpcw0KPiBkcm9wcGVkIGFuZCB0aGUgc2VydmVyIHByb2Nlc3NlcyBpdHMgY29tcGxldGUgbG9h
-ZC4NCj4gDQo+IFRoZSBwYXRjaCBpcyBlZmZlY3RpdmUgd2hlbiBrZXJuZWwgcmVjZWl2ZSBwcm9j
-ZXNzaW5nIGlzIHRoZQ0KPiBib3R0bGVuZWNrLiBUaGUgYWJvdmUgUlBTIHNjZW5hcmlvIGlzIGEg
-ZXh0cmVtZSwgYnV0IHRoZSBzYW1lIGlzDQo+IHJlYWNoZWQgd2l0aCBSRlMgYW5kIHN1ZmZpY2ll
-bnQga2VybmVsIHByb2Nlc3NpbmcgKGlwdGFibGVzLCBwYWNrZXQNCj4gc29ja2V0IHRhcCwgLi4p
-Lg0KPiANCj4gU2lnbmVkLW9mZi1ieTogV2lsbGVtIGRlIEJydWlqbiA8d2lsbGVtYkBnb29nbGUu
-Y29tPg0KDQpUaGlzIGRvZXMndCBjb21waWxlOg0KDQpuZXQvY29yZS9zeXNjdGxfbmV0X2NvcmUu
-YzogSW4gZnVuY3Rpb24goWZsb3dfbGltaXRfY3B1X3N5c2N0bKI6DQpuZXQvY29yZS9zeXNjdGxf
-bmV0X2NvcmUuYzoxMTQ6MTA6IGVycm9yOiBpbnZhbGlkIHR5cGUgYXJndW1lbnQgb2YgoS0+oiAo
-aGF2ZSChc3RydWN0IG11dGV4oikNCg0KQWxzbywgcGxlYXNlIGNoYW5nZSB0aGUgS2NvbmZpZyBl
-bnRyeSB0byBiZToNCg0KY29uZmlnIE5FVF9GTE9XX0xJTUlUDQoJYm9vbGVhbg0KCWRlcGVuZHMg
-b24gUlBTDQoJZGVmYXVsdCB5DQoNCg0KbGlrZSBSUFMgZXQgYWwuIGFyZS4NCg0KVGhhbmtzLg0K
+This bug can be observed in virt environment, when a KVM guest
+communicates with the host via multicast. After some time (should
+be 260 sec, I didn't measure), the multicast traffic suddenly
+terminates.
+
+This is due to the mdb entry for bridge itself expires automatically,
+it should not expire as long as the bridge still generates multicast
+traffic. It should expire when the bridge leaves the multicast group,
+OR when there is no multicast traffic on this bridge.
+
+I fix this by adding another bool which is set when there is
+multicast traffic goes to the bridge, cleared in the expire timer and
+when IGMP leave is received. I ran omping for 15 minutes, everything
+looks good now.
+
+This might not be the best fix, but might be the simplest fix.
+
+(Adam, this problem is probably different with your problem,
+at least this problem can _not_ be workarounded by setting
+querier to 1.)
+
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Adam Baker <linux@baker-net.org.uk>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+---
+v2: rename ->busy to ->for_br
+
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 828e2bc..4f0e50f 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -99,9 +99,12 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 	else if (is_multicast_ether_addr(dest)) {
+ 		mdst = br_mdb_get(br, skb, vid);
+ 		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
+-			if ((mdst && mdst->mglist) ||
+-			    br_multicast_is_router(br))
++			bool to_br = mdst && mdst->mglist;
++			if (to_br || br_multicast_is_router(br))
+ 				skb2 = skb;
++			/* Hold this mdb entry for bridge itself */
++			if (to_br)
++				mdst->for_br = true;
+ 			br_multicast_forward(mdst, skb, skb2);
+ 			skb = NULL;
+ 			if (!skb2)
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 81f2389..a86aa42 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -228,11 +228,16 @@ static void br_multicast_group_expired(unsigned long data)
+ 	if (!netif_running(br->dev) || timer_pending(&mp->timer))
+ 		goto out;
+ 
+-	mp->mglist = false;
+-
+ 	if (mp->ports)
+ 		goto out;
+ 
++	if (mp->mglist && mp->for_br) {
++		mp->for_br = false;
++		goto out;
++	}
++
++	mp->mglist = false;
++
+ 	mdb = mlock_dereference(br->mdb, br);
+ 
+ 	hlist_del_rcu(&mp->hlist[mdb->ver]);
+@@ -668,7 +673,7 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 		goto err;
+ 
+ 	if (!port) {
+-		mp->mglist = true;
++		mp->mglist = mp->for_br = true;
+ 		mod_timer(&mp->timer, now + br->multicast_membership_interval);
+ 		goto out;
+ 	}
+@@ -1280,6 +1285,7 @@ static void br_multicast_leave_group(struct net_bridge *br,
+ 			mod_timer(&mp->timer, time);
+ 		}
+ 
++		mp->for_br = false;
+ 		goto out;
+ 	}
+ 
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index d2c043a..c96bf19 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -112,6 +112,7 @@ struct net_bridge_mdb_entry
+ 	struct timer_list		timer;
+ 	struct br_ip			addr;
+ 	bool				mglist;
++	bool				for_br; /* update this only when mglist == true */
+ };
+ 
+ struct net_bridge_mdb_htable
