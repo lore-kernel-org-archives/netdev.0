@@ -1,88 +1,42 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH ipvs-next] ipvs: Remove
- rcu_read_unlock();rcu_read_lock();
-Date: Thu, 25 Apr 2013 11:15:25 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1304251038541.1752@ja.ssi.bg>
-References: <1366852353-32561-1-git-send-email-horms@verge.net.au>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH net-next v3] net: ipv4: typo issue, remove erroneous semicolon
+Date: Thu, 25 Apr 2013 16:15:00 +0800
+Message-ID: <5178E604.6080409@asianux.com>
+References: <5175F5C3.8060503@asianux.com> <20130423.011604.1061769362231812796.davem@davemloft.net> <51762E16.703@asianux.com> <20130425.040805.131739914219038988.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1366852353-32561-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sergei.shtylyov@cogentembedded.com, pshelar@nicira.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from intranet.asianux.com ([58.214.24.6]:45110 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756122Ab3DYIPv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 04:15:51 -0400
+In-Reply-To: <20130425.040805.131739914219038988.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 2013=E5=B9=B404=E6=9C=8825=E6=97=A5 16:08, David Miller wrote:
+> From: Chen Gang <gang.chen@asianux.com>
+> Date: Tue, 23 Apr 2013 14:45:42 +0800
+>=20
+>> > Need remove erroneous semicolon, which is found by EXTRA_CFLAGS=3D=
+-W,
+>> > the related commit number: c54419321455631079c7d6e60bc732dd0c5914c=
+5
+>> > ("GRE: Refactor GRE tunneling code")
+>> >=20
+>> > Signed-off-by: Chen Gang <gang.chen@asianux.com>
+> Applied.
+>=20
+>=20
 
-	Hello,
+Thanks.
 
-On Thu, 25 Apr 2013, Simon Horman wrote:
+--=20
+Chen Gang
 
-> It is unclear to me that there is any utility in the following:
-> 
-> 	 rcu_read_unlock();
-> 	 rcu_read_lock();
-
-	I thought it is a good idea for fixed hash table
-of IP_VS_TAB_BITS=20. May be if guarded by
-
-	if (!((++idx) & 4095))
-
-to reduce its rate to 256 (with idx++ removed from the for loop) ?
-
-	Netfilter has no such logic for nf_conntrack because
-it has limit of 16384 rows. Not sure how fatal is to try 1048576
-empty rows under RCU lock for such rare operations as
-connection listing. OTOH, ip_vs_conn_array() needs to
-seek at some initial position, so it can skip many
-entries if reading table with many conns, for example,
-1048576 rows * 16 conns per row, we will need to
-touch 16777216 conns under lock. Not sure what is the
-best practice for such cases.
-
-> So this patch removes the two instances of the above from ip_vs_conn.c.
-> 
-> This was introduced in 7cf2eb7bccbe0d7a8ab1d1382c4faa2b3abf817f ("ipvs: fix
-> sparse warnings for ip_vs_conn listing") as part of cleaning up warnings
-> flagged by sparse.
-> 
-> Compile and sparse tested only.
-> 
-> Cc: Julian Anastasov <ja@ssi.bg>
-> Reported-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
-> ---
->  net/netfilter/ipvs/ip_vs_conn.c | 4 ----
->  1 file changed, 4 deletions(-)
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-> index a083bda..458dc68 100644
-> --- a/net/netfilter/ipvs/ip_vs_conn.c
-> +++ b/net/netfilter/ipvs/ip_vs_conn.c
-> @@ -975,8 +975,6 @@ static void *ip_vs_conn_array(struct seq_file *seq, loff_t pos)
->  				return cp;
->  			}
->  		}
-> -		rcu_read_unlock();
-> -		rcu_read_lock();
->  	}
->  
->  	return NULL;
-> @@ -1015,8 +1013,6 @@ static void *ip_vs_conn_seq_next(struct seq_file *seq, void *v, loff_t *pos)
->  			iter->l = &ip_vs_conn_tab[idx];
->  			return cp;
->  		}
-> -		rcu_read_unlock();
-> -		rcu_read_lock();
->  	}
->  	iter->l = NULL;
->  	return NULL;
-> -- 
-> 1.8.2.1
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Asianux Corporation
