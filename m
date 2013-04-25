@@ -1,43 +1,58 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next V3 3/5] net/mlx4_en: Add HW timestamping (TS)
- support
-Date: Thu, 25 Apr 2013 21:26:27 +0200
-Message-ID: <20130425192627.GA14429@netboy>
-References: <1366733211-10228-1-git-send-email-amirv@mellanox.com>
- <1366733211-10228-4-git-send-email-amirv@mellanox.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH ipvs-next] ipvs: Remove
+ rcu_read_unlock();rcu_read_lock();
+Date: Thu, 25 Apr 2013 22:46:55 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1304252224250.1948@ja.ssi.bg>
+References: <1366852353-32561-1-git-send-email-horms@verge.net.au>  <alpine.LFD.2.00.1304251038541.1752@ja.ssi.bg>  <1366880726.2628.177.camel@hawk.mlab.se>  <20130425133639.GC10898@verge.net.au> <1366898643.8964.139.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f178.google.com ([209.85.215.178]:54949 "EHLO
-	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758685Ab3DYT0j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 15:26:39 -0400
-Received: by mail-ea0-f178.google.com with SMTP id o10so1419251eaj.9
-        for <netdev@vger.kernel.org>; Thu, 25 Apr 2013 12:26:38 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1366733211-10228-4-git-send-email-amirv@mellanox.com>
+Received: from ja.ssi.bg ([178.16.129.10]:41216 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932250Ab3DYTpo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Apr 2013 15:45:44 -0400
+In-Reply-To: <1366898643.8964.139.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 23, 2013 at 07:06:49PM +0300, Amir Vadai wrote:
 
-> +u64 mlx4_en_get_cqe_ts(struct mlx4_cqe *cqe)
-> +{
-> +	u64 hi, lo;
-> +	struct mlx4_ts_cqe *ts_cqe = (struct mlx4_ts_cqe *)cqe;
-> +
-> +	lo = (u64)be16_to_cpu(ts_cqe->timestamp_lo);
-> +	hi = ((u64)be32_to_cpu(ts_cqe->timestamp_hi) + !lo) << 16;
-                                                     ^^^^^
-That looks a bit strange. Can you explain?
+	Hello,
 
-> +
-> +	return hi | lo;
-> +}
+On Thu, 25 Apr 2013, Eric Dumazet wrote:
 
-Thanks,
-Richard
+> On Thu, 2013-04-25 at 22:36 +0900, Simon Horman wrote:
+> 
+> > Ok, leaving it seems reasonable.
+> > Pablo, do you have any objections?
+> 
+> I have objections.
+> 
+> I would _add_ a cond_resched() there to explicitly do what we want
+> 
+> Maybe a macro/inline doing this already exists.
+> 
+> static void inline cond_resched_rcu_lock(void)
+> {
+> 	if (need_resched()) {
+> 		rcu_read_unlock();
+> 		cond_resched();
+> 		rcu_read_lock();
+> 	}
+> }
+
+	Thanks, looks like a good idea to me, I guess
+its place is include/linux/sched.h. Simon, can you prepare
+2 patches instead, one for cond_resched_rcu_lock and second
+for ipvs?
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
