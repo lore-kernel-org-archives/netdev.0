@@ -1,57 +1,45 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/14] igb: SERDES loopback sigdetect bit on i210 devices
-Date: Wed, 24 Apr 2013 21:08:39 -0700
-Message-ID: <1366862927-1855-7-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1366862927-1855-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: 3.6-rt: inet_sk_rx_dst_set() network splat
+Date: Thu, 25 Apr 2013 00:36:47 -0400 (EDT)
+Message-ID: <20130425.003647.679881018003461388.davem@davemloft.net>
+References: <1366786204.5977.10.camel@marge.simpson.net>
+	<1366853695.8964.120.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bitbucket@online.de, linux-rt-users@vger.kernel.org,
+	netdev@vger.kernel.org, sfr@canb.auug.org.au
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:15281 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751020Ab3DYEJB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Apr 2013 00:09:01 -0400
-In-Reply-To: <1366862927-1855-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47653 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1749667Ab3DYEgv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 00:36:51 -0400
+In-Reply-To: <1366853695.8964.120.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 24 Apr 2013 18:34:55 -0700
 
-This patch implements SERDES loopback configuration for i210 devices by
-unsetting sigdetect bit, so as to fix Ethtool loopback test failure. Old
-sigdetect code is also simplified to take care of all devices newer than 82580
+> From: Eric Dumazet <edumazet@google.com>
+ ...
+> Thanks for the report, here is a fix.
+> 
+> It will be a bit of a hassle to merge this one on net-next, as
+> tcp_prequeue() was moved in commit
+> b2fb4f54ecd47c42413d54b4666b06cf93c05abf
+> (tcp: uninline tcp_prequeue() )
+> 
+> David, maybe you prefer to pull into net tree the move, then I respin
+> the fix ?
+> 
+> [PATCH] tcp: force a dst refcount when prequeue packet
 
-Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
+I'll apply this to 'net', since you've explained the complict I now
+know how to resolve this when I next merge into 'net-next'.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 48b5947..7876240 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -1678,17 +1678,12 @@ static int igb_setup_loopback_test(struct igb_adapter *adapter)
- 		wr32(E1000_CONNSW, reg);
- 
- 		/* Unset sigdetect for SERDES loopback on
--		 * 82580 and i350 devices.
-+		 * 82580 and newer devices.
- 		 */
--		switch (hw->mac.type) {
--		case e1000_82580:
--		case e1000_i350:
-+		if (hw->mac.type >= e1000_82580) {
- 			reg = rd32(E1000_PCS_CFG0);
- 			reg |= E1000_PCS_CFG_IGN_SD;
- 			wr32(E1000_PCS_CFG0, reg);
--			break;
--		default:
--			break;
- 		}
- 
- 		/* Set PCS register for forced speed */
--- 
-1.7.11.7
+Stephen, there is a bug fix going into 'net' for tcp_prequeue()
+however in 'net-next' tcp_prequeue() has simply moved from one
+place to another.  The merge resolution is to simple move the
+new skb_dst_force() call to the new location.
