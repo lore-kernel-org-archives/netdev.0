@@ -1,75 +1,52 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: getting VF link info seems to be broken in 3.9-rc8
-Date: Thu, 25 Apr 2013 13:36:06 -0700
-Message-ID: <517993B6.8040105@intel.com>
-References: <517975F0.60003@intel.com> <20130425.152431.1753713368050789406.davem@davemloft.net> <51799008.60507@intel.com> <20130425.162510.310560314302575352.davem@davemloft.net>
+From: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/5] ibmebus: convert of_platform_driver to platform_driver
+Date: Thu, 25 Apr 2013 15:45:04 -0500
+Message-ID: <517995D0.8020307@gmail.com>
+References: <1366596798-9457-1-git-send-email-robherring2@gmail.com>  <1366596798-9457-2-git-send-email-robherring2@gmail.com>  <CAL_JsqKDF=hPEM0Jz-zZSXBCXBZ=gBjLWL6QDvq+nFWkqY3DMw@mail.gmail.com>  <1366911329.2869.31.camel@pasglop> <517980B0.3000401@gmail.com> <1366920741.2869.32.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: mitch.a.williams@intel.com, ogerlitz@mellanox.com,
-	gregory.v.rose@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, ronye@mellanox.com, shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:9313 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933072Ab3DYUgW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Apr 2013 16:36:22 -0400
-In-Reply-To: <20130425.162510.310560314302575352.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org"
+	<devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Thadeu Lima de Souza Cascardo <cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1366920741.2869.32.camel@pasglop>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 04/25/2013 01:25 PM, David Miller wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> Date: Thu, 25 Apr 2013 13:20:24 -0700
->
->> On 04/25/2013 12:24 PM, David Miller wrote:
->>> From: Alexander Duyck <alexander.h.duyck@intel.com>
->>> Date: Thu, 25 Apr 2013 11:29:04 -0700
->>>
->>> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
->>> index b65441d..23854b5 100644
->>> --- a/net/core/rtnetlink.c
->>> +++ b/net/core/rtnetlink.c
->>> @@ -1072,7 +1072,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
->>>  	rcu_read_lock();
->>>  	cb->seq = net->dev_base_seq;
->>>  
->>> -	if (nlmsg_parse(cb->nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
->>> +	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
->>>  			ifla_policy) >= 0) {
->>>  
->>>  		if (tb[IFLA_EXT_MASK])
->>> @@ -1922,7 +1922,7 @@ static u16 rtnl_calcit(struct sk_buff *skb, struct nlmsghdr *nlh)
->>>  	u32 ext_filter_mask = 0;
->>>  	u16 min_ifinfo_dump_size = 0;
->>>  
->>> -	if (nlmsg_parse(nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
->>> +	if (nlmsg_parse(nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
->>>  			ifla_policy) >= 0) {
->>>  		if (tb[IFLA_EXT_MASK])
->>>  			ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
->> I thought that as well.  I tried reverting it and the issue is still there.
+On 04/25/2013 03:12 PM, Benjamin Herrenschmidt wrote:
+> On Thu, 2013-04-25 at 14:14 -0500, Rob Herring wrote:
+>> On 04/25/2013 12:35 PM, Benjamin Herrenschmidt wrote:
+
+[...]
+
+>> You need patch 2 of this series to fix this:
 >>
->> However, I do think this may be part of the issue since I added a printk
->> to dump nlmsg_attrlen before going into the nlmsg_parse and with
->> ifinfomsg the attrlen is -12, with rtgenmsg it is 0.
-> I wonder if we are seeing two ways tools are making these calls, some are
-> passing rtgenmsg and some are passing ifinfomsg.  The latter, I am mostly
-> convinced, is what we must see here from properly written applications.
->
-> That would be really unfortunate, but seeing a nlmsg_attrlen() of -12 would
-> seem to confirm that a rtgenmsg was used.
->
-> I guess you're using iproute2?
+>> driver core: move to_platform_driver to platform_device.h
+>>
+>> which as Arnd pointed out needs to come first. I've fixed that in my
+>> tree, but I don't think it warrants another post.
+> 
+> Can I pull you tree from somewhere to test ?
 
-Yes.  All I am doing is ip link show and previously this would display
-VF info as well as PF.  Now the VF info is not there.
+Here you go:
 
->From what I can tell the problem call is rtnl_wilddump_req_filter since
-it is only passing a rtgenmsg and asking us to dump the link with the
-RTEXT_FILTER_VF filter mask.
+git://sources.calxeda.com/kernel/linux.git of-platform-removal
 
-Thanks,
-
-Alex
+Rob
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
