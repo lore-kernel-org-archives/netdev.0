@@ -1,94 +1,120 @@
 From: Lucas Stach <l.stach@pengutronix.de>
 Subject: Re: [PATCH 0/3] URGENT for 3.9: net: fec: revert NAPI introduction
-Date: Thu, 25 Apr 2013 14:31:25 +0200
-Message-ID: <1366893085.4139.6.camel@weser.hi.pengutronix.de>
+Date: Thu, 25 Apr 2013 14:37:05 +0200
+Message-ID: <1366893425.4139.10.camel@weser.hi.pengutronix.de>
 References: <1366382164-10968-1-git-send-email-l.stach@pengutronix.de>
 	 <CAOMZO5D5+bZ9NvF7HvVsne1ktZDDYPqZgomHkSaydrn2UEvBcQ@mail.gmail.com>
-	 <CAHrpEqQyG68v4VMDNEwcobhHqkuP_ORH9KA3OZD=2xAoJCMNOQ@mail.gmail.com>
-	 <1366620998.4141.28.camel@weser.hi.pengutronix.de>
-	 <CAHrpEqQzpLCVqyuMgD=W6ObK1Za-AcmDV7Ejxzw9xKFH57J99A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Fabio Estevam <festevam@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
 	Frank Li <Frank.Li@freescale.com>,
 	Shawn Guo <shawn.guo@linaro.org>
-To: Frank Li <lznuaa@gmail.com>
+To: Fabio Estevam <festevam@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:39742 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:34444 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752370Ab3DYMcd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 08:32:33 -0400
-In-Reply-To: <CAHrpEqQzpLCVqyuMgD=W6ObK1Za-AcmDV7Ejxzw9xKFH57J99A@mail.gmail.com>
+	with ESMTP id S1756257Ab3DYMiM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 08:38:12 -0400
+In-Reply-To: <CAOMZO5D5+bZ9NvF7HvVsne1ktZDDYPqZgomHkSaydrn2UEvBcQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Montag, den 22.04.2013, 17:17 +0800 schrieb Frank Li:
-> 2013/4/22 Lucas Stach <l.stach@pengutronix.de>:
-> > Hi all,
+Am Freitag, den 19.04.2013, 17:05 -0300 schrieb Fabio Estevam:
+> Lucas,
+> 
+> On Fri, Apr 19, 2013 at 11:36 AM, Lucas Stach <l.stach@pengutronix.de> wrote:
+> > Those patches introduce instability to the point of kernel OOPSes with
+> > NULL-ptr dereferences.
 > >
-> > Am Samstag, den 20.04.2013, 20:35 +0800 schrieb Frank Li:
-> >> 2013/4/20 Fabio Estevam <festevam@gmail.com>
-> >> >
-> >> > Lucas,
-> >> >
-> >> > On Fri, Apr 19, 2013 at 11:36 AM, Lucas Stach <l.stach@pengutronix.de> wrote:
-> >> > > Those patches introduce instability to the point of kernel OOPSes with
-> >> > > NULL-ptr dereferences.
-> >> > >
-> >> > > The patches drop locks from the code without justifying why this would
-> >> > > be safe at all. In fact it isn't safe as now the controller restart can
-> >> > > happily free the RX and TX ring buffers while the NAPI poll function is
-> >> > > still accessing them. So with a heavily loaded but slightly instable
-> >>
-> >> I think a possible solution is disable NAPI in restart function.
-> >> So only one thread can reset BD queue.
-> >>
-> >> BD queue is nolock design.
-> >>
-> > It doesn't matter at all that the hardware BD queue is designed to be
-> > operated lockless, you still have to synchronize the driver functions to
-> > each other and explicit locks are a far better way to achieve this than
-> > some implicit tunneling through a single thread or other such things.
+> > The patches drop locks from the code without justifying why this would
+> > be safe at all. In fact it isn't safe as now the controller restart can
+> > happily free the RX and TX ring buffers while the NAPI poll function is
+> > still accessing them. So with a heavily loaded but slightly instable
+> > link we regularly end up with OOPSes because link change restarts
+> > the FEC and bombs away buffers still in use.
+> >
+> > Also the NAPI enabled interrupt handler ACKs the INT and only later
+> > masks it, this way introducing a window where new interrupts could sneak
+> > in while we are already in polling mode.
+> >
+> > As it's way too late in the cycle to try and fix this up just revert the
+> > relevant patches for now.
 > 
-> Not hardware BD queue.
-> I redesign software BD queue as lockless queue.
+> What about restoring the spinlocks and masking the int first?
 > 
-> After put actual queue process work to NAPI,  interrupt handle will
-> not interrupt xmit and NAPI function again.
+> --- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -247,12 +247,14 @@ fec_enet_start_xmit(struct sk_buff *skb, struct
+> net_device *ndev)
+>         void *bufaddr;
+>         unsigned short  status;
+>         unsigned int index;
+> +       unsigned long flags;
 > 
-> There are just one entry xmit to push new data to bd queue.
-> One entry fec_enet_tx to pull old data from bd queue.
+>         if (!fep->link) {
+>                 /* Link is down or autonegotiation is in progress. */
+>                 return NETDEV_TX_BUSY;
+>         }
 > 
->                        HARD_TX_LOCK(dev, txq, cpu);
+> +       spin_lock_irqsave(&fep->hw_lock, flags);
+>         /* Fill in a Tx ring entry */
+>         bdp = fep->cur_tx;
 > 
->                         if (!netif_xmit_stopped(txq)) {
->                                 __this_cpu_inc(xmit_recursion);
->                                 rc = dev_hard_start_xmit(skb, dev, txq);
->                                 __this_cpu_dec(xmit_recursion);
->                                 if (dev_xmit_complete(rc)) {
->                                         HARD_TX_UNLOCK(dev, txq);
->                                         goto out;
->                                 }
->                         }
->                         HARD_TX_UNLOCK(dev, txq);
+> @@ -263,6 +265,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct
+> net_device *ndev)
+>                  * This should not happen, since ndev->tbusy should be set.
+>                  */
+>                 printk("%s: tx queue full!.\n", ndev->name);
+> +               spin_unlock_irqrestore(&fep->hw_lock, flags);
+>                 return NETDEV_TX_BUSY;
+>         }
 > 
-> Restart function will only called at suspend/resume, init, and speed change.
-> So risk should not in heave loading.
+> @@ -342,6 +345,8 @@ fec_enet_start_xmit(struct sk_buff *skb, struct
+> net_device *ndev)
 > 
-> The other reason of remove lock is that fix deadlock detected by kernel.
+>         skb_tx_timestamp(skb);
+> 
+> +       spin_unlock_irqrestore(&fep->hw_lock, flags);
+> +
+>         return NETDEV_TX_OK;
+>  }
+> 
+> @@ -612,6 +617,7 @@ fec_enet_tx(struct net_device *ndev)
+>         int     index = 0;
+> 
+>         fep = netdev_priv(ndev);
+> +       spin_lock(&fep->hw_lock);
+>         bdp = fep->dirty_tx;
+> 
+>         /* get next bdp of dirty_tx */
+> @@ -699,6 +705,7 @@ fec_enet_tx(struct net_device *ndev)
+>                                 netif_wake_queue(ndev);
+>                 }
+>         }
+> +       spin_unlock(&fep->hw_lock);
+>         return;
+>  }
+> 
+> @@ -892,12 +899,12 @@ static int fec_enet_rx_napi(struct napi_struct
+> *napi, int budget)
+>         int pkts = fec_enet_rx(ndev, budget);
+>         struct fec_enet_private *fep = netdev_priv(ndev);
+> 
+> -       fec_enet_tx(ndev);
+> -
+>         if (pkts < budget) {
+>                 napi_complete(napi);
+>                 writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+>         }
+> +
+> +       fec_enet_tx(ndev);
+>         return pkts;
+>  }
 
-While I agree that lockless queues and NAPI disable while doing FEC
-restart is the way to go for further development, I tried to implement
-that yesterday and it needs some bigger changes to the driver to split
-things up properly, otherwise we need a lot of ad-hoc hackery to check
-if NAPI is enabled, which seems really error prone. 
-
-think such a change in the driver is not acceptable in the current state
-of the cycle. I for one will not submit this change, as I'm not sure at
-all that it won't regress in other situations.
+This change isn't enough to fix the kernel OOPSes. The RX function is
+also operating on the same buffers, but simply adding back the locks
+there doesn't fix all the failures I'm seeing.
 
 Regards,
 Lucas
