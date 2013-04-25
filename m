@@ -1,52 +1,114 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH] x86: make DR*_RESERVED unsigned long
-Date: Thu, 25 Apr 2013 16:48:18 +0200
-Message-ID: <20130425144818.GA25921@redhat.com>
-References: <CA+55aFwpLu0qNms=hkQr43yqD0K9DgESNm91OEWKT1ZuT8MU6Q@mail.gmail.com> <20130424072630.GB1780@gmail.com> <20130424170702.GA1867@redhat.com> <5178282D.9030902@zytor.com>
+From: Lucas Stach <l.stach@pengutronix.de>
+Subject: Re: [PATCH 0/3] URGENT for 3.9: net: fec: revert NAPI introduction
+Date: Thu, 25 Apr 2013 16:57:16 +0200
+Message-ID: <1366901836.4139.24.camel@weser.hi.pengutronix.de>
+References: <1366382164-10968-1-git-send-email-l.stach@pengutronix.de>
+	 <CAOMZO5D5+bZ9NvF7HvVsne1ktZDDYPqZgomHkSaydrn2UEvBcQ@mail.gmail.com>
+	 <CAHrpEqQyG68v4VMDNEwcobhHqkuP_ORH9KA3OZD=2xAoJCMNOQ@mail.gmail.com>
+	 <1366620998.4141.28.camel@weser.hi.pengutronix.de>
+	 <CAHrpEqQzpLCVqyuMgD=W6ObK1Za-AcmDV7Ejxzw9xKFH57J99A@mail.gmail.com>
+	 <1366893085.4139.6.camel@weser.hi.pengutronix.de>
+	 <CAHrpEqQQZKjjnpWvV2-TCKXuQg4J3+VhX8uXDLzuYLOENmu=ig@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Cyrill Gorcunov <gorcunov@gmail.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Thomas Gleixner <tglx@linutronix.de>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Fabio Estevam <festevam@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	the arch/x86 maintainers <x86@kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-ext4@vger.kernel.org" <linux-ext4@vger.kernel.org>,
-	Fr??d??ric Weisbecker <fweisbec@gmail.com>
-To: "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5178282D.9030902@zytor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Frank Li <Frank.Li@freescale.com>,
+	Shawn Guo <shawn.guo@linaro.org>
+To: Frank Li <lznuaa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:51675 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758238Ab3DYO6Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 10:58:24 -0400
+In-Reply-To: <CAHrpEqQQZKjjnpWvV2-TCKXuQg4J3+VhX8uXDLzuYLOENmu=ig@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/24, H. Peter Anvin wrote:
->
-> On 04/24/2013 10:07 AM, Oleg Nesterov wrote:
-> > DR6_RESERVED and DR_CONTROL_RESERVED are used to clear the set
-> > bits in the "unsigned long" data, make them long to ensure that
-> > "&~" doesn't clear the upper bits.
+Am Donnerstag, den 25.04.2013, 22:45 +0800 schrieb Frank Li:
+> 2013/4/25 Lucas Stach <l.stach@pengutronix.de>:
+> > Am Montag, den 22.04.2013, 17:17 +0800 schrieb Frank Li:
+> >> 2013/4/22 Lucas Stach <l.stach@pengutronix.de>:
+> >> > Hi all,
+> >> >
+> >> > Am Samstag, den 20.04.2013, 20:35 +0800 schrieb Frank Li:
+> >> >> 2013/4/20 Fabio Estevam <festevam@gmail.com>
+> >> >> >
+> >> >> > Lucas,
+> >> >> >
+> >> >> > On Fri, Apr 19, 2013 at 11:36 AM, Lucas Stach <l.stach@pengutronix.de> wrote:
+> >> >> > > Those patches introduce instability to the point of kernel OOPSes with
+> >> >> > > NULL-ptr dereferences.
+> >> >> > >
+> >> >> > > The patches drop locks from the code without justifying why this would
+> >> >> > > be safe at all. In fact it isn't safe as now the controller restart can
+> >> >> > > happily free the RX and TX ring buffers while the NAPI poll function is
+> >> >> > > still accessing them. So with a heavily loaded but slightly instable
+> >> >>
+> >> >> I think a possible solution is disable NAPI in restart function.
+> >> >> So only one thread can reset BD queue.
+> >> >>
+> >> >> BD queue is nolock design.
+> >> >>
+> >> > It doesn't matter at all that the hardware BD queue is designed to be
+> >> > operated lockless, you still have to synchronize the driver functions to
+> >> > each other and explicit locks are a far better way to achieve this than
+> >> > some implicit tunneling through a single thread or other such things.
+> >>
+> >> Not hardware BD queue.
+> >> I redesign software BD queue as lockless queue.
+> >>
+> >> After put actual queue process work to NAPI,  interrupt handle will
+> >> not interrupt xmit and NAPI function again.
+> >>
+> >> There are just one entry xmit to push new data to bd queue.
+> >> One entry fec_enet_tx to pull old data from bd queue.
+> >>
+> >>                        HARD_TX_LOCK(dev, txq, cpu);
+> >>
+> >>                         if (!netif_xmit_stopped(txq)) {
+> >>                                 __this_cpu_inc(xmit_recursion);
+> >>                                 rc = dev_hard_start_xmit(skb, dev, txq);
+> >>                                 __this_cpu_dec(xmit_recursion);
+> >>                                 if (dev_xmit_complete(rc)) {
+> >>                                         HARD_TX_UNLOCK(dev, txq);
+> >>                                         goto out;
+> >>                                 }
+> >>                         }
+> >>                         HARD_TX_UNLOCK(dev, txq);
+> >>
+> >> Restart function will only called at suspend/resume, init, and speed change.
+> >> So risk should not in heave loading.
+> >>
+> >> The other reason of remove lock is that fix deadlock detected by kernel.
 > >
-> > do_debug() and ptrace_write_dr7() which use DR*_RESERVED look
-> > safe, but probably it makes sense to cleanup anyway.
+> > While I agree that lockless queues and NAPI disable while doing FEC
+> > restart is the way to go for further development, I tried to implement
+> > that yesterday and it needs some bigger changes to the driver to split
+> > things up properly, otherwise we need a lot of ad-hoc hackery to check
+> > if NAPI is enabled, which seems really error prone.
 > >
-> > Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
-> > Signed-off-by: Oleg Nesterov <oleg@redhat.com>
->
-> Can you please put in the description if this is a manifest or
-> non-manifest bug and, if manifest, what the issues are?  It greatly
-> affects what we otherwise have to do to address the bug.
+> > think such a change in the driver is not acceptable in the current state
+> > of the cycle. I for one will not submit this change, as I'm not sure at
+> > all that it won't regress in other situations.
+> 
+> NAPI is direction. Can you send me your detail test step? run what command?
+> So we can easily reproduce your problem.
+> 
+I'm working with a i.MX6q, connected to a fast-ethernet port (100MBit).
+For me all that is need to trigger the failures is generating load on
+the port by using a floodping (ping -f -i 0 -s 1400) from a remote host
+and then bringing down the link by means of physically removing the plug
+from the connector.
 
-Sorry if it was not clear, I tried to explain in the changelog that
-this is only cleanup. Yes, dr6 should have all zeroes in 32-64 so
-the usage of DR6_RESERVED is safe.
+As soon as the PHY signals a link down things start to fall apart.
 
-> Also, the -UL suffix is usually capitalized in our codebase.
-
-OK, iiuc otherwise you agree with this change. I'll send v2.
-
-Oleg.
+Regards,
+Lucas
+-- 
+Pengutronix e.K.                           | Lucas Stach                 |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-5076 |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
