@@ -1,252 +1,236 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: getting VF link info seems to be broken in 3.9-rc8
-Date: Thu, 25 Apr 2013 11:29:04 -0700
-Message-ID: <517975F0.60003@intel.com>
-References: <5177D946.9080704@mellanox.com> <AAEA33E297BCAC4B9BB20A7C2DF0AB8D339CC001@FMSMSX113.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>,
-	Rony Efraim <ronye@mellanox.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: "Williams, Mitch A" <mitch.a.williams@intel.com>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next v2] ipv6: Kill ipv6 dependency of icmpv6_send().
+Date: Thu, 25 Apr 2013 11:37:55 -0700
+Message-ID: <1366915075-1538-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>
+To: davem@davemloft.net, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15392 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759305Ab3DYS3N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Apr 2013 14:29:13 -0400
-In-Reply-To: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D339CC001@FMSMSX113.amr.corp.intel.com>
+Received: from na3sys009aog131.obsmtp.com ([74.125.149.247]:50867 "HELO
+	na3sys009aog131.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1758989Ab3DYSiF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 14:38:05 -0400
+Received: by mail-da0-f72.google.com with SMTP id x28so2724183dad.7
+        for <netdev@vger.kernel.org>; Thu, 25 Apr 2013 11:37:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I did a bit of digging and it looks like the issue is that the
-ext_filter_mask is not being found in the message received in
-rtnl_dump_ifinfo.  I'm still trying to figure out why the kernel isn't
-finding the flag when it was finding it previously, but I'm not much of
-a netlink expert.
+Following patch adds icmp module for ipv6. It allows ipv6 protocol
+to register icmp_sender which is used for sending ipv6 icmp msgs.
 
-Thanks,
+This extra layer allows us to kill dependency on ipv6 for
+icmpv6_send() function.
 
-Alex
+This patch also fixes ip_tunnel compilation problem when ip_tunnel
+is statically compiled in kernel but ipv6 is module.
 
-On 04/24/2013 08:05 AM, Williams, Mitch A wrote:
-> Adding the e1000-devel list.
->
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
->> Behalf Of Or Gerlitz
->> Sent: Wednesday, April 24, 2013 6:08 AM
->> To: David Miller; Rose, Gregory V; Duyck, Alexander H
->> Cc: netdev; Rony Efraim
->> Subject: getting VF link info seems to be broken in 3.9-rc8
->>
->> [re-posting as of non text only content in the 1st post - sorry for the
->> spam] Rony Efraim <ronye@mellanox.com>observed a regression in 3.9-rc8
->> with respect to getting VFs link info from user space. Using latest
->> iproute2 we can easily get the VF info on 3.8.8 but not on the net git
->> which is now aligned on 3.9-rc8, will try to bisect it later
->> today/tomorrow, but for the sake of maybe someone has an insight of the
->> bug, reporting it now...
->>
->> You can see below that for eth10 and eth11 which are ixgbe PFs, the VF
->> info is reported on 3.8.8 but not on 3.9-rc8, we see the same problem
->> with patches to mlx4 which implement ndo_get_vf_info which gives some
->> evidence that the problem isn't in the ixgbe driver, but rather
->> somewhere else, maybe the networking core, from quick looking on
->> net/core/rtnetlink.c I don't see there a smoking gun, anyway
->>
->> net.git]# git log --oneline v3.8..v3.9-rc8 net/core/rtnetlink.c
->> 88c5b5c rtnetlink: Call nlmsg_parse() with correct header length
->> fcca143 rtnetlink: fix error return code in rtnl_link_fill()
->> a5b8db9 rtnetlink: Mask the rta_type when range checking
->> 84d73cd rtnl: fix info leak on RTM_GETLINK request for VF devices
->> b67bfe0 hlist: drop the node parameter from iterators
->> 1690be6 bridge: Add vlan support to static neighbors
->> 6cbdcee bridge: Dump vlan information from a bridge port
->> 407af32 bridge: Add netlink interface to configure vlans on bridge ports
->> c5c3510 netns: fdb: allow unprivileged users to add/del fdb entries
->> 2afb9b5 ethtool: set addr_assign_type to NET_ADDR_SET when addr is
->> passed on create
->> 471cb5a bonding: remove usage of dev->master
->> 898e506 rtnetlink: remove usage of dev->master
->> e7c3273 rtnl: use dev_set_mac_address() instead of plain ndo_
->> 9a57247 rtnl: expose carrier value with possibility to set it
->>
->>
->> Or.
->>
->> --> using 3.8.8
->>
->> # lspci | grep Eth
->> 01:00.0 Ethernet controller: Intel Corporation 82576 Gigabit Network
->> Connection (rev 01)
->> 01:00.1 Ethernet controller: Intel Corporation 82576 Gigabit Network
->> Connection (rev 01)
->> 05:00.0 Ethernet controller: Intel Corporation 82599EB 10-Gigabit
->> SFI/SFP+ Network Connection (rev 01)
->> 05:00.1 Ethernet controller: Intel Corporation 82599EB 10-Gigabit
->> SFI/SFP+ Network Connection (rev 01)
->> 05:10.0 Ethernet controller: Intel Corporation 82599 Ethernet Controller
->> Virtual Function (rev 01)
->> 05:10.1 Ethernet controller: Intel Corporation 82599 Ethernet Controller
->> Virtual Function (rev 01)
->>
->> # cd /sys/class/net/
->> # ls -l
->> lrwxrwxrwx 1 root root 0 Apr 24 12:17 br0 -> ../../devices/virtual/net/br0
->> lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth0 ->
->> ../../devices/pci0000:00/0000:00:01.0/0000:01:00.0/net/eth0
->> lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth1 ->
->> ../../devices/pci0000:00/0000:00:01.0/0000:01:00.1/net/eth1
->> lrwxrwxrwx 1 root root 0 Apr 24 12:18 eth10 ->
->> ../../devices/pci0000:00/0000:00:09.0/0000:05:00.1/net/eth10
->> lrwxrwxrwx 1 root root 0 Apr 24 12:18 eth11 ->
->> ../../devices/pci0000:00/0000:00:09.0/0000:05:00.0/net/eth11
->> lrwxrwxrwx 1 root root 0 Apr 24 12:18 eth16 ->
->> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.0/net/eth16
->> lrwxrwxrwx 1 root root 0 Apr 24 12:18 eth17 ->
->> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.0/net/eth17
->> lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth18 ->
->> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.1/net/eth18
->> lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth19 ->
->> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.1/net/eth19
->> lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth20 ->
->> ../../devices/pci0000:00/0000:00:09.0/0000:05:10.1/net/eth20
->> lrwxrwxrwx 1 root root 0 Apr 24 12:17 eth22 ->
->> ../../devices/pci0000:00/0000:00:09.0/0000:05:10.0/net/eth22
->> lrwxrwxrwx 1 root root 0 Apr 24 12:17 lo -> ../../devices/virtual/net/lo
->>
->>
->>
->> # modprobe -r ixgbevf
->> # ip link set dev eth10 vf 0 mac 00:10:00:10:00:10
->> # ip link set dev eth11 vf 0 mac 00:11:00:11:00:11
->> # modprobe ixgbevf
->> # ip link show
->> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode
->> DEFAULT
->>      link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq master br0
->> state UP mode DEFAULT qlen 1000
->>      link/ether 00:25:90:36:9c:ec brd ff:ff:ff:ff:ff:ff
->> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether 00:25:90:36:9c:ed brd ff:ff:ff:ff:ff:ff
->> 4: eth16: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether 00:02:c9:e6:01:11 brd ff:ff:ff:ff:ff:ff
->> 5: eth17: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether 00:02:c9:e6:01:12 brd ff:ff:ff:ff:ff:ff
->> 6: eth18: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether 00:02:c9:e6:02:11 brd ff:ff:ff:ff:ff:ff
->> 7: eth19: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether 00:02:c9:e6:02:12 brd ff:ff:ff:ff:ff:ff
->> 8: eth11: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state
->> DOWN mode DEFAULT qlen 1000
->>      link/ether 00:1b:21:55:1d:00 brd ff:ff:ff:ff:ff:ff
->>      vf 0 MAC 00:11:00:11:00:11, spoof checking on
->> 9: eth10: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP
->> mode DORMANT qlen 1000
->>      link/ether 00:1b:21:55:1d:01 brd ff:ff:ff:ff:ff:ff
->>      vf 0 MAC 00:10:00:10:00:10, spoof checking on
->> 12: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state
->> UP mode DEFAULT
->>      link/ether 00:25:90:36:9c:ec brd ff:ff:ff:ff:ff:ff
->> 23: eth22: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether 00:11:00:11:00:11 brd ff:ff:ff:ff:ff:ff
->> 24: eth20: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether 00:10:00:10:00:10 brd ff:ff:ff:ff:ff:ff
->>
->>
->> --> using 3.9-rc8
->>
->> # lspci | grep Eth
->> 01:00.0 Ethernet controller: Intel Corporation 82576 Gigabit Network
->> Connection (rev 01)
->> 01:00.1 Ethernet controller: Intel Corporation 82576 Gigabit Network
->> Connection (rev 01)
->> 05:00.0 Ethernet controller: Intel Corporation 82599EB 10-Gigabit
->> SFI/SFP+ Network Connection (rev 01)
->> 05:00.1 Ethernet controller: Intel Corporation 82599EB 10-Gigabit
->> SFI/SFP+ Network Connection (rev 01)
->> 05:10.0 Ethernet controller: Intel Corporation 82599 Ethernet Controller
->> Virtual Function (rev 01)
->> 05:10.1 Ethernet controller: Intel Corporation 82599 Ethernet Controller
->> Virtual Function (rev 01)
->>
->> # cd /sys/class/net/
->> # ls -l
->> lrwxrwxrwx 1 root root 0 Apr 24 11:48 br0 -> ../../devices/virtual/net/br0
->> lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth0 ->
->> ../../devices/pci0000:00/0000:00:01.0/0000:01:00.0/net/eth0
->> lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth1 ->
->> ../../devices/pci0000:00/0000:00:01.0/0000:01:00.1/net/eth1
->> lrwxrwxrwx 1 root root 0 Apr 24 11:49 eth10 ->
->> ../../devices/pci0000:00/0000:00:09.0/0000:05:00.1/net/eth10
->> lrwxrwxrwx 1 root root 0 Apr 24 11:49 eth11 ->
->> ../../devices/pci0000:00/0000:00:09.0/0000:05:00.0/net/eth11
->> lrwxrwxrwx 1 root root 0 Apr 24 11:49 eth16 ->
->> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.0/net/eth16
->> lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth17 ->
->> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.0/net/eth17
->> lrwxrwxrwx 1 root root 0 Apr 24 11:49 eth18 ->
->> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.1/net/eth18
->> lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth19 ->
->> ../../devices/pci0000:00/0000:00:07.0/0000:04:00.1/net/eth19
->> lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth20 ->
->> ../../devices/pci0000:00/0000:00:09.0/0000:05:10.1/net/eth20
->> lrwxrwxrwx 1 root root 0 Apr 24 11:48 eth22 ->
->> ../../devices/pci0000:00/0000:00:09.0/0000:05:10.0/net/eth22
->> lrwxrwxrwx 1 root root 0 Apr 24 11:47 lo -> ../../devices/virtual/net/lo
->>
->> # ip  link show <--- no sign for VFs
->> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode
->> DEFAULT
->>      link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq master br0
->> state UP mode DEFAULT qlen 1000
->>      link/ether 00:25:90:36:9c:ec brd ff:ff:ff:ff:ff:ff
->> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether 00:25:90:36:9c:ed brd ff:ff:ff:ff:ff:ff
->> 4: eth11: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether 00:1b:21:55:1d:00 brd ff:ff:ff:ff:ff:ff
->> 5: eth10: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether 00:1b:21:55:1d:01 brd ff:ff:ff:ff:ff:ff
->> 6: eth16: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether 00:02:c9:e6:01:11 brd ff:ff:ff:ff:ff:ff
->> 7: eth17: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether 00:02:c9:e6:01:12 brd ff:ff:ff:ff:ff:ff
->> 8: eth18: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether 00:02:c9:e6:02:11 brd ff:ff:ff:ff:ff:ff
->> 9: eth19: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether 00:02:c9:e6:02:12 brd ff:ff:ff:ff:ff:ff
->> 10: eth22: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether 3e:9c:76:28:d9:da brd ff:ff:ff:ff:ff:ff
->> 11: eth20: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
->> DEFAULT qlen 1000
->>      link/ether ea:f6:42:a7:d9:40 brd ff:ff:ff:ff:ff:ff
->> 12: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state
->> UP mode DEFAULT
->>      link/ether 00:25:90:36:9c:ec brd ff:ff:ff:ff:ff:ff
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+v1-v2:
+ - Used cmpxchg() to set icmp handler.
+---
+ include/linux/icmpv6.h |   18 +++++++++++++++---
+ net/ipv6/Makefile      |    2 +-
+ net/ipv6/icmp.c        |   35 ++++++++++++++++++++---------------
+ net/ipv6/ip6_icmp.c    |   45 +++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 81 insertions(+), 19 deletions(-)
+ create mode 100644 net/ipv6/ip6_icmp.c
+
+diff --git a/include/linux/icmpv6.h b/include/linux/icmpv6.h
+index b4f6c29..630f453 100644
+--- a/include/linux/icmpv6.h
++++ b/include/linux/icmpv6.h
+@@ -11,9 +11,21 @@ static inline struct icmp6hdr *icmp6_hdr(const struct sk_buff *skb)
+ 
+ #include <linux/netdevice.h>
+ 
+-extern void				icmpv6_send(struct sk_buff *skb,
+-						    u8 type, u8 code,
+-						    __u32 info);
++#if IS_ENABLED(CONFIG_IPV6)
++extern void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info);
++
++typedef void ip6_icmp_send_t(struct sk_buff *skb, u8 type, u8 code, __u32 info);
++extern int inet6_register_icmp_sender(ip6_icmp_send_t *fn);
++extern int inet6_unregister_icmp_sender(ip6_icmp_send_t *fn);
++
++#else
++
++static inline void icmpv6_send(struct sk_buff *skb,
++			       u8 type, u8 code, __u32 info)
++{
++
++}
++#endif
+ 
+ extern int				icmpv6_init(void);
+ extern int				icmpv6_err_convert(u8 type, u8 code,
+diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
+index 309af19..9af088d 100644
+--- a/net/ipv6/Makefile
++++ b/net/ipv6/Makefile
+@@ -40,7 +40,7 @@ obj-$(CONFIG_IPV6_SIT) += sit.o
+ obj-$(CONFIG_IPV6_TUNNEL) += ip6_tunnel.o
+ obj-$(CONFIG_IPV6_GRE) += ip6_gre.o
+ 
+-obj-y += addrconf_core.o exthdrs_core.o ip6_checksum.o
++obj-y += addrconf_core.o exthdrs_core.o ip6_checksum.o ip6_icmp.o
+ obj-$(CONFIG_INET) += output_core.o protocol.o $(ipv6-offload)
+ 
+ obj-$(subst m,y,$(CONFIG_IPV6)) += inet6_hashtables.o
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 71b900c..2a53a79 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -124,15 +124,6 @@ static __inline__ void icmpv6_xmit_unlock(struct sock *sk)
+ }
+ 
+ /*
+- * Slightly more convenient version of icmpv6_send.
+- */
+-void icmpv6_param_prob(struct sk_buff *skb, u8 code, int pos)
+-{
+-	icmpv6_send(skb, ICMPV6_PARAMPROB, code, pos);
+-	kfree_skb(skb);
+-}
+-
+-/*
+  * Figure out, may we reply to this packet with icmp error.
+  *
+  * We do not reply, if:
+@@ -332,7 +323,7 @@ static struct dst_entry *icmpv6_route_lookup(struct net *net, struct sk_buff *sk
+ 	 * anycast.
+ 	 */
+ 	if (((struct rt6_info *)dst)->rt6i_flags & RTF_ANYCAST) {
+-		LIMIT_NETDEBUG(KERN_DEBUG "icmpv6_send: acast source\n");
++		LIMIT_NETDEBUG(KERN_DEBUG "icmp6_send: acast source\n");
+ 		dst_release(dst);
+ 		return ERR_PTR(-EINVAL);
+ 	}
+@@ -381,7 +372,7 @@ relookup_failed:
+ /*
+  *	Send an ICMP message in response to a packet in error
+  */
+-void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
++static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+ {
+ 	struct net *net = dev_net(skb->dev);
+ 	struct inet6_dev *idev = NULL;
+@@ -406,7 +397,7 @@ void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+ 	/*
+ 	 *	Make sure we respect the rules
+ 	 *	i.e. RFC 1885 2.4(e)
+-	 *	Rule (e.1) is enforced by not using icmpv6_send
++	 *	Rule (e.1) is enforced by not using icmp6_send
+ 	 *	in any code that processes icmp errors.
+ 	 */
+ 	addr_type = ipv6_addr_type(&hdr->daddr);
+@@ -444,7 +435,7 @@ void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+ 	 *	and anycast addresses will be checked later.
+ 	 */
+ 	if ((addr_type == IPV6_ADDR_ANY) || (addr_type & IPV6_ADDR_MULTICAST)) {
+-		LIMIT_NETDEBUG(KERN_DEBUG "icmpv6_send: addr_any/mcast source\n");
++		LIMIT_NETDEBUG(KERN_DEBUG "icmp6_send: addr_any/mcast source\n");
+ 		return;
+ 	}
+ 
+@@ -452,7 +443,7 @@ void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+ 	 *	Never answer to a ICMP packet.
+ 	 */
+ 	if (is_ineligible(skb)) {
+-		LIMIT_NETDEBUG(KERN_DEBUG "icmpv6_send: no reply to icmp error\n");
++		LIMIT_NETDEBUG(KERN_DEBUG "icmp6_send: no reply to icmp error\n");
+ 		return;
+ 	}
+ 
+@@ -529,7 +520,14 @@ out_dst_release:
+ out:
+ 	icmpv6_xmit_unlock(sk);
+ }
+-EXPORT_SYMBOL(icmpv6_send);
++
++/* Slightly more convenient version of icmp6_send.
++ */
++void icmpv6_param_prob(struct sk_buff *skb, u8 code, int pos)
++{
++	icmp6_send(skb, ICMPV6_PARAMPROB, code, pos);
++	kfree_skb(skb);
++}
+ 
+ static void icmpv6_echo_reply(struct sk_buff *skb)
+ {
+@@ -885,8 +883,14 @@ int __init icmpv6_init(void)
+ 	err = -EAGAIN;
+ 	if (inet6_add_protocol(&icmpv6_protocol, IPPROTO_ICMPV6) < 0)
+ 		goto fail;
++
++	err = inet6_register_icmp_sender(icmp6_send);
++	if (err)
++		goto sender_reg_err;
+ 	return 0;
+ 
++sender_reg_err:
++	inet6_del_protocol(&icmpv6_protocol, IPPROTO_ICMPV6);
+ fail:
+ 	pr_err("Failed to register ICMP6 protocol\n");
+ 	unregister_pernet_subsys(&icmpv6_sk_ops);
+@@ -895,6 +899,7 @@ fail:
+ 
+ void icmpv6_cleanup(void)
+ {
++	inet6_unregister_icmp_sender(icmp6_send);
+ 	unregister_pernet_subsys(&icmpv6_sk_ops);
+ 	inet6_del_protocol(&icmpv6_protocol, IPPROTO_ICMPV6);
+ }
+diff --git a/net/ipv6/ip6_icmp.c b/net/ipv6/ip6_icmp.c
+new file mode 100644
+index 0000000..702f684
+--- /dev/null
++++ b/net/ipv6/ip6_icmp.c
+@@ -0,0 +1,45 @@
++#include <linux/export.h>
++#include <linux/icmpv6.h>
++#include <linux/mutex.h>
++#include <linux/netdevice.h>
++#include <linux/spinlock.h>
++
++#include <net/ipv6.h>
++
++#if IS_ENABLED(CONFIG_IPV6)
++
++static ip6_icmp_send_t __rcu *ip6_icmp_send;
++
++int inet6_register_icmp_sender(ip6_icmp_send_t *fn)
++{
++	return (cmpxchg(&ip6_icmp_send, NULL, fn) == NULL) ? 0 : -EBUSY;
++}
++EXPORT_SYMBOL(inet6_register_icmp_sender);
++
++int inet6_unregister_icmp_sender(ip6_icmp_send_t *fn)
++{
++	int ret;
++
++	ret = (cmpxchg(&ip6_icmp_send, fn, NULL) == fn) ? 0 : -EINVAL;
++
++	synchronize_net();
++
++	return ret;
++}
++EXPORT_SYMBOL(inet6_unregister_icmp_sender);
++
++void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
++{
++	ip6_icmp_send_t *send;
++
++	rcu_read_lock();
++	send = rcu_dereference(ip6_icmp_send);
++
++	if (!send)
++		goto out;
++	send(skb, type, code, info);
++out:
++	rcu_read_unlock();
++}
++EXPORT_SYMBOL(icmpv6_send);
++#endif
+-- 
+1.7.1
