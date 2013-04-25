@@ -1,68 +1,37 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH 0/3 RFC v2] selftests: Basic framework for tests
-Date: Thu, 25 Apr 2013 13:27:09 +0200
-Message-ID: <5179130D.7080707@redhat.com>
-References: <1366887900-24769-1-git-send-email-alex.mihai.c@gmail.com>
+From: "Rajahalme, Jarno (NSN - FI/Espoo)" <jarno.rajahalme-OYasijW0DpE@public.gmane.org>
+Subject: Re: [PATCH] datapath: Add basic MPLS support to kernel
+Date: Thu, 25 Apr 2013 11:28:18 +0000
+Message-ID: <FCE0ACEF-2204-494C-9DC7-31E8B79E356A@nsn.com>
+References: <1366876738-29688-1-git-send-email-horms@verge.net.au>
+	<A52D2BF3-6A9D-42B5-B52F-0F9FC7A50D61@nsn.com>
+	<20130425110216.GA582@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, davem@davemloft.net, willemb@google.com,
-	ebiederm@xmission.com, gorcunov@openvz.org, palewis@adobe.com,
-	edumazet@google.com, Daniel Baluta <dbaluta@ixiacom.com>
-To: Alexandru Copot <alex.mihai.c@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1366887900-24769-1-git-send-email-alex.mihai.c@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "<dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
+To: ext Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20130425110216.GA582-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Content-Language: en-US
+Content-ID: <833479909F01F64DA71414A1B782755E-z7JfP6tgrtWhxUC7wdWhuQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 04/25/2013 01:04 PM, Alexandru Copot wrote:
-> This series adds a generic test abstraction that can make
-> writing testcases easier. A generic_test structure is
-> used to define a test and its methods: prepare, run, cleanup.
->
-> This is a generic implementation so it was placed in selftests/lib.
->
-> The second patch updates the socket tests to use the
-> new framework and the third patch creates new tests
-> for [set/get]sockopt with some IPV6_* options.
 
-This already looks better than the previous one. I will probably go
-a bit more in depth through the code in the evening. A couple of minor
-general items I can already tell you:
+On Apr 25, 2013, at 14:02 , ext Simon Horman wrote:
+> 
+> Yes, stack_len is supposed to advance by one for each iteration of the loop.
 
-> Signed-of-by Alexandru Copot <alex.mihai.c@gmail.com>
+Better make it by four instead ;-)
 
-It's: Signed-off-by: Alexandru Copot <alex.mihai.c@gmail.com>
-
-You have this wrong in all your patches.
-
-Also, in patches 1-3 a proper commit message would be nice, i.e. in
-patch 1 when you add the library that everyone should use. It could be
-that your cover letter will not go into the Git history, thus people
-will only see you empty commit bodies.
-
-> Cc: Daniel Baluta <dbaluta@ixiacom.com>
->
-> Changes since v1:
->   - moved the implementation to selftests/lib
->   - use goto instead of directly returning
->
-> Alexandru Copot (3):
->    selftests: introduce testing abstractions
->    selftests/net: update socket test to use new testing framework
->    selftests/net: add socket options test with IPv6 testcases
->
->   tools/testing/selftests/Makefile             |   3 +-
->   tools/testing/selftests/lib/Makefile         |  14 ++
->   tools/testing/selftests/lib/selftests.c      |  57 +++++++++
->   tools/testing/selftests/lib/selftests.h      |  67 ++++++++++
->   tools/testing/selftests/net/Makefile         |  17 ++-
->   tools/testing/selftests/net/run_netsocktests |  10 ++
->   tools/testing/selftests/net/socket.c         | 108 +++++++++++-----
->   tools/testing/selftests/net/sockopt.c        | 185 +++++++++++++++++++++++++++
->   8 files changed, 425 insertions(+), 36 deletions(-)
->   create mode 100644 tools/testing/selftests/lib/Makefile
->   create mode 100644 tools/testing/selftests/lib/selftests.c
->   create mode 100644 tools/testing/selftests/lib/selftests.h
->   create mode 100644 tools/testing/selftests/net/sockopt.c
+  Jarno
