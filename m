@@ -1,47 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] irda: irlmp_reasons[] can be static
-Date: Thu, 25 Apr 2013 01:43:04 -0400 (EDT)
-Message-ID: <20130425.014304.898755344366767132.davem@davemloft.net>
-References: <5171ea81.dFNn973/RcdmuuQR%fengguang.wu@intel.com>
-	<20130420031045.GC7366@localhost>
-	<20130420111151.GE26896@mwanda>
+Subject: Re: [PATCH net-next v3 1/2] genl: Allow concurrent genl callbacks.
+Date: Thu, 25 Apr 2013 01:43:29 -0400 (EDT)
+Message-ID: <20130425.014329.1226803564300179546.davem@davemloft.net>
+References: <1366739310-18146-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fengguang.wu@intel.com, netdev@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, jesse@nicira.com
+To: pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48332 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48345 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751308Ab3DYFnH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 01:43:07 -0400
-In-Reply-To: <20130420111151.GE26896@mwanda>
+	with ESMTP id S1751308Ab3DYFna (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 01:43:30 -0400
+In-Reply-To: <1366739310-18146-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Sat, 20 Apr 2013 14:11:51 +0300
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Tue, 23 Apr 2013 10:48:30 -0700
 
-> On Sat, Apr 20, 2013 at 11:10:45AM +0800, Fengguang Wu wrote:
->> Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
->> ---
->>  irlmp.c |    2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->> 
->> diff --git a/net/irda/irlmp.c b/net/irda/irlmp.c
->> index 1064621..98ad6ec 100644
->> --- a/net/irda/irlmp.c
->> +++ b/net/irda/irlmp.c
->> @@ -58,7 +58,7 @@ int  sysctl_discovery_slots   = 6; /* 6 slots by default */
->>  int  sysctl_lap_keepalive_time = LM_IDLE_TIMEOUT * 1000 / HZ;
->>  char sysctl_devname[65];
->>  
->> -const char *irlmp_reasons[] = {
->> +static const char *irlmp_reasons[] = {
+> All genl callbacks are serialized by genl-mutex. This can become
+> bottleneck in multi threaded case.
+> Following patch adds an parameter to genl_family so that a
+> particular family can get concurrent netlink callback without
+> genl_lock held.
+> New rw-sem is used to protect genl callback from genl family unregister.
+> in case of parallel_ops genl-family read-lock is taken for callbacks and
+> write lock is taken for register or unregistration for any family.
+> In case of locked genl family semaphore and gel-mutex is locked for
+> any openration.
 > 
-> Oops.  Sorry for that.  I do run Sparse on my patches but I missed
-> that.
-> 
-> Acked-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-Applied to net-next, thanks everyone.
+Applied.
