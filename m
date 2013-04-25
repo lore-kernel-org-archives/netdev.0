@@ -1,101 +1,42 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2 net-next 0/6] Allow bridge to function in
- non-promisc mode
-Date: Fri, 26 Apr 2013 00:13:58 +0300
-Message-ID: <20130425211358.GE2908@redhat.com>
-References: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
-	<20130425085656.4500d5c4@nehalam.linuxnetplumber.net>
-	<20130425164527.GA2908@redhat.com>
-	<20130425103557.1e42ad04@nehalam.linuxnetplumber.net>
+From: Javier Domingo <javierdo1@gmail.com>
+Subject: Re: DMA allocation driver defined limit?
+Date: Thu, 25 Apr 2013 23:15:16 +0200
+Message-ID: <CALZVapn-95Sg33fgzkQGfR6C0t40OZNJAh_e8CoS3E7GL7eiig@mail.gmail.com>
+References: <CALZVapkJZotCxzMbGhZfvVV3G8W2z5tehEe7BaTjps620M+-Mw@mail.gmail.com>
+ <1366828908.2600.4.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20130425103557.1e42ad04@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve0-f175.google.com ([209.85.128.175]:39700 "EHLO
+	mail-ve0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758852Ab3DYVPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 17:15:36 -0400
+Received: by mail-ve0-f175.google.com with SMTP id m1so1520223ves.34
+        for <netdev@vger.kernel.org>; Thu, 25 Apr 2013 14:15:36 -0700 (PDT)
+In-Reply-To: <1366828908.2600.4.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 25, 2013 at 10:35:57AM -0700, Stephen Hemminger wrote:
-> On Thu, 25 Apr 2013 19:45:27 +0300
-> "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> 
-> > On Thu, Apr 25, 2013 at 08:56:56AM -0700, Stephen Hemminger wrote:
-> > > On Fri, 19 Apr 2013 16:52:44 -0400
-> > > Vlad Yasevich <vyasevic@redhat.com> wrote:
-> > > 
-> > > > This series is an almost complete rework of the prior attempt
-> > > > to make the bridge function in non-promisc mode.  In this series
-> > > > the "promiscuity" of an interface is dynamically determined and
-> > > > the interface may transition from/to promiscuous mode based on
-> > > > bridge configuration.
-> > > > 
-> > > > The series keeps an idea of an "uplink" port.  That is still user
-> > > > designated.
-> > > > The series also adds a concept of "dynamic" bridge port.  This is
-> > > > the default state of the port and means that the user has not
-> > > > specified any static FDBs for that port.
-> > > > Once a user has added a static FDB entry to port and also specified
-> > > > an "uplink" flag for that FDB, the mac address from that FDB is
-> > > > added to the bridge hw address list and synched down to uplinks.
-> > > > "Uplinks" are always considered dynamic ports even if a static entry
-> > > > has been added for them.
-> > > > Promiscuity is determined by the number of dynamic ports.  If there
-> > > > are no dynamic ports (i.e all ports have static FDBs set), then we
-> > > > know all the neighbors and can switch promisc off on all of the ports.
-> > > > If we have only 1 dynamic port and its an uplink, we can synch all
-> > > > static hw addresses to this port and mark it non-promisc.
-> > > > If we have more then 1 dynamic port, then all ports have to be
-> > > > promiscuouse.
-> > > > This is the algorith that Michael Tsirkin proposed earlier.
-> > > 
-> > > Instead of a uplink port, maybe this idea would work better in combination
-> > > with another patch I have been working on.
-> > > 
-> > > In many bridged environments, ports have only one possible MAC address
-> > > on the other side. My patch provides a flag to mark those ports as bound
-> > > with only one peer MAC address.  This allows those ports to be skipped on
-> > > flooding, and for security only packets with that source address would
-> > > be allowed.
-> > > 
-> > > After that change, your promicious code could just use that flag:
-> > > i.e: 
-> > >    uplink ports = total ports - bound ports
-> > >    if (uplink ports == 1)
-> > >        enter non-promicious mode
-> > 
-> > Almost except sometimes (with some guests)
-> > X mac addresses are needed, not just one.
-> > 
-> > How about a generalization:
-> > 	- a flag to disable learning per port (only use static entries)
-> > 	- a flag to disable flood per port
-> > Both sees to exist on openbsd, they are useful by themselves.
-> > 
-> > Now Vlad's patch can work if both learning and flood are
-> > disabled for all ports except maybe one.
-> > 
-> > 
-> 
-> Ok, then maybe allow multiple bound MAC address's per guest.
+> I don't see what the network card's memory has got to do with it.  I
+> would expect that you can allocate and DMA-map much more memory (number
+> of rings * number of descriptors per ring * maximum length of
+> descriptor).
 
-That's exactly what static fdb entries do, right?
+So the limit is on number of skbuff nuber and it is self-imposed by the card.
 
-> And more flags seems like a good and easy solution to per-port
-> control. If you have tested code, please submit it.
+> Before you deliver an skb up the stack, you must DMA-unmap the header
+> area. The stack then takes care of limiting the amount of memory in
+> use.
 
-Need to put out some other fires, will do afterwards
-if Vlad doesn't beat me to it.
+I have found that the limit on rings is consistent, as it only
+allocates another area when the later one is unmapped.
 
--- 
-MST
+One last question is: If netdev_budget is 300, why the DMA ring size
+is 256 by default in e1000? Shouldn't it be greater than 300, so that
+if it has enought packets in one softirq, it could capture them?
+
+Thanks a lot for the reply,
+
+Javier Domingo
