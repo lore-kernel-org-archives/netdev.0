@@ -1,48 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2] ipv6: Kill ipv6 dependency of icmpv6_send().
-Date: Thu, 25 Apr 2013 12:08:44 -0700
-Message-ID: <1366916924.8964.177.camel@edumazet-glaptop>
-References: <1366915075-1538-1-git-send-email-pshelar@nicira.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 2/4] net: increase frag hash size
+Date: Thu, 25 Apr 2013 15:11:14 -0400 (EDT)
+Message-ID: <20130425.151114.821766164335312209.davem@davemloft.net>
+References: <20130424154822.16883.93014.stgit@dragon>
+	<51785827.1000007@cogentembedded.com>
+	<1366884795.26911.510.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Pravin B Shelar <pshelar@nicira.com>
+Cc: sergei.shtylyov@cogentembedded.com, hannes@stressinduktion.org,
+	netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:38916 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759100Ab3DYTIq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 15:08:46 -0400
-Received: by mail-pd0-f173.google.com with SMTP id v14so654571pde.32
-        for <netdev@vger.kernel.org>; Thu, 25 Apr 2013 12:08:46 -0700 (PDT)
-In-Reply-To: <1366915075-1538-1-git-send-email-pshelar@nicira.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57409 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758063Ab3DYTLT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 15:11:19 -0400
+In-Reply-To: <1366884795.26911.510.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-04-25 at 11:37 -0700, Pravin B Shelar wrote:
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Thu, 25 Apr 2013 12:13:15 +0200
 
-> +int inet6_register_icmp_sender(ip6_icmp_send_t *fn)
-> +{
-> +	return (cmpxchg(&ip6_icmp_send, NULL, fn) == NULL) ? 0 : -EBUSY;
-> +}
-> +EXPORT_SYMBOL(inet6_register_icmp_sender);
-> +
-> +int inet6_unregister_icmp_sender(ip6_icmp_send_t *fn)
-> +{
-> +	int ret;
-> +
-> +	ret = (cmpxchg(&ip6_icmp_send, fn, NULL) == fn) ? 0 : -EINVAL;
-> +
-> +	synchronize_net();
-> +
-> +	return ret;
-> +}
-> +EXPORT_SYMBOL(inet6_unregister_icmp_sender);
+> Did you know that you can use the string "v3.8-rc3-503-gc2a9366" like:
+>  git show v3.8-rc3-503-gc2a9366
+> That's why I like this kind of commit ID better, as it also tell the
+> reader what approx version this patch were in.
 
-Good idea, but I bet you didn't run sparse on this code...
+Don't invent your own conventions without discussing it with other
+developers first.
 
-CONFIG_SPARSE_RCU_POINTER=y
+Being different in style from what other people are doing hurts all
+by itself, because people have to interpret and read your commit
+messages differently.
 
-make C=2 net/ipv6/ip6_icmp.o
+> Dave, do you want me to resubmit this, with nitpicked commit message?
 
-you probably need to cast to (ip6_icmp_send_t *)
+Of course.
