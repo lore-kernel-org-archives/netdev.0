@@ -1,49 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: mac802154: comparision issue of type cast,
- finding by EXTRA_CFLAGS=-W
-Date: Thu, 25 Apr 2013 04:10:44 -0400 (EDT)
-Message-ID: <20130425.041044.768895561908042668.davem@davemloft.net>
-References: <5175DFBC.7040000@asianux.com>
-	<5175F7F7.7000703@asianux.com>
-	<51766F74.2090007@asianux.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next 0/6] net/mlx4: Add support to SRIOV VF management
+ ndo calls
+Date: Thu, 25 Apr 2013 11:11:33 +0300
+Message-ID: <5178E535.10804@mellanox.com>
+References: <1366821674-17902-1-git-send-email-ogerlitz@mellanox.com> <20130424.163049.2212021825718596200.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com,
-	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: gang.chen@asianux.com
+Cc: <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
+	Rony Efraim <ronye@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49851 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755873Ab3DYIKq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 04:10:46 -0400
-In-Reply-To: <51766F74.2090007@asianux.com>
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:44606 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754098Ab3DYILi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 04:11:38 -0400
+In-Reply-To: <20130424.163049.2212021825718596200.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chen Gang <gang.chen@asianux.com>
-Date: Tue, 23 Apr 2013 19:24:36 +0800
+On 24/04/2013 23:30, David Miller wrote:
+> From: Or Gerlitz <ogerlitz@mellanox.com>
+> Date: Wed, 24 Apr 2013 19:41:08 +0300
+>
+>> This series adds support for the SRIOV ndo_set_vf callbacks to the mlx4 driver.
+>>
+>> Series done against the net-next tree as of commit 0c501345c "batman-adv: fix
+>> global protection fault during soft_iface destruction".
+>>
+>> We have successfully tested the series on net-next, except for getting
+>> the VF link info issue I have reported earlier today on netdev, we
+>> see the problem for both ixgbe and mlx4 VFs. Just to make sure get
+>> VF config is working OK with patch #6 - we have run it over 3.8.8 too.
+> Series applied, thanks.
 
-> 
-> Need change ~(u8)0 to 0xff, or in mac802154_wpan_xmit(), "u8 chan"
-> will never == MAC802154_CHAN_NONE.
-> 
-> The related warning:
->   net/mac802154/wpan.c:325:2: warning: comparison is always false
->   due to limited range of data type [-Wtype-limits]
-> 
-> The related unit test:
->   cc -Wall -O2 -o test test.c
->   ./test
->   will output 'different'
-> 
->   (after use '0xff' instead of '~(u8)0', it will output 'equal')
- ...
-> Signed-off-by: Chen Gang <gang.chen@asianux.com>
+Hi Dave, Looking on your patchwork archive, I see indeed that the series 
+was accepted, e.g
 
-This change belong in the 'net' tree, but your patch won't apply
-cleanly there as this part of the header file looks slightly
-different there.
+patch 1/6 http://patchwork.ozlabs.org/patch/239279/
+patch 2/6 http://patchwork.ozlabs.org/patch/239274/
+patch 3/6 http://patchwork.ozlabs.org/patch/239277/
+patch 4/6 http://patchwork.ozlabs.org/patch/239276/
+patch 5/6 http://patchwork.ozlabs.org/patch/239278/
+patch 6/6 http://patchwork.ozlabs.org/patch/239275/
 
-Please respin your patch against 'net' and resubmit, thank you.
+but for some reason the patches don't appear on your kernel.org net-next 
+tree, anything went wrong here?
+
+Or.
