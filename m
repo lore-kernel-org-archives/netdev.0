@@ -1,63 +1,86 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH v3] net: mac802154: comparision issue of type cast, finding
- by EXTRA_CFLAGS=-W
-Date: Thu, 25 Apr 2013 16:43:14 +0800
-Message-ID: <5178ECA2.6020402@asianux.com>
-References: <5175DFBC.7040000@asianux.com> <5175F7F7.7000703@asianux.com> <51766F74.2090007@asianux.com> <20130425.041044.768895561908042668.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] GRE: Use IS_ERR_OR_NULL in gre_gso_segment
+Date: Thu, 25 Apr 2013 16:46:17 +0800
+Message-ID: <20130425084617.GA27463@gondor.apana.org.au>
+References: <1366367073.3205.105.camel@edumazet-glaptop>
+ <20130419.142852.1914290650706288260.davem@davemloft.net>
+ <20130422013557.GF15680@verge.net.au>
+ <20130421.214433.1585372696150221161.davem@davemloft.net>
+ <20130422021341.GG15680@verge.net.au>
+ <20130423075042.GA25776@verge.net.au>
+ <CAEP_g=93aAXPk+A2u7LzAzEk6Fr33y7HiEMmXBCEkD8+B90kZQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sergei.shtylyov@cogentembedded.com,
-	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms@verge.net.au>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>, xeb@mail.ru
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:37483 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755892Ab3DYIoD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 04:44:03 -0400
-In-Reply-To: <20130425.041044.768895561908042668.davem@davemloft.net>
+Received: from ringil.hengli.com.au ([178.18.16.133]:32920 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751089Ab3DYIqc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 04:46:32 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=93aAXPk+A2u7LzAzEk6Fr33y7HiEMmXBCEkD8+B90kZQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013=E5=B9=B404=E6=9C=8825=E6=97=A5 16:10, David Miller wrote:
-> From: Chen Gang <gang.chen@asianux.com>
-> Date: Tue, 23 Apr 2013 19:24:36 +0800
->=20
->> >=20
->> > Need change ~(u8)0 to 0xff, or in mac802154_wpan_xmit(), "u8 chan"
->> > will never =3D=3D MAC802154_CHAN_NONE.
->> >=20
->> > The related warning:
->> >   net/mac802154/wpan.c:325:2: warning: comparison is always false
->> >   due to limited range of data type [-Wtype-limits]
->> >=20
->> > The related unit test:
->> >   cc -Wall -O2 -o test test.c
->> >   ./test
->> >   will output 'different'
->> >=20
->> >   (after use '0xff' instead of '~(u8)0', it will output 'equal')
->  ...
->> > Signed-off-by: Chen Gang <gang.chen@asianux.com>
-> This change belong in the 'net' tree, but your patch won't apply
-> cleanly there as this part of the header file looks slightly
-> different there.
->=20
-> Please respin your patch against 'net' and resubmit, thank you.
->=20
+On Tue, Apr 23, 2013 at 01:47:34PM -0700, Jesse Gross wrote:
+> On Tue, Apr 23, 2013 at 12:50 AM, Simon Horman <horms@verge.net.au> wrote:
+> > [ CC Herbert ]
+> >
+> > On Mon, Apr 22, 2013 at 11:13:41AM +0900, Simon Horman wrote:
+> >> On Sun, Apr 21, 2013 at 09:44:33PM -0400, David Miller wrote:
+> >> > From: Simon Horman <horms@verge.net.au>
+> >> > Date: Mon, 22 Apr 2013 10:35:57 +0900
+> >> >
+> >> > > On Fri, Apr 19, 2013 at 02:28:52PM -0400, David Miller wrote:
+> >> > >> From: Eric Dumazet <eric.dumazet@gmail.com>
+> >> > >> Date: Fri, 19 Apr 2013 03:24:33 -0700
+> >> > >>
+> >> > >> > On Fri, 2013-04-19 at 15:48 +0900, Simon Horman wrote:
+> >> > >> >> Signed-off-by: Simon Horman <horms@verge.net.au>
+> >> > >> >> ---
+> >> > >> >>  net/ipv4/gre.c |    2 +-
+> >> > >> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+> >> > >> >>
+> >> > >> >> diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
+> >> > >> >> index d2d5a99..0ae998b 100644
+> >> > >> >> --- a/net/ipv4/gre.c
+> >> > >> >> +++ b/net/ipv4/gre.c
+> >> > >> >> @@ -168,7 +168,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
+> >> > >> >>       /* segment inner packet. */
+> >> > >> >>       enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
+> >> > >> >>       segs = skb_mac_gso_segment(skb, enc_features);
+> >> > >> >> -     if (!segs || IS_ERR(segs))
+> >> > >> >> +     if (IS_ERR_OR_NULL(segs))
+> >> > >> >>               goto out;
+> >> > >> >>
+> >> > >> >>       skb = segs;
+>
+> I don't think this is actually a problem since there is a check for
+> skb_is_gso() earlier in the code path and no GSO types are supported
+> in the call to __skb_gso_segment(). However, I can't say that I'm a
+> big fan of this function possibly returning NULL since it makes it
+> unnecessarily difficult to reason about.
 
-Excuse me, my English is not quite well, I guess your meaning is: send
-patch v4, and change the subject to "[PATCH v4] mac802154: comparision
-issue of type cast, finding by EXTRA_CFLAGS=3D-W".
+Please refer to the description in the original changelog
+(576a30eb6453439b3c37ba24455ac7090c247b5a).  The purpose of
+the NULL return value is to indicate that we're processing a
+packet that will be segmented by the hardware, i.e., the only
+reason we're running the software GSO code on this packet is
+to verify its integrity because it came from an untrusted source.
 
-Is it correct ?
+We can certainly get rid of the NULL return value and directly test
+for the verification only case but I'm not sure if it's really worth
+it.
 
-(the change is for net/mac802154/mac802154.h, and exist in v3.9-rc8)
+Perhaps add an wrapper for the IS_ERR_OR_NULL with a descriptive
+name?
 
-Thanks.
-
---=20
-Chen Gang
-
-Asianux Corporation
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
