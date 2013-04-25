@@ -1,42 +1,27 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH net-next v3] net: ipv4: typo issue, remove erroneous semicolon
-Date: Thu, 25 Apr 2013 16:15:00 +0800
-Message-ID: <5178E604.6080409@asianux.com>
-References: <5175F5C3.8060503@asianux.com> <20130423.011604.1061769362231812796.davem@davemloft.net> <51762E16.703@asianux.com> <20130425.040805.131739914219038988.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: cpsw queue, v2
+Date: Thu, 25 Apr 2013 04:17:11 -0400 (EDT)
+Message-ID: <20130425.041711.1897267313465575434.davem@davemloft.net>
+References: <1366738299-21285-1-git-send-email-bigeasy@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sergei.shtylyov@cogentembedded.com, pshelar@nicira.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mugunthanvnm@ti.com, netdev@vger.kernel.org, tglx@linutronix.de
+To: bigeasy@linutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:45110 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756122Ab3DYIPv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 04:15:51 -0400
-In-Reply-To: <20130425.040805.131739914219038988.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49913 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755342Ab3DYIRQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Apr 2013 04:17:16 -0400
+In-Reply-To: <1366738299-21285-1-git-send-email-bigeasy@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013=E5=B9=B404=E6=9C=8825=E6=97=A5 16:08, David Miller wrote:
-> From: Chen Gang <gang.chen@asianux.com>
-> Date: Tue, 23 Apr 2013 14:45:42 +0800
->=20
->> > Need remove erroneous semicolon, which is found by EXTRA_CFLAGS=3D=
--W,
->> > the related commit number: c54419321455631079c7d6e60bc732dd0c5914c=
-5
->> > ("GRE: Refactor GRE tunneling code")
->> >=20
->> > Signed-off-by: Chen Gang <gang.chen@asianux.com>
-> Applied.
->=20
->=20
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 23 Apr 2013 19:31:34 +0200
 
-Thanks.
+> patches one, four and five gained acked-by tags nothing else changed.
+> Patch two gained pm_runtime_put_sync() and clean up for the slave.
+> Patch three is a complete redo of the initial patch.
 
---=20
-Chen Gang
-
-Asianux Corporation
+Series applied to net-next.
