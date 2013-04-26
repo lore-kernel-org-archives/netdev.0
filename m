@@ -1,19 +1,16 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [RFC PATCH net-next 2/6] x86: bpf_jit_comp: support
+From: Xi Wang <xi.wang@gmail.com>
+Subject: Re: [RFC PATCH net-next 2/6] x86: bpf_jit_comp: support
  BPF_S_ANC_SECCOMP_LD_W instruction
-Date: Fri, 26 Apr 2013 08:46:22 -0700
-Message-ID: <1366991182.8964.223.camel@edumazet-glaptop>
+Date: Fri, 26 Apr 2013 11:57:45 -0400
+Message-ID: <CAKU6vyac37Mj-ZBPozSzLj+0jYhmQAr_ngo9rNZOStYC_TD3fA@mail.gmail.com>
 References: <1366962706-24204-1-git-send-email-xi.wang@gmail.com>
-	 <1366962706-24204-3-git-send-email-xi.wang@gmail.com>
-	 <1366985926.8964.190.camel@edumazet-glaptop>
-	 <CAKU6vyZfYR-2408G0_Fkp-PS5x5rMH+s4_OOWqqi7Nt+UfiUPg@mail.gmail.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7208@saturn3.aculab.com>
-	 <1366990066.8964.216.camel@edumazet-glaptop>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7209@saturn3.aculab.com>
+ <1366962706-24204-3-git-send-email-xi.wang@gmail.com> <1366985926.8964.190.camel@edumazet-glaptop>
+ <CAKU6vyZfYR-2408G0_Fkp-PS5x5rMH+s4_OOWqqi7Nt+UfiUPg@mail.gmail.com>
+ <1366989094.8964.212.camel@edumazet-glaptop> <CAKU6vybrYK9oimKSEGhoLeNzhtk=7r3zouRgzDFqGwJHd=psGQ@mail.gmail.com>
+ <1366991021.8964.221.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Xi Wang <xi.wang@gmail.com>, Daniel Borkmann <dborkman@redhat.com>,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Daniel Borkmann <dborkman@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Russell King <linux@arm.linux.org.uk>,
 	Heiko Carstens <heiko.carstens@de.ibm.com>,
@@ -21,23 +18,28 @@ Cc: Xi Wang <xi.wang@gmail.com>, Daniel Borkmann <dborkman@redhat.com>,
 	Will Drewry <wad@chromium.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7209@saturn3.aculab.com>
+In-Reply-To: <1366991021.8964.221.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-04-26 at 16:38 +0100, David Laight wrote:
+On Fri, Apr 26, 2013 at 11:43 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> I do not know.
+>
+> This is not explained in your changelog or in any comment.
+>
+> You have to make the full analysis yourself and make us comfortable with
+> the results.
+>
+> You send patches and ask us to spend hours on it, this is not how it
+> works.
 
-> The call needs the displacement from the address of
-> the instruction following the call.
-> I can't imagine any way in which above can allow for the 5 byte
-> 'mov imm32,%edi' instruction.
-> 
-> I'd have thought there would be an EMIT1_imm32().
-> (I've written a lot of x86 asm in my days!)
-> 
+"do we really need that for seccomp?" is not asking.  I just tried to
+explain in a gentle way.
 
-Thats the same. 
+%rdi,%r8,%r9 are not used by seccomp filters so I removed the push/pop
+part.  I agree that I should explain the details in the code comments
+or logs.  Thanks for catching that.
 
-off32 is a 32bit quantity, or immediate 32 if you prefer.
+- xi
