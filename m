@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3 2/3] ARM: net: bpf_jit: make code generation less
- dependent on struct sk_filter.
-Date: Fri, 26 Apr 2013 19:33:07 -0400 (EDT)
-Message-ID: <20130426.193307.1725881115728895413.davem@davemloft.net>
-References: <20130426130948.cbfd2f6256afc0e3ee7abeed@linux-foundation.org>
- <517AF926.3020302@redhat.com>
- <CAKU6vyYOZ-24TSyLa8t6Oipib37fE1gtvM8nWj2TDzVw-tv0jA@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net] vxlan: use IANA assigned port
+Date: Fri, 26 Apr 2013 16:33:46 -0700
+Message-ID: <20130426163346.762c41c1@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: wad@chromium.org, arnd@arndb.de, nschichan@freebox.fr,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- daniel.borkmann@tik.ee.ethz.ch, mgherzan@gmail.com, dborkman@redhat.com,
- linux@arm.linux.org.uk, akpm@linux-foundation.org,
- linux-arm-kernel@lists.infradead.org
-To: xi.wang@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CAKU6vyYOZ-24TSyLa8t6Oipib37fE1gtvM8nWj2TDzVw-tv0jA@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: Kenneth Duda <kduda@aristanetworks.com>,
+	Chris Wright <chrisw@sous-sol.org>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f45.google.com ([209.85.210.45]:43787 "EHLO
+	mail-da0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754135Ab3DZXdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 19:33:53 -0400
+Received: by mail-da0-f45.google.com with SMTP id v40so156407dad.18
+        for <netdev@vger.kernel.org>; Fri, 26 Apr 2013 16:33:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Ken Duda of Arista Networks, one of the VXLAN RFC authors notified
+me that IANA has assigned an official port for VXLAN. My initial version
+of the driver used the value from CISCO LISP that was also being used by
+OpenVswitch.
+
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
 
-Please stop top-posting.
-
-Thank you.
+--- a/drivers/net/vxlan.c	2013-04-22 15:44:00.962002827 -0700
++++ b/drivers/net/vxlan.c	2013-04-26 16:29:19.349507680 -0700
+@@ -8,7 +8,6 @@
+  * published by the Free Software Foundation.
+  *
+  * TODO
+- *  - use IANA UDP port number (when defined)
+  *  - IPv6 (not in RFC)
+  */
+ 
+@@ -66,7 +65,7 @@ struct vxlanhdr {
+ };
+ 
+ /* UDP port for VXLAN traffic. */
+-static unsigned int vxlan_port __read_mostly = 8472;
++static unsigned int vxlan_port __read_mostly = 4789;
+ module_param_named(udp_port, vxlan_port, uint, 0444);
+ MODULE_PARM_DESC(udp_port, "Destination UDP port");
+ 
