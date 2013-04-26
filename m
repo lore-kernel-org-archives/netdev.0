@@ -1,57 +1,105 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH ipvs-next] ipvs: Remove rcu_read_unlock();rcu_read_lock();
-Date: Fri, 26 Apr 2013 09:28:16 +0900
-Message-ID: <20130426002813.GD29748@verge.net.au>
-References: <1366852353-32561-1-git-send-email-horms@verge.net.au>
- <alpine.LFD.2.00.1304251038541.1752@ja.ssi.bg>
- <1366880726.2628.177.camel@hawk.mlab.se>
- <20130425133639.GC10898@verge.net.au>
- <1366898643.8964.139.camel@edumazet-glaptop>
- <alpine.LFD.2.00.1304252224250.1948@ja.ssi.bg>
+Subject: Re: [PATCH] sctp: Correct type and usage of sctp_end_cksum()
+Date: Fri, 26 Apr 2013 09:28:45 +0900
+Message-ID: <20130426002845.GE29748@verge.net.au>
+References: <1366336498-25917-1-git-send-email-horms@verge.net.au>
+ <20130419131043.GC19017@hmsreliant.think-freely.org>
+ <20130425131214.GA5727@verge.net.au>
+ <20130425143539.GA13521@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Cc: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1304252224250.1948@ja.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
+In-Reply-To: <20130425143539.GA13521@localhost>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 25, 2013 at 10:46:55PM +0300, Julian Anastasov wrote:
+On Thu, Apr 25, 2013 at 04:35:39PM +0200, Pablo Neira Ayuso wrote:
+> On Thu, Apr 25, 2013 at 10:12:14PM +0900, Simon Horman wrote:
+> > On Fri, Apr 19, 2013 at 09:10:43AM -0400, Neil Horman wrote:
+> > > On Fri, Apr 19, 2013 at 10:54:58AM +0900, Simon Horman wrote:
+> > > > Change the type of the crc32 parameter of sctp_end_cksum()
+> > > > from __be32 to __u32 to reflect that fact that it is passed
+> > > > to cpu_to_le32().
+> > > > 
+> > > > There are five in-tree users of sctp_end_cksum().
+> > > > The following four had warnings flagged by sparse which are
+> > > > no longer present with this change.
+> > > > 
+> > > > net/netfilter/ipvs/ip_vs_proto_sctp.c:sctp_nat_csum()
+> > > > net/netfilter/ipvs/ip_vs_proto_sctp.c:sctp_csum_check()
+> > > > net/sctp/input.c:sctp_rcv_checksum()
+> > > > net/sctp/output.c:sctp_packet_transmit()
+> > > > 
+> > > > The fifth user is net/netfilter/nf_nat_proto_sctp.c:sctp_manip_pkt().
+> > > > It has been updated to pass a __u32 instead of a __be32,
+> > > > the value in question was already calculated in cpu byte-order.
+> > > > 
+> > > > net/netfilter/nf_nat_proto_sctp.c:sctp_manip_pkt() has also
+> > > > been updated to assign the return value of sctp_end_cksum()
+> > > > directly to a variable of type __le32, matching the
+> > > > type of the return value. Previously the return value
+> > > > was assigned to a variable of type __be32 and then that variable
+> > > > was finally assigned to another variable of type __le32.
+> > > > 
+> > > > Problems flagged by sparse.
+> > > > Compile and sparse tested only.
+> > > > 
+> > > > Signed-off-by: Simon Horman <horms@verge.net.au>
+> > > > ---
+> > > >  include/net/sctp/checksum.h       |    2 +-
+> > > >  net/netfilter/nf_nat_proto_sctp.c |    5 ++---
+> > > >  2 files changed, 3 insertions(+), 4 deletions(-)
+> > > > 
+> > > > diff --git a/include/net/sctp/checksum.h b/include/net/sctp/checksum.h
+> > > > index befc8d2..5a2110d 100644
+> > > > --- a/include/net/sctp/checksum.h
+> > > > +++ b/include/net/sctp/checksum.h
+> > > > @@ -77,7 +77,7 @@ static inline __u32 sctp_update_cksum(__u8 *buffer, __u16 length, __u32 crc32)
+> > > >  	return sctp_crc32c(crc32, buffer, length);
+> > > >  }
+> > > >  
+> > > > -static inline __le32 sctp_end_cksum(__be32 crc32)
+> > > > +static inline __le32 sctp_end_cksum(__u32 crc32)
+> > > >  {
+> > > >  	return cpu_to_le32(~crc32);
+> > > >  }
+> > > > diff --git a/net/netfilter/nf_nat_proto_sctp.c b/net/netfilter/nf_nat_proto_sctp.c
+> > > > index e64faa5..396e55d 100644
+> > > > --- a/net/netfilter/nf_nat_proto_sctp.c
+> > > > +++ b/net/netfilter/nf_nat_proto_sctp.c
+> > > > @@ -36,7 +36,7 @@ sctp_manip_pkt(struct sk_buff *skb,
+> > > >  {
+> > > >  	struct sk_buff *frag;
+> > > >  	sctp_sctphdr_t *hdr;
+> > > > -	__be32 crc32;
+> > > > +	__u32 crc32;
+> > > >  
+> > > >  	if (!skb_make_writable(skb, hdroff + sizeof(*hdr)))
+> > > >  		return false;
+> > > > @@ -55,8 +55,7 @@ sctp_manip_pkt(struct sk_buff *skb,
+> > > >  	skb_walk_frags(skb, frag)
+> > > >  		crc32 = sctp_update_cksum((u8 *)frag->data, skb_headlen(frag),
+> > > >  					  crc32);
+> > > > -	crc32 = sctp_end_cksum(crc32);
+> > > > -	hdr->checksum = crc32;
+> > > > +	hdr->checksum = sctp_end_cksum(crc32);
+> > > >  
+> > > >  	return true;
+> > > >  }
+> > > > -- 
+> > > > 1.7.10.4
+> > > > 
+> > > > 
+> > > Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> > 
+> > Pablo, are you interested in taking this through nf-next?
 > 
-> 	Hello,
-> 
-> On Thu, 25 Apr 2013, Eric Dumazet wrote:
-> 
-> > On Thu, 2013-04-25 at 22:36 +0900, Simon Horman wrote:
-> > 
-> > > Ok, leaving it seems reasonable.
-> > > Pablo, do you have any objections?
-> > 
-> > I have objections.
-> > 
-> > I would _add_ a cond_resched() there to explicitly do what we want
-> > 
-> > Maybe a macro/inline doing this already exists.
-> > 
-> > static void inline cond_resched_rcu_lock(void)
-> > {
-> > 	if (need_resched()) {
-> > 		rcu_read_unlock();
-> > 		cond_resched();
-> > 		rcu_read_lock();
-> > 	}
-> > }
-> 
-> 	Thanks, looks like a good idea to me, I guess
-> its place is include/linux/sched.h. Simon, can you prepare
-> 2 patches instead, one for cond_resched_rcu_lock and second
-> for ipvs?
+> I'll take it. Let's see if we still reach the merge window open yet.
 
-Sure, will do.
+Thanks.
