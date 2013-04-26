@@ -1,7 +1,7 @@
 From: Lucas Stach <l.stach@pengutronix.de>
-Subject: [PATCH resend 2/3] Revert "net: fec: put tx to napi poll function to fix dead lock"
-Date: Fri, 26 Apr 2013 10:52:09 +0200
-Message-ID: <1366966330-5181-2-git-send-email-l.stach@pengutronix.de>
+Subject: [PATCH resend 3/3] Revert "net: fec: add napi support to improve proformance"
+Date: Fri, 26 Apr 2013 10:52:10 +0200
+Message-ID: <1366966330-5181-3-git-send-email-l.stach@pengutronix.de>
 References: <1366966330-5181-1-git-send-email-l.stach@pengutronix.de>
 Cc: David Miller <davem@davemloft.net>,
 	Frank Li <Frank.Li@freescale.com>,
@@ -10,269 +10,166 @@ Cc: David Miller <davem@davemloft.net>,
 	Lucas Stach <l.stach@pengutronix.de>
 To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:50046 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:50050 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758214Ab3DZIxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 04:53:24 -0400
+	with ESMTP id S1758232Ab3DZIxZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 04:53:25 -0400
 In-Reply-To: <1366966330-5181-1-git-send-email-l.stach@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit de5fb0a053482d89262c3284b67884cd2c621adc.
+This reverts commit dc975382d2ef36be7e78fac3717927de1a5abcd8.
 
-This commit changed how ringbuffers are tracked. I suspect this
-to break in subtle ways, which I unfortunately wasn't able to track
-down to a single-line change.
-
-Also in preparation to revert the initial NAPI introduction commit.
+This change caused trouble up to kernel OOPSes with NULL-ptr
+dereferences. The only sane way to get back to a working state
+is this revert.
 
 Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
 ---
- drivers/net/ethernet/freescale/fec.c | 86 ++++++++++++++++++------------------
- drivers/net/ethernet/freescale/fec.h |  3 ++
- 2 files changed, 47 insertions(+), 42 deletions(-)
+ drivers/net/ethernet/freescale/fec.c | 41 ++++++------------------------------
+ drivers/net/ethernet/freescale/fec.h |  2 --
+ 2 files changed, 7 insertions(+), 36 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index afb52eb..fa6a999 100644
+index fa6a999..3d51163 100644
 --- a/drivers/net/ethernet/freescale/fec.c
 +++ b/drivers/net/ethernet/freescale/fec.c
-@@ -246,13 +246,14 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	struct bufdesc *bdp;
- 	void *bufaddr;
- 	unsigned short	status;
--	unsigned int index;
-+	unsigned long flags;
+@@ -67,7 +67,6 @@
+ #endif
  
- 	if (!fep->link) {
- 		/* Link is down or autonegotiation is in progress. */
- 		return NETDEV_TX_BUSY;
- 	}
+ #define DRIVER_NAME	"fec"
+-#define FEC_NAPI_WEIGHT	64
  
-+	spin_lock_irqsave(&fep->hw_lock, flags);
- 	/* Fill in a Tx ring entry */
- 	bdp = fep->cur_tx;
+ /* Pause frame feild and FIFO threshold */
+ #define FEC_ENET_FCE	(1 << 5)
+@@ -169,7 +168,6 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+ #define FEC_ENET_EBERR	((uint)0x00400000)	/* SDMA bus error */
  
-@@ -263,6 +264,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		 * This should not happen, since ndev->tbusy should be set.
- 		 */
- 		printk("%s: tx queue full!.\n", ndev->name);
-+		spin_unlock_irqrestore(&fep->hw_lock, flags);
- 		return NETDEV_TX_BUSY;
- 	}
+ #define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII)
+-#define FEC_RX_DISABLED_IMASK (FEC_DEFAULT_IMASK & (~FEC_ENET_RXF))
  
-@@ -278,13 +280,13 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	 * 4-byte boundaries. Use bounce buffers to copy data
- 	 * and get it aligned. Ugh.
- 	 */
--	if (fep->bufdesc_ex)
--		index = (struct bufdesc_ex *)bdp -
--			(struct bufdesc_ex *)fep->tx_bd_base;
--	else
--		index = bdp - fep->tx_bd_base;
--
- 	if (((unsigned long) bufaddr) & FEC_ALIGNMENT) {
-+		unsigned int index;
-+		if (fep->bufdesc_ex)
-+			index = (struct bufdesc_ex *)bdp -
-+				(struct bufdesc_ex *)fep->tx_bd_base;
-+		else
-+			index = bdp - fep->tx_bd_base;
- 		memcpy(fep->tx_bounce[index], skb->data, skb->len);
- 		bufaddr = fep->tx_bounce[index];
- 	}
-@@ -298,7 +300,10 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 		swap_buffer(bufaddr, skb->len);
- 
- 	/* Save skb pointer */
--	fep->tx_skbuff[index] = skb;
-+	fep->tx_skbuff[fep->skb_cur] = skb;
-+
-+	ndev->stats.tx_bytes += skb->len;
-+	fep->skb_cur = (fep->skb_cur+1) & TX_RING_MOD_MASK;
- 
- 	/* Push the data cache so the CPM does not get stale memory
- 	 * data.
-@@ -326,22 +331,26 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 			ebdp->cbd_esc = BD_ENET_TX_INT;
- 		}
- 	}
-+	/* Trigger transmission start */
-+	writel(0, fep->hwp + FEC_X_DES_ACTIVE);
-+
- 	/* If this was the last BD in the ring, start at the beginning again. */
- 	if (status & BD_ENET_TX_WRAP)
- 		bdp = fep->tx_bd_base;
- 	else
- 		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
- 
--	fep->cur_tx = bdp;
--
--	if (fep->cur_tx == fep->dirty_tx)
-+	if (bdp == fep->dirty_tx) {
-+		fep->tx_full = 1;
- 		netif_stop_queue(ndev);
-+	}
- 
--	/* Trigger transmission start */
--	writel(0, fep->hwp + FEC_X_DES_ACTIVE);
-+	fep->cur_tx = bdp;
- 
- 	skb_tx_timestamp(skb);
- 
-+	spin_unlock_irqrestore(&fep->hw_lock, flags);
-+
- 	return NETDEV_TX_OK;
- }
- 
-@@ -373,7 +382,7 @@ static void fec_enet_bd_init(struct net_device *dev)
- 
- 	/* ...and the same for transmit */
- 	bdp = fep->tx_bd_base;
--	fep->cur_tx = bdp;
-+	fep->dirty_tx = fep->cur_tx = bdp;
- 	for (i = 0; i < TX_RING_SIZE; i++) {
- 
- 		/* Initialize the BD for every fragment in the page. */
-@@ -389,7 +398,6 @@ static void fec_enet_bd_init(struct net_device *dev)
- 	/* Set the last buffer to wrap */
- 	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
- 	bdp->cbd_sc |= BD_SC_WRAP;
--	fep->dirty_tx = bdp;
- }
- 
- /* This function is called to start or restart the FEC during a link
-@@ -446,7 +454,8 @@ fec_restart(struct net_device *ndev, int duplex)
- 		writel((unsigned long)fep->bd_dma + sizeof(struct bufdesc)
- 			* RX_RING_SIZE,	fep->hwp + FEC_X_DES_START);
- 
--
-+	/* Reset SKB transmit buffers. */
-+	fep->skb_cur = fep->skb_dirty = 0;
- 	for (i = 0; i <= TX_RING_MOD_MASK; i++) {
- 		if (fep->tx_skbuff[i]) {
- 			dev_kfree_skb_any(fep->tx_skbuff[i]);
-@@ -609,35 +618,20 @@ fec_enet_tx(struct net_device *ndev)
- 	struct bufdesc *bdp;
- 	unsigned short status;
+ /* The FEC stores dest/src/type, data, and checksum for receive packets.
+  */
+@@ -703,8 +701,8 @@ fec_enet_tx(struct net_device *ndev)
+  * not been given to the system, we just set the empty indicator,
+  * effectively tossing the packet.
+  */
+-static int
+-fec_enet_rx(struct net_device *ndev, int budget)
++static void
++fec_enet_rx(struct net_device *ndev)
+ {
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	const struct platform_device_id *id_entry =
+@@ -714,12 +712,13 @@ fec_enet_rx(struct net_device *ndev, int budget)
  	struct	sk_buff	*skb;
--	int	index = 0;
+ 	ushort	pkt_len;
+ 	__u8 *data;
+-	int	pkt_received = 0;
  
- 	fep = netdev_priv(ndev);
+ #ifdef CONFIG_M532x
+ 	flush_cache_all();
+ #endif
+ 
 +	spin_lock(&fep->hw_lock);
- 	bdp = fep->dirty_tx;
++
+ 	/* First, grab all of the stats for the incoming packet.
+ 	 * These get messed up if we get called due to a busy condition.
+ 	 */
+@@ -727,10 +726,6 @@ fec_enet_rx(struct net_device *ndev, int budget)
  
--	/* get next bdp of dirty_tx */
--	if (bdp->cbd_sc & BD_ENET_TX_WRAP)
--		bdp = fep->tx_bd_base;
--	else
--		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
+ 	while (!((status = bdp->cbd_sc) & BD_ENET_RX_EMPTY)) {
+ 
+-		if (pkt_received >= budget)
+-			break;
+-		pkt_received++;
 -
- 	while (((status = bdp->cbd_sc) & BD_ENET_TX_READY) == 0) {
--
--		/* current queue is empty */
--		if (bdp == fep->cur_tx)
-+		if (bdp == fep->cur_tx && fep->tx_full == 0)
- 			break;
- 
--		if (fep->bufdesc_ex)
--			index = (struct bufdesc_ex *)bdp -
--				(struct bufdesc_ex *)fep->tx_bd_base;
--		else
--			index = bdp - fep->tx_bd_base;
--
- 		dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
- 				FEC_ENET_TX_FRSIZE, DMA_TO_DEVICE);
- 		bdp->cbd_bufaddr = 0;
- 
--		skb = fep->tx_skbuff[index];
--
-+		skb = fep->tx_skbuff[fep->skb_dirty];
- 		/* Check for errors. */
- 		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC |
- 				   BD_ENET_TX_RL | BD_ENET_TX_UN |
-@@ -682,9 +676,8 @@ fec_enet_tx(struct net_device *ndev)
- 
- 		/* Free the sk buffer associated with this last transmit */
- 		dev_kfree_skb_any(skb);
--		fep->tx_skbuff[index] = NULL;
--
--		fep->dirty_tx = bdp;
-+		fep->tx_skbuff[fep->skb_dirty] = NULL;
-+		fep->skb_dirty = (fep->skb_dirty + 1) & TX_RING_MOD_MASK;
- 
- 		/* Update pointer to next buffer descriptor to be transmitted */
- 		if (status & BD_ENET_TX_WRAP)
-@@ -694,12 +687,14 @@ fec_enet_tx(struct net_device *ndev)
- 
- 		/* Since we have freed up a buffer, the ring is no longer full
+ 		/* Since we have allocated space to hold a complete frame,
+ 		 * the last indicator should be set.
  		 */
--		if (fep->dirty_tx != fep->cur_tx) {
-+		if (fep->tx_full) {
-+			fep->tx_full = 0;
- 			if (netif_queue_stopped(ndev))
- 				netif_wake_queue(ndev);
+@@ -812,7 +807,7 @@ fec_enet_rx(struct net_device *ndev, int budget)
+ 			}
+ 
+ 			if (!skb_defer_rx_timestamp(skb))
+-				napi_gro_receive(&fep->napi, skb);
++				netif_rx(skb);
  		}
+ 
+ 		bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, data,
+@@ -846,7 +841,7 @@ rx_processing_done:
  	}
--	return;
-+	fep->dirty_tx = bdp;
+ 	fep->cur_rx = bdp;
+ 
+-	return pkt_received;
 +	spin_unlock(&fep->hw_lock);
  }
  
+ static irqreturn_t
+@@ -863,13 +858,7 @@ fec_enet_interrupt(int irq, void *dev_id)
  
-@@ -866,7 +861,7 @@ fec_enet_interrupt(int irq, void *dev_id)
- 		int_events = readl(fep->hwp + FEC_IEVENT);
- 		writel(int_events, fep->hwp + FEC_IEVENT);
- 
--		if (int_events & (FEC_ENET_RXF | FEC_ENET_TXF)) {
-+		if (int_events & FEC_ENET_RXF) {
+ 		if (int_events & FEC_ENET_RXF) {
  			ret = IRQ_HANDLED;
- 
- 			/* Disable the RX interrupt */
-@@ -877,6 +872,15 @@ fec_enet_interrupt(int irq, void *dev_id)
- 			}
+-
+-			/* Disable the RX interrupt */
+-			if (napi_schedule_prep(&fep->napi)) {
+-				writel(FEC_RX_DISABLED_IMASK,
+-					fep->hwp + FEC_IMASK);
+-				__napi_schedule(&fep->napi);
+-			}
++			fec_enet_rx(ndev);
  		}
  
-+		/* Transmit OK, or non-fatal error. Update the buffer
-+		 * descriptors. FEC handles all errors, we just discover
-+		 * them as part of the transmit process.
-+		 */
-+		if (int_events & FEC_ENET_TXF) {
-+			ret = IRQ_HANDLED;
-+			fec_enet_tx(ndev);
-+		}
-+
- 		if (int_events & FEC_ENET_MII) {
- 			ret = IRQ_HANDLED;
- 			complete(&fep->mdio_done);
-@@ -892,8 +896,6 @@ static int fec_enet_rx_napi(struct napi_struct *napi, int budget)
- 	int pkts = fec_enet_rx(ndev, budget);
- 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 		/* Transmit OK, or non-fatal error. Update the buffer
+@@ -890,18 +879,7 @@ fec_enet_interrupt(int irq, void *dev_id)
+ 	return ret;
+ }
  
--	fec_enet_tx(ndev);
+-static int fec_enet_rx_napi(struct napi_struct *napi, int budget)
+-{
+-	struct net_device *ndev = napi->dev;
+-	int pkts = fec_enet_rx(ndev, budget);
+-	struct fec_enet_private *fep = netdev_priv(ndev);
+ 
+-	if (pkts < budget) {
+-		napi_complete(napi);
+-		writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+-	}
+-	return pkts;
+-}
+ 
+ /* ------------------------------------------------------------------------- */
+ static void fec_get_mac(struct net_device *ndev)
+@@ -1464,8 +1442,6 @@ fec_enet_open(struct net_device *ndev)
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	int ret;
+ 
+-	napi_enable(&fep->napi);
 -
- 	if (pkts < budget) {
- 		napi_complete(napi);
- 		writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+ 	/* I should reset the ring buffers here, but I don't yet know
+ 	 * a simple way to do that.
+ 	 */
+@@ -1677,9 +1653,6 @@ static int fec_enet_init(struct net_device *ndev)
+ 	ndev->netdev_ops = &fec_netdev_ops;
+ 	ndev->ethtool_ops = &fec_enet_ethtool_ops;
+ 
+-	writel(FEC_RX_DISABLED_IMASK, fep->hwp + FEC_IMASK);
+-	netif_napi_add(ndev, &fep->napi, fec_enet_rx_napi, FEC_NAPI_WEIGHT);
+-
+ 	fec_restart(ndev, 0);
+ 
+ 	return 0;
 diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index eb43729..b70c3cd 100644
+index b70c3cd..ff79610 100644
 --- a/drivers/net/ethernet/freescale/fec.h
 +++ b/drivers/net/ethernet/freescale/fec.h
-@@ -213,6 +213,8 @@ struct fec_enet_private {
- 	unsigned char *tx_bounce[TX_RING_SIZE];
- 	struct	sk_buff *tx_skbuff[TX_RING_SIZE];
- 	struct	sk_buff *rx_skbuff[RX_RING_SIZE];
-+	ushort	skb_cur;
-+	ushort	skb_dirty;
+@@ -249,8 +249,6 @@ struct fec_enet_private {
+ 	int	bufdesc_ex;
+ 	int	pause_flag;
  
- 	/* CPM dual port RAM relative addresses */
- 	dma_addr_t	bd_dma;
-@@ -224,6 +226,7 @@ struct fec_enet_private {
- 	/* The ring entries to be free()ed */
- 	struct bufdesc	*dirty_tx;
- 
-+	uint	tx_full;
- 	/* hold while accessing the HW like ringbuffer for tx/rx but not MAC */
- 	spinlock_t hw_lock;
- 
+-	struct	napi_struct napi;
+-
+ 	struct ptp_clock *ptp_clock;
+ 	struct ptp_clock_info ptp_caps;
+ 	unsigned long last_overflow_check;
 -- 
 1.8.2.rc2
