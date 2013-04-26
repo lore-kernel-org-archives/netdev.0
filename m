@@ -1,51 +1,63 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 3/7] qlcnic: Fix ethtool strings
-Date: Fri, 26 Apr 2013 08:09:39 -0400
-Message-ID: <1366978183-7282-4-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net 4/7] qlcnic: Fix missing bracket in module parameter.
+Date: Fri, 26 Apr 2013 08:09:40 -0400
+Message-ID: <1366978183-7282-5-git-send-email-shahed.shaikh@qlogic.com>
 References: <1366978183-7282-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
+	Himanshu Madhani <himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [216.32.180.189] ([216.32.180.189]:30695 "EHLO
+Received: from [216.32.180.187] ([216.32.180.187]:52500 "EHLO
 	co1outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756350Ab3DZMf0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 08:35:26 -0400
+	by vger.kernel.org with ESMTP id S1756350Ab3DZMf2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 08:35:28 -0400
 In-Reply-To: <1366978183-7282-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-o Add missing information in ethtool statistics information array.
-o Fix  the typo in the statistics information string.
-
+Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 5641f8e..d169153 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -124,12 +124,13 @@ static const char qlcnic_83xx_rx_stats_strings[][ETH_GSTRING_LEN] = {
- 	"ctx_lro_pkt_cnt",
- 	"ctx_ip_csum_error",
- 	"ctx_rx_pkts_wo_ctx",
--	"ctx_rx_pkts_dropped_wo_sts",
-+	"ctx_rx_pkts_drop_wo_sds_on_card",
-+	"ctx_rx_pkts_drop_wo_sds_on_host",
- 	"ctx_rx_osized_pkts",
- 	"ctx_rx_pkts_dropped_wo_rds",
- 	"ctx_rx_unexpected_mcast_pkts",
- 	"ctx_invalid_mac_address",
--	"ctx_rx_rds_ring_prim_attemoted",
-+	"ctx_rx_rds_ring_prim_attempted",
- 	"ctx_rx_rds_ring_prim_success",
- 	"ctx_num_lro_flows_added",
- 	"ctx_num_lro_flows_removed",
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index e387bf8..3ac73b2 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -36,24 +36,24 @@ MODULE_PARM_DESC(qlcnic_mac_learn,
+ 		 "Mac Filter (0=learning is disabled, 1=Driver learning is enabled, 2=FDB learning is enabled)");
+ 
+ int qlcnic_use_msi = 1;
+-MODULE_PARM_DESC(use_msi, "MSI interrupt (0=disabled, 1=enabled");
++MODULE_PARM_DESC(use_msi, "MSI interrupt (0=disabled, 1=enabled)");
+ module_param_named(use_msi, qlcnic_use_msi, int, 0444);
+ 
+ int qlcnic_use_msi_x = 1;
+-MODULE_PARM_DESC(use_msi_x, "MSI-X interrupt (0=disabled, 1=enabled");
++MODULE_PARM_DESC(use_msi_x, "MSI-X interrupt (0=disabled, 1=enabled)");
+ module_param_named(use_msi_x, qlcnic_use_msi_x, int, 0444);
+ 
+ int qlcnic_auto_fw_reset = 1;
+-MODULE_PARM_DESC(auto_fw_reset, "Auto firmware reset (0=disabled, 1=enabled");
++MODULE_PARM_DESC(auto_fw_reset, "Auto firmware reset (0=disabled, 1=enabled)");
+ module_param_named(auto_fw_reset, qlcnic_auto_fw_reset, int, 0644);
+ 
+ int qlcnic_load_fw_file;
+-MODULE_PARM_DESC(load_fw_file, "Load firmware from (0=flash, 1=file");
++MODULE_PARM_DESC(load_fw_file, "Load firmware from (0=flash, 1=file)");
+ module_param_named(load_fw_file, qlcnic_load_fw_file, int, 0444);
+ 
+ int qlcnic_config_npars;
+ module_param(qlcnic_config_npars, int, 0444);
+-MODULE_PARM_DESC(qlcnic_config_npars, "Configure NPARs (0=disabled, 1=enabled");
++MODULE_PARM_DESC(qlcnic_config_npars, "Configure NPARs (0=disabled, 1=enabled)");
+ 
+ static int qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent);
+ static void qlcnic_remove(struct pci_dev *pdev);
 -- 
 1.5.6
