@@ -1,74 +1,66 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH v2] x86: make DR*_RESERVED unsigned long
-Date: Fri, 26 Apr 2013 19:15:26 +0200
-Message-ID: <20130426171526.GA30875@redhat.com>
-References: <CA+55aFwpLu0qNms=hkQr43yqD0K9DgESNm91OEWKT1ZuT8MU6Q@mail.gmail.com> <20130424072630.GB1780@gmail.com> <20130424170702.GA1867@redhat.com> <5178282D.9030902@zytor.com> <20130425144818.GA25921@redhat.com> <20130426163802.GA30351@redhat.com> <517AAED5.7040400@zytor.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH 2/2] ipvs: Use cond_resched_rcu_lock() helper when
+ dumping connections
+Date: Fri, 26 Apr 2013 19:19:49 +0200
+Message-ID: <20130426171948.GA31467@dyad.programming.kicks-ass.net>
+References: <1366940708-10180-1-git-send-email-horms@verge.net.au>
+ <1366940708-10180-3-git-send-email-horms@verge.net.au>
+ <20130426080313.GC8669@dyad.programming.kicks-ass.net>
+ <20130426154547.GC3860@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Cyrill Gorcunov <gorcunov@gmail.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	the arch/x86 maintainers <x86@kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-ext4@vger.kernel.org" <linux-ext4@vger.kernel.org>,
-	Fr??d??ric Weisbecker <fweisbec@gmail.com>
-To: "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <linux-ext4-owner@vger.kernel.org>
+Cc: Simon Horman <horms@verge.net.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Julian Anastasov <ja@ssi.bg>, Ingo Molnar <mingo@redhat.com>,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>, dhaval.giani@gmail.com
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <517AAED5.7040400@zytor.com>
-Sender: linux-ext4-owner@vger.kernel.org
+In-Reply-To: <20130426154547.GC3860@linux.vnet.ibm.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/26, H. Peter Anvin wrote:
->
-> On 04/26/2013 09:38 AM, Oleg Nesterov wrote:
-> >
-> > 	- do_debug:
-> >
-> > 		dr6 &= ~DR6_RESERVED;
-> >
-> > 	  this also wrongly clears 32-63 bits. Fortunately these
-> > 	  bits are reserved and must be zero.
->
-> I don't think this is wrongly at all.
+On Fri, Apr 26, 2013 at 08:45:47AM -0700, Paul E. McKenney wrote:
+> On Fri, Apr 26, 2013 at 10:03:13AM +0200, Peter Zijlstra wrote:
+> > On Fri, Apr 26, 2013 at 10:45:08AM +0900, Simon Horman wrote:
+> > 
+> > > @@ -975,8 +975,7 @@ static void *ip_vs_conn_array(struct seq_file *seq, loff_t pos)
+> > >  				return cp;
+> > >  			}
+> > >  		}
+> > > -		rcu_read_unlock();
+> > > -		rcu_read_lock();
+> > > +		cond_resched_rcu_lock();
+> > >  	}
+> > 
+> > 
+> > While I agree with the sentiment I do find it a somewhat dangerous construct in
+> > that it might become far too easy to keep an RCU reference over this break and
+> > thus violate the RCU premise.
+> > 
+> > Is there anything that can detect this? Sparse / cocinelle / smatch? If so it
+> > would be great to add this to these checkers.
+> 
+> I have done some crude coccinelle patterns in the past, but they are
+> subject to false positives (from when you transfer the pointer from
+> RCU protection to reference-count protection) and also false negatives
+> (when you atomically increment some statistic unrelated to protection).
+> 
+> I could imagine maintaining a per-thread count of the number of outermost
+> RCU read-side critical sections at runtime, and then associating that
+> counter with a given pointer at rcu_dereference() time, but this would
+> require either compiler magic or an API for using a pointer returned
+> by rcu_dereference().  This API could in theory be enforced by sparse.
 
-OK, I meant that it also clears the bits that are not specified in
-DR6_RESERVED mask.
+Luckily cond_resched_rcu_lock() will typically only occur within loops, and
+loops tend to be contained in a single sourcefile.
 
-> The whole point is to mask out
-> the bits that the handler doesn't want to deal with, so masking out the
-> reserved bits [63:32] seems reasonable to me.
+This would suggest a simple static checker should be able to tell without too
+much magic right? All it needs to do is track pointers returned from
+rcu_dereference*() and see if they're used after cond_resched_rcu_lock().
 
-Then we should do
-
-	- #define DR6_RESERVED    0xFFFF0FF0
-	+ #define DR6_RESERVED    0xFFFFFFFFFFFF0FF0
-
-?
-
-or what? (just in case, I will happily agree with "do nothing" ;)
-
-> The comment should probably be corrected, though.
-
-Which one?
-
-	/* Define reserved bits in DR6 which are always set to 1 */
-	#define DR6_RESERVED    (0xFFFF0FF0UL)
-
-	/* Filter out all the reserved bits which are preset to 1 */
-	dr6 &= ~DR6_RESERVED;
-
-I guess both should be updated then. But if I read the doc correctly
-the lower reserved bits are set to 1.
-
-However do_debug() does set_debugreg(0, 6) and this looks correct, the
-doc says "debug handlers should clear the register before returning to
-the interrupted task".
-
-Oleg.
-
+Also, cond_resched_rcu_lock() will only drop a single level of RCU refs; so
+that should be easier still.
