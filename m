@@ -1,105 +1,83 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Fri, 26 Apr 2013 13:48:14 +1000
-Message-ID: <20130426134814.17f27efe88073999dcf634bb@canb.auug.org.au>
+From: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+Subject: Re: linux-next: manual merge of the net-next tree with the
+ infiniband tree
+Date: Fri, 26 Apr 2013 13:50:20 +1000
+Message-ID: <20130426135020.1f504f56b6c3412201f4fb9d@canb.auug.org.au>
+References: <20130418131843.bfeb6b1ad5fba1b0f706076e@canb.auug.org.au>
+	<20130424175304.GA701@oc0268524204.ibm.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pgp-signature";
  micalg="PGP-SHA256";
- boundary="Signature=_Fri__26_Apr_2013_13_48_14_+1000_tfNgrNkL5_u/K9uU"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	Ajit Khaparde <ajit.khaparde@emulex.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+ boundary="Signature=_Fri__26_Apr_2013_13_50_20_+1000_zlQAPrdRZwOHWPGC"
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: Thadeu Lima de Souza Cascardo <cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130424175304.GA701-kqNz3JI7O+u3AZEqMmYM8VaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Fri__26_Apr_2013_13_48_14_+1000_tfNgrNkL5_u/K9uU
+--Signature=_Fri__26_Apr_2013_13_50_20_+1000_zlQAPrdRZwOHWPGC
 Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-Hi all,
+Hi Cascardo,
 
-After merging the net-next tree, today's linux-next build (powerpc
-ppc64_defconfig) failed like this:
+On Wed, 24 Apr 2013 14:53:04 -0300 Thadeu Lima de Souza Cascardo <cascardo@=
+linux.vnet.ibm.com> wrote:
+>
+> On Thu, Apr 18, 2013 at 01:18:43PM +1000, Stephen Rothwell wrote:
+> >=20
+> > Today's linux-next merge of the net-next tree got a conflict in
+> > drivers/infiniband/hw/cxgb4/qp.c between commit 5b0c275926b8
+> > ("RDMA/cxgb4: Fix SQ allocation when on-chip SQ is disabled") from the
+> > infiniband tree and commit 9919d5bd01b9 ("RDMA/cxgb4: Fix onchip queue
+> > support for T5") from the net-next tree.
+> >=20
+> > I think that they are 2 different fixes for the same problem, so I just
+> > used the net-next version and can carry the fix as necessary (no action
+> > is required).
+>=20
+> Commit 5b0c275926b8 also keeps the intention of the original patch which
+> broke it, which was to return an error code, in case the allocation fails.
+> Commit 9919d5bd01b9 fix will return 0 in case the allocation fails.
+>=20
+> We should keep the other fix or fix the code again to return the proper
+> error code.
 
-drivers/net/ethernet/emulex/benet/be_main.c: In function 'be_insert_vlan_in=
-_pkt':
-drivers/net/ethernet/emulex/benet/be_main.c:786:3: error: too few arguments=
- to function '__vlan_put_tag'
-include/linux/if_vlan.h:220:31: note: declared here
-drivers/net/ethernet/emulex/benet/be_main.c:796:3: error: too few arguments=
- to function '__vlan_put_tag'
-include/linux/if_vlan.h:220:31: note: declared here
-
-Caused by comt interaction of commit 86a9bad3ab6b ("net: vlan: add
-protocol argument to packet tagging functions") from the net-next tree
-and commit bc0c3405abbb ("be2net: fix a Tx stall bug caused by a specific
-ipv6 packet") from the net tree.
-
-I applied the following merge fix patch:
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Fri, 26 Apr 2013 13:45:23 +1000
-Subject: [PATCH] be2net: merge fix for __vlan_put_tag() API change
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethe=
-rnet/emulex/benet/be_main.c
-index 768a7d1..d6ab777 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -783,7 +783,7 @@ static struct sk_buff *be_insert_vlan_in_pkt(struct be_=
-adapter *adapter,
- 	}
-=20
- 	if (vlan_tag) {
--		skb =3D __vlan_put_tag(skb, vlan_tag);
-+		skb =3D __vlan_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
- 		if (unlikely(!skb))
- 			return skb;
-=20
-@@ -793,7 +793,7 @@ static struct sk_buff *be_insert_vlan_in_pkt(struct be_=
-adapter *adapter,
- 	/* Insert the outer VLAN, if any */
- 	if (adapter->qnq_vid) {
- 		vlan_tag =3D adapter->qnq_vid;
--		skb =3D __vlan_put_tag(skb, vlan_tag);
-+		skb =3D __vlan_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
- 		if (unlikely(!skb))
- 			return skb;
- 		if (skip_hw_vlan)
---=20
-1.8.1
+OK, so today I switched the conflict fix to use the version from the
+infiniband tree.
 
 --=20
 Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Stephen Rothwell                    sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
 
---Signature=_Fri__26_Apr_2013_13_48_14_+1000_tfNgrNkL5_u/K9uU
+--Signature=_Fri__26_Apr_2013_13_50_20_+1000_zlQAPrdRZwOHWPGC
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAEBCAAGBQJRefj+AAoJEECxmPOUX5FEyfkP/Ahr0BUlZ/QLZwjK0Mp9MN7w
-ifZR+rUPKANkR1B+Szhq79A46UKpYQ4xttkhYlqLJM0p1t7NByS2udUt6OjioNTb
-FCD6MKFzB/u7Ye9LLcnIe56C92DJws0cvlx2ky8UuWyR2wHizCXI2iC80+eYbI5J
-ZxBCaG9YpHwfAA9wuOL6RRMkOOlt5BUebE9Ip535Y8qnpfNV+9j8mwkagwomRc00
-GFkP2r/OpYxqVKAVeZQVE0kwwQp/u600UO5QFEJTypxKUWQ14MBB+UQfM07nggBg
-L9HJnC11/ezz2LWRBi37V7FNtDB0tclLstI5lxv2a/NLrfBApkRYJOYAKtqRP1X5
-eAQHLVNtH4PxLr+S3sdJTsmDMpxwggdT6VpI+RhTYTSm5nxF4+3f0/H34PWK2Q14
-NKLFj8HvKzmb4Zus+wwDJyFojD6iVVJM99GGJjZw379WOvZ4lqfSGNptT5V+oSoZ
-xZEsZ7j3xAtqpysNECH288RSnR4JiI5LT/LNoFf724x9sro1Dyd7qhlS7sdYT+Xr
-Hbxj6mNXBbHjvroRIY7pgJtn5Sk4+Jr1zxni94HL3pSpWllcm7ExC3yOcl689stq
-CwfUCSLLSHHPFd68a/sU+vv3m5E4329uiDuG/xUBRkw1czbDuHBJiNR8WX5Fjsnn
-riAN+0dqPjIY+Sse2Diz
-=hpJh
+iQIcBAEBCAAGBQJRefl8AAoJEECxmPOUX5FElWYP/0gd5bzIlZAhq1HBEAp4Sv6n
+7OfvDC/0brGRrfRPg7flwVEuzftUmTkFjtQHmntYvw+omke6/Bc55z9u13Z0CnFu
+QYJv2YYgjKiZ4MtXiyZ7yYg/Y4ppIXMalbzTZ3VTx4InXkoDTZUjBd3wghHrD+lP
+eghwlvH2ar2Z6XyKP300fbOGWJLIk+klC8Cr42W/s6DxMgBVUa42vovLo/2XDuNT
+YEoOEGOiEcDHB5sOaFKoKTFQJoxR+J/bbpDDRzfUVMubXiZEvtxmQs1FMDpCBkBD
+o3FGlCYwXqb/Lmxh1lzoSQb538vQrg4XfyDUGU/1eRuRy0aBYIYaq5jVLHfsmNvt
+eHQf9TOUEV/mtJmUyF546UUEp/TNafbVqWdLIHxw2irr/oPC04oCJTx2Sy+lfgju
+k5CRXzZB55NY6+G9qzCUn7UnrFz8Tm0cwHBm38f84LE2U+HuYP15KsurDJfAXNb2
+VCeMk7tSPbldFsSeBov5NUpPz0qGHsw13hgBFySdhY9vmsAAMIPR88dudwyiVLWS
+0QENerBIbcNqDevZnZaQK6l1B8avOzlJOjwzJaQP7YolDhkxxlYdJ15kcHUEtBNY
+XCc3mYlbz//kUnQsQjSWw1MM3AE8STMCjSJbAkWEIWtUqMANaS5cuSVsNt03qMjy
+SgivZhqJsoMhC/1/HCBj
+=25rY
 -----END PGP SIGNATURE-----
 
---Signature=_Fri__26_Apr_2013_13_48_14_+1000_tfNgrNkL5_u/K9uU--
+--Signature=_Fri__26_Apr_2013_13_50_20_+1000_zlQAPrdRZwOHWPGC--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
