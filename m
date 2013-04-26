@@ -1,17 +1,14 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [RFC PATCH net-next 2/6] x86: bpf_jit_comp: support
+From: Xi Wang <xi.wang@gmail.com>
+Subject: Re: [RFC PATCH net-next 2/6] x86: bpf_jit_comp: support
  BPF_S_ANC_SECCOMP_LD_W instruction
-Date: Fri, 26 Apr 2013 08:27:46 -0700
-Message-ID: <1366990066.8964.216.camel@edumazet-glaptop>
+Date: Fri, 26 Apr 2013 11:29:27 -0400
+Message-ID: <CAKU6vybrYK9oimKSEGhoLeNzhtk=7r3zouRgzDFqGwJHd=psGQ@mail.gmail.com>
 References: <1366962706-24204-1-git-send-email-xi.wang@gmail.com>
-	 <1366962706-24204-3-git-send-email-xi.wang@gmail.com>
-	 <1366985926.8964.190.camel@edumazet-glaptop>
-	 <CAKU6vyZfYR-2408G0_Fkp-PS5x5rMH+s4_OOWqqi7Nt+UfiUPg@mail.gmail.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7208@saturn3.aculab.com>
+ <1366962706-24204-3-git-send-email-xi.wang@gmail.com> <1366985926.8964.190.camel@edumazet-glaptop>
+ <CAKU6vyZfYR-2408G0_Fkp-PS5x5rMH+s4_OOWqqi7Nt+UfiUPg@mail.gmail.com> <1366989094.8964.212.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Xi Wang <xi.wang@gmail.com>, Daniel Borkmann <dborkman@redhat.com>,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Daniel Borkmann <dborkman@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Russell King <linux@arm.linux.org.uk>,
 	Heiko Carstens <heiko.carstens@de.ibm.com>,
@@ -19,36 +16,21 @@ Cc: Xi Wang <xi.wang@gmail.com>, Daniel Borkmann <dborkman@redhat.com>,
 	Will Drewry <wad@chromium.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7208@saturn3.aculab.com>
+In-Reply-To: <1366989094.8964.212.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-04-26 at 16:15 +0100, David Laight wrote:
-> > >> +#ifdef CONFIG_SECCOMP_FILTER
-> > >> +                     case BPF_S_ANC_SECCOMP_LD_W:
-> > >> +                             if (K == offsetof(struct seccomp_data, arch)) {
-> > >> +                                     int arch = syscall_get_arch(current, NULL);
-> > >> +
-> > >> +                                     EMIT1_off32(0xb8, arch); /* mov arch,%eax */
-> > >> +                                     break;
-> > >> +                             }
-> > >> +                             func = (u8 *)seccomp_bpf_load;
-> > >> +                             t_offset = func - (image + addrs[i]);
-> > >> +                             EMIT1_off32(0xbf, K); /* mov imm32,%edi */
-> > >> +                             EMIT1_off32(0xe8, t_offset); /* call seccomp_bpf_load */
-> > >> +                             break;
-> > >> +#endif
-> > >
-> > > This seems seriously wrong to me.
-> > 
-> > Can you elaborate?
-> 
-> The 'call seccomp_bpf_load' needs a pc-relative offset,
-> I assume that is what EMIT1_off32() generates.
-> 
-> The other two instructions want an absolute 32 bit value...
+On Fri, Apr 26, 2013 at 11:11 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 2) Calling a function potentially destroys some registers.
+>    %rdi,%r8,%r9 for instance, so we are going to crash very easily.
+>
+> I dont know, I feel a bit uncomfortable having to explain this to
+> someone sending security related patches...
 
-Hmm, this part is fine, we perform the relative adjustments in 
-t_offset = func - (image + addrs[i]);
+My old code did save these registers.  But, do we really need that for
+seccomp?  For example, %rdi (skb) is always NULL and never used by
+seccomp filters.  Did I miss anything?
+
+- xi
