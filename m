@@ -1,36 +1,70 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 with 3.9.0-rc9
-Date: Fri, 26 Apr 2013 22:50:18 +0200
-Message-ID: <20130426205018.GA18092@electric-eye.fr.zoreil.com>
-References: <20130426132254.GA22821@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net 2/7] qlcnic: Fix bug in tuning offloads using QLogic
+ application
+Date: Fri, 26 Apr 2013 21:54:25 +0100
+Message-ID: <1367009665.4035.3.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1366978183-7282-1-git-send-email-shahed.shaikh@qlogic.com>
+	 <1366978183-7282-3-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Lance Lassetter <lancelassetter@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Manish Chopra <manish.chopra@qlogic.com>
+To: Shahed Shaikh <shahed.shaikh@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:47641 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751228Ab3DZUuV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 16:50:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20130426132254.GA22821@gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:13735 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755168Ab3DZUyd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 16:54:33 -0400
+In-Reply-To: <1366978183-7282-3-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lance Lassetter <lancelassetter@gmail.com> :
+On Fri, 2013-04-26 at 08:09 -0400, Shahed Shaikh wrote:
+> From: Manish Chopra <manish.chopra@qlogic.com>
+> 
+> o LRO was not getting disabled when disabling checksum offloads
+>   using QLogic application.
+> o LRO was not getting re-enabled while enabling checksum offloads
+>   back
 [...]
-> the box serves as a network router so it is causing abundant network
-> traffic problems.
->=20
-> any debugging i could help you with, please let me know.=C2=A0 also i=
-f there
-> is a possible solution, please let me know.
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> @@ -975,7 +975,7 @@ qlcnic_set_netdev_features(struct qlcnic_adapter *adapter,
+>  		struct qlcnic_esw_func_cfg *esw_cfg)
+>  {
+>  	struct net_device *netdev = adapter->netdev;
+> -	unsigned long features, vlan_features;
+> +	netdev_features_t features, vlan_features;
+>  
+>  	if (qlcnic_83xx_check(adapter))
+>  		return;
+> @@ -994,8 +994,14 @@ qlcnic_set_netdev_features(struct qlcnic_adapter *adapter,
+>  		features |= NETIF_F_LRO;
+>  
+>  	if (esw_cfg->offload_flags & BIT_0) {
+> -		netdev->features |= features;
+>  		adapter->rx_csum = 1;
+> +		if (adapter->flags & QLCNIC_LRO_WAS_ENABLED) {
+> +			if (qlcnic_config_hw_lro(adapter, QLCNIC_LRO_ENABLED))
+> +				return;
+> +			netdev_info(netdev, "Enabling LRO as Rx checksum is on\n");
+> +			netdev->features |= NETIF_F_LRO;
+> +		}
+[...]
 
-Is it a regression and / or an Asus M5A97 system ?
+This is absolutely wrong for mainline Linux.  The networking core keeps
+track of whether the user wanted a feature enabled in
+netdev->wanted_features.  You must not try to manage this yourself.
 
-The XID lines that the kernel printed when the r8169 module gets loaded
-may help.
+The proper thing to do is to implement ndo_fix_features and mask out
+NETIF_F_LRO there whenever it depends on another feature that has been
+disabled.
 
---=20
-Ueimor
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
