@@ -1,83 +1,87 @@
-From: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-Subject: Re: linux-next: manual merge of the net-next tree with the
- infiniband tree
-Date: Fri, 26 Apr 2013 13:50:20 +1000
-Message-ID: <20130426135020.1f504f56b6c3412201f4fb9d@canb.auug.org.au>
-References: <20130418131843.bfeb6b1ad5fba1b0f706076e@canb.auug.org.au>
-	<20130424175304.GA701@oc0268524204.ibm.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__26_Apr_2013_13_50_20_+1000_zlQAPrdRZwOHWPGC"
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: Thadeu Lima de Souza Cascardo <cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130424175304.GA701-kqNz3JI7O+u3AZEqMmYM8VaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/8][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 25 Apr 2013 21:57:03 -0700
+Message-ID: <1366952231-16727-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, bhutchings@solarflare.com,
+	stable@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Fri__26_Apr_2013_13_50_20_+1000_zlQAPrdRZwOHWPGC
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This series contains updates to e1000e, igb and ixgbe.
 
-Hi Cascardo,
+There are 2 patches in this series which could be applied to net,
+but since Linus is so very close to releasing 3.9, I do not think
+it prudent to try and push these into net at this time.  I have CC'd
+stable on these patches so that they can queue them up as soon as
+3.9 gets released.
 
-On Wed, 24 Apr 2013 14:53:04 -0300 Thadeu Lima de Souza Cascardo <cascardo@=
-linux.vnet.ibm.com> wrote:
->
-> On Thu, Apr 18, 2013 at 01:18:43PM +1000, Stephen Rothwell wrote:
-> >=20
-> > Today's linux-next merge of the net-next tree got a conflict in
-> > drivers/infiniband/hw/cxgb4/qp.c between commit 5b0c275926b8
-> > ("RDMA/cxgb4: Fix SQ allocation when on-chip SQ is disabled") from the
-> > infiniband tree and commit 9919d5bd01b9 ("RDMA/cxgb4: Fix onchip queue
-> > support for T5") from the net-next tree.
-> >=20
-> > I think that they are 2 different fixes for the same problem, so I just
-> > used the net-next version and can carry the fix as necessary (no action
-> > is required).
->=20
-> Commit 5b0c275926b8 also keeps the intention of the original patch which
-> broke it, which was to return an error code, in case the allocation fails.
-> Commit 9919d5bd01b9 fix will return 0 in case the allocation fails.
->=20
-> We should keep the other fix or fix the code again to return the proper
-> error code.
+The 2 patches are:
+  e1000e: fix numeric overflow in phc settime method
+  ixgbe: fix EICR write in ixgbe_msix_other
 
-OK, so today I switched the conflict fix to use the version from the
-infiniband tree.
+Richard provides a fix for e1000e by using a helper function from time.h
+to resolve a unintended overflow in the PTP settime function.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
+Bruce provides a fix to wait for NAPI to be done with the current context
+after disabling interrupts and then disable NAPI when the interface
+is going down.  This fixes a possible "unable to handle kernel paging
+request" panic in net-next.
 
---Signature=_Fri__26_Apr_2013_13_50_20_+1000_zlQAPrdRZwOHWPGC
-Content-Type: application/pgp-signature
+Andi Kleen provides a patch for igb to use mdelay instead of udelay
+when we needed 100000us.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+Jacob provides a fix for ixgbe to simply mask the lower 16bits off so that
+ixgbe_msix_other does not write them in the EICR, which causes them to
+remain high and be properly handled by the clean_rings interrupt routine
+as normal.
 
-iQIcBAEBCAAGBQJRefl8AAoJEECxmPOUX5FElWYP/0gd5bzIlZAhq1HBEAp4Sv6n
-7OfvDC/0brGRrfRPg7flwVEuzftUmTkFjtQHmntYvw+omke6/Bc55z9u13Z0CnFu
-QYJv2YYgjKiZ4MtXiyZ7yYg/Y4ppIXMalbzTZ3VTx4InXkoDTZUjBd3wghHrD+lP
-eghwlvH2ar2Z6XyKP300fbOGWJLIk+klC8Cr42W/s6DxMgBVUa42vovLo/2XDuNT
-YEoOEGOiEcDHB5sOaFKoKTFQJoxR+J/bbpDDRzfUVMubXiZEvtxmQs1FMDpCBkBD
-o3FGlCYwXqb/Lmxh1lzoSQb538vQrg4XfyDUGU/1eRuRy0aBYIYaq5jVLHfsmNvt
-eHQf9TOUEV/mtJmUyF546UUEp/TNafbVqWdLIHxw2irr/oPC04oCJTx2Sy+lfgju
-k5CRXzZB55NY6+G9qzCUn7UnrFz8Tm0cwHBm38f84LE2U+HuYP15KsurDJfAXNb2
-VCeMk7tSPbldFsSeBov5NUpPz0qGHsw13hgBFySdhY9vmsAAMIPR88dudwyiVLWS
-0QENerBIbcNqDevZnZaQK6l1B8avOzlJOjwzJaQP7YolDhkxxlYdJ15kcHUEtBNY
-XCc3mYlbz//kUnQsQjSWw1MM3AE8STMCjSJbAkWEIWtUqMANaS5cuSVsNt03qMjy
-SgivZhqJsoMhC/1/HCBj
-=25rY
------END PGP SIGNATURE-----
+Emil cleans up the logic in ixgbe_setup_loopback_test() to only access
+registers applicable to the MAC type.  In addition, removes majority
+of the AUTOC register reads by using a cached value instead to avoid
+writing corrupted values to AUTOC due to bad FW.  Emil also add support
+for disabling link during boot time.  Lastly, he provides a patch which
+adds the MAC type to the version in ethtool_regs which will make it
+easier to check the MAC type when dumping registers with ethtool.
 
---Signature=_Fri__26_Apr_2013_13_50_20_+1000_zlQAPrdRZwOHWPGC--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+There is a separate ethtool tool patch which is dependent upon Emil's
+last patch of the series to add the MAC type to the version in
+ethtool_regs, which will be sent separately.
+
+The following are changes since commit 3a4e0d6a95b2b6f7b22eb7c7361a0fc4289478eb:
+  openvswitch: Use parallel_ops genl.
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Andi Kleen (1):
+  igb: limit udelay for phy changes to 10000us
+
+Bruce Allan (1):
+  e1000e: panic caused by Rx traffic arriving while interface going
+    down
+
+Emil Tantilov (4):
+  ixgbe: fix register access during ethtool loopback test
+  ixgbe: cache AUTOC reads
+  ixgbe: add support for disabling link at boot time on 82599
+  ixgbe: add mac type to the version in ethtool_regs
+
+Jacob Keller (1):
+  ixgbe: fix EICR write in ixgbe_msix_other
+
+Richard Cochran (1):
+  e1000e: fix numeric overflow in phc settime method
+
+ drivers/net/ethernet/intel/e1000e/netdev.c       |  7 ++-
+ drivers/net/ethernet/intel/e1000e/ptp.c          |  3 +-
+ drivers/net/ethernet/intel/igb/e1000_phy.c       |  6 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   | 61 +++++++++++++++++-------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 29 ++++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 10 ++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |  2 +
+ 7 files changed, 80 insertions(+), 38 deletions(-)
+
+-- 
+1.7.11.7
