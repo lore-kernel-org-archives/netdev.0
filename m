@@ -1,57 +1,51 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/8] ixgbe: fix EICR write in ixgbe_msix_other
-Date: Thu, 25 Apr 2013 21:57:07 -0700
-Message-ID: <1366952231-16727-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/8] e1000e: fix numeric overflow in phc settime method
+Date: Thu, 25 Apr 2013 21:57:04 -0700
+Message-ID: <1366952231-16727-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1366952231-16727-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	stable <stable@vger.kernel.org>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
-Return-path: <stable-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:53194 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751374Ab3DZE5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Apr 2013 00:57:16 -0400
 In-Reply-To: <1366952231-16727-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Richard Cochran <richardcochran@gmail.com>
 
-Previously, the ixgbe_msix_other was writing the full 32bits of the set
-interrupts, instead of only the ones which the ixgbe_msix_other is
-handling. This resulted in a loss of performance when the X540's PPS feature is
-enabled due to sometimes clearing queue interrupts which resulted in the driver
-not getting the interrupt for cleaning the q_vector rings often enough. The fix
-is to simply mask the lower 16bits off so that this handler does not write them
-in the EICR, which causes them to remain high and be properly handled by the
-clean_rings interrupt routine as normal.
+The PTP Hardware Clock settime function in the e1000e driver
+computes nanoseconds from a struct timespec. The code converts the
+seconds field .tv_sec by multiplying it with NSEC_PER_SEC. However,
+both operands are of type long, resulting in an unintended overflow.
+The patch fixes the issue by using the helper function from time.h.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Cc: stable <stable@vger.kernel.org>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+CC: stable <stable@vger.kernel.org>
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ drivers/net/ethernet/intel/e1000e/ptp.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 88f6737..d30fbdd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -2454,6 +2454,16 @@ static irqreturn_t ixgbe_msix_other(int irq, void *data)
- 	 * with the write to EICR.
- 	 */
- 	eicr = IXGBE_READ_REG(hw, IXGBE_EICS);
-+
-+	/* The lower 16bits of the EICR register are for the queue interrupts
-+	 * which should be masked here in order to not accidently clear them if
-+	 * the bits are high when ixgbe_msix_other is called. There is a race
-+	 * condition otherwise which results in possible performance loss
-+	 * especially if the ixgbe_msix_other interrupt is triggering
-+	 * consistently (as it would when PPS is turned on for the X540 device)
-+	 */
-+	eicr &= 0xFFFF0000;
-+
- 	IXGBE_WRITE_REG(hw, IXGBE_EICR, eicr);
+diff --git a/drivers/net/ethernet/intel/e1000e/ptp.c b/drivers/net/ethernet/intel/e1000e/ptp.c
+index b477fa5..065f8c8 100644
+--- a/drivers/net/ethernet/intel/e1000e/ptp.c
++++ b/drivers/net/ethernet/intel/e1000e/ptp.c
+@@ -145,8 +145,7 @@ static int e1000e_phc_settime(struct ptp_clock_info *ptp,
+ 	unsigned long flags;
+ 	u64 ns;
  
- 	if (eicr & IXGBE_EICR_LSC)
+-	ns = ts->tv_sec * NSEC_PER_SEC;
+-	ns += ts->tv_nsec;
++	ns = timespec_to_ns(ts);
+ 
+ 	/* reset the timecounter */
+ 	spin_lock_irqsave(&adapter->systim_lock, flags);
 -- 
 1.7.11.7
