@@ -1,113 +1,59 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] openvswitch: Remove unneeded ovs_netdev_get_ifindex()
-Date: Fri, 26 Apr 2013 14:40:55 +0200
-Message-ID: <a59b1675cc29cd2897bdf1fb6ae34bfd0971fbb7.1366980015.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: jesse@nicira.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Patch net-next v2] bridge: do not expire mdb entry as long as
+ bridge still uses it
+Date: Fri, 26 Apr 2013 20:50:23 +0800
+Message-ID: <20130426125023.GA4812@gondor.apana.org.au>
+References: <1366878083-22797-1-git-send-email-amwang@redhat.com>
+ <20130425083704.GA27420@gondor.apana.org.au>
+ <1366884421.11488.4.camel@cr0>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:33344
-	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756491Ab3DZMlC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 08:41:02 -0400
+Received: from ringil.hengli.com.au ([178.18.16.133]:48184 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750939Ab3DZMua (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 08:50:30 -0400
+Content-Disposition: inline
+In-Reply-To: <1366884421.11488.4.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The only user is get_dpifindex(), no need to redirect via the port
-operations.
+On Thu, Apr 25, 2013 at 06:07:01PM +0800, Cong Wang wrote:
+> On Thu, 2013-04-25 at 16:37 +0800, Herbert Xu wrote:
+> > 
+> > As you're saying the bridge interface's subscription is expiring
+> > incorrectly, the question is why aren't we receiving those group
+> > reports from ourselves, which should be sent out periodically if
+> > we were subscribed to the group?
+> 
+> I thought IGMP report is optional as long as the multicast traffic is
+> still running. If it is mandatory, I don't see any IGMP report sending
+> out from guest, so the bug is in IPv4 multicast code rather than bridge
+> code.
+> 
+> But this can't explain why guests can communicate with each other. :)
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- net/openvswitch/datapath.c           | 7 ++++---
- net/openvswitch/vport-internal_dev.c | 1 -
- net/openvswitch/vport-netdev.c       | 7 -------
- net/openvswitch/vport-netdev.h       | 1 -
- net/openvswitch/vport.h              | 2 --
- 5 files changed, 4 insertions(+), 14 deletions(-)
+OK, if there is no querier in the network then our current default
+behaviour is indeed broken because we won't get the reports needed
+to sustain the subscriptions.
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 74a5fe6..965c059 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -150,9 +150,10 @@ static int get_dpifindex(struct datapath *dp)
- 	rcu_read_lock();
- 
- 	local = ovs_vport_rcu(dp, OVSP_LOCAL);
--	if (local)
--		ifindex = local->ops->get_ifindex(local);
--	else
-+	if (local) {
-+		const struct netdev_vport *vport = netdev_vport_priv(local);
-+		ifindex = vport->dev->ifindex;
-+	} else
- 		ifindex = 0;
- 
- 	rcu_read_unlock();
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 73682de..84e0a03 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -232,7 +232,6 @@ const struct vport_ops ovs_internal_vport_ops = {
- 	.create		= internal_dev_create,
- 	.destroy	= internal_dev_destroy,
- 	.get_name	= ovs_netdev_get_name,
--	.get_ifindex	= ovs_netdev_get_ifindex,
- 	.send		= internal_dev_recv,
- };
- 
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index 40a89ae..4f01c6d 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -150,12 +150,6 @@ const char *ovs_netdev_get_name(const struct vport *vport)
- 	return netdev_vport->dev->name;
- }
- 
--int ovs_netdev_get_ifindex(const struct vport *vport)
--{
--	const struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
--	return netdev_vport->dev->ifindex;
--}
--
- static unsigned int packet_length(const struct sk_buff *skb)
- {
- 	unsigned int length = skb->len - ETH_HLEN;
-@@ -206,6 +200,5 @@ const struct vport_ops ovs_netdev_vport_ops = {
- 	.create		= netdev_create,
- 	.destroy	= netdev_destroy,
- 	.get_name	= ovs_netdev_get_name,
--	.get_ifindex	= ovs_netdev_get_ifindex,
- 	.send		= netdev_send,
- };
-diff --git a/net/openvswitch/vport-netdev.h b/net/openvswitch/vport-netdev.h
-index 6478079..a3cb3a3 100644
---- a/net/openvswitch/vport-netdev.h
-+++ b/net/openvswitch/vport-netdev.h
-@@ -40,6 +40,5 @@ netdev_vport_priv(const struct vport *vport)
- 
- const char *ovs_netdev_get_name(const struct vport *);
- const char *ovs_netdev_get_config(const struct vport *);
--int ovs_netdev_get_ifindex(const struct vport *);
- 
- #endif /* vport_netdev.h */
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index 7ba08c3..68a377b 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -124,7 +124,6 @@ struct vport_parms {
-  * have any configuration.
-  * @get_name: Get the device's name.
-  * @get_config: Get the device's configuration.
-- * @get_ifindex: Get the system interface index associated with the device.
-  * May be null if the device does not have an ifindex.
-  * @send: Send a packet on the device.  Returns the length of the packet sent.
-  */
-@@ -141,7 +140,6 @@ struct vport_ops {
- 	/* Called with rcu_read_lock or ovs_mutex. */
- 	const char *(*get_name)(const struct vport *);
- 	void (*get_config)(const struct vport *, void *);
--	int (*get_ifindex)(const struct vport *);
- 
- 	int (*send)(struct vport *, struct sk_buff *);
- };
+So we need to do two things:
+
+1) Fix the group timeout mechanism to only arm the timer when a
+corresponding query is received.
+2) Resume sending queries when leave is received if the user makes
+a querier.
+
+Let me know if you'd like to work on this, otherwise I can take
+a look at it next week.
+
+Cheers,
 -- 
-1.7.11.7
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
