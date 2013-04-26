@@ -1,41 +1,37 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH 2/2] ipvs: Use cond_resched_rcu_lock() helper when
- dumping connections
-Date: Fri, 26 Apr 2013 10:03:13 +0200
-Message-ID: <20130426080313.GC8669@dyad.programming.kicks-ass.net>
-References: <1366940708-10180-1-git-send-email-horms@verge.net.au>
- <1366940708-10180-3-git-send-email-horms@verge.net.au>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 05/21] atm: he: use mdelay instead of large udelay constants
+Date: Fri, 26 Apr 2013 09:21:59 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7203@saturn3.aculab.com>
+References: <1366910944-3033663-1-git-send-email-arnd@arndb.de> <1366910944-3033663-6-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Julian Anastasov <ja@ssi.bg>, Ingo Molnar <mingo@redhat.com>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-kernel@vger.kernel.org>,
+	"Chas Williams" <chas@cmf.nrl.navy.mil>,
+	<linux-atm-general@lists.sourceforge.net>, <netdev@vger.kernel.org>
+To: "Arnd Bergmann" <arnd@arndb.de>,
+	<linux-arm-kernel@lists.infradead.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1366940708-10180-3-git-send-email-horms@verge.net.au>
+Content-class: urn:content-classes:message
+In-Reply-To: <1366910944-3033663-6-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 26, 2013 at 10:45:08AM +0900, Simon Horman wrote:
+> ARM cannot handle udelay for more than 2 miliseconds, so we
+> should use mdelay instead for those.
+...
+> @@ -1055,7 +1055,7 @@ static int he_start(struct atm_dev *dev)
+>  	he_writel(he_dev, 0x0, RESET_CNTL);
+>  	he_writel(he_dev, 0xff, RESET_CNTL);
+> 
+> -	udelay(16*1000);	/* 16 ms */
+> +	mdelay(16);	/* 16 ms */
+>  	status = he_readl(he_dev, RESET_CNTL);
 
-> @@ -975,8 +975,7 @@ static void *ip_vs_conn_array(struct seq_file *seq, loff_t pos)
->  				return cp;
->  			}
->  		}
-> -		rcu_read_unlock();
-> -		rcu_read_lock();
-> +		cond_resched_rcu_lock();
->  	}
+16ms seems a long time to spin.
+I'd have thought a sleep would be more appropriate.
+Since this looks like timing a hardware reset pulse
+it can't matter if it is somewhat longer.
 
-
-While I agree with the sentiment I do find it a somewhat dangerous construct in
-that it might become far too easy to keep an RCU reference over this break and
-thus violate the RCU premise.
-
-Is there anything that can detect this? Sparse / cocinelle / smatch? If so it
-would be great to add this to these checkers.
+	David
