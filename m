@@ -1,58 +1,60 @@
-From: Robert Schwebel <r.schwebel@pengutronix.de>
-Subject: Re: [PATCH resend 1/3] Revert "net: fec: fix missing napi_disable
- call"
-Date: Fri, 26 Apr 2013 15:44:15 +0200
-Message-ID: <20130426134415.GS1366@pengutronix.de>
-References: <1366966330-5181-1-git-send-email-l.stach@pengutronix.de>
- <CAHrpEqQLkjCOq0doaM0zNMkgjNkE_pOLxjoFJWNPuQ6CRHCbBw@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next PATCH 1/1] drivers: net: cpsw: fix kernel warn on cpsw
+ irq enable
+Date: Fri, 26 Apr 2013 17:48:08 +0400
+Message-ID: <517A8598.3090602@cogentembedded.com>
+References: <1366975848-31503-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lucas Stach <l.stach@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	Fabio Estevam <festevam@gmail.com>,
-	Shawn Guo <shawn.guo@linaro.org>
-To: Frank Li <lznuaa@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:37054 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752974Ab3DZNoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 09:44:18 -0400
-Content-Disposition: inline
-In-Reply-To: <CAHrpEqQLkjCOq0doaM0zNMkgjNkE_pOLxjoFJWNPuQ6CRHCbBw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-omap@vger.kernel.org,
+	Sebastian Siewior <bigeasy@linutronix.de>
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1366975848-31503-1-git-send-email-mugunthanvnm@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Frank,
+Hello.
 
-On Fri, Apr 26, 2013 at 05:32:02PM +0800, Frank Li wrote:
-> 2013/4/26 Lucas Stach <l.stach@pengutronix.de>:
-> > This reverts commit 3f104c38259dcb3e5443c246f0805bc04d887cc3.
-> >
-> > In preparaton to revert the other NAPI related changes.
-> >
-> > Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
->
-> David:
->
-> Please hold apply this patch for some days.
-> Let me found a good way to fix the issue that lucas met.
->
-> This patch may cause spin_lock dead lock when using 1588 ptp.
+On 26-04-2013 15:30, Mugunthan V N wrote:
 
-Seriously - it's friday, and 3.9 is expected to come out this weekend.
-You broke the driver in mainline with your patches, and the current
-state is that it isn't fixable before the release.
+> With the commit id a11fbba
 
-So in order not to break the FEC in 3.9-final, please let's go with the
-reverts for now; if 1588 PTP is broken, it was broken in 3.8 as well,
-correct? After the release, there will be a lot of time to make proper
-patches that fix the issues.
+    Please also specify that commit's summary line in parens.
 
-rsc
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+> from Sebastian Siewior, a kernel warning is
+> generated as below. This warning is generated as the irq_enabled is not
+> initialized for the primary interface and in probe it is initialized for
+> the secondary interface. This patch moves irq_enabled initialization from
+> second interface to primary interface.
+
+    s/second/secondary/?
+
+> [    3.049173] net eth0: phy found : id is : 0x4dd074
+> [    3.054552] net eth0: phy found : id is : 0x4dd074
+> [    3.070421] ------------[ cut here ]------------
+> [    3.075308] WARNING: at kernel/irq/manage.c:437 enable_irq+0x3c/0x74()
+> [    3.082173] Unbalanced enable for IRQ 56
+> [    3.086299] Modules linked in:
+> [    3.089557] [<c001abcc>] (unwind_backtrace+0x0/0xf0) from [<c004294c>] (warn_slowpath_common+0x4c/0x68)
+> [    3.099450] [<c004294c>] (warn_slowpath_common+0x4c/0x68) from [<c00429fc>] (warn_slowpath_fmt+0x30/0x40)
+> [    3.109521] [<c00429fc>] (warn_slowpath_fmt+0x30/0x40) from [<c00a29fc>] (enable_irq+0x3c/0x74)
+> [    3.118681] [<c00a29fc>] (enable_irq+0x3c/0x74) from [<c03a7818>] (cpsw_ndo_open+0x61c/0x684)
+> [    3.127669] [<c03a7818>] (cpsw_ndo_open+0x61c/0x684) from [<c0445c08>] (__dev_open+0x9c/0xf8)
+> [    3.136646] [<c0445c08>] (__dev_open+0x9c/0xf8) from [<c0445e34>] (__dev_change_flags+0x78/0x13c)
+> [    3.145988] [<c0445e34>] (__dev_change_flags+0x78/0x13c) from [<c0445f64>] (dev_change_flags+0x10/0x48)
+> [    3.155884] [<c0445f64>] (dev_change_flags+0x10/0x48) from [<c0736d88>] (ip_auto_config+0x198/0x111c)
+> [    3.165592] [<c0736d88>] (ip_auto_config+0x198/0x111c) from [<c00086a4>] (do_one_initcall+0x34/0x180)
+> [    3.175309] [<c00086a4>] (do_one_initcall+0x34/0x180) from [<c07078f8>] (kernel_init_freeable+0xfc/0x1c8)
+> [    3.185393] [<c07078f8>] (kernel_init_freeable+0xfc/0x1c8) from [<c04f36ec>] (kernel_init+0x8/0xe4)
+> [    3.194929] [<c04f36ec>] (kernel_init+0x8/0xe4) from [<c00133d0>] (ret_from_fork+0x14/0x24)
+> [    3.203712] ---[ end trace d6f979da080bc391 ]---
+
+> Cc: Sebastian Siewior <bigeasy@linutronix.de>
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+
+WBR, Sergei
+
+
