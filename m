@@ -1,63 +1,83 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 4/7] qlcnic: Fix missing bracket in module parameter.
-Date: Fri, 26 Apr 2013 08:09:40 -0400
-Message-ID: <1366978183-7282-5-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net 7/7] qlcnic: Fix bug in diagnostics test reset recovery path
+Date: Fri, 26 Apr 2013 08:09:43 -0400
+Message-ID: <1366978183-7282-8-git-send-email-shahed.shaikh@qlogic.com>
 References: <1366978183-7282-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
+	Manish Chopra <manish.chopra@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [216.32.180.187] ([216.32.180.187]:52500 "EHLO
+Received: from [216.32.180.187] ([216.32.180.187]:37659 "EHLO
 	co1outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756350Ab3DZMf2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 08:35:28 -0400
+	by vger.kernel.org with ESMTP id S1756350Ab3DZMfb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 08:35:31 -0400
 In-Reply-To: <1366978183-7282-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+From: Manish Chopra <manish.chopra@qlogic.com>
 
-Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+o In order to perform reset recovery during diagnostics tests,
+  current device status information need to be preserved.
+  This patch makes the required changes in diagnostics routines
+
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   14 +++++++++++---
+ 1 files changed, 11 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index e387bf8..3ac73b2 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -36,24 +36,24 @@ MODULE_PARM_DESC(qlcnic_mac_learn,
- 		 "Mac Filter (0=learning is disabled, 1=Driver learning is enabled, 2=FDB learning is enabled)");
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index 6c58406..653c48c 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -1221,11 +1221,13 @@ out:
+ 	return err;
+ }
  
- int qlcnic_use_msi = 1;
--MODULE_PARM_DESC(use_msi, "MSI interrupt (0=disabled, 1=enabled");
-+MODULE_PARM_DESC(use_msi, "MSI interrupt (0=disabled, 1=enabled)");
- module_param_named(use_msi, qlcnic_use_msi, int, 0444);
+-static int qlcnic_83xx_diag_alloc_res(struct net_device *netdev, int test)
++static int qlcnic_83xx_diag_alloc_res(struct net_device *netdev, int test,
++				      int num_sds_ring)
+ {
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	struct qlcnic_host_sds_ring *sds_ring;
+ 	struct qlcnic_host_rds_ring *rds_ring;
++	u16 adapter_state = adapter->is_up;
+ 	u8 ring;
+ 	int ret;
  
- int qlcnic_use_msi_x = 1;
--MODULE_PARM_DESC(use_msi_x, "MSI-X interrupt (0=disabled, 1=enabled");
-+MODULE_PARM_DESC(use_msi_x, "MSI-X interrupt (0=disabled, 1=enabled)");
- module_param_named(use_msi_x, qlcnic_use_msi_x, int, 0444);
+@@ -1249,6 +1251,10 @@ static int qlcnic_83xx_diag_alloc_res(struct net_device *netdev, int test)
+ 	ret = qlcnic_fw_create_ctx(adapter);
+ 	if (ret) {
+ 		qlcnic_detach(adapter);
++		if (adapter_state == QLCNIC_ADAPTER_UP_MAGIC) {
++			adapter->max_sds_rings = num_sds_ring;
++			qlcnic_attach(adapter);
++		}
+ 		netif_device_attach(netdev);
+ 		return ret;
+ 	}
+@@ -1479,7 +1485,8 @@ int qlcnic_83xx_loopback_test(struct net_device *netdev, u8 mode)
+ 	if (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
+ 		return -EBUSY;
  
- int qlcnic_auto_fw_reset = 1;
--MODULE_PARM_DESC(auto_fw_reset, "Auto firmware reset (0=disabled, 1=enabled");
-+MODULE_PARM_DESC(auto_fw_reset, "Auto firmware reset (0=disabled, 1=enabled)");
- module_param_named(auto_fw_reset, qlcnic_auto_fw_reset, int, 0644);
+-	ret = qlcnic_83xx_diag_alloc_res(netdev, QLCNIC_LOOPBACK_TEST);
++	ret = qlcnic_83xx_diag_alloc_res(netdev, QLCNIC_LOOPBACK_TEST,
++					 max_sds_rings);
+ 	if (ret)
+ 		goto fail_diag_alloc;
  
- int qlcnic_load_fw_file;
--MODULE_PARM_DESC(load_fw_file, "Load firmware from (0=flash, 1=file");
-+MODULE_PARM_DESC(load_fw_file, "Load firmware from (0=flash, 1=file)");
- module_param_named(load_fw_file, qlcnic_load_fw_file, int, 0444);
+@@ -2934,7 +2941,8 @@ int qlcnic_83xx_interrupt_test(struct net_device *netdev)
+ 	if (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
+ 		return -EIO;
  
- int qlcnic_config_npars;
- module_param(qlcnic_config_npars, int, 0444);
--MODULE_PARM_DESC(qlcnic_config_npars, "Configure NPARs (0=disabled, 1=enabled");
-+MODULE_PARM_DESC(qlcnic_config_npars, "Configure NPARs (0=disabled, 1=enabled)");
+-	ret = qlcnic_83xx_diag_alloc_res(netdev, QLCNIC_INTERRUPT_TEST);
++	ret = qlcnic_83xx_diag_alloc_res(netdev, QLCNIC_INTERRUPT_TEST,
++					 max_sds_rings);
+ 	if (ret)
+ 		goto fail_diag_irq;
  
- static int qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent);
- static void qlcnic_remove(struct pci_dev *pdev);
 -- 
 1.5.6
