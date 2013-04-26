@@ -1,61 +1,83 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [IPROUTE PATCH] iproute2: act_ipt fix xtables breakage on older
- versions.
-Date: Fri, 26 Apr 2013 08:58:20 -0700
-Message-ID: <517AA41C.4040205@intel.com>
-References: <20130425220716.6520.94862.stgit@ahduyck-cp1.jf.intel.com> <517A7F29.7070903@mojatatu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2] ipvs: Use cond_resched_rcu_lock() helper when
+ dumping connections
+Date: Fri, 26 Apr 2013 08:59:07 -0700
+Message-ID: <1366991947.8964.233.camel@edumazet-glaptop>
+References: <1366940708-10180-1-git-send-email-horms@verge.net.au>
+	 <1366940708-10180-3-git-send-email-horms@verge.net.au>
+	 <20130426080313.GC8669@dyad.programming.kicks-ass.net>
+	 <20130426154547.GC3860@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, Hasan Chowdhury <shemonc@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:33150 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754253Ab3DZP6p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Apr 2013 11:58:45 -0400
-In-Reply-To: <517A7F29.7070903@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>, Ingo Molnar <mingo@redhat.com>,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>, dhaval.giani@gmail.com
+To: paulmck@linux.vnet.ibm.com
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20130426154547.GC3860@linux.vnet.ibm.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/26/2013 06:20 AM, Jamal Hadi Salim wrote:
-> On 13-04-25 06:07 PM, Alexander Duyck wrote:
->> In trying to build on a RHEL6.3 I ran into several build issues that are
->> addressed in this patch.
->>
->> The first is that xtables_options_xfrm only has 3 options.  It
->> appears this is
->> how this code was originally.  As such for the case where the version
->> is less
->> than 6 I am assuming it would be correct to maintain the original
->> setup that
->> only had 3 parameters being passed instead of 4.
->>
->
->
-> Getting it to compile is insufficient get it to work.
-> We've gone over the specific issues you are running into and infact
-> patches exist for both iproute2 and the kernel. I'll see if i can get
-> something out this weekend.
-> Hasan, you never got back to me on our last email exchange whether the
-> proposed changes worked out. Can you please provide me some feedback?
->
-> cheers,
-> jamal
+On Fri, 2013-04-26 at 08:45 -0700, Paul E. McKenney wrote:
 
-Getting it to compile is kind of important since it was preventing me
-from completing the build for iproute2 as I had another fix I needed to
-test.
+> I have done some crude coccinelle patterns in the past, but they are
+> subject to false positives (from when you transfer the pointer from
+> RCU protection to reference-count protection) and also false negatives
+> (when you atomically increment some statistic unrelated to protection).
+> 
+> I could imagine maintaining a per-thread count of the number of outermost
+> RCU read-side critical sections at runtime, and then associating that
+> counter with a given pointer at rcu_dereference() time, but this would
+> require either compiler magic or an API for using a pointer returned
+> by rcu_dereference().  This API could in theory be enforced by sparse.
+> 
+> Dhaval Giani might have some ideas as well, adding him to CC.
 
-If you have some test case you want me to run just let me know.  All I
-did here is revert the changes that I believe were made incorrectly for
-versions prior to 1.4.10 in "iproute2: act_ipt fix xtables breakage". 
-It states it was fixing it for versions starting in 1.4.10 which I am
-assuming is the XTABLES_VERSION_CODE >= 6 case so it should not have
-modified the 3 parameter case for versions prior to 6 which is what I
-corrected.
 
-Thanks,
+We had this fix the otherday, because tcp prequeue code hit this check :
 
-Alex
+static inline struct dst_entry *skb_dst(const struct sk_buff *skb)
+{
+        /* If refdst was not refcounted, check we still are in a 
+         * rcu_read_lock section
+         */
+        WARN_ON((skb->_skb_refdst & SKB_DST_NOREF) &&
+                !rcu_read_lock_held() &&
+                !rcu_read_lock_bh_held());
+        return (struct dst_entry *)(skb->_skb_refdst & SKB_DST_PTRMASK);
+}
+
+( http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=093162553c33e9479283e107b4431378271c735d )
+
+Problem is the rcu protected pointer was escaping the rcu lock and was
+then used in another thread.
+
+
+What would be cool (but expensive maybe) , would be to get a cookie from
+rcu_read_lock(), and check the cookie at rcu_dereference(). These
+cookies would have system wide scope to catch any kind of errors.
+
+Because a per thread counter would not catch following problem :
+
+rcu_read_lock();
+
+ptr = rcu_dereference(x);
+if (!ptr)
+	return NULL;
+...
+
+
+rcu_read_unlock();
+
+...
+rcu_read_lock();
+/* no reload of x, ptr might be now stale/freed */
+if (ptr->field) { ... }
+
+
+
