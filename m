@@ -1,176 +1,212 @@
-From: Alexandru Copot <alex.mihai.c@gmail.com>
-Subject: Re: [PATCH 1/3 RFC v2] selftests: introduce testing abstractions
-Date: Fri, 26 Apr 2013 11:39:19 +0300
-Message-ID: <CAHG7+CDn4ELhmigo3j4R4qg29oO-NwdCR+=WGk7PmpVL2WTtaA@mail.gmail.com>
-References: <1366887900-24769-1-git-send-email-alex.mihai.c@gmail.com>
-	<1366887900-24769-2-git-send-email-alex.mihai.c@gmail.com>
-	<5179739C.9080005@redhat.com>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH 1/3] drivers: net: usb: pegasus: remove skb pool
+Date: Fri, 26 Apr 2013 11:41:21 +0300 (EEST)
+Message-ID: <alpine.DEB.2.02.1304261133410.12284@fry.nucleusys.com>
+References: <alpine.DEB.2.02.1304260934030.3746@fry.nucleusys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, davem@davemloft.net, willemb@google.com,
-	ebiederm@xmission.com, gorcunov@openvz.org, palewis@adobe.com,
-	edumazet@google.com, Daniel Baluta <dbaluta@ixiacom.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5179739C.9080005@redhat.com>
+In-Reply-To: <alpine.DEB.2.02.1304260934030.3746@fry.nucleusys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 25, 2013 at 9:19 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> Usually I associate sth named assert() that it does an ungraceful exit.
-> Maybe __test() or __check()?
+From: Petko Manolov <petkan@nucleusys.com>
 
-This looks like a good idea, will do.
+The socket buffer pool for the receive path is now gone.  It's existence 
+didn't make much difference (performance-wise) and the code is better off 
+without the spinlocks protecting it.
 
->> +       va_list vl;
->> +       const char *m;
->> +       char msg[BUFSIZ];
->> +
->> +       if (expr)
->> +               return TEST_PASS;
->> +
->> +       fprintf(stderr, "\n(%s:%d) ", filename, line);
->> +
->> +       va_start(vl, fmt);
->> +       m = va_arg(vl, char *);
->> +       if (!m)
->> +               m = fmt;
->> +       else
->> +               fprintf(stderr, "%s ", fmt);
->> +
->> +       vsnprintf(msg, sizeof msg, m, vl);
->
->
-> Nitpick: sizeof(msg)
+Signed-off-by: Petko Manolov <petkan@nucleusys.com>
+---
+Diff made against latest net-next, not my git repository;
 
-sizeof is actually an operator. I could change it especially to
-keep an uniform coding style with the rest of the kernel and tools.
+ drivers/net/usb/pegasus.c |   73 +++++------------------------------
+ drivers/net/usb/pegasus.h |    3 --
+ 2 files changed, 9 insertions(+), 67 deletions(-)
 
->
->> +       va_end(vl);
->> +
->> +       fprintf(stderr, "%s\n", msg);
->
->
-> Not sure what exactly you are trying to accomplish here in this function?
-> Why don't you use vfprintf() and leave this hackery aside?
->
-> va_list vl;
->
-> va_start(vl, fmt);
-> fprintf(stderr, "(%s:%d) ", filename, line);
-> vfprintf(stderr, fmt, vl);
-> va_end(vl);
->
-
-Here I am trying to format both using the fmt string and the one that
-the user might write as the next argument. It's not really safe, but
-this way we can print whatever data is needed to diagnose a failure.
-
-Example: check(r == 0, out_label, ret, "option %d", 5);
-
-But I think you are right, I will keep it simple for the moment.
-
->> +typedef enum test_result {
->> +       TEST_PASS = 0,
->> +       TEST_FAIL,
->> +} test_result_t;
->
->
-> I have no strong opinion here, but do we need to make this as an enum and
-> then do bit-operations on it?
-
-I like enums because of type safety, but I will change these to defines.
-
->> +
->> +#define pass_if(expr, label, ret)                              \
->> +       do {                                                    \
->> +               if (expr) {                                     \
->> +                       ret = TEST_PASS;                        \
->> +                       goto label;                             \
->> +               }                                               \
->> +       } while (0)
->
->
-> In cases where you make use of this macro, it's always like ...
->
-> <function>
-> {
->         pass_if(<cond>, out, ret);
-> [...]
-> out:
->         return ret;
-> }
->
-> Not sure if this simplifies or rather obfuscates things. Maybe other people
-> like it, not sure ...
-
-This looks like the cleanest solution to me. We have found some other
-implementations
-which used weird things like setjmp/longjmp. We are open to any
-suggestions on this.
-
->
->> +struct generic_test {
->> +       const char *name;
->> +       void *private;
->> +
->> +
->
->
-> Why do you have two blank lines here?
->
-
-Correct, will remove.
-
->> +       void *testcases;
->
->
-> It seems you like having void* pointers, right? This is very unintuitive
-> here (and weird that you iterate with a char* pointer over it in function
-> run_all_tests())
-> and at least needs some comments. Otherwise people will have to look into
-> your example to get to know what you mean.
-
-Having void pointers is simpler because it doesn't force you to write casts. It
-is also generic. I iterate with char* because I can't do it with a void*.
-Yes, you are right about the comments.
-
-> Also, what is the difference between testcases and private? I have not seen
-> that you use private anywhere.
-
-The private field is mostly for future use, will remove it for now until
-we find some real use case.
-
->> +       int testcase_size;
->
->
-> Nitpick (but that depends if you keep void*): size_t len;
->
->> +       int testcase_count;
->
->
-> Nitpick (ditto): unsigned int num_cases;
->
->
->> +       /* Ends all tests if one fails */
->> +       int abort_on_fail;
->
->
-> bool abort_on_fail;
->
-> Also no blank lines at the end of a file!
-
-I agree with all of these.
-
-> Ok, for now I leave the other patches aside, maybe you have some comments to
-> the review, a new version, or wait a while for others to give feedback as well.
->
-> Thanks and cheers,
->
-> Daniel
-
-Thanks for being so thorough!
-
-Alex
+diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+index 73051d1..ff7b84d 100644
+--- a/drivers/net/usb/pegasus.c
++++ b/drivers/net/usb/pegasus.c
+@@ -575,51 +575,6 @@ static int enable_net_traffic(struct net_device *dev, struct usb_device *usb)
+ 	return ret;
+ }
+ 
+-static void fill_skb_pool(pegasus_t *pegasus)
+-{
+-	int i;
+-
+-	for (i = 0; i < RX_SKBS; i++) {
+-		if (pegasus->rx_pool[i])
+-			continue;
+-		pegasus->rx_pool[i] = dev_alloc_skb(PEGASUS_MTU + 2);
+-		/*
+-		 ** we give up if the allocation fail. the tasklet will be
+-		 ** rescheduled again anyway...
+-		 */
+-		if (pegasus->rx_pool[i] == NULL)
+-			return;
+-		skb_reserve(pegasus->rx_pool[i], 2);
+-	}
+-}
+-
+-static void free_skb_pool(pegasus_t *pegasus)
+-{
+-	int i;
+-
+-	for (i = 0; i < RX_SKBS; i++) {
+-		if (pegasus->rx_pool[i]) {
+-			dev_kfree_skb(pegasus->rx_pool[i]);
+-			pegasus->rx_pool[i] = NULL;
+-		}
+-	}
+-}
+-
+-static inline struct sk_buff *pull_skb(pegasus_t * pegasus)
+-{
+-	int i;
+-	struct sk_buff *skb;
+-
+-	for (i = 0; i < RX_SKBS; i++) {
+-		if (likely(pegasus->rx_pool[i] != NULL)) {
+-			skb = pegasus->rx_pool[i];
+-			pegasus->rx_pool[i] = NULL;
+-			return skb;
+-		}
+-	}
+-	return NULL;
+-}
+-
+ static void read_bulk_callback(struct urb *urb)
+ {
+ 	pegasus_t *pegasus = urb->context;
+@@ -704,9 +659,8 @@ static void read_bulk_callback(struct urb *urb)
+ 	if (pegasus->flags & PEGASUS_UNPLUG)
+ 		return;
+ 
+-	spin_lock(&pegasus->rx_pool_lock);
+-	pegasus->rx_skb = pull_skb(pegasus);
+-	spin_unlock(&pegasus->rx_pool_lock);
++	pegasus->rx_skb = __netdev_alloc_skb_ip_align(pegasus->net, PEGASUS_MTU,
++						      GFP_ATOMIC);
+ 
+ 	if (pegasus->rx_skb == NULL)
+ 		goto tl_sched;
+@@ -734,24 +688,23 @@ tl_sched:
+ static void rx_fixup(unsigned long data)
+ {
+ 	pegasus_t *pegasus;
+-	unsigned long flags;
+ 	int status;
+ 
+ 	pegasus = (pegasus_t *) data;
+ 	if (pegasus->flags & PEGASUS_UNPLUG)
+ 		return;
+ 
+-	spin_lock_irqsave(&pegasus->rx_pool_lock, flags);
+-	fill_skb_pool(pegasus);
+ 	if (pegasus->flags & PEGASUS_RX_URB_FAIL)
+ 		if (pegasus->rx_skb)
+ 			goto try_again;
+ 	if (pegasus->rx_skb == NULL)
+-		pegasus->rx_skb = pull_skb(pegasus);
++		pegasus->rx_skb = __netdev_alloc_skb_ip_align(pegasus->net,
++							      PEGASUS_MTU,
++							      GFP_ATOMIC);
+ 	if (pegasus->rx_skb == NULL) {
+ 		netif_warn(pegasus, rx_err, pegasus->net, "low on memory\n");
+ 		tasklet_schedule(&pegasus->rx_tl);
+-		goto done;
++		return;
+ 	}
+ 	usb_fill_bulk_urb(pegasus->rx_urb, pegasus->usb,
+ 			  usb_rcvbulkpipe(pegasus->usb, 1),
+@@ -767,8 +720,6 @@ try_again:
+ 	} else {
+ 		pegasus->flags &= ~PEGASUS_RX_URB_FAIL;
+ 	}
+-done:
+-	spin_unlock_irqrestore(&pegasus->rx_pool_lock, flags);
+ }
+ 
+ static void write_bulk_callback(struct urb *urb)
+@@ -1007,10 +958,9 @@ static int pegasus_open(struct net_device *net)
+ 	int res;
+ 
+ 	if (pegasus->rx_skb == NULL)
+-		pegasus->rx_skb = pull_skb(pegasus);
+-	/*
+-	 ** Note: no point to free the pool.  it is empty :-)
+-	 */
++		pegasus->rx_skb = __netdev_alloc_skb_ip_align(pegasus->net,
++							      PEGASUS_MTU,
++							      GFP_KERNEL);
+ 	if (!pegasus->rx_skb)
+ 		return -ENOMEM;
+ 
+@@ -1044,7 +994,6 @@ static int pegasus_open(struct net_device *net)
+ 		res = -EIO;
+ 		usb_kill_urb(pegasus->rx_urb);
+ 		usb_kill_urb(pegasus->intr_urb);
+-		free_skb_pool(pegasus);
+ 		goto exit;
+ 	}
+ 	set_carrier(net);
+@@ -1364,7 +1313,6 @@ static int pegasus_probe(struct usb_interface *intf,
+ 	pegasus->mii.mdio_write = mdio_write;
+ 	pegasus->mii.phy_id_mask = 0x1f;
+ 	pegasus->mii.reg_num_mask = 0x1f;
+-	spin_lock_init(&pegasus->rx_pool_lock);
+ 	pegasus->msg_enable = netif_msg_init(msg_level, NETIF_MSG_DRV
+ 				| NETIF_MSG_PROBE | NETIF_MSG_LINK);
+ 
+@@ -1376,7 +1324,6 @@ static int pegasus_probe(struct usb_interface *intf,
+ 		goto out2;
+ 	}
+ 	set_ethernet_addr(pegasus);
+-	fill_skb_pool(pegasus);
+ 	if (pegasus->features & PEGASUS_II) {
+ 		dev_info(&intf->dev, "setup Pegasus II specific registers\n");
+ 		setup_pegasus_II(pegasus);
+@@ -1404,7 +1351,6 @@ static int pegasus_probe(struct usb_interface *intf,
+ 
+ out3:
+ 	usb_set_intfdata(intf, NULL);
+-	free_skb_pool(pegasus);
+ out2:
+ 	free_all_urbs(pegasus);
+ out1:
+@@ -1429,7 +1375,6 @@ static void pegasus_disconnect(struct usb_interface *intf)
+ 	unregister_netdev(pegasus->net);
+ 	unlink_all_urbs(pegasus);
+ 	free_all_urbs(pegasus);
+-	free_skb_pool(pegasus);
+ 	if (pegasus->rx_skb != NULL) {
+ 		dev_kfree_skb(pegasus->rx_skb);
+ 		pegasus->rx_skb = NULL;
+diff --git a/drivers/net/usb/pegasus.h b/drivers/net/usb/pegasus.h
+index 65b78b3..00d44e3 100644
+--- a/drivers/net/usb/pegasus.h
++++ b/drivers/net/usb/pegasus.h
+@@ -13,7 +13,6 @@
+ #define	HAS_HOME_PNA		0x40000000
+ 
+ #define	PEGASUS_MTU		1536
+-#define	RX_SKBS			4
+ 
+ #define	EPROM_WRITE		0x01
+ #define	EPROM_READ		0x02
+@@ -97,11 +96,9 @@ typedef struct pegasus {
+ 	struct tasklet_struct	rx_tl;
+ 	struct delayed_work	carrier_check;
+ 	struct urb		*ctrl_urb, *rx_urb, *tx_urb, *intr_urb;
+-	struct sk_buff		*rx_pool[RX_SKBS];
+ 	struct sk_buff		*rx_skb;
+ 	struct usb_ctrlrequest	dr;
+ 	wait_queue_head_t	ctrl_wait;
+-	spinlock_t		rx_pool_lock;
+ 	int			chip;
+ 	unsigned char		intr_buff[8];
+ 	__u8			tx_buff[PEGASUS_MTU];
