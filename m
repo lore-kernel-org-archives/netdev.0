@@ -1,51 +1,54 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH 05/21] atm: he: use mdelay instead of large udelay
- constants
-Date: Fri, 26 Apr 2013 09:12:20 -0400
-Message-ID: <20130426091220.468cf59e@thirdoffive.cmf.nrl.navy.mil>
-References: <1366910944-3033663-1-git-send-email-arnd@arndb.de>
- <1366910944-3033663-6-git-send-email-arnd@arndb.de>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7203@saturn3.aculab.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] openvswitch: Remove unneeded ovs_netdev_get_ifindex()
+Date: Fri, 26 Apr 2013 17:41:51 +0400
+Message-ID: <517A841F.6080107@cogentembedded.com>
+References: <a59b1675cc29cd2897bdf1fb6ae34bfd0971fbb7.1366980015.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net,
- linux-arm-kernel@lists.infradead.org, Arnd Bergmann <arnd@arndb.de>,
- linux-kernel@vger.kernel.org
-To: "David Laight" <David.Laight@ACULAB.COM>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7203@saturn3.aculab.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: jesse@nicira.com, netdev@vger.kernel.org, dev@openvswitch.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:43785 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755459Ab3DZNnJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 09:43:09 -0400
+Received: by mail-lb0-f169.google.com with SMTP id p11so3802559lbi.28
+        for <netdev@vger.kernel.org>; Fri, 26 Apr 2013 06:43:07 -0700 (PDT)
+In-Reply-To: <a59b1675cc29cd2897bdf1fb6ae34bfd0971fbb7.1366980015.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 26 Apr 2013 09:21:59 +0100
-"David Laight" <David.Laight@ACULAB.COM> wrote:
+Hello.
 
-> > ARM cannot handle udelay for more than 2 miliseconds, so we
-> > should use mdelay instead for those.
-> ...
-> > @@ -1055,7 +1055,7 @@ static int he_start(struct atm_dev *dev)
-> >  	he_writel(he_dev, 0x0, RESET_CNTL);
-> >  	he_writel(he_dev, 0xff, RESET_CNTL);
-> > 
-> > -	udelay(16*1000);	/* 16 ms */
-> > +	mdelay(16);	/* 16 ms */
-> >  	status = he_readl(he_dev, RESET_CNTL);
-> 
-> 16ms seems a long time to spin.
-> I'd have thought a sleep would be more appropriate.
-> Since this looks like timing a hardware reset pulse
-> it can't matter if it is somewhat longer.
+On 26-04-2013 16:40, Thomas Graf wrote:
 
-Yes, I wrote this bit some time ago when I was less wise. The
-programmer's guide doesn't say how long to sleep, so the value isn't
-critical.  It just has to be "long enough".  An msleep() would be fine
-here.
+> The only user is get_dpifindex(), no need to redirect via the port
+> operations.
+
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+[...]
+
+> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> index 74a5fe6..965c059 100644
+> --- a/net/openvswitch/datapath.c
+> +++ b/net/openvswitch/datapath.c
+> @@ -150,9 +150,10 @@ static int get_dpifindex(struct datapath *dp)
+>   	rcu_read_lock();
+>
+>   	local = ovs_vport_rcu(dp, OVSP_LOCAL);
+> -	if (local)
+> -		ifindex = local->ops->get_ifindex(local);
+> -	else
+> +	if (local) {
+> +		const struct netdev_vport *vport = netdev_vport_priv(local);
+
+    Empty line after declaration wouldn't hurt.
+
+> +		ifindex = vport->dev->ifindex;
+> +	} else
+>   		ifindex = 0;
+>
+>   	rcu_read_unlock();
+
+WBR, Sergei
