@@ -1,51 +1,84 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/8] e1000e: fix numeric overflow in phc settime method
-Date: Thu, 25 Apr 2013 21:57:04 -0700
-Message-ID: <1366952231-16727-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 7/8] ixgbe: add support for disabling link at boot time on 82599
+Date: Thu, 25 Apr 2013 21:57:10 -0700
+Message-ID: <1366952231-16727-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1366952231-16727-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	stable <stable@vger.kernel.org>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:53194 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:51268 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751374Ab3DZE5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Apr 2013 00:57:16 -0400
+	id S1754381Ab3DZE5U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Apr 2013 00:57:20 -0400
 In-Reply-To: <1366952231-16727-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-The PTP Hardware Clock settime function in the e1000e driver
-computes nanoseconds from a struct timespec. The code converts the
-seconds field .tv_sec by multiplying it with NSEC_PER_SEC. However,
-both operands are of type long, resulting in an unintended overflow.
-The patch fixes the issue by using the helper function from time.h.
+This patch adds support for disabling link during boot time. This
+feature was requested by customers and is configurable through the EEPROM.
 
-CC: stable <stable@vger.kernel.org>
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ptp.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 21 +++++++++++++++++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |  1 +
+ 2 files changed, 20 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ptp.c b/drivers/net/ethernet/intel/e1000e/ptp.c
-index b477fa5..065f8c8 100644
---- a/drivers/net/ethernet/intel/e1000e/ptp.c
-+++ b/drivers/net/ethernet/intel/e1000e/ptp.c
-@@ -145,8 +145,7 @@ static int e1000e_phc_settime(struct ptp_clock_info *ptp,
- 	unsigned long flags;
- 	u64 ns;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index c4c5e87..0b82d38 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -1051,6 +1051,14 @@ mac_reset_top:
+ 	 */
+ 	hw->mac.cached_autoc = IXGBE_READ_REG(hw, IXGBE_AUTOC);
+ 	autoc2 = IXGBE_READ_REG(hw, IXGBE_AUTOC2);
++
++	/* Enable link if disabled in NVM */
++	if (autoc2 & IXGBE_AUTOC2_LINK_DISABLE_MASK) {
++		autoc2 &= ~IXGBE_AUTOC2_LINK_DISABLE_MASK;
++		IXGBE_WRITE_REG(hw, IXGBE_AUTOC2, autoc2);
++		IXGBE_WRITE_FLUSH(hw);
++	}
++
+ 	if (hw->mac.orig_link_settings_stored == false) {
+ 		hw->mac.orig_autoc = hw->mac.cached_autoc;
+ 		hw->mac.orig_autoc2 = autoc2;
+@@ -2186,8 +2194,17 @@ static s32 ixgbe_read_eeprom_82599(struct ixgbe_hw *hw,
+  **/
+ s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw)
+ {
+-	s32 i, autoc_reg, ret_val;
+-	s32 anlp1_reg = 0;
++	s32 ret_val;
++	u32 anlp1_reg = 0;
++	u32 i, autoc_reg, autoc2_reg;
++
++	/* Enable link if disabled in NVM */
++	autoc2_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC2);
++	if (autoc2_reg & IXGBE_AUTOC2_LINK_DISABLE_MASK) {
++		autoc2_reg &= ~IXGBE_AUTOC2_LINK_DISABLE_MASK;
++		IXGBE_WRITE_REG(hw, IXGBE_AUTOC2, autoc2_reg);
++		IXGBE_WRITE_FLUSH(hw);
++	}
  
--	ns = ts->tv_sec * NSEC_PER_SEC;
--	ns += ts->tv_nsec;
-+	ns = timespec_to_ns(ts);
+ 	autoc_reg = hw->mac.cached_autoc;
+ 	autoc_reg |= IXGBE_AUTOC_AN_RESTART;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 7480f7b..70c6aa3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -1593,6 +1593,7 @@ enum {
+ #define IXGBE_AUTOC2_10G_KR  (0x0 << IXGBE_AUTOC2_10G_SERIAL_PMA_PMD_SHIFT)
+ #define IXGBE_AUTOC2_10G_XFI (0x1 << IXGBE_AUTOC2_10G_SERIAL_PMA_PMD_SHIFT)
+ #define IXGBE_AUTOC2_10G_SFI (0x2 << IXGBE_AUTOC2_10G_SERIAL_PMA_PMD_SHIFT)
++#define IXGBE_AUTOC2_LINK_DISABLE_MASK        0x70000000
  
- 	/* reset the timecounter */
- 	spin_lock_irqsave(&adapter->systim_lock, flags);
+ #define IXGBE_MACC_FLU       0x00000001
+ #define IXGBE_MACC_FSV_10G   0x00030000
 -- 
 1.7.11.7
