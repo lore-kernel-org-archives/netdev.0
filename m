@@ -1,60 +1,43 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next PATCH 1/1] drivers: net: cpsw: fix kernel warn on cpsw
- irq enable
-Date: Fri, 26 Apr 2013 17:48:08 +0400
-Message-ID: <517A8598.3090602@cogentembedded.com>
-References: <1366975848-31503-1-git-send-email-mugunthanvnm@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.6-rt: inet_sk_rx_dst_set() network splat
+Date: Fri, 26 Apr 2013 07:14:26 -0700
+Message-ID: <1366985666.8964.186.camel@edumazet-glaptop>
+References: <1366786204.5977.10.camel@marge.simpson.net>
+	 <1366853695.8964.120.camel@edumazet-glaptop>
+	 <1366865490.4595.22.camel@marge.simpson.net>
+	 <1366866233.8964.128.camel@edumazet-glaptop>
+	 <20130426105030.GE20927@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-omap@vger.kernel.org,
-	Sebastian Siewior <bigeasy@linutronix.de>
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1366975848-31503-1-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Mike Galbraith <bitbucket@online.de>,
+	David Miller <davem@davemloft.net>,
+	RT <linux-rt-users@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:44634 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752423Ab3DZOO2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 10:14:28 -0400
+In-Reply-To: <20130426105030.GE20927@linutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Fri, 2013-04-26 at 12:50 +0200, Sebastian Andrzej Siewior wrote:
+> * Eric Dumazet | 2013-04-24 22:03:53 [-0700]:
+> 
+> >On Thu, 2013-04-25 at 06:51 +0200, Mike Galbraith wrote:
+> >
+> >> Thanks for the fix.  I'll apply it and beat on the box some more (g.p.).
+> >> Gripe only happened the one time during long workout day.
+> >
+> >To force it to happen, you need to invalidate the cached dst in socket.
+> >
+> >So presumably doing in the background some "ip ro ..." commands to
+> >add/delete routes.
+> 
+> With this instructions I can crash in like 3-5 minutes, with your patch
+> it runs now for 50minutes now. Thanks.
 
-On 26-04-2013 15:30, Mugunthan V N wrote:
-
-> With the commit id a11fbba
-
-    Please also specify that commit's summary line in parens.
-
-> from Sebastian Siewior, a kernel warning is
-> generated as below. This warning is generated as the irq_enabled is not
-> initialized for the primary interface and in probe it is initialized for
-> the secondary interface. This patch moves irq_enabled initialization from
-> second interface to primary interface.
-
-    s/second/secondary/?
-
-> [    3.049173] net eth0: phy found : id is : 0x4dd074
-> [    3.054552] net eth0: phy found : id is : 0x4dd074
-> [    3.070421] ------------[ cut here ]------------
-> [    3.075308] WARNING: at kernel/irq/manage.c:437 enable_irq+0x3c/0x74()
-> [    3.082173] Unbalanced enable for IRQ 56
-> [    3.086299] Modules linked in:
-> [    3.089557] [<c001abcc>] (unwind_backtrace+0x0/0xf0) from [<c004294c>] (warn_slowpath_common+0x4c/0x68)
-> [    3.099450] [<c004294c>] (warn_slowpath_common+0x4c/0x68) from [<c00429fc>] (warn_slowpath_fmt+0x30/0x40)
-> [    3.109521] [<c00429fc>] (warn_slowpath_fmt+0x30/0x40) from [<c00a29fc>] (enable_irq+0x3c/0x74)
-> [    3.118681] [<c00a29fc>] (enable_irq+0x3c/0x74) from [<c03a7818>] (cpsw_ndo_open+0x61c/0x684)
-> [    3.127669] [<c03a7818>] (cpsw_ndo_open+0x61c/0x684) from [<c0445c08>] (__dev_open+0x9c/0xf8)
-> [    3.136646] [<c0445c08>] (__dev_open+0x9c/0xf8) from [<c0445e34>] (__dev_change_flags+0x78/0x13c)
-> [    3.145988] [<c0445e34>] (__dev_change_flags+0x78/0x13c) from [<c0445f64>] (dev_change_flags+0x10/0x48)
-> [    3.155884] [<c0445f64>] (dev_change_flags+0x10/0x48) from [<c0736d88>] (ip_auto_config+0x198/0x111c)
-> [    3.165592] [<c0736d88>] (ip_auto_config+0x198/0x111c) from [<c00086a4>] (do_one_initcall+0x34/0x180)
-> [    3.175309] [<c00086a4>] (do_one_initcall+0x34/0x180) from [<c07078f8>] (kernel_init_freeable+0xfc/0x1c8)
-> [    3.185393] [<c07078f8>] (kernel_init_freeable+0xfc/0x1c8) from [<c04f36ec>] (kernel_init+0x8/0xe4)
-> [    3.194929] [<c04f36ec>] (kernel_init+0x8/0xe4) from [<c00133d0>] (ret_from_fork+0x14/0x24)
-> [    3.203712] ---[ end trace d6f979da080bc391 ]---
-
-> Cc: Sebastian Siewior <bigeasy@linutronix.de>
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-
-WBR, Sergei
-
-
+Thanks for testing !
