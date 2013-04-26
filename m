@@ -1,64 +1,91 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net 6/7] qlcnic: Fix reset recovery after transmit
- timeout
-Date: Fri, 26 Apr 2013 22:01:01 +0100
-Message-ID: <1367010061.4035.7.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1366978183-7282-1-git-send-email-shahed.shaikh@qlogic.com>
-	 <1366978183-7282-7-git-send-email-shahed.shaikh@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>
-To: Shahed Shaikh <shahed.shaikh@qlogic.com>
+From: Peter Klausler <pmk@google.com>
+Subject: [PATCH] net/openvswitch: replace memcmp() with specialized comparator
+Date: Fri, 26 Apr 2013 17:46:32 -0400
+Message-ID: <1367012792-25335-1-git-send-email-pmk@google.com>
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Peter Klausler <pmk@google.com>
+To: Jesse Gross <jesse@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:63166 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756535Ab3DZVBF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 17:01:05 -0400
-In-Reply-To: <1366978183-7282-7-git-send-email-shahed.shaikh@qlogic.com>
+Received: from mail-qc0-f201.google.com ([209.85.216.201]:46194 "EHLO
+	mail-qc0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751060Ab3DZVq4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 17:46:56 -0400
+Received: by mail-qc0-f201.google.com with SMTP id o22so482244qcr.0
+        for <netdev@vger.kernel.org>; Fri, 26 Apr 2013 14:46:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-04-26 at 08:09 -0400, Shahed Shaikh wrote:
-> From: Sony Chacko <sony.chacko@qlogic.com>
-> 
-> o When transmit timeout happens, recovery attempt should start with
->   adapter soft reset. If soft reset fails to resume traffic, firmware
->   dump will be collected and driver will perform a hard reset of the
->   adapter. Reset recovery on 83xx was failing after a hard reset.
->   This patch fixes that issue.
-> 
-> Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
-> Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
-> ---
->  .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   24 ++++++++++++-------
->  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   15 ++++++++----
->  2 files changed, 25 insertions(+), 14 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-> index 5c033f2..7b103d1 100644
-> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-> @@ -406,10 +406,7 @@ static void qlcnic_83xx_idc_attach_driver(struct qlcnic_adapter *adapter)
->  	}
->  done:
->  	netif_device_attach(netdev);
-> -	if (netif_running(netdev)) {
-> -		netif_carrier_on(netdev);
-> -		netif_wake_queue(netdev);
-> -	}
-> +	adapter->netdev->trans_start = jiffies;
->  }
-[...]
+Tune flow table lookup in net/openvswitch, replacing a call to
+the slow-but-safe memcmp() in lib/string.c with a key comparator
+routine that presumes most comparisons will succeed.  Besides
+avoiding an early-exit test on each iteration, it also compares
+keys 4 or 8 bytes at a time on architectures that can load an
+unaligned long efficiently.
 
-The deletions look good, but it should not be necessary to write to
-trans_start.  Why do you think it is needed?
+On a 3.2GHz Xeon (5679) this patch reduces the minimum back-to-back
+hot-cache latency of a 128-byte key comparison by 7x, from 130ns with
+the default byte-at-a-time memcmp() in lib/string.c down to 17ns.
 
-Ben.
+More important, replacing the default memcmp() with this specialized
+routine speeds up openvswitch's packet rate by 10% in a closed-loop
+benchmark that simply routes traffic from one tap device to another.
 
+Signed-off-by: Peter Klausler <pmk@google.com>
+---
+ net/openvswitch/flow.c | 33 ++++++++++++++++++++++++++++++++-
+ 1 file changed, 32 insertions(+), 1 deletion(-)
+
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 67a2b78..d5facf6 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -764,6 +764,37 @@ u32 ovs_flow_hash(const struct sw_flow_key *key, int key_len)
+ 	return jhash2((u32 *)key, DIV_ROUND_UP(key_len, sizeof(u32)), 0);
+ }
+ 
++/*
++ * Key comparison routine, optimized for the common case of
++ * equality due to low average hash collision frequency
++ * (1.5 mean items per nonempty bucket when total table item
++ * count equals the number of buckets, which is when openvswitch
++ * expands its hash table).
++ */
++static bool equal_keys(const struct sw_flow_key *key1,
++		       const struct sw_flow_key *key2,
++		       size_t key_len)
++{
++	const char *cp1 = (const char *)key1;
++	const char *cp2 = (const char *)key2;
++	long diffs = 0;
++
++#ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
++	{
++		const long *lp1 = (const long *)cp1;
++		const long *lp2 = (const long *)cp2;
++		for (; key_len >= sizeof(long); key_len -= sizeof(long))
++			diffs |= *lp1++ ^ *lp2++;
++		cp1 = (const char *)lp1;
++		cp2 = (const char *)lp2;
++	}
++#endif
++
++	while (key_len-- > 0)
++		diffs |= *cp1++ ^ *cp2++;
++	return diffs == 0;
++}
++
+ struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *table,
+ 				struct sw_flow_key *key, int key_len)
+ {
+@@ -777,7 +808,7 @@ struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *table,
+ 	hlist_for_each_entry_rcu(flow, head, hash_node[table->node_ver]) {
+ 
+ 		if (flow->hash == hash &&
+-		    !memcmp(&flow->key, key, key_len)) {
++		    equal_keys(&flow->key, key, key_len)) {
+ 			return flow;
+ 		}
+ 	}
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.2.1
