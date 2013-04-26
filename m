@@ -1,34 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [stable] net: drop dst before queueing fragments
-Date: Fri, 26 Apr 2013 16:21:13 -0400 (EDT)
-Message-ID: <20130426.162113.872341724759942153.davem@davemloft.net>
-References: <20130418212842.GA18291@grsecurity.net>
-	<1366596572.3408.138.camel@deadeye.wl.decadent.org.uk>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 with 3.9.0-rc9
+Date: Fri, 26 Apr 2013 22:50:18 +0200
+Message-ID: <20130426205018.GA18092@electric-eye.fr.zoreil.com>
+References: <20130426132254.GA22821@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: spender@grsecurity.net, edumazet@google.com,
-	netdev@vger.kernel.org, stable@vger.kernel.org
-To: ben@decadent.org.uk
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Lance Lassetter <lancelassetter@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44955 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756661Ab3DZUVR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 16:21:17 -0400
-In-Reply-To: <1366596572.3408.138.camel@deadeye.wl.decadent.org.uk>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:47641 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751228Ab3DZUuV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 16:50:21 -0400
+Content-Disposition: inline
+In-Reply-To: <20130426132254.GA22821@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Mon, 22 Apr 2013 03:09:32 +0100
+Lance Lassetter <lancelassetter@gmail.com> :
+[...]
+> the box serves as a network router so it is causing abundant network
+> traffic problems.
+>=20
+> any debugging i could help you with, please let me know.=C2=A0 also i=
+f there
+> is a possible solution, please let me know.
 
-> On Thu, 2013-04-18 at 17:28 -0400, Brad Spengler wrote:
->> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=97599dc792b45b1669c3cdb9a4b365aad0232f65
->> 
->> Commit introducing error was from 2010, initial fix from 2011
->> 
->> Fix does not apply cleanly against 3.8 even
-> 
-> David, please add this to your stable queue.
+Is it a regression and / or an Asus M5A97 system ?
 
-I'm taking care of this right now, thanks Ben.
+The XID lines that the kernel printed when the r8169 module gets loaded
+may help.
+
+--=20
+Ueimor
