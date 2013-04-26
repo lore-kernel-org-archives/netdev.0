@@ -1,41 +1,47 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: Re: 3.6-rt: inet_sk_rx_dst_set() network splat
-Date: Fri, 26 Apr 2013 12:50:30 +0200
-Message-ID: <20130426105030.GE20927@linutronix.de>
-References: <1366786204.5977.10.camel@marge.simpson.net>
- <1366853695.8964.120.camel@edumazet-glaptop>
- <1366865490.4595.22.camel@marge.simpson.net>
- <1366866233.8964.128.camel@edumazet-glaptop>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: [RFC PATCH net-next 0/6] seccomp filter JIT
+Date: Fri, 26 Apr 2013 13:25:39 +0200
+Message-ID: <20130426112539.GA3736@osiris>
+References: <1366962706-24204-1-git-send-email-xi.wang@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Mike Galbraith <bitbucket@online.de>,
-	David Miller <davem@davemloft.net>,
-	RT <linux-rt-users@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:48248 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760012Ab3DZKue (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 06:50:34 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Russell King <linux@arm.linux.org.uk>,
+	Eric Dumazet <edumazet@google.com>,
+	Will Drewry <wad@chromium.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Xi Wang <xi.wang@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1366866233.8964.128.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1366962706-24204-1-git-send-email-xi.wang@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-* Eric Dumazet | 2013-04-24 22:03:53 [-0700]:
+On Fri, Apr 26, 2013 at 03:51:40AM -0400, Xi Wang wrote:
+> This patchset brings JIT support to seccomp filters for x86_64 and ARM.
+> It is against the net-next tree.
+> 
+> The current BPF JIT interface only accepts sk_filter, not seccomp_filter.
+> Patch 1/6 refactors the interface to make it more general.
+> 
+> With the refactored interface, patches 2/6 and 3/6 implement the seccomp
+> BPF_S_ANC_SECCOMP_LD_W instruction in x86 & ARM JIT.
+> 
+> Status:
+> 
+> * x86_64 & ARM: JIT tested with seccomp examples.
+> 
+> * powerpc [4/6]: no seccomp change - compile checked.
+> 
+> * sparc [5/6] & s390 [6/6]: no seccomp change - untested.
+> 
+> Sorry I have no sparc or s390 build environment here.  Can someone help
+> check 5/6 and 6/6?  Thanks.
 
->On Thu, 2013-04-25 at 06:51 +0200, Mike Galbraith wrote:
->
->> Thanks for the fix.  I'll apply it and beat on the box some more (g.p.).
->> Gripe only happened the one time during long workout day.
->
->To force it to happen, you need to invalidate the cached dst in socket.
->
->So presumably doing in the background some "ip ro ..." commands to
->add/delete routes.
+Your patches are against which tree?
+They don't apply on top of linux-next or Linus' linux tree.
 
-With this instructions I can crash in like 3-5 minutes, with your patch
-it runs now for 50minutes now. Thanks.
-
-Sebastian
+Btw. are there any test cases around for BPF JIT?
+Not only for the new seccomp but also netfilter?
