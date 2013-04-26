@@ -1,7 +1,7 @@
 From: Xi Wang <xi.wang@gmail.com>
-Subject: [RFC PATCH net-next 5/6] sparc: bpf_jit_comp: refactor the BPF JIT interface
-Date: Fri, 26 Apr 2013 03:51:45 -0400
-Message-ID: <1366962706-24204-6-git-send-email-xi.wang@gmail.com>
+Subject: [RFC PATCH net-next 4/6] PPC: net: bpf_jit_comp: refactor the BPF JIT interface
+Date: Fri, 26 Apr 2013 03:51:44 -0400
+Message-ID: <1366962706-24204-5-git-send-email-xi.wang@gmail.com>
 References: <1366962706-24204-1-git-send-email-xi.wang@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Xi Wang <xi.wang@gmail.com>
@@ -21,53 +21,103 @@ Implement the refactored bpf_jit_compile() and bpf_jit_free().
 
 Signed-off-by: Xi Wang <xi.wang@gmail.com>
 ---
- arch/sparc/net/bpf_jit_comp.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+ arch/powerpc/net/bpf_jit_comp.c | 36 ++++++++++++++++++------------------
+ 1 file changed, 18 insertions(+), 18 deletions(-)
 
-diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
-index d36a85e..15e6513 100644
---- a/arch/sparc/net/bpf_jit_comp.c
-+++ b/arch/sparc/net/bpf_jit_comp.c
-@@ -354,21 +354,21 @@ do {	*prog++ = BR_OPC | WDISP22(OFF);		\
-  * emit_jump() calls with adjusted offsets.
-  */
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index c427ae3..a82e400 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -31,11 +31,11 @@ static inline void bpf_flush_icache(void *start, void *end)
+ 	flush_icache_range((unsigned long)start, (unsigned long)end);
+ }
+ 
+-static void bpf_jit_build_prologue(struct sk_filter *fp, u32 *image,
++static void bpf_jit_build_prologue(struct sock_filter *filter,
++				   u32 *image,
+ 				   struct codegen_context *ctx)
+ {
+ 	int i;
+-	const struct sock_filter *filter = fp->insns;
+ 
+ 	if (ctx->seen & (SEEN_MEM | SEEN_DATAREF)) {
+ 		/* Make stackframe */
+@@ -135,12 +135,12 @@ static void bpf_jit_build_epilogue(u32 *image, struct codegen_context *ctx)
+ 	((int)K < 0 ? ((int)K >= SKF_LL_OFF ? func##_negative_offset : func) : func##_positive_offset)
+ 
+ /* Assemble the body code between the prologue & epilogue. */
+-static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
++static int bpf_jit_build_body(struct sock_filter *filter,
++			      unsigned int flen,
++			      u32 *image,
+ 			      struct codegen_context *ctx,
+ 			      unsigned int *addrs)
+ {
+-	const struct sock_filter *filter = fp->insns;
+-	int flen = fp->len;
+ 	u8 *func;
+ 	unsigned int true_cond;
+ 	int i;
+@@ -564,7 +564,7 @@ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
+ 	return 0;
+ }
  
 -void bpf_jit_compile(struct sk_filter *fp)
 +bpf_func_t bpf_jit_compile(struct sock_filter *filter, unsigned int flen)
  {
- 	unsigned int cleanup_addr, proglen, oldproglen = 0;
- 	u32 temp[8], *prog, *func, seen = 0, pass;
--	const struct sock_filter *filter = fp->insns;
--	int i, flen = fp->len, pc_ret0 = -1;
-+	int i, pc_ret0 = -1;
+ 	unsigned int proglen;
+ 	unsigned int alloclen;
+@@ -573,14 +573,14 @@ void bpf_jit_compile(struct sk_filter *fp)
  	unsigned int *addrs;
- 	void *image;
+ 	struct codegen_context cgctx;
+ 	int pass;
+-	int flen = fp->len;
 +	bpf_func_t bpf_func = sk_run_filter;
  
  	if (!bpf_jit_enable)
 -		return;
 +		return bpf_func;
  
- 	addrs = kmalloc(flen * sizeof(*addrs), GFP_KERNEL);
+ 	addrs = kzalloc((flen+1) * sizeof(*addrs), GFP_KERNEL);
  	if (addrs == NULL)
 -		return;
 +		return bpf_func;
  
- 	/* Before first pass, make a rough estimation of addrs[]
- 	 * each bpf instruction is translated to less than 64 bytes
-@@ -763,7 +763,7 @@ cond_branch:			f_offset = addrs[i + filter[i].jf];
- 					pr_err("bpb_jit_compile fatal error\n");
- 					kfree(addrs);
- 					module_free(NULL, image);
--					return;
-+					return bpf_func;
- 				}
- 				memcpy(image + proglen, temp, ilen);
- 			}
-@@ -799,11 +799,11 @@ cond_branch:			f_offset = addrs[i + filter[i].jf];
+ 	/*
+ 	 * There are multiple assembly passes as the generated code will change
+@@ -636,7 +636,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 	cgctx.seen = 0;
+ 	cgctx.pc_ret0 = -1;
+ 	/* Scouting faux-generate pass 0 */
+-	if (bpf_jit_build_body(fp, 0, &cgctx, addrs))
++	if (bpf_jit_build_body(filter, flen, 0, &cgctx, addrs))
+ 		/* We hit something illegal or unsupported. */
+ 		goto out;
  
- 	if (image) {
- 		bpf_flush_icache(image, image + proglen);
+@@ -645,7 +645,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 	 * update ctgtx.idx as it pretends to output instructions, then we can
+ 	 * calculate total size from idx.
+ 	 */
+-	bpf_jit_build_prologue(fp, 0, &cgctx);
++	bpf_jit_build_prologue(filter, 0, &cgctx);
+ 	bpf_jit_build_epilogue(0, &cgctx);
+ 
+ 	proglen = cgctx.idx * 4;
+@@ -661,8 +661,8 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 	for (pass = 1; pass < 3; pass++) {
+ 		/* Now build the prologue, body code & epilogue for real. */
+ 		cgctx.idx = 0;
+-		bpf_jit_build_prologue(fp, code_base, &cgctx);
+-		bpf_jit_build_body(fp, code_base, &cgctx, addrs);
++		bpf_jit_build_prologue(filter, code_base, &cgctx);
++		bpf_jit_build_body(filter, flen, code_base, &cgctx, addrs);
+ 		bpf_jit_build_epilogue(code_base, &cgctx);
+ 
+ 		if (bpf_jit_enable > 1)
+@@ -681,11 +681,11 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 		/* Function descriptor nastiness: Address + TOC */
+ 		((u64 *)image)[0] = (u64)code_base;
+ 		((u64 *)image)[1] = local_paca->kernel_toc;
 -		fp->bpf_func = (void *)image;
 +		bpf_func = (void *)image;
  	}
@@ -78,7 +128,7 @@ index d36a85e..15e6513 100644
  }
  
  static void jit_free_defer(struct work_struct *arg)
-@@ -814,10 +814,10 @@ static void jit_free_defer(struct work_struct *arg)
+@@ -696,10 +696,10 @@ static void jit_free_defer(struct work_struct *arg)
  /* run from softirq, we must use a work_struct to call
   * module_free() from process context
   */
