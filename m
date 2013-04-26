@@ -1,46 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] ipvs: Use cond_resched_rcu_lock() helper when
- dumping connections
-Date: Fri, 26 Apr 2013 11:26:55 -0700
-Message-ID: <1367000815.8964.243.camel@edumazet-glaptop>
-References: <1366940708-10180-1-git-send-email-horms@verge.net.au>
-	 <1366940708-10180-3-git-send-email-horms@verge.net.au>
-	 <20130426080313.GC8669@dyad.programming.kicks-ass.net>
-	 <20130426154547.GC3860@linux.vnet.ibm.com>
-	 <20130426171948.GA31467@dyad.programming.kicks-ass.net>
-	 <20130426174815.GI3860@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH resend 1/3] Revert "net: fec: fix missing napi_disable
+ call"
+Date: Fri, 26 Apr 2013 14:33:09 -0400 (EDT)
+Message-ID: <20130426.143309.1011152996477262852.davem@davemloft.net>
+References: <1366966330-5181-1-git-send-email-l.stach@pengutronix.de>
+	<CAHrpEqQLkjCOq0doaM0zNMkgjNkE_pOLxjoFJWNPuQ6CRHCbBw@mail.gmail.com>
+	<20130426134415.GS1366@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>, Ingo Molnar <mingo@redhat.com>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>, dhaval.giani@gmail.com
-To: paulmck@linux.vnet.ibm.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20130426174815.GI3860@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: lznuaa@gmail.com, l.stach@pengutronix.de, netdev@vger.kernel.org,
+	Frank.Li@freescale.com, festevam@gmail.com, shawn.guo@linaro.org
+To: r.schwebel@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43522 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753925Ab3DZSdL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 14:33:11 -0400
+In-Reply-To: <20130426134415.GS1366@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-04-26 at 10:48 -0700, Paul E. McKenney wrote:
+From: Robert Schwebel <r.schwebel@pengutronix.de>
+Date: Fri, 26 Apr 2013 15:44:15 +0200
 
-> Don't get me wrong, I am not opposing cond_resched_rcu_lock() because it
-> will be difficult to validate.  For one thing, until there are a lot of
-> them, manual inspection is quite possible.  So feel free to apply my
-> Acked-by to the patch.
+> Seriously - it's friday, and 3.9 is expected to come out this
+> weekend.
 
-One question : If some thread(s) is(are) calling rcu_barrier() and
-waiting we exit from rcu_read_lock() section, is need_resched() enough
-for allowing to break the section ?
+Seriously, it took you how long to notice the breakage and report
+it in sufficient detail for the author to make an attempt at a fix?
 
-If not, maybe we should not test need_resched() at all.
+I thnk Frank's request is reasonable given the circumstances, please
+work closely with him on the fix.
 
-rcu_read_unlock();
-cond_resched();
-rcu_read_lock();
-
-
-
+Thanks.
